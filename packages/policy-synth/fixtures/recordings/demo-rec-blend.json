@@ -1,0 +1,148 @@
+{
+  "ok": true,
+  "data": {
+    "network": "mainnet",
+    "signers": ["hint:92377411"],
+    "invocations": [
+      {
+        "contract": "CAJJZSGMMM3PD7N33TAPHGBUGTB43OC73HVIK2L2G6BNGGGYOSSYBXBD",
+        "fn": "claim",
+        "args": [
+          {
+            "type": "address",
+            "value": "GDBBXGF6AEUWUDBFD4LEN4IS5NQCHVPK5GOMVEGO6EZINZ4SG52BDQ5O"
+          },
+          {
+            "type": "vec",
+            "value": [
+              {
+                "type": "u32",
+                "value": "1"
+              },
+              {
+                "type": "u32",
+                "value": "2"
+              }
+            ]
+          },
+          {
+            "type": "address",
+            "value": "GDBBXGF6AEUWUDBFD4LEN4IS5NQCHVPK5GOMVEGO6EZINZ4SG52BDQ5O"
+          }
+        ],
+        "subInvocations": [
+          {
+            "contract": "CAJJZSGMMM3PD7N33TAPHGBUGTB43OC73HVIK2L2G6BNGGGYOSSYBXBD",
+            "fn": "claim",
+            "args": [
+              {
+                "type": "address",
+                "value": "GDBBXGF6AEUWUDBFD4LEN4IS5NQCHVPK5GOMVEGO6EZINZ4SG52BDQ5O"
+              },
+              {
+                "type": "vec",
+                "value": [
+                  {
+                    "type": "u32",
+                    "value": "1"
+                  },
+                  {
+                    "type": "u32",
+                    "value": "2"
+                  }
+                ]
+              },
+              {
+                "type": "address",
+                "value": "GDBBXGF6AEUWUDBFD4LEN4IS5NQCHVPK5GOMVEGO6EZINZ4SG52BDQ5O"
+              }
+            ],
+            "subInvocations": []
+          }
+        ]
+      }
+    ],
+    "tokenMovements": [
+      {
+        "token": "CD25MNVTZDL4Y3XBCPCJXGXATV5WUHHOWMYFF4YBEGU5FCPGMYTVG5JY",
+        "from": "CAQQR5SWBXKIGZKPBZDH3KM5GQ5GUTPKB7JAFCINLZBC5WXPJKRG3IM7",
+        "to": "GDBBXGF6AEUWUDBFD4LEN4IS5NQCHVPK5GOMVEGO6EZINZ4SG52BDQ5O",
+        "amount": "8437"
+      }
+    ],
+    "events": [
+      {
+        "contract": "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA",
+        "topics": ["fee", "GDBBXGF6AEUWUDBFD4LEN4IS5NQCHVPK5GOMVEGO6EZINZ4SG52BDQ5O"],
+        "data": {
+          "type": "i128",
+          "value": "1300663"
+        }
+      },
+      {
+        "contract": "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA",
+        "topics": ["fee", "GDBBXGF6AEUWUDBFD4LEN4IS5NQCHVPK5GOMVEGO6EZINZ4SG52BDQ5O"],
+        "data": {
+          "type": "i128",
+          "value": "-173025"
+        }
+      },
+      {
+        "contract": "CD25MNVTZDL4Y3XBCPCJXGXATV5WUHHOWMYFF4YBEGU5FCPGMYTVG5JY",
+        "topics": [
+          "transfer",
+          "CAQQR5SWBXKIGZKPBZDH3KM5GQ5GUTPKB7JAFCINLZBC5WXPJKRG3IM7",
+          "GDBBXGF6AEUWUDBFD4LEN4IS5NQCHVPK5GOMVEGO6EZINZ4SG52BDQ5O",
+          "BLND:GDJEHTBE6ZHUXSWFI642DCGLUOECLHPF3KSXHPXTSTJ7E3JF6MQ5EZYY"
+        ],
+        "data": {
+          "type": "i128",
+          "value": "8437"
+        }
+      },
+      {
+        "contract": "CAJJZSGMMM3PD7N33TAPHGBUGTB43OC73HVIK2L2G6BNGGGYOSSYBXBD",
+        "topics": ["claim", "GDBBXGF6AEUWUDBFD4LEN4IS5NQCHVPK5GOMVEGO6EZINZ4SG52BDQ5O"],
+        "data": {
+          "type": "vec",
+          "value": [
+            {
+              "type": "vec",
+              "value": [
+                {
+                  "type": "u32",
+                  "value": "1"
+                },
+                {
+                  "type": "u32",
+                  "value": "2"
+                }
+              ]
+            },
+            {
+              "type": "i128",
+              "value": "8437"
+            }
+          ]
+        }
+      }
+    ],
+    "authEntries": [
+      {
+        "authorizingAddress": null,
+        "contract": "CAJJZSGMMM3PD7N33TAPHGBUGTB43OC73HVIK2L2G6BNGGGYOSSYBXBD",
+        "fn": "claim"
+      }
+    ],
+    "ledgerSequence": 63626019,
+    "fetchedAt": 1784896842,
+    "parseConfidence": {
+      "overall": 1,
+      "knownContracts": ["CAJJZSGMMM3PD7N33TAPHGBUGTB43OC73HVIK2L2G6BNGGGYOSSYBXBD"],
+      "unknownContracts": [],
+      "opaqueScVals": [],
+      "thresholdUsed": 1
+    },
+    "sourceAccount": "GDBBXGF6AEUWUDBFD4LEN4IS5NQCHVPK5GOMVEGO6EZINZ4SG52BDQ5O"
+  }
+}

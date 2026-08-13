@@ -1,0 +1,34 @@
+{
+  "name": "oz-policy-builder",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "description": "OZ Policy Builder - toolkit for OpenZeppelin smart-account policies on Stellar: record a transaction, synthesise the minimal policy that permits exactly that flow, verify it, and return an unsigned install transaction.",
+  "type": "module",
+  "packageManager": "bun@1.3.14",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "bun test",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --write .",
+    "typecheck": "bunx tsc --noEmit -p packages/policy-synth/tsconfig.json && bunx tsc --noEmit -p packages/policy-builder-cli/tsconfig.json && bunx tsc --noEmit -p packages/policy-builder-mcp/tsconfig.json"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.5",
+    "@stellar/stellar-sdk": "14.4.0",
+    "@types/node": "^26.1.1",
+    "typescript": "5.9.3"
+  },
+  "trustedDependencies": [
+    "@biomejs/biome"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.18.1",
+    "zod": "3.25.76"
+  }
+}

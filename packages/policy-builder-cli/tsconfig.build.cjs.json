@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@crediolabs/policy-synth": ["../../packages/policy-synth/dist/index.d.ts"],
+      "@crediolabs/policy-synth/run": ["../../packages/policy-synth/dist/run/index.d.ts"]
+    },
+    "noEmit": false,
+    "declaration": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "outDir": "dist-cjs",
+    "rootDir": "."
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "test/**/*.ts", "bin/**/*.ts"]
+}

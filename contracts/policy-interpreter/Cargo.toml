@@ -1,0 +1,51 @@
+[package]
+name = "policy-interpreter"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+doctest = false
+
+[features]
+# Select the network the oracle feed address is pinned to. The address is
+# compile-time by design (see src/oracle.rs), so each network is a distinct
+# wasm hash rather than a runtime setting.
+default = []
+testnet = []
+
+[dependencies]
+# soroban-sdk 27 is pinned in plans/phase-00-foundations.md. It requires the
+# wasm32v1-none target; wasm32-unknown-unknown is rejected on Rust 1.82+
+# because it enables reference-types and multi-value, which the Soroban
+# environment does not support.
+#
+# This is the ONLY dependency. Contract code parses XDR via the host's
+# `Val::from_xdr` (see dsl.rs); the host does the work, so we don't need
+# stellar-xdr directly. Depending on stellar-xdr separately unifies its
+# features into the copy soroban-sdk already carries transitively, which
+# broke the wasm build and previously forced a patched `hex` into the
+# audited graph. Anything this crate needs arrives through soroban-sdk.
+soroban-sdk = { version = "27.0.2", features = ["alloc"] }
+
+[dev-dependencies]
+soroban-sdk = { version = "27.0.2", features = ["testutils"] }
+
+[[test]]
+# The TS-Rust conformance harness - directory form so we can keep the
+# generated per-case tests in their own file alongside the b64 / Val
+# helpers. Without this explicit `[[test]]` entry cargo's auto-discovery
+# in tests/ ignores the subdirectory. Regenerate `_generated.rs` via
+# `packages/policy-synth/scripts/gen-conformance-fixture.ts`.
+name = "conformance"
+path = "tests/conformance/mod.rs"
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = false
+strip = "symbols"
+panic = "abort"
+codegen-units = 1
+lto = true

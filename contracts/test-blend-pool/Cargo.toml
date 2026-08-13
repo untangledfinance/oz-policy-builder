@@ -1,0 +1,44 @@
+[package]
+name = "test-blend-pool"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# A Blend-`submit`-shaped stub for TESTNET VERIFICATION ONLY.
+#
+# The real Blend pool on Stellar mainnet exports `submit(from, spender, to,
+# requests)` where `requests: Vec<Request>` and each `Request` is a
+# `#[contracttype]` struct. The OZ account's `__check_auth` only consults
+# the policy when the auth context is non-empty - so the OZ-account test
+# path needs a target that calls `from.require_auth` (or
+# `require_auth_for_args`), which is what makes the call generate an auth
+# context the interpreter's `enforce` is asked to evaluate.
+#
+# This stub serves that role on testnet. It is NOT a production pool:
+#   - `from` must be a real G... keypair (we want the auth context to
+#     look exactly like a real Blend submit would).
+#   - the stub does NOT actually move tokens; it just returns Void.
+#   - any test deployment is keyed by a fresh wasm hash, so a build
+#     pointing here is structurally distinct from a mainnet Blend build.
+#
+# Two instances (different addresses) make a meaningful evil-twin test
+# (the same `submit` call against a different target contract is what the
+# interpreter policy must DENY).
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { version = "27.0.2", features = ["alloc"] }
+
+[dev-dependencies]
+soroban-sdk = { version = "27.0.2", features = ["testutils"] }
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = false
+panic = "abort"
+codegen-units = 1
+lto = true

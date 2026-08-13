@@ -1,0 +1,184 @@
+{
+  "network": "mainnet",
+  "signers": ["hint:bda367aa"],
+  "invocations": [
+    {
+      "contract": "CAJJZSGMMM3PD7N33TAPHGBUGTB43OC73HVIK2L2G6BNGGGYOSSYBXBD",
+      "fn": "submit",
+      "args": [
+        {
+          "type": "address",
+          "value": "GDTTLJDWBXQSODQF4KR4ROX7R4XDGR4OM7XQY34WEUQNKCV5UNT2UEK3"
+        },
+        {
+          "type": "address",
+          "value": "GDTTLJDWBXQSODQF4KR4ROX7R4XDGR4OM7XQY34WEUQNKCV5UNT2UEK3"
+        },
+        {
+          "type": "address",
+          "value": "GDTTLJDWBXQSODQF4KR4ROX7R4XDGR4OM7XQY34WEUQNKCV5UNT2UEK3"
+        },
+        {
+          "type": "vec",
+          "value": [
+            {
+              "type": "map",
+              "value": [
+                {
+                  "key": "address",
+                  "val": {
+                    "type": "address",
+                    "value": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75"
+                  }
+                },
+                {
+                  "key": "amount",
+                  "val": {
+                    "type": "i128",
+                    "value": "50000000"
+                  }
+                },
+                {
+                  "key": "request_type",
+                  "val": {
+                    "type": "u32",
+                    "value": "3"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "subInvocations": [
+        {
+          "contract": "CAJJZSGMMM3PD7N33TAPHGBUGTB43OC73HVIK2L2G6BNGGGYOSSYBXBD",
+          "fn": "submit",
+          "args": [
+            {
+              "type": "address",
+              "value": "GDTTLJDWBXQSODQF4KR4ROX7R4XDGR4OM7XQY34WEUQNKCV5UNT2UEK3"
+            },
+            {
+              "type": "address",
+              "value": "GDTTLJDWBXQSODQF4KR4ROX7R4XDGR4OM7XQY34WEUQNKCV5UNT2UEK3"
+            },
+            {
+              "type": "address",
+              "value": "GDTTLJDWBXQSODQF4KR4ROX7R4XDGR4OM7XQY34WEUQNKCV5UNT2UEK3"
+            },
+            {
+              "type": "vec",
+              "value": [
+                {
+                  "type": "map",
+                  "value": [
+                    {
+                      "key": "address",
+                      "val": {
+                        "type": "address",
+                        "value": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75"
+                      }
+                    },
+                    {
+                      "key": "amount",
+                      "val": {
+                        "type": "i128",
+                        "value": "50000000"
+                      }
+                    },
+                    {
+                      "key": "request_type",
+                      "val": {
+                        "type": "u32",
+                        "value": "3"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "subInvocations": []
+        }
+      ]
+    }
+  ],
+  "tokenMovements": [
+    {
+      "token": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
+      "from": "CAJJZSGMMM3PD7N33TAPHGBUGTB43OC73HVIK2L2G6BNGGGYOSSYBXBD",
+      "to": "GDTTLJDWBXQSODQF4KR4ROX7R4XDGR4OM7XQY34WEUQNKCV5UNT2UEK3",
+      "amount": "50000000"
+    }
+  ],
+  "events": [
+    {
+      "contract": "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA",
+      "topics": ["fee", "GDTTLJDWBXQSODQF4KR4ROX7R4XDGR4OM7XQY34WEUQNKCV5UNT2UEK3"],
+      "data": {
+        "type": "i128",
+        "value": "37410"
+      }
+    },
+    {
+      "contract": "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA",
+      "topics": ["fee", "GDTTLJDWBXQSODQF4KR4ROX7R4XDGR4OM7XQY34WEUQNKCV5UNT2UEK3"],
+      "data": {
+        "type": "i128",
+        "value": "-10043"
+      }
+    },
+    {
+      "contract": "CAJJZSGMMM3PD7N33TAPHGBUGTB43OC73HVIK2L2G6BNGGGYOSSYBXBD",
+      "topics": [
+        "withdraw_collateral",
+        "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
+        "GDTTLJDWBXQSODQF4KR4ROX7R4XDGR4OM7XQY34WEUQNKCV5UNT2UEK3"
+      ],
+      "data": {
+        "type": "vec",
+        "value": [
+          {
+            "type": "i128",
+            "value": "50000000"
+          },
+          {
+            "type": "i128",
+            "value": "44078139"
+          }
+        ]
+      }
+    },
+    {
+      "contract": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
+      "topics": [
+        "transfer",
+        "CAJJZSGMMM3PD7N33TAPHGBUGTB43OC73HVIK2L2G6BNGGGYOSSYBXBD",
+        "GDTTLJDWBXQSODQF4KR4ROX7R4XDGR4OM7XQY34WEUQNKCV5UNT2UEK3",
+        "USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
+      ],
+      "data": {
+        "type": "i128",
+        "value": "50000000"
+      }
+    }
+  ],
+  "authEntries": [
+    {
+      "authorizingAddress": null,
+      "contract": "CAJJZSGMMM3PD7N33TAPHGBUGTB43OC73HVIK2L2G6BNGGGYOSSYBXBD",
+      "fn": "submit"
+    }
+  ],
+  "ledgerSequence": 63636465,
+  "fetchedAt": 1784967197,
+  "parseConfidence": {
+    "overall": 1,
+    "knownContracts": ["CAJJZSGMMM3PD7N33TAPHGBUGTB43OC73HVIK2L2G6BNGGGYOSSYBXBD"],
+    "unknownContracts": [],
+    "opaqueScVals": [],
+    "thresholdUsed": 1
+  },
+  "sourceAccount": "GDTTLJDWBXQSODQF4KR4ROX7R4XDGR4OM7XQY34WEUQNKCV5UNT2UEK3"
+}

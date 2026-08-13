@@ -1,0 +1,201 @@
+{
+  "ok": true,
+  "data": {
+    "network": "mainnet",
+    "signers": ["hint:147dd458", "hint:a5aaf455"],
+    "invocations": [
+      {
+        "contract": "CAG5LRYQ5JVEUI5TEID72EYOVX44TTUJT5BQR2J6J77FH65PCCFAJDDH",
+        "fn": "swap_exact_tokens_for_tokens",
+        "args": [
+          {
+            "type": "i128",
+            "value": "367287890"
+          },
+          {
+            "type": "i128",
+            "value": "2239823559"
+          },
+          {
+            "type": "vec",
+            "value": [
+              {
+                "type": "address",
+                "value": "CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV"
+              },
+              {
+                "type": "address",
+                "value": "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA"
+              }
+            ]
+          },
+          {
+            "type": "address",
+            "value": "GBFKRGJYZXLTDEI36ZCQEIM225NMOCR2VDBOIHJTXJ54FEFFVL2FKALE"
+          },
+          {
+            "type": "u64",
+            "value": "1784764891"
+          }
+        ],
+        "subInvocations": [
+          {
+            "contract": "CAG5LRYQ5JVEUI5TEID72EYOVX44TTUJT5BQR2J6J77FH65PCCFAJDDH",
+            "fn": "swap_exact_tokens_for_tokens",
+            "args": [
+              {
+                "type": "i128",
+                "value": "367287890"
+              },
+              {
+                "type": "i128",
+                "value": "2239823559"
+              },
+              {
+                "type": "vec",
+                "value": [
+                  {
+                    "type": "address",
+                    "value": "CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV"
+                  },
+                  {
+                    "type": "address",
+                    "value": "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA"
+                  }
+                ]
+              },
+              {
+                "type": "address",
+                "value": "GBFKRGJYZXLTDEI36ZCQEIM225NMOCR2VDBOIHJTXJ54FEFFVL2FKALE"
+              },
+              {
+                "type": "u64",
+                "value": "1784764891"
+              }
+            ],
+            "subInvocations": [
+              {
+                "contract": "CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV",
+                "fn": "transfer",
+                "args": [
+                  {
+                    "type": "address",
+                    "value": "GBFKRGJYZXLTDEI36ZCQEIM225NMOCR2VDBOIHJTXJ54FEFFVL2FKALE"
+                  },
+                  {
+                    "type": "address",
+                    "value": "CATUJXDUO7SSSTAKSUV5YU6RSTB4B5AVIHQDV26QTCXOB46T6SLMWNMY"
+                  },
+                  {
+                    "type": "i128",
+                    "value": "367287890"
+                  }
+                ],
+                "subInvocations": []
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "tokenMovements": [
+      {
+        "token": "CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV",
+        "from": "GBFKRGJYZXLTDEI36ZCQEIM225NMOCR2VDBOIHJTXJ54FEFFVL2FKALE",
+        "to": "CATUJXDUO7SSSTAKSUV5YU6RSTB4B5AVIHQDV26QTCXOB46T6SLMWNMY",
+        "amount": "367287890"
+      },
+      {
+        "token": "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA",
+        "from": "CATUJXDUO7SSSTAKSUV5YU6RSTB4B5AVIHQDV26QTCXOB46T6SLMWNMY",
+        "to": "GBFKRGJYZXLTDEI36ZCQEIM225NMOCR2VDBOIHJTXJ54FEFFVL2FKALE",
+        "amount": "2240851137"
+      }
+    ],
+    "events": [
+      {
+        "contract": "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA",
+        "topics": ["fee", "GCIE3PEIGOGCXO44GLVKPAVXZXELVMWJENZ4NYIHHQYITPAUPXKFRH2Z"],
+        "data": {
+          "type": "i128",
+          "value": "45058"
+        }
+      },
+      {
+        "contract": "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA",
+        "topics": ["fee", "GCIE3PEIGOGCXO44GLVKPAVXZXELVMWJENZ4NYIHHQYITPAUPXKFRH2Z"],
+        "data": {
+          "type": "i128",
+          "value": "-10097"
+        }
+      },
+      {
+        "contract": "CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV",
+        "topics": [
+          "transfer",
+          "GBFKRGJYZXLTDEI36ZCQEIM225NMOCR2VDBOIHJTXJ54FEFFVL2FKALE",
+          "CATUJXDUO7SSSTAKSUV5YU6RSTB4B5AVIHQDV26QTCXOB46T6SLMWNMY",
+          "EURC:GDHU6WRG4IEQXM5NZ4BMPKOXHW76MZM4Y2IEMFDVXBSDP6SJY4ITNPP2"
+        ],
+        "data": {
+          "type": "i128",
+          "value": "367287890"
+        }
+      },
+      {
+        "contract": "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA",
+        "topics": [
+          "transfer",
+          "CATUJXDUO7SSSTAKSUV5YU6RSTB4B5AVIHQDV26QTCXOB46T6SLMWNMY",
+          "GBFKRGJYZXLTDEI36ZCQEIM225NMOCR2VDBOIHJTXJ54FEFFVL2FKALE",
+          "native"
+        ],
+        "data": {
+          "type": "i128",
+          "value": "2240851137"
+        }
+      },
+      {
+        "contract": "CATUJXDUO7SSSTAKSUV5YU6RSTB4B5AVIHQDV26QTCXOB46T6SLMWNMY",
+        "topics": ["SoroswapPair", "sync"],
+        "data": {
+          "type": "other",
+          "value": "scvMap"
+        }
+      },
+      {
+        "contract": "CATUJXDUO7SSSTAKSUV5YU6RSTB4B5AVIHQDV26QTCXOB46T6SLMWNMY",
+        "topics": ["SoroswapPair", "swap"],
+        "data": {
+          "type": "other",
+          "value": "scvMap"
+        }
+      },
+      {
+        "contract": "CAG5LRYQ5JVEUI5TEID72EYOVX44TTUJT5BQR2J6J77FH65PCCFAJDDH",
+        "topics": ["SoroswapRouter", "swap"],
+        "data": {
+          "type": "other",
+          "value": "scvMap"
+        }
+      }
+    ],
+    "authEntries": [
+      {
+        "authorizingAddress": null,
+        "contract": "CAG5LRYQ5JVEUI5TEID72EYOVX44TTUJT5BQR2J6J77FH65PCCFAJDDH",
+        "fn": "swap_exact_tokens_for_tokens"
+      }
+    ],
+    "ledgerSequence": 63602524,
+    "fetchedAt": 1784865174,
+    "parseConfidence": {
+      "overall": 1,
+      "knownContracts": ["CAG5LRYQ5JVEUI5TEID72EYOVX44TTUJT5BQR2J6J77FH65PCCFAJDDH"],
+      "unknownContracts": [],
+      "opaqueScVals": [],
+      "thresholdUsed": 1
+    },
+    "sourceAccount": "GCIE3PEIGOGCXO44GLVKPAVXZXELVMWJENZ4NYIHHQYITPAUPXKFRH2Z"
+  }
+}

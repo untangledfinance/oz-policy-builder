@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typescript:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Lint and format (biome)
+        run: bun run check
+
+      # Builds run before the typecheck: the CLI and MCP packages resolve
+      # @crediolabs/policy-synth types from its built dist/. The per-package
+      # builds are also stricter than the root typecheck (declaration emit +
+      # CJS build) and are what publishing runs, so they gate here anyway.
+      - name: Build packages
+        run: |
+          bun run --cwd packages/policy-synth build
+          bun run --cwd packages/policy-builder-cli build
+          bun run --cwd packages/policy-builder-mcp build
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Test
+        run: bun test
+
+  contracts:
+    name: Contracts (${{ matrix.crate }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - policy-interpreter
+          - test-oracle
+          - test-blend-pool
+    defaults:
+      run:
+        working-directory: contracts/${{ matrix.crate }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (pinned in rust-toolchain.toml)
+        run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contracts/${{ matrix.crate }}
+
+      - name: Format check
+        run: cargo fmt --check
+
+      - name: Lint (clippy)
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test
+
+      # The conformance suite is the cross-layer gate: the TypeScript
+      # synthesiser's encoded fixtures must evaluate identically on the
+      # Rust interpreter. Run it in release, matching how it is verified
+      # locally.
+      - name: Conformance (release)
+        if: matrix.crate == 'policy-interpreter'
+        run: cargo test --release --test conformance

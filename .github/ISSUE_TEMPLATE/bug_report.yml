@@ -1,0 +1,50 @@
+name: Bug report
+description: Something behaves differently than documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For anything you believe is exploitable, do NOT open an issue -
+        follow [SECURITY.md](https://github.com/untangledfinance/oz-policy-builder/blob/main/SECURITY.md) instead.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - policy-synth (npm)
+        - policy-builder-cli (npm)
+        - policy-builder-mcp (npm)
+        - policy-interpreter (contract)
+        - docs
+        - other
+    validations:
+      required: true
+  - type: dropdown
+    id: network
+    attributes:
+      label: Network
+      options:
+        - mainnet
+        - testnet
+        - local / unit tests
+        - not applicable
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got. Include the exact error envelope or contract error code if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Smallest sequence that reproduces it - commands, tool calls, or a transaction hash.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: npm package version, or the commit / wasm hash for contracts.

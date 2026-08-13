@@ -1,0 +1,104 @@
+{
+  "ok": true,
+  "data": {
+    "network": "mainnet",
+    "signers": ["hint:db11b3f3"],
+    "invocations": [
+      {
+        "contract": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
+        "fn": "transfer",
+        "args": [
+          {
+            "type": "address",
+            "value": "GDVCJST665C2GG4NNSQI6W2YIUX4HCIOEFWUJB7UDMHQEETEIGA5FTCO"
+          },
+          {
+            "type": "address",
+            "value": "CANI4LRVVPCAYTAZ3MZFG5QASXTI7BUID75I32S5QNUQNDFGR6MIBP24"
+          },
+          {
+            "type": "i128",
+            "value": "7320000000"
+          }
+        ],
+        "subInvocations": [
+          {
+            "contract": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
+            "fn": "transfer",
+            "args": [
+              {
+                "type": "address",
+                "value": "GDVCJST665C2GG4NNSQI6W2YIUX4HCIOEFWUJB7UDMHQEETEIGA5FTCO"
+              },
+              {
+                "type": "address",
+                "value": "CANI4LRVVPCAYTAZ3MZFG5QASXTI7BUID75I32S5QNUQNDFGR6MIBP24"
+              },
+              {
+                "type": "i128",
+                "value": "7320000000"
+              }
+            ],
+            "subInvocations": []
+          }
+        ]
+      }
+    ],
+    "tokenMovements": [
+      {
+        "token": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
+        "from": "GDVCJST665C2GG4NNSQI6W2YIUX4HCIOEFWUJB7UDMHQEETEIGA5FTCO",
+        "to": "CANI4LRVVPCAYTAZ3MZFG5QASXTI7BUID75I32S5QNUQNDFGR6MIBP24",
+        "amount": "7320000000"
+      }
+    ],
+    "events": [
+      {
+        "contract": "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA",
+        "topics": ["fee", "GDJLH2F7DBI6GC22J7YUTPAEFRSWKG5MN5RSE2GOOYUTO4BH66LHENRW"],
+        "data": {
+          "type": "i128",
+          "value": "22963"
+        }
+      },
+      {
+        "contract": "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA",
+        "topics": ["fee", "GDJLH2F7DBI6GC22J7YUTPAEFRSWKG5MN5RSE2GOOYUTO4BH66LHENRW"],
+        "data": {
+          "type": "i128",
+          "value": "-9791"
+        }
+      },
+      {
+        "contract": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
+        "topics": [
+          "transfer",
+          "GDVCJST665C2GG4NNSQI6W2YIUX4HCIOEFWUJB7UDMHQEETEIGA5FTCO",
+          "CANI4LRVVPCAYTAZ3MZFG5QASXTI7BUID75I32S5QNUQNDFGR6MIBP24",
+          "USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
+        ],
+        "data": {
+          "type": "i128",
+          "value": "7320000000"
+        }
+      }
+    ],
+    "authEntries": [
+      {
+        "authorizingAddress": null,
+        "contract": "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
+        "fn": "transfer"
+      }
+    ],
+    "ledgerSequence": 63592589,
+    "fetchedAt": 1784864347,
+    "parseConfidence": {
+      "overall": 1,
+      "knownContracts": ["CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75"],
+      "unknownContracts": [],
+      "opaqueScVals": [],
+      "thresholdUsed": 1
+    },
+    "sourceAccount": "GDVCJST665C2GG4NNSQI6W2YIUX4HCIOEFWUJB7UDMHQEETEIGA5FTCO"
+  }
+}
