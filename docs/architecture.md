@@ -37,8 +37,8 @@ An OpenZeppelin smart account on Soroban delegates each call to a context
 rule. A rule can carry OZ's built-in policies (a spending limit, an
 M-of-N threshold) and it can delegate to an external **policy contract** that
 returns permit or deny. OZ's built-ins cover common cases but cannot express
-"only these three recipients", "only this method on this contract", "only while
-the oracle price is above X", or an arbitrary boolean combination of those.
+"only these three recipients", "only this method on this contract", "only when
+this argument is under X", or an arbitrary boolean combination of those.
 
 The OZ Policy Builder fills that gap with one audit-once on-chain interpreter that evaluates a
 predicate, plus an off-chain toolkit that writes the predicate for you from a
@@ -109,7 +109,7 @@ format. It lowers to a chain-neutral **PolicyIR** ("Policy Tree"), then a
 `CustodyAdapter` compiles the IR to a specific backend. The IR generalises the
 NEAR-V2 policy schema (roles / scope filter / guard / constraint / comparison
 leaves / default behaviour) and extends it with the selectors only a richer
-backend needs (spend window, oracle price, invocation count, time).
+backend needs (spend window, time).
 
 ```mermaid
 flowchart LR
@@ -123,9 +123,9 @@ Two adapters lower FROM the IR today:
 - **OZ built-in adapter** (`adapters/oz`) - emits OZ's native primitives only:
   `spending_limit` from a windowed spend cap, `simple_threshold` /
   `weighted_threshold` from an M-of-N approval, a `call_contract` scope, an
-  expiry ledger. Anything OZ cannot say natively (oracle price, invocation
-  count, per-argument allowlist, guard, nested boolean) is **named in
-  `uncovered`, never silently dropped**.
+  expiry ledger. Anything OZ cannot say natively (per-argument allowlist,
+  exact ordered sequence, guard, nested boolean) is **named in `uncovered`,
+  never silently dropped**.
 - **Interpreter adapter** (`adapters/interpreter`) - emits a single encoded
   predicate carried to the `policy-interpreter` contract. This is the backend
   that expresses the constructs OZ's built-ins cannot.
@@ -154,21 +154,28 @@ Boolean combinators: `and`, `or`, `not`. Terminal nodes are a comparison
 | `call_arg(i)` | argument `i` as a scalar |
 | `call_arg_len(i)` | length of a vector argument |
 | `call_arg_field(i, elem, field)` | a field of a map element inside a vector arg |
-| `call_arg_scaled(i, num, den)` | `arg[i] * num / den`, the slippage-floor leaf |
-| `now` | ledger timestamp |
-| `oracle_price(asset)` | a Reflector price, normalised to 9 decimals |
-| `oracle_threshold` | the right-hand side of an oracle comparison, carrying its declared decimal basis |
-| `invocation_count(window)` | stateful count of permits in a rolling window |
+| `now` | ledger sequence |
 
-Two selector symbols are deliberately **not** in the grammar and are refused at
-install: `amount` and `window_spent`. The interpreter sees one authorised
-call, not the transaction's token movements, so it has no per-call amount to
-read and no way to accumulate one. Rolling spend caps belong to the OZ
-`spending_limit` primitive; a per-call cap is a `call_arg_field` comparison.
+Every selector is answered from the authorised call alone. That is the whole
+shape of the grammar: **the interpreter reads no mutable state and writes
+none**, so a permit costs no ledger writes and no counter exists that could
+drift, replay, or archive out from under a rule.
+
+Several selector symbols are deliberately **not** in the grammar and are
+refused at decode:
+
+- `amount` and `window_spent` - the interpreter sees one authorised call, not
+  the transaction's token movements, so it has no per-call amount to read and
+  no way to accumulate one. Rolling spend caps belong to the OZ
+  `spending_limit` primitive; a per-call cap is a `call_arg_field` comparison.
+- `invocation_count(window)` - counting prior calls needs stored state.
+  Frequency is therefore not a guarantee this contract makes, and the
+  synthesiser says so explicitly rather than implying a cap it cannot keep.
+- `valid_until` - expiry belongs to the context rule's own `valid_until` field,
+  which the smart account owns.
 
 Structural caps (authoritative in Rust, mirrored in TS): depth 5, 200 leaves,
-32 operands in an `in` list, 32 KB encoded, 8 distinct invocation-count
-windows.
+32 operands in an `in` list, 32 KB encoded.
 
 ## The interpreter contract
 
@@ -179,10 +186,8 @@ windows.
 | `grammar_version()` | the grammar version this binary enforces (`SELF_VERSION`) |
 | `install(...)` | validate and store a predicate + master signer set for a rule |
 | `enforce(...)` | evaluate the stored predicate against one authorised call |
-| `uninstall(...)` | remove a rule's predicate + counters (master-only) |
+| `uninstall(...)` | remove a rule's stored entries (master-only) |
 | `rotate_master_signer_set(...)` | change the master set (master-only) |
-| `pause_oracle_policies[_all](...)` | circuit-breaker: deny oracle leaves while paused (master-only) |
-| `unpause_oracle_policies[_all](...)` | lift the pause (master-only) |
 
 **Install is where the fail-closed checks live**, because a predicate that
 could fail unsafely at evaluation must never become installable in the first
@@ -198,18 +203,10 @@ place:
   unguardable forever), and must not contain an `External` signer (the
   interpreter cannot re-implement OZ's verifier protocol in v1, so it refuses
   rather than store a master set it can never authorise);
-- oracle leaves must sit directly under the top-level `and` (never under `not`
-  / `or`), within the read limit, alongside a non-oracle envelope;
-- at most 8 distinct invocation-count windows (Soroban caps writes at 50 per
-  tx; each window is one write per permit);
-- no `valid_until` leaf (the smart account owns expiry; the interpreter would
-  always deny it);
-- slippage-floor ratios must have `num > 0` and `den > 0`;
-- oracle thresholds must declare a decimal basis (prices normalise to 9 dp, so
-  an undeclared 14-dp threshold would be ~10^5 too large and permit everything
-  it was written to deny);
-- oracle bounds (staleness, deviation) may only **tighten** the compiled-in
-  defaults, never widen them.
+- the predicate must constrain at least one property of the call - a predicate
+  of literals only (no `call_contract` / `call_fn` / `call_arg*` / `now`) binds
+  nothing and is refused rather than installed as a permanent allow;
+- the signer set is capped at 16 (`MAX_SIGNERS`).
 
 And install requires `smart_account.require_auth()` on **every** install,
 including the first on a fresh rule id, so an attacker cannot pre-seed a rule
@@ -217,30 +214,22 @@ id with their own master set and permanently poison it. A re-install on an
 existing rule additionally requires the existing master set to authorise and to
 match, and the install nonce to increment (replay protection).
 
-**Enforce** requires `smart_account.require_auth()` (it mutates counters, so it
-must only be reachable through the account it guards), requires a non-empty
-authenticated-signer set, checks the rule's live signer hash against the one
-stored at install (a rule whose signers changed behind the policy's back denies
-`RULE_SIGNERS_CHANGED`), decodes the stored predicate, extends state TTL, and
-evaluates. A permit commits counter updates; a deny panics with the **specific**
-`DenyReason` so a review card can say "not on the allowlist" or "oracle stale"
-rather than a generic "predicate false". The TTL extend runs before the
-predicate check on purpose: a deny panics and the host rolls the bump back with
-the frame, so only a permit keeps it.
+**Enforce** requires `smart_account.require_auth()` (so it is only reachable
+through the account it guards), requires a non-empty authenticated-signer set,
+checks the rule's live signer hash against the one stored at install (a rule
+whose signers changed behind the policy's back denies `RULE_SIGNERS_CHANGED`),
+decodes the stored predicate, extends the TTL of the rule's stored entries, and
+evaluates. A deny panics with the **specific** `DenyReason` so a review card can
+say "not on the allowlist" rather than a generic "predicate false". The TTL
+extend runs before the predicate check on purpose: a deny panics and the host
+rolls the bump back with the frame, so only a permit keeps it.
 
-## The oracle path
+Enforce writes nothing else. The four persistent entries a rule owns (doc,
+nonce, signers hash, master set) are all written at install and share one
+lifecycle; the TTL bump keeps them alive as long as the rule is used.
 
-`oracle_price` reads a Reflector-Pulse feed, normalised to 9 decimals. Because
-an oracle failure is fatal, oracle leaves are constrained at install (position,
-read count, declared threshold basis, tighten-only bounds) rather than trusted
-at evaluation. The master signer set has a circuit breaker
-(`pause_oracle_policies`) that denies every oracle leaf on the account while
-tripped, keyed on the account so one call covers all its rules.
-
-`test-oracle` and `test-blend-pool`
-exist only for testnet verification (real testnet Reflector carries no price
-records for our test assets, and a real Blend pool cannot be stood up in a unit
-test) - they are never deployed to mainnet.
+`test-blend-pool` exists only for testnet verification (a real Blend pool
+cannot be stood up in a unit test) - it is never deployed to mainnet.
 
 ## The default-deny install gates (off chain)
 

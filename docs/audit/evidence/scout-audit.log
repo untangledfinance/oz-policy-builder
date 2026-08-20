@@ -1,0 +1,127 @@
+[INFO] Validating CLI arguments...
+[INFO] Getting detector names...
+[INFO] Compiling detectors...
+[INFO] Running scout...
+Warning: `--pipe-stdout` is experimental
+warning: [ENHANCEMENT] Use the latest version of Soroban
+  |
+  = help: The latest Soroban version is "27.0.6", and your version is "27.0.2"
+  = note: `#[warn(soroban_version)]` on by default
+
+warning: [MEDIUM] This storage (vector or map) operation is called without access control
+   --> src/dsl.rs:245:22
+    |
+245 |                 vals.push_back(literal_to_val(env, e)?);
+    |                      ^^^^^^^^^
+    |
+    = note: `#[warn(dos_unexpected_revert_with_storage)]` on by default
+
+warning: [MEDIUM] Unsafe access on Map, method could panic.
+   --> src/dsl.rs:471:27
+    |
+471 |     let field_val = match map.get(field.clone()) {
+    |                           ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unsafe_map_get)]` on by default
+help: Using `get` on a Map is unsafe as it could panic, please use
+    |
+471 -     let field_val = match map.get(field.clone()) {
+471 +     let field_val = match map.try_get(field.clone()).unwrap_or_default() {
+    |
+
+warning: [CRITICAL] This addition operation could overflow.
+   --> src/dsl.rs:701:29
+    |
+701 |                     walk(c, d + 1, s);
+    |                             ^^^^^
+    |
+    = help: Consider using the checked version of this operation/s
+    = note: `#[warn(integer_overflow_or_underflow)]` on by default
+
+warning: [CRITICAL] This addition operation could overflow.
+   --> src/dsl.rs:704:45
+    |
+704 |             Node::Not(inner) => walk(inner, d + 1, s),
+    |                                             ^^^^^
+    |
+    = help: Consider using the checked version of this operation/s
+
+warning: [MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
+   --> src/dsl.rs:789:9
+    |
+789 | /         for i in 0..children_items.len() {
+790 | |             let c = children_items
+791 | |                 .get(i)
+792 | |                 .ok_or(DecodeError::MalformedPredicate)?;
+793 | |             children.push(decode_node(env, &single_tuple(env, &c)?)?);
+794 | |         }
+    | |_________^
+    |
+    = help: This loop seems to do not have a fixed number of iterations
+    = note: `#[warn(dos_unbounded_operation)]` on by default
+
+warning: [MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
+   --> src/dsl.rs:848:9
+    |
+848 | /         for i in 0..haystack_items.len() {
+849 | |             let h = haystack_items
+850 | |                 .get(i)
+851 | |                 .ok_or(DecodeError::MalformedPredicate)?;
+852 | |             haystack.push(decode_leaf(env, &h)?);
+853 | |         }
+    | |_________^
+    |
+    = help: This loop seems to do not have a fixed number of iterations
+
+warning: [MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
+   --> src/dsl.rs:874:13
+    |
+874 | /             for i in 0..items.len() {
+875 | |                 let e = items.get(i).ok_or(DecodeError::MalformedPredicate)?;
+876 | |                 elems.push(decode_leaf(env, &e)?);
+877 | |             }
+    | |_____________^
+    |
+    = help: This loop seems to do not have a fixed number of iterations
+
+warning: [MEDIUM] Using dynamic types in instance or persistent storage can lead to unnecessary growth or storage-related vulnerabilities.
+   --> src/lib.rs:160:9
+    |
+160 | /         e.storage()
+161 | |             .persistent()
+162 | |             .set(&key.master_set_key(), &master_set);
+    | |____________________________________________________^
+    |
+    = note: `#[warn(dynamic_storage)]` on by default
+
+warning: [MEDIUM] Using dynamic types in instance or persistent storage can lead to unnecessary growth or storage-related vulnerabilities.
+   --> src/lib.rs:280:9
+    |
+280 | /         e.storage()
+281 | |             .persistent()
+282 | |             .set(&key.master_set_key(), &new_set);
+    | |_________________________________________________^
+
+warning: [MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
+   --> src/lib.rs:174:9
+    |
+174 |         authenticated_signers: Vec<Signer>,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: Validate `soroban_sdk::Vec<types::Signer>` contents or convert them to contract-defined types before using or storing them.
+    = note: `#[warn(avoid_vec_map_input)]` on by default
+
+warning: [MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
+   --> src/lib.rs:253:9
+    |
+253 |         new_set: Vec<Signer>,
+    |         ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: Validate `soroban_sdk::Vec<types::Signer>` contents or convert them to contract-defined types before using or storing them.
+
+Summary:
++--------------------+----------+----------+--------+-------+-------------+
+| Crate              | Status   | Critical | Medium | Minor | Enhancement | 
++--------------------+----------+----------+--------+-------+-------------+
+| policy_interpreter | Analyzed | 2        | 9      | 0     | 1           | 
++--------------------+----------+----------+--------+-------+-------------+

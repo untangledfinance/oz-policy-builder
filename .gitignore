@@ -3,6 +3,9 @@ dist
 dist-cjs
 .env
 *.log
+# ...except the audit evidence pack: these logs ARE the audit artifact and must
+# travel with the repo. Regenerate them whenever a claim they back changes.
+!docs/audit/evidence/*.log
 .superpowers/
 .worktrees/
 .docusaurus/
