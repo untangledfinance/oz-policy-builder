@@ -7,21 +7,19 @@
 // separately would be two chances to disagree about what "the recorded
 // call" means, which is the one thing both must share.
 
-import type { PredicateLeaf, PredicateNode, RecordedTransaction } from '../types.ts'
+import type { RecordedTransaction } from '../types.ts'
 import { cloneScVal } from './deny-cases.ts'
 import type { EvalContext } from './evaluate.ts'
 
 export interface PermitContextResponses {
   windowSeconds: number
-  invocationLimit?: number
   limitAmount?: string
   validUntilLedger: number
 }
 
 export function buildPermitContext(
   tx: RecordedTransaction,
-  responses: PermitContextResponses,
-  predicate: PredicateNode
+  responses: PermitContextResponses
 ): EvalContext {
   const amountByToken: Record<string, string> = {}
   const totals = new Map<string, bigint>()
@@ -36,7 +34,6 @@ export function buildPermitContext(
   const topLevel = tx.invocations[0]
   const scopeContract = topLevel?.contract ?? ''
 
-
   const ctx: EvalContext = {
     contract: scopeContract,
     fn: topLevel?.fn ?? '',
@@ -45,11 +42,9 @@ export function buildPermitContext(
     nowSeconds: tx.fetchedAt,
     amountByToken,
     windowSpentByToken: {},
-    invocationCountByWindow: {},
   }
   if (responses.validUntilLedger !== undefined) {
     ctx.validUntilLedger = responses.validUntilLedger
   }
   return ctx
 }
-

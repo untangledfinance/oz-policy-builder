@@ -118,13 +118,6 @@ function pushComparison(
       return
     }
   }
-  // Mirrors the builder's wording byte-for-byte: how many calls the rule
-  // permits, since the bound counts the calls already made.
-  if (left.kind === 'invocation_count_in_window' && right.kind === 'literal_u32') {
-    const allowed = op === 'lt' ? right.value : right.value + 1
-    out.push(`At most ${allowed} calls per ${left.windowSecs} seconds`)
-    return
-  }
   // Mirrors the builder's per-call cap line. Both sides must render the same
   // string: cross-check compares the summary against the predicate, so a
   // shape only ONE of them renders would read as a dropped constraint.
@@ -140,10 +133,6 @@ function pushComparison(
       right.kind === 'literal_bytes'
     ) {
       out.push(`${head} ${sep} ${right.value}`)
-      return
-    }
-    if (right.kind === 'call_arg_scaled') {
-      out.push(`${head} >= arg[${right.index}] * ${right.num}/${right.den}`)
       return
     }
   }
@@ -180,12 +169,9 @@ function renderVecElement(leaf: PredicateLeaf): string {
     case 'call_arg':
     case 'call_arg_len':
     case 'call_arg_field':
-    case 'call_arg_scaled':
     case 'amount':
     case 'window_spent':
     case 'now':
-    case 'valid_until':
-    case 'invocation_count_in_window':
       return `<${leaf.kind}>`
   }
 }

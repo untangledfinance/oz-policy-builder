@@ -88,13 +88,10 @@ describe('PredicateLeafSchema mirrors the core PredicateLeaf', () => {
     { kind: 'call_arg', index: 0 },
     { kind: 'call_arg_len', index: 0 },
     { kind: 'call_arg_field', index: 0, element: 0, field: 'amount' },
-    { kind: 'call_arg_scaled', index: 0, num: '990', den: '1000' },
     { kind: 'amount', token: 'C-USDC' },
     { kind: 'window_spent', token: 'C-USDC', windowSeconds: 86_400 },
     { kind: 'now' },
     { kind: 'invocation_count_in_window', windowSecs: 86_400 },
-    { kind: 'oracle_price', asset: 'C-XLM' },
-    { kind: 'oracle_threshold', value: '1000000000', decimals: 9 },
     { kind: 'literal_address', value: 'CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75' },
     { kind: 'literal_i128', value: '1000000000' },
     { kind: 'literal_symbol', value: 'transfer' },
@@ -206,8 +203,8 @@ describe('PredicateNodeSchema mirrors the core PredicateNode', () => {
 
 // ---------------------------------------------------------------------------
 // SimulatePolicyInputSchema / VerifyPolicyInputSchema - the wire inputs the
-// run-layer wrappers re-validate. Mirrors the RecordedTransaction + oracle
-// fixture shape so the wrappers fail closed at the boundary.
+// run-layer wrappers re-validate. Mirrors the RecordedTransaction fixture
+// shape so the wrappers fail closed at the boundary.
 // ---------------------------------------------------------------------------
 
 // Minimal RecordedTransaction fixture. The schema accepts the same shape
@@ -291,34 +288,13 @@ describe('SimulatePolicyInputSchema accepts a valid simulate payload', () => {
     expect(parsed.success).toBe(true)
   })
 
-  it('accepts the optional validUntilLedger + oraclePricesByAsset', () => {
+  it('accepts the optional validUntilLedger', () => {
     const parsed = SimulatePolicyInputSchema.safeParse({
       predicate: SAMPLE_PREDICATE,
       permitTx: recordedTx(),
       validUntilLedger: 1_200_000,
-      oraclePricesByAsset: {
-        'C-XLM': { price: '100000000', timestampSeconds: 1_700_000_000 },
-      },
     })
     expect(parsed.success).toBe(true)
-  })
-
-  it('accepts the canonical oracle fixture error variants', () => {
-    for (const error of [
-      'stale',
-      'missing',
-      'deviation',
-      'paused',
-      'decimals',
-      'fingerprint',
-    ] as const) {
-      const parsed = SimulatePolicyInputSchema.safeParse({
-        predicate: SAMPLE_PREDICATE,
-        permitTx: recordedTx(),
-        oraclePricesByAsset: { 'C-XLM': { error } },
-      })
-      expect(parsed.success).toBe(true)
-    }
   })
 })
 
@@ -353,12 +329,11 @@ describe('VerifyPolicyInputSchema accepts a valid verify payload', () => {
     expect(parsed.success).toBe(true)
   })
 
-  it('accepts the optional validUntilLedger + oraclePricesByAsset', () => {
+  it('accepts the optional validUntilLedger', () => {
     const parsed = VerifyPolicyInputSchema.safeParse({
       predicate: SAMPLE_PREDICATE,
       permitTx: recordedTx(),
       validUntilLedger: 1_200_000,
-      oraclePricesByAsset: { 'C-XLM': { price: '0', timestampSeconds: 0 } },
     })
     expect(parsed.success).toBe(true)
   })

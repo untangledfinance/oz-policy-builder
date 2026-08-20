@@ -171,17 +171,6 @@ export function generateCases(
       denies.push({ dimension: 'time_window', ctx: mutated, expectedReason: 'AMOUNT_BOUND' })
   }
 
-  for (const comparison of facts.comparisons) {
-    if (comparison.left.kind !== 'invocation_count_in_window') continue
-    if (comparison.right.kind !== 'literal_u32') continue
-    const ctx = cloneContext(permitCtx)
-    ctx.invocationCountByWindow[comparison.left.windowSecs] = violatingNumber(
-      comparison.op,
-      comparison.right.value
-    )
-    denies.push({ dimension: 'invocation_count', ctx, expectedReason: 'FREQUENCY' })
-  }
-
   // Ordered numeric bound on a call_arg (e.g. a SoroSwap input-amount cap
   // `call_arg[0] <= limit`). A violating deny case pushes the arg past the
   // bound so the leaf is exercised - and, critically, so `minimize` keeps it:
@@ -433,19 +422,6 @@ function boundaryViolatingBigInt(op: ComparisonOperator, bound: bigint): bigint 
   }
 }
 
-function violatingNumber(op: ComparisonOperator, bound: number): number {
-  switch (op) {
-    case 'lt':
-    case 'gt':
-      return bound
-    case 'lte':
-    case 'eq':
-      return bound + 1
-    case 'gte':
-      return bound - 1
-  }
-}
-
 /** Build an ScVal that VIOLATES an ordered numeric bound on a call_arg, given
  *  the comparison op and its numeric-literal right-hand side. Returns null when
  *  the literal is not an integer (the bound is not a numeric compare). The arg
@@ -566,7 +542,6 @@ function cloneContext(ctx: EvalContext): EvalContext {
     nowSeconds: ctx.nowSeconds,
     amountByToken: { ...ctx.amountByToken },
     windowSpentByToken: { ...ctx.windowSpentByToken },
-    invocationCountByWindow: { ...ctx.invocationCountByWindow },
   }
   if (ctx.validUntilLedger !== undefined) cloned.validUntilLedger = ctx.validUntilLedger
   if (ctx.signerWeights !== undefined) cloned.signerWeights = { ...ctx.signerWeights }

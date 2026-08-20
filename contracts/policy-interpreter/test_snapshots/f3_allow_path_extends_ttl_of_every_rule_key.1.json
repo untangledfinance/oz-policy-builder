@@ -38,7 +38,7 @@
                         "symbol": "predicate"
                       },
                       "val": {
-                        "bytes": "0000001000000001000000030000000f000000036c7465000000001000000001000000020000000f00000010696e766f636174696f6e5f636f756e740000000500000000000151800000000300000064"
+                        "bytes": "0000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f000000087472616e73666572"
                       }
                     },
                     {
@@ -46,7 +46,7 @@
                         "symbol": "predicate_hash"
                       },
                       "val": {
-                        "bytes": "4716ef18d67dc28c6da03df286a1fc822134053019e79a0ac5650a02014d67cf"
+                        "bytes": "9c1b891f5e4214f290db5038be0a7974867cfc8463e8b6f157e818e0f71cf093"
                       }
                     }
                   ]
@@ -338,7 +338,7 @@
                       "symbol": "predicate_bytes"
                     },
                     "val": {
-                      "bytes": "0000001000000001000000030000000f000000036c7465000000001000000001000000020000000f00000010696e766f636174696f6e5f636f756e740000000500000000000151800000000300000064"
+                      "bytes": "0000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f000000087472616e73666572"
                     }
                   }
                 ]
@@ -441,46 +441,6 @@
                         "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
                       }
                     ]
-                  }
-                ]
-              }
-            }
-          },
-          "ext": "v0"
-        },
-        "live_until": 522445
-      },
-      {
-        "entry": {
-          "last_modified_ledger_seq": 0,
-          "data": {
-            "contract_data": {
-              "ext": "v0",
-              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-              "key": {
-                "vec": [
-                  {
-                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
-                  },
-                  {
-                    "u32": 1
-                  },
-                  {
-                    "u32": 6
-                  },
-                  {
-                    "u64": "86400"
-                  }
-                ]
-              },
-              "durability": "persistent",
-              "val": {
-                "vec": [
-                  {
-                    "u64": "0"
-                  },
-                  {
-                    "u32": 1
                   }
                 ]
               }

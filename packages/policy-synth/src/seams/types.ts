@@ -37,7 +37,6 @@ export type CustodyMode = 'enforce' | 'log_only'
  *  `uncovered` by the adapter, never silently dropped. */
 export interface CustodyCapabilities {
   supportsSpendWindow: boolean
-  supportsInvocationCount: boolean
   supportsTimeExpiry: boolean
   supportsThreshold: boolean
   supportsGeneralPredicate: boolean

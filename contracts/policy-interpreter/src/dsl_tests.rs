@@ -7,7 +7,7 @@
 //!   - each operator (and / or / not / in / eq / lt / lte / gt / gte) with a
 //!     permit case plus the deny case that operator uniquely owns
 //!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
-//!     call_arg_field, now, valid_until, invocation_count_in_window
+//!     call_arg_field, now, invocation_count_in_window
 //!   - fail-closed at every entry boundary: unknown node symbol, unknown
 //!     selector symbol, wrong arity, wrong ScVal type as a literal, in []
 //!     at decode, call_arg index out of bounds at evaluate, garbage bytes
@@ -44,9 +44,7 @@ fn empty_ctx(env: &Env) -> EvalContext {
         fn_name: Symbol::new(env, "submit"),
         args: SorobanVec::<Val>::new(env),
         at_ledger: 100,
-        valid_until_ledger: Some(200),
         now_seconds: 1000,
-        invocation_count_by_window: StdVec::new(),
     }
 }
 
@@ -175,17 +173,7 @@ fn leaf_to_scval(env: &Env, l: &Leaf) -> ScVal {
                 sym_field,
             ])
         }
-        Leaf::CallArgScaled { index, num, den } => vec_scval(&[
-            sym("call_arg_scaled"),
-            u32_scval(*index),
-            i128_scval(*num),
-            i128_scval(*den),
-        ]),
         Leaf::Now => vec_scval(&[sym("now")]),
-        Leaf::ValidUntil => vec_scval(&[sym("valid_until")]),
-        Leaf::InvocationCountInWindow { window_secs } => {
-            vec_scval(&[sym("invocation_count"), u64_scval(*window_secs)])
-        }
         Leaf::LiteralAddress(_) => addr_scval(),
         Leaf::LiteralI128(v) => i128_scval(*v),
         Leaf::LiteralSymbol(s) => {
@@ -294,22 +282,6 @@ fn op_not_inverts_a_deny_into_permit() {
     let env = Env::default();
     let n = Node::Not(Box::new(cmp_i128(CompareOp::Eq, 1, 2)));
     assert!(permit(evaluate(&env, &n, &empty_ctx(&env))));
-}
-
-#[test]
-fn op_not_does_not_invert_unsupported_structural_deny() {
-    // A stateful leaf on the right-hand side is not a supported shape.
-    let env = Env::default();
-    let inner = Node::Compare {
-        op: CompareOp::Lt,
-        left: Leaf::Now,
-        right: Leaf::InvocationCountInWindow { window_secs: 3600 },
-    };
-    let n = Node::Not(Box::new(inner));
-    assert_eq!(
-        reason(evaluate(&env, &n, &empty_ctx(&env))),
-        Some(DenyReason::UnsupportedNode)
-    );
 }
 
 #[test]
@@ -659,65 +631,6 @@ fn sel_now_gt_past_upper_bound_denies() {
 }
 
 #[test]
-fn sel_valid_until_eq_match_permits() {
-    let env = Env::default();
-    let mut ctx = empty_ctx(&env);
-    ctx.valid_until_ledger = Some(123);
-    let n = Node::Compare {
-        op: CompareOp::Eq,
-        left: Leaf::ValidUntil,
-        right: Leaf::LiteralU32(123),
-    };
-    assert!(permit(evaluate(&env, &n, &ctx)));
-}
-
-#[test]
-fn sel_valid_until_missing_denies() {
-    let env = Env::default();
-    let ctx = empty_ctx(&env); // valid_until_ledger: None
-    let n = Node::Compare {
-        op: CompareOp::Eq,
-        left: Leaf::ValidUntil,
-        right: Leaf::LiteralU32(123),
-    };
-    assert!(!permit(evaluate(&env, &n, &ctx)));
-}
-
-#[test]
-fn sel_invocation_count_at_or_below_limit_permits() {
-    let env = Env::default();
-    let mut ctx = empty_ctx(&env);
-    ctx.invocation_count_by_window = StdVec::from([(3600u64, 0u32)]);
-    let n = Node::Compare {
-        op: CompareOp::Lte,
-        left: Leaf::InvocationCountInWindow { window_secs: 3600 },
-        right: Leaf::LiteralU32(1),
-    };
-    assert!(permit(evaluate(&env, &n, &ctx)));
-}
-
-#[test]
-fn sel_invocation_count_above_limit_denies() {
-    let env = Env::default();
-    let mut ctx = empty_ctx(&env);
-    ctx.invocation_count_by_window = StdVec::from([(3600u64, 2u32)]);
-    let n = Node::Compare {
-        op: CompareOp::Lte,
-        left: Leaf::InvocationCountInWindow { window_secs: 3600 },
-        right: Leaf::LiteralU32(1),
-    };
-    // Frequency, not the generic StatefulBound. The reference evaluator draws
-    // this distinction and the reason reaches the user on the review card, so
-    // "called too often" must not read as an unspecified bound.
-    assert_eq!(
-        reason(evaluate(&env, &n, &ctx)),
-        Some(DenyReason::Frequency)
-    );
-}
-
-// ----- Tests: fail-closed at decode boundaries -----------------------------
-
-#[test]
 fn fc_unknown_node_symbol_returns_malformed() {
     let env = Env::default();
     let bogus = bytes_from_scval(&env, vec_scval(&[sym("not_a_real_op"), u32_scval(0)]));
@@ -920,6 +833,72 @@ fn cap_predicate_bytes_over_limit_returns_predicate_too_large() {
 // consumers match on the numeric value).
 
 #[test]
+fn fc_amount_selector_is_refused_at_decode() {
+    let env = Env::default();
+    let bytes = bytes_from_scval(
+        &env,
+        vec_scval(&[
+            sym("lte"),
+            vec_scval(&[sym("amount"), addr_scval()]),
+            i128_scval(1000),
+        ]),
+    );
+    let err = decode_with_byte_cap(&env, &bytes).expect_err("`amount` must not decode");
+    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+}
+
+#[test]
+fn fc_window_spent_selector_is_refused_at_decode() {
+    let env = Env::default();
+    let bytes = bytes_from_scval(
+        &env,
+        vec_scval(&[
+            sym("lte"),
+            vec_scval(&[sym("window_spent"), addr_scval(), u64_scval(86400)]),
+            i128_scval(1000),
+        ]),
+    );
+    let err = decode_with_byte_cap(&env, &bytes).expect_err("`window_spent` must not decode");
+    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+}
+
+#[test]
+fn fc_invocation_count_no_longer_decodes() {
+    // Counting prior calls needs stored state, and the interpreter keeps none:
+    // it answers every leaf from the authorized call alone. The selector is out
+    // of the grammar, so a predicate carrying it must fail to decode rather
+    // than install and silently never bound anything.
+    let env = Env::default();
+    let bytes = bytes_from_scval(
+        &env,
+        vec_scval(&[
+            sym("lte"),
+            vec_scval(&[sym("invocation_count"), u64_scval(86400)]),
+            u32_scval(5),
+        ]),
+    );
+    assert!(decode_with_byte_cap(&env, &bytes).is_err());
+}
+
+#[test]
+fn op_not_does_not_invert_unsupported_structural_deny() {
+    // An ordered comparison against `call_contract` is not a supported shape,
+    // and that deny is FATAL: wrapping it in `not` must not turn a node the
+    // interpreter never understood into a permit.
+    let env = Env::default();
+    let inner = Node::Compare {
+        op: CompareOp::Lt,
+        left: Leaf::CallContract,
+        right: Leaf::LiteralU32(1),
+    };
+    let n = Node::Not(Box::new(inner));
+    assert_eq!(
+        reason(evaluate(&env, &n, &empty_ctx(&env))),
+        Some(DenyReason::UnsupportedNode)
+    );
+}
+
+#[test]
 fn f8b_deny_reason_to_policy_error_is_stable() {
     use crate::storage::PolicyError;
 
@@ -935,8 +914,6 @@ fn f8b_deny_reason_to_policy_error_is_stable() {
     assert_eq!(PolicyError::from(DenyReason::UnsupportedNode) as u32, 103);
     assert_eq!(PolicyError::from(DenyReason::StatefulBound) as u32, 104);
     assert_eq!(PolicyError::from(DenyReason::NotInAllowlist) as u32, 105);
-    assert_eq!(PolicyError::from(DenyReason::Frequency) as u32, 106);
-    assert_eq!(PolicyError::from(DenyReason::SlippageFloor) as u32, 107);
 }
 
 #[test]
@@ -970,602 +947,41 @@ fn f8b_policy_error_code_strings_match_the_deny_reason_table() {
         PolicyError::NotInAllowlist.code_str(),
         DenyReason::NotInAllowlist.code()
     );
-    assert_eq!(
-        PolicyError::Frequency.code_str(),
-        DenyReason::Frequency.code()
-    );
-    assert_eq!(
-        PolicyError::SlippageFloor.code_str(),
-        DenyReason::SlippageFloor.code()
-    );
-}
-
-// ---- `amount` / `window_spent` are not part of the grammar ----
-//
-// The on-chain interpreter sees one authorized call, not the transaction's
-// token movements, so it cannot source either. They are refused at DECODE, so
-// a predicate carrying one never installs - rather than installing and then
-// silently evaluating against a zero it made up.
-
-#[test]
-fn fc_amount_selector_is_refused_at_decode() {
-    let env = Env::default();
-    let bytes = bytes_from_scval(
-        &env,
-        vec_scval(&[
-            sym("lte"),
-            vec_scval(&[sym("amount"), addr_scval()]),
-            i128_scval(1000),
-        ]),
-    );
-    let err = decode_with_byte_cap(&env, &bytes).expect_err("`amount` must not decode");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
 }
 
 #[test]
-fn fc_window_spent_selector_is_refused_at_decode() {
-    let env = Env::default();
-    let bytes = bytes_from_scval(
-        &env,
-        vec_scval(&[
-            sym("lte"),
-            vec_scval(&[sym("window_spent"), addr_scval(), u64_scval(86400)]),
-            i128_scval(1000),
-        ]),
-    );
-    let err = decode_with_byte_cap(&env, &bytes).expect_err("`window_spent` must not decode");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
-}
-
-#[test]
-fn fc_invocation_count_still_decodes() {
-    // The counter-based control that CAN be sourced on chain is unaffected -
-    // it counts calls, not value.
-    let env = Env::default();
-    let bytes = bytes_from_scval(
-        &env,
-        vec_scval(&[
-            sym("lte"),
-            vec_scval(&[sym("invocation_count"), u64_scval(86400)]),
-            u32_scval(5),
-        ]),
-    );
-    assert!(decode_with_byte_cap(&env, &bytes).is_ok());
-}
-
-// ---- F9: CallArgScaled (relative slippage floor) ----
-//
-// A `call_arg_scaled(i, num, den)` leaf evaluates to `args[i] * num / den`.
-// The intended use case is "min output must be at least this ratio of the
-// input": `call_arg[out] >= call_arg_scaled(in, num, den)`. The arithmetic
-// must use checked_mul/checked_div so a malicious or accidentally huge
-// `num` cannot wrap the result and silently permit a swap that should
-// have denied. Install refuses `den==0` and `num<=0`/`den<=0` so a negative
-// ratio cannot ever invert the comparison either.
-//
-// Wire shape: `vec_scval([symbol("call_arg_scaled"), u32(index), i128(num), i128(den)])`.
-
-fn build_call_arg_scaled_args(env: &Env, in_val: i128, out_val: i128) -> EvalContext {
-    let mut args = SorobanVec::<Val>::new(env);
-    args.push_back(in_val.into_val(env));
-    args.push_back(out_val.into_val(env));
-    let mut ctx = empty_ctx(env);
-    ctx.args = args;
-    ctx
-}
-
-#[test]
-fn f9_slippage_floor_at_exact_ratio_permits() {
-    // out == in*num/den exactly; Gte must PERMIT (floor is inclusive).
-    let env = Env::default();
-    let in_val: i128 = 1_000;
-    let num: i128 = 95;
-    let den: i128 = 100;
-    let out_val: i128 = (in_val * num) / den; // 950
-    let ctx = build_call_arg_scaled_args(&env, in_val, out_val);
+fn selector_leaf_gate_accepts_a_time_only_predicate() {
+    // The install-time "must constrain something" gate (216) must not
+    // over-block. A predicate that bounds only ledger time constrains a real
+    // property of the call, so it has to keep installing - tightening the gate
+    // to require a call-shaped selector would silently break expiry policies.
     let n = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(1),
-        right: Leaf::CallArgScaled { index: 0, num, den },
+        op: CompareOp::Lt,
+        left: Leaf::Now,
+        right: Leaf::LiteralU32(1_000_000),
     };
-    assert!(permit(evaluate(&env, &n, &ctx)));
+    assert!(crate::dsl::has_selector_leaf(&n));
 }
 
 #[test]
-fn f9_slippage_floor_one_stroop_below_denies_slippage_floor() {
-    // out == floor - 1; Gte must DENY with SlippageFloor (the dedicated
-    // reason), not the generic ArgMismatch or StatefulBound.
-    let env = Env::default();
-    let in_val: i128 = 1_000;
-    let num: i128 = 95;
-    let den: i128 = 100;
-    let floor: i128 = (in_val * num) / den; // 950
-    let out_val: i128 = floor - 1;
-    let ctx = build_call_arg_scaled_args(&env, in_val, out_val);
-    let n = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(1),
-        right: Leaf::CallArgScaled { index: 0, num, den },
-    };
-    assert_eq!(
-        reason(evaluate(&env, &n, &ctx)),
-        Some(DenyReason::SlippageFloor)
-    );
-}
-
-#[test]
-fn f9_slippage_floor_num_equals_den_behaves_as_ratio_one() {
-    // num == den => ratio 1; in == out PERMITS, in > out DENIES floor.
-    let env = Env::default();
-    let ctx = build_call_arg_scaled_args(&env, 100, 100);
-    let n = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(1),
-        right: Leaf::CallArgScaled {
-            index: 0,
-            num: 1,
-            den: 1,
-        },
-    };
-    assert!(permit(evaluate(&env, &n, &ctx)));
-    let ctx = build_call_arg_scaled_args(&env, 100, 99);
-    assert_eq!(
-        reason(evaluate(&env, &n, &ctx)),
-        Some(DenyReason::SlippageFloor)
-    );
-}
-
-#[test]
-fn f9_slippage_floor_very_large_ratio_permits_when_out_meets_it() {
-    // num=10, den=1 -> 10x ratio. out exactly 10x in PERMITS.
-    let env = Env::default();
-    let ctx = build_call_arg_scaled_args(&env, 1_000, 10_000);
-    let n = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(1),
-        right: Leaf::CallArgScaled {
-            index: 0,
-            num: 10,
-            den: 1,
-        },
-    };
-    assert!(permit(evaluate(&env, &n, &ctx)));
-}
-
-#[test]
-fn f9_slippage_floor_very_small_ratio_behaves() {
-    // num=1, den=1_000_000 -> 0.0001% ratio. out=1 when in=1_000_000 PERMITS
-    // (1 >= 1_000_000 * 1 / 1_000_000 = 1), out=0 DENIES.
-    let env = Env::default();
-    let ctx = build_call_arg_scaled_args(&env, 1_000_000, 1);
-    let n = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(1),
-        right: Leaf::CallArgScaled {
-            index: 0,
-            num: 1,
-            den: 1_000_000,
-        },
-    };
-    assert!(permit(evaluate(&env, &n, &ctx)));
-    let ctx = build_call_arg_scaled_args(&env, 1_000_000, 0);
-    assert_eq!(
-        reason(evaluate(&env, &n, &ctx)),
-        Some(DenyReason::SlippageFloor)
-    );
-}
-
-#[test]
-fn f9_slippage_floor_overflow_denies_arithmetic_overflow_not_panic() {
-    // args[0] = i128::MAX, num = 2, den = 1 -> i128::MAX * 2 overflows.
-    // Must DENY with ArithmeticOverflow (102) and NOT panic the frame.
-    let env = Env::default();
-    let mut args = SorobanVec::<Val>::new(&env);
-    args.push_back(i128::MAX.into_val(&env));
-    let mut ctx = empty_ctx(&env);
-    ctx.args = args;
-    let n = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(0),
-        right: Leaf::CallArgScaled {
-            index: 0,
-            num: 2,
-            den: 1,
-        },
-    };
-    assert_eq!(
-        reason(evaluate(&env, &n, &ctx)),
-        Some(DenyReason::ArithmeticOverflow)
-    );
-}
-
-#[test]
-fn f9_slippage_floor_divide_by_zero_denies_overflow_in_evaluation() {
-    // den == 0 is caught at install, but a runtime check must also fail
-    // closed: checked_div panics i128 on /0, the evaluator must NOT panic
-    // the frame. We do NOT install a den=0 predicate in production (it's
-    // refused at install), so this test guards the case where decode
-    // succeeded by some future change of policy.
-    let env = Env::default();
-    let mut args = SorobanVec::<Val>::new(&env);
-    args.push_back(100i128.into_val(&env));
-    let mut ctx = empty_ctx(&env);
-    ctx.args = args;
-    let n = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(0),
-        right: Leaf::CallArgScaled {
-            index: 0,
-            num: 1,
-            den: 0,
-        },
-    };
-    assert_eq!(
-        reason(evaluate(&env, &n, &ctx)),
-        Some(DenyReason::ArithmeticOverflow)
-    );
-}
-
-#[test]
-fn f9_slippage_floor_division_truncates_toward_zero() {
-    // 7 * 10 / 3 = 23 (truncated from 23.33). Gte against out=23 PERMITS,
-    // out=22 DENIES.
-    let env = Env::default();
-    let ctx = build_call_arg_scaled_args(&env, 7, 23);
-    let n = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(1),
-        right: Leaf::CallArgScaled {
-            index: 0,
-            num: 10,
-            den: 3,
-        },
-    };
-    assert!(permit(evaluate(&env, &n, &ctx)));
-    let ctx = build_call_arg_scaled_args(&env, 7, 22);
-    assert_eq!(
-        reason(evaluate(&env, &n, &ctx)),
-        Some(DenyReason::SlippageFloor)
-    );
-}
-
-#[test]
-fn f9_slippage_floor_satisfies_left_equals_for_swap_min_max() {
-    // Symmetric: `call_arg_scaled(0,num,den) <= call_arg[1]` (the swap
-    // output floor expressed as Lte on the scaled leaf). The brief shows
-    // the Gte form, but `<=` must also work for policies that phrase the
-    // floor the other way.
-    let env = Env::default();
-    let ctx = build_call_arg_scaled_args(&env, 1_000, 950);
-    let n = Node::Compare {
-        op: CompareOp::Lte,
-        left: Leaf::CallArgScaled {
-            index: 0,
-            num: 95,
-            den: 100,
-        },
-        right: Leaf::CallArg(1),
-    };
-    assert!(permit(evaluate(&env, &n, &ctx)));
-}
-
-#[test]
-fn f9_slippage_floor_out_of_bounds_index_denies_arg_mismatch() {
-    // Reading args[99] when only 1 arg is supplied is the same boundary
-    // failure as for the plain CallArg leaf: ArgMismatch, not SlippageFloor.
-    let env = Env::default();
-    let mut args = SorobanVec::<Val>::new(&env);
-    args.push_back(100i128.into_val(&env));
-    let mut ctx = empty_ctx(&env);
-    ctx.args = args;
-    let n = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(0),
-        right: Leaf::CallArgScaled {
-            index: 99,
-            num: 1,
-            den: 1,
-        },
-    };
-    assert_eq!(
-        reason(evaluate(&env, &n, &ctx)),
-        Some(DenyReason::ArgMismatch)
-    );
-}
-
-#[test]
-fn f9_slippage_floor_non_numeric_arg_denies_arg_mismatch() {
-    // args[0] is a Symbol, not a number. Must deny with ArgMismatch (the
-    // standard "could not source the operand" code), NOT SlippageFloor.
-    let env = Env::default();
-    let mut args = SorobanVec::<Val>::new(&env);
-    args.push_back(Symbol::new(&env, "not_a_number").into_val(&env));
-    let mut ctx = empty_ctx(&env);
-    ctx.args = args;
-    let n = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(0),
-        right: Leaf::CallArgScaled {
-            index: 0,
-            num: 1,
-            den: 1,
-        },
-    };
-    assert_eq!(
-        reason(evaluate(&env, &n, &ctx)),
-        Some(DenyReason::ArgMismatch)
-    );
-}
-
-#[test]
-fn f9_slippage_floor_is_stateless() {
-    // Install-time/eval-time invariant: the floor must not pull storage,
-    // so it counts as a stateless leaf. A stateless leaf is ELIGIBLE to
-    // live under `not`/`or`.
-    let leaf = Leaf::CallArgScaled {
-        index: 0,
-        num: 1,
-        den: 1,
-    };
-    assert!(leaf.is_stateless());
-}
-
-#[test]
-fn f9_slippage_floor_wire_roundtrip_decodes() {
-    // The ScVal wire form `call_arg_scaled(u32, i128, i128)` must decode
-    // back to the same leaf. The wire format is what conformance/TS
-    // alignment depends on, so this guards the round-trip end to end.
-    let env = Env::default();
-    let leaf = Leaf::CallArgScaled {
-        index: 0,
-        num: 950,
-        den: 1000,
-    };
-    let node = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(1),
-        right: leaf,
-    };
-    let bytes = bytes_from_node(&env, &node);
-    let decoded = decode_with_byte_cap(&env, &bytes).expect("decode must succeed");
-    // The decoded tree must reproduce the permit decision with the
-    // same args. if the wire form were wrong, decode would have denied
-    // at the selector branch.
-    let mut args = SorobanVec::<Val>::new(&env);
-    args.push_back(1000i128.into_val(&env));
-    args.push_back(950i128.into_val(&env));
-    let mut ctx = empty_ctx(&env);
-    ctx.args = args;
-    assert!(permit(evaluate(&env, &decoded, &ctx)));
-}
-
-#[test]
-fn f9_slippage_floor_decodes_with_arity_three_denies_malformed() {
-    // Arity 3: missing the `den` field. Must decode as MALFORMED_PREDICATE,
-    // not silently interpret the missing field as 1.
-    let env = Env::default();
-    let bytes = bytes_from_scval(
-        &env,
-        vec_scval(&[
-            sym("gte"),
-            vec_scval(&[sym("call_arg"), u32_scval(0)]),
-            vec_scval(&[sym("call_arg_scaled"), u32_scval(0), i128_scval(95)]),
-        ]),
-    );
-    let err = decode_with_byte_cap(&env, &bytes).expect_err("arity 3 must reject");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
-}
-
-#[test]
-fn f9_slippage_floor_decodes_with_arity_five_denies_malformed() {
-    // Arity 5: one extra trailing field. Must decode as MALFORMED_PREDICATE.
-    let env = Env::default();
-    let bytes = bytes_from_scval(
-        &env,
-        vec_scval(&[
-            sym("gte"),
-            vec_scval(&[sym("call_arg"), u32_scval(0)]),
-            vec_scval(&[
-                sym("call_arg_scaled"),
-                u32_scval(0),
-                i128_scval(95),
-                i128_scval(100),
-                u32_scval(0),
-            ]),
-        ]),
-    );
-    let err = decode_with_byte_cap(&env, &bytes).expect_err("arity 5 must reject");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
-}
-
-#[test]
-fn f9_slippage_floor_decodes_with_u32_num_denies_malformed() {
-    // num/den muxed as u32 instead of i128. The type field is mandatory -
-    // a u32 there shifts the wire arity and breaks the contract.
-    let env = Env::default();
-    let bytes = bytes_from_scval(
-        &env,
-        vec_scval(&[
-            sym("gte"),
-            vec_scval(&[sym("call_arg"), u32_scval(0)]),
-            vec_scval(&[
-                sym("call_arg_scaled"),
-                u32_scval(0),
-                u32_scval(95),
-                u32_scval(100),
-            ]),
-        ]),
-    );
-    let err = decode_with_byte_cap(&env, &bytes).expect_err("u32 num/den must reject");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
-}
-
-#[test]
-fn f9_slippage_floor_decodes_with_missing_index_denies_malformed() {
-    // The index field is missing (only the symbol). Decoder must reject.
-    let env = Env::default();
-    let bytes = bytes_from_scval(
-        &env,
-        vec_scval(&[
-            sym("gte"),
-            vec_scval(&[sym("call_arg"), u32_scval(0)]),
-            vec_scval(&[sym("call_arg_scaled"), i128_scval(95), i128_scval(100)]),
-        ]),
-    );
-    let err = decode_with_byte_cap(&env, &bytes).expect_err("missing index must reject");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
-}
-
-#[test]
-fn f9_slippage_floor_decodes_with_negative_num_and_den() {
-    // Negative num/den are syntactically valid i128, so the decoder
-    // ACCEPTS them - install-time validation is what refuses them. This
-    // test pins the contract that decode is not the gate.
-    let env = Env::default();
-    let bytes = bytes_from_scval(
-        &env,
-        vec_scval(&[
-            sym("gte"),
-            vec_scval(&[sym("call_arg"), u32_scval(0)]),
-            vec_scval(&[
-                sym("call_arg_scaled"),
-                u32_scval(0),
-                i128_scval(-95),
-                i128_scval(-100),
-            ]),
-        ]),
-    );
-    assert!(decode_with_byte_cap(&env, &bytes).is_ok());
-}
-
-#[test]
-fn f9_slippage_floor_validate_scaled_ratios_refuses_den_zero_at_install() {
-    // The install-time walker must reject `den == 0` so a divide-by-zero
-    // cannot slip through as a runtime overflow.
-    use crate::dsl::validate_scaled_ratios;
-    let _env = Env::default();
-    let n = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(1),
-        right: Leaf::CallArgScaled {
-            index: 0,
-            num: 95,
-            den: 0,
-        },
-    };
-    assert_eq!(
-        validate_scaled_ratios(&n),
-        Err(crate::dsl::ScaledRatioError::ZeroDenominator)
-    );
-}
-
-#[test]
-fn f9_slippage_floor_validate_scaled_ratios_refuses_negative_num() {
-    use crate::dsl::validate_scaled_ratios;
-    let _env = Env::default();
-    let n = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(1),
-        right: Leaf::CallArgScaled {
-            index: 0,
-            num: -1,
-            den: 100,
-        },
-    };
-    assert_eq!(
-        validate_scaled_ratios(&n),
-        Err(crate::dsl::ScaledRatioError::NonPositiveNumerator)
-    );
-}
-
-#[test]
-fn f9_slippage_floor_validate_scaled_ratios_refuses_negative_den() {
-    use crate::dsl::validate_scaled_ratios;
-    let _env = Env::default();
-    let n = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(1),
-        right: Leaf::CallArgScaled {
-            index: 0,
-            num: 95,
-            den: -1,
-        },
-    };
-    assert_eq!(
-        validate_scaled_ratios(&n),
-        Err(crate::dsl::ScaledRatioError::NonPositiveDenominator)
-    );
-}
-
-#[test]
-fn f9_slippage_floor_validate_scaled_ratios_refuses_nested_inside_literal_vec() {
-    // A scaled leaf smuggled inside a LiteralVec must still be caught -
-    // decode recursion is the same smuggling vector the install walker
-    // closes for every shape.
-    use crate::dsl::validate_scaled_ratios;
-    let _env = Env::default();
+fn selector_leaf_gate_refuses_literals_on_both_sides() {
+    // The case the gate exists for: nothing about the call is read, so the
+    // predicate binds nothing and would be a permanent allow.
     let n = Node::Compare {
         op: CompareOp::Eq,
-        left: Leaf::CallArg(0),
-        right: Leaf::LiteralVec(StdVec::from([Leaf::CallArgScaled {
-            index: 0,
-            num: 1,
-            den: 0,
-        }])),
+        left: Leaf::LiteralU32(1),
+        right: Leaf::LiteralU32(1),
     };
-    assert_eq!(
-        validate_scaled_ratios(&n),
-        Err(crate::dsl::ScaledRatioError::ZeroDenominator)
-    );
+    assert!(!crate::dsl::has_selector_leaf(&n));
 }
 
 #[test]
-fn f9_slippage_floor_validate_scaled_ratios_accepts_positive_ratio() {
-    use crate::dsl::validate_scaled_ratios;
-    let _env = Env::default();
-    let n = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(1),
-        right: Leaf::CallArgScaled {
-            index: 0,
-            num: 95,
-            den: 100,
-        },
+fn selector_leaf_gate_sees_through_a_literal_vec() {
+    // A selector wrapped in a literal vector is still a selector; without the
+    // recursion the wrapper would be a bypass of the gate.
+    let n = Node::In {
+        needle: Leaf::LiteralVec(StdVec::from([Leaf::CallFn])),
+        haystack: StdVec::from([Leaf::LiteralU32(1)]),
     };
-    assert_eq!(validate_scaled_ratios(&n), Ok(()));
-}
-
-#[test]
-fn f9_slippage_floor_code_stability_table() {
-    // Extend the f8b code-stability tests with the new variant. The
-    // numeric code is part of the public ABI.
-    use crate::storage::PolicyError;
-    assert_eq!(PolicyError::from(DenyReason::SlippageFloor) as u32, 107);
-    assert_eq!(
-        PolicyError::SlippageFloor.code_str(),
-        DenyReason::SlippageFloor.code()
-    );
-    assert_eq!(DenyReason::SlippageFloor.code(), "SLIPPAGE_FLOOR");
-}
-
-#[test]
-fn f9_slippage_floor_reason_is_not_fatal() {
-    // SlippageFloor is a numeric bound denial; it must NOT be fatal, so a
-    // sibling `or` branch can carry it and a `not` can still invert it.
-    assert!(!DenyReason::SlippageFloor.is_fatal());
-
-    // Concrete: a not around a denied floor flips to Permit.
-    let env = Env::default();
-    let ctx = build_call_arg_scaled_args(&env, 1_000, 949);
-    let inner = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(1),
-        right: Leaf::CallArgScaled {
-            index: 0,
-            num: 95,
-            den: 100,
-        },
-    };
-    let n = Node::Not(Box::new(inner));
-    assert!(permit(evaluate(&env, &n, &ctx)));
+    assert!(crate::dsl::has_selector_leaf(&n));
 }

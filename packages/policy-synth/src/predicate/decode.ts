@@ -74,11 +74,6 @@ function expectU64(v: xdr.ScVal | undefined, what: string): string {
   return v.u64().toString()
 }
 
-function expectI128(v: xdr.ScVal | undefined, what: string): string {
-  if (!v || v.switch() !== xdr.ScValType.scvI128()) throw malformed(`${what} is not an i128`)
-  return scValToBigInt(v).toString()
-}
-
 /** Arity check with the same intent as the Rust `check_arity`: a selector with
  *  the wrong element count is malformed, not silently truncated. */
 function arity(items: xdr.ScVal[], n: number, selector: string): void {
@@ -109,14 +104,6 @@ function decodeSelectorLeaf(items: xdr.ScVal[], sym: string): PredicateLeaf {
         element: expectU32(items[2], 'call_arg_field element'),
         field: expectSymbol(items[3], 'call_arg_field field'),
       }
-    case 'call_arg_scaled':
-      arity(items, 4, sym)
-      return {
-        kind: 'call_arg_scaled',
-        index: expectU32(items[1], 'call_arg_scaled index'),
-        num: expectI128(items[2], 'call_arg_scaled num'),
-        den: expectI128(items[3], 'call_arg_scaled den'),
-      }
     case 'amount':
       arity(items, 2, sym)
       return { kind: 'amount', token: expectAddress(items[1], 'amount token') }
@@ -130,17 +117,6 @@ function decodeSelectorLeaf(items: xdr.ScVal[], sym: string): PredicateLeaf {
     case 'now':
       arity(items, 1, sym)
       return { kind: 'now' }
-    case 'valid_until':
-      // The encoder refuses to emit this and the interpreter refuses it at
-      // install, so it cannot appear in a document that installed. Decoding it
-      // anyway would present a rule the chain would never have accepted.
-      throw malformed('valid_until is not a usable predicate leaf')
-    case 'invocation_count':
-      arity(items, 2, sym)
-      return {
-        kind: 'invocation_count_in_window',
-        windowSecs: Number(expectU64(items[1], 'invocation_count windowSecs')),
-      }
     default:
       // Deliberately NOT a literal_vec fallback - see the header note.
       throw malformed(`unknown selector symbol '${sym}'`)

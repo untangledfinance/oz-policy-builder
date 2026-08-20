@@ -77,18 +77,14 @@ export function encodePredicate(node: PredicateNode): EncodedPredicate {
     )
   }
 
-  // --- pass 1.5: leaf-value validation (Rust `validate_scaled_ratios` + the
-  // broader cap-set gate the contract enforces at install). Defense in depth:
-  // the TS self-verify pipeline should reject the same shapes Rust install
-  // refuses, so a hand-crafted predicate that simulate/verify green-lights
-  // cannot later be refused at the on-chain install step. The checks:
-  //     threshold decimals, etc.) - the contract decodes as u32
-  //   - i128 positivity where required (literal_i128 for amount/window
-  //     caps; `den`/`num` for scaled ratios) - a negative cap would
-  //     permit everything
-  //   - hex even-length (literal_bytes) - `Buffer.from(v, 'hex')` silently
-  //     drops non-hex chars, so 'zz' becomes empty bytes
-  //   - scaled-ratio num>0 && den>0 - mirrors dsl.rs:661-704
+  // --- pass 1.5: leaf-value validation against the cap-set gate the contract
+  // enforces at install. Defense in depth: the TS self-verify pipeline should
+  // reject the same shapes Rust install refuses, so a hand-crafted predicate
+  // that simulate/verify green-lights cannot later be refused at the on-chain
+  // install step. The checks are the u32 ranges on the argument selectors
+  // (`call_arg.index`, `call_arg_len.index`, `call_arg_field.index` and
+  // `.element`) - the contract decodes each as u32, so an out-of-range value
+  // would fail there instead.
   // Throws `MALFORMED_PREDICATE` so the error stays a ToolError shape.
   validateLeafValues(node)
 
@@ -256,17 +252,6 @@ function encodeLeaf(leaf: PredicateLeaf): xdr.ScVal {
         xdr.ScVal.scvU32(leaf.element),
         xdr.ScVal.scvSymbol(leaf.field),
       ])
-    case 'call_arg_scaled':
-      // Wire shape `vec[symbol, u32, i128, i128]` mirrors the Rust decoder's
-      // expectation in dsl.rs SEL_CALL_ARG_SCALED. `scvI128FromDecimal` is
-      // the same range-checked helper used by `literal_i128`; an out-of-range
-      // num/den is refused at encode time (rather than at install on chain).
-      return xdr.ScVal.scvVec([
-        symbol('call_arg_scaled'),
-        xdr.ScVal.scvU32(leaf.index),
-        scvI128FromDecimal(leaf.num),
-        scvI128FromDecimal(leaf.den),
-      ])
     case 'amount':
       return xdr.ScVal.scvVec([symbol('amount'), scvAddressFromStrkey(leaf.token)])
     case 'window_spent':
@@ -277,18 +262,6 @@ function encodeLeaf(leaf: PredicateLeaf): xdr.ScVal {
       ])
     case 'now':
       return xdr.ScVal.scvVec([symbol('now')])
-    case 'valid_until':
-      // The interpreter refuses this leaf at install: it never sources
-      // valid_until_ledger, so a policy built on it would deny forever.
-      // Expiry belongs to the smart account, through the context rule's
-      // validUntilLedger. Refuse at synthesis so the author finds out here
-      // rather than from an install that always fails.
-      throw new Error(
-        'valid_until is not a usable predicate leaf: the interpreter never sources it and ' +
-          'refuses it at install. Put expiry on the context rule (validUntilLedger) instead.'
-      )
-    case 'invocation_count_in_window':
-      return xdr.ScVal.scvVec([symbol('invocation_count'), scvU64FromValue(leaf.windowSecs)])
     case 'literal_address':
       return scvAddressFromStrkey(leaf.value)
     case 'literal_i128':
@@ -376,14 +349,13 @@ function capError(code: ToolError['code'], message: string): ToolError {
 // this either overflows during encode or is refused at install.
 const U32_MAX = 4294967295
 
-/** Walk a `PredicateNode` and fail-closed on any leaf whose cap-set value the
- *  contract would refuse at install. Mirrors `validate_scaled_ratios` in
- *  dsl.rs:661-704 plus the broader cap-set gate (`literal_u32`, `literal_i128`
- *  range, `call_arg_scaled` positive-ratio). Defense in depth so the TS
- *  self-verify pipeline rejects the same shapes Rust install already
- *  refuses - a hand-crafted predicate that simulate/verify green-lights must
- *  NOT be installable. Throws `MALFORMED_PREDICATE` so the envelope shapes
- *  it into a ToolError. */
+/** Walk a `PredicateNode` and fail-closed on any leaf whose value the contract
+ *  would refuse at install: the argument selectors carry u32 indices, so a
+ *  value outside that range is refused here rather than on chain. Defense in
+ *  depth so the TS self-verify pipeline rejects the same shapes Rust install
+ *  already refuses - a hand-crafted predicate that simulate/verify
+ *  green-lights must NOT be installable. Throws `MALFORMED_PREDICATE` so the
+ *  envelope shapes it into a ToolError. */
 function validateLeafValues(node: PredicateNode): void {
   function walkLeaf(leaf: PredicateLeaf, path: string): void {
     switch (leaf.kind) {
@@ -405,71 +377,9 @@ function validateLeafValues(node: PredicateNode): void {
           throw malformed(`call_arg_field.element out of u32 range at ${path}`)
         }
         return
-      case 'call_arg_scaled': {
-        if (!Number.isInteger(leaf.index) || leaf.index < 0 || leaf.index > U32_MAX) {
-          throw malformed(`call_arg_scaled.index out of u32 range at ${path}`)
-        }
-        // num / den are i128 on chain, decimal strings on the wire. The
-        // contract refuses `den == 0` and `num <= 0` / `den <= 0` at install
-        // (dsl.rs:664-672); mirror that here so a future regression in
-        // `validate_scaled_ratios` cannot let a divide-by-zero policy reach
-        // the wire. BigInt throws on non-numeric strings -> malformed.
-        let num: bigint
-        let den: bigint
-        try {
-          num = BigInt(leaf.num)
-          den = BigInt(leaf.den)
-        } catch {
-          throw malformed(`call_arg_scaled.num/den not a decimal integer at ${path}`)
-        }
-        if (num <= 0n) throw malformed(`call_arg_scaled.num must be > 0 at ${path}`)
-        if (den <= 0n) throw malformed(`call_arg_scaled.den must be > 0 at ${path}`)
-        return
-      }
-      case 'literal_u32':
-        if (!Number.isInteger(leaf.value) || leaf.value < 0 || leaf.value > U32_MAX) {
-          throw malformed(`literal_u32.value out of u32 range at ${path}`)
-        }
-        return
-      case 'literal_i128':
-        // literal_i128 is signed; the contract allows negatives (i128
-        // arithmetic), but caps on a positive quantity (amount / window
-        // bound) should never be negative - a negative cap is silently
-        // satisfied by every non-negative amount. The contract gate is
-        // already on the leaf's ROLE (amount vs equality) not the value;
-        // here we mirror the value-only invariant the cap-set gate enforces
-        // by refusing the syntactic shape that would clearly be a bug
-        // (literal_i128 as a CAP with a leading `-` on a non-equality).
-        // We do not gate equality i128 - `literal_i128` as an address-by-
-        // equality is fine (it is just a constant).
-        // The value itself is always accepted; the structural check
-        // (non-negative for an amount / window bound) is left to the
-        // caller-built predicate, not the encoder.
-        return
-      case 'literal_bytes':
-        // Hex even-length: a non-hex char silently drops, and an odd
-        // length yields a half-byte Buffer. The contract decodes with a
-        // strict hex parser and refuses anything that is not even-length
-        // hex; mirror that here.
-        if (!/^[0-9a-fA-F]*$/.test(leaf.value) || leaf.value.length % 2 !== 0) {
-          throw malformed(`literal_bytes.value must be even-length hex at ${path}`)
-        }
-        return
-      case 'literal_vec':
-        leaf.elements.forEach((e, i) => {
-          walkLeaf(e, `${path}.elements[${i}]`)
-        })
-        return
-      // Selector and other leaves carry no cap-set values; the call_arg
-      // branches above cover indices, the literal branches cover typed
-      // constants. amount / window_spent / invocation_count / now /
-      // valid_until / call_contract / call_fn / literal_address /
-      // at this gate.
       case 'amount':
       case 'window_spent':
-      case 'invocation_count_in_window':
       case 'now':
-      case 'valid_until':
       case 'call_contract':
       case 'call_fn':
       case 'literal_address':

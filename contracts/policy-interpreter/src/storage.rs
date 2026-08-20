@@ -5,7 +5,6 @@
 //!   `(account, rule_id, K_NONCE)`                    -> `u32`
 //!   `(account, rule_id, K_SIGNERS_HASH)`             -> `BytesN<32>`
 //!   `(account, rule_id, K_MASTER_SET)`               -> `Vec<Signer>`
-//!   `(account, rule_id, K_INVOCATION_COUNT, ws)`     -> `u32`
 
 extern crate alloc;
 
@@ -49,11 +48,6 @@ pub enum PolicyError {
     UnsupportedNode = 103,
     StatefulBound = 104,
     NotInAllowlist = 105,
-    Frequency = 106,
-    // A `call_arg >= call_arg_scaled(..)` floor was not met. Distinct from
-    // StatefulBound so a violated slippage floor reads as one in the review
-    // card rather than as a generic numeric bound.
-    SlippageFloor = 107,
 
     // ---- 2xx install / auth / state ----
     VersionMismatch = 200,
@@ -61,20 +55,12 @@ pub enum PolicyError {
     NonceReplay = 202,
     MasterAuthRequired = 203,
     RuleSignersChanged = 204,
-    PredicateFalse = 205,
     MissingState = 206,
     PredicateTooLarge = 207,
     PredicateHashMismatch = 208,
     EmptySignerSet = 209,
     NoAuthenticatedSigners = 210,
-    TooManyInvocationWindows = 211,
     ExternalSignerNotSupported = 212,
-    ValidUntilNotSupported = 213,
-    // A `call_arg_scaled` leaf carried `den == 0` or non-positive
-    // `num`/`den`. Refused at install (`validate_scaled_ratios`) so a
-    // ratio that would silently invert the comparison or divide by zero
-    // cannot be installed in the first place.
-    InvalidScaledRatio = 214,
     /// Predicate carries no selector leaf - literals on both sides of every
     /// compare, no `call_contract`/`call_fn`/`call_arg`/`now`. Such a
     /// predicate is either trivially true or trivially false at install
@@ -100,23 +86,17 @@ impl PolicyError {
             PolicyError::UnsupportedNode => "UNSUPPORTED_NODE",
             PolicyError::StatefulBound => "STATEFUL_BOUND",
             PolicyError::NotInAllowlist => "NOT_IN_ALLOWLIST",
-            PolicyError::Frequency => "FREQUENCY",
-            PolicyError::SlippageFloor => "SLIPPAGE_FLOOR",
             PolicyError::VersionMismatch => "VERSION_MISMATCH",
             PolicyError::MalformedPredicate => "MALFORMED_PREDICATE",
             PolicyError::NonceReplay => "NONCE_REPLAY",
             PolicyError::MasterAuthRequired => "MASTER_AUTH_REQUIRED",
             PolicyError::RuleSignersChanged => "RULE_SIGNERS_CHANGED",
-            PolicyError::PredicateFalse => "PREDICATE_FALSE",
             PolicyError::MissingState => "MISSING_STATE",
             PolicyError::PredicateTooLarge => "PREDICATE_TOO_LARGE",
             PolicyError::PredicateHashMismatch => "PREDICATE_HASH_MISMATCH",
             PolicyError::EmptySignerSet => "EMPTY_SIGNER_SET",
             PolicyError::NoAuthenticatedSigners => "NO_AUTHENTICATED_SIGNERS",
-            PolicyError::TooManyInvocationWindows => "TOO_MANY_INVOCATION_WINDOWS",
             PolicyError::ExternalSignerNotSupported => "EXTERNAL_SIGNER_NOT_SUPPORTED",
-            PolicyError::ValidUntilNotSupported => "VALID_UNTIL_NOT_SUPPORTED",
-            PolicyError::InvalidScaledRatio => "INVALID_SCALED_RATIO",
             PolicyError::SelectorLeafRequired => "SELECTOR_LEAF_REQUIRED",
             PolicyError::TooManySigners => "TOO_MANY_SIGNERS",
         }
@@ -136,8 +116,6 @@ impl From<DenyReason> for PolicyError {
             DenyReason::UnsupportedNode => PolicyError::UnsupportedNode,
             DenyReason::StatefulBound => PolicyError::StatefulBound,
             DenyReason::NotInAllowlist => PolicyError::NotInAllowlist,
-            DenyReason::Frequency => PolicyError::Frequency,
-            DenyReason::SlippageFloor => PolicyError::SlippageFloor,
         }
     }
 }
@@ -168,9 +146,6 @@ pub(crate) fn panic_master_auth_required(e: &Env) -> ! {
 pub(crate) fn panic_rule_signers_changed(e: &Env) -> ! {
     deny(e, PolicyError::RuleSignersChanged)
 }
-pub(crate) fn panic_predicate_false(e: &Env) -> ! {
-    deny(e, PolicyError::PredicateFalse)
-}
 pub(crate) fn panic_missing_state(e: &Env) -> ! {
     deny(e, PolicyError::MissingState)
 }
@@ -186,17 +161,8 @@ pub(crate) fn panic_empty_signer_set(e: &Env) -> ! {
 pub(crate) fn panic_no_authenticated_signers(e: &Env) -> ! {
     deny(e, PolicyError::NoAuthenticatedSigners)
 }
-pub(crate) fn panic_too_many_invocation_windows(e: &Env) -> ! {
-    deny(e, PolicyError::TooManyInvocationWindows)
-}
 pub(crate) fn panic_external_signer_not_supported(e: &Env) -> ! {
     deny(e, PolicyError::ExternalSignerNotSupported)
-}
-pub(crate) fn panic_valid_until_not_supported(e: &Env) -> ! {
-    deny(e, PolicyError::ValidUntilNotSupported)
-}
-pub(crate) fn panic_invalid_scaled_ratio(e: &Env) -> ! {
-    deny(e, PolicyError::InvalidScaledRatio)
 }
 pub(crate) fn panic_selector_leaf_required(e: &Env) -> ! {
     deny(e, PolicyError::SelectorLeafRequired)
@@ -218,7 +184,6 @@ pub const K_DOC: u32 = 1;
 pub const K_NONCE: u32 = 2;
 pub const K_SIGNERS_HASH: u32 = 3;
 pub const K_MASTER_SET: u32 = 4;
-pub const K_INVOCATION_COUNT: u32 = 6;
 
 // ---- TTL self-extend -----
 //
@@ -259,21 +224,12 @@ impl RuleKey {
     pub fn master_set_key(&self) -> MasterSetKeyTuple {
         (self.account.clone(), self.rule_id, K_MASTER_SET)
     }
-    pub fn invocation_count_key(&self, window_secs: u64) -> InvocationCountKeyTuple {
-        (
-            self.account.clone(),
-            self.rule_id,
-            K_INVOCATION_COUNT,
-            window_secs,
-        )
-    }
 }
 
 pub type DocKeyTuple = (Address, u32, u32);
 pub type NonceKeyTuple = (Address, u32, u32);
 pub type SignersHashKeyTuple = (Address, u32, u32);
 pub type MasterSetKeyTuple = (Address, u32, u32);
-pub type InvocationCountKeyTuple = (Address, u32, u32, u64);
 
 // ---- stored doc -----
 //

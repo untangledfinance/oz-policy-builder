@@ -17,34 +17,26 @@
 //
 // Run with:
 //   bun run packages/policy-synth/scripts/gen-conformance-fixture.ts \
-//     --explain /tmp/ozpub/explain-blend.json \
-//     --recording /tmp/ozpub/recording-blend.json \
-//     --out contracts/policy-interpreter/tests/_generated_conformance.rs
+//     --recording packages/policy-synth/fixtures/recordings/demo-tx-260725/recording-blend.json \
+//     --out contracts/policy-interpreter/tests/conformance/_generated.rs
 //
-// Restriction: non-oracle surface only. oraclePriceByAsset and signerWeights
-// are out of scope; cases that need them are skipped and counted in the
-// generated header.
+// Restriction: signerWeights is out of scope; cases that need it are skipped
+// and counted in the generated header.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { argv, exit } from 'node:process'
 import { Address, xdr } from '@stellar/stellar-sdk'
 
+import { placeholderOzConfig } from '../src/adapters/oz/adapter.ts'
 import { generateCases } from '../src/synth/deny-cases.ts'
 import { type EvalContext, evaluate } from '../src/synth/evaluate.ts'
-import type { PredicateNode, ScVal } from '../src/types.ts'
+import { synthesizeFromRecording } from '../src/synth/synthesize-from-recording.ts'
+import type { PredicateNode, RecordedTransaction, ScVal } from '../src/types.ts'
 
 // ---------------------------------------------------------------------------
 // Inputs
 // ---------------------------------------------------------------------------
-
-interface ExplainData {
-  ok: boolean
-  data: {
-    policyDocuments: Array<{ encodedPredicate: string; predicateHash: string }>
-    predicateTree: PredicateNode
-  }
-}
 
 interface Recording {
   network: string
@@ -58,19 +50,42 @@ interface Decoded {
   predicateHash: string
 }
 
-function loadExplain(path: string): Decoded {
-  const raw = JSON.parse(readFileSync(path, 'utf8')) as ExplainData
-  const doc = raw.data.policyDocuments[0]
-  if (!doc) throw new Error('explain-blend.json has no policyDocuments[0]')
+/** Synthesise the predicate under test straight from the recording, rather
+ *  than reading a hand-exported explain file. The fixture is then reproducible
+ *  from inputs the repo actually ships: any grammar change flows through the
+ *  same pipeline the product uses, so a stale intermediate cannot drift. */
+function synthesizePredicate(tx: RecordedTransaction, opts: SynthFlags): Decoded {
+  const res = synthesizeFromRecording(
+    tx,
+    {
+      network: 'mainnet',
+      userResponses: {
+        windowSeconds: opts.windowSeconds,
+        invocationLimit: opts.invocationLimit,
+        validUntilLedger: opts.validUntilLedger,
+      },
+      interpreter: { smartAccountAddress: opts.smartAccount, installNonce: 1 },
+      explain: true,
+    },
+    placeholderOzConfig('mainnet')
+  )
+  if (!res.ok) throw new Error(`synthesis failed: ${res.error.code} ${res.error.message}`)
+  const doc = res.data.policyDocuments[0]
+  const tree = res.explain?.predicateTree
+  if (!doc || !tree) throw new Error('synthesis produced no interpreter policy document')
   return {
-    predicate: raw.data.predicateTree,
+    predicate: tree,
     encodedPredicate: doc.encodedPredicate,
     predicateHash: doc.predicateHash,
   }
 }
 
 function loadRecording(path: string): Recording {
-  return JSON.parse(readFileSync(path, 'utf8')) as Recording
+  // The checked-in fixtures under `fixtures/recordings/` are stored as the
+  // `{ok, data}` tool envelope; a hand-exported recording is the bare object.
+  // Accept both so the fixture the repo ships with can drive the generator.
+  const raw = JSON.parse(readFileSync(path, 'utf8')) as Recording | { ok: true; data: Recording }
+  return 'ok' in raw && raw.ok ? raw.data : (raw as Recording)
 }
 
 // Turn an ScVal into its canonical hex ScVal-XDR. The Rust side decodes
@@ -144,11 +159,9 @@ interface SerializedCtx {
   /** Per-arg ScVal-XDR base64 strings; [] = empty args vec. */
   args: string[]
   atLedger: number
-  validUntilLedger: number | null
   nowSeconds: number
   amountByToken: Array<[string, string]>
   windowSpentByToken: Array<[string, number, string]>
-  invocationCountByWindow: Array<[number, number]>
 }
 
 function serializeCtx(ctx: EvalContext): SerializedCtx {
@@ -157,7 +170,6 @@ function serializeCtx(ctx: EvalContext): SerializedCtx {
     fn: ctx.fn,
     args: ctx.args.map(scvalToHex),
     atLedger: ctx.atLedger,
-    validUntilLedger: ctx.validUntilLedger ?? null,
     nowSeconds: ctx.nowSeconds,
     amountByToken: Object.entries(ctx.amountByToken).sort() as Array<[string, string]>,
     windowSpentByToken: Object.entries(ctx.windowSpentByToken)
@@ -168,9 +180,6 @@ function serializeCtx(ctx: EvalContext): SerializedCtx {
           ([ws, v]) => [token, Number(ws), v] as [string, number, string]
         )
       }),
-    invocationCountByWindow: Object.entries(ctx.invocationCountByWindow).sort() as Array<
-      [number, number]
-    >,
   }
 }
 
@@ -178,11 +187,37 @@ function serializeCtx(ctx: EvalContext): SerializedCtx {
 // CLI driver
 // ---------------------------------------------------------------------------
 
-interface ParsedArgs {
+/** Synthesis inputs. Defaults match the checked-in Blend recording so the
+ *  documented one-line regeneration reproduces the committed fixture. */
+interface SynthFlags {
+  smartAccount: string
+  windowSeconds: number
+  invocationLimit: number
+  validUntilLedger: number
+}
+
+interface ParsedArgs extends Partial<SynthFlags> {
   out?: string
-  explain?: string
   recording?: string
   help?: boolean
+}
+
+const SYNTH_DEFAULTS: SynthFlags = {
+  smartAccount: 'CDXO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO4M7R',
+  windowSeconds: 86_400,
+  invocationLimit: 1,
+  validUntilLedger: 200_000_000,
+}
+
+/** Drop the `out`/`recording`/`help` keys and any flag the caller omitted, so
+ *  spreading over the defaults does not overwrite them with `undefined`. */
+function stripUndefined(args: ParsedArgs): Partial<SynthFlags> {
+  const picked: Partial<SynthFlags> = {}
+  if (args.smartAccount !== undefined) picked.smartAccount = args.smartAccount
+  if (args.windowSeconds !== undefined) picked.windowSeconds = args.windowSeconds
+  if (args.invocationLimit !== undefined) picked.invocationLimit = args.invocationLimit
+  if (args.validUntilLedger !== undefined) picked.validUntilLedger = args.validUntilLedger
+  return picked
 }
 
 function parseArgs(args: string[]): ParsedArgs {
@@ -191,14 +226,25 @@ function parseArgs(args: string[]): ParsedArgs {
     const a = args[i]
     if (a === '--help' || a === '-h') out.help = true
     else if (a === '--out') out.out = args[++i]
-    else if (a === '--explain') out.explain = args[++i]
     else if (a === '--recording') out.recording = args[++i]
+    else if (a === '--smart-account') out.smartAccount = args[++i]
+    else if (a === '--window-seconds') out.windowSeconds = Number(args[++i])
+    else if (a === '--invocation-limit') out.invocationLimit = Number(args[++i])
+    else if (a === '--valid-until-ledger') out.validUntilLedger = Number(args[++i])
   }
   return out
 }
 
 function usage(): string {
-  return 'usage: gen-conformance-fixture.ts --explain <explain.json> --recording <recording.json> --out <path.rs>\n'
+  return [
+    'usage: gen-conformance-fixture.ts --recording <recording.json> --out <path.rs>',
+    '  [--smart-account C...] [--window-seconds N] [--invocation-limit N]',
+    '  [--valid-until-ledger N]',
+    '',
+    'The predicate is synthesised from the recording through the same pipeline',
+    'the product uses, so the fixture cannot drift from the shipped grammar.',
+    '',
+  ].join('\n')
 }
 
 interface ConformanceCase {
@@ -215,12 +261,13 @@ function run(): void {
     process.stdout.write(usage())
     return
   }
-  if (!args.out || !args.explain || !args.recording) {
-    throw new Error('--out, --explain, --recording all required')
+  if (!args.out || !args.recording) {
+    throw new Error('--out and --recording are required')
   }
 
-  const explain = loadExplain(args.explain)
+  const synthFlags: SynthFlags = { ...SYNTH_DEFAULTS, ...stripUndefined(args) }
   const recorded = loadRecording(args.recording)
+  const explain = synthesizePredicate(recorded as unknown as RecordedTransaction, synthFlags)
   const inv = recorded.invocations[0]
   if (!inv) throw new Error('recording has zero invocations')
 
@@ -233,8 +280,6 @@ function run(): void {
     nowSeconds: 1_000_000_000,
     amountByToken: {},
     windowSpentByToken: {},
-    invocationCountByWindow: { 86400: 0 },
-    oraclePriceByAsset: {},
   }
 
   const gen = generateCases(explain.predicate, permitCtx)
@@ -251,12 +296,6 @@ function run(): void {
     ctxJson: serializeCtx(gen.permit),
   }
 
-  // Skip oracle-* dimensions. Rust DOES wire the oracle now, but it resolves
-  // prices from the live feed rather than from a supplied snapshot, so a
-  // fixture cannot inject an oracle failure the way the TS context can.
-  // Covering these needs a fixture whose predicate carries oracle leaves plus
-  // a mock feed - the Rust side is exercised directly in tests/oracle_resolve.
-  //
   // Skip dimensions where the TS generator produces a mutated value that
   // does not round-trip through soroban-sdk's host. The TS contract/fn
   // mutators suffix the strkey (`#contract`, `#function`,
@@ -283,10 +322,6 @@ function run(): void {
   // is NOT skipped: a per-call cap read out of the call arguments is
   // supported and covered.
   const skipped = new Set([
-    'oracle_stale',
-    'oracle_missing',
-    'oracle_deviation_exceeded',
-    'oracle_paused',
     'contract',
     'function',
     'scope_contract_fn_arg',
@@ -294,7 +329,7 @@ function run(): void {
     'amount',
     'time_window',
   ])
-  let skippedOracle = 0
+  let skippedUnsupported = 0
   let _skippedMutation = 0
   // Some dimensions (e.g. `map_field_flip`) emit multiple deny cases in a
   // single `generateCases` pass - one per matching comparison. Rust test
@@ -313,7 +348,7 @@ function run(): void {
       continue
     }
     if (skipped.has(deny.dimension)) {
-      skippedOracle++
+      skippedUnsupported++
       continue
     }
     const verdict = evaluate(explain.predicate, deny.ctx)
@@ -337,14 +372,15 @@ function run(): void {
     predicateHash: explain.predicateHash,
     permit: permitCase,
     denies: denyCases,
-    skippedOracle,
+    skippedUnsupported,
+    invocation: { recording: args.recording, out: args.out },
   })
   mkdirSync(dirname(args.out), { recursive: true })
   writeFileSync(args.out, out, 'utf8')
   process.stdout.write(
     `wrote ${1 + denyCases.length} cases (1 permit + ${denyCases.length} deny) to ${
       args.out
-    }; skipped ${skippedOracle} oracle dimensions\n`
+    }; skipped ${skippedUnsupported} unsupported dimensions\n`
   )
 }
 
@@ -359,7 +395,10 @@ interface RenderInputs {
   predicateHash: string
   permit: ConformanceCase
   denies: ConformanceCase[]
-  skippedOracle: number
+  skippedUnsupported: number
+  /** The arguments this run was invoked with, echoed into the header so the
+   *  artifact records the inputs that actually produced it. */
+  invocation: { recording: string; out: string }
 }
 
 function renderFixture(input: RenderInputs): string {
@@ -367,9 +406,8 @@ function renderFixture(input: RenderInputs): string {
   lines.push('//! AUTO-GENERATED by packages/policy-synth/scripts/gen-conformance-fixture.ts')
   lines.push('//! Do not edit by hand. Regenerate with:')
   lines.push('//!   bun run packages/policy-synth/scripts/gen-conformance-fixture.ts \\')
-  lines.push('//!     --explain /tmp/ozpub/explain-blend.json \\')
-  lines.push('//!     --recording /tmp/ozpub/recording-blend.json \\')
-  lines.push('//!     --out contracts/policy-interpreter/tests/conformance/_generated.rs')
+  lines.push(`//!     --recording ${input.invocation.recording} \\`)
+  lines.push(`//!     --out ${input.invocation.out}`)
   lines.push('//!')
   lines.push('//! Conformance harness - same predicate, same contexts, asserted-equal')
   lines.push('//! verdicts between the Rust interpreter and the TypeScript reference')
@@ -378,8 +416,10 @@ function renderFixture(input: RenderInputs): string {
   lines.push('//! (permit or the matching DenyReason.code() string).')
   lines.push('//!')
   lines.push(`//! Predicate hash: ${input.predicateHash}`)
-  lines.push(`//! Skipped oracle dimensions: ${input.skippedOracle} (oracle-* paths need the`)
-  lines.push('//! oracle wiring in dsl.rs that is out of scope this phase).')
+  lines.push(
+    `//! Skipped dimensions: ${input.skippedUnsupported} (mutations the interpreter cannot`
+  )
+  lines.push('//! source on chain, or design divergences - see the skip list in the generator).')
   lines.push('')
   lines.push('extern crate alloc;')
   lines.push('')
@@ -440,57 +480,8 @@ function renderCtxFields(s: SerializedCtx): string {
   parts.push(`fn_name: Symbol::new(&env, ${rustStr(s.fn)})`)
   parts.push(`args`)
   parts.push(`at_ledger: ${s.atLedger}u32`)
-  parts.push(
-    `valid_until_ledger: ${s.validUntilLedger === null ? 'None' : `Some(${s.validUntilLedger}u32)`}`
-  )
   parts.push(`now_seconds: ${s.nowSeconds}u64`)
-  parts.push(`invocation_count_by_window: ${renderInvocationCountList(s.invocationCountByWindow)}`)
-  parts.push(`oracle_price_by_asset: ${renderOracleList(s.oraclePriceByAsset)}`)
   return parts.join(', ')
-}
-
-/** Rust `Vec<(Address, OracleEntry)>`. Entries are emitted so a fixture that
- *  does carry oracle leaves stays faithful; the oracle-* deny dimensions are
- *  still skipped upstream until the Reflector resolver lands. */
-function renderOracleList(
-  items: Record<string, { price: string; timestampSeconds: number } | { error: string }> = {}
-): string {
-  const keys = Object.keys(items)
-  if (keys.length === 0) return 'StdVec::new()'
-  const rendered = keys.map((asset) => {
-    const entry = items[asset]!
-    const value =
-      'error' in entry
-        ? `OracleEntry::Failed(DenyReason::${oracleErrorVariant(entry.error)})`
-        : `OracleEntry::Price { price: ${entry.price}i128, timestamp_seconds: ${entry.timestampSeconds}u64 }`
-    return `(Address::from_str(&env, ${rustStr(asset)}), ${value})`
-  })
-  return `StdVec::from([${rendered.join(', ')}])`
-}
-
-function oracleErrorVariant(error: string): string {
-  switch (error) {
-    case 'stale':
-      return 'OracleStale'
-    case 'missing':
-      return 'OracleMissing'
-    case 'deviation':
-      return 'OracleDeviationExceeded'
-    case 'paused':
-      return 'OraclePaused'
-    case 'decimals':
-      return 'OracleDecimalsMismatch'
-    case 'fingerprint':
-      return 'OracleFingerprintDrift'
-    default:
-      throw new Error(`unknown oracle error kind: ${error}`)
-  }
-}
-
-function renderInvocationCountList(items: Array<[number, number]>): string {
-  if (items.length === 0) return 'StdVec::new()'
-  const inner = items.map(([ws, v]) => `(${ws}u64, ${v}u32)`).join(', ')
-  return `vec![${inner}]`
 }
 
 function rustStr(s: string): string {

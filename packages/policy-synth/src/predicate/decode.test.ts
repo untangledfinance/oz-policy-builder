@@ -87,45 +87,6 @@ describe('decodePredicate - round-trips every leaf kind', () => {
     expectRoundTrip(node)
   })
 
-  it('call_arg_scaled (slippage floor) preserves num/den exactly', () => {
-    const node: PredicateNode = {
-      op: 'gte',
-      left: { kind: 'call_arg', index: 1 },
-      right: { kind: 'call_arg_scaled', index: 0, num: '95', den: '100' },
-    }
-    expect(roundTrip(node)).toEqual(node)
-  })
-
-  it('oracle_price vs oracle_threshold keeps the declared decimal basis', () => {
-    // The basis is the whole point of the leaf; losing it on decode would
-    // describe a bound that is 10^5 off.
-    const node: PredicateNode = {
-      op: 'and',
-      children: [
-        {
-          op: 'eq',
-          left: { kind: 'call_contract' },
-          right: { kind: 'literal_address', value: CONTRACT },
-        },
-        {
-          op: 'lt',
-          left: { kind: 'oracle_price', asset: TOKEN_A },
-          right: { kind: 'oracle_threshold', value: '250000000', decimals: 14 },
-        },
-      ],
-    }
-    expectRoundTrip(node)
-  })
-
-  it('invocation_count_in_window', () => {
-    const node: PredicateNode = {
-      op: 'lte',
-      left: { kind: 'invocation_count_in_window', windowSecs: 86400 },
-      right: { kind: 'literal_u32', value: 1 },
-    }
-    expect(roundTrip(node)).toEqual(node)
-  })
-
   it('literal_bytes round-trips as hex', () => {
     const node: PredicateNode = {
       op: 'eq',
@@ -264,35 +225,10 @@ describe('decode -> describe: an installed policy explains itself', () => {
           left: { kind: 'call_fn' },
           right: { kind: 'literal_symbol', value: 'transfer' },
         },
-        {
-          op: 'lt',
-          left: { kind: 'invocation_count_in_window', windowSecs: 86400 },
-          right: { kind: 'literal_u32', value: 5 },
-        },
       ],
     }
     const lines = describePredicate(decodePredicate(encodePredicate(node).encodedPredicate))
     expect(lines).toContain(`Contract must be ${CONTRACT}`)
     expect(lines).toContain('Function must be transfer')
-    expect(lines).toContain('At most 5 calls per 86400 seconds')
-  })
-
-  it('counts the call being evaluated: `lt N` allows N, `lte N` allows N+1', () => {
-    // The contract increments the counter on PERMIT (commit_state_updates), so
-    // at evaluation time it holds PRIOR calls. `< N` therefore permits the Nth
-    // call and `<= N` permits one more. Restating the raw comparison would
-    // understate the real allowance by one.
-    const at = (op: 'lt' | 'lte'): string[] =>
-      describePredicate(
-        decodePredicate(
-          encodePredicate({
-            op,
-            left: { kind: 'invocation_count_in_window', windowSecs: 3600 },
-            right: { kind: 'literal_u32', value: 5 },
-          }).encodedPredicate
-        )
-      )
-    expect(at('lt')).toContain('At most 5 calls per 3600 seconds')
-    expect(at('lte')).toContain('At most 6 calls per 3600 seconds')
   })
 })

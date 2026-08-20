@@ -168,7 +168,6 @@ export const ComposeUserResponsesSchema = z
       .string()
       .regex(/^[0-9]+$/)
       .optional(),
-    invocationLimit: z.number().int().positive().optional(),
     // Swap recipient allowlist (SoroSwap call_arg[3]). Each entry must be a
     // Stellar address (G... wallet or C... contract); supplying it REPLACES the
     // default pin to the recorded recipient. Validated with the shared StrKey
@@ -287,16 +286,6 @@ export const PredicateLeafSchema: z.ZodType<unknown> = z.lazy(() =>
     }),
     // num/den are i128 on chain; JSON numbers lose precision past 2^53,
     // so the wire is a decimal string. The contract refuses `den == 0` and
-    // `num <= 0` / `den <= 0` at install (types.ts:162-163 + the install
-    // gate); mirroring that bound here closes the gap where simulate /
-    // verify green-light a policy the install gate will reject. The
-    // positive-only regex is the cheapest unambiguous check.
-    z.object({
-      kind: z.literal('call_arg_scaled'),
-      index: z.number().int().nonnegative(),
-      num: z.string().regex(/^[1-9][0-9]*$/),
-      den: z.string().regex(/^[1-9][0-9]*$/),
-    }),
     z.object({ kind: z.literal('amount'), token: z.string() }),
     z.object({
       kind: z.literal('window_spent'),

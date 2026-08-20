@@ -9,7 +9,7 @@
 //      `Sdk.TransactionBuilder.fromXDR` as a Soroban Transaction. This
 //      closes the "non-empty string" gap: a builder that produced
 //      arbitrary base64 would pass a length check but fail the decode.
-//   4. The literal_bytes / call_arg_scaled / literal_u32 schema fixes
+//   4. The literal_bytes / literal_u32 schema fixes
 //      hold (regression coverage for the bug-fixes wired in this PR).
 //
 // The RPC client is mocked: install/revoke need getAccount +
@@ -540,30 +540,6 @@ describe('PredicateLeafSchema fixes (regression coverage)', () => {
     expect(
       PredicateLeafSchema.safeParse({ kind: 'literal_bytes', value: 'deadbeef' }).success
     ).toBe(true)
-  })
-
-  it('rejects call_arg_scaled with num=0 (contract refuses at install)', async () => {
-    const { PredicateLeafSchema } = await import('./schemas.ts')
-    expect(
-      PredicateLeafSchema.safeParse({
-        kind: 'call_arg_scaled',
-        index: 0,
-        num: '0',
-        den: '1',
-      }).success
-    ).toBe(false)
-  })
-
-  it('rejects call_arg_scaled with den=0', async () => {
-    const { PredicateLeafSchema } = await import('./schemas.ts')
-    expect(
-      PredicateLeafSchema.safeParse({
-        kind: 'call_arg_scaled',
-        index: 0,
-        num: '1',
-        den: '0',
-      }).success
-    ).toBe(false)
   })
 
   it('rejects literal_u32 > U32_MAX', async () => {

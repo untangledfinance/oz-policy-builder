@@ -21,7 +21,6 @@ import {
   MAX_SCVAL_CLONE_DEPTH,
   type Network,
   OZ_LIMITS,
-  type PredicateLeaf,
   type PredicateNode,
   type ProposedPolicy,
   type RecordedTransaction,
@@ -426,13 +425,7 @@ function synthesizeFromRecordingInner(
     }
     // Cross-layer L3: warnings collected from `buildPermitContext` (currently
     // policy's `warnings[]` so the caller sees them on the success envelope.
-    const permitCtxResult = buildPermitContext(
-      tx,
-      scope,
-      topLevel,
-      opts.userResponses,
-      startingPredicate
-    )
+    const permitCtxResult = buildPermitContext(tx, scope, topLevel, opts.userResponses)
     const permitCtx = permitCtxResult.ctx
     permitCtxWarnings = permitCtxResult.warnings
 
@@ -505,7 +498,7 @@ function synthesizeFromRecordingInner(
 
     if (testSeam !== undefined) {
       interpreterPolicyDocument = {
-        grammarVersion: 1,
+        grammarVersion: 2,
         installNonce: interpreterOpts.installNonce ?? 1,
         encodedPredicate,
         predicateHash,
@@ -669,11 +662,6 @@ function validateOptions(opts: SynthesizeFromRecordingOptions): ToolError | null
         `validUntilLedger must be a positive u32 ledger sequence (<= ${SOROBAN_LIMITS.u32Max}), got: ${ur.validUntilLedger}`
       )
     }
-    if (ur.invocationLimit !== undefined && !isPositiveInt(ur.invocationLimit)) {
-      return synthesisError(
-        `invocationLimit must be a positive integer, got: ${ur.invocationLimit}`
-      )
-    }
     if (ur.limitAmount !== undefined && !isPositiveI128(ur.limitAmount)) {
       return synthesisError(
         `limitAmount must be a positive i128 decimal string within [1, ${I128_MAX}] (2^127-1), got: ${ur.limitAmount}`
@@ -778,8 +766,7 @@ function buildPermitContext(
   tx: RecordedTransaction,
   scope: Extract<ScopeDecision, { kind: 'call_contract' }>,
   topLevel: ContractInvocation,
-  userResponses: ComposeUserResponses | undefined,
-  predicate: PredicateNode
+  userResponses: ComposeUserResponses | undefined
 ): { ctx: EvalContext; warnings: string[] } {
   const amountByToken: Record<string, string> = {}
   const totals = new Map<string, bigint>()
@@ -801,7 +788,6 @@ function buildPermitContext(
     nowSeconds: tx.fetchedAt,
     amountByToken,
     windowSpentByToken: {},
-    invocationCountByWindow: {},
   }
   if (userResponses?.validUntilLedger !== undefined) {
     ctx.validUntilLedger = userResponses.validUntilLedger
@@ -842,4 +828,3 @@ function cloneDepthError(value: { type: string; value: unknown }): never {
   err.depthContext = value.type
   throw err
 }
-

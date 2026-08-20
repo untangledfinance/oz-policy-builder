@@ -35,8 +35,7 @@ const interpreterSimulation: SimulationResult = {
 /** Build the predicate for the Blend yield-claim walkthrough:
  *  and(
  *    eq(call_contract, blend_pool),
- *    eq(call_fn, 'claim'),
- *    lte(invocation_count_in_window(86400), 1)
+ *    eq(call_fn, 'claim')
  *  )
  */
 function blendClaimPredicate(): PredicateNode {
@@ -52,11 +51,6 @@ function blendClaimPredicate(): PredicateNode {
         op: 'eq',
         left: { kind: 'call_fn' },
         right: { kind: 'literal_symbol', value: 'claim' },
-      },
-      {
-        op: 'lte',
-        left: { kind: 'invocation_count_in_window', windowSecs: 86400 },
-        right: { kind: 'literal_u32', value: 1 },
       },
     ],
   }
@@ -113,8 +107,7 @@ function sep41PolicyRefs(): PolicyRef[] {
  *  and(
  *    eq(call_contract, soroswap_router),
  *    eq(call_arg[2], literal_vec([XLM, USDC])),
- *    lte(amount(swap_input_token), max_input),
- *    lt(oracle_price(XLM), 0.10_usd)
+ *    lte(amount(swap_input_token), max_input)
  *  )
  */
 function soroswapPredicate(): PredicateNode {
@@ -142,11 +135,6 @@ function soroswapPredicate(): PredicateNode {
         left: { kind: 'amount', token: XLM_SAC },
         right: { kind: 'literal_i128', value: '100000000' },
       },
-      {
-        op: 'lt',
-        left: { kind: 'oracle_price', asset: XLM_SAC },
-        right: { kind: 'oracle_threshold', value: '10000000', decimals: 9 },
-      },
     ],
   }
 }
@@ -167,11 +155,10 @@ describe('buildReviewCardSummary - Blend yield-claim walkthrough', () => {
     tsModelSimulation
   )
 
-  it('emits one constraint line per leaf (contract / function / invocation_count)', () => {
+  it('emits one constraint line per leaf (contract / function)', () => {
     expect(summary.constraints).toEqual([
       `Contract must be ${BLEND_POOL}`,
       `Function must be claim`,
-      `At most 2 calls per 86400 seconds`,
     ])
   })
 
@@ -185,7 +172,7 @@ describe('buildReviewCardSummary - Blend yield-claim walkthrough', () => {
 
   it('plainEnglish concatenates ruleName + the constraint sentences', () => {
     expect(summary.plainEnglish).toBe(
-      `review-card-rule: Contract must be ${BLEND_POOL}; Function must be claim; At most 2 calls per 86400 seconds`
+      `review-card-rule: Contract must be ${BLEND_POOL}; Function must be claim`
     )
   })
 })
@@ -214,7 +201,7 @@ describe('buildReviewCardSummary - SEP-41 recipient allowlist walkthrough', () =
   })
 })
 
-describe('buildReviewCardSummary - SoroSwap exact-path+amount+oracle walkthrough', () => {
+describe('buildReviewCardSummary - SoroSwap exact-path+amount walkthrough', () => {
   const summary = buildReviewCardSummary(
     soroswapPredicate(),
     [],
@@ -228,10 +215,6 @@ describe('buildReviewCardSummary - SoroSwap exact-path+amount+oracle walkthrough
 
   it('emits the amount-bound line', () => {
     expect(summary.constraints).toContain(`Amount <= 100000000`)
-  })
-
-  it('emits the oracle-price line with the < operator and asset + bound', () => {
-    expect(summary.constraints).toContain(`Only when oracle_price(${XLM_SAC}) < 10000000 (9 dp)`)
   })
 
   it('emits the contract line for the router target', () => {
@@ -261,11 +244,11 @@ describe('contentHash', () => {
     const tweaked: PredicateNode = {
       ...blendClaimPredicate(),
       children: [
-        ...blendClaimPredicate().children.slice(0, 2),
+        ...blendClaimPredicate().children.slice(0, 1),
         {
-          op: 'lte',
-          left: { kind: 'invocation_count_in_window', windowSecs: 86400 },
-          right: { kind: 'literal_u32', value: 7 },
+          op: 'eq',
+          left: { kind: 'call_fn' },
+          right: { kind: 'literal_symbol', value: 'withdraw' },
         },
       ],
     }
@@ -541,15 +524,5 @@ describe('buildReviewCardSummary - per-call caps on a bare call_arg', () => {
       },
     })[0]
     expect(line).toContain('Path must be exactly')
-  })
-
-  it('renders a slippage floor against the input argument', () => {
-    expect(
-      describePredicate({
-        op: 'gte',
-        left: { kind: 'call_arg', index: 1 },
-        right: { kind: 'call_arg_scaled', index: 0, num: '95', den: '100' },
-      })
-    ).toEqual(['arg[1] >= arg[0] * 95/100'])
   })
 })

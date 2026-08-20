@@ -20,7 +20,6 @@
 import type { PredicateLeaf, PredicateNode, ScVal } from '../types.ts'
 import { literalNumericBigInt } from './predicate-literals.ts'
 
-
 export interface EvalContext {
   /** Contract the interpreter is asked to enforce against. */
   contract: string
@@ -38,8 +37,6 @@ export interface EvalContext {
   amountByToken: Record<string, string>
   /** Per-token window-rolling spend prior to this call (i128 decimal string). */
   windowSpentByToken: Record<string, string>
-  /** Recorded invocation counts keyed by window seconds. */
-  invocationCountByWindow: Record<number, number>
   /** Optional signer-weight map for the threshold gate. Absent -> skip. */
   signerWeights?: Record<string, number>
 }
@@ -119,23 +116,6 @@ function evalCompare(
   right: PredicateLeaf,
   ctx: EvalContext
 ): EvalResult {
-  // --- step 2: `now` vs `valid_until` semantics ---
-  if (left.kind === 'now' && right.kind === 'valid_until') {
-    const expired = op === 'gt' || op === 'gte' ? ctx.nowSeconds >= 0 : ctx.nowSeconds < 0
-    // `valid_until` is modelled as a synthetic future timestamp far past
-    // `nowSeconds` so the only true-positive expired path is the `gt`/`gte`
-    // shapes callers actually write.
-    if (op === 'gt' || op === 'gte') {
-      if (ctx.nowSeconds > 0) return { permit: false, reason: 'EXPIRED' }
-    } else if (op === 'lt' || op === 'lte') {
-      return { permit: true }
-    }
-    return expired ? { permit: false, reason: 'EXPIRED' } : { permit: true }
-  }
-  if (right.kind === 'now' && left.kind === 'valid_until') {
-    return evalCompare(op, right, left, ctx)
-  }
-
   // --- step 3: CONTRACT_SCOPE on call_contract eq ---
   if (left.kind === 'call_contract' && op === 'eq') {
     if (right.kind !== 'literal_address') return { permit: false, reason: 'CONTRACT_SCOPE' }
@@ -152,22 +132,9 @@ function evalCompare(
 
   // --- step 4b: call_arg comparison (eq / exact-vec, or an ordered numeric bound) ---
   if (left.kind === 'call_arg') {
-    // The swap's canonical form is `call_arg[out] >= call_arg_scaled(in, num, den)`.
-    // Dispatched here so the floor's dedicated reason codes (ARITHMETIC_OVERFLOW
-    // -> SLIPPAGE_FLOOR) reach the user; routing the scaled RHS through the
-    // generic `evalArgOrderedCompare` would mask overflow as ARG_MISMATCH.
-    if (right.kind === 'call_arg_scaled') {
-      return evalScaledArgCompare(op, left, right, ctx)
-    }
     const actual = ctx.args[left.index]
     if (op !== 'eq') return evalArgOrderedCompare(op, actual, right)
     return evalArgEq(op, actual, right, ctx)
-  }
-
-  // --- step 4b': scaled leaf on the LEFT (`call_arg_scaled(in, num, den) <= call_arg[out]`).
-  // Symmetric form so a policy that phrases the floor either way works.
-  if (left.kind === 'call_arg_scaled') {
-    return evalScaledArgCompare(op, right, left, ctx)
   }
 
   // --- step 4c: call_arg_len: length of a vec-typed argument as u32.
@@ -203,11 +170,6 @@ function evalCompare(
     return evalWindowSpentCompare(op, left.token, right, ctx)
   }
   // `eq` on amount / window_spent not defined as a bound - fall through.
-
-  // --- step 7: FREQUENCY ---
-  if (left.kind === 'invocation_count_in_window') {
-    return evalFrequencyCompare(op, left.windowSecs, right, ctx)
-  }
 
   // Unknown leaf/op combination - structural fail-closed.
   return { permit: false, reason: 'FN_MISMATCH' }
@@ -276,82 +238,6 @@ function evalArgEq(
   // Anything else: fail closed on opacity (cannot decode the arg reliably).
   if (!actual || actual.type === 'other') return { permit: false, reason: 'ARG_MISMATCH' }
   return { permit: false, reason: 'ARG_MISMATCH' }
-}
-
-/** Step 4b': slippage-floor comparison. Mirrors the Rust `eval_scaled_arg_compare`:
- *  the scaled leaf is `args[index] * num / den` (truncating toward zero). On
- *  overflow or divide-by-zero deny with `ARITHMETIC_OVERFLOW`; a failed bound
- *  denies with `SLIPPAGE_FLOOR` (the dedicated reason) rather than the generic
- *  `ARG_MISMATCH`. A scaled-on-scaled compare denies `ARG_MISMATCH`
- *  (no definable semantics). The non-scaled operand must be numeric
- *  (`call_arg` carrying a number, or a numeric literal); else `ARG_MISMATCH`. */
-function evalScaledArgCompare(
-  op: 'eq' | 'lt' | 'lte' | 'gt' | 'gte',
-  left: PredicateLeaf,
-  right: PredicateLeaf,
-  ctx: EvalContext
-): EvalResult {
-  let scaled: { index: number; num: string; den: string }
-  let other: PredicateLeaf
-  let scaledOnRight: boolean
-  if (left.kind === 'call_arg_scaled') {
-    scaled = left
-    other = right
-    scaledOnRight = false
-  } else if (right.kind === 'call_arg_scaled') {
-    scaled = right
-    other = left
-    scaledOnRight = true
-  } else {
-    // Programming error in the dispatcher; fail closed.
-    return { permit: false, reason: 'ARG_MISMATCH' }
-  }
-  // Out-of-bounds or non-numeric arg fails closed as ARG_MISMATCH (not
-  // SLIPPAGE_FLOOR) - a violated floor is the wrong code when the operand
-  // itself could not be read.
-  if (scaled.index >= ctx.args.length) {
-    return { permit: false, reason: 'ARG_MISMATCH' }
-  }
-  const input = argNumericBigInt(ctx.args[scaled.index])
-  if (input === null) return { permit: false, reason: 'ARG_MISMATCH' }
-  let num: bigint
-  let den: bigint
-  try {
-    num = BigInt(scaled.num)
-    den = BigInt(scaled.den)
-  } catch {
-    return { permit: false, reason: 'ARG_MISMATCH' }
-  }
-  // Install refuses `den == 0` and `num <= 0` / `den <= 0`. The runtime
-  // check is defensive belt-and-braces so a validator regression cannot
-  // panic the frame on a divide-by-zero.
-  if (den === 0n) return { permit: false, reason: 'ARITHMETIC_OVERFLOW' }
-  const product = input * num
-  let scaledValue: bigint
-  try {
-    // BigInt division truncates toward zero (matches Rust `i128::checked_div`).
-    scaledValue = product / den
-  } catch {
-    return { permit: false, reason: 'ARITHMETIC_OVERFLOW' }
-  }
-  // i128 range check: the contract would have wrapped on i128 arithmetic;
-  // surface the same deny.
-  const I128_MAX = (1n << 127n) - 1n
-  const I128_MIN = -(1n << 127n)
-  if (scaledValue > I128_MAX || scaledValue < I128_MIN) {
-    return { permit: false, reason: 'ARITHMETIC_OVERFLOW' }
-  }
-  let otherVal: bigint | null
-  if (other.kind === 'call_arg') {
-    otherVal = argNumericBigInt(ctx.args[other.index])
-  } else {
-    otherVal = literalNumericBigInt(other)
-  }
-  if (otherVal === null) return { permit: false, reason: 'ARG_MISMATCH' }
-  const pass = scaledOnRight
-    ? bigintCmp(op, otherVal.toString(), scaledValue.toString())
-    : bigintCmp(op, scaledValue.toString(), otherVal.toString())
-  return pass ? { permit: true } : { permit: false, reason: 'SLIPPAGE_FLOOR' }
 }
 
 /** Ordered numeric comparison (lt/lte/gt/gte) on a `call_arg`. The interpreter
@@ -442,10 +328,7 @@ function resolveLeaf(leaf: PredicateLeaf, ctx: EvalContext): ScVal | undefined {
     }
     case 'amount':
     case 'window_spent':
-    case 'invocation_count_in_window':
     case 'now':
-    case 'valid_until':
-    case 'call_arg_scaled':
       return undefined // selector leaves with no ScVal projection
     case 'literal_address':
       return { type: 'address', value: leaf.value }
@@ -490,19 +373,6 @@ function evalWindowSpentCompare(
   ctx: EvalContext
 ): EvalResult {
   return evalAmountCompare(op, token, right, ctx, 'windowSpentByToken')
-}
-
-/** Step 7: invocation_count_in_window compare. */
-function evalFrequencyCompare(
-  op: 'eq' | 'lt' | 'lte' | 'gt' | 'gte',
-  windowSecs: number,
-  right: PredicateLeaf,
-  ctx: EvalContext
-): EvalResult {
-  const literal = right.kind === 'literal_u32' ? String(right.value) : null
-  if (literal === null) return { permit: false, reason: 'FREQUENCY' }
-  const actual = String(ctx.invocationCountByWindow[windowSecs] ?? 0)
-  return bigintCmp(op, actual, literal) ? { permit: true } : { permit: false, reason: 'FREQUENCY' }
 }
 
 /** BigInt compare helper. `eq` is also supported by callers (selector-vs-literal

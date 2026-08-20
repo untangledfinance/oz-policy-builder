@@ -202,24 +202,9 @@ describe('synthesizeFromRecording - SEP-41 subscription', () => {
 })
 
 describe('synthesizeFromRecording - Blend yield-claim', () => {
-  it('with count + window -> invocation_count flagged Path-B, no spending_limit', () => {
-    const res = synthesizeFromRecording(
-      blendTx(),
-      { network: 'mainnet', userResponses: { windowSeconds: 86400, invocationLimit: 3 } },
-      ozConfig
-    )
-    expect(res.ok).toBe(true)
-    if (!res.ok) return
-    expect(
-      res.data.policyRefs.some(
-        (r) => r.kind === 'oz_builtin' && r.primitive.primitive === 'spending_limit'
-      )
-    ).toBe(false)
-    expect(res.data.warnings.some((w) => w.includes('invocation-count'))).toBe(true)
-    expect(res.data.warnings.some((w) => w.includes('per-method scoping to `claim`'))).toBe(true)
-  })
-
-  it('without a frequency bound -> FREQUENCY_BOUND_MISSING, no invocation_count, no spending_limit', () => {
+  it('incoming-only flow -> FREQUENCY_BOUND_MISSING surfaced, no spending_limit', () => {
+    // The grammar cannot bound call frequency, so an incoming-only flow always
+    // reports that gap rather than silently implying a cap.
     const res = synthesizeFromRecording(blendTx(), { network: 'mainnet' }, ozConfig)
     expect(res.ok).toBe(true)
     if (!res.ok) return
@@ -228,14 +213,13 @@ describe('synthesizeFromRecording - Blend yield-claim', () => {
         (r) => r.kind === 'oz_builtin' && r.primitive.primitive === 'spending_limit'
       )
     ).toBe(false)
-    expect(res.data.warnings.some((w) => w.includes('invocation-count'))).toBe(false)
-    expect(res.data.warnings.some((w) => w.includes('frequency bound'))).toBe(true)
+    expect(res.data.warnings.some((w) => w.includes('frequency'))).toBe(true)
     expect(res.data.ambiguities.some((a) => a.code === 'FREQUENCY_BOUND_MISSING')).toBe(true)
   })
 })
 
 describe('synthesizeFromRecording - SoroSwap swap', () => {
-  it('does NOT emit a spending_limit for a spent token that is not the scope contract; flags it + oracle + path Path-B', () => {
+  it('does NOT emit a spending_limit for a spent token that is not the scope contract; flags it + path Path-B', () => {
     const res = synthesizeFromRecording(
       soroswapTx(),
       { network: 'mainnet', userResponses: { windowSeconds: 86400, limitAmount: '50000000' } },
@@ -253,7 +237,6 @@ describe('synthesizeFromRecording - SoroSwap swap', () => {
     expect(
       res.data.warnings.some((w) => w.includes('CallContract context scoped to that token'))
     ).toBe(true)
-    expect(res.data.warnings.some((w) => w.includes('oracle price'))).toBe(true)
     expect(res.data.warnings.some((w) => w.includes('per-method scoping'))).toBe(true)
     // No synthetic per-arg path comparison is fabricated.
     expect(res.data.warnings.some((w) => w.includes('argument comparison'))).toBe(false)
@@ -496,7 +479,6 @@ describe('synthesizeFromRecording - a no-op invocation yields no OZ primitive (f
         userResponses: {
           windowSeconds: 2592000,
           limitAmount: '1000000000',
-          invocationLimit: 5,
           validUntilLedger: 1000000,
         },
       },
@@ -635,7 +617,6 @@ function interpreterOpts(extra?: __TestInterpreterAdapterOptions): {
     interpreter: {
       smartAccountAddress: extra?.smartAccountAddress ?? SMART_ACCOUNT,
       ...(extra?.installNonce !== undefined ? { installNonce: extra.installNonce } : {}),
-      ...(extra?.oracleParams ? { oracleParams: extra.oracleParams } : {}),
       ...(extra?.__testPredicateNode !== undefined
         ? { __testPredicateNode: extra.__testPredicateNode }
         : {}),
@@ -803,7 +784,7 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     const doc = res.data.policyDocuments[0]
     expect(doc).toBeDefined()
     if (!doc) return
-    expect(doc.grammarVersion).toBe(1)
+    expect(doc.grammarVersion).toBe(2)
     expect(typeof doc.encodedPredicate).toBe('string')
     expect(doc.predicateHash).toMatch(/^[0-9a-f]{64}$/)
     // The interpreter ref + the OZ spending_limit ref both install against the
@@ -820,7 +801,7 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     expect(res.data.warnings.some((w) => w.includes('per-method scoping'))).toBe(false)
   })
 
-  it('SoroSwap swap: routes the exact path (eq_seq) + oracle bound into a predicate doc; OZ does not emit spending_limit', () => {
+  it('SoroSwap swap: routes the exact path (eq_seq) into a predicate doc; OZ does not emit spending_limit', () => {
     const res = synthesizeFromRecording(
       validSoroswapTx(),
       {
@@ -828,17 +809,14 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
         userResponses: {
           windowSeconds: 86400,
           limitAmount: '50000000',
-          oraclePriceBound: [
-            { asset: XLM_TOKEN_C, operator: 'lt', value: '50000000', decimals: 9 },
-          ],
         },
       },
       ozConfig
     )
     expect(res.ok).toBe(true)
     if (!res.ok) return
-    // The doc carries the path + oracle bound; OZ emits no spending_limit
-    // because the token != scope.contract; per-method is in the predicate.
+    // The doc carries the path; OZ emits no spending_limit because the token
+    // != scope.contract; per-method is in the predicate.
     expect(res.data.policyDocuments).toHaveLength(1)
     expect(res.data.policyRefs.some((r) => r.kind === 'interpreter')).toBe(true)
     expect(
@@ -846,8 +824,7 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
         (r) => r.kind === 'oz_builtin' && r.primitive.primitive === 'spending_limit'
       )
     ).toBe(false)
-    // The oracle + per-method warnings are GONE.
-    expect(res.data.warnings.some((w) => w.includes('oracle price'))).toBe(false)
+    // The per-method warning is GONE.
     expect(res.data.warnings.some((w) => w.includes('per-method scoping'))).toBe(false)
   })
 
@@ -1084,21 +1061,6 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
     expect(res.error.message).toContain('contract')
-  })
-
-  it('oracleParams widening -> SYNTHESIS_ERROR (tighten-only enforced at options boundary)', () => {
-    const res = synthesizeFromRecording(
-      validSep41Tx(),
-      {
-        ...interpreterOpts({ oracleParams: { maxStalenessSeconds: 601 } }),
-        userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
-      },
-      ozConfig
-    )
-    expect(res.ok).toBe(false)
-    if (res.ok) return
-    expect(res.error.code).toBe('SYNTHESIS_ERROR')
-    expect(res.error.message).toContain('maxStalenessSeconds')
   })
 
   it('merged output is deterministic: identical (tx, opts) -> byte-identical ProposedPolicy across runs', () => {
@@ -1340,54 +1302,6 @@ describe('synthesizeFromRecording - self-verify + minimise (P5b)', () => {
     expect(JSON.stringify(a)).toBe(JSON.stringify(b))
   })
 
-  it('SoroSwap oracle bound: the intended call permits because the permit-context oracle price satisfies the bound', () => {
-    // The SoroSwap fixture with an oracle bound `< 50000000`. The
-    // self-verify pipeline builds a permit-context oracle price that
-    // satisfies `< 50000000` (price = bound - 1 = 49999999). The
-    // harness then exercises stale / missing / deviation / paused deny
-    // paths, all of which the predicate must catch. The intended call
-    // permits and the harness passes.
-    const overBroad: PredicateNode = {
-      op: 'and',
-      children: [
-        {
-          op: 'eq',
-          left: { kind: 'call_contract' },
-          right: { kind: 'literal_address', value: SOROSWAP_ROUTER },
-        },
-        {
-          op: 'eq',
-          left: { kind: 'call_fn' },
-          right: { kind: 'literal_symbol', value: 'swap_exact_tokens_for_tokens' },
-        },
-        {
-          op: 'eq',
-          left: { kind: 'call_arg', index: 2 },
-          right: {
-            kind: 'literal_vec',
-            elements: [
-              { kind: 'literal_address', value: XLM_TOKEN_C },
-              { kind: 'literal_address', value: USDC_TOKEN_C },
-            ],
-          },
-        },
-        {
-          op: 'lt',
-          left: { kind: 'oracle_price', asset: XLM_TOKEN_C },
-          right: { kind: 'oracle_threshold', value: '50000000', decimals: 9 },
-        },
-      ],
-    }
-    const res = synthesizeFromRecording(
-      validSoroswapTx(),
-      { ...interpreterOpts({ __testPredicateNode: overBroad }) },
-      ozConfig
-    )
-    expect(res.ok).toBe(true)
-    if (!res.ok) return
-    expect(res.data.policyDocuments).toHaveLength(1)
-  })
-
   it('rejects a self-verify DENY_CASE_FAILURE with `details.failures` carrying the dimension(s) that flipped', () => {
     // OR over-broad: the harness's `contract` deny case changes contract but
     // keeps fn=transfer, and the OR permits via the fn branch. The harness
@@ -1592,8 +1506,6 @@ function decodeScValToLeaf(scval: xdr.ScVal): PredicateLeaf | null {
           return { kind: 'call_fn' }
         case 'now':
           return { kind: 'now' }
-        case 'valid_until':
-          return { kind: 'valid_until' }
       }
       // Symbols that aren't a tag are literal_symbols at the top level.
       return { kind: 'literal_symbol', value: s }
@@ -1636,11 +1548,6 @@ function decodeScValToLeaf(scval: xdr.ScVal): PredicateLeaf | null {
             token: Address.fromScAddress(addr.address()).toString(),
             windowSeconds: Number(BigInt(secs.u64().toString())),
           }
-        }
-        case 'oracle_price': {
-          const addr = vec[1]
-          if (addr?.switch().name !== 'scvAddress') return null
-          return { kind: 'oracle_price', asset: Address.fromScAddress(addr.address()).toString() }
         }
         case 'invocation_count': {
           const secs = vec[1]

@@ -11,7 +11,6 @@
 //       both empty -> INSTALL_BUILD_FAILED
 //   - refuses a caller-supplied `predicateHash` that does not match
 //     sha256(encodedPredicate)
-//   - void-encodes the optional oracle params when absent
 //   - sorts struct keys alphabetically (the host compares by symbol STRING,
 //     not XDR bytes - a regression here would be a silent wire format break)
 //
@@ -33,7 +32,7 @@ const DEPLOYER = Keypair.random().publicKey()
 
 function makeEncodedPredicate(): { encodedPredicate: string; predicateHash: string } {
   // eq(call_fn, "batch_add_signer") - the smallest predicate the on-chain
-  // grammar accepts, no oracle leaves, no need for a non-oracle envelope pin.
+  // grammar accepts.
   const enc = encodePredicate({
     op: 'eq',
     left: { kind: 'call_fn' },
@@ -139,30 +138,22 @@ describe('buildAddContextRuleArgs - happy path', () => {
     //
     // This list mirrors the builder's own, so it pins ORDER and catches a
     // field being dropped from one side. It canNOT catch a field missing
-    // from BOTH - which is exactly how `oracle_max_xfeed_dev_bps` shipped:
-    // the contract gained it, neither this list nor the builder did, and
-    // every install failed on chain with `Error(Object, UnexpectedSize)`.
-    // Only a real install against a deployed contract closes that gap.
-    expect(fields).toEqual([
-      'grammar_version',
-      'install_nonce',
-      'oracle_max_deviation_bps',
-      'oracle_max_staleness_seconds',
-      'oracle_max_xfeed_dev_bps',
-      'predicate',
-      'predicate_hash',
-    ])
+    // from BOTH: the host unpacks the struct by field count, so a field the
+    // contract has and neither this list nor the builder does fails every
+    // install on chain with `Error(Object, UnexpectedSize)`. Only a real
+    // install against a deployed contract closes that gap. The list must
+    // match `PolicyInstallParams` in contracts/policy-interpreter/src/types.rs.
+    expect(fields).toEqual(['grammar_version', 'install_nonce', 'predicate', 'predicate_hash'])
 
     // The pointer sorted alphabetically by symbol string; str-equivalent keys
     // produce the contract's view of the struct. Sanity-check the values.
     const byField = Object.fromEntries(inner.map((e) => [e.key().sym().toString(), e.val()]))
     expect(byField.grammar_version?.switch().name).toBe('scvU32')
-    expect(byField.grammar_version?.u32()).toBe(1)
+    // Must equal the contract's SELF_VERSION; a mismatch is refused at install.
+    expect(byField.grammar_version?.u32()).toBe(2)
     expect(byField.install_nonce?.u32()).toBe(7)
     expect(byField.predicate?.switch().name).toBe('scvBytes')
     expect(byField.predicate_hash?.switch().name).toBe('scvBytes')
-    expect(byField.oracle_max_staleness_seconds?.switch().name).toBe('scvVoid')
-    expect(byField.oracle_max_deviation_bps?.switch().name).toBe('scvVoid')
   })
 
   it('round-trips the predicate hash: sha256(encodedPredicate) matches predicateHash', () => {
@@ -174,23 +165,6 @@ describe('buildAddContextRuleArgs - happy path', () => {
     const bytes = Buffer.from(predicate.bytes())
     const computed = createHash('sha256').update(bytes).digest()
     expect(Buffer.from(hash.bytes()).equals(computed)).toBe(true)
-  })
-
-  it('encodes a non-default oracle param as ScVal::U32', () => {
-    const args = buildAddContextRuleArgs(
-      makeDraft(),
-      defaults({ oracleParams: { maxStalenessSeconds: 120, maxDeviationBps: 50 } })
-    )
-    const inner = args[4].map()?.[0]?.val().map()
-    const staleness = inner
-      ?.find((e) => e.key().sym().toString() === 'oracle_max_staleness_seconds')
-      ?.val()
-    const deviation = inner
-      ?.find((e) => e.key().sym().toString() === 'oracle_max_deviation_bps')
-      ?.val()
-    if (!staleness || !deviation) throw new Error('test setup: missing oracle entries')
-    expect(staleness.u32()).toBe(120)
-    expect(deviation.u32()).toBe(50)
   })
 
   it('encodes the policies map key as the interpreter Address', () => {
@@ -269,21 +243,6 @@ describe('buildAddContextRuleArgs - limit refusals', () => {
     expect(caught).not.toBeNull()
     expect(caught?.code).toBe('INSTALL_BUILD_FAILED')
     expect(caught?.message).toMatch(/does not match sha256/)
-  })
-
-  it('refuses an oracle param outside u32 range', () => {
-    let caught: { code?: string; message?: string } | null = null
-    try {
-      buildAddContextRuleArgs(
-        makeDraft(),
-        defaults({ oracleParams: { maxStalenessSeconds: 2 ** 32 } })
-      )
-    } catch (e) {
-      caught = e as { code?: string; message?: string }
-    }
-    expect(caught).not.toBeNull()
-    expect(caught?.code).toBe('INSTALL_BUILD_FAILED')
-    expect(caught?.message).toMatch(/outside u32 range/)
   })
 })
 

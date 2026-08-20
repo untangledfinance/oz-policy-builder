@@ -8,10 +8,6 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 doctest = false
 
-[features]
-default = []
-testnet = []
-
 [dependencies]
 # soroban-sdk 27 is pinned in plans/phase-00-foundations.md. It requires the
 # wasm32v1-none target; wasm32-unknown-unknown is rejected on Rust 1.82+

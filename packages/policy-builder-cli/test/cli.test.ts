@@ -276,7 +276,7 @@ describe('policy-builder CLI', () => {
     expect(parsed.ok).toBe(true)
     expect(parsed.data.policyDocuments.length).toBeGreaterThan(0)
     expect(parsed.data.policyDocuments[0]?.predicateHash).toBe(
-      'a269b34042f3458ad7da5f44ddaa0f2d6f76ec3a82c2643ebc079f217e53de68'
+      '928b07824487221fdfcdaa7a420920258a4749c4e7e32d4919cf1e0dc9ab3f55'
     )
     expect(parsed.data.policyRefs.some((ref) => ref.kind === 'interpreter')).toBe(true)
   })
@@ -413,7 +413,6 @@ describe('policy-builder CLI', () => {
   // Each new flag must:
   //   1. reach the core (assert an observable effect on the synthesised policy)
   //   2. reject bad values up front with a CLI-friendly exit code
-  //   3. for --oracle-* : reject when --smart-account is absent
 
   it('synthesize --window-seconds <n> reaches the core (period_ledgers reflects the override)', async () => {
     // The OZ spending_limit primitive derives `period_ledgers` from
@@ -793,98 +792,6 @@ describe('policy-builder CLI', () => {
     expect(parsed.ok).toBe(true)
   })
 
-  it('synthesize --oracle-max-staleness without --smart-account exits non-zero with CLI_MISSING_ARG', async () => {
-    // Foot-gun: oracle params are part of the interpreter opt-in. The CLI
-    // rejects them up front so they cannot be silently dropped.
-    const r = await runCli([
-      'synthesize',
-      '--recorded-tx',
-      resolve(FIXTURES, 'blend-claim.json'),
-      '--network',
-      'mainnet',
-      '--oracle-max-staleness',
-      '300',
-      '--json',
-    ])
-    expect(r.exitCode).not.toBe(0)
-    const parsed = JSON.parse(r.stdout.trim()) as {
-      ok: boolean
-      error: { code: string; message: string }
-    }
-    expect(parsed.ok).toBe(false)
-    expect(parsed.error.code).toBe('CLI_MISSING_ARG')
-    expect(parsed.error.message).toMatch(/--smart-account/)
-  })
-
-  it('synthesize --oracle-max-deviation without --smart-account exits non-zero with CLI_MISSING_ARG', async () => {
-    const r = await runCli([
-      'synthesize',
-      '--recorded-tx',
-      resolve(FIXTURES, 'blend-claim.json'),
-      '--network',
-      'mainnet',
-      '--oracle-max-deviation',
-      '50',
-      '--json',
-    ])
-    expect(r.exitCode).not.toBe(0)
-    const parsed = JSON.parse(r.stdout.trim()) as { ok: boolean; error: { code: string } }
-    expect(parsed.ok).toBe(false)
-    expect(parsed.error.code).toBe('CLI_MISSING_ARG')
-  })
-
-  it('synthesize --oracle-max-staleness 300 with --smart-account reaches the core (tighten-only)', async () => {
-    // 300 <= wasm cap (600) -> valid. The oracleParams plumbing must thread
-    // through to the interpreter path. We assert the synthesis succeeds and
-    // a policyDocument is emitted (the interpreter path requires it).
-    const r = await runCli([
-      'synthesize',
-      '--recorded-tx',
-      resolve(FIXTURES, 'blend-claim.json'),
-      '--network',
-      'mainnet',
-      '--responses',
-      resolve(FIXTURES, 'blend-responses.json'),
-      '--smart-account',
-      SMART_ACCOUNT,
-      '--oracle-max-staleness',
-      '300',
-      '--oracle-max-deviation',
-      '50',
-      '--json',
-    ])
-    expect(r.exitCode).toBe(0)
-    const parsed = JSON.parse(r.stdout.trim()) as {
-      ok: boolean
-      data: { policyDocuments: Array<{ predicateHash: string }> }
-    }
-    expect(parsed.ok).toBe(true)
-    expect(parsed.data.policyDocuments.length).toBe(1)
-  })
-
-  it('synthesize --oracle-max-staleness 1000 with --smart-account exits non-zero (core tightens-only)', async () => {
-    // 1000 > wasm cap (600) -> core rejects with SYNTHESIS_ERROR (the CLI
-    // surfaces it verbatim via formatToolResponse -> non-zero exit).
-    const r = await runCli([
-      'synthesize',
-      '--recorded-tx',
-      resolve(FIXTURES, 'blend-claim.json'),
-      '--network',
-      'mainnet',
-      '--responses',
-      resolve(FIXTURES, 'blend-responses.json'),
-      '--smart-account',
-      SMART_ACCOUNT,
-      '--oracle-max-staleness',
-      '1000',
-      '--json',
-    ])
-    expect(r.exitCode).not.toBe(0)
-    const parsed = JSON.parse(r.stdout.trim()) as { ok: boolean; error: { code: string } }
-    expect(parsed.ok).toBe(false)
-    expect(parsed.error.code).toBe('SYNTHESIS_ERROR')
-  })
-
   // === --explain (Phase 1) ===
   //
   // The flag is ADDITIVE: with --explain the output gains `review` +
@@ -930,7 +837,7 @@ describe('policy-builder CLI', () => {
     expect(parsed.ok).toBe(true)
     // Existing fields unchanged.
     expect(parsed.data.policyDocuments[0]?.predicateHash).toBe(
-      'a269b34042f3458ad7da5f44ddaa0f2d6f76ec3a82c2643ebc079f217e53de68'
+      '928b07824487221fdfcdaa7a420920258a4749c4e7e32d4919cf1e0dc9ab3f55'
     )
     // New fields present.
     expect(parsed.data.review).toBeDefined()

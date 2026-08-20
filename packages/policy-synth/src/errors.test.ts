@@ -27,7 +27,6 @@ const REPRESENTATIVE_CODES: ErrorCode[] = [
   // predicate caps
   'PREDICATE_TOO_LARGE',
   'PREDICATE_TOO_DEEP',
-  'PREDICATE_ORACLE_OVER_LIMIT',
   'POLICY_CAP_EXCEEDED',
   'WASM_TOO_LARGE',
   // interpreter denies
@@ -44,17 +43,6 @@ const REPRESENTATIVE_CODES: ErrorCode[] = [
   'STATEFUL_BOUND',
   'NOT_IN_ALLOWLIST',
   'FREQUENCY',
-  // oracle denies
-  'ORACLE_STALE',
-  'ORACLE_MISSING',
-  'ORACLE_NO_CONFIRMATION',
-  'ORACLE_DEVIATION_EXCEEDED',
-  'ORACLE_MALFORMED_HISTORY',
-  'ORACLE_FINGERPRINT_DRIFT',
-  'ORACLE_PAUSED',
-  'ORACLE_LEAF_INVALID_POSITION',
-  'ORACLE_PARAMS_OUT_OF_RANGE',
-  'ORACLE_DECIMALS_MISMATCH',
   // escape-hatch compile gate
   'COMPILE_OK',
   'COMPILE_GATE_FAILED',
@@ -102,15 +90,15 @@ describe('ToolResponse<T> discriminated union', () => {
 
   it('ToolError carries the required fields', () => {
     const e: ToolError = {
-      code: 'ORACLE_STALE',
-      message: 'pulse price older than 600s',
+      code: 'NONCE_REPLAY',
+      message: 'install nonce is not stored nonce + 1',
       severity: 'fatal',
       retryable: false,
-      remediation: { docsUrl: 'https://example.com/oracle-stale' },
+      remediation: { docsUrl: 'https://example.com/nonce-replay' },
       details: { lastSeen: 1 },
     }
     expect(e.severity).toBe('fatal')
-    expect(e.remediation?.docsUrl).toBe('https://example.com/oracle-stale')
+    expect(e.remediation?.docsUrl).toBe('https://example.com/nonce-replay')
     expect(e.details).toEqual({ lastSeen: 1 })
   })
 })

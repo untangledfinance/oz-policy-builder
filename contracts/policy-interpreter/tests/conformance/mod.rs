@@ -10,10 +10,8 @@
 //!   cargo test --test conformance -p policy-interpreter
 //! Regenerate the fixture with:
 //!   bun run packages/policy-synth/scripts/gen-conformance-fixture.ts \
-//!     --explain /tmp/ozpub/explain-blend.json \
-//!     --recording /tmp/ozpub/recording-blend.json \
+//!     --recording packages/policy-synth/fixtures/recordings/demo-tx-260725/recording-blend.json \
 //!     --out contracts/policy-interpreter/tests/conformance/_generated.rs
 
 mod _generated;
 mod _helpers;
-mod slippage_floor;

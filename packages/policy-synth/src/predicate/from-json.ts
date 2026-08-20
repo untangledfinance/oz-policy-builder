@@ -56,7 +56,6 @@ function jsonToLeaf(value: unknown): PredicateLeaf {
     case 'call_contract':
     case 'call_fn':
     case 'now':
-    case 'valid_until':
       return { kind: v.kind }
     case 'call_arg':
       return { kind: 'call_arg', index: numberField(v, 'index') }
@@ -65,20 +64,6 @@ function jsonToLeaf(value: unknown): PredicateLeaf {
     // num/den are strings, not numbers: they are i128 on chain, and a JSON
     // number would silently lose precision past 2^53 before the encoder
     // ever saw the value.
-    case 'call_arg_scaled':
-      return {
-        kind: 'call_arg_scaled',
-        index: numberField(v, 'index'),
-        num: stringField(v, 'num'),
-        den: stringField(v, 'den'),
-      }
-    case 'call_arg_field':
-      return {
-        kind: 'call_arg_field',
-        index: numberField(v, 'index'),
-        element: numberField(v, 'element'),
-        field: stringField(v, 'field'),
-      }
     case 'amount':
       return { kind: 'amount', token: stringField(v, 'token') }
     case 'window_spent':
@@ -87,8 +72,6 @@ function jsonToLeaf(value: unknown): PredicateLeaf {
         token: stringField(v, 'token'),
         windowSeconds: numberField(v, 'windowSeconds'),
       }
-    case 'invocation_count_in_window':
-      return { kind: 'invocation_count_in_window', windowSecs: numberField(v, 'windowSecs') }
     case 'literal_address':
       return { kind: 'literal_address', value: stringField(v, 'value') }
     case 'literal_i128':

@@ -28,13 +28,7 @@
 import type { ToolError, ToolResponse } from '../errors.ts'
 import { generateCases } from '../synth/deny-cases.ts'
 import { type EvalContext, evaluate } from '../synth/evaluate.ts'
-import type {
-  ContractInvocation,
-  PredicateLeaf,
-  PredicateNode,
-  RecordedTransaction,
-  ScVal,
-} from '../types.ts'
+import type { ContractInvocation, PredicateNode, RecordedTransaction, ScVal } from '../types.ts'
 import { MAX_SCVAL_CLONE_DEPTH } from '../types.ts'
 import type { SimulationResult } from './envelope.ts'
 
@@ -73,7 +67,7 @@ export function simulatePolicy(
 
   let permitCtx: EvalContext
   try {
-    permitCtx = buildPermitContext(predicate, permitTx, topLevel, opts)
+    permitCtx = buildPermitContext(permitTx, topLevel, opts)
   } catch (e) {
     return {
       ok: false,
@@ -146,7 +140,6 @@ export function simulatePolicy(
  *  orchestrator's private helpers. The shape is pinned by tests so the
  *  two implementations stay in lockstep. */
 function buildPermitContext(
-  predicate: PredicateNode | null,
   tx: RecordedTransaction,
   topLevel: ContractInvocation,
   opts: SimulateOptions
@@ -169,7 +162,6 @@ function buildPermitContext(
     nowSeconds: tx.fetchedAt,
     amountByToken,
     windowSpentByToken: {},
-    invocationCountByWindow: {},
   }
   if (opts.validUntilLedger !== undefined) {
     ctx.validUntilLedger = opts.validUntilLedger
@@ -201,7 +193,6 @@ function cloneDepthError(value: ScVal): never {
   err.depthContext = value.type
   throw err
 }
-
 
 function simulationError(message: string, cause?: unknown): ToolError {
   const error: ToolError = {

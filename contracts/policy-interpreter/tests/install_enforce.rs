@@ -487,51 +487,6 @@ fn f4_install_refuses_more_invocation_windows_than_the_cap() {
 }
 
 #[test]
-fn f4_install_accepts_a_predicate_at_or_below_the_window_cap() {
-    // The bound must not over-shoot: a policy that fits inside the cap still
-    // installs. Sanity check that the cap is reachable but not crippling.
-    let env = Env::default();
-    env.mock_all_auths();
-    let contract_id = env.register(PolicyInterpreter, ());
-    let client = PolicyInterpreterClient::new(&env, &contract_id);
-    let smart_account = Address::generate(&env);
-
-    let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let rule = make_ctx_rule(&env, signers, 1);
-
-    let windows: std::vec::Vec<u64> = (1..=policy_interpreter::dsl::MAX_INVOCATION_COUNT_WINDOWS)
-        .map(|i| i as u64 * 60)
-        .collect();
-    let predicate = many_windows_predicate_bytes(&env, &windows);
-    let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
-    let res = client.try_install(
-        &PolicyInstallParams {
-            grammar_version: 2,
-            install_nonce: 1,
-            predicate,
-            predicate_hash,
-        },
-        &rule,
-        &smart_account,
-    );
-    assert!(
-        res.is_ok(),
-        "install with exactly the cap's worth of windows must succeed"
-    );
-}
-
-// ---- F5: refuse External master signers at install ----
-//
-// `require_master` calls `signer.address().require_auth()`. For
-// `Signer::External(verifier, key_data)` that is the VERIFIER address and
-// the key is discarded - so master ops are impossible on a rule whose
-// signers are the standard passkey/WebAuthn shape. The simplest fail-closed
-// option is to refuse External master signers at install with a clear code
-// and document the gap. Reimplementing OZ's verifier protocol in v1 would
-// require byte-for-byte parity with `VerifierClient::verify`, which is its
-// own audit surface.
-
-#[test]
 fn f5_install_refuses_an_external_signer_in_the_master_set() {
     let env = Env::default();
     env.mock_all_auths();
@@ -620,18 +575,17 @@ fn f8b_install_version_mismatch_surfaces_as_contract_error_code() {
     }
 }
 
-// ---- F9: refuse a predicate carrying a ValidUntil leaf ----
+// ---- F9: refuse a predicate carrying a `valid_until` leaf ----
 //
-// `state::build_eval_context` hardcodes `valid_until_ledger: None`, so the
-// evaluator denies ValidUntil compares with ArgMismatch (the leaf resolves
-// to nothing) and a policy that uses ValidUntil for a permit side can never
-// actually permit. Expiry is the smart account's job - the rule id's
-// `valid_until` field is the upstream gate. The right place to refuse this
-// is install: a policy that would always deny silently is a different
-// product surprise than a policy that refuses to install.
+// Expiry is the smart account's job - the context rule's own `valid_until`
+// field is the gate. The interpreter therefore has no `valid_until` selector
+// in its grammar at all, so the symbol does not decode and the install is
+// refused as a malformed predicate. This test pins that refusal: a predicate
+// that expects the interpreter to enforce expiry must fail loudly at install
+// rather than install and silently never permit.
 
-/// `eq(valid_until, 100)` - a single-clause predicate carrying one ValidUntil
-/// leaf.
+/// `eq(valid_until, 100)` - a single-clause predicate carrying the retired
+/// `valid_until` selector.
 fn valid_until_predicate_bytes(env: &Env) -> Bytes {
     use soroban_sdk::xdr::{ScVal, ToXdr, VecM};
     let sym = |s: &str| {
@@ -677,8 +631,8 @@ fn f9_install_refuses_a_predicate_carrying_a_valid_until_leaf() {
     );
     assert!(
         res.is_err(),
-        "a predicate carrying a ValidUntil leaf must not install - the evaluator \
-         never sources the leaf so the policy would silently always deny"
+        "a predicate carrying a `valid_until` leaf must not install - the selector \
+         is not in the grammar, so it cannot decode"
     );
 }
 

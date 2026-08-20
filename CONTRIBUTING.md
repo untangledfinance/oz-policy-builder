@@ -38,7 +38,7 @@ bun run --cwd packages/policy-builder-cli build
 bun run --cwd packages/policy-builder-mcp build
 
 # Contracts (each crate is standalone; no workspace manifest)
-for crate in policy-interpreter test-oracle test-blend-pool; do
+for crate in policy-interpreter test-blend-pool; do
   ( cd "contracts/$crate" &&
     cargo fmt --check &&
     cargo clippy --all-targets -- -D warnings &&
@@ -58,7 +58,7 @@ done
 - Comments earn their place by stating an invariant, a constraint, or a
   deliberate decision the code cannot show on its own. Several files carry
   invariant blocks in their file-level comments (for example
-  `contracts/policy-interpreter/src/oracle.rs`); read them before touching
+  `contracts/policy-interpreter/src/dsl.rs`); read them before touching
   the code they guard, and do not remove them.
 
 ## Changes to the contracts

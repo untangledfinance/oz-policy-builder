@@ -334,7 +334,6 @@ describe('runSynthesizePolicy - interpreter opt-in (item 7)', () => {
       network: 'mainnet',
       userResponses: {
         windowSeconds: 86400,
-        invocationLimit: 1,
         validUntilLedger: 200000000,
       },
       interpreter: { smartAccountAddress: smartAccount },

@@ -34,8 +34,6 @@ function ctx(overrides: Partial<EvalContext> = {}): EvalContext {
     nowSeconds: NOW,
     amountByToken: {},
     windowSpentByToken: {},
-    invocationCountByWindow: {},
-    oraclePriceByAsset: {},
     ...overrides,
   }
 }
@@ -82,38 +80,6 @@ describe('evaluate - step 1: EXPIRED by ledger', () => {
       right: { kind: 'literal_symbol', value: 'claim' },
     }
     const result = evaluate(predicate, ctx({ atLedger: 999_999_999, validUntilLedger: undefined }))
-    expect(result).toEqual({ permit: true })
-  })
-})
-
-describe('evaluate - step 2: EXPIRED by now vs valid_until', () => {
-  it('denies EXPIRED when nowSeconds > validUntilSeconds (gt)', () => {
-    const predicate: PredicateNode = {
-      op: 'gt',
-      left: { kind: 'now' },
-      right: { kind: 'valid_until' },
-    }
-    const result = evaluate(predicate, ctx())
-    expect(result).toEqual({ permit: false, reason: 'EXPIRED' })
-  })
-
-  it('denies EXPIRED when nowSeconds >= validUntilSeconds (gte)', () => {
-    const predicate: PredicateNode = {
-      op: 'gte',
-      left: { kind: 'now' },
-      right: { kind: 'valid_until' },
-    }
-    const result = evaluate(predicate, ctx({ nowSeconds: 2_000_000_000 }))
-    expect(result).toEqual({ permit: false, reason: 'EXPIRED' })
-  })
-
-  it('permits when nowSeconds < validUntilSeconds (lt)', () => {
-    const predicate: PredicateNode = {
-      op: 'lt',
-      left: { kind: 'now' },
-      right: { kind: 'valid_until' },
-    }
-    const result = evaluate(predicate, ctx())
     expect(result).toEqual({ permit: true })
   })
 })
@@ -692,139 +658,6 @@ describe('evaluate - step 6: AMOUNT_BOUND', () => {
   })
 })
 
-describe('evaluate - step 7: FREQUENCY', () => {
-  it('denies FREQUENCY when invocation_count exceeds the bound', () => {
-    const predicate: PredicateNode = {
-      op: 'lte',
-      left: { kind: 'invocation_count_in_window', windowSecs: 86400 },
-      right: { kind: 'literal_u32', value: 1 },
-    }
-    const result = evaluate(predicate, ctx({ invocationCountByWindow: { 86400: 2 } }))
-    expect(result).toEqual({ permit: false, reason: 'FREQUENCY' })
-  })
-
-  it('permits when invocation_count is at or below the bound', () => {
-    const predicate: PredicateNode = {
-      op: 'lte',
-      left: { kind: 'invocation_count_in_window', windowSecs: 86400 },
-      right: { kind: 'literal_u32', value: 1 },
-    }
-    const result = evaluate(predicate, ctx({ invocationCountByWindow: { 86400: 1 } }))
-    expect(result).toEqual({ permit: true })
-  })
-
-  it('denies FREQUENCY when invocation_count has no entry (treated as 0, but bound requires something more specific)', () => {
-    // when no count is recorded for a window, evaluate treats it as 0;
-    // a bound of >0 still permits (0 is not greater than 0). The FREQUENCY
-    // check fires when the recorded count VIOLATES the bound.
-    const predicate: PredicateNode = {
-      op: 'gt',
-      left: { kind: 'invocation_count_in_window', windowSecs: 3600 },
-      right: { kind: 'literal_u32', value: 0 },
-    }
-    const result = evaluate(predicate, ctx({ invocationCountByWindow: {} }))
-    expect(result).toEqual({ permit: false, reason: 'FREQUENCY' })
-  })
-})
-
-describe('evaluate - step 8: ORACLE_* (fatal via throw+catch)', () => {
-  const oraclePredicate = (op: 'lt' | 'lte' | 'gt' | 'gte'): PredicateNode => ({
-    op,
-    left: { kind: 'oracle_price', asset: XLM_SAC },
-    right: { kind: 'oracle_threshold', value: '10000000', decimals: 9 }, // $0.10 in 7-decimal USDC representation
-  })
-
-  it('denies ORACLE_STALE when the oracle entry has error "stale"', () => {
-    const result = evaluate(
-      oraclePredicate('lt'),
-      ctx({ oraclePriceByAsset: { [XLM_SAC]: { error: 'stale' } } })
-    )
-    expect(result).toEqual({ permit: false, reason: 'ORACLE_STALE' })
-  })
-
-  it('denies ORACLE_MISSING when the oracle entry has error "missing"', () => {
-    const result = evaluate(
-      oraclePredicate('lt'),
-      ctx({ oraclePriceByAsset: { [XLM_SAC]: { error: 'missing' } } })
-    )
-    expect(result).toEqual({ permit: false, reason: 'ORACLE_MISSING' })
-  })
-
-  it('denies ORACLE_DEVIATION_EXCEEDED when the oracle entry has error "deviation"', () => {
-    const result = evaluate(
-      oraclePredicate('lt'),
-      ctx({ oraclePriceByAsset: { [XLM_SAC]: { error: 'deviation' } } })
-    )
-    expect(result).toEqual({ permit: false, reason: 'ORACLE_DEVIATION_EXCEEDED' })
-  })
-
-  it('denies ORACLE_PAUSED when the oracle entry has error "paused"', () => {
-    const result = evaluate(
-      oraclePredicate('lt'),
-      ctx({ oraclePriceByAsset: { [XLM_SAC]: { error: 'paused' } } })
-    )
-    expect(result).toEqual({ permit: false, reason: 'ORACLE_PAUSED' })
-  })
-
-  it('denies ORACLE_DECIMALS_MISMATCH when the oracle entry has error "decimals"', () => {
-    const result = evaluate(
-      oraclePredicate('lt'),
-      ctx({ oraclePriceByAsset: { [XLM_SAC]: { error: 'decimals' } } })
-    )
-    expect(result).toEqual({ permit: false, reason: 'ORACLE_DECIMALS_MISMATCH' })
-  })
-
-  it('denies ORACLE_FINGERPRINT_DRIFT when the oracle entry has error "fingerprint"', () => {
-    const result = evaluate(
-      oraclePredicate('lt'),
-      ctx({ oraclePriceByAsset: { [XLM_SAC]: { error: 'fingerprint' } } })
-    )
-    expect(result).toEqual({ permit: false, reason: 'ORACLE_FINGERPRINT_DRIFT' })
-  })
-
-  it('denies ORACLE_STALE when the oracle entry is absent from the context (default: stale)', () => {
-    const result = evaluate(oraclePredicate('lt'), ctx({ oraclePriceByAsset: {} }))
-    expect(result).toEqual({ permit: false, reason: 'ORACLE_STALE' })
-  })
-
-  it('permits when the oracle price satisfies the bound', () => {
-    // oracle returns $0.05 (5_000_000 in 7-decimals); bound is $0.10 -> oracle < bound -> permit
-    const result = evaluate(
-      oraclePredicate('lt'),
-      ctx({ oraclePriceByAsset: { [XLM_SAC]: { price: '5000000', timestampSeconds: NOW } } })
-    )
-    expect(result).toEqual({ permit: true })
-  })
-
-  it('denies STATEFUL_BOUND when the oracle price violates the threshold (mirrors Rust DenyReason::StatefulBound #104)', () => {
-    // oracle returns $0.20 (20_000_000 in 9-decimals); bound is $0.10 -> oracle NOT < bound -> deny.
-    // Rust dsl.rs:276 returns `DenyReason::StatefulBound` here; the TS evaluator
-    // must mirror it so the cross-layer harness in harness.ts is the single
-    // source of truth for the reason code (it is also what the conformance
-    // fixture in contracts/policy-interpreter/tests/conformance asserts).
-    const result = evaluate(
-      oraclePredicate('lt'),
-      ctx({ oraclePriceByAsset: { [XLM_SAC]: { price: '20000000', timestampSeconds: NOW } } })
-    )
-    expect(result).toEqual({ permit: false, reason: 'STATEFUL_BOUND' })
-  })
-
-  it('denies the boolean aggregate when the oracle leaf sits under an "or" (still fatal)', () => {
-    // The compile-time rule says no oracle leaf under or/not, but the evaluator
-    // is structural: an oracle error still surfaces as ORACLE_* even when under
-    // an `or` (NOT boolean-false that or could mask).
-    const predicate: PredicateNode = {
-      op: 'or',
-      children: [oraclePredicate('lt')],
-    }
-    const result = evaluate(
-      predicate,
-      ctx({ oraclePriceByAsset: { [XLM_SAC]: { error: 'stale' } } })
-    )
-    expect(result).toEqual({ permit: false, reason: 'ORACLE_STALE' })
-  })
-})
-
 describe('evaluate - THRESHOLD_NOT_MET', () => {
   it('denies THRESHOLD_NOT_MET when signerWeights is provided but empty', () => {
     const predicate: PredicateNode = {
@@ -971,38 +804,6 @@ describe('evaluate - step 9: boolean nodes', () => {
 })
 
 describe('evaluate - permit paths (reference walkthroughs)', () => {
-  it('Blend yield-claim: and(call_fn=claim, invocation_count_in_window(86400) <= 1) permits at 1 invocation', () => {
-    const predicate: PredicateNode = {
-      op: 'and',
-      children: [
-        { op: 'eq', left: { kind: 'call_fn' }, right: { kind: 'literal_symbol', value: 'claim' } },
-        {
-          op: 'lte',
-          left: { kind: 'invocation_count_in_window', windowSecs: 86400 },
-          right: { kind: 'literal_u32', value: 1 },
-        },
-      ],
-    }
-    const result = evaluate(predicate, ctx({ invocationCountByWindow: { 86400: 1 } }))
-    expect(result).toEqual({ permit: true })
-  })
-
-  it('Blend yield-claim: denies FREQUENCY when invocation_count > 1', () => {
-    const predicate: PredicateNode = {
-      op: 'and',
-      children: [
-        { op: 'eq', left: { kind: 'call_fn' }, right: { kind: 'literal_symbol', value: 'claim' } },
-        {
-          op: 'lte',
-          left: { kind: 'invocation_count_in_window', windowSecs: 86400 },
-          right: { kind: 'literal_u32', value: 1 },
-        },
-      ],
-    }
-    const result = evaluate(predicate, ctx({ invocationCountByWindow: { 86400: 2 } }))
-    expect(result).toEqual({ permit: false, reason: 'FREQUENCY' })
-  })
-
   it('SEP-41 recipient allowlist: and(call_fn=transfer, call_arg[0] in allowlist) permits a known recipient', () => {
     const predicate: PredicateNode = {
       op: 'and',
@@ -1052,7 +853,7 @@ describe('evaluate - permit paths (reference walkthroughs)', () => {
     expect(result).toEqual({ permit: false, reason: 'NOT_IN_ALLOWLIST' })
   })
 
-  it('Soroswap exact-path+amount+oracle: permits when path matches, amount within bound, oracle satisfied', () => {
+  it('Soroswap exact-path+amount: permits when path matches and amount is within bound', () => {
     const predicate: PredicateNode = {
       op: 'and',
       children: [
@@ -1072,11 +873,6 @@ describe('evaluate - permit paths (reference walkthroughs)', () => {
           left: { kind: 'amount', token: XLM_SAC },
           right: { kind: 'literal_i128', value: '1000000000' },
         },
-        {
-          op: 'lt',
-          left: { kind: 'oracle_price', asset: XLM_SAC },
-          right: { kind: 'oracle_threshold', value: '10000000', decimals: 9 },
-        },
       ],
     }
     const result = evaluate(
@@ -1086,7 +882,6 @@ describe('evaluate - permit paths (reference walkthroughs)', () => {
         fn: 'swap_exact_tokens_for_tokens',
         args: [{ type: 'vec', value: [address(XLM_SAC), address(USDC_SAC)] }],
         amountByToken: { [XLM_SAC]: '900000000' },
-        oraclePriceByAsset: { [XLM_SAC]: { price: '5000000', timestampSeconds: NOW } },
       })
     )
     expect(result).toEqual({ permit: true })
@@ -1116,199 +911,6 @@ describe('evaluate - permit paths (reference walkthroughs)', () => {
         fn: 'swap_exact_tokens_for_tokens',
         args: [{ type: 'vec', value: [address(USDC_SAC), address(XLM_SAC)] }],
       })
-    )
-    expect(result).toEqual({ permit: false, reason: 'ARG_MISMATCH' })
-  })
-
-  it('Soroswap oracle: denies ORACLE_STALE when the oracle entry is stale', () => {
-    const predicate: PredicateNode = {
-      op: 'lt',
-      left: { kind: 'oracle_price', asset: XLM_SAC },
-      right: { kind: 'oracle_threshold', value: '10000000', decimals: 9 },
-    }
-    const result = evaluate(
-      predicate,
-      ctx({ contract: SOROSWAP_ROUTER, oraclePriceByAsset: { [XLM_SAC]: { error: 'stale' } } })
-    )
-    expect(result).toEqual({ permit: false, reason: 'ORACLE_STALE' })
-  })
-})
-
-// ===== F9: call_arg_scaled (relative slippage floor) =====
-//
-// The TS model must produce the SAME verdict as the Rust interpreter for
-// every case - the boundary, overflow, and zero/negative-ratio paths.
-// The contract code 107 is `SLIPPAGE_FLOOR` and 102 is `ARITHMETIC_OVERFLOW`
-// (per dsl.rs DenyReason::code / PolicyError::code_str).
-
-describe('evaluate - call_arg_scaled (slippage floor)', () => {
-  it('permits when output exactly meets the floor (gte, inclusive)', () => {
-    const predicate: PredicateNode = {
-      op: 'gte',
-      left: { kind: 'call_arg', index: 1 },
-      right: { kind: 'call_arg_scaled', index: 0, num: '95', den: '100' },
-    }
-    const result = evaluate(
-      predicate,
-      ctx({ contract: SOROSWAP_ROUTER, args: [i128('1000'), i128('950')] })
-    )
-    expect(result).toEqual({ permit: true })
-  })
-
-  it('denies SLIPPAGE_FLOOR when output is one stroop below the floor', () => {
-    const predicate: PredicateNode = {
-      op: 'gte',
-      left: { kind: 'call_arg', index: 1 },
-      right: { kind: 'call_arg_scaled', index: 0, num: '95', den: '100' },
-    }
-    const result = evaluate(
-      predicate,
-      ctx({ contract: SOROSWAP_ROUTER, args: [i128('1000'), i128('949')] })
-    )
-    expect(result).toEqual({ permit: false, reason: 'SLIPPAGE_FLOOR' })
-  })
-
-  it('behaves as ratio 1 when num == den', () => {
-    const predicate: PredicateNode = {
-      op: 'gte',
-      left: { kind: 'call_arg', index: 1 },
-      right: { kind: 'call_arg_scaled', index: 0, num: '1', den: '1' },
-    }
-    expect(
-      evaluate(predicate, ctx({ contract: SOROSWAP_ROUTER, args: [i128('100'), i128('100')] }))
-    ).toEqual({ permit: true })
-    expect(
-      evaluate(predicate, ctx({ contract: SOROSWAP_ROUTER, args: [i128('100'), i128('99')] }))
-    ).toEqual({ permit: false, reason: 'SLIPPAGE_FLOOR' })
-  })
-
-  it('permits very large ratio when output meets it', () => {
-    const predicate: PredicateNode = {
-      op: 'gte',
-      left: { kind: 'call_arg', index: 1 },
-      right: { kind: 'call_arg_scaled', index: 0, num: '10', den: '1' },
-    }
-    const result = evaluate(
-      predicate,
-      ctx({ contract: SOROSWAP_ROUTER, args: [i128('1000'), i128('10000')] })
-    )
-    expect(result).toEqual({ permit: true })
-  })
-
-  it('behaves correctly at very small ratio (num < den)', () => {
-    const predicate: PredicateNode = {
-      op: 'gte',
-      left: { kind: 'call_arg', index: 1 },
-      right: { kind: 'call_arg_scaled', index: 0, num: '1', den: '1000000' },
-    }
-    expect(
-      evaluate(predicate, ctx({ contract: SOROSWAP_ROUTER, args: [i128('1000000'), i128('1')] }))
-    ).toEqual({ permit: true })
-    expect(
-      evaluate(predicate, ctx({ contract: SOROSWAP_ROUTER, args: [i128('1000000'), i128('0')] }))
-    ).toEqual({ permit: false, reason: 'SLIPPAGE_FLOOR' })
-  })
-
-  it('denies ARITHMETIC_OVERFLOW when args[i] * num overflows i128', () => {
-    const maxI128 = (1n << 127n) - 1n
-    const predicate: PredicateNode = {
-      op: 'gte',
-      left: { kind: 'call_arg', index: 0 },
-      right: { kind: 'call_arg_scaled', index: 0, num: '2', den: '1' },
-    }
-    const result = evaluate(
-      predicate,
-      ctx({ contract: SOROSWAP_ROUTER, args: [i128(maxI128.toString())] })
-    )
-    expect(result).toEqual({ permit: false, reason: 'ARITHMETIC_OVERFLOW' })
-  })
-
-  it('denies ARITHMETIC_OVERFLOW when den == 0 (instal refuses; runtime is a belt-and-braces guard)', () => {
-    const predicate: PredicateNode = {
-      op: 'gte',
-      left: { kind: 'call_arg', index: 0 },
-      right: { kind: 'call_arg_scaled', index: 0, num: '1', den: '0' },
-    }
-    const result = evaluate(predicate, ctx({ contract: SOROSWAP_ROUTER, args: [i128('100')] }))
-    expect(result).toEqual({ permit: false, reason: 'ARITHMETIC_OVERFLOW' })
-  })
-
-  it('truncates toward zero on division', () => {
-    // 7 * 10 / 3 = 23 (truncated from 23.33)
-    const predicate: PredicateNode = {
-      op: 'gte',
-      left: { kind: 'call_arg', index: 1 },
-      right: { kind: 'call_arg_scaled', index: 0, num: '10', den: '3' },
-    }
-    expect(
-      evaluate(predicate, ctx({ contract: SOROSWAP_ROUTER, args: [i128('7'), i128('23')] }))
-    ).toEqual({ permit: true })
-    expect(
-      evaluate(predicate, ctx({ contract: SOROSWAP_ROUTER, args: [i128('7'), i128('22')] }))
-    ).toEqual({ permit: false, reason: 'SLIPPAGE_FLOOR' })
-  })
-
-  it('handles the symmetric Lte form (scaled on the left)', () => {
-    const predicate: PredicateNode = {
-      op: 'lte',
-      left: { kind: 'call_arg_scaled', index: 0, num: '95', den: '100' },
-      right: { kind: 'call_arg', index: 1 },
-    }
-    const result = evaluate(
-      predicate,
-      ctx({ contract: SOROSWAP_ROUTER, args: [i128('1000'), i128('950')] })
-    )
-    expect(result).toEqual({ permit: true })
-  })
-
-  it('denies ARG_MISMATCH when the input arg is out of bounds', () => {
-    const predicate: PredicateNode = {
-      op: 'gte',
-      left: { kind: 'call_arg', index: 0 },
-      right: { kind: 'call_arg_scaled', index: 99, num: '1', den: '1' },
-    }
-    const result = evaluate(predicate, ctx({ contract: SOROSWAP_ROUTER, args: [i128('100')] }))
-    expect(result).toEqual({ permit: false, reason: 'ARG_MISMATCH' })
-  })
-
-  it('denies ARG_MISMATCH when the input arg is non-numeric', () => {
-    const predicate: PredicateNode = {
-      op: 'gte',
-      left: { kind: 'call_arg', index: 0 },
-      right: { kind: 'call_arg_scaled', index: 0, num: '1', den: '1' },
-    }
-    const result = evaluate(
-      predicate,
-      ctx({ contract: SOROSWAP_ROUTER, args: [{ type: 'symbol', value: 'not_a_number' }] })
-    )
-    expect(result).toEqual({ permit: false, reason: 'ARG_MISMATCH' })
-  })
-
-  it('non-fatal: a `not` around a denied floor flips to permit', () => {
-    const predicate: PredicateNode = {
-      op: 'not',
-      child: {
-        op: 'gte',
-        left: { kind: 'call_arg', index: 1 },
-        right: { kind: 'call_arg_scaled', index: 0, num: '95', den: '100' },
-      },
-    }
-    const result = evaluate(
-      predicate,
-      ctx({ contract: SOROSWAP_ROUTER, args: [i128('1000'), i128('949')] })
-    )
-    expect(result).toEqual({ permit: true })
-  })
-
-  it('denies ARG_MISMATCH for scaled-on-scaled (no definable semantics)', () => {
-    const predicate: PredicateNode = {
-      op: 'gte',
-      left: { kind: 'call_arg_scaled', index: 0, num: '1', den: '1' },
-      right: { kind: 'call_arg_scaled', index: 1, num: '1', den: '1' },
-    }
-    const result = evaluate(
-      predicate,
-      ctx({ contract: SOROSWAP_ROUTER, args: [i128('100'), i128('100')] })
     )
     expect(result).toEqual({ permit: false, reason: 'ARG_MISMATCH' })
   })

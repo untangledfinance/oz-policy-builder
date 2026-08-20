@@ -229,13 +229,6 @@ function renderComparison(
   }
 
   // The bound is compared against the calls ALREADY made in the window, so
-  // `< N` permits N of them and `<= N` permits one more. Report how many
-  // calls the rule allows rather than restating the comparison.
-  if (left.kind === 'invocation_count_in_window' && right.kind === 'literal_u32') {
-    const allowed = node.op === 'lt' ? right.value : right.value + 1
-    return `At most ${allowed} calls per ${left.windowSecs} seconds`
-  }
-
   // OP(call_arg[i], <scalar literal>) -> arg[i] OP <value>
   //
   // The per-call cap. It has to be here because the `amount` template below
@@ -257,10 +250,6 @@ function renderComparison(
     if (right.kind === 'literal_address') return `${head} ${sep} ${right.value}`
     if (right.kind === 'literal_symbol') return `${head} ${sep} ${right.value}`
     if (right.kind === 'literal_bytes') return `${head} ${sep} ${right.value}`
-    // call_arg_scaled is the slippage floor and reads as itself.
-    if (right.kind === 'call_arg_scaled') {
-      return `${head} >= arg[${right.index}] * ${right.num}/${right.den}`
-    }
   }
 
   // amount <= v -> Amount <= v
@@ -306,12 +295,9 @@ function renderVecElement(leaf: PredicateLeaf): string {
     case 'call_arg':
     case 'call_arg_len':
     case 'call_arg_field':
-    case 'call_arg_scaled':
     case 'amount':
     case 'window_spent':
     case 'now':
-    case 'valid_until':
-    case 'invocation_count_in_window':
       return `<${leaf.kind}>`
   }
 }

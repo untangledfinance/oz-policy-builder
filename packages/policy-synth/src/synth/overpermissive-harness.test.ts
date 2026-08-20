@@ -44,16 +44,16 @@ interface Fixture {
     invocationLimit?: number
     limitAmount?: string
     validUntilLedger: number
-    oraclePriceBound?: Array<{ asset: string; operator: string; value: string; decimals: number }>
   }
   expectedDocCount: number
   expectedHash: string
 }
 
-// The two Blend baselines moved when the invocation-count bound changed
-// from `<= N` to `< N`: those are the incoming-only flows that carry a
-// frequency constraint. SoroSwap and SEP-41 are unchanged, which is the
-// check that nothing else shifted with it.
+// The Blend baselines moved when the invocation-count leaf left the grammar:
+// those are the incoming-only flows that carried a frequency constraint, so
+// each predicate lost one conjunct and gained nothing. The SoroSwap baseline
+// moved earlier for the same reason when the oracle leaves went. SEP-41 is
+// unchanged throughout, which is the check that nothing else shifted.
 const FIXTURES: Fixture[] = [
   {
     name: 'Blend claim',
@@ -61,11 +61,10 @@ const FIXTURES: Fixture[] = [
     smartAccount: 'CDXO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO4M7R',
     responses: {
       windowSeconds: 86400,
-      invocationLimit: 1,
       validUntilLedger: 200_000_000,
     },
     expectedDocCount: 1,
-    expectedHash: 'a269b34042f3458ad7da5f44ddaa0f2d6f76ec3a82c2643ebc079f217e53de68',
+    expectedHash: '928b07824487221fdfcdaa7a420920258a4749c4e7e32d4919cf1e0dc9ab3f55',
   },
   {
     name: 'Blend submit',
@@ -73,14 +72,13 @@ const FIXTURES: Fixture[] = [
     smartAccount: 'CDXO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO4M7R',
     responses: {
       windowSeconds: 86400,
-      invocationLimit: 1,
       validUntilLedger: 200_000_000,
     },
     expectedDocCount: 1,
-    // Captured 2026-07-25 from a real run; gains the call_arg_len(3) + 3 per-element
-    // call_arg_field binds for the recorded `requests` vec. Hash captured from
-    // the actual minimised policy (full hash, not extrapolated from a prefix).
-    expectedHash: '2d2d414c52344071bc8901dcf26036d367a19a054f8955ff93d74b29bc457433',
+    // Carries the call_arg_len(3) + 3 per-element call_arg_field binds for the
+    // recorded `requests` vec - the binds that stop an extra request being
+    // appended or a request's asset/amount being swapped.
+    expectedHash: '5b3b51f8178e1a5c4e9a43c8873d6edb29ecd0d8179ae6052277dc6a034c7669',
   },
   {
     name: 'SoroSwap swap',
@@ -90,18 +88,9 @@ const FIXTURES: Fixture[] = [
       windowSeconds: 86400,
       limitAmount: '367287890',
       validUntilLedger: 200_000_000,
-      oraclePriceBound: [
-        {
-          asset: 'CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV',
-          operator: 'lt',
-          // 9 dp: the normalised basis these fixtures always meant.
-          value: '10000000',
-          decimals: 9,
-        },
-      ],
     },
     expectedDocCount: 1,
-    expectedHash: '1b3318795d49ab086bf34d4799046a08621cc905eca556c4f939ad0031c4cd31',
+    expectedHash: '1719c2bbed30206e43f54dc2fa3dbb3e26b43e7c2d22506cf5ecc5e5b980c416',
   },
   {
     name: 'SEP-41 transfer',
@@ -216,8 +205,6 @@ function decodeScValToLeaf(scval: xdr.ScVal): import('../types.ts').PredicateLea
           return { kind: 'call_fn' }
         case 'now':
           return { kind: 'now' }
-        case 'valid_until':
-          return { kind: 'valid_until' }
       }
       return { kind: 'literal_symbol', value: s }
     }
@@ -277,11 +264,6 @@ function decodeScValToLeaf(scval: xdr.ScVal): import('../types.ts').PredicateLea
             token: Address.fromScAddress(addr.address()).toString(),
             windowSeconds: Number(BigInt(secs.u64().toString())),
           }
-        }
-        case 'oracle_price': {
-          const addr = vec[1]
-          if (addr?.switch().name !== 'scvAddress') return null
-          return { kind: 'oracle_price', asset: Address.fromScAddress(addr.address()).toString() }
         }
         case 'invocation_count': {
           const secs = vec[1]
@@ -380,7 +362,7 @@ describe('overpermissive-harness: regression suite', () => {
       if (!predicate) return
 
       // Build the permit context from the recorded tx + user responses
-      const permitCtx = buildPermitContext(tx, fixture.responses, predicate)
+      const permitCtx = buildPermitContext(tx, fixture.responses)
 
       it('the recorded call is permitted by the emitted predicate', () => {
         const result = evaluate(predicate, permitCtx)
@@ -542,7 +524,7 @@ describe('overpermissive-harness: dimension coverage', () => {
         if (!doc) continue
         const predicate = decodePredicate(doc.encodedPredicate)
         if (!predicate) continue
-        const permitCtx = buildPermitContext(tx, fixture.responses, predicate)
+        const permitCtx = buildPermitContext(tx, fixture.responses)
         const cases = generateCases(predicate, permitCtx)
         if (cases.denies.some((d) => d.dimension === dim)) exercised++
       }
@@ -585,7 +567,7 @@ const APPROVED_FREE_ARGS: Record<string, Record<number, string>> = {
   },
   'SoroSwap swap': {
     0: 'amount_in: bounded by window_spent when --limit-amount is supplied',
-    1: 'amount_out_min: slippage floor, not expressible in the v1 grammar',
+    1: 'amount_out_min: a per-call floor the grammar does not express',
     4: 'deadline: a u64 ledger time the recorded flow does not fix',
   },
   'SEP-41 transfer': {
@@ -685,7 +667,7 @@ describe('overpermissive-harness: unconstrained-argument sweep', () => {
       expect(predicate).not.toBeNull()
       if (!predicate) return
 
-      const permitCtx = buildPermitContext(tx, fixture.responses, predicate)
+      const permitCtx = buildPermitContext(tx, fixture.responses)
       const approved = APPROVED_FREE_ARGS[fixture.name] ?? {}
       const unexpected: string[] = []
       let swept = 0

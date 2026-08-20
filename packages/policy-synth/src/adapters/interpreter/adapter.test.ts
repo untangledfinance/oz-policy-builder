@@ -55,8 +55,6 @@ describe('interpreter adapter identity + capabilities', () => {
       // False: the interpreter refuses a `valid_until` predicate leaf at
       // install. Expiry lives on the context rule, not in the predicate.
       supportsTimeExpiry: false,
-      supportsOraclePrice: true,
-      supportsInvocationCount: true,
       supportsGeneralPredicate: true,
     })
   })
@@ -77,16 +75,7 @@ describe('interpreter adapter identity + capabilities', () => {
         {
           roles: [],
           scope: { contract: BLEND_POOL, method: 'claim' },
-          constraints: [
-            {
-              op: 'compare',
-              compare: {
-                selector: { kind: 'invocation_count', windowSeconds: 86400 },
-                operator: 'lte',
-                value: '1',
-              },
-            },
-          ],
+          constraints: [],
         },
         {
           roles: [],
@@ -101,7 +90,7 @@ describe('interpreter adapter identity + capabilities', () => {
 })
 
 describe('interpreter adapter - Blend claim walkthrough', () => {
-  it('lowers (claim + once-per-day) to and(call_contract, call_fn==claim, invocation_count_in_window<=1)', () => {
+  it('lowers (claim, scope only) to and(call_contract, call_fn==claim)', () => {
     const ir: PolicyIR = {
       chain: 'stellar',
       defaultBehavior: 'deny_all',
@@ -109,16 +98,7 @@ describe('interpreter adapter - Blend claim walkthrough', () => {
         {
           roles: [],
           scope: { contract: BLEND_POOL, method: 'claim' },
-          constraints: [
-            {
-              op: 'compare',
-              compare: {
-                selector: { kind: 'invocation_count', windowSeconds: 86400 },
-                operator: 'lte',
-                value: '1',
-              },
-            },
-          ],
+          constraints: [],
         },
       ],
     }
@@ -134,7 +114,7 @@ describe('interpreter adapter - Blend claim walkthrough', () => {
     const doc = proposed.policyDocuments[0]
     expect(doc).toBeDefined()
     if (!doc) return
-    expect(doc.grammarVersion).toBe(1)
+    expect(doc.grammarVersion).toBe(2)
     expect(doc.installNonce).toBe(1)
     expect(typeof doc.encodedPredicate).toBe('string')
     expect(doc.predicateHash).toMatch(/^[0-9a-f]{64}$/)
@@ -156,16 +136,7 @@ describe('interpreter adapter - Blend claim walkthrough', () => {
         {
           roles: [],
           scope: { contract: BLEND_POOL, method: 'claim' },
-          constraints: [
-            {
-              op: 'compare',
-              compare: {
-                selector: { kind: 'invocation_count', windowSeconds: 86400 },
-                operator: 'lte',
-                value: '1',
-              },
-            },
-          ],
+          constraints: [],
         },
       ],
     }
@@ -184,11 +155,6 @@ describe('interpreter adapter - Blend claim walkthrough', () => {
           right: { kind: 'literal_address', value: BLEND_POOL },
         },
         { op: 'eq', left: leafCallFn(), right: { kind: 'literal_symbol', value: 'claim' } },
-        {
-          op: 'lte',
-          left: { kind: 'invocation_count_in_window', windowSecs: 86400 },
-          right: { kind: 'literal_u32', value: 1 },
-        },
       ],
     }
     const expected = encodePredicate(expectedNode)
@@ -257,16 +223,7 @@ describe('interpreter adapter - SEP-41 recipient allowlist walkthrough', () => {
         {
           roles: [],
           scope: { contract: BLEND_POOL, method: 'claim' },
-          constraints: [
-            {
-              op: 'compare',
-              compare: {
-                selector: { kind: 'invocation_count', windowSeconds: 86400 },
-                operator: 'lte',
-                value: '1',
-              },
-            },
-          ],
+          constraints: [],
         },
       ],
     }
@@ -284,11 +241,6 @@ describe('interpreter adapter - SEP-41 recipient allowlist walkthrough', () => {
           right: { kind: 'literal_address', value: BLEND_POOL },
         },
         { op: 'eq', left: leafCallFn(), right: { kind: 'literal_symbol', value: 'claim' } },
-        {
-          op: 'lte',
-          left: { kind: 'invocation_count_in_window', windowSecs: 86400 },
-          right: { kind: 'literal_u32', value: 1 },
-        },
       ],
     }
     const expected = encodePredicate(expectedNode)
@@ -297,7 +249,7 @@ describe('interpreter adapter - SEP-41 recipient allowlist walkthrough', () => {
 })
 
 describe('interpreter adapter - Soroswap bounded-swap walkthrough', () => {
-  it('lowers (path ordered [XLM,USDC] + per-call arg cap + oracle<XLM<price) to one and', () => {
+  it('lowers (path ordered [XLM,USDC] + per-call arg cap) to one and', () => {
     const ir: PolicyIR = {
       chain: 'stellar',
       defaultBehavior: 'deny_all',
@@ -324,15 +276,6 @@ describe('interpreter adapter - Soroswap bounded-swap walkthrough', () => {
                 selector: { kind: 'arg', argIndex: 1, scalarType: 'i128' },
                 operator: 'lte',
                 value: '1000000000',
-              },
-            },
-            {
-              op: 'compare',
-              compare: {
-                selector: { kind: 'oracle_price', asset: XLM },
-                operator: 'lt',
-                value: '50000000',
-                valueDecimals: 9,
               },
             },
           ],
@@ -370,11 +313,6 @@ describe('interpreter adapter - Soroswap bounded-swap walkthrough', () => {
           op: 'lte',
           left: { kind: 'call_arg', index: 1 },
           right: { kind: 'literal_i128', value: '1000000000' },
-        },
-        {
-          op: 'lt',
-          left: { kind: 'oracle_price', asset: XLM },
-          right: { kind: 'oracle_threshold', value: '50000000', decimals: 9 },
         },
       ],
     }
@@ -459,274 +397,6 @@ describe('interpreter adapter - Soroswap bounded-swap walkthrough', () => {
       const err = e as { code?: string }
       expect(err.code).toBe('SCOPE_SELF_CALL')
     }
-  })
-})
-
-describe('interpreter adapter - oracle leaf enforcement', () => {
-  it('throws ORACLE_LEAF_INVALID_POSITION when oracle_price is nested under `not`', () => {
-    const ir: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
-        {
-          roles: [],
-          scope: { contract: BLEND_POOL, method: 'swap' },
-          constraints: [
-            {
-              op: 'not',
-              child: {
-                op: 'compare',
-                compare: {
-                  selector: { kind: 'oracle_price', asset: XLM },
-                  operator: 'lt',
-                  value: '50000000',
-                  valueDecimals: 9,
-                },
-              },
-            },
-          ],
-        },
-      ],
-    }
-    try {
-      adapter.compile(ir)
-      throw new Error('expected throw')
-    } catch (e) {
-      const err = e as { code?: string }
-      expect(err.code).toBe('ORACLE_LEAF_INVALID_POSITION')
-    }
-  })
-
-  it('throws ORACLE_LEAF_INVALID_POSITION when oracle_price is nested under `or`', () => {
-    const ir: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
-        {
-          roles: [],
-          scope: { contract: BLEND_POOL, method: 'swap' },
-          constraints: [
-            {
-              op: 'or',
-              children: [
-                {
-                  op: 'compare',
-                  compare: {
-                    selector: { kind: 'oracle_price', asset: XLM },
-                    operator: 'lt',
-                    value: '50000000',
-                    valueDecimals: 9,
-                  },
-                },
-                {
-                  op: 'compare',
-                  compare: {
-                    selector: { kind: 'amount', token: XLM },
-                    operator: 'lte',
-                    value: '10',
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    }
-    try {
-      adapter.compile(ir)
-      throw new Error('expected throw')
-    } catch (e) {
-      const err = e as { code?: string }
-      expect(err.code).toBe('ORACLE_LEAF_INVALID_POSITION')
-    }
-  })
-
-  it('throws ORACLE_LEAF_INVALID_POSITION when oracle_price is nested inside an `in` haystack', () => {
-    // `in` requires literal leaves, and oracle_price is restricted to
-    // top-level-and-only positions, so nesting
-    // inside `in` (which is itself non-`and`) is also an invalid position.
-    const ir: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
-        {
-          roles: [],
-          scope: { contract: BLEND_POOL, method: 'swap' },
-          constraints: [
-            {
-              op: 'in',
-              selector: { kind: 'arg', argIndex: 0, scalarType: 'address' },
-              values: [XLM],
-            },
-          ],
-        },
-      ],
-    }
-    // First confirm a plain `in` is fine (no oracle) - covered already above.
-    // Now the failing case: a synthetic `in` whose selector IS an oracle_price.
-    const irOracle: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
-        {
-          roles: [],
-          scope: { contract: BLEND_POOL, method: 'swap' },
-          constraints: [
-            {
-              op: 'and',
-              children: [
-                {
-                  op: 'or',
-                  children: [
-                    {
-                      op: 'in',
-                      selector: { kind: 'oracle_price', asset: XLM },
-                      values: [XLM, USDC],
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    }
-    try {
-      adapter.compile(irOracle)
-      throw new Error('expected throw')
-    } catch (e) {
-      const err = e as { code?: string }
-      expect(err.code).toBe('ORACLE_LEAF_INVALID_POSITION')
-    }
-    // baseline: the non-oracle version compiles cleanly.
-    expect(adapter.compile(ir).covered).toBe(true)
-  })
-})
-
-describe('interpreter adapter - oracleParams tighten-only', () => {
-  it('rejects widening maxStalenessSeconds above 600 with ORACLE_PARAMS_OUT_OF_RANGE', () => {
-    const widening = createInterpreterAdapter({
-      installNonce: 1,
-      smartAccountAddress: SMART_ACCOUNT,
-      oracleParams: { maxStalenessSeconds: 601 },
-    })
-    try {
-      widening.compile({
-        chain: 'stellar',
-        defaultBehavior: 'deny_all',
-        rules: [
-          {
-            roles: [],
-            scope: { contract: BLEND_POOL, method: 'claim' },
-            constraints: [
-              {
-                op: 'compare',
-                compare: {
-                  selector: { kind: 'invocation_count', windowSeconds: 86400 },
-                  operator: 'lte',
-                  value: '1',
-                },
-              },
-            ],
-          },
-        ],
-      })
-      throw new Error('expected throw')
-    } catch (e) {
-      const err = e as { code?: string }
-      expect(err.code).toBe('ORACLE_PARAMS_OUT_OF_RANGE')
-    }
-  })
-
-  it('rejects widening maxDeviationBps above 200 with ORACLE_PARAMS_OUT_OF_RANGE', () => {
-    const widening = createInterpreterAdapter({
-      installNonce: 1,
-      smartAccountAddress: SMART_ACCOUNT,
-      oracleParams: { maxDeviationBps: 201 },
-    })
-    try {
-      widening.compile({
-        chain: 'stellar',
-        defaultBehavior: 'deny_all',
-        rules: [
-          {
-            roles: [],
-            scope: { contract: BLEND_POOL, method: 'claim' },
-            constraints: [
-              {
-                op: 'compare',
-                compare: {
-                  selector: { kind: 'invocation_count', windowSeconds: 86400 },
-                  operator: 'lte',
-                  value: '1',
-                },
-              },
-            ],
-          },
-        ],
-      })
-      throw new Error('expected throw')
-    } catch (e) {
-      const err = e as { code?: string }
-      expect(err.code).toBe('ORACLE_PARAMS_OUT_OF_RANGE')
-    }
-  })
-
-  it('accepts a tightening override (maxStalenessSeconds<=600, maxDeviationBps<=200)', () => {
-    const tightening = createInterpreterAdapter({
-      installNonce: 1,
-      smartAccountAddress: SMART_ACCOUNT,
-      oracleParams: { maxStalenessSeconds: 300, maxDeviationBps: 100 },
-    })
-    const res = tightening.compile({
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
-        {
-          roles: [],
-          scope: { contract: BLEND_POOL, method: 'claim' },
-          constraints: [
-            {
-              op: 'compare',
-              compare: {
-                selector: { kind: 'invocation_count', windowSeconds: 86400 },
-                operator: 'lte',
-                value: '1',
-              },
-            },
-          ],
-        },
-      ],
-    })
-    expect(res.covered).toBe(true)
-    expect(res.proposed?.policyDocuments[0]?.oracleParams).toEqual({
-      maxStalenessSeconds: 300,
-      maxDeviationBps: 100,
-    })
-  })
-
-  it('accepts an empty oracleParams override (omitted defaults)', () => {
-    const res = adapter.compile({
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
-        {
-          roles: [],
-          scope: { contract: BLEND_POOL, method: 'claim' },
-          constraints: [
-            {
-              op: 'compare',
-              compare: {
-                selector: { kind: 'invocation_count', windowSeconds: 86400 },
-                operator: 'lte',
-                value: '1',
-              },
-            },
-          ],
-        },
-      ],
-    })
-    expect(res.proposed?.policyDocuments[0]?.oracleParams).toBeUndefined()
   })
 })
 
@@ -881,16 +551,7 @@ describe('interpreter adapter - unsupported IR constructs', () => {
         {
           roles: [],
           scope: { contract: BLEND_POOL, method: 'claim' },
-          constraints: [
-            {
-              op: 'compare',
-              compare: {
-                selector: { kind: 'invocation_count', windowSeconds: 86400 },
-                operator: 'lte',
-                value: '1',
-              },
-            },
-          ],
+          constraints: [],
         },
       ],
     }
@@ -961,39 +622,5 @@ describe('interpreter adapter - unsourceable value selectors', () => {
       })
     )
     expect(res.covered).toBe(false)
-  })
-
-  it('still raises the oracle position error when a subtree is BOTH misplaced-oracle and unsourceable', () => {
-    // The hard security invariant must win over the softer "uncovered"
-    // report, or a misplaced oracle leaf would be silently dropped.
-    try {
-      adapter.compile(
-        irWith({
-          op: 'or',
-          children: [
-            {
-              op: 'compare',
-              compare: {
-                selector: { kind: 'oracle_price', asset: XLM },
-                operator: 'lt',
-                value: '500',
-                valueDecimals: 9,
-              },
-            },
-            {
-              op: 'compare',
-              compare: {
-                selector: { kind: 'amount', token: XLM },
-                operator: 'lte',
-                value: '10',
-              },
-            },
-          ],
-        })
-      )
-      throw new Error('expected throw')
-    } catch (e) {
-      expect((e as { code?: string }).code).toBe('ORACLE_LEAF_INVALID_POSITION')
-    }
   })
 })

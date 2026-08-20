@@ -9,7 +9,7 @@
 // front-ends, mutually exclusive.
 //
 // Per-field response flags (--window-seconds, --valid-until, --limit-amount,
-// --invocation-limit) merge into `userResponses`. A flag overrides the same
+// --window-seconds) merge into `userResponses`. A flag overrides the same
 // field from --responses (CLI flags are explicit; the file is a default bag).
 // the interpreter opt-in and are rejected without --smart-account; tighten-only
 // bounds are validated by the core.
@@ -118,7 +118,6 @@ export async function runSynthesizeCommand(
     ['window-seconds', 'windowSeconds', parsePositiveInt],
     ['valid-until', 'validUntilLedger', parsePositiveInt],
     ['limit-amount', 'limitAmount', parseI128String],
-    ['invocation-limit', 'invocationLimit', parsePositiveInt],
   ]
   for (const [flag, key, parse] of userResponseFlags) {
     if (pairs[flag] !== undefined) {

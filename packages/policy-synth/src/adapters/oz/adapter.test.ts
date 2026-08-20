@@ -36,8 +36,6 @@ describe('OZ adapter identity + capabilities', () => {
       supportsSpendWindow: true,
       supportsThreshold: true,
       supportsTimeExpiry: true,
-      supportsOraclePrice: false,
-      supportsInvocationCount: false,
       supportsGeneralPredicate: false,
     })
   })
@@ -217,35 +215,6 @@ describe('OZ adapter compile - absent scope -> default context rule', () => {
 })
 
 describe('OZ adapter compile - unsupported constructs flagged Path B', () => {
-  it('flags an oracle_price condition as uncovered and does not emit it', () => {
-    const ir: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
-        {
-          roles: [],
-          scope: { contract: 'CX' },
-          constraints: [
-            {
-              op: 'compare',
-              compare: {
-                selector: { kind: 'oracle_price', asset: 'CUSD' },
-                operator: 'gte',
-                value: '100',
-                valueDecimals: 9,
-              },
-            },
-          ],
-        },
-      ],
-    }
-    const res = adapter.compile(ir)
-    expect(res.covered).toBe(false)
-    expect(res.uncovered.some((u) => u.includes('oracle price'))).toBe(true)
-    // covered primitives (none here) still form a rule; nothing invalid emitted.
-    expect(res.proposed?.policyRefs).toEqual([])
-  })
-
   it('flags an `in` arg allowlist as uncovered', () => {
     const ir: PolicyIR = {
       chain: 'stellar',
@@ -324,10 +293,9 @@ describe('OZ adapter compile - unsupported constructs flagged Path B', () => {
           guard: {
             op: 'compare',
             compare: {
-              selector: { kind: 'oracle_price', asset: 'CUSD' },
+              selector: { kind: 'arg', argIndex: 0, scalarType: 'i128' },
               operator: 'gte',
               value: '100',
-              valueDecimals: 9,
             },
           },
         },

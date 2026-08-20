@@ -23,12 +23,6 @@ function leafNow(): PredicateLeaf {
   return { kind: 'now' }
 }
 
-/** A non-oracle conjunct. An oracle bound only installs alongside one (the
- *  contract's MissingNonOracleEnvelope rule), so oracle fixtures carry it. */
-function envelope(): PredicateNode {
-  return { op: 'eq', left: { kind: 'call_fn' }, right: { kind: 'literal_symbol', value: 'swap' } }
-}
-
 describe('encodePredicate - determinism', () => {
   it('produces byte-identical encodedPredicate + predicateHash across repeated runs', () => {
     const node: PredicateNode = {
@@ -411,20 +405,6 @@ describe('encodePredicate - selector leaf wire shapes', () => {
     expect(selector[1]?.switch().name).toBe('scvAddress')
   })
 
-  it('invocation_count_in_window serialises scvU64(windowSecs)', () => {
-    const node: PredicateNode = {
-      op: 'eq',
-      left: { kind: 'invocation_count_in_window', windowSecs: 86_400 },
-      right: { kind: 'literal_u32', value: 5 },
-    }
-    const { encodedPredicate } = encodePredicate(node)
-    const root = xdr.ScVal.fromXDR(Buffer.from(encodedPredicate, 'base64'))
-    const rootVec = root.vec() ?? []
-    const selector = rootVec[1]?.vec() ?? []
-    expect(selector[0]?.sym().toString()).toBe('invocation_count')
-    expect(selector[1]?.u64().toString()).toBe('86400')
-  })
-
   it('call_arg uses scvU32(index)', () => {
     const node: PredicateNode = {
       op: 'eq',
@@ -450,43 +430,6 @@ describe('encodePredicate - selector leaf wire shapes', () => {
     const rootVec = root.vec() ?? []
     expect(rootVec[1]?.vec() ?? []).toHaveLength(1)
     expect(rootVec[1]?.vec()?.[0]?.sym().toString()).toBe('now')
-  })
-
-  it('refuses a valid_until leaf instead of encoding one', () => {
-    // The interpreter refuses this leaf at install, so encoding it only
-    // produces a policy that can never install. Fail at synthesis, and say
-    // where expiry actually belongs.
-    const node: PredicateNode = {
-      op: 'lt',
-      left: leafNow(),
-      right: { kind: 'valid_until' },
-    }
-    expect(() => encodePredicate(node)).toThrow(/valid_until is not a usable predicate leaf/)
-  })
-
-  it('oracle_price serialises as [sym, scvAddress(asset)]', () => {
-    // An oracle bound is only installable inside a non-oracle envelope, so the
-    // leaf is pinned in the shape a real policy uses.
-    const node: PredicateNode = {
-      op: 'and',
-      children: [
-        { op: 'eq', left: { kind: 'call_fn' }, right: { kind: 'literal_symbol', value: 'swap' } },
-        {
-          op: 'eq',
-          left: { kind: 'oracle_price', asset: TOKEN_A },
-          right: { kind: 'literal_u64', value: '1' },
-        },
-      ],
-    }
-    const { encodedPredicate } = encodePredicate(node)
-    const root = xdr.ScVal.fromXDR(Buffer.from(encodedPredicate, 'base64'))
-    const children = root.vec()?.[1]?.vec() ?? []
-    const oracleCompare = children.find(
-      (c) => c.vec()?.[1]?.vec()?.[0]?.sym().toString() === 'oracle_price'
-    )
-    const sel = oracleCompare?.vec()?.[1]?.vec() ?? []
-    expect(sel[0]?.sym().toString()).toBe('oracle_price')
-    expect(sel[1]?.switch().name).toBe('scvAddress')
   })
 })
 
@@ -627,52 +570,6 @@ describe('encodePredicate - cap enforcement', () => {
       expect((e as { code?: string }).code).toBe('PREDICATE_TOO_LARGE')
     }
   })
-
-  it('throws PREDICATE_ORACLE_OVER_LIMIT when unique oracle assets exceed the read budget', () => {
-    // MAX_ORACLE_READS = 6 = 3 unique assets * 2 reads. A 4th unique asset is one past.
-    const children: PredicateNode[] = []
-    for (let i = 1; i <= 4; i++) {
-      const asset = Address.contract(Buffer.alloc(32, i)).toString()
-      children.push({
-        op: 'lt',
-        left: { kind: 'oracle_price', asset },
-        right: { kind: 'oracle_threshold', value: '100000000', decimals: 9 },
-      })
-    }
-    try {
-      encodePredicate({ op: 'and', children })
-      throw new Error('expected throw')
-    } catch (e) {
-      expect((e as { code?: string }).code).toBe('PREDICATE_ORACLE_OVER_LIMIT')
-    }
-  })
-
-  it('accepts exactly MAX_ORACLE_READS (3 unique oracle assets)', () => {
-    const children: PredicateNode[] = [envelope()]
-    for (let i = 1; i <= 3; i++) {
-      const asset = Address.contract(Buffer.alloc(32, i)).toString()
-      children.push({
-        op: 'lt',
-        left: { kind: 'oracle_price', asset },
-        right: { kind: 'oracle_threshold', value: '100000000', decimals: 9 },
-      })
-    }
-    expect(() => encodePredicate({ op: 'and', children })).not.toThrow()
-  })
-
-  it('counts repeated references to the same oracle asset as one asset (2 reads)', () => {
-    const asset = Address.contract(Buffer.alloc(32, 9)).toString()
-    const children: PredicateNode[] = [envelope()]
-    for (let i = 0; i < 4; i++) {
-      children.push({
-        op: 'lt',
-        left: { kind: 'oracle_price', asset },
-        right: { kind: 'oracle_threshold', value: '100000000', decimals: 9 },
-      })
-    }
-    // 4 leaves but 1 unique asset -> 2 reads, under the cap.
-    expect(() => encodePredicate({ op: 'and', children })).not.toThrow()
-  })
 })
 
 describe('encodePredicate - call_arg_len / call_arg_field wire shapes', () => {
@@ -802,105 +699,5 @@ describe('encodePredicate - structures the contract refuses at decode', () => {
       expect(err.severity).toBe('error')
       expect(err.retryable).toBe(false)
     }
-  })
-})
-
-// The contract validates oracle placement at install (dsl.rs
-// `validate_oracle_placement`, called from `lib.rs`), so the encoder applies
-// the same two rules: an oracle read must be a conjunct the call has to
-// satisfy, and it must sit alongside a constraint on the call itself.
-describe('encodePredicate - oracle placement', () => {
-  const ORACLE_ASSET = Address.contract(Buffer.alloc(32, 0x07)).toString()
-
-  function oracleBound(): PredicateNode {
-    return {
-      op: 'lt',
-      left: { kind: 'oracle_price', asset: ORACLE_ASSET },
-      right: { kind: 'oracle_threshold', value: '100000000', decimals: 9 },
-    }
-  }
-
-  it('rejects an oracle_price under a `not`', () => {
-    try {
-      encodePredicate({
-        op: 'and',
-        children: [envelope(), { op: 'not', child: oracleBound() }],
-      })
-      throw new Error('expected throw')
-    } catch (e) {
-      expect((e as { code?: string }).code).toBe('ORACLE_LEAF_INVALID_POSITION')
-    }
-  })
-
-  it('rejects an oracle_price under an `or`', () => {
-    try {
-      encodePredicate({
-        op: 'and',
-        children: [{ op: 'or', children: [envelope(), oracleBound()] }],
-      })
-      throw new Error('expected throw')
-    } catch (e) {
-      expect((e as { code?: string }).code).toBe('ORACLE_LEAF_INVALID_POSITION')
-    }
-  })
-
-  it('rejects a predicate whose only constraint is an oracle price', () => {
-    try {
-      encodePredicate(oracleBound())
-      throw new Error('expected throw')
-    } catch (e) {
-      expect((e as { code?: string }).code).toBe('MALFORMED_PREDICATE')
-    }
-  })
-
-  it('accepts an oracle bound as a conjunct alongside a call constraint', () => {
-    expect(() =>
-      encodePredicate({ op: 'and', children: [envelope(), oracleBound()] })
-    ).not.toThrow()
-  })
-})
-
-// ===== F9: call_arg_scaled (relative slippage floor) =====
-
-describe('encodePredicate - call_arg_scaled wire shape', () => {
-  it('round-trips the canonical ScVal form: vec[symbol, u32, i128, i128]', () => {
-    const node: PredicateNode = {
-      op: 'gte',
-      left: { kind: 'call_arg', index: 1 },
-      right: { kind: 'call_arg_scaled', index: 0, num: '95', den: '100' },
-    }
-    expect(() => encodePredicate(node)).not.toThrow()
-  })
-
-  it('rejects a call_arg_scaled with den == 0 at encode time (no splicing of an invalid ratio into a wire payload)', () => {
-    // The contract refuses at install (dsl.rs `validate_scaled_ratios` ->
-    // `ScaledRatioError::ZeroDenominator`); the TS encoder now mirrors that
-    // gate via the leaf-value validation pass. A den==0 ratio would silently
-    // divide-by-zero at the on-chain evaluation - catching it here means
-    // simulate/verify and the on-chain enforcement agree on the same
-    // invalid shape. Mirrors dsl.rs:665-667.
-    const node: PredicateNode = {
-      op: 'gte',
-      left: { kind: 'call_arg', index: 0 },
-      right: { kind: 'call_arg_scaled', index: 0, num: '1', den: '0' },
-    }
-    expect(() => encodePredicate(node)).toThrow(/den must be > 0/)
-  })
-
-  it('rejects num outside int64 range (the i128 high-half overflow check applies)', () => {
-    const node: PredicateNode = {
-      op: 'gte',
-      left: { kind: 'call_arg', index: 0 },
-      right: {
-        kind: 'call_arg_scaled',
-        index: 0,
-        // 2^128 has hi = 2^64, which exceeds Int64_MAX (2^63 - 1). The
-        // scvI128FromDecimal helper throws MALFORMED_PREDICATE on the
-        // high-half overflow check before any payload is emitted.
-        num: '340282366920938463463374607431768211456', // 2^128
-        den: '1',
-      },
-    }
-    expect(() => encodePredicate(node)).toThrow(/Int128|range/i)
   })
 })

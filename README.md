@@ -63,7 +63,6 @@ The same wasm hash backs both networks; only the instance address differs.
 | `packages/policy-builder-cli` | CLI wrapper over the synth core (`@crediolabs/policy-builder-cli`). |
 | `packages/policy-builder-mcp` | MCP server exposing the seven policy tools (`@crediolabs/policy-builder-mcp`). |
 | `contracts/policy-interpreter` | The Soroban contract that enforces a predicate on chain. |
-| `contracts/test-oracle` | A Reflector-Pulse-shaped price feed, for testnet verification only. |
 | `contracts/test-blend-pool` | A Blend-`submit`-shaped stub, for testnet verification only. |
 
 ## Build and test
@@ -83,7 +82,6 @@ own directory:
 
 ```sh
 ( cd contracts/policy-interpreter && cargo test )
-( cd contracts/test-oracle        && cargo test )
 ( cd contracts/test-blend-pool    && cargo test )
 ```
 

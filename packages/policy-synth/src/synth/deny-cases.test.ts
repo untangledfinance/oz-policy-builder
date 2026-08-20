@@ -28,8 +28,6 @@ function context(overrides: Partial<EvalContext> = {}): EvalContext {
     nowSeconds: NOW_SECONDS,
     amountByToken: {},
     windowSpentByToken: {},
-    invocationCountByWindow: {},
-    oraclePriceByAsset: {},
     ...overrides,
   }
 }
@@ -47,15 +45,10 @@ const blendClaim: PredicateNode = {
       left: { kind: 'call_fn' },
       right: { kind: 'literal_symbol', value: 'claim' },
     },
-    {
-      op: 'lte',
-      left: { kind: 'invocation_count_in_window', windowSecs: 86_400 },
-      right: { kind: 'literal_u32', value: 1 },
-    },
   ],
 }
 
-const blendPermit = context({ invocationCountByWindow: { 86400: 1 } })
+const blendPermit = context()
 
 const sep41Subscription: PredicateNode = {
   op: 'and',
@@ -113,11 +106,6 @@ const soroswapBounded: PredicateNode = {
       left: { kind: 'amount', token: XLM_SAC },
       right: { kind: 'literal_i128', value: '1000000000' },
     },
-    {
-      op: 'lt',
-      left: { kind: 'oracle_price', asset: XLM_SAC },
-      right: { kind: 'oracle_threshold', value: '10000000', decimals: 9 },
-    },
   ],
 }
 
@@ -132,9 +120,6 @@ const soroswapPermit = context({
     { type: 'u64', value: String(NOW_SECONDS + 300) },
   ],
   amountByToken: { [XLM_SAC]: '900000000' },
-  oraclePriceByAsset: {
-    [XLM_SAC]: { price: '5000000', timestampSeconds: NOW_SECONDS },
-  },
 })
 
 function expectEveryGeneratedDenyToDeny(
@@ -155,12 +140,7 @@ function expectEveryGeneratedDenyToDeny(
 
 describe('generateCases - reference policies', () => {
   it('generates only the applicable Blend claim dimensions', () => {
-    expectEveryGeneratedDenyToDeny(blendClaim, blendPermit, [
-      'contract',
-      'function',
-      'timing',
-      'invocation_count',
-    ])
+    expectEveryGeneratedDenyToDeny(blendClaim, blendPermit, ['contract', 'function', 'timing'])
   })
 
   it('generates recipient and authorized-call mismatches for SEP-41 transfer', () => {
@@ -174,7 +154,7 @@ describe('generateCases - reference policies', () => {
     ])
   })
 
-  it('generates amount, asset, oracle, and exact-path cases for SoroSwap', () => {
+  it('generates amount, asset, and exact-path cases for SoroSwap', () => {
     expectEveryGeneratedDenyToDeny(soroswapBounded, soroswapPermit, [
       'amount',
       'asset',
@@ -182,10 +162,6 @@ describe('generateCases - reference policies', () => {
       'function',
       'timing',
       'scope_contract_fn_arg',
-      'oracle_stale',
-      'oracle_missing',
-      'oracle_deviation_exceeded',
-      'oracle_paused',
       'soroswap_allowed_path',
     ])
   })
@@ -211,36 +187,20 @@ describe('generateCases - numeric boundaries', () => {
     })
   })
 
-  it('mutates prior window spend and invocation count past their bounds', () => {
+  it('mutates prior window spend past its bound', () => {
     const predicate: PredicateNode = {
-      op: 'and',
-      children: [
-        {
-          op: 'lte',
-          left: { kind: 'window_spent', token: XLM_SAC, windowSeconds: 3_600 },
-          right: { kind: 'literal_i128', value: '500' },
-        },
-        {
-          op: 'lte',
-          left: { kind: 'invocation_count_in_window', windowSecs: 3_600 },
-          right: { kind: 'literal_u32', value: 2 },
-        },
-      ],
+      op: 'lte',
+      left: { kind: 'window_spent', token: XLM_SAC, windowSeconds: 3_600 },
+      right: { kind: 'literal_i128', value: '500' },
     }
     const permitCtx = context({
       validUntilLedger: undefined,
       windowSpentByToken: { [XLM_SAC]: '499' },
-      invocationCountByWindow: { 3600: 2 },
     })
     const cases = generateCases(predicate, permitCtx)
 
-    expect(cases.denies.map(({ dimension }) => dimension)).toEqual([
-      'asset',
-      'time_window',
-      'invocation_count',
-    ])
+    expect(cases.denies.map(({ dimension }) => dimension)).toEqual(['asset', 'time_window'])
     expect(cases.denies[1]?.ctx.windowSpentByToken[XLM_SAC]).toBe('501')
-    expect(cases.denies[2]?.ctx.invocationCountByWindow[3_600]).toBe(3)
   })
 
   it('does not mutate the supplied permit context', () => {

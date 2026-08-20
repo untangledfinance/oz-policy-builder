@@ -105,35 +105,6 @@ impl PolicyInterpreter {
             storage::panic_external_signer_not_supported(e);
         }
 
-        // (d) Distinct invocation-count windows. Each window is one
-        //      persistent write per permit, and Soroban's per-tx write-entry
-        //      cap is 50. A predicate over the cap installs today and
-        //      fails every enforce ("write ledger entries: 52 > 50"). The
-        //      bound lives here so the failure is loud at install rather
-        //      than silent forever after.
-        if state::collect_invocation_count_leaves(&root).len() as u32
-            > dsl::MAX_INVOCATION_COUNT_WINDOWS
-        {
-            storage::panic_too_many_invocation_windows(e);
-        }
-
-        // (d2) Refuse a `ValidUntil` leaf. The interpreter never sources
-        //      valid_until_ledger (the smart account owns expiry), so any
-        //      policy using it would silently always deny. Refuse at
-        //      install so the failure is loud rather than perpetual.
-        if state::contains_valid_until(&root) {
-            storage::panic_valid_until_not_supported(e);
-        }
-
-        // (d3) Slippage-floor ratios. A `call_arg_scaled` with `den == 0`
-        //      would divide by zero at runtime; with `num <= 0` or
-        //      `den <= 0` would silently invert the comparison. Refuse
-        //      at install so the failure is loud rather than a perpetual
-        //      runtime permitter/denier.
-        if dsl::validate_scaled_ratios(&root).is_err() {
-            storage::panic_invalid_scaled_ratio(e);
-        }
-
         // (d4) Minimum constraint. A predicate carrying no selector leaf -
         //      literals on both sides of every compare - is trivially true
         //      or trivially false at install time, so it would permit
@@ -242,14 +213,11 @@ impl PolicyInterpreter {
 
         // Before the predicate check. A deny panics and the host rolls this
         // back with the rest of the frame, so only a permit keeps the bump.
-        state::extend_state_ttl(e, &predicate_root, &key);
+        state::extend_state_ttl(e, &key);
 
-        let eval_ctx =
-            state::build_eval_context(e, &context, &doc, &predicate_root, &key, &smart_account);
+        let eval_ctx = state::build_eval_context(e, &context, &doc, &smart_account);
         match dsl::evaluate(e, &predicate_root, &eval_ctx) {
-            dsl::EvalDecision::Permit => {
-                state::commit_state_updates(e, &predicate_root, &eval_ctx, &key);
-            }
+            dsl::EvalDecision::Permit => {}
             // Surface the SPECIFIC deny code so a review card can say
             // "not on the allowlist" rather than "predicate false"
             // (an argument mismatch). The mapping is
@@ -269,15 +237,9 @@ impl PolicyInterpreter {
             None => storage::panic_missing_state(e),
         };
         auth::require_master(e, &master_set);
-        let doc: storage::StoredDoc = match e.storage().persistent().get(&key.doc_key()) {
-            Some(d) => d,
-            None => storage::panic_missing_state(e),
-        };
-        let predicate_root = match dsl::decode_with_byte_cap(e, &doc.predicate_bytes) {
-            Ok(n) => n,
-            Err(_) => storage::panic_malformed_predicate(e),
-        };
-        state::remove_all_counters(e, &predicate_root, &key);
+        if !e.storage().persistent().has(&key.doc_key()) {
+            storage::panic_missing_state(e);
+        }
         e.storage().persistent().remove(&key.doc_key());
         e.storage().persistent().remove(&key.nonce_key());
         e.storage().persistent().remove(&key.signers_hash_key());

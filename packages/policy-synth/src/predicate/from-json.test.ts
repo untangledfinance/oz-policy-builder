@@ -6,7 +6,6 @@
 // to see. It had no tests while it lived in the demo app.
 
 import { describe, expect, it } from 'bun:test'
-import { encodePredicate } from './encode.ts'
 import { jsonToAst } from './from-json.ts'
 
 const ADDR = 'CDAWEE6CFKZCQJ4JGQBRXMPVJ2PRL3A3F6DJWEMOCNJLMVX32FAVHXY3'
@@ -39,31 +38,6 @@ describe('jsonToAst - accepts', () => {
     })
     expect(ast.op).toBe('and')
   })
-
-  // The slippage-floor leaf. The parser lived in the demo app and was not
-  // updated when the leaf shipped, so a pasted floor policy was rejected by
-  // the tooling while the contract accepted it.
-  it('a call_arg_scaled slippage floor', () => {
-    const ast = jsonToAst({
-      op: 'gte',
-      left: { kind: 'call_arg', index: 1 },
-      right: { kind: 'call_arg_scaled', index: 0, num: '95', den: '100' },
-    })
-    expect(ast.op).toBe('gte')
-    // and it must survive the encoder, not just the parser
-    expect(encodePredicate(ast).encodedPredicate.length).toBeGreaterThan(0)
-  })
-
-  it('num/den beyond 2^53 without precision loss', () => {
-    const big = '170141183460469231731687303715884105727'
-    const ast = jsonToAst({
-      op: 'gte',
-      left: { kind: 'call_arg', index: 1 },
-      right: { kind: 'call_arg_scaled', index: 0, num: big, den: '1' },
-    })
-    const right = (ast as { right: { num: string } }).right
-    expect(right.num).toBe(big)
-  })
 })
 
 describe('jsonToAst - rejects', () => {
@@ -95,17 +69,6 @@ describe('jsonToAst - rejects', () => {
         right: { kind: 'literal_symbol', value: 'x' },
       })
     ).toThrow(/must be an integer/)
-  })
-
-  it('a numeric num/den on call_arg_scaled', () => {
-    // A JSON number here is the precision bug this shape exists to avoid.
-    expect(() =>
-      jsonToAst({
-        op: 'gte',
-        left: { kind: 'call_arg', index: 1 },
-        right: { kind: 'call_arg_scaled', index: 0, num: 95, den: 100 },
-      })
-    ).toThrow(/must be a string/)
   })
 
   it('children that are not an array', () => {

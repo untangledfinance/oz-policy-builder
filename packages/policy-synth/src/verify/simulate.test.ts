@@ -41,11 +41,6 @@ function blendClaimPredicate(): PredicateNode {
         left: { kind: 'call_fn' },
         right: { kind: 'literal_symbol', value: 'claim' },
       },
-      {
-        op: 'lte',
-        left: { kind: 'invocation_count_in_window', windowSecs: 86_400 },
-        right: { kind: 'literal_u32', value: 1 },
-      },
     ],
   }
 }
@@ -209,14 +204,13 @@ describe('simulatePolicy - walkthrough permits', () => {
     expect(res.data.permit).toEqual({ tx: 'permit' })
     expect(res.data.backend).toBe('ts-model')
     expect(typeof res.data.simulatorVersion).toBe('string')
-    // The Blend walkthrough predicate has contract + fn + invocation_count
-    // leaves (no amount leaf, no window_spent leaf). The deny battery is
-    // therefore: contract, function, invocation_count (+ the permit row).
+    // The Blend walkthrough predicate has contract + fn leaves (no amount
+    // leaf, no window_spent leaf). The deny battery is therefore: contract,
+    // function (+ the permit row).
     const dims = res.data.evaluatedCases.map((c) => c.dimension)
     expect(dims).toContain('permit')
     expect(dims).toContain('contract')
     expect(dims).toContain('function')
-    expect(dims).toContain('invocation_count')
     // Every non-permit case must be a deny
     for (const c of res.data.evaluatedCases) {
       if (c.dimension === 'permit') {
@@ -336,53 +330,6 @@ describe('simulatePolicy - SIMULATION_ERROR boundary', () => {
     if (res.ok) return
     expect(res.error.code).toBe('SIMULATION_ERROR')
     expect(res.error.message).toContain('permit evaluation context')
-  })
-
-  it('an oracle-bound predicate without a fixture surfaces SIMULATION_ERROR (runtime, not VERIFICATION_FAILED)', () => {
-    // The permit-context oracle-satisfying-price logic only kicks in when
-    // a satisfying price can be derived from the predicate itself. With no
-    // oracle fixture supplied and no auto-derived entry (bound=0 yields
-    // price=0 which IS satisfying, so this path needs an explicit fixture
-    // missing case). We construct a predicate whose bound cannot be
-    // satisfied from `tx.fetchedAt` alone - by passing a fixture that is
-    // explicitly stale, the deny case for "fresh" oracle still trips but
-    // the permit evaluation against the bad fixture throws.
-    const oraclePredicate: PredicateNode = {
-      op: 'and',
-      children: [
-        {
-          op: 'eq',
-          left: { kind: 'call_contract' },
-          right: { kind: 'literal_address', value: SOROSWAP_ROUTER },
-        },
-        {
-          op: 'eq',
-          left: { kind: 'call_fn' },
-          right: { kind: 'literal_symbol', value: 'swap_exact_tokens_for_tokens' },
-        },
-        {
-          op: 'lt',
-          left: { kind: 'oracle_price', asset: XLM_SAC },
-          right: { kind: 'oracle_threshold', value: '50000000', decimals: 9 },
-        },
-      ],
-    }
-    // Force a stale fixture for the oracle asset so permit evaluation
-    // throws ORACLE_STALE -> caught and converted to a deny verdict by
-    // the evaluator (NOT a SIMULATION_ERROR). This is the runtime path
-    // working as designed.
-    const staleFixture = simulatePolicy(oraclePredicate, soroswapTx(), {
-      oraclePricesByAsset: {
-        [XLM_SAC]: { error: 'stale' },
-      },
-    })
-    expect(staleFixture.ok).toBe(true)
-    if (!staleFixture.ok) return
-    // The permit tx evaluated under a stale oracle -> deny ORACLE_STALE.
-    expect(staleFixture.data.permit.tx).toBe('deny')
-    if (staleFixture.data.permit.tx === 'deny') {
-      expect(staleFixture.data.permit.reason).toBe('ORACLE_STALE')
-    }
   })
 })
 

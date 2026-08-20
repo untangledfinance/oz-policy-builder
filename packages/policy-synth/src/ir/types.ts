@@ -52,7 +52,6 @@ export type IRSelector =
   // --- OZ extensions (not in NEAR-V2; lowered only by adapters that support them) ---
   | { kind: 'amount'; token: string } // token amount this call moves
   | { kind: 'window_spent'; token: string; windowSeconds: number } // stateful cumulative spend
-  | { kind: 'invocation_count'; windowSeconds: number }
   | { kind: 'now' }
   | { kind: 'valid_until' }
 
@@ -82,25 +81,6 @@ export type IRCondition =
    *  does. Adapters that cannot express an exact ordered vector (OZ built-ins)
    *  flag this as `uncovered` rather than silently dropping it. */
   | { op: 'eq_seq'; selector: IRSelector; values: string[] }
-  /** A swap's output floor, expressed against its own input: the output arg
-   *  must be at least `inArgIndex * num / den`.
-   *
-   *  It is its own construct because `compare` bounds a selector against a
-   *  CONSTANT, and a slippage floor has no constant to bound against - the
-   *  acceptable output depends on the input of the same call. Encoding the
-   *  recorded output as a constant would pin a policy to one trade size.
-   *
-   *  `num/den` is the caller's minimum acceptable output per unit of input.
-   *  It is never derived from the recording: the recorded rate is a price at
-   *  one moment, and freezing it as policy would deny normal trades later.
-   *  Adapters that cannot express it (the OZ built-ins) flag it `uncovered`. */
-  | {
-      op: 'slippage_floor'
-      outArgIndex: number
-      inArgIndex: number
-      num: string
-      den: string
-    }
 
 export interface IRPolicyRule {
   /** NEAR-V2 roles whitelist (empty = any; owner exempt). */

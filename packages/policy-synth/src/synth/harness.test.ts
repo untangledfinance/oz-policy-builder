@@ -17,8 +17,6 @@ function context(overrides: Partial<EvalContext> = {}): EvalContext {
     nowSeconds: 1_700_000_000,
     amountByToken: { [TOKEN]: '50' },
     windowSpentByToken: {},
-    invocationCountByWindow: {},
-    oraclePriceByAsset: {},
     ...overrides,
   }
 }

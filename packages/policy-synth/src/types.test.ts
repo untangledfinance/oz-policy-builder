@@ -33,7 +33,6 @@ describe('PREDICATE_CAPS', () => {
     expect(PREDICATE_CAPS.MAX_DEPTH).toBe(5)
     expect(PREDICATE_CAPS.MAX_LEAVES).toBe(200)
     expect(PREDICATE_CAPS.MAX_PREDICATE_BYTES).toBe(32 * 1024)
-    expect(PREDICATE_CAPS.MAX_ORACLE_READS).toBe(6)
     expect(PREDICATE_CAPS.MAX_IN_OPERAND_COUNT).toBe(32)
   })
 })
@@ -52,7 +51,7 @@ describe('PredicateNode / PredicateLeaf', () => {
           right: { kind: 'amount', token: 'CDEF' },
         },
         { op: 'in', needle: { kind: 'call_fn' }, haystack: [{ kind: 'call_fn' }] },
-        { op: 'lte', left: { kind: 'now' }, right: { kind: 'valid_until' } },
+        { op: 'lte', left: { kind: 'now' }, right: { kind: 'literal_u32', value: 100 } },
         {
           op: 'gt',
           left: { kind: 'window_spent', token: 'CABC', windowSeconds: 3600 },
@@ -63,11 +62,10 @@ describe('PredicateNode / PredicateLeaf', () => {
           left: { kind: 'invocation_count_in_window', windowSecs: 3600 },
           right: { kind: 'now' },
         },
-        { op: 'oracle_price', asset: 'CABC' },
       ],
     }
     expect(node.op).toBe('and')
-    expect(node.children.length).toBe(8)
+    expect(node.children.length).toBe(7)
   })
 })
 
@@ -125,7 +123,7 @@ describe('Constructibility of full domain shapes', () => {
     }
 
     const doc: PolicyDocument = {
-      grammarVersion: 1,
+      grammarVersion: 2,
       installNonce: 1,
       encodedPredicate: 'AAAA',
       predicateHash: 'a'.repeat(64),
@@ -146,7 +144,7 @@ describe('Constructibility of full domain shapes', () => {
     }
 
     expect(proposed.contextRule.signers[0]?.kind).toBe('delegated')
-    expect(proposed.policyDocuments[0]?.grammarVersion).toBe(1)
+    expect(proposed.policyDocuments[0]?.grammarVersion).toBe(2)
     expect(proposed.policyRefs.length).toBe(2)
   })
 })

@@ -220,11 +220,9 @@ describe('composeFromRecording - never silently omits a spent token (C2)', () =>
     expect(spends?.length).toBe(0)
   })
 
-  it('two-token outgoing flow with only an invocationLimit (no limitAmount) still emits no bound', () => {
-    // invocation_count is an incoming-only bound; on an outgoing spend it must be
-    // ignored, and a multi-token spend cannot bind a single caller limit anyway.
-    // The flow must fail closed: no window_spent, no invocation_count, one
-    // AMOUNT_BOUND_MISSING per token.
+  it('two-token outgoing flow with no limitAmount emits no bound', () => {
+    // A multi-token spend cannot bind a single caller limit, so the flow must
+    // fail closed: no window_spent, one AMOUNT_BOUND_MISSING per token.
     const facts: IntentFacts = {
       callTargets: [SOROSWAP_ROUTER],
       functionsByContract: { [SOROSWAP_ROUTER]: ['swap_exact_tokens_for_tokens'] },
@@ -233,7 +231,7 @@ describe('composeFromRecording - never silently omits a spent token (C2)', () =>
     }
     const r = composeFromRecording(facts, SOROSWAP_ROUTER, soroswapTopLevel(), {
       network: 'mainnet',
-      userResponses: { windowSeconds: 86400, invocationLimit: 3 },
+      userResponses: { windowSeconds: 86400 },
     })
     const rule = r.ir.rules[0]
     expect(rule).toBeDefined()
@@ -242,57 +240,15 @@ describe('composeFromRecording - never silently omits a spent token (C2)', () =>
       (c) => c.op === 'compare' && c.compare.selector.kind === 'window_spent'
     )
     expect(hasSpend).toBe(false)
-    const hasInvocationCount = rule.constraints.some(
-      (c) => c.op === 'compare' && c.compare.selector.kind === 'invocation_count'
-    )
-    expect(hasInvocationCount).toBe(false)
     const amountBounds = r.ambiguities.filter((a) => a.code === 'AMOUNT_BOUND_MISSING')
     expect(amountBounds.length).toBe(2)
   })
 })
 
-describe('composeFromRecording - Blend yield-claim (incoming only, I2)', () => {
-  it('does NOT emit an invocation_count and surfaces FREQUENCY_BOUND_MISSING when no bound supplied', () => {
-    const r = composeFromRecording(blendFacts(), BLEND_POOL, blendTopLevel(), {
-      network: 'mainnet',
-      userResponses: { windowSeconds: 86400 },
-    })
-    const rule = r.ir.rules[0]
-    expect(rule).toBeDefined()
-    if (!rule) return
-    const hasInvocation = rule.constraints.some(
-      (c) => c.op === 'compare' && c.compare.selector.kind === 'invocation_count'
-    )
-    expect(hasInvocation).toBe(false)
-    expect(r.ambiguities.some((a) => a.code === 'FREQUENCY_BOUND_MISSING')).toBe(true)
-    expect(r.warnings.some((w) => w.includes('frequency bound'))).toBe(true)
-  })
-
-  it('emits an invocation_count bound only when the caller supplies count + window', () => {
-    const r = composeFromRecording(blendFacts(), BLEND_POOL, blendTopLevel(), {
-      network: 'mainnet',
-      interpreterEnabled: true,
-      userResponses: { windowSeconds: 86400, invocationLimit: 3 },
-    })
-    // invocation_count goes to the interpreter-shape IR (OZ cannot lower it).
-    const ic = r.interpreterIr.rules[0]?.constraints.find(
-      (c) => c.op === 'compare' && c.compare.selector.kind === 'invocation_count'
-    )
-    expect(ic).toBeDefined()
-    if (ic && ic.op === 'compare' && ic.compare.selector.kind === 'invocation_count') {
-      expect(ic.compare.selector.windowSeconds).toBe(86400)
-      expect(ic.compare.value).toBe('3')
-    }
-    // And it is NOT in the OZ-shape IR.
-    const ozHasInvocation = (r.ir.rules[0]?.constraints ?? []).some(
-      (c) => c.op === 'compare' && c.compare.selector.kind === 'invocation_count'
-    )
-    expect(ozHasInvocation).toBe(false)
-  })
-})
+describe('composeFromRecording - Blend yield-claim (incoming only, I2)', () => {})
 
 describe('composeFromRecording - SoroSwap swap: no fabricated constraints (I2)', () => {
-  it('emits spending_limit on the input token (interpreter-shape) but no oracle_price and no synthetic path compare', () => {
+  it('emits spending_limit on the input token (interpreter-shape) but no synthetic path compare', () => {
     const r = composeFromRecording(soroswapFacts(), SOROSWAP_ROUTER, soroswapTopLevel(), {
       network: 'mainnet',
       interpreterEnabled: true,
@@ -316,21 +272,13 @@ describe('composeFromRecording - SoroSwap swap: no fabricated constraints (I2)',
       (c) => c.op === 'compare' && c.compare.selector.kind === 'window_spent'
     )
     expect(spendInterp).toBeUndefined()
-    // 2. NO fabricated oracle_price node in EITHER IR.
-    const oracleOz = ozRule.constraints.find(
-      (c) => c.op === 'compare' && c.compare.selector.kind === 'oracle_price'
-    )
-    const oracleInterp = interpRule.constraints.find(
-      (c) => c.op === 'compare' && c.compare.selector.kind === 'oracle_price'
-    )
-    expect(oracleOz).toBeUndefined()
-    expect(oracleInterp).toBeUndefined()
-    // 3. NO synthetic per-arg path compare node (oraclePriceBound absent).
+    // 2. NO synthetic per-arg compare node: nothing in the recording bounds a
+    //    scalar argument, so composing one would be a fabricated constraint.
     const argCompare = interpRule.constraints.find(
       (c) => c.op === 'compare' && c.compare.selector.kind === 'arg'
     )
     expect(argCompare).toBeUndefined()
-    // 4. The exact hop path is recorded as an eq_seq node on call_arg[2].
+    // 3. The exact hop path is recorded as an eq_seq node on call_arg[2].
     const eqSeq = interpRule.constraints.find((c) => c.op === 'eq_seq')
     expect(eqSeq).toBeDefined()
     if (eqSeq && eqSeq.op === 'eq_seq') {
@@ -715,31 +663,5 @@ describe('composeFromRecording - determinism', () => {
     expect(a.ir).toEqual(b.ir)
     expect(a.ambiguities).toEqual(b.ambiguities)
     expect(JSON.stringify(a)).toBe(JSON.stringify(b))
-  })
-})
-
-describe('composeFromRecording - swap slippage floor', () => {
-  const opts = { network: 'mainnet' as const, interpreter: { enabled: true } }
-
-  it('emits no floor when the caller supplies no ratio', () => {
-    // The recorded in/out pair is a price at one moment. Deriving a floor from
-    // it would freeze that rate as policy and deny ordinary trades as soon as
-    // the market moved, so absence must stay absence.
-    const r = composeFromRecording(soroswapFacts(), SOROSWAP_ROUTER, soroswapTopLevel(), opts)
-    expect(JSON.stringify(r.ir)).not.toContain('slippage_floor')
-  })
-
-  it('emits the floor when the caller supplies the ratio', () => {
-    const r = composeFromRecording(soroswapFacts(), SOROSWAP_ROUTER, soroswapTopLevel(), {
-      ...opts,
-      userResponses: { swapMinOutRatio: { num: '95', den: '100' } },
-    })
-    const floors = JSON.stringify(r.ir)
-    expect(floors).toContain('slippage_floor')
-    // Bounds the OUTPUT arg against the INPUT arg of the same call:
-    // swap_exact_tokens_for_tokens is [amount_in, amount_out_min, ...].
-    expect(floors).toContain('"outArgIndex":1')
-    expect(floors).toContain('"inArgIndex":0')
-    expect(floors).toContain('"num":"95"')
   })
 })

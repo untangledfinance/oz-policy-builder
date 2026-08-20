@@ -103,7 +103,7 @@ export type PolicyRef =
 export interface PolicyDocument {
   /** Grammar version baked into the interpreter wasm. Fail-closed strict match at install
    *  AND at evaluate (defence in depth). NOT the per-edit revision. */
-  grammarVersion: 1
+  grammarVersion: 2
   /** Per-rule install nonce. Must equal the interpreter's stored nonce + 1 at install.
    *  First install accepts nonce = 1 with stored nonce = 0. Re-install is structurally
    *  possible by incrementing the nonce; uninstall removes the nonce with state so a
@@ -144,13 +144,6 @@ export type PredicateLeaf =
   // recorded ScVal type. A non-vec arg, missing element, missing field, or
   // type mismatch all DENY (fail-closed).
   | { kind: 'call_arg_field'; index: number; element: number; field: string }
-  // `call_arg_scaled(index, num, den)` evaluates to `args[index] * num / den`
-  // (truncating toward zero). The slippage-floor leaf: a swap policy
-  // expresses `call_arg[out] >= call_arg_scaled(in, num, den)` as "the
-  // minimum output must be at least this ratio of the input". `num`/`den`
-  // are decimal strings on i128 (mirrors `literal_i128`); the contract
-  // refuses `den == 0` and `num <= 0` / `den <= 0` at install.
-  | { kind: 'call_arg_scaled'; index: number; num: string; den: string }
   // `call_sub_invocation[i]` is NOT in v1 grammar. OZ `Policy::enforce`
   // receives one `Context`, not a sub-invocation tree; sub-invocations live under
   // `InvokerContractAuthEntry::Contract(SubContractInvocation)`, not in the
@@ -159,8 +152,6 @@ export type PredicateLeaf =
   | { kind: 'amount'; token: string }
   | { kind: 'window_spent'; token: string; windowSeconds: number }
   | { kind: 'now' }
-  | { kind: 'valid_until' }
-  | { kind: 'invocation_count_in_window'; windowSecs: number }
   // Literal leaves: bare ScVal on the wire (no selector-tuple wrapper). Right-hand side of
   // comparisons, elements of `in` haystacks, and operands to future arithmetic nodes.
   | { kind: 'literal_address'; value: string }

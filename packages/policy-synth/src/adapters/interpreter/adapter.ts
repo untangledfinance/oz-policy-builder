@@ -60,7 +60,6 @@ const CAPABILITIES: CustodyCapabilities = {
   // Expiry is via the context rule's validUntilLedger, not a predicate - the
   // interpreter refuses a `valid_until` leaf at install.
   supportsTimeExpiry: false,
-  supportsInvocationCount: true,
   supportsGeneralPredicate: true,
 }
 
@@ -100,7 +99,6 @@ export function lowerRuleToPredicate(
 }
 
 function compile(ir: PolicyIR, config: InterpreterAdapterConfig): CompileResult {
-
   const firstRule = ir.rules[0]
   if (!firstRule) {
     return { covered: false, uncovered: ['empty PolicyIR (no rules to compile)'] }
@@ -121,7 +119,7 @@ function compile(ir: PolicyIR, config: InterpreterAdapterConfig): CompileResult 
 
   const { encodedPredicate, predicateHash } = encodePredicate(lowered.predicate)
   const policyDocument: PolicyDocument = {
-    grammarVersion: 1,
+    grammarVersion: 2,
     installNonce: config.installNonce,
     encodedPredicate,
     predicateHash,
@@ -174,10 +172,10 @@ function lowerRule(rule: IRPolicyRule, config: InterpreterAdapterConfig): Lowere
     )
   }
 
-  // expiry -> context rule validUntilLedger only. Unix-timestamp expiry is
-  // honoured by the interpreter (the `valid_until` selector), but we surface
-  // it here as Path-B because the IR contract already says "OZ context rules
-  // expire by ledger sequence" and we keep one expiry model for both adapters.
+  // expiry -> context rule validUntilLedger only. The interpreter has no
+  // expiry selector of its own, and the IR contract already says "OZ context
+  // rules expire by ledger sequence", so a unix-timestamp expiry is Path-B and
+  // both adapters keep one expiry model.
   let validUntilLedger: number | null = null
   if (rule.expiry) {
     if (rule.expiry.validUntilLedger !== undefined) {
@@ -255,9 +253,6 @@ function lowerRule(rule: IRPolicyRule, config: InterpreterAdapterConfig): Lowere
  *  by `lowerRule` to populate `uncovered` before lowering. */
 function unsupportedConstruct(cond: IRCondition): string | null {
   switch (cond.op) {
-    // Expressible: `call_arg_scaled` is exactly this construct.
-    case 'slippage_floor':
-      return null
     case 'in':
       return (
         unsourceableSelector(cond.selector) ??
@@ -309,6 +304,9 @@ function unsourceableSelector(s: IRSelector): string | null {
   if (s.kind === 'window_spent') {
     return `rolling spend cap on ${s.token} over ${s.windowSeconds}s - not enforceable by the interpreter; use the OZ spending_limit primitive, or bound per-call value with arg_field plus invocation_count`
   }
+  if (s.kind === 'valid_until') {
+    return 'expiry comparison - the interpreter has no `valid_until` selector; expiry belongs to the context rule (expiry.validUntilLedger)'
+  }
   return null
 }
 
@@ -317,20 +315,6 @@ function unsourceableSelector(s: IRSelector): string | null {
  *  address -> SCOPE_SELF_CALL). */
 function lowerCondition(cond: IRCondition, config: InterpreterAdapterConfig): PredicateNode {
   switch (cond.op) {
-    // `out >= in * num/den`. The contract refuses den == 0 or a non-positive
-    // ratio at install, so a malformed floor fails loudly rather than
-    // silently inverting the comparison.
-    case 'slippage_floor':
-      return {
-        op: 'gte',
-        left: { kind: 'call_arg', index: cond.outArgIndex },
-        right: {
-          kind: 'call_arg_scaled',
-          index: cond.inArgIndex,
-          num: cond.num,
-          den: cond.den,
-        },
-      }
     case 'and':
       return { op: 'and', children: cond.children.map((c) => lowerCondition(c, config)) }
     case 'or':
@@ -395,21 +379,18 @@ function lowerSelector(s: IRSelector): PredicateLeaf {
       return { kind: 'call_arg_len', index: s.argIndex }
     case 'arg_field':
       return { kind: 'call_arg_field', index: s.argIndex, element: s.element, field: s.field }
-    // `amount` / `window_spent` are filtered out by `unsupportedConstruct`
-    // before lowering - the interpreter cannot source either on chain.
-    // Reaching here means the pre-scan was bypassed; fail loudly rather than
-    // emit a leaf the contract will refuse.
+    // `amount` / `window_spent` / `valid_until` are filtered out by
+    // `unsupportedConstruct` before lowering - the interpreter can source
+    // none of them on chain. Reaching here means the pre-scan was bypassed;
+    // fail loudly rather than emit a leaf the contract will refuse.
     case 'amount':
     case 'window_spent':
+    case 'valid_until':
       throw new Error(
         `interpreter adapter cannot lower \`${s.kind}\`: it should have been reported as uncovered`
       )
-    case 'invocation_count':
-      return { kind: 'invocation_count_in_window', windowSecs: s.windowSeconds }
     case 'now':
       return { kind: 'now' }
-    case 'valid_until':
-      return { kind: 'valid_until' }
     case 'calldata':
     case 'value':
       // Unreachable: the caller flagged these as Path-B before reaching here.
@@ -440,7 +421,6 @@ function literalScalarForSelector(kind: IRSelector['kind']): IRScalarType {
     case 'amount':
     case 'window_spent':
       return 'i128'
-    case 'invocation_count':
     case 'arg_len':
       return 'u32'
     case 'now':
@@ -501,13 +481,10 @@ function assertNotSelfCallAddress(value: string, config: InterpreterAdapterConfi
   }
 }
 
-
 /** Human-readable descriptor for a construct the interpreter adapter cannot
  *  express. Mirrors the OZ adapter's `describeCondition` for parity. */
 function describeCondition(cond: IRCondition): string {
   switch (cond.op) {
-    case 'slippage_floor':
-      return `slippage floor: arg[${cond.outArgIndex}] >= arg[${cond.inArgIndex}] * ${cond.num}/${cond.den}`
     case 'in':
       return `value allowlist on ${describeSelector(cond.selector)} (predicate DSL)`
     case 'eq_seq':
@@ -520,8 +497,6 @@ function describeCondition(cond: IRCondition): string {
     case 'compare': {
       const s = cond.compare.selector
       switch (s.kind) {
-        case 'invocation_count':
-          return `invocation-count window (${s.windowSeconds}s) condition`
         case 'window_spent':
           return `spend-window comparison with operator '${cond.compare.operator}'`
         case 'amount':
@@ -556,8 +531,6 @@ function describeSelector(s: IRSelector): string {
       return `amount(${s.token})`
     case 'window_spent':
       return `window_spent(${s.token})`
-    case 'invocation_count':
-      return `invocation_count(${s.windowSeconds}s)`
     case 'calldata':
       return `calldata[${s.offset}:${s.offset + s.length}]`
     default:

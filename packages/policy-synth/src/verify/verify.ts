@@ -149,7 +149,6 @@ function buildPermitContextForVerify(
     nowSeconds: tx.fetchedAt,
     amountByToken,
     windowSpentByToken: {},
-    invocationCountByWindow: {},
   }
   if (opts.validUntilLedger !== undefined) {
     ctx.validUntilLedger = opts.validUntilLedger

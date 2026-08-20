@@ -18,8 +18,7 @@ There is currently no bug bounty programme.
 | `policy-interpreter` | Soroban contract, deployed on Stellar mainnet and testnet (addresses pinned in `packages/policy-synth/src/run/schemas.ts`) |
 | `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` | Published on npm, run off-chain |
 
-`test-oracle` and `test-blend-pool` are testnet-only fixtures and are out of
-scope.
+`test-blend-pool` is a testnet-only fixture and is out of scope.
 
 ## Audit status
 

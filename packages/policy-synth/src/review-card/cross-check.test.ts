@@ -43,11 +43,6 @@ function blendClaimPredicate(): PredicateNode {
         left: { kind: 'call_fn' },
         right: { kind: 'literal_symbol', value: 'claim' },
       },
-      {
-        op: 'lte',
-        left: { kind: 'invocation_count_in_window', windowSecs: 86400 },
-        right: { kind: 'literal_u32', value: 1 },
-      },
     ],
   }
 }
@@ -76,11 +71,6 @@ function soroswapPredicate(): PredicateNode {
         op: 'lte',
         left: { kind: 'amount', token: XLM_SAC },
         right: { kind: 'literal_i128', value: '100000000' },
-      },
-      {
-        op: 'lt',
-        left: { kind: 'oracle_price', asset: XLM_SAC },
-        right: { kind: 'oracle_threshold', value: '10000000', decimals: 9 },
       },
     ],
   }
@@ -124,7 +114,7 @@ describe('summaryCrossCheck', () => {
     expect(summaryCrossCheck(predicate, summary)).toEqual({ ok: true })
   })
 
-  it('returns ok for a faithful summary of the SoroSwap exact-path+amount+oracle predicate', () => {
+  it('returns ok for a faithful summary of the SoroSwap exact-path+amount predicate', () => {
     const predicate = soroswapPredicate()
     const summary = buildReviewCardSummary(predicate, [], baseContextRule, simulation)
     expect(summaryCrossCheck(predicate, summary)).toEqual({ ok: true })
@@ -133,23 +123,23 @@ describe('summaryCrossCheck', () => {
   it('returns missingConstraints when a leaf is dropped from the summary constraints', () => {
     const predicate = blendClaimPredicate()
     const summary = buildReviewCardSummary(predicate, [], baseContextRule, simulation)
-    // Drop the third (invocation_count) constraint line. The cross-check
-    // must flag it - this is the non-hallucination guard.
+    // Drop the function constraint line. The cross-check must flag it -
+    // this is the non-hallucination guard.
     const tampered = {
       ...summary,
-      constraints: summary.constraints.slice(0, 2),
+      constraints: summary.constraints.slice(0, 1),
     }
     const result = summaryCrossCheck(predicate, tampered)
     expect(result.ok).toBe(false)
     if (result.ok === false) {
-      expect(result.missingConstraints).toEqual(['At most 2 calls per 86400 seconds'])
+      expect(result.missingConstraints).toEqual(['Function must be claim'])
     }
   })
 
   it('flags every dropped leaf in a multi-leaf predicate', () => {
     const predicate = soroswapPredicate()
     const summary = buildReviewCardSummary(predicate, [], baseContextRule, simulation)
-    // Drop the amount + oracle constraints; keep contract + path.
+    // Drop the amount constraint; keep contract + path.
     const kept = summary.constraints.filter(
       (s) => s.startsWith('Contract must be') || s.startsWith('Path must be exactly')
     )
@@ -158,9 +148,6 @@ describe('summaryCrossCheck', () => {
     expect(result.ok).toBe(false)
     if (result.ok === false) {
       expect(result.missingConstraints).toContain(`Amount <= 100000000`)
-      expect(result.missingConstraints).toContain(
-        `Only when oracle_price(${XLM_SAC}) < 10000000 (9 dp)`
-      )
     }
   })
 

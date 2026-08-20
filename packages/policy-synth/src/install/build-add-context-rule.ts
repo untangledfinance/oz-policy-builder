@@ -82,7 +82,7 @@ export interface BuildAddContextRuleArgs {
   grammarVersion?: number
 }
 
-export const DEFAULT_GRAMMAR_VERSION = 1 as const
+export const DEFAULT_GRAMMAR_VERSION = 2 as const
 
 /** The verb `add_context_rule` takes on the wire. */
 export const ADD_CONTEXT_RULE_SYMBOL = 'add_context_rule' as const

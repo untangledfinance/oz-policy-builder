@@ -36,7 +36,7 @@
 //
 // Default policy is `deny_all` (OZ context rules are deny-by-default).
 
-import type { IRCompOp, IRCondition, IRPolicyRule, PolicyIR } from '../ir/types.ts'
+import type { IRCondition, IRPolicyRule, PolicyIR } from '../ir/types.ts'
 import { type IdentifiedProtocol, identifyProtocol } from '../registry/identify.ts'
 import type { AmbiguityPrompt, ContractInvocation, Network } from '../types.ts'
 import type { IntentFacts } from './lower.ts'
@@ -54,14 +54,12 @@ export interface ComposeUserResponses {
   limitAmount?: string
   /** Max invocations per window for an incoming-only flow. Required to emit an
    *  invocation_count bound; absent -> FREQUENCY_BOUND_MISSING. */
-  invocationLimit?: number
   /** Minimum acceptable swap output per unit of input, as `num/den` (e.g.
    *  `{num:'95',den:'100'}` = accept losing at most 5%). REQUIRED to be
    *  supplied by the caller: never derived from the recording (the recorded
    *  in/out pair is a price at one moment, and freezing it as policy would
    *  deny ordinary trades as soon as the rate moves). Absent, no floor is
    *  emitted and the existing unbounded-output warning stands. */
-  swapMinOutRatio?: { num: string; den: string }
   /** Recipient allowlist for a swap (call_arg[3] on SoroSwap's
    *  swap_exact_tokens_for_tokens). When supplied, REPLACES the default pin.
    *  Absent -> recipient is pinned to the recorded value (mirroring SEP-41)
@@ -200,31 +198,17 @@ export function composeFromRecording(
   // leg whose spend simply was not attributed to the source account
   // (fee-sponsored / holder != source). Its real restrictions - exact path,
   // recipient, input-amount cap - come from the protocol-specific pass, so it
-  // does NOT get the incoming-only frequency prompt. A caller wanting to
-  // rate-limit the swap can still supply an invocationLimit + window, which
-  // lowers to an invocation_count for any flow.
+  // does NOT get the incoming-only frequency prompt.
   if (spendTokens.length === 0 && topLevel) {
-    const invocationLimit = opts.userResponses?.invocationLimit
     const isRecognisedSwap = protocol?.protocol === 'soroswap'
-    if (known && windowSeconds !== undefined && invocationLimit !== undefined) {
-      routeToAdapter({
-        op: 'compare',
-        compare: {
-          selector: { kind: 'invocation_count', windowSeconds },
-          // `lt`, not `lte`: the leaf reports the calls ALREADY made in the
-          // window, so `< N` is what permits N of them. With `lte` a limit
-          // of N let an N+1th call through.
-          operator: 'lt',
-          value: String(invocationLimit),
-        },
-      })
-    } else if (!isRecognisedSwap) {
+    if (!isRecognisedSwap) {
       ambiguities.push({
         code: 'FREQUENCY_BOUND_MISSING',
-        question: 'Incoming-only flow - what max invocations per window should the policy enforce?',
+        question:
+          'Incoming-only flow - the policy does not bound how often this call may be made. Bound it outside the policy, or scope the rule more tightly.',
       })
       warnings.push(
-        'frequency bound needed for the incoming-only flow (needs the interpreter predicate); no invocation cap inferred'
+        'incoming-only flow: call frequency is NOT bounded - the interpreter reads only the authorized call, so it cannot count prior calls'
       )
     }
   }
@@ -253,7 +237,6 @@ export function composeFromRecording(
       protocol,
       opts.userResponses?.swapRecipientAllowlist,
       swapInputAmountCap,
-      opts.userResponses?.swapMinOutRatio,
       interpreterEnabled
     )
   }
@@ -308,7 +291,6 @@ function appendProtocolSpecificConstraints(
   protocol: IdentifiedProtocol,
   swapRecipientAllowlist: string[] | undefined,
   swapInputAmountCap: string | undefined,
-  swapMinOutRatio: { num: string; den: string } | undefined,
   interpreterEnabled: boolean
 ): void {
   // SEP-41 transfer / mint: the `to` arg (index 1) is the recipient. Emit a
@@ -472,9 +454,7 @@ function appendProtocolSpecificConstraints(
       })
     } else {
       const pathText = route && route.length > 0 ? `; observed path: ${route.join(' -> ')}` : ''
-      warnings.push(
-        `SoroSwap swap: slippage bound and exact hop path need the interpreter predicate${pathText}`
-      )
+      warnings.push(`SoroSwap swap: the exact hop path needs the interpreter predicate${pathText}`)
     }
 
     // Input-amount cap: bind the caller's limitAmount to the swap's input-amount
@@ -509,27 +489,6 @@ function appendProtocolSpecificConstraints(
       })
     }
 
-    // Slippage floor: `out >= in * num/den`. Only when the caller supplied the
-    // ratio - see `swapMinOutRatio`. Without it the output arg stays free,
-    // which is the case the unbounded-swap warning above describes.
-    const outMinArgIndex = soroswapMinOutArgIndex(protocol.fn)
-    const minOutRatio = swapMinOutRatio
-    if (
-      minOutRatio !== undefined &&
-      inputArgIndex !== undefined &&
-      outMinArgIndex !== undefined &&
-      inputAmountArg &&
-      inputAmountArg.type === 'i128'
-    ) {
-      routeToAdapter({
-        op: 'slippage_floor',
-        outArgIndex: outMinArgIndex,
-        inArgIndex: inputArgIndex,
-        num: minOutRatio.num,
-        den: minOutRatio.den,
-      })
-    }
-
     // Swap recipient (call_arg[3]): when the caller supplies
     // swapRecipientAllowlist, emit it as an `in` constraint on the recipient
     // arg. When absent, PIN the recipient to the recorded value - mirroring the
@@ -560,27 +519,6 @@ function appendProtocolSpecificConstraints(
         question: `No recipient allowlist supplied; the swap recipient (call_arg[3]) was pinned to the recorded value ${recipientArg.value}. To permit additional recipients, supply an allowlist (CLI: --recipient <C...|G...>, repeatable; MCP: userResponses.swapRecipientAllowlist) - it REPLACES this default pin.`,
       })
     }
-  }
-}
-
-/** Positional index of the input-amount argument for a recognized SoroSwap swap
- *  function. `swap_exact_tokens_for_tokens` and `swap_exact_in_for_tokens` take
- *  the exact input as arg[0]; `swap_tokens_for_exact_tokens` takes the maximum
- *  input (`amount_in_max`) as arg[1] - its arg[0] is the exact OUTPUT. Any other
- *  function has no positional input-amount argument -> undefined (no cap bound). */
-/** The argument carrying the swap's MINIMUM ACCEPTABLE OUTPUT.
- *
- *  Only the exact-input entrypoints have one: `swap_tokens_for_exact_tokens`
- *  fixes the output and varies the input, so its output needs no floor (its
- *  arg[1] is `amount_in_max`, already bounded by the input cap). Returning
- *  undefined there keeps a floor from being pinned to the wrong argument. */
-function soroswapMinOutArgIndex(fn: string): number | undefined {
-  switch (fn) {
-    case 'swap_exact_tokens_for_tokens':
-    case 'swap_exact_in_for_tokens':
-      return 1
-    default:
-      return undefined
   }
 }
 

@@ -43,11 +43,6 @@ export type ErrorCode =
   | 'UNSUPPORTED_NODE'
   | 'STATEFUL_BOUND'
   | 'NOT_IN_ALLOWLIST'
-  | 'FREQUENCY'
-  // A `call_arg >= call_arg_scaled(..)` slippage floor was not met. Distinct
-  // from the generic ARG_MISMATCH/STATEFUL_BOUND so a violated swap floor
-  // reads as itself on the review card.
-  | 'SLIPPAGE_FLOOR'
   // --- escape-hatch compile gate ---
   | 'COMPILE_OK'
   | 'COMPILE_GATE_FAILED'

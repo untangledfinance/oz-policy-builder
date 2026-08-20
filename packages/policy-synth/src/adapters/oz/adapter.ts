@@ -72,7 +72,6 @@ const CAPABILITIES: CustodyCapabilities = {
   supportsSpendWindow: true,
   supportsThreshold: true,
   supportsTimeExpiry: true,
-  supportsInvocationCount: false,
   supportsGeneralPredicate: false,
 }
 
@@ -283,10 +282,6 @@ function matchSpendingLimit(c: IRCondition): SpendingLimitMatch | null {
  *  cannot express, used to populate `uncovered`. */
 function describeCondition(cond: IRCondition): string {
   switch (cond.op) {
-    case 'slippage_floor':
-      // OZ primitives bound a value against a constant; this bounds one call
-      // argument against another, which none of them can express.
-      return `slippage floor on arg[${cond.outArgIndex}] (OZ built-ins cannot bound one argument against another)`
     case 'in':
       return `value allowlist on ${describeSelector(cond.selector)} (arg allowlist)`
     case 'eq_seq':
@@ -299,8 +294,6 @@ function describeCondition(cond: IRCondition): string {
     case 'compare': {
       const s = cond.compare.selector
       switch (s.kind) {
-        case 'invocation_count':
-          return `invocation-count window (${s.windowSeconds}s) condition (not supported in week-1)`
         case 'window_spent':
           return `spend-window comparison with operator '${cond.compare.operator}' (only 'lte' lowers to spending_limit)`
         case 'amount':
@@ -335,8 +328,6 @@ function describeSelector(s: IRSelector): string {
       return `amount(${s.token})`
     case 'window_spent':
       return `window_spent(${s.token})`
-    case 'invocation_count':
-      return `invocation_count(${s.windowSeconds}s)`
     case 'calldata':
       return `calldata[${s.offset}:${s.offset + s.length}]`
     default:
