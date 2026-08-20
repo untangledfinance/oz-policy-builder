@@ -350,26 +350,21 @@ These are live. They are not defects to be fixed before audit; they are decision
 | A-3 | OZ primitive instance addresses (`spending_limit`, `simple_threshold`, `weighted_threshold`) not pinned in this repo. | They are `VERIFY-oz-*` placeholders in the OZ adapter. A user must source them from the audited OZ Accounts deployment; pinning another project's addresses here would create a false assurance. |
 | A-4 | The audited tree is not the deployed mainnet binary. | The address pinned in `run/schemas.ts` runs a different build, so auditing this tree says nothing about the contract currently deployed. This is only legitimate if this tree is what ships - a governance question, not a technical one. |
 
-### Trust-boundary note: what the on-chain component actually guarantees
+### Trust-boundary note: the scope of the on-chain guarantee
 
-Stated plainly because the architecture invites a stronger reading than the code
-supports.
-
-The design is "one immutable, audited interpreter; policy is data". The natural
-inference is that installing a policy through the audited contract makes the
-resulting authorisation restrictive. It does not, on its own. The interpreter
-guarantees three things:
+The interpreter guarantees exactly three properties on every enforced call:
 
 1. the predicate it was given is **evaluated faithfully**;
 2. it **fails closed** on every error path;
-3. the predicate **binds at least one property of the call**
-   (216).
+3. the predicate **binds at least one property of the call** (216).
 
-It does not guarantee that the predicate binds the *right* properties. A
-predicate that pins only `call_fn` permits that function with any arguments.
-Whether a policy is tight enough for its purpose is established off chain, by
-`runHarness` and the review card, and ultimately by the person approving the
-wallet signature.
+The list is exhaustive, and all three concern the fidelity of evaluation rather
+than the adequacy of the policy: a predicate pinning only `call_fn` satisfies
+every one of them and permits that function with any arguments.
+
+Policy adequacy is owned off chain. `runHarness` and the review card test
+whether a policy is tight enough for its purpose, and the person approving the
+wallet signature accepts it.
 
 ### Where adjacent controls live
 
