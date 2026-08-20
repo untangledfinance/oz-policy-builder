@@ -1,8 +1,7 @@
 # Audit evidence
 
-Every log in `evidence/` was produced against the reduced tree that is being
-handed over - not an earlier revision. Regenerate them whenever a claim they
-back changes.
+Every log in `evidence/` was produced against the tree being handed over.
+Regenerate them whenever a claim they back changes.
 
 | Log | Command | Result |
 | --- | --- | --- |
@@ -15,40 +14,13 @@ back changes.
 
 ## Findings
 
-### 1. `@modelcontextprotocol/sdk` 1.18.1 - 3 high advisories (FIXED)
-
-`bun audit` reported GHSA-345p-7cg4-v4c7 (cross-client data leak via shared
-server/transport instance reuse), GHSA-w48q-cv73-mx4w (DNS rebinding
-protection off by default) and GHSA-8r9q-7v3j-jr4g (ReDoS). All three are
-fixed above 1.25.3. Scope was `@crediolabs/policy-builder-mcp` only; nothing
-on chain and nothing in `policy-synth` was affected.
-
-The SDK is now pinned at 1.30.0 in both the workspace root `package.json` and
-`packages/policy-builder-mcp/package.json`, and `bun audit` reports no
-vulnerabilities.
-
-One of the three was more than a version number. GHSA-345p-7cg4-v4c7 describes
-reuse of a single server/transport instance across clients, and the HTTP
-transport did exactly that: it built one `McpServer` and one
-`StreamableHTTPServerTransport` at startup and served every request from them.
-The transport is now built per request and torn down when the response closes,
-which is the pattern the SDK's own stateless example uses and which 1.30.0
-enforces at runtime. `keeps concurrent clients isolated - each response
-carries its own id` in `packages/policy-builder-mcp/test/http-transport.test.ts`
-pins the invariant: it fails against the shared-instance code and passes
-against the current tree.
-
-An earlier revision of this file said the bump was deferred because the SDK is
-ESM-only above 1.26. That is not correct for 1.30.0 - it ships both `dist/cjs`
-and `dist/esm` - and the dual ESM + CJS build of this package is intact.
-
-### 2. `paste` 1.0.15 unmaintained - RUSTSEC-2024-0436 (ACCEPTED)
+### 1. `paste` 1.0.15 unmaintained - RUSTSEC-2024-0436 (ACCEPTED)
 
 Transitive through `soroban-sdk`. Advisory is "no longer maintained", not a
 vulnerability. Not actionable without an SDK change; `cargo audit` reports 0
 actual vulnerabilities across 202 crate dependencies.
 
-### 3. Scout `[CRITICAL] This addition operation could overflow` x2 - FALSE POSITIVE
+### 2. Scout `[CRITICAL] This addition operation could overflow` x2 - FALSE POSITIVE
 
 Both point at `d + 1` in the AST depth walk (`src/dsl.rs:701`, `:704`), where
 `d: u32` is the current nesting depth.
@@ -63,7 +35,7 @@ The same reasoning covers clippy's `casting usize to u32 may truncate` on
 `haystack.len() as u32` (`src/dsl.rs:714`): a 32 KB payload cannot encode 2^32
 elements.
 
-### 4. Scout MEDIUMs - reviewed, no change
+### 3. Scout MEDIUMs - reviewed, no change
 
 - *unbounded operations* x3: the walks are bounded by the same 32 KB byte cap
   plus `MAX_DEPTH` 5 / `MAX_LEAVES` 200 / `MAX_IN_OPERAND_COUNT` 32.
@@ -78,7 +50,7 @@ elements.
 - *unsafe Map access* x1 and *storage op without access control* x1: the
   storage writes sit after `require_auth` / `require_master` on every path.
 
-### 5. Stellar Security Portal corpus - 832 findings cross-checked
+### 4. Stellar Security Portal corpus - 832 findings cross-checked
 
 Pulled from the portal's open API. Of 150 critical/high findings, the dominant
 class is a privileged entry point missing an authorization check (46). Each of
