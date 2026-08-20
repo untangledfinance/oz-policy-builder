@@ -88,9 +88,11 @@ jobs:
         if: matrix.crate == 'policy-interpreter'
         run: cargo test --release --test conformance
 
-      # RustSec advisories against the locked dependency set.
+      # RustSec advisories against the locked dependency set. Needs 0.22 or
+      # later: the advisory database now carries CVSS 4.0 entries, and 0.21
+      # fails to load the whole database when it meets one.
       - name: Audit dependencies
         if: matrix.crate == 'policy-interpreter'
         run: |
-          cargo install cargo-audit --locked --version ^0.21
+          cargo install cargo-audit --locked --version ^0.22
           cargo audit
