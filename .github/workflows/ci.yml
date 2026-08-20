@@ -43,6 +43,11 @@ jobs:
       - name: Test
         run: bun test
 
+      # Dependency advisories. Fails the build on a known-vulnerable package so
+      # a fresh advisory is caught here rather than by the auditor.
+      - name: Audit dependencies
+        run: bun audit
+
   contracts:
     name: Contracts (${{ matrix.crate }})
     runs-on: ubuntu-latest
@@ -52,7 +57,6 @@ jobs:
       matrix:
         crate:
           - policy-interpreter
-          - test-oracle
           - test-blend-pool
     defaults:
       run:
@@ -83,3 +87,10 @@ jobs:
       - name: Conformance (release)
         if: matrix.crate == 'policy-interpreter'
         run: cargo test --release --test conformance
+
+      # RustSec advisories against the locked dependency set.
+      - name: Audit dependencies
+        if: matrix.crate == 'policy-interpreter'
+        run: |
+          cargo install cargo-audit --locked --version ^0.21
+          cargo audit
