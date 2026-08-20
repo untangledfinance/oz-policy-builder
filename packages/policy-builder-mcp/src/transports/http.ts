@@ -2,8 +2,10 @@
 //
 // Streamable HTTP transport (hosted). Uses the Node http module directly so
 // the package stays thin - no express / hono dep. We run in STATELESS mode
-// (sessionIdGenerator: undefined) so each POST /mcp is its own transaction:
-// this matches the brief's "stateless across calls" invariant.
+// (no sessionIdGenerator: the SDK disables session management when it is not
+// provided) so each POST /mcp is its own transaction: this matches the
+// brief's "stateless across calls" invariant. Stateless means a fresh server
+// and transport per request - see the handler for why the SDK requires it.
 //
 // Single endpoint: POST /mcp (the SDK also accepts GET for SSE streaming, but
 // the T1 surface does not emit server-initiated messages so we omit it).
@@ -22,6 +24,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { ToolError } from '@crediolabs/policy-synth'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { createMcpServer } from '../server.ts'
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost'])
@@ -60,14 +63,6 @@ export async function startHttpServer(opts: StartHttpServerOptions): Promise<Run
       `startHttpServer: refusing to bind host ${host}: the MCP surface is unauthenticated, so only loopback (127.0.0.1, ::1, localhost) is permitted by default. Pass \`allowExternalHost: true\` to opt in to a non-loopback bind.`
     )
   }
-  const server = createMcpServer()
-  // One transport per server (the SDK reuses the transport for every request
-  // in stateless mode). We connect it once at startup and reuse it.
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
-  })
-  await server.connect(transport)
-
   const httpServer: Server = createServer(async (req, res) => {
     if (!req.url) {
       sendJson(res, 400, { error: 'missing url' })
@@ -114,7 +109,33 @@ export async function startHttpServer(opts: StartHttpServerOptions): Promise<Run
       return
     }
 
+    // A stateless transport handles exactly ONE request: the SDK refuses to
+    // reuse one ("Stateless transport cannot be reused across requests"),
+    // because a shared instance would let concurrent clients collide on
+    // JSON-RPC message ids. So the server and its transport are built here,
+    // per request, and torn down when the response closes.
+    // No `sessionIdGenerator`: the SDK disables session management when the
+    // option is absent, which is the stateless mode this surface wants.
+    // Passing an explicit `undefined` means the same thing to the SDK but is
+    // not assignable under `exactOptionalPropertyTypes`, so omission is both
+    // the type-correct and the documented spelling.
+    const server = createMcpServer()
+    const transport = new StreamableHTTPServerTransport()
+    // Registered before dispatch, not after: once the response has closed the
+    // event is gone, so a listener attached afterwards would never fire and
+    // the pair would leak.
+    res.on('close', () => {
+      void transport.close().catch(() => {})
+      void server.close().catch(() => {})
+    })
     try {
+      // The SDK declares `Transport.onclose` as an optional `() => void`, but
+      // exposes it on this class as an accessor pair typed `(() => void) |
+      // undefined`. Those are not assignable under `exactOptionalPropertyTypes`.
+      // The widening is upstream and structural only - the runtime object does
+      // satisfy `Transport` - so the assertion is narrowed to this one call
+      // rather than relaxing the compiler flag for the whole package.
+      await server.connect(transport as unknown as Transport)
       // `handleRequest` writes the response and returns once the message has
       // been dispatched. No shared state across calls in stateless mode.
       await transport.handleRequest(req as IncomingMessage & { auth?: never }, res, body)
@@ -147,10 +168,11 @@ export async function startHttpServer(opts: StartHttpServerOptions): Promise<Run
     port: opts.port,
     host,
     path,
+    // Nothing outlives a request, so closing the listener is the whole
+    // shutdown: each request's server and transport are already torn down by
+    // the `close` handler on its own response.
     close: async () => {
       await new Promise<void>((resolve) => httpServer.close(() => resolve()))
-      await transport.close().catch(() => {})
-      await server.close().catch(() => {})
     },
   }
 }

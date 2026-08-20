@@ -245,6 +245,38 @@ describe('MCP HTTP transport', () => {
       await running.close()
     }
   })
+
+  // A stateless transport may serve exactly one request: sharing one across
+  // requests lets concurrent clients collide on JSON-RPC message ids, which is
+  // why the SDK refuses to reuse one. Every response must carry back the id its
+  // own request sent, never a neighbour's.
+  it('keeps concurrent clients isolated - each response carries its own id', async () => {
+    const port = 3896
+    const running = await startHttpServer({ port, host: '127.0.0.1' })
+    try {
+      await waitForPort(port)
+      const ids = [101, 202, 303, 404, 505, 606, 707, 808]
+      const responses = await Promise.all(
+        ids.map((id) =>
+          postJson(port, {
+            jsonrpc: '2.0',
+            id,
+            method: 'initialize',
+            params: {
+              protocolVersion: '2025-06-18',
+              capabilities: {},
+              clientInfo: { name: `client-${id}`, version: '0.0.0' },
+            },
+          })
+        )
+      )
+      expect(responses.map((r) => r.status)).toEqual(ids.map(() => 200))
+      expect(responses.map((r) => r.json?.id)).toEqual(ids)
+      for (const r of responses) expect(r.json?.result).toBeDefined()
+    } finally {
+      await running.close()
+    }
+  })
 })
 
 // TS-F2: non-loopback host is REFUSED unless the caller opts in.
