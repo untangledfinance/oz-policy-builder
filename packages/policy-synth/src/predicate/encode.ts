@@ -65,18 +65,15 @@ export function encodePredicate(node: PredicateNode): EncodedPredicate {
       )
     }
   }
-  // Two-round confirmation costs 2 oracle reads per UNIQUE asset referenced.
-  const oracleReads = stats.oracleAssets.size * 2
-  if (oracleReads > PREDICATE_CAPS.MAX_ORACLE_READS) {
-    throw capError(
-      'PREDICATE_ORACLE_OVER_LIMIT',
-      `oracle reads ${oracleReads} exceed MAX_ORACLE_READS ${PREDICATE_CAPS.MAX_ORACLE_READS}`
-    )
-  }
-  if (stats.oracleAssets.size > 0 && stats.nonOracleSelectorLeaves === 0) {
+  // Minimum constraint. A predicate with no selector leaf compares literals
+  // to literals, so it is trivially true or false and would permit everything
+  // or nothing forever. The contract refuses it at install with
+  // SELECTOR_LEAF_REQUIRED (216); refuse it here too so the failure is caught
+  // before a transaction is built.
+  if (stats.selectorLeaves === 0) {
     throw capError(
       'MALFORMED_PREDICATE',
-      'predicate constrains nothing but an oracle price: the contract refuses it at install (dsl.rs MissingNonOracleEnvelope). Pin the call itself (contract / method / argument) alongside the price bound.'
+      'predicate constrains nothing: every comparison has literals on both sides. The contract refuses it at install (SELECTOR_LEAF_REQUIRED). Pin the call itself - contract, method or argument.'
     )
   }
 
@@ -85,7 +82,6 @@ export function encodePredicate(node: PredicateNode): EncodedPredicate {
   // the TS self-verify pipeline should reject the same shapes Rust install
   // refuses, so a hand-crafted predicate that simulate/verify green-lights
   // cannot later be refused at the on-chain install step. The checks:
-  //   - u32 fields in range (call_arg index, literal_u32 value, oracle
   //     threshold decimals, etc.) - the contract decodes as u32
   //   - i128 positivity where required (literal_i128 for amount/window
   //     caps; `den`/`num` for scaled ratios) - a negative cap would
@@ -114,38 +110,28 @@ interface PredicateStats {
   depth: number
   leaves: number
   inCounts: Array<{ count: number }>
-  /** Unique assets referenced by `oracle_price` leaves - each costs 2 reads. */
-  oracleAssets: Set<string>
-  /** Selector leaves that are NOT `oracle_price`. The contract refuses a
-   *  predicate whose only constraint is an oracle read (dsl.rs
-   *  `validate_oracle_placement` -> MissingNonOracleEnvelope): a price bound
-   *  alone pins nothing about the call itself. Literals are operands, not
-   *  constraints, so they do not count. */
-  nonOracleSelectorLeaves: number
+  /** Leaves that read something from the call under evaluation. Literals are
+   *  operands, not constraints, so they do not count. Zero means the
+   *  predicate constrains nothing and the contract refuses it at install. */
+  selectorLeaves: number
 }
 
 function computeStats(node: PredicateNode): PredicateStats {
   const inCounts: Array<{ count: number }> = []
-  const oracleAssets = new Set<string>()
-  const counters = { nonOracleSelectorLeaves: 0 }
-  const { depth, leaves } = walk(node, inCounts, oracleAssets, counters, false)
+  const counters = { selectorLeaves: 0 }
+  const { depth, leaves } = walk(node, inCounts, counters)
   return {
     depth,
     leaves,
     inCounts,
-    oracleAssets,
-    nonOracleSelectorLeaves: counters.nonOracleSelectorLeaves,
+    selectorLeaves: counters.selectorLeaves,
   }
 }
 
 function walk(
   node: PredicateNode,
   inCounts: Array<{ count: number }>,
-  oracleAssets: Set<string>,
-  counters: { nonOracleSelectorLeaves: number },
-  /** True once the walk is under a `not` or an `or`, where an oracle read
-   *  becomes a condition the caller can satisfy by taking the other branch. */
-  negatedOrDisjunctive: boolean
+  counters: { selectorLeaves: number }
 ): { depth: number; leaves: number } {
   switch (node.op) {
     case 'and':
@@ -159,20 +145,14 @@ function walk(
       let maxChildDepth = 0
       let totalLeaves = 0
       for (const c of node.children) {
-        const child = walk(
-          c,
-          inCounts,
-          oracleAssets,
-          counters,
-          negatedOrDisjunctive || node.op === 'or'
-        )
+        const child = walk(c, inCounts, counters)
         if (child.depth > maxChildDepth) maxChildDepth = child.depth
         totalLeaves += child.leaves
       }
       return { depth: maxChildDepth + 1, leaves: totalLeaves }
     }
     case 'not': {
-      const child = walk(node.child, inCounts, oracleAssets, counters, true)
+      const child = walk(node.child, inCounts, counters)
       return { depth: child.depth + 1, leaves: child.leaves }
     }
     case 'eq':
@@ -180,8 +160,8 @@ function walk(
     case 'lte':
     case 'gt':
     case 'gte': {
-      collectOracle(node.left, oracleAssets, counters, negatedOrDisjunctive)
-      collectOracle(node.right, oracleAssets, counters, negatedOrDisjunctive)
+      collectSelector(node.left, counters)
+      collectSelector(node.right, counters)
       return { depth: 1, leaves: leafCount(node.left) + leafCount(node.right) }
     }
     case 'in': {
@@ -192,10 +172,10 @@ function walk(
         )
       }
       inCounts.push({ count: node.haystack.length })
-      collectOracle(node.needle, oracleAssets, counters, negatedOrDisjunctive)
+      collectSelector(node.needle, counters)
       let haystackLeaves = 0
       for (const h of node.haystack) {
-        collectOracle(h, oracleAssets, counters, negatedOrDisjunctive)
+        collectSelector(h, counters)
         haystackLeaves += leafCount(h)
       }
       return {
@@ -218,31 +198,13 @@ function leafCount(leaf: PredicateLeaf): number {
   return 1
 }
 
-function collectOracle(
-  leaf: PredicateLeaf,
-  oracleAssets: Set<string>,
-  counters: { nonOracleSelectorLeaves: number },
-  negatedOrDisjunctive: boolean
-): void {
-  // literal_vec is the only nested leaf; recurse so an oracle_price buried in a
-  // vector literal (which the lowering would forbid, but the cap-walker must
-  // still see) is counted toward the oracle-read budget.
-  if (leaf.kind === 'oracle_price') {
-    if (negatedOrDisjunctive) {
-      throw capError(
-        'ORACLE_LEAF_INVALID_POSITION',
-        `oracle_price(${leaf.asset}) sits under a \`not\`/\`or\`: the contract refuses that position at install (dsl.rs validate_oracle_placement). An oracle bound must be a conjunct the call has to satisfy.`
-      )
-    }
-    oracleAssets.add(leaf.asset)
-  } else if (leaf.kind === 'literal_vec') {
-    for (const el of leaf.elements) collectOracle(el, oracleAssets, counters, negatedOrDisjunctive)
-  } else if (!leaf.kind.startsWith('literal_') && leaf.kind !== 'oracle_threshold') {
-    // A threshold is the oracle compare's operand, not an independent
-    // constraint. Counting it would let an oracle-only predicate satisfy the
-    // non-oracle envelope with its own bound (mirrors collect_oracle_leaf in
-    // dsl.rs, where it sits with the literals).
-    counters.nonOracleSelectorLeaves += 1
+function collectSelector(leaf: PredicateLeaf, counters: { selectorLeaves: number }): void {
+  // literal_vec is the only nested leaf; recurse so a selector buried in a
+  // vector literal is still counted. Mirrors `dsl::has_selector_leaf`.
+  if (leaf.kind === 'literal_vec') {
+    for (const el of leaf.elements) collectSelector(el, counters)
+  } else if (!leaf.kind.startsWith('literal_')) {
+    counters.selectorLeaves += 1
   }
 }
 
@@ -327,16 +289,6 @@ function encodeLeaf(leaf: PredicateLeaf): xdr.ScVal {
       )
     case 'invocation_count_in_window':
       return xdr.ScVal.scvVec([symbol('invocation_count'), scvU64FromValue(leaf.windowSecs)])
-    case 'oracle_price':
-      return xdr.ScVal.scvVec([symbol('oracle_price'), scvAddressFromStrkey(leaf.asset)])
-    case 'oracle_threshold':
-      // Arity 3, matching SEL_ORACLE_THRESHOLD in dsl.rs. The declared basis
-      // travels with the value so the contract never has to assume one.
-      return xdr.ScVal.scvVec([
-        symbol('oracle_threshold'),
-        scvI128FromDecimal(leaf.value),
-        xdr.ScVal.scvU32(leaf.decimals),
-      ])
     case 'literal_address':
       return scvAddressFromStrkey(leaf.value)
     case 'literal_i128':
@@ -423,15 +375,10 @@ function capError(code: ToolError['code'], message: string): ToolError {
 // u32 boundary - the same constant the contract decodes with. A value above
 // this either overflows during encode or is refused at install.
 const U32_MAX = 4294967295
-// The maximum decimal basis an oracle threshold can declare (mirrors
-// `MAX_ORACLE_THRESHOLD_DECIMALS` in dsl.rs). A value above this is refused
-// at install with `ORACLE_PARAMS_OUT_OF_RANGE`.
-const MAX_ORACLE_THRESHOLD_DECIMALS = 18
 
 /** Walk a `PredicateNode` and fail-closed on any leaf whose cap-set value the
  *  contract would refuse at install. Mirrors `validate_scaled_ratios` in
  *  dsl.rs:661-704 plus the broader cap-set gate (`literal_u32`, `literal_i128`
- *  positivity, `literal_bytes` hex even-length, `oracle_threshold` decimals
  *  range, `call_arg_scaled` positive-ratio). Defense in depth so the TS
  *  self-verify pipeline rejects the same shapes Rust install already
  *  refuses - a hand-crafted predicate that simulate/verify green-lights must
@@ -508,17 +455,6 @@ function validateLeafValues(node: PredicateNode): void {
           throw malformed(`literal_bytes.value must be even-length hex at ${path}`)
         }
         return
-      case 'oracle_threshold':
-        if (
-          !Number.isInteger(leaf.decimals) ||
-          leaf.decimals < 0 ||
-          leaf.decimals > MAX_ORACLE_THRESHOLD_DECIMALS
-        ) {
-          throw malformed(
-            `oracle_threshold.decimals out of range (0..${MAX_ORACLE_THRESHOLD_DECIMALS}) at ${path}`
-          )
-        }
-        return
       case 'literal_vec':
         leaf.elements.forEach((e, i) => {
           walkLeaf(e, `${path}.elements[${i}]`)
@@ -528,7 +464,6 @@ function validateLeafValues(node: PredicateNode): void {
       // branches above cover indices, the literal branches cover typed
       // constants. amount / window_spent / invocation_count / now /
       // valid_until / call_contract / call_fn / literal_address /
-      // literal_symbol / literal_u64 / oracle_price are all value-free
       // at this gate.
       case 'amount':
       case 'window_spent':
@@ -540,7 +475,6 @@ function validateLeafValues(node: PredicateNode): void {
       case 'literal_address':
       case 'literal_symbol':
       case 'literal_u64':
-      case 'oracle_price':
         return
     }
   }

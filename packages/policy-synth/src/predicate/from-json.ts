@@ -89,8 +89,6 @@ function jsonToLeaf(value: unknown): PredicateLeaf {
       }
     case 'invocation_count_in_window':
       return { kind: 'invocation_count_in_window', windowSecs: numberField(v, 'windowSecs') }
-    case 'oracle_price':
-      return { kind: 'oracle_price', asset: stringField(v, 'asset') }
     case 'literal_address':
       return { kind: 'literal_address', value: stringField(v, 'value') }
     case 'literal_i128':

@@ -5,16 +5,12 @@
 //! with native soroban-sdk types. The AST holds host types so the
 //! evaluator can compare `Address`/`Symbol`/`Bytes` directly without
 //! byte-extraction helpers.
-//!
-//! Out of scope for this decode path (decoded; the evaluator denies):
-//!   - `oracle_price` (slice 3 wires the oracle)
 
 extern crate alloc;
 
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
-use crate::oracle::NORMALISED_DECIMALS;
 use soroban_sdk::xdr::ToXdr;
 use soroban_sdk::{Address, Bytes, Env, IntoVal, Symbol, TryFromVal, Val, Vec as SorobanVec};
 
@@ -73,19 +69,6 @@ const SEL_VALID_UNTIL: &[u8] = b"valid_until";
 // refused at install as MALFORMED_PREDICATE. Rolling spend caps belong to the
 // OZ `spending_limit` primitive; a per-call cap is `call_arg_field`.
 const SEL_INVOCATION_COUNT: &[u8] = b"invocation_count";
-const SEL_ORACLE_PRICE: &[u8] = b"oracle_price";
-// The right-hand side of an oracle comparison. It carries its own decimal
-// basis because the contract cannot recover it: prices normalise to 9 dp, so a
-// raw 14-dp threshold is ~10^5 too large and `price <= threshold` becomes
-// trivially true. That failed OPEN, and no guard can catch it after the fact -
-// a 14-dp threshold for $1 is indistinguishable from a legitimate 9-dp
-// threshold for a $100k asset. The author declares the basis; we convert.
-const SEL_ORACLE_THRESHOLD: &[u8] = b"oracle_threshold";
-
-/// Largest decimal basis an oracle threshold may declare. Beyond this the
-/// scale-up has no useful representation, so it is refused rather than
-/// attempted.
-pub const MAX_ORACLE_THRESHOLD_DECIMALS: u32 = 18;
 
 // ---- AST ----
 
@@ -140,12 +123,6 @@ pub enum Leaf {
     InvocationCountInWindow {
         window_secs: u64,
     },
-    OraclePrice(Address),
-    /// An oracle comparison's threshold, on an author-declared decimal basis.
-    OracleThresholdI128 {
-        value: i128,
-        decimals: u32,
-    },
     LiteralAddress(Address),
     LiteralI128(i128),
     LiteralSymbol(Symbol),
@@ -157,12 +134,9 @@ pub enum Leaf {
 
 impl Leaf {
     /// True when this leaf carries a value the pure evaluator can compare
-    /// without storage or oracle. Stateful leaves always return false.
+    /// without storage. Stateful leaves always return false.
     pub fn is_stateless(&self) -> bool {
-        !matches!(
-            self,
-            Leaf::InvocationCountInWindow { .. } | Leaf::OraclePrice(_)
-        )
+        !matches!(self, Leaf::InvocationCountInWindow { .. })
     }
 }
 
@@ -178,18 +152,6 @@ pub struct EvalContext {
     pub now_seconds: u64,
     /// Per-window_secs invocation count for the current rule.
     pub invocation_count_by_window: Vec<(u64, u32)>,
-    /// Per-asset oracle snapshot, resolved BEFORE evaluation so the evaluator
-    /// stays a pure function of its inputs and makes no cross-contract calls
-    /// mid-predicate. An asset absent from this list is treated as stale.
-    pub oracle_price_by_asset: Vec<(Address, OracleEntry)>,
-}
-
-/// One asset's resolved oracle state: either a confirmed price on the
-/// normalised basis, or the reason resolution failed.
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum OracleEntry {
-    Price { price: i128, timestamp_seconds: u64 },
-    Failed(DenyReason),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -220,69 +182,15 @@ pub enum DenyReason {
     /// Not fatal: a sibling `or` branch may carry it, and a `not` may
     /// invert it.
     SlippageFloor,
-    /// Oracle read older than the policy's staleness bound, or absent from
-    /// the snapshot entirely - a missing asset is treated as stale so a
-    /// predicate can never permit on an oracle the resolver never supplied.
-    OracleStale,
-    /// The oracle returned no record for the asset.
-    OracleMissing,
-    /// The feed has data but the two-round confirmation cannot be formed -
-    /// fewer than two distinct timestamps, or rounds that are not exactly
-    /// one resolution apart. Distinct from `OracleMissing` so an operator
-    /// can tell "asset unsupported" (do not use it) from "feed degraded"
-    /// (escalate to the feed operator).
-    OracleNoConfirmation,
-    /// The feed returned a non-positive price or non-monotonic timestamps:
-    /// the data shape itself is invalid. Distinct from the two
-    /// preceding codes so an upstream bug or attack can be triaged
-    /// separately from infrastructure issues.
-    OracleMalformedHistory,
-    /// The two confirmation rounds diverged by more than the policy's bound.
-    OracleDeviationExceeded,
-    /// Oracle policies are paused for this account/asset.
-    OraclePaused,
-    /// Decimals unavailable, or the compare's right-hand side was not an
-    /// i128 on the normalised basis.
-    OracleDecimalsMismatch,
-    /// The oracle instance no longer matches the fingerprint pinned in
-    /// `SELF_VERSION`.
-    OracleFingerprintDrift,
-    /// The primary and secondary feeds disagreed by more than the policy's
-    /// bound, OR the secondary feed could not be read (unconfigured,
-    /// missing, paused, stale, fingerprint drift). The two-round
-    /// confirmation reads ONE feed twice, so it cannot see a feed that
-    /// publishes two consistent forged prices; this can. Distinct from
-    /// `OracleDeviationExceeded` so a review card can name the failure
-    /// mode without ambiguity.
-    OracleCrossFeedDivergence,
-    /// The threshold declared a decimal basis above
-    /// `MAX_ORACLE_THRESHOLD_DECIMALS`. Distinct from
-    /// `OracleDecimalsMismatch` so "you declared an impossible basis" is not
-    /// confused with "you supplied no basis at all".
-    OracleThresholdDecimalsOutOfRange,
 }
 
 impl DenyReason {
-    /// Oracle failures are FATAL: they abort the whole predicate rather than
-    /// contributing a boolean `false` that `not` could invert or a sibling
-    /// `or` branch could mask. `UnsupportedNode` is fatal for the same
-    /// reason - a node the interpreter never supported must not be
-    /// satisfiable by negating it.
+    /// `UnsupportedNode` is fatal: a node the interpreter never supported
+    /// must not be satisfiable by negating it. Every other variant is a
+    /// ordinary deny reason - a sibling `or` may carry it, and `not` may
+    /// invert it.
     pub const fn is_fatal(&self) -> bool {
-        matches!(
-            self,
-            DenyReason::UnsupportedNode
-                | DenyReason::OracleStale
-                | DenyReason::OracleMissing
-                | DenyReason::OracleNoConfirmation
-                | DenyReason::OracleMalformedHistory
-                | DenyReason::OracleDeviationExceeded
-                | DenyReason::OraclePaused
-                | DenyReason::OracleDecimalsMismatch
-                | DenyReason::OracleFingerprintDrift
-                | DenyReason::OracleCrossFeedDivergence
-                | DenyReason::OracleThresholdDecimalsOutOfRange
-        )
+        matches!(self, DenyReason::UnsupportedNode)
     }
 }
 
@@ -297,18 +205,6 @@ impl DenyReason {
             DenyReason::NotInAllowlist => "NOT_IN_ALLOWLIST",
             DenyReason::Frequency => "FREQUENCY",
             DenyReason::SlippageFloor => "SLIPPAGE_FLOOR",
-            DenyReason::OracleStale => "ORACLE_STALE",
-            DenyReason::OracleMissing => "ORACLE_MISSING",
-            DenyReason::OracleNoConfirmation => "ORACLE_NO_CONFIRMATION",
-            DenyReason::OracleMalformedHistory => "ORACLE_MALFORMED_HISTORY",
-            DenyReason::OracleDeviationExceeded => "ORACLE_DEVIATION_EXCEEDED",
-            DenyReason::OraclePaused => "ORACLE_PAUSED",
-            DenyReason::OracleDecimalsMismatch => "ORACLE_DECIMALS_MISMATCH",
-            DenyReason::OracleFingerprintDrift => "ORACLE_FINGERPRINT_DRIFT",
-            DenyReason::OracleCrossFeedDivergence => "ORACLE_CROSS_FEED_DIVERGENCE",
-            DenyReason::OracleThresholdDecimalsOutOfRange => {
-                "ORACLE_THRESHOLD_DECIMALS_OUT_OF_RANGE"
-            }
         }
     }
 }
@@ -334,9 +230,10 @@ pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
             for c in children {
                 match evaluate(env, c, ctx) {
                     EvalDecision::Permit => return EvalDecision::Permit,
-                    // A fatal denial aborts the whole predicate: a sibling
-                    // branch must not be able to permit around a failed
-                    // oracle read.
+                    // A fatal denial (unsupported node) aborts the whole
+                    // predicate: the policy cannot satisfy itself by
+                    // permitting a sibling around a node the interpreter
+                    // could not evaluate.
                     EvalDecision::Deny(r) if r.is_fatal() => {
                         return EvalDecision::Deny(r);
                     }
@@ -347,9 +244,9 @@ pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
         }
         Node::Not(inner) => match evaluate(env, inner, ctx) {
             EvalDecision::Permit => EvalDecision::Deny(DenyReason::ArgMismatch),
-            // A fatal denial (unsupported node, failed oracle read) is NOT
-            // inverted - the policy cannot satisfy itself by negating a node
-            // the interpreter could not evaluate.
+            // A fatal denial (unsupported node) is NOT inverted - the policy
+            // cannot satisfy itself by negating a node the interpreter
+            // could not evaluate.
             EvalDecision::Deny(r) if r.is_fatal() => EvalDecision::Deny(r),
             EvalDecision::Deny(_) => EvalDecision::Permit,
         },
@@ -437,13 +334,9 @@ fn eval_compare(
     ctx: &EvalContext,
 ) -> EvalDecision {
     // Stateful leaves: dispatch to the dedicated evaluators BEFORE the
-    // stateless-only guard. `oracle_price` stays unsupported and falls
-    // through to the structural deny.
+    // stateless-only guard.
     if let Leaf::InvocationCountInWindow { window_secs } = left {
         return eval_invocation_count_compare(op, *window_secs, right, ctx);
-    }
-    if let Leaf::OraclePrice(asset) = left {
-        return eval_oracle_compare(op, asset, right, ctx);
     }
 
     // Slipped past the stateless guard? The scaled leaf is stateless, so
@@ -541,133 +434,13 @@ fn resolve_selector(env: &Env, leaf: &Leaf, ctx: &EvalContext) -> Option<Val> {
         Leaf::CallArgLen(_) | Leaf::CallArgField { .. } => None,
         Leaf::Now => Some(ctx.at_ledger.into_val(env)),
         Leaf::ValidUntil => ctx.valid_until_ledger.map(|v| v.into_val(env)),
-        Leaf::InvocationCountInWindow { .. } | Leaf::OraclePrice(_) => None,
+        Leaf::InvocationCountInWindow { .. } => None,
         // Literal leaves resolve through `literal_to_val`.
         _ => literal_to_val(env, leaf),
     }
 }
 
 // ---- Stateful leaf evaluators ----
-
-/// Each oracle asset now costs FOUR reads: two confirmation rounds on the
-/// primary feed AND two confirmation rounds on the secondary feed
-/// (Track B cross-feed divergence). The cap therefore drops the
-/// distinct-asset limit to 3 (12 reads at 4/asset) - the same shape as
-/// before, just a different arithmetic. Non-overridable.
-pub const MAX_ORACLE_READS: u32 = 12;
-
-/// Why a predicate is not installable on oracle grounds.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum OracleValidationError {
-    /// An oracle leaf appeared under `not` or `or`. Oracle failures are
-    /// fatal, and boolean algebra around them invites exactly the masking
-    /// the fatal semantics exist to prevent, so the shape is refused up
-    /// front rather than relied on being handled at evaluation.
-    LeafInvalidPosition,
-    /// More than `MAX_ORACLE_READS` reads: more than 3 distinct assets.
-    /// Cost per asset is 4 reads (2 rounds × 2 feeds), so 4 distinct
-    /// assets would be 16 reads and refuse to install.
-    TooManyReads,
-    /// The predicate is nothing but oracle leaves. An oracle-referencing
-    /// policy must carry its own non-oracle envelope (scope, amount,
-    /// frequency) so it still constrains the call if the oracle is degraded.
-    MissingNonOracleEnvelope,
-}
-
-/// Validate the oracle-specific install rules. Returns `Ok(())` for a
-/// predicate with no oracle leaves at all.
-pub fn validate_oracle_placement(root: &Node) -> Result<(), OracleValidationError> {
-    let mut assets: Vec<Address> = Vec::new();
-    let mut non_oracle_leaves = 0u32;
-    check_oracle_position(root, false, &mut assets, &mut non_oracle_leaves)?;
-    if assets.is_empty() {
-        return Ok(());
-    }
-    if assets.len() as u32 * 4 > MAX_ORACLE_READS {
-        return Err(OracleValidationError::TooManyReads);
-    }
-    if non_oracle_leaves == 0 {
-        return Err(OracleValidationError::MissingNonOracleEnvelope);
-    }
-    Ok(())
-}
-
-/// Walk the tree tracking whether we are underneath a `not`/`or`. Distinct
-/// assets are accumulated so the read cap counts assets, not leaves.
-fn check_oracle_position(
-    node: &Node,
-    negated_or_disjunctive: bool,
-    assets: &mut Vec<Address>,
-    non_oracle_leaves: &mut u32,
-) -> Result<(), OracleValidationError> {
-    match node {
-        Node::And(children) => {
-            for c in children {
-                check_oracle_position(c, negated_or_disjunctive, assets, non_oracle_leaves)?;
-            }
-        }
-        Node::Or(children) => {
-            for c in children {
-                check_oracle_position(c, true, assets, non_oracle_leaves)?;
-            }
-        }
-        Node::Not(inner) => check_oracle_position(inner, true, assets, non_oracle_leaves)?,
-        Node::Compare { left, right, .. } => {
-            for leaf in [left, right] {
-                collect_oracle_leaf(leaf, negated_or_disjunctive, assets, non_oracle_leaves)?;
-            }
-        }
-        Node::In { needle, haystack } => {
-            collect_oracle_leaf(needle, negated_or_disjunctive, assets, non_oracle_leaves)?;
-            for h in haystack {
-                collect_oracle_leaf(h, negated_or_disjunctive, assets, non_oracle_leaves)?;
-            }
-        }
-    }
-    Ok(())
-}
-
-fn collect_oracle_leaf(
-    leaf: &Leaf,
-    negated_or_disjunctive: bool,
-    assets: &mut Vec<Address>,
-    non_oracle_leaves: &mut u32,
-) -> Result<(), OracleValidationError> {
-    match leaf {
-        Leaf::OraclePrice(asset) => {
-            if negated_or_disjunctive {
-                return Err(OracleValidationError::LeafInvalidPosition);
-            }
-            if !assets.iter().any(|a| a == asset) {
-                assets.push(asset.clone());
-            }
-        }
-        // Literal vectors can wrap any leaf, including selector leaves -
-        // including oracle leaves. The TS encoder recurses, so the
-        // contract must too or it depends on the encoder having been
-        // used. A nested oracle leaf is still an oracle leaf for both
-        // the position rule and the read budget.
-        Leaf::LiteralVec(elements) => {
-            for e in elements {
-                collect_oracle_leaf(e, negated_or_disjunctive, assets, non_oracle_leaves)?;
-            }
-        }
-        // Plain literals are operands, not constraints; only selector
-        // leaves count towards the non-oracle envelope.
-        // An oracle threshold is an operand of the oracle compare, not an
-        // independent constraint - counting it would let an oracle-only
-        // predicate satisfy the non-oracle envelope with its own threshold.
-        Leaf::LiteralAddress(_)
-        | Leaf::LiteralI128(_)
-        | Leaf::LiteralSymbol(_)
-        | Leaf::LiteralU32(_)
-        | Leaf::LiteralU64(_)
-        | Leaf::LiteralBytes(_)
-        | Leaf::OracleThresholdI128 { .. } => {}
-        _ => *non_oracle_leaves += 1,
-    }
-    Ok(())
-}
 
 /// Why a predicate is not installable on slippage-floor grounds.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -689,8 +462,7 @@ pub enum ScaledRatioError {
 /// enforce: a ratio that would silently invert the comparison cannot
 /// slip through.
 ///
-/// Recurses into `LiteralVec` for the same smuggling reason as the
-/// oracle placement validator: a `call_arg_scaled` wrapped in a literal
+/// Recurses into `LiteralVec`: a `call_arg_scaled` wrapped in a literal
 /// vector is still a `call_arg_scaled`.
 pub fn validate_scaled_ratios(root: &Node) -> Result<(), ScaledRatioError> {
     fn walk(leaf: &Leaf) -> Result<(), ScaledRatioError> {
@@ -737,140 +509,41 @@ pub fn validate_scaled_ratios(root: &Node) -> Result<(), ScaledRatioError> {
     Ok(())
 }
 
-/// Why an oracle threshold was refused at install.
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
-pub enum OracleThresholdError {
-    /// An oracle comparison's right-hand side did not declare a decimal basis.
-    BasisRequired,
-    /// A declared basis exceeded `MAX_ORACLE_THRESHOLD_DECIMALS`.
-    DecimalsOutOfRange,
-}
-
-/// Every oracle comparison must state the decimal basis of its threshold.
+/// True when the predicate constrains at least one property of the call
+/// being authorised, rather than comparing literals to literals.
 ///
-/// Checked at install so the failure is loud once, rather than a policy that
-/// installs cleanly and then silently permits everything it was written to
-/// deny. `eval_oracle_compare` refuses the same shapes at enforce; this makes
-/// the refusal reachable before any funds depend on the rule.
-pub fn validate_oracle_thresholds(root: &Node) -> Result<(), OracleThresholdError> {
-    fn check_threshold(leaf: &Leaf) -> Result<(), OracleThresholdError> {
+/// A predicate with no selector leaf - literals on both sides of every
+/// compare, no `call_contract`/`call_fn`/`call_arg`/`now` - is trivially
+/// true or trivially false at install time, so it permits everything or
+/// nothing forever. `install` refuses such a predicate so a no-constraint
+/// policy cannot install under any name.
+///
+/// Recurses into `LiteralVec`: a selector wrapped in a literal vector is
+/// still a selector.
+pub fn has_selector_leaf(root: &Node) -> bool {
+    fn selects(leaf: &Leaf) -> bool {
         match leaf {
-            Leaf::OracleThresholdI128 { decimals, .. } => {
-                if *decimals > MAX_ORACLE_THRESHOLD_DECIMALS {
-                    return Err(OracleThresholdError::DecimalsOutOfRange);
-                }
-                Ok(())
-            }
-            _ => Err(OracleThresholdError::BasisRequired),
-        }
-    }
-    // A threshold nested anywhere else is still range-checked, so a bad basis
-    // cannot hide inside a vec and surface only at enforce.
-    fn walk_any(leaf: &Leaf) -> Result<(), OracleThresholdError> {
-        match leaf {
-            Leaf::OracleThresholdI128 { decimals, .. } => {
-                if *decimals > MAX_ORACLE_THRESHOLD_DECIMALS {
-                    return Err(OracleThresholdError::DecimalsOutOfRange);
-                }
-                Ok(())
-            }
-            Leaf::LiteralVec(elements) => {
-                for e in elements {
-                    walk_any(e)?;
-                }
-                Ok(())
-            }
-            _ => Ok(()),
+            Leaf::LiteralAddress(_)
+            | Leaf::LiteralI128(_)
+            | Leaf::LiteralSymbol(_)
+            | Leaf::LiteralU32(_)
+            | Leaf::LiteralU64(_)
+            | Leaf::LiteralBytes(_) => false,
+            Leaf::LiteralVec(elements) => elements.iter().any(selects),
+            // Every remaining variant reads something from the call under
+            // evaluation, so it constrains the policy.
+            _ => true,
         }
     }
     match root {
-        Node::And(children) | Node::Or(children) => {
-            for c in children {
-                validate_oracle_thresholds(c)?;
-            }
-        }
-        Node::Not(inner) => validate_oracle_thresholds(inner)?,
-        Node::Compare { left, right, .. } => {
-            // `oracle_price` is always the left side (see `eval_compare`), so
-            // the threshold is always the right.
-            if matches!(left, Leaf::OraclePrice(_)) {
-                check_threshold(right)?;
-            } else {
-                walk_any(left)?;
-                walk_any(right)?;
-            }
-        }
-        Node::In { needle, haystack } => {
-            walk_any(needle)?;
-            for h in haystack {
-                walk_any(h)?;
-            }
-        }
+        Node::And(children) | Node::Or(children) => children.iter().any(has_selector_leaf),
+        Node::Not(inner) => has_selector_leaf(inner),
+        Node::Compare { left, right, .. } => selects(left) || selects(right),
+        Node::In { needle, haystack } => selects(needle) || haystack.iter().any(selects),
     }
-    Ok(())
 }
 
-/// `oracle_price(asset) <op> literal_i128`.
-///
-/// Every failure here is fatal (see `DenyReason::is_fatal`). An asset the
-/// resolver never supplied is treated as stale rather than as a zero price,
-/// so a predicate can never permit on an oracle that was not actually read.
-/// The right-hand side must be an i128 on the normalised basis; anything else
-/// means the policy and the oracle disagree about scale.
-fn eval_oracle_compare(
-    op: CompareOp,
-    asset: &Address,
-    right: &Leaf,
-    ctx: &EvalContext,
-) -> EvalDecision {
-    let entry = ctx
-        .oracle_price_by_asset
-        .iter()
-        .find(|(a, _)| a == asset)
-        .map(|(_, e)| e);
-    let price = match entry {
-        None => return EvalDecision::Deny(DenyReason::OracleStale),
-        Some(OracleEntry::Failed(reason)) => return EvalDecision::Deny(*reason),
-        Some(OracleEntry::Price { price, .. }) => *price,
-    };
-    // The threshold MUST declare its basis. A bare literal is refused rather
-    // than assumed to be on the normalised basis: assuming it is what made a
-    // raw 14-dp threshold permit everything, silently.
-    let (value, decimals) = match right {
-        Leaf::OracleThresholdI128 { value, decimals } => (*value, *decimals),
-        _ => return EvalDecision::Deny(DenyReason::OracleDecimalsMismatch),
-    };
-    if decimals > MAX_ORACLE_THRESHOLD_DECIMALS {
-        return EvalDecision::Deny(DenyReason::OracleThresholdDecimalsOutOfRange);
-    }
-
-    // Scale BOTH sides up to the wider basis instead of dividing the threshold
-    // down. Dividing truncates, and a truncated bound moves the permit
-    // boundary - on `lte` it would permit a price the author meant to deny.
-    // Overflow denies (fatal), never wraps.
-    let common = if decimals > NORMALISED_DECIMALS {
-        decimals
-    } else {
-        NORMALISED_DECIMALS
-    };
-    let price_scaled = match scale_pow10(price, common - NORMALISED_DECIMALS) {
-        Some(v) => v,
-        None => return EvalDecision::Deny(DenyReason::ArithmeticOverflow),
-    };
-    let literal_scaled = match scale_pow10(value, common - decimals) {
-        Some(v) => v,
-        None => return EvalDecision::Deny(DenyReason::ArithmeticOverflow),
-    };
-    cmp_i128(op, price_scaled, literal_scaled)
-}
-
-/// `v * 10^exp`, or `None` on overflow. Split out so both sides of an oracle
-/// comparison scale through identical, testable arithmetic.
-fn scale_pow10(v: i128, exp: u32) -> Option<i128> {
-    let factor = 10i128.checked_pow(exp)?;
-    v.checked_mul(factor)
-}
-
+/// Compare an `invocation_count_in_window(window_secs)` to a u32 literal.
 fn eval_invocation_count_compare(
     op: CompareOp,
     window_secs: u64,
@@ -1221,7 +894,7 @@ mod dsl_decode {
         CompareOp, Leaf, Node, MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_PREDICATE_BYTES,
         OP_AND, OP_EQ, OP_GT, OP_GTE, OP_IN, OP_LT, OP_LTE, OP_NOT, OP_OR, SEL_CALL_ARG,
         SEL_CALL_ARG_FIELD, SEL_CALL_ARG_LEN, SEL_CALL_ARG_SCALED, SEL_CALL_CONTRACT, SEL_CALL_FN,
-        SEL_INVOCATION_COUNT, SEL_NOW, SEL_ORACLE_PRICE, SEL_ORACLE_THRESHOLD, SEL_VALID_UNTIL,
+        SEL_INVOCATION_COUNT, SEL_NOW, SEL_VALID_UNTIL,
     };
 
     /// Errors that can be raised while decoding a predicate root from the
@@ -1571,15 +1244,6 @@ mod dsl_decode {
             check_arity(items.len(), 2)?;
             let ws = expect_u64(env, items.get(1).ok_or(DecodeError::MalformedPredicate)?)?;
             Ok(Leaf::InvocationCountInWindow { window_secs: ws })
-        } else if head == sym_const(env, SEL_ORACLE_PRICE) {
-            check_arity(items.len(), 2)?;
-            let a = expect_address(env, items.get(1).ok_or(DecodeError::MalformedPredicate)?)?;
-            Ok(Leaf::OraclePrice(a))
-        } else if head == sym_const(env, SEL_ORACLE_THRESHOLD) {
-            check_arity(items.len(), 3)?;
-            let value = expect_i128(env, items.get(1).ok_or(DecodeError::MalformedPredicate)?)?;
-            let decimals = expect_u32(env, items.get(2).ok_or(DecodeError::MalformedPredicate)?)?;
-            Ok(Leaf::OracleThresholdI128 { value, decimals })
         } else {
             // Unknown symbol at a selector position -> MALFORMED.
             Err(DecodeError::MalformedPredicate)
@@ -1605,8 +1269,5 @@ mod dsl_decode {
     }
     fn expect_symbol(env: &Env, v: Val) -> Result<Symbol, DecodeError> {
         Symbol::try_from_val(env, &v).map_err(|_| DecodeError::MalformedPredicate)
-    }
-    fn expect_address(env: &Env, v: Val) -> Result<Address, DecodeError> {
-        Address::try_from_val(env, &v).map_err(|_| DecodeError::MalformedPredicate)
     }
 }

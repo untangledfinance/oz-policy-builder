@@ -12,8 +12,6 @@
 //! (permit or the matching DenyReason.code() string).
 //!
 //! Predicate hash: 6850c4aeff2073813d1738ad02d4b54f96b21e45d081a6b89b1b024398b653da
-//! Skipped oracle dimensions: 0 (oracle-* paths need the
-//! oracle wiring in dsl.rs that is out of scope this phase).
 
 extern crate alloc;
 
@@ -52,7 +50,6 @@ fn case_permit() {
         valid_until_ledger: Some(200000000u32),
         now_seconds: 1000000000u64,
         invocation_count_by_window: vec![(86400u64, 0u32)],
-        oracle_price_by_asset: StdVec::new(),
     };
     let d = evaluate(&env, &root, &ctx);
     match d {
@@ -81,7 +78,6 @@ fn case_deny_invocation_count() {
         valid_until_ledger: Some(200000000u32),
         now_seconds: 1000000000u64,
         invocation_count_by_window: vec![(86400u64, 2u32)],
-        oracle_price_by_asset: StdVec::new(),
     };
     let d = evaluate(&env, &root, &ctx);
     match d {
@@ -111,7 +107,6 @@ fn case_deny_arg_bound() {
         valid_until_ledger: Some(200000000u32),
         now_seconds: 1000000000u64,
         invocation_count_by_window: vec![(86400u64, 0u32)],
-        oracle_price_by_asset: StdVec::new(),
     };
     let d = evaluate(&env, &root, &ctx);
     match d {
@@ -141,7 +136,6 @@ fn case_deny_map_field_flip() {
         valid_until_ledger: Some(200000000u32),
         now_seconds: 1000000000u64,
         invocation_count_by_window: vec![(86400u64, 0u32)],
-        oracle_price_by_asset: StdVec::new(),
     };
     let d = evaluate(&env, &root, &ctx);
     match d {
@@ -171,7 +165,6 @@ fn case_deny_map_field_flip_2() {
         valid_until_ledger: Some(200000000u32),
         now_seconds: 1000000000u64,
         invocation_count_by_window: vec![(86400u64, 0u32)],
-        oracle_price_by_asset: StdVec::new(),
     };
     let d = evaluate(&env, &root, &ctx);
     match d {
@@ -201,7 +194,6 @@ fn case_deny_map_field_flip_3() {
         valid_until_ledger: Some(200000000u32),
         now_seconds: 1000000000u64,
         invocation_count_by_window: vec![(86400u64, 0u32)],
-        oracle_price_by_asset: StdVec::new(),
     };
     let d = evaluate(&env, &root, &ctx);
     match d {
@@ -231,7 +223,6 @@ fn case_deny_vec_append() {
         valid_until_ledger: Some(200000000u32),
         now_seconds: 1000000000u64,
         invocation_count_by_window: vec![(86400u64, 0u32)],
-        oracle_price_by_asset: StdVec::new(),
     };
     let d = evaluate(&env, &root, &ctx);
     match d {

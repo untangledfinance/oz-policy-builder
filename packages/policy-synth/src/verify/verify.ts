@@ -35,17 +35,10 @@ import type { ContractInvocation, PredicateNode, RecordedTransaction, ScVal } fr
 import { MAX_SCVAL_CLONE_DEPTH } from '../types.ts'
 
 /** Options for `verifyPolicy`. Mirrors the orchestrator's permit-context
- *  knobs (expiry; oracle fixture) so verify sees the same shape
+ *  knobs (expiry) so verify sees the same shape
  *  `simulatePolicy` sees. */
 export interface VerifyOptions {
   validUntilLedger?: number
-  oraclePricesByAsset?: Record<
-    string,
-    | { price: string; timestampSeconds: number }
-    | {
-        error: 'stale' | 'missing' | 'deviation' | 'paused' | 'decimals' | 'fingerprint'
-      }
-  >
 }
 
 /** Run the static minimality check on a proposed predicate + recorded tx.
@@ -148,13 +141,6 @@ function buildPermitContextForVerify(
     amountByToken[token] = total.toString()
   }
 
-  const oraclePriceByAsset: EvalContext['oraclePriceByAsset'] = {}
-  if (opts.oraclePricesByAsset) {
-    for (const [asset, entry] of Object.entries(opts.oraclePricesByAsset)) {
-      oraclePriceByAsset[asset] = entry
-    }
-  }
-
   const ctx: EvalContext = {
     contract: topLevel.contract,
     fn: topLevel.fn,
@@ -164,7 +150,6 @@ function buildPermitContextForVerify(
     amountByToken,
     windowSpentByToken: {},
     invocationCountByWindow: {},
-    oraclePriceByAsset,
   }
   if (opts.validUntilLedger !== undefined) {
     ctx.validUntilLedger = opts.validUntilLedger

@@ -6,11 +6,6 @@
 // IR constructs between them.
 //
 // Three fail-closed enforcement gates (per spec):
-//   - oracle_price leaves MUST sit directly under the top-level `and`; nesting
-//     under `not` / `or` / inside `in` throws ORACLE_LEAF_INVALID_POSITION.
-//   - oracleParams overrides may only TIGHTEN vs wasm defaults
-//     (maxStalenessSeconds <= 600, maxDeviationBps <= 200); a widening value
-//     throws ORACLE_PARAMS_OUT_OF_RANGE at compile time.
 //   - an `in` allowlist (or a `compare eq` vs an address, or any value in an
 //     `eq_seq`) that targets the smart account's own address throws
 //     SCOPE_SELF_CALL.
@@ -49,13 +44,6 @@ import type {
  *  deploy artifact we do not have yet; install is a later phase. */
 export const PLACEHOLDER_INTERPRETER_ADDRESS = 'VERIFY-interpreter-address'
 
-/** Wasm-level oracle defaults (mirrors the interpreter's `OracleParams`).
- *  Per-policy overrides may TIGHTEN only - they may never exceed these. */
-export const ORACLE_DEFAULTS = {
-  maxStalenessSeconds: 600,
-  maxDeviationBps: 200,
-} as const
-
 export interface InterpreterAdapterConfig {
   network: Network
   /** Per-rule install nonce (first install = 1; replay-protected). */
@@ -64,10 +52,6 @@ export interface InterpreterAdapterConfig {
    *  by the self-call gate: any `in`-allowlist containing this address is
    *  rejected as `SCOPE_SELF_CALL`. */
   smartAccountAddress: string
-  /** Optional per-policy oracle overrides. Must TIGHTEN vs ORACLE_DEFAULTS
-   *  (i.e. <= each default). A widening value throws ORACLE_PARAMS_OUT_OF_RANGE
-   *  at compile time. */
-  oracleParams?: { maxStalenessSeconds?: number; maxDeviationBps?: number }
 }
 
 const CAPABILITIES: CustodyCapabilities = {
@@ -76,7 +60,6 @@ const CAPABILITIES: CustodyCapabilities = {
   // Expiry is via the context rule's validUntilLedger, not a predicate - the
   // interpreter refuses a `valid_until` leaf at install.
   supportsTimeExpiry: false,
-  supportsOraclePrice: true,
   supportsInvocationCount: true,
   supportsGeneralPredicate: true,
 }
@@ -117,9 +100,6 @@ export function lowerRuleToPredicate(
 }
 
 function compile(ir: PolicyIR, config: InterpreterAdapterConfig): CompileResult {
-  // Tighten-only oracle-params gate (config-time). Widening -> throw at compile
-  // time before any lowering happens, so a misuse fails closed loudly.
-  assertOracleParamsTighten(config.oracleParams)
 
   const firstRule = ir.rules[0]
   if (!firstRule) {
@@ -145,7 +125,6 @@ function compile(ir: PolicyIR, config: InterpreterAdapterConfig): CompileResult 
     installNonce: config.installNonce,
     encodedPredicate,
     predicateHash,
-    ...(config.oracleParams ? { oracleParams: config.oracleParams } : {}),
   }
   const policyRef: PolicyRef = {
     kind: 'interpreter',
@@ -174,8 +153,7 @@ function lowerRule(rule: IRPolicyRule, config: InterpreterAdapterConfig): Lowere
 
   // scope -> context rule + sibling predicates. contract/method each become
   // their own `eq` leaf and are merged into the top-level `and` alongside the
-  // constraints. The top-level MUST be `and` so oracle leaves sit directly
-  // under it (mandatory per the oracle position rule + canonical hash stability).
+  // constraints. The top-level MUST be `and` for canonical hash stability.
   const scopeContract: string | undefined = rule.scope.contract
   const scopeMethod: string | undefined = rule.scope.method
   if (rule.scope.chainId !== undefined) {
@@ -236,8 +214,7 @@ function lowerRule(rule: IRPolicyRule, config: InterpreterAdapterConfig): Lowere
   }
 
   // Build the top-level `and` of scope + expressible constraints. The
-  // top-level MUST be `and` so oracle leaves sit directly under it - the
-  // position rule is enforced inside `lowerCondition`.
+  // top-level MUST be `and` for canonical hash stability.
   const topChildren: PredicateNode[] = []
   if (scopeContract !== undefined) {
     topChildren.push({
@@ -282,11 +259,6 @@ function unsupportedConstruct(cond: IRCondition): string | null {
     case 'slippage_floor':
       return null
     case 'in':
-      // The oracle position rule is a hard error and must be raised before a
-      // construct can be written off as uncovered - otherwise a subtree that
-      // is BOTH misplaced-oracle and unsourceable would be silently dropped
-      // instead of rejected.
-      assertNoOracleDescendants(cond)
       return (
         unsourceableSelector(cond.selector) ??
         (cond.selector.kind === 'calldata' || cond.selector.kind === 'value'
@@ -323,10 +295,8 @@ function unsupportedConstruct(cond: IRCondition): string | null {
     case 'and':
       return cond.children.map(unsupportedConstruct).find((u) => u !== null) ?? null
     case 'or':
-      assertNoOracleDescendants(cond)
       return cond.children.map(unsupportedConstruct).find((u) => u !== null) ?? null
     case 'not':
-      assertNoOracleDescendants(cond)
       return unsupportedConstruct(cond.child)
   }
 }
@@ -342,8 +312,7 @@ function unsourceableSelector(s: IRSelector): string | null {
   return null
 }
 
-/** Lower one IR condition to a PredicateNode. Enforces the oracle position
- *  rule (oracle_price leaves must sit directly under the top-level `and`) and
+/** Lower one IR condition to a PredicateNode.
  *  the self-call rule (`in` allowlist / `compare eq` vs the smart account
  *  address -> SCOPE_SELF_CALL). */
 function lowerCondition(cond: IRCondition, config: InterpreterAdapterConfig): PredicateNode {
@@ -365,16 +334,10 @@ function lowerCondition(cond: IRCondition, config: InterpreterAdapterConfig): Pr
     case 'and':
       return { op: 'and', children: cond.children.map((c) => lowerCondition(c, config)) }
     case 'or':
-      // `or` at this depth: oracle_price anywhere inside is invalid (would
-      // not be a direct child of the top-level `and`).
-      assertNoOracleDescendants(cond)
       return { op: 'or', children: cond.children.map((c) => lowerCondition(c, config)) }
     case 'not':
-      // `not` at this depth: oracle_price anywhere inside is invalid.
-      assertNoOracleDescendants(cond)
       return { op: 'not', child: lowerCondition(cond.child, config) }
     case 'in': {
-      assertNoOracleDescendants(cond)
       for (const v of cond.values) {
         assertNotSelfCallAddress(v, config)
       }
@@ -389,7 +352,6 @@ function lowerCondition(cond: IRCondition, config: InterpreterAdapterConfig): Pr
       }
     }
     case 'eq_seq': {
-      assertNoOracleDescendants(cond)
       for (const v of cond.values) {
         assertNotSelfCallAddress(v, config)
       }
@@ -448,8 +410,6 @@ function lowerSelector(s: IRSelector): PredicateLeaf {
       return { kind: 'now' }
     case 'valid_until':
       return { kind: 'valid_until' }
-    case 'oracle_price':
-      return { kind: 'oracle_price', asset: s.asset }
     case 'calldata':
     case 'value':
       // Unreachable: the caller flagged these as Path-B before reaching here.
@@ -468,23 +428,9 @@ function lowerSelector(s: IRSelector): PredicateLeaf {
  *    - arg_field -> IR scalarType (the field's recorded type)
  *    - amount    -> i128 (canonical Stellar token amount encoding)
  *    - window_spent -> i128 (canonical amount encoding)
- *    - oracle_price  -> i128 (canonical price encoding)
  *    - invocation_count -> u32 (counts are small non-negative integers)
  *    - now / valid_until -> u64 (unix timestamps in seconds) */
 function literalFromIRCompare(c: IRCompare): PredicateLeaf {
-  // An oracle comparand is not a bare literal: the interpreter refuses one,
-  // because assuming it shares the normalised 9-dp basis is what made a raw
-  // 14-dp threshold permit everything it was written to deny.
-  if (c.selector.kind === 'oracle_price') {
-    if (c.valueDecimals === undefined) {
-      throw toolError(
-        'ORACLE_THRESHOLD_BASIS_REQUIRED',
-        'An oracle price bound must declare the decimal basis of its threshold ' +
-          '(oracle prices normalise to 9 decimals).'
-      )
-    }
-    return { kind: 'oracle_threshold', value: c.value, decimals: c.valueDecimals }
-  }
   const scalarType: IRScalarType = selectorScalarType(c.selector)
   return literalFromScalar(c.value, scalarType)
 }
@@ -493,7 +439,6 @@ function literalScalarForSelector(kind: IRSelector['kind']): IRScalarType {
   switch (kind) {
     case 'amount':
     case 'window_spent':
-    case 'oracle_price':
       return 'i128'
     case 'invocation_count':
     case 'arg_len':
@@ -545,37 +490,6 @@ function selectorScalarType(selector: IRSelector): IRScalarType {
   return literalScalarForSelector(selector.kind)
 }
 
-/** Walk a condition tree and throw if any oracle_price leaf is found anywhere
- *  inside. Used by `lowerCondition` for `not`, `or`, and `in` - the three
- *  positions where oracle leaves would not be direct children of the
- *  top-level `and`. */
-function assertNoOracleDescendants(node: IRCondition): void {
-  if (containsOracle(node)) {
-    throw toolError(
-      'ORACLE_LEAF_INVALID_POSITION',
-      'oracle_price leaves must sit directly under the top-level `and`'
-    )
-  }
-}
-
-function containsOracle(node: IRCondition): boolean {
-  switch (node.op) {
-    case 'slippage_floor':
-      return false
-    case 'compare':
-      return node.compare.selector.kind === 'oracle_price'
-    case 'in':
-      return node.selector.kind === 'oracle_price'
-    case 'eq_seq':
-      return node.selector.kind === 'oracle_price'
-    case 'not':
-      return containsOracle(node.child)
-    case 'and':
-    case 'or':
-      return node.children.some(containsOracle)
-  }
-}
-
 /** Reject a value that targets the smart account's own address (a self-call
  *  is a structural privilege-escalation hole the interpreter forbids). */
 function assertNotSelfCallAddress(value: string, config: InterpreterAdapterConfig): void {
@@ -587,29 +501,6 @@ function assertNotSelfCallAddress(value: string, config: InterpreterAdapterConfi
   }
 }
 
-/** Tighten-only oracle-params gate. Any widening value (above the wasm-level
- *  defaults) throws ORACLE_PARAMS_OUT_OF_RANGE at compile time. */
-function assertOracleParamsTighten(params: InterpreterAdapterConfig['oracleParams']): void {
-  if (!params) return
-  if (
-    params.maxStalenessSeconds !== undefined &&
-    params.maxStalenessSeconds > ORACLE_DEFAULTS.maxStalenessSeconds
-  ) {
-    throw toolError(
-      'ORACLE_PARAMS_OUT_OF_RANGE',
-      `maxStalenessSeconds ${params.maxStalenessSeconds} exceeds default ${ORACLE_DEFAULTS.maxStalenessSeconds}`
-    )
-  }
-  if (
-    params.maxDeviationBps !== undefined &&
-    params.maxDeviationBps > ORACLE_DEFAULTS.maxDeviationBps
-  ) {
-    throw toolError(
-      'ORACLE_PARAMS_OUT_OF_RANGE',
-      `maxDeviationBps ${params.maxDeviationBps} exceeds default ${ORACLE_DEFAULTS.maxDeviationBps}`
-    )
-  }
-}
 
 /** Human-readable descriptor for a construct the interpreter adapter cannot
  *  express. Mirrors the OZ adapter's `describeCondition` for parity. */
@@ -629,8 +520,6 @@ function describeCondition(cond: IRCondition): string {
     case 'compare': {
       const s = cond.compare.selector
       switch (s.kind) {
-        case 'oracle_price':
-          return `oracle price condition on ${s.asset}`
         case 'invocation_count':
           return `invocation-count window (${s.windowSeconds}s) condition`
         case 'window_spent':
@@ -667,8 +556,6 @@ function describeSelector(s: IRSelector): string {
       return `amount(${s.token})`
     case 'window_spent':
       return `window_spent(${s.token})`
-    case 'oracle_price':
-      return `oracle_price(${s.asset})`
     case 'invocation_count':
       return `invocation_count(${s.windowSeconds}s)`
     case 'calldata':

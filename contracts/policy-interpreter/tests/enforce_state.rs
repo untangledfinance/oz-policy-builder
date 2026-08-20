@@ -54,13 +54,10 @@ fn install_freq_policy(
     let predicate = freq_predicate_bytes(env, window_secs, limit);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
     let params = PolicyInstallParams {
-        grammar_version: 1,
+        grammar_version: 2,
         install_nonce: 1,
         predicate,
         predicate_hash,
-        oracle_max_staleness_seconds: None,
-        oracle_max_deviation_bps: None,
-        oracle_max_xfeed_dev_bps: None,
     };
     client.install(&params, rule, smart_account);
 }
@@ -345,13 +342,10 @@ fn predicate_with_unsourceable_leaf_is_refused_at_install() {
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
     let res = client.try_install(
         &PolicyInstallParams {
-            grammar_version: 1,
+            grammar_version: 2,
             install_nonce: 1,
             predicate,
             predicate_hash,
-            oracle_max_staleness_seconds: None,
-            oracle_max_deviation_bps: None,
-            oracle_max_xfeed_dev_bps: None,
         },
         &rule,
         &smart_account,
@@ -411,13 +405,10 @@ fn a_window_referenced_twice_counts_each_call_once() {
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
     client.install(
         &PolicyInstallParams {
-            grammar_version: 1,
+            grammar_version: 2,
             install_nonce: 1,
             predicate,
             predicate_hash,
-            oracle_max_staleness_seconds: None,
-            oracle_max_deviation_bps: None,
-            oracle_max_xfeed_dev_bps: None,
         },
         &rule,
         &smart_account,
@@ -567,7 +558,7 @@ fn rotating_the_master_set_does_not_brick_enforce() {
 // ---- F8: deny reasons reach the panic message ----
 //
 // `enforce` was throwing `panic_predicate_false` for every Deny, so a
-// review card could never say "not on the allowlist" or "oracle stale" - it
+// review card could never say "not on the allowlist" - it
 // always said "predicate false", an argument mismatch. The fix maps each
 // `DenyReason` to its specific code (defined in `DenyReason::code` and
 // mirrored in the existing `deny()` table for storage). Pre-fix the panic
@@ -620,13 +611,10 @@ fn f8_enforce_deny_reaches_chain_as_contract_error_code() {
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
     client.install(
         &PolicyInstallParams {
-            grammar_version: 1,
+            grammar_version: 2,
             install_nonce: 1,
             predicate,
             predicate_hash,
-            oracle_max_staleness_seconds: None,
-            oracle_max_deviation_bps: None,
-            oracle_max_xfeed_dev_bps: None,
         },
         &rule,
         &smart_account,

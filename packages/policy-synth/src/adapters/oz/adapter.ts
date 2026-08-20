@@ -6,7 +6,7 @@
 //   expiry.validUntilLedger   -> ContextRuleDraft.validUntilLedger
 //   window_spent(t,w) <= L    -> `spending_limit` primitive
 //   approval.threshold        -> `simple_threshold` / `weighted_threshold`
-// Anything needing a capability this backend lacks (oracle price, invocation
+// Anything needing a capability this backend lacks (invocation
 // count, per-arg comparison/allowlist, guard, nested boolean predicate) is NOT
 // emitted: it is named in `uncovered` and `covered` is set false. Nothing is
 // silently dropped.
@@ -72,7 +72,6 @@ const CAPABILITIES: CustodyCapabilities = {
   supportsSpendWindow: true,
   supportsThreshold: true,
   supportsTimeExpiry: true,
-  supportsOraclePrice: false,
   supportsInvocationCount: false,
   supportsGeneralPredicate: false,
 }
@@ -300,8 +299,6 @@ function describeCondition(cond: IRCondition): string {
     case 'compare': {
       const s = cond.compare.selector
       switch (s.kind) {
-        case 'oracle_price':
-          return `oracle price condition on ${s.asset} (oracle price not supported in week-1)`
         case 'invocation_count':
           return `invocation-count window (${s.windowSeconds}s) condition (not supported in week-1)`
         case 'window_spent':
@@ -338,8 +335,6 @@ function describeSelector(s: IRSelector): string {
       return `amount(${s.token})`
     case 'window_spent':
       return `window_spent(${s.token})`
-    case 'oracle_price':
-      return `oracle_price(${s.asset})`
     case 'invocation_count':
       return `invocation_count(${s.windowSeconds}s)`
     case 'calldata':

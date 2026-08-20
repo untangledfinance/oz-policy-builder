@@ -52,13 +52,10 @@ fn install_params(env: &Env, fn_name: &str) -> PolicyInstallParams {
     let predicate = predicate_on_fn(env, fn_name);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
     PolicyInstallParams {
-        grammar_version: 1,
+        grammar_version: 2,
         install_nonce: 1,
         predicate,
         predicate_hash,
-        oracle_max_staleness_seconds: None,
-        oracle_max_deviation_bps: None,
-        oracle_max_xfeed_dev_bps: None,
     }
 }
 
@@ -129,13 +126,10 @@ fn the_account_rejects_a_policy_whose_predicate_is_malformed() {
     let garbage = Bytes::from_array(&env, &[0xde, 0xad, 0xbe, 0xef]);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&garbage).into();
     let bad = PolicyInstallParams {
-        grammar_version: 1,
+        grammar_version: 2,
         install_nonce: 1,
         predicate: garbage,
         predicate_hash,
-        oracle_max_staleness_seconds: None,
-        oracle_max_deviation_bps: None,
-        oracle_max_xfeed_dev_bps: None,
     };
     let mut policies: Map<Address, Val> = Map::new(&env);
     policies.set(interpreter, bad.into_val(&env));

@@ -141,16 +141,6 @@ function decodeSelectorLeaf(items: xdr.ScVal[], sym: string): PredicateLeaf {
         kind: 'invocation_count_in_window',
         windowSecs: Number(expectU64(items[1], 'invocation_count windowSecs')),
       }
-    case 'oracle_price':
-      arity(items, 2, sym)
-      return { kind: 'oracle_price', asset: expectAddress(items[1], 'oracle_price asset') }
-    case 'oracle_threshold':
-      arity(items, 3, sym)
-      return {
-        kind: 'oracle_threshold',
-        value: expectI128(items[1], 'oracle_threshold value'),
-        decimals: expectU32(items[2], 'oracle_threshold decimals'),
-      }
     default:
       // Deliberately NOT a literal_vec fallback - see the header note.
       throw malformed(`unknown selector symbol '${sym}'`)

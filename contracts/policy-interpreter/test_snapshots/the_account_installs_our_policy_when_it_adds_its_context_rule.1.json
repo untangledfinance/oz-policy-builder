@@ -49,7 +49,7 @@
                               "symbol": "grammar_version"
                             },
                             "val": {
-                              "u32": 1
+                              "u32": 2
                             }
                           },
                           {
@@ -59,24 +59,6 @@
                             "val": {
                               "u32": 1
                             }
-                          },
-                          {
-                            "key": {
-                              "symbol": "oracle_max_deviation_bps"
-                            },
-                            "val": "void"
-                          },
-                          {
-                            "key": {
-                              "symbol": "oracle_max_staleness_seconds"
-                            },
-                            "val": "void"
-                          },
-                          {
-                            "key": {
-                              "symbol": "oracle_max_xfeed_dev_bps"
-                            },
-                            "val": "void"
                           },
                           {
                             "key": {
@@ -140,24 +122,6 @@
               "durability": "persistent",
               "val": {
                 "map": [
-                  {
-                    "key": {
-                      "symbol": "oracle_max_deviation_bps"
-                    },
-                    "val": "void"
-                  },
-                  {
-                    "key": {
-                      "symbol": "oracle_max_staleness_seconds"
-                    },
-                    "val": "void"
-                  },
-                  {
-                    "key": {
-                      "symbol": "oracle_max_xfeed_dev_bps"
-                    },
-                    "val": "void"
-                  },
                   {
                     "key": {
                       "symbol": "predicate_bytes"

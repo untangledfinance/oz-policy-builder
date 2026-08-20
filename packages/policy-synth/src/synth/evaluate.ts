@@ -10,23 +10,16 @@
 //   5. `in` membership; empty haystack ALWAYS denies         -> 'NOT_IN_ALLOWLIST'
 //   6. amount / window_spent via BigInt                       -> 'AMOUNT_BOUND'
 //   7. invocation_count_in_window                            -> 'FREQUENCY'
-//   8. oracle_price: fatal -> throw OracleError, deny with
-//      underlying ORACLE_* reason                             -> 'ORACLE_*'
 //   9. boolean nodes (and/or/not)
 //  10. signer threshold gate                                  -> 'THRESHOLD_NOT_MET'
 //  11. otherwise permit.
 //
-// Amounts: BigInt on decimal strings. Oracle errors thrown (never
+// Amounts: BigInt on decimal strings. Comparison failures return
 // boolean-false `not`/`or` could mask).
 
 import type { PredicateLeaf, PredicateNode, ScVal } from '../types.ts'
 import { literalNumericBigInt } from './predicate-literals.ts'
 
-/** Oracle prices normalise to this many decimals; mirrors NORMALISED_DECIMALS
- *  in oracle.rs. A threshold on any other basis must say so. */
-const NORMALISED_DECIMALS = 9
-/** Mirrors MAX_ORACLE_THRESHOLD_DECIMALS in dsl.rs. */
-const MAX_ORACLE_THRESHOLD_DECIMALS = 18
 
 export interface EvalContext {
   /** Contract the interpreter is asked to enforce against. */
@@ -49,65 +42,32 @@ export interface EvalContext {
   invocationCountByWindow: Record<number, number>
   /** Optional signer-weight map for the threshold gate. Absent -> skip. */
   signerWeights?: Record<string, number>
-  /** Per-asset oracle snapshot. Missing keys default to ORACLE_STALE. */
-  oraclePriceByAsset: Record<
-    string,
-    | { price: string; timestampSeconds: number }
-    | { error: 'stale' | 'missing' | 'deviation' | 'paused' | 'decimals' | 'fingerprint' }
-  >
 }
 
 export type EvalResult = { permit: true } | { permit: false; reason: string }
 
-/** Internal fatal thrown by the oracle path; caught at the top of `evaluate`
- *  and converted to the matching `ORACLE_*` deny reason. NOT a boolean-false
- *  that `not` / `or` could mask. */
-class OracleError extends Error {
-  readonly code: string
-  constructor(code: string) {
-    super(`oracle fatal: ${code}`)
-    this.code = code
-  }
-}
-
-const ORACLE_ERROR_CODES: Readonly<Record<string, string>> = {
-  stale: 'ORACLE_STALE',
-  missing: 'ORACLE_MISSING',
-  deviation: 'ORACLE_DEVIATION_EXCEEDED',
-  paused: 'ORACLE_PAUSED',
-  decimals: 'ORACLE_DECIMALS_MISMATCH',
-  fingerprint: 'ORACLE_FINGERPRINT_DRIFT',
-}
-
 /** Evaluate a `PredicateNode` against the candidate call described by `ctx`.
  *  Pure function. Returns `{ permit: true }` or `{ permit: false; reason }`. */
 export function evaluate(predicate: PredicateNode, ctx: EvalContext): EvalResult {
-  try {
-    // --- step 1: ledger-time expiry ---
-    if (ctx.validUntilLedger !== undefined && ctx.atLedger > ctx.validUntilLedger) {
-      return { permit: false, reason: 'EXPIRED' }
-    }
-
-    // --- step 2..9: predicate tree ---
-    const decision = walk(predicate, ctx)
-
-    // --- step 10: signer threshold gate (only when the predicate permitted) ---
-    if (decision.permit && ctx.signerWeights !== undefined) {
-      let totalWeight = 0n
-      for (const w of Object.values(ctx.signerWeights)) {
-        // weights are non-negative integers; BigInt keeps the gate bounded
-        totalWeight += BigInt(w)
-      }
-      if (totalWeight === 0n) return { permit: false, reason: 'THRESHOLD_NOT_MET' }
-    }
-
-    return decision
-  } catch (e) {
-    if (e instanceof OracleError) {
-      return { permit: false, reason: e.code }
-    }
-    throw e
+  // --- step 1: ledger-time expiry ---
+  if (ctx.validUntilLedger !== undefined && ctx.atLedger > ctx.validUntilLedger) {
+    return { permit: false, reason: 'EXPIRED' }
   }
+
+  // --- step 2..9: predicate tree ---
+  const decision = walk(predicate, ctx)
+
+  // --- step 10: signer threshold gate (only when the predicate permitted) ---
+  if (decision.permit && ctx.signerWeights !== undefined) {
+    let totalWeight = 0n
+    for (const w of Object.values(ctx.signerWeights)) {
+      // weights are non-negative integers; BigInt keeps the gate bounded
+      totalWeight += BigInt(w)
+    }
+    if (totalWeight === 0n) return { permit: false, reason: 'THRESHOLD_NOT_MET' }
+  }
+
+  return decision
 }
 
 /** Walk the predicate tree. Returns the FIRST deny reason encountered on
@@ -137,8 +97,6 @@ function walk(node: PredicateNode, ctx: EvalContext): EvalResult {
     }
     case 'not': {
       // `not` structurally inverts the child unless the child contains an
-      // oracle leaf (compile-time rule: no oracle leaf under not/or). A
-      // child `OracleError` is re-thrown to the catch at the top of `evaluate`.
       const r = walk(node.child, ctx)
       if (r.permit) return { permit: false, reason: 'FN_MISMATCH' }
       return { permit: true }
@@ -249,11 +207,6 @@ function evalCompare(
   // --- step 7: FREQUENCY ---
   if (left.kind === 'invocation_count_in_window') {
     return evalFrequencyCompare(op, left.windowSecs, right, ctx)
-  }
-
-  // --- step 8: oracle_price (FATAL via throw) ---
-  if (left.kind === 'oracle_price') {
-    return evalOracleCompare(op, left.asset, right, ctx)
   }
 
   // Unknown leaf/op combination - structural fail-closed.
@@ -489,7 +442,6 @@ function resolveLeaf(leaf: PredicateLeaf, ctx: EvalContext): ScVal | undefined {
     }
     case 'amount':
     case 'window_spent':
-    case 'oracle_price':
     case 'invocation_count_in_window':
     case 'now':
     case 'valid_until':
@@ -551,46 +503,6 @@ function evalFrequencyCompare(
   if (literal === null) return { permit: false, reason: 'FREQUENCY' }
   const actual = String(ctx.invocationCountByWindow[windowSecs] ?? 0)
   return bigintCmp(op, actual, literal) ? { permit: true } : { permit: false, reason: 'FREQUENCY' }
-}
-
-/** Step 8: oracle_price compare. Reads `ctx.oraclePriceByAsset[asset]`. Any
- *  error entry OR a missing key throws `OracleError` (FATAL). A satisfied
- *  compare permits. */
-function evalOracleCompare(
-  op: 'eq' | 'lt' | 'lte' | 'gt' | 'gte',
-  asset: string,
-  right: PredicateLeaf,
-  ctx: EvalContext
-): EvalResult {
-  const entry = ctx.oraclePriceByAsset[asset]
-  if (!entry) throw new OracleError('ORACLE_STALE')
-  if ('error' in entry) {
-    const mapped = ORACLE_ERROR_CODES[entry.error]
-    if (!mapped) throw new OracleError('ORACLE_STALE')
-    throw new OracleError(mapped)
-  }
-  // Mirrors eval_oracle_compare in dsl.rs. The threshold MUST declare its
-  // decimal basis: prices are on the normalised 9-dp basis, and a bare literal
-  // is refused (not assumed) because a raw 14-dp threshold that assumed the
-  // 9-dp basis would permit everything.
-  if (right.kind !== 'oracle_threshold') throw new OracleError('ORACLE_DECIMALS_MISMATCH')
-  if (right.decimals > MAX_ORACLE_THRESHOLD_DECIMALS) {
-    throw new OracleError('ORACLE_THRESHOLD_DECIMALS_OUT_OF_RANGE')
-  }
-  // Scale BOTH sides up to the wider basis; dividing the threshold down
-  // truncates and moves the permit boundary.
-  const decimals = BigInt(right.decimals)
-  const normalised = BigInt(NORMALISED_DECIMALS)
-  const common = decimals > normalised ? decimals : normalised
-  const priceScaled = BigInt(entry.price) * 10n ** (common - normalised)
-  const literalScaled = BigInt(right.value) * 10n ** (common - decimals)
-  // A violated oracle threshold is a stateful bound (Rust dsl.rs:276 returns
-  // `DenyReason::StatefulBound`, deny code #104). The TS evaluator must mirror
-  // the same reason so a future TS/Rust reason divergence fails CI; the
-  // cross-layer harness in this file now asserts reason codes match.
-  return bigintCmp(op, String(priceScaled), String(literalScaled))
-    ? { permit: true }
-    : { permit: false, reason: 'STATEFUL_BOUND' }
 }
 
 /** BigInt compare helper. `eq` is also supported by callers (selector-vs-literal

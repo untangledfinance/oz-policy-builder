@@ -19,7 +19,6 @@
 //     supplies both the count and the window; otherwise FREQUENCY_BOUND_MISSING
 //     with no fabricated count.
 //   - the IR carries ONLY constraints justified by the recording + explicit
-//     user input. Nothing invented: no oracle price fabricated from a slippage
 //     bound, no synthetic exact-path compare. Those needs surface as warnings.
 //
 // Split rule (P3 wiring): `ComposeResult` carries BOTH `ir` (OZ-shape) and
@@ -28,7 +27,6 @@
 //   - `window_spent(token, w) <= limit` where `token === scope.contract` and
 //     protocol is known -> `ir` (OZ lowers to spending_limit).
 //   - everything else (recipient allowlists, per-method scope.method,
-//     invocation_count, eq_seq swap paths, oracle_price, AND window_spent
 //     where token != scope.contract i.e. SoroSwap input-token cap) ->
 //     `interpreterIr`.
 //
@@ -42,19 +40,6 @@ import type { IRCompOp, IRCondition, IRPolicyRule, PolicyIR } from '../ir/types.
 import { type IdentifiedProtocol, identifyProtocol } from '../registry/identify.ts'
 import type { AmbiguityPrompt, ContractInvocation, Network } from '../types.ts'
 import type { IntentFacts } from './lower.ts'
-
-/** Per-asset oracle-price bound supplied by the caller (e.g. swap allowed only
- *  if oracle_price(XLM) < 5.00 USDC). One entry per asset; the recorder never
- *  fabricates a price bound from a slippage value (different units). */
-export interface OraclePriceBound {
-  asset: string
-  operator: IRCompOp
-  value: string
-  /** Decimal basis `value` is written on. REQUIRED: oracle prices normalise to
-   *  9 dp, and a threshold silently assumed to share that basis is what let a
-   *  raw 14-dp bound permit everything. The author states it; we convert. */
-  decimals: number
-}
 
 /** Caller-supplied answers to the ambiguity prompts. Every numeric bound the
  *  synth might apply must come from here - the recording supplies observed
@@ -70,9 +55,6 @@ export interface ComposeUserResponses {
   /** Max invocations per window for an incoming-only flow. Required to emit an
    *  invocation_count bound; absent -> FREQUENCY_BOUND_MISSING. */
   invocationLimit?: number
-  /** Per-asset oracle-price bound(s). Each entry lowers to a single
-   *  `oracle_price(asset) OP value` compare in the interpreter IR. */
-  oraclePriceBound?: OraclePriceBound[]
   /** Minimum acceptable swap output per unit of input, as `num/den` (e.g.
    *  `{num:'95',den:'100'}` = accept losing at most 5%). REQUIRED to be
    *  supplied by the caller: never derived from the recording (the recorded
@@ -247,23 +229,7 @@ export function composeFromRecording(
     }
   }
 
-  // Per-asset oracle-price bound(s) supplied by the caller -> one
-  // oracle_price compare per entry. Routed to the interpreter IR when enabled;
   // otherwise to the OZ IR (which flags it as uncovered).
-  const oracleBounds = opts.userResponses?.oraclePriceBound
-  if (oracleBounds) {
-    for (const b of oracleBounds) {
-      routeToAdapter({
-        op: 'compare',
-        compare: {
-          selector: { kind: 'oracle_price', asset: b.asset },
-          operator: b.operator,
-          value: b.value,
-          valueDecimals: b.decimals,
-        },
-      })
-    }
-  }
 
   // Observed recipient allowlist (SEP-41) is a real, recorded constraint the OZ
   // adapter flags as not covered; the interpreter adapter lowers it to an `in`
@@ -331,8 +297,6 @@ export function composeFromRecording(
  *  lowers it). When `interpreterEnabled` is false, every protocol-specific
  *  constraint is routed to `ozConstraints` (which flags it as uncovered) so
  *  callers who haven't opted in keep today's warning-driven behaviour.
- *  SoroSwap's slippage / oracle / exact-path needs come from `userResponses`
- *  (oraclePriceBound + limitAmount) + the recorded path (eq_seq on
  *  call_arg[2]). */
 function appendProtocolSpecificConstraints(
   interpreterConstraints: IRCondition[],
@@ -509,7 +473,7 @@ function appendProtocolSpecificConstraints(
     } else {
       const pathText = route && route.length > 0 ? `; observed path: ${route.join(' -> ')}` : ''
       warnings.push(
-        `SoroSwap swap: slippage / oracle price bound and exact hop path need the interpreter predicate${pathText}`
+        `SoroSwap swap: slippage bound and exact hop path need the interpreter predicate${pathText}`
       )
     }
 

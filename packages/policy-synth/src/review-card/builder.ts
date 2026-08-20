@@ -19,7 +19,6 @@
 //        - invocation_count_in_window < N     -> At most N calls per <window> seconds
 //        - call_arg[i] in [list]              -> Recipient/arg must be one of [list]
 //        - eq(call_arg[i], literal_vec[...])  -> Path must be exactly [list]
-//        - oracle_price(asset) OP price       -> Only when oracle_price(asset) OP price
 //        - call_fn == x                       -> Function must be x
 //        - call_contract == c                 -> Contract must be c
 //        - amount <= v                        -> Amount <= v
@@ -269,11 +268,6 @@ function renderComparison(
     return `Amount <= ${right.value}`
   }
 
-  // oracle_price(asset) OP price -> Only when oracle_price(asset) OP price
-  if (left.kind === 'oracle_price' && right.kind === 'oracle_threshold') {
-    return `Only when oracle_price(${left.asset}) ${comparisonOpText(node.op)} ${right.value} (${right.decimals} dp)`
-  }
-
   // Any other comparison shape is a structural fail-closed: do not surface
   // a misleading line. Cross-check still requires every leaf produce a
   // constraint string; the only leaves we emit lines for are the ones we
@@ -318,13 +312,7 @@ function renderVecElement(leaf: PredicateLeaf): string {
     case 'now':
     case 'valid_until':
     case 'invocation_count_in_window':
-    case 'oracle_price':
       return `<${leaf.kind}>`
-    // Show the declared basis, not just the digits. A threshold on the wrong
-    // basis is the one policy error the contract cannot detect, so the review
-    // card is where a human has to be able to see it.
-    case 'oracle_threshold':
-      return `${leaf.value} (${leaf.decimals} dp)`
   }
 }
 

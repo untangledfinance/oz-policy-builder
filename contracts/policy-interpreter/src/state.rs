@@ -14,13 +14,14 @@ use crate::storage::{RuleKey, StoredDoc, TTL_BUMP_THRESHOLD, TTL_BUMP_TO};
 /// Build the eval context for an enforce call. Pulls `Address`/`Symbol`/
 /// `Vec<Val>` directly from `Context::Contract` - host types pass through
 /// without the byte-extraction helpers the ScVal path needed.
+#[allow(clippy::too_many_arguments)]
 pub fn build_eval_context(
     e: &Env,
     context: &Context,
-    doc: &StoredDoc,
+    _doc: &StoredDoc,
     root: &Node,
     key: &RuleKey,
-    smart_account: &Address,
+    _smart_account: &Address,
 ) -> crate::dsl::EvalContext {
     let (contract, fn_name, args) = extract_call(e, context);
     let now_seconds = e.ledger().timestamp();
@@ -33,25 +34,6 @@ pub fn build_eval_context(
         valid_until_ledger: None,
         now_seconds,
         invocation_count_by_window,
-        // Resolved before the walk so the evaluator makes no cross-contract
-        // calls mid-predicate. A predicate with no oracle leaves resolves to
-        // an empty snapshot and costs nothing.
-        // Bounds were validated as tighten-only at install; a stored value
-        // that no longer validates is treated as out of range and falls back
-        // to denying rather than silently widening.
-        oracle_price_by_asset: crate::oracle::resolve_snapshot(
-            e,
-            root,
-            smart_account,
-            match crate::oracle::Bounds::from_params(
-                doc.oracle_max_staleness_seconds,
-                doc.oracle_max_deviation_bps,
-                doc.oracle_max_xfeed_dev_bps,
-            ) {
-                Ok(b) => b,
-                Err(()) => crate::storage::panic_oracle_params_out_of_range(e),
-            },
-        ),
     }
 }
 
@@ -236,9 +218,8 @@ fn push_ic(out: &mut Vec<u64>, leaf: &Leaf) {
 /// The interpreter can never source `valid_until_ledger` (the smart account
 /// is the only place expiry lives), so a predicate that uses it would
 /// silently always deny. Refuse the install instead of letting the policy
-/// install as a dead rule. Walks through `LiteralVec` for the same
-/// smuggling reason as `dsl::collect_oracle_leaf` (F1): a `LiteralVec`
-/// can wrap a `ValidUntil` and the install path must still see it.
+/// install as a dead rule. Walks through `LiteralVec` so a `LiteralVec`
+/// wrapping `ValidUntil` still trips the gate at install.
 pub fn contains_valid_until(node: &Node) -> bool {
     fn leaf_holds(leaf: &Leaf) -> bool {
         match leaf {

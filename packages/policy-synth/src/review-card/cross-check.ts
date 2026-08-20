@@ -151,12 +151,6 @@ function pushComparison(
     out.push(`Amount <= ${right.value}`)
     return
   }
-  if (left.kind === 'oracle_price' && right.kind === 'oracle_threshold') {
-    out.push(
-      `Only when oracle_price(${left.asset}) ${comparisonOpText(op)} ${right.value} (${right.decimals} dp)`
-    )
-    return
-  }
 }
 
 function pushMembership(needle: PredicateLeaf, haystack: PredicateLeaf[], out: string[]): void {
@@ -192,13 +186,7 @@ function renderVecElement(leaf: PredicateLeaf): string {
     case 'now':
     case 'valid_until':
     case 'invocation_count_in_window':
-    case 'oracle_price':
       return `<${leaf.kind}>`
-    // Show the declared basis, not just the digits. A threshold on the wrong
-    // basis is the one policy error the contract cannot detect, so the review
-    // card is where a human has to be able to see it.
-    case 'oracle_threshold':
-      return `${leaf.value} (${leaf.decimals} dp)`
   }
 }
 

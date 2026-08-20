@@ -4,9 +4,7 @@
 // Tree) that every CustodyAdapter compiles FROM. It generalizes the NEAR-V2
 // policy schema (roles / scope filter / guard / constraint / comparison leaves /
 // default behaviour) into one chain-neutral shape and extends it with the
-// OZ-only selectors (spend window, oracle price, invocation count, time) so a
 // single IR can serve every backend. NEAR-V2 has no stateful spend window,
-// oracle, time/expiry, or invocation-count; those are marked as OZ extensions
 // below and are only lowered by adapters that declare support for them.
 
 /** Comparison operator. Mirrors NEAR-V2 `CompOp`. */
@@ -57,7 +55,6 @@ export type IRSelector =
   | { kind: 'invocation_count'; windowSeconds: number }
   | { kind: 'now' }
   | { kind: 'valid_until' }
-  | { kind: 'oracle_price'; asset: string }
 
 /** A single comparison leaf. `value` is a decimal/hex string (i128-safe;
  *  never a JS number). */
@@ -66,7 +63,6 @@ export interface IRCompare {
   operator: IRCompOp
   value: string
   /** Decimal basis of `value`, for selectors whose comparand is not on a basis
-   *  the contract can infer. Set for `oracle_price`, where prices normalise to
    *  9 dp and an undeclared basis fails OPEN. */
   valueDecimals?: number
 }

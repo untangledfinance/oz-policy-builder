@@ -28,7 +28,6 @@ import {
   InterpreterOptionsSchema,
   MandateSpecSchema,
   NetworkSchema,
-  OraclePriceFixtureSchema,
   OzAdapterConfigSchema,
   PredicateNodeSchema,
   RecordedTransactionSchema,
@@ -53,7 +52,6 @@ export {
   InterpreterOptionsSchema,
   MandateSpecSchema,
   NetworkSchema,
-  OraclePriceFixtureSchema,
   OzAdapterConfigSchema,
   PredicateNodeSchema,
   RecordedTransactionSchema,
@@ -109,7 +107,6 @@ export const SimulatePolicyToolShape = {
   predicate: z.unknown().nullable().optional(),
   permitTx: RecordedTransactionSchema,
   validUntilLedger: z.number().int().positive().optional(),
-  oraclePricesByAsset: z.record(z.string(), OraclePriceFixtureSchema).optional(),
 } as const
 
 /** Flat ZodRawShape for `verify_policy`. Same `z.unknown()` boundary
@@ -120,7 +117,6 @@ export const VerifyPolicyToolShape = {
   predicate: z.unknown(),
   permitTx: RecordedTransactionSchema,
   validUntilLedger: z.number().int().positive().optional(),
-  oraclePricesByAsset: z.record(z.string(), OraclePriceFixtureSchema).optional(),
 } as const
 
 // Re-export the strict input schemas so MCP consumers (and downstream

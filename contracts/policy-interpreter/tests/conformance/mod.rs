@@ -16,5 +16,4 @@
 
 mod _generated;
 mod _helpers;
-mod oracle_threshold;
 mod slippage_floor;

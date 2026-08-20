@@ -3,6 +3,5 @@
 export {
   createInterpreterAdapter,
   type InterpreterAdapterConfig,
-  ORACLE_DEFAULTS,
   PLACEHOLDER_INTERPRETER_ADDRESS,
 } from './adapter.ts'

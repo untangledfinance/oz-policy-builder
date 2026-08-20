@@ -224,20 +224,12 @@ export const SynthesizePolicyMandateInputSchema = z.object({
 })
 
 /** Interpreter opt-in for the recording path. Present -> constraints OZ cannot
- *  express (per-method scoping, invocation-count windows, oracle bounds, exact
  *  hop paths) lower to a real interpreter predicate document instead of being
  *  surfaced as warnings. The core deep-validates `smartAccountAddress` (a C...
- *  contract, not the recording's G... source) and the tighten-only oracle
  *  bounds; the schema stays light so the core owns the friendly ToolErrors. */
 export const InterpreterOptionsSchema = z.object({
   smartAccountAddress: z.string(),
   installNonce: z.number().int().positive().optional(),
-  oracleParams: z
-    .object({
-      maxStalenessSeconds: z.number().int().positive().optional(),
-      maxDeviationBps: z.number().int().positive().optional(),
-    })
-    .optional(),
 })
 
 export const SynthesizePolicyRecordingInputSchema = z.object({
@@ -322,12 +314,6 @@ export const PredicateLeafSchema: z.ZodType<unknown> = z.lazy(() =>
       kind: z.literal('invocation_count_in_window'),
       windowSecs: z.number().int().positive(),
     }),
-    z.object({ kind: z.literal('oracle_price'), asset: z.string() }),
-    z.object({
-      kind: z.literal('oracle_threshold'),
-      value: z.string().regex(/^-?[0-9]+$/),
-      decimals: z.number().int().nonnegative(),
-    }),
     z.object({ kind: z.literal('literal_address'), value: z.string() }),
     z.object({ kind: z.literal('literal_i128'), value: z.string().regex(/^-?[0-9]+$/) }),
     z.object({ kind: z.literal('literal_symbol'), value: z.string() }),
@@ -385,31 +371,12 @@ export const PredicateNodeSchema: z.ZodType<unknown> = z.lazy(() =>
 
 // ===== simulate_policy / verify_policy =====
 //
-// The oracle fixture shape mirrors `SimulateOptions` / `VerifyOptions`
-// in packages/policy-synth/src/verify/{simulate,verify}.ts - the same
-// sorted set of error enum values is used by both engines. u32
-// `validUntilLedger` is bounded at the boundary so a hand-crafted
-// payload cannot leak a u32 overflow into the engine's permit context.
-
-/** Oracle price fixture - mirror of the entry type in `SimulateOptions` /
- *  `VerifyOptions`. Discriminated by presence of `error` vs `price`. */
-export const OraclePriceFixtureSchema = z.union([
-  z.object({
-    price: z.string().regex(/^[0-9]+$/),
-    timestampSeconds: z.number().int().nonnegative(),
-  }),
-  z.object({
-    error: z.enum(['stale', 'missing', 'deviation', 'paused', 'decimals', 'fingerprint']),
-  }),
-])
-
 export const SimulatePolicyInputSchema = z.object({
   // simulatePolicy accepts a null predicate (OZ-only policy); verifyPolicy
   // does not. The asymmetry is mirrored at the schema boundary.
   predicate: PredicateNodeSchema.nullable(),
   permitTx: RecordedTransactionSchema,
   validUntilLedger: z.number().int().positive().max(U32_MAX).optional(),
-  oraclePricesByAsset: z.record(z.string(), OraclePriceFixtureSchema).optional(),
 })
 export type SimulatePolicyInput = z.infer<typeof SimulatePolicyInputSchema>
 
@@ -419,7 +386,6 @@ export const VerifyPolicyInputSchema = z.object({
   predicate: PredicateNodeSchema,
   permitTx: RecordedTransactionSchema,
   validUntilLedger: z.number().int().positive().max(U32_MAX).optional(),
-  oraclePricesByAsset: z.record(z.string(), OraclePriceFixtureSchema).optional(),
 })
 export type VerifyPolicyInput = z.infer<typeof VerifyPolicyInputSchema>
 

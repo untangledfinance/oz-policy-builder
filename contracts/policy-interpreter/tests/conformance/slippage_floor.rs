@@ -55,7 +55,6 @@ fn ctx_with_args(env: &Env, args_hex: &[&str]) -> EvalContext {
         valid_until_ledger: Some(200),
         now_seconds: 1_000,
         invocation_count_by_window: StdVec::new(),
-        oracle_price_by_asset: StdVec::new(),
     }
 }
 

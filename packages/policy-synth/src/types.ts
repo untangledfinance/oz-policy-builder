@@ -64,13 +64,11 @@ export const MAX_SCVAL_CLONE_DEPTH = 30 as const
  *    - MAX_DEPTH = 5:             3 walkthroughs need depth 2; budget = 2x growth + 1 for `not` chain.
  *    - MAX_LEAVES = 200:         allowlists (recipients, paths) typically < 100; budget = 2x + 1 nested allowlist.
  *    - MAX_PREDICATE_BYTES = 32 KB: well under the per-ledger-entry 64 KB persistent-storage limit.
- *    - MAX_ORACLE_READS = 6:     two-round confirmation per asset consumes 2 reads; cap accommodates a predicate that references up to 3 unique oracle assets (3 * 2 = 6 reads). Stays a fail-closed install-time cap.
  *    - MAX_IN_OPERAND_COUNT = 32: allowlist < 32 is a UX-natural bound. */
 export const PREDICATE_CAPS = {
   MAX_DEPTH: 5,
   MAX_LEAVES: 200,
   MAX_PREDICATE_BYTES: 32 * 1024,
-  MAX_ORACLE_READS: 6,
   MAX_IN_OPERAND_COUNT: 32,
 } as const
 
@@ -117,15 +115,6 @@ export interface PolicyDocument {
   /** Hash of the post-canonicalisation bytes of encodedPredicate. Stored alongside the
    *  doc and re-verified at evaluate. */
   predicateHash: string
-  /** Per-policy overrides of oracle thresholds; absent = use defaults.
-   *  Overrides may TIGHTEN only (never widen) - the interpreter rejects any per-policy
-   *  value looser than the wasm-level defaults at install. */
-  oracleParams?: {
-    /** Seconds; must be <= MAX_ORACLE_STALENESS_SECONDS (600). */
-    maxStalenessSeconds?: number
-    /** Basis points; must be <= MAX_ORACLE_DEVIATION_BPS (200). */
-    maxDeviationBps?: number
-  }
 }
 
 /** The versioned predicate AST (interpreter side). Tagged union. */
@@ -172,12 +161,6 @@ export type PredicateLeaf =
   | { kind: 'now' }
   | { kind: 'valid_until' }
   | { kind: 'invocation_count_in_window'; windowSecs: number }
-  | { kind: 'oracle_price'; asset: string } // Stellar Address (SAC address for SEP-41; XLM uses its network SAC)
-  // The right-hand side of an oracle comparison. It carries its own decimal
-  // basis because the contract cannot recover it: prices normalise to 9 dp, so
-  // a raw 14-dp threshold is ~10^5 too large and `price <= threshold` becomes
-  // trivially true. `value` is a decimal string on i128, like `literal_i128`.
-  | { kind: 'oracle_threshold'; value: string; decimals: number }
   // Literal leaves: bare ScVal on the wire (no selector-tuple wrapper). Right-hand side of
   // comparisons, elements of `in` haystacks, and operands to future arithmetic nodes.
   | { kind: 'literal_address'; value: string }
@@ -263,7 +246,6 @@ export type AmbiguityCode =
   | 'AMOUNT_BOUND_MISSING'
   | 'RECIPIENT_ALLOWLIST_EMPTY'
   | 'FREQUENCY_BOUND_MISSING'
-  | 'ORACLE_ASSET_UNKNOWN'
   | 'MULTIPLE_UNRELATED_TARGETS'
 
 /** Structured recording freshness. `overall` is the gate threshold (default 1.0); the

@@ -12,7 +12,6 @@
 //                              [--responses <path.json>]
 //                              [--oz-config <path.json>] [--confidence <0..1>]
 //                              [--smart-account <C...>] [--install-nonce <n>]
-//                              [--oracle-max-staleness <s>] [--oracle-max-deviation <bps>]
 //                              [--window-seconds <n>] [--valid-until <ledger>]
 //                              [--limit-amount <i128str>] [--invocation-limit <n>]
 //                              [--recipient <C...|G...>]...
@@ -82,7 +81,6 @@ Usage:
                             [--responses <path.json>]
                             [--oz-config <path.json>] [--confidence <0..1>]
                             [--smart-account <C...>] [--install-nonce <n>]
-                            [--oracle-max-staleness <s>] [--oracle-max-deviation <bps>]
                             [--window-seconds <n>] [--valid-until <ledger>]
                             [--limit-amount <i128str>] [--invocation-limit <n>]
                             [--recipient <C...|G...>]...
@@ -101,14 +99,12 @@ Flags:
                             in the output
   --smart-account           C... account to opt into the interpreter adapter, so
                             non-OZ constraints (per-method scoping, invocation-count
-                            windows, oracle bounds, exact hop paths) lower to a real
+                            windows, exact hop paths) lower to a real
                             predicate document instead of warnings
   --install-nonce           per-rule install nonce for the interpreter policy
                             (default 1); requires --smart-account
-  --oracle-max-staleness    interpreter oracle max staleness in seconds
                             (positive integer <= 600, tighten-only);
                             requires --smart-account
-  --oracle-max-deviation    interpreter oracle max deviation in basis points
                             (positive integer <= 200, tighten-only);
                             requires --smart-account
   --window-seconds          per-field override of userResponses.windowSeconds;

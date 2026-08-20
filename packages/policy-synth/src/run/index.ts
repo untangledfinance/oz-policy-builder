@@ -89,7 +89,6 @@ export {
   MAINNET_RPC_URL,
   MandateSpecSchema,
   NetworkSchema,
-  OraclePriceFixtureSchema,
   OzAdapterConfigSchema,
   PINNED_INTERPRETER_ADDRESS_BY_NETWORK,
   PINNED_INTERPRETER_GRAMMAR_VERSION,
@@ -276,9 +275,6 @@ export async function runSimulatePolicy(raw: unknown): Promise<ToolResponse<Simu
         ...(input.validUntilLedger !== undefined
           ? { validUntilLedger: input.validUntilLedger }
           : {}),
-        ...(input.oraclePricesByAsset !== undefined
-          ? { oraclePricesByAsset: input.oraclePricesByAsset }
-          : {}),
       }
     )
   } catch (e) {
@@ -308,9 +304,6 @@ export async function runVerifyPolicy(raw: unknown): Promise<ToolResponse<true>>
     // `RecordedTransaction`. The schema already validated the shape.
     return verifyPolicy(input.predicate as PredicateNode, input.permitTx as RecordedTransaction, {
       ...(input.validUntilLedger !== undefined ? { validUntilLedger: input.validUntilLedger } : {}),
-      ...(input.oraclePricesByAsset !== undefined
-        ? { oraclePricesByAsset: input.oraclePricesByAsset }
-        : {}),
     })
   } catch (e) {
     return {

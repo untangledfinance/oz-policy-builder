@@ -11,7 +11,6 @@
 // Per-field response flags (--window-seconds, --valid-until, --limit-amount,
 // --invocation-limit) merge into `userResponses`. A flag overrides the same
 // field from --responses (CLI flags are explicit; the file is a default bag).
-// Oracle params (--oracle-max-staleness, --oracle-max-deviation) are part of
 // the interpreter opt-in and are rejected without --smart-account; tighten-only
 // bounds are validated by the core.
 //
@@ -149,7 +148,6 @@ export async function runSynthesizeCommand(
   applySharedFlags(args, pairs, explain)
 
   // --smart-account <C...> opts into the interpreter adapter, so constraints OZ
-  // cannot express (per-method scoping, invocation-count windows, oracle bounds,
   // exact hop paths) lower to a real predicate document instead of just warnings.
   // The core validates the address and installNonce; a bad value surfaces there.
   //
@@ -160,24 +158,12 @@ export async function runSynthesizeCommand(
   // when it had been silently skipped.
   const smartAccountRaw = pairs['smart-account']
   const installNonceRaw = pairs['install-nonce']
-  const oracleStalenessRaw = pairs['oracle-max-staleness']
-  const oracleDeviationRaw = pairs['oracle-max-deviation']
-  // --install-nonce and the oracle knobs are interpreter-only. Reject up
   // front so they cannot be silently dropped when --smart-account is absent.
   if (smartAccountRaw === undefined) {
     if (installNonceRaw !== undefined) {
       throw new CliError({
         code: 'CLI_MISSING_ARG',
         message: 'synthesize: --install-nonce requires --smart-account <C...> (interpreter opt-in)',
-        severity: 'error',
-        retryable: false,
-      })
-    }
-    if (oracleStalenessRaw !== undefined || oracleDeviationRaw !== undefined) {
-      throw new CliError({
-        code: 'CLI_MISSING_ARG',
-        message:
-          'synthesize: --oracle-max-staleness / --oracle-max-deviation require --smart-account <C...> (interpreter opt-in)',
         severity: 'error',
         retryable: false,
       })
@@ -214,25 +200,8 @@ export async function runSynthesizeCommand(
       }
       interpreter.installNonce = nonce
     }
-    // Oracle params only attach when at least one bound was provided. The
     // core validates tighten-only (maxStalenessSeconds <= 600,
     // maxDeviationBps <= 200) - a too-loose value surfaces as SYNTHESIS_ERROR.
-    if (oracleStalenessRaw !== undefined || oracleDeviationRaw !== undefined) {
-      const oracleParams: Record<string, number> = {}
-      if (oracleStalenessRaw !== undefined) {
-        oracleParams.maxStalenessSeconds = parsePositiveInt(
-          oracleStalenessRaw,
-          '--oracle-max-staleness'
-        )
-      }
-      if (oracleDeviationRaw !== undefined) {
-        oracleParams.maxDeviationBps = parsePositiveInt(
-          oracleDeviationRaw,
-          '--oracle-max-deviation'
-        )
-      }
-      interpreter.oracleParams = oracleParams
-    }
     args.interpreter = interpreter
   }
   if (explain) args.explain = true
@@ -356,7 +325,6 @@ function parseConfidence(raw: string): number {
 }
 
 /** Parse a strictly positive integer (windowSeconds, validUntilLedger,
- *  invocationLimit, oracleParams bounds). The core re-validates these with
  *  field-specific caps; the CLI just enforces "looks like an integer > 0".
  *  The `^[0-9]+$` regex already pins the shape to a non-negative integer, so
  *  the only thing left to check is "not zero". */

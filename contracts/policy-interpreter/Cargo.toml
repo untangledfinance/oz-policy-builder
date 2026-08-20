@@ -9,9 +9,6 @@ crate-type = ["cdylib", "rlib"]
 doctest = false
 
 [features]
-# Select the network the oracle feed address is pinned to. The address is
-# compile-time by design (see src/oracle.rs), so each network is a distinct
-# wasm hash rather than a runtime setting.
 default = []
 testnet = []
 

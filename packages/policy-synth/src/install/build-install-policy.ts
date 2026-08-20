@@ -114,12 +114,6 @@ export interface BuildInstallPolicyArgs {
   encodedPredicate: string
   /** Hex sha256 of the canonical predicate XDR bytes. */
   predicateHash: string
-  /** Per-policy oracle overrides. */
-  oracleParams?: {
-    maxStalenessSeconds?: number
-    maxDeviationBps?: number
-    maxCrossFeedDeviationBps?: number
-  }
   /** Grammar version override; defaults to 1. */
   grammarVersion?: number
   /** Base fee in stroops; defaults to BASE_FEE (100). */
@@ -269,7 +263,6 @@ export async function buildInstallPolicyXdr(
       installNonce: args.installNonce,
       encodedPredicate: args.encodedPredicate,
       predicateHash: args.predicateHash,
-      ...(args.oracleParams ? { oracleParams: args.oracleParams } : {}),
       ...(args.grammarVersion !== undefined ? { grammarVersion: args.grammarVersion } : {}),
     }
   )

@@ -28,7 +28,6 @@ export type ErrorCode =
   | 'PREDICATE_TOO_DEEP'
   | 'TOO_MANY_LEAVES'
   | 'IN_OPERAND_LIMIT'
-  | 'PREDICATE_ORACLE_OVER_LIMIT'
   | 'POLICY_CAP_EXCEEDED'
   | 'WASM_TOO_LARGE'
   // --- interpreter-side denies (canonical names; matches Rust DenyCode) ---
@@ -49,19 +48,6 @@ export type ErrorCode =
   // from the generic ARG_MISMATCH/STATEFUL_BOUND so a violated swap floor
   // reads as itself on the review card.
   | 'SLIPPAGE_FLOOR'
-  // --- oracle denies (fatal evaluator errors) ---
-  | 'ORACLE_STALE'
-  | 'ORACLE_MISSING'
-  | 'ORACLE_NO_CONFIRMATION'
-  | 'ORACLE_DEVIATION_EXCEEDED'
-  | 'ORACLE_MALFORMED_HISTORY'
-  | 'ORACLE_FINGERPRINT_DRIFT'
-  | 'ORACLE_PAUSED'
-  | 'ORACLE_LEAF_INVALID_POSITION'
-  | 'ORACLE_PARAMS_OUT_OF_RANGE'
-  | 'ORACLE_DECIMALS_MISMATCH'
-  | 'ORACLE_THRESHOLD_DECIMALS_OUT_OF_RANGE'
-  | 'ORACLE_THRESHOLD_BASIS_REQUIRED'
   // --- escape-hatch compile gate ---
   | 'COMPILE_OK'
   | 'COMPILE_GATE_FAILED'

@@ -39,6 +39,11 @@ pub enum ContextRuleType {
     CreateContract(BytesN<32>),
 }
 
+/// Upper bound on the master signer set stored per rule. Far above any
+/// realistic OZ context rule; low enough that re-hashing the set on every
+/// permit and one `require_auth` per signer stay well inside the CPU budget.
+pub const MAX_SIGNERS: u32 = 16;
+
 /// OZ's `ContextRule`, in full.
 ///
 /// Every field is declared even though the interpreter only reads `id`,
@@ -65,14 +70,6 @@ pub struct ContextRule {
     pub valid_until: Option<u32>,
 }
 
-/// Oracle parameter overrides attached to a policy document.
-#[contracttype]
-#[derive(Clone, Debug)]
-pub struct OracleParams {
-    pub max_staleness_seconds: u32,
-    pub max_deviation_bps: u32,
-}
-
 /// Frozen wire ABI for `Policy::install`'s `AccountParams`.
 ///
 /// `predicate` is the raw canonical ScVal XDR — `ScVal::Vec([symbol, ...])`
@@ -85,18 +82,4 @@ pub struct PolicyInstallParams {
     pub install_nonce: u32,
     pub predicate: Bytes,
     pub predicate_hash: BytesN<32>,
-    /// Per-policy oracle bounds. `None` on any field uses the wasm default.
-    /// Overrides may only TIGHTEN - a widening value is refused at install.
-    ///
-    /// Carried as scalars rather than the `Option<OracleParams>` the ABI
-    /// note describes: soroban-sdk 27 cannot derive the ScVal conversion for
-    /// an `Option<T>` where T is a `#[contracttype]` struct, so that shape
-    /// compiles for wasm but breaks every test build. The wire content is
-    /// the same set of values.
-    pub oracle_max_staleness_seconds: Option<u32>,
-    pub oracle_max_deviation_bps: Option<u32>,
-    /// Cross-feed divergence bound override (Track B). Tighten-only against
-    /// `oracle::DEFAULT_MAX_CROSS_FEED_DEVIATION_BPS`. Field name kept
-    /// under 30 chars for the soroban-sdk contracttype limit.
-    pub oracle_max_xfeed_dev_bps: Option<u32>,
 }

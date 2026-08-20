@@ -7,9 +7,7 @@
 // Boundary (pinned, must not drift):
 //   - `SIMULATION_ERROR`        = RUNTIME evaluation failed. Surfaced by
 //     `simulatePolicy`. Reasons: malformed `permitTx` input (no top-level
-//     invocation to build an EvalContext from), a referenced oracle asset
 //     without a satisfying price fixture, or a non-runtime propagation (a
-//     throw that is not an oracle error or a controlled deny). A
 //     runtime evaluation failure is NOT a policy-minimality problem; the
 //     policy may still be minimal. Re-running with a complete fixture MAY
 //     succeed.
@@ -45,29 +43,15 @@ const SIMULATOR_VERSION = 'ts-model-1.0.0'
 /** Options for `simulatePolicy`. `validUntilLedger` is propagated onto the
  *  permit EvalContext so the simulator exercises the expiry gate; absent ->
  *  no expiry check (mirrors the orchestrator's "no `validUntilLedger`
- *  supplied" path). `oraclePricesByAsset` is the test fixture the simulator
- *  uses to satisfy `oracle_price` leaves so the permit call evaluates under
- *  the bound; absent -> derive satisfying prices from the predicate itself
- *  (the orchestrator's oracle-satisfying-price logic). */
+ *  supplied" path). */
 export interface SimulateOptions {
   validUntilLedger?: number
-  /** Pre-populated oracle-price entries keyed by asset address. The fixture
-   *  must satisfy every `oracle_price` leaf in the predicate; absent or
-   *  unsatisfying entries cause `SIMULATION_ERROR`. */
-  oraclePricesByAsset?: Record<
-    string,
-    | { price: string; timestampSeconds: number }
-    | {
-        error: 'stale' | 'missing' | 'deviation' | 'paused' | 'decimals' | 'fingerprint'
-      }
-  >
 }
 
 /** Replay a recorded transaction against a proposed predicate and emit the
  *  `SimulationResult` envelope. The simulator returns the SAME permit
  *  verdict `runHarness` expects: the intended recorded call must permit; every
  *  generated deny dimension must deny. A runtime evaluation failure
- *  (malformed input, missing oracle fixture, etc.) returns a `SIMULATION_ERROR`
  *  `ToolError` - NOT a deny verdict, NOT `VERIFICATION_FAILED`. The boundary
  *  is pinned: minimality is a verify-time concern, runtime evaluation is a
  *  simulate-time concern. */
@@ -177,40 +161,6 @@ function buildPermitContext(
     amountByToken[token] = total.toString()
   }
 
-  // Oracle prices: when the caller supplies a fixture, use it; otherwise
-  // derive a satisfying entry per `oracle_price` leaf in the predicate so
-  // the permit call permits. Negatives are clamped at 0 (Stellar oracle
-  // prices are non-negative).
-  const oraclePriceByAsset: EvalContext['oraclePriceByAsset'] = {}
-  if (opts.oraclePricesByAsset) {
-    for (const [asset, entry] of Object.entries(opts.oraclePricesByAsset)) {
-      oraclePriceByAsset[asset] = entry
-    }
-  }
-  if (predicate !== null) {
-    visitOracleLeaves(predicate, (asset, op, bound) => {
-      // A caller-supplied fixture entry always wins; we only fill gaps.
-      if (oraclePriceByAsset[asset] !== undefined) return
-      let price: bigint
-      switch (op) {
-        case 'lt':
-        case 'gt':
-          price = op === 'lt' ? bound - 1n : bound + 1n
-          break
-        case 'lte':
-        case 'gte':
-        case 'eq':
-          price = bound
-          break
-      }
-      if (price < 0n) price = 0n
-      oraclePriceByAsset[asset] = {
-        price: price.toString(),
-        timestampSeconds: tx.fetchedAt,
-      }
-    })
-  }
-
   const ctx: EvalContext = {
     contract: topLevel.contract,
     fn: topLevel.fn,
@@ -220,7 +170,6 @@ function buildPermitContext(
     amountByToken,
     windowSpentByToken: {},
     invocationCountByWindow: {},
-    oraclePriceByAsset,
   }
   if (opts.validUntilLedger !== undefined) {
     ctx.validUntilLedger = opts.validUntilLedger
@@ -253,51 +202,6 @@ function cloneDepthError(value: ScVal): never {
   throw err
 }
 
-function visitOracleLeaves(
-  node: PredicateNode,
-  visit: (asset: string, op: 'eq' | 'lt' | 'lte' | 'gt' | 'gte', bound: bigint) => void
-): void {
-  switch (node.op) {
-    case 'and':
-    case 'or':
-      for (const child of node.children) visitOracleLeaves(child, visit)
-      return
-    case 'not':
-      visitOracleLeaves(node.child, visit)
-      return
-    case 'eq':
-    case 'lt':
-    case 'lte':
-    case 'gt':
-    case 'gte': {
-      const leftLeaf = node.left
-      const rightLeaf = node.right
-      let oracleAsset: string | undefined
-      let literal: bigint | undefined
-      if (leftLeaf.kind === 'oracle_price') {
-        oracleAsset = leftLeaf.asset
-        literal = oracleLiteralFromLeaf(rightLeaf)
-      } else if (rightLeaf.kind === 'oracle_price') {
-        oracleAsset = rightLeaf.asset
-        literal = oracleLiteralFromLeaf(leftLeaf)
-      }
-      if (oracleAsset === undefined || literal === undefined) return
-      visit(oracleAsset, node.op, literal)
-      return
-    }
-    case 'in':
-      return
-  }
-}
-
-function oracleLiteralFromLeaf(leaf: PredicateLeaf): bigint | undefined {
-  if (leaf.kind !== 'literal_i128') return undefined
-  try {
-    return BigInt(leaf.value)
-  } catch {
-    return undefined
-  }
-}
 
 function simulationError(message: string, cause?: unknown): ToolError {
   const error: ToolError = {

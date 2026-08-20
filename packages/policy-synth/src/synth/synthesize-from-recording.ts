@@ -52,10 +52,6 @@ export interface InterpreterAdapterOptions {
   smartAccountAddress: string
   /** Per-rule install nonce (first install = 1). Defaults to 1. */
   installNonce?: number
-  /** Per-policy oracle overrides. Tighten-only vs the wasm defaults
-   *  (maxStalenessSeconds <= 600, maxDeviationBps <= 200); widening is
-   *  rejected at the options boundary. */
-  oracleParams?: { maxStalenessSeconds?: number; maxDeviationBps?: number }
 }
 
 /** PRIVATE test-only extension of `InterpreterAdapterOptions` for the
@@ -294,7 +290,6 @@ function synthesizeFromRecordingInner(
       network: opts.network,
       installNonce: interpreterOpts.installNonce ?? 1,
       smartAccountAddress: interpreterOpts.smartAccountAddress,
-      ...(interpreterOpts.oracleParams ? { oracleParams: interpreterOpts.oracleParams } : {}),
     }
 
     let startingPredicate: PredicateNode | null = null
@@ -322,14 +317,11 @@ function synthesizeFromRecordingInner(
         const code = (e as { code?: ToolError['code'] }).code
         const allowedCodes: ToolError['code'][] = [
           'SCOPE_SELF_CALL',
-          'ORACLE_LEAF_INVALID_POSITION',
-          'ORACLE_PARAMS_OUT_OF_RANGE',
           'MALFORMED_PREDICATE',
           'PREDICATE_TOO_LARGE',
           'PREDICATE_TOO_DEEP',
           'TOO_MANY_LEAVES',
           'IN_OPERAND_LIMIT',
-          'PREDICATE_ORACLE_OVER_LIMIT',
         ]
         const surfacedCode = code && allowedCodes.includes(code) ? code : 'SYNTHESIS_ERROR'
         return {
@@ -433,7 +425,6 @@ function synthesizeFromRecordingInner(
       }
     }
     // Cross-layer L3: warnings collected from `buildPermitContext` (currently
-    // only the oracle-on-right normaliser) and folded into the proposed
     // policy's `warnings[]` so the caller sees them on the success envelope.
     const permitCtxResult = buildPermitContext(
       tx,
@@ -518,7 +509,6 @@ function synthesizeFromRecordingInner(
         installNonce: interpreterOpts.installNonce ?? 1,
         encodedPredicate,
         predicateHash,
-        ...(interpreterOpts.oracleParams ? { oracleParams: interpreterOpts.oracleParams } : {}),
       }
       interpreterPolicyRef = {
         kind: 'interpreter',
@@ -646,14 +636,13 @@ export { throwToolError }
  *  exact descriptor strings the OZ adapter emits (see `src/adapters/oz/adapter.ts`
  *  `describeCondition` / `describeSelector`). */
 const INTERPRETER_COVERED_OZ_PATTERN =
-  /^per-method scoping to|^value allowlist on arg|^exact ordered sequence on arg|^oracle price condition on|^invocation-count window|^spending_limit on token .+ needs a CallContract context scoped to that token/
+  /^per-method scoping to|^value allowlist on arg|^exact ordered sequence on arg|^invocation-count window|^spending_limit on token .+ needs a CallContract context scoped to that token/
 
 /** Reject non-sane inputs before any policy is synthesized. windowSeconds /
  *  validUntilLedger / invocationLimit must be positive integers; limitAmount a
  *  positive i128 decimal string; network mainnet|testnet. When the interpreter
  *  adapter is opted in, `smartAccountAddress` must be a C... contract address
  *  (the on-chain policy-bound account, NOT the G... source account),
- *  `installNonce` must fit u32 (default 1), and `oracleParams` must
  *  tighten-only vs the wasm defaults. */
 function validateOptions(opts: SynthesizeFromRecordingOptions): ToolError | null {
   if (opts.network !== 'mainnet' && opts.network !== 'testnet') {
@@ -717,27 +706,6 @@ function validateOptions(opts: SynthesizeFromRecordingOptions): ToolError | null
       return synthesisError(
         `interpreter.installNonce must be a positive u32 integer (<= ${SOROBAN_LIMITS.u32Max}), got: ${nonce}`
       )
-    }
-    const op = opts.interpreter.oracleParams
-    if (op) {
-      const MAX_STALE = 600
-      const MAX_DEV = 200
-      if (
-        op.maxStalenessSeconds !== undefined &&
-        (!isPositiveInt(op.maxStalenessSeconds) || op.maxStalenessSeconds > MAX_STALE)
-      ) {
-        return synthesisError(
-          `interpreter.oracleParams.maxStalenessSeconds must be a positive integer <= ${MAX_STALE} (tighten-only), got: ${op.maxStalenessSeconds}`
-        )
-      }
-      if (
-        op.maxDeviationBps !== undefined &&
-        (!isPositiveInt(op.maxDeviationBps) || op.maxDeviationBps > MAX_DEV)
-      ) {
-        return synthesisError(
-          `interpreter.oracleParams.maxDeviationBps must be a positive integer <= ${MAX_DEV} (tighten-only), got: ${op.maxDeviationBps}`
-        )
-      }
     }
   }
   return null
@@ -805,11 +773,7 @@ function mergeAmbiguities(
  *      surfaces as DENY_CASE_FAILURE).
  *    - `generateCases(predicate, ctx)` produces a deny battery that reflects
  *      the actual recorded move (real amount, args, window start).
- *  Amounts are summed per-token over all movements (BigInt, never lossy).
- *  `oraclePriceByAsset` contains a price+timestamp satisfying each
- *  `oracle_price` leaf so the intended call permits under every bound;
- *  the harness mutates those entries (stale / missing / deviation / paused)
- *  to exercise the ORACLE_* deny paths. */
+ *  Amounts are summed per-token over all movements (BigInt, never lossy). */
 function buildPermitContext(
   tx: RecordedTransaction,
   scope: Extract<ScopeDecision, { kind: 'call_contract' }>,
@@ -828,11 +792,6 @@ function buildPermitContext(
   }
 
   const warnings: string[] = []
-  const oraclePriceByAsset: EvalContext['oraclePriceByAsset'] = oracleSatisfyingPrices(
-    predicate,
-    tx.fetchedAt,
-    warnings
-  )
 
   const ctx: EvalContext = {
     contract: scope.contract,
@@ -843,7 +802,6 @@ function buildPermitContext(
     amountByToken,
     windowSpentByToken: {},
     invocationCountByWindow: {},
-    oraclePriceByAsset,
   }
   if (userResponses?.validUntilLedger !== undefined) {
     ctx.validUntilLedger = userResponses.validUntilLedger
@@ -885,158 +843,3 @@ function cloneDepthError(value: { type: string; value: unknown }): never {
   throw err
 }
 
-/** Walk every `oracle_price` leaf and return a price map whose entries satisfy
- *  the bound. Timestamp pinned to `nowSeconds` (the recorded `fetchedAt`) so
- *  the fresh-oracle deny case in `generateCases` is the only path that flips
- *  this map. Negatives clamped at 0 - oracle prices are non-negative on Stellar. */
-function oracleSatisfyingPrices(
-  predicate: PredicateNode,
-  nowSeconds: number,
-  warnings: string[]
-): EvalContext['oraclePriceByAsset'] {
-  const out: EvalContext['oraclePriceByAsset'] = {}
-  visitOracleLeaves(
-    predicate,
-    (asset, op, bound) => {
-      let price: bigint
-      switch (op) {
-        case 'lt':
-        case 'gt':
-          price = op === 'lt' ? bound - 1n : bound + 1n
-          break
-        case 'lte':
-        case 'gte':
-        case 'eq':
-          price = bound
-          break
-      }
-      if (price < 0n) price = 0n
-      out[asset] = { price: price.toString(), timestampSeconds: nowSeconds }
-    },
-    (warning) => {
-      // Cross-layer L3: oracle-on-right that cannot be normalised is
-      // surfaced as a warning, not silently dropped. The Rust interpreter
-      // would surface this as `UnsupportedNode`; the warning lets the
-      // caller decide whether to fix the predicate shape or accept the
-      // over-permissive hole.
-      warnings.push(warning.message)
-    }
-  )
-  return out
-}
-
-// Cross-layer L3: surface oracle-on-right as a WARNING rather than silently
-// dropping it. The Rust interpreter only fires `eval_oracle_compare` when the
-// oracle leaf is on the LEFT (`oracle_price op threshold`); a predicate that
-// inverts the shape (`threshold op oracle_price`) falls through to
-// `UnsupportedNode` instead. The TS model and the lowering path both attempt
-// to normalise oracle-on-right by flipping the operator so the oracle ends
-// up on the left, but the normalisation is only possible when the other
-// side is a literal we can read as a bigint (an `oracle_threshold`, an
-// `i128`/`u32`/`u64` literal). When it isn't (e.g. `oracle_price < call_arg[i]`),
-// the case cannot be normalised - previously we silently dropped it, which
-// means the harness would never exercise the bound and `minimize` could
-// prune it. The warning is purely additive: the existing normalisation
-// path is preserved, the case is just also reported so callers can decide
-// to either fix the predicate shape or accept the over-permissive hole.
-
-/** Diagnostic reported by `visitOracleLeaves` when an oracle comparison
- *  cannot be normalised to oracle-on-left. Currently only "oracle-on-right
- *  with a non-literal LHS" - the other branches already produce a parseable
- *  threshold and are returned to the caller. */
-export interface OracleNormalisationWarning {
-  /** The dimension name (currently always "oracle_normalisation_dropped"). */
-  dimension: 'oracle_normalisation_dropped'
-  /** The operator as written. */
-  op: 'eq' | 'lt' | 'lte' | 'gt' | 'gte'
-  /** The asset the oracle leaf is bound to. */
-  asset: string
-  /** The non-literal RHS (oracle-on-left) or LHS (oracle-on-right) leaf
-   *  whose shape stopped the normalisation. Surfaced for diagnostics;
-   *  intentionally a partial view - the full leaf is the caller's job. */
-  otherKind: string
-  /** Human-readable message (matches the warn-on-drop text). */
-  message: string
-}
-
-function visitOracleLeaves(
-  node: PredicateNode,
-  visit: (asset: string, op: 'eq' | 'lt' | 'lte' | 'gt' | 'gte', bound: bigint) => void,
-  onWarning?: (warning: OracleNormalisationWarning) => void
-): void {
-  switch (node.op) {
-    case 'and':
-    case 'or':
-      for (const child of node.children) visitOracleLeaves(child, visit, onWarning)
-      return
-    case 'not':
-      visitOracleLeaves(node.child, visit, onWarning)
-      return
-    case 'eq':
-    case 'lt':
-    case 'lte':
-    case 'gt':
-    case 'gte': {
-      const leftLeaf: PredicateLeaf = node.left
-      const rightLeaf: PredicateLeaf = node.right
-      const leftIsOracle = leftLeaf.kind === 'oracle_price'
-      const rightIsOracle = rightLeaf.kind === 'oracle_price'
-      let oracleAsset: string | undefined
-      let literal: bigint | undefined
-      if (leftIsOracle) {
-        oracleAsset = leftLeaf.asset
-        literal = oracleLiteralFromLeaf(rightLeaf)
-      } else if (rightIsOracle) {
-        oracleAsset = rightLeaf.asset
-        literal = oracleLiteralFromLeaf(leftLeaf)
-      }
-      if (oracleAsset === undefined || literal === undefined) {
-        // Two reasons the case cannot be normalised:
-        //   - neither side is an oracle leaf (visitor has nothing to do)
-        //   - oracle-on-right with a non-literal LHS (Rust dispatch would
-        //     hit UnsupportedNode; the TS model cannot build a permit ctx
-        //     for it)
-        // Only the second is a meaningful warning; the first is a no-op
-        // (the visitor was called for a non-oracle comparison). Emit the
-        // warning when an oracle IS present on one side but the other
-        // side is not a parseable threshold literal.
-        if (rightIsOracle) {
-          onWarning?.({
-            dimension: 'oracle_normalisation_dropped',
-            op: node.op,
-            asset: rightLeaf.kind === 'oracle_price' ? rightLeaf.asset : '',
-            otherKind: leftLeaf.kind,
-            message: `oracle-on-right cannot be normalised: the LHS (kind=${leftLeaf.kind}) is not an oracle_threshold literal; the Rust interpreter would surface UnsupportedNode here`,
-          })
-        }
-        return
-      }
-      visit(oracleAsset, node.op, literal)
-      return
-    }
-    case 'in':
-      // `in` is pure membership; oracle leaves inside haystacks are
-      // forbidden by the position rule, so there's nothing to set up here.
-      return
-  }
-}
-
-/** Restate an oracle threshold on the normalised 9-dp basis prices use.
- *  Thresholds carry their own basis, so reading the digits raw would build
- *  a permit context off by 10^(decimals-9) and the intended call would not
- *  satisfy its own bound. Mirrors NORMALISED_DECIMALS in oracle.rs. */
-function oracleLiteralFromLeaf(leaf: PredicateLeaf): bigint | undefined {
-  if (leaf.kind !== 'oracle_threshold') return undefined
-  let value: bigint
-  try {
-    value = BigInt(leaf.value)
-  } catch {
-    return undefined
-  }
-  const normalised = 9n
-  const decimals = BigInt(leaf.decimals)
-  if (decimals <= normalised) return value * 10n ** (normalised - decimals)
-  // Floor: a finer-grained threshold has no exact 9-dp representation; the
-  // caller offsets by one from here to land on the right side of the bound.
-  return value / 10n ** (decimals - normalised)
-}

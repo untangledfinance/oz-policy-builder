@@ -28,7 +28,10 @@ use crate::types::Signer;
 //
 //   1xx  predicate / evaluator denies (mirrors `dsl::DenyReason`)
 //   2xx  install / auth / state denies
-//   3xx  oracle denies (install-time shape + runtime resolution)
+//
+// The 3xx group was retired when oracle support was removed (grammar v2).
+// Retired numbers must stay retired - any new code lives in the next free
+// slot in its group, not at a recycled 3xx value.
 //
 // The string form of each code (the `code_str()` impl below) mirrors the
 // TS-side enum in `packages/policy-synth/src/errors.ts` so a review card
@@ -72,36 +75,16 @@ pub enum PolicyError {
     // ratio that would silently invert the comparison or divide by zero
     // cannot be installed in the first place.
     InvalidScaledRatio = 214,
-
-    // ---- 3xx oracle ----
-    OracleLeafInvalidPosition = 300,
-    OracleReadLimit = 301,
-    OracleEnvelopeRequired = 302,
-    OracleParamsOutOfRange = 303,
-    OracleStale = 304,
-    OracleMissing = 305,
-    OracleDeviationExceeded = 306,
-    OraclePaused = 307,
-    OracleDecimalsMismatch = 308,
-    OracleFingerprintDrift = 309,
-    // The feed has data but the two-round confirmation cannot be formed -
-    // fewer than two distinct timestamps, or rounds that are not exactly
-    // one resolution apart. Distinct from OracleMissing so an operator can
-    // tell "asset unsupported" from "feed degraded".
-    OracleNoConfirmation = 310,
-    // The feed returned a non-positive price or non-monotonic timestamps.
-    OracleMalformedHistory = 311,
-    // The primary and secondary feeds disagree by more than the bound. The
-    // two-round confirmation reads one feed twice, so it cannot see a
-    // compromised feed publishing consistent forged prices; this can.
-    OracleCrossFeedDivergence = 312,
-    /// An oracle comparison's threshold did not declare its decimal basis.
-    /// Refused at install: without the basis the contract cannot tell a
-    /// correctly scaled threshold from one that is 10^5 too large, and the
-    /// latter permits everything.
-    OracleThresholdBasisRequired = 215,
-    /// The declared basis exceeded `MAX_ORACLE_THRESHOLD_DECIMALS`.
-    OracleThresholdDecimalsOutOfRange = 313,
+    /// Predicate carries no selector leaf - literals on both sides of every
+    /// compare, no `call_contract`/`call_fn`/`call_arg`/`now`. Such a
+    /// predicate is either trivially true or trivially false at install
+    /// time, so it permits everything or nothing forever. Refused at
+    /// install.
+    SelectorLeafRequired = 216,
+    /// Master signer set exceeded `MAX_SIGNERS`. Re-hashed on every permit
+    /// and one `require_auth` per signer; an unbounded set pushes `enforce`
+    /// past the CPU budget and bricks the rule.
+    TooManySigners = 217,
 }
 
 impl PolicyError {
@@ -134,23 +117,8 @@ impl PolicyError {
             PolicyError::ExternalSignerNotSupported => "EXTERNAL_SIGNER_NOT_SUPPORTED",
             PolicyError::ValidUntilNotSupported => "VALID_UNTIL_NOT_SUPPORTED",
             PolicyError::InvalidScaledRatio => "INVALID_SCALED_RATIO",
-            PolicyError::OracleLeafInvalidPosition => "ORACLE_LEAF_INVALID_POSITION",
-            PolicyError::OracleReadLimit => "ORACLE_READ_LIMIT",
-            PolicyError::OracleEnvelopeRequired => "ORACLE_ENVELOPE_REQUIRED",
-            PolicyError::OracleParamsOutOfRange => "ORACLE_PARAMS_OUT_OF_RANGE",
-            PolicyError::OracleStale => "ORACLE_STALE",
-            PolicyError::OracleMissing => "ORACLE_MISSING",
-            PolicyError::OracleNoConfirmation => "ORACLE_NO_CONFIRMATION",
-            PolicyError::OracleMalformedHistory => "ORACLE_MALFORMED_HISTORY",
-            PolicyError::OracleCrossFeedDivergence => "ORACLE_CROSS_FEED_DIVERGENCE",
-            PolicyError::OracleThresholdBasisRequired => "ORACLE_THRESHOLD_BASIS_REQUIRED",
-            PolicyError::OracleThresholdDecimalsOutOfRange => {
-                "ORACLE_THRESHOLD_DECIMALS_OUT_OF_RANGE"
-            }
-            PolicyError::OracleDeviationExceeded => "ORACLE_DEVIATION_EXCEEDED",
-            PolicyError::OraclePaused => "ORACLE_PAUSED",
-            PolicyError::OracleDecimalsMismatch => "ORACLE_DECIMALS_MISMATCH",
-            PolicyError::OracleFingerprintDrift => "ORACLE_FINGERPRINT_DRIFT",
+            PolicyError::SelectorLeafRequired => "SELECTOR_LEAF_REQUIRED",
+            PolicyError::TooManySigners => "TOO_MANY_SIGNERS",
         }
     }
 }
@@ -170,18 +138,6 @@ impl From<DenyReason> for PolicyError {
             DenyReason::NotInAllowlist => PolicyError::NotInAllowlist,
             DenyReason::Frequency => PolicyError::Frequency,
             DenyReason::SlippageFloor => PolicyError::SlippageFloor,
-            DenyReason::OracleStale => PolicyError::OracleStale,
-            DenyReason::OracleMissing => PolicyError::OracleMissing,
-            DenyReason::OracleNoConfirmation => PolicyError::OracleNoConfirmation,
-            DenyReason::OracleMalformedHistory => PolicyError::OracleMalformedHistory,
-            DenyReason::OracleDeviationExceeded => PolicyError::OracleDeviationExceeded,
-            DenyReason::OraclePaused => PolicyError::OraclePaused,
-            DenyReason::OracleDecimalsMismatch => PolicyError::OracleDecimalsMismatch,
-            DenyReason::OracleFingerprintDrift => PolicyError::OracleFingerprintDrift,
-            DenyReason::OracleCrossFeedDivergence => PolicyError::OracleCrossFeedDivergence,
-            DenyReason::OracleThresholdDecimalsOutOfRange => {
-                PolicyError::OracleThresholdDecimalsOutOfRange
-            }
         }
     }
 }
@@ -224,18 +180,6 @@ pub(crate) fn panic_predicate_too_large(e: &Env) -> ! {
 pub(crate) fn panic_predicate_hash_mismatch(e: &Env) -> ! {
     deny(e, PolicyError::PredicateHashMismatch)
 }
-pub(crate) fn panic_oracle_leaf_invalid_position(e: &Env) -> ! {
-    deny(e, PolicyError::OracleLeafInvalidPosition)
-}
-pub(crate) fn panic_oracle_read_limit(e: &Env) -> ! {
-    deny(e, PolicyError::OracleReadLimit)
-}
-pub(crate) fn panic_oracle_envelope_required(e: &Env) -> ! {
-    deny(e, PolicyError::OracleEnvelopeRequired)
-}
-pub(crate) fn panic_oracle_params_out_of_range(e: &Env) -> ! {
-    deny(e, PolicyError::OracleParamsOutOfRange)
-}
 pub(crate) fn panic_empty_signer_set(e: &Env) -> ! {
     deny(e, PolicyError::EmptySignerSet)
 }
@@ -254,8 +198,11 @@ pub(crate) fn panic_valid_until_not_supported(e: &Env) -> ! {
 pub(crate) fn panic_invalid_scaled_ratio(e: &Env) -> ! {
     deny(e, PolicyError::InvalidScaledRatio)
 }
-pub(crate) fn panic_oracle_threshold_basis_required(e: &Env) -> ! {
-    deny(e, PolicyError::OracleThresholdBasisRequired)
+pub(crate) fn panic_selector_leaf_required(e: &Env) -> ! {
+    deny(e, PolicyError::SelectorLeafRequired)
+}
+pub(crate) fn panic_too_many_signers(e: &Env) -> ! {
+    deny(e, PolicyError::TooManySigners)
 }
 /// Evaluator-driven deny: surface the specific `DenyReason` as the contract
 /// error code so a review card can name it. The match in `From<DenyReason>`
@@ -337,13 +284,6 @@ pub type InvocationCountKeyTuple = (Address, u32, u32, u64);
 #[derive(Clone, Debug)]
 pub struct StoredDoc {
     pub predicate_bytes: Bytes,
-    pub oracle_max_staleness_seconds: Option<u32>,
-    pub oracle_max_deviation_bps: Option<u32>,
-    /// Per-policy override on the cross-feed deviation bound. Same shape as
-    /// the other two: `None` means the wasm default, an override may only
-    /// TIGHTEN against `oracle::DEFAULT_MAX_CROSS_FEED_DEVIATION_BPS`.
-    /// Field name kept under 30 chars for the soroban-sdk contracttype limit.
-    pub oracle_max_xfeed_dev_bps: Option<u32>,
 }
 
 pub type StoredRule = StoredDoc;

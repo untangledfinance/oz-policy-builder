@@ -6,7 +6,7 @@
 //! Axes:
 //!   - each operator (and / or / not / in / eq / lt / lte / gt / gte) with a
 //!     permit case plus the deny case that operator uniquely owns
-//!   - each v1 selector: call_contract, call_fn, call_arg, call_arg_len,
+//!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
 //!     call_arg_field, now, valid_until, invocation_count_in_window
 //!   - fail-closed at every entry boundary: unknown node symbol, unknown
 //!     selector symbol, wrong arity, wrong ScVal type as a literal, in []
@@ -25,11 +25,9 @@ use alloc::string::ToString;
 use alloc::vec::Vec as StdVec;
 
 use crate::dsl::{
-    decode, decode_with_byte_cap, evaluate, validate_oracle_thresholds, CompareOp, DenyReason,
-    EvalContext, EvalDecision, Leaf, Node, OracleEntry, OracleThresholdError, MAX_DEPTH,
-    MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_ORACLE_THRESHOLD_DECIMALS, MAX_PREDICATE_BYTES,
+    decode, decode_with_byte_cap, evaluate, CompareOp, DenyReason, EvalContext, EvalDecision, Leaf,
+    Node, MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_PREDICATE_BYTES,
 };
-use crate::oracle::NORMALISED_DECIMALS;
 use soroban_sdk::testutils::Address as _;
 use soroban_sdk::xdr::{FromXdr, ScVal, ToXdr, VecM};
 use soroban_sdk::{Address, Bytes, Env, IntoVal, Symbol, Val, Vec as SorobanVec};
@@ -37,10 +35,6 @@ use soroban_sdk::{Address, Bytes, Env, IntoVal, Symbol, Val, Vec as SorobanVec};
 // ----- tiny builders / helpers ----------------------------------------------
 
 fn contract(env: &Env) -> Address {
-    Address::generate(env)
-}
-
-fn token(env: &Env) -> Address {
     Address::generate(env)
 }
 
@@ -53,7 +47,6 @@ fn empty_ctx(env: &Env) -> EvalContext {
         valid_until_ledger: Some(200),
         now_seconds: 1000,
         invocation_count_by_window: StdVec::new(),
-        oracle_price_by_asset: StdVec::new(),
     }
 }
 
@@ -193,12 +186,6 @@ fn leaf_to_scval(env: &Env, l: &Leaf) -> ScVal {
         Leaf::InvocationCountInWindow { window_secs } => {
             vec_scval(&[sym("invocation_count"), u64_scval(*window_secs)])
         }
-        Leaf::OraclePrice(_) => vec_scval(&[sym("oracle_price"), addr_scval()]),
-        Leaf::OracleThresholdI128 { value, decimals } => vec_scval(&[
-            sym("oracle_threshold"),
-            i128_scval(*value),
-            u32_scval(*decimals),
-        ]),
         Leaf::LiteralAddress(_) => addr_scval(),
         Leaf::LiteralI128(v) => i128_scval(*v),
         Leaf::LiteralSymbol(s) => {
@@ -307,25 +294,6 @@ fn op_not_inverts_a_deny_into_permit() {
     let env = Env::default();
     let n = Node::Not(Box::new(cmp_i128(CompareOp::Eq, 1, 2)));
     assert!(permit(evaluate(&env, &n, &empty_ctx(&env))));
-}
-
-#[test]
-fn op_not_does_not_invert_a_fatal_oracle_deny() {
-    // The empty snapshot in `empty_ctx` means the price was never resolved,
-    // which is fatal. `not` must surface it rather than invert it into a
-    // permit - that is how a policy would otherwise satisfy itself by
-    // negating an oracle read it prevented from succeeding.
-    let env = Env::default();
-    let inner = Node::Compare {
-        op: CompareOp::Lt,
-        left: Leaf::OraclePrice(token(&env)),
-        right: Leaf::LiteralI128(100),
-    };
-    let n = Node::Not(Box::new(inner));
-    assert_eq!(
-        reason(evaluate(&env, &n, &empty_ctx(&env))),
-        Some(DenyReason::OracleStale)
-    );
 }
 
 #[test]
@@ -939,365 +907,7 @@ fn cap_predicate_bytes_over_limit_returns_predicate_too_large() {
     assert_eq!(err.code(), "PREDICATE_TOO_LARGE");
 }
 
-// ----- Tests: i128 checked arithmetic --------------------------------------
-
-// ---- oracle_price: fatal-error semantics ----
-
-fn oracle_ctx(env: &Env, asset: &Address, entry: OracleEntry) -> EvalContext {
-    let mut ctx = empty_ctx(env);
-    ctx.oracle_price_by_asset = StdVec::from([(asset.clone(), entry)]);
-    ctx
-}
-
-/// `oracle_price(asset) < bound`, with the bound on the NORMALISED 9-dp basis
-/// the resolver produces. Thresholds must declare their basis, so this states
-/// the one these tests use.
-fn oracle_lt(asset: &Address, bound: i128) -> Node {
-    oracle_lt_at(asset, bound, NORMALISED_DECIMALS)
-}
-
-/// `oracle_price(asset) < bound`, with the bound on an explicit basis.
-fn oracle_lt_at(asset: &Address, bound: i128, decimals: u32) -> Node {
-    Node::Compare {
-        op: CompareOp::Lt,
-        left: Leaf::OraclePrice(asset.clone()),
-        right: Leaf::OracleThresholdI128 {
-            value: bound,
-            decimals,
-        },
-    }
-}
-
-/// `oracle_price(asset) < bound` with a BARE literal - the pre-fix shape that
-/// silently assumed the normalised basis.
-fn oracle_lt_bare_literal(asset: &Address, bound: i128) -> Node {
-    Node::Compare {
-        op: CompareOp::Lt,
-        left: Leaf::OraclePrice(asset.clone()),
-        right: Leaf::LiteralI128(bound),
-    }
-}
-
-#[test]
-fn oracle_price_within_bound_permits() {
-    let env = Env::default();
-    let asset = token(&env);
-    let ctx = oracle_ctx(
-        &env,
-        &asset,
-        OracleEntry::Price {
-            price: 50,
-            timestamp_seconds: 1000,
-        },
-    );
-    assert!(permit(evaluate(&env, &oracle_lt(&asset, 100), &ctx)));
-}
-
-#[test]
-fn oracle_price_outside_bound_denies() {
-    let env = Env::default();
-    let asset = token(&env);
-    let ctx = oracle_ctx(
-        &env,
-        &asset,
-        OracleEntry::Price {
-            price: 150,
-            timestamp_seconds: 1000,
-        },
-    );
-    assert!(!permit(evaluate(&env, &oracle_lt(&asset, 100), &ctx)));
-}
-
-#[test]
-fn oracle_asset_missing_from_snapshot_is_stale_not_zero() {
-    // The dangerous default: an unresolved asset must not read as price 0 and
-    // satisfy `price < bound`.
-    let env = Env::default();
-    let asset = token(&env);
-    assert_eq!(
-        reason(evaluate(&env, &oracle_lt(&asset, 100), &empty_ctx(&env))),
-        Some(DenyReason::OracleStale)
-    );
-}
-
-#[test]
-fn oracle_failure_reasons_pass_through() {
-    let env = Env::default();
-    let asset = token(&env);
-    for r in [
-        DenyReason::OracleStale,
-        DenyReason::OracleMissing,
-        DenyReason::OracleDeviationExceeded,
-        DenyReason::OraclePaused,
-        DenyReason::OracleDecimalsMismatch,
-        DenyReason::OracleFingerprintDrift,
-    ] {
-        let ctx = oracle_ctx(&env, &asset, OracleEntry::Failed(r));
-        assert_eq!(
-            reason(evaluate(&env, &oracle_lt(&asset, 100), &ctx)),
-            Some(r),
-            "oracle failure reason must survive evaluation"
-        );
-        assert!(r.is_fatal(), "every oracle failure must be fatal");
-    }
-}
-
-#[test]
-fn oracle_non_i128_bound_is_decimals_mismatch() {
-    let env = Env::default();
-    let asset = token(&env);
-    let ctx = oracle_ctx(
-        &env,
-        &asset,
-        OracleEntry::Price {
-            price: 50,
-            timestamp_seconds: 1000,
-        },
-    );
-    let n = Node::Compare {
-        op: CompareOp::Lt,
-        left: Leaf::OraclePrice(asset.clone()),
-        right: Leaf::LiteralU32(100),
-    };
-    assert_eq!(
-        reason(evaluate(&env, &n, &ctx)),
-        Some(DenyReason::OracleDecimalsMismatch)
-    );
-}
-
-#[test]
-fn or_cannot_permit_around_a_failed_oracle_read() {
-    // The whole point of "fatal": a sibling branch that would otherwise
-    // permit must not mask an oracle that failed to resolve.
-    let env = Env::default();
-    let asset = token(&env);
-    let ctx = oracle_ctx(&env, &asset, OracleEntry::Failed(DenyReason::OraclePaused));
-    let n = Node::Or(StdVec::from([
-        oracle_lt(&asset, 100),
-        cmp_i128(CompareOp::Eq, 7, 7), // would permit on its own
-    ]));
-    assert_eq!(
-        reason(evaluate(&env, &n, &ctx)),
-        Some(DenyReason::OraclePaused)
-    );
-}
-
-#[test]
-fn and_surfaces_a_failed_oracle_read() {
-    let env = Env::default();
-    let asset = token(&env);
-    let ctx = oracle_ctx(
-        &env,
-        &asset,
-        OracleEntry::Failed(DenyReason::OracleDeviationExceeded),
-    );
-    let n = Node::And(StdVec::from([
-        cmp_i128(CompareOp::Eq, 7, 7),
-        oracle_lt(&asset, 100),
-    ]));
-    assert_eq!(
-        reason(evaluate(&env, &n, &ctx)),
-        Some(DenyReason::OracleDeviationExceeded)
-    );
-}
-
-// ---- oracle install-time placement rules ----
-
-#[test]
-fn oracle_leaf_under_not_is_rejected() {
-    let env = Env::default();
-    let n = Node::Not(Box::new(oracle_lt(&token(&env), 100)));
-    assert_eq!(
-        crate::dsl::validate_oracle_placement(&n),
-        Err(crate::dsl::OracleValidationError::LeafInvalidPosition)
-    );
-}
-
-#[test]
-fn oracle_leaf_under_or_is_rejected() {
-    let env = Env::default();
-    let n = Node::Or(StdVec::from([
-        oracle_lt(&token(&env), 100),
-        cmp_i128(CompareOp::Eq, 7, 7),
-    ]));
-    assert_eq!(
-        crate::dsl::validate_oracle_placement(&n),
-        Err(crate::dsl::OracleValidationError::LeafInvalidPosition)
-    );
-}
-
-#[test]
-fn oracle_leaf_nested_under_and_below_or_is_still_rejected() {
-    // The restriction is about being anywhere beneath a disjunction, not just
-    // an immediate child of it.
-    let env = Env::default();
-    let n = Node::Or(StdVec::from([
-        Node::And(StdVec::from([oracle_lt(&token(&env), 100)])),
-        cmp_i128(CompareOp::Eq, 7, 7),
-    ]));
-    assert_eq!(
-        crate::dsl::validate_oracle_placement(&n),
-        Err(crate::dsl::OracleValidationError::LeafInvalidPosition)
-    );
-}
-
-#[test]
-fn oracle_leaf_under_top_level_and_with_envelope_is_accepted() {
-    let env = Env::default();
-    let n = Node::And(StdVec::from([
-        Node::Compare {
-            op: CompareOp::Eq,
-            left: Leaf::CallContract,
-            right: Leaf::LiteralAddress(contract(&env)),
-        },
-        oracle_lt(&token(&env), 100),
-    ]));
-    assert_eq!(crate::dsl::validate_oracle_placement(&n), Ok(()));
-}
-
-#[test]
-fn predicate_of_only_oracle_leaves_is_rejected() {
-    let env = Env::default();
-    let n = Node::And(StdVec::from([oracle_lt(&token(&env), 100)]));
-    assert_eq!(
-        crate::dsl::validate_oracle_placement(&n),
-        Err(crate::dsl::OracleValidationError::MissingNonOracleEnvelope)
-    );
-}
-
-#[test]
-fn more_than_three_oracle_assets_exceeds_the_read_cap() {
-    let env = Env::default();
-    let mut children = StdVec::from([Node::Compare {
-        op: CompareOp::Eq,
-        left: Leaf::CallContract,
-        right: Leaf::LiteralAddress(contract(&env)),
-    }]);
-    for _ in 0..4 {
-        children.push(oracle_lt(&token(&env), 100));
-    }
-    let n = Node::And(children);
-    assert_eq!(
-        crate::dsl::validate_oracle_placement(&n),
-        Err(crate::dsl::OracleValidationError::TooManyReads)
-    );
-}
-
-#[test]
-fn three_oracle_assets_are_within_the_read_cap() {
-    let env = Env::default();
-    let mut children = StdVec::from([Node::Compare {
-        op: CompareOp::Eq,
-        left: Leaf::CallContract,
-        right: Leaf::LiteralAddress(contract(&env)),
-    }]);
-    for _ in 0..3 {
-        children.push(oracle_lt(&token(&env), 100));
-    }
-    let n = Node::And(children);
-    assert_eq!(crate::dsl::validate_oracle_placement(&n), Ok(()));
-}
-
-#[test]
-fn repeated_reads_of_one_asset_count_once() {
-    // The cap counts oracle READS, which is two per distinct asset - not two
-    // per leaf. Four leaves on one asset is still a single pair of reads.
-    let env = Env::default();
-    let asset = token(&env);
-    let mut children = StdVec::from([Node::Compare {
-        op: CompareOp::Eq,
-        left: Leaf::CallContract,
-        right: Leaf::LiteralAddress(contract(&env)),
-    }]);
-    for _ in 0..4 {
-        children.push(oracle_lt(&asset, 100));
-    }
-    let n = Node::And(children);
-    assert_eq!(crate::dsl::validate_oracle_placement(&n), Ok(()));
-}
-
-#[test]
-fn predicate_without_oracle_leaves_is_unaffected() {
-    let env = Env::default();
-    let n = Node::Not(Box::new(cmp_i128(CompareOp::Eq, 7, 7)));
-    let _ = &env;
-    assert_eq!(crate::dsl::validate_oracle_placement(&n), Ok(()));
-}
-
-// ---- F1: oracle leaves smuggled inside a literal_vec ----
-//
-// The TS encoder (packages/policy-synth/src/predicate/encode.ts, collectOracle)
-// already recurses through literal vectors; the contract must do the same
-// or it depends on the encoder being used. Two install-time failure modes
-// when it does not:
-//
-//   1. The position rule (oracle under `not`/`or` is forbidden) is blind to
-//      the nested leaf, so `not(eq(call_arg[0], literal_vec([oracle_price(X)])))`
-//      installs. At enforce the eq compares call_arg[0] to a Val produced by
-//      `literal_to_val(LiteralVec([OraclePrice(_)]))` - that call returns
-//      None because the selector leaf is not a literal, so the eq denies
-//      ArgMismatch, and `not(ArgMismatch)` is Permit. Any caller can satisfy
-//      a policy built on this shape.
-//
-//   2. The per-asset read budget is blind to the nested asset, so a
-//      predicate can pack more than three distinct assets into literal
-//      vectors and pay no enforcement-time cost against the budget.
-
-#[test]
-fn f1_oracle_leaf_in_literal_vec_under_not_is_rejected() {
-    let env = Env::default();
-    let asset = token(&env);
-    let n = Node::Not(Box::new(Node::Compare {
-        op: CompareOp::Eq,
-        left: Leaf::CallArg(0),
-        right: Leaf::LiteralVec(StdVec::from([Leaf::OraclePrice(asset.clone())])),
-    }));
-    assert_eq!(
-        crate::dsl::validate_oracle_placement(&n),
-        Err(crate::dsl::OracleValidationError::LeafInvalidPosition)
-    );
-}
-
-#[test]
-fn f1_oracle_assets_in_literal_vec_count_towards_read_budget() {
-    let env = Env::default();
-    // Envelope + four distinct assets, each smuggled through a literal vec
-    // on the right of an eq. The budget must see the assets; the literal-only
-    // branch is a hole, not a feature.
-    let mut children = StdVec::from([Node::Compare {
-        op: CompareOp::Eq,
-        left: Leaf::CallContract,
-        right: Leaf::LiteralAddress(contract(&env)),
-    }]);
-    for _ in 0..4 {
-        children.push(Node::Compare {
-            op: CompareOp::Eq,
-            left: Leaf::CallArg(0),
-            right: Leaf::LiteralVec(StdVec::from([Leaf::OraclePrice(token(&env))])),
-        });
-    }
-    let n = Node::And(children);
-    assert_eq!(
-        crate::dsl::validate_oracle_placement(&n),
-        Err(crate::dsl::OracleValidationError::TooManyReads)
-    );
-}
-
-#[test]
-fn f1_oracle_collect_assets_sees_leaves_nested_in_literal_vec() {
-    let env = Env::default();
-    let asset = token(&env);
-    let n = Node::Compare {
-        op: CompareOp::Eq,
-        left: Leaf::CallArg(0),
-        right: Leaf::LiteralVec(StdVec::from([Leaf::OraclePrice(asset.clone())])),
-    };
-    let assets = crate::oracle::collect_oracle_assets(&n);
-    assert!(
-        assets.iter().any(|a| a == &asset),
-        "oracle::collect_oracle_assets must recurse into LiteralVec"
-    );
-}
+// ----- Tests: i128 checked arithmetic ---------------------------------------
 
 // ---- F8b: DenyReason -> PolicyError is exhaustive and the codes match ----
 //
@@ -1326,21 +936,7 @@ fn f8b_deny_reason_to_policy_error_is_stable() {
     assert_eq!(PolicyError::from(DenyReason::StatefulBound) as u32, 104);
     assert_eq!(PolicyError::from(DenyReason::NotInAllowlist) as u32, 105);
     assert_eq!(PolicyError::from(DenyReason::Frequency) as u32, 106);
-    assert_eq!(PolicyError::from(DenyReason::OracleStale) as u32, 304);
-    assert_eq!(PolicyError::from(DenyReason::OracleMissing) as u32, 305);
-    assert_eq!(
-        PolicyError::from(DenyReason::OracleDeviationExceeded) as u32,
-        306
-    );
-    assert_eq!(PolicyError::from(DenyReason::OraclePaused) as u32, 307);
-    assert_eq!(
-        PolicyError::from(DenyReason::OracleDecimalsMismatch) as u32,
-        308
-    );
-    assert_eq!(
-        PolicyError::from(DenyReason::OracleFingerprintDrift) as u32,
-        309
-    );
+    assert_eq!(PolicyError::from(DenyReason::SlippageFloor) as u32, 107);
 }
 
 #[test]
@@ -1379,28 +975,8 @@ fn f8b_policy_error_code_strings_match_the_deny_reason_table() {
         DenyReason::Frequency.code()
     );
     assert_eq!(
-        PolicyError::OracleStale.code_str(),
-        DenyReason::OracleStale.code()
-    );
-    assert_eq!(
-        PolicyError::OracleMissing.code_str(),
-        DenyReason::OracleMissing.code()
-    );
-    assert_eq!(
-        PolicyError::OracleDeviationExceeded.code_str(),
-        DenyReason::OracleDeviationExceeded.code()
-    );
-    assert_eq!(
-        PolicyError::OraclePaused.code_str(),
-        DenyReason::OraclePaused.code()
-    );
-    assert_eq!(
-        PolicyError::OracleDecimalsMismatch.code_str(),
-        DenyReason::OracleDecimalsMismatch.code()
-    );
-    assert_eq!(
-        PolicyError::OracleFingerprintDrift.code_str(),
-        DenyReason::OracleFingerprintDrift.code()
+        PolicyError::SlippageFloor.code_str(),
+        DenyReason::SlippageFloor.code()
     );
 }
 
@@ -1723,9 +1299,9 @@ fn f9_slippage_floor_non_numeric_arg_denies_arg_mismatch() {
 
 #[test]
 fn f9_slippage_floor_is_stateless() {
-    // Install-time/eval-time invariant: the floor must not pull storage or
-    // oracle state, so it counts as a stateless leaf. A stateless leaf is
-    // ELIGIBLE to live under `not`/`or` (where oracle leaves are refused).
+    // Install-time/eval-time invariant: the floor must not pull storage,
+    // so it counts as a stateless leaf. A stateless leaf is ELIGIBLE to
+    // live under `not`/`or`.
     let leaf = Leaf::CallArgScaled {
         index: 0,
         num: 1,
@@ -1924,7 +1500,8 @@ fn f9_slippage_floor_validate_scaled_ratios_refuses_negative_den() {
 #[test]
 fn f9_slippage_floor_validate_scaled_ratios_refuses_nested_inside_literal_vec() {
     // A scaled leaf smuggled inside a LiteralVec must still be caught -
-    // decode recursion looks the same way oracle leaves do (F1).
+    // decode recursion is the same smuggling vector the install walker
+    // closes for every shape.
     use crate::dsl::validate_scaled_ratios;
     let _env = Env::default();
     let n = Node::Compare {
@@ -1956,38 +1533,6 @@ fn f9_slippage_floor_validate_scaled_ratios_accepts_positive_ratio() {
         },
     };
     assert_eq!(validate_scaled_ratios(&n), Ok(()));
-}
-
-#[test]
-fn f9_slippage_floor_used_under_or_is_supported() {
-    // The floor is stateless; it does NOT carry the fatal-deny semantics
-    // an oracle leaf does, so it must be usable under `or`/`not`. The
-    // oracle placement validator must not reject it.
-    crate::dsl::validate_oracle_placement(&Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(1),
-        right: Leaf::CallArgScaled {
-            index: 0,
-            num: 95,
-            den: 100,
-        },
-    })
-    .expect("no oracle leaves => Ok");
-
-    // Now confirm it doesn't slip into the oracle-non-envelope check when
-    // it is the only enforcement leaf - the non-oracle-leaves count is
-    // driven by `collect_oracle_leaf`'s catch-all arm, which counts
-    // selector leaves (anything that isn't a literal).
-    let n = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(0),
-        right: Leaf::CallArgScaled {
-            index: 1,
-            num: 1,
-            den: 1,
-        },
-    };
-    crate::dsl::validate_oracle_placement(&n).expect("no oracle leaves => Ok");
 }
 
 #[test]
@@ -2023,275 +1568,4 @@ fn f9_slippage_floor_reason_is_not_fatal() {
     };
     let n = Node::Not(Box::new(inner));
     assert!(permit(evaluate(&env, &n, &ctx)));
-}
-
-// ---- f10: oracle threshold decimal basis (closes the fail-open case) ----
-//
-// Prices normalise to 9 dp. Before these, an oracle comparison's threshold was
-// a bare i128 ASSUMED to be on that basis, so an author who wrote a raw 14-dp
-// threshold produced a bound ~10^5 too large - `price < threshold` was
-// trivially true and the policy permitted everything it was written to deny.
-// That is the only fail-open case the review found. The basis is now declared.
-
-#[test]
-fn f10_oracle_threshold_on_normalised_basis_behaves_as_before() {
-    let env = Env::default();
-    let asset = token(&env);
-    let ctx = oracle_ctx(
-        &env,
-        &asset,
-        OracleEntry::Price {
-            price: 50,
-            timestamp_seconds: 1000,
-        },
-    );
-    assert!(permit(evaluate(&env, &oracle_lt_at(&asset, 100, 9), &ctx)));
-}
-
-#[test]
-fn f10_a_14_decimal_threshold_no_longer_permits_everything() {
-    // THE REGRESSION THIS FIX EXISTS FOR. Price is 100 on the 9-dp basis
-    // (= 0.0000001). The author means "deny above 0.0000001" and writes the
-    // threshold on the 14-dp basis the raw feed uses: 100 * 10^5 = 10_000_000.
-    // Read as 9-dp that bound is 10^5 too large and the compare is trivially
-    // satisfied. Declared as 14-dp it means exactly what the author wrote, so
-    // an equal price must NOT satisfy a strict `<`.
-    let env = Env::default();
-    let asset = token(&env);
-    let ctx = oracle_ctx(
-        &env,
-        &asset,
-        OracleEntry::Price {
-            price: 100,
-            timestamp_seconds: 1000,
-        },
-    );
-
-    // Pre-fix behaviour, reproduced: the same digits read as 9-dp permit.
-    assert!(permit(evaluate(
-        &env,
-        &oracle_lt_at(&asset, 10_000_000, 9),
-        &ctx
-    )));
-
-    // Post-fix: declared as 14-dp it is the SAME magnitude as the price, so a
-    // strict `<` denies instead of trivially permitting.
-    assert!(!permit(evaluate(
-        &env,
-        &oracle_lt_at(&asset, 10_000_000, 14),
-        &ctx
-    )));
-}
-
-#[test]
-fn f10_a_14_decimal_threshold_still_permits_a_genuinely_lower_price() {
-    // The fix must not deny everything - it must mean what the author wrote.
-    // Price 99 (9 dp) vs a 14-dp threshold of 100 * 10^5 = price 100 (9 dp).
-    let env = Env::default();
-    let asset = token(&env);
-    let ctx = oracle_ctx(
-        &env,
-        &asset,
-        OracleEntry::Price {
-            price: 99,
-            timestamp_seconds: 1000,
-        },
-    );
-    assert!(permit(evaluate(
-        &env,
-        &oracle_lt_at(&asset, 10_000_000, 14),
-        &ctx
-    )));
-}
-
-#[test]
-fn f10_a_bare_literal_threshold_denies_rather_than_assuming_a_basis() {
-    // Fail CLOSED: an undeclared basis must never be assumed to be normalised.
-    let env = Env::default();
-    let asset = token(&env);
-    let ctx = oracle_ctx(
-        &env,
-        &asset,
-        OracleEntry::Price {
-            price: 1,
-            timestamp_seconds: 1000,
-        },
-    );
-    assert_eq!(
-        reason(evaluate(
-            &env,
-            &oracle_lt_bare_literal(&asset, i128::MAX),
-            &ctx
-        )),
-        Some(DenyReason::OracleDecimalsMismatch)
-    );
-}
-
-#[test]
-fn f10_decimals_above_the_cap_deny() {
-    let env = Env::default();
-    let asset = token(&env);
-    let ctx = oracle_ctx(
-        &env,
-        &asset,
-        OracleEntry::Price {
-            price: 1,
-            timestamp_seconds: 1000,
-        },
-    );
-    assert_eq!(
-        reason(evaluate(
-            &env,
-            &oracle_lt_at(&asset, 1, MAX_ORACLE_THRESHOLD_DECIMALS + 1),
-            &ctx
-        )),
-        Some(DenyReason::OracleThresholdDecimalsOutOfRange)
-    );
-}
-
-#[test]
-fn f10_the_cap_itself_is_accepted() {
-    // Boundary: 18 is in range, 19 is not.
-    let env = Env::default();
-    let asset = token(&env);
-    let ctx = oracle_ctx(
-        &env,
-        &asset,
-        OracleEntry::Price {
-            price: 1,
-            timestamp_seconds: 1000,
-        },
-    );
-    assert_ne!(
-        reason(evaluate(
-            &env,
-            &oracle_lt_at(&asset, i128::MAX, MAX_ORACLE_THRESHOLD_DECIMALS),
-            &ctx
-        )),
-        Some(DenyReason::OracleThresholdDecimalsOutOfRange)
-    );
-}
-
-#[test]
-fn f10_scaling_overflow_denies_rather_than_wrapping() {
-    // i128::MAX scaled up by 10^9 cannot be represented. Deny, never wrap:
-    // a wrapped bound would compare against a meaningless number.
-    let env = Env::default();
-    let asset = token(&env);
-    let ctx = oracle_ctx(
-        &env,
-        &asset,
-        OracleEntry::Price {
-            price: 1,
-            timestamp_seconds: 1000,
-        },
-    );
-    assert_eq!(
-        reason(evaluate(&env, &oracle_lt_at(&asset, i128::MAX, 0), &ctx)),
-        Some(DenyReason::ArithmeticOverflow)
-    );
-}
-
-#[test]
-fn f10_install_validation_refuses_an_undeclared_basis() {
-    let asset_env = Env::default();
-    let asset = token(&asset_env);
-    assert_eq!(
-        validate_oracle_thresholds(&oracle_lt_bare_literal(&asset, 100)),
-        Err(OracleThresholdError::BasisRequired)
-    );
-    assert_eq!(
-        validate_oracle_thresholds(&oracle_lt_at(&asset, 100, 9)),
-        Ok(())
-    );
-}
-
-#[test]
-fn f10_install_validation_refuses_decimals_above_the_cap() {
-    let asset_env = Env::default();
-    let asset = token(&asset_env);
-    assert_eq!(
-        validate_oracle_thresholds(&oracle_lt_at(
-            &asset,
-            100,
-            MAX_ORACLE_THRESHOLD_DECIMALS + 1
-        )),
-        Err(OracleThresholdError::DecimalsOutOfRange)
-    );
-}
-
-#[test]
-fn f10_install_validation_recurses_into_and_or_not() {
-    // A bad threshold must not hide behind a boolean node.
-    let asset_env = Env::default();
-    let asset = token(&asset_env);
-    let bad = oracle_lt_bare_literal(&asset, 100);
-    assert_eq!(
-        validate_oracle_thresholds(&Node::And(StdVec::from([bad.clone()]))),
-        Err(OracleThresholdError::BasisRequired)
-    );
-    assert_eq!(
-        validate_oracle_thresholds(&Node::Or(StdVec::from([bad.clone()]))),
-        Err(OracleThresholdError::BasisRequired)
-    );
-    assert_eq!(
-        validate_oracle_thresholds(&Node::Not(Box::new(bad))),
-        Err(OracleThresholdError::BasisRequired)
-    );
-}
-
-#[test]
-fn f10_threshold_deny_reasons_are_fatal() {
-    // Every oracle deny is fatal, so `or` / `not` can never mask one.
-    assert!(DenyReason::OracleThresholdDecimalsOutOfRange.is_fatal());
-    assert!(DenyReason::OracleDecimalsMismatch.is_fatal());
-}
-
-#[test]
-fn f10_error_codes_are_stable() {
-    use crate::storage::PolicyError;
-    // The numeric codes are a public ABI - off-chain code maps them to
-    // sentences. Never renumber.
-    assert_eq!(PolicyError::OracleThresholdBasisRequired as u32, 215);
-    assert_eq!(PolicyError::OracleThresholdDecimalsOutOfRange as u32, 313);
-}
-
-#[test]
-fn f10_a_threshold_below_the_normalised_basis_is_scaled_up_not_ignored() {
-    // Exercises the literal-scaling arm, which a `decimals >= 9` case cannot:
-    // when decimals > 9 the common basis IS decimals, so the literal is
-    // multiplied by 10^0 and a broken conversion stays invisible.
-    // price = 100 on the 9-dp basis. Threshold declared at 2 dp with value 1
-    // means 0.01, i.e. 10_000_000 on the 9-dp basis - far above the price, so
-    // `<` must PERMIT. Ignoring the declared basis would compare 100 < 1 and
-    // deny, inverting the author's intent.
-    let env = Env::default();
-    let asset = token(&env);
-    let ctx = oracle_ctx(
-        &env,
-        &asset,
-        OracleEntry::Price {
-            price: 100,
-            timestamp_seconds: 1000,
-        },
-    );
-    assert!(permit(evaluate(&env, &oracle_lt_at(&asset, 1, 2), &ctx)));
-}
-
-#[test]
-fn f10_a_price_above_a_low_basis_threshold_still_denies() {
-    // The mirror of the case above, so "permit" is not simply the default:
-    // price = 10^9 on the 9-dp basis (= 1.0) against a 2-dp threshold of 1
-    // (= 0.01). The price is higher, so `<` must DENY.
-    let env = Env::default();
-    let asset = token(&env);
-    let ctx = oracle_ctx(
-        &env,
-        &asset,
-        OracleEntry::Price {
-            price: 1_000_000_000,
-            timestamp_seconds: 1000,
-        },
-    );
-    assert!(!permit(evaluate(&env, &oracle_lt_at(&asset, 1, 2), &ctx)));
 }

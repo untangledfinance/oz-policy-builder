@@ -13,7 +13,6 @@ pub mod auth;
 pub mod dsl;
 #[cfg(test)]
 mod dsl_tests;
-pub mod oracle;
 pub mod state;
 pub mod storage;
 pub mod types;
@@ -21,10 +20,12 @@ mod version;
 
 pub use dsl::{decode_with_byte_cap, CompareOp, DenyReason, EvalContext, EvalDecision, Leaf, Node};
 pub use storage::{PolicyError, RuleKey, StoredDoc, StoredRule};
-pub use types::{ContextRule, ContextRuleType, OracleParams, PolicyInstallParams, Signer};
+pub use types::{ContextRule, ContextRuleType, PolicyInstallParams, Signer};
 pub use version::SELF_VERSION;
 
 use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, Vec};
+
+use crate::types::MAX_SIGNERS;
 
 #[contract]
 pub struct PolicyInterpreter;
@@ -77,6 +78,16 @@ impl PolicyInterpreter {
             storage::panic_empty_signer_set(e);
         }
 
+        // (c2b) Cap the master signer set. `enforce` re-hashes the whole set
+        //      on every permit and `require_master` calls `require_auth`
+        //      once per signer; an unbounded set pushes a permit past the
+        //      CPU budget and bricks the rule. The adjacent predicate write
+        //      is already capped at `MAX_PREDICATE_BYTES` (32 KB) for the
+        //      same shape of problem.
+        if context_rule.signers.len() > MAX_SIGNERS {
+            storage::panic_too_many_signers(e);
+        }
+
         // (c3) External signers carry a verifier address AND a key; the key
         //      is what OZ's smart account checks when authenticating them.
         //      `require_master` only ever calls `signer.address().require_auth()`
@@ -94,21 +105,7 @@ impl PolicyInterpreter {
             storage::panic_external_signer_not_supported(e);
         }
 
-        // (d) Oracle placement rules. Refused here rather than at evaluation:
-        //     an oracle failure is fatal, so a predicate that could put one
-        //     under `not`/`or` must never be installable in the first place.
-        match dsl::validate_oracle_placement(&root) {
-            Ok(()) => {}
-            Err(dsl::OracleValidationError::LeafInvalidPosition) => {
-                storage::panic_oracle_leaf_invalid_position(e)
-            }
-            Err(dsl::OracleValidationError::TooManyReads) => storage::panic_oracle_read_limit(e),
-            Err(dsl::OracleValidationError::MissingNonOracleEnvelope) => {
-                storage::panic_oracle_envelope_required(e)
-            }
-        }
-
-        // (d2) Distinct invocation-count windows. Each window is one
+        // (d) Distinct invocation-count windows. Each window is one
         //      persistent write per permit, and Soroban's per-tx write-entry
         //      cap is 50. A predicate over the cap installs today and
         //      fails every enforce ("write ledger entries: 52 > 50"). The
@@ -120,7 +117,7 @@ impl PolicyInterpreter {
             storage::panic_too_many_invocation_windows(e);
         }
 
-        // (d3) Refuse a `ValidUntil` leaf. The interpreter never sources
+        // (d2) Refuse a `ValidUntil` leaf. The interpreter never sources
         //      valid_until_ledger (the smart account owns expiry), so any
         //      policy using it would silently always deny. Refuse at
         //      install so the failure is loud rather than perpetual.
@@ -128,7 +125,7 @@ impl PolicyInterpreter {
             storage::panic_valid_until_not_supported(e);
         }
 
-        // (d4) Slippage-floor ratios. A `call_arg_scaled` with `den == 0`
+        // (d3) Slippage-floor ratios. A `call_arg_scaled` with `den == 0`
         //      would divide by zero at runtime; with `num <= 0` or
         //      `den <= 0` would silently invert the comparison. Refuse
         //      at install so the failure is loud rather than a perpetual
@@ -137,27 +134,13 @@ impl PolicyInterpreter {
             storage::panic_invalid_scaled_ratio(e);
         }
 
-        // (d5) Oracle thresholds must declare their decimal basis. Prices
-        //      normalise to 9 dp, so a raw 14-dp threshold is ~10^5 too large
-        //      and `price <= threshold` is trivially satisfied - the policy
-        //      installs, looks correct, and permits everything it was written
-        //      to deny. The contract cannot detect that after the fact (a
-        //      14-dp threshold for $1 is a legitimate 9-dp threshold for a
-        //      $100k asset), so the basis is declared and refused here when
-        //      absent.
-        if dsl::validate_oracle_thresholds(&root).is_err() {
-            storage::panic_oracle_threshold_basis_required(e);
-        }
-
-        // (e) Oracle bounds may only tighten the audited defaults.
-        if oracle::Bounds::from_params(
-            install_params.oracle_max_staleness_seconds,
-            install_params.oracle_max_deviation_bps,
-            install_params.oracle_max_xfeed_dev_bps,
-        )
-        .is_err()
-        {
-            storage::panic_oracle_params_out_of_range(e);
+        // (d4) Minimum constraint. A predicate carrying no selector leaf -
+        //      literals on both sides of every compare - is trivially true
+        //      or trivially false at install time, so it would permit
+        //      everything or nothing forever. Refuse it so a no-constraint
+        //      policy cannot install under any name.
+        if !dsl::has_selector_leaf(&root) {
+            storage::panic_selector_leaf_required(e);
         }
 
         let rule_id = context_rule.id;
@@ -195,9 +178,6 @@ impl PolicyInterpreter {
             &key.doc_key(),
             &storage::StoredDoc {
                 predicate_bytes: install_params.predicate,
-                oracle_max_staleness_seconds: install_params.oracle_max_staleness_seconds,
-                oracle_max_deviation_bps: install_params.oracle_max_deviation_bps,
-                oracle_max_xfeed_dev_bps: install_params.oracle_max_xfeed_dev_bps,
             },
         );
         e.storage()
@@ -271,65 +251,14 @@ impl PolicyInterpreter {
                 state::commit_state_updates(e, &predicate_root, &eval_ctx, &key);
             }
             // Surface the SPECIFIC deny code so a review card can say
-            // "not on the allowlist" or "oracle stale" rather than
-            // "predicate false" (an argument mismatch). The mapping is
+            // "not on the allowlist" rather than "predicate false"
+            // (an argument mismatch). The mapping is
             // the canonical `DenyReason -> PolicyError` table in
             // `storage::PolicyError::from(DenyReason)`; `panic_deny_reason`
             // panics with that contract error so the host emits
             // `Error(Contract, N)` on the diagnostic event.
             dsl::EvalDecision::Deny(reason) => storage::panic_deny_reason(e, reason),
         }
-    }
-
-    /// Master-gated circuit breaker: while paused, every `oracle_price` leaf
-    /// for this asset denies on every rule of this account. Keyed on the
-    /// account rather than a rule so one call covers the whole account.
-    pub fn pause_oracle_policies(
-        e: &Env,
-        context_rule: ContextRule,
-        smart_account: Address,
-        asset: Address,
-    ) {
-        Self::require_rule_master(e, &context_rule, &smart_account);
-        e.storage()
-            .persistent()
-            .set(&oracle::pause_key(&smart_account, &asset), &true);
-    }
-
-    /// Pause every oracle-referencing policy on the account, whatever asset.
-    pub fn pause_oracle_policies_all(e: &Env, context_rule: ContextRule, smart_account: Address) {
-        Self::require_rule_master(e, &context_rule, &smart_account);
-        e.storage()
-            .persistent()
-            .set(&oracle::pause_all_key(&smart_account), &true);
-    }
-
-    pub fn unpause_oracle_policies(
-        e: &Env,
-        context_rule: ContextRule,
-        smart_account: Address,
-        asset: Address,
-    ) {
-        Self::require_rule_master(e, &context_rule, &smart_account);
-        e.storage()
-            .persistent()
-            .remove(&oracle::pause_key(&smart_account, &asset));
-    }
-
-    pub fn unpause_oracle_policies_all(e: &Env, context_rule: ContextRule, smart_account: Address) {
-        Self::require_rule_master(e, &context_rule, &smart_account);
-        e.storage()
-            .persistent()
-            .remove(&oracle::pause_all_key(&smart_account));
-    }
-
-    fn require_rule_master(e: &Env, context_rule: &ContextRule, smart_account: &Address) {
-        let key = storage::RuleKey::new(e, smart_account.clone(), context_rule.id);
-        let master_set: Vec<Signer> = match e.storage().persistent().get(&key.master_set_key()) {
-            Some(s) => s,
-            None => storage::panic_missing_state(e),
-        };
-        auth::require_master(e, &master_set);
     }
 
     pub fn uninstall(e: &Env, context_rule: ContextRule, smart_account: Address) {
@@ -371,6 +300,11 @@ impl PolicyInterpreter {
         // unguardable - the same hole from the other direction.
         if new_set.is_empty() {
             storage::panic_empty_signer_set(e);
+        }
+        // Same cap `install` enforces: an oversized rotation pushes the
+        // same brick via re-hash and per-signer `require_auth`.
+        if new_set.len() > MAX_SIGNERS {
+            storage::panic_too_many_signers(e);
         }
         // Same refusal `install` applies, for the same reason: `require_master`
         // only calls `require_auth` on the signer's address, which a plain

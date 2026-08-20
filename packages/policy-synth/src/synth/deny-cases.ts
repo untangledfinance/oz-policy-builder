@@ -37,25 +37,6 @@ interface PredicateFacts {
   memberships: MembershipNode[]
 }
 
-const ORACLE_CASES = [
-  ['oracle_stale', 'stale'],
-  ['oracle_missing', 'missing'],
-  ['oracle_deviation_exceeded', 'deviation'],
-  ['oracle_paused', 'paused'],
-] as const
-
-// Cross-layer reason contract: the TS evaluator's deny reason for each
-// oracle error category must match the Rust interpreter's `DenyReason` code
-// string (the same strings surface in the conformance fixture). The harness
-// asserts them via the per-case `expectedReason`; a future divergence
-// surfaces as a REASON_MISMATCH failure.
-const ORACLE_ERROR_REASON: Record<(typeof ORACLE_CASES)[number][1], string> = {
-  stale: 'ORACLE_STALE',
-  missing: 'ORACLE_MISSING',
-  deviation: 'ORACLE_DEVIATION_EXCEEDED',
-  paused: 'ORACLE_PAUSED',
-}
-
 // Deterministic XLM/USDC adjacency fixture; the shared registry can replace this boundary later.
 const ADJACENT_ASSETS = [
   'CAS3J7GYLGXMF6TDJ5WQ2PEN4GRVNXJUIQ2TZU3ZB3OQ2V4DRCWI7WPF',
@@ -90,10 +71,6 @@ const ORIGINAL_DIMENSIONS: string[] = [
   'arg_amount_bound',
   'arg_bound',
   'scope_contract_fn_arg',
-  'oracle_stale',
-  'oracle_missing',
-  'oracle_deviation_exceeded',
-  'oracle_paused',
   'soroswap_allowed_path',
   'vec_append',
   'map_field_flip',
@@ -279,16 +256,6 @@ export function generateCases(
     // call_arg_field binds the same arg index exist - the canonical blend
     // case does have those binds, so the assertion would fire there.
     denies.push({ dimension: 'scope_contract_fn_arg', ctx })
-  }
-
-  const oracleComparisons = facts.comparisons.filter((node) => node.left.kind === 'oracle_price')
-  for (const [dimension, error] of ORACLE_CASES) {
-    for (const comparison of oracleComparisons) {
-      if (comparison.left.kind !== 'oracle_price') continue
-      const ctx = cloneContext(permitCtx)
-      ctx.oraclePriceByAsset[comparison.left.asset] = { error }
-      denies.push({ dimension, ctx, expectedReason: ORACLE_ERROR_REASON[error] })
-    }
   }
 
   for (const comparison of facts.comparisons) {
@@ -600,12 +567,6 @@ function cloneContext(ctx: EvalContext): EvalContext {
     amountByToken: { ...ctx.amountByToken },
     windowSpentByToken: { ...ctx.windowSpentByToken },
     invocationCountByWindow: { ...ctx.invocationCountByWindow },
-    oraclePriceByAsset: Object.fromEntries(
-      Object.entries(ctx.oraclePriceByAsset).map(([asset, entry]) => [
-        asset,
-        'error' in entry ? { error: entry.error } : { ...entry },
-      ])
-    ),
   }
   if (ctx.validUntilLedger !== undefined) cloned.validUntilLedger = ctx.validUntilLedger
   if (ctx.signerWeights !== undefined) cloned.signerWeights = { ...ctx.signerWeights }

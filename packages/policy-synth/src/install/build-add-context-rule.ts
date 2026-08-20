@@ -77,14 +77,6 @@ export interface BuildAddContextRuleArgs {
   encodedPredicate: string
   /** Hex sha256 of the canonical predicate XDR bytes. */
   predicateHash: string
-  /** Per-policy oracle overrides. Absent on any key uses the wasm default. */
-  oracleParams?: {
-    maxStalenessSeconds?: number
-    maxDeviationBps?: number
-    /** Bound between the primary and secondary feeds. Tighten-only against
-     *  the wasm default, like the other two. */
-    maxCrossFeedDeviationBps?: number
-  }
   /** Hard pin to the interpreter's wasm grammar. Refusing here fails closed
    *  before the chain does; the contract will refuse a mismatch again. */
   grammarVersion?: number
@@ -173,15 +165,6 @@ const POLICY_INSTALL_PARAM_FIELDS = [
   'install_nonce',
   'predicate',
   'predicate_hash',
-  'oracle_max_staleness_seconds',
-  'oracle_max_deviation_bps',
-  // Cross-feed divergence bound. A field added to the contract's
-  // `PolicyInstallParams` changes the ABI: the host unpacks the map by field
-  // count, so omitting one fails the entire install with
-  // `Error(Object, UnexpectedSize)` and no indication of which field is
-  // missing. The Rust tests build that struct in Rust and never cross this
-  // boundary, so only a real install against a deployed contract catches it.
-  'oracle_max_xfeed_dev_bps',
 ] as const
 
 function encodeContextRuleType(
@@ -330,15 +313,11 @@ function encodePolicyInstallParams(args: BuildAddContextRuleArgs): xdr.ScVal {
   // Per-field value encoders. Each entry returns the ScVal to drop into the
   // map; the key symbol comes from the surrounding loop. Adding a field is
   // one row here plus the symbol in POLICY_INSTALL_PARAM_FIELDS.
-  const oracleParams = args.oracleParams
   const valueFor: Record<(typeof POLICY_INSTALL_PARAM_FIELDS)[number], () => xdr.ScVal> = {
     grammar_version: () => xdr.ScVal.scvU32(args.grammarVersion ?? DEFAULT_GRAMMAR_VERSION),
     install_nonce: () => xdr.ScVal.scvU32(args.installNonce),
     predicate: () => xdr.ScVal.scvBytes(predicate),
     predicate_hash: () => xdr.ScVal.scvBytes(Buffer.from(args.predicateHash, 'hex')),
-    oracle_max_staleness_seconds: () => encodeOptionU32(oracleParams?.maxStalenessSeconds),
-    oracle_max_deviation_bps: () => encodeOptionU32(oracleParams?.maxDeviationBps),
-    oracle_max_xfeed_dev_bps: () => encodeOptionU32(oracleParams?.maxCrossFeedDeviationBps),
   }
   const entries = POLICY_INSTALL_PARAM_FIELDS.map(
     (k) => new xdr.ScMapEntry({ key: xdr.ScVal.scvSymbol(k), val: valueFor[k]() })
@@ -349,14 +328,6 @@ function encodePolicyInstallParams(args: BuildAddContextRuleArgs): xdr.ScVal {
   // entries in symbol-string order so the wire form matches the host's view.
   entries.sort((a, b) => sortBySymbolString(a.key(), b.key()))
   return xdr.ScVal.scvMap(entries)
-}
-
-function encodeOptionU32(v: number | undefined): xdr.ScVal {
-  if (v === undefined) return xdr.ScVal.scvVoid()
-  if (!Number.isFinite(v) || v < 0 || v > 0xffffffff) {
-    throw limitError('INSTALL_BUILD_FAILED', `oracle params value ${v} is outside u32 range`)
-  }
-  return xdr.ScVal.scvU32(v)
 }
 
 /** Sort host-map keys by their symbol-string form. The host orders map

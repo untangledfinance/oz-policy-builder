@@ -36,7 +36,6 @@ export type CustodyMode = 'enforce' | 'log_only'
 /** What a backend can express. A construct needing a false flag is flagged
  *  `uncovered` by the adapter, never silently dropped. */
 export interface CustodyCapabilities {
-  supportsOraclePrice: boolean
   supportsSpendWindow: boolean
   supportsInvocationCount: boolean
   supportsTimeExpiry: boolean
