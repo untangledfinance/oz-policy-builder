@@ -234,7 +234,7 @@ For every element, all six categories are addressed. "Not applicable" rows are k
 | C1-D.3 | DoS | Predicate walk is unbounded | A deeply nested or wide predicate exhausts the host budget | Low | Medium | `decode_with_byte_cap` rejects over `MAX_PREDICATE_BYTES` (32 KB) before parsing; `MAX_DEPTH` 5, `MAX_LEAVES` 200, `MAX_IN_OPERAND_COUNT` 32 are enforced after decode. | None - the byte cap dominates every walk. |
 | C1-D.4 | DoS | Per-transaction write-entry cap exceeded at runtime | A predicate that installs and then aborts the host on every enforce | Low | High | **Structurally impossible.** `enforce` writes no ledger entries at all; the only writes are the four install-time entries and the TTL bump. | None. |
 | C1-D.5 | DoS | Hand-crafted predicate installs and denies on every enforce | A predicate that decodes but never permits | Low | Medium | Every evaluation failure surfaces as a `DenyReason` mapped to a `PolicyError`; the deny is a clean revert, not a hang. | None - fails closed. |
-| C1-E.1 | Elevation of privilege | Hand-crafted permissive predicate (only literal-vs-literal compares) installs and authorises everything | Bypassing the synth to submit raw bytes | Low | Critical | Install refuses any predicate carrying no selector leaf: `SelectorLeafRequired` 216 (`dsl::has_selector_leaf`). A legitimate time-only predicate (`now < literal`) has a selector leaf and still installs. | None for the "binds nothing" case. See the trust-boundary note for what it still does not promise. |
+| C1-E.1 | Elevation of privilege | Hand-crafted permissive predicate (only literal-vs-literal compares) installs and authorises everything | Bypassing the synth to submit raw bytes | Low | Critical | Install refuses any predicate carrying no selector leaf: `SelectorLeafRequired` 216 (`dsl::has_selector_leaf`). A legitimate time-only predicate (`now < literal`) has a selector leaf and still installs. | None for the "binds nothing" case. The trust-boundary note sets out the limit of the guarantee. |
 | C1-E.2 | Elevation of privilege | OZ no-policy rule is all-of-N; POLICED rule is any-of-N | User attaches a POLICED rule expecting "two approvals" by adding a 2nd signer | High | Critical | Surfaced via the review-card `signerNote` whenever `signers.length >= 2`, decoded from the FINAL transaction rather than the input args. The install path also scans the account's other context rules and reports every rule a signer of the new policy could name instead, refusing unless the caller opts in. Off chain only. | Unmitigated at the protocol layer; the note is advisory. Tracked as R-2. |
 | C1-E.3 | Elevation of privilege | External verifier in the master set becomes an unrecoverable state | `require_master` calls `require_auth` on the verifier address, which a plain verifier contract never satisfies | Low | Critical | Install and rotate both refuse External signers in the master set (212). | Tracked as R-3: refusing is the correct behaviour, not a limitation. |
 | C1-E.4 | Elevation of privilege | `install_nonce` replay between two installs | A replayed install overwrites a fresh predicate | Low | High | `install_nonce` must equal `stored_nonce + 1`; mismatch panics 202. `uninstall` removes the nonce with the rest of the state, so a subsequent install starts again at 1. | None. |
@@ -371,24 +371,18 @@ Whether a policy is tight enough for its purpose is established off chain, by
 `runHarness` and the review card, and ultimately by the person approving the
 wallet signature.
 
-### What the contract does not promise
+### Where adjacent controls live
 
-Saying so plainly is part of the model:
+The interpreter answers one question: *is this specific call one the policy
+permits?* Controls outside that question belong to other layers, and an
+operator who needs one sources it there:
 
-- **Call frequency is not bounded.** There is no "at most N calls per window".
-  A policed key may make an unlimited number of calls that satisfy the
-  predicate. The synthesiser surfaces this explicitly on incoming-only flows
-  (`FREQUENCY_BOUND_MISSING`) rather than implying a cap it cannot keep.
-- **Value moved is not bounded by the interpreter.** It never was - the
-  interpreter sees one authorised call, not token movements. Rolling spend caps
-  remain the OZ `spending_limit` primitive's job.
-- **Policy expiry is not enforced by the interpreter.** It is the context rule's
-  `valid_until`, owned by the smart account.
-- **There is no price-conditioned authorisation.**
-
-An operator who needs any of these must obtain them from OZ built-ins, from a
-different layer, or not at all. The honest statement is that this contract
-answers one question well: *is this specific call one the policy permits?*
+| Control | Where it lives |
+|---|---|
+| Rolling spend caps on value moved | The OZ `spending_limit` primitive. The interpreter is passed one authorised call, not token movements. |
+| Policy expiry | The context rule's `valid_until`, owned by the smart account. |
+| A bound on call frequency | Nowhere in this stack. The synthesiser reports `FREQUENCY_BOUND_MISSING` on incoming-only flows, so a caller is told rather than left to assume a cap. |
+| Price-conditioned authorisation | Nowhere in this stack. |
 
 ---
 
