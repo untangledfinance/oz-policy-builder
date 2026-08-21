@@ -157,10 +157,7 @@ export async function runRecordTransaction(
   try {
     return await recordTransaction(coreInput)
   } catch (e) {
-    return {
-      ok: false,
-      error: caughtError('record_transaction', 'RECORDING_FAILED', e),
-    }
+    return toolFailure('record_transaction', e)
   }
 }
 
@@ -200,10 +197,7 @@ export async function runSynthesizePolicy(raw: unknown): Promise<
       ...(input.explain === true ? { explain: true } : {}),
     } as SynthesizeFromRecordingOptions)
   } catch (e) {
-    return {
-      ok: false,
-      error: caughtError('synthesize_policy', 'SYNTHESIS_ERROR', e),
-    }
+    return toolFailure('synthesize_policy', e)
   }
 }
 
@@ -241,10 +235,7 @@ export async function runInstallPolicy(
   try {
     rpcClient = buildRpcClientFromInput(input.rpcUrl, network)
   } catch (e) {
-    return {
-      ok: false,
-      error: caughtError('install_policy', 'INSTALL_BUILD_FAILED', e),
-    }
+    return toolFailure('install_policy', e)
   }
   try {
     const interpreterPolicy = input.rule.policies.find((p) => p.kind === 'interpreter')
@@ -265,10 +256,7 @@ export async function runInstallPolicy(
     })
     return { ok: true, data: result }
   } catch (e) {
-    return {
-      ok: false,
-      error: caughtError('install_policy', 'INSTALL_BUILD_FAILED', e),
-    }
+    return toolFailure('install_policy', e)
   }
 }
 
@@ -305,10 +293,7 @@ export async function runRevokePolicy(
   try {
     rpcClient = buildRpcClientFromInput(input.rpcUrl, network)
   } catch (e) {
-    return {
-      ok: false,
-      error: caughtError('revoke_policy', 'REVOKE_BUILD_FAILED', e),
-    }
+    return toolFailure('revoke_policy', e)
   }
   try {
     const result = await buildRevokePolicyXdr({
@@ -321,10 +306,7 @@ export async function runRevokePolicy(
     })
     return { ok: true, data: result }
   } catch (e) {
-    return {
-      ok: false,
-      error: caughtError('revoke_policy', 'REVOKE_BUILD_FAILED', e),
-    }
+    return toolFailure('revoke_policy', e)
   }
 }
 
@@ -398,7 +380,7 @@ export function runSimulatePolicy(raw: unknown): ToolResponse<{
       },
     }
   } catch (e) {
-    return { ok: false, error: caughtError('simulate_policy', TOOL_ERROR_CODE.simulate_policy, e) }
+    return toolFailure('simulate_policy', e)
   }
 }
 
@@ -445,7 +427,7 @@ export function runVerifyPolicy(raw: unknown): ToolResponse<{
       },
     }
   } catch (e) {
-    return { ok: false, error: caughtError('verify_policy', TOOL_ERROR_CODE.verify_policy, e) }
+    return toolFailure('verify_policy', e)
   }
 }
 
@@ -493,10 +475,7 @@ export async function runGetInterpreterInfo(
     })
     return { ok: true, data: info }
   } catch (e) {
-    return {
-      ok: false,
-      error: caughtError('get_interpreter_info', 'RECORDING_FAILED', e),
-    }
+    return toolFailure('get_interpreter_info', e)
   }
 }
 
@@ -595,6 +574,12 @@ function validationError(
  *  error in `details` for the agent to inspect. Exported as a test-only seam
  *  so the suite in run/index.test.ts can drive the envelope path without
  *  standing up a full recordTransaction pipeline. */
+/** The fail-closed return every tool body uses in its `catch`. Taking only the
+ *  tool name keeps the tool -> error-code mapping in TOOL_ERROR_CODE alone. */
+function toolFailure(toolName: RunToolName, e: unknown): { ok: false; error: ToolError } {
+  return { ok: false, error: caughtError(toolName, TOOL_ERROR_CODE[toolName], e) }
+}
+
 export function caughtError(toolName: RunToolName, code: ErrorCode, e: unknown): ToolError {
   return {
     code,
