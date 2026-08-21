@@ -1,9 +1,8 @@
 // src/adapters/interpreter/adapter.ts - the interpreter-policy CustodyAdapter.
 //
 // Compiles a PolicyIR to a single interpreter `PolicyDocument` + `PolicyRef`
-// carrying the canonical predicate encoding from `predicate/encode.ts`. Second
-// backend (the OZ built-in adapter is the first); the compose step (P3) routes
-// IR constructs between them.
+// carrying the canonical predicate encoding from `predicate/encode.ts`. This is
+// the only backend; the compose step lowers every constraint to it.
 //
 // Three fail-closed enforcement gates (per spec):
 //   - an `in` allowlist (or a `compare eq` vs an address, or any value in an
@@ -88,16 +87,18 @@ export interface CustodyAdapter {
 }
 
 const CAPABILITIES: CustodyCapabilities = {
-  supportsSpendWindow: true,
-  supportsThreshold: false, // thresholds are the OZ adapter's job
+  // A spend window needs a running total across calls, which needs stored
+  // state; the interpreter is passed one authorised call and keeps none.
+  supportsSpendWindow: false,
+  supportsThreshold: false, // signer thresholds are the smart account's own concern
   // Expiry is via the context rule's validUntilLedger, not a predicate - the
   // interpreter refuses a `valid_until` leaf at install.
   supportsTimeExpiry: false,
   supportsGeneralPredicate: true,
 }
 
-/** Parse confidence for a deterministic (non-decoded) input: full (1.0). A
- *  mandate needs no decoding, so the gate is not applicable. */
+/** Parse confidence for a deterministic (non-decoded) input: full (1.0). An
+ *  input that needs no decoding has nothing for the gate to judge. */
 const FULL_PARSE_CONFIDENCE: ParseConfidence = {
   overall: 1,
   knownContracts: [],

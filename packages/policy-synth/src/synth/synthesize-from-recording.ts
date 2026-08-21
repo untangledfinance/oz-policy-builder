@@ -1,9 +1,9 @@
 // src/synth/synthesize-from-recording.ts - recording-path orchestrator.
 //
 // `synthesizeFromRecording` INFERS a bounded policy from a `RecordedTransaction`
-// via the same `PolicyIR` + adapter pair used by the deterministic Mandate path.
+// via the `PolicyIR` + interpreter adapter pair.
 // Flow: validate -> parseConfidence gate -> lower -> decideScope -> composeFromRecording
-// -> OZ compile -> (opt-in) interpreter compile + self-verify + minimise -> merge.
+// -> interpreter compile + self-verify + minimise.
 // Same (tx, opts) -> byte-identical ProposedPolicy (no randomness, clock, globals).
 
 import type { InterpreterAdapterConfig } from '../adapters/interpreter/adapter.ts'

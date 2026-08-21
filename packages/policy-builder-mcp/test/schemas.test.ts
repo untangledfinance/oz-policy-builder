@@ -224,25 +224,33 @@ describe('SynthesizePolicyInputSchema (discriminated union)', () => {
   })
 
   it('rejects an unknown source discriminator', () => {
-    const r = SynthesizePolicyInputSchema.safeParse({
-      source: 'codegen',
-      mandate: { chain: 'stellar', contract: 'C' },
-    })
+    const r = SynthesizePolicyInputSchema.safeParse({ source: 'codegen' })
     expect(r.success).toBe(false)
   })
 
-  it('rejects a mandate approvalThreshold of 0 (not a real M-of-N gate)', () => {
+  it('rejects a userResponses.validUntilLedger above the u32 max', () => {
     const r = SynthesizePolicyInputSchema.safeParse({
-      source: 'mandate',
-      mandate: { chain: 'stellar', contract: 'C', approvalThreshold: 0 },
-    })
-    expect(r.success).toBe(false)
-  })
-
-  it('rejects a validUntilLedger above the u32 max', () => {
-    const r = SynthesizePolicyInputSchema.safeParse({
-      source: 'mandate',
-      mandate: { chain: 'stellar', contract: 'C', expiry: { validUntilLedger: 4294967296 } },
+      source: 'recording',
+      network: 'mainnet',
+      userResponses: { validUntilLedger: 4294967296 },
+      recordedTx: {
+        network: 'mainnet',
+        signers: [],
+        invocations: [],
+        tokenMovements: [],
+        events: [],
+        authEntries: [],
+        ledgerSequence: 1,
+        fetchedAt: 0,
+        parseConfidence: {
+          overall: 1,
+          knownContracts: [],
+          unknownContracts: [],
+          opaqueScVals: [],
+          thresholdUsed: 1,
+        },
+        sourceAccount: 'GSRC',
+      },
     })
     expect(r.success).toBe(false)
   })
@@ -274,18 +282,6 @@ describe('SynthesizePolicyInputSchema (discriminated union)', () => {
           thresholdUsed: 1,
         },
         sourceAccount: 'GSRC',
-      },
-    })
-    expect(r.success).toBe(false)
-  })
-
-  it('rejects a mandate with a non-numeric limit string', () => {
-    const r = SynthesizePolicyInputSchema.safeParse({
-      source: 'mandate',
-      mandate: {
-        chain: 'stellar',
-        contract: 'C',
-        spendingLimit: { token: 'C', limit: 'abc', windowSeconds: 86400 },
       },
     })
     expect(r.success).toBe(false)

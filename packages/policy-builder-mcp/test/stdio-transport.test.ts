@@ -1,7 +1,7 @@
 // packages/policy-builder-mcp/test/stdio-transport.test.ts
 //
 // stdio smoke test: spawn the MCP server over stdio, list the tools, then
-// invoke synthesize_policy (mandate front-end) end-to-end. We use the SDK's
+// invoke synthesize_policy end-to-end. We use the SDK's
 // own Client + StdioClientTransport; both sides speak the canonical JSON-RPC
 // framing so this exercises the wire, not the in-process shortcut.
 

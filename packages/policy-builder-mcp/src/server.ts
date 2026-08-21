@@ -60,7 +60,7 @@ export function registerTools(server: McpServer): void {
 
   server.tool(
     'synthesize_policy',
-    'Synthesize a ProposedPolicy from either a deterministic MandateSpec (`source: mandate`) or a RecordedTransaction (`source: recording`). The discriminated `source` field selects the front-end.',
+    'Synthesize a ProposedPolicy from a RecordedTransaction (`source: recording`).',
     SynthesizePolicyToolShape,
     (args) => runSynthesizePolicy(args).then(toCallToolResult)
   )

@@ -2,7 +2,7 @@
 //
 // Tests the CLI by spawning the bin script and asserting stdout/stderr/exit.
 // Covers: happy path with --json, missing-arg path with non-zero exit, the
-// --out file write, and the mandate + recording front-ends.
+// --out file write, and the recording front-end.
 
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -28,14 +28,6 @@ async function runCli(args: string[]): Promise<CliResult> {
   const stderr = await new Response(proc.stderr).text()
   const exitCode = await proc.exited
   return { stdout, stderr, exitCode }
-}
-
-const MANDATE_FIXTURE = {
-  chain: 'stellar',
-  contract: 'CTOKEN',
-  method: 'transfer',
-  spendingLimit: { token: 'CTOKEN', limit: '5000000', windowSeconds: 2592000 },
-  expiry: { validUntilLedger: 1000000 },
 }
 
 const RECORDING_FIXTURE = {
@@ -187,7 +179,6 @@ const SOROSWAP_FIXTURE = {
 beforeAll(() => {
   mkdirSync(FIXTURES, { recursive: true })
   mkdirSync(TMP, { recursive: true })
-  writeFileSync(resolve(FIXTURES, 'mandate.json'), JSON.stringify(MANDATE_FIXTURE, null, 2))
   writeFileSync(resolve(FIXTURES, 'recorded-tx.json'), JSON.stringify(RECORDING_FIXTURE, null, 2))
   writeFileSync(resolve(FIXTURES, 'soroswap.json'), JSON.stringify(SOROSWAP_FIXTURE, null, 2))
   writeFileSync(resolve(FIXTURES, 'blend-claim.json'), JSON.stringify(BLEND_CLAIM_FIXTURE, null, 2))
@@ -297,7 +288,7 @@ describe('policy-builder CLI', () => {
     expect(written.ok).toBe(true)
   })
 
-  it('synthesize without --mandate or --recorded-tx exits non-zero with the ToolError envelope', async () => {
+  it('synthesize without --recorded-tx exits non-zero with the ToolError envelope', async () => {
     const r = await runCli(['synthesize', '--json'])
     expect(r.exitCode).not.toBe(0)
     const parsed = JSON.parse(r.stdout.trim()) as { ok: boolean; error: { code: string } }

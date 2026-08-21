@@ -50,7 +50,9 @@ describe('interpreter adapter identity + capabilities', () => {
     expect(adapter.name).toBe('interpreter')
     expect(adapter.mode).toBe('enforce')
     expect(adapter.capabilities()).toEqual({
-      supportsSpendWindow: true,
+      // False: a spend window needs a running total across calls, and the
+      // interpreter is passed one authorised call with no stored state.
+      supportsSpendWindow: false,
       supportsThreshold: false,
       // False: the interpreter refuses a `valid_until` predicate leaf at
       // install. Expiry lives on the context rule, not in the predicate.

@@ -8,8 +8,8 @@
 //
 // i128 amounts and other large integers are carried as base-10 decimal strings
 // end-to-end. Networks are pinned to the same closed set the core defines.
-// The discriminated union on `source` exposes BOTH synthesize_policy
-// front-ends through a single tool input.
+// `source` is a single-variant discriminator (`recording`); it stays a union
+// so an unknown value is rejected with a discriminator error.
 //
 // This module is the SINGLE source of truth for these shapes. The MCP package
 // imports them here so its tool-shape bindings stay in step; the CLI imports

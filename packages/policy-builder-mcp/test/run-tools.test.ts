@@ -164,10 +164,9 @@ describe('runSynthesizePolicy (discriminated union)', () => {
     expect(r.data.parseConfidence.overall).toBe(1)
   })
 
-  it('returns a machine-readable ToolError when neither source branch matches (unknown source)', async () => {
+  it('returns a machine-readable ToolError for an unknown source', async () => {
     const r = await runSynthesizePolicy({
       source: 'codegen',
-      mandate: { chain: 'stellar', contract: 'C' },
     })
     expect(r.ok).toBe(false)
     if (!r.ok) {
