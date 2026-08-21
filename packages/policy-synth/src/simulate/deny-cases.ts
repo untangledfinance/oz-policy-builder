@@ -43,11 +43,6 @@ interface PredicateFacts {
   memberships: MembershipNode[]
 }
 
-// Deterministic XLM/USDC adjacency fixture; the shared registry can replace this boundary later.
-const OVERPERMISSIVE_DIMENSIONS = ['argument_reorder'] as const
-
-export { OVERPERMISSIVE_DIMENSIONS }
-
 /** Build deterministic model-evaluated alternatives without mutating the intended call.
  *
  * @param predicate   - the synthesized predicate

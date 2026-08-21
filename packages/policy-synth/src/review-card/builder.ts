@@ -20,7 +20,8 @@
 // hash. There is no clock; the hash never includes a timestamp.
 
 import { createHash } from 'node:crypto'
-import type { ContextRuleDraft, PredicateLeaf, PredicateNode } from '../types.ts'
+import type { ContextRuleDraft, PredicateNode } from '../types.ts'
+import { comparisonOpText, renderHaystackElement, renderVecElement } from './render-leaf.ts'
 
 export interface ReviewCardSummary {
   ruleName: string
@@ -204,47 +205,6 @@ function renderMembership(node: Extract<PredicateNode, { op: 'in' }>): string | 
     return `Recipient/arg must be one of [${list}]`
   }
   return null
-}
-
-function renderVecElement(leaf: PredicateLeaf): string {
-  switch (leaf.kind) {
-    case 'literal_address':
-      return leaf.value
-    case 'literal_i128':
-      return leaf.value
-    case 'literal_symbol':
-      return leaf.value
-    case 'literal_u32':
-      return String(leaf.value)
-    case 'literal_vec':
-      return `[${leaf.elements.map(renderVecElement).join(', ')}]`
-    case 'call_contract':
-    case 'call_fn':
-    case 'call_arg':
-    case 'call_arg_len':
-    case 'call_arg_field':
-      return `<${leaf.kind}>`
-  }
-}
-
-function renderHaystackElement(leaf: PredicateLeaf): string {
-  if (leaf.kind === 'literal_address') return leaf.value
-  if (leaf.kind === 'literal_i128') return leaf.value
-  if (leaf.kind === 'literal_symbol') return leaf.value
-  if (leaf.kind === 'literal_u32') return String(leaf.value)
-  if (leaf.kind === 'literal_vec') {
-    return `[${leaf.elements.map(renderHaystackElement).join(', ')}]`
-  }
-  return `<${leaf.kind}>`
-}
-
-function comparisonOpText(op: 'eq' | 'lte'): string {
-  switch (op) {
-    case 'lte':
-      return '<='
-    case 'eq':
-      return '=='
-  }
 }
 
 /** Render the plain-English one-liner. Format: `<ruleName>: <constraints>`,

@@ -153,7 +153,7 @@ export const InterpreterOptionsSchema = z.object({
   installNonce: z.number().int().positive().optional(),
 })
 
-export const SynthesizePolicyRecordingInputSchema = z.object({
+export const SynthesizePolicyInputSchema = z.object({
   source: z.literal('recording'),
   recordedTx: RecordedTransactionSchema,
   network: NetworkSchema,
@@ -171,7 +171,6 @@ export const SynthesizePolicyRecordingInputSchema = z.object({
   explain: z.boolean().optional(),
 })
 
-export const SynthesizePolicyInputSchema = SynthesizePolicyRecordingInputSchema
 export type SynthesizePolicyInput = z.infer<typeof SynthesizePolicyInputSchema>
 
 // ===== PredicateNode / PredicateLeaf =====
@@ -368,10 +367,6 @@ export const RPC_URL_BY_NETWORK: Record<Network, string> = {
   testnet: TESTNET_RPC_URL,
   mainnet: MAINNET_RPC_URL,
 }
-
-/** Soroban `valid_until` window (ledgers) added to the latest ledger when
- *  building the auth entry. ~25 minutes at 5s/ledger. */
-export const DEFAULT_AUTH_VALID_UNTIL_LEDGERS = 300
 
 /** Stellar network passphrases. Pinned here so the XDR envelope uses the
  *  matching passphrase when the wallet signs (a mismatch yields invalid

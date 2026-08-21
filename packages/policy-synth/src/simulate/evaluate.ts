@@ -80,7 +80,7 @@ function evalCompare(
   if (left.kind === 'call_arg') {
     const actual = ctx.args[left.index]
     if (op !== 'eq') return evalArgOrderedCompare(op, actual, right)
-    return evalArgEq(op, actual, right, ctx)
+    return evalArgEq(op, actual, right)
   }
 
   // call_arg_len: length of a vec-typed argument as u32.
@@ -104,7 +104,7 @@ function evalCompare(
     if (!Array.isArray(element.value)) return { permit: false, reason: 'ARG_MISMATCH' }
     const entry = element.value.find((e) => e.key === left.field)
     if (!entry) return { permit: false, reason: 'ARG_MISMATCH' }
-    if (op === 'eq') return evalArgEq(op, entry.val, right, ctx)
+    if (op === 'eq') return evalArgEq(op, entry.val, right)
     return evalArgOrderedCompare(op, entry.val, right)
   }
 
@@ -115,12 +115,7 @@ function evalCompare(
 /** Per-ScVal equality. Handles literal_vec as an EXACT ordered sequence:
  *  compare element-by-element in order; deny if length or any element differs.
  *  Opaque args (`type: 'other'`) fail closed. */
-function evalArgEq(
-  op: 'eq' | 'lte',
-  actual: ScVal | undefined,
-  right: PredicateLeaf,
-  _ctx: EvalContext
-): EvalResult {
+function evalArgEq(op: 'eq' | 'lte', actual: ScVal | undefined, right: PredicateLeaf): EvalResult {
   // eq(call_arg[i], literal_vec) -> EXACT ordered vector equality.
   if (op === 'eq' && right.kind === 'literal_vec') {
     if (actual?.type !== 'vec') return { permit: false, reason: 'ARG_MISMATCH' }
@@ -222,7 +217,7 @@ function compareVecExact(actual: ScVal[], expected: PredicateLeaf[]): boolean {
     const e = expected[i]
     const a = actual[i]
     if (!e || !a) return false
-    const r = evalArgEq('eq', a, e, {} as EvalContext)
+    const r = evalArgEq('eq', a, e)
     if (!r.permit) return false
   }
   return true
@@ -234,7 +229,7 @@ function evalIn(needle: PredicateLeaf, haystack: PredicateLeaf[], ctx: EvalConte
   const actual = resolveLeaf(needle, ctx)
   if (!actual || actual.type === 'other') return { permit: false, reason: 'NOT_IN_ALLOWLIST' }
   for (const h of haystack) {
-    const r = evalArgEq('eq', actual, h, ctx)
+    const r = evalArgEq('eq', actual, h)
     if (r.permit) return { permit: true }
   }
   return { permit: false, reason: 'NOT_IN_ALLOWLIST' }

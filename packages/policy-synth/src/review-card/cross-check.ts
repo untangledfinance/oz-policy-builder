@@ -15,6 +15,7 @@
 
 import type { PredicateLeaf, PredicateNode } from '../types.ts'
 import type { ReviewCardSummary } from './builder.ts'
+import { comparisonOpText, renderHaystackElement, renderVecElement } from './render-leaf.ts'
 
 /** Assert every leaf in the predicate appears as a constraint string in
  *  `summary.constraints`. Returns the missing templates (without the leaf
@@ -125,45 +126,4 @@ function pushMembership(needle: PredicateLeaf, haystack: PredicateLeaf[], out: s
   if (needle.kind !== 'call_arg') return
   const list = haystack.map(renderHaystackElement).join(', ')
   out.push(`Recipient/arg must be one of [${list}]`)
-}
-
-function renderVecElement(leaf: PredicateLeaf): string {
-  switch (leaf.kind) {
-    case 'literal_address':
-      return leaf.value
-    case 'literal_i128':
-      return leaf.value
-    case 'literal_symbol':
-      return leaf.value
-    case 'literal_u32':
-      return String(leaf.value)
-    case 'literal_vec':
-      return `[${leaf.elements.map(renderVecElement).join(', ')}]`
-    case 'call_contract':
-    case 'call_fn':
-    case 'call_arg':
-    case 'call_arg_len':
-    case 'call_arg_field':
-      return `<${leaf.kind}>`
-  }
-}
-
-function renderHaystackElement(leaf: PredicateLeaf): string {
-  if (leaf.kind === 'literal_address') return leaf.value
-  if (leaf.kind === 'literal_i128') return leaf.value
-  if (leaf.kind === 'literal_symbol') return leaf.value
-  if (leaf.kind === 'literal_u32') return String(leaf.value)
-  if (leaf.kind === 'literal_vec') {
-    return `[${leaf.elements.map(renderHaystackElement).join(', ')}]`
-  }
-  return `<${leaf.kind}>`
-}
-
-function comparisonOpText(op: 'eq' | 'lte'): string {
-  switch (op) {
-    case 'lte':
-      return '<='
-    case 'eq':
-      return '=='
-  }
 }
