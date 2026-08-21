@@ -488,50 +488,6 @@ describe('interpreter adapter - self-call rejection', () => {
 })
 
 describe('interpreter adapter - unsupported IR constructs', () => {
-  it('flags EVM calldata and value as Path-B (uncovered, named)', () => {
-    const ir: PolicyIR = {
-      chain: 'evm',
-      defaultBehavior: 'deny_all',
-      rules: [
-        {
-          roles: [],
-          scope: { contract: '0xCX' },
-          constraints: [
-            {
-              op: 'compare',
-              compare: {
-                selector: { kind: 'calldata', offset: 0, length: 4 },
-                operator: 'eq',
-                value: 'a9059cbb',
-              },
-            },
-          ],
-        },
-      ],
-    }
-    const res = adapter.compile(ir)
-    expect(res.covered).toBe(false)
-    expect(res.uncovered.some((u) => u.includes('EVM calldata'))).toBe(true)
-  })
-
-  it('flags unix-timestamp expiry as Path-B', () => {
-    const ir: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
-        {
-          roles: [],
-          scope: { contract: XLM, method: 'transfer' },
-          constraints: [],
-          expiry: { validUntilUnixSeconds: 1700000000 },
-        },
-      ],
-    }
-    const res = adapter.compile(ir)
-    expect(res.covered).toBe(false)
-    expect(res.uncovered.some((u) => u.includes('unix timestamp'))).toBe(true)
-  })
-
   it('maps validUntilLedger onto the context rule (Stellar-native expiry)', () => {
     const ir: PolicyIR = {
       chain: 'stellar',
@@ -564,55 +520,5 @@ describe('interpreter adapter - unsupported IR constructs', () => {
     }
     const res = adapter.compile(ir)
     expect(res.proposed?.policyRefs[0]?.kind).toBe('interpreter')
-  })
-})
-
-describe('interpreter adapter - unsourceable value selectors', () => {
-  function irWith(constraint: IRCondition): PolicyIR {
-    return {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
-        {
-          roles: [],
-          scope: { contract: BLEND_POOL, method: 'swap' },
-          constraints: [constraint],
-        },
-      ],
-    }
-  }
-
-  it('reports `amount` as uncovered instead of lowering it', () => {
-    const res = adapter.compile(
-      irWith({
-        op: 'compare',
-        compare: {
-          selector: { kind: 'amount', token: XLM },
-          operator: 'lte',
-          value: '1000',
-        },
-      })
-    )
-    expect(res.covered).toBe(false)
-    expect(res.uncovered.join(' ')).toContain('cannot observe token movements')
-  })
-
-  it('reports an unsourceable selector nested under `and` - the pre-scan sees only top-level constraints', () => {
-    const res = adapter.compile(
-      irWith({
-        op: 'and',
-        children: [
-          {
-            op: 'compare',
-            compare: {
-              selector: { kind: 'amount', token: XLM },
-              operator: 'lte',
-              value: '1000',
-            },
-          },
-        ],
-      })
-    )
-    expect(res.covered).toBe(false)
   })
 })

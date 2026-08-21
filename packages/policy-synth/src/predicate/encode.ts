@@ -2,7 +2,7 @@
 //
 // Pure function. Maps a `PredicateNode` AST to the canonical ScVal wire format:
 //   - every node is a `ScVal::Vec` whose head element is the tag `ScVal::Symbol`
-//   - children of `and` / `or` are sorted ascending by their canonical XDR bytes
+//   - children of `and` are sorted ascending by their canonical XDR bytes
 //   - `in` haystacks are ALWAYS sorted by canonical XDR bytes (pure set
 //     membership); an EXACT ordered sequence is expressed as
 //     `eq(selector, literal_vec)` where the `literal_vec` element order is
@@ -124,8 +124,7 @@ function walk(
   counters: { selectorLeaves: number }
 ): { depth: number; leaves: number } {
   switch (node.op) {
-    case 'and':
-    case 'or': {
+    case 'and': {
       if (node.children.length === 0) {
         throw capError(
           'MALFORMED_PREDICATE',
@@ -141,15 +140,8 @@ function walk(
       }
       return { depth: maxChildDepth + 1, leaves: totalLeaves }
     }
-    case 'not': {
-      const child = walk(node.child, inCounts, counters)
-      return { depth: child.depth + 1, leaves: child.leaves }
-    }
     case 'eq':
-    case 'lt':
-    case 'lte':
-    case 'gt':
-    case 'gte': {
+    case 'lte': {
       collectSelector(node.left, counters)
       collectSelector(node.right, counters)
       return { depth: 1, leaves: leafCount(node.left) + leafCount(node.right) }
@@ -200,21 +192,14 @@ function collectSelector(leaf: PredicateLeaf, counters: { selectorLeaves: number
 
 function encodeNode(node: PredicateNode): xdr.ScVal {
   switch (node.op) {
-    case 'and':
-    case 'or': {
+    case 'and': {
       const encoded = node.children.map(encodeNode)
       // sort children by their canonical XDR bytes ascending.
       const sorted = sortByCanonicalBytes(encoded)
       return xdr.ScVal.scvVec([symbol(node.op), xdr.ScVal.scvVec(sorted)])
     }
-    case 'not': {
-      return xdr.ScVal.scvVec([symbol('not'), encodeNode(node.child)])
-    }
     case 'eq':
-    case 'lt':
-    case 'lte':
-    case 'gt':
-    case 'gte': {
+    case 'lte': {
       return xdr.ScVal.scvVec([symbol(node.op), encodeLeaf(node.left), encodeLeaf(node.right)])
     }
     case 'in': {
@@ -246,8 +231,6 @@ function encodeLeaf(leaf: PredicateLeaf): xdr.ScVal {
         xdr.ScVal.scvU32(leaf.element),
         xdr.ScVal.scvSymbol(leaf.field),
       ])
-    case 'now':
-      return xdr.ScVal.scvVec([symbol('now')])
     case 'literal_address':
       return scvAddressFromStrkey(leaf.value)
     case 'literal_i128':
@@ -256,10 +239,6 @@ function encodeLeaf(leaf: PredicateLeaf): xdr.ScVal {
       return xdr.ScVal.scvSymbol(leaf.value)
     case 'literal_u32':
       return xdr.ScVal.scvU32(leaf.value)
-    case 'literal_u64':
-      return scvU64FromValue(leaf.value)
-    case 'literal_bytes':
-      return xdr.ScVal.scvBytes(Buffer.from(leaf.value, 'hex'))
     case 'literal_vec':
       // Bare ScVal::Vec of element encodings - order is preserved verbatim
       // because the order IS the semantic (exact ordered sequence equality).
@@ -279,12 +258,6 @@ function sortByCanonicalBytes(values: xdr.ScVal[]): xdr.ScVal[] {
 
 function scvAddressFromStrkey(strkey: string): xdr.ScVal {
   return xdr.ScVal.scvAddress(Address.fromString(strkey).toScAddress())
-}
-
-function scvU64FromValue(value: number | string): xdr.ScVal {
-  // The Uint64 (UnsignedHyper) constructor accepts string | bigint | number;
-  // string is safest for values > 2^53.
-  return xdr.ScVal.scvU64(new xdr.Uint64(String(value)))
 }
 
 /** Build `ScVal::I128(Int128Parts{hi, lo})` from a signed decimal string.
@@ -363,31 +336,22 @@ function validateLeafValues(node: PredicateNode): void {
           throw malformed(`call_arg_field.element out of u32 range at ${path}`)
         }
         return
-      case 'now':
       case 'call_contract':
       case 'call_fn':
       case 'literal_address':
       case 'literal_symbol':
-      case 'literal_u64':
         return
     }
   }
   function walkNode(n: PredicateNode, path: string): void {
     switch (n.op) {
       case 'and':
-      case 'or':
         n.children.forEach((c, i) => {
           walkNode(c, `${path}.children[${i}]`)
         })
         return
-      case 'not':
-        walkNode(n.child, `${path}.child`)
-        return
       case 'eq':
-      case 'lt':
       case 'lte':
-      case 'gt':
-      case 'gte':
         walkLeaf(n.left, `${path}.left`)
         walkLeaf(n.right, `${path}.right`)
         return

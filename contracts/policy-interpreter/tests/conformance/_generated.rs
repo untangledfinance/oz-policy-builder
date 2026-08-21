@@ -47,8 +47,6 @@ fn case_permit() {
         ),
         fn_name: Symbol::new(&env, "submit"),
         args,
-        at_ledger: 63636465u32,
-        now_seconds: 1000000000u64,
     };
     let d = evaluate(&env, &root, &ctx);
     match d {
@@ -73,8 +71,6 @@ fn case_deny_arg_bound() {
         ),
         fn_name: Symbol::new(&env, "submit"),
         args,
-        at_ledger: 63636465u32,
-        now_seconds: 1000000000u64,
     };
     let d = evaluate(&env, &root, &ctx);
     match d {
@@ -100,8 +96,6 @@ fn case_deny_map_field_flip() {
         ),
         fn_name: Symbol::new(&env, "submit"),
         args,
-        at_ledger: 63636465u32,
-        now_seconds: 1000000000u64,
     };
     let d = evaluate(&env, &root, &ctx);
     match d {
@@ -127,8 +121,6 @@ fn case_deny_map_field_flip_2() {
         ),
         fn_name: Symbol::new(&env, "submit"),
         args,
-        at_ledger: 63636465u32,
-        now_seconds: 1000000000u64,
     };
     let d = evaluate(&env, &root, &ctx);
     match d {
@@ -154,8 +146,6 @@ fn case_deny_map_field_flip_3() {
         ),
         fn_name: Symbol::new(&env, "submit"),
         args,
-        at_ledger: 63636465u32,
-        now_seconds: 1000000000u64,
     };
     let d = evaluate(&env, &root, &ctx);
     match d {
@@ -181,8 +171,6 @@ fn case_deny_vec_append() {
         ),
         fn_name: Symbol::new(&env, "submit"),
         args,
-        at_ledger: 63636465u32,
-        now_seconds: 1000000000u64,
     };
     let d = evaluate(&env, &root, &ctx);
     match d {

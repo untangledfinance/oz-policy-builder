@@ -94,9 +94,6 @@ function decodeSelectorLeaf(items: xdr.ScVal[], sym: string): PredicateLeaf {
         element: expectU32(items[2], 'call_arg_field element'),
         field: expectSymbol(items[3], 'call_arg_field field'),
       }
-    case 'now':
-      arity(items, 1, sym)
-      return { kind: 'now' }
     default:
       // Deliberately NOT a literal_vec fallback - see the header note.
       throw malformed(`unknown selector symbol '${sym}'`)
@@ -119,38 +116,27 @@ export function decodeLeaf(v: xdr.ScVal): PredicateLeaf {
       return { kind: 'literal_symbol', value: v.sym().toString() }
     case xdr.ScValType.scvU32():
       return { kind: 'literal_u32', value: v.u32() }
-    case xdr.ScValType.scvU64():
-      return { kind: 'literal_u64', value: v.u64().toString() }
     case xdr.ScValType.scvI128():
       return { kind: 'literal_i128', value: scValToBigInt(v).toString() }
-    case xdr.ScValType.scvBytes():
-      return { kind: 'literal_bytes', value: Buffer.from(v.bytes()).toString('hex') }
     default:
       throw malformed(`unsupported leaf value type ${v.switch().name}`)
   }
 }
 
-/** One node. `not` wraps a NODE; the comparison ops wrap two LEAVES. */
+/** One node. The comparison ops wrap two LEAVES. */
 export function decodeNode(v: xdr.ScVal): PredicateNode {
   const items = expectVec(v, 'node')
   const op = selectorSymbol(items)
   if (op === null) throw malformed('node does not start with an operator symbol')
   switch (op) {
-    case 'and':
-    case 'or': {
+    case 'and': {
       arity(items, 2, op)
       const children = expectVec(items[1] as xdr.ScVal, `${op} children`).map(decodeNode)
       if (children.length === 0) throw malformed(`${op} has no children`)
       return { op, children }
     }
-    case 'not':
-      arity(items, 2, op)
-      return { op: 'not', child: decodeNode(items[1] as xdr.ScVal) }
     case 'eq':
-    case 'lt':
     case 'lte':
-    case 'gt':
-    case 'gte':
       arity(items, 3, op)
       return {
         op,

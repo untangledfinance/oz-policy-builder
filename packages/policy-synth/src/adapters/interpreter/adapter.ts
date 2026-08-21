@@ -188,48 +188,9 @@ function lowerRule(rule: IRPolicyRule, config: InterpreterAdapterConfig): Lowere
   // constraints. The top-level MUST be `and` for canonical hash stability.
   const scopeContract: string | undefined = rule.scope.contract
   const scopeMethod: string | undefined = rule.scope.method
-  if (rule.scope.chainId !== undefined) {
-    uncovered.push(
-      `chainId \`${rule.scope.chainId}\` not bindable by the interpreter adapter (network is per-context, not per-rule)`
-    )
-  }
-
-  if (rule.roles.length > 0) {
-    uncovered.push(
-      `roles [${rule.roles.join(', ')}] dropped (role-to-signer mapping is a later phase; interpreter policies reference addresses, not role names)`
-    )
-  }
-
-  if (rule.guard) {
-    uncovered.push(
-      `guard: ${describeCondition(rule.guard)} (interpreter adapter currently treats guards as uncovered)`
-    )
-  }
-
-  // expiry -> context rule validUntilLedger only. The interpreter has no
-  // expiry selector of its own, and the IR contract already says "OZ context
-  // rules expire by ledger sequence", so a unix-timestamp expiry is Path-B and
-  // both adapters keep one expiry model.
-  let validUntilLedger: number | null = null
-  if (rule.expiry) {
-    if (rule.expiry.validUntilLedger !== undefined) {
-      validUntilLedger = rule.expiry.validUntilLedger
-    } else if (rule.expiry.validUntilUnixSeconds !== undefined) {
-      uncovered.push(
-        'time expiry given as a unix timestamp (interpreter adapter currently lowers expiry only via the OZ context-rule validUntilLedger; supply expiry.validUntilLedger)'
-      )
-    }
-  }
-
-  // approval is the OZ adapter's job (it lowers to simple_threshold /
-  // weighted_threshold primitives). Surface it here so a caller that drops it
-  // through to the interpreter adapter sees an explicit uncovered entry
-  // instead of a silently-dropped M-of-N gate.
-  if (rule.approval) {
-    uncovered.push(
-      `approval threshold ${rule.approval.threshold} not emitted by the interpreter adapter (thresholds lower to OZ built-in primitives in the OZ adapter)`
-    )
-  }
+  // expiry -> the context rule's own validUntilLedger. The interpreter has no
+  // expiry selector; a policy's lifetime is the OZ context rule's lifetime.
+  const validUntilLedger: number | null = rule.expiry?.validUntilLedger ?? null
 
   // Pre-scan constraints: anything the interpreter adapter cannot express is
   // named in `uncovered` and skipped from the predicate lowering. We surface
@@ -294,53 +255,16 @@ function lowerRule(rule: IRPolicyRule, config: InterpreterAdapterConfig): Lowere
 function unsupportedConstruct(cond: IRCondition): string | null {
   switch (cond.op) {
     case 'in':
-      return (
-        unsourceableSelector(cond.selector) ??
-        (cond.selector.kind === 'calldata' || cond.selector.kind === 'value'
-          ? `EVM \`${cond.selector.kind}\` selector on allowlist (predicate DSL)`
-          : null)
-      )
     case 'eq_seq':
-      return (
-        unsourceableSelector(cond.selector) ??
-        (cond.selector.kind === 'calldata' || cond.selector.kind === 'value'
-          ? `EVM \`${cond.selector.kind}\` selector on ordered-sequence equality (predicate DSL)`
-          : null)
-      )
-    case 'compare': {
-      const s = cond.compare.selector
-      if (s.kind === 'calldata') return 'EVM calldata comparison (predicate DSL)'
-      if (s.kind === 'value') return 'tx.value comparison (predicate DSL)'
-      // The on-chain interpreter sees ONE authorized call - no
-      // `Context.sub_invocations` in v1 - so it cannot observe token
-      // movements, so `amount` has no value to read. Deriving it from the call
-      // payload would quietly swap "value actually moved" for "value the caller
-      // declared" - a weaker guarantee than the review card would be claiming.
-      //
-      // A cap on the call's own amount argument IS expressible, as `arg` or
-      // `arg_field`; that is what the synthesiser emits for `limitAmount`.
-      return unsourceableSelector(s)
-    }
-    // Recurse: a nested `and`/`or`/`not` must not smuggle a selector past the
+    case 'compare':
+      // All remaining IR selector kinds are sourceable on chain by the
+      // interpreter; nothing to filter at the pre-scan.
+      return null
+    // Recurse: a nested `and` must not smuggle a selector past the
     // pre-scan, which only sees top-level constraints.
     case 'and':
       return cond.children.map(unsupportedConstruct).find((u) => u !== null) ?? null
-    case 'or':
-      return cond.children.map(unsupportedConstruct).find((u) => u !== null) ?? null
-    case 'not':
-      return unsupportedConstruct(cond.child)
   }
-}
-
-/** Selectors whose value the on-chain interpreter has no way to obtain. */
-function unsourceableSelector(s: IRSelector): string | null {
-  if (s.kind === 'amount') {
-    return `per-call amount comparison on ${s.token} - the interpreter cannot observe token movements; bound the call's own amount argument instead (arg or arg_field). A rolling per-window total is not expressible: accumulating one needs stored state the interpreter does not keep`
-  }
-  if (s.kind === 'valid_until') {
-    return 'expiry comparison - the interpreter has no `valid_until` selector; expiry belongs to the context rule (expiry.validUntilLedger)'
-  }
-  return null
 }
 
 /** Lower one IR condition to a PredicateNode.
@@ -350,10 +274,6 @@ function lowerCondition(cond: IRCondition, config: InterpreterAdapterConfig): Pr
   switch (cond.op) {
     case 'and':
       return { op: 'and', children: cond.children.map((c) => lowerCondition(c, config)) }
-    case 'or':
-      return { op: 'or', children: cond.children.map((c) => lowerCondition(c, config)) }
-    case 'not':
-      return { op: 'not', child: lowerCondition(cond.child, config) }
     case 'in': {
       for (const v of cond.values) {
         assertNotSelfCallAddress(v, config)
@@ -412,24 +332,6 @@ function lowerSelector(s: IRSelector): PredicateLeaf {
       return { kind: 'call_arg_len', index: s.argIndex }
     case 'arg_field':
       return { kind: 'call_arg_field', index: s.argIndex, element: s.element, field: s.field }
-    // `amount` / `window_spent` / `valid_until` are filtered out by
-    // `unsupportedConstruct` before lowering - the interpreter can source
-    // none of them on chain. Reaching here means the pre-scan was bypassed;
-    // fail loudly rather than emit a leaf the contract will refuse.
-    case 'amount':
-    case 'valid_until':
-      throw new Error(
-        `interpreter adapter cannot lower \`${s.kind}\`: it should have been reported as uncovered`
-      )
-    case 'now':
-      return { kind: 'now' }
-    case 'calldata':
-    case 'value':
-      // Unreachable: the caller flagged these as Path-B before reaching here.
-      throw toolError(
-        'SYNTHESIS_ERROR',
-        `selector kind \`${s.kind}\` is not lowerable to a predicate leaf`
-      )
   }
 }
 
@@ -448,57 +350,28 @@ function literalFromIRCompare(c: IRCompare): PredicateLeaf {
   return literalFromScalar(c.value, scalarType)
 }
 
-function literalScalarForSelector(kind: IRSelector['kind']): IRScalarType {
-  switch (kind) {
-    case 'amount':
-      return 'i128'
-    case 'arg_len':
-      return 'u32'
-    case 'now':
-    case 'valid_until':
-      return 'u64'
-    case 'arg':
-    case 'arg_field':
-    case 'calldata':
-    case 'value':
-      // arg / arg_field -> caller handles scalarType; calldata/value -> unreachable (Path-B).
-      return 'i128'
-  }
-}
-
 /** Build a literal leaf from a raw string value + an IRScalarType hint. */
 function literalFromScalar(value: string, scalarType: IRScalarType): PredicateLeaf {
   switch (scalarType) {
     case 'address':
       return { kind: 'literal_address', value }
     case 'i128':
-    case 'u128':
       return { kind: 'literal_i128', value }
     case 'u32':
       return { kind: 'literal_u32', value: Number.parseInt(value, 10) }
-    case 'u64':
-    case 'i64':
-      return { kind: 'literal_u64', value }
     case 'symbol':
       return { kind: 'literal_symbol', value }
-    case 'bytes':
-      return { kind: 'literal_bytes', value }
-    case 'bool':
-      throw toolError(
-        'MALFORMED_PREDICATE',
-        `boolean literal not supported in v1 predicate grammar`
-      )
   }
 }
 
 /** Scalar type of an IRSelector for the purpose of building literal leaves
  *  (the right-hand side of `eq` / elements of an `in` haystack / elements of
- *  a `literal_vec`). Mirrors `literalScalarForSelector` for OZ extensions and
- *  uses the selector's own `scalarType` for `arg` and `arg_field` selectors. */
+ *  a `literal_vec`). `arg` / `arg_field` carry their own `scalarType`;
+ *  `arg_len` is fixed at u32 (vec length is a small non-negative integer). */
 function selectorScalarType(selector: IRSelector): IRScalarType {
   if (selector.kind === 'arg') return selector.scalarType
   if (selector.kind === 'arg_field') return selector.scalarType
-  return literalScalarForSelector(selector.kind)
+  return 'u32'
 }
 
 /** Reject a value that targets the smart account's own address (a self-call
@@ -509,59 +382,6 @@ function assertNotSelfCallAddress(value: string, config: InterpreterAdapterConfi
       'SCOPE_SELF_CALL',
       `value \`${value}\` is the smart account's own address (self-call in an allowlist / compare is rejected)`
     )
-  }
-}
-
-/** Human-readable descriptor for a construct the interpreter adapter cannot
- *  express. Mirrors the OZ adapter's `describeCondition` for parity. */
-function describeCondition(cond: IRCondition): string {
-  switch (cond.op) {
-    case 'in':
-      return `value allowlist on ${describeSelector(cond.selector)} (predicate DSL)`
-    case 'eq_seq':
-      return `exact ordered sequence on ${describeSelector(cond.selector)} (predicate DSL)`
-    case 'not':
-      return 'negated condition (predicate DSL)'
-    case 'and':
-    case 'or':
-      return `nested ${cond.op} condition (predicate DSL)`
-    case 'compare': {
-      const s = cond.compare.selector
-      switch (s.kind) {
-        case 'amount':
-          return `per-call amount comparison on ${s.token}`
-        case 'arg':
-          return `argument comparison on arg ${s.argIndex}`
-        case 'arg_len':
-          return `vec length comparison on arg ${s.argIndex}`
-        case 'arg_field':
-          return `map field comparison on arg ${s.argIndex}.${s.field}`
-        case 'calldata':
-          return 'EVM calldata comparison'
-        case 'value':
-          return 'tx.value comparison'
-        case 'now':
-        case 'valid_until':
-          return 'time comparison'
-      }
-    }
-  }
-}
-
-function describeSelector(s: IRSelector): string {
-  switch (s.kind) {
-    case 'arg':
-      return `arg ${s.argIndex}`
-    case 'arg_len':
-      return `arg_len(${s.argIndex})`
-    case 'arg_field':
-      return `arg_field(${s.argIndex}, ${s.element}, ${s.field})`
-    case 'amount':
-      return `amount(${s.token})`
-    case 'calldata':
-      return `calldata[${s.offset}:${s.offset + s.length}]`
-    default:
-      return s.kind
   }
 }
 

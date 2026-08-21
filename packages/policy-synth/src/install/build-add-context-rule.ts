@@ -50,13 +50,7 @@
 import { createHash } from 'node:crypto'
 import { Address, xdr } from '@stellar/stellar-sdk'
 import type { ToolError } from '../errors.ts'
-import {
-  type ContextRuleDraft,
-  OZ_LIMITS,
-  type OZPrimitiveConfig,
-  type PolicyRef,
-  type SignerDraft,
-} from '../types.ts'
+import { type ContextRuleDraft, OZ_LIMITS, type PolicyRef, type SignerDraft } from '../types.ts'
 
 /** Inputs for `buildAddContextRuleArgs`. The fields are the ones the contract
  *  validates at install; everything else is downstream. */
@@ -82,7 +76,7 @@ export interface BuildAddContextRuleArgs {
   grammarVersion?: number
 }
 
-export const DEFAULT_GRAMMAR_VERSION = 2 as const
+export const DEFAULT_GRAMMAR_VERSION = 3 as const
 
 /** The verb `add_context_rule` takes on the wire. */
 export const ADD_CONTEXT_RULE_SYMBOL = 'add_context_rule' as const
@@ -121,20 +115,6 @@ export function buildAddContextRuleArgs(
       'INSTALL_BUILD_FAILED',
       'a rule with no signers and no policies is refused at install (NoSignersAndPolicies)'
     )
-  }
-  // OZ's spending_limit caps spend on the CONTEXT CONTRACT - it takes no
-  // token argument - so it refuses a Default rule on chain with a bare
-  // #3227. Say which rule shape it needs here, before the encoding, rather
-  // than letting the user read a numeric trap.
-  if (
-    args.policies.some((p) => p.kind === 'oz_builtin' && p.primitive.primitive === 'spending_limit')
-  ) {
-    if (draft.contextRuleType.kind !== 'call_contract') {
-      throw limitError(
-        'INSTALL_BUILD_FAILED',
-        `spending_limit caps spend on the rule's context contract, so the rule must be call_contract-scoped to that token - a "${draft.contextRuleType.kind}" rule is refused on chain (#3227)`
-      )
-    }
   }
 
   // ---- 2. context_type encoding ----
@@ -215,90 +195,10 @@ function encodePoliciesMap(args: BuildAddContextRuleArgs): xdr.ScVal {
           val: encodePolicyInstallParams(args),
         })
       )
-    } else if (ref.kind === 'oz_builtin') {
-      entries.push(
-        new xdr.ScMapEntry({
-          key: Address.fromString(ref.instanceAddress).toScVal(),
-          val: encodeOzPrimitiveParams(ref.primitive),
-        })
-      )
     }
   }
   entries.sort(sortByScValSymbolString)
   return xdr.ScVal.scvMap(entries)
-}
-
-/** Encode the install params for one OZ built-in policy.
- *
- *  Field names and types are read from the deployed contracts' own spec:
- *    SpendingLimitAccountParams   { period_ledgers: u32, spending_limit: i128 }
- *    SimpleThresholdAccountParams { threshold: u32 }
- *    WeightedThresholdAccountParams { signer_weights: map, threshold: u32 }
- *  Entries are symbol-string ordered for the same reason the interpreter's
- *  are: the host orders by symbol, not by XDR bytes.
- */
-function encodeOzPrimitiveParams(primitive: OZPrimitiveConfig): xdr.ScVal {
-  const entries: xdr.ScMapEntry[] = []
-  const push = (name: string, val: xdr.ScVal) =>
-    entries.push(new xdr.ScMapEntry({ key: xdr.ScVal.scvSymbol(name), val }))
-  const p = primitive.params as Record<string, unknown>
-  switch (primitive.primitive) {
-    case 'spending_limit': {
-      const limit = p.spending_limit
-      const period = p.period_ledgers
-      if (typeof limit !== 'string' || typeof period !== 'number') {
-        throw limitError(
-          'INSTALL_BUILD_FAILED',
-          'spending_limit needs { spending_limit: string; period_ledgers: number }'
-        )
-      }
-      push('period_ledgers', xdr.ScVal.scvU32(period))
-      push('spending_limit', encodeI128(limit))
-      break
-    }
-    case 'simple_threshold': {
-      const threshold = p.threshold
-      if (typeof threshold !== 'number') {
-        throw limitError('INSTALL_BUILD_FAILED', 'simple_threshold needs { threshold: number }')
-      }
-      push('threshold', xdr.ScVal.scvU32(threshold))
-      break
-    }
-    case 'weighted_threshold': {
-      const threshold = p.threshold
-      const weights = p.weights as Record<string, number> | undefined
-      if (typeof threshold !== 'number' || !weights) {
-        throw limitError(
-          'INSTALL_BUILD_FAILED',
-          'weighted_threshold needs { threshold: number; weights: Record<address, number> }'
-        )
-      }
-      const weightEntries = Object.entries(weights)
-        .map(
-          ([addr, w]) =>
-            new xdr.ScMapEntry({
-              key: Address.fromString(addr).toScVal(),
-              val: xdr.ScVal.scvU32(w),
-            })
-        )
-        .sort((a, b) => (a.key().toXDR('base64') < b.key().toXDR('base64') ? -1 : 1))
-      push('signer_weights', xdr.ScVal.scvMap(weightEntries))
-      push('threshold', xdr.ScVal.scvU32(threshold))
-      break
-    }
-  }
-  entries.sort((a, b) => sortBySymbolString(a.key(), b.key()))
-  return xdr.ScVal.scvMap(entries)
-}
-
-function encodeI128(value: string): xdr.ScVal {
-  const v = BigInt(value)
-  return xdr.ScVal.scvI128(
-    new xdr.Int128Parts({
-      hi: new xdr.Int64(BigInt.asIntN(64, v >> 64n)),
-      lo: new xdr.Uint64(BigInt.asUintN(64, v)),
-    })
-  )
 }
 
 function encodePolicyInstallParams(args: BuildAddContextRuleArgs): xdr.ScVal {

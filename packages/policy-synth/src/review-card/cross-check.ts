@@ -43,17 +43,10 @@ export function summaryCrossCheck(
 function collect(node: PredicateNode, out: string[]): void {
   switch (node.op) {
     case 'and':
-    case 'or':
       for (const child of node.children) collect(child, out)
       return
-    case 'not':
-      collect(node.child, out)
-      return
     case 'eq':
-    case 'lt':
     case 'lte':
-    case 'gt':
-    case 'gte':
       pushComparison(node.left, node.right, node.op, out)
       return
     case 'in':
@@ -65,7 +58,7 @@ function collect(node: PredicateNode, out: string[]): void {
 function pushComparison(
   left: PredicateLeaf,
   right: PredicateLeaf,
-  op: 'eq' | 'lt' | 'lte' | 'gt' | 'gte',
+  op: 'eq' | 'lte',
   out: string[]
 ): void {
   if (left.kind === 'call_contract' && op === 'eq' && right.kind === 'literal_address') {
@@ -97,14 +90,6 @@ function pushComparison(
       out.push(`${head} ${sep} ${right.value}`)
       return
     }
-    if (right.kind === 'literal_bytes') {
-      out.push(`${head} ${sep} ${right.value}`)
-      return
-    }
-    if (right.kind === 'literal_u64') {
-      out.push(`${head} ${sep} ${right.value}`)
-      return
-    }
     if (right.kind === 'literal_i128') {
       out.push(`${head} ${sep} ${right.value}`)
       return
@@ -126,11 +111,9 @@ function pushComparison(
     const sep = op === 'eq' ? '=' : comparisonOpText(op)
     if (
       right.kind === 'literal_i128' ||
-      right.kind === 'literal_u64' ||
       right.kind === 'literal_u32' ||
       right.kind === 'literal_address' ||
-      right.kind === 'literal_symbol' ||
-      right.kind === 'literal_bytes'
+      right.kind === 'literal_symbol'
     ) {
       out.push(`${head} ${sep} ${right.value}`)
       return
@@ -154,10 +137,6 @@ function renderVecElement(leaf: PredicateLeaf): string {
       return leaf.value
     case 'literal_u32':
       return String(leaf.value)
-    case 'literal_u64':
-      return leaf.value
-    case 'literal_bytes':
-      return leaf.value
     case 'literal_vec':
       return `[${leaf.elements.map(renderVecElement).join(', ')}]`
     case 'call_contract':
@@ -165,7 +144,6 @@ function renderVecElement(leaf: PredicateLeaf): string {
     case 'call_arg':
     case 'call_arg_len':
     case 'call_arg_field':
-    case 'now':
       return `<${leaf.kind}>`
   }
 }
@@ -175,24 +153,16 @@ function renderHaystackElement(leaf: PredicateLeaf): string {
   if (leaf.kind === 'literal_i128') return leaf.value
   if (leaf.kind === 'literal_symbol') return leaf.value
   if (leaf.kind === 'literal_u32') return String(leaf.value)
-  if (leaf.kind === 'literal_u64') return leaf.value
-  if (leaf.kind === 'literal_bytes') return leaf.value
   if (leaf.kind === 'literal_vec') {
     return `[${leaf.elements.map(renderHaystackElement).join(', ')}]`
   }
   return `<${leaf.kind}>`
 }
 
-function comparisonOpText(op: 'eq' | 'lt' | 'lte' | 'gt' | 'gte'): string {
+function comparisonOpText(op: 'eq' | 'lte'): string {
   switch (op) {
-    case 'lt':
-      return '<'
     case 'lte':
       return '<='
-    case 'gt':
-      return '>'
-    case 'gte':
-      return '>='
     case 'eq':
       return '=='
   }

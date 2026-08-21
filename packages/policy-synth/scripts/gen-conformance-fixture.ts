@@ -23,16 +23,15 @@
 // Restriction: signerWeights is out of scope; cases that need it are skipped
 // and counted in the generated header.
 
+import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { argv, exit } from 'node:process'
 import { Address, xdr } from '@stellar/stellar-sdk'
-
-import { placeholderOzConfig } from '../src/adapters/oz/adapter.ts'
-import { generateCases } from '../src/synth/deny-cases.ts'
-import { type EvalContext, evaluate } from '../src/synth/evaluate.ts'
 import { synthesizeFromRecording } from '../src/synth/synthesize-from-recording.ts'
 import type { PredicateNode, RecordedTransaction, ScVal } from '../src/types.ts'
+import { generateCases } from './conformance/deny-cases.ts'
+import { type EvalContext, evaluate } from './conformance/evaluate.ts'
 
 // ---------------------------------------------------------------------------
 // Inputs
@@ -55,20 +54,14 @@ interface Decoded {
  *  from inputs the repo actually ships: any grammar change flows through the
  *  same pipeline the product uses, so a stale intermediate cannot drift. */
 function synthesizePredicate(tx: RecordedTransaction, opts: SynthFlags): Decoded {
-  const res = synthesizeFromRecording(
-    tx,
-    {
-      network: 'mainnet',
-      userResponses: {
-        windowSeconds: opts.windowSeconds,
-        invocationLimit: opts.invocationLimit,
-        validUntilLedger: opts.validUntilLedger,
-      },
-      interpreter: { smartAccountAddress: opts.smartAccount, installNonce: 1 },
-      explain: true,
+  const res = synthesizeFromRecording(tx, {
+    network: 'mainnet',
+    userResponses: {
+      validUntilLedger: opts.validUntilLedger,
     },
-    placeholderOzConfig('mainnet')
-  )
+    interpreter: { smartAccountAddress: opts.smartAccount, installNonce: 1 },
+    explain: true,
+  })
   if (!res.ok) throw new Error(`synthesis failed: ${res.error.code} ${res.error.message}`)
   const doc = res.data.policyDocuments[0]
   const tree = res.explain?.predicateTree
@@ -156,12 +149,8 @@ function tsScValToXdr(v: ScVal): xdr.ScVal {
 interface SerializedCtx {
   contract: string
   fn: string
-  /** Per-arg ScVal-XDR base64 strings; [] = empty args vec. */
+  /** Per-arg ScVal-XDR hex strings; [] = empty args vec. */
   args: string[]
-  atLedger: number
-  nowSeconds: number
-  amountByToken: Array<[string, string]>
-  windowSpentByToken: Array<[string, number, string]>
 }
 
 function serializeCtx(ctx: EvalContext): SerializedCtx {
@@ -169,17 +158,6 @@ function serializeCtx(ctx: EvalContext): SerializedCtx {
     contract: ctx.contract,
     fn: ctx.fn,
     args: ctx.args.map(scvalToHex),
-    atLedger: ctx.atLedger,
-    nowSeconds: ctx.nowSeconds,
-    amountByToken: Object.entries(ctx.amountByToken).sort() as Array<[string, string]>,
-    windowSpentByToken: Object.entries(ctx.windowSpentByToken)
-      .sort()
-      .flatMap(([token, body]) => {
-        const m = body as unknown as Record<number, string>
-        return Object.entries(m).map(
-          ([ws, v]) => [token, Number(ws), v] as [string, number, string]
-        )
-      }),
   }
 }
 
@@ -191,9 +169,6 @@ function serializeCtx(ctx: EvalContext): SerializedCtx {
  *  documented one-line regeneration reproduces the committed fixture. */
 interface SynthFlags {
   smartAccount: string
-  windowSeconds: number
-  invocationLimit: number
-  validUntilLedger: number
 }
 
 interface ParsedArgs extends Partial<SynthFlags> {
@@ -204,9 +179,6 @@ interface ParsedArgs extends Partial<SynthFlags> {
 
 const SYNTH_DEFAULTS: SynthFlags = {
   smartAccount: 'CDXO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO4M7R',
-  windowSeconds: 86_400,
-  invocationLimit: 1,
-  validUntilLedger: 200_000_000,
 }
 
 /** Drop the `out`/`recording`/`help` keys and any flag the caller omitted, so
@@ -214,9 +186,6 @@ const SYNTH_DEFAULTS: SynthFlags = {
 function stripUndefined(args: ParsedArgs): Partial<SynthFlags> {
   const picked: Partial<SynthFlags> = {}
   if (args.smartAccount !== undefined) picked.smartAccount = args.smartAccount
-  if (args.windowSeconds !== undefined) picked.windowSeconds = args.windowSeconds
-  if (args.invocationLimit !== undefined) picked.invocationLimit = args.invocationLimit
-  if (args.validUntilLedger !== undefined) picked.validUntilLedger = args.validUntilLedger
   return picked
 }
 
@@ -228,9 +197,6 @@ function parseArgs(args: string[]): ParsedArgs {
     else if (a === '--out') out.out = args[++i]
     else if (a === '--recording') out.recording = args[++i]
     else if (a === '--smart-account') out.smartAccount = args[++i]
-    else if (a === '--window-seconds') out.windowSeconds = Number(args[++i])
-    else if (a === '--invocation-limit') out.invocationLimit = Number(args[++i])
-    else if (a === '--valid-until-ledger') out.validUntilLedger = Number(args[++i])
   }
   return out
 }
@@ -238,8 +204,7 @@ function parseArgs(args: string[]): ParsedArgs {
 function usage(): string {
   return [
     'usage: gen-conformance-fixture.ts --recording <recording.json> --out <path.rs>',
-    '  [--smart-account C...] [--window-seconds N] [--invocation-limit N]',
-    '  [--valid-until-ledger N]',
+    '  [--smart-account C...]',
     '',
     'The predicate is synthesised from the recording through the same pipeline',
     'the product uses, so the fixture cannot drift from the shipped grammar.',
@@ -275,11 +240,6 @@ function run(): void {
     contract: inv.contract,
     fn: inv.fn,
     args: inv.args,
-    atLedger: recorded.ledgerSequence,
-    validUntilLedger: 200_000_000,
-    nowSeconds: 1_000_000_000,
-    amountByToken: {},
-    windowSpentByToken: {},
   }
 
   const gen = generateCases(explain.predicate, permitCtx)
@@ -307,13 +267,6 @@ function run(): void {
   // (e.g. flip a single hex digit) requires proving both sides still
   // agree semantically, which is deferred to a follow-up.
   //
-  // Skip `timing` (top-level ledger-time expiry). The TS evaluator applies a
-  // global `atLedger > validUntilLedger` check that surfaces `EXPIRED`; the
-  // interpreter deliberately does NOT, because policy expiry is the smart
-  // account's responsibility - the interpreter stores no policy data. This is
-  // a DESIGN divergence, not a gap, so the dimension is skipped rather than
-  // reported as a difference to close.
-  //
   // Skip `amount` and `time_window`. Both mutate a per-call amount or a
   // rolling spend total, neither of which the interpreter can source on chain
   // - it sees one authorized call, not the transaction's token movements. The
@@ -325,7 +278,6 @@ function run(): void {
     'contract',
     'function',
     'scope_contract_fn_arg',
-    'timing',
     'amount',
     'time_window',
   ])
@@ -339,7 +291,6 @@ function run(): void {
   const denyCases: ConformanceCase[] = []
   for (const deny of gen.denies) {
     if (
-      deny.dimension === 'timing' ||
       deny.dimension === 'contract' ||
       deny.dimension === 'function' ||
       deny.dimension === 'scope_contract_fn_arg'
@@ -376,7 +327,15 @@ function run(): void {
     invocation: { recording: args.recording, out: args.out },
   })
   mkdirSync(dirname(args.out), { recursive: true })
-  writeFileSync(args.out, out, 'utf8')
+  // Pipe through rustfmt so the output satisfies `cargo fmt --check`.
+  const fmt = spawnSync('rustfmt', ['--edition=2021', '--emit=stdout'], {
+    input: out,
+    encoding: 'utf8',
+  })
+  if (fmt.status !== 0) {
+    throw new Error(`rustfmt failed: ${fmt.stderr}`)
+  }
+  writeFileSync(args.out, fmt.stdout, 'utf8')
   process.stdout.write(
     `wrote ${1 + denyCases.length} cases (1 permit + ${denyCases.length} deny) to ${
       args.out
@@ -479,8 +438,6 @@ function renderCtxFields(s: SerializedCtx): string {
   parts.push(`contract: Address::from_str(&env, ${rustStr(s.contract)})`)
   parts.push(`fn_name: Symbol::new(&env, ${rustStr(s.fn)})`)
   parts.push(`args`)
-  parts.push(`at_ledger: ${s.atLedger}u32`)
-  parts.push(`now_seconds: ${s.nowSeconds}u64`)
   return parts.join(', ')
 }
 

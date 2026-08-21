@@ -7,26 +7,19 @@
 
 use soroban_sdk::{auth::Context, Address, Env, Symbol, Val, Vec as SorobanVec};
 
-use crate::storage::{RuleKey, StoredDoc, TTL_BUMP_THRESHOLD, TTL_BUMP_TO};
+use crate::storage::{RuleKey, TTL_BUMP_THRESHOLD, TTL_BUMP_TO};
 
 // ---- public API -----
 
 /// Build the eval context for an enforce call. Pulls `Address`/`Symbol`/
 /// `Vec<Val>` directly from `Context::Contract` - host types pass through
 /// without the byte-extraction helpers the ScVal path needed.
-pub fn build_eval_context(
-    e: &Env,
-    context: &Context,
-    _doc: &StoredDoc,
-    _smart_account: &Address,
-) -> crate::dsl::EvalContext {
+pub fn build_eval_context(e: &Env, context: &Context) -> crate::dsl::EvalContext {
     let (contract, fn_name, args) = extract_call(e, context);
     crate::dsl::EvalContext {
         contract,
         fn_name,
         args,
-        at_ledger: e.ledger().sequence(),
-        now_seconds: e.ledger().timestamp(),
     }
 }
 
@@ -43,11 +36,8 @@ pub fn build_eval_context(
 /// Only keys that exist are bumped: `extend_ttl` on a missing key panics.
 pub fn extend_state_ttl(e: &Env, key: &RuleKey) {
     let p = e.storage().persistent();
-    let doc_key = key.doc_key();
-    if p.has(&doc_key) {
-        p.extend_ttl(&doc_key, TTL_BUMP_THRESHOLD, TTL_BUMP_TO);
-    }
     for k in [
+        key.doc_key(),
         key.nonce_key(),
         key.signers_hash_key(),
         key.master_set_key(),
@@ -65,6 +55,6 @@ fn extract_call(e: &Env, context: &Context) -> (Address, Symbol, SorobanVec<Val>
         Context::Contract(c) => (c.contract.clone(), c.fn_name.clone(), c.args.clone()),
         // The interpreter is only invoked from a Contract auth context;
         // any other shape panics MISSING_STATE so the tx reverts cleanly.
-        _ => crate::storage::panic_missing_state(e),
+        _ => crate::storage::deny(e, crate::storage::PolicyError::MissingState),
     }
 }

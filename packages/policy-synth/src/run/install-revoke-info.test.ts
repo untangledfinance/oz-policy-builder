@@ -528,20 +528,6 @@ describe('PredicateLeafSchema fixes (regression coverage)', () => {
     )
   })
 
-  it('rejects an odd-length literal_bytes value', async () => {
-    const { PredicateLeafSchema } = await import('./schemas.ts')
-    expect(PredicateLeafSchema.safeParse({ kind: 'literal_bytes', value: 'abc' }).success).toBe(
-      false
-    )
-  })
-
-  it('accepts an even-length hex literal_bytes value', async () => {
-    const { PredicateLeafSchema } = await import('./schemas.ts')
-    expect(
-      PredicateLeafSchema.safeParse({ kind: 'literal_bytes', value: 'deadbeef' }).success
-    ).toBe(true)
-  })
-
   it('rejects literal_u32 > U32_MAX', async () => {
     const { PredicateLeafSchema } = await import('./schemas.ts')
     expect(PredicateLeafSchema.safeParse({ kind: 'literal_u32', value: 4294967296 }).success).toBe(
@@ -935,43 +921,6 @@ describe('install_policy describes (decoded from XDR)', () => {
     expect(policy.kind).toBe('interpreter')
     if (policy.kind !== 'interpreter') return
     expect(policy.installNonce).toBe(5)
-  })
-
-  it('reports OZ built-in policy descriptors when one is attached', async () => {
-    const { buildInstallPolicyXdr } = await import('../install/build-install-policy.ts')
-    const mock = mockRpcClient()
-    const m = makeRule()
-    const XLM_SAC = 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC'
-    const SPENDING_LIMIT = 'CDXDHCLOIZDLO63RLLU2Z6ICKZSA3MOYM3AYHU3LEXCGQSMXCMNDDEOF'
-    const result = await buildInstallPolicyXdr({
-      smartAccount: SMART_ACCOUNT,
-      sourceAccount: SOURCE_ACCOUNT,
-      networkPassphrase: 'Test SDF Network ; September 2015',
-      rule: {
-        ...m.rule,
-        contextRuleType: { kind: 'call_contract', contract: XLM_SAC },
-        policies: [
-          {
-            kind: 'oz_builtin',
-            instanceAddress: SPENDING_LIMIT,
-            primitive: {
-              primitive: 'spending_limit',
-              params: { spending_limit: '1500000000', period_ledgers: 17_280 },
-            },
-          },
-        ],
-      },
-      installNonce: 1,
-      encodedPredicate: m.encodedPredicate,
-      predicateHash: m.predicateHash,
-      rpc: mock,
-    })
-    expect(result.describes.policies).toHaveLength(1)
-    const policy = result.describes.policies[0]!
-    expect(policy.kind).toBe('oz_builtin')
-    if (policy.kind !== 'oz_builtin') return
-    expect(policy.address).toBe(SPENDING_LIMIT)
-    expect(policy.primitive).toBe('spending_limit')
   })
 })
 

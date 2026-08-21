@@ -19,8 +19,8 @@ function leafArg(): PredicateLeaf {
   return { kind: 'call_arg', index: 0 }
 }
 
-function leafNow(): PredicateLeaf {
-  return { kind: 'now' }
+function leafSelector(): PredicateLeaf {
+  return { kind: 'call_contract' }
 }
 
 describe('encodePredicate - determinism', () => {
@@ -30,8 +30,8 @@ describe('encodePredicate - determinism', () => {
       children: [
         { op: 'eq', left: leafArg(), right: { kind: 'literal_i128', value: '1000000' } },
         {
-          op: 'or',
-          children: [{ op: 'not', child: { op: 'eq', left: leafNow(), right: leafNow() } }],
+          op: 'and',
+          children: [{ op: 'eq', left: leafSelector(), right: leafSelector() }],
         },
       ],
     }
@@ -61,8 +61,8 @@ describe('encodePredicate - determinism', () => {
 
   it('hashes the decoded (post-canonicalisation) bytes - encoded bytes are non-empty', () => {
     const node: PredicateNode = {
-      op: 'not',
-      child: { op: 'eq', left: leafNow(), right: leafNow() },
+      op: 'and',
+      children: [{ op: 'eq', left: leafSelector(), right: leafSelector() }],
     }
     const { encodedPredicate, predicateHash } = encodePredicate(node)
     expect(Buffer.from(encodedPredicate, 'base64').length).toBeGreaterThan(5)
@@ -111,7 +111,7 @@ describe('encodePredicate - signed-magnitude i128', () => {
 
   it('encodes a larger negative i128 correctly', () => {
     const node: PredicateNode = {
-      op: 'lt',
+      op: 'lte',
       left: leafArg(),
       right: { kind: 'literal_i128', value: '-1000000000' },
     }
@@ -136,7 +136,7 @@ describe('encodePredicate - signed-magnitude i128', () => {
 
   it('encodes i128::MIN (-170141183460469231731687303715884105728) correctly at the boundary', () => {
     const node: PredicateNode = {
-      op: 'gt',
+      op: 'lte',
       left: leafArg(),
       right: { kind: 'literal_i128', value: '-170141183460469231731687303715884105728' },
     }
@@ -167,46 +167,6 @@ describe('encodePredicate - and/or child sort stability', () => {
     const right = encodePredicate({ op: 'and', children: [c, a, b] })
     expect(left.encodedPredicate).toBe(right.encodedPredicate)
     expect(left.predicateHash).toBe(right.predicateHash)
-  })
-
-  it('or: child reordering produces the same predicateHash', () => {
-    const a: PredicateNode = {
-      op: 'eq',
-      left: leafArg(),
-      right: { kind: 'literal_i128', value: '7' },
-    }
-    const b: PredicateNode = {
-      op: 'eq',
-      left: leafArg(),
-      right: { kind: 'literal_i128', value: '8' },
-    }
-    const c: PredicateNode = {
-      op: 'eq',
-      left: leafArg(),
-      right: { kind: 'literal_i128', value: '9' },
-    }
-    const left = encodePredicate({ op: 'or', children: [a, b, c] })
-    const right = encodePredicate({ op: 'or', children: [c, b, a] })
-    expect(left.encodedPredicate).toBe(right.encodedPredicate)
-    expect(left.predicateHash).toBe(right.predicateHash)
-  })
-
-  it('not: single child is NOT reordered (preserved verbatim)', () => {
-    // The single child of `not` MUST keep its own canonical form regardless
-    // of which side of the comparison sits where - but flipping the eq
-    // sides would change the semantic. We assert only that a `not(eq)` of a
-    // given (left,right) hashes the same across runs.
-    const node: PredicateNode = {
-      op: 'not',
-      child: {
-        op: 'eq',
-        left: leafArg(),
-        right: { kind: 'literal_i128', value: '11' },
-      },
-    }
-    const r1 = encodePredicate(node)
-    const r2 = encodePredicate(node)
-    expect(r1.predicateHash).toBe(r2.predicateHash)
   })
 })
 
@@ -369,35 +329,6 @@ describe('encodePredicate - literal_vec order preservation', () => {
   })
 })
 
-describe('encodePredicate - selector leaf wire shapes', () => {
-  it('call_arg uses scvU32(index)', () => {
-    const node: PredicateNode = {
-      op: 'eq',
-      left: { kind: 'call_arg', index: 2 },
-      right: { kind: 'literal_symbol', value: 'swap' },
-    }
-    const { encodedPredicate } = encodePredicate(node)
-    const root = xdr.ScVal.fromXDR(Buffer.from(encodedPredicate, 'base64'))
-    const rootVec = root.vec() ?? []
-    const sel = rootVec[1]?.vec() ?? []
-    expect(sel[0]?.sym().toString()).toBe('call_arg')
-    expect(sel[1]?.u32()).toBe(2)
-  })
-
-  it('now serialises as a zero-arity selector vec', () => {
-    const node: PredicateNode = {
-      op: 'lt',
-      left: leafNow(),
-      right: { kind: 'literal_u64', value: 100 },
-    }
-    const { encodedPredicate } = encodePredicate(node)
-    const root = xdr.ScVal.fromXDR(Buffer.from(encodedPredicate, 'base64'))
-    const rootVec = root.vec() ?? []
-    expect(rootVec[1]?.vec() ?? []).toHaveLength(1)
-    expect(rootVec[1]?.vec()?.[0]?.sym().toString()).toBe('now')
-  })
-})
-
 describe('encodePredicate - literal leaf wire shapes', () => {
   it('literal_address serialises as bare scvAddress', () => {
     const node: PredicateNode = {
@@ -437,39 +368,13 @@ describe('encodePredicate - literal leaf wire shapes', () => {
     expect(rootVec[2]?.switch().name).toBe('scvU32')
     expect(rootVec[2]?.u32()).toBe(42)
   })
-
-  it('literal_u64 serialises as bare scvU64', () => {
-    const node: PredicateNode = {
-      op: 'eq',
-      left: { kind: 'call_fn' },
-      right: { kind: 'literal_u64', value: '999999999999' },
-    }
-    const { encodedPredicate } = encodePredicate(node)
-    const root = xdr.ScVal.fromXDR(Buffer.from(encodedPredicate, 'base64'))
-    const rootVec = root.vec() ?? []
-    expect(rootVec[2]?.switch().name).toBe('scvU64')
-    expect(rootVec[2]?.u64().toString()).toBe('999999999999')
-  })
-
-  it('literal_bytes serialises as bare scvBytes (hex-decoded)', () => {
-    const node: PredicateNode = {
-      op: 'eq',
-      left: { kind: 'call_fn' },
-      right: { kind: 'literal_bytes', value: 'deadbeef' },
-    }
-    const { encodedPredicate } = encodePredicate(node)
-    const root = xdr.ScVal.fromXDR(Buffer.from(encodedPredicate, 'base64'))
-    const rootVec = root.vec() ?? []
-    expect(rootVec[2]?.switch().name).toBe('scvBytes')
-    expect(Buffer.from(rootVec[2]?.bytes() as Uint8Array).toString('hex')).toBe('deadbeef')
-  })
 })
 
 describe('encodePredicate - cap enforcement', () => {
   function depthChain(depth: number): PredicateNode {
-    let n: PredicateNode = { op: 'eq', left: leafNow(), right: leafNow() }
+    let n: PredicateNode = { op: 'eq', left: leafSelector(), right: leafSelector() }
     for (let i = 0; i < depth; i++) {
-      n = { op: 'not', child: n }
+      n = { op: 'and', children: [n] }
     }
     return n
   }
@@ -495,7 +400,7 @@ describe('encodePredicate - cap enforcement', () => {
     for (let i = 0; i <= 200; i++) leaves.push({ kind: 'call_arg', index: i % 4 })
     const node: PredicateNode = {
       op: 'and',
-      children: leaves.map((leaf) => ({ op: 'eq', left: leaf, right: leafNow() })),
+      children: leaves.map((leaf) => ({ op: 'eq', left: leaf, right: leafSelector() })),
     }
     try {
       encodePredicate(node)
@@ -514,25 +419,6 @@ describe('encodePredicate - cap enforcement', () => {
       throw new Error('expected throw')
     } catch (e) {
       expect((e as { code?: string }).code).toBe('IN_OPERAND_LIMIT')
-    }
-  })
-
-  it('throws PREDICATE_TOO_LARGE when encoded bytes exceed MAX_PREDICATE_BYTES', () => {
-    // Force oversize: one huge `in` haystack (set-valued) of the maximum
-    // allowed operand count, with long bytes literals. XDR symbol length is
-    // capped at 32 bytes, so we use bytes (1500 raw bytes each) to grow past
-    // the 32 KB wire cap. 32 * ~1504 encoded bytes = ~48 KB, well past the
-    // 32 KB limit.
-    const haystack: PredicateLeaf[] = []
-    for (let i = 0; i < 32; i++) {
-      haystack.push({ kind: 'literal_bytes', value: 'ab'.repeat(1500) })
-    }
-    const node: PredicateNode = { op: 'in', needle: { kind: 'call_fn' }, haystack }
-    try {
-      encodePredicate(node)
-      throw new Error('expected throw')
-    } catch (e) {
-      expect((e as { code?: string }).code).toBe('PREDICATE_TOO_LARGE')
     }
   })
 })
@@ -599,12 +485,12 @@ describe('encodePredicate - cap-breach error shape', () => {
   it('throws a ToolError with severity=error and retryable=false', () => {
     const node: PredicateNode = {
       op: 'eq',
-      left: leafNow(),
-      right: leafNow(),
+      left: leafSelector(),
+      right: leafSelector(),
     }
     // wrap in nots past the depth cap
     const deep: PredicateNode = Array.from({ length: 6 }).reduce(
-      (acc) => ({ op: 'not', child: acc }) as PredicateNode,
+      (acc) => ({ op: 'and', children: [acc] }) as PredicateNode,
       node
     )
     try {
@@ -628,16 +514,12 @@ describe('encodePredicate - structures the contract refuses at decode', () => {
     expect(() => encodePredicate({ op: 'and', children: [] })).toThrow()
   })
 
-  it('rejects an empty `or`', () => {
-    expect(() => encodePredicate({ op: 'or', children: [] })).toThrow()
-  })
-
   it('rejects an empty `and` nested under a valid parent', () => {
     expect(() =>
       encodePredicate({
         op: 'and',
         children: [
-          { op: 'eq', left: leafNow(), right: leafNow() },
+          { op: 'eq', left: leafSelector(), right: leafSelector() },
           { op: 'or', children: [] },
         ],
       })

@@ -169,7 +169,6 @@ export function composeFromRecording(
 
   const buildRule = (constraints: IRCondition[]): IRPolicyRule => {
     const rule: IRPolicyRule = {
-      roles: [],
       scope: { ...scope },
       constraints,
     }
@@ -179,11 +178,7 @@ export function composeFromRecording(
     return rule
   }
 
-  const interpreterIr: PolicyIR = {
-    chain: 'stellar',
-    defaultBehavior: 'deny_all',
-    rules: [buildRule(interpreterConstraints)],
-  }
+  const interpreterIr: PolicyIR = { rules: [buildRule(interpreterConstraints)] }
   return { interpreterIr, ambiguities, warnings }
 }
 

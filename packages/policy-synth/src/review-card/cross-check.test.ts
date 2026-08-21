@@ -98,25 +98,25 @@ function recipientAllowlistPredicate(): PredicateNode {
 
 describe('summaryCrossCheck', () => {
   it('returns ok for a faithful summary of the Blend yield-claim predicate', () => {
-    const summary = buildReviewCardSummary(blendClaimPredicate(), [], baseContextRule, simulation)
+    const summary = buildReviewCardSummary(blendClaimPredicate(), baseContextRule, simulation)
     expect(summaryCrossCheck(blendClaimPredicate(), summary)).toEqual({ ok: true })
   })
 
   it('returns ok for a faithful summary of the SEP-41 recipient allowlist predicate', () => {
     const predicate = recipientAllowlistPredicate()
-    const summary = buildReviewCardSummary(predicate, [], baseContextRule, simulation)
+    const summary = buildReviewCardSummary(predicate, baseContextRule, simulation)
     expect(summaryCrossCheck(predicate, summary)).toEqual({ ok: true })
   })
 
   it('returns ok for a faithful summary of the SoroSwap exact-path+amount predicate', () => {
     const predicate = soroswapPredicate()
-    const summary = buildReviewCardSummary(predicate, [], baseContextRule, simulation)
+    const summary = buildReviewCardSummary(predicate, baseContextRule, simulation)
     expect(summaryCrossCheck(predicate, summary)).toEqual({ ok: true })
   })
 
   it('returns missingConstraints when a leaf is dropped from the summary constraints', () => {
     const predicate = blendClaimPredicate()
-    const summary = buildReviewCardSummary(predicate, [], baseContextRule, simulation)
+    const summary = buildReviewCardSummary(predicate, baseContextRule, simulation)
     // Drop the function constraint line. The cross-check must flag it -
     // this is the non-hallucination guard.
     const tampered = {
@@ -132,7 +132,7 @@ describe('summaryCrossCheck', () => {
 
   it('flags every dropped leaf in a multi-leaf predicate', () => {
     const predicate = soroswapPredicate()
-    const summary = buildReviewCardSummary(predicate, [], baseContextRule, simulation)
+    const summary = buildReviewCardSummary(predicate, baseContextRule, simulation)
     // Drop the amount constraint; keep contract + path.
     const kept = summary.constraints.filter(
       (s) => s.startsWith('Contract must be') || s.startsWith('Path must be exactly')
@@ -146,7 +146,7 @@ describe('summaryCrossCheck', () => {
   })
 
   it('returns ok when the predicate is null (OZ-only policies)', () => {
-    const summary = buildReviewCardSummary(null, [], baseContextRule, simulation)
+    const summary = buildReviewCardSummary(null, baseContextRule, simulation)
     expect(summaryCrossCheck(null, summary)).toEqual({ ok: true })
   })
 
@@ -154,7 +154,7 @@ describe('summaryCrossCheck', () => {
     // A predicate of just `and` with no children renders no constraint
     // lines; the cross-check has nothing to demand, so it returns ok.
     const empty: PredicateNode = { op: 'and', children: [] }
-    const summary = buildReviewCardSummary(empty, [], baseContextRule, simulation)
+    const summary = buildReviewCardSummary(empty, baseContextRule, simulation)
     expect(summaryCrossCheck(empty, summary)).toEqual({ ok: true })
   })
 })
@@ -203,14 +203,14 @@ function blendSubmitPredicate(): PredicateNode {
 describe('summaryCrossCheck - structured-argument leaves', () => {
   it('returns ok for a faithful summary of the Blend submit predicate', () => {
     const predicate = blendSubmitPredicate()
-    const summary = buildReviewCardSummary(predicate, [], baseContextRule, simulation)
+    const summary = buildReviewCardSummary(predicate, baseContextRule, simulation)
     const result = summaryCrossCheck(predicate, summary)
     expect(result).toEqual({ ok: true })
   })
 
   it('flags every dropped call_arg_field leaf explicitly', () => {
     const predicate = blendSubmitPredicate()
-    const summary = buildReviewCardSummary(predicate, [], baseContextRule, simulation)
+    const summary = buildReviewCardSummary(predicate, baseContextRule, simulation)
     // Tamper: drop the call_arg_field address line. The cross-check must
     // surface it as a missing constraint (the renderer is the source of
     // truth; the cross-check is the non-hallucination guard).

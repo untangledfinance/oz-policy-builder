@@ -88,13 +88,10 @@ describe('PredicateLeafSchema mirrors the core PredicateLeaf', () => {
     { kind: 'call_arg', index: 0 },
     { kind: 'call_arg_len', index: 0 },
     { kind: 'call_arg_field', index: 0, element: 0, field: 'amount' },
-    { kind: 'now' },
     { kind: 'literal_address', value: 'CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75' },
     { kind: 'literal_i128', value: '1000000000' },
     { kind: 'literal_symbol', value: 'transfer' },
     { kind: 'literal_u32', value: 1 },
-    { kind: 'literal_u64', value: '1700000000' },
-    { kind: 'literal_bytes', value: 'deadbeef' },
     { kind: 'literal_vec', elements: [{ kind: 'literal_address', value: 'C-XLM' }] },
   ]
 
@@ -108,22 +105,8 @@ describe('PredicateLeafSchema mirrors the core PredicateLeaf', () => {
     expect(PredicateLeafSchema.safeParse({ kind: 'literal_i128', value: '-1' }).success).toBe(true)
   })
 
-  it('rejects a valid_until leaf (TS-S2: the schema must mirror the encoder/decoder refusal)', () => {
-    // The encoder + decoder already throw on a `valid_until` leaf (it is NOT
-    // in the public predicate grammar - the policy's expiry is carried at
-    // the install layer). The schema previously accepted it and only
-    // surfaced the failure deep inside encodePredicate as a 200+ char
-    // internal-commentary error; the schema now fails closed here so the
-    // boundary is honest.
-    expect(PredicateLeafSchema.safeParse({ kind: 'valid_until' }).success).toBe(false)
-  })
-
   it('rejects a non-integer u32 literal', () => {
     expect(PredicateLeafSchema.safeParse({ kind: 'literal_u32', value: 1.5 }).success).toBe(false)
-  })
-
-  it('rejects a u64/u32 literal with a non-numeric string', () => {
-    expect(PredicateLeafSchema.safeParse({ kind: 'literal_u64', value: 'abc' }).success).toBe(false)
   })
 
   it('rejects an unknown leaf kind', () => {
@@ -135,7 +118,6 @@ describe('PredicateNodeSchema mirrors the core PredicateNode', () => {
   // One value per operator. Mirrors the top-level union in types.ts:132-180.
   const oneOfEach: PredicateNode[] = [
     { op: 'and', children: [] },
-    { op: 'or', children: [{ op: 'not', child: { op: 'and', children: [] } }] },
     {
       op: 'eq',
       left: { kind: 'call_contract' },
@@ -145,24 +127,9 @@ describe('PredicateNodeSchema mirrors the core PredicateNode', () => {
       },
     },
     {
-      op: 'lt',
-      left: { kind: 'call_arg', index: 0 },
-      right: { kind: 'literal_i128', value: '1000000000' },
-    },
-    {
       op: 'lte',
       left: { kind: 'call_arg', index: 0 },
       right: { kind: 'literal_i128', value: '1000000000' },
-    },
-    {
-      op: 'gt',
-      left: { kind: 'call_arg', index: 0 },
-      right: { kind: 'literal_i128', value: '0' },
-    },
-    {
-      op: 'gte',
-      left: { kind: 'call_arg', index: 0 },
-      right: { kind: 'literal_i128', value: '0' },
     },
     {
       op: 'in',
@@ -173,11 +140,6 @@ describe('PredicateNodeSchema mirrors the core PredicateNode', () => {
           value: 'CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75',
         },
       ],
-    },
-    // Recursive: nested and/or/not.
-    {
-      op: 'and',
-      children: [{ op: 'or', children: [{ op: 'not', child: { op: 'and', children: [] } }] }],
     },
   ]
 

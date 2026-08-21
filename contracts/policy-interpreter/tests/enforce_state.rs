@@ -52,7 +52,7 @@ fn install_policy(
     let predicate = permitting_predicate_bytes(env);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
     let params = PolicyInstallParams {
-        grammar_version: 2,
+        grammar_version: 3,
         install_nonce: 1,
         predicate,
         predicate_hash,
@@ -254,7 +254,7 @@ fn predicate_with_unsourceable_leaf_is_refused_at_install() {
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
     let res = client.try_install(
         &PolicyInstallParams {
-            grammar_version: 2,
+            grammar_version: 3,
             install_nonce: 1,
             predicate,
             predicate_hash,
@@ -401,7 +401,7 @@ fn f8_enforce_deny_reaches_chain_as_contract_error_code() {
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
     client.install(
         &PolicyInstallParams {
-            grammar_version: 2,
+            grammar_version: 3,
             install_nonce: 1,
             predicate,
             predicate_hash,

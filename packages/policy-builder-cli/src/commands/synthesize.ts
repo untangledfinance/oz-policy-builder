@@ -227,7 +227,6 @@ function emitExplainBlock(
     // `PredicateNode | null`; a null is the truthful value when the
     // interpreter adapter was not engaged.
     (res.explain.predicateTree ?? null) as never,
-    res.data?.policyRefs ?? [],
     res.data?.contextRule ?? {
       contextRuleType: { kind: 'default' as const },
       name: 'unknown',

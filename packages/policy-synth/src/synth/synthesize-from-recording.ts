@@ -15,7 +15,6 @@ import {
 import type { ToolError, ToolResponse } from '../errors.ts'
 import { encodePredicate } from '../predicate/encode.ts'
 import {
-  MAX_SCVAL_CLONE_DEPTH,
   type Network,
   OZ_LIMITS,
   type PredicateNode,
@@ -31,7 +30,7 @@ import {
 import { lower } from './lower.ts'
 import { decideScope, type ScopeDecision } from './scope.ts'
 
-const UNCOVERED_PREFIX = 'Not covered by OZ built-in primitives: '
+const UNCOVERED_PREFIX = 'Not expressible as a predicate constraint: '
 
 /** Per-policy interpreter adapter config the caller opts into. Absent ->
  *  recording path runs in week-1 mode (OZ adapter only, warnings for the
@@ -634,15 +633,4 @@ function mergeAmbiguities(
     }
   }
   return out
-}
-
-function _cloneDepthError(value: { type: string; value: unknown }): never {
-  const err = new Error(
-    `ScVal clone depth exceeds MAX_SCVAL_CLONE_DEPTH (${MAX_SCVAL_CLONE_DEPTH})`
-  ) as Error & { code: string; severity: string; retryable: boolean; depthContext: unknown }
-  err.code = 'SYNTHESIS_ERROR'
-  err.severity = 'error'
-  err.retryable = false
-  err.depthContext = value.type
-  throw err
 }

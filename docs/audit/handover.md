@@ -9,9 +9,9 @@ knowingly left open.
 | | |
 | --- | --- |
 | Contract | `contracts/policy-interpreter` |
-| Grammar version | 2 (`SELF_VERSION`, `src/version.rs`) |
-| On-chain production code | 1,225 nSLOC |
-| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (6,305 nSLOC) |
+| Grammar version | 3 (`SELF_VERSION`, `src/version.rs`) |
+| On-chain production code | 842 nSLOC |
+| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (6,945 nSLOC: `packages/**/*.ts` excluding `*.test.ts`, `test/`, `scripts/`, `dist*/`, blank and comment-only lines) |
 
 What the system does: record a transaction, lower it to a predicate that pins
 the contract, method and arguments the recording carried, install that predicate
@@ -22,20 +22,29 @@ Per-file size of the audited contract. Test modules (`dsl_tests.rs`,
 
 | File | nSLOC |
 | --- | ---: |
-| `dsl.rs` | 768 |
-| `lib.rs` | 182 |
-| `storage.rs` | 171 |
-| `state.rs` | 39 |
+| `dsl.rs` | 479 |
+| `lib.rs` | 173 |
+| `storage.rs` | 96 |
+| `state.rs` | 29 |
 | `types.rs` | 44 |
 | `auth.rs` | 20 |
 | `version.rs` | 1 |
-| **Total** | **1,225** |
+| **Total** | **842** |
 
 Two properties worth knowing before reading the code:
 
 - **`enforce` is stateless.** It reads no mutable state and writes none. Every
   predicate leaf is answered from the authorised call itself. Verified by
   inspection of every storage and cross-contract call site in `lib.rs`.
+- **The grammar is closed and small.** Four node kinds (`and`, `eq`, `lte`,
+  `in`), five selector leaves, five literal leaves. Every predicate the
+  synthesiser can emit is some combination of those; there is no operator whose
+  only caller is a hand-written predicate.
+- **The off-chain IR carries only what an adapter can lower.** Members that no
+  producer populated (NEAR-V2 roles, guards, approval thresholds, an EVM chain
+  discriminator, a unix-timestamp expiry) are gone, along with the adapter
+  branches that reported them as uncovered. Nothing can now reach the adapter
+  that the adapter cannot compile.
 - **The install path is where the fail-closed gates live**, because a predicate
   that reaches evaluation is already committed to.
 
@@ -58,12 +67,12 @@ Every log in [`evidence/`](evidence/) was produced against this tree.
 
 | Log | Command | Result |
 | --- | --- | --- |
-| [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 94 + 6 tests pass |
-| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 595 pass, 1 skip, 0 fail |
+| [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 70 tests + 6 conformance pass |
+| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 561 pass, 1 skip, 0 fail |
 | [`cargo-audit.log`](evidence/cargo-audit.log) | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | [`bun-audit.log`](evidence/bun-audit.log) | `bun audit` | 0 vulnerabilities |
-| [`clippy-pedantic.log`](evidence/clippy-pedantic.log) | `clippy -W pedantic -W nursery` | 228 style warnings, 0 security |
-| [`scout-audit.log`](evidence/scout-audit.log) | `cargo scout-audit` | 2 Critical, 9 Medium, 1 Enhancement - all triaged |
+| [`clippy-pedantic.log`](evidence/clippy-pedantic.log) | `clippy -W pedantic -W nursery` | 164 style warnings, 0 security |
+| [`scout-audit.log`](evidence/scout-audit.log) | `cargo scout-audit` | 0 Critical, 9 Medium, 1 Enhancement |
 
 Beyond the tools, the Stellar Security Portal corpus (832 Soroban findings) was
 pulled and its 150 critical/high findings cross-checked against this contract's
@@ -83,28 +92,27 @@ Scout run that does not do this as unrun.
 | --- | --- | --- |
 | Contract | `cargo fmt --check` | clean |
 | Contract | `cargo clippy --all-targets -- -D warnings` | 0 warnings |
-| Contract | `cargo test` | 94 passed, 0 failed |
+| Contract | `cargo test` | 76 passed, 0 failed |
 | Contract | `cargo test --release --test conformance` | 6 passed, 0 failed |
 | Contract | `cargo build --release --target wasm32v1-none` | builds |
-| Off-chain | `bunx biome check .` | 110 files, 0 findings |
+| Off-chain | `bunx biome check .` | 112 files, 0 findings |
 | Off-chain | `bun run typecheck` | clean |
-| Off-chain | `bun test` | 595 passed, 1 skipped, 0 failed |
+| Off-chain | `bun test` | 561 passed, 1 skipped, 0 failed |
 | Off-chain | `bun audit` | 0 vulnerabilities |
 
 Both gates run in CI on every push, including the two dependency-advisory
 scans.
 
-Two reported items are triaged as non-issues rather than fixed, both argued in
+One reported item is triaged as a non-issue rather than fixed, argued in
 [`README.md`](README.md#findings):
 
-- Scout's two Criticals are `d + 1` in the AST depth walk. `decode_with_byte_cap`
-  rejects anything over 32 KB before parsing, and each nesting level costs at
-  least one byte, so depth is bounded near 3.2x10^4 - eight orders of magnitude
-  below `u32::MAX`. Scout reports the raw operator without following the
-  dominating guard.
 - `paste` 1.0.15 is flagged unmaintained (RUSTSEC-2024-0436), transitively
   through `soroban-sdk`. The advisory is "no longer maintained", not a
   vulnerability, and it is not actionable without an SDK change.
+
+Scout previously reported two Criticals against `d + 1` in the depth walk. They
+were unreachable but the proof was non-local, so the arithmetic was made
+saturating instead of argued about; the run is now clean of Criticals.
 
 ## 5. Limits of this handover
 
@@ -116,7 +124,15 @@ if this tree is what ships.
 Two further caveats, both carried in the threat model rather than only here:
 
 - The off-chain half carries more risk than the on-chain half. The contract is
-  1,225 nSLOC and stateless; the toolchain is 6,305 nSLOC and holds the
+  842 nSLOC and stateless; the toolchain is 6,945 nSLOC and holds the
   default-deny install gates.
 - Coverage of the MCP HTTP transport is thinner than the rest, because the
   deployment model is loopback stdio.
+- The conformance harness was broken between `50a2aa4` and this tree: the
+  TypeScript reference evaluator it cross-checks against had been deleted and
+  the fixture generator was never updated, so `_generated.rs` was a frozen
+  artifact rather than a regenerated one. Both sides are restored and the
+  fixture regenerates cleanly. The harness was checked for discrimination
+  rather than assumed: two deliberate mutations of the Rust evaluator
+  (`lte` narrowed to `<`, and `eq` forced true) were each caught, the first by
+  the permit case and the second by three deny cases.

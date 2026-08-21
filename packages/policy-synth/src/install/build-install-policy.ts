@@ -139,20 +139,11 @@ export type BuildInstallPolicySignerDraft =
   | { kind: 'delegated'; address: string }
   | { kind: 'external'; verifier: string; keyBytes: string }
 
-export type BuildInstallPolicyPolicyRef =
-  | {
-      kind: 'interpreter'
-      interpreterAddress: string
-      predicateBlobBase64: string
-    }
-  | {
-      kind: 'oz_builtin'
-      instanceAddress: string
-      primitive: {
-        primitive: 'spending_limit' | 'simple_threshold' | 'weighted_threshold'
-        params: Record<string, unknown>
-      }
-    }
+export type BuildInstallPolicyPolicyRef = {
+  kind: 'interpreter'
+  interpreterAddress: string
+  predicateBlobBase64: string
+}
 
 /** Human-readable description of the install call, decoded FROM the built
  *  XDR (not from the input args). The XDR is the source of truth: a
@@ -187,20 +178,13 @@ export interface InstallCallDescribes {
    *  sha256 of the predicate blob actually embedded in the XDR - so a
    *  mismatch between the wire bytes and the review card is detectable
    *  by reading `describes`. */
-  policies: Array<
-    | {
-        kind: 'interpreter'
-        address: string
-        installNonce: number
-        predicateHash: string
-        predicateSha256OfEmbeddedBytes: string
-      }
-    | {
-        kind: 'oz_builtin'
-        address: string
-        primitive: 'spending_limit' | 'simple_threshold' | 'weighted_threshold'
-      }
-  >
+  policies: Array<{
+    kind: 'interpreter'
+    address: string
+    installNonce: number
+    predicateHash: string
+    predicateSha256OfEmbeddedBytes: string
+  }>
   /** The install nonce, decoded from the interpreter policy's
    *  `install_nonce` field. Echoed at the top level for reviewer convenience;
    *  the per-policy entry is the source of truth. */
@@ -489,17 +473,10 @@ const DEFAULT_AUTH_VALID_UNTIL_LEDGERS = 300
  *  schema hand-rolled + flat (the strict union would need a recursive
  *  schema) while delegating to the proven encoder for the actual bytes. */
 function adaptPolicyRef(p: BuildInstallPolicyPolicyRef) {
-  if (p.kind === 'interpreter') {
-    return {
-      kind: 'interpreter' as const,
-      interpreterAddress: p.interpreterAddress,
-      predicateBlobBase64: p.predicateBlobBase64,
-    }
-  }
   return {
-    kind: 'oz_builtin' as const,
-    instanceAddress: p.instanceAddress,
-    primitive: p.primitive,
+    kind: 'interpreter' as const,
+    interpreterAddress: p.interpreterAddress,
+    predicateBlobBase64: p.predicateBlobBase64,
   }
 }
 
@@ -665,7 +642,6 @@ function decodeInstallCallDescribes(
       fields.set(fk.sym().toString(), inner.val())
     }
     // Interpreter policy fields carry grammar_version/install_nonce/predicate.
-    // OZ primitives carry spending_limit/period_ledgers/threshold/signers.
     if (fields.has('predicate') || fields.has('grammar_version') || fields.has('install_nonce')) {
       const installNonceScv = fields.get('install_nonce')
       if (installNonceScv?.switch().name !== 'scvU32') {
@@ -697,21 +673,6 @@ function decodeInstallCallDescribes(
         predicateSha256OfEmbeddedBytes,
       })
       observedInstallNonce = installNonce
-      continue
-    }
-    // OZ built-in primitive. Distinguish by the parameter shape we
-    // emitted; matching one of the three primitives exactly pins the
-    // kind we built.
-    if (fields.has('spending_limit') && fields.has('period_ledgers')) {
-      policies.push({ kind: 'oz_builtin', address, primitive: 'spending_limit' })
-      continue
-    }
-    if (fields.has('threshold') && fields.has('signer_weights')) {
-      policies.push({ kind: 'oz_builtin', address, primitive: 'weighted_threshold' })
-      continue
-    }
-    if (fields.has('threshold')) {
-      policies.push({ kind: 'oz_builtin', address, primitive: 'simple_threshold' })
       continue
     }
     throw new Error(

@@ -202,15 +202,6 @@ export const PredicateLeafSchema: z.ZodType<unknown> = z.lazy(() =>
       element: z.number().int().nonnegative(),
       field: z.string(),
     }),
-    z.object({ kind: z.literal('now') }),
-    // Leaves outside the contract's grammar (`valid_until`, `amount`) are NOT
-    // accepted here. The encoder throws on them, so admitting them at the
-    // schema would let a hand-crafted payload through only to fail at encode
-    // time. A policy's expiry is carried at the install layer (the context
-    // rule's own `validUntilLedger`), and a cap on value moved is expressed as
-    // a comparison against the call's amount argument. Call frequency has no
-    // representation: counting prior calls needs state the interpreter does
-    // not keep.
     z.object({ kind: z.literal('literal_address'), value: z.string() }),
     z.object({ kind: z.literal('literal_i128'), value: z.string().regex(/^-?[0-9]+$/) }),
     z.object({ kind: z.literal('literal_symbol'), value: z.string() }),
@@ -222,39 +213,23 @@ export const PredicateLeafSchema: z.ZodType<unknown> = z.lazy(() =>
       kind: z.literal('literal_u32'),
       value: z.number().int().nonnegative().max(U32_MAX),
     }),
-    z.object({ kind: z.literal('literal_u64'), value: z.string().regex(/^[0-9]+$/) }),
-    // `literal_bytes` is hex on chain. `Buffer.from(value, 'hex')` silently
-    // drops non-hex chars AND yields an empty buffer when the whole input
-    // is non-hex - so a user passing 'zzzz' would get a predicate that
-    // compares against empty bytes instead of being rejected. The
-    // strict even-length hex regex closes that gap at the boundary.
-    z.object({
-      kind: z.literal('literal_bytes'),
-      value: z
-        .string()
-        .regex(/^[0-9a-fA-F]*$/)
-        .refine((v) => v.length % 2 === 0, 'must be even-length hex'),
-    }),
     // elements are themselves PredicateLeaf; lazy to break the cycle.
     z.object({ kind: z.literal('literal_vec'), elements: z.array(PredicateLeafSchema) }),
   ])
 )
 
 /** PredicateNode mirrors the core `PredicateNode` union. Recursive through
- *  `and`/`or`/`not`; the lazy + annotation pattern keeps the recursion
- *  type-safe. */
+ *  `and`; the lazy + annotation pattern keeps the recursion type-safe. */
 export const PredicateNodeSchema: z.ZodType<unknown> = z.lazy(() =>
   z.union([
     z.object({ op: z.literal('and'), children: z.array(PredicateNodeSchema) }),
-    z.object({ op: z.literal('or'), children: z.array(PredicateNodeSchema) }),
-    z.object({ op: z.literal('not'), child: PredicateNodeSchema }),
     z.object({
       op: z.literal('eq'),
       left: PredicateLeafSchema,
       right: PredicateLeafSchema,
     }),
     z.object({
-      op: z.enum(['lt', 'lte', 'gt', 'gte']),
+      op: z.literal('lte'),
       left: PredicateLeafSchema,
       right: PredicateLeafSchema,
     }),
@@ -334,21 +309,11 @@ const ContextRuleDraftSchema = z
       .max(MAX_SIGNERS_PER_RULE),
     policies: z
       .array(
-        z.discriminatedUnion('kind', [
-          z.object({
-            kind: z.literal('interpreter'),
-            interpreterAddress: z.string(),
-            predicateBlobBase64: z.string().min(1),
-          }),
-          z.object({
-            kind: z.literal('oz_builtin'),
-            primitive: z.object({
-              primitive: z.enum(['spending_limit', 'simple_threshold', 'weighted_threshold']),
-              params: z.record(z.unknown()),
-            }),
-            instanceAddress: z.string(),
-          }),
-        ])
+        z.object({
+          kind: z.literal('interpreter'),
+          interpreterAddress: z.string(),
+          predicateBlobBase64: z.string().min(1),
+        })
       )
       .max(MAX_POLICIES_PER_RULE),
   })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { Address } from '@stellar/stellar-sdk'
-import type { ContextRuleDraft, PolicyRef, PredicateNode } from '../types.ts'
+import type { ContextRuleDraft, PredicateNode } from '../types.ts'
 import { buildReviewCardSummary, describePredicate } from './builder.ts'
 
 /** Build a C... Stellar contract address from a 32-byte buffer of bytes. */
@@ -77,19 +77,6 @@ function sep41Predicate(): PredicateNode {
   }
 }
 
-function sep41PolicyRefs(): PolicyRef[] {
-  return [
-    {
-      kind: 'oz_builtin',
-      primitive: {
-        primitive: 'spending_limit',
-        params: { spending_limit: '1000000000', period_ledgers: 2592000 / 5 },
-      },
-      instanceAddress: 'VERIFY-oz-spending-limit',
-    },
-  ]
-}
-
 /** Build the predicate for the SoroSwap bounded walkthrough:
  *  and(
  *    eq(call_contract, soroswap_router),
@@ -135,12 +122,7 @@ const baseContextRule: ContextRuleDraft = {
 }
 
 describe('buildReviewCardSummary - Blend yield-claim walkthrough', () => {
-  const summary = buildReviewCardSummary(
-    blendClaimPredicate(),
-    [],
-    baseContextRule,
-    tsModelSimulation
-  )
+  const summary = buildReviewCardSummary(blendClaimPredicate(), baseContextRule, tsModelSimulation)
 
   it('emits one constraint line per leaf (contract / function)', () => {
     expect(summary.constraints).toEqual([
@@ -165,16 +147,7 @@ describe('buildReviewCardSummary - Blend yield-claim walkthrough', () => {
 })
 
 describe('buildReviewCardSummary - SEP-41 recipient allowlist walkthrough', () => {
-  const summary = buildReviewCardSummary(
-    sep41Predicate(),
-    sep41PolicyRefs(),
-    baseContextRule,
-    tsModelSimulation
-  )
-
-  it('emits the OZ spending_limit line in addition to the interpreter leaves', () => {
-    expect(summary.constraints).toContain(`spending_limit(1000000000, 2592000)`)
-  })
+  const summary = buildReviewCardSummary(sep41Predicate(), baseContextRule, tsModelSimulation)
 
   it('emits the recipient-allowlist line with the concrete addresses', () => {
     expect(summary.constraints).toContain(
@@ -191,7 +164,6 @@ describe('buildReviewCardSummary - SEP-41 recipient allowlist walkthrough', () =
 describe('buildReviewCardSummary - SoroSwap exact-path+amount walkthrough', () => {
   const summary = buildReviewCardSummary(
     soroswapPredicate(),
-    [],
     baseContextRule,
     interpreterSimulation
   )
@@ -215,8 +187,8 @@ describe('buildReviewCardSummary - SoroSwap exact-path+amount walkthrough', () =
 
 describe('contentHash', () => {
   it('is stable across runs for identical inputs (byte-identical)', () => {
-    const a = buildReviewCardSummary(blendClaimPredicate(), [], baseContextRule, tsModelSimulation)
-    const b = buildReviewCardSummary(blendClaimPredicate(), [], baseContextRule, tsModelSimulation)
+    const a = buildReviewCardSummary(blendClaimPredicate(), baseContextRule, tsModelSimulation)
+    const b = buildReviewCardSummary(blendClaimPredicate(), baseContextRule, tsModelSimulation)
     expect(a.contentHash).toBe(b.contentHash)
     expect(a.contentHash).toMatch(/^[0-9a-f]{64}$/)
   })
@@ -224,7 +196,6 @@ describe('contentHash', () => {
   it('changes when a constraint changes', () => {
     const baseline = buildReviewCardSummary(
       blendClaimPredicate(),
-      [],
       baseContextRule,
       tsModelSimulation
     )
@@ -239,71 +210,38 @@ describe('contentHash', () => {
         },
       ],
     }
-    const tweakedSummary = buildReviewCardSummary(tweaked, [], baseContextRule, tsModelSimulation)
+    const tweakedSummary = buildReviewCardSummary(tweaked, baseContextRule, tsModelSimulation)
     expect(tweakedSummary.contentHash).not.toBe(baseline.contentHash)
   })
 
   it('changes when the ruleName changes', () => {
     const baseline = buildReviewCardSummary(
       blendClaimPredicate(),
-      [],
       baseContextRule,
       tsModelSimulation
     )
     const renamed: ContextRuleDraft = { ...baseContextRule, name: 'renamed-rule' }
-    const renamedSummary = buildReviewCardSummary(
-      blendClaimPredicate(),
-      [],
-      renamed,
-      tsModelSimulation
-    )
+    const renamedSummary = buildReviewCardSummary(blendClaimPredicate(), renamed, tsModelSimulation)
     expect(renamedSummary.contentHash).not.toBe(baseline.contentHash)
   })
 
   it('changes when the backend changes (different simulator)', () => {
-    const a = buildReviewCardSummary(blendClaimPredicate(), [], baseContextRule, tsModelSimulation)
-    const b = buildReviewCardSummary(
-      blendClaimPredicate(),
-      [],
-      baseContextRule,
-      interpreterSimulation
-    )
+    const a = buildReviewCardSummary(blendClaimPredicate(), baseContextRule, tsModelSimulation)
+    const b = buildReviewCardSummary(blendClaimPredicate(), baseContextRule, interpreterSimulation)
     expect(a.contentHash).not.toBe(b.contentHash)
   })
 
   it('changes when validUntilLedger changes', () => {
-    const a = buildReviewCardSummary(blendClaimPredicate(), [], baseContextRule, tsModelSimulation)
+    const a = buildReviewCardSummary(blendClaimPredicate(), baseContextRule, tsModelSimulation)
     const laterExpiry: ContextRuleDraft = { ...baseContextRule, validUntilLedger: 99999 }
-    const b = buildReviewCardSummary(blendClaimPredicate(), [], laterExpiry, tsModelSimulation)
+    const b = buildReviewCardSummary(blendClaimPredicate(), laterExpiry, tsModelSimulation)
     expect(a.contentHash).not.toBe(b.contentHash)
-  })
-
-  it('handles a null predicate (OZ-only policies) deterministically', () => {
-    const a = buildReviewCardSummary(null, sep41PolicyRefs(), baseContextRule, tsModelSimulation)
-    const b = buildReviewCardSummary(null, sep41PolicyRefs(), baseContextRule, tsModelSimulation)
-    expect(a.contentHash).toBe(b.contentHash)
-    expect(a.constraints).toEqual([`spending_limit(1000000000, 2592000)`])
   })
 
   it('renders "No expiry" when validUntilLedger is null', () => {
     const noExpiry: ContextRuleDraft = { ...baseContextRule, validUntilLedger: null }
-    const a = buildReviewCardSummary(blendClaimPredicate(), [], noExpiry, tsModelSimulation)
+    const a = buildReviewCardSummary(blendClaimPredicate(), noExpiry, tsModelSimulation)
     expect(a.expiry).toBe('No expiry')
-  })
-
-  it('skips non-spending_limit OZ primitives (threshold is signer-config, not transactional)', () => {
-    const thresholdRef: PolicyRef = {
-      kind: 'oz_builtin',
-      primitive: { primitive: 'simple_threshold', params: { threshold: 2 } },
-      instanceAddress: 'VERIFY-oz-simple-threshold',
-    }
-    const a = buildReviewCardSummary(
-      blendClaimPredicate(),
-      [thresholdRef],
-      baseContextRule,
-      tsModelSimulation
-    )
-    expect(a.constraints).not.toContainEqual(expect.stringContaining('threshold'))
   })
 })
 
@@ -362,7 +300,6 @@ describe('buildReviewCardSummary - signerNote (cross-layer L1: OZ any-of-N)', ()
   it('returns null when the rule has a single signer (any-of-1 is implicit)', () => {
     const summary = buildReviewCardSummary(
       blendClaimPredicate(),
-      [],
       {
         ...baseContextRule,
         signers: [{ kind: 'delegated', address: DELEGATED_A }],
@@ -375,7 +312,6 @@ describe('buildReviewCardSummary - signerNote (cross-layer L1: OZ any-of-N)', ()
   it('returns null when the rule has no signers (a degenerate, already-rejected shape)', () => {
     const summary = buildReviewCardSummary(
       blendClaimPredicate(),
-      [],
       baseContextRule,
       tsModelSimulation
     )
@@ -389,7 +325,6 @@ describe('buildReviewCardSummary - signerNote (cross-layer L1: OZ any-of-N)', ()
     // shape the contract enforces.
     const summary = buildReviewCardSummary(
       blendClaimPredicate(),
-      [],
       {
         ...baseContextRule,
         signers: [
@@ -407,7 +342,6 @@ describe('buildReviewCardSummary - signerNote (cross-layer L1: OZ any-of-N)', ()
   it('signerNote participates in the content hash (changing N changes the hash)', () => {
     const oneSigner = buildReviewCardSummary(
       blendClaimPredicate(),
-      [],
       {
         ...baseContextRule,
         signers: [{ kind: 'delegated', address: DELEGATED_A }],
@@ -416,7 +350,6 @@ describe('buildReviewCardSummary - signerNote (cross-layer L1: OZ any-of-N)', ()
     )
     const twoSigners = buildReviewCardSummary(
       blendClaimPredicate(),
-      [],
       {
         ...baseContextRule,
         signers: [
@@ -431,12 +364,7 @@ describe('buildReviewCardSummary - signerNote (cross-layer L1: OZ any-of-N)', ()
 })
 
 describe('buildReviewCardSummary - structured-argument leaves (Blend submit)', () => {
-  const summary = buildReviewCardSummary(
-    blendSubmitPredicate(),
-    [],
-    baseContextRule,
-    tsModelSimulation
-  )
+  const summary = buildReviewCardSummary(blendSubmitPredicate(), baseContextRule, tsModelSimulation)
 
   it('renders the call_arg_len leaf as a readable "Length of arg[N] is K" line', () => {
     // The arg-length binding must surface readably - NOT as "blank",
@@ -466,8 +394,8 @@ describe('buildReviewCardSummary - structured-argument leaves (Blend submit)', (
   })
 
   it('emits the same constraint list twice for the same predicate (deterministic)', () => {
-    const a = buildReviewCardSummary(blendSubmitPredicate(), [], baseContextRule, tsModelSimulation)
-    const b = buildReviewCardSummary(blendSubmitPredicate(), [], baseContextRule, tsModelSimulation)
+    const a = buildReviewCardSummary(blendSubmitPredicate(), baseContextRule, tsModelSimulation)
+    const b = buildReviewCardSummary(blendSubmitPredicate(), baseContextRule, tsModelSimulation)
     expect(a.constraints).toEqual(b.constraints)
     expect(a.contentHash).toBe(b.contentHash)
   })

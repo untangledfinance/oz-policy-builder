@@ -1,3 +1,4 @@
+    Checking policy-interpreter v0.1.0 (/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/contracts/policy-interpreter)
 warning: item in documentation is missing backticks
  --> src/auth.rs:4:9
   |
@@ -55,9 +56,9 @@ help: try
   |
 
 warning: unnecessary structure name repetition
-  --> src/dsl.rs:62:13
+  --> src/dsl.rs:55:13
    |
-62 |     And(Vec<Node>),
+55 |     And(Vec<Node>),
    |             ^^^^ help: use the applicable keyword: `Self`
    |
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
@@ -65,141 +66,88 @@ warning: unnecessary structure name repetition
    = help: to override `-W clippy::nursery` add `#[allow(clippy::use_self)]`
 
 warning: unnecessary structure name repetition
-  --> src/dsl.rs:63:12
+  --> src/dsl.rs:90:20
    |
-63 |     Or(Vec<Node>),
-   |            ^^^^ help: use the applicable keyword: `Self`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-  --> src/dsl.rs:64:13
-   |
-64 |     Not(Box<Node>),
-   |             ^^^^ help: use the applicable keyword: `Self`
+90 |     LiteralVec(Vec<Leaf>),
+   |                    ^^^^ help: use the applicable keyword: `Self`
    |
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-   --> src/dsl.rs:105:20
-    |
-105 |     LiteralVec(Vec<Leaf>),
-    |                    ^^^^ help: use the applicable keyword: `Self`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
 
 warning: item in documentation is missing backticks
-   --> src/dsl.rs:133:47
+   --> src/dsl.rs:113:47
     |
-133 |     /// `in` membership failed. Distinct from ArgMismatch so a review card can
+113 |     /// `in` membership failed. Distinct from ArgMismatch so a review card can
     |                                               ^^^^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
 help: try
     |
-133 -     /// `in` membership failed. Distinct from ArgMismatch so a review card can
-133 +     /// `in` membership failed. Distinct from `ArgMismatch` so a review card can
+113 -     /// `in` membership failed. Distinct from ArgMismatch so a review card can
+113 +     /// `in` membership failed. Distinct from `ArgMismatch` so a review card can
     |
 
 warning: this method could have a `#[must_use]` attribute
-   --> src/dsl.rs:144:18
+   --> src/dsl.rs:120:18
     |
-144 |     pub const fn is_fatal(&self) -> bool {
-    |                  ^^^^^^^^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#must_use_candidate
-help: add the attribute
-    |
-144 ~     #[must_use]
-145 ~     pub const fn is_fatal(&self) -> bool {
-    |
-
-warning: unnecessary structure name repetition
-   --> src/dsl.rs:145:24
-    |
-145 |         matches!(self, DenyReason::UnsupportedNode)
-    |                        ^^^^^^^^^^ help: use the applicable keyword: `Self`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: this method could have a `#[must_use]` attribute
-   --> src/dsl.rs:150:18
-    |
-150 |     pub const fn code(&self) -> &'static str {
+120 |     pub const fn code(&self) -> &'static str {
     |                  ^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#must_use_candidate
 help: add the attribute
     |
-150 ~     #[must_use]
-151 ~     pub const fn code(&self) -> &'static str {
+120 ~     #[must_use]
+121 ~     pub const fn code(&self) -> &'static str {
     |
 
 warning: unnecessary structure name repetition
-   --> src/dsl.rs:152:13
+   --> src/dsl.rs:122:13
     |
-152 |             DenyReason::ArgMismatch => "ARG_MISMATCH",
+122 |             DenyReason::ArgMismatch => "ARG_MISMATCH",
     |             ^^^^^^^^^^ help: use the applicable keyword: `Self`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
 
 warning: unnecessary structure name repetition
-   --> src/dsl.rs:153:13
+   --> src/dsl.rs:123:13
     |
-153 |             DenyReason::ContractScope => "CONTRACT_SCOPE",
+123 |             DenyReason::ContractScope => "CONTRACT_SCOPE",
     |             ^^^^^^^^^^ help: use the applicable keyword: `Self`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
 
 warning: unnecessary structure name repetition
-   --> src/dsl.rs:154:13
+   --> src/dsl.rs:124:13
     |
-154 |             DenyReason::ArithmeticOverflow => "ARITHMETIC_OVERFLOW",
+124 |             DenyReason::UnsupportedNode => "UNSUPPORTED_NODE",
     |             ^^^^^^^^^^ help: use the applicable keyword: `Self`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
 
 warning: unnecessary structure name repetition
-   --> src/dsl.rs:155:13
+   --> src/dsl.rs:125:13
     |
-155 |             DenyReason::UnsupportedNode => "UNSUPPORTED_NODE",
-    |             ^^^^^^^^^^ help: use the applicable keyword: `Self`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-   --> src/dsl.rs:156:13
-    |
-156 |             DenyReason::StatefulBound => "STATEFUL_BOUND",
-    |             ^^^^^^^^^^ help: use the applicable keyword: `Self`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-   --> src/dsl.rs:157:13
-    |
-157 |             DenyReason::NotInAllowlist => "NOT_IN_ALLOWLIST",
+125 |             DenyReason::NotInAllowlist => "NOT_IN_ALLOWLIST",
     |             ^^^^^^^^^^ help: use the applicable keyword: `Self`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
 
 warning: this function could have a `#[must_use]` attribute
-   --> src/dsl.rs:164:8
+   --> src/dsl.rs:132:8
     |
-164 | pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
+132 | pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
     |        ^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#must_use_candidate
 help: add the attribute
     |
-164 + #[must_use]
-165 | pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
+132 + #[must_use]
+133 | pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
     |
 
 warning: this `continue` expression is redundant
-   --> src/dsl.rs:169:45
+   --> src/dsl.rs:137:45
     |
-169 |                     EvalDecision::Permit => continue,
+137 |                     EvalDecision::Permit => continue,
     |                                             ^^^^^^^^
     |
     = help: consider dropping the `continue` expression
@@ -208,9 +156,9 @@ warning: this `continue` expression is redundant
     = help: to override `-W clippy::pedantic` add `#[allow(clippy::needless_continue)]`
 
 warning: this argument (8 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
-   --> src/dsl.rs:269:25
+   --> src/dsl.rs:206:25
     |
-269 | fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
+206 | fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
     |                         ^^^^ help: consider passing by value instead: `Val`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#trivially_copy_pass_by_ref
@@ -218,496 +166,130 @@ warning: this argument (8 byte) is passed by reference, but would be more effici
     = help: to override `-W clippy::pedantic` add `#[allow(clippy::trivially_copy_pass_by_ref)]`
 
 warning: this argument (8 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
-   --> src/dsl.rs:269:34
+   --> src/dsl.rs:206:34
     |
-269 | fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
+206 | fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
     |                                  ^^^^ help: consider passing by value instead: `Val`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#trivially_copy_pass_by_ref
 
-warning: these match arms have identical bodies
-   --> src/dsl.rs:296:9
-    |
-296 |         (Leaf::CallContract, _, _) => EvalDecision::Deny(DenyReason::UnsupportedNode),
-    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-...
-307 |         (Leaf::CallFn, _, _) => EvalDecision::Deny(DenyReason::UnsupportedNode),
-    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-    = help: if this is unintentional make the arms return different values
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_same_arms
-    = note: `-W clippy::match-same-arms` implied by `-W clippy::pedantic`
-    = help: to override `-W clippy::pedantic` add `#[allow(clippy::match_same_arms)]`
-help: otherwise merge the patterns into a single arm
-    |
-296 ~         // call_fn: eq vs literal_symbol.
-297 |         (Leaf::CallFn, CompareOp::Eq, Leaf::LiteralSymbol(expected)) => {
-...
-304 |         (Leaf::CallFn, CompareOp::Eq, _) => EvalDecision::Deny(DenyReason::ArgMismatch),
-305 ~         (Leaf::CallContract, _, _) | (Leaf::CallFn, _, _) => EvalDecision::Deny(DenyReason::UnsupportedNode),
-    |
-
-warning: this could be rewritten as `let...else`
-   --> src/dsl.rs:324:13
-    |
-324 | /             let actual = match resolve_selector(env, left, ctx) {
-325 | |                 Some(v) => v,
-326 | |                 None => return EvalDecision::Deny(DenyReason::ArgMismatch),
-327 | |             };
-    | |______________^ help: consider writing: `let Some(actual) = resolve_selector(env, left, ctx) else { return EvalDecision::Deny(DenyReason::ArgMismatch) };`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#manual_let_else
-    = note: `-W clippy::manual-let-else` implied by `-W clippy::pedantic`
-    = help: to override `-W clippy::pedantic` add `#[allow(clippy::manual_let_else)]`
-
-warning: this could be rewritten as `let...else`
-   --> src/dsl.rs:333:17
-    |
-333 | /                 let expected = match literal_to_val(env, right) {
-334 | |                     Some(v) => v,
-335 | |                     None => return EvalDecision::Deny(DenyReason::ArgMismatch),
-336 | |                 };
-    | |__________________^ help: consider writing: `let Some(expected) = literal_to_val(env, right) else { return EvalDecision::Deny(DenyReason::ArgMismatch) };`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#manual_let_else
-
-warning: this could be rewritten as `let...else`
-   --> src/dsl.rs:405:5
-    |
-405 | /     let actual = match ctx.args.get(idx) {
-406 | |         Some(v) => v,
-407 | |         None => return EvalDecision::Deny(DenyReason::ArgMismatch),
-408 | |     };
-    | |______^ help: consider writing: `let Some(actual) = ctx.args.get(idx) else { return EvalDecision::Deny(DenyReason::ArgMismatch) };`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#manual_let_else
-
-warning: use Option::map_or instead of an if let/else
-   --> src/dsl.rs:410:26
-    |
-410 |           CompareOp::Eq => match literal_to_val(env, right) {
-    |  __________________________^
-411 | |             Some(expected) => {
-412 | |                 if val_eq(env, &actual, &expected) {
-413 | |                     EvalDecision::Permit
-...   |
-418 | |             None => EvalDecision::Deny(DenyReason::ArgMismatch),
-419 | |         },
-    | |_________^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#option_if_let_else
-    = note: `-W clippy::option-if-let-else` implied by `-W clippy::nursery`
-    = help: to override `-W clippy::nursery` add `#[allow(clippy::option_if_let_else)]`
-help: try
-    |
-410 ~         CompareOp::Eq => literal_to_val(env, right).map_or(EvalDecision::Deny(DenyReason::ArgMismatch), |expected| if val_eq(env, &actual, &expected) {
-411 +                     EvalDecision::Permit
-412 +                 } else {
-413 +                     EvalDecision::Deny(DenyReason::ArgMismatch)
-414 ~                 }),
-    |
-
-warning: this could be rewritten as `let...else`
-   --> src/dsl.rs:431:5
-    |
-431 | /     let actual = match ctx.args.get(idx) {
-432 | |         Some(v) => v,
-433 | |         None => return EvalDecision::Deny(DenyReason::ArgMismatch),
-434 | |     };
-    | |______^ help: consider writing: `let Some(actual) = ctx.args.get(idx) else { return EvalDecision::Deny(DenyReason::ArgMismatch) };`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#manual_let_else
-
-warning: this could be rewritten as `let...else`
-   --> src/dsl.rs:455:5
-    |
-455 | /     let actual = match ctx.args.get(idx) {
-456 | |         Some(v) => v,
-457 | |         None => return EvalDecision::Deny(DenyReason::ArgMismatch),
-458 | |     };
-    | |______^ help: consider writing: `let Some(actual) = ctx.args.get(idx) else { return EvalDecision::Deny(DenyReason::ArgMismatch) };`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#manual_let_else
-
-warning: this could be rewritten as `let...else`
-   --> src/dsl.rs:459:5
-    |
-459 | /     let outer = match SorobanVec::<Val>::try_from_val(env, &actual) {
-460 | |         Ok(v) => v,
-461 | |         Err(_) => return EvalDecision::Deny(DenyReason::ArgMismatch),
-462 | |     };
-    | |______^ help: consider writing: `let Ok(outer) = SorobanVec::<Val>::try_from_val(env, &actual) else { return EvalDecision::Deny(DenyReason::ArgMismatch) };`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#manual_let_else
-
-warning: this could be rewritten as `let...else`
-   --> src/dsl.rs:463:5
-    |
-463 | /     let elem = match outer.get(element) {
-464 | |         Some(v) => v,
-465 | |         None => return EvalDecision::Deny(DenyReason::ArgMismatch),
-466 | |     };
-    | |______^ help: consider writing: `let Some(elem) = outer.get(element) else { return EvalDecision::Deny(DenyReason::ArgMismatch) };`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#manual_let_else
-
-warning: this could be rewritten as `let...else`
-   --> src/dsl.rs:467:5
-    |
-467 | /     let map = match soroban_sdk::Map::<Symbol, Val>::try_from_val(env, &elem) {
-468 | |         Ok(m) => m,
-469 | |         Err(_) => return EvalDecision::Deny(DenyReason::ArgMismatch),
-470 | |     };
-    | |______^ help: consider writing: `let Ok(map) = soroban_sdk::Map::<Symbol, Val>::try_from_val(env, &elem) else { return EvalDecision::Deny(DenyReason::ArgMismatch) };`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#manual_let_else
-
-warning: this could be rewritten as `let...else`
-   --> src/dsl.rs:471:5
-    |
-471 | /     let field_val = match map.get(field.clone()) {
-472 | |         Some(v) => v,
-473 | |         None => return EvalDecision::Deny(DenyReason::ArgMismatch),
-474 | |     };
-    | |______^ help: consider writing: `let Some(field_val) = map.get(field.clone()) else { return EvalDecision::Deny(DenyReason::ArgMismatch) };`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#manual_let_else
-
-warning: you seem to be trying to use `match` for an equality check. Consider using `if`
-   --> src/dsl.rs:475:5
-    |
-475 | /     match op {
-476 | |         CompareOp::Eq => match literal_to_val(env, right) {
-477 | |             Some(expected) => {
-478 | |                 if val_eq(env, &field_val, &expected) {
-...   |
-507 | |     }
-    | |_____^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#single_match_else
-    = note: `-W clippy::single-match-else` implied by `-W clippy::pedantic`
-    = help: to override `-W clippy::pedantic` add `#[allow(clippy::single_match_else)]`
-help: try
-    |
-475 ~     if op == CompareOp::Eq { match literal_to_val(env, right) {
-476 +         Some(expected) => {
-477 +             if val_eq(env, &field_val, &expected) {
-478 +                 EvalDecision::Permit
-479 +             } else {
-480 +                 EvalDecision::Deny(DenyReason::ArgMismatch)
-481 +             }
-482 +         }
-483 +         None => EvalDecision::Deny(DenyReason::ArgMismatch),
-484 +     } } else {
-485 +         let actual_int = val_to_i128(env, &field_val);
-486 +         let right_int = literal_i128(right);
-487 +         match (actual_int, right_int) {
-488 +             (Some(a), Some(b)) => {
-489 +                 let pass = match op {
-490 +                     CompareOp::Eq => a == b,
-491 +                     CompareOp::Lt => a < b,
-492 +                     CompareOp::Lte => a <= b,
-493 +                     CompareOp::Gt => a > b,
-494 +                     CompareOp::Gte => a >= b,
-495 +                 };
-496 +                 if pass {
-497 +                     EvalDecision::Permit
-498 +                 } else {
-499 +                     EvalDecision::Deny(DenyReason::ArgMismatch)
-500 +                 }
-501 +             }
-502 +             _ => EvalDecision::Deny(DenyReason::ArgMismatch),
-503 +         }
-504 +     }
-    |
-
-warning: use Option::map_or instead of an if let/else
-   --> src/dsl.rs:476:26
-    |
-476 |           CompareOp::Eq => match literal_to_val(env, right) {
-    |  __________________________^
-477 | |             Some(expected) => {
-478 | |                 if val_eq(env, &field_val, &expected) {
-479 | |                     EvalDecision::Permit
-...   |
-484 | |             None => EvalDecision::Deny(DenyReason::ArgMismatch),
-485 | |         },
-    | |_________^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#option_if_let_else
-help: try
-    |
-476 ~         CompareOp::Eq => literal_to_val(env, right).map_or(EvalDecision::Deny(DenyReason::ArgMismatch), |expected| if val_eq(env, &field_val, &expected) {
-477 +                     EvalDecision::Permit
-478 +                 } else {
-479 +                     EvalDecision::Deny(DenyReason::ArgMismatch)
-480 ~                 }),
-    |
-
 warning: this argument (8 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
-   --> src/dsl.rs:510:30
+   --> src/dsl.rs:323:30
     |
-510 | fn val_to_i128(env: &Env, v: &Val) -> Option<i128> {
+323 | fn val_to_i128(env: &Env, v: &Val) -> Option<i128> {
     |                              ^^^^ help: consider passing by value instead: `Val`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#trivially_copy_pass_by_ref
 
-warning: casts from `u32` to `i128` can be expressed infallibly using `From`
-   --> src/dsl.rs:512:21
-    |
-512 |         return Some(n as i128);
-    |                     ^^^^^^^^^
-    |
-    = help: an `as` cast can become silently lossy if the types change in the future
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_lossless
-    = note: `-W clippy::cast-lossless` implied by `-W clippy::pedantic`
-    = help: to override `-W clippy::pedantic` add `#[allow(clippy::cast_lossless)]`
-help: use `i128::from` instead
-    |
-512 -         return Some(n as i128);
-512 +         return Some(i128::from(n));
-    |
-
-warning: casts from `u64` to `i128` can be expressed infallibly using `From`
-   --> src/dsl.rs:515:21
-    |
-515 |         return Some(n as i128);
-    |                     ^^^^^^^^^
-    |
-    = help: an `as` cast can become silently lossy if the types change in the future
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_lossless
-help: use `i128::from` instead
-    |
-515 -         return Some(n as i128);
-515 +         return Some(i128::from(n));
-    |
-
-warning: this could be a `const fn`
-   --> src/dsl.rs:523:1
-    |
-523 | / fn literal_i128(leaf: &Leaf) -> Option<i128> {
-524 | |     match leaf {
-525 | |         Leaf::LiteralU32(v) => Some(*v as i128),
-526 | |         Leaf::LiteralU64(v) => Some(*v as i128),
-...   |
-530 | | }
-    | |_^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#missing_const_for_fn
-    = note: `-W clippy::missing-const-for-fn` implied by `-W clippy::nursery`
-    = help: to override `-W clippy::nursery` add `#[allow(clippy::missing_const_for_fn)]`
-help: make the function `const`
-    |
-523 | const fn literal_i128(leaf: &Leaf) -> Option<i128> {
-    | +++++
-
-warning: casts from `u32` to `i128` can be expressed infallibly using `From`
-   --> src/dsl.rs:525:37
-    |
-525 |         Leaf::LiteralU32(v) => Some(*v as i128),
-    |                                     ^^^^^^^^^^
-    |
-    = help: an `as` cast can become silently lossy if the types change in the future
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_lossless
-help: use `i128::from` instead
-    |
-525 -         Leaf::LiteralU32(v) => Some(*v as i128),
-525 +         Leaf::LiteralU32(v) => Some(i128::from(*v)),
-    |
-
-warning: casts from `u64` to `i128` can be expressed infallibly using `From`
-   --> src/dsl.rs:526:37
-    |
-526 |         Leaf::LiteralU64(v) => Some(*v as i128),
-    |                                     ^^^^^^^^^^
-    |
-    = help: an `as` cast can become silently lossy if the types change in the future
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_lossless
-help: use `i128::from` instead
-    |
-526 -         Leaf::LiteralU64(v) => Some(*v as i128),
-526 +         Leaf::LiteralU64(v) => Some(i128::from(*v)),
-    |
-
-warning: this could be rewritten as `let...else`
-   --> src/dsl.rs:539:5
-    |
-539 | /     let (l, r) = match (leaf_to_i128(env, left, ctx), leaf_to_i128(env, right, ctx)) {
-540 | |         (Some(l), Some(r)) => (l, r),
-541 | |         _ => return EvalDecision::Deny(DenyReason::ArgMismatch),
-542 | |     };
-    | |______^ help: consider writing: `let (Some(l), Some(r)) = (leaf_to_i128(env, left, ctx), leaf_to_i128(env, right, ctx)) else { return EvalDecision::Deny(DenyReason::ArgMismatch) };`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#manual_let_else
-
-warning: casts from `u32` to `i128` can be expressed infallibly using `From`
-   --> src/dsl.rs:559:27
-    |
-559 |         Leaf::Now => Some(ctx.at_ledger as i128),
-    |                           ^^^^^^^^^^^^^^^^^^^^^
-    |
-    = help: an `as` cast can become silently lossy if the types change in the future
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_lossless
-help: use `i128::from` instead
-    |
-559 -         Leaf::Now => Some(ctx.at_ledger as i128),
-559 +         Leaf::Now => Some(i128::from(ctx.at_ledger)),
-    |
-
-warning: casts from `u32` to `i128` can be expressed infallibly using `From`
-   --> src/dsl.rs:564:37
-    |
-564 |         Leaf::LiteralU32(v) => Some(*v as i128),
-    |                                     ^^^^^^^^^^
-    |
-    = help: an `as` cast can become silently lossy if the types change in the future
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_lossless
-help: use `i128::from` instead
-    |
-564 -         Leaf::LiteralU32(v) => Some(*v as i128),
-564 +         Leaf::LiteralU32(v) => Some(i128::from(*v)),
-    |
-
-warning: casts from `u64` to `i128` can be expressed infallibly using `From`
-   --> src/dsl.rs:565:37
-    |
-565 |         Leaf::LiteralU64(v) => Some(*v as i128),
-    |                                     ^^^^^^^^^^
-    |
-    = help: an `as` cast can become silently lossy if the types change in the future
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_lossless
-help: use `i128::from` instead
-    |
-565 -         Leaf::LiteralU64(v) => Some(*v as i128),
-565 +         Leaf::LiteralU64(v) => Some(i128::from(*v)),
-    |
-
-warning: this could be a `const fn`
-   --> src/dsl.rs:571:1
-    |
-571 | / fn compare_u32(op: CompareOp, a: u32, b: u32) -> EvalDecision {
-572 | |     let pass = match op {
-573 | |         CompareOp::Eq => a == b,
-574 | |         CompareOp::Lt => a < b,
-...   |
-584 | | }
-    | |_^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#missing_const_for_fn
-help: make the function `const`
-    |
-571 | const fn compare_u32(op: CompareOp, a: u32, b: u32) -> EvalDecision {
-    | +++++
-
 warning: item in documentation is missing backticks
-   --> src/dsl.rs:606:19
+   --> src/dsl.rs:352:19
     |
-606 |     /// canonical ScVal wire format. Every variant maps to the matching wire
+352 |     /// canonical ScVal wire format. Every variant maps to the matching wire
     |                   ^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
 help: try
     |
-606 -     /// canonical ScVal wire format. Every variant maps to the matching wire
-606 +     /// canonical `ScVal` wire format. Every variant maps to the matching wire
+352 -     /// canonical ScVal wire format. Every variant maps to the matching wire
+352 +     /// canonical `ScVal` wire format. Every variant maps to the matching wire
     |
 
 warning: item in documentation is missing backticks
-   --> src/dsl.rs:613:28
+   --> src/dsl.rs:359:28
     |
-613 |         /// Depth exceeded MAX_DEPTH (5). Maps to `PREDICATE_TOO_DEEP`.
+359 |         /// Depth exceeded MAX_DEPTH (5). Maps to `PREDICATE_TOO_DEEP`.
     |                            ^^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
 help: try
     |
-613 -         /// Depth exceeded MAX_DEPTH (5). Maps to `PREDICATE_TOO_DEEP`.
-613 +         /// Depth exceeded `MAX_DEPTH` (5). Maps to `PREDICATE_TOO_DEEP`.
+359 -         /// Depth exceeded MAX_DEPTH (5). Maps to `PREDICATE_TOO_DEEP`.
+359 +         /// Depth exceeded `MAX_DEPTH` (5). Maps to `PREDICATE_TOO_DEEP`.
     |
 
 warning: item in documentation is missing backticks
-   --> src/dsl.rs:615:33
+   --> src/dsl.rs:361:33
     |
-615 |         /// Leaf count exceeded MAX_LEAVES (200). Maps to `TOO_MANY_LEAVES`.
+361 |         /// Leaf count exceeded MAX_LEAVES (200). Maps to `TOO_MANY_LEAVES`.
     |                                 ^^^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
 help: try
     |
-615 -         /// Leaf count exceeded MAX_LEAVES (200). Maps to `TOO_MANY_LEAVES`.
-615 +         /// Leaf count exceeded `MAX_LEAVES` (200). Maps to `TOO_MANY_LEAVES`.
+361 -         /// Leaf count exceeded MAX_LEAVES (200). Maps to `TOO_MANY_LEAVES`.
+361 +         /// Leaf count exceeded `MAX_LEAVES` (200). Maps to `TOO_MANY_LEAVES`.
     |
 
 warning: item in documentation is missing backticks
-   --> src/dsl.rs:617:39
+   --> src/dsl.rs:363:39
     |
-617 |         /// An `in` haystack exceeded MAX_IN_OPERAND_COUNT (32).
+363 |         /// An `in` haystack exceeded MAX_IN_OPERAND_COUNT (32).
     |                                       ^^^^^^^^^^^^^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
 help: try
     |
-617 -         /// An `in` haystack exceeded MAX_IN_OPERAND_COUNT (32).
-617 +         /// An `in` haystack exceeded `MAX_IN_OPERAND_COUNT` (32).
+363 -         /// An `in` haystack exceeded MAX_IN_OPERAND_COUNT (32).
+363 +         /// An `in` haystack exceeded `MAX_IN_OPERAND_COUNT` (32).
     |
 
 warning: item in documentation is missing backticks
-   --> src/dsl.rs:619:40
+   --> src/dsl.rs:365:40
     |
-619 |         /// Predicate payload exceeded MAX_PREDICATE_BYTES (32 KB).
+365 |         /// Predicate payload exceeded MAX_PREDICATE_BYTES (32 KB).
     |                                        ^^^^^^^^^^^^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
 help: try
     |
-619 -         /// Predicate payload exceeded MAX_PREDICATE_BYTES (32 KB).
-619 +         /// Predicate payload exceeded `MAX_PREDICATE_BYTES` (32 KB).
+365 -         /// Predicate payload exceeded MAX_PREDICATE_BYTES (32 KB).
+365 +         /// Predicate payload exceeded `MAX_PREDICATE_BYTES` (32 KB).
     |
 
 warning: unnecessary structure name repetition
-   --> src/dsl.rs:626:17
+   --> src/dsl.rs:372:17
     |
-626 |                 DecodeError::MalformedPredicate => "MALFORMED_PREDICATE",
+372 |                 DecodeError::MalformedPredicate => "MALFORMED_PREDICATE",
     |                 ^^^^^^^^^^^ help: use the applicable keyword: `Self`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
 
 warning: unnecessary structure name repetition
-   --> src/dsl.rs:627:17
+   --> src/dsl.rs:373:17
     |
-627 |                 DecodeError::PredicateTooDeep => "PREDICATE_TOO_DEEP",
+373 |                 DecodeError::PredicateTooDeep => "PREDICATE_TOO_DEEP",
     |                 ^^^^^^^^^^^ help: use the applicable keyword: `Self`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
 
 warning: unnecessary structure name repetition
-   --> src/dsl.rs:628:17
+   --> src/dsl.rs:374:17
     |
-628 |                 DecodeError::TooManyLeaves => "TOO_MANY_LEAVES",
+374 |                 DecodeError::TooManyLeaves => "TOO_MANY_LEAVES",
     |                 ^^^^^^^^^^^ help: use the applicable keyword: `Self`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
 
 warning: unnecessary structure name repetition
-   --> src/dsl.rs:629:17
+   --> src/dsl.rs:375:17
     |
-629 |                 DecodeError::InOperandLimit => "IN_OPERAND_LIMIT",
+375 |                 DecodeError::InOperandLimit => "IN_OPERAND_LIMIT",
     |                 ^^^^^^^^^^^ help: use the applicable keyword: `Self`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
 
 warning: unnecessary structure name repetition
-   --> src/dsl.rs:630:17
+   --> src/dsl.rs:376:17
     |
-630 |                 DecodeError::PredicateTooLarge => "PREDICATE_TOO_LARGE",
+376 |                 DecodeError::PredicateTooLarge => "PREDICATE_TOO_LARGE",
     |                 ^^^^^^^^^^^ help: use the applicable keyword: `Self`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
 
 warning: docs for function returning `Result` missing `# Errors` section
-   --> src/dsl.rs:644:5
+   --> src/dsl.rs:384:5
     |
-644 |     pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
+384 |     pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#missing_errors_doc
@@ -715,12 +297,12 @@ warning: docs for function returning `Result` missing `# Errors` section
     = help: to override `-W clippy::pedantic` add `#[allow(clippy::missing_errors_doc)]`
 
 warning: first doc comment paragraph is too long
-   --> src/dsl.rs:667:5
+   --> src/dsl.rs:406:5
     |
-667 | /     /// Decode AND check the byte-size cap against the raw XDR bytes. This is
-668 | |     /// the only enforcement point for `MAX_PREDICATE_BYTES` - `decode` cannot
-669 | |     /// see how many bytes the input was, so the cap has to be applied at the
-670 | |     /// install boundary where the raw payload is still in hand.
+406 | /     /// Decode AND check the byte-size cap against the raw XDR bytes. This is
+407 | |     /// the only enforcement point for `MAX_PREDICATE_BYTES` - `decode` cannot
+408 | |     /// see how many bytes the input was, so the cap has to be applied at the
+409 | |     /// install boundary where the raw payload is still in hand.
     | |____^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#too_long_first_doc_paragraph
@@ -728,62 +310,46 @@ warning: first doc comment paragraph is too long
     = help: to override `-W clippy::nursery` add `#[allow(clippy::too_long_first_doc_paragraph)]`
 
 warning: docs for function returning `Result` missing `# Errors` section
-   --> src/dsl.rs:671:5
+   --> src/dsl.rs:410:5
     |
-671 |     pub fn decode_with_byte_cap(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
+410 |     pub fn decode_with_byte_cap(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#missing_errors_doc
 
-warning: casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
-   --> src/dsl.rs:714:34
-    |
-714 |                 s.in_counts.push(haystack.len() as u32);
-    |                                  ^^^^^^^^^^^^^^^^^^^^^
-    |
-    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_possible_truncation
-    = note: `-W clippy::cast-possible-truncation` implied by `-W clippy::pedantic`
-    = help: to override `-W clippy::pedantic` add `#[allow(clippy::cast_possible_truncation)]`
-help: ... or use `try_from` and handle the error accordingly
-    |
-714 -                 s.in_counts.push(haystack.len() as u32);
-714 +                 s.in_counts.push(u32::try_from(haystack.len()));
-    |
-
 warning: item in documentation is missing backticks
-   --> src/dsl.rs:769:9
+   --> src/dsl.rs:491:9
     |
-769 |     /// PartialEq dispatch in the decoder; avoids any string-conversion
+491 |     /// PartialEq dispatch in the decoder; avoids any string-conversion
     |         ^^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
 help: try
     |
-769 -     /// PartialEq dispatch in the decoder; avoids any string-conversion
-769 +     /// `PartialEq` dispatch in the decoder; avoids any string-conversion
+491 -     /// PartialEq dispatch in the decoder; avoids any string-conversion
+491 +     /// `PartialEq` dispatch in the decoder; avoids any string-conversion
     |
 
 warning: this argument (8 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
-   --> src/dsl.rs:857:35
+   --> src/dsl.rs:562:35
     |
-857 |     fn single_tuple(env: &Env, v: &Val) -> Result<SorobanVec<Val>, DecodeError> {
+562 |     fn single_tuple(env: &Env, v: &Val) -> Result<SorobanVec<Val>, DecodeError> {
     |                                   ^^^^ help: consider passing by value instead: `Val`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#trivially_copy_pass_by_ref
 
 warning: this argument (8 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
-   --> src/dsl.rs:861:47
+   --> src/dsl.rs:566:47
     |
-861 |     pub(super) fn decode_leaf(env: &Env, val: &Val) -> Result<Leaf, DecodeError> {
+566 |     pub(super) fn decode_leaf(env: &Env, val: &Val) -> Result<Leaf, DecodeError> {
     |                                               ^^^^ help: consider passing by value instead: `Val`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#trivially_copy_pass_by_ref
 
 warning: this argument is passed by value, but not consumed in the function body
-   --> src/dsl.rs:905:15
+   --> src/dsl.rs:604:15
     |
-905 |         head: Symbol,
+604 |         head: Symbol,
     |               ^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#needless_pass_by_value
@@ -791,24 +357,26 @@ warning: this argument is passed by value, but not consumed in the function body
     = help: to override `-W clippy::pedantic` add `#[allow(clippy::needless_pass_by_value)]`
 help: consider taking a reference instead
     |
-905 |         head: &Symbol,
+604 |         head: &Symbol,
     |               +
 
 warning: this could be a `const fn`
-   --> src/dsl.rs:940:5
+   --> src/dsl.rs:636:5
     |
-940 | /     fn check_arity(actual: u32, expected: u32) -> Result<(), DecodeError> {
-941 | |         if actual == expected {
-942 | |             Ok(())
-943 | |         } else {
+636 | /     fn check_arity(actual: u32, expected: u32) -> Result<(), DecodeError> {
+637 | |         if actual == expected {
+638 | |             Ok(())
+639 | |         } else {
 ...   |
-946 | |     }
+642 | |     }
     | |_____^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#missing_const_for_fn
+    = note: `-W clippy::missing-const-for-fn` implied by `-W clippy::nursery`
+    = help: to override `-W clippy::nursery` add `#[allow(clippy::missing_const_for_fn)]`
 help: make the function `const`
     |
-940 |     const fn check_arity(actual: u32, expected: u32) -> Result<(), DecodeError> {
+636 |     const fn check_arity(actual: u32, expected: u32) -> Result<(), DecodeError> {
     |     +++++
 
 warning: item in documentation is missing backticks
@@ -827,66 +395,66 @@ help: try
 warning: this function could have a `#[must_use]` attribute
   --> src/state.rs:17:8
    |
-17 | pub fn build_eval_context(
+17 | pub fn build_eval_context(e: &Env, context: &Context) -> crate::dsl::EvalContext {
    |        ^^^^^^^^^^^^^^^^^^
    |
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#must_use_candidate
 help: add the attribute
    |
 17 + #[must_use]
-18 | pub fn build_eval_context(
+18 | pub fn build_eval_context(e: &Env, context: &Context) -> crate::dsl::EvalContext {
    |
 
 warning: item in documentation is missing backticks
-  --> src/state.rs:35:56
+  --> src/state.rs:28:56
    |
-35 | /// Called BEFORE the predicate check. The doc, nonce, signers_hash, and
+28 | /// Called BEFORE the predicate check. The doc, nonce, signers_hash, and
    |                                                        ^^^^^^^^^^^^
    |
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
 help: try
    |
-35 - /// Called BEFORE the predicate check. The doc, nonce, signers_hash, and
-35 + /// Called BEFORE the predicate check. The doc, nonce, `signers_hash`, and
+28 - /// Called BEFORE the predicate check. The doc, nonce, signers_hash, and
+28 + /// Called BEFORE the predicate check. The doc, nonce, `signers_hash`, and
    |
 
 warning: item in documentation is missing backticks
-  --> src/state.rs:36:5
+  --> src/state.rs:29:5
    |
-36 | /// master_set share ONE lifecycle: they were all written at install, and
+29 | /// master_set share ONE lifecycle: they were all written at install, and
    |     ^^^^^^^^^^
    |
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
 help: try
    |
-36 - /// master_set share ONE lifecycle: they were all written at install, and
-36 + /// `master_set` share ONE lifecycle: they were all written at install, and
+29 - /// master_set share ONE lifecycle: they were all written at install, and
+29 + /// `master_set` share ONE lifecycle: they were all written at install, and
    |
 
 warning: item in documentation is missing backticks
-  --> src/state.rs:37:21
+  --> src/state.rs:30:21
    |
-37 | /// `enforce` reads signers_hash on every call while every master op reads
+30 | /// `enforce` reads signers_hash on every call while every master op reads
    |                     ^^^^^^^^^^^^
    |
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
 help: try
    |
-37 - /// `enforce` reads signers_hash on every call while every master op reads
-37 + /// `enforce` reads `signers_hash` on every call while every master op reads
+30 - /// `enforce` reads signers_hash on every call while every master op reads
+30 + /// `enforce` reads `signers_hash` on every call while every master op reads
    |
 
 warning: item in documentation is missing backticks
-  --> src/state.rs:38:13
+  --> src/state.rs:31:13
    |
-38 | /// nonce + master_set. Persistent entries that archive cannot be read as
+31 | /// nonce + master_set. Persistent entries that archive cannot be read as
    |             ^^^^^^^^^^
    |
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
 help: try
    |
-38 - /// nonce + master_set. Persistent entries that archive cannot be read as
-38 + /// nonce + `master_set`. Persistent entries that archive cannot be read as
+31 - /// nonce + master_set. Persistent entries that archive cannot be read as
+31 + /// nonce + `master_set`. Persistent entries that archive cannot be read as
    |
 
 warning: item in documentation is missing backticks
@@ -902,336 +470,155 @@ help: try
 1 + //! Per-(smart_account, `rule_id`) state, panic helpers, sha256 utilities.
   |
 
-warning: this method could have a `#[must_use]` attribute
-  --> src/storage.rs:81:18
-   |
-81 |     pub const fn code_str(&self) -> &'static str {
-   |                  ^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#must_use_candidate
-help: add the attribute
-   |
-81 ~     #[must_use]
-82 ~     pub const fn code_str(&self) -> &'static str {
-   |
-
 warning: unnecessary structure name repetition
-  --> src/storage.rs:83:13
+  --> src/storage.rs:81:40
    |
-83 |             PolicyError::ArgMismatch => "ARG_MISMATCH",
-   |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
+81 |             DenyReason::ArgMismatch => PolicyError::ArgMismatch,
+   |                                        ^^^^^^^^^^^ help: use the applicable keyword: `Self`
    |
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
 
 warning: unnecessary structure name repetition
-  --> src/storage.rs:84:13
+  --> src/storage.rs:82:42
    |
-84 |             PolicyError::ContractScope => "CONTRACT_SCOPE",
-   |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-  --> src/storage.rs:85:13
-   |
-85 |             PolicyError::ArithmeticOverflow => "ARITHMETIC_OVERFLOW",
-   |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
+82 |             DenyReason::ContractScope => PolicyError::ContractScope,
+   |                                          ^^^^^^^^^^^ help: use the applicable keyword: `Self`
    |
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
 
 warning: unnecessary structure name repetition
-  --> src/storage.rs:86:13
+  --> src/storage.rs:83:44
    |
-86 |             PolicyError::UnsupportedNode => "UNSUPPORTED_NODE",
-   |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-  --> src/storage.rs:87:13
-   |
-87 |             PolicyError::StatefulBound => "STATEFUL_BOUND",
-   |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
+83 |             DenyReason::UnsupportedNode => PolicyError::UnsupportedNode,
+   |                                            ^^^^^^^^^^^ help: use the applicable keyword: `Self`
    |
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
 
 warning: unnecessary structure name repetition
-  --> src/storage.rs:88:13
+  --> src/storage.rs:84:43
    |
-88 |             PolicyError::NotInAllowlist => "NOT_IN_ALLOWLIST",
-   |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-  --> src/storage.rs:89:13
-   |
-89 |             PolicyError::VersionMismatch => "VERSION_MISMATCH",
-   |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
+84 |             DenyReason::NotInAllowlist => PolicyError::NotInAllowlist,
+   |                                           ^^^^^^^^^^^ help: use the applicable keyword: `Self`
    |
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-  --> src/storage.rs:90:13
-   |
-90 |             PolicyError::MalformedPredicate => "MALFORMED_PREDICATE",
-   |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-  --> src/storage.rs:91:13
-   |
-91 |             PolicyError::NonceReplay => "NONCE_REPLAY",
-   |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-  --> src/storage.rs:92:13
-   |
-92 |             PolicyError::MasterAuthRequired => "MASTER_AUTH_REQUIRED",
-   |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-  --> src/storage.rs:93:13
-   |
-93 |             PolicyError::RuleSignersChanged => "RULE_SIGNERS_CHANGED",
-   |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-  --> src/storage.rs:94:13
-   |
-94 |             PolicyError::MissingState => "MISSING_STATE",
-   |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-  --> src/storage.rs:95:13
-   |
-95 |             PolicyError::PredicateTooLarge => "PREDICATE_TOO_LARGE",
-   |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-  --> src/storage.rs:96:13
-   |
-96 |             PolicyError::PredicateHashMismatch => "PREDICATE_HASH_MISMATCH",
-   |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-  --> src/storage.rs:97:13
-   |
-97 |             PolicyError::EmptySignerSet => "EMPTY_SIGNER_SET",
-   |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-  --> src/storage.rs:98:13
-   |
-98 |             PolicyError::NoAuthenticatedSigners => "NO_AUTHENTICATED_SIGNERS",
-   |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-  --> src/storage.rs:99:13
-   |
-99 |             PolicyError::ExternalSignerNotSupported => "EXTERNAL_SIGNER_NOT_SUPPORTED",
-   |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-   --> src/storage.rs:100:13
-    |
-100 |             PolicyError::SelectorLeafRequired => "SELECTOR_LEAF_REQUIRED",
-    |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-   --> src/storage.rs:101:13
-    |
-101 |             PolicyError::TooManySigners => "TOO_MANY_SIGNERS",
-    |             ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-   --> src/storage.rs:113:40
-    |
-113 |             DenyReason::ArgMismatch => PolicyError::ArgMismatch,
-    |                                        ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-   --> src/storage.rs:114:42
-    |
-114 |             DenyReason::ContractScope => PolicyError::ContractScope,
-    |                                          ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-   --> src/storage.rs:115:47
-    |
-115 |             DenyReason::ArithmeticOverflow => PolicyError::ArithmeticOverflow,
-    |                                               ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-   --> src/storage.rs:116:44
-    |
-116 |             DenyReason::UnsupportedNode => PolicyError::UnsupportedNode,
-    |                                            ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-   --> src/storage.rs:117:42
-    |
-117 |             DenyReason::StatefulBound => PolicyError::StatefulBound,
-    |                                          ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-   --> src/storage.rs:118:43
-    |
-118 |             DenyReason::NotInAllowlist => PolicyError::NotInAllowlist,
-    |                                           ^^^^^^^^^^^ help: use the applicable keyword: `Self`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
 
 warning: first doc comment paragraph is too long
-   --> src/storage.rs:199:1
+   --> src/storage.rs:117:1
     |
-199 | / /// Bump back up to this many ledgers. Roughly 30 days at Stellar's ~5s close
-200 | | /// time (30 * 24 * 60 * 60 / 5 = 518,400), so a rule used at least monthly
-201 | | /// never archives, while an abandoned rule still ages out rather than
-202 | | /// occupying state rent forever.
+117 | / /// Bump back up to this many ledgers. Roughly 30 days at Stellar's ~5s close
+118 | | /// time (30 * 24 * 60 * 60 / 5 = 518,400), so a rule used at least monthly
+119 | | /// never archives, while an abandoned rule still ages out rather than
+120 | | /// occupying state rent forever.
     | |_^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#too_long_first_doc_paragraph
 
 warning: this method could have a `#[must_use]` attribute
-   --> src/storage.rs:211:12
+   --> src/storage.rs:129:12
     |
-211 |     pub fn new(_e: &Env, account: Address, rule_id: u32) -> Self {
+129 |     pub fn new(account: Address, rule_id: u32) -> Self {
     |            ^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#must_use_candidate
 help: add the attribute
     |
-211 ~     #[must_use]
-212 ~     pub fn new(_e: &Env, account: Address, rule_id: u32) -> Self {
+129 ~     #[must_use]
+130 ~     pub fn new(account: Address, rule_id: u32) -> Self {
     |
 
 warning: this could be a `const fn`
-   --> src/storage.rs:211:5
+   --> src/storage.rs:129:5
     |
-211 | /     pub fn new(_e: &Env, account: Address, rule_id: u32) -> Self {
-212 | |         Self { account, rule_id }
-213 | |     }
+129 | /     pub fn new(account: Address, rule_id: u32) -> Self {
+130 | |         Self { account, rule_id }
+131 | |     }
     | |_____^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#missing_const_for_fn
 help: make the function `const`
     |
-211 |     pub const fn new(_e: &Env, account: Address, rule_id: u32) -> Self {
+129 |     pub const fn new(account: Address, rule_id: u32) -> Self {
     |         +++++
 
 warning: this method could have a `#[must_use]` attribute
-   --> src/storage.rs:215:12
+   --> src/storage.rs:133:12
     |
-215 |     pub fn doc_key(&self) -> DocKeyTuple {
+133 |     pub fn doc_key(&self) -> RuleStorageKey {
     |            ^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#must_use_candidate
 help: add the attribute
     |
-215 ~     #[must_use]
-216 ~     pub fn doc_key(&self) -> DocKeyTuple {
+133 ~     #[must_use]
+134 ~     pub fn doc_key(&self) -> RuleStorageKey {
     |
 
 warning: this method could have a `#[must_use]` attribute
-   --> src/storage.rs:218:12
+   --> src/storage.rs:136:12
     |
-218 |     pub fn nonce_key(&self) -> NonceKeyTuple {
+136 |     pub fn nonce_key(&self) -> RuleStorageKey {
     |            ^^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#must_use_candidate
 help: add the attribute
     |
-218 ~     #[must_use]
-219 ~     pub fn nonce_key(&self) -> NonceKeyTuple {
+136 ~     #[must_use]
+137 ~     pub fn nonce_key(&self) -> RuleStorageKey {
     |
 
 warning: this method could have a `#[must_use]` attribute
-   --> src/storage.rs:221:12
+   --> src/storage.rs:139:12
     |
-221 |     pub fn signers_hash_key(&self) -> SignersHashKeyTuple {
+139 |     pub fn signers_hash_key(&self) -> RuleStorageKey {
     |            ^^^^^^^^^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#must_use_candidate
 help: add the attribute
     |
-221 ~     #[must_use]
-222 ~     pub fn signers_hash_key(&self) -> SignersHashKeyTuple {
+139 ~     #[must_use]
+140 ~     pub fn signers_hash_key(&self) -> RuleStorageKey {
     |
 
 warning: this method could have a `#[must_use]` attribute
-   --> src/storage.rs:224:12
+   --> src/storage.rs:142:12
     |
-224 |     pub fn master_set_key(&self) -> MasterSetKeyTuple {
+142 |     pub fn master_set_key(&self) -> RuleStorageKey {
     |            ^^^^^^^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#must_use_candidate
 help: add the attribute
     |
-224 ~     #[must_use]
-225 ~     pub fn master_set_key(&self) -> MasterSetKeyTuple {
+142 ~     #[must_use]
+143 ~     pub fn master_set_key(&self) -> RuleStorageKey {
     |
 
 warning: first doc comment paragraph is too long
-   --> src/storage.rs:249:1
+   --> src/storage.rs:163:1
     |
-249 | / /// Stable 32-byte hash of the signer set. Each signer is serialized via the
-250 | | /// SDK's `Val::to_xdr` (its canonical XDR form) and prefixed with a length
-251 | | /// to keep the encoding unambiguous. The host computes sha256.
+163 | / /// Stable 32-byte hash of the signer set. Each signer is serialized via the
+164 | | /// SDK's `Val::to_xdr` (its canonical XDR form) and prefixed with a length
+165 | | /// to keep the encoding unambiguous. The host computes sha256.
     | |_^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#too_long_first_doc_paragraph
 
 warning: this function could have a `#[must_use]` attribute
-   --> src/storage.rs:252:8
+   --> src/storage.rs:166:8
     |
-252 | pub fn sha256_of_signer_set(env: &Env, signers: &Vec<Signer>) -> BytesN<32> {
+166 | pub fn sha256_of_signer_set(env: &Env, signers: &Vec<Signer>) -> BytesN<32> {
     |        ^^^^^^^^^^^^^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#must_use_candidate
 help: add the attribute
     |
-252 + #[must_use]
-253 | pub fn sha256_of_signer_set(env: &Env, signers: &Vec<Signer>) -> BytesN<32> {
+166 + #[must_use]
+167 | pub fn sha256_of_signer_set(env: &Env, signers: &Vec<Signer>) -> BytesN<32> {
     |
 
 warning: this argument (8 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
-   --> src/storage.rs:270:31
+   --> src/storage.rs:184:31
     |
-270 | fn val_to_xdr(env: &Env, val: &soroban_sdk::Val) -> Bytes {
+184 | fn val_to_xdr(env: &Env, val: &soroban_sdk::Val) -> Bytes {
     |                               ^^^^^^^^^^^^^^^^^ help: consider passing by value instead: `soroban_sdk::Val`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#trivially_copy_pass_by_ref
@@ -1302,6 +689,8 @@ warning: these match arms have identical bodies
    |
    = help: if this is unintentional make the arms return different values
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_same_arms
+   = note: `-W clippy::match-same-arms` implied by `-W clippy::pedantic`
+   = help: to override `-W clippy::pedantic` add `#[allow(clippy::match_same_arms)]`
 help: otherwise merge the patterns into a single arm
    |
 26 -             Signer::Delegated(a) => a,
@@ -1336,6 +725,298 @@ warning: first doc comment paragraph is too long
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#too_long_first_doc_paragraph
 
 warning: item in documentation is missing backticks
+ --> src/dsl_tests.rs:9:27
+  |
+9 | //!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
+  |                           ^^^^^^^^^^^^^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+  |
+9 - //!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
+9 + //!   - each v2 selector: `call_contract`, call_fn, call_arg, call_arg_len,
+  |
+
+warning: item in documentation is missing backticks
+ --> src/dsl_tests.rs:9:42
+  |
+9 | //!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
+  |                                          ^^^^^^^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+  |
+9 - //!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
+9 + //!   - each v2 selector: call_contract, `call_fn`, call_arg, call_arg_len,
+  |
+
+warning: item in documentation is missing backticks
+ --> src/dsl_tests.rs:9:51
+  |
+9 | //!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
+  |                                                   ^^^^^^^^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+  |
+9 - //!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
+9 + //!   - each v2 selector: call_contract, call_fn, `call_arg`, call_arg_len,
+  |
+
+warning: item in documentation is missing backticks
+ --> src/dsl_tests.rs:9:61
+  |
+9 | //!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
+  |                                                             ^^^^^^^^^^^^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+  |
+9 - //!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
+9 + //!   - each v2 selector: call_contract, call_fn, call_arg, `call_arg_len`,
+  |
+
+warning: item in documentation is missing backticks
+  --> src/dsl_tests.rs:10:9
+   |
+10 | //!     call_arg_field
+   |         ^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+10 - //!     call_arg_field
+10 + //!     `call_arg_field`
+   |
+
+warning: item in documentation is missing backticks
+  --> src/dsl_tests.rs:12:45
+   |
+12 | //!     selector symbol, wrong arity, wrong ScVal type as a literal, in []
+   |                                             ^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+12 - //!     selector symbol, wrong arity, wrong ScVal type as a literal, in []
+12 + //!     selector symbol, wrong arity, wrong `ScVal` type as a literal, in []
+   |
+
+warning: item in documentation is missing backticks
+  --> src/dsl_tests.rs:13:20
+   |
+13 | //!     at decode, call_arg index out of bounds at evaluate, garbage bytes
+   |                    ^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+13 - //!     at decode, call_arg index out of bounds at evaluate, garbage bytes
+13 + //!     at decode, `call_arg` index out of bounds at evaluate, garbage bytes
+   |
+
+warning: item in documentation is missing backticks
+  --> src/dsl_tests.rs:15:41
+   |
+15 | //!   - caps with the exact wire codes: MAX_DEPTH 5 -> PREDICATE_TOO_DEEP,
+   |                                         ^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+15 - //!   - caps with the exact wire codes: MAX_DEPTH 5 -> PREDICATE_TOO_DEEP,
+15 + //!   - caps with the exact wire codes: `MAX_DEPTH` 5 -> PREDICATE_TOO_DEEP,
+   |
+
+warning: item in documentation is missing backticks
+  --> src/dsl_tests.rs:15:56
+   |
+15 | //!   - caps with the exact wire codes: MAX_DEPTH 5 -> PREDICATE_TOO_DEEP,
+   |                                                        ^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+15 - //!   - caps with the exact wire codes: MAX_DEPTH 5 -> PREDICATE_TOO_DEEP,
+15 + //!   - caps with the exact wire codes: MAX_DEPTH 5 -> `PREDICATE_TOO_DEEP`,
+   |
+
+warning: item in documentation is missing backticks
+  --> src/dsl_tests.rs:16:9
+   |
+16 | //!     MAX_LEAVES 200 -> TOO_MANY_LEAVES, MAX_IN_OPERAND_COUNT 32 ->
+   |         ^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+16 - //!     MAX_LEAVES 200 -> TOO_MANY_LEAVES, MAX_IN_OPERAND_COUNT 32 ->
+16 + //!     `MAX_LEAVES` 200 -> TOO_MANY_LEAVES, MAX_IN_OPERAND_COUNT 32 ->
+   |
+
+warning: item in documentation is missing backticks
+  --> src/dsl_tests.rs:16:27
+   |
+16 | //!     MAX_LEAVES 200 -> TOO_MANY_LEAVES, MAX_IN_OPERAND_COUNT 32 ->
+   |                           ^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+16 - //!     MAX_LEAVES 200 -> TOO_MANY_LEAVES, MAX_IN_OPERAND_COUNT 32 ->
+16 + //!     MAX_LEAVES 200 -> `TOO_MANY_LEAVES`, MAX_IN_OPERAND_COUNT 32 ->
+   |
+
+warning: item in documentation is missing backticks
+  --> src/dsl_tests.rs:16:44
+   |
+16 | //!     MAX_LEAVES 200 -> TOO_MANY_LEAVES, MAX_IN_OPERAND_COUNT 32 ->
+   |                                            ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+16 - //!     MAX_LEAVES 200 -> TOO_MANY_LEAVES, MAX_IN_OPERAND_COUNT 32 ->
+16 + //!     MAX_LEAVES 200 -> TOO_MANY_LEAVES, `MAX_IN_OPERAND_COUNT` 32 ->
+   |
+
+warning: item in documentation is missing backticks
+  --> src/dsl_tests.rs:17:9
+   |
+17 | //!     IN_OPERAND_LIMIT, MAX_PREDICATE_BYTES 32768 -> PREDICATE_TOO_LARGE
+   |         ^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+17 - //!     IN_OPERAND_LIMIT, MAX_PREDICATE_BYTES 32768 -> PREDICATE_TOO_LARGE
+17 + //!     `IN_OPERAND_LIMIT`, MAX_PREDICATE_BYTES 32768 -> PREDICATE_TOO_LARGE
+   |
+
+warning: item in documentation is missing backticks
+  --> src/dsl_tests.rs:17:27
+   |
+17 | //!     IN_OPERAND_LIMIT, MAX_PREDICATE_BYTES 32768 -> PREDICATE_TOO_LARGE
+   |                           ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+17 - //!     IN_OPERAND_LIMIT, MAX_PREDICATE_BYTES 32768 -> PREDICATE_TOO_LARGE
+17 + //!     IN_OPERAND_LIMIT, `MAX_PREDICATE_BYTES` 32768 -> PREDICATE_TOO_LARGE
+   |
+
+warning: item in documentation is missing backticks
+  --> src/dsl_tests.rs:17:56
+   |
+17 | //!     IN_OPERAND_LIMIT, MAX_PREDICATE_BYTES 32768 -> PREDICATE_TOO_LARGE
+   |                                                        ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+17 - //!     IN_OPERAND_LIMIT, MAX_PREDICATE_BYTES 32768 -> PREDICATE_TOO_LARGE
+17 + //!     IN_OPERAND_LIMIT, MAX_PREDICATE_BYTES 32768 -> `PREDICATE_TOO_LARGE`
+   |
+
+warning: this argument is passed by value, but not consumed in the function body
+   --> src/dsl_tests.rs:47:14
+    |
+ 47 | fn permit(d: EvalDecision) -> bool {
+    |              ^^^^^^^^^^^^
+    |
+help: or consider marking this type as `Copy`
+   --> src/dsl.rs:103:1
+    |
+103 | pub enum EvalDecision {
+    | ^^^^^^^^^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#needless_pass_by_value
+help: consider taking a reference instead
+    |
+ 47 | fn permit(d: &EvalDecision) -> bool {
+    |              +
+
+warning: this argument is passed by value, but not consumed in the function body
+   --> src/dsl_tests.rs:51:14
+    |
+ 51 | fn reason(d: EvalDecision) -> Option<DenyReason> {
+    |              ^^^^^^^^^^^^
+    |
+help: or consider marking this type as `Copy`
+   --> src/dsl.rs:103:1
+    |
+103 | pub enum EvalDecision {
+    | ^^^^^^^^^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#needless_pass_by_value
+help: consider taking a reference instead
+    |
+ 51 | fn reason(d: &EvalDecision) -> Option<DenyReason> {
+    |              +
+
+warning: casting `i128` to `u64` may truncate the value
+  --> src/dsl_tests.rs:85:14
+   |
+85 |     let lo = (v & 0xFFFF_FFFF_FFFF_FFFFu128 as i128) as u64;
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_possible_truncation
+   = note: `-W clippy::cast-possible-truncation` implied by `-W clippy::pedantic`
+   = help: to override `-W clippy::pedantic` add `#[allow(clippy::cast_possible_truncation)]`
+help: ... or use `try_from` and handle the error accordingly
+   |
+85 -     let lo = (v & 0xFFFF_FFFF_FFFF_FFFFu128 as i128) as u64;
+85 +     let lo = u64::try_from(v & 0xFFFF_FFFF_FFFF_FFFFu128 as i128);
+   |
+
+warning: casting `i128` to `u64` may lose the sign of the value
+  --> src/dsl_tests.rs:85:14
+   |
+85 |     let lo = (v & 0xFFFF_FFFF_FFFF_FFFFu128 as i128) as u64;
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_sign_loss
+   = note: `-W clippy::cast-sign-loss` implied by `-W clippy::pedantic`
+   = help: to override `-W clippy::pedantic` add `#[allow(clippy::cast_sign_loss)]`
+
+warning: casting `u128` to `i128` may wrap around the value
+  --> src/dsl_tests.rs:85:19
+   |
+85 |     let lo = (v & 0xFFFF_FFFF_FFFF_FFFFu128 as i128) as u64;
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, use `cast_signed()` instead: `0xFFFF_FFFF_FFFF_FFFFu128.cast_signed()`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_possible_wrap
+   = note: `-W clippy::cast-possible-wrap` implied by `-W clippy::pedantic`
+   = help: to override `-W clippy::pedantic` add `#[allow(clippy::cast_possible_wrap)]`
+
+warning: this argument is passed by value, but not consumed in the function body
+   --> src/dsl_tests.rs:103:35
+    |
+103 | fn bytes_from_scval(env: &Env, v: ScVal) -> Bytes {
+    |                                   ^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#needless_pass_by_value
+help: consider taking a reference instead
+    |
+103 | fn bytes_from_scval(env: &Env, v: &ScVal) -> Bytes {
+    |                                   +
+
+warning: redundant clone
+   --> src/dsl_tests.rs:372:23
+    |
+372 |     args.push_back(arg.clone().into_val(&env));
+    |                       ^^^^^^^^ help: remove this
+    |
+note: cloned value is neither consumed nor mutated
+   --> src/dsl_tests.rs:372:20
+    |
+372 |     args.push_back(arg.clone().into_val(&env));
+    |                    ^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
+    = note: `-W clippy::redundant-clone` implied by `-W clippy::nursery`
+    = help: to override `-W clippy::nursery` add `#[allow(clippy::redundant_clone)]`
+
+warning: item in documentation is missing backticks
   --> src/types.rs:75:38
    |
 75 | /// `predicate` is the raw canonical ScVal XDR — `ScVal::Vec([symbol, ...])`
@@ -1347,6 +1028,22 @@ help: try
 75 - /// `predicate` is the raw canonical ScVal XDR — `ScVal::Vec([symbol, ...])`
 75 + /// `predicate` is the raw canonical `ScVal` XDR — `ScVal::Vec([symbol, ...])`
    |
+
+warning: casts from `u32` to `i128` can be expressed infallibly using `From`
+   --> src/dsl_tests.rs:625:24
+    |
+625 |         haystack: (0..=(MAX_IN_OPERAND_COUNT as i128))
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: an `as` cast can become silently lossy if the types change in the future
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_lossless
+    = note: `-W clippy::cast-lossless` implied by `-W clippy::pedantic`
+    = help: to override `-W clippy::pedantic` add `#[allow(clippy::cast_lossless)]`
+help: use `i128::from` instead
+    |
+625 -         haystack: (0..=(MAX_IN_OPERAND_COUNT as i128))
+625 +         haystack: (0..=i128::from(MAX_IN_OPERAND_COUNT))
+    |
 
 warning: this method could have a `#[must_use]` attribute
   --> src/lib.rs:35:12
@@ -1404,11 +1101,13 @@ warning: this could be rewritten as `let...else`
    |
 68 | /         let root = match dsl::decode_with_byte_cap(e, &install_params.predicate) {
 69 | |             Ok(n) => n,
-70 | |             Err(_) => storage::panic_malformed_predicate(e),
+70 | |             Err(_) => storage::deny(e, storage::PolicyError::MalformedPredicate),
 71 | |         };
-   | |__________^ help: consider writing: `let Ok(root) = dsl::decode_with_byte_cap(e, &install_params.predicate) else { storage::panic_malformed_predicate(e) };`
+   | |__________^ help: consider writing: `let Ok(root) = dsl::decode_with_byte_cap(e, &install_params.predicate) else { storage::deny(e, storage::PolicyError::MalformedPredicate) };`
    |
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#manual_let_else
+   = note: `-W clippy::manual-let-else` implied by `-W clippy::pedantic`
+   = help: to override `-W clippy::pedantic` add `#[allow(clippy::manual_let_else)]`
 
 warning: use Option::map_or_else instead of an if let/else
   --> src/lib.rs:68:20
@@ -1416,731 +1115,262 @@ warning: use Option::map_or_else instead of an if let/else
 68 |           let root = match dsl::decode_with_byte_cap(e, &install_params.predicate) {
    |  ____________________^
 69 | |             Ok(n) => n,
-70 | |             Err(_) => storage::panic_malformed_predicate(e),
+70 | |             Err(_) => storage::deny(e, storage::PolicyError::MalformedPredicate),
 71 | |         };
-   | |_________^ help: try: `dsl::decode_with_byte_cap(e, &install_params.predicate).map_or_else(|_| storage::panic_malformed_predicate(e), |n| n)`
+   | |_________^ help: try: `dsl::decode_with_byte_cap(e, &install_params.predicate).map_or_else(|_| storage::deny(e, storage::PolicyError::MalformedPredicate), |n| n)`
    |
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#option_if_let_else
+   = note: `-W clippy::option-if-let-else` implied by `-W clippy::nursery`
+   = help: to override `-W clippy::nursery` add `#[allow(clippy::option_if_let_else)]`
 
 warning: this argument is passed by value, but not consumed in the function body
-   --> src/lib.rs:173:18
+   --> src/lib.rs:142:18
     |
-173 |         context: soroban_sdk::auth::Context,
+142 |         context: soroban_sdk::auth::Context,
     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#needless_pass_by_value
 help: consider taking a reference instead
     |
-173 |         context: &soroban_sdk::auth::Context,
+142 |         context: &soroban_sdk::auth::Context,
     |                  +
 
 warning: this argument is passed by value, but not consumed in the function body
-   --> src/lib.rs:174:32
+   --> src/lib.rs:143:32
     |
-174 |         authenticated_signers: Vec<Signer>,
+143 |         authenticated_signers: Vec<Signer>,
     |                                ^^^^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#needless_pass_by_value
 help: consider taking a reference instead
     |
-174 |         authenticated_signers: &Vec<Signer>,
+143 |         authenticated_signers: &Vec<Signer>,
     |                                +
 
 warning: this argument is passed by value, but not consumed in the function body
-   --> src/lib.rs:175:23
+   --> src/lib.rs:144:23
     |
-175 |         context_rule: ContextRule,
+144 |         context_rule: ContextRule,
     |                       ^^^^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#needless_pass_by_value
 help: consider taking a reference instead
     |
-175 |         context_rule: &ContextRule,
+144 |         context_rule: &ContextRule,
     |                       +
 
 warning: this argument is passed by value, but not consumed in the function body
-   --> src/lib.rs:176:24
+   --> src/lib.rs:145:24
     |
-176 |         smart_account: Address,
+145 |         smart_account: Address,
     |                        ^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#needless_pass_by_value
 help: consider taking a reference instead
     |
-176 |         smart_account: &Address,
+145 |         smart_account: &Address,
     |                        +
 
-warning: use Option::map_or_else instead of an if let/else
-   --> src/lib.rs:195:39
+warning: redundant clone
+   --> src/lib.rs:163:54
     |
-195 |           let doc: storage::StoredDoc = match e.storage().persistent().get(&key.doc_key()) {
+163 |         let key = storage::RuleKey::new(smart_account.clone(), rule_id);
+    |                                                      ^^^^^^^^ help: remove this
+    |
+note: this value is dropped without further use
+   --> src/lib.rs:163:41
+    |
+163 |         let key = storage::RuleKey::new(smart_account.clone(), rule_id);
+    |                                         ^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
+    = note: `-W clippy::redundant-clone` implied by `-W clippy::nursery`
+    = help: to override `-W clippy::nursery` add `#[allow(clippy::redundant_clone)]`
+
+warning: use Option::map_or_else instead of an if let/else
+   --> src/lib.rs:164:39
+    |
+164 |           let doc: storage::StoredDoc = match e.storage().persistent().get(&key.doc_key()) {
     |  _______________________________________^
-196 | |             Some(d) => d,
-197 | |             None => storage::panic_missing_state(e),
-198 | |         };
-    | |_________^ help: try: `e.storage().persistent().get(&key.doc_key()).map_or_else(|| storage::panic_missing_state(e), |d| d)`
+165 | |             Some(d) => d,
+166 | |             None => storage::deny(e, storage::PolicyError::MissingState),
+167 | |         };
+    | |_________^ help: try: `e.storage().persistent().get(&key.doc_key()).map_or_else(|| storage::deny(e, storage::PolicyError::MissingState), |d| d)`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#option_if_let_else
 
 warning: use Option::map_or_else instead of an if let/else
-   --> src/lib.rs:200:13
+   --> src/lib.rs:169:13
     |
-200 | /             match e.storage().persistent().get(&key.signers_hash_key()) {
-201 | |                 Some(h) => h,
-202 | |                 None => storage::panic_missing_state(e),
-203 | |             };
-    | |_____________^ help: try: `e.storage().persistent().get(&key.signers_hash_key()).map_or_else(|| storage::panic_missing_state(e), |h| h)`
+169 | /             match e.storage().persistent().get(&key.signers_hash_key()) {
+170 | |                 Some(h) => h,
+171 | |                 None => storage::deny(e, storage::PolicyError::MissingState),
+172 | |             };
+    | |_____________^ help: try: `e.storage().persistent().get(&key.signers_hash_key()).map_or_else(|| storage::deny(e, storage::PolicyError::MissingState), |h| h)`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#option_if_let_else
 
 warning: this could be rewritten as `let...else`
-   --> src/lib.rs:209:9
+   --> src/lib.rs:178:9
     |
-209 | /         let predicate_root = match dsl::decode_with_byte_cap(e, &doc.predicate_bytes) {
-210 | |             Ok(n) => n,
-211 | |             Err(_) => storage::panic_malformed_predicate(e),
-212 | |         };
-    | |__________^ help: consider writing: `let Ok(predicate_root) = dsl::decode_with_byte_cap(e, &doc.predicate_bytes) else { storage::panic_malformed_predicate(e) };`
+178 | /         let predicate_root = match dsl::decode_with_byte_cap(e, &doc.predicate_bytes) {
+179 | |             Ok(n) => n,
+180 | |             Err(_) => storage::deny(e, storage::PolicyError::MalformedPredicate),
+181 | |         };
+    | |__________^ help: consider writing: `let Ok(predicate_root) = dsl::decode_with_byte_cap(e, &doc.predicate_bytes) else { storage::deny(e, storage::PolicyError::MalformedPredicate) };`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#manual_let_else
 
 warning: use Option::map_or_else instead of an if let/else
-   --> src/lib.rs:209:30
+   --> src/lib.rs:178:30
     |
-209 |           let predicate_root = match dsl::decode_with_byte_cap(e, &doc.predicate_bytes) {
+178 |           let predicate_root = match dsl::decode_with_byte_cap(e, &doc.predicate_bytes) {
     |  ______________________________^
-210 | |             Ok(n) => n,
-211 | |             Err(_) => storage::panic_malformed_predicate(e),
-212 | |         };
-    | |_________^ help: try: `dsl::decode_with_byte_cap(e, &doc.predicate_bytes).map_or_else(|_| storage::panic_malformed_predicate(e), |n| n)`
+179 | |             Ok(n) => n,
+180 | |             Err(_) => storage::deny(e, storage::PolicyError::MalformedPredicate),
+181 | |         };
+    | |_________^ help: try: `dsl::decode_with_byte_cap(e, &doc.predicate_bytes).map_or_else(|_| storage::deny(e, storage::PolicyError::MalformedPredicate), |n| n)`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#option_if_let_else
 
 warning: this argument is passed by value, but not consumed in the function body
-   --> src/lib.rs:232:45
+   --> src/lib.rs:201:45
     |
-232 |     pub fn uninstall(e: &Env, context_rule: ContextRule, smart_account: Address) {
+201 |     pub fn uninstall(e: &Env, context_rule: ContextRule, smart_account: Address) {
     |                                             ^^^^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#needless_pass_by_value
 help: consider taking a reference instead
     |
-232 |     pub fn uninstall(e: &Env, context_rule: &ContextRule, smart_account: Address) {
+201 |     pub fn uninstall(e: &Env, context_rule: &ContextRule, smart_account: Address) {
     |                                             +
 
 warning: this argument is passed by value, but not consumed in the function body
-   --> src/lib.rs:232:73
+   --> src/lib.rs:201:73
     |
-232 |     pub fn uninstall(e: &Env, context_rule: ContextRule, smart_account: Address) {
+201 |     pub fn uninstall(e: &Env, context_rule: ContextRule, smart_account: Address) {
     |                                                                         ^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#needless_pass_by_value
 help: consider taking a reference instead
     |
-232 |     pub fn uninstall(e: &Env, context_rule: ContextRule, smart_account: &Address) {
+201 |     pub fn uninstall(e: &Env, context_rule: ContextRule, smart_account: &Address) {
     |                                                                         +
 
 warning: redundant clone
-   --> src/lib.rs:234:57
+   --> src/lib.rs:203:54
     |
-234 |         let key = storage::RuleKey::new(e, smart_account.clone(), rule_id);
-    |                                                         ^^^^^^^^ help: remove this
+203 |         let key = storage::RuleKey::new(smart_account.clone(), rule_id);
+    |                                                      ^^^^^^^^ help: remove this
     |
 note: this value is dropped without further use
-   --> src/lib.rs:234:44
+   --> src/lib.rs:203:41
     |
-234 |         let key = storage::RuleKey::new(e, smart_account.clone(), rule_id);
-    |                                            ^^^^^^^^^^^^^
+203 |         let key = storage::RuleKey::new(smart_account.clone(), rule_id);
+    |                                         ^^^^^^^^^^^^^
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
-    = note: `-W clippy::redundant-clone` implied by `-W clippy::nursery`
-    = help: to override `-W clippy::nursery` add `#[allow(clippy::redundant_clone)]`
 
 warning: use Option::map_or_else instead of an if let/else
-   --> src/lib.rs:235:39
+   --> src/lib.rs:204:39
     |
-235 |           let master_set: Vec<Signer> = match e.storage().persistent().get(&key.master_set_key()) {
+204 |           let master_set: Vec<Signer> = match e.storage().persistent().get(&key.master_set_key()) {
     |  _______________________________________^
-236 | |             Some(s) => s,
-237 | |             None => storage::panic_missing_state(e),
-238 | |         };
-    | |_________^ help: try: `e.storage().persistent().get(&key.master_set_key()).map_or_else(|| storage::panic_missing_state(e), |s| s)`
+205 | |             Some(s) => s,
+206 | |             None => storage::deny(e, storage::PolicyError::MissingState),
+207 | |         };
+    | |_________^ help: try: `e.storage().persistent().get(&key.master_set_key()).map_or_else(|| storage::deny(e, storage::PolicyError::MissingState), |s| s)`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#option_if_let_else
 
 warning: this argument is passed by value, but not consumed in the function body
-   --> src/lib.rs:251:24
+   --> src/lib.rs:220:24
     |
-251 |         smart_account: Address,
+220 |         smart_account: Address,
     |                        ^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#needless_pass_by_value
 help: consider taking a reference instead
     |
-251 |         smart_account: &Address,
+220 |         smart_account: &Address,
     |                        +
 
 warning: this argument is passed by value, but not consumed in the function body
-   --> src/lib.rs:253:18
+   --> src/lib.rs:222:18
     |
-253 |         new_set: Vec<Signer>,
+222 |         new_set: Vec<Signer>,
     |                  ^^^^^^^^^^^
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#needless_pass_by_value
 help: consider taking a reference instead
     |
-253 |         new_set: &Vec<Signer>,
+222 |         new_set: &Vec<Signer>,
     |                  +
 
 warning: redundant clone
-   --> src/lib.rs:255:57
+   --> src/lib.rs:224:54
     |
-255 |         let key = storage::RuleKey::new(e, smart_account.clone(), rule_id);
-    |                                                         ^^^^^^^^ help: remove this
+224 |         let key = storage::RuleKey::new(smart_account.clone(), rule_id);
+    |                                                      ^^^^^^^^ help: remove this
     |
 note: this value is dropped without further use
-   --> src/lib.rs:255:44
+   --> src/lib.rs:224:41
     |
-255 |         let key = storage::RuleKey::new(e, smart_account.clone(), rule_id);
-    |                                            ^^^^^^^^^^^^^
+224 |         let key = storage::RuleKey::new(smart_account.clone(), rule_id);
+    |                                         ^^^^^^^^^^^^^
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
 
 warning: use Option::map_or_else instead of an if let/else
-   --> src/lib.rs:256:36
+   --> src/lib.rs:225:36
     |
-256 |           let old_set: Vec<Signer> = match e.storage().persistent().get(&key.master_set_key()) {
+225 |           let old_set: Vec<Signer> = match e.storage().persistent().get(&key.master_set_key()) {
     |  ____________________________________^
-257 | |             Some(s) => s,
-258 | |             None => storage::panic_missing_state(e),
-259 | |         };
-    | |_________^ help: try: `e.storage().persistent().get(&key.master_set_key()).map_or_else(|| storage::panic_missing_state(e), |s| s)`
+226 | |             Some(s) => s,
+227 | |             None => storage::deny(e, storage::PolicyError::MissingState),
+228 | |         };
+    | |_________^ help: try: `e.storage().persistent().get(&key.master_set_key()).map_or_else(|| storage::deny(e, storage::PolicyError::MissingState), |s| s)`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#option_if_let_else
 
-warning: item in documentation is missing backticks
- --> src/dsl_tests.rs:9:27
-  |
-9 | //!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
-  |                           ^^^^^^^^^^^^^
-  |
-  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-  |
-9 - //!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
-9 + //!   - each v2 selector: `call_contract`, call_fn, call_arg, call_arg_len,
-  |
-
-warning: item in documentation is missing backticks
- --> src/dsl_tests.rs:9:42
-  |
-9 | //!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
-  |                                          ^^^^^^^
-  |
-  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-  |
-9 - //!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
-9 + //!   - each v2 selector: call_contract, `call_fn`, call_arg, call_arg_len,
-  |
-
-warning: item in documentation is missing backticks
- --> src/dsl_tests.rs:9:51
-  |
-9 | //!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
-  |                                                   ^^^^^^^^
-  |
-  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-  |
-9 - //!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
-9 + //!   - each v2 selector: call_contract, call_fn, `call_arg`, call_arg_len,
-  |
-
-warning: item in documentation is missing backticks
- --> src/dsl_tests.rs:9:61
-  |
-9 | //!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
-  |                                                             ^^^^^^^^^^^^
-  |
-  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-  |
-9 - //!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
-9 + //!   - each v2 selector: call_contract, call_fn, call_arg, `call_arg_len`,
-  |
-
-warning: item in documentation is missing backticks
-  --> src/dsl_tests.rs:10:9
-   |
-10 | //!     call_arg_field, now, invocation_count_in_window
-   |         ^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-10 - //!     call_arg_field, now, invocation_count_in_window
-10 + //!     `call_arg_field`, now, invocation_count_in_window
-   |
-
-warning: item in documentation is missing backticks
-  --> src/dsl_tests.rs:10:30
-   |
-10 | //!     call_arg_field, now, invocation_count_in_window
-   |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-10 - //!     call_arg_field, now, invocation_count_in_window
-10 + //!     call_arg_field, now, `invocation_count_in_window`
-   |
-
-warning: item in documentation is missing backticks
-  --> src/dsl_tests.rs:12:45
-   |
-12 | //!     selector symbol, wrong arity, wrong ScVal type as a literal, in []
-   |                                             ^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-12 - //!     selector symbol, wrong arity, wrong ScVal type as a literal, in []
-12 + //!     selector symbol, wrong arity, wrong `ScVal` type as a literal, in []
-   |
-
-warning: item in documentation is missing backticks
-  --> src/dsl_tests.rs:13:20
-   |
-13 | //!     at decode, call_arg index out of bounds at evaluate, garbage bytes
-   |                    ^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-13 - //!     at decode, call_arg index out of bounds at evaluate, garbage bytes
-13 + //!     at decode, `call_arg` index out of bounds at evaluate, garbage bytes
-   |
-
-warning: item in documentation is missing backticks
-  --> src/dsl_tests.rs:15:41
-   |
-15 | //!   - caps with the exact wire codes: MAX_DEPTH 5 -> PREDICATE_TOO_DEEP
-   |                                         ^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-15 - //!   - caps with the exact wire codes: MAX_DEPTH 5 -> PREDICATE_TOO_DEEP
-15 + //!   - caps with the exact wire codes: `MAX_DEPTH` 5 -> PREDICATE_TOO_DEEP
-   |
-
-warning: item in documentation is missing backticks
-  --> src/dsl_tests.rs:15:56
-   |
-15 | //!   - caps with the exact wire codes: MAX_DEPTH 5 -> PREDICATE_TOO_DEEP
-   |                                                        ^^^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-15 - //!   - caps with the exact wire codes: MAX_DEPTH 5 -> PREDICATE_TOO_DEEP
-15 + //!   - caps with the exact wire codes: MAX_DEPTH 5 -> `PREDICATE_TOO_DEEP`
-   |
-
-warning: item in documentation is missing backticks
-  --> src/dsl_tests.rs:17:9
-   |
-17 | //!     MAX_LEAVES 200 -> TOO_MANY_LEAVES, MAX_IN_OPERAND_COUNT 32 ->
-   |         ^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-17 - //!     MAX_LEAVES 200 -> TOO_MANY_LEAVES, MAX_IN_OPERAND_COUNT 32 ->
-17 + //!     `MAX_LEAVES` 200 -> TOO_MANY_LEAVES, MAX_IN_OPERAND_COUNT 32 ->
-   |
-
-warning: item in documentation is missing backticks
-  --> src/dsl_tests.rs:17:27
-   |
-17 | //!     MAX_LEAVES 200 -> TOO_MANY_LEAVES, MAX_IN_OPERAND_COUNT 32 ->
-   |                           ^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-17 - //!     MAX_LEAVES 200 -> TOO_MANY_LEAVES, MAX_IN_OPERAND_COUNT 32 ->
-17 + //!     MAX_LEAVES 200 -> `TOO_MANY_LEAVES`, MAX_IN_OPERAND_COUNT 32 ->
-   |
-
-warning: item in documentation is missing backticks
-  --> src/dsl_tests.rs:17:44
-   |
-17 | //!     MAX_LEAVES 200 -> TOO_MANY_LEAVES, MAX_IN_OPERAND_COUNT 32 ->
-   |                                            ^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-17 - //!     MAX_LEAVES 200 -> TOO_MANY_LEAVES, MAX_IN_OPERAND_COUNT 32 ->
-17 + //!     MAX_LEAVES 200 -> TOO_MANY_LEAVES, `MAX_IN_OPERAND_COUNT` 32 ->
-   |
-
-warning: item in documentation is missing backticks
-  --> src/dsl_tests.rs:18:9
-   |
-18 | //!     IN_OPERAND_LIMIT, MAX_PREDICATE_BYTES 32768 -> PREDICATE_TOO_LARGE
-   |         ^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-18 - //!     IN_OPERAND_LIMIT, MAX_PREDICATE_BYTES 32768 -> PREDICATE_TOO_LARGE
-18 + //!     `IN_OPERAND_LIMIT`, MAX_PREDICATE_BYTES 32768 -> PREDICATE_TOO_LARGE
-   |
-
-warning: item in documentation is missing backticks
-  --> src/dsl_tests.rs:18:27
-   |
-18 | //!     IN_OPERAND_LIMIT, MAX_PREDICATE_BYTES 32768 -> PREDICATE_TOO_LARGE
-   |                           ^^^^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-18 - //!     IN_OPERAND_LIMIT, MAX_PREDICATE_BYTES 32768 -> PREDICATE_TOO_LARGE
-18 + //!     IN_OPERAND_LIMIT, `MAX_PREDICATE_BYTES` 32768 -> PREDICATE_TOO_LARGE
-   |
-
-warning: item in documentation is missing backticks
-  --> src/dsl_tests.rs:18:56
-   |
-18 | //!     IN_OPERAND_LIMIT, MAX_PREDICATE_BYTES 32768 -> PREDICATE_TOO_LARGE
-   |                                                        ^^^^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-18 - //!     IN_OPERAND_LIMIT, MAX_PREDICATE_BYTES 32768 -> PREDICATE_TOO_LARGE
-18 + //!     IN_OPERAND_LIMIT, MAX_PREDICATE_BYTES 32768 -> `PREDICATE_TOO_LARGE`
-   |
-
-warning: this argument is passed by value, but not consumed in the function body
-   --> src/dsl_tests.rs:51:14
-    |
- 51 | fn permit(d: EvalDecision) -> bool {
-    |              ^^^^^^^^^^^^
-    |
-help: or consider marking this type as `Copy`
-   --> src/dsl.rs:120:1
-    |
-120 | pub enum EvalDecision {
-    | ^^^^^^^^^^^^^^^^^^^^^
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#needless_pass_by_value
-help: consider taking a reference instead
-    |
- 51 | fn permit(d: &EvalDecision) -> bool {
-    |              +
-
-warning: this argument is passed by value, but not consumed in the function body
-   --> src/dsl_tests.rs:55:14
-    |
- 55 | fn reason(d: EvalDecision) -> Option<DenyReason> {
-    |              ^^^^^^^^^^^^
-    |
-help: or consider marking this type as `Copy`
-   --> src/dsl.rs:120:1
-    |
-120 | pub enum EvalDecision {
-    | ^^^^^^^^^^^^^^^^^^^^^
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#needless_pass_by_value
-help: consider taking a reference instead
-    |
- 55 | fn reason(d: &EvalDecision) -> Option<DenyReason> {
-    |              +
-
-warning: casting `i128` to `u64` may truncate the value
-  --> src/dsl_tests.rs:89:14
-   |
-89 |     let lo = (v & 0xFFFF_FFFF_FFFF_FFFFu128 as i128) as u64;
-   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_possible_truncation
-help: ... or use `try_from` and handle the error accordingly
-   |
-89 -     let lo = (v & 0xFFFF_FFFF_FFFF_FFFFu128 as i128) as u64;
-89 +     let lo = u64::try_from(v & 0xFFFF_FFFF_FFFF_FFFFu128 as i128);
-   |
-
-warning: casting `i128` to `u64` may lose the sign of the value
-  --> src/dsl_tests.rs:89:14
-   |
-89 |     let lo = (v & 0xFFFF_FFFF_FFFF_FFFFu128 as i128) as u64;
-   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_sign_loss
-   = note: `-W clippy::cast-sign-loss` implied by `-W clippy::pedantic`
-   = help: to override `-W clippy::pedantic` add `#[allow(clippy::cast_sign_loss)]`
-
-warning: casting `u128` to `i128` may wrap around the value
-  --> src/dsl_tests.rs:89:19
-   |
-89 |     let lo = (v & 0xFFFF_FFFF_FFFF_FFFFu128 as i128) as u64;
-   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: if this is intentional, use `cast_signed()` instead: `0xFFFF_FFFF_FFFF_FFFFu128.cast_signed()`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_possible_wrap
-   = note: `-W clippy::cast-possible-wrap` implied by `-W clippy::pedantic`
-   = help: to override `-W clippy::pedantic` add `#[allow(clippy::cast_possible_wrap)]`
-
-warning: this argument is passed by value, but not consumed in the function body
-   --> src/dsl_tests.rs:107:35
-    |
-107 | fn bytes_from_scval(env: &Env, v: ScVal) -> Bytes {
-    |                                   ^^^^^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#needless_pass_by_value
-help: consider taking a reference instead
-    |
-107 | fn bytes_from_scval(env: &Env, v: &ScVal) -> Bytes {
-    |                                   +
-
+warning: `policy-interpreter` (lib) generated 88 warnings (run `cargo clippy --fix --lib -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 55 suggestions)
 warning: redundant clone
-   --> src/dsl_tests.rs:497:23
+   --> src/lib.rs:163:54
     |
-497 |     args.push_back(arg.clone().into_val(&env));
-    |                       ^^^^^^^^ help: remove this
-    |
-note: cloned value is neither consumed nor mutated
-   --> src/dsl_tests.rs:497:20
-    |
-497 |     args.push_back(arg.clone().into_val(&env));
-    |                    ^^^^^^^^^^^
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
-    = note: `-W clippy::redundant-clone` implied by `-W clippy::nursery`
-    = help: to override `-W clippy::nursery` add `#[allow(clippy::redundant_clone)]`
-
-warning: casts from `u32` to `i128` can be expressed infallibly using `From`
-   --> src/dsl_tests.rs:801:24
-    |
-801 |         haystack: (0..=(MAX_IN_OPERAND_COUNT as i128))
-    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-    = help: an `as` cast can become silently lossy if the types change in the future
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_lossless
-help: use `i128::from` instead
-    |
-801 -         haystack: (0..=(MAX_IN_OPERAND_COUNT as i128))
-801 +         haystack: (0..=i128::from(MAX_IN_OPERAND_COUNT))
-    |
-
-warning: redundant clone
-   --> src/lib.rs:234:57
-    |
-234 |         let key = storage::RuleKey::new(e, smart_account.clone(), rule_id);
-    |                                                         ^^^^^^^^ help: remove this
+163 |         let key = storage::RuleKey::new(smart_account.clone(), rule_id);
+    |                                                      ^^^^^^^^ help: remove this
     |
 note: this value is dropped without further use
-   --> src/lib.rs:234:44
+   --> src/lib.rs:163:41
     |
-234 |         let key = storage::RuleKey::new(e, smart_account.clone(), rule_id);
-    |                                            ^^^^^^^^^^^^^
+163 |         let key = storage::RuleKey::new(smart_account.clone(), rule_id);
+    |                                         ^^^^^^^^^^^^^
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
 
-warning: `policy-interpreter` (lib) generated 139 warnings (run `cargo clippy --fix --lib -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 92 suggestions)
-warning: `policy-interpreter` (lib test) generated 163 warnings (138 duplicates) (run `cargo clippy --fix --lib -p policy-interpreter --tests -- -W clippy::pedantic -W clippy::nursery` to apply 19 suggestions)
 warning: item in documentation is missing backticks
- --> tests/oz_abi.rs:1:33
+ --> tests/oz_integration.rs:1:24
   |
-1 | //! ABI conformance against the OpenZeppelin smart account.
-  |                                 ^^^^^^^^^^^^
+1 | //! End-to-end against OpenZeppelin's REAL smart account.
+  |                        ^^^^^^^^^^^^
   |
   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
   = note: `-W clippy::doc-markdown` implied by `-W clippy::pedantic`
   = help: to override `-W clippy::pedantic` add `#[allow(clippy::doc_markdown)]`
 help: try
   |
-1 - //! ABI conformance against the OpenZeppelin smart account.
-1 + //! ABI conformance against the `OpenZeppelin` smart account.
+1 - //! End-to-end against OpenZeppelin's REAL smart account.
+1 + //! End-to-end against `OpenZeppelin`'s REAL smart account.
   |
 
 warning: item in documentation is missing backticks
-  --> tests/oz_abi.rs:10:29
-   |
-10 | //!   - `ContextRule`     - accounts/src/smart_account/storage.rs
-   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+ --> tests/oz_integration.rs:6:65
+  |
+6 | //! the path a deployment actually takes, and it is the one the ContextRule
+  |                                                                 ^^^^^^^^^^^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
 help: try
-   |
-10 - //!   - `ContextRule`     - accounts/src/smart_account/storage.rs
-10 + //!   - `ContextRule`     - `accounts/src/smart_account/storage.rs`
-   |
-
-warning: item in documentation is missing backticks
-  --> tests/oz_abi.rs:12:29
-   |
-12 | //!   - `Signer`          - accounts/src/smart_account/mod.rs
-   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-12 - //!   - `Signer`          - accounts/src/smart_account/mod.rs
-12 + //!   - `Signer`          - `accounts/src/smart_account/mod.rs`
-   |
-
-warning: redundant clone
-  --> tests/oz_abi.rs:76:85
-   |
-76 |     let signers: Vec<Signer> = soroban_sdk::vec![&env, Signer::Delegated(signer_addr.clone())];
-   |                                                                                     ^^^^^^^^ help: remove this
-   |
-note: this value is dropped without further use
-  --> tests/oz_abi.rs:76:74
-   |
-76 |     let signers: Vec<Signer> = soroban_sdk::vec![&env, Signer::Delegated(signer_addr.clone())];
-   |                                                                          ^^^^^^^^^^^
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
-   = note: `-W clippy::redundant-clone` implied by `-W clippy::nursery`
-   = help: to override `-W clippy::nursery` add `#[allow(clippy::redundant_clone)]`
-
-warning: wildcard matches only a single variant and will also match any future added variants
-  --> tests/oz_abi.rs:96:9
-   |
-96 |         other => panic!("expected Delegated, got {other:?}"),
-   |         ^^^^^ help: try: `other @ Signer::External(..)`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
-   = note: `-W clippy::match-wildcard-for-single-variants` implied by `-W clippy::pedantic`
-   = help: to override `-W clippy::pedantic` add `#[allow(clippy::match_wildcard_for_single_variants)]`
-
-warning: casting `u32` to `u8` may truncate the value
-   --> tests/oz_abi.rs:236:18
-    |
-236 |         let hi = (raw[i] as char).to_digit(16).expect("hex") as u8;
-    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_possible_truncation
-    = note: `-W clippy::cast-possible-truncation` implied by `-W clippy::pedantic`
-    = help: to override `-W clippy::pedantic` add `#[allow(clippy::cast_possible_truncation)]`
-help: ... or use `try_from` and handle the error accordingly
-    |
-236 -         let hi = (raw[i] as char).to_digit(16).expect("hex") as u8;
-236 +         let hi = u8::try_from((raw[i] as char).to_digit(16).expect("hex"));
-    |
-
-warning: casting `u32` to `u8` may truncate the value
-   --> tests/oz_abi.rs:237:18
-    |
-237 |         let lo = (raw[i + 1] as char).to_digit(16).expect("hex") as u8;
-    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_possible_truncation
-help: ... or use `try_from` and handle the error accordingly
-    |
-237 -         let lo = (raw[i + 1] as char).to_digit(16).expect("hex") as u8;
-237 +         let lo = u8::try_from((raw[i + 1] as char).to_digit(16).expect("hex"));
-    |
-
-warning: long literal lacking separators
-  --> tests/conformance/_generated.rs:50:20
-   |
-50 |         at_ledger: 63636465u32,
-   |                    ^^^^^^^^^^^ help: consider: `63_636_465_u32`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unreadable_literal
-   = note: `-W clippy::unreadable-literal` implied by `-W clippy::pedantic`
-   = help: to override `-W clippy::pedantic` add `#[allow(clippy::unreadable_literal)]`
-
-warning: long literal lacking separators
-  --> tests/conformance/_generated.rs:51:22
-   |
-51 |         now_seconds: 1000000000u64,
-   |                      ^^^^^^^^^^^^^ help: consider: `1_000_000_000_u64`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unreadable_literal
-
-warning: long literal lacking separators
-  --> tests/conformance/_generated.rs:76:20
-   |
-76 |         at_ledger: 63636465u32,
-   |                    ^^^^^^^^^^^ help: consider: `63_636_465_u32`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unreadable_literal
-
-warning: long literal lacking separators
-  --> tests/conformance/_generated.rs:77:22
-   |
-77 |         now_seconds: 1000000000u64,
-   |                      ^^^^^^^^^^^^^ help: consider: `1_000_000_000_u64`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unreadable_literal
-
-warning: long literal lacking separators
-   --> tests/conformance/_generated.rs:103:20
-    |
-103 |         at_ledger: 63636465u32,
-    |                    ^^^^^^^^^^^ help: consider: `63_636_465_u32`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unreadable_literal
-
-warning: long literal lacking separators
-   --> tests/conformance/_generated.rs:104:22
-    |
-104 |         now_seconds: 1000000000u64,
-    |                      ^^^^^^^^^^^^^ help: consider: `1_000_000_000_u64`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unreadable_literal
-
-warning: long literal lacking separators
-   --> tests/conformance/_generated.rs:130:20
-    |
-130 |         at_ledger: 63636465u32,
-    |                    ^^^^^^^^^^^ help: consider: `63_636_465_u32`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unreadable_literal
-
-warning: long literal lacking separators
-   --> tests/conformance/_generated.rs:131:22
-    |
-131 |         now_seconds: 1000000000u64,
-    |                      ^^^^^^^^^^^^^ help: consider: `1_000_000_000_u64`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unreadable_literal
-
-warning: long literal lacking separators
-   --> tests/conformance/_generated.rs:157:20
-    |
-157 |         at_ledger: 63636465u32,
-    |                    ^^^^^^^^^^^ help: consider: `63_636_465_u32`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unreadable_literal
-
-warning: long literal lacking separators
-   --> tests/conformance/_generated.rs:158:22
-    |
-158 |         now_seconds: 1000000000u64,
-    |                      ^^^^^^^^^^^^^ help: consider: `1_000_000_000_u64`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unreadable_literal
-
-warning: long literal lacking separators
-   --> tests/conformance/_generated.rs:184:20
-    |
-184 |         at_ledger: 63636465u32,
-    |                    ^^^^^^^^^^^ help: consider: `63_636_465_u32`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unreadable_literal
-
-warning: long literal lacking separators
-   --> tests/conformance/_generated.rs:185:22
-    |
-185 |         now_seconds: 1000000000u64,
-    |                      ^^^^^^^^^^^^^ help: consider: `1_000_000_000_u64`
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unreadable_literal
+  |
+6 - //! the path a deployment actually takes, and it is the one the ContextRule
+6 + //! the path a deployment actually takes, and it is the one the `ContextRule`
+  |
 
 warning: item in documentation is missing backticks
  --> tests/conformance/mod.rs:6:26
@@ -2183,10 +1413,51 @@ help: try
 11 + //! (permit or the matching `DenyReason.code()` string).
    |
 
-warning: unnecessary semicolon
-  --> tests/conformance/_generated.rs:60:6
+warning: item in documentation is missing backticks
+ --> tests/oz_abi.rs:1:33
+  |
+1 | //! ABI conformance against the OpenZeppelin smart account.
+  |                                 ^^^^^^^^^^^^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+  = note: `-W clippy::doc-markdown` implied by `-W clippy::pedantic`
+  = help: to override `-W clippy::pedantic` add `#[allow(clippy::doc_markdown)]`
+help: try
+  |
+1 - //! ABI conformance against the OpenZeppelin smart account.
+1 + //! ABI conformance against the `OpenZeppelin` smart account.
+  |
+
+warning: item in documentation is missing backticks
+  --> tests/oz_abi.rs:10:29
    |
-60 |     };
+10 | //!   - `ContextRule`     - accounts/src/smart_account/storage.rs
+   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+10 - //!   - `ContextRule`     - accounts/src/smart_account/storage.rs
+10 + //!   - `ContextRule`     - `accounts/src/smart_account/storage.rs`
+   |
+
+warning: item in documentation is missing backticks
+  --> tests/oz_abi.rs:12:29
+   |
+12 | //!   - `Signer`          - accounts/src/smart_account/mod.rs
+   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+12 - //!   - `Signer`          - accounts/src/smart_account/mod.rs
+12 + //!   - `Signer`          - `accounts/src/smart_account/mod.rs`
+   |
+
+warning: unnecessary semicolon
+  --> tests/conformance/_generated.rs:58:6
+   |
+58 |     };
    |      ^ help: remove
    |
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_semicolon
@@ -2194,17 +1465,17 @@ warning: unnecessary semicolon
    = help: to override `-W clippy::pedantic` add `#[allow(clippy::unnecessary_semicolon)]`
 
 warning: unnecessary semicolon
-  --> tests/conformance/_generated.rs:87:6
+  --> tests/conformance/_generated.rs:83:6
    |
-87 |     };
+83 |     };
    |      ^ help: remove
    |
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_semicolon
 
 warning: wildcard matches only a single variant and will also match any future added variants
-  --> tests/conformance/_generated.rs:86:9
+  --> tests/conformance/_generated.rs:82:9
    |
-86 |         _ => panic!("expected deny but Rust permitted"),
+82 |         _ => panic!("expected deny but Rust permitted"),
    |         ^ help: try: `EvalDecision::Permit`
    |
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
@@ -2212,65 +1483,65 @@ warning: wildcard matches only a single variant and will also match any future a
    = help: to override `-W clippy::pedantic` add `#[allow(clippy::match_wildcard_for_single_variants)]`
 
 warning: unnecessary semicolon
-   --> tests/conformance/_generated.rs:114:6
+   --> tests/conformance/_generated.rs:108:6
     |
-114 |     };
+108 |     };
     |      ^ help: remove
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_semicolon
 
 warning: wildcard matches only a single variant and will also match any future added variants
-   --> tests/conformance/_generated.rs:113:9
+   --> tests/conformance/_generated.rs:107:9
     |
-113 |         _ => panic!("expected deny but Rust permitted"),
+107 |         _ => panic!("expected deny but Rust permitted"),
     |         ^ help: try: `EvalDecision::Permit`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
 
 warning: unnecessary semicolon
-   --> tests/conformance/_generated.rs:141:6
+   --> tests/conformance/_generated.rs:133:6
     |
-141 |     };
+133 |     };
     |      ^ help: remove
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_semicolon
 
 warning: wildcard matches only a single variant and will also match any future added variants
-   --> tests/conformance/_generated.rs:140:9
+   --> tests/conformance/_generated.rs:132:9
     |
-140 |         _ => panic!("expected deny but Rust permitted"),
+132 |         _ => panic!("expected deny but Rust permitted"),
     |         ^ help: try: `EvalDecision::Permit`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
 
 warning: unnecessary semicolon
-   --> tests/conformance/_generated.rs:168:6
+   --> tests/conformance/_generated.rs:158:6
     |
-168 |     };
+158 |     };
     |      ^ help: remove
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_semicolon
 
 warning: wildcard matches only a single variant and will also match any future added variants
-   --> tests/conformance/_generated.rs:167:9
+   --> tests/conformance/_generated.rs:157:9
     |
-167 |         _ => panic!("expected deny but Rust permitted"),
+157 |         _ => panic!("expected deny but Rust permitted"),
     |         ^ help: try: `EvalDecision::Permit`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
 
 warning: unnecessary semicolon
-   --> tests/conformance/_generated.rs:195:6
+   --> tests/conformance/_generated.rs:183:6
     |
-195 |     };
+183 |     };
     |      ^ help: remove
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_semicolon
 
 warning: wildcard matches only a single variant and will also match any future added variants
-   --> tests/conformance/_generated.rs:194:9
+   --> tests/conformance/_generated.rs:182:9
     |
-194 |         _ => panic!("expected deny but Rust permitted"),
+182 |         _ => panic!("expected deny but Rust permitted"),
     |         ^ help: try: `EvalDecision::Permit`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
@@ -2300,6 +1571,59 @@ help: try
 4 - //! never has to know each ScVal type's literal form in Rust.
 4 + //! never has to know each `ScVal` type's literal form in Rust.
   |
+
+warning: redundant clone
+  --> tests/oz_abi.rs:76:85
+   |
+76 |     let signers: Vec<Signer> = soroban_sdk::vec![&env, Signer::Delegated(signer_addr.clone())];
+   |                                                                                     ^^^^^^^^ help: remove this
+   |
+note: this value is dropped without further use
+  --> tests/oz_abi.rs:76:74
+   |
+76 |     let signers: Vec<Signer> = soroban_sdk::vec![&env, Signer::Delegated(signer_addr.clone())];
+   |                                                                          ^^^^^^^^^^^
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
+   = note: `-W clippy::redundant-clone` implied by `-W clippy::nursery`
+   = help: to override `-W clippy::nursery` add `#[allow(clippy::redundant_clone)]`
+
+warning: item in documentation is missing backticks
+ --> tests/install_enforce.rs:3:35
+  |
+3 | //! Tests build the raw canonical ScVal XDR bytes for the predicate via the
+  |                                   ^^^^^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+  = note: `-W clippy::doc-markdown` implied by `-W clippy::pedantic`
+  = help: to override `-W clippy::pedantic` add `#[allow(clippy::doc_markdown)]`
+help: try
+  |
+3 - //! Tests build the raw canonical ScVal XDR bytes for the predicate via the
+3 + //! Tests build the raw canonical `ScVal` XDR bytes for the predicate via the
+  |
+
+warning: item in documentation is missing backticks
+  --> tests/install_enforce.rs:26:20
+   |
+26 | /// never sees the ScVal type directly.
+   |                    ^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+26 - /// never sees the ScVal type directly.
+26 + /// never sees the `ScVal` type directly.
+   |
+
+warning: wildcard matches only a single variant and will also match any future added variants
+  --> tests/oz_abi.rs:96:9
+   |
+96 |         other => panic!("expected Delegated, got {other:?}"),
+   |         ^^^^^ help: try: `other @ Signer::External(..)`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
+   = note: `-W clippy::match-wildcard-for-single-variants` implied by `-W clippy::pedantic`
+   = help: to override `-W clippy::pedantic` add `#[allow(clippy::match_wildcard_for_single_variants)]`
 
 warning: only a `panic!` in `if`-then statement
   --> tests/conformance/_helpers.rs:17:5
@@ -2384,6 +1708,39 @@ help: try
 97 + /// the doc entry, which is below `TTL_BUMP_THRESHOLD`.
    |
 
+warning: casting `u32` to `u8` may truncate the value
+   --> tests/oz_abi.rs:236:18
+    |
+236 |         let hi = (raw[i] as char).to_digit(16).expect("hex") as u8;
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_possible_truncation
+    = note: `-W clippy::cast-possible-truncation` implied by `-W clippy::pedantic`
+    = help: to override `-W clippy::pedantic` add `#[allow(clippy::cast_possible_truncation)]`
+help: ... or use `try_from` and handle the error accordingly
+    |
+236 -         let hi = (raw[i] as char).to_digit(16).expect("hex") as u8;
+236 +         let hi = u8::try_from((raw[i] as char).to_digit(16).expect("hex"));
+    |
+
+warning: casting `u32` to `u8` may truncate the value
+   --> tests/oz_abi.rs:237:18
+    |
+237 |         let lo = (raw[i + 1] as char).to_digit(16).expect("hex") as u8;
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_possible_truncation
+help: ... or use `try_from` and handle the error accordingly
+    |
+237 -         let lo = (raw[i + 1] as char).to_digit(16).expect("hex") as u8;
+237 +         let lo = u8::try_from((raw[i + 1] as char).to_digit(16).expect("hex"));
+    |
+
+warning: `policy-interpreter` (lib test) generated 111 warnings (87 duplicates) (run `cargo clippy --fix --lib -p policy-interpreter --tests -- -W clippy::pedantic -W clippy::nursery` to apply 18 suggestions)
+warning: `policy-interpreter` (test "oz_integration") generated 2 warnings (run `cargo clippy --fix --test "oz_integration" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 2 suggestions)
+warning: `policy-interpreter` (test "conformance") generated 20 warnings (run `cargo clippy --fix --test "conformance" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 15 suggestions)
 warning: redundant clone
    --> tests/enforce_state.rs:237:42
     |
@@ -2398,6 +1755,37 @@ note: this value is dropped without further use
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
     = note: `-W clippy::redundant-clone` implied by `-W clippy::nursery`
     = help: to override `-W clippy::nursery` add `#[allow(clippy::redundant_clone)]`
+
+warning: item in documentation is missing backticks
+  --> tests/install_enforce.rs:65:9
+   |
+65 | /// see tests/oz_abi.rs.
+   |         ^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+65 - /// see tests/oz_abi.rs.
+65 + /// see `tests/oz_abi.rs`.
+   |
+
+warning: this could be a `const fn`
+  --> tests/install_enforce.rs:79:1
+   |
+79 | / fn dummy_address() -> ScVal {
+80 | |     ScVal::Address(soroban_sdk::xdr::ScAddress::Contract(
+81 | |         soroban_sdk::xdr::ContractId(soroban_sdk::xdr::Hash([0u8; 32])),
+82 | |     ))
+83 | | }
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#missing_const_for_fn
+   = note: `-W clippy::missing-const-for-fn` implied by `-W clippy::nursery`
+   = help: to override `-W clippy::nursery` add `#[allow(clippy::missing_const_for_fn)]`
+help: make the function `const`
+   |
+79 | const fn dummy_address() -> ScVal {
+   | +++++
 
 warning: item in documentation is missing backticks
    --> tests/enforce_state.rs:273:9
@@ -2477,93 +1865,6 @@ help: try
 365 + /// falls through to `ArgMismatch`.
     |
 
-warning: item in documentation is missing backticks
- --> tests/oz_integration.rs:1:24
-  |
-1 | //! End-to-end against OpenZeppelin's REAL smart account.
-  |                        ^^^^^^^^^^^^
-  |
-  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-  = note: `-W clippy::doc-markdown` implied by `-W clippy::pedantic`
-  = help: to override `-W clippy::pedantic` add `#[allow(clippy::doc_markdown)]`
-help: try
-  |
-1 - //! End-to-end against OpenZeppelin's REAL smart account.
-1 + //! End-to-end against `OpenZeppelin`'s REAL smart account.
-  |
-
-warning: item in documentation is missing backticks
- --> tests/oz_integration.rs:6:65
-  |
-6 | //! the path a deployment actually takes, and it is the one the ContextRule
-  |                                                                 ^^^^^^^^^^^
-  |
-  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-  |
-6 - //! the path a deployment actually takes, and it is the one the ContextRule
-6 + //! the path a deployment actually takes, and it is the one the `ContextRule`
-  |
-
-warning: item in documentation is missing backticks
- --> tests/install_enforce.rs:3:35
-  |
-3 | //! Tests build the raw canonical ScVal XDR bytes for the predicate via the
-  |                                   ^^^^^
-  |
-  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-  = note: `-W clippy::doc-markdown` implied by `-W clippy::pedantic`
-  = help: to override `-W clippy::pedantic` add `#[allow(clippy::doc_markdown)]`
-help: try
-  |
-3 - //! Tests build the raw canonical ScVal XDR bytes for the predicate via the
-3 + //! Tests build the raw canonical `ScVal` XDR bytes for the predicate via the
-  |
-
-warning: item in documentation is missing backticks
-  --> tests/install_enforce.rs:26:20
-   |
-26 | /// never sees the ScVal type directly.
-   |                    ^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-26 - /// never sees the ScVal type directly.
-26 + /// never sees the `ScVal` type directly.
-   |
-
-warning: item in documentation is missing backticks
-  --> tests/install_enforce.rs:65:9
-   |
-65 | /// see tests/oz_abi.rs.
-   |         ^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-65 - /// see tests/oz_abi.rs.
-65 + /// see `tests/oz_abi.rs`.
-   |
-
-warning: this could be a `const fn`
-  --> tests/install_enforce.rs:79:1
-   |
-79 | / fn dummy_address() -> ScVal {
-80 | |     ScVal::Address(soroban_sdk::xdr::ScAddress::Contract(
-81 | |         soroban_sdk::xdr::ContractId(soroban_sdk::xdr::Hash([0u8; 32])),
-82 | |     ))
-83 | | }
-   | |_^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#missing_const_for_fn
-   = note: `-W clippy::missing-const-for-fn` implied by `-W clippy::nursery`
-   = help: to override `-W clippy::nursery` add `#[allow(clippy::missing_const_for_fn)]`
-help: make the function `const`
-   |
-79 | const fn dummy_address() -> ScVal {
-   | +++++
-
 warning: redundant clone
    --> tests/install_enforce.rs:226:76
     |
@@ -2618,9 +1919,7 @@ note: this value is dropped without further use
     |                                                             ^^^^^^^^
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
 
-warning: `policy-interpreter` (test "oz_abi") generated 7 warnings (run `cargo clippy --fix --test "oz_abi" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 4 suggestions)
-warning: `policy-interpreter` (test "conformance") generated 32 warnings (run `cargo clippy --fix --test "conformance" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 15 suggestions)
 warning: `policy-interpreter` (test "enforce_state") generated 8 warnings (run `cargo clippy --fix --test "enforce_state" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)
-warning: `policy-interpreter` (test "oz_integration") generated 2 warnings (run `cargo clippy --fix --test "oz_integration" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 2 suggestions)
+warning: `policy-interpreter` (test "oz_abi") generated 7 warnings (run `cargo clippy --fix --test "oz_abi" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 4 suggestions)
 warning: `policy-interpreter` (test "install_enforce") generated 8 warnings (run `cargo clippy --fix --test "install_enforce" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.14s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.49s

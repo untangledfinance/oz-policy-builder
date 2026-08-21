@@ -8,6 +8,5 @@ export type {
   IRPolicyRule,
   IRScalarType,
   IRSelector,
-  IRVecMode,
   PolicyIR,
 } from './types.ts'

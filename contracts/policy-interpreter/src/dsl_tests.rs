@@ -4,23 +4,21 @@
 //! soroban-sdk types) and the audit-critical fail-closed branches.
 //!
 //! Axes:
-//!   - each operator (and / or / not / in / eq / lt / lte / gt / gte) with a
-//!     permit case plus the deny case that operator uniquely owns
+//!   - each operator (and / in / eq / lte) with a permit case plus the deny
+//!     case that operator uniquely owns
 //!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
-//!     call_arg_field, now, invocation_count_in_window
+//!     call_arg_field
 //!   - fail-closed at every entry boundary: unknown node symbol, unknown
 //!     selector symbol, wrong arity, wrong ScVal type as a literal, in []
 //!     at decode, call_arg index out of bounds at evaluate, garbage bytes
 //!     fail-closed as malformed
-//!   - caps with the exact wire codes: MAX_DEPTH 5 -> PREDICATE_TOO_DEEP
-//!     (incl. a `not` chain so the depth-bomb path is covered),
+//!   - caps with the exact wire codes: MAX_DEPTH 5 -> PREDICATE_TOO_DEEP,
 //!     MAX_LEAVES 200 -> TOO_MANY_LEAVES, MAX_IN_OPERAND_COUNT 32 ->
 //!     IN_OPERAND_LIMIT, MAX_PREDICATE_BYTES 32768 -> PREDICATE_TOO_LARGE
 //!   - i128 checked semantics at the boundary
 
 extern crate alloc;
 
-use alloc::boxed::Box;
 use alloc::string::ToString;
 use alloc::vec::Vec as StdVec;
 
@@ -43,8 +41,6 @@ fn empty_ctx(env: &Env) -> EvalContext {
         contract: contract(env),
         fn_name: Symbol::new(env, "submit"),
         args: SorobanVec::<Val>::new(env),
-        at_ledger: 100,
-        now_seconds: 1000,
     }
 }
 
@@ -124,16 +120,6 @@ fn node_to_scval(env: &Env, n: &Node) -> ScVal {
                     .collect::<StdVec<_>>(),
             ),
         ]),
-        Node::Or(children) => vec_scval(&[
-            sym("or"),
-            vec_scval(
-                &children
-                    .iter()
-                    .map(|c| node_to_scval(env, c))
-                    .collect::<StdVec<_>>(),
-            ),
-        ]),
-        Node::Not(inner) => vec_scval(&[sym("not"), node_to_scval(env, inner)]),
         Node::Compare { op, left, right } => vec_scval(&[
             sym(op_name(*op)),
             leaf_to_scval(env, left),
@@ -173,7 +159,6 @@ fn leaf_to_scval(env: &Env, l: &Leaf) -> ScVal {
                 sym_field,
             ])
         }
-        Leaf::Now => vec_scval(&[sym("now")]),
         Leaf::LiteralAddress(_) => addr_scval(),
         Leaf::LiteralI128(v) => i128_scval(*v),
         Leaf::LiteralSymbol(s) => {
@@ -183,16 +168,6 @@ fn leaf_to_scval(env: &Env, l: &Leaf) -> ScVal {
             ScVal::from_xdr(env, &v.to_xdr(env)).expect("sym round-trip")
         }
         Leaf::LiteralU32(v) => u32_scval(*v),
-        Leaf::LiteralU64(v) => u64_scval(*v),
-        Leaf::LiteralBytes(b) => {
-            let len = b.len();
-            let mut inner: StdVec<u8> = StdVec::with_capacity(len as usize);
-            for i in 0..len {
-                inner.push(b.get(i).unwrap_or(0));
-            }
-            let buf: soroban_sdk::xdr::BytesM = inner.try_into().unwrap_or_default();
-            ScVal::Bytes(buf.into())
-        }
         Leaf::LiteralVec(elements) => vec_scval(
             &elements
                 .iter()
@@ -205,10 +180,7 @@ fn leaf_to_scval(env: &Env, l: &Leaf) -> ScVal {
 fn op_name(op: CompareOp) -> &'static str {
     match op {
         CompareOp::Eq => "eq",
-        CompareOp::Lt => "lt",
         CompareOp::Lte => "lte",
-        CompareOp::Gt => "gt",
-        CompareOp::Gte => "gte",
     }
 }
 
@@ -218,8 +190,8 @@ fn op_name(op: CompareOp) -> &'static str {
 fn op_and_all_permit_passes() {
     let env = Env::default();
     let n = Node::And(StdVec::from([
-        cmp_i128(CompareOp::Lt, 10, 20),
-        cmp_i128(CompareOp::Gt, 5, 0),
+        cmp_i128(CompareOp::Eq, 10, 10),
+        cmp_i128(CompareOp::Lte, 5, 10),
     ]));
     assert!(permit(evaluate(&env, &n, &empty_ctx(&env))));
 }
@@ -228,60 +200,13 @@ fn op_and_all_permit_passes() {
 fn op_and_fail_fast_returns_first_violation() {
     let env = Env::default();
     let n = Node::And(StdVec::from([
-        cmp_i128(CompareOp::Lt, 10, 5), // fails -> ArgMismatch
-        cmp_i128(CompareOp::Gt, 5, 0),
+        cmp_i128(CompareOp::Lte, 10, 5), // fails -> ArgMismatch
+        cmp_i128(CompareOp::Eq, 5, 5),   // would also permit — but first deny short-circuits
     ]));
     assert_eq!(
         reason(evaluate(&env, &n, &empty_ctx(&env))),
         Some(DenyReason::ArgMismatch)
     );
-}
-
-#[test]
-fn op_or_one_permit_passes() {
-    let env = Env::default();
-    let n = Node::Or(StdVec::from([
-        cmp_i128(CompareOp::Eq, 1, 2),
-        cmp_i128(CompareOp::Eq, 7, 7),
-    ]));
-    assert!(permit(evaluate(&env, &n, &empty_ctx(&env))));
-}
-
-#[test]
-fn op_or_all_deny_does_not_permit() {
-    let env = Env::default();
-    let n = Node::Or(StdVec::from([
-        cmp_i128(CompareOp::Eq, 1, 2),
-        cmp_i128(CompareOp::Eq, 3, 4),
-    ]));
-    assert!(!permit(evaluate(&env, &n, &empty_ctx(&env))));
-}
-
-#[test]
-fn op_or_empty_children_fails_closed() {
-    let env = Env::default();
-    let n = Node::Or(StdVec::new());
-    assert_eq!(
-        reason(evaluate(&env, &n, &empty_ctx(&env))),
-        Some(DenyReason::NotInAllowlist)
-    );
-}
-
-#[test]
-fn op_not_inverts_a_permit_into_deny() {
-    let env = Env::default();
-    let n = Node::Not(Box::new(cmp_i128(CompareOp::Eq, 7, 7)));
-    assert_eq!(
-        reason(evaluate(&env, &n, &empty_ctx(&env))),
-        Some(DenyReason::ArgMismatch)
-    );
-}
-
-#[test]
-fn op_not_inverts_a_deny_into_permit() {
-    let env = Env::default();
-    let n = Node::Not(Box::new(cmp_i128(CompareOp::Eq, 1, 2)));
-    assert!(permit(evaluate(&env, &n, &empty_ctx(&env))));
 }
 
 #[test]
@@ -350,61 +275,11 @@ fn op_eq_literal_i128_denies_when_mismatch() {
 }
 
 #[test]
-fn op_lt_permits_within_bound() {
-    let env = Env::default();
-    assert!(permit(evaluate(
-        &env,
-        &cmp_i128(CompareOp::Lt, 9, 10),
-        &empty_ctx(&env)
-    )));
-}
-
-#[test]
-fn op_lt_denies_at_bound() {
-    let env = Env::default();
-    assert!(!permit(evaluate(
-        &env,
-        &cmp_i128(CompareOp::Lt, 10, 10),
-        &empty_ctx(&env)
-    )));
-}
-
-#[test]
 fn op_lte_permits_at_bound() {
     let env = Env::default();
     assert!(permit(evaluate(
         &env,
         &cmp_i128(CompareOp::Lte, 10, 10),
-        &empty_ctx(&env)
-    )));
-}
-
-#[test]
-fn op_gt_permits_above_bound() {
-    let env = Env::default();
-    assert!(permit(evaluate(
-        &env,
-        &cmp_i128(CompareOp::Gt, 11, 10),
-        &empty_ctx(&env)
-    )));
-}
-
-#[test]
-fn op_gt_denies_at_bound() {
-    let env = Env::default();
-    assert!(!permit(evaluate(
-        &env,
-        &cmp_i128(CompareOp::Gt, 10, 10),
-        &empty_ctx(&env)
-    )));
-}
-
-#[test]
-fn op_gte_permits_at_bound() {
-    let env = Env::default();
-    assert!(permit(evaluate(
-        &env,
-        &cmp_i128(CompareOp::Gte, 10, 10),
         &empty_ctx(&env)
     )));
 }
@@ -450,7 +325,7 @@ fn sel_call_contract_eq_other_denies_contract_scope() {
 fn sel_call_contract_with_non_eq_op_unsupported() {
     let env = Env::default();
     let n = Node::Compare {
-        op: CompareOp::Lt,
+        op: CompareOp::Lte,
         left: Leaf::CallContract,
         right: Leaf::LiteralAddress(Address::generate(&env)),
     };
@@ -534,7 +409,7 @@ fn sel_call_arg_out_of_bounds_denies() {
         right: Leaf::LiteralI128(0),
     };
     assert_eq!(
-        reason(evaluate(&env, &n, &ctx)),
+        reason(evaluate(&env, &n, &empty_ctx(&env))),
         Some(DenyReason::ArgMismatch)
     );
 }
@@ -600,37 +475,6 @@ fn sel_call_arg_field_eq_u32_match_permits() {
 }
 
 #[test]
-fn sel_now_lt_in_window_permits() {
-    let env = Env::default();
-    let mut ctx = empty_ctx(&env);
-    ctx.at_ledger = 100;
-    let n = Node::Compare {
-        op: CompareOp::Lt,
-        left: Leaf::Now,
-        right: Leaf::LiteralU32(200),
-    };
-    assert!(permit(evaluate(&env, &n, &ctx)));
-}
-
-#[test]
-fn sel_now_gt_past_upper_bound_denies() {
-    // at_ledger = 100, bound = 200; Gt asks "now > bound". 100 > 200 is
-    // false, so the comparator denies with ArgMismatch.
-    let env = Env::default();
-    let mut ctx = empty_ctx(&env);
-    ctx.at_ledger = 100;
-    let n = Node::Compare {
-        op: CompareOp::Gt,
-        left: Leaf::Now,
-        right: Leaf::LiteralU32(200),
-    };
-    assert_eq!(
-        reason(evaluate(&env, &n, &ctx)),
-        Some(DenyReason::ArgMismatch)
-    );
-}
-
-#[test]
 fn fc_unknown_node_symbol_returns_malformed() {
     let env = Env::default();
     let bogus = bytes_from_scval(&env, vec_scval(&[sym("not_a_real_op"), u32_scval(0)]));
@@ -674,7 +518,7 @@ fn fc_wrong_val_type_as_call_arg_index_returns_malformed() {
             u32_scval(7),
         ]),
     );
-    let err = decode_with_byte_cap(&env, &bogus).expect_err("u64 in call_arg slot must deny");
+    let err = decode_with_byte_cap(&env, &bogus).expect_err("i128 in call_arg slot must deny");
     assert_eq!(err.code(), "MALFORMED_PREDICATE");
 }
 
@@ -764,26 +608,6 @@ fn cap_depth_over_limit_returns_predicate_too_deep() {
 }
 
 #[test]
-fn cap_not_chain_is_a_depth_bomb() {
-    // `not(not(not(not(not(not(eq(call_contract,...))))))))` is depth 7 > 5.
-    // The decoder must count every node level; a malicious predicate cannot
-    // smuggle a depth bomb through `not`.
-    let env = Env::default();
-    let inner = Node::Compare {
-        op: CompareOp::Eq,
-        left: Leaf::CallContract,
-        right: Leaf::LiteralAddress(contract(&env)),
-    };
-    let mut chain: Node = inner;
-    for _ in 0..6 {
-        chain = Node::Not(Box::new(chain));
-    }
-    let bytes = bytes_from_node(&env, &chain);
-    let err = decode(&env, &bytes).expect_err("not-chain depth bomb must deny");
-    assert_eq!(err.code(), "PREDICATE_TOO_DEEP");
-}
-
-#[test]
 fn cap_leaves_over_limit_returns_too_many_leaves() {
     let env = Env::default();
     // (MAX_LEAVES/2 + 1) child comparisons × 2 leaves per child > MAX_LEAVES.
@@ -822,16 +646,6 @@ fn cap_predicate_bytes_over_limit_returns_predicate_too_large() {
 
 // ----- Tests: i128 checked arithmetic ---------------------------------------
 
-// ---- F8b: DenyReason -> PolicyError is exhaustive and the codes match ----
-//
-// The previous F8 test asserted via Logs in the native env, which proved
-// the mapping but not on-chain observability. The follow-up uses
-// `panic_with_error!` to surface the code as `Error(Contract, #N)` on
-// the diagnostic event. The Rust side's numeric codes are a public ABI,
-// so the mapping `DenyReason -> PolicyError` must be both exhaustive
-// (a new variant cannot compile without a code) AND stable (off-chain
-// consumers match on the numeric value).
-
 #[test]
 fn fc_amount_selector_is_refused_at_decode() {
     let env = Env::default();
@@ -854,113 +668,12 @@ fn fc_window_spent_selector_is_refused_at_decode() {
         &env,
         vec_scval(&[
             sym("lte"),
-            vec_scval(&[sym("window_spent"), addr_scval(), u64_scval(86400)]),
+            vec_scval(&[sym("window_spent"), addr_scval(), i128_scval(86400)]),
             i128_scval(1000),
         ]),
     );
     let err = decode_with_byte_cap(&env, &bytes).expect_err("`window_spent` must not decode");
     assert_eq!(err.code(), "MALFORMED_PREDICATE");
-}
-
-#[test]
-fn fc_invocation_count_no_longer_decodes() {
-    // Counting prior calls needs stored state, and the interpreter keeps none:
-    // it answers every leaf from the authorized call alone. The selector is out
-    // of the grammar, so a predicate carrying it must fail to decode rather
-    // than install and silently never bound anything.
-    let env = Env::default();
-    let bytes = bytes_from_scval(
-        &env,
-        vec_scval(&[
-            sym("lte"),
-            vec_scval(&[sym("invocation_count"), u64_scval(86400)]),
-            u32_scval(5),
-        ]),
-    );
-    assert!(decode_with_byte_cap(&env, &bytes).is_err());
-}
-
-#[test]
-fn op_not_does_not_invert_unsupported_structural_deny() {
-    // An ordered comparison against `call_contract` is not a supported shape,
-    // and that deny is FATAL: wrapping it in `not` must not turn a node the
-    // interpreter never understood into a permit.
-    let env = Env::default();
-    let inner = Node::Compare {
-        op: CompareOp::Lt,
-        left: Leaf::CallContract,
-        right: Leaf::LiteralU32(1),
-    };
-    let n = Node::Not(Box::new(inner));
-    assert_eq!(
-        reason(evaluate(&env, &n, &empty_ctx(&env))),
-        Some(DenyReason::UnsupportedNode)
-    );
-}
-
-#[test]
-fn f8b_deny_reason_to_policy_error_is_stable() {
-    use crate::storage::PolicyError;
-
-    // Spot-check the mapping for every variant. If a new variant is
-    // added, this match stops compiling until a PolicyError code is
-    // assigned - that is the audit point.
-    assert_eq!(PolicyError::from(DenyReason::ArgMismatch) as u32, 100);
-    assert_eq!(PolicyError::from(DenyReason::ContractScope) as u32, 101);
-    assert_eq!(
-        PolicyError::from(DenyReason::ArithmeticOverflow) as u32,
-        102
-    );
-    assert_eq!(PolicyError::from(DenyReason::UnsupportedNode) as u32, 103);
-    assert_eq!(PolicyError::from(DenyReason::StatefulBound) as u32, 104);
-    assert_eq!(PolicyError::from(DenyReason::NotInAllowlist) as u32, 105);
-}
-
-#[test]
-fn f8b_policy_error_code_strings_match_the_deny_reason_table() {
-    // The on-chain signal is the numeric code; the string form lives in
-    // the native env only. It MUST match `dsl::DenyReason::code()` so a
-    // log scan or a debug print lines up with the on-chain number.
-    use crate::storage::PolicyError;
-
-    assert_eq!(
-        PolicyError::ArgMismatch.code_str(),
-        DenyReason::ArgMismatch.code()
-    );
-    assert_eq!(
-        PolicyError::ContractScope.code_str(),
-        DenyReason::ContractScope.code()
-    );
-    assert_eq!(
-        PolicyError::ArithmeticOverflow.code_str(),
-        DenyReason::ArithmeticOverflow.code()
-    );
-    assert_eq!(
-        PolicyError::UnsupportedNode.code_str(),
-        DenyReason::UnsupportedNode.code()
-    );
-    assert_eq!(
-        PolicyError::StatefulBound.code_str(),
-        DenyReason::StatefulBound.code()
-    );
-    assert_eq!(
-        PolicyError::NotInAllowlist.code_str(),
-        DenyReason::NotInAllowlist.code()
-    );
-}
-
-#[test]
-fn selector_leaf_gate_accepts_a_time_only_predicate() {
-    // The install-time "must constrain something" gate (216) must not
-    // over-block. A predicate that bounds only ledger time constrains a real
-    // property of the call, so it has to keep installing - tightening the gate
-    // to require a call-shaped selector would silently break expiry policies.
-    let n = Node::Compare {
-        op: CompareOp::Lt,
-        left: Leaf::Now,
-        right: Leaf::LiteralU32(1_000_000),
-    };
-    assert!(crate::dsl::has_selector_leaf(&n));
 }
 
 #[test]

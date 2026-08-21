@@ -19,7 +19,7 @@ pub mod types;
 mod version;
 
 pub use dsl::{decode_with_byte_cap, CompareOp, DenyReason, EvalContext, EvalDecision, Leaf, Node};
-pub use storage::{PolicyError, RuleKey, StoredDoc, StoredRule};
+pub use storage::{PolicyError, RuleKey, StoredDoc};
 pub use types::{ContextRule, ContextRuleType, PolicyInstallParams, Signer};
 pub use version::SELF_VERSION;
 
@@ -43,13 +43,13 @@ impl PolicyInterpreter {
         smart_account: Address,
     ) {
         if install_params.grammar_version != SELF_VERSION {
-            storage::panic_version_mismatch(e);
+            storage::deny(e, storage::PolicyError::VersionMismatch);
         }
 
         // (a) Byte cap - reject before any parse work so the host never
         //     sees an oversized payload.
         if install_params.predicate.len() > dsl::MAX_PREDICATE_BYTES {
-            storage::panic_predicate_too_large(e);
+            storage::deny(e, storage::PolicyError::PredicateTooLarge);
         }
 
         // (b) Hash check - mandatory invariant #11. The caller supplies
@@ -60,50 +60,19 @@ impl PolicyInterpreter {
         //     hash.
         let computed_hash: BytesN<32> = e.crypto().sha256(&install_params.predicate).into();
         if computed_hash != install_params.predicate_hash {
-            storage::panic_predicate_hash_mismatch(e);
+            storage::deny(e, storage::PolicyError::PredicateHashMismatch);
         }
 
         // (c) Parse + decode - the host does the XDR work; we walk the
         //     resulting native `Vec<Val>`.
         let root = match dsl::decode_with_byte_cap(e, &install_params.predicate) {
             Ok(n) => n,
-            Err(_) => storage::panic_malformed_predicate(e),
+            Err(_) => storage::deny(e, storage::PolicyError::MalformedPredicate),
         };
 
-        // (c2) A rule with no signers pins no master, so nobody could ever
-        //      authorise a future install on it - and `require_master` would
-        //      pass vacuously. OZ allows such a rule when it carries a policy,
-        //      so refuse it here rather than store an unguardable state.
-        if context_rule.signers.is_empty() {
-            storage::panic_empty_signer_set(e);
-        }
-
-        // (c2b) Cap the master signer set. `enforce` re-hashes the whole set
-        //      on every permit and `require_master` calls `require_auth`
-        //      once per signer; an unbounded set pushes a permit past the
-        //      CPU budget and bricks the rule. The adjacent predicate write
-        //      is already capped at `MAX_PREDICATE_BYTES` (32 KB) for the
-        //      same shape of problem.
-        if context_rule.signers.len() > MAX_SIGNERS {
-            storage::panic_too_many_signers(e);
-        }
-
-        // (c3) External signers carry a verifier address AND a key; the key
-        //      is what OZ's smart account checks when authenticating them.
-        //      `require_master` only ever calls `signer.address().require_auth()`
-        //      on the verifier, so a rule whose master set is External cannot
-        //      be authorised (a plain verifier contract never satisfies
-        //      require_auth). The simplest fail-closed option is to refuse
-        //      External master signers at install and document the gap;
-        //      reimplementing OZ's `VerifierClient::verify` protocol in v1
-        //      would require byte-for-byte parity with that contract.
-        if context_rule
-            .signers
-            .iter()
-            .any(|s| matches!(s, Signer::External(_, _)))
-        {
-            storage::panic_external_signer_not_supported(e);
-        }
+        // (c2) Every rule that reaches storage carries a master set that can
+        //      actually authorise a later install or uninstall.
+        require_usable_signer_set(e, &context_rule.signers);
 
         // (d4) Minimum constraint. A predicate carrying no selector leaf -
         //      literals on both sides of every compare - is trivially true
@@ -111,11 +80,11 @@ impl PolicyInterpreter {
         //      everything or nothing forever. Refuse it so a no-constraint
         //      policy cannot install under any name.
         if !dsl::has_selector_leaf(&root) {
-            storage::panic_selector_leaf_required(e);
+            storage::deny(e, storage::PolicyError::SelectorLeafRequired);
         }
 
         let rule_id = context_rule.id;
-        let key = storage::RuleKey::new(e, smart_account.clone(), rule_id);
+        let key = storage::RuleKey::new(smart_account.clone(), rule_id);
         let prior_master: Option<Vec<Signer>> = e.storage().persistent().get(&key.master_set_key());
         let stored_nonce: u32 = e
             .storage()
@@ -135,11 +104,11 @@ impl PolicyInterpreter {
         if let Some(ref stored_master) = prior_master {
             auth::require_master(e, stored_master);
             if !auth::signer_sets_equal(stored_master, &context_rule.signers) {
-                storage::panic_master_auth_required(e);
+                storage::deny(e, storage::PolicyError::MasterAuthRequired);
             }
         }
         if install_params.install_nonce != stored_nonce.saturating_add(1) {
-            storage::panic_nonce_replay(e);
+            storage::deny(e, storage::PolicyError::NonceReplay);
         }
 
         let signers_hash = storage::sha256_of_signer_set(e, &context_rule.signers);
@@ -187,35 +156,35 @@ impl PolicyInterpreter {
         // OZ rejects this too; the interpreter previously ignored the
         // argument entirely.
         if authenticated_signers.is_empty() {
-            storage::panic_no_authenticated_signers(e);
+            storage::deny(e, storage::PolicyError::NoAuthenticatedSigners);
         }
 
         let rule_id = context_rule.id;
-        let key = storage::RuleKey::new(e, smart_account.clone(), rule_id);
+        let key = storage::RuleKey::new(smart_account.clone(), rule_id);
         let doc: storage::StoredDoc = match e.storage().persistent().get(&key.doc_key()) {
             Some(d) => d,
-            None => storage::panic_missing_state(e),
+            None => storage::deny(e, storage::PolicyError::MissingState),
         };
         let stored_signers_hash: BytesN<32> =
             match e.storage().persistent().get(&key.signers_hash_key()) {
                 Some(h) => h,
-                None => storage::panic_missing_state(e),
+                None => storage::deny(e, storage::PolicyError::MissingState),
             };
         let current_signers_hash = storage::sha256_of_signer_set(e, &context_rule.signers);
         if current_signers_hash != stored_signers_hash {
-            storage::panic_rule_signers_changed(e);
+            storage::deny(e, storage::PolicyError::RuleSignersChanged);
         }
 
         let predicate_root = match dsl::decode_with_byte_cap(e, &doc.predicate_bytes) {
             Ok(n) => n,
-            Err(_) => storage::panic_malformed_predicate(e),
+            Err(_) => storage::deny(e, storage::PolicyError::MalformedPredicate),
         };
 
         // Before the predicate check. A deny panics and the host rolls this
         // back with the rest of the frame, so only a permit keeps the bump.
         state::extend_state_ttl(e, &key);
 
-        let eval_ctx = state::build_eval_context(e, &context, &doc, &smart_account);
+        let eval_ctx = state::build_eval_context(e, &context);
         match dsl::evaluate(e, &predicate_root, &eval_ctx) {
             dsl::EvalDecision::Permit => {}
             // Surface the SPECIFIC deny code so a review card can say
@@ -225,20 +194,20 @@ impl PolicyInterpreter {
             // `storage::PolicyError::from(DenyReason)`; `panic_deny_reason`
             // panics with that contract error so the host emits
             // `Error(Contract, N)` on the diagnostic event.
-            dsl::EvalDecision::Deny(reason) => storage::panic_deny_reason(e, reason),
+            dsl::EvalDecision::Deny(reason) => storage::deny(e, storage::PolicyError::from(reason)),
         }
     }
 
     pub fn uninstall(e: &Env, context_rule: ContextRule, smart_account: Address) {
         let rule_id = context_rule.id;
-        let key = storage::RuleKey::new(e, smart_account.clone(), rule_id);
+        let key = storage::RuleKey::new(smart_account.clone(), rule_id);
         let master_set: Vec<Signer> = match e.storage().persistent().get(&key.master_set_key()) {
             Some(s) => s,
-            None => storage::panic_missing_state(e),
+            None => storage::deny(e, storage::PolicyError::MissingState),
         };
         auth::require_master(e, &master_set);
         if !e.storage().persistent().has(&key.doc_key()) {
-            storage::panic_missing_state(e);
+            storage::deny(e, storage::PolicyError::MissingState);
         }
         e.storage().persistent().remove(&key.doc_key());
         e.storage().persistent().remove(&key.nonce_key());
@@ -252,31 +221,17 @@ impl PolicyInterpreter {
         rule_id: u32,
         new_set: Vec<Signer>,
     ) {
-        let key = storage::RuleKey::new(e, smart_account.clone(), rule_id);
+        let key = storage::RuleKey::new(smart_account.clone(), rule_id);
         let old_set: Vec<Signer> = match e.storage().persistent().get(&key.master_set_key()) {
             Some(s) => s,
-            None => storage::panic_missing_state(e),
+            None => storage::deny(e, storage::PolicyError::MissingState),
         };
         auth::require_master(e, &old_set);
-        // Rotating to an empty set would leave the rule permanently
-        // unguardable - the same hole from the other direction.
-        if new_set.is_empty() {
-            storage::panic_empty_signer_set(e);
-        }
-        // Same cap `install` enforces: an oversized rotation pushes the
-        // same brick via re-hash and per-signer `require_auth`.
-        if new_set.len() > MAX_SIGNERS {
-            storage::panic_too_many_signers(e);
-        }
-        // Same refusal `install` applies, for the same reason: `require_master`
-        // only calls `require_auth` on the signer's address, which a plain
-        // verifier contract never satisfies. Without this, a rule installed
-        // with a valid set could be rotated into one nobody can authorise -
-        // and since rotation and `uninstall` are both gated on
-        // `require_master`, that state is unrecoverable.
-        if new_set.iter().any(|s| matches!(s, Signer::External(_, _))) {
-            storage::panic_external_signer_not_supported(e);
-        }
+        // The same rules install applies. Rotating into a set that cannot
+        //      authorise anything is unrecoverable: rotation and `uninstall`
+        //      are both gated on `require_master`.
+        require_usable_signer_set(e, &new_set);
+
         e.storage()
             .persistent()
             .set(&key.master_set_key(), &new_set);
@@ -290,5 +245,32 @@ impl PolicyInterpreter {
         e.storage()
             .persistent()
             .set(&key.signers_hash_key(), &rotated_hash);
+    }
+}
+
+/// Refuse a master signer set that could not authorise a later master-gated
+/// call on this rule.
+///
+/// - Empty: `require_master` would call `require_auth` zero times, which is no
+///   authorisation at all, so the rule would be unguardable. OZ permits a
+///   context rule with no signers when it carries a policy, so this is
+///   reachable rather than hypothetical.
+/// - Oversized: `enforce` re-hashes the whole set on every permit and
+///   `require_master` calls `require_auth` once per signer, so an unbounded set
+///   pushes a permit past the CPU budget and bricks the rule.
+/// - `External`: those signers carry a verifier address and a key, and OZ's
+///   smart account checks the key. `require_master` only calls `require_auth`
+///   on the verifier address, which a plain verifier contract never satisfies,
+///   so such a set can never be authorised. Refusing is the fail-closed option;
+///   the alternative is byte-for-byte parity with OZ's `VerifierClient::verify`.
+fn require_usable_signer_set(e: &Env, signers: &Vec<Signer>) {
+    if signers.is_empty() {
+        storage::deny(e, storage::PolicyError::EmptySignerSet);
+    }
+    if signers.len() > MAX_SIGNERS {
+        storage::deny(e, storage::PolicyError::TooManySigners);
+    }
+    if signers.iter().any(|s| matches!(s, Signer::External(_, _))) {
+        storage::deny(e, storage::PolicyError::ExternalSignerNotSupported);
     }
 }

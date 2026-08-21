@@ -1,122 +1,186 @@
+[INFO] Validating CLI arguments...
+[INFO] Getting detector names...
+[INFO] Compiling detectors...
+[INFO] Running scout...
 Warning: `--pipe-stdout` is experimental
 Checking with toolchain `nightly-2025-08-07-x86_64-unknown-linux-gnu`
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.24
+   Compiling serde_core v1.0.229
+   Compiling serde v1.0.229
+   Compiling zmij v1.0.23
+   Compiling serde_json v1.0.151
+   Compiling itoa v1.0.18
+   Compiling memchr v2.8.3
+   Compiling compiler_builtins v0.1.160 (/home/ubuntu/.rustup/toolchains/nightly-2025-08-07-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/compiler-builtins/compiler-builtins)
+   Compiling ident_case v1.0.1
+   Compiling strsim v0.11.1
+   Compiling core v0.0.0 (/home/ubuntu/.rustup/toolchains/nightly-2025-08-07-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core)
+   Compiling version_check v0.9.5
+   Compiling typenum v1.20.1
+   Compiling autocfg v1.5.1
+   Compiling schemars v0.8.22
+   Compiling dyn-clone v1.0.20
+   Compiling data-encoding v2.11.0
+   Compiling cfg-if v1.0.4
+   Compiling cpufeatures v0.2.17
+   Compiling escape-bytes v0.1.1
+   Compiling ethnum v1.5.3
+   Compiling semver v1.0.28
+   Compiling either v1.17.0
+   Compiling thiserror v1.0.69
+   Compiling hashbrown v0.17.1
+   Compiling equivalent v1.0.2
+   Compiling generic-array v0.14.9
+   Compiling num-traits v0.2.19
+   Compiling prettyplease v0.2.37
+   Compiling itertools v0.13.0
+   Compiling fnv v1.0.7
+   Compiling heapless v0.8.0
+   Compiling base64 v0.22.1
+   Compiling rustc_version v0.4.1
+   Compiling static_assertions v1.1.0
+   Compiling heck v0.5.0
+   Compiling indexmap v2.14.0
+   Compiling syn v3.0.3
+   Compiling syn v2.0.119
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.6
+   Compiling num-integer v0.1.46
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling wasmparser v0.116.1
+   Compiling num-bigint v0.4.8
+   Compiling serde_derive v1.0.229
+   Compiling darling_core v0.23.0
+   Compiling darling_core v0.20.11
+   Compiling macro-string v0.1.4
+   Compiling cfg_eval v0.1.2
+   Compiling num-derive v0.4.2
+   Compiling thiserror-impl v1.0.69
+   Compiling bytes-lit v0.0.6
+   Compiling visibility v0.1.1
+   Compiling crate-git-revision v0.0.6
+   Compiling hex v0.4.3
+   Compiling crate-git-revision v0.0.9
+   Compiling stellar-strkey v0.0.13
+   Compiling stellar-xdr v27.0.0
+   Compiling soroban-env-common v27.0.1
+   Compiling stellar-strkey v0.0.16
+   Compiling soroban-sdk v27.0.2
+   Compiling darling_macro v0.20.11
+   Compiling darling_macro v0.23.0
+   Compiling darling v0.20.11
+   Compiling darling v0.23.0
+   Compiling serde_with_macros v3.21.0
+   Compiling serde_with v3.21.0
+   Compiling alloc v0.0.0 (/home/ubuntu/.rustup/toolchains/nightly-2025-08-07-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc)
     Checking byteorder v1.5.0
     Checking stable_deref_trait v1.2.1
     Checking hash32 v0.3.1
+   Compiling soroban-spec v27.0.2
+   Compiling soroban-spec-rust v27.0.2
+   Compiling soroban-env-macros v27.0.1
     Checking soroban-env-guest v27.0.1
+   Compiling soroban-sdk-macros v27.0.2
     Checking policy-interpreter v0.1.0 (/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/contracts/policy-interpreter)
+    Finished `release` profile [optimized] target(s) in 37.46s
 warning: [ENHANCEMENT] Use the latest version of Soroban
   |
   = help: The latest Soroban version is "27.0.6", and your version is "27.0.2"
   = note: `#[warn(soroban_version)]` on by default
 
 warning: [MEDIUM] This storage (vector or map) operation is called without access control
-   --> src/dsl.rs:245:22
+   --> src/dsl.rs:182:22
     |
-245 |                 vals.push_back(literal_to_val(env, e)?);
+182 |                 vals.push_back(literal_to_val(env, e)?);
     |                      ^^^^^^^^^
     |
     = note: `#[warn(dos_unexpected_revert_with_storage)]` on by default
 
 warning: [MEDIUM] Unsafe access on Map, method could panic.
-   --> src/dsl.rs:471:27
+   --> src/dsl.rs:286:13
     |
-471 |     let field_val = match map.get(field.clone()) {
-    |                           ^^^^^^^^^^^^^^^^^^^^^^
+286 |             map.get(field.clone())
+    |             ^^^^^^^^^^^^^^^^^^^^^^
     |
     = note: `#[warn(unsafe_map_get)]` on by default
 help: Using `get` on a Map is unsafe as it could panic, please use
     |
-471 -     let field_val = match map.get(field.clone()) {
-471 +     let field_val = match map.try_get(field.clone()).unwrap_or_default() {
+286 -             map.get(field.clone())
+286 +             map.try_get(field.clone()).unwrap_or_default()
     |
-
-warning: [CRITICAL] This addition operation could overflow.
-   --> src/dsl.rs:701:29
-    |
-701 |                     walk(c, d + 1, s);
-    |                             ^^^^^
-    |
-    = help: Consider using the checked version of this operation/s
-    = note: `#[warn(integer_overflow_or_underflow)]` on by default
-
-warning: [CRITICAL] This addition operation could overflow.
-   --> src/dsl.rs:704:45
-    |
-704 |             Node::Not(inner) => walk(inner, d + 1, s),
-    |                                             ^^^^^
-    |
-    = help: Consider using the checked version of this operation/s
 
 warning: [MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
-   --> src/dsl.rs:789:9
+   --> src/dsl.rs:511:9
     |
-789 | /         for i in 0..children_items.len() {
-790 | |             let c = children_items
-791 | |                 .get(i)
-792 | |                 .ok_or(DecodeError::MalformedPredicate)?;
-793 | |             children.push(decode_node(env, &single_tuple(env, &c)?)?);
-794 | |         }
+511 | /         for i in 0..children_items.len() {
+512 | |             let c = children_items
+513 | |                 .get(i)
+514 | |                 .ok_or(DecodeError::MalformedPredicate)?;
+515 | |             children.push(decode_node(env, &single_tuple(env, &c)?)?);
+516 | |         }
     | |_________^
     |
     = help: This loop seems to do not have a fixed number of iterations
     = note: `#[warn(dos_unbounded_operation)]` on by default
 
 warning: [MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
-   --> src/dsl.rs:848:9
+   --> src/dsl.rs:553:9
     |
-848 | /         for i in 0..haystack_items.len() {
-849 | |             let h = haystack_items
-850 | |                 .get(i)
-851 | |                 .ok_or(DecodeError::MalformedPredicate)?;
-852 | |             haystack.push(decode_leaf(env, &h)?);
-853 | |         }
+553 | /         for i in 0..haystack_items.len() {
+554 | |             let h = haystack_items
+555 | |                 .get(i)
+556 | |                 .ok_or(DecodeError::MalformedPredicate)?;
+557 | |             haystack.push(decode_leaf(env, &h)?);
+558 | |         }
     | |_________^
     |
     = help: This loop seems to do not have a fixed number of iterations
 
 warning: [MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
-   --> src/dsl.rs:874:13
+   --> src/dsl.rs:579:13
     |
-874 | /             for i in 0..items.len() {
-875 | |                 let e = items.get(i).ok_or(DecodeError::MalformedPredicate)?;
-876 | |                 elems.push(decode_leaf(env, &e)?);
-877 | |             }
+579 | /             for i in 0..items.len() {
+580 | |                 let e = items.get(i).ok_or(DecodeError::MalformedPredicate)?;
+581 | |                 elems.push(decode_leaf(env, &e)?);
+582 | |             }
     | |_____________^
     |
     = help: This loop seems to do not have a fixed number of iterations
 
 warning: [MEDIUM] Using dynamic types in instance or persistent storage can lead to unnecessary growth or storage-related vulnerabilities.
-   --> src/lib.rs:160:9
+   --> src/lib.rs:129:9
     |
-160 | /         e.storage()
-161 | |             .persistent()
-162 | |             .set(&key.master_set_key(), &master_set);
+129 | /         e.storage()
+130 | |             .persistent()
+131 | |             .set(&key.master_set_key(), &master_set);
     | |____________________________________________________^
     |
     = note: `#[warn(dynamic_storage)]` on by default
 
 warning: [MEDIUM] Using dynamic types in instance or persistent storage can lead to unnecessary growth or storage-related vulnerabilities.
-   --> src/lib.rs:280:9
+   --> src/lib.rs:235:9
     |
-280 | /         e.storage()
-281 | |             .persistent()
-282 | |             .set(&key.master_set_key(), &new_set);
+235 | /         e.storage()
+236 | |             .persistent()
+237 | |             .set(&key.master_set_key(), &new_set);
     | |_________________________________________________^
 
 warning: [MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
-   --> src/lib.rs:174:9
+   --> src/lib.rs:143:9
     |
-174 |         authenticated_signers: Vec<Signer>,
+143 |         authenticated_signers: Vec<Signer>,
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: Validate `soroban_sdk::Vec<types::Signer>` contents or convert them to contract-defined types before using or storing them.
     = note: `#[warn(avoid_vec_map_input)]` on by default
 
 warning: [MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
-   --> src/lib.rs:253:9
+   --> src/lib.rs:222:9
     |
-253 |         new_set: Vec<Signer>,
+222 |         new_set: Vec<Signer>,
     |         ^^^^^^^^^^^^^^^^^^^^
     |
     = help: Validate `soroban_sdk::Vec<types::Signer>` contents or convert them to contract-defined types before using or storing them.
@@ -125,5 +189,5 @@ Summary:
 +--------------------+----------+----------+--------+-------+-------------+
 | Crate              | Status   | Critical | Medium | Minor | Enhancement | 
 +--------------------+----------+----------+--------+-------+-------------+
-| policy_interpreter | Analyzed | 2        | 9      | 0     | 1           | 
+| policy_interpreter | Analyzed | 0        | 9      | 0     | 1           | 
 +--------------------+----------+----------+--------+-------+-------------+

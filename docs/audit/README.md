@@ -5,12 +5,12 @@ Regenerate them whenever a claim they back changes.
 
 | Log | Command | Result |
 | --- | --- | --- |
-| `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 94 tests + 6 conformance pass |
-| `offchain-gate.log` | `biome check .`, `bun run typecheck`, `bun test` | clean; 595 pass, 1 skip, 0 fail |
+| `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 70 tests + 6 conformance pass |
+| `offchain-gate.log` | `biome check .`, `bun run typecheck`, `bun test` | clean; 561 pass, 1 skip, 0 fail |
 | `cargo-audit.log` | `cargo audit` | 0 vulnerabilities; 1 unmaintained-crate warning |
 | `bun-audit.log` | `bun audit` | 0 vulnerabilities |
-| `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 228 style warnings, 0 security |
-| `scout-audit.log` | `cargo scout-audit` | Analyzed: 2 Critical, 9 Medium, 1 Enhancement |
+| `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 164 style warnings, 0 security |
+| `scout-audit.log` | `cargo scout-audit` | Analyzed: 0 Critical, 9 Medium, 1 Enhancement |
 
 ## Findings
 
@@ -20,24 +20,21 @@ Transitive through `soroban-sdk`. Advisory is "no longer maintained", not a
 vulnerability. Not actionable without an SDK change; `cargo audit` reports 0
 actual vulnerabilities across 202 crate dependencies.
 
-### 2. Scout `[CRITICAL] This addition operation could overflow` x2 - FALSE POSITIVE
+### 2. Scout Criticals - none
 
-Both point at `d + 1` in the AST depth walk (`src/dsl.rs:701`, `:704`), where
-`d: u32` is the current nesting depth.
+Earlier runs reported two `[CRITICAL] This addition operation could overflow`
+against `d + 1` in the AST depth walk, plus a clippy `casting usize to u32 may
+truncate` on `haystack.len() as u32`. Both were genuinely unreachable - the byte
+cap rejects anything over 32 KB before parsing - but the guard proving it sat
+several frames above the operator, which is why neither tool could follow it.
 
-Unreachable: `decode_with_byte_cap` rejects anything over `MAX_PREDICATE_BYTES`
-(32 KB) *before* parsing, and each nesting level costs at least one byte, so
-depth is bounded near 3.2x10^4 - eight orders of magnitude below `u32::MAX`.
-Scout's `integer_overflow_or_underflow` reports raw operators without following
-the dominating guard.
-
-The same reasoning covers clippy's `casting usize to u32 may truncate` on
-`haystack.len() as u32` (`src/dsl.rs:714`): a 32 KB payload cannot encode 2^32
-elements.
+The depth counter now uses `saturating_add` and the length now goes through
+`u32::try_from`, so each bound is local to the operation it protects. Both
+findings are gone rather than triaged; there is nothing left to argue about.
 
 ### 3. Scout MEDIUMs - reviewed, no change
 
-- *unbounded operations* x3: the walks are bounded by the same 32 KB byte cap
+- *unbounded operations* x3: the walks are bounded by the 32 KB byte cap
   plus `MAX_DEPTH` 5 / `MAX_LEAVES` 200 / `MAX_IN_OPERAND_COUNT` 32.
 - *dynamic types in persistent storage* x2: the master signer set is a
   `Vec<Signer>` by necessity - it mirrors OZ's own rule shape - and is capped

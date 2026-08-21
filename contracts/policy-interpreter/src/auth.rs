@@ -25,7 +25,7 @@ use crate::types::Signer;
 /// can obtain a silently no-op check.
 pub fn require_master(e: &Env, master_set: &Vec<Signer>) {
     if master_set.is_empty() {
-        crate::storage::panic_empty_signer_set(e);
+        crate::storage::deny(e, crate::storage::PolicyError::EmptySignerSet);
     }
     for signer in master_set.iter() {
         signer.address().require_auth();

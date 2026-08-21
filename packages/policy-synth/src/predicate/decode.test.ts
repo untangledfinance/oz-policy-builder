@@ -43,7 +43,7 @@ function expectRoundTrip(node: PredicateNode): void {
 }
 
 describe('decodePredicate - round-trips every leaf kind', () => {
-  it('call_contract / call_fn / now (zero-arity selectors)', () => {
+  it('call_contract / call_fn (zero-arity selectors)', () => {
     const node: PredicateNode = {
       op: 'and',
       children: [
@@ -57,7 +57,6 @@ describe('decodePredicate - round-trips every leaf kind', () => {
           left: { kind: 'call_fn' },
           right: { kind: 'literal_symbol', value: 'transfer' },
         },
-        { op: 'lt', left: { kind: 'now' }, right: { kind: 'literal_u64', value: '1800000000' } },
       ],
     }
     expectRoundTrip(node)
@@ -87,18 +86,9 @@ describe('decodePredicate - round-trips every leaf kind', () => {
     expectRoundTrip(node)
   })
 
-  it('literal_bytes round-trips as hex', () => {
-    const node: PredicateNode = {
-      op: 'eq',
-      left: { kind: 'call_arg', index: 0 },
-      right: { kind: 'literal_bytes', value: 'deadbeef' },
-    }
-    expect(roundTrip(node)).toEqual(node)
-  })
-
   it('a negative i128 survives the (hi << 64) + lo split', () => {
     const node: PredicateNode = {
-      op: 'gte',
+      op: 'lte',
       left: { kind: 'call_arg', index: 0 },
       right: { kind: 'literal_i128', value: '-170141183460469231731687303715884105728' },
     }
@@ -107,53 +97,6 @@ describe('decodePredicate - round-trips every leaf kind', () => {
 })
 
 describe('decodePredicate - round-trips every node shape', () => {
-  it('not', () => {
-    const node: PredicateNode = {
-      op: 'not',
-      child: {
-        op: 'eq',
-        left: { kind: 'call_fn' },
-        right: { kind: 'literal_symbol', value: 'burn' },
-      },
-    }
-    expect(roundTrip(node)).toEqual(node)
-  })
-
-  it('nested and/or', () => {
-    const node: PredicateNode = {
-      op: 'and',
-      children: [
-        {
-          op: 'eq',
-          left: { kind: 'call_contract' },
-          right: { kind: 'literal_address', value: CONTRACT },
-        },
-        {
-          op: 'or',
-          children: [
-            {
-              op: 'eq',
-              left: { kind: 'call_fn' },
-              right: { kind: 'literal_symbol', value: 'swap' },
-            },
-            {
-              op: 'eq',
-              left: { kind: 'call_fn' },
-              right: { kind: 'literal_symbol', value: 'deposit' },
-            },
-          ],
-        },
-      ],
-    }
-    // and/or children are sorted by canonical bytes on encode, so compare as
-    // sets: the tree is equivalent, the order is the encoder's business.
-    const back = roundTrip(node) as Extract<PredicateNode, { op: 'and' }>
-    expect(back.op).toBe('and')
-    expect(back.children).toHaveLength(2)
-    expect(JSON.stringify(back)).toContain('swap')
-    expect(JSON.stringify(back)).toContain('deposit')
-  })
-
   it('eq against a literal_vec preserves element ORDER (exact sequence)', () => {
     // Order is the semantic here - a reordered path is a different policy.
     const node: PredicateNode = {

@@ -95,9 +95,11 @@ export type SignerDraft =
   | { kind: 'external'; verifier: string; keyBytes: string }
 
 /** Reference to one policy attached to a context rule. */
-export type PolicyRef =
-  | { kind: 'oz_builtin'; primitive: OZPrimitiveConfig; instanceAddress: string }
-  | { kind: 'interpreter'; interpreterAddress: string; predicateBlobBase64: string }
+export type PolicyRef = {
+  kind: 'interpreter'
+  interpreterAddress: string
+  predicateBlobBase64: string
+}
 
 /** A serialised predicate document stored against a (smart_account, rule_id) pair. */
 export interface PolicyDocument {
@@ -120,10 +122,8 @@ export interface PolicyDocument {
 /** The versioned predicate AST (interpreter side). Tagged union. */
 export type PredicateNode =
   | { op: 'and'; children: PredicateNode[] }
-  | { op: 'or'; children: PredicateNode[] }
-  | { op: 'not'; child: PredicateNode }
   | { op: 'eq'; left: PredicateLeaf; right: PredicateLeaf }
-  | { op: 'lt' | 'lte' | 'gt' | 'gte'; left: PredicateLeaf; right: PredicateLeaf }
+  | { op: 'lte'; left: PredicateLeaf; right: PredicateLeaf }
   | {
       op: 'in'
       needle: PredicateLeaf
@@ -144,30 +144,17 @@ export type PredicateLeaf =
   // recorded ScVal type. A non-vec arg, missing element, missing field, or
   // type mismatch all DENY (fail-closed).
   | { kind: 'call_arg_field'; index: number; element: number; field: string }
-  // `call_sub_invocation[i]` is NOT in v1 grammar. OZ `Policy::enforce`
-  // receives one `Context`, not a sub-invocation tree; sub-invocations live under
-  // `InvokerContractAuthEntry::Contract(SubContractInvocation)`, not in the
-  // enforce Context. Scope is per-authorized-context; a v1.1 sub-invocation
-  // tree leaf is gated on the enforce-Context-shape spike result.
-  | { kind: 'now' }
   // Literal leaves: bare ScVal on the wire (no selector-tuple wrapper). Right-hand side of
   // comparisons, elements of `in` haystacks, and operands to future arithmetic nodes.
   | { kind: 'literal_address'; value: string }
   | { kind: 'literal_i128'; value: string }
   | { kind: 'literal_symbol'; value: string }
   | { kind: 'literal_u32'; value: number }
-  | { kind: 'literal_u64'; value: string }
-  | { kind: 'literal_bytes'; value: string } // hex string; wrapped as ScVal::Bytes at encode time
   // Exact ordered vector of literals (e.g. a swap hop path). Encodes to a bare
   // ScVal::Vec with the caller's order preserved verbatim - the order IS the
   // semantic. An exact ordered sequence equality is expressed by `eq(selector,
   // literal_vec([...]))`. `in` is reserved for pure set membership (sorted).
   | { kind: 'literal_vec'; elements: PredicateLeaf[] }
-
-export interface OZPrimitiveConfig {
-  primitive: 'spending_limit' | 'simple_threshold' | 'weighted_threshold'
-  params: Record<string, unknown>
-}
 
 export interface ContractInvocation {
   contract: string

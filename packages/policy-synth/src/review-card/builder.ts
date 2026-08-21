@@ -6,21 +6,13 @@
 // summary being REPRODUCIBLE + TESTABLE + NON-HALLUCINABLE, so this module is
 // pure: same inputs -> byte-identical output, no clock, no randomness, no I/O.
 //
-// The builder walks two inputs and emits ONE constraint string per leaf or
-// primitive, in a fixed deterministic order:
-//
-//   1. The OZ built-in `PolicyRef`s. Each `spending_limit` primitive becomes a
-//      `spending_limit(token, limitAmount, windowSecs)` line; other OZ
-//      primitives (threshold) are skipped - the review card does not quote
-//      them (they are signer-config concerns, not transactional bounds).
-//
-//   2. The interpreter `PredicateNode`. One string per constraint leaf,
-//      rendered by enclosing-comparison kind. Templates (Task 7b):
-//        - call_arg[i] in [list]              -> Recipient/arg must be one of [list]
-//        - eq(call_arg[i], literal_vec[...])  -> Path must be exactly [list]
-//        - call_fn == x                       -> Function must be x
-//        - call_contract == c                 -> Contract must be c
-//        - amount <= v                        -> Amount <= v
+// The builder walks the interpreter `PredicateNode` and emits ONE constraint
+// string per leaf, in a fixed deterministic order. Templates (Task 7b):
+//   - call_arg[i] in [list]              -> Recipient/arg must be one of [list]
+//   - eq(call_arg[i], literal_vec[...])  -> Path must be exactly [list]
+//   - call_fn == x                       -> Function must be x
+//   - call_contract == c                 -> Contract must be c
+//   - amount <= v                        -> Amount <= v
 //
 // The content hash is a stable sha256 hex of a canonical JSON of
 // { ruleName, plainEnglish, constraints, expiry, backend } - identical
@@ -28,13 +20,7 @@
 // hash. There is no clock; the hash never includes a timestamp.
 
 import { createHash } from 'node:crypto'
-import type {
-  ContextRuleDraft,
-  OZPrimitiveConfig,
-  PolicyRef,
-  PredicateLeaf,
-  PredicateNode,
-} from '../types.ts'
+import type { ContextRuleDraft, PredicateLeaf, PredicateNode } from '../types.ts'
 
 export interface ReviewCardSummary {
   ruleName: string
@@ -56,16 +42,11 @@ export interface ReviewCardSummary {
  *  simulation result. Pure: same inputs -> byte-identical output. */
 export function buildReviewCardSummary(
   predicate: PredicateNode | null,
-  policyRefs: PolicyRef[],
   contextRule: ContextRuleDraft,
   /** Evaluator identity folded into the content hash. */
   backend: 'interpreter-v1' | 'ts-model'
 ): ReviewCardSummary {
   const constraints: string[] = []
-  for (const ref of policyRefs) {
-    const line = renderOzPrimitive(ref)
-    if (line !== null) constraints.push(line)
-  }
   if (predicate !== null) {
     walkPredicate(predicate, (node) => {
       const line = renderConstraint(node)
@@ -97,24 +78,6 @@ export function buildReviewCardSummary(
   return { ruleName, plainEnglish, constraints, expiry, signerNote, backend, contentHash }
 }
 
-/** Render the OZ built-in primitive summary line. Only `spending_limit` is
- *  quoted by the review card (it is the only primitive that defines a
- *  transactional bound). Other primitives (threshold) are signer-config
- *  concerns handled by the OZ adapter's own `uncovered` machinery.
- *  Spending_limit takes `period_ledgers` on-chain (~5s/ledger); the card
- *  states the window in seconds so the user reads it consistently with the
- *  interpreter templates. */
-function renderOzPrimitive(ref: PolicyRef): string | null {
-  if (ref.kind !== 'oz_builtin') return null
-  const primitive: OZPrimitiveConfig = ref.primitive
-  if (primitive.primitive !== 'spending_limit') return null
-  const params = primitive.params as { spending_limit?: string; period_ledgers?: number }
-  const limit = params.spending_limit ?? '0'
-  const periodLedgers = params.period_ledgers ?? 0
-  const windowSecs = periodLedgers * 5
-  return `spending_limit(${limit}, ${windowSecs})`
-}
-
 /** Walk every comparison / membership node of the predicate and invoke
  *  `visit` on each. The walk is depth-first, left-to-right, so the
  *  constraint list is stable across runs. Pure boolean nodes contribute no
@@ -139,20 +102,13 @@ export function describePredicate(predicate: PredicateNode): string[] {
 function walkPredicate(node: PredicateNode, visit: (node: PredicateNode) => void): void {
   switch (node.op) {
     case 'and':
-    case 'or':
       for (const child of node.children) walkPredicate(child, visit)
-      return
-    case 'not':
-      walkPredicate(node.child, visit)
       return
     case 'in':
       visit(node)
       return
     case 'eq':
-    case 'lt':
     case 'lte':
-    case 'gt':
-    case 'gte':
       visit(node)
       return
   }
@@ -161,27 +117,20 @@ function walkPredicate(node: PredicateNode, visit: (node: PredicateNode) => void
 /** Render ONE constraint sentence for ONE interpreter predicate node. The
  *  shape of the output is pinned by Task 7b so the test suite can assert
  *  byte-for-byte equality. Returns `null` when the node is a structural
- *  boolean (`and` / `or` / `not`) - those are not constraint leaves. */
+ *  boolean (`and`) - that is not a constraint leaf. */
 function renderConstraint(node: PredicateNode): string | null {
   switch (node.op) {
     case 'and':
-    case 'or':
-    case 'not':
       return null
     case 'eq':
-    case 'lt':
     case 'lte':
-    case 'gt':
-    case 'gte':
       return renderComparison(node)
     case 'in':
       return renderMembership(node)
   }
 }
 
-function renderComparison(
-  node: Extract<PredicateNode, { op: 'eq' | 'lt' | 'lte' | 'gt' | 'gte' }>
-): string | null {
+function renderComparison(node: Extract<PredicateNode, { op: 'eq' | 'lte' }>): string | null {
   const left = node.left
   const right = node.right
 
@@ -210,15 +159,13 @@ function renderComparison(
 
   // eq/lte(call_arg_field[i, el, field], <literal>) -> arg[i] element[el].field = <value>
   // The structured-argument bind pins a scalar field inside a vec element.
-  // For lt/gt/lte/gte the line reads "OP <value>" so the comparison kind
-  // is visible; eq reads "= <value>".
+  // For lte the line reads "OP <value>" so the comparison kind is visible;
+  // eq reads "= <value>".
   if (left.kind === 'call_arg_field') {
     const head = `arg[${left.index}] element[${left.element}].${left.field}`
     const sep = node.op === 'eq' ? '=' : comparisonOpText(node.op)
     if (right.kind === 'literal_address') return `${head} ${sep} ${right.value}`
     if (right.kind === 'literal_symbol') return `${head} ${sep} ${right.value}`
-    if (right.kind === 'literal_bytes') return `${head} ${sep} ${right.value}`
-    if (right.kind === 'literal_u64') return `${head} ${sep} ${right.value}`
     if (right.kind === 'literal_i128') return `${head} ${sep} ${right.value}`
     if (right.kind === 'literal_u32') return `${head} ${sep} ${right.value}`
     if (right.kind === 'literal_vec') {
@@ -237,11 +184,9 @@ function renderComparison(
     const head = `arg[${left.index}]`
     const sep = node.op === 'eq' ? '=' : comparisonOpText(node.op)
     if (right.kind === 'literal_i128') return `${head} ${sep} ${right.value}`
-    if (right.kind === 'literal_u64') return `${head} ${sep} ${right.value}`
     if (right.kind === 'literal_u32') return `${head} ${sep} ${right.value}`
     if (right.kind === 'literal_address') return `${head} ${sep} ${right.value}`
     if (right.kind === 'literal_symbol') return `${head} ${sep} ${right.value}`
-    if (right.kind === 'literal_bytes') return `${head} ${sep} ${right.value}`
   }
 
   // Any other comparison shape is a structural fail-closed: do not surface
@@ -271,10 +216,6 @@ function renderVecElement(leaf: PredicateLeaf): string {
       return leaf.value
     case 'literal_u32':
       return String(leaf.value)
-    case 'literal_u64':
-      return leaf.value
-    case 'literal_bytes':
-      return leaf.value
     case 'literal_vec':
       return `[${leaf.elements.map(renderVecElement).join(', ')}]`
     case 'call_contract':
@@ -282,7 +223,6 @@ function renderVecElement(leaf: PredicateLeaf): string {
     case 'call_arg':
     case 'call_arg_len':
     case 'call_arg_field':
-    case 'now':
       return `<${leaf.kind}>`
   }
 }
@@ -292,24 +232,16 @@ function renderHaystackElement(leaf: PredicateLeaf): string {
   if (leaf.kind === 'literal_i128') return leaf.value
   if (leaf.kind === 'literal_symbol') return leaf.value
   if (leaf.kind === 'literal_u32') return String(leaf.value)
-  if (leaf.kind === 'literal_u64') return leaf.value
-  if (leaf.kind === 'literal_bytes') return leaf.value
   if (leaf.kind === 'literal_vec') {
     return `[${leaf.elements.map(renderHaystackElement).join(', ')}]`
   }
   return `<${leaf.kind}>`
 }
 
-function comparisonOpText(op: 'eq' | 'lt' | 'lte' | 'gt' | 'gte'): string {
+function comparisonOpText(op: 'eq' | 'lte'): string {
   switch (op) {
-    case 'lt':
-      return '<'
     case 'lte':
       return '<='
-    case 'gt':
-      return '>'
-    case 'gte':
-      return '>='
     case 'eq':
       return '=='
   }

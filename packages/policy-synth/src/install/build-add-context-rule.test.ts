@@ -150,7 +150,7 @@ describe('buildAddContextRuleArgs - happy path', () => {
     const byField = Object.fromEntries(inner.map((e) => [e.key().sym().toString(), e.val()]))
     expect(byField.grammar_version?.switch().name).toBe('scvU32')
     // Must equal the contract's SELF_VERSION; a mismatch is refused at install.
-    expect(byField.grammar_version?.u32()).toBe(2)
+    expect(byField.grammar_version?.u32()).toBe(3)
     expect(byField.install_nonce?.u32()).toBe(7)
     expect(byField.predicate?.switch().name).toBe('scvBytes')
     expect(byField.predicate_hash?.switch().name).toBe('scvBytes')
@@ -268,49 +268,5 @@ describe('buildAddContextRuleArgs - structured field order is stable', () => {
     expect(aFields).toEqual(bFields)
     // alphabetical, not length-prefixed
     expect(aFields).toEqual([...aFields].sort())
-  })
-})
-
-describe('buildAddContextRuleArgs - OZ built-in policies', () => {
-  const XLM_SAC = 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC'
-  const SPENDING_LIMIT = 'CDXDHCLOIZDLO63RLLU2Z6ICKZSA3MOYM3AYHU3LEXCGQSMXCMNDDEOF'
-
-  const spendingLimitRef = {
-    kind: 'oz_builtin',
-    instanceAddress: SPENDING_LIMIT,
-    primitive: {
-      primitive: 'spending_limit',
-      params: { spending_limit: '1500000000', period_ledgers: 17_280 },
-    },
-  } as unknown as PolicyRef
-
-  it('emits a two-entry policy map for interpreter + OZ primitive', () => {
-    const args = buildAddContextRuleArgs(
-      makeDraft({ contextRuleType: { kind: 'call_contract', contract: XLM_SAC } }),
-      defaults({ policies: [...defaults().policies, spendingLimitRef] })
-    )
-    expect(args[4].map()?.length).toBe(2)
-  })
-
-  it('encodes the params the deployed contract declares', () => {
-    const args = buildAddContextRuleArgs(
-      makeDraft({ contextRuleType: { kind: 'call_contract', contract: XLM_SAC } }),
-      defaults({ policies: [spendingLimitRef] })
-    )
-    const fields = args[4]
-      .map()?.[0]
-      ?.val()
-      .map()
-      ?.map((e) => e.key().sym().toString())
-    // SpendingLimitAccountParams, symbol-string ordered.
-    expect(fields).toEqual(['period_ledgers', 'spending_limit'])
-  })
-
-  // spending_limit caps the CONTEXT CONTRACT, so a Default rule is refused
-  // on chain with a bare #3227. Fail here with the reason instead.
-  it('refuses a spending_limit on a rule that is not scoped to a contract', () => {
-    expect(() =>
-      buildAddContextRuleArgs(makeDraft(), defaults({ policies: [spendingLimitRef] }))
-    ).toThrow(/call_contract-scoped/)
   })
 })

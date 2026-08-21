@@ -19,7 +19,6 @@ export function jsonToAst(value: unknown): PredicateNode {
   const v = value as {
     op?: unknown
     children?: unknown
-    child?: unknown
     left?: unknown
     right?: unknown
     needle?: unknown
@@ -27,15 +26,9 @@ export function jsonToAst(value: unknown): PredicateNode {
   }
   switch (v.op) {
     case 'and':
-    case 'or':
-      return { op: v.op, children: arrayOf(v.children, jsonToAst) }
-    case 'not':
-      return { op: 'not', child: jsonToAst(v.child) }
+      return { op: 'and', children: arrayOf(v.children, jsonToAst) }
     case 'eq':
-    case 'lt':
     case 'lte':
-    case 'gt':
-    case 'gte':
       return { op: v.op, left: jsonToLeaf(v.left), right: jsonToLeaf(v.right) }
     case 'in':
       return { op: 'in', needle: jsonToLeaf(v.needle), haystack: arrayOf(v.haystack, jsonToLeaf) }
@@ -55,7 +48,6 @@ function jsonToLeaf(value: unknown): PredicateLeaf {
   switch (v.kind) {
     case 'call_contract':
     case 'call_fn':
-    case 'now':
       return { kind: v.kind }
     case 'call_arg':
       return { kind: 'call_arg', index: numberField(v, 'index') }
@@ -69,10 +61,6 @@ function jsonToLeaf(value: unknown): PredicateLeaf {
       return { kind: 'literal_symbol', value: stringField(v, 'value') }
     case 'literal_u32':
       return { kind: 'literal_u32', value: numberField(v, 'value') }
-    case 'literal_u64':
-      return { kind: 'literal_u64', value: stringField(v, 'value') }
-    case 'literal_bytes':
-      return { kind: 'literal_bytes', value: stringField(v, 'value') }
     case 'literal_vec':
       return { kind: 'literal_vec', elements: arrayOf(v.elements, jsonToLeaf) }
     default:

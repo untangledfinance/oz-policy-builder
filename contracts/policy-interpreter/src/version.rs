@@ -13,4 +13,4 @@
 /// any previously-installed doc carrying the retired variants is now refused
 /// at install by the version mismatch gate. See `dsl.rs` for the current
 /// grammar.
-pub const SELF_VERSION: u32 = 2;
+pub const SELF_VERSION: u32 = 3;

@@ -33,14 +33,23 @@ no counter that can drift, replay or archive out from under a rule.
 | `call_arg(i)` | Argument `i` of that call |
 | `call_arg_len(i)` | Length of a vec-typed argument - pins the element count so an extra entry cannot be appended |
 | `call_arg_field(i, element, field)` | A field of a map element inside a vec-typed argument |
-| `now` | The current ledger sequence |
 | `literal_*` | Constants on the right-hand side of a comparison, or inside an `in` allowlist |
 
-Nodes: `and`, `or`, `not`, `eq`, `lt`, `lte`, `gt`, `gte`, `in`.
+Nodes: `and`, `eq`, `lte`, `in`. Literals: `literal_address`, `literal_i128`,
+`literal_symbol`, `literal_u32`, `literal_vec`.
+
+The grammar carries only what a policy needs and no more. `or` and `not` are
+absent by design: `not` inverted a deny into a permit, so a leaf the evaluator
+could not resolve - a missing argument index, an operand of the wrong type -
+came back as PERMIT rather than as the deny everything else in the grammar
+produces. In a deny-by-default evaluator that is the one construct that can
+turn the default inside out, and nothing the synthesiser emits needs it.
 
 Deliberately absent, because the interpreter sees one authorized call and no
 history: what a transaction actually moved (`amount`), rolling per-window spend
-totals, call-frequency caps, and policy expiry. A cap on value is expressed
+totals, call-frequency caps, and policy expiry. Wall-clock time is absent for a
+related reason - the only clock a predicate could read is the ledger sequence,
+which is not the unit anyone writing a deadline means. A cap on value is expressed
 instead against the call's own amount argument (`call_arg(i) <= limit`); expiry
 belongs to the context rule's own `valid_until`. The synthesiser reports each of
 the absent ones as uncovered rather than emitting a constraint that would never

@@ -8,11 +8,10 @@
 
 extern crate alloc;
 
-use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 use soroban_sdk::xdr::ToXdr;
-use soroban_sdk::{Address, Bytes, Env, IntoVal, Symbol, TryFromVal, Val, Vec as SorobanVec};
+use soroban_sdk::{Address, Env, IntoVal, Map, Symbol, TryFromVal, Val, Vec as SorobanVec};
 
 pub use dsl_decode::{decode, decode_with_byte_cap};
 
@@ -27,13 +26,8 @@ pub const MAX_PREDICATE_BYTES: u32 = 32 * 1024;
 // `policy-synth/src/predicate/encode.ts`); an unknown tag is fail-closed at
 // decode time.
 const OP_AND: &[u8] = b"and";
-const OP_OR: &[u8] = b"or";
-const OP_NOT: &[u8] = b"not";
 const OP_EQ: &[u8] = b"eq";
-const OP_LT: &[u8] = b"lt";
 const OP_LTE: &[u8] = b"lte";
-const OP_GT: &[u8] = b"gt";
-const OP_GTE: &[u8] = b"gte";
 const OP_IN: &[u8] = b"in";
 
 const SEL_CALL_CONTRACT: &[u8] = b"call_contract";
@@ -41,7 +35,6 @@ const SEL_CALL_FN: &[u8] = b"call_fn";
 const SEL_CALL_ARG: &[u8] = b"call_arg";
 const SEL_CALL_ARG_LEN: &[u8] = b"call_arg_len";
 const SEL_CALL_ARG_FIELD: &[u8] = b"call_arg_field";
-const SEL_NOW: &[u8] = b"now";
 
 // Stateful selectors.
 //
@@ -60,8 +53,6 @@ const SEL_NOW: &[u8] = b"now";
 #[derive(Debug, Clone)]
 pub enum Node {
     And(Vec<Node>),
-    Or(Vec<Node>),
-    Not(Box<Node>),
     Compare {
         op: CompareOp,
         left: Leaf,
@@ -76,10 +67,7 @@ pub enum Node {
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum CompareOp {
     Eq,
-    Lt,
     Lte,
-    Gt,
-    Gte,
 }
 
 /// One literal or selector leaf. Host types are stored directly so the
@@ -95,13 +83,10 @@ pub enum Leaf {
         element: u32,
         field: Symbol,
     },
-    Now,
     LiteralAddress(Address),
     LiteralI128(i128),
     LiteralSymbol(Symbol),
     LiteralU32(u32),
-    LiteralU64(u64),
-    LiteralBytes(Bytes),
     LiteralVec(Vec<Leaf>),
 }
 
@@ -112,8 +97,6 @@ pub struct EvalContext {
     pub contract: Address,
     pub fn_name: Symbol,
     pub args: SorobanVec<Val>,
-    pub at_ledger: u32,
-    pub now_seconds: u64,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -126,10 +109,7 @@ pub enum EvalDecision {
 pub enum DenyReason {
     ArgMismatch,
     ContractScope,
-    ArithmeticOverflow,
     UnsupportedNode,
-    /// Stateful leaf denies (amount over limit, window over limit, etc.).
-    StatefulBound,
     /// `in` membership failed. Distinct from ArgMismatch so a review card can
     /// say "not on the allowlist" rather than "argument mismatch"; the
     /// reference evaluator draws the same distinction.
@@ -137,23 +117,11 @@ pub enum DenyReason {
 }
 
 impl DenyReason {
-    /// `UnsupportedNode` is fatal: a node the interpreter never supported
-    /// must not be satisfiable by negating it. Every other variant is a
-    /// ordinary deny reason - a sibling `or` may carry it, and `not` may
-    /// invert it.
-    pub const fn is_fatal(&self) -> bool {
-        matches!(self, DenyReason::UnsupportedNode)
-    }
-}
-
-impl DenyReason {
     pub const fn code(&self) -> &'static str {
         match self {
             DenyReason::ArgMismatch => "ARG_MISMATCH",
             DenyReason::ContractScope => "CONTRACT_SCOPE",
-            DenyReason::ArithmeticOverflow => "ARITHMETIC_OVERFLOW",
             DenyReason::UnsupportedNode => "UNSUPPORTED_NODE",
-            DenyReason::StatefulBound => "STATEFUL_BOUND",
             DenyReason::NotInAllowlist => "NOT_IN_ALLOWLIST",
         }
     }
@@ -172,34 +140,6 @@ pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
             }
             EvalDecision::Permit
         }
-        Node::Or(children) => {
-            // When every child denies, the surfaced reason is the LAST child's,
-            // matching the reference evaluator. A childless `or` can never be
-            // satisfied, so it fails closed as an empty allowlist.
-            let mut last_deny: Option<EvalDecision> = None;
-            for c in children {
-                match evaluate(env, c, ctx) {
-                    EvalDecision::Permit => return EvalDecision::Permit,
-                    // A fatal denial (unsupported node) aborts the whole
-                    // predicate: the policy cannot satisfy itself by
-                    // permitting a sibling around a node the interpreter
-                    // could not evaluate.
-                    EvalDecision::Deny(r) if r.is_fatal() => {
-                        return EvalDecision::Deny(r);
-                    }
-                    d @ EvalDecision::Deny(_) => last_deny = Some(d),
-                }
-            }
-            last_deny.unwrap_or(EvalDecision::Deny(DenyReason::NotInAllowlist))
-        }
-        Node::Not(inner) => match evaluate(env, inner, ctx) {
-            EvalDecision::Permit => EvalDecision::Deny(DenyReason::ArgMismatch),
-            // A fatal denial (unsupported node) is NOT inverted - the policy
-            // cannot satisfy itself by negating a node the interpreter
-            // could not evaluate.
-            EvalDecision::Deny(r) if r.is_fatal() => EvalDecision::Deny(r),
-            EvalDecision::Deny(_) => EvalDecision::Permit,
-        },
         Node::Compare { op, left, right } => eval_compare(env, *op, left, right, ctx),
         Node::In { needle, haystack } => {
             if haystack.is_empty() {
@@ -209,8 +149,7 @@ pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
             // a selector leaf (e.g. call_arg[i]). Resolve via the live
             // context first; fall back to literal_to_val for pure-literal
             // needles. Both paths feed the same Val equality (host shallow_eq).
-            let expected =
-                resolve_selector(env, needle, ctx).or_else(|| literal_to_val(env, needle));
+            let expected = resolve(env, needle, ctx);
             // An opaque or undecodable needle fails closed as a membership
             // miss, not an argument mismatch: it cannot be on the allowlist
             // because it cannot be compared at all. The reference draws the
@@ -237,8 +176,6 @@ fn literal_to_val(env: &Env, leaf: &Leaf) -> Option<Val> {
         Leaf::LiteralI128(v) => (*v).into_val(env),
         Leaf::LiteralSymbol(s) => s.clone().into_val(env),
         Leaf::LiteralU32(v) => (*v).into_val(env),
-        Leaf::LiteralU64(v) => (*v).into_val(env),
-        Leaf::LiteralBytes(b) => b.clone().into_val(env),
         Leaf::LiteralVec(elements) => {
             let mut vals: SorobanVec<Val> = SorobanVec::new(env);
             for e in elements {
@@ -276,6 +213,15 @@ fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
     false
 }
 
+/// Evaluate one `compare` node.
+///
+/// Both sides are reduced to a `Val` and compared once. The left side may be
+/// any leaf, including a selector, and is resolved against the call under
+/// evaluation; the right side must be a literal, which is what keeps the
+/// grammar from expressing selector-to-selector comparisons.
+///
+/// Every failure to resolve or convert is a deny. The reason is a property of
+/// the left leaf, so it is chosen once up front rather than at each exit.
 fn eval_compare(
     env: &Env,
     op: CompareOp,
@@ -283,92 +229,73 @@ fn eval_compare(
     right: &Leaf,
     ctx: &EvalContext,
 ) -> EvalDecision {
-    match (left, op, right) {
-        // call_contract: eq vs literal_address.
-        (Leaf::CallContract, CompareOp::Eq, Leaf::LiteralAddress(expected)) => {
-            if ctx.contract == *expected {
-                EvalDecision::Permit
-            } else {
-                EvalDecision::Deny(DenyReason::ContractScope)
-            }
-        }
-        (Leaf::CallContract, CompareOp::Eq, _) => EvalDecision::Deny(DenyReason::ContractScope),
-        (Leaf::CallContract, _, _) => EvalDecision::Deny(DenyReason::UnsupportedNode),
-
-        // call_fn: eq vs literal_symbol.
-        (Leaf::CallFn, CompareOp::Eq, Leaf::LiteralSymbol(expected)) => {
-            if ctx.fn_name == *expected {
-                EvalDecision::Permit
-            } else {
-                EvalDecision::Deny(DenyReason::ArgMismatch)
-            }
-        }
-        (Leaf::CallFn, CompareOp::Eq, _) => EvalDecision::Deny(DenyReason::ArgMismatch),
-        (Leaf::CallFn, _, _) => EvalDecision::Deny(DenyReason::UnsupportedNode),
-
-        (Leaf::CallArg(i), _, _) => eval_arg_compare(env, *i, op, right, ctx),
-        (Leaf::CallArgLen(i), _, _) => eval_arg_len_compare(env, *i, op, right, ctx),
-        (
-            Leaf::CallArgField {
-                index,
-                element,
-                field,
-            },
-            _,
-            _,
-        ) => eval_arg_field_compare(env, *index, *element, field, op, right, ctx),
-        (Leaf::Now, _, _) => eval_numeric_compare(env, op, left, right, ctx),
-
-        // Generic leaf-vs-leaf: resolve to a Val and compare.
-        _ => {
-            let actual = match resolve_selector(env, left, ctx) {
-                Some(v) => v,
-                None => return EvalDecision::Deny(DenyReason::ArgMismatch),
-            };
-            let is_vec_literal = matches!(right, Leaf::LiteralVec(_));
-            if is_vec_literal && op != CompareOp::Eq {
-                return EvalDecision::Deny(DenyReason::ArgMismatch);
-            }
-            if op == CompareOp::Eq {
-                let expected = match literal_to_val(env, right) {
-                    Some(v) => v,
-                    None => return EvalDecision::Deny(DenyReason::ArgMismatch),
-                };
-                if val_eq(env, &actual, &expected) {
-                    EvalDecision::Permit
-                } else {
-                    EvalDecision::Deny(DenyReason::ArgMismatch)
-                }
-            } else {
-                eval_numeric_compare(env, op, left, right, ctx)
-            }
-        }
+    // `call_contract` and `call_fn` name an identity, not a quantity, so an
+    // ordering comparison over either is a node the interpreter never
+    // supported - distinct from a value that merely failed to match.
+    if op != CompareOp::Eq && matches!(left, Leaf::CallContract | Leaf::CallFn) {
+        return EvalDecision::Deny(DenyReason::UnsupportedNode);
+    }
+    // A contract-scope miss is reported as its own reason so a review card can
+    // say "wrong contract" rather than "argument mismatch".
+    let miss = if matches!(left, Leaf::CallContract) {
+        DenyReason::ContractScope
+    } else {
+        DenyReason::ArgMismatch
+    };
+    let (Some(actual), Some(expected)) = (resolve(env, left, ctx), literal_to_val(env, right))
+    else {
+        return EvalDecision::Deny(miss);
+    };
+    let pass = match op {
+        CompareOp::Eq => val_eq(env, &actual, &expected),
+        CompareOp::Lte => match (val_to_i128(env, &actual), val_to_i128(env, &expected)) {
+            (Some(a), Some(b)) => a <= b,
+            // A non-numeric operand (an address, a vector) has no ordering.
+            _ => return EvalDecision::Deny(miss),
+        },
+    };
+    if pass {
+        EvalDecision::Permit
+    } else {
+        EvalDecision::Deny(miss)
     }
 }
 
-/// Resolve a selector leaf to its current `Val` against the live context.
-fn resolve_selector(env: &Env, leaf: &Leaf, ctx: &EvalContext) -> Option<Val> {
+/// Resolve a leaf to the `Val` it denotes for the call under evaluation.
+///
+/// `None` means the leaf named something this call does not carry - an
+/// argument index past the end, an argument whose shape is not what the leaf
+/// assumed, an absent map field. Every caller turns `None` into a deny, so an
+/// unresolvable leaf is always fail-closed.
+fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext) -> Option<Val> {
     match leaf {
         Leaf::CallContract => Some(ctx.contract.clone().into_val(env)),
         Leaf::CallFn => Some(ctx.fn_name.clone().into_val(env)),
         Leaf::CallArg(i) => ctx.args.get(*i),
-        Leaf::CallArgLen(_) | Leaf::CallArgField { .. } => None,
-        Leaf::Now => Some(ctx.at_ledger.into_val(env)),
-        // Literal leaves resolve through `literal_to_val`.
+        Leaf::CallArgLen(i) => {
+            let items = SorobanVec::<Val>::try_from_val(env, &ctx.args.get(*i)?).ok()?;
+            Some(items.len().into_val(env))
+        }
+        Leaf::CallArgField {
+            index,
+            element,
+            field,
+        } => {
+            let outer = SorobanVec::<Val>::try_from_val(env, &ctx.args.get(*index)?).ok()?;
+            let map = Map::<Symbol, Val>::try_from_val(env, &outer.get(*element)?).ok()?;
+            map.get(field.clone())
+        }
         _ => literal_to_val(env, leaf),
     }
 }
-
-// ---- Stateful leaf evaluators ----
 
 /// True when the predicate constrains at least one property of the call
 /// being authorised, rather than comparing literals to literals.
 ///
 /// A predicate with no selector leaf - literals on both sides of every
-/// compare, no `call_contract`/`call_fn`/`call_arg`/`now` - is trivially
-/// true or trivially false at install time, so it permits everything or
-/// nothing forever. `install` refuses such a predicate so a no-constraint
-/// policy cannot install under any name.
+/// compare - is trivially true or trivially false at install time, so it
+/// permits everything or nothing forever. `install` refuses such a predicate
+/// so a no-constraint policy cannot install under any name.
 ///
 /// Recurses into `LiteralVec`: a selector wrapped in a literal vector is
 /// still a selector.
@@ -378,9 +305,7 @@ pub fn has_selector_leaf(root: &Node) -> bool {
             Leaf::LiteralAddress(_)
             | Leaf::LiteralI128(_)
             | Leaf::LiteralSymbol(_)
-            | Leaf::LiteralU32(_)
-            | Leaf::LiteralU64(_)
-            | Leaf::LiteralBytes(_) => false,
+            | Leaf::LiteralU32(_) => false,
             Leaf::LiteralVec(elements) => elements.iter().any(selects),
             // Every remaining variant reads something from the call under
             // evaluation, so it constrains the policy.
@@ -388,199 +313,21 @@ pub fn has_selector_leaf(root: &Node) -> bool {
         }
     }
     match root {
-        Node::And(children) | Node::Or(children) => children.iter().any(has_selector_leaf),
-        Node::Not(inner) => has_selector_leaf(inner),
+        Node::And(children) => children.iter().any(has_selector_leaf),
         Node::Compare { left, right, .. } => selects(left) || selects(right),
         Node::In { needle, haystack } => selects(needle) || haystack.iter().any(selects),
     }
 }
 
-fn eval_arg_compare(
-    env: &Env,
-    idx: u32,
-    op: CompareOp,
-    right: &Leaf,
-    ctx: &EvalContext,
-) -> EvalDecision {
-    let actual = match ctx.args.get(idx) {
-        Some(v) => v,
-        None => return EvalDecision::Deny(DenyReason::ArgMismatch),
-    };
-    match op {
-        CompareOp::Eq => match literal_to_val(env, right) {
-            Some(expected) => {
-                if val_eq(env, &actual, &expected) {
-                    EvalDecision::Permit
-                } else {
-                    EvalDecision::Deny(DenyReason::ArgMismatch)
-                }
-            }
-            None => EvalDecision::Deny(DenyReason::ArgMismatch),
-        },
-        _ => eval_numeric_compare(env, op, &Leaf::CallArg(idx), right, ctx),
-    }
-}
-
-fn eval_arg_len_compare(
-    env: &Env,
-    idx: u32,
-    op: CompareOp,
-    right: &Leaf,
-    ctx: &EvalContext,
-) -> EvalDecision {
-    let actual = match ctx.args.get(idx) {
-        Some(v) => v,
-        None => return EvalDecision::Deny(DenyReason::ArgMismatch),
-    };
-    let actual_len: u32 = match SorobanVec::<Val>::try_from_val(env, &actual) {
-        Ok(v) => v.len(),
-        Err(_) => return EvalDecision::Deny(DenyReason::ArgMismatch),
-    };
-    let expected_len: u32 = match right {
-        Leaf::LiteralU32(v) => *v,
-        _ => return EvalDecision::Deny(DenyReason::ArgMismatch),
-    };
-    compare_u32(op, actual_len, expected_len)
-}
-
-fn eval_arg_field_compare(
-    env: &Env,
-    idx: u32,
-    element: u32,
-    field: &Symbol,
-    op: CompareOp,
-    right: &Leaf,
-    ctx: &EvalContext,
-) -> EvalDecision {
-    let actual = match ctx.args.get(idx) {
-        Some(v) => v,
-        None => return EvalDecision::Deny(DenyReason::ArgMismatch),
-    };
-    let outer = match SorobanVec::<Val>::try_from_val(env, &actual) {
-        Ok(v) => v,
-        Err(_) => return EvalDecision::Deny(DenyReason::ArgMismatch),
-    };
-    let elem = match outer.get(element) {
-        Some(v) => v,
-        None => return EvalDecision::Deny(DenyReason::ArgMismatch),
-    };
-    let map = match soroban_sdk::Map::<Symbol, Val>::try_from_val(env, &elem) {
-        Ok(m) => m,
-        Err(_) => return EvalDecision::Deny(DenyReason::ArgMismatch),
-    };
-    let field_val = match map.get(field.clone()) {
-        Some(v) => v,
-        None => return EvalDecision::Deny(DenyReason::ArgMismatch),
-    };
-    match op {
-        CompareOp::Eq => match literal_to_val(env, right) {
-            Some(expected) => {
-                if val_eq(env, &field_val, &expected) {
-                    EvalDecision::Permit
-                } else {
-                    EvalDecision::Deny(DenyReason::ArgMismatch)
-                }
-            }
-            None => EvalDecision::Deny(DenyReason::ArgMismatch),
-        },
-        _ => {
-            let actual_int = val_to_i128(env, &field_val);
-            let right_int = literal_i128(right);
-            match (actual_int, right_int) {
-                (Some(a), Some(b)) => {
-                    let pass = match op {
-                        CompareOp::Eq => a == b,
-                        CompareOp::Lt => a < b,
-                        CompareOp::Lte => a <= b,
-                        CompareOp::Gt => a > b,
-                        CompareOp::Gte => a >= b,
-                    };
-                    if pass {
-                        EvalDecision::Permit
-                    } else {
-                        EvalDecision::Deny(DenyReason::ArgMismatch)
-                    }
-                }
-                _ => EvalDecision::Deny(DenyReason::ArgMismatch),
-            }
-        }
-    }
-}
-
+/// Widen any integral `Val` the host may carry to `i128` for ordering.
 fn val_to_i128(env: &Env, v: &Val) -> Option<i128> {
     if let Ok(n) = u32::try_from_val(env, v) {
-        return Some(n as i128);
+        return Some(i128::from(n));
     }
     if let Ok(n) = u64::try_from_val(env, v) {
-        return Some(n as i128);
+        return Some(i128::from(n));
     }
-    if let Ok(n) = i128::try_from_val(env, v) {
-        return Some(n);
-    }
-    None
-}
-
-fn literal_i128(leaf: &Leaf) -> Option<i128> {
-    match leaf {
-        Leaf::LiteralU32(v) => Some(*v as i128),
-        Leaf::LiteralU64(v) => Some(*v as i128),
-        Leaf::LiteralI128(v) => Some(*v),
-        _ => None,
-    }
-}
-
-fn eval_numeric_compare(
-    env: &Env,
-    op: CompareOp,
-    left: &Leaf,
-    right: &Leaf,
-    ctx: &EvalContext,
-) -> EvalDecision {
-    let (l, r) = match (leaf_to_i128(env, left, ctx), leaf_to_i128(env, right, ctx)) {
-        (Some(l), Some(r)) => (l, r),
-        _ => return EvalDecision::Deny(DenyReason::ArgMismatch),
-    };
-    let pass = match op {
-        CompareOp::Eq => l == r,
-        CompareOp::Lt => l < r,
-        CompareOp::Lte => l <= r,
-        CompareOp::Gt => l > r,
-        CompareOp::Gte => l >= r,
-    };
-    if pass {
-        EvalDecision::Permit
-    } else {
-        EvalDecision::Deny(DenyReason::ArgMismatch)
-    }
-}
-
-fn leaf_to_i128(env: &Env, leaf: &Leaf, ctx: &EvalContext) -> Option<i128> {
-    match leaf {
-        Leaf::Now => Some(ctx.at_ledger as i128),
-        Leaf::CallArg(i) => {
-            let v = ctx.args.get(*i)?;
-            val_to_i128(env, &v)
-        }
-        Leaf::LiteralU32(v) => Some(*v as i128),
-        Leaf::LiteralU64(v) => Some(*v as i128),
-        Leaf::LiteralI128(v) => Some(*v),
-        _ => None,
-    }
-}
-
-fn compare_u32(op: CompareOp, a: u32, b: u32) -> EvalDecision {
-    let pass = match op {
-        CompareOp::Eq => a == b,
-        CompareOp::Lt => a < b,
-        CompareOp::Lte => a <= b,
-        CompareOp::Gt => a > b,
-        CompareOp::Gte => a >= b,
-    };
-    if pass {
-        EvalDecision::Permit
-    } else {
-        EvalDecision::Deny(DenyReason::ArgMismatch)
-    }
+    i128::try_from_val(env, v).ok()
 }
 
 // ============================================================================
@@ -590,7 +337,6 @@ fn compare_u32(op: CompareOp, a: u32, b: u32) -> EvalDecision {
 mod dsl_decode {
     extern crate alloc;
 
-    use alloc::boxed::Box;
     use alloc::vec::Vec;
 
     use soroban_sdk::xdr::FromXdr;
@@ -598,8 +344,8 @@ mod dsl_decode {
 
     use super::{
         CompareOp, Leaf, Node, MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_PREDICATE_BYTES,
-        OP_AND, OP_EQ, OP_GT, OP_GTE, OP_IN, OP_LT, OP_LTE, OP_NOT, OP_OR, SEL_CALL_ARG,
-        SEL_CALL_ARG_FIELD, SEL_CALL_ARG_LEN, SEL_CALL_CONTRACT, SEL_CALL_FN, SEL_NOW,
+        OP_AND, OP_EQ, OP_IN, OP_LTE, SEL_CALL_ARG, SEL_CALL_ARG_FIELD, SEL_CALL_ARG_LEN,
+        SEL_CALL_CONTRACT, SEL_CALL_FN,
     };
 
     /// Errors that can be raised while decoding a predicate root from the
@@ -632,12 +378,6 @@ mod dsl_decode {
         }
     }
 
-    impl core::fmt::Display for DecodeError {
-        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-            f.write_str(self.code())
-        }
-    }
-
     /// Decode a predicate root and re-check the cap trio
     /// (depth / leaves / `in`-operand). The byte cap is checked separately
     /// by `decode_with_byte_cap`, which is the install-time entry point.
@@ -649,17 +389,16 @@ mod dsl_decode {
             return Err(DecodeError::MalformedPredicate);
         }
         let root_node = decode_node(env, &root)?;
-        let stats = collect_stats(&root_node);
+        let mut stats = NodeStats::default();
+        walk(&root_node, 1, &mut stats);
         if stats.depth > MAX_DEPTH {
             return Err(DecodeError::PredicateTooDeep);
         }
         if stats.leaves > MAX_LEAVES {
             return Err(DecodeError::TooManyLeaves);
         }
-        for in_count in stats.in_counts {
-            if in_count > MAX_IN_OPERAND_COUNT {
-                return Err(DecodeError::InOperandLimit);
-            }
+        if stats.max_in_operands > MAX_IN_OPERAND_COUNT {
+            return Err(DecodeError::InOperandLimit);
         }
         Ok(root_node)
     }
@@ -675,20 +414,11 @@ mod dsl_decode {
         decode(env, bytes)
     }
 
+    #[derive(Default)]
     struct NodeStats {
         depth: u32,
         leaves: u32,
-        in_counts: Vec<u32>,
-    }
-
-    fn collect_stats(node: &Node) -> NodeStats {
-        let mut s = NodeStats {
-            depth: 0,
-            leaves: 0,
-            in_counts: Vec::new(),
-        };
-        walk(node, 1, &mut s);
-        s
+        max_in_operands: u32,
     }
 
     fn walk(node: &Node, d: u32, s: &mut NodeStats) {
@@ -696,12 +426,11 @@ mod dsl_decode {
             s.depth = d;
         }
         match node {
-            Node::And(children) | Node::Or(children) => {
+            Node::And(children) => {
                 for c in children {
-                    walk(c, d + 1, s);
+                    walk(c, d.saturating_add(1), s);
                 }
             }
-            Node::Not(inner) => walk(inner, d + 1, s),
             Node::Compare { left, right, .. } => {
                 s.leaves = s.leaves.saturating_add(leaf_leaves(left));
                 s.leaves = s.leaves.saturating_add(leaf_leaves(right));
@@ -711,7 +440,10 @@ mod dsl_decode {
                 for h in haystack {
                     s.leaves = s.leaves.saturating_add(leaf_leaves(h));
                 }
-                s.in_counts.push(haystack.len() as u32);
+                let operands = u32::try_from(haystack.len()).unwrap_or(u32::MAX);
+                if operands > s.max_in_operands {
+                    s.max_in_operands = operands;
+                }
             }
         }
     }
@@ -742,21 +474,11 @@ mod dsl_decode {
         // the wasm target because the SDK hides the underlying string
         // representation behind a host object).
         if head_sym == sym_const(env, OP_AND) {
-            decode_and_or(env, items, false)
-        } else if head_sym == sym_const(env, OP_OR) {
-            decode_and_or(env, items, true)
-        } else if head_sym == sym_const(env, OP_NOT) {
-            decode_not(env, items)
+            decode_and(env, items)
         } else if head_sym == sym_const(env, OP_EQ) {
             decode_compare(env, items, OP_EQ)
-        } else if head_sym == sym_const(env, OP_LT) {
-            decode_compare(env, items, OP_LT)
         } else if head_sym == sym_const(env, OP_LTE) {
             decode_compare(env, items, OP_LTE)
-        } else if head_sym == sym_const(env, OP_GT) {
-            decode_compare(env, items, OP_GT)
-        } else if head_sym == sym_const(env, OP_GTE) {
-            decode_compare(env, items, OP_GTE)
         } else if head_sym == sym_const(env, OP_IN) {
             decode_in(env, items)
         } else {
@@ -775,7 +497,7 @@ mod dsl_decode {
         Symbol::new(env, s)
     }
 
-    fn decode_and_or(env: &Env, items: &SorobanVec<Val>, is_or: bool) -> Result<Node, DecodeError> {
+    fn decode_and(env: &Env, items: &SorobanVec<Val>) -> Result<Node, DecodeError> {
         if items.len() != 2 {
             return Err(DecodeError::MalformedPredicate);
         }
@@ -792,21 +514,7 @@ mod dsl_decode {
                 .ok_or(DecodeError::MalformedPredicate)?;
             children.push(decode_node(env, &single_tuple(env, &c)?)?);
         }
-        if is_or {
-            Ok(Node::Or(children))
-        } else {
-            Ok(Node::And(children))
-        }
-    }
-
-    fn decode_not(env: &Env, items: &SorobanVec<Val>) -> Result<Node, DecodeError> {
-        if items.len() != 2 {
-            return Err(DecodeError::MalformedPredicate);
-        }
-        let child_val = items.get(1).ok_or(DecodeError::MalformedPredicate)?;
-        let child_tuple = single_tuple(env, &child_val)?;
-        let child = decode_node(env, &child_tuple)?;
-        Ok(Node::Not(Box::new(child)))
+        Ok(Node::And(children))
     }
 
     fn decode_compare(
@@ -823,10 +531,7 @@ mod dsl_decode {
         let right = decode_leaf(env, &right_val)?;
         let op = match op_name {
             OP_EQ => CompareOp::Eq,
-            OP_LT => CompareOp::Lt,
             OP_LTE => CompareOp::Lte,
-            OP_GT => CompareOp::Gt,
-            OP_GTE => CompareOp::Gte,
             _ => return Err(DecodeError::MalformedPredicate),
         };
         Ok(Node::Compare { op, left, right })
@@ -887,14 +592,8 @@ mod dsl_decode {
         if let Ok(n) = u32::try_from_val(env, val) {
             return Ok(Leaf::LiteralU32(n));
         }
-        if let Ok(n) = u64::try_from_val(env, val) {
-            return Ok(Leaf::LiteralU64(n));
-        }
         if let Ok(n) = i128::try_from_val(env, val) {
             return Ok(Leaf::LiteralI128(n));
-        }
-        if let Ok(b) = Bytes::try_from_val(env, val) {
-            return Ok(Leaf::LiteralBytes(b));
         }
         Err(DecodeError::MalformedPredicate)
     }
@@ -928,9 +627,6 @@ mod dsl_decode {
                 element: e,
                 field: f,
             })
-        } else if head == sym_const(env, SEL_NOW) {
-            check_arity(items.len(), 1)?;
-            Ok(Leaf::Now)
         } else {
             // Unknown symbol at a selector position -> MALFORMED.
             Err(DecodeError::MalformedPredicate)

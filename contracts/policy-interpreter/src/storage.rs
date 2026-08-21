@@ -28,14 +28,14 @@ use crate::types::Signer;
 //   1xx  predicate / evaluator denies (mirrors `dsl::DenyReason`)
 //   2xx  install / auth / state denies
 //
-// The 3xx group was retired when oracle support was removed (grammar v2).
-// Retired numbers must stay retired - any new code lives in the next free
-// slot in its group, not at a recycled 3xx value.
+// Retired numbers must stay retired - a new code lives in the next free slot
+// in its group, never at a recycled value. Retired so far: the whole 3xx group
+// (oracle support, grammar v2), 102 and 104 (the arithmetic and rolling-window
+// denies, grammar v3 - the evaluator compares but never accumulates).
 //
-// The string form of each code (the `code_str()` impl below) mirrors the
-// TS-side enum in `packages/policy-synth/src/errors.ts` so a review card
-// can name the failure in human language and a machine can match on the
-// numeric code.
+// The numeric codes mirror the TS-side enum in
+// `packages/policy-synth/src/errors.ts` so a review card can name the failure
+// in human language and a machine can match on the number.
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -44,9 +44,7 @@ pub enum PolicyError {
     // ---- 1xx predicate / evaluator ----
     ArgMismatch = 100,
     ContractScope = 101,
-    ArithmeticOverflow = 102,
     UnsupportedNode = 103,
-    StatefulBound = 104,
     NotInAllowlist = 105,
 
     // ---- 2xx install / auth / state ----
@@ -73,36 +71,6 @@ pub enum PolicyError {
     TooManySigners = 217,
 }
 
-impl PolicyError {
-    /// Human-readable string code (matches `dsl::DenyReason::code()` for the
-    /// 1xx group and `packages/policy-synth/src/errors.ts` for the rest).
-    /// Surfaced in native env logs but NOT in the on-chain diagnostic event
-    /// - that carries only the numeric code from `panic_with_error!`.
-    pub const fn code_str(&self) -> &'static str {
-        match self {
-            PolicyError::ArgMismatch => "ARG_MISMATCH",
-            PolicyError::ContractScope => "CONTRACT_SCOPE",
-            PolicyError::ArithmeticOverflow => "ARITHMETIC_OVERFLOW",
-            PolicyError::UnsupportedNode => "UNSUPPORTED_NODE",
-            PolicyError::StatefulBound => "STATEFUL_BOUND",
-            PolicyError::NotInAllowlist => "NOT_IN_ALLOWLIST",
-            PolicyError::VersionMismatch => "VERSION_MISMATCH",
-            PolicyError::MalformedPredicate => "MALFORMED_PREDICATE",
-            PolicyError::NonceReplay => "NONCE_REPLAY",
-            PolicyError::MasterAuthRequired => "MASTER_AUTH_REQUIRED",
-            PolicyError::RuleSignersChanged => "RULE_SIGNERS_CHANGED",
-            PolicyError::MissingState => "MISSING_STATE",
-            PolicyError::PredicateTooLarge => "PREDICATE_TOO_LARGE",
-            PolicyError::PredicateHashMismatch => "PREDICATE_HASH_MISMATCH",
-            PolicyError::EmptySignerSet => "EMPTY_SIGNER_SET",
-            PolicyError::NoAuthenticatedSigners => "NO_AUTHENTICATED_SIGNERS",
-            PolicyError::ExternalSignerNotSupported => "EXTERNAL_SIGNER_NOT_SUPPORTED",
-            PolicyError::SelectorLeafRequired => "SELECTOR_LEAF_REQUIRED",
-            PolicyError::TooManySigners => "TOO_MANY_SIGNERS",
-        }
-    }
-}
-
 impl From<DenyReason> for PolicyError {
     /// Exhaustively maps every `DenyReason` to a `PolicyError` variant. A
     /// new variant added to `DenyReason` will fail to compile until it is
@@ -112,70 +80,20 @@ impl From<DenyReason> for PolicyError {
         match r {
             DenyReason::ArgMismatch => PolicyError::ArgMismatch,
             DenyReason::ContractScope => PolicyError::ContractScope,
-            DenyReason::ArithmeticOverflow => PolicyError::ArithmeticOverflow,
             DenyReason::UnsupportedNode => PolicyError::UnsupportedNode,
-            DenyReason::StatefulBound => PolicyError::StatefulBound,
             DenyReason::NotInAllowlist => PolicyError::NotInAllowlist,
         }
     }
 }
 
-// ---- panic helpers -----
+// ---- deny -----
 //
 // Every deny goes through `panic_with_error!` so the host emits
-// `Error(Contract, N)` rather than a bare trap. Off-chain consumers read
-// the numeric code from the diagnostic event; the human-readable string
-// (`PolicyError::code_str()`) is only available in the native test env.
+// `Error(Contract, N)` rather than a bare trap. Off-chain consumers read the
+// numeric code from the diagnostic event.
 
 pub fn deny(e: &Env, error: PolicyError) -> ! {
     panic_with_error!(e, error);
-}
-
-pub(crate) fn panic_version_mismatch(e: &Env) -> ! {
-    deny(e, PolicyError::VersionMismatch)
-}
-pub(crate) fn panic_malformed_predicate(e: &Env) -> ! {
-    deny(e, PolicyError::MalformedPredicate)
-}
-pub(crate) fn panic_nonce_replay(e: &Env) -> ! {
-    deny(e, PolicyError::NonceReplay)
-}
-pub(crate) fn panic_master_auth_required(e: &Env) -> ! {
-    deny(e, PolicyError::MasterAuthRequired)
-}
-pub(crate) fn panic_rule_signers_changed(e: &Env) -> ! {
-    deny(e, PolicyError::RuleSignersChanged)
-}
-pub(crate) fn panic_missing_state(e: &Env) -> ! {
-    deny(e, PolicyError::MissingState)
-}
-pub(crate) fn panic_predicate_too_large(e: &Env) -> ! {
-    deny(e, PolicyError::PredicateTooLarge)
-}
-pub(crate) fn panic_predicate_hash_mismatch(e: &Env) -> ! {
-    deny(e, PolicyError::PredicateHashMismatch)
-}
-pub(crate) fn panic_empty_signer_set(e: &Env) -> ! {
-    deny(e, PolicyError::EmptySignerSet)
-}
-pub(crate) fn panic_no_authenticated_signers(e: &Env) -> ! {
-    deny(e, PolicyError::NoAuthenticatedSigners)
-}
-pub(crate) fn panic_external_signer_not_supported(e: &Env) -> ! {
-    deny(e, PolicyError::ExternalSignerNotSupported)
-}
-pub(crate) fn panic_selector_leaf_required(e: &Env) -> ! {
-    deny(e, PolicyError::SelectorLeafRequired)
-}
-pub(crate) fn panic_too_many_signers(e: &Env) -> ! {
-    deny(e, PolicyError::TooManySigners)
-}
-/// Evaluator-driven deny: surface the specific `DenyReason` as the contract
-/// error code so a review card can name it. The match in `From<DenyReason>`
-/// is exhaustive, so a new `DenyReason` variant cannot compile without a
-/// matching `PolicyError` code.
-pub(crate) fn panic_deny_reason(e: &Env, reason: DenyReason) -> ! {
-    deny(e, PolicyError::from(reason));
 }
 
 // ---- storage key constants (u32 because u8 doesn't impl IntoVal) -----
@@ -208,28 +126,26 @@ pub struct RuleKey {
 }
 
 impl RuleKey {
-    pub fn new(_e: &Env, account: Address, rule_id: u32) -> Self {
+    pub fn new(account: Address, rule_id: u32) -> Self {
         Self { account, rule_id }
     }
 
-    pub fn doc_key(&self) -> DocKeyTuple {
+    pub fn doc_key(&self) -> RuleStorageKey {
         (self.account.clone(), self.rule_id, K_DOC)
     }
-    pub fn nonce_key(&self) -> NonceKeyTuple {
+    pub fn nonce_key(&self) -> RuleStorageKey {
         (self.account.clone(), self.rule_id, K_NONCE)
     }
-    pub fn signers_hash_key(&self) -> SignersHashKeyTuple {
+    pub fn signers_hash_key(&self) -> RuleStorageKey {
         (self.account.clone(), self.rule_id, K_SIGNERS_HASH)
     }
-    pub fn master_set_key(&self) -> MasterSetKeyTuple {
+    pub fn master_set_key(&self) -> RuleStorageKey {
         (self.account.clone(), self.rule_id, K_MASTER_SET)
     }
 }
 
-pub type DocKeyTuple = (Address, u32, u32);
-pub type NonceKeyTuple = (Address, u32, u32);
-pub type SignersHashKeyTuple = (Address, u32, u32);
-pub type MasterSetKeyTuple = (Address, u32, u32);
+/// Every per-rule entry is keyed by the same `(account, rule_id, tag)` shape.
+pub type RuleStorageKey = (Address, u32, u32);
 
 // ---- stored doc -----
 //
@@ -241,8 +157,6 @@ pub type MasterSetKeyTuple = (Address, u32, u32);
 pub struct StoredDoc {
     pub predicate_bytes: Bytes,
 }
-
-pub type StoredRule = StoredDoc;
 
 // ---- sha256 helpers ----
 
