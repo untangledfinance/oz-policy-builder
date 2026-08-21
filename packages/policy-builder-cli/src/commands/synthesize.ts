@@ -7,8 +7,8 @@
 // The CLI mirrors the MCP tool's discriminated union: one subcommand, two
 // front-ends, mutually exclusive.
 //
-// Per-field response flags (--window-seconds, --valid-until, --limit-amount,
-// --window-seconds) merge into `userResponses`. A flag overrides the same
+// Per-field response flags (--valid-until, --limit-amount) merge into
+// `userResponses`. A flag overrides the same
 // field from --responses (CLI flags are explicit; the file is a default bag).
 // the interpreter opt-in and are rejected without --smart-account; tighten-only
 // bounds are validated by the core.
@@ -91,7 +91,6 @@ export async function runSynthesizeCommand(
   // Per-field overrides. Each entry: argv flag name, userResponses key,
   // and a parser that validates the raw string.
   const userResponseFlags: Array<[string, string, (raw: string, flag: string) => unknown]> = [
-    ['window-seconds', 'windowSeconds', parsePositiveInt],
     ['valid-until', 'validUntilLedger', parsePositiveInt],
     ['limit-amount', 'limitAmount', parseI128String],
   ]
@@ -122,8 +121,10 @@ export async function runSynthesizeCommand(
 
   applySharedFlags(args, pairs, explain)
 
-  // --smart-account <C...> opts into the interpreter adapter, so constraints OZ
-  // exact hop paths) lower to a real predicate document instead of just warnings.
+  // --smart-account <C...> names the account the interpreter policy installs
+  // against. It is what lets the recording lower to a real predicate document
+  // (amount caps, recipient allowlists, exact hop paths) rather than warnings;
+  // without it the core reports that no installable policy was synthesised.
   // The core validates the address and installNonce; a bad value surfaces there.
   //
   // Use `!== undefined` (not truthy) so `--smart-account ""` and `--install-nonce`
@@ -276,7 +277,7 @@ function parseConfidence(raw: string): number {
   return n
 }
 
-/** Parse a strictly positive integer (windowSeconds, validUntilLedger,
+/** Parse a strictly positive integer (validUntilLedger,
  *  field-specific caps; the CLI just enforces "looks like an integer > 0".
  *  The `^[0-9]+$` regex already pins the shape to a non-negative integer, so
  *  the only thing left to check is "not zero". */

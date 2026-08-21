@@ -126,14 +126,16 @@ function _soroswapTx(): RecordedTransaction {
 }
 
 describe('synthesizeFromRecording - input validation (I3)', () => {
-  it('rejects a non-positive windowSeconds with SYNTHESIS_ERROR', () => {
+  it('rejects a recording with no interpreter options: nothing can be installed', () => {
     const res = synthesizeFromRecording(sep41Tx(), {
       network: 'mainnet',
-      userResponses: { windowSeconds: 0, limitAmount: '1000000000' },
+      userResponses: { limitAmount: '1000000000' },
     })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
+    // Pin the reason: without this the test passes on any synthesis failure.
+    expect(res.error.message).toContain('no installable policy was synthesised')
   })
 
   it('rejects a non-integer validUntilLedger with SYNTHESIS_ERROR', () => {
@@ -149,7 +151,7 @@ describe('synthesizeFromRecording - input validation (I3)', () => {
   it('rejects a non-numeric / negative limitAmount with SYNTHESIS_ERROR', () => {
     const res = synthesizeFromRecording(sep41Tx(), {
       network: 'mainnet',
-      userResponses: { windowSeconds: 2592000, limitAmount: '-5' },
+      userResponses: { limitAmount: '-5' },
     })
     expect(res.ok).toBe(false)
     if (res.ok) return
@@ -163,7 +165,7 @@ describe('synthesizeFromRecording - input validation (I3)', () => {
     const overMax = (2n ** 127n).toString()
     const res = synthesizeFromRecording(sep41Tx(), {
       network: 'mainnet',
-      userResponses: { windowSeconds: 2592000, limitAmount: overMax },
+      userResponses: { limitAmount: overMax },
     })
     expect(res.ok).toBe(false)
     if (res.ok) return
@@ -177,7 +179,7 @@ describe('synthesizeFromRecording - input validation (I3)', () => {
     const atMax = (2n ** 127n - 1n).toString()
     const res = synthesizeFromRecording(sep41Tx(), {
       network: 'mainnet',
-      userResponses: { windowSeconds: 2592000, limitAmount: atMax },
+      userResponses: { limitAmount: atMax },
     })
     if (!res.ok) {
       expect(res.error.message.includes('i128')).toBe(false)
@@ -208,7 +210,7 @@ describe('synthesizeFromRecording - parseConfidence gate', () => {
     const tx: RecordedTransaction = { ...validSep41Tx(), parseConfidence: { ...LOW } }
     const res = synthesizeFromRecording(tx, {
       network: 'mainnet',
-      userResponses: { windowSeconds: 2592000 },
+      userResponses: {},
       confidenceOverride: { threshold: 0.4 },
       interpreter: { smartAccountAddress: SMART_ACCOUNT },
     })
@@ -268,7 +270,7 @@ describe('synthesizeFromRecording - input bounds (fail-closed)', () => {
   it('rejects a validUntilLedger above the u32 max (uninstallable on-chain)', () => {
     const res = synthesizeFromRecording(sep41Tx(), {
       network: 'mainnet',
-      userResponses: { windowSeconds: 2592000, limitAmount: '1', validUntilLedger: 4294967296 },
+      userResponses: { limitAmount: '1', validUntilLedger: 4294967296 },
     })
     expect(res.ok).toBe(false)
     if (res.ok) return
@@ -290,7 +292,7 @@ describe('synthesizeFromRecording - input bounds (fail-closed)', () => {
   it('accepts a validUntilLedger exactly at the u32 max (boundary)', () => {
     const res = synthesizeFromRecording(validSep41Tx(), {
       network: 'mainnet',
-      userResponses: { windowSeconds: 2592000, limitAmount: '1', validUntilLedger: 4294967295 },
+      userResponses: { limitAmount: '1', validUntilLedger: 4294967295 },
       interpreter: { smartAccountAddress: SMART_ACCOUNT },
     })
     expect(res.ok).toBe(true)
@@ -303,7 +305,7 @@ describe('synthesizeFromRecording - input bounds (fail-closed)', () => {
     const tx = { ...sep41Tx(), invocations: Array.from({ length: 513 }, () => ({ ...inv })) }
     const res = synthesizeFromRecording(tx, {
       network: 'mainnet',
-      userResponses: { windowSeconds: 2592000, limitAmount: '1' },
+      userResponses: { limitAmount: '1' },
     })
     expect(res.ok).toBe(false)
     if (res.ok) return
@@ -316,7 +318,7 @@ describe('synthesizeFromRecording - determinism', () => {
   it('same tx + opts -> byte-identical ProposedPolicy across runs', () => {
     const opts = {
       network: 'mainnet' as const,
-      userResponses: { windowSeconds: 2592000 },
+      userResponses: {},
     }
     const a = synthesizeFromRecording(sep41Tx(), opts)
     const b = synthesizeFromRecording(sep41Tx(), opts)
@@ -328,7 +330,7 @@ describe('synthesizeFromRecording - parseConfidence mirror', () => {
   it('mirrors the tx parseConfidence onto the ProposedPolicy', () => {
     const res = synthesizeFromRecording(validSep41Tx(), {
       network: 'mainnet',
-      userResponses: { windowSeconds: 2592000 },
+      userResponses: {},
       interpreter: { smartAccountAddress: SMART_ACCOUNT },
     })
     expect(res.ok).toBe(true)
@@ -357,7 +359,7 @@ function interpreterOpts(extra?: __TestInterpreterAdapterOptions): {
 } {
   return {
     network: 'mainnet',
-    userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
+    userResponses: { limitAmount: '1000000000' },
     interpreter: {
       smartAccountAddress: extra?.smartAccountAddress ?? SMART_ACCOUNT,
       ...(extra?.installNonce !== undefined ? { installNonce: extra.installNonce } : {}),
@@ -509,7 +511,7 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     // would read as "no restrictions" rather than "nothing was synthesised".
     const res = synthesizeFromRecording(validSep41Tx(), {
       network: 'mainnet',
-      userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
+      userResponses: { limitAmount: '1000000000' },
     })
     expect(res.ok).toBe(false)
     if (res.ok) return
@@ -541,7 +543,6 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     const res = synthesizeFromRecording(validSoroswapTx(), {
       ...interpreterOpts(),
       userResponses: {
-        windowSeconds: 86400,
         limitAmount: '50000000',
       },
     })
@@ -567,7 +568,7 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     // informational (pinned, here is how to widen), never a silent free pass.
     const res = synthesizeFromRecording(validSoroswapTx(), {
       ...interpreterOpts(),
-      userResponses: { windowSeconds: 86400, limitAmount: '50000000' },
+      userResponses: { limitAmount: '50000000' },
     })
     expect(res.ok).toBe(true)
     if (!res.ok) return
@@ -656,7 +657,7 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     const ATTACKER = Address.account(Buffer.alloc(32, 0xbb)).toString()
     const res = synthesizeFromRecording(validSoroswapTx(), {
       ...interpreterOpts(),
-      userResponses: { windowSeconds: 86400, limitAmount: '50000000' },
+      userResponses: { limitAmount: '50000000' },
     })
     expect(res.ok).toBe(true)
     if (!res.ok) return
@@ -736,7 +737,7 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     }
     const res = synthesizeFromRecording(tx, {
       ...interpreterOpts(),
-      userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
+      userResponses: { limitAmount: '1000000000' },
     })
     expect(res.ok).toBe(false)
     if (res.ok) return
@@ -748,7 +749,7 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
   it('smartAccountAddress missing -> SYNTHESIS_ERROR (fail-closed at options boundary)', () => {
     const res = synthesizeFromRecording(validSep41Tx(), {
       network: 'mainnet',
-      userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
+      userResponses: { limitAmount: '1000000000' },
       interpreter: { smartAccountAddress: '' },
     })
     expect(res.ok).toBe(false)
@@ -760,7 +761,7 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
   it('smartAccountAddress must be a C... contract address, not the G... source account', () => {
     const res = synthesizeFromRecording(validSep41Tx(), {
       network: 'mainnet',
-      userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
+      userResponses: { limitAmount: '1000000000' },
       interpreter: { smartAccountAddress: G_OWNER_C }, // G... is the user, not the smart account
     })
     expect(res.ok).toBe(false)
@@ -797,7 +798,7 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     }
     const res = synthesizeFromRecording(tx, {
       ...interpreterOpts(),
-      userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
+      userResponses: { limitAmount: '1000000000' },
     })
     expect(res.ok).toBe(true)
     if (!res.ok) return
@@ -1056,7 +1057,7 @@ describe('synthesizeFromRecording - try/catch envelope (item 3)', () => {
     })()
     const res = synthesizeFromRecording(sep41Tx(), {
       network: 'mainnet',
-      userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
+      userResponses: { limitAmount: '1000000000' },
       interpreter: {
         smartAccountAddress: smartAccount,
         __testPredicateNode: overDepthPredicate,
@@ -1092,7 +1093,7 @@ describe('synthesizeFromRecording - installNonce bound (item 4)', () => {
     const smartAccount = Address.contract(Buffer.alloc(32, 0xee)).toString()
     const res = synthesizeFromRecording(blendTx(), {
       network: 'mainnet',
-      userResponses: { windowSeconds: 86400, invocationLimit: 1, validUntilLedger: 200000000 },
+      userResponses: { invocationLimit: 1, validUntilLedger: 200000000 },
       interpreter: { smartAccountAddress: smartAccount, installNonce: 2 ** 32 - 1 },
     })
     if (!res.ok) {
@@ -1184,7 +1185,7 @@ describe('synthesizeFromRecording - zero-invocation recording (item 1)', () => {
     }
     const res = synthesizeFromRecording(tx, {
       network: 'mainnet',
-      userResponses: { windowSeconds: 86400, limitAmount: '1000000000' },
+      userResponses: { limitAmount: '1000000000' },
     })
     expect(res.ok).toBe(false)
     if (res.ok) return

@@ -96,7 +96,7 @@ format. It lowers to a chain-neutral **PolicyIR** ("Policy Tree"), then a
 `CustodyAdapter` compiles the IR to a specific backend. The IR generalises the
 NEAR-V2 policy schema (roles / scope filter / guard / constraint / comparison
 leaves / default behaviour) and extends it with the selectors only a richer
-backend needs (spend window, time).
+backend needs (token amount moved, time).
 
 ```mermaid
 flowchart LR
@@ -111,8 +111,8 @@ One adapter lowers FROM the IR:
   rule scoped to the recorded contract.
 
 An IR construct the interpreter cannot express is **named in `uncovered`,
-never silently dropped**: a windowed spend cap belongs to the OZ
-`spending_limit` primitive, and expiry to the context rule's `valid_until`.
+never silently dropped**: expiry, for one, belongs to the context rule's
+`valid_until` rather than to the predicate.
 Keeping the IR as a separate step is what lets a second backend be added
 later without touching the synthesiser.
 
@@ -144,10 +144,12 @@ drift, replay, or archive out from under a rule.
 Several selector symbols are deliberately **not** in the grammar and are
 refused at decode:
 
-- `amount` and `window_spent` - the interpreter sees one authorised call, not
-  the transaction's token movements, so it has no per-call amount to read and
-  no way to accumulate one. Rolling spend caps belong to the OZ
-  `spending_limit` primitive; a per-call cap is a `call_arg_field` comparison.
+- `amount` - the interpreter sees one authorised call, not the transaction's
+  token movements, so it cannot read what a transaction actually moved. A cap
+  on value is therefore expressed against the call's own amount argument
+  (`call_arg(i) <= limit`), which the synthesiser locates from the protocol
+  ABI. A rolling per-window total has no representation at all: accumulating
+  one needs stored state the interpreter does not keep.
 - `invocation_count(window)` - counting prior calls needs stored state.
   Frequency is therefore not a guarantee this contract makes, and the
   synthesiser says so explicitly rather than implying a cap it cannot keep.

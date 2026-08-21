@@ -51,7 +51,6 @@ export type IRSelector =
   | { kind: 'value' } // EVM tx.value
   // --- OZ extensions (not in NEAR-V2; lowered only by adapters that support them) ---
   | { kind: 'amount'; token: string } // token amount this call moves
-  | { kind: 'window_spent'; token: string; windowSeconds: number } // stateful cumulative spend
   | { kind: 'now' }
   | { kind: 'valid_until' }
 

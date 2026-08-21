@@ -1,43 +1,25 @@
-// src/synth/compose-from-recording.ts - facts + scope -> PolicyIR (OZ + interpreter).
+// src/synth/compose-from-recording.ts - facts + scope -> PolicyIR.
 //
 // Fail-closed composition rules:
 //   - unknown top-level protocol (registry.identifyProtocol returns null) ->
-//     emit no OZ-primitive-producing IR node; scope is kept (CallContract + method)
-//     and every inferred bound surfaces as a descriptive warning. An unrecognised
-//     call never compiles to a permissive OZ primitive.
-//   - carry the recorded top-level function into `rule.scope.method` so the OZ
-//     adapter flags per-method scoping as not covered (CallContract permits every
-//     method; a per-method restriction needs the interpreter predicate).
-//   - `spending_limit` (window_spent(token, w) <= limit) is emitted ONLY when
-//     the caller supplies BOTH limit (userResponses.limitAmount) AND window
-//     (userResponses.windowSeconds). A single recorded spend does NOT authorise
-//     that amount every window, so the observed amount is NEVER used as an
-//     auto-ceiling: missing limit -> AMOUNT_BOUND_MISSING (observed amount
-//     offered as a suggestion); missing window -> DURATION_UNSPECIFIED. EVERY
+//     emit no constraint from the spend; scope is kept (contract + method) and
+//     every inferred bound surfaces as a descriptive warning. An unrecognised
+//     call never compiles to a permissive policy.
+//   - a spend cap is emitted ONLY when the caller supplies `limitAmount` AND
+//     the call carries an amount argument to bind it to. A single recorded
+//     spend does NOT authorise that amount on every call, so the observed
+//     amount is NEVER used as an auto-ceiling: without both,
+//     AMOUNT_BOUND_MISSING carries the observed amount as a suggestion. EVERY
 //     spent token is handled - none is silently dropped.
-//   - incoming-only flows emit an `invocation_count` bound ONLY when the caller
-//     supplies both the count and the window; otherwise FREQUENCY_BOUND_MISSING
-//     with no fabricated count.
-//   - the IR carries ONLY constraints justified by the recording + explicit
-//     bound, no synthetic exact-path compare. Those needs surface as warnings.
-//
-// Split rule (P3 wiring): `ComposeResult` carries BOTH `ir` (OZ-shape) and
-// `interpreterIr` (predicate-shape). Each constraint is routed to EXACTLY ONE
-// adapter:
-//   - `window_spent(token, w) <= limit` where `token === scope.contract` and
-//     protocol is known -> `ir` (OZ lowers to spending_limit).
-//   - everything else (recipient allowlists, per-method scope.method,
-//     where token != scope.contract i.e. SoroSwap input-token cap) ->
-//     `interpreterIr`.
-//
-// This prevents the interpreter adapter from emitting a duplicate
-// `window_spent` predicate leaf alongside an OZ `spending_limit` primitive
-// covering the same spend semantic - the two adapters never overlap.
+//   - the IR carries ONLY constraints justified by the recording plus an
+//     explicit bound, no synthetic exact-path compare. Other needs surface as
+//     warnings.
 //
 // Default policy is `deny_all` (OZ context rules are deny-by-default).
 
 import type { IRCondition, IRPolicyRule, PolicyIR } from '../ir/types.ts'
 import { type IdentifiedProtocol, identifyProtocol } from '../registry/identify.ts'
+import { getAbi } from '../registry/protocols.ts'
 import type { AmbiguityPrompt, ContractInvocation, Network } from '../types.ts'
 import type { IntentFacts } from './lower.ts'
 
@@ -45,12 +27,10 @@ import type { IntentFacts } from './lower.ts'
  *  synth might apply must come from here - the recording supplies observed
  *  amounts (offered only as suggestions), never authorised ceilings. */
 export interface ComposeUserResponses {
-  /** Rolling window (seconds) for a spend cap. */
-  windowSeconds?: number
   /** OZ context-rule expiry (ledger sequence). */
   validUntilLedger?: number
-  /** Per-window spend ceiling (i128 decimal string). Required to emit a
-   *  spending_limit; absent -> AMOUNT_BOUND_MISSING. */
+  /** Per-call ceiling on the amount the call carries (i128 decimal string).
+   *  Required to bound the amount argument; absent -> AMOUNT_BOUND_MISSING. */
   limitAmount?: string
   /** Recipient allowlist for a swap (call_arg[3] on SoroSwap's
    *  swap_exact_tokens_for_tokens). When supplied, REPLACES the default pin.
@@ -64,25 +44,15 @@ export interface ComposeUserResponses {
 export interface ComposeOptions {
   network: Network
   userResponses?: ComposeUserResponses
-  /** When true, constraints the OZ adapter cannot lower are routed to
-   *  `interpreterIr` (the predicate-shape IR) so the orchestrator can compile
-   *  them via the interpreter adapter. When false (the default for callers
-   *  who have not opted in), every constraint goes to `ir` and the OZ
-   *  adapter's `uncovered` machinery generates the descriptive warnings -
-   *  today's behaviour. The orchestrator passes this flag through based on
-   *  whether `opts.interpreter` was supplied. */
-  interpreterEnabled?: boolean
 }
 
-/** Result of composition: the OZ-shape PolicyIR, the predicate-shape PolicyIR
- *  (contains the constraints the OZ adapter cannot lower; empty when
- *  `interpreterEnabled` is false), any ambiguities surfaced during inference,
- *  and descriptive warnings for needs that are NOT expressed as an IR node
- *  (so no fabricated constraint is emitted). The orchestrator carries
- *  ambiguities into `ProposedPolicy.ambiguities` and merges warnings into
+/** Result of composition: the predicate-shape PolicyIR the interpreter adapter
+ *  compiles, the ambiguities the caller must answer, and descriptive warnings
+ *  for needs that are NOT expressed as an IR node (so no fabricated constraint
+ *  is emitted). The orchestrator carries ambiguities into
+ *  `ProposedPolicy.ambiguities` and merges warnings into
  *  `ProposedPolicy.warnings`. */
 export interface ComposeResult {
-  ir: PolicyIR
   interpreterIr: PolicyIR
   ambiguities: AmbiguityPrompt[]
   warnings: string[]
@@ -96,95 +66,58 @@ export function composeFromRecording(
   topLevel: ContractInvocation | null,
   opts: ComposeOptions
 ): ComposeResult {
-  const interpreterEnabled = opts.interpreterEnabled === true
   const ambiguities: AmbiguityPrompt[] = []
   const warnings: string[] = []
-  const ozConstraints: IRCondition[] = []
   const interpreterConstraints: IRCondition[] = []
-  // Route to the matching IR. When the interpreter is enabled, constraints the
-  // OZ adapter cannot lower go there; otherwise they go to OZ (which flags them
-  // as uncovered) so today's warning-driven behaviour is preserved.
-  const routeToAdapter = (cond: IRCondition): void => {
-    if (interpreterEnabled) interpreterConstraints.push(cond)
-    else ozConstraints.push(cond)
-  }
 
   const protocol = topLevel
     ? identifyProtocol(topLevel.contract, topLevel.fn, topLevel.args, opts.network)
     : null
   const known = protocol !== null
 
-  const windowSeconds = opts.userResponses?.windowSeconds
   const limitAmount = opts.userResponses?.limitAmount
   const spendTokens = Object.keys(facts.spendByToken)
 
-  // Outgoing spend -> one spending_limit per spent token. A single caller
-  // limit binds only an unambiguous single-token spend; a multi-token flow
-  // needs a per-token limit, so each unmatched token surfaces
-  // AMOUNT_BOUND_MISSING.
-  //
-  // Routing: a `window_spent(token, w) <= limit` constraint goes to the OZ IR
-  // only when token === scope.contract (OZ's spending_limit binds the
-  // CallContract target, not a token parameter). Otherwise it goes to the
-  // interpreter IR.
+  // Outgoing spend -> a cap on the call's own amount ARGUMENT. The interpreter
+  // is passed one authorised call, not the transaction's token movements, so a
+  // rolling per-window total is not something it can read; the enforceable
+  // shape is a bound on the amount the call itself carries. A multi-token flow
+  // has no single argument to bind, so each token surfaces AMOUNT_BOUND_MISSING.
   if (spendTokens.length > 0 && topLevel) {
-    let durationFlagged = false
     for (const token of spendTokens) {
       const observed = facts.spendByToken[token]
       if (observed === undefined) continue
 
       if (!known) {
         warnings.push(
-          `spend of ${observed} (token ${token}) not bounded: unrecognised protocol, spend cap needs the interpreter predicate`
+          `spend of ${observed} (token ${token}) not bounded: unrecognised protocol, so the amount argument cannot be located`
         )
         continue
       }
 
       const limit = spendTokens.length === 1 ? limitAmount : undefined
-      if (windowSeconds === undefined && !durationFlagged) {
-        ambiguities.push({
-          code: 'DURATION_UNSPECIFIED',
-          question: `Recording shows a ${observed}-${token} spend. What rolling window (seconds) should the spending_limit use?`,
-        })
-        durationFlagged = true
-      }
-      if (limit === undefined) {
+      const amountArgIndex = limitArgumentIndex(protocol, topLevel)
+      if (limit === undefined || amountArgIndex === null) {
         ambiguities.push({
           code: 'AMOUNT_BOUND_MISSING',
-          question: `Recording shows a ${observed}-${token} spend, but a single spend does not authorise that amount every window. What per-window spending_limit should apply? (observed amount, suggestion only: ${observed})`,
+          question: `Recording shows a ${observed}-${token} spend, but a single spend does not authorise that amount on every call. What per-call cap should apply? (observed amount, suggestion only: ${observed})`,
         })
         continue
       }
-      if (windowSeconds !== undefined) {
-        // Rolling spend cap always goes to OZ (`spending_limit` is the audited
-        // implementation). The interpreter is NOT a fallback for token !=
-        // scopeContract: on chain it sees one authorized call, not the
-        // transaction's token movements, so it has no per-call amount to
-        // accumulate and the counter would never move. OZ reports the case it
-        // cannot cover (limit pins to the context contract) - the honest
-        // outcome; the old fallback produced an interpreter predicate that
-        // silently never bound.
-        ozConstraints.push({
-          op: 'compare',
-          compare: {
-            selector: { kind: 'window_spent', token, windowSeconds },
-            operator: 'lte',
-            value: limit,
-          },
-        })
-        if (interpreterEnabled && token !== scopeContract) {
-          warnings.push(
-            `rolling spend cap on ${token} cannot be enforced on chain: OZ spending_limit pins the limit to the context contract, and the interpreter cannot observe token movements. Bound the per-call value with an argument cap plus an invocation-count limit instead.`
-          )
-        }
-      }
+      interpreterConstraints.push({
+        op: 'compare',
+        compare: {
+          selector: { kind: 'arg', argIndex: amountArgIndex, scalarType: 'i128' },
+          operator: 'lte',
+          value: limit,
+        },
+      })
     }
   }
 
-  // Incoming-only / frequency intent: an invocation_count bound is emitted ONLY
-  // when the caller supplies the count AND a window - never a fabricated `<= 1`.
-  // Routed to the interpreter IR when interpreter is enabled (OZ cannot lower
-  // invocation_count); otherwise to the OZ IR (which flags it as uncovered).
+  // Incoming-only / frequency intent: the interpreter is passed one authorised
+  // call, so it cannot count prior calls - no frequency bound is emitted and
+  // never a fabricated `<= 1`. The need surfaces as a prompt plus a warning.
   //
   // A recognised swap is NOT an incoming-only flow: it has an outgoing input
   // leg whose spend simply was not attributed to the source account
@@ -205,39 +138,32 @@ export function composeFromRecording(
     }
   }
 
-  // otherwise to the OZ IR (which flags it as uncovered).
-
-  // Observed recipient allowlist (SEP-41) is a real, recorded constraint the OZ
-  // adapter flags as not covered; the interpreter adapter lowers it to an `in`
-  // predicate. Unknown protocols emit nothing here. SoroSwap's swap recipient
-  // (arg[3]) is the source-of-truth for the swapRecipientAllowlist surface.
+  // Observed recipient allowlist (SEP-41) is a real, recorded constraint the
+  // interpreter adapter lowers to an `in` predicate. Unknown protocols emit
+  // nothing here. SoroSwap's swap recipient (arg[3]) is the source-of-truth for
+  // the swapRecipientAllowlist surface.
   if (topLevel && protocol !== null) {
-    // A SoroSwap input-amount cap binds the caller's limitAmount to call_arg[0]
-    // (the exact amount_in) ONLY when no cumulative outgoing spend was detected
-    // for the source account - i.e. the input token never moved FROM the source
+    // A SoroSwap input-amount cap binds the caller's limitAmount to the swap's
+    // input-amount argument ONLY when no outgoing spend was detected for the
+    // source account - i.e. the input token never moved FROM the source
     // (fee-sponsored swaps, or a holder != source). When a spend WAS detected,
-    // the window_spent path above already consumed the limit, so the per-call
-    // arg cap is skipped to avoid binding one limit to two different semantics.
+    // the cap above already consumed the limit, so this one is skipped to avoid
+    // binding one limit to two different args.
     const swapInputAmountCap = spendTokens.length === 0 ? limitAmount : undefined
     appendProtocolSpecificConstraints(
       interpreterConstraints,
-      routeToAdapter,
       warnings,
       ambiguities,
       facts,
       topLevel,
       protocol,
       opts.userResponses?.swapRecipientAllowlist,
-      swapInputAmountCap,
-      interpreterEnabled
+      swapInputAmountCap
     )
   }
 
-  // `scope.method` is carried on BOTH IRs so each adapter produces a
-  // self-consistent rule. The interpreter adapter lowers scope.method into a
-  // `call_fn == <method>` predicate leaf (a real restriction); the OZ adapter
-  // flags it as uncovered (CallContract alone permits any method on the
-  // contract).
+  // The interpreter adapter lowers `scope.method` into a `call_fn == <method>`
+  // predicate leaf.
   const scope: IRPolicyRule['scope'] = { contract: scopeContract }
   if (topLevel?.fn) scope.method = topLevel.fn
 
@@ -253,46 +179,60 @@ export function composeFromRecording(
     return rule
   }
 
-  const ir: PolicyIR = {
-    chain: 'stellar',
-    defaultBehavior: 'deny_all',
-    rules: [buildRule(ozConstraints)],
-  }
   const interpreterIr: PolicyIR = {
     chain: 'stellar',
     defaultBehavior: 'deny_all',
     rules: [buildRule(interpreterConstraints)],
   }
-  return { ir, interpreterIr, ambiguities, warnings }
+  return { interpreterIr, ambiguities, warnings }
 }
 
-/** Add the constraints justified by the recording that the OZ backend cannot
- *  express natively. Each constraint is routed to either `ozConstraints` (the
- *  OZ adapter lowers it) or `interpreterConstraints` (the interpreter adapter
- *  lowers it). When `interpreterEnabled` is false, every protocol-specific
- *  constraint is routed to `ozConstraints` (which flags it as uncovered) so
- *  callers who haven't opted in keep today's warning-driven behaviour.
- *  call_arg[2]). */
+/** Index of the argument a caller-supplied `limitAmount` binds to, or null when
+ *  the call carries no such argument. The interpreter is passed one authorised
+ *  call, not the transaction's token movements, so bounding an argument the
+ *  call itself carries is the only enforceable shape. */
+function limitArgumentIndex(
+  protocol: IdentifiedProtocol | null,
+  topLevel: ContractInvocation | null
+): number | null {
+  if (!protocol || !topLevel) return null
+  const named = amountArgumentIndex(protocol)
+  if (named !== null) return named
+  // SoroSwap names its input argument `amount_in` / `amount_in_max`, so the
+  // lookup by name misses it and the index is function-specific.
+  if (protocol.protocol !== 'soroswap') return null
+  const i = soroswapInputAmountArgIndex(protocol.fn)
+  // Defense in depth: identification's argsMatchAbi already pins it to i128.
+  return i !== undefined && topLevel.args[i]?.type === 'i128' ? i : null
+}
+
+/** Index of the argument the protocol ABI calls `amount`, or null when the ABI
+ *  does not name one. */
+function amountArgumentIndex(protocol: IdentifiedProtocol): number | null {
+  const abi = getAbi(protocol.protocol)[protocol.fn]
+  if (!abi) return null
+  const i = abi.args.findIndex((a) => a.name === 'amount')
+  return i >= 0 ? i : null
+}
+
+/** Add the protocol-specific constraints the recording justifies: recipient
+ *  allowlists, exact swap paths and per-call argument caps. */
 function appendProtocolSpecificConstraints(
   interpreterConstraints: IRCondition[],
-  routeToAdapter: (cond: IRCondition) => void,
   warnings: string[],
   ambiguities: AmbiguityPrompt[],
   facts: IntentFacts,
   topLevel: ContractInvocation,
   protocol: IdentifiedProtocol,
   swapRecipientAllowlist: string[] | undefined,
-  swapInputAmountCap: string | undefined,
-  interpreterEnabled: boolean
+  swapInputAmountCap: string | undefined
 ): void {
   // SEP-41 transfer / mint: the `to` arg (index 1) is the recipient. Emit a
   // single-element allowlist; the interpreter adapter lowers it to `in`.
-  // When interpreter is not enabled, route to OZ so the caller sees today's
-  // `value allowlist on arg 1` warning.
   if (protocol.protocol === 'sep41' && (protocol.fn === 'transfer' || protocol.fn === 'mint')) {
     const toArg = topLevel.args[1]
     if (toArg && toArg.type === 'address') {
-      routeToAdapter({
+      interpreterConstraints.push({
         op: 'in',
         selector: { kind: 'arg', argIndex: 1, scalarType: 'address' },
         values: [toArg.value],
@@ -311,7 +251,7 @@ function appendProtocolSpecificConstraints(
     // claim(from, reserve_token_ids, to).
     const toArg = topLevel.args[2]
     if (toArg && toArg.type === 'address') {
-      routeToAdapter({
+      interpreterConstraints.push({
         op: 'in',
         selector: { kind: 'arg', argIndex: 2, scalarType: 'address' },
         values: [toArg.value],
@@ -329,7 +269,7 @@ function appendProtocolSpecificConstraints(
   // -> Borrow on a different asset, any amount, then auction fills). Length
   // + per-element pinning is total; a quantifier over elements is not. If we
   // cannot emit BOTH, we surface AMBIGUITY rather than emit a partial bind.
-  if (protocol.protocol === 'blend' && protocol.fn === 'submit' && interpreterEnabled) {
+  if (protocol.protocol === 'blend' && protocol.fn === 'submit') {
     const requestsArg = topLevel.args[3]
     if (requestsArg && requestsArg.type === 'vec') {
       const elements = requestsArg.value
@@ -437,7 +377,7 @@ function appendProtocolSpecificConstraints(
   if (protocol.protocol === 'soroswap') {
     const paths = facts.allowedPaths?.[topLevel.contract]
     const route = paths?.length === 1 ? paths[0] : undefined
-    if (route && route.length > 0 && interpreterEnabled) {
+    if (route && route.length > 0) {
       const pathArgIndex = 2 // SoroSwap swap_exact_tokens_for_tokens: args = [amount_in, amount_out_min, path, to, deadline]
       interpreterConstraints.push({
         op: 'eq_seq',
@@ -457,12 +397,10 @@ function appendProtocolSpecificConstraints(
     // as arg[1] (its arg[0] is the exact OUTPUT, so binding arg[0] there would
     // cap the wrong value and leave the input unbounded). This is a per-call cap
     // that does NOT depend on attributing a token movement to the source account
-    // (the fee-sponsored / holder != source case, where the window_spent path
-    // detects no spend). Fail-closed: it only ever restricts the permitted input.
-    // Routed to the interpreter predicate (OZ built-ins cannot express a per-arg
-    // i128 bound); when the interpreter is not enabled it goes to OZ, which flags
-    // it uncovered (a warning). The `type === 'i128'` check is defense in depth -
-    // protocol identification's argsMatchAbi already pins the input arg to i128.
+    // (the fee-sponsored / holder != source case, where no spend is detected).
+    // Fail-closed: it only ever restricts the permitted input. The
+    // `type === 'i128'` check is defense in depth - protocol identification's
+    // argsMatchAbi already pins the input arg to i128.
     const inputArgIndex = soroswapInputAmountArgIndex(protocol.fn)
     const inputAmountArg = inputArgIndex !== undefined ? topLevel.args[inputArgIndex] : undefined
     if (
@@ -471,7 +409,7 @@ function appendProtocolSpecificConstraints(
       inputAmountArg &&
       inputAmountArg.type === 'i128'
     ) {
-      routeToAdapter({
+      interpreterConstraints.push({
         op: 'compare',
         compare: {
           selector: { kind: 'arg', argIndex: inputArgIndex, scalarType: 'i128' },
@@ -489,18 +427,15 @@ function appendProtocolSpecificConstraints(
     // it unconstrained would permit an arbitrary recipient (an evil twin with
     // call_arg[3] = attacker_wallet). RECIPIENT_ALLOWLIST_EMPTY is still
     // surfaced, but as INFORMATIONAL (the recipient was pinned; here is how to
-    // widen it), never as a silent free pass. The recipient is only enforceable
-    // via the interpreter predicate, so the pin (and the ambiguity) apply only
-    // when the interpreter is enabled - otherwise the swap recipient is ignored
-    // (today's behaviour, matching the other SoroSwap constraints).
+    // widen it), never as a silent free pass.
     const recipientArg = topLevel.args[3]
     if (swapRecipientAllowlist && swapRecipientAllowlist.length > 0) {
-      routeToAdapter({
+      interpreterConstraints.push({
         op: 'in',
         selector: { kind: 'arg', argIndex: 3, scalarType: 'address' },
         values: [...swapRecipientAllowlist],
       })
-    } else if (interpreterEnabled && recipientArg && recipientArg.type === 'address') {
+    } else if (recipientArg && recipientArg.type === 'address') {
       interpreterConstraints.push({
         op: 'in',
         selector: { kind: 'arg', argIndex: 3, scalarType: 'address' },

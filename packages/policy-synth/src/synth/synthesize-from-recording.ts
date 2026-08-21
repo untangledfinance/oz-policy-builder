@@ -233,7 +233,6 @@ function synthesizeFromRecordingInner(
   const topLevel = tx.invocations[0] ?? null
   const composeOpts: ComposeOptions = {
     network: opts.network,
-    interpreterEnabled: opts.interpreter !== undefined,
     ...(opts.userResponses !== undefined ? { userResponses: opts.userResponses } : {}),
   }
   const composed = composeFromRecording(facts, scope.contract, topLevel, composeOpts)
@@ -536,9 +535,6 @@ function validateOptions(opts: SynthesizeFromRecordingOptions): ToolError | null
   }
   const ur = opts.userResponses
   if (ur) {
-    if (ur.windowSeconds !== undefined && !isPositiveInt(ur.windowSeconds)) {
-      return synthesisError(`windowSeconds must be a positive integer, got: ${ur.windowSeconds}`)
-    }
     if (
       ur.validUntilLedger !== undefined &&
       (!isPositiveInt(ur.validUntilLedger) || ur.validUntilLedger > SOROBAN_LIMITS.u32Max)

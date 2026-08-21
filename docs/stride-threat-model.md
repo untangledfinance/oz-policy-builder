@@ -368,7 +368,7 @@ operator who needs one sources it there:
 
 | Control | Where it lives |
 |---|---|
-| Rolling spend caps on value moved | The OZ `spending_limit` primitive. The interpreter is passed one authorised call, not token movements. |
+| A cap on the value a call may move | The interpreter bounds the call's own amount argument (`call_arg(i) <= limit`), located from the protocol ABI. It is a per-call cap, not a rolling total: the interpreter is passed one authorised call, not the transaction's token movements, so it cannot accumulate spend across calls. |
 | Policy expiry | The context rule's `valid_until`, owned by the smart account. |
 | A bound on call frequency | Nowhere in this stack. The synthesiser reports `FREQUENCY_BOUND_MISSING` on incoming-only flows, so a caller is told rather than left to assume a cap. |
 | Price-conditioned authorisation | Nowhere in this stack. |
@@ -398,7 +398,7 @@ All logs in `docs/audit/evidence/` were produced against this tree:
 | Tool | Result |
 |---|---|
 | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 94 + 6 tests pass |
-| `biome check`, `tsc --noEmit`, `bun test` | clean; 602 pass, 1 skip, 0 fail |
+| `biome check`, `tsc --noEmit`, `bun test` | clean; 597 pass, 1 skip, 0 fail |
 | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | `bun audit` | 0 vulnerabilities |
 | `clippy -W pedantic -W nursery` | 228 style warnings, 0 security |
@@ -417,7 +417,7 @@ dominating guard.
 - **R-1 and R-2 are structural**, inherited from the account model rather than
   from this contract, and no amount of interpreter work closes them.
 - **The off-chain half carries more risk than the on-chain half.** The contract
-  is 1,225 nSLOC and stateless; the toolchain is 6,352 nSLOC and holds the
+  is 1,225 nSLOC and stateless; the toolchain is 6,305 nSLOC and holds the
   default-deny install gates.
 - **Test files are outside the typecheck scope.** `tsconfig` excludes
   `src/**/*.test.ts`, so `bun run typecheck` never sees them and a test can

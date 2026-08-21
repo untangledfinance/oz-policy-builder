@@ -115,7 +115,6 @@ export const RecordedTransactionSchema = z
 
 export const ComposeUserResponsesSchema = z
   .object({
-    windowSeconds: z.number().int().positive().optional(),
     validUntilLedger: z.number().int().positive().max(U32_MAX).optional(),
     limitAmount: z
       .string()

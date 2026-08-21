@@ -148,7 +148,6 @@ describe('runSynthesizePolicy (discriminated union)', () => {
       recordedTx,
       network: 'mainnet',
       userResponses: {
-        windowSeconds: 2592000,
         limitAmount: '1000000000',
         validUntilLedger: 1000000,
       },
@@ -227,8 +226,7 @@ describe('mcpResultFromCore', () => {
 // Threads an interpreter opt-in (smartAccountAddress = a C... placeholder
 // distinct from the pool) through `runSynthesizePolicy` on a Blend-claim
 // recording. Mirrors the CLI test's `BLEND_CLAIM_FIXTURE` shape + the
-// per-claim frequency bound responses (windowSeconds:86400, invocationLimit:1,
-// validUntilLedger:200000000). Asserts:
+// per-claim responses (validUntilLedger:200000000). Asserts:
 //   - policyDocuments.length === 1
 //   - a policyRef of kind 'interpreter' is present
 // The 0xee placeholder address is distinct from the Blend pool address in the
@@ -290,7 +288,6 @@ describe('runSynthesizePolicy - interpreter opt-in (item 7)', () => {
       recordedTx: blendClaimRecording,
       network: 'mainnet',
       userResponses: {
-        windowSeconds: 86400,
         validUntilLedger: 200000000,
       },
       interpreter: { smartAccountAddress: smartAccount },

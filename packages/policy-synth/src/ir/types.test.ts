@@ -2,11 +2,11 @@ import { describe, expect, it } from 'bun:test'
 import type { IRCondition, IRPolicyRule, PolicyIR } from './types.ts'
 
 describe('PolicyIR reference shapes', () => {
-  it('constructs a spending-limit rule (window_spent <= L)', () => {
+  it('constructs a per-call amount cap rule (call_arg[i] <= L)', () => {
     const spendConstraint: IRCondition = {
       op: 'compare',
       compare: {
-        selector: { kind: 'window_spent', token: 'CTOKEN', windowSeconds: 86400 },
+        selector: { kind: 'arg', argIndex: 2, scalarType: 'i128' },
         operator: 'lte',
         value: '1000000',
       },
@@ -22,7 +22,7 @@ describe('PolicyIR reference shapes', () => {
     const first = ir.rules[0]?.constraints[0]
     expect(first?.op).toBe('compare')
     if (first?.op === 'compare') {
-      expect(first.compare.selector.kind).toBe('window_spent')
+      expect(first.compare.selector.kind).toBe('arg')
       expect(first.compare.operator).toBe('lte')
       expect(first.compare.value).toBe('1000000')
     }

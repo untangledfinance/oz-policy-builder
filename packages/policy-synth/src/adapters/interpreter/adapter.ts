@@ -312,15 +312,12 @@ function unsupportedConstruct(cond: IRCondition): string | null {
       if (s.kind === 'value') return 'tx.value comparison (predicate DSL)'
       // The on-chain interpreter sees ONE authorized call - no
       // `Context.sub_invocations` in v1 - so it cannot observe token
-      // movements. `amount` has no value to read, and `window_spent`
-      // accumulates BY that amount, so its counter would never move.
-      // Deriving either from the call payload would quietly swap "value
-      // actually moved" for "value the caller declared" - a weaker guarantee
-      // than the review card would be claiming.
+      // movements, so `amount` has no value to read. Deriving it from the call
+      // payload would quietly swap "value actually moved" for "value the caller
+      // declared" - a weaker guarantee than the review card would be claiming.
       //
-      // Rolling spend caps belong to the OZ `spending_limit` primitive (already
-      // audited, emitted by the OZ adapter). A per-call cap is expressible here
-      // as `arg_field`.
+      // A cap on the call's own amount argument IS expressible, as `arg` or
+      // `arg_field`; that is what the synthesiser emits for `limitAmount`.
       return unsourceableSelector(s)
     }
     // Recurse: a nested `and`/`or`/`not` must not smuggle a selector past the
@@ -337,10 +334,7 @@ function unsupportedConstruct(cond: IRCondition): string | null {
 /** Selectors whose value the on-chain interpreter has no way to obtain. */
 function unsourceableSelector(s: IRSelector): string | null {
   if (s.kind === 'amount') {
-    return `per-call amount comparison on ${s.token} - the interpreter cannot observe token movements; express a per-call cap with arg_field, or a rolling cap with the OZ spending_limit primitive`
-  }
-  if (s.kind === 'window_spent') {
-    return `rolling spend cap on ${s.token} over ${s.windowSeconds}s - not enforceable by the interpreter; use the OZ spending_limit primitive, or bound the per-call value with arg_field`
+    return `per-call amount comparison on ${s.token} - the interpreter cannot observe token movements; bound the call's own amount argument instead (arg or arg_field). A rolling per-window total is not expressible: accumulating one needs stored state the interpreter does not keep`
   }
   if (s.kind === 'valid_until') {
     return 'expiry comparison - the interpreter has no `valid_until` selector; expiry belongs to the context rule (expiry.validUntilLedger)'
@@ -422,7 +416,6 @@ function lowerSelector(s: IRSelector): PredicateLeaf {
     // none of them on chain. Reaching here means the pre-scan was bypassed;
     // fail loudly rather than emit a leaf the contract will refuse.
     case 'amount':
-    case 'window_spent':
     case 'valid_until':
       throw new Error(
         `interpreter adapter cannot lower \`${s.kind}\`: it should have been reported as uncovered`
@@ -457,7 +450,6 @@ function literalFromIRCompare(c: IRCompare): PredicateLeaf {
 function literalScalarForSelector(kind: IRSelector['kind']): IRScalarType {
   switch (kind) {
     case 'amount':
-    case 'window_spent':
       return 'i128'
     case 'arg_len':
       return 'u32'
@@ -535,8 +527,6 @@ function describeCondition(cond: IRCondition): string {
     case 'compare': {
       const s = cond.compare.selector
       switch (s.kind) {
-        case 'window_spent':
-          return `spend-window comparison with operator '${cond.compare.operator}'`
         case 'amount':
           return `per-call amount comparison on ${s.token}`
         case 'arg':
@@ -567,8 +557,6 @@ function describeSelector(s: IRSelector): string {
       return `arg_field(${s.argIndex}, ${s.element}, ${s.field})`
     case 'amount':
       return `amount(${s.token})`
-    case 'window_spent':
-      return `window_spent(${s.token})`
     case 'calldata':
       return `calldata[${s.offset}:${s.offset + s.length}]`
     default:

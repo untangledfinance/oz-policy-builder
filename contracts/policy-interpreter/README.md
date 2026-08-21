@@ -39,10 +39,11 @@ no counter that can drift, replay or archive out from under a rule.
 Nodes: `and`, `or`, `not`, `eq`, `lt`, `lte`, `gt`, `gte`, `in`.
 
 Deliberately absent, because the interpreter sees one authorized call and no
-history: token movements (`amount`, rolling spend), call-frequency caps, and
-policy expiry. Rolling spend caps belong to the OZ `spending_limit` primitive;
-expiry belongs to the context rule's own `valid_until`. The synthesiser reports
-each of these as uncovered rather than emitting a constraint that would never
+history: what a transaction actually moved (`amount`), rolling per-window spend
+totals, call-frequency caps, and policy expiry. A cap on value is expressed
+instead against the call's own amount argument (`call_arg(i) <= limit`); expiry
+belongs to the context rule's own `valid_until`. The synthesiser reports each of
+the absent ones as uncovered rather than emitting a constraint that would never
 bind.
 
 ## Deployments

@@ -595,21 +595,6 @@ describe('interpreter adapter - unsourceable value selectors', () => {
     expect(res.uncovered.join(' ')).toContain('cannot observe token movements')
   })
 
-  it('reports `window_spent` as uncovered and points at the OZ primitive', () => {
-    const res = adapter.compile(
-      irWith({
-        op: 'compare',
-        compare: {
-          selector: { kind: 'window_spent', token: XLM, windowSeconds: 86400 },
-          operator: 'lte',
-          value: '1000',
-        },
-      })
-    )
-    expect(res.covered).toBe(false)
-    expect(res.uncovered.join(' ')).toContain('spending_limit')
-  })
-
   it('reports an unsourceable selector nested under `and` - the pre-scan sees only top-level constraints', () => {
     const res = adapter.compile(
       irWith({

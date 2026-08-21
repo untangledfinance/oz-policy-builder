@@ -122,8 +122,8 @@ const BLEND_CLAIM_FIXTURE = {
   sourceAccount: 'GDBBXGF6AEUWUDBFD4LEN4IS5NQCHVPK5GOMVEGO6EZINZ4SG52BDQ5O',
 }
 
-// Per-claim frequency bound: at most 1 claim per 24h, with an explicit expiry.
-const BLEND_RESPONSES = { windowSeconds: 86400, validUntilLedger: 200000000 }
+// Per-claim responses: an explicit policy expiry.
+const BLEND_RESPONSES = { validUntilLedger: 200000000 }
 
 // The C... smart account the interpreter policy is installed against (distinct
 // from the pool contract, so it is not a self-call). Placeholder 0xee account.
@@ -413,27 +413,6 @@ describe('policy-builder CLI', () => {
   // Each new flag must:
   //   1. reach the core (assert an observable effect on the synthesised policy)
   //   2. reject bad values up front with a CLI-friendly exit code
-
-  it('synthesize --window-seconds <bad> exits non-zero with CLI_MISSING_ARG', async () => {
-    const r = await runCli([
-      'synthesize',
-      '--smart-account',
-      SMART_ACCOUNT,
-      '--recorded-tx',
-      resolve(FIXTURES, 'recorded-tx.json'),
-      '--network',
-      'mainnet',
-      '--limit-amount',
-      '1000000000',
-      '--window-seconds',
-      'not-a-number',
-      '--json',
-    ])
-    expect(r.exitCode).not.toBe(0)
-    const parsed = JSON.parse(r.stdout.trim()) as { ok: boolean; error: { code: string } }
-    expect(parsed.ok).toBe(false)
-    expect(parsed.error.code).toBe('CLI_MISSING_ARG')
-  })
 
   it('synthesize --valid-until <ledger> reaches the core (contextRule.validUntilLedger reflects the override)', async () => {
     const r = await runCli([

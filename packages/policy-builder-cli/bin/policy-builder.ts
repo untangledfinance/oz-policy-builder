@@ -5,15 +5,11 @@
 // Usage:
 //   policy-builder record --network <mainnet|testnet> --hash <tx>
 //                                 [--xdr <b64>] [--json] [--quiet] [--out <path>]
-//   policy-builder synthesize --mandate <path.json>
-//                              [--oz-config <path.json>] [--confidence <0..1>]
-//                              [--explain] [--json] [--quiet] [--out <path>]
 //   policy-builder synthesize --recorded-tx <path.json> --network <mainnet|testnet>
 //                              [--responses <path.json>]
-//                              [--oz-config <path.json>] [--confidence <0..1>]
+//                              [--confidence <0..1>]
 //                              [--smart-account <C...>] [--install-nonce <n>]
-//                              [--window-seconds <n>] [--valid-until <ledger>]
-//                              [--limit-amount <i128str>] [--invocation-limit <n>]
+//                              [--valid-until <ledger>] [--limit-amount <i128str>]
 //                              [--recipient <C...|G...>]...
 //                              [--explain] [--json] [--quiet] [--out <path>]
 //
@@ -74,49 +70,33 @@ function printHelp(): void {
 Usage:
   policy-builder record     --network <mainnet|testnet> --hash <tx> | --xdr <b64>
                             [--json] [--quiet] [--out <path>]
-  policy-builder synthesize --mandate <path.json>
-                            [--oz-config <path.json>] [--confidence <0..1>]
-                            [--json] [--quiet] [--out <path>]
   policy-builder synthesize --recorded-tx <path.json> --network <mainnet|testnet>
                             [--responses <path.json>]
-                            [--oz-config <path.json>] [--confidence <0..1>]
+                            [--confidence <0..1>]
                             [--smart-account <C...>] [--install-nonce <n>]
-                            [--window-seconds <n>] [--valid-until <ledger>]
-                            [--limit-amount <i128str>] [--invocation-limit <n>]
+                            [--valid-until <ledger>] [--limit-amount <i128str>]
                             [--recipient <C...|G...>]...
-                            [--json] [--quiet] [--out <path>]
+                            [--explain] [--json] [--quiet] [--out <path>]
 
 Flags:
   --json                    emit machine-readable JSON on stdout
   --quiet                   suppress progress / non-error output
   --out                     write artefact to file (JSON)
-  --oz-config               path to a JSON OzAdapterConfig (custom OZ instance
-                            addresses for the network); applies to both the
-                            --mandate and --recorded-tx synthesize paths
   --confidence              recorder confidence GATE threshold (0..1, inclusive);
                             rejects when parseConfidence.overall < threshold; does
                             not change the recording's parseConfidence.thresholdUsed
                             in the output
-  --smart-account           C... account to opt into the interpreter adapter, so
-                            non-OZ constraints (per-method scoping, invocation-count
-                            windows, exact hop paths) lower to a real
-                            predicate document instead of warnings
+  --smart-account           C... account the interpreter policy installs against;
+                            required for the recording to lower to a predicate
+                            document (amount caps, recipient allowlists, exact
+                            hop paths) instead of warnings
   --install-nonce           per-rule install nonce for the interpreter policy
                             (default 1); requires --smart-account
-                            (positive integer <= 600, tighten-only);
-                            requires --smart-account
-                            (positive integer <= 200, tighten-only);
-                            requires --smart-account
-  --window-seconds          per-field override of userResponses.windowSeconds;
-                            overrides the same field from --responses (CLI flag
-                            wins)
   --valid-until             per-field override of userResponses.validUntilLedger;
                             overrides the same field from --responses
   --limit-amount            per-field override of userResponses.limitAmount
                             (i128 decimal string); overrides the same field
                             from --responses
-  --invocation-limit        per-field override of userResponses.invocationLimit;
-                            overrides the same field from --responses
   --recipient               swap-recipient allowlist entry (C... contract or
                             G... wallet) for a SoroSwap swap; REPEATABLE. Absent,
                             the recorded recipient is pinned by default; supplying
