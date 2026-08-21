@@ -1,5 +1,6 @@
-import type { PredicateLeaf, PredicateNode, ScVal } from '../../src/types.ts'
-import { MAX_SCVAL_CLONE_DEPTH } from '../../src/types.ts'
+import { Address } from '@stellar/stellar-sdk'
+import type { PredicateLeaf, PredicateNode, ScVal } from '../types.ts'
+import { MAX_SCVAL_CLONE_DEPTH } from '../types.ts'
 import type { EvalContext } from './evaluate.ts'
 
 export interface DenyCase {
@@ -16,6 +17,12 @@ export interface GeneratedCases {
   permit: EvalContext
   denies: DenyCase[]
 }
+
+/** A contract address that is not the pinned one. It must be a REAL strkey:
+ *  the host rejects a malformed one with `Error(Value, InvalidInput)` before
+ *  the predicate is ever evaluated, which would make the deny case pass for
+ *  the wrong reason. */
+const OTHER_CONTRACT = Address.contract(Buffer.alloc(32, 0x5a)).toString()
 
 type ComparisonOperator = 'eq' | 'lte'
 
@@ -55,6 +62,28 @@ export function generateCases(
 ): GeneratedCases {
   const facts = inspectPredicate(predicate)
   const denies: DenyCase[] = []
+
+  // contract_scope: the same call sent to a different contract. The predicate
+  // pins `call_contract`, so this is the most direct bypass attempt there is -
+  // point the agent's authorised call at another contract entirely.
+  if (facts.comparisons.some((c) => c.op === 'eq' && c.left.kind === 'call_contract')) {
+    denies.push({
+      dimension: 'contract_scope',
+      ctx: { ...permitCtx, contract: OTHER_CONTRACT },
+      expectedReason: 'CONTRACT_SCOPE',
+    })
+  }
+
+  // function_scope: the same arguments sent to a different method on the
+  // pinned contract. `transfer` and `burn` take the same shape; only the
+  // `call_fn` pin separates them.
+  if (facts.comparisons.some((c) => c.op === 'eq' && c.left.kind === 'call_fn')) {
+    denies.push({
+      dimension: 'function_scope',
+      ctx: { ...permitCtx, fn: `${permitCtx.fn}_not` },
+      expectedReason: 'ARG_MISMATCH',
+    })
+  }
 
   // arg_bound: set a constrained arg to an opaque ScVal.
   // The reason depends on the predicate shape:

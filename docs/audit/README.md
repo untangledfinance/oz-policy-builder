@@ -5,11 +5,11 @@ Regenerate them whenever a claim they back changes.
 
 | Log | Command | Result |
 | --- | --- | --- |
-| `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 70 tests + 6 conformance pass |
-| `offchain-gate.log` | `biome check .`, `bun run typecheck`, `bun test` | clean; 555 pass, 1 skip, 0 fail |
+| `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 70 tests + 8 conformance pass |
+| `offchain-gate.log` | `biome check .`, `bun run typecheck`, `bun test` | clean; 563 pass, 1 skip, 0 fail |
 | `cargo-audit.log` | `cargo audit` | 0 vulnerabilities; 1 unmaintained-crate warning |
 | `bun-audit.log` | `bun audit` | 0 vulnerabilities |
-| `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 164 style warnings, 0 security |
+| `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 168 style warnings, 0 security |
 | `scout-audit.log` | `cargo scout-audit` | Analyzed: 0 Critical, 9 Medium, 1 Enhancement |
 
 ## Findings

@@ -244,17 +244,16 @@ export const PredicateNodeSchema: z.ZodType<unknown> = z.lazy(() =>
 // ===== simulate_policy / verify_policy =====
 //
 export const SimulatePolicyInputSchema = z.object({
-  // simulatePolicy accepts a null predicate (OZ-only policy); verifyPolicy
-  // does not. The asymmetry is mirrored at the schema boundary.
-  predicate: PredicateNodeSchema.nullable(),
+  // A null predicate used to mean "OZ built-in policies only". That backend is
+  // gone: every policy carries a predicate, so there is nothing to simulate
+  // without one.
+  predicate: PredicateNodeSchema,
   permitTx: RecordedTransactionSchema,
   validUntilLedger: z.number().int().positive().max(U32_MAX).optional(),
 })
 export type SimulatePolicyInput = z.infer<typeof SimulatePolicyInputSchema>
 
 export const VerifyPolicyInputSchema = z.object({
-  // verifyPolicy requires a non-null predicate; the engine refuses
-  // `null` outright. The schema mirrors that contract.
   predicate: PredicateNodeSchema,
   permitTx: RecordedTransactionSchema,
   validUntilLedger: z.number().int().positive().max(U32_MAX).optional(),

@@ -11,7 +11,7 @@ knowingly left open.
 | Contract | `contracts/policy-interpreter` |
 | Grammar version | 3 (`SELF_VERSION`, `src/version.rs`) |
 | On-chain production code | 842 nSLOC |
-| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (6,684 nSLOC: `packages/**/*.ts` excluding `*.test.ts`, `test/`, `scripts/`, `dist*/`, blank and comment-only lines) |
+| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (7,305 nSLOC: `packages/**/*.ts` excluding `*.test.ts`, `test/`, `scripts/`, `dist*/`, blank and comment-only lines) |
 
 What the system does: record a transaction, lower it to a predicate that pins
 the contract, method and arguments the recording carried, install that predicate
@@ -48,6 +48,20 @@ Two properties worth knowing before reading the code:
 - **The self-call gate is one walk, not three call sites.** Any address literal
   anywhere in the assembled predicate that names the smart account itself is
   refused, so a new constraint shape cannot be added without the check.
+- **`simulate_policy` and `verify_policy` share the evaluator the conformance
+  harness checks.** `src/simulate/` holds a second implementation of the
+  predicate semantics; the harness runs it and the Rust interpreter against the
+  same predicate and asserts the verdicts match, so a simulated verdict is a
+  claim about the contract rather than about a separate model that could drift
+  from it. `verify_policy` reports `ok` only when the recorded transaction is
+  permitted AND every generated deny case is denied.
+- **Deny cases are derived from the predicate, so coverage is not fixed.** A
+  dimension the predicate does not constrain produces no case for it, and `ok`
+  means "nothing the harness could construct got through" rather than "this
+  policy is tight". The generator emits `contract_scope`, `function_scope`,
+  `arg_bound`, `argument_reorder`, `map_field_flip`, `vec_append` and
+  `soroswap_allowed_path`; on the three shipped walkthroughs that is 3 to 4
+  cases each.
 - **The install path is where the fail-closed gates live**, because a predicate
   that reaches evaluation is already committed to.
 
@@ -70,11 +84,11 @@ Every log in [`evidence/`](evidence/) was produced against this tree.
 
 | Log | Command | Result |
 | --- | --- | --- |
-| [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 70 tests + 6 conformance pass |
-| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 555 pass, 1 skip, 0 fail |
+| [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 70 tests + 8 conformance pass |
+| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 563 pass, 1 skip, 0 fail |
 | [`cargo-audit.log`](evidence/cargo-audit.log) | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | [`bun-audit.log`](evidence/bun-audit.log) | `bun audit` | 0 vulnerabilities |
-| [`clippy-pedantic.log`](evidence/clippy-pedantic.log) | `clippy -W pedantic -W nursery` | 164 style warnings, 0 security |
+| [`clippy-pedantic.log`](evidence/clippy-pedantic.log) | `clippy -W pedantic -W nursery` | 168 style warnings, 0 security |
 | [`scout-audit.log`](evidence/scout-audit.log) | `cargo scout-audit` | 0 Critical, 9 Medium, 1 Enhancement |
 
 Beyond the tools, the Stellar Security Portal corpus (832 Soroban findings) was
@@ -95,12 +109,12 @@ Scout run that does not do this as unrun.
 | --- | --- | --- |
 | Contract | `cargo fmt --check` | clean |
 | Contract | `cargo clippy --all-targets -- -D warnings` | 0 warnings |
-| Contract | `cargo test` | 76 passed, 0 failed |
-| Contract | `cargo test --release --test conformance` | 6 passed, 0 failed |
+| Contract | `cargo test` | 78 passed, 0 failed |
+| Contract | `cargo test --release --test conformance` | 8 passed, 0 failed |
 | Contract | `cargo build --release --target wasm32v1-none` | builds |
 | Off-chain | `bunx biome check .` | 112 files, 0 findings |
 | Off-chain | `bun run typecheck` | clean |
-| Off-chain | `bun test` | 555 passed, 1 skipped, 0 failed |
+| Off-chain | `bun test` | 563 passed, 1 skipped, 0 failed |
 | Off-chain | `bun audit` | 0 vulnerabilities |
 
 Both gates run in CI on every push, including the two dependency-advisory
@@ -127,7 +141,7 @@ if this tree is what ships.
 Two further caveats, both carried in the threat model rather than only here:
 
 - The off-chain half carries more risk than the on-chain half. The contract is
-  842 nSLOC and stateless; the toolchain is 6,684 nSLOC and holds the
+  842 nSLOC and stateless; the toolchain is 7,305 nSLOC and holds the
   default-deny install gates.
 - Coverage of the MCP HTTP transport is thinner than the rest, because the
   deployment model is loopback stdio.

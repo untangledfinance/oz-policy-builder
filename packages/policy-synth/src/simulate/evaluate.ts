@@ -1,4 +1,4 @@
-// scripts/conformance/evaluate.ts - TypeScript reference evaluator for grammar version 3.
+// src/simulate/evaluate.ts - TypeScript reference evaluator for grammar version 3.
 //
 // Pure function. Determinism: same `(predicate, ctx)` -> byte-identical result,
 // no clock, no randomness. Deny order (deny on FIRST violation, stable reason):
@@ -15,7 +15,7 @@
 // Grammar version 3 deny reasons: ARG_MISMATCH, CONTRACT_SCOPE,
 //   UNSUPPORTED_NODE, NOT_IN_ALLOWLIST
 
-import type { PredicateLeaf, PredicateNode, ScVal } from '../../src/types.ts'
+import type { PredicateLeaf, PredicateNode, ScVal } from '../types.ts'
 
 export interface EvalContext {
   /** Contract the interpreter is asked to enforce against. */

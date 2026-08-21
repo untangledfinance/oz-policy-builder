@@ -242,11 +242,6 @@ describe('SimulatePolicyInputSchema accepts a valid simulate payload', () => {
     expect(parsed.success).toBe(true)
   })
 
-  it('accepts a null predicate (OZ-only policy)', () => {
-    const parsed = SimulatePolicyInputSchema.safeParse({ predicate: null, permitTx: recordedTx() })
-    expect(parsed.success).toBe(true)
-  })
-
   it('accepts the optional validUntilLedger', () => {
     const parsed = SimulatePolicyInputSchema.safeParse({
       predicate: SAMPLE_PREDICATE,

@@ -40,6 +40,7 @@ import {
   rpcClientFromServer,
 } from '../install/build-install-policy.ts'
 import { getInterpreterInfo } from '../install/get-interpreter-info.ts'
+import { type EvalContext, evaluate, generateCases } from '../simulate/index.ts'
 import {
   type GetInterpreterInfoInput,
   GetInterpreterInfoInputSchema,
@@ -55,9 +56,11 @@ import {
   RevokePolicyInputSchema,
   RPC_URL_BY_NETWORK,
   type SimulatePolicyInput,
+  SimulatePolicyInputSchema,
   type SynthesizePolicyInput,
   SynthesizePolicyInputSchema,
   type VerifyPolicyInput,
+  VerifyPolicyInputSchema,
 } from './schemas.ts'
 
 export type {
@@ -356,6 +359,116 @@ export async function runRevokePolicy(
  *  a non-pinned `rpcUrl` would silently bind the caller to a host they
  *  picked. The pin is enforced here too, with the same `allowUnpinnedRpcUrl`
  *  opt-in as install/revoke. */
+/** The call a predicate is evaluated against: the single top-level invocation
+ *  the smart account authorises. `Policy::enforce` receives one `Context`, not
+ *  a sub-invocation tree, so simulating anything deeper would claim a
+ *  guarantee the contract does not make. */
+function evalContextFromRecording(tx: RecordedTransaction): EvalContext | null {
+  const top = tx.invocations[0]
+  if (!top) return null
+  return { contract: top.contract, fn: top.fn, args: top.args }
+}
+
+/** `simulate_policy` body - evaluate a predicate against one recorded call.
+ *
+ *  The evaluator is a second implementation of the on-chain semantics, and the
+ *  conformance harness asserts it agrees with the Rust interpreter case for
+ *  case. A verdict here is therefore a claim about what the contract would do,
+ *  not a guess. */
+export function runSimulatePolicy(raw: unknown): ToolResponse<{
+  permitted: boolean
+  reason: string | null
+  call: { contract: string; fn: string; argCount: number }
+}> {
+  const parsed = SimulatePolicyInputSchema.safeParse(raw)
+  if (!parsed.success) {
+    return { ok: false, error: validationError('simulate_policy', parsed.error.issues) }
+  }
+  const input: SimulatePolicyInput = parsed.data
+  const ctx = evalContextFromRecording(input.permitTx as RecordedTransaction)
+  if (!ctx) {
+    return {
+      ok: false,
+      error: {
+        code: TOOL_ERROR_CODE.simulate_policy,
+        message: 'simulate_policy: permitTx carries no invocation to evaluate',
+        severity: 'error',
+        retryable: false,
+      },
+    }
+  }
+  try {
+    const res = evaluate(input.predicate as PredicateNode, ctx)
+    return {
+      ok: true,
+      data: {
+        permitted: res.permit,
+        reason: res.permit ? null : res.reason,
+        call: { contract: ctx.contract, fn: ctx.fn, argCount: ctx.args.length },
+      },
+    }
+  } catch (e) {
+    return { ok: false, error: caughtError('simulate_policy', TOOL_ERROR_CODE.simulate_policy, e) }
+  }
+}
+
+/** `verify_policy` body - the permit case plus a generated deny case per
+ *  dimension.
+ *
+ *  Two failure modes are being checked, and they are not the same thing. A
+ *  permit case that denies means the policy is too STRICT: it would refuse the
+ *  very transaction it was synthesised from. A deny case that permits means it
+ *  is too LOOSE: some mutation of that transaction still gets through. `ok` is
+ *  true only when neither holds. */
+export function runVerifyPolicy(raw: unknown): ToolResponse<{
+  ok: boolean
+  permit: { permitted: boolean; reason: string | null }
+  denies: Array<{ dimension: string; denied: boolean; reason: string | null }>
+  dimensionsCovered: number
+}> {
+  const parsed = VerifyPolicyInputSchema.safeParse(raw)
+  if (!parsed.success) {
+    return { ok: false, error: validationError('verify_policy', parsed.error.issues) }
+  }
+  const input: VerifyPolicyInput = parsed.data
+  const ctx = evalContextFromRecording(input.permitTx as RecordedTransaction)
+  if (!ctx) {
+    return {
+      ok: false,
+      error: {
+        code: TOOL_ERROR_CODE.verify_policy,
+        message: 'verify_policy: permitTx carries no invocation to evaluate',
+        severity: 'error',
+        retryable: false,
+      },
+    }
+  }
+  try {
+    const predicate = input.predicate as PredicateNode
+    const cases = generateCases(predicate, ctx)
+    const permitRes = evaluate(predicate, cases.permit)
+    const denies = cases.denies.map((d) => {
+      const r = evaluate(predicate, d.ctx)
+      return {
+        dimension: d.dimension,
+        denied: !r.permit,
+        reason: r.permit ? null : r.reason,
+      }
+    })
+    return {
+      ok: true,
+      data: {
+        ok: permitRes.permit && denies.every((d) => d.denied),
+        permit: { permitted: permitRes.permit, reason: permitRes.permit ? null : permitRes.reason },
+        denies,
+        dimensionsCovered: denies.length,
+      },
+    }
+  } catch (e) {
+    return { ok: false, error: caughtError('verify_policy', TOOL_ERROR_CODE.verify_policy, e) }
+  }
+}
+
 export async function runGetInterpreterInfo(
   raw: unknown
 ): Promise<ToolResponse<ReturnType<typeof getInterpreterInfo>>> {

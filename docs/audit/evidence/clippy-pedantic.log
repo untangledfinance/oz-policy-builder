@@ -649,6 +649,71 @@ help: try
 4 + //! The `predicate` field on `PolicyInstallParams` is the RAW canonical `ScVal`
   |
 
+warning: this method could have a `#[must_use]` attribute
+  --> src/types.rs:24:12
+   |
+24 |     pub fn address(&self) -> &soroban_sdk::Address {
+   |            ^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#must_use_candidate
+help: add the attribute
+   |
+24 ~     #[must_use]
+25 ~     pub fn address(&self) -> &soroban_sdk::Address {
+   |
+
+warning: this could be a `const fn`
+  --> src/types.rs:24:5
+   |
+24 | /     pub fn address(&self) -> &soroban_sdk::Address {
+25 | |         match self {
+26 | |             Signer::Delegated(a) => a,
+27 | |             Signer::External(a, _) => a,
+28 | |         }
+29 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#missing_const_for_fn
+help: make the function `const`
+   |
+24 |     pub const fn address(&self) -> &soroban_sdk::Address {
+   |         +++++
+
+warning: these match arms have identical bodies
+  --> src/types.rs:26:13
+   |
+26 |             Signer::Delegated(a) => a,
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^
+27 |             Signer::External(a, _) => a,
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: if this is unintentional make the arms return different values
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_same_arms
+   = note: `-W clippy::match-same-arms` implied by `-W clippy::pedantic`
+   = help: to override `-W clippy::pedantic` add `#[allow(clippy::match_same_arms)]`
+help: otherwise merge the patterns into a single arm
+   |
+26 -             Signer::Delegated(a) => a,
+27 -             Signer::External(a, _) => a,
+26 +             Signer::Delegated(a) | Signer::External(a, _) => a,
+   |
+
+warning: unnecessary structure name repetition
+  --> src/types.rs:26:13
+   |
+26 |             Signer::Delegated(a) => a,
+   |             ^^^^^^ help: use the applicable keyword: `Self`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
+
+warning: unnecessary structure name repetition
+  --> src/types.rs:27:13
+   |
+27 |             Signer::External(a, _) => a,
+   |             ^^^^^^ help: use the applicable keyword: `Self`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
+
 warning: item in documentation is missing backticks
  --> src/dsl_tests.rs:9:27
   |
@@ -877,71 +942,6 @@ help: consider taking a reference instead
     |
  51 | fn reason(d: &EvalDecision) -> Option<DenyReason> {
     |              +
-
-warning: this method could have a `#[must_use]` attribute
-  --> src/types.rs:24:12
-   |
-24 |     pub fn address(&self) -> &soroban_sdk::Address {
-   |            ^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#must_use_candidate
-help: add the attribute
-   |
-24 ~     #[must_use]
-25 ~     pub fn address(&self) -> &soroban_sdk::Address {
-   |
-
-warning: this could be a `const fn`
-  --> src/types.rs:24:5
-   |
-24 | /     pub fn address(&self) -> &soroban_sdk::Address {
-25 | |         match self {
-26 | |             Signer::Delegated(a) => a,
-27 | |             Signer::External(a, _) => a,
-28 | |         }
-29 | |     }
-   | |_____^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#missing_const_for_fn
-help: make the function `const`
-   |
-24 |     pub const fn address(&self) -> &soroban_sdk::Address {
-   |         +++++
-
-warning: these match arms have identical bodies
-  --> src/types.rs:26:13
-   |
-26 |             Signer::Delegated(a) => a,
-   |             ^^^^^^^^^^^^^^^^^^^^^^^^^
-27 |             Signer::External(a, _) => a,
-   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: if this is unintentional make the arms return different values
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_same_arms
-   = note: `-W clippy::match-same-arms` implied by `-W clippy::pedantic`
-   = help: to override `-W clippy::pedantic` add `#[allow(clippy::match_same_arms)]`
-help: otherwise merge the patterns into a single arm
-   |
-26 -             Signer::Delegated(a) => a,
-27 -             Signer::External(a, _) => a,
-26 +             Signer::Delegated(a) | Signer::External(a, _) => a,
-   |
-
-warning: unnecessary structure name repetition
-  --> src/types.rs:26:13
-   |
-26 |             Signer::Delegated(a) => a,
-   |             ^^^^^^ help: use the applicable keyword: `Self`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-  --> src/types.rs:27:13
-   |
-27 |             Signer::External(a, _) => a,
-   |             ^^^^^^ help: use the applicable keyword: `Self`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
 
 warning: casting `i128` to `u64` may truncate the value
   --> src/dsl_tests.rs:85:14
@@ -1413,7 +1413,6 @@ help: try
 11 + //! (permit or the matching `DenyReason.code()` string).
    |
 
-warning: `policy-interpreter` (lib test) generated 111 warnings (87 duplicates) (run `cargo clippy --fix --lib -p policy-interpreter --tests -- -W clippy::pedantic -W clippy::nursery` to apply 18 suggestions)
 warning: unnecessary semicolon
   --> tests/conformance/_generated.rs:58:6
    |
@@ -1423,6 +1422,24 @@ warning: unnecessary semicolon
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_semicolon
    = note: `-W clippy::unnecessary-semicolon` implied by `-W clippy::pedantic`
    = help: to override `-W clippy::pedantic` add `#[allow(clippy::unnecessary_semicolon)]`
+
+warning: unnecessary semicolon
+  --> tests/conformance/_generated.rs:83:6
+   |
+83 |     };
+   |      ^ help: remove
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_semicolon
+
+warning: wildcard matches only a single variant and will also match any future added variants
+  --> tests/conformance/_generated.rs:82:9
+   |
+82 |         _ => panic!("expected deny but Rust permitted"),
+   |         ^ help: try: `EvalDecision::Permit`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
+   = note: `-W clippy::match-wildcard-for-single-variants` implied by `-W clippy::pedantic`
+   = help: to override `-W clippy::pedantic` add `#[allow(clippy::match_wildcard_for_single_variants)]`
 
 warning: item in documentation is missing backticks
  --> tests/oz_abi.rs:1:33
@@ -1466,24 +1483,6 @@ help: try
    |
 
 warning: unnecessary semicolon
-  --> tests/conformance/_generated.rs:83:6
-   |
-83 |     };
-   |      ^ help: remove
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_semicolon
-
-warning: wildcard matches only a single variant and will also match any future added variants
-  --> tests/conformance/_generated.rs:82:9
-   |
-82 |         _ => panic!("expected deny but Rust permitted"),
-   |         ^ help: try: `EvalDecision::Permit`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
-   = note: `-W clippy::match-wildcard-for-single-variants` implied by `-W clippy::pedantic`
-   = help: to override `-W clippy::pedantic` add `#[allow(clippy::match_wildcard_for_single_variants)]`
-
-warning: unnecessary semicolon
    --> tests/conformance/_generated.rs:108:6
     |
 108 |     };
@@ -1515,6 +1514,7 @@ warning: wildcard matches only a single variant and will also match any future a
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
 
+warning: `policy-interpreter` (lib test) generated 111 warnings (87 duplicates) (run `cargo clippy --fix --lib -p policy-interpreter --tests -- -W clippy::pedantic -W clippy::nursery` to apply 18 suggestions)
 warning: unnecessary semicolon
    --> tests/conformance/_generated.rs:158:6
     |
@@ -1543,6 +1543,38 @@ warning: wildcard matches only a single variant and will also match any future a
    --> tests/conformance/_generated.rs:182:9
     |
 182 |         _ => panic!("expected deny but Rust permitted"),
+    |         ^ help: try: `EvalDecision::Permit`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
+
+warning: unnecessary semicolon
+   --> tests/conformance/_generated.rs:208:6
+    |
+208 |     };
+    |      ^ help: remove
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_semicolon
+
+warning: wildcard matches only a single variant and will also match any future added variants
+   --> tests/conformance/_generated.rs:207:9
+    |
+207 |         _ => panic!("expected deny but Rust permitted"),
+    |         ^ help: try: `EvalDecision::Permit`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
+
+warning: unnecessary semicolon
+   --> tests/conformance/_generated.rs:233:6
+    |
+233 |     };
+    |      ^ help: remove
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_semicolon
+
+warning: wildcard matches only a single variant and will also match any future added variants
+   --> tests/conformance/_generated.rs:232:9
+    |
+232 |         _ => panic!("expected deny but Rust permitted"),
     |         ^ help: try: `EvalDecision::Permit`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
@@ -1587,6 +1619,16 @@ note: this value is dropped without further use
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
    = note: `-W clippy::redundant-clone` implied by `-W clippy::nursery`
    = help: to override `-W clippy::nursery` add `#[allow(clippy::redundant_clone)]`
+
+warning: wildcard matches only a single variant and will also match any future added variants
+  --> tests/oz_abi.rs:96:9
+   |
+96 |         other => panic!("expected Delegated, got {other:?}"),
+   |         ^^^^^ help: try: `other @ Signer::External(..)`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
+   = note: `-W clippy::match-wildcard-for-single-variants` implied by `-W clippy::pedantic`
+   = help: to override `-W clippy::pedantic` add `#[allow(clippy::match_wildcard_for_single_variants)]`
 
 warning: only a `panic!` in `if`-then statement
   --> tests/conformance/_helpers.rs:17:5
@@ -1656,16 +1698,52 @@ help: try
 44 + /// it into a fresh `SorobanVec<Val>`. Each arg round-trips so any `ScVal`
    |
 
-warning: wildcard matches only a single variant and will also match any future added variants
-  --> tests/oz_abi.rs:96:9
-   |
-96 |         other => panic!("expected Delegated, got {other:?}"),
-   |         ^^^^^ help: try: `other @ Signer::External(..)`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
-   = note: `-W clippy::match-wildcard-for-single-variants` implied by `-W clippy::pedantic`
-   = help: to override `-W clippy::pedantic` add `#[allow(clippy::match_wildcard_for_single_variants)]`
+warning: casting `u32` to `u8` may truncate the value
+   --> tests/oz_abi.rs:236:18
+    |
+236 |         let hi = (raw[i] as char).to_digit(16).expect("hex") as u8;
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_possible_truncation
+    = note: `-W clippy::cast-possible-truncation` implied by `-W clippy::pedantic`
+    = help: to override `-W clippy::pedantic` add `#[allow(clippy::cast_possible_truncation)]`
+help: ... or use `try_from` and handle the error accordingly
+    |
+236 -         let hi = (raw[i] as char).to_digit(16).expect("hex") as u8;
+236 +         let hi = u8::try_from((raw[i] as char).to_digit(16).expect("hex"));
+    |
 
+warning: item in documentation is missing backticks
+  --> tests/enforce_state.rs:97:35
+   |
+97 | /// the doc entry, which is below TTL_BUMP_THRESHOLD.
+   |                                   ^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+   = note: `-W clippy::doc-markdown` implied by `-W clippy::pedantic`
+   = help: to override `-W clippy::pedantic` add `#[allow(clippy::doc_markdown)]`
+help: try
+   |
+97 - /// the doc entry, which is below TTL_BUMP_THRESHOLD.
+97 + /// the doc entry, which is below `TTL_BUMP_THRESHOLD`.
+   |
+
+warning: casting `u32` to `u8` may truncate the value
+   --> tests/oz_abi.rs:237:18
+    |
+237 |         let lo = (raw[i + 1] as char).to_digit(16).expect("hex") as u8;
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_possible_truncation
+help: ... or use `try_from` and handle the error accordingly
+    |
+237 -         let lo = (raw[i + 1] as char).to_digit(16).expect("hex") as u8;
+237 +         let lo = u8::try_from((raw[i + 1] as char).to_digit(16).expect("hex"));
+    |
+
+warning: `policy-interpreter` (test "oz_integration") generated 2 warnings (run `cargo clippy --fix --test "oz_integration" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 2 suggestions)
 warning: item in documentation is missing backticks
  --> tests/install_enforce.rs:3:35
   |
@@ -1694,53 +1772,7 @@ help: try
 26 + /// never sees the `ScVal` type directly.
    |
 
-warning: `policy-interpreter` (test "oz_integration") generated 2 warnings (run `cargo clippy --fix --test "oz_integration" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 2 suggestions)
-warning: casting `u32` to `u8` may truncate the value
-   --> tests/oz_abi.rs:236:18
-    |
-236 |         let hi = (raw[i] as char).to_digit(16).expect("hex") as u8;
-    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_possible_truncation
-    = note: `-W clippy::cast-possible-truncation` implied by `-W clippy::pedantic`
-    = help: to override `-W clippy::pedantic` add `#[allow(clippy::cast_possible_truncation)]`
-help: ... or use `try_from` and handle the error accordingly
-    |
-236 -         let hi = (raw[i] as char).to_digit(16).expect("hex") as u8;
-236 +         let hi = u8::try_from((raw[i] as char).to_digit(16).expect("hex"));
-    |
-
-warning: casting `u32` to `u8` may truncate the value
-   --> tests/oz_abi.rs:237:18
-    |
-237 |         let lo = (raw[i + 1] as char).to_digit(16).expect("hex") as u8;
-    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_possible_truncation
-help: ... or use `try_from` and handle the error accordingly
-    |
-237 -         let lo = (raw[i + 1] as char).to_digit(16).expect("hex") as u8;
-237 +         let lo = u8::try_from((raw[i + 1] as char).to_digit(16).expect("hex"));
-    |
-
-warning: item in documentation is missing backticks
-  --> tests/enforce_state.rs:97:35
-   |
-97 | /// the doc entry, which is below TTL_BUMP_THRESHOLD.
-   |                                   ^^^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-   = note: `-W clippy::doc-markdown` implied by `-W clippy::pedantic`
-   = help: to override `-W clippy::pedantic` add `#[allow(clippy::doc_markdown)]`
-help: try
-   |
-97 - /// the doc entry, which is below TTL_BUMP_THRESHOLD.
-97 + /// the doc entry, which is below `TTL_BUMP_THRESHOLD`.
-   |
-
-warning: `policy-interpreter` (test "conformance") generated 20 warnings (run `cargo clippy --fix --test "conformance" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 15 suggestions)
+warning: `policy-interpreter` (test "conformance") generated 24 warnings (run `cargo clippy --fix --test "conformance" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 17 suggestions)
 warning: redundant clone
    --> tests/enforce_state.rs:237:42
     |
@@ -1865,6 +1897,7 @@ help: make the function `const`
 79 | const fn dummy_address() -> ScVal {
    | +++++
 
+warning: `policy-interpreter` (test "oz_abi") generated 7 warnings (run `cargo clippy --fix --test "oz_abi" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 4 suggestions)
 warning: redundant clone
    --> tests/install_enforce.rs:226:76
     |
@@ -1893,7 +1926,7 @@ note: this value is dropped without further use
     |                                                                  ^^^^^^^^
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
 
-warning: `policy-interpreter` (test "oz_abi") generated 7 warnings (run `cargo clippy --fix --test "oz_abi" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 4 suggestions)
+warning: `policy-interpreter` (test "enforce_state") generated 8 warnings (run `cargo clippy --fix --test "enforce_state" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)
 warning: redundant clone
    --> tests/install_enforce.rs:290:77
     |
@@ -1920,6 +1953,5 @@ note: this value is dropped without further use
     |                                                             ^^^^^^^^
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
 
-warning: `policy-interpreter` (test "enforce_state") generated 8 warnings (run `cargo clippy --fix --test "enforce_state" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)
 warning: `policy-interpreter` (test "install_enforce") generated 8 warnings (run `cargo clippy --fix --test "install_enforce" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.74s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.75s

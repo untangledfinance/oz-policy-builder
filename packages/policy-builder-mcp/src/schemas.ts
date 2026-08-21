@@ -85,6 +85,18 @@ export const SynthesizePolicyToolShape = {
   explain: z.boolean().optional(),
 } as const
 
+/** `simulate_policy` and `verify_policy` share their input: the predicate tree
+ *  (from `synthesize_policy` under `explain`) plus the recording it was
+ *  synthesised from. */
+const PolicyCheckToolShape = {
+  predicate: PredicateNodeSchema,
+  permitTx: RecordedTransactionSchema,
+  validUntilLedger: z.number().int().positive().optional(),
+} as const
+
+export const SimulatePolicyToolShape = { ...PolicyCheckToolShape } as const
+export const VerifyPolicyToolShape = { ...PolicyCheckToolShape } as const
+
 export type {
   GetInterpreterInfoInput,
   InstallPolicyInput,

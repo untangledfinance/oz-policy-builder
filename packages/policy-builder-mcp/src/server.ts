@@ -17,7 +17,9 @@ import {
   runInstallPolicy,
   runRecordTransaction,
   runRevokePolicy,
+  runSimulatePolicy,
   runSynthesizePolicy,
+  runVerifyPolicy,
 } from '@crediolabs/policy-synth/run'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
@@ -26,7 +28,9 @@ import {
   InstallPolicyToolShape,
   RecordTransactionToolShape,
   RevokePolicyToolShape,
+  SimulatePolicyToolShape,
   SynthesizePolicyToolShape,
+  VerifyPolicyToolShape,
 } from './schemas.ts'
 import { mcpResultFromCore } from './tools/result.ts'
 
@@ -63,6 +67,20 @@ export function registerTools(server: McpServer): void {
     'Synthesize a ProposedPolicy from a RecordedTransaction (`source: recording`).',
     SynthesizePolicyToolShape,
     (args) => runSynthesizePolicy(args).then(toCallToolResult)
+  )
+
+  server.tool(
+    'simulate_policy',
+    'Evaluate a predicate against one recorded call and report permit/deny with the deny reason. The evaluator is a second implementation of the on-chain semantics, cross-checked against the Rust interpreter by the conformance harness, so a verdict here is a claim about what the contract would do. Pass the `predicate` returned by `synthesize_policy` under `explain`.',
+    SimulatePolicyToolShape,
+    (args) => toCallToolResult(runSimulatePolicy(args))
+  )
+
+  server.tool(
+    'verify_policy',
+    'Check a predicate against the transaction it was synthesised from, plus a generated deny case per dimension. Reports `ok` only when the permit case is permitted AND every deny case is denied - a denied permit case means the policy is too strict, a permitted deny case means it is too loose.',
+    VerifyPolicyToolShape,
+    (args) => toCallToolResult(runVerifyPolicy(args))
   )
 
   server.tool(

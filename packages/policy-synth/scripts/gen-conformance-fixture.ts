@@ -28,10 +28,10 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { argv, exit } from 'node:process'
 import { Address, xdr } from '@stellar/stellar-sdk'
+import { generateCases } from '../src/simulate/deny-cases.ts'
+import { type EvalContext, evaluate } from '../src/simulate/evaluate.ts'
 import { synthesizeFromRecording } from '../src/synth/synthesize-from-recording.ts'
 import type { PredicateNode, RecordedTransaction, ScVal } from '../src/types.ts'
-import { generateCases } from './conformance/deny-cases.ts'
-import { type EvalContext, evaluate } from './conformance/evaluate.ts'
 
 // ---------------------------------------------------------------------------
 // Inputs
