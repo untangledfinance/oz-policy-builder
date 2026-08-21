@@ -19,15 +19,14 @@
 
 import { describe, expect, it } from 'bun:test'
 import {
+  Account,
   Address,
   BASE_FEE,
-  Contract,
   Keypair,
   nativeToScVal,
   Operation,
   type rpc,
   SorobanDataBuilder,
-  scValToBigInt,
   scValToNative,
   Transaction,
   TransactionBuilder,
@@ -206,10 +205,6 @@ function mockRpcClient(
     },
   }
 }
-
-// Local import to avoid pulling the class from the SDK module path
-// at the top of the file.
-import { Account } from '@stellar/stellar-sdk'
 
 // ---- schema rejection ----
 
@@ -584,11 +579,6 @@ describe('getInterpreterInfo pure logic', () => {
     expect(info.liveMatchesPin).toBe(false)
   })
 })
-
-// Suppress unused-import warning for scValToBigInt (kept available for
-// potential future use in this test file).
-void scValToBigInt
-void Contract
 
 // ---- Pinning gates (default-deny) ----
 //

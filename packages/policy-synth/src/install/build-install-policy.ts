@@ -19,6 +19,7 @@
 
 import { createHash } from 'node:crypto'
 import {
+  Account,
   Address,
   BASE_FEE,
   Contract,
@@ -639,7 +640,3 @@ function decodeInstallCallDescribes(
     installNonce,
   }
 }
-
-// Local re-import to avoid pulling the class from the SDK module path
-// at the top of the file (avoids the unused-import lint).
-import { Account } from '@stellar/stellar-sdk'

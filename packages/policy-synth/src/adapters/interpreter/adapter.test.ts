@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'bun:test'
 import { createHash } from 'node:crypto'
 import { Address } from '@stellar/stellar-sdk'
+import { decodePredicate } from '../../predicate/decode.ts'
 import { encodePredicate } from '../../predicate/encode.ts'
 import type { ComposedRule } from '../../synth/compose-from-recording.ts'
 import { GRAMMAR_VERSION, type PredicateLeaf, type PredicateNode } from '../../types.ts'
@@ -25,16 +26,6 @@ const SMART_ACCOUNT = Address.contract(Buffer.alloc(32, 0xee)).toString()
 const CONFIG = {
   installNonce: 1,
   smartAccountAddress: SMART_ACCOUNT,
-}
-
-function decodePredicate(encodedPredicate: string): PredicateNode {
-  // Re-decode the canonical ScVal to assert the shape the future Rust
-  // interpreter will parse. Used only for structural assertions; the canonical
-  // hash is the contract.
-  void encodedPredicate
-  // The test predicates below are asserted structurally by shape + hash, not by
-  // re-decoding the ScVal (re-decoding is covered by encode.test.ts).
-  return { op: 'eq', left: { kind: 'now' }, right: { kind: 'now' } }
 }
 
 function leafCallFn(): PredicateLeaf {
@@ -107,8 +98,11 @@ describe('interpreter adapter - Blend claim walkthrough', () => {
     const expected = encodePredicate(expectedNode)
     expect(doc.encodedPredicate).toBe(expected.encodedPredicate)
     expect(doc.predicateHash).toBe(expected.predicateHash)
-    // touch decodePredicate to silence unused-warning
-    expect(decodePredicate(doc.encodedPredicate).op).toBe('eq')
+    // The canonical bytes must round-trip. Compare bytes, not trees: the
+    // encoder sorts children, so decoding returns the same predicate with the
+    // two `eq` conjuncts in canonical rather than hand-written order.
+    const decoded = decodePredicate(doc.encodedPredicate)
+    expect(encodePredicate(decoded).encodedPredicate).toBe(doc.encodedPredicate)
   })
 })
 

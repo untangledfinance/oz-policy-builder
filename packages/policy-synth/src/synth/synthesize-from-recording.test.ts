@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
-import { Address, xdr } from '@stellar/stellar-sdk'
+import { Address } from '@stellar/stellar-sdk'
+import { decodePredicate } from '../predicate/decode.ts'
 import {
   GRAMMAR_VERSION,
   type ParseConfidence,
-  type PredicateLeaf,
   type PredicateNode,
   type RecordedTransaction,
 } from '../types.ts'
@@ -838,160 +838,13 @@ function _childHasEqFn(fn: string): (node: PredicateNode) => boolean {
     node.right.value === fn
 }
 
-/** Re-decode a base64 XDR predicate blob to its top-level `and` shape so the
- *  tests can assert structural properties (child count, presence of a
- *  specific conjunct) without parsing the full canonical ScVal tree. The
- *  interpreter encodes `and` as `ScVal::Vec([symbol("and"), ScVal::Vec(children)])`
- *  with children sorted by their canonical XDR bytes - we rely on the
- *  sort key being stable but assert only on presence + count, not order. */
+/** Re-decode a predicate blob to its top-level `and` so the tests can assert
+ *  structural properties (child count, presence of a given conjunct). The
+ *  encoder sorts `and` children by canonical XDR bytes, so assert on presence
+ *  and count rather than order. */
 function decodeTopLevelAnd(encodedPredicate: string): PredicateNode | null {
-  const scval = xdr.ScVal.fromXDR(Buffer.from(encodedPredicate, 'base64'))
-  if (scval.switch().name !== 'scvVec') return null
-  const vec = scval.vec()
-  if (!vec || vec.length < 2) return null
-  const head = vec[0]
-  if (head?.switch().name !== 'scvSymbol') return null
-  const tag = head.sym().toString()
-  if (tag !== 'and') return null
-  const inner = vec[1]
-  if (inner?.switch().name !== 'scvVec') return null
-  const childVec = inner.vec()
-  if (!childVec) return null
-  // Recursively decode. We only care about the structural shape for tests;
-  // the canonical hash remains the contract. Using the SDK ensures the same
-  // encoding round-trips through the model's evaluator.
-  const children: PredicateNode[] = []
-  for (const c of childVec) {
-    const decoded = decodeScValToPredicate(c)
-    if (decoded) children.push(decoded)
-  }
-  return { op: 'and', children }
-}
-
-function decodeScValToPredicate(scval: xdr.ScVal): PredicateNode | null {
-  if (scval.switch().name !== 'scvVec') return null
-  const vec = scval.vec()
-  if (!vec || vec.length < 2) return null
-  const head = vec[0]
-  if (head?.switch().name !== 'scvSymbol') return null
-  const tag = head.sym().toString()
-  switch (tag) {
-    case 'and':
-    case 'or': {
-      const inner = vec[1]
-      if (inner?.switch().name !== 'scvVec') return null
-      const innerVec = inner.vec()
-      if (!innerVec) return null
-      const children: PredicateNode[] = []
-      for (const c of innerVec) {
-        const d = decodeScValToPredicate(c)
-        if (d) children.push(d)
-      }
-      return { op: tag, children }
-    }
-    case 'not': {
-      const child = vec[1]
-      if (!child) return null
-      const d = decodeScValToPredicate(child)
-      if (!d) return null
-      return { op: 'not', child: d }
-    }
-    case 'eq':
-    case 'lt':
-    case 'lte':
-    case 'gt':
-    case 'gte': {
-      const left = vec[1]
-      const right = vec[2]
-      if (!left || !right) return null
-      const leftLeaf = decodeScValToLeaf(left)
-      const rightLeaf = decodeScValToLeaf(right)
-      if (!leftLeaf || !rightLeaf) return null
-      return { op: tag, left: leftLeaf, right: rightLeaf }
-    }
-    case 'in': {
-      const needle = vec[1]
-      const haystack = vec[2]
-      if (!needle || !haystack) return null
-      const needleLeaf = decodeScValToLeaf(needle)
-      if (!needleLeaf) return null
-      if (haystack.switch().name !== 'scvVec') return null
-      const haystackVec = haystack.vec()
-      if (!haystackVec) return null
-      const haystackLeaves: PredicateLeaf[] = []
-      for (const h of haystackVec) {
-        const l = decodeScValToLeaf(h)
-        if (l) haystackLeaves.push(l)
-      }
-      return { op: 'in', needle: needleLeaf, haystack: haystackLeaves }
-    }
-    default:
-      return null
-  }
-}
-
-function decodeScValToLeaf(scval: xdr.ScVal): PredicateLeaf | null {
-  switch (scval.switch().name) {
-    case 'scvSymbol': {
-      const s = scval.sym().toString()
-      switch (s) {
-        case 'call_contract':
-          return { kind: 'call_contract' }
-        case 'call_fn':
-          return { kind: 'call_fn' }
-        case 'now':
-          return { kind: 'now' }
-      }
-      // Symbols that aren't a tag are literal_symbols at the top level.
-      return { kind: 'literal_symbol', value: s }
-    }
-    case 'scvVec': {
-      const vec = scval.vec()
-      if (!vec || vec.length === 0) return null
-      const head = vec[0]
-      if (head?.switch().name !== 'scvSymbol') {
-        // bare vec with no head tag = literal_vec of elements
-        const elements: PredicateLeaf[] = []
-        for (const el of vec) {
-          const e = decodeScValToLeaf(el)
-          if (e) elements.push(e)
-        }
-        return { kind: 'literal_vec', elements }
-      }
-      const tag = head.sym().toString()
-      switch (tag) {
-        case 'call_contract':
-          return { kind: 'call_contract' }
-        case 'call_fn':
-          return { kind: 'call_fn' }
-        case 'call_arg': {
-          const idx = vec[1]
-          if (idx?.switch().name !== 'scvU32') return null
-          return { kind: 'call_arg', index: idx.u32() }
-        }
-        default:
-          return null
-      }
-    }
-    case 'scvAddress':
-      return { kind: 'literal_address', value: Address.fromScAddress(scval.address()).toString() }
-    case 'scvU32': {
-      return { kind: 'literal_u32', value: scval.u32() }
-    }
-    case 'scvI128': {
-      // Int128Parts {hi, lo}: value = hi*2^64 + lo
-      const parts = scval.i128()
-      const hi = BigInt(parts.hi().toString()) << 64n
-      const lo = BigInt(parts.lo().toString())
-      return { kind: 'literal_i128', value: (hi + lo).toString() }
-    }
-    case 'scvU64':
-      return { kind: 'literal_u64', value: scval.u64().toString() }
-    case 'scvBytes':
-      return { kind: 'literal_bytes', value: scval.bytes().toString('hex') }
-    default:
-      return null
-  }
+  const node = decodePredicate(encodedPredicate)
+  return node.op === 'and' ? node : null
 }
 
 // === item 2: amount validation at the synthesizeFromRecording boundary ===

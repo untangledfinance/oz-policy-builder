@@ -520,7 +520,7 @@ describe('encodePredicate - structures the contract refuses at decode', () => {
         op: 'and',
         children: [
           { op: 'eq', left: leafSelector(), right: leafSelector() },
-          { op: 'or', children: [] },
+          { op: 'and', children: [] },
         ],
       })
     ).toThrow()

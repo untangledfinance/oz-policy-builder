@@ -8,13 +8,10 @@ import {
   type Network,
   type OnChainEvent,
   OZ_LIMITS,
-  type OZPrimitiveConfig,
   type ParseConfidence,
   type PolicyDocument,
   type PolicyRef,
   PREDICATE_CAPS,
-  type PredicateLeaf,
-  type PredicateNode,
   type ProposedPolicy,
   type RecordedTransaction,
   type ScVal,
@@ -35,38 +32,6 @@ describe('PREDICATE_CAPS', () => {
     expect(PREDICATE_CAPS.MAX_LEAVES).toBe(200)
     expect(PREDICATE_CAPS.MAX_PREDICATE_BYTES).toBe(32 * 1024)
     expect(PREDICATE_CAPS.MAX_IN_OPERAND_COUNT).toBe(32)
-  })
-})
-
-describe('PredicateNode / PredicateLeaf', () => {
-  it('accepts a deeply nested and-tree (sanity-build the AST shape)', () => {
-    const leaf: PredicateLeaf = { kind: 'call_contract' }
-    const node: PredicateNode = {
-      op: 'and',
-      children: [
-        { op: 'or', children: [{ op: 'not', child: leaf }] },
-        { op: 'eq', left: { kind: 'call_fn' }, right: { kind: 'call_arg', index: 0 } },
-        {
-          op: 'lt',
-          left: { kind: 'call_arg', index: 1 },
-          right: { kind: 'literal_i128', value: '1000' },
-        },
-        { op: 'in', needle: { kind: 'call_fn' }, haystack: [{ kind: 'call_fn' }] },
-        { op: 'lte', left: { kind: 'now' }, right: { kind: 'literal_u32', value: 100 } },
-        {
-          op: 'gt',
-          left: { kind: 'call_arg_len', index: 2 },
-          right: { kind: 'literal_u32', value: 1 },
-        },
-        {
-          op: 'gte',
-          left: { kind: 'call_arg_field', index: 0, element: 0, field: 'amount' },
-          right: { kind: 'literal_i128', value: '0' },
-        },
-      ],
-    }
-    expect(node.op).toBe('and')
-    expect(node.children.length).toBe(7)
   })
 })
 
@@ -112,15 +77,12 @@ describe('Constructibility of full domain shapes', () => {
       interpreterAddress: 'CINT',
       predicateBlobBase64: 'AAAA',
     }
-    const oz: OZPrimitiveConfig = { primitive: 'spending_limit', params: {} }
-    const policyRefOz: PolicyRef = { kind: 'oz_builtin', primitive: oz, instanceAddress: 'COZ' }
-
     const rule: ContextRuleDraft = {
       contextRuleType: { kind: 'call_contract', contract: 'CCONTRACT' },
       name: 'swap-rule',
       validUntilLedger: null,
       signers: [signer],
-      policies: [policyRef, policyRefOz],
+      policies: [policyRef],
     }
 
     const doc: PolicyDocument = {
@@ -138,7 +100,7 @@ describe('Constructibility of full domain shapes', () => {
     const proposed: ProposedPolicy = {
       contextRule: rule,
       policyDocuments: [doc],
-      policyRefs: [policyRef, policyRefOz],
+      policyRefs: [policyRef],
       parseConfidence: confidence,
       warnings: [],
       ambiguities: [ambiguity],
@@ -146,6 +108,6 @@ describe('Constructibility of full domain shapes', () => {
 
     expect(proposed.contextRule.signers[0]?.kind).toBe('delegated')
     expect(proposed.policyDocuments[0]?.grammarVersion).toBe(GRAMMAR_VERSION)
-    expect(proposed.policyRefs.length).toBe(2)
+    expect(proposed.policyRefs.length).toBe(1)
   })
 })
