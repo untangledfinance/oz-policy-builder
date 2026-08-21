@@ -4,6 +4,7 @@ import {
   type AmbiguityPrompt,
   type ContextRuleDraft,
   type ContractInvocation,
+  GRAMMAR_VERSION,
   type Network,
   type OnChainEvent,
   OZ_LIMITS,
@@ -123,7 +124,7 @@ describe('Constructibility of full domain shapes', () => {
     }
 
     const doc: PolicyDocument = {
-      grammarVersion: 2,
+      grammarVersion: GRAMMAR_VERSION,
       installNonce: 1,
       encodedPredicate: 'AAAA',
       predicateHash: 'a'.repeat(64),
@@ -144,7 +145,7 @@ describe('Constructibility of full domain shapes', () => {
     }
 
     expect(proposed.contextRule.signers[0]?.kind).toBe('delegated')
-    expect(proposed.policyDocuments[0]?.grammarVersion).toBe(2)
+    expect(proposed.policyDocuments[0]?.grammarVersion).toBe(GRAMMAR_VERSION)
     expect(proposed.policyRefs.length).toBe(2)
   })
 })

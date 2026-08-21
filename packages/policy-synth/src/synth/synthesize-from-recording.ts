@@ -15,6 +15,7 @@ import {
 import type { ToolError, ToolResponse } from '../errors.ts'
 import { encodePredicate } from '../predicate/encode.ts'
 import {
+  GRAMMAR_VERSION,
   type Network,
   OZ_LIMITS,
   type PredicateNode,
@@ -248,10 +249,6 @@ function synthesizeFromRecordingInner(
   let interpreterPolicyDocument: ProposedPolicy['policyDocuments'][number] | null = null
   let interpreterPolicyRef: ProposedPolicy['policyRefs'][number] | null = null
   let interpreterContextRule: ProposedPolicy['contextRule'] | null = null
-  // Cross-layer L3: declared OUTSIDE the `if (interpreterOpts)` block so the
-  // warnings folded into `proposed.warnings[]` (which lives after that block)
-  // can read it. The block assigns it; the default is empty.
-  const permitCtxWarnings: string[] = []
 
   if (interpreterOpts) {
     const interpreterConfig: InterpreterAdapterConfig = {
@@ -405,7 +402,7 @@ function synthesizeFromRecordingInner(
 
     if (testSeam !== undefined) {
       interpreterPolicyDocument = {
-        grammarVersion: 2,
+        grammarVersion: GRAMMAR_VERSION,
         installNonce: interpreterOpts.installNonce ?? 1,
         encodedPredicate,
         predicateHash,
@@ -497,7 +494,6 @@ function synthesizeFromRecordingInner(
     warnings: [
       ...zeroPolicyWarning,
       ...composed.warnings.map((w) => `${UNCOVERED_PREFIX}${w}`),
-      ...permitCtxWarnings,
     ],
     ambiguities: mergeAmbiguities(composed.ambiguities, scope.ambiguities),
   }

@@ -15,15 +15,16 @@
 import type { ToolError } from '../../errors.ts'
 import { encodePredicate } from '../../predicate/encode.ts'
 import type { ComposedRule } from '../../synth/compose-from-recording.ts'
-import type {
-  ContextRuleDraft,
-  Network,
-  ParseConfidence,
-  PolicyDocument,
-  PolicyRef,
-  PredicateLeaf,
-  PredicateNode,
-  ProposedPolicy,
+import {
+  type ContextRuleDraft,
+  GRAMMAR_VERSION,
+  type Network,
+  type ParseConfidence,
+  type PolicyDocument,
+  type PolicyRef,
+  type PredicateLeaf,
+  type PredicateNode,
+  type ProposedPolicy,
 } from '../../types.ts'
 
 /** [VERIFY] NOT a real deployed address. The interpreter is a per-network
@@ -86,7 +87,7 @@ export function compileInterpreterPolicy(
 
   const { encodedPredicate, predicateHash } = encodePredicate(lowered.predicate)
   const policyDocument: PolicyDocument = {
-    grammarVersion: 2,
+    grammarVersion: GRAMMAR_VERSION,
     installNonce: config.installNonce,
     encodedPredicate,
     predicateHash,

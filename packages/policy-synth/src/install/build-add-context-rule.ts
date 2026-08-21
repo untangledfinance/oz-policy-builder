@@ -50,7 +50,13 @@
 import { createHash } from 'node:crypto'
 import { Address, xdr } from '@stellar/stellar-sdk'
 import type { ToolError } from '../errors.ts'
-import { type ContextRuleDraft, OZ_LIMITS, type PolicyRef, type SignerDraft } from '../types.ts'
+import {
+  type ContextRuleDraft,
+  GRAMMAR_VERSION,
+  OZ_LIMITS,
+  type PolicyRef,
+  type SignerDraft,
+} from '../types.ts'
 
 /** Inputs for `buildAddContextRuleArgs`. The fields are the ones the contract
  *  validates at install; everything else is downstream. */
@@ -76,7 +82,7 @@ export interface BuildAddContextRuleArgs {
   grammarVersion?: number
 }
 
-export const DEFAULT_GRAMMAR_VERSION = 3 as const
+export const DEFAULT_GRAMMAR_VERSION = GRAMMAR_VERSION
 
 /** The verb `add_context_rule` takes on the wire. */
 export const ADD_CONTEXT_RULE_SYMBOL = 'add_context_rule' as const

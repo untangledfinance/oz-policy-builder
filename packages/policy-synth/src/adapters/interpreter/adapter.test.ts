@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto'
 import { Address } from '@stellar/stellar-sdk'
 import { encodePredicate } from '../../predicate/encode.ts'
 import type { ComposedRule } from '../../synth/compose-from-recording.ts'
-import type { PredicateLeaf, PredicateNode } from '../../types.ts'
+import { GRAMMAR_VERSION, type PredicateLeaf, type PredicateNode } from '../../types.ts'
 import { compileInterpreterPolicy } from './adapter.ts'
 
 // Deterministic Stellar strkeys (checksum-validated by the SDK).
@@ -68,7 +68,7 @@ describe('interpreter adapter - Blend claim walkthrough', () => {
     const doc = proposed.policyDocuments[0]
     expect(doc).toBeDefined()
     if (!doc) return
-    expect(doc.grammarVersion).toBe(2)
+    expect(doc.grammarVersion).toBe(GRAMMAR_VERSION)
     expect(doc.installNonce).toBe(1)
     expect(typeof doc.encodedPredicate).toBe('string')
     expect(doc.predicateHash).toMatch(/^[0-9a-f]{64}$/)

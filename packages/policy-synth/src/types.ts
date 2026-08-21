@@ -101,11 +101,17 @@ export type PolicyRef = {
   predicateBlobBase64: string
 }
 
+/** Grammar version baked into the interpreter wasm, mirroring `SELF_VERSION` in
+ *  `contracts/policy-interpreter/src/version.rs`. Every value this package puts on
+ *  the wire derives from here; `grammar-version-parity.test.ts` pins it to the
+ *  contract so a skew cannot pass a green test run. */
+export const GRAMMAR_VERSION = 3 as const
+
 /** A serialised predicate document stored against a (smart_account, rule_id) pair. */
 export interface PolicyDocument {
   /** Grammar version baked into the interpreter wasm. Fail-closed strict match at install
    *  AND at evaluate (defence in depth). NOT the per-edit revision. */
-  grammarVersion: 2
+  grammarVersion: typeof GRAMMAR_VERSION
   /** Per-rule install nonce. Must equal the interpreter's stored nonce + 1 at install.
    *  First install accepts nonce = 1 with stored nonce = 0. Re-install is structurally
    *  possible by incrementing the nonce; uninstall removes the nonce with state so a

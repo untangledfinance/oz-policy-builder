@@ -14,6 +14,7 @@
 
 import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
+import { GRAMMAR_VERSION } from '../types.ts'
 import { DEFAULT_GRAMMAR_VERSION } from './build-add-context-rule.ts'
 
 /** Parse `pub const SELF_VERSION: u32 = N;` out of the contract source. */
@@ -28,7 +29,16 @@ function selfVersionFromContract(): number {
 }
 
 describe('grammar version parity (TS builder vs Rust contract)', () => {
-  it('DEFAULT_GRAMMAR_VERSION equals the contract SELF_VERSION', () => {
-    expect(DEFAULT_GRAMMAR_VERSION).toBe(selfVersionFromContract())
+  it('GRAMMAR_VERSION equals the contract SELF_VERSION', () => {
+    expect(GRAMMAR_VERSION).toBe(selfVersionFromContract())
+  })
+
+  // `PolicyDocument.grammarVersion` is the version the synthesiser advertises on
+  // the document it proposes; `DEFAULT_GRAMMAR_VERSION` is what the XDR builder
+  // puts on the wire. Both must derive from the one constant or they can skew
+  // apart again - which is what happened when the contract went to 3 and the
+  // proposed documents carried on advertising 2.
+  it('DEFAULT_GRAMMAR_VERSION derives from the same constant', () => {
+    expect(DEFAULT_GRAMMAR_VERSION).toBe(GRAMMAR_VERSION)
   })
 })

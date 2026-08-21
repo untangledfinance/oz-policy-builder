@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'bun:test'
 import { Address, xdr } from '@stellar/stellar-sdk'
-import type {
-  ParseConfidence,
-  PredicateLeaf,
-  PredicateNode,
-  RecordedTransaction,
+import {
+  GRAMMAR_VERSION,
+  type ParseConfidence,
+  type PredicateLeaf,
+  type PredicateNode,
+  type RecordedTransaction,
 } from '../types.ts'
 // `__TestInterpreterAdapterOptions` is the PRIVATE test-only extension of
 // `InterpreterAdapterOptions`. It carries the `__testPredicateNode` seam that
@@ -527,7 +528,7 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     const doc = res.data.policyDocuments[0]
     expect(doc).toBeDefined()
     if (!doc) return
-    expect(doc.grammarVersion).toBe(2)
+    expect(doc.grammarVersion).toBe(GRAMMAR_VERSION)
     expect(typeof doc.encodedPredicate).toBe('string')
     expect(doc.predicateHash).toMatch(/^[0-9a-f]{64}$/)
     // The interpreter ref + the OZ spending_limit ref both install against the
