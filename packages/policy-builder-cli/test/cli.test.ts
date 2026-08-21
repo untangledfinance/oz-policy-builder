@@ -123,7 +123,7 @@ const BLEND_CLAIM_FIXTURE = {
 }
 
 // Per-claim frequency bound: at most 1 claim per 24h, with an explicit expiry.
-const BLEND_RESPONSES = { windowSeconds: 86400, invocationLimit: 1, validUntilLedger: 200000000 }
+const BLEND_RESPONSES = { windowSeconds: 86400, validUntilLedger: 200000000 }
 
 // The C... smart account the interpreter policy is installed against (distinct
 // from the pool contract, so it is not a self-call). Placeholder 0xee account.
@@ -475,29 +475,6 @@ describe('policy-builder CLI', () => {
       '--json',
     ])
     expect(r.exitCode).not.toBe(0)
-  })
-
-  it('synthesize --invocation-limit <n> reaches the core (no error on valid positive int)', async () => {
-    // invocationLimit is consumed by the interpreter path; the recording path
-    // surfaces it through the policy warnings / userResponses plumbing. We
-    // assert the flag does not break the OZ-only synthesis (exit 0 + ok:true).
-    const r = await runCli([
-      'synthesize',
-      '--smart-account',
-      SMART_ACCOUNT,
-      '--recorded-tx',
-      resolve(FIXTURES, 'recorded-tx.json'),
-      '--network',
-      'mainnet',
-      '--limit-amount',
-      '1000000000',
-      '--invocation-limit',
-      '5',
-      '--json',
-    ])
-    expect(r.exitCode).toBe(0)
-    const parsed = JSON.parse(r.stdout.trim()) as { ok: boolean }
-    expect(parsed.ok).toBe(true)
   })
 
   it('synthesize --limit-amount <bad non-i128> exits non-zero with CLI_MISSING_ARG', async () => {

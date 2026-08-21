@@ -59,7 +59,7 @@ Every log in [`evidence/`](evidence/) was produced against this tree.
 | Log | Command | Result |
 | --- | --- | --- |
 | [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 94 + 6 tests pass |
-| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 603 pass, 1 skip, 0 fail |
+| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 602 pass, 1 skip, 0 fail |
 | [`cargo-audit.log`](evidence/cargo-audit.log) | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | [`bun-audit.log`](evidence/bun-audit.log) | `bun audit` | 0 vulnerabilities |
 | [`clippy-pedantic.log`](evidence/clippy-pedantic.log) | `clippy -W pedantic -W nursery` | 228 style warnings, 0 security |
@@ -88,7 +88,7 @@ Scout run that does not do this as unrun.
 | Contract | `cargo build --release --target wasm32v1-none` | builds |
 | Off-chain | `bunx biome check .` | 110 files, 0 findings |
 | Off-chain | `bun run typecheck` | clean |
-| Off-chain | `bun test` | 603 passed, 1 skipped, 0 failed |
+| Off-chain | `bun test` | 602 passed, 1 skipped, 0 failed |
 | Off-chain | `bun audit` | 0 vulnerabilities |
 
 Both gates run in CI on every push, including the two dependency-advisory

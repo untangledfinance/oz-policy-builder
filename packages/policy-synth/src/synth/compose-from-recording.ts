@@ -45,21 +45,13 @@ import type { IntentFacts } from './lower.ts'
  *  synth might apply must come from here - the recording supplies observed
  *  amounts (offered only as suggestions), never authorised ceilings. */
 export interface ComposeUserResponses {
-  /** Rolling window (seconds) for a spending_limit / invocation_count. */
+  /** Rolling window (seconds) for a spend cap. */
   windowSeconds?: number
   /** OZ context-rule expiry (ledger sequence). */
   validUntilLedger?: number
   /** Per-window spend ceiling (i128 decimal string). Required to emit a
    *  spending_limit; absent -> AMOUNT_BOUND_MISSING. */
   limitAmount?: string
-  /** Max invocations per window for an incoming-only flow. Required to emit an
-   *  invocation_count bound; absent -> FREQUENCY_BOUND_MISSING. */
-  /** Minimum acceptable swap output per unit of input, as `num/den` (e.g.
-   *  `{num:'95',den:'100'}` = accept losing at most 5%). REQUIRED to be
-   *  supplied by the caller: never derived from the recording (the recorded
-   *  in/out pair is a price at one moment, and freezing it as policy would
-   *  deny ordinary trades as soon as the rate moves). Absent, no floor is
-   *  emitted and the existing unbounded-output warning stands. */
   /** Recipient allowlist for a swap (call_arg[3] on SoroSwap's
    *  swap_exact_tokens_for_tokens). When supplied, REPLACES the default pin.
    *  Absent -> recipient is pinned to the recorded value (mirroring SEP-41)

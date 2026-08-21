@@ -129,7 +129,10 @@ export const ComposeUserResponsesSchema = z
       .array(z.string().refine(isStellarAddress, 'must be a Stellar address (G... or C...)'))
       .optional(),
   })
-  .passthrough()
+  // Strict, not passthrough: a response key the synthesiser no longer reads
+  // (or a typo) would otherwise be accepted in silence, and the caller would
+  // believe they had answered a question that is still open.
+  .strict()
 
 export const RecordTransactionInputSchema = z
   .object({
