@@ -203,12 +203,14 @@ export const PredicateLeafSchema: z.ZodType<unknown> = z.lazy(() =>
       field: z.string(),
     }),
     z.object({ kind: z.literal('now') }),
-    // Leaves outside the contract's grammar (`valid_until`, `amount`,
-    // `window_spent`, `invocation_count_in_window`) are NOT accepted here.
-    // The encoder throws on them, so admitting them at the schema would let a
-    // hand-crafted payload through only to fail at encode time. A policy's
-    // expiry is carried at the install layer (MandateSpec + validUntilLedger),
-    // and value or frequency caps belong to the OZ primitives.
+    // Leaves outside the contract's grammar (`valid_until`, `amount`) are NOT
+    // accepted here. The encoder throws on them, so admitting them at the
+    // schema would let a hand-crafted payload through only to fail at encode
+    // time. A policy's expiry is carried at the install layer (the context
+    // rule's own `validUntilLedger`), and a cap on value moved is expressed as
+    // a comparison against the call's amount argument. Call frequency has no
+    // representation: counting prior calls needs state the interpreter does
+    // not keep.
     z.object({ kind: z.literal('literal_address'), value: z.string() }),
     z.object({ kind: z.literal('literal_i128'), value: z.string().regex(/^-?[0-9]+$/) }),
     z.object({ kind: z.literal('literal_symbol'), value: z.string() }),
@@ -296,7 +298,7 @@ export type VerifyPolicyInput = z.infer<typeof VerifyPolicyInputSchema>
 // optional `grammar_version()` RPC call to check whether the deployed contract
 // matches the pin. A mismatch is worth MORE than a fabricated audit field.
 //
-// All three input schemas live BELOW the MandateSpecSchemaForRule declaration
+// All three input schemas live BELOW the ContextRuleDraftSchema declaration
 // so the const reference there is not in the temporal dead zone (no JS hoisting
 // for `const`).
 
@@ -309,7 +311,7 @@ export type VerifyPolicyInput = z.infer<typeof VerifyPolicyInputSchema>
 const MAX_SIGNERS_PER_RULE = 15
 const MAX_POLICIES_PER_RULE = 5
 
-const MandateSpecSchemaForRule = z
+const ContextRuleDraftSchema = z
   .object({
     contextRuleType: z.discriminatedUnion('kind', [
       z.object({ kind: z.literal('default') }),
@@ -448,7 +450,7 @@ export const InstallPolicyInputSchema = z
      *  pin and RPC pin do not move by themselves). */
     network: NetworkSchema.optional(),
     /** The proposed rule draft. Mirrors the core `ContextRuleDraft` shape. */
-    rule: MandateSpecSchemaForRule,
+    rule: ContextRuleDraftSchema,
     /** Per-rule install nonce; 1 for a fresh install. */
     installNonce: z.number().int().positive(),
     /** Optional RPC URL override. Defaults to the pinned RPC for the
