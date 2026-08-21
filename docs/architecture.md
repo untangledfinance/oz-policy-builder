@@ -137,8 +137,9 @@ Boolean combinators: `and`, `or`, `not`. Terminal nodes are a comparison
 | `now` | ledger sequence |
 
 Every selector is answered from the authorised call alone. That is the whole
-shape of the grammar: **the interpreter reads no mutable state and writes
-none**, so a permit costs no ledger writes and no counter exists that could
+shape of the grammar: **at `enforce` the interpreter writes nothing and reads
+only the two entries install fixed** - the predicate document and the signer-set
+hash - so a permit costs no ledger writes and no counter exists that could
 drift, replay, or archive out from under a rule.
 
 Several selector symbols are deliberately **not** in the grammar and are

@@ -4,8 +4,8 @@
 **Date:** 2026-08-21
 **Methodology:** Stellar STRIDE Threat Modeling, "STRIDE Threat Model Template" and "Threat Modeling How-To Guide" pages at `developers.stellar.org/docs/build/security-docs/threat-modeling`. The Stellar template's four-question scaffold (What are we working on / What can go wrong / What are we going to do about it / Did we do a good job) and its STRIDE-per-element format are followed.
 **Repo:** `untangledfinance/oz-policy-builder`
-**Grammar version:** 2 (`SELF_VERSION`, `src/version.rs`)
-**Subject tree:** 1,225 nSLOC of on-chain production code.
+**Grammar version:** 3 (`SELF_VERSION`, `src/version.rs`)
+**Subject tree:** 842 nSLOC of on-chain production code.
 
 ---
 
@@ -26,9 +26,13 @@
 
 ### The property the model turns on
 
-**`enforce` is stateless.** It reads no mutable state and writes none, and it
-makes no cross-contract calls. Every predicate leaf is answered from the
-authorized call itself.
+**`enforce` writes nothing, and reads only what install fixed.** Its only two
+storage reads are the predicate document and the signer-set hash, both written
+at install and removed at uninstall, so neither changes while a rule is live. It
+performs no writes, reads no clock, and makes no cross-contract calls. Every
+predicate leaf is answered from the authorized call itself. That is the sense in
+which "stateless" is used below: not that the contract stores nothing, but that
+`enforce` mutates nothing and depends on nothing that can move underneath it.
 
 That removes several threat classes from the model outright rather than
 mitigating them. There is no external price feed, so no feed spoofing,
@@ -97,7 +101,7 @@ cross-contract calls during `enforce`.
 - **One immutable, audited, versioned predicate interpreter; policy is DATA.** A bad policy is a user error (a known-acceptable risk); a bad interpreter is a systemic failure. The interpreter is the audit-once surface; policy bytes are untrusted data validated fail-closed at install and re-validated at every `enforce`.
 - **Wallet signature is the user-confirmation step.** The MCP server holds no key material; `install_policy` returns an unsigned XDR. The server is stateless, so there is no two-call handshake.
 - **v1 scope is one authorised call.** `extract_call` handles `Context::Contract` only and panics `MissingState` on any other context shape.
-- **Stateless enforcement is a security property.** The contract cannot be attacked through state it does not keep.
+- **Write-free enforcement is a security property.** `enforce` keeps no counter, accumulator or nonce of its own, so there is nothing at evaluation time to corrupt, replay, exhaust or let archive out from under a rule.
 
 ---
 
@@ -417,8 +421,8 @@ dominating guard.
 - **R-1 and R-2 are structural**, inherited from the account model rather than
   from this contract, and no amount of interpreter work closes them.
 - **The off-chain half carries more risk than the on-chain half.** The contract
-  is 1,225 nSLOC and stateless; the toolchain is 6,305 nSLOC and holds the
-  default-deny install gates.
+  is 842 nSLOC and write-free at `enforce`; the toolchain is 6,056 nSLOC and
+  holds the default-deny install gates.
 - **Test files are outside the typecheck scope.** `tsconfig` excludes
   `src/**/*.test.ts`, so `bun run typecheck` never sees them and a test can
   reference a symbol that no longer exists while typecheck stays green. The

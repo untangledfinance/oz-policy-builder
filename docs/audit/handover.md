@@ -33,9 +33,17 @@ Per-file size of the audited contract. Test modules (`dsl_tests.rs`,
 
 Two properties worth knowing before reading the code:
 
-- **`enforce` is stateless.** It reads no mutable state and writes none. Every
-  predicate leaf is answered from the authorised call itself. Verified by
-  inspection of every storage and cross-contract call site in `lib.rs`.
+- **`enforce` writes nothing, and reads only what install fixed.** It makes
+  exactly two storage reads - the predicate document and the signer-set hash,
+  both under the `(smart_account, rule_id)` key - and performs no writes at all:
+  no `set`, `update`, `extend_ttl` or `remove` appears anywhere in the function.
+  Both entries are written at install and removed at uninstall, so neither can
+  change while a rule is live. There is no clock read and no cross-contract
+  call; every predicate leaf is answered from the authorised call itself.
+  Verified by inspection of every storage and cross-contract call site in
+  `lib.rs`. "Stateless" is used in that sense throughout this document: an
+  auditor reading `enforce` will find those two `storage().persistent().get()`
+  calls, and they are the whole of it.
 - **The grammar is closed and small.** Four node kinds (`and`, `eq`, `lte`,
   `in`), five selector leaves, five literal leaves. Every predicate the
   synthesiser can emit is some combination of those; there is no operator whose
@@ -160,10 +168,24 @@ saturating instead of argued about; the run is now clean of Criticals.
 nothing about the contract currently deployed, and is only worth commissioning
 if this tree is what ships.
 
+The gap is concrete, not theoretical. This tree is grammar version 3
+(`SELF_VERSION`), and the builder stamps 3 into every `install_params`, but
+`PINNED_INTERPRETER_GRAMMAR_VERSION` is 1 - the pinned deployment speaks the
+version-1 grammar. `install_policy` also refuses any interpreter address other
+than the pinned one unless `allowUnpinnedInterpreter` is set. So an install
+built from this tree against its own pin is refused on chain with error 200
+`VersionMismatch`: shipping it requires deploying a version-3 interpreter to a
+NEW address and re-pinning the address, wasm hash and version together. Nothing
+currently fails when they disagree - `grammar-version-parity.test.ts` compares
+the builder against `version.rs` in the same tree, and
+`get_interpreter_info --verifyLive` compares the deployed contract against the
+pin. Neither compares the builder against the pin, which is the pair that is
+actually skewed.
+
 Two further caveats, both carried in the threat model rather than only here:
 
 - The off-chain half carries more risk than the on-chain half. The contract is
-  842 nSLOC and stateless; the toolchain is 6056 nSLOC and holds the
+  842 nSLOC and write-free at `enforce`; the toolchain is 6056 nSLOC and holds the
   default-deny install gates. This figure previously read 7340, and almost all
   of that gap is a restatement rather than deleted code: the old number could
   not be reproduced from the definition printed beside it, whereas the counter
