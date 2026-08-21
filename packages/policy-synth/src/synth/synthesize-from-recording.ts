@@ -4,7 +4,7 @@
 // via the same `PolicyIR` + adapter pair used by the deterministic Mandate path.
 // Flow: validate -> parseConfidence gate -> lower -> decideScope -> composeFromRecording
 // -> OZ compile -> (opt-in) interpreter compile + self-verify + minimise -> merge.
-// Same (tx, opts, ozConfig) -> byte-identical ProposedPolicy (no randomness, clock, globals).
+// Same (tx, opts) -> byte-identical ProposedPolicy (no randomness, clock, globals).
 
 import type { InterpreterAdapterConfig } from '../adapters/interpreter/adapter.ts'
 import {
@@ -12,12 +12,9 @@ import {
   lowerRuleToPredicate,
   PLACEHOLDER_INTERPRETER_ADDRESS,
 } from '../adapters/interpreter/adapter.ts'
-import type { OzAdapterConfig } from '../adapters/oz/adapter.ts'
-import { createOzAdapter } from '../adapters/oz/adapter.ts'
 import type { ToolError, ToolResponse } from '../errors.ts'
 import { encodePredicate } from '../predicate/encode.ts'
 import {
-  type ContractInvocation,
   MAX_SCVAL_CLONE_DEPTH,
   type Network,
   OZ_LIMITS,
@@ -26,17 +23,12 @@ import {
   type RecordedTransaction,
   SOROBAN_LIMITS,
 } from '../types.ts'
-import type { SimulationResult } from '../verify/envelope.ts'
 import {
   type ComposeOptions,
   type ComposeUserResponses,
   composeFromRecording,
 } from './compose-from-recording.ts'
-import { generateCases, ORIGINAL_DIMENSIONS } from './deny-cases.ts'
-import { type EvalContext, evaluate } from './evaluate.ts'
-import { runHarness } from './harness.ts'
 import { lower } from './lower.ts'
-import { minimize } from './minimize.ts'
 import { decideScope, type ScopeDecision } from './scope.ts'
 
 const UNCOVERED_PREFIX = 'Not covered by OZ built-in primitives: '
@@ -77,8 +69,7 @@ export interface SynthesizeFromRecordingOptions {
 
 export function synthesizeFromRecording(
   tx: RecordedTransaction,
-  opts: SynthesizeFromRecordingOptions,
-  ozConfig: OzAdapterConfig
+  opts: SynthesizeFromRecordingOptions
 ): ToolResponse<ProposedPolicy> & {
   /** Present iff `opts.explain === true` and the synthesis succeeded. The
    *  `predicateTree` is the exact in-memory `PredicateNode` (canonical
@@ -92,16 +83,15 @@ export function synthesizeFromRecording(
    *  builds a minimal honest SimulationResult downstream. */
   explain?: {
     predicateTree: PredicateNode | null
-    simulation: SimulationResult
   }
 } {
   // Convert any ToolError-shaped throw (object with a string `.code`) to a
   // structured `{ok:false, error}`; anything else is rethrown so genuine bugs
   // crash instead of being silently swallowed. Wraps the entire body so
-  // cap errors (PREDICATE_TOO_DEEP, TOO_MANY_LEAVES) and cloneScVal depth
+  // cap errors (PREDICATE_TOO_DEEP, TOO_MANY_LEAVES) and encoder depth
   // throws surface as structured ToolErrors rather than RangeErrors.
   try {
-    return synthesizeFromRecordingInner(tx, opts, ozConfig)
+    return synthesizeFromRecordingInner(tx, opts)
   } catch (e) {
     if (isToolErrorShape(e)) {
       return {
@@ -140,12 +130,10 @@ function throwToolError(code: ToolError['code'], message: string): never {
 
 function synthesizeFromRecordingInner(
   tx: RecordedTransaction,
-  opts: SynthesizeFromRecordingOptions,
-  ozConfig: OzAdapterConfig
+  opts: SynthesizeFromRecordingOptions
 ): ToolResponse<ProposedPolicy> & {
   explain?: {
     predicateTree: PredicateNode | null
-    simulation: SimulationResult
   }
 } {
   // 0. validate inputs (fail closed - never synthesize from garbage).
@@ -254,24 +242,6 @@ function synthesizeFromRecordingInner(
   // self-verify verdict (built from the SAME runHarness + evaluate that gated
   // the synthesis, not a parallel simulation).
   let explain: PredicateNode | null = null
-  let explainSim: SimulationResult | null = null
-
-  // 5. OZ compile (always runs).
-  const ozAdapter = createOzAdapter(ozConfig)
-  const compileRes = ozAdapter.compile(composed.ir)
-
-  if (!compileRes.proposed) {
-    return {
-      ok: false,
-      error: {
-        code: 'SYNTHESIS_ERROR',
-        message: `recording lowered to no installable OZ policy: ${compileRes.uncovered.join('; ')}`,
-        severity: 'error',
-        retryable: false,
-        details: { uncovered: compileRes.uncovered },
-      },
-    }
-  }
 
   // 6. Interpreter compile (opt-in; fail-closed when the user routed real
   //    restrictions to the interpreter).
@@ -279,10 +249,11 @@ function synthesizeFromRecordingInner(
 
   let interpreterPolicyDocument: ProposedPolicy['policyDocuments'][number] | null = null
   let interpreterPolicyRef: ProposedPolicy['policyRefs'][number] | null = null
+  let interpreterContextRule: ProposedPolicy['contextRule'] | null = null
   // Cross-layer L3: declared OUTSIDE the `if (interpreterOpts)` block so the
   // warnings folded into `proposed.warnings[]` (which lives after that block)
   // can read it. The block assigns it; the default is empty.
-  let permitCtxWarnings: string[] = []
+  const permitCtxWarnings: string[] = []
 
   if (interpreterOpts) {
     const interpreterConfig: InterpreterAdapterConfig = {
@@ -361,6 +332,7 @@ function synthesizeFromRecordingInner(
 
       interpreterPolicyDocument = interpreterRes.proposed.policyDocuments[0] ?? null
       interpreterPolicyRef = interpreterRes.proposed.policyRefs[0] ?? null
+      interpreterContextRule = interpreterRes.proposed.contextRule
       if (!interpreterPolicyDocument || !interpreterPolicyRef) {
         return {
           ok: false,
@@ -423,75 +395,14 @@ function synthesizeFromRecordingInner(
         },
       }
     }
-    // Cross-layer L3: warnings collected from `buildPermitContext` (currently
-    // policy's `warnings[]` so the caller sees them on the success envelope.
-    const permitCtxResult = buildPermitContext(tx, scope, topLevel, opts.userResponses)
-    const permitCtx = permitCtxResult.ctx
-    permitCtxWarnings = permitCtxResult.warnings
+    const finalPredicate: PredicateNode = startingPredicate
 
-    const finalPredicate: PredicateNode =
-      startingPredicate.op === 'and'
-        ? minimize(startingPredicate, permitCtx, ORIGINAL_DIMENSIONS)
-        : startingPredicate
-
-    const harnessCases = generateCases(finalPredicate, permitCtx, ORIGINAL_DIMENSIONS)
-    const harnessResult = runHarness(finalPredicate, harnessCases)
-    if (!harnessResult.ok) {
-      return {
-        ok: false,
-        error: {
-          code: 'DENY_CASE_FAILURE',
-          message: `self-verify harness failed for the interpreter predicate (${harnessResult.failures.length} failure(s))`,
-          severity: 'error',
-          retryable: false,
-          details: { failures: harnessResult.failures },
-        },
-      }
-    }
-    const evalResult = evaluate(finalPredicate, permitCtx)
-    if (!evalResult.permit) {
-      return {
-        ok: false,
-        error: {
-          code: 'DENY_CASE_FAILURE',
-          message: `intended recorded call was denied by the interpreter predicate: ${evalResult.reason}`,
-          severity: 'error',
-          retryable: false,
-          details: { reason: evalResult.reason },
-        },
-      }
-    }
-
-    // --explain capture: quote the SAME verdict that gated the synthesis.
-    // Re-evaluate each deny case to surface its concrete reason (the harness
-    // only records whether the got-matches-expected boundary held).
     if (opts.explain) {
       explain = finalPredicate
-      const evaluatedCases: SimulationResult['evaluatedCases'] = [
-        {
-          dimension: 'permit',
-          outcome: evalResult.permit ? 'permit' : 'deny',
-          reason: 'matches recorded call',
-        },
-      ]
-      for (const deny of harnessCases.denies) {
-        const r = evaluate(finalPredicate, deny.ctx)
-        evaluatedCases.push({
-          dimension: deny.dimension,
-          outcome: r.permit ? 'permit' : 'deny',
-          reason: r.permit ? 'no matching deny' : r.reason,
-        })
-      }
-      explainSim = {
-        permit: { tx: 'permit' },
-        evaluatedCases,
-        backend: 'ts-model',
-        simulatorVersion: 'ts-model-1.0.0',
-      }
     }
 
-    // 6c. Re-encode the (possibly minimised) PredicateNode and stamp the
-    //     canonical bytes back onto the PolicyDocument + PolicyRef. Cap breaches
+    // 6c. Encode the PredicateNode and stamp the canonical bytes back onto
+    //     the PolicyDocument + PolicyRef. Cap breaches
     //     (PREDICATE_TOO_DEEP, TOO_MANY_LEAVES) throw ToolError-shaped errors;
     //     the outer envelope converts them to structured `{ok:false, error}`.
     const { encodedPredicate, predicateHash } = encodePredicate(finalPredicate)
@@ -534,19 +445,25 @@ function synthesizeFromRecordingInner(
     }
   }
 
-  // When the interpreter succeeds, OZ-side `uncovered` warnings that the
-  // interpreter actually lowered are misleading: OZ really did not lower them,
-  // but the interpreter did. Drop those so the user-facing warnings reflect
-  // what is still UN-enforced, not what OZ alone could not do.
-  const ozUncovered = interpreterPolicyRef
-    ? compileRes.uncovered.filter((u) => !INTERPRETER_COVERED_OZ_PATTERN.test(u))
-    : compileRes.uncovered
+  // 7. Assemble the ProposedPolicy. The interpreter is the only backend, so
+  //    its context rule and policy ref are the whole policy. Without interpreter
+  //    options nothing installable was produced, which is an error rather than
+  //    an empty-but-successful policy.
+  if (!interpreterContextRule || !interpreterPolicyRef) {
+    return {
+      ok: false,
+      error: {
+        code: 'SYNTHESIS_ERROR',
+        message:
+          'no installable policy was synthesised: supply `interpreter` options (a smart account address) so the recording can be lowered to an interpreter predicate',
+        severity: 'error',
+        retryable: false,
+        details: { uncovered: composed.warnings },
+      },
+    }
+  }
 
-  // 7. Merge into the OZ-shaped ProposedPolicy.
-  const ozRefs = compileRes.proposed.policyRefs
-  const mergedRefs: ProposedPolicy['policyRefs'] = []
-  if (interpreterPolicyRef) mergedRefs.push(interpreterPolicyRef)
-  for (const r of ozRefs) mergedRefs.push(r)
+  const mergedRefs: ProposedPolicy['policyRefs'] = [interpreterPolicyRef]
 
   if (mergedRefs.length > OZ_LIMITS.maxPoliciesPerRule) {
     return {
@@ -561,7 +478,7 @@ function synthesizeFromRecordingInner(
   }
 
   const mergedContextRule = {
-    ...compileRes.proposed.contextRule,
+    ...interpreterContextRule,
     policies: mergedRefs,
   }
 
@@ -583,7 +500,6 @@ function synthesizeFromRecordingInner(
     parseConfidence: { ...tx.parseConfidence },
     warnings: [
       ...zeroPolicyWarning,
-      ...ozUncovered.map((u) => `${UNCOVERED_PREFIX}${u}`),
       ...composed.warnings.map((w) => `${UNCOVERED_PREFIX}${w}`),
       ...permitCtxWarnings,
     ],
@@ -596,47 +512,16 @@ function synthesizeFromRecordingInner(
   const envelope: ToolResponse<ProposedPolicy> & {
     explain?: {
       predicateTree: PredicateNode | null
-      simulation: SimulationResult
     }
   } = { ok: true, data: proposed }
   if (opts.explain) {
-    if (explainSim) {
-      envelope.explain = { predicateTree: explain, simulation: explainSim }
-    } else {
-      envelope.explain = {
-        predicateTree: null,
-        simulation: {
-          permit: {
-            tx: 'deny',
-            reason: 'No self-verification was performed (interpreter adapter was not engaged)',
-          },
-          evaluatedCases: [],
-          backend: 'ts-model',
-          simulatorVersion: 'not-run',
-        },
-      }
-    }
+    envelope.explain = { predicateTree: explain }
   }
   return envelope
 }
 
 export { throwToolError }
 
-/** OZ-side `uncovered` warning patterns the interpreter adapter actually lowers
- *  when wired in. When the interpreter adapter succeeds, matching entries are
- *  dropped from the OZ uncovered list so user-facing warnings reflect what is
- *  still UN-enforced rather than what OZ alone could not do. Matches the
- *  exact descriptor strings the OZ adapter emits (see `src/adapters/oz/adapter.ts`
- *  `describeCondition` / `describeSelector`). */
-const INTERPRETER_COVERED_OZ_PATTERN =
-  /^per-method scoping to|^value allowlist on arg|^exact ordered sequence on arg|^invocation-count window|^spending_limit on token .+ needs a CallContract context scoped to that token/
-
-/** Reject non-sane inputs before any policy is synthesized. windowSeconds /
- *  validUntilLedger / invocationLimit must be positive integers; limitAmount a
- *  positive i128 decimal string; network mainnet|testnet. When the interpreter
- *  adapter is opted in, `smartAccountAddress` must be a C... contract address
- *  (the on-chain policy-bound account, NOT the G... source account),
- *  tighten-only vs the wasm defaults. */
 function validateOptions(opts: SynthesizeFromRecordingOptions): ToolError | null {
   if (opts.network !== 'mainnet' && opts.network !== 'testnet') {
     return synthesisError(`network must be 'mainnet' or 'testnet', got: ${String(opts.network)}`)
@@ -755,70 +640,7 @@ function mergeAmbiguities(
   return out
 }
 
-/** Build the permit `EvalContext` the self-verify harness drives. Shape
- *  mirrors the intended recorded call so:
- *    - `evaluate(predicate, ctx).permit === true` must hold (a failure
- *      surfaces as DENY_CASE_FAILURE).
- *    - `generateCases(predicate, ctx)` produces a deny battery that reflects
- *      the actual recorded move (real amount, args, window start).
- *  Amounts are summed per-token over all movements (BigInt, never lossy). */
-function buildPermitContext(
-  tx: RecordedTransaction,
-  scope: Extract<ScopeDecision, { kind: 'call_contract' }>,
-  topLevel: ContractInvocation,
-  userResponses: ComposeUserResponses | undefined
-): { ctx: EvalContext; warnings: string[] } {
-  const amountByToken: Record<string, string> = {}
-  const totals = new Map<string, bigint>()
-  for (const m of tx.tokenMovements) {
-    const current = totals.get(m.token) ?? 0n
-    totals.set(m.token, current + BigInt(m.amount))
-  }
-  for (const [token, total] of totals) {
-    amountByToken[token] = total.toString()
-  }
-
-  const warnings: string[] = []
-
-  const ctx: EvalContext = {
-    contract: scope.contract,
-    fn: topLevel.fn,
-    args: topLevel.args.map(cloneScVal),
-    atLedger: tx.ledgerSequence,
-    nowSeconds: tx.fetchedAt,
-    amountByToken,
-    windowSpentByToken: {},
-  }
-  if (userResponses?.validUntilLedger !== undefined) {
-    ctx.validUntilLedger = userResponses.validUntilLedger
-  }
-  return { ctx, warnings }
-}
-
-function cloneScVal(
-  value: { type: string; value: unknown },
-  depth = 0
-): ContractInvocation['args'][number] {
-  // Clone top-level shells so the harness can mutate deny cases without
-  // aliasing the recorded call. Recursion bounded by MAX_SCVAL_CLONE_DEPTH so
-  // a hand-crafted nested-vec cannot RangeError the JS stack; the over-depth
-  // branch throws a ToolError-shaped error the envelope converts to
-  // `{ok:false, error}`.
-  if (value.type === 'vec') {
-    if (depth >= MAX_SCVAL_CLONE_DEPTH) {
-      throw cloneDepthError(value)
-    }
-    return {
-      type: 'vec',
-      value: (value.value as ContractInvocation['args'][number][]).map((v) =>
-        cloneScVal(v, depth + 1)
-      ),
-    }
-  }
-  return { ...value } as ContractInvocation['args'][number]
-}
-
-function cloneDepthError(value: { type: string; value: unknown }): never {
+function _cloneDepthError(value: { type: string; value: unknown }): never {
   const err = new Error(
     `ScVal clone depth exceeds MAX_SCVAL_CLONE_DEPTH (${MAX_SCVAL_CLONE_DEPTH})`
   ) as Error & { code: string; severity: string; retryable: boolean; depthContext: unknown }

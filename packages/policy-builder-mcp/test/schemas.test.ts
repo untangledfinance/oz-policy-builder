@@ -73,19 +73,6 @@ describe('RecordTransactionInputSchema', () => {
 })
 
 describe('SynthesizePolicyInputSchema (discriminated union)', () => {
-  it('accepts a mandate source with a minimal MandateSpec', () => {
-    const r = SynthesizePolicyInputSchema.safeParse({
-      source: 'mandate',
-      mandate: {
-        chain: 'stellar',
-        contract: 'CTOKEN',
-        method: 'transfer',
-        spendingLimit: { token: 'CTOKEN', limit: '5000000', windowSeconds: 2592000 },
-      },
-    })
-    expect(r.success).toBe(true)
-  })
-
   it('accepts a recording source with a recordedTx', () => {
     const r = SynthesizePolicyInputSchema.safeParse({
       source: 'recording',
@@ -240,18 +227,6 @@ describe('SynthesizePolicyInputSchema (discriminated union)', () => {
     const r = SynthesizePolicyInputSchema.safeParse({
       source: 'codegen',
       mandate: { chain: 'stellar', contract: 'C' },
-    })
-    expect(r.success).toBe(false)
-  })
-
-  it('rejects a mandate with a non-positive windowSeconds', () => {
-    const r = SynthesizePolicyInputSchema.safeParse({
-      source: 'mandate',
-      mandate: {
-        chain: 'stellar',
-        contract: 'C',
-        spendingLimit: { token: 'C', limit: '1', windowSeconds: 0 },
-      },
     })
     expect(r.success).toBe(false)
   })

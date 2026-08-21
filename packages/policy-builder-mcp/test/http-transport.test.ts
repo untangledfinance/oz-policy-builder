@@ -63,7 +63,7 @@ async function waitForPort(port: number, maxMs = 3000): Promise<void> {
 }
 
 describe('MCP HTTP transport', () => {
-  it('initializes, lists exactly 4 tools, and invokes synthesize_policy', async () => {
+  it('initializes, lists exactly 5 tools, and invokes synthesize_policy', async () => {
     const port = 3891
     const running = await startHttpServer({ port, host: '127.0.0.1' })
     try {
@@ -91,46 +91,36 @@ describe('MCP HTTP transport', () => {
         params: {},
       })
       const listResult = list.json?.result as { tools: Array<{ name: string }> } | undefined
-      expect(listResult?.tools.length).toBe(7)
+      expect(listResult?.tools.length).toBe(5)
       const names = listResult?.tools.map((t) => t.name).sort()
       expect(names).toEqual([
         'get_interpreter_info',
         'install_policy',
         'record_transaction',
         'revoke_policy',
-        'simulate_policy',
         'synthesize_policy',
-        'verify_policy',
       ])
 
-      // 3. tools/call - synthesize_policy with a mandate
+      // 3. tools/call - synthesize_policy reaches the engine over the wire and
+      //    returns its structured envelope (here a validation error, since the
+      //    recording is absent).
       const call = await postJson(port, {
         jsonrpc: '2.0',
         id: 3,
         method: 'tools/call',
         params: {
           name: 'synthesize_policy',
-          arguments: {
-            source: 'mandate',
-            mandate: {
-              chain: 'stellar',
-              contract: 'CTOKEN',
-              spendingLimit: { token: 'CTOKEN', limit: '1', windowSeconds: 60 },
-            },
-          },
+          arguments: { source: 'recording', network: 'mainnet' },
         },
       })
       const callResult = call.json?.result as ToolCallResult | undefined
       expect(callResult).toBeDefined()
-      expect(callResult?.isError).toBeFalsy()
+      expect(callResult?.isError).toBe(true)
       const block = callResult?.content?.[0]
       expect(block?.type).toBe('text')
       if (block?.type === 'text') {
-        const parsed = JSON.parse(block.text as string) as {
-          contextRule: { contextRuleType: { kind: string } }
-          policyRefs: Array<{ kind: string }>
-        }
-        expect(parsed.contextRule.contextRuleType.kind).toBe('call_contract')
+        const parsed = JSON.parse(block.text as string) as { code: string; severity: string }
+        expect(parsed.severity).toBe('error')
       }
     } finally {
       await running.close()

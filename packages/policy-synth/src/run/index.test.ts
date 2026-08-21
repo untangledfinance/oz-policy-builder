@@ -9,14 +9,7 @@
 import { describe, expect, it } from 'bun:test'
 import { Keypair } from '@stellar/stellar-sdk'
 import type { PredicateNode, RecordedTransaction } from '../types.ts'
-import {
-  caughtError,
-  runGetInterpreterInfo,
-  runInstallPolicy,
-  runSimulatePolicy,
-  runSynthesizePolicy,
-  runVerifyPolicy,
-} from './index.ts'
+import { caughtError, runGetInterpreterInfo, runInstallPolicy } from './index.ts'
 import { PINNED_INTERPRETER_TESTNET_ADDRESS } from './schemas.ts'
 
 describe('caughtError envelope (non-Error throw path)', () => {
@@ -146,11 +139,11 @@ describe('caughtError envelope (non-Error throw path)', () => {
 // good payload.
 // ---------------------------------------------------------------------------
 
-const SMART_ACCOUNT = 'CDEG66TYZB2RTKRSIEA4UTFMRXOYESCEQUKWS7R2JN357PJDSY272PFK'
+const _SMART_ACCOUNT = 'CDEG66TYZB2RTKRSIEA4UTFMRXOYESCEQUKWS7R2JN357PJDSY272PFK'
 const TOKEN = 'CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75'
 const OWNER = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVON'
 
-const SAMPLE_PREDICATE: PredicateNode = {
+const _SAMPLE_PREDICATE: PredicateNode = {
   op: 'and',
   children: [
     {
@@ -198,103 +191,6 @@ function recordedTx(): RecordedTransaction {
   }
 }
 
-describe('runSimulatePolicy - envelope', () => {
-  it('returns {ok:true} on a valid predicate + permitTx', async () => {
-    const res = await runSimulatePolicy({ predicate: SAMPLE_PREDICATE, permitTx: recordedTx() })
-    expect(res.ok).toBe(true)
-    if (!res.ok) return
-    expect(res.data.permit).toEqual({ tx: 'permit' })
-    expect(res.data.backend).toBe('ts-model')
-  })
-
-  it('accepts a null predicate (OZ-only policy)', async () => {
-    const res = await runSimulatePolicy({ predicate: null, permitTx: recordedTx() })
-    expect(res.ok).toBe(true)
-  })
-
-  it('returns {ok:false} with SIMULATION_ERROR on a malformed predicate', async () => {
-    const res = await runSimulatePolicy({
-      // The schema rejects this BEFORE the engine ever sees it; the
-      // wrapper converts the failure into a structured ToolError under
-      // the simulate_policy code.
-      predicate: { op: 'xor', children: [] },
-      permitTx: recordedTx(),
-    })
-    expect(res.ok).toBe(false)
-    if (res.ok) return
-    expect(res.error.code).toBe('SIMULATION_ERROR')
-    expect(res.error.message).toContain('simulate_policy')
-    expect(res.error.remediation?.toolCall?.name).toBe('simulate_policy')
-  })
-
-  it('returns {ok:false} with SIMULATION_ERROR when permitTx is missing', async () => {
-    const res = await runSimulatePolicy({ predicate: SAMPLE_PREDICATE })
-    expect(res.ok).toBe(false)
-    if (res.ok) return
-    expect(res.error.code).toBe('SIMULATION_ERROR')
-  })
-})
-
-describe('runVerifyPolicy - envelope', () => {
-  it('returns {ok:true} on a minimal predicate (no over-broad conjuncts)', async () => {
-    const res = await runVerifyPolicy({ predicate: SAMPLE_PREDICATE, permitTx: recordedTx() })
-    expect(res.ok).toBe(true)
-    if (!res.ok) return
-    expect(res.data).toBe(true)
-  })
-
-  it('returns {ok:false} with VERIFICATION_FAILED on an over-broad predicate', async () => {
-    // The minimal predicate PLUS a duplicate `call_fn` conjunct. The
-    // minimizer drops the duplicate (the recorded call already satisfies
-    // ONE `call_fn == transfer` conjunct); the wrapper surfaces
-    // VERIFICATION_FAILED with the dropped constraint in `details`.
-    const overBroad: PredicateNode = {
-      op: 'and',
-      children: [
-        SAMPLE_PREDICATE.children[0] as PredicateNode,
-        SAMPLE_PREDICATE.children[1] as PredicateNode,
-        // Duplicate `call_fn` conjunct - load-bearing-free.
-        {
-          op: 'eq',
-          left: { kind: 'call_fn' },
-          right: { kind: 'literal_symbol', value: 'transfer' },
-        },
-      ],
-    }
-    const res = await runVerifyPolicy({ predicate: overBroad, permitTx: recordedTx() })
-    expect(res.ok).toBe(false)
-    if (res.ok) return
-    expect(res.error.code).toBe('VERIFICATION_FAILED')
-    // The engine surfaces the dropped constraints in details.droppedConstraints.
-    const details = res.error.details as { droppedConstraints?: string[] } | undefined
-    expect(details?.droppedConstraints?.length).toBeGreaterThan(0)
-  })
-
-  it('returns {ok:false} with VERIFICATION_FAILED on a malformed predicate', async () => {
-    const res = await runVerifyPolicy({
-      predicate: { kind: 'call_contract' } as unknown as PredicateNode,
-      permitTx: recordedTx(),
-    })
-    expect(res.ok).toBe(false)
-    if (res.ok) return
-    expect(res.error.code).toBe('VERIFICATION_FAILED')
-    expect(res.error.message).toContain('verify_policy')
-  })
-
-  it('returns {ok:false} with VERIFICATION_FAILED when the predicate is null', async () => {
-    // The schema rejects a null predicate for verify_policy (the engine
-    // requires one); the wrapper surfaces the validation failure under
-    // the verify_policy code.
-    const res = await runVerifyPolicy({
-      predicate: null as unknown as PredicateNode,
-      permitTx: recordedTx(),
-    })
-    expect(res.ok).toBe(false)
-    if (res.ok) return
-    expect(res.error.code).toBe('VERIFICATION_FAILED')
-  })
-})
-
 // The tools were individually correct and still could not be chained: a
 // ProposedPolicy carries `policyDocuments[].encodedPredicate` (ScVal bytes),
 // while simulate/verify want the PredicateNode TREE, and the tree only comes
@@ -308,7 +204,7 @@ describe('runVerifyPolicy - envelope', () => {
 const CHAIN_OWNER = 'GA7QYNF7SOWQ3GLR2BGMZEHXAVIRZA4KVWLTJJFC7MGXUA74P7UJVSGZ'
 const CHAIN_TOKEN = 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA'
 
-function chainRecordedTx(): RecordedTransaction {
+function _chainRecordedTx(): RecordedTransaction {
   return {
     ...recordedTx(),
     signers: [CHAIN_OWNER],
@@ -330,48 +226,6 @@ function chainRecordedTx(): RecordedTransaction {
     ],
   }
 }
-
-describe('synthesize -> simulate/verify chain', () => {
-  it('hands the predicate tree from synthesize into both checks', async () => {
-    const synth = await runSynthesizePolicy({
-      source: 'recording',
-      recordedTx: chainRecordedTx(),
-      network: 'mainnet',
-      // Both are required for a tree to exist: `interpreter` engages the
-      // adapter that builds one, `explain` returns it. Drop either and the
-      // OZ-only path yields `predicateTree: null` and nothing downstream is
-      // provable.
-      interpreter: { smartAccountAddress: SMART_ACCOUNT },
-      explain: true,
-    })
-    expect(synth.ok).toBe(true)
-    const tree = (synth as { explain?: { predicateTree: PredicateNode | null } }).explain
-      ?.predicateTree
-    expect(tree).not.toBeNull()
-    expect(tree).toBeDefined()
-
-    const simulated = await runSimulatePolicy({ predicate: tree, permitTx: chainRecordedTx() })
-    expect(simulated.ok).toBe(true)
-
-    const verified = await runVerifyPolicy({ predicate: tree, permitTx: chainRecordedTx() })
-    expect(verified.ok).toBe(true)
-  })
-
-  it('yields no tree when the interpreter adapter is not engaged', async () => {
-    const synth = await runSynthesizePolicy({
-      source: 'recording',
-      recordedTx: recordedTx(),
-      network: 'mainnet',
-      explain: true,
-    })
-    expect(synth.ok).toBe(true)
-    const explain = (synth as { explain?: { predicateTree: PredicateNode | null } }).explain
-    // Not an error - the OZ-only path has no predicate to explain. Asserted so
-    // the null is understood as the documented outcome rather than a
-    // regression in the chain above.
-    expect(explain?.predicateTree).toBeNull()
-  })
-})
 
 // TS-F3: get_interpreter_info must enforce the RPC pin when verifyLive is
 // true. The live grammar_version() call's answer binds to whichever RPC

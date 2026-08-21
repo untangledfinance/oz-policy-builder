@@ -14,7 +14,7 @@
 ### In scope
 
 - `contracts/policy-interpreter/` - the on-chain Soroban contract that evaluates one predicate per `enforce` call.
-- `packages/policy-synth/` - the off-chain core: IR, predicate encoder/decoder, mandate and recording synthesis, install/revoke/info wrappers, registry, schemas.
+- `packages/policy-synth/` - the off-chain core: IR, predicate encoder/decoder, recording synthesis, install/revoke/info wrappers, registry, schemas.
 - `packages/policy-builder-cli/` - the CLI front-end over the synth core.
 - `packages/policy-builder-mcp/` - the MCP server (stdio and Streamable HTTP transports) and its tool registrations.
 
@@ -51,7 +51,7 @@ The Stellar STRIDE Threat Model Template prescribes a four-question scaffold plu
 |---|---|---|---|
 | C1 | `policy-interpreter` Soroban contract | on-chain | Stores `(predicate_bytes, signers_hash, master_set, nonce)` per rule; evaluates on `enforce`; gatekeeps install, uninstall, rotate. |
 | C2 | OpenZeppelin smart-account contract | on-chain (out of scope but on the call path) | Calls `interpreter.install` / `enforce` / `uninstall` on the user's behalf; produces signed auth trees. |
-| C3 | `policy-synth` core | off-chain (TypeScript) | Synthesises a `ProposedPolicy` from a `MandateSpec` or `RecordedTransaction`; emits canonical ScVal predicate bytes + hash. |
+| C3 | `policy-synth` core | off-chain (TypeScript) | Synthesises a `ProposedPolicy` from a `RecordedTransaction`; emits canonical ScVal predicate bytes + hash. |
 | C4 | `policy-builder-mcp` server | off-chain (TypeScript) | Exposes the policy tools over stdio or Streamable HTTP. |
 | C5 | `policy-builder-cli` | off-chain (TypeScript) | Thin command-line surface over the synth core. No key custody. |
 | C6 | Wallet | user-side | Signs the unsigned XDR the MCP/CLI returns. The wallet signature is the user-confirmation step. |
@@ -110,7 +110,7 @@ What an attacker wants:
 3. **Interpreter immutability.** A future interpreter at a different address cannot authorise against the pinned interpreter; install is refused unless `allowUnpinnedInterpreter: true`.
 4. **Availability of `enforce`.** A DoS on `enforce` bricks the policed account - it falls through to OZ's no-policy rule, which requires all-of-N signers (see Verified Constraints). The interpreter fails CLOSED on every deny code; `panic_with_error!` rolls back the frame.
 5. **Master-set authority.** Whoever passes `require_master` can install, uninstall and rotate. The set is established at install and rotated only by itself.
-6. **Cross-layer integrity: TS encoder vs Rust decoder.** If they diverge, a TS-encoded policy could install cleanly and evaluate differently than the synth's self-verify predicted. The conformance suite is the structural witness.
+6. **Cross-layer integrity: TS encoder vs Rust decoder.** If they diverge, a TS-encoded policy could install cleanly and evaluate differently than the author intended. The conformance suite is the structural witness.
 
 ### Verified constraints the model must respect
 
@@ -137,7 +137,7 @@ flowchart TB
         subgraph PINS["Pinned constants"]
             IP["interpreter pin + RPC pin"]
         end
-        TOOLS["policy tools: record / synthesize / simulate / verify / install / merge / revoke / get_info"]
+        TOOLS["policy tools: record / synthesize / install / revoke / get_info"]
     end
 
     subgraph SYNTH["Off-chain - policy-synth core"]
@@ -145,8 +145,6 @@ flowchart TB
         REG["known-addresses registry"]
         ENC["encodePredicate + caps + validateLeafValues"]
         ADP["IR -> interpreter adapter"]
-        AD2["IR -> OZ built-in adapter"]
-        SIM["simulate + verify harness"]
     end
 
     subgraph ONCH["On-chain - Soroban"]
@@ -154,7 +152,7 @@ flowchart TB
         PI["policy-interpreter wasm - immutable, pinned, stateless at enforce"]
     end
 
-    U -->|"policy intent (MandateSpec)"| TOOLS
+    U -->|"transaction hash or XDR"| TOOLS
     U -->|"tx hash / XDR"| TOOLS
     TOOLS -->|"Validated input"| SYNTH
     SYNTH -->|"encodedPredicate + hash"| TOOLS
@@ -279,18 +277,16 @@ For every element, all six categories are addressed. "Not applicable" rows are k
 | F3-D.1 | DoS | Non-loopback host exposes unauthenticated tools | `host: '0.0.0.0'` exposes the surface | Medium | Medium | Default-deny on non-loopback hosts; explicit `allowExternalHost: true` opt-in; 1 MB body cap enforced by the streaming reader. | The opt-in is auditable. |
 | F3-E.1 | Elevation of privilege | No auth on `/mcp` | Any caller who can reach the port calls the tools | High | High | Default-bind to loopback; no bearer/HMAC exists. A production deployment is expected to gate at a reverse proxy. | Tracked as A-1. |
 
-### Data flow F4 - policy-synth core (mandate/recording -> IR -> predicate bytes)
+### Data flow F4 - policy-synth core (recording -> IR -> predicate bytes)
 
 | ID | Cat | Threat | Attack scenario | Likelihood | Impact | Mitigation | Residual |
 |---|---|---|---|---|---|---|---|
 | F4-S.1 | Spoofing | Caller supplies a placeholder/LLM-seam smart-account marker | `VERIFY-*` / `PLACEHOLDER-*` / `TODO-*` | Low | High | The placeholder prefix is rejected before the C.../56-char check. | None. |
 | F4-T.1 | Tampering | A `literal_bytes` payload with non-hex chars silently becomes empty | `Buffer.from('zz', 'hex')` returns empty | Low | Medium | Strict even-length hex regex at the MCP boundary; `validateLeafValues` inside `encodePredicate`. | None. |
 | F4-T.2 | Tampering | i128 wrapping at encode time | `2^127` overflows | Low | Medium | `scvI128FromDecimal` range-checks; out-of-range values throw at encode time. | None. |
-| F4-R.1 | Repudiation | A constraint that "no longer matters" silently removed by `minimize` | Surface reduced silently | Low | High | `runHarness` exercises deny cases before and after minimize; a constraint whose deny case no longer denies fails the harness. | None. |
-| F4-I.1 | Info disclosure | Mandate lowering routes `recipients` to the wrong argument for non-SEP-41 methods | A path pinned to `in(args[1], recipients)` | Medium | Medium | The schema refines `recipients` to `method in {transfer, mint}`; the determinism is enforced at the boundary. | None. |
 | F4-D.1 | DoS | Predicate depth / leaf count explodes | | Low | Medium | `PREDICATE_CAPS` (depth 5, leaves 200, in-operand 32, 32 KB) enforced at encode and mirrored on the host. | None. |
 | F4-D.2 | DoS | ScVal recursion stack overflow | | Low | Medium | `MAX_SCVAL_DEPTH = MAX_SCVAL_CLONE_DEPTH = 30` caps the decoder and the clone paths. | None. |
-| F4-E.1 | Elevation of privilege | A hand-crafted predicate of only literal-vs-literal compares installs and permits everything | Bypass the synth and call `buildAddContextRuleArgs` directly | Low | Critical | The synth's `runHarness` fails such a predicate with `DENY_CASE_FAILURE`, **and** the contract refuses it with 216. Both layers. | None: both layers refuse it. |
+| F4-E.1 | Elevation of privilege | A hand-crafted predicate of only literal-vs-literal compares installs and permits everything | Bypass the synth and call `buildAddContextRuleArgs` directly | Low | Critical | `encodePredicate` refuses a predicate with no selector leaf, and the contract refuses it again at install with 216. | None on chain. The off-chain refusal is a convenience; the contract is the enforcing layer. |
 | F4-E.2 | Elevation of privilege | The off-chain builder emits a `grammar_version` the contract does not speak | Every install fails, or a document is built against the wrong leaf set | Medium | High | `POLICY_INSTALL_PARAM_FIELDS` is the ABI the host unpacks by field count; the version literal is pinned in the `PolicyDocument` type so a skew is a type error at the emitting sites. | A CI test asserts the TS literal equals `SELF_VERSION` parsed from `version.rs`, so a skew fails the build rather than the install. Tracked as R-5. |
 
 ### Element C2 - OpenZeppelin smart-account (out of scope, named with trust assumption)
@@ -323,7 +319,7 @@ What this model assumes and does NOT verify:
 3. **User's own key custody.** A compromised source-account key signs whatever the wallet presents; the contract does not second-guess the signature.
 4. **Soroban SDK 27 cross-contract execution semantics.** The interpreter reads `Context::Contract` only; deeper tree walking is out of scope (modelled as R-1).
 5. **Pinned RPC URLs** - assumed honest; the install/revoke auth digests bind to whichever host answered.
-6. **TS encoder / Rust decoder parity.** The conformance suite pins this. The TS evaluator and the Rust evaluator agree on deny-vs-permit; reason codes are cross-checked by `runHarness`.
+6. **TS encoder / Rust decoder parity.** The conformance suite pins this: the same predicate encodes to the bytes the Rust decoder accepts, and the fixtures are regenerated from a checked-in recording.
 
 ---
 
@@ -347,8 +343,7 @@ These are live. They are not defects to be fixed before audit; they are decision
 |---|---|---|
 | A-1 | MCP HTTP transport has no authentication. | Mitigated by default-loopback binding plus an explicit `allowExternalHost: true` opt-in. A reverse proxy or firewall is the expected deployment-time auth. The server holds no key material, so the worst case is unsigned-XDR generation, not signing. |
 | A-2 | `argument_reorder` excluded from synth deny-case generation. | The Soroban host dispatches by function identity with positional args, so a reordered-argument call is a different call the predicate already fails to match. |
-| A-3 | OZ primitive instance addresses (`spending_limit`, `simple_threshold`, `weighted_threshold`) not pinned in this repo. | They are `VERIFY-oz-*` placeholders in the OZ adapter. A user must source them from the audited OZ Accounts deployment; pinning another project's addresses here would create a false assurance. |
-| A-4 | The audited tree is not the deployed mainnet binary. | The address pinned in `run/schemas.ts` runs a different build, so auditing this tree says nothing about the contract currently deployed. This is only legitimate if this tree is what ships - a governance question, not a technical one. |
+| A-3 | The audited tree is not the deployed mainnet binary. | The address pinned in `run/schemas.ts` runs a different build, so auditing this tree says nothing about the contract currently deployed. This is only legitimate if this tree is what ships - a governance question, not a technical one. |
 
 ### Trust-boundary note: the scope of the on-chain guarantee
 
@@ -362,9 +357,8 @@ The list is exhaustive, and all three concern the fidelity of evaluation rather
 than the adequacy of the policy: a predicate pinning only `call_fn` satisfies
 every one of them and permits that function with any arguments.
 
-Policy adequacy is owned off chain. `runHarness` and the review card test
-whether a policy is tight enough for its purpose, and the person approving the
-wallet signature accepts it.
+Policy adequacy is owned off chain. The review card states, leaf by leaf, what
+the predicate binds, and the person approving the wallet signature accepts it.
 
 ### Where adjacent controls live
 
@@ -390,8 +384,8 @@ operator who needs one sources it there:
 - Each of the contract's five entry points was checked against the dominant
   finding class in the Stellar Security Portal corpus (832 Soroban findings,
   150 critical/high): a privileged entry point missing an authorization check.
-- Deny cases are generated per policy and exercised by `runHarness` before and
-  after minimisation, so a constraint that stops denying fails the harness.
+- The review card is decoded from the final assembled transaction, and
+  `summaryCrossCheck` fails if any predicate leaf is missing from the summary.
 - Grammar parity between the contract and the builder is asserted by a test
   that reads `SELF_VERSION` out of the Rust source.
 - Both gates run in CI on every push, including the two dependency-advisory
@@ -404,7 +398,7 @@ All logs in `docs/audit/evidence/` were produced against this tree:
 | Tool | Result |
 |---|---|
 | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 94 + 6 tests pass |
-| `biome check`, `tsc --noEmit`, `bun test` | clean; 814 pass, 1 skip, 0 fail |
+| `biome check`, `tsc --noEmit`, `bun test` | clean; 603 pass, 1 skip, 0 fail |
 | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | `bun audit` | 0 vulnerabilities |
 | `clippy -W pedantic -W nursery` | 228 style warnings, 0 security |
@@ -418,12 +412,12 @@ dominating guard.
 
 ### Where the model is weakest
 
-- **The audited tree is not the deployed one** (A-4). This is the single most
+- **The audited tree is not the deployed one** (A-3). This is the single most
   important caveat on the whole document.
 - **R-1 and R-2 are structural**, inherited from the account model rather than
   from this contract, and no amount of interpreter work closes them.
 - **The off-chain half carries more risk than the on-chain half.** The contract
-  is 1,225 nSLOC and stateless; the toolchain is 8,101 nSLOC and holds the
+  is 1,225 nSLOC and stateless; the toolchain is 6,352 nSLOC and holds the
   default-deny install gates.
 - **Test files are outside the typecheck scope.** `tsconfig` excludes
   `src/**/*.test.ts`, so `bun run typecheck` never sees them and a test can
@@ -435,7 +429,7 @@ dominating guard.
 
 ### What would raise confidence further
 
-1. Deploy this grammar and re-pin, closing A-4. It is the one item on this list
+1. Deploy this grammar and re-pin, closing A-3. It is the one item on this list
    that this document cannot close by itself.
 2. Bring test files into the typecheck scope, so a stale symbol in a test is a
    type error rather than a runtime failure.

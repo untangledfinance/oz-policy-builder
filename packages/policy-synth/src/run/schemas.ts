@@ -113,53 +113,6 @@ export const RecordedTransactionSchema = z
   })
   .passthrough()
 
-/** MandateSpec mirrors the core MandateSpec. The deterministic Mandate
- *  front-end needs no parseConfidence; the tool adapter injects the full
- *  confidence after synthesis so the orchestrator can compare. */
-export const MandateSpecSchema = z
-  .object({
-    chain: z.literal('stellar'),
-    contract: z.string(),
-    method: z.string().optional(),
-    spendingLimit: z
-      .object({
-        token: z.string(),
-        limit: z.string().regex(/^[0-9]+$/),
-        windowSeconds: z.number().int().positive(),
-      })
-      .optional(),
-    // A threshold of 0 means "0 approvals", which is not a real M-of-N gate.
-    approvalThreshold: z.number().int().positive().optional(),
-    recipients: z.array(z.string()).optional(),
-    expiry: z
-      .object({
-        validUntilLedger: z.number().int().positive().max(U32_MAX).optional(),
-        validUntilUnixSeconds: z.number().int().positive().optional(),
-      })
-      .optional(),
-  })
-  .passthrough()
-  // TS-F4/F6: a `recipients` allowlist is only meaningful against a SEP-41
-  // method whose arg 1 IS the recipient (SAC/SEP-41 `transfer(from, to,
-  // amount)` and SEP-41 `mint(to, amount)`). Without this gate the
-  // `to-ir.ts` lowering pins the allowlist to `RECIPIENT_ARG_INDEX = 1`
-  // for any contract+method, which would let a non-SEP-41 method's
-  // arg[1] (e.g. an amount, an op type, an arbitrary address payload)
-  // be silently constrained as if it were a recipient. Refusing
-  // non-SEP-41 methods at the boundary is the fail-closed shape.
-  .refine(
-    (v) =>
-      v.recipients === undefined ||
-      v.recipients.length === 0 ||
-      v.method === 'transfer' ||
-      v.method === 'mint',
-    {
-      message:
-        'recipients is only valid when method is a SEP-41 method (transfer or mint); other methods do not have a recipient at arg[1]',
-    }
-  )
-
-/** ComposeUserResponses mirrors the core. */
 export const ComposeUserResponsesSchema = z
   .object({
     windowSeconds: z.number().int().positive().optional(),
@@ -178,18 +131,6 @@ export const ComposeUserResponsesSchema = z
   })
   .passthrough()
 
-/** OzAdapterConfig - the per-network OZ built-in instance addresses. */
-export const OzAdapterConfigSchema = z.object({
-  network: NetworkSchema,
-  instances: z.object({
-    spending_limit: z.string(),
-    simple_threshold: z.string(),
-    weighted_threshold: z.string(),
-  }),
-})
-
-// ===== record_transaction =====
-
 export const RecordTransactionInputSchema = z
   .object({
     hash: z.string().min(1).optional(),
@@ -205,27 +146,6 @@ export const RecordTransactionInputSchema = z
   })
 export type RecordTransactionInput = z.infer<typeof RecordTransactionInputSchema>
 
-// ===== synthesize_policy =====
-//
-// Discriminated union on `source` exposes BOTH front-ends through ONE tool.
-// - `source: 'mandate'` -> calls synthesizeFromMandate
-// - `source: 'recording'` -> calls synthesizeFromRecording
-
-export const SynthesizePolicyMandateInputSchema = z.object({
-  source: z.literal('mandate'),
-  mandate: MandateSpecSchema,
-  ozConfig: OzAdapterConfigSchema.optional(),
-  // --explain opt-in. When true, the orchestrator attaches the
-  // in-memory predicate tree (null for the mandate path) + a minimal
-  // honest SimulationResult to the success envelope. Absent or false
-  // -> the success envelope is unchanged (byte-identical to today).
-  explain: z.boolean().optional(),
-})
-
-/** Interpreter opt-in for the recording path. Present -> constraints OZ cannot
- *  hop paths) lower to a real interpreter predicate document instead of being
- *  surfaced as warnings. The core deep-validates `smartAccountAddress` (a C...
- *  bounds; the schema stays light so the core owns the friendly ToolErrors. */
 export const InterpreterOptionsSchema = z.object({
   smartAccountAddress: z.string(),
   installNonce: z.number().int().positive().optional(),
@@ -238,7 +158,6 @@ export const SynthesizePolicyRecordingInputSchema = z.object({
   userResponses: ComposeUserResponsesSchema.optional(),
   confidenceOverride: z.object({ threshold: z.number().min(0).max(1) }).optional(),
   interpreter: InterpreterOptionsSchema.optional(),
-  ozConfig: OzAdapterConfigSchema.optional(),
   // --explain opt-in. When true, the orchestrator attaches the
   // in-memory PredicateNode + the corresponding SimulationResult
   // (real one from the self-verify pipeline when the interpreter is
@@ -250,10 +169,7 @@ export const SynthesizePolicyRecordingInputSchema = z.object({
   explain: z.boolean().optional(),
 })
 
-export const SynthesizePolicyInputSchema = z.discriminatedUnion('source', [
-  SynthesizePolicyMandateInputSchema,
-  SynthesizePolicyRecordingInputSchema,
-])
+export const SynthesizePolicyInputSchema = SynthesizePolicyRecordingInputSchema
 export type SynthesizePolicyInput = z.infer<typeof SynthesizePolicyInputSchema>
 
 // ===== PredicateNode / PredicateLeaf =====

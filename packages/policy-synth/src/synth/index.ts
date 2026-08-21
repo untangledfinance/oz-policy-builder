@@ -9,26 +9,13 @@ export {
   type ComposeResult,
   composeFromRecording,
 } from './compose-from-recording.ts'
-export {
-  type DenyCase,
-  type GeneratedCases,
-  generateCases,
-} from './deny-cases.ts'
-export { type EvalContext, type EvalResult, evaluate } from './evaluate.ts'
-export {
-  type HarnessFailure,
-  type HarnessResult,
-  runHarness,
-} from './harness.ts'
 export { type IntentFacts, lower } from './lower.ts'
-export { minimize } from './minimize.ts'
 export {
   type DecideScopeOptions,
   decideScope,
   type ScopeDecision,
   scopeToContextRuleType,
 } from './scope.ts'
-export { synthesizeFromMandate } from './synthesize-from-mandate.ts'
 export {
   type __TestInterpreterAdapterOptions,
   type SynthesizeFromRecordingOptions,

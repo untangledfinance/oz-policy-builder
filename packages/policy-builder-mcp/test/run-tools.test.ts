@@ -109,36 +109,11 @@ describe('runRecordTransaction', () => {
 })
 
 describe('runSynthesizePolicy (discriminated union)', () => {
-  it('dispatches source=mandate to synthesizeFromMandate', async () => {
-    const r = await runSynthesizePolicy({
-      source: 'mandate',
-      mandate: {
-        chain: 'stellar',
-        contract: 'CTOKEN',
-        method: 'transfer',
-        spendingLimit: { token: 'CTOKEN', limit: '5000000', windowSeconds: 2592000 },
-        expiry: { validUntilLedger: 1000000 },
-      },
-    })
-    expect(r.ok).toBe(true)
-    if (!r.ok) return
-    expect(r.data.contextRule.contextRuleType).toEqual({
-      kind: 'call_contract',
-      contract: 'CTOKEN',
-    })
-    const ref = r.data.policyRefs[0]
-    expect(ref?.kind).toBe('oz_builtin')
-    if (ref?.kind === 'oz_builtin') {
-      expect(ref.primitive.primitive).toBe('spending_limit')
-    }
-    expect(r.data.parseConfidence.overall).toBe(1)
-    // not-covered warnings surfaced, not hidden.
-    expect(r.data.warnings.some((w) => w.includes('per-method scoping'))).toBe(true)
-  })
-
   it('dispatches source=recording to synthesizeFromRecording', async () => {
-    const G_OWNER = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACFD'
-    const SEP41_TOKEN = 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM'
+    const G_OWNER = Address.account(Buffer.alloc(32, 0xa0)).toString()
+    const G_BILLER = Address.account(Buffer.alloc(32, 0xa1)).toString()
+    const SEP41_TOKEN = Address.contract(Buffer.alloc(32, 0x0b)).toString()
+    const SMART_ACCOUNT = Address.contract(Buffer.alloc(32, 0x0c)).toString()
     const recordedTx = {
       network: 'mainnet' as const,
       signers: [G_OWNER],
@@ -148,13 +123,13 @@ describe('runSynthesizePolicy (discriminated union)', () => {
           fn: 'transfer',
           args: [
             { type: 'address', value: G_OWNER },
-            { type: 'address', value: 'GBILLER' },
+            { type: 'address', value: G_BILLER },
             { type: 'i128', value: '1000000000' },
           ],
           subInvocations: [],
         },
       ],
-      tokenMovements: [{ token: SEP41_TOKEN, from: G_OWNER, to: 'GBILLER', amount: '1000000000' }],
+      tokenMovements: [{ token: SEP41_TOKEN, from: G_OWNER, to: G_BILLER, amount: '1000000000' }],
       events: [],
       authEntries: [],
       ledgerSequence: 1,
@@ -177,6 +152,7 @@ describe('runSynthesizePolicy (discriminated union)', () => {
         limitAmount: '1000000000',
         validUntilLedger: 1000000,
       },
+      interpreter: { smartAccountAddress: SMART_ACCOUNT },
     })
     expect(r.ok).toBe(true)
     if (!r.ok) return
@@ -184,12 +160,8 @@ describe('runSynthesizePolicy (discriminated union)', () => {
       kind: 'call_contract',
       contract: SEP41_TOKEN,
     })
-    const ref = r.data.policyRefs[0]
-    expect(ref?.kind).toBe('oz_builtin')
-    if (ref?.kind === 'oz_builtin') {
-      expect(ref.primitive.params.spending_limit).toBe('1000000000')
-      expect(ref.primitive.params.period_ledgers).toBe(518400)
-    }
+    expect(r.data.policyRefs[0]?.kind).toBe('interpreter')
+    expect(r.data.policyDocuments).toHaveLength(1)
     expect(r.data.parseConfidence.overall).toBe(1)
   })
 
@@ -203,21 +175,6 @@ describe('runSynthesizePolicy (discriminated union)', () => {
       expect(r.error.code).toBe('SYNTHESIS_ERROR')
       expect(r.error.severity).toBe('error')
       expect(r.error.remediation?.toolCall?.name).toBe('synthesize_policy')
-    }
-  })
-
-  it('returns a machine-readable ToolError when the mandate spending limit is invalid', async () => {
-    const r = await runSynthesizePolicy({
-      source: 'mandate',
-      mandate: {
-        chain: 'stellar',
-        contract: 'C',
-        spendingLimit: { token: 'C', limit: 'not-a-number', windowSeconds: 86400 },
-      },
-    })
-    expect(r.ok).toBe(false)
-    if (!r.ok) {
-      expect(r.error.code).toBe('SYNTHESIS_ERROR')
     }
   })
 })

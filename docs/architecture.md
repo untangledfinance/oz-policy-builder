@@ -42,7 +42,7 @@ this argument is under X", or an arbitrary boolean combination of those.
 
 The OZ Policy Builder fills that gap with one audit-once on-chain interpreter that evaluates a
 predicate, plus an off-chain toolkit that writes the predicate for you from a
-recorded transaction or a stated mandate.
+recorded transaction.
 
 ## The pieces
 
@@ -62,19 +62,11 @@ session state.
 ```mermaid
 flowchart LR
     rec["record_transaction<br/>tx hash / XDR"]
-    man["describe a mandate"]
     syn["synthesize_policy"]
-    sim["simulate_policy"]
-    ver{"verify_policy<br/>minimal?"}
     ins["install_policy<br/>wallet signature = confirmation"]
     rev["revoke_policy<br/>master-signer only"]
-    fail(["fail closed"])
 
-    rec --> syn
-    man --> syn
-    syn --> sim --> ver
-    ver -- permits intended, denies negative --> ins
-    ver -- otherwise --> fail
+    rec --> syn --> ins
     ins -. later .-> rev
 
     info["get_interpreter_info - deployment fingerprint<br/>+ live grammar check, any time"]
@@ -83,20 +75,15 @@ flowchart LR
 1. **record_transaction** - given a mainnet or testnet tx hash (or raw XDR),
    decode it into a normalised `RecordedTransaction`: the contract, method,
    arguments and token movements the flow actually performed.
-2. **synthesize_policy** - one tool, two front-ends on a discriminated union:
-   - `recording` -> `synthesizeFromRecording`: infer the minimal policy that
-     permits exactly the recorded flow.
-   - `mandate` -> `synthesizeFromMandate`: compile a deterministic
-     English-shaped mandate ("only `transfer` USDC, cap 50, to these three").
-3. **simulate_policy** - stateless: run the proposed predicate against the
-   permit transaction (and any deny cases) and report the decision.
-4. **verify_policy** - the minimality check: the predicate must permit the
-   intended call and deny the paired negative case, or it fails closed.
-5. **install_policy** - emit the unsigned Soroban transaction that adds the
+2. **synthesize_policy** - `synthesizeFromRecording` lowers the recorded flow
+   to an interpreter predicate that pins the contract, the method and the
+   arguments the recording carried. It requires `interpreter.smartAccountAddress`;
+   without it there is no backend to lower to and the call fails closed.
+3. **install_policy** - emit the unsigned Soroban transaction that adds the
    context rule to the smart account. The wallet signature IS the user
    confirmation; there is no two-call action-id handshake because the server
    is stateless.
-6. **revoke_policy** - emit the unsigned `remove_context_rule` transaction.
+4. **revoke_policy** - emit the unsigned `remove_context_rule` transaction.
    Master-signer-only.
 7. **get_interpreter_info** - return the pinned deployment fingerprint and,
    optionally, a live `grammar_version()` read to confirm the on-chain
@@ -104,7 +91,7 @@ flowchart LR
 
 ## The custody-agnostic IR
 
-The synthesiser never lowers a recording or mandate straight to the on-chain
+The synthesiser never lowers a recording straight to the on-chain
 format. It lowers to a chain-neutral **PolicyIR** ("Policy Tree"), then a
 `CustodyAdapter` compiles the IR to a specific backend. The IR generalises the
 NEAR-V2 policy schema (roles / scope filter / guard / constraint / comparison
@@ -113,28 +100,21 @@ backend needs (spend window, time).
 
 ```mermaid
 flowchart LR
-    src["recording / mandate"] --> ir["PolicyIR<br/>Policy Tree"]
-    ir --> oz["OZ built-in adapter"]
+    src["recording"] --> ir["PolicyIR<br/>Policy Tree"]
     ir --> interp["interpreter adapter"]
 ```
 
-Two adapters lower FROM the IR today:
+One adapter lowers FROM the IR:
 
-- **OZ built-in adapter** (`adapters/oz`) - emits OZ's native primitives only:
-  `spending_limit` from a windowed spend cap, `simple_threshold` /
-  `weighted_threshold` from an M-of-N approval, a `call_contract` scope, an
-  expiry ledger. Anything OZ cannot say natively (per-argument allowlist,
-  exact ordered sequence, guard, nested boolean) is **named in `uncovered`,
-  never silently dropped**.
 - **Interpreter adapter** (`adapters/interpreter`) - emits a single encoded
-  predicate carried to the `policy-interpreter` contract. This is the backend
-  that expresses the constructs OZ's built-ins cannot.
+  predicate carried to the `policy-interpreter` contract, plus the context
+  rule scoped to the recorded contract.
 
-The compose step routes each IR construct to whichever adapter can express it,
-so a policy can be part OZ built-in and part interpreter predicate. The design
-goal that makes an IR worth having: the same Policy Tree can later gain a
-third adapter (an EVM backend, another custody vendor) without touching the
-synthesiser.
+An IR construct the interpreter cannot express is **named in `uncovered`,
+never silently dropped**: a windowed spend cap belongs to the OZ
+`spending_limit` primitive, and expiry to the context rule's `valid_until`.
+Keeping the IR as a separate step is what lets a second backend be added
+later without touching the synthesiser.
 
 ## The predicate grammar
 

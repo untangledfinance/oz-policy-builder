@@ -24,12 +24,6 @@ import type {
 } from '../../ir/types.ts'
 import { encodePredicate } from '../../predicate/encode.ts'
 import type {
-  CompileResult,
-  CustodyAdapter,
-  CustodyCapabilities,
-  SimulationResult,
-} from '../../seams/types.ts'
-import type {
   ContextRuleDraft,
   Network,
   ParseConfidence,
@@ -38,6 +32,7 @@ import type {
   PredicateLeaf,
   PredicateNode,
   ProposedPolicy,
+  RecordedTransaction,
 } from '../../types.ts'
 
 /** [VERIFY] NOT a real deployed address. The interpreter is a per-network
@@ -52,6 +47,44 @@ export interface InterpreterAdapterConfig {
    *  by the self-call gate: any `in`-allowlist containing this address is
    *  rejected as `SCOPE_SELF_CALL`. */
   smartAccountAddress: string
+}
+
+/** What this backend can express. A construct needing a false flag is reported
+ *  as `uncovered` by the adapter, never silently dropped. */
+export interface CustodyCapabilities {
+  supportsSpendWindow: boolean
+  supportsTimeExpiry: boolean
+  supportsThreshold: boolean
+  supportsGeneralPredicate: boolean
+}
+
+/** The result of compiling a PolicyIR for this backend. */
+export interface CompileResult {
+  /** false => some IR construct this backend cannot express (see `uncovered`). */
+  covered: boolean
+  /** Human-readable list of unsupported constructs. */
+  uncovered: string[]
+  /** The installable policy, assembled when a rule lowered. */
+  proposed?: ProposedPolicy
+}
+
+/** Result of a simulate() dry-run against the off-chain TS model. */
+export interface SimulationResult {
+  backend: 'ts-model'
+  permitted: boolean | null
+  evaluations: unknown[]
+  notes: string[]
+}
+
+/** Compile a PolicyIR to an installable interpreter policy. */
+export interface CustodyAdapter {
+  readonly name: string
+  readonly mode: 'enforce'
+  capabilities(): CustodyCapabilities
+  compile(ir: PolicyIR): CompileResult
+  simulate(ir: PolicyIR, permitTx: RecordedTransaction): SimulationResult
+  /** Canonical JSON of the IR (portability / audit). */
+  export(ir: PolicyIR): string
 }
 
 const CAPABILITIES: CustodyCapabilities = {
@@ -237,8 +270,14 @@ function lowerRule(rule: IRPolicyRule, config: InterpreterAdapterConfig): Lowere
       ? topChildren[0]
       : { op: 'and', children: topChildren }
 
+  // Scope the context rule to the contract when the IR names one, matching
+  // what OZ's CallContract scoping did. A `default` rule would route EVERY
+  // call through this policy instead of only calls to the scoped contract.
   const contextRule: ContextRuleDraft = {
-    contextRuleType: { kind: 'default' },
+    contextRuleType:
+      scopeContract !== undefined
+        ? { kind: 'call_contract', contract: scopeContract }
+        : { kind: 'default' },
     name: 'interpreter',
     validUntilLedger,
     signers: [],

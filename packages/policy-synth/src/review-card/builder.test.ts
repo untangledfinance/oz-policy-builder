@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { Address } from '@stellar/stellar-sdk'
 import type { ContextRuleDraft, PolicyRef, PredicateNode } from '../types.ts'
-import type { SimulationResult } from '../verify/envelope.ts'
 import { buildReviewCardSummary, describePredicate } from './builder.ts'
 
 /** Build a C... Stellar contract address from a 32-byte buffer of bytes. */
@@ -16,21 +15,9 @@ const USDC_RECIPIENT_A = cAddress(4)
 const USDC_RECIPIENT_B = cAddress(5)
 const XLM_SAC = cAddress(6)
 
-/** Stable simulation result for the builder tests; the builder consumes
- *  `backend` (to populate the same field) and `simulatorVersion` is unused. */
-const tsModelSimulation: SimulationResult = {
-  permit: { tx: 'permit' },
-  evaluatedCases: [{ dimension: 'permit', outcome: 'permit', reason: 'matches recorded call' }],
-  backend: 'ts-model',
-  simulatorVersion: 'ts-model-1.0.0',
-}
-
-const interpreterSimulation: SimulationResult = {
-  permit: { tx: 'permit' },
-  evaluatedCases: [{ dimension: 'permit', outcome: 'permit', reason: 'matches recorded call' }],
-  backend: 'interpreter-v1',
-  simulatorVersion: 'interpreter-v1.0.0',
-}
+/** Evaluator identities the builder folds into the content hash. */
+const tsModelSimulation = 'ts-model' as const
+const interpreterSimulation = 'interpreter-v1' as const
 
 /** Build the predicate for the Blend yield-claim walkthrough:
  *  and(

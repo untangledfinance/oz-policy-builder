@@ -21,16 +21,12 @@ import { createHash } from 'node:crypto'
 import { rpc } from '@stellar/stellar-sdk'
 import {
   type ErrorCode,
-  type MandateSpec,
   type Network,
-  type OzAdapterConfig,
   type PredicateNode,
   type ProposedPolicy,
-  placeholderOzConfig,
   type RecordedTransaction,
   recordTransaction,
   type SynthesizeFromRecordingOptions,
-  synthesizeFromMandate,
   synthesizeFromRecording,
   type ToolError,
   type ToolResponse,
@@ -44,8 +40,6 @@ import {
   rpcClientFromServer,
 } from '../install/build-install-policy.ts'
 import { getInterpreterInfo } from '../install/get-interpreter-info.ts'
-import type { SimulationResult } from '../verify/envelope.ts'
-import { simulatePolicy, verifyPolicy } from '../verify/index.ts'
 import {
   type GetInterpreterInfoInput,
   GetInterpreterInfoInputSchema,
@@ -61,11 +55,9 @@ import {
   RevokePolicyInputSchema,
   RPC_URL_BY_NETWORK,
   type SimulatePolicyInput,
-  SimulatePolicyInputSchema,
   type SynthesizePolicyInput,
   SynthesizePolicyInputSchema,
   type VerifyPolicyInput,
-  VerifyPolicyInputSchema,
 } from './schemas.ts'
 
 export type {
@@ -87,9 +79,7 @@ export {
   InstallPolicyInputSchema,
   InterpreterOptionsSchema,
   MAINNET_RPC_URL,
-  MandateSpecSchema,
   NetworkSchema,
-  OzAdapterConfigSchema,
   PINNED_INTERPRETER_ADDRESS_BY_NETWORK,
   PINNED_INTERPRETER_GRAMMAR_VERSION,
   PINNED_INTERPRETER_MAINNET_ADDRESS,
@@ -101,11 +91,9 @@ export {
   RecordTransactionInputSchema,
   RevokePolicyInputSchema,
   RPC_URL_BY_NETWORK,
-  SimulatePolicyInputSchema,
   SynthesizePolicyInputSchema,
   TESTNET_RPC_URL,
   ToolErrorSchema,
-  VerifyPolicyInputSchema,
 } from './schemas.ts'
 
 export type RunRecordTransactionInput = RecordTransactionInput
@@ -177,7 +165,6 @@ export async function runRecordTransaction(
 }
 
 /** `synthesize_policy` body - discriminated union on `source`:
- *    - `mandate`   -> synthesizeFromMandate
  *    - `recording` -> synthesizeFromRecording
  *  Exposing BOTH front-ends through ONE tool keeps the MCP surface tiny while
  *  letting the agent pick the deterministic or the inferred path. The CLI
@@ -192,7 +179,6 @@ export async function runSynthesizePolicy(raw: unknown): Promise<
   ToolResponse<ProposedPolicy> & {
     explain?: {
       predicateTree: PredicateNode | null
-      simulation: SimulationResult
     }
   }
 > {
@@ -204,34 +190,18 @@ export async function runSynthesizePolicy(raw: unknown): Promise<
     }
   }
   const input = parsed.data
-  const ozConfig: OzAdapterConfig = resolveOzConfig(input)
 
   try {
-    if (input.source === 'mandate') {
-      // Zod's optional fields widen to `T | undefined`, which the core's
-      // exact-optional MandateSpec rejects; the schema already validated the
-      // shape, so assert it (same pattern as the recordedTx cast below).
-      return await synthesizeFromMandate(
-        input.mandate as MandateSpec,
-        ozConfig,
-        input.explain === true ? { explain: true } : {}
-      )
-    }
-    // recording source
     const recorded: RecordedTransaction = input.recordedTx as RecordedTransaction
-    return await synthesizeFromRecording(
-      recorded,
-      {
-        network: input.network,
-        ...(input.userResponses !== undefined ? { userResponses: input.userResponses } : {}),
-        ...(input.confidenceOverride !== undefined
-          ? { confidenceOverride: input.confidenceOverride }
-          : {}),
-        ...(input.interpreter !== undefined ? { interpreter: input.interpreter } : {}),
-        ...(input.explain === true ? { explain: true } : {}),
-      } as SynthesizeFromRecordingOptions,
-      ozConfig
-    )
+    return await synthesizeFromRecording(recorded, {
+      network: input.network,
+      ...(input.userResponses !== undefined ? { userResponses: input.userResponses } : {}),
+      ...(input.confidenceOverride !== undefined
+        ? { confidenceOverride: input.confidenceOverride }
+        : {}),
+      ...(input.interpreter !== undefined ? { interpreter: input.interpreter } : {}),
+      ...(input.explain === true ? { explain: true } : {}),
+    } as SynthesizeFromRecordingOptions)
   } catch (e) {
     return {
       ok: false,
@@ -240,94 +210,6 @@ export async function runSynthesizePolicy(raw: unknown): Promise<
   }
 }
 
-function resolveOzConfig(input: SynthesizePolicyInput): OzAdapterConfig {
-  if (input.ozConfig) return input.ozConfig
-  // The mandate path is network-agnostic; fall back to mainnet so the
-  // placeholder OZ instance addresses are deterministic.
-  return placeholderOzConfig('mainnet')
-}
-
-/** `simulate_policy` body - thin wrapper over `simulatePolicy`. The engine
- *  already returns fail-closed `{ok:false, error}` for runtime failures
- *  (SIMULATION_ERROR), so the try/catch envelope is for raw SDK throws
- *  only - same pattern as the other two wrappers. The predicate is
- *  passed inline (stateless by design; no `proposed_policy_id` lookup). */
-export async function runSimulatePolicy(raw: unknown): Promise<ToolResponse<SimulationResult>> {
-  const parsed = SimulatePolicyInputSchema.safeParse(raw)
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: validationError('simulate_policy', parsed.error.issues),
-    }
-  }
-  const input: SimulatePolicyInput = parsed.data
-  try {
-    // The recursive PredicateNodeSchema + ContractInvocationSchema are
-    // typed `z.ZodType<unknown>` to survive TS's circular inference; the
-    // engine wants typed `PredicateNode | null` + `RecordedTransaction`.
-    // The schema already validated the shape, so assert through the
-    // unknown back to the core types. Same pattern as the recordedTx
-    // cast in `runSynthesizePolicy`.
-    return simulatePolicy(
-      input.predicate as PredicateNode | null,
-      input.permitTx as RecordedTransaction,
-      {
-        ...(input.validUntilLedger !== undefined
-          ? { validUntilLedger: input.validUntilLedger }
-          : {}),
-      }
-    )
-  } catch (e) {
-    return {
-      ok: false,
-      error: caughtError('simulate_policy', 'SIMULATION_ERROR', e),
-    }
-  }
-}
-
-/** `verify_policy` body - thin wrapper over `verifyPolicy`. The engine
- *  already returns `{ok:false, error}` with code VERIFICATION_FAILED when
- *  the minimality check fails; the try/catch envelope is for raw SDK
- *  throws only. Mirrors `runSimulatePolicy` exactly. */
-export async function runVerifyPolicy(raw: unknown): Promise<ToolResponse<true>> {
-  const parsed = VerifyPolicyInputSchema.safeParse(raw)
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: validationError('verify_policy', parsed.error.issues),
-    }
-  }
-  const input: VerifyPolicyInput = parsed.data
-  try {
-    // Same cast as runSimulatePolicy: the recursive schemas are typed
-    // `unknown`; the engine wants typed `PredicateNode` +
-    // `RecordedTransaction`. The schema already validated the shape.
-    return verifyPolicy(input.predicate as PredicateNode, input.permitTx as RecordedTransaction, {
-      ...(input.validUntilLedger !== undefined ? { validUntilLedger: input.validUntilLedger } : {}),
-    })
-  } catch (e) {
-    return {
-      ok: false,
-      error: caughtError('verify_policy', 'VERIFICATION_FAILED', e),
-    }
-  }
-}
-
-/** `install_policy` body - thin wrapper over `buildInstallPolicyXdr`.
- *  Returns the unsigned Soroban transaction envelope (base64 XDR) the
- *  wallet signs. The wallet signature IS the user-confirmation step - no
- *  `action_id` two-call pair (the server is stateless, see server.ts:10-12).
- *  One call installs the policy outright: `add_context_rule` carries the
- *  predicate to the interpreter in its `policies` install_param, so no
- *  separate `interpreter.install` call is needed or possible.
- *
- *  Default-deny: an interpreter policy address other than the pinned
- *  interpreter for the selected network is REFUSED (the smart account
- *  would delegate to an interpreter the caller controls); the same
- *  applies to a non-pinned RPC URL (the auth nonce the wallet signs
- *  comes from the RPC). Both gates accept an explicit opt-in flag.
- *  Pin selection follows `input.network` (defaults to `testnet` so the
- *  pre-mainnet callers keep working unchanged). */
 export async function runInstallPolicy(
   raw: unknown
 ): Promise<ToolResponse<BuildInstallPolicyResult>> {

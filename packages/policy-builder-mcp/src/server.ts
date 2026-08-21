@@ -17,9 +17,7 @@ import {
   runInstallPolicy,
   runRecordTransaction,
   runRevokePolicy,
-  runSimulatePolicy,
   runSynthesizePolicy,
-  runVerifyPolicy,
 } from '@crediolabs/policy-synth/run'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
@@ -28,9 +26,7 @@ import {
   InstallPolicyToolShape,
   RecordTransactionToolShape,
   RevokePolicyToolShape,
-  SimulatePolicyToolShape,
   SynthesizePolicyToolShape,
-  VerifyPolicyToolShape,
 } from './schemas.ts'
 import { mcpResultFromCore } from './tools/result.ts'
 
@@ -67,20 +63,6 @@ export function registerTools(server: McpServer): void {
     'Synthesize a ProposedPolicy from either a deterministic MandateSpec (`source: mandate`) or a RecordedTransaction (`source: recording`). The discriminated `source` field selects the front-end.',
     SynthesizePolicyToolShape,
     (args) => runSynthesizePolicy(args).then(toCallToolResult)
-  )
-
-  server.tool(
-    'simulate_policy',
-    'Replay a RecordedTransaction against a proposed PredicateNode (or null for an OZ-only policy) and emit the SimulationResult envelope (permit verdict + deny-case battery). Returns a SIMULATION_ERROR ToolError on runtime evaluation failure.',
-    SimulatePolicyToolShape,
-    (args) => runSimulatePolicy(args).then(toCallToolResult)
-  )
-
-  server.tool(
-    'verify_policy',
-    'Run the static minimality check on a proposed PredicateNode against a RecordedTransaction (no conjunct is load-bearing-free). Returns VERIFICATION_FAILED with the dropped-constraint fingerprints when the predicate is over-broad.',
-    VerifyPolicyToolShape,
-    (args) => runVerifyPolicy(args).then(toCallToolResult)
   )
 
   server.tool(

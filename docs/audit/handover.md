@@ -11,11 +11,11 @@ knowingly left open.
 | Contract | `contracts/policy-interpreter` |
 | Grammar version | 2 (`SELF_VERSION`, `src/version.rs`) |
 | On-chain production code | 1,225 nSLOC |
-| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (8,101 nSLOC) |
+| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (6,352 nSLOC) |
 
-What the system does: record a transaction, synthesise the minimal policy that
-permits exactly that flow, install it on an OpenZeppelin smart account, and
-evaluate one predicate per guarded call.
+What the system does: record a transaction, lower it to a predicate that pins
+the contract, method and arguments the recording carried, install that predicate
+on an OpenZeppelin smart account, and evaluate it on every guarded call.
 
 Per-file size of the audited contract. Test modules (`dsl_tests.rs`,
 `test.rs`) are excluded because they are not the audited surface.
@@ -45,11 +45,11 @@ Two properties worth knowing before reading the code:
 built to the Stellar template: STRIDE per element and per data flow, five
 entry points, four trust boundaries.
 
-Live residual risks are enumerated there with the reason each is accepted. In
-summary: four are OpenZeppelin account-model semantics the interpreter cannot
-override (transitive authority, all-of-N versus any-of-N signer sets, the
-refusal of `External` masters, and per-rule authority maxima), and the rest are
-scoping decisions about the off-chain surface.
+Live residual risks are enumerated there with the reason each is accepted. Four
+are OpenZeppelin account-model semantics the interpreter cannot override
+(transitive authority, all-of-N versus any-of-N signer sets, the refusal of
+`External` masters, and per-rule authority maxima); the rest are scoping
+decisions about the off-chain surface.
 
 ## 3. Tool reports
 
@@ -59,7 +59,7 @@ Every log in [`evidence/`](evidence/) was produced against this tree.
 | Log | Command | Result |
 | --- | --- | --- |
 | [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 94 + 6 tests pass |
-| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 814 pass, 1 skip, 0 fail |
+| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 603 pass, 1 skip, 0 fail |
 | [`cargo-audit.log`](evidence/cargo-audit.log) | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | [`bun-audit.log`](evidence/bun-audit.log) | `bun audit` | 0 vulnerabilities |
 | [`clippy-pedantic.log`](evidence/clippy-pedantic.log) | `clippy -W pedantic -W nursery` | 228 style warnings, 0 security |
@@ -86,9 +86,9 @@ Scout run that does not do this as unrun.
 | Contract | `cargo test` | 94 passed, 0 failed |
 | Contract | `cargo test --release --test conformance` | 6 passed, 0 failed |
 | Contract | `cargo build --release --target wasm32v1-none` | builds |
-| Off-chain | `bunx biome check .` | 138 files, 0 findings |
+| Off-chain | `bunx biome check .` | 110 files, 0 findings |
 | Off-chain | `bun run typecheck` | clean |
-| Off-chain | `bun test` | 814 passed, 1 skipped, 0 failed |
+| Off-chain | `bun test` | 603 passed, 1 skipped, 0 failed |
 | Off-chain | `bun audit` | 0 vulnerabilities |
 
 Both gates run in CI on every push, including the two dependency-advisory
@@ -116,7 +116,7 @@ if this tree is what ships.
 Two further caveats, both carried in the threat model rather than only here:
 
 - The off-chain half carries more risk than the on-chain half. The contract is
-  1,225 nSLOC and stateless; the toolchain is 8,101 nSLOC and holds the
+  1,225 nSLOC and stateless; the toolchain is 6,352 nSLOC and holds the
   default-deny install gates.
 - Coverage of the MCP HTTP transport is thinner than the rest, because the
   deployment model is loopback stdio.

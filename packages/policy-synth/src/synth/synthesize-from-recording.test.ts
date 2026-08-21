@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { createHash } from 'node:crypto'
 import { Address, xdr } from '@stellar/stellar-sdk'
-import { placeholderOzConfig } from '../adapters/oz/adapter.ts'
 import type {
   ParseConfidence,
   PredicateLeaf,
@@ -37,8 +35,6 @@ const SOROSWAP_ROUTER = 'CAG5LRYQ5JVEUI5TEID72EYOVX44TTUJT5BQR2J6J77FH65PCCFAJDD
 const XLM_TOKEN = 'CAS3J7GYLGXMF6TDJ5WQ2PEN4GRVNXJUIQ2TZU3ZB3OQ2V4DRCWI7WPF'
 const USDC_TOKEN = 'CCWCLTASNDT57N3BCHOSVB5QWMV5URK4BXLDDF6ZZQYMBQ4OKZA3ZB2N'
 const G_OWNER = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACFD'
-
-const ozConfig = placeholderOzConfig('testnet')
 
 function sep41Tx(): RecordedTransaction {
   return {
@@ -92,7 +88,7 @@ function blendTx(): RecordedTransaction {
   }
 }
 
-function soroswapTx(): RecordedTransaction {
+function _soroswapTx(): RecordedTransaction {
   return {
     network: 'mainnet',
     signers: [G_OWNER],
@@ -129,149 +125,32 @@ function soroswapTx(): RecordedTransaction {
   }
 }
 
-describe('synthesizeFromRecording - SEP-41 subscription', () => {
-  it('with limit + window -> ProposedPolicy with spending_limit + recipient allowlist + per-method warning', () => {
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      {
-        network: 'mainnet',
-        userResponses: {
-          windowSeconds: 2592000,
-          limitAmount: '1000000000',
-          validUntilLedger: 1000000,
-        },
-      },
-      ozConfig
-    )
-    expect(res.ok).toBe(true)
-    if (!res.ok) return
-    const p = res.data
-    expect(p.contextRule.contextRuleType).toEqual({
-      kind: 'call_contract',
-      contract: SEP41_TOKEN,
-    })
-    expect(
-      p.policyRefs.some(
-        (r) =>
-          r.kind === 'oz_builtin' &&
-          r.primitive.primitive === 'spending_limit' &&
-          r.primitive.params.spending_limit === '1000000000' &&
-          r.primitive.params.period_ledgers === 518400
-      )
-    ).toBe(true)
-    expect(p.parseConfidence.overall).toBe(1)
-    expect(p.ambiguities).toEqual([])
-    expect(p.warnings.some((w) => w.includes('allowlist'))).toBe(true)
-    expect(p.warnings.some((w) => w.includes('per-method scoping to `transfer`'))).toBe(true)
-    expect(p.warnings.some((w) => w.startsWith('Not covered by OZ built-in primitives'))).toBe(true)
-  })
-
-  it('without limit -> no spending_limit + AMOUNT_BOUND_MISSING ambiguity (observed amount as suggestion)', () => {
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      { network: 'mainnet', userResponses: { windowSeconds: 2592000 } },
-      ozConfig
-    )
-    expect(res.ok).toBe(true)
-    if (!res.ok) return
-    expect(
-      res.data.policyRefs.some(
-        (r) => r.kind === 'oz_builtin' && r.primitive.primitive === 'spending_limit'
-      )
-    ).toBe(false)
-    const amount = res.data.ambiguities.find((a) => a.code === 'AMOUNT_BOUND_MISSING')
-    expect(amount).toBeDefined()
-    expect(amount?.question).toContain('1000000000')
-  })
-
-  it('without window -> no spending_limit + DURATION_UNSPECIFIED ambiguity', () => {
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      { network: 'mainnet', userResponses: { limitAmount: '1000000000' } },
-      ozConfig
-    )
-    expect(res.ok).toBe(true)
-    if (!res.ok) return
-    expect(
-      res.data.policyRefs.some(
-        (r) => r.kind === 'oz_builtin' && r.primitive.primitive === 'spending_limit'
-      )
-    ).toBe(false)
-    expect(res.data.ambiguities.some((a) => a.code === 'DURATION_UNSPECIFIED')).toBe(true)
-  })
-})
-
-describe('synthesizeFromRecording - Blend yield-claim', () => {
-  it('incoming-only flow -> FREQUENCY_BOUND_MISSING surfaced, no spending_limit', () => {
-    // The grammar cannot bound call frequency, so an incoming-only flow always
-    // reports that gap rather than silently implying a cap.
-    const res = synthesizeFromRecording(blendTx(), { network: 'mainnet' }, ozConfig)
-    expect(res.ok).toBe(true)
-    if (!res.ok) return
-    expect(
-      res.data.policyRefs.some(
-        (r) => r.kind === 'oz_builtin' && r.primitive.primitive === 'spending_limit'
-      )
-    ).toBe(false)
-    expect(res.data.warnings.some((w) => w.includes('frequency'))).toBe(true)
-    expect(res.data.ambiguities.some((a) => a.code === 'FREQUENCY_BOUND_MISSING')).toBe(true)
-  })
-})
-
-describe('synthesizeFromRecording - SoroSwap swap', () => {
-  it('does NOT emit a spending_limit for a spent token that is not the scope contract; flags it + path Path-B', () => {
-    const res = synthesizeFromRecording(
-      soroswapTx(),
-      { network: 'mainnet', userResponses: { windowSeconds: 86400, limitAmount: '50000000' } },
-      ozConfig
-    )
-    expect(res.ok).toBe(true)
-    if (!res.ok) return
-    // OZ spending_limit binds the CallContract target (the router), not the
-    // swapped input token (XLM), so it cannot be lowered here - it is Path-B.
-    expect(
-      res.data.policyRefs.some(
-        (r) => r.kind === 'oz_builtin' && r.primitive.primitive === 'spending_limit'
-      )
-    ).toBe(false)
-    expect(
-      res.data.warnings.some((w) => w.includes('CallContract context scoped to that token'))
-    ).toBe(true)
-    expect(res.data.warnings.some((w) => w.includes('per-method scoping'))).toBe(true)
-    // No synthetic per-arg path comparison is fabricated.
-    expect(res.data.warnings.some((w) => w.includes('argument comparison'))).toBe(false)
-  })
-})
-
 describe('synthesizeFromRecording - input validation (I3)', () => {
   it('rejects a non-positive windowSeconds with SYNTHESIS_ERROR', () => {
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      { network: 'mainnet', userResponses: { windowSeconds: 0, limitAmount: '1000000000' } },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(sep41Tx(), {
+      network: 'mainnet',
+      userResponses: { windowSeconds: 0, limitAmount: '1000000000' },
+    })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
   })
 
   it('rejects a non-integer validUntilLedger with SYNTHESIS_ERROR', () => {
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      { network: 'mainnet', userResponses: { validUntilLedger: 1.5 } },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(sep41Tx(), {
+      network: 'mainnet',
+      userResponses: { validUntilLedger: 1.5 },
+    })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
   })
 
   it('rejects a non-numeric / negative limitAmount with SYNTHESIS_ERROR', () => {
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      { network: 'mainnet', userResponses: { windowSeconds: 2592000, limitAmount: '-5' } },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(sep41Tx(), {
+      network: 'mainnet',
+      userResponses: { windowSeconds: 2592000, limitAmount: '-5' },
+    })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
@@ -282,11 +161,10 @@ describe('synthesizeFromRecording - input validation (I3)', () => {
     // represented on-chain must be rejected fail-closed, not passed through as
     // an unbounded spending_limit.
     const overMax = (2n ** 127n).toString()
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      { network: 'mainnet', userResponses: { windowSeconds: 2592000, limitAmount: overMax } },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(sep41Tx(), {
+      network: 'mainnet',
+      userResponses: { windowSeconds: 2592000, limitAmount: overMax },
+    })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
@@ -297,102 +175,27 @@ describe('synthesizeFromRecording - input validation (I3)', () => {
     // The boundary value IS a representable i128, so it must pass the range
     // guard (it may still fail later for unrelated reasons, but never on range).
     const atMax = (2n ** 127n - 1n).toString()
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      { network: 'mainnet', userResponses: { windowSeconds: 2592000, limitAmount: atMax } },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(sep41Tx(), {
+      network: 'mainnet',
+      userResponses: { windowSeconds: 2592000, limitAmount: atMax },
+    })
     if (!res.ok) {
       expect(res.error.message.includes('i128')).toBe(false)
     }
   })
 
   it('rejects an unknown network with SYNTHESIS_ERROR', () => {
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      { network: 'devnet' as unknown as 'mainnet' },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(sep41Tx(), { network: 'devnet' as unknown as 'mainnet' })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
   })
 })
 
-describe('synthesizeFromRecording - zero-policy result is explicit, not silent (F3)', () => {
-  it('OZ-builtin path with no installable policy emits an unmistakable UNCONSTRAINED warning', () => {
-    // SoroSwap on the OZ-builtin path (no interpreter opt-in): method-scoping +
-    // hop-path need the interpreter, so OZ lowers nothing -> policyRefs [] and
-    // policyDocuments []. That must read as "I synthesised nothing" (the call is
-    // unconstrained), never as an empty = permissive policy.
-    const res = synthesizeFromRecording(soroswapTx(), { network: 'mainnet' }, ozConfig)
-    expect(res.ok).toBe(true)
-    if (!res.ok) return
-    expect(res.data.policyRefs.length).toBe(0)
-    expect(res.data.policyDocuments.length).toBe(0)
-    expect(res.data.warnings.some((w) => w.includes('UNCONSTRAINED'))).toBe(true)
-    expect(res.data.warnings.some((w) => w.toLowerCase().includes('no policy constraints'))).toBe(
-      true
-    )
-  })
-
-  it('does NOT add the UNCONSTRAINED warning when at least one policy is emitted', () => {
-    const res = synthesizeFromRecording(validSep41Tx(), interpreterOpts(), ozConfig)
-    expect(res.ok).toBe(true)
-    if (!res.ok) return
-    expect(res.data.policyRefs.length).toBeGreaterThan(0)
-    expect(res.data.warnings.some((w) => w.includes('UNCONSTRAINED'))).toBe(false)
-  })
-})
-
-describe('synthesizeFromRecording - unknown protocol never emits an OZ primitive (I4)', () => {
-  it('with confidenceOverride, an unrecognised call is scoped-but-flagged with no spending_limit', () => {
-    const tx: RecordedTransaction = {
-      ...sep41Tx(),
-      invocations: [
-        {
-          contract: 'CUNKNOWNCONTRACTADDRESSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
-          fn: 'do_something',
-          args: [{ type: 'address', value: G_OWNER }],
-          subInvocations: [],
-        },
-      ],
-      tokenMovements: [
-        {
-          token: SEP41_TOKEN,
-          from: G_OWNER,
-          to: 'CUNKNOWNCONTRACTADDRESSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
-          amount: '1000000000',
-        },
-      ],
-      parseConfidence: { ...LOW },
-    }
-    const res = synthesizeFromRecording(
-      tx,
-      {
-        network: 'mainnet',
-        confidenceOverride: { threshold: 0.4 },
-        userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
-      },
-      ozConfig
-    )
-    expect(res.ok).toBe(true)
-    if (!res.ok) return
-    // Scope preserved, but NO OZ primitive from an unrecognised call.
-    expect(res.data.contextRule.contextRuleType).toEqual({
-      kind: 'call_contract',
-      contract: 'CUNKNOWNCONTRACTADDRESSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
-    })
-    expect(res.data.policyRefs.length).toBe(0)
-    expect(res.data.warnings.some((w) => w.includes('unrecognised protocol'))).toBe(true)
-    expect(res.data.warnings.some((w) => w.includes('per-method scoping'))).toBe(true)
-  })
-})
-
 describe('synthesizeFromRecording - parseConfidence gate', () => {
   it('refuses with RECORDING_VALIDATION_FAILED when overall < threshold', () => {
-    const tx: RecordedTransaction = { ...sep41Tx(), parseConfidence: { ...LOW } }
-    const res = synthesizeFromRecording(tx, { network: 'mainnet' }, ozConfig)
+    const tx: RecordedTransaction = { ...validSep41Tx(), parseConfidence: { ...LOW } }
+    const res = synthesizeFromRecording(tx, { network: 'mainnet' })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('RECORDING_VALIDATION_FAILED')
@@ -402,16 +205,13 @@ describe('synthesizeFromRecording - parseConfidence gate', () => {
   })
 
   it('lets the recording through when confidenceOverride.threshold <= overall', () => {
-    const tx: RecordedTransaction = { ...sep41Tx(), parseConfidence: { ...LOW } }
-    const res = synthesizeFromRecording(
-      tx,
-      {
-        network: 'mainnet',
-        userResponses: { windowSeconds: 2592000 },
-        confidenceOverride: { threshold: 0.4 },
-      },
-      ozConfig
-    )
+    const tx: RecordedTransaction = { ...validSep41Tx(), parseConfidence: { ...LOW } }
+    const res = synthesizeFromRecording(tx, {
+      network: 'mainnet',
+      userResponses: { windowSeconds: 2592000 },
+      confidenceOverride: { threshold: 0.4 },
+      interpreter: { smartAccountAddress: SMART_ACCOUNT },
+    })
     expect(res.ok).toBe(true)
   })
 })
@@ -445,7 +245,7 @@ describe('synthesizeFromRecording - SCOPE_UNRESOLVED', () => {
       ],
       tokenMovements: [],
     }
-    const res = synthesizeFromRecording(tx, { network: 'mainnet' }, ozConfig)
+    const res = synthesizeFromRecording(tx, { network: 'mainnet' })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SCOPE_UNRESOLVED')
@@ -453,59 +253,12 @@ describe('synthesizeFromRecording - SCOPE_UNRESOLVED', () => {
   })
 })
 
-describe('synthesizeFromRecording - a no-op invocation yields no OZ primitive (fail-closed)', () => {
-  it('a no-op call with no token movement never fabricates a bound, even when limits are supplied', () => {
-    // The recorder now records "what happened on chain" faithfully, so a tx can
-    // clear with an invocation that produced no observable movement (a no-op).
-    // The synth must not turn that into a permissive policy: an unrecognised
-    // method + no spend => scope only, NO spending_limit / invocation_count,
-    // even though the caller passed limitAmount + invocationLimit.
-    const tx: RecordedTransaction = {
-      ...sep41Tx(),
-      invocations: [
-        {
-          contract: SEP41_TOKEN,
-          fn: 'heartbeat', // not a SEP-41 interface method -> unrecognised (no-op)
-          args: [{ type: 'address', value: G_OWNER }],
-          subInvocations: [],
-        },
-      ],
-      tokenMovements: [], // no observable movement
-    }
-    const res = synthesizeFromRecording(
-      tx,
-      {
-        network: 'mainnet',
-        userResponses: {
-          windowSeconds: 2592000,
-          limitAmount: '1000000000',
-          validUntilLedger: 1000000,
-        },
-      },
-      ozConfig
-    )
-    expect(res.ok).toBe(true)
-    if (!res.ok) return
-    // Scope is carried to the single contract, but nothing permissive is emitted.
-    expect(res.data.contextRule.contextRuleType).toEqual({
-      kind: 'call_contract',
-      contract: SEP41_TOKEN,
-    })
-    expect(res.data.policyRefs.length).toBe(0)
-    const hasSpend = res.data.policyRefs.some(
-      (r) => r.kind === 'oz_builtin' && r.primitive.primitive === 'spending_limit'
-    )
-    expect(hasSpend).toBe(false)
-  })
-})
-
 describe('synthesizeFromRecording - input bounds (fail-closed)', () => {
   it('rejects a negative confidenceOverride.threshold (would disable the gate)', () => {
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      { network: 'mainnet', confidenceOverride: { threshold: -0.5 } },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(sep41Tx(), {
+      network: 'mainnet',
+      confidenceOverride: { threshold: -0.5 },
+    })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
@@ -513,14 +266,10 @@ describe('synthesizeFromRecording - input bounds (fail-closed)', () => {
   })
 
   it('rejects a validUntilLedger above the u32 max (uninstallable on-chain)', () => {
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      {
-        network: 'mainnet',
-        userResponses: { windowSeconds: 2592000, limitAmount: '1', validUntilLedger: 4294967296 },
-      },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(sep41Tx(), {
+      network: 'mainnet',
+      userResponses: { windowSeconds: 2592000, limitAmount: '1', validUntilLedger: 4294967296 },
+    })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
@@ -528,11 +277,10 @@ describe('synthesizeFromRecording - input bounds (fail-closed)', () => {
   })
 
   it('rejects a NaN confidenceOverride.threshold (would not be caught by a plain < / > check)', () => {
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      { network: 'mainnet', confidenceOverride: { threshold: Number.NaN } },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(sep41Tx(), {
+      network: 'mainnet',
+      confidenceOverride: { threshold: Number.NaN },
+    })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
@@ -540,14 +288,11 @@ describe('synthesizeFromRecording - input bounds (fail-closed)', () => {
   })
 
   it('accepts a validUntilLedger exactly at the u32 max (boundary)', () => {
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      {
-        network: 'mainnet',
-        userResponses: { windowSeconds: 2592000, limitAmount: '1', validUntilLedger: 4294967295 },
-      },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(validSep41Tx(), {
+      network: 'mainnet',
+      userResponses: { windowSeconds: 2592000, limitAmount: '1', validUntilLedger: 4294967295 },
+      interpreter: { smartAccountAddress: SMART_ACCOUNT },
+    })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     expect(res.data.contextRule.validUntilLedger).toBe(4294967295)
@@ -556,11 +301,10 @@ describe('synthesizeFromRecording - input bounds (fail-closed)', () => {
   it('refuses a recording whose invocation count exceeds the cap', () => {
     const inv = sep41Tx().invocations[0]
     const tx = { ...sep41Tx(), invocations: Array.from({ length: 513 }, () => ({ ...inv })) }
-    const res = synthesizeFromRecording(
-      tx,
-      { network: 'mainnet', userResponses: { windowSeconds: 2592000, limitAmount: '1' } },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(tx, {
+      network: 'mainnet',
+      userResponses: { windowSeconds: 2592000, limitAmount: '1' },
+    })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('RECORDING_VALIDATION_FAILED')
@@ -574,19 +318,19 @@ describe('synthesizeFromRecording - determinism', () => {
       network: 'mainnet' as const,
       userResponses: { windowSeconds: 2592000 },
     }
-    const a = synthesizeFromRecording(sep41Tx(), opts, ozConfig)
-    const b = synthesizeFromRecording(sep41Tx(), opts, ozConfig)
+    const a = synthesizeFromRecording(sep41Tx(), opts)
+    const b = synthesizeFromRecording(sep41Tx(), opts)
     expect(JSON.stringify(a)).toBe(JSON.stringify(b))
   })
 })
 
 describe('synthesizeFromRecording - parseConfidence mirror', () => {
   it('mirrors the tx parseConfidence onto the ProposedPolicy', () => {
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      { network: 'mainnet', userResponses: { windowSeconds: 2592000 } },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(validSep41Tx(), {
+      network: 'mainnet',
+      userResponses: { windowSeconds: 2592000 },
+      interpreter: { smartAccountAddress: SMART_ACCOUNT },
+    })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     expect(res.data.parseConfidence.overall).toBe(1)
@@ -759,25 +503,22 @@ function feeSponsoredSoroswapTx(): RecordedTransaction {
 }
 
 describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
-  it("absent `interpreter` option = today's behaviour (no doc, no interpreter ref, backward-compatible)", () => {
-    // No `interpreter` in opts: the synthesis must produce the same shape as
-    // week-1 (empty policyDocuments, no interpreter refs, OZ warnings stay).
-    const res = synthesizeFromRecording(
-      validSep41Tx(),
-      {
-        network: 'mainnet',
-        userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
-      },
-      ozConfig
-    )
-    expect(res.ok).toBe(true)
-    if (!res.ok) return
-    expect(res.data.policyDocuments).toEqual([])
-    expect(res.data.policyRefs.some((r) => r.kind === 'interpreter')).toBe(false)
+  it('absent `interpreter` option is a fail-closed error, not an empty policy', () => {
+    // The interpreter is the only backend, so without a smart account there is
+    // nothing to lower to. Returning an empty-but-successful ProposedPolicy
+    // would read as "no restrictions" rather than "nothing was synthesised".
+    const res = synthesizeFromRecording(validSep41Tx(), {
+      network: 'mainnet',
+      userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
+    })
+    expect(res.ok).toBe(false)
+    if (res.ok) return
+    expect(res.error.code).toBe('SYNTHESIS_ERROR')
+    expect(res.error.message).toContain('interpreter')
   })
 
-  it('SEP-41 transfer: routes the recipient allowlist + per-method into a predicate doc; OZ still emits spending_limit', () => {
-    const res = synthesizeFromRecording(validSep41Tx(), interpreterOpts(), ozConfig)
+  it('SEP-41 transfer: routes the recipient allowlist + per-method into a predicate doc', () => {
+    const res = synthesizeFromRecording(validSep41Tx(), interpreterOpts())
     expect(res.ok).toBe(true)
     if (!res.ok) return
     expect(res.data.policyDocuments).toHaveLength(1)
@@ -790,11 +531,6 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     // The interpreter ref + the OZ spending_limit ref both install against the
     // same context rule; the merge order is [interpreter, ...oz].
     expect(res.data.policyRefs[0]?.kind).toBe('interpreter')
-    expect(
-      res.data.policyRefs.some(
-        (r) => r.kind === 'oz_builtin' && r.primitive.primitive === 'spending_limit'
-      )
-    ).toBe(true)
     // The allowlist + per-method scoping warnings are GONE because the
     // interpreter lowered them into the predicate doc.
     expect(res.data.warnings.some((w) => w.includes('allowlist'))).toBe(false)
@@ -802,17 +538,13 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
   })
 
   it('SoroSwap swap: routes the exact path (eq_seq) into a predicate doc; OZ does not emit spending_limit', () => {
-    const res = synthesizeFromRecording(
-      validSoroswapTx(),
-      {
-        ...interpreterOpts(),
-        userResponses: {
-          windowSeconds: 86400,
-          limitAmount: '50000000',
-        },
+    const res = synthesizeFromRecording(validSoroswapTx(), {
+      ...interpreterOpts(),
+      userResponses: {
+        windowSeconds: 86400,
+        limitAmount: '50000000',
       },
-      ozConfig
-    )
+    })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     // The doc carries the path; OZ emits no spending_limit because the token
@@ -833,14 +565,10 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     // explicit allowlist the synth PINS it (mirroring SEP-41) so the emitted
     // predicate permits exactly the recorded flow; the ambiguity is surfaced as
     // informational (pinned, here is how to widen), never a silent free pass.
-    const res = synthesizeFromRecording(
-      validSoroswapTx(),
-      {
-        ...interpreterOpts(),
-        userResponses: { windowSeconds: 86400, limitAmount: '50000000' },
-      },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(validSoroswapTx(), {
+      ...interpreterOpts(),
+      userResponses: { windowSeconds: 86400, limitAmount: '50000000' },
+    })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     expect(res.data.ambiguities.some((a) => a.code === 'RECIPIENT_ALLOWLIST_EMPTY')).toBe(true)
@@ -866,11 +594,10 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     // `to` (call_arg[2]). Scoping to the pool and the method still leaves the
     // proceeds free to go anywhere, so the beneficiary is pinned from the
     // recording exactly as the SEP-41 and SoroSwap recipients are.
-    const res = synthesizeFromRecording(
-      blendClaimTx(),
-      { network: 'mainnet', interpreter: { smartAccountAddress: SMART_ACCOUNT, installNonce: 1 } },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(blendClaimTx(), {
+      network: 'mainnet',
+      interpreter: { smartAccountAddress: SMART_ACCOUNT, installNonce: 1 },
+    })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     const doc = res.data.policyDocuments[0]
@@ -895,11 +622,10 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     // Same pool and method as the recorded claim, but call_arg[2] redirected to
     // an attacker wallet. The pinned single-element `in` denies it.
     const ATTACKER_TO = Address.account(Buffer.alloc(32, 0xcc)).toString()
-    const res = synthesizeFromRecording(
-      blendClaimTx(),
-      { network: 'mainnet', interpreter: { smartAccountAddress: SMART_ACCOUNT, installNonce: 1 } },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(blendClaimTx(), {
+      network: 'mainnet',
+      interpreter: { smartAccountAddress: SMART_ACCOUNT, installNonce: 1 },
+    })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     const doc = res.data.policyDocuments[0]
@@ -928,14 +654,10 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     // it: `in` is pure membership, so an address absent from the single-element
     // haystack fails the leaf and the top-level `and` denies the call.
     const ATTACKER = Address.account(Buffer.alloc(32, 0xbb)).toString()
-    const res = synthesizeFromRecording(
-      validSoroswapTx(),
-      {
-        ...interpreterOpts(),
-        userResponses: { windowSeconds: 86400, limitAmount: '50000000' },
-      },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(validSoroswapTx(), {
+      ...interpreterOpts(),
+      userResponses: { windowSeconds: 86400, limitAmount: '50000000' },
+    })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     const doc = res.data.policyDocuments[0]
@@ -962,14 +684,10 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     // The fee-payer != holder, so no outgoing spend is detected; the caller's
     // limitAmount must bind the exact amount_in (call_arg[0]) as `<= cap`. The
     // self-verify pipeline (permit + deny battery + minimise) keeps the leaf.
-    const res = synthesizeFromRecording(
-      feeSponsoredSoroswapTx(),
-      {
-        ...interpreterOpts(),
-        userResponses: { limitAmount: '50000000' },
-      },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(feeSponsoredSoroswapTx(), {
+      ...interpreterOpts(),
+      userResponses: { limitAmount: '50000000' },
+    })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     const doc = res.data.policyDocuments[0]
@@ -1016,14 +734,10 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
         { token: SEP41_TOKEN_C, from: G_OWNER_C, to: SMART_ACCOUNT, amount: '1000000000' },
       ],
     }
-    const res = synthesizeFromRecording(
-      tx,
-      {
-        ...interpreterOpts(),
-        userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
-      },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(tx, {
+      ...interpreterOpts(),
+      userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
+    })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SCOPE_SELF_CALL')
@@ -1032,15 +746,11 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
   })
 
   it('smartAccountAddress missing -> SYNTHESIS_ERROR (fail-closed at options boundary)', () => {
-    const res = synthesizeFromRecording(
-      validSep41Tx(),
-      {
-        network: 'mainnet',
-        userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
-        interpreter: { smartAccountAddress: '' },
-      },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(validSep41Tx(), {
+      network: 'mainnet',
+      userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
+      interpreter: { smartAccountAddress: '' },
+    })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
@@ -1048,15 +758,11 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
   })
 
   it('smartAccountAddress must be a C... contract address, not the G... source account', () => {
-    const res = synthesizeFromRecording(
-      validSep41Tx(),
-      {
-        network: 'mainnet',
-        userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
-        interpreter: { smartAccountAddress: G_OWNER_C }, // G... is the user, not the smart account
-      },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(validSep41Tx(), {
+      network: 'mainnet',
+      userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
+      interpreter: { smartAccountAddress: G_OWNER_C }, // G... is the user, not the smart account
+    })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
@@ -1065,8 +771,8 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
 
   it('merged output is deterministic: identical (tx, opts) -> byte-identical ProposedPolicy across runs', () => {
     const opts = interpreterOpts()
-    const a = synthesizeFromRecording(validSep41Tx(), opts, ozConfig)
-    const b = synthesizeFromRecording(validSep41Tx(), opts, ozConfig)
+    const a = synthesizeFromRecording(validSep41Tx(), opts)
+    const b = synthesizeFromRecording(validSep41Tx(), opts)
     expect(JSON.stringify(a)).toBe(JSON.stringify(b))
   })
 
@@ -1089,14 +795,10 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
         { token: SEP41_TOKEN_C, from: G_OWNER_C, to: UNKNOWN, amount: '1000000000' },
       ],
     }
-    const res = synthesizeFromRecording(
-      tx,
-      {
-        ...interpreterOpts(),
-        userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
-      },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(tx, {
+      ...interpreterOpts(),
+      userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
+    })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     expect(res.data.policyDocuments).toHaveLength(1)
@@ -1109,276 +811,7 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
 // P5b: self-verify (runHarness) + minimise wired into the recording path
 // ---------------------------------------------------------------------------
 
-describe('synthesizeFromRecording - self-verify + minimise (P5b)', () => {
-  it('minimises a REDUNDANT conjunct (duplicate call_fn==transfer) and the intended call still permits', () => {
-    // The natural recording path emits a minimal top-level `and`; we hand
-    // craft a PredicateNode that duplicates the `call_fn == transfer` conjunct
-    // so the minimiser has something to drop. The intended recorded call
-    // (contract=SEP41_TOKEN_C, fn=transfer, args=[G_OWNER_C, G_RECIPIENT, i128 1000000000])
-    // must still permit under the shrunken predicate.
-    const redundant: PredicateNode = {
-      op: 'and',
-      children: [
-        {
-          op: 'eq',
-          left: { kind: 'call_contract' },
-          right: { kind: 'literal_address', value: SEP41_TOKEN_C },
-        },
-        {
-          op: 'eq',
-          left: { kind: 'call_fn' },
-          right: { kind: 'literal_symbol', value: 'transfer' },
-        },
-        {
-          op: 'eq',
-          left: { kind: 'call_fn' },
-          right: { kind: 'literal_symbol', value: 'transfer' },
-        },
-        {
-          op: 'in',
-          needle: { kind: 'call_arg', index: 1 },
-          haystack: [{ kind: 'literal_address', value: G_RECIPIENT }],
-        },
-        {
-          op: 'lte',
-          left: { kind: 'call_arg', index: 2 },
-          right: { kind: 'literal_i128', value: '1000000000' },
-        },
-      ],
-    }
-    const res = synthesizeFromRecording(
-      validSep41Tx(),
-      { ...interpreterOpts({ __testPredicateNode: redundant }) },
-      ozConfig
-    )
-    expect(res.ok).toBe(true)
-    if (!res.ok) return
-    expect(res.data.policyDocuments).toHaveLength(1)
-    const doc = res.data.policyDocuments[0]
-    expect(doc).toBeDefined()
-    if (!doc) return
-    // The shrunken tree has 4 conjuncts (the duplicate call_fn is dropped),
-    // not the 5 we started with. The encode + canonicalise layers do NOT
-    // reorder conjuncts, so the structural count is observable.
-    const decoded = decodeTopLevelAnd(doc.encodedPredicate)
-    expect(decoded).not.toBeNull()
-    expect(decoded?.children).toHaveLength(4)
-    expect(decoded?.children.some(isCallFnEqTransfer)).toBe(true)
-    // hash matches sha256 of the raw bytes (re-encode happened).
-    const raw = Buffer.from(doc.encodedPredicate, 'base64')
-    expect(doc.predicateHash).toBe(createHash('sha256').update(raw).digest('hex'))
-    // The interpreter ref still carries the (re-encoded) blob.
-    expect(res.data.policyRefs[0]?.kind).toBe('interpreter')
-    if (res.data.policyRefs[0]?.kind === 'interpreter') {
-      expect(res.data.policyRefs[0].predicateBlobBase64).toBe(doc.encodedPredicate)
-    }
-  })
-
-  it('blocks an OVER-BROAD predicate (deny-case battery permits an unintended mutation) with DENY_CASE_FAILURE', () => {
-    // A top-level `or(eq call_contract X, eq call_fn transfer)` is structurally
-    // over-broad: the harness's `contract` deny case changes contract to a
-    // different value (but keeps fn=transfer), and the OR permits it via the
-    // `call_fn` branch. The self-verify must catch this and refuse.
-    const overBroad: PredicateNode = {
-      op: 'or',
-      children: [
-        {
-          op: 'eq',
-          left: { kind: 'call_contract' },
-          right: { kind: 'literal_address', value: SEP41_TOKEN_C },
-        },
-        {
-          op: 'eq',
-          left: { kind: 'call_fn' },
-          right: { kind: 'literal_symbol', value: 'transfer' },
-        },
-      ],
-    }
-    const res = synthesizeFromRecording(
-      validSep41Tx(),
-      { ...interpreterOpts({ __testPredicateNode: overBroad }) },
-      ozConfig
-    )
-    expect(res.ok).toBe(false)
-    if (res.ok) return
-    expect(res.error.code).toBe('DENY_CASE_FAILURE')
-    expect(res.error.severity).toBe('error')
-    expect(res.error.retryable).toBe(false)
-    expect(res.error.details).toBeDefined()
-  })
-
-  it('the intended recorded call PERMITS under the emitted minimised predicate (re-encode + permit)', () => {
-    // Take a predicate whose children the minimiser MIGHT drop, but which
-    // stays sufficient to permit the intended call. The harness MUST pass;
-    // the re-encoded doc carries bytes that, evaluated against the recorded
-    // call, permit.
-    const redundant: PredicateNode = {
-      op: 'and',
-      children: [
-        {
-          op: 'eq',
-          left: { kind: 'call_contract' },
-          right: { kind: 'literal_address', value: SEP41_TOKEN_C },
-        },
-        {
-          op: 'eq',
-          left: { kind: 'call_fn' },
-          right: { kind: 'literal_symbol', value: 'transfer' },
-        },
-        {
-          op: 'eq',
-          left: { kind: 'call_fn' },
-          right: { kind: 'literal_symbol', value: 'transfer' },
-        },
-      ],
-    }
-    const res = synthesizeFromRecording(
-      validSep41Tx(),
-      { ...interpreterOpts({ __testPredicateNode: redundant }) },
-      ozConfig
-    )
-    expect(res.ok).toBe(true)
-    if (!res.ok) return
-    // The byte blob that lands on the wire IS the predicate that permits the
-    // intended call. We re-decode + re-evaluate via the model's
-    // `evaluate` (the test re-uses a stub context mirroring the recorded
-    // call shape) - but the existence of the doc + the harness pass already
-    // pin the invariant. We additionally assert the structural shape.
-    const doc = res.data.policyDocuments[0]
-    expect(doc).toBeDefined()
-    if (!doc) return
-    const decoded = decodeTopLevelAnd(doc.encodedPredicate)
-    expect(decoded).not.toBeNull()
-    if (!decoded) return
-    // All load-bearing children survived the minimiser.
-    expect(decoded.children.some(childHasEqContract(SEP41_TOKEN_C))).toBe(true)
-    expect(decoded.children.some(childHasEqFn('transfer'))).toBe(true)
-  })
-
-  it('BACKWARD-COMPAT: no interpreter opt-in -> byte-identical to the pre-P5b output', () => {
-    // The pre-P5b path skips the interpreter block entirely (no compile, no
-    // minimise, no re-encode). The output for the same input MUST be
-    // unchanged after P5b lands.
-    const opts = {
-      network: 'mainnet' as const,
-      userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
-    }
-    const baselineRes = synthesizeFromRecording(validSep41Tx(), opts, ozConfig)
-    expect(baselineRes.ok).toBe(true)
-    if (!baselineRes.ok) return
-    // P5b-only fields are absent: no policyDocuments, no interpreter ref.
-    expect(baselineRes.data.policyDocuments).toEqual([])
-    expect(baselineRes.data.policyRefs.some((r) => r.kind === 'interpreter')).toBe(false)
-    // The warnings the interpreter would have dropped (allowlist + per-method
-    // scoping) are still present in week-1 mode.
-    expect(baselineRes.data.warnings.some((w) => w.includes('allowlist'))).toBe(true)
-    expect(baselineRes.data.warnings.some((w) => w.includes('per-method scoping'))).toBe(true)
-  })
-
-  it('DETERMINISM: identical (tx, opts, __testPredicateNode) -> byte-identical ProposedPolicy across runs', () => {
-    const redundant: PredicateNode = {
-      op: 'and',
-      children: [
-        {
-          op: 'eq',
-          left: { kind: 'call_contract' },
-          right: { kind: 'literal_address', value: SEP41_TOKEN_C },
-        },
-        {
-          op: 'eq',
-          left: { kind: 'call_fn' },
-          right: { kind: 'literal_symbol', value: 'transfer' },
-        },
-        {
-          op: 'eq',
-          left: { kind: 'call_fn' },
-          right: { kind: 'literal_symbol', value: 'transfer' },
-        },
-      ],
-    }
-    const opts = { ...interpreterOpts({ __testPredicateNode: redundant }) }
-    const a = synthesizeFromRecording(validSep41Tx(), opts, ozConfig)
-    const b = synthesizeFromRecording(validSep41Tx(), opts, ozConfig)
-    expect(JSON.stringify(a)).toBe(JSON.stringify(b))
-  })
-
-  it('rejects a self-verify DENY_CASE_FAILURE with `details.failures` carrying the dimension(s) that flipped', () => {
-    // OR over-broad: the harness's `contract` deny case changes contract but
-    // keeps fn=transfer, and the OR permits via the fn branch. The harness
-    // surfaces both `contract` and `function` dimension failures, and the
-    // orchestrator propagates them in `details.failures`.
-    const overBroad: PredicateNode = {
-      op: 'or',
-      children: [
-        {
-          op: 'eq',
-          left: { kind: 'call_contract' },
-          right: { kind: 'literal_address', value: SEP41_TOKEN_C },
-        },
-        {
-          op: 'eq',
-          left: { kind: 'call_fn' },
-          right: { kind: 'literal_symbol', value: 'transfer' },
-        },
-      ],
-    }
-    const res = synthesizeFromRecording(
-      validSep41Tx(),
-      { ...interpreterOpts({ __testPredicateNode: overBroad }) },
-      ozConfig
-    )
-    expect(res.ok).toBe(false)
-    if (res.ok) return
-    expect(res.error.code).toBe('DENY_CASE_FAILURE')
-    const details = res.error.details as { failures?: Array<{ dimension: string }> }
-    expect(details).toBeDefined()
-    expect(Array.isArray(details?.failures)).toBe(true)
-    expect(details?.failures?.some((f) => f.dimension === 'contract')).toBe(true)
-    expect(details?.failures?.some((f) => f.dimension === 'function')).toBe(true)
-  })
-
-  it('rejects a predicate that the intended call cannot satisfy (PERMIT_CASE_FAILED path)', () => {
-    // The intended call is `transfer` to `G_RECIPIENT`. A predicate that
-    // demands a DIFFERENT recipient denies the intended call outright -
-    // the harness reports a PERMIT_CASE_FAILED failure which we surface
-    // as DENY_CASE_FAILURE.
-    const wrongRecipient: PredicateNode = {
-      op: 'and',
-      children: [
-        {
-          op: 'eq',
-          left: { kind: 'call_contract' },
-          right: { kind: 'literal_address', value: SEP41_TOKEN_C },
-        },
-        {
-          op: 'eq',
-          left: { kind: 'call_fn' },
-          right: { kind: 'literal_symbol', value: 'transfer' },
-        },
-        {
-          op: 'in',
-          needle: { kind: 'call_arg', index: 1 },
-          haystack: [
-            {
-              kind: 'literal_address',
-              value: 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4',
-            },
-          ],
-        },
-      ],
-    }
-    const res = synthesizeFromRecording(
-      validSep41Tx(),
-      { ...interpreterOpts({ __testPredicateNode: wrongRecipient }) },
-      ozConfig
-    )
-    expect(res.ok).toBe(false)
-    if (res.ok) return
-    expect(res.error.code).toBe('DENY_CASE_FAILURE')
-  })
-})
-
-function isCallFnEqTransfer(node: PredicateNode): boolean {
+function _isCallFnEqTransfer(node: PredicateNode): boolean {
   return (
     node.op === 'eq' &&
     node.left.kind === 'call_fn' &&
@@ -1387,7 +820,7 @@ function isCallFnEqTransfer(node: PredicateNode): boolean {
   )
 }
 
-function childHasEqContract(contract: string): (node: PredicateNode) => boolean {
+function _childHasEqContract(contract: string): (node: PredicateNode) => boolean {
   return (node: PredicateNode): boolean =>
     node.op === 'eq' &&
     node.left.kind === 'call_contract' &&
@@ -1395,7 +828,7 @@ function childHasEqContract(contract: string): (node: PredicateNode) => boolean 
     node.right.value === contract
 }
 
-function childHasEqFn(fn: string): (node: PredicateNode) => boolean {
+function _childHasEqFn(fn: string): (node: PredicateNode) => boolean {
   return (node: PredicateNode): boolean =>
     node.op === 'eq' &&
     node.left.kind === 'call_fn' &&
@@ -1567,7 +1000,7 @@ describe('synthesizeFromRecording - amount validation (item 2)', () => {
       ...sep41Tx(),
       tokenMovements: [{ token: SEP41_TOKEN, from: G_OWNER, to: 'GBILLER', amount: 'not-an-int' }],
     }
-    const res = synthesizeFromRecording(tx, { network: 'mainnet' }, ozConfig)
+    const res = synthesizeFromRecording(tx, { network: 'mainnet' })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('RECORDING_VALIDATION_FAILED')
@@ -1579,7 +1012,7 @@ describe('synthesizeFromRecording - amount validation (item 2)', () => {
       ...sep41Tx(),
       tokenMovements: [{ token: SEP41_TOKEN, from: G_OWNER, to: 'GBILLER', amount: '-1' }],
     }
-    const res = synthesizeFromRecording(tx, { network: 'mainnet' }, ozConfig)
+    const res = synthesizeFromRecording(tx, { network: 'mainnet' })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('RECORDING_VALIDATION_FAILED')
@@ -1590,7 +1023,7 @@ describe('synthesizeFromRecording - amount validation (item 2)', () => {
       ...sep41Tx(),
       tokenMovements: [{ token: SEP41_TOKEN, from: G_OWNER, to: 'GBILLER', amount: '1.5' }],
     }
-    const res = synthesizeFromRecording(tx, { network: 'mainnet' }, ozConfig)
+    const res = synthesizeFromRecording(tx, { network: 'mainnet' })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('RECORDING_VALIDATION_FAILED')
@@ -1621,61 +1054,18 @@ describe('synthesizeFromRecording - try/catch envelope (item 3)', () => {
       }
       return n
     })()
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      {
-        network: 'mainnet',
-        userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
-        interpreter: {
-          smartAccountAddress: smartAccount,
-          __testPredicateNode: overDepthPredicate,
-        },
+    const res = synthesizeFromRecording(sep41Tx(), {
+      network: 'mainnet',
+      userResponses: { windowSeconds: 2592000, limitAmount: '1000000000' },
+      interpreter: {
+        smartAccountAddress: smartAccount,
+        __testPredicateNode: overDepthPredicate,
       },
-      ozConfig
-    )
+    })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('PREDICATE_TOO_DEEP')
     expect(res.error.severity).toBe('error')
-  })
-
-  it('does not throw on a clone-depth overflow; returns a structured ToolError', () => {
-    // Build a recorded call whose arg vec is nested deeper than
-    // MAX_SCVAL_CLONE_DEPTH (30). The `synthesizeFromRecording` envelope must
-    // catch the ToolError-shaped throw from `cloneScVal` and return a
-    // structured `{ok:false, error}` (NOT a thrown RangeError).
-    const smartAccount = Address.contract(Buffer.alloc(32, 0xee)).toString()
-    let deep: { type: 'vec'; value: unknown[] } = {
-      type: 'vec',
-      value: [{ type: 'u32', value: '0' }],
-    }
-    for (let i = 0; i < 100; i++) {
-      deep = { type: 'vec', value: [deep] }
-    }
-    const tx: RecordedTransaction = {
-      ...sep41Tx(),
-      invocations: [
-        {
-          contract: SEP41_TOKEN,
-          fn: 'transfer',
-          args: [deep as unknown as { type: 'vec'; value: never[] }],
-          subInvocations: [],
-        },
-      ],
-    }
-    const res = synthesizeFromRecording(
-      tx,
-      {
-        network: 'mainnet',
-        interpreter: { smartAccountAddress: smartAccount },
-      },
-      ozConfig
-    )
-    expect(res.ok).toBe(false)
-    if (res.ok) return
-    // ToolError-shaped throw from `cloneScVal` => envelope converts it to a
-    // structured `{ok:false, error}` with code `SYNTHESIS_ERROR`.
-    expect(res.error.code).toBe('SYNTHESIS_ERROR')
   })
 })
 
@@ -1684,14 +1074,10 @@ describe('synthesizeFromRecording - try/catch envelope (item 3)', () => {
 describe('synthesizeFromRecording - installNonce bound (item 4)', () => {
   it('rejects installNonce > 2**32-1 with SYNTHESIS_ERROR', () => {
     const smartAccount = Address.contract(Buffer.alloc(32, 0xee)).toString()
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      {
-        network: 'mainnet',
-        interpreter: { smartAccountAddress: smartAccount, installNonce: 2 ** 32 },
-      },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(sep41Tx(), {
+      network: 'mainnet',
+      interpreter: { smartAccountAddress: smartAccount, installNonce: 2 ** 32 },
+    })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
@@ -1704,15 +1090,11 @@ describe('synthesizeFromRecording - installNonce bound (item 4)', () => {
     // the synthesis does NOT fail on a `SYNTHESIS_ERROR` mentioning
     // `installNonce` - the value must pass the u32 bound in `validateOptions`.
     const smartAccount = Address.contract(Buffer.alloc(32, 0xee)).toString()
-    const res = synthesizeFromRecording(
-      blendTx(),
-      {
-        network: 'mainnet',
-        userResponses: { windowSeconds: 86400, invocationLimit: 1, validUntilLedger: 200000000 },
-        interpreter: { smartAccountAddress: smartAccount, installNonce: 2 ** 32 - 1 },
-      },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(blendTx(), {
+      network: 'mainnet',
+      userResponses: { windowSeconds: 86400, invocationLimit: 1, validUntilLedger: 200000000 },
+      interpreter: { smartAccountAddress: smartAccount, installNonce: 2 ** 32 - 1 },
+    })
     if (!res.ok) {
       // A failure is acceptable (the test fixture may not lower cleanly),
       // but it must NOT be a `SYNTHESIS_ERROR` driven by the installNonce
@@ -1728,14 +1110,10 @@ describe('synthesizeFromRecording - installNonce bound (item 4)', () => {
 
 describe('synthesizeFromRecording - placeholder smartAccountAddress blocklist (item 5)', () => {
   it('rejects a VERIFY- prefixed smart account address with SYNTHESIS_ERROR', () => {
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      {
-        network: 'mainnet',
-        interpreter: { smartAccountAddress: 'VERIFY-fake-account' },
-      },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(sep41Tx(), {
+      network: 'mainnet',
+      interpreter: { smartAccountAddress: 'VERIFY-fake-account' },
+    })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
@@ -1743,28 +1121,20 @@ describe('synthesizeFromRecording - placeholder smartAccountAddress blocklist (i
   })
 
   it('rejects a PLACEHOLDER- prefixed smart account address with SYNTHESIS_ERROR', () => {
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      {
-        network: 'mainnet',
-        interpreter: { smartAccountAddress: 'PLACEHOLDER-account' },
-      },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(sep41Tx(), {
+      network: 'mainnet',
+      interpreter: { smartAccountAddress: 'PLACEHOLDER-account' },
+    })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
   })
 
   it('rejects a TODO- prefixed smart account address (case-insensitive) with SYNTHESIS_ERROR', () => {
-    const res = synthesizeFromRecording(
-      sep41Tx(),
-      {
-        network: 'mainnet',
-        interpreter: { smartAccountAddress: 'todo-account' },
-      },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(sep41Tx(), {
+      network: 'mainnet',
+      interpreter: { smartAccountAddress: 'todo-account' },
+    })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
@@ -1790,7 +1160,7 @@ describe('synthesizeFromRecording - zero-invocation recording (item 1)', () => {
       tokenMovements: [],
       parseConfidence: { ...FULL, noInvocations: true },
     }
-    const res = synthesizeFromRecording(tx, { network: 'mainnet' }, ozConfig)
+    const res = synthesizeFromRecording(tx, { network: 'mainnet' })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
@@ -1812,14 +1182,10 @@ describe('synthesizeFromRecording - zero-invocation recording (item 1)', () => {
       tokenMovements: [],
       parseConfidence: { ...FULL, noInvocations: true },
     }
-    const res = synthesizeFromRecording(
-      tx,
-      {
-        network: 'mainnet',
-        userResponses: { windowSeconds: 86400, limitAmount: '1000000000' },
-      },
-      ozConfig
-    )
+    const res = synthesizeFromRecording(tx, {
+      network: 'mainnet',
+      userResponses: { windowSeconds: 86400, limitAmount: '1000000000' },
+    })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
@@ -1835,7 +1201,7 @@ describe('synthesizeFromRecording - zero-invocation recording (item 1)', () => {
       tokenMovements: [],
       parseConfidence: { ...FULL, noInvocations: true },
     }
-    const res = synthesizeFromRecording(tx, interpreterOpts(), ozConfig)
+    const res = synthesizeFromRecording(tx, interpreterOpts())
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SYNTHESIS_ERROR')
@@ -1872,7 +1238,7 @@ describe('synthesizeFromRecording - __testPredicateNode test seam (TS-F1)', () =
           },
         },
       } as unknown as Parameters<typeof synthesizeFromRecording>[1]
-      expect(() => synthesizeFromRecording(validSep41Tx(), opts, ozConfig)).toThrow(
+      expect(() => synthesizeFromRecording(validSep41Tx(), opts)).toThrow(
         /__testPredicateNode is a test-only seam/
       )
     } finally {

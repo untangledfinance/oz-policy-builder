@@ -1,8 +1,7 @@
 // packages/policy-builder-cli/src/commands/synthesize.ts
 //
 // `policy-builder synthesize` subcommand. Dispatches to ONE of the two
-// front-ends (mandate / recording) based on which file flag is supplied:
-//   --mandate <path.json>     -> synthesizeFromMandate
+// One front-end:
 //   --recorded-tx <path.json> -> synthesizeFromRecording
 //
 // The CLI mirrors the MCP tool's discriminated union: one subcommand, two
@@ -15,7 +14,7 @@
 // bounds are validated by the core.
 //
 // --explain (Phase 1) makes the synthesised policy human-readable. The
-// orchestrator attaches the in-memory predicate tree + a SimulationResult
+// orchestrator attaches the in-memory predicate tree
 // to the success envelope; the CLI builds the deterministic review card
 // from those inputs and emits it alongside the policy. Without --explain
 // the output is byte-identical to today.
@@ -29,17 +28,6 @@ import {
 import { runSynthesizePolicy } from '@crediolabs/policy-synth/run'
 import { CliError, type CliFlags, formatToolResponse, parsePairs, readJsonFile } from '../output.ts'
 
-/** Local mirror of the synth core's `SimulationResult` shape. The verify
- *  module is internal to the package, so the CLI keeps this minimal copy
- *  instead of importing the deep path - the contract is small enough that
- *  a structural type is cheaper than a new package export. */
-type SimulationResult = {
-  permit: { tx: 'permit' } | { tx: 'deny'; reason: string }
-  evaluatedCases: Array<{ dimension: string; outcome: 'permit' | 'deny'; reason: string }>
-  backend: 'interpreter-v1' | 'ts-model'
-  simulatorVersion: string
-}
-
 // Positive-int flags and i128 amount strings share the same wire shape: a
 // base-10 unsigned decimal, no sign. The i128 stays a string at the boundary
 // because it is wider than Number.MAX_SAFE_INTEGER.
@@ -50,12 +38,10 @@ export async function runSynthesizeCommand(
   flags: CliFlags
 ): Promise<ProposedPolicy> {
   const pairs = parsePairs(argv)
-  const hasMandate = Boolean(pairs.mandate)
-  const hasRecorded = Boolean(pairs['recorded-tx'])
-  if (hasMandate === hasRecorded) {
+  if (!pairs['recorded-tx']) {
     throw new CliError({
       code: 'CLI_MISSING_ARG',
-      message: 'synthesize: exactly one of --mandate <path> or --recorded-tx <path> is required',
+      message: 'synthesize: --recorded-tx <path> is required',
       severity: 'error',
       retryable: false,
     })
@@ -68,16 +54,6 @@ export async function runSynthesizeCommand(
   // otherwise.
   const explain = pairs.explain !== undefined
 
-  if (hasMandate) {
-    const mandate = readJsonFile(pairs.mandate as string) as Record<string, unknown>
-    const args: Record<string, unknown> = { source: 'mandate', mandate }
-    applySharedFlags(args, pairs, explain)
-    const res = await runSynthesizePolicy(args)
-    if (explain) emitExplainBlock(res, flags)
-    return formatToolResponse(res, flags, 'synthesize(mandate)')
-  }
-
-  // hasRecorded
   const recordedFile = readJsonFile(pairs['recorded-tx'] as string) as Record<string, unknown>
   // Accept either a bare RecordedTransaction or the `{ ok, data }` artifact that
   // `record --out` writes (same shape as `--json`), so `record --out X` followed
@@ -213,17 +189,13 @@ export async function runSynthesizeCommand(
   return formatToolResponse(res, flags, 'synthesize(recording)')
 }
 
-/** Apply flags shared between the mandate and recording synthesize paths:
- *  --oz-config, --confidence, --explain. Pulled out so adding a shared flag
- *  adds one branch here rather than two copies in the command body. */
+/** Apply the flags that are not part of the recording payload itself:
+ *  --confidence, --explain. */
 function applySharedFlags(
   args: Record<string, unknown>,
   pairs: Record<string, string>,
   explain: boolean
 ): void {
-  if (pairs['oz-config'] !== undefined) {
-    args.ozConfig = readOzConfigFile(pairs['oz-config'] as string)
-  }
   if (pairs.confidence !== undefined) {
     args.confidenceOverride = { threshold: parseConfidence(pairs.confidence as string) }
   }
@@ -243,7 +215,6 @@ function emitExplainBlock(
     data?: ProposedPolicy
     explain?: {
       predicateTree: unknown
-      simulation: SimulationResult
     }
   },
   flags: CliFlags
@@ -252,8 +223,8 @@ function emitExplainBlock(
   const review = buildReviewCardSummary(
     // The orchestrator's `predicateTree` is the exact in-memory AST
     // (canonical JSON shape). The builder's input is typed as
-    // `PredicateNode | null`; the orchestrator's `null` is the truthful
-    // OZ-only / mandate value, so a null here is honest.
+    // `PredicateNode | null`; a null is the truthful value when the
+    // interpreter adapter was not engaged.
     (res.explain.predicateTree ?? null) as never,
     res.data?.policyRefs ?? [],
     res.data?.contextRule ?? {
@@ -263,7 +234,7 @@ function emitExplainBlock(
       signers: [],
       policies: [],
     },
-    res.explain.simulation
+    'interpreter-v1'
   )
   // Attach the two additive fields to the on-wire envelope. formatToolResponse
   // reads from `res` and writes the JSON; we mutate the same object so the
@@ -292,24 +263,6 @@ function emitExplainBlock(
   }
 }
 
-/** Read and validate an OzAdapterConfig JSON file. Throws CLI_FILE_NOT_FOUND /
- *  CLI_INVALID_JSON for filesystem / parse failures; the core's strict schema
- *  on `ozConfig` catches shape mismatches downstream. */
-function readOzConfigFile(path: string): Record<string, unknown> {
-  const value = readJsonFile(path)
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    throw new CliError({
-      code: 'CLI_INVALID_JSON',
-      message: `synthesize: --oz-config ${path} must be a JSON object`,
-      severity: 'error',
-      retryable: false,
-    })
-  }
-  return value as Record<string, unknown>
-}
-
-/** Parse and validate `--confidence <n>` as a finite number in [0, 1]. A
- *  threshold above 1 would disable the recorder gate; reject it up front. */
 function parseConfidence(raw: string): number {
   const n = Number(raw)
   if (!Number.isFinite(n) || n < 0 || n > 1) {

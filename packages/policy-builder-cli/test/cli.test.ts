@@ -40,14 +40,14 @@ const MANDATE_FIXTURE = {
 
 const RECORDING_FIXTURE = {
   network: 'mainnet',
-  signers: ['GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACFD'],
+  signers: ['GCQKBIFAUCQKBIFAUCQKBIFAUCQKBIFAUCQKBIFAUCQKBIFAUCQKAGP5'],
   invocations: [
     {
-      contract: 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM',
+      contract: 'CAFQWCYLBMFQWCYLBMFQWCYLBMFQWCYLBMFQWCYLBMFQWCYLBMFQX4KO',
       fn: 'transfer',
       args: [
-        { type: 'address', value: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACFD' },
-        { type: 'address', value: 'GBILLER' },
+        { type: 'address', value: 'GCQKBIFAUCQKBIFAUCQKBIFAUCQKBIFAUCQKBIFAUCQKBIFAUCQKAGP5' },
+        { type: 'address', value: 'GCQ2DINBUGQ2DINBUGQ2DINBUGQ2DINBUGQ2DINBUGQ2DINBUGQ2DJX7' },
         { type: 'i128', value: '1000000000' },
       ],
       subInvocations: [],
@@ -55,9 +55,9 @@ const RECORDING_FIXTURE = {
   ],
   tokenMovements: [
     {
-      token: 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM',
-      from: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACFD',
-      to: 'GBILLER',
+      token: 'CAFQWCYLBMFQWCYLBMFQWCYLBMFQWCYLBMFQWCYLBMFQWCYLBMFQX4KO',
+      from: 'GCQKBIFAUCQKBIFAUCQKBIFAUCQKBIFAUCQKBIFAUCQKBIFAUCQKAGP5',
+      to: 'GCQ2DINBUGQ2DINBUGQ2DINBUGQ2DINBUGQ2DINBUGQ2DINBUGQ2DJX7',
       amount: '1000000000',
     },
   ],
@@ -72,7 +72,7 @@ const RECORDING_FIXTURE = {
     opaqueScVals: [],
     thresholdUsed: 1,
   },
-  sourceAccount: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACFD',
+  sourceAccount: 'GCQKBIFAUCQKBIFAUCQKBIFAUCQKBIFAUCQKBIFAUCQKBIFAUCQKAGP5',
 }
 
 // A real mainnet Blend `claim` recording (incoming yield, no spend). Synthesized
@@ -206,17 +206,11 @@ describe('policy-builder CLI', () => {
     expect(r.stdout).toContain('policy-builder')
   })
 
-  it('synthesize --mandate --json exits 0 with JSON on stdout', async () => {
-    const r = await runCli(['synthesize', '--mandate', resolve(FIXTURES, 'mandate.json'), '--json'])
-    expect(r.exitCode).toBe(0)
-    const parsed = JSON.parse(r.stdout.trim()) as { ok: boolean; data: { contextRule: unknown } }
-    expect(parsed.ok).toBe(true)
-    expect(parsed.data.contextRule).toBeDefined()
-  })
-
   it('synthesize --recorded-tx --json exits 0 with JSON on stdout', async () => {
     const r = await runCli([
       'synthesize',
+      '--smart-account',
+      SMART_ACCOUNT,
       '--recorded-tx',
       resolve(FIXTURES, 'recorded-tx.json'),
       '--network',
@@ -236,6 +230,8 @@ describe('policy-builder CLI', () => {
     writeFileSync(envelopePath, JSON.stringify({ ok: true, data: RECORDING_FIXTURE }, null, 2))
     const r = await runCli([
       'synthesize',
+      '--smart-account',
+      SMART_ACCOUNT,
       '--recorded-tx',
       envelopePath,
       '--network',
@@ -285,8 +281,12 @@ describe('policy-builder CLI', () => {
     const outPath = resolve(TMP, 'policy.json')
     const r = await runCli([
       'synthesize',
-      '--mandate',
-      resolve(FIXTURES, 'mandate.json'),
+      '--smart-account',
+      SMART_ACCOUNT,
+      '--recorded-tx',
+      resolve(FIXTURES, 'recorded-tx.json'),
+      '--network',
+      'mainnet',
       '--out',
       outPath,
       '--json',
@@ -414,48 +414,11 @@ describe('policy-builder CLI', () => {
   //   1. reach the core (assert an observable effect on the synthesised policy)
   //   2. reject bad values up front with a CLI-friendly exit code
 
-  it('synthesize --window-seconds <n> reaches the core (period_ledgers reflects the override)', async () => {
-    // The OZ spending_limit primitive derives `period_ledgers` from
-    // `userResponses.windowSeconds` (5 sec/ledger on Stellar). With the
-    // per-field flag set, the CLI must pass `userResponses.windowSeconds`
-    // through to the core unchanged - observable on the oz_builtin primitive.
-    const r = await runCli([
-      'synthesize',
-      '--recorded-tx',
-      resolve(FIXTURES, 'recorded-tx.json'),
-      '--network',
-      'mainnet',
-      '--limit-amount',
-      '1000000000',
-      '--window-seconds',
-      '86400',
-      '--json',
-    ])
-    expect(r.exitCode).toBe(0)
-    const parsed = JSON.parse(r.stdout.trim()) as {
-      ok: boolean
-      data: {
-        policyRefs: Array<{
-          kind: string
-          instanceAddress?: string
-          primitive?: { primitive: string; params: Record<string, unknown> }
-        }>
-      }
-    }
-    expect(parsed.ok).toBe(true)
-    const ref = parsed.data.policyRefs.find((r) => r.kind === 'oz_builtin')
-    expect(ref).toBeDefined()
-    if (ref?.kind === 'oz_builtin') {
-      expect(ref.primitive?.primitive).toBe('spending_limit')
-      // 86400 sec / 5 sec-per-ledger = 17280 ledgers
-      expect(ref.primitive?.params.period_ledgers).toBe(17280)
-      expect(ref.primitive?.params.spending_limit).toBe('1000000000')
-    }
-  })
-
   it('synthesize --window-seconds <bad> exits non-zero with CLI_MISSING_ARG', async () => {
     const r = await runCli([
       'synthesize',
+      '--smart-account',
+      SMART_ACCOUNT,
       '--recorded-tx',
       resolve(FIXTURES, 'recorded-tx.json'),
       '--network',
@@ -475,6 +438,8 @@ describe('policy-builder CLI', () => {
   it('synthesize --valid-until <ledger> reaches the core (contextRule.validUntilLedger reflects the override)', async () => {
     const r = await runCli([
       'synthesize',
+      '--smart-account',
+      SMART_ACCOUNT,
       '--recorded-tx',
       resolve(FIXTURES, 'recorded-tx.json'),
       '--network',
@@ -497,6 +462,8 @@ describe('policy-builder CLI', () => {
   it('synthesize --valid-until <bad> exits non-zero with CLI_MISSING_ARG', async () => {
     const r = await runCli([
       'synthesize',
+      '--smart-account',
+      SMART_ACCOUNT,
       '--recorded-tx',
       resolve(FIXTURES, 'recorded-tx.json'),
       '--network',
@@ -516,6 +483,8 @@ describe('policy-builder CLI', () => {
     // assert the flag does not break the OZ-only synthesis (exit 0 + ok:true).
     const r = await runCli([
       'synthesize',
+      '--smart-account',
+      SMART_ACCOUNT,
       '--recorded-tx',
       resolve(FIXTURES, 'recorded-tx.json'),
       '--network',
@@ -531,37 +500,11 @@ describe('policy-builder CLI', () => {
     expect(parsed.ok).toBe(true)
   })
 
-  it('synthesize --limit-amount <i128str> reaches the core (spending_limit param reflects override)', async () => {
-    const r = await runCli([
-      'synthesize',
-      '--recorded-tx',
-      resolve(FIXTURES, 'recorded-tx.json'),
-      '--network',
-      'mainnet',
-      '--window-seconds',
-      '86400',
-      '--limit-amount',
-      '42424242',
-      '--json',
-    ])
-    expect(r.exitCode).toBe(0)
-    const parsed = JSON.parse(r.stdout.trim()) as {
-      ok: boolean
-      data: {
-        policyRefs: Array<{
-          kind: string
-          primitive?: { primitive: string; params: Record<string, unknown> }
-        }>
-      }
-    }
-    expect(parsed.ok).toBe(true)
-    const ref = parsed.data.policyRefs.find((r) => r.kind === 'oz_builtin')
-    expect(ref?.kind === 'oz_builtin' && ref.primitive?.params.spending_limit).toBe('42424242')
-  })
-
   it('synthesize --limit-amount <bad non-i128> exits non-zero with CLI_MISSING_ARG', async () => {
     const r = await runCli([
       'synthesize',
+      '--smart-account',
+      SMART_ACCOUNT,
       '--recorded-tx',
       resolve(FIXTURES, 'recorded-tx.json'),
       '--network',
@@ -579,6 +522,8 @@ describe('policy-builder CLI', () => {
   it('synthesize --recipient <bad address> exits non-zero with CLI_MISSING_ARG', async () => {
     const r = await runCli([
       'synthesize',
+      '--smart-account',
+      SMART_ACCOUNT,
       '--recorded-tx',
       resolve(FIXTURES, 'recorded-tx.json'),
       '--network',
@@ -638,124 +583,13 @@ describe('policy-builder CLI', () => {
     expect(parsed.data.ambiguities.some((a) => a.code === 'RECIPIENT_ALLOWLIST_EMPTY')).toBe(false)
   })
 
-  it('synthesize per-field --window-seconds overrides the same field from --responses (precedence)', async () => {
-    // The flag MUST override the file: --responses.windowSeconds = 86400 ->
-    // period_ledgers 17280. --window-seconds 2592000 (30d) -> period_ledgers
-    // 518400. If the flag loses precedence, the assertion fails.
-    const r = await runCli([
-      'synthesize',
-      '--recorded-tx',
-      resolve(FIXTURES, 'recorded-tx.json'),
-      '--network',
-      'mainnet',
-      '--limit-amount',
-      '1000000000',
-      '--responses',
-      resolve(FIXTURES, 'blend-responses.json'),
-      '--window-seconds',
-      '2592000',
-      '--json',
-    ])
-    expect(r.exitCode).toBe(0)
-    const parsed = JSON.parse(r.stdout.trim()) as {
-      ok: boolean
-      data: {
-        policyRefs: Array<{
-          kind: string
-          primitive?: { primitive: string; params: Record<string, unknown> }
-        }>
-      }
-    }
-    expect(parsed.ok).toBe(true)
-    const ref = parsed.data.policyRefs.find((r) => r.kind === 'oz_builtin')
-    expect(ref?.kind === 'oz_builtin' && ref.primitive?.params.period_ledgers).toBe(518400)
-  })
-
-  it('synthesize --oz-config <path.json> reaches the core (custom instance addresses reflect in policyRefs)', async () => {
-    // Use distinct placeholder addresses so the assertion catches both
-    // (a) the override being silently dropped and (b) the placeholder being
-    // used by mistake. The spending_limit address is observable on the
-    // oz_builtin policyRef.
-    const customConfig = {
-      network: 'mainnet',
-      instances: {
-        spending_limit: 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASPND',
-        simple_threshold: 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASMP0',
-        weighted_threshold: 'CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGTD',
-      },
-    }
-    writeFileSync(
-      resolve(FIXTURES, 'oz-config-mainnet.json'),
-      JSON.stringify(customConfig, null, 2)
-    )
-    const r = await runCli([
-      'synthesize',
-      '--recorded-tx',
-      resolve(FIXTURES, 'recorded-tx.json'),
-      '--network',
-      'mainnet',
-      '--window-seconds',
-      '86400',
-      '--limit-amount',
-      '1000000000',
-      '--oz-config',
-      resolve(FIXTURES, 'oz-config-mainnet.json'),
-      '--json',
-    ])
-    expect(r.exitCode).toBe(0)
-    const parsed = JSON.parse(r.stdout.trim()) as {
-      ok: boolean
-      data: {
-        policyRefs: Array<{ kind: string; instanceAddress?: string }>
-      }
-    }
-    expect(parsed.ok).toBe(true)
-    const ref = parsed.data.policyRefs.find((r) => r.kind === 'oz_builtin')
-    expect(ref?.kind === 'oz_builtin' && ref.instanceAddress).toBe(
-      customConfig.instances.spending_limit
-    )
-  })
-
-  it('synthesize --oz-config <missing path> exits non-zero with CLI_FILE_NOT_FOUND', async () => {
-    const r = await runCli([
-      'synthesize',
-      '--recorded-tx',
-      resolve(FIXTURES, 'recorded-tx.json'),
-      '--network',
-      'mainnet',
-      '--oz-config',
-      resolve(FIXTURES, 'does-not-exist.json'),
-      '--json',
-    ])
-    expect(r.exitCode).not.toBe(0)
-    const parsed = JSON.parse(r.stdout.trim()) as { ok: boolean; error: { code: string } }
-    expect(parsed.ok).toBe(false)
-    expect(parsed.error.code).toBe('CLI_FILE_NOT_FOUND')
-  })
-
-  it('synthesize --oz-config <bad JSON> exits non-zero with CLI_INVALID_JSON', async () => {
-    writeFileSync(resolve(FIXTURES, 'oz-config-bad.json'), '{not-json}')
-    const r = await runCli([
-      'synthesize',
-      '--recorded-tx',
-      resolve(FIXTURES, 'recorded-tx.json'),
-      '--network',
-      'mainnet',
-      '--oz-config',
-      resolve(FIXTURES, 'oz-config-bad.json'),
-      '--json',
-    ])
-    expect(r.exitCode).not.toBe(0)
-    const parsed = JSON.parse(r.stdout.trim()) as { ok: boolean; error: { code: string } }
-    expect(parsed.ok).toBe(false)
-    expect(parsed.error.code).toBe('CLI_INVALID_JSON')
-  })
-
   it('synthesize --confidence <out-of-range> exits non-zero with CLI_MISSING_ARG', async () => {
     // A confidence threshold above 1 would disable the recorder gate; the CLI
     // must reject it before the call reaches the core.
     const r = await runCli([
       'synthesize',
+      '--smart-account',
+      SMART_ACCOUNT,
       '--recorded-tx',
       resolve(FIXTURES, 'recorded-tx.json'),
       '--network',
@@ -777,6 +611,8 @@ describe('policy-builder CLI', () => {
     // the call exercises the confidenceOverride path end-to-end.
     const r = await runCli([
       'synthesize',
+      '--smart-account',
+      SMART_ACCOUNT,
       '--recorded-tx',
       resolve(FIXTURES, 'recorded-tx.json'),
       '--network',
@@ -947,30 +783,6 @@ describe('policy-builder CLI', () => {
       expect(s).not.toContain('undefined')
       expect(s).not.toMatch(/<(call_arg_len|call_arg_field|amount|now|valid_until)>/)
     }
-  })
-
-  it('synthesize --explain works for the mandate path (no interpreter predicate)', async () => {
-    // The mandate path has no PredicateNode. The review card must still
-    // be emitted (using an OZ-only summary); the predicateTree must be
-    // null and the card content hash must be deterministic.
-    const r = await runCli([
-      'synthesize',
-      '--mandate',
-      resolve(FIXTURES, 'mandate.json'),
-      '--explain',
-      '--json',
-    ])
-    expect(r.exitCode).toBe(0)
-    const parsed = JSON.parse(r.stdout.trim()) as {
-      data: {
-        review: { ruleName: string; constraints: string[]; contentHash: string }
-        predicateTree: unknown
-      }
-    }
-    expect(parsed.data.review).toBeDefined()
-    expect(parsed.data.review.constraints.length).toBeGreaterThan(0)
-    expect(parsed.data.predicateTree).toBeNull()
-    expect(parsed.data.review.contentHash).toMatch(/^[0-9a-f]{64}$/)
   })
 
   it('synthesize --explain human output states each constraint exactly once', async () => {

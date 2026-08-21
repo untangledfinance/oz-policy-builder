@@ -26,17 +26,13 @@ import {
   GetInterpreterInfoInputSchema,
   InstallPolicyInputSchema,
   InterpreterOptionsSchema,
-  MandateSpecSchema,
   NetworkSchema,
-  OzAdapterConfigSchema,
   PredicateNodeSchema,
   RecordedTransactionSchema,
   RecordTransactionInputSchema,
   RevokePolicyInputSchema,
-  SimulatePolicyInputSchema,
   SynthesizePolicyInputSchema,
   ToolErrorSchema,
-  VerifyPolicyInputSchema,
 } from '@crediolabs/policy-synth/run'
 import { z } from 'zod'
 
@@ -50,17 +46,13 @@ export {
   GetInterpreterInfoInputSchema,
   InstallPolicyInputSchema,
   InterpreterOptionsSchema,
-  MandateSpecSchema,
   NetworkSchema,
-  OzAdapterConfigSchema,
   PredicateNodeSchema,
   RecordedTransactionSchema,
   RecordTransactionInputSchema,
   RevokePolicyInputSchema,
-  SimulatePolicyInputSchema,
   SynthesizePolicyInputSchema,
   ToolErrorSchema,
-  VerifyPolicyInputSchema,
 }
 
 /** Flat ZodRawShape used for the MCP SDK tool registration. The body
@@ -74,17 +66,15 @@ export const RecordTransactionToolShape = {
 } as const
 
 /** Flat ZodRawShape used for MCP tool registration. Every field is optional
- *  so the JSON-Schema the SDK exposes to clients does not forbid either
- *  front-end; the body re-validates against the discriminated union. */
+ *  so the JSON-Schema the SDK exposes to clients stays permissive; the body
+ *  re-validates against the strict schema. */
 export const SynthesizePolicyToolShape = {
-  source: z.enum(['mandate', 'recording']).optional(),
-  mandate: MandateSpecSchema.optional(),
+  source: z.literal('recording').optional(),
   recordedTx: RecordedTransactionSchema.optional(),
   network: NetworkSchema.optional(),
   userResponses: ComposeUserResponsesSchema.optional(),
   confidenceOverride: z.object({ threshold: z.number().min(0).max(1) }).optional(),
   interpreter: InterpreterOptionsSchema.optional(),
-  ozConfig: OzAdapterConfigSchema.optional(),
   // Without this the tool chain has no join. A ProposedPolicy carries
   // `policyDocuments[].encodedPredicate` (canonical ScVal bytes), while
   // `simulate_policy` and `verify_policy` both want the PredicateNode TREE,
@@ -95,33 +85,6 @@ export const SynthesizePolicyToolShape = {
   explain: z.boolean().optional(),
 } as const
 
-/** Flat ZodRawShape for `simulate_policy`. The `predicate` is typed as
- *  `z.unknown()` at the tool boundary because the recursive
- *  `PredicateNodeSchema` is a `z.lazy()` union (the SDK does not accept
- *  unions at the tool-registration boundary); the body re-validates
- *  against `SimulatePolicyInputSchema`, which fails closed on a
- *  malformed predicate. `predicate` is nullable here (vs required for
- *  verify_policy) so the SDK-emitted JSON Schema mirrors the engine's
- *  "OZ-only / no interpreter predicate" contract. */
-export const SimulatePolicyToolShape = {
-  predicate: z.unknown().nullable().optional(),
-  permitTx: RecordedTransactionSchema,
-  validUntilLedger: z.number().int().positive().optional(),
-} as const
-
-/** Flat ZodRawShape for `verify_policy`. Same `z.unknown()` boundary
- *  trick for `predicate` as `SimulatePolicyToolShape`; `predicate` is
- *  required at the strict-schema level (`VerifyPolicyInputSchema`) so
- *  the body fails closed on a missing predicate. */
-export const VerifyPolicyToolShape = {
-  predicate: z.unknown(),
-  permitTx: RecordedTransactionSchema,
-  validUntilLedger: z.number().int().positive().optional(),
-} as const
-
-// Re-export the strict input schemas so MCP consumers (and downstream
-// tests) can import the canonical wire shapes from the same module
-// that owns the tool-shape glue.
 export type {
   GetInterpreterInfoInput,
   InstallPolicyInput,

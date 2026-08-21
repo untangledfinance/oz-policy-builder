@@ -35,7 +35,6 @@ import type {
   PredicateLeaf,
   PredicateNode,
 } from '../types.ts'
-import type { SimulationResult } from '../verify/envelope.ts'
 
 export interface ReviewCardSummary {
   ruleName: string
@@ -59,7 +58,8 @@ export function buildReviewCardSummary(
   predicate: PredicateNode | null,
   policyRefs: PolicyRef[],
   contextRule: ContextRuleDraft,
-  simulation: SimulationResult
+  /** Evaluator identity folded into the content hash. */
+  backend: 'interpreter-v1' | 'ts-model'
 ): ReviewCardSummary {
   const constraints: string[] = []
   for (const ref of policyRefs) {
@@ -84,7 +84,6 @@ export function buildReviewCardSummary(
     contextRule.signers.length >= 2
       ? 'any ONE signer may authorise a permitted op under this rule (OZ any-of-N semantic)'
       : null
-  const backend = simulation.backend
 
   const contentHash = computeContentHash({
     ruleName,

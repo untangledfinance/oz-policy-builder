@@ -108,7 +108,12 @@ describe('interpreter adapter - Blend claim walkthrough', () => {
     const proposed = res.proposed
     expect(proposed).toBeDefined()
     if (!proposed) return
-    expect(proposed.contextRule.contextRuleType).toEqual({ kind: 'default' })
+    // Scoped to the contract, matching what the context rule must route: a
+    // `default` rule would send every call through this policy.
+    expect(proposed.contextRule.contextRuleType).toEqual({
+      kind: 'call_contract',
+      contract: BLEND_POOL,
+    })
     expect(proposed.policyDocuments).toHaveLength(1)
     expect(proposed.policyRefs).toHaveLength(1)
     const doc = proposed.policyDocuments[0]

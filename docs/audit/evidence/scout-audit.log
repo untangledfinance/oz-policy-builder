@@ -105,19 +105,19 @@ warning: [MEDIUM] Using dynamic types in instance or persistent storage can lead
     | |_________________________________________________^
 
 warning: [MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
-   --> src/lib.rs:253:9
+   --> src/lib.rs:174:9
     |
-253 |         new_set: Vec<Signer>,
-    |         ^^^^^^^^^^^^^^^^^^^^
+174 |         authenticated_signers: Vec<Signer>,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: Validate `soroban_sdk::Vec<types::Signer>` contents or convert them to contract-defined types before using or storing them.
     = note: `#[warn(avoid_vec_map_input)]` on by default
 
 warning: [MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
-   --> src/lib.rs:174:9
+   --> src/lib.rs:253:9
     |
-174 |         authenticated_signers: Vec<Signer>,
-    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+253 |         new_set: Vec<Signer>,
+    |         ^^^^^^^^^^^^^^^^^^^^
     |
     = help: Validate `soroban_sdk::Vec<types::Signer>` contents or convert them to contract-defined types before using or storing them.
 

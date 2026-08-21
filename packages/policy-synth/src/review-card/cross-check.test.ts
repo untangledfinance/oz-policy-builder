@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { Address } from '@stellar/stellar-sdk'
 import type { ContextRuleDraft, PredicateNode } from '../types.ts'
-import type { SimulationResult } from '../verify/envelope.ts'
 import { buildReviewCardSummary } from './builder.ts'
 import { summaryCrossCheck } from './cross-check.ts'
 
@@ -14,12 +13,7 @@ const XLM_SAC = cAddress(2)
 const USDC_SAC = cAddress(3)
 const ROUTER = cAddress(4)
 
-const simulation: SimulationResult = {
-  permit: { tx: 'permit' },
-  evaluatedCases: [{ dimension: 'permit', outcome: 'permit', reason: 'ok' }],
-  backend: 'ts-model',
-  simulatorVersion: 'ts-model-1.0.0',
-}
+const simulation = 'ts-model' as const
 
 const baseContextRule: ContextRuleDraft = {
   contextRuleType: { kind: 'call_contract', contract: USDC_SAC },

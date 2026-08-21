@@ -28,7 +28,7 @@ async function spawn(): Promise<{ client: Client; close: () => Promise<void> }> 
 }
 
 describe('MCP stdio transport', () => {
-  it('lists exactly 7 tools: 4 legacy + get_interpreter_info, install_policy, revoke_policy', async () => {
+  it('lists exactly 5 tools', async () => {
     const { client, close } = await spawn()
     try {
       const { tools } = await client.listTools()
@@ -38,9 +38,7 @@ describe('MCP stdio transport', () => {
         'install_policy',
         'record_transaction',
         'revoke_policy',
-        'simulate_policy',
         'synthesize_policy',
-        'verify_policy',
       ])
     } finally {
       await close()
@@ -59,46 +57,6 @@ describe('MCP stdio transport', () => {
       // that the SDK accepted our ZodRawShape and emitted a non-empty shape.
       expect(synth?.inputSchema).toBeDefined()
       expect(record?.inputSchema).toBeDefined()
-    } finally {
-      await close()
-    }
-  })
-
-  it('invokes synthesize_policy with a mandate fixture and returns a ProposedPolicy', async () => {
-    const { client, close } = await spawn()
-    try {
-      const result = await client.callTool({
-        name: 'synthesize_policy',
-        arguments: {
-          source: 'mandate',
-          mandate: {
-            chain: 'stellar',
-            contract: 'CTOKEN',
-            method: 'transfer',
-            spendingLimit: { token: 'CTOKEN', limit: '5000000', windowSeconds: 2592000 },
-            expiry: { validUntilLedger: 1000000 },
-          },
-        },
-      })
-      expect(result.isError).toBeFalsy()
-      const block = (
-        result.content as unknown as Array<{ type: string; text?: string }> | undefined
-      )?.[0]
-      expect(block?.type).toBe('text')
-      if (block?.type === 'text') {
-        const parsed = JSON.parse(block.text as string) as {
-          contextRule: { contextRuleType: { kind: string; contract?: string } }
-          policyRefs: Array<{ kind: string; primitive?: { primitive: string } }>
-        }
-        expect(parsed.contextRule.contextRuleType).toEqual({
-          kind: 'call_contract',
-          contract: 'CTOKEN',
-        })
-        expect(parsed.policyRefs[0]?.kind).toBe('oz_builtin')
-        if (parsed.policyRefs[0]?.kind === 'oz_builtin') {
-          expect(parsed.policyRefs[0].primitive?.primitive).toBe('spending_limit')
-        }
-      }
     } finally {
       await close()
     }
@@ -134,18 +92,13 @@ describe('MCP stdio transport', () => {
   it('two sequential calls share no state (statelessness invariant)', async () => {
     const { client, close } = await spawn()
     try {
-      const args = {
-        source: 'mandate' as const,
-        mandate: {
-          chain: 'stellar' as const,
-          contract: 'CTOKEN',
-          spendingLimit: { token: 'CTOKEN', limit: '1', windowSeconds: 60 },
-        },
-      }
+      // Same input twice must give a byte-identical envelope: nothing is
+      // carried between calls.
+      const args = { source: 'recording' as const, network: 'mainnet' as const }
       const a = await client.callTool({ name: 'synthesize_policy', arguments: args })
       const b = await client.callTool({ name: 'synthesize_policy', arguments: args })
-      expect(a.isError).toBeFalsy()
-      expect(b.isError).toBeFalsy()
+      expect(a.isError).toBe(true)
+      expect(b.isError).toBe(true)
       const aBlock = (
         a.content as unknown as Array<{ type: string; text?: string }> | undefined
       )?.[0]

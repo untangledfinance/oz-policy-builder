@@ -3,8 +3,8 @@
 [![CI](https://github.com/untangledfinance/oz-policy-builder/actions/workflows/ci.yml/badge.svg)](https://github.com/untangledfinance/oz-policy-builder/actions/workflows/ci.yml)
 
 The OZ Policy Builder turns a constraint you can say in a sentence into a
-policy that lives on chain. You record a transaction, or describe a mandate,
-and it produces a predicate that an
+policy that lives on chain. You record a transaction and it produces a
+predicate that an
 [OpenZeppelin Stellar smart account](https://docs.openzeppelin.com/stellar-contracts)
 enforces on every call. "This key may only call `transfer` on USDC, never
 more than 50 at a time, and only to these three addresses" stops being a
@@ -12,11 +12,11 @@ promise and becomes something the account checks before it signs.
 
 It is built as two halves:
 
-- **Off chain**, `@crediolabs/policy-synth` records a transaction, synthesises
-  the minimal policy that permits exactly that flow, verifies that every
-  constraint is load-bearing, simulates it against a deny-case battery, and
-  returns an unsigned install transaction for the user's wallet to sign. A
-  CLI and an MCP server wrap the same core for shells and agents.
+- **Off chain**, `@crediolabs/policy-synth` records a transaction, lowers it to
+  a predicate that pins the contract, method and arguments the recording
+  carried, renders a review card describing every leaf, and returns an unsigned
+  install transaction for the user's wallet to sign. A CLI and an MCP server
+  wrap the same core for shells and agents.
 - **On chain**, the `policy-interpreter` Soroban contract evaluates the
   predicate on every guarded call, fail-closed: one audit-once engine, and
   every policy is declarative data fed into it, so a new combination of
