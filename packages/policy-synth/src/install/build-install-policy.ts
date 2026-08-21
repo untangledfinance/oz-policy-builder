@@ -30,7 +30,7 @@ import {
   TransactionBuilder,
   xdr,
 } from '@stellar/stellar-sdk'
-import { buildAddContextRuleArgs, DEFAULT_GRAMMAR_VERSION } from './build-add-context-rule.ts'
+import { buildAddContextRuleArgs } from './build-add-context-rule.ts'
 import {
   accountEntry,
   authDigest,
@@ -239,11 +239,11 @@ export async function buildInstallPolicyXdr(
       name: args.rule.name,
       validUntilLedger: args.rule.validUntilLedger,
       signers: args.rule.signers,
-      policies: args.rule.policies.map(adaptPolicyRef),
+      policies: args.rule.policies,
     },
     {
       signers: args.rule.signers,
-      policies: args.rule.policies.map(adaptPolicyRef),
+      policies: args.rule.policies,
       installNonce: args.installNonce,
       encodedPredicate: args.encodedPredicate,
       predicateHash: args.predicateHash,
@@ -468,17 +468,6 @@ const DEFAULT_AUTH_VALID_UNTIL_LEDGERS = 300
 
 // ---- internals ----
 
-/** Adapter: turn the install-policy wire `PolicyRef` shape into the core
- *  `PolicyRef` shape `buildAddContextRuleArgs` expects. Keeps the wire
- *  schema hand-rolled + flat (the strict union would need a recursive
- *  schema) while delegating to the proven encoder for the actual bytes. */
-function adaptPolicyRef(p: BuildInstallPolicyPolicyRef) {
-  return {
-    kind: 'interpreter' as const,
-    interpreterAddress: p.interpreterAddress,
-    predicateBlobBase64: p.predicateBlobBase64,
-  }
-}
 
 /** Build an unsigned Soroban transaction envelope. The `sequence` is
  *  whatever `getAccount().sequenceNumber()` returned (a string of digits
@@ -550,14 +539,13 @@ function decodeInstallCallDescribes(
       `install_policy: built op has ${scvArgs.length} args, expected 5 (context_type, name, valid_until, signers, policies)`
     )
   }
-  const contextType = scvArgs[0]
   const nameScv = scvArgs[1]
   const validUntilScv = scvArgs[2]
   const signersScv = scvArgs[3]
   const policiesScv = scvArgs[4]
   // The length check above pins these as defined; the local references
   // satisfy noUncheckedIndexedAccess on the accessors below.
-  if (!nameScv || !validUntilScv || !signersScv || !policiesScv || !contextType) {
+  if (!nameScv || !validUntilScv || !signersScv || !policiesScv) {
     throw new Error('install_policy: built op args include an undefined slot despite length check')
   }
 
@@ -706,11 +694,6 @@ function decodeInstallCallDescribes(
     installNonce,
   }
 }
-
-/** Re-export so the run-layer does not need to import from
- *  build-add-context-rule.ts (keeps the install/ -> install/ dependency
- *  direction intact). */
-export { Contract, DEFAULT_GRAMMAR_VERSION }
 
 // Local re-import to avoid pulling the class from the SDK module path
 // at the top of the file (avoids the unused-import lint).
