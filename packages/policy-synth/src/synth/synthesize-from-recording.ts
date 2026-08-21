@@ -8,7 +8,7 @@
 
 import type { InterpreterAdapterConfig } from '../adapters/interpreter/adapter.ts'
 import {
-  createInterpreterAdapter,
+  compileInterpreterPolicy,
   lowerRuleToPredicate,
   PLACEHOLDER_INTERPRETER_ADDRESS,
 } from '../adapters/interpreter/adapter.ts'
@@ -276,11 +276,9 @@ function synthesizeFromRecordingInner(
       }
       startingPredicate = testSeam
     } else {
-      const interpreterAdapter = createInterpreterAdapter(interpreterConfig)
-
-      let interpreterRes: Awaited<ReturnType<typeof interpreterAdapter.compile>>
+      let interpreterRes: ReturnType<typeof compileInterpreterPolicy>
       try {
-        interpreterRes = interpreterAdapter.compile(composed.interpreterIr)
+        interpreterRes = compileInterpreterPolicy(composed.interpreterIr, interpreterConfig)
       } catch (e) {
         const code = (e as { code?: ToolError['code'] }).code
         const allowedCodes: ToolError['code'][] = [

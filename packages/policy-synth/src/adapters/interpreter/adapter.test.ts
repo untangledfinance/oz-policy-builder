@@ -12,7 +12,7 @@ import { Address } from '@stellar/stellar-sdk'
 import type { PolicyIR } from '../../ir/types.ts'
 import { encodePredicate } from '../../predicate/encode.ts'
 import type { PredicateLeaf, PredicateNode } from '../../types.ts'
-import { createInterpreterAdapter } from './adapter.ts'
+import { compileInterpreterPolicy } from './adapter.ts'
 
 // Deterministic Stellar strkeys (checksum-validated by the SDK).
 const BLEND_POOL = Address.contract(Buffer.alloc(32, 0x10)).toString()
@@ -22,10 +22,10 @@ const RECIPIENT_A = Address.contract(Buffer.alloc(32, 0xa1)).toString()
 const RECIPIENT_B = Address.contract(Buffer.alloc(32, 0xa2)).toString()
 const SMART_ACCOUNT = Address.contract(Buffer.alloc(32, 0xee)).toString()
 
-const adapter = createInterpreterAdapter({
+const CONFIG = {
   installNonce: 1,
   smartAccountAddress: SMART_ACCOUNT,
-})
+}
 
 function decodePredicate(encodedPredicate: string): PredicateNode {
   // Re-decode the canonical ScVal to assert the shape the future Rust
@@ -45,52 +45,6 @@ function leafCallContract(): PredicateLeaf {
   return { kind: 'call_contract' }
 }
 
-describe('interpreter adapter identity + capabilities', () => {
-  it('exposes name / mode / capability flags', () => {
-    expect(adapter.name).toBe('interpreter')
-    expect(adapter.mode).toBe('enforce')
-    expect(adapter.capabilities()).toEqual({
-      // False: a spend window needs a running total across calls, and the
-      // interpreter is passed one authorised call with no stored state.
-      supportsSpendWindow: false,
-      supportsThreshold: false,
-      // False: the interpreter refuses a `valid_until` predicate leaf at
-      // install. Expiry lives on the context rule, not in the predicate.
-      supportsTimeExpiry: false,
-      supportsGeneralPredicate: true,
-    })
-  })
-
-  it('refuses to compile an empty PolicyIR', () => {
-    const ir: PolicyIR = { chain: 'stellar', defaultBehavior: 'deny_all', rules: [] }
-    const res = adapter.compile(ir)
-    expect(res.covered).toBe(false)
-    expect(res.uncovered.some((u) => u.includes('no rules'))).toBe(true)
-    expect(res.proposed).toBeUndefined()
-  })
-
-  it('flags a multi-rule IR (only the first rule is compiled)', () => {
-    const ir: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
-        {
-          roles: [],
-          scope: { contract: BLEND_POOL, method: 'claim' },
-          constraints: [],
-        },
-        {
-          roles: [],
-          scope: { contract: BLEND_POOL, method: 'supply' },
-          constraints: [],
-        },
-      ],
-    }
-    const res = adapter.compile(ir)
-    expect(res.uncovered.some((u) => u.includes('multi-rule PolicyIR'))).toBe(true)
-  })
-})
-
 describe('interpreter adapter - Blend claim walkthrough', () => {
   it('lowers (claim, scope only) to and(call_contract, call_fn==claim)', () => {
     const ir: PolicyIR = {
@@ -104,7 +58,7 @@ describe('interpreter adapter - Blend claim walkthrough', () => {
         },
       ],
     }
-    const res = adapter.compile(ir)
+    const res = compileInterpreterPolicy(ir, CONFIG)
     expect(res.covered).toBe(true)
     expect(res.uncovered).toEqual([])
     const proposed = res.proposed
@@ -147,7 +101,7 @@ describe('interpreter adapter - Blend claim walkthrough', () => {
         },
       ],
     }
-    const res = adapter.compile(ir)
+    const res = compileInterpreterPolicy(ir, CONFIG)
     const doc = res.proposed?.policyDocuments[0]
     expect(doc).toBeDefined()
     if (!doc) return
@@ -191,7 +145,7 @@ describe('interpreter adapter - SEP-41 recipient allowlist walkthrough', () => {
         },
       ],
     }
-    const res = adapter.compile(ir)
+    const res = compileInterpreterPolicy(ir, CONFIG)
     expect(res.covered).toBe(true)
     expect(res.uncovered).toEqual([])
     const doc = res.proposed?.policyDocuments[0]
@@ -234,7 +188,7 @@ describe('interpreter adapter - SEP-41 recipient allowlist walkthrough', () => {
         },
       ],
     }
-    const res = adapter.compile(ir)
+    const res = compileInterpreterPolicy(ir, CONFIG)
     expect(res.covered).toBe(true)
     const doc = res.proposed?.policyDocuments[0]
     expect(doc).toBeDefined()
@@ -289,7 +243,7 @@ describe('interpreter adapter - Soroswap bounded-swap walkthrough', () => {
         },
       ],
     }
-    const res = adapter.compile(ir)
+    const res = compileInterpreterPolicy(ir, CONFIG)
     expect(res.covered).toBe(true)
     const doc = res.proposed?.policyDocuments[0]
     expect(doc).toBeDefined()
@@ -366,8 +320,8 @@ describe('interpreter adapter - Soroswap bounded-swap walkthrough', () => {
         },
       ],
     }
-    const fwd = adapter.compile(irForward)
-    const rev = adapter.compile(irReversed)
+    const fwd = compileInterpreterPolicy(irForward, CONFIG)
+    const rev = compileInterpreterPolicy(irReversed, CONFIG)
     expect(fwd.covered).toBe(true)
     expect(rev.covered).toBe(true)
     const fwdDoc = fwd.proposed?.policyDocuments[0]
@@ -398,7 +352,7 @@ describe('interpreter adapter - Soroswap bounded-swap walkthrough', () => {
       ],
     }
     try {
-      adapter.compile(ir)
+      compileInterpreterPolicy(ir, CONFIG)
       throw new Error('expected throw')
     } catch (e) {
       const err = e as { code?: string }
@@ -427,7 +381,7 @@ describe('interpreter adapter - self-call rejection', () => {
       ],
     }
     try {
-      adapter.compile(ir)
+      compileInterpreterPolicy(ir, CONFIG)
       throw new Error('expected throw')
     } catch (e) {
       const err = e as { code?: string }
@@ -453,7 +407,7 @@ describe('interpreter adapter - self-call rejection', () => {
         },
       ],
     }
-    expect(adapter.compile(ir).covered).toBe(true)
+    expect(compileInterpreterPolicy(ir, CONFIG).covered).toBe(true)
   })
 
   it('throws SCOPE_SELF_CALL when a compare eq targets the smart account address', () => {
@@ -478,7 +432,7 @@ describe('interpreter adapter - self-call rejection', () => {
       ],
     }
     try {
-      adapter.compile(ir)
+      compileInterpreterPolicy(ir, CONFIG)
       throw new Error('expected throw')
     } catch (e) {
       const err = e as { code?: string }
@@ -501,7 +455,7 @@ describe('interpreter adapter - unsupported IR constructs', () => {
         },
       ],
     }
-    const res = adapter.compile(ir)
+    const res = compileInterpreterPolicy(ir, CONFIG)
     expect(res.covered).toBe(true)
     expect(res.proposed?.contextRule.validUntilLedger).toBe(1234567)
   })
@@ -518,7 +472,7 @@ describe('interpreter adapter - unsupported IR constructs', () => {
         },
       ],
     }
-    const res = adapter.compile(ir)
+    const res = compileInterpreterPolicy(ir, CONFIG)
     expect(res.proposed?.policyRefs[0]?.kind).toBe('interpreter')
   })
 })

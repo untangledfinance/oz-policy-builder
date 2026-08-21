@@ -31,7 +31,6 @@ import type {
   PredicateLeaf,
   PredicateNode,
   ProposedPolicy,
-  RecordedTransaction,
 } from '../../types.ts'
 
 /** [VERIFY] NOT a real deployed address. The interpreter is a per-network
@@ -48,15 +47,6 @@ export interface InterpreterAdapterConfig {
   smartAccountAddress: string
 }
 
-/** What this backend can express. A construct needing a false flag is reported
- *  as `uncovered` by the adapter, never silently dropped. */
-export interface CustodyCapabilities {
-  supportsSpendWindow: boolean
-  supportsTimeExpiry: boolean
-  supportsThreshold: boolean
-  supportsGeneralPredicate: boolean
-}
-
 /** The result of compiling a PolicyIR for this backend. */
 export interface CompileResult {
   /** false => some IR construct this backend cannot express (see `uncovered`). */
@@ -67,36 +57,6 @@ export interface CompileResult {
   proposed?: ProposedPolicy
 }
 
-/** Result of a simulate() dry-run against the off-chain TS model. */
-export interface SimulationResult {
-  backend: 'ts-model'
-  permitted: boolean | null
-  evaluations: unknown[]
-  notes: string[]
-}
-
-/** Compile a PolicyIR to an installable interpreter policy. */
-export interface CustodyAdapter {
-  readonly name: string
-  readonly mode: 'enforce'
-  capabilities(): CustodyCapabilities
-  compile(ir: PolicyIR): CompileResult
-  simulate(ir: PolicyIR, permitTx: RecordedTransaction): SimulationResult
-  /** Canonical JSON of the IR (portability / audit). */
-  export(ir: PolicyIR): string
-}
-
-const CAPABILITIES: CustodyCapabilities = {
-  // A spend window needs a running total across calls, which needs stored
-  // state; the interpreter is passed one authorised call and keeps none.
-  supportsSpendWindow: false,
-  supportsThreshold: false, // signer thresholds are the smart account's own concern
-  // Expiry is via the context rule's validUntilLedger, not a predicate - the
-  // interpreter refuses a `valid_until` leaf at install.
-  supportsTimeExpiry: false,
-  supportsGeneralPredicate: true,
-}
-
 /** Parse confidence for a deterministic (non-decoded) input: full (1.0). An
  *  input that needs no decoding has nothing for the gate to judge. */
 const FULL_PARSE_CONFIDENCE: ParseConfidence = {
@@ -105,17 +65,6 @@ const FULL_PARSE_CONFIDENCE: ParseConfidence = {
   unknownContracts: [],
   opaqueScVals: [],
   thresholdUsed: 1,
-}
-
-export function createInterpreterAdapter(config: InterpreterAdapterConfig): CustodyAdapter {
-  return {
-    name: 'interpreter',
-    mode: 'enforce',
-    capabilities: () => ({ ...CAPABILITIES }),
-    compile: (ir) => compile(ir, config),
-    simulate: () => simulateStub(),
-    export: (ir) => canonicalStringify(ir),
-  }
 }
 
 /** Lower a single IR rule to the canonical pre-encoding `PredicateNode`. The
@@ -132,7 +81,11 @@ export function lowerRuleToPredicate(
   return lowerRule(rule, config).predicate
 }
 
-function compile(ir: PolicyIR, config: InterpreterAdapterConfig): CompileResult {
+/** Compile a PolicyIR to an installable interpreter policy. */
+export function compileInterpreterPolicy(
+  ir: PolicyIR,
+  config: InterpreterAdapterConfig
+): CompileResult {
   const firstRule = ir.rules[0]
   if (!firstRule) {
     return { covered: false, uncovered: ['empty PolicyIR (no rules to compile)'] }
@@ -383,32 +336,6 @@ function assertNotSelfCallAddress(value: string, config: InterpreterAdapterConfi
       `value \`${value}\` is the smart account's own address (self-call in an allowlist / compare is rejected)`
     )
   }
-}
-
-function simulateStub(): SimulationResult {
-  return {
-    backend: 'ts-model',
-    permitted: null,
-    evaluations: [],
-    notes: ['stub: real permit/deny semantics wiring is a later phase'],
-  }
-}
-
-/** Canonical JSON with recursively sorted object keys (stable across runs). */
-function canonicalStringify(value: unknown): string {
-  return JSON.stringify(sortKeys(value))
-}
-
-function sortKeys(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortKeys)
-  if (value && typeof value === 'object') {
-    const out: Record<string, unknown> = {}
-    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
-      out[key] = sortKeys((value as Record<string, unknown>)[key])
-    }
-    return out
-  }
-  return value
 }
 
 /** Build a synthetic Error carrying the ToolError code/severity/retryable
