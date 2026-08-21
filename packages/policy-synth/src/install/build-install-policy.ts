@@ -251,89 +251,18 @@ export async function buildInstallPolicyXdr(
     }
   )
 
-  // 2. Fetch the source sequence, then build the recording transaction with a
-  //    bare host call. The recording pass assigns the smart-account auth nonce
-  //    and root invocation needed to construct OZ's AuthPayload.
-  const source = await args.rpc.getAccount(args.sourceAccount)
-  const hostFunction = xdr.HostFunction.hostFunctionTypeInvokeContract(
-    new xdr.InvokeContractArgs({
-      contractAddress: new Address(args.smartAccount).toScAddress(),
-      functionName: 'add_context_rule',
-      args: [...callArgs],
-    })
-  )
-  const makeOperation = (auth: xdr.SorobanAuthorizationEntry[] = []) =>
-    Operation.invokeHostFunction({ func: hostFunction, auth })
-  const baseFee = args.baseFee !== undefined ? String(args.baseFee) : BASE_FEE
-  const buildTx = (op: xdr.Operation) =>
-    buildUnsignedTx({
-      sourceAccount: args.sourceAccount,
-      sequence: source.sequenceNumber(),
-      fee: baseFee,
-      networkPassphrase: args.networkPassphrase,
-      op,
-    })
-  const recordingTx = buildTx(makeOperation())
-
-  // 3. Recording simulation: capture the smart account's nonce and invocation
-  //    tree. Nothing is signed here.
-  const recorded = await args.rpc.simulateTransaction(recordingTx)
-  if (rpc.Api.isSimulationError(recorded)) {
-    // Short, stable reason. The full `simulateTransaction` error (which
-    // carries host + URL detail) stays in the SDK's own logs - never
-    // reflected back into a user-facing message where it would
-    // reconnoitre the RPC.
-    throw new Error('install_policy: simulateTransaction failed')
-  }
-  const original = (recorded.result?.auth ?? []).find(
-    (entry) =>
-      entry.credentials().switch().name === 'sorobanCredentialsAddress' &&
-      Address.fromScAddress(entry.credentials().address().address()).toString() ===
-        args.smartAccount
-  )
-  if (!original) {
-    throw new Error(
-      `install_policy: no Soroban auth entry for smart account ${args.smartAccount}; this call does not route through the smart account`
-    )
-  }
-
-  // 4. `add_context_rule` is authorised by the deploy-time admin rule (rule 0).
+  // 2. `add_context_rule` is authorised by the deploy-time admin rule (rule 0).
   //    The delegated signer uses source-account credentials, so its signature
   //    bytes stay empty and the ordinary transaction-envelope signature covers
   //    the call when the consumer signs it.
-  const validUntilLedger =
-    (await args.rpc.getLatestLedger()).sequence +
-    (args.authValidUntilLedgers ?? DEFAULT_AUTH_VALID_UNTIL_LEDGERS)
-  const contextRuleIds = [0]
-  const digest = authDigest(
-    signaturePayload(
-      args.networkPassphrase,
-      original.credentials().address().nonce(),
-      validUntilLedger,
-      original.rootInvocation()
-    ),
-    contextRuleIds
+  const { finalTx, original, validUntilLedger } = await buildAuthorisedSmartAccountTx(
+    args,
+    'add_context_rule',
+    [...callArgs],
+    'install_policy'
   )
-  const authEntries = [
-    accountEntry(
-      original,
-      validUntilLedger,
-      authPayload([args.sourceAccount], contextRuleIds, () => Buffer.alloc(0))
-    ),
-    ...contextRuleIds.map(() => delegatedSignerEntry(args.smartAccount, digest)),
-  ]
 
-  // 5. Simulate again with the OZ entries already attached. The SDK preserves
-  //    existing auth during assembly and adds the simulated Soroban footprint +
-  //    resource fee, yielding a complete unsigned envelope.
-  const txWithAuth = buildTx(makeOperation(authEntries))
-  const enforcing = await args.rpc.simulateTransaction(txWithAuth)
-  if (rpc.Api.isSimulationError(enforcing)) {
-    throw new Error('install_policy: auth simulateTransaction failed')
-  }
-  const finalTx = rpc.assembleTransaction(txWithAuth, enforcing).build()
-
-  // 6. Decode the structured description FROM the final assembled transaction.
+  // 3. Decode the structured description FROM the final assembled transaction.
   //    The human approval binds to the exact bytes the wallet will sign.
   const describes = decodeInstallCallDescribes(finalTx, args.installNonce)
 
@@ -369,78 +298,17 @@ export async function buildRevokePolicyXdr(args: {
   baseFee?: number
   authValidUntilLedgers?: number
 }): Promise<BuildRevokePolicyResult> {
-  const source = await args.rpc.getAccount(args.sourceAccount)
-  const hostFunction = xdr.HostFunction.hostFunctionTypeInvokeContract(
-    new xdr.InvokeContractArgs({
-      contractAddress: new Address(args.smartAccount).toScAddress(),
-      functionName: 'remove_context_rule',
-      args: [xdr.ScVal.scvU32(args.ruleId)],
-    })
-  )
-  const makeOperation = (auth: xdr.SorobanAuthorizationEntry[] = []) =>
-    Operation.invokeHostFunction({ func: hostFunction, auth })
-  const baseFee = args.baseFee !== undefined ? String(args.baseFee) : BASE_FEE
-  const buildTx = (op: xdr.Operation) =>
-    buildUnsignedTx({
-      sourceAccount: args.sourceAccount,
-      sequence: source.sequenceNumber(),
-      fee: baseFee,
-      networkPassphrase: args.networkPassphrase,
-      op,
-    })
-
-  const recorded = await args.rpc.simulateTransaction(buildTx(makeOperation()))
-  if (rpc.Api.isSimulationError(recorded)) {
-    // Short, stable reason. The full `simulateTransaction` error (which
-    // carries host + URL detail) stays in the SDK's own logs - never
-    // reflected back into a user-facing message where it would
-    // reconnoitre the RPC.
-    throw new Error('revoke_policy: simulateTransaction failed')
-  }
-  const original = (recorded.result?.auth ?? []).find(
-    (entry) =>
-      entry.credentials().switch().name === 'sorobanCredentialsAddress' &&
-      Address.fromScAddress(entry.credentials().address().address()).toString() ===
-        args.smartAccount
-  )
-  if (!original) {
-    throw new Error(
-      `revoke_policy: no Soroban auth entry for smart account ${args.smartAccount}; this call does not route through the smart account`
-    )
-  }
-
   // Removal is master-only, so the deploy-time admin rule authorises it. The
   // recorded rootInvocation still includes remove_context_rule(ruleId), binding
   // the auth payload to the exact rule being removed. As with install,
   // source-account credentials carry the delegated signer entry and the
   // consumer supplies only the ordinary envelope signature.
-  const validUntilLedger =
-    (await args.rpc.getLatestLedger()).sequence +
-    (args.authValidUntilLedgers ?? DEFAULT_AUTH_VALID_UNTIL_LEDGERS)
-  const contextRuleIds = [0]
-  const digest = authDigest(
-    signaturePayload(
-      args.networkPassphrase,
-      original.credentials().address().nonce(),
-      validUntilLedger,
-      original.rootInvocation()
-    ),
-    contextRuleIds
+  const { finalTx, original, validUntilLedger } = await buildAuthorisedSmartAccountTx(
+    args,
+    'remove_context_rule',
+    [xdr.ScVal.scvU32(args.ruleId)],
+    'revoke_policy'
   )
-  const authEntries = [
-    accountEntry(
-      original,
-      validUntilLedger,
-      authPayload([args.sourceAccount], contextRuleIds, () => Buffer.alloc(0))
-    ),
-    ...contextRuleIds.map(() => delegatedSignerEntry(args.smartAccount, digest)),
-  ]
-  const txWithAuth = buildTx(makeOperation(authEntries))
-  const enforcing = await args.rpc.simulateTransaction(txWithAuth)
-  if (rpc.Api.isSimulationError(enforcing)) {
-    throw new Error('revoke_policy: auth simulateTransaction failed')
-  }
-  const finalTx = rpc.assembleTransaction(txWithAuth, enforcing).build()
 
   return {
     unsignedXdr: finalTx.toEnvelope().toXDR().toString('base64'),
@@ -467,6 +335,104 @@ export interface BuildRevokePolicyResult {
 const DEFAULT_AUTH_VALID_UNTIL_LEDGERS = 300
 
 // ---- internals ----
+
+/** Record a bare call to the smart account, attach the deploy-time admin rule's
+ *  auth entries, and re-simulate to assemble the footprint.
+ *
+ *  Install and revoke differ only in the call they wrap, so they share this
+ *  spine: the recording pass supplies the auth nonce and root invocation OZ's
+ *  AuthPayload binds to, and the second simulation adds the Soroban footprint +
+ *  resource fee. Nothing here is signed. `errorPrefix` names the calling tool in
+ *  the fail-closed messages so a caller can still tell which call failed. */
+async function buildAuthorisedSmartAccountTx(
+  args: {
+    smartAccount: string
+    sourceAccount: string
+    networkPassphrase: string
+    rpc: InstallRpcClient
+    baseFee?: number
+    authValidUntilLedgers?: number
+  },
+  functionName: string,
+  callArgs: xdr.ScVal[],
+  errorPrefix: string
+): Promise<{
+  finalTx: Transaction
+  original: xdr.SorobanAuthorizationEntry
+  validUntilLedger: number
+}> {
+  const source = await args.rpc.getAccount(args.sourceAccount)
+  const hostFunction = xdr.HostFunction.hostFunctionTypeInvokeContract(
+    new xdr.InvokeContractArgs({
+      contractAddress: new Address(args.smartAccount).toScAddress(),
+      functionName,
+      args: callArgs,
+    })
+  )
+  const makeOperation = (auth: xdr.SorobanAuthorizationEntry[] = []) =>
+    Operation.invokeHostFunction({ func: hostFunction, auth })
+  const baseFee = args.baseFee !== undefined ? String(args.baseFee) : BASE_FEE
+  const buildTx = (op: xdr.Operation) =>
+    buildUnsignedTx({
+      sourceAccount: args.sourceAccount,
+      sequence: source.sequenceNumber(),
+      fee: baseFee,
+      networkPassphrase: args.networkPassphrase,
+      op,
+    })
+
+  const recorded = await args.rpc.simulateTransaction(buildTx(makeOperation()))
+  if (rpc.Api.isSimulationError(recorded)) {
+    // Short, stable reason. The full `simulateTransaction` error (which
+    // carries host + URL detail) stays in the SDK's own logs - never
+    // reflected back into a user-facing message where it would
+    // reconnoitre the RPC.
+    throw new Error(`${errorPrefix}: simulateTransaction failed`)
+  }
+  const original = (recorded.result?.auth ?? []).find(
+    (entry) =>
+      entry.credentials().switch().name === 'sorobanCredentialsAddress' &&
+      Address.fromScAddress(entry.credentials().address().address()).toString() ===
+        args.smartAccount
+  )
+  if (!original) {
+    throw new Error(
+      `${errorPrefix}: no Soroban auth entry for smart account ${args.smartAccount}; this call does not route through the smart account`
+    )
+  }
+
+  const validUntilLedger =
+    (await args.rpc.getLatestLedger()).sequence +
+    (args.authValidUntilLedgers ?? DEFAULT_AUTH_VALID_UNTIL_LEDGERS)
+  const contextRuleIds = [0]
+  const digest = authDigest(
+    signaturePayload(
+      args.networkPassphrase,
+      original.credentials().address().nonce(),
+      validUntilLedger,
+      original.rootInvocation()
+    ),
+    contextRuleIds
+  )
+  const authEntries = [
+    accountEntry(
+      original,
+      validUntilLedger,
+      authPayload([args.sourceAccount], contextRuleIds, () => Buffer.alloc(0))
+    ),
+    ...contextRuleIds.map(() => delegatedSignerEntry(args.smartAccount, digest)),
+  ]
+  const txWithAuth = buildTx(makeOperation(authEntries))
+  const enforcing = await args.rpc.simulateTransaction(txWithAuth)
+  if (rpc.Api.isSimulationError(enforcing)) {
+    throw new Error(`${errorPrefix}: auth simulateTransaction failed`)
+  }
+  return {
+    finalTx: rpc.assembleTransaction(txWithAuth, enforcing).build(),
+    original,
+    validUntilLedger,
+  }
+}
 
 
 /** Build an unsigned Soroban transaction envelope. The `sequence` is
