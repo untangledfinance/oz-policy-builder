@@ -168,6 +168,7 @@ function serializeCtx(ctx: EvalContext): SerializedCtx {
 /** Synthesis inputs. Defaults match the checked-in Blend recording so the
  *  documented one-line regeneration reproduces the committed fixture. */
 interface SynthFlags {
+  limitAmount?: string
   smartAccount: string
 }
 
@@ -179,6 +180,10 @@ interface ParsedArgs extends Partial<SynthFlags> {
 
 const SYNTH_DEFAULTS: SynthFlags = {
   smartAccount: 'CDXO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO53XO4M7R',
+  // A cap makes the predicate carry an `lte`, which is what produces the
+  // amount_over_cap deny case. Without one the harness never cross-checks the
+  // cap boundary against the Rust interpreter.
+  limitAmount: '1000000000',
 }
 
 /** Drop the `out`/`recording`/`help` keys and any flag the caller omitted, so

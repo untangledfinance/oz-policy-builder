@@ -20,7 +20,8 @@ function recording(name: string): RecordedTransaction {
 }
 
 async function synthesise(
-  name: string
+  name: string,
+  limitAmount?: string
 ): Promise<{ tx: RecordedTransaction; predicate: PredicateNode }> {
   const tx = recording(name)
   const res = await runSynthesizePolicy({
@@ -28,7 +29,10 @@ async function synthesise(
     network: 'mainnet',
     recordedTx: tx,
     explain: true,
-    userResponses: { validUntilLedger: 200_000_000 },
+    userResponses: {
+      validUntilLedger: 200_000_000,
+      ...(limitAmount !== undefined ? { limitAmount } : {}),
+    },
     interpreter: { smartAccountAddress: SMART_ACCOUNT, installNonce: 1 },
   })
   if (!res.ok) throw new Error(`synthesis failed: ${res.error.code}`)
@@ -142,5 +146,26 @@ describe('runVerifyPolicy', () => {
     expect(sim.data.permitted).toBe(true)
     // ...yet verify still says ok, because it had no contract case to run.
     expect(res.data.ok).toBe(true)
+  })
+
+  it('exercises the amount cap: one unit over is refused', async () => {
+    const { tx, predicate } = await synthesise('demo-rec-sep41', '1000000')
+    const res = runVerifyPolicy({ predicate, permitTx: tx })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    // Every value bound is an `lte`. Without a case that steps one unit past
+    // it, nothing exercises the guarantee the product is sold on.
+    const overCap = res.data.denies.find((d) => d.dimension === 'amount_over_cap')
+    expect(overCap).toBeDefined()
+    expect(overCap?.denied).toBe(true)
+    expect(overCap?.reason).toBe('ARG_MISMATCH')
+  })
+
+  it('generates no amount case when the caller supplied no cap', async () => {
+    const { tx, predicate } = await synthesise('demo-rec-sep41')
+    const res = runVerifyPolicy({ predicate, permitTx: tx })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.data.denies.some((d) => d.dimension === 'amount_over_cap')).toBe(false)
   })
 })

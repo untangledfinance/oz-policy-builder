@@ -11,7 +11,7 @@ knowingly left open.
 | Contract | `contracts/policy-interpreter` |
 | Grammar version | 3 (`SELF_VERSION`, `src/version.rs`) |
 | On-chain production code | 842 nSLOC |
-| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (7,305 nSLOC: `packages/**/*.ts` excluding `*.test.ts`, `test/`, `scripts/`, `dist*/`, blank and comment-only lines) |
+| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (7340 nSLOC: `packages/**/*.ts` excluding `*.test.ts`, `test/`, `scripts/`, `dist*/`, blank and comment-only lines) |
 
 What the system does: record a transaction, lower it to a predicate that pins
 the contract, method and arguments the recording carried, install that predicate
@@ -58,10 +58,32 @@ Two properties worth knowing before reading the code:
 - **Deny cases are derived from the predicate, so coverage is not fixed.** A
   dimension the predicate does not constrain produces no case for it, and `ok`
   means "nothing the harness could construct got through" rather than "this
-  policy is tight". The generator emits `contract_scope`, `function_scope`,
-  `arg_bound`, `argument_reorder`, `map_field_flip`, `vec_append` and
-  `soroswap_allowed_path`; on the three shipped walkthroughs that is 3 to 4
-  cases each.
+  policy is tight".
+
+### Deny-case dimensions
+
+The proposal names seven dimensions. The architecture changed underneath them:
+it was written for composed OpenZeppelin primitives including
+`spending_limit(limit, time_window)`, and became a single audited interpreter.
+Two dimensions therefore moved layer and one stopped existing. Where each is
+covered now:
+
+| Proposal dimension | Covered by | Layer |
+| --- | --- | --- |
+| amount | `amount_over_cap` - steps a capped value one unit past its cap | deny harness |
+| asset | `contract_scope` when the asset IS the token contract (SEP-41); `map_field_flip` on the `address` field of a Blend `submit` request | deny harness |
+| contract | `contract_scope` - the same call sent to another contract | deny harness |
+| function | `function_scope` - the same arguments sent to another method | deny harness |
+| timing | the context rule's `valid_until`; the interpreter has no clock, so this is not a predicate property | contract tests (`install_enforce.rs`) |
+| time-window | **removed.** A rolling per-window total needs a running total across calls, which needs stored state the interpreter does not keep. Supplying a window produced a byte-identical predicate and no warning, so the guarantee was never enforced - removing it is what made that visible | n/a |
+| policy-capacity | `build-add-context-rule.ts` refuses more than `OZ_LIMITS.maxPoliciesPerRule` (5) | install builder |
+
+Three further structural dimensions have no proposal counterpart and are
+generated anyway: `arg_bound`, `argument_reorder`, `vec_append` and
+`soroswap_allowed_path`.
+
+On the three shipped walkthroughs the harness generates 3 to 5 cases each,
+depending on what the predicate constrains.
 - **The install path is where the fail-closed gates live**, because a predicate
   that reaches evaluation is already committed to.
 
@@ -84,11 +106,11 @@ Every log in [`evidence/`](evidence/) was produced against this tree.
 
 | Log | Command | Result |
 | --- | --- | --- |
-| [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 70 tests + 8 conformance pass |
-| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 563 pass, 1 skip, 0 fail |
+| [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 70 tests + 9 conformance pass |
+| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 565 pass, 1 skip, 0 fail |
 | [`cargo-audit.log`](evidence/cargo-audit.log) | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | [`bun-audit.log`](evidence/bun-audit.log) | `bun audit` | 0 vulnerabilities |
-| [`clippy-pedantic.log`](evidence/clippy-pedantic.log) | `clippy -W pedantic -W nursery` | 168 style warnings, 0 security |
+| [`clippy-pedantic.log`](evidence/clippy-pedantic.log) | `clippy -W pedantic -W nursery` | 170 style warnings, 0 security |
 | [`scout-audit.log`](evidence/scout-audit.log) | `cargo scout-audit` | 0 Critical, 9 Medium, 1 Enhancement |
 
 Beyond the tools, the Stellar Security Portal corpus (832 Soroban findings) was
@@ -109,12 +131,12 @@ Scout run that does not do this as unrun.
 | --- | --- | --- |
 | Contract | `cargo fmt --check` | clean |
 | Contract | `cargo clippy --all-targets -- -D warnings` | 0 warnings |
-| Contract | `cargo test` | 78 passed, 0 failed |
-| Contract | `cargo test --release --test conformance` | 8 passed, 0 failed |
+| Contract | `cargo test` | 79 passed, 0 failed |
+| Contract | `cargo test --release --test conformance` | 9 passed, 0 failed |
 | Contract | `cargo build --release --target wasm32v1-none` | builds |
 | Off-chain | `bunx biome check .` | 112 files, 0 findings |
 | Off-chain | `bun run typecheck` | clean |
-| Off-chain | `bun test` | 563 passed, 1 skipped, 0 failed |
+| Off-chain | `bun test` | 565 passed, 1 skipped, 0 failed |
 | Off-chain | `bun audit` | 0 vulnerabilities |
 
 Both gates run in CI on every push, including the two dependency-advisory
@@ -141,7 +163,7 @@ if this tree is what ships.
 Two further caveats, both carried in the threat model rather than only here:
 
 - The off-chain half carries more risk than the on-chain half. The contract is
-  842 nSLOC and stateless; the toolchain is 7,305 nSLOC and holds the
+  842 nSLOC and stateless; the toolchain is 7340 nSLOC and holds the
   default-deny install gates.
 - Coverage of the MCP HTTP transport is thinner than the rest, because the
   deployment model is loopback stdio.

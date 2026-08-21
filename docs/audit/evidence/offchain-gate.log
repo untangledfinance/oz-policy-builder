@@ -1,7 +1,7 @@
-# offchain-gate - regenerated 2026-08-21T10:02:39Z
+# offchain-gate - regenerated 2026-08-21T10:35:35Z
 
 $ bunx biome check .
-Checked 111 files in 899ms. No fixes applied.
+Checked 111 files in 1040ms. No fixes applied.
 
 $ bun run typecheck
 $ bunx tsc --noEmit -p packages/policy-synth/tsconfig.json && bunx tsc --noEmit -p packages/policy-builder-cli/tsconfig.json && bunx tsc --noEmit -p packages/policy-builder-mcp/tsconfig.json
@@ -9,8 +9,8 @@ $ bunx tsc --noEmit -p packages/policy-synth/tsconfig.json && bunx tsc --noEmit 
 
 $ bun test
 
- 563 pass
+ 565 pass
  1 skip
  0 fail
- 1493 expect() calls
-Ran 564 tests across 35 files. [11.71s]
+ 1499 expect() calls
+Ran 566 tests across 35 files. [12.51s]

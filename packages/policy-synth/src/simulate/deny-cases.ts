@@ -185,6 +185,42 @@ export function generateCases(
     }
   }
 
+  // amount_over_cap: push a capped value one unit past its cap.
+  //
+  // Every value bound is an `lte`, and `arg_bound` only targets `eq`, so
+  // without this the headline guarantee - "never more than this much per
+  // call" - had nothing exercising it. One over the cap is the smallest
+  // mutation that must be refused; if the cap held only for larger overshoots
+  // it would not be a cap.
+  if (!dimensions || dimensions.includes('amount_over_cap')) {
+    for (const comparison of facts.comparisons) {
+      if (comparison.op !== 'lte') continue
+      const cap = literalInteger(comparison.right)
+      if (cap === null) continue
+      const over: ScVal = { type: 'i128', value: (cap + 1n).toString() }
+      const sel = comparison.left
+      if (sel.kind === 'call_arg') {
+        const ctx = cloneContext(permitCtx)
+        ctx.args[sel.index] = over
+        denies.push({ dimension: 'amount_over_cap', ctx, expectedReason: 'ARG_MISMATCH' })
+        continue
+      }
+      if (sel.kind !== 'call_arg_field') continue
+      const arg = permitCtx.args[sel.index]
+      if (arg?.type !== 'vec') continue
+      const ctx = cloneContext(permitCtx)
+      const clonedVec = arg.value.map(cloneScVal)
+      const clonedElement = clonedVec[sel.element]
+      if (clonedElement?.type !== 'map' || !Array.isArray(clonedElement.value)) continue
+      clonedElement.value = clonedElement.value.map((e) =>
+        e.key === sel.field ? { key: e.key, val: over } : e
+      )
+      clonedVec[sel.element] = clonedElement
+      ctx.args[sel.index] = { type: 'vec', value: clonedVec }
+      denies.push({ dimension: 'amount_over_cap', ctx, expectedReason: 'ARG_MISMATCH' })
+    }
+  }
+
   // vec_append: append a new element to a bound vec. OPT-IN only, never ORIGINAL.
   // Targets every `call_arg_len` leaf; without the length pin a caller can
   // append an extra element to defeat per-element binds. ---
@@ -224,6 +260,14 @@ function visit(node: PredicateNode, facts: PredicateFacts): void {
     case 'lte':
       facts.comparisons.push(node)
   }
+}
+
+/** The integer a numeric literal leaf carries, or null when the leaf is not
+ *  numeric (an address or a vector has no cap to exceed). */
+function literalInteger(leaf: PredicateLeaf): bigint | null {
+  if (leaf.kind === 'literal_i128') return BigInt(leaf.value)
+  if (leaf.kind === 'literal_u32') return BigInt(leaf.value)
+  return null
 }
 
 function differentVector(actual: ScVal | undefined): ScVal {

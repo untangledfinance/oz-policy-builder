@@ -209,6 +209,31 @@ fn case_deny_map_field_flip_3() {
 }
 
 #[test]
+fn case_deny_amount_over_cap() {
+    let env = Env::default();
+    let root = load_predicate(&env);
+    let args_hex: StdVec<&str> = vec!["000000120000000000000000e735a4760de1270e05e2a3c8baff8f2e33478e67ef0c6f962520d50abda367aa", "000000120000000000000000e735a4760de1270e05e2a3c8baff8f2e33478e67ef0c6f962520d50abda367aa", "000000120000000000000000e735a4760de1270e05e2a3c8baff8f2e33478e67ef0c6f962520d50abda367aa", "0000001000000001000000010000001100000001000000030000000f0000000761646472657373000000001200000001adefce59aee52968f76061d494c2525b75659fa4296a65f499ef29e56477e4960000000f00000006616d6f756e7400000000000a00000000000000000000000002faf0810000000f0000000c726571756573745f747970650000000300000003"];
+    let args = build_args(&env, &args_hex);
+    let ctx = EvalContext {
+        contract: Address::from_str(
+            &env,
+            "CAJJZSGMMM3PD7N33TAPHGBUGTB43OC73HVIK2L2G6BNGGGYOSSYBXBD",
+        ),
+        fn_name: Symbol::new(&env, "submit"),
+        args,
+    };
+    let d = evaluate(&env, &root, &ctx);
+    match d {
+        EvalDecision::Deny(r) => assert_eq!(
+            r.code(),
+            "ARG_MISMATCH",
+            "Rust reason does not match recorded TS reason"
+        ),
+        _ => panic!("expected deny but Rust permitted"),
+    };
+}
+
+#[test]
 fn case_deny_vec_append() {
     let env = Env::default();
     let root = load_predicate(&env);
