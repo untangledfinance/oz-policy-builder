@@ -133,6 +133,12 @@ compiled artifact was confirmed under `target/dylint/` first. The exact
 invocation is in [`README.md`](README.md#reproducing-the-scout-run). Treat any
 Scout run that does not do this as unrun.
 
+The conformance harness was checked for discrimination rather than assumed to
+have it. A harness that passes because it compares nothing is the failure mode
+worth ruling out, so the Rust evaluator was deliberately mutated twice and the
+harness had to catch both: narrowing `lte` to `<` was caught by the permit case,
+and forcing `eq` true was caught by three separate deny cases.
+
 ## 4. Gates
 
 | Layer | Gate | Result |
@@ -165,7 +171,7 @@ Scout previously reported two Criticals against `d + 1` in the depth walk. They
 were unreachable but the proof was non-local, so the arithmetic was made
 saturating instead of argued about; the run is now clean of Criticals.
 
-## 5. Limits of this handover
+## 5. Scope and known issues
 
 **The audited tree is not the deployed mainnet binary.** The address pinned in
 `run/schemas.ts` runs a different build. An audit of this tree therefore says
@@ -173,39 +179,24 @@ nothing about the contract currently deployed, and is only worth commissioning
 if this tree is what ships.
 
 The gap is concrete, not theoretical. This tree is grammar version 3
-(`SELF_VERSION`), and the builder stamps 3 into every `install_params`, but
+(`SELF_VERSION`) and the builder stamps 3 into every `install_params`, while
 `PINNED_INTERPRETER_GRAMMAR_VERSION` is 1 - the pinned deployment speaks the
 version-1 grammar. `install_policy` also refuses any interpreter address other
-than the pinned one unless `allowUnpinnedInterpreter` is set. So an install
+than the pinned one unless `allowUnpinnedInterpreter` is set, so an install
 built from this tree against its own pin is refused on chain with error 200
-`VersionMismatch`: shipping it requires deploying a version-3 interpreter to a
-NEW address and re-pinning the address, wasm hash and version together. Nothing
-used to fail when they disagreed - `grammar-version-parity.test.ts` compared the
-builder against `version.rs` in the same tree, and
-`get_interpreter_info --verifyLive` compares the deployed contract against the
-pin. Neither compares the builder against the pin, which is the pair that is
-actually skewed. That third comparison now exists, in the same test file, and is
-the one failing test in the suite. Clearing it means deploying and re-pinning,
-NOT editing `PINNED_INTERPRETER_GRAMMAR_VERSION` on its own - that would restore
-the green run and leave every install still refused.
+`VersionMismatch`.
 
-Two further caveats, both carried in the threat model rather than only here:
+`grammar-version-parity.test.ts` asserts the two agree. It is the one failing
+test in the suite, and it clears when a version-3 interpreter is deployed to a
+NEW address and the address, wasm hash and version are re-pinned together -
+never by editing `PINNED_INTERPRETER_GRAMMAR_VERSION` alone, which would restore
+a green run and leave every install still refused.
+
+Two further points on where the risk sits, both carried in the threat model
+rather than only here:
 
 - The off-chain half carries more risk than the on-chain half. The contract is
-  842 nSLOC and write-free at `enforce`; the toolchain is 6056 nSLOC and holds the
-  default-deny install gates. This figure previously read 7340, and almost all
-  of that gap is a restatement rather than deleted code: the old number could
-  not be reproduced from the definition printed beside it, whereas the counter
-  used here reproduces the contract's 842 exactly, file by file. Measured with
-  that counter the toolchain stood at 6218 before the latest simplification
-  pass, so 162 lines were actually removed.
+  842 nSLOC and write-free at `enforce`; the toolchain is 6056 nSLOC and holds
+  the default-deny install gates.
 - Coverage of the MCP HTTP transport is thinner than the rest, because the
   deployment model is loopback stdio.
-- The conformance harness was broken between `50a2aa4` and this tree: the
-  TypeScript reference evaluator it cross-checks against had been deleted and
-  the fixture generator was never updated, so `_generated.rs` was a frozen
-  artifact rather than a regenerated one. Both sides are restored and the
-  fixture regenerates cleanly. The harness was checked for discrimination
-  rather than assumed: two deliberate mutations of the Rust evaluator
-  (`lte` narrowed to `<`, and `eq` forced true) were each caught, the first by
-  the permit case and the second by three deny cases.
