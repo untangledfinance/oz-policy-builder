@@ -18,11 +18,50 @@ import { readFileSync } from 'node:fs'
 import { Address, xdr } from '@stellar/stellar-sdk'
 import { placeholderOzConfig } from '../adapters/oz/adapter.ts'
 import type { PredicateNode, RecordedTransaction } from '../types.ts'
-import { generateCases } from './deny-cases.ts'
+import { cloneScVal, generateCases } from './deny-cases.ts'
+import type { EvalContext } from './evaluate.ts'
 import { evaluate } from './evaluate.ts'
 import { runHarness } from './harness.ts'
-import { buildPermitContext } from './permit-context.ts'
 import { synthesizeFromRecording } from './synthesize-from-recording.ts'
+
+// Build the EvalContext representing the recorded call being replayed. The
+// battery below is the only caller, so it owns the construction.
+interface PermitContextResponses {
+  windowSeconds: number
+  limitAmount?: string
+  validUntilLedger: number
+}
+
+function buildPermitContext(
+  tx: RecordedTransaction,
+  responses: PermitContextResponses
+): EvalContext {
+  const amountByToken: Record<string, string> = {}
+  const totals = new Map<string, bigint>()
+  for (const m of tx.tokenMovements) {
+    const current = totals.get(m.token) ?? 0n
+    totals.set(m.token, current + BigInt(m.amount))
+  }
+  for (const [token, total] of totals) {
+    amountByToken[token] = total.toString()
+  }
+
+  const topLevel = tx.invocations[0]
+
+  const ctx: EvalContext = {
+    contract: topLevel?.contract ?? '',
+    fn: topLevel?.fn ?? '',
+    args: (topLevel?.args ?? []).map(cloneScVal),
+    atLedger: tx.ledgerSequence,
+    nowSeconds: tx.fetchedAt,
+    amountByToken,
+    windowSpentByToken: {},
+  }
+  if (responses.validUntilLedger !== undefined) {
+    ctx.validUntilLedger = responses.validUntilLedger
+  }
+  return ctx
+}
 
 // ---------------------------------------------------------------------------
 // Fixtures — real mainnet recordings
