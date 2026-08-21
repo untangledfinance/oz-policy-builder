@@ -66,8 +66,8 @@ export interface BuildAddContextRuleArgs {
    *  admin session. The deployer signs the install call via the admin rule
    *  already on the account, which is separate from this list. */
   signers: SignerDraft[]
-  /** The policy(ies) to attach to the new rule. Only `interpreter` refs
-   *  reach the wire today; `oz_builtin` is reserved for Phase 06 follow-ups. */
+  /** The policy(ies) to attach to the new rule. `interpreter` is the only
+   *  kind: the OpenZeppelin built-in backend was removed. */
   policies: PolicyRef[]
   /** Per-policy install nonce; 1 for a fresh install. */
   installNonce: number

@@ -540,7 +540,7 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     expect(res.data.warnings.some((w) => w.includes('per-method scoping'))).toBe(false)
   })
 
-  it('SoroSwap swap: routes the exact path (eq_seq) into a predicate doc; OZ does not emit spending_limit', () => {
+  it('SoroSwap swap: routes the exact path (eq_seq) into a predicate doc', () => {
     const res = synthesizeFromRecording(validSoroswapTx(), {
       ...interpreterOpts(),
       userResponses: {
@@ -549,15 +549,11 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     })
     expect(res.ok).toBe(true)
     if (!res.ok) return
-    // The doc carries the path; OZ emits no spending_limit because the token
-    // != scope.contract; per-method is in the predicate.
+    // The doc carries the path, and the interpreter ref is the ONLY policy
+    // attached - nothing else rides along on the rule.
     expect(res.data.policyDocuments).toHaveLength(1)
-    expect(res.data.policyRefs.some((r) => r.kind === 'interpreter')).toBe(true)
-    expect(
-      res.data.policyRefs.some(
-        (r) => r.kind === 'oz_builtin' && r.primitive.primitive === 'spending_limit'
-      )
-    ).toBe(false)
+    expect(res.data.policyRefs).toHaveLength(1)
+    expect(res.data.policyRefs[0]?.kind).toBe('interpreter')
     // The per-method warning is GONE.
     expect(res.data.warnings.some((w) => w.includes('per-method scoping'))).toBe(false)
   })
@@ -706,12 +702,9 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
     if (argCap && argCap.op === 'lte' && argCap.right.kind === 'literal_i128') {
       expect(argCap.right.value).toBe('50000000')
     }
-    // No OZ spending_limit is emitted (there is no detected spend to lower).
-    expect(
-      res.data.policyRefs.some(
-        (r) => r.kind === 'oz_builtin' && r.primitive.primitive === 'spending_limit'
-      )
-    ).toBe(false)
+    // The interpreter ref is the only policy attached.
+    expect(res.data.policyRefs).toHaveLength(1)
+    expect(res.data.policyRefs[0]?.kind).toBe('interpreter')
   })
 
   it('SCOPE_SELF_CALL fails closed: interpreter adapter throw -> SYNTHESIS_ERROR carrying SCOPE_SELF_CALL', () => {

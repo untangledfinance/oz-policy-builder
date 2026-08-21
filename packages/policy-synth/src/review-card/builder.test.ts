@@ -49,7 +49,6 @@ function blendClaimPredicate(): PredicateNode {
  *    eq(call_fn, 'transfer'),
  *    in(call_arg[1], [USDC_RECIPIENT_A, USDC_RECIPIENT_B])
  *  )
- *  plus an OZ spending_limit(USDC, 100_0000000, 2592000).
  */
 function sep41Predicate(): PredicateNode {
   return {
