@@ -14,6 +14,7 @@
 
 import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
+import { PINNED_INTERPRETER_GRAMMAR_VERSION } from '../run/schemas.ts'
 import { GRAMMAR_VERSION } from '../types.ts'
 import { DEFAULT_GRAMMAR_VERSION } from './build-add-context-rule.ts'
 
@@ -40,5 +41,37 @@ describe('grammar version parity (TS builder vs Rust contract)', () => {
   // proposed documents carried on advertising 2.
   it('DEFAULT_GRAMMAR_VERSION derives from the same constant', () => {
     expect(DEFAULT_GRAMMAR_VERSION).toBe(GRAMMAR_VERSION)
+  })
+
+  // The two assertions above compare this tree against ITSELF. They pass while
+  // the builder is skewed against the interpreter it actually installs into,
+  // because neither of them looks at the pin.
+  //
+  // `install_policy` refuses any interpreter address other than the pinned one
+  // unless `allowUnpinnedInterpreter` is set, and stamps GRAMMAR_VERSION into
+  // `install_params`. So if the pinned deployment speaks a different grammar,
+  // every install this package builds is refused on chain with error 200
+  // VersionMismatch - and, as before, nothing off chain notices.
+  //
+  // This assertion is the pair that was missing. It is EXPECTED TO FAIL while
+  // the tree is ahead of the deployment; that is the signal, not a flake.
+  it('the pinned deployment speaks the grammar this tree emits', () => {
+    if (PINNED_INTERPRETER_GRAMMAR_VERSION !== GRAMMAR_VERSION) {
+      throw new Error(
+        `Grammar skew between this tree and its pinned deployment.\n` +
+          `  builder stamps into install_params: ${GRAMMAR_VERSION}\n` +
+          `  PINNED_INTERPRETER_GRAMMAR_VERSION: ${PINNED_INTERPRETER_GRAMMAR_VERSION}\n` +
+          `Every install built here against the pin is refused on chain with error 200 ` +
+          `VersionMismatch, because install_policy also refuses any interpreter address other ` +
+          `than the pinned one.\n` +
+          `To clear it: deploy a version-${GRAMMAR_VERSION} interpreter to a NEW address (a ` +
+          `grammar change never upgrades in place - see contracts/policy-interpreter/src/` +
+          `version.rs), then re-pin PINNED_INTERPRETER_MAINNET_ADDRESS, _TESTNET_ADDRESS, ` +
+          `_WASM_SHA256 and _GRAMMAR_VERSION together in run/schemas.ts.\n` +
+          `Do NOT "fix" this by editing _GRAMMAR_VERSION alone: that re-hides the skew and ` +
+          `every install still fails.`
+      )
+    }
+    expect(PINNED_INTERPRETER_GRAMMAR_VERSION).toBe(GRAMMAR_VERSION)
   })
 })
