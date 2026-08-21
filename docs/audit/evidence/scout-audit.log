@@ -8,36 +8,36 @@ Checking with toolchain `nightly-2025-08-07-x86_64-unknown-linux-gnu`
    Compiling quote v1.0.47
    Compiling unicode-ident v1.0.24
    Compiling serde_core v1.0.229
-   Compiling serde v1.0.229
    Compiling zmij v1.0.23
+   Compiling serde v1.0.229
    Compiling serde_json v1.0.151
-   Compiling memchr v2.8.3
    Compiling itoa v1.0.18
+   Compiling memchr v2.8.3
    Compiling compiler_builtins v0.1.160 (/home/ubuntu/.rustup/toolchains/nightly-2025-08-07-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/compiler-builtins/compiler-builtins)
    Compiling strsim v0.11.1
    Compiling ident_case v1.0.1
-   Compiling core v0.0.0 (/home/ubuntu/.rustup/toolchains/nightly-2025-08-07-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core)
    Compiling version_check v0.9.5
+   Compiling core v0.0.0 (/home/ubuntu/.rustup/toolchains/nightly-2025-08-07-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core)
    Compiling typenum v1.20.1
    Compiling autocfg v1.5.1
    Compiling schemars v0.8.22
    Compiling dyn-clone v1.0.20
-   Compiling cfg-if v1.0.4
    Compiling data-encoding v2.11.0
+   Compiling cfg-if v1.0.4
    Compiling cpufeatures v0.2.17
    Compiling ethnum v1.5.3
    Compiling escape-bytes v0.1.1
    Compiling semver v1.0.28
    Compiling either v1.17.0
-   Compiling hashbrown v0.17.1
+   Compiling thiserror v1.0.69
    Compiling equivalent v1.0.2
    Compiling generic-array v0.14.9
-   Compiling thiserror v1.0.69
-   Compiling prettyplease v0.2.37
+   Compiling hashbrown v0.17.1
    Compiling fnv v1.0.7
-   Compiling num-traits v0.2.19
-   Compiling itertools v0.13.0
+   Compiling prettyplease v0.2.37
    Compiling base64 v0.22.1
+   Compiling itertools v0.13.0
+   Compiling num-traits v0.2.19
    Compiling heapless v0.8.0
    Compiling rustc_version v0.4.1
    Compiling static_assertions v1.1.0
@@ -45,33 +45,33 @@ Checking with toolchain `nightly-2025-08-07-x86_64-unknown-linux-gnu`
    Compiling syn v3.0.3
    Compiling syn v2.0.119
    Compiling indexmap v2.14.0
-   Compiling num-integer v0.1.46
-   Compiling block-buffer v0.10.4
    Compiling crypto-common v0.1.6
+   Compiling block-buffer v0.10.4
+   Compiling num-integer v0.1.46
    Compiling digest v0.10.7
-   Compiling num-bigint v0.4.8
    Compiling sha2 v0.10.9
    Compiling wasmparser v0.116.1
+   Compiling num-bigint v0.4.8
    Compiling serde_derive v1.0.229
    Compiling darling_core v0.23.0
    Compiling darling_core v0.20.11
    Compiling macro-string v0.1.4
    Compiling cfg_eval v0.1.2
-   Compiling thiserror-impl v1.0.69
    Compiling num-derive v0.4.2
+   Compiling thiserror-impl v1.0.69
    Compiling visibility v0.1.1
    Compiling bytes-lit v0.0.6
    Compiling crate-git-revision v0.0.6
    Compiling hex v0.4.3
    Compiling crate-git-revision v0.0.9
    Compiling darling_macro v0.20.11
+   Compiling darling_macro v0.23.0
    Compiling stellar-strkey v0.0.13
    Compiling stellar-xdr v27.0.0
    Compiling soroban-env-common v27.0.1
    Compiling stellar-strkey v0.0.16
    Compiling soroban-sdk v27.0.2
    Compiling darling v0.20.11
-   Compiling darling_macro v0.23.0
    Compiling darling v0.23.0
    Compiling serde_with_macros v3.21.0
    Compiling serde_with v3.21.0
@@ -85,7 +85,7 @@ Checking with toolchain `nightly-2025-08-07-x86_64-unknown-linux-gnu`
     Checking soroban-env-guest v27.0.1
    Compiling soroban-sdk-macros v27.0.2
     Checking policy-interpreter v0.1.0 (/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/contracts/policy-interpreter)
-    Finished `release` profile [optimized] target(s) in 36.17s
+    Finished `release` profile [optimized] target(s) in 39.35s
 [0m[1m[33mwarning[0m[0m[1m: [ENHANCEMENT] Use the latest version of Soroban[0m
 [0m  [0m[0m[1m[38;5;12m|[0m
 [0m  [0m[0m[1m[38;5;12m= [0m[0m[1mhelp[0m[0m: The latest Soroban version is "27.0.6", and your version is "27.0.2"[0m

@@ -11,7 +11,7 @@ knowingly left open.
 | Contract | `contracts/policy-interpreter` |
 | Grammar version | 3 (`SELF_VERSION`, `src/version.rs`) |
 | On-chain production code | 842 nSLOC |
-| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (6160 nSLOC: `packages/**/*.ts` excluding `*.test.ts`, `test/`, `scripts/`, `dist*/`, blank and comment-only lines) |
+| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (6056 nSLOC: `packages/**/*.ts` excluding `*.test.ts`, `test/`, `scripts/`, `dist*/`, blank and comment-only lines) |
 
 What the system does: record a transaction, lower it to a predicate that pins
 the contract, method and arguments the recording carried, install that predicate
@@ -134,7 +134,7 @@ Scout run that does not do this as unrun.
 | Contract | `cargo test` | 79 passed, 0 failed |
 | Contract | `cargo test --release --test conformance` | 9 passed, 0 failed |
 | Contract | `cargo build --release --target wasm32v1-none` | builds |
-| Off-chain | `bunx biome check .` | 111 files, 0 findings |
+| Off-chain | `bunx biome check .` | 112 files, 0 findings |
 | Off-chain | `bun run typecheck` | clean |
 | Off-chain | `bun test` | 567 passed, 1 skipped, 0 failed |
 | Off-chain | `bun audit` | 0 vulnerabilities |
@@ -163,11 +163,13 @@ if this tree is what ships.
 Two further caveats, both carried in the threat model rather than only here:
 
 - The off-chain half carries more risk than the on-chain half. The contract is
-  842 nSLOC and stateless; the toolchain is 6160 nSLOC and holds the
-  default-deny install gates. The toolchain figure previously read 7340. That
-  was a restatement, not a deletion of 1180 lines: the old number could not be
-  reproduced from the definition printed beside it, and the counter used here
-  reproduces the contract's 842 exactly, file by file.
+  842 nSLOC and stateless; the toolchain is 6056 nSLOC and holds the
+  default-deny install gates. This figure previously read 7340, and almost all
+  of that gap is a restatement rather than deleted code: the old number could
+  not be reproduced from the definition printed beside it, whereas the counter
+  used here reproduces the contract's 842 exactly, file by file. Measured with
+  that counter the toolchain stood at 6218 before the latest simplification
+  pass, so 162 lines were actually removed.
 - Coverage of the MCP HTTP transport is thinner than the rest, because the
   deployment model is loopback stdio.
 - The conformance harness was broken between `50a2aa4` and this tree: the
