@@ -1,15 +1,15 @@
 # Gate run - reduced tree
 
 $ bunx biome check .
-Checked 145 files in 1221ms. No fixes applied.
+Checked 138 files in 1147ms. No fixes applied.
 
 $ bun run typecheck
 $ bunx tsc --noEmit -p packages/policy-synth/tsconfig.json && bunx tsc --noEmit -p packages/policy-builder-cli/tsconfig.json && bunx tsc --noEmit -p packages/policy-builder-mcp/tsconfig.json
 
 $ bun test
 
- 839 pass
+ 814 pass
  1 skip
  0 fail
- 2100 expect() calls
-Ran 840 tests across 48 files. [15.58s]
+ 2057 expect() calls
+Ran 815 tests across 46 files. [14.03s]

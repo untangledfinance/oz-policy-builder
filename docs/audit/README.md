@@ -6,7 +6,7 @@ Regenerate them whenever a claim they back changes.
 | Log | Command | Result |
 | --- | --- | --- |
 | `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 94 tests + 6 conformance pass |
-| `offchain-gate.log` | `biome check .`, `bun run typecheck`, `bun test` | clean; 839 pass, 1 skip, 0 fail |
+| `offchain-gate.log` | `biome check .`, `bun run typecheck`, `bun test` | clean; 814 pass, 1 skip, 0 fail |
 | `cargo-audit.log` | `cargo audit` | 0 vulnerabilities; 1 unmaintained-crate warning |
 | `bun-audit.log` | `bun audit` | 0 vulnerabilities |
 | `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 228 style warnings, 0 security |
@@ -53,7 +53,7 @@ elements.
 ### 4. Stellar Security Portal corpus - 832 findings cross-checked
 
 Pulled from the portal's open API. Of 150 critical/high findings, the dominant
-class is a privileged entry point missing an authorization check (46). Each of
+class is a privileged entry point missing an authorization check (53). Each of
 this contract's five entry points was checked against that class:
 
 | Entry point | Control |

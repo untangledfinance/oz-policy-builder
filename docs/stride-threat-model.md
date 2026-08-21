@@ -1,7 +1,7 @@
 # OZ Policy Builder - STRIDE Threat Model
 
 **Subject:** `policy-interpreter` Soroban contract plus the `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` off-chain toolchain.
-**Date:** 2026-08-20
+**Date:** 2026-08-21
 **Methodology:** Stellar STRIDE Threat Modeling, "STRIDE Threat Model Template" and "Threat Modeling How-To Guide" pages at `developers.stellar.org/docs/build/security-docs/threat-modeling`. The Stellar template's four-question scaffold (What are we working on / What can go wrong / What are we going to do about it / Did we do a good job) and its STRIDE-per-element format are followed.
 **Repo:** `untangledfinance/oz-policy-builder`
 **Grammar version:** 2 (`SELF_VERSION`, `src/version.rs`)
@@ -404,7 +404,7 @@ All logs in `docs/audit/evidence/` were produced against this tree:
 | Tool | Result |
 |---|---|
 | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 94 + 6 tests pass |
-| `biome check`, `tsc --noEmit`, `bun test` | clean; 839 pass, 1 skip, 0 fail |
+| `biome check`, `tsc --noEmit`, `bun test` | clean; 814 pass, 1 skip, 0 fail |
 | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | `bun audit` | 0 vulnerabilities |
 | `clippy -W pedantic -W nursery` | 228 style warnings, 0 security |
@@ -423,7 +423,7 @@ dominating guard.
 - **R-1 and R-2 are structural**, inherited from the account model rather than
   from this contract, and no amount of interpreter work closes them.
 - **The off-chain half carries more risk than the on-chain half.** The contract
-  is 1,225 nSLOC and stateless; the toolchain is ~8,500 nSLOC and holds the
+  is 1,225 nSLOC and stateless; the toolchain is 8,101 nSLOC and holds the
   default-deny install gates.
 - **Test files are outside the typecheck scope.** `tsconfig` excludes
   `src/**/*.test.ts`, so `bun run typecheck` never sees them and a test can

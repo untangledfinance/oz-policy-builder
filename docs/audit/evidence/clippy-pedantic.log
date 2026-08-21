@@ -1949,6 +1949,142 @@ note: this value is dropped without further use
 warning: `policy-interpreter` (lib) generated 139 warnings (run `cargo clippy --fix --lib -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 92 suggestions)
 warning: `policy-interpreter` (lib test) generated 163 warnings (138 duplicates) (run `cargo clippy --fix --lib -p policy-interpreter --tests -- -W clippy::pedantic -W clippy::nursery` to apply 19 suggestions)
 warning: item in documentation is missing backticks
+  --> tests/enforce_state.rs:97:35
+   |
+97 | /// the doc entry, which is below TTL_BUMP_THRESHOLD.
+   |                                   ^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+   = note: `-W clippy::doc-markdown` implied by `-W clippy::pedantic`
+   = help: to override `-W clippy::pedantic` add `#[allow(clippy::doc_markdown)]`
+help: try
+   |
+97 - /// the doc entry, which is below TTL_BUMP_THRESHOLD.
+97 + /// the doc entry, which is below `TTL_BUMP_THRESHOLD`.
+   |
+
+warning: redundant clone
+   --> tests/enforce_state.rs:237:42
+    |
+237 |     let rule = make_rule(&env, 1, signers.clone());
+    |                                          ^^^^^^^^ help: remove this
+    |
+note: this value is dropped without further use
+   --> tests/enforce_state.rs:237:35
+    |
+237 |     let rule = make_rule(&env, 1, signers.clone());
+    |                                   ^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
+    = note: `-W clippy::redundant-clone` implied by `-W clippy::nursery`
+    = help: to override `-W clippy::nursery` add `#[allow(clippy::redundant_clone)]`
+
+warning: item in documentation is missing backticks
+   --> tests/enforce_state.rs:273:9
+    |
+273 | /// see tests/oz_abi.rs.
+    |         ^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+    |
+273 - /// see tests/oz_abi.rs.
+273 + /// see `tests/oz_abi.rs`.
+    |
+
+warning: item in documentation is missing backticks
+   --> tests/enforce_state.rs:317:5
+    |
+317 | /// signers_hash the rule was installed with has to stay readable, or every
+    |     ^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+    |
+317 - /// signers_hash the rule was installed with has to stay readable, or every
+317 + /// `signers_hash` the rule was installed with has to stay readable, or every
+    |
+
+warning: redundant clone
+   --> tests/enforce_state.rs:329:50
+    |
+329 |     let old_rule = make_rule(&env, 1, old_signers.clone());
+    |                                                  ^^^^^^^^ help: remove this
+    |
+note: this value is dropped without further use
+   --> tests/enforce_state.rs:329:39
+    |
+329 |     let old_rule = make_rule(&env, 1, old_signers.clone());
+    |                                       ^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
+
+warning: item in documentation is missing backticks
+   --> tests/enforce_state.rs:363:32
+    |
+363 | /// A predicate that will deny ArgMismatch at enforce: `eq(call_arg(0), 7)`
+    |                                ^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+    |
+363 - /// A predicate that will deny ArgMismatch at enforce: `eq(call_arg(0), 7)`
+363 + /// A predicate that will deny `ArgMismatch` at enforce: `eq(call_arg(0), 7)`
+    |
+
+warning: item in documentation is missing backticks
+   --> tests/enforce_state.rs:364:40
+    |
+364 | /// where the call has no args, so the call_arg resolves to None and the eq
+    |                                        ^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+    |
+364 - /// where the call has no args, so the call_arg resolves to None and the eq
+364 + /// where the call has no args, so the `call_arg` resolves to None and the eq
+    |
+
+warning: item in documentation is missing backticks
+   --> tests/enforce_state.rs:365:22
+    |
+365 | /// falls through to ArgMismatch.
+    |                      ^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+    |
+365 - /// falls through to ArgMismatch.
+365 + /// falls through to `ArgMismatch`.
+    |
+
+warning: item in documentation is missing backticks
+ --> tests/oz_integration.rs:1:24
+  |
+1 | //! End-to-end against OpenZeppelin's REAL smart account.
+  |                        ^^^^^^^^^^^^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+  = note: `-W clippy::doc-markdown` implied by `-W clippy::pedantic`
+  = help: to override `-W clippy::pedantic` add `#[allow(clippy::doc_markdown)]`
+help: try
+  |
+1 - //! End-to-end against OpenZeppelin's REAL smart account.
+1 + //! End-to-end against `OpenZeppelin`'s REAL smart account.
+  |
+
+warning: item in documentation is missing backticks
+ --> tests/oz_integration.rs:6:65
+  |
+6 | //! the path a deployment actually takes, and it is the one the ContextRule
+  |                                                                 ^^^^^^^^^^^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+  |
+6 - //! the path a deployment actually takes, and it is the one the ContextRule
+6 + //! the path a deployment actually takes, and it is the one the `ContextRule`
+  |
+
+warning: item in documentation is missing backticks
  --> tests/install_enforce.rs:3:35
   |
 3 | //! Tests build the raw canonical ScVal XDR bytes for the predicate via the
@@ -2060,102 +2196,6 @@ note: this value is dropped without further use
 295 |     let new_set = soroban_sdk::vec![&env, Signer::Delegated(signer_b.clone())];
     |                                                             ^^^^^^^^
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
-
-warning: item in documentation is missing backticks
- --> tests/oz_abi.rs:1:33
-  |
-1 | //! ABI conformance against the OpenZeppelin smart account.
-  |                                 ^^^^^^^^^^^^
-  |
-  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-  = note: `-W clippy::doc-markdown` implied by `-W clippy::pedantic`
-  = help: to override `-W clippy::pedantic` add `#[allow(clippy::doc_markdown)]`
-help: try
-  |
-1 - //! ABI conformance against the OpenZeppelin smart account.
-1 + //! ABI conformance against the `OpenZeppelin` smart account.
-  |
-
-warning: item in documentation is missing backticks
-  --> tests/oz_abi.rs:10:29
-   |
-10 | //!   - `ContextRule`     - accounts/src/smart_account/storage.rs
-   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-10 - //!   - `ContextRule`     - accounts/src/smart_account/storage.rs
-10 + //!   - `ContextRule`     - `accounts/src/smart_account/storage.rs`
-   |
-
-warning: item in documentation is missing backticks
-  --> tests/oz_abi.rs:12:29
-   |
-12 | //!   - `Signer`          - accounts/src/smart_account/mod.rs
-   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-12 - //!   - `Signer`          - accounts/src/smart_account/mod.rs
-12 + //!   - `Signer`          - `accounts/src/smart_account/mod.rs`
-   |
-
-warning: redundant clone
-  --> tests/oz_abi.rs:76:85
-   |
-76 |     let signers: Vec<Signer> = soroban_sdk::vec![&env, Signer::Delegated(signer_addr.clone())];
-   |                                                                                     ^^^^^^^^ help: remove this
-   |
-note: this value is dropped without further use
-  --> tests/oz_abi.rs:76:74
-   |
-76 |     let signers: Vec<Signer> = soroban_sdk::vec![&env, Signer::Delegated(signer_addr.clone())];
-   |                                                                          ^^^^^^^^^^^
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
-   = note: `-W clippy::redundant-clone` implied by `-W clippy::nursery`
-   = help: to override `-W clippy::nursery` add `#[allow(clippy::redundant_clone)]`
-
-warning: wildcard matches only a single variant and will also match any future added variants
-  --> tests/oz_abi.rs:96:9
-   |
-96 |         other => panic!("expected Delegated, got {other:?}"),
-   |         ^^^^^ help: try: `other @ Signer::External(..)`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
-   = note: `-W clippy::match-wildcard-for-single-variants` implied by `-W clippy::pedantic`
-   = help: to override `-W clippy::pedantic` add `#[allow(clippy::match_wildcard_for_single_variants)]`
-
-warning: casting `u32` to `u8` may truncate the value
-   --> tests/oz_abi.rs:236:18
-    |
-236 |         let hi = (raw[i] as char).to_digit(16).expect("hex") as u8;
-    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_possible_truncation
-    = note: `-W clippy::cast-possible-truncation` implied by `-W clippy::pedantic`
-    = help: to override `-W clippy::pedantic` add `#[allow(clippy::cast_possible_truncation)]`
-help: ... or use `try_from` and handle the error accordingly
-    |
-236 -         let hi = (raw[i] as char).to_digit(16).expect("hex") as u8;
-236 +         let hi = u8::try_from((raw[i] as char).to_digit(16).expect("hex"));
-    |
-
-warning: casting `u32` to `u8` may truncate the value
-   --> tests/oz_abi.rs:237:18
-    |
-237 |         let lo = (raw[i + 1] as char).to_digit(16).expect("hex") as u8;
-    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_possible_truncation
-help: ... or use `try_from` and handle the error accordingly
-    |
-237 -         let lo = (raw[i + 1] as char).to_digit(16).expect("hex") as u8;
-237 +         let lo = u8::try_from((raw[i + 1] as char).to_digit(16).expect("hex"));
-    |
 
 warning: long literal lacking separators
   --> tests/conformance/_generated.rs:50:20
@@ -2483,144 +2523,104 @@ help: try
    |
 
 warning: item in documentation is missing backticks
- --> tests/oz_integration.rs:1:24
+ --> tests/oz_abi.rs:1:33
   |
-1 | //! End-to-end against OpenZeppelin's REAL smart account.
-  |                        ^^^^^^^^^^^^
+1 | //! ABI conformance against the OpenZeppelin smart account.
+  |                                 ^^^^^^^^^^^^
   |
   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
   = note: `-W clippy::doc-markdown` implied by `-W clippy::pedantic`
   = help: to override `-W clippy::pedantic` add `#[allow(clippy::doc_markdown)]`
 help: try
   |
-1 - //! End-to-end against OpenZeppelin's REAL smart account.
-1 + //! End-to-end against `OpenZeppelin`'s REAL smart account.
+1 - //! ABI conformance against the OpenZeppelin smart account.
+1 + //! ABI conformance against the `OpenZeppelin` smart account.
   |
 
 warning: item in documentation is missing backticks
- --> tests/oz_integration.rs:6:65
-  |
-6 | //! the path a deployment actually takes, and it is the one the ContextRule
-  |                                                                 ^^^^^^^^^^^
-  |
-  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-  |
-6 - //! the path a deployment actually takes, and it is the one the ContextRule
-6 + //! the path a deployment actually takes, and it is the one the `ContextRule`
-  |
-
-warning: item in documentation is missing backticks
-  --> tests/enforce_state.rs:97:35
+  --> tests/oz_abi.rs:10:29
    |
-97 | /// the doc entry, which is below TTL_BUMP_THRESHOLD.
-   |                                   ^^^^^^^^^^^^^^^^^^
+10 | //!   - `ContextRule`     - accounts/src/smart_account/storage.rs
+   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-   = note: `-W clippy::doc-markdown` implied by `-W clippy::pedantic`
-   = help: to override `-W clippy::pedantic` add `#[allow(clippy::doc_markdown)]`
 help: try
    |
-97 - /// the doc entry, which is below TTL_BUMP_THRESHOLD.
-97 + /// the doc entry, which is below `TTL_BUMP_THRESHOLD`.
+10 - //!   - `ContextRule`     - accounts/src/smart_account/storage.rs
+10 + //!   - `ContextRule`     - `accounts/src/smart_account/storage.rs`
+   |
+
+warning: item in documentation is missing backticks
+  --> tests/oz_abi.rs:12:29
+   |
+12 | //!   - `Signer`          - accounts/src/smart_account/mod.rs
+   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+12 - //!   - `Signer`          - accounts/src/smart_account/mod.rs
+12 + //!   - `Signer`          - `accounts/src/smart_account/mod.rs`
    |
 
 warning: redundant clone
-   --> tests/enforce_state.rs:237:42
-    |
-237 |     let rule = make_rule(&env, 1, signers.clone());
-    |                                          ^^^^^^^^ help: remove this
-    |
+  --> tests/oz_abi.rs:76:85
+   |
+76 |     let signers: Vec<Signer> = soroban_sdk::vec![&env, Signer::Delegated(signer_addr.clone())];
+   |                                                                                     ^^^^^^^^ help: remove this
+   |
 note: this value is dropped without further use
-   --> tests/enforce_state.rs:237:35
-    |
-237 |     let rule = make_rule(&env, 1, signers.clone());
-    |                                   ^^^^^^^
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
-    = note: `-W clippy::redundant-clone` implied by `-W clippy::nursery`
-    = help: to override `-W clippy::nursery` add `#[allow(clippy::redundant_clone)]`
+  --> tests/oz_abi.rs:76:74
+   |
+76 |     let signers: Vec<Signer> = soroban_sdk::vec![&env, Signer::Delegated(signer_addr.clone())];
+   |                                                                          ^^^^^^^^^^^
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
+   = note: `-W clippy::redundant-clone` implied by `-W clippy::nursery`
+   = help: to override `-W clippy::nursery` add `#[allow(clippy::redundant_clone)]`
 
-warning: item in documentation is missing backticks
-   --> tests/enforce_state.rs:273:9
-    |
-273 | /// see tests/oz_abi.rs.
-    |         ^^^^^^^^^^^^^^^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-    |
-273 - /// see tests/oz_abi.rs.
-273 + /// see `tests/oz_abi.rs`.
-    |
+warning: wildcard matches only a single variant and will also match any future added variants
+  --> tests/oz_abi.rs:96:9
+   |
+96 |         other => panic!("expected Delegated, got {other:?}"),
+   |         ^^^^^ help: try: `other @ Signer::External(..)`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
+   = note: `-W clippy::match-wildcard-for-single-variants` implied by `-W clippy::pedantic`
+   = help: to override `-W clippy::pedantic` add `#[allow(clippy::match_wildcard_for_single_variants)]`
 
-warning: item in documentation is missing backticks
-   --> tests/enforce_state.rs:317:5
+warning: casting `u32` to `u8` may truncate the value
+   --> tests/oz_abi.rs:236:18
     |
-317 | /// signers_hash the rule was installed with has to stay readable, or every
-    |     ^^^^^^^^^^^^
+236 |         let hi = (raw[i] as char).to_digit(16).expect("hex") as u8;
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_possible_truncation
+    = note: `-W clippy::cast-possible-truncation` implied by `-W clippy::pedantic`
+    = help: to override `-W clippy::pedantic` add `#[allow(clippy::cast_possible_truncation)]`
+help: ... or use `try_from` and handle the error accordingly
     |
-317 - /// signers_hash the rule was installed with has to stay readable, or every
-317 + /// `signers_hash` the rule was installed with has to stay readable, or every
-    |
-
-warning: redundant clone
-   --> tests/enforce_state.rs:329:50
-    |
-329 |     let old_rule = make_rule(&env, 1, old_signers.clone());
-    |                                                  ^^^^^^^^ help: remove this
-    |
-note: this value is dropped without further use
-   --> tests/enforce_state.rs:329:39
-    |
-329 |     let old_rule = make_rule(&env, 1, old_signers.clone());
-    |                                       ^^^^^^^^^^^
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
-
-warning: item in documentation is missing backticks
-   --> tests/enforce_state.rs:363:32
-    |
-363 | /// A predicate that will deny ArgMismatch at enforce: `eq(call_arg(0), 7)`
-    |                                ^^^^^^^^^^^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-    |
-363 - /// A predicate that will deny ArgMismatch at enforce: `eq(call_arg(0), 7)`
-363 + /// A predicate that will deny `ArgMismatch` at enforce: `eq(call_arg(0), 7)`
+236 -         let hi = (raw[i] as char).to_digit(16).expect("hex") as u8;
+236 +         let hi = u8::try_from((raw[i] as char).to_digit(16).expect("hex"));
     |
 
-warning: item in documentation is missing backticks
-   --> tests/enforce_state.rs:364:40
+warning: casting `u32` to `u8` may truncate the value
+   --> tests/oz_abi.rs:237:18
     |
-364 | /// where the call has no args, so the call_arg resolves to None and the eq
-    |                                        ^^^^^^^^
+237 |         let lo = (raw[i + 1] as char).to_digit(16).expect("hex") as u8;
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
+    = help: if this is intentional allow the lint with `#[allow(clippy::cast_possible_truncation)]` ...
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_possible_truncation
+help: ... or use `try_from` and handle the error accordingly
     |
-364 - /// where the call has no args, so the call_arg resolves to None and the eq
-364 + /// where the call has no args, so the `call_arg` resolves to None and the eq
-    |
-
-warning: item in documentation is missing backticks
-   --> tests/enforce_state.rs:365:22
-    |
-365 | /// falls through to ArgMismatch.
-    |                      ^^^^^^^^^^^
-    |
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-    |
-365 - /// falls through to ArgMismatch.
-365 + /// falls through to `ArgMismatch`.
+237 -         let lo = (raw[i + 1] as char).to_digit(16).expect("hex") as u8;
+237 +         let lo = u8::try_from((raw[i + 1] as char).to_digit(16).expect("hex"));
     |
 
-warning: `policy-interpreter` (test "install_enforce") generated 8 warnings (run `cargo clippy --fix --test "install_enforce" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)
-warning: `policy-interpreter` (test "oz_abi") generated 7 warnings (run `cargo clippy --fix --test "oz_abi" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 4 suggestions)
-warning: `policy-interpreter` (test "conformance") generated 32 warnings (run `cargo clippy --fix --test "conformance" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 15 suggestions)
-warning: `policy-interpreter` (test "oz_integration") generated 2 warnings (run `cargo clippy --fix --test "oz_integration" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 2 suggestions)
 warning: `policy-interpreter` (test "enforce_state") generated 8 warnings (run `cargo clippy --fix --test "enforce_state" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.24s
+warning: `policy-interpreter` (test "oz_integration") generated 2 warnings (run `cargo clippy --fix --test "oz_integration" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 2 suggestions)
+warning: `policy-interpreter` (test "install_enforce") generated 8 warnings (run `cargo clippy --fix --test "install_enforce" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)
+warning: `policy-interpreter` (test "conformance") generated 32 warnings (run `cargo clippy --fix --test "conformance" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 15 suggestions)
+warning: `policy-interpreter` (test "oz_abi") generated 7 warnings (run `cargo clippy --fix --test "oz_abi" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 4 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.15s

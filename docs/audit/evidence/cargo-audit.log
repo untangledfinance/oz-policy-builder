@@ -1,4 +1,3 @@
-=== cargo audit ===
     Fetching advisory database from `https://github.com/RustSec/advisory-db.git`
       Loaded 1225 security advisories (from /home/ubuntu/.cargo/advisory-db)
     Updating crates.io index
@@ -12,5 +11,3 @@ ID:        RUSTSEC-2024-0436
 URL:       https://rustsec.org/advisories/RUSTSEC-2024-0436
 
 warning: 1 allowed warning found
-
-=== clippy pedantic ===

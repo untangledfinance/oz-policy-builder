@@ -11,7 +11,7 @@ knowingly left open.
 | Contract | `contracts/policy-interpreter` |
 | Grammar version | 2 (`SELF_VERSION`, `src/version.rs`) |
 | On-chain production code | 1,225 nSLOC |
-| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (roughly 8,500 nSLOC) |
+| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (8,101 nSLOC) |
 
 What the system does: record a transaction, synthesise the minimal policy that
 permits exactly that flow, install it on an OpenZeppelin smart account, and
@@ -59,7 +59,7 @@ Every log in [`evidence/`](evidence/) was produced against this tree.
 | Log | Command | Result |
 | --- | --- | --- |
 | [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 94 + 6 tests pass |
-| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 839 pass, 1 skip, 0 fail |
+| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 814 pass, 1 skip, 0 fail |
 | [`cargo-audit.log`](evidence/cargo-audit.log) | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | [`bun-audit.log`](evidence/bun-audit.log) | `bun audit` | 0 vulnerabilities |
 | [`clippy-pedantic.log`](evidence/clippy-pedantic.log) | `clippy -W pedantic -W nursery` | 228 style warnings, 0 security |
@@ -86,9 +86,9 @@ Scout run that does not do this as unrun.
 | Contract | `cargo test` | 94 passed, 0 failed |
 | Contract | `cargo test --release --test conformance` | 6 passed, 0 failed |
 | Contract | `cargo build --release --target wasm32v1-none` | builds |
-| Off-chain | `bunx biome check .` | 145 files, 0 findings |
+| Off-chain | `bunx biome check .` | 138 files, 0 findings |
 | Off-chain | `bun run typecheck` | clean |
-| Off-chain | `bun test` | 839 passed, 1 skipped, 0 failed |
+| Off-chain | `bun test` | 814 passed, 1 skipped, 0 failed |
 | Off-chain | `bun audit` | 0 vulnerabilities |
 
 Both gates run in CI on every push, including the two dependency-advisory
@@ -116,7 +116,7 @@ if this tree is what ships.
 Two further caveats, both carried in the threat model rather than only here:
 
 - The off-chain half carries more risk than the on-chain half. The contract is
-  1,225 nSLOC and stateless; the toolchain is roughly 8,500 nSLOC and holds the
+  1,225 nSLOC and stateless; the toolchain is 8,101 nSLOC and holds the
   default-deny install gates.
 - Coverage of the MCP HTTP transport is thinner than the rest, because the
   deployment model is loopback stdio.
