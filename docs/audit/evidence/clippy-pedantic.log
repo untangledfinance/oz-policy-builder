@@ -649,81 +649,6 @@ help: try
 4 + //! The `predicate` field on `PolicyInstallParams` is the RAW canonical `ScVal`
   |
 
-warning: this method could have a `#[must_use]` attribute
-  --> src/types.rs:24:12
-   |
-24 |     pub fn address(&self) -> &soroban_sdk::Address {
-   |            ^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#must_use_candidate
-help: add the attribute
-   |
-24 ~     #[must_use]
-25 ~     pub fn address(&self) -> &soroban_sdk::Address {
-   |
-
-warning: this could be a `const fn`
-  --> src/types.rs:24:5
-   |
-24 | /     pub fn address(&self) -> &soroban_sdk::Address {
-25 | |         match self {
-26 | |             Signer::Delegated(a) => a,
-27 | |             Signer::External(a, _) => a,
-28 | |         }
-29 | |     }
-   | |_____^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#missing_const_for_fn
-help: make the function `const`
-   |
-24 |     pub const fn address(&self) -> &soroban_sdk::Address {
-   |         +++++
-
-warning: these match arms have identical bodies
-  --> src/types.rs:26:13
-   |
-26 |             Signer::Delegated(a) => a,
-   |             ^^^^^^^^^^^^^^^^^^^^^^^^^
-27 |             Signer::External(a, _) => a,
-   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: if this is unintentional make the arms return different values
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_same_arms
-   = note: `-W clippy::match-same-arms` implied by `-W clippy::pedantic`
-   = help: to override `-W clippy::pedantic` add `#[allow(clippy::match_same_arms)]`
-help: otherwise merge the patterns into a single arm
-   |
-26 -             Signer::Delegated(a) => a,
-27 -             Signer::External(a, _) => a,
-26 +             Signer::Delegated(a) | Signer::External(a, _) => a,
-   |
-
-warning: unnecessary structure name repetition
-  --> src/types.rs:26:13
-   |
-26 |             Signer::Delegated(a) => a,
-   |             ^^^^^^ help: use the applicable keyword: `Self`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: unnecessary structure name repetition
-  --> src/types.rs:27:13
-   |
-27 |             Signer::External(a, _) => a,
-   |             ^^^^^^ help: use the applicable keyword: `Self`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
-
-warning: first doc comment paragraph is too long
-  --> src/types.rs:42:1
-   |
-42 | / /// Upper bound on the master signer set stored per rule. Far above any
-43 | | /// realistic OZ context rule; low enough that re-hashing the set on every
-44 | | /// permit and one `require_auth` per signer stay well inside the CPU budget.
-   | |_^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#too_long_first_doc_paragraph
-
 warning: item in documentation is missing backticks
  --> src/dsl_tests.rs:9:27
   |
@@ -989,19 +914,6 @@ warning: casting `u128` to `i128` may wrap around the value
    = note: `-W clippy::cast-possible-wrap` implied by `-W clippy::pedantic`
    = help: to override `-W clippy::pedantic` add `#[allow(clippy::cast_possible_wrap)]`
 
-warning: item in documentation is missing backticks
-  --> src/types.rs:75:38
-   |
-75 | /// `predicate` is the raw canonical ScVal XDR — `ScVal::Vec([symbol, ...])`
-   |                                      ^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-75 - /// `predicate` is the raw canonical ScVal XDR — `ScVal::Vec([symbol, ...])`
-75 + /// `predicate` is the raw canonical `ScVal` XDR — `ScVal::Vec([symbol, ...])`
-   |
-
 warning: this argument is passed by value, but not consumed in the function body
    --> src/dsl_tests.rs:103:35
     |
@@ -1013,6 +925,71 @@ help: consider taking a reference instead
     |
 103 | fn bytes_from_scval(env: &Env, v: &ScVal) -> Bytes {
     |                                   +
+
+warning: this method could have a `#[must_use]` attribute
+  --> src/types.rs:24:12
+   |
+24 |     pub fn address(&self) -> &soroban_sdk::Address {
+   |            ^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#must_use_candidate
+help: add the attribute
+   |
+24 ~     #[must_use]
+25 ~     pub fn address(&self) -> &soroban_sdk::Address {
+   |
+
+warning: this could be a `const fn`
+  --> src/types.rs:24:5
+   |
+24 | /     pub fn address(&self) -> &soroban_sdk::Address {
+25 | |         match self {
+26 | |             Signer::Delegated(a) => a,
+27 | |             Signer::External(a, _) => a,
+28 | |         }
+29 | |     }
+   | |_____^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#missing_const_for_fn
+help: make the function `const`
+   |
+24 |     pub const fn address(&self) -> &soroban_sdk::Address {
+   |         +++++
+
+warning: these match arms have identical bodies
+  --> src/types.rs:26:13
+   |
+26 |             Signer::Delegated(a) => a,
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^
+27 |             Signer::External(a, _) => a,
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: if this is unintentional make the arms return different values
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_same_arms
+   = note: `-W clippy::match-same-arms` implied by `-W clippy::pedantic`
+   = help: to override `-W clippy::pedantic` add `#[allow(clippy::match_same_arms)]`
+help: otherwise merge the patterns into a single arm
+   |
+26 -             Signer::Delegated(a) => a,
+27 -             Signer::External(a, _) => a,
+26 +             Signer::Delegated(a) | Signer::External(a, _) => a,
+   |
+
+warning: unnecessary structure name repetition
+  --> src/types.rs:26:13
+   |
+26 |             Signer::Delegated(a) => a,
+   |             ^^^^^^ help: use the applicable keyword: `Self`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
+
+warning: unnecessary structure name repetition
+  --> src/types.rs:27:13
+   |
+27 |             Signer::External(a, _) => a,
+   |             ^^^^^^ help: use the applicable keyword: `Self`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#use_self
 
 warning: redundant clone
    --> src/dsl_tests.rs:372:23
@@ -1028,6 +1005,45 @@ note: cloned value is neither consumed nor mutated
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
     = note: `-W clippy::redundant-clone` implied by `-W clippy::nursery`
     = help: to override `-W clippy::nursery` add `#[allow(clippy::redundant_clone)]`
+
+warning: first doc comment paragraph is too long
+  --> src/types.rs:42:1
+   |
+42 | / /// Upper bound on the master signer set stored per rule. Far above any
+43 | | /// realistic OZ context rule; low enough that re-hashing the set on every
+44 | | /// permit and one `require_auth` per signer stay well inside the CPU budget.
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#too_long_first_doc_paragraph
+
+warning: casts from `u32` to `i128` can be expressed infallibly using `From`
+   --> src/dsl_tests.rs:625:24
+    |
+625 |         haystack: (0..=(MAX_IN_OPERAND_COUNT as i128))
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: an `as` cast can become silently lossy if the types change in the future
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_lossless
+    = note: `-W clippy::cast-lossless` implied by `-W clippy::pedantic`
+    = help: to override `-W clippy::pedantic` add `#[allow(clippy::cast_lossless)]`
+help: use `i128::from` instead
+    |
+625 -         haystack: (0..=(MAX_IN_OPERAND_COUNT as i128))
+625 +         haystack: (0..=i128::from(MAX_IN_OPERAND_COUNT))
+    |
+
+warning: item in documentation is missing backticks
+  --> src/types.rs:75:38
+   |
+75 | /// `predicate` is the raw canonical ScVal XDR — `ScVal::Vec([symbol, ...])`
+   |                                      ^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+75 - /// `predicate` is the raw canonical ScVal XDR — `ScVal::Vec([symbol, ...])`
+75 + /// `predicate` is the raw canonical `ScVal` XDR — `ScVal::Vec([symbol, ...])`
+   |
 
 warning: this method could have a `#[must_use]` attribute
   --> src/lib.rs:35:12
@@ -1314,23 +1330,20 @@ warning: use Option::map_or_else instead of an if let/else
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#option_if_let_else
 
-warning: casts from `u32` to `i128` can be expressed infallibly using `From`
-   --> src/dsl_tests.rs:625:24
-    |
-625 |         haystack: (0..=(MAX_IN_OPERAND_COUNT as i128))
-    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    |
-    = help: an `as` cast can become silently lossy if the types change in the future
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#cast_lossless
-    = note: `-W clippy::cast-lossless` implied by `-W clippy::pedantic`
-    = help: to override `-W clippy::pedantic` add `#[allow(clippy::cast_lossless)]`
-help: use `i128::from` instead
-    |
-625 -         haystack: (0..=(MAX_IN_OPERAND_COUNT as i128))
-625 +         haystack: (0..=i128::from(MAX_IN_OPERAND_COUNT))
-    |
-
 warning: `policy-interpreter` (lib) generated 88 warnings (run `cargo clippy --fix --lib -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 55 suggestions)
+warning: redundant clone
+   --> src/lib.rs:163:54
+    |
+163 |         let key = storage::RuleKey::new(smart_account.clone(), rule_id);
+    |                                                      ^^^^^^^^ help: remove this
+    |
+note: this value is dropped without further use
+   --> src/lib.rs:163:41
+    |
+163 |         let key = storage::RuleKey::new(smart_account.clone(), rule_id);
+    |                                         ^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
+
 warning: item in documentation is missing backticks
  --> tests/oz_integration.rs:1:24
   |
@@ -1358,19 +1371,6 @@ help: try
 6 - //! the path a deployment actually takes, and it is the one the ContextRule
 6 + //! the path a deployment actually takes, and it is the one the `ContextRule`
   |
-
-warning: redundant clone
-   --> src/lib.rs:163:54
-    |
-163 |         let key = storage::RuleKey::new(smart_account.clone(), rule_id);
-    |                                                      ^^^^^^^^ help: remove this
-    |
-note: this value is dropped without further use
-   --> src/lib.rs:163:41
-    |
-163 |         let key = storage::RuleKey::new(smart_account.clone(), rule_id);
-    |                                         ^^^^^^^^^^^^^
-    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
 
 warning: item in documentation is missing backticks
  --> tests/conformance/mod.rs:6:26
@@ -1413,34 +1413,7 @@ help: try
 11 + //! (permit or the matching `DenyReason.code()` string).
    |
 
-warning: unnecessary semicolon
-  --> tests/conformance/_generated.rs:58:6
-   |
-58 |     };
-   |      ^ help: remove
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_semicolon
-   = note: `-W clippy::unnecessary-semicolon` implied by `-W clippy::pedantic`
-   = help: to override `-W clippy::pedantic` add `#[allow(clippy::unnecessary_semicolon)]`
-
-warning: unnecessary semicolon
-  --> tests/conformance/_generated.rs:83:6
-   |
-83 |     };
-   |      ^ help: remove
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_semicolon
-
-warning: wildcard matches only a single variant and will also match any future added variants
-  --> tests/conformance/_generated.rs:82:9
-   |
-82 |         _ => panic!("expected deny but Rust permitted"),
-   |         ^ help: try: `EvalDecision::Permit`
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
-   = note: `-W clippy::match-wildcard-for-single-variants` implied by `-W clippy::pedantic`
-   = help: to override `-W clippy::pedantic` add `#[allow(clippy::match_wildcard_for_single_variants)]`
-
+warning: `policy-interpreter` (lib test) generated 111 warnings (87 duplicates) (run `cargo clippy --fix --lib -p policy-interpreter --tests -- -W clippy::pedantic -W clippy::nursery` to apply 18 suggestions)
 warning: item in documentation is missing backticks
  --> tests/oz_abi.rs:1:33
   |
@@ -1469,6 +1442,47 @@ help: try
 10 + //!   - `ContextRule`     - `accounts/src/smart_account/storage.rs`
    |
 
+warning: item in documentation is missing backticks
+  --> tests/oz_abi.rs:12:29
+   |
+12 | //!   - `Signer`          - accounts/src/smart_account/mod.rs
+   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+12 - //!   - `Signer`          - accounts/src/smart_account/mod.rs
+12 + //!   - `Signer`          - `accounts/src/smart_account/mod.rs`
+   |
+
+warning: unnecessary semicolon
+  --> tests/conformance/_generated.rs:58:6
+   |
+58 |     };
+   |      ^ help: remove
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_semicolon
+   = note: `-W clippy::unnecessary-semicolon` implied by `-W clippy::pedantic`
+   = help: to override `-W clippy::pedantic` add `#[allow(clippy::unnecessary_semicolon)]`
+
+warning: unnecessary semicolon
+  --> tests/conformance/_generated.rs:83:6
+   |
+83 |     };
+   |      ^ help: remove
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#unnecessary_semicolon
+
+warning: wildcard matches only a single variant and will also match any future added variants
+  --> tests/conformance/_generated.rs:82:9
+   |
+82 |         _ => panic!("expected deny but Rust permitted"),
+   |         ^ help: try: `EvalDecision::Permit`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
+   = note: `-W clippy::match-wildcard-for-single-variants` implied by `-W clippy::pedantic`
+   = help: to override `-W clippy::pedantic` add `#[allow(clippy::match_wildcard_for_single_variants)]`
+
 warning: unnecessary semicolon
    --> tests/conformance/_generated.rs:108:6
     |
@@ -1484,19 +1498,6 @@ warning: wildcard matches only a single variant and will also match any future a
     |         ^ help: try: `EvalDecision::Permit`
     |
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#match_wildcard_for_single_variants
-
-warning: item in documentation is missing backticks
-  --> tests/oz_abi.rs:12:29
-   |
-12 | //!   - `Signer`          - accounts/src/smart_account/mod.rs
-   |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-12 - //!   - `Signer`          - accounts/src/smart_account/mod.rs
-12 + //!   - `Signer`          - `accounts/src/smart_account/mod.rs`
-   |
 
 warning: unnecessary semicolon
    --> tests/conformance/_generated.rs:133:6
@@ -1620,34 +1621,6 @@ help: try
 4 + //! never has to know each `ScVal` type's literal form in Rust.
   |
 
-warning: item in documentation is missing backticks
- --> tests/install_enforce.rs:3:35
-  |
-3 | //! Tests build the raw canonical ScVal XDR bytes for the predicate via the
-  |                                   ^^^^^
-  |
-  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-  = note: `-W clippy::doc-markdown` implied by `-W clippy::pedantic`
-  = help: to override `-W clippy::pedantic` add `#[allow(clippy::doc_markdown)]`
-help: try
-  |
-3 - //! Tests build the raw canonical ScVal XDR bytes for the predicate via the
-3 + //! Tests build the raw canonical `ScVal` XDR bytes for the predicate via the
-  |
-
-warning: item in documentation is missing backticks
-  --> tests/install_enforce.rs:26:20
-   |
-26 | /// never sees the ScVal type directly.
-   |                    ^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-26 - /// never sees the ScVal type directly.
-26 + /// never sees the `ScVal` type directly.
-   |
-
 warning: redundant clone
   --> tests/oz_abi.rs:76:85
    |
@@ -1692,6 +1665,50 @@ help: replace `if`-then-`panic!` with `assert!`
 17 +     assert!(chars.len().is_multiple_of(2), "hex input length must be even");
    |
 
+warning: item in documentation is missing backticks
+ --> tests/install_enforce.rs:3:35
+  |
+3 | //! Tests build the raw canonical ScVal XDR bytes for the predicate via the
+  |                                   ^^^^^
+  |
+  = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+  = note: `-W clippy::doc-markdown` implied by `-W clippy::pedantic`
+  = help: to override `-W clippy::pedantic` add `#[allow(clippy::doc_markdown)]`
+help: try
+  |
+3 - //! Tests build the raw canonical ScVal XDR bytes for the predicate via the
+3 + //! Tests build the raw canonical `ScVal` XDR bytes for the predicate via the
+  |
+
+warning: item in documentation is missing backticks
+  --> tests/enforce_state.rs:97:35
+   |
+97 | /// the doc entry, which is below TTL_BUMP_THRESHOLD.
+   |                                   ^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+   = note: `-W clippy::doc-markdown` implied by `-W clippy::pedantic`
+   = help: to override `-W clippy::pedantic` add `#[allow(clippy::doc_markdown)]`
+help: try
+   |
+97 - /// the doc entry, which is below TTL_BUMP_THRESHOLD.
+97 + /// the doc entry, which is below `TTL_BUMP_THRESHOLD`.
+   |
+
+warning: item in documentation is missing backticks
+  --> tests/install_enforce.rs:26:20
+   |
+26 | /// never sees the ScVal type directly.
+   |                    ^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+26 - /// never sees the ScVal type directly.
+26 + /// never sees the `ScVal` type directly.
+   |
+
+warning: `policy-interpreter` (test "oz_integration") generated 2 warnings (run `cargo clippy --fix --test "oz_integration" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 2 suggestions)
 warning: only a `panic!` in `if`-then statement
   --> tests/conformance/_helpers.rs:25:9
    |
@@ -1741,22 +1758,6 @@ help: try
 44 + /// it into a fresh `SorobanVec<Val>`. Each arg round-trips so any `ScVal`
    |
 
-warning: `policy-interpreter` (test "oz_integration") generated 2 warnings (run `cargo clippy --fix --test "oz_integration" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 2 suggestions)
-warning: item in documentation is missing backticks
-  --> tests/enforce_state.rs:97:35
-   |
-97 | /// the doc entry, which is below TTL_BUMP_THRESHOLD.
-   |                                   ^^^^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-   = note: `-W clippy::doc-markdown` implied by `-W clippy::pedantic`
-   = help: to override `-W clippy::pedantic` add `#[allow(clippy::doc_markdown)]`
-help: try
-   |
-97 - /// the doc entry, which is below TTL_BUMP_THRESHOLD.
-97 + /// the doc entry, which is below `TTL_BUMP_THRESHOLD`.
-   |
-
 warning: casting `u32` to `u8` may truncate the value
    --> tests/oz_abi.rs:236:18
     |
@@ -1787,38 +1788,6 @@ help: ... or use `try_from` and handle the error accordingly
 237 +         let lo = u8::try_from((raw[i + 1] as char).to_digit(16).expect("hex"));
     |
 
-warning: item in documentation is missing backticks
-  --> tests/install_enforce.rs:65:9
-   |
-65 | /// see tests/oz_abi.rs.
-   |         ^^^^^^^^^^^^^^^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
-help: try
-   |
-65 - /// see tests/oz_abi.rs.
-65 + /// see `tests/oz_abi.rs`.
-   |
-
-warning: this could be a `const fn`
-  --> tests/install_enforce.rs:79:1
-   |
-79 | / fn dummy_address() -> ScVal {
-80 | |     ScVal::Address(soroban_sdk::xdr::ScAddress::Contract(
-81 | |         soroban_sdk::xdr::ContractId(soroban_sdk::xdr::Hash([0u8; 32])),
-82 | |     ))
-83 | | }
-   | |_^
-   |
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#missing_const_for_fn
-   = note: `-W clippy::missing-const-for-fn` implied by `-W clippy::nursery`
-   = help: to override `-W clippy::nursery` add `#[allow(clippy::missing_const_for_fn)]`
-help: make the function `const`
-   |
-79 | const fn dummy_address() -> ScVal {
-   | +++++
-
-warning: `policy-interpreter` (test "conformance") generated 26 warnings (run `cargo clippy --fix --test "conformance" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 18 suggestions)
 warning: redundant clone
    --> tests/enforce_state.rs:237:42
     |
@@ -1912,6 +1881,38 @@ help: try
 365 + /// falls through to `ArgMismatch`.
     |
 
+warning: `policy-interpreter` (test "conformance") generated 26 warnings (run `cargo clippy --fix --test "conformance" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 18 suggestions)
+warning: item in documentation is missing backticks
+  --> tests/install_enforce.rs:65:9
+   |
+65 | /// see tests/oz_abi.rs.
+   |         ^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_markdown
+help: try
+   |
+65 - /// see tests/oz_abi.rs.
+65 + /// see `tests/oz_abi.rs`.
+   |
+
+warning: this could be a `const fn`
+  --> tests/install_enforce.rs:79:1
+   |
+79 | / fn dummy_address() -> ScVal {
+80 | |     ScVal::Address(soroban_sdk::xdr::ScAddress::Contract(
+81 | |         soroban_sdk::xdr::ContractId(soroban_sdk::xdr::Hash([0u8; 32])),
+82 | |     ))
+83 | | }
+   | |_^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#missing_const_for_fn
+   = note: `-W clippy::missing-const-for-fn` implied by `-W clippy::nursery`
+   = help: to override `-W clippy::nursery` add `#[allow(clippy::missing_const_for_fn)]`
+help: make the function `const`
+   |
+79 | const fn dummy_address() -> ScVal {
+   | +++++
+
 warning: redundant clone
    --> tests/install_enforce.rs:226:76
     |
@@ -1966,8 +1967,7 @@ note: this value is dropped without further use
     |                                                             ^^^^^^^^
     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#redundant_clone
 
-warning: `policy-interpreter` (test "oz_abi") generated 7 warnings (run `cargo clippy --fix --test "oz_abi" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 4 suggestions)
-warning: `policy-interpreter` (lib test) generated 111 warnings (87 duplicates) (run `cargo clippy --fix --lib -p policy-interpreter --tests -- -W clippy::pedantic -W clippy::nursery` to apply 18 suggestions)
 warning: `policy-interpreter` (test "enforce_state") generated 8 warnings (run `cargo clippy --fix --test "enforce_state" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)
+warning: `policy-interpreter` (test "oz_abi") generated 7 warnings (run `cargo clippy --fix --test "oz_abi" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 4 suggestions)
 warning: `policy-interpreter` (test "install_enforce") generated 8 warnings (run `cargo clippy --fix --test "install_enforce" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.63s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.60s

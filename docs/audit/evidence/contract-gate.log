@@ -1,11 +1,11 @@
-# contract-gate - regenerated 2026-08-21T11:45:27Z
+# contract-gate - regenerated 2026-08-21T12:56:31Z
 
 $ cargo fmt --check
 (no diff = clean)
 
 $ cargo clippy --all-targets -- -D warnings
     Checking policy-interpreter v0.1.0 (/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/contracts/policy-interpreter)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.69s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 7.84s
 
 $ cargo test
 running 34 tests
@@ -19,11 +19,11 @@ test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fin
 running 6 tests
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 running 3 tests
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
 
 $ cargo test --release --test conformance
 running 9 tests
 test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 $ cargo build --release --target wasm32v1-none
-    Finished `release` profile [optimized] target(s) in 0.13s
+    Finished `release` profile [optimized] target(s) in 0.27s
