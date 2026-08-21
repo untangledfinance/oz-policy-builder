@@ -80,6 +80,9 @@ describe('runSimulatePolicy', () => {
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SIMULATION_ERROR')
+    // The code alone does not distinguish this from a malformed-input refusal
+    // (both are SIMULATION_ERROR), so pin the reason the call was refused.
+    expect(res.error.message).toBe('simulate_policy: permitTx carries no invocation to evaluate')
   })
 
   it('refuses a malformed input with a structured error, never a throw', () => {
@@ -104,6 +107,16 @@ describe('runVerifyPolicy', () => {
       expect(res.data.ok).toBe(true)
     }
   )
+
+  it('rejects a recording carrying no invocation rather than reporting a verdict', async () => {
+    const { predicate } = await synthesise('demo-rec-sep41')
+    const empty = { ...recording('demo-rec-sep41'), invocations: [] }
+    const res = runVerifyPolicy({ predicate, permitTx: empty })
+    expect(res.ok).toBe(false)
+    if (res.ok) return
+    expect(res.error.code).toBe('VERIFICATION_FAILED')
+    expect(res.error.message).toBe('verify_policy: permitTx carries no invocation to evaluate')
+  })
 
   it('always exercises the contract and function pins', async () => {
     const { tx, predicate } = await synthesise('demo-rec-sep41')

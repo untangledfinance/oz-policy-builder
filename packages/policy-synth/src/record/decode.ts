@@ -453,14 +453,9 @@ function recordInvocation(
   // parseConfidence denominator isn't inflated by repeat calls), but each
   // unrecognised invocation is recorded separately so the numerator
   // reflects every fail-closed hit.
-  if (knownSet.has(contract)) {
-    if (!knownContractSet.has(contract)) {
-      knownContractSet.add(contract)
-      knownOut.push(contract)
-    }
-    return
-  }
-  if (identifyProtocol(contract, fn, args, network ?? undefined)) {
+  // `||` short-circuits, so `identifyProtocol` is still only consulted when the
+  // contract is not already in `knownSet` - the same call order as before.
+  if (knownSet.has(contract) || identifyProtocol(contract, fn, args, network ?? undefined)) {
     if (!knownContractSet.has(contract)) {
       knownContractSet.add(contract)
       knownOut.push(contract)

@@ -369,6 +369,18 @@ function evalContextFromRecording(tx: RecordedTransaction): EvalContext | null {
   return { contract: top.contract, fn: top.fn, args: top.args }
 }
 
+/** Both `simulate_policy` and `verify_policy` evaluate against a context derived
+ *  from `permitTx`; neither has anything to evaluate when the recording carries
+ *  no top-level invocation. */
+function noInvocationError(toolName: 'simulate_policy' | 'verify_policy'): ToolError {
+  return {
+    code: TOOL_ERROR_CODE[toolName],
+    message: `${toolName}: permitTx carries no invocation to evaluate`,
+    severity: 'error',
+    retryable: false,
+  }
+}
+
 /** `simulate_policy` body - evaluate a predicate against one recorded call.
  *
  *  The evaluator is a second implementation of the on-chain semantics, and the
@@ -386,17 +398,7 @@ export function runSimulatePolicy(raw: unknown): ToolResponse<{
   }
   const input: SimulatePolicyInput = parsed.data
   const ctx = evalContextFromRecording(input.permitTx as RecordedTransaction)
-  if (!ctx) {
-    return {
-      ok: false,
-      error: {
-        code: TOOL_ERROR_CODE.simulate_policy,
-        message: 'simulate_policy: permitTx carries no invocation to evaluate',
-        severity: 'error',
-        retryable: false,
-      },
-    }
-  }
+  if (!ctx) return { ok: false, error: noInvocationError('simulate_policy') }
   try {
     const res = evaluate(input.predicate as PredicateNode, ctx)
     return {
@@ -432,17 +434,7 @@ export function runVerifyPolicy(raw: unknown): ToolResponse<{
   }
   const input: VerifyPolicyInput = parsed.data
   const ctx = evalContextFromRecording(input.permitTx as RecordedTransaction)
-  if (!ctx) {
-    return {
-      ok: false,
-      error: {
-        code: TOOL_ERROR_CODE.verify_policy,
-        message: 'verify_policy: permitTx carries no invocation to evaluate',
-        severity: 'error',
-        retryable: false,
-      },
-    }
-  }
+  if (!ctx) return { ok: false, error: noInvocationError('verify_policy') }
   try {
     const predicate = input.predicate as PredicateNode
     const cases = generateCases(predicate, ctx)
@@ -585,14 +577,8 @@ function enforceRpcPin(
   network: Network
 ): ToolError | null {
   if (!rpcUrl || rpcUrl === expectedRpc || allowUnpinned === true) return null
-  const code: ErrorCode =
-    toolName === 'install_policy'
-      ? 'INSTALL_BUILD_FAILED'
-      : toolName === 'revoke_policy'
-        ? 'REVOKE_BUILD_FAILED'
-        : 'RECORDING_FAILED'
   return {
-    code,
+    code: TOOL_ERROR_CODE[toolName],
     message: `${toolName}: rpcUrl must equal the pinned ${expectedRpc} (${network}); set allowUnpinnedRpcUrl: true to opt in to a custom endpoint`,
     severity: 'error',
     retryable: false,
