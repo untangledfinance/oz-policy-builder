@@ -491,10 +491,7 @@ function synthesizeFromRecordingInner(
     policyDocuments: interpreterPolicyDocument ? [interpreterPolicyDocument] : [],
     policyRefs: mergedRefs,
     parseConfidence: { ...tx.parseConfidence },
-    warnings: [
-      ...zeroPolicyWarning,
-      ...composed.warnings.map((w) => `${UNCOVERED_PREFIX}${w}`),
-    ],
+    warnings: [...zeroPolicyWarning, ...composed.warnings.map((w) => `${UNCOVERED_PREFIX}${w}`)],
     ambiguities: mergeAmbiguities(composed.ambiguities, scope.ambiguities),
   }
   // --explain success envelope. When opts.explain is set and the OZ-only

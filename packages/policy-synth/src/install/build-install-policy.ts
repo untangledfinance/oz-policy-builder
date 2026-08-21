@@ -434,7 +434,6 @@ async function buildAuthorisedSmartAccountTx(
   }
 }
 
-
 /** Build an unsigned Soroban transaction envelope. The `sequence` is
  *  whatever `getAccount().sequenceNumber()` returned (a string of digits
  *  the SDK accepts). No signing. The returned Transaction is what

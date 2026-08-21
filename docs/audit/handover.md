@@ -11,7 +11,7 @@ knowingly left open.
 | Contract | `contracts/policy-interpreter` |
 | Grammar version | 3 (`SELF_VERSION`, `src/version.rs`) |
 | On-chain production code | 842 nSLOC |
-| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (7340 nSLOC: `packages/**/*.ts` excluding `*.test.ts`, `test/`, `scripts/`, `dist*/`, blank and comment-only lines) |
+| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (6160 nSLOC: `packages/**/*.ts` excluding `*.test.ts`, `test/`, `scripts/`, `dist*/`, blank and comment-only lines) |
 
 What the system does: record a transaction, lower it to a predicate that pins
 the contract, method and arguments the recording carried, install that predicate
@@ -107,7 +107,7 @@ Every log in [`evidence/`](evidence/) was produced against this tree.
 | Log | Command | Result |
 | --- | --- | --- |
 | [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 70 tests + 9 conformance pass |
-| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 565 pass, 1 skip, 0 fail |
+| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 567 pass, 1 skip, 0 fail |
 | [`cargo-audit.log`](evidence/cargo-audit.log) | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | [`bun-audit.log`](evidence/bun-audit.log) | `bun audit` | 0 vulnerabilities |
 | [`clippy-pedantic.log`](evidence/clippy-pedantic.log) | `clippy -W pedantic -W nursery` | 170 style warnings, 0 security |
@@ -134,9 +134,9 @@ Scout run that does not do this as unrun.
 | Contract | `cargo test` | 79 passed, 0 failed |
 | Contract | `cargo test --release --test conformance` | 9 passed, 0 failed |
 | Contract | `cargo build --release --target wasm32v1-none` | builds |
-| Off-chain | `bunx biome check .` | 112 files, 0 findings |
+| Off-chain | `bunx biome check .` | 111 files, 0 findings |
 | Off-chain | `bun run typecheck` | clean |
-| Off-chain | `bun test` | 565 passed, 1 skipped, 0 failed |
+| Off-chain | `bun test` | 567 passed, 1 skipped, 0 failed |
 | Off-chain | `bun audit` | 0 vulnerabilities |
 
 Both gates run in CI on every push, including the two dependency-advisory
@@ -163,8 +163,11 @@ if this tree is what ships.
 Two further caveats, both carried in the threat model rather than only here:
 
 - The off-chain half carries more risk than the on-chain half. The contract is
-  842 nSLOC and stateless; the toolchain is 7340 nSLOC and holds the
-  default-deny install gates.
+  842 nSLOC and stateless; the toolchain is 6160 nSLOC and holds the
+  default-deny install gates. The toolchain figure previously read 7340. That
+  was a restatement, not a deletion of 1180 lines: the old number could not be
+  reproduced from the definition printed beside it, and the counter used here
+  reproduces the contract's 842 exactly, file by file.
 - Coverage of the MCP HTTP transport is thinner than the rest, because the
   deployment model is loopback stdio.
 - The conformance harness was broken between `50a2aa4` and this tree: the

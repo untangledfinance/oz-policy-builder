@@ -6,7 +6,7 @@ Regenerate them whenever a claim they back changes.
 | Log | Command | Result |
 | --- | --- | --- |
 | `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 70 tests + 9 conformance pass |
-| `offchain-gate.log` | `biome check .`, `bun run typecheck`, `bun test` | clean; 565 pass, 1 skip, 0 fail |
+| `offchain-gate.log` | `biome check .`, `bun run typecheck`, `bun test` | clean; 567 pass, 1 skip, 0 fail |
 | `cargo-audit.log` | `cargo audit` | 0 vulnerabilities; 1 unmaintained-crate warning |
 | `bun-audit.log` | `bun audit` | 0 vulnerabilities |
 | `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 170 style warnings, 0 security |
