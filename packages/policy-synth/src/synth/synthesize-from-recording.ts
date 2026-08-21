@@ -3,7 +3,7 @@
 // `synthesizeFromRecording` INFERS a bounded policy from a `RecordedTransaction`
 // via the `PolicyIR` + interpreter adapter pair.
 // Flow: validate -> parseConfidence gate -> lower -> decideScope -> composeFromRecording
-// -> interpreter compile + self-verify + minimise.
+// -> interpreter compile + self-verify.
 // Same (tx, opts) -> byte-identical ProposedPolicy (no randomness, clock, globals).
 
 import type { InterpreterAdapterConfig } from '../adapters/interpreter/adapter.ts'
@@ -365,7 +365,9 @@ function synthesizeFromRecordingInner(
       }
     }
 
-    // 6b. Self-verify + minimise.
+    // 6b. The predicate is used as compiled. There is no minimisation pass:
+    //     nothing strips a leaf and re-checks that the reduced predicate still
+    //     denies, so the result is NOT a proven-minimal policy.
     if (!topLevel) {
       return {
         ok: false,

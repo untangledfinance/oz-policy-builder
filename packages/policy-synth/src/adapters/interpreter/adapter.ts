@@ -61,13 +61,11 @@ const FULL_PARSE_CONFIDENCE: ParseConfidence = {
   thresholdUsed: 1,
 }
 
-/** Lower a single IR rule to the canonical pre-encoding `PredicateNode`. The
- *  orchestrator uses this to wire the self-verify + minimise pipeline: after
- *  `compile(ir)` succeeds it re-derives the PredicateNode via this helper to
- *  drive `minimize` and `runHarness` on the SAME shape the encoder saw. Pure
- *  and deterministic: same `rule + config` -> byte-identical PredicateNode.
- *  The `uncovered` list is NOT re-derived - callers needing it must use
- *  `compileInterpreterPolicy(rule, config)`. */
+/** Lower a single rule to the canonical pre-encoding `PredicateNode`. The
+ *  orchestrator re-derives the PredicateNode through this helper so it holds the
+ *  SAME shape the encoder saw. Pure and deterministic: same `rule + config` ->
+ *  byte-identical PredicateNode. The `uncovered` list is NOT re-derived -
+ *  callers needing it must use `compileInterpreterPolicy(rule, config)`. */
 export function lowerRuleToPredicate(
   rule: ComposedRule,
   config: InterpreterAdapterConfig

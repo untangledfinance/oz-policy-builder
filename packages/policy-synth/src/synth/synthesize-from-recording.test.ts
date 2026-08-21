@@ -685,7 +685,7 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
   it('fee-sponsored SoroSwap swap: binds the input-amount cap to call_arg[0] in the predicate doc', () => {
     // The fee-payer != holder, so no outgoing spend is detected; the caller's
     // limitAmount must bind the exact amount_in (call_arg[0]) as `<= cap`. The
-    // self-verify pipeline (permit + deny battery + minimise) keeps the leaf.
+    // self-verify pipeline (permit + deny battery) keeps the leaf.
     const res = synthesizeFromRecording(feeSponsoredSoroswapTx(), {
       ...interpreterOpts(),
       userResponses: { limitAmount: '50000000' },
@@ -810,7 +810,7 @@ describe('synthesizeFromRecording - interpreter adapter wiring (P3)', () => {
 })
 
 // ---------------------------------------------------------------------------
-// P5b: self-verify (runHarness) + minimise wired into the recording path
+// P5b: self-verify wired into the recording path
 // ---------------------------------------------------------------------------
 
 function _isCallFnEqTransfer(node: PredicateNode): boolean {

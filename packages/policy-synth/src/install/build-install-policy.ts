@@ -30,6 +30,7 @@ import {
   TransactionBuilder,
   xdr,
 } from '@stellar/stellar-sdk'
+import type { ContextRuleDraft } from '../types.ts'
 import { buildAddContextRuleArgs } from './build-add-context-rule.ts'
 import {
   accountEntry,
@@ -106,8 +107,8 @@ export interface BuildInstallPolicyArgs {
   sourceAccount: string
   /** Network passphrase - pins the hash the auth digest binds. */
   networkPassphrase: string
-  /** The new rule to install. Mirrors the core `ContextRuleDraft`. */
-  rule: BuildInstallPolicyRuleDraft
+  /** The new rule to install. */
+  rule: ContextRuleDraft
   /** Per-rule install nonce; 1 for a fresh install. */
   installNonce: number
   /** Already-encoded (base64) canonical ScVal of the predicate. */
@@ -122,27 +123,6 @@ export interface BuildInstallPolicyArgs {
   rpc: InstallRpcClient
   /** Ledger window (in ledgers) for the auth entry's `validUntil`. */
   authValidUntilLedgers?: number
-}
-
-export type BuildInstallPolicyRuleDraft = {
-  contextRuleType:
-    | { kind: 'default' }
-    | { kind: 'call_contract'; contract: string }
-    | { kind: 'create_contract'; wasmHash: string }
-  name: string
-  validUntilLedger: number | null
-  signers: BuildInstallPolicySignerDraft[]
-  policies: BuildInstallPolicyPolicyRef[]
-}
-
-export type BuildInstallPolicySignerDraft =
-  | { kind: 'delegated'; address: string }
-  | { kind: 'external'; verifier: string; keyBytes: string }
-
-export type BuildInstallPolicyPolicyRef = {
-  kind: 'interpreter'
-  interpreterAddress: string
-  predicateBlobBase64: string
 }
 
 /** Human-readable description of the install call, decoded FROM the built

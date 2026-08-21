@@ -243,21 +243,18 @@ export const PredicateNodeSchema: z.ZodType<unknown> = z.lazy(() =>
 
 // ===== simulate_policy / verify_policy =====
 //
+// Both tools evaluate the same predicate against the same recording, so they
+// take the same input. A null predicate used to mean "OZ built-in policies
+// only"; that backend is gone, so every policy carries a predicate and there is
+// nothing to simulate without one.
 export const SimulatePolicyInputSchema = z.object({
-  // A null predicate used to mean "OZ built-in policies only". That backend is
-  // gone: every policy carries a predicate, so there is nothing to simulate
-  // without one.
   predicate: PredicateNodeSchema,
   permitTx: RecordedTransactionSchema,
   validUntilLedger: z.number().int().positive().max(U32_MAX).optional(),
 })
 export type SimulatePolicyInput = z.infer<typeof SimulatePolicyInputSchema>
 
-export const VerifyPolicyInputSchema = z.object({
-  predicate: PredicateNodeSchema,
-  permitTx: RecordedTransactionSchema,
-  validUntilLedger: z.number().int().positive().max(U32_MAX).optional(),
-})
+export const VerifyPolicyInputSchema = SimulatePolicyInputSchema
 export type VerifyPolicyInput = z.infer<typeof VerifyPolicyInputSchema>
 
 // ===== install_policy / revoke_policy / get_interpreter_info =====
