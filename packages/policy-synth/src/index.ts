@@ -1,5 +1,4 @@
 export * from './errors.ts'
-export * from './ir/index.ts'
 export * from './predicate/index.ts'
 export * from './record/index.ts'
 export * from './registry/index.ts'

@@ -278,7 +278,7 @@ function synthesizeFromRecordingInner(
     } else {
       let interpreterRes: ReturnType<typeof compileInterpreterPolicy>
       try {
-        interpreterRes = compileInterpreterPolicy(composed.interpreterIr, interpreterConfig)
+        interpreterRes = compileInterpreterPolicy(composed.interpreterRule, interpreterConfig)
       } catch (e) {
         const code = (e as { code?: ToolError['code'] }).code
         const allowedCodes: ToolError['code'][] = [
@@ -341,7 +341,7 @@ function synthesizeFromRecordingInner(
         }
       }
 
-      const firstInterpreterRule = composed.interpreterIr.rules[0]
+      const firstInterpreterRule = composed.interpreterRule
       if (!firstInterpreterRule) {
         return {
           ok: false,

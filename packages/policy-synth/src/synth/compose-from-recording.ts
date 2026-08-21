@@ -1,4 +1,4 @@
-// src/synth/compose-from-recording.ts - facts + scope -> PolicyIR.
+// src/synth/compose-from-recording.ts - facts + scope -> a composed rule.
 //
 // Fail-closed composition rules:
 //   - unknown top-level protocol (registry.identifyProtocol returns null) ->
@@ -17,10 +17,9 @@
 //
 // Default policy is `deny_all` (OZ context rules are deny-by-default).
 
-import type { IRCondition, IRPolicyRule, PolicyIR } from '../ir/types.ts'
 import { type IdentifiedProtocol, identifyProtocol } from '../registry/identify.ts'
 import { getAbi } from '../registry/protocols.ts'
-import type { AmbiguityPrompt, ContractInvocation, Network } from '../types.ts'
+import type { AmbiguityPrompt, ContractInvocation, Network, PredicateNode } from '../types.ts'
 import type { IntentFacts } from './lower.ts'
 
 /** Caller-supplied answers to the ambiguity prompts. Every numeric bound the
@@ -46,19 +45,29 @@ export interface ComposeOptions {
   userResponses?: ComposeUserResponses
 }
 
-/** Result of composition: the predicate-shape PolicyIR the interpreter adapter
+/** One composed rule: what the call must be scoped to, the constraints on it,
+ *  and how long the resulting context rule lives. The constraints are already
+ *  predicate nodes - there is one enforcement backend, so there is nothing to
+ *  translate between. */
+export interface ComposedRule {
+  scope: { contract?: string; method?: string }
+  constraints: PredicateNode[]
+  expiry?: { validUntilLedger?: number }
+}
+
+/** Result of composition: the composed rule the interpreter compiler
  *  compiles, the ambiguities the caller must answer, and descriptive warnings
  *  for needs that are NOT expressed as an IR node (so no fabricated constraint
  *  is emitted). The orchestrator carries ambiguities into
  *  `ProposedPolicy.ambiguities` and merges warnings into
  *  `ProposedPolicy.warnings`. */
 export interface ComposeResult {
-  interpreterIr: PolicyIR
+  interpreterRule: ComposedRule
   ambiguities: AmbiguityPrompt[]
   warnings: string[]
 }
 
-/** Compose a PolicyIR pair from the lowered facts + the resolved scope.
+/** Compose a rule from the lowered facts + the resolved scope.
  *  Pure (no randomness, no clock); same inputs -> byte-identical result. */
 export function composeFromRecording(
   facts: IntentFacts,
@@ -68,7 +77,7 @@ export function composeFromRecording(
 ): ComposeResult {
   const ambiguities: AmbiguityPrompt[] = []
   const warnings: string[] = []
-  const interpreterConstraints: IRCondition[] = []
+  const interpreterConstraints: PredicateNode[] = []
 
   const protocol = topLevel
     ? identifyProtocol(topLevel.contract, topLevel.fn, topLevel.args, opts.network)
@@ -105,12 +114,9 @@ export function composeFromRecording(
         continue
       }
       interpreterConstraints.push({
-        op: 'compare',
-        compare: {
-          selector: { kind: 'arg', argIndex: amountArgIndex, scalarType: 'i128' },
-          operator: 'lte',
-          value: limit,
-        },
+        op: 'lte',
+        left: { kind: 'call_arg', index: amountArgIndex },
+        right: { kind: 'literal_i128', value: limit },
       })
     }
   }
@@ -164,11 +170,11 @@ export function composeFromRecording(
 
   // The interpreter adapter lowers `scope.method` into a `call_fn == <method>`
   // predicate leaf.
-  const scope: IRPolicyRule['scope'] = { contract: scopeContract }
+  const scope: ComposedRule['scope'] = { contract: scopeContract }
   if (topLevel?.fn) scope.method = topLevel.fn
 
-  const buildRule = (constraints: IRCondition[]): IRPolicyRule => {
-    const rule: IRPolicyRule = {
+  const buildRule = (constraints: PredicateNode[]): ComposedRule => {
+    const rule: ComposedRule = {
       scope: { ...scope },
       constraints,
     }
@@ -178,8 +184,7 @@ export function composeFromRecording(
     return rule
   }
 
-  const interpreterIr: PolicyIR = { rules: [buildRule(interpreterConstraints)] }
-  return { interpreterIr, ambiguities, warnings }
+  return { interpreterRule: buildRule(interpreterConstraints), ambiguities, warnings }
 }
 
 /** Index of the argument a caller-supplied `limitAmount` binds to, or null when
@@ -213,7 +218,7 @@ function amountArgumentIndex(protocol: IdentifiedProtocol): number | null {
 /** Add the protocol-specific constraints the recording justifies: recipient
  *  allowlists, exact swap paths and per-call argument caps. */
 function appendProtocolSpecificConstraints(
-  interpreterConstraints: IRCondition[],
+  interpreterConstraints: PredicateNode[],
   warnings: string[],
   ambiguities: AmbiguityPrompt[],
   facts: IntentFacts,
@@ -229,8 +234,8 @@ function appendProtocolSpecificConstraints(
     if (toArg && toArg.type === 'address') {
       interpreterConstraints.push({
         op: 'in',
-        selector: { kind: 'arg', argIndex: 1, scalarType: 'address' },
-        values: [toArg.value],
+        needle: { kind: 'call_arg', index: 1 },
+        haystack: [{ kind: 'literal_address', value: toArg.value }],
       })
     }
   }
@@ -248,8 +253,8 @@ function appendProtocolSpecificConstraints(
     if (toArg && toArg.type === 'address') {
       interpreterConstraints.push({
         op: 'in',
-        selector: { kind: 'arg', argIndex: 2, scalarType: 'address' },
-        values: [toArg.value],
+        needle: { kind: 'call_arg', index: 2 },
+        haystack: [{ kind: 'literal_address', value: toArg.value }],
       })
     }
   }
@@ -269,12 +274,9 @@ function appendProtocolSpecificConstraints(
     if (requestsArg && requestsArg.type === 'vec') {
       const elements = requestsArg.value
       interpreterConstraints.push({
-        op: 'compare',
-        compare: {
-          selector: { kind: 'arg_len', argIndex: 3 },
-          operator: 'eq',
-          value: String(elements.length),
-        },
+        op: 'eq',
+        left: { kind: 'call_arg_len', index: 3 },
+        right: { kind: 'literal_u32', value: elements.length },
       })
       for (let i = 0; i < elements.length; i++) {
         const element = elements[i]
@@ -318,46 +320,19 @@ function appendProtocolSpecificConstraints(
           continue
         }
         interpreterConstraints.push({
-          op: 'compare',
-          compare: {
-            selector: {
-              kind: 'arg_field',
-              argIndex: 3,
-              element: i,
-              field: 'request_type',
-              scalarType: 'u32',
-            },
-            operator: 'eq',
-            value: requestType,
-          },
+          op: 'eq',
+          left: { kind: 'call_arg_field', index: 3, element: i, field: 'request_type' },
+          right: { kind: 'literal_u32', value: Number.parseInt(requestType, 10) },
         })
         interpreterConstraints.push({
-          op: 'compare',
-          compare: {
-            selector: {
-              kind: 'arg_field',
-              argIndex: 3,
-              element: i,
-              field: 'address',
-              scalarType: 'address',
-            },
-            operator: 'eq',
-            value: address,
-          },
+          op: 'eq',
+          left: { kind: 'call_arg_field', index: 3, element: i, field: 'address' },
+          right: { kind: 'literal_address', value: address },
         })
         interpreterConstraints.push({
-          op: 'compare',
-          compare: {
-            selector: {
-              kind: 'arg_field',
-              argIndex: 3,
-              element: i,
-              field: 'amount',
-              scalarType: 'i128',
-            },
-            operator: 'lte',
-            value: amount,
-          },
+          op: 'lte',
+          left: { kind: 'call_arg_field', index: 3, element: i, field: 'amount' },
+          right: { kind: 'literal_i128', value: amount },
         })
       }
     }
@@ -375,9 +350,12 @@ function appendProtocolSpecificConstraints(
     if (route && route.length > 0) {
       const pathArgIndex = 2 // SoroSwap swap_exact_tokens_for_tokens: args = [amount_in, amount_out_min, path, to, deadline]
       interpreterConstraints.push({
-        op: 'eq_seq',
-        selector: { kind: 'arg', argIndex: pathArgIndex, scalarType: 'address' },
-        values: route,
+        op: 'eq',
+        left: { kind: 'call_arg', index: pathArgIndex },
+        right: {
+          kind: 'literal_vec',
+          elements: route.map((v) => ({ kind: 'literal_address', value: v }) as const),
+        },
       })
     } else {
       const pathText = route && route.length > 0 ? `; observed path: ${route.join(' -> ')}` : ''
@@ -405,12 +383,9 @@ function appendProtocolSpecificConstraints(
       inputAmountArg.type === 'i128'
     ) {
       interpreterConstraints.push({
-        op: 'compare',
-        compare: {
-          selector: { kind: 'arg', argIndex: inputArgIndex, scalarType: 'i128' },
-          operator: 'lte',
-          value: swapInputAmountCap,
-        },
+        op: 'lte',
+        left: { kind: 'call_arg', index: inputArgIndex },
+        right: { kind: 'literal_i128', value: swapInputAmountCap },
       })
     }
 
@@ -427,14 +402,16 @@ function appendProtocolSpecificConstraints(
     if (swapRecipientAllowlist && swapRecipientAllowlist.length > 0) {
       interpreterConstraints.push({
         op: 'in',
-        selector: { kind: 'arg', argIndex: 3, scalarType: 'address' },
-        values: [...swapRecipientAllowlist],
+        needle: { kind: 'call_arg', index: 3 },
+        haystack: swapRecipientAllowlist.map(
+          (v) => ({ kind: 'literal_address', value: v }) as const
+        ),
       })
     } else if (recipientArg && recipientArg.type === 'address') {
       interpreterConstraints.push({
         op: 'in',
-        selector: { kind: 'arg', argIndex: 3, scalarType: 'address' },
-        values: [recipientArg.value],
+        needle: { kind: 'call_arg', index: 3 },
+        haystack: [{ kind: 'literal_address', value: recipientArg.value }],
       })
       ambiguities.push({
         code: 'RECIPIENT_ALLOWLIST_EMPTY',

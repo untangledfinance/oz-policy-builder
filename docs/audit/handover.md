@@ -11,7 +11,7 @@ knowingly left open.
 | Contract | `contracts/policy-interpreter` |
 | Grammar version | 3 (`SELF_VERSION`, `src/version.rs`) |
 | On-chain production code | 842 nSLOC |
-| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (6,945 nSLOC: `packages/**/*.ts` excluding `*.test.ts`, `test/`, `scripts/`, `dist*/`, blank and comment-only lines) |
+| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (6,684 nSLOC: `packages/**/*.ts` excluding `*.test.ts`, `test/`, `scripts/`, `dist*/`, blank and comment-only lines) |
 
 What the system does: record a transaction, lower it to a predicate that pins
 the contract, method and arguments the recording carried, install that predicate
@@ -40,11 +40,14 @@ Two properties worth knowing before reading the code:
   `in`), five selector leaves, five literal leaves. Every predicate the
   synthesiser can emit is some combination of those; there is no operator whose
   only caller is a hand-written predicate.
-- **The off-chain IR carries only what an adapter can lower.** Members that no
-  producer populated (NEAR-V2 roles, guards, approval thresholds, an EVM chain
-  discriminator, a unix-timestamp expiry) are gone, along with the adapter
-  branches that reported them as uncovered. Nothing can now reach the adapter
-  that the adapter cannot compile.
+- **There is no intermediate representation between the composer and the
+  predicate.** With one enforcement backend the IR was pure translation, so the
+  composer emits predicate nodes directly and a `ComposedRule` carries only
+  scope, constraints and expiry. Nothing can reach the compiler that it cannot
+  compile.
+- **The self-call gate is one walk, not three call sites.** Any address literal
+  anywhere in the assembled predicate that names the smart account itself is
+  refused, so a new constraint shape cannot be added without the check.
 - **The install path is where the fail-closed gates live**, because a predicate
   that reaches evaluation is already committed to.
 
@@ -68,7 +71,7 @@ Every log in [`evidence/`](evidence/) was produced against this tree.
 | Log | Command | Result |
 | --- | --- | --- |
 | [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 70 tests + 6 conformance pass |
-| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 561 pass, 1 skip, 0 fail |
+| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 555 pass, 1 skip, 0 fail |
 | [`cargo-audit.log`](evidence/cargo-audit.log) | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | [`bun-audit.log`](evidence/bun-audit.log) | `bun audit` | 0 vulnerabilities |
 | [`clippy-pedantic.log`](evidence/clippy-pedantic.log) | `clippy -W pedantic -W nursery` | 164 style warnings, 0 security |
@@ -97,7 +100,7 @@ Scout run that does not do this as unrun.
 | Contract | `cargo build --release --target wasm32v1-none` | builds |
 | Off-chain | `bunx biome check .` | 112 files, 0 findings |
 | Off-chain | `bun run typecheck` | clean |
-| Off-chain | `bun test` | 561 passed, 1 skipped, 0 failed |
+| Off-chain | `bun test` | 555 passed, 1 skipped, 0 failed |
 | Off-chain | `bun audit` | 0 vulnerabilities |
 
 Both gates run in CI on every push, including the two dependency-advisory
@@ -124,7 +127,7 @@ if this tree is what ships.
 Two further caveats, both carried in the threat model rather than only here:
 
 - The off-chain half carries more risk than the on-chain half. The contract is
-  842 nSLOC and stateless; the toolchain is 6,945 nSLOC and holds the
+  842 nSLOC and stateless; the toolchain is 6,684 nSLOC and holds the
   default-deny install gates.
 - Coverage of the MCP HTTP transport is thinner than the rest, because the
   deployment model is loopback stdio.

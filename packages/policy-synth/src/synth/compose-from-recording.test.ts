@@ -101,7 +101,7 @@ describe('composeFromRecording - carries the recorded method into scope (C1)', (
       network: 'mainnet',
       userResponses: { limitAmount: '1000000000' },
     })
-    expect(sep41.interpreterIr.rules[0]?.scope).toEqual({
+    expect(sep41.interpreterRule.scope).toEqual({
       contract: SEP41_TOKEN,
       method: 'transfer',
     })
@@ -109,12 +109,12 @@ describe('composeFromRecording - carries the recorded method into scope (C1)', (
     const blend = composeFromRecording(blendFacts(), BLEND_POOL, blendTopLevel(), {
       network: 'mainnet',
     })
-    expect(blend.interpreterIr.rules[0]?.scope.method).toBe('claim')
+    expect(blend.interpreterRule.scope.method).toBe('claim')
 
     const soroswap = composeFromRecording(soroswapFacts(), SOROSWAP_ROUTER, soroswapTopLevel(), {
       network: 'mainnet',
     })
-    expect(soroswap.interpreterIr.rules[0]?.scope.method).toBe('swap_exact_tokens_for_tokens')
+    expect(soroswap.interpreterRule.scope.method).toBe('swap_exact_tokens_for_tokens')
   })
 })
 
@@ -125,28 +125,24 @@ describe('composeFromRecording - SEP-41 subscription (limit supplied)', () => {
       userResponses: { limitAmount: '1000000000' },
     })
     expect(r.ambiguities).toEqual([])
-    const rule = r.interpreterIr.rules[0]
+    const rule = r.interpreterRule
     expect(rule).toBeDefined()
     if (!rule) return
     expect(rule.scope).toEqual({ contract: SEP41_TOKEN, method: 'transfer' })
     expect(rule.constraints.length).toBe(2)
     // SEP-41 transfer(from, to, amount): the limit binds call_arg[2].
     const spend = rule.constraints[0]
-    expect(spend?.op).toBe('compare')
-    if (spend?.op === 'compare') {
-      expect(spend.compare.selector).toEqual({
-        kind: 'arg',
-        argIndex: 2,
-        scalarType: 'i128',
-      })
-      expect(spend.compare.operator).toBe('lte')
-      expect(spend.compare.value).toBe('1000000000')
+    expect(spend?.op).toBe('lte')
+    if (spend?.op === 'lte') {
+      expect(spend.left).toEqual({ kind: 'call_arg', index: 2 })
+      expect(spend.right).toEqual({ kind: 'literal_i128', value: '1000000000' })
     }
     // The recorded recipient (call_arg[1]) is pinned as a single-element allowlist.
     const recipient = rule.constraints[1]
     expect(recipient?.op).toBe('in')
     if (recipient?.op === 'in') {
-      expect(recipient.selector).toEqual({ kind: 'arg', argIndex: 1, scalarType: 'address' })
+      expect(recipient.needle).toEqual({ kind: 'call_arg', index: 1 })
+      expect(recipient.haystack).toEqual([{ kind: 'literal_address', value: 'GBILLER' }])
     }
   })
 
@@ -158,7 +154,7 @@ describe('composeFromRecording - SEP-41 subscription (limit supplied)', () => {
         validUntilLedger: 1000000,
       },
     })
-    expect(r.interpreterIr.rules[0]?.expiry).toEqual({ validUntilLedger: 1000000 })
+    expect(r.interpreterRule.expiry).toEqual({ validUntilLedger: 1000000 })
   })
 })
 
@@ -171,12 +167,10 @@ describe('composeFromRecording - amount is an ambiguity, never an auto-ceiling (
     const amount = r.ambiguities.find((a) => a.code === 'AMOUNT_BOUND_MISSING')
     expect(amount).toBeDefined()
     expect(amount?.question).toContain('1000000000')
-    const rule = r.interpreterIr.rules[0]
+    const rule = r.interpreterRule
     expect(rule).toBeDefined()
     if (!rule) return
-    const hasAmountCap = rule.constraints.some(
-      (c) => c.op === 'compare' && c.compare.selector.kind === 'arg'
-    )
+    const hasAmountCap = rule.constraints.some((c) => c.op === 'lte' && c.left.kind === 'call_arg')
     expect(hasAmountCap).toBe(false)
   })
 })
@@ -199,8 +193,8 @@ describe('composeFromRecording - never silently omits a spent token (C2)', () =>
     expect(amountBounds.some((a) => a.question.includes(XLM_TOKEN))).toBe(true)
     expect(amountBounds.some((a) => a.question.includes(USDC_TOKEN))).toBe(true)
     // No amount cap compiled from an ambiguous multi-token spend.
-    const spends = r.interpreterIr.rules[0]?.constraints.filter(
-      (c) => c.op === 'compare' && c.compare.selector.kind === 'arg'
+    const spends = r.interpreterRule?.constraints.filter(
+      (c) => c.op === 'lte' && c.left.kind === 'call_arg'
     )
     expect(spends?.length).toBe(0)
   })
@@ -218,19 +212,15 @@ describe('composeFromRecording - never silently omits a spent token (C2)', () =>
       network: 'mainnet',
       userResponses: {},
     })
-    const rule = r.interpreterIr.rules[0]
+    const rule = r.interpreterRule
     expect(rule).toBeDefined()
     if (!rule) return
-    const hasSpend = rule.constraints.some(
-      (c) => c.op === 'compare' && c.compare.selector.kind === 'arg'
-    )
+    const hasSpend = rule.constraints.some((c) => c.op === 'lte' && c.left.kind === 'call_arg')
     expect(hasSpend).toBe(false)
     const amountBounds = r.ambiguities.filter((a) => a.code === 'AMOUNT_BOUND_MISSING')
     expect(amountBounds.length).toBe(2)
   })
 })
-
-describe('composeFromRecording - Blend yield-claim (incoming only, I2)', () => {})
 
 describe('composeFromRecording - SoroSwap swap: no fabricated constraints (I2)', () => {
   it('caps the input-amount arg at the caller limit and records the exact hop path', () => {
@@ -238,27 +228,30 @@ describe('composeFromRecording - SoroSwap swap: no fabricated constraints (I2)',
       network: 'mainnet',
       userResponses: { limitAmount: '50000000' },
     })
-    const rule = r.interpreterIr.rules[0]
+    const rule = r.interpreterRule
     expect(rule).toBeDefined()
     if (!rule) return
     // 1. SoroSwap names its input `amount_in`, not `amount`, so the limit binds
     //    the swap's own input arg (call_arg[0]). The caller supplied the bound,
     //    so it is answered, not surfaced as AMOUNT_BOUND_MISSING.
-    const argCompare = rule.constraints.find(
-      (c) => c.op === 'compare' && c.compare.selector.kind === 'arg'
-    )
-    expect(argCompare).toBeDefined()
-    if (argCompare?.op === 'compare' && argCompare.compare.selector.kind === 'arg') {
-      expect(argCompare.compare.selector.argIndex).toBe(0)
-      expect(argCompare.compare.operator).toBe('lte')
-      expect(argCompare.compare.value).toBe('50000000')
+    const argCap = rule.constraints.find((c) => c.op === 'lte' && c.left.kind === 'call_arg')
+    expect(argCap).toBeDefined()
+    if (argCap?.op === 'lte' && argCap.left.kind === 'call_arg') {
+      expect(argCap.left.index).toBe(0)
+      expect(argCap.right).toEqual({ kind: 'literal_i128', value: '50000000' })
     }
     expect(r.ambiguities.some((a) => a.code === 'AMOUNT_BOUND_MISSING')).toBe(false)
-    // 2. The exact hop path is recorded as an eq_seq node on call_arg[2].
-    const eqSeq = rule.constraints.find((c) => c.op === 'eq_seq')
-    expect(eqSeq).toBeDefined()
-    if (eqSeq && eqSeq.op === 'eq_seq') {
-      expect(eqSeq.values).toEqual([XLM_TOKEN, USDC_TOKEN])
+    // 2. The exact hop path is recorded as an eq node with call_arg on the left
+    //    and a literal_vec on the right.
+    const eqPath = rule.constraints.find(
+      (c) => c.op === 'eq' && c.left.kind === 'call_arg' && c.right.kind === 'literal_vec'
+    )
+    expect(eqPath).toBeDefined()
+    if (eqPath && eqPath.op === 'eq' && eqPath.right.kind === 'literal_vec') {
+      expect(eqPath.right.elements).toEqual([
+        { kind: 'literal_address', value: XLM_TOKEN },
+        { kind: 'literal_address', value: USDC_TOKEN },
+      ])
     }
   })
 })
@@ -327,18 +320,14 @@ describe('composeFromRecording - SoroSwap input-amount cap on call_arg[0] (no de
       network: 'mainnet',
       userResponses: { limitAmount: '50000000' },
     })
-    const interpRule = r.interpreterIr.rules[0]
+    const interpRule = r.interpreterRule
     expect(interpRule).toBeDefined()
     if (!interpRule) return
-    const argCap = interpRule.constraints.find(
-      (c) => c.op === 'compare' && c.compare.selector.kind === 'arg'
-    )
+    const argCap = interpRule.constraints.find((c) => c.op === 'lte' && c.left.kind === 'call_arg')
     expect(argCap).toBeDefined()
-    if (argCap && argCap.op === 'compare' && argCap.compare.selector.kind === 'arg') {
-      expect(argCap.compare.selector.argIndex).toBe(0)
-      expect(argCap.compare.selector.scalarType).toBe('i128')
-      expect(argCap.compare.operator).toBe('lte')
-      expect(argCap.compare.value).toBe('50000000')
+    if (argCap && argCap.op === 'lte' && argCap.left.kind === 'call_arg') {
+      expect(argCap.left.index).toBe(0)
+      expect(argCap.right).toEqual({ kind: 'literal_i128', value: '50000000' })
     }
   })
 
@@ -347,8 +336,8 @@ describe('composeFromRecording - SoroSwap input-amount cap on call_arg[0] (no de
       network: 'mainnet',
       userResponses: {},
     })
-    const argCap = r.interpreterIr.rules[0]?.constraints.find(
-      (c) => c.op === 'compare' && c.compare.selector.kind === 'arg'
+    const argCap = r.interpreterRule?.constraints.find(
+      (c) => c.op === 'lte' && c.left.kind === 'call_arg'
     )
     expect(argCap).toBeUndefined()
   })
@@ -361,14 +350,14 @@ describe('composeFromRecording - SoroSwap input-amount cap on call_arg[0] (no de
       network: 'mainnet',
       userResponses: { limitAmount: '50000000' },
     })
-    const argCaps = (r.interpreterIr.rules[0]?.constraints ?? []).filter(
-      (c) => c.op === 'compare' && c.compare.selector.kind === 'arg'
+    const argCaps = (r.interpreterRule?.constraints ?? []).filter(
+      (c) => c.op === 'lte' && c.left.kind === 'call_arg'
     )
     expect(argCaps.length).toBe(1)
     const argCap = argCaps[0]
-    if (argCap?.op === 'compare' && argCap.compare.selector.kind === 'arg') {
-      expect(argCap.compare.selector.argIndex).toBe(0)
-      expect(argCap.compare.value).toBe('50000000')
+    if (argCap && argCap.op === 'lte' && argCap.left.kind === 'call_arg') {
+      expect(argCap.left.index).toBe(0)
+      expect(argCap.right).toEqual({ kind: 'literal_i128', value: '50000000' })
     }
   })
 
@@ -381,14 +370,13 @@ describe('composeFromRecording - SoroSwap input-amount cap on call_arg[0] (no de
       swapTokensForExactTopLevel(),
       { network: 'mainnet', userResponses: { limitAmount: '50000000' } }
     )
-    const argCap = r.interpreterIr.rules[0]?.constraints.find(
-      (c) => c.op === 'compare' && c.compare.selector.kind === 'arg'
+    const argCap = r.interpreterRule?.constraints.find(
+      (c) => c.op === 'lte' && c.left.kind === 'call_arg'
     )
     expect(argCap).toBeDefined()
-    if (argCap && argCap.op === 'compare' && argCap.compare.selector.kind === 'arg') {
-      expect(argCap.compare.selector.argIndex).toBe(1)
-      expect(argCap.compare.operator).toBe('lte')
-      expect(argCap.compare.value).toBe('50000000')
+    if (argCap && argCap.op === 'lte' && argCap.left.kind === 'call_arg') {
+      expect(argCap.left.index).toBe(1)
+      expect(argCap.right).toEqual({ kind: 'literal_i128', value: '50000000' })
     }
   })
 
@@ -397,12 +385,12 @@ describe('composeFromRecording - SoroSwap input-amount cap on call_arg[0] (no de
       network: 'mainnet',
       userResponses: { limitAmount: '50000000' },
     })
-    const argCap = r.interpreterIr.rules[0]?.constraints.find(
-      (c) => c.op === 'compare' && c.compare.selector.kind === 'arg'
+    const argCap = r.interpreterRule?.constraints.find(
+      (c) => c.op === 'lte' && c.left.kind === 'call_arg'
     )
     expect(argCap).toBeDefined()
-    if (argCap && argCap.op === 'compare' && argCap.compare.selector.kind === 'arg') {
-      expect(argCap.compare.selector.argIndex).toBe(0)
+    if (argCap && argCap.op === 'lte' && argCap.left.kind === 'call_arg') {
+      expect(argCap.left.index).toBe(0)
     }
   })
 
@@ -430,7 +418,7 @@ describe('composeFromRecording - unknown protocol emits no constraint (I4)', () 
       unknownTopLevel(),
       { network: 'mainnet', userResponses: { limitAmount: '1000000000' } }
     )
-    const rule = r.interpreterIr.rules[0]
+    const rule = r.interpreterRule
     expect(rule).toBeDefined()
     if (!rule) return
     // Scope is still carried (contract + method).
@@ -438,9 +426,7 @@ describe('composeFromRecording - unknown protocol emits no constraint (I4)', () 
     expect(rule.scope.method).toBe('do_something')
     // No amount cap inferred from an unrecognised call: the ABI is unknown, so
     // there is no argument the limit could be bound to.
-    const hasAmountCap = rule.constraints.some(
-      (c) => c.op === 'compare' && c.compare.selector.kind === 'arg'
-    )
+    const hasAmountCap = rule.constraints.some((c) => c.op === 'lte' && c.left.kind === 'call_arg')
     expect(hasAmountCap).toBe(false)
     expect(rule.constraints.length).toBe(0)
     expect(r.warnings.some((w) => w.includes('unrecognised protocol'))).toBe(true)
@@ -455,12 +441,12 @@ describe('composeFromRecording - SoroSwap recipient pin-by-default (F1)', () => 
       network: 'mainnet',
       userResponses: {},
     })
-    const recipient = r.interpreterIr.rules[0]?.constraints.find(
-      (c) => c.op === 'in' && c.selector.kind === 'arg' && c.selector.argIndex === 3
+    const recipient = r.interpreterRule?.constraints.find(
+      (c) => c.op === 'in' && c.needle.kind === 'call_arg' && c.needle.index === 3
     )
     expect(recipient).toBeDefined()
     if (recipient && recipient.op === 'in') {
-      expect(recipient.values).toEqual([G_OWNER])
+      expect(recipient.haystack).toEqual([{ kind: 'literal_address', value: G_OWNER }])
     }
   })
 
@@ -484,12 +470,15 @@ describe('composeFromRecording - SoroSwap recipient pin-by-default (F1)', () => 
       network: 'mainnet',
       userResponses: { swapRecipientAllowlist: [G_OWNER, OTHER] },
     })
-    const recipient = r.interpreterIr.rules[0]?.constraints.find(
-      (c) => c.op === 'in' && c.selector.kind === 'arg' && c.selector.argIndex === 3
+    const recipient = r.interpreterRule?.constraints.find(
+      (c) => c.op === 'in' && c.needle.kind === 'call_arg' && c.needle.index === 3
     )
     expect(recipient).toBeDefined()
     if (recipient && recipient.op === 'in') {
-      expect(recipient.values).toEqual([G_OWNER, OTHER])
+      expect(recipient.haystack).toEqual([
+        { kind: 'literal_address', value: G_OWNER },
+        { kind: 'literal_address', value: OTHER },
+      ])
     }
     // No RECIPIENT_ALLOWLIST_EMPTY when the caller supplied an allowlist.
     expect(r.ambiguities.some((a) => a.code === 'RECIPIENT_ALLOWLIST_EMPTY')).toBe(false)
@@ -535,11 +524,9 @@ describe('composeFromRecording - Blend submit: an unbindable request element is 
   }
 
   function pinnedElements(r: ReturnType<typeof composeFromRecording>): number[] {
-    return (r.interpreterIr.rules[0]?.constraints ?? []).flatMap((c) =>
-      c.op === 'compare' &&
-      c.compare.selector.kind === 'arg_field' &&
-      c.compare.selector.element !== undefined
-        ? [c.compare.selector.element]
+    return (r.interpreterRule?.constraints ?? []).flatMap((c) =>
+      c.op === 'eq' && c.left.kind === 'call_arg_field' && c.left.element !== undefined
+        ? [c.left.element]
         : []
     )
   }
@@ -601,7 +588,7 @@ describe('composeFromRecording - determinism', () => {
     }
     const a = composeFromRecording(sep41Facts(), SEP41_TOKEN, sep41TopLevel(), opts)
     const b = composeFromRecording(sep41Facts(), SEP41_TOKEN, sep41TopLevel(), opts)
-    expect(a.interpreterIr).toEqual(b.interpreterIr)
+    expect(a.interpreterRule).toEqual(b.interpreterRule)
     expect(a.ambiguities).toEqual(b.ambiguities)
     expect(JSON.stringify(a)).toBe(JSON.stringify(b))
   })

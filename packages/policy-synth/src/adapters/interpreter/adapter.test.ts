@@ -1,6 +1,6 @@
 // src/adapters/interpreter/adapter.test.ts - interpreter compile adapter tests.
 //
-// These tests pin the IR -> PredicateNode lowering for the three reference
+// These tests pin the ComposedRule -> PredicateNode lowering for the three reference
 // walkthroughs plus the three fail-closed enforcement gates. Any change is a
 // behavioural break: the predicate bytes are the wire format the future Rust
 // interpreter parses, and the lowering must reproduce the same shape across
@@ -9,8 +9,8 @@
 import { describe, expect, it } from 'bun:test'
 import { createHash } from 'node:crypto'
 import { Address } from '@stellar/stellar-sdk'
-import type { PolicyIR } from '../../ir/types.ts'
 import { encodePredicate } from '../../predicate/encode.ts'
+import type { ComposedRule } from '../../synth/compose-from-recording.ts'
 import type { PredicateLeaf, PredicateNode } from '../../types.ts'
 import { compileInterpreterPolicy } from './adapter.ts'
 
@@ -47,18 +47,11 @@ function leafCallContract(): PredicateLeaf {
 
 describe('interpreter adapter - Blend claim walkthrough', () => {
   it('lowers (claim, scope only) to and(call_contract, call_fn==claim)', () => {
-    const ir: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
-        {
-          roles: [],
-          scope: { contract: BLEND_POOL, method: 'claim' },
-          constraints: [],
-        },
-      ],
+    const rule: ComposedRule = {
+      scope: { contract: BLEND_POOL, method: 'claim' },
+      constraints: [],
     }
-    const res = compileInterpreterPolicy(ir, CONFIG)
+    const res = compileInterpreterPolicy(rule, CONFIG)
     expect(res.covered).toBe(true)
     expect(res.uncovered).toEqual([])
     const proposed = res.proposed
@@ -90,23 +83,16 @@ describe('interpreter adapter - Blend claim walkthrough', () => {
   })
 
   it('emits the exact canonical predicate bytes for the Blend claim fixture', () => {
-    const ir: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
-        {
-          roles: [],
-          scope: { contract: BLEND_POOL, method: 'claim' },
-          constraints: [],
-        },
-      ],
+    const rule: ComposedRule = {
+      scope: { contract: BLEND_POOL, method: 'claim' },
+      constraints: [],
     }
-    const res = compileInterpreterPolicy(ir, CONFIG)
+    const res = compileInterpreterPolicy(rule, CONFIG)
     const doc = res.proposed?.policyDocuments[0]
     expect(doc).toBeDefined()
     if (!doc) return
     // Build the expected predicate by hand and assert the encoder produces the
-    // same bytes. The IR->predicate lowering must match the hand-built tree.
+    // same bytes. The ComposedRule->predicate lowering must match the hand-built tree.
     const expectedNode: PredicateNode = {
       op: 'and',
       children: [
@@ -128,24 +114,20 @@ describe('interpreter adapter - Blend claim walkthrough', () => {
 
 describe('interpreter adapter - SEP-41 recipient allowlist walkthrough', () => {
   it('lowers (transfer + allowlist[recipients]) to and(call_contract, call_fn==transfer, call_arg[0] in [...])', () => {
-    const ir: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
+    const rule: ComposedRule = {
+      scope: { contract: XLM, method: 'transfer' },
+      constraints: [
         {
-          roles: [],
-          scope: { contract: XLM, method: 'transfer' },
-          constraints: [
-            {
-              op: 'in',
-              selector: { kind: 'arg', argIndex: 0, scalarType: 'address' },
-              values: [RECIPIENT_A, RECIPIENT_B],
-            },
+          op: 'in',
+          needle: { kind: 'call_arg', index: 0 },
+          haystack: [
+            { kind: 'literal_address', value: RECIPIENT_A },
+            { kind: 'literal_address', value: RECIPIENT_B },
           ],
         },
       ],
     }
-    const res = compileInterpreterPolicy(ir, CONFIG)
+    const res = compileInterpreterPolicy(rule, CONFIG)
     expect(res.covered).toBe(true)
     expect(res.uncovered).toEqual([])
     const doc = res.proposed?.policyDocuments[0]
@@ -177,18 +159,11 @@ describe('interpreter adapter - SEP-41 recipient allowlist walkthrough', () => {
   })
 
   it('emits call_contract as a sibling eq when scope.contract is set', () => {
-    const ir: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
-        {
-          roles: [],
-          scope: { contract: BLEND_POOL, method: 'claim' },
-          constraints: [],
-        },
-      ],
+    const rule: ComposedRule = {
+      scope: { contract: BLEND_POOL, method: 'claim' },
+      constraints: [],
     }
-    const res = compileInterpreterPolicy(ir, CONFIG)
+    const res = compileInterpreterPolicy(rule, CONFIG)
     expect(res.covered).toBe(true)
     const doc = res.proposed?.policyDocuments[0]
     expect(doc).toBeDefined()
@@ -211,45 +186,41 @@ describe('interpreter adapter - SEP-41 recipient allowlist walkthrough', () => {
 
 describe('interpreter adapter - Soroswap bounded-swap walkthrough', () => {
   it('lowers (path ordered [XLM,USDC] + per-call arg cap) to one and', () => {
-    const ir: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
+    const rule: ComposedRule = {
+      scope: { contract: BLEND_POOL, method: 'swap' },
+      constraints: [
         {
-          roles: [],
-          scope: { contract: BLEND_POOL, method: 'swap' },
-          constraints: [
-            {
-              // Exact ordered sequence equality: the swap hop path MUST equal
-              // [XLM, USDC] in that order. This is the v1 sequence construct;
-              // `in` is reserved for pure set membership.
-              op: 'eq_seq',
-              selector: { kind: 'arg', argIndex: 0, scalarType: 'address' },
-              values: [XLM, USDC],
-            },
-            {
-              // Per-call input cap. The value bound is expressed against the
-              // call's own argument, not an `amount` selector: the on-chain
-              // interpreter cannot observe token movements, so `amount` is
-              // reported as uncovered rather than lowered.
-              op: 'compare',
-              compare: {
-                selector: { kind: 'arg', argIndex: 1, scalarType: 'i128' },
-                operator: 'lte',
-                value: '1000000000',
-              },
-            },
-          ],
+          // Exact ordered sequence equality: the swap hop path MUST equal
+          // [XLM, USDC] in that order. This is expressed as
+          // eq(call_arg[0], literal_vec([XLM, USDC])) - element order preserved.
+          op: 'eq',
+          left: { kind: 'call_arg', index: 0 },
+          right: {
+            kind: 'literal_vec',
+            elements: [
+              { kind: 'literal_address', value: XLM },
+              { kind: 'literal_address', value: USDC },
+            ],
+          },
+        },
+        {
+          // Per-call input cap. The value bound is expressed against the
+          // call's own argument, not an `amount` selector: the on-chain
+          // interpreter cannot observe token movements, so `amount` is
+          // reported as uncovered rather than lowered.
+          op: 'lte',
+          left: { kind: 'call_arg', index: 1 },
+          right: { kind: 'literal_i128', value: '1000000000' },
         },
       ],
     }
-    const res = compileInterpreterPolicy(ir, CONFIG)
+    const res = compileInterpreterPolicy(rule, CONFIG)
     expect(res.covered).toBe(true)
     const doc = res.proposed?.policyDocuments[0]
     expect(doc).toBeDefined()
     if (!doc) return
-    // Hand-built expected predicate: `eq_seq` lowers to
-    // `eq(call_arg[0], literal_vec([XLM, USDC]))` - element order preserved.
+    // Hand-built expected predicate: path eq lowers to
+    // eq(call_arg[0], literal_vec([XLM, USDC])) - element order preserved.
     const expectedNode: PredicateNode = {
       op: 'and',
       children: [
@@ -286,42 +257,40 @@ describe('interpreter adapter - Soroswap bounded-swap walkthrough', () => {
     // This pins the exact-ordered-sequence semantic: reversing the sequence
     // produces a different predicate (the order is the semantic), which is
     // impossible to express with a sorted `in` allowlist.
-    const irForward: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
+    const ruleForward: ComposedRule = {
+      scope: { contract: BLEND_POOL, method: 'swap' },
+      constraints: [
         {
-          roles: [],
-          scope: { contract: BLEND_POOL, method: 'swap' },
-          constraints: [
-            {
-              op: 'eq_seq',
-              selector: { kind: 'arg', argIndex: 0, scalarType: 'address' },
-              values: [XLM, USDC],
-            },
-          ],
+          op: 'eq',
+          left: { kind: 'call_arg', index: 0 },
+          right: {
+            kind: 'literal_vec',
+            elements: [
+              { kind: 'literal_address', value: XLM },
+              { kind: 'literal_address', value: USDC },
+            ],
+          },
         },
       ],
     }
-    const irReversed: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
+    const ruleReversed: ComposedRule = {
+      scope: { contract: BLEND_POOL, method: 'swap' },
+      constraints: [
         {
-          roles: [],
-          scope: { contract: BLEND_POOL, method: 'swap' },
-          constraints: [
-            {
-              op: 'eq_seq',
-              selector: { kind: 'arg', argIndex: 0, scalarType: 'address' },
-              values: [USDC, XLM],
-            },
-          ],
+          op: 'eq',
+          left: { kind: 'call_arg', index: 0 },
+          right: {
+            kind: 'literal_vec',
+            elements: [
+              { kind: 'literal_address', value: USDC },
+              { kind: 'literal_address', value: XLM },
+            ],
+          },
         },
       ],
     }
-    const fwd = compileInterpreterPolicy(irForward, CONFIG)
-    const rev = compileInterpreterPolicy(irReversed, CONFIG)
+    const fwd = compileInterpreterPolicy(ruleForward, CONFIG)
+    const rev = compileInterpreterPolicy(ruleReversed, CONFIG)
     expect(fwd.covered).toBe(true)
     expect(rev.covered).toBe(true)
     const fwdDoc = fwd.proposed?.policyDocuments[0]
@@ -334,25 +303,24 @@ describe('interpreter adapter - Soroswap bounded-swap walkthrough', () => {
   })
 
   it('eq_seq containing the smart account address throws SCOPE_SELF_CALL (same gate as in)', () => {
-    const ir: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
+    const rule: ComposedRule = {
+      scope: { contract: BLEND_POOL, method: 'swap' },
+      constraints: [
         {
-          roles: [],
-          scope: { contract: BLEND_POOL, method: 'swap' },
-          constraints: [
-            {
-              op: 'eq_seq',
-              selector: { kind: 'arg', argIndex: 0, scalarType: 'address' },
-              values: [XLM, SMART_ACCOUNT],
-            },
-          ],
+          op: 'eq',
+          left: { kind: 'call_arg', index: 0 },
+          right: {
+            kind: 'literal_vec',
+            elements: [
+              { kind: 'literal_address', value: XLM },
+              { kind: 'literal_address', value: SMART_ACCOUNT },
+            ],
+          },
         },
       ],
     }
     try {
-      compileInterpreterPolicy(ir, CONFIG)
+      compileInterpreterPolicy(rule, CONFIG)
       throw new Error('expected throw')
     } catch (e) {
       const err = e as { code?: string }
@@ -363,25 +331,21 @@ describe('interpreter adapter - Soroswap bounded-swap walkthrough', () => {
 
 describe('interpreter adapter - self-call rejection', () => {
   it('throws SCOPE_SELF_CALL when an `in` allowlist contains the smart account address', () => {
-    const ir: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
+    const rule: ComposedRule = {
+      scope: { contract: XLM, method: 'transfer' },
+      constraints: [
         {
-          roles: [],
-          scope: { contract: XLM, method: 'transfer' },
-          constraints: [
-            {
-              op: 'in',
-              selector: { kind: 'arg', argIndex: 0, scalarType: 'address' },
-              values: [RECIPIENT_A, SMART_ACCOUNT],
-            },
+          op: 'in',
+          needle: { kind: 'call_arg', index: 0 },
+          haystack: [
+            { kind: 'literal_address', value: RECIPIENT_A },
+            { kind: 'literal_address', value: SMART_ACCOUNT },
           ],
         },
       ],
     }
     try {
-      compileInterpreterPolicy(ir, CONFIG)
+      compileInterpreterPolicy(rule, CONFIG)
       throw new Error('expected throw')
     } catch (e) {
       const err = e as { code?: string }
@@ -390,49 +354,35 @@ describe('interpreter adapter - self-call rejection', () => {
   })
 
   it('accepts an `in` allowlist that does NOT contain the smart account address', () => {
-    const ir: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
+    const rule: ComposedRule = {
+      scope: { contract: XLM, method: 'transfer' },
+      constraints: [
         {
-          roles: [],
-          scope: { contract: XLM, method: 'transfer' },
-          constraints: [
-            {
-              op: 'in',
-              selector: { kind: 'arg', argIndex: 0, scalarType: 'address' },
-              values: [RECIPIENT_A, RECIPIENT_B],
-            },
+          op: 'in',
+          needle: { kind: 'call_arg', index: 0 },
+          haystack: [
+            { kind: 'literal_address', value: RECIPIENT_A },
+            { kind: 'literal_address', value: RECIPIENT_B },
           ],
         },
       ],
     }
-    expect(compileInterpreterPolicy(ir, CONFIG).covered).toBe(true)
+    expect(compileInterpreterPolicy(rule, CONFIG).covered).toBe(true)
   })
 
   it('throws SCOPE_SELF_CALL when a compare eq targets the smart account address', () => {
-    const ir: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
+    const rule: ComposedRule = {
+      scope: { contract: XLM, method: 'transfer' },
+      constraints: [
         {
-          roles: [],
-          scope: { contract: XLM, method: 'transfer' },
-          constraints: [
-            {
-              op: 'compare',
-              compare: {
-                selector: { kind: 'arg', argIndex: 0, scalarType: 'address' },
-                operator: 'eq',
-                value: SMART_ACCOUNT,
-              },
-            },
-          ],
+          op: 'eq',
+          left: { kind: 'call_arg', index: 0 },
+          right: { kind: 'literal_address', value: SMART_ACCOUNT },
         },
       ],
     }
     try {
-      compileInterpreterPolicy(ir, CONFIG)
+      compileInterpreterPolicy(rule, CONFIG)
       throw new Error('expected throw')
     } catch (e) {
       const err = e as { code?: string }
@@ -443,36 +393,22 @@ describe('interpreter adapter - self-call rejection', () => {
 
 describe('interpreter adapter - unsupported IR constructs', () => {
   it('maps validUntilLedger onto the context rule (Stellar-native expiry)', () => {
-    const ir: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
-        {
-          roles: [],
-          scope: { contract: XLM, method: 'transfer' },
-          constraints: [],
-          expiry: { validUntilLedger: 1234567 },
-        },
-      ],
+    const rule: ComposedRule = {
+      scope: { contract: XLM, method: 'transfer' },
+      constraints: [],
+      expiry: { validUntilLedger: 1234567 },
     }
-    const res = compileInterpreterPolicy(ir, CONFIG)
+    const res = compileInterpreterPolicy(rule, CONFIG)
     expect(res.covered).toBe(true)
     expect(res.proposed?.contextRule.validUntilLedger).toBe(1234567)
   })
 
   it('produces an interpreter PolicyRef alongside a zero-arity policy doc', () => {
-    const ir: PolicyIR = {
-      chain: 'stellar',
-      defaultBehavior: 'deny_all',
-      rules: [
-        {
-          roles: [],
-          scope: { contract: BLEND_POOL, method: 'claim' },
-          constraints: [],
-        },
-      ],
+    const rule: ComposedRule = {
+      scope: { contract: BLEND_POOL, method: 'claim' },
+      constraints: [],
     }
-    const res = compileInterpreterPolicy(ir, CONFIG)
+    const res = compileInterpreterPolicy(rule, CONFIG)
     expect(res.proposed?.policyRefs[0]?.kind).toBe('interpreter')
   })
 })

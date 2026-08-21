@@ -11,8 +11,8 @@ Checking with toolchain `nightly-2025-08-07-x86_64-unknown-linux-gnu`
    Compiling serde v1.0.229
    Compiling zmij v1.0.23
    Compiling serde_json v1.0.151
-   Compiling itoa v1.0.18
    Compiling memchr v2.8.3
+   Compiling itoa v1.0.18
    Compiling compiler_builtins v0.1.160 (/home/ubuntu/.rustup/toolchains/nightly-2025-08-07-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/compiler-builtins/compiler-builtins)
    Compiling ident_case v1.0.1
    Compiling strsim v0.11.1
@@ -29,36 +29,36 @@ Checking with toolchain `nightly-2025-08-07-x86_64-unknown-linux-gnu`
    Compiling ethnum v1.5.3
    Compiling semver v1.0.28
    Compiling either v1.17.0
-   Compiling thiserror v1.0.69
    Compiling hashbrown v0.17.1
-   Compiling equivalent v1.0.2
    Compiling generic-array v0.14.9
+   Compiling equivalent v1.0.2
+   Compiling thiserror v1.0.69
    Compiling num-traits v0.2.19
    Compiling prettyplease v0.2.37
    Compiling itertools v0.13.0
    Compiling fnv v1.0.7
-   Compiling heapless v0.8.0
    Compiling base64 v0.22.1
+   Compiling heapless v0.8.0
    Compiling rustc_version v0.4.1
    Compiling static_assertions v1.1.0
    Compiling heck v0.5.0
    Compiling indexmap v2.14.0
    Compiling syn v3.0.3
    Compiling syn v2.0.119
-   Compiling block-buffer v0.10.4
    Compiling crypto-common v0.1.6
+   Compiling block-buffer v0.10.4
    Compiling num-integer v0.1.46
    Compiling digest v0.10.7
    Compiling sha2 v0.10.9
-   Compiling wasmparser v0.116.1
    Compiling num-bigint v0.4.8
+   Compiling wasmparser v0.116.1
    Compiling serde_derive v1.0.229
    Compiling darling_core v0.23.0
    Compiling darling_core v0.20.11
    Compiling macro-string v0.1.4
    Compiling cfg_eval v0.1.2
-   Compiling num-derive v0.4.2
    Compiling thiserror-impl v1.0.69
+   Compiling num-derive v0.4.2
    Compiling bytes-lit v0.0.6
    Compiling visibility v0.1.1
    Compiling crate-git-revision v0.0.6
@@ -85,7 +85,7 @@ Checking with toolchain `nightly-2025-08-07-x86_64-unknown-linux-gnu`
     Checking soroban-env-guest v27.0.1
    Compiling soroban-sdk-macros v27.0.2
     Checking policy-interpreter v0.1.0 (/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/contracts/policy-interpreter)
-    Finished `release` profile [optimized] target(s) in 37.46s
+    Finished `release` profile [optimized] target(s) in 40.34s
 warning: [ENHANCEMENT] Use the latest version of Soroban
   |
   = help: The latest Soroban version is "27.0.6", and your version is "27.0.2"
