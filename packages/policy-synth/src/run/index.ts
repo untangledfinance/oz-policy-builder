@@ -142,10 +142,7 @@ export async function runRecordTransaction(
 ): Promise<ToolResponse<RecordedTransaction>> {
   const parsed = RecordTransactionInputSchema.safeParse(raw)
   if (!parsed.success) {
-    return {
-      ok: false,
-      error: validationError('record_transaction', parsed.error.issues),
-    }
+    return { ok: false, error: validationError('record_transaction', parsed.error.issues) }
   }
   const input: RecordTransactionInput = parsed.data
   // Strip the wire-only `confidenceOverride` and pass the rest straight through.
@@ -187,10 +184,7 @@ export async function runSynthesizePolicy(raw: unknown): Promise<
 > {
   const parsed = SynthesizePolicyInputSchema.safeParse(raw)
   if (!parsed.success) {
-    return {
-      ok: false,
-      error: validationError('synthesize_policy', parsed.error.issues),
-    }
+    return { ok: false, error: validationError('synthesize_policy', parsed.error.issues) }
   }
   const input = parsed.data
 
@@ -218,10 +212,7 @@ export async function runInstallPolicy(
 ): Promise<ToolResponse<BuildInstallPolicyResult>> {
   const parsed = InstallPolicyInputSchema.safeParse(raw)
   if (!parsed.success) {
-    return {
-      ok: false,
-      error: validationError('install_policy', parsed.error.issues),
-    }
+    return { ok: false, error: validationError('install_policy', parsed.error.issues) }
   }
   const input: InstallPolicyInput = parsed.data
   const network: Network = input.network ?? 'testnet'
@@ -295,10 +286,7 @@ export async function runRevokePolicy(
 ): Promise<ToolResponse<BuildRevokePolicyResult>> {
   const parsed = RevokePolicyInputSchema.safeParse(raw)
   if (!parsed.success) {
-    return {
-      ok: false,
-      error: validationError('revoke_policy', parsed.error.issues),
-    }
+    return { ok: false, error: validationError('revoke_policy', parsed.error.issues) }
   }
   const input: RevokePolicyInput = parsed.data
   const network: Network = input.network ?? 'testnet'
@@ -466,10 +454,7 @@ export async function runGetInterpreterInfo(
 ): Promise<ToolResponse<ReturnType<typeof getInterpreterInfo>>> {
   const parsed = GetInterpreterInfoInputSchema.safeParse(raw)
   if (!parsed.success) {
-    return {
-      ok: false,
-      error: validationError('get_interpreter_info', parsed.error.issues),
-    }
+    return { ok: false, error: validationError('get_interpreter_info', parsed.error.issues) }
   }
   const input: GetInterpreterInfoInput = parsed.data
   const network: Network = input.network ?? 'testnet'

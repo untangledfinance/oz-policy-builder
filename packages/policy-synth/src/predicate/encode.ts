@@ -278,12 +278,8 @@ function scvI128FromDecimal(decimal: string): xdr.ScVal {
       `literal_i128 value ${decimal} is outside the Int128 range`
     )
   }
-  if (lo < 0n || lo > UINT64_MAX) {
-    throw capError(
-      'MALFORMED_PREDICATE',
-      `literal_i128 value ${decimal} has an invalid Int128Parts.lo`
-    )
-  }
+  // `lo` needs no range check: masking with UINT64_MAX puts it in
+  // [0, 2^64-1] for every v, negative included.
   return xdr.ScVal.scvI128(
     new xdr.Int128Parts({
       hi: new xdr.Int64(hi),
