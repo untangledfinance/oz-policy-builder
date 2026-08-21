@@ -64,16 +64,6 @@ function expectSymbol(v: xdr.ScVal | undefined, what: string): string {
   return v.sym().toString()
 }
 
-function expectAddress(v: xdr.ScVal | undefined, what: string): string {
-  if (!v || v.switch() !== xdr.ScValType.scvAddress()) throw malformed(`${what} is not an address`)
-  return Address.fromScAddress(v.address()).toString()
-}
-
-function expectU64(v: xdr.ScVal | undefined, what: string): string {
-  if (!v || v.switch() !== xdr.ScValType.scvU64()) throw malformed(`${what} is not a u64`)
-  return v.u64().toString()
-}
-
 /** Arity check with the same intent as the Rust `check_arity`: a selector with
  *  the wrong element count is malformed, not silently truncated. */
 function arity(items: xdr.ScVal[], n: number, selector: string): void {
@@ -103,16 +93,6 @@ function decodeSelectorLeaf(items: xdr.ScVal[], sym: string): PredicateLeaf {
         index: expectU32(items[1], 'call_arg_field index'),
         element: expectU32(items[2], 'call_arg_field element'),
         field: expectSymbol(items[3], 'call_arg_field field'),
-      }
-    case 'amount':
-      arity(items, 2, sym)
-      return { kind: 'amount', token: expectAddress(items[1], 'amount token') }
-    case 'window_spent':
-      arity(items, 3, sym)
-      return {
-        kind: 'window_spent',
-        token: expectAddress(items[1], 'window_spent token'),
-        windowSeconds: Number(expectU64(items[2], 'window_spent windowSeconds')),
       }
     case 'now':
       arity(items, 1, sym)

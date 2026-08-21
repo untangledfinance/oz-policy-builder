@@ -38,14 +38,6 @@ interface PredicateFacts {
 }
 
 // Deterministic XLM/USDC adjacency fixture; the shared registry can replace this boundary later.
-const ADJACENT_ASSETS = [
-  'CAS3J7GYLGXMF6TDJ5WQ2PEN4GRVNXJUIQ2TZU3ZB3OQ2V4DRCWI7WPF',
-  'CCWCLTASNDT57N3BCHOSVB5QWMV5URK4BXLDDF6ZZQYMBQ4OKZA3ZB2N',
-] as const
-
-// Property-harness mutation dimensions excluded from the synth pipeline's
-// self-verify call so existing fixtures still emit policies. The harness tests
-// them as FINDINGS against the already-emitted policy.
 const OVERPERMISSIVE_DIMENSIONS = ['argument_reorder'] as const
 
 // The dimensions the synth pipeline uses for self-verify and minimise. No count
@@ -61,13 +53,9 @@ const OVERPERMISSIVE_DIMENSIONS = ['argument_reorder'] as const
 // generator short-circuits on leaf-kind), so they cannot make production
 // synthesis refuse for fixtures that do not exercise the new grammar.
 const ORIGINAL_DIMENSIONS: string[] = [
-  'amount',
-  'asset',
   'contract',
   'function',
   'timing',
-  'time_window',
-  'invocation_count',
   'arg_amount_bound',
   'arg_bound',
   'scope_contract_fn_arg',
@@ -93,36 +81,6 @@ export function generateCases(
 ): GeneratedCases {
   const facts = inspectPredicate(predicate)
   const denies: DenyCase[] = []
-
-  for (const comparison of facts.comparisons) {
-    if (comparison.left.kind !== 'amount') continue
-    const mutated = mutateBigIntRecord(
-      permitCtx,
-      'amountByToken',
-      comparison.left.token,
-      comparison
-    )
-    if (mutated) denies.push({ dimension: 'amount', ctx: mutated, expectedReason: 'AMOUNT_BOUND' })
-  }
-
-  const movedTokens = new Set<string>()
-  for (const comparison of facts.comparisons) {
-    if (comparison.left.kind === 'amount' || comparison.left.kind === 'window_spent') {
-      movedTokens.add(comparison.left.token)
-    }
-  }
-  for (const token of movedTokens) {
-    // The `asset` deny case mutates BOTH the amount record AND the contract
-    // binding (token's value moved to an adjacent asset; the same swap applied
-    // to any address-typed `call_arg` / `call_contract` literal). The actual
-    // deny reason is therefore predicate-dependent - the order of evaluation
-    // is CONTRACT_SCOPE (step 3) before AMOUNT_BOUND (step 6), so a policy
-    // that has both bindings denies with CONTRACT_SCOPE, while a policy with
-    // only an amount binding denies with AMOUNT_BOUND. The reason assertion
-    // would be brittle here; the boolean decision is what we strictly need
-    // to pin. Leave `expectedReason` unset for this dimension.
-    denies.push({ dimension: 'asset', ctx: mutateAsset(predicate, permitCtx, token) })
-  }
 
   const contractConstraints = [
     ...facts.comparisons.filter(
@@ -156,19 +114,6 @@ export function generateCases(
     const ctx = cloneContext(permitCtx)
     ctx.atLedger = permitCtx.validUntilLedger + 1
     denies.push({ dimension: 'timing', ctx, expectedReason: 'EXPIRED' })
-  }
-
-  for (const comparison of facts.comparisons) {
-    if (comparison.left.kind !== 'window_spent') continue
-    const mutated = mutateBigIntRecord(
-      permitCtx,
-      'windowSpentByToken',
-      comparison.left.token,
-      comparison,
-      false
-    )
-    if (mutated)
-      denies.push({ dimension: 'time_window', ctx: mutated, expectedReason: 'AMOUNT_BOUND' })
   }
 
   // Ordered numeric bound on a call_arg (e.g. a SoroSwap input-amount cap
@@ -369,46 +314,6 @@ function visit(node: PredicateNode, facts: PredicateFacts): void {
   }
 }
 
-function mutateBigIntRecord(
-  permitCtx: EvalContext,
-  recordKey: 'amountByToken' | 'windowSpentByToken',
-  token: string,
-  comparison: ComparisonNode,
-  preferScaledAmount = true
-): EvalContext | null {
-  if (comparison.right.kind !== 'literal_i128') return null
-
-  try {
-    const current = BigInt(permitCtx[recordKey][token] ?? '0')
-    const bound = BigInt(comparison.right.value)
-    const value = violatingBigInt(comparison.op, current, bound, preferScaledAmount)
-    const ctx = cloneContext(permitCtx)
-    ctx[recordKey][token] = value.toString()
-    return ctx
-  } catch {
-    return null
-  }
-}
-
-function violatingBigInt(
-  op: ComparisonOperator,
-  current: bigint,
-  bound: bigint,
-  preferScaledAmount: boolean
-): bigint {
-  if (preferScaledAmount) {
-    const scaledCandidates = [(current * 101n) / 100n, current * 10n]
-    for (const candidate of scaledCandidates) {
-      if (!bigIntComparison(op, candidate, bound)) return candidate
-    }
-  }
-
-  return boundaryViolatingBigInt(op, bound)
-}
-
-/** The single value at the boundary that violates `<selector> op bound`:
- *  bound+1 for `lte`/`eq`, bound-1 for `gte`, and bound itself for the strict
- *  `lt`/`gt`. */
 function boundaryViolatingBigInt(op: ComparisonOperator, bound: bigint): bigint {
   switch (op) {
     case 'lt':
@@ -433,82 +338,6 @@ function violatingArgScVal(op: ComparisonOperator, right: PredicateLeaf): ScVal 
   return { type: 'i128', value: boundaryViolatingBigInt(op, bound).toString() }
 }
 
-function bigIntComparison(op: ComparisonOperator, value: bigint, bound: bigint): boolean {
-  switch (op) {
-    case 'eq':
-      return value === bound
-    case 'lt':
-      return value < bound
-    case 'lte':
-      return value <= bound
-    case 'gt':
-      return value > bound
-    case 'gte':
-      return value >= bound
-  }
-}
-
-function mutateAsset(predicate: PredicateNode, permitCtx: EvalContext, token: string): EvalContext {
-  const binding = findAddressBinding(predicate, token)
-  const adjacent = adjacentAsset(token)
-  const ctx = cloneContext(permitCtx)
-  moveRecordEntry(ctx.amountByToken, token, adjacent)
-  moveRecordEntry(ctx.windowSpentByToken, token, adjacent)
-  if (binding.contract && ctx.contract === token) ctx.contract = adjacent
-  for (const index of binding.argumentIndices) {
-    const value = ctx.args[index]
-    if (value) ctx.args[index] = replaceAddress(value, token, adjacent)
-  }
-  return ctx
-}
-
-function findAddressBinding(
-  predicate: PredicateNode,
-  address: string
-): { contract: boolean; argumentIndices: Set<number> } {
-  const facts = inspectPredicate(predicate)
-  let contract = false
-  const argumentIndices = new Set<number>()
-
-  for (const comparison of facts.comparisons) {
-    if (comparison.op !== 'eq' || !leafContainsAddress(comparison.right, address)) continue
-    if (comparison.left.kind === 'call_contract') contract = true
-    if (comparison.left.kind === 'call_arg') argumentIndices.add(comparison.left.index)
-  }
-  for (const membership of facts.memberships) {
-    if (!membership.haystack.some((leaf) => leafContainsAddress(leaf, address))) continue
-    if (membership.needle.kind === 'call_contract') contract = true
-    if (membership.needle.kind === 'call_arg') argumentIndices.add(membership.needle.index)
-  }
-
-  return { contract, argumentIndices }
-}
-
-function leafContainsAddress(leaf: PredicateLeaf, address: string): boolean {
-  if (leaf.kind === 'literal_address') return leaf.value === address
-  if (leaf.kind === 'literal_vec') {
-    return leaf.elements.some((element) => leafContainsAddress(element, address))
-  }
-  return false
-}
-
-function moveRecordEntry(record: Record<string, string>, from: string, to: string): void {
-  const value = record[from]
-  if (value === undefined) return
-  delete record[from]
-  record[to] = value
-}
-
-function replaceAddress(value: ScVal, from: string, to: string): ScVal {
-  if (value.type === 'address') {
-    return value.value === from ? { type: 'address', value: to } : { ...value }
-  }
-  if (value.type === 'vec') {
-    return { type: 'vec', value: value.value.map((item) => replaceAddress(item, from, to)) }
-  }
-  return { ...value }
-}
-
 function differentVector(actual: ScVal | undefined): ScVal {
   if (actual?.type !== 'vec') return { type: 'vec', value: [] }
   if (actual.value.length === 0) {
@@ -523,10 +352,6 @@ function differentVector(actual: ScVal | undefined): ScVal {
   const value = actual.value.map(cloneScVal)
   value[0] = { type: 'other', value: 'deny-case-different-hop' }
   return { type: 'vec', value }
-}
-
-function adjacentAsset(asset: string): string {
-  return asset === ADJACENT_ASSETS[0] ? ADJACENT_ASSETS[1] : ADJACENT_ASSETS[0]
 }
 
 function distinctText(value: string, label: string): string {

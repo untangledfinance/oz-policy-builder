@@ -281,8 +281,7 @@ function unsupportedConstruct(cond: IRCondition): string | null {
       //
       // Rolling spend caps belong to the OZ `spending_limit` primitive (already
       // audited, emitted by the OZ adapter). A per-call cap is expressible here
-      // as `arg_field`; bounding it with `invocation_count` gives an enforceable
-      // ceiling per window.
+      // as `arg_field`.
       return unsourceableSelector(s)
     }
     // Recurse: a nested `and`/`or`/`not` must not smuggle a selector past the
@@ -302,7 +301,7 @@ function unsourceableSelector(s: IRSelector): string | null {
     return `per-call amount comparison on ${s.token} - the interpreter cannot observe token movements; express a per-call cap with arg_field, or a rolling cap with the OZ spending_limit primitive`
   }
   if (s.kind === 'window_spent') {
-    return `rolling spend cap on ${s.token} over ${s.windowSeconds}s - not enforceable by the interpreter; use the OZ spending_limit primitive, or bound per-call value with arg_field plus invocation_count`
+    return `rolling spend cap on ${s.token} over ${s.windowSeconds}s - not enforceable by the interpreter; use the OZ spending_limit primitive, or bound the per-call value with arg_field`
   }
   if (s.kind === 'valid_until') {
     return 'expiry comparison - the interpreter has no `valid_until` selector; expiry belongs to the context rule (expiry.validUntilLedger)'

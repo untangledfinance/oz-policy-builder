@@ -602,62 +602,6 @@ describe('evaluate - step 5: NOT_IN_ALLOWLIST', () => {
   })
 })
 
-describe('evaluate - step 6: AMOUNT_BOUND', () => {
-  it('denies AMOUNT_BOUND when amount exceeds the bound (gt)', () => {
-    const predicate: PredicateNode = {
-      op: 'lte',
-      left: { kind: 'amount', token: TOKEN_A },
-      right: { kind: 'literal_i128', value: '1000' },
-    }
-    const result = evaluate(predicate, ctx({ amountByToken: { [TOKEN_A]: '2000' } }))
-    expect(result).toEqual({ permit: false, reason: 'AMOUNT_BOUND' })
-  })
-
-  it('permits when amount equals the bound (lte inclusive)', () => {
-    const predicate: PredicateNode = {
-      op: 'lte',
-      left: { kind: 'amount', token: TOKEN_A },
-      right: { kind: 'literal_i128', value: '1000' },
-    }
-    const result = evaluate(predicate, ctx({ amountByToken: { [TOKEN_A]: '1000' } }))
-    expect(result).toEqual({ permit: true })
-  })
-
-  it('denies AMOUNT_BOUND on a window_spent check', () => {
-    const predicate: PredicateNode = {
-      op: 'lt',
-      left: { kind: 'window_spent', token: TOKEN_A, windowSeconds: 3600 },
-      right: { kind: 'literal_i128', value: '500' },
-    }
-    const result = evaluate(predicate, ctx({ windowSpentByToken: { [TOKEN_A]: '700' } }))
-    expect(result).toEqual({ permit: false, reason: 'AMOUNT_BOUND' })
-  })
-
-  it('permits a window_spent check at boundary (lt)', () => {
-    const predicate: PredicateNode = {
-      op: 'lt',
-      left: { kind: 'window_spent', token: TOKEN_A, windowSeconds: 3600 },
-      right: { kind: 'literal_i128', value: '500' },
-    }
-    const result = evaluate(predicate, ctx({ windowSpentByToken: { [TOKEN_A]: '499' } }))
-    expect(result).toEqual({ permit: true })
-  })
-
-  it('BigInt: large amounts (above Number.MAX_SAFE_INTEGER) compare correctly', () => {
-    const big = '123456789012345678901234567890'
-    const predicate: PredicateNode = {
-      op: 'lte',
-      left: { kind: 'amount', token: TOKEN_A },
-      right: { kind: 'literal_i128', value: big },
-    }
-    const result = evaluate(
-      predicate,
-      ctx({ amountByToken: { [TOKEN_A]: '999999999999999999999999999999' } })
-    )
-    expect(result).toEqual({ permit: false, reason: 'AMOUNT_BOUND' })
-  })
-})
-
 describe('evaluate - THRESHOLD_NOT_MET', () => {
   it('denies THRESHOLD_NOT_MET when signerWeights is provided but empty', () => {
     const predicate: PredicateNode = {
@@ -853,7 +797,7 @@ describe('evaluate - permit paths (reference walkthroughs)', () => {
     expect(result).toEqual({ permit: false, reason: 'NOT_IN_ALLOWLIST' })
   })
 
-  it('Soroswap exact-path+amount: permits when path matches and amount is within bound', () => {
+  it('Soroswap exact-path+arg bound: permits when path matches and the input amount arg is within bound', () => {
     const predicate: PredicateNode = {
       op: 'and',
       children: [
@@ -870,7 +814,7 @@ describe('evaluate - permit paths (reference walkthroughs)', () => {
         },
         {
           op: 'lte',
-          left: { kind: 'amount', token: XLM_SAC },
+          left: { kind: 'call_arg', index: 1 },
           right: { kind: 'literal_i128', value: '1000000000' },
         },
       ],
@@ -880,8 +824,10 @@ describe('evaluate - permit paths (reference walkthroughs)', () => {
       ctx({
         contract: SOROSWAP_ROUTER,
         fn: 'swap_exact_tokens_for_tokens',
-        args: [{ type: 'vec', value: [address(XLM_SAC), address(USDC_SAC)] }],
-        amountByToken: { [XLM_SAC]: '900000000' },
+        args: [
+          { type: 'vec', value: [address(XLM_SAC), address(USDC_SAC)] },
+          { type: 'i128', value: '900000000' },
+        ],
       })
     )
     expect(result).toEqual({ permit: true })

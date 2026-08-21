@@ -8,11 +8,9 @@
 //   4. per-ScVal equality on fn/args; EXACT ordered vector
 //      equality; fail-closed on opaque args                   -> 'ARG_MISMATCH' / 'FN_MISMATCH'
 //   5. `in` membership; empty haystack ALWAYS denies         -> 'NOT_IN_ALLOWLIST'
-//   6. amount / window_spent via BigInt                       -> 'AMOUNT_BOUND'
-//   7. invocation_count_in_window                            -> 'FREQUENCY'
-//   9. boolean nodes (and/or/not)
-//  10. signer threshold gate                                  -> 'THRESHOLD_NOT_MET'
-//  11. otherwise permit.
+//   6. boolean nodes (and/or/not)
+//   7. signer threshold gate                                  -> 'THRESHOLD_NOT_MET'
+//   8. otherwise permit.
 //
 // Amounts: BigInt on decimal strings. Comparison failures return
 // boolean-false `not`/`or` could mask).
@@ -161,15 +159,6 @@ function evalCompare(
     if (op === 'eq') return evalArgEq(op, entry.val, right, ctx)
     return evalArgOrderedCompare(op, entry.val, right)
   }
-
-  // --- step 6: AMOUNT_BOUND ---
-  if (left.kind === 'amount' && op !== 'eq') {
-    return evalAmountCompare(op, left.token, right, ctx, 'amountByToken')
-  }
-  if (left.kind === 'window_spent' && op !== 'eq') {
-    return evalWindowSpentCompare(op, left.token, right, ctx)
-  }
-  // `eq` on amount / window_spent not defined as a bound - fall through.
 
   // Unknown leaf/op combination - structural fail-closed.
   return { permit: false, reason: 'FN_MISMATCH' }
@@ -326,8 +315,6 @@ function resolveLeaf(leaf: PredicateLeaf, ctx: EvalContext): ScVal | undefined {
       const entry = element.value.find((e) => e.key === leaf.field)
       return entry ? entry.val : undefined
     }
-    case 'amount':
-    case 'window_spent':
     case 'now':
       return undefined // selector leaves with no ScVal projection
     case 'literal_address':
@@ -345,34 +332,6 @@ function resolveLeaf(leaf: PredicateLeaf, ctx: EvalContext): ScVal | undefined {
     case 'literal_vec':
       return undefined
   }
-}
-
-/** Step 6: amount / window_spent compare on BigInt. Both leaves compare a
- *  per-token BigInt record (current vs. rolling) to an i128 literal; the
- *  compare + denial reason are identical, so a single helper handles both. */
-function evalAmountCompare(
-  op: 'eq' | 'lt' | 'lte' | 'gt' | 'gte',
-  token: string,
-  right: PredicateLeaf,
-  ctx: EvalContext,
-  record: 'amountByToken' | 'windowSpentByToken'
-): EvalResult {
-  const literal = right.kind === 'literal_i128' ? right.value : null
-  if (literal === null) return { permit: false, reason: 'AMOUNT_BOUND' }
-  const actual = ctx[record][token] ?? '0'
-  return bigintCmp(op, actual, literal)
-    ? { permit: true }
-    : { permit: false, reason: 'AMOUNT_BOUND' }
-}
-
-/** Step 6: window_spent compare on BigInt. */
-function evalWindowSpentCompare(
-  op: 'eq' | 'lt' | 'lte' | 'gt' | 'gte',
-  token: string,
-  right: PredicateLeaf,
-  ctx: EvalContext
-): EvalResult {
-  return evalAmountCompare(op, token, right, ctx, 'windowSpentByToken')
 }
 
 /** BigInt compare helper. `eq` is also supported by callers (selector-vs-literal

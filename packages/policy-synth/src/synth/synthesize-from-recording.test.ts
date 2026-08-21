@@ -1141,7 +1141,7 @@ describe('synthesizeFromRecording - self-verify + minimise (P5b)', () => {
         },
         {
           op: 'lte',
-          left: { kind: 'amount', token: SEP41_TOKEN_C },
+          left: { kind: 'call_arg', index: 2 },
           right: { kind: 'literal_i128', value: '1000000000' },
         },
       ],
@@ -1533,29 +1533,6 @@ function decodeScValToLeaf(scval: xdr.ScVal): PredicateLeaf | null {
           const idx = vec[1]
           if (idx?.switch().name !== 'scvU32') return null
           return { kind: 'call_arg', index: idx.u32() }
-        }
-        case 'amount': {
-          const addr = vec[1]
-          if (addr?.switch().name !== 'scvAddress') return null
-          return { kind: 'amount', token: Address.fromScAddress(addr.address()).toString() }
-        }
-        case 'window_spent': {
-          const addr = vec[1]
-          const secs = vec[2]
-          if (!addr || !secs || addr.switch().name !== 'scvAddress') return null
-          return {
-            kind: 'window_spent',
-            token: Address.fromScAddress(addr.address()).toString(),
-            windowSeconds: Number(BigInt(secs.u64().toString())),
-          }
-        }
-        case 'invocation_count': {
-          const secs = vec[1]
-          if (!secs) return null
-          return {
-            kind: 'invocation_count_in_window',
-            windowSecs: Number(BigInt(secs.u64().toString())),
-          }
         }
         default:
           return null

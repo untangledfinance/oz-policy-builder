@@ -103,7 +103,7 @@ const soroswapBounded: PredicateNode = {
     },
     {
       op: 'lte',
-      left: { kind: 'amount', token: XLM_SAC },
+      left: { kind: 'call_arg', index: 0 },
       right: { kind: 'literal_i128', value: '1000000000' },
     },
   ],
@@ -154,13 +154,12 @@ describe('generateCases - reference policies', () => {
     ])
   })
 
-  it('generates amount, asset, and exact-path cases for SoroSwap', () => {
+  it('generates the applicable SoroSwap dimensions', () => {
     expectEveryGeneratedDenyToDeny(soroswapBounded, soroswapPermit, [
-      'amount',
-      'asset',
       'contract',
       'function',
       'timing',
+      'arg_amount_bound',
       'scope_contract_fn_arg',
       'soroswap_allowed_path',
     ])
@@ -168,41 +167,6 @@ describe('generateCases - reference policies', () => {
 })
 
 describe('generateCases - numeric boundaries', () => {
-  it('uses BigInt-safe amount mutation above Number.MAX_SAFE_INTEGER', () => {
-    const bound = '123456789012345678901234567890'
-    const predicate: PredicateNode = {
-      op: 'lte',
-      left: { kind: 'amount', token: XLM_SAC },
-      right: { kind: 'literal_i128', value: bound },
-    }
-    const permitCtx = context({ amountByToken: { [XLM_SAC]: bound } })
-    const amountCase = generateCases(predicate, permitCtx).denies.find(
-      ({ dimension }) => dimension === 'amount'
-    )
-
-    expect(amountCase?.ctx.amountByToken[XLM_SAC]).toBe(((BigInt(bound) * 101n) / 100n).toString())
-    expect(amountCase && evaluate(predicate, amountCase.ctx)).toEqual({
-      permit: false,
-      reason: 'AMOUNT_BOUND',
-    })
-  })
-
-  it('mutates prior window spend past its bound', () => {
-    const predicate: PredicateNode = {
-      op: 'lte',
-      left: { kind: 'window_spent', token: XLM_SAC, windowSeconds: 3_600 },
-      right: { kind: 'literal_i128', value: '500' },
-    }
-    const permitCtx = context({
-      validUntilLedger: undefined,
-      windowSpentByToken: { [XLM_SAC]: '499' },
-    })
-    const cases = generateCases(predicate, permitCtx)
-
-    expect(cases.denies.map(({ dimension }) => dimension)).toEqual(['asset', 'time_window'])
-    expect(cases.denies[1]?.ctx.windowSpentByToken[XLM_SAC]).toBe('501')
-  })
-
   it('does not mutate the supplied permit context', () => {
     const before = structuredClone(soroswapPermit)
 

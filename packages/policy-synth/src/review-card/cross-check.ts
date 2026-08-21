@@ -136,10 +136,6 @@ function pushComparison(
       return
     }
   }
-  if (left.kind === 'amount' && right.kind === 'literal_i128') {
-    out.push(`Amount <= ${right.value}`)
-    return
-  }
 }
 
 function pushMembership(needle: PredicateLeaf, haystack: PredicateLeaf[], out: string[]): void {
@@ -169,8 +165,6 @@ function renderVecElement(leaf: PredicateLeaf): string {
     case 'call_arg':
     case 'call_arg_len':
     case 'call_arg_field':
-    case 'amount':
-    case 'window_spent':
     case 'now':
       return `<${leaf.kind}>`
   }

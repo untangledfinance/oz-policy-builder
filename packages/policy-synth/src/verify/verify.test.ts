@@ -43,7 +43,7 @@ function minimalSep41Predicate(): PredicateNode {
       },
       {
         op: 'lte',
-        left: { kind: 'amount', token: USDC_SAC },
+        left: { kind: 'call_arg', index: 2 },
         right: { kind: 'literal_i128', value: '1000000000' },
       },
     ],
@@ -82,7 +82,7 @@ function overBroadSep41Predicate(): PredicateNode {
       },
       {
         op: 'lte',
-        left: { kind: 'amount', token: USDC_SAC },
+        left: { kind: 'call_arg', index: 2 },
         right: { kind: 'literal_i128', value: '1000000000' },
       },
     ],

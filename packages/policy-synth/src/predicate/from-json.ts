@@ -61,17 +61,6 @@ function jsonToLeaf(value: unknown): PredicateLeaf {
       return { kind: 'call_arg', index: numberField(v, 'index') }
     case 'call_arg_len':
       return { kind: 'call_arg_len', index: numberField(v, 'index') }
-    // num/den are strings, not numbers: they are i128 on chain, and a JSON
-    // number would silently lose precision past 2^53 before the encoder
-    // ever saw the value.
-    case 'amount':
-      return { kind: 'amount', token: stringField(v, 'token') }
-    case 'window_spent':
-      return {
-        kind: 'window_spent',
-        token: stringField(v, 'token'),
-        windowSeconds: numberField(v, 'windowSeconds'),
-      }
     case 'literal_address':
       return { kind: 'literal_address', value: stringField(v, 'value') }
     case 'literal_i128':

@@ -132,7 +132,7 @@ function soroswapPredicate(): PredicateNode {
       },
       {
         op: 'lte',
-        left: { kind: 'amount', token: XLM_SAC },
+        left: { kind: 'call_arg', index: 1 },
         right: { kind: 'literal_i128', value: '100000000' },
       },
     ],
@@ -214,7 +214,7 @@ describe('buildReviewCardSummary - SoroSwap exact-path+amount walkthrough', () =
   })
 
   it('emits the amount-bound line', () => {
-    expect(summary.constraints).toContain(`Amount <= 100000000`)
+    expect(summary.constraints).toContain(`arg[1] <= 100000000`)
   })
 
   it('emits the contract line for the router target', () => {

@@ -69,7 +69,7 @@ function soroswapPredicate(): PredicateNode {
       },
       {
         op: 'lte',
-        left: { kind: 'amount', token: XLM_SAC },
+        left: { kind: 'call_arg', index: 1 },
         right: { kind: 'literal_i128', value: '100000000' },
       },
     ],
@@ -147,7 +147,7 @@ describe('summaryCrossCheck', () => {
     const result = summaryCrossCheck(predicate, tampered)
     expect(result.ok).toBe(false)
     if (result.ok === false) {
-      expect(result.missingConstraints).toContain(`Amount <= 100000000`)
+      expect(result.missingConstraints).toContain(`arg[1] <= 100000000`)
     }
   })
 

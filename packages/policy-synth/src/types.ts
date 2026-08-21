@@ -149,8 +149,6 @@ export type PredicateLeaf =
   // `InvokerContractAuthEntry::Contract(SubContractInvocation)`, not in the
   // enforce Context. Scope is per-authorized-context; a v1.1 sub-invocation
   // tree leaf is gated on the enforce-Context-shape spike result.
-  | { kind: 'amount'; token: string }
-  | { kind: 'window_spent'; token: string; windowSeconds: number }
   | { kind: 'now' }
   // Literal leaves: bare ScVal on the wire (no selector-tuple wrapper). Right-hand side of
   // comparisons, elements of `in` haystacks, and operands to future arithmetic nodes.

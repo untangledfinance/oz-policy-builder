@@ -15,8 +15,8 @@ const TOKEN_A = Address.contract(Buffer.alloc(32, 0x01)).toString()
 const TOKEN_B = Address.contract(Buffer.alloc(32, 0x02)).toString()
 const ACCOUNT_A = Keypair.random().publicKey()
 
-function leafAmount(token: string): PredicateLeaf {
-  return { kind: 'amount', token }
+function leafArg(): PredicateLeaf {
+  return { kind: 'call_arg', index: 0 }
 }
 
 function leafNow(): PredicateLeaf {
@@ -28,7 +28,7 @@ describe('encodePredicate - determinism', () => {
     const node: PredicateNode = {
       op: 'and',
       children: [
-        { op: 'eq', left: leafAmount(TOKEN_A), right: { kind: 'literal_i128', value: '1000000' } },
+        { op: 'eq', left: leafArg(), right: { kind: 'literal_i128', value: '1000000' } },
         {
           op: 'or',
           children: [{ op: 'not', child: { op: 'eq', left: leafNow(), right: leafNow() } }],
@@ -47,7 +47,7 @@ describe('encodePredicate - determinism', () => {
   it('predicateHash equals sha256 of the raw XDR bytes (base64-decoded)', () => {
     const node: PredicateNode = {
       op: 'eq',
-      left: leafAmount(TOKEN_A),
+      left: leafArg(),
       right: { kind: 'literal_i128', value: '42' },
     }
     const { encodedPredicate, predicateHash } = encodePredicate(node)
@@ -85,7 +85,7 @@ describe('encodePredicate - signed-magnitude i128', () => {
   it('encodes a positive i128 deterministically', () => {
     const node: PredicateNode = {
       op: 'eq',
-      left: leafAmount(TOKEN_A),
+      left: leafArg(),
       right: { kind: 'literal_i128', value: '1000000000' },
     }
     const a = encodePredicate(node)
@@ -99,7 +99,7 @@ describe('encodePredicate - signed-magnitude i128', () => {
   it('encodes a NEGATIVE i128 correctly (signed-magnitude Int128Parts)', () => {
     const node: PredicateNode = {
       op: 'eq',
-      left: leafAmount(TOKEN_A),
+      left: leafArg(),
       right: { kind: 'literal_i128', value: '-1' },
     }
     const { encodedPredicate } = encodePredicate(node)
@@ -112,7 +112,7 @@ describe('encodePredicate - signed-magnitude i128', () => {
   it('encodes a larger negative i128 correctly', () => {
     const node: PredicateNode = {
       op: 'lt',
-      left: leafAmount(TOKEN_A),
+      left: leafArg(),
       right: { kind: 'literal_i128', value: '-1000000000' },
     }
     const { encodedPredicate } = encodePredicate(node)
@@ -123,7 +123,7 @@ describe('encodePredicate - signed-magnitude i128', () => {
   it('encodes i128::MAX (170141183460469231731687303715884105727) correctly at the boundary', () => {
     const node: PredicateNode = {
       op: 'eq',
-      left: leafAmount(TOKEN_A),
+      left: leafArg(),
       right: { kind: 'literal_i128', value: '170141183460469231731687303715884105727' },
     }
     const { encodedPredicate } = encodePredicate(node)
@@ -137,7 +137,7 @@ describe('encodePredicate - signed-magnitude i128', () => {
   it('encodes i128::MIN (-170141183460469231731687303715884105728) correctly at the boundary', () => {
     const node: PredicateNode = {
       op: 'gt',
-      left: leafAmount(TOKEN_A),
+      left: leafArg(),
       right: { kind: 'literal_i128', value: '-170141183460469231731687303715884105728' },
     }
     const { encodedPredicate } = encodePredicate(node)
@@ -150,17 +150,17 @@ describe('encodePredicate - and/or child sort stability', () => {
   it('and: child reordering produces the same predicateHash', () => {
     const a: PredicateNode = {
       op: 'eq',
-      left: leafAmount(TOKEN_A),
+      left: leafArg(),
       right: { kind: 'literal_i128', value: '1' },
     }
     const b: PredicateNode = {
       op: 'eq',
-      left: leafAmount(TOKEN_A),
+      left: leafArg(),
       right: { kind: 'literal_i128', value: '2' },
     }
     const c: PredicateNode = {
       op: 'eq',
-      left: leafAmount(TOKEN_A),
+      left: leafArg(),
       right: { kind: 'literal_i128', value: '3' },
     }
     const left = encodePredicate({ op: 'and', children: [a, b, c] })
@@ -172,17 +172,17 @@ describe('encodePredicate - and/or child sort stability', () => {
   it('or: child reordering produces the same predicateHash', () => {
     const a: PredicateNode = {
       op: 'eq',
-      left: leafAmount(TOKEN_A),
+      left: leafArg(),
       right: { kind: 'literal_i128', value: '7' },
     }
     const b: PredicateNode = {
       op: 'eq',
-      left: leafAmount(TOKEN_A),
+      left: leafArg(),
       right: { kind: 'literal_i128', value: '8' },
     }
     const c: PredicateNode = {
       op: 'eq',
-      left: leafAmount(TOKEN_A),
+      left: leafArg(),
       right: { kind: 'literal_i128', value: '9' },
     }
     const left = encodePredicate({ op: 'or', children: [a, b, c] })
@@ -200,7 +200,7 @@ describe('encodePredicate - and/or child sort stability', () => {
       op: 'not',
       child: {
         op: 'eq',
-        left: leafAmount(TOKEN_A),
+        left: leafArg(),
         right: { kind: 'literal_i128', value: '11' },
       },
     }
@@ -370,41 +370,6 @@ describe('encodePredicate - literal_vec order preservation', () => {
 })
 
 describe('encodePredicate - selector leaf wire shapes', () => {
-  it('window_spent serialises (token, windowSeconds) in that order', () => {
-    const node: PredicateNode = {
-      op: 'lt',
-      left: { kind: 'window_spent', token: TOKEN_A, windowSeconds: 3600 },
-      right: { kind: 'literal_i128', value: '100' },
-    }
-    const { encodedPredicate } = encodePredicate(node)
-    const scv = xdr.ScVal.fromXDR(Buffer.from(encodedPredicate, 'base64'))
-    // The root is a Vec of [sym"lt", selectorVec, literalI128]. The selector
-    // Vec is [sym"window_spent", scvAddress(token), scvU64(windowSeconds)].
-    const rootVec = scv.vec() ?? []
-    expect(rootVec).toHaveLength(3)
-    expect(rootVec[0]?.sym().toString()).toBe('lt')
-    const selector = rootVec[1]?.vec() ?? []
-    expect(selector).toHaveLength(3)
-    expect(selector[0]?.sym().toString()).toBe('window_spent')
-    expect(selector[1]?.switch().name).toBe('scvAddress')
-    expect(selector[2]?.switch().name).toBe('scvU64')
-    expect(selector[2]?.u64().toString()).toBe('3600')
-  })
-
-  it('amount serialises with scvAddress(token)', () => {
-    const node: PredicateNode = {
-      op: 'eq',
-      left: leafAmount(TOKEN_A),
-      right: { kind: 'literal_u64', value: '1' },
-    }
-    const { encodedPredicate } = encodePredicate(node)
-    const root = xdr.ScVal.fromXDR(Buffer.from(encodedPredicate, 'base64'))
-    const rootVec = root.vec() ?? []
-    const selector = rootVec[1]?.vec() ?? []
-    expect(selector[0]?.sym().toString()).toBe('amount')
-    expect(selector[1]?.switch().name).toBe('scvAddress')
-  })
-
   it('call_arg uses scvU32(index)', () => {
     const node: PredicateNode = {
       op: 'eq',

@@ -88,7 +88,7 @@ function sep41Predicate(): PredicateNode {
       },
       {
         op: 'lte',
-        left: { kind: 'amount', token: USDC_SAC },
+        left: { kind: 'call_arg', index: 2 },
         right: { kind: 'literal_i128', value: '1000000000' },
       },
     ],
@@ -148,7 +148,7 @@ function soroswapPredicate(): PredicateNode {
       },
       {
         op: 'lte',
-        left: { kind: 'amount', token: XLM_SAC },
+        left: { kind: 'call_arg', index: 0 },
         right: { kind: 'literal_i128', value: '50000000' },
       },
     ],
@@ -233,8 +233,8 @@ describe('simulatePolicy - walkthrough permits', () => {
     expect(cases.get('contract')?.reason).toBe('CONTRACT_SCOPE')
     expect(cases.get('function')?.outcome).toBe('deny')
     expect(cases.get('function')?.reason).toBe('FN_MISMATCH')
-    expect(cases.get('amount')?.outcome).toBe('deny')
-    expect(cases.get('amount')?.reason).toBe('AMOUNT_BOUND')
+    expect(cases.get('arg_amount_bound')?.outcome).toBe('deny')
+    expect(cases.get('arg_amount_bound')?.reason).toBe('ARG_MISMATCH')
     // The `in` allowlist deny case renders an opaque needle: the
     // evaluator's `in` returns `NOT_IN_ALLOWLIST` (NOT_IN_ALLOWLIST is the
     // surfaced reason; the evaluator's `arg_bound` path is for `eq`
@@ -254,7 +254,7 @@ describe('simulatePolicy - walkthrough permits', () => {
     expect(cases.get('function')?.reason).toBe('FN_MISMATCH')
     expect(cases.get('soroswap_allowed_path')?.outcome).toBe('deny')
     expect(cases.get('soroswap_allowed_path')?.reason).toBe('ARG_MISMATCH')
-    expect(cases.get('amount')?.reason).toBe('AMOUNT_BOUND')
+    expect(cases.get('arg_amount_bound')?.reason).toBe('ARG_MISMATCH')
   })
 
   it('null predicate (OZ-only): envelope still emitted with an empty deny battery', () => {

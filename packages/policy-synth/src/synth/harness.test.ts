@@ -12,7 +12,7 @@ function context(overrides: Partial<EvalContext> = {}): EvalContext {
   return {
     contract: CONTRACT,
     fn: 'transfer',
-    args: [],
+    args: [{ type: 'i128', value: '50' }],
     atLedger: 1_000,
     nowSeconds: 1_700_000_000,
     amountByToken: { [TOKEN]: '50' },
@@ -36,7 +36,7 @@ const boundedPolicy: PredicateNode = {
     },
     {
       op: 'lte',
-      left: { kind: 'amount', token: TOKEN },
+      left: { kind: 'call_arg', index: 0 },
       right: { kind: 'literal_i128', value: '100' },
     },
   ],
@@ -52,16 +52,16 @@ describe('runHarness', () => {
   it('reports the exact dimension permitted by an over-broad policy', () => {
     const permitCtx = context()
     const cases = generateCases(boundedPolicy, permitCtx)
-    const withoutAmount: PredicateNode = {
+    const withoutArgBound: PredicateNode = {
       op: 'and',
       children: boundedPolicy.op === 'and' ? boundedPolicy.children.slice(0, 2) : [],
     }
 
-    expect(runHarness(withoutAmount, cases)).toEqual({
+    expect(runHarness(withoutArgBound, cases)).toEqual({
       ok: false,
       failures: [
         {
-          dimension: 'amount',
+          dimension: 'arg_amount_bound',
           expected: 'deny',
           got: 'permit',
           reason: 'DENY_CASE_FAILURE',

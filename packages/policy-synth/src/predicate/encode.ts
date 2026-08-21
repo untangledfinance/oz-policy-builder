@@ -17,12 +17,6 @@
 // Caps from `PREDICATE_CAPS` are enforced BEFORE returning; a cap breach throws
 // a `ToolError` with the matching error code and `severity: 'error'`.
 //
-// One gap remains, deliberately: the `amount` / `window_spent` leaf branches
-// below are dead ABI - the contract's grammar no longer has those selector
-// symbols, so a predicate carrying one is MALFORMED at decode. The interpreter
-// adapter reports them as uncovered before lowering, so the product path
-// cannot emit one; removing the branches (and the leaf kinds) is a separate
-// change.
 
 import { createHash } from 'node:crypto'
 import { Address, xdr } from '@stellar/stellar-sdk'
@@ -252,14 +246,6 @@ function encodeLeaf(leaf: PredicateLeaf): xdr.ScVal {
         xdr.ScVal.scvU32(leaf.element),
         xdr.ScVal.scvSymbol(leaf.field),
       ])
-    case 'amount':
-      return xdr.ScVal.scvVec([symbol('amount'), scvAddressFromStrkey(leaf.token)])
-    case 'window_spent':
-      return xdr.ScVal.scvVec([
-        symbol('window_spent'),
-        scvAddressFromStrkey(leaf.token),
-        scvU64FromValue(leaf.windowSeconds),
-      ])
     case 'now':
       return xdr.ScVal.scvVec([symbol('now')])
     case 'literal_address':
@@ -377,8 +363,6 @@ function validateLeafValues(node: PredicateNode): void {
           throw malformed(`call_arg_field.element out of u32 range at ${path}`)
         }
         return
-      case 'amount':
-      case 'window_spent':
       case 'now':
       case 'call_contract':
       case 'call_fn':

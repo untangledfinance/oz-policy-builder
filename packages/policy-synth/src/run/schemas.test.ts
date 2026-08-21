@@ -88,10 +88,7 @@ describe('PredicateLeafSchema mirrors the core PredicateLeaf', () => {
     { kind: 'call_arg', index: 0 },
     { kind: 'call_arg_len', index: 0 },
     { kind: 'call_arg_field', index: 0, element: 0, field: 'amount' },
-    { kind: 'amount', token: 'C-USDC' },
-    { kind: 'window_spent', token: 'C-USDC', windowSeconds: 86_400 },
     { kind: 'now' },
-    { kind: 'invocation_count_in_window', windowSecs: 86_400 },
     { kind: 'literal_address', value: 'CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75' },
     { kind: 'literal_i128', value: '1000000000' },
     { kind: 'literal_symbol', value: 'transfer' },
@@ -149,22 +146,22 @@ describe('PredicateNodeSchema mirrors the core PredicateNode', () => {
     },
     {
       op: 'lt',
-      left: { kind: 'amount', token: 'C-USDC' },
+      left: { kind: 'call_arg', index: 0 },
       right: { kind: 'literal_i128', value: '1000000000' },
     },
     {
       op: 'lte',
-      left: { kind: 'amount', token: 'C-USDC' },
+      left: { kind: 'call_arg', index: 0 },
       right: { kind: 'literal_i128', value: '1000000000' },
     },
     {
       op: 'gt',
-      left: { kind: 'amount', token: 'C-USDC' },
+      left: { kind: 'call_arg', index: 0 },
       right: { kind: 'literal_i128', value: '0' },
     },
     {
       op: 'gte',
-      left: { kind: 'amount', token: 'C-USDC' },
+      left: { kind: 'call_arg', index: 0 },
       right: { kind: 'literal_i128', value: '0' },
     },
     {

@@ -47,20 +47,20 @@ describe('PredicateNode / PredicateLeaf', () => {
         { op: 'eq', left: { kind: 'call_fn' }, right: { kind: 'call_arg', index: 0 } },
         {
           op: 'lt',
-          left: { kind: 'amount', token: 'CABC' },
-          right: { kind: 'amount', token: 'CDEF' },
+          left: { kind: 'call_arg', index: 1 },
+          right: { kind: 'literal_i128', value: '1000' },
         },
         { op: 'in', needle: { kind: 'call_fn' }, haystack: [{ kind: 'call_fn' }] },
         { op: 'lte', left: { kind: 'now' }, right: { kind: 'literal_u32', value: 100 } },
         {
           op: 'gt',
-          left: { kind: 'window_spent', token: 'CABC', windowSeconds: 3600 },
-          right: { kind: 'now' },
+          left: { kind: 'call_arg_len', index: 2 },
+          right: { kind: 'literal_u32', value: 1 },
         },
         {
           op: 'gte',
-          left: { kind: 'invocation_count_in_window', windowSecs: 3600 },
-          right: { kind: 'now' },
+          left: { kind: 'call_arg_field', index: 0, element: 0, field: 'amount' },
+          right: { kind: 'literal_i128', value: '0' },
         },
       ],
     }

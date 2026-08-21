@@ -284,25 +284,13 @@ export const PredicateLeafSchema: z.ZodType<unknown> = z.lazy(() =>
       element: z.number().int().nonnegative(),
       field: z.string(),
     }),
-    // num/den are i128 on chain; JSON numbers lose precision past 2^53,
-    // so the wire is a decimal string. The contract refuses `den == 0` and
-    z.object({ kind: z.literal('amount'), token: z.string() }),
-    z.object({
-      kind: z.literal('window_spent'),
-      token: z.string(),
-      windowSeconds: z.number().int().positive(),
-    }),
     z.object({ kind: z.literal('now') }),
-    // `valid_until` is NOT in the public predicate grammar: the encoder +
-    // decoder already throw on it, so accepting it here would let a
-    // hand-crafted payload through the schema and only surface a 200+
-    // character internal-commentary error at encode time. Drop it - the
-    // policy's expiry is carried at the install layer (MandateSpec +
-    // validUntilLedger) instead.
-    z.object({
-      kind: z.literal('invocation_count_in_window'),
-      windowSecs: z.number().int().positive(),
-    }),
+    // Leaves outside the contract's grammar (`valid_until`, `amount`,
+    // `window_spent`, `invocation_count_in_window`) are NOT accepted here.
+    // The encoder throws on them, so admitting them at the schema would let a
+    // hand-crafted payload through only to fail at encode time. A policy's
+    // expiry is carried at the install layer (MandateSpec + validUntilLedger),
+    // and value or frequency caps belong to the OZ primitives.
     z.object({ kind: z.literal('literal_address'), value: z.string() }),
     z.object({ kind: z.literal('literal_i128'), value: z.string().regex(/^-?[0-9]+$/) }),
     z.object({ kind: z.literal('literal_symbol'), value: z.string() }),

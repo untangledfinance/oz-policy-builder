@@ -12,7 +12,7 @@ function context(): EvalContext {
   return {
     contract: CONTRACT,
     fn: 'transfer',
-    args: [],
+    args: [{ type: 'i128', value: '50' }],
     atLedger: 1_000,
     nowSeconds: 1_700_000_000,
     amountByToken: { [TOKEN]: '50' },
@@ -32,9 +32,9 @@ const functionConstraint: PredicateNode = {
   right: { kind: 'literal_symbol', value: 'transfer' },
 }
 
-const amountConstraint: PredicateNode = {
+const argBoundConstraint: PredicateNode = {
   op: 'lte',
-  left: { kind: 'amount', token: TOKEN },
+  left: { kind: 'call_arg', index: 0 },
   right: { kind: 'literal_i128', value: '100' },
 }
 
@@ -46,26 +46,26 @@ describe('minimize', () => {
         contractConstraint,
         functionConstraint,
         { ...functionConstraint },
-        amountConstraint,
+        argBoundConstraint,
       ],
     }
     const permitCtx = context()
 
     expect(minimize(predicate, permitCtx)).toEqual({
       op: 'and',
-      children: [contractConstraint, functionConstraint, amountConstraint],
+      children: [contractConstraint, functionConstraint, argBoundConstraint],
     })
     expect(predicate.op === 'and' && predicate.children).toHaveLength(4)
   })
 
-  it('keeps an amount bound whose deny mutation becomes permitted without it', () => {
+  it('keeps an argument bound whose deny mutation becomes permitted without it', () => {
     const predicate: PredicateNode = {
       op: 'and',
-      children: [contractConstraint, functionConstraint, amountConstraint],
+      children: [contractConstraint, functionConstraint, argBoundConstraint],
     }
     const permitCtx = context()
     const amountCase = generateCases(predicate, permitCtx).denies.find(
-      ({ dimension }) => dimension === 'amount'
+      ({ dimension }) => dimension === 'arg_amount_bound'
     )
     const withoutAmount: PredicateNode = {
       op: 'and',

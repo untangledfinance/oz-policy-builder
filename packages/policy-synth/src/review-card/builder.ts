@@ -16,7 +16,6 @@
 //
 //   2. The interpreter `PredicateNode`. One string per constraint leaf,
 //      rendered by enclosing-comparison kind. Templates (Task 7b):
-//        - invocation_count_in_window < N     -> At most N calls per <window> seconds
 //        - call_arg[i] in [list]              -> Recipient/arg must be one of [list]
 //        - eq(call_arg[i], literal_vec[...])  -> Path must be exactly [list]
 //        - call_fn == x                       -> Function must be x
@@ -228,16 +227,10 @@ function renderComparison(
     }
   }
 
-  // The bound is compared against the calls ALREADY made in the window, so
-  // OP(call_arg[i], <scalar literal>) -> arg[i] OP <value>
-  //
-  // The per-call cap. It has to be here because the `amount` template below
-  // is unreachable for an interpreter policy: `amount` is deliberately not in
-  // the contract's grammar (dsl.rs - the interpreter sees one authorized
-  // call, not the transaction's token movements), so a predicate using it is
-  // refused at install. A bound on the call's own amount ARGUMENT is how a
-  // cap is actually written, and it was rendering nothing at all - the card
-  // silently understated the policy.
+  // The per-call cap: OP(call_arg[i], <scalar literal>) -> arg[i] OP <value>.
+  // The interpreter is passed one authorized call, not the transaction's token
+  // movements, so a bound on the call's own amount ARGUMENT is how a cap is
+  // written.
   //
   // Placed after the literal_vec case above so an exact-sequence `eq` still
   // reads as a path rather than as a comparison.
@@ -250,11 +243,6 @@ function renderComparison(
     if (right.kind === 'literal_address') return `${head} ${sep} ${right.value}`
     if (right.kind === 'literal_symbol') return `${head} ${sep} ${right.value}`
     if (right.kind === 'literal_bytes') return `${head} ${sep} ${right.value}`
-  }
-
-  // amount <= v -> Amount <= v
-  if (left.kind === 'amount' && right.kind === 'literal_i128') {
-    return `Amount <= ${right.value}`
   }
 
   // Any other comparison shape is a structural fail-closed: do not surface
@@ -295,8 +283,6 @@ function renderVecElement(leaf: PredicateLeaf): string {
     case 'call_arg':
     case 'call_arg_len':
     case 'call_arg_field':
-    case 'amount':
-    case 'window_spent':
     case 'now':
       return `<${leaf.kind}>`
   }
