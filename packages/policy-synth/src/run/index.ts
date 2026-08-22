@@ -47,6 +47,7 @@ import {
   rpcClientFromServer,
 } from '../install/build-install-policy.ts'
 import { getInterpreterInfo } from '../install/get-interpreter-info.ts'
+import { accountRuleReaderFromServer, collectObservedRules } from '../install/read-account-rules.ts'
 import { decodePredicate } from '../predicate/decode.ts'
 import { type EvalContext, evaluate, generateCases } from '../simulate/index.ts'
 import {
@@ -267,12 +268,19 @@ export async function runInstallPolicy(
       rpc: rpcClient,
       ...(input.baseFee !== undefined ? { baseFee: input.baseFee } : {}),
     })
-    // Cross-rule scan, when the caller supplied what else is on the account.
-    // ABSENT is reported as `null` rather than an empty list: "we did not
-    // look" and "we looked and found nothing" are different answers, and
-    // collapsing them would let a caller read silence as safety.
+    // Cross-rule scan. The caller may supply `existingRules` (useful offline,
+    // and for testing); otherwise the account is READ, so the answer describes
+    // what is actually installed rather than what the caller happened to
+    // mention.
+    //
+    // `null` means NOT CHECKED and is returned whenever the scan cannot be
+    // trusted to be complete - the read failed, or it stopped before
+    // accounting for every live rule. An empty list would say "checked,
+    // nothing found", and a partial scan that reported `[]` would be claiming
+    // a safety it never established.
+    const observed = await resolveExistingRules(input, network, expectedInterpreter)
     const authorityScan =
-      input.existingRules === undefined
+      observed === null
         ? null
         : findAuthorityOverlaps({
             intended: {
@@ -284,9 +292,7 @@ export async function runInstallPolicy(
               signers: input.rule.signers,
               predicate: decodePredicate(encodedPredicate),
             },
-            // The schema types `predicate` loosely (it is the shared
-            // PredicateNodeSchema); the shape is already validated.
-            existing: input.existingRules as ObservedRule[],
+            existing: observed,
           })
     return { ok: true, data: { ...result, authorityScan } }
   } catch (e) {
@@ -560,6 +566,45 @@ export async function runGetInterpreterInfo(
  *  network, falling back to the pinned RPC for the network. The caller
  *  has already been gated against the pinned URL elsewhere, so the
  *  fallback here only ever picks from a finite, audited pair. */
+/** The account's other context rules, or `null` when they could not be
+ *  established completely.
+ *
+ *  Caller-supplied `existingRules` win: they let the scan run offline, and a
+ *  caller who passes them has said what to compare against. Otherwise the
+ *  account is read over RPC.
+ *
+ *  Every failure path returns `null` rather than a short list. A read that
+ *  threw, or one that stopped before accounting for every live rule, has not
+ *  ruled anything out - and reporting `[]` there would turn "we could not
+ *  check" into "there is nothing to worry about". */
+async function resolveExistingRules(
+  input: InstallPolicyInput,
+  network: Network,
+  interpreterAddress: string
+): Promise<ObservedRule[] | null> {
+  if (input.existingRules !== undefined) {
+    // The schema types `predicate` loosely (it is the shared
+    // PredicateNodeSchema); the shape is already validated.
+    return input.existingRules as ObservedRule[]
+  }
+  try {
+    const url = input.rpcUrl ?? RPC_URL_BY_NETWORK[network]
+    const server = new rpc.Server(url, { allowHttp: false })
+    const collected = await collectObservedRules({
+      reader: accountRuleReaderFromServer(server, NETWORK_PASSPHRASES[network]),
+      smartAccount: input.smartAccount,
+      interpreterAddress,
+    })
+    if (collected.incomplete) return null
+    return collected.rules
+  } catch {
+    // The install itself is unaffected: the scan is advisory, so a failed
+    // read must not block a policy the user asked for. It just cannot be
+    // reported as a clean scan.
+    return null
+  }
+}
+
 function buildRpcClientFromInput(
   urlOverride: string | undefined,
   network: Network
