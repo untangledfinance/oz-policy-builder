@@ -57,6 +57,13 @@ function jsonToLeaf(value: unknown): PredicateLeaf {
       return { kind: 'call_arg', index: numberField(v, 'index') }
     case 'call_arg_len':
       return { kind: 'call_arg_len', index: numberField(v, 'index') }
+    case 'call_arg_field':
+      return {
+        kind: 'call_arg_field',
+        index: numberField(v, 'index'),
+        element: numberField(v, 'element'),
+        field: stringField(v, 'field'),
+      }
     case 'call_arg_scaled':
       // num/den stay decimal STRINGS: an i128 ratio does not survive a JS
       // number, and silently rounding one would change the floor.

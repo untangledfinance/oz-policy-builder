@@ -28,6 +28,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { argv, exit } from 'node:process'
 import { Address, xdr } from '@stellar/stellar-sdk'
+import { encodePredicate } from '../src/predicate/encode.ts'
 import { generateCases } from '../src/simulate/deny-cases.ts'
 import { type EvalContext, evaluate } from '../src/simulate/evaluate.ts'
 import { synthesizeFromRecording } from '../src/synth/synthesize-from-recording.ts'
@@ -175,6 +176,7 @@ interface SynthFlags {
 interface ParsedArgs extends Partial<SynthFlags> {
   out?: string
   recording?: string
+  scenario?: string
   help?: boolean
 }
 
@@ -201,6 +203,7 @@ function parseArgs(args: string[]): ParsedArgs {
     if (a === '--help' || a === '-h') out.help = true
     else if (a === '--out') out.out = args[++i]
     else if (a === '--recording') out.recording = args[++i]
+    else if (a === '--scenario') out.scenario = args[++i]
     else if (a === '--smart-account') out.smartAccount = args[++i]
   }
   return out
@@ -209,6 +212,7 @@ function parseArgs(args: string[]): ParsedArgs {
 function usage(): string {
   return [
     'usage: gen-conformance-fixture.ts --recording <recording.json> --out <path.rs>',
+    '   or: gen-conformance-fixture.ts --scenario <scenario.json>  --out <path.rs>',
     '  [--smart-account C...]',
     '',
     'The predicate is synthesised from the recording through the same pipeline',
@@ -225,14 +229,92 @@ interface ConformanceCase {
   ctxJson: SerializedCtx
 }
 
+// ---------------------------------------------------------------------------
+// Scenario mode
+// ---------------------------------------------------------------------------
+//
+// The recording path can only produce the predicate a recording synthesises,
+// and its deny-case mutators cannot violate a scaled bound or an `or` (see
+// `visit` in deny-cases.ts). That left the grammar-4 operators outside the
+// differential harness: each layer had its own suite, but nothing proved the
+// two AGREE.
+//
+// A scenario supplies the predicate and the contexts directly. What makes it
+// differential is unchanged: the TypeScript evaluator produces the verdict,
+// and the emitted Rust asserts its own evaluator reaches the same one. The
+// cases are hand-chosen rather than mutated, which is the honest trade - the
+// harness proves agreement on the cases given, not that the case set is
+// exhaustive.
+
+interface ScenarioCase {
+  id: string
+  contract: string
+  fn: string
+  args: ScVal[]
+}
+
+interface Scenario {
+  predicate: PredicateNode
+  cases: ScenarioCase[]
+}
+
+function runScenario(scenarioPath: string, out: string): void {
+  const scenario = JSON.parse(readFileSync(scenarioPath, 'utf8')) as Scenario
+  if (!scenario.predicate) throw new Error('scenario needs a `predicate`')
+  if (!scenario.cases?.length) throw new Error('scenario needs at least one case')
+
+  const { encodedPredicate, predicateHash } = encodePredicate(scenario.predicate)
+
+  const built = scenario.cases.map((c) => {
+    const ctx: EvalContext = { contract: c.contract, fn: c.fn, args: c.args }
+    const verdict = evaluate(scenario.predicate, ctx)
+    return {
+      id: c.id,
+      isPermit: verdict.permit,
+      dimension: c.id,
+      tsVerdict: { permit: verdict.permit, reason: verdict.permit ? null : verdict.reason },
+      ctxJson: serializeCtx(ctx),
+    } satisfies ConformanceCase
+  })
+
+  const first = built[0]
+  if (!first) throw new Error('no cases built')
+  const rendered = renderFixture({
+    encodedPredicate,
+    predicateHash,
+    permit: first,
+    denies: built.slice(1),
+    skippedUnsupported: 0,
+    invocation: { source: scenarioPath, sourceFlag: '--scenario', out },
+  })
+  mkdirSync(dirname(out), { recursive: true })
+  // Same rustfmt pipe as the recording path, so the emitted fixture satisfies
+  // `cargo fmt --check` rather than failing the contract gate it belongs to.
+  const fmt = spawnSync('rustfmt', ['--edition=2021', '--emit=stdout'], {
+    input: rendered,
+    encoding: 'utf8',
+  })
+  if (fmt.status !== 0) throw new Error(`rustfmt failed: ${fmt.stderr}`)
+  writeFileSync(out, fmt.stdout, 'utf8')
+  const permits = built.filter((b) => b.isPermit).length
+  process.stdout.write(
+    `wrote ${built.length} cases (${permits} permit + ${built.length - permits} deny) to ${out}\n`
+  )
+}
+
 function run(): void {
   const args = parseArgs(argv.slice(2))
   if (args.help) {
     process.stdout.write(usage())
     return
   }
-  if (!args.out || !args.recording) {
-    throw new Error('--out and --recording are required')
+  if (!args.out) throw new Error('--out is required')
+  if (args.scenario) {
+    runScenario(args.scenario, args.out)
+    return
+  }
+  if (!args.recording) {
+    throw new Error('one of --recording or --scenario is required')
   }
 
   const synthFlags: SynthFlags = { ...SYNTH_DEFAULTS, ...stripUndefined(args) }
@@ -362,7 +444,7 @@ interface RenderInputs {
   skippedUnsupported: number
   /** The arguments this run was invoked with, echoed into the header so the
    *  artifact records the inputs that actually produced it. */
-  invocation: { recording: string; out: string }
+  invocation: { source: string; sourceFlag: string; out: string }
 }
 
 function renderFixture(input: RenderInputs): string {
@@ -370,7 +452,7 @@ function renderFixture(input: RenderInputs): string {
   lines.push('//! AUTO-GENERATED by packages/policy-synth/scripts/gen-conformance-fixture.ts')
   lines.push('//! Do not edit by hand. Regenerate with:')
   lines.push('//!   bun run packages/policy-synth/scripts/gen-conformance-fixture.ts \\')
-  lines.push(`//!     --recording ${input.invocation.recording} \\`)
+  lines.push(`//!     ${input.invocation.sourceFlag} ${input.invocation.source} \\`)
   lines.push(`//!     --out ${input.invocation.out}`)
   lines.push('//!')
   lines.push('//! Conformance harness - same predicate, same contexts, asserted-equal')

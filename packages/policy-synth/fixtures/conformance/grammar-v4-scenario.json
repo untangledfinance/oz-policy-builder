@@ -1,0 +1,151 @@
+{
+  "_comment": [
+    "Differential conformance input for the grammar-4 operators. The recording",
+    "path cannot reach these: its deny-case mutators have no way to violate a",
+    "scaled bound, and they skip `or` entirely because violating one branch",
+    "proves nothing while another can still permit.",
+    "",
+    "The predicate is a swap policy that exercises all of v4 at once:",
+    "  and(",
+    "    or(call_fn == swap_a, call_fn == swap_b),   <- disjunction",
+    "    call_arg(1) >= call_arg(0) * 99/100,        <- scaled floor, gte",
+    "    call_arg(2) < 1000,                         <- strict lt",
+    "    call_arg(3) > 5                             <- strict gt",
+    "  )",
+    "",
+    "Cases sit ON the bounds wherever a bound exists, because that is where a",
+    "strictness bug hides: lt/lte and gt/gte differ only at the bound, and a",
+    "case one unit away from it passes under either."
+  ],
+  "predicate": {
+    "op": "and",
+    "children": [
+      {
+        "op": "or",
+        "children": [
+          {
+            "op": "eq",
+            "left": { "kind": "call_fn" },
+            "right": { "kind": "literal_symbol", "value": "swap_a" }
+          },
+          {
+            "op": "eq",
+            "left": { "kind": "call_fn" },
+            "right": { "kind": "literal_symbol", "value": "swap_b" }
+          }
+        ]
+      },
+      {
+        "op": "gte",
+        "left": { "kind": "call_arg", "index": 1 },
+        "right": { "kind": "call_arg_scaled", "index": 0, "num": "99", "den": "100" }
+      },
+      {
+        "op": "lt",
+        "left": { "kind": "call_arg", "index": 2 },
+        "right": { "kind": "literal_i128", "value": "1000" }
+      },
+      {
+        "op": "gt",
+        "left": { "kind": "call_arg", "index": 3 },
+        "right": { "kind": "literal_i128", "value": "5" }
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "permit_first_or_branch",
+      "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+      "fn": "swap_a",
+      "args": [
+        { "type": "i128", "value": "1000" },
+        { "type": "i128", "value": "995" },
+        { "type": "i128", "value": "999" },
+        { "type": "i128", "value": "6" }
+      ]
+    },
+    {
+      "id": "permit_second_or_branch",
+      "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+      "fn": "swap_b",
+      "args": [
+        { "type": "i128", "value": "1000" },
+        { "type": "i128", "value": "995" },
+        { "type": "i128", "value": "999" },
+        { "type": "i128", "value": "6" }
+      ]
+    },
+    {
+      "id": "permit_scaled_floor_exactly_at_bound",
+      "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+      "fn": "swap_a",
+      "args": [
+        { "type": "i128", "value": "1000" },
+        { "type": "i128", "value": "990" },
+        { "type": "i128", "value": "999" },
+        { "type": "i128", "value": "6" }
+      ]
+    },
+    {
+      "id": "permit_scaled_floor_truncates_toward_zero",
+      "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+      "fn": "swap_a",
+      "args": [
+        { "type": "i128", "value": "101" },
+        { "type": "i128", "value": "99" },
+        { "type": "i128", "value": "999" },
+        { "type": "i128", "value": "6" }
+      ]
+    },
+    {
+      "id": "deny_no_or_branch_matches",
+      "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+      "fn": "swap_c",
+      "args": [
+        { "type": "i128", "value": "1000" },
+        { "type": "i128", "value": "995" },
+        { "type": "i128", "value": "999" },
+        { "type": "i128", "value": "6" }
+      ]
+    },
+    {
+      "id": "deny_scaled_floor_one_below_bound",
+      "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+      "fn": "swap_a",
+      "args": [
+        { "type": "i128", "value": "1000" },
+        { "type": "i128", "value": "989" },
+        { "type": "i128", "value": "999" },
+        { "type": "i128", "value": "6" }
+      ]
+    },
+    {
+      "id": "deny_lt_at_the_bound",
+      "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+      "fn": "swap_a",
+      "args": [
+        { "type": "i128", "value": "1000" },
+        { "type": "i128", "value": "995" },
+        { "type": "i128", "value": "1000" },
+        { "type": "i128", "value": "6" }
+      ]
+    },
+    {
+      "id": "deny_gt_at_the_bound",
+      "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+      "fn": "swap_a",
+      "args": [
+        { "type": "i128", "value": "1000" },
+        { "type": "i128", "value": "995" },
+        { "type": "i128", "value": "999" },
+        { "type": "i128", "value": "5" }
+      ]
+    },
+    {
+      "id": "deny_scaled_source_arg_missing",
+      "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+      "fn": "swap_a",
+      "args": [{ "type": "i128", "value": "1000" }]
+    }
+  ]
+}
