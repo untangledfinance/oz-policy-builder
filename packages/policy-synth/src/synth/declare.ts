@@ -15,11 +15,12 @@
 // first: it constrains the amount in THIS call rather than implying a rolling
 // total nothing tracks.
 //
-// What a declaration can say maps one-to-one onto grammar 3:
-//   fn         -> eq(call_fn, literal_symbol)
-//   contract   -> eq(call_contract, literal_address)
-//   maxAmount  -> lte(call_arg(i), literal_i128)
-//   recipients -> in(call_arg(j), [literal_address, ...])
+// What a declaration can say maps one-to-one onto grammar 4:
+//   fn            -> eq(call_fn, literal_symbol)
+//   contract      -> eq(call_contract, literal_address)
+//   maxAmount     -> lte(call_arg(i), literal_i128)
+//   recipients    -> in(call_arg(j), [literal_address, ...])
+//   minOutputRatio-> gte(call_arg(out), call_arg_scaled(in, num, den))
 
 import type { ToolError } from '../errors.ts'
 import type { PredicateLeaf, PredicateNode } from '../types.ts'
@@ -52,6 +53,14 @@ export interface PolicyDeclaration {
    *  explicitly. A rule that permits nothing is a plausible thing to want and
    *  an implausible thing to want by accident. */
   allowZeroCap?: boolean
+  /** Minimum output as a ratio of the call's own input: the output argument
+   *  must be at least `input * num / den`.
+   *
+   *  A swap's acceptable output depends on the size of the trade, so a fixed
+   *  floor would pin the policy to one trade size. The ratio is DECLARED, never
+   *  inferred from a recording: a recorded rate is a price at one moment, and
+   *  freezing it as policy would deny ordinary trades later. */
+  minOutputRatio?: { num: string; den: string; inputArgIndex: number; outputArgIndex: number }
 }
 
 export interface DeclaredPredicate {
@@ -134,6 +143,46 @@ export function declarePredicate(d: PolicyDeclaration): DeclaredPredicate {
       op: 'lte',
       left: { kind: 'call_arg', index: idx },
       right: { kind: 'literal_i128', value: d.maxAmount },
+    })
+  }
+
+  if (d.minOutputRatio !== undefined) {
+    const { num, den, inputArgIndex, outputArgIndex } = d.minOutputRatio
+    if (!/^[0-9]+$/.test(num) || !/^[0-9]+$/.test(den)) {
+      throw declareError(
+        'SYNTHESIS_ERROR',
+        `minOutputRatio num/den must be unsigned integers, got "${num}"/"${den}" (a 1% slippage tolerance is num "99", den "100")`
+      )
+    }
+    // Both are refused on chain at install (INVALID_SCALED_RATIO). Refusing
+    // here too means the caller learns before a transaction is built.
+    if (den === '0') {
+      throw declareError('SYNTHESIS_ERROR', 'minOutputRatio.den is zero: the ratio has no value')
+    }
+    if (num === '0') {
+      throw declareError(
+        'SYNTHESIS_ERROR',
+        'minOutputRatio.num is zero: the floor would be zero, which constrains nothing. Omit it instead.'
+      )
+    }
+    if (inputArgIndex === outputArgIndex) {
+      throw declareError(
+        'SYNTHESIS_ERROR',
+        `minOutputRatio bounds arg[${inputArgIndex}] against itself, which is true for any ratio at or below 1 and false above it - never a slippage floor. Pass the distinct input and output positions.`
+      )
+    }
+    if (BigInt(num) > BigInt(den)) {
+      // Demanding MORE out than went in is not slippage protection; it is a
+      // rule that denies every honest trade. Loud beats a policy that never
+      // permits.
+      warnings.push(
+        `minOutputRatio ${num}/${den} is above 1: it requires the output to EXCEED the input, which no ordinary swap satisfies. Check the ratio is not inverted.`
+      )
+    }
+    children.push({
+      op: 'gte',
+      left: { kind: 'call_arg', index: outputArgIndex },
+      right: { kind: 'call_arg_scaled', index: inputArgIndex, num, den },
     })
   }
 

@@ -463,6 +463,18 @@ export const DeclarePolicyInputSchema = z
     recipients: z.array(z.string()).min(1, 'recipients must not be empty').optional(),
     recipientArgIndex: z.number().int().nonnegative().max(U32_MAX).optional(),
     allowZeroCap: z.boolean().optional(),
+    /** Minimum output as a ratio of the call's own input. num/den are decimal
+     *  STRINGS for the same reason maxAmount is: an i128 ratio does not
+     *  survive a JS number. */
+    minOutputRatio: z
+      .object({
+        num: z.string().regex(/^[0-9]+$/, 'num must be an unsigned integer'),
+        den: z.string().regex(/^[0-9]+$/, 'den must be an unsigned integer'),
+        inputArgIndex: z.number().int().nonnegative().max(U32_MAX),
+        outputArgIndex: z.number().int().nonnegative().max(U32_MAX),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
 export type DeclarePolicyInput = z.infer<typeof DeclarePolicyInputSchema>

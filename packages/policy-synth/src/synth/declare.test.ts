@@ -149,3 +149,59 @@ describe('declarePredicate', () => {
     })
   })
 })
+
+describe('declarePredicate - minOutputRatio (slippage floor)', () => {
+  const base = { fn: 'swap_exact_tokens_for_tokens' }
+  const ratio = (num: string, den: string, inputArgIndex = 0, outputArgIndex = 1) => ({
+    ...base,
+    minOutputRatio: { num, den, inputArgIndex, outputArgIndex },
+  })
+
+  it('lowers to gte(call_arg(out), call_arg_scaled(in, num, den))', () => {
+    const { predicate } = declarePredicate(ratio('99', '100'))
+    expect(predicate).toEqual({
+      op: 'and',
+      children: [
+        { op: 'eq', left: { kind: 'call_fn' }, right: { kind: 'literal_symbol', value: base.fn } },
+        {
+          op: 'gte',
+          left: { kind: 'call_arg', index: 1 },
+          right: { kind: 'call_arg_scaled', index: 0, num: '99', den: '100' },
+        },
+      ],
+    })
+  })
+
+  it('refuses a zero denominator', () => {
+    expect(() => declarePredicate(ratio('99', '0'))).toThrow()
+  })
+
+  it('refuses a zero numerator', () => {
+    // A zero floor constrains nothing while looking like protection.
+    expect(() => declarePredicate(ratio('0', '100'))).toThrow()
+  })
+
+  it('refuses a non-integer ratio', () => {
+    expect(() => declarePredicate(ratio('0.99', '1'))).toThrow()
+    expect(() => declarePredicate(ratio('-1', '100'))).toThrow()
+  })
+
+  it('refuses bounding an argument against itself', () => {
+    // `arg[0] >= arg[0] * num/den` is true for every ratio at or below 1 and
+    // false above it - never a slippage floor, always a mistake.
+    expect(() => declarePredicate(ratio('99', '100', 0, 0))).toThrow()
+  })
+
+  it('warns when the ratio exceeds 1', () => {
+    // Requires more out than went in: denies every honest trade. Loud beats a
+    // policy that silently never permits.
+    const { warnings } = declarePredicate(ratio('101', '100'))
+    expect(warnings.some((w) => w.includes('above 1'))).toBe(true)
+  })
+
+  it('produces a predicate the encoder accepts', () => {
+    // The install gate mirror lives in encode; a declared floor must clear it.
+    const { predicate } = declarePredicate(ratio('99', '100'))
+    expect(() => encodePredicate(predicate)).not.toThrow()
+  })
+})

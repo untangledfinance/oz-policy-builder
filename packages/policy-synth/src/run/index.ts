@@ -459,6 +459,7 @@ export function runDeclarePolicy(raw: unknown): ToolResponse<{
       ...(d.recipients !== undefined ? { recipients: d.recipients } : {}),
       ...(d.recipientArgIndex !== undefined ? { recipientArgIndex: d.recipientArgIndex } : {}),
       ...(d.allowZeroCap !== undefined ? { allowZeroCap: d.allowZeroCap } : {}),
+      ...(d.minOutputRatio !== undefined ? { minOutputRatio: d.minOutputRatio } : {}),
     })
     const { encodedPredicate, predicateHash } = encodePredicate(predicate)
     return { ok: true, data: { predicate, encodedPredicate, predicateHash, warnings } }

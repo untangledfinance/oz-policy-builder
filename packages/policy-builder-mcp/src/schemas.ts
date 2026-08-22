@@ -138,6 +138,14 @@ export const DeclarePolicyToolShape = {
   recipients: z.array(z.string()).optional(),
   recipientArgIndex: z.number().int().nonnegative().optional(),
   allowZeroCap: z.boolean().optional(),
+  minOutputRatio: z
+    .object({
+      num: z.string(),
+      den: z.string(),
+      inputArgIndex: z.number().int().nonnegative(),
+      outputArgIndex: z.number().int().nonnegative(),
+    })
+    .optional(),
 } as const
 
 /** Flat ZodRawShape for `install_policy`. `rule` is typed as `z.unknown()`

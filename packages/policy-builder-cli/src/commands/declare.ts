@@ -59,6 +59,24 @@ export async function runDeclareCommand(
   }
   if (pairs['to-arg'] !== undefined) args.recipientArgIndex = Number(pairs['to-arg'])
   if (pairs['allow-zero-cap'] !== undefined) args.allowZeroCap = true
+  // Slippage floor: `--min-out-ratio 99/100 --in-arg 0 --out-arg 1`. All four
+  // parts are required together - a ratio with no argument positions cannot
+  // be lowered, and guessing them would bound the wrong values silently.
+  if (pairs['min-out-ratio'] !== undefined) {
+    const [num, den] = String(pairs['min-out-ratio']).split('/')
+    if (!num || !den) {
+      throw missing('declare: --min-out-ratio must be `num/den`, e.g. 99/100 for a 1% floor')
+    }
+    if (pairs['in-arg'] === undefined || pairs['out-arg'] === undefined) {
+      throw missing('declare: --min-out-ratio also needs --in-arg <i> and --out-arg <j>')
+    }
+    args.minOutputRatio = {
+      num,
+      den,
+      inputArgIndex: Number(pairs['in-arg']),
+      outputArgIndex: Number(pairs['out-arg']),
+    }
+  }
 
   const res = runDeclarePolicy(args)
   const data = formatToolResponse(res, flags, 'declare') as DeclareResult
