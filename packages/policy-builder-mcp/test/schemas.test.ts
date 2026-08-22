@@ -4,8 +4,11 @@
 // surface a machine-readable ZodError (no throws in the tool path).
 
 import { describe, expect, it } from 'bun:test'
+import { z } from 'zod'
 import {
+  InstallPolicyToolShape,
   RecordTransactionInputSchema,
+  RevokePolicyToolShape,
   SynthesizePolicyInputSchema,
   ToolErrorSchema,
 } from '../src/schemas.ts'
@@ -308,4 +311,32 @@ describe('ToolErrorSchema', () => {
     })
     expect(r.success).toBe(false)
   })
+})
+
+describe('the smart-account tools can target mainnet', () => {
+  // A field absent from a tool SHAPE is stripped before the tool body runs,
+  // so the body's own default silently wins. `install_policy` and
+  // `revoke_policy` omitted `network`, whose input-schema default is
+  // `testnet`, which made both tools testnet-only: an MCP client had no way
+  // to reach the mainnet interpreter pin. It presented as a deliberate
+  // testnet pin rather than a missing parameter, so integrators built the
+  // install by hand instead of reporting it.
+  //
+  // The invariant, not the incident: a network the caller asks for reaches
+  // the tool body. Asserting the parse OUTPUT is what catches a dropped
+  // field - asserting the input, or that the parse succeeds, would not,
+  // because stripping an unknown key succeeds.
+  for (const [name, shape] of [
+    ['install_policy', InstallPolicyToolShape],
+    ['revoke_policy', RevokePolicyToolShape],
+  ] as const) {
+    it(`${name} passes network through to the tool body`, () => {
+      const parsed = z.object(shape).parse({
+        smartAccount: 'C'.repeat(56),
+        sourceAccount: 'G'.repeat(56),
+        network: 'mainnet',
+      })
+      expect(parsed.network).toBe('mainnet')
+    })
+  }
 })

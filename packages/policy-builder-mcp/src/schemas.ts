@@ -106,13 +106,20 @@ export type {
 } from '@crediolabs/policy-synth/run'
 
 /** Common base for `install_policy` and `revoke_policy`: smartAccount,
- *  sourceAccount, optional RPC URL, optional base fee. Both share the
- *  same smart-account context, so the SDK-emitted JSON Schema stays
+ *  sourceAccount, target network, optional RPC URL, optional base fee. Both
+ *  share the same smart-account context, so the SDK-emitted JSON Schema stays
  *  identical for those fields. The body re-validates against the strict
  *  schemas in `@crediolabs/policy-synth/run`. */
 const SmartAccountToolShape = {
   smartAccount: z.string().min(1).optional(),
   sourceAccount: z.string().min(1).optional(),
+  /** Omitting this from the shape made both tools testnet-ONLY. The input
+   *  schema defaults `network` to `testnet` and expects a mainnet caller to
+   *  set it, but a field absent from the tool shape is STRIPPED before the
+   *  body runs, so an MCP client could not reach the mainnet pin at all. The
+   *  failure presented as a deliberate testnet pin rather than as a missing
+   *  parameter, which sent integrators to build the install by hand. */
+  network: NetworkSchema.optional(),
   rpcUrl: z.string().url().optional(),
   baseFee: z.number().int().positive().optional(),
 }

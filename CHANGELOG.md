@@ -5,6 +5,18 @@ Notable changes to the published packages. The format follows
 packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 `@crediolabs/policy-builder-mcp`) version together.
 
+## [Unreleased]
+
+### Fixed
+
+- `install_policy` and `revoke_policy` were testnet-ONLY over MCP. Their tool
+  shape omitted `network`, and a field absent from a tool shape is stripped
+  before the tool body runs, so the input schema's `testnet` default always
+  won and no MCP client could reach the mainnet interpreter pin. It presented
+  as a deliberate testnet pin rather than a missing parameter, so integrators
+  built the install by hand instead of reporting it. Shipped 0.3.0 with this
+  defect, alongside the mainnet pins it makes unreachable.
+
 ## [0.3.0] - 2026-08-22
 
 Version 0.2.0 was published from the `octogate` repository, which carries its
