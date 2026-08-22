@@ -24,9 +24,16 @@ It is built as two halves:
 
 ## What is actually running
 
-The policy interpreter is deployed on Stellar mainnet and testnet. Policies
-built here have been installed on mainnet accounts and shown to permit the
-call they were meant to permit and deny the one they were meant to deny.
+The policy interpreter is deployed on Stellar mainnet and testnet. Both
+instances pinned below were deployed on 2026-08-22 and have not been exercised
+yet: no policy has been installed against either, and neither has recorded an
+invocation.
+
+Permit-and-deny behaviour was exercised on the earlier grammar-1 mainnet
+instance (`CALZAMUPREIRY4TULBEXIK77AUTOEJG63XLCPUWEHHQDOVK6ZVVS7VQ2`, still
+live, no longer pinned here). That is a different binary from the one pinned
+below, so those runs do not evidence this deployment. The behaviour of the
+pinned binary is evidenced by the test suites, not by mainnet use.
 
 The deployment is pinned in `packages/policy-synth/src/run/schemas.ts`:
 
