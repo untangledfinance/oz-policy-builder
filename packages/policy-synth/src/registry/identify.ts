@@ -107,7 +107,10 @@ export function identifyProtocol(
  *  declared type. `other` is intentionally NOT a valid ABI match - it means
  *  the decoder couldn't classify the value, which is exactly the signal
  *  fail-closed should refuse. */
-function argsMatchAbi(expected: AbiArg[], actual: ScVal[]): boolean {
+/** Exported so the on-chain-spec path checks a call the SAME way a pinned
+ *  protocol does. Reimplementing it there would let the two drift, and a
+ *  looser copy would be the fail-OPEN direction. */
+export function argsMatchAbi(expected: AbiArg[], actual: ScVal[]): boolean {
   if (expected.length !== actual.length) return false
   for (let i = 0; i < expected.length; i += 1) {
     const want = expected[i]

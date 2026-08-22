@@ -23,7 +23,10 @@ export interface SorobanTxResponse {
 
 export type RpcFetcher = (hash: string) => Promise<SorobanTxResponse | null>
 
-const PUBLIC_RPC_URLS: Record<Network, string> = {
+/** Exported so the on-chain spec lookup reads from the SAME endpoint the
+ *  recorder fetched the transaction from. Two different endpoints could
+ *  disagree about what a contract is. */
+export const PUBLIC_RPC_URLS: Record<Network, string> = {
   testnet: 'https://soroban-testnet.stellar.org',
   // The brief pins testnet; mainnet is left to the caller via injection. We keep
   // a public default that matches the brief's note ("e.g. https://mainnet.sorobanrpc.com").

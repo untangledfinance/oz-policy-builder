@@ -92,6 +92,11 @@ describe('corpus replay: real mainnet Soroban transactions', () => {
     // ── XDR mode ──────────────────────────────────────────────────────────
     it(`XDR: ${testLabel}`, async () => {
       const r = await recordTransaction({
+        // Registry-ONLY: this corpus pins what the compiled-in registry
+        // recognises. Leaving spec resolution on would make every
+        // unrecognised case reach for the network and turn a hermetic
+        // fixture replay into a live dependency.
+        resolveContractSpecs: false,
         network: 'mainnet',
         xdr: entry.envelopeXdr,
       })
@@ -132,6 +137,11 @@ describe('corpus replay: real mainnet Soroban transactions', () => {
     // ── Hash mode (injector) ───────────────────────────────────────────────
     it(`HASH: ${testLabel}`, async () => {
       const r = await recordTransaction({
+        // Registry-ONLY: this corpus pins what the compiled-in registry
+        // recognises. Leaving spec resolution on would make every
+        // unrecognised case reach for the network and turn a hermetic
+        // fixture replay into a live dependency.
+        resolveContractSpecs: false,
         network: 'mainnet',
         hash: entry.hash,
         fetcher,
@@ -167,7 +177,15 @@ describe('corpus replay: real mainnet Soroban transactions', () => {
     const blendSubmit = CORPUS.find((e) => e._control === true && e.category === 'blend:submit')
     expect(blendSubmit).toBeDefined()
 
-    const r = await recordTransaction({ network: 'mainnet', xdr: blendSubmit?.envelopeXdr ?? '' })
+    const r = await recordTransaction({
+      // Registry-ONLY: this corpus pins what the compiled-in registry
+      // recognises. Leaving spec resolution on would make every
+      // unrecognised case reach for the network and turn a hermetic
+      // fixture replay into a live dependency.
+      resolveContractSpecs: false,
+      network: 'mainnet',
+      xdr: blendSubmit?.envelopeXdr ?? '',
+    })
     expect(r.ok).toBe(true)
     if (r.ok) {
       expect(r.data.invocations.length).toBe(1)
@@ -182,7 +200,15 @@ describe('corpus replay: real mainnet Soroban transactions', () => {
     const sep41Tx = CORPUS.find((e) => e.category === 'sep41:transfer')
     expect(sep41Tx).toBeDefined()
 
-    const r = await recordTransaction({ network: 'mainnet', xdr: sep41Tx?.envelopeXdr ?? '' })
+    const r = await recordTransaction({
+      // Registry-ONLY: this corpus pins what the compiled-in registry
+      // recognises. Leaving spec resolution on would make every
+      // unrecognised case reach for the network and turn a hermetic
+      // fixture replay into a live dependency.
+      resolveContractSpecs: false,
+      network: 'mainnet',
+      xdr: sep41Tx?.envelopeXdr ?? '',
+    })
     expect(r.ok).toBe(true)
     if (r.ok) {
       expect(r.data.invocations.length).toBeGreaterThanOrEqual(1)
@@ -193,7 +219,15 @@ describe('corpus replay: real mainnet Soroban transactions', () => {
   // ── Shape invariant: every ok result has well-typed invocations ──────────
   it('shape invariant: ok results always have well-typed invocations arrays', async () => {
     for (const entry of CORPUS) {
-      const r = await recordTransaction({ network: 'mainnet', xdr: entry.envelopeXdr })
+      const r = await recordTransaction({
+        // Registry-ONLY: this corpus pins what the compiled-in registry
+        // recognises. Leaving spec resolution on would make every
+        // unrecognised case reach for the network and turn a hermetic
+        // fixture replay into a live dependency.
+        resolveContractSpecs: false,
+        network: 'mainnet',
+        xdr: entry.envelopeXdr,
+      })
       if (r.ok) {
         expect(Array.isArray(r.data.invocations)).toBe(true)
         for (const inv of r.data.invocations) {

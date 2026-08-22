@@ -5,6 +5,29 @@ Notable changes to the published packages. The format follows
 packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 `@crediolabs/policy-builder-mcp`) version together.
 
+## [Unreleased]
+
+### Added
+
+- A DECLARATIVE front-end: `policy-builder declare` and the `declare_policy`
+  MCP tool. `synthesize` infers a predicate from a transaction that happened
+  and hard-required `--recorded-tx`, so a contract the registry did not
+  recognise had no path at all. `declare` takes the constraint stated outright
+  - the method to pin, and optionally the contract, a per-call amount cap and a
+  recipient allowlist - with no RPC and no parseConfidence, so a registry miss
+  cannot refuse it. It is the surviving half of the removed `MandateSpec` and
+  deliberately not the rest: the input schema is strict, so naming
+  `spendingLimit` or `approvalThreshold` is an error rather than a silent
+  no-op. A defaulted argument index emits a warning naming the index assumed.
+- The recorder now reads a contract's own interface OFF CHAIN when the
+  compiled-in registry does not recognise it, and verifies every recorded call
+  against it. A Soroban contract embeds a typed spec in its wasm, so the
+  recorder had been refusing calls whose interface was one RPC round-trip
+  away. Recognition is all-or-nothing per contract and only ever ADDS: a
+  missing spec, an unreachable endpoint or a call the interface does not
+  describe leaves the recording exactly as it was. Set
+  `resolveContractSpecs: false` for registry-only behaviour.
+
 ## [0.3.1] - 2026-08-22
 
 ### Fixed

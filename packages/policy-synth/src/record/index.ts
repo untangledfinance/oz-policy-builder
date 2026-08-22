@@ -17,8 +17,13 @@
 // Returns ToolResponse<RecordedTransaction> per the canonical envelope
 // defined in src/errors.ts.
 
-import type { xdr } from '@stellar/stellar-sdk'
+import { Networks, type xdr } from '@stellar/stellar-sdk'
 import type { ToolError, ToolResponse } from '../errors.ts'
+import {
+  resolveContractsByOnChainSpec,
+  type SpecFetcher,
+  specFetcherFromRpc,
+} from '../registry/on-chain-spec.ts'
 import type { Network, ParseConfidence, RecordedTransaction } from '../types.ts'
 import type { DecodedTransaction } from './decode.ts'
 import {
@@ -34,7 +39,7 @@ import {
   isBelowThreshold,
 } from './freshness.ts'
 import { extractTokenMovements } from './movements.ts'
-import { createRpcServer, type RpcFetcher } from './rpc.ts'
+import { createRpcServer, PUBLIC_RPC_URLS, type RpcFetcher } from './rpc.ts'
 import { validateAgainstEvents } from './validate.ts'
 
 /** Public input shape. The brief pins:
@@ -63,9 +68,55 @@ export interface RecordInput {
    *  automatically; tests can pass a deterministic stub. */
   crossNetworkFetcher?: RpcFetcher
   confidenceOverride?: number
+  /** Read a contract's own interface off chain when the compiled-in registry
+   *  does not recognise it. Default ON: the registry covers the protocols we
+   *  pinned by hand, and refusing everything else reported `no-abi` for
+   *  contracts that publish a full typed spec. Set false to record against
+   *  the registry alone (no extra RPC). */
+  resolveContractSpecs?: boolean
+  /** Test seam for the spec lookup. Unset in production, where it is built
+   *  from the network's pinned RPC URL. */
+  specFetcher?: SpecFetcher
 }
 
 export type RecordResult = ToolResponse<RecordedTransaction>
+
+/** Second pass over the contracts the compiled-in registry did not recognise.
+ *
+ *  Each candidate's own interface is read off chain and every call it received
+ *  is checked against it; the ones that verify are fed back through the decoder
+ *  as known. Re-decoding rather than patching the first result keeps ONE code
+ *  path computing parseConfidence - a hand-adjusted count here would be a
+ *  second implementation of the gate, free to drift from the real one.
+ *
+ *  Only ever ADDS recognition. A missing spec, an unreachable RPC or a call the
+ *  interface does not describe all leave the recording exactly as it was. */
+async function resolveByOnChainSpec(
+  input: RecordInput,
+  decoded: DecodedTransaction,
+  redecode: (known: ReadonlySet<string>) => DecodedTransaction
+): Promise<DecodedTransaction> {
+  if (input.resolveContractSpecs === false) return decoded
+  if (decoded.unknownContracts.length === 0) return decoded
+  const fetcher =
+    input.specFetcher ??
+    specFetcherFromRpc(
+      PUBLIC_RPC_URLS[input.network],
+      input.network === 'mainnet' ? Networks.PUBLIC : Networks.TESTNET
+    )
+  let resolved: ReadonlySet<string>
+  try {
+    resolved = await resolveContractsByOnChainSpec(
+      decoded.invocations,
+      decoded.unknownContracts.map((u) => u.contract),
+      fetcher
+    )
+  } catch {
+    // A lookup failure must not fail the recording that already succeeded.
+    return decoded
+  }
+  return resolved.size === 0 ? decoded : redecode(resolved)
+}
 
 export async function recordTransaction(input: RecordInput): Promise<RecordResult> {
   if (!input.network) {
@@ -138,6 +189,9 @@ export async function recordTransaction(input: RecordInput): Promise<RecordResul
       if (e instanceof DecodeError) return err('RECORDING_FAILED', e.message, false)
       throw e
     }
+    decoded = await resolveByOnChainSpec(input, decoded, (known) =>
+      decodeEnvelope(fetched.envelopeXdr, events, [], fetched.ledger, known, input.network)
+    )
     return finish(input.network, decoded, input.confidenceOverride)
   }
 
@@ -157,6 +211,9 @@ export async function recordTransaction(input: RecordInput): Promise<RecordResul
       false
     )
   }
+  decoded = await resolveByOnChainSpec(input, decoded, (known) =>
+    decodeEnvelopeXdr(xdrStr, [], [], 0, known, input.network)
+  )
   return finish(input.network, decoded, input.confidenceOverride)
 }
 
