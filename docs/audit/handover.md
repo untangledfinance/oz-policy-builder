@@ -114,7 +114,7 @@ Every log in [`evidence/`](evidence/) was produced against this tree.
 
 | Log | Command | Result |
 | --- | --- | --- |
-| [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build, wasm-hash pin parity | clean; 70 tests + 9 conformance pass; pinned hash matches the built wasm |
+| [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 70 tests + 9 conformance pass |
 | [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 567 pass, 1 skip, 0 fail |
 | [`cargo-audit.log`](evidence/cargo-audit.log) | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | [`bun-audit.log`](evidence/bun-audit.log) | `bun audit` | 0 vulnerabilities |
@@ -148,7 +148,6 @@ and forcing `eq` true was caught by three separate deny cases.
 | Contract | `cargo test` | 79 passed, 0 failed |
 | Contract | `cargo test --release --test conformance` | 9 passed, 0 failed |
 | Contract | `cargo build --release --target wasm32v1-none` | builds |
-| Cross-layer | built wasm sha256 == `PINNED_INTERPRETER_WASM_SHA256` | match |
 | Off-chain | `bunx biome check .` | 112 files, 0 findings |
 | Off-chain | `bun run typecheck` | clean |
 | Off-chain | `bun test` | 567 passed, 1 skipped, 0 failed |
@@ -200,15 +199,24 @@ was live until the deployment above: the tree had moved to grammar 3 while the
 pin still named version-1 instances, so every install it built was refused on
 chain with error 200 `VersionMismatch`.
 
-Two gates hold the pin, because the version alone is not enough to identify a
-binary. `grammar-version-parity.test.ts` compares the builder's grammar version
-against `PINNED_INTERPRETER_GRAMMAR_VERSION`, and a CI step compares
-`PINNED_INTERPRETER_WASM_SHA256` against the sha256 of a wasm built from this
-tree - so a contract change without a redeploy, or a redeploy that updates the
-address and version but not the hash, fails the build. Comparing by hash is
-sound here because the build is reproducible: rebuilding from a different source
-path and a different `CARGO_TARGET_DIR` was checked and produces a
-byte-identical wasm.
+One gate holds the pin, and it is the weaker of the two that should.
+`grammar-version-parity.test.ts` compares the builder's grammar version against
+`PINNED_INTERPRETER_GRAMMAR_VERSION`, so a version skew fails the build. Nothing
+checks `PINNED_INTERPRETER_WASM_SHA256`, so a contract change without a redeploy,
+or a redeploy that updates the address and version but not the hash, would pass.
+
+**The release build is not reproducible, so the deployed bytecode cannot be
+independently verified against this source.** The wasm bakes in the absolute
+`CARGO_HOME` path, and three builds of this tree produced three different
+hashes: one locally, one with a fresh `CARGO_HOME`, and one in CI. The deployed
+wasm therefore carries the path of the machine that built it, and an auditor
+rebuilding from this source will not reproduce
+`2995e398d196669d3828ef1934415255dc59904fba25fc6f9edd1a0bedfeb99a`.
+
+The fix is `--remap-path-prefix` for the registry and crate roots, which was
+checked and does give a byte-identical wasm across differing source paths and
+`CARGO_HOME`s. It changes the hash, so it has to land with a redeploy and a
+re-pin rather than on its own.
 
 Two further points on where the risk sits, both carried in the threat model
 rather than only here:
