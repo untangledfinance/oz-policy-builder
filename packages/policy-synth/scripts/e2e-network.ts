@@ -198,7 +198,18 @@ async function main(): Promise<void> {
   log('INFO', `grammar        ${PINNED_INTERPRETER_GRAMMAR_VERSION}`)
   log('INFO', `rpc            ${RPC_URL}`)
 
-  // ---- 0. a funded signer ----
+  // ---- 0. two signers, and the separation is the whole point ----
+  // `kp` is the ADMIN: it owns rule 0, which the constructor creates with no
+  // policy attached, so it can authorise anything. `agent` is the CONSTRAINED
+  // key: it goes on the policed rule and NOWHERE ELSE.
+  //
+  // Putting both on the policed rule would make the deny meaningless. OZ takes
+  // the authority of the rule the CALLER NAMES, not the strictest rule that
+  // could apply, so a key sitting on both an unpoliced and a policed rule
+  // simply names the unpoliced one and the predicate never runs. Verified on
+  // testnet: the identical forbidden call is denied #100 naming the policed
+  // rule and ALLOWED naming rule 0. The separation below is what makes
+  // "this key can only transfer" a true statement rather than a scoped one.
   const secret = arg('secret') ?? process.env.E2E_SECRET
   let kp: Keypair
   if (NETWORK === 'mainnet') {
@@ -208,7 +219,9 @@ async function main(): Promise<void> {
     kp = secret ? Keypair.fromSecret(secret) : Keypair.random()
     if (!secret) await fundWithFriendbot(kp.publicKey())
   }
-  log('INFO', `signer         ${kp.publicKey()}`)
+  const agent = Keypair.random()
+  log('INFO', `admin  (rule 0) ${kp.publicKey()}`)
+  log('INFO', `agent  (rule 1) ${agent.publicKey()}`)
 
   // ---- 1. deploy a fresh OZ smart account ----
   // Constructor: the initial signer set, and an empty policy map (policies are
@@ -237,6 +250,25 @@ async function main(): Promise<void> {
     deployed.returnValue?.address() as xdr.ScAddress
   ).toString()
   log('PASS', `smart account deployed  ${smartAccount}`)
+
+  // ---- 1b. the agent needs its own funded account ----
+  // A delegated signer authenticates through source-account credentials here,
+  // so it has to be the transaction source, which means it needs to exist and
+  // hold a reserve.
+  if (NETWORK === 'mainnet') {
+    const createSrc = await server.getAccount(kp.publicKey())
+    const createTx = new TransactionBuilder(createSrc, { fee: FEE, networkPassphrase: PASSPHRASE })
+      .addOperation(
+        Operation.createAccount({ destination: agent.publicKey(), startingBalance: '2' })
+      )
+      .setTimeout(TIMEOUT)
+      .build()
+    createTx.sign(kp)
+    await submit(createTx)
+  } else {
+    await fundWithFriendbot(agent.publicKey())
+  }
+  log('PASS', 'agent account funded')
 
   // ---- 2. give the account something to move ----
   // A classic payment cannot target a contract address, so the XLM moves
@@ -277,7 +309,10 @@ async function main(): Promise<void> {
     interpreterAddress: INTERPRETER,
     predicateBlobBase64: encoded.encodedPredicate,
   } as const
-  const signers = [{ kind: 'delegated', address: kp.publicKey() }] as const
+  // The AGENT is the only signer on the policed rule. The admin is not on it,
+  // and the agent is not on rule 0, so neither key can borrow the other's
+  // authority.
+  const signers = [{ kind: 'delegated', address: agent.publicKey() }] as const
   const ruleArgs = buildAddContextRuleArgs(
     {
       contextRuleType: { kind: 'default' },
@@ -310,7 +345,7 @@ async function main(): Promise<void> {
     new xdr.Int128Parts({ hi: new xdr.Int64(0), lo: new xdr.Uint64(10_000_000) })
   )
   const permit = await invokeAsAccount({
-    kp,
+    kp: agent,
     smartAccount,
     contract: sac,
     fnName: 'transfer',
@@ -329,17 +364,18 @@ async function main(): Promise<void> {
   // nothing. It is set ahead of the current ledger so the ONLY thing left to
   // reject the call is the predicate.
   const denyLedger = (await server.getLatestLedger()).sequence + 1000
+  const approveArgs = [
+    Address.fromString(smartAccount).toScVal(),
+    Address.fromString(kp.publicKey()).toScVal(),
+    amount,
+    xdr.ScVal.scvU32(denyLedger),
+  ]
   const denied = await invokeAsAccount({
-    kp,
+    kp: agent,
     smartAccount,
     contract: sac,
     fnName: 'approve',
-    args: [
-      Address.fromString(smartAccount).toScVal(),
-      Address.fromString(kp.publicKey()).toScVal(),
-      amount,
-      xdr.ScVal.scvU32(denyLedger),
-    ],
+    args: approveArgs,
     contextRuleIds: [1],
   }).then(
     () => ({ refused: false, why: '' }),
@@ -363,9 +399,35 @@ async function main(): Promise<void> {
   }
   log('PASS', 'DENY approve refused by the interpreter (#100 ArgMismatch)')
 
+  // ---- 6. the deny has to be unroutable, not just correct ----
+  // OZ takes the authority of the rule the CALLER NAMES. A key on both a
+  // policed and an unpoliced rule therefore is not constrained at all: it
+  // names the unpoliced one and the predicate never runs. The agent is on the
+  // policed rule ONLY, so naming rule 0 must fail on MEMBERSHIP. Without this
+  // step "the forbidden call was denied" would be a statement about one
+  // routing choice rather than about the key.
+  const bypass = await invokeAsAccount({
+    kp: agent,
+    smartAccount,
+    contract: sac,
+    fnName: 'approve',
+    args: approveArgs,
+    contextRuleIds: [0],
+  }).then(
+    () => ({ refused: false, why: '' }),
+    (e: unknown) => ({ refused: true, why: e instanceof Error ? e.message : String(e) })
+  )
+  if (!bypass.refused) {
+    log('FAIL', 'BYPASS the agent routed the forbidden call through unpoliced rule 0')
+    process.exit(1)
+  }
+  log('PASS', 'BYPASS blocked: the agent is not a signer on unpoliced rule 0')
+
   console.log('')
   log('INFO', `smart account  ${smartAccount}`)
-  log('INFO', 'permit and deny both proven against the pinned interpreter')
+  log('INFO', `agent (constrained to transfer) ${agent.publicKey()}`)
+  log('INFO', 'permit, deny and the unpoliced-rule bypass all proven on chain')
+  log('INFO', 'the admin key retains full authority through rule 0, by design')
 }
 
 main().catch((e) => {

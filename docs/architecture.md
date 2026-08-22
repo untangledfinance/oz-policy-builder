@@ -184,6 +184,20 @@ and each needing its own context rule. A predicate pinning
 the nested `transfer` governs that. Write predicates per context, not per
 user-visible action.
 
+**The account matches the rule the CALLER NAMES, not the strictest rule that
+could apply.** Authority is the maximum over the named rules, never the
+intersection. So a predicate only constrains a key if the policed rule is the
+ONLY rule that key is on. A key that also sits on an unpoliced rule is not
+constrained at all - it names the unpoliced rule and the predicate never runs.
+Verified on testnet: the identical forbidden call is denied `#100` naming the
+policed rule and PERMITTED naming an unpoliced one, same key, same account.
+
+This is the difference between "the interpreter denied that call" and "this key
+cannot make that call", and only the second is a security property. Getting it
+means signer separation, not predicate strength: put the constrained key on the
+policed rule and nowhere else. The e2e harness asserts the closure rather than
+assuming it, and `docs/audit/evidence/e2e-network.log` carries the result.
+
 ## The interpreter contract
 
 `policy-interpreter` is a single Soroban contract with this surface:

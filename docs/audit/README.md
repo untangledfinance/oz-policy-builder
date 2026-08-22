@@ -90,6 +90,24 @@ The permit is not vacuous either, because the deny is its control: both calls go
 through the same account, the same rule and the same attached policy, so a
 missing or unbound policy would have let the `approve` through.
 
+A third condition was added after review, and it is the one that turns the
+result into a security claim. An account resolves a call against the rule the
+CALLER NAMES, taking the maximum authority over the named rules rather than the
+intersection. An earlier version of this harness put the same key on the
+policed rule AND on the unpoliced admin rule, which made the deny true but
+weak: it showed the interpreter evaluating its predicate correctly when its
+rule was named, NOT that the key was constrained. The same key naming the
+unpoliced rule was permitted to do the forbidden thing, confirmed on testnet
+before the harness was changed.
+
+The harness now puts the constrained agent on the policed rule and nowhere
+else, and asserts the closure: the agent's forbidden call, routed through the
+unpoliced rule, is rejected on membership. So the claim is about the key, not
+about one routing choice. The admin key retains full authority through the
+unpoliced rule by design - a policy constrains the keys placed under it, not
+the account's owner - and any deployment that puts a constrained key on a
+second, unpoliced rule has no constraint at all.
+
 ## Reproducing the Scout run
 
 `cargo-scout-audit` 0.3.16 cannot analyse a `soroban-sdk` 27 crate unpatched,

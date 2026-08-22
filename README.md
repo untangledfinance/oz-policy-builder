@@ -30,13 +30,22 @@ installed, the call it allows permitted, and the call it forbids denied by the
 contract.
 
 On mainnet, smart account
-`CBNXWHQNUKVKMGXT6I3VECQH6HIL2LBRZ5ZXZYNQR5QX3DXTFKZPZA5M` carries the
+`CBASTKCV6RZFO6SPEBRFJJMAJ5FRCNYVERWX5I6QSRLE3YZ4X6OEVOAU` carries the
 predicate `eq(call_fn, "transfer")` (hash `9c1b891f...`) installed at ledger
-64066476. A `transfer` from that account was permitted at ledger 64066477; an
-`approve` on the same token, under the same rule, was refused by the interpreter
-with `#100 ArgMismatch`. The `approve` was given a valid expiration ledger
-first, so the token had no reason of its own to reject it and the predicate is
-the only thing that did.
+64066870. Its agent key `GD6SFD5C...` transferred at ledger 64066871; the same
+key's `approve` on the same token was refused by the interpreter with
+`#100 ArgMismatch`. The `approve` was given a valid expiration ledger first, so
+the token had no reason of its own to reject it and the predicate is the only
+thing that did.
+
+The agent key sits on the policed rule and on no other, which is what makes
+that a statement about the KEY rather than about one routing choice. A smart
+account resolves a call against the rule the caller names, so a key that also
+sat on the unpoliced admin rule could simply name that one and never reach the
+predicate. The run proves the closure directly: the same forbidden call, routed
+by the agent through the unpoliced rule, is rejected because the agent is not a
+signer there. The admin key does retain full authority through that rule, by
+design - a policy constrains the keys put under it, not the account's owner.
 
 Reproduce either network with
 `bun packages/policy-synth/scripts/e2e-network.ts --network testnet`; the
