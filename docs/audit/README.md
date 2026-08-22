@@ -6,7 +6,7 @@ Regenerate them whenever a claim they back changes.
 | Log | Command | Result |
 | --- | --- | --- |
 | `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, reproducible wasm build, hash pin parity | clean; 70 tests + 9 conformance pass; built wasm matches the pin |
-| `offchain-gate.log` | `biome check .`, `bun run typecheck`, `bun test` | clean; 567 pass, 1 skip, 0 fail |
+| `offchain-gate.log` | `biome check .`, `bun run typecheck`, `bun test` | clean; 612 pass, 1 skip, 0 fail |
 | `cargo-audit.log` | `cargo audit` | 0 vulnerabilities; 1 unmaintained-crate warning |
 | `bun-audit.log` | `bun audit` | 0 vulnerabilities |
 | `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 170 style warnings, 0 security |
@@ -140,6 +140,36 @@ and was lost when the npm lineage moved here - no commit removed it and the
 version number went up. It is restored adapted to grammar 3: the `or` and `not`
 cases are gone with those operators, as are the oracle bounds the stored
 document used to carry.
+
+### 7. On-chain spec resolution adds an RPC to the trust boundary (NEW this round)
+
+The recorder now reads an unrecognised contract's own interface off chain and
+raises confidence when every recorded call matches it. That moves a decision
+which used to depend only on compiled-in data onto a network response, and an
+auditor should see it stated rather than infer it from the diff.
+
+What an attacker controlling the RPC endpoint gains: the ability to serve a
+fabricated spec whose types happen to match the recorded call, turning a
+refusal into a `parseConfidence` of 1.0 for a contract nobody understands. The
+predicate synthesised from that recording still pins only the contract address
+and method actually observed, so the attacker does not gain a wider policy -
+they gain the removal of a WARNING the operator would otherwise have seen.
+
+Three things bound it, none of which make it disappear:
+
+- The spec is read from the SAME endpoint the transaction was fetched from. An
+  endpoint able to forge a spec can already forge the transaction, so this adds
+  no NEW trusted party - it widens what an already-trusted one can influence.
+- Recognition is all-or-nothing per contract and only ever ADDS. A missing
+  spec, an unreachable endpoint or a call the interface does not describe
+  leaves the recording exactly as it was, so the failure direction is refusal.
+- `resolveContractSpecs: false` restores registry-only behaviour for a caller
+  who wants the decision to depend on nothing but compiled-in data.
+
+Not mitigated, and deliberately not claimed to be: nothing pins or attests the
+fetched spec. Verifying it against the deployed wasm hash would close this, and
+is the obvious hardening if the trust in the RPC endpoint is ever judged too
+broad. Recorded here as an accepted, bounded exposure rather than as solved.
 
 ## Reproducing the Scout run
 

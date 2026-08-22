@@ -1,193 +1,112 @@
-[INFO] Validating CLI arguments...
-[INFO] Getting detector names...
-[INFO] Compiling detectors...
-[INFO] Running scout...
 Warning: `--pipe-stdout` is experimental
 Checking with toolchain `nightly-2025-08-07-x86_64-unknown-linux-gnu`
-   Compiling proc-macro2 v1.0.107
-   Compiling quote v1.0.47
-   Compiling unicode-ident v1.0.24
-   Compiling serde_core v1.0.229
-   Compiling serde v1.0.229
-   Compiling zmij v1.0.23
-   Compiling serde_json v1.0.151
-   Compiling memchr v2.8.3
-   Compiling itoa v1.0.18
-   Compiling compiler_builtins v0.1.160 (/home/ubuntu/.rustup/toolchains/nightly-2025-08-07-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/compiler-builtins/compiler-builtins)
-   Compiling ident_case v1.0.1
-   Compiling strsim v0.11.1
-   Compiling version_check v0.9.5
-   Compiling core v0.0.0 (/home/ubuntu/.rustup/toolchains/nightly-2025-08-07-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core)
-   Compiling autocfg v1.5.1
-   Compiling typenum v1.20.1
-   Compiling schemars v0.8.22
-   Compiling dyn-clone v1.0.20
-   Compiling cpufeatures v0.2.17
-   Compiling cfg-if v1.0.4
-   Compiling data-encoding v2.11.0
-   Compiling escape-bytes v0.1.1
-   Compiling ethnum v1.5.3
-   Compiling semver v1.0.28
-   Compiling either v1.17.0
-   Compiling equivalent v1.0.2
-   Compiling hashbrown v0.17.1
-   Compiling thiserror v1.0.69
-   Compiling fnv v1.0.7
-   Compiling generic-array v0.14.9
-   Compiling prettyplease v0.2.37
-   Compiling base64 v0.22.1
-   Compiling num-traits v0.2.19
-   Compiling itertools v0.13.0
-   Compiling heapless v0.8.0
-   Compiling rustc_version v0.4.1
-   Compiling static_assertions v1.1.0
-   Compiling heck v0.5.0
-   Compiling syn v3.0.3
-   Compiling syn v2.0.119
-   Compiling indexmap v2.14.0
-   Compiling num-integer v0.1.46
-   Compiling block-buffer v0.10.4
-   Compiling crypto-common v0.1.6
-   Compiling digest v0.10.7
-   Compiling wasmparser v0.116.1
-   Compiling num-bigint v0.4.8
-   Compiling sha2 v0.10.9
-   Compiling serde_derive v1.0.229
-   Compiling darling_core v0.23.0
-   Compiling darling_core v0.20.11
-   Compiling macro-string v0.1.4
-   Compiling cfg_eval v0.1.2
-   Compiling thiserror-impl v1.0.69
-   Compiling num-derive v0.4.2
-   Compiling visibility v0.1.1
-   Compiling bytes-lit v0.0.6
-   Compiling crate-git-revision v0.0.6
-   Compiling hex v0.4.3
-   Compiling crate-git-revision v0.0.9
-   Compiling darling_macro v0.20.11
-   Compiling stellar-strkey v0.0.13
-   Compiling stellar-xdr v27.0.0
-   Compiling soroban-env-common v27.0.1
-   Compiling stellar-strkey v0.0.16
-   Compiling soroban-sdk v27.0.2
-   Compiling darling_macro v0.23.0
-   Compiling darling v0.20.11
-   Compiling darling v0.23.0
-   Compiling serde_with_macros v3.21.0
-   Compiling serde_with v3.21.0
-   Compiling alloc v0.0.0 (/home/ubuntu/.rustup/toolchains/nightly-2025-08-07-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc)
     Checking byteorder v1.5.0
     Checking stable_deref_trait v1.2.1
     Checking hash32 v0.3.1
-   Compiling soroban-spec v27.0.2
-   Compiling soroban-spec-rust v27.0.2
-   Compiling soroban-env-macros v27.0.1
     Checking soroban-env-guest v27.0.1
-   Compiling soroban-sdk-macros v27.0.2
     Checking policy-interpreter v0.1.0 (/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/contracts/policy-interpreter)
-    Finished `release` profile [optimized] target(s) in 36.00s
-[0m[1m[33mwarning[0m[0m[1m: [ENHANCEMENT] Use the latest version of Soroban[0m
-[0m  [0m[0m[1m[38;5;12m|[0m
-[0m  [0m[0m[1m[38;5;12m= [0m[0m[1mhelp[0m[0m: The latest Soroban version is "27.0.6", and your version is "27.0.2"[0m
-[0m  [0m[0m[1m[38;5;12m= [0m[0m[1mnote[0m[0m: `#[warn(soroban_version)]` on by default[0m
+warning: [ENHANCEMENT] Use the latest version of Soroban
+  |
+  = help: The latest Soroban version is "27.0.6", and your version is "27.0.2"
+  = note: `#[warn(soroban_version)]` on by default
 
-[0m[1m[33mwarning[0m[0m[1m: [MEDIUM] This storage (vector or map) operation is called without access control[0m
-[0m   [0m[0m[1m[38;5;12m--> [0m[0msrc/dsl.rs:182:22[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
-[0m[1m[38;5;12m182[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m                vals.push_back(literal_to_val(env, e)?);[0m
-[0m    [0m[0m[1m[38;5;12m|[0m[0m                      [0m[0m[1m[33m^^^^^^^^^[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
-[0m    [0m[0m[1m[38;5;12m= [0m[0m[1mnote[0m[0m: `#[warn(dos_unexpected_revert_with_storage)]` on by default[0m
+warning: [MEDIUM] This storage (vector or map) operation is called without access control
+   --> src/dsl.rs:182:22
+    |
+182 |                 vals.push_back(literal_to_val(env, e)?);
+    |                      ^^^^^^^^^
+    |
+    = note: `#[warn(dos_unexpected_revert_with_storage)]` on by default
 
-[0m[1m[33mwarning[0m[0m[1m: [MEDIUM] Unsafe access on Map, method could panic.[0m
-[0m   [0m[0m[1m[38;5;12m--> [0m[0msrc/dsl.rs:286:13[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
-[0m[1m[38;5;12m286[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m            map.get(field.clone())[0m
-[0m    [0m[0m[1m[38;5;12m|[0m[0m             [0m[0m[1m[33m^^^^^^^^^^^^^^^^^^^^^^[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
-[0m    [0m[0m[1m[38;5;12m= [0m[0m[1mnote[0m[0m: `#[warn(unsafe_map_get)]` on by default[0m
-[0m[1m[38;5;14mhelp[0m[0m: Using `get` on a Map is unsafe as it could panic, please use[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
-[0m[1m[38;5;12m286[0m[0m [0m[0m[38;5;9m- [0m[0m            [0m[0m[38;5;9mmap.get(field.clone())[0m
-[0m[1m[38;5;12m286[0m[0m [0m[0m[38;5;10m+ [0m[0m            [0m[0m[38;5;10mmap.try_get(field.clone()).unwrap_or_default()[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
+warning: [MEDIUM] Unsafe access on Map, method could panic.
+   --> src/dsl.rs:286:13
+    |
+286 |             map.get(field.clone())
+    |             ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unsafe_map_get)]` on by default
+help: Using `get` on a Map is unsafe as it could panic, please use
+    |
+286 -             map.get(field.clone())
+286 +             map.try_get(field.clone()).unwrap_or_default()
+    |
 
-[0m[1m[33mwarning[0m[0m[1m: [MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided[0m
-[0m   [0m[0m[1m[38;5;12m--> [0m[0msrc/dsl.rs:511:9[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
-[0m[1m[38;5;12m511[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m/[0m[0m [0m[0m        for i in 0..children_items.len() {[0m
-[0m[1m[38;5;12m512[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|[0m[0m [0m[0m            let c = children_items[0m
-[0m[1m[38;5;12m513[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|[0m[0m [0m[0m                .get(i)[0m
-[0m[1m[38;5;12m514[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|[0m[0m [0m[0m                .ok_or(DecodeError::MalformedPredicate)?;[0m
-[0m[1m[38;5;12m515[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|[0m[0m [0m[0m            children.push(decode_node(env, &single_tuple(env, &c)?)?);[0m
-[0m[1m[38;5;12m516[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|[0m[0m [0m[0m        }[0m
-[0m    [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|_________^[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
-[0m    [0m[0m[1m[38;5;12m= [0m[0m[1mhelp[0m[0m: This loop seems to do not have a fixed number of iterations[0m
-[0m    [0m[0m[1m[38;5;12m= [0m[0m[1mnote[0m[0m: `#[warn(dos_unbounded_operation)]` on by default[0m
+warning: [MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
+   --> src/dsl.rs:511:9
+    |
+511 | /         for i in 0..children_items.len() {
+512 | |             let c = children_items
+513 | |                 .get(i)
+514 | |                 .ok_or(DecodeError::MalformedPredicate)?;
+515 | |             children.push(decode_node(env, &single_tuple(env, &c)?)?);
+516 | |         }
+    | |_________^
+    |
+    = help: This loop seems to do not have a fixed number of iterations
+    = note: `#[warn(dos_unbounded_operation)]` on by default
 
-[0m[1m[33mwarning[0m[0m[1m: [MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided[0m
-[0m   [0m[0m[1m[38;5;12m--> [0m[0msrc/dsl.rs:553:9[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
-[0m[1m[38;5;12m553[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m/[0m[0m [0m[0m        for i in 0..haystack_items.len() {[0m
-[0m[1m[38;5;12m554[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|[0m[0m [0m[0m            let h = haystack_items[0m
-[0m[1m[38;5;12m555[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|[0m[0m [0m[0m                .get(i)[0m
-[0m[1m[38;5;12m556[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|[0m[0m [0m[0m                .ok_or(DecodeError::MalformedPredicate)?;[0m
-[0m[1m[38;5;12m557[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|[0m[0m [0m[0m            haystack.push(decode_leaf(env, &h)?);[0m
-[0m[1m[38;5;12m558[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|[0m[0m [0m[0m        }[0m
-[0m    [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|_________^[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
-[0m    [0m[0m[1m[38;5;12m= [0m[0m[1mhelp[0m[0m: This loop seems to do not have a fixed number of iterations[0m
+warning: [MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
+   --> src/dsl.rs:553:9
+    |
+553 | /         for i in 0..haystack_items.len() {
+554 | |             let h = haystack_items
+555 | |                 .get(i)
+556 | |                 .ok_or(DecodeError::MalformedPredicate)?;
+557 | |             haystack.push(decode_leaf(env, &h)?);
+558 | |         }
+    | |_________^
+    |
+    = help: This loop seems to do not have a fixed number of iterations
 
-[0m[1m[33mwarning[0m[0m[1m: [MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided[0m
-[0m   [0m[0m[1m[38;5;12m--> [0m[0msrc/dsl.rs:579:13[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
-[0m[1m[38;5;12m579[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m/[0m[0m [0m[0m            for i in 0..items.len() {[0m
-[0m[1m[38;5;12m580[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|[0m[0m [0m[0m                let e = items.get(i).ok_or(DecodeError::MalformedPredicate)?;[0m
-[0m[1m[38;5;12m581[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|[0m[0m [0m[0m                elems.push(decode_leaf(env, &e)?);[0m
-[0m[1m[38;5;12m582[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|[0m[0m [0m[0m            }[0m
-[0m    [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|_____________^[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
-[0m    [0m[0m[1m[38;5;12m= [0m[0m[1mhelp[0m[0m: This loop seems to do not have a fixed number of iterations[0m
+warning: [MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
+   --> src/dsl.rs:579:13
+    |
+579 | /             for i in 0..items.len() {
+580 | |                 let e = items.get(i).ok_or(DecodeError::MalformedPredicate)?;
+581 | |                 elems.push(decode_leaf(env, &e)?);
+582 | |             }
+    | |_____________^
+    |
+    = help: This loop seems to do not have a fixed number of iterations
 
-[0m[1m[33mwarning[0m[0m[1m: [MEDIUM] Using dynamic types in instance or persistent storage can lead to unnecessary growth or storage-related vulnerabilities.[0m
-[0m   [0m[0m[1m[38;5;12m--> [0m[0msrc/lib.rs:129:9[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
-[0m[1m[38;5;12m129[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m/[0m[0m [0m[0m        e.storage()[0m
-[0m[1m[38;5;12m130[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|[0m[0m [0m[0m            .persistent()[0m
-[0m[1m[38;5;12m131[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|[0m[0m [0m[0m            .set(&key.master_set_key(), &master_set);[0m
-[0m    [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|____________________________________________________^[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
-[0m    [0m[0m[1m[38;5;12m= [0m[0m[1mnote[0m[0m: `#[warn(dynamic_storage)]` on by default[0m
+warning: [MEDIUM] Using dynamic types in instance or persistent storage can lead to unnecessary growth or storage-related vulnerabilities.
+   --> src/lib.rs:129:9
+    |
+129 | /         e.storage()
+130 | |             .persistent()
+131 | |             .set(&key.master_set_key(), &master_set);
+    | |____________________________________________________^
+    |
+    = note: `#[warn(dynamic_storage)]` on by default
 
-[0m[1m[33mwarning[0m[0m[1m: [MEDIUM] Using dynamic types in instance or persistent storage can lead to unnecessary growth or storage-related vulnerabilities.[0m
-[0m   [0m[0m[1m[38;5;12m--> [0m[0msrc/lib.rs:235:9[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
-[0m[1m[38;5;12m235[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m/[0m[0m [0m[0m        e.storage()[0m
-[0m[1m[38;5;12m236[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|[0m[0m [0m[0m            .persistent()[0m
-[0m[1m[38;5;12m237[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|[0m[0m [0m[0m            .set(&key.master_set_key(), &new_set);[0m
-[0m    [0m[0m[1m[38;5;12m|[0m[0m [0m[0m[1m[33m|_________________________________________________^[0m
+warning: [MEDIUM] Using dynamic types in instance or persistent storage can lead to unnecessary growth or storage-related vulnerabilities.
+   --> src/lib.rs:235:9
+    |
+235 | /         e.storage()
+236 | |             .persistent()
+237 | |             .set(&key.master_set_key(), &new_set);
+    | |_________________________________________________^
 
-[0m[1m[33mwarning[0m[0m[1m: [MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.[0m
-[0m   [0m[0m[1m[38;5;12m--> [0m[0msrc/lib.rs:143:9[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
-[0m[1m[38;5;12m143[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m        authenticated_signers: Vec<Signer>,[0m
-[0m    [0m[0m[1m[38;5;12m|[0m[0m         [0m[0m[1m[33m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
-[0m    [0m[0m[1m[38;5;12m= [0m[0m[1mhelp[0m[0m: Validate `soroban_sdk::Vec<types::Signer>` contents or convert them to contract-defined types before using or storing them.[0m
-[0m    [0m[0m[1m[38;5;12m= [0m[0m[1mnote[0m[0m: `#[warn(avoid_vec_map_input)]` on by default[0m
+warning: [MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
+   --> src/lib.rs:222:9
+    |
+222 |         new_set: Vec<Signer>,
+    |         ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: Validate `soroban_sdk::Vec<types::Signer>` contents or convert them to contract-defined types before using or storing them.
+    = note: `#[warn(avoid_vec_map_input)]` on by default
 
-[0m[1m[33mwarning[0m[0m[1m: [MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.[0m
-[0m   [0m[0m[1m[38;5;12m--> [0m[0msrc/lib.rs:222:9[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
-[0m[1m[38;5;12m222[0m[0m [0m[0m[1m[38;5;12m|[0m[0m [0m[0m        new_set: Vec<Signer>,[0m
-[0m    [0m[0m[1m[38;5;12m|[0m[0m         [0m[0m[1m[33m^^^^^^^^^^^^^^^^^^^^[0m
-[0m    [0m[0m[1m[38;5;12m|[0m
-[0m    [0m[0m[1m[38;5;12m= [0m[0m[1mhelp[0m[0m: Validate `soroban_sdk::Vec<types::Signer>` contents or convert them to contract-defined types before using or storing them.[0m
+warning: [MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
+   --> src/lib.rs:143:9
+    |
+143 |         authenticated_signers: Vec<Signer>,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: Validate `soroban_sdk::Vec<types::Signer>` contents or convert them to contract-defined types before using or storing them.
 
 Summary:
 +--------------------+----------+----------+--------+-------+-------------+
-| [32mCrate             [39;49m | [32mStatus  [39;49m | [32mCritical[39;49m | [32mMedium[39;49m | [32mMinor[39;49m | [32mEnhancement[39;49m | 
+| Crate              | Status   | Critical | Medium | Minor | Enhancement | 
 +--------------------+----------+----------+--------+-------+-------------+
-| [mpolicy_interpreter[39;49m | [mAnalyzed[39;49m | [m0       [39;49m | [m9     [39;49m | [m0    [39;49m | [m1          [39;49m | 
+| policy_interpreter | Analyzed | 0        | 9      | 0     | 1           | 
 +--------------------+----------+----------+--------+-------+-------------+

@@ -421,7 +421,7 @@ dominating guard.
 - **R-1 and R-2 are structural**, inherited from the account model rather than
   from this contract, and no amount of interpreter work closes them.
 - **The off-chain half carries more risk than the on-chain half.** The contract
-  is 842 nSLOC and write-free at `enforce`; the toolchain is 6,056 nSLOC and
+  is 842 nSLOC and write-free at `enforce`; the toolchain is 6,652 nSLOC and
   holds the default-deny install gates.
 - **Test files are outside the typecheck scope.** `tsconfig` excludes
   `src/**/*.test.ts`, so `bun run typecheck` never sees them and a test can

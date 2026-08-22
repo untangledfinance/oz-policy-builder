@@ -1,30 +1,24 @@
-# contract-gate - regenerated 2026-08-22T02:54:31Z
+# Contract gate - 2026-08-22T06:23:30Z
+# cargo fmt --check, clippy -D warnings, cargo test, conformance, reproducible wasm, hash pin parity
 
 $ cargo fmt --check
-(no diff = clean)
+(no output = clean)
 
 $ cargo clippy --all-targets -- -D warnings
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.19s
+    Checking policy-interpreter v0.1.0 (/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/contracts/policy-interpreter)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.26s
 
 $ cargo test
-running 34 tests
 test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
-running 9 tests
 test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-running 6 tests
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
-running 21 tests
 test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
-running 6 tests
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
-running 3 tests
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
 
 $ cargo test --release --test conformance
-running 9 tests
 test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-$ ./build-wasm.sh   # reproducible: remaps crate + registry paths
-built:  a2b36e8ac5a61caf3757af26aa79e83f2995b451099f44772383806a55fe3414
-pinned: a2b36e8ac5a61caf3757af26aa79e83f2995b451099f44772383806a55fe3414
-(match - the pinned hash is the wasm this tree builds)
+$ ./build-wasm.sh
+    Finished `release` profile [optimized] target(s) in 0.12s
+a2b36e8ac5a61caf3757af26aa79e83f2995b451099f44772383806a55fe3414
