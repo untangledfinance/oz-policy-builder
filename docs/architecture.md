@@ -152,9 +152,7 @@ refused at decode:
   synthesiser says so explicitly rather than implying a cap it cannot keep.
 - `valid_until` - expiry belongs to the context rule's own `valid_until` field,
   which the smart account owns.
-- `or`, `not`, `lt`, `gt`, `gte` and `now` - removed with grammar 3. The
-  grammar is the set the synthesiser emits, and each removed variant widened
-  the decoder without a caller.
+- `or`, `not`, `lt`, `gt`, `gte` and `now` - not in grammar 3.
 
 Structural caps (authoritative in Rust, mirrored in TS): depth 5, 200 leaves,
 32 operands in an `in` list, 32 KB encoded.
