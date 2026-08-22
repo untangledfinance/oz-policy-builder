@@ -5,7 +5,7 @@ Notable changes to the published packages. The format follows
 packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 `@crediolabs/policy-builder-mcp`) version together.
 
-## [Unreleased]
+## [0.4.0] - 2026-08-22
 
 ### Added
 
