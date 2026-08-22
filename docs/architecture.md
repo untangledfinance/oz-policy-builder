@@ -94,32 +94,24 @@ flowchart LR
    optionally, a live `grammar_version()` read to confirm the on-chain
    contract still matches the pin.
 
-## The custody-agnostic IR
+## From recording to predicate
 
-The synthesiser never lowers a recording straight to the on-chain
-format. It lowers to a chain-neutral **PolicyIR** ("Policy Tree"), then a
-`CustodyAdapter` compiles the IR to a specific backend. The IR generalises the
-NEAR-V2 policy schema (roles / scope filter / guard / constraint / comparison
-leaves / default behaviour) and extends it with the selectors only a richer
-backend needs (token amount moved, time).
+There is no intermediate representation. The composer emits predicate nodes
+directly, and a `ComposedRule` carries scope, constraints and expiry.
 
 ```mermaid
 flowchart LR
-    src["recording"] --> ir["PolicyIR<br/>Policy Tree"]
-    ir --> interp["interpreter adapter"]
+    src["recording"] --> comp["composer<br/>ComposedRule"]
+    comp --> interp["interpreter adapter"]
 ```
 
-One adapter lowers FROM the IR:
+The **interpreter adapter** (`adapters/interpreter`) emits a single encoded
+predicate for the `policy-interpreter` contract, plus the context rule scoped
+to the recorded contract.
 
-- **Interpreter adapter** (`adapters/interpreter`) - emits a single encoded
-  predicate carried to the `policy-interpreter` contract, plus the context
-  rule scoped to the recorded contract.
-
-An IR construct the interpreter cannot express is **named in `uncovered`,
-never silently dropped**: expiry, for one, belongs to the context rule's
-`valid_until` rather than to the predicate.
-Keeping the IR as a separate step is what lets a second backend be added
-later without touching the synthesiser.
+A constraint the interpreter cannot express is **named in `uncovered`, never
+silently dropped**: expiry belongs to the context rule's `valid_until` rather
+than to the predicate.
 
 ## The predicate grammar
 
@@ -238,7 +230,7 @@ place:
   interpreter cannot re-implement OZ's verifier protocol in v1, so it refuses
   rather than store a master set it can never authorise);
 - the predicate must constrain at least one property of the call - a predicate
-  of literals only (no `call_contract` / `call_fn` / `call_arg*` / `now`) binds
+  of literals only (no `call_contract` / `call_fn` / `call_arg*`) binds
   nothing and is refused rather than installed as a permanent allow;
 - the signer set is capped at 16 (`MAX_SIGNERS`).
 
