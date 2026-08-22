@@ -1,19 +1,31 @@
-# clippy pedantic + nursery - 2026-08-22T16:35:02Z
-# Style only. No security lint fires; every cast warning is in a TEST file.
+# clippy pedantic + nursery - 2026-08-22T18:36:20Z
+#
+# 191 lint warnings (198 'warning:' lines less 7 per-target summaries).
+# All style; 0 security. All 7 cast warnings are in test files, and the only
+# panic-related lints are in tests/conformance/_helpers.rs.
 
 $ cargo clippy --all-targets -- -W clippy::pedantic -W clippy::nursery
-180 warnings, 0 security
+warning: `policy-interpreter` (lib) generated 96 warnings (run `cargo clippy --fix --lib -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 62 suggestions)
+warning: `policy-interpreter` (test "oz_integration") generated 2 warnings (run `cargo clippy --fix --test "oz_integration" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 2 suggestions)
+warning: `policy-interpreter` (test "enforce_state") generated 8 warnings (run `cargo clippy --fix --test "enforce_state" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)
+warning: `policy-interpreter` (test "oz_abi") generated 7 warnings (run `cargo clippy --fix --test "oz_abi" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 4 suggestions)
+warning: `policy-interpreter` (test "conformance") generated 44 warnings (run `cargo clippy --fix --test "conformance" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 31 suggestions)
+warning: `policy-interpreter` (lib test) generated 119 warnings (95 duplicates) (run `cargo clippy --fix --lib -p policy-interpreter --tests -- -W clippy::pedantic -W clippy::nursery` to apply 18 suggestions)
+warning: `policy-interpreter` (test "install_enforce") generated 10 warnings (run `cargo clippy --fix --test "install_enforce" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)
 
-By lint (top):
-     55 clippy::pedantic
-     29 clippy::nursery
-      7 clippy::cast_possible_truncation
-      7 clippy::cast
-      6 clippy::doc_markdown
-      6 clippy::doc
-      5 clippy::redundant_clone
-      5 clippy::redundant
-      4 clippy::missing
-      3 clippy::missing_const_for_fn
-      3 clippy::match
-      2 clippy::needless
+# Lint warnings by source file:
+     38 src/dsl.rs
+     24 src/lib.rs
+     23 src/dsl_tests.rs
+     19 tests/conformance/_generated.rs
+     17 tests/conformance/_generated_v4.rs
+     17 src/storage.rs
+     10 tests/install_enforce.rs
+      9 src/types.rs
+      8 tests/enforce_state.rs
+      7 tests/oz_abi.rs
+      6 tests/conformance/_helpers.rs
+      6 src/state.rs
+      3 src/auth.rs
+      2 tests/oz_integration.rs
+      2 tests/conformance/mod.rs

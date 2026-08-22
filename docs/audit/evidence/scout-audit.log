@@ -1,9 +1,52 @@
-# cargo scout-audit - 2026-08-22T16:35:02Z
-# 11 dylint artifacts confirmed present before reading this summary; a run
-# that compiles nothing still prints "Analyzed".
+# cargo scout-audit - 2026-08-22T18:37:57Z
+#
+# 0.3.16 reports a build that never compiled as 'Analyzed' with 0 findings.
+# Artifact count under target/dylint/ confirms a real run: 11 .so files.
 
-    = help: Validate `soroban_sdk::Vec<types::Signer>` contents or convert them to contract-defined types before using or storing them.
+$ cargo scout-audit --manifest-path ./Cargo.toml --exclude storage-change-events -- \
+    -Ztarget-applies-to-host -Zhost-config \
+    --config 'host.rustflags=["-Zcrate-attr=feature(round_char_boundary)"]'
 
+# Findings by category (count, severity, lint):
+      1 warning: [ENHANCEMENT] Use the latest version of Soroban
+      2 warning: [MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
+      3 warning: [MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
+      1 warning: [MEDIUM] This storage (vector or map) operation is called without access control
+      1 warning: [MEDIUM] Unsafe access on Map, method could panic.
+      2 warning: [MEDIUM] Using dynamic types in instance or persistent storage can lead to unnecessary growth or storage-related vulnerabilities.
+
+# Each finding with its location:
+
+[ENHANCEMENT] Use the latest version of Soroban
+
+[MEDIUM] This storage (vector or map) operation is called without access control
+   --> src/dsl.rs:237:22
+
+[MEDIUM] Unsafe access on Map, method could panic.
+   --> src/dsl.rs:431:13
+
+[MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
+   --> src/dsl.rs:724:9
+
+[MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
+   --> src/dsl.rs:769:9
+
+[MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
+   --> src/dsl.rs:795:13
+
+[MEDIUM] Using dynamic types in instance or persistent storage can lead to unnecessary growth or storage-related vulnerabilities.
+   --> src/lib.rs:138:9
+
+[MEDIUM] Using dynamic types in instance or persistent storage can lead to unnecessary growth or storage-related vulnerabilities.
+   --> src/lib.rs:244:9
+
+[MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
+   --> src/lib.rs:231:9
+
+[MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
+   --> src/lib.rs:152:9
+
+# Summary as printed:
 Summary:
 +--------------------+----------+----------+--------+-------+-------------+
 | Crate              | Status   | Critical | Medium | Minor | Enhancement | 

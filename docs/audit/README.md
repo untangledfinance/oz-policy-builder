@@ -4,14 +4,15 @@ Logs in `evidence/` were produced against this tree.
 
 | Log | Command | Result |
 | --- | --- | --- |
-| `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, reproducible wasm build, hash pin parity | clean; 107 tests + 9 conformance pass; built wasm matches the pin |
-| `offchain-gate.log` | `biome check .`, `bun run typecheck`, `bun test` | clean; 654 pass, 1 skip, 0 fail across 655 tests |
-| `cargo-audit.log` | `cargo audit` | 0 vulnerabilities; 1 unmaintained-crate warning |
+| `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm rebuild, hash pin parity | clean; 125 tests across 6 binaries, 18 of them conformance; rebuilt wasm matches the pin |
+| `offchain-gate.log` | `biome check .`, `bun run typecheck`, `bun test` | clean; 658 pass, 1 skip, 0 fail across 659 tests in 40 files |
+| `cargo-audit.log` | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | `bun-audit.log` | `bun audit` | 0 vulnerabilities |
-| `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 180 style warnings, 0 security; every cast warning is in a test file |
+| `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 191 style warnings, 0 security; all 7 cast warnings are in test files |
 | `scout-audit.log` | `cargo scout-audit` | Analyzed: 0 Critical, 9 Medium, 0 Minor, 1 Enhancement |
 | `oz-policy-composition.log` | `scripts/oz-policy-composition.ts` | two interpreter policies on ONE rule, disagreeing about the same call: the refusing one is decisive. OZ composes attached policies as ALL-OF |
-| `e2e-network.log` | `scripts/e2e-network.ts --network testnet` and `--network mainnet` | policy installed against the pinned interpreter on both networks; permitted call succeeds, forbidden call denied `#100` |
+| `oz-spending-limit-binding.log` | `scripts/oz-spending-limit-binding.ts --network testnet` and `--network mainnet` | OZ's own `spending_limit` beside the interpreter denies an over-cap transfer `#3221` on both networks; control rule without the cap permits the same transfer |
+| `e2e-network.log` | `scripts/e2e-network.ts --network testnet` and `--network mainnet` | policy installed against the pinned interpreter on both networks; permitted call succeeds, forbidden call denied `#100`. Testnet re-run for this generation; the mainnet run is carried forward unchanged (same pins, and a mainnet e2e costs XLM) |
 
 ## Findings
 
@@ -33,8 +34,16 @@ vulnerabilities across 202 crate dependencies.
   signer set is re-hashed against the hash stored at install;
   `rotate_master_signer_set`'s `new_set` is checked non-empty, capped, and
   refused if it contains an `External` signer.
-- *unsafe Map access* x1 and *storage op without access control* x1: the
-  storage writes sit after `require_auth` / `require_master` on every path.
+- *storage op without access control* x1: reported at `dsl.rs:237`, which is
+  `vals.push_back(..)` on a local `SorobanVec` inside `literal_to_val`. `dsl.rs`
+  makes no `storage()` call anywhere, so the lint has matched an in-memory push
+  and access control does not apply to it. (The contract's real storage writes,
+  in `lib.rs` and `storage.rs`, do sit behind `require_auth` / `require_master`
+  on every path - but that is not what this finding points at.)
+- *unsafe Map access* x1: reported at `dsl.rs:431`, which is `map.get(field)`.
+  Soroban's `Map::get` returns `Option`; the panicking variant is
+  `get_unchecked`, which this line does not use. That `Option` is `resolve`'s
+  return value, so a missing field resolves to "no value" rather than trapping.
 
 ### 3. Stellar Security Portal corpus cross-checked
 
@@ -143,6 +152,51 @@ Bounds:
 
 Nothing pins or attests the fetched spec. Verifying it against the deployed wasm
 hash would close this.
+
+### 7. A real OZ `spending_limit` binds beside the interpreter
+
+`oz-policy-composition.log` settled the composition semantics (ALL-OF) using two
+instances of OUR interpreter, which leaves open whether a third-party policy
+actually holds. `scripts/oz-spending-limit-binding.ts` closes that with OZ's own
+policy, on testnet and mainnet. Three calls, each load-bearing:
+
+| Call | Rule | Expected | Result |
+| --- | --- | --- | --- |
+| 20000000 stroops | interpreter only (control) | permit | permitted |
+| 1000000 stroops | interpreter + cap 5000000 | permit | permitted |
+| 20000000 stroops | interpreter + cap 5000000 | deny `#3221` | denied `#3221` |
+
+The control is what attributes the deny: the identical transfer passes when the
+cap is absent, so the refusal is not the interpreter's, not the amount's and not
+an empty balance. The under-cap permit rules out a rule that simply denies
+everything. Raising the cap to 50000000 flips the third row to permitted, so the
+verdict tracks the cap VALUE rather than the presence of a second policy.
+
+The rules are `ContextRuleType::CallContract(SAC)` because `spending_limit`'s
+install refuses any other rule type, pinning the cap to one token so every
+metered transfer is denominated the same way.
+
+**Provenance of the deployed policy contracts.** These are OZ *example* contracts
+that we built and deployed ourselves; they are not ours and we did not audit them.
+
+- Built from `OpenZeppelin/stellar-contracts` at tag `v0.7.2` (`a9c4216`,
+  2026-06-09), not `main`. wasm sha256
+  `9ce30ea1fe5c2dc5c9c49cf3462adb32e2c11d7dfadb15ef43a51ba56568de2b`, identical
+  on both networks. Mainnet `CA7IBD266HIHFDUIBZLPIAITJUA3DVY4JAG6K3QMGBKLZCXXLP5E2F7A`,
+  testnet `CDH4KOBRUEZI6TTZ72YXR5YUIODB6RH3AF75KX56Z73DELRCA5TWFISP`.
+- `policies/spending_limit.rs` is byte-identical between `v0.7.0` and `v0.7.2`
+  (`git diff --quiet v0.7.0..v0.7.2 -- packages/accounts/src/policies/`), and
+  `v0.7.0` is the newest audit in the upstream `audits/` directory. That audit's
+  scope list names the file, so the source we deployed is the source that was
+  reviewed.
+- Two findings in that audit touch this path and both fixes are present in what
+  we deployed: L-06 (spend-limit bypass via a negative amount) is answered by the
+  `amount < 0` rejection in `enforce`, and H-01 (rule-selection downgrade after
+  signature collection) by `do_check_auth` appending `context_rule_ids` to the
+  signed preimage - the same binding our `authDigest` reproduces off chain.
+- Upstream still ships the disclaimer "This is experimental software and is
+  provided on an 'as is' and 'as available' basis" (README). Deploying it beside
+  the interpreter inherits that risk; nothing here vouches for the code.
 
 ## Reproducing the Scout run
 

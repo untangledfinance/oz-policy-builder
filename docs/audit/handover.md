@@ -108,10 +108,16 @@ rule with predicates that disagreed about the same call, and the refusing one
 decided the outcome; a control rule carrying only the permitting policy allowed
 the identical call, so the denial belongs to the second policy rather than to a
 malformed rule. Evidence in
-[`evidence/oz-policy-composition.log`](evidence/oz-policy-composition.log). This
-is what makes an OZ built-in primitive attached beside the interpreter - a
-`spending_limit`, say - a real bound rather than a bypassable one, and it is the
-basis for treating rolling spend caps as the account layer's job.
+[`evidence/oz-policy-composition.log`](evidence/oz-policy-composition.log).
+
+That experiment used two copies of our own interpreter, so it establishes the
+composition semantics but not that a real third-party policy holds. A second
+experiment closed that gap on both networks: OZ's own `spending_limit`, attached
+beside the interpreter, denies `#3221` a transfer the interpreter permits, with
+a control rule proving the same transfer passes without the cap. Evidence in
+[`evidence/oz-spending-limit-binding.log`](evidence/oz-spending-limit-binding.log).
+Together these are the basis for treating rolling spend caps as the account
+layer's job.
 
 Live residual risks are enumerated there with the reason each is accepted. Four
 are OpenZeppelin account-model semantics the interpreter cannot override
@@ -126,11 +132,11 @@ Every log in [`evidence/`](evidence/) was produced against this tree.
 
 | Log | Command | Result |
 | --- | --- | --- |
-| [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, reproducible wasm build, hash pin parity | clean; 107 tests + 9 conformance pass; built wasm matches the pin |
-| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 654 pass, 1 skip, 0 fail across 655 tests |
+| [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, reproducible wasm build, hash pin parity | clean; 125 tests across 6 binaries, 18 of them conformance; rebuilt wasm matches the pin |
+| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 658 pass, 1 skip, 0 fail across 659 tests in 40 files |
 | [`cargo-audit.log`](evidence/cargo-audit.log) | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | [`bun-audit.log`](evidence/bun-audit.log) | `bun audit` | 0 vulnerabilities |
-| [`clippy-pedantic.log`](evidence/clippy-pedantic.log) | `clippy -W pedantic -W nursery` | 180 style warnings, 0 security |
+| [`clippy-pedantic.log`](evidence/clippy-pedantic.log) | `clippy -W pedantic -W nursery` | 191 style warnings, 0 security |
 | [`scout-audit.log`](evidence/scout-audit.log) | `cargo scout-audit` | 0 Critical, 9 Medium, 0 Minor, 1 Enhancement |
 
 Beyond the tools, the Stellar Security Portal corpus was pulled on 2026-08-04
@@ -169,12 +175,12 @@ parallel Rust and TypeScript suites, not differentially.
 | --- | --- | --- |
 | Contract | `cargo fmt --check` | clean |
 | Contract | `cargo clippy --all-targets -- -D warnings` | 0 warnings |
-| Contract | `cargo test` | 116 passed, 0 failed |
-| Contract | `cargo test --release --test conformance` | 9 passed, 0 failed |
+| Contract | `cargo test` | 125 passed, 0 failed |
+| Contract | `cargo test --release --test conformance` | 18 passed, 0 failed |
 | Contract | `contracts/policy-interpreter/build-wasm.sh` | builds; sha256 equals `PINNED_INTERPRETER_WASM_SHA256` |
-| Off-chain | `bunx biome check .` | 123 files, 0 findings |
+| Off-chain | `bunx biome check .` | 126 files, 0 findings |
 | Off-chain | `bun run typecheck` | clean |
-| Off-chain | `bun test` | 654 passed, 1 skipped, 0 failed |
+| Off-chain | `bun test` | 658 passed, 1 skipped, 0 failed |
 | Off-chain | `bun audit` | 0 vulnerabilities |
 
 Both gates run in CI on every push, including the two dependency-advisory

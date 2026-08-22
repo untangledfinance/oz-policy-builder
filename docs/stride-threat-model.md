@@ -128,7 +128,8 @@ What an attacker wants:
 - **Fail-closed on every deny.** `panic_with_error!` rolls back the entire frame; the host emits `Error(Contract, N)`.
 - **TTL bump only on the allow path.** `extend_state_ttl` runs before `evaluate`; a deny panics and the host rolls back. The bump is gated on `p.has(&key)` so it never creates state.
 - **Install-time shape validation.** Every "would silently fail at enforce" shape is refused at install: grammar-version mismatch (200), oversized predicate (207), hash mismatch (208), undecodable predicate (201), empty signer set (209), more than `MAX_SIGNERS` 16 signers (217), an `External` signer in the master set (212), a predicate carrying no selector leaf (216), and a `call_arg_scaled` whose ratio is zero or non-positive (214).
-- **Multiple policies on one rule compose as ALL-OF.** Verified on testnet, not read from documentation: two interpreter instances were attached to one context rule with predicates that disagreed about the same call, and the refusing one was decisive (`docs/audit/evidence/oz-policy-composition.log`). A control rule carrying only the permitting policy allowed the identical call, so the denial is attributable to the second policy rather than to a malformed rule. This is what makes an OZ built-in primitive attached beside the interpreter - a `spending_limit`, say - a real bound rather than a bypassable one.
+- **Multiple policies on one rule compose as ALL-OF.** Verified on testnet, not read from documentation: two interpreter instances were attached to one context rule with predicates that disagreed about the same call, and the refusing one was decisive (`docs/audit/evidence/oz-policy-composition.log`). A control rule carrying only the permitting policy allowed the identical call, so the denial is attributable to the second policy rather than to a malformed rule.
+- **A real OZ `spending_limit` binds beside the interpreter.** The ALL-OF result above only says the composition semantics permit it; this was then demonstrated with OZ's own policy rather than a second copy of our code, on testnet AND mainnet: a 20000000-stroop transfer the interpreter permits is denied `#3221 SpendingLimitExceeded` when a 5000000 cap sits on the same rule, while a control rule without the cap allows the identical transfer and an under-cap transfer through the capped rule still passes (`docs/audit/evidence/oz-spending-limit-binding.log`). Raising the cap above the amount flips the verdict, so the refusal tracks the cap value and not the mere presence of a second policy.
 - **Grammar-version parity across layers.** The off-chain builder emits `grammar_version` equal to the contract's `SELF_VERSION`. A mismatch is refused at install, and a test asserts the two constants match so a skew fails the build rather than the install.
 
 ---
@@ -404,11 +405,11 @@ All logs in `docs/audit/evidence/` were produced against this tree:
 
 | Tool | Result |
 |---|---|
-| `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, reproducible wasm build, hash pin parity | clean; 107 tests + 9 conformance pass; built wasm matches the pin |
-| `biome check`, `tsc --noEmit`, `bun test` | clean; 654 pass, 1 skip, 0 fail across 655 tests |
+| `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, reproducible wasm build, hash pin parity | clean; 125 tests across 6 binaries, 18 of them conformance; rebuilt wasm matches the pin |
+| `biome check`, `tsc --noEmit`, `bun test` | clean; 658 pass, 1 skip, 0 fail across 659 tests in 40 files |
 | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | `bun audit` | 0 vulnerabilities |
-| `clippy -W pedantic -W nursery` | 180 style warnings, 0 security |
+| `clippy -W pedantic -W nursery` | 191 style warnings, 0 security |
 | `cargo scout-audit` | Analyzed: 0 Critical, 9 Medium, 0 Minor, 1 Enhancement |
 | Stellar Security Portal corpus | 832 findings, 150 critical/high, pulled 2026-08-04 and cross-checked against this contract's five entry points. Dated, not re-verified for grammar 4. |
 

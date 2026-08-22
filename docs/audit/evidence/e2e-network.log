@@ -1,5 +1,5 @@
 # End-to-end proof against real networks
-# Generated 2026-08-22T16:36:57Z by packages/policy-synth/scripts/e2e-network.ts
+# Generated 2026-08-22T18:37:14Z by packages/policy-synth/scripts/e2e-network.ts
 #
 # Each run deploys a FRESH smart account with TWO keys: an admin on rule 0
 # (no policy, full authority) and an agent on rule 1 ONLY (policed,
@@ -11,26 +11,34 @@
 # CALLER NAMES, so a key on both a policed and an unpoliced rule is not
 # constrained at all. The agent is on the policed rule only.
 
+
 $ bun packages/policy-synth/scripts/e2e-network.ts --network testnet
 INFO network        testnet
 INFO interpreter    CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5
 INFO grammar        4
 INFO rpc            https://soroban-testnet.stellar.org
-INFO admin  (rule 0) GCWNRAJLMV7CEHIE6JKM6ZKJINMR4IRKTA7TNLLJFGLQST3DBXQSMYXO
-INFO agent  (rule 1) GC4GGMV2M5XFJJBQNPZACTDVBCLBJHPBWFP2652RPPJGHLNZQ6C33WQJ
-PASS smart account deployed  CCCWSCSCHBGS6SKPBVQ23GETDSURDHLVLZYXBXLNAHWR23XWF266CCWY
+INFO admin  (rule 0) GBPXMZRRZPPV3GVUO67VDVNZIYOK5W4V4ZJTDBCAAAKK2M76FK2LVDE4
+INFO agent  (rule 1) GAQSUCF4C5XSQCOFZN62Q5Y6P6O7XPDSKBAK7DD74YFR6K2SGOUQ2Y3C
+PASS smart account deployed  CCHKXDSYINIMLUTHIQJIJ4FH23GRW7JQ6TGLYXSFZ2KBL6ZCG2S652W2
 PASS agent account funded
 PASS account funded with XLM (SAC CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC)
 INFO predicate hash 9c1b891f5e4214f290db5038be0a7974867cfc8463e8b6f157e818e0f71cf093
-PASS policy installed against rule 1  (tx in ledger 4278781)
-PASS PERMIT transfer allowed by the interpreter (ledger 4278782)
+PASS policy installed against rule 1  (tx in ledger 4280213)
+PASS PERMIT transfer allowed by the interpreter (ledger 4280214)
 PASS DENY approve refused by the interpreter (#100 ArgMismatch)
 PASS BYPASS blocked: the agent is not a signer on unpoliced rule 0
 
-INFO smart account  CCCWSCSCHBGS6SKPBVQ23GETDSURDHLVLZYXBXLNAHWR23XWF266CCWY
-INFO agent (constrained to transfer) GC4GGMV2M5XFJJBQNPZACTDVBCLBJHPBWFP2652RPPJGHLNZQ6C33WQJ
+INFO smart account  CCHKXDSYINIMLUTHIQJIJ4FH23GRW7JQ6TGLYXSFZ2KBL6ZCG2S652W2
+INFO agent (constrained to transfer) GAQSUCF4C5XSQCOFZN62Q5Y6P6O7XPDSKBAK7DD74YFR6K2SGOUQ2Y3C
 INFO permit, deny and the unpoliced-rule bypass all proven on chain
 INFO the admin key retains full authority through rule 0, by design
+
+# The mainnet run below is CARRIED FORWARD from the 2026-08-22T16:36:57Z
+# generation, not re-run. The pinned interpreter address and wasm hash are
+# unchanged since, so the run still describes this tree, and a mainnet e2e
+# costs XLM. Mainnet enforcement by the same pinned interpreter WAS
+# exercised again today - see oz-spending-limit-binding.log, whose control
+# rule permits through that interpreter on mainnet.
 
 $ bun packages/policy-synth/scripts/e2e-network.ts --network mainnet
 INFO network        mainnet

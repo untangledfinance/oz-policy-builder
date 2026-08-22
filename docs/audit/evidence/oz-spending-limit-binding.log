@@ -1,0 +1,77 @@
+# Does an OZ spending_limit BIND beside our interpreter?
+# Generated 2026-08-22T18:29:53Z by packages/policy-synth/scripts/oz-spending-limit-binding.ts
+#
+# `oz-policy-composition.log` settled the composition RULE (all-of) using two
+# instances of OUR OWN interpreter. This settles the remaining question: does a
+# REAL third-party policy stop a call our interpreter permits?
+#
+# One rule shape throughout, one variable - the extra policy:
+#   rule 1  CONTROL  interpreter only
+#   rule 2  SUBJECT  interpreter + OZ spending_limit(cap 5000000 stroops)
+#
+# Three calls, each load-bearing:
+#   1. CONTROL over-cap  -> must PASS  (attributes any deny to the cap alone)
+#   2. SUBJECT under-cap -> must PASS  (the rule is a bound, not a brick)
+#   3. SUBJECT over-cap  -> must DENY #3221 SpendingLimitExceeded
+#
+# The spending_limit contracts are OZ example code we built from tag v0.7.2 and
+# deployed ourselves. We did not audit it; see docs/audit/README.md for the
+# provenance note.
+
+$ bun packages/policy-synth/scripts/oz-spending-limit-binding.ts --network testnet
+INFO   network        testnet
+INFO   interpreter    CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5 (pinned, grammar 4)
+INFO   spending_limit CDH4KOBRUEZI6TTZ72YXR5YUIODB6RH3AF75KX56Z73DELRCA5TWFISP (OZ v0.7.2, third-party)
+INFO   rpc            https://soroban-testnet.stellar.org
+INFO   cap 5000000 / under 1000000 / over 20000000 stroops
+INFO   admin (rule 0) GAPTAO6O7IHPDNGIBJWN77N6XVKN3WLCFZR3UOWJWRAT4EYRSQWQQLTY
+PASS   agents funded: control GDFT6A2ZZLJDQH2YKYU6KX4C32OJIPAQK6RGZT6GYNZZLNMXVNNVFEII
+PASS                  subject GASVQSQMUCTP3RYRVYGTUJ7XRMV5AOJPBNHDLN4RJPYAZL4UM3JMIEVP
+PASS   smart account  CDEX2PF6J4NOKZ72IIXZ55XB3OQKGBCSD7SHSJIBKKXLJG7YJWSUP4U2
+PASS   account funded 51000000 stroops (SAC CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC)
+PASS   rule 1 installed: interpreter only
+PASS   rule 2 installed: interpreter + spending_limit(cap 5000000)
+PASS   CONTROL: 20000000 permitted through rule 1 (no cap attached)
+PASS   SUBJECT: 1000000 permitted through rule 2 (under the cap)
+RESULT BOUND: over-cap transfer DENIED #3221 (SpendingLimitExceeded).
+RESULT The control permitted the same amount, so the cap is what refused it.
+
+$ E2E_SECRET=... bun packages/policy-synth/scripts/oz-spending-limit-binding.ts --network mainnet
+INFO   network        mainnet
+INFO   interpreter    CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52 (pinned, grammar 4)
+INFO   spending_limit CA7IBD266HIHFDUIBZLPIAITJUA3DVY4JAG6K3QMGBKLZCXXLP5E2F7A (OZ v0.7.2, third-party)
+INFO   rpc            https://soroban-rpc.mainnet.stellar.gateway.fm
+INFO   cap 5000000 / under 1000000 / over 20000000 stroops
+INFO   admin (rule 0) GCIVG2AIEWMDA43HX2HRCYVNY7PH7HMPYVN42LQ5XBSHBLHFUWG47NFN
+PASS   agents funded: control GCBMC2YKY3AMKBDTON4LX6UIYCRWV2MSTPDD5N4SQJ2I5IBHNVT2PBGC
+PASS                  subject GDJFUHPUNZ3OQHZVCUEBKIHPZNV4VMEVXHNJO6TCPD6AEZLNY4VKXHZO
+PASS   smart account  CC6JQUHROVYEPWJJCR34S4WGUAXBRNXW4LSGNEBAYOZIDN4B7APA7B3I
+PASS   account funded 51000000 stroops (SAC CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA)
+PASS   rule 1 installed: interpreter only
+PASS   rule 2 installed: interpreter + spending_limit(cap 5000000)
+PASS   CONTROL: 20000000 permitted through rule 1 (no cap attached)
+PASS   SUBJECT: 1000000 permitted through rule 2 (under the cap)
+RESULT BOUND: over-cap transfer DENIED #3221 (SpendingLimitExceeded).
+RESULT The control permitted the same amount, so the cap is what refused it.
+
+# ---- MUTATION: does the deny track the CAP VALUE, or just the presence of a
+# ---- second policy? Raise the cap to 50000000 so the "over-cap" 20000000
+# ---- transfer now sits UNDER it. Same rule shape, same two policies.
+# ---- The verdict flips, so the cap value is what refuses. Script exits 1.
+
+$ sed -i 's/CAP_STROOPS = 5_000_000n/CAP_STROOPS = 50_000_000n/' && bun ... --network testnet
+INFO   network        testnet
+INFO   interpreter    CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5 (pinned, grammar 4)
+INFO   spending_limit CDH4KOBRUEZI6TTZ72YXR5YUIODB6RH3AF75KX56Z73DELRCA5TWFISP (OZ v0.7.2, third-party)
+INFO   rpc            https://soroban-testnet.stellar.org
+INFO   cap 50000000 / under 1000000 / over 20000000 stroops
+INFO   admin (rule 0) GCGOH2U4NEGZGYEVVFD5M5NLDFSGQWQRXMOJGJF47Z7GMWNUPRSR4EG4
+PASS   agents funded: control GCDXMEJRCZBAQF2ISE4HVHSDGH5HNWNIUL3MTKD2DWCD7KHRVCZAJSFN
+PASS                  subject GA6ZNPATSTEMMHK6IEDHY3IXLGTTYOSFFIEZPKSMVTT45NIYPW6VTZGI
+PASS   smart account  CBICSVUBGDGTZ4JOMJFDMMAQBZ5FDXWVDFH7URX6NHWQW3I47IJMFHES
+PASS   account funded 51000000 stroops (SAC CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC)
+PASS   rule 1 installed: interpreter only
+PASS   rule 2 installed: interpreter + spending_limit(cap 50000000)
+PASS   CONTROL: 20000000 permitted through rule 1 (no cap attached)
+PASS   SUBJECT: 1000000 permitted through rule 2 (under the cap)
+RESULT NOT BOUND: 20000000 SUCCEEDED with a cap of 50000000 attached.
