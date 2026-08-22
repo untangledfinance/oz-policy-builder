@@ -124,6 +124,22 @@ const SmartAccountToolShape = {
   baseFee: z.number().int().positive().optional(),
 }
 
+/** Flat ZodRawShape for `declare_policy`. The DECLARATIVE front-end: the
+ *  constraint stated outright, with no transaction to decode. Every field is
+ *  optional except `fn`; the body re-validates against the strict
+ *  `DeclarePolicyInputSchema`, which is `.strict()` and so refuses the removed
+ *  MandateSpec fields (`spendingLimit`, `approvalThreshold`) rather than
+ *  accepting them in silence. */
+export const DeclarePolicyToolShape = {
+  fn: z.string().min(1),
+  contract: z.string().optional(),
+  maxAmount: z.string().optional(),
+  amountArgIndex: z.number().int().nonnegative().optional(),
+  recipients: z.array(z.string()).optional(),
+  recipientArgIndex: z.number().int().nonnegative().optional(),
+  allowZeroCap: z.boolean().optional(),
+} as const
+
 /** Flat ZodRawShape for `install_policy`. `rule` is typed as `z.unknown()`
  *  at the tool boundary because the rule schema is a discriminated union
  *  the SDK does not accept at registration; the body re-validates

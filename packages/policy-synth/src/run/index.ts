@@ -20,7 +20,9 @@
 import { createHash } from 'node:crypto'
 import { rpc } from '@stellar/stellar-sdk'
 import {
+  declarePredicate,
   type ErrorCode,
+  encodePredicate,
   type Network,
   type PredicateNode,
   type ProposedPolicy,
@@ -42,6 +44,7 @@ import {
 import { getInterpreterInfo } from '../install/get-interpreter-info.ts'
 import { type EvalContext, evaluate, generateCases } from '../simulate/index.ts'
 import {
+  DeclarePolicyInputSchema,
   type GetInterpreterInfoInput,
   GetInterpreterInfoInputSchema,
   type InstallPolicyInput,
@@ -64,6 +67,7 @@ import {
 } from './schemas.ts'
 
 export type {
+  DeclarePolicyInput,
   GetInterpreterInfoInput,
   InstallPolicyInput,
   RecordTransactionInput,
@@ -78,6 +82,7 @@ export type {
 // truth - MCP tool shapes are derived from them.
 export {
   ComposeUserResponsesSchema,
+  DeclarePolicyInputSchema,
   GetInterpreterInfoInputSchema,
   InstallPolicyInputSchema,
   InterpreterOptionsSchema,
@@ -107,6 +112,7 @@ export type RunVerifyPolicyInput = VerifyPolicyInput
 type RunToolName =
   | 'record_transaction'
   | 'synthesize_policy'
+  | 'declare_policy'
   | 'simulate_policy'
   | 'verify_policy'
   | 'install_policy'
@@ -119,6 +125,7 @@ type RunToolName =
 const TOOL_ERROR_CODE: Record<RunToolName, ErrorCode> = {
   record_transaction: 'RECORDING_FAILED',
   synthesize_policy: 'SYNTHESIS_ERROR',
+  declare_policy: 'SYNTHESIS_ERROR',
   simulate_policy: 'SIMULATION_ERROR',
   verify_policy: 'VERIFICATION_FAILED',
   install_policy: 'INSTALL_BUILD_FAILED',
@@ -381,6 +388,49 @@ export function runSimulatePolicy(raw: unknown): ToolResponse<{
     }
   } catch (e) {
     return toolFailure('simulate_policy', e)
+  }
+}
+
+/** `declare_policy` body - the DECLARATIVE front-end.
+ *
+ *  `synthesize_policy` infers a predicate from a transaction that happened;
+ *  this takes the constraint stated outright. No RPC, no decoding and no
+ *  parseConfidence, so nothing here can be refused for a contract the registry
+ *  does not recognise - which is most of the point of having it.
+ *
+ *  The returned `warnings` are load-bearing, not decoration. An argument index
+ *  the caller did not supply is DEFAULTED to the SEP-41 position, and a bound
+ *  on the wrong argument constrains something the caller did not mean without
+ *  ever announcing itself, so a caller that ignores warnings can install a
+ *  predicate that reads correctly and binds nothing. */
+export function runDeclarePolicy(raw: unknown): ToolResponse<{
+  predicate: PredicateNode
+  encodedPredicate: string
+  predicateHash: string
+  warnings: string[]
+}> {
+  const parsed = DeclarePolicyInputSchema.safeParse(raw)
+  if (!parsed.success) {
+    return { ok: false, error: validationError('declare_policy', parsed.error.issues) }
+  }
+  try {
+    // Rebuilt field-by-field rather than passed through: the schema's
+    // optionals are `T | undefined` and `PolicyDeclaration`'s are absent-or-T,
+    // which `exactOptionalPropertyTypes` treats as different.
+    const d = parsed.data
+    const { predicate, warnings } = declarePredicate({
+      fn: d.fn,
+      ...(d.contract !== undefined ? { contract: d.contract } : {}),
+      ...(d.maxAmount !== undefined ? { maxAmount: d.maxAmount } : {}),
+      ...(d.amountArgIndex !== undefined ? { amountArgIndex: d.amountArgIndex } : {}),
+      ...(d.recipients !== undefined ? { recipients: d.recipients } : {}),
+      ...(d.recipientArgIndex !== undefined ? { recipientArgIndex: d.recipientArgIndex } : {}),
+      ...(d.allowZeroCap !== undefined ? { allowZeroCap: d.allowZeroCap } : {}),
+    })
+    const { encodedPredicate, predicateHash } = encodePredicate(predicate)
+    return { ok: true, data: { predicate, encodedPredicate, predicateHash, warnings } }
+  } catch (e) {
+    return toolFailure('declare_policy', e)
   }
 }
 

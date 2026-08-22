@@ -13,6 +13,7 @@
 
 import type { ToolResponse } from '@crediolabs/policy-synth'
 import {
+  runDeclarePolicy,
   runGetInterpreterInfo,
   runInstallPolicy,
   runRecordTransaction,
@@ -24,6 +25,7 @@ import {
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import {
+  DeclarePolicyToolShape,
   GetInterpreterInfoToolShape,
   InstallPolicyToolShape,
   RecordTransactionToolShape,
@@ -81,6 +83,13 @@ export function registerTools(server: McpServer): void {
     'Check a predicate against the transaction it was synthesised from, plus a generated deny case per dimension. Reports `ok` only when the permit case is permitted AND every deny case is denied - a denied permit case means the policy is too strict, a permitted deny case means it is too loose.',
     VerifyPolicyToolShape,
     (args) => toCallToolResult(runVerifyPolicy(args))
+  )
+
+  server.tool(
+    'declare_policy',
+    'Build an interpreter predicate from a DECLARED constraint - the method to pin, and optionally the contract, a per-call amount cap and a recipient allowlist. Use this when there is no transaction to record, or when `record_transaction` refuses a contract it does not recognise. Returns the predicate tree, its canonical encoding and hash, ready for `install_policy`. `warnings` names any argument index that was GUESSED rather than supplied - a bound on the wrong argument constrains nothing while looking correct, so read them. There is no rolling spend window and no approval threshold: neither is expressible in grammar 3.',
+    DeclarePolicyToolShape,
+    (args) => Promise.resolve(runDeclarePolicy(args)).then(toCallToolResult)
   )
 
   server.tool(

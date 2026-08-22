@@ -28,12 +28,13 @@ async function spawn(): Promise<{ client: Client; close: () => Promise<void> }> 
 }
 
 describe('MCP stdio transport', () => {
-  it('lists exactly 7 tools', async () => {
+  it('lists exactly 8 tools', async () => {
     const { client, close } = await spawn()
     try {
       const { tools } = await client.listTools()
       const names = tools.map((t) => t.name).sort()
       expect(names).toEqual([
+        'declare_policy',
         'get_interpreter_info',
         'install_policy',
         'record_transaction',

@@ -63,7 +63,7 @@ async function waitForPort(port: number, maxMs = 3000): Promise<void> {
 }
 
 describe('MCP HTTP transport', () => {
-  it('initializes, lists exactly 7 tools, and invokes synthesize_policy', async () => {
+  it('initializes, lists exactly 8 tools, and invokes synthesize_policy', async () => {
     const port = 3891
     const running = await startHttpServer({ port, host: '127.0.0.1' })
     try {
@@ -91,9 +91,10 @@ describe('MCP HTTP transport', () => {
         params: {},
       })
       const listResult = list.json?.result as { tools: Array<{ name: string }> } | undefined
-      expect(listResult?.tools.length).toBe(7)
+      expect(listResult?.tools.length).toBe(8)
       const names = listResult?.tools.map((t) => t.name).sort()
       expect(names).toEqual([
+        'declare_policy',
         'get_interpreter_info',
         'install_policy',
         'record_transaction',

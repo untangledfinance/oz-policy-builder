@@ -5,6 +5,10 @@
 // Usage:
 //   policy-builder record --network <mainnet|testnet> --hash <tx>
 //                                 [--xdr <b64>] [--json] [--quiet] [--out <path>]
+//   policy-builder declare --network <mainnet|testnet> --fn <method>
+//                              [--token native|C...] [--max-amount <smallest-unit>]
+//                              [--to G...,G...] [--amount-arg N] [--to-arg N]
+//                              [--allow-zero-cap] [--json] [--quiet] [--out <path>]
 //   policy-builder synthesize --recorded-tx <path.json> --network <mainnet|testnet>
 //                              [--responses <path.json>]
 //                              [--confidence <0..1>]
@@ -23,6 +27,7 @@
 // command body. Bad args -> CliError -> non-zero exit (JSON envelope under
 // --json).
 
+import { runDeclareCommand } from '../src/commands/declare.ts'
 import { runRecordCommand } from '../src/commands/record.ts'
 import { runSynthesizeCommand } from '../src/commands/synthesize.ts'
 import { emitCliError, parseFlags } from '../src/output.ts'
@@ -41,6 +46,9 @@ async function main(): Promise<void> {
     switch (command) {
       case 'record':
         await runRecordCommand(subcommandArgs, flags)
+        return
+      case 'declare':
+        await runDeclareCommand(subcommandArgs, flags)
         return
       case 'synthesize':
       case 'synth': {
@@ -70,6 +78,10 @@ function printHelp(): void {
 Usage:
   policy-builder record     --network <mainnet|testnet> --hash <tx> | --xdr <b64>
                             [--json] [--quiet] [--out <path>]
+  policy-builder declare    --network <mainnet|testnet> --fn <method>
+                            [--token native|C...] [--max-amount <smallest-unit>]
+                            [--to G...,G...] [--amount-arg N] [--to-arg N]
+                            [--allow-zero-cap] [--json] [--quiet] [--out <path>]
   policy-builder synthesize --recorded-tx <path.json> --network <mainnet|testnet>
                             [--responses <path.json>]
                             [--confidence <0..1>]

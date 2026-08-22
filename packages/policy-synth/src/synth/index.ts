@@ -9,6 +9,11 @@ export {
   type ComposeResult,
   composeFromRecording,
 } from './compose-from-recording.ts'
+export {
+  type DeclaredPredicate,
+  declarePredicate,
+  type PolicyDeclaration,
+} from './declare.ts'
 export { type IntentFacts, lower } from './lower.ts'
 export {
   type DecideScopeOptions,

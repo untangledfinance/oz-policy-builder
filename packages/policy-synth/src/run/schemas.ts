@@ -391,6 +391,34 @@ export const NETWORK_PASSPHRASES: Record<Network, string> = {
 const STELLAR_CONTRACT_ADDRESS = /^C[2-7A-Z]{55}$/
 const STELLAR_ACCOUNT_ADDRESS = /^G[2-7A-Z]{55}$/
 
+// ===== declare_policy =====
+//
+// The declarative front-end: the constraint stated outright, with no
+// transaction to decode. Deliberately NOT a revival of the removed
+// `MandateSpec` - that carried a rolling `spendingLimit` the interpreter
+// cannot evaluate and an `approvalThreshold` needing OZ primitives nobody
+// deployed. Only fields grammar 3 can actually enforce appear here.
+export const DeclarePolicyInputSchema = z
+  .object({
+    fn: z.string().min(1, 'fn must name the method to pin'),
+    contract: z
+      .string()
+      .regex(STELLAR_CONTRACT_ADDRESS, 'contract must be a Stellar contract address (C...)')
+      .optional(),
+    /** Smallest unit, unsigned decimal STRING - an i128 is wider than
+     *  Number.MAX_SAFE_INTEGER, so a number here would silently round. */
+    maxAmount: z
+      .string()
+      .regex(/^[0-9]+$/, 'maxAmount must be an unsigned integer in the smallest unit')
+      .optional(),
+    amountArgIndex: z.number().int().nonnegative().max(U32_MAX).optional(),
+    recipients: z.array(z.string()).min(1, 'recipients must not be empty').optional(),
+    recipientArgIndex: z.number().int().nonnegative().max(U32_MAX).optional(),
+    allowZeroCap: z.boolean().optional(),
+  })
+  .strict()
+export type DeclarePolicyInput = z.infer<typeof DeclarePolicyInputSchema>
+
 export const InstallPolicyInputSchema = z
   .object({
     /** The smart account contract address (C...) that will receive the rule. */
