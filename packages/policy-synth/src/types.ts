@@ -105,7 +105,7 @@ export type PolicyRef = {
  *  `contracts/policy-interpreter/src/version.rs`. Every value this package puts on
  *  the wire derives from here; `grammar-version-parity.test.ts` pins it to the
  *  contract so a skew cannot pass a green test run. */
-export const GRAMMAR_VERSION = 3 as const
+export const GRAMMAR_VERSION = 4 as const
 
 /** A serialised predicate document stored against a (smart_account, rule_id) pair. */
 export interface PolicyDocument {
@@ -128,8 +128,15 @@ export interface PolicyDocument {
 /** The versioned predicate AST (interpreter side). Tagged union. */
 export type PredicateNode =
   | { op: 'and'; children: PredicateNode[] }
+  // Permits when ANY child permits. Children are canonically sorted like
+  // `and`, so authoring order is NOT preserved; when every branch denies, the
+  // contract reports the first branch's reason in wire order.
+  | { op: 'or'; children: PredicateNode[] }
   | { op: 'eq'; left: PredicateLeaf; right: PredicateLeaf }
+  | { op: 'lt'; left: PredicateLeaf; right: PredicateLeaf }
   | { op: 'lte'; left: PredicateLeaf; right: PredicateLeaf }
+  | { op: 'gt'; left: PredicateLeaf; right: PredicateLeaf }
+  | { op: 'gte'; left: PredicateLeaf; right: PredicateLeaf }
   | {
       op: 'in'
       needle: PredicateLeaf
@@ -150,6 +157,14 @@ export type PredicateLeaf =
   // recorded ScVal type. A non-vec arg, missing element, missing field, or
   // type mismatch all DENY (fail-closed).
   | { kind: 'call_arg_field'; index: number; element: number; field: string }
+  // `args[index] * num / den`, truncating toward zero. The one leaf whose
+  // value is COMPUTED from the call rather than read from it, and the only
+  // selector allowed on the right of a comparison - which is what lets a swap
+  // bound its output against its own input instead of against a constant that
+  // would pin the policy to one trade size. `num`/`den` are i128 decimal
+  // strings. Install refuses a zero or non-positive ratio (214), because a
+  // negative ratio inverts the comparison.
+  | { kind: 'call_arg_scaled'; index: number; num: string; den: string }
   // Literal leaves: bare ScVal on the wire (no selector-tuple wrapper). Right-hand side of
   // comparisons, elements of `in` haystacks, and operands to future arithmetic nodes.
   | { kind: 'literal_address'; value: string }

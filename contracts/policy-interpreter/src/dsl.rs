@@ -173,9 +173,12 @@ pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
             }
             EvalDecision::Permit
         }
-        // The first child's deny is the reported one. Reporting the LAST
-        // would name whichever branch happened to be written last, which is
-        // not the branch the author was most likely reaching for.
+        // Permits on the first branch that holds; when none does, reports the
+        // FIRST branch's deny. "First" is wire order, and the encoder sorts
+        // `or` children canonically, so the reported reason is stable for a
+        // given predicate rather than an artefact of which branch happened to
+        // run last. It is deliberately not tied to authoring order - the
+        // canonical encoding does not preserve that.
         Node::Or(children) => {
             let mut first_deny: Option<EvalDecision> = None;
             for c in children {

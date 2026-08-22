@@ -43,6 +43,11 @@ export type ErrorCode =
   | 'UNSUPPORTED_NODE'
   | 'STATEFUL_BOUND'
   | 'NOT_IN_ALLOWLIST'
+  /** A comparison against a `call_arg_scaled` operand failed (contract 107). */
+  | 'SLIPPAGE_FLOOR'
+  /** A `call_arg_scaled` ratio is zero or non-positive. Refused at install
+   *  (contract 214) and mirrored at encode. */
+  | 'INVALID_SCALED_RATIO'
   // --- escape-hatch compile gate ---
   | 'COMPILE_OK'
   | 'COMPILE_GATE_FAILED'

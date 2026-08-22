@@ -195,14 +195,22 @@ function assertNoSelfCall(node: PredicateNode, config: InterpreterAdapterConfig)
     }
   }
   switch (node.op) {
+    // Both boolean nodes recurse. `or` is listed explicitly rather than left
+    // to a default branch: this is a security check, and a new node kind must
+    // fail to compile here rather than silently skip it.
     case 'and':
+    case 'or':
       for (const c of node.children) assertNoSelfCall(c, config)
       return
     case 'in':
       // The needle is a selector; only the haystack carries literals.
       for (const h of node.haystack) checkLeaf(h)
       return
-    default:
+    case 'eq':
+    case 'lt':
+    case 'lte':
+    case 'gt':
+    case 'gte':
       checkLeaf(node.left)
       checkLeaf(node.right)
   }

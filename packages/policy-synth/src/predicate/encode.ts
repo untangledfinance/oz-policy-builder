@@ -124,7 +124,8 @@ function walk(
   counters: { selectorLeaves: number }
 ): { depth: number; leaves: number } {
   switch (node.op) {
-    case 'and': {
+    case 'and':
+    case 'or': {
       if (node.children.length === 0) {
         throw capError(
           'MALFORMED_PREDICATE',
@@ -141,7 +142,10 @@ function walk(
       return { depth: maxChildDepth + 1, leaves: totalLeaves }
     }
     case 'eq':
-    case 'lte': {
+    case 'lt':
+    case 'lte':
+    case 'gt':
+    case 'gte': {
       collectSelector(node.left, counters)
       collectSelector(node.right, counters)
       return { depth: 1, leaves: leafCount(node.left) + leafCount(node.right) }
@@ -192,14 +196,20 @@ function collectSelector(leaf: PredicateLeaf, counters: { selectorLeaves: number
 
 function encodeNode(node: PredicateNode): xdr.ScVal {
   switch (node.op) {
-    case 'and': {
+    case 'and':
+    case 'or': {
       const encoded = node.children.map(encodeNode)
-      // sort children by their canonical XDR bytes ascending.
+      // sort children by their canonical XDR bytes ascending. Both operators
+      // are commutative for the permit decision, so sorting costs no meaning
+      // and buys a stable hash for logically-identical predicates.
       const sorted = sortByCanonicalBytes(encoded)
       return xdr.ScVal.scvVec([symbol(node.op), xdr.ScVal.scvVec(sorted)])
     }
     case 'eq':
-    case 'lte': {
+    case 'lt':
+    case 'lte':
+    case 'gt':
+    case 'gte': {
       return xdr.ScVal.scvVec([symbol(node.op), encodeLeaf(node.left), encodeLeaf(node.right)])
     }
     case 'in': {
@@ -230,6 +240,15 @@ function encodeLeaf(leaf: PredicateLeaf): xdr.ScVal {
         xdr.ScVal.scvU32(leaf.index),
         xdr.ScVal.scvU32(leaf.element),
         xdr.ScVal.scvSymbol(leaf.field),
+      ])
+    case 'call_arg_scaled':
+      // num/den are i128 on the wire. The Rust decoder type-checks both
+      // slots, so a u32 here would be refused rather than widened.
+      return xdr.ScVal.scvVec([
+        symbol('call_arg_scaled'),
+        xdr.ScVal.scvU32(leaf.index),
+        scvI128FromDecimal(leaf.num),
+        scvI128FromDecimal(leaf.den),
       ])
     case 'literal_address':
       return scvAddressFromStrkey(leaf.value)
@@ -332,6 +351,33 @@ function validateLeafValues(node: PredicateNode): void {
           throw malformed(`call_arg_field.element out of u32 range at ${path}`)
         }
         return
+      case 'call_arg_scaled': {
+        if (!Number.isInteger(leaf.index) || leaf.index < 0 || leaf.index > U32_MAX) {
+          throw malformed(`call_arg_scaled.index out of u32 range at ${path}`)
+        }
+        // Mirror of the contract's install gate (214). Without it the TS
+        // self-verify would green-light a ratio the chain refuses, which is
+        // exactly the divergence this validator exists to prevent.
+        let num: bigint
+        let den: bigint
+        try {
+          num = BigInt(leaf.num)
+          den = BigInt(leaf.den)
+        } catch {
+          throw malformed(`call_arg_scaled num/den must be i128 decimal strings at ${path}`)
+        }
+        if (den === 0n) {
+          throw malformed(
+            `call_arg_scaled.den is zero at ${path}: the contract refuses it at install (INVALID_SCALED_RATIO)`
+          )
+        }
+        if (num <= 0n || den < 0n) {
+          throw malformed(
+            `call_arg_scaled ratio ${leaf.num}/${leaf.den} at ${path} is not positive: a negative ratio inverts the comparison, so the floor would permit what it was written to refuse. The contract refuses it at install (INVALID_SCALED_RATIO)`
+          )
+        }
+        return
+      }
       case 'call_contract':
       case 'call_fn':
       case 'literal_address':
@@ -342,12 +388,16 @@ function validateLeafValues(node: PredicateNode): void {
   function walkNode(n: PredicateNode, path: string): void {
     switch (n.op) {
       case 'and':
+      case 'or':
         n.children.forEach((c, i) => {
           walkNode(c, `${path}.children[${i}]`)
         })
         return
       case 'eq':
+      case 'lt':
       case 'lte':
+      case 'gt':
+      case 'gte':
         walkLeaf(n.left, `${path}.left`)
         walkLeaf(n.right, `${path}.right`)
         return

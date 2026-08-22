@@ -200,6 +200,17 @@ export function permittedSelectors(node: PredicateNode): Selector[] {
       for (const child of node.children) acc = intersectSelectors(acc, permittedSelectors(child))
       return acc
     }
+    case 'or': {
+      // Any branch may hold, so the permitted set is the UNION. A union of
+      // over-approximations is still an over-approximation, so this keeps the
+      // fail-safe direction while staying tighter than the wildcard the
+      // default branch would give. Precision matters here: `or` is how a
+      // policy says "pair A or pair B", and widening that to the wildcard
+      // would report an overlap against every rule on the account.
+      const acc: Selector[] = []
+      for (const child of node.children) acc.push(...permittedSelectors(child))
+      return dedupe(acc)
+    }
     case 'eq': {
       const sel = selectorFromEq(node.left, node.right)
       return sel === null ? [WILDCARD] : [sel]

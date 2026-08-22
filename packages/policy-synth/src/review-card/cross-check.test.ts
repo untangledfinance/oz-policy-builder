@@ -225,3 +225,82 @@ describe('summaryCrossCheck - structured-argument leaves', () => {
     }
   })
 })
+
+// ---- grammar v4 shapes -------------------------------------------------
+//
+// `builder.ts` and `cross-check.ts` render the same predicate independently
+// and must produce byte-identical strings. That duplication is the point -
+// the cross-check is a second opinion - but it also means the two can drift.
+// These tests are the guard: they fail the moment one side renders a v4
+// shape the other does not.
+
+describe('cross-check - grammar v4', () => {
+  const swapFloorPredicate = (): PredicateNode => ({
+    op: 'and',
+    children: [
+      { op: 'eq', left: { kind: 'call_fn' }, right: { kind: 'literal_symbol', value: 'swap' } },
+      {
+        op: 'gte',
+        left: { kind: 'call_arg', index: 1 },
+        right: { kind: 'call_arg_scaled', index: 0, num: '99', den: '100' },
+      },
+    ],
+  })
+
+  const eitherTokenPredicate = (): PredicateNode => ({
+    op: 'or',
+    children: [
+      {
+        op: 'eq',
+        left: { kind: 'call_contract' },
+        right: { kind: 'literal_address', value: XLM_SAC },
+      },
+      {
+        op: 'eq',
+        left: { kind: 'call_contract' },
+        right: { kind: 'literal_address', value: USDC_SAC },
+      },
+    ],
+  })
+
+  it('agrees on a slippage-floor predicate', () => {
+    const predicate = swapFloorPredicate()
+    const summary = buildReviewCardSummary(predicate, baseContextRule, simulation)
+    expect(summaryCrossCheck(predicate, summary)).toEqual({ ok: true })
+  })
+
+  it('surfaces the floor as a ratio the human can read', () => {
+    // The point of the dedicated line: the bound is a RATIO of another
+    // argument, not a fixed amount. A card that hid that would let someone
+    // approve a floor believing it was an absolute minimum.
+    const summary = buildReviewCardSummary(swapFloorPredicate(), baseContextRule, simulation)
+    expect(summary.constraints).toContain('arg[1] >= arg[0] * 99/100')
+  })
+
+  it('agrees on a disjunction', () => {
+    const predicate = eitherTokenPredicate()
+    const summary = buildReviewCardSummary(predicate, baseContextRule, simulation)
+    expect(summaryCrossCheck(predicate, summary)).toEqual({ ok: true })
+  })
+
+  it('renders a disjunction as ONE line, not one line per branch', () => {
+    // A line per branch would read as "all of these are required", which is
+    // the opposite of what `or` means - and the dangerous direction, because
+    // it makes the policy look tighter than it is.
+    const summary = buildReviewCardSummary(eitherTokenPredicate(), baseContextRule, simulation)
+    expect(summary.constraints).toEqual([
+      `Either: Contract must be ${XLM_SAC} OR Contract must be ${USDC_SAC}`,
+    ])
+  })
+
+  it('flags a dropped slippage-floor line', () => {
+    const predicate = swapFloorPredicate()
+    const summary = buildReviewCardSummary(predicate, baseContextRule, simulation)
+    const stripped = {
+      ...summary,
+      constraints: summary.constraints.filter((c) => !c.includes('*')),
+    }
+    const res = summaryCrossCheck(predicate, stripped)
+    expect(res.ok).toBe(false)
+  })
+})

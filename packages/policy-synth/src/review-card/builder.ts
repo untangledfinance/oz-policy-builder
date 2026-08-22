@@ -20,7 +20,7 @@
 // hash. There is no clock; the hash never includes a timestamp.
 
 import { createHash } from 'node:crypto'
-import type { ContextRuleDraft, PredicateNode } from '../types.ts'
+import type { ContextRuleDraft, PredicateLeaf, PredicateNode } from '../types.ts'
 import { comparisonOpText, renderHaystackElement, renderVecElement } from './render-leaf.ts'
 
 export interface ReviewCardSummary {
@@ -105,14 +105,31 @@ function walkPredicate(node: PredicateNode, visit: (node: PredicateNode) => void
     case 'and':
       for (const child of node.children) walkPredicate(child, visit)
       return
+    // NOT descended into. Every line the card emits reads as a requirement,
+    // and `and` is what makes that true. Listing an `or`'s branches as
+    // separate lines would state the opposite of what the policy means, so
+    // the whole disjunction is rendered as ONE line instead.
+    case 'or':
+      visit(node)
+      return
     case 'in':
       visit(node)
       return
     case 'eq':
+    case 'lt':
     case 'lte':
+    case 'gt':
+    case 'gte':
       visit(node)
       return
   }
+}
+
+/** Argument index of a `call_arg` leaf, for the scaled-comparison line. Any
+ *  other leaf renders as its kind so the line stays readable rather than
+ *  claiming an index that does not exist. */
+function leftArgLabel(leaf: PredicateLeaf): string {
+  return leaf.kind === 'call_arg' ? String(leaf.index) : `<${leaf.kind}>`
 }
 
 /** Render ONE constraint sentence for ONE interpreter predicate node. The
@@ -123,15 +140,41 @@ function renderConstraint(node: PredicateNode): string | null {
   switch (node.op) {
     case 'and':
       return null
+    case 'or': {
+      // One line for the whole disjunction. If any branch is a shape the
+      // card cannot render, the entire line is withheld rather than shown
+      // with a branch missing - a disjunction with a branch dropped reads
+      // as STRICTER than it is, which is the dangerous direction.
+      const parts = node.children.map(renderConstraint)
+      if (parts.some((p) => p === null)) return null
+      return `Either: ${parts.join(' OR ')}`
+    }
     case 'eq':
+    case 'lt':
     case 'lte':
+    case 'gt':
+    case 'gte':
       return renderComparison(node)
     case 'in':
       return renderMembership(node)
   }
 }
 
-function renderComparison(node: Extract<PredicateNode, { op: 'eq' | 'lte' }>): string | null {
+function renderComparison(
+  node: Extract<PredicateNode, { op: 'eq' | 'lt' | 'lte' | 'gt' | 'gte' }>
+): string | null {
+  // The slippage floor: OP(call_arg[out], call_arg_scaled(in, num, den)).
+  // Rendered explicitly because the human approving the signature has to see
+  // that the bound is a RATIO of another argument, not a fixed amount.
+  if (node.right.kind === 'call_arg_scaled') {
+    const s = node.right
+    return `arg[${leftArgLabel(node.left)}] ${comparisonOpText(node.op)} arg[${s.index}] * ${s.num}/${s.den}`
+  }
+  if (node.left.kind === 'call_arg_scaled') {
+    const s = node.left
+    return `arg[${s.index}] * ${s.num}/${s.den} ${comparisonOpText(node.op)} arg[${leftArgLabel(node.right)}]`
+  }
+
   const left = node.left
   const right = node.right
 

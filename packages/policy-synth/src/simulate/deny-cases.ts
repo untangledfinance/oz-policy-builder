@@ -24,7 +24,7 @@ export interface GeneratedCases {
  *  the wrong reason. */
 const OTHER_CONTRACT = Address.contract(Buffer.alloc(32, 0x5a)).toString()
 
-type ComparisonOperator = 'eq' | 'lte'
+type ComparisonOperator = 'eq' | 'lt' | 'lte' | 'gt' | 'gte'
 
 type ComparisonNode = {
   op: ComparisonOperator
@@ -248,11 +248,22 @@ function visit(node: PredicateNode, facts: PredicateFacts): void {
     case 'and':
       for (const child of node.children) visit(child, facts)
       return
+    // NOT descended into. A deny case works by violating ONE constraint and
+    // asserting the predicate refuses the call. Violating one branch of an
+    // `or` proves nothing, because another branch can still permit, so the
+    // generated case would either fail or pass for the wrong reason. A sound
+    // deny case for a disjunction must violate EVERY branch at once, which
+    // this generator does not construct - so it emits none.
+    case 'or':
+      return
     case 'in':
       facts.memberships.push(node)
       return
     case 'eq':
+    case 'lt':
     case 'lte':
+    case 'gt':
+    case 'gte':
       facts.comparisons.push(node)
   }
 }

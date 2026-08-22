@@ -1,4 +1,4 @@
-// src/simulate/evaluate.ts - TypeScript reference evaluator for grammar version 3.
+// src/simulate/evaluate.ts - TypeScript reference evaluator for grammar version 4.
 //
 // Pure function. Determinism: same `(predicate, ctx)` -> byte-identical result,
 // no clock, no randomness. Deny order (deny on FIRST violation, stable reason):
@@ -8,12 +8,13 @@
 //   3. `in` membership; empty haystack ALWAYS denies         -> 'NOT_IN_ALLOWLIST'
 //   4. otherwise permit.
 //
-// Grammar version 3 nodes: and, eq, lte
-// Grammar version 3 leaves: call_contract, call_fn, call_arg(i),
+// Grammar version 4 nodes: and, or, eq, lt, lte, gt, gte, in
+// Grammar version 4 leaves: call_contract, call_fn, call_arg(i),
 //   call_arg_len(i), call_arg_field(i, element, field),
+//   call_arg_scaled(i, num, den),
 //   literal_address, literal_i128, literal_symbol, literal_u32, literal_vec
-// Grammar version 3 deny reasons: ARG_MISMATCH, CONTRACT_SCOPE,
-//   UNSUPPORTED_NODE, NOT_IN_ALLOWLIST
+// Grammar version 4 deny reasons: ARG_MISMATCH, CONTRACT_SCOPE,
+//   ARITHMETIC_OVERFLOW, UNSUPPORTED_NODE, NOT_IN_ALLOWLIST, SLIPPAGE_FLOOR
 
 import type { PredicateLeaf, PredicateNode, ScVal } from '../types.ts'
 
@@ -27,6 +28,9 @@ export interface EvalContext {
 }
 
 export type EvalResult = { permit: true } | { permit: false; reason: string }
+
+/** The comparison operators grammar 4 carries. */
+type CompareOpName = 'eq' | 'lt' | 'lte' | 'gt' | 'gte'
 
 /** Evaluate a `PredicateNode` against the candidate call described by `ctx`.
  *  Pure function. Returns `{ permit: true }` or `{ permit: false; reason }`. */
@@ -47,8 +51,23 @@ function walk(node: PredicateNode, ctx: EvalContext): EvalResult {
       }
       return lastDeny ?? { permit: true }
     }
+    // Permits on the first branch that holds; when none does, reports the
+    // FIRST branch's reason. Mirrors `Node::Or` in the Rust evaluator, which
+    // the conformance suite pins.
+    case 'or': {
+      let firstDeny: EvalResult | null = null
+      for (const child of node.children) {
+        const r = walk(child, ctx)
+        if (r.permit) return r
+        if (firstDeny === null) firstDeny = r
+      }
+      return firstDeny ?? { permit: false, reason: 'UNSUPPORTED_NODE' }
+    }
     case 'eq':
+    case 'lt':
     case 'lte':
+    case 'gt':
+    case 'gte':
       return evalCompare(node.op, node.left, node.right, ctx)
     case 'in':
       return evalIn(node.needle, node.haystack, ctx)
@@ -57,11 +76,22 @@ function walk(node: PredicateNode, ctx: EvalContext): EvalResult {
 
 /** Comparison leaf evaluation. */
 function evalCompare(
-  op: 'eq' | 'lte',
+  op: CompareOpName,
   left: PredicateLeaf,
   right: PredicateLeaf,
   ctx: EvalContext
 ): EvalResult {
+  // Scaled operands first, so the dedicated reasons reach the caller instead
+  // of a generic mismatch. Right-hand dispatch leads because
+  // `out >= in * num / den` is the canonical swap form. Mirrors the order in
+  // `eval_compare` on the Rust side.
+  if (right.kind === 'call_arg_scaled') {
+    return evalScaledCompare(op, left, right, true, ctx)
+  }
+  if (left.kind === 'call_arg_scaled') {
+    return evalScaledCompare(op, right, left, false, ctx)
+  }
+
   // CONTRACT_SCOPE on call_contract eq
   if (left.kind === 'call_contract' && op === 'eq') {
     if (right.kind !== 'literal_address') return { permit: false, reason: 'CONTRACT_SCOPE' }
@@ -112,10 +142,66 @@ function evalCompare(
   return { permit: false, reason: 'UNSUPPORTED_NODE' }
 }
 
+/** i128 bounds. The contract computes in i128 and denies on overflow, so the
+ *  reference has to draw the same line or the two layers disagree on inputs
+ *  near the boundary. */
+const I128_MIN = -(2n ** 127n)
+const I128_MAX = 2n ** 127n - 1n
+
+/** Comparison where one side is `call_arg_scaled`. Mirrors
+ *  `eval_scaled_arg_compare`: `args[index] * num / den` truncating toward
+ *  zero, ARITHMETIC_OVERFLOW on arithmetic that does not fit or a zero
+ *  denominator, SLIPPAGE_FLOOR on a comparison that simply fails. */
+function evalScaledCompare(
+  op: CompareOpName,
+  other: PredicateLeaf,
+  scaled: Extract<PredicateLeaf, { kind: 'call_arg_scaled' }>,
+  scaledOnRight: boolean,
+  ctx: EvalContext
+): EvalResult {
+  // Chaining two computed operands has no meaning a review card could state.
+  if (other.kind === 'call_arg_scaled') return { permit: false, reason: 'UNSUPPORTED_NODE' }
+
+  // Could not READ the operand is a different failure from read-and-missed.
+  const input = argNumericBigInt(ctx.args[scaled.index])
+  if (input === null) return { permit: false, reason: 'ARG_MISMATCH' }
+
+  let num: bigint
+  let den: bigint
+  try {
+    num = BigInt(scaled.num)
+    den = BigInt(scaled.den)
+  } catch {
+    return { permit: false, reason: 'ARG_MISMATCH' }
+  }
+  if (den === 0n) return { permit: false, reason: 'ARITHMETIC_OVERFLOW' }
+
+  const product = input * num
+  if (product < I128_MIN || product > I128_MAX) {
+    return { permit: false, reason: 'ARITHMETIC_OVERFLOW' }
+  }
+  // BigInt division already truncates toward zero, matching i128 semantics.
+  const quotient = product / den
+  if (quotient < I128_MIN || quotient > I128_MAX) {
+    return { permit: false, reason: 'ARITHMETIC_OVERFLOW' }
+  }
+
+  const otherVal =
+    other.kind === 'call_arg'
+      ? argNumericBigInt(ctx.args[other.index])
+      : literalNumericBigInt(other)
+  if (otherVal === null) return { permit: false, reason: 'ARG_MISMATCH' }
+
+  const [a, b] = scaledOnRight ? [otherVal, quotient] : [quotient, otherVal]
+  return bigintCmp(op, a.toString(), b.toString())
+    ? { permit: true }
+    : { permit: false, reason: 'SLIPPAGE_FLOOR' }
+}
+
 /** Per-ScVal equality. Handles literal_vec as an EXACT ordered sequence:
  *  compare element-by-element in order; deny if length or any element differs.
  *  Opaque args (`type: 'other'`) fail closed. */
-function evalArgEq(op: 'eq' | 'lte', actual: ScVal | undefined, right: PredicateLeaf): EvalResult {
+function evalArgEq(op: CompareOpName, actual: ScVal | undefined, right: PredicateLeaf): EvalResult {
   // eq(call_arg[i], literal_vec) -> EXACT ordered vector equality.
   if (op === 'eq' && right.kind === 'literal_vec') {
     if (actual?.type !== 'vec') return { permit: false, reason: 'ARG_MISMATCH' }
@@ -163,7 +249,7 @@ function evalArgEq(op: 'eq' | 'lte', actual: ScVal | undefined, right: Predicate
  *  to a numeric literal via BigInt. A non-numeric arg or a non-numeric literal
  *  fails closed (ARG_MISMATCH) rather than permitting an undecidable bound. */
 function evalArgOrderedCompare(
-  op: 'eq' | 'lte',
+  op: CompareOpName,
   actual: ScVal | undefined,
   right: PredicateLeaf
 ): EvalResult {
@@ -272,13 +358,19 @@ function resolveLeaf(leaf: PredicateLeaf, ctx: EvalContext): ScVal | undefined {
 }
 
 /** BigInt compare helper. */
-function bigintCmp(op: 'eq' | 'lte', aStr: string, bStr: string): boolean {
+function bigintCmp(op: CompareOpName, aStr: string, bStr: string): boolean {
   const a = BigInt(aStr)
   const b = BigInt(bStr)
   switch (op) {
     case 'eq':
       return a === b
+    case 'lt':
+      return a < b
     case 'lte':
       return a <= b
+    case 'gt':
+      return a > b
+    case 'gte':
+      return a >= b
   }
 }

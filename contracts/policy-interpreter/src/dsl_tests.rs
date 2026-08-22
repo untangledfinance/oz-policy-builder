@@ -742,9 +742,10 @@ fn op_or_last_child_permit_still_permits() {
 
 #[test]
 fn op_or_all_deny_reports_the_first_childs_reason() {
-    // The reported reason must come from the FIRST branch, not the last one
-    // evaluated: an author reading the review card is looking for the branch
-    // they wrote first, not whichever happened to run last.
+    // The reported reason must come from the FIRST branch in wire order, not
+    // the last one evaluated. Pinning it makes the deny code a stable
+    // property of the predicate; letting it fall out of iteration order would
+    // make the review card's reason depend on evaluation accident.
     let env = Env::default();
     let n = Node::Or(StdVec::from([
         Node::In {
@@ -1195,5 +1196,18 @@ fn scaled_division_overflow_denies_rather_than_wrapping() {
     assert_eq!(
         reason(evaluate(&env, &n, &ctx)),
         Some(DenyReason::ArithmeticOverflow)
+    );
+}
+
+#[test]
+fn op_or_with_no_children_denies_when_evaluated_directly() {
+    // Unreachable through decode, which refuses an empty `or`, but `evaluate`
+    // is a public entry point. The fallback has to be a DENY: permitting
+    // would make a malformed predicate look like an allowed call.
+    let env = Env::default();
+    let n = Node::Or(StdVec::new());
+    assert_eq!(
+        reason(evaluate(&env, &n, &empty_ctx(&env))),
+        Some(DenyReason::UnsupportedNode)
     );
 }

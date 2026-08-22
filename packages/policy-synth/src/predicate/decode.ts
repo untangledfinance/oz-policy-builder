@@ -64,6 +64,15 @@ function expectSymbol(v: xdr.ScVal | undefined, what: string): string {
   return v.sym().toString()
 }
 
+/** Strict i128, returned as a decimal string. Strict on purpose: the Rust
+ *  decoder refuses a u32 in an i128 slot rather than widening it, so
+ *  accepting one here would let a predicate decode off chain and be refused
+ *  on chain. */
+function expectI128(v: xdr.ScVal | undefined, what: string): string {
+  if (!v || v.switch() !== xdr.ScValType.scvI128()) throw malformed(`${what} is not an i128`)
+  return scValToBigInt(v).toString()
+}
+
 /** Arity check with the same intent as the Rust `check_arity`: a selector with
  *  the wrong element count is malformed, not silently truncated. */
 function arity(items: xdr.ScVal[], n: number, selector: string): void {
@@ -93,6 +102,14 @@ function decodeSelectorLeaf(items: xdr.ScVal[], sym: string): PredicateLeaf {
         index: expectU32(items[1], 'call_arg_field index'),
         element: expectU32(items[2], 'call_arg_field element'),
         field: expectSymbol(items[3], 'call_arg_field field'),
+      }
+    case 'call_arg_scaled':
+      arity(items, 4, sym)
+      return {
+        kind: 'call_arg_scaled',
+        index: expectU32(items[1], 'call_arg_scaled index'),
+        num: expectI128(items[2], 'call_arg_scaled num'),
+        den: expectI128(items[3], 'call_arg_scaled den'),
       }
     default:
       // Deliberately NOT a literal_vec fallback - see the header note.
@@ -129,14 +146,18 @@ export function decodeNode(v: xdr.ScVal): PredicateNode {
   const op = selectorSymbol(items)
   if (op === null) throw malformed('node does not start with an operator symbol')
   switch (op) {
-    case 'and': {
+    case 'and':
+    case 'or': {
       arity(items, 2, op)
       const children = expectVec(items[1] as xdr.ScVal, `${op} children`).map(decodeNode)
       if (children.length === 0) throw malformed(`${op} has no children`)
       return { op, children }
     }
     case 'eq':
+    case 'lt':
     case 'lte':
+    case 'gt':
+    case 'gte':
       arity(items, 3, op)
       return {
         op,

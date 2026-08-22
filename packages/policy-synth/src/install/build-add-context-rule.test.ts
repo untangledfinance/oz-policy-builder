@@ -150,7 +150,7 @@ describe('buildAddContextRuleArgs - happy path', () => {
     const byField = Object.fromEntries(inner.map((e) => [e.key().sym().toString(), e.val()]))
     expect(byField.grammar_version?.switch().name).toBe('scvU32')
     // Must equal the contract's SELF_VERSION; a mismatch is refused at install.
-    expect(byField.grammar_version?.u32()).toBe(3)
+    expect(byField.grammar_version?.u32()).toBe(4)
     expect(byField.install_nonce?.u32()).toBe(7)
     expect(byField.predicate?.switch().name).toBe('scvBytes')
     expect(byField.predicate_hash?.switch().name).toBe('scvBytes')

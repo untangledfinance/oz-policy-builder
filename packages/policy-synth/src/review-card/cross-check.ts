@@ -46,8 +46,28 @@ function collect(node: PredicateNode, out: string[]): void {
     case 'and':
       for (const child of node.children) collect(child, out)
       return
+    // ONE line for the whole disjunction, mirroring the builder. Emitting a
+    // line per branch would claim every branch is required, which is the
+    // opposite of what `or` means. If any branch renders to nothing the whole
+    // line is withheld, again mirroring the builder - a disjunction missing a
+    // branch reads STRICTER than it is.
+    case 'or': {
+      const parts: string[] = []
+      for (const child of node.children) {
+        const childOut: string[] = []
+        collect(child, childOut)
+        if (childOut.length !== 1) return
+        parts.push(childOut[0] as string)
+      }
+      if (parts.length === 0) return
+      out.push(`Either: ${parts.join(' OR ')}`)
+      return
+    }
     case 'eq':
+    case 'lt':
     case 'lte':
+    case 'gt':
+    case 'gte':
       pushComparison(node.left, node.right, node.op, out)
       return
     case 'in':
@@ -59,9 +79,23 @@ function collect(node: PredicateNode, out: string[]): void {
 function pushComparison(
   left: PredicateLeaf,
   right: PredicateLeaf,
-  op: 'eq' | 'lte',
+  op: 'eq' | 'lt' | 'lte' | 'gt' | 'gte',
   out: string[]
 ): void {
+  // Slippage floor, mirroring the builder. The human has to see that the
+  // bound is a RATIO of another argument, not a fixed amount.
+  if (right.kind === 'call_arg_scaled') {
+    const label = left.kind === 'call_arg' ? String(left.index) : `<${left.kind}>`
+    out.push(
+      `arg[${label}] ${comparisonOpText(op)} arg[${right.index}] * ${right.num}/${right.den}`
+    )
+    return
+  }
+  if (left.kind === 'call_arg_scaled') {
+    const label = right.kind === 'call_arg' ? String(right.index) : `<${right.kind}>`
+    out.push(`arg[${left.index}] * ${left.num}/${left.den} ${comparisonOpText(op)} arg[${label}]`)
+    return
+  }
   if (left.kind === 'call_contract' && op === 'eq' && right.kind === 'literal_address') {
     out.push(`Contract must be ${right.value}`)
     return

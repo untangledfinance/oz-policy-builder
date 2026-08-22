@@ -23,6 +23,7 @@ export function renderVecElement(leaf: PredicateLeaf): string {
     case 'call_arg':
     case 'call_arg_len':
     case 'call_arg_field':
+    case 'call_arg_scaled':
       return `<${leaf.kind}>`
   }
 }
@@ -38,10 +39,16 @@ export function renderHaystackElement(leaf: PredicateLeaf): string {
   return `<${leaf.kind}>`
 }
 
-export function comparisonOpText(op: 'eq' | 'lte'): string {
+export function comparisonOpText(op: 'eq' | 'lt' | 'lte' | 'gt' | 'gte'): string {
   switch (op) {
+    case 'lt':
+      return '<'
     case 'lte':
       return '<='
+    case 'gt':
+      return '>'
+    case 'gte':
+      return '>='
     case 'eq':
       return '=='
   }

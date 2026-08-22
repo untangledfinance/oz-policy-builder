@@ -26,9 +26,13 @@ export function jsonToAst(value: unknown): PredicateNode {
   }
   switch (v.op) {
     case 'and':
-      return { op: 'and', children: arrayOf(v.children, jsonToAst) }
+    case 'or':
+      return { op: v.op, children: arrayOf(v.children, jsonToAst) }
     case 'eq':
+    case 'lt':
     case 'lte':
+    case 'gt':
+    case 'gte':
       return { op: v.op, left: jsonToLeaf(v.left), right: jsonToLeaf(v.right) }
     case 'in':
       return { op: 'in', needle: jsonToLeaf(v.needle), haystack: arrayOf(v.haystack, jsonToLeaf) }
@@ -53,6 +57,15 @@ function jsonToLeaf(value: unknown): PredicateLeaf {
       return { kind: 'call_arg', index: numberField(v, 'index') }
     case 'call_arg_len':
       return { kind: 'call_arg_len', index: numberField(v, 'index') }
+    case 'call_arg_scaled':
+      // num/den stay decimal STRINGS: an i128 ratio does not survive a JS
+      // number, and silently rounding one would change the floor.
+      return {
+        kind: 'call_arg_scaled',
+        index: numberField(v, 'index'),
+        num: stringField(v, 'num'),
+        den: stringField(v, 'den'),
+      }
     case 'literal_address':
       return { kind: 'literal_address', value: stringField(v, 'value') }
     case 'literal_i128':

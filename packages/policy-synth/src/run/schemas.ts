@@ -201,6 +201,15 @@ export const PredicateLeafSchema: z.ZodType<unknown> = z.lazy(() =>
       element: z.number().int().nonnegative(),
       field: z.string(),
     }),
+    // num/den are i128 decimal strings, matching `literal_i128`. The regex
+    // is the boundary guard; the ratio's SIGN is checked at encode, where
+    // the message can explain that a negative ratio inverts the comparison.
+    z.object({
+      kind: z.literal('call_arg_scaled'),
+      index: z.number().int().nonnegative(),
+      num: z.string().regex(/^-?[0-9]+$/),
+      den: z.string().regex(/^-?[0-9]+$/),
+    }),
     z.object({ kind: z.literal('literal_address'), value: z.string() }),
     z.object({ kind: z.literal('literal_i128'), value: z.string().regex(/^-?[0-9]+$/) }),
     z.object({ kind: z.literal('literal_symbol'), value: z.string() }),
@@ -222,13 +231,29 @@ export const PredicateLeafSchema: z.ZodType<unknown> = z.lazy(() =>
 export const PredicateNodeSchema: z.ZodType<unknown> = z.lazy(() =>
   z.union([
     z.object({ op: z.literal('and'), children: z.array(PredicateNodeSchema) }),
+    z.object({ op: z.literal('or'), children: z.array(PredicateNodeSchema) }),
     z.object({
       op: z.literal('eq'),
       left: PredicateLeafSchema,
       right: PredicateLeafSchema,
     }),
     z.object({
+      op: z.literal('lt'),
+      left: PredicateLeafSchema,
+      right: PredicateLeafSchema,
+    }),
+    z.object({
       op: z.literal('lte'),
+      left: PredicateLeafSchema,
+      right: PredicateLeafSchema,
+    }),
+    z.object({
+      op: z.literal('gt'),
+      left: PredicateLeafSchema,
+      right: PredicateLeafSchema,
+    }),
+    z.object({
+      op: z.literal('gte'),
       left: PredicateLeafSchema,
       right: PredicateLeafSchema,
     }),
