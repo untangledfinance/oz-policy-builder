@@ -39,8 +39,10 @@ import {
   GetInterpreterInfoInputSchema,
   InstallPolicyInputSchema,
   MAINNET_RPC_URL,
+  PINNED_INTERPRETER_GRAMMAR_VERSION,
   PINNED_INTERPRETER_MAINNET_ADDRESS,
   PINNED_INTERPRETER_TESTNET_ADDRESS,
+  PINNED_INTERPRETER_WASM_SHA256,
   RevokePolicyInputSchema,
   TESTNET_RPC_URL,
 } from './schemas.ts'
@@ -308,11 +310,12 @@ describe('runGetInterpreterInfo envelope', () => {
     const res = await runGetInterpreterInfo({ network: 'testnet' })
     expect(res.ok).toBe(true)
     if (!res.ok) return
-    expect(res.data.pinnedAddress).toBe('CDR4NLV22STCXFGZPNKDQTEANWLF7LZ6AJLY6B7CLJXKHDZGYJWIOKGP')
-    expect(res.data.pinnedGrammarVersion).toBe(1)
-    expect(res.data.pinnedWasmHash).toBe(
-      '6e6c13d93e197aa380303a42cd120f5ddb080dd36ef2a343ee1dbd04ca52a443'
-    )
+    // Asserted against the constants, not frozen literals: this pins that the
+    // run layer SURFACES the pin unchanged. Whether the pin itself is right is
+    // grammar-version-parity.test.ts's job, so a redeploy does not break this.
+    expect(res.data.pinnedAddress).toBe(PINNED_INTERPRETER_TESTNET_ADDRESS)
+    expect(res.data.pinnedGrammarVersion).toBe(PINNED_INTERPRETER_GRAMMAR_VERSION)
+    expect(res.data.pinnedWasmHash).toBe(PINNED_INTERPRETER_WASM_SHA256)
     expect(res.data.network).toBe('testnet')
     // liveMatchesPin is absent (no verifyLive call).
     expect(res.data.liveMatchesPin).toBeUndefined()
@@ -925,9 +928,7 @@ describe('get_interpreter_info - mainnet honesty', () => {
     expect(res.data.pinnedAddress).toBe(PINNED_INTERPRETER_MAINNET_ADDRESS)
     expect(res.data.network).toBe('mainnet')
     // Shared wasm hash: same binary was uploaded both places.
-    expect(res.data.pinnedWasmHash).toBe(
-      '6e6c13d93e197aa380303a42cd120f5ddb080dd36ef2a343ee1dbd04ca52a443'
-    )
+    expect(res.data.pinnedWasmHash).toBe(PINNED_INTERPRETER_WASM_SHA256)
   })
 
   it('still answers for testnet', async () => {

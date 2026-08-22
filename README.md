@@ -32,10 +32,10 @@ The deployment is pinned in `packages/policy-synth/src/run/schemas.ts`:
 
 | | Address / hash |
 | --- | --- |
-| Interpreter (mainnet) | `CALZAMUPREIRY4TULBEXIK77AUTOEJG63XLCPUWEHHQDOVK6ZVVS7VQ2` |
-| Interpreter (testnet) | `CDR4NLV22STCXFGZPNKDQTEANWLF7LZ6AJLY6B7CLJXKHDZGYJWIOKGP` |
-| Interpreter wasm sha256 | `6e6c13d93e197aa380303a42cd120f5ddb080dd36ef2a343ee1dbd04ca52a443` |
-| Grammar version | `1` |
+| Interpreter (mainnet) | `CDMCYVL64EYQK7URVXQR6TTQ76DBLMTINMM3YHTIP4NH7VR3WZV5E5NF` |
+| Interpreter (testnet) | `CACCFGM2CH7ZV7MAZJP3TEZE2DMHJXORFHZUO6AXKGM3CZDBF7KMWPCL` |
+| Interpreter wasm sha256 | `2995e398d196669d3828ef1934415255dc59904fba25fc6f9edd1a0bedfeb99a` |
+| Grammar version | `3` |
 
 The same wasm hash backs both networks; only the instance address differs.
 

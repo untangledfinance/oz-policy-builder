@@ -325,23 +325,28 @@ const ContextRuleDraftSchema = z
 /** Pinned interpreter address (testnet).
  *  Single source for the MCP layer; do not embed elsewhere. */
 export const PINNED_INTERPRETER_TESTNET_ADDRESS =
-  'CDR4NLV22STCXFGZPNKDQTEANWLF7LZ6AJLY6B7CLJXKHDZGYJWIOKGP'
+  'CACCFGM2CH7ZV7MAZJP3TEZE2DMHJXORFHZUO6AXKGM3CZDBF7KMWPCL'
 
-/** Pinned interpreter address (mainnet). Mainnet
- *  has now been deployed (2026-08-04); the mainnet interpreter IS the binary
- *  that was exercised on testnet (same wasm sha256, see
- *  PINNED_INTERPRETER_WASM_SHA256). The address differs because instance
- *  ids are network-scoped. UNAUDITED at the time of writing. */
+/** Pinned interpreter address (mainnet), deployed 2026-08-22. The mainnet
+ *  interpreter IS the binary exercised on testnet - both instances were created
+ *  from the same uploaded wasm hash (see PINNED_INTERPRETER_WASM_SHA256), and
+ *  both were read back with `grammar_version()` returning 3. The address differs
+ *  because instance ids are network-scoped. UNAUDITED at the time of writing.
+ *
+ *  These four constants move together or not at all. The grammar version and
+ *  wasm hash are single values covering BOTH networks, so re-pinning one network
+ *  alone would have the builder emit a version the other network refuses - with
+ *  a green test run, since `grammar-version-parity.test.ts` would then pass. */
 export const PINNED_INTERPRETER_MAINNET_ADDRESS =
-  'CALZAMUPREIRY4TULBEXIK77AUTOEJG63XLCPUWEHHQDOVK6ZVVS7VQ2'
+  'CDMCYVL64EYQK7URVXQR6TTQ76DBLMTINMM3YHTIP4NH7VR3WZV5E5NF'
 
 /** Pinned interpreter wasm sha256 (hex). */
 export const PINNED_INTERPRETER_WASM_SHA256 =
-  '6e6c13d93e197aa380303a42cd120f5ddb080dd36ef2a343ee1dbd04ca52a443'
+  '2995e398d196669d3828ef1934415255dc59904fba25fc6f9edd1a0bedfeb99a'
 
 /** The grammar version the interpreter enforces (matches SELF_VERSION in
  *  contracts/policy-interpreter/src/version.rs). */
-export const PINNED_INTERPRETER_GRAMMAR_VERSION = 1
+export const PINNED_INTERPRETER_GRAMMAR_VERSION = 3
 
 /** Default Soroban RPC for the install / revoke / info tools. The recorder
  *  keeps its own copy in record/rpc.ts because it hands back a fetcher rather

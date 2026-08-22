@@ -115,7 +115,7 @@ Every log in [`evidence/`](evidence/) was produced against this tree.
 | Log | Command | Result |
 | --- | --- | --- |
 | [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 70 tests + 9 conformance pass |
-| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | 566 pass, 1 skip, 1 fail - the one failure is the deployment-pin guard described in section 5 |
+| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 567 pass, 1 skip, 0 fail |
 | [`cargo-audit.log`](evidence/cargo-audit.log) | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | [`bun-audit.log`](evidence/bun-audit.log) | `bun audit` | 0 vulnerabilities |
 | [`clippy-pedantic.log`](evidence/clippy-pedantic.log) | `clippy -W pedantic -W nursery` | 170 style warnings, 0 security |
@@ -150,15 +150,14 @@ and forcing `eq` true was caught by three separate deny cases.
 | Contract | `cargo build --release --target wasm32v1-none` | builds |
 | Off-chain | `bunx biome check .` | 112 files, 0 findings |
 | Off-chain | `bun run typecheck` | clean |
-| Off-chain | `bun test` | 566 passed, 1 skipped, 1 failed (the deployment-pin guard; see section 5) |
+| Off-chain | `bun test` | 567 passed, 1 skipped, 0 failed |
 | Off-chain | `bun audit` | 0 vulnerabilities |
 
 Both gates run in CI on every push, including the two dependency-advisory
-scans. CI is currently RED, and deliberately so: the deployment-pin guard in
-`grammar-version-parity.test.ts` fails while this tree is ahead of the pinned
-interpreter. It is the only failing test, and it clears the moment a
-version-3 interpreter is deployed and re-pinned. Read a red build here as "not
-shippable against the current pin", which is true, rather than as a broken tree.
+scans. The deployment-pin guard in `grammar-version-parity.test.ts` is part of
+that run: it fails whenever the builder's grammar version and the pinned
+deployment disagree, so a red build there means "not shippable against the
+current pin" rather than a broken tree.
 
 One reported item is triaged as a non-issue rather than fixed, argued in
 [`README.md`](README.md#findings):
@@ -173,24 +172,32 @@ saturating instead of argued about; the run is now clean of Criticals.
 
 ## 5. Scope and known issues
 
-**The audited tree is not the deployed mainnet binary.** The address pinned in
-`run/schemas.ts` runs a different build. An audit of this tree therefore says
-nothing about the contract currently deployed, and is only worth commissioning
-if this tree is what ships.
+**This tree IS the deployed binary, on both networks.** The grammar-version-3
+interpreter was deployed on 2026-08-22 and the pins in `run/schemas.ts` were
+moved to it. Both instances were created from one uploaded wasm, so the same
+binary runs on both networks:
 
-The gap is concrete, not theoretical. This tree is grammar version 3
-(`SELF_VERSION`) and the builder stamps 3 into every `install_params`, while
-`PINNED_INTERPRETER_GRAMMAR_VERSION` is 1 - the pinned deployment speaks the
-version-1 grammar. `install_policy` also refuses any interpreter address other
-than the pinned one unless `allowUnpinnedInterpreter` is set, so an install
-built from this tree against its own pin is refused on chain with error 200
-`VersionMismatch`.
+| | |
+| --- | --- |
+| Interpreter (mainnet) | `CDMCYVL64EYQK7URVXQR6TTQ76DBLMTINMM3YHTIP4NH7VR3WZV5E5NF` |
+| Interpreter (testnet) | `CACCFGM2CH7ZV7MAZJP3TEZE2DMHJXORFHZUO6AXKGM3CZDBF7KMWPCL` |
+| wasm sha256 | `2995e398d196669d3828ef1934415255dc59904fba25fc6f9edd1a0bedfeb99a` |
+| Grammar version | 3, matching `SELF_VERSION` |
 
-`grammar-version-parity.test.ts` asserts the two agree. It is the one failing
-test in the suite, and it clears when a version-3 interpreter is deployed to a
-NEW address and the address, wasm hash and version are re-pinned together -
-never by editing `PINNED_INTERPRETER_GRAMMAR_VERSION` alone, which would restore
-a green run and leave every install still refused.
+Verified rather than assumed: the sha256 of the locally built wasm equals the
+hash the network returned on upload, and `get_interpreter_info --verifyLive`
+reports `liveMatchesPin: true` with `deployedGrammarVersion: 3` against both
+networks. The contract remains UNAUDITED; deploying it is what makes an audit of
+this tree worth commissioning, not a statement about its assurance level.
+
+The four pinned constants move together or not at all. The wasm hash and grammar
+version are single values covering BOTH networks, so re-pinning one network
+alone would leave the builder emitting a version the other network refuses -
+with a green test run, because `grammar-version-parity.test.ts` compares the
+builder against the pin and would then pass. That test exists because this skew
+was live until the deployment above: the tree had moved to grammar 3 while the
+pin still named version-1 instances, so every install it built was refused on
+chain with error 200 `VersionMismatch`.
 
 Two further points on where the risk sits, both carried in the threat model
 rather than only here:

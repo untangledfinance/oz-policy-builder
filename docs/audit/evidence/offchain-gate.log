@@ -1,7 +1,7 @@
-# offchain-gate - regenerated 2026-08-21T12:55:40Z
+# offchain-gate - regenerated 2026-08-22T02:10:50Z
 
 $ bunx biome check .
-Checked 112 files in 1098ms. No fixes applied.
+Checked 112 files in 794ms. No fixes applied.
 
 $ bun run typecheck
 $ bunx tsc --noEmit -p packages/policy-synth/tsconfig.json && bunx tsc --noEmit -p packages/policy-builder-cli/tsconfig.json && bunx tsc --noEmit -p packages/policy-builder-mcp/tsconfig.json
@@ -11,15 +11,10 @@ $ bun run --cwd packages/{policy-synth,policy-builder-cli,policy-builder-mcp} bu
 (all three emit dist/ + dist-cjs/ with declarations; no diagnostics = clean)
 
 $ bun test
-(fail) grammar version parity (TS builder vs Rust contract) > the pinned deployment speaks the grammar this tree emits [0.12ms]
+bun test v1.3.14 (0d9b296a)
 
- 566 pass
+ 567 pass
  1 skip
- 1 fail
- 1503 expect() calls
-Ran 568 tests across 35 files. [11.02s]
-
-KNOWN FAILURE - not a regression, and not fixable in this tree:
-  grammar version parity > the pinned deployment speaks the grammar this tree emits
-  The builder stamps grammar_version 3; PINNED_INTERPRETER_GRAMMAR_VERSION is 1.
-  Deploying a version-3 interpreter and re-pinning clears it. See handover section 5.
+ 0 fail
+ 1504 expect() calls
+Ran 568 tests across 35 files. [10.58s]
