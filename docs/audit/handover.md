@@ -166,10 +166,6 @@ One reported item is triaged as a non-issue rather than fixed, argued in
   through `soroban-sdk`. The advisory is "no longer maintained", not a
   vulnerability, and it is not actionable without an SDK change.
 
-Scout previously reported two Criticals against `d + 1` in the depth walk. They
-were unreachable but the proof was non-local, so the arithmetic was made
-saturating instead of argued about; the run is now clean of Criticals.
-
 ## 5. Scope and known issues
 
 **This tree IS the deployed binary, on both networks.** The grammar-version-3

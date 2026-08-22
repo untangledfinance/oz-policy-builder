@@ -55,8 +55,7 @@ recorded transaction.
 
 ## The pipeline
 
-The off-chain flow is seven steps, exposed identically as seven MCP tools and
-as CLI subcommands. Each is a thin adapter over a pure core; nothing holds
+The off-chain flow is exposed as eight MCP tools and as CLI subcommands. Each is a thin adapter over a pure core; nothing holds
 session state.
 
 ```mermaid
@@ -85,6 +84,12 @@ flowchart LR
    is stateless.
 4. **revoke_policy** - emit the unsigned `remove_context_rule` transaction.
    Master-signer-only.
+5. **declare_policy** - lower a constraint stated outright (method, and
+   optionally contract, per-call amount cap and recipient allowlist) to a
+   predicate. No transaction, no RPC, no `parseConfidence`.
+6. **simulate_policy** / **verify_policy** - evaluate a predicate against a
+   recorded call, and check the permit case alongside a generated deny case
+   per dimension.
 7. **get_interpreter_info** - return the pinned deployment fingerprint and,
    optionally, a live `grammar_version()` read to confirm the on-chain
    contract still matches the pin.
@@ -123,9 +128,9 @@ A predicate is a boolean tree of leaves. The **Rust decoder in
 `policy-synth/src/predicate/encode.ts` must agree with it byte for byte, and an
 unknown tag is fail-closed at decode.
 
-Boolean combinators: `and`, `or`, `not`. Terminal nodes are a comparison
-(`eq`, `lt`, `lte`, `gt`, `gte`) or an `in` set-membership test. Selectors
-(what a leaf reads from the authorised call):
+Boolean combinator: `and`. Terminal nodes are a comparison (`eq`, `lte`) or an
+`in` set-membership test. Selectors (what a leaf reads from the authorised
+call):
 
 | Selector | Reads |
 | --- | --- |
@@ -134,7 +139,6 @@ Boolean combinators: `and`, `or`, `not`. Terminal nodes are a comparison
 | `call_arg(i)` | argument `i` as a scalar |
 | `call_arg_len(i)` | length of a vector argument |
 | `call_arg_field(i, elem, field)` | a field of a map element inside a vector arg |
-| `now` | ledger sequence |
 
 Every selector is answered from the authorised call alone. That is the whole
 shape of the grammar: **at `enforce` the interpreter writes nothing and reads
@@ -156,6 +160,9 @@ refused at decode:
   synthesiser says so explicitly rather than implying a cap it cannot keep.
 - `valid_until` - expiry belongs to the context rule's own `valid_until` field,
   which the smart account owns.
+- `or`, `not`, `lt`, `gt`, `gte` and `now` - removed with grammar 3. The
+  grammar is the set the synthesiser emits, and each removed variant widened
+  the decoder without a caller.
 
 Structural caps (authoritative in Rust, mirrored in TS): depth 5, 200 leaves,
 32 operands in an `in` list, 32 KB encoded.
@@ -198,11 +205,11 @@ means signer separation, not predicate strength: put the constrained key on the
 policed rule and nowhere else. The e2e harness asserts the closure rather than
 assuming it, and `docs/audit/evidence/e2e-network.log` carries the result.
 
-**Nothing here checks that for you.** `install_policy` does not read the
-account's other rules, so it cannot tell you the key you are policing holds
-unpoliced authority elsewhere. That check has to happen in the integrating
-client, or by reading the account's rules by hand before installing. See
-`docs/audit/README.md` finding 6.
+`install_policy` reports this as `authorityScan` when the caller passes
+`existingRules`: every rule a signer of the install could name instead, with
+an unpoliced neighbour flagged `bypass`. It does not read the account itself,
+so a caller that omits `existingRules` gets `null` - not checked, rather than
+nothing found. See `docs/audit/README.md` finding 5.
 
 ## The interpreter contract
 

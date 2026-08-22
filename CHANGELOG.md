@@ -104,7 +104,7 @@ rather than left implicit in the lineage note above.
   (policed by a contract whose semantics we cannot read) or `not-restricting`.
   **Nothing in this release warns an integrator that the key they just policed
   also sits on an unpoliced rule**, which leaves that key unconstrained. See
-  `docs/audit/README.md` finding 6.
+  `docs/audit/README.md` finding 5.
 - `install/read-account-rules` and `install/build-install-predicate`.
 - `install/build-merge-policy`, `install/plan-merge-policy`, and with them the
   `merge_policy` MCP tool - 7 tools here against 0.2.0's 8. There is no tighten
