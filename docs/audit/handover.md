@@ -148,6 +148,7 @@ and forcing `eq` true was caught by three separate deny cases.
 | Contract | `cargo test` | 79 passed, 0 failed |
 | Contract | `cargo test --release --test conformance` | 9 passed, 0 failed |
 | Contract | `cargo build --release --target wasm32v1-none` | builds |
+| Cross-layer | built wasm sha256 == `PINNED_INTERPRETER_WASM_SHA256` | match |
 | Off-chain | `bunx biome check .` | 112 files, 0 findings |
 | Off-chain | `bun run typecheck` | clean |
 | Off-chain | `bun test` | 567 passed, 1 skipped, 0 failed |
@@ -198,6 +199,16 @@ builder against the pin and would then pass. That test exists because this skew
 was live until the deployment above: the tree had moved to grammar 3 while the
 pin still named version-1 instances, so every install it built was refused on
 chain with error 200 `VersionMismatch`.
+
+Two gates hold the pin, because the version alone is not enough to identify a
+binary. `grammar-version-parity.test.ts` compares the builder's grammar version
+against `PINNED_INTERPRETER_GRAMMAR_VERSION`, and a CI step compares
+`PINNED_INTERPRETER_WASM_SHA256` against the sha256 of a wasm built from this
+tree - so a contract change without a redeploy, or a redeploy that updates the
+address and version but not the hash, fails the build. Comparing by hash is
+sound here because the build is reproducible: rebuilding from a different source
+path and a different `CARGO_TARGET_DIR` was checked and produces a
+byte-identical wasm.
 
 Two further points on where the risk sits, both carried in the threat model
 rather than only here:
