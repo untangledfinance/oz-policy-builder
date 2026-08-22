@@ -101,6 +101,18 @@ depending on what the predicate constrains.
 built to the Stellar template: STRIDE per element and per data flow, five
 entry points, eight trust boundaries.
 
+One OZ semantic was settled by experiment rather than assumed, because getting
+it wrong would have inverted a recommendation: **multiple policies attached to
+one context rule compose as ALL-OF.** Two interpreter instances were put on one
+rule with predicates that disagreed about the same call, and the refusing one
+decided the outcome; a control rule carrying only the permitting policy allowed
+the identical call, so the denial belongs to the second policy rather than to a
+malformed rule. Evidence in
+[`evidence/oz-policy-composition.log`](evidence/oz-policy-composition.log). This
+is what makes an OZ built-in primitive attached beside the interpreter - a
+`spending_limit`, say - a real bound rather than a bypassable one, and it is the
+basis for treating rolling spend caps as the account layer's job.
+
 Live residual risks are enumerated there with the reason each is accepted. Four
 are OpenZeppelin account-model semantics the interpreter cannot override
 (transitive authority, all-of-N versus any-of-N signer sets, the refusal of

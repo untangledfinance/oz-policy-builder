@@ -199,11 +199,14 @@ means signer separation, not predicate strength: put the constrained key on the
 policed rule and nowhere else. The e2e harness asserts the closure rather than
 assuming it, and `docs/audit/evidence/e2e-network.log` carries the result.
 
-`install_policy` reports this as `authorityScan` when the caller passes
-`existingRules`: every rule a signer of the install could name instead, with
-an unpoliced neighbour flagged `bypass`. It does not read the account itself,
-so a caller that omits `existingRules` gets `null` - not checked, rather than
-nothing found. See `docs/audit/README.md` finding 5.
+`install_policy` reports this as `authorityScan`: every rule a signer of the
+install could name instead, with an unpoliced neighbour flagged `bypass`. It
+READS the account to build it, so the answer describes what is installed rather
+than what the caller happened to mention; passing `existingRules` supplies them
+directly instead, which keeps the scan usable offline. `null` means NOT CHECKED
+and covers a failed or incomplete read - never an empty list, because `[]` would
+turn "could not check" into "nothing found". See `docs/audit/README.md`
+finding 5.
 
 ## The interpreter contract
 

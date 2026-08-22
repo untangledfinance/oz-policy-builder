@@ -10,6 +10,7 @@ Logs in `evidence/` were produced against this tree.
 | `bun-audit.log` | `bun audit` | 0 vulnerabilities |
 | `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 180 style warnings, 0 security; every cast warning is in a test file |
 | `scout-audit.log` | `cargo scout-audit` | Analyzed: 0 Critical, 9 Medium, 0 Minor, 1 Enhancement |
+| `oz-policy-composition.log` | `scripts/oz-policy-composition.ts` | two interpreter policies on ONE rule, disagreeing about the same call: the refusing one is decisive. OZ composes attached policies as ALL-OF |
 | `e2e-network.log` | `scripts/e2e-network.ts --network testnet` and `--network mainnet` | policy installed against the pinned interpreter on both networks; permitted call succeeds, forbidden call denied `#100` |
 
 ## Findings
@@ -106,9 +107,18 @@ fail-open direction.
 Exposed as `findAuthorityOverlaps` from `@crediolabs/policy-synth/install`;
 `install_policy` returns it as `authorityScan`.
 
-**Limit:** the scan runs only when the caller supplies `existingRules`.
-`install_policy` does not read the account itself, so a caller that omits them
-gets `authorityScan: null`, which means not checked rather than nothing found.
+`install_policy` READS the account to build it, so the scan describes what is
+actually installed rather than what the caller happened to mention. Rule ids are
+not contiguous - OZ never reuses an id after a removal - so the walk climbs ids
+until it has accounted for `Count` live rules; iterating `0..Count-1` would skip
+live rules at higher ids, and a skipped rule is a missed overlap. A caller can
+still pass `existingRules` to supply them directly, which keeps the scan usable
+offline.
+
+**Limit:** `authorityScan: null` means NOT CHECKED, and covers a read that
+failed as well as one that could not account for every live rule. It is never an
+empty list in those cases, because reporting `[]` would turn "could not check"
+into "nothing found".
 
 ### 6. On-chain spec resolution widens the RPC trust boundary
 

@@ -49,6 +49,18 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   read as "all of these are required", which is both wrong and the dangerous
   direction - it makes a policy look tighter than it is.
 
+### Verified
+
+- **Multiple policies on one OZ context rule compose as ALL-OF**, established by
+  experiment rather than read from documentation
+  (`scripts/oz-policy-composition.ts`, evidence in
+  `docs/audit/evidence/oz-policy-composition.log`). Two interpreter instances
+  were attached to one rule with predicates that disagreed about the same call,
+  and the refusing one decided it; a control rule carrying only the permitting
+  policy allowed the identical call. It matters because the opposite result
+  would have made an OZ `spending_limit` attached beside the interpreter
+  bypassable by satisfying the interpreter alone.
+
 ### Security
 
 - Install refuses a `call_arg_scaled` whose ratio is zero or non-positive

@@ -1,0 +1,22 @@
+# OZ multi-policy composition - all-of or any-of?
+# Generated 2026-08-22T17:49:08Z by packages/policy-synth/scripts/oz-policy-composition.ts
+#
+# Two interpreter instances on ONE context rule, disagreeing about the same
+# call. A permits `transfer`; B denies it. A control rule carrying only A runs
+# first, so a denial cannot be blamed on a malformed rule or on A never
+# permitting anything.
+#
+#   denied   => ALL-OF, every attached policy must permit
+#   succeeds => ANY-OF, one permitting policy clears the rule
+
+$ bun packages/policy-synth/scripts/oz-policy-composition.ts
+INFO   network       testnet
+INFO   interpreter A CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5 (pinned)
+INFO   interpreter B CC7TRVME6GF52BJLDIFB3A3LW4X73UI3SEALAR7J32KSBDU3LZZVHIS4 (fresh instance, same wasm)
+PASS   smart account CAV6HK7NSPLQDHRX3UADFYKKQ3B7XXW3GAEPXOZEVQBGNFL6ZPQECPQM
+PASS   account funded
+PASS   rule 1 installed: A only (permits transfer)
+PASS   rule 2 installed: A (permits transfer) + B (denies transfer)
+PASS   CONTROL: transfer permitted through rule 1 (A alone permits)
+RESULT ALL-OF: transfer DENIED #100 - the refusing policy was decisive.
+RESULT Every attached policy must permit, so a spend cap beside the interpreter binds.
