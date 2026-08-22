@@ -160,6 +160,30 @@ refused at decode:
 Structural caps (authoritative in Rust, mirrored in TS): depth 5, 200 leaves,
 32 operands in an `in` list, 32 KB encoded.
 
+### What a predicate is actually matched against
+
+`call_fn` and `call_contract` read the AUTHORISED call - the call the smart
+account was asked to approve. That is not always the action a person would
+name, and two cases catch predicate authors out.
+
+**A wrapper changes the call.** Invoking a token directly, so the token calls
+`account.require_auth()`, makes the transfer itself the authorised call:
+`call_fn` is `transfer` and `call_contract` is the token. Routing the same
+intent through an account-side wrapper such as `execute(token, "transfer",
+args)` makes the WRAPPER the authorised call - `call_fn` becomes `execute`,
+`call_contract` becomes the account, and the token and method move to
+`call_arg(0)` and `call_arg(1)`. A predicate synthesised from a recording pins
+the first shape, so running it against a wrapping client denies its own happy
+path. The e2e harness calls tokens directly for this reason.
+
+**One call can be several contexts.** A nested sub-invocation is its own
+authorization context. A Blend supply is `pool.submit` with a nested
+`token.transfer`, so it presents TWO authorised calls, each matched separately
+and each needing its own context rule. A predicate pinning
+`eq(call_fn, "submit")` governs the outer context ONLY; whatever rule covers
+the nested `transfer` governs that. Write predicates per context, not per
+user-visible action.
+
 ## The interpreter contract
 
 `policy-interpreter` is a single Soroban contract with this surface:
