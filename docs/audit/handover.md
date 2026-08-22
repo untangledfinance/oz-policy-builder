@@ -1,8 +1,6 @@
 # Audit handover
 
-Entry point for the external audit of the OZ policy interpreter. It states what
-is in scope, what evidence exists for the claims made about it, and what is
-knowingly left open.
+Scope, evidence and known issues for the OZ policy interpreter.
 
 ## 1. Subject
 
@@ -31,7 +29,7 @@ Per-file size of the audited contract. Test modules (`dsl_tests.rs`,
 | `version.rs` | 1 |
 | **Total** | **842** |
 
-Two properties worth knowing before reading the code:
+Properties worth knowing before reading the code:
 
 - **`enforce` writes nothing, and reads only what install fixed.** It makes
   exactly two storage reads - the predicate document and the signer-set hash,
@@ -63,6 +61,8 @@ Two properties worth knowing before reading the code:
   claim about the contract rather than about a separate model that could drift
   from it. `verify_policy` reports `ok` only when the recorded transaction is
   permitted AND every generated deny case is denied.
+- **The install path is where the fail-closed gates live**, because a predicate
+  that reaches evaluation is already committed to.
 - **Deny cases are derived from the predicate, so coverage is not fixed.** A
   dimension the predicate does not constrain produces no case for it, and `ok`
   means "nothing the harness could construct got through" rather than "this
@@ -70,11 +70,7 @@ Two properties worth knowing before reading the code:
 
 ### Deny-case dimensions
 
-The proposal names seven dimensions. The architecture changed underneath them:
-it was written for composed OpenZeppelin primitives including
-`spending_limit(limit, time_window)`, and became a single audited interpreter.
-Two dimensions therefore moved layer and one stopped existing. Where each is
-covered now:
+Where each proposal dimension is covered:
 
 | Proposal dimension | Covered by | Layer |
 | --- | --- | --- |
@@ -83,17 +79,15 @@ covered now:
 | contract | `contract_scope` - the same call sent to another contract | deny harness |
 | function | `function_scope` - the same arguments sent to another method | deny harness |
 | timing | the context rule's `valid_until`; the interpreter has no clock, so this is not a predicate property | contract tests (`install_enforce.rs`) |
-| time-window | **removed.** A rolling per-window total needs a running total across calls, which needs stored state the interpreter does not keep. Supplying a window produced a byte-identical predicate and no warning, so the guarantee was never enforced - removing it is what made that visible | n/a |
+| time-window | **removed.** A rolling per-window total needs a running total across calls, which needs stored state the interpreter does not keep. A window supplied to the builder produced a byte-identical predicate and no warning, so the guarantee was never enforced | n/a |
 | policy-capacity | `build-add-context-rule.ts` refuses more than `OZ_LIMITS.maxPoliciesPerRule` (5) | install builder |
 
-Three further structural dimensions have no proposal counterpart and are
+Four further structural dimensions have no proposal counterpart and are
 generated anyway: `arg_bound`, `argument_reorder`, `vec_append` and
 `soroswap_allowed_path`.
 
 On the three shipped walkthroughs the harness generates 3 to 5 cases each,
 depending on what the predicate constrains.
-- **The install path is where the fail-closed gates live**, because a predicate
-  that reaches evaluation is already committed to.
 
 ## 2. Threat model
 
@@ -119,13 +113,13 @@ Every log in [`evidence/`](evidence/) was produced against this tree.
 | [`cargo-audit.log`](evidence/cargo-audit.log) | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | [`bun-audit.log`](evidence/bun-audit.log) | `bun audit` | 0 vulnerabilities |
 | [`clippy-pedantic.log`](evidence/clippy-pedantic.log) | `clippy -W pedantic -W nursery` | 170 style warnings, 0 security |
-| [`scout-audit.log`](evidence/scout-audit.log) | `cargo scout-audit` | 0 Critical, 9 Medium, 1 Enhancement |
+| [`scout-audit.log`](evidence/scout-audit.log) | `cargo scout-audit` | 0 Critical, 9 Medium, 0 Minor, 1 Enhancement |
 
 Beyond the tools, the Stellar Security Portal corpus (832 Soroban findings) was
 pulled and its 150 critical/high findings cross-checked against this contract's
-five entry points. The dominant class, a privileged entry point missing an
-authorization check, is tabulated per entry point in
-[`README.md`](README.md#4-stellar-security-portal-corpus---832-findings-cross-checked).
+five entry points. Access control dominates that set; the controls are tabulated
+per entry point in
+[`README.md`](README.md#3-stellar-security-portal-corpus---832-findings-cross-checked).
 
 `cargo-scout-audit` 0.3.16 reports a build that never compiled as "Analyzed"
 with 0 findings, so the Scout numbers above are only meaningful because a
@@ -148,7 +142,7 @@ and forcing `eq` true was caught by three separate deny cases.
 | Contract | `cargo test` | 79 passed, 0 failed |
 | Contract | `cargo test --release --test conformance` | 9 passed, 0 failed |
 | Contract | `contracts/policy-interpreter/build-wasm.sh` | builds; sha256 equals `PINNED_INTERPRETER_WASM_SHA256` |
-| Off-chain | `bunx biome check .` | 112 files, 0 findings |
+| Off-chain | `bunx biome check .` | 120 files, 0 findings |
 | Off-chain | `bun run typecheck` | clean |
 | Off-chain | `bun test` | 612 passed, 1 skipped, 0 failed |
 | Off-chain | `bun audit` | 0 vulnerabilities |
@@ -183,17 +177,13 @@ binary runs on both networks:
 Verified rather than assumed: the sha256 of the locally built wasm equals the
 hash the network returned on upload, and `get_interpreter_info --verifyLive`
 reports `liveMatchesPin: true` with `deployedGrammarVersion: 3` against both
-networks. The contract remains UNAUDITED; deploying it is what makes an audit of
-this tree worth commissioning, not a statement about its assurance level.
+networks.
 
 The four pinned constants move together or not at all. The wasm hash and grammar
 version are single values covering BOTH networks, so re-pinning one network
 alone would leave the builder emitting a version the other network refuses -
 with a green test run, because `grammar-version-parity.test.ts` compares the
-builder against the pin and would then pass. That test exists because this skew
-was live until the deployment above: the tree had moved to grammar 3 while the
-pin still named version-1 instances, so every install it built was refused on
-chain with error 200 `VersionMismatch`.
+builder against the pin and would then pass.
 
 Two gates hold the pin, because a version number does not identify a binary.
 `grammar-version-parity.test.ts` compares the builder's grammar version against
