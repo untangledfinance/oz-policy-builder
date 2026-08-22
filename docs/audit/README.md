@@ -11,6 +11,7 @@ Regenerate them whenever a claim they back changes.
 | `bun-audit.log` | `bun audit` | 0 vulnerabilities |
 | `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 170 style warnings, 0 security |
 | `scout-audit.log` | `cargo scout-audit` | Analyzed: 0 Critical, 9 Medium, 1 Enhancement |
+| `e2e-network.log` | `scripts/e2e-network.ts --network testnet` and `--network mainnet` | policy installed against the pinned interpreter on both networks; permitted call succeeds, forbidden call denied `#100` |
 
 ## Findings
 
@@ -64,6 +65,30 @@ this contract's five entry points was checked against that class:
 `require_master` refuses an empty set rather than treating zero `require_auth`
 calls as satisfied - the corpus's "authorization that silently no-ops" class.
 The nonce covers the corpus's double-spend/replay class.
+
+### 5. End-to-end behaviour on both networks - permit and deny proven
+
+The static tools above say nothing about whether the deployed contract actually
+enforces anything. `scripts/e2e-network.ts` closes that: it deploys a fresh OZ
+smart account, installs `eq(call_fn, "transfer")` against the PINNED
+interpreter, and then exercises both verdicts through real submitted
+transactions. Mainnet and testnet both pass, and the run is repeatable - two
+independent mainnet runs produced the same outcome against different accounts.
+
+Two things make the deny meaningful rather than decorative:
+
+- **The deny is attributed, not just observed.** The harness fails unless the
+  refusal names the interpreter contract AND carries `#100 ArgMismatch`. A test
+  that only asserts "the call failed" passes for any reason at all.
+- **The forbidden call is otherwise valid.** The first version of this harness
+  reported a passing deny that was worthless: `approve` was given an expiration
+  ledger in the past, so the token rejected it on its own terms and the
+  interpreter was never consulted. The expiration is now set ahead of the
+  current ledger, leaving the predicate as the only thing that can reject it.
+
+The permit is not vacuous either, because the deny is its control: both calls go
+through the same account, the same rule and the same attached policy, so a
+missing or unbound policy would have let the `approve` through.
 
 ## Reproducing the Scout run
 

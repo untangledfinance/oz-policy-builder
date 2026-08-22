@@ -1,0 +1,37 @@
+# End-to-end proof against real networks
+# Generated 2026-08-22T03:47:30Z by packages/policy-synth/scripts/e2e-network.ts
+# Each run deploys a FRESH smart account, installs a policy against the pinned
+# interpreter, then shows the permitted call succeeding and the forbidden call
+# refused by the interpreter (#100 ArgMismatch).
+
+$ bun packages/policy-synth/scripts/e2e-network.ts --network testnet
+INFO network        testnet
+INFO interpreter    CCL336TCK2Y5OFNRCMN2M3HVPBCEX4PW5H6EQ5VW5NPMXOCP4ESB5XR4
+INFO grammar        3
+INFO rpc            https://soroban-testnet.stellar.org
+INFO signer         GBIIIHHTRIUCP52XVZ2C6OPGGSUDOLXWIA22OSWJO7LILIQZNDY7G4OQ
+PASS smart account deployed  CBC7HP7NLQPHEVRFHVBHTAIFWAT4JTHXR42GLHIIJ4MHR5ZZXAVGWLPR
+PASS account funded with XLM (SAC CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC)
+INFO predicate hash 9c1b891f5e4214f290db5038be0a7974867cfc8463e8b6f157e818e0f71cf093
+PASS policy installed against rule 1  (tx in ledger 4269564)
+PASS PERMIT transfer allowed by the interpreter (ledger 4269565)
+PASS DENY approve refused by the interpreter (#100 ArgMismatch)
+
+INFO smart account  CBC7HP7NLQPHEVRFHVBHTAIFWAT4JTHXR42GLHIIJ4MHR5ZZXAVGWLPR
+INFO permit and deny both proven against the pinned interpreter
+
+$ bun packages/policy-synth/scripts/e2e-network.ts --network mainnet --secret <MAINNET_DEPLOYER_SECRET>
+INFO network        mainnet
+INFO interpreter    CBZXLSTQUITBFZHQH6XRXF3XIVRQR4RHRI64Q5WELS5KGY3ZKJPFWDPF
+INFO grammar        3
+INFO rpc            https://soroban-rpc.mainnet.stellar.gateway.fm
+INFO signer         GCIVG2AIEWMDA43HX2HRCYVNY7PH7HMPYVN42LQ5XBSHBLHFUWG47NFN
+PASS smart account deployed  CBNXWHQNUKVKMGXT6I3VECQH6HIL2LBRZ5ZXZYNQR5QX3DXTFKZPZA5M
+PASS account funded with XLM (SAC CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA)
+INFO predicate hash 9c1b891f5e4214f290db5038be0a7974867cfc8463e8b6f157e818e0f71cf093
+PASS policy installed against rule 1  (tx in ledger 64066476)
+PASS PERMIT transfer allowed by the interpreter (ledger 64066477)
+PASS DENY approve refused by the interpreter (#100 ArgMismatch)
+
+INFO smart account  CBNXWHQNUKVKMGXT6I3VECQH6HIL2LBRZ5ZXZYNQR5QX3DXTFKZPZA5M
+INFO permit and deny both proven against the pinned interpreter

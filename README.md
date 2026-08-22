@@ -24,16 +24,25 @@ It is built as two halves:
 
 ## What is actually running
 
-The policy interpreter is deployed on Stellar mainnet and testnet. Both
-instances pinned below were deployed on 2026-08-22 and have not been exercised
-yet: no policy has been installed against either, and neither has recorded an
-invocation.
+The policy interpreter is deployed on Stellar mainnet and testnet, and both
+pinned instances have been exercised end to end against real accounts: a policy
+installed, the call it allows permitted, and the call it forbids denied by the
+contract.
 
-Permit-and-deny behaviour was exercised on the earlier grammar-1 mainnet
-instance (`CALZAMUPREIRY4TULBEXIK77AUTOEJG63XLCPUWEHHQDOVK6ZVVS7VQ2`, still
-live, no longer pinned here). That is a different binary from the one pinned
-below, so those runs do not evidence this deployment. The behaviour of the
-pinned binary is evidenced by the test suites, not by mainnet use.
+On mainnet, smart account
+`CBNXWHQNUKVKMGXT6I3VECQH6HIL2LBRZ5ZXZYNQR5QX3DXTFKZPZA5M` carries the
+predicate `eq(call_fn, "transfer")` (hash `9c1b891f...`) installed at ledger
+64066476. A `transfer` from that account was permitted at ledger 64066477; an
+`approve` on the same token, under the same rule, was refused by the interpreter
+with `#100 ArgMismatch`. The `approve` was given a valid expiration ledger
+first, so the token had no reason of its own to reject it and the predicate is
+the only thing that did.
+
+Reproduce either network with
+`bun packages/policy-synth/scripts/e2e-network.ts --network testnet`; the
+transcript of both runs is in
+[docs/audit/evidence/e2e-network.log](./docs/audit/evidence/e2e-network.log).
+Testnet funds itself through friendbot; mainnet needs a funded `--secret`.
 
 The deployment is pinned in `packages/policy-synth/src/run/schemas.ts`:
 
