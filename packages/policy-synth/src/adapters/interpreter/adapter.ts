@@ -1,6 +1,6 @@
-// src/adapters/interpreter/adapter.ts - the interpreter-policy CustodyAdapter.
+// src/adapters/interpreter/adapter.ts - the interpreter-policy adapter.
 //
-// Compiles a PolicyIR to a single interpreter `PolicyDocument` + `PolicyRef`
+// Compiles a `ComposedRule` to a single interpreter `PolicyDocument` + `PolicyRef`
 // carrying the canonical predicate encoding from `predicate/encode.ts`. This is
 // the only backend; the compose step lowers every constraint to it.
 //
@@ -41,9 +41,9 @@ export interface InterpreterAdapterConfig {
   smartAccountAddress: string
 }
 
-/** The result of compiling a PolicyIR for this backend. */
+/** The result of compiling a `ComposedRule` for this backend. */
 export interface CompileResult {
-  /** false => some IR construct this backend cannot express (see `uncovered`). */
+  /** false => some constraint this backend cannot express (see `uncovered`). */
   covered: boolean
   /** Human-readable list of unsupported constructs. */
   uncovered: string[]

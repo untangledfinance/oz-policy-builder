@@ -1,7 +1,7 @@
 // src/synth/synthesize-from-recording.ts - recording-path orchestrator.
 //
 // `synthesizeFromRecording` INFERS a bounded policy from a `RecordedTransaction`
-// via the `PolicyIR` + interpreter adapter pair.
+// via the composer + interpreter adapter pair.
 // Flow: validate -> parseConfidence gate -> lower -> decideScope -> composeFromRecording
 // -> interpreter compile + self-verify.
 // Same (tx, opts) -> byte-identical ProposedPolicy (no randomness, clock, globals).
