@@ -198,6 +198,12 @@ means signer separation, not predicate strength: put the constrained key on the
 policed rule and nowhere else. The e2e harness asserts the closure rather than
 assuming it, and `docs/audit/evidence/e2e-network.log` carries the result.
 
+**Nothing here checks that for you.** `install_policy` does not read the
+account's other rules, so it cannot tell you the key you are policing holds
+unpoliced authority elsewhere. That check has to happen in the integrating
+client, or by reading the account's rules by hand before installing. See
+`docs/audit/README.md` finding 6.
+
 ## The interpreter contract
 
 `policy-interpreter` is a single Soroban contract with this surface:

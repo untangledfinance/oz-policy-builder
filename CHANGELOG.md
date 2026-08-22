@@ -30,6 +30,28 @@ rather than reusing it.
   state the interpreter does not keep, and supplying a window produced a
   byte-identical predicate with no warning, so the guarantee was never enforced.
 
+### Removed
+
+Capabilities present in the published 0.2.0 and NOT in this release. They were
+never part of this repository: 0.2.0 came from `octogate`, which carries its own
+copy of these packages, so moving the npm lineage here drops them. Anyone
+upgrading 0.2.0 -> 0.3.0 loses them, which is why they are listed as removals
+rather than left implicit in the lineage note above.
+
+- `install/authority-overlap`, and the `authorityScan` report `install_policy`
+  returned with it. It compared the rule being installed against every other
+  rule on the account and flagged the ones a signer could name instead,
+  classifying each as `bypass` (the neighbour constrains nothing), `unknown`
+  (policed by a contract whose semantics we cannot read) or `not-restricting`.
+  **Nothing in this release warns an integrator that the key they just policed
+  also sits on an unpoliced rule**, which leaves that key unconstrained. See
+  `docs/audit/README.md` finding 6.
+- `install/read-account-rules` and `install/build-install-predicate`.
+- `install/build-merge-policy`, `install/plan-merge-policy`, and with them the
+  `merge_policy` MCP tool - 7 tools here against 0.2.0's 8. There is no tighten
+  path on this version: adding a second rule WIDENS authority rather than
+  narrowing it, because a caller may name whichever rule is more permissive.
+
 ### Fixed
 
 - `PolicyDocument.grammarVersion` was pinned to the literal `2` while the

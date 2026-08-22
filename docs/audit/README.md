@@ -108,6 +108,41 @@ unpoliced rule by design - a policy constrains the keys placed under it, not
 the account's owner - and any deployment that puts a constrained key on a
 second, unpoliced rule has no constraint at all.
 
+### 6. No install-time overlap check ships - the trap in finding 5 is undetected
+
+Finding 5 explains that a predicate constrains a key only if the policed rule is
+the only rule that key is on. A reader could reasonably assume the toolkit
+checks that at install. **It does not.** This is recorded here because the gap
+sits directly under a finding that would otherwise imply the opposite.
+
+The published 0.2.0 did check it. `install/authority-overlap` compared the rule
+being installed against every other rule on the account and returned an
+`authorityScan` on the `install_policy` result, flagging each neighbouring rule
+a signer could name instead as `bypass`, `unknown` or `not-restricting`. It
+matched on shared signers intersected with shared `(contract, function)`
+selectors - both conditions being necessary for the signer to have a choice -
+and deliberately OVER-approximated what a predicate permits, so a
+non-intersecting result was a sound proof that two rules could not collide.
+
+It is absent from 0.3.0 and was never in this repository. 0.2.0 was published
+from `octogate`, which carries its own copy of these packages; moving the npm
+lineage here dropped the capability without a code change in either tree. That
+is worth an auditor's attention on its own: a published package regressed
+through a repository move, not through a commit, and the version number went up.
+
+Consequence, stated plainly: an integrator installing a policy through this
+release gets no signal that the key they just constrained holds unpoliced
+authority elsewhere. The e2e harness asserts that closure for its own fixture
+(finding 5), which covers our evidence and nothing else.
+
+We consider restoring an adapted overlap check the highest-value addition to
+this toolkit, on the evidence of finding 5: the mistake was made here, in a
+harness written by the author of the predicate grammar, and was caught by
+review rather than by tooling. It is not a straight port - the 0.2.0 module
+reasons about `not` and oracle bounds, neither of which exists in grammar 3 -
+so it needs adapting to the reduced grammar, and that re-expands the audited
+surface. Flagged as a decision, not silently deferred.
+
 ## Reproducing the Scout run
 
 `cargo-scout-audit` 0.3.16 cannot analyse a `soroban-sdk` 27 crate unpatched,
