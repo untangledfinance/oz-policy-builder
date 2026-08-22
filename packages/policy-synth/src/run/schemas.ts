@@ -373,12 +373,12 @@ const ContextRuleDraftSchema = z
 /** Pinned interpreter address (testnet).
  *  Single source for the MCP layer; do not embed elsewhere. */
 export const PINNED_INTERPRETER_TESTNET_ADDRESS =
-  'CCL336TCK2Y5OFNRCMN2M3HVPBCEX4PW5H6EQ5VW5NPMXOCP4ESB5XR4'
+  'CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5'
 
-/** Pinned interpreter address (mainnet), redeployed 2026-08-22 from a reproducible build. The mainnet
+/** Pinned interpreter address (mainnet), redeployed 2026-08-22 for grammar 4, from a reproducible build. The mainnet
  *  interpreter IS the binary exercised on testnet - both instances were created
  *  from the same uploaded wasm hash (see PINNED_INTERPRETER_WASM_SHA256), and
- *  both were read back with `grammar_version()` returning 3. The address differs
+ *  both were read back with `grammar_version()` returning 4. The address differs
  *  because instance ids are network-scoped. UNAUDITED at the time of writing.
  *
  *  These four constants move together or not at all. The grammar version and
@@ -386,15 +386,15 @@ export const PINNED_INTERPRETER_TESTNET_ADDRESS =
  *  alone would have the builder emit a version the other network refuses - with
  *  a green test run, since `grammar-version-parity.test.ts` would then pass. */
 export const PINNED_INTERPRETER_MAINNET_ADDRESS =
-  'CBZXLSTQUITBFZHQH6XRXF3XIVRQR4RHRI64Q5WELS5KGY3ZKJPFWDPF'
+  'CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52'
 
 /** Pinned interpreter wasm sha256 (hex). */
 export const PINNED_INTERPRETER_WASM_SHA256 =
-  'a2b36e8ac5a61caf3757af26aa79e83f2995b451099f44772383806a55fe3414'
+  'b5ba1e35ccf20cd8c13c3a2c3098bf337033a92bcaf475d63c03ddc0cba0fcae'
 
 /** The grammar version the interpreter enforces (matches SELF_VERSION in
  *  contracts/policy-interpreter/src/version.rs). */
-export const PINNED_INTERPRETER_GRAMMAR_VERSION = 3
+export const PINNED_INTERPRETER_GRAMMAR_VERSION = 4
 
 /** Default Soroban RPC for the install / revoke / info tools. The recorder
  *  keeps its own copy in record/rpc.ts because it hands back a fetcher rather
