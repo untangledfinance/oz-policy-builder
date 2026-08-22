@@ -1,17 +1,17 @@
-# contract-gate - regenerated 2026-08-21T12:56:31Z
+# contract-gate - regenerated 2026-08-22T02:32:51Z
 
 $ cargo fmt --check
 (no diff = clean)
 
 $ cargo clippy --all-targets -- -D warnings
     Checking policy-interpreter v0.1.0 (/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/contracts/policy-interpreter)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 7.84s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.26s
 
 $ cargo test
 running 34 tests
 test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
 running 9 tests
-test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 running 6 tests
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 running 21 tests
@@ -19,11 +19,16 @@ test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fin
 running 6 tests
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 running 3 tests
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
 
 $ cargo test --release --test conformance
 running 9 tests
 test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 $ cargo build --release --target wasm32v1-none
-    Finished `release` profile [optimized] target(s) in 0.27s
+    Finished `release` profile [optimized] target(s) in 0.12s
+
+$ sha256sum target/wasm32v1-none/release/policy_interpreter.wasm  # vs PINNED_INTERPRETER_WASM_SHA256
+built:  2995e398d196669d3828ef1934415255dc59904fba25fc6f9edd1a0bedfeb99a
+pinned: 2995e398d196669d3828ef1934415255dc59904fba25fc6f9edd1a0bedfeb99a
+(match)
