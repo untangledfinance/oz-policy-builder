@@ -34,6 +34,11 @@ import {
   type ToolResponse,
 } from '../index.ts'
 import {
+  type AuthorityOverlap,
+  findAuthorityOverlaps,
+  type ObservedRule,
+} from '../install/authority-overlap.ts'
+import {
   type BuildInstallPolicyResult,
   type BuildRevokePolicyResult,
   buildInstallPolicyXdr,
@@ -42,6 +47,7 @@ import {
   rpcClientFromServer,
 } from '../install/build-install-policy.ts'
 import { getInterpreterInfo } from '../install/get-interpreter-info.ts'
+import { decodePredicate } from '../predicate/decode.ts'
 import { type EvalContext, evaluate, generateCases } from '../simulate/index.ts'
 import {
   DeclarePolicyInputSchema,
@@ -210,7 +216,7 @@ export async function runSynthesizePolicy(raw: unknown): Promise<
 
 export async function runInstallPolicy(
   raw: unknown
-): Promise<ToolResponse<BuildInstallPolicyResult>> {
+): Promise<ToolResponse<BuildInstallPolicyResult & { authorityScan: AuthorityOverlap[] | null }>> {
   const parsed = InstallPolicyInputSchema.safeParse(raw)
   if (!parsed.success) {
     return { ok: false, error: validationError('install_policy', parsed.error.issues) }
@@ -261,7 +267,28 @@ export async function runInstallPolicy(
       rpc: rpcClient,
       ...(input.baseFee !== undefined ? { baseFee: input.baseFee } : {}),
     })
-    return { ok: true, data: result }
+    // Cross-rule scan, when the caller supplied what else is on the account.
+    // ABSENT is reported as `null` rather than an empty list: "we did not
+    // look" and "we looked and found nothing" are different answers, and
+    // collapsing them would let a caller read silence as safety.
+    const authorityScan =
+      input.existingRules === undefined
+        ? null
+        : findAuthorityOverlaps({
+            intended: {
+              // `add_context_rule` gets its id FROM the account, so there is
+              // no existing rule this install replaces. A sentinel no real id
+              // can equal keeps every observed rule in scope.
+              ruleId: -1,
+              contextType: input.rule.contextRuleType,
+              signers: input.rule.signers,
+              predicate: decodePredicate(encodedPredicate),
+            },
+            // The schema types `predicate` loosely (it is the shared
+            // PredicateNodeSchema); the shape is already validated.
+            existing: input.existingRules as ObservedRule[],
+          })
+    return { ok: true, data: { ...result, authorityScan } }
   } catch (e) {
     return toolFailure('install_policy', e)
   }

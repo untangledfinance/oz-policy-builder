@@ -12,6 +12,26 @@
 // Exported here rather than from the package root to keep the root surface
 // about synthesis, and because these are transaction-building primitives whose
 // callers should know they are reaching for them.
+
+// Cross-rule authority analysis. Exported because the check has to happen
+// wherever an install is BUILT, and a client that assembles its own
+// `add_context_rule` call never reaches `runInstallPolicy`.
+export {
+  ANY,
+  type AuthorityOverlap,
+  type ContextType,
+  effectiveSelectors,
+  findAuthorityOverlaps,
+  type IntendedInstall,
+  intersectSelectors,
+  type ObservedRule,
+  type OverlapSeverity,
+  permittedSelectors,
+  type RuleClass,
+  type Selector,
+  selectorsForContextType,
+  signerKey,
+} from './authority-overlap.ts'
 export {
   ADD_CONTEXT_RULE_SYMBOL,
   type AddContextRuleArgs,

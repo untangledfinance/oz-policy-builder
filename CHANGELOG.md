@@ -19,6 +19,16 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   deliberately not the rest: the input schema is strict, so naming
   `spendingLimit` or `approvalThreshold` is an error rather than a silent
   no-op. A defaulted argument index emits a warning naming the index assumed.
+- The cross-rule authority check is back, adapted to grammar 3:
+  `findAuthorityOverlaps` from `@crediolabs/policy-synth/install`, and
+  `authorityScan` on the `install_policy` result. It reports every rule already
+  on the account that a signer of this install could name INSTEAD - including an
+  unpoliced one, against which the installed predicate never runs. A predicate
+  only constrains a key when the policed rule is the only rule that key is on,
+  and that mistake was made in this project's own end-to-end harness. Pass
+  `existingRules` to turn it on; omitting them returns `null`, meaning NOT
+  CHECKED rather than nothing found. It was published in 0.2.0 and lost when the
+  npm lineage moved from `octogate` to this repository.
 - The recorder now reads a contract's own interface OFF CHAIN when the
   compiled-in registry does not recognise it, and verifies every recorded call
   against it. A Soroban contract embeds a typed spec in its wasm, so the

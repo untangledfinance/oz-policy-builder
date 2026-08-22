@@ -94,7 +94,7 @@ export function registerTools(server: McpServer): void {
 
   server.tool(
     'install_policy',
-    'Build an UNSIGNED Soroban transaction XDR for `account.add_context_rule(...)` that installs a new policy rule on the given smart account. The wallet signs the returned XDR - the signature IS the user-confirmation step (this server is stateless and holds no key material, so there is no two-call confirm pair). Only CALL 1 is emitted; the interpreter `install` follow-up needs the rule id the account assigns in call 1 and is documented in `followUp` in the response.',
+    'Build an UNSIGNED Soroban transaction XDR for `account.add_context_rule(...)` that installs a new policy rule on the given smart account. Pass `existingRules` to get an `authorityScan`: every rule already on the account that a signer of this install could name INSTEAD, including an unpoliced one against which the predicate never runs - a predicate only constrains a key when the policed rule is the only rule that key is on. Omitting them returns `authorityScan: null`, meaning NOT CHECKED. The wallet signs the returned XDR - the signature IS the user-confirmation step (this server is stateless and holds no key material, so there is no two-call confirm pair). Only CALL 1 is emitted; the interpreter `install` follow-up needs the rule id the account assigns in call 1 and is documented in `followUp` in the response.',
     InstallPolicyToolShape,
     (args) => runInstallPolicy(args).then(toCallToolResult)
   )

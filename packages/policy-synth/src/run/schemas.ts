@@ -281,6 +281,29 @@ export type VerifyPolicyInput = z.infer<typeof VerifyPolicyInputSchema>
 const MAX_SIGNERS_PER_RULE = 15
 const MAX_POLICIES_PER_RULE = 5
 
+const SignerDraftSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('delegated'), address: z.string() }),
+  z.object({ kind: z.literal('external'), verifier: z.string(), keyBytes: z.string() }),
+])
+
+const ContextTypeSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('default') }),
+  z.object({ kind: z.literal('call_contract'), contract: z.string() }),
+  z.object({ kind: z.literal('create_contract'), wasmHash: z.string() }),
+])
+
+/** A rule ALREADY on the account, as the caller observed it. Supplying these
+ *  turns on the cross-rule authority scan: a signer belonging to several rules
+ *  picks which one applies, so a predicate only constrains a key when the
+ *  policed rule is the only rule that key is on. */
+export const ObservedRuleSchema = z.object({
+  id: z.number().int().nonnegative(),
+  contextType: ContextTypeSchema,
+  signers: z.array(SignerDraftSchema),
+  policyAddresses: z.array(z.string()),
+  predicate: PredicateNodeSchema.optional(),
+})
+
 const ContextRuleDraftSchema = z
   .object({
     contextRuleType: z.discriminatedUnion('kind', [
@@ -421,6 +444,12 @@ export type DeclarePolicyInput = z.infer<typeof DeclarePolicyInputSchema>
 
 export const InstallPolicyInputSchema = z
   .object({
+    /** Rules already on the account. Supplying them turns on the cross-rule
+     *  authority scan, which reports every existing rule a signer of this
+     *  install could name INSTEAD - including an unpoliced one, against which
+     *  the predicate never runs. Absent means the scan is skipped, and the
+     *  result says so rather than reporting "no overlaps found". */
+    existingRules: z.array(ObservedRuleSchema).optional(),
     /** The smart account contract address (C...) that will receive the rule. */
     smartAccount: z
       .string()

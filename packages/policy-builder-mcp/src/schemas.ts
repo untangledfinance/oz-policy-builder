@@ -149,6 +149,10 @@ export const DeclarePolicyToolShape = {
  *  extracts them from there. */
 export const InstallPolicyToolShape = {
   ...SmartAccountToolShape,
+  /** Rules already on the account. Supplying them turns on the cross-rule
+   *  authority scan; omitting them returns `authorityScan: null`, which means
+   *  "not checked" rather than "nothing found". */
+  existingRules: z.array(z.unknown()).optional(),
   rule: z.unknown().optional(),
   installNonce: z.number().int().positive().optional(),
   interpreterAddress: z.string().optional(),

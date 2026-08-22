@@ -108,40 +108,38 @@ unpoliced rule by design - a policy constrains the keys placed under it, not
 the account's owner - and any deployment that puts a constrained key on a
 second, unpoliced rule has no constraint at all.
 
-### 6. No install-time overlap check ships - the trap in finding 5 is undetected
+### 6. Install-time overlap check - restored, and what it does not do
 
 Finding 5 explains that a predicate constrains a key only if the policed rule is
-the only rule that key is on. A reader could reasonably assume the toolkit
-checks that at install. **It does not.** This is recorded here because the gap
-sits directly under a finding that would otherwise imply the opposite.
+the only rule that key is on. That property is now checked rather than left to
+the reader.
 
-The published 0.2.0 did check it. `install/authority-overlap` compared the rule
-being installed against every other rule on the account and returned an
-`authorityScan` on the `install_policy` result, flagging each neighbouring rule
-a signer could name instead as `bypass`, `unknown` or `not-restricting`. It
-matched on shared signers intersected with shared `(contract, function)`
-selectors - both conditions being necessary for the signer to have a choice -
-and deliberately OVER-approximated what a predicate permits, so a
-non-intersecting result was a sound proof that two rules could not collide.
+`install/authority-overlap` compares the rule being installed against every
+other rule on the account and reports each one a signer could name instead,
+classified as `bypass` (the neighbour constrains nothing), `unknown` (policed
+by a contract whose semantics cannot be read) or `not-restricting` (ours, but
+wider). It matches on shared signers INTERSECTED with shared
+`(contract, function)` selectors - both conditions being necessary for the
+signer to have a choice - and deliberately OVER-approximates what a predicate
+permits, so a non-intersecting result is a sound proof that two rules cannot
+collide. Narrowing instead would be the fail-open direction.
 
-It is absent from 0.3.0 and was never in this repository. 0.2.0 was published
-from `octogate`, which carries its own copy of these packages; moving the npm
-lineage here dropped the capability without a code change in either tree. That
-is worth an auditor's attention on its own: a published package regressed
-through a repository move, not through a commit, and the version number went up.
+It ships as `findAuthorityOverlaps` from `@crediolabs/policy-synth/install`,
+and `install_policy` returns it as `authorityScan`.
 
-Consequence, stated plainly: an integrator installing a policy through this
-release gets no signal that the key they just constrained holds unpoliced
-authority elsewhere. The e2e harness asserts that closure for its own fixture
-(finding 5), which covers our evidence and nothing else.
+**Two limits an auditor should hold us to.** The scan runs only when the caller
+supplies `existingRules`; `install_policy` does not read the account itself, so
+an integrator who does not pass them gets `authorityScan: null`. That is
+reported as null rather than as an empty list precisely because "not checked"
+and "checked, nothing found" are different answers and silence must not read as
+safety. Reading the rules on chain inside the tool is the obvious next step and
+is not done.
 
-We consider restoring an adapted overlap check the highest-value addition to
-this toolkit, on the evidence of finding 5: the mistake was made here, in a
-harness written by the author of the predicate grammar, and was caught by
-review rather than by tooling. It is not a straight port - the 0.2.0 module
-reasons about `not` and oracle bounds, neither of which exists in grammar 3 -
-so it needs adapting to the reduced grammar, and that re-expands the audited
-surface. Flagged as a decision, not silently deferred.
+The check was previously published in 0.2.0, from the `octogate` repository,
+and was lost when the npm lineage moved here - no commit removed it and the
+version number went up. It is restored adapted to grammar 3: the `or` and `not`
+cases are gone with those operators, as are the oracle bounds the stored
+document used to carry.
 
 ## Reproducing the Scout run
 
