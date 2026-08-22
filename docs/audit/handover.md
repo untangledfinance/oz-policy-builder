@@ -114,7 +114,7 @@ Every log in [`evidence/`](evidence/) was produced against this tree.
 
 | Log | Command | Result |
 | --- | --- | --- |
-| [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 70 tests + 9 conformance pass |
+| [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, reproducible wasm build, hash pin parity | clean; 70 tests + 9 conformance pass; built wasm matches the pin |
 | [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 567 pass, 1 skip, 0 fail |
 | [`cargo-audit.log`](evidence/cargo-audit.log) | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | [`bun-audit.log`](evidence/bun-audit.log) | `bun audit` | 0 vulnerabilities |
@@ -147,7 +147,7 @@ and forcing `eq` true was caught by three separate deny cases.
 | Contract | `cargo clippy --all-targets -- -D warnings` | 0 warnings |
 | Contract | `cargo test` | 79 passed, 0 failed |
 | Contract | `cargo test --release --test conformance` | 9 passed, 0 failed |
-| Contract | `cargo build --release --target wasm32v1-none` | builds |
+| Contract | `contracts/policy-interpreter/build-wasm.sh` | builds; sha256 equals `PINNED_INTERPRETER_WASM_SHA256` |
 | Off-chain | `bunx biome check .` | 112 files, 0 findings |
 | Off-chain | `bun run typecheck` | clean |
 | Off-chain | `bun test` | 567 passed, 1 skipped, 0 failed |
@@ -179,9 +179,9 @@ binary runs on both networks:
 
 | | |
 | --- | --- |
-| Interpreter (mainnet) | `CDMCYVL64EYQK7URVXQR6TTQ76DBLMTINMM3YHTIP4NH7VR3WZV5E5NF` |
-| Interpreter (testnet) | `CACCFGM2CH7ZV7MAZJP3TEZE2DMHJXORFHZUO6AXKGM3CZDBF7KMWPCL` |
-| wasm sha256 | `2995e398d196669d3828ef1934415255dc59904fba25fc6f9edd1a0bedfeb99a` |
+| Interpreter (mainnet) | `CBZXLSTQUITBFZHQH6XRXF3XIVRQR4RHRI64Q5WELS5KGY3ZKJPFWDPF` |
+| Interpreter (testnet) | `CCL336TCK2Y5OFNRCMN2M3HVPBCEX4PW5H6EQ5VW5NPMXOCP4ESB5XR4` |
+| wasm sha256 | `a2b36e8ac5a61caf3757af26aa79e83f2995b451099f44772383806a55fe3414` |
 | Grammar version | 3, matching `SELF_VERSION` |
 
 Verified rather than assumed: the sha256 of the locally built wasm equals the
@@ -199,24 +199,24 @@ was live until the deployment above: the tree had moved to grammar 3 while the
 pin still named version-1 instances, so every install it built was refused on
 chain with error 200 `VersionMismatch`.
 
-One gate holds the pin, and it is the weaker of the two that should.
+Two gates hold the pin, because a version number does not identify a binary.
 `grammar-version-parity.test.ts` compares the builder's grammar version against
-`PINNED_INTERPRETER_GRAMMAR_VERSION`, so a version skew fails the build. Nothing
-checks `PINNED_INTERPRETER_WASM_SHA256`, so a contract change without a redeploy,
-or a redeploy that updates the address and version but not the hash, would pass.
+`PINNED_INTERPRETER_GRAMMAR_VERSION`, and a CI step rebuilds the wasm and
+compares its sha256 against `PINNED_INTERPRETER_WASM_SHA256` - so a contract
+change without a redeploy, or a redeploy that updates the address and version
+but not the hash, fails the build.
 
-**The release build is not reproducible, so the deployed bytecode cannot be
-independently verified against this source.** The wasm bakes in the absolute
-`CARGO_HOME` path, and three builds of this tree produced three different
-hashes: one locally, one with a fresh `CARGO_HOME`, and one in CI. The deployed
-wasm therefore carries the path of the machine that built it, and an auditor
-rebuilding from this source will not reproduce
-`2995e398d196669d3828ef1934415255dc59904fba25fc6f9edd1a0bedfeb99a`.
-
-The fix is `--remap-path-prefix` for the registry and crate roots, which was
-checked and does give a byte-identical wasm across differing source paths and
-`CARGO_HOME`s. It changes the hash, so it has to land with a redeploy and a
-re-pin rather than on its own.
+**The deployed bytecode can be independently verified.** Run
+`contracts/policy-interpreter/build-wasm.sh`; the sha256 it prints is the pinned
+hash, and it is the hash uploaded to both networks. A bare
+`cargo build --release --target wasm32v1-none` will NOT match: rustc bakes the
+crate root and the registry source paths into the binary, so an unremapped build
+differs per machine - three builds of an earlier commit gave three hashes, one
+locally, one with a fresh `CARGO_HOME`, one in CI. The script passes
+`--remap-path-prefix` for both roots, verified to produce a byte-identical wasm
+across differing source paths and `CARGO_HOME`s, and `strings` on the result
+shows no host paths. Anything deployed, or compared against the pin, has to be
+built through it.
 
 Two further points on where the risk sits, both carried in the threat model
 rather than only here:

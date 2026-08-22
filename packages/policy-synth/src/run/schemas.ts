@@ -325,9 +325,9 @@ const ContextRuleDraftSchema = z
 /** Pinned interpreter address (testnet).
  *  Single source for the MCP layer; do not embed elsewhere. */
 export const PINNED_INTERPRETER_TESTNET_ADDRESS =
-  'CACCFGM2CH7ZV7MAZJP3TEZE2DMHJXORFHZUO6AXKGM3CZDBF7KMWPCL'
+  'CCL336TCK2Y5OFNRCMN2M3HVPBCEX4PW5H6EQ5VW5NPMXOCP4ESB5XR4'
 
-/** Pinned interpreter address (mainnet), deployed 2026-08-22. The mainnet
+/** Pinned interpreter address (mainnet), redeployed 2026-08-22 from a reproducible build. The mainnet
  *  interpreter IS the binary exercised on testnet - both instances were created
  *  from the same uploaded wasm hash (see PINNED_INTERPRETER_WASM_SHA256), and
  *  both were read back with `grammar_version()` returning 3. The address differs
@@ -338,11 +338,11 @@ export const PINNED_INTERPRETER_TESTNET_ADDRESS =
  *  alone would have the builder emit a version the other network refuses - with
  *  a green test run, since `grammar-version-parity.test.ts` would then pass. */
 export const PINNED_INTERPRETER_MAINNET_ADDRESS =
-  'CDMCYVL64EYQK7URVXQR6TTQ76DBLMTINMM3YHTIP4NH7VR3WZV5E5NF'
+  'CBZXLSTQUITBFZHQH6XRXF3XIVRQR4RHRI64Q5WELS5KGY3ZKJPFWDPF'
 
 /** Pinned interpreter wasm sha256 (hex). */
 export const PINNED_INTERPRETER_WASM_SHA256 =
-  '2995e398d196669d3828ef1934415255dc59904fba25fc6f9edd1a0bedfeb99a'
+  'a2b36e8ac5a61caf3757af26aa79e83f2995b451099f44772383806a55fe3414'
 
 /** The grammar version the interpreter enforces (matches SELF_VERSION in
  *  contracts/policy-interpreter/src/version.rs). */

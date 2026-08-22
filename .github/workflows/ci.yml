@@ -88,22 +88,42 @@ jobs:
         if: matrix.crate == 'policy-interpreter'
         run: cargo test --release --test conformance
 
-      # A wasm-hash pin-parity check belongs here, but cannot work yet: the
-      # release build is NOT reproducible. It bakes in the absolute CARGO_HOME
-      # path, so the same source produces a different sha256 on every machine
-      # (three builds of this tree gave three hashes: a local one, one with a
-      # fresh CARGO_HOME, and CI's). Comparing hashes across machines would fail
-      # for everyone but the person who last deployed.
+      # PINNED_INTERPRETER_WASM_SHA256 is the builder's claim about which binary
+      # the pinned instances run, and the grammar-version guard only compares the
+      # VERSION - a stale hash beside a correct version passes it. This rebuilds
+      # the wasm and compares.
       #
-      # `--remap-path-prefix` fixes it and was verified to give byte-identical
-      # wasm across differing source paths and CARGO_HOMEs. Adopting it changes
-      # the hash, so it has to land together with a redeploy and re-pin. Until
-      # then the pin's hash is unverifiable by rebuild - see the handover.
-      - name: Build wasm
+      # It must go through build-wasm.sh. A bare cargo build is NOT reproducible:
+      # rustc bakes in the crate root and registry paths, so the hash differs per
+      # machine. The script remaps both, which was verified to give a
+      # byte-identical wasm across differing source paths and CARGO_HOMEs - that
+      # is what makes comparing hashes in CI meaningful rather than flaky.
+      - name: Wasm build and pin parity
         if: matrix.crate == 'policy-interpreter'
         run: |
           rustup target add wasm32v1-none
-          cargo build --release --target wasm32v1-none
+          built=$(./build-wasm.sh | tail -1)
+          pinned=$(grep -A2 'PINNED_INTERPRETER_WASM_SHA256' \
+            ../../packages/policy-synth/src/run/schemas.ts \
+            | grep -oE '[0-9a-f]{64}' | head -1)
+          echo "built:  $built"
+          echo "pinned: $pinned"
+          if [ -z "$pinned" ]; then
+            echo "could not read PINNED_INTERPRETER_WASM_SHA256 - has it been renamed?"
+            exit 1
+          fi
+          if [ "$built" != "$pinned" ]; then
+            echo ""
+            echo "The pinned wasm hash is not the wasm this tree builds."
+            echo "Either the contract changed without a redeploy, or a deployment"
+            echo "re-pinned the address and version but not the hash. Deploy the"
+            echo "current build and re-pin address, wasm hash and grammar version"
+            echo "together in run/schemas.ts."
+            echo "If the hashes differ but the source did not change, check that"
+            echo "the build went through build-wasm.sh - a bare cargo build is"
+            echo "not reproducible and will not match."
+            exit 1
+          fi
 
       # RustSec advisories against the locked dependency set. Needs 0.22 or
       # later: the advisory database now carries CVSS 4.0 entries, and 0.21
