@@ -14,7 +14,7 @@
 ### In scope
 
 - `contracts/policy-interpreter/` - the on-chain Soroban contract that evaluates one predicate per `enforce` call.
-- `packages/policy-synth/` - the off-chain core: IR, predicate encoder/decoder, recording synthesis, install/revoke/info wrappers, registry, schemas.
+- `packages/policy-synth/` - the off-chain core: predicate encoder/decoder, recording synthesis, install/revoke/info wrappers, registry, schemas.
 - `packages/policy-builder-cli/` - the CLI front-end over the synth core.
 - `packages/policy-builder-mcp/` - the MCP server (stdio and Streamable HTTP transports) and its tool registrations.
 
@@ -148,7 +148,7 @@ flowchart TB
         direction TB
         REG["known-addresses registry"]
         ENC["encodePredicate + caps + validateLeafValues"]
-        ADP["IR -> interpreter adapter"]
+        ADP["composer -> interpreter adapter"]
     end
 
     subgraph ONCH["On-chain - Soroban"]
@@ -241,7 +241,6 @@ For every element, all six categories are addressed. "Not applicable" rows are k
 | C1-E.3 | Elevation of privilege | External verifier in the master set becomes an unrecoverable state | `require_master` calls `require_auth` on the verifier address, which a plain verifier contract never satisfies | Low | Critical | Install and rotate both refuse External signers in the master set (212). | Tracked as R-3: refusing is the correct behaviour, not a limitation. |
 | C1-E.4 | Elevation of privilege | `install_nonce` replay between two installs | A replayed install overwrites a fresh predicate | Low | High | `install_nonce` must equal `stored_nonce + 1`; mismatch panics 202. `uninstall` removes the nonce with the rest of the state, so a subsequent install starts again at 1. | None. |
 | C1-E.5 | Elevation of privilege | Transitive authority through a permitted callee | The policy permits calling contract X; X then moves funds using a standing SEP-41 allowance the account granted earlier. That transfer needs no auth from this account, so it produces no `Context` and no `enforce` call | Medium | High | **Depth itself is covered:** OZ builds one `Context` per auth-tree node requiring this account's authorisation and calls `enforce` once per context, so a smuggled inner call that needs this account's auth IS evaluated on its own merits. `extract_call` handling only `Context::Contract` is a shape check, not a depth limit. | Residual by nature, not by scope. Mitigated operationally - a policed key must hold zero standing allowances. Tracked as R-1. |
-| C1-E.6 | Elevation of privilege | Fatal deny inverted via `not` or `or` | A user-supplied predicate that negates a structural denial | Medium | High | `UnsupportedNode` is fatal: `Not` does not invert it and `Or` short-circuits on it (`src/dsl.rs`). Pinned by a regression test. | None. |
 | C1-E.7 | Elevation of privilege | Grammar-version skew between the builder and the contract | An off-chain builder emitting an older `grammar_version` produces installs the contract refuses - or, in the inverse case, a contract that accepts a document written against a different leaf set | Medium | High | `install_params.grammar_version != SELF_VERSION` panics 200, and a test asserts the builder's literal equals `SELF_VERSION`. | None on chain. The off-chain side is the fragile half, since the parity is held by a test rather than by the type system. |
 
 ### Data flow F1 - install pipeline (U -> MCP -> synth -> unsigned XDR -> wallet -> chain -> OZ -> interpreter)
@@ -268,7 +267,6 @@ For every element, all six categories are addressed. "Not applicable" rows are k
 | F2-I.1 | Info disclosure | `DenyReason` codes reveal internal evaluator state | Any observer of host events sees the numeric code | Low | Low | Codes are grouped (1xx evaluator, 2xx install/auth/state) and never renumbered or reused; the numeric codes are a public ABI. Retired codes are not recycled. | None. |
 | F2-D.1 | DoS | Evaluation cost grows with predicate size | A large predicate slows every call | Low | Low | Structural caps are enforced at install and re-checked at decode; `enforce` performs no cross-contract calls and no storage writes, so its cost is bounded by the predicate walk alone. | None. |
 | F2-E.1 | Elevation of privilege | `enforce` accepts an argument that bypasses the policy | A side-channel to inject a different predicate | Low | Critical | The contract is pure with respect to policy: `enforce` decodes stored bytes and walks the evaluator; there is no path to substitute a predicate. | None. |
-| F2-E.2 | Elevation of privilege | Structural deny inverted via `not` / `or` | A user-supplied predicate that negates a fatal denial | Medium | High | `Not` does not invert fatal denials; `Or` short-circuits on a fatal denial. | None. |
 
 ### Data flow F3 - MCP HTTP transport
 
@@ -281,7 +279,7 @@ For every element, all six categories are addressed. "Not applicable" rows are k
 | F3-D.1 | DoS | Non-loopback host exposes unauthenticated tools | `host: '0.0.0.0'` exposes the surface | Medium | Medium | Default-deny on non-loopback hosts; explicit `allowExternalHost: true` opt-in; 1 MB body cap enforced by the streaming reader. | The opt-in is auditable. |
 | F3-E.1 | Elevation of privilege | No auth on `/mcp` | Any caller who can reach the port calls the tools | High | High | Default-bind to loopback; no bearer/HMAC exists. A production deployment is expected to gate at a reverse proxy. | Tracked as A-1. |
 
-### Data flow F4 - policy-synth core (recording -> IR -> predicate bytes)
+### Data flow F4 - policy-synth core (recording -> predicate bytes)
 
 | ID | Cat | Threat | Attack scenario | Likelihood | Impact | Mitigation | Residual |
 |---|---|---|---|---|---|---|---|
@@ -385,9 +383,9 @@ operator who needs one sources it there:
 
 - Every control this document names is backed by a test or by an evidence log
   in `docs/audit/evidence/`.
-- Each of the contract's five entry points was checked against the dominant
-  finding class in the Stellar Security Portal corpus (832 Soroban findings,
-  150 critical/high): a privileged entry point missing an authorization check.
+- Each of the contract's five entry points was checked against the access
+  control failures that dominate the Stellar Security Portal corpus (832
+  Soroban findings, 150 critical/high).
 - The review card is decoded from the final assembled transaction, and
   `summaryCrossCheck` fails if any predicate leaf is missing from the summary.
 - Grammar parity between the contract and the builder is asserted by a test
