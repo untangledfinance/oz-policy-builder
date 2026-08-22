@@ -13,4 +13,11 @@
 /// actually emits. Removing a leaf variant changes the predicate wire format,
 /// so any previously-installed doc carrying a retired variant is refused at
 /// install by the version mismatch gate. See `dsl.rs` for the current grammar.
-pub const SELF_VERSION: u32 = 3;
+///
+/// Bumped to 4 when `or`, `lt`, `gt`, `gte` and the `call_arg_scaled` leaf
+/// were added. Widening the grammar rather than narrowing it means a v3
+/// document would still decode here, but the version gate refuses it anyway:
+/// a v3 builder cannot know whether the interpreter it is addressing speaks
+/// the wider grammar, and letting it guess is how a policy silently means
+/// something other than what its author reviewed.
+pub const SELF_VERSION: u32 = 4;

@@ -26,8 +26,12 @@ pub const MAX_PREDICATE_BYTES: u32 = 32 * 1024;
 // `policy-synth/src/predicate/encode.ts`); an unknown tag is fail-closed at
 // decode time.
 const OP_AND: &[u8] = b"and";
+const OP_OR: &[u8] = b"or";
 const OP_EQ: &[u8] = b"eq";
+const OP_LT: &[u8] = b"lt";
 const OP_LTE: &[u8] = b"lte";
+const OP_GT: &[u8] = b"gt";
+const OP_GTE: &[u8] = b"gte";
 const OP_IN: &[u8] = b"in";
 
 const SEL_CALL_CONTRACT: &[u8] = b"call_contract";
@@ -35,6 +39,15 @@ const SEL_CALL_FN: &[u8] = b"call_fn";
 const SEL_CALL_ARG: &[u8] = b"call_arg";
 const SEL_CALL_ARG_LEN: &[u8] = b"call_arg_len";
 const SEL_CALL_ARG_FIELD: &[u8] = b"call_arg_field";
+// `call_arg_scaled(index, num, den)` evaluates to `args[index] * num / den`,
+// truncating toward zero. It is the only leaf whose value is COMPUTED from
+// the call rather than read from it, and the only selector the grammar
+// permits on the right-hand side of a compare - which is what lets a swap
+// policy bound its output against its own input (`out >= in * num / den`)
+// instead of against a constant that would pin the policy to one trade size.
+// `checked_mul`/`checked_div` throughout, so a hostile ratio denies rather
+// than wrapping.
+const SEL_CALL_ARG_SCALED: &[u8] = b"call_arg_scaled";
 
 // Stateful selectors.
 //
@@ -53,6 +66,7 @@ const SEL_CALL_ARG_FIELD: &[u8] = b"call_arg_field";
 #[derive(Debug, Clone)]
 pub enum Node {
     And(Vec<Node>),
+    Or(Vec<Node>),
     Compare {
         op: CompareOp,
         left: Leaf,
@@ -67,7 +81,10 @@ pub enum Node {
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum CompareOp {
     Eq,
+    Lt,
     Lte,
+    Gt,
+    Gte,
 }
 
 /// One literal or selector leaf. Host types are stored directly so the
@@ -82,6 +99,13 @@ pub enum Leaf {
         index: u32,
         element: u32,
         field: Symbol,
+    },
+    /// `args[index] * num / den`, truncating toward zero. See
+    /// `SEL_CALL_ARG_SCALED` for why this leaf exists.
+    CallArgScaled {
+        index: u32,
+        num: i128,
+        den: i128,
     },
     LiteralAddress(Address),
     LiteralI128(i128),
@@ -109,11 +133,18 @@ pub enum EvalDecision {
 pub enum DenyReason {
     ArgMismatch,
     ContractScope,
+    /// A `call_arg_scaled` product or quotient did not fit `i128`, or its
+    /// denominator was zero at evaluate.
+    ArithmeticOverflow,
     UnsupportedNode,
     /// `in` membership failed. Distinct from ArgMismatch so a review card can
     /// say "not on the allowlist" rather than "argument mismatch"; the
     /// reference evaluator draws the same distinction.
     NotInAllowlist,
+    /// A comparison against a `call_arg_scaled` operand failed. Distinct from
+    /// ArgMismatch for the same reason NotInAllowlist is: the review card
+    /// should read as the policy the author wrote.
+    SlippageFloor,
 }
 
 impl DenyReason {
@@ -121,8 +152,10 @@ impl DenyReason {
         match self {
             DenyReason::ArgMismatch => "ARG_MISMATCH",
             DenyReason::ContractScope => "CONTRACT_SCOPE",
+            DenyReason::ArithmeticOverflow => "ARITHMETIC_OVERFLOW",
             DenyReason::UnsupportedNode => "UNSUPPORTED_NODE",
             DenyReason::NotInAllowlist => "NOT_IN_ALLOWLIST",
+            DenyReason::SlippageFloor => "SLIPPAGE_FLOOR",
         }
     }
 }
@@ -139,6 +172,25 @@ pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
                 }
             }
             EvalDecision::Permit
+        }
+        // The first child's deny is the reported one. Reporting the LAST
+        // would name whichever branch happened to be written last, which is
+        // not the branch the author was most likely reaching for.
+        Node::Or(children) => {
+            let mut first_deny: Option<EvalDecision> = None;
+            for c in children {
+                match evaluate(env, c, ctx) {
+                    EvalDecision::Permit => return EvalDecision::Permit,
+                    d @ EvalDecision::Deny(_) => {
+                        if first_deny.is_none() {
+                            first_deny = Some(d);
+                        }
+                    }
+                }
+            }
+            // An empty `or` is refused at decode, so this is unreachable in
+            // practice; denying is the fail-closed answer if it ever is not.
+            first_deny.unwrap_or(EvalDecision::Deny(DenyReason::UnsupportedNode))
         }
         Node::Compare { op, left, right } => eval_compare(env, *op, left, right, ctx),
         Node::In { needle, haystack } => {
@@ -222,6 +274,10 @@ fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
 ///
 /// Every failure to resolve or convert is a deny. The reason is a property of
 /// the left leaf, so it is chosen once up front rather than at each exit.
+///
+/// `call_arg_scaled` is the one exception to "the right side must be a
+/// literal". It is dispatched before that rule is applied, on either side,
+/// because a slippage floor has no constant to bound against.
 fn eval_compare(
     env: &Env,
     op: CompareOp,
@@ -229,6 +285,16 @@ fn eval_compare(
     right: &Leaf,
     ctx: &EvalContext,
 ) -> EvalDecision {
+    // Scaled operands first, so the dedicated reasons (ArithmeticOverflow,
+    // SlippageFloor) reach the review card instead of a generic mismatch.
+    // Right-hand dispatch leads because `out >= in * num / den` is the
+    // canonical swap form.
+    if let Leaf::CallArgScaled { index, num, den } = right {
+        return eval_scaled_arg_compare(env, op, left, *index, *num, *den, true, ctx);
+    }
+    if let Leaf::CallArgScaled { index, num, den } = left {
+        return eval_scaled_arg_compare(env, op, right, *index, *num, *den, false, ctx);
+    }
     // `call_contract` and `call_fn` name an identity, not a quantity, so an
     // ordering comparison over either is a node the interpreter never
     // supported - distinct from a value that merely failed to match.
@@ -248,16 +314,92 @@ fn eval_compare(
     };
     let pass = match op {
         CompareOp::Eq => val_eq(env, &actual, &expected),
-        CompareOp::Lte => match (val_to_i128(env, &actual), val_to_i128(env, &expected)) {
-            (Some(a), Some(b)) => a <= b,
-            // A non-numeric operand (an address, a vector) has no ordering.
-            _ => return EvalDecision::Deny(miss),
-        },
+        // A non-numeric operand (an address, a vector) has no ordering, so
+        // every ordering op shares one numeric-widening path.
+        CompareOp::Lt | CompareOp::Lte | CompareOp::Gt | CompareOp::Gte => {
+            match (val_to_i128(env, &actual), val_to_i128(env, &expected)) {
+                (Some(a), Some(b)) => match op {
+                    CompareOp::Lt => a < b,
+                    CompareOp::Lte => a <= b,
+                    CompareOp::Gt => a > b,
+                    CompareOp::Gte => a >= b,
+                    CompareOp::Eq => unreachable!("Eq is handled above"),
+                },
+                _ => return EvalDecision::Deny(miss),
+            }
+        }
     };
     if pass {
         EvalDecision::Permit
     } else {
         EvalDecision::Deny(miss)
+    }
+}
+
+/// Evaluate a comparison with a `call_arg_scaled` leaf on one side.
+///
+/// The scaled side is `args[index] * num / den`, truncating toward zero.
+/// Arithmetic that does not fit denies with `ArithmeticOverflow` rather than
+/// panicking the frame; a comparison that simply fails denies with
+/// `SlippageFloor`.
+///
+/// `scaled_on_right` says which side the scaled leaf came from, so the
+/// operator is applied in the order the author wrote it:
+///   - `true`  => `other <op> scaled`, the canonical `out >= in * num / den`
+///   - `false` => `scaled <op> other`
+///
+/// Scaled-versus-scaled is refused: chaining two computed operands has no
+/// meaning a review card could state plainly.
+#[allow(clippy::too_many_arguments)]
+fn eval_scaled_arg_compare(
+    env: &Env,
+    op: CompareOp,
+    other: &Leaf,
+    index: u32,
+    num: i128,
+    den: i128,
+    scaled_on_right: bool,
+    ctx: &EvalContext,
+) -> EvalDecision {
+    if matches!(other, Leaf::CallArgScaled { .. }) {
+        return EvalDecision::Deny(DenyReason::UnsupportedNode);
+    }
+    // Out-of-bounds or non-numeric source both surface as ArgMismatch: the
+    // operand could not be READ, which is a different failure from a floor
+    // that was read and not met.
+    let Some(raw) = ctx.args.get(index) else {
+        return EvalDecision::Deny(DenyReason::ArgMismatch);
+    };
+    let Some(input) = val_to_i128(env, &raw) else {
+        return EvalDecision::Deny(DenyReason::ArgMismatch);
+    };
+    // Install refuses a zero or non-positive ratio, so this is belt and
+    // braces: a future regression in that gate must not panic the frame.
+    if den == 0 {
+        return EvalDecision::Deny(DenyReason::ArithmeticOverflow);
+    }
+    let Some(scaled) = input.checked_mul(num).and_then(|p| p.checked_div(den)) else {
+        return EvalDecision::Deny(DenyReason::ArithmeticOverflow);
+    };
+    let Some(other_val) = resolve(env, other, ctx).and_then(|v| val_to_i128(env, &v)) else {
+        return EvalDecision::Deny(DenyReason::ArgMismatch);
+    };
+    let (lhs, rhs) = if scaled_on_right {
+        (other_val, scaled)
+    } else {
+        (scaled, other_val)
+    };
+    let pass = match op {
+        CompareOp::Eq => lhs == rhs,
+        CompareOp::Lt => lhs < rhs,
+        CompareOp::Lte => lhs <= rhs,
+        CompareOp::Gt => lhs > rhs,
+        CompareOp::Gte => lhs >= rhs,
+    };
+    if pass {
+        EvalDecision::Permit
+    } else {
+        EvalDecision::Deny(DenyReason::SlippageFloor)
     }
 }
 
@@ -313,10 +455,66 @@ pub fn has_selector_leaf(root: &Node) -> bool {
         }
     }
     match root {
-        Node::And(children) => children.iter().any(has_selector_leaf),
+        Node::And(children) | Node::Or(children) => children.iter().any(has_selector_leaf),
         Node::Compare { left, right, .. } => selects(left) || selects(right),
         Node::In { needle, haystack } => selects(needle) || haystack.iter().any(selects),
     }
+}
+
+/// Why a predicate is not installable on slippage-floor grounds.
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+pub enum ScaledRatioError {
+    /// `den == 0`. The division would fail at evaluate; refusing here is
+    /// loud once rather than a rule that denies forever.
+    ZeroDenominator,
+    /// `num <= 0` or `den <= 0`. A negative ratio silently INVERTS the
+    /// comparison, so a floor permits exactly what it was written to refuse.
+    NonPositiveRatio,
+}
+
+/// Refuse a `call_arg_scaled` whose ratio cannot express a floor.
+///
+/// Checked at install rather than only at evaluate because both failures are
+/// properties of the predicate itself, knowable the moment it is written.
+pub fn validate_scaled_ratios(root: &Node) -> Result<(), ScaledRatioError> {
+    fn leaf(l: &Leaf) -> Result<(), ScaledRatioError> {
+        match l {
+            Leaf::CallArgScaled { num, den, .. } => {
+                if *den == 0 {
+                    return Err(ScaledRatioError::ZeroDenominator);
+                }
+                if *num <= 0 || *den < 0 {
+                    return Err(ScaledRatioError::NonPositiveRatio);
+                }
+                Ok(())
+            }
+            Leaf::LiteralVec(elements) => {
+                for e in elements {
+                    leaf(e)?;
+                }
+                Ok(())
+            }
+            _ => Ok(()),
+        }
+    }
+    match root {
+        Node::And(children) | Node::Or(children) => {
+            for c in children {
+                validate_scaled_ratios(c)?;
+            }
+        }
+        Node::Compare { left, right, .. } => {
+            leaf(left)?;
+            leaf(right)?;
+        }
+        Node::In { needle, haystack } => {
+            leaf(needle)?;
+            for h in haystack {
+                leaf(h)?;
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Widen any integral `Val` the host may carry to `i128` for ordering.
@@ -344,8 +542,8 @@ mod dsl_decode {
 
     use super::{
         CompareOp, Leaf, Node, MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_PREDICATE_BYTES,
-        OP_AND, OP_EQ, OP_IN, OP_LTE, SEL_CALL_ARG, SEL_CALL_ARG_FIELD, SEL_CALL_ARG_LEN,
-        SEL_CALL_CONTRACT, SEL_CALL_FN,
+        OP_AND, OP_EQ, OP_GT, OP_GTE, OP_IN, OP_LT, OP_LTE, OP_OR, SEL_CALL_ARG,
+        SEL_CALL_ARG_FIELD, SEL_CALL_ARG_LEN, SEL_CALL_ARG_SCALED, SEL_CALL_CONTRACT, SEL_CALL_FN,
     };
 
     /// Errors that can be raised while decoding a predicate root from the
@@ -426,7 +624,7 @@ mod dsl_decode {
             s.depth = d;
         }
         match node {
-            Node::And(children) => {
+            Node::And(children) | Node::Or(children) => {
                 for c in children {
                     walk(c, d.saturating_add(1), s);
                 }
@@ -474,11 +672,19 @@ mod dsl_decode {
         // the wasm target because the SDK hides the underlying string
         // representation behind a host object).
         if head_sym == sym_const(env, OP_AND) {
-            decode_and(env, items)
+            decode_children(env, items).map(Node::And)
+        } else if head_sym == sym_const(env, OP_OR) {
+            decode_children(env, items).map(Node::Or)
         } else if head_sym == sym_const(env, OP_EQ) {
             decode_compare(env, items, OP_EQ)
+        } else if head_sym == sym_const(env, OP_LT) {
+            decode_compare(env, items, OP_LT)
         } else if head_sym == sym_const(env, OP_LTE) {
             decode_compare(env, items, OP_LTE)
+        } else if head_sym == sym_const(env, OP_GT) {
+            decode_compare(env, items, OP_GT)
+        } else if head_sym == sym_const(env, OP_GTE) {
+            decode_compare(env, items, OP_GTE)
         } else if head_sym == sym_const(env, OP_IN) {
             decode_in(env, items)
         } else {
@@ -497,7 +703,11 @@ mod dsl_decode {
         Symbol::new(env, s)
     }
 
-    fn decode_and(env: &Env, items: &SorobanVec<Val>) -> Result<Node, DecodeError> {
+    /// Decode the child list shared by `and` and `or`. Both carry exactly one
+    /// operand, a non-empty vector of child tuples; an empty list is refused
+    /// so neither can degenerate into a node that permits (empty `and`) or
+    /// denies (empty `or`) regardless of the call.
+    fn decode_children(env: &Env, items: &SorobanVec<Val>) -> Result<Vec<Node>, DecodeError> {
         if items.len() != 2 {
             return Err(DecodeError::MalformedPredicate);
         }
@@ -514,7 +724,7 @@ mod dsl_decode {
                 .ok_or(DecodeError::MalformedPredicate)?;
             children.push(decode_node(env, &single_tuple(env, &c)?)?);
         }
-        Ok(Node::And(children))
+        Ok(children)
     }
 
     fn decode_compare(
@@ -531,7 +741,10 @@ mod dsl_decode {
         let right = decode_leaf(env, &right_val)?;
         let op = match op_name {
             OP_EQ => CompareOp::Eq,
+            OP_LT => CompareOp::Lt,
             OP_LTE => CompareOp::Lte,
+            OP_GT => CompareOp::Gt,
+            OP_GTE => CompareOp::Gte,
             _ => return Err(DecodeError::MalformedPredicate),
         };
         Ok(Node::Compare { op, left, right })
@@ -627,6 +840,16 @@ mod dsl_decode {
                 element: e,
                 field: f,
             })
+        } else if head == sym_const(env, SEL_CALL_ARG_SCALED) {
+            // Arity 4: (symbol, u32 index, i128 num, i128 den). The decoder
+            // is the single place that validates type and presence, so a
+            // hand-crafted tuple carrying a u32 in the num/den slot is
+            // refused here rather than reinterpreted at evaluate.
+            check_arity(items.len(), 4)?;
+            let i = expect_u32(env, items.get(1).ok_or(DecodeError::MalformedPredicate)?)?;
+            let num = expect_i128(env, items.get(2).ok_or(DecodeError::MalformedPredicate)?)?;
+            let den = expect_i128(env, items.get(3).ok_or(DecodeError::MalformedPredicate)?)?;
+            Ok(Leaf::CallArgScaled { index: i, num, den })
         } else {
             // Unknown symbol at a selector position -> MALFORMED.
             Err(DecodeError::MalformedPredicate)
@@ -643,6 +866,9 @@ mod dsl_decode {
 
     fn expect_u32(env: &Env, v: Val) -> Result<u32, DecodeError> {
         u32::try_from_val(env, &v).map_err(|_| DecodeError::MalformedPredicate)
+    }
+    fn expect_i128(env: &Env, v: Val) -> Result<i128, DecodeError> {
+        i128::try_from_val(env, &v).map_err(|_| DecodeError::MalformedPredicate)
     }
     fn expect_symbol(env: &Env, v: Val) -> Result<Symbol, DecodeError> {
         Symbol::try_from_val(env, &v).map_err(|_| DecodeError::MalformedPredicate)

@@ -83,6 +83,15 @@ impl PolicyInterpreter {
             storage::deny(e, storage::PolicyError::SelectorLeafRequired);
         }
 
+        // (d5) Slippage-floor ratios. A `call_arg_scaled` with `den == 0`
+        //      would fail the division at evaluate; a non-positive ratio
+        //      silently inverts the comparison, so a floor would permit the
+        //      trades it was written to refuse. Refuse at install: both are
+        //      properties of the predicate, knowable before it is stored.
+        if dsl::validate_scaled_ratios(&root).is_err() {
+            storage::deny(e, storage::PolicyError::InvalidScaledRatio);
+        }
+
         let rule_id = context_rule.id;
         let key = storage::RuleKey::new(smart_account.clone(), rule_id);
         let prior_master: Option<Vec<Signer>> = e.storage().persistent().get(&key.master_set_key());

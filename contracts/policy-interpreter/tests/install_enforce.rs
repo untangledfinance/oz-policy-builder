@@ -83,7 +83,7 @@ fn dummy_address() -> ScVal {
 }
 
 #[test]
-fn install_then_grammar_version_returns_one() {
+fn install_then_grammar_version_returns_self_version() {
     let env = Env::default();
     env.mock_all_auths();
     let contract_id = env.register(PolicyInterpreter, ());
@@ -92,10 +92,10 @@ fn install_then_grammar_version_returns_one() {
 
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
     let ctx_rule = make_ctx_rule(&env, signers, 1);
-    let params = make_params(&env, 3, 1, &dummy_address());
+    let params = make_params(&env, 4, 1, &dummy_address());
     client.install(&params, &ctx_rule, &smart_account);
 
-    assert_eq!(client.grammar_version(), 3);
+    assert_eq!(client.grammar_version(), 4);
 }
 
 #[test]
@@ -108,11 +108,15 @@ fn install_rejects_version_mismatch() {
 
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
     let ctx_rule = make_ctx_rule(&env, signers, 1);
-    let params = make_params(&env, 2, 1, &dummy_address()); // wrong version — SELF_VERSION is now 3
+    // The IMMEDIATELY previous version, which is the skew that actually
+    // happens in the field. It matters because a v3 document still DECODES
+    // under v4 - v4 only widened the grammar - so the version gate is the
+    // only thing refusing it.
+    let params = make_params(&env, 3, 1, &dummy_address());
     let res = client.try_install(&params, &ctx_rule, &smart_account);
     assert!(
         res.is_err(),
-        "expected install with grammar_version=3 to deny"
+        "expected install with a v3 grammar_version to deny under v4"
     );
 }
 
@@ -127,10 +131,10 @@ fn install_rejects_nonce_replay() {
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
     let ctx_rule = make_ctx_rule(&env, signers, 1);
 
-    let params1 = make_params(&env, 3, 1, &dummy_address());
+    let params1 = make_params(&env, 4, 1, &dummy_address());
     client.install(&params1, &ctx_rule, &smart_account);
 
-    let params2 = make_params(&env, 3, 1, &dummy_address()); // replay
+    let params2 = make_params(&env, 4, 1, &dummy_address()); // replay
     let res = client.try_install(&params2, &ctx_rule, &smart_account);
     assert!(res.is_err(), "expected install with replayed nonce to deny");
 }
@@ -146,10 +150,10 @@ fn install_accepts_nonce_incrementing_to_2() {
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
     let ctx_rule = make_ctx_rule(&env, signers, 1);
 
-    let params1 = make_params(&env, 3, 1, &dummy_address());
+    let params1 = make_params(&env, 4, 1, &dummy_address());
     client.install(&params1, &ctx_rule, &smart_account);
 
-    let params2 = make_params(&env, 3, 2, &dummy_address());
+    let params2 = make_params(&env, 4, 2, &dummy_address());
     client.install(&params2, &ctx_rule, &smart_account);
 }
 
@@ -166,7 +170,7 @@ fn install_rejects_predicate_hash_mismatch() {
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
     let ctx_rule = make_ctx_rule(&env, signers, 1);
 
-    let mut params = make_params(&env, 3, 1, &dummy_address());
+    let mut params = make_params(&env, 4, 1, &dummy_address());
     // Tamper with the hash - the bytes claim A, the hash claims B.
     let bad_hash: BytesN<32> = BytesN::from_array(&env, &[1u8; 32]);
     params.predicate_hash = bad_hash;
@@ -196,7 +200,7 @@ fn install_rejects_oversized_predicate() {
     let bytes = Bytes::from_slice(&env, &payload);
     let hash: BytesN<32> = env.crypto().sha256(&bytes).into();
     let params = PolicyInstallParams {
-        grammar_version: 3,
+        grammar_version: 4,
         install_nonce: 1,
         predicate: bytes,
         predicate_hash: hash,
@@ -225,13 +229,13 @@ fn install_rejects_non_installer_reinstall_with_fresh_nonce_plus_one() {
     // First install: master set = [installer]. Closes the attacker path.
     let installer_set = soroban_sdk::vec![&env, Signer::Delegated(installer.clone())];
     let ctx_rule = make_ctx_rule(&env, installer_set, 1);
-    let params1 = make_params(&env, 3, 1, &dummy_address());
+    let params1 = make_params(&env, 4, 1, &dummy_address());
     client.install(&params1, &ctx_rule, &smart_account);
 
     // Attacker tries to install with their own set + nonce+1.
     let attacker_set = soroban_sdk::vec![&env, Signer::Delegated(attacker.clone())];
     let attacker_ctx = make_ctx_rule(&env, attacker_set, 1);
-    let params2 = make_params(&env, 3, 2, &dummy_address());
+    let params2 = make_params(&env, 4, 2, &dummy_address());
     let res = client.try_install(&params2, &attacker_ctx, &smart_account);
     assert!(
         res.is_err(),
@@ -250,12 +254,12 @@ fn uninstall_removes_all_state_and_later_install_accepts_nonce_1() {
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
     let ctx_rule = make_ctx_rule(&env, signers, 1);
 
-    let params1 = make_params(&env, 3, 1, &dummy_address());
+    let params1 = make_params(&env, 4, 1, &dummy_address());
     client.install(&params1, &ctx_rule, &smart_account);
 
     client.uninstall(&ctx_rule, &smart_account);
 
-    let params2 = make_params(&env, 3, 1, &dummy_address());
+    let params2 = make_params(&env, 4, 1, &dummy_address());
     client.install(&params2, &ctx_rule, &smart_account);
 }
 
@@ -289,7 +293,7 @@ fn rotate_master_signer_set_gated_by_old_set() {
 
     let initial_signers = soroban_sdk::vec![&env, Signer::Delegated(signer_a.clone())];
     let ctx_rule = make_ctx_rule(&env, initial_signers, 1);
-    let params1 = make_params(&env, 3, 1, &dummy_address());
+    let params1 = make_params(&env, 4, 1, &dummy_address());
     client.install(&params1, &ctx_rule, &smart_account);
 
     let new_set = soroban_sdk::vec![&env, Signer::Delegated(signer_b.clone())];
@@ -319,7 +323,7 @@ fn install_refuses_a_rule_with_no_signers() {
 
     let no_signers: SorobanVec<Signer> = SorobanVec::new(&env);
     let rule = make_ctx_rule(&env, no_signers, 1);
-    let params = make_params(&env, 3, 1, &dummy_address());
+    let params = make_params(&env, 4, 1, &dummy_address());
 
     assert!(
         client.try_install(&params, &rule, &smart_account).is_err(),
@@ -340,7 +344,7 @@ fn rotating_the_master_set_to_empty_is_refused() {
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
     let rule = make_ctx_rule(&env, signers, 1);
     client.install(
-        &make_params(&env, 3, 1, &dummy_address()),
+        &make_params(&env, 4, 1, &dummy_address()),
         &rule,
         &smart_account,
     );
@@ -372,7 +376,7 @@ fn rotating_the_master_set_to_an_external_signer_is_refused() {
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
     let rule = make_ctx_rule(&env, signers, 1);
     client.install(
-        &make_params(&env, 3, 1, &dummy_address()),
+        &make_params(&env, 4, 1, &dummy_address()),
         &rule,
         &smart_account,
     );
@@ -409,7 +413,7 @@ fn f2_first_install_requires_smart_account_authorization() {
 
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
     let rule = make_ctx_rule(&env, signers, 1);
-    let params = make_params(&env, 3, 1, &dummy_address());
+    let params = make_params(&env, 4, 1, &dummy_address());
 
     assert!(
         client.try_install(&params, &rule, &smart_account).is_err(),
@@ -472,7 +476,7 @@ fn f4_install_refuses_more_invocation_windows_than_the_cap() {
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
     let res = client.try_install(
         &PolicyInstallParams {
-            grammar_version: 3,
+            grammar_version: 4,
             install_nonce: 1,
             predicate,
             predicate_hash,
@@ -502,7 +506,7 @@ fn f5_install_refuses_an_external_signer_in_the_master_set() {
         Signer::External(verifier, key_data),
     ];
     let rule = make_ctx_rule(&env, signers, 1);
-    let params = make_params(&env, 3, 1, &dummy_address());
+    let params = make_params(&env, 4, 1, &dummy_address());
 
     assert!(
         client.try_install(&params, &rule, &smart_account).is_err(),
@@ -621,7 +625,7 @@ fn f9_install_refuses_a_predicate_carrying_a_valid_until_leaf() {
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
     let res = client.try_install(
         &PolicyInstallParams {
-            grammar_version: 3,
+            grammar_version: 4,
             install_nonce: 1,
             predicate,
             predicate_hash,
@@ -680,7 +684,7 @@ fn install_refuses_a_predicate_with_no_selector_leaf() {
     let predicate = literal_only_eq_predicate_bytes(&env);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
     let params = PolicyInstallParams {
-        grammar_version: 3,
+        grammar_version: 4,
         install_nonce: 1,
         predicate,
         predicate_hash,
@@ -716,7 +720,7 @@ fn install_refuses_a_rule_with_more_than_max_signers() {
     let smart_account = Address::generate(&env);
     let signers = many_signers(&env, policy_interpreter::types::MAX_SIGNERS + 1);
     let rule = make_ctx_rule(&env, signers, 1);
-    let params = make_params(&env, 3, 1, &dummy_address());
+    let params = make_params(&env, 4, 1, &dummy_address());
 
     let mut args: SorobanVec<soroban_sdk::Val> = SorobanVec::new(&env);
     args.push_back(soroban_sdk::IntoVal::into_val(&params, &env));
@@ -748,7 +752,133 @@ fn install_accepts_a_rule_with_exactly_max_signers() {
     let smart_account = Address::generate(&env);
     let signers = many_signers(&env, policy_interpreter::types::MAX_SIGNERS);
     let rule = make_ctx_rule(&env, signers, 1);
-    let params = make_params(&env, 3, 1, &dummy_address());
+    let params = make_params(&env, 4, 1, &dummy_address());
 
     client.install(&params, &rule, &smart_account);
+}
+
+/// `gte(call_arg(1), call_arg_scaled(0, num, den))` on the wire - the
+/// canonical swap floor. Built by hand so the test exercises the same bytes
+/// a hostile caller could submit, not a helper that could not express a bad
+/// ratio in the first place.
+fn scaled_floor_bytes(env: &Env, num: i128, den: i128) -> Bytes {
+    let s = |b: &[u8]| ScVal::Symbol(soroban_sdk::xdr::ScSymbol(b.to_vec().try_into().unwrap()));
+    let vecval = |items: Vec<ScVal>| {
+        let m: VecM<ScVal> = items.try_into().expect("vec");
+        ScVal::Vec(Some(soroban_sdk::xdr::ScVec(m)))
+    };
+    let i128val = |v: i128| {
+        ScVal::I128(soroban_sdk::xdr::Int128Parts {
+            hi: (v >> 64) as i64,
+            lo: (v as u128 & u128::from(u64::MAX)) as u64,
+        })
+    };
+    let out_arg = vecval(vec![s(b"call_arg"), ScVal::U32(1)]);
+    let scaled = vecval(vec![
+        s(b"call_arg_scaled"),
+        ScVal::U32(0),
+        i128val(num),
+        i128val(den),
+    ]);
+    let root = vecval(vec![s(b"gte"), out_arg, scaled]);
+    let val: soroban_sdk::Val = root.into_val(env);
+    val.to_xdr(env)
+}
+
+fn make_scaled_params(env: &Env, nonce: u32, num: i128, den: i128) -> PolicyInstallParams {
+    let predicate_bytes = scaled_floor_bytes(env, num, den);
+    let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate_bytes).into();
+    PolicyInstallParams {
+        grammar_version: 4,
+        install_nonce: nonce,
+        predicate: predicate_bytes,
+        predicate_hash,
+    }
+}
+
+#[test]
+fn install_accepts_a_valid_slippage_floor() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(PolicyInterpreter, ());
+    let client = PolicyInterpreterClient::new(&env, &contract_id);
+    let smart_account = Address::generate(&env);
+
+    let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
+    let ctx_rule = make_ctx_rule(&env, signers, 1);
+    client.install(
+        &make_scaled_params(&env, 1, 99, 100),
+        &ctx_rule,
+        &smart_account,
+    );
+}
+
+/// Install a hand-built scaled-ratio predicate through the raw host, so the
+/// assertion can pin the EXACT contract error code. `try_install` alone would
+/// pass for any refusal - including one from an unrelated gate - which would
+/// let these tests go green while proving nothing about the ratio check.
+fn install_scaled_expecting_code(num: i128, den: i128) -> Result<(), soroban_sdk::InvokeError> {
+    use soroban_sdk::{InvokeError, Symbol, Vec as SorobanVec};
+
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(PolicyInterpreter, ());
+    let smart_account = Address::generate(&env);
+    let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
+    let rule = make_ctx_rule(&env, signers, 1);
+    let params = make_scaled_params(&env, 1, num, den);
+
+    let mut args: SorobanVec<soroban_sdk::Val> = SorobanVec::new(&env);
+    args.push_back(soroban_sdk::IntoVal::into_val(&params, &env));
+    args.push_back(soroban_sdk::IntoVal::into_val(&rule, &env));
+    args.push_back(soroban_sdk::IntoVal::into_val(&smart_account, &env));
+
+    match env.try_invoke_contract::<(), InvokeError>(
+        &contract_id,
+        &Symbol::new(&env, "install"),
+        args,
+    ) {
+        Ok(_) => Ok(()),
+        Err(Ok(e)) => Err(e),
+        Err(Err(_)) => panic!("unexpected conversion error"),
+    }
+}
+
+#[test]
+fn install_rejects_a_zero_denominator_ratio_with_214() {
+    use soroban_sdk::InvokeError;
+    assert_eq!(
+        install_scaled_expecting_code(99, 0),
+        Err(InvokeError::Contract(214)),
+        "den == 0 must be refused at install as INVALID_SCALED_RATIO"
+    );
+}
+
+#[test]
+fn install_rejects_an_inverting_ratio_with_214() {
+    // The dangerous one: a negative numerator flips `>=`, so a floor written
+    // to refuse bad trades would permit exactly those trades instead. It has
+    // to be refused at install, because at evaluate it looks like a policy
+    // working normally.
+    use soroban_sdk::InvokeError;
+    assert_eq!(
+        install_scaled_expecting_code(-1, 100),
+        Err(InvokeError::Contract(214))
+    );
+    assert_eq!(
+        install_scaled_expecting_code(1, -100),
+        Err(InvokeError::Contract(214))
+    );
+    assert_eq!(
+        install_scaled_expecting_code(0, 100),
+        Err(InvokeError::Contract(214))
+    );
+}
+
+#[test]
+fn install_accepts_a_valid_ratio_through_the_raw_host() {
+    // The control for the two tests above: identical path, good ratio, no
+    // error. Without it, a refusal from some unrelated gate would look like
+    // the ratio check working.
+    assert_eq!(install_scaled_expecting_code(99, 100), Ok(()));
 }

@@ -30,8 +30,15 @@ use crate::types::Signer;
 //
 // Retired numbers must stay retired - a new code lives in the next free slot
 // in its group, never at a recycled value. Retired so far: the whole 3xx group
-// (oracle support, grammar v2), 102 and 104 (the arithmetic and rolling-window
-// denies, grammar v3 - the evaluator compares but never accumulates).
+// (oracle support, grammar v2), and 104 (the rolling-window deny, grammar v3 -
+// the evaluator compares but never accumulates).
+//
+// 102 was retired in v3 and RESTORED in v4 to its original meaning, arithmetic
+// overflow, when `call_arg_scaled` brought back a computed operand. Restoring
+// a number to the meaning it always had is safe; the rule against recycling
+// exists so a consumer that remembers `102 = ARITHMETIC_OVERFLOW` is never
+// wrong, and here it stays right. 107 and 214 are new in v4 and take the next
+// free slot in their groups.
 //
 // The numeric codes mirror the TS-side enum in
 // `packages/policy-synth/src/errors.ts` so a review card can name the failure
@@ -44,8 +51,16 @@ pub enum PolicyError {
     // ---- 1xx predicate / evaluator ----
     ArgMismatch = 100,
     ContractScope = 101,
+    /// A `call_arg_scaled` operand overflowed `checked_mul`/`checked_div`, or
+    /// reached the evaluator with a zero denominator. Denies rather than
+    /// panicking the frame on the arithmetic itself.
+    ArithmeticOverflow = 102,
     UnsupportedNode = 103,
     NotInAllowlist = 105,
+    /// A comparison against a `call_arg_scaled` operand failed. Distinct from
+    /// `ArgMismatch` so a swap policy's review card can say "output below the
+    /// floor" rather than "argument mismatch".
+    SlippageFloor = 107,
 
     // ---- 2xx install / auth / state ----
     VersionMismatch = 200,
@@ -59,6 +74,13 @@ pub enum PolicyError {
     EmptySignerSet = 209,
     NoAuthenticatedSigners = 210,
     ExternalSignerNotSupported = 212,
+    /// A `call_arg_scaled` leaf declared `den == 0`, or a non-positive `num`
+    /// or `den`. A zero denominator would divide by zero at evaluate; a
+    /// negative ratio silently INVERTS the comparison, so a floor written as
+    /// `call_arg >= call_arg_scaled(in, -1, 100)` would permit exactly the
+    /// trades it was meant to refuse. Refused at install so the mistake is
+    /// loud once rather than silent forever.
+    InvalidScaledRatio = 214,
     /// Predicate carries no selector leaf - literals on both sides of every
     /// compare, no `call_contract`/`call_fn`/`call_arg`/`now`. Such a
     /// predicate is either trivially true or trivially false at install
@@ -80,8 +102,10 @@ impl From<DenyReason> for PolicyError {
         match r {
             DenyReason::ArgMismatch => PolicyError::ArgMismatch,
             DenyReason::ContractScope => PolicyError::ContractScope,
+            DenyReason::ArithmeticOverflow => PolicyError::ArithmeticOverflow,
             DenyReason::UnsupportedNode => PolicyError::UnsupportedNode,
             DenyReason::NotInAllowlist => PolicyError::NotInAllowlist,
+            DenyReason::SlippageFloor => PolicyError::SlippageFloor,
         }
     }
 }
