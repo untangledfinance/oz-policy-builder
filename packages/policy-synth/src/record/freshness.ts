@@ -52,17 +52,23 @@ export function isBelowThreshold(c: ParseConfidence): boolean {
  *  under-confidence recording.
  *
  *  The remediation text branches on which diagnostic bucket is non-empty:
- *    - unknownContracts only -> user MUST supply an ABI (or re-capture
- *      against a known protocol version). The contract is real, the
- *      recorder just cannot decode it.
- *    - opaqueScVals only -> the recorder encountered a value shape it
- *      should support but did not decode. The user cannot supply an ABI
- *      to fix a decoder bug; the guidance explicitly says so and points at
- *      re-running after a tool upgrade / reporting the path.
- *    - both -> list both diagnostics AND chain the right remediation for
- *      each (the user supplies an ABI AND reports the decoder gap).
- *    - neither (the "denom === 0" path) -> unchanged from the pre-fix
- *      text; the user did not actually hit a code-level barrier. */
+ *    - unknownContracts only -> the contract is not in the compiled-in
+ *      registry. NOT "the contract has no interface": most Soroban
+ *      contracts publish a typed spec on chain, this package just never
+ *      reads one. The reason code stays `no-abi` because it is a published
+ *      enum value, so the TEXT has to carry the correction.
+ *    - opaqueScVals only -> the recorder met a value shape it should
+ *      support but did not decode. That is a decoder bug, and the guidance
+ *      says so rather than implying the caller can fix it.
+ *    - both -> list both diagnostics and chain the right remediation.
+ *    - neither (the "denom === 0" path) -> the caller did not actually hit
+ *      a code-level barrier.
+ *
+ *  Do NOT tell the caller to supply an ABI. There is no input for one:
+ *  recognition runs off the compiled-in registry plus a known-contract set
+ *  that no public tool boundary exposes. The old text named an action
+ *  nobody could take and sent users looking for a file they do not have and
+ *  would not need. */
 export function buildLowConfidenceQuestion(c: ParseConfidence): string {
   const hasUnknown = c.unknownContracts.length > 0
   const hasOpaque = c.opaqueScVals.length > 0
@@ -75,18 +81,23 @@ export function buildLowConfidenceQuestion(c: ParseConfidence): string {
   }
   const why = reasons.length === 0 ? 'no diagnostic reason available' : reasons.join('; ')
   const header = `Recording refused: parseConfidence ${c.overall.toFixed(3)} is below the threshold ${c.thresholdUsed.toFixed(3)}. Diagnostic: ${why}.`
-  // The two remediation branches are explicit so the user (or the agent)
-  // can dispatch on the verb. The "unknown contract" branch is the only
-  // one that asks for an ABI; the "opaque ScVal" branch asks the user to
-  // report the path and re-run after a tool upgrade.
+  // The remediation branches are explicit so the user (or the agent) can
+  // dispatch on the verb. Neither branch asks for an ABI: there is no input
+  // that accepts one, and for the unknown-contract branch the contract's
+  // own spec is usually on chain already - it is this package that does not
+  // read it.
+  const unknownAdvice =
+    `The contract is not in this package's built-in registry - "no-abi" means unrecognised here, not that the contract lacks an interface. ` +
+    `You cannot supply one: the registry is compiled in. Either build the policy without deriving it from this transaction, or re-capture against a protocol the registry covers. ` +
+    `Passing confidenceOverride accepts the recording as it stands, including the arguments this tool could not attribute - do that only if you have checked them yourself.`
   if (hasUnknown && hasOpaque) {
     return (
-      `${header} Supply an ABI for the unknown contract(s) or re-capture the transaction against a known protocol version; ` +
-      `also file the opaque ScVal path against the recorder (decoder limitation) and re-run record_transaction after a tool upgrade.`
+      `${header} ${unknownAdvice} Separately, file the opaque ScVal path against the recorder (a decoder limitation) ` +
+      `and re-run record_transaction after a tool upgrade.`
     )
   }
   if (hasUnknown) {
-    return `${header} Supply an ABI for the unknown contract(s) or re-capture the transaction against a known protocol version, then re-run record_transaction.`
+    return `${header} ${unknownAdvice}`
   }
   if (hasOpaque) {
     return `${header} This is a recorder decoder limitation (the value shape is supported in principle but not yet decoded) - the agent cannot fix it by supplying an ABI. Report the opaque ScVal path above against the recorder and re-run record_transaction after a tool upgrade.`

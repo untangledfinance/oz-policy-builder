@@ -1,6 +1,6 @@
 {
   "name": "@crediolabs/policy-builder-cli",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "license": "MIT",
   "description": "CLI wrapper around the OZ policy-synth core (record + synthesize) for solo-dev and CI workflows.",
   "type": "module",
@@ -56,14 +56,14 @@
   },
   "scripts": {
     "test": "bun test",
-    "build": "tsc -p tsconfig.build.json && tsc -p tsconfig.build.cjs.json && node scripts/write-cjs-package-json.cjs",
+    "build": "rm -rf dist dist-cjs && tsc -p tsconfig.build.json && tsc -p tsconfig.build.cjs.json && node scripts/write-cjs-package-json.cjs",
     "build:esm": "tsc -p tsconfig.build.json",
     "build:cjs": "tsc -p tsconfig.build.cjs.json && node scripts/write-cjs-package-json.cjs",
     "prepublishOnly": "bun run build && bun test",
     "prepack": "bun run build"
   },
   "dependencies": {
-    "@crediolabs/policy-synth": "0.3.0",
+    "@crediolabs/policy-synth": "0.3.1",
     "@stellar/stellar-sdk": "14.4.0",
     "zod": "3.25.76"
   },

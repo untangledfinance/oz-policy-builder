@@ -1,6 +1,6 @@
 {
   "name": "@crediolabs/policy-synth",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "license": "MIT",
   "description": "Off-chain TypeScript synthesis core for the OZ Accounts Policy Builder. Records Soroban transactions, synthesises the minimal policy that permits exactly that flow, verifies it, and returns an unsigned install transaction.",
   "type": "module",
@@ -67,7 +67,7 @@
   },
   "scripts": {
     "test": "bun test",
-    "build": "tsc -p tsconfig.build.json && tsc -p tsconfig.build.cjs.json && node scripts/write-cjs-package-json.cjs",
+    "build": "rm -rf dist dist-cjs && tsc -p tsconfig.build.json && tsc -p tsconfig.build.cjs.json && node scripts/write-cjs-package-json.cjs",
     "build:esm": "tsc -p tsconfig.build.json",
     "build:cjs": "tsc -p tsconfig.build.cjs.json && node scripts/write-cjs-package-json.cjs",
     "prepublishOnly": "bun run build && bun test",

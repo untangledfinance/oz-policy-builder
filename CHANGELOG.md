@@ -5,7 +5,7 @@ Notable changes to the published packages. The format follows
 packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 `@crediolabs/policy-builder-mcp`) version together.
 
-## [Unreleased]
+## [0.3.1] - 2026-08-22
 
 ### Fixed
 
@@ -16,6 +16,20 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   as a deliberate testnet pin rather than a missing parameter, so integrators
   built the install by hand instead of reporting it. Shipped 0.3.0 with this
   defect, alongside the mainnet pins it makes unreachable.
+- The build no longer ships compiled files for deleted source. `tsc` writes
+  into `dist/` without clearing it, so a module removed from `src/` left its
+  old output behind and every later release packed it. 0.3.0 shipped a
+  `dist/mandate/` built from source deleted in 50a2aa4 - unreachable, since
+  nothing exports it, but present in the tarball and readable as a feature
+  that exists. All three builds now clear `dist/` and `dist-cjs/` first.
+- The remediation for an unrecognised contract no longer tells the caller to
+  supply an ABI. There is no input that accepts one, and the reason code
+  `no-abi` names a miss against this package's compiled-in registry rather
+  than a contract without an interface - most Soroban contracts publish a
+  typed spec on chain, which this package does not read. The text now says
+  what happened and points at `confidenceOverride` and re-capture. The reason
+  code itself is unchanged: it is a published enum value, so renaming it
+  would break callers matching on it.
 
 ## [0.3.0] - 2026-08-22
 

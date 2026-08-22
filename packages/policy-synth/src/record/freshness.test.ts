@@ -159,7 +159,13 @@ describe('buildLowConfidenceQuestion', () => {
     // The decoder-limitation guidance should appear instead.
     expect(q.toLowerCase()).toMatch(/decoder|tool limitation|re-run after/)
   })
-  it('keeps the ABI-supply guidance when only unknownContracts is non-empty', () => {
+  it('never tells the caller to supply an ABI for an unknown contract', () => {
+    // `no-abi` names a REGISTRY MISS, not a contract without an interface -
+    // most Soroban contracts publish a typed spec on chain and this package
+    // never reads one. There is also no input that accepts an ABI, so the
+    // old guidance named an action nobody could take and sent users after a
+    // file they do not have and would not need. The remediation has to point
+    // somewhere the caller can actually go.
     const q = buildLowConfidenceQuestion({
       overall: 0,
       thresholdUsed: 1.0,
@@ -168,7 +174,9 @@ describe('buildLowConfidenceQuestion', () => {
       opaqueScVals: [],
     })
     expect(q).toContain('unknown contract CABC')
-    expect(q).toContain('Supply an ABI')
+    expect(q.toLowerCase()).not.toContain('supply an abi')
+    expect(q).toContain("not in this package's built-in registry")
+    expect(q).toContain('confidenceOverride')
   })
   it('lists both buckets distinctly when both are non-empty', () => {
     const q = buildLowConfidenceQuestion({
