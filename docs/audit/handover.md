@@ -93,7 +93,7 @@ depending on what the predicate constrains.
 
 [`docs/stride-threat-model.md`](../stride-threat-model.md) is the STRIDE model,
 built to the Stellar template: STRIDE per element and per data flow, five
-entry points, four trust boundaries.
+entry points, eight trust boundaries.
 
 Live residual risks are enumerated there with the reason each is accepted. Four
 are OpenZeppelin account-model semantics the interpreter cannot override
@@ -109,7 +109,7 @@ Every log in [`evidence/`](evidence/) was produced against this tree.
 | Log | Command | Result |
 | --- | --- | --- |
 | [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, reproducible wasm build, hash pin parity | clean; 70 tests + 9 conformance pass; built wasm matches the pin |
-| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 612 pass, 1 skip, 0 fail |
+| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 611 pass, 1 skip, 0 fail across 612 tests |
 | [`cargo-audit.log`](evidence/cargo-audit.log) | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | [`bun-audit.log`](evidence/bun-audit.log) | `bun audit` | 0 vulnerabilities |
 | [`clippy-pedantic.log`](evidence/clippy-pedantic.log) | `clippy -W pedantic -W nursery` | 170 style warnings, 0 security |
@@ -144,7 +144,7 @@ and forcing `eq` true was caught by three separate deny cases.
 | Contract | `contracts/policy-interpreter/build-wasm.sh` | builds; sha256 equals `PINNED_INTERPRETER_WASM_SHA256` |
 | Off-chain | `bunx biome check .` | 120 files, 0 findings |
 | Off-chain | `bun run typecheck` | clean |
-| Off-chain | `bun test` | 612 passed, 1 skipped, 0 failed |
+| Off-chain | `bun test` | 611 passed, 1 skipped, 0 failed |
 | Off-chain | `bun audit` | 0 vulnerabilities |
 
 Both gates run in CI on every push, including the two dependency-advisory

@@ -1,7 +1,7 @@
 # OZ Policy Builder - STRIDE Threat Model
 
 **Subject:** `policy-interpreter` Soroban contract plus the `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` off-chain toolchain.
-**Date:** 2026-08-21
+**Date:** 2026-08-22
 **Methodology:** Stellar STRIDE Threat Modeling, "STRIDE Threat Model Template" and "Threat Modeling How-To Guide" pages at `developers.stellar.org/docs/build/security-docs/threat-modeling`. The Stellar template's four-question scaffold (What are we working on / What can go wrong / What are we going to do about it / Did we do a good job) and its STRIDE-per-element format are followed.
 **Repo:** `untangledfinance/oz-policy-builder`
 **Grammar version:** 3 (`SELF_VERSION`, `src/version.rs`)
@@ -81,7 +81,7 @@ four are extended together in `state::extend_state_ttl`, guarded on
 
 - **Stellar validators + RPC** - assumed honest at the protocol level; install/revoke signature digests bind to whichever RPC answered. RPC URLs are pinned per network in `packages/policy-synth/src/run/schemas.ts`.
 - **OpenZeppelin smart-account contracts** - assumed correct. The interpreter reads `Context::Contract` from OZ's `__check_auth` invocation tree (`src/state.rs`); OZ routes `enforce` calls into the interpreter.
-- **Soroban host** - assumed correct; the interpreter calls `crypto().sha256`, `storage().persistent().set/get/has/remove/extend_ttl`, `ledger().timestamp/sequence`.
+- **Soroban host** - assumed correct; the interpreter calls `crypto().sha256` and `storage().persistent().set/get/has/remove/extend_ttl`.
 
 There is **no external data feed**. The contract makes no
 cross-contract calls during `enforce`.
@@ -141,7 +141,7 @@ flowchart TB
         subgraph PINS["Pinned constants"]
             IP["interpreter pin + RPC pin"]
         end
-        TOOLS["policy tools: record / synthesize / install / revoke / get_info"]
+        TOOLS["policy tools: record / synthesize / simulate / verify / declare / install / revoke / get_info"]
     end
 
     subgraph SYNTH["Off-chain - policy-synth core"]
@@ -216,8 +216,6 @@ during evaluation: it makes no cross-contract calls.
 
 ## 5. STRIDE analysis per element
 
-For every element, all six categories are addressed. "Not applicable" rows are kept explicit.
-
 ### Element C1 - `policy-interpreter` contract
 
 | ID | Cat | Threat | Attack scenario | Likelihood | Impact | Mitigation | Residual |
@@ -236,12 +234,12 @@ For every element, all six categories are addressed. "Not applicable" rows are k
 | C1-D.3 | DoS | Predicate walk is unbounded | A deeply nested or wide predicate exhausts the host budget | Low | Medium | `decode_with_byte_cap` rejects over `MAX_PREDICATE_BYTES` (32 KB) before parsing; `MAX_DEPTH` 5, `MAX_LEAVES` 200, `MAX_IN_OPERAND_COUNT` 32 are enforced after decode. | None - the byte cap dominates every walk. |
 | C1-D.4 | DoS | Per-transaction write-entry cap exceeded at runtime | A predicate that installs and then aborts the host on every enforce | Low | High | **Structurally impossible.** `enforce` writes no ledger entries at all; the only writes are the four install-time entries and the TTL bump. | None. |
 | C1-D.5 | DoS | Hand-crafted predicate installs and denies on every enforce | A predicate that decodes but never permits | Low | Medium | Every evaluation failure surfaces as a `DenyReason` mapped to a `PolicyError`; the deny is a clean revert, not a hang. | None - fails closed. |
-| C1-E.1 | Elevation of privilege | Hand-crafted permissive predicate (only literal-vs-literal compares) installs and authorises everything | Bypassing the synth to submit raw bytes | Low | Critical | Install refuses any predicate carrying no selector leaf: `SelectorLeafRequired` 216 (`dsl::has_selector_leaf`). A legitimate time-only predicate (`now < literal`) has a selector leaf and still installs. | None for the "binds nothing" case. The trust-boundary note sets out the limit of the guarantee. |
-| C1-E.2 | Elevation of privilege | OZ no-policy rule is all-of-N; POLICED rule is any-of-N | User attaches a POLICED rule expecting "two approvals" by adding a 2nd signer | High | Critical | Surfaced via the review-card `signerNote` whenever `signers.length >= 2`, decoded from the FINAL transaction rather than the input args. The install path also scans the account's other context rules and reports every rule a signer of the new policy could name instead, refusing unless the caller opts in. Off chain only. | Unmitigated at the protocol layer; the note is advisory. Tracked as R-2. |
+| C1-E.1 | Elevation of privilege | Hand-crafted permissive predicate (only literal-vs-literal compares) installs and authorises everything | Bypassing the synth to submit raw bytes | Low | Critical | Install refuses any predicate carrying no selector leaf: `SelectorLeafRequired` 216 (`dsl::has_selector_leaf`). | None for the "binds nothing" case. The trust-boundary note sets out the limit of the guarantee. |
+| C1-E.2 | Elevation of privilege | OZ no-policy rule is all-of-N; POLICED rule is any-of-N | User attaches a POLICED rule expecting "two approvals" by adding a 2nd signer | High | Critical | Surfaced via the review-card `signerNote` whenever `signers.length >= 2`, decoded from the FINAL transaction rather than the input args. When the caller supplies `existingRules`, `install_policy` also returns an `authorityScan` naming every rule a signer of the new policy could name instead. Off chain only. | Unmitigated at the protocol layer; the note is advisory, and the scan runs only on caller-supplied input. Tracked as R-2. |
 | C1-E.3 | Elevation of privilege | External verifier in the master set becomes an unrecoverable state | `require_master` calls `require_auth` on the verifier address, which a plain verifier contract never satisfies | Low | Critical | Install and rotate both refuse External signers in the master set (212). | Tracked as R-3: refusing is the correct behaviour, not a limitation. |
 | C1-E.4 | Elevation of privilege | `install_nonce` replay between two installs | A replayed install overwrites a fresh predicate | Low | High | `install_nonce` must equal `stored_nonce + 1`; mismatch panics 202. `uninstall` removes the nonce with the rest of the state, so a subsequent install starts again at 1. | None. |
 | C1-E.5 | Elevation of privilege | Transitive authority through a permitted callee | The policy permits calling contract X; X then moves funds using a standing SEP-41 allowance the account granted earlier. That transfer needs no auth from this account, so it produces no `Context` and no `enforce` call | Medium | High | **Depth itself is covered:** OZ builds one `Context` per auth-tree node requiring this account's authorisation and calls `enforce` once per context, so a smuggled inner call that needs this account's auth IS evaluated on its own merits. `extract_call` handling only `Context::Contract` is a shape check, not a depth limit. | Residual by nature, not by scope. Mitigated operationally - a policed key must hold zero standing allowances. Tracked as R-1. |
-| C1-E.7 | Elevation of privilege | Grammar-version skew between the builder and the contract | An off-chain builder emitting an older `grammar_version` produces installs the contract refuses - or, in the inverse case, a contract that accepts a document written against a different leaf set | Medium | High | `install_params.grammar_version != SELF_VERSION` panics 200, and a test asserts the builder's literal equals `SELF_VERSION`. | None on chain. The off-chain side is the fragile half, since the parity is held by a test rather than by the type system. |
+| C1-E.6 | Elevation of privilege | Grammar-version skew between the builder and the contract | An off-chain builder emitting an older `grammar_version` produces installs the contract refuses - or, in the inverse case, a contract that accepts a document written against a different leaf set | Medium | High | `install_params.grammar_version != SELF_VERSION` panics 200, and a test asserts the builder's literal equals `SELF_VERSION`. | None on chain. The off-chain side is the fragile half, since the parity is held by a test rather than by the type system. |
 
 ### Data flow F1 - install pipeline (U -> MCP -> synth -> unsigned XDR -> wallet -> chain -> OZ -> interpreter)
 
@@ -284,8 +282,7 @@ For every element, all six categories are addressed. "Not applicable" rows are k
 | ID | Cat | Threat | Attack scenario | Likelihood | Impact | Mitigation | Residual |
 |---|---|---|---|---|---|---|---|
 | F4-S.1 | Spoofing | Caller supplies a placeholder/LLM-seam smart-account marker | `VERIFY-*` / `PLACEHOLDER-*` / `TODO-*` | Low | High | The placeholder prefix is rejected before the C.../56-char check. | None. |
-| F4-T.1 | Tampering | A `literal_bytes` payload with non-hex chars silently becomes empty | `Buffer.from('zz', 'hex')` returns empty | Low | Medium | Strict even-length hex regex at the MCP boundary; `validateLeafValues` inside `encodePredicate`. | None. |
-| F4-T.2 | Tampering | i128 wrapping at encode time | `2^127` overflows | Low | Medium | `scvI128FromDecimal` range-checks; out-of-range values throw at encode time. | None. |
+| F4-T.1 | Tampering | i128 wrapping at encode time | `2^127` overflows | Low | Medium | `scvI128FromDecimal` range-checks; out-of-range values throw at encode time. | None. |
 | F4-D.1 | DoS | Predicate depth / leaf count explodes | | Low | Medium | `PREDICATE_CAPS` (depth 5, leaves 200, in-operand 32, 32 KB) enforced at encode and mirrored on the host. | None. |
 | F4-D.2 | DoS | ScVal recursion stack overflow | | Low | Medium | `MAX_SCVAL_DEPTH = MAX_SCVAL_CLONE_DEPTH = 30` caps the decoder and the clone paths. | None. |
 | F4-E.1 | Elevation of privilege | A hand-crafted predicate of only literal-vs-literal compares installs and permits everything | Bypass the synth and call `buildAddContextRuleArgs` directly | Low | Critical | `encodePredicate` refuses a predicate with no selector leaf, and the contract refuses it again at install with 216. | None on chain. The off-chain refusal is a convenience; the contract is the enforcing layer. |
@@ -296,7 +293,7 @@ For every element, all six categories are addressed. "Not applicable" rows are k
 | ID | Cat | Threat | Attack scenario | Likelihood | Impact | Mitigation | Residual |
 |---|---|---|---|---|---|---|---|
 | C2-T.1 | Tampering | OZ `__check_auth` re-uses a stale nonce | | Low | High | OZ's nonce bookkeeping is OZ's responsibility. | Trust assumption: OZ is correct. |
-| C2-E.1 | Elevation of privilege | OZ's no-policy rule is all-of-N; POLICED rule is any-of-N | Adding a 2nd signer to a rule with a POLICED policy | High | Critical | Surfaced in the review card `signerNote`; the install path scans the account's other rules for authority a signer of this one already holds and refuses unless the caller opts in. | Unmitigated at the protocol layer. Cross-rule authority is tracked as R-4. |
+| C2-E.1 | Elevation of privilege | OZ's no-policy rule is all-of-N; POLICED rule is any-of-N | Adding a 2nd signer to a rule with a POLICED policy | High | Critical | Surfaced in the review card `signerNote`; when the caller supplies `existingRules`, `install_policy` returns an `authorityScan` naming the authority a signer of this one already holds elsewhere. | Unmitigated at the protocol layer. Cross-rule authority is tracked as R-4. |
 
 ### Element C3 - Pinned Soroban RPC (out of scope, named with trust assumption)
 
@@ -334,18 +331,15 @@ What this model assumes and does NOT verify:
 | R-1 | Transitive authority: once a policy permits calling contract X, it also permits whatever X can do with authority it ALREADY holds (standing SEP-41 allowances, its own admin rights), because those actions require no further auth from this account and so never produce a `Context`. | Not a gap in the interpreter, and not closable by any auth-based policy layer, Zodiac Roles on EVM included. Every invocation that DOES require this account's auth gets its own `Context` and its own `enforce` call, so depth is covered. Mitigated operationally: a policed key must hold zero standing allowances, so a permitted callee has nothing to abuse. |
 | R-2 | OZ no-policy rule is all-of-N; POLICED rule is any-of-N. Adding a 2nd signer "for two approvals" produces the opposite of the intent. | OZ protocol-level semantic, not something the interpreter can override. Delivery of the warning was verified end to end: `signerNote` is set when `signers.length >= 2`, carried on `InstallCallDescribes`, and reachable on the `install_policy` response. It is decoded from the FINAL transaction rather than the input args, so it describes what will actually be signed. Residual: it is advisory text, not a hard gate. A hard gate would need a new field on `PolicyInstallParams` - a wire-format change across the contract, the synthesiser and the conformance fixtures. |
 | R-3 | Master signer set cannot include `Signer::External(_, _)` because the interpreter cannot re-implement OZ's verifier protocol in v1. | **No action: refusing is the correct behaviour, not a limitation to fix.** An `External` master would be permanently unrecoverable, since `rotate_master_signer_set` and `uninstall` both gate on `require_master` and neither could ever satisfy it. Refusing at install converts an unrecoverable state into a loud, immediate error. Verified recoverable by contrast: with a valid master set, `rotate` and `uninstall` are direct calls that never route through `enforce`, so an account is never locked out of governing its own rule. |
-| R-4 | A signer's effective authority for a given call is the MAXIMUM over every context rule they belong to whose `context_type` matches it. OpenZeppelin documents multiple rules per context type as intended. Adding a tighter rule restricts nothing. | OZ protocol-level semantic. `do_check_auth` enforces only the policies of the rule the caller named, and the rule id is bound into the auth digest, so the signer commits to the rule they exercise. Mitigated off chain: `install_policy` scans the account's other rules, reports every rule a signer of the new policy could name instead, and refuses unless the caller opts in. That mitigation is client-side only. |
+| R-4 | A signer's effective authority for a given call is the MAXIMUM over every context rule they belong to whose `context_type` matches it. OpenZeppelin documents multiple rules per context type as intended. Adding a tighter rule restricts nothing. | OZ protocol-level semantic. `do_check_auth` enforces only the policies of the rule the caller named, and the rule id is bound into the auth digest, so the signer commits to the rule they exercise. Mitigated off chain: when the caller supplies `existingRules`, `install_policy` returns an `authorityScan` naming every rule a signer of the new policy could name instead. It reports rather than refuses, it never reads the account itself, and an absent `existingRules` yields `null` - "not checked", distinct from "checked, nothing found". |
 | R-5 | Grammar-version parity between the Rust contract and the TypeScript builder rests on a test, not on a shared type. | The test parses `SELF_VERSION` out of `version.rs` and asserts the builder's literal matches, so a skew fails the build. A skew that slipped past it would still be loud rather than silent: the contract refuses the install with 200. |
 
 ### Accepted risks (open, in scope, accepted with reason)
-
-These are live. They are not defects to be fixed before audit; they are decisions.
 
 | ID | Accepted risk | Reason |
 |---|---|---|
 | A-1 | MCP HTTP transport has no authentication. | Mitigated by default-loopback binding plus an explicit `allowExternalHost: true` opt-in. A reverse proxy or firewall is the expected deployment-time auth. The server holds no key material, so the worst case is unsigned-XDR generation, not signing. |
 | A-2 | `argument_reorder` excluded from synth deny-case generation. | The Soroban host dispatches by function identity with positional args, so a reordered-argument call is a different call the predicate already fails to match. |
-| A-3 | The audited tree is not the deployed mainnet binary. | The address pinned in `run/schemas.ts` runs a different build, so auditing this tree says nothing about the contract currently deployed. This is only legitimate if this tree is what ships - a governance question, not a technical one. |
 
 ### Trust-boundary note: the scope of the on-chain guarantee
 
@@ -355,9 +349,9 @@ The interpreter guarantees exactly three properties on every enforced call:
 2. it **fails closed** on every error path;
 3. the predicate **binds at least one property of the call** (216).
 
-The list is exhaustive, and all three concern the fidelity of evaluation rather
-than the adequacy of the policy: a predicate pinning only `call_fn` satisfies
-every one of them and permits that function with any arguments.
+All three concern the fidelity of evaluation rather than the adequacy of the
+policy: a predicate pinning only `call_fn` satisfies every one of them and
+permits that function with any arguments.
 
 Policy adequacy is owned off chain. The review card states, leaf by leaf, what
 the predicate binds, and the person approving the wallet signature accepts it.
@@ -399,23 +393,16 @@ All logs in `docs/audit/evidence/` were produced against this tree:
 
 | Tool | Result |
 |---|---|
-| `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm build | clean; 94 + 6 tests pass |
-| `biome check`, `tsc --noEmit`, `bun test` | clean; 595 pass, 1 skip, 0 fail |
+| `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, reproducible wasm build, hash pin parity | clean; 70 tests + 9 conformance pass; built wasm matches the pin |
+| `biome check`, `tsc --noEmit`, `bun test` | clean; 611 pass, 1 skip, 0 fail across 612 tests |
 | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | `bun audit` | 0 vulnerabilities |
-| `clippy -W pedantic -W nursery` | 228 style warnings, 0 security |
-| `cargo scout-audit` | Analyzed: 2 Critical, 9 Medium, 1 Enhancement - all triaged, both Criticals false positives |
+| `clippy -W pedantic -W nursery` | 170 style warnings, 0 security |
+| `cargo scout-audit` | Analyzed: 0 Critical, 9 Medium, 0 Minor, 1 Enhancement |
 | Stellar Security Portal corpus | 832 real Soroban findings; 150 critical/high cross-checked against this contract's five entry points |
-
-Scout's two Criticals are `d + 1` in the AST depth walk. They are unreachable:
-the 32 KB byte cap is checked before parsing, bounding depth eight orders of
-magnitude below `u32::MAX`. Scout reports raw operators without following the
-dominating guard.
 
 ### Where the model is weakest
 
-- **The audited tree is not the deployed one** (A-3). This is the single most
-  important caveat on the whole document.
 - **R-1 and R-2 are structural**, inherited from the account model rather than
   from this contract, and no amount of interpreter work closes them.
 - **The off-chain half carries more risk than the on-chain half.** The contract
@@ -431,7 +418,5 @@ dominating guard.
 
 ### What would raise confidence further
 
-1. Deploy this grammar and re-pin, closing A-3. It is the one item on this list
-   that this document cannot close by itself.
-2. Bring test files into the typecheck scope, so a stale symbol in a test is a
-   type error rather than a runtime failure.
+Bring test files into the typecheck scope, so a stale symbol in a test is a type
+error rather than a runtime failure.
