@@ -5,6 +5,63 @@ Notable changes to the published packages. The format follows
 packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 `@crediolabs/policy-builder-mcp`) version together.
 
+## [0.5.0] - 2026-08-22
+
+### Added
+
+- Grammar version 4: the boolean combinator `or`, the ordering operators `lt`,
+  `gt` and `gte`, and the `call_arg_scaled(i, num, den)` leaf. Version 3 could
+  express a ceiling but not a floor, a strict bound or a disjunction, so a rule
+  permitting either of two token pairs needed two rules, and "at least" could
+  not be said at all.
+- Slippage floors. `call_arg_scaled` evaluates to `args[i] * num / den`
+  truncating toward zero, and is the only selector permitted on the right of a
+  comparison, which is what lets a swap bound its output against its own input:
+  `call_arg(out) >= call_arg_scaled(in, 99, 100)`. A constant cannot express
+  this - it would pin the policy to a single trade size. Reachable through
+  `declare_policy` / `policy-builder declare --min-out-ratio 99/100 --in-arg 0
+  --out-arg 1`; it is never inferred from a recording, because a recorded rate
+  is a price at one moment and freezing it as policy would deny ordinary trades
+  later.
+- `read-account-rules.ts`: `install_policy` now READS the smart account's
+  context rules to build its `authorityScan`, instead of only reporting on rules
+  the caller passed in. Rule ids are not contiguous - OpenZeppelin never reuses
+  an id after a removal - so the scan walks ids upward until it has accounted
+  for `Count` live rules; iterating `0..Count-1` would skip live rules at higher
+  ids, and a skipped rule is a missed overlap. `authorityScan: null` still means
+  NOT CHECKED, and now also covers a failed or incomplete read: reporting `[]`
+  there would turn "could not check" into "nothing to worry about".
+
+### Changed
+
+- The pinned interpreter moves to grammar version 4. New instances on both
+  networks from one reproducible build:
+  mainnet `CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52`,
+  testnet `CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5`,
+  wasm sha256 `b5ba1e35ccf20cd8c13c3a2c3098bf337033a92bcaf475d63c03ddc0cba0fcae`.
+  A version-3 document still decodes under 4 - the grammar only widened - so
+  the version gate is the only thing refusing it, and it does.
+- Deny code 102 (`ARITHMETIC_OVERFLOW`) returns to its original meaning, which
+  `call_arg_scaled` needs again. It is a restoration, not a recycle: a consumer
+  that remembers `102 = ARITHMETIC_OVERFLOW` stays right. New in this version:
+  107 `SLIPPAGE_FLOOR` and 214 `INVALID_SCALED_RATIO`.
+- The review card renders a disjunction as ONE line. A line per branch would
+  read as "all of these are required", which is both wrong and the dangerous
+  direction - it makes a policy look tighter than it is.
+
+### Security
+
+- Install refuses a `call_arg_scaled` whose ratio is zero or non-positive
+  (`INVALID_SCALED_RATIO`, 214). A negative ratio silently INVERTS the
+  comparison, so a floor would permit exactly the trades it was written to
+  refuse, and at evaluate that is indistinguishable from a policy working
+  normally. The same shapes are refused by `encodePredicate` off chain and by
+  `declare_policy` at the point the ratio is stated.
+- `call_arg_scaled` arithmetic is `checked_mul`/`checked_div` throughout;
+  overflow and a zero denominator deny rather than wrapping or panicking the
+  frame. The TypeScript reference evaluator applies the same i128 bounds so the
+  two layers agree at the boundary.
+
 ## [0.4.0] - 2026-08-22
 
 ### Added

@@ -24,8 +24,10 @@ selector the call cannot answer all deny.
 ## What the predicate can say
 
 Every leaf is answered from the authorized call itself. `enforce` reads no
-mutable state and writes none, so a permit costs no ledger writes and there is
-no counter that can drift, replay or archive out from under a rule.
+mutable state and changes none, so there is no counter that can drift, replay or
+archive out from under a rule. A permit does pay for one TTL bump on the rule's
+four existing entries; it creates nothing and alters no value, and a deny is
+rolled back with the frame.
 
 | Leaf | Reads |
 | --- | --- |
@@ -33,21 +35,29 @@ no counter that can drift, replay or archive out from under a rule.
 | `call_arg(i)` | Argument `i` of that call |
 | `call_arg_len(i)` | Length of a vec-typed argument - pins the element count so an extra entry cannot be appended |
 | `call_arg_field(i, element, field)` | A field of a map element inside a vec-typed argument |
+| `call_arg_scaled(i, num, den)` | `args[i] * num / den`, truncating toward zero. The only COMPUTED leaf, and the only selector permitted on the right of a comparison - a swap's acceptable output depends on its own input, so a constant would pin the policy to one trade size |
 | `literal_*` | Constants on the right-hand side of a comparison, or inside an `in` allowlist |
 
-Nodes: `and`, `eq`, `lte`, `in`. Literals: `literal_address`, `literal_i128`,
-`literal_symbol`, `literal_u32`, `literal_vec`.
+Nodes: `and`, `or`, `eq`, `lt`, `lte`, `gt`, `gte`, `in`. Literals:
+`literal_address`, `literal_i128`, `literal_symbol`, `literal_u32`,
+`literal_vec`.
 
-The grammar carries only what a policy needs and no more. `or` and `not` are
-absent by design: `not` inverted a deny into a permit, so a leaf the evaluator
-could not resolve - a missing argument index, an operand of the wrong type -
-came back as PERMIT rather than as the deny everything else in the grammar
-produces. In a deny-by-default evaluator that is the one construct that can
-turn the default inside out, and nothing the synthesiser emits needs it.
+The grammar carries only what a policy needs and no more. `not` is absent by
+design: it inverts a deny into a permit, so a leaf the evaluator could not
+resolve - a missing argument index, an operand of the wrong type - would come
+back as PERMIT rather than as the deny everything else in the grammar produces.
+In a deny-by-default evaluator that is the one construct that can turn the
+default inside out.
+
+`or` carries no such hazard - an unresolvable leaf still denies its own branch -
+and it is what lets one rule permit either of two token pairs. Its children are
+canonically sorted like `and`'s, so authoring order is not preserved; when every
+branch denies, the reported reason is the first branch's in wire order.
 
 Deliberately absent, because the interpreter sees one authorized call and no
 history: what a transaction actually moved (`amount`), rolling per-window spend
-totals, call-frequency caps, and policy expiry. Wall-clock time is absent for a
+totals, call-frequency caps, and policy expiry. Rolling spend caps and approval
+thresholds belong to the OpenZeppelin account layer, not here. Wall-clock time is absent for a
 related reason - the only clock a predicate could read is the ledger sequence,
 which is not the unit anyone writing a deadline means. A cap on value is expressed
 instead against the call's own amount argument (`call_arg(i) <= limit`); expiry

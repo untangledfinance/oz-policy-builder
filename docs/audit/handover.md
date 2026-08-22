@@ -7,9 +7,9 @@ Scope, evidence and known issues for the OZ policy interpreter.
 | | |
 | --- | --- |
 | Contract | `contracts/policy-interpreter` |
-| Grammar version | 3 (`SELF_VERSION`, `src/version.rs`) |
-| On-chain production code | 842 nSLOC |
-| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (6652 nSLOC: `packages/**/*.ts` excluding `*.test.ts`, `test/`, `scripts/`, `dist*/`, blank and comment-only lines) |
+| Grammar version | 4 (`SELF_VERSION`, `src/version.rs`) |
+| On-chain production code | 1008 nSLOC |
+| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (7223 nSLOC: `packages/**/*.ts` excluding `*.test.ts`, `test/`, `scripts/`, `dist*/`, blank and comment-only lines) |
 
 What the system does: record a transaction, lower it to a predicate that pins
 the contract, method and arguments the recording carried, install that predicate
@@ -20,32 +20,38 @@ Per-file size of the audited contract. Test modules (`dsl_tests.rs`,
 
 | File | nSLOC |
 | --- | ---: |
-| `dsl.rs` | 479 |
-| `lib.rs` | 173 |
-| `storage.rs` | 96 |
+| `dsl.rs` | 637 |
+| `lib.rs` | 176 |
+| `storage.rs` | 101 |
 | `state.rs` | 29 |
 | `types.rs` | 44 |
 | `auth.rs` | 20 |
 | `version.rs` | 1 |
-| **Total** | **842** |
+| **Total** | **1008** |
 
 Properties worth knowing before reading the code:
 
-- **`enforce` writes nothing, and reads only what install fixed.** It makes
-  exactly two storage reads - the predicate document and the signer-set hash,
-  both under the `(smart_account, rule_id)` key - and performs no writes at all:
-  no `set`, `update`, `extend_ttl` or `remove` appears anywhere in the function.
-  Both entries are written at install and removed at uninstall, so neither can
-  change while a rule is live. There is no clock read and no cross-contract
-  call; every predicate leaf is answered from the authorised call itself.
-  Verified by inspection of every storage and cross-contract call site in
-  `lib.rs`. "Stateless" is used in that sense throughout this document: an
-  auditor reading `enforce` will find those two `storage().persistent().get()`
-  calls, and they are the whole of it.
-- **The grammar is closed and small.** Four node kinds (`and`, `eq`, `lte`,
-  `in`), five selector leaves, five literal leaves. Every predicate the
-  synthesiser can emit is some combination of those; there is no operator whose
-  only caller is a hand-written predicate.
+- **`enforce` creates, changes and removes no state, and reads only what
+  install fixed.** It reads two entries - the predicate document and the
+  signer-set hash, both under the `(smart_account, rule_id)` key - and calls no
+  `set`, `update` or `remove` anywhere. Both are written at install and removed
+  at uninstall, so neither can change while a rule is live. There is no clock
+  read and no cross-contract call; every predicate leaf is answered from the
+  authorised call itself.
+
+  The one write-shaped operation is a TTL bump. On the permit path `enforce`
+  calls `state::extend_state_ttl`, which runs `extend_ttl` on the four per-rule
+  entries, each guarded by `has` so the bump can never create one. It changes no
+  value and adds no entry - it only postpones archival - and it runs BEFORE
+  `evaluate`, so a deny panics and the host rolls the bump back with the frame.
+  Stated plainly because an auditor reading `enforce` will see that call on the
+  line after the decode, and a claim of "no writes at all" would not survive it.
+- **The grammar is closed and small.** Eight node kinds (`and`, `or`, `eq`,
+  `lt`, `lte`, `gt`, `gte`, `in`), six selector leaves, five literal leaves.
+  Every predicate the synthesiser can emit is some combination of those.
+  `call_arg_scaled` is the one leaf whose value is COMPUTED rather than read,
+  and the only selector allowed on the right of a comparison - which is what
+  lets a swap bound its output against its own input.
 - **There is no intermediate representation between the composer and the
   predicate.** With one enforcement backend the IR was pure translation, so the
   composer emits predicate nodes directly and a `ComposedRule` carries only
@@ -108,18 +114,21 @@ Every log in [`evidence/`](evidence/) was produced against this tree.
 
 | Log | Command | Result |
 | --- | --- | --- |
-| [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, reproducible wasm build, hash pin parity | clean; 70 tests + 9 conformance pass; built wasm matches the pin |
-| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 611 pass, 1 skip, 0 fail across 612 tests |
+| [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, reproducible wasm build, hash pin parity | clean; 107 tests + 9 conformance pass; built wasm matches the pin |
+| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, `bun run typecheck`, `bun test` | clean; 654 pass, 1 skip, 0 fail across 655 tests |
 | [`cargo-audit.log`](evidence/cargo-audit.log) | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | [`bun-audit.log`](evidence/bun-audit.log) | `bun audit` | 0 vulnerabilities |
-| [`clippy-pedantic.log`](evidence/clippy-pedantic.log) | `clippy -W pedantic -W nursery` | 170 style warnings, 0 security |
+| [`clippy-pedantic.log`](evidence/clippy-pedantic.log) | `clippy -W pedantic -W nursery` | 180 style warnings, 0 security |
 | [`scout-audit.log`](evidence/scout-audit.log) | `cargo scout-audit` | 0 Critical, 9 Medium, 0 Minor, 1 Enhancement |
 
-Beyond the tools, the Stellar Security Portal corpus (832 Soroban findings) was
-pulled and its 150 critical/high findings cross-checked against this contract's
-five entry points. Access control dominates that set; the controls are tabulated
-per entry point in
-[`README.md`](README.md#3-stellar-security-portal-corpus---832-findings-cross-checked).
+Beyond the tools, the Stellar Security Portal corpus was pulled on 2026-08-04
+(832 Soroban findings, 150 critical/high) and cross-checked against this
+contract's five entry points. Access control dominates that set; the controls
+are tabulated per entry point in
+[`README.md`](README.md#3-stellar-security-portal-corpus-cross-checked). Those
+corpus counts are dated: the portal's API did not resolve during the grammar-4
+re-audit, so they were not re-verified. Grammar 4 added no entry point, so the
+cross-check itself still stands.
 
 `cargo-scout-audit` 0.3.16 reports a build that never compiled as "Analyzed"
 with 0 findings, so the Scout numbers above are only meaningful because a
@@ -133,18 +142,27 @@ worth ruling out, so the Rust evaluator was deliberately mutated twice and the
 harness had to catch both: narrowing `lte` to `<` was caught by the permit case,
 and forcing `eq` true was caught by three separate deny cases.
 
+The grammar-4 additions were checked the same way, by mutation rather than by
+assuming a passing suite means anything. Collapsing `gt` to `>=` in the scaled
+compare, reporting an `or`'s LAST deny instead of its first, and swapping
+`checked_div` for `wrapping_div` were each introduced deliberately; the first
+run caught only one of the three, and the two tests that closed the other two
+were written in response. The conformance harness itself covers the
+recording-derived grammar-3 shapes only - the v4 operators are covered by
+parallel Rust and TypeScript suites, not differentially.
+
 ## 4. Gates
 
 | Layer | Gate | Result |
 | --- | --- | --- |
 | Contract | `cargo fmt --check` | clean |
 | Contract | `cargo clippy --all-targets -- -D warnings` | 0 warnings |
-| Contract | `cargo test` | 79 passed, 0 failed |
+| Contract | `cargo test` | 116 passed, 0 failed |
 | Contract | `cargo test --release --test conformance` | 9 passed, 0 failed |
 | Contract | `contracts/policy-interpreter/build-wasm.sh` | builds; sha256 equals `PINNED_INTERPRETER_WASM_SHA256` |
-| Off-chain | `bunx biome check .` | 120 files, 0 findings |
+| Off-chain | `bunx biome check .` | 123 files, 0 findings |
 | Off-chain | `bun run typecheck` | clean |
-| Off-chain | `bun test` | 611 passed, 1 skipped, 0 failed |
+| Off-chain | `bun test` | 654 passed, 1 skipped, 0 failed |
 | Off-chain | `bun audit` | 0 vulnerabilities |
 
 Both gates run in CI on every push, including the two dependency-advisory
@@ -162,21 +180,21 @@ One reported item is triaged as a non-issue rather than fixed, argued in
 
 ## 5. Scope and known issues
 
-**This tree IS the deployed binary, on both networks.** The grammar-version-3
+**This tree IS the deployed binary, on both networks.** The grammar-version-4
 interpreter was deployed on 2026-08-22 and the pins in `run/schemas.ts` were
 moved to it. Both instances were created from one uploaded wasm, so the same
 binary runs on both networks:
 
 | | |
 | --- | --- |
-| Interpreter (mainnet) | `CBZXLSTQUITBFZHQH6XRXF3XIVRQR4RHRI64Q5WELS5KGY3ZKJPFWDPF` |
-| Interpreter (testnet) | `CCL336TCK2Y5OFNRCMN2M3HVPBCEX4PW5H6EQ5VW5NPMXOCP4ESB5XR4` |
-| wasm sha256 | `a2b36e8ac5a61caf3757af26aa79e83f2995b451099f44772383806a55fe3414` |
-| Grammar version | 3, matching `SELF_VERSION` |
+| Interpreter (mainnet) | `CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52` |
+| Interpreter (testnet) | `CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5` |
+| wasm sha256 | `b5ba1e35ccf20cd8c13c3a2c3098bf337033a92bcaf475d63c03ddc0cba0fcae` |
+| Grammar version | 4, matching `SELF_VERSION` |
 
 Verified rather than assumed: the sha256 of the locally built wasm equals the
 hash the network returned on upload, and `get_interpreter_info --verifyLive`
-reports `liveMatchesPin: true` with `deployedGrammarVersion: 3` against both
+reports `liveMatchesPin: true` with `deployedGrammarVersion: 4` against both
 networks.
 
 The four pinned constants move together or not at all. The wasm hash and grammar
@@ -208,7 +226,7 @@ Two further points on where the risk sits, both carried in the threat model
 rather than only here:
 
 - The off-chain half carries more risk than the on-chain half. The contract is
-  842 nSLOC and write-free at `enforce`; the toolchain is 6652 nSLOC and holds
+  1008 nSLOC and write-free at `enforce`; the toolchain is 7223 nSLOC and holds
   the default-deny install gates.
 - Coverage of the MCP HTTP transport is thinner than the rest, because the
   deployment model is loopback stdio.

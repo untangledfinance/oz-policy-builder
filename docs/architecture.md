@@ -120,9 +120,9 @@ A predicate is a boolean tree of leaves. The **Rust decoder in
 `policy-synth/src/predicate/encode.ts` must agree with it byte for byte, and an
 unknown tag is fail-closed at decode.
 
-Boolean combinator: `and`. Terminal nodes are a comparison (`eq`, `lte`) or an
-`in` set-membership test. Selectors (what a leaf reads from the authorised
-call):
+Boolean combinators: `and` and `or`. Terminal nodes are a comparison (`eq`,
+`lt`, `lte`, `gt`, `gte`) or an `in` set-membership test. Selectors (what a
+leaf reads from the authorised call):
 
 | Selector | Reads |
 | --- | --- |
@@ -130,13 +130,15 @@ call):
 | `call_fn` | the method symbol |
 | `call_arg(i)` | argument `i` as a scalar |
 | `call_arg_len(i)` | length of a vector argument |
+| `call_arg_scaled(i, num, den)` | `args[i] * num / den`, truncating toward zero - the one COMPUTED leaf, and the only selector allowed on the right of a comparison |
 | `call_arg_field(i, elem, field)` | a field of a map element inside a vector arg |
 
 Every selector is answered from the authorised call alone. That is the whole
-shape of the grammar: **at `enforce` the interpreter writes nothing and reads
+shape of the grammar: **at `enforce` the interpreter changes no value and reads
 only the two entries install fixed** - the predicate document and the signer-set
-hash - so a permit costs no ledger writes and no counter exists that could
-drift, replay, or archive out from under a rule.
+hash - so no counter exists that could drift, replay, or archive out from under
+a rule. The single write-shaped operation is a TTL bump on the permit path,
+which extends those entries without creating or altering any.
 
 Several selector symbols are deliberately **not** in the grammar and are
 refused at decode:
@@ -152,7 +154,9 @@ refused at decode:
   synthesiser says so explicitly rather than implying a cap it cannot keep.
 - `valid_until` - expiry belongs to the context rule's own `valid_until` field,
   which the smart account owns.
-- `or`, `not`, `lt`, `gt`, `gte` and `now` - not in grammar 3.
+- `not` and `now` - not in grammar 4. `not` would let a policy be permissive
+  by negation; `now` would make `enforce` depend on a clock, which is half of
+  the property the contract's threat model turns on.
 
 Structural caps (authoritative in Rust, mirrored in TS): depth 5, 200 leaves,
 32 operands in an `in` list, 32 KB encoded.

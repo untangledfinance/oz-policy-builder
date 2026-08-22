@@ -4,8 +4,8 @@
 **Date:** 2026-08-22
 **Methodology:** Stellar STRIDE Threat Modeling, "STRIDE Threat Model Template" and "Threat Modeling How-To Guide" pages at `developers.stellar.org/docs/build/security-docs/threat-modeling`. The Stellar template's four-question scaffold (What are we working on / What can go wrong / What are we going to do about it / Did we do a good job) and its STRIDE-per-element format are followed.
 **Repo:** `untangledfinance/oz-policy-builder`
-**Grammar version:** 3 (`SELF_VERSION`, `src/version.rs`)
-**Subject tree:** 842 nSLOC of on-chain production code.
+**Grammar version:** 4 (`SELF_VERSION`, `src/version.rs`)
+**Subject tree:** 1008 nSLOC of on-chain production code.
 
 ---
 
@@ -26,13 +26,19 @@
 
 ### The property the model turns on
 
-**`enforce` writes nothing, and reads only what install fixed.** Its only two
-storage reads are the predicate document and the signer-set hash, both written
-at install and removed at uninstall, so neither changes while a rule is live. It
-performs no writes, reads no clock, and makes no cross-contract calls. Every
-predicate leaf is answered from the authorized call itself. That is the sense in
-which "stateless" is used below: not that the contract stores nothing, but that
-`enforce` mutates nothing and depends on nothing that can move underneath it.
+**`enforce` creates no state, changes none, and reads only what install fixed.**
+Its two value reads are the predicate document and the signer-set hash, both
+written at install and removed at uninstall, so neither changes while a rule is
+live. It reads no clock and makes no cross-contract calls. Every predicate leaf
+is answered from the authorized call itself.
+
+The one write-shaped operation is a TTL bump on the permit path
+(`state::extend_state_ttl`), which extends the four per-rule entries and is
+guarded on `has` so it can never create one. It changes no value and adds no
+entry - it only postpones archival - and it runs before `evaluate`, so a deny
+panics and the host rolls it back. That is the sense in which "stateless" is
+used below: not that the contract stores nothing, but that `enforce` mutates no
+value and depends on nothing that can move underneath it.
 
 That removes several threat classes from the model outright rather than
 mitigating them. There is no external price feed, so no feed spoofing,
@@ -68,7 +74,7 @@ lifecycle. There is no entry that `enforce` writes.
 
 | ID | Storage | Lifetime | Who writes | Notes |
 |---|---|---|---|---|
-| S1 | `(account, rule_id, K_DOC=1)` -> `StoredDoc { predicate_bytes, predicate_hash }` | persistent; TTL bumped on the permit path | `install` | `src/storage.rs` |
+| S1 | `(account, rule_id, K_DOC=1)` -> `StoredDoc { predicate_bytes }` | persistent; TTL bumped on the permit path | `install` | `src/storage.rs` |
 | S2 | `(account, rule_id, K_NONCE=2)` -> `u32` | persistent; bumped alongside K_DOC | `install` | replay protection |
 | S3 | `(account, rule_id, K_SIGNERS_HASH=3)` -> `BytesN<32>` | persistent; bumped alongside K_DOC | `install`, `rotate_master_signer_set` | binds the policy to a signer set |
 | S4 | `(account, rule_id, K_MASTER_SET=4)` -> `Vec<Signer>` | persistent; bumped alongside K_DOC | `install`, `rotate_master_signer_set` | governs install/uninstall/rotate |
@@ -121,7 +127,7 @@ What an attacker wants:
 - **OZ no-policy rule vs POLICED rule.** On an OpenZeppelin smart account, a no-policy context rule requires the FULL signer set (all-of-N); attaching a POLICED rule lets any ONE signer act alone (any-of-N). The review card surfaces this via `signerNote` whenever `signers.length >= 2`. Adding a second signer "for two approvals" produces the opposite of the intent.
 - **Fail-closed on every deny.** `panic_with_error!` rolls back the entire frame; the host emits `Error(Contract, N)`.
 - **TTL bump only on the allow path.** `extend_state_ttl` runs before `evaluate`; a deny panics and the host rolls back. The bump is gated on `p.has(&key)` so it never creates state.
-- **Install-time shape validation.** Every "would silently fail at enforce" shape is refused at install: grammar-version mismatch (200), oversized predicate (207), hash mismatch (208), undecodable predicate (201), empty signer set (209), more than `MAX_SIGNERS` 16 signers (217), an `External` signer in the master set (212), and a predicate carrying no selector leaf (216).
+- **Install-time shape validation.** Every "would silently fail at enforce" shape is refused at install: grammar-version mismatch (200), oversized predicate (207), hash mismatch (208), undecodable predicate (201), empty signer set (209), more than `MAX_SIGNERS` 16 signers (217), an `External` signer in the master set (212), a predicate carrying no selector leaf (216), and a `call_arg_scaled` whose ratio is zero or non-positive (214).
 - **Grammar-version parity across layers.** The off-chain builder emits `grammar_version` equal to the contract's `SELF_VERSION`. A mismatch is refused at install, and a test asserts the two constants match so a skew fails the build rather than the install.
 
 ---
@@ -240,6 +246,8 @@ during evaluation: it makes no cross-contract calls.
 | C1-E.4 | Elevation of privilege | `install_nonce` replay between two installs | A replayed install overwrites a fresh predicate | Low | High | `install_nonce` must equal `stored_nonce + 1`; mismatch panics 202. `uninstall` removes the nonce with the rest of the state, so a subsequent install starts again at 1. | None. |
 | C1-E.5 | Elevation of privilege | Transitive authority through a permitted callee | The policy permits calling contract X; X then moves funds using a standing SEP-41 allowance the account granted earlier. That transfer needs no auth from this account, so it produces no `Context` and no `enforce` call | Medium | High | **Depth itself is covered:** OZ builds one `Context` per auth-tree node requiring this account's authorisation and calls `enforce` once per context, so a smuggled inner call that needs this account's auth IS evaluated on its own merits. `extract_call` handling only `Context::Contract` is a shape check, not a depth limit. | Residual by nature, not by scope. Mitigated operationally - a policed key must hold zero standing allowances. Tracked as R-1. |
 | C1-E.6 | Elevation of privilege | Grammar-version skew between the builder and the contract | An off-chain builder emitting an older `grammar_version` produces installs the contract refuses - or, in the inverse case, a contract that accepts a document written against a different leaf set | Medium | High | `install_params.grammar_version != SELF_VERSION` panics 200, and a test asserts the builder's literal equals `SELF_VERSION`. | None on chain. The off-chain side is the fragile half, since the parity is held by a test rather than by the type system. |
+| C1-E.7 | Elevation of privilege | An inverting `call_arg_scaled` ratio turns a slippage floor into a permit | A negative `num` or `den` flips the comparison, so `call_arg >= call_arg_scaled(in, -1, 100)` permits exactly the trades the floor was written to refuse - and at evaluate it looks like a policy working normally | Medium | High | Install refuses a zero or non-positive ratio: `InvalidScaledRatio` 214 (`dsl::validate_scaled_ratios`, which walks into `or` branches and literal vectors). `encodePredicate` refuses the same shapes off chain, and `declare_policy` refuses them again at the point the ratio is stated. | None on chain. The gate is at install, where the mistake is knowable; at evaluate a wrong-but-valid ratio is indistinguishable from an intended one. |
+| C1-E.8 | Elevation of privilege | `call_arg_scaled` arithmetic overflows and yields a bound the author did not write | `args[i] * num` exceeding i128 | Low | Medium | `checked_mul`/`checked_div` throughout; overflow and a zero denominator both deny with `ArithmeticOverflow` 102 rather than wrapping or panicking the frame. The TS reference evaluator applies the same i128 bounds so the two layers agree at the boundary. | None - fails closed. |
 
 ### Data flow F1 - install pipeline (U -> MCP -> synth -> unsigned XDR -> wallet -> chain -> OZ -> interpreter)
 
@@ -378,8 +386,9 @@ operator who needs one sources it there:
 - Every control this document names is backed by a test or by an evidence log
   in `docs/audit/evidence/`.
 - Each of the contract's five entry points was checked against the access
-  control failures that dominate the Stellar Security Portal corpus (832
-  Soroban findings, 150 critical/high).
+  control failures that dominate the Stellar Security Portal corpus, pulled
+  2026-08-04 (832 Soroban findings, 150 critical/high; not re-verified for
+  grammar 4 - the portal API did not resolve, and no entry point changed).
 - The review card is decoded from the final assembled transaction, and
   `summaryCrossCheck` fails if any predicate leaf is missing from the summary.
 - Grammar parity between the contract and the builder is asserted by a test
@@ -393,20 +402,20 @@ All logs in `docs/audit/evidence/` were produced against this tree:
 
 | Tool | Result |
 |---|---|
-| `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, reproducible wasm build, hash pin parity | clean; 70 tests + 9 conformance pass; built wasm matches the pin |
-| `biome check`, `tsc --noEmit`, `bun test` | clean; 611 pass, 1 skip, 0 fail across 612 tests |
+| `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, reproducible wasm build, hash pin parity | clean; 107 tests + 9 conformance pass; built wasm matches the pin |
+| `biome check`, `tsc --noEmit`, `bun test` | clean; 654 pass, 1 skip, 0 fail across 655 tests |
 | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | `bun audit` | 0 vulnerabilities |
-| `clippy -W pedantic -W nursery` | 170 style warnings, 0 security |
+| `clippy -W pedantic -W nursery` | 180 style warnings, 0 security |
 | `cargo scout-audit` | Analyzed: 0 Critical, 9 Medium, 0 Minor, 1 Enhancement |
-| Stellar Security Portal corpus | 832 real Soroban findings; 150 critical/high cross-checked against this contract's five entry points |
+| Stellar Security Portal corpus | 832 findings, 150 critical/high, pulled 2026-08-04 and cross-checked against this contract's five entry points. Dated, not re-verified for grammar 4. |
 
 ### Where the model is weakest
 
 - **R-1 and R-2 are structural**, inherited from the account model rather than
   from this contract, and no amount of interpreter work closes them.
 - **The off-chain half carries more risk than the on-chain half.** The contract
-  is 842 nSLOC and write-free at `enforce`; the toolchain is 6,652 nSLOC and
+  is 1008 nSLOC and write-free at `enforce`; the toolchain is 7,223 nSLOC and
   holds the default-deny install gates.
 - **Test files are outside the typecheck scope.** `tsconfig` excludes
   `src/**/*.test.ts`, so `bun run typecheck` never sees them and a test can

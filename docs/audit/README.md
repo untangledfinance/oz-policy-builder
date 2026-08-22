@@ -4,11 +4,11 @@ Logs in `evidence/` were produced against this tree.
 
 | Log | Command | Result |
 | --- | --- | --- |
-| `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, reproducible wasm build, hash pin parity | clean; 70 tests + 9 conformance pass; built wasm matches the pin |
-| `offchain-gate.log` | `biome check .`, `bun run typecheck`, `bun test` | clean; 611 pass, 1 skip, 0 fail across 612 tests |
+| `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, reproducible wasm build, hash pin parity | clean; 107 tests + 9 conformance pass; built wasm matches the pin |
+| `offchain-gate.log` | `biome check .`, `bun run typecheck`, `bun test` | clean; 654 pass, 1 skip, 0 fail across 655 tests |
 | `cargo-audit.log` | `cargo audit` | 0 vulnerabilities; 1 unmaintained-crate warning |
 | `bun-audit.log` | `bun audit` | 0 vulnerabilities |
-| `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 170 style warnings, 0 security |
+| `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 180 style warnings, 0 security; every cast warning is in a test file |
 | `scout-audit.log` | `cargo scout-audit` | Analyzed: 0 Critical, 9 Medium, 0 Minor, 1 Enhancement |
 | `e2e-network.log` | `scripts/e2e-network.ts --network testnet` and `--network mainnet` | policy installed against the pinned interpreter on both networks; permitted call succeeds, forbidden call denied `#100` |
 
@@ -35,11 +35,16 @@ vulnerabilities across 202 crate dependencies.
 - *unsafe Map access* x1 and *storage op without access control* x1: the
   storage writes sit after `require_auth` / `require_master` on every path.
 
-### 3. Stellar Security Portal corpus - 832 findings cross-checked
+### 3. Stellar Security Portal corpus cross-checked
 
-Pulled from the portal's open API: 832 findings, 150 critical or high. Access
-control dominates that set, so each of this contract's five entry points was
-checked against it.
+Pulled from the portal's open API on 2026-08-04: 832 findings, 150 critical or
+high. Those counts are carried forward from that pull and were NOT re-verified
+for grammar 4 - the portal's API did not resolve when this tree was re-audited
+on 2026-08-22, so they are dated rather than restated as current.
+
+The cross-check itself is unaffected: it is a claim about this contract's entry
+points against the access-control class that dominates the corpus, and grammar 4
+added no entry point. There are still five, with the same controls.
 
 | Entry point | Control |
 | --- | --- |
