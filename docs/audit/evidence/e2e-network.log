@@ -1,5 +1,5 @@
 # End-to-end proof against real networks
-# Generated 2026-08-22T04:24:15Z by packages/policy-synth/scripts/e2e-network.ts
+# Generated 2026-08-22T16:36:57Z by packages/policy-synth/scripts/e2e-network.ts
 #
 # Each run deploys a FRESH smart account with TWO keys: an admin on rule 0
 # (no policy, full authority) and an agent on rule 1 ONLY (policed,
@@ -13,42 +13,42 @@
 
 $ bun packages/policy-synth/scripts/e2e-network.ts --network testnet
 INFO network        testnet
-INFO interpreter    CCL336TCK2Y5OFNRCMN2M3HVPBCEX4PW5H6EQ5VW5NPMXOCP4ESB5XR4
-INFO grammar        3
+INFO interpreter    CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5
+INFO grammar        4
 INFO rpc            https://soroban-testnet.stellar.org
-INFO admin  (rule 0) GAGGF4QDFG5PKYO7KYDQPC5JH2IKR6I5QVDLJOD46CUMUYOMDZLTMD2L
-INFO agent  (rule 1) GBOIUKQG7UUSZEARSESW4PMC5D4FUQQOHBMRVKK7SUB765XMWRB3T55G
-PASS smart account deployed  CAMOWHXPJMEUP4HIVZKVMMGDK3P7AJMXJEQR3CS6RD6DDPNUSXQEGUX5
+INFO admin  (rule 0) GCWNRAJLMV7CEHIE6JKM6ZKJINMR4IRKTA7TNLLJFGLQST3DBXQSMYXO
+INFO agent  (rule 1) GC4GGMV2M5XFJJBQNPZACTDVBCLBJHPBWFP2652RPPJGHLNZQ6C33WQJ
+PASS smart account deployed  CCCWSCSCHBGS6SKPBVQ23GETDSURDHLVLZYXBXLNAHWR23XWF266CCWY
 PASS agent account funded
 PASS account funded with XLM (SAC CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC)
 INFO predicate hash 9c1b891f5e4214f290db5038be0a7974867cfc8463e8b6f157e818e0f71cf093
-PASS policy installed against rule 1  (tx in ledger 4270005)
-PASS PERMIT transfer allowed by the interpreter (ledger 4270006)
+PASS policy installed against rule 1  (tx in ledger 4278781)
+PASS PERMIT transfer allowed by the interpreter (ledger 4278782)
 PASS DENY approve refused by the interpreter (#100 ArgMismatch)
 PASS BYPASS blocked: the agent is not a signer on unpoliced rule 0
 
-INFO smart account  CAMOWHXPJMEUP4HIVZKVMMGDK3P7AJMXJEQR3CS6RD6DDPNUSXQEGUX5
-INFO agent (constrained to transfer) GBOIUKQG7UUSZEARSESW4PMC5D4FUQQOHBMRVKK7SUB765XMWRB3T55G
+INFO smart account  CCCWSCSCHBGS6SKPBVQ23GETDSURDHLVLZYXBXLNAHWR23XWF266CCWY
+INFO agent (constrained to transfer) GC4GGMV2M5XFJJBQNPZACTDVBCLBJHPBWFP2652RPPJGHLNZQ6C33WQJ
 INFO permit, deny and the unpoliced-rule bypass all proven on chain
 INFO the admin key retains full authority through rule 0, by design
 
-$ bun packages/policy-synth/scripts/e2e-network.ts --network mainnet --secret <MAINNET_DEPLOYER_SECRET>
+$ bun packages/policy-synth/scripts/e2e-network.ts --network mainnet
 INFO network        mainnet
-INFO interpreter    CBZXLSTQUITBFZHQH6XRXF3XIVRQR4RHRI64Q5WELS5KGY3ZKJPFWDPF
-INFO grammar        3
+INFO interpreter    CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52
+INFO grammar        4
 INFO rpc            https://soroban-rpc.mainnet.stellar.gateway.fm
 INFO admin  (rule 0) GCIVG2AIEWMDA43HX2HRCYVNY7PH7HMPYVN42LQ5XBSHBLHFUWG47NFN
-INFO agent  (rule 1) GD6SFD5CVGBPVOT2SSEMUX2SCC2CKUNIZO72IRLY6JKOZY2CZXUXI3GI
-PASS smart account deployed  CBASTKCV6RZFO6SPEBRFJJMAJ5FRCNYVERWX5I6QSRLE3YZ4X6OEVOAU
+INFO agent  (rule 1) GDVUF3O7UBBSLC65675IJ6WOJDOAB5FUPCK4DVXLMZCZY72JHFIONTKQ
+PASS smart account deployed  CCASUDIAIXNCZVCW6K4S2JX4MBAWWKVLALTCYWXBGVTJ62L6JR3ODCYH
 PASS agent account funded
 PASS account funded with XLM (SAC CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA)
 INFO predicate hash 9c1b891f5e4214f290db5038be0a7974867cfc8463e8b6f157e818e0f71cf093
-PASS policy installed against rule 1  (tx in ledger 64066870)
-PASS PERMIT transfer allowed by the interpreter (ledger 64066871)
+PASS policy installed against rule 1  (tx in ledger 64074637)
+PASS PERMIT transfer allowed by the interpreter (ledger 64074638)
 PASS DENY approve refused by the interpreter (#100 ArgMismatch)
 PASS BYPASS blocked: the agent is not a signer on unpoliced rule 0
 
-INFO smart account  CBASTKCV6RZFO6SPEBRFJJMAJ5FRCNYVERWX5I6QSRLE3YZ4X6OEVOAU
-INFO agent (constrained to transfer) GD6SFD5CVGBPVOT2SSEMUX2SCC2CKUNIZO72IRLY6JKOZY2CZXUXI3GI
+INFO smart account  CCASUDIAIXNCZVCW6K4S2JX4MBAWWKVLALTCYWXBGVTJ62L6JR3ODCYH
+INFO agent (constrained to transfer) GDVUF3O7UBBSLC65675IJ6WOJDOAB5FUPCK4DVXLMZCZY72JHFIONTKQ
 INFO permit, deny and the unpoliced-rule bypass all proven on chain
 INFO the admin key retains full authority through rule 0, by design
