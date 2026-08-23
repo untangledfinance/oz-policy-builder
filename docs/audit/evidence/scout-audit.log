@@ -1,4 +1,4 @@
-# cargo scout-audit - 2026-08-23T05:45:46Z
+# cargo scout-audit - 2026-08-23T06:07:35Z
 #
 # 0.3.16 reports a build that never compiled as 'Analyzed' with 0 findings.
 # Artifact count under target/dylint/ confirms a real run: 11 .so files.
@@ -41,10 +41,10 @@ $ cargo scout-audit --manifest-path ./Cargo.toml --exclude storage-change-events
    --> src/lib.rs:244:9
 
 [MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
-   --> src/lib.rs:152:9
+   --> src/lib.rs:231:9
 
 [MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
-   --> src/lib.rs:231:9
+   --> src/lib.rs:152:9
 
 # Summary as printed:
 Summary:

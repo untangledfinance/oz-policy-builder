@@ -18,7 +18,7 @@
 // rather than by tooling - which is why the tooling now exists.
 //
 // Adapted to grammar 3 from the version published in `@crediolabs/policy-synth`
-// 0.2.0, which came from the `octogate` repository and was lost when the npm
+// 0.2.0, which came from a different repository and was lost when the npm
 // lineage moved here. `or` and `not` are gone from the grammar, so the cases
 // handling them are gone too; oracle bounds are gone from the stored document.
 //

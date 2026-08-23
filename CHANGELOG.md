@@ -115,7 +115,7 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   and that mistake was made in this project's own end-to-end harness. Pass
   `existingRules` to turn it on; omitting them returns `null`, meaning NOT
   CHECKED rather than nothing found. It was published in 0.2.0 and lost when the
-  npm lineage moved from `octogate` to this repository.
+  npm lineage moved to this repository from its previous source repo.
 - The recorder now reads a contract's own interface OFF CHAIN when the
   compiled-in registry does not recognise it, and verifies every recorded call
   against it. A Soroban contract embeds a typed spec in its wasm, so the
@@ -153,8 +153,8 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ## [0.3.0] - 2026-08-22
 
-Version 0.2.0 was published from the `octogate` repository, which carries its
-own copy of these packages pinned to the grammar-1 interpreter. This release
+Version 0.2.0 was published from a different repository, which carries its own
+copy of these packages pinned to the grammar-1 interpreter. This release
 takes the packages back to `oz-policy-builder` and jumps past that version
 rather than reusing it.
 
@@ -179,8 +179,8 @@ rather than reusing it.
 ### Removed
 
 Capabilities present in the published 0.2.0 and NOT in this release. They were
-never part of this repository: 0.2.0 came from `octogate`, which carries its own
-copy of these packages, so moving the npm lineage here drops them. Anyone
+never part of this repository: 0.2.0 came from a different repository, which
+carries its own copy of these packages, so moving the npm lineage here drops them. Anyone
 upgrading 0.2.0 -> 0.3.0 loses them, which is why they are listed as removals
 rather than left implicit in the lineage note above.
 
