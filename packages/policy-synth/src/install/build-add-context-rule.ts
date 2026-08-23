@@ -194,14 +194,28 @@ function encodeSigner(s: SignerDraft): xdr.ScVal {
 function encodePoliciesMap(args: BuildAddContextRuleArgs): xdr.ScVal {
   const entries: xdr.ScMapEntry[] = []
   for (const ref of args.policies) {
-    if (ref.kind === 'interpreter') {
-      entries.push(
-        new xdr.ScMapEntry({
-          key: Address.fromString(ref.interpreterAddress).toScVal(),
-          val: encodePolicyInstallParams(args),
-        })
+    // Refuse anything that is not an interpreter policy rather than skipping
+    // it. This loop used to `if (kind === 'interpreter')` and drop everything
+    // else in silence, so a caller attaching an OZ `spending_limit` beside the
+    // interpreter got a rule WITHOUT the cap and no indication of it - the
+    // policy the user asked for was simply absent from the install they signed.
+    // `PolicyRef` has one shape today, so TypeScript narrows this branch to
+    // `never`; the guard is for callers reaching the built JS untyped, and for
+    // the next kind added to `PolicyRef` without a case here. Failing loudly is
+    // the only safe direction: a dropped policy is a missing restriction.
+    if (ref.kind !== 'interpreter') {
+      const kind = JSON.stringify((ref as { kind?: unknown }).kind ?? null)
+      throw limitError(
+        'INSTALL_BUILD_FAILED',
+        `policy kind ${kind} is not supported; this builder attaches interpreter policies only. Attach an OpenZeppelin built-in through the account layer instead - dropping it here would install a rule missing the restriction you asked for.`
       )
     }
+    entries.push(
+      new xdr.ScMapEntry({
+        key: Address.fromString(ref.interpreterAddress).toScVal(),
+        val: encodePolicyInstallParams(args),
+      })
+    )
   }
   entries.sort(sortByScValSymbolString)
   return xdr.ScVal.scvMap(entries)

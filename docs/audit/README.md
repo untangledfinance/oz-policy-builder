@@ -5,7 +5,7 @@ Logs in `evidence/` were produced against this tree.
 | Log | Command | Result |
 | --- | --- | --- |
 | `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm rebuild, hash pin parity | clean; 125 tests across 6 binaries, 18 of them conformance; rebuilt wasm matches the pin |
-| `offchain-gate.log` | `biome check .`, `bun run typecheck`, `bun test` | clean; 658 pass, 1 skip, 0 fail across 659 tests in 40 files |
+| `offchain-gate.log` | `biome check .`, `bun run typecheck`, `bun test` | clean; 659 pass, 1 skip, 0 fail across 660 tests in 40 files |
 | `cargo-audit.log` | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | `bun-audit.log` | `bun audit` | 0 vulnerabilities |
 | `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 191 style warnings, 0 security; all 7 cast warnings are in test files |

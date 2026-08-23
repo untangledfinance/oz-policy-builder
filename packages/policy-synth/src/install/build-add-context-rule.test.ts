@@ -9,6 +9,9 @@
 //       signers > 15 -> INSTALL_BUILD_FAILED
 //       policies > 5 -> INSTALL_BUILD_FAILED
 //       both empty -> INSTALL_BUILD_FAILED
+//       a policy kind that is not `interpreter` -> INSTALL_BUILD_FAILED,
+//       because dropping it would install a rule missing the restriction
+//       the caller asked for
 //   - refuses a caller-supplied `predicateHash` that does not match
 //     sha256(encodedPredicate)
 //   - sorts struct keys alphabetically (the host compares by symbol STRING,
@@ -210,6 +213,35 @@ describe('buildAddContextRuleArgs - limit refusals', () => {
     expect(caught).not.toBeNull()
     expect(caught?.code).toBe('INSTALL_BUILD_FAILED')
     expect(caught?.message).toMatch(/policies 6 exceed MAX_POLICIES_PER_RULE 5/)
+  })
+
+  it('refuses an unknown policy kind instead of silently dropping it', () => {
+    // The builder used to skip any ref that was not `interpreter`, so a caller
+    // attaching an OZ `spending_limit` beside the interpreter received a rule
+    // WITHOUT the cap and nothing said so - the restriction the user asked for
+    // was absent from the transaction they signed. A dropped policy is a
+    // missing restriction, so this has to fail loudly.
+    //
+    // The cast is the point of the test: `PolicyRef` cannot express this shape,
+    // but the built JS is reachable untyped and a future kind added to the
+    // union without a case here would take the same path.
+    const policies = [
+      {
+        kind: 'interpreter' as const,
+        interpreterAddress: INTERPRETER,
+        predicateBlobBase64: 'BBBB',
+      },
+      { kind: 'oz_builtin', primitive: 'spending_limit' } as unknown as PolicyRef,
+    ] as PolicyRef[]
+    let caught: { code?: string; message?: string } | null = null
+    try {
+      buildAddContextRuleArgs(makeDraft(), defaults({ policies }))
+    } catch (e) {
+      caught = e as { code?: string; message?: string }
+    }
+    expect(caught).not.toBeNull()
+    expect(caught?.code).toBe('INSTALL_BUILD_FAILED')
+    expect(caught?.message).toMatch(/policy kind "oz_builtin" is not supported/)
   })
 
   it('refuses a rule with no signers and no policies', () => {

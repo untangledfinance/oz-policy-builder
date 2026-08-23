@@ -5,6 +5,21 @@ Notable changes to the published packages. The format follows
 packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 `@crediolabs/policy-builder-mcp`) version together.
 
+## [Unreleased]
+
+### Fixed
+
+- `buildAddContextRuleArgs` now REFUSES a policy whose `kind` is not
+  `interpreter`, with `INSTALL_BUILD_FAILED`. It previously skipped one in
+  silence, so a caller attaching an OpenZeppelin built-in beside the
+  interpreter - a spending cap, say - received a rule WITHOUT it and nothing
+  reported the loss. The user signed an install missing the restriction they
+  asked for. A dropped policy is a missing restriction, so this fails loudly.
+
+  `PolicyRef` has a single shape today, so no typed caller can reach the new
+  branch; the guard is for the built JavaScript, which is reachable untyped,
+  and for the next kind added to the union without a case in the encoder.
+
 ## [0.5.1] - 2026-08-23
 
 ### Added
