@@ -12,6 +12,7 @@ Logs in `evidence/` were produced against this tree.
 | `scout-audit.log` | `cargo scout-audit` | Analyzed: 0 Critical, 9 Medium, 0 Minor, 1 Enhancement |
 | `oz-policy-composition.log` | `scripts/oz-policy-composition.ts` | two interpreter policies on ONE rule, disagreeing about the same call: the refusing one is decisive. OZ composes attached policies as ALL-OF |
 | `oz-spending-limit-binding.log` | `scripts/oz-spending-limit-binding.ts --network testnet` and `--network mainnet` | OZ's own `spending_limit` beside the interpreter denies an over-cap transfer `#3221` on both networks; control rule without the cap permits the same transfer |
+| `oz-threshold-binding.log` | `scripts/oz-threshold-binding.ts --network testnet` and `--network mainnet` | OZ's own `simple_threshold(2)` beside the interpreter denies a lone signer `#3202` and permits the two-signer call on both networks; control rule without the threshold permits that same lone signer |
 | `e2e-network.log` | `scripts/e2e-network.ts --network testnet` and `--network mainnet` | policy installed against the pinned interpreter on both networks; permitted call succeeds, forbidden call denied `#100`. Testnet re-run for this generation; the mainnet run is carried forward unchanged (same pins, and a mainnet e2e costs XLM) |
 
 ## Findings
@@ -197,6 +198,51 @@ that we built and deployed ourselves; they are not ours and we did not audit the
 - Upstream still ships the disclaimer "This is experimental software and is
   provided on an 'as is' and 'as available' basis" (README). Deploying it beside
   the interpreter inherits that risk; nothing here vouches for the code.
+
+The same provenance covers `simple_threshold`
+(`CDOGPGUFGGUDG25P3TG6XIXJKRRYOZ3PXUZIEPVH74KXRZIDKZ5HYEOS` on mainnet, wasm
+`01c0be09...`) and `weighted_threshold`, deployed from the same tag at the same
+time. All six addresses and all three wasm hashes were read back from chain and
+are pinned in `PINNED_OZ_POLICY_ADDRESS_BY_NETWORK` /
+`PINNED_OZ_POLICY_WASM_SHA256`, exported from `@crediolabs/policy-synth/run` so
+consumers import the pin rather than copying a literal.
+
+### 8. `simple_threshold` restores m-of-n, which a policy otherwise removes
+
+The dangerous default first: a no-policy context rule requires the FULL signer
+set, but attaching ANY policy defers signer validation to that policy
+(`smart_account/storage.rs:322`), so a policed rule lets any ONE signer act
+alone. Adding a second signer "so two people must approve" therefore produces
+the opposite of the intent. `simple_threshold` is what counts signatures back:
+`authenticated_signers.len() >= threshold` else `#3202`
+(`policies/simple_threshold.rs:184-208`).
+
+Two signers on both rules; only the extra policy varies. On testnet and mainnet:
+
+| Call | Rule | Expected | Result |
+| --- | --- | --- | --- |
+| signer A alone | interpreter only (control) | permit | permitted |
+| signer A alone | interpreter + threshold(2) | deny `#3202` | denied `#3202` |
+| signers A + B | interpreter + threshold(2) | permit | permitted |
+
+The control does double duty: it attributes the deny to the threshold, and it
+demonstrates the any-of-N inversion rather than asserting it. Dropping the
+threshold to 1 flips the lone-signer call to permitted, so the verdict tracks
+the threshold value.
+
+**Carried hazard, from OZ's own module header.** `simple_threshold` validates
+the threshold against the rule's signer count AT INSTALL and is not notified
+when signers change afterwards. Removing signers can put the threshold out of
+reach and permanently block the rule; adding them silently weakens a strict
+2-of-2 into 2-of-3, which OZ calls "a false sense of security".
+
+Composing it with the interpreter converts that silent weakening into a loud
+failure: the interpreter stores `sha256` of the rule's signer set at install and
+re-checks it on every `enforce` (`lib.rs:182-185`), denying `RuleSignersChanged`
+on any drift. Under ALL-OF composition that refusal is decisive, so a signer
+added behind the threshold's back bricks the rule instead of quietly lowering
+the bar. Fail-closed, but still a surprise worth surfacing to whoever edits the
+signer set.
 
 ## Reproducing the Scout run
 

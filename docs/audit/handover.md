@@ -178,7 +178,7 @@ parallel Rust and TypeScript suites, not differentially.
 | Contract | `cargo test` | 125 passed, 0 failed |
 | Contract | `cargo test --release --test conformance` | 18 passed, 0 failed |
 | Contract | `contracts/policy-interpreter/build-wasm.sh` | builds; sha256 equals `PINNED_INTERPRETER_WASM_SHA256` |
-| Off-chain | `bunx biome check .` | 126 files, 0 findings |
+| Off-chain | `bunx biome check .` | 127 files, 0 findings |
 | Off-chain | `bun run typecheck` | clean |
 | Off-chain | `bun test` | 658 passed, 1 skipped, 0 failed |
 | Off-chain | `bun audit` | 0 vulnerabilities |

@@ -421,6 +421,46 @@ export const RPC_URL_BY_NETWORK: Record<Network, string> = {
   mainnet: MAINNET_RPC_URL,
 }
 
+/** The OpenZeppelin built-in policies we deployed instances of. These are OZ
+ *  EXAMPLE contracts, built by us from `OpenZeppelin/stellar-contracts` at tag
+ *  v0.7.2 and deployed by us. We have NOT audited them and upstream ships an
+ *  "experimental software ... as is" disclaimer; anything surfacing one of
+ *  these to a user must say so rather than implying we vouch for the code.
+ *  Provenance detail in `docs/audit/README.md` finding 7. */
+export type OzBuiltinPolicy = 'spending_limit' | 'simple_threshold' | 'weighted_threshold'
+
+/** Instance addresses per network. Exported so consumers import the pin
+ *  instead of copying a literal - a copied address is how a testnet id ends up
+ *  being queried against mainnet, which returns `Error(Storage, MissingValue)`
+ *  and reads exactly like "nothing is deployed there".
+ *
+ *  Instance ids are network-scoped, so the addresses differ while the wasm
+ *  hash does not: each pair below was created from the same uploaded wasm (see
+ *  `PINNED_OZ_POLICY_WASM_SHA256`), verified by fetching the deployed bytes
+ *  back from both networks. */
+export const PINNED_OZ_POLICY_ADDRESS_BY_NETWORK: Record<
+  Network,
+  Record<OzBuiltinPolicy, string>
+> = {
+  testnet: {
+    spending_limit: 'CDH4KOBRUEZI6TTZ72YXR5YUIODB6RH3AF75KX56Z73DELRCA5TWFISP',
+    simple_threshold: 'CAYTIVQOEZDOQI4GC3XBXEEYHQUANQQJHPJVMXVRBREGSAP6TCN3DID6',
+    weighted_threshold: 'CCTNRFZCL45GTJICA3Z2KFQO3VEGBHGCVBLHQ3GLJKAGACQIJMYJS7T2',
+  },
+  mainnet: {
+    spending_limit: 'CA7IBD266HIHFDUIBZLPIAITJUA3DVY4JAG6K3QMGBKLZCXXLP5E2F7A',
+    simple_threshold: 'CDOGPGUFGGUDG25P3TG6XIXJKRRYOZ3PXUZIEPVH74KXRZIDKZ5HYEOS',
+    weighted_threshold: 'CDWPZ4YZ3YIJ64XSHRMERRF2L2H7XD6SPUZDP3KI56T7QXQCICC25V3J',
+  },
+}
+
+/** sha256 of each deployed policy wasm, identical across both networks. */
+export const PINNED_OZ_POLICY_WASM_SHA256: Record<OzBuiltinPolicy, string> = {
+  spending_limit: '9ce30ea1fe5c2dc5c9c49cf3462adb32e2c11d7dfadb15ef43a51ba56568de2b',
+  simple_threshold: '01c0be09eb6fb288cab2e878b4e890f7a38f75afab99aeb197861f44e2e2dfe6',
+  weighted_threshold: '78030272b06afb09d2949ab8877c9a8ae1ab9025b48f4edafd5816cc44f76eaa',
+}
+
 /** Stellar network passphrases. Pinned here so the XDR envelope uses the
  *  matching passphrase when the wallet signs (a mismatch yields invalid
  *  hashes). */

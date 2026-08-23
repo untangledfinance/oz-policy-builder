@@ -1,0 +1,85 @@
+# Does an OZ simple_threshold restore m-of-n beside our interpreter?
+# Generated 2026-08-23T04:08:51Z by packages/policy-synth/scripts/oz-threshold-binding.ts
+#
+# "Two signers must approve every transfer" is NOT the default on an OZ smart
+# account, and the naive attempt gives the OPPOSITE. A no-policy context rule
+# requires the FULL signer set (all-of-N), but attaching ANY policy defers
+# signer validation to the policy, so a policed rule lets any ONE signer act
+# alone. simple_threshold is what counts signatures back:
+# `authenticated_signers.len() >= threshold` else #3202.
+#
+# One rule shape throughout - TWO signers (A and B) on BOTH rules. Only the
+# extra policy varies:
+#   rule 1  CONTROL  interpreter only
+#   rule 2  SUBJECT  interpreter + simple_threshold(2)
+#
+# Three calls, each load-bearing:
+#   1. CONTROL  A alone        -> PASS. This IS the any-of-N inversion, shown
+#                                 rather than asserted, and it is what
+#                                 attributes the deny below to the threshold.
+#   2. SUBJECT  A alone        -> DENY #3202 SimpleThresholdError::NotAllowed
+#   3. SUBJECT  A + B together -> PASS. A rule that refuses everything would
+#                                 not be a threshold.
+#
+# simple_threshold is OZ example code we built from tag v0.7.2 and deployed
+# ourselves. We did not audit it; see docs/audit/README.md finding 7.
+
+$ bun packages/policy-synth/scripts/oz-threshold-binding.ts --network testnet
+INFO   network          testnet
+INFO   interpreter      CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5 (pinned, grammar 4)
+INFO   simple_threshold CAYTIVQOEZDOQI4GC3XBXEEYHQUANQQJHPJVMXVRBREGSAP6TCN3DID6 (OZ v0.7.2, third-party)
+INFO   rpc              https://soroban-testnet.stellar.org
+INFO   threshold        2 of 2 signers
+INFO   admin (rule 0)   GDJQ6XUPQLL2D2RBPCGTWFJEHA2LOBE6V2KTXOCCLEZ2QQR5KKU3IRD6
+PASS   signer A         GA2X2B4HKQVFI2TKAY5DCAIGI3GYJQGTPL4QO6KORW5VA4U5SHYCQAYR
+PASS   signer B         GCJOFGD2OQXRJNAVFEUDEK44XVW5URWEARYEJAHOCKNZDQ2EIDGZTYXT
+PASS   smart account    CBCBMDLNLVEDVZZY6AFWGU2TQWJ4UVHPCRL6NELZQO3B5577RXBXN6HP
+PASS   account funded   14000000 stroops
+PASS   rule 1 installed: interpreter only, signers A + B
+PASS   rule 2 installed: interpreter + simple_threshold(2), signers A + B
+PASS   CONTROL: signer A ALONE permitted through rule 1 - this is the any-of-N inversion
+PASS   SUBJECT: signer A alone DENIED #3202 (SimpleThresholdError::NotAllowed)
+PASS   SUBJECT: signers A + B TOGETHER permitted through rule 2
+RESULT BOUND: 2-of-2 holds - one signer denied #3202, two permitted.
+RESULT The control permitted that same lone signer, so the threshold is what refused.
+
+$ E2E_SECRET=... bun packages/policy-synth/scripts/oz-threshold-binding.ts --network mainnet
+INFO   network          mainnet
+INFO   interpreter      CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52 (pinned, grammar 4)
+INFO   simple_threshold CDOGPGUFGGUDG25P3TG6XIXJKRRYOZ3PXUZIEPVH74KXRZIDKZ5HYEOS (OZ v0.7.2, third-party)
+INFO   rpc              https://soroban-rpc.mainnet.stellar.gateway.fm
+INFO   threshold        2 of 2 signers
+INFO   admin (rule 0)   GCIVG2AIEWMDA43HX2HRCYVNY7PH7HMPYVN42LQ5XBSHBLHFUWG47NFN
+PASS   signer A         GCNMKEDMS5NIXZDHNCURASYYHNYK3WFUULX5HHXVIKIGQSHADHVY53CC
+PASS   signer B         GC4Y4MWRC25ONF6NJT54W6EWEE73U4BXGA54ISNBVDAJ7PMICY5NSK2O
+PASS   smart account    CDNW7376IDN65EKN6QJQYHUPNRR7F4VIXUSUIFZCQR3ZXDF7H5OREOBR
+PASS   account funded   14000000 stroops
+PASS   rule 1 installed: interpreter only, signers A + B
+PASS   rule 2 installed: interpreter + simple_threshold(2), signers A + B
+PASS   CONTROL: signer A ALONE permitted through rule 1 - this is the any-of-N inversion
+PASS   SUBJECT: signer A alone DENIED #3202 (SimpleThresholdError::NotAllowed)
+PASS   SUBJECT: signers A + B TOGETHER permitted through rule 2
+RESULT BOUND: 2-of-2 holds - one signer denied #3202, two permitted.
+RESULT The control permitted that same lone signer, so the threshold is what refused.
+
+# ---- MUTATION: does the deny track the THRESHOLD VALUE, or just the presence
+# ---- of a second policy? Drop the threshold to 1 and re-run. Same rule shape,
+# ---- same two policies, same lone signer. The verdict flips to a permit, so
+# ---- the threshold value is what refuses.
+
+$ bun packages/policy-synth/scripts/oz-threshold-binding.ts --network testnet --threshold 1
+INFO   network          testnet
+INFO   interpreter      CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5 (pinned, grammar 4)
+INFO   simple_threshold CAYTIVQOEZDOQI4GC3XBXEEYHQUANQQJHPJVMXVRBREGSAP6TCN3DID6 (OZ v0.7.2, third-party)
+INFO   rpc              https://soroban-testnet.stellar.org
+INFO   threshold        1 of 2 signers  (MUTATION RUN)
+INFO   admin (rule 0)   GDKUWOZXGRLFF3I3HGECDQMRD6B4K4X2OWKKDWH3RUFJ6ZMUZXKOBGR4
+PASS   signer A         GCAMPKB6E4OF4ZFT5Y7U4PSLDVJ3IA2BWNG7MAJBOTIE52VEHDJFVAIO
+PASS   signer B         GBMMLAEBYO42XCEZJG3DHNY5FUQUKVFAECMKOMDMW4EAP3G7SEMSLWR5
+PASS   smart account    CDPP73PIV2FB62SZPCUIY2GKZ5EEHFECIBTRNEIHFUG6HSYU2KCRNL2S
+PASS   account funded   14000000 stroops
+PASS   rule 1 installed: interpreter only, signers A + B
+PASS   rule 2 installed: interpreter + simple_threshold(1), signers A + B
+PASS   CONTROL: signer A ALONE permitted through rule 1 - this is the any-of-N inversion
+RESULT MUTATION: threshold 1 PERMITS the lone signer, as it must.
+PASS   SUBJECT: signers A + B TOGETHER permitted through rule 2
