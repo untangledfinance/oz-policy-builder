@@ -1,4 +1,4 @@
-# clippy pedantic + nursery - 2026-08-22T18:36:20Z
+# clippy pedantic + nursery - 2026-08-23T05:46:11Z
 #
 # 191 lint warnings (198 'warning:' lines less 7 per-target summaries).
 # All style; 0 security. All 7 cast warnings are in test files, and the only
@@ -7,10 +7,10 @@
 $ cargo clippy --all-targets -- -W clippy::pedantic -W clippy::nursery
 warning: `policy-interpreter` (lib) generated 96 warnings (run `cargo clippy --fix --lib -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 62 suggestions)
 warning: `policy-interpreter` (test "oz_integration") generated 2 warnings (run `cargo clippy --fix --test "oz_integration" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 2 suggestions)
-warning: `policy-interpreter` (test "enforce_state") generated 8 warnings (run `cargo clippy --fix --test "enforce_state" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)
 warning: `policy-interpreter` (test "oz_abi") generated 7 warnings (run `cargo clippy --fix --test "oz_abi" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 4 suggestions)
-warning: `policy-interpreter` (test "conformance") generated 44 warnings (run `cargo clippy --fix --test "conformance" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 31 suggestions)
+warning: `policy-interpreter` (test "enforce_state") generated 8 warnings (run `cargo clippy --fix --test "enforce_state" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)
 warning: `policy-interpreter` (lib test) generated 119 warnings (95 duplicates) (run `cargo clippy --fix --lib -p policy-interpreter --tests -- -W clippy::pedantic -W clippy::nursery` to apply 18 suggestions)
+warning: `policy-interpreter` (test "conformance") generated 44 warnings (run `cargo clippy --fix --test "conformance" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 31 suggestions)
 warning: `policy-interpreter` (test "install_enforce") generated 10 warnings (run `cargo clippy --fix --test "install_enforce" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)
 
 # Lint warnings by source file:

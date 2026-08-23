@@ -1,7 +1,7 @@
 # OZ Policy Builder - STRIDE Threat Model
 
 **Subject:** `policy-interpreter` Soroban contract plus the `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` off-chain toolchain.
-**Date:** 2026-08-22
+**Date:** 2026-08-23
 **Methodology:** Stellar STRIDE Threat Modeling, "STRIDE Threat Model Template" and "Threat Modeling How-To Guide" pages at `developers.stellar.org/docs/build/security-docs/threat-modeling`. The Stellar template's four-question scaffold (What are we working on / What can go wrong / What are we going to do about it / Did we do a good job) and its STRIDE-per-element format are followed.
 **Repo:** `untangledfinance/oz-policy-builder`
 **Grammar version:** 4 (`SELF_VERSION`, `src/version.rs`)
