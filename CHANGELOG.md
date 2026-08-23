@@ -5,6 +5,24 @@ Notable changes to the published packages. The format follows
 packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 `@crediolabs/policy-builder-mcp`) version together.
 
+## [0.5.1] - 2026-08-23
+
+### Added
+
+- `PINNED_OZ_POLICY_ADDRESS_BY_NETWORK` and `PINNED_OZ_POLICY_WASM_SHA256`,
+  exported from `@crediolabs/policy-synth/run` along with the `OzBuiltinPolicy`
+  type. These carry the deployed instances of OpenZeppelin's three built-in
+  policies (`spending_limit`, `simple_threshold`, `weighted_threshold`) on both
+  networks. Previously those addresses lived outside the repo, so a consumer had
+  to copy a literal - and a copied address is how a testnet id ends up being
+  queried against mainnet, which answers `Error(Storage, MissingValue)` and
+  reads exactly like nothing is deployed there. Every address and hash in the
+  pin was read back from chain.
+
+  These are OpenZeppelin EXAMPLE contracts that we built from tag v0.7.2 and
+  deployed ourselves. We have not audited them and upstream disclaims them as
+  experimental software; anything surfacing one to a user should say so.
+
 ## [0.5.0] - 2026-08-22
 
 ### Added
