@@ -4,28 +4,21 @@ INFO network        testnet
 INFO interpreter    CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5
 INFO grammar        4
 INFO rpc            https://soroban-testnet.stellar.org
-INFO admin  (rule 0) GDE5SDWOHMMWEKJNY6QUE5NBYG3SQE7H77KGBGL5AFE3I2GHGPZTFBW2
-INFO agent  (rule 1) GCWVW7V2KB6MXSXCRXVT5AH7MABPPQX5HWMPBKWFKLMUJ6AX3M5NGFTJ
-PASS smart account deployed  CCRK35BPENUYJI7VQHUOMVYVUYASJSLZMQB2KVNOB5KVZQJ3RN4EYBRI
+INFO admin  (rule 0) GC64EOYXXLFH4FFKYU47GJU7OWUAVA4B4M6Z5ZL2B6ZT4GPRO5KHH2KP
+INFO agent  (rule 1) GBU4KVLT5XZ3IM4MCZGUAIDXEMEIPWED3N2DBEPEPJ2SHCMWTPIGDAM4
+PASS smart account deployed  CBVXV7DQRZPEDNTTAWY4ZMQ2IT7GDZV7EUWHMQZU6ZDSFQEYI4E2QEXX
 PASS agent account funded
 PASS account funded with XLM (SAC CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC)
 INFO predicate hash 9c1b891f5e4214f290db5038be0a7974867cfc8463e8b6f157e818e0f71cf093
-PASS policy installed against rule 1  (tx in ledger 4288495)
-PASS PERMIT transfer allowed by the interpreter (ledger 4288496)
+PASS policy installed against rule 1  (tx in ledger 4313691)
+PASS PERMIT transfer allowed by the interpreter (ledger 4313692)
 PASS DENY approve refused by the interpreter (#100 ArgMismatch)
 PASS BYPASS blocked: the agent is not a signer on unpoliced rule 0
 
-INFO smart account  CCRK35BPENUYJI7VQHUOMVYVUYASJSLZMQB2KVNOB5KVZQJ3RN4EYBRI
-INFO agent (constrained to transfer) GCWVW7V2KB6MXSXCRXVT5AH7MABPPQX5HWMPBKWFKLMUJ6AX3M5NGFTJ
+INFO smart account  CBVXV7DQRZPEDNTTAWY4ZMQ2IT7GDZV7EUWHMQZU6ZDSFQEYI4E2QEXX
+INFO agent (constrained to transfer) GBU4KVLT5XZ3IM4MCZGUAIDXEMEIPWED3N2DBEPEPJ2SHCMWTPIGDAM4
 INFO permit, deny and the unpoliced-rule bypass all proven on chain
 INFO the admin key retains full authority through rule 0, by design
-
-# The mainnet leg below was run earlier today against commit 3706c50.
-# It is NOT re-run here: the deployer holds 7.53 XLM and a mainnet e2e costs
-# ~6.5, so a re-run would risk failing mid-way and producing no evidence at
-# all. The only source change since 3706c50 is one comment line in
-# authority-overlap.ts (verify with: git diff 3706c50 -- packages/ contracts/).
-# The pinned interpreter, its wasm hash and the e2e path are all untouched.
 
 $ E2E_SECRET=... bun packages/policy-synth/scripts/e2e-network.ts --network mainnet
 INFO network        mainnet
@@ -33,17 +26,17 @@ INFO interpreter    CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52
 INFO grammar        4
 INFO rpc            https://soroban-rpc.mainnet.stellar.gateway.fm
 INFO admin  (rule 0) GCIVG2AIEWMDA43HX2HRCYVNY7PH7HMPYVN42LQ5XBSHBLHFUWG47NFN
-INFO agent  (rule 1) GBACESHTKIBJ5RLJEUSYA3DZPQKWUELSVDMRAEVHTFBGZMT3GRPU63FU
-PASS smart account deployed  CCKW233SOUAOZORZICDDAMWETFDC6IDKZQPLEHGLTPIDUEJRJ5UBW3NK
+INFO agent  (rule 1) GAWFMI4YAYCLAZMNDWSYSE3PS6MNM7LUCHN5QDHPPVOUP4PIEN2S7V47
+PASS smart account deployed  CD6OWMONKYG5I4IXYEP7QR62OOZXCHDK3NXCXHSAOOOVS5VCYBU3SSYO
 PASS agent account funded
 PASS account funded with XLM (SAC CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA)
 INFO predicate hash 9c1b891f5e4214f290db5038be0a7974867cfc8463e8b6f157e818e0f71cf093
-PASS policy installed against rule 1  (tx in ledger 64083019)
-PASS PERMIT transfer allowed by the interpreter (ledger 64083020)
+PASS policy installed against rule 1  (tx in ledger 64105616)
+PASS PERMIT transfer allowed by the interpreter (ledger 64105617)
 PASS DENY approve refused by the interpreter (#100 ArgMismatch)
 PASS BYPASS blocked: the agent is not a signer on unpoliced rule 0
 
-INFO smart account  CCKW233SOUAOZORZICDDAMWETFDC6IDKZQPLEHGLTPIDUEJRJ5UBW3NK
-INFO agent (constrained to transfer) GBACESHTKIBJ5RLJEUSYA3DZPQKWUELSVDMRAEVHTFBGZMT3GRPU63FU
+INFO smart account  CD6OWMONKYG5I4IXYEP7QR62OOZXCHDK3NXCXHSAOOOVS5VCYBU3SSYO
+INFO agent (constrained to transfer) GAWFMI4YAYCLAZMNDWSYSE3PS6MNM7LUCHN5QDHPPVOUP4PIEN2S7V47
 INFO permit, deny and the unpoliced-rule bypass all proven on chain
 INFO the admin key retains full authority through rule 0, by design

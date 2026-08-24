@@ -8,12 +8,12 @@ Logs in `evidence/` were produced against this tree.
 | `offchain-gate.log` | `biome check .`, `bun run typecheck`, `bun test` | clean; 659 pass, 1 skip, 0 fail across 660 tests in 40 files |
 | `cargo-audit.log` | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | `bun-audit.log` | `bun audit` | 0 vulnerabilities |
-| `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 191 style warnings, 0 security; all 7 cast warnings are in test files |
+| `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 191 style warnings, 0 security; all 8 cast warnings are in test files |
 | `scout-audit.log` | `cargo scout-audit` | Analyzed: 0 Critical, 9 Medium, 0 Minor, 1 Enhancement |
 | `oz-policy-composition.log` | `scripts/oz-policy-composition.ts` | two interpreter policies on ONE rule, disagreeing about the same call: the refusing one is decisive. OZ composes attached policies as ALL-OF |
 | `oz-spending-limit-binding.log` | `scripts/oz-spending-limit-binding.ts --network testnet` and `--network mainnet` | OZ's own `spending_limit` beside the interpreter denies an over-cap transfer `#3221` on both networks; control rule without the cap permits the same transfer |
 | `oz-threshold-binding.log` | `scripts/oz-threshold-binding.ts --network testnet` and `--network mainnet` | OZ's own `simple_threshold(2)` beside the interpreter denies a lone signer `#3202` and permits the two-signer call on both networks; control rule without the threshold permits that same lone signer |
-| `e2e-network.log` | `scripts/e2e-network.ts --network testnet` and `--network mainnet` | policy installed against the pinned interpreter on both networks; permitted call succeeds, forbidden call denied `#100`, and the agent's attempt to route the forbidden call through the unpoliced rule is refused on membership. Testnet re-run for this generation; the mainnet leg is from the same day at commit `3706c50`, whose only source difference is one comment line |
+| `e2e-network.log` | `scripts/e2e-network.ts --network testnet` and `--network mainnet` | policy installed against the pinned interpreter on both networks; permitted call succeeds, forbidden call denied `#100`, and the agent's attempt to route the forbidden call through the unpoliced rule is refused on membership. Both networks re-run for this generation |
 
 ## Findings
 
@@ -51,7 +51,7 @@ vulnerabilities across 202 crate dependencies.
 Pulled from the portal's open API on 2026-08-04: 832 findings, 150 critical or
 high. Those counts are carried forward from that pull and were NOT re-verified
 for grammar 4 - the portal's API still did not resolve when this tree was
-re-audited, retried 2026-08-23, so they are dated rather than restated as
+re-audited, retried again on 2026-08-24, so they are dated rather than restated as
 current.
 
 The cross-check itself is unaffected: it is a claim about this contract's entry
@@ -75,7 +75,7 @@ The nonce covers its double-spend/replay class.
 Static analysis says nothing about whether the deployed contract enforces
 anything. `scripts/e2e-network.ts` deploys a fresh OZ smart account, installs
 `eq(call_fn, "transfer")` against the pinned interpreter, and exercises both
-verdicts through submitted transactions. Mainnet and testnet both pass; three
+verdicts through submitted transactions. Mainnet and testnet both pass; four
 independent mainnet runs produced the same outcome against different accounts.
 
 Three conditions make the result a claim about the KEY rather than about one
