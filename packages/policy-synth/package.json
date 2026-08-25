@@ -1,6 +1,6 @@
 {
   "name": "@crediolabs/policy-synth",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "license": "MIT",
   "description": "Off-chain TypeScript synthesis core for the OZ Accounts Policy Builder. Records Soroban transactions, synthesises the minimal policy that permits exactly that flow, verifies it, and returns an unsigned install transaction.",
   "type": "module",
