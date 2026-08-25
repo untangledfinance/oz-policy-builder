@@ -234,6 +234,9 @@ function synthesizeFromRecordingInner(
   const composeOpts: ComposeOptions = {
     network: opts.network,
     ...(opts.userResponses !== undefined ? { userResponses: opts.userResponses } : {}),
+    ...(opts.interpreter?.smartAccountAddress !== undefined
+      ? { smartAccountAddress: opts.interpreter.smartAccountAddress }
+      : {}),
   }
   const composed = composeFromRecording(facts, scope.contract, topLevel, composeOpts)
 

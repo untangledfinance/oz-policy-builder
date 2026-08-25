@@ -2,9 +2,12 @@
 //
 // Fail-closed composition rules:
 //   - unknown top-level protocol (registry.identifyProtocol returns null) ->
-//     emit no constraint from the spend; scope is kept (contract + method) and
-//     every inferred bound surfaces as a descriptive warning. An unrecognised
-//     call never compiles to a permissive policy.
+//     no ABI means no argument can be singled out by role (recipient, spender,
+//     etc.), so a spend is never capped and no argument is guessed at; every
+//     address argument the call actually carries is pinned to its observed
+//     value instead (AC-33.19), and every other inferred bound surfaces as a
+//     descriptive warning. An unrecognised call never compiles to a
+//     permissive policy.
 //   - a spend cap is emitted ONLY when the caller supplies `limitAmount` AND
 //     the call carries an amount argument to bind it to. A single recorded
 //     spend does NOT authorise that amount on every call, so the observed
@@ -43,6 +46,10 @@ export interface ComposeUserResponses {
 export interface ComposeOptions {
   network: Network
   userResponses?: ComposeUserResponses
+  /** The smart account this rule will be installed on, when known. Used only
+   *  to detect self-scope (see the warning below `scopeContract` is set) -
+   *  composition proceeds identically when this is omitted. */
+  smartAccountAddress?: string
 }
 
 /** One composed rule: what the call must be scoped to, the constraints on it,
@@ -145,9 +152,8 @@ export function composeFromRecording(
   }
 
   // Observed recipient allowlist (SEP-41) is a real, recorded constraint the
-  // interpreter adapter lowers to an `in` predicate. Unknown protocols emit
-  // nothing here. SoroSwap's swap recipient (arg[3]) is the source-of-truth for
-  // the swapRecipientAllowlist surface.
+  // interpreter adapter lowers to an `in` predicate. SoroSwap's swap recipient
+  // (arg[3]) is the source-of-truth for the swapRecipientAllowlist surface.
   if (topLevel && protocol !== null) {
     // A SoroSwap input-amount cap binds the caller's limitAmount to the swap's
     // input-amount argument ONLY when no outgoing spend was detected for the
@@ -165,6 +171,44 @@ export function composeFromRecording(
       protocol,
       opts.userResponses?.swapRecipientAllowlist,
       swapInputAmountCap
+    )
+  } else if (topLevel && protocol === null) {
+    // Unrecognised protocol: there is no published ABI, so no argument can be
+    // singled out as THE recipient - guessing an index risks pinning the
+    // wrong value (false security) or a value that means something else
+    // entirely for a different contract sharing the same shape. What the
+    // recording DOES evidence, without any interpretation, is every address
+    // literally carried by the call. AC-33.19: a value the recording
+    // evidences is pinned by default, never left open because its semantic
+    // role is unrecognised - so every address argument is pinned to its
+    // observed value, not just the one a known ABI would call "to".
+    const addressArgIndexes = topLevel.args.flatMap((arg, i) => (arg.type === 'address' ? [i] : []))
+    if (addressArgIndexes.length > 0) {
+      for (const i of addressArgIndexes) {
+        const arg = topLevel.args[i]
+        if (arg?.type !== 'address') continue
+        interpreterConstraints.push({
+          op: 'in',
+          needle: { kind: 'call_arg', index: i },
+          haystack: [{ kind: 'literal_address', value: arg.value }],
+        })
+      }
+      warnings.push(
+        `unrecognised protocol: every address argument observed in the call (index ${addressArgIndexes.join(', ')}) was pinned to its recorded value - the ABI is unknown, so no single argument could be identified as the recipient specifically; read this pin with less confidence than a recognised protocol's`
+      )
+    }
+  }
+
+  // Self-scope: a rule whose scope targets the smart account that will hold
+  // it lets the account authorise calls against its own governance surface
+  // (e.g. a recorded batch_add_signer against the account itself). Such a
+  // rule installs cleanly and then denies every OTHER call with OZ error
+  // #3002, bricking the account. Detected only when the caller supplies
+  // smartAccountAddress; without it the composer has nothing to compare
+  // scopeContract against, so composition proceeds unchanged.
+  if (opts.smartAccountAddress !== undefined && scopeContract === opts.smartAccountAddress) {
+    warnings.push(
+      `scope.contract (${scopeContract}) is the smart account's own address: a rule scoping ${topLevel?.fn ?? 'this call'} to the account that will hold it lets the account govern its own governance surface, and denies every other call with OZ error #3002 once installed`
     )
   }
 

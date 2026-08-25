@@ -404,8 +404,8 @@ describe('composeFromRecording - SoroSwap input-amount cap on call_arg[0] (no de
   })
 })
 
-describe('composeFromRecording - unknown protocol emits no constraint (I4)', () => {
-  it('keeps the scope but emits no amount cap; flags the spend descriptively', () => {
+describe('composeFromRecording - unknown protocol pins observed addresses, never an amount cap (I4)', () => {
+  it('emits no amount cap; pins the address argument it carried; flags the spend descriptively', () => {
     const facts: IntentFacts = {
       callTargets: ['CUNKNOWNCONTRACTADDRESSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'],
       functionsByContract: {},
@@ -428,8 +428,41 @@ describe('composeFromRecording - unknown protocol emits no constraint (I4)', () 
     // there is no argument the limit could be bound to.
     const hasAmountCap = rule.constraints.some((c) => c.op === 'lte' && c.left.kind === 'call_arg')
     expect(hasAmountCap).toBe(false)
-    expect(rule.constraints.length).toBe(0)
+    // The one address argument `unknownTopLevel()` carries (call_arg[0]) IS
+    // pinned to its recorded value - AC-33.19, a value the recording
+    // evidences is never left open just because the ABI is unrecognised.
+    expect(rule.constraints).toEqual([
+      {
+        op: 'in',
+        needle: { kind: 'call_arg', index: 0 },
+        haystack: [{ kind: 'literal_address', value: G_OWNER }],
+      },
+    ])
     expect(r.warnings.some((w) => w.includes('unrecognised protocol'))).toBe(true)
+    expect(r.warnings.some((w) => w.includes('pinned to its recorded value'))).toBe(true)
+  })
+
+  it('narrowness: no address argument -> no pin and no address-pin warning', () => {
+    const facts: IntentFacts = {
+      callTargets: ['CUNKNOWNCONTRACTADDRESSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'],
+      functionsByContract: {},
+      spendByToken: {},
+      signers: [G_OWNER],
+    }
+    const noAddressArgsCall: ContractInvocation = {
+      contract: 'CUNKNOWNCONTRACTADDRESSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+      fn: 'do_something',
+      args: [{ type: 'u32', value: '7' }],
+      subInvocations: [],
+    }
+    const r = composeFromRecording(
+      facts,
+      'CUNKNOWNCONTRACTADDRESSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+      noAddressArgsCall,
+      { network: 'mainnet' }
+    )
+    expect(r.interpreterRule.constraints).toEqual([])
+    expect(r.warnings.some((w) => w.includes('pinned to its recorded value'))).toBe(false)
   })
 })
 
@@ -577,6 +610,53 @@ describe('composeFromRecording - Blend submit: an unbindable request element is 
     )
     expect(pinnedElements(r)).not.toContain(1)
     expect(r.warnings.some((w) => w.includes('element 1'))).toBe(true)
+  })
+})
+
+describe('composeFromRecording - self-scope warning (AC-30.11)', () => {
+  const SMART_ACCOUNT = 'CSMARTACCOUNTOWNADDRESSAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+
+  function selfScopedTopLevel(): ContractInvocation {
+    return {
+      contract: SMART_ACCOUNT,
+      fn: 'batch_add_signer',
+      args: [{ type: 'address', value: G_OWNER }],
+      subInvocations: [],
+    }
+  }
+
+  function selfScopedFacts(): IntentFacts {
+    return {
+      callTargets: [SMART_ACCOUNT],
+      functionsByContract: { [SMART_ACCOUNT]: ['batch_add_signer'] },
+      spendByToken: {},
+      signers: [G_OWNER],
+    }
+  }
+
+  it('warns when scope.contract equals the supplied smartAccountAddress', () => {
+    const r = composeFromRecording(selfScopedFacts(), SMART_ACCOUNT, selfScopedTopLevel(), {
+      network: 'mainnet',
+      smartAccountAddress: SMART_ACCOUNT,
+    })
+    expect(r.interpreterRule.scope.contract).toBe(SMART_ACCOUNT)
+    expect(r.warnings.some((w) => w.includes(SMART_ACCOUNT) && w.includes('#3002'))).toBe(true)
+  })
+
+  it('narrowness: a rule scoped to a DIFFERENT contract never warns, even with smartAccountAddress supplied', () => {
+    const r = composeFromRecording(sep41Facts(), SEP41_TOKEN, sep41TopLevel(), {
+      network: 'mainnet',
+      userResponses: { limitAmount: '1000000000' },
+      smartAccountAddress: SMART_ACCOUNT,
+    })
+    expect(r.warnings.some((w) => w.includes('#3002'))).toBe(false)
+  })
+
+  it('narrowness: a self-scoped call never warns when smartAccountAddress is omitted (nothing to compare against)', () => {
+    const r = composeFromRecording(selfScopedFacts(), SMART_ACCOUNT, selfScopedTopLevel(), {
+      network: 'mainnet',
+    })
+    expect(r.warnings.some((w) => w.includes('#3002'))).toBe(false)
   })
 })
 
