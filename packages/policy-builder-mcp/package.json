@@ -1,6 +1,6 @@
 {
   "name": "@crediolabs/policy-builder-mcp",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "license": "MIT",
   "description": "MCP server exposing the OZ policy-synth core (record_transaction + synthesize_policy) over stdio and Streamable HTTP transports.",
   "type": "module",
