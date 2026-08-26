@@ -134,12 +134,32 @@ function leftArgLabel(leaf: PredicateLeaf): string {
 
 /** Render ONE constraint sentence for ONE interpreter predicate node. The
  *  shape of the output is pinned by Task 7b so the test suite can assert
- *  byte-for-byte equality. Returns `null` when the node is a structural
- *  boolean (`and`) - that is not a constraint leaf. */
+ *  byte-for-byte equality. Returns `null` only when a node's shape cannot be
+ *  rendered at all. */
 function renderConstraint(node: PredicateNode): string | null {
   switch (node.op) {
-    case 'and':
-      return null
+    case 'and': {
+      // Reached ONLY when an `and` sits BENEATH an `or`: `walkPredicate`
+      // descends into a top-level `and` and never calls this on one.
+      //
+      // This used to return null, on the reasoning that `and` is structural
+      // rather than a constraint leaf. That is true for the walk path and
+      // false for this one, and the combination silently dropped real
+      // policies: `or(and, and)` is the natural shape of a policy with
+      // alternative permitted forms - one conjunction of pins per branch -
+      // so the `or` case below always saw null children and withheld the
+      // entire disjunction. `describePredicate` then returned an EMPTY list
+      // for a restrictive policy, which any caller renders as "no
+      // constraints".
+      //
+      // That inverts the very guard it was protecting: the `or` case
+      // withholds to avoid reading STRICTER than reality, but withholding
+      // the only line reads as UNRESTRICTED, which is far worse. Compose
+      // instead, and keep the withhold for genuinely unrenderable children.
+      const parts = node.children.map(renderConstraint)
+      if (parts.some((p) => p === null)) return null
+      return parts.join(' and ')
+    }
     case 'or': {
       // One line for the whole disjunction. If any branch is a shape the
       // card cannot render, the entire line is withheld rather than shown

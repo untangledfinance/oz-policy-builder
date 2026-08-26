@@ -440,3 +440,65 @@ describe('buildReviewCardSummary - per-call caps on a bare call_arg', () => {
     expect(line).toContain('Path must be exactly')
   })
 })
+
+describe('describePredicate - a disjunction of conjunctions', () => {
+  /** One branch of a real policy: a conjunction of pins. `or(and, and)` is the
+   *  natural shape whenever a rule permits alternative forms of the same
+   *  action - for the agent-treasury allocator, either the venue call itself
+   *  or the token transfer it triggers. */
+  const branch = (fn: string, cap: string): PredicateNode => ({
+    op: 'and',
+    children: [
+      { op: 'eq', left: { kind: 'call_fn' }, right: { kind: 'literal_symbol', value: fn } },
+      {
+        op: 'lte',
+        left: { kind: 'call_arg', index: 2 },
+        right: { kind: 'literal_i128', value: cap },
+      },
+    ],
+  })
+
+  it('renders BOTH branches instead of silently returning nothing', () => {
+    // Regression. `renderConstraint` returned null for a bare `and` because
+    // `walkPredicate` descends into a top-level one and never calls it. But an
+    // `and` BENEATH an `or` is passed in directly, so every branch came back
+    // null and the `or` case withheld the whole line. The result was an EMPTY
+    // list for a policy that is very much not empty - and an empty list reads
+    // as "no constraints", the exact opposite of what is enforced on chain.
+    const lines = describePredicate({
+      op: 'or',
+      children: [branch('transfer', '300000000'), branch('submit', '300000000')],
+    })
+    expect(lines).not.toEqual([])
+    expect(lines).toHaveLength(1)
+    expect(lines[0]).toContain('transfer')
+    expect(lines[0]).toContain('submit')
+    expect(lines[0]).toContain('arg[2] <= 300000000')
+  })
+
+  it('joins the pins within a branch so the conjunction is not lost', () => {
+    const lines = describePredicate({
+      op: 'or',
+      children: [branch('transfer', '1'), branch('submit', '2')],
+    })
+    expect(lines[0]).toContain(' and ')
+    expect(lines[0]).toContain(' OR ')
+  })
+
+  it('still withholds the whole disjunction when a branch is unrenderable', () => {
+    // The withhold rule exists so a disjunction never reads STRICTER than it
+    // is by losing a branch. Composing `and` must not weaken it: a branch
+    // containing a shape the card cannot express still suppresses the line.
+    const unrenderable: PredicateNode = {
+      op: 'eq',
+      left: { kind: 'call_fn' },
+      right: { kind: 'literal_u32', value: 1 },
+    }
+    expect(describePredicate(unrenderable)).toEqual([])
+    const lines = describePredicate({
+      op: 'or',
+      children: [branch('transfer', '1'), { op: 'and', children: [unrenderable] }],
+    })
+    expect(lines).toEqual([])
+  })
+})
