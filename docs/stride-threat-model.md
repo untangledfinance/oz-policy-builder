@@ -298,6 +298,7 @@ during evaluation: it makes no cross-contract calls.
 | F4-D.2 | DoS | ScVal recursion stack overflow | | Low | Medium | `MAX_SCVAL_DEPTH = MAX_SCVAL_CLONE_DEPTH = 30` caps the decoder and the clone paths. | None. |
 | F4-E.1 | Elevation of privilege | A hand-crafted predicate of only literal-vs-literal compares installs and permits everything | Bypass the synth and call `buildAddContextRuleArgs` directly | Low | Critical | `encodePredicate` refuses a predicate with no selector leaf, and the contract refuses it again at install with 216. | None on chain. The off-chain refusal is a convenience; the contract is the enforcing layer. |
 | F4-E.2 | Elevation of privilege | The off-chain builder emits a `grammar_version` the contract does not speak | Every install fails, or a document is built against the wrong leaf set | Medium | High | `POLICY_INSTALL_PARAM_FIELDS` is the ABI the host unpacks by field count; the version literal is pinned in the `PolicyDocument` type so a skew is a type error at the emitting sites. | A CI test asserts the TS literal equals `SELF_VERSION` parsed from `version.rs`, so a skew fails the build rather than the install. Tracked as R-5. |
+| F4-E.3 | Elevation of privilege | A bound on one element of a vector argument reads as a cap and permits any amount through a sibling element | Author a predicate carrying `lte(call_arg_field(i, 0, "amount"), N)` with no `eq(call_arg_len(i), n)` pin, or with a pin whose range covers an element nothing bounds | Medium | Critical | `call_arg_field` binds ONE element and says nothing about the others, so a cap needs BOTH the per-element bounds and the length pin. The four construction paths emit both by design (`declare.ts`, `compose-from-recording.ts`, and the two in the OctoPos install card / edit dialog); the one path that accepts an author-supplied predicate, the skill's `build-predicate.ts --json`, validates the shape and refuses. | The interpreter cannot detect it: it enforces exactly the predicate it is given, and this one is well-formed. Anything that constructs a predicate outside those paths must enforce the pair itself. |
 
 ### Element C2 - OpenZeppelin smart-account (out of scope, named with trust assumption)
 
@@ -428,6 +429,14 @@ All logs in `docs/audit/evidence/` were produced against this tree:
 - **Coverage of the MCP transport is thin** because the deployment model
   (loopback stdio) makes the HTTP surface a secondary path. If that changes, F3
   needs re-work and A-1 becomes load-bearing.
+- **The model reasoned per LEAF, not per SHAPE, and missed F4-E.3 on the first
+  pass.** It already held two entries for a bound that reads as a limit and
+  permits - C1-E.7 and C1-E.8, both on `call_arg_scaled` - but nothing for the
+  structural sibling: a bound on ONE element of a collection, which says
+  nothing about the others. `call_arg_field` was listed in the grammar table
+  and never asked what it does not constrain. A bound over a collection needs a
+  cardinality pin to be a bound at all, and that question should be asked of
+  any future leaf that addresses part of a larger value.
 
 ### What would raise confidence further
 

@@ -84,9 +84,18 @@ flowchart LR
    is stateless.
 4. **revoke_policy** - emit the unsigned `remove_context_rule` transaction.
    Master-signer-only.
-5. **declare_policy** - lower a constraint stated outright (method, and
-   optionally contract, per-call amount cap and recipient allowlist) to a
-   predicate. No transaction, no RPC, no `parseConfidence`.
+5. **declare_policy** - lower a constraint stated outright to a predicate. No
+   transaction, no RPC, no `parseConfidence`. The method is required; the rest
+   are optional and cover four kinds of bound:
+   - the **contract** the call must land on;
+   - a **per-call amount cap** on a positional argument, or via `amountPath` on
+     an amount nested inside a vector argument. The nested form is the only
+     shape Blend's `submit` has, and it bounds every entry AND pins how many
+     entries the call may carry: a bound on one entry leaves the rest
+     unlimited, which is where the spend goes;
+   - a **recipient allowlist**;
+   - a **slippage floor**, `out >= in * num/den`, which bounds a swap against
+     its own size rather than against a fixed number.
 6. **simulate_policy** / **verify_policy** - evaluate a predicate against a
    recorded call, and check the permit case alongside a generated deny case
    per dimension.
