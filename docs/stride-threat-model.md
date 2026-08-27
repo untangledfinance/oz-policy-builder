@@ -442,3 +442,20 @@ All logs in `docs/audit/evidence/` were produced against this tree:
 
 Bring test files into the typecheck scope, so a stale symbol in a test is a type
 error rather than a runtime failure.
+
+MEASURED 2026-08-27, because the sentence above reads cheaper than it is.
+Dropping `"exclude": ["src/**/*.test.ts"]` from `packages/policy-synth/tsconfig.json`
+surfaces **106 errors across 35 files**:
+
+- **35 are one config gap**, not defects: `Cannot find module 'bun:test'`, because
+  `types` names only `node`. Adding bun's types clears all of them at once.
+- **71 are real**, and they are strictness rather than rot: 18 argument-type
+  mismatches, 14 implicit `any` parameters, 9 possibly-undefined accesses, and 8
+  property accesses - six of which are `.children` read off `PredicateNode`
+  without narrowing to the `and`/`or` arm, which is correct at runtime.
+
+**Not one is a stale symbol.** The failure this remedy exists to catch has not
+happened yet, so the work is a strictness migration with a latent-defect yield of
+zero today. Worth doing to stop the first one landing silently; worth scoping as
+71 errors rather than as a config edit.
+
