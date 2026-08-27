@@ -19,6 +19,9 @@
 //   fn            -> eq(call_fn, literal_symbol)
 //   contract      -> eq(call_contract, literal_address)
 //   maxAmount     -> lte(call_arg(i), literal_i128)
+//   maxAmount + amountPath
+//                 -> lte(call_arg_field(i, element, field), literal_i128)
+//                    AND eq(call_arg_len(i), literal_u32(element + 1))
 //   recipients    -> in(call_arg(j), [literal_address, ...])
 //   minOutputRatio-> gte(call_arg(out), call_arg_scaled(in, num, den))
 
@@ -45,6 +48,20 @@ export interface PolicyDeclaration {
   maxAmount?: string
   /** Which argument carries the amount. Defaults to the SEP-41 position. */
   amountArgIndex?: number
+  /** Where the amount sits when it is NESTED inside a struct argument rather
+   *  than being an argument of its own - Blend's `submit` is the motivating
+   *  case: its amount is `requests[i].amount`, so no positional index names it
+   *  and `amountArgIndex` has nothing to point at.
+   *
+   *  Mutually exclusive with `amountArgIndex`, and NOTHING here is defaulted.
+   *  A positional index that is wrong caps the wrong argument; a nested path
+   *  has THREE coordinates, so guessing any of them is that failure with three
+   *  times the surface. The caller states all three or uses `amountArgIndex`.
+   *
+   *  Bounding one element of a vec leaves every OTHER element unconstrained,
+   *  so a caller could append a second request and spend without limit. The
+   *  lowering therefore also pins the vec length - see `declarePredicate`. */
+  amountPath?: { argIndex: number; element: number; field: string }
   /** Recipient allowlist. */
   recipients?: string[]
   /** Which argument carries the recipient. Defaults to the SEP-41 position. */
@@ -70,7 +87,7 @@ export interface DeclaredPredicate {
   warnings: string[]
 }
 
-/** Lower a declared constraint to a grammar-3 predicate. Pure and total:
+/** Lower a declared constraint to a grammar-4 predicate. Pure and total:
  *  the same declaration always produces the same predicate. */
 export function declarePredicate(d: PolicyDeclaration): DeclaredPredicate {
   if (!d.fn || d.fn.trim() === '') {
@@ -120,6 +137,19 @@ export function declarePredicate(d: PolicyDeclaration): DeclaredPredicate {
     })
   }
 
+  if (d.amountPath !== undefined && d.amountArgIndex !== undefined) {
+    throw declareError(
+      'SYNTHESIS_ERROR',
+      'amountArgIndex and amountPath both name where the amount lives, and they disagree by construction: one is a positional argument, the other a field inside one. Pass exactly one.'
+    )
+  }
+  if (d.amountPath !== undefined && d.maxAmount === undefined) {
+    throw declareError(
+      'SYNTHESIS_ERROR',
+      'amountPath says WHERE the amount is but not what bounds it. Pass maxAmount, or omit amountPath.'
+    )
+  }
+
   if (d.maxAmount !== undefined) {
     if (!/^[0-9]+$/.test(d.maxAmount)) {
       throw declareError(
@@ -133,17 +163,57 @@ export function declarePredicate(d: PolicyDeclaration): DeclaredPredicate {
         'maxAmount "0" denies every call: no amount satisfies the bound. Set allowZeroCap to declare that deliberately.'
       )
     }
-    const idx = d.amountArgIndex ?? SEP41_AMOUNT_ARG
-    if (d.amountArgIndex === undefined) {
+    if (d.amountPath !== undefined) {
+      const { argIndex, element, field } = d.amountPath
+      for (const [name, value] of [
+        ['argIndex', argIndex],
+        ['element', element],
+      ] as const) {
+        if (!Number.isInteger(value) || value < 0) {
+          throw declareError(
+            'SYNTHESIS_ERROR',
+            `amountPath.${name} must be a non-negative integer, got ${String(value)}`
+          )
+        }
+      }
+      if (typeof field !== 'string' || field.trim() === '') {
+        throw declareError(
+          'SYNTHESIS_ERROR',
+          'amountPath.field must name the map key holding the amount'
+        )
+      }
+      children.push({
+        op: 'lte',
+        left: { kind: 'call_arg_field', index: argIndex, element, field },
+        right: { kind: 'literal_i128', value: d.maxAmount },
+      })
+      // THE CAP IS DEFEATED WITHOUT THIS. `call_arg_field` binds ONE element;
+      // every other element of the vec stays unconstrained, so a caller who
+      // can append a second request spends whatever they like through it while
+      // the bounded element still satisfies the cap. Pinning the length makes
+      // the bounded element the LAST one, so there is nothing to append into.
+      // The recording front-end pairs the same two leaves for the same reason.
+      children.push({
+        op: 'eq',
+        left: { kind: 'call_arg_len', index: argIndex },
+        right: { kind: 'literal_u32', value: element + 1 },
+      })
       warnings.push(
-        `amount cap bound to call_arg(${idx}), the SEP-41 \`transfer\` position. If \`${d.fn}\` carries the amount elsewhere this caps the wrong argument - pass amountArgIndex.`
+        `amount cap bound to call_arg_field(${argIndex}, ${element}, "${field}"), and the vec at argument ${argIndex} is pinned to exactly ${element + 1} element(s) so the cap cannot be sidestepped by appending another. A call carrying a different number of entries is denied.`
       )
+    } else {
+      const idx = d.amountArgIndex ?? SEP41_AMOUNT_ARG
+      if (d.amountArgIndex === undefined) {
+        warnings.push(
+          `amount cap bound to call_arg(${idx}), the SEP-41 \`transfer\` position. If \`${d.fn}\` carries the amount elsewhere this caps the wrong argument - pass amountArgIndex.`
+        )
+      }
+      children.push({
+        op: 'lte',
+        left: { kind: 'call_arg', index: idx },
+        right: { kind: 'literal_i128', value: d.maxAmount },
+      })
     }
-    children.push({
-      op: 'lte',
-      left: { kind: 'call_arg', index: idx },
-      right: { kind: 'literal_i128', value: d.maxAmount },
-    })
   }
 
   if (d.minOutputRatio !== undefined) {

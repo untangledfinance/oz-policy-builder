@@ -500,6 +500,17 @@ export const DeclarePolicyInputSchema = z
       .regex(/^[0-9]+$/, 'maxAmount must be an unsigned integer in the smallest unit')
       .optional(),
     amountArgIndex: z.number().int().nonnegative().max(U32_MAX).optional(),
+    /** Nested amount location, for a call whose amount is a field inside a
+     *  struct argument rather than an argument of its own. Every coordinate is
+     *  REQUIRED - `declarePredicate` defaults none of them, because a nested
+     *  path guessed wrong caps something the caller never named. */
+    amountPath: z
+      .object({
+        argIndex: z.number().int().nonnegative().max(U32_MAX),
+        element: z.number().int().nonnegative().max(U32_MAX),
+        field: z.string().min(1),
+      })
+      .optional(),
     recipients: z.array(z.string()).min(1, 'recipients must not be empty').optional(),
     recipientArgIndex: z.number().int().nonnegative().max(U32_MAX).optional(),
     allowZeroCap: z.boolean().optional(),

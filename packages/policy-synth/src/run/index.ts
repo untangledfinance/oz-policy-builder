@@ -459,6 +459,7 @@ export function runDeclarePolicy(raw: unknown): ToolResponse<{
       ...(d.contract !== undefined ? { contract: d.contract } : {}),
       ...(d.maxAmount !== undefined ? { maxAmount: d.maxAmount } : {}),
       ...(d.amountArgIndex !== undefined ? { amountArgIndex: d.amountArgIndex } : {}),
+      ...(d.amountPath !== undefined ? { amountPath: d.amountPath } : {}),
       ...(d.recipients !== undefined ? { recipients: d.recipients } : {}),
       ...(d.recipientArgIndex !== undefined ? { recipientArgIndex: d.recipientArgIndex } : {}),
       ...(d.allowZeroCap !== undefined ? { allowZeroCap: d.allowZeroCap } : {}),

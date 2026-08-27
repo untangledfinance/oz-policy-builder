@@ -8,6 +8,7 @@
 import { describe, expect, it } from 'bun:test'
 import { Address } from '@stellar/stellar-sdk'
 import { encodePredicate } from '../predicate/encode.ts'
+import { evaluate } from '../simulate/evaluate.ts'
 import { declarePredicate } from './declare.ts'
 
 const TOKEN = Address.contract(Buffer.alloc(32, 0x0b)).toString()
@@ -202,6 +203,163 @@ describe('declarePredicate - minOutputRatio (slippage floor)', () => {
   it('produces a predicate the encoder accepts', () => {
     // The install gate mirror lives in encode; a declared floor must clear it.
     const { predicate } = declarePredicate(ratio('99', '100'))
+    expect(() => encodePredicate(predicate)).not.toThrow()
+  })
+})
+
+// A NESTED AMOUNT is the case a positional bound cannot reach. Blend's
+// `submit` carries no top-level amount: it is `requests[i].amount`, inside a
+// vec of maps. These tests carry the whole guarantee, because the declaration
+// path has no recording to check itself against - and the last three run the
+// predicate through the reference evaluator, which is the only thing that
+// shows the bound actually binds rather than merely being present.
+describe('declarePredicate - a nested amount bound', () => {
+  const POOL = Address.contract(Buffer.alloc(32, 0x0c)).toString()
+  const PATH = { argIndex: 0, element: 0, field: 'amount' } as const
+
+  /** A Blend-shaped `requests` argument: a vec of maps. */
+  const requests = (...amounts: string[]) => ({
+    type: 'vec' as const,
+    value: amounts.map((value) => ({
+      type: 'map' as const,
+      value: [
+        { key: 'request_type', val: { type: 'u32' as const, value: '2' } },
+        { key: 'amount', val: { type: 'i128' as const, value } },
+      ],
+    })),
+  })
+
+  it('binds the field rather than a positional argument', () => {
+    const { predicate } = declarePredicate({
+      fn: 'submit',
+      contract: POOL,
+      maxAmount: '1000000000',
+      amountPath: PATH,
+    })
+    const children = predicate.op === 'and' ? predicate.children : []
+    const bound = children.find((c) => c.op === 'lte')
+    expect(bound).toBeDefined()
+    expect((bound as { left: unknown }).left).toEqual({
+      kind: 'call_arg_field',
+      index: 0,
+      element: 0,
+      field: 'amount',
+    })
+  })
+
+  it('pins the vec length alongside the bound', () => {
+    // Without this the cap is decorative: element 0 stays under the ceiling
+    // while an appended element 1 spends whatever it likes.
+    const { predicate } = declarePredicate({
+      fn: 'submit',
+      maxAmount: '1000000000',
+      amountPath: PATH,
+    })
+    const children = predicate.op === 'and' ? predicate.children : []
+    const len = children.find(
+      (c) => c.op === 'eq' && (c as { left: { kind: string } }).left.kind === 'call_arg_len'
+    )
+    expect(len).toBeDefined()
+    expect((len as { right: unknown }).right).toEqual({ kind: 'literal_u32', value: 1 })
+  })
+
+  it('refuses amountArgIndex and amountPath together', () => {
+    expect(() =>
+      declarePredicate({ fn: 'submit', maxAmount: '1', amountArgIndex: 2, amountPath: PATH })
+    ).toThrow(/exactly one/)
+  })
+
+  it('refuses a path with nothing to bound', () => {
+    expect(() => declarePredicate({ fn: 'submit', amountPath: PATH })).toThrow(/maxAmount/)
+  })
+
+  it('refuses a malformed coordinate rather than guessing', () => {
+    expect(() =>
+      declarePredicate({
+        fn: 'submit',
+        maxAmount: '1',
+        amountPath: { argIndex: -1, element: 0, field: 'amount' },
+      })
+    ).toThrow(/argIndex/)
+    expect(() =>
+      declarePredicate({
+        fn: 'submit',
+        maxAmount: '1',
+        amountPath: { argIndex: 0, element: 0, field: '  ' },
+      })
+    ).toThrow(/field/)
+  })
+
+  it('warns that the vec length is pinned, since that denies a shape the caller may expect to work', () => {
+    const { warnings } = declarePredicate({
+      fn: 'submit',
+      maxAmount: '1000000000',
+      amountPath: PATH,
+    })
+    expect(warnings.some((w) => /pinned to exactly 1 element/.test(w))).toBe(true)
+  })
+
+  it('does not emit the SEP-41 positional warning when a path was given', () => {
+    // Control: that warning names a DEFAULTED index. Nothing was defaulted
+    // here, so repeating it would send the caller looking for a bug.
+    const { warnings } = declarePredicate({
+      fn: 'submit',
+      maxAmount: '1000000000',
+      amountPath: PATH,
+    })
+    expect(warnings.some((w) => /SEP-41/.test(w))).toBe(false)
+  })
+
+  it('permits a call under the ceiling', () => {
+    const { predicate } = declarePredicate({
+      fn: 'submit',
+      contract: POOL,
+      maxAmount: '1000000000',
+      amountPath: PATH,
+    })
+    expect(
+      evaluate(predicate, { contract: POOL, fn: 'submit', args: [requests('900000000')] })
+    ).toEqual({ permit: true })
+  })
+
+  it('denies a call over the ceiling', () => {
+    const { predicate } = declarePredicate({
+      fn: 'submit',
+      contract: POOL,
+      maxAmount: '1000000000',
+      amountPath: PATH,
+    })
+    expect(
+      evaluate(predicate, { contract: POOL, fn: 'submit', args: [requests('1000000001')] })
+    ).toMatchObject({ permit: false })
+  })
+
+  it('denies an appended second request, which is how the cap would be sidestepped', () => {
+    // THE ATTACK the length pin exists for: element 0 is under the ceiling and
+    // satisfies the bound; element 1 carries the real spend. Without the pin
+    // this call permits.
+    const { predicate } = declarePredicate({
+      fn: 'submit',
+      contract: POOL,
+      maxAmount: '1000000000',
+      amountPath: PATH,
+    })
+    expect(
+      evaluate(predicate, {
+        contract: POOL,
+        fn: 'submit',
+        args: [requests('1', '999999999999')],
+      })
+    ).toMatchObject({ permit: false })
+  })
+
+  it('still encodes', () => {
+    const { predicate } = declarePredicate({
+      fn: 'submit',
+      contract: POOL,
+      maxAmount: '1000000000',
+      amountPath: PATH,
+    })
     expect(() => encodePredicate(predicate)).not.toThrow()
   })
 })

@@ -51,6 +51,8 @@ export async function runDeclareCommand(
   }
   if (pairs['max-amount'] !== undefined) args.maxAmount = pairs['max-amount']
   if (pairs['amount-arg'] !== undefined) args.amountArgIndex = Number(pairs['amount-arg'])
+  if (pairs['amount-path'] !== undefined)
+    args.amountPath = parseAmountPath(pairs['amount-path'] as string)
   if (pairs.to !== undefined) {
     args.recipients = (pairs.to as string)
       .split(',')
@@ -88,4 +90,30 @@ export async function runDeclareCommand(
     for (const w of data.warnings) process.stderr.write(`warning: ${w}\n`)
   }
   return data
+}
+
+/** `--amount-path argIndex.element.field`, e.g. `0.0.amount` for Blend's
+ *  `requests[0].amount`.
+ *
+ *  Split on `.` and required to be EXACTLY three segments. A Soroban symbol
+ *  carries no dot, so a longer path is not a deeper one - it is a typo, and
+ *  accepting it would bind a field that does not exist, which denies every
+ *  call at enforce time rather than at the point the user could fix it. */
+function parseAmountPath(raw: string): { argIndex: number; element: number; field: string } {
+  const parts = raw.split('.')
+  if (parts.length !== 3) {
+    throw new Error(
+      `--amount-path takes argIndex.element.field, e.g. 0.0.amount - got "${raw}" (${parts.length} segment(s))`
+    )
+  }
+  const [argIndex, element, field] = parts as [string, string, string]
+  for (const [name, v] of [
+    ['argIndex', argIndex],
+    ['element', element],
+  ] as const) {
+    if (!/^\d+$/.test(v)) {
+      throw new Error(`--amount-path ${name} must be a non-negative integer, got "${v}"`)
+    }
+  }
+  return { argIndex: Number(argIndex), element: Number(element), field }
 }

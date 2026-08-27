@@ -135,6 +135,13 @@ export const DeclarePolicyToolShape = {
   contract: z.string().optional(),
   maxAmount: z.string().optional(),
   amountArgIndex: z.number().int().nonnegative().optional(),
+  amountPath: z
+    .object({
+      argIndex: z.number().int().nonnegative(),
+      element: z.number().int().nonnegative(),
+      field: z.string().min(1),
+    })
+    .optional(),
   recipients: z.array(z.string()).optional(),
   recipientArgIndex: z.number().int().nonnegative().optional(),
   allowZeroCap: z.boolean().optional(),
