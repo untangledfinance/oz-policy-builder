@@ -209,13 +209,17 @@ describe('declarePredicate - minOutputRatio (slippage floor)', () => {
 
 // A NESTED AMOUNT is the case a positional bound cannot reach. Blend's
 // `submit` carries no top-level amount: it is `requests[i].amount`, inside a
-// vec of maps. These tests carry the whole guarantee, because the declaration
-// path has no recording to check itself against - and the last three run the
-// predicate through the reference evaluator, which is the only thing that
-// shows the bound actually binds rather than merely being present.
+// vec of maps.
+//
+// The declaration names a COUNT rather than an index, and these tests carry
+// the reason. A first cut let the caller point at one element and pinned the
+// vec length to that index plus one. It shipped a hole: with element 1 the
+// length pinned to 2, element 1 was bounded, and element 0 was unbounded - a
+// call putting the whole spend in element 0 PERMITTED. Bounding every entry is
+// the only shape that holds.
 describe('declarePredicate - a nested amount bound', () => {
   const POOL = Address.contract(Buffer.alloc(32, 0x0c)).toString()
-  const PATH = { argIndex: 0, element: 0, field: 'amount' } as const
+  const PATH = { argIndex: 0, field: 'amount' } as const
 
   /** A Blend-shaped `requests` argument: a vec of maps. */
   const requests = (...amounts: string[]) => ({
@@ -229,14 +233,22 @@ describe('declarePredicate - a nested amount bound', () => {
     })),
   })
 
-  it('binds the field rather than a positional argument', () => {
-    const { predicate } = declarePredicate({
+  const capped = (elements?: number) =>
+    declarePredicate({
       fn: 'submit',
       contract: POOL,
       maxAmount: '1000000000',
-      amountPath: PATH,
-    })
-    const children = predicate.op === 'and' ? predicate.children : []
+      amountPath: elements === undefined ? PATH : { ...PATH, elements },
+    }).predicate
+
+  const run = (predicate: ReturnType<typeof capped>, ...amounts: string[]) =>
+    evaluate(predicate, { contract: POOL, fn: 'submit', args: [requests(...amounts)] })
+
+  it('binds the field rather than a positional argument', () => {
+    const children = (() => {
+      const p = capped()
+      return p.op === 'and' ? p.children : []
+    })()
     const bound = children.find((c) => c.op === 'lte')
     expect(bound).toBeDefined()
     expect((bound as { left: unknown }).left).toEqual({
@@ -247,15 +259,30 @@ describe('declarePredicate - a nested amount bound', () => {
     })
   })
 
-  it('pins the vec length alongside the bound', () => {
-    // Without this the cap is decorative: element 0 stays under the ceiling
-    // while an appended element 1 spends whatever it likes.
-    const { predicate } = declarePredicate({
-      fn: 'submit',
-      maxAmount: '1000000000',
-      amountPath: PATH,
-    })
-    const children = predicate.op === 'and' ? predicate.children : []
+  it('bounds EVERY entry, not one of them', () => {
+    // The shipped hole, as a regression test. One bound plus a length pin is
+    // not a cap: whatever is left unbounded is where the spend goes.
+    const p = capped(3)
+    const children = p.op === 'and' ? p.children : []
+    const bounds = children.filter(
+      (c) => c.op === 'lte' && (c as { left: { kind: string } }).left.kind === 'call_arg_field'
+    )
+    expect(bounds).toHaveLength(3)
+    expect(bounds.map((b) => (b as { left: { element: number } }).left.element)).toEqual([0, 1, 2])
+  })
+
+  it('denies a spend hidden in an entry other than the first', () => {
+    // Behavioural form of the same regression: entry 2 is under the ceiling,
+    // entry 0 carries the money. The first implementation PERMITTED this.
+    const p = capped(3)
+    expect(run(p, '999999999999', '1', '1')).toMatchObject({ permit: false })
+    expect(run(p, '1', '999999999999', '1')).toMatchObject({ permit: false })
+    expect(run(p, '1', '1', '999999999999')).toMatchObject({ permit: false })
+  })
+
+  it('pins the entry count alongside the bounds', () => {
+    const p = capped()
+    const children = p.op === 'and' ? p.children : []
     const len = children.find(
       (c) => c.op === 'eq' && (c as { left: { kind: string } }).left.kind === 'call_arg_len'
     )
@@ -278,88 +305,70 @@ describe('declarePredicate - a nested amount bound', () => {
       declarePredicate({
         fn: 'submit',
         maxAmount: '1',
-        amountPath: { argIndex: -1, element: 0, field: 'amount' },
+        amountPath: { argIndex: -1, field: 'amount' },
       })
     ).toThrow(/argIndex/)
+    expect(() =>
+      declarePredicate({ fn: 'submit', maxAmount: '1', amountPath: { argIndex: 0, field: '  ' } })
+    ).toThrow(/field/)
     expect(() =>
       declarePredicate({
         fn: 'submit',
         maxAmount: '1',
-        amountPath: { argIndex: 0, element: 0, field: '  ' },
+        amountPath: { argIndex: 0, field: 'amount', elements: 0 },
       })
-    ).toThrow(/field/)
+    ).toThrow(/at least 1/)
   })
 
-  it('warns that the vec length is pinned, since that denies a shape the caller may expect to work', () => {
+  it('refuses a count that would not fit the interpreter budget', () => {
+    expect(() =>
+      declarePredicate({
+        fn: 'submit',
+        maxAmount: '1',
+        amountPath: { argIndex: 0, field: 'amount', elements: 17 },
+      })
+    ).toThrow(/leaves/)
+  })
+
+  it('says the cap is per entry, and what that totals', () => {
+    // A caller who reads "capped at 1000000000" and gets three entries has
+    // authorised three times that. The warning has to say so.
     const { warnings } = declarePredicate({
       fn: 'submit',
       maxAmount: '1000000000',
-      amountPath: PATH,
+      amountPath: { ...PATH, elements: 3 },
     })
-    expect(warnings.some((w) => /pinned to exactly 1 element/.test(w))).toBe(true)
+    expect(warnings.some((w) => /PER ENTRY/.test(w) && /3 x 1000000000/.test(w))).toBe(true)
+  })
+
+  it('warns that a single-entry cap denies a multi-request call', () => {
+    const { warnings } = declarePredicate({ fn: 'submit', maxAmount: '1', amountPath: PATH })
+    expect(warnings.some((w) => /DENIED/.test(w) && /amountPath.elements/.test(w))).toBe(true)
   })
 
   it('does not emit the SEP-41 positional warning when a path was given', () => {
-    // Control: that warning names a DEFAULTED index. Nothing was defaulted
-    // here, so repeating it would send the caller looking for a bug.
-    const { warnings } = declarePredicate({
-      fn: 'submit',
-      maxAmount: '1000000000',
-      amountPath: PATH,
-    })
+    const { warnings } = declarePredicate({ fn: 'submit', maxAmount: '1', amountPath: PATH })
     expect(warnings.some((w) => /SEP-41/.test(w))).toBe(false)
   })
 
-  it('permits a call under the ceiling', () => {
-    const { predicate } = declarePredicate({
-      fn: 'submit',
-      contract: POOL,
-      maxAmount: '1000000000',
-      amountPath: PATH,
-    })
-    expect(
-      evaluate(predicate, { contract: POOL, fn: 'submit', args: [requests('900000000')] })
-    ).toEqual({ permit: true })
+  it('permits a call under the ceiling and denies one over it', () => {
+    const p = capped()
+    expect(run(p, '900000000')).toEqual({ permit: true })
+    expect(run(p, '1000000001')).toMatchObject({ permit: false })
   })
 
-  it('denies a call over the ceiling', () => {
-    const { predicate } = declarePredicate({
-      fn: 'submit',
-      contract: POOL,
-      maxAmount: '1000000000',
-      amountPath: PATH,
-    })
-    expect(
-      evaluate(predicate, { contract: POOL, fn: 'submit', args: [requests('1000000001')] })
-    ).toMatchObject({ permit: false })
+  it('denies an appended entry, which is how the cap would be sidestepped', () => {
+    const p = capped()
+    expect(run(p, '1', '999999999999')).toMatchObject({ permit: false })
   })
 
-  it('denies an appended second request, which is how the cap would be sidestepped', () => {
-    // THE ATTACK the length pin exists for: element 0 is under the ceiling and
-    // satisfies the bound; element 1 carries the real spend. Without the pin
-    // this call permits.
-    const { predicate } = declarePredicate({
-      fn: 'submit',
-      contract: POOL,
-      maxAmount: '1000000000',
-      amountPath: PATH,
-    })
-    expect(
-      evaluate(predicate, {
-        contract: POOL,
-        fn: 'submit',
-        args: [requests('1', '999999999999')],
-      })
-    ).toMatchObject({ permit: false })
+  it('permits the declared number of entries, each under the ceiling', () => {
+    // Control leg: the count pin must permit the shape it declares, or the
+    // denials above would be true of a policy that permits nothing.
+    expect(run(capped(3), '900000000', '900000000', '900000000')).toEqual({ permit: true })
   })
 
   it('still encodes', () => {
-    const { predicate } = declarePredicate({
-      fn: 'submit',
-      contract: POOL,
-      maxAmount: '1000000000',
-      amountPath: PATH,
-    })
-    expect(() => encodePredicate(predicate)).not.toThrow()
+    expect(() => encodePredicate(capped(3))).not.toThrow()
   })
 })

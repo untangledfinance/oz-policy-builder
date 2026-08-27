@@ -138,8 +138,8 @@ export const DeclarePolicyToolShape = {
   amountPath: z
     .object({
       argIndex: z.number().int().nonnegative(),
-      element: z.number().int().nonnegative(),
       field: z.string().min(1),
+      elements: z.number().int().min(1).optional(),
     })
     .optional(),
   recipients: z.array(z.string()).optional(),

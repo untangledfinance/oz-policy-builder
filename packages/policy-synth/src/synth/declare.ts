@@ -20,8 +20,8 @@
 //   contract      -> eq(call_contract, literal_address)
 //   maxAmount     -> lte(call_arg(i), literal_i128)
 //   maxAmount + amountPath
-//                 -> lte(call_arg_field(i, element, field), literal_i128)
-//                    AND eq(call_arg_len(i), literal_u32(element + 1))
+//                 -> lte(call_arg_field(i, e, field), literal_i128) for EVERY
+//                    e in 0..elements-1, AND eq(call_arg_len(i), literal_u32(elements))
 //   recipients    -> in(call_arg(j), [literal_address, ...])
 //   minOutputRatio-> gte(call_arg(out), call_arg_scaled(in, num, den))
 
@@ -36,6 +36,13 @@ import { isStellarAddress } from './address.ts'
  *  user did not mean and fails silently. */
 const SEP41_RECIPIENT_ARG = 1
 const SEP41_AMOUNT_ARG = 2
+
+/** `MAX_LEAVES` in the on-chain interpreter (policy-interpreter/src/dsl.rs). */
+const INTERPRETER_MAX_LEAVES = 200
+/** Entries a nested amount bound may cover. Each costs one comparison (two
+ *  leaves), so this sits well inside the interpreter's budget while being far
+ *  more than any real call carries - a Blend `submit` is a handful. */
+const MAX_BOUNDED_ELEMENTS = 16
 
 export interface PolicyDeclaration {
   /** Method to pin. Required: a predicate with no selector leaf constrains
@@ -53,15 +60,26 @@ export interface PolicyDeclaration {
    *  case: its amount is `requests[i].amount`, so no positional index names it
    *  and `amountArgIndex` has nothing to point at.
    *
-   *  Mutually exclusive with `amountArgIndex`, and NOTHING here is defaulted.
-   *  A positional index that is wrong caps the wrong argument; a nested path
-   *  has THREE coordinates, so guessing any of them is that failure with three
-   *  times the surface. The caller states all three or uses `amountArgIndex`.
+   *  Mutually exclusive with `amountArgIndex`.
    *
-   *  Bounding one element of a vec leaves every OTHER element unconstrained,
-   *  so a caller could append a second request and spend without limit. The
-   *  lowering therefore also pins the vec length - see `declarePredicate`. */
-  amountPath?: { argIndex: number; element: number; field: string }
+   *  THIS NAMES A COUNT, NOT AN INDEX, and that is deliberate. `call_arg_field`
+   *  binds ONE element of the vec and says nothing about the others, so a
+   *  declaration that pointed at a single element would leave every other
+   *  element unbounded - a caller puts the real spend in one of those and the
+   *  cap is decorative. There is no safe way to bound "the amount" in a vec
+   *  without bounding EVERY entry, so `elements` states how many entries the
+   *  call may carry and all of them are capped.
+   *
+   *  THE CAP IS PER ENTRY. With `elements: 3` and `maxAmount` 100, one call may
+   *  carry three requests of 100 and move 300 in total. Declare the per-entry
+   *  figure you mean, not the total you have in mind. */
+  amountPath?: {
+    argIndex: number
+    field: string
+    /** How many entries the vec may carry. Defaults to 1 - a single-request
+     *  call, which is the shape a per-call cap is usually written for. */
+    elements?: number
+  }
   /** Recipient allowlist. */
   recipients?: string[]
   /** Which argument carries the recipient. Defaults to the SEP-41 position. */
@@ -164,17 +182,25 @@ export function declarePredicate(d: PolicyDeclaration): DeclaredPredicate {
       )
     }
     if (d.amountPath !== undefined) {
-      const { argIndex, element, field } = d.amountPath
-      for (const [name, value] of [
-        ['argIndex', argIndex],
-        ['element', element],
-      ] as const) {
-        if (!Number.isInteger(value) || value < 0) {
-          throw declareError(
-            'SYNTHESIS_ERROR',
-            `amountPath.${name} must be a non-negative integer, got ${String(value)}`
-          )
-        }
+      const { argIndex, field } = d.amountPath
+      const elements = d.amountPath.elements ?? 1
+      if (!Number.isInteger(argIndex) || argIndex < 0) {
+        throw declareError(
+          'SYNTHESIS_ERROR',
+          `amountPath.argIndex must be a non-negative integer, got ${String(argIndex)}`
+        )
+      }
+      if (!Number.isInteger(elements) || elements < 1) {
+        throw declareError(
+          'SYNTHESIS_ERROR',
+          `amountPath.elements is how many entries the vec may carry, so it must be at least 1, got ${String(elements)}`
+        )
+      }
+      if (elements > MAX_BOUNDED_ELEMENTS) {
+        throw declareError(
+          'SYNTHESIS_ERROR',
+          `amountPath.elements is ${elements}; each entry costs a comparison and the interpreter caps a predicate at ${INTERPRETER_MAX_LEAVES} leaves. ${MAX_BOUNDED_ELEMENTS} is already far past any real call.`
+        )
       }
       if (typeof field !== 'string' || field.trim() === '') {
         throw declareError(
@@ -182,24 +208,30 @@ export function declarePredicate(d: PolicyDeclaration): DeclaredPredicate {
           'amountPath.field must name the map key holding the amount'
         )
       }
-      children.push({
-        op: 'lte',
-        left: { kind: 'call_arg_field', index: argIndex, element, field },
-        right: { kind: 'literal_i128', value: d.maxAmount },
-      })
-      // THE CAP IS DEFEATED WITHOUT THIS. `call_arg_field` binds ONE element;
-      // every other element of the vec stays unconstrained, so a caller who
-      // can append a second request spends whatever they like through it while
-      // the bounded element still satisfies the cap. Pinning the length makes
-      // the bounded element the LAST one, so there is nothing to append into.
-      // The recording front-end pairs the same two leaves for the same reason.
+      // EVERY entry, not one. Bounding a single element leaves the rest of the
+      // vec unconstrained and the caller simply puts the spend in an unbounded
+      // one - the cap then reads as enforced while permitting any amount.
+      for (let element = 0; element < elements; element += 1) {
+        children.push({
+          op: 'lte',
+          left: { kind: 'call_arg_field', index: argIndex, element, field },
+          right: { kind: 'literal_i128', value: d.maxAmount },
+        })
+      }
+      // And the count, or the caller appends an entry past the ones bounded
+      // above and spends through it. The two leaves are only safe together:
+      // the bounds cover entries 0..elements-1, this makes those the only
+      // entries there are. The recording front-end pairs them for the same
+      // reason.
       children.push({
         op: 'eq',
         left: { kind: 'call_arg_len', index: argIndex },
-        right: { kind: 'literal_u32', value: element + 1 },
+        right: { kind: 'literal_u32', value: elements },
       })
       warnings.push(
-        `amount cap bound to call_arg_field(${argIndex}, ${element}, "${field}"), and the vec at argument ${argIndex} is pinned to exactly ${element + 1} element(s) so the cap cannot be sidestepped by appending another. A call carrying a different number of entries is denied.`
+        elements === 1
+          ? `amount cap bound to call_arg_field(${argIndex}, 0, "${field}"), and argument ${argIndex} is pinned to exactly 1 entry. A call carrying more than one entry is DENIED - if this method is normally called with several, pass amountPath.elements.`
+          : `amount cap bound to every entry of argument ${argIndex} ("${field}"), which is pinned to exactly ${elements} entries. The cap is PER ENTRY: a single call may carry ${elements} of them and move up to ${elements} x ${d.maxAmount} in total. A call carrying a different number of entries is DENIED.`
       )
     } else {
       const idx = d.amountArgIndex ?? SEP41_AMOUNT_ARG

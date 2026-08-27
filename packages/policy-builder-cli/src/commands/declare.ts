@@ -92,28 +92,32 @@ export async function runDeclareCommand(
   return data
 }
 
-/** `--amount-path argIndex.element.field`, e.g. `0.0.amount` for Blend's
- *  `requests[0].amount`.
+/** `--amount-path argIndex.field[.entries]`, e.g. `0.amount` for Blend's
+ *  `requests[].amount`, or `0.amount.3` to permit three requests.
  *
- *  Split on `.` and required to be EXACTLY three segments. A Soroban symbol
- *  carries no dot, so a longer path is not a deeper one - it is a typo, and
- *  accepting it would bind a field that does not exist, which denies every
- *  call at enforce time rather than at the point the user could fix it. */
-function parseAmountPath(raw: string): { argIndex: number; element: number; field: string } {
+ *  `entries` is a COUNT, not an index: every entry is capped, because a bound
+ *  on one entry leaves the others unconstrained and the caller spends through
+ *  an unbounded one. Split on `.` and required to be two or three segments - a
+ *  Soroban symbol carries no dot, so a longer path is not a deeper one, it is
+ *  a typo, and accepting it would bind a field that does not exist and deny
+ *  every call at enforce time rather than here. */
+function parseAmountPath(raw: string): { argIndex: number; field: string; elements?: number } {
   const parts = raw.split('.')
-  if (parts.length !== 3) {
+  if (parts.length !== 2 && parts.length !== 3) {
     throw new Error(
-      `--amount-path takes argIndex.element.field, e.g. 0.0.amount - got "${raw}" (${parts.length} segment(s))`
+      `--amount-path takes argIndex.field or argIndex.field.entries, e.g. 0.amount - got "${raw}" (${parts.length} segment(s))`
     )
   }
-  const [argIndex, element, field] = parts as [string, string, string]
-  for (const [name, v] of [
-    ['argIndex', argIndex],
-    ['element', element],
-  ] as const) {
-    if (!/^\d+$/.test(v)) {
-      throw new Error(`--amount-path ${name} must be a non-negative integer, got "${v}"`)
-    }
+  const [argIndex, field, entries] = parts as [string, string, string | undefined]
+  if (!/^\d+$/.test(argIndex)) {
+    throw new Error(`--amount-path argIndex must be a non-negative integer, got "${argIndex}"`)
   }
-  return { argIndex: Number(argIndex), element: Number(element), field }
+  if (entries !== undefined && !/^\d+$/.test(entries)) {
+    throw new Error(`--amount-path entries must be a positive integer, got "${entries}"`)
+  }
+  return {
+    argIndex: Number(argIndex),
+    field,
+    ...(entries !== undefined ? { elements: Number(entries) } : {}),
+  }
 }

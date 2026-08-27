@@ -507,8 +507,11 @@ export const DeclarePolicyInputSchema = z
     amountPath: z
       .object({
         argIndex: z.number().int().nonnegative().max(U32_MAX),
-        element: z.number().int().nonnegative().max(U32_MAX),
         field: z.string().min(1),
+        /** How many entries the vec may carry. EVERY one is capped; see
+         *  `declarePredicate`, which refuses a single-element bound because it
+         *  would leave the rest of the vec unconstrained. */
+        elements: z.number().int().min(1).max(U32_MAX).optional(),
       })
       .optional(),
     recipients: z.array(z.string()).min(1, 'recipients must not be empty').optional(),

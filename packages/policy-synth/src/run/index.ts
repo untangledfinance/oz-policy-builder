@@ -459,7 +459,19 @@ export function runDeclarePolicy(raw: unknown): ToolResponse<{
       ...(d.contract !== undefined ? { contract: d.contract } : {}),
       ...(d.maxAmount !== undefined ? { maxAmount: d.maxAmount } : {}),
       ...(d.amountArgIndex !== undefined ? { amountArgIndex: d.amountArgIndex } : {}),
-      ...(d.amountPath !== undefined ? { amountPath: d.amountPath } : {}),
+      ...(d.amountPath !== undefined
+        ? {
+            // Rebuilt like the rest: `exactOptionalPropertyTypes` treats the
+            // schema's `number | undefined` and the declaration's absent-or-T
+            // as different types, and the nested optional needs the same
+            // treatment as the top-level ones.
+            amountPath: {
+              argIndex: d.amountPath.argIndex,
+              field: d.amountPath.field,
+              ...(d.amountPath.elements !== undefined ? { elements: d.amountPath.elements } : {}),
+            },
+          }
+        : {}),
       ...(d.recipients !== undefined ? { recipients: d.recipients } : {}),
       ...(d.recipientArgIndex !== undefined ? { recipientArgIndex: d.recipientArgIndex } : {}),
       ...(d.allowZeroCap !== undefined ? { allowZeroCap: d.allowZeroCap } : {}),
