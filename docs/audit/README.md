@@ -2,16 +2,15 @@
 
 Logs in `evidence/` were produced against this tree.
 
-`offchain-gate.log` was REGENERATED on 2026-08-27: the suite had grown from 660
-tests to 682 and the recorded counts no longer matched. The other nine cover the
-contract, its dependencies and live-network behaviour, none of which changed -
-so they stand as produced.
+ALL TEN were regenerated on 2026-08-27 against `5bae0a8`, including both
+live-network legs.
 
-It is also generated from a clean `git archive` export rather than a working
-tree, because `biome check .` reads untracked files and a working tree can hold
-some that the repo does not. Reproducing it needs one step the earlier
-generation left unsaid: build `@crediolabs/policy-synth` before `typecheck`,
-since the CLI and MCP packages resolve its types through the gitignored `dist/`.
+`offchain-gate.log` is generated from a clean `git archive` export rather than a
+working tree, because `biome check .` reads untracked files and the tree
+currently holds 12 untracked scripts that are not in the repo. Reproducing it
+needs one step worth stating: build `@crediolabs/policy-synth` before
+`typecheck`, since the CLI and MCP packages resolve its types through the
+gitignored `dist/`.
 
 | Log | Command | Result |
 | --- | --- | --- |
@@ -62,7 +61,7 @@ vulnerabilities across 202 crate dependencies.
 Pulled from the portal's open API on 2026-08-04: 832 findings, 150 critical or
 high. Those counts are carried forward from that pull and were NOT re-verified
 for grammar 4 - the portal's API still did not resolve when this tree was
-re-audited, retried again on 2026-08-24, so they are dated rather than restated as
+re-audited, retried again on 2026-08-27, so they are dated rather than restated as
 current.
 
 The cross-check itself is unaffected: it is a claim about this contract's entry
@@ -86,7 +85,7 @@ The nonce covers its double-spend/replay class.
 Static analysis says nothing about whether the deployed contract enforces
 anything. `scripts/e2e-network.ts` deploys a fresh OZ smart account, installs
 `eq(call_fn, "transfer")` against the pinned interpreter, and exercises both
-verdicts through submitted transactions. Mainnet and testnet both pass; four
+verdicts through submitted transactions. Mainnet and testnet both pass; five
 independent mainnet runs produced the same outcome against different accounts.
 
 Three conditions make the result a claim about the KEY rather than about one

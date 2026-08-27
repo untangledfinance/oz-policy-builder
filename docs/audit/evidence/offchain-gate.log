@@ -1,32 +1,24 @@
-# Off-chain gate - 2026-08-27T16:14:00Z
-# biome check, typecheck, bun test
+# Off-chain gate - 2026-08-27T18:14:16Z
 #
-# Produced from a CLEAN EXPORT of the audited commit (`git archive HEAD`), not
-# from a working tree. Two reasons, both of which change the result:
-#   - a working tree can hold untracked files and `biome check .` reads them.
-#     Ours currently does, so the same command run there is red on files that
-#     are not in the repo an auditor receives.
-#   - `dist/` is gitignored, so a fresh checkout has none.
+# Generated from a clean 'git archive HEAD' export, not a working tree:
+# 'biome check .' reads untracked files, and the working tree currently holds
+# 12 untracked scripts that are not in the repo. The pack must describe the
+# repo.
 #
-# PREREQUISITE, which the previous generation of this log did not state:
-# `@crediolabs/policy-synth` must be BUILT before `typecheck` passes. The CLI
-# and MCP packages resolve its types through `dist/`, so from a clean checkout
-# the typecheck step fails with two TS2307s until the build has run. That is an
-# ordering requirement rather than a defect, but following this log without it
-# reproduces a failure and reads as the claim being false.
+# PREREQUISITE: build @crediolabs/policy-synth before typecheck - the CLI and
+# MCP packages resolve its types through the gitignored dist/.
 
 $ bun install --frozen-lockfile
-288 packages installed
+(288 packages installed)
 
 $ bun run check
 $ biome check .
-Checked 127 files in 1213ms. No fixes applied.
+Checked 127 files in 1416ms. No fixes applied.
 
-$ bun --filter '@crediolabs/policy-synth' build
-(exit 0; writes packages/policy-synth/dist and dist-cjs)
+$ (cd packages/policy-synth && bun run build)
+(built)
 
 $ bun run typecheck
-$ bunx tsc --noEmit -p packages/policy-synth/tsconfig.json && bunx tsc --noEmit -p packages/policy-builder-cli/tsconfig.json && bunx tsc --noEmit -p packages/policy-builder-mcp/tsconfig.json
 (exit 0, no diagnostics = clean)
 
 $ bun test
@@ -35,4 +27,4 @@ $ bun test
  1 skip
  0 fail
  1687 expect() calls
-Ran 682 tests across 40 files. [14.91s]
+Ran 682 tests across 40 files. [15.37s]

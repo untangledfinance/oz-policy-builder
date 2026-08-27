@@ -4,19 +4,19 @@ INFO network        testnet
 INFO interpreter    CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5
 INFO grammar        4
 INFO rpc            https://soroban-testnet.stellar.org
-INFO admin  (rule 0) GC64EOYXXLFH4FFKYU47GJU7OWUAVA4B4M6Z5ZL2B6ZT4GPRO5KHH2KP
-INFO agent  (rule 1) GBU4KVLT5XZ3IM4MCZGUAIDXEMEIPWED3N2DBEPEPJ2SHCMWTPIGDAM4
-PASS smart account deployed  CBVXV7DQRZPEDNTTAWY4ZMQ2IT7GDZV7EUWHMQZU6ZDSFQEYI4E2QEXX
+INFO admin  (rule 0) GDXNKOEITLXWTQVFKYC7XQJVJAFYQOW22ZRIH7SPZ4NGVH6K5YRTCWX4
+INFO agent  (rule 1) GBP6I7AM6RQFRHBB6KVHISUUU5ABDO4TAJDQLLB4J3PDE4YPO6AJFKQL
+PASS smart account deployed  CCKCLEBO7MWAA6C625VZGTMPOZ3ECJROWQPH7PQOUS724ZBEQ2UBGL37
 PASS agent account funded
 PASS account funded with XLM (SAC CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC)
 INFO predicate hash 9c1b891f5e4214f290db5038be0a7974867cfc8463e8b6f157e818e0f71cf093
-PASS policy installed against rule 1  (tx in ledger 4313691)
-PASS PERMIT transfer allowed by the interpreter (ledger 4313692)
+PASS policy installed against rule 1  (tx in ledger 4366193)
+PASS PERMIT transfer allowed by the interpreter (ledger 4366194)
 PASS DENY approve refused by the interpreter (#100 ArgMismatch)
 PASS BYPASS blocked: the agent is not a signer on unpoliced rule 0
 
-INFO smart account  CBVXV7DQRZPEDNTTAWY4ZMQ2IT7GDZV7EUWHMQZU6ZDSFQEYI4E2QEXX
-INFO agent (constrained to transfer) GBU4KVLT5XZ3IM4MCZGUAIDXEMEIPWED3N2DBEPEPJ2SHCMWTPIGDAM4
+INFO smart account  CCKCLEBO7MWAA6C625VZGTMPOZ3ECJROWQPH7PQOUS724ZBEQ2UBGL37
+INFO agent (constrained to transfer) GBP6I7AM6RQFRHBB6KVHISUUU5ABDO4TAJDQLLB4J3PDE4YPO6AJFKQL
 INFO permit, deny and the unpoliced-rule bypass all proven on chain
 INFO the admin key retains full authority through rule 0, by design
 
@@ -26,17 +26,17 @@ INFO interpreter    CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52
 INFO grammar        4
 INFO rpc            https://soroban-rpc.mainnet.stellar.gateway.fm
 INFO admin  (rule 0) GCIVG2AIEWMDA43HX2HRCYVNY7PH7HMPYVN42LQ5XBSHBLHFUWG47NFN
-INFO agent  (rule 1) GAWFMI4YAYCLAZMNDWSYSE3PS6MNM7LUCHN5QDHPPVOUP4PIEN2S7V47
-PASS smart account deployed  CD6OWMONKYG5I4IXYEP7QR62OOZXCHDK3NXCXHSAOOOVS5VCYBU3SSYO
+INFO agent  (rule 1) GALMSTGTR4LK2PX453AKYQNKRT5AJLYRC3TU4OBX32F2MLCSOU65HYAR
+PASS smart account deployed  CAGAKEM3EVNJHUAXEAAKCY4LX4DVPR4EJ54R3U3DSDSG6B7JUOB6XU25
 PASS agent account funded
 PASS account funded with XLM (SAC CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA)
 INFO predicate hash 9c1b891f5e4214f290db5038be0a7974867cfc8463e8b6f157e818e0f71cf093
-PASS policy installed against rule 1  (tx in ledger 64105616)
-PASS PERMIT transfer allowed by the interpreter (ledger 64105617)
+PASS policy installed against rule 1  (tx in ledger 64151857)
+PASS PERMIT transfer allowed by the interpreter (ledger 64151858)
 PASS DENY approve refused by the interpreter (#100 ArgMismatch)
 PASS BYPASS blocked: the agent is not a signer on unpoliced rule 0
 
-INFO smart account  CD6OWMONKYG5I4IXYEP7QR62OOZXCHDK3NXCXHSAOOOVS5VCYBU3SSYO
-INFO agent (constrained to transfer) GAWFMI4YAYCLAZMNDWSYSE3PS6MNM7LUCHN5QDHPPVOUP4PIEN2S7V47
+INFO smart account  CAGAKEM3EVNJHUAXEAAKCY4LX4DVPR4EJ54R3U3DSDSG6B7JUOB6XU25
+INFO agent (constrained to transfer) GALMSTGTR4LK2PX453AKYQNKRT5AJLYRC3TU4OBX32F2MLCSOU65HYAR
 INFO permit, deny and the unpoliced-rule bypass all proven on chain
 INFO the admin key retains full authority through rule 0, by design

@@ -1,4 +1,4 @@
-# cargo scout-audit - 2026-08-24T17:10:40Z
+# cargo scout-audit - 2026-08-27T18:15:23Z
 #
 # 0.3.16 reports a build that never compiled as 'Analyzed' with 0 findings.
 # Artifact count under target/dylint/ confirms a real run: 11 .so files.

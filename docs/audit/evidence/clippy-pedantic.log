@@ -1,19 +1,18 @@
-# clippy pedantic + nursery - 2026-08-24T17:11:27Z
+# clippy pedantic + nursery - 2026-08-27T18:15:23Z
 #
 # 191 lint warnings (198 'warning:' lines less 7 per-target summaries).
 # All style; 0 security. All 8 cast warnings are in test files
 # (src/dsl_tests.rs x4, tests/install_enforce.rs x2, tests/oz_abi.rs x2),
 # and the only panic-related lints are in tests/conformance/_helpers.rs.
 #
-# Counted with 'grep -cE "^warning: .*cast"'. An earlier generation of this
-# log said 7: it used a multi-line regex that mis-paired warnings when
-# clippy interleaved them. The substance was right, the number was not.
+# Counted with 'grep -cE "^warning: .*cast"', which does not depend on
+# output ordering; a multi-line regex mis-paired these before.
 
 $ cargo clippy --all-targets -- -W clippy::pedantic -W clippy::nursery
-warning: `policy-interpreter` (lib) generated 96 warnings (18 duplicates) (run `cargo clippy --fix --lib -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 48 suggestions)
-warning: `policy-interpreter` (lib test) generated 119 warnings (77 duplicates) (run `cargo clippy --fix --lib -p policy-interpreter --tests -- -W clippy::pedantic -W clippy::nursery` to apply 32 suggestions)
-warning: `policy-interpreter` (test "oz_integration") generated 2 warnings (run `cargo clippy --fix --test "oz_integration" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 2 suggestions)
+warning: `policy-interpreter` (lib) generated 96 warnings (run `cargo clippy --fix --lib -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 62 suggestions)
+warning: `policy-interpreter` (lib test) generated 119 warnings (95 duplicates) (run `cargo clippy --fix --lib -p policy-interpreter --tests -- -W clippy::pedantic -W clippy::nursery` to apply 18 suggestions)
 warning: `policy-interpreter` (test "oz_abi") generated 7 warnings (run `cargo clippy --fix --test "oz_abi" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 4 suggestions)
+warning: `policy-interpreter` (test "oz_integration") generated 2 warnings (run `cargo clippy --fix --test "oz_integration" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 2 suggestions)
 warning: `policy-interpreter` (test "enforce_state") generated 8 warnings (run `cargo clippy --fix --test "enforce_state" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)
 warning: `policy-interpreter` (test "conformance") generated 44 warnings (run `cargo clippy --fix --test "conformance" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 31 suggestions)
 warning: `policy-interpreter` (test "install_enforce") generated 10 warnings (run `cargo clippy --fix --test "install_enforce" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)

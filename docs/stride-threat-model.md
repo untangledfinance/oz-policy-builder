@@ -408,7 +408,7 @@ All logs in `docs/audit/evidence/` were produced against this tree:
 | Tool | Result |
 |---|---|
 | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, reproducible wasm build, hash pin parity | clean; 125 tests across 6 binaries, 18 of them conformance; rebuilt wasm matches the pin |
-| `biome check`, `tsc --noEmit`, `bun test` | clean; 659 pass, 1 skip, 0 fail across 660 tests in 40 files |
+| `biome check`, `tsc --noEmit`, `bun test` | clean; 681 pass, 1 skip, 0 fail across 682 tests in 40 files |
 | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | `bun audit` | 0 vulnerabilities |
 | `clippy -W pedantic -W nursery` | 191 style warnings, 0 security |
