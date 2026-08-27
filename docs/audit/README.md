@@ -2,10 +2,21 @@
 
 Logs in `evidence/` were produced against this tree.
 
+`offchain-gate.log` was REGENERATED on 2026-08-27: the suite had grown from 660
+tests to 682 and the recorded counts no longer matched. The other nine cover the
+contract, its dependencies and live-network behaviour, none of which changed -
+so they stand as produced.
+
+It is also generated from a clean `git archive` export rather than a working
+tree, because `biome check .` reads untracked files and a working tree can hold
+some that the repo does not. Reproducing it needs one step the earlier
+generation left unsaid: build `@crediolabs/policy-synth` before `typecheck`,
+since the CLI and MCP packages resolve its types through the gitignored `dist/`.
+
 | Log | Command | Result |
 | --- | --- | --- |
 | `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm rebuild, hash pin parity | clean; 125 tests across 6 binaries, 18 of them conformance; rebuilt wasm matches the pin |
-| `offchain-gate.log` | `biome check .`, `bun run typecheck`, `bun test` | clean; 659 pass, 1 skip, 0 fail across 660 tests in 40 files |
+| `offchain-gate.log` | `biome check .`, build, `bun run typecheck`, `bun test` | clean; 127 files checked, 681 pass, 1 skip, 0 fail across 682 tests in 40 files |
 | `cargo-audit.log` | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | `bun-audit.log` | `bun audit` | 0 vulnerabilities |
 | `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 191 style warnings, 0 security; all 8 cast warnings are in test files |
