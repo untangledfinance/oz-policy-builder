@@ -1,6 +1,6 @@
 {
   "name": "@crediolabs/policy-builder-cli",
-  "version": "0.5.4",
+  "version": "0.5.6",
   "license": "MIT",
   "description": "CLI wrapper around the OZ policy-synth core (record + synthesize) for solo-dev and CI workflows.",
   "type": "module",
@@ -63,7 +63,7 @@
     "prepack": "bun run build"
   },
   "dependencies": {
-    "@crediolabs/policy-synth": "0.5.4",
+    "@crediolabs/policy-synth": "0.5.6",
     "@stellar/stellar-sdk": "14.4.0",
     "zod": "3.25.76"
   },

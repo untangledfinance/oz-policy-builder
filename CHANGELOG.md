@@ -5,6 +5,32 @@ Notable changes to the published packages. The format follows
 packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 `@crediolabs/policy-builder-mcp`) version together.
 
+## [0.5.6] - 2026-08-27
+
+### Added
+
+- `PolicyDeclaration.amountPath` bounds an amount that is NESTED inside a
+  struct argument. A declared cap lowered only to `lte(call_arg(i),
+  literal_i128)`, which addresses a positional argument; a Blend `submit`
+  carries no top-level amount - it is `requests[i].amount` inside a vec of
+  maps - so no index named it and `maxAmount` had nothing to bind to, even
+  though the grammar has reached nested fields since `call_arg_field` landed.
+
+  `amountPath` names a COUNT, not an index, and that is the whole safety
+  property: `call_arg_field` binds ONE element and says nothing about the
+  others, so a bound on a single entry leaves the rest of the vec
+  unconstrained and the caller puts the spend in an unbounded one. Every entry
+  is capped, and `eq(call_arg_len(i), elements)` pins the count so nothing can
+  be appended past the bounds. The two leaves are only safe together.
+
+  THE CAP IS PER ENTRY. With `elements: 3` and `maxAmount` 100, one call may
+  carry three requests of 100 and move 300 in total; the returned warning
+  states the multiplication rather than leaving the caller to notice it. A
+  single-entry cap denies a call carrying more than one entry, and says so.
+
+  Reachable from the run schema, the MCP tool shape, and the CLI as
+  `--amount-path argIndex.field[.entries]`.
+
 ## [0.5.2] - 2026-08-23
 
 ### Fixed
