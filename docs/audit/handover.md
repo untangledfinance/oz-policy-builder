@@ -9,7 +9,7 @@ Scope, evidence and known issues for the OZ policy interpreter.
 | Contract | `contracts/policy-interpreter` |
 | Grammar version | 4 (`SELF_VERSION`, `src/version.rs`) |
 | On-chain production code | 1008 nSLOC |
-| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (7223 nSLOC: `packages/**/*.ts` excluding `*.test.ts`, `test/`, `scripts/`, `dist*/`, blank and comment-only lines) |
+| Off-chain toolchain | `packages/policy-synth`, `packages/policy-builder-cli`, `packages/policy-builder-mcp` (7397 nSLOC as of 2026-08-27, was 7223 at the grammar-4 pass: `packages/**/*.ts` excluding `*.test.ts`, `test/`, `scripts/`, `dist*/`, blank and comment-only lines) |
 
 What the system does: record a transaction, lower it to a predicate that pins
 the contract, method and arguments the recording carried, install that predicate
