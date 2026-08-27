@@ -31,6 +31,39 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   Reachable from the run schema, the MCP tool shape, and the CLI as
   `--amount-path argIndex.field[.entries]`.
 
+## [0.5.4] - 2026-08-26
+
+### Fixed
+
+- `renderConstraint` no longer withholds an `or` of `and` branches. It returned
+  null for a bare `and` on the basis that `and` is structural rather than a
+  constraint leaf - true on the walk path, where `walkPredicate` descends into a
+  top-level `and` and never passes one in, and false on the `or` path, which
+  recurses into arbitrary children.
+
+  `or(and, and)` is the natural shape of a rule permitting alternative forms of
+  the same action, so every branch came back null and the whole disjunction was
+  withheld. `describePredicate` then returned an empty list for a restrictive
+  policy, and an empty list reads as "no constraints" - inverting the guard it
+  was protecting. The withhold exists so a disjunction never reads STRICTER than
+  reality; withholding the only line reads as UNRESTRICTED, which is the worse
+  direction. The branch is composed instead, and the withhold is kept for
+  genuinely unrenderable children.
+
+## [0.5.3] - 2026-08-25
+
+### Fixed
+
+- A recorded SELF-CALL now warns. Composing a rule from a recording of the
+  account acting on itself (`batch_add_signer` against its own address, say)
+  scoped the account to its own address and said nothing about it. The check
+  reports through `composeFromRecording`'s existing warning channel whenever a
+  smart-account address is supplied.
+- An unrecognised protocol no longer leaves every recipient unconstrained. It
+  emitted zero address constraints, because with no ABI no argument can be
+  singled out by role. Rather than guess which address is the recipient, every
+  address argument the call actually carried is pinned.
+
 ## [0.5.2] - 2026-08-23
 
 ### Fixed
