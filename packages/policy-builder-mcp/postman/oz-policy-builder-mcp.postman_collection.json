@@ -45,12 +45,8 @@
         ],
         "url": {
           "raw": "{{baseUrl}}/mcp",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "mcp"
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["mcp"]
         },
         "body": {
           "mode": "raw",
@@ -75,12 +71,8 @@
         ],
         "url": {
           "raw": "{{baseUrl}}/mcp",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "mcp"
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["mcp"]
         },
         "body": {
           "mode": "raw",
@@ -105,12 +97,8 @@
         ],
         "url": {
           "raw": "{{baseUrl}}/mcp",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "mcp"
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["mcp"]
         },
         "body": {
           "mode": "raw",
@@ -135,12 +123,8 @@
         ],
         "url": {
           "raw": "{{baseUrl}}/mcp",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "mcp"
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["mcp"]
         },
         "body": {
           "mode": "raw",
@@ -165,12 +149,8 @@
         ],
         "url": {
           "raw": "{{baseUrl}}/mcp",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "mcp"
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["mcp"]
         },
         "body": {
           "mode": "raw",
@@ -195,12 +175,8 @@
         ],
         "url": {
           "raw": "{{baseUrl}}/mcp",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "mcp"
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["mcp"]
         },
         "body": {
           "mode": "raw",
@@ -225,12 +201,8 @@
         ],
         "url": {
           "raw": "{{baseUrl}}/mcp",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "mcp"
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["mcp"]
         },
         "body": {
           "mode": "raw",
@@ -255,12 +227,8 @@
         ],
         "url": {
           "raw": "{{baseUrl}}/mcp",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "mcp"
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["mcp"]
         },
         "body": {
           "mode": "raw",
@@ -285,12 +253,8 @@
         ],
         "url": {
           "raw": "{{baseUrl}}/mcp",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "mcp"
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["mcp"]
         },
         "body": {
           "mode": "raw",
