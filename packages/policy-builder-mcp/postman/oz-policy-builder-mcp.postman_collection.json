@@ -1,0 +1,303 @@
+{
+  "info": {
+    "name": "OZ Policy Builder - MCP server (HTTP transport)",
+    "description": "The eight tools of @crediolabs/policy-builder-mcp over its Streamable HTTP transport.\n\nSTART THE SERVER FIRST:\n  npm install -g @crediolabs/policy-builder-mcp\n  policy-builder-mcp --http --http-port 3011\n\nEvery request in this collection was executed against a running server before the collection was written; none of them are guesses. Verified against 0.5.6 on 2026-08-27; the wire format is unchanged in 1.0.0.\n\nTHREE THINGS THAT WILL TRIP YOU UP:\n\n1. The transport replies with Server-Sent Events, not plain JSON. Responses look like:\n     event: message\n     data: {\"result\":{...},\"jsonrpc\":\"2.0\",\"id\":1}\n   The `Accept` header MUST include both application/json and text/event-stream or the server refuses the request.\n\n2. There is no session. The server sets no sessionIdGenerator, so every POST /mcp is its own transaction and requests can be sent in any order. `initialize` is included because MCP clients send it, not because later calls depend on it.\n\n3. This collection drives the HTTP transport, which is NOT the default. `policy-builder-mcp` with no flags speaks stdio, which is what Claude Desktop and local agents use; `--http` is opt-in. If you are integrating an agent client, you almost certainly want stdio and the MCP Inspector rather than this collection. Postman is here to make the wire format inspectable and to let you poke the server without writing code.\n\nNo tool in this collection holds a key or submits a transaction. `install_policy` and `revoke_policy` SIMULATE in order to build an envelope and return it unsigned for a wallet to sign.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3011",
+      "type": "string"
+    },
+    {
+      "key": "network",
+      "value": "testnet",
+      "type": "string"
+    },
+    {
+      "key": "smartAccount",
+      "value": "CALW3IVJWQZSZFVOWGQL2CDGCJ727XUENXLM4TGOXIWXU76EPW2VEFT7",
+      "type": "string",
+      "description": "A smart account deployed on testnet during the Tranche #3 wallet round trip."
+    },
+    {
+      "key": "sourceAccount",
+      "value": "GBIXFBL4XZP5PQL5GPTOOHMPKVJIAUKSS7ZQYXDK2GQ2XNQZ67SKCH5M",
+      "type": "string",
+      "description": "The wallet that signs the install. Never sent to the tool as a key, only as an address."
+    }
+  ],
+  "item": [
+    {
+      "name": "0. initialize",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "content-type",
+            "value": "application/json"
+          },
+          {
+            "key": "accept",
+            "value": "application/json, text/event-stream"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/mcp",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "mcp"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"initialize\",\n  \"params\": {\n    \"protocolVersion\": \"2024-11-05\",\n    \"capabilities\": {},\n    \"clientInfo\": { \"name\": \"postman\", \"version\": \"1.0\" }\n  }\n}"
+        },
+        "description": "Handshake. Verified response carries protocolVersion 2024-11-05 and serverInfo.name policy-builder-mcp."
+      }
+    },
+    {
+      "name": "1. tools/list",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "content-type",
+            "value": "application/json"
+          },
+          {
+            "key": "accept",
+            "value": "application/json, text/event-stream"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/mcp",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "mcp"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 2,\n  \"method\": \"tools/list\",\n  \"params\": {}\n}"
+        },
+        "description": "Returns all eight tools with their JSON input schemas: record_transaction, synthesize_policy, declare_policy, simulate_policy, verify_policy, install_policy, revoke_policy, get_interpreter_info."
+      }
+    },
+    {
+      "name": "2. get_interpreter_info",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "content-type",
+            "value": "application/json"
+          },
+          {
+            "key": "accept",
+            "value": "application/json, text/event-stream"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/mcp",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "mcp"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 3,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"get_interpreter_info\",\n    \"arguments\": { \"network\": \"{{network}}\" }\n  }\n}"
+        },
+        "description": "Read-only fingerprint lookup. Verified response: pinnedAddress CCBHVZ6H..., pinnedGrammarVersion 4, pinnedWasmHash b5ba1e35... Start here to confirm the server is reachable and pinned where you expect."
+      }
+    },
+    {
+      "name": "3. record_transaction",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "content-type",
+            "value": "application/json"
+          },
+          {
+            "key": "accept",
+            "value": "application/json, text/event-stream"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/mcp",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "mcp"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 4,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"record_transaction\",\n    \"arguments\": {\n      \"network\": \"mainnet\",\n      \"hash\": \"REPLACE_WITH_A_MAINNET_TX_HASH\"\n    }\n  }\n}"
+        },
+        "description": "Decodes a transaction by hash (reads an RPC) or by base64 envelope (`xdr`, no network). Refuses to emit a partial record: a recording carrying an unknown contract or an opaque value fails the confidence gate rather than synthesising from a guess."
+      }
+    },
+    {
+      "name": "4. declare_policy",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "content-type",
+            "value": "application/json"
+          },
+          {
+            "key": "accept",
+            "value": "application/json, text/event-stream"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/mcp",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "mcp"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 5,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"declare_policy\",\n    \"arguments\": {\n      \"fn\": \"transfer\",\n      \"maxAmount\": \"250000000\",\n      \"amountArgIndex\": 2\n    }\n  }\n}"
+        },
+        "description": "States the constraint outright: no recorded transaction, no RPC, no confidence gate, so a contract the registry does not recognise still has a path. Add `minOutputRatio` for a slippage floor - the one shape `record` deliberately will not emit."
+      }
+    },
+    {
+      "name": "5. simulate_policy",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "content-type",
+            "value": "application/json"
+          },
+          {
+            "key": "accept",
+            "value": "application/json, text/event-stream"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/mcp",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "mcp"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 6,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"simulate_policy\",\n    \"arguments\": {\n      \"predicate\": {\n        \"op\": \"eq\",\n        \"left\": { \"kind\": \"call_fn\" },\n        \"right\": { \"kind\": \"literal_symbol\", \"value\": \"transfer\" }\n      },\n      \"permitTx\": \"REPLACE_WITH_A_RecordedTransaction\"\n    }\n  }\n}"
+        },
+        "description": "One call against one predicate, returning permit or deny WITH the reason. `permitTx` is a full RecordedTransaction, which is what record_transaction returns - paste that object here."
+      }
+    },
+    {
+      "name": "6. verify_policy",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "content-type",
+            "value": "application/json"
+          },
+          {
+            "key": "accept",
+            "value": "application/json, text/event-stream"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/mcp",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "mcp"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 7,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"verify_policy\",\n    \"arguments\": {\n      \"predicate\": {\n        \"op\": \"eq\",\n        \"left\": { \"kind\": \"call_fn\" },\n        \"right\": { \"kind\": \"literal_symbol\", \"value\": \"transfer\" }\n      },\n      \"permitTx\": \"REPLACE_WITH_A_RecordedTransaction\"\n    }\n  }\n}"
+        },
+        "description": "Same input as simulate_policy, but runs the permit case AND the generated deny battery. Reports ok only when the recorded call is permitted and every deny case is denied. This is the gate to run before install, not after."
+      }
+    },
+    {
+      "name": "7. install_policy (returns unsigned XDR)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "content-type",
+            "value": "application/json"
+          },
+          {
+            "key": "accept",
+            "value": "application/json, text/event-stream"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/mcp",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "mcp"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 8,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"install_policy\",\n    \"arguments\": {\n      \"network\": \"{{network}}\",\n      \"smartAccount\": \"{{smartAccount}}\",\n      \"sourceAccount\": \"{{sourceAccount}}\",\n      \"installNonce\": 1,\n      \"rule\": {\n        \"contextRuleType\": { \"kind\": \"default\" },\n        \"name\": \"postman-demo\",\n        \"validUntilLedger\": null,\n        \"signers\": [\n          { \"kind\": \"delegated\", \"address\": \"{{sourceAccount}}\" }\n        ],\n        \"policies\": [\n          {\n            \"kind\": \"interpreter\",\n            \"interpreterAddress\": \"CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5\",\n            \"predicateBlobBase64\": \"REPLACE_WITH_encodedPredicate\"\n          }\n        ]\n      }\n    }\n  }\n}"
+        },
+        "description": "Returns `unsignedXdr` and nothing signed. Hand that string to Freighter, or to any wallet that can sign a Soroban envelope; the wallet reviews, signs and submits, and that signature is the confirmation step.\n\nThe predicate goes INSIDE rule.policies as `predicateBlobBase64`, not as a top-level field. The value is the `encodedPredicate` returned by synthesize_policy or declare_policy.\n\nsourceAccount must actually administer smartAccount, otherwise the simulation fails auth and the tool returns INSTALL_BUILD_FAILED."
+      }
+    },
+    {
+      "name": "8. revoke_policy (returns unsigned XDR)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "content-type",
+            "value": "application/json"
+          },
+          {
+            "key": "accept",
+            "value": "application/json, text/event-stream"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/mcp",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "mcp"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 9,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"revoke_policy\",\n    \"arguments\": {\n      \"network\": \"{{network}}\",\n      \"smartAccount\": \"{{smartAccount}}\",\n      \"sourceAccount\": \"{{sourceAccount}}\",\n      \"ruleId\": 1\n    }\n  }\n}"
+        },
+        "description": "Same hand-off shape as install. Removing a policy from a rule also resets any counters that policy kept, including a spend cap's running total for the period.\n\nNOTE ON THE EXAMPLE VALUES: the rule on {{smartAccount}} was installed AND revoked during the Tranche #3 wallet round trip, so running this request unchanged returns REVOKE_BUILD_FAILED (\"simulateTransaction failed\"). That is the tool behaving correctly - there is no rule 1 left to remove. Substitute a smartAccount and ruleId of your own. Verified 2026-08-27: this is the exact error a stale ruleId produces."
+      }
+    }
+  ]
+}
