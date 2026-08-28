@@ -5,6 +5,25 @@ Notable changes to the published packages. The format follows
 packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 `@crediolabs/policy-builder-mcp`) version together.
 
+## [1.0.0] - 2026-08-28
+
+The 1.0 release. No behaviour changes from 0.5.6 beyond the one noted below;
+the version reflects that the surface is what Tranche #3 delivers, not new work.
+
+### Fixed
+
+- The MCP server reported `serverInfo.version` as `0.0.0` to every client
+  (`src/server.ts`), because the value was hardcoded rather than taken from the
+  package. A client asking the server what it was got `0.0.0` regardless of what
+  was installed. It now reports `1.0.0`.
+
+### Note on the audit gate
+
+The award makes Critical and High audit findings blocking for the 1.0 release.
+This version was cut on instruction while the independent audit is in progress.
+If findings land that require changes, they ship as 1.0.x and the finding set is
+published in the repository.
+
 ## [0.5.6] - 2026-08-27
 
 ### Added

@@ -48,7 +48,7 @@ const toCallToolResult = <T>(
  *  and connects it to a single transport (stdio or Streamable HTTP). */
 export function createMcpServer(): McpServer {
   const server = new McpServer(
-    { name: 'policy-builder-mcp', version: '0.0.0' },
+    { name: 'policy-builder-mcp', version: '1.0.0' },
     { capabilities: { tools: {} } }
   )
   registerTools(server)
