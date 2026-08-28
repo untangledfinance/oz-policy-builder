@@ -1,0 +1,33 @@
+# Weekly check for movement outside this repository: a Stellar protocol upgrade
+# on either network, or a new stable OpenZeppelin stellar-contracts release.
+#
+# Kept out of ci.yml deliberately. This job reaches the public internet and can
+# fail for reasons that have nothing to do with a pull request, so it must never
+# be able to block a merge.
+name: Upstream drift
+
+on:
+  schedule:
+    # Mondays, 07:00 UTC.
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+jobs:
+  drift:
+    name: Protocol and OpenZeppelin versions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # Exits non-zero when the live state differs from the reviewed baseline in
+      # the script. The failure is the notification.
+      - name: Check for upstream drift
+        run: bun packages/policy-synth/scripts/upstream-drift-check.ts

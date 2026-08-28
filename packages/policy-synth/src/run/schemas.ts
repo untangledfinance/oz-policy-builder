@@ -429,6 +429,11 @@ export const RPC_URL_BY_NETWORK: Record<Network, string> = {
  *  Provenance detail in `docs/audit/README.md` finding 7. */
 export type OzBuiltinPolicy = 'spending_limit' | 'simple_threshold' | 'weighted_threshold'
 
+/** The upstream tag the deployed policy instances were built from. Exported so
+ *  `scripts/upstream-drift-check.ts` can compare it against the latest upstream
+ *  release; a tag recorded only in prose cannot be checked by anything. */
+export const PINNED_OZ_STELLAR_CONTRACTS_TAG = 'v0.7.2'
+
 /** Instance addresses per network. Exported so consumers import the pin
  *  instead of copying a literal - a copied address is how a testnet id ends up
  *  being queried against mainnet, which returns `Error(Storage, MissingValue)`
