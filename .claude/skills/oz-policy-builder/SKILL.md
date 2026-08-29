@@ -40,7 +40,7 @@ you build anything.
 | Remove a rule | `revoke_policy` with `ruleId`. Master-only: the source must be the master signer set |
 | Check the interpreter the rule will point at | `get_interpreter_info` with `verifyLive: true` |
 | "at least N out" - a slippage floor on a swap | `declare_policy` with a minimum-output ratio. It bounds the call's OUTPUT against its own INPUT (`out >= in * num / den`), which is what lets one rule cover every trade size. Never infer the ratio from a recording: a recorded rate is a price at one moment, and freezing it as policy denies ordinary trades later. Ask for the ratio |
-| "N per day" - a rolling total | Not expressible as a predicate. The interpreter is handed ONE call and keeps no state. A rolling total is an OpenZeppelin `spending_limit` policy on the same rule, which this server does not install. Say which control the user is actually getting |
+| "N per day" - a rolling total | `install_policy` with `spendingLimit: { amount, periodLedgers }`. It attaches an OpenZeppelin `spending_limit` beside the predicate on the same rule; both must permit. NOT expressible as a predicate - the interpreter sees one call and keeps no state - so a per-call cap alone lets N through repeatedly. `periodLedgers` counts LEDGERS (~5s each); the rule must be scoped to the token contract whose transfers it meters |
 
 Pass both handle forms rather than retyping structures: `transactionHash` for a
 recording, `encodedPredicate` for a predicate you already hold. Retyping a
@@ -74,7 +74,8 @@ user thinks. They are the reason to read a result rather than skim it.
   nothing. Put the agent key on a new rule and constrain that.
 
 - **A per-call cap is not a budget.** `limitAmount` lets that amount through
-  repeatedly, forever. Never let it stand in for "N per day" without saying so.
+  repeatedly, forever. When the user means a total, pass `spendingLimit` as well
+  - and if you install only the per-call bound, say which control they got.
 
 - **`verify_policy: ok` is not "this does what you asked".** It generates deny
   cases only for the dimensions the predicate actually bounds, so a MISSING
@@ -100,6 +101,9 @@ user thinks. They are the reason to read a result rather than skim it.
   recording answers. Name them in `signers` as plain `G...` addresses. A
   delegated signer is an account, not a deployed contract; nothing needs
   deploying to name one.
+- **A rolling total on a rule that is not scoped to one contract.** The
+  primitive meters transfers of a single token; on a wider scope it would
+  install and meter nothing.
 - **A rule that bounds no amount, when the recording showed a spend.** Supply
   `userResponses.limitAmount`, or `allowUnboundedAmount: true` to do it
   deliberately. This refusal exists because the failure is silent: such a rule
