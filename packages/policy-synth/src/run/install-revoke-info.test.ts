@@ -32,6 +32,7 @@ import {
   TransactionBuilder,
   xdr,
 } from '@stellar/stellar-sdk'
+import { PLACEHOLDER_INTERPRETER_ADDRESS } from '../adapters/interpreter/adapter.ts'
 import type { InstallRpcClient } from '../install/build-install-policy.ts'
 import { encodePredicate } from '../predicate/encode.ts'
 import { runGetInterpreterInfo, runInstallPolicy, runRevokePolicy } from './index.ts'
@@ -635,6 +636,33 @@ describe('install_policy pinning (default-deny)', () => {
     expect(res.error.code).toBe('INSTALL_BUILD_FAILED')
     expect(res.error.message).toContain('pinned')
     expect(res.error.message).toContain(PINNED_INTERPRETER_TESTNET_ADDRESS)
+  })
+
+  it('fills the synthesizer placeholder with the pinned interpreter', async () => {
+    const m = makeRule()
+    const input = {
+      ...makeValidInstallInput(),
+      rule: {
+        ...m.rule,
+        policies: [
+          {
+            kind: 'interpreter' as const,
+            interpreterAddress: PLACEHOLDER_INTERPRETER_ADDRESS,
+            predicateBlobBase64: m.encodedPredicate,
+          },
+        ],
+      },
+      // Stop the call at the RPC pin, one gate PAST the interpreter pin. A
+      // rule still carrying the placeholder fails the interpreter pin first
+      // and names it, which is what every synthesized rule did before install
+      // filled the marker in.
+      rpcUrl: 'https://soroban.example.invalid/',
+    }
+    const res = await runInstallPolicy(input)
+    expect(res.ok).toBe(false)
+    if (res.ok) return
+    expect(res.error.message).not.toContain(PLACEHOLDER_INTERPRETER_ADDRESS)
+    expect(res.error.message).toContain(TESTNET_RPC_URL)
   })
 
   it('accepts a non-pinned interpreter policy when allowUnpinnedInterpreter=true', async () => {

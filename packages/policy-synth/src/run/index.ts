@@ -19,6 +19,7 @@
 
 import { createHash } from 'node:crypto'
 import { rpc } from '@stellar/stellar-sdk'
+import { PLACEHOLDER_INTERPRETER_ADDRESS } from '../adapters/interpreter/adapter.ts'
 import {
   declarePredicate,
   type ErrorCode,
@@ -203,7 +204,23 @@ export async function runSynthesizePolicy(raw: unknown): Promise<
   const input = parsed.data
 
   try {
-    const recorded: RecordedTransaction = input.recordedTx as RecordedTransaction
+    // `hash` is the agent-friendly alternative to `recordedTx`: re-record here
+    // rather than make the caller retype a recording it cannot copy faithfully.
+    // A recording failure is returned as-is, so the caller sees why the hash was
+    // refused instead of a synthesis error about a payload it never sent.
+    let recorded: RecordedTransaction
+    if (input.recordedTx === undefined) {
+      const rerecorded = await runRecordTransaction({
+        hash: input.transactionHash,
+        network: input.network,
+      })
+      if (!rerecorded.ok) {
+        return { ok: false, error: rerecorded.error }
+      }
+      recorded = rerecorded.data
+    } else {
+      recorded = input.recordedTx as RecordedTransaction
+    }
     return await synthesizeFromRecording(recorded, {
       network: input.network,
       ...(input.userResponses !== undefined ? { userResponses: input.userResponses } : {}),
@@ -227,11 +244,118 @@ export async function runInstallPolicy(
   }
   const input: InstallPolicyInput = parsed.data
   const network: Network = input.network ?? 'testnet'
+  // `fromHash` builds the rule here rather than accepting a transcribed copy.
+  // The pinning gates below then run against the rule we just synthesized, so
+  // this path is gated identically to a caller-supplied one - it is a shortcut
+  // for the caller, never for the checks.
+  let rule = input.rule
+  if (rule === undefined && input.fromPredicate !== undefined) {
+    const fp = input.fromPredicate
+    let scope: NonNullable<InstallPolicyInput['rule']>['contextRuleType']
+    try {
+      scope = contextTypeForPredicate(decodePredicate(fp.encodedPredicate))
+    } catch (e) {
+      return toolFailure('install_policy', e)
+    }
+    rule = {
+      contextRuleType: scope,
+      name: fp.name ?? 'policy',
+      validUntilLedger: fp.validUntilLedger ?? null,
+      signers: fp.signers.map((address) => ({ kind: 'delegated' as const, address })),
+      policies: [
+        {
+          kind: 'interpreter' as const,
+          interpreterAddress: PINNED_INTERPRETER_ADDRESS_BY_NETWORK[network],
+          predicateBlobBase64: fp.encodedPredicate,
+        },
+      ],
+    }
+  }
+  if (rule === undefined) {
+    // Typed rather than inline: every tool body takes `unknown`, so a
+    // misspelled key here would compile and fail only at runtime, as a
+    // validation error blamed on the caller. Naming the type restores the
+    // check on this hop.
+    const synthArgs: SynthesizePolicyInput = {
+      source: 'recording',
+      network,
+      transactionHash: input.fromHash?.transactionHash,
+      interpreter: { smartAccountAddress: input.smartAccount },
+      ...(input.fromHash?.userResponses !== undefined
+        ? { userResponses: input.fromHash.userResponses }
+        : {}),
+    }
+    const synthesized = await runSynthesizePolicy(synthArgs)
+    if (!synthesized.ok) {
+      return { ok: false, error: synthesized.error }
+    }
+    // The synthesizer saw a spend it could not bound. Installing anyway yields
+    // a rule that reads as a cap and enforces nothing, and nothing downstream
+    // catches it: it installs cleanly and verifies cleanly, because a missing
+    // constraint generates no deny case that could fail. That combination
+    // reached the chain once. Refuse rather than emit a warning to skim past.
+    const unbounded = synthesized.data.ambiguities.some((a) => a.code === 'AMOUNT_BOUND_MISSING')
+    if (unbounded && input.allowUnboundedAmount !== true) {
+      return {
+        ok: false,
+        error: {
+          code: 'INSTALL_BUILD_FAILED',
+          message:
+            'install_policy: the recorded call spends an amount this policy does not bound, so the rule would constrain everything about the call except how much it moves; set `fromHash.userResponses.limitAmount` to the per-call cap, or `allowUnboundedAmount: true` to install an unbounded rule deliberately',
+          severity: 'error',
+          retryable: false,
+          remediation: { toolCall: { name: 'install_policy', args: {} } },
+        },
+      }
+    }
+    // Synthesis leaves the signer set empty - it reads a transaction, and which
+    // keys a rule binds is a security decision no single recording answers.
+    // The caller names them here.
+    rule = {
+      ...synthesized.data.contextRule,
+      signers: (input.fromHash?.signers ?? []).map((address) => ({
+        kind: 'delegated' as const,
+        address,
+      })),
+    }
+  }
+  // A rule that governs no key is refused on chain, and the refusal arrives as
+  // a bare contract error code with nothing to act on. Say what is missing
+  // instead, while the caller still has the recording in hand.
+  if (rule.signers.length === 0) {
+    return {
+      ok: false,
+      error: {
+        code: 'INSTALL_BUILD_FAILED',
+        message:
+          'install_policy: the rule names no signer, so it would govern no key; name the keys it applies to',
+        severity: 'error',
+        retryable: false,
+        remediation: { toolCall: { name: 'install_policy', args: {} } },
+      },
+    }
+  }
   // ---- Pinning gates (default-deny) ----
   const expectedInterpreter = PINNED_INTERPRETER_ADDRESS_BY_NETWORK[network]
   const expectedRpc = RPC_URL_BY_NETWORK[network]
+  // Synthesis stamps every interpreter policy with the placeholder marker: it
+  // is handed a recording, not a network, so it emits a marker rather than
+  // inventing a deploy address. Install DOES know the network, and resolves
+  // the pin just above, so it fills the marker in here - otherwise the
+  // synthesize -> install path is unreachable, because the marker is not a
+  // strkey and fails the pin on every call. Only the exact marker is replaced;
+  // a caller-supplied address is still checked against the pin unchanged, so
+  // this widens nothing.
+  rule = {
+    ...rule,
+    policies: rule.policies.map((p) =>
+      p.kind === 'interpreter' && p.interpreterAddress === PLACEHOLDER_INTERPRETER_ADDRESS
+        ? { ...p, interpreterAddress: expectedInterpreter }
+        : p
+    ),
+  }
   const pinningError = enforceInterpreterPin(
-    input.rule.policies,
+    rule.policies,
     input.allowUnpinnedInterpreter,
     expectedInterpreter
   )
@@ -255,7 +379,7 @@ export async function runInstallPolicy(
     return toolFailure('install_policy', e)
   }
   try {
-    const interpreterPolicy = input.rule.policies.find((p) => p.kind === 'interpreter')
+    const interpreterPolicy = rule.policies.find((p) => p.kind === 'interpreter')
     const encodedPredicate = interpreterPolicy?.predicateBlobBase64 ?? ''
     const predicateHash = createHash('sha256')
       .update(Buffer.from(encodedPredicate, 'base64'))
@@ -264,8 +388,10 @@ export async function runInstallPolicy(
       smartAccount: input.smartAccount,
       sourceAccount: input.sourceAccount,
       networkPassphrase: NETWORK_PASSPHRASES[network],
-      rule: input.rule,
-      installNonce: input.installNonce,
+      rule,
+      // A fresh rule has no stored nonce, so 1 is the value the interpreter
+      // expects unless the caller is deliberately re-installing.
+      installNonce: input.installNonce ?? 1,
       encodedPredicate,
       predicateHash,
       rpc: rpcClient,
@@ -291,8 +417,8 @@ export async function runInstallPolicy(
               // no existing rule this install replaces. A sentinel no real id
               // can equal keeps every observed rule in scope.
               ruleId: -1,
-              contextType: input.rule.contextRuleType,
-              signers: input.rule.signers,
+              contextType: rule.contextRuleType,
+              signers: rule.signers,
               predicate: decodePredicate(encodedPredicate),
             },
             existing: observed,
@@ -394,26 +520,123 @@ function noInvocationError(toolName: 'simulate_policy' | 'verify_policy'): ToolE
   }
 }
 
+/** Scope a rule to whatever contract its predicate pins.
+ *
+ *  Taking this from the predicate rather than from a separate argument means
+ *  the rule's scope cannot drift from what the predicate actually checks. A
+ *  predicate that pins no contract yields the default (account-wide) type,
+ *  which is what an unpinned predicate means. Only the top level is walked:
+ *  a contract pin nested under an `or` does not scope the rule, because the
+ *  other branch would not be covered by it. */
+export function contextTypeForPredicate(
+  predicate: PredicateNode
+): NonNullable<InstallPolicyInput['rule']>['contextRuleType'] {
+  const conjuncts = predicate.op === 'and' ? predicate.children : [predicate]
+  for (const node of conjuncts) {
+    if (node.op !== 'eq') continue
+    if (node.left?.kind !== 'call_contract') continue
+    if (node.right?.kind !== 'literal_address') continue
+    return { kind: 'call_contract', contract: node.right.value }
+  }
+  return { kind: 'default' }
+}
+
+/** Resolve what `simulate_policy` and `verify_policy` evaluate.
+ *
+ *  Both want a predicate TREE plus the recording it came from, and neither is
+ *  something a caller holds by default: the tree is only returned by
+ *  `synthesize_policy` under `explain`, so a caller who did not ask for it has
+ *  nothing to pass and skips the check. Skipping is the worst outcome here -
+ *  these two ARE the check - so a transaction hash is accepted instead and the
+ *  server rebuilds both from it. Recording is deterministic for a settled
+ *  transaction, so this evaluates the same predicate the synthesiser produced. */
+async function resolveCheckInputs(
+  input: SimulatePolicyInput,
+  tool: 'simulate_policy' | 'verify_policy'
+): Promise<ToolResponse<{ predicate: PredicateNode; permitTx: RecordedTransaction }>> {
+  const network = input.network ?? 'testnet'
+
+  // The call to check against: whichever the caller supplied, recording only
+  // when they gave a hash instead.
+  let permitTx: RecordedTransaction
+  if (input.permitTx !== undefined) {
+    permitTx = input.permitTx as RecordedTransaction
+  } else {
+    const recordArgs: RecordTransactionInput = { hash: input.transactionHash, network }
+    const recorded = await runRecordTransaction(recordArgs)
+    if (!recorded.ok) return { ok: false, error: recorded.error }
+    permitTx = recorded.data
+  }
+
+  // The thing to check. A caller-supplied predicate wins over re-synthesis,
+  // in either form: a DECLARED policy has no recording behind it, so
+  // re-deriving one from the transaction would check a different predicate
+  // than the one the caller is asking about.
+  if (input.predicate !== undefined) {
+    return { ok: true, data: { predicate: input.predicate as PredicateNode, permitTx } }
+  }
+  if (input.encodedPredicate !== undefined) {
+    try {
+      return { ok: true, data: { predicate: decodePredicate(input.encodedPredicate), permitTx } }
+    } catch (e) {
+      return toolFailure(tool, e)
+    }
+  }
+
+  const synthArgs: SynthesizePolicyInput = {
+    source: 'recording',
+    network,
+    // The schema's inferred type is `passthrough`, so it carries an index
+    // signature the core type does not; the shapes agree field for field.
+    recordedTx: permitTx as SynthesizePolicyInput['recordedTx'],
+    explain: true,
+    ...(input.smartAccount !== undefined
+      ? { interpreter: { smartAccountAddress: input.smartAccount } }
+      : {}),
+    ...(input.userResponses !== undefined ? { userResponses: input.userResponses } : {}),
+  }
+  const synthesized = await runSynthesizePolicy(synthArgs)
+  if (!synthesized.ok) return { ok: false, error: synthesized.error }
+  const tree = synthesized.explain?.predicateTree
+  if (!tree) {
+    return {
+      ok: false,
+      error: {
+        code: TOOL_ERROR_CODE[tool],
+        message: `${tool}: synthesis produced no predicate to check for that transaction`,
+        severity: 'error',
+        retryable: false,
+        remediation: { toolCall: { name: tool, args: {} } },
+      },
+    }
+  }
+  return { ok: true, data: { predicate: tree, permitTx } }
+}
+
 /** `simulate_policy` body - evaluate a predicate against one recorded call.
  *
  *  The evaluator is a second implementation of the on-chain semantics, and the
  *  conformance harness asserts it agrees with the Rust interpreter case for
  *  case. A verdict here is therefore a claim about what the contract would do,
  *  not a guess. */
-export function runSimulatePolicy(raw: unknown): ToolResponse<{
-  permitted: boolean
-  reason: string | null
-  call: { contract: string; fn: string; argCount: number }
-}> {
+export async function runSimulatePolicy(raw: unknown): Promise<
+  ToolResponse<{
+    permitted: boolean
+    reason: string | null
+    call: { contract: string; fn: string; argCount: number }
+  }>
+> {
   const parsed = SimulatePolicyInputSchema.safeParse(raw)
   if (!parsed.success) {
     return { ok: false, error: validationError('simulate_policy', parsed.error.issues) }
   }
   const input: SimulatePolicyInput = parsed.data
-  const ctx = evalContextFromRecording(input.permitTx as RecordedTransaction)
+  const resolved = await resolveCheckInputs(input, 'simulate_policy')
+  if (!resolved.ok) return { ok: false, error: resolved.error }
+  const ctx = evalContextFromRecording(resolved.data.permitTx)
   if (!ctx) return { ok: false, error: noInvocationError('simulate_policy') }
   try {
-    const res = evaluate(input.predicate as PredicateNode, ctx)
+    const res = evaluate(resolved.data.predicate, ctx)
     return {
       ok: true,
       data: {
@@ -492,21 +715,25 @@ export function runDeclarePolicy(raw: unknown): ToolResponse<{
  *  very transaction it was synthesised from. A deny case that permits means it
  *  is too LOOSE: some mutation of that transaction still gets through. `ok` is
  *  true only when neither holds. */
-export function runVerifyPolicy(raw: unknown): ToolResponse<{
-  ok: boolean
-  permit: { permitted: boolean; reason: string | null }
-  denies: Array<{ dimension: string; denied: boolean; reason: string | null }>
-  dimensionsCovered: number
-}> {
+export async function runVerifyPolicy(raw: unknown): Promise<
+  ToolResponse<{
+    ok: boolean
+    permit: { permitted: boolean; reason: string | null }
+    denies: Array<{ dimension: string; denied: boolean; reason: string | null }>
+    dimensionsCovered: number
+  }>
+> {
   const parsed = VerifyPolicyInputSchema.safeParse(raw)
   if (!parsed.success) {
     return { ok: false, error: validationError('verify_policy', parsed.error.issues) }
   }
   const input: VerifyPolicyInput = parsed.data
-  const ctx = evalContextFromRecording(input.permitTx as RecordedTransaction)
+  const resolved = await resolveCheckInputs(input, 'verify_policy')
+  if (!resolved.ok) return { ok: false, error: resolved.error }
+  const ctx = evalContextFromRecording(resolved.data.permitTx)
   if (!ctx) return { ok: false, error: noInvocationError('verify_policy') }
   try {
-    const predicate = input.predicate as PredicateNode
+    const predicate = resolved.data.predicate
     const cases = generateCases(predicate, ctx)
     const permitRes = evaluate(predicate, cases.permit)
     const denies = cases.denies.map((d) => {
@@ -645,7 +872,7 @@ function buildRpcClientFromInput(
  *  policies are pinned. The caller resolves the expected pin per network;
  *  this function stays pure so it is easy to test. */
 function enforceInterpreterPin(
-  policies: InstallPolicyInput['rule']['policies'],
+  policies: NonNullable<InstallPolicyInput['rule']>['policies'],
   allowUnpinned: boolean | undefined,
   expectedInterpreterAddress: string
 ): ToolError | null {

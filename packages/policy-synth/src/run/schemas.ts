@@ -153,23 +153,43 @@ export const InterpreterOptionsSchema = z.object({
   installNonce: z.number().int().positive().optional(),
 })
 
-export const SynthesizePolicyInputSchema = z.object({
-  source: z.literal('recording'),
-  recordedTx: RecordedTransactionSchema,
-  network: NetworkSchema,
-  userResponses: ComposeUserResponsesSchema.optional(),
-  confidenceOverride: z.object({ threshold: z.number().min(0).max(1) }).optional(),
-  interpreter: InterpreterOptionsSchema.optional(),
-  // --explain opt-in. When true, the orchestrator attaches the
-  // in-memory PredicateNode + the corresponding SimulationResult
-  // (real one from the self-verify pipeline when the interpreter is
-  // engaged, minimal honest value otherwise) to the success envelope.
-  // Absent or false -> the success envelope is unchanged (byte-identical
-  // to today). The flag is ADDITIVE: the existing ProposedPolicy fields
-  // (encodedPredicate, predicateHash, etc.) are never altered by enabling
-  // explain.
-  explain: z.boolean().optional(),
-})
+export const SynthesizePolicyInputSchema = z
+  .object({
+    source: z.literal('recording'),
+    // Two ways to name the recording, because an MCP client has no variable to
+    // pass by reference. `recordedTx` is the full RecordedTransaction, which a
+    // programmatic caller can hand straight over from `record_transaction`. An
+    // agent cannot: it sees that output as text and has to retype it, and the
+    // payload is thousands of characters and a dozen levels deep, with exact
+    // i128 strings that do not survive the round trip. `transactionHash` lets the
+    // agent carry a 64-character handle instead and have the server re-record.
+    //
+    // Re-recording rather than caching keeps the server stateless (see
+    // build-install-policy.ts). Recording is deterministic for a settled
+    // transaction, so the second read returns the same thing as the first.
+    recordedTx: RecordedTransactionSchema.optional(),
+    transactionHash: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/, 'transaction hash must be 64 lowercase hex characters')
+      .optional(),
+    network: NetworkSchema,
+    userResponses: ComposeUserResponsesSchema.optional(),
+    confidenceOverride: z.object({ threshold: z.number().min(0).max(1) }).optional(),
+    interpreter: InterpreterOptionsSchema.optional(),
+    // --explain opt-in. When true, the orchestrator attaches the
+    // in-memory PredicateNode + the corresponding SimulationResult
+    // (real one from the self-verify pipeline when the interpreter is
+    // engaged, minimal honest value otherwise) to the success envelope.
+    // Absent or false -> the success envelope is unchanged (byte-identical
+    // to today). The flag is ADDITIVE: the existing ProposedPolicy fields
+    // (encodedPredicate, predicateHash, etc.) are never altered by enabling
+    // explain.
+    explain: z.boolean().optional(),
+  })
+  .refine((v) => v.recordedTx !== undefined || v.transactionHash !== undefined, {
+    message:
+      'supply either `recordedTx` (the full recording) or `transactionHash` (and the server will record it)',
+  })
 
 export type SynthesizePolicyInput = z.infer<typeof SynthesizePolicyInputSchema>
 
@@ -271,11 +291,44 @@ export const PredicateNodeSchema: z.ZodType<unknown> = z.lazy(() =>
 // take the same input. A null predicate used to mean "OZ built-in policies
 // only"; that backend is gone, so every policy carries a predicate and there is
 // nothing to simulate without one.
-export const SimulatePolicyInputSchema = z.object({
-  predicate: PredicateNodeSchema,
-  permitTx: RecordedTransactionSchema,
-  validUntilLedger: z.number().int().positive().max(U32_MAX).optional(),
-})
+export const SimulatePolicyInputSchema = z
+  .object({
+    // Same two ways in as `synthesize_policy`, for the same reason. The tree
+    // is only returned under `explain`, so a caller who did not ask for it has
+    // nothing to pass here and skips the check entirely - which is the one
+    // step that must not be skippable by accident. `transactionHash` re-records and
+    // re-synthesizes, so the predicate checked is the predicate that was built.
+    predicate: PredicateNodeSchema.optional(),
+    /** The canonical encoding `declare_policy` and `synthesize_policy` both
+     *  return. A DECLARED policy has no recording behind it, so re-synthesizing
+     *  from a hash would check a different predicate than the one declared -
+     *  and the tree is the shape callers mistype. One opaque string is the
+     *  handle that path was missing. */
+    encodedPredicate: z.string().optional(),
+    permitTx: RecordedTransactionSchema.optional(),
+    transactionHash: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/, 'transaction hash must be 64 lowercase hex characters')
+      .optional(),
+    network: NetworkSchema.optional(),
+    /** Needed only with `transactionHash`: lowering a recording to an interpreter
+     *  predicate is scoped to the account it will be installed on, and the
+     *  self-call gate is defined against it. */
+    smartAccount: z.string().optional(),
+    userResponses: ComposeUserResponsesSchema.optional(),
+    validUntilLedger: z.number().int().positive().max(U32_MAX).optional(),
+  })
+  // Two halves, each satisfiable on its own terms: something to check, and a
+  // call to check it against. `transactionHash` alone answers both.
+  .refine(
+    (v) =>
+      v.transactionHash !== undefined ||
+      ((v.predicate !== undefined || v.encodedPredicate !== undefined) && v.permitTx !== undefined),
+    {
+      message:
+        'supply `transactionHash` (and the server will record and synthesize), or a predicate (`predicate` tree or `encodedPredicate` string) together with `permitTx` or `transactionHash`',
+    }
+  )
 export type SimulatePolicyInput = z.infer<typeof SimulatePolicyInputSchema>
 
 export const VerifyPolicyInputSchema = SimulatePolicyInputSchema
@@ -563,10 +616,70 @@ export const InstallPolicyInputSchema = z
      *  A caller that targets mainnet MUST set this to `mainnet` (the
      *  pin and RPC pin do not move by themselves). */
     network: NetworkSchema.optional(),
-    /** The proposed rule draft. Mirrors the core `ContextRuleDraft` shape. */
-    rule: ContextRuleDraftSchema,
-    /** Per-rule install nonce; 1 for a fresh install. */
-    installNonce: z.number().int().positive(),
+    /** The proposed rule draft. Mirrors the core `ContextRuleDraft` shape.
+     *
+     *  Optional because of `fromHash` below. An agent cannot reliably retype the
+     *  `contextRule` that `synthesize_policy` returned - it is nested, and the
+     *  observed failures were exactly that: `validUntilLedger` sent as a string,
+     *  `signers` as "", `policies` as an object instead of an array. Supplying
+     *  `fromHash` instead lets the server rebuild the same rule it just
+     *  produced, rather than asking the caller to transcribe it. */
+    rule: ContextRuleDraftSchema.optional(),
+    /** Build the rule here instead of receiving it: record this transaction,
+     *  synthesize against `smartAccount`, and install the result. The
+     *  agent-friendly counterpart to `rule`, and the same handle
+     *  `synthesize_policy` accepts. */
+    fromHash: z
+      .object({
+        transactionHash: z
+          .string()
+          .regex(/^[0-9a-f]{64}$/, 'transaction hash must be 64 lowercase hex characters'),
+        /** The keys this rule governs. Synthesis cannot choose them: it reads a
+         *  transaction, and which keys a rule binds is the caller's security
+         *  decision, not an inference from one recording. Naming a key here
+         *  attaches it as a delegated signer. A rule with no signer is refused
+         *  on chain, so this is required in practice; the `rule` form remains
+         *  the way to attach an external (verifier + key bytes) signer. */
+        signers: z
+          .array(z.string().refine(isStellarAddress, 'must be a Stellar address (G... or C...)'))
+          .max(MAX_SIGNERS_PER_RULE)
+          .optional(),
+        userResponses: ComposeUserResponsesSchema.optional(),
+      })
+      .optional(),
+    /** Install a predicate the caller ALREADY holds - the base64 string
+     *  `declare_policy` returns.
+     *
+     *  Without this there is no route from `declare_policy` to here:
+     *  `fromHash` re-synthesizes from a recording and would discard the
+     *  declared predicate, and `rule` means hand-building a draft that the
+     *  tool boundary types as `unknown`, so the caller is guessing. An agent
+     *  asked to do that invented a requirement to deploy a signer contract,
+     *  which is not a thing - a delegated signer is a plain account address.
+     *
+     *  The context rule type is taken FROM the predicate: if it pins a
+     *  contract, the rule is scoped to that contract. One source of truth, so
+     *  the rule's scope cannot drift from what the predicate actually checks. */
+    fromPredicate: z
+      .object({
+        encodedPredicate: z.string().min(1),
+        /** The keys this rule governs, as plain Stellar account addresses. */
+        signers: z
+          .array(z.string().refine(isStellarAddress, 'must be a Stellar address (G... or C...)'))
+          .min(1)
+          .max(MAX_SIGNERS_PER_RULE),
+        name: z.string().min(1).optional(),
+        validUntilLedger: z.number().int().positive().max(U32_MAX).optional(),
+      })
+      .optional(),
+    /** Per-rule install nonce. Defaults to 1, which is the only correct value
+     *  here: this tool builds `add_context_rule`, the account assigns a NEW
+     *  rule id, and the interpreter has no stored nonce for a rule that does
+     *  not exist yet. Required, it was undiscoverable - an agent has no way to
+     *  read it, and asking cost a round trip on a value the server already
+     *  knows. Supply it only to re-install over an existing rule, where the
+     *  interpreter wants `stored_nonce + 1`. */
+    installNonce: z.number().int().positive().optional(),
     /** Optional RPC URL override. Defaults to the pinned RPC for the
      *  selected `network` (testnet by default, mainnet when
      *  `network: 'mainnet'`); the override is refused unless
@@ -578,6 +691,16 @@ export const InstallPolicyInputSchema = z
      *  network because the caller's auth-digest binds to whatever the
      *  RPC returned. */
     allowUnpinnedRpcUrl: z.boolean().optional(),
+    /** Opt-in to installing a rule that bounds no amount, when the recording
+     *  behind `fromHash` showed a spend.
+     *
+     *  Default-deny, because the failure is silent and reads as success: such
+     *  a rule installs cleanly, verifies cleanly - a missing constraint
+     *  generates no deny case to fail - and caps nothing. That combination
+     *  reached the chain once already. A rule with no spend to bound is
+     *  unaffected; only the case the synthesizer explicitly flagged is
+     *  refused. */
+    allowUnboundedAmount: z.boolean().optional(),
     /** Opt-in to pointing the rule's interpreter policy at any address
      *  other than the pinned interpreter for the selected network.
      *  Default-deny: a caller that controls the interpreter can permit
@@ -587,6 +710,13 @@ export const InstallPolicyInputSchema = z
     /** Base fee in stroops; defaults to BASE_FEE (100). */
     baseFee: z.number().int().positive().optional(),
   })
+  .refine(
+    (v) => v.rule !== undefined || v.fromHash !== undefined || v.fromPredicate !== undefined,
+    {
+      message:
+        'name the rule one of three ways: `fromHash` (server records, synthesizes and installs), `fromPredicate` (a predicate you already hold, plus the keys it governs), or `rule` (the full ContextRuleDraft, for programmatic callers)',
+    }
+  )
   .refine((v) => Boolean(v.smartAccount) && Boolean(v.sourceAccount), {
     message: 'smartAccount and sourceAccount are required',
   })

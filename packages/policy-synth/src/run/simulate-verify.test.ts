@@ -7,8 +7,10 @@
 import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { Address } from '@stellar/stellar-sdk'
+import { encodePredicate } from '../predicate/encode.ts'
 import type { PredicateNode, RecordedTransaction } from '../types.ts'
 import { runSimulatePolicy, runSynthesizePolicy, runVerifyPolicy } from './index.ts'
+import { SimulatePolicyInputSchema } from './schemas.ts'
 
 const SMART_ACCOUNT = Address.contract(Buffer.alloc(32, 0x01)).toString()
 
@@ -44,7 +46,7 @@ async function synthesise(
 describe('runSimulatePolicy', () => {
   it('permits the transaction the predicate was synthesised from', async () => {
     const { tx, predicate } = await synthesise('demo-rec-sep41')
-    const res = runSimulatePolicy({ predicate, permitTx: tx })
+    const res = await runSimulatePolicy({ predicate, permitTx: tx })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     expect(res.data.permitted).toBe(true)
@@ -66,7 +68,7 @@ describe('runSimulatePolicy', () => {
         ...tx.invocations.slice(1),
       ],
     }
-    const res = runSimulatePolicy({ predicate, permitTx: elsewhere })
+    const res = await runSimulatePolicy({ predicate, permitTx: elsewhere })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     expect(res.data.permitted).toBe(false)
@@ -76,7 +78,7 @@ describe('runSimulatePolicy', () => {
   it('rejects a recording carrying no invocation rather than reporting a verdict', async () => {
     const { predicate } = await synthesise('demo-rec-sep41')
     const empty = { ...recording('demo-rec-sep41'), invocations: [] }
-    const res = runSimulatePolicy({ predicate, permitTx: empty })
+    const res = await runSimulatePolicy({ predicate, permitTx: empty })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SIMULATION_ERROR')
@@ -85,8 +87,8 @@ describe('runSimulatePolicy', () => {
     expect(res.error.message).toBe('simulate_policy: permitTx carries no invocation to evaluate')
   })
 
-  it('refuses a malformed input with a structured error, never a throw', () => {
-    const res = runSimulatePolicy({ predicate: { op: 'nope' }, permitTx: {} })
+  it('refuses a malformed input with a structured error, never a throw', async () => {
+    const res = await runSimulatePolicy({ predicate: { op: 'nope' }, permitTx: {} })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('SIMULATION_ERROR')
@@ -99,7 +101,7 @@ describe('runVerifyPolicy', () => {
     'passes for %s: the permit case is permitted and every deny case is denied',
     async (name) => {
       const { tx, predicate } = await synthesise(name)
-      const res = runVerifyPolicy({ predicate, permitTx: tx })
+      const res = await runVerifyPolicy({ predicate, permitTx: tx })
       expect(res.ok).toBe(true)
       if (!res.ok) return
       expect(res.data.permit.permitted).toBe(true)
@@ -111,7 +113,7 @@ describe('runVerifyPolicy', () => {
   it('rejects a recording carrying no invocation rather than reporting a verdict', async () => {
     const { predicate } = await synthesise('demo-rec-sep41')
     const empty = { ...recording('demo-rec-sep41'), invocations: [] }
-    const res = runVerifyPolicy({ predicate, permitTx: empty })
+    const res = await runVerifyPolicy({ predicate, permitTx: empty })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.code).toBe('VERIFICATION_FAILED')
@@ -120,7 +122,7 @@ describe('runVerifyPolicy', () => {
 
   it('always exercises the contract and function pins', async () => {
     const { tx, predicate } = await synthesise('demo-rec-sep41')
-    const res = runVerifyPolicy({ predicate, permitTx: tx })
+    const res = await runVerifyPolicy({ predicate, permitTx: tx })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     // Without these two the harness could report `ok` having only mutated an
@@ -142,7 +144,7 @@ describe('runVerifyPolicy', () => {
       left: { kind: 'call_fn' },
       right: { kind: 'literal_symbol', value: tx.invocations[0]!.fn },
     }
-    const res = runVerifyPolicy({ predicate: fnOnly, permitTx: tx })
+    const res = await runVerifyPolicy({ predicate: fnOnly, permitTx: tx })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     expect(res.data.denies.some((d) => d.dimension === 'contract_scope')).toBe(false)
@@ -153,7 +155,7 @@ describe('runVerifyPolicy', () => {
         { ...tx.invocations[0]!, contract: Address.contract(Buffer.alloc(32, 0x5a)).toString() },
       ],
     }
-    const sim = runSimulatePolicy({ predicate: fnOnly, permitTx: elsewhere })
+    const sim = await runSimulatePolicy({ predicate: fnOnly, permitTx: elsewhere })
     expect(sim.ok).toBe(true)
     if (!sim.ok) return
     expect(sim.data.permitted).toBe(true)
@@ -163,7 +165,7 @@ describe('runVerifyPolicy', () => {
 
   it('exercises the amount cap: one unit over is refused', async () => {
     const { tx, predicate } = await synthesise('demo-rec-sep41', '1000000')
-    const res = runVerifyPolicy({ predicate, permitTx: tx })
+    const res = await runVerifyPolicy({ predicate, permitTx: tx })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     // Every value bound is an `lte`. Without a case that steps one unit past
@@ -176,9 +178,87 @@ describe('runVerifyPolicy', () => {
 
   it('generates no amount case when the caller supplied no cap', async () => {
     const { tx, predicate } = await synthesise('demo-rec-sep41')
-    const res = runVerifyPolicy({ predicate, permitTx: tx })
+    const res = await runVerifyPolicy({ predicate, permitTx: tx })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     expect(res.data.denies.some((d) => d.dimension === 'amount_over_cap')).toBe(false)
+  })
+})
+
+// The check tools take a transaction hash as an alternative to the tree. The
+// tree only comes back from `synthesize_policy` under `explain`, so without
+// this a caller who did not ask for it has nothing to pass - and silently
+// skipping verification is worse than any wrong verdict it could return.
+
+describe('simulate_policy / verify_policy accept a transaction hash', () => {
+  const HASH = 'bd46f023c74bed01085015dc4ffebb9bb9f6a1023efe6d2bf1b3a25e1933408a'
+
+  it('accepts a hash with neither predicate nor recording', () => {
+    expect(
+      SimulatePolicyInputSchema.safeParse({ transactionHash: HASH, network: 'testnet' }).success
+    ).toBe(true)
+  })
+
+  it('rejects a request naming neither, rather than checking nothing', () => {
+    const parsed = SimulatePolicyInputSchema.safeParse({ network: 'testnet' })
+    expect(parsed.success).toBe(false)
+    if (!parsed.success) {
+      expect(parsed.error.issues.map((i) => i.message).join(' ')).toContain('transactionHash')
+    }
+  })
+
+  it('rejects a half-supplied pair, which would otherwise check the wrong thing', () => {
+    expect(
+      SimulatePolicyInputSchema.safeParse({ predicate: { op: 'and', args: [] } }).success
+    ).toBe(false)
+  })
+
+  it('rejects a malformed hash at the boundary', () => {
+    for (const bad of ['not-a-hash', HASH.toUpperCase(), HASH.slice(0, 63)]) {
+      expect(SimulatePolicyInputSchema.safeParse({ transactionHash: bad }).success).toBe(false)
+    }
+  })
+})
+
+// A DECLARED policy has no recording behind it, so a hash cannot stand in for
+// it - re-synthesizing would check a different predicate than the one declared.
+// `encodedPredicate` is the handle for that path: one opaque base64 string
+// where the tree is the shape callers mistype.
+
+describe('the check tools accept an encoded predicate', () => {
+  const HASH = 'd520d9e1f601d7cfe64a9d75557d7db143c1ccf89c3917b02e64eb79165c4a6a'
+
+  it('accepts an encoded predicate paired with a hash', () => {
+    const parsed = SimulatePolicyInputSchema.safeParse({
+      encodedPredicate: 'AAAAEA==',
+      transactionHash: HASH,
+      network: 'testnet',
+    })
+    expect(parsed.success).toBe(true)
+  })
+
+  it('rejects a predicate with nothing to check it against', () => {
+    expect(SimulatePolicyInputSchema.safeParse({ encodedPredicate: 'AAAAEA==' }).success).toBe(
+      false
+    )
+  })
+
+  it('prefers the caller predicate over re-synthesis, so a declared policy is what gets checked', async () => {
+    // A predicate that pins a function no recording of this transfer produces.
+    // If the tool re-synthesized from the hash instead of honouring what was
+    // passed, the call would be permitted and this would fail.
+    const encoded = encodePredicate({
+      op: 'eq',
+      left: { kind: 'call_fn' },
+      right: { kind: 'literal_symbol', value: 'not_transfer' },
+    }).encodedPredicate
+    const res = await runSimulatePolicy({
+      encodedPredicate: encoded,
+      transactionHash: HASH,
+      network: 'testnet',
+    })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.data.permitted).toBe(false)
   })
 })
