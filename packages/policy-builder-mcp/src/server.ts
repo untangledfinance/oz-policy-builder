@@ -66,23 +66,23 @@ export function registerTools(server: McpServer): void {
 
   server.tool(
     'synthesize_policy',
-    'Synthesize a ProposedPolicy from a RecordedTransaction (`source: recording`).',
+    'Synthesize a ProposedPolicy from a recorded transaction (`source: recording`). Pass `transactionHash` and `network` to have the server re-record and synthesize in one step - prefer this over copying a `recordedTx` payload back out of a previous tool result, which loses fields. `recordedTx` remains accepted for programmatic callers holding the object.',
     SynthesizePolicyToolShape,
     (args) => runSynthesizePolicy(args).then(toCallToolResult)
   )
 
   server.tool(
     'simulate_policy',
-    'Evaluate a predicate against one recorded call and report permit/deny with the deny reason. The evaluator is a second implementation of the on-chain semantics, cross-checked against the Rust interpreter by the conformance harness, so a verdict here is a claim about what the contract would do. Pass the `predicate` returned by `synthesize_policy` under `explain`.',
+    'Evaluate a predicate against one recorded call and report permit/deny with the deny reason. The evaluator is a second implementation of the on-chain semantics, cross-checked against the Rust interpreter by the conformance harness, so a verdict here is a claim about what the contract would do. Pass `transactionHash` with `smartAccount` and the server records and synthesizes the predicate itself; or pass a predicate together with the call to check it against. For a predicate you already hold, pass `encodedPredicate` (the base64 string `declare_policy` and `synthesize_policy` return) rather than retyping the `predicate` tree.',
     SimulatePolicyToolShape,
-    (args) => toCallToolResult(runSimulatePolicy(args))
+    (args) => runSimulatePolicy(args).then(toCallToolResult)
   )
 
   server.tool(
     'verify_policy',
-    'Check a predicate against the transaction it was synthesised from, plus a generated deny case per dimension. Reports `ok` only when the permit case is permitted AND every deny case is denied - a denied permit case means the policy is too strict, a permitted deny case means it is too loose.',
+    'Check a predicate against the transaction it was synthesised from, plus a generated deny case per dimension. Reports `ok` only when the permit case is permitted AND every deny case is denied - a denied permit case means the policy is too strict, a permitted deny case means it is too loose. Pass `transactionHash` with `smartAccount` and the server rebuilds the predicate and the recording itself; For a predicate you already hold - a DECLARED one has no recording behind it, so re-synthesizing would check something else - pass `encodedPredicate` (the base64 string) with `transactionHash`. Retyping the `predicate` tree is the error-prone path; do not take it, and never skip this check because the tree was not to hand.',
     VerifyPolicyToolShape,
-    (args) => toCallToolResult(runVerifyPolicy(args))
+    (args) => runVerifyPolicy(args).then(toCallToolResult)
   )
 
   server.tool(
@@ -94,7 +94,7 @@ export function registerTools(server: McpServer): void {
 
   server.tool(
     'install_policy',
-    'Build an UNSIGNED Soroban transaction XDR for `account.add_context_rule(...)` that installs a new policy rule on the given smart account. The response carries an `authorityScan`: every rule already on the account that a signer of this install could name INSTEAD, including an unpoliced one against which the predicate never runs - a predicate only constrains a key when the policed rule is the only rule that key is on. The account is READ over RPC to build it; pass `existingRules` to supply them yourself instead (useful offline). `authorityScan: null` means NOT CHECKED - the read failed, or it could not account for every live rule - and must never be read as "nothing found". The wallet signs the returned XDR - the signature IS the user-confirmation step (this server is stateless and holds no key material, so there is no two-call confirm pair). Only CALL 1 is emitted; the interpreter `install` follow-up needs the rule id the account assigns in call 1 and is documented in `followUp` in the response.',
+    'Build an UNSIGNED Soroban transaction XDR for `account.add_context_rule(...)` that installs a new policy rule on the given smart account. Name the rule ONE of three ways. `fromPredicate: { encodedPredicate, signers }` installs a predicate you already hold - the base64 string `declare_policy` returns - and scopes the rule to whatever contract that predicate pins. `fromHash: { transactionHash, signers }` - with `fromHash` the server re-synthesizes the rule from the recording itself, and `signers` (plain G.../C... addresses) names the keys the rule governs. Naming them is required: synthesis reads a transaction and cannot decide which keys a rule binds, and a rule that governs no key is refused on chain. `rule` is the full ContextRuleDraft and is for programmatic callers only - retyping it loses the types of `validUntilLedger`, `signers` and `policies`. In BOTH handle forms `signers` is a list of plain Stellar account addresses (G...): a delegated signer is an account, NOT a deployed signer contract, and nothing needs to be deployed to name one. The response carries an `authorityScan`: every rule already on the account that a signer of this install could name INSTEAD, including an unpoliced one against which the predicate never runs - a predicate only constrains a key when the policed rule is the only rule that key is on. The account is READ over RPC to build it; pass `existingRules` to supply them yourself instead (useful offline). `authorityScan: null` means NOT CHECKED - the read failed, or it could not account for every live rule - and must never be read as "nothing found". The wallet signs the returned XDR - the signature IS the user-confirmation step (this server is stateless and holds no key material, so there is no two-call confirm pair). `installNonce` defaults to 1, which is correct for a fresh rule - do not ask the caller for it. If the recorded call spends an amount and no `limitAmount` is given, the install is REFUSED: such a rule would constrain everything about the call except how much it moves, and it would install and verify cleanly while capping nothing. Supply `fromHash.userResponses.limitAmount`, or `allowUnboundedAmount: true` to do it deliberately. One transaction is all it takes: the smart account calls the interpreter `install` itself while running `add_context_rule`, so once this XDR is signed and submitted the rule is live and the predicate is enforced. The rule id the account assigned is in the transaction result. Do not tell the caller a second call is outstanding.',
     InstallPolicyToolShape,
     (args) => runInstallPolicy(args).then(toCallToolResult)
   )

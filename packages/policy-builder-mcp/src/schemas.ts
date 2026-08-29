@@ -70,7 +70,12 @@ export const RecordTransactionToolShape = {
  *  re-validates against the strict schema. */
 export const SynthesizePolicyToolShape = {
   source: z.literal('recording').optional(),
+  // Supply EITHER `recordedTx` (the whole recording) OR `transactionHash`. An agent
+  // should prefer the hash: it cannot copy a multi-thousand-character recording back out
+  // of its own transcript without losing fields, and the server can re-record
+  // from the hash deterministically.
   recordedTx: RecordedTransactionSchema.optional(),
+  transactionHash: z.string().optional(),
   network: NetworkSchema.optional(),
   userResponses: ComposeUserResponsesSchema.optional(),
   confidenceOverride: z.object({ threshold: z.number().min(0).max(1) }).optional(),
@@ -89,8 +94,21 @@ export const SynthesizePolicyToolShape = {
  *  (from `synthesize_policy` under `explain`) plus the recording it was
  *  synthesised from. */
 const PolicyCheckToolShape = {
-  predicate: PredicateNodeSchema,
-  permitTx: RecordedTransactionSchema,
+  // Supply EITHER `transactionHash` OR both `predicate` and `permitTx`. The tree comes
+  // back from `synthesize_policy` only under `explain`, so a caller who did not
+  // ask for it has nothing to pass and would skip the check - and this IS the
+  // check. `transactionHash` lets the server rebuild both from the transaction.
+  predicate: PredicateNodeSchema.optional(),
+  // The canonical encoding `declare_policy` and `synthesize_policy` both
+  // return. One opaque string, where the tree is what callers mistype.
+  encodedPredicate: z.string().optional(),
+  permitTx: RecordedTransactionSchema.optional(),
+  transactionHash: z.string().optional(),
+  network: NetworkSchema.optional(),
+  // Needed with `transactionHash`: the predicate is lowered against the account it will
+  // be installed on.
+  smartAccount: z.string().optional(),
+  userResponses: ComposeUserResponsesSchema.optional(),
   validUntilLedger: z.number().int().positive().optional(),
 } as const
 
@@ -168,8 +186,37 @@ export const InstallPolicyToolShape = {
    *  authority scan; omitting them returns `authorityScan: null`, which means
    *  "not checked" rather than "nothing found". */
   existingRules: z.array(z.unknown()).optional(),
+  // Supply EITHER `rule` (the whole ContextRuleDraft) OR `fromHash`. Same
+  // reason as `synthesize_policy`: a draft nests i128 strings, a signer array
+  // and a policy array, and an agent retyping it out of its own transcript
+  // loses their types. `fromHash` re-derives the draft server-side from the
+  // recording, so the install runs against the rule the synthesizer produced.
   rule: z.unknown().optional(),
+  // Install a predicate you already hold - the base64 string `declare_policy`
+  // returns - naming the keys it governs as plain account addresses. Without
+  // this there is no route from `declare_policy` to here.
+  fromPredicate: z
+    .object({
+      encodedPredicate: z.string(),
+      signers: z.array(z.string()),
+      name: z.string().optional(),
+      validUntilLedger: z.number().int().positive().optional(),
+    })
+    .optional(),
+  fromHash: z
+    .object({
+      transactionHash: z.string(),
+      // The keys the rule governs, as plain Stellar addresses. Synthesis does
+      // not choose them, and a rule governing no key is refused on chain.
+      signers: z.array(z.string()).optional(),
+      userResponses: ComposeUserResponsesSchema.optional(),
+    })
+    .optional(),
   installNonce: z.number().int().positive().optional(),
+  // Opt-in to installing a rule that bounds no amount when the recording showed
+  // a spend. Default-deny: such a rule installs and verifies cleanly and caps
+  // nothing.
+  allowUnboundedAmount: z.boolean().optional(),
   interpreterAddress: z.string().optional(),
 } as const
 
