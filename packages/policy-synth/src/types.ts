@@ -94,12 +94,31 @@ export type SignerDraft =
   | { kind: 'delegated'; address: string }
   | { kind: 'external'; verifier: string; keyBytes: string }
 
-/** Reference to one policy attached to a context rule. */
-export type PolicyRef = {
-  kind: 'interpreter'
-  interpreterAddress: string
-  predicateBlobBase64: string
-}
+/** Reference to one policy attached to a context rule.
+ *
+ *  Policies on one rule compose as ALL-OF, so a rule may carry our interpreter
+ *  AND an OpenZeppelin built-in, and both must permit. That is what expresses a
+ *  rolling total: the interpreter bounds each call, the built-in bounds the sum
+ *  across calls - state the interpreter deliberately does not keep. */
+export type PolicyRef =
+  | {
+      kind: 'interpreter'
+      interpreterAddress: string
+      predicateBlobBase64: string
+    }
+  | {
+      /** OpenZeppelin's `spending_limit`: a rolling total over a window of
+       *  ledgers. It meters the third argument of a call named exactly
+       *  `transfer` and refuses any rule scope other than `CallContract`. */
+      kind: 'spending_limit'
+      policyAddress: string
+      /** Window length in LEDGERS, not seconds. Stellar closes a ledger in
+       *  roughly five seconds, so a period given in seconds is an
+       *  approximation of this number and should be reported as one. */
+      periodLedgers: number
+      /** i128 as a base-10 string, in the token's smallest unit. */
+      spendingLimit: string
+    }
 
 /** Grammar version baked into the interpreter wasm, mirroring `SELF_VERSION` in
  *  `contracts/policy-interpreter/src/version.rs`. Every value this package puts on

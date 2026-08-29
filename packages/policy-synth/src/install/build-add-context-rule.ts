@@ -50,6 +50,7 @@
 import { createHash } from 'node:crypto'
 import { Address, xdr } from '@stellar/stellar-sdk'
 import type { ToolError } from '../errors.ts'
+import { scvI128FromDecimal } from '../predicate/encode.ts'
 import {
   type ContextRuleDraft,
   GRAMMAR_VERSION,
@@ -194,30 +195,73 @@ function encodeSigner(s: SignerDraft): xdr.ScVal {
 function encodePoliciesMap(args: BuildAddContextRuleArgs): xdr.ScVal {
   const entries: xdr.ScMapEntry[] = []
   for (const ref of args.policies) {
-    // Refuse anything that is not an interpreter policy rather than skipping
-    // it. This loop used to `if (kind === 'interpreter')` and drop everything
-    // else in silence, so a caller attaching an OZ `spending_limit` beside the
-    // interpreter got a rule WITHOUT the cap and no indication of it - the
-    // policy the user asked for was simply absent from the install they signed.
-    // `PolicyRef` has one shape today, so TypeScript narrows this branch to
-    // `never`; the guard is for callers reaching the built JS untyped, and for
-    // the next kind added to `PolicyRef` without a case here. Failing loudly is
-    // the only safe direction: a dropped policy is a missing restriction.
-    if (ref.kind !== 'interpreter') {
-      const kind = JSON.stringify((ref as { kind?: unknown }).kind ?? null)
-      throw limitError(
-        'INSTALL_BUILD_FAILED',
-        `policy kind ${kind} is not supported; this builder attaches interpreter policies only. Attach an OpenZeppelin built-in through the account layer instead - dropping it here would install a rule missing the restriction you asked for.`
-      )
+    // Each policy carries its OWN params. This loop once applied one set of
+    // install params to every entry, which is why nothing but the interpreter
+    // could be expressed; before that it dropped other kinds in silence, so a
+    // caller attaching a cap received a rule without it and no indication.
+    // Both directions were wrong. An unknown kind still fails loudly below - a
+    // dropped policy is a missing restriction.
+    switch (ref.kind) {
+      case 'interpreter':
+        entries.push(
+          new xdr.ScMapEntry({
+            key: Address.fromString(ref.interpreterAddress).toScVal(),
+            val: encodePolicyInstallParams(args),
+          })
+        )
+        break
+      case 'spending_limit':
+        entries.push(
+          new xdr.ScMapEntry({
+            key: Address.fromString(ref.policyAddress).toScVal(),
+            val: encodeSpendingLimitParams(ref),
+          })
+        )
+        break
+      default: {
+        const kind = JSON.stringify((ref as { kind?: unknown }).kind ?? null)
+        throw limitError(
+          'INSTALL_BUILD_FAILED',
+          `policy kind ${kind} is not supported; dropping it here would install a rule missing the restriction you asked for`
+        )
+      }
     }
-    entries.push(
-      new xdr.ScMapEntry({
-        key: Address.fromString(ref.interpreterAddress).toScVal(),
-        val: encodePolicyInstallParams(args),
-      })
-    )
   }
   entries.sort(sortByScValSymbolString)
+  return xdr.ScVal.scvMap(entries)
+}
+
+/** OpenZeppelin `spending_limit`'s install params: `{ period_ledgers: u32,
+ *  spending_limit: i128 }`, emitted in symbol-string order. Validated here
+ *  rather than left to the chain, because a rolling cap that fails at submit
+ *  has already cost the caller a signature. */
+function encodeSpendingLimitParams(ref: {
+  periodLedgers: number
+  spendingLimit: string
+}): xdr.ScVal {
+  if (!Number.isInteger(ref.periodLedgers) || ref.periodLedgers <= 0) {
+    throw limitError(
+      'INSTALL_BUILD_FAILED',
+      `spending_limit periodLedgers must be a positive integer - it counts LEDGERS, not seconds; got: ${ref.periodLedgers}`
+    )
+  }
+  if (!/^[0-9]+$/.test(ref.spendingLimit) || BigInt(ref.spendingLimit) <= 0n) {
+    throw limitError(
+      'INSTALL_BUILD_FAILED',
+      `spending_limit must be a positive integer in the token's smallest unit; got: ${ref.spendingLimit}`
+    )
+  }
+  const entries = [
+    new xdr.ScMapEntry({
+      key: xdr.ScVal.scvSymbol('period_ledgers'),
+      val: xdr.ScVal.scvU32(ref.periodLedgers),
+    }),
+    new xdr.ScMapEntry({
+      key: xdr.ScVal.scvSymbol('spending_limit'),
+      val: scvI128FromDecimal(ref.spendingLimit),
+    }),
+  ]
+  entries.sort((a, b) => sortBySymbolString(a.key(), b.key()))
   return xdr.ScVal.scvMap(entries)
 }
 

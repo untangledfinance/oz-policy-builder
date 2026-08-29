@@ -159,13 +159,23 @@ export interface InstallCallDescribes {
    *  sha256 of the predicate blob actually embedded in the XDR - so a
    *  mismatch between the wire bytes and the review card is detectable
    *  by reading `describes`. */
-  policies: Array<{
-    kind: 'interpreter'
-    address: string
-    installNonce: number
-    predicateHash: string
-    predicateSha256OfEmbeddedBytes: string
-  }>
+  policies: Array<
+    | {
+        kind: 'interpreter'
+        address: string
+        installNonce: number
+        predicateHash: string
+        predicateSha256OfEmbeddedBytes: string
+      }
+    | {
+        /** An OpenZeppelin built-in bounding the SUM across calls, which the
+         *  predicate cannot: the interpreter sees one call and keeps no state. */
+        kind: 'spending_limit'
+        address: string
+        periodLedgers: number
+        spendingLimit: string
+      }
+  >
   /** The install nonce, decoded from the interpreter policy's
    *  `install_nonce` field. Echoed at the top level for reviewer convenience;
    *  the per-policy entry is the source of truth. */
@@ -625,6 +635,33 @@ function decodeInstallCallDescribes(
         predicateSha256OfEmbeddedBytes,
       })
       observedInstallNonce = installNonce
+      continue
+    }
+    // OpenZeppelin `spending_limit`: { period_ledgers: u32, spending_limit: i128 }.
+    if (fields.has('period_ledgers') || fields.has('spending_limit')) {
+      const periodScv = fields.get('period_ledgers')
+      if (periodScv?.switch().name !== 'scvU32') {
+        throw new Error(
+          `install_policy: spending_limit policy ${address} is missing a u32 period_ledgers`
+        )
+      }
+      const limitScv = fields.get('spending_limit')
+      if (limitScv?.switch().name !== 'scvI128') {
+        throw new Error(
+          `install_policy: spending_limit policy ${address} is missing an i128 spending_limit`
+        )
+      }
+      const parts = limitScv.i128()
+      const spendingLimit = (
+        (BigInt(parts.hi().toString()) << 64n) +
+        BigInt(parts.lo().toString())
+      ).toString()
+      policies.push({
+        kind: 'spending_limit',
+        address,
+        periodLedgers: periodScv.u32(),
+        spendingLimit,
+      })
       continue
     }
     throw new Error(

@@ -285,7 +285,11 @@ function scvAddressFromStrkey(strkey: string): xdr.ScVal {
  *  The inverse split is `hi = v >> 64n` (arithmetic right shift) and
  *  `lo = v & 0xFFFF...`. The SDK's `Int64` constructor takes a signed
  *  bigint/string/number. */
-function scvI128FromDecimal(decimal: string): xdr.ScVal {
+/** Canonical i128 encoding of a base-10 decimal string, with the Int64 range
+ *  guard on the high word. Exported so the install builder encodes an
+ *  OpenZeppelin amount the same way a predicate literal is encoded - a second
+ *  implementation is how a value above 2^64 silently loses its high word. */
+export function scvI128FromDecimal(decimal: string): xdr.ScVal {
   const v = BigInt(decimal)
   const hi = v >> 64n
   const lo = v & UINT64_MAX

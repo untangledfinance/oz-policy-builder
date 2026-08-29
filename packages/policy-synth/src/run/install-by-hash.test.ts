@@ -217,3 +217,60 @@ describe('install_policy guards', () => {
     expect(res.error.message).toContain('does not bound')
   })
 })
+
+// "N per day" is the request the tools could not express: a predicate bounds
+// one call and keeps no state, so a per-call cap of N authorises N again
+// immediately. `spendingLimit` attaches an OpenZeppelin built-in beside the
+// predicate on the same rule, and both must permit.
+
+describe('install_policy spendingLimit', () => {
+  const withRule = {
+    ...base,
+    rule: {
+      ...makeRule(),
+      contextRuleType: {
+        kind: 'call_contract' as const,
+        contract: 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC',
+      },
+    },
+  }
+
+  it('accepts a rolling total alongside the per-call predicate', () => {
+    const parsed = InstallPolicyInputSchema.safeParse({
+      ...withRule,
+      spendingLimit: { amount: '153000000', periodLedgers: 17280 },
+    })
+    expect(parsed.success).toBe(true)
+  })
+
+  it('rejects a period given in seconds-shaped nonsense at the boundary', () => {
+    for (const bad of [0, -1, 1.5]) {
+      const parsed = InstallPolicyInputSchema.safeParse({
+        ...withRule,
+        spendingLimit: { amount: '153000000', periodLedgers: bad },
+      })
+      expect(parsed.success).toBe(false)
+    }
+  })
+
+  it('rejects an amount that is not a smallest-unit integer', () => {
+    const parsed = InstallPolicyInputSchema.safeParse({
+      ...withRule,
+      spendingLimit: { amount: '15.3', periodLedgers: 17280 },
+    })
+    expect(parsed.success).toBe(false)
+  })
+
+  it('refuses a rolling total on a rule not scoped to one token', async () => {
+    // The primitive meters transfers of a single contract. A default-scoped
+    // rule would install and meter nothing, which reads as a working cap.
+    const res = await runInstallPolicy({
+      ...base,
+      rule: { ...makeRule(), contextRuleType: { kind: 'default' } },
+      spendingLimit: { amount: '153000000', periodLedgers: 17280 },
+    })
+    expect(res.ok).toBe(false)
+    if (res.ok) return
+    expect(res.error.message).toContain('scoped to that token')
+  })
+})

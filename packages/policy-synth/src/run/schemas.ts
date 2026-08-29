@@ -403,13 +403,26 @@ const ContextRuleDraftSchema = z
         ])
       )
       .max(MAX_SIGNERS_PER_RULE),
+    /** Policies on one rule compose as ALL-OF, so an interpreter predicate and
+     *  an OpenZeppelin built-in can sit together and both must permit. That
+     *  pairing is what expresses a rolling total: the predicate bounds each
+     *  call, the built-in bounds the sum across calls. */
     policies: z
       .array(
-        z.object({
-          kind: z.literal('interpreter'),
-          interpreterAddress: z.string(),
-          predicateBlobBase64: z.string().min(1),
-        })
+        z.discriminatedUnion('kind', [
+          z.object({
+            kind: z.literal('interpreter'),
+            interpreterAddress: z.string(),
+            predicateBlobBase64: z.string().min(1),
+          }),
+          z.object({
+            kind: z.literal('spending_limit'),
+            policyAddress: z.string(),
+            /** LEDGERS, not seconds. */
+            periodLedgers: z.number().int().positive().max(U32_MAX),
+            spendingLimit: z.string().regex(/^[0-9]+$/),
+          }),
+        ])
       )
       .max(MAX_POLICIES_PER_RULE),
   })
@@ -691,6 +704,28 @@ export const InstallPolicyInputSchema = z
      *  network because the caller's auth-digest binds to whatever the
      *  RPC returned. */
     allowUnpinnedRpcUrl: z.boolean().optional(),
+    /** Attach an OpenZeppelin `spending_limit` beside the predicate, giving the
+     *  rule a ROLLING TOTAL as well as a per-call bound. Both must permit,
+     *  because policies on one rule compose as all-of.
+     *
+     *  This is the only way to express "N per day": the interpreter is handed
+     *  one call and keeps no state, so a predicate cannot add up spending
+     *  across calls. Composes with all three ways of naming the rule.
+     *
+     *  The primitive meters the third argument of a call named exactly
+     *  `transfer` and requires a `call_contract` rule scope, so the rule must
+     *  be pinned to the token whose transfers it meters. */
+    spendingLimit: z
+      .object({
+        /** Rolling total in the token's smallest unit. */
+        amount: z
+          .string()
+          .regex(/^[0-9]+$/, 'amount must be a base-10 integer in the smallest unit'),
+        /** Window length in LEDGERS. Stellar closes one in roughly five
+         *  seconds, so a period in seconds is an approximation of this. */
+        periodLedgers: z.number().int().positive().max(U32_MAX),
+      })
+      .optional(),
     /** Opt-in to installing a rule that bounds no amount, when the recording
      *  behind `fromHash` showed a spend.
      *

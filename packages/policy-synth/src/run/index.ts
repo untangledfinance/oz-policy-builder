@@ -61,6 +61,7 @@ import {
   PINNED_INTERPRETER_ADDRESS_BY_NETWORK,
   PINNED_INTERPRETER_GRAMMAR_VERSION,
   PINNED_INTERPRETER_WASM_SHA256,
+  PINNED_OZ_POLICY_ADDRESS_BY_NETWORK,
   type RecordTransactionInput,
   RecordTransactionInputSchema,
   type RevokePolicyInput,
@@ -353,6 +354,35 @@ export async function runInstallPolicy(
         ? { ...p, interpreterAddress: expectedInterpreter }
         : p
     ),
+  }
+  // A rolling total, when asked for. The predicate bounds each call; this
+  // bounds the sum across calls, which is state the interpreter does not keep.
+  // Both sit on the one rule and compose as all-of.
+  if (input.spendingLimit !== undefined) {
+    if (rule.contextRuleType.kind !== 'call_contract') {
+      return {
+        ok: false,
+        error: {
+          code: 'INSTALL_BUILD_FAILED',
+          message: `install_policy: a spending limit meters transfers of one token, so the rule must be scoped to that token's contract; this rule's scope is "${rule.contextRuleType.kind}"`,
+          severity: 'error',
+          retryable: false,
+          remediation: { toolCall: { name: 'install_policy', args: {} } },
+        },
+      }
+    }
+    rule = {
+      ...rule,
+      policies: [
+        ...rule.policies,
+        {
+          kind: 'spending_limit' as const,
+          policyAddress: PINNED_OZ_POLICY_ADDRESS_BY_NETWORK[network].spending_limit,
+          periodLedgers: input.spendingLimit.periodLedgers,
+          spendingLimit: input.spendingLimit.amount,
+        },
+      ],
+    }
   }
   const pinningError = enforceInterpreterPin(
     rule.policies,

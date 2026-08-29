@@ -213,6 +213,15 @@ export const InstallPolicyToolShape = {
     })
     .optional(),
   installNonce: z.number().int().positive().optional(),
+  // A ROLLING TOTAL beside the per-call predicate, as an OpenZeppelin
+  // spending_limit on the same rule. Both must permit. This is the only way to
+  // express "N per day": the interpreter is handed one call and keeps no state.
+  spendingLimit: z
+    .object({
+      amount: z.string(),
+      periodLedgers: z.number().int().positive(),
+    })
+    .optional(),
   // Opt-in to installing a rule that bounds no amount when the recording showed
   // a spend. Default-deny: such a rule installs and verifies cleanly and caps
   // nothing.
