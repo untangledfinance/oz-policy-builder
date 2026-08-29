@@ -5,6 +5,49 @@ Notable changes to the published packages. The format follows
 packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 `@crediolabs/policy-builder-mcp`) version together.
 
+## [1.1.0] - 2026-08-29
+
+### Added
+
+- `install_policy` can attach an OpenZeppelin `spending_limit` beside the
+  interpreter predicate, giving a rule a **rolling total** as well as a per-call
+  bound. Pass `spendingLimit: { amount, periodLedgers }`; it composes with all
+  three ways of naming the rule (`rule`, `fromHash`, `fromPredicate`).
+
+  This is the only way to express "at most N per day". A predicate cannot: the
+  interpreter is handed one call and keeps no state, so a per-call cap of N
+  authorises N again on the very next call. Policies on one rule compose as
+  all-of, so the predicate bounds each call and the built-in bounds the sum.
+
+  The `oz_builtin` policy-ref kind was removed in 0.3.0 and the builder kept
+  applying one set of install params across the whole policies map, so nothing
+  but the interpreter could be expressed - a builder limitation rather than a
+  protocol one (threat model R-6). `PolicyRef` is a union again and each policy
+  carries its own params.
+
+  Verified on testnet: a rule with a 10 XLM per-call predicate and a 15 XLM
+  rolling total permitted a 10 XLM transfer
+  (`6aff32415f58b8d20c67c99271ee9126946c2ae7ab9215b826dc23d63ccd92ac`) and
+  refused the **identical** call that followed with `#3221
+  SpendingLimitExceeded`. Only accumulated spend can explain two different
+  verdicts for the same call.
+
+- `install_policy` refuses a rolling total on a rule that is not scoped to a
+  single contract. The primitive meters the third argument of a call named
+  exactly `transfer`; on a default-scoped rule it would install and meter
+  nothing, which reads as a working cap.
+
+### Fixed
+
+- The post-build self-check that re-decodes the install XDR knew only the
+  interpreter's field set, so a rule carrying a built-in failed with "unknown
+  field set; the encoder may have drifted". It now describes both, and
+  `describes.policies` reports the window and the total.
+
+- `serverInfo.version` was hardcoded again after 1.0.0 and would have reported
+  `1.0.0` from a 1.1.0 package. It is now pinned to `package.json` by a test, so
+  a bump that forgets it fails rather than shipping a plausible-looking lie.
+
 ## [1.0.0] - 2026-08-28
 
 The 1.0 release. No behaviour changes from 0.5.6 beyond the one noted below;
