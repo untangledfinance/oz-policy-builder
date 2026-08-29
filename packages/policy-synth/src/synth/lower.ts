@@ -32,12 +32,20 @@ export interface IntentFacts {
 }
 
 /** Lower a recorded transaction to the canonical IntentFacts. Pure (no
- *  randomness, no clock); same `RecordedTransaction` -> byte-identical facts. */
-export function lower(tx: RecordedTransaction): IntentFacts {
+ *  randomness, no clock); same `RecordedTransaction` -> byte-identical facts.
+ *
+ *  `governedAccount` is the smart account the policy will be installed on, when
+ *  one is known. It spends from itself while a wallet submits the transaction,
+ *  so it counts as a spender alongside the source account. */
+export function lower(tx: RecordedTransaction, governedAccount?: string): IntentFacts {
   const invocations = tx.invocations
   const callTargets = uniqueOrdered(invocations.map((i) => i.contract))
   const functionsByContract = groupFunctionsByContract(invocations)
-  const spendByToken = aggregateOutgoingSpend(tx.tokenMovements, tx.sourceAccount)
+  const spenders =
+    governedAccount !== undefined && governedAccount !== tx.sourceAccount
+      ? [tx.sourceAccount, governedAccount]
+      : [tx.sourceAccount]
+  const spendByToken = aggregateOutgoingSpend(tx.tokenMovements, spenders)
   const allowedPaths = extractPathsByContract(invocations)
   const sharedRouter = inferSharedRouter(invocations)
 
@@ -76,16 +84,22 @@ function groupFunctionsByContract(invocations: ContractInvocation[]): Record<str
   return out
 }
 
-/** Sum outgoing TokenMovement amounts per token, where `from === source`.
- *  BigInt throughout; never lossy. Movements whose `from` does not match the
- *  recorded source account are NOT counted (incoming yield, refund, etc.). */
+/** Sum outgoing TokenMovement amounts per token, across every spender.
+ *  BigInt throughout; never lossy. Movements whose `from` is none of the
+ *  spenders are NOT counted (incoming yield, refund, etc.).
+ *
+ *  A smart account spends from ITSELF while a wallet submits the transaction,
+ *  so matching the source account alone missed the entire treasury case: the
+ *  flow read as incoming-only, no amount bound was required, and a rule that
+ *  capped nothing installed with every check green. The account a policy
+ *  governs is a spender in its own right. */
 function aggregateOutgoingSpend(
   movements: TokenMovement[],
-  sourceAccount: string
+  spenders: readonly string[]
 ): Record<string, string> {
   const totals = new Map<string, bigint>()
   for (const m of movements) {
-    if (m.from !== sourceAccount) continue
+    if (!spenders.includes(m.from)) continue
     const current = totals.get(m.token) ?? 0n
     totals.set(m.token, current + BigInt(m.amount))
   }

@@ -207,7 +207,7 @@ function synthesizeFromRecordingInner(
     }
   }
 
-  const facts = lower(tx)
+  const facts = lower(tx, opts.interpreter?.smartAccountAddress)
 
   const scopeRes = decideScope(facts, {
     network: opts.network,
