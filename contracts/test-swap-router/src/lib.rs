@@ -2,10 +2,11 @@
 
 //! A swap-shaped stub for TESTNET VERIFICATION ONLY.
 //!
-//! See ../Cargo.toml for the rationale. One deployed instance gives the
-//! slippage-floor predicate something to bind against on chain, so
-//! `out >= in * 99/100` can be evidenced by a submitted transaction rather
-//! than only by the deny-case harness.
+//! See ../Cargo.toml for the rationale, including the correction that SoroSwap
+//! DOES publish a testnet router. One deployed instance gives the slippage-floor
+//! predicate something to bind against on chain, so `out >= in * num/den` can be
+//! evidenced by a submitted transaction rather than only by the deny-case
+//! harness - without depending on a pool's price holding still.
 
 use soroban_sdk::{contract, contractimpl, Address, Env};
 

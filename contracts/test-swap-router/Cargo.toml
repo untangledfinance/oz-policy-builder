@@ -7,11 +7,21 @@ publish = false
 # A swap-shaped stub for TESTNET VERIFICATION ONLY.
 #
 # The slippage-floor predicate bounds one argument of a call against another
-# (`out >= in * 99/100`), so exercising it needs a target whose call carries two
-# numeric arguments in that order. SoroSwap publishes no testnet router - the
-# address this repository names for mainnet has no contract deployed on testnet -
-# so without a stub the floor could only ever be evidenced from the deny-case
-# harness, never from the chain.
+# (`out >= in * num/den`), so exercising it needs a target whose call carries two
+# numeric arguments in that order.
+#
+# An earlier note here said SoroSwap publishes no testnet router. That was wrong,
+# and the error is worth recording because it is easy to repeat: the MAINNET
+# address has no contract on testnet, but SoroSwap publishes a SEPARATE testnet
+# deployment at CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD. Its
+# `swap_exact_tokens_for_tokens(amount_in, amount_out_min, path, to, deadline)`
+# carries the two numeric arguments at indices 0 and 1 - the order this predicate
+# reads - so the floor CAN be evidenced against a real venue with real liquidity.
+#
+# This stub is therefore a deterministic FALLBACK rather than the only option. It
+# stays useful because a real pair prices two DIFFERENT assets, so a ratio against
+# it encodes a price that goes stale as the pool moves; the stub exercises the
+# arithmetic with no such coupling.
 #
 # This stub serves that role. It is NOT a router:
 #   - it does NOT swap, price, or move anything; it returns Void.
