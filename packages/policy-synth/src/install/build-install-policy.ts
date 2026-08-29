@@ -317,6 +317,22 @@ const DEFAULT_AUTH_VALID_UNTIL_LEDGERS = 300
 
 // ---- internals ----
 
+/** The actionable half of a failed simulation, with the transport half left out.
+ *
+ *  `sim.error` names both why the chain refused the call and which host was
+ *  asked, and the second half must not reach a caller. So we return only
+ *  Soroban's own `Error(Type, #Code)` forms: those are contract state, and they
+ *  are what tells an operator whether the source account lacks authority, a
+ *  nonce is stale, or a predicate refused. Without them "simulateTransaction
+ *  failed" names nothing a caller can act on.
+ *
+ *  Returns "" when the error carries no such form, so the caller keeps its short
+ *  stable message rather than gaining an empty parenthesis. */
+export function simulationReason(sim: { error?: string }): string {
+  const codes = [...new Set((sim.error ?? '').match(/Error\([^)]*\)/g) ?? [])]
+  return codes.length > 0 ? ` (${codes.join(', ')})` : ''
+}
+
 /** Record a bare call to the smart account, attach the deploy-time admin rule's
  *  auth entries, and re-simulate to assemble the footprint.
  *
@@ -367,8 +383,10 @@ async function buildAuthorisedSmartAccountTx(
     // Short, stable reason. The full `simulateTransaction` error (which
     // carries host + URL detail) stays in the SDK's own logs - never
     // reflected back into a user-facing message where it would
-    // reconnoitre the RPC.
-    throw new Error(`${errorPrefix}: simulateTransaction failed`)
+    // reconnoitre the RPC. `simulationReason` re-adds only the chain's own
+    // error codes, which say why the call was refused without saying where
+    // the RPC lives.
+    throw new Error(`${errorPrefix}: simulateTransaction failed${simulationReason(recorded)}`)
   }
   const original = (recorded.result?.auth ?? []).find(
     (entry) =>
@@ -406,7 +424,7 @@ async function buildAuthorisedSmartAccountTx(
   const txWithAuth = buildTx(makeOperation(authEntries))
   const enforcing = await args.rpc.simulateTransaction(txWithAuth)
   if (rpc.Api.isSimulationError(enforcing)) {
-    throw new Error(`${errorPrefix}: auth simulateTransaction failed`)
+    throw new Error(`${errorPrefix}: auth simulateTransaction failed${simulationReason(enforcing)}`)
   }
   return {
     finalTx: rpc.assembleTransaction(txWithAuth, enforcing).build(),
