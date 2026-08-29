@@ -1,0 +1,40 @@
+[package]
+name = "test-swap-router"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# A swap-shaped stub for TESTNET VERIFICATION ONLY.
+#
+# The slippage-floor predicate bounds one argument of a call against another
+# (`out >= in * 99/100`), so exercising it needs a target whose call carries two
+# numeric arguments in that order. SoroSwap publishes no testnet router - the
+# address this repository names for mainnet has no contract deployed on testnet -
+# so without a stub the floor could only ever be evidenced from the deny-case
+# harness, never from the chain.
+#
+# This stub serves that role. It is NOT a router:
+#   - it does NOT swap, price, or move anything; it returns Void.
+#   - `to.require_auth()` is the point. The OZ account only consults the policy
+#     when the auth context is non-empty, so without it the call would succeed
+#     for the wrong reason and the test would prove nothing.
+#   - it is keyed by its own wasm hash, so a deployment of this is structurally
+#     distinct from any real router build.
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { version = "27.0.2", features = ["alloc"] }
+
+[dev-dependencies]
+soroban-sdk = { version = "27.0.2", features = ["testutils"] }
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = false
+panic = "abort"
+codegen-units = 1
+lto = true
