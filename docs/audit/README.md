@@ -4,9 +4,9 @@ Logs in `evidence/` were produced against this tree.
 
 All ten were regenerated on 2026-08-27 against `5bae0a8`, including both
 live-network legs. **`offchain-gate.log` was regenerated on 2026-08-30 against
-`e2d2a95`**, because the off-chain source changed after `5bae0a8` (two releases,
-the `spending_limit` composition, the handle refactor, `outPath`, and the
-cross-rule install refusal).
+the `v1.2.0` release tree (`2b14ec6`)**, because the off-chain source changed
+after `5bae0a8` (three releases, the `spending_limit` composition, the handle
+refactor, `outPath`, and the cross-rule install refusal).
 
 **The other nine still describe this tree, and that is checked rather than
 assumed.** They all exercise the Rust interpreter, and it has not changed:
@@ -27,18 +27,27 @@ The three live-network legs were deliberately NOT re-run. They prove properties
 of the deployed interpreter, which is unchanged, and re-running them spends
 mainnet and testnet funds for a result that cannot differ.
 
-`offchain-gate.log` is generated from a clean `git archive` export rather than a
-working tree, because `biome check .` reads untracked files and the tree
-currently holds 21 untracked scripts that are not in the repo. On the clean
-export biome is clean; in a working tree it reports errors that belong to those
-scripts, not to the repo. Reproducing it needs one step worth stating: build
-`@crediolabs/policy-synth` before `typecheck`, since the CLI and MCP packages
-resolve its types through the gitignored `dist/`.
+`offchain-gate.log` is generated from a clean `git archive` export, so what it
+measures is exactly what a reviewer gets from a clone and nothing that only
+exists on the author's disk.
+
+That distinction used to matter and was hiding a defect. The export was
+originally adopted as a workaround: `biome check .` reads untracked files, and
+the tree carried 21 untracked scripts whose lint errors were not the repo's. But
+four of those scripts were the ones this report's own reproduction commands tell
+you to run, so the artefact best placed to notice they were missing was the one
+built to look past them. They are committed as of `370734d`; the working tree
+now holds no untracked scripts, `bun run check` passes in place, and the export
+and the working tree agree.
+
+Reproducing it needs one step worth stating: build `@crediolabs/policy-synth`
+before `typecheck`, since the CLI and MCP packages resolve its types through the
+gitignored `dist/`.
 
 | Log | Command | Result |
 | --- | --- | --- |
 | `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm rebuild, hash pin parity | clean; 125 tests across 6 binaries, 18 of them conformance; rebuilt wasm matches the pin |
-| `offchain-gate.log` | `biome check .`, build, `bun run typecheck`, `bun test` | clean; 138 files checked, 750 pass, 1 skip, 0 fail across 751 tests in 49 files (`e2d2a95`) |
+| `offchain-gate.log` | `biome check .`, build, `bun run typecheck`, `bun test` | clean; 144 files checked, 750 pass, 1 skip, 0 fail across 751 tests in 49 files (`v1.2.0`) |
 | `contract-gate-recheck-e2d2a95.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test` per crate | clean; same 125 tests, 0 failed, confirming the interpreter is unchanged since `5bae0a8`. Narrower than `contract-gate.log`: no conformance, wasm rebuild or pin parity |
 | `cargo-audit.log` | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | `bun-audit.log` | `bun audit` | 0 vulnerabilities |

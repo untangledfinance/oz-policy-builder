@@ -133,7 +133,7 @@ Every log in [`evidence/`](evidence/) was produced against this tree.
 | Log | Command | Result |
 | --- | --- | --- |
 | [`contract-gate.log`](evidence/contract-gate.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, reproducible wasm build, hash pin parity | clean; 125 tests across 6 binaries, 18 of them conformance; rebuilt wasm matches the pin |
-| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, build, `bun run typecheck`, `bun test` | clean; 138 files checked, 750 pass, 1 skip, 0 fail across 751 tests in 49 files (regenerated against `e2d2a95`) |
+| [`offchain-gate.log`](evidence/offchain-gate.log) | `biome check .`, build, `bun run typecheck`, `bun test` | clean; 144 files checked, 750 pass, 1 skip, 0 fail across 751 tests in 49 files (regenerated against `v1.2.0`) |
 | [`contract-gate-recheck-e2d2a95.log`](evidence/contract-gate-recheck-e2d2a95.log) | `cargo fmt --check`, `clippy -D warnings`, `cargo test` per crate | clean; same 125 tests, 0 failed - corroborates that the interpreter is unchanged since `5bae0a8` |
 | [`cargo-audit.log`](evidence/cargo-audit.log) | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | [`bun-audit.log`](evidence/bun-audit.log) | `bun audit` | 0 vulnerabilities |
@@ -179,7 +179,7 @@ parallel Rust and TypeScript suites, not differentially.
 | Contract | `cargo test` | 125 passed, 0 failed |
 | Contract | `cargo test --release --test conformance` | 18 passed, 0 failed |
 | Contract | `contracts/policy-interpreter/build-wasm.sh` | builds; sha256 equals `PINNED_INTERPRETER_WASM_SHA256` |
-| Off-chain | `bunx biome check .` | 138 files, 0 findings (clean `git archive` export; a working tree also lints 21 untracked scripts that are not in the repo) |
+| Off-chain | `bunx biome check .` | 144 files, 0 findings (clean `git archive` export; the working tree now agrees - no untracked scripts remain) |
 | Off-chain | `bun run typecheck` | clean |
 | Off-chain | `bun test` | 750 passed, 1 skipped, 0 failed |
 | Off-chain | `bun audit` | 0 vulnerabilities |

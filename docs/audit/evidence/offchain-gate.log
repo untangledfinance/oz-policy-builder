@@ -1,8 +1,7 @@
-# Off-chain gate - 2026-08-30T11:11:30Z
+# Off-chain gate - 2026-08-30T11:32:04Z
 # biome check, build, typecheck, bun test
-# Generated from a clean 'git archive' export of e2d2a95, not a working
-# tree: 'biome check .' reads untracked files and the tree holds 21
-# untracked scripts that are not in the repo.
+# Generated from a clean 'git archive' export of the 1.2.0 release tree
+# (2b14ec6), not a working tree.
 
 $ bun install
 bun install v1.3.14 (0d9b296a)
@@ -14,10 +13,10 @@ bun install v1.3.14 (0d9b296a)
 + @modelcontextprotocol/sdk@1.30.0
 + zod@3.25.76
 
-288 packages installed [98.00ms]
+288 packages installed [56.00ms]
 
 $ biome check .
-Checked 138 files in 1655ms. No fixes applied.
+Checked 144 files in 2s. No fixes applied.
 
 $ bun run build   (per-package; policy-synth first, its types feed the others)
 $ rm -rf dist dist-cjs && tsc -p tsconfig.build.json && tsc -p tsconfig.build.cjs.json && node scripts/write-cjs-package-json.cjs
@@ -37,4 +36,4 @@ bun test v1.3.14 (0d9b296a)
  1 skip
  0 fail
  1801 expect() calls
-Ran 751 tests across 49 files. [19.29s]
+Ran 751 tests across 49 files. [19.64s]
