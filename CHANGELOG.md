@@ -5,6 +5,44 @@ Notable changes to the published packages. The format follows
 packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 `@crediolabs/policy-builder-mcp`) version together.
 
+## [1.1.1] - 2026-08-30
+
+Diagnostics. Every change here came from watching an agent fail to install a
+policy and be sent in the wrong direction by our own error, so the theme is
+saying *which* thing is wrong rather than only *that* something is.
+
+### Fixed
+
+- `install_policy` and `revoke_policy` now reject a malformed `smartAccount` or
+  `sourceAccount` at the boundary, **naming the field**. Both were validated by
+  a shape regex only, so an address with the right prefix and length but a bad
+  checksum passed and failed much later inside the build, surfacing as a bare
+  `invalid checksum` that named nothing. A caller holding six addresses could
+  not tell which one was wrong. (`signers` was already checksum-validated; this
+  brings the other fields up to it.)
+
+### Added
+
+- `install_policy` and `revoke_policy` return `unsignedXdrLength` and
+  `unsignedXdrSha256`. The envelope runs to several thousand characters and the
+  only route from a tool result onto disk is the caller re-emitting it, so a
+  truncated copy is easy to produce and hard to spot: it fails later as
+  `failed to decode XDR: xdr value invalid`, which reads like a malformed
+  transaction rather than a transport problem. Check both before signing.
+
+  This is a mitigation, not a cure. A multi-kilobyte value cannot reach disk
+  without passing through the caller; making truncation *detectable* turns a
+  silent, fatal failure into a retry.
+
+- The bundled `oz-policy-builder` skill gained operational knowledge that was
+  previously only tribal: a venue that PULLS an asset makes the account
+  authorise **two** contexts (the venue call and the token `transfer` funding
+  it), so cover both or the account refuses everything with `#3014`; pin the
+  transfer arm's **destination**, because bounding only its amount lets the key
+  send funds anywhere; read a pool address from the venue's factory rather than
+  deriving it; and write the unsigned XDR exactly as returned - base64, one
+  line - because a decoded or re-wrapped file fails at the signer.
+
 ## [1.1.0] - 2026-08-29
 
 ### Added

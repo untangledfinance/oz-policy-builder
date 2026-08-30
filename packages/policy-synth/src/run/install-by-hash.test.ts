@@ -182,6 +182,51 @@ describe('install_policy accepts a predicate the caller already holds', () => {
 // Two defects that let a "cap" reach the chain capping nothing, and cost a user
 // turn on the way. Both are boundary behaviour, so both are pinned here.
 
+// A wrong-but-well-formed address passes a shape regex and fails the SDK's
+// StrKey decoder much later, where the tool envelope reports a bare "invalid
+// checksum" naming no field. A caller holding six addresses then cannot tell
+// which one is wrong. Observed for real: an agent reproduced a mainnet SAC
+// address from memory, got that message, and spent minutes bisecting.
+
+describe('address checksums are caught at the boundary, with the field named', () => {
+  // Correct shape (C + 55 base32 chars), wrong checksum.
+  const BAD_CONTRACT = 'CAS3J7GYLGXMR5ZAJ7TI4VNU4RO7XPDS6SWJN4GGBXFNJCUZJ4Z5ZB7K'
+  const BAD_ACCOUNT = 'GB62PGGECD57WZ53WYOKNU7YI6XYJAOPGZAG5BN73GG37JMBMOUKBCCX'
+
+  it('names smartAccount rather than reporting a bare checksum failure', async () => {
+    const res = await runInstallPolicy({
+      ...base,
+      smartAccount: BAD_CONTRACT,
+      fromHash: { transactionHash: HASH, signers: [SOURCE_ACCOUNT] },
+    })
+    expect(res.ok).toBe(false)
+    if (res.ok) return
+    expect(res.error.message).toContain('smartAccount')
+    expect(res.error.message).not.toContain('unhandled throw')
+  })
+
+  it('names sourceAccount rather than reporting a bare checksum failure', async () => {
+    const res = await runInstallPolicy({
+      ...base,
+      sourceAccount: BAD_ACCOUNT,
+      fromHash: { transactionHash: HASH, signers: [SOURCE_ACCOUNT] },
+    })
+    expect(res.ok).toBe(false)
+    if (res.ok) return
+    expect(res.error.message).toContain('sourceAccount')
+    expect(res.error.message).not.toContain('unhandled throw')
+  })
+
+  it('still accepts addresses whose checksums are correct', () => {
+    expect(
+      InstallPolicyInputSchema.safeParse({
+        ...base,
+        fromHash: { transactionHash: HASH, signers: [SOURCE_ACCOUNT] },
+      }).success
+    ).toBe(true)
+  })
+})
+
 describe('install_policy guards', () => {
   it('does not require installNonce, which a caller cannot discover', () => {
     const { installNonce, ...withoutNonce } = base

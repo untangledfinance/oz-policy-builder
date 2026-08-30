@@ -47,6 +47,21 @@ recording, `encodedPredicate` for a predicate you already hold. Retyping a
 nested payload loses field types, and the call then fails on a payload the
 server had already built correctly.
 
+When you must hand-build a `permitTx` (checking a call that has not happened),
+these are the shapes that get mistyped. Every numeric value is a STRING, and
+every list is a real array:
+
+```jsonc
+{ "type": "i128",   "value": "100000000" }   // NOT 100000000
+{ "type": "u64",    "value": "1735689600" }  // NOT a number
+{ "type": "vec",    "value": [ /* ScVals */ ] }  // NOT { "item": [...] }
+{ "subInvocations": [] }                     // NOT ""
+```
+
+The validation error names the failing path but not the expected shape, so read
+it as "this field is the wrong TYPE" and check it against the list above rather
+than guessing a new nesting.
+
 ## The failure modes that look like success
 
 Each of these installs cleanly, verifies cleanly, and enforces less than the
@@ -81,6 +96,41 @@ user thinks. They are the reason to read a result rather than skim it.
   cases only for the dimensions the predicate actually bounds, so a MISSING
   constraint produces no test that could fail. It means the predicate is
   internally consistent, not that it expresses the intent.
+
+- **A call that moves tokens needs a rule for the MOVEMENT too, and that rule is
+  where the bypass hides.** When a venue PULLS the asset, the account is asked to
+  authorise two contexts: the venue call, and a `transfer` from the account to
+  the venue. A Blend supply is `pool.submit` plus `SAC.transfer`; a DEX swap is
+  `router.swap_*` plus `SAC.transfer`. Cover only the venue and nothing matches
+  the transfer, so the account refuses the whole call with `#3014` - identically
+  for the call you wanted and the call you meant to block, which reads like a
+  policy denial and is not one. Install a rule per context and pass every rule
+  id.
+
+  **Pin the transfer arm as tightly as the venue arm.** A transfer rule that
+  bounds only the amount lets the key send the treasury ANYWHERE up to that
+  amount, which is a worse permission than the one being granted. Pin the
+  destination to the venue as well. A withdraw is the other way round - the
+  venue is the sender, so it needs only one rule.
+
+  **READ the destination off the venue; never derive it by reasoning.** The
+  destination is a pool or pair contract, and its address is data the venue
+  holds, not something you can work out from the token addresses. Guessing
+  produces a well-formed `C...` string that simply is not deployed, and the only
+  symptom is `Storage, MissingValue` on a call that looks correct - which is
+  slow and expensive to diagnose. Ask the venue:
+
+  ```
+  # SoroSwap: the factory maps a token pair to its pool contract
+  stellar contract invoke --network testnet --id <FACTORY> --send=no \
+    -- get_pair --token_a <TOKEN_A> --token_b <TOKEN_B>
+  ```
+
+  Testnet SoroSwap factory `CDP3HMUH6SMS3S7NPGNDJLULCOXXEPSHY4JKUKMBNQMATHDHWXRRJTBY`,
+  router `CCJUD55AG6W5HAI5LRVNKAE5WDP5XGZBUDS5WNTIVDU7O264UZZE7BRD`. Other venues
+  expose the same shape under a different name. If the venue cannot tell you the
+  address, say so and stop - do not install a rule pinned to an address you
+  cannot verify is real.
 
 ## Amounts
 
@@ -128,6 +178,16 @@ The unsigned XDR runs to several thousand characters. Hand over the path to a
 file, never the value re-typed through a model - re-emitting truncates it and
 the signer then fails with `XDR Read Error: invalid padding`.
 
+**Write it exactly as returned: base64 text, one line, nothing else.** Wallets
+and `stellar tx sign` read base64, not raw XDR bytes. Do not "helpfully" decode
+it to binary, wrap it in JSON, or line-wrap it - each of those produces a file
+that looks written and fails at the signer as
+`failed to decode XDR: xdr value invalid`, which reads like a malformed
+transaction rather than a malformed FILE. Then check it before handing it over:
+its length must equal `unsignedXdrLength` and its SHA-256 must equal
+`unsignedXdrSha256` from the same response. If either differs, write it again -
+do not ask the user to sign it.
+
 One host-function invocation per Soroban transaction, so a multi-step sequence
 is one signature per step. Do not pre-build step 2: the XDR binds a sequence
 number and a validity window of roughly eight minutes.
@@ -153,6 +213,7 @@ From the OpenZeppelin account layer, not this interpreter:
 | Code | Means |
 | --- | --- |
 | `#3002` | The signer is not authorised on the rule named |
+| `#3014` | A context the call produced matched no rule you named. Usually the token `transfer` a swap performs, when only the venue was covered. Add the missing rule and pass every rule id |
 | `#3221` | An OpenZeppelin `spending_limit` was exceeded |
 
 A failed simulation surfaces the contract error code; act on the code, not on

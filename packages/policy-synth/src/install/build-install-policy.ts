@@ -182,12 +182,40 @@ export interface InstallCallDescribes {
   installNonce: number
 }
 
+/** `unsignedXdr` plus the length and digest that prove it arrived whole. */
+function xdrIntegrity(unsignedXdr: string): {
+  unsignedXdr: string
+  unsignedXdrLength: number
+  unsignedXdrSha256: string
+} {
+  return {
+    unsignedXdr,
+    unsignedXdrLength: unsignedXdr.length,
+    unsignedXdrSha256: createHash('sha256').update(unsignedXdr, 'utf8').digest('hex'),
+  }
+}
+
 /** Output of the install-policy build. The unsigned XDR is the wallet's
  *  input; the captured auth nonce + invocation root make the response
  *  self-describing for callers that want to inspect what they signed. */
 export interface BuildInstallPolicyResult {
   /** Unsigned Soroban transaction envelope, base64 XDR. */
   unsignedXdr: string
+  /** Length and SHA-256 of `unsignedXdr`, so a caller that has to move it can
+   *  prove it arrived whole.
+   *
+   *  This envelope runs to several thousand characters, and the only route
+   *  from a tool result onto disk is the caller re-emitting it. A truncated
+   *  copy is not obviously wrong - it fails later as
+   *  "failed to decode XDR: xdr value invalid", which reads like a malformed
+   *  transaction rather than a transport problem. Observed in practice: one of
+   *  two envelopes written in the same session lost its tail and its base64
+   *  length went from a multiple of four to `len % 4 == 3`.
+   *
+   *  Check both before signing. They are cheap, and they turn a silent,
+   *  fatal truncation into a retry. */
+  unsignedXdrLength: number
+  unsignedXdrSha256: string
   /** Smart account contract address (echo). */
   smartAccount: string
   /** Source account (echo) - the address that must sign. */
@@ -258,7 +286,7 @@ export async function buildInstallPolicyXdr(
   const describes = decodeInstallCallDescribes(finalTx, args.installNonce)
 
   return {
-    unsignedXdr: finalTx.toEnvelope().toXDR().toString('base64'),
+    ...xdrIntegrity(finalTx.toEnvelope().toXDR().toString('base64')),
     smartAccount: args.smartAccount,
     sourceAccount: args.sourceAccount,
     call: { contract: args.smartAccount, fn: 'add_context_rule' },
@@ -302,7 +330,7 @@ export async function buildRevokePolicyXdr(args: {
   )
 
   return {
-    unsignedXdr: finalTx.toEnvelope().toXDR().toString('base64'),
+    ...xdrIntegrity(finalTx.toEnvelope().toXDR().toString('base64')),
     smartAccount: args.smartAccount,
     sourceAccount: args.sourceAccount,
     call: { contract: args.smartAccount, fn: 'remove_context_rule', ruleId: args.ruleId },
@@ -314,6 +342,11 @@ export async function buildRevokePolicyXdr(args: {
 
 export interface BuildRevokePolicyResult {
   unsignedXdr: string
+  /** Same integrity pair as the install result, for the same reason: a revoke
+   *  envelope also has to reach a signer intact, and a truncated copy fails as
+   *  a malformed transaction rather than as a transport error. */
+  unsignedXdrLength: number
+  unsignedXdrSha256: string
   smartAccount: string
   sourceAccount: string
   call: { contract: string; fn: 'remove_context_rule'; ruleId: number }

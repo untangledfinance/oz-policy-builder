@@ -15,6 +15,7 @@
 // imports them here so its tool-shape bindings stay in step; the CLI imports
 // them here so it can build the same args envelope the MCP transport builds.
 
+import { StrKey } from '@stellar/stellar-sdk'
 import { z } from 'zod'
 import { isStellarAddress } from '../synth/address.ts'
 
@@ -550,6 +551,29 @@ export const NETWORK_PASSPHRASES: Record<Network, string> = {
 const STELLAR_CONTRACT_ADDRESS = /^C[2-7A-Z]{55}$/
 const STELLAR_ACCOUNT_ADDRESS = /^G[2-7A-Z]{55}$/
 
+// The regexes above check SHAPE only. A wrong-but-well-formed address - the
+// classic case being one an agent reproduced from memory - passes them and then
+// fails the SDK's StrKey decoder deep inside the build, where the throw is
+// caught by the tool envelope and reported as a bare "invalid checksum" naming
+// no field. A caller holding several addresses then cannot tell which one is
+// wrong. Validating the checksum HERE keeps the field name attached.
+const contractAddress = (field: string) =>
+  z
+    .string()
+    .regex(STELLAR_CONTRACT_ADDRESS, `${field} must be a Stellar contract address (C...)`)
+    .refine(
+      StrKey.isValidContract,
+      `${field} is not a valid contract address: the checksum does not match, so this address does not exist`
+    )
+const accountAddress = (field: string) =>
+  z
+    .string()
+    .regex(STELLAR_ACCOUNT_ADDRESS, `${field} must be a Stellar account address (G...)`)
+    .refine(
+      StrKey.isValidEd25519PublicKey,
+      `${field} is not a valid account address: the checksum does not match, so this address does not exist`
+    )
+
 // ===== declare_policy =====
 //
 // The declarative front-end: the constraint stated outright, with no
@@ -613,14 +637,10 @@ export const InstallPolicyInputSchema = z
      *  result says so rather than reporting "no overlaps found". */
     existingRules: z.array(ObservedRuleSchema).optional(),
     /** The smart account contract address (C...) that will receive the rule. */
-    smartAccount: z
-      .string()
-      .regex(STELLAR_CONTRACT_ADDRESS, 'smartAccount must be a Stellar contract address (C...)'),
+    smartAccount: contractAddress('smartAccount'),
     /** The signer that authorises the install (G... wallet). Used only for
      *  sequence number + auth nonce simulation; never persisted, never signed. */
-    sourceAccount: z
-      .string()
-      .regex(STELLAR_ACCOUNT_ADDRESS, 'sourceAccount must be a Stellar account address (G...)'),
+    sourceAccount: accountAddress('sourceAccount'),
     /** Target network for the install. Selects which interpreter pin and
      *  which RPC URL are valid by default. Defaults to `testnet` so the
      *  pre-mainnet callers keep working: they were always pointing at
@@ -760,16 +780,12 @@ export type InstallPolicyInput = z.infer<typeof InstallPolicyInputSchema>
 export const RevokePolicyInputSchema = z
   .object({
     /** The smart account contract address (C...). */
-    smartAccount: z
-      .string()
-      .regex(STELLAR_CONTRACT_ADDRESS, 'smartAccount must be a Stellar contract address (C...)'),
+    smartAccount: contractAddress('smartAccount'),
     /** The wallet that will sign the removal. The ACCOUNT decides whether it
      *  accepts that signer; this schema does not assert a rule it cannot
      *  verify, since the account's source is not in this repo. Proven on
      *  testnet: the account's deployer can revoke. */
-    sourceAccount: z
-      .string()
-      .regex(STELLAR_ACCOUNT_ADDRESS, 'sourceAccount must be a Stellar account address (G...)'),
+    sourceAccount: accountAddress('sourceAccount'),
     /** Target network for the revoke. Same `testnet`-default as install,
      *  so pre-mainnet callers keep working without an explicit flag. */
     network: NetworkSchema.optional(),
