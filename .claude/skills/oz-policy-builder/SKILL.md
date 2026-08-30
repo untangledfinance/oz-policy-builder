@@ -113,6 +113,14 @@ user thinks. They are the reason to read a result rather than skim it.
   destination to the venue as well. A withdraw is the other way round - the
   venue is the sender, so it needs only one rule.
 
+  **Two rules means two installs, ONE AT A TIME.** Each is its own transaction
+  binding its own sequence number, so building both up front and handing over
+  two files does not work: the first submission consumes the sequence number and
+  the second is refused with `TxBadSeq`, after the user has already signed it.
+  Build the first, let it be signed and submitted, confirm it landed, and only
+  then build the second. See "Installing" below - the pre-build warning applies
+  here, and this is the case where it is easiest to forget.
+
   **READ the destination off the venue; never derive it by reasoning.** The
   destination is a pool or pair contract, and its address is data the venue
   holds, not something you can work out from the token addresses. Guessing
@@ -174,9 +182,18 @@ account calls the interpreter's `install` itself while running
 `add_context_rule`. Do not tell the caller a second call is outstanding. The
 rule id the account assigned is in the transaction result.
 
-The unsigned XDR runs to several thousand characters. Hand over the path to a
-file, never the value re-typed through a model - re-emitting truncates it and
-the signer then fails with `XDR Read Error: invalid padding`.
+**Pass `outPath` and let the server write the envelope.** This is the only
+reliable way to get it onto disk. Give `install_policy` an absolute path; it
+writes the file, reads it back to confirm it persisted intact, and returns
+`writtenTo`. Hand that path to the signer.
+
+Do NOT carry the envelope yourself. It runs to several thousand characters, and
+moving it through your own output - or through a shell argument - corrupts it.
+Observed repeatedly: silent truncation, and files of exactly the right length
+whose bytes no longer parse (`xdr padding contains non-zero bytes`). Both look
+like a malformed TRANSACTION at the signer rather than a malformed FILE, which
+sends you debugging the wrong thing. Hashing what you wrote does not help unless
+you compare it to `unsignedXdrSha256` from the same response.
 
 **Write it exactly as returned: base64 text, one line, nothing else.** Wallets
 and `stellar tx sign` read base64, not raw XDR bytes. Do not "helpfully" decode

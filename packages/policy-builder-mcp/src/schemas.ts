@@ -213,6 +213,10 @@ export const InstallPolicyToolShape = {
     })
     .optional(),
   installNonce: z.number().int().positive().optional(),
+  // Absolute path for the server to write the unsigned envelope to. Without it
+  // the caller has to carry a multi-kilobyte string to disk itself, which
+  // mangles it - a file of the right length whose bytes no longer parse.
+  outPath: z.string().optional(),
   // A ROLLING TOTAL beside the per-call predicate, as an OpenZeppelin
   // spending_limit on the same rule. Both must permit. This is the only way to
   // express "N per day": the interpreter is handed one call and keeps no state.

@@ -18,6 +18,7 @@
 // drive the CLI (which calls into the same core directly without MCP).
 
 import { createHash } from 'node:crypto'
+import { readFile, writeFile } from 'node:fs/promises'
 import { rpc } from '@stellar/stellar-sdk'
 import { PLACEHOLDER_INTERPRETER_ADDRESS } from '../adapters/interpreter/adapter.ts'
 import {
@@ -453,7 +454,23 @@ export async function runInstallPolicy(
             },
             existing: observed,
           })
-    return { ok: true, data: { ...result, authorityScan } }
+    // Write the envelope here when asked, so it never travels through the
+    // caller. `writtenTo` is what the caller should hand to a signer.
+    let writtenTo: string | undefined
+    if (input.outPath !== undefined) {
+      await writeFile(input.outPath, result.unsignedXdr, 'utf8')
+      const readBack = await readFile(input.outPath, 'utf8')
+      if (readBack !== result.unsignedXdr) {
+        throw new Error(
+          `outPath: wrote ${result.unsignedXdr.length} characters to ${input.outPath} but read back ${readBack.length}; the file was not persisted intact`
+        )
+      }
+      writtenTo = input.outPath
+    }
+    return {
+      ok: true,
+      data: { ...result, authorityScan, ...(writtenTo !== undefined ? { writtenTo } : {}) },
+    }
   } catch (e) {
     return toolFailure('install_policy', e)
   }

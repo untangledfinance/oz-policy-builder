@@ -713,6 +713,22 @@ export const InstallPolicyInputSchema = z
      *  knows. Supply it only to re-install over an existing rule, where the
      *  interpreter wants `stored_nonce + 1`. */
     installNonce: z.number().int().positive().optional(),
+    /** Absolute path to write the unsigned envelope to.
+     *
+     *  The envelope runs to several thousand characters, and without this the
+     *  only route onto disk is the CALLER re-emitting it - through a model, a
+     *  shell argument, or both. That transport mangles it: observed in practice
+     *  as a file of the right length whose bytes no longer parse
+     *  ("xdr padding contains non-zero bytes"), and as silent truncation.
+     *  Writing it here takes the caller out of the transport entirely.
+     *
+     *  Opt-in: omitted, nothing is written and behaviour is unchanged. */
+    outPath: z
+      .string()
+      .min(1)
+      .refine((p) => p.startsWith('/'), 'outPath must be an absolute path')
+      .refine((p) => !p.includes('\0'), 'outPath must not contain a null byte')
+      .optional(),
     /** Optional RPC URL override. Defaults to the pinned RPC for the
      *  selected `network` (testnet by default, mainnet when
      *  `network: 'mainnet'`); the override is refused unless
