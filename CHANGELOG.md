@@ -5,7 +5,12 @@ Notable changes to the published packages. The format follows
 packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 `@crediolabs/policy-builder-mcp`) version together.
 
-## [Unreleased]
+## [1.2.0] - 2026-08-30
+
+A minor rather than a patch, because an install that used to succeed can now
+fail. Both changes came out of a red-team pass over the tree: the tool already
+knew the rule it was about to build could not bind, and said so in a field
+nobody reads.
 
 ### Changed
 
