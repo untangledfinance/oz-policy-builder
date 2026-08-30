@@ -1,0 +1,339 @@
+# Contract gate - 2026-08-30T11:13:05Z
+# fmt, clippy -D warnings, tests - per crate (no workspace root)
+# Tree: e2d2a95. policy-interpreter is byte-identical to the 5bae0a8
+# regeneration; test-swap-router is new since it.
+
+=== policy-interpreter ===
+$ cargo fmt --check
+$ cargo clippy --all-targets -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.43s
+$ cargo test
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.26s
+     Running unittests src/lib.rs (target/debug/deps/policy_interpreter-b30ca85425612070)
+
+running 67 tests
+test dsl_tests::cap_predicate_bytes_over_limit_returns_predicate_too_large ... ok
+test dsl_tests::op_eq_literal_i128_denies_when_mismatch ... ok
+test dsl_tests::op_and_fail_fast_returns_first_violation ... ok
+test dsl_tests::fc_undecoded_value_never_matches_by_stringification ... ok
+test dsl_tests::fc_amount_selector_is_refused_at_decode ... ok
+test dsl_tests::fc_wrong_val_type_as_call_arg_index_returns_malformed ... ok
+test dsl_tests::fc_window_spent_selector_is_refused_at_decode ... ok
+test dsl_tests::fc_unknown_selector_symbol_returns_malformed ... ok
+test dsl_tests::cap_in_operand_count_over_limit_returns_in_operand_limit ... ok
+test dsl_tests::fc_wrong_arity_on_compare_returns_malformed ... ok
+test dsl_tests::cap_depth_over_limit_returns_predicate_too_deep ... ok
+test dsl_tests::op_and_all_permit_passes ... ok
+test dsl_tests::cap_depth_at_limit_permits ... ok
+test dsl_tests::fc_in_empty_haystack_at_decode ... ok
+test dsl_tests::fc_unknown_node_symbol_returns_malformed ... ok
+test dsl_tests::op_eq_literal_i128_permits_when_match ... ok
+test dsl_tests::op_lt_is_strict_at_the_bound ... ok
+test dsl_tests::op_in_needle_missing_deny ... ok
+test dsl_tests::op_gt_is_strict_at_the_bound ... ok
+test dsl_tests::op_in_empty_haystack_deny_fails_closed ... ok
+test dsl_tests::op_or_with_no_children_denies_when_evaluated_directly ... ok
+test dsl_tests::op_or_nested_under_and_permits_when_one_branch_holds ... ok
+test dsl_tests::op_in_needle_in_haystack_permits ... ok
+test dsl_tests::op_or_all_deny_reports_the_first_childs_reason ... ok
+test dsl_tests::op_gte_permits_at_the_bound ... ok
+test dsl_tests::op_lte_permits_at_bound ... ok
+test dsl_tests::op_or_first_child_permit_short_circuits ... ok
+test dsl_tests::ordering_op_over_call_contract_is_unsupported ... ok
+test dsl_tests::scaled_leaf_counts_as_a_selector ... ok
+test dsl_tests::scaled_floor_denies_output_below_the_ratio_with_slippage_reason ... ok
+test dsl_tests::op_or_last_child_permit_still_permits ... ok
+test dsl_tests::scaled_floor_permits_exactly_at_the_ratio ... ok
+test dsl_tests::scaled_on_the_left_compares_in_written_order ... ok
+test dsl_tests::scaled_division_overflow_denies_rather_than_wrapping ... ok
+test dsl_tests::scaled_non_numeric_source_is_arg_mismatch ... ok
+test dsl_tests::scaled_truncates_toward_zero ... ok
+test dsl_tests::scaled_versus_scaled_is_unsupported ... ok
+test dsl_tests::scaled_index_out_of_bounds_is_arg_mismatch_not_slippage ... ok
+test dsl_tests::scaled_zero_denominator_denies_at_evaluate ... ok
+test dsl_tests::sel_call_arg_eq_i128_denies_other_value ... ok
+test dsl_tests::sel_call_arg_eq_address_permits_when_match ... ok
+test dsl_tests::scaled_ordering_ops_keep_their_strictness_at_the_bound ... ok
+test dsl_tests::sel_call_arg_len_eq_match_permits ... ok
+test dsl_tests::sel_call_arg_len_eq_mismatch_denies ... ok
+test dsl_tests::sel_call_arg_field_eq_u32_match_permits ... ok
+test dsl_tests::scaled_overflow_denies_rather_than_panicking ... ok
+test dsl_tests::scaled_floor_permits_output_above_the_ratio ... ok
+test dsl_tests::sel_call_arg_out_of_bounds_denies ... ok
+test dsl_tests::sel_call_contract_eq_match_permits ... ok
+test dsl_tests::selector_leaf_gate_refuses_literals_on_both_sides ... ok
+test dsl_tests::selector_leaf_gate_sees_through_a_literal_vec ... ok
+test dsl_tests::validate_scaled_ratios_accepts_a_real_floor ... ok
+test dsl_tests::sel_call_contract_with_non_eq_op_unsupported ... ok
+test dsl_tests::sel_call_fn_eq_match_permits ... ok
+test dsl_tests::sel_call_contract_eq_other_denies_contract_scope ... ok
+test dsl_tests::sel_call_fn_eq_mismatch_denies ... ok
+test dsl_tests::validate_scaled_ratios_refuses_zero_denominator ... ok
+test dsl_tests::validate_scaled_ratios_refuses_an_inverting_ratio ... ok
+test dsl_tests::validate_scaled_ratios_walks_into_or_branches ... ok
+test dsl_tests::wire_call_arg_scaled_wrong_arity_is_malformed ... ok
+test dsl_tests::wire_or_counts_toward_the_depth_cap ... ok
+test dsl_tests::wire_empty_or_is_malformed ... ok
+test dsl_tests::wire_call_arg_scaled_round_trips ... ok
+test dsl_tests::wire_ordering_ops_round_trip ... ok
+test dsl_tests::wire_call_arg_scaled_rejects_u32_in_the_ratio_slot ... ok
+test dsl_tests::wire_or_round_trips ... ok
+test dsl_tests::cap_leaves_over_limit_returns_too_many_leaves ... ok
+
+test result: ok. 67 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/conformance/mod.rs (target/debug/deps/conformance-f665ce06ab36884d)
+
+running 18 tests
+test _generated_v4::case_deny_scaled_floor_one_below_bound ... ok
+test _generated_v4::case_permit_first_or_branch ... ok
+test _generated::case_deny_map_field_flip ... ok
+test _generated_v4::case_deny_no_or_branch_matches ... ok
+test _generated_v4::case_deny_gt_at_the_bound ... ok
+test _generated::case_deny_contract_scope ... ok
+test _generated::case_deny_function_scope ... ok
+test _generated_v4::case_deny_scaled_source_arg_missing ... ok
+test _generated::case_deny_arg_bound ... ok
+test _generated::case_deny_vec_append ... ok
+test _generated::case_deny_map_field_flip_2 ... ok
+test _generated_v4::case_deny_lt_at_the_bound ... ok
+test _generated::case_deny_map_field_flip_3 ... ok
+test _generated_v4::case_permit_scaled_floor_exactly_at_bound ... ok
+test _generated::case_deny_amount_over_cap ... ok
+test _generated::case_permit ... ok
+test _generated_v4::case_permit_scaled_floor_truncates_toward_zero ... ok
+test _generated_v4::case_permit_second_or_branch ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/enforce_state.rs (target/debug/deps/enforce_state-370c8b336fd217b7)
+
+running 6 tests
+test predicate_with_unsourceable_leaf_is_refused_at_install ... ok
+test enforce_requires_the_smart_accounts_authorization ... ok
+test f8_enforce_deny_reaches_chain_as_contract_error_code ... ok
+test f3_allow_path_extends_ttl_of_every_rule_key ... ok
+test rotating_the_master_set_does_not_brick_enforce ... ok
+test denied_enforcement_does_not_extend_ttl ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/install_enforce.rs (target/debug/deps/install_enforce-feda2f12e01c5c99)
+
+running 25 tests
+test install_rejects_a_zero_denominator_ratio_with_214 ... ok
+test install_accepts_a_valid_ratio_through_the_raw_host ... ok
+test install_refuses_a_predicate_with_no_selector_leaf ... ok
+test f2_first_install_requires_smart_account_authorization ... ok
+test f8b_install_version_mismatch_surfaces_as_contract_error_code ... ok
+test install_refuses_a_rule_with_no_signers ... ok
+test f4_install_refuses_more_invocation_windows_than_the_cap ... ok
+test install_refuses_a_rule_with_more_than_max_signers ... ok
+test f5_install_refuses_an_external_signer_in_the_master_set ... ok
+test f9_install_refuses_a_predicate_carrying_a_valid_until_leaf ... ok
+test install_rejects_an_inverting_ratio_with_214 ... ok
+test install_rejects_oversized_predicate ... ok
+test install_rejects_version_mismatch ... ok
+test install_accepts_a_valid_slippage_floor ... ok
+test uninstall_with_no_state_is_denied ... ok
+test install_rejects_predicate_hash_mismatch ... ok
+test install_rejects_nonce_replay ... ok
+test install_rejects_non_installer_reinstall_with_fresh_nonce_plus_one ... ok
+test rotating_the_master_set_to_empty_is_refused ... ok
+test rotating_the_master_set_to_an_external_signer_is_refused ... ok
+test rotate_master_signer_set_gated_by_old_set ... ok
+test install_accepts_nonce_incrementing_to_2 ... ok
+test install_then_grammar_version_returns_self_version ... ok
+test install_accepts_a_rule_with_exactly_max_signers ... ok
+test uninstall_removes_all_state_and_later_install_accepts_nonce_1 ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/oz_abi.rs (target/debug/deps/oz_abi-74183ff2f34f22ef)
+
+running 6 tests
+test oz_signer_variants_decode_into_ours ... ok
+test the_real_oz_signer_bytes_decode_into_ours ... ok
+test the_real_oz_context_rule_bytes_decode_into_ours ... ok
+test oz_context_rule_decodes_into_ours ... ok
+test a_context_rule_missing_a_field_is_rejected - should panic ... ok
+test enforce_accepts_a_rule_built_the_way_the_smart_account_builds_it ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/oz_integration.rs (target/debug/deps/oz_integration-5dfe33f5fe2aa5c9)
+
+running 3 tests
+test the_account_fixture_is_a_soroban_wasm ... ok
+test the_account_rejects_a_policy_whose_predicate_is_malformed ... ok
+test the_account_installs_our_policy_when_it_adds_its_context_rule ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+
+=== test-swap-router ===
+$ cargo fmt --check
+$ cargo clippy --all-targets -- -D warnings
+   Compiling serde_core v1.0.229
+   Compiling serde_json v1.0.151
+   Compiling schemars v0.8.22
+    Checking dyn-clone v1.0.20
+   Compiling thiserror v1.0.69
+   Compiling derive_arbitrary v1.3.2
+   Compiling soroban-env-host v27.0.1
+   Compiling dtor-proc-macro v0.0.6
+   Compiling ctor-proc-macro v0.0.6
+    Checking dtor v0.1.1
+    Checking ctor v0.5.0
+    Checking arbitrary v1.3.2
+    Checking serde v1.0.229
+    Checking hex v0.4.3
+   Compiling crate-git-revision v0.0.6
+   Compiling crate-git-revision v0.0.9
+   Compiling stellar-strkey v0.0.13
+   Compiling stellar-xdr v27.0.0
+   Compiling soroban-env-common v27.0.1
+   Compiling stellar-strkey v0.0.16
+   Compiling soroban-sdk v27.0.6
+    Checking serde_with v3.22.0
+   Compiling soroban-spec v27.0.6
+   Compiling soroban-spec-rust v27.0.6
+   Compiling soroban-env-macros v27.0.1
+   Compiling soroban-sdk-macros v27.0.6
+    Checking soroban-ledger-snapshot v27.0.6
+    Checking test-swap-router v0.1.0 (/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/contracts/test-swap-router)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 54.24s
+$ cargo test
+   Compiling cfg-if v1.0.4
+   Compiling typenum v1.20.1
+   Compiling memchr v2.8.3
+   Compiling itoa v1.0.18
+   Compiling subtle v2.6.1
+   Compiling const-oid v0.9.6
+   Compiling serde_core v1.0.229
+   Compiling zmij v1.0.23
+   Compiling libc v0.2.189
+   Compiling semver v1.0.28
+   Compiling cpufeatures v0.2.17
+   Compiling num-traits v0.2.19
+   Compiling zeroize v1.9.0
+   Compiling zerocopy v0.8.56
+   Compiling dyn-clone v1.0.20
+   Compiling data-encoding v2.11.1
+   Compiling crypto-common v0.1.6
+   Compiling block-buffer v0.10.4
+   Compiling escape-bytes v0.1.1
+   Compiling ethnum v1.5.3
+   Compiling digest v0.10.7
+   Compiling arrayvec v0.7.8
+   Compiling either v1.18.0
+   Compiling base16ct v0.2.0
+   Compiling der v0.7.10
+   Compiling rustc_version v0.4.1
+   Compiling hashbrown v0.17.1
+   Compiling equivalent v1.0.2
+   Compiling sha2 v0.10.9
+   Compiling itertools v0.13.0
+   Compiling base64 v0.22.1
+   Compiling once_cell v1.21.4
+   Compiling allocator-api2 v0.2.21
+   Compiling libm v0.2.16
+   Compiling curve25519-dalek v4.1.3
+   Compiling hashbrown v0.15.5
+   Compiling static_assertions v1.1.0
+   Compiling downcast-rs v1.2.1
+   Compiling num-integer v0.1.47
+   Compiling indexmap-nostd v0.4.0
+   Compiling arbitrary v1.3.2
+   Compiling thiserror v1.0.69
+   Compiling curve25519-dalek v5.0.0
+   Compiling indexmap v2.14.0
+   Compiling spin v0.9.9
+   Compiling generic-array v0.14.9
+   Compiling getrandom v0.2.17
+   Compiling num-bigint v0.4.8
+   Compiling hybrid-array v0.4.14
+   Compiling wasmparser-nostd v0.100.2
+   Compiling wasmi_arena v0.4.1
+   Compiling smallvec v1.15.2
+   Compiling cpufeatures v0.3.1
+   Compiling rand_core v0.6.4
+   Compiling byteorder v1.5.0
+   Compiling keccak v0.1.6
+   Compiling hex-literal v0.4.1
+   Compiling stable_deref_trait v1.2.1
+   Compiling hash32 v0.3.1
+   Compiling dtor v0.1.1
+   Compiling ff v0.13.1
+   Compiling ctor v0.5.0
+   Compiling heapless v0.8.0
+   Compiling group v0.13.0
+   Compiling wasmi_core v0.13.0
+   Compiling wasmparser v0.116.1
+   Compiling crypto-bigint v0.5.5
+   Compiling sec1 v0.7.3
+   Compiling block-buffer v0.12.1
+   Compiling crypto-common v0.2.2
+   Compiling signature v2.2.0
+   Compiling hmac v0.12.1
+   Compiling sha3 v0.10.9
+   Compiling ed25519 v2.2.3
+   Compiling rfc6979 v0.4.0
+   Compiling digest v0.11.3
+   Compiling serde v1.0.229
+   Compiling serde_json v1.0.151
+   Compiling elliptic-curve v0.13.8
+   Compiling hex v0.4.3
+   Compiling ed25519-dalek v2.2.0
+   Compiling ecdsa v0.16.9
+   Compiling primeorder v0.13.6
+   Compiling crate-git-revision v0.0.6
+   Compiling schemars v0.8.22
+   Compiling crate-git-revision v0.0.9
+   Compiling p256 v0.13.2
+   Compiling k256 v0.13.4
+   Compiling stellar-strkey v0.0.13
+   Compiling stellar-xdr v27.0.0
+   Compiling soroban-env-common v27.0.1
+   Compiling stellar-strkey v0.0.16
+   Compiling soroban-sdk v27.0.6
+   Compiling ppv-lite86 v0.2.21
+   Compiling ahash v0.8.12
+   Compiling soroban-wasmi v0.31.1-soroban.20.0.1
+   Compiling serde_with v3.22.0
+   Compiling rand_chacha v0.3.1
+   Compiling rand v0.8.8
+   Compiling ark-std v0.5.0
+   Compiling ark-serialize v0.5.0
+   Compiling ark-ff v0.5.0
+   Compiling ark-poly v0.5.0
+   Compiling ark-ec v0.5.0
+   Compiling ark-bn254 v0.5.0
+   Compiling ark-bls12-381 v0.5.0
+   Compiling soroban-spec v27.0.6
+   Compiling soroban-spec-rust v27.0.6
+   Compiling soroban-env-macros v27.0.1
+   Compiling soroban-sdk-macros v27.0.6
+   Compiling soroban-env-host v27.0.1
+   Compiling soroban-ledger-snapshot v27.0.6
+   Compiling test-swap-router v0.1.0 (/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/contracts/test-swap-router)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 20s
+     Running unittests src/lib.rs (target/debug/deps/test_swap_router-b306ac75b52f6e0e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+=== test-blend-pool ===
+$ cargo fmt --check
+$ cargo clippy --all-targets -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.46s
+$ cargo test
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.06s
+     Running unittests src/lib.rs (target/debug/deps/test_blend_pool-0acb034289fcb273)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -2,20 +2,44 @@
 
 Logs in `evidence/` were produced against this tree.
 
-ALL TEN were regenerated on 2026-08-27 against `5bae0a8`, including both
-live-network legs.
+All ten were regenerated on 2026-08-27 against `5bae0a8`, including both
+live-network legs. **`offchain-gate.log` was regenerated on 2026-08-30 against
+`e2d2a95`**, because the off-chain source changed after `5bae0a8` (two releases,
+the `spending_limit` composition, the handle refactor, `outPath`, and the
+cross-rule install refusal).
+
+**The other nine still describe this tree, and that is checked rather than
+assumed.** They all exercise the Rust interpreter, and it has not changed:
+
+```
+git diff --stat 5bae0a8..HEAD -- contracts/policy-interpreter/   # empty
+```
+
+The only Rust change since is a new `test-swap-router` stub crate, which nothing
+in those logs runs. `contract-gate-recheck-e2d2a95.log` corroborates it: `cargo
+fmt --check`, `clippy -D warnings` and `cargo test` re-run at `e2d2a95` give the
+same **125 tests, 0 failed**. That re-check is narrower than `contract-gate.log`
+- it omits the conformance regeneration, the wasm rebuild and the hash-pin
+parity - so it supplements that log rather than replacing it, and the wasm and
+pin results hold because the source producing them is byte-identical.
+
+The three live-network legs were deliberately NOT re-run. They prove properties
+of the deployed interpreter, which is unchanged, and re-running them spends
+mainnet and testnet funds for a result that cannot differ.
 
 `offchain-gate.log` is generated from a clean `git archive` export rather than a
 working tree, because `biome check .` reads untracked files and the tree
-currently holds 12 untracked scripts that are not in the repo. Reproducing it
-needs one step worth stating: build `@crediolabs/policy-synth` before
-`typecheck`, since the CLI and MCP packages resolve its types through the
-gitignored `dist/`.
+currently holds 21 untracked scripts that are not in the repo. On the clean
+export biome is clean; in a working tree it reports errors that belong to those
+scripts, not to the repo. Reproducing it needs one step worth stating: build
+`@crediolabs/policy-synth` before `typecheck`, since the CLI and MCP packages
+resolve its types through the gitignored `dist/`.
 
 | Log | Command | Result |
 | --- | --- | --- |
 | `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm rebuild, hash pin parity | clean; 125 tests across 6 binaries, 18 of them conformance; rebuilt wasm matches the pin |
-| `offchain-gate.log` | `biome check .`, build, `bun run typecheck`, `bun test` | clean; 127 files checked, 681 pass, 1 skip, 0 fail across 682 tests in 40 files |
+| `offchain-gate.log` | `biome check .`, build, `bun run typecheck`, `bun test` | clean; 138 files checked, 750 pass, 1 skip, 0 fail across 751 tests in 49 files (`e2d2a95`) |
+| `contract-gate-recheck-e2d2a95.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test` per crate | clean; same 125 tests, 0 failed, confirming the interpreter is unchanged since `5bae0a8`. Narrower than `contract-gate.log`: no conformance, wasm rebuild or pin parity |
 | `cargo-audit.log` | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | `bun-audit.log` | `bun audit` | 0 vulnerabilities |
 | `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 191 style warnings, 0 security; all 8 cast warnings are in test files |
