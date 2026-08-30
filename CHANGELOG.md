@@ -5,6 +5,36 @@ Notable changes to the published packages. The format follows
 packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 `@crediolabs/policy-builder-mcp`) version together.
 
+## [Unreleased]
+
+### Changed
+
+- **BREAKING (behaviour): `install_policy` now REFUSES a rule the cross-rule
+  scan proves cannot bind.** An OZ account resolves a call against the rule the
+  caller NAMES and takes the maximum authority over the rules a key sits on, so
+  a key that also sits on a rule with **no policy** is unconstrained: it names
+  that rule and the new predicate never runs. The scan already detected this and
+  the install still returned `ok`, leaving the whole protection to a caller
+  reading `data.authorityScan` - and that caller is usually an agent which
+  checks only whether the call succeeded. Such an install now fails with
+  `INSTALL_BUILD_FAILED`, naming the rule to fix. Set `allowAuthorityOverlap:
+  true` to install anyway.
+
+  Only the **provable** class refuses. A neighbour policed by a contract this
+  tool cannot decode stays advisory: "cannot decode" is not "unsafe", and
+  refusing there would block installs on a guess. A scan that could not complete
+  (`null`) does not refuse either - absence of evidence is not evidence of a
+  bypass.
+
+### Fixed
+
+- `install_policy`'s `outPath` now writes a staging file and renames it into
+  place. A plain write truncates first, so anything watching the directory - a
+  signer picking up envelopes is the obvious case - could read a half-written
+  file and report a malformed *transaction* rather than a malformed *file*. The
+  path now either does not exist or holds the complete envelope. A refused
+  install writes nothing at all.
+
 ## [1.1.1] - 2026-08-30
 
 Diagnostics. Every change here came from watching an agent fail to install a

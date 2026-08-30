@@ -230,6 +230,10 @@ export const InstallPolicyToolShape = {
   // a spend. Default-deny: such a rule installs and verifies cleanly and caps
   // nothing.
   allowUnboundedAmount: z.boolean().optional(),
+  // Opt-in to installing a rule the cross-rule scan PROVES cannot bind: a
+  // shared signer also sits on a neighbouring rule carrying no policy, so it
+  // names that rule and this predicate never runs. Default-deny.
+  allowAuthorityOverlap: z.boolean().optional(),
   interpreterAddress: z.string().optional(),
 } as const
 

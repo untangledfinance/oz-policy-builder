@@ -107,6 +107,17 @@ user thinks. They are the reason to read a result rather than skim it.
   policy denial and is not one. Install a rule per context and pass every rule
   id.
 
+  **A key already on an unpoliced rule cannot be tightened by adding a rule.**
+  The account resolves a call against the rule the caller NAMES and takes the
+  MAXIMUM authority over the rules that key sits on, never the intersection. So
+  if the key also sits on a rule with no policy, it names that one and your
+  predicate never runs. `install_policy` refuses this now - it reads the account,
+  proves the bypass and fails with the rule id to fix. Fix it at the source:
+  remove the shared signer from that rule, or attach a policy to it. Do NOT
+  reach for `allowAuthorityOverlap: true` to make the error go away; it installs
+  a rule that constrains nothing. A neighbour whose policy the tool cannot decode
+  is only reported, not refused - read that advice by hand.
+
   **Pin the transfer arm as tightly as the venue arm.** A transfer rule that
   bounds only the amount lets the key send the treasury ANYWHERE up to that
   amount, which is a worse permission than the one being granted. Pin the

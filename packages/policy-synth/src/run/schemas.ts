@@ -772,6 +772,18 @@ export const InstallPolicyInputSchema = z
      *  unaffected; only the case the synthesizer explicitly flagged is
      *  refused. */
     allowUnboundedAmount: z.boolean().optional(),
+    /** Opt-in to installing a rule that the cross-rule scan proves cannot bind.
+     *
+     *  An OZ account resolves a call against the rule the caller NAMES, so a
+     *  key on several rules gets the MAXIMUM authority over them, never the
+     *  intersection. A key that also sits on a rule with no policy is therefore
+     *  unconstrained: it names that rule and the new predicate never runs.
+     *
+     *  Default-deny, and only for the case the scan can PROVE - an unpoliced
+     *  neighbour sharing signers and selectors. A neighbour carrying a policy
+     *  this tool cannot decode stays advisory, because "cannot decode" is not
+     *  "proved unsafe" and refusing it would block installs on a guess. */
+    allowAuthorityOverlap: z.boolean().optional(),
     /** Opt-in to pointing the rule's interpreter policy at any address
      *  other than the pinned interpreter for the selected network.
      *  Default-deny: a caller that controls the interpreter can permit

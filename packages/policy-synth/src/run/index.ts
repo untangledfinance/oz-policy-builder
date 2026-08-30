@@ -18,7 +18,7 @@
 // drive the CLI (which calls into the same core directly without MCP).
 
 import { createHash } from 'node:crypto'
-import { readFile, writeFile } from 'node:fs/promises'
+import { readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { rpc } from '@stellar/stellar-sdk'
 import { PLACEHOLDER_INTERPRETER_ADDRESS } from '../adapters/interpreter/adapter.ts'
 import {
@@ -235,6 +235,30 @@ export async function runSynthesizePolicy(raw: unknown): Promise<
   } catch (e) {
     return toolFailure('synthesize_policy', e)
   }
+}
+
+/** The refusal message for an install the cross-rule scan proves cannot bind,
+ *  or `undefined` when the install may proceed.
+ *
+ *  Only `bypass` refuses. That class means the neighbouring rule carries NO
+ *  policy, so a shared signer names it and the new predicate never runs - a
+ *  proof, from data already in hand, that the rule constrains nothing.
+ *  `unknown` (a neighbour policed by a contract this tool cannot decode) stays
+ *  advisory: it may well be tighter, and refusing on "cannot decode" would
+ *  block installs on a guess. A `null` scan is NOT CHECKED, which is not
+ *  evidence of a bypass and must not refuse on its own.
+ *
+ *  Separated from the tool body so the decision can be tested without a
+ *  network: the install it guards cannot be built without one. */
+export function authorityBypassRefusal(
+  scan: AuthorityOverlap[] | null,
+  allowAuthorityOverlap: boolean | undefined
+): string | undefined {
+  if (scan === null || allowAuthorityOverlap === true) return undefined
+  const proven = scan.filter((o) => o.severity === 'bypass')
+  if (proven.length === 0) return undefined
+  const ids = proven.map((o) => o.ruleId).join(', ')
+  return `install_policy: ${proven[0]?.advice ?? ''} This rule would install cleanly and constrain nothing, so it is refused (rule ${ids}); remove the shared signer from that rule, attach a policy to it, or set \`allowAuthorityOverlap: true\` to install anyway.`
 }
 
 export async function runInstallPolicy(
@@ -454,17 +478,48 @@ export async function runInstallPolicy(
             },
             existing: observed,
           })
+    // A `bypass` overlap is not a warning, it is a proof that this rule cannot
+    // bind the key it names: the neighbour carries NO policy, so the signer
+    // names that rule instead and the predicate never runs. Returning `ok` with
+    // the finding buried in `authorityScan` puts the whole protection on the
+    // caller reading a field, and the caller here is usually an agent that
+    // checks whether the call succeeded. Refuse, and let the caller opt in.
+    //
+    // Only the provable class. `unknown` - a neighbour whose policy this tool
+    // cannot decode - stays advisory: it may well be tighter, and refusing on
+    // "cannot decode" would block installs on a guess.
+    const bypassRefusal = authorityBypassRefusal(authorityScan, input.allowAuthorityOverlap)
+    if (bypassRefusal !== undefined) {
+      return {
+        ok: false,
+        error: {
+          code: 'INSTALL_BUILD_FAILED',
+          message: bypassRefusal,
+          severity: 'error',
+          retryable: false,
+          remediation: { toolCall: { name: 'install_policy', args: {} } },
+        },
+      }
+    }
     // Write the envelope here when asked, so it never travels through the
     // caller. `writtenTo` is what the caller should hand to a signer.
     let writtenTo: string | undefined
     if (input.outPath !== undefined) {
-      await writeFile(input.outPath, result.unsignedXdr, 'utf8')
-      const readBack = await readFile(input.outPath, 'utf8')
+      // Write beside the target and rename, which is atomic within a
+      // filesystem. A plain write truncates first, so anything watching the
+      // directory - a signer picking up envelopes is the obvious case - can
+      // read a half-written file and report a malformed TRANSACTION. With a
+      // rename the path either does not exist or holds the whole envelope.
+      const staging = `${input.outPath}.partial`
+      await writeFile(staging, result.unsignedXdr, 'utf8')
+      const readBack = await readFile(staging, 'utf8')
       if (readBack !== result.unsignedXdr) {
+        await rm(staging, { force: true })
         throw new Error(
           `outPath: wrote ${result.unsignedXdr.length} characters to ${input.outPath} but read back ${readBack.length}; the file was not persisted intact`
         )
       }
+      await rename(staging, input.outPath)
       writtenTo = input.outPath
     }
     return {
