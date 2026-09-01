@@ -27,12 +27,13 @@ import {
   Contract,
   Keypair,
   rpc,
+  scValToNative,
   TransactionBuilder,
   xdr,
 } from '@stellar/stellar-sdk'
 import { decodePredicate } from '../predicate/decode.ts'
 import type { SignerDraft } from '../types.ts'
-import type { ContextType, ObservedRule } from './authority-overlap.ts'
+import type { ContextType, ObservedRule, SpendCap } from './authority-overlap.ts'
 
 /** `storage.rs` - the third element of the persistent doc key tuple. */
 export const K_DOC = 1
@@ -173,6 +174,49 @@ export function decodeStoredPredicateBytes(v: xdr.ScVal): Buffer | undefined {
   return field.bytes()
 }
 
+/** Persistent-storage key for a rule's spend-cap data:
+ *  `SpendingLimitStorageKey::AccountContext(account, rule_id)`, which the host
+ *  encodes as an enum variant - the symbol first, then the payload. */
+export function spendCapKeyScVal(smartAccount: string, ruleId: number): xdr.ScVal {
+  return xdr.ScVal.scvVec([
+    xdr.ScVal.scvSymbol('AccountContext'),
+    new Address(smartAccount).toScVal(),
+    xdr.ScVal.scvU32(ruleId),
+  ])
+}
+
+/** Ledger key for the OZ spend cap's own persistent entry. The policy exposes
+ *  `get_spending_limit_data`, but that PANICS when nothing is installed, and a
+ *  panic is indistinguishable from an RPC fault at the call site. Reading the
+ *  entry lets "no cap here" come back as an absence instead. */
+export function spendCapLedgerKey(
+  spendingLimit: string,
+  smartAccount: string,
+  ruleId: number
+): xdr.LedgerKey {
+  return xdr.LedgerKey.contractData(
+    new xdr.LedgerKeyContractData({
+      contract: new Address(spendingLimit).toScAddress(),
+      key: spendCapKeyScVal(smartAccount, ruleId),
+      durability: xdr.ContractDataDurability.persistent(),
+    })
+  )
+}
+
+/** `SpendingLimitData`, of which only the two installed parameters matter here.
+ *  The running total and the history are deliberately ignored: they say what
+ *  has been spent so far, which changes every call, while the scan is about
+ *  what the rule PERMITS. */
+export function decodeSpendCap(v: xdr.ScVal): SpendCap | undefined {
+  const periodLedgers = u32Of(mapField(v, 'period_ledgers'))
+  const limit = mapField(v, 'spending_limit')
+  if (periodLedgers === undefined || !limit) return undefined
+  if (limit.switch() !== xdr.ScValType.scvI128()) return undefined
+  const amount = scValToNative(limit)
+  if (typeof amount !== 'bigint') return undefined
+  return { amount: amount.toString(), periodLedgers }
+}
+
 // ---- collection -----
 
 /** The three reads the scan needs. Kept as an interface so the collection
@@ -186,6 +230,14 @@ export interface AccountRuleReader {
    *  Undefined when no document is stored for that rule. */
   getStoredDoc(
     interpreter: string,
+    smartAccount: string,
+    ruleId: number
+  ): Promise<xdr.ScVal | undefined>
+  /** The OZ spend cap's persistent entry for this rule, read as a ledger entry.
+   *  Optional so an existing reader keeps working: without it the scan simply
+   *  reports no cap parameters, which is the same as it behaved before. */
+  getSpendCapData?(
+    spendingLimit: string,
     smartAccount: string,
     ruleId: number
   ): Promise<xdr.ScVal | undefined>
@@ -227,6 +279,10 @@ export async function collectObservedRules(args: {
   reader: AccountRuleReader
   smartAccount: string
   interpreterAddress: string
+  /** The pinned OZ spend cap. Supplying it fills in the PARAMETERS of a
+   *  neighbour's cap; whether one is attached at all is decided from the
+   *  rule's policy addresses and does not depend on this read succeeding. */
+  spendingLimitAddress?: string
   maxRuleIdScan?: number
 }): Promise<CollectedRules> {
   const count = await args.reader.getContextRuleCount(args.smartAccount)
@@ -258,6 +314,16 @@ export async function collectObservedRules(args: {
       } else {
         unreadablePredicateRuleIds.push(rule.id)
       }
+    }
+
+    const spendCapAddress = args.spendingLimitAddress
+    if (spendCapAddress !== undefined && rule.policyAddresses.includes(spendCapAddress)) {
+      const data = await args.reader.getSpendCapData?.(spendCapAddress, args.smartAccount, rule.id)
+      const cap = data ? decodeSpendCap(data) : undefined
+      // An unreadable cap is left absent rather than guessed at. The rule still
+      // counts as capped, because attachment came from its policy addresses,
+      // so failing this read weakens the REPORT and never the refusal.
+      if (cap) rule.spendCap = cap
     }
     rules.push(rule)
   }
@@ -304,6 +370,13 @@ export function accountRuleReaderFromServer(
     },
     async getStoredDoc(interpreter, smartAccount, ruleId) {
       const key = docLedgerKey(interpreter, smartAccount, ruleId)
+      const res = await server.getLedgerEntries(key)
+      const entry = res.entries?.[0]?.val
+      if (!entry || entry.switch() !== xdr.LedgerEntryType.contractData()) return undefined
+      return entry.contractData().val()
+    },
+    async getSpendCapData(spendingLimit, smartAccount, ruleId) {
+      const key = spendCapLedgerKey(spendingLimit, smartAccount, ruleId)
       const res = await server.getLedgerEntries(key)
       const entry = res.entries?.[0]?.val
       if (!entry || entry.switch() !== xdr.LedgerEntryType.contractData()) return undefined

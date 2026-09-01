@@ -240,9 +240,12 @@ export async function runSynthesizePolicy(raw: unknown): Promise<
 /** The refusal message for an install the cross-rule scan proves cannot bind,
  *  or `undefined` when the install may proceed.
  *
- *  Only `bypass` refuses. That class means the neighbouring rule carries NO
- *  policy, so a shared signer names it and the new predicate never runs - a
- *  proof, from data already in hand, that the rule constrains nothing.
+ *  Only `bypass` refuses, and it covers two proofs. Either the neighbouring
+ *  rule carries NO policy, so a shared signer names it and the new predicate
+ *  never runs; or the install carries a rolling total and a fully recognised
+ *  neighbour serves the same calls without one, so the total is not a bound on
+ *  the key. Both are proofs from data already in hand.
+ *
  *  `unknown` (a neighbour policed by a contract this tool cannot decode) stays
  *  advisory: it may well be tighter, and refusing on "cannot decode" would
  *  block installs on a guess. A `null` scan is NOT CHECKED, which is not
@@ -258,7 +261,12 @@ export function authorityBypassRefusal(
   const proven = scan.filter((o) => o.severity === 'bypass')
   if (proven.length === 0) return undefined
   const ids = proven.map((o) => o.ruleId).join(', ')
-  return `install_policy: ${proven[0]?.advice ?? ''} This rule would install cleanly and constrain nothing, so it is refused (rule ${ids}); remove the shared signer from that rule, attach a policy to it, or set \`allowAuthorityOverlap: true\` to install anyway.`
+  // A cap bypass leaves the predicate working, so "constrains nothing" would
+  // overstate it and send the caller looking for the wrong defect.
+  const consequence = proven.every((o) => o.capBypass === true)
+    ? 'This rule would install cleanly and its rolling total would not hold'
+    : 'This rule would install cleanly and constrain nothing'
+  return `install_policy: ${proven[0]?.advice ?? ''} ${consequence}, so it is refused (rule ${ids}); set \`allowAuthorityOverlap: true\` to install anyway.`
 }
 
 export async function runInstallPolicy(
@@ -475,8 +483,24 @@ export async function runInstallPolicy(
               contextType: rule.contextRuleType,
               signers: rule.signers,
               predicate: decodePredicate(encodedPredicate),
+              ...(input.spendingLimit !== undefined
+                ? {
+                    spendCap: {
+                      amount: input.spendingLimit.amount,
+                      periodLedgers: input.spendingLimit.periodLedgers,
+                    },
+                  }
+                : {}),
             },
             existing: observed,
+            // Both addresses are pinned, so a neighbour's policies can be
+            // named rather than merely counted - which is what lets the scan
+            // say a rule has no spend cap instead of that it has something
+            // unreadable.
+            knownPolicies: {
+              interpreter: expectedInterpreter,
+              spendingLimit: PINNED_OZ_POLICY_ADDRESS_BY_NETWORK[network].spending_limit,
+            },
           })
     // A `bypass` overlap is not a warning, it is a proof that this rule cannot
     // bind the key it names: the neighbour carries NO policy, so the signer
@@ -940,6 +964,7 @@ async function resolveExistingRules(
       reader: accountRuleReaderFromServer(server, NETWORK_PASSPHRASES[network]),
       smartAccount: input.smartAccount,
       interpreterAddress,
+      spendingLimitAddress: PINNED_OZ_POLICY_ADDRESS_BY_NETWORK[network].spending_limit,
     })
     if (collected.incomplete) return null
     return collected.rules

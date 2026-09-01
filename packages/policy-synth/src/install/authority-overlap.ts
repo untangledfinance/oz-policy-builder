@@ -50,6 +50,26 @@ export type ContextType =
  *    signers may do without constraint. */
 export type RuleClass = 'interpreter' | 'foreign' | 'unpoliced'
 
+/** An OZ `spending_limit`'s parameters. `amount` is in the token's smallest
+ *  unit; the period is a LEDGER count, not seconds. */
+export interface SpendCap {
+  amount: string
+  periodLedgers: number
+}
+
+/** The policy contracts this tool can recognise by address. Supplying them lets
+ *  the scan reason about a neighbour's SPEND CAP instead of treating any
+ *  non-interpreter policy as opaque.
+ *
+ *  Recognition is what licenses the strong conclusion. "This rule has no spend
+ *  cap" is only sound when every policy on it is accounted for; a single
+ *  unrecognised address could be somebody else's cap, so such a rule stays
+ *  advisory. */
+export interface KnownPolicies {
+  interpreter: string
+  spendingLimit: string
+}
+
 export interface ObservedRule {
   id: number
   contextType: ContextType
@@ -59,6 +79,11 @@ export interface ObservedRule {
   /** Decoded predicate. Present only when the rule is policed by OUR
    *  interpreter and the stored document was readable. */
   predicate?: PredicateNode
+  /** The attached spend cap's parameters, when the reader could read them from
+   *  the policy's own storage. Attachment is decided from `policyAddresses`, so
+   *  this being absent does NOT mean the rule is uncapped - only that the
+   *  numbers are unknown. */
+  spendCap?: SpendCap
 }
 
 export interface IntendedInstall {
@@ -69,10 +94,16 @@ export interface IntendedInstall {
   contextType: ContextType
   signers: SignerDraft[]
   predicate: PredicateNode
+  /** The rolling cap being installed alongside the predicate, when one is.
+   *  Its presence is what makes a neighbour's LACK of a cap a finding: without
+   *  it there is no total for a neighbour to route around. */
+  spendCap?: SpendCap
 }
 
 export type OverlapSeverity =
-  /** A neighbouring rule imposes no constraint at all on the shared calls. */
+  /** A neighbouring rule imposes no constraint at all on the shared calls, or
+   *  imposes no ROLLING TOTAL on calls the new rule caps. Either way the new
+   *  rule's bound does not hold for a signer who can name this one. */
   | 'bypass'
   /** A neighbouring policy exists but what it permits cannot be read. */
   | 'unknown'
@@ -89,6 +120,14 @@ export interface AuthorityOverlap {
   sharedSigners: SignerDraft[]
   /** The selectors both rules can serve. Non-empty by construction. */
   sharedSelectors: Selector[]
+  /** This neighbour's own rolling cap, when it has one this tool could read.
+   *  A spend cap is keyed by (account, RULE id), so two capped rules do not
+   *  share a budget - a signer on both may spend the SUM. */
+  spendCap?: SpendCap
+  /** True when the new rule installs a rolling total and this neighbour serves
+   *  some of the same calls WITHOUT one, which voids the total rather than
+   *  merely widening it. Only set when every policy here was recognised. */
+  capBypass?: true
   advice: string
 }
 
@@ -265,14 +304,45 @@ function classifyRule(rule: ObservedRule): RuleClass {
   return rule.predicate ? 'interpreter' : 'foreign'
 }
 
-function adviceFor(cls: RuleClass, ruleId: number): string {
+/** Is the OZ spend cap attached to this rule? Decided by ADDRESS, so it holds
+ *  whether or not the cap's parameters could be read. */
+function hasSpendCap(rule: ObservedRule, known: KnownPolicies): boolean {
+  return rule.policyAddresses.includes(known.spendingLimit)
+}
+
+/** Every policy on the rule is one this tool knows the semantics of, so
+ *  "there is no spend cap here" is an observation rather than an assumption. */
+function allPoliciesRecognised(rule: ObservedRule, known: KnownPolicies): boolean {
+  return rule.policyAddresses.every(
+    (addr) => addr === known.interpreter || addr === known.spendingLimit
+  )
+}
+
+function capBypassAdvice(ruleId: number): string {
+  return `the rolling total you are installing will not bind: rule ${ruleId} serves some of the same calls for a shared signer and carries NO spend cap, so that signer spends through it without one. A cap is stored per RULE, never per key. Remove the shared signer from rule ${ruleId}, put an equivalent cap on it, or narrow it so it no longer serves these calls.`
+}
+
+/** How a signer's spend adds up across two capped rules. Same period or not,
+ *  the budgets are separate; saying so with the numbers beats saying it in the
+ *  abstract, which is what the caller has to reason about. */
+function combinedCapNote(mine: SpendCap, theirs: SpendCap): string {
+  if (mine.periodLedgers === theirs.periodLedgers) {
+    const total = (BigInt(mine.amount) + BigInt(theirs.amount)).toString()
+    return ` Its cap is ${theirs.amount} over the same ${theirs.periodLedgers}-ledger period as yours, and the two budgets are separate, so a shared signer may spend ${total} in total.`
+  }
+  return ` Its cap is ${theirs.amount} over ${theirs.periodLedgers} ledgers against your ${mine.amount} over ${mine.periodLedgers}; the periods differ, so the two budgets neither share nor cancel and a shared signer draws on both.`
+}
+
+function adviceFor(cls: RuleClass, ruleId: number, theirCap?: SpendCap, myCap?: SpendCap): string {
+  const capNote =
+    theirCap !== undefined && myCap !== undefined ? combinedCapNote(myCap, theirCap) : ''
   switch (cls) {
     case 'unpoliced':
       return `rule ${ruleId} has no policy attached, so a shared signer may make these calls with no constraint at all - the predicate you are installing will never run for them. Remove the shared signer from rule ${ruleId}, or attach a policy to it.`
     case 'foreign':
-      return `rule ${ruleId} is policed by a contract this tool cannot decode, so its authority over these calls is unknown. Review it by hand before relying on the new rule.`
+      return `rule ${ruleId} is policed by a contract this tool cannot decode, so its authority over these calls is unknown. Review it by hand before relying on the new rule.${capNote}`
     case 'interpreter':
-      return `a shared signer may name rule ${ruleId} instead, so the new rule will not restrict these calls. To TIGHTEN, edit rule ${ruleId} itself rather than adding a second rule. To ADD a separate capability, keep both and expect neither to constrain the other.`
+      return `a shared signer may name rule ${ruleId} instead, so the new rule will not restrict these calls. To TIGHTEN, edit rule ${ruleId} itself rather than adding a second rule. To ADD a separate capability, keep both and expect neither to constrain the other.${capNote}`
   }
 }
 
@@ -287,6 +357,9 @@ function adviceFor(cls: RuleClass, ruleId: number): string {
 export function findAuthorityOverlaps(args: {
   intended: IntendedInstall
   existing: ObservedRule[]
+  /** Omit to skip spend-cap reasoning entirely: every neighbour is then judged
+   *  exactly as before, on its policies' presence rather than their meaning. */
+  knownPolicies?: KnownPolicies
 }): AuthorityOverlap[] {
   const intendedSelectors = intersectSelectors(
     selectorsForContextType(args.intended.contextType),
@@ -304,18 +377,46 @@ export function findAuthorityOverlaps(args: {
     if (sharedSelectors.length === 0) continue
 
     const ruleClass = classifyRule(rule)
+    // A rolling total is keyed by (account, rule id), so it constrains THIS
+    // rule and nothing else. If the new rule carries one and a neighbour serves
+    // the same calls without one, the signer names the neighbour and spends
+    // without limit - the total was never a bound on the key. Proven on testnet
+    // in `docs/audit/evidence/oz-two-rule-blend-cap.log`, where an uncapped
+    // sibling rule passed the very amount the capped rule refused.
+    //
+    // Sound only when every policy on the neighbour was recognised. One
+    // unrecognised address could be another spend cap, and refusing an install
+    // over a policy we cannot read would be a guess, not a proof.
+    // An unpoliced neighbour is excluded deliberately. It has no policies, so
+    // it passes the "everything recognised, no cap" test vacuously - but the
+    // finding there is not that a total leaks, it is that NOTHING constrains
+    // those calls. Reporting the narrower cause would send the reader looking
+    // for a spend cap when the rule needs a policy at all.
+    const capBypass =
+      ruleClass !== 'unpoliced' &&
+      args.knownPolicies !== undefined &&
+      args.intended.spendCap !== undefined &&
+      allPoliciesRecognised(rule, args.knownPolicies) &&
+      !hasSpendCap(rule, args.knownPolicies)
+
+    const severity: OverlapSeverity =
+      ruleClass === 'unpoliced' || capBypass
+        ? 'bypass'
+        : ruleClass === 'foreign'
+          ? 'unknown'
+          : 'not-restricting'
+
     out.push({
       ruleId: rule.id,
       ruleClass,
-      severity:
-        ruleClass === 'unpoliced'
-          ? 'bypass'
-          : ruleClass === 'foreign'
-            ? 'unknown'
-            : 'not-restricting',
+      severity,
       sharedSigners: shared,
       sharedSelectors,
-      advice: adviceFor(ruleClass, rule.id),
+      ...(rule.spendCap !== undefined ? { spendCap: rule.spendCap } : {}),
+      ...(capBypass ? { capBypass: true as const } : {}),
+      advice: capBypass
+        ? capBypassAdvice(rule.id)
+        : adviceFor(ruleClass, rule.id, rule.spendCap, args.intended.spendCap),
     })
   }
 

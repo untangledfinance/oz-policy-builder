@@ -381,6 +381,15 @@ export const ObservedRuleSchema = z.object({
   signers: z.array(SignerDraftSchema),
   policyAddresses: z.array(z.string()),
   predicate: PredicateNodeSchema.optional(),
+  /** Parameters of an OZ spend cap already on this rule. Reporting only:
+   *  whether a neighbour is capped is read from `policyAddresses`, so omitting
+   *  this never turns a capped rule into an uncapped one. */
+  spendCap: z
+    .object({
+      amount: z.string().regex(/^[0-9]+$/),
+      periodLedgers: z.number().int().positive().max(U32_MAX),
+    })
+    .optional(),
 })
 
 const ContextRuleDraftSchema = z

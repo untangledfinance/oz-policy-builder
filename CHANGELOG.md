@@ -5,6 +5,34 @@ Notable changes to the published packages. The format follows
 packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 `@crediolabs/policy-builder-mcp`) version together.
 
+## [Unreleased]
+
+### Changed
+
+- **BREAKING (behaviour): the cross-rule scan now understands SPEND CAPS, and
+  `install_policy` refuses an install whose rolling total a neighbouring rule
+  voids.** An OZ `spending_limit` is stored per `(account, rule id)`, so it
+  bounds one RULE and never a key. Installing a capped rule beside a rule that
+  serves the same calls for the same signer WITHOUT a cap therefore buys
+  nothing: the signer names the uncapped rule and spends freely. Verified on
+  testnet in `docs/audit/evidence/oz-two-rule-blend-cap.log`, where an uncapped
+  sibling permitted the exact supply the capped rule refused with `#3221`.
+
+  The refusal is narrow by design. It fires only when a `spendingLimit` is being
+  installed AND every policy on the neighbour is one this tool recognises by
+  address AND none of them is the spend cap. A neighbour carrying any
+  unrecognised policy stays advisory, because that policy could itself be a cap.
+  `allowAuthorityOverlap: true` installs anyway.
+
+- `authorityScan` entries now carry `spendCap` (a neighbour's own cap, read from
+  the policy's own storage) and `capBypass`. Where both rules are capped the
+  advice states the COMBINED figure, because separate budgets add up rather than
+  cancel; where the periods differ it says so instead of adding them.
+
+- `findAuthorityOverlaps` takes an optional `knownPolicies`. Omit it and the
+  scan behaves exactly as before, so an offline caller keeps its old results
+  until it opts in. `AccountRuleReader` gains an optional `getSpendCapData`.
+
 ## [1.2.0] - 2026-08-30
 
 A minor rather than a patch, because an install that used to succeed can now
