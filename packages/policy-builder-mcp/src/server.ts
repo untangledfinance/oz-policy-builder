@@ -51,7 +51,7 @@ export function createMcpServer(): McpServer {
     // Kept in step with package.json by `server-version.test.ts`. It was
     // hardcoded once already and reported 0.0.0 to every client; a literal is
     // fine, a literal nothing checks is not.
-    { name: 'policy-builder-mcp', version: '1.2.0' },
+    { name: 'policy-builder-mcp', version: '1.3.0' },
     { capabilities: { tools: {} } }
   )
   registerTools(server)
