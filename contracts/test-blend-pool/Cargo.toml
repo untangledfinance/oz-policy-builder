@@ -15,9 +15,15 @@ publish = false
 # context the interpreter's `enforce` is asked to evaluate.
 #
 # This stub serves that role on testnet. It is NOT a production pool:
-#   - `from` must be a real G... keypair (we want the auth context to
-#     look exactly like a real Blend submit would).
-#   - the stub does NOT actually move tokens; it just returns Void.
+#   - `from` is whichever address must authorise: a G... keypair, or the
+#     C... smart account when the point is to exercise its `__check_auth`.
+#   - each request pulls its own token, so the auth tree is `submit` with a
+#     nested `transfer` - the two-context shape a real Blend supply has,
+#     confirmed by decoding the mainnet envelopes. An empty request vector
+#     moves nothing, so a caller holding no balance can still generate the
+#     auth context alone.
+#   - it does not read `request_type`, keep per-reserve accounting, issue
+#     bTokens, or let anyone withdraw. Tokens sent here are unrecoverable.
 #   - any test deployment is keyed by a fresh wasm hash, so a build
 #     pointing here is structurally distinct from a mainnet Blend build.
 #

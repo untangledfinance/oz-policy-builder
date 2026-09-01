@@ -1,0 +1,125 @@
+# Can a rolling spend cap bound a Blend-shaped SUPPLY, and can the agent dodge it?
+# Generated 2026-08-31T17:20:00Z by packages/policy-synth/scripts/oz-two-rule-blend-cap.ts
+#
+# `oz-spending-limit-binding.log` settled that an OZ spending_limit binds a
+# DIRECT `transfer` sharing a rule with our interpreter. It could not answer the
+# question people actually ask, because a supply is not a transfer: the built-in
+# refuses any call not named `transfer` (spending_limit.rs:242 at tag v0.7.2), so
+# a spend cap CANNOT sit on the pool's rule at all.
+#
+# What makes a supply cappable is that it is not ONE authorization context.
+# Decoding the two mainnet Blend envelopes in the replay corpus shows the shape:
+#
+#   - CAJJZSGMMM… submit(from, spender, to, requests)
+#       - CDTKPWPLOU… transfer(from, pool, 58929517)
+#
+# `do_check_auth` validates each context against its OWN declared rule and then
+# enforces that rule's policies against that context, so the cap goes on a
+# second, token-scoped rule and meters the nested leg.
+#
+# Three rules, one agent. The declared ids are the only variable:
+#   rule 1  POOL     CallContract(pool)  interpreter (submit shape + per-entry)
+#   rule 2  CAPPED   CallContract(SAC)   interpreter + spending_limit(cap 5000000)
+#   rule 3  CONTROL  CallContract(SAC)   interpreter only, NO cap
+#
+# The per-call ceiling in BOTH predicates is 100000000, far above the over-cap
+# amount. Had a predicate refused first the deny would carry #100 and would say
+# nothing about the cap; this way the rolling total is the only bound that can
+# refuse the over-cap call.
+#
+# Five calls, each load-bearing:
+#   1. CONTROL over-cap supply, ids [1,3] -> must PASS (attributes any later
+#      deny to the cap alone rather than to a broke account or a bad request)
+#   2. CAPPED under-cap, ids [1,2]        -> must PASS (a bound, not a brick)
+#   3. CAPPED over-cap,  ids [1,2]        -> must DENY #3221 SpendingLimitExceeded
+#   4. BYPASS ids [1,1]                   -> must DENY #3002 UnvalidatedContext
+#      The "just name the pool rule for the token leg" dodge.
+#   5. BYPASS ids [1]                     -> must DENY #3014 ContextRuleIdsLengthMismatch
+#      Whether a context can be dropped so the token leg goes unjudged.
+#
+# Note what (1) also demonstrates on purpose: rule 3 is a live bypass of rule 2's
+# cap for the SAME agent. That is R-4 cross-rule authority, in one run. The cap
+# binds the rule, never the key.
+#
+# The spending_limit contract is OZ example code we built from tag v0.7.2 and
+# deployed ourselves. We did not audit it; see docs/audit/README.md.
+
+$ bun packages/policy-synth/scripts/oz-two-rule-blend-cap.ts --network testnet
+INFO   network        testnet
+INFO   interpreter    CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5 (pinned, grammar 4)
+INFO   spending_limit CDH4KOBRUEZI6TTZ72YXR5YUIODB6RH3AF75KX56Z73DELRCA5TWFISP (OZ v0.7.2, third-party)
+INFO   rpc            https://soroban-testnet.stellar.org
+INFO   cap 5000000 / under 1000000 / over 20000000 stroops
+INFO   per-call ceiling in BOTH predicates 100000000 (so only the cap can refuse)
+INFO   admin (rule 0) GC3EYJPADIX3OGTF6Z2MZ4ESRWTK4KHFP2XZUP442XVOMFA67RKN6UZA
+INFO   agent          GDBWWRYVW73US5V3MON64FEELLQBMYUXJEBMPL55VBID7HBU4TI27LRZ
+PASS   agent funded
+PASS   pool wasm      c48000491d222c2843cc065cd3cc719ec4e3a127325b353c94f3af8e1ff199d6
+PASS   pool           CA2ENZ7WXFOEKALIOW7RQHHJZM36MVIT742XOEKSJCX4H57MSTQ7WHAT
+PASS   smart account  CBEE2BL6L46GKJOV5Q5TZECLCR7UXNYAFLEGNFMNW3U4XJ3H2KIKEBM7
+PASS   account funded 81000000 stroops (SAC CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC)
+PASS   rule 1 installed: pool, interpreter (submit shape + per-entry ceiling)
+PASS   rule 2 installed: token, interpreter + spending_limit(cap 5000000)
+PASS   rule 3 installed: token, interpreter only, NO cap (the control)
+PASS   CONTROL: supply of 20000000 permitted via ids [1,3] (no cap) ccbab9835d7f7f07a3644bb67f681bac6f4d8eec07ca88bddf32bcf007efb638
+PASS   CAPPED: supply of 1000000 permitted via ids [1,2] e7092ed99735237889acd842b0acf5d11e7c1f87c4a8a18a32ab22deb4db4389
+RESULT BOUND: over-cap supply DENIED #3221 (SpendingLimitExceeded).
+RESULT The control permitted the identical supply, so the cap is what refused it.
+RESULT REFUSED: ids [1,1] denied #3002 (UnvalidatedContext).
+RESULT Rule 1 is CallContract(pool); the nested context is CallContract(SAC).
+RESULT REFUSED: ids [1] denied #3014 (ContextRuleIdsLengthMismatch).
+RESULT A context cannot be omitted: one declared rule id per context, or nothing runs.
+
+# ---- INDEPENDENT VERIFICATION ----
+# The script reporting its own PASS is not evidence that tokens moved. Horizon
+# confirms both permitted transactions, and the SAC balances reconcile exactly:
+# only the two permitted supplies landed, and the denied one moved nothing.
+#
+#   pool          21000000  = 20000000 (control) + 1000000 (capped, under cap)
+#   smart account 60000000  = 81000000 funded - 21000000 moved
+#
+# The pool balance is also what proves the nested `transfer` leg executed at all,
+# rather than the pool merely accepting a `submit` and moving nothing.
+
+$ curl -s https://horizon-testnet.stellar.org/transactions/ccbab9835d7f…
+successful= True ledger= 4434552
+$ curl -s https://horizon-testnet.stellar.org/transactions/e7092ed99735…
+successful= True ledger= 4434553
+$ SAC balance(pool) / balance(smart account)
+pool            21000000
+smart account   60000000
+
+# ---- MUTATION: does the deny track the CAP VALUE, or merely the presence of a
+# ---- second policy on the rule? Raise the cap to 50000000 so the same
+# ---- 20000000 supply now sits UNDER it. Everything else is identical.
+# ---- The verdict flips, so the cap value is what refused. Script exits 1.
+
+$ sed 's/CAP_STROOPS = 5_000_000n/CAP_STROOPS = 50_000_000n/' && bun … --network testnet
+INFO   agent          GCDKB2ZW745F6GKF3TGOZLPH3HHHTJ4XMI54UDUCGB2TOARVIEAKZRWN
+PASS   agent funded
+PASS   pool wasm      c48000491d222c2843cc065cd3cc719ec4e3a127325b353c94f3af8e1ff199d6
+PASS   pool           CDALAFQTUMVD6HKWSZ4NVTUJOUKTLZDRYU2LUXPC2UUVNURI46KIHB5O
+PASS   smart account  CBUQD6QWRBPN2B3WNK2E2JT2K3WQY5UD2NWXREVNISU7X5RQOJZ2GJLE
+PASS   account funded 81000000 stroops (SAC CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC)
+PASS   rule 1 installed: pool, interpreter (submit shape + per-entry ceiling)
+PASS   rule 2 installed: token, interpreter + spending_limit(cap 50000000)
+PASS   rule 3 installed: token, interpreter only, NO cap (the control)
+PASS   CONTROL: supply of 20000000 permitted via ids [1,3] (no cap) 88cb5722ae0dab370eec5be5718502b51892f98c547031b29c2c3c143d828110
+PASS   CAPPED: supply of 1000000 permitted via ids [1,2] 6199a6cc048f8632ad9596d82dbe99ecb0ddee2c9517d3c75518669350c8acef
+RESULT NOT BOUND: supply of 20000000 SUCCEEDED with a cap of 50000000.
+
+# ---- WHAT THIS DOES NOT SHOW ----
+#
+# The pool is `contracts/test-blend-pool`, a stub whose `submit` pulls each
+# request's token so the auth tree matches a real Blend supply. It is not Blend:
+# no reserve accounting, no bTokens, no withdraw. What is evidenced is the AUTH
+# SHAPE and the policy composition over it, not Blend's economics.
+#
+# Cases 4 and 5 returned DIFFERENT codes (#3002 vs #3014) through the same
+# assertion path, so the matcher discriminates rather than accepting any failure.
+#
+# Not evidenced here: that rule 2 is the agent's only route to that token. Rule 3
+# exists in this very run and is exactly such a route. `install_policy`'s
+# authority scan refuses only an UNPOLICED neighbour, and it does not compare cap
+# amounts, so a second capped rule on the same token is reported as advisory at
+# most. The cap binds the rule, not the key.
