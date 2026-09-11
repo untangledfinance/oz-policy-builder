@@ -91,6 +91,13 @@ pub enum PolicyError {
     /// and one `require_auth` per signer; an unbounded set pushes `enforce`
     /// past the CPU budget and bricks the rule.
     TooManySigners = 217,
+    /// The context rule is `Default`-scoped. That scope matches every
+    /// operation on the account, including its own administration
+    /// (`add_context_rule` and friends), so the predicate would be the only
+    /// fence around the admin surface and a weakened predicate would hand
+    /// the rule's operators the whole account. Predicates install on scoped
+    /// rules only.
+    DefaultContextNotSupported = 218,
 }
 
 impl From<DenyReason> for PolicyError {

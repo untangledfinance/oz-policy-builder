@@ -82,4 +82,11 @@ pub struct PolicyInstallParams {
     pub install_nonce: u32,
     pub predicate: Bytes,
     pub predicate_hash: BytesN<32>,
+    /// The Policy Signer role: the set that authorises re-install, uninstall
+    /// and rotation of this mandate. Appointed explicitly here, under the
+    /// account's own authorisation, so it can differ from the rule's signers
+    /// (the operators). The first install stores it as the master set; a
+    /// re-install must present the same set, and only
+    /// `rotate_master_signer_set` may change it.
+    pub policy_admins: soroban_sdk::Vec<Signer>,
 }

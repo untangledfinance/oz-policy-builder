@@ -49,6 +49,7 @@ fn make_params(
     grammar_version: u32,
     nonce: u32,
     literal_address: &ScVal,
+    admins: &SorobanVec<Signer>,
 ) -> PolicyInstallParams {
     let predicate_bytes = eq_call_contract_bytes(env, literal_address);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate_bytes).into();
@@ -57,18 +58,22 @@ fn make_params(
         install_nonce: nonce,
         predicate: predicate_bytes,
         predicate_hash,
+        policy_admins: admins.clone(),
     }
 }
 
 /// A full OZ-shaped `ContextRule`. The interpreter only reads `id` and
 /// `signers`, but every field has to be present or the map does not decode -
 /// see tests/oz_abi.rs.
-fn make_ctx_rule(env: &Env, signers: SorobanVec<Signer>, id: u32) -> ContextRule {
+fn make_ctx_rule(env: &Env, signers: &SorobanVec<Signer>, id: u32) -> ContextRule {
     ContextRule {
         id,
-        context_type: ContextRuleType::Default,
+        // Scoped, never Default: predicates refuse Default-context rules
+        // (DefaultContextNotSupported), because that scope includes the
+        // account's own administration.
+        context_type: ContextRuleType::CallContract(Address::generate(env)),
         name: soroban_sdk::String::from_str(env, "rule"),
-        signers,
+        signers: signers.clone(),
         signer_ids: SorobanVec::new(env),
         policies: SorobanVec::new(env),
         policy_ids: SorobanVec::new(env),
@@ -91,8 +96,8 @@ fn install_then_grammar_version_returns_self_version() {
     let smart_account = Address::generate(&env);
 
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let ctx_rule = make_ctx_rule(&env, signers, 1);
-    let params = make_params(&env, 4, 1, &dummy_address());
+    let ctx_rule = make_ctx_rule(&env, &signers, 1);
+    let params = make_params(&env, 4, 1, &dummy_address(), &signers);
     client.install(&params, &ctx_rule, &smart_account);
 
     assert_eq!(client.grammar_version(), 4);
@@ -107,12 +112,12 @@ fn install_rejects_version_mismatch() {
     let smart_account = Address::generate(&env);
 
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let ctx_rule = make_ctx_rule(&env, signers, 1);
+    let ctx_rule = make_ctx_rule(&env, &signers, 1);
     // The IMMEDIATELY previous version, which is the skew that actually
     // happens in the field. It matters because a v3 document still DECODES
     // under v4 - v4 only widened the grammar - so the version gate is the
     // only thing refusing it.
-    let params = make_params(&env, 3, 1, &dummy_address());
+    let params = make_params(&env, 3, 1, &dummy_address(), &signers);
     let res = client.try_install(&params, &ctx_rule, &smart_account);
     assert!(
         res.is_err(),
@@ -129,12 +134,12 @@ fn install_rejects_nonce_replay() {
     let smart_account = Address::generate(&env);
 
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let ctx_rule = make_ctx_rule(&env, signers, 1);
+    let ctx_rule = make_ctx_rule(&env, &signers, 1);
 
-    let params1 = make_params(&env, 4, 1, &dummy_address());
+    let params1 = make_params(&env, 4, 1, &dummy_address(), &signers);
     client.install(&params1, &ctx_rule, &smart_account);
 
-    let params2 = make_params(&env, 4, 1, &dummy_address()); // replay
+    let params2 = make_params(&env, 4, 1, &dummy_address(), &signers); // replay
     let res = client.try_install(&params2, &ctx_rule, &smart_account);
     assert!(res.is_err(), "expected install with replayed nonce to deny");
 }
@@ -148,12 +153,12 @@ fn install_accepts_nonce_incrementing_to_2() {
     let smart_account = Address::generate(&env);
 
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let ctx_rule = make_ctx_rule(&env, signers, 1);
+    let ctx_rule = make_ctx_rule(&env, &signers, 1);
 
-    let params1 = make_params(&env, 4, 1, &dummy_address());
+    let params1 = make_params(&env, 4, 1, &dummy_address(), &signers);
     client.install(&params1, &ctx_rule, &smart_account);
 
-    let params2 = make_params(&env, 4, 2, &dummy_address());
+    let params2 = make_params(&env, 4, 2, &dummy_address(), &signers);
     client.install(&params2, &ctx_rule, &smart_account);
 }
 
@@ -168,9 +173,9 @@ fn install_rejects_predicate_hash_mismatch() {
     let smart_account = Address::generate(&env);
 
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let ctx_rule = make_ctx_rule(&env, signers, 1);
+    let ctx_rule = make_ctx_rule(&env, &signers, 1);
 
-    let mut params = make_params(&env, 4, 1, &dummy_address());
+    let mut params = make_params(&env, 4, 1, &dummy_address(), &signers);
     // Tamper with the hash - the bytes claim A, the hash claims B.
     let bad_hash: BytesN<32> = BytesN::from_array(&env, &[1u8; 32]);
     params.predicate_hash = bad_hash;
@@ -192,7 +197,7 @@ fn install_rejects_oversized_predicate() {
     let smart_account = Address::generate(&env);
 
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let ctx_rule = make_ctx_rule(&env, signers, 1);
+    let ctx_rule = make_ctx_rule(&env, &signers, 1);
 
     let mut payload: std::vec::Vec<u8> = std::vec::Vec::new();
     payload.extend_from_slice(&policy_interpreter::dsl::MAX_PREDICATE_BYTES.to_be_bytes());
@@ -204,6 +209,7 @@ fn install_rejects_oversized_predicate() {
         install_nonce: 1,
         predicate: bytes,
         predicate_hash: hash,
+        policy_admins: signers.clone(),
     };
     let res = client.try_install(&params, &ctx_rule, &smart_account);
     assert!(
@@ -228,14 +234,14 @@ fn install_rejects_non_installer_reinstall_with_fresh_nonce_plus_one() {
 
     // First install: master set = [installer]. Closes the attacker path.
     let installer_set = soroban_sdk::vec![&env, Signer::Delegated(installer.clone())];
-    let ctx_rule = make_ctx_rule(&env, installer_set, 1);
-    let params1 = make_params(&env, 4, 1, &dummy_address());
+    let ctx_rule = make_ctx_rule(&env, &installer_set, 1);
+    let params1 = make_params(&env, 4, 1, &dummy_address(), &installer_set);
     client.install(&params1, &ctx_rule, &smart_account);
 
     // Attacker tries to install with their own set + nonce+1.
     let attacker_set = soroban_sdk::vec![&env, Signer::Delegated(attacker.clone())];
-    let attacker_ctx = make_ctx_rule(&env, attacker_set, 1);
-    let params2 = make_params(&env, 4, 2, &dummy_address());
+    let attacker_ctx = make_ctx_rule(&env, &attacker_set, 1);
+    let params2 = make_params(&env, 4, 2, &dummy_address(), &attacker_set);
     let res = client.try_install(&params2, &attacker_ctx, &smart_account);
     assert!(
         res.is_err(),
@@ -252,14 +258,14 @@ fn uninstall_removes_all_state_and_later_install_accepts_nonce_1() {
     let smart_account = Address::generate(&env);
 
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let ctx_rule = make_ctx_rule(&env, signers, 1);
+    let ctx_rule = make_ctx_rule(&env, &signers, 1);
 
-    let params1 = make_params(&env, 4, 1, &dummy_address());
+    let params1 = make_params(&env, 4, 1, &dummy_address(), &signers);
     client.install(&params1, &ctx_rule, &smart_account);
 
     client.uninstall(&ctx_rule, &smart_account);
 
-    let params2 = make_params(&env, 4, 1, &dummy_address());
+    let params2 = make_params(&env, 4, 1, &dummy_address(), &signers);
     client.install(&params2, &ctx_rule, &smart_account);
 }
 
@@ -272,7 +278,7 @@ fn uninstall_with_no_state_is_denied() {
     let smart_account = Address::generate(&env);
 
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let ctx_rule = make_ctx_rule(&env, signers, 1);
+    let ctx_rule = make_ctx_rule(&env, &signers, 1);
 
     let res = client.try_uninstall(&ctx_rule, &smart_account);
     assert!(
@@ -292,8 +298,8 @@ fn rotate_master_signer_set_gated_by_old_set() {
     let signer_b = Address::generate(&env);
 
     let initial_signers = soroban_sdk::vec![&env, Signer::Delegated(signer_a.clone())];
-    let ctx_rule = make_ctx_rule(&env, initial_signers, 1);
-    let params1 = make_params(&env, 4, 1, &dummy_address());
+    let ctx_rule = make_ctx_rule(&env, &initial_signers, 1);
+    let params1 = make_params(&env, 4, 1, &dummy_address(), &initial_signers);
     client.install(&params1, &ctx_rule, &smart_account);
 
     let new_set = soroban_sdk::vec![&env, Signer::Delegated(signer_b.clone())];
@@ -322,8 +328,8 @@ fn install_refuses_a_rule_with_no_signers() {
     let smart_account = Address::generate(&env);
 
     let no_signers: SorobanVec<Signer> = SorobanVec::new(&env);
-    let rule = make_ctx_rule(&env, no_signers, 1);
-    let params = make_params(&env, 4, 1, &dummy_address());
+    let rule = make_ctx_rule(&env, &no_signers, 1);
+    let params = make_params(&env, 4, 1, &dummy_address(), &no_signers);
 
     assert!(
         client.try_install(&params, &rule, &smart_account).is_err(),
@@ -342,9 +348,9 @@ fn rotating_the_master_set_to_empty_is_refused() {
     let smart_account = Address::generate(&env);
 
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let rule = make_ctx_rule(&env, signers, 1);
+    let rule = make_ctx_rule(&env, &signers, 1);
     client.install(
-        &make_params(&env, 4, 1, &dummy_address()),
+        &make_params(&env, 4, 1, &dummy_address(), &signers),
         &rule,
         &smart_account,
     );
@@ -374,9 +380,9 @@ fn rotating_the_master_set_to_an_external_signer_is_refused() {
     let smart_account = Address::generate(&env);
 
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let rule = make_ctx_rule(&env, signers, 1);
+    let rule = make_ctx_rule(&env, &signers, 1);
     client.install(
-        &make_params(&env, 4, 1, &dummy_address()),
+        &make_params(&env, 4, 1, &dummy_address(), &signers),
         &rule,
         &smart_account,
     );
@@ -412,8 +418,8 @@ fn f2_first_install_requires_smart_account_authorization() {
     let smart_account = Address::generate(&env);
 
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let rule = make_ctx_rule(&env, signers, 1);
-    let params = make_params(&env, 4, 1, &dummy_address());
+    let rule = make_ctx_rule(&env, &signers, 1);
+    let params = make_params(&env, 4, 1, &dummy_address(), &signers);
 
     assert!(
         client.try_install(&params, &rule, &smart_account).is_err(),
@@ -467,7 +473,7 @@ fn f4_install_refuses_more_invocation_windows_than_the_cap() {
     let smart_account = Address::generate(&env);
 
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let rule = make_ctx_rule(&env, signers, 1);
+    let rule = make_ctx_rule(&env, &signers, 1);
 
     // Cap is 8 (defined in dsl.rs). Twelve distinct windows blows past it.
     // Hard-coded so the test fails to compile only when the cap is removed.
@@ -480,6 +486,7 @@ fn f4_install_refuses_more_invocation_windows_than_the_cap() {
             install_nonce: 1,
             predicate,
             predicate_hash,
+            policy_admins: signers.clone(),
         },
         &rule,
         &smart_account,
@@ -491,7 +498,7 @@ fn f4_install_refuses_more_invocation_windows_than_the_cap() {
 }
 
 #[test]
-fn f5_install_refuses_an_external_signer_in_the_master_set() {
+fn f5_install_refuses_an_external_signer_in_the_rule_signers() {
     let env = Env::default();
     env.mock_all_auths();
     let contract_id = env.register(PolicyInterpreter, ());
@@ -505,8 +512,8 @@ fn f5_install_refuses_an_external_signer_in_the_master_set() {
         Signer::Delegated(smart_account.clone()),
         Signer::External(verifier, key_data),
     ];
-    let rule = make_ctx_rule(&env, signers, 1);
-    let params = make_params(&env, 4, 1, &dummy_address());
+    let rule = make_ctx_rule(&env, &signers, 1);
+    let params = make_params(&env, 4, 1, &dummy_address(), &signers);
 
     assert!(
         client.try_install(&params, &rule, &smart_account).is_err(),
@@ -549,10 +556,10 @@ fn f8b_install_version_mismatch_surfaces_as_contract_error_code() {
 
     let smart_account = Address::generate(&env);
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let rule = make_ctx_rule(&env, signers, 1);
+    let rule = make_ctx_rule(&env, &signers, 1);
 
     // Wrong grammar version triggers VersionMismatch at install.
-    let params = make_params(&env, 99, 1, &dummy_address());
+    let params = make_params(&env, 99, 1, &dummy_address(), &signers);
 
     // Build the args vector the contract expects:
     //   install(params: PolicyInstallParams, rule: ContextRule, smart_account: Address)
@@ -619,7 +626,7 @@ fn f9_install_refuses_a_predicate_carrying_a_valid_until_leaf() {
     let smart_account = Address::generate(&env);
 
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let rule = make_ctx_rule(&env, signers, 1);
+    let rule = make_ctx_rule(&env, &signers, 1);
 
     let predicate = valid_until_predicate_bytes(&env);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
@@ -629,6 +636,7 @@ fn f9_install_refuses_a_predicate_carrying_a_valid_until_leaf() {
             install_nonce: 1,
             predicate,
             predicate_hash,
+            policy_admins: signers.clone(),
         },
         &rule,
         &smart_account,
@@ -679,7 +687,7 @@ fn install_refuses_a_predicate_with_no_selector_leaf() {
 
     let smart_account = Address::generate(&env);
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let rule = make_ctx_rule(&env, signers, 1);
+    let rule = make_ctx_rule(&env, &signers, 1);
 
     let predicate = literal_only_eq_predicate_bytes(&env);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
@@ -688,6 +696,7 @@ fn install_refuses_a_predicate_with_no_selector_leaf() {
         install_nonce: 1,
         predicate,
         predicate_hash,
+        policy_admins: signers.clone(),
     };
 
     let mut args: SorobanVec<soroban_sdk::Val> = SorobanVec::new(&env);
@@ -719,8 +728,8 @@ fn install_refuses_a_rule_with_more_than_max_signers() {
 
     let smart_account = Address::generate(&env);
     let signers = many_signers(&env, policy_interpreter::types::MAX_SIGNERS + 1);
-    let rule = make_ctx_rule(&env, signers, 1);
-    let params = make_params(&env, 4, 1, &dummy_address());
+    let rule = make_ctx_rule(&env, &signers, 1);
+    let params = make_params(&env, 4, 1, &dummy_address(), &signers);
 
     let mut args: SorobanVec<soroban_sdk::Val> = SorobanVec::new(&env);
     args.push_back(soroban_sdk::IntoVal::into_val(&params, &env));
@@ -751,8 +760,8 @@ fn install_accepts_a_rule_with_exactly_max_signers() {
 
     let smart_account = Address::generate(&env);
     let signers = many_signers(&env, policy_interpreter::types::MAX_SIGNERS);
-    let rule = make_ctx_rule(&env, signers, 1);
-    let params = make_params(&env, 4, 1, &dummy_address());
+    let rule = make_ctx_rule(&env, &signers, 1);
+    let params = make_params(&env, 4, 1, &dummy_address(), &signers);
 
     client.install(&params, &rule, &smart_account);
 }
@@ -785,7 +794,13 @@ fn scaled_floor_bytes(env: &Env, num: i128, den: i128) -> Bytes {
     val.to_xdr(env)
 }
 
-fn make_scaled_params(env: &Env, nonce: u32, num: i128, den: i128) -> PolicyInstallParams {
+fn make_scaled_params(
+    env: &Env,
+    nonce: u32,
+    num: i128,
+    den: i128,
+    admins: &SorobanVec<Signer>,
+) -> PolicyInstallParams {
     let predicate_bytes = scaled_floor_bytes(env, num, den);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate_bytes).into();
     PolicyInstallParams {
@@ -793,6 +808,7 @@ fn make_scaled_params(env: &Env, nonce: u32, num: i128, den: i128) -> PolicyInst
         install_nonce: nonce,
         predicate: predicate_bytes,
         predicate_hash,
+        policy_admins: admins.clone(),
     }
 }
 
@@ -805,9 +821,9 @@ fn install_accepts_a_valid_slippage_floor() {
     let smart_account = Address::generate(&env);
 
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let ctx_rule = make_ctx_rule(&env, signers, 1);
+    let ctx_rule = make_ctx_rule(&env, &signers, 1);
     client.install(
-        &make_scaled_params(&env, 1, 99, 100),
+        &make_scaled_params(&env, 1, 99, 100, &signers),
         &ctx_rule,
         &smart_account,
     );
@@ -825,8 +841,8 @@ fn install_scaled_expecting_code(num: i128, den: i128) -> Result<(), soroban_sdk
     let contract_id = env.register(PolicyInterpreter, ());
     let smart_account = Address::generate(&env);
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let rule = make_ctx_rule(&env, signers, 1);
-    let params = make_scaled_params(&env, 1, num, den);
+    let rule = make_ctx_rule(&env, &signers, 1);
+    let params = make_scaled_params(&env, 1, num, den, &signers);
 
     let mut args: SorobanVec<soroban_sdk::Val> = SorobanVec::new(&env);
     args.push_back(soroban_sdk::IntoVal::into_val(&params, &env));

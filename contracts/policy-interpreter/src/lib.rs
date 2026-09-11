@@ -70,9 +70,25 @@ impl PolicyInterpreter {
             Err(_) => storage::deny(e, storage::PolicyError::MalformedPredicate),
         };
 
-        // (c2) Every rule that reaches storage carries a master set that can
-        //      actually authorise a later install or uninstall.
+        // (c2) The rule's signers (the operators) stay bounded: `enforce`
+        //      re-hashes the set on every permit, so the same size and shape
+        //      limits apply even though they no longer become the master set.
         require_usable_signer_set(e, &context_rule.signers);
+
+        // (c2b) The Policy Signer role: the master set is APPOINTED via
+        //      `policy_admins`, not captured from the rule's signers. It must
+        //      be able to authorise later admin-gated calls, so the same
+        //      usability rules apply to it.
+        require_usable_signer_set(e, &install_params.policy_admins);
+
+        // (c2c) A Default-scoped rule matches every operation on the account,
+        //      including its own administration, so the predicate would be the
+        //      only fence around `add_context_rule` itself - and a weakened
+        //      predicate would hand the operators the admin surface. Scoped
+        //      rules only.
+        if matches!(context_rule.context_type, ContextRuleType::Default) {
+            storage::deny(e, storage::PolicyError::DefaultContextNotSupported);
+        }
 
         // (d4) Minimum constraint. A predicate carrying no selector leaf -
         //      literals on both sides of every compare - is trivially true
@@ -112,7 +128,11 @@ impl PolicyInterpreter {
 
         if let Some(ref stored_master) = prior_master {
             auth::require_master(e, stored_master);
-            if !auth::signer_sets_equal(stored_master, &context_rule.signers) {
+            // A re-install must present the SAME admin set it is authorised
+            // by. Changing who administers the mandate is rotation's job,
+            // with its own two-party authorisation; letting a re-install
+            // smuggle a new set in would bypass that.
+            if !auth::signer_sets_equal(stored_master, &install_params.policy_admins) {
                 storage::deny(e, storage::PolicyError::MasterAuthRequired);
             }
         }
@@ -121,7 +141,7 @@ impl PolicyInterpreter {
         }
 
         let signers_hash = storage::sha256_of_signer_set(e, &context_rule.signers);
-        let master_set = prior_master.unwrap_or_else(|| context_rule.signers.clone());
+        let master_set = prior_master.unwrap_or_else(|| install_params.policy_admins.clone());
 
         e.storage().persistent().set(
             &key.doc_key(),
@@ -235,6 +255,12 @@ impl PolicyInterpreter {
             Some(s) => s,
             None => storage::deny(e, storage::PolicyError::MissingState),
         };
+        // Two-party rotation. The current admins consent to their
+        // replacement, and the account (the Owner's rule) co-signs - without
+        // the account, the admin set would be self-perpetuating and the
+        // Owner would have no on-chain veto over who administers the
+        // mandate.
+        smart_account.require_auth();
         auth::require_master(e, &old_set);
         // The same rules install applies. Rotating into a set that cannot
         //      authorise anything is unrecoverable: rotation and `uninstall`
@@ -245,15 +271,10 @@ impl PolicyInterpreter {
             .persistent()
             .set(&key.master_set_key(), &new_set);
 
-        // `enforce` compares sha256(context_rule.signers) against the hash
-        // stored at install, to catch the rule's signers changing behind the
-        // policy's back. Rotation is the AUTHORISED way to change them, so
-        // the stored hash has to move with it - otherwise every later
-        // enforce denies RULE_SIGNERS_CHANGED and the rule is bricked.
-        let rotated_hash = storage::sha256_of_signer_set(e, &new_set);
-        e.storage()
-            .persistent()
-            .set(&key.signers_hash_key(), &rotated_hash);
+        // `signers_hash` stays untouched: it pins the rule's OPERATORS from
+        // install, and rotation changes who ADMINISTERS the mandate, never
+        // who executes it. Operator changes go through a re-install, which
+        // both the account and the admins authorise.
     }
 }
 

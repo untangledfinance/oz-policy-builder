@@ -48,7 +48,11 @@ fn predicate_on_fn(env: &Env, fn_name: &str) -> Bytes {
     val.to_xdr(env)
 }
 
-fn install_params(env: &Env, fn_name: &str) -> PolicyInstallParams {
+fn install_params(
+    env: &Env,
+    fn_name: &str,
+    admins: &Vec<policy_interpreter::Signer>,
+) -> PolicyInstallParams {
     let predicate = predicate_on_fn(env, fn_name);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
     PolicyInstallParams {
@@ -56,36 +60,92 @@ fn install_params(env: &Env, fn_name: &str) -> PolicyInstallParams {
         install_nonce: 1,
         predicate,
         predicate_hash,
+        policy_admins: admins.clone(),
     }
 }
 
-/// Deploy the interpreter, then deploy OZ's account with the interpreter
-/// registered as a policy. The account calls our `install` as it builds its
-/// default context rule - if the ABI were wrong, this would trap here.
-fn deploy(env: &Env, policy_fn_name: &str) -> (Address, Address, Address) {
+/// `ContextRuleType::CallContract(addr)` in the account's own encoding.
+fn call_contract_context(env: &Env, addr: &Address) -> Val {
+    let mut v: Vec<Val> = Vec::new(env);
+    v.push_back(Symbol::new(env, "CallContract").into_val(env));
+    v.push_back(addr.into_val(env));
+    v.into_val(env)
+}
+
+/// Deploy the interpreter and OZ's account WITHOUT a policy - the production
+/// shape: the constructor's rule 0 is `Default`-scoped and predicates refuse
+/// that scope, so policies arrive later on scoped rules.
+fn deploy(env: &Env) -> (Address, Address, Address) {
     let interpreter = env.register(PolicyInterpreter, ());
 
     let signer_addr = Address::generate(env);
     let signers: Vec<Val> = soroban_sdk::vec![env, delegated(env, &signer_addr)];
 
-    let mut policies: Map<Address, Val> = Map::new(env);
-    policies.set(
-        interpreter.clone(),
-        install_params(env, policy_fn_name).into_val(env),
-    );
-
+    let policies: Map<Address, Val> = Map::new(env);
     let account = env.register(OZ_ACCOUNT_WASM, (signers, policies));
     (account, interpreter, signer_addr)
 }
 
 #[test]
-fn the_account_installs_our_policy_when_it_adds_its_context_rule() {
-    // Deployment succeeding IS the assertion: OZ builds a real ContextRule
-    // and passes it to our `install`. A field-set mismatch traps.
+fn the_account_installs_our_policy_when_it_adds_a_scoped_context_rule() {
+    // The account is in charge: `add_context_rule` builds a real ContextRule
+    // and passes it to our `install`. The call succeeding IS the assertion -
+    // a field-set mismatch or a refused install traps here.
     let env = Env::default();
     env.mock_all_auths();
-    let (account, interpreter, _signer) = deploy(&env, "batch_add_signer");
-    assert_ne!(account, interpreter);
+    let (account, interpreter, signer_addr) = deploy(&env);
+
+    let admins: Vec<policy_interpreter::Signer> = soroban_sdk::vec![
+        &env,
+        policy_interpreter::Signer::Delegated(signer_addr.clone())
+    ];
+    let venue = Address::generate(&env);
+    let rule_signers: Vec<Val> = soroban_sdk::vec![&env, delegated(&env, &signer_addr)];
+    let mut policies: Map<Address, Val> = Map::new(&env);
+    policies.set(
+        interpreter.clone(),
+        install_params(&env, "batch_add_signer", &admins).into_val(&env),
+    );
+
+    let mut args: Vec<Val> = Vec::new(&env);
+    args.push_back(call_contract_context(&env, &venue));
+    args.push_back(soroban_sdk::String::from_str(&env, "agent-rule").into_val(&env));
+    args.push_back(Option::<u32>::None.into_val(&env));
+    args.push_back(rule_signers.into_val(&env));
+    args.push_back(policies.into_val(&env));
+    let _: Val = env.invoke_contract(&account, &Symbol::new(&env, "add_context_rule"), args);
+}
+
+#[test]
+fn the_account_cannot_install_a_policy_on_its_default_rule() {
+    // The constructor's rule 0 is `Default`-scoped: it matches every
+    // operation, including the account's own administration. A predicate
+    // there would be the only fence around `add_context_rule` itself, so
+    // install refuses the scope - and the refusal has to hold when the REAL
+    // account is the caller, not only on the direct path.
+    let env = Env::default();
+    env.mock_all_auths();
+    let interpreter = env.register(PolicyInterpreter, ());
+    let signer_addr = Address::generate(&env);
+    let signers: Vec<Val> = soroban_sdk::vec![&env, delegated(&env, &signer_addr)];
+    let admins: Vec<policy_interpreter::Signer> = soroban_sdk::vec![
+        &env,
+        policy_interpreter::Signer::Delegated(signer_addr.clone())
+    ];
+
+    let mut policies: Map<Address, Val> = Map::new(&env);
+    policies.set(
+        interpreter,
+        install_params(&env, "batch_add_signer", &admins).into_val(&env),
+    );
+
+    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        env.register(OZ_ACCOUNT_WASM, (signers, policies));
+    }));
+    assert!(
+        res.is_err(),
+        "a predicate must not install on the constructor's Default-scoped rule"
+    );
 }
 
 // ---- what is NOT covered here, and why ----
@@ -130,6 +190,10 @@ fn the_account_rejects_a_policy_whose_predicate_is_malformed() {
         install_nonce: 1,
         predicate: garbage,
         predicate_hash,
+        policy_admins: soroban_sdk::vec![
+            &env,
+            policy_interpreter::Signer::Delegated(signer_addr.clone())
+        ],
     };
     let mut policies: Map<Address, Val> = Map::new(&env);
     policies.set(interpreter, bad.into_val(&env));

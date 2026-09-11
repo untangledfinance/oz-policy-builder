@@ -21,13 +21,10 @@ use soroban_sdk::{
 
 /// Build the `ContextRule` map exactly as the smart account sends it, without
 /// referencing our struct. Field names and order come from the pinned source.
-fn oz_context_rule_val(env: &Env, id: u32, signers: &Vec<Signer>) -> Val {
+fn oz_context_rule_val(env: &Env, id: u32, signers: &Vec<Signer>, context_type: Val) -> Val {
     let mut m: Map<Symbol, Val> = Map::new(env);
     m.set(Symbol::new(env, "id"), id.into_val(env));
-    m.set(
-        Symbol::new(env, "context_type"),
-        oz_default_context_type(env),
-    );
+    m.set(Symbol::new(env, "context_type"), context_type);
     m.set(
         Symbol::new(env, "name"),
         SorobanString::from_str(env, "agent-rule").into_val(env),
@@ -60,6 +57,15 @@ fn oz_default_context_type(env: &Env) -> Val {
     v.into_val(env)
 }
 
+/// `ContextRuleType::CallContract(addr)` - a tuple variant encodes as
+/// `[Symbol("CallContract"), addr]`.
+fn oz_call_contract_context_type(env: &Env, addr: &Address) -> Val {
+    let mut v: Vec<Val> = Vec::new(env);
+    v.push_back(Symbol::new(env, "CallContract").into_val(env));
+    v.push_back(addr.into_val(env));
+    v.into_val(env)
+}
+
 /// `Signer::Delegated(addr)` - a tuple variant encodes as
 /// `[Symbol("Delegated"), addr]`.
 fn oz_delegated_signer_val(env: &Env, addr: &Address) -> Val {
@@ -75,7 +81,7 @@ fn oz_context_rule_decodes_into_ours() {
     let signer_addr = Address::generate(&env);
     let signers: Vec<Signer> = soroban_sdk::vec![&env, Signer::Delegated(signer_addr.clone())];
 
-    let raw = oz_context_rule_val(&env, 7, &signers);
+    let raw = oz_context_rule_val(&env, 7, &signers, oz_default_context_type(&env));
     let decoded = ContextRule::try_from_val(&env, &raw)
         .expect("the smart account's ContextRule must decode - a subset traps on chain");
 
@@ -155,8 +161,18 @@ fn enforce_accepts_a_rule_built_the_way_the_smart_account_builds_it() {
     let smart_account = Address::generate(&env);
     let signers: Vec<Signer> = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
 
-    let rule =
-        ContextRule::try_from_val(&env, &oz_context_rule_val(&env, 1, &signers)).expect("decodes");
+    // Scoped to the account itself, since the predicate permits calls whose
+    // target is `smart_account`; predicates refuse Default-context rules.
+    let rule = ContextRule::try_from_val(
+        &env,
+        &oz_context_rule_val(
+            &env,
+            1,
+            &signers,
+            oz_call_contract_context_type(&env, &smart_account),
+        ),
+    )
+    .expect("decodes");
 
     // Install through the decoded rule, then enforce through it.
     let predicate = always_true_predicate(&env, &smart_account);
@@ -167,6 +183,7 @@ fn enforce_accepts_a_rule_built_the_way_the_smart_account_builds_it() {
             install_nonce: 1,
             predicate,
             predicate_hash,
+            policy_admins: signers.clone(),
         },
         &rule,
         &smart_account,

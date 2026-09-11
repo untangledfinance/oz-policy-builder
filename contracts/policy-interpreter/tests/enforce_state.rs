@@ -56,6 +56,7 @@ fn install_policy(
         install_nonce: 1,
         predicate,
         predicate_hash,
+        policy_admins: rule.signers.clone(),
     };
     client.install(&params, rule, smart_account);
 }
@@ -258,6 +259,7 @@ fn predicate_with_unsourceable_leaf_is_refused_at_install() {
             install_nonce: 1,
             predicate,
             predicate_hash,
+            policy_admins: rule.signers.clone(),
         },
         &rule,
         &smart_account,
@@ -274,7 +276,9 @@ fn predicate_with_unsourceable_leaf_is_refused_at_install() {
 fn make_rule(env: &Env, id: u32, signers: soroban_sdk::Vec<Signer>) -> ContextRule {
     ContextRule {
         id,
-        context_type: ContextRuleType::Default,
+        // Scoped, never Default: predicates refuse Default-context rules
+        // (DefaultContextNotSupported).
+        context_type: ContextRuleType::CallContract(Address::generate(env)),
         name: soroban_sdk::String::from_str(env, "rule"),
         signers,
         signer_ids: soroban_sdk::Vec::new(env),
@@ -313,11 +317,12 @@ fn enforce_requires_the_smart_accounts_authorization() {
     );
 }
 
-/// Rotating the master signer set must not brick an installed rule: the
-/// signers_hash the rule was installed with has to stay readable, or every
-/// subsequent enforce would deny with missing state.
+/// Rotating the master (admin) set must not disturb the installed rule:
+/// the operators and their pinned `signers_hash` stay exactly as installed,
+/// so the SAME rule keeps enforcing. Before the role separation, rotation
+/// also moved `signers_hash` - admins and operators were one set.
 #[test]
-fn rotating_the_master_set_does_not_brick_enforce() {
+fn rotating_the_master_set_leaves_the_installed_rule_enforcing() {
     let env = Env::default();
     env.mock_all_auths();
     let contract_id = env.register(PolicyInterpreter, ());
@@ -325,23 +330,23 @@ fn rotating_the_master_set_does_not_brick_enforce() {
     let smart_account = Address::generate(&env);
     let target = Address::generate(&env);
 
-    let old_signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
-    let old_rule = make_rule(&env, 1, old_signers.clone());
-    install_policy(&env, &client, &smart_account, &old_rule);
+    let operators = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
+    let rule = make_rule(&env, 1, operators.clone());
+    install_policy(&env, &client, &smart_account, &rule);
 
-    // Rotate to a new master set, the way the account signals a key change.
-    let new_signer = Address::generate(&env);
-    let new_signers = soroban_sdk::vec![&env, Signer::Delegated(new_signer)];
-    client.rotate_master_signer_set(&smart_account, &1u32, &new_signers);
+    // Rotate the ADMIN set, the way an institution replaces its policy
+    // signer. The operators are untouched.
+    let new_admin = Address::generate(&env);
+    let new_admins = soroban_sdk::vec![&env, Signer::Delegated(new_admin)];
+    client.rotate_master_signer_set(&smart_account, &1u32, &new_admins);
 
-    // The account now presents the rotated rule.
-    let new_rule = make_rule(&env, 1, new_signers.clone());
+    // The account still presents the SAME rule; enforce keeps working.
     let ctx = call_context(&env, &target);
     assert!(
         client
-            .try_enforce(&ctx, &new_signers, &new_rule, &smart_account)
+            .try_enforce(&ctx, &operators, &rule, &smart_account)
             .is_ok(),
-        "enforce must still work after an authorised rotation"
+        "enforce must be untouched by an admin rotation"
     );
 }
 
@@ -405,6 +410,7 @@ fn f8_enforce_deny_reaches_chain_as_contract_error_code() {
             install_nonce: 1,
             predicate,
             predicate_hash,
+            policy_admins: rule.signers.clone(),
         },
         &rule,
         &smart_account,
