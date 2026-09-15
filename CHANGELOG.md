@@ -5,6 +5,19 @@ Notable changes to the published packages. The format follows
 packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 `@crediolabs/policy-builder-mcp`) version together.
 
+## [Unreleased]
+
+### Added
+
+- The grammar-version-5 interpreter (Policy Signer role separation) is
+  deployed on both networks from one reproducible build:
+  mainnet `CCGFE6MRWC3D6IVGBK642HX3ZGKTGCNRZ7V2QGIFH3EL7EHUAMYNOLMP`,
+  testnet `CAZ2PZD5356ZWK2FXQMNHV355JH2TGBR74KLO2U76DMMSHWVC657MD2H`,
+  wasm sha256 `9b2080f10706bf8b55f049854494493d91021fbc758c2f182ef09e3b3eef97de`.
+  The package pins still point at the grammar-4 instances: the synthesiser
+  does not yet encode `policy_admins`, and a v4 document is refused by the
+  v5 version gate in both directions. Pins move when the encoder does.
+
 ## [1.3.0] - 2026-09-01
 
 ### Changed
