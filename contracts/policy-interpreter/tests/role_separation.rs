@@ -57,7 +57,7 @@ fn make_params(env: &Env, nonce: u32, admins: SorobanVec<Signer>) -> PolicyInsta
     let predicate = permitting_predicate_bytes(env);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
     PolicyInstallParams {
-        grammar_version: 4,
+        grammar_version: 5,
         install_nonce: nonce,
         predicate,
         predicate_hash,

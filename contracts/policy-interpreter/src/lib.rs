@@ -15,6 +15,8 @@ pub mod dsl;
 mod dsl_tests;
 pub mod state;
 pub mod storage;
+#[cfg(test)]
+mod test;
 pub mod types;
 mod version;
 

@@ -12,3 +12,11 @@ fn reports_its_grammar_version() {
     let client = PolicyInterpreterClient::new(&e, &id);
     assert_eq!(client.grammar_version(), SELF_VERSION);
 }
+
+/// The literal, not the constant: the Policy Signer separation changed the
+/// install ABI (`policy_admins`), so this build must not answer a version an
+/// older builder would take as an invitation to install.
+#[test]
+fn grammar_version_is_five() {
+    assert_eq!(SELF_VERSION, 5);
+}

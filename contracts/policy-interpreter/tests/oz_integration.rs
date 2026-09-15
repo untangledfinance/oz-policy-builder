@@ -56,7 +56,7 @@ fn install_params(
     let predicate = predicate_on_fn(env, fn_name);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
     PolicyInstallParams {
-        grammar_version: 4,
+        grammar_version: 5,
         install_nonce: 1,
         predicate,
         predicate_hash,
@@ -186,7 +186,7 @@ fn the_account_rejects_a_policy_whose_predicate_is_malformed() {
     let garbage = Bytes::from_array(&env, &[0xde, 0xad, 0xbe, 0xef]);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&garbage).into();
     let bad = PolicyInstallParams {
-        grammar_version: 4,
+        grammar_version: 5,
         install_nonce: 1,
         predicate: garbage,
         predicate_hash,

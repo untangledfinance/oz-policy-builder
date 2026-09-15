@@ -20,4 +20,11 @@
 /// a v3 builder cannot know whether the interpreter it is addressing speaks
 /// the wider grammar, and letting it guess is how a policy silently means
 /// something other than what its author reviewed.
-pub const SELF_VERSION: u32 = 4;
+///
+/// Bumped to 5 when the Policy Signer role was separated from the operators.
+/// The predicate grammar is unchanged, but the install ABI is not:
+/// `PolicyInstallParams` gained `policy_admins`, so a v4 builder's install
+/// document no longer describes what this contract stores. The version gate
+/// refuses the skew before a half-understood install can appoint an admin
+/// set the author never reviewed.
+pub const SELF_VERSION: u32 = 5;
