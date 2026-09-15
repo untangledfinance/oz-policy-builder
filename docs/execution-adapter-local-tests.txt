@@ -1,0 +1,26 @@
+   Compiling execution-adapter v0.0.1 (/home/ubuntu/work/prime-executor-testnet/contracts/execution-adapter)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.78s
+     Running unittests src/lib.rs (/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/contracts/policy-interpreter/target/debug/deps/execution_adapter-b1c2163ad764ce87)
+
+running 4 tests
+test tests::missing_prime_authorization_is_rejected ... ok
+test tests::late_failure_rolls_back_earlier_state ... ok
+test tests::executes_no_funding_call_in_order ... ok
+test tests::stranger_cannot_choose_their_own_prime_to_spend_adapter_balance ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+   Compiling execution-policy v0.0.1 (/home/ubuntu/work/prime-executor-testnet/contracts/execution-policy)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.33s
+     Running unittests src/lib.rs (/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/contracts/policy-interpreter/target/debug/deps/execution_policy-6ad6177af829209d)
+
+running 7 tests
+test tests::denies_appended_unapproved_call ... ok
+test tests::denies_changed_target ... ok
+test tests::denies_empty_and_overlong_batches ... ok
+test tests::denies_unapproved_nested_executor_authorization ... ok
+test tests::denies_unapproved_executor_authorization ... ok
+test tests::permits_valid_no_funding_plan ... ok
+test tests::denies_replacing_installed_policy ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
