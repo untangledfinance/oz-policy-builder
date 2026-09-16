@@ -55,10 +55,11 @@ describe('authorityBypassRefusal', () => {
   })
 
   // `null` is NOT CHECKED - the account read failed or was incomplete. That is
-  // an absence of evidence, not evidence of a bypass, and refusing on it would
-  // make every RPC hiccup a failed install.
-  it('does not refuse on an unchecked scan', () => {
-    expect(authorityBypassRefusal(null, undefined)).toBeUndefined()
+  // a possible hidden execution document; adding direct authority must wait
+  // for a complete read even when legacy advisory overlap was opted into.
+  it('refuses unchecked authority because existing execution rules could be hidden', () => {
+    expect(authorityBypassRefusal(null, undefined)).toContain('incomplete')
+    expect(authorityBypassRefusal(null, true)).toContain('incomplete')
   })
 
   it('reports every proven bypass, not just the first', () => {

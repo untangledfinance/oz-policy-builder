@@ -31,7 +31,9 @@ import {
   TransactionBuilder,
   xdr,
 } from '@stellar/stellar-sdk'
+import { createHash } from 'node:crypto'
 import { decodePredicate } from '../predicate/decode.ts'
+import { decodeExecutionDocument } from './decode-execution-document.ts'
 import type { SignerDraft } from '../types.ts'
 import type { ContextType, ObservedRule, SpendCap } from './authority-overlap.ts'
 
@@ -121,16 +123,16 @@ export function decodeContextType(v: xdr.ScVal | undefined): ContextType {
 export function decodeSigner(v: xdr.ScVal): SignerDraft | undefined {
   const variant = enumVariant(v)
   if (!variant) return undefined
-  if (variant.tag === 'Delegated') {
+  if (variant.tag === 'Delegated' && variant.args.length === 1) {
     const addr = addressOf(variant.args[0])
     return addr ? { kind: 'delegated', address: addr } : undefined
   }
-  if (variant.tag === 'External') {
+  if (variant.tag === 'External' && variant.args.length === 2) {
     const verifier = addressOf(variant.args[0])
     const keyArg = variant.args[1]
     const keyBytes =
       keyArg?.switch() === xdr.ScValType.scvBytes() ? keyArg.bytes().toString('hex') : ''
-    return verifier ? { kind: 'external', verifier, keyBytes } : undefined
+    return verifier && keyArg?.switch() === xdr.ScValType.scvBytes() ? { kind: 'external', verifier, keyBytes } : undefined
   }
   return undefined
 }
@@ -141,29 +143,39 @@ export function decodeContextRule(v: xdr.ScVal): ObservedRule | undefined {
   const id = u32Of(mapField(v, 'id'))
   if (id === undefined) return undefined
 
+  let unreadable = false
+  const seen = new Set<string>()
+  for (const entry of v.map() ?? []) {
+    const key = entry.key()
+    if (key.switch() !== xdr.ScValType.scvSymbol() || seen.has(key.sym().toString())) unreadable = true
+    else seen.add(key.sym().toString())
+  }
   const signersVal = mapField(v, 'signers')
   const signers: SignerDraft[] = []
   if (signersVal?.switch() === xdr.ScValType.scvVec()) {
     for (const s of signersVal.vec() ?? []) {
       const decoded = decodeSigner(s)
       if (decoded) signers.push(decoded)
+      else unreadable = true
     }
-  }
+  } else unreadable = true
 
   const policiesVal = mapField(v, 'policies')
   const policyAddresses: string[] = []
   if (policiesVal?.switch() === xdr.ScValType.scvVec()) {
     for (const p of policiesVal.vec() ?? []) {
       const addr = addressOf(p)
-      if (addr) policyAddresses.push(addr)
+      if (addr && addr.startsWith('C')) policyAddresses.push(addr)
+      else unreadable = true
     }
-  }
+  } else unreadable = true
 
   return {
     id,
     contextType: decodeContextType(mapField(v, 'context_type')),
     signers,
     policyAddresses,
+    ...(unreadable ? { unreadableAuthority: true as const } : {}),
   }
 }
 
@@ -279,6 +291,8 @@ export async function collectObservedRules(args: {
   reader: AccountRuleReader
   smartAccount: string
   interpreterAddress: string
+  /** Additional explicitly verified interpreter pins, e.g. v6 beside legacy v5. */
+  additionalInterpreterAddresses?: string[]
   /** The pinned OZ spend cap. Supplying it fills in the PARAMETERS of a
    *  neighbour's cap; whether one is attached at all is decided from the
    *  rule's policy addresses and does not depend on this read succeeding. */
@@ -287,6 +301,9 @@ export async function collectObservedRules(args: {
 }): Promise<CollectedRules> {
   const count = await args.reader.getContextRuleCount(args.smartAccount)
   const limit = args.maxRuleIdScan ?? MAX_RULE_ID_SCAN
+  if (!Number.isSafeInteger(count) || count < 0 || !Number.isSafeInteger(limit) || limit < 1 || limit > MAX_RULE_ID_SCAN) throw new Error('Invalid account rule count or scan limit')
+  const trustedInterpreters = new Set([args.interpreterAddress, ...(args.additionalInterpreterAddresses ?? [])])
+  let malformedRule = false
   const rules: ObservedRule[] = []
   const unreadablePredicateRuleIds: number[] = []
 
@@ -296,23 +313,26 @@ export async function collectObservedRules(args: {
     id++
     if (!raw) continue
     const rule = decodeContextRule(raw)
-    if (!rule) continue
+    if (!rule || rule.id !== id - 1) { malformedRule = true; continue }
+    if (rule.unreadableAuthority) malformedRule = true
 
-    if (rule.policyAddresses.includes(args.interpreterAddress)) {
-      const doc = await args.reader.getStoredDoc(
-        args.interpreterAddress,
-        args.smartAccount,
-        rule.id
-      )
-      const bytes = doc ? decodeStoredPredicateBytes(doc) : undefined
-      if (bytes) {
+    const attachedInterpreters = rule.policyAddresses.filter(address => trustedInterpreters.has(address))
+    if (attachedInterpreters.length) {
+      try {
+        if (attachedInterpreters.length !== 1) throw new Error('Multiple interpreter documents require review')
+        const doc = await args.reader.getStoredDoc(attachedInterpreters[0]!, args.smartAccount, rule.id)
+        const bytes = doc ? decodeStoredPredicateBytes(doc) : undefined
+        if (!bytes || bytes.length > 32768) throw new Error('Missing or oversized document')
         try {
-          rule.predicate = decodePredicate(bytes)
+          rule.executionDocument = decodeExecutionDocument(bytes)
+          rule.executionDocumentHash = createHash('sha256').update(bytes).digest('hex')
         } catch {
-          unreadablePredicateRuleIds.push(rule.id)
+          // An execution envelope never decodes as a legacy DSL predicate.
+          rule.predicate = decodePredicate(bytes)
         }
-      } else {
+      } catch {
         unreadablePredicateRuleIds.push(rule.id)
+        rule.unreadableAuthority = true
       }
     }
 
@@ -328,7 +348,7 @@ export async function collectObservedRules(args: {
     rules.push(rule)
   }
 
-  return { rules, unreadablePredicateRuleIds, incomplete: rules.length < count }
+  return { rules, unreadablePredicateRuleIds, incomplete: malformedRule || rules.length < count }
 }
 
 /**
@@ -363,7 +383,9 @@ export function accountRuleReaderFromServer(
   return {
     async getContextRuleCount(smartAccount) {
       const val = await simulateCall(smartAccount, 'get_context_rules_count')
-      return u32Of(val) ?? 0
+      const count = u32Of(val)
+      if (count === undefined) throw new Error('Unable to read account context rule count')
+      return count
     },
     async getContextRule(smartAccount, ruleId) {
       return simulateCall(smartAccount, 'get_context_rule', xdr.ScVal.scvU32(ruleId))

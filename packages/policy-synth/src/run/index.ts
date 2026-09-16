@@ -75,6 +75,7 @@ import {
   type VerifyPolicyInput,
   VerifyPolicyInputSchema,
 } from './schemas.ts'
+import { ADDITIONAL_AUTHORITY_INTERPRETERS_BY_NETWORK } from './schemas.ts'
 
 export type {
   DeclarePolicyInput,
@@ -240,7 +241,7 @@ export async function runSynthesizePolicy(raw: unknown): Promise<
 /** The refusal message for an install the cross-rule scan proves cannot bind,
  *  or `undefined` when the install may proceed.
  *
- *  Only `bypass` refuses, and it covers two proofs. Either the neighbouring
+ *  Legacy `bypass` findings refuse by default, and cover two proofs. Either the neighbouring
  *  rule carries NO policy, so a shared signer names it and the new predicate
  *  never runs; or the install carries a rolling total and a fully recognised
  *  neighbour serves the same calls without one, so the total is not a bound on
@@ -248,8 +249,9 @@ export async function runSynthesizePolicy(raw: unknown): Promise<
  *
  *  `unknown` (a neighbour policed by a contract this tool cannot decode) stays
  *  advisory: it may well be tighter, and refusing on "cannot decode" would
- *  block installs on a guess. A `null` scan is NOT CHECKED, which is not
- *  evidence of a bypass and must not refuse on its own.
+ *  block installs on a guess. Execution conflicts and unreadable interpreter
+ *  authority always refuse. An incomplete (`null`) scan also refuses: it may
+ *  hide an existing execution document, so adding direct authority is unsafe.
  *
  *  Separated from the tool body so the decision can be tested without a
  *  network: the install it guards cannot be built without one. */
@@ -257,7 +259,10 @@ export function authorityBypassRefusal(
   scan: AuthorityOverlap[] | null,
   allowAuthorityOverlap: boolean | undefined
 ): string | undefined {
-  if (scan === null || allowAuthorityOverlap === true) return undefined
+  const blocked = scan?.filter((o) => o.mandatoryBlock)
+  if (blocked?.length) return `install_policy: execution authority conflict (rule ${blocked.map((o) => o.ruleId).join(', ')}): ${blocked.map((o) => o.advice).join(' ')}`
+  if (scan === null) return 'install_policy: account authority scan failed or is incomplete; retry after all existing rules can be read before adding direct authority.'
+  if (allowAuthorityOverlap === true) return undefined
   const proven = scan.filter((o) => o.severity === 'bypass')
   if (proven.length === 0) return undefined
   const ids = proven.map((o) => o.ruleId).join(', ')
@@ -964,14 +969,14 @@ async function resolveExistingRules(
       reader: accountRuleReaderFromServer(server, NETWORK_PASSPHRASES[network]),
       smartAccount: input.smartAccount,
       interpreterAddress,
+      additionalInterpreterAddresses: ADDITIONAL_AUTHORITY_INTERPRETERS_BY_NETWORK[network],
       spendingLimitAddress: PINNED_OZ_POLICY_ADDRESS_BY_NETWORK[network].spending_limit,
     })
     if (collected.incomplete) return null
     return collected.rules
   } catch {
-    // The install itself is unaffected: the scan is advisory, so a failed
-    // read must not block a policy the user asked for. It just cannot be
-    // reported as a clean scan.
+    // Preserve failure distinctly: the install gate refuses unchecked scans,
+    // which might otherwise hide existing scoped execution authority.
     return null
   }
 }

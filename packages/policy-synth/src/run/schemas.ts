@@ -18,6 +18,8 @@
 import { StrKey } from '@stellar/stellar-sdk'
 import { z } from 'zod'
 import { isStellarAddress } from '../synth/address.ts'
+import { decodeExecutionDocument } from '../install/decode-execution-document.ts'
+import { encodeExecutionDocument, type ExecutionDocument } from '../install/scoped-execution.ts'
 
 /** Soroban `valid_until` is a u32 ledger sequence; a value above this cannot be
  *  installed on-chain, so reject it at the boundary (fail-closed). */
@@ -381,6 +383,12 @@ export const ObservedRuleSchema = z.object({
   signers: z.array(SignerDraftSchema),
   policyAddresses: z.array(z.string()),
   predicate: PredicateNodeSchema.optional(),
+  executionDocument: z.custom<ExecutionDocument>((value) => {
+    try { decodeExecutionDocument(encodeExecutionDocument(value as ExecutionDocument).encodedPredicate); return true }
+    catch { return false }
+  }, 'invalid execution document').optional(),
+  executionDocumentHash: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+  unreadableAuthority: z.literal(true).optional(),
   /** Parameters of an OZ spend cap already on this rule. Reporting only:
    *  whether a neighbour is capped is read from `policyAddresses`, so omitting
    *  this never turns a capped rule into an uncapped one. */
@@ -488,6 +496,13 @@ export const MAINNET_RPC_URL = 'https://mainnet.sorobanrpc.com'
  *  is identical across both networks (the same binary was uploaded both
  *  places), so `PINNED_INTERPRETER_WASM_SHA256` stays
  *  a single constant - only the addresses and RPCs are network-scoped. */
+/** Additional verified interpreters to inspect when checking direct installs.
+ * Keep legacy deployment defaults unchanged while discovering scoped authority. */
+export const ADDITIONAL_AUTHORITY_INTERPRETERS_BY_NETWORK: Record<Network, string[]> = {
+  testnet: ['CASWUYJKTCLMMOQ5R36EEWX6GHI2TCPCTWWJTCODBQ632ODAWNWMDPZP'],
+  mainnet: [],
+}
+
 export const PINNED_INTERPRETER_ADDRESS_BY_NETWORK: Record<Network, string> = {
   testnet: PINNED_INTERPRETER_TESTNET_ADDRESS,
   mainnet: PINNED_INTERPRETER_MAINNET_ADDRESS,

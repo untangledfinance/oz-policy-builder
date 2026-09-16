@@ -25,6 +25,7 @@
 // Pure: no network. The caller supplies the account's rules.
 
 import type { PredicateLeaf, PredicateNode, SignerDraft } from '../types.ts'
+import type { ExecutionDocument, ExecutionAuthRule } from './scoped-execution.ts'
 
 /** Wildcard component of a `Selector`: the predicate does not pin this half. */
 export const ANY = '*'
@@ -48,7 +49,7 @@ export type ContextType =
  *    semantics are not, so it needs review by hand.
  *  - `unpoliced`: no policy at all. Whatever its context type allows, its
  *    signers may do without constraint. */
-export type RuleClass = 'interpreter' | 'foreign' | 'unpoliced'
+export type RuleClass = 'interpreter' | 'execution' | 'foreign' | 'unpoliced'
 
 /** An OZ `spending_limit`'s parameters. `amount` is in the token's smallest
  *  unit; the period is a LEDGER count, not seconds. */
@@ -79,6 +80,11 @@ export interface ObservedRule {
   /** Decoded predicate. Present only when the rule is policed by OUR
    *  interpreter and the stored document was readable. */
   predicate?: PredicateNode
+  /** Trusted interpreter execution document; never direct predicate authority. */
+  executionDocument?: ExecutionDocument
+  executionDocumentHash?: string
+  /** Malformed/missing authority data must never narrow the rule. */
+  unreadableAuthority?: true
   /** The attached spend cap's parameters, when the reader could read them from
    *  the policy's own storage. Attachment is decided from `policyAddresses`, so
    *  this being absent does NOT mean the rule is uncapped - only that the
@@ -129,6 +135,8 @@ export interface AuthorityOverlap {
    *  merely widening it. Only set when every policy here was recognised. */
   capBypass?: true
   advice: string
+  /** Cannot be bypassed by the legacy advisory-overlap opt-in. */
+  mandatoryBlock?: true
 }
 
 // ---- signer identity ----
@@ -293,13 +301,31 @@ export function selectorsForContextType(ct: ContextType): Selector[] {
 
 /** What a rule can actually authorise: its context type narrowed by its
  *  predicate. An unpoliced or unreadable rule contributes no narrowing. */
+export function executionGovernedSelectors(document: ExecutionDocument): Selector[] {
+  const selectors: Selector[] = [{ contract: document.executor, fn: 'execute' }]
+  const auth = (rules: ExecutionAuthRule[]): void => {
+    for (const rule of rules) {
+      selectors.push(...permittedSelectors(rule.predicate))
+      auth(rule.children)
+    }
+  }
+  for (const plan of document.plans) for (const step of plan.steps) {
+    selectors.push(...permittedSelectors(step.predicate))
+    auth(step.authorizations)
+  }
+  return dedupe(selectors)
+}
+
 export function effectiveSelectors(rule: ObservedRule): Selector[] {
+  if (rule.executionDocument && !rule.unreadableAuthority) return executionGovernedSelectors(rule.executionDocument)
   const fromType = selectorsForContextType(rule.contextType)
-  if (!rule.predicate) return fromType
+  if (!rule.predicate || rule.unreadableAuthority) return fromType
   return intersectSelectors(fromType, permittedSelectors(rule.predicate))
 }
 
 function classifyRule(rule: ObservedRule): RuleClass {
+  if (rule.unreadableAuthority) return 'foreign'
+  if (rule.executionDocument) return 'execution'
   if (rule.policyAddresses.length === 0) return 'unpoliced'
   return rule.predicate ? 'interpreter' : 'foreign'
 }
@@ -337,6 +363,8 @@ function adviceFor(cls: RuleClass, ruleId: number, theirCap?: SpendCap, myCap?: 
   const capNote =
     theirCap !== undefined && myCap !== undefined ? combinedCapNote(myCap, theirCap) : ''
   switch (cls) {
+    case 'execution':
+      return `rule ${ruleId} enforces scoped execution; adding direct authority for its governed calls would bypass its ordered plans and restrictions. Explicitly retire or replace the conflicting authority before installing.`
     case 'unpoliced':
       return `rule ${ruleId} has no policy attached, so a shared signer may make these calls with no constraint at all - the predicate you are installing will never run for them. Remove the shared signer from rule ${ruleId}, or attach a policy to it.`
     case 'foreign':
@@ -370,7 +398,7 @@ export function findAuthorityOverlaps(args: {
   for (const rule of args.existing) {
     if (rule.id === args.intended.ruleId) continue
 
-    const shared = sharedSigners(args.intended.signers, rule.signers)
+    const shared = rule.unreadableAuthority ? args.intended.signers : sharedSigners(args.intended.signers, rule.signers)
     if (shared.length === 0) continue
 
     const sharedSelectors = intersectSelectors(intendedSelectors, effectiveSelectors(rule))
@@ -414,6 +442,7 @@ export function findAuthorityOverlaps(args: {
       sharedSelectors,
       ...(rule.spendCap !== undefined ? { spendCap: rule.spendCap } : {}),
       ...(capBypass ? { capBypass: true as const } : {}),
+      ...((ruleClass === 'execution' || rule.unreadableAuthority) ? { mandatoryBlock: true as const } : {}),
       advice: capBypass
         ? capBypassAdvice(rule.id)
         : adviceFor(ruleClass, rule.id, rule.spendCap, args.intended.spendCap),

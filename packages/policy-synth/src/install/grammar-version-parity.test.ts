@@ -1,19 +1,12 @@
-// Cross-layer parity: the grammar version this package emits MUST equal the
-// `SELF_VERSION` compiled into the interpreter wasm.
-//
-// The contract refuses an install whose `grammar_version` differs from its own
-// (`lib.rs`, error 200 VERSION_MISMATCH). A skew is therefore total: every
-// install fails on chain, and nothing off chain notices, because the builder is
-// perfectly happy emitting a number the contract will not accept.
-//
-// That is not hypothetical. `SELF_VERSION` was bumped to 2 when the oracle
-// leaves left the grammar, and this package kept emitting 1 - so every install
-// it produced would have been rejected. The defect survived a green typecheck
-// and a green test run because nothing compared the two constants. This test is
-// that comparison.
+// Compatibility for side-by-side interpreter generations. The legacy default
+// still targets its pinned v4 deployment. The new v6 contract explicitly
+// accepts v5 DSL documents; execution documents require v6. Comparing every
+// builder version to the newest contract would incorrectly force migration.
 
 import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
+import { Address } from '@stellar/stellar-sdk'
+import { encodeExecutionDocument } from './scoped-execution.ts'
 import { PINNED_INTERPRETER_GRAMMAR_VERSION } from '../run/schemas.ts'
 import { GRAMMAR_VERSION } from '../types.ts'
 import { DEFAULT_GRAMMAR_VERSION } from './build-add-context-rule.ts'
@@ -30,8 +23,45 @@ function selfVersionFromContract(): number {
 }
 
 describe('grammar version parity (TS builder vs Rust contract)', () => {
-  it('GRAMMAR_VERSION equals the contract SELF_VERSION', () => {
-    expect(GRAMMAR_VERSION).toBe(selfVersionFromContract())
+  it('ordinary DSL grammar is explicitly accepted by the current interpreter', () => {
+    const source = readFileSync(
+      `${import.meta.dir}/../../../../contracts/policy-interpreter/src/lib.rs`,
+      'utf8'
+    )
+    // Pin the actual install gate, not a comment or a now-stale equality
+    // between the default legacy builder and the latest contract version.
+    const gate = source.match(
+      /install_params\.grammar_version != SELF_VERSION\s*&&\s*install_params\.grammar_version != (\d+)/
+    )
+    expect(gate).not.toBeNull()
+    expect(Number(gate?.[1])).toBe(5)
+    // The separate, pinned v4 default remains explicit; it is not silently
+    // migrated to v6. Callers targeting v5/v6 must request that wire grammar.
+    expect(GRAMMAR_VERSION).toBe(PINNED_INTERPRETER_GRAMMAR_VERSION)
+  })
+
+  it('execution documents advertise the current contract version, not the legacy default', () => {
+    const encoded = encodeExecutionDocument({
+      executor: Address.contract(Buffer.alloc(32, 1)).toString(),
+      plans: [
+        {
+          steps: [
+            {
+              predicate: {
+                op: 'eq',
+                left: { kind: 'call_fn' },
+                right: { kind: 'literal_symbol', value: 'submit' },
+              },
+              authorizations: [],
+            },
+          ],
+          equalities: [],
+        },
+      ],
+    })
+    expect(encoded.grammarVersion).toBe(selfVersionFromContract())
+    expect(encoded.grammarVersion).toBe(6)
+    expect(encoded.grammarVersion).not.toBe(DEFAULT_GRAMMAR_VERSION)
   })
 
   // `PolicyDocument.grammarVersion` is the version the synthesiser advertises on

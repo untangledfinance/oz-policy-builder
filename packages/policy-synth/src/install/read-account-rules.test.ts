@@ -9,6 +9,8 @@ import { describe, expect, it } from 'bun:test'
 import { Address, xdr } from '@stellar/stellar-sdk'
 import { encodePredicate } from '../predicate/encode.ts'
 import type { PredicateNode } from '../types.ts'
+import { encodeExecutionDocument } from './scoped-execution.ts'
+import { accountRuleReaderFromServer } from './read-account-rules.ts'
 import {
   type AccountRuleReader,
   collectObservedRules,
@@ -221,5 +223,40 @@ describe('collectObservedRules', () => {
     })
     expect(res.unreadablePredicateRuleIds).toEqual([0])
     expect(res.rules[0]?.predicate).toBeUndefined()
+  })
+})
+
+describe('execution discovery and fail closed reads', () => {
+  it('recognises execution at an explicit additional interpreter pin', async () => {
+    const execution = encodeExecutionDocument({executor:TOKEN, plans:[{steps:[{predicate:samplePredicate,authorizations:[]}],equalities:[]}]})
+    const doc = xdr.ScVal.scvMap([new xdr.ScMapEntry({key:sym('predicate_bytes'),val:xdr.ScVal.scvBytes(Buffer.from(execution.encodedPredicate,'base64'))})])
+    const result=await collectObservedRules({reader:readerOver({0:contextRuleScVal({id:0,policies:[OTHER_POLICY]})},{0:doc}),smartAccount:ACCOUNT,interpreterAddress:INTERPRETER,additionalInterpreterAddresses:[OTHER_POLICY]})
+    expect(result.rules[0]?.executionDocument?.executor).toBe(TOKEN)
+    expect(result.rules[0]?.executionDocumentHash).toBe(execution.predicateHash)
+    expect(result.rules[0]?.predicate).toBeUndefined()
+    expect(result.unreadablePredicateRuleIds).toEqual([])
+    const untrusted=await collectObservedRules({reader:readerOver({0:contextRuleScVal({id:0,policies:[OTHER_POLICY]})},{0:doc}),smartAccount:ACCOUNT,interpreterAddress:INTERPRETER})
+    expect(untrusted.rules[0]?.executionDocument).toBeUndefined()
+  })
+  it('marks unsupported signer and mismatching rule ids incomplete', async () => {
+    const raw=contextRuleScVal({id:0})
+    raw.map()!.find(e=>e.key().sym().toString()==='signers')!.val(xdr.ScVal.scvVec([xdr.ScVal.scvVec([sym('FutureSigner')])]))
+    const malformed=await collectObservedRules({reader:readerOver({0:raw}),smartAccount:ACCOUNT,interpreterAddress:INTERPRETER})
+    expect(malformed.incomplete).toBe(true)
+    expect(malformed.rules[0]?.unreadableAuthority).toBe(true)
+    const wrongId=await collectObservedRules({reader:readerOver({0:contextRuleScVal({id:5})}),smartAccount:ACCOUNT,interpreterAddress:INTERPRETER,maxRuleIdScan:2})
+    expect(wrongId.incomplete).toBe(true)
+  })
+  it('never converts a failed RPC count into an empty account', async () => {
+    const reader=accountRuleReaderFromServer({simulateTransaction:async()=>({error:'network failure'})} as never,'Test SDF Network ; September 2015')
+    await expect(reader.getContextRuleCount(ACCOUNT)).rejects.toThrow('count')
+  })
+  it('rejects nonintegral or negative counts and leaves read failures opaque', async () => {
+    for(const count of [-1,NaN,1.5]) await expect(collectObservedRules({reader:readerOver({}, {}, count),smartAccount:ACCOUNT,interpreterAddress:INTERPRETER})).rejects.toThrow()
+    const reader=readerOver({0:contextRuleScVal({id:0,policies:[INTERPRETER]})})
+    reader.getStoredDoc=async()=>{throw new Error('RPC timeout')}
+    const result=await collectObservedRules({reader,smartAccount:ACCOUNT,interpreterAddress:INTERPRETER})
+    expect(result.rules[0]?.unreadableAuthority).toBe(true)
+    expect(result.unreadablePredicateRuleIds).toEqual([0])
   })
 })
