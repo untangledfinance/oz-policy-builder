@@ -208,10 +208,14 @@ fn denies_standalone_nested_context_without_execute() {
     );
 }
 
-// M1 GREEN: a nested context is authorized when the `execute` arm armed it in
-// the same tx, and the record is single-use.
+// M1 GREEN, real multi-rule topology: the OZ account requires each context's
+// rule to be scoped to that context's contract, so the `execute` context is
+// enforced under an executor-scoped rule (id 1) while the nested pull is
+// enforced under a DIFFERENT token-scoped rule (id 2) - both sharing one
+// mandate config (same executor). Arming keyed by the executor must bridge the
+// two rules; a per-rule-id key would never match and would deny the batch.
 #[test]
-fn permits_nested_context_after_execute_and_is_single_use() {
+fn permits_nested_context_across_separately_scoped_rules_single_use() {
     let e = Env::default();
     e.mock_all_auths();
     let p = Address::generate(&e);
@@ -226,18 +230,23 @@ fn permits_nested_context_after_execute_and_is_single_use() {
     };
     let id = e.register(ExecutionPolicy, ());
     let client = ExecutionPolicyClient::new(&e, &id);
-    let rule = ContextRule {
-        id: 1,
-        context_type: ContextRuleType::CallContract(executor.clone()),
-        name: soroban_sdk::String::from_str(&e, "exec"),
-        signers: vec![&e, Signer::Delegated(agent.clone())],
+    let signers = vec![&e, Signer::Delegated(agent.clone())];
+    let mk_rule = |rid: u32, scope: &Address| ContextRule {
+        id: rid,
+        context_type: ContextRuleType::CallContract(scope.clone()),
+        name: soroban_sdk::String::from_str(&e, "m"),
+        signers: signers.clone(),
         signer_ids: vec![&e, 0u32],
         policies: vec![&e, id.clone()],
         policy_ids: vec![&e, 0u32],
         valid_until: None,
     };
-    client.install(&cfg, &rule, &p);
-    let signers = vec![&e, Signer::Delegated(agent)];
+    // Rule 1 authorizes the execute context (scoped to the executor); rule 2
+    // authorizes the nested token context (scoped to the token). Same config.
+    let exec_rule = mk_rule(1, &executor);
+    let token_rule = mk_rule(2, &token);
+    client.install(&cfg, &exec_rule, &p);
+    client.install(&cfg, &token_rule, &p);
 
     // The approved batch: one transfer_from the predicate permits.
     let call = Call {
@@ -252,20 +261,22 @@ fn permits_nested_context_after_execute_and_is_single_use() {
         fn_name: Symbol::new(&e, "execute"),
         args: vec![&e, p.clone().into_val(&e), calls.clone().into_val(&e)],
     });
-    // Enforce the execute root first: validates + arms.
-    client.enforce(&exec_ctx, &signers, &rule, &p);
+    // Arm under the executor-scoped rule (id 1).
+    client.enforce(&exec_ctx, &signers, &exec_rule, &p);
 
-    // The nested context the batch produces: now authorized (consumes record).
+    // Consume under the DIFFERENT token-scoped rule (id 2) - the cross-rule case.
     let nested = Context::Contract(ContractContext {
         contract: token.clone(),
         fn_name: Symbol::new(&e, "transfer_from"),
         args: Vec::new(&e),
     });
-    client.enforce(&nested, &signers, &rule, &p);
+    client.enforce(&nested, &signers, &token_rule, &p);
 
     // Single-use: a second identical nested context has no record left -> denied.
     assert!(
-        client.try_enforce(&nested, &signers, &rule, &p).is_err(),
+        client
+            .try_enforce(&nested, &signers, &token_rule, &p)
+            .is_err(),
         "armed record must be single-use"
     );
 }

@@ -139,20 +139,46 @@ fn ctx_hash(e: &Env, contract: &Address, fn_name: &Symbol, args: &Vec<Val>) -> B
     e.crypto().sha256(&b).into()
 }
 
-fn arm_key(account: &Address, rule_id: u32, h: BytesN<32>) -> (Address, u32, u32, BytesN<32>) {
-    (account.clone(), rule_id, ARM_TAG, h)
+// Keyed by the EXECUTOR, not the per-context rule id. The OZ account requires
+// each context's rule to be scoped to that context's contract, so a batch is
+// one ExecutionPolicy on SEPARATELY-scoped rules: the `execute` context arms
+// under one rule while the nested pull/submit contexts consume under DIFFERENT
+// rules. The executor is the one identifier common to every rule of a single
+// mandate (all share `config.executor`), so it is what ties an armed record to
+// the batch that armed it. Keying by rule id would never match across the
+// execute and nested rules and would deny every real batch.
+fn arm_key(
+    account: &Address,
+    executor: &Address,
+    h: BytesN<32>,
+) -> (Address, Address, u32, BytesN<32>) {
+    (account.clone(), executor.clone(), ARM_TAG, h)
 }
 
-fn arm(e: &Env, account: &Address, rule_id: u32, contract: &Address, fn_name: &Symbol, args: &Vec<Val>) {
-    let key = arm_key(account, rule_id, ctx_hash(e, contract, fn_name, args));
+fn arm(
+    e: &Env,
+    account: &Address,
+    executor: &Address,
+    contract: &Address,
+    fn_name: &Symbol,
+    args: &Vec<Val>,
+) {
+    let key = arm_key(account, executor, ctx_hash(e, contract, fn_name, args));
     let n: u32 = e.storage().temporary().get(&key).unwrap_or(0);
     e.storage().temporary().set(&key, &(n + 1));
 }
 
 /// Consume one armed record for this context. Returns false when none exists -
 /// i.e. this context was not part of a validated `execute` batch in this tx.
-fn consume(e: &Env, account: &Address, rule_id: u32, contract: &Address, fn_name: &Symbol, args: &Vec<Val>) -> bool {
-    let key = arm_key(account, rule_id, ctx_hash(e, contract, fn_name, args));
+fn consume(
+    e: &Env,
+    account: &Address,
+    executor: &Address,
+    contract: &Address,
+    fn_name: &Symbol,
+    args: &Vec<Val>,
+) -> bool {
+    let key = arm_key(account, executor, ctx_hash(e, contract, fn_name, args));
     let n: u32 = e.storage().temporary().get(&key).unwrap_or(0);
     if n == 0 {
         return false;
@@ -228,7 +254,14 @@ impl ExecutionPolicy {
                 // contexts these calls produce (the pull, the venue submit)
                 // consume them below; a standalone direct call finds nothing.
                 for call in calls.iter() {
-                    arm(&e, &smart_account, context_rule.id, &call.target, &call.function_name, &call.args);
+                    arm(
+                        &e,
+                        &smart_account,
+                        &stored.config.executor,
+                        &call.target,
+                        &call.function_name,
+                        &call.args,
+                    );
                 }
             }
             Context::Contract(c) => {
@@ -236,7 +269,14 @@ impl ExecutionPolicy {
                 // `execute` arm armed in THIS transaction after validating the
                 // whole batch. No armed record => not part of an approved batch
                 // => denied. (The predicate was already checked at arm time.)
-                if !consume(&e, &smart_account, context_rule.id, &c.contract, &c.fn_name, &c.args) {
+                if !consume(
+                    &e,
+                    &smart_account,
+                    &stored.config.executor,
+                    &c.contract,
+                    &c.fn_name,
+                    &c.args,
+                ) {
                     soroban_sdk::panic_with_error!(&e, Error::Denied);
                 }
             }
