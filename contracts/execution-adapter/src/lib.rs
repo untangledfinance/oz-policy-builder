@@ -38,86 +38,72 @@ impl ExecutionAdapter {
         calls: Vec<Call>,
         prime_contexts: Vec<ContractContext>,
     ) -> Vec<Val> {
-        assert_eq!(
-            e.current_contract_address(),
-            execution_address(&e, &prime),
-            "wrong Prime"
-        );
+        let adapter = e.current_contract_address();
+        assert_eq!(adapter, execution_address(&e, &prime), "wrong Prime");
         assert!(!calls.is_empty() && calls.len() <= 8, "batch size");
         assert!(prime_contexts.len() <= 16, "context count");
+        let forbidden = [prime.clone(), interpreter.clone(), adapter.clone()];
         let mut auth_count = 0;
+        let mut contexts = Vec::new(&e);
+        // Validate calls and derive their contexts in the same pass.
         for call in calls.iter() {
-            venue_target(&e, &prime, &interpreter, &call.target);
+            venue_target(&forbidden, &call.target);
             check_auths(
-                &e,
-                &prime,
-                &interpreter,
+                &forbidden,
                 &call.executor_authorizations,
                 0,
                 &mut auth_count,
             );
-        }
-        for context in prime_contexts.iter() {
-            venue_target(&e, &prime, &interpreter, &context.contract);
-        }
-        let args = policy_args(&e, &prime, &interpreter, &calls, &prime_contexts);
-        let mut contexts = vec![
-            &e,
-            ContractContext {
-                contract: e.current_contract_address(),
-                fn_name: Symbol::new(&e, "execute"),
-                args: args.clone(),
-            },
-        ];
-        // Direct call contexts are derived, never supplied twice by the caller.
-        for call in calls.iter() {
             contexts.push_back(ContractContext {
                 contract: call.target,
                 fn_name: call.function_name,
                 args: call.args,
             });
         }
-        contexts.append(&prime_contexts);
-        let mut grants = Vec::new(&e);
-        for context in contexts {
-            grants.push_back(InvokerContractAuthEntry::Contract(SubContractInvocation {
-                context: ContractContext {
-                    contract: interpreter.clone(),
-                    fn_name: Symbol::new(&e, "enforce"),
-                    args: (prime.clone(), Context::Contract(context)).into_val(&e),
-                },
-                sub_invocations: Vec::new(&e),
-            }));
+        for context in prime_contexts.iter() {
+            venue_target(&forbidden, &context.contract);
+            contexts.push_back(context);
         }
+        let args = policy_args(&e, &prime, &interpreter, &calls, &prime_contexts);
+        contexts.push_front(ContractContext {
+            contract: adapter,
+            fn_name: Symbol::new(&e, "execute"),
+            args: args.clone(),
+        });
+        let grants = Vec::from_iter(
+            &e,
+            contexts.iter().map(|context| {
+                InvokerContractAuthEntry::Contract(SubContractInvocation {
+                    context: ContractContext {
+                        contract: interpreter.clone(),
+                        fn_name: Symbol::new(&e, "enforce"),
+                        args: (prime.clone(), Context::Contract(context)).into_val(&e),
+                    },
+                    sub_invocations: Vec::new(&e),
+                })
+            }),
+        );
         // The next auth frame must consume these grants; no intervening contract call.
         e.authorize_as_current_contract(grants);
         prime.require_auth_for_args(args);
-        let mut results = Vec::new(&e);
-        for call in calls {
-            if !call.executor_authorizations.is_empty() {
-                e.authorize_as_current_contract(call.executor_authorizations);
-            }
-            results.push_back(e.invoke_contract::<Val>(
-                &call.target,
-                &call.function_name,
-                call.args,
-            ));
-        }
-        results
+        Vec::from_iter(
+            &e,
+            calls.iter().map(|call| {
+                if !call.executor_authorizations.is_empty() {
+                    e.authorize_as_current_contract(call.executor_authorizations);
+                }
+                e.invoke_contract::<Val>(&call.target, &call.function_name, call.args)
+            }),
+        )
     }
 }
 
-fn venue_target(e: &Env, prime: &Address, interpreter: &Address, target: &Address) {
-    assert!(
-        target != prime && target != interpreter && target != &e.current_contract_address(),
-        "management target"
-    );
+fn venue_target(forbidden: &[Address; 3], target: &Address) {
+    assert!(!forbidden.contains(target), "management target");
 }
 
 fn check_auths(
-    e: &Env,
-    prime: &Address,
-    interpreter: &Address,
+    forbidden: &[Address; 3],
     entries: &Vec<InvokerContractAuthEntry>,
     depth: u32,
     count: &mut u32,
@@ -126,20 +112,11 @@ fn check_auths(
     for entry in entries {
         *count += 1;
         assert!(*count <= 32, "authorization count");
-        match entry {
-            InvokerContractAuthEntry::Contract(call) => {
-                venue_target(e, prime, interpreter, &call.context.contract);
-                check_auths(
-                    e,
-                    prime,
-                    interpreter,
-                    &call.sub_invocations,
-                    depth + 1,
-                    count,
-                );
-            }
-            _ => panic!("contract creation authorization"),
-        }
+        let InvokerContractAuthEntry::Contract(call) = entry else {
+            panic!("contract creation authorization");
+        };
+        venue_target(forbidden, &call.context.contract);
+        check_auths(forbidden, &call.sub_invocations, depth + 1, count);
     }
 }
 
