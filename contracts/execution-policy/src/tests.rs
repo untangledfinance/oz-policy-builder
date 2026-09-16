@@ -1,7 +1,7 @@
 extern crate std;
 use super::*;
 use soroban_sdk::{
-    auth::{ContractContext, SubContractInvocation},
+    auth::{Context, ContractContext, SubContractInvocation},
     testutils::Address as _,
     vec, IntoVal,
 };
@@ -160,5 +160,112 @@ fn denies_empty_and_overlong_batches() {
     assert_eq!(
         validate_batch(&e, &p, &vec![&e, c.clone(), c.clone(), c], &cfg),
         Err(Error::Denied)
+    );
+}
+
+// M1: the direct-call bypass. A standalone nested context (e.g. the custody
+// pull) that matches call_predicate must NOT authorize on its own - only as a
+// descendant of a validated `execute` batch in the same transaction. Current
+// enforce permits it via the non-execute arm; this test locks the DESIRED
+// behavior (deny) and fails until in-transaction arming lands.
+#[test]
+fn denies_standalone_nested_context_without_execute() {
+    let e = Env::default();
+    e.mock_all_auths();
+    let p = Address::generate(&e);
+    let token = Address::generate(&e);
+    let executor = Address::generate(&e);
+    let agent = Address::generate(&e);
+    let cfg = Config {
+        executor: executor.clone(),
+        call_predicate: predicate(&e, &token, "transfer_from"),
+        auth_predicate: predicate(&e, &token, "transfer"),
+        max_calls: 3,
+    };
+    let id = e.register(ExecutionPolicy, ());
+    let client = ExecutionPolicyClient::new(&e, &id);
+    let rule = ContextRule {
+        id: 1,
+        context_type: ContextRuleType::CallContract(executor.clone()),
+        name: soroban_sdk::String::from_str(&e, "exec"),
+        signers: vec![&e, Signer::Delegated(agent.clone())],
+        signer_ids: vec![&e, 0u32],
+        policies: vec![&e, id.clone()],
+        policy_ids: vec![&e, 0u32],
+        valid_until: None,
+    };
+    client.install(&cfg, &rule, &p);
+    // Standalone token.transfer_from, NOT nested under execute in this tx.
+    let ctx = Context::Contract(ContractContext {
+        contract: token.clone(),
+        fn_name: Symbol::new(&e, "transfer_from"),
+        args: Vec::new(&e),
+    });
+    let signers = vec![&e, Signer::Delegated(agent)];
+    assert!(
+        client.try_enforce(&ctx, &signers, &rule, &p).is_err(),
+        "a standalone nested context must be denied without a preceding execute"
+    );
+}
+
+// M1 GREEN: a nested context is authorized when the `execute` arm armed it in
+// the same tx, and the record is single-use.
+#[test]
+fn permits_nested_context_after_execute_and_is_single_use() {
+    let e = Env::default();
+    e.mock_all_auths();
+    let p = Address::generate(&e);
+    let token = Address::generate(&e);
+    let executor = Address::generate(&e);
+    let agent = Address::generate(&e);
+    let cfg = Config {
+        executor: executor.clone(),
+        call_predicate: predicate(&e, &token, "transfer_from"),
+        auth_predicate: predicate(&e, &token, "transfer"),
+        max_calls: 3,
+    };
+    let id = e.register(ExecutionPolicy, ());
+    let client = ExecutionPolicyClient::new(&e, &id);
+    let rule = ContextRule {
+        id: 1,
+        context_type: ContextRuleType::CallContract(executor.clone()),
+        name: soroban_sdk::String::from_str(&e, "exec"),
+        signers: vec![&e, Signer::Delegated(agent.clone())],
+        signer_ids: vec![&e, 0u32],
+        policies: vec![&e, id.clone()],
+        policy_ids: vec![&e, 0u32],
+        valid_until: None,
+    };
+    client.install(&cfg, &rule, &p);
+    let signers = vec![&e, Signer::Delegated(agent)];
+
+    // The approved batch: one transfer_from the predicate permits.
+    let call = Call {
+        target: token.clone(),
+        function_name: Symbol::new(&e, "transfer_from"),
+        args: Vec::new(&e),
+        executor_authorizations: Vec::new(&e),
+    };
+    let calls = vec![&e, call];
+    let exec_ctx = Context::Contract(ContractContext {
+        contract: executor.clone(),
+        fn_name: Symbol::new(&e, "execute"),
+        args: vec![&e, p.clone().into_val(&e), calls.clone().into_val(&e)],
+    });
+    // Enforce the execute root first: validates + arms.
+    client.enforce(&exec_ctx, &signers, &rule, &p);
+
+    // The nested context the batch produces: now authorized (consumes record).
+    let nested = Context::Contract(ContractContext {
+        contract: token.clone(),
+        fn_name: Symbol::new(&e, "transfer_from"),
+        args: Vec::new(&e),
+    });
+    client.enforce(&nested, &signers, &rule, &p);
+
+    // Single-use: a second identical nested context has no record left -> denied.
+    assert!(
+        client.try_enforce(&nested, &signers, &rule, &p).is_err(),
+        "armed record must be single-use"
     );
 }

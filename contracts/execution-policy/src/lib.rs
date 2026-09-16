@@ -118,6 +118,53 @@ fn check_auth(
     }
 }
 
+// Batch-only enforcement (M1). `enforce` is called once per authorization
+// CONTEXT with no view of the caller or parent, so a nested call (the custody
+// pull, the venue submit) is indistinguishable from a standalone direct call
+// unless the policy carries a per-transaction signal. The `execute` context is
+// enforced FIRST (the executor calls `prime.require_auth()` at the top of
+// `execute`, before the batch runs), so it ARMS a single-use record for every
+// validated call; each nested context must then CONSUME a matching record or be
+// denied. A standalone direct call never ran `execute`, so nothing is armed.
+// Records are temporary and per (account, rule, call-hash); every fund-moving
+// call produces its own nested context and is consumed in-transaction, so the
+// only record that can linger is a no-fund action (claim/pause) - same-ledger,
+// same-account, moving no funds.
+const ARM_TAG: u32 = 0xA5A5_0001;
+
+fn ctx_hash(e: &Env, contract: &Address, fn_name: &Symbol, args: &Vec<Val>) -> BytesN<32> {
+    let mut b = contract.clone().to_xdr(e);
+    b.append(&fn_name.clone().to_xdr(e));
+    b.append(&args.clone().to_xdr(e));
+    e.crypto().sha256(&b).into()
+}
+
+fn arm_key(account: &Address, rule_id: u32, h: BytesN<32>) -> (Address, u32, u32, BytesN<32>) {
+    (account.clone(), rule_id, ARM_TAG, h)
+}
+
+fn arm(e: &Env, account: &Address, rule_id: u32, contract: &Address, fn_name: &Symbol, args: &Vec<Val>) {
+    let key = arm_key(account, rule_id, ctx_hash(e, contract, fn_name, args));
+    let n: u32 = e.storage().temporary().get(&key).unwrap_or(0);
+    e.storage().temporary().set(&key, &(n + 1));
+}
+
+/// Consume one armed record for this context. Returns false when none exists -
+/// i.e. this context was not part of a validated `execute` batch in this tx.
+fn consume(e: &Env, account: &Address, rule_id: u32, contract: &Address, fn_name: &Symbol, args: &Vec<Val>) -> bool {
+    let key = arm_key(account, rule_id, ctx_hash(e, contract, fn_name, args));
+    let n: u32 = e.storage().temporary().get(&key).unwrap_or(0);
+    if n == 0 {
+        return false;
+    }
+    if n == 1 {
+        e.storage().temporary().remove(&key);
+    } else {
+        e.storage().temporary().set(&key, &(n - 1));
+    }
+    true
+}
+
 #[contract]
 pub struct ExecutionPolicy;
 #[contractimpl]
@@ -177,11 +224,20 @@ impl ExecutionPolicy {
                 if let Err(err) = validate_batch(&e, &smart_account, &calls, &stored.config) {
                     soroban_sdk::panic_with_error!(&e, err);
                 }
+                // Arm one single-use record per validated call. The nested
+                // contexts these calls produce (the pull, the venue submit)
+                // consume them below; a standalone direct call finds nothing.
+                for call in calls.iter() {
+                    arm(&e, &smart_account, context_rule.id, &call.target, &call.function_name, &call.args);
+                }
             }
             Context::Contract(c) => {
-                let node = dsl::decode_with_byte_cap(&e, &stored.config.call_predicate).unwrap();
-                if let Err(err) = permit(&e, &node, c.contract, c.fn_name, c.args) {
-                    soroban_sdk::panic_with_error!(&e, err);
+                // A nested context is authorized ONLY by consuming a record the
+                // `execute` arm armed in THIS transaction after validating the
+                // whole batch. No armed record => not part of an approved batch
+                // => denied. (The predicate was already checked at arm time.)
+                if !consume(&e, &smart_account, context_rule.id, &c.contract, &c.fn_name, &c.args) {
+                    soroban_sdk::panic_with_error!(&e, Error::Denied);
                 }
             }
             _ => panic!("noncall"),
