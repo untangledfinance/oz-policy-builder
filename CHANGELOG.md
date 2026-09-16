@@ -17,6 +17,19 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   The package pins still point at the grammar-4 instances: the synthesiser
   does not yet encode `policy_admins`, and a v4 document is refused by the
   v5 version gate in both directions. Pins move when the encoder does.
+- **Prime execution layer (batch-only venue policies).** New generic executor
+  contract (`execute(prime, calls)`, immutable per-Prime binding) and
+  `ExecutionPolicy` that closes the direct-call bypass by in-transaction
+  ARMING: the `execute` context validates the whole batch and arms single-use
+  records; each nested context consumes one or is denied `#900`. Records key on
+  the executor (one mandate = one policy on N separately-scoped rules).
+  `buildBlendExecutionMandate` (install/venue-execution-mandate) compiles a
+  Blend supply/withdraw action into the ExecutionPolicy config. Verified on
+  testnet, real multi-rule OZ account, 13/13 (supply/withdraw + the standalone
+  direct pull denied `#900`). Executor wasm
+  `8e99693479f7132345d1dc09eecd71e93650d32e0e88a1e5a4ed9c97a01e2028`, policy
+  `8ad3ef0594b47a4d301f0af807491fe7c7983acd336af27ce883c95203366a42`. Not yet
+  on mainnet; publish + mainnet activation pending review.
 
 ## [1.3.0] - 2026-09-01
 
