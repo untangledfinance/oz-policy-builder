@@ -500,7 +500,7 @@ export const MAINNET_RPC_URL = 'https://mainnet.sorobanrpc.com'
  * Keep legacy deployment defaults unchanged while discovering scoped authority. */
 export const ADDITIONAL_AUTHORITY_INTERPRETERS_BY_NETWORK: Record<Network, string[]> = {
   testnet: ['CASWUYJKTCLMMOQ5R36EEWX6GHI2TCPCTWWJTCODBQ632ODAWNWMDPZP'],
-  mainnet: [],
+  mainnet: ['CCZDVEJOVQ2H5NDLDYLF6N47WDC2ZW7UTLY4Z5LCIL3ZMEHUMKNGW747'],
 }
 
 export const PINNED_INTERPRETER_ADDRESS_BY_NETWORK: Record<Network, string> = {
