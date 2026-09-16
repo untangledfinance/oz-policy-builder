@@ -1,0 +1,214 @@
+{
+  "network": "TESTNET",
+  "verifiedAt": "2026-09-16T10:59:10.252Z",
+  "receipts": [
+    {
+      "label": "upload oz-account",
+      "hash": "537b95ee25bd0feda62ac446d8534733d9f5d8a6e5b2bad155d805ff5b3bed2e",
+      "status": "SUCCESS",
+      "ledger": 4706459
+    },
+    {
+      "label": "deploy prime",
+      "hash": "c033bba4ad27fba226763704b50ff96ffcb020a57d060aee90ad1447d4e3733a",
+      "status": "SUCCESS",
+      "ledger": 4706460
+    },
+    {
+      "label": "upload interpreter",
+      "hash": "8c61196f2f80681981ec2ad8f5c4dac9b222d7b0d47e870439fa1d9369cb150b",
+      "status": "SUCCESS",
+      "ledger": 4706461
+    },
+    {
+      "label": "deploy interpreter",
+      "hash": "4cab49f81234f1d1873fa1b0c862a88e37cb31b50e7195c7f60bd98f40b4f763",
+      "status": "SUCCESS",
+      "ledger": 4706462
+    },
+    {
+      "label": "upload adapter",
+      "hash": "6b1f8852d057cbd2022e2136619df656ebb53b64e97726d3554e6371dcfdaa09",
+      "status": "SUCCESS",
+      "ledger": 4706463
+    },
+    {
+      "label": "activate stateless adapter",
+      "hash": "df746f5eaa8c7f29ef9bbd635eaab4d94c36af90728b11f4ebabe9d696eb21dc",
+      "status": "SUCCESS",
+      "ledger": 4706464
+    },
+    {
+      "label": "upload fixture",
+      "hash": "33e40faa736f01c4220fcf2b3cb1486253f976430c1c3521c31a857db8540ad2",
+      "status": "SUCCESS",
+      "ledger": 4706465
+    },
+    {
+      "label": "deploy fixture",
+      "hash": "c266d8f19ab8aa9d9c6e8cc3d89cf3e1ae80d9c3322c5a3816f98b1f5b2c5d62",
+      "status": "SUCCESS",
+      "ledger": 4706466
+    },
+    {
+      "label": "install token",
+      "hash": "0d84da3c3a58ba010a881bf8806cb15750acea3dcdde4c8813494e1361c3a922",
+      "status": "SUCCESS",
+      "ledger": 4706467
+    },
+    {
+      "label": "bind token",
+      "hash": "e6af739e6ca1882a664aa7af3e59793d7870e09549a0166c08e864ba3a6503a6",
+      "status": "SUCCESS",
+      "ledger": 4706468
+    },
+    {
+      "label": "install pool",
+      "hash": "eb80818dfe5177445035336b1f40f59d892c6c206ed9410af1c000343a5e90dc",
+      "status": "SUCCESS",
+      "ledger": 4706469
+    },
+    {
+      "label": "bind pool",
+      "hash": "49121d1398947f72fa7cbecce7bf2e10508a69dd3cd66866c956a911d77f02e6",
+      "status": "SUCCESS",
+      "ledger": 4706470
+    },
+    {
+      "label": "install action",
+      "hash": "2cbf23a5adf412959c108d3ff4c1faa7f28e49897f37f5408cefe102d0799266",
+      "status": "SUCCESS",
+      "ledger": 4706471
+    },
+    {
+      "label": "bind action",
+      "hash": "b8d21bc623e706e4f62b7519e954c5e94a028bfc9fcff6f4dab448d134bffe83",
+      "status": "SUCCESS",
+      "ledger": 4706472
+    },
+    {
+      "label": "install supply",
+      "hash": "e56782457bf8151b0c73e8abaed471a7ed99b80e8549c29d4fc409e4941bdbd3",
+      "status": "SUCCESS",
+      "ledger": 4706473
+    },
+    {
+      "label": "bind supply",
+      "hash": "233e82ec379bba96ab6eb83c24bfe448cc6656a710978348fda0bf92fb5d3590",
+      "status": "SUCCESS",
+      "ledger": 4706474
+    },
+    {
+      "label": "install withdraw",
+      "hash": "f4c62f0005a4eaafd5fe44be5894b4deeffb6194c14b11a1d66022cf47808172",
+      "status": "SUCCESS",
+      "ledger": 4706475
+    },
+    {
+      "label": "bind withdraw",
+      "hash": "5629ecd8b212b16fe762ecc1fc20ae2dc64aaf49da9ecdb1ac271bd0779e77c4",
+      "status": "SUCCESS",
+      "ledger": 4706477
+    },
+    {
+      "label": "install claim",
+      "hash": "e925aa507d6f72ac7c653ff21e833ce516c04ceb37598930323b99a638307f60",
+      "status": "SUCCESS",
+      "ledger": 4706478
+    },
+    {
+      "label": "bind claim",
+      "hash": "fdc0448f959193abfa116d5a4fac29b5fe798aae79140f7efc2e2e337d4da1fa",
+      "status": "SUCCESS",
+      "ledger": 4706479
+    },
+    {
+      "label": "install rollback",
+      "hash": "6cb5ffde270c9975ac330ac37880083b2666d4d5953990e9b113d8ef39db1e28",
+      "status": "SUCCESS",
+      "ledger": 4706480
+    },
+    {
+      "label": "bind rollback",
+      "hash": "980faa1a696c929d9120620a08d7c183f5b6c0b26f86047e01e0abe1b8d69135",
+      "status": "SUCCESS",
+      "ledger": 4706481
+    },
+    {
+      "label": "approve Prime allowance",
+      "hash": "2e460e56ae69f95e113e237c9d590f405dcd48370493633233a12f4585617ea3",
+      "status": "SUCCESS",
+      "ledger": 4706482
+    },
+    {
+      "label": "agent Blend supply",
+      "hash": "3b7d63214b6cef38b96b48258fb0c02c7c8c6fe5e06c3794b4a96538f98d4a00",
+      "status": "SUCCESS",
+      "ledger": 4706495
+    },
+    {
+      "label": "agent no-funding action",
+      "hash": "8c77ee97d98e511dbd87d7929ab24d913d4de1b7122295891725f4dec9106b67",
+      "status": "SUCCESS",
+      "ledger": 4706498
+    },
+    {
+      "label": "enable deliberate failure",
+      "hash": "3a588ad96f5433905b1ba7b33e392c643e912340f0334d7f538d3919e25f59e1",
+      "status": "SUCCESS",
+      "ledger": 4706500
+    },
+    {
+      "label": "failed batch rolls back",
+      "hash": "42c736955b313bb2ed9e98aa9a3ef6f9b5b5747673a022aedfa5a824f398e7c9",
+      "status": "FAILED",
+      "ledger": 4706501,
+      "fixtureDiagnostics": [
+        {
+          "data": "[\"VM call trapped: UnreachableCodeReached\",\"act\"]"
+        }
+      ],
+      "resultXdr": "AAAAAAAAwL3/////AAAAAQAAAAAAAAAY/////gAAAAA="
+    },
+    {
+      "label": "disable deliberate failure",
+      "hash": "7e18b5c1282c3269f4313ce9868fc85638070513a29147fed4cdf795a25d0248",
+      "status": "SUCCESS",
+      "ledger": 4706502
+    },
+    {
+      "label": "agent Blend withdraw all",
+      "hash": "561d7fb1fa741496af616cf0abb094c853558c44e5aff13729be1cb076cf5168",
+      "status": "SUCCESS",
+      "ledger": 4706503
+    },
+    {
+      "label": "revoke test allowance",
+      "hash": "4b34656bc45108578f092b88f54e4a26314835cbdf153b168661ef05bda1791b",
+      "status": "SUCCESS",
+      "ledger": 4706505
+    }
+  ],
+  "instances": {
+    "prime": {
+      "address": "CD7SCJO5TDK6EZIDSIZ7WH7O56QDFCGNSRAHNLHQJAMMOZWMNMQAVCGJ",
+      "wasmHash": "91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9",
+      "storageEntries": 4,
+      "observedLedger": 4706552
+    },
+    "interpreter": {
+      "address": "CBIQGAHIGCIAC6JJBYQQBTDFNNWQCGPECWRI7NO2PHIYDQV6QDLG6I2W",
+      "wasmHash": "cc05ac55747d2472f6da1fc229a2f9f8083607ba8c08bf5eaeac7cd73ef6fb66",
+      "storageEntries": 0,
+      "observedLedger": 4706552
+    },
+    "adapter": {
+      "address": "CBXI2P2YTFSP26YETY3OTUNTD22COI2LRETTEYIFOW3DGJNZFJJPIRSY",
+      "wasmHash": "57bf132b9537f0d35b9de4327e047f920938eac655e7d140c108e84da3b03474",
+      "storageEntries": 0,
+      "observedLedger": 4706552
+    }
+  },
+  "balancesAndAllowancesZero": true,
+  "positionClosed": true
+}

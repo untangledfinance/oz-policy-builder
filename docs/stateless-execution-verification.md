@@ -1,6 +1,8 @@
 # Stateless execution verification — 2026-09-16
 
 Branch: `feat/policy-signer`. Baseline: `afa2f18`.
+This report records local verification at commit `47df478`, before deployment.
+The subsequent [testnet deployment](stateless-execution-testnet.md) is recorded separately.
 No deployment, network transaction, allowance change, app pin update, or other
 repository change was made.
 
