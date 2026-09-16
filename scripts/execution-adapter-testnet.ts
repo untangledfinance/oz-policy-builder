@@ -254,4 +254,18 @@ await check("allowance revocation blocks agent",async()=>{
  const sim=await server.simulateTransaction(tx);assert(rpc.Api.isSimulationError(sim));assert(sim.error.includes("#9"),sim.error);
  return {allowance:"0",error:sim.error};
 });
+// Batch-only: the custody pull as a STANDALONE direct call (agent names the
+// token rule, no execute in the tx) is denied #900 by the arming policy. This
+// is the property the executor-keyed arming exists for; the old policy permitted
+// it. Restore a small allowance so the recording sim reaches the auth phase
+// where enforce fires (a #900 auth denial, not a #9 allowance error).
+await check("standalone direct pull denied outside execute",async()=>{
+ const ledger=(await server.getLatestLedger()).sequence;
+ await plain(custody,TOKEN,"approve",[addr(custody.publicKey()),addr(state.contracts.prime),int(5000000n),u32(ledger+1500)],"re-approve for bypass check");
+ const args=[addr(state.contracts.prime),addr(custody.publicKey()),addr(state.contracts.executor),int(1000000n)];
+ const res:any=await preparePrime(agent,TOKEN,"transfer_from",args,{"*":state.rules["agent-token"]},true);
+ const l2=(await server.getLatestLedger()).sequence;
+ await plain(custody,TOKEN,"approve",[addr(custody.publicKey()),addr(state.contracts.prime),int(0n),u32(l2+1)],"re-revoke after bypass check");
+ return {error:res.denied,contexts:res.contexts,note:"direct transfer_from naming the token rule, no execute -> #900"};
+});
 save();console.log("ALL TESTNET CHECKS COMPLETED",state.done.length);
