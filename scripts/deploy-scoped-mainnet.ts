@@ -19,7 +19,8 @@ const INTERPRETER_HASH = '67bbee0914172e0c6d2cdb4038b986660265f53d7e6443f3da0453
 const ADAPTER_HASH = '719240da0e3cf8a7fa32dad3a1af65c01276e4194a8ba68eef7b8a9d27126f7c'
 const SALT_TEXT = `prime-policy-interpreter:v6:${INTERPRETER_HASH}`
 const SALT = hash(Buffer.from(SALT_TEXT))
-const INCLUSION_FEE = 100n
+// PUBLIC fee statistics showed a 200-stroop inclusion market; keep a bounded margin.
+const INCLUSION_FEE = 1000n
 const args = process.argv.slice(2)
 const execute = args.includes('--execute')
 const value = (flag: string, fallback?: string) => {
@@ -155,7 +156,7 @@ async function submit(label: string, prepared: Awaited<ReturnType<typeof simulat
     throw new Error('CLI signed transaction does not match reviewed envelope/source')
   }
   const txHash = signed.hash().toString('hex')
-  const item: any = { label, hash: txHash, declaredFeeStroops: prepared.fee.toString(), simulationLedger: prepared.ledger, status: 'READY', createdAt: new Date().toISOString() }
+  const item: any = { label, hash: txHash, declaredFeeStroops: prepared.fee.toString(), simulationLedger: prepared.ledger, status: 'READY', sourceSequence: prepared.tx.sequence, maxTime: prepared.tx.timeBounds?.maxTime, unsignedEnvelopeXdr: prepared.tx.toXDR(), createdAt: new Date().toISOString() }
   receipt.transactions.push(item)
   save() // Public hash persisted before broadcast; no signatures/private data stored.
   const sent = await server.sendTransaction(signed)
@@ -171,15 +172,22 @@ async function submit(label: string, prepared: Awaited<ReturnType<typeof simulat
   spent += prepared.fee
   console.log(JSON.stringify(item))
 }
+if (new Set(receipt.transactions.map((t: any) => t.hash)).size !== receipt.transactions.length) throw new Error('Duplicate receipt transaction hashes')
 // A prior ambiguous broadcast must be resolved before any new transaction.
 for (const prior of receipt.transactions) {
-  if (['SUCCESS', 'FAILED', 'ERROR'].includes(prior.status)) continue
+  if (['SUCCESS', 'FAILED', 'ERROR', 'EXPIRED'].includes(prior.status)) continue
   const result = await server.getTransaction(prior.hash)
   if (result.status !== 'SUCCESS' && result.status !== 'FAILED') throw new Error(`Unresolved prior receipt ${prior.hash}; inspect before retry`)
   prior.status = result.status
   prior.ledger = result.ledger
+  if ('resultXdr' in result && result.resultXdr) prior.chargedFeeStroops = result.resultXdr.feeCharged().toString()
   if (execute) save()
 }
+// A resumed deployment retains its original cumulative cap. Declared fees
+// conservatively cover both successful and included failed transactions.
+spent = receipt.transactions.filter((t: any) => t.status === 'SUCCESS' || t.status === 'FAILED')
+  .reduce((sum: bigint, t: any) => sum + BigInt(t.declaredFeeStroops), 0n)
+if (spent > cap) throw new Error('Prior transactions already exceed this fee cap')
 const missing = []
 let uploadTotal = 0n
 for (const artifact of artifacts) {
@@ -203,11 +211,12 @@ console.log(JSON.stringify({
   uploadFeesXlm: xlm(uploadTotal), instanceFeeXlm: instanceEstimate ? xlm(instanceEstimate.fee) : null,
   instanceBudgetXlm: hasInstance ? '0' : xlm(instanceBudget), requiredBudgetXlm: xlm(budget),
   feeCapXlm: xlm(cap), balanceXlm: xlm(balance.balance), reserveXlm: xlm(balance.reserve),
-  availableXlm: xlm(balance.available), executionFundingShortfallXlm: xlm(cap > balance.available ? cap - balance.available : 0n),
+  availableXlm: xlm(balance.available), priorDeclaredFeesXlm: xlm(spent), remainingFeeCapXlm: xlm(cap - spent),
+  executionFundingShortfallXlm: xlm(cap - spent > balance.available ? cap - spent - balance.available : 0n),
 }, null, 2))
-if (budget > cap) throw new Error('Projected uploads plus bounded instance budget exceed total fee cap')
+if (spent + budget > cap) throw new Error('Prior fees plus projected uploads and bounded instance budget exceed total fee cap')
 if (!execute) process.exit(0)
-if ((missing.length || !hasInstance) && balance.available < cap) throw new Error('No writes: fund full fee cap above reserve before starting')
+if ((missing.length || !hasInstance) && balance.available < cap - spent) throw new Error('No writes: fund full fee cap above reserve before starting')
 for (const { artifact } of missing) {
   if (await codePresent(artifact.hash)) continue
   const prepared = await simulate(Operation.uploadContractWasm({ wasm: artifact.wasm }))

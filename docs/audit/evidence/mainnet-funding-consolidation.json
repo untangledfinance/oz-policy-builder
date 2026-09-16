@@ -1,0 +1,85 @@
+{
+  "network": "Public Global Stellar Network ; September 2015",
+  "destination": "GCIVG2AIEWMDA43HX2HRCYVNY7PH7HMPYVN42LQ5XBSHBLHFUWG47NFN",
+  "transactions": [
+    {
+      "source": "GCTI2WE25C3Z4CUQXKT6RSAC4NS7M7BBVLR5PM7VS6OKYQPOABLJSMXE",
+      "label": "mainnet agent",
+      "destination": "GCIVG2AIEWMDA43HX2HRCYVNY7PH7HMPYVN42LQ5XBSHBLHFUWG47NFN",
+      "amountXlm": "16.3685817",
+      "minimumReserveXlm": "1.0000000",
+      "retainedBalanceXlm": "1.2500000",
+      "hash": "4aab62c562d7162a4a79d4de43b45517c0cb5e9ccd0196ebe119a9ab842d35a4",
+      "status": "SUCCESS",
+      "ledger": 64452806
+    },
+    {
+      "source": "GAYBI4VSAX232IYQEYHDA2F2JIMNSHIF2MCH7LG6WSYZDZBWGEHCSQIT",
+      "label": "UNT issuer",
+      "destination": "GCIVG2AIEWMDA43HX2HRCYVNY7PH7HMPYVN42LQ5XBSHBLHFUWG47NFN",
+      "amountXlm": "3.7113964",
+      "minimumReserveXlm": "1.0000000",
+      "retainedBalanceXlm": "1.2500000",
+      "hash": "31af8fd2da49d5b650e75e2b5becaf5c5fbf41149adc48d8282a69b287b48904",
+      "status": "SUCCESS",
+      "ledger": 64452807
+    },
+    {
+      "source": "GBXN4MWMQZZIHH3WKCUDJDLCJ6TTYVRBJ2Q2R7WY2CJ7FSW3QPPYT4J5",
+      "label": "deployment funding",
+      "destination": "GCIVG2AIEWMDA43HX2HRCYVNY7PH7HMPYVN42LQ5XBSHBLHFUWG47NFN",
+      "amountXlm": "1.2174769",
+      "minimumReserveXlm": "2.0000000",
+      "retainedBalanceXlm": "2.2500000",
+      "hash": "17ebd84c35bff3ef19194811f578920df6c51cde80a77ca85181a4b52bd89063",
+      "status": "SUCCESS",
+      "ledger": 64452809
+    },
+    {
+      "source": "GDNY27EO275GW7SG2EQVLD7VR65X73376VB6BWO4XQT4UBHWTXI2H4QP",
+      "label": "cosign fixture A",
+      "destination": "GCIVG2AIEWMDA43HX2HRCYVNY7PH7HMPYVN42LQ5XBSHBLHFUWG47NFN",
+      "amountXlm": "0.6975774",
+      "minimumReserveXlm": "1.0000000",
+      "retainedBalanceXlm": "1.2500000",
+      "hash": "411bbfcc0bc17b02cfb7f30187813dec08753e248ae1bc9037163ec16d20c2bc",
+      "status": "SUCCESS",
+      "ledger": 64452811
+    },
+    {
+      "source": "GCGTQOK7BYCLAYTG4UU2PZ3DEMK4V6JAIQ3IDXVPTXEO66YZAWBFKENH",
+      "label": "cosign fixture B",
+      "destination": "GCIVG2AIEWMDA43HX2HRCYVNY7PH7HMPYVN42LQ5XBSHBLHFUWG47NFN",
+      "amountXlm": "0.7324267",
+      "minimumReserveXlm": "1.0000000",
+      "retainedBalanceXlm": "1.2500000",
+      "hash": "8845ea72224728c05b9648d3701b2966bff8174bc4a974b8200ad98bddc4d3c1",
+      "status": "SUCCESS",
+      "ledger": 64452812
+    },
+    {
+      "source": "GCW2X63VQTR4JG6573YLVOR342KAQ4ZTHMTASQBSAK3H6HK2RJCICVR5",
+      "label": "UNT distributor",
+      "destination": "GCIVG2AIEWMDA43HX2HRCYVNY7PH7HMPYVN42LQ5XBSHBLHFUWG47NFN",
+      "amountXlm": "0.2499400",
+      "minimumReserveXlm": "1.5000000",
+      "retainedBalanceXlm": "1.7500000",
+      "hash": "2be6a8ada1004cd8cbc32bdbe352bcbc98d7da46ff4d174202c5e6f1da9900aa",
+      "status": "SUCCESS",
+      "ledger": 64452813
+    },
+    {
+      "source": "GA5VQFVG4NEKE3SQ6UOTHLQDFH4TJOHDS6DPV2L5ZHEHZCXB62BU5YBQ",
+      "label": "RMS facilitator",
+      "destination": "GCIVG2AIEWMDA43HX2HRCYVNY7PH7HMPYVN42LQ5XBSHBLHFUWG47NFN",
+      "amountXlm": "2.8735382",
+      "minimumReserveXlm": "1.0000000",
+      "retainedBalanceXlm": "2.1052990",
+      "hash": "e8ce960220ba8483594499fb55130eb2e2f64b2bc02c0540894f8d8084299200",
+      "status": "SUCCESS",
+      "ledger": 64452814
+    }
+  ],
+  "finalBalanceXlm": "114.0000000",
+  "updatedAt": "2026-09-16T08:15:19.326Z"
+}
