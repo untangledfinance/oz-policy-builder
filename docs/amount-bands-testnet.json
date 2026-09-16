@@ -1,0 +1,408 @@
+{
+  "network": "TESTNET",
+  "rpc": "https://soroban-testnet.stellar.org",
+  "updatedAt": "2026-09-16T12:56:28.173Z",
+  "proof": "disjoint amount bands: SDK + production app continuation; local owner signer, not browser wallet",
+  "amountBands": {
+    "low": {
+      "min": "1",
+      "maxExclusive": "20000000",
+      "threshold": 1
+    },
+    "high": {
+      "min": "20000001",
+      "maxExclusive": "170141183460469231731687303715884105728",
+      "threshold": 2
+    }
+  },
+  "owner": "GDAFDYQGVCCUEBHGBFZNX52TBVNHGLQBUL2TYAIVKGNGGQZKDGTW5RHF",
+  "agent": "GBZD3RRN7BNLGNZQA5FYVQNMJRXOAOPIZSMJUZA5F5GOU2WO7PBGFCYH",
+  "cosigner": "GAS34RNK5KDOTOFWZBYJMQG5IODAW5RZQVWJZ7CYIX5MNBO65YANKDOZ",
+  "token": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+  "pool": "CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF",
+  "contracts": {
+    "prime": "CB5HHVSDK2CGNPCRMQPBIZMVZQLCZHHUXEEK7ZCAIQHPG752AX4CYMVM",
+    "interpreter": "CBIQGAHIGCIAC6JJBYQQBTDFNNWQCGPECWRI7NO2PHIYDQV6QDLG6I2W",
+    "adapter": "CC5K4BPML3L3OH3MFX7LV4EL37FR36EJJXYJIMNNWC5TAN4WM2SGKLFW"
+  },
+  "wasmHashes": {
+    "interpreter": "cc05ac55747d2472f6da1fc229a2f9f8083607ba8c08bf5eaeac7cd73ef6fb66",
+    "adapter": "57bf132b9537f0d35b9de4327e047f920938eac655e7d140c108e84da3b03474",
+    "account": "91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9",
+    "threshold": "01c0be09eb6fb288cab2e878b4e890f7a38f75afab99aeb197861f44e2e2dfe6"
+  },
+  "rules": {
+    "low-token": 1,
+    "low-pool": 2,
+    "low-supply": 3,
+    "high-token": 4,
+    "high-pool": 5,
+    "high-supply": 6
+  },
+  "canonicalPredicateHashes": {
+    "low": {
+      "root": "085c3076b202d9cd96deff6f8129fb9b1e05069d0688da6177465d1f71e01d97",
+      "children": [
+        "cc6da202bef51254b619d68c5dd21c15d0d935a5f96d4f5cf2f76468a0c546f5",
+        "3985e741c3419cb4b201dd6e00cadb86ce730c8ba7df80edb22d08a77ac87772"
+      ]
+    },
+    "high": {
+      "root": "b5eb25232787a1509f409200ee5473f95f97420770ef1aef119e2818313fdbbb",
+      "children": [
+        "eef519c3cbe979a395cd7fb7afd23e2650f5ce002c927a4a4d1155092b483711",
+        "7e46c22861a764a6665268211447513e2d95e3b485c504aff83eb8d813e4f950"
+      ]
+    }
+  },
+  "bound": [
+    "low-token",
+    "low-pool",
+    "low-supply",
+    "high-token",
+    "high-pool",
+    "high-supply"
+  ],
+  "salt": "163ebd5c5b6156a936c8f8f9b81af19e1f64727c1512eb6e7a63f42330986c07",
+  "transactions": [
+    {
+      "label": "deploy prime",
+      "hash": "4ea9b906d552a6a6bb45a249059435d81556528cb2f4081f180fc01e507ddeb0",
+      "status": "SUCCESS",
+      "ledger": 4707911
+    },
+    {
+      "label": "activate deterministic stateless adapter",
+      "hash": "25a3c6846e7645a0f797320a8aaa1f62744a737e6915eb86de0748d80b4aeca3",
+      "status": "SUCCESS",
+      "ledger": 4707912
+    },
+    {
+      "label": "install low-token",
+      "hash": "42c4ed7e2d6c31f7d4a8fdbf5923093f0c847ee8e1258b2dca876e5df8b0efdf",
+      "status": "SUCCESS",
+      "ledger": 4707913
+    },
+    {
+      "label": "bind low-token",
+      "hash": "00b4afe8d0656fef7bf3fe4a4c1ef4f664d9e64b91174c165c18ef4ebc4bac66",
+      "status": "SUCCESS",
+      "ledger": 4707914
+    },
+    {
+      "label": "install low-pool",
+      "hash": "7940624cb3b2607efb15e319295c10f6d0c953490489ab9d67f383effbf52858",
+      "status": "SUCCESS",
+      "ledger": 4707915
+    },
+    {
+      "label": "bind low-pool",
+      "hash": "2ca4e96d2edca3c64ee55bc9120dfb67a52c6879a56e456afb7d08b97a56258e",
+      "status": "SUCCESS",
+      "ledger": 4707916
+    },
+    {
+      "label": "install low-supply",
+      "hash": "d43bf68a1286e5663dd9d1d4e2c52ccb8e5bdd37a7b107a7c755d7ad8ce1c11d",
+      "status": "SUCCESS",
+      "ledger": 4707917
+    },
+    {
+      "label": "bind low-supply",
+      "hash": "5fb8d0fb501ab1334f11112937c6a0a24145d5097442e5022ebadbeafc59c473",
+      "status": "SUCCESS",
+      "ledger": 4707918
+    },
+    {
+      "label": "install high-token",
+      "hash": "166d65346355bcad1fcfc340675d732d3f3011b8cea7d91c6d4877e7e3cef458",
+      "status": "SUCCESS",
+      "ledger": 4707919
+    },
+    {
+      "label": "bind high-token",
+      "hash": "e8801587c99ccee4b206b8340db4853c01613e598badf91146c312b1bce5defe",
+      "status": "SUCCESS",
+      "ledger": 4707920
+    },
+    {
+      "label": "install high-pool",
+      "hash": "c0abec070542a66000890dff52e7e833016932e18ebc75cf9d41973cb36fcb77",
+      "status": "SUCCESS",
+      "ledger": 4707921
+    },
+    {
+      "label": "bind high-pool",
+      "hash": "c4201f785e462c5bd0b490715c88ef8451808f4c3f326f596c7fd179cae409e6",
+      "status": "SUCCESS",
+      "ledger": 4707922
+    },
+    {
+      "label": "install high-supply",
+      "hash": "3efbb2b8245956fd8ab1358790e5f5467a64ec793d3c5f96f10bb40c37f66a1e",
+      "status": "SUCCESS",
+      "ledger": 4707923
+    },
+    {
+      "label": "bind high-supply",
+      "hash": "1c4d6efcf12a2a843105428e1996ae80f32083c4e118abb2614b8e0f87c36955",
+      "status": "SUCCESS",
+      "ledger": 4707924
+    },
+    {
+      "label": "approve disposable Prime allowance",
+      "hash": "e0d53c34beeb19b3f3d4b8c45f8f894292ae789102c8ddb7f8f521ddfaa439c8",
+      "status": "SUCCESS",
+      "ledger": 4707925
+    },
+    {
+      "label": "SDK agent-alone low-band Blend supply",
+      "hash": "bf21c41cfdbae9ec3b0b9e60e02372c7a307216bc8bfce54b4a8828fa2c320b9",
+      "ledger": 4707930,
+      "status": "SUCCESS"
+    },
+    {
+      "label": "production app owner co-sign high-band Blend supply",
+      "kind": "broadcast",
+      "hash": "bf94709dda46d4e9177593d3c4bd783af02543f1b16a854649591e42d2a95a54",
+      "status": "SUCCESS",
+      "ledger": 4707954
+    },
+    {
+      "label": "owner withdraw all Blend supply",
+      "hash": "4734524093dc7597f08a721ef13ed2d5dcff88ee5f00d26ac725c868b335290f",
+      "status": "SUCCESS",
+      "ledger": 4707956
+    },
+    {
+      "label": "revoke remaining disposable allowance",
+      "hash": "c9d9e3117f80f9ca4dc53c53f032ae4b7d6a8cda9a0c0b79fd7bf216dd0cee71",
+      "status": "SUCCESS",
+      "ledger": 4707957
+    }
+  ],
+  "checks": [
+    {
+      "name": "approve Prime only",
+      "result": {
+        "wallet": "99996673221",
+        "prime": "0",
+        "adapter": "0",
+        "primeAllowance": "100000000",
+        "adapterAllowance": "0",
+        "supplyShares": "0"
+      }
+    },
+    {
+      "name": "two-input discovery defaults to low band",
+      "result": {
+        "custodyWallet": "GDAFDYQGVCCUEBHGBFZNX52TBVNHGLQBUL2TYAIVKGNGGQZKDGTW5RHF",
+        "token": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+        "executionAdapter": "CC5K4BPML3L3OH3MFX7LV4EL37FR36EJJXYJIMNNWC5TAN4WM2SGKLFW",
+        "minAmountBaseUnits": "1",
+        "perTxCap": "20000000",
+        "venue": {
+          "kind": "blend-pool",
+          "pool": "CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF",
+          "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "perRequestCap": "20000000",
+          "collateral": false
+        },
+        "ruleIds": {
+          "executor": 3,
+          "token": 1,
+          "pool": 2
+        },
+        "requiredSignatures": 1,
+        "operatorKeys": [
+          "GBZD3RRN7BNLGNZQA5FYVQNMJRXOAOPIZSMJUZA5F5GOU2WO7PBGFCYH"
+        ],
+        "mandate": [
+          "Atomic Blend supply from 1 base units inclusive to 20000000 exclusive.",
+          "Custody GDAFDYQGVCCUEBHGBFZNX52TBVNHGLQBUL2TYAIVKGNGGQZKDGTW5RHF; position owner CB5HHVSDK2CGNPCRMQPBIZMVZQLCZHHUXEEK7ZCAIQHPG752AX4CYMVM; pool CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF.",
+          "1 of 1 approved operator signatures; adapter authorizes the bound token and pool contexts."
+        ]
+      }
+    },
+    {
+      "name": "amount-aware discovery selects high band",
+      "result": {
+        "custodyWallet": "GDAFDYQGVCCUEBHGBFZNX52TBVNHGLQBUL2TYAIVKGNGGQZKDGTW5RHF",
+        "token": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+        "executionAdapter": "CC5K4BPML3L3OH3MFX7LV4EL37FR36EJJXYJIMNNWC5TAN4WM2SGKLFW",
+        "minAmountBaseUnits": "20000001",
+        "perTxCap": "170141183460469231731687303715884105728",
+        "venue": {
+          "kind": "blend-pool",
+          "pool": "CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF",
+          "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "perRequestCap": "170141183460469231731687303715884105728",
+          "collateral": false
+        },
+        "ruleIds": {
+          "executor": 6,
+          "token": 4,
+          "pool": 5
+        },
+        "requiredSignatures": 2,
+        "operatorKeys": [
+          "GBZD3RRN7BNLGNZQA5FYVQNMJRXOAOPIZSMJUZA5F5GOU2WO7PBGFCYH",
+          "GDAFDYQGVCCUEBHGBFZNX52TBVNHGLQBUL2TYAIVKGNGGQZKDGTW5RHF"
+        ],
+        "mandate": [
+          "Atomic Blend supply from 20000001 base units inclusive, with no additional policy upper limit.",
+          "Custody GDAFDYQGVCCUEBHGBFZNX52TBVNHGLQBUL2TYAIVKGNGGQZKDGTW5RHF; position owner CB5HHVSDK2CGNPCRMQPBIZMVZQLCZHHUXEEK7ZCAIQHPG752AX4CYMVM; pool CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF.",
+          "2 of 2 approved operator signatures; adapter authorizes the bound token and pool contexts."
+        ]
+      }
+    },
+    {
+      "name": "SDK low-band agent alone executes 0.1 XLM",
+      "result": {
+        "amount": "1000000",
+        "before": {
+          "wallet": "99996673221",
+          "prime": "0",
+          "adapter": "0",
+          "primeAllowance": "100000000",
+          "adapterAllowance": "0",
+          "supplyShares": "0"
+        },
+        "after": {
+          "wallet": "99995673221",
+          "prime": "0",
+          "adapter": "0",
+          "primeAllowance": "99000000",
+          "adapterAllowance": "0",
+          "supplyShares": "490754"
+        },
+        "result": {
+          "kind": "success",
+          "txHash": "bf21c41cfdbae9ec3b0b9e60e02372c7a307216bc8bfce54b4a8828fa2c320b9",
+          "ledger": 4707930
+        }
+      }
+    },
+    {
+      "name": "SDK exactly 2 XLM gap denied without broadcast",
+      "result": {
+        "amount": "20000000",
+        "stateUnchanged": true,
+        "sourceSequenceUnchanged": true
+      }
+    },
+    {
+      "name": "fully signed low-band over-cap denied",
+      "result": {
+        "stage": "enforcing RPC simulation",
+        "band": "low",
+        "amount": "21000000",
+        "signatureEntries": 3,
+        "contextRuleIds": [
+          3,
+          1,
+          2
+        ],
+        "policyError": "ArgMismatch #100",
+        "stateUnchanged": true,
+        "sourceSequenceUnchanged": true
+      }
+    },
+    {
+      "name": "fully signed exactly 2 XLM through low root denied",
+      "result": {
+        "stage": "enforcing RPC simulation",
+        "band": "low",
+        "amount": "20000000",
+        "signatureEntries": 3,
+        "contextRuleIds": [
+          3,
+          1,
+          2
+        ],
+        "policyError": "ArgMismatch #100",
+        "stateUnchanged": true,
+        "sourceSequenceUnchanged": true
+      }
+    },
+    {
+      "name": "fully signed exactly 2 XLM through high root denied",
+      "result": {
+        "stage": "enforcing RPC simulation",
+        "band": "high",
+        "amount": "20000000",
+        "signatureEntries": 6,
+        "contextRuleIds": [
+          6,
+          4,
+          5
+        ],
+        "policyError": "ArgMismatch #100",
+        "stateUnchanged": true,
+        "sourceSequenceUnchanged": true
+      }
+    },
+    {
+      "name": "fully signed below high minimum denied",
+      "result": {
+        "stage": "enforcing RPC simulation",
+        "band": "high",
+        "amount": "1000000",
+        "signatureEntries": 6,
+        "contextRuleIds": [
+          6,
+          4,
+          5
+        ],
+        "policyError": "ArgMismatch #100",
+        "stateUnchanged": true,
+        "sourceSequenceUnchanged": true
+      }
+    },
+    {
+      "name": "SDK high-band 2.1 XLM completed through production app",
+      "result": {
+        "amount": "21000000",
+        "before": {
+          "wallet": "99995673221",
+          "prime": "0",
+          "adapter": "0",
+          "primeAllowance": "99000000",
+          "adapterAllowance": "0",
+          "supplyShares": "490754"
+        },
+        "after": {
+          "wallet": "99974057999",
+          "prime": "0",
+          "adapter": "0",
+          "primeAllowance": "78000000",
+          "adapterAllowance": "0",
+          "supplyShares": "10796533"
+        },
+        "signed": [
+          "GBZD3RRN7BNLGNZQA5FYVQNMJRXOAOPIZSMJUZA5F5GOU2WO7PBGFCYH"
+        ],
+        "missing": [
+          "GDAFDYQGVCCUEBHGBFZNX52TBVNHGLQBUL2TYAIVKGNGGQZKDGTW5RHF"
+        ],
+        "noBroadcastBeforeCosign": true,
+        "partialEnforcingDenied": true,
+        "result": {
+          "kind": "broadcast",
+          "hash": "bf94709dda46d4e9177593d3c4bd783af02543f1b16a854649591e42d2a95a54"
+        },
+        "authCallbacks": 3,
+        "transactionCallbacks": 1,
+        "browserWalletProof": false
+      }
+    }
+  ],
+  "final": {
+    "wallet": "99996015238",
+    "prime": "0",
+    "adapter": "0",
+    "primeAllowance": "0",
+    "adapterAllowance": "0",
+    "supplyShares": "0"
+  }
+}
