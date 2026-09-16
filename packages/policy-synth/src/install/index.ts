@@ -39,4 +39,5 @@ export {
   buildAddContextRuleArgs,
   DEFAULT_GRAMMAR_VERSION,
 } from './build-add-context-rule.ts'
+export * from './execution-batch.ts'
 export * from './venue-execution-mandate.js'

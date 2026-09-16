@@ -186,6 +186,8 @@ pub type RuleStorageKey = (Address, u32, u32);
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct StoredDoc {
+    /// Part of the document lifecycle; requires a fresh interpreter deployment.
+    pub executor: Option<Address>,
     pub predicate_bytes: Bytes,
 }
 

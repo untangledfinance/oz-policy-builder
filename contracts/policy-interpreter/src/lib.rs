@@ -25,7 +25,7 @@ pub use storage::{PolicyError, RuleKey, StoredDoc};
 pub use types::{ContextRule, ContextRuleType, PolicyInstallParams, Signer};
 pub use version::SELF_VERSION;
 
-use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, Vec};
+use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, IntoVal, Vec};
 
 use crate::types::MAX_SIGNERS;
 
@@ -142,6 +142,11 @@ impl PolicyInterpreter {
             storage::deny(e, storage::PolicyError::NonceReplay);
         }
 
+        let executor = e
+            .storage()
+            .persistent()
+            .get::<_, storage::StoredDoc>(&key.doc_key())
+            .and_then(|doc| doc.executor);
         let signers_hash = storage::sha256_of_signer_set(e, &context_rule.signers);
         let master_set = prior_master.unwrap_or_else(|| install_params.policy_admins.clone());
 
@@ -149,6 +154,7 @@ impl PolicyInterpreter {
             &key.doc_key(),
             &storage::StoredDoc {
                 predicate_bytes: install_params.predicate,
+                executor,
             },
         );
         e.storage()
@@ -166,6 +172,18 @@ impl PolicyInterpreter {
         // enforce from the stored bytes. Keeping the bind makes the intent
         // ('we just validated these bytes will parse') explicit.
         let _ = root;
+    }
+
+    /// Bind every execution child rule before enabling its agent; preserve on reinstall.
+    pub fn bind_executor(e: &Env, rule: (Address, u32), executor: Address) {
+        rule.0.require_auth();
+        let key = storage::RuleKey::new(rule.0, rule.1);
+        let p = e.storage().persistent();
+        auth::require_master(e, &p.get(&key.master_set_key()).unwrap());
+        let mut doc: storage::StoredDoc = p.get(&key.doc_key()).unwrap();
+        doc.executor = Some(executor);
+        p.set(&key.doc_key(), &doc);
+        state::extend_state_ttl(e, &key);
     }
 
     pub fn enforce(
@@ -196,6 +214,10 @@ impl PolicyInterpreter {
             Some(d) => d,
             None => storage::deny(e, storage::PolicyError::MissingState),
         };
+        // Require bound-adapter approval of this exact account/context.
+        if let Some(executor) = &doc.executor {
+            executor.require_auth_for_args((smart_account, context.clone()).into_val(e));
+        }
         let stored_signers_hash: BytesN<32> =
             match e.storage().persistent().get(&key.signers_hash_key()) {
                 Some(h) => h,

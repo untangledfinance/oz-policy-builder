@@ -1,3 +1,5 @@
+// Legacy ExecutionPolicy prototype only. For the stateless adapter + v5 use
+// buildExecutionBatchPolicy from execution-batch.ts; do not install this config there.
 // Batch-aware venue execution mandate (M3).
 //
 // Compiles a venue action into the ExecutionPolicy config a Prime installs on
