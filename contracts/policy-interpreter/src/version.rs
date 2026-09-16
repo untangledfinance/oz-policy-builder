@@ -1,8 +1,7 @@
 //! Version identity baked into the wasm.
 //!
-//! A document whose `grammar_version` does not match this constant is rejected
-//! fail-closed at install, and the check is re-asserted at evaluate as defence
-//! in depth.
+//! The install gate accepts v6 execution documents and ordinary v5/v6 DSL
+//! documents. Older deployed interpreters remain immutable.
 
 /// Grammar version this interpreter implements. A new condition type means a
 /// new grammar version, which means a new interpreter at a new address - never
@@ -27,4 +26,6 @@
 /// document no longer describes what this contract stores. The version gate
 /// refuses the skew before a half-understood install can appoint an admin
 /// set the author never reviewed.
-pub const SELF_VERSION: u32 = 5;
+// Version 6 adds execution_v1 documents and explicit execution scopes.
+// Legacy v5 documents remain accepted; execution documents require v6.
+pub const SELF_VERSION: u32 = 6;

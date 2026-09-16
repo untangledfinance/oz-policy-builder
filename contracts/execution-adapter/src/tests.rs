@@ -37,7 +37,8 @@ fn executes_no_funding_call_in_order() {
     let e = Env::default();
     e.mock_all_auths();
     let prime = Address::generate(&e);
-    let adapter = e.register(ExecutionAdapter, (&prime,));
+    let interpreter = e.register(policy_interpreter::PolicyInterpreter, ());
+    let adapter = e.register(ExecutionAdapter, (&prime, &interpreter));
     let venue = e.register(Fixture, ());
     let calls = vec![
         &e,
@@ -54,7 +55,8 @@ fn late_failure_rolls_back_earlier_state() {
     let e = Env::default();
     e.mock_all_auths();
     let prime = Address::generate(&e);
-    let adapter = e.register(ExecutionAdapter, (&prime,));
+    let interpreter = e.register(policy_interpreter::PolicyInterpreter, ());
+    let adapter = e.register(ExecutionAdapter, (&prime, &interpreter));
     let venue = e.register(Fixture, ());
     let calls = vec![
         &e,
@@ -65,6 +67,10 @@ fn late_failure_rolls_back_earlier_state() {
         .try_execute(&prime, &calls)
         .is_err());
     assert_eq!(FixtureClient::new(&e, &venue).get(), 0);
+    assert!(
+        !policy_interpreter::PolicyInterpreterClient::new(&e, &interpreter)
+            .execution_active(&adapter)
+    );
 }
 
 #[test]
@@ -73,7 +79,8 @@ fn stranger_cannot_choose_their_own_prime_to_spend_adapter_balance() {
     e.mock_all_auths();
     let prime = Address::generate(&e);
     let stranger = Address::generate(&e);
-    let adapter = e.register(ExecutionAdapter, (&prime,));
+    let interpreter = e.register(policy_interpreter::PolicyInterpreter, ());
+    let adapter = e.register(ExecutionAdapter, (&prime, &interpreter));
     let token_addr = e
         .register_stellar_asset_contract_v2(Address::generate(&e))
         .address();
@@ -98,10 +105,42 @@ fn stranger_cannot_choose_their_own_prime_to_spend_adapter_balance() {
 fn missing_prime_authorization_is_rejected() {
     let e = Env::default();
     let prime = Address::generate(&e);
-    let adapter = e.register(ExecutionAdapter, (&prime,));
+    let interpreter = e.register(policy_interpreter::PolicyInterpreter, ());
+    let adapter = e.register(ExecutionAdapter, (&prime, &interpreter));
     let venue = e.register(Fixture, ());
     let calls = vec![&e, call(&e, &venue, "get", Vec::new(&e))];
     assert!(ExecutionAdapterClient::new(&e, &adapter)
         .try_execute(&prime, &calls)
         .is_err());
+}
+
+#[contract]
+struct ScopeObserver;
+#[contractimpl]
+impl ScopeObserver {
+    pub fn observe(e: Env, interpreter: Address, adapter: Address) {
+        assert!(
+            policy_interpreter::PolicyInterpreterClient::new(&e, &interpreter)
+                .execution_active(&adapter),
+            "scope must be open while calls execute"
+        );
+    }
+}
+#[test]
+fn execution_opens_scope_and_removes_it_even_when_no_child_requires_prime_auth() {
+    let e = Env::default();
+    e.mock_all_auths();
+    let prime = Address::generate(&e);
+    let interpreter = e.register(policy_interpreter::PolicyInterpreter, ());
+    let adapter = e.register(ExecutionAdapter, (&prime, &interpreter));
+    let venue = e.register(ScopeObserver, ());
+    let calls = vec![
+        &e,
+        call(&e, &venue, "observe", (&interpreter, &adapter).into_val(&e)),
+    ];
+    ExecutionAdapterClient::new(&e, &adapter).execute(&prime, &calls);
+    assert!(
+        !policy_interpreter::PolicyInterpreterClient::new(&e, &interpreter)
+            .execution_active(&adapter)
+    );
 }

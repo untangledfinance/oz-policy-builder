@@ -1,6 +1,6 @@
 #![no_std]
 
-//! Policy interpreter - the single audited Soroban contract that evaluates a
+//! Policy interpreter - the shared Soroban contract that evaluates a
 //! predicate supplied as install data.
 
 extern crate alloc;
@@ -13,6 +13,7 @@ pub mod auth;
 pub mod dsl;
 #[cfg(test)]
 mod dsl_tests;
+pub mod execution;
 pub mod state;
 pub mod storage;
 #[cfg(test)]
@@ -34,6 +35,21 @@ pub struct PolicyInterpreter;
 
 #[contractimpl]
 impl PolicyInterpreter {
+    pub fn begin_execution(
+        e: &Env,
+        executor: Address,
+        prime: Address,
+        calls: Vec<execution::Call>,
+    ) {
+        execution::begin(e, executor, prime, calls);
+    }
+    pub fn end_execution(e: &Env, executor: Address) {
+        execution::end(e, executor);
+    }
+    pub fn execution_active(e: &Env, executor: Address) -> bool {
+        execution::active(e, &executor)
+    }
+
     pub fn grammar_version(_e: &Env) -> u32 {
         SELF_VERSION
     }
@@ -44,7 +60,7 @@ impl PolicyInterpreter {
         context_rule: ContextRule,
         smart_account: Address,
     ) {
-        if install_params.grammar_version != SELF_VERSION {
+        if install_params.grammar_version != SELF_VERSION && install_params.grammar_version != 5 {
             storage::deny(e, storage::PolicyError::VersionMismatch);
         }
 
@@ -67,9 +83,22 @@ impl PolicyInterpreter {
 
         // (c) Parse + decode - the host does the XDR work; we walk the
         //     resulting native `Vec<Val>`.
-        let root = match dsl::decode_with_byte_cap(e, &install_params.predicate) {
-            Ok(n) => n,
-            Err(_) => storage::deny(e, storage::PolicyError::MalformedPredicate),
+        let execution_config = execution::decode(e, &install_params.predicate);
+        let root = if let Some(ref cfg) = execution_config {
+            if install_params.grammar_version != SELF_VERSION
+                || !matches!(context_rule.context_type, ContextRuleType::CallContract(_))
+            {
+                storage::deny(e, storage::PolicyError::VersionMismatch);
+            }
+            execution::validate_config(e, cfg);
+            None
+        } else {
+            Some(
+                match dsl::decode_with_byte_cap(e, &install_params.predicate) {
+                    Ok(n) => n,
+                    Err(_) => storage::deny(e, storage::PolicyError::MalformedPredicate),
+                },
+            )
         };
 
         // (c2) The rule's signers (the operators) stay bounded: `enforce`
@@ -97,7 +126,7 @@ impl PolicyInterpreter {
         //      or trivially false at install time, so it would permit
         //      everything or nothing forever. Refuse it so a no-constraint
         //      policy cannot install under any name.
-        if !dsl::has_selector_leaf(&root) {
+        if root.as_ref().is_some_and(|n| !dsl::has_selector_leaf(n)) {
             storage::deny(e, storage::PolicyError::SelectorLeafRequired);
         }
 
@@ -106,7 +135,10 @@ impl PolicyInterpreter {
         //      silently inverts the comparison, so a floor would permit the
         //      trades it was written to refuse. Refuse at install: both are
         //      properties of the predicate, knowable before it is stored.
-        if dsl::validate_scaled_ratios(&root).is_err() {
+        if root
+            .as_ref()
+            .is_some_and(|n| dsl::validate_scaled_ratios(n).is_err())
+        {
             storage::deny(e, storage::PolicyError::InvalidScaledRatio);
         }
 
@@ -204,6 +236,19 @@ impl PolicyInterpreter {
         let current_signers_hash = storage::sha256_of_signer_set(e, &context_rule.signers);
         if current_signers_hash != stored_signers_hash {
             storage::deny(e, storage::PolicyError::RuleSignersChanged);
+        }
+
+        if let Some(cfg) = execution::decode(e, &doc.predicate_bytes) {
+            state::extend_state_ttl(e, &key);
+            execution::enforce(
+                e,
+                &cfg,
+                &doc.predicate_bytes,
+                &current_signers_hash,
+                &smart_account,
+                &context,
+            );
+            return;
         }
 
         let predicate_root = match dsl::decode_with_byte_cap(e, &doc.predicate_bytes) {

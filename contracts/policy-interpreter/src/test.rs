@@ -17,6 +17,6 @@ fn reports_its_grammar_version() {
 /// install ABI (`policy_admins`), so this build must not answer a version an
 /// older builder would take as an invitation to install.
 #[test]
-fn grammar_version_is_five() {
-    assert_eq!(SELF_VERSION, 5);
+fn grammar_version_is_six() {
+    assert_eq!(SELF_VERSION, 6);
 }

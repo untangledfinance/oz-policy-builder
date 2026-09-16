@@ -100,7 +100,7 @@ fn install_then_grammar_version_returns_self_version() {
     let params = make_params(&env, 5, 1, &dummy_address(), &signers);
     client.install(&params, &ctx_rule, &smart_account);
 
-    assert_eq!(client.grammar_version(), 5);
+    assert_eq!(client.grammar_version(), 6);
 }
 
 #[test]

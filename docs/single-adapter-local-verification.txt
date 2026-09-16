@@ -1,0 +1,117 @@
+/tmp/prime-scoped-regression.log
+
+running 69 tests
+.....................................................................
+test result: ok. 69 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 18 tests
+..................
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 6 tests
+......
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 10 tests
+..........
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+
+running 25 tests
+.........................
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+
+running 6 tests
+......
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 4 tests
+....
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+
+
+running 8 tests
+........
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+
+/tmp/prime-scoped-adapter-tests.log
+
+running 5 tests
+.....
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+/tmp/prime-scoped-builder-tests.log
+bun test v1.4.2 (744846f84)
+
+packages/policy-synth/src/install/venue-execution-mandate.test.ts:
+(pass) buildBlendExecutionMandate > emits a two-branch call predicate (pull OR submit) and default max_calls [8.81ms]
+(pass) buildBlendExecutionMandate > pins the pull leg: token.transfer_from prime<-custody->executor, bounded [2.30ms]
+(pass) buildBlendExecutionMandate > pins the submit leg: pool.submit position-at-Prime, one request, asset+types+amount [1.92ms]
+(pass) buildBlendExecutionMandate > auth predicate pins the ONLY nested executor authorization: token.transfer executor->pool [1.45ms]
+(pass) buildBlendExecutionMandate > encodes to canonical bytes that decode back to the same AST (round trip), deterministically [7.86ms]
+
+packages/policy-synth/src/install/scoped-execution.test.ts:
+(pass) scoped execution documents > supply requires two ordered steps, one exact auth node, and equal amounts [7.07ms]
+(pass) scoped execution documents > malformed or unbounded configuration is rejected [0.63ms]
+
+ 7 pass
+ 0 fail
+ 40 expect() calls
+Ran 7 tests across 2 files. [362.00ms]
+
+/tmp/prime-scoped-sdk-tests.log
+bun test v1.4.2 (744846f84)
+
+src/execution-adapter/discover.test.ts:
+(pass) discoverExecutionMandate > finds the rule scoped to the Prime's derived executor [6.83ms]
+(pass) discoverExecutionMandate > returns null when no rule is scoped to the executor [0.68ms]
+(pass) requireExecutionMandate — no silent fallback > throws when the mandate is absent instead of degrading to the saga [0.81ms]
+
+src/execution-adapter/activate.test.ts:
+(pass) buildActivationOperation > emits a CreateContractV2 with the Prime deployer, versioned salt, pinned WASM and (prime) constructor [2.14ms]
+(pass) v2 binds both Prime and interpreter and uses a new deterministic address [0.88ms]
+(pass) activation rejects failed authorization simulation before returning a transaction [57.73ms]
+
+src/execution-adapter/batch.test.ts:
+(pass) blendSupplyBatch > is two calls: pull then submit [0.05ms]
+(pass) blendSupplyBatch > pull is token.transfer_from(prime, custody, executor, amount), no nested auth [0.87ms]
+(pass) blendSupplyBatch > submit binds the position to the Prime and carries exactly one nested executor transfer executor->pool [0.83ms]
+(pass) blendSupplyBatch > encodes each Call to a struct with target/function_name/args/executor_authorizations [0.22ms]
+(pass) blendWithdrawBatch > is one submit, tokens to custody, no pull and no nested auth [0.45ms]
+(pass) buildExecuteOperation > invokes executor.execute(prime, calls) [2.37ms]
+
+src/execution-adapter/inspect.test.ts:
+(pass) inspectExecutionAdapter > ready when code hash and Prime binding both match [0.92ms]
+(pass) inspectExecutionAdapter > deployment-needed when no instance entry [0.34ms]
+(pass) inspectExecutionAdapter > archived when the instance is expired [0.37ms]
+(pass) inspectExecutionAdapter > wrong-code when the executable hash differs [0.51ms]
+(pass) inspectExecutionAdapter > wrong-binding when bound to a different Prime [0.44ms]
+(pass) inspectExecutionAdapter > wrong-binding (not ready) when binding is unreadable/null [0.43ms]
+(pass) inspectExecutionAdapter > lookup-failed on reader error — never deployment-needed [0.44ms]
+(pass) v2 refuses a wrong interpreter binding even when adapter code and Prime match [0.42ms]
+(pass) v2 checks interpreter code and network before reporting ready [0.92ms]
+
+src/execution-adapter/derive.test.ts:
+(pass) execution-adapter salt > is sha256(utf8('prime-execution:v1')) — the on-chain-verified salt [0.16ms]
+(pass) deriveExecutionAdapterAddress > reproduces the deployed testnet executor for its Prime [0.31ms]
+(pass) deriveExecutionAdapterAddress > is stable across repeated derivation [0.37ms]
+(pass) deriveExecutionAdapterAddress > differs by Prime [0.49ms]
+(pass) deriveExecutionAdapterAddress > differs by network (namespace separation) [0.36ms]
+
+ 26 pass
+ 0 fail
+ 54 expect() calls
+Ran 26 tests across 5 files. [374.00ms]
+
+/tmp/prime-scoped-sdk-tsc.log
+$ tsc --noEmit
+
+/tmp/prime-scoped-sdk-chain.log
+VERIFIED SDK v2 activation bytes + address + Prime binding + interpreter binding + both WASM hashes {"state":"ready","address":"CD6MAW454J3XXEADNGF26DXCU4RMJRTEIYH3BY2IF5RX5JTGC6R2TZHJ","wasmHash":"719240da0e3cf8a7fa32dad3a1af65c01276e4194a8ba68eef7b8a9d27126f7c","boundPrime":"CARTYEXSQGOHDAS2RB7V4TNKGISDALJR3ZLR4T44MPBUV4SAP3ZYXNSD"}

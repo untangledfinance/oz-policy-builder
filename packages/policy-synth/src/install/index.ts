@@ -40,3 +40,5 @@ export {
   DEFAULT_GRAMMAR_VERSION,
 } from './build-add-context-rule.ts'
 export * from './venue-execution-mandate.js'
+
+export * from './scoped-execution.js'

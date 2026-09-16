@@ -9,6 +9,7 @@ doctest = false
 [dependencies]
 soroban-sdk = { version = "=27.0.2", features = ["alloc"] }
 [dev-dependencies]
+policy-interpreter = { path = "../policy-interpreter" }
 soroban-sdk = { version = "=27.0.2", features = ["testutils"] }
 [profile.release]
 opt-level = "z"
