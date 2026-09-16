@@ -1,0 +1,341 @@
+{
+  "network": "TESTNET",
+  "rpc": "https://soroban-testnet.stellar.org",
+  "updatedAt": "2026-09-16T11:58:48.097Z",
+  "proof": "atomic SDK + production app continuation; local signer, not browser wallet",
+  "owner": "GDKJL5NUAKQWRPD3UU67LZPMU4YAAKG3BXSONF3LMSORIQMGOTZ3QQF5",
+  "agent": "GAUNCHMFN3P4QABYGA7XJSRZFSF52OXNSRVPSQA6GBPXBJAEKTNSEFA5",
+  "cosigner": "GDUALFAK6KSYDVALNTUMPVNTLIIBBOORWCAD4K7VAJ5WG72EEUXLUJB7",
+  "token": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+  "pool": "CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF",
+  "contracts": {
+    "prime": "CDVRPL7IKPKPI5YNAUEEJGM4OQSGRJIQF4VCPUIZCCUPGVRWNOM5XQ2Q",
+    "interpreter": "CBIQGAHIGCIAC6JJBYQQBTDFNNWQCGPECWRI7NO2PHIYDQV6QDLG6I2W",
+    "adapter": "CAKGAHA5FUWTQVQDJ4LDPAYUTDXQ3GG2BWY3ADX5GO3NENK5S4YDJMQ5"
+  },
+  "wasmHashes": {
+    "interpreter": "cc05ac55747d2472f6da1fc229a2f9f8083607ba8c08bf5eaeac7cd73ef6fb66",
+    "adapter": "57bf132b9537f0d35b9de4327e047f920938eac655e7d140c108e84da3b03474",
+    "account": "91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9",
+    "threshold": "01c0be09eb6fb288cab2e878b4e890f7a38f75afab99aeb197861f44e2e2dfe6"
+  },
+  "rules": {
+    "token": 4,
+    "pool": 5,
+    "supply": 6
+  },
+  "bound": [
+    "token",
+    "pool",
+    "supply"
+  ],
+  "salt": "163ebd5c5b6156a936c8f8f9b81af19e1f64727c1512eb6e7a63f42330986c07",
+  "transactions": [
+    {
+      "label": "deploy prime",
+      "hash": "070945c14d17d91cdd4a8f9f055dd42277881e2a0bfaa517e6c1914bdf851858",
+      "status": "SUCCESS",
+      "ledger": 4707123
+    },
+    {
+      "label": "activate deterministic stateless adapter",
+      "hash": "ec5ce151246587ad31574f3b0e93a951ad7082714adb2aac114b940735166e75",
+      "status": "SUCCESS",
+      "ledger": 4707124
+    },
+    {
+      "label": "install token",
+      "hash": "35c86efbead4b2b2e0d4ff6f683db4ef75eed6c43d21644b86a51d08aee77327",
+      "status": "SUCCESS",
+      "ledger": 4707125
+    },
+    {
+      "label": "bind token",
+      "hash": "b2b5497d7238a7c39a913abf83699c341f27b34205a2a9ec968cc7e51d5263cc",
+      "status": "SUCCESS",
+      "ledger": 4707126
+    },
+    {
+      "label": "install pool",
+      "hash": "dd111ddcb6dccf3b6fdef6625ee4292027e03702a89f7a4404a302142b6200d4",
+      "status": "SUCCESS",
+      "ledger": 4707127
+    },
+    {
+      "label": "bind pool",
+      "hash": "d91479d65917403910bd541cbcdfe8fc41c2dccb925f2f72b4b536886844a5c1",
+      "status": "SUCCESS",
+      "ledger": 4707128
+    },
+    {
+      "label": "install supply",
+      "hash": "74c6173aa5631f5cdcc23d97e767c37a0652c5bd3d0c5b27ce9bb04d2c212640",
+      "status": "SUCCESS",
+      "ledger": 4707130
+    },
+    {
+      "label": "bind supply",
+      "hash": "69cd36f918abf9a39b606f41947d9cbbd6d048c4191100f58d5801895c7127a0",
+      "status": "SUCCESS",
+      "ledger": 4707131
+    },
+    {
+      "label": "approve disposable Prime allowance",
+      "hash": "30cecee8e7504790f0da84c1ee7ed0c245dc44857035ed5418acc93464ccd01f",
+      "status": "SUCCESS",
+      "ledger": 4707132
+    },
+    {
+      "label": "replace noncanonical fixture supply",
+      "hash": "4d449bec6486b6fafdecbd271928a77fa7aa71e98379aedc5c411acc3a2ab002",
+      "status": "SUCCESS",
+      "ledger": 4707186
+    },
+    {
+      "label": "replace noncanonical fixture token",
+      "hash": "387a63dbe6623709af7898f99075a3664b4774e6de1397266855cb985a3269a0",
+      "status": "SUCCESS",
+      "ledger": 4707187
+    },
+    {
+      "label": "replace noncanonical fixture pool",
+      "hash": "8e0077b716c641d1b452bf11da7ccba0c99706c44984974e78d422b4e3a322e2",
+      "status": "SUCCESS",
+      "ledger": 4707188
+    },
+    {
+      "label": "install token",
+      "hash": "d88b73a2b880e0a02a22b16ffb98d4b8aa17fdd6690d99caeb0bd191a4aaf296",
+      "status": "SUCCESS",
+      "ledger": 4707189
+    },
+    {
+      "label": "bind token",
+      "hash": "0befeee154afa545ce179359c07c091bcb313d572b079b57935f8a7f6d7ffd4a",
+      "status": "SUCCESS",
+      "ledger": 4707190
+    },
+    {
+      "label": "install pool",
+      "hash": "9e6d3549f86dfaf04b690c687917cd81d8b25067ceede7c201b4705f25c22aaf",
+      "status": "SUCCESS",
+      "ledger": 4707191
+    },
+    {
+      "label": "bind pool",
+      "hash": "5ae753211aa8cffc73ba99e889259b833ecfaf330aef82d4ba6886838a847dc2",
+      "status": "SUCCESS",
+      "ledger": 4707192
+    },
+    {
+      "label": "install supply",
+      "hash": "4d5619f93852fd94836930a37fa9132aad6dcb49941e97a368b4252ae707f925",
+      "status": "SUCCESS",
+      "ledger": 4707193
+    },
+    {
+      "label": "bind supply",
+      "hash": "f57f9307752eb29dca9fa6c3f059210c1d7272cf93366ac9966e8b0e80891394",
+      "status": "SUCCESS",
+      "ledger": 4707194
+    },
+    {
+      "label": "production app cosigner atomic Blend supply",
+      "kind": "broadcast",
+      "hash": "d886862269eb6af435b1878debda1865d6c2350f2ef55443e0f339ea22ca44e2",
+      "status": "SUCCESS",
+      "ledger": 4707210
+    },
+    {
+      "label": "owner withdraw all Blend supply",
+      "hash": "556fbc6469000596dd326e199eddb7026dc67d0ac98a5c9429d2aeb3abd861d9",
+      "status": "SUCCESS",
+      "ledger": 4707212
+    },
+    {
+      "label": "revoke remaining disposable allowance",
+      "hash": "7927006b7ef747d5a1df49b42b58132558ef55880e45694265ac39ec838cee47",
+      "status": "SUCCESS",
+      "ledger": 4707213
+    },
+    {
+      "label": "temporary disposable allowance for full-auth cap simulation",
+      "hash": "6f1bff5a8b2b900aea06e1f756f66a67a0426406ffc9b2d79d241e33b151ba9e",
+      "status": "SUCCESS",
+      "ledger": 4707225
+    },
+    {
+      "label": "revoke remaining disposable allowance",
+      "hash": "2943445d5d78d0a08f11aab99970739b81d6e750600eb89d85c3a3aed7f9212a",
+      "status": "SUCCESS",
+      "ledger": 4707228
+    }
+  ],
+  "checks": [
+    {
+      "name": "approve Prime only",
+      "result": {
+        "wallet": "99998050766",
+        "prime": "0",
+        "adapter": "0",
+        "primeAllowance": "4000000",
+        "adapterAllowance": "0",
+        "supplyShares": "0"
+      }
+    },
+    {
+      "name": "two-input live discovery",
+      "result": {
+        "custodyWallet": "GDKJL5NUAKQWRPD3UU67LZPMU4YAAKG3BXSONF3LMSORIQMGOTZ3QQF5",
+        "token": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+        "executionAdapter": "CAKGAHA5FUWTQVQDJ4LDPAYUTDXQ3GG2BWY3ADX5GO3NENK5S4YDJMQ5",
+        "perTxCap": "2000000",
+        "venue": {
+          "kind": "blend-pool",
+          "pool": "CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF",
+          "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          "perRequestCap": "2000000",
+          "collateral": false
+        },
+        "ruleIds": {
+          "executor": 6,
+          "token": 4,
+          "pool": 5
+        },
+        "requiredSignatures": 2,
+        "operatorKeys": [
+          "GAUNCHMFN3P4QABYGA7XJSRZFSF52OXNSRVPSQA6GBPXBJAEKTNSEFA5",
+          "GDUALFAK6KSYDVALNTUMPVNTLIIBBOORWCAD4K7VAJ5WG72EEUXLUJB7"
+        ],
+        "mandate": [
+          "Atomic Blend supply of positive amounts below 2000000 base units.",
+          "Custody GDKJL5NUAKQWRPD3UU67LZPMU4YAAKG3BXSONF3LMSORIQMGOTZ3QQF5; position owner CDVRPL7IKPKPI5YNAUEEJGM4OQSGRJIQF4VCPUIZCCUPGVRWNOM5XQ2Q; pool CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF.",
+          "2 of 2 approved operator signatures; adapter authorizes the bound token and pool contexts."
+        ]
+      }
+    },
+    {
+      "name": "SDK returns self-contained link without broadcast",
+      "result": {
+        "signed": [
+          "GAUNCHMFN3P4QABYGA7XJSRZFSF52OXNSRVPSQA6GBPXBJAEKTNSEFA5"
+        ],
+        "missing": [
+          "GDUALFAK6KSYDVALNTUMPVNTLIIBBOORWCAD4K7VAJ5WG72EEUXLUJB7"
+        ],
+        "validUntil": 4707300,
+        "urlOrigin": "https://prime.untangled.finance",
+        "payloadBytes": 6094,
+        "stateUnchanged": true,
+        "sourceSequenceUnchanged": true
+      }
+    },
+    {
+      "name": "one of two cannot execute",
+      "result": {
+        "stage": "enforcing RPC simulation",
+        "error": "HostError: Error(Auth, InvalidAction)"
+      }
+    },
+    {
+      "name": "SDK over-cap denied without link",
+      "result": {
+        "amount": "2000000",
+        "capExclusive": "2000000",
+        "denied": true
+      }
+    },
+    {
+      "name": "production app loads and verifies real per-context signatures",
+      "result": {
+        "threshold": 2,
+        "ruleId": 6,
+        "verified": true,
+        "authEntryCount": 4
+      }
+    },
+    {
+      "name": "wrong-network rejected before signer callback",
+      "result": {
+        "loadError": "the link is for mainnet and this app is on testnet - ask for a testnet link",
+        "continueError": "network mismatch between payload and app",
+        "signerCallbacks": 0
+      }
+    },
+    {
+      "name": "expired rejected before signer callback",
+      "result": {
+        "loadError": "the link expired before you opened it - ask whoever sent it for a new one",
+        "continueError": "expired: validUntil is at or below the current ledger",
+        "signerCallbacks": 0
+      }
+    },
+    {
+      "name": "claimed signature tampering rejected before signer callback",
+      "result": {
+        "loadError": "Execution co-sign request refused: claimed approvals do not match signed contexts",
+        "continueError": "Execution co-sign request refused: claimed approvals do not match signed contexts",
+        "signerCallbacks": 0
+      }
+    },
+    {
+      "name": "production app continuation completes real atomic Blend supply",
+      "result": {
+        "before": {
+          "wallet": "99996174013",
+          "prime": "0",
+          "adapter": "0",
+          "primeAllowance": "4000000",
+          "adapterAllowance": "0",
+          "supplyShares": "0"
+        },
+        "after": {
+          "wallet": "99995174013",
+          "prime": "0",
+          "adapter": "0",
+          "primeAllowance": "3000000",
+          "adapterAllowance": "0",
+          "supplyShares": "490849"
+        },
+        "result": {
+          "kind": "broadcast",
+          "hash": "d886862269eb6af435b1878debda1865d6c2350f2ef55443e0f339ea22ca44e2"
+        },
+        "authCallbacks": 3,
+        "transactionCallbacks": 1,
+        "browserWalletProof": false
+      }
+    },
+    {
+      "name": "fully signed over-cap rejected by interpreter predicate",
+      "result": {
+        "stage": "enforcing RPC simulation",
+        "amount": "2000000",
+        "signatureEntries": 6,
+        "contextRuleIds": [
+          6,
+          4,
+          5
+        ],
+        "policyError": "ArgMismatch #100",
+        "unchanged": true
+      }
+    },
+    {
+      "name": "tampered signature bytes rejected before signer callback",
+      "result": {
+        "loadError": "Execution co-sign request refused: invalid prior cryptographic approval",
+        "continueError": "Execution co-sign request refused: invalid prior cryptographic approval",
+        "signerCallbacks": 0
+      }
+    }
+  ],
+  "final": {
+    "wallet": "99996113759",
+    "prime": "0",
+    "adapter": "0",
+    "primeAllowance": "0",
+    "adapterAllowance": "0",
+    "supplyShares": "0"
+  }
+}
