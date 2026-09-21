@@ -135,6 +135,7 @@ async function asAccount(opts: {
    *  calling it, not by checking bytes. */
   signers?: string[]
   expectFailure?: boolean
+  showCost?: boolean
 }): Promise<Res> {
   const { kp, prime, makeOp, ruleIds, label } = opts
   const signerList = opts.signers ?? [kp.publicKey()]
@@ -236,6 +237,13 @@ async function asAccount(opts: {
   const prepared = rpc.assembleTransaction(authed, sim2).build()
   prepared.sign(kp)
   try {
+    const r = (prepared as any).toEnvelope().v1().tx().ext().sorobanData()?.resources()
+    if (r && opts.showCost) {
+      log(
+        'COST',
+        `${label}: instructions ${r.instructions()}  readBytes ${r.diskReadBytes()}  writeBytes ${r.writeBytes()}`,
+      )
+    }
     return { denied: false, got: await settle(await server.sendTransaction(prepared), label) }
   } catch (err) {
     if (opts.expectFailure) return { denied: true, reason: String(err) }
@@ -326,6 +334,9 @@ async function main() {
     interpreter: readFileSync(`${W}/policy_interpreter.wasm`),
     adapter: readFileSync(`${W}/execution_adapter.wasm`),
     gate: readFileSync(`${W}/custody_gate.wasm`),
+    venue: readFileSync(
+      `${process.env.HOME}/.cache/t-venue/wasm32v1-none/release/execution_test_venue.wasm`,
+    ),
   }
   for (const [name, w] of Object.entries(wasms)) {
     await send(admin, Operation.uploadContractWasm({ wasm: w }), `upload ${name}`)
@@ -403,6 +414,19 @@ async function main() {
   )
   const gate = Address.fromScVal(gateRes.returnValue!).toString()
   log('DEPLOY', `gate        ${gate}`)
+
+  const venueRes = await send(
+    admin,
+    Operation.createCustomContract({
+      address: Address.fromString(admin.publicKey()),
+      wasmHash: hash(wasms.venue),
+      salt: hash(Buffer.from(`v-${Date.now()}-${Math.random()}`)),
+      constructorArgs: [addr(admin.publicKey())],
+    }),
+    'create venue',
+  )
+  const venue = Address.fromScVal(venueRes.returnValue!).toString()
+  log('DEPLOY', `venue       ${venue}`)
 
   // ---- custody grants the allowance to the GATE, never to Prime
   const sac = Asset.native().contractId(PASSPHRASE)
@@ -540,6 +564,7 @@ async function main() {
       signers: [agent.publicKey(), adapter],
       label,
       expectFailure,
+      showCost: !expectFailure,
     })
 
   const before = await readI128(sac, 'allowance', [addr(custody.publicKey()), addr(gate)], admin)
@@ -580,6 +605,267 @@ async function main() {
   const primeStillZero = await readI128(sac, 'allowance', [addr(custody.publicKey()), addr(prime)], admin)
   verdict('Prime still holds no allowance after a successful run', primeStillZero === 0n, `allowance(custody → prime) = ${primeStillZero}`)
 
+  // ---------------------------------------------------------------- //
+  // prime_contexts: a venue that calls a token on Prime's behalf, so the
+  // transfer is a NESTED requirement rather than a call in the batch. This
+  // is the adapter path nothing else here exercises.
+  // ---------------------------------------------------------------- //
+  console.log('\n--- prime_contexts: a nested Prime requirement ---')
+  const relayPredicate = and([
+    eq(selector('call_fn'), sym('execute')),
+    eq(callArgLen(0), u32v(2)),
+    eq(path([u32v(0), u32v(0), sym('target')]), addr(gate)),
+    eq(path([u32v(0), u32v(1), sym('target')]), addr(venue)),
+    eq(path([u32v(0), u32v(1), sym('function_name')]), sym('relay')),
+    // the nested context the venue will raise, pinned from the root
+    eq(callArgLen(1), u32v(1)),
+    eq(path([u32v(1), u32v(0), sym('contract')]), addr(sac)),
+    eq(path([u32v(1), u32v(0), sym('fn_name')]), sym('transfer')),
+    eq(path([u32v(1), u32v(0), sym('args'), u32v(1)]), addr(custody.publicKey())),
+    // and the same cross-call equality, now spanning a call and a context
+    eq(
+      path([u32v(0), u32v(0), sym('args'), u32v(2)]),
+      path([u32v(1), u32v(0), sym('args'), u32v(2)]),
+    ),
+  ])
+  const relayRootRes = await asAccount({
+    kp: admin,
+    prime,
+    makeOp: (auth) =>
+      invokeOp(
+        prime,
+        'add_context_rule',
+        addRuleArgs({
+          scope: adapter,
+          name: 'relay-root',
+          signer: agent.publicKey(),
+          interpreter,
+          predicate: relayPredicate,
+          adminPk: admin.publicKey(),
+        }),
+        auth,
+      ),
+    ruleIds: [0],
+    label: 'install relay root rule',
+  })
+  const relayRootId = Number(scValToNative(relayRootRes.got!.returnValue!).id)
+  log('RULE', `relay-root id=${relayRootId}`)
+
+  const N2 = 120_000n
+  const relayCtx = xdr.ScVal.scvMap([
+    kv('args', vec([addr(prime), addr(custody.publicKey()), i128v(N2)])),
+    kv('contract', addr(sac)),
+    kv('fn_name', sym('transfer')),
+  ])
+  const beforeRelay = await readI128(sac, 'allowance', [addr(custody.publicKey()), addr(gate)], admin)
+  const relayRun = await asAccount({
+    kp: agent,
+    prime,
+    makeOp: (auth) =>
+      invokeOp(
+        adapter,
+        'execute',
+        [
+          addr(prime),
+          addr(interpreter),
+          sym('enforce'),
+          vec([
+            call(gate, 'pull', [addr(sac), addr(prime), i128v(N2)]),
+            call(venue, 'relay', [
+              addr(sac),
+              addr(prime),
+              addr(custody.publicKey()),
+              i128v(N2),
+            ]),
+          ]),
+          vec([relayCtx]),
+        ],
+        auth,
+      ),
+    ruleIds: [relayRootId, childId],
+    signers: [agent.publicKey(), adapter],
+    label: 'relay batch',
+  })
+  const afterRelay = await readI128(sac, 'allowance', [addr(custody.publicKey()), addr(gate)], admin)
+  verdict(
+    'a nested Prime requirement travels as prime_contexts and is enforced',
+    !relayRun.denied && beforeRelay - afterRelay === N2,
+    `allowance ${beforeRelay} → ${afterRelay}   (Δ ${beforeRelay - afterRelay}, expected ${N2})`,
+  )
+
+  // ---------------------------------------------------------------- //
+  // executor_authorizations: the adapter authorising a sub-invocation made
+  // on ITS OWN behalf. Local tests cover this; nothing had run it against a
+  // live network. A second gate is needed because the first one only lets
+  // funds reach Prime.
+  // ---------------------------------------------------------------- //
+  console.log('\n--- executor_authorizations: the adapter as the spender ---')
+  const gate2Res = await send(
+    admin,
+    Operation.createCustomContract({
+      address: Address.fromString(admin.publicKey()),
+      wasmHash: hash(wasms.gate),
+      salt: hash(Buffer.from(`g2-${Date.now()}-${Math.random()}`)),
+      constructorArgs: [
+        xdr.ScVal.scvMap([
+          kv('allowed', vec([addr(adapter)])),
+          kv('caller', addr(adapter)),
+          kv('custody', addr(custody.publicKey())),
+        ]),
+      ],
+    }),
+    'create gate2',
+  )
+  const gate2 = Address.fromScVal(gate2Res.returnValue!).toString()
+  await send(
+    custody,
+    invokeOp(sac, 'approve', [
+      addr(custody.publicKey()),
+      addr(gate2),
+      i128v(1_000_000n),
+      u32v(expLedger),
+    ]),
+    'approve gate2',
+  )
+  log('DEPLOY', `gate2       ${gate2}  (allowed: adapter)`)
+
+  const N3 = 90_000n
+  const execAuth = vec([
+    sym('Contract'),
+    xdr.ScVal.scvMap([
+      kv(
+        'context',
+        xdr.ScVal.scvMap([
+          kv('args', vec([addr(adapter), addr(custody.publicKey()), i128v(N3)])),
+          kv('contract', addr(sac)),
+          kv('fn_name', sym('transfer')),
+        ]),
+      ),
+      kv('sub_invocations', vec([])),
+    ]),
+  ])
+  const callWithAuth = (target: string, fn: string, args: xdr.ScVal[], auths: xdr.ScVal[]) =>
+    xdr.ScVal.scvMap([
+      kv('args', vec(args)),
+      kv('executor_authorizations', vec(auths)),
+      kv('function_name', sym(fn)),
+      kv('target', addr(target)),
+    ])
+
+  const execPredicate = and([
+    eq(selector('call_fn'), sym('execute')),
+    eq(callArgLen(0), u32v(2)),
+    eq(path([u32v(0), u32v(0), sym('target')]), addr(gate2)),
+    eq(path([u32v(0), u32v(1), sym('target')]), addr(venue)),
+    eq(path([u32v(0), u32v(1), sym('args'), u32v(1)]), addr(adapter)),
+    // the authorization the adapter grants, pinned from the root - the
+    // appended-entry case the Len step exists for
+    eq(path([u32v(0), u32v(1), sym("executor_authorizations"), xdr.ScVal.scvBool(true)]), u32v(1)),
+    eq(
+      path([
+        u32v(0),
+        u32v(1),
+        sym('executor_authorizations'),
+        u32v(0),
+        u32v(1),
+        sym('context'),
+        sym('contract'),
+      ]),
+      addr(sac),
+    ),
+  ])
+  const execRootRes = await asAccount({
+    kp: admin,
+    prime,
+    makeOp: (auth) =>
+      invokeOp(
+        prime,
+        'add_context_rule',
+        addRuleArgs({
+          scope: adapter,
+          name: 'exec-root',
+          signer: agent.publicKey(),
+          interpreter,
+          predicate: execPredicate,
+          adminPk: admin.publicKey(),
+        }),
+        auth,
+      ),
+    ruleIds: [0],
+    label: 'install exec root rule',
+  })
+  const execRootId = Number(scValToNative(execRootRes.got!.returnValue!).id)
+  const beforeExec = await readI128(sac, 'allowance', [addr(custody.publicKey()), addr(gate2)], admin)
+  const execRun = await asAccount({
+    kp: agent,
+    prime,
+    makeOp: (auth) =>
+      invokeOp(
+        adapter,
+        'execute',
+        [
+          addr(prime),
+          addr(interpreter),
+          sym('enforce'),
+          vec([
+            call(gate2, 'pull', [addr(sac), addr(adapter), i128v(N3)]),
+            callWithAuth(
+              venue,
+              'relay',
+              [addr(sac), addr(adapter), addr(custody.publicKey()), i128v(N3)],
+              [execAuth],
+            ),
+          ]),
+          vec([]),
+        ],
+        auth,
+      ),
+    ruleIds: [execRootId],
+    signers: [agent.publicKey()],
+    label: 'executor-auth batch',
+  })
+  const afterExec = await readI128(sac, 'allowance', [addr(custody.publicKey()), addr(gate2)], admin)
+  verdict(
+    'the adapter authorises its own sub-invocation and the path pins it',
+    !execRun.denied && beforeExec - afterExec === N3,
+    `allowance ${beforeExec} → ${afterExec}   (Δ ${beforeExec - afterExec}, expected ${N3})`,
+  )
+
+  // ---------------------------------------------------------------- //
+  // MAX_PATH_STEPS is a contract constant; confirm the chain enforces it.
+  // ---------------------------------------------------------------- //
+  console.log('\n--- install-time bound: a path longer than the cap ---')
+  const tooDeep = and([
+    eq(selector('call_fn'), sym('execute')),
+    eq(path(Array.from({ length: 9 }, () => u32v(0))), u32v(1)),
+  ])
+  const deepRes = await asAccount({
+    kp: admin,
+    prime,
+    makeOp: (auth) =>
+      invokeOp(
+        prime,
+        'add_context_rule',
+        addRuleArgs({
+          scope: adapter,
+          name: 'too-deep',
+          signer: agent.publicKey(),
+          interpreter,
+          predicate: tooDeep,
+          adminPk: admin.publicKey(),
+        }),
+        auth,
+      ),
+    ruleIds: [0],
+    label: 'install over-deep predicate',
+    expectFailure: true,
+  })
+  verdict(
+    'a 9-step path is refused at install, #201 MalformedPredicate',
+    deepRes.denied && denialCode(deepRes.reason) === '201',
+    `interpreter code ${denialCode(deepRes.reason)}`,
+  )
+
   const custodyEnd = await readI128(sac, 'balance', [addr(custody.publicKey())], admin)
   log('STATE', `custody balance at end: ${custodyEnd}`)
 
@@ -588,6 +874,7 @@ async function main() {
   console.log(`adapter     https://stellar.expert/explorer/testnet/contract/${adapter}`)
   console.log(`gate        https://stellar.expert/explorer/testnet/contract/${gate}`)
   console.log(`interpreter https://stellar.expert/explorer/testnet/contract/${interpreter}`)
+  console.log(`venue       https://stellar.expert/explorer/testnet/contract/${venue}`)
 }
 
 main().catch((e) => {

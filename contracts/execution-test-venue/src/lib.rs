@@ -25,6 +25,13 @@ impl TestVenue {
         e.storage().instance().set(&symbol_short!("value"), &value);
         value
     }
+    /// Calls a token on the Prime's behalf, so the transfer is a SUB-invocation
+    /// the Prime must authorise separately. That nested requirement is exactly
+    /// what the adapter's `prime_contexts` carries, and nothing else in these
+    /// fixtures produces one.
+    pub fn relay(e: Env, token: Address, from: Address, to: Address, amount: i128) {
+        soroban_sdk::token::Client::new(&e, &token).transfer(&from, &to, &amount);
+    }
     pub fn get(e: Env) -> u32 {
         e.storage()
             .instance()

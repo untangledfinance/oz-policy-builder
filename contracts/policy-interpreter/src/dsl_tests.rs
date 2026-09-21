@@ -24,7 +24,8 @@ use alloc::vec::Vec as StdVec;
 
 use crate::dsl::{
     decode, decode_with_byte_cap, evaluate, CompareOp, DenyReason, EvalContext, EvalDecision, Leaf,
-    Node, PathStep, MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_PREDICATE_BYTES,
+    Node, PathStep, MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_PATH_STEPS,
+    MAX_PREDICATE_BYTES,
 };
 use soroban_sdk::testutils::Address as _;
 use soroban_sdk::xdr::{FromXdr, ScVal, ToXdr, VecM};
@@ -585,7 +586,12 @@ fn sel_call_path_out_of_range_denies() {
 #[test]
 fn sel_call_path_with_no_steps_is_malformed() {
     let env = Env::default();
-    let bogus = bytes_from_scval(&env, vec_scval(&[sym("call_path")]));
+    // Wrapped in a node: a bare leaf is malformed whatever its steps say, so
+    // an unwrapped case would pass without testing the step rule at all.
+    let bogus = bytes_from_scval(
+        &env,
+        vec_scval(&[sym("eq"), vec_scval(&[sym("call_path")]), u32_scval(1)]),
+    );
     let err = decode_with_byte_cap(&env, &bogus).expect_err("a path with no steps must be refused");
     assert_eq!(err.code(), "MALFORMED_PREDICATE");
 }
@@ -662,10 +668,163 @@ fn sel_call_path_len_must_be_the_last_step() {
     let env = Env::default();
     let bogus = bytes_from_scval(
         &env,
-        vec_scval(&[sym("call_path"), ScVal::Bool(true), u32_scval(0)]),
+        vec_scval(&[
+            sym("eq"),
+            vec_scval(&[sym("call_path"), ScVal::Bool(true), u32_scval(0)]),
+            u32_scval(1),
+        ]),
     );
     let err = decode_with_byte_cap(&env, &bogus).expect_err("a step after len must be refused");
     assert_eq!(err.code(), "MALFORMED_PREDICATE");
+}
+
+// ---- call_path, adversarially -----------------------------------------------
+//
+// The leaf walks a caller-supplied path into caller-supplied data. Every way
+// that walk can go wrong must DENY, never panic and never read something it
+// was not pointed at.
+
+fn path_leaf(steps: alloc::vec::Vec<PathStep>) -> Leaf {
+    Leaf::CallPath(steps)
+}
+
+fn denies_with(env: &Env, ctx: &EvalContext, left: Leaf) -> bool {
+    !permit(evaluate(
+        env,
+        &Node::Compare {
+            op: CompareOp::Eq,
+            left,
+            right: Leaf::LiteralU32(1),
+        },
+        ctx,
+    ))
+}
+
+#[test]
+fn call_path_wrong_step_kind_denies_rather_than_panics() {
+    let env = Env::default();
+    let mut ctx = empty_ctx(&env);
+    ctx.args = batch_ctx(&env, &[7]);
+
+    // A map key where a vector index belongs.
+    assert!(denies_with(
+        &env,
+        &ctx,
+        path_leaf(alloc::vec![PathStep::Field(Symbol::new(&env, "nope"))])
+    ));
+    // A vector index where a map key belongs.
+    assert!(denies_with(
+        &env,
+        &ctx,
+        path_leaf(alloc::vec![
+            PathStep::Index(0),
+            PathStep::Index(0),
+            PathStep::Index(0)
+        ])
+    ));
+    // A key that is not in the map.
+    assert!(denies_with(
+        &env,
+        &ctx,
+        path_leaf(alloc::vec![
+            PathStep::Index(0),
+            PathStep::Index(0),
+            PathStep::Field(Symbol::new(&env, "absent"))
+        ])
+    ));
+    // An index past the end.
+    assert!(denies_with(
+        &env,
+        &ctx,
+        path_leaf(alloc::vec![PathStep::Index(0), PathStep::Index(99)])
+    ));
+}
+
+#[test]
+fn call_path_len_on_a_non_vector_denies() {
+    let env = Env::default();
+    let mut ctx = empty_ctx(&env);
+    ctx.args = batch_ctx(&env, &[7]);
+    // `calls[0]` is a map, not a vector.
+    assert!(denies_with(
+        &env,
+        &ctx,
+        path_leaf(alloc::vec![
+            PathStep::Index(0),
+            PathStep::Index(0),
+            PathStep::Len
+        ])
+    ));
+}
+
+/// A bare leaf is not a predicate - the root must be a node - so every decode
+/// case below wraps the path in a comparison. Without that wrapper these
+/// tests pass whatever the step count is, which is no test at all.
+fn eq_node_with_path(steps: usize) -> ScVal {
+    let mut items = alloc::vec![sym("call_path")];
+    for _ in 0..steps {
+        items.push(u32_scval(0));
+    }
+    vec_scval(&[sym("eq"), vec_scval(&items), u32_scval(1)])
+}
+
+#[test]
+fn call_path_refuses_more_steps_than_the_cap() {
+    let env = Env::default();
+    let err = decode_with_byte_cap(
+        &env,
+        &bytes_from_scval(&env, eq_node_with_path((MAX_PATH_STEPS + 1) as usize)),
+    )
+    .expect_err("a path longer than the cap must be refused");
+    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+}
+
+#[test]
+fn call_path_accepts_exactly_the_cap() {
+    let env = Env::default();
+    decode_with_byte_cap(
+        &env,
+        &bytes_from_scval(&env, eq_node_with_path(MAX_PATH_STEPS as usize)),
+    )
+    .expect("a path at exactly the cap must decode");
+}
+
+#[test]
+fn call_path_step_of_an_unsupported_type_is_malformed() {
+    let env = Env::default();
+    let bogus = vec_scval(&[
+        sym("eq"),
+        vec_scval(&[sym("call_path"), u32_scval(0), i128_scval(3)]),
+        u32_scval(1),
+    ]);
+    let err = decode_with_byte_cap(&env, &bytes_from_scval(&env, bogus))
+        .expect_err("an i128 step must be refused");
+    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+}
+
+/// Documented, not desired. Resolving both operands is what makes a
+/// cross-call equality expressible; the same change lets a predicate compare
+/// a selector with ITSELF, which is true for every call and installs cleanly
+/// because a selector is present. This test exists so the property is known
+/// and pinned rather than discovered later.
+#[test]
+fn call_path_compared_with_itself_is_vacuously_true() {
+    let env = Env::default();
+    let mut ctx = empty_ctx(&env);
+    ctx.args = batch_ctx(&env, &[7]);
+    let same = path_leaf(alloc::vec![
+        PathStep::Index(0),
+        PathStep::Index(0),
+        PathStep::Field(Symbol::new(&env, "args")),
+        PathStep::Index(2),
+    ]);
+    let n = Node::Compare {
+        op: CompareOp::Eq,
+        left: same.clone(),
+        right: same,
+    };
+    assert!(permit(evaluate(&env, &n, &ctx)));
+    assert!(crate::dsl::has_selector_leaf(&n), "and install does not catch it");
 }
 
 #[test]

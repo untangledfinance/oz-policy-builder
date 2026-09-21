@@ -47,8 +47,27 @@ const SEL_CALL_ARG_FIELD: &[u8] = b"call_arg_field";
 /// be constrained HERE instead of through a flattened projection built
 /// outside the contract that enforces it.
 const SEL_CALL_PATH: &[u8] = b"call_path";
-/// Steps per path. Deep enough for every shape the venues use, shallow enough
-/// that a hand-crafted predicate cannot walk the host into a cost blow-up.
+/// Steps per path. Measured against the shapes a root predicate actually has
+/// to reach, counting from the committed argument list:
+///
+///   calls[n].target                                   3
+///   calls[n].args[i]                                  4
+///   calls[n].args[3][0].amount        (Blend)         6
+///   prime_contexts[n].args[i]                         4
+///   calls[n].executor_authorizations[k]
+///       .context.contract                             7
+///       .context.args[i]                              8
+///
+/// Eight covers all of them with nothing to spare, and the cap matters because
+/// a path is walked per leaf: with `MAX_LEAVES` at 200 the worst case is 1600
+/// walk steps in one evaluation.
+///
+/// What eight does NOT reach is the inside of a NESTED sub-invocation, which
+/// starts at eleven. That is deliberate rather than an oversight: the root
+/// signature commits to the whole authorization tree, so nothing can be
+/// appended to it after signing, and the adapter's own `check_auths` walk
+/// refuses a forbidden target at ANY depth. The predicate does not need to
+/// restate either.
 pub const MAX_PATH_STEPS: u32 = 8;
 // `call_arg_scaled(index, num, den)` evaluates to `args[index] * num / den`,
 // truncating toward zero. It is the only leaf whose value is COMPUTED from
