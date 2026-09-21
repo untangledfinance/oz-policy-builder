@@ -39,10 +39,27 @@ import {
   scValToNative,
   xdr,
 } from '@stellar/stellar-sdk'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 
-const W = `${process.env.HOME}/.cache/oz-adapter-target/wasm32v1-none/release`
 const ACCOUNT_WASM_HASH = '91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9'
+// Artifacts come from each crate's own build output, so a fresh clone can run
+// this after `cargo build --release --target wasm32v1-none` in contracts/*.
+// PRIME_WASM_DIR overrides with a single directory holding all of them.
+function wasmPath(crate: string, file: string): string {
+  const override = process.env.PRIME_WASM_DIR
+  const candidate = override
+    ? `${override}/${file}.wasm`
+    : `contracts/${crate}/target/wasm32v1-none/release/${file}.wasm`
+  if (!existsSync(candidate)) {
+    throw new Error(
+      `missing ${file}.wasm at ${candidate}\n` +
+        `Build it:  cargo build --release --target wasm32v1-none --manifest-path contracts/${crate}/Cargo.toml\n` +
+        'or set PRIME_WASM_DIR to a directory holding the built artifacts.',
+    )
+  }
+  return candidate
+}
+
 const PASSPHRASE = Networks.TESTNET
 const FEE = '6000000'
 const server = new rpc.Server('https://soroban-testnet.stellar.org')
@@ -357,9 +374,9 @@ async function main() {
   ])
 
   const wasms = {
-    interpreter: readFileSync(`${W}/policy_interpreter.wasm`),
-    adapter: readFileSync(`${W}/execution_adapter.wasm`),
-    gate: readFileSync(`${W}/custody_gate.wasm`),
+    interpreter: readFileSync(wasmPath('policy-interpreter', 'policy_interpreter')),
+    adapter: readFileSync(wasmPath('execution-adapter', 'execution_adapter')),
+    gate: readFileSync(wasmPath('custody-gate', 'custody_gate')),
   }
   for (const [name, w] of Object.entries(wasms)) {
     await send(admin, Operation.uploadContractWasm({ wasm: w }), `upload ${name}`)
