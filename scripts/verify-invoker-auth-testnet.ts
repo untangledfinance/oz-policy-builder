@@ -26,9 +26,14 @@ import {
   rpc,
   xdr,
 } from '@stellar/stellar-sdk'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 
-const WASM = process.env.PROBE_WASM ?? `${process.env.HOME}/.cache/probe-target/wasm32v1-none/release/probe.wasm`
+// Built from contracts/invoker-auth-probe:
+//   cargo build --release --target wasm32v1-none \
+//     --manifest-path contracts/invoker-auth-probe/Cargo.toml
+const WASM =
+  process.env.PROBE_WASM ??
+  'contracts/invoker-auth-probe/target/wasm32v1-none/release/invoker_auth_probe.wasm'
 const NETWORK = Networks.TESTNET
 const server = new rpc.Server('https://soroban-testnet.stellar.org')
 
@@ -137,6 +142,15 @@ async function main() {
   ])
 
   // ---- upload wasm
+  if (!existsSync(WASM)) {
+    throw new Error(
+      `probe wasm not found at ${WASM}\n` +
+        'Build it first:\n' +
+        '  cargo build --release --target wasm32v1-none \\\n' +
+        '    --manifest-path contracts/invoker-auth-probe/Cargo.toml\n' +
+        'or point PROBE_WASM at an existing build.',
+    )
+  }
   const wasm = readFileSync(WASM)
   log('SETUP', `wasm ${wasm.length} bytes  sha256 ${hash(wasm).toString('hex').slice(0, 16)}…`)
   const up = await send(deployer, Operation.uploadContractWasm({ wasm }))
