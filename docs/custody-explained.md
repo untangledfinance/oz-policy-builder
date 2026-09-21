@@ -118,12 +118,13 @@ These use the real numbers from our test run: a limit of 20,000,000, moves of
 You can run every row in this table yourself:
 
 ```
-bun scripts/demo-gates-testnet.ts setup   # once
-bun scripts/demo-gates-testnet.ts all     # each gate, each scenario
+bun scripts/prime.ts demo setup     # once
+bun scripts/prime.ts demo run all   # each gate, each scenario
 ```
 
 It prints the on-chain state before each attempt and names which layer refused.
-`--dry-run` shows what a step would do without touching the network.
+`--dry-run` shows what a step would do without touching the network, and
+`prime gate info` / `prime accounts info` show what each gate is holding.
 
 **Live network** means we ran it against Stellar's test network and read the
 network's own answer. **Our tests** means the contract's test suite covers it,
