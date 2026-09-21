@@ -278,6 +278,14 @@ async function main() {
   )
   results.push(verdict('A  classic payment, custody signature only', false, a))
 
+  // ---- A3: accountMerge, ONE signature -> must FAIL (high threshold)
+  const a3 = await classicTx(
+    custody.publicKey(),
+    Operation.accountMerge({ destination: dest.publicKey() }),
+    [custody],
+  )
+  results.push(verdict('A3 accountMerge, custody signature only', false, a3))
+
   // ---- A2: classic payment, BOTH -> must SUCCEED
   const a2 = await classicTx(
     custody.publicKey(),
