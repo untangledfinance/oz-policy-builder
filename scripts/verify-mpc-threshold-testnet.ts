@@ -286,6 +286,17 @@ async function main() {
   )
   results.push(verdict('A3 accountMerge, custody signature only', false, a3))
 
+  // ---- A4: lower the thresholds with ONE signature -> must FAIL (high).
+  // The load-bearing case for every other refusal here: if the custody key
+  // could drop medThreshold to 10 on its own, it would then satisfy every
+  // other row unaided and the whole arrangement would be decorative.
+  const a4 = await classicTx(
+    custody.publicKey(),
+    Operation.setOptions({ medThreshold: 10, highThreshold: 10 }),
+    [custody],
+  )
+  results.push(verdict('A4 setOptions lowering thresholds, custody signature only', false, a4))
+
   // ---- A2: classic payment, BOTH -> must SUCCEED
   const a2 = await classicTx(
     custody.publicKey(),

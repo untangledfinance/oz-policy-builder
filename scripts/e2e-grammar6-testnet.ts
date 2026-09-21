@@ -750,6 +750,55 @@ async function main() {
     label: 'install withdraw root rule',
   })
   const wRootId = Number(scValToNative(wRootRes.got!.returnValue!).id)
+  // DENY first, while the position is still open. Attempted after the good
+  // withdraw, the pool would refuse for want of a position and the denial
+  // would say nothing about the destination pin - a pass for the wrong reason.
+  console.log('\n--- DENY: withdraw aimed away from custody ---')
+  // The stranger must be a FUNDED account that the pool would happily pay.
+  // Unfunded, the probe simulation - which records auth rather than enforcing
+  // it, so the interpreter never runs - fails inside the pool instead, and the
+  // refusal says nothing about the destination pin. Observed: code 14.
+  const strangerKp = Keypair.random()
+  await friendbot(strangerKp.publicKey())
+  const stranger = strangerKp.publicKey()
+  const strayArgs = (amount: bigint) => [
+    addr(prime),
+    addr(adapter),
+    addr(stranger),
+    vec([
+      xdr.ScVal.scvMap([
+        kv('address', addr(sac)),
+        kv('amount', i128v(amount)),
+        kv('request_type', u32v(1)),
+      ]),
+    ]),
+  ]
+  const stray = await asAccount({
+    kp: agent,
+    prime,
+    makeOp: (auth) =>
+      invokeOp(
+        adapter,
+        'execute',
+        [
+          addr(prime),
+          addr(interpreter),
+          vec([call(POOL, 'submit', strayArgs(AMOUNT))]),
+          vec([grant(POOL, 'submit', strayArgs(AMOUNT))]),
+        ],
+        auth,
+      ),
+    ruleIds: [wRootId, childId],
+    signers: [agent.publicKey(), adapter],
+    label: 'withdraw to a stranger',
+    expectFailure: true,
+  })
+  verdict(
+    'a withdrawal aimed away from custody is refused, #100',
+    stray.denied && denialCode(stray.reason) === '100',
+    `to ${stranger.slice(0, 8)}... (not custody)   interpreter code ${denialCode(stray.reason)}`,
+  )
+
   const custodyBefore = await readI128(sac, 'balance', [addr(custody.publicKey())], admin)
   const wRun = await asAccount({
     kp: agent,

@@ -69,13 +69,16 @@ available today.
 
 ## 2. Design principles
 
-1. **The custody account holds the funds and never stops holding them.** No
-   step moves a balance into a contract we control.
+1. **The custody account holds the cash, and a position leaves it only as a
+   claim Prime cannot redirect.** The principal passes through the adapter
+   inside one atomic transaction. While a venue position is open, the claim on
+   it is recorded against Prime, and the policy pins every exit to the custody
+   account.
 2. **Every bound the client cares about is enforced by something the client
    owns.** Our policy contract only narrows what is already permitted.
 3. **The worst case is a number the client chose.** If everything we operate
-   failed at once, the loss is capped by the spending limit they granted, and
-   reachable only at destinations they listed.
+   failed at once, the loss is capped by the spending limit they granted plus
+   any position still open, and reachable only at destinations they listed.
 4. **Fail closed, and fail for a legible reason.** A refusal should name which
    rule refused, not merely that something went wrong.
 
@@ -235,8 +238,10 @@ And the counterpart: the same `payment` and the same `approve` **succeed** when
 both keys sign. A configuration that refused everything would pass the four rows
 above and be useless.
 
-*(Verified — 6 of 6. The Soroban refusal was submitted to the network, not left
-at simulation, because simulation and consensus are not the same claim.)*
+*(Verified — 7 of 7. The Soroban refusal was submitted to the network, not left
+at simulation, because simulation and consensus are not the same claim. The
+`setOptions` row is the load-bearing one: if one key could lower the thresholds,
+every other refusal here would be decorative.)*
 
 The classic failures come back as `txFailed` with an operation result of
 `opBadAuth`, not top-level `txBadAuth`. The transaction is valid — `low` is met,
@@ -359,15 +364,15 @@ grant list is short cannot run at all.)*
 
 ## 7. What has been verified
 
-Four suites run against Stellar testnet, **27 checks**, all passing on the run
+Four suites run against Stellar testnet, **29 checks**, all passing on the run
 recorded here. Each deploys fresh keys and contracts, so a pass is not carried
 over from a previous run.
 
 | Suite | Checks | What it settles |
 |---|---|---|
 | `verify-invoker-auth-testnet.ts` | 3 | A contract can spend an allowance as itself, and can gate on its direct caller — the two mechanics the gate rests on |
-| `verify-mpc-threshold-testnet.ts` | 6 | Every route out of the custody account, refused with one key and permitted with two |
-| `e2e-grammar6-testnet.ts` | 13 | The whole flow against the live Blend pool, including the refusals |
+| `verify-mpc-threshold-testnet.ts` | 7 | Every route out of the custody account, refused with one key and permitted with two |
+| `e2e-grammar6-testnet.ts` | 14 | The whole flow against the live Blend pool, including the refusals |
 | `grants-v1-blend-testnet.ts` (SDK) | 5 | The same flow driven by the shipped SDK builders and the pinned manifest |
 
 Alongside them, **375 local tests**: 151 interpreter, 22 adapter, 4 gate, 198
@@ -382,7 +387,8 @@ Pool `CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF`.
 | Interpreter reports grammar 6 | `grammar_version() = 6` |
 | Prime holds no allowance, before and after | `0` |
 | Blend supply executes, spends exactly N | allowance `20,000,000 → 18,000,000` |
-| The supply is a real position | `get_positions(prime).supply` non-zero — 959,636 shares on this run |
+| The supply is a real position, held in Prime's name | `get_positions(prime).supply` non-zero — 959,272 shares on this run |
+| A withdrawal aimed at any address but custody | refused `#100` — attempted against a funded account the pool would have paid |
 | Withdrawal returns funds to custody | custody `+2,000,000` — exactly what was supplied |
 | Draw N, commit less than N | refused `#100 ArgMismatch` |
 | Amount at the agreed ceiling | refused `#100` |
@@ -392,13 +398,13 @@ Pool `CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF`.
 | A rule whose expiry is already past | refused at install |
 | A predicate path deeper than the cap | refused at install `#201` |
 
-**13 of 13.** Each refusal was checked for its *code*, not merely for failure.
+**14 of 14.** Each refusal was checked for its *code*, not merely for failure.
 Three separate checks in this work passed for the wrong reason before being
 corrected, the last of them an at-cap case the token contract was refusing for
 want of allowance before the policy ever ran.
 
-The share figure moves between runs — 959,846, then 959,748, then 959,636 —
-because Blend's exchange rate does. The number that must hold exactly is the
+The share figure moves between runs — 959,846, then 959,748, then 959,636, then
+959,272 — because Blend's exchange rate does. The number that must hold exactly is the
 **withdrawal**, and it does.
 
 ### 7.2 Through the SDK's own builders
@@ -477,10 +483,20 @@ covered by local tests, but has not been run against the live venue. Its shape
 differs — proceeds land on Prime and must be swept back — so it needs its own
 verification.
 
-**9.4 The spending limit is the irreducible exposure.** Autonomy requires
-standing authority; that is what the allowance *is*. It can be bounded in
-amount, time and destination. Eliminating it means a human signature per action,
-and that is not autonomy.
+**9.4 The exposure is the spending limit plus any open position.** Autonomy
+requires standing authority; that is what the allowance *is*. It can be bounded
+in amount, time and destination. Eliminating it means a human signature per
+action, and that is not autonomy.
+
+While a venue position is open, the claim on it is recorded against Prime rather
+than the custody account, because a pool credits the address that authorises the
+deposit and `from = custody` would demand both custody keys on every action —
+the same CAP-46-11 threshold as §4.2. The policy pins the exit to custody, and a
+withdrawal aimed anywhere else is refused `#100` *(Verified)*. What stands behind
+that pin is rule 0, so §9.7 is the control that matters most here, not a separate
+concern. Positions closed within the batch that opens them — the reward claiming
+in §10 step 1 — never raise this at all. *(Proposed: nothing is built for
+claiming yet.)*
 
 **9.5 A predicate can be written that constrains nothing.** Grammar 6 resolves
 both sides of a comparison, and that is what makes a cross-call relation
@@ -497,7 +513,8 @@ an exit — but no integration exists. *(Proposed.)*
 permanent authority and its signer is fixed when the account is activated.
 Whoever holds it can install any rule, and the app's guards against that are
 client-side only. **Recommended:** point rule 0 at a classic multisig `G`
-account so break-glass authority is M-of-N.
+account so break-glass authority is M-of-N. This is also what bounds the open
+position in §9.4.
 *(From source — OZ delegated signers verify through `require_auth_for_args`, so
 the target account's own thresholds apply. Not yet run on testnet.)*
 
