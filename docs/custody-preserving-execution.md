@@ -157,9 +157,8 @@ step with both.
 
 ### 3.3 Prime — the OZ smart account
 
-Holds no funds and no allowance. It is the authority the policy hangs off: a
-batch runs only if Prime authorises it, and Prime's authorisation is resolved
-against installed context rules.
+Holds no funds and no allowance. A batch runs only if Prime authorises it, and
+Prime's authorisation is resolved against installed context rules.
 
 ### 3.4 Execution adapter
 
