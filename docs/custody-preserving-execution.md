@@ -115,9 +115,11 @@ flowchart TB
     ADAPTER -- "require_auth_for_args" --> PRIME
     PRIME -- "context rules" --> INTERP
     INTERP -- "executor binding" --> ADAPTER
-    ADAPTER -- "gate.pull" --> GATE
-    GATE -- "transfer_from, allowed destinations only" --> VENUE
-    VENUE -- "position / proceeds" --> MPC
+    ADAPTER -- "gate.pull(token, adapter, N)" --> GATE
+    GATE -- "transfer_from: custody → adapter<br/>the adapter is the only allowed destination" --> ADAPTER
+    ADAPTER -- "submit(...) — the pool pulls N<br/>from the adapter, not from custody" --> VENUE
+    VENUE -- "withdrawal proceeds, to == custody" --> MPC
+    VENUE -. "the open position is held in Prime's name" .-> PRIME
 
     style MPC fill:#1d4d2b,color:#fff,stroke:#143a1f
     style GATE fill:#1d4d2b,color:#fff,stroke:#143a1f
