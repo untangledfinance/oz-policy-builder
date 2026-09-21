@@ -4,10 +4,9 @@ Architecture proposal — 2026-09-21
 
 An institutional asset manager wants an agent to act on their treasury without
 handing that treasury to anyone. This describes how Prime does that on Stellar,
-what enforces each bound, and which parts have been run against the network
-rather than reasoned about.
+what enforces each bound, and which parts have been run against the network.
 
-Every claim below is one of three kinds, and they are labelled throughout:
+Every claim below is labelled as one of three kinds:
 
 | | |
 |---|---|
@@ -29,9 +28,8 @@ written around assets sitting in a named custody account. A design that begins
 review, whatever its merits afterwards.
 
 **1.2 The custody key must not be able to bypass the policy.** *"Under what
-scenario, at set-up, can an MPC not itself bypass the policies on Prime?"* A
-control that the controlled party can switch off is not a control. If the MPC
-key can move funds unilaterally, then the policy engine only describes what the
+scenario, at set-up, can an MPC not itself bypass the policies on Prime?"* If the
+MPC key can move funds unilaterally, the policy engine only describes what the
 agent may propose, not what may happen.
 
 **1.3 Start where the stakes are smallest.** *"Agent autonomous action on reward
@@ -59,11 +57,10 @@ a pre-authorised transaction hash, a hash preimage, and a signed payload. There
 is no contract signer among them. *(From source, and the same enumeration
 appears in our own multisig code.)*
 
-And one correction worth carrying, for when CAP-72 does land: delegated signers
-add weight only to `SorobanAuthorizationEntry` and are *"ignored during the
-transaction signature verification"*. A classic payment would therefore never
-reach the policy contract — it would be **frozen** by insufficient weight, not
-policed. That is a narrower guarantee than the shape suggests.
+One correction to carry for when CAP-72 does land: delegated signers add weight
+only to `SorobanAuthorizationEntry` and are *"ignored during the transaction
+signature verification"*. A classic payment would therefore never reach the
+policy contract — it would be **frozen** by insufficient weight, not policed.
 
 So the architecture below reaches the same three outcomes by a different route,
 available today.
@@ -75,8 +72,7 @@ available today.
 1. **The custody account holds the funds and never stops holding them.** No
    step moves a balance into a contract we control.
 2. **Every bound the client cares about is enforced by something the client
-   owns.** Our policy contract narrows what is already permitted; it is never
-   the only thing standing between an agent and the money.
+   owns.** Our policy contract only narrows what is already permitted.
 3. **The worst case is a number the client chose.** If everything we operate
    failed at once, the loss is capped by the spending limit they granted, and
    reachable only at destinations they listed.
@@ -152,12 +148,12 @@ pub fn pull(e: Env, token: Address, to: Address, amount: i128) {
 
 There is deliberately no setter, no admin and no upgrade path. To change the
 destination list you deploy another gate and re-approve — and re-approving is
-the custody signing ceremony anyway, so the change and its authorisation are
-one act rather than two.
+the custody signing ceremony anyway, so the change and its authorisation are the
+same act.
 
-The gate does not bound the amount a third time. The allowance bounds it, and
-the mandate bounds it; a third number in a third place is a maintenance
-liability, not a control.
+The gate does not bound the amount a third time: the allowance bounds it and the
+agreed mandate bounds it, and a third number in a third place would drift out of
+step with both.
 
 ### 3.3 Prime — the OZ smart account
 
@@ -179,9 +175,9 @@ requirement finds no grant left and the batch reverts.
 
 ### 3.5 Policy interpreter — grammar 6
 
-One audited-once predicate evaluator; every policy is declarative data fed into
-it. `enforce` keeps no counters and reads no clock, which removes whole classes
-of failure rather than mitigating them.
+A single predicate evaluator: every policy is declarative data fed into it, so a
+new mandate is new data, not new code to review. `enforce` keeps no counters and
+reads no clock, so whole classes of failure do not arise.
 
 Grammar 6 adds one leaf, `call_path`, which walks into the authorised call's
 arguments: each step is a vector index, a map key, or a terminal length. That is
@@ -211,8 +207,8 @@ manage its own trustlines. Everything that moves value sits at medium or high.
 
 ### 4.2 The Soroban route is closed by the same threshold
 
-The question people ask next is whether Soroban is a side door: could the MPC
-key grant itself a fresh allowance through a contract call and walk out?
+Soroban could be a side door: could the MPC key grant itself a fresh allowance
+through a contract call and walk out?
 
 It cannot, and the reason is in the protocol. **CAP-46-11, the Soroban
 Authorization Framework** (Final, Protocol 20) specifies that when a classic
@@ -234,19 +230,17 @@ Four escape routes, each attempted on live testnet with the MPC key alone:
 | `setOptions` to lower the threshold | high (20) | `txFailed` / `opBadAuth` |
 | `accountMerge` — take the account away whole | high (20) | `txFailed` / `opBadAuth` |
 
-And the counterpart, so the refusals are not vacuous: the same `payment` and the
-same `approve` **succeed** when both keys sign. A configuration that refused
-everything would pass the four rows above and be useless.
+And the counterpart: the same `payment` and the same `approve` **succeed** when
+both keys sign. A configuration that refused everything would pass the four rows
+above and be useless.
 
-*(Verified — 6 of 6. The Soroban refusal was forced through to network
-submission rather than stopping at simulation, because enforcing simulation and
-consensus are not the same claim.)*
+*(Verified — 6 of 6. The Soroban refusal was submitted to the network, not left
+at simulation, because simulation and consensus are not the same claim.)*
 
-A detail worth noting for anyone reading the result codes: the classic failures
-come back as `txFailed` with an operation result of `opBadAuth`, not top-level
-`txBadAuth`. The transaction is valid — `low` is met, so the account can source
-it — and the *operation* is what fails. That is the intended behaviour: the
-account stays usable, only value movement is locked.
+The classic failures come back as `txFailed` with an operation result of
+`opBadAuth`, not top-level `txBadAuth`. The transaction is valid — `low` is met,
+so the account can source it — and the *operation* is what fails. That is the
+intended behaviour: the account stays usable, only value movement is locked.
 
 ### 4.4 What the break-glass key is for
 
@@ -256,8 +250,8 @@ second key must exist.
 
 **Proposed:** it is held by the client, by a different team from the one running
 treasury day to day, and it never signs a routine transaction. Its two jobs are
-renewing the spending limit and breaking glass. That makes renewal a deliberate
-two-person act rather than a background one, and it means we hold no key at all.
+renewing the spending limit and breaking glass. Renewal is then a deliberate
+two-person act, and we hold no key at all.
 
 If the client would rather we held it, the design still works but the honest
 description changes from "you control the exit" to "dual control with your
@@ -280,14 +274,13 @@ flowchart TB
     style D fill:#1F6F6B,color:#fff,stroke:#155450
 ```
 
-Three of four are set and enforced on the client's side. Ours only narrows what
-theirs already allows — it can refuse a call the client would have permitted, it
-can never permit one the client would not.
+Three of four are set and enforced on the client's side. Our interpreter only
+narrows what the client's own controls already allow — it can refuse a call the
+client would have permitted, it can never permit one the client would not.
 
-**The allowance is the real exposure, and it should be sized as such.** It is
-the one number that determines the worst case. Institutions already reason about
-this shape: a credit line has a limit, a utilisation, an expiry and a
-revocation, and so does this.
+**The allowance is the real exposure and should be sized as such.** Institutions
+already reason about this shape: a credit line has a limit, a utilisation, an
+expiry and a revocation, and so does this.
 
 ### 5.1 Two policy engines, one boundary each
 
@@ -301,15 +294,13 @@ can actually read:
 | Everything spent under that grant | **Our policy interpreter** | Happens under Prime's authority, inside a batch their engine has no view into. |
 
 Neither can be the sole enforcement point. Their engine cannot see inside a
-Soroban batch; we cannot police their account. Splitting on decodability is not
-a compromise between the two — it is the only division where each engine is
-asked to judge something it can actually read.
+Soroban batch; we cannot police their account.
 
 One question decides how strong their half is, and it is for them to answer:
 **does their policy engine enforce amount conditions on an `i128` inside a
 contract call's arguments, or only allowlist the token?** If only the latter,
-the grant is permitted rather than policed, and the allowance figure carries the
-whole weight. *(Open — see §11.)*
+their engine permits the grant without policing its size, and the allowance
+figure carries the whole weight. *(Open — see §11.)*
 
 ---
 
@@ -400,23 +391,22 @@ Pool `CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF`.
 | A rule whose expiry is already past | refused at install |
 | A predicate path deeper than the cap | refused at install `#201` |
 
-**13 of 13.** Each refusal was checked for its *code*, not merely for failure —
-a negative case that passes for an unrelated reason is not evidence. That is not
-a hypothetical concern: three separate checks in this work passed for the wrong
-reason before being corrected, the last of them an at-cap case that was being
-refused for want of allowance rather than by the policy.
+**13 of 13.** Each refusal was checked for its *code*, not merely for failure.
+Three separate checks in this work passed for the wrong reason before being
+corrected, the last of them an at-cap case the token contract was refusing for
+want of allowance before the policy ever ran.
 
 The share figure moves between runs — 959,846, then 959,748, then 959,636 —
 because Blend's exchange rate does. The number that must hold exactly is the
-**withdrawal**, and it does: what was supplied comes back, to the cent.
+**withdrawal**, and it does.
 
 ### 7.2 Through the SDK's own builders
 
-Five further checks drive the same flow through `prime-ts-sdk`, using the pinned
-manifest rather than a freshly deployed interpreter, so a wrong pin fails in
-testing rather than in production. **5 of 5.** This is how the salt-domain
-mismatch in §8.2 was found — the hand-rolled path had been deploying at the old
-salt all along and never touched the mismatch.
+Five further checks drive the same flow through `prime-ts-sdk` against the pinned
+manifest, not a freshly deployed interpreter, so a wrong pin fails in testing.
+**5 of 5.** This is how the salt-domain mismatch in §8.2 was found — the
+hand-written test script had been deploying at the old salt all along and never
+touched the mismatch.
 
 ### 7.3 Cost
 
@@ -475,31 +465,28 @@ record cannot claim a deployment it did not make.
 
 ## 9. Limitations
 
-Stated plainly, because a proposal that omits these is not worth reading.
+**9.1 Testnet only.** A mainnet deployment and a deliberately small first limit
+are the next step.
 
-**9.1 Testnet only.** Nothing is on mainnet. A mainnet deployment and a
-deliberately small first limit are the next step, not something to skip.
-
-**9.2 No external audit.** The contracts are covered by 177 tests and internal
-review. That is not an audit and will not be described as one. For a client
-whose risk team asks about assurance first, this is the gap that matters most.
+**9.2 No external audit.** The contracts are covered by 177 contract tests and
+internal review. That is not an audit and will not be described as one.
 
 **9.3 Blend is proven on chain; Aquarius is not.** The swap path exists and is
 covered by local tests, but has not been run against the live venue. Its shape
-differs — proceeds land on Prime and must be swept back — so it deserves its own
-verification rather than an assumption.
+differs — proceeds land on Prime and must be swept back — so it needs its own
+verification.
 
 **9.4 The spending limit is the irreducible exposure.** Autonomy requires
-standing authority; that is what the allowance *is*. It can be bounded in amount
-and time and destination, and it cannot be eliminated without requiring a human
-signature per action, which is not autonomy. The worst case is the limit.
+standing authority; that is what the allowance *is*. It can be bounded in
+amount, time and destination. Eliminating it means a human signature per action,
+and that is not autonomy.
 
 **9.5 A predicate can be written that constrains nothing.** Grammar 6 resolves
-both sides of a comparison, which is what makes a cross-call relation
-expressible — and the same change lets a predicate compare a selector with
-itself, which is vacuously true and installs cleanly. It is pinned by a test so
-the property is known rather than discovered. Mitigation is review of installed
-mandates, not a contract change.
+both sides of a comparison, and that is what makes a cross-call relation
+expressible. The same change lets a predicate compare a selector with itself,
+vacuously true and installing cleanly. A test pins that self-comparison case, so
+it cannot regress unnoticed. Mitigation is review of installed mandates, not a
+contract change.
 
 **9.6 External risk signals are not built.** Hypernative and Blockaid fit this
 shape — a signal becomes a proposal, and the policy that bounds an entry bounds
@@ -509,7 +496,7 @@ an exit — but no integration exists. *(Proposed.)*
 permanent authority and its signer is fixed when the account is activated.
 Whoever holds it can install any rule, and the app's guards against that are
 client-side only. **Recommended:** point rule 0 at a classic multisig `G`
-account so break-glass authority is M-of-N rather than a single key.
+account so break-glass authority is M-of-N.
 *(From source — OZ delegated signers verify through `require_auth_for_args`, so
 the target account's own thresholds apply. Not yet run on testnet.)*
 
@@ -537,8 +524,8 @@ mandate. Each of those is a client action; none of them transfers custody.
 1. Does the threshold arrangement in §4 fit how the MPC provider is configured
    on their side — specifically, can it hold a weight-10 signer on an account
    whose medium threshold is 20?
-2. Who holds the break-glass key (§4.4)? The answer changes what we can honestly
-   claim.
+2. Who holds the break-glass key (§4.4)? What we can honestly claim depends on
+   it.
 3. Is reward claiming the right first mandate, or is there a smaller one?
 4. What destination set should the gate carry at launch — venue contracts only,
    or does an operational address belong on it?
