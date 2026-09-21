@@ -401,7 +401,7 @@ async function main() {
   log('DEPLOY', `prime       ${prime}`)
 
   // ---- the adapter, deployed BY Prime at its derived address
-  const salt = hash(Buffer.from('prime.execution.adapter.v1'))
+  const salt = hash(Buffer.from('prime.execution.adapter.v2'))
   const deployAdapter = await asAccount({
     kp: admin,
     prime,

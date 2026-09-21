@@ -29,10 +29,17 @@ pub struct Call {
 }
 
 /// Deploy with Prime as deployer and SHA256 of this domain as salt, no constructor.
+///
+/// The domain is part of the CODE, and it is v2 here on purpose. A Prime that
+/// activated the previous adapter has a contract at the v1 address; a
+/// different code hash cannot take its place, so this build claims its own
+/// address and leaves that one alone. Bump the domain with the ABI, never
+/// separately: the check below is what stops a build being deployed at an
+/// address that does not belong to it.
 pub fn execution_address(e: &Env, prime: &Address) -> Address {
     let salt = e
         .crypto()
-        .sha256(&Bytes::from_slice(e, b"prime.execution.adapter.v1"));
+        .sha256(&Bytes::from_slice(e, b"prime.execution.adapter.v2"));
     e.deployer()
         .with_address(prime.clone(), salt)
         .deployed_address()

@@ -29,7 +29,7 @@ impl Fixture {
 fn address(e: &Env, prime: &Address) -> Address {
     let salt = e
         .crypto()
-        .sha256(&Bytes::from_slice(e, b"prime.execution.adapter.v1"));
+        .sha256(&Bytes::from_slice(e, b"prime.execution.adapter.v2"));
     e.deployer()
         .with_address(prime.clone(), salt)
         .deployed_address()

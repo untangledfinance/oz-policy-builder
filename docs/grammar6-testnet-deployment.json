@@ -1,21 +1,21 @@
 {
   "network": "testnet",
-  "recorded": "2026-09-21T07:32:18.226Z",
-  "deployer": "GCLG7EN7Z2OZBHOMUIFF3RSZGJYUQOR4GTTBIAL2HC5IQN63GSWMSYFD",
+  "recorded": "2026-09-21T07:40:13.387Z",
+  "deployer": "GDR3TW7EDHZ23MQKNROL5YUX33VAMTPE6S2CV6TNT6A67KBCTJFYDOGV",
   "grammar": 6,
   "adapterSaltText": "prime.execution.adapter.v2",
-  "interpreter": "CDU2E5HTUELG6SMRY2MMO6HPAAGOOIDXUL5ACU35XISRSUH3QSNK4A6U",
+  "interpreter": "CDPR5VTX6R2ZPKREPD7FBW5ANVWXMVJIBIH2GMF36XPOFNMHRDIRUAZQ",
   "wasmHashes": {
     "interpreter": "a7ef48e39875f18e4487e40b986d99463427ee28f89dac7e1665fff428033423",
-    "adapter": "a19603b7c771ac170fb3eb7421ae5b2583b782868d8274bc1e94139f6dad5cb0",
+    "adapter": "75781757fb90a366330e5400fc65d105ce48e02b4e71bbf61acddfad2367319a",
     "gate": "c7c9238c57b4843d4ad33e605fab7d48095e3a8ec3351dd0433578a1398dc2fe"
   },
   "uploadTx": {
-    "interpreter": "53ee7b2ba841f0e79341df65ed862b038bbbe850a3297cac25ffb7736c5bfe2f",
-    "adapter": "88927532d242934015ff130d068df0db6e6422e1addb6066d26be88d18c04a96",
-    "gate": "a70ada4b32944435af99bd953c34933337711c4154acf59253cedd627675fb2e"
+    "interpreter": "7fdef6cb4e65fca2fabaed4d9e848b58aaf56f25095bc12ff56eb72ff211e9a2",
+    "adapter": "d4e6a66bb903187cf20b4bfee24b80ee6521fcb8cfa57737f792940db5192a9d",
+    "gate": "d7cfcbc9a55ec81f255849093efb673c63590200d0988cf28cffdc28061df11e"
   },
-  "createTx": "c3a8f655302e197db6924f4ca0b5068057fa3ff8079db72ed81ae281603168b6",
+  "createTx": "a89e9b0fdfa5ac84ba04a6be66132310336554494a2ad33876e8a8be0036302d",
   "sizes": {
     "interpreter": 49879,
     "adapter": 11029,
