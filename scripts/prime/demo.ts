@@ -524,6 +524,7 @@ export async function demoSetup() {
     eq(callArgLen(1), u32v(1)),
     eq(path([u32v(0), u32v(0), sym('target')]), addr(POOL)),
     eq(path([u32v(0), u32v(0), sym('function_name')]), sym('submit')),
+    eq(path([u32v(0), u32v(0), sym('args'), u32v(0)]), addr(prime)),
     eq(path([u32v(0), u32v(0), sym('args'), u32v(2)]), addr(s.custody.publicKey())),
     eq(path([u32v(0), u32v(0), sym('args'), u32v(3), u32v(0), sym('request_type')]), u32v(1)),
     eq(path([u32v(0), u32v(0), sym('executor_authorizations'), xdr.ScVal.scvBool(true)]), u32v(0)),

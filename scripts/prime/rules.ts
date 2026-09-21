@@ -195,13 +195,16 @@ function supplyPredicate(o: {
   ])
 }
 
-const withdrawPredicate = (o: { venue: string; to: string }) =>
+const withdrawPredicate = (o: { venue: string; to: string; prime: string }) =>
   and([
     eq(selector('call_fn'), sym('execute')),
     eq(callArgLen(0), u32v(1)),
     eq(callArgLen(1), u32v(1)),
     eq(path([u32v(0), u32v(0), sym('target')]), addr(o.venue)),
     eq(path([u32v(0), u32v(0), sym('function_name')]), sym('submit')),
+    // Pin `from` too: without it the rule permits a withdrawal against any
+    // account's position, not just this Prime's.
+    eq(path([u32v(0), u32v(0), sym('args'), u32v(0)]), addr(o.prime)),
     eq(path([u32v(0), u32v(0), sym('args'), u32v(2)]), addr(o.to)),
     eq(path([u32v(0), u32v(0), sym('args'), u32v(3), u32v(0), sym('request_type')]), u32v(1)),
     eq(path([u32v(0), u32v(0), sym('executor_authorizations'), xdr.ScVal.scvBool(true)]), u32v(0)),
@@ -252,7 +255,7 @@ export async function rulesInstall(kind: string, flags: Flags): Promise<void> {
     )
   } else if (kind === 'withdraw') {
     const to = flags.to ? asAddress(String(flags.to), 'to') : custodyPk()
-    predicate = withdrawPredicate({ venue, to })
+    predicate = withdrawPredicate({ venue, to, prime: s.prime })
     scope = s.adapter
     signer = sec.agent.publicKey()
     summary.push(`one call: submit to ${venue}`, `withdrawal, addressed to ${to}`, 'no executor authorizations')
