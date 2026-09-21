@@ -95,7 +95,7 @@ export function loadSecrets(): Secrets {
   const missing = KEYS.filter((k) => !env[k])
   if (missing.length) {
     throw new Error(
-      `missing ${missing.join(', ')} in ${ENV_PATH}\nRun:  bun scripts/demo-gates-testnet.ts setup`,
+      `missing ${missing.join(', ')} in ${ENV_PATH}\nRun:  bun scripts/prime.ts up`,
     )
   }
   return {
@@ -138,7 +138,7 @@ export type State = {
 
 export const loadState = (): State => {
   if (!existsSync(STATE_PATH)) {
-    throw new Error(`no ${STATE_PATH}\nRun:  bun scripts/demo-gates-testnet.ts setup`)
+    throw new Error(`no ${STATE_PATH}\nRun:  bun scripts/prime.ts up`)
   }
   return JSON.parse(readFileSync(STATE_PATH, 'utf8'))
 }

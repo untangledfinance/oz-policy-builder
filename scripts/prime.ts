@@ -28,6 +28,7 @@ import { gateInfo, gateSetup } from './prime/gate.ts'
 import { demoSetup, runDemo } from './prime/demo.ts'
 import { execSupply, execWithdraw } from './prime/exec.ts'
 import { rulesInstall, rulesList, rulesRemove } from './prime/rules.ts'
+import { status } from './prime/status.ts'
 
 type Flags = Record<string, string | boolean>
 
@@ -84,7 +85,11 @@ const HELP = `prime - four-gate demo CLI (Stellar testnet)
   prime exec withdraw   [--amount N] [--to G...]        add --submit to land it
                         [--dry-run] [--submit]
 
-  prime demo setup      [--dry-run]                     deploy the stack, open a position
+  prime up              [--dry-run]                     bring EVERYTHING up, one command
+  prime status          [--json]                        all four gates, one screen
+  prime gates [step]    [--dry-run]                     try to break them
+
+  prime demo setup      [--dry-run]                     same as \`prime up\`
   prime demo run [step] [--dry-run]                     all | g1..g4 | scenario id
   prime demo info       [--json]
 
@@ -127,6 +132,12 @@ async function main(): Promise<void> {
     case 'exec withdraw':
       return execWithdraw(flags)
   }
+
+  // Top-level shortcuts, because bringing the whole thing up and then looking
+  // at it are the two things a demo does most.
+  if (group === 'up') return demoSetup()
+  if (group === 'status' || group === 'state') return status(flags)
+  if (group === 'gates') return runDemo(argv.slice(1))
 
   if (!group || group === 'help' || group === '--help' || group === '-h') {
     process.stdout.write(HELP)

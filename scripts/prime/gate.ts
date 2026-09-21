@@ -129,7 +129,7 @@ export async function gateSetup(flags: Flags): Promise<void> {
 
 /** The gate has no getter - deliberately, since it has no admin either - so
  *  its configuration is read straight out of instance storage. */
-async function readGateConfig(
+export async function readGateConfig(
   gate: string,
 ): Promise<{ custody: string; caller: string; allowed: string[] } | undefined> {
   const key = xdr.LedgerKey.contractData(

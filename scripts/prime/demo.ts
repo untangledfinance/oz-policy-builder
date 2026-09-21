@@ -30,7 +30,7 @@ async function positionShares(s: State): Promise<bigint> {
 
 const DUST_SHARES = 1_000n
 const NEEDS_POSITION =
-  'a withdraw scenario needs an open position. Run:  bun scripts/demo-gates-testnet.ts resupply'
+  'a withdraw scenario needs an open position. Run:  bun scripts/prime.ts demo run resupply'
 
 type Scenario = {
   id: string
@@ -561,7 +561,8 @@ export async function demoSetup() {
 
   writeFileSync(STATE_PATH, `${JSON.stringify(st, null, 2)}\n`)
   console.log(C.green(`\nReady. ${STATE_PATH} written.`))
-  console.log('Run:  bun scripts/demo-gates-testnet.ts all')
+  console.log('  Show it:        bun scripts/prime.ts status')
+  console.log('  Try to break:   bun scripts/prime.ts gates')
 }
 
 // ------------------------------------------------------------------ driver ---
