@@ -102,7 +102,7 @@ flowchart TB
         MPC["Custody account (G...)<br/>HOLDS THE FUNDS<br/>low 10 · med 20 · high 20"]
         K1["MPC key · weight 10<br/>Fordefi"]
         K2["Break-glass key · weight 10<br/>a different team"]
-        GATE["Custody Gate (C...)<br/>29 lines · no admin · no upgrade<br/>holds the SAC allowance<br/>fixes the destination list"]
+        GATE["Custody Gate (C...)<br/>29 lines · no admin · no upgrade<br/>holds the SAC allowance<br/>fixes who it may release to"]
     end
 
     subgraph OPERATOR["OPERATED BY US"]
@@ -153,6 +153,12 @@ pub fn pull(e: Env, token: Address, to: Address, amount: i128) {
         &e.current_contract_address(), &c.custody, &to, &amount);
 }
 ```
+
+The allow-list holds the address the gate may hand funds to, which is the
+adapter: a pool takes payment from whoever authorises the deposit, so that is
+the only destination a supply needs. The **venue** is pinned by the policy
+(§6), not here. This bound exists so funds cannot be released to an address
+outside the agreed set at all.
 
 There is deliberately no setter, no admin and no upgrade path. To change the
 destination list you deploy another gate and re-approve — and re-approving is
@@ -273,9 +279,9 @@ operator".
 ```mermaid
 flowchart TB
     A["1 · Total spendable, and when it lapses<br/><b>Client sets</b> · SAC allowance enforces"]
-    B["2 · Where funds may go<br/><b>Client sets</b> · Custody Gate enforces"]
+    B["2 · Which addresses funds may be released to<br/><b>Client sets</b> · Custody Gate enforces"]
     C["3 · Who may change the rules<br/><b>Client sets</b> · account multisig enforces"]
-    D["4 · Per-call size, venue, direction, slippage floor<br/><b>Agreed mandate</b> · policy interpreter enforces"]
+    D["4 · Venue, per-call size, direction, slippage floor<br/><b>Agreed mandate</b> · policy interpreter enforces"]
     A --> B --> C --> D --> E["Execution"]
     style A fill:#1d4d2b,color:#fff,stroke:#143a1f
     style B fill:#1d4d2b,color:#fff,stroke:#143a1f

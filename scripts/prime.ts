@@ -26,6 +26,8 @@ import { C, loadState, readState } from './prime/chain.ts'
 import { accountsInfo, accountsSetup } from './prime/accounts.ts'
 import { gateInfo, gateSetup } from './prime/gate.ts'
 import { demoSetup, runDemo } from './prime/demo.ts'
+import { execSupply, execWithdraw } from './prime/exec.ts'
+import { rulesInstall, rulesList, rulesRemove } from './prime/rules.ts'
 
 type Flags = Record<string, string | boolean>
 
@@ -72,6 +74,16 @@ const HELP = `prime - four-gate demo CLI (Stellar testnet)
                         [--expires-in LEDGERS] [--dry-run]
   prime gate info       [--json]
 
+  prime rules list      [--json]                        Gate 4: the mandate
+  prime rules install supply   --max-per-move N         [--venue C...] [--return-to G...]
+  prime rules install withdraw [--to G...]              [--venue C...]
+  prime rules install venue    [--venue C...]           the venue context, bound to the adapter
+  prime rules remove    --id N [--dry-run]
+
+  prime exec supply     [--amount N] [--venue C...]     a move through all four gates
+  prime exec withdraw   [--amount N] [--to G...]        add --submit to land it
+                        [--dry-run] [--submit]
+
   prime demo setup      [--dry-run]                     deploy the stack, open a position
   prime demo run [step] [--dry-run]                     all | g1..g4 | scenario id
   prime demo info       [--json]
@@ -104,6 +116,16 @@ async function main(): Promise<void> {
       return runDemo(rest)
     case 'demo info':
       return demoInfo(flags)
+    case 'rules list':
+      return rulesList(flags)
+    case 'rules install':
+      return rulesInstall(argv[2] ?? '', flags)
+    case 'rules remove':
+      return rulesRemove(flags)
+    case 'exec supply':
+      return execSupply(flags)
+    case 'exec withdraw':
+      return execWithdraw(flags)
   }
 
   if (!group || group === 'help' || group === '--help' || group === '-h') {

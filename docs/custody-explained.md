@@ -25,8 +25,8 @@ have not.
 Your money stays in your Fordefi account.
 
 You give that account a spending limit. The limit has an amount, an end date,
-and a short list of places the money may go. Our software can spend inside that
-limit. It can do nothing outside it.
+and a short list of addresses it may be released to. Our software can spend
+inside that limit. It can do nothing outside it.
 
 You can cancel the limit at any time. Cancelling uses your keys only. We are not
 asked and we cannot refuse.
@@ -77,11 +77,18 @@ limit. It has an amount and an end date. Nothing can spend more than the amount.
 When the date passes, everything stops until you set a new limit. Setting it
 needs both your keys.
 
-**Gate 2 is yours: where the money may go.** Your gatekeeper is a small contract
-that you deploy and you own. It holds the limit. It also holds the list of places
-money may go. It has no admin and no settings, so nobody can edit that list. To
-change the list you deploy a new gatekeeper and set the limit again, and that
-needs your two keys.
+**Gate 2 is yours: which addresses funds may be released to.** Your gatekeeper is
+a small contract that you deploy and you own. It holds the limit, and it holds
+the list of addresses it will hand funds to. It has no admin and no settings, so
+nobody can edit that list. To change it you deploy a new gatekeeper and set the
+limit again, and that needs your two keys.
+
+In this design the list holds one entry: the execution step that puts money to
+work. That is the address a lending pool takes payment from, so it is the only
+place the gatekeeper ever needs to release to. **Which venue the money then
+reaches is Gate 4's job, not this one.** Gate 2 is the containment boundary: it
+stops funds being sent to an address nobody agreed on. Gate 4 decides what
+happens to them once released.
 
 **Gate 3 is yours: who can change any of this.** Your account is set so that one
 key alone moves nothing. Your treasury key is half the weight needed. Your second
@@ -106,7 +113,8 @@ These use the real numbers from our test run: a limit of 20,000,000, moves of
 |---|---|---|---|
 | Spend 25,000,000 when your limit is 20,000,000 | Gate 1, yours | The limit is a hard ceiling. The money does not leave. | Our tests |
 | Keep trading after the limit's end date | Gate 1, yours | Everything stops until you set a new limit. | By design |
-| Send money to an address that is not on your list | Gate 2, yours | Your gatekeeper refuses. The money stays where it is. | Our tests |
+| Release funds to an address that is not on your list | Gate 2, yours | Your gatekeeper refuses. The money stays where it is. | Our tests |
+| Send the money to a venue nobody agreed on | Gate 4, ours | Refused. The mandate pins which venue a move may reach. | Live network |
 | Set a new limit using your treasury key alone | Gate 3, yours | Refused. One key is half the weight needed. | Live network |
 | Weaken the account settings so one key is enough | Gate 3, yours | Refused. Every other refusal depends on this one. | Live network |
 | Close the account and take the whole balance | Gate 3, yours | Refused. | Live network |
