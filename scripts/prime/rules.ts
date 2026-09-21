@@ -66,6 +66,7 @@ function save(s: State): void {
 export async function rulesList(flags: Flags): Promise<void> {
   const s = loadState()
   const admin = secrets().admin.publicKey()
+  const only = typeof flags.signer === 'string' ? asAddress(flags.signer, 'signer') : undefined
   const count = Number((await readCall(s.prime, 'get_context_rules_count', [], admin)) ?? 0)
 
   const rules: any[] = []
@@ -82,13 +83,41 @@ export async function rulesList(flags: Flags): Promise<void> {
     })
   }
 
+  const shown = only ? rules.filter((r) => r.signers.includes(only)) : rules
+  const unpoliced = shown.filter((r) => r.policies.length === 0)
+
   if (flags.json) {
-    console.log(JSON.stringify({ account: s.prime, count, rules }, null, 2))
+    console.log(
+      JSON.stringify(
+        {
+          account: s.prime,
+          count,
+          signer: only ?? null,
+          matched: shown.length,
+          // A signer is only as constrained as the loosest rule it sits on:
+          // the caller picks which rule authorises a call.
+          effectivelyUnconstrained: unpoliced.length > 0,
+          rules: shown,
+        },
+        null,
+        2,
+      ),
+    )
     return
   }
-  console.log(C.bold(`\nRules on ${s.prime}`))
-  console.log(C.dim(`  ${count} installed\n`))
-  for (const r of rules) {
+
+  if (only) {
+    console.log(C.bold(`\nRules that ${only} can name`))
+    console.log(C.dim(`  ${shown.length} of ${count} on ${s.prime}\n`))
+    if (!shown.length) {
+      console.log(C.dim('  none — this key cannot authorise anything on this account\n'))
+      return
+    }
+  } else {
+    console.log(C.bold(`\nRules on ${s.prime}`))
+    console.log(C.dim(`  ${count} installed\n`))
+  }
+  for (const r of shown) {
     const policed = r.policies.length > 0
     console.log(
       `  ${C.bold(`#${r.id}`)} ${r.name || C.dim('(unnamed)')}  ${
@@ -99,10 +128,34 @@ export async function rulesList(flags: Flags): Promise<void> {
     for (const sg of r.signers) console.log(`      ${C.dim('signer'.padEnd(10, '.'))} ${sg}`)
     for (const p of r.policies) console.log(`      ${C.dim('policy'.padEnd(10, '.'))} ${p}`)
   }
+  if (only) {
+    // The caller chooses which rule authorises a call, so the weakest rule a
+    // key sits on is the one that decides what that key can really do.
+    if (unpoliced.length) {
+      console.log(
+        `\n  ${C.amber('UNCONSTRAINED')}  this key sits on ${unpoliced.length} rule(s) with no policy ` +
+          `(${unpoliced.map((r) => `#${r.id}`).join(', ')}).`,
+      )
+      console.log(
+        C.dim(
+          '  A caller names the rule that authorises a call, so this key can name one of\n' +
+            '  those and the mandate never runs. Put a policed key on the policed rule and\n' +
+            '  nowhere else.',
+        ),
+      )
+    } else {
+      console.log(
+        `\n  ${C.green('CONSTRAINED')}  every rule this key can name carries a policy.`,
+      )
+    }
+    return
+  }
+
   console.log(
     C.dim(
       '\n  Rule 0 carries unpoliced, permanent authority. Whoever signs it can install\n' +
-        '  any rule, so it belongs on a multi-signature account you control.',
+        '  any rule, so it belongs on a multi-signature account you control.\n' +
+        '  See what one key can do:  prime rules list --signer G...',
     ),
   )
 }

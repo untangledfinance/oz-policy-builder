@@ -1,15 +1,60 @@
-// `prime exec` - the moves that ARE allowed, run through all four gates.
+// `prime exec` - attempt a move through all four gates.
 //
 // Without --submit these stop at the authorised simulation: every gate has had
 // its say and nothing was sent. That is the fast path, and it is enough to show
-// a move is permitted. --submit lands it, which costs a ledger close.
+// whether a move is permitted. --submit lands it and prints the transaction
+// hash, which costs a ledger close.
+//
+// --as and --rule are what make this a demonstration rather than a runner. A
+// caller chooses both the key that signs and the rule that authorises, so the
+// interesting questions are what happens when the wrong key tries, and what
+// happens when a key names a rule looser than the mandate:
+//
+//   prime exec withdraw --to <stranger>              refused by the mandate
+//   prime exec withdraw --as admin                   refused, not a signer there
+//   prime exec withdraw --as admin --rule 0,2 --to <stranger>
+//                                                    PERMITTED - rule 0 is
+//                                                    unpoliced, which is the
+//                                                    exposure docs 9.7 names
 
 import { C, MOVE, type State, addr, custodyPk, grant, i128v, invokeOp, kv, loadState, call, readCall, secrets, sym, u32v, vec, asPrime, POOL } from './chain.ts'
-import { xdr } from '@stellar/stellar-sdk'
+import { Keypair, xdr } from '@stellar/stellar-sdk'
 
 type Flags = Record<string, string | boolean>
 
 const amountOf = (f: Flags) => (f.amount ? BigInt(String(f.amount)) : MOVE)
+
+/** --as picks which key attempts the move: a name from scripts/.env, or a raw
+ *  secret. The point is to try an action as a key that should not be able to
+ *  do it and watch which layer says no. */
+function signerFrom(flags: Flags): { kp: Keypair; label: string } {
+  const who = typeof flags.as === 'string' ? flags.as : 'agent'
+  const s = secrets()
+  const named: Record<string, Keypair> = {
+    agent: s.agent,
+    admin: s.admin,
+    custody: s.custody,
+    cosign: s.cosign,
+  }
+  if (named[who]) return { kp: named[who], label: who }
+  if (who.startsWith('S')) {
+    try {
+      return { kp: Keypair.fromSecret(who), label: 'the key you supplied' }
+    } catch {
+      throw new Error('--as must be agent, admin, custody, cosign, or a secret key')
+    }
+  }
+  throw new Error(`unknown --as "${who}". Use agent, admin, custody, cosign, or a secret key.`)
+}
+
+/** --rule names which context rule authorises the call. A caller picks this,
+ *  which is exactly why a key must not sit on a rule looser than its mandate. */
+const rulesFor = (flags: Flags, fallback: number[]): number[] =>
+  flags.rule !== undefined
+    ? String(flags.rule)
+        .split(',')
+        .map((x) => Number(x.trim()))
+    : fallback
 
 function supplyBatch(s: State, amount: bigint, venue: string) {
   const request = vec([
@@ -65,22 +110,29 @@ async function run(
   ruleIds: number[],
   label: string,
   submit: boolean,
+  kp = secrets().agent,
 ): Promise<void> {
   const t = performance.now()
   const res = await asPrime({
-    kp: secrets().agent,
+    kp,
     prime: s.prime,
     makeOp: (auth) =>
       invokeOp(s.adapter, 'execute', [addr(s.prime), addr(s.interpreter), batch.calls, batch.grants], auth),
     ruleIds,
-    signers: [secrets().agent.publicKey(), s.adapter],
+    signers: [kp.publicKey(), s.adapter],
     label,
     submit,
   })
   const took = Math.round(performance.now() - t)
 
   if (res.denied) {
-    const where = res.stage === 'policy' ? 'the mandate (Gate 4)' : 'a contract you own (Gate 1 or 2)'
+    const code = (res.reason ?? '').match(/Error\(Contract, #(\d+)\)/)?.[1]
+    const where =
+      res.stage !== 'policy'
+        ? 'a contract you own (Gate 1 or 2)'
+        : code === '210' || code === '204'
+          ? 'the account — this key is not a signer on the rule it named'
+          : 'the mandate (Gate 4)'
     console.log(`\n  ${C.red('REFUSED')} by ${where}   ${C.dim(`${took}ms`)}`)
     console.log(C.dim(`  ${(res.reason ?? '').slice(0, 400)}`))
     process.exit(1)
@@ -90,7 +142,14 @@ async function run(
     console.log(C.dim('  Simulated against the real contracts. Nothing was sent. Add --submit to land it.'))
     return
   }
+  const hash = res.got?.txHash ?? res.got?.hash
   console.log(`\n  ${C.green('SUBMITTED')} and confirmed   ${C.dim(`${took}ms`)}`)
+  if (hash) {
+    console.log(`  ${C.dim('tx'.padEnd(24, '.'))} ${C.bold(hash)}`)
+    console.log(`  ${C.dim('explorer'.padEnd(24, '.'))} https://stellar.expert/explorer/testnet/tx/${hash}`)
+  }
+  const after = await readCall(s.sac, 'balance', [addr(custodyPk())], secrets().admin.publicKey())
+  console.log(`  ${C.dim('custody balance now'.padEnd(24, '.'))} ${after ?? '?'}`)
 }
 
 async function preamble(s: State, title: string, lines: string[]): Promise<void> {
@@ -108,22 +167,33 @@ async function preamble(s: State, title: string, lines: string[]): Promise<void>
 
 export async function execSupply(flags: Flags): Promise<void> {
   const s = loadState()
+  const who = signerFrom(flags)
   const amount = amountOf(flags)
   const venue = typeof flags.venue === 'string' ? flags.venue : POOL
   await preamble(s, 'Supply', [
     `${C.dim('amount'.padEnd(24, '.'))} ${amount}`,
     `${C.dim('venue'.padEnd(24, '.'))} ${venue}`,
     `${C.dim('path'.padEnd(24, '.'))} custody → gatekeeper → execution step → venue`,
+    `${C.dim('attempted by'.padEnd(24, '.'))} ${who.label}  ${who.kp.publicKey()}`,
+    `${C.dim('naming rule(s)'.padEnd(24, '.'))} ${rulesFor(flags, [s.rootRuleId, s.childRuleId]).join(', ')}`,
   ])
   if (flags['dry-run'] === true) {
     console.log(`\n  ${C.amber('DRY RUN')}  nothing was sent to the network`)
     return
   }
-  await run(s, supplyBatch(s, amount, venue), [s.rootRuleId, s.childRuleId], 'supply', flags.submit === true)
+  await run(
+    s,
+    supplyBatch(s, amount, venue),
+    rulesFor(flags, [s.rootRuleId, s.childRuleId]),
+    'supply',
+    flags.submit === true,
+    who.kp,
+  )
 }
 
 export async function execWithdraw(flags: Flags): Promise<void> {
   const s = loadState()
+  const who = signerFrom(flags)
   const amount = amountOf(flags)
   const to = typeof flags.to === 'string' ? flags.to : custodyPk()
   const venue = typeof flags.venue === 'string' ? flags.venue : POOL
@@ -131,10 +201,19 @@ export async function execWithdraw(flags: Flags): Promise<void> {
     `${C.dim('amount'.padEnd(24, '.'))} ${amount}`,
     `${C.dim('to'.padEnd(24, '.'))} ${to}${to === custodyPk() ? C.dim('  (your account)') : C.amber('  (NOT your account)')}`,
     `${C.dim('venue'.padEnd(24, '.'))} ${venue}`,
+    `${C.dim('attempted by'.padEnd(24, '.'))} ${who.label}  ${who.kp.publicKey()}`,
+    `${C.dim('naming rule(s)'.padEnd(24, '.'))} ${rulesFor(flags, [s.withdrawRuleId, s.childRuleId]).join(', ')}`,
   ])
   if (flags['dry-run'] === true) {
     console.log(`\n  ${C.amber('DRY RUN')}  nothing was sent to the network`)
     return
   }
-  await run(s, withdrawBatch(s, amount, to, venue), [s.withdrawRuleId, s.childRuleId], 'withdraw', flags.submit === true)
+  await run(
+    s,
+    withdrawBatch(s, amount, to, venue),
+    rulesFor(flags, [s.withdrawRuleId, s.childRuleId]),
+    'withdraw',
+    flags.submit === true,
+    who.kp,
+  )
 }

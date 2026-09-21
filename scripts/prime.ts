@@ -81,15 +81,18 @@ const HELP = `prime - four-gate demo CLI (Stellar testnet)
                         [--expires-in LEDGERS] [--dry-run]
   prime gate info       [--json]
 
-  prime rules list      [--json]                        Gate 4: the mandate
+  prime rules list      [--signer G...] [--json]         Gate 4: the mandate
+                        --signer shows what ONE key can name
   prime rules install supply   --max-per-move N         [--venue C...] [--return-to G...]
   prime rules install withdraw [--to G...]              [--venue C...]
   prime rules install venue    [--venue C...]           the venue context, bound to the adapter
   prime rules remove    --id N [--dry-run]
 
   prime exec supply     [--amount N] [--venue C...]     a move through all four gates
-  prime exec withdraw   [--amount N] [--to G...]        add --submit to land it
-                        [--dry-run] [--submit]
+  prime exec withdraw   [--amount N] [--to G...]
+                        [--as agent|admin|custody|S...] attempt it as another key
+                        [--rule 0,2]                    name which rules authorise it
+                        [--dry-run] [--submit]          --submit lands it, prints the tx
 
   prime up              [--dry-run]                     bring EVERYTHING up, one command
   prime status          [--json]                        all four gates, one screen
