@@ -2,6 +2,9 @@
 
 Architecture proposal — 2026-09-21
 
+For a non-technical reader, [custody-explained.md](custody-explained.md) makes the
+same claims in plain language.
+
 An institutional asset manager wants an agent to act on their treasury without
 handing that treasury to anyone. This describes how Prime does that on Stellar,
 what enforces each bound, and which parts have been run against the network.
