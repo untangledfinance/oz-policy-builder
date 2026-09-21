@@ -292,11 +292,12 @@ function addRuleArgs(opts: {
   interpreter: string
   predicate: xdr.ScVal
   adminPk: string
+  validUntil?: number
 }) {
   return [
     vec([sym('CallContract'), addr(opts.scope)]),
     xdr.ScVal.scvString(opts.name),
-    xdr.ScVal.scvVoid(),
+    opts.validUntil === undefined ? xdr.ScVal.scvVoid() : u32v(opts.validUntil),
     vec([delegatedSigner(opts.signer)]),
     xdr.ScVal.scvMap([
       new xdr.ScMapEntry({
@@ -305,6 +306,19 @@ function addRuleArgs(opts: {
       }),
     ]),
   ]
+}
+
+async function readNative(contract: string, fn: string, args: xdr.ScVal[], src: Keypair) {
+  const tx = new TransactionBuilder(await server.getAccount(src.publicKey()), {
+    fee: FEE,
+    networkPassphrase: PASSPHRASE,
+  })
+    .addOperation(invokeOp(contract, fn, args))
+    .setTimeout(60)
+    .build()
+  const sim: any = await server.simulateTransaction(tx)
+  if (rpc.Api.isSimulationError(sim)) throw new Error(`read ${fn}: ${sim.error}`)
+  return scValToNative(sim.result.retval)
 }
 
 async function readI128(contract: string, fn: string, args: xdr.ScVal[], src: Keypair) {
@@ -658,6 +672,95 @@ async function main() {
     `allowance ${before} → ${after}   (Δ ${before - after}, expected ${AMOUNT})`,
   )
 
+  // The allowance falling is not proof the money ARRIVED. Blend credits a
+  // position to `from`, which is Prime; read it back.
+  const pos: any = await readNative('get_positions', 'x', [], admin).catch(() => null)
+  void pos
+  const positions: any = await readNative(POOL, 'get_positions', [addr(prime)], admin)
+  const supplied = Object.values(positions?.supply ?? {})[0]
+  verdict(
+    'the supply is credited to Prime as a real Blend position',
+    supplied !== undefined && BigInt(supplied as any) > 0n,
+    `get_positions(prime).supply = ${JSON.stringify(positions?.supply, (_, v) => (typeof v === 'bigint' ? v.toString() : v))}`,
+  )
+
+  // ---- and it can be taken back out, straight to custody
+  console.log('\n--- PERMIT: withdraw the position back to custody ---')
+  const withdrawArgs = (amount: bigint) => [
+    addr(prime),
+    addr(adapter),
+    addr(custody.publicKey()),
+    vec([
+      xdr.ScVal.scvMap([
+        kv('address', addr(sac)),
+        kv('amount', i128v(amount)),
+        kv('request_type', u32v(1)),
+      ]),
+    ]),
+  ]
+  const wPredicate = and([
+    eq(selector('call_fn'), sym('execute')),
+    eq(callArgLen(0), u32v(1)),
+    eq(callArgLen(1), u32v(1)),
+    eq(path([u32v(0), u32v(0), sym('target')]), addr(POOL)),
+    eq(path([u32v(0), u32v(0), sym('function_name')]), sym('submit')),
+    eq(path([u32v(0), u32v(0), sym('args'), u32v(2)]), addr(custody.publicKey())),
+    eq(
+      path([u32v(0), u32v(0), sym('args'), u32v(3), u32v(0), sym('request_type')]),
+      u32v(1),
+    ),
+    // nothing leaves the adapter on a withdraw
+    eq(path([u32v(0), u32v(0), sym('executor_authorizations'), xdr.ScVal.scvBool(true)]), u32v(0)),
+  ])
+  const wRootRes = await asAccount({
+    kp: admin,
+    prime,
+    makeOp: (auth) =>
+      invokeOp(
+        prime,
+        'add_context_rule',
+        addRuleArgs({
+          scope: adapter,
+          name: 'withdraw-root',
+          signer: agent.publicKey(),
+          interpreter,
+          predicate: wPredicate,
+          adminPk: admin.publicKey(),
+        }),
+        auth,
+      ),
+    ruleIds: [0],
+    label: 'install withdraw root rule',
+  })
+  const wRootId = Number(scValToNative(wRootRes.got!.returnValue!).id)
+  const custodyBefore = await readI128(sac, 'balance', [addr(custody.publicKey())], admin)
+  const wRun = await asAccount({
+    kp: agent,
+    prime,
+    makeOp: (auth) =>
+      invokeOp(
+        adapter,
+        'execute',
+        [
+          addr(prime),
+          addr(interpreter),
+          vec([call(POOL, 'submit', withdrawArgs(AMOUNT))]),
+          vec([grant(POOL, 'submit', withdrawArgs(AMOUNT))]),
+        ],
+        auth,
+      ),
+    ruleIds: [wRootId, childId],
+    signers: [agent.publicKey(), adapter],
+    label: 'blend withdraw',
+    showCost: true,
+  })
+  const custodyAfter = await readI128(sac, 'balance', [addr(custody.publicKey())], admin)
+  verdict(
+    'the withdrawal returns the funds to custody',
+    !wRun.denied && custodyAfter > custodyBefore,
+    `custody XLM ${custodyBefore} → ${custodyAfter}   (Δ +${custodyAfter - custodyBefore}, supplied ${AMOUNT})`,
+  )
+
   console.log('\n--- DENY: pull N, supply less ---')
   const unequal = await runBlend(AMOUNT, AMOUNT - 1n, 'unequal blend batch', { expectFailure: true })
   verdict(
@@ -684,6 +787,229 @@ async function main() {
     extra.denied && denialCode(extra.reason) === '100',
     `interpreter code ${denialCode(extra.reason)}`,
   )
+
+  // ---------------------------------------------------------------- //
+  // How close can a legitimate mandate get to the CPU ceiling? The predicate
+  // is walked per leaf, so the cost that matters is a full-size predicate of
+  // deep paths, not a small one.
+  // ---------------------------------------------------------------- //
+  // ---------------------------------------------------------------- //
+  // The other direction of exhaustiveness: too FEW grants, and too many
+  // calls. Both are the adapter refusing, not the policy.
+  // ---------------------------------------------------------------- //
+  console.log('\n--- DENY: a missing grant, and an oversized batch ---')
+  const noGrant = await asAccount({
+    kp: agent,
+    prime,
+    makeOp: (auth) =>
+      invokeOp(
+        adapter,
+        'execute',
+        [
+          addr(prime),
+          addr(interpreter),
+          vec([
+            call(gate2, 'pull', [addr(sac), addr(adapter), i128v(AMOUNT)]),
+            call(POOL, 'submit', submitArgs(AMOUNT), [transferAuth(AMOUNT)]),
+          ]),
+          vec([]),
+        ],
+        auth,
+      ),
+    ruleIds: [rootId, childId],
+    signers: [agent.publicKey(), adapter],
+    label: 'missing grant',
+    expectFailure: true,
+  })
+  verdict(
+    'a batch whose grant list is short cannot run',
+    noGrant.denied,
+    (noGrant.reason ?? '').slice(0, 80),
+  )
+
+  const big = await asAccount({
+    kp: agent,
+    prime,
+    makeOp: (auth) =>
+      invokeOp(
+        adapter,
+        'execute',
+        [
+          addr(prime),
+          addr(interpreter),
+          vec(
+            Array.from({ length: 9 }, () =>
+              call(gate2, 'pull', [addr(sac), addr(adapter), i128v(1n)]),
+            ),
+          ),
+          vec([]),
+        ],
+        auth,
+      ),
+    ruleIds: [rootId],
+    signers: [agent.publicKey(), adapter],
+    label: 'oversized batch',
+    expectFailure: true,
+  })
+  verdict('a batch of nine calls is refused by the adapter', big.denied, (big.reason ?? '').slice(0, 80))
+
+  console.log('\n--- headroom: a predicate near the leaf cap ---')
+  // calls[1] is the pool submit, the only call with a nested request vector.
+  // Pointed at calls[0] this compares against nothing and every run denies,
+  // which measures the cost of failing early rather than of evaluating.
+  const deepPath = [u32v(0), u32v(1), sym('args'), u32v(3), u32v(0), sym('amount')]
+  for (const pairs of [10, 45, 95]) {
+    const bulk = and([
+      eq(selector('call_fn'), sym('execute')),
+      eq(callArgLen(0), u32v(2)),
+      eq(callArgLen(1), u32v(1)),
+      eq(path([u32v(0), u32v(0), sym('target')]), addr(gate2)),
+      eq(path([u32v(0), u32v(1), sym('target')]), addr(POOL)),
+      ...Array.from({ length: pairs }, () => eq(path(deepPath), i128v(AMOUNT))),
+    ])
+    const bytes = bulk.toXDR().length
+    const r = await asAccount({
+      kp: admin,
+      prime,
+      makeOp: (auth) =>
+        invokeOp(
+          prime,
+          'add_context_rule',
+          addRuleArgs({
+            scope: adapter,
+            name: `bulk-${pairs}`,
+            signer: agent.publicKey(),
+            interpreter,
+            predicate: bulk,
+            adminPk: admin.publicKey(),
+          }),
+          auth,
+        ),
+      ruleIds: [0],
+      label: `install bulk-${pairs}`,
+      expectFailure: true,
+    })
+    if (r.denied) {
+      log('HEADROOM', `${String(pairs).padStart(3)} compares (${bytes} B): install REFUSED, code ${denialCode(r.reason)}`)
+      continue
+    }
+    const id = Number(scValToNative(r.got!.returnValue!).id)
+    const run = await asAccount({
+      kp: agent,
+      prime,
+      makeOp: (auth) =>
+        invokeOp(
+          adapter,
+          'execute',
+          [
+            addr(prime),
+            addr(interpreter),
+            vec([
+              call(gate2, 'pull', [addr(sac), addr(adapter), i128v(AMOUNT)]),
+              call(POOL, 'submit', submitArgs(AMOUNT), [transferAuth(AMOUNT)]),
+            ]),
+            vec([grant(POOL, 'submit', submitArgs(AMOUNT))]),
+          ],
+          auth,
+        ),
+      ruleIds: [id, childId],
+      signers: [agent.publicKey(), adapter],
+      label: `bulk-${pairs}`,
+      showCost: true,
+      expectFailure: true,
+    })
+    if (!run.denied) {
+      // undo, so the next size starts from the same allowance
+      await asAccount({
+        kp: agent,
+        prime,
+        makeOp: (auth) =>
+          invokeOp(
+            adapter,
+            'execute',
+            [
+              addr(prime),
+              addr(interpreter),
+              vec([call(POOL, 'submit', withdrawArgs(AMOUNT))]),
+              vec([grant(POOL, 'submit', withdrawArgs(AMOUNT))]),
+            ],
+            auth,
+          ),
+        ruleIds: [wRootId, childId],
+        signers: [agent.publicKey(), adapter],
+        label: `bulk-${pairs} unwind`,
+      })
+    }
+    log(
+      'HEADROOM',
+      `${String(pairs).padStart(3)} compares (${bytes} B): ${run.denied ? `DENIED ${denialCode(run.reason)}` : 'executed'}`,
+    )
+  }
+
+  // ---------------------------------------------------------------- //
+  // valid_until: the field the install path has always written as null.
+  // ---------------------------------------------------------------- //
+  console.log('\n--- rule expiry ---')
+  const nowLedger = (await server.getLatestLedger()).sequence
+  const expiredRes = await asAccount({
+    kp: admin,
+    prime,
+    makeOp: (auth) =>
+      invokeOp(
+        prime,
+        'add_context_rule',
+        addRuleArgs({
+          scope: adapter,
+          name: 'already-expired',
+          signer: agent.publicKey(),
+          interpreter,
+          predicate: rootPredicate,
+          adminPk: admin.publicKey(),
+          validUntil: nowLedger - 1,
+        }),
+        auth,
+      ),
+    ruleIds: [0],
+    label: 'install an expired rule',
+    expectFailure: true,
+  })
+  if (expiredRes.denied) {
+    verdict(
+      'a rule whose valid_until is already past is refused at install',
+      true,
+      `code ${denialCode(expiredRes.reason)}`,
+    )
+  } else {
+    const expiredId = Number(scValToNative(expiredRes.got!.returnValue!).id)
+    const useExpired = await asAccount({
+      kp: agent,
+      prime,
+      makeOp: (auth) =>
+        invokeOp(
+          adapter,
+          'execute',
+          [
+            addr(prime),
+            addr(interpreter),
+            vec([
+              call(gate2, 'pull', [addr(sac), addr(adapter), i128v(AMOUNT)]),
+              call(POOL, 'submit', submitArgs(AMOUNT), [transferAuth(AMOUNT)]),
+            ]),
+            vec([grant(POOL, 'submit', submitArgs(AMOUNT))]),
+          ],
+          auth,
+        ),
+      ruleIds: [expiredId, childId],
+      signers: [agent.publicKey(), adapter],
+      label: 'use an expired rule',
+      expectFailure: true,
+    })
+    verdict(
+      'an expired rule installs but cannot authorise',
+      useExpired.denied,
+      `rule ${expiredId} valid_until ${nowLedger - 1}, now ${nowLedger}; code ${denialCode(useExpired.reason)}`,
+    )
+  }
 
   console.log('\n--- install-time bound: a path longer than the cap ---')
   const tooDeep = and([
