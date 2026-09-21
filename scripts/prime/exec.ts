@@ -195,7 +195,10 @@ export async function execWithdraw(flags: Flags): Promise<void> {
   const s = loadState()
   const who = signerFrom(flags)
   const amount = amountOf(flags)
-  const to = typeof flags.to === 'string' ? flags.to : custodyPk()
+  // `--to stranger` is a keyword for the funded address setup created, so a
+  // live demo never has to paste a 56-character key.
+  const rawTo = typeof flags.to === 'string' ? flags.to : custodyPk()
+  const to = rawTo === 'stranger' ? s.stranger : rawTo === 'custody' ? custodyPk() : rawTo
   const venue = typeof flags.venue === 'string' ? flags.venue : POOL
   await preamble(s, 'Withdraw', [
     `${C.dim('amount'.padEnd(24, '.'))} ${amount}`,

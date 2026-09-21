@@ -131,6 +131,7 @@ bun scripts/prime.ts demo run all   # each gate, each scenario
 ```
 
 It prints the on-chain state before each attempt and names which layer refused.
+[demo-runbook.md](demo-runbook.md) has the full command list.
 `--dry-run` shows what a step would do without touching the network, and
 `prime gate info` / `prime accounts info` show what each gate is holding.
 
