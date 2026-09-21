@@ -115,6 +115,16 @@ These use the real numbers from our test run: a limit of 20,000,000, moves of
 | Take 2,000,000 from you and put one unit less to work | Gate 4, ours | Refused. The amount taken and the amount invested must match exactly. | Live network |
 | Add an extra step to the batch that nobody declared | Gate 4, ours | The whole batch reverses. No part of it happens. | Live network |
 
+You can run every row in this table yourself:
+
+```
+bun scripts/demo-gates-testnet.ts setup   # once
+bun scripts/demo-gates-testnet.ts all     # each gate, each scenario
+```
+
+It prints the on-chain state before each attempt and names which layer refused.
+`--dry-run` shows what a step would do without touching the network.
+
 **Live network** means we ran it against Stellar's test network and read the
 network's own answer. **Our tests** means the contract's test suite covers it,
 and we have not driven it over the network. **By design** means this is how the
