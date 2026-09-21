@@ -179,7 +179,7 @@ fn enforce_accepts_a_rule_built_the_way_the_smart_account_builds_it() {
     let predicate_hash: soroban_sdk::BytesN<32> = env.crypto().sha256(&predicate).into();
     client.install(
         &policy_interpreter::PolicyInstallParams {
-            grammar_version: 5,
+            grammar_version: 6,
             install_nonce: 1,
             predicate,
             predicate_hash,

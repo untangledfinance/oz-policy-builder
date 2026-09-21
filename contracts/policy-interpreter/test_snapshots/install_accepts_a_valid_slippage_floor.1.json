@@ -22,7 +22,7 @@
                         "symbol": "grammar_version"
                       },
                       "val": {
-                        "u32": 5
+                        "u32": 6
                       }
                     },
                     {
@@ -198,6 +198,12 @@
               "durability": "persistent",
               "val": {
                 "map": [
+                  {
+                    "key": {
+                      "symbol": "executor"
+                    },
+                    "val": "void"
+                  },
                   {
                     "key": {
                       "symbol": "predicate_bytes"

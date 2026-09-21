@@ -24,7 +24,7 @@ use alloc::vec::Vec as StdVec;
 
 use crate::dsl::{
     decode, decode_with_byte_cap, evaluate, CompareOp, DenyReason, EvalContext, EvalDecision, Leaf,
-    Node, MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_PREDICATE_BYTES,
+    Node, PathStep, MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_PREDICATE_BYTES,
 };
 use soroban_sdk::testutils::Address as _;
 use soroban_sdk::xdr::{FromXdr, ScVal, ToXdr, VecM};
@@ -167,6 +167,19 @@ fn leaf_to_scval(env: &Env, l: &Leaf) -> ScVal {
                 u32_scval(*element),
                 sym_field,
             ])
+        }
+        Leaf::CallPath(steps) => {
+            let mut items = alloc::vec![sym("call_path")];
+            for st in steps {
+                items.push(match st {
+                    PathStep::Index(i) => u32_scval(*i),
+                    PathStep::Len => ScVal::Bool(true),
+                    PathStep::Field(f) => ScVal::Symbol(soroban_sdk::xdr::ScSymbol(
+                        f.to_string().as_bytes().to_vec().try_into().unwrap(),
+                    )),
+                });
+            }
+            vec_scval(&items)
         }
         Leaf::CallArgScaled { index, num, den } => vec_scval(&[
             sym("call_arg_scaled"),
@@ -490,6 +503,169 @@ fn sel_call_arg_field_eq_u32_match_permits() {
         right: Leaf::LiteralU32(3),
     };
     assert!(permit(evaluate(&env, &n, &ctx)));
+}
+
+/// One call inside a batch, shaped the way the adapter hands it over:
+/// `args[0]` is the vector of calls, each a map with an `args` vector.
+fn batch_ctx(env: &Env, amounts: &[u32]) -> SorobanVec<Val> {
+    let mut calls = SorobanVec::<Val>::new(env);
+    for a in amounts {
+        let mut inner = SorobanVec::<Val>::new(env);
+        inner.push_back(1u32.into_val(env));
+        inner.push_back(2u32.into_val(env));
+        inner.push_back((*a).into_val(env));
+        let mut m = soroban_sdk::Map::<Symbol, Val>::new(env);
+        m.set(Symbol::new(env, "args"), inner.into_val(env));
+        calls.push_back(m.into_val(env));
+    }
+    let mut args = SorobanVec::<Val>::new(env);
+    args.push_back(calls.into_val(env));
+    args
+}
+
+fn at(env: &Env, element: u32, index_in_args: u32) -> Leaf {
+    Leaf::CallPath(alloc::vec![
+        PathStep::Index(0),
+        PathStep::Index(element),
+        PathStep::Field(Symbol::new(env, "args")),
+        PathStep::Index(index_in_args),
+    ])
+}
+
+#[test]
+fn sel_call_path_reaches_one_argument_of_one_call() {
+    let env = Env::default();
+    let mut ctx = empty_ctx(&env);
+    ctx.args = batch_ctx(&env, &[7]);
+    let n = Node::Compare {
+        op: CompareOp::Eq,
+        left: at(&env, 0, 2),
+        right: Leaf::LiteralU32(7),
+    };
+    assert!(permit(evaluate(&env, &n, &ctx)));
+}
+
+/// The reason this leaf exists: a cross-call constraint the interpreter can
+/// state directly, instead of comparing two indices into a flattened
+/// projection the adapter had to build.
+#[test]
+fn sel_call_path_expresses_a_cross_call_equality() {
+    let env = Env::default();
+    let equal = Node::Compare {
+        op: CompareOp::Eq,
+        left: at(&env, 0, 2),
+        right: at(&env, 1, 2),
+    };
+
+    let mut same = empty_ctx(&env);
+    same.args = batch_ctx(&env, &[7, 7]);
+    assert!(permit(evaluate(&env, &equal, &same)));
+
+    let mut differ = empty_ctx(&env);
+    differ.args = batch_ctx(&env, &[7, 6]);
+    assert_eq!(
+        reason(evaluate(&env, &equal, &differ)),
+        Some(DenyReason::ArgMismatch)
+    );
+}
+
+#[test]
+fn sel_call_path_out_of_range_denies() {
+    let env = Env::default();
+    let mut ctx = empty_ctx(&env);
+    ctx.args = batch_ctx(&env, &[7]);
+    let n = Node::Compare {
+        op: CompareOp::Eq,
+        left: at(&env, 0, 9),
+        right: Leaf::LiteralU32(7),
+    };
+    assert!(!permit(evaluate(&env, &n, &ctx)));
+}
+
+#[test]
+fn sel_call_path_with_no_steps_is_malformed() {
+    let env = Env::default();
+    let bogus = bytes_from_scval(&env, vec_scval(&[sym("call_path")]));
+    let err = decode_with_byte_cap(&env, &bogus).expect_err("a path with no steps must be refused");
+    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+}
+
+/// Blend's shape: `calls[n].args[3][0].amount`, five steps deep. This is the
+/// depth `call_arg_field` could not reach, and the reason the adapter used to
+/// flatten the request.
+#[test]
+fn sel_call_path_reaches_a_nested_request_amount() {
+    let env = Env::default();
+    let mut req = soroban_sdk::Map::<Symbol, Val>::new(&env);
+    req.set(Symbol::new(&env, "amount"), 42i128.into_val(&env));
+    let mut reqs = SorobanVec::<Val>::new(&env);
+    reqs.push_back(req.into_val(&env));
+    let mut inner = SorobanVec::<Val>::new(&env);
+    inner.push_back(reqs.into_val(&env));
+    let mut call = soroban_sdk::Map::<Symbol, Val>::new(&env);
+    call.set(Symbol::new(&env, "args"), inner.into_val(&env));
+    let mut calls = SorobanVec::<Val>::new(&env);
+    calls.push_back(call.into_val(&env));
+    let mut args = SorobanVec::<Val>::new(&env);
+    args.push_back(calls.into_val(&env));
+    let mut ctx = empty_ctx(&env);
+    ctx.args = args;
+
+    let n = Node::Compare {
+        op: CompareOp::Eq,
+        left: Leaf::CallPath(alloc::vec![
+            PathStep::Index(0),
+            PathStep::Index(0),
+            PathStep::Field(Symbol::new(&env, "args")),
+            PathStep::Index(0),
+            PathStep::Index(0),
+            PathStep::Field(Symbol::new(&env, "amount")),
+        ]),
+        right: Leaf::LiteralI128(42),
+    };
+    assert!(permit(evaluate(&env, &n, &ctx)));
+}
+
+/// The length step: what catches an element appended to a vector the
+/// predicate otherwise pinned element by element.
+#[test]
+fn sel_call_path_len_reads_a_nested_vector_length() {
+    let env = Env::default();
+    let mut ctx = empty_ctx(&env);
+    ctx.args = batch_ctx(&env, &[7, 7]);
+    let len_of_calls = Leaf::CallPath(alloc::vec![PathStep::Index(0), PathStep::Len]);
+    assert!(permit(evaluate(
+        &env,
+        &Node::Compare {
+            op: CompareOp::Eq,
+            left: len_of_calls.clone(),
+            right: Leaf::LiteralU32(2),
+        },
+        &ctx
+    )));
+    assert_eq!(
+        reason(evaluate(
+            &env,
+            &Node::Compare {
+                op: CompareOp::Eq,
+                left: len_of_calls,
+                right: Leaf::LiteralU32(3),
+            },
+            &ctx
+        )),
+        Some(DenyReason::ArgMismatch)
+    );
+}
+
+#[test]
+fn sel_call_path_len_must_be_the_last_step() {
+    let env = Env::default();
+    let bogus = bytes_from_scval(
+        &env,
+        vec_scval(&[sym("call_path"), ScVal::Bool(true), u32_scval(0)]),
+    );
+    let err = decode_with_byte_cap(&env, &bogus).expect_err("a step after len must be refused");
+    assert_eq!(err.code(), "MALFORMED_PREDICATE");
 }
 
 #[test]

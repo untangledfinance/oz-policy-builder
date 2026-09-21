@@ -1,10 +1,27 @@
 #![no_std]
-//! Stateless, per-Prime execution. No allowance to the adapter is required.
+//! Stateless, per-Prime batching. One job: run several calls in one
+//! transaction, under one authorization from the Prime account.
+//!
+//! Until grammar 6 this contract also had to FLATTEN the request into a
+//! synthetic argument list, because the interpreter's selectors could only
+//! address one call. That projection was 38% of the file and it put
+//! policy-shaped logic outside the contract that enforces policy. Grammar 6
+//! addresses a batch directly, so the request is handed over as it is:
+//!
+//!   args[0] = calls            -> call_path([0, n, "args", i])
+//!   args[1] = prime_contexts
+//!   args[2] = policy
+//!   args[3] = policy_fn
+//!
+//! The policy contract is named by address AND by function: this contract
+//! does not know what enforces the rules, only that each context has to be
+//! offered to something before its call runs.
+//!
+//! Everything in the request is committed by that one signature, so no leg of
+//! the batch can be altered after the agent signed it.
 use soroban_sdk::{
     auth::{Context, ContractContext, InvokerContractAuthEntry, SubContractInvocation},
-    contract, contractimpl, contracttype, vec,
-    xdr::ToXdr,
-    Address, Bytes, Env, IntoVal, Map, Symbol, TryFromVal, Val, Vec,
+    contract, contractimpl, contracttype, vec, Address, Bytes, Env, IntoVal, Symbol, Val, Vec,
 };
 
 #[contracttype]
@@ -34,7 +51,8 @@ impl ExecutionAdapter {
     pub fn execute(
         e: Env,
         prime: Address,
-        interpreter: Address,
+        policy: Address,
+        policy_fn: Symbol,
         calls: Vec<Call>,
         prime_contexts: Vec<ContractContext>,
     ) -> Vec<Val> {
@@ -42,10 +60,9 @@ impl ExecutionAdapter {
         assert_eq!(adapter, execution_address(&e, &prime), "wrong Prime");
         assert!(!calls.is_empty() && calls.len() <= 8, "batch size");
         assert!(prime_contexts.len() <= 16, "context count");
-        let forbidden = [prime.clone(), interpreter.clone(), adapter.clone()];
+        let forbidden = [prime.clone(), policy.clone(), adapter.clone()];
         let mut auth_count = 0;
         let mut contexts = Vec::new(&e);
-        // Validate calls and derive their contexts in the same pass.
         for call in calls.iter() {
             venue_target(&forbidden, &call.target);
             check_auths(
@@ -64,7 +81,13 @@ impl ExecutionAdapter {
             venue_target(&forbidden, &context.contract);
             contexts.push_back(context);
         }
-        let args = policy_args(&e, &prime, &interpreter, &calls, &prime_contexts);
+        let args: Vec<Val> = vec![
+            &e,
+            calls.clone().into_val(&e),
+            prime_contexts.clone().into_val(&e),
+            policy.clone().into_val(&e),
+            policy_fn.clone().into_val(&e),
+        ];
         contexts.push_front(ContractContext {
             contract: adapter,
             fn_name: Symbol::new(&e, "execute"),
@@ -75,8 +98,8 @@ impl ExecutionAdapter {
             contexts.iter().map(|context| {
                 InvokerContractAuthEntry::Contract(SubContractInvocation {
                     context: ContractContext {
-                        contract: interpreter.clone(),
-                        fn_name: Symbol::new(&e, "enforce"),
+                        contract: policy.clone(),
+                        fn_name: policy_fn.clone(),
                         args: (prime.clone(), Context::Contract(context)).into_val(&e),
                     },
                     sub_invocations: Vec::new(&e),
@@ -118,83 +141,6 @@ fn check_auths(
         venue_target(forbidden, &call.context.contract);
         check_auths(forbidden, &call.sub_invocations, depth + 1, count);
     }
-}
-
-/// V1 projection of the COMPLETE request for existing v5 selectors.
-/// The shape digest commits to types, boundaries and ordering; leaves stay inspectable.
-/// Non-v5 scalar types are represented by their exact XDR digest (two i128 limbs).
-pub fn policy_args(
-    e: &Env,
-    prime: &Address,
-    interpreter: &Address,
-    calls: &Vec<Call>,
-    prime_contexts: &Vec<ContractContext>,
-) -> Vec<Val> {
-    let mut shape = vec![e, 1u32];
-    let mut leaves = Vec::new(e);
-    flatten(
-        e,
-        (prime, interpreter, calls, prime_contexts).into_val(e),
-        &mut shape,
-        &mut leaves,
-        0,
-    );
-    let mut result = digest_limbs(e, shape.to_xdr(e));
-    result.append(&leaves);
-    result
-}
-
-fn digest_limbs(e: &Env, bytes: Bytes) -> Vec<Val> {
-    let h = e.crypto().sha256(&bytes).to_array();
-    vec![
-        e,
-        i128::from_be_bytes(h[..16].try_into().unwrap()).into_val(e),
-        i128::from_be_bytes(h[16..].try_into().unwrap()).into_val(e),
-    ]
-}
-
-fn flatten(e: &Env, value: Val, shape: &mut Vec<u32>, leaves: &mut Vec<Val>, depth: u32) {
-    assert!(
-        depth <= 16 && shape.len() < 2048 && leaves.len() < 256,
-        "projection size"
-    );
-    if let Ok(items) = Vec::<Val>::try_from_val(e, &value) {
-        shape.push_back(0);
-        shape.push_back(items.len());
-        for item in items {
-            flatten(e, item, shape, leaves, depth + 1);
-        }
-    } else if let Ok(items) = Map::<Val, Val>::try_from_val(e, &value) {
-        shape.push_back(1);
-        shape.push_back(items.len());
-        for (key, item) in items {
-            flatten(e, key, shape, leaves, depth + 1);
-            flatten(e, item, shape, leaves, depth + 1);
-        }
-    } else {
-        // Semantic types: independent of host small-value/object representation.
-        let tag = if u32::try_from_val(e, &value).is_ok() {
-            2
-        } else if i128::try_from_val(e, &value).is_ok() {
-            3
-        } else if Address::try_from_val(e, &value).is_ok() {
-            4
-        } else if Symbol::try_from_val(e, &value).is_ok() {
-            5
-        } else {
-            6
-        };
-        shape.push_back(tag);
-        if tag == 6 {
-            leaves.append(&digest_limbs(e, value.to_xdr(e)));
-        } else {
-            leaves.push_back(value);
-        }
-    }
-    assert!(
-        shape.len() <= 2048 && leaves.len() <= 256,
-        "projection size"
-    );
 }
 
 #[cfg(test)]

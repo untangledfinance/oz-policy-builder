@@ -42,7 +42,8 @@ fn call(e: &Env, target: &Address, name: &str, args: Vec<Val>) -> Call {
         executor_authorizations: Vec::new(e),
     }
 }
-fn args(e: &Env, prime: &Address, interpreter: &Address, calls: &Vec<Call>) -> Vec<Val> {
+/// The INVOCATION arguments of `execute`, in declaration order.
+fn args(e: &Env, prime: &Address, policy: &Address, calls: &Vec<Call>) -> Vec<Val> {
     let mut contexts = Vec::<ContractContext>::new(e);
     for c in calls.iter() {
         contexts.push_back(ContractContext {
@@ -51,7 +52,7 @@ fn args(e: &Env, prime: &Address, interpreter: &Address, calls: &Vec<Call>) -> V
             args: c.args,
         });
     }
-    (prime, interpreter, calls, contexts).into_val(e)
+    (prime, policy, Symbol::new(e, "enforce"), calls, contexts).into_val(e)
 }
 
 #[test]

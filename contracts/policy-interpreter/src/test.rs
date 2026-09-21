@@ -13,10 +13,10 @@ fn reports_its_grammar_version() {
     assert_eq!(client.grammar_version(), SELF_VERSION);
 }
 
-/// The literal, not the constant: the Policy Signer separation changed the
-/// install ABI (`policy_admins`), so this build must not answer a version an
-/// older builder would take as an invitation to install.
+/// The literal, not the constant: grammar 6 adds the `call_arg_field_at`
+/// leaf, which changes what a predicate can address. A v5 builder must not
+/// read this build's answer as an invitation to install.
 #[test]
-fn grammar_version_is_five() {
-    assert_eq!(SELF_VERSION, 5);
+fn grammar_version_is_six() {
+    assert_eq!(SELF_VERSION, 6);
 }

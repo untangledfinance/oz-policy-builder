@@ -1,6 +1,6 @@
 //! Real OZ account authorization against the production stateless adapter and v5.
 use execution_adapter::{
-    execution_address, policy_args, Call, ExecutionAdapter as Adapter, ExecutionAdapterClient,
+    execution_address, Call, ExecutionAdapter as Adapter, ExecutionAdapterClient,
 };
 use soroban_sdk::{
     auth::{Context, ContractContext, InvokerContractAuthEntry},
@@ -161,7 +161,7 @@ mod tests {
     ) {
         let bytes = predicate.to_xdr(e);
         let params = PolicyInstallParams {
-            grammar_version: 5,
+            grammar_version: 6,
             install_nonce: 1,
             predicate_hash: e.crypto().sha256(&bytes).into(),
             predicate: bytes,
@@ -184,34 +184,135 @@ mod tests {
         policy_interpreter::PolicyInterpreterClient::new(e, interpreter)
             .bind_executor(&(prime.clone(), rule.id), executor);
     }
-    fn root_predicate(s: &S, cs: &Vec<Call>) -> Val {
-        let e = &s.e;
-        predicate_for_args(e, project(s, cs))
+    /// A `call_path` node from a list of steps.
+    fn path(e: &Env, steps: &Vec<Val>) -> Val {
+        node(e, "call_path", steps.clone())
     }
-    fn predicate_for_args(e: &Env, values: Vec<Val>) -> Val {
-        let mut checks = vec![e, eq(e, selector(e, "call_fn"), sym(e, "execute"))];
-        let mut first_amount = None;
-        for (i, v) in values.iter().enumerate() {
-            let arg = node(e, "call_arg", vec![e, (i as u32).into_val(e)]);
-            if i128::try_from_val(e, &v).ok() == Some(7) {
-                checks.push_back(node(e, "gt", vec![e, arg, 0i128.into_val(e)]));
-                checks.push_back(node(e, "lt", vec![e, arg, 10i128.into_val(e)]));
-                if let Some(j) = first_amount {
-                    checks.push_back(eq(
-                        e,
-                        arg,
-                        node(
-                            e,
-                            "call_arg_scaled",
-                            vec![e, j, 1i128.into_val(e), 1i128.into_val(e)],
-                        ),
-                    ));
-                } else {
-                    first_amount = Some((i as u32).into_val(e));
-                }
+    fn step_idx(e: &Env, i: u32) -> Val {
+        i.into_val(e)
+    }
+    fn step_len(e: &Env) -> Val {
+        true.into_val(e)
+    }
+    /// Pin how many elements a nested vector has. Pinning each element is not
+    /// enough on its own: an APPENDED element is simply unmentioned, and an
+    /// extra executor authorization is exactly that.
+    fn pin_len(e: &Env, checks: &mut Vec<Val>, base: &Vec<Val>, field: &str, n: u32) {
+        let mut p = base.clone();
+        p.push_back(sym(e, field));
+        p.push_back(step_len(e));
+        checks.push_back(eq(e, path(e, &p), n.into_val(e)));
+    }
+    /// True for the argument kinds the grammar has a literal for.
+    fn is_scalar(e: &Env, v: &Val) -> bool {
+        Address::try_from_val(e, v).is_ok()
+            || i128::try_from_val(e, v).is_ok()
+            || u32::try_from_val(e, v).is_ok()
+            || Symbol::try_from_val(e, v).is_ok()
+    }
+    /// Walk one value to whatever depth it has, pinning every scalar it
+    /// reaches. An amount of 7 is bounded instead and tied to the first one
+    /// seen, which is the cross-call constraint: what was pulled is what was
+    /// supplied.
+    ///
+    /// Grammar 5 could not do this. Its deepest selector stopped three levels
+    /// in, so Blend's `args[3][0].amount` was out of reach from the root and
+    /// the adapter had to flatten the whole request to expose it.
+    fn walk(
+        e: &Env,
+        steps: Vec<Val>,
+        v: Val,
+        checks: &mut Vec<Val>,
+        first: &mut Option<Val>,
+        depth: u32,
+    ) {
+        if depth >= 6 {
+            return;
+        }
+        if i128::try_from_val(e, &v).ok() == Some(7) {
+            let a = path(e, &steps);
+            checks.push_back(node(e, "gt", vec![e, a, 0i128.into_val(e)]));
+            checks.push_back(node(e, "lt", vec![e, a, 10i128.into_val(e)]));
+            if let Some(f) = *first {
+                checks.push_back(eq(e, a, f));
             } else {
-                checks.push_back(eq(e, arg, v));
+                *first = Some(a);
             }
+            return;
+        }
+        if is_scalar(e, &v) {
+            checks.push_back(eq(e, path(e, &steps), v));
+            return;
+        }
+        if let Ok(items) = Vec::<Val>::try_from_val(e, &v) {
+            for (i, item) in items.iter().enumerate() {
+                let mut next = steps.clone();
+                next.push_back(step_idx(e, i as u32));
+                walk(e, next, item, checks, first, depth + 1);
+            }
+            return;
+        }
+        if let Ok(m) = Map::<Symbol, Val>::try_from_val(e, &v) {
+            for (k, item) in m.iter() {
+                let mut next = steps.clone();
+                next.push_back(k.into_val(e));
+                walk(e, next, item, checks, first, depth + 1);
+            }
+        }
+    }
+    fn root_predicate(s: &S, cs: &Vec<Call>) -> Val {
+        root_predicate_full(s, cs, &Vec::new(&s.e))
+    }
+    /// Pins the batch's shape: how many calls, each call's target and
+    /// function, every scalar argument at any depth, and the equality between
+    /// the amount pulled and the amount spent.
+    fn root_predicate_full(s: &S, cs: &Vec<Call>, pcs: &Vec<ContractContext>) -> Val {
+        let e = &s.e;
+        let mut checks = vec![e, eq(e, selector(e, "call_fn"), sym(e, "execute"))];
+        checks.push_back(eq(
+            e,
+            node(e, "call_arg_len", vec![e, 0u32.into_val(e)]),
+            cs.len().into_val(e),
+        ));
+        let mut first: Option<Val> = None;
+        for (n, c) in cs.iter().enumerate() {
+            let n = n as u32;
+            let base = vec![e, step_idx(e, 0), step_idx(e, n)];
+            let mut t = base.clone();
+            t.push_back(sym(e, "target"));
+            checks.push_back(eq(e, path(e, &t), c.target.into_val(e)));
+            let mut f = base.clone();
+            f.push_back(sym(e, "function_name"));
+            checks.push_back(eq(e, path(e, &f), c.function_name.into_val(e)));
+            pin_len(e, &mut checks, &base, "args", c.args.len());
+            pin_len(
+                e,
+                &mut checks,
+                &base,
+                "executor_authorizations",
+                c.executor_authorizations.len(),
+            );
+            for (i, v) in c.args.iter().enumerate() {
+                let mut a = base.clone();
+                a.push_back(sym(e, "args"));
+                a.push_back(step_idx(e, i as u32));
+                walk(e, a, v, &mut checks, &mut first, 0);
+            }
+        }
+        checks.push_back(eq(
+            e,
+            node(e, "call_arg_len", vec![e, 1u32.into_val(e)]),
+            pcs.len().into_val(e),
+        ));
+        for (n, c) in pcs.iter().enumerate() {
+            let n = n as u32;
+            let base = vec![e, step_idx(e, 1), step_idx(e, n)];
+            let mut ct = base.clone();
+            ct.push_back(sym(e, "contract"));
+            checks.push_back(eq(e, path(e, &ct), c.contract.into_val(e)));
+            let mut fnm = base.clone();
+            fnm.push_back(sym(e, "fn_name"));
+            checks.push_back(eq(e, path(e, &fnm), c.fn_name.into_val(e)));
         }
         node(e, "and", checks)
     }
@@ -224,8 +325,26 @@ mod tests {
         interpreter: Address,
         owner: Address,
     }
+    /// What the adapter commits to: the request itself, not a flattening of it.
     fn project(s: &S, cs: &Vec<Call>) -> Vec<Val> {
-        policy_args(&s.e, &s.prime, &s.interpreter, cs, &contexts(&s.e, cs))
+        request_args(&s.e, cs, &contexts(&s.e, cs), &s.interpreter)
+    }
+    fn policy_fn(e: &Env) -> Symbol {
+        Symbol::new(e, "enforce")
+    }
+    fn request_args(
+        e: &Env,
+        cs: &Vec<Call>,
+        pcs: &Vec<ContractContext>,
+        policy: &Address,
+    ) -> Vec<Val> {
+        vec![
+            e,
+            cs.into_val(e),
+            pcs.into_val(e),
+            policy.into_val(e),
+            policy_fn(e).into_val(e),
+        ]
     }
     struct AdapterClient<'a>(&'a S);
     impl<'a> AdapterClient<'a> {
@@ -240,6 +359,7 @@ mod tests {
             let result = ExecutionAdapterClient::new(&s.e, &s.adapter).execute(
                 &s.prime,
                 &s.interpreter,
+                &policy_fn(&s.e),
                 calls,
                 &contexts(&s.e, calls),
             );
@@ -259,6 +379,7 @@ mod tests {
             match ExecutionAdapterClient::new(&s.e, &s.adapter).try_execute(
                 &s.prime,
                 &s.interpreter,
+                &policy_fn(&s.e),
                 calls,
                 &contexts(&s.e, calls),
             ) {
@@ -1174,7 +1295,7 @@ mod tests {
         batch_auth(&s, &cs, &[s.agent.clone(), s.adapter.clone()]);
         let other = s.e.register(PolicyInterpreter, ());
         assert!(ExecutionAdapterClient::new(&s.e, &s.adapter)
-            .try_execute(&s.prime, &other, &cs, &Vec::new(&s.e))
+            .try_execute(&s.prime, &other, &policy_fn(&s.e), &cs, &Vec::new(&s.e))
             .is_err());
         assert_eq!(VenueClient::new(&s.e, &s.venue).get(), 0);
     }
@@ -1203,14 +1324,14 @@ mod tests {
             args: vec![e, f.s.prime.into_val(e), 7i128.into_val(e)],
         };
         let nested = vec![e, extra.clone()];
-        let projected = policy_args(e, &f.s.prime, &f.s.interpreter, &cs, &nested);
+        let projected = request_args(e, &cs, &nested, &f.s.interpreter);
         add_rule(
             e,
             &f.s.prime,
             &f.s.adapter,
             &f.s.agent,
             &f.s.interpreter,
-            predicate_for_args(e, projected.clone()),
+            root_predicate_full(&f.s, &cs, &nested),
             &f.s.owner,
             &f.s.adapter,
         ); // id7 explicit nested batch
@@ -1242,7 +1363,7 @@ mod tests {
             80,
         );
         assert!(ExecutionAdapterClient::new(e, &f.s.adapter)
-            .try_execute(&f.s.prime, &f.s.interpreter, &cs, &nested)
+            .try_execute(&f.s.prime, &f.s.interpreter, &policy_fn(e), &cs, &nested)
             .is_err());
         assert_eq!(VenueClient::new(e, &other).get(), 0);
         assert_eq!(
@@ -1260,6 +1381,7 @@ mod tests {
         ExecutionAdapterClient::new(e, &f.s.adapter).execute(
             &f.s.prime,
             &f.s.interpreter,
+            &policy_fn(e),
             &cs,
             &nested,
         );

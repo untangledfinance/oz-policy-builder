@@ -39,6 +39,17 @@ const SEL_CALL_FN: &[u8] = b"call_fn";
 const SEL_CALL_ARG: &[u8] = b"call_arg";
 const SEL_CALL_ARG_LEN: &[u8] = b"call_arg_len";
 const SEL_CALL_ARG_FIELD: &[u8] = b"call_arg_field";
+/// A walk into the authorised call's arguments: each step is either a u32
+/// index into a vector or a symbol key into a map. `call_arg_field` stops at
+/// a fixed depth of three; a batch puts the value a predicate cares about
+/// deeper than that - `calls[n].args[i]`, or Blend's `calls[n].args[3][0].amount`.
+/// One variable-depth leaf reaches all of them, which is what lets the batch
+/// be constrained HERE instead of through a flattened projection built
+/// outside the contract that enforces it.
+const SEL_CALL_PATH: &[u8] = b"call_path";
+/// Steps per path. Deep enough for every shape the venues use, shallow enough
+/// that a hand-crafted predicate cannot walk the host into a cost blow-up.
+pub const MAX_PATH_STEPS: u32 = 8;
 // `call_arg_scaled(index, num, den)` evaluates to `args[index] * num / den`,
 // truncating toward zero. It is the only leaf whose value is COMPUTED from
 // the call rather than read from it, and the only selector the grammar
@@ -87,6 +98,18 @@ pub enum CompareOp {
     Gte,
 }
 
+/// One step of a `CallPath`: into a vector, or into a map.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PathStep {
+    Index(u32),
+    Field(Symbol),
+    /// Terminal step: the LENGTH of the vector reached so far. Without it a
+    /// predicate can pin every element a batch declares and still say nothing
+    /// about an element APPENDED after it was written - which is exactly how
+    /// an extra authorization slips into a signed request.
+    Len,
+}
+
 /// One literal or selector leaf. Host types are stored directly so the
 /// evaluator can compare without re-encoding.
 #[derive(Debug, Clone)]
@@ -100,6 +123,8 @@ pub enum Leaf {
         element: u32,
         field: Symbol,
     },
+    /// See `SEL_CALL_PATH`. Steps apply to the argument vector in order.
+    CallPath(alloc::vec::Vec<PathStep>),
     /// `args[index] * num / den`, truncating toward zero. See
     /// `SEL_CALL_ARG_SCALED` for why this leaf exists.
     CallArgScaled {
@@ -311,7 +336,19 @@ fn eval_compare(
     } else {
         DenyReason::ArgMismatch
     };
-    let (Some(actual), Some(expected)) = (resolve(env, left, ctx), literal_to_val(env, right))
+    // Grammar 6 resolves BOTH sides. Until v5 the right operand had to be a
+    // literal, which made a constraint BETWEEN two calls inexpressible - the
+    // adapter had to flatten the whole batch into one synthetic argument list
+    // so both operands became indices into it. Resolving the right operand is
+    // what lets that projection move out of the adapter and the constraint be
+    // stated where it is enforced.
+    //
+    // The cost, stated plainly: a predicate may now compare a selector with
+    // itself, which is vacuously true and installs cleanly because
+    // `has_selector_leaf` sees a selector. That is a new way to write a
+    // no-constraint policy, and it joins the mis-specified policy in the
+    // known-acceptable-risk column rather than being caught at install.
+    let (Some(actual), Some(expected)) = (resolve(env, left, ctx), resolve(env, right, ctx))
     else {
         return EvalDecision::Deny(miss);
     };
@@ -430,6 +467,25 @@ fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext) -> Option<Val> {
             let map = Map::<Symbol, Val>::try_from_val(env, &outer.get(*element)?).ok()?;
             map.get(field.clone())
         }
+        Leaf::CallPath(steps) => {
+            let mut cur: Val = ctx.args.clone().into_val(env);
+            for step in steps.iter() {
+                cur = match step {
+                    PathStep::Index(i) => {
+                        SorobanVec::<Val>::try_from_val(env, &cur).ok()?.get(*i)?
+                    }
+                    PathStep::Field(f) => Map::<Symbol, Val>::try_from_val(env, &cur)
+                        .ok()?
+                        .get(f.clone())?,
+                    PathStep::Len => {
+                        return Some(
+                            SorobanVec::<Val>::try_from_val(env, &cur).ok()?.len().into_val(env),
+                        )
+                    }
+                };
+            }
+            Some(cur)
+        }
         _ => literal_to_val(env, leaf),
     }
 }
@@ -545,8 +601,9 @@ mod dsl_decode {
 
     use super::{
         CompareOp, Leaf, Node, MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_PREDICATE_BYTES,
-        OP_AND, OP_EQ, OP_GT, OP_GTE, OP_IN, OP_LT, OP_LTE, OP_OR, SEL_CALL_ARG,
-        SEL_CALL_ARG_FIELD, SEL_CALL_ARG_LEN, SEL_CALL_ARG_SCALED, SEL_CALL_CONTRACT, SEL_CALL_FN,
+        OP_AND, OP_EQ, OP_GT, OP_GTE, OP_IN, OP_LT, OP_LTE, OP_OR,
+        PathStep, SEL_CALL_ARG, SEL_CALL_ARG_FIELD, SEL_CALL_ARG_LEN, SEL_CALL_ARG_SCALED,
+        SEL_CALL_CONTRACT, SEL_CALL_FN, SEL_CALL_PATH,
     };
 
     /// Errors that can be raised while decoding a predicate root from the
@@ -843,6 +900,32 @@ mod dsl_decode {
                 element: e,
                 field: f,
             })
+        } else if head == sym_const(env, SEL_CALL_PATH) {
+            // Variable arity: (symbol, step, step, ...). At least one step,
+            // at most MAX_PATH_STEPS. A step is a u32 index or a symbol key;
+            // anything else is refused here rather than reinterpreted at
+            // evaluate.
+            let count = items.len() - 1;
+            if count == 0 || count > super::MAX_PATH_STEPS {
+                return Err(DecodeError::MalformedPredicate);
+            }
+            let mut steps = alloc::vec::Vec::new();
+            for n in 1..items.len() {
+                let raw = items.get(n).ok_or(DecodeError::MalformedPredicate)?;
+                if let Ok(i) = expect_u32(env, raw) {
+                    steps.push(PathStep::Index(i));
+                } else if bool::try_from_val(env, &raw).unwrap_or(false) {
+                    // `true` marks the length step, and it must be last:
+                    // a length has nothing to index into.
+                    if n + 1 != items.len() {
+                        return Err(DecodeError::MalformedPredicate);
+                    }
+                    steps.push(PathStep::Len);
+                } else {
+                    steps.push(PathStep::Field(expect_symbol(env, raw)?));
+                }
+            }
+            Ok(Leaf::CallPath(steps))
         } else if head == sym_const(env, SEL_CALL_ARG_SCALED) {
             // Arity 4: (symbol, u32 index, i128 num, i128 den). The decoder
             // is the single place that validates type and presence, so a

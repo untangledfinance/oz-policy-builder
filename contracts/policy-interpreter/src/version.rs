@@ -27,4 +27,4 @@
 /// document no longer describes what this contract stores. The version gate
 /// refuses the skew before a half-understood install can appoint an admin
 /// set the author never reviewed.
-pub const SELF_VERSION: u32 = 5;
+pub const SELF_VERSION: u32 = 6;
