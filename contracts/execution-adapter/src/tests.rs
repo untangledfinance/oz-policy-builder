@@ -42,17 +42,12 @@ fn call(e: &Env, target: &Address, name: &str, args: Vec<Val>) -> Call {
         executor_authorizations: Vec::new(e),
     }
 }
-/// The INVOCATION arguments of `execute`, in declaration order.
+/// The INVOCATION arguments of `execute`, in declaration order. These unit
+/// tests do not install a policy, so an empty grant list is correct: nothing
+/// will ask the policy anything.
 fn args(e: &Env, prime: &Address, policy: &Address, calls: &Vec<Call>) -> Vec<Val> {
-    let mut contexts = Vec::<ContractContext>::new(e);
-    for c in calls.iter() {
-        contexts.push_back(ContractContext {
-            contract: c.target,
-            fn_name: c.function_name,
-            args: c.args,
-        });
-    }
-    (prime, policy, Symbol::new(e, "enforce"), calls, contexts).into_val(e)
+    let grants = Vec::<soroban_sdk::auth::InvokerContractAuthEntry>::new(e);
+    (prime, policy, calls, grants).into_val(e)
 }
 
 #[test]

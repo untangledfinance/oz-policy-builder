@@ -181,8 +181,15 @@ mod tests {
                 policies.into_val(e),
             ],
         );
-        policy_interpreter::PolicyInterpreterClient::new(e, interpreter)
-            .bind_executor(&(prime.clone(), rule.id), executor);
+        // Child rules are bound; the ROOT is not. Its scope is the adapter
+        // itself, so its context cannot arise anywhere else - and binding it
+        // would need a grant naming a context whose args contain that same
+        // grant. The one rule that cannot be bound is the one that needs it
+        // least.
+        if scope != executor {
+            policy_interpreter::PolicyInterpreterClient::new(e, interpreter)
+                .bind_executor(&(prime.clone(), rule.id), executor);
+        }
     }
     /// A `call_path` node from a list of steps.
     fn path(e: &Env, steps: &Vec<Val>) -> Val {
@@ -261,18 +268,33 @@ mod tests {
         }
     }
     fn root_predicate(s: &S, cs: &Vec<Call>) -> Val {
-        root_predicate_full(s, cs, &Vec::new(&s.e))
+        let pcs = contexts(&s.e, cs);
+        root_predicate_full(s, cs, &grants_for(&s.e, &s.prime, &s.interpreter, cs, &pcs))
     }
     /// Pins the batch's shape: how many calls, each call's target and
-    /// function, every scalar argument at any depth, and the equality between
-    /// the amount pulled and the amount spent.
-    fn root_predicate_full(s: &S, cs: &Vec<Call>, pcs: &Vec<ContractContext>) -> Val {
+    /// function, every scalar argument at any depth, the equality between the
+    /// amount pulled and the amount spent - and the GRANT LIST, which is the
+    /// declaration of every context the policy will be asked about.
+    ///
+    /// Pinning the grant count is what makes the batch exhaustive. A call that
+    /// quietly raises another requirement needs another grant, and another
+    /// grant changes a length the predicate fixed.
+    fn root_predicate_full(
+        s: &S,
+        cs: &Vec<Call>,
+        grants: &Vec<InvokerContractAuthEntry>,
+    ) -> Val {
         let e = &s.e;
         let mut checks = vec![e, eq(e, selector(e, "call_fn"), sym(e, "execute"))];
         checks.push_back(eq(
             e,
             node(e, "call_arg_len", vec![e, 0u32.into_val(e)]),
             cs.len().into_val(e),
+        ));
+        checks.push_back(eq(
+            e,
+            node(e, "call_arg_len", vec![e, 1u32.into_val(e)]),
+            grants.len().into_val(e),
         ));
         let mut first: Option<Val> = None;
         for (n, c) in cs.iter().enumerate() {
@@ -299,20 +321,14 @@ mod tests {
                 walk(e, a, v, &mut checks, &mut first, 0);
             }
         }
-        checks.push_back(eq(
-            e,
-            node(e, "call_arg_len", vec![e, 1u32.into_val(e)]),
-            pcs.len().into_val(e),
-        ));
-        for (n, c) in pcs.iter().enumerate() {
-            let n = n as u32;
-            let base = vec![e, step_idx(e, 1), step_idx(e, n)];
-            let mut ct = base.clone();
-            ct.push_back(sym(e, "contract"));
-            checks.push_back(eq(e, path(e, &ct), c.contract.into_val(e)));
-            let mut fnm = base.clone();
-            fnm.push_back(sym(e, "fn_name"));
-            checks.push_back(eq(e, path(e, &fnm), c.fn_name.into_val(e)));
+        // Each grant is `Contract(SubContractInvocation)`, an enum that
+        // travels as [symbol, payload]; index 1 is the payload.
+        for n in 0..grants.len() {
+            let mut p = vec![e, step_idx(e, 1), step_idx(e, n)];
+            p.push_back(step_idx(e, 1));
+            p.push_back(sym(e, "context"));
+            p.push_back(sym(e, "contract"));
+            checks.push_back(eq(e, path(e, &p), s.interpreter.into_val(e)));
         }
         node(e, "and", checks)
     }
@@ -327,24 +343,54 @@ mod tests {
     }
     /// What the adapter commits to: the request itself, not a flattening of it.
     fn project(s: &S, cs: &Vec<Call>) -> Vec<Val> {
-        request_args(&s.e, cs, &contexts(&s.e, cs), &s.interpreter)
+        let pcs = contexts(&s.e, cs);
+        request_args(
+            &s.e,
+            cs,
+            &grants_for(&s.e, &s.prime, &s.interpreter, cs, &pcs),
+        )
     }
-    fn policy_fn(e: &Env) -> Symbol {
-        Symbol::new(e, "enforce")
+    /// One grant per context the policy will be asked about. The adapter no
+    /// longer derives these; naming them is the caller's job, and the list is
+    /// committed by the same signature that commits the calls.
+    fn grants_for(
+        e: &Env,
+        prime: &Address,
+        interpreter: &Address,
+        cs: &Vec<Call>,
+        pcs: &Vec<ContractContext>,
+    ) -> Vec<InvokerContractAuthEntry> {
+        let mut ctxs = Vec::<ContractContext>::new(e);
+        for c in cs.iter() {
+            ctxs.push_back(ContractContext {
+                contract: c.target,
+                fn_name: c.function_name,
+                args: c.args,
+            });
+        }
+        for c in pcs.iter() {
+            ctxs.push_back(c);
+        }
+        Vec::from_iter(
+            e,
+            ctxs.iter().map(|ctx| {
+                InvokerContractAuthEntry::Contract(soroban_sdk::auth::SubContractInvocation {
+                    context: ContractContext {
+                        contract: interpreter.clone(),
+                        fn_name: Symbol::new(e, "enforce"),
+                        args: (prime.clone(), Context::Contract(ctx)).into_val(e),
+                    },
+                    sub_invocations: Vec::new(e),
+                })
+            }),
+        )
     }
     fn request_args(
         e: &Env,
         cs: &Vec<Call>,
-        pcs: &Vec<ContractContext>,
-        policy: &Address,
+        grants: &Vec<InvokerContractAuthEntry>,
     ) -> Vec<Val> {
-        vec![
-            e,
-            cs.into_val(e),
-            pcs.into_val(e),
-            policy.into_val(e),
-            policy_fn(e).into_val(e),
-        ]
+        vec![e, cs.into_val(e), grants.into_val(e)]
     }
     struct AdapterClient<'a>(&'a S);
     impl<'a> AdapterClient<'a> {
@@ -356,12 +402,12 @@ mod tests {
             if std::env::var_os("PRIME_DEFAULT_BUDGET").is_some() {
                 s.e.cost_estimate().budget().reset_default();
             }
+            let pcs = contexts(&s.e, calls);
             let result = ExecutionAdapterClient::new(&s.e, &s.adapter).execute(
                 &s.prime,
                 &s.interpreter,
-                &policy_fn(&s.e),
                 calls,
-                &contexts(&s.e, calls),
+                &grants_for(&s.e, &s.prime, &s.interpreter, calls, &pcs),
             );
             if std::env::var_os("PRIME_DEFAULT_BUDGET").is_some() {
                 let estimate = s.e.cost_estimate();
@@ -376,12 +422,12 @@ mod tests {
         }
         fn try_execute(&self, calls: &Vec<Call>) -> Result<(), ()> {
             let s = self.0;
+            let pcs = contexts(&s.e, calls);
             match ExecutionAdapterClient::new(&s.e, &s.adapter).try_execute(
                 &s.prime,
                 &s.interpreter,
-                &policy_fn(&s.e),
                 calls,
-                &contexts(&s.e, calls),
+                &grants_for(&s.e, &s.prime, &s.interpreter, calls, &pcs),
             ) {
                 Ok(Ok(_)) => Ok(()),
                 _ => Err(()),
@@ -1295,7 +1341,7 @@ mod tests {
         batch_auth(&s, &cs, &[s.agent.clone(), s.adapter.clone()]);
         let other = s.e.register(PolicyInterpreter, ());
         assert!(ExecutionAdapterClient::new(&s.e, &s.adapter)
-            .try_execute(&s.prime, &other, &policy_fn(&s.e), &cs, &Vec::new(&s.e))
+            .try_execute(&s.prime, &other, &cs, &grants_for(&s.e, &s.prime, &other, &cs, &Vec::new(&s.e)))
             .is_err());
         assert_eq!(VenueClient::new(&s.e, &s.venue).get(), 0);
     }
@@ -1324,14 +1370,14 @@ mod tests {
             args: vec![e, f.s.prime.into_val(e), 7i128.into_val(e)],
         };
         let nested = vec![e, extra.clone()];
-        let projected = request_args(e, &cs, &nested, &f.s.interpreter);
+        let projected = request_args(e, &cs, &grants_for(e, &f.s.prime, &f.s.interpreter, &cs, &nested));
         add_rule(
             e,
             &f.s.prime,
             &f.s.adapter,
             &f.s.agent,
             &f.s.interpreter,
-            root_predicate_full(&f.s, &cs, &nested),
+            root_predicate_full(&f.s, &cs, &grants_for(e, &f.s.prime, &f.s.interpreter, &cs, &nested)),
             &f.s.owner,
             &f.s.adapter,
         ); // id7 explicit nested batch
@@ -1363,7 +1409,7 @@ mod tests {
             80,
         );
         assert!(ExecutionAdapterClient::new(e, &f.s.adapter)
-            .try_execute(&f.s.prime, &f.s.interpreter, &policy_fn(e), &cs, &nested)
+            .try_execute(&f.s.prime, &f.s.interpreter, &cs, &grants_for(e, &f.s.prime, &f.s.interpreter, &cs, &nested))
             .is_err());
         assert_eq!(VenueClient::new(e, &other).get(), 0);
         assert_eq!(
@@ -1381,9 +1427,8 @@ mod tests {
         ExecutionAdapterClient::new(e, &f.s.adapter).execute(
             &f.s.prime,
             &f.s.interpreter,
-            &policy_fn(e),
             &cs,
-            &nested,
+            &grants_for(e, &f.s.prime, &f.s.interpreter, &cs, &nested),
         );
         assert_eq!(VenueClient::new(e, &other).get(), 7);
         assert_eq!(

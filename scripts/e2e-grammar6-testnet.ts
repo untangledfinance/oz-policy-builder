@@ -11,9 +11,19 @@
 //      needed the projection the adapter has now shed.
 //   4. The root rule needs no executor binding; the child rule does.
 //
-// Batch: [ gate.pull(SAC, prime, N),  SAC.transfer(prime, custody, N) ]
-// A round trip, so a permitted run leaves custody whole and spends exactly N
-// of the gate's allowance.
+// The venue is the REAL Blend pool on testnet, the same one the repo's own
+// atomic co-sign evidence used:
+//
+//   CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF
+//
+// Batch: [ gate.pull(XLM, adapter, N),
+//          pool.submit(prime, adapter, custody, [{XLM, N, supply}]) ]
+//
+// One batch exercises every path at once: the gate holds the allowance, the
+// pool raises a Prime requirement that needs a grant, the pool pulls from the
+// ADAPTER so the transfer travels as an executor authorization, and the
+// amount the predicate ties across the two calls sits six steps deep inside
+// Blend's request vector - the depth grammar 5 could not reach.
 
 import {
   Address,
@@ -36,6 +46,8 @@ const ACCOUNT_WASM_HASH = '91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850
 const PASSPHRASE = Networks.TESTNET
 const FEE = '6000000'
 const server = new rpc.Server('https://soroban-testnet.stellar.org')
+/// The Blend pool the repo's own atomic co-sign evidence used.
+const POOL = 'CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF'
 
 const log = (t: string, m: string) => console.log(`[${t}] ${m}`)
 const sym = (s: string) => xdr.ScVal.scvSymbol(s)
@@ -334,9 +346,6 @@ async function main() {
     interpreter: readFileSync(`${W}/policy_interpreter.wasm`),
     adapter: readFileSync(`${W}/execution_adapter.wasm`),
     gate: readFileSync(`${W}/custody_gate.wasm`),
-    venue: readFileSync(
-      `${process.env.HOME}/.cache/t-venue/wasm32v1-none/release/execution_test_venue.wasm`,
-    ),
   }
   for (const [name, w] of Object.entries(wasms)) {
     await send(admin, Operation.uploadContractWasm({ wasm: w }), `upload ${name}`)
@@ -395,76 +404,148 @@ async function main() {
   const adapter = Address.fromScVal(deployAdapter.got!.returnValue!).toString()
   log('DEPLOY', `adapter     ${adapter}`)
 
-  // ---- the gate: the institution's contract, holding their allowance
-  const gateRes = await send(
+  const sac = Asset.native().contractId(PASSPHRASE)
+  const expLedger = (await server.getLatestLedger()).sequence + 6000
+  const primeAllowance = await readI128(sac, 'allowance', [addr(custody.publicKey()), addr(prime)], admin)
+  verdict('Prime holds no allowance on custody', primeAllowance === 0n, `allowance(custody → prime) = ${primeAllowance}`)
+
+  // ---------------------------------------------------------------- //
+  // One grant per context the policy will be asked about. The adapter no
+  // longer derives these, which is why it needs to know neither the policy's
+  // entrypoint nor its argument shape.
+  // ---------------------------------------------------------------- //
+  const ctxVal = (contract: string, fn: string, args: xdr.ScVal[]) =>
+    vec([
+      sym('Contract'),
+      xdr.ScVal.scvMap([
+        kv('args', vec(args)),
+        kv('contract', addr(contract)),
+        kv('fn_name', sym(fn)),
+      ]),
+    ])
+  const grant = (contract: string, fn: string, args: xdr.ScVal[]) =>
+    vec([
+      sym('Contract'),
+      xdr.ScVal.scvMap([
+        kv(
+          'context',
+          xdr.ScVal.scvMap([
+            kv('args', vec([addr(prime), ctxVal(contract, fn, args)])),
+            kv('contract', addr(interpreter)),
+            kv('fn_name', sym('enforce')),
+          ]),
+        ),
+        kv('sub_invocations', vec([])),
+      ]),
+    ])
+  const call = (
+    target: string,
+    fn: string,
+    args: xdr.ScVal[],
+    execAuths: xdr.ScVal[] = [],
+  ) =>
+    xdr.ScVal.scvMap([
+      kv('args', vec(args)),
+      kv('executor_authorizations', vec(execAuths)),
+      kv('function_name', sym(fn)),
+      kv('target', addr(target)),
+    ])
+
+  // ---- a gate that lets funds reach the adapter, which is what Blend spends
+  const gate2Res = await send(
     admin,
     Operation.createCustomContract({
       address: Address.fromString(admin.publicKey()),
       wasmHash: hash(wasms.gate),
-      salt: hash(Buffer.from(`g-${Date.now()}-${Math.random()}`)),
+      salt: hash(Buffer.from(`g2-${Date.now()}-${Math.random()}`)),
       constructorArgs: [
         xdr.ScVal.scvMap([
-          kv('allowed', vec([addr(prime)])),
+          kv('allowed', vec([addr(adapter)])),
           kv('caller', addr(adapter)),
           kv('custody', addr(custody.publicKey())),
         ]),
       ],
     }),
-    'create gate',
+    'create gate2',
   )
-  const gate = Address.fromScVal(gateRes.returnValue!).toString()
-  log('DEPLOY', `gate        ${gate}`)
-
-  const venueRes = await send(
-    admin,
-    Operation.createCustomContract({
-      address: Address.fromString(admin.publicKey()),
-      wasmHash: hash(wasms.venue),
-      salt: hash(Buffer.from(`v-${Date.now()}-${Math.random()}`)),
-      constructorArgs: [addr(admin.publicKey())],
-    }),
-    'create venue',
-  )
-  const venue = Address.fromScVal(venueRes.returnValue!).toString()
-  log('DEPLOY', `venue       ${venue}`)
-
-  // ---- custody grants the allowance to the GATE, never to Prime
-  const sac = Asset.native().contractId(PASSPHRASE)
-  const expLedger = (await server.getLatestLedger()).sequence + 6000
-  const CAP = 1_000_000n
+  const gate2 = Address.fromScVal(gate2Res.returnValue!).toString()
   await send(
     custody,
     invokeOp(sac, 'approve', [
       addr(custody.publicKey()),
-      addr(gate),
-      i128v(5_000_000n),
+      addr(gate2),
+      i128v(20_000_000n),
       u32v(expLedger),
     ]),
-    'approve gate',
+    'approve gate2',
   )
-  const primeAllowance = await readI128(sac, 'allowance', [addr(custody.publicKey()), addr(prime)], admin)
-  verdict('Prime holds no allowance on custody', primeAllowance === 0n, `allowance(custody → prime) = ${primeAllowance}`)
+  log('DEPLOY', `gate2       ${gate2}  (allowed: adapter)`)
+  log('VENUE', `blend pool  ${POOL}  (real, testnet)`)
 
-  // ---- root rule: the batch's shape, stated with grammar 6
-  const AMOUNT = 300_000n
+  const AMOUNT = 2_000_000n
+  // Deliberately well under the allowance. If the cap sat at or above what
+  // the custody account granted, the at-cap case would be refused by the SAC
+  // for want of allowance and never reach the predicate - a denial for the
+  // wrong reason, which is no evidence at all.
+  const CAP = 3_000_000n
+  const request = (amount: bigint) =>
+    vec([
+      xdr.ScVal.scvMap([
+        kv('address', addr(sac)),
+        kv('amount', i128v(amount)),
+        kv('request_type', u32v(0)),
+      ]),
+    ])
+  const submitArgs = (amount: bigint) => [
+    addr(prime),
+    addr(adapter),
+    addr(custody.publicKey()),
+    request(amount),
+  ]
+  const transferAuth = (amount: bigint) =>
+    vec([
+      sym('Contract'),
+      xdr.ScVal.scvMap([
+        kv(
+          'context',
+          xdr.ScVal.scvMap([
+            kv('args', vec([addr(adapter), addr(POOL), i128v(amount)])),
+            kv('contract', addr(sac)),
+            kv('fn_name', sym('transfer')),
+          ]),
+        ),
+        kv('sub_invocations', vec([])),
+      ]),
+    ])
+
+  // ---- root rule
+  const P_PULL_AMT = [u32v(0), u32v(0), sym('args'), u32v(2)]
+  const P_SUPPLY_AMT = [
+    u32v(0),
+    u32v(1),
+    sym('args'),
+    u32v(3),
+    u32v(0),
+    sym('amount'),
+  ]
   const rootPredicate = and([
     eq(selector('call_fn'), sym('execute')),
     eq(callArgLen(0), u32v(2)),
-    eq(path([u32v(0), u32v(0), sym('target')]), addr(gate)),
+    eq(callArgLen(1), u32v(1)), // exactly one grant: the batch is exhaustive
+    eq(path([u32v(0), u32v(0), sym('target')]), addr(gate2)),
     eq(path([u32v(0), u32v(0), sym('function_name')]), sym('pull')),
-    eq(path([u32v(0), u32v(0), sym('args'), u32v(1)]), addr(prime)),
-    cmp('gt', path([u32v(0), u32v(0), sym('args'), u32v(2)]), i128v(0n)),
-    cmp('lt', path([u32v(0), u32v(0), sym('args'), u32v(2)]), i128v(CAP)),
-    eq(path([u32v(0), u32v(1), sym('target')]), addr(sac)),
-    eq(path([u32v(0), u32v(1), sym('function_name')]), sym('transfer')),
+    eq(path([u32v(0), u32v(0), sym('args'), u32v(1)]), addr(adapter)),
+    cmp('gt', path(P_PULL_AMT), i128v(0n)),
+    cmp('lt', path(P_PULL_AMT), i128v(CAP)),
+    eq(path([u32v(0), u32v(1), sym('target')]), addr(POOL)),
+    eq(path([u32v(0), u32v(1), sym('function_name')]), sym('submit')),
     eq(path([u32v(0), u32v(1), sym('args'), u32v(0)]), addr(prime)),
-    eq(path([u32v(0), u32v(1), sym('args'), u32v(1)]), addr(custody.publicKey())),
-    // The cross-call constraint. Grammar 5 could not write this without the
-    // adapter first flattening both calls into one argument list.
-    eq(
-      path([u32v(0), u32v(0), sym('args'), u32v(2)]),
-      path([u32v(0), u32v(1), sym('args'), u32v(2)]),
-    ),
+    eq(path([u32v(0), u32v(1), sym('args'), u32v(2)]), addr(custody.publicKey())),
+    eq(path([u32v(0), u32v(1), sym('args'), u32v(3), xdr.ScVal.scvBool(true)]), u32v(1)),
+    eq(path([...P_SUPPLY_AMT.slice(0, 5), sym('address')]), addr(sac)),
+    eq(path([...P_SUPPLY_AMT.slice(0, 5), sym('request_type')]), u32v(0)),
+    // six steps deep, and tied to the amount pulled one call earlier
+    eq(path(P_PULL_AMT), path(P_SUPPLY_AMT)),
   ])
 
   const rootRes = await asAccount({
@@ -488,13 +569,13 @@ async function main() {
     label: 'install root rule',
   })
   const rootId = Number(scValToNative(rootRes.got!.returnValue!).id)
-  log('RULE', `root  id=${rootId}  scope=adapter  signer=agent  NOT bound to an executor`)
+  log('RULE', `root  id=${rootId}  scope=adapter  NOT bound to an executor`)
 
-  // ---- child rule: the SAC transfer Prime makes on the way back
+  // ---- child rule for the pool call
   const childPredicate = and([
-    eq(selector('call_fn'), sym('transfer')),
+    eq(selector('call_fn'), sym('submit')),
     eq(callArg(0), addr(prime)),
-    eq(callArg(1), addr(custody.publicKey())),
+    eq(callArg(1), addr(adapter)),
   ])
   const childRes = await asAccount({
     kp: admin,
@@ -504,7 +585,7 @@ async function main() {
         prime,
         'add_context_rule',
         addRuleArgs({
-          scope: sac,
+          scope: POOL,
           name: 'child',
           signer: adapter,
           interpreter,
@@ -517,39 +598,22 @@ async function main() {
     label: 'install child rule',
   })
   const childId = Number(scValToNative(childRes.got!.returnValue!).id)
-  log('RULE', `child id=${childId}  scope=SAC      signer=adapter`)
-
   await asAccount({
     kp: admin,
     prime,
     makeOp: (auth) =>
-      invokeOp(
-        interpreter,
-        'bind_executor',
-        [vec([addr(prime), u32v(childId)]), addr(adapter)],
-        auth,
-      ),
+      invokeOp(interpreter, 'bind_executor', [vec([addr(prime), u32v(childId)]), addr(adapter)], auth),
     ruleIds: [0],
     label: 'bind child executor',
   })
-  log('RULE', `child bound to executor=adapter`)
+  log('RULE', `child id=${childId}  scope=blend pool  signer=adapter  bound`)
 
-  // ---- the batch
-  const call = (target: string, fn: string, args: xdr.ScVal[]) =>
-    xdr.ScVal.scvMap([
-      kv('args', vec(args)),
-      kv('executor_authorizations', vec([])),
-      kv('function_name', sym(fn)),
-      kv('target', addr(target)),
-    ])
-
-  const batch = (pull: bigint, back: bigint) =>
-    vec([
-      call(gate, 'pull', [addr(sac), addr(prime), i128v(pull)]),
-      call(sac, 'transfer', [addr(prime), addr(custody.publicKey()), i128v(back)]),
-    ])
-
-  const runBatch = (pull: bigint, back: bigint, label: string, expectFailure = false) =>
+  const runBlend = (
+    pull: bigint,
+    supply: bigint,
+    label: string,
+    opts: { expectFailure?: boolean; extraGrant?: boolean } = {},
+  ) =>
     asAccount({
       kp: agent,
       prime,
@@ -557,283 +621,70 @@ async function main() {
         invokeOp(
           adapter,
           'execute',
-          [addr(prime), addr(interpreter), sym('enforce'), batch(pull, back), vec([])],
+          [
+            addr(prime),
+            addr(interpreter),
+            vec([
+              call(gate2, 'pull', [addr(sac), addr(adapter), i128v(pull)]),
+              call(POOL, 'submit', submitArgs(supply), [transferAuth(supply)]),
+            ]),
+            vec(
+              opts.extraGrant
+                ? [
+                    grant(POOL, 'submit', submitArgs(supply)),
+                    grant(sac, 'transfer', [addr(prime), addr(agent.publicKey()), i128v(1n)]),
+                  ]
+                : [grant(POOL, 'submit', submitArgs(supply))],
+            ),
+          ],
           auth,
         ),
       ruleIds: [rootId, childId],
       signers: [agent.publicKey(), adapter],
       label,
-      expectFailure,
-      showCost: !expectFailure,
+      expectFailure: opts.expectFailure,
+      showCost: !opts.expectFailure,
     })
 
-  const before = await readI128(sac, 'allowance', [addr(custody.publicKey()), addr(gate)], admin)
+  const denialCode = (r?: string) => (r ?? '').match(/Error\(Contract, #(\d+)\)/)?.[1] ?? 'none'
+  const before = await readI128(sac, 'allowance', [addr(custody.publicKey()), addr(gate2)], admin)
 
-  console.log('\n--- PERMIT: pull N, return N ---')
-  const ok = await runBatch(AMOUNT, AMOUNT, 'permitted batch')
-  if (!ok.denied) log('TX', `permitted batch ${ok.got.txHash ?? ''}`)
-  const after = await readI128(sac, 'allowance', [addr(custody.publicKey()), addr(gate)], admin)
+  console.log('\n--- PERMIT: supply into the real Blend pool ---')
+  const ok = await runBlend(AMOUNT, AMOUNT, 'blend supply')
+  const after = await readI128(sac, 'allowance', [addr(custody.publicKey()), addr(gate2)], admin)
   verdict(
-    'batch executes and spends exactly N of the gate allowance',
+    'a real Blend supply executes and spends exactly N of the gate allowance',
     !ok.denied && before - after === AMOUNT,
     `allowance ${before} → ${after}   (Δ ${before - after}, expected ${AMOUNT})`,
   )
 
-  // A denial is only evidence if it is the INTERPRETER denying. #100 is
-  // ArgMismatch - the predicate refused the call. Any other failure would
-  // mean the negative case passed for an unrelated reason.
-  const denialCode = (r?: string) => (r ?? '').match(/Error\(Contract, #(\d+)\)/)?.[1] ?? 'none'
-
-  console.log('\n--- DENY: pull N, return less (cross-call equality) ---')
-  const unequal = await runBatch(AMOUNT, AMOUNT - 1n, 'unequal batch', true)
+  console.log('\n--- DENY: pull N, supply less ---')
+  const unequal = await runBlend(AMOUNT, AMOUNT - 1n, 'unequal blend batch', { expectFailure: true })
   verdict(
-    'unequal legs are refused by the interpreter, #100 ArgMismatch',
+    'the six-step cross-call equality refuses it, #100',
     unequal.denied && denialCode(unequal.reason) === '100',
     `interpreter code ${denialCode(unequal.reason)}`,
   )
 
   console.log('\n--- DENY: amount at the cap ---')
-  const over = await runBatch(CAP, CAP, 'over-cap batch', true)
+  const over = await runBlend(CAP, CAP, 'over-cap blend batch', { expectFailure: true })
   verdict(
-    'an amount at the cap is refused by the interpreter, #100 ArgMismatch',
+    'an amount at the cap is refused, #100',
     over.denied && denialCode(over.reason) === '100',
     `interpreter code ${denialCode(over.reason)}`,
   )
 
-  // The gate is the only way out: Prime has no allowance, so a direct pull
-  // by Prime cannot even be built.
-  const primeStillZero = await readI128(sac, 'allowance', [addr(custody.publicKey()), addr(prime)], admin)
-  verdict('Prime still holds no allowance after a successful run', primeStillZero === 0n, `allowance(custody → prime) = ${primeStillZero}`)
-
-  // ---------------------------------------------------------------- //
-  // prime_contexts: a venue that calls a token on Prime's behalf, so the
-  // transfer is a NESTED requirement rather than a call in the batch. This
-  // is the adapter path nothing else here exercises.
-  // ---------------------------------------------------------------- //
-  console.log('\n--- prime_contexts: a nested Prime requirement ---')
-  const relayPredicate = and([
-    eq(selector('call_fn'), sym('execute')),
-    eq(callArgLen(0), u32v(2)),
-    eq(path([u32v(0), u32v(0), sym('target')]), addr(gate)),
-    eq(path([u32v(0), u32v(1), sym('target')]), addr(venue)),
-    eq(path([u32v(0), u32v(1), sym('function_name')]), sym('relay')),
-    // the nested context the venue will raise, pinned from the root
-    eq(callArgLen(1), u32v(1)),
-    eq(path([u32v(1), u32v(0), sym('contract')]), addr(sac)),
-    eq(path([u32v(1), u32v(0), sym('fn_name')]), sym('transfer')),
-    eq(path([u32v(1), u32v(0), sym('args'), u32v(1)]), addr(custody.publicKey())),
-    // and the same cross-call equality, now spanning a call and a context
-    eq(
-      path([u32v(0), u32v(0), sym('args'), u32v(2)]),
-      path([u32v(1), u32v(0), sym('args'), u32v(2)]),
-    ),
-  ])
-  const relayRootRes = await asAccount({
-    kp: admin,
-    prime,
-    makeOp: (auth) =>
-      invokeOp(
-        prime,
-        'add_context_rule',
-        addRuleArgs({
-          scope: adapter,
-          name: 'relay-root',
-          signer: agent.publicKey(),
-          interpreter,
-          predicate: relayPredicate,
-          adminPk: admin.publicKey(),
-        }),
-        auth,
-      ),
-    ruleIds: [0],
-    label: 'install relay root rule',
+  console.log('\n--- DENY: an extra grant ---')
+  const extra = await runBlend(AMOUNT, AMOUNT, 'extra-grant batch', {
+    expectFailure: true,
+    extraGrant: true,
   })
-  const relayRootId = Number(scValToNative(relayRootRes.got!.returnValue!).id)
-  log('RULE', `relay-root id=${relayRootId}`)
-
-  const N2 = 120_000n
-  const relayCtx = xdr.ScVal.scvMap([
-    kv('args', vec([addr(prime), addr(custody.publicKey()), i128v(N2)])),
-    kv('contract', addr(sac)),
-    kv('fn_name', sym('transfer')),
-  ])
-  const beforeRelay = await readI128(sac, 'allowance', [addr(custody.publicKey()), addr(gate)], admin)
-  const relayRun = await asAccount({
-    kp: agent,
-    prime,
-    makeOp: (auth) =>
-      invokeOp(
-        adapter,
-        'execute',
-        [
-          addr(prime),
-          addr(interpreter),
-          sym('enforce'),
-          vec([
-            call(gate, 'pull', [addr(sac), addr(prime), i128v(N2)]),
-            call(venue, 'relay', [
-              addr(sac),
-              addr(prime),
-              addr(custody.publicKey()),
-              i128v(N2),
-            ]),
-          ]),
-          vec([relayCtx]),
-        ],
-        auth,
-      ),
-    ruleIds: [relayRootId, childId],
-    signers: [agent.publicKey(), adapter],
-    label: 'relay batch',
-  })
-  const afterRelay = await readI128(sac, 'allowance', [addr(custody.publicKey()), addr(gate)], admin)
   verdict(
-    'a nested Prime requirement travels as prime_contexts and is enforced',
-    !relayRun.denied && beforeRelay - afterRelay === N2,
-    `allowance ${beforeRelay} → ${afterRelay}   (Δ ${beforeRelay - afterRelay}, expected ${N2})`,
+    'a grant the predicate did not count is refused, #100',
+    extra.denied && denialCode(extra.reason) === '100',
+    `interpreter code ${denialCode(extra.reason)}`,
   )
 
-  // ---------------------------------------------------------------- //
-  // executor_authorizations: the adapter authorising a sub-invocation made
-  // on ITS OWN behalf. Local tests cover this; nothing had run it against a
-  // live network. A second gate is needed because the first one only lets
-  // funds reach Prime.
-  // ---------------------------------------------------------------- //
-  console.log('\n--- executor_authorizations: the adapter as the spender ---')
-  const gate2Res = await send(
-    admin,
-    Operation.createCustomContract({
-      address: Address.fromString(admin.publicKey()),
-      wasmHash: hash(wasms.gate),
-      salt: hash(Buffer.from(`g2-${Date.now()}-${Math.random()}`)),
-      constructorArgs: [
-        xdr.ScVal.scvMap([
-          kv('allowed', vec([addr(adapter)])),
-          kv('caller', addr(adapter)),
-          kv('custody', addr(custody.publicKey())),
-        ]),
-      ],
-    }),
-    'create gate2',
-  )
-  const gate2 = Address.fromScVal(gate2Res.returnValue!).toString()
-  await send(
-    custody,
-    invokeOp(sac, 'approve', [
-      addr(custody.publicKey()),
-      addr(gate2),
-      i128v(1_000_000n),
-      u32v(expLedger),
-    ]),
-    'approve gate2',
-  )
-  log('DEPLOY', `gate2       ${gate2}  (allowed: adapter)`)
-
-  const N3 = 90_000n
-  const execAuth = vec([
-    sym('Contract'),
-    xdr.ScVal.scvMap([
-      kv(
-        'context',
-        xdr.ScVal.scvMap([
-          kv('args', vec([addr(adapter), addr(custody.publicKey()), i128v(N3)])),
-          kv('contract', addr(sac)),
-          kv('fn_name', sym('transfer')),
-        ]),
-      ),
-      kv('sub_invocations', vec([])),
-    ]),
-  ])
-  const callWithAuth = (target: string, fn: string, args: xdr.ScVal[], auths: xdr.ScVal[]) =>
-    xdr.ScVal.scvMap([
-      kv('args', vec(args)),
-      kv('executor_authorizations', vec(auths)),
-      kv('function_name', sym(fn)),
-      kv('target', addr(target)),
-    ])
-
-  const execPredicate = and([
-    eq(selector('call_fn'), sym('execute')),
-    eq(callArgLen(0), u32v(2)),
-    eq(path([u32v(0), u32v(0), sym('target')]), addr(gate2)),
-    eq(path([u32v(0), u32v(1), sym('target')]), addr(venue)),
-    eq(path([u32v(0), u32v(1), sym('args'), u32v(1)]), addr(adapter)),
-    // the authorization the adapter grants, pinned from the root - the
-    // appended-entry case the Len step exists for
-    eq(path([u32v(0), u32v(1), sym("executor_authorizations"), xdr.ScVal.scvBool(true)]), u32v(1)),
-    eq(
-      path([
-        u32v(0),
-        u32v(1),
-        sym('executor_authorizations'),
-        u32v(0),
-        u32v(1),
-        sym('context'),
-        sym('contract'),
-      ]),
-      addr(sac),
-    ),
-  ])
-  const execRootRes = await asAccount({
-    kp: admin,
-    prime,
-    makeOp: (auth) =>
-      invokeOp(
-        prime,
-        'add_context_rule',
-        addRuleArgs({
-          scope: adapter,
-          name: 'exec-root',
-          signer: agent.publicKey(),
-          interpreter,
-          predicate: execPredicate,
-          adminPk: admin.publicKey(),
-        }),
-        auth,
-      ),
-    ruleIds: [0],
-    label: 'install exec root rule',
-  })
-  const execRootId = Number(scValToNative(execRootRes.got!.returnValue!).id)
-  const beforeExec = await readI128(sac, 'allowance', [addr(custody.publicKey()), addr(gate2)], admin)
-  const execRun = await asAccount({
-    kp: agent,
-    prime,
-    makeOp: (auth) =>
-      invokeOp(
-        adapter,
-        'execute',
-        [
-          addr(prime),
-          addr(interpreter),
-          sym('enforce'),
-          vec([
-            call(gate2, 'pull', [addr(sac), addr(adapter), i128v(N3)]),
-            callWithAuth(
-              venue,
-              'relay',
-              [addr(sac), addr(adapter), addr(custody.publicKey()), i128v(N3)],
-              [execAuth],
-            ),
-          ]),
-          vec([]),
-        ],
-        auth,
-      ),
-    ruleIds: [execRootId],
-    signers: [agent.publicKey()],
-    label: 'executor-auth batch',
-  })
-  const afterExec = await readI128(sac, 'allowance', [addr(custody.publicKey()), addr(gate2)], admin)
-  verdict(
-    'the adapter authorises its own sub-invocation and the path pins it',
-    !execRun.denied && beforeExec - afterExec === N3,
-    `allowance ${beforeExec} → ${afterExec}   (Δ ${beforeExec - afterExec}, expected ${N3})`,
-  )
-
-  // ---------------------------------------------------------------- //
-  // MAX_PATH_STEPS is a contract constant; confirm the chain enforces it.
-  // ---------------------------------------------------------------- //
   console.log('\n--- install-time bound: a path longer than the cap ---')
   const tooDeep = and([
     eq(selector('call_fn'), sym('execute')),
@@ -861,20 +712,25 @@ async function main() {
     expectFailure: true,
   })
   verdict(
-    'a 9-step path is refused at install, #201 MalformedPredicate',
+    'a 9-step path is refused at install, #201',
     deepRes.denied && denialCode(deepRes.reason) === '201',
     `interpreter code ${denialCode(deepRes.reason)}`,
   )
 
-  const custodyEnd = await readI128(sac, 'balance', [addr(custody.publicKey())], admin)
-  log('STATE', `custody balance at end: ${custodyEnd}`)
+  const primeStillZero = await readI128(
+    sac,
+    'allowance',
+    [addr(custody.publicKey()), addr(prime)],
+    admin,
+  )
+  verdict('Prime never holds an allowance', primeStillZero === 0n, `allowance = ${primeStillZero}`)
 
   console.log(`\n=== ${results.filter(Boolean).length}/${results.length} as predicted ===`)
   console.log(`prime       https://stellar.expert/explorer/testnet/contract/${prime}`)
   console.log(`adapter     https://stellar.expert/explorer/testnet/contract/${adapter}`)
-  console.log(`gate        https://stellar.expert/explorer/testnet/contract/${gate}`)
+  console.log(`gate2       https://stellar.expert/explorer/testnet/contract/${gate2}`)
   console.log(`interpreter https://stellar.expert/explorer/testnet/contract/${interpreter}`)
-  console.log(`venue       https://stellar.expert/explorer/testnet/contract/${venue}`)
+  console.log(`blend pool  https://stellar.expert/explorer/testnet/contract/${POOL}`)
 }
 
 main().catch((e) => {

@@ -2,26 +2,21 @@
 //! Stateless, per-Prime batching. One job: run several calls in one
 //! transaction, under one authorization from the Prime account.
 //!
-//! Until grammar 6 this contract also had to FLATTEN the request into a
-//! synthetic argument list, because the interpreter's selectors could only
-//! address one call. That projection was 38% of the file and it put
-//! policy-shaped logic outside the contract that enforces policy. Grammar 6
-//! addresses a batch directly, so the request is handed over as it is:
+//! The request is handed over as it is, and the signature covers all of it:
 //!
-//!   args[0] = calls            -> call_path([0, n, "args", i])
-//!   args[1] = prime_contexts
-//!   args[2] = policy
-//!   args[3] = policy_fn
+//!   args[0] = calls     -> call_path([0, n, "args", i])
+//!   args[1] = grants
 //!
-//! The policy contract is named by address AND by function: this contract
-//! does not know what enforces the rules, only that each context has to be
-//! offered to something before its call runs.
-//!
-//! Everything in the request is committed by that one signature, so no leg of
-//! the batch can be altered after the agent signed it.
+//! GRANTS ARE DATA. Every context that will be offered to the policy is named
+//! in that list, so this contract needs to know neither what enforces the
+//! rules nor what its entrypoint is called. It authorises exactly the grants
+//! it was given and not one more: a call that quietly raises another
+//! requirement finds no grant left and the batch reverts. That list also
+//! replaces the separate `prime_contexts` argument, because a nested
+//! requirement is just another context to name.
 use soroban_sdk::{
-    auth::{Context, ContractContext, InvokerContractAuthEntry, SubContractInvocation},
-    contract, contractimpl, contracttype, vec, Address, Bytes, Env, IntoVal, Symbol, Val, Vec,
+    auth::InvokerContractAuthEntry, contract, contractimpl, contracttype, vec, Address, Bytes, Env,
+    IntoVal, Symbol, Val, Vec,
 };
 
 #[contracttype]
@@ -52,60 +47,26 @@ impl ExecutionAdapter {
         e: Env,
         prime: Address,
         policy: Address,
-        policy_fn: Symbol,
         calls: Vec<Call>,
-        prime_contexts: Vec<ContractContext>,
+        grants: Vec<InvokerContractAuthEntry>,
     ) -> Vec<Val> {
         let adapter = e.current_contract_address();
         assert_eq!(adapter, execution_address(&e, &prime), "wrong Prime");
         assert!(!calls.is_empty() && calls.len() <= 8, "batch size");
-        assert!(prime_contexts.len() <= 16, "context count");
-        let forbidden = [prime.clone(), policy.clone(), adapter.clone()];
-        let mut auth_count = 0;
-        let mut contexts = Vec::new(&e);
+        // A venue call must never reach the account, the policy or this
+        // contract - that is the self-administration route. A GRANT is the
+        // opposite case: the policy is exactly what it should name, so only
+        // the account and this contract are out of bounds there.
+        let mut count = 0;
         for call in calls.iter() {
-            venue_target(&forbidden, &call.target);
-            check_auths(
-                &forbidden,
-                &call.executor_authorizations,
-                0,
-                &mut auth_count,
+            assert!(
+                call.target != prime && call.target != policy && call.target != adapter,
+                "management target"
             );
-            contexts.push_back(ContractContext {
-                contract: call.target,
-                fn_name: call.function_name,
-                args: call.args,
-            });
+            check_auths(&prime, &adapter, &call.executor_authorizations, 0, &mut count);
         }
-        for context in prime_contexts.iter() {
-            venue_target(&forbidden, &context.contract);
-            contexts.push_back(context);
-        }
-        let args: Vec<Val> = vec![
-            &e,
-            calls.clone().into_val(&e),
-            prime_contexts.clone().into_val(&e),
-            policy.clone().into_val(&e),
-            policy_fn.clone().into_val(&e),
-        ];
-        contexts.push_front(ContractContext {
-            contract: adapter,
-            fn_name: Symbol::new(&e, "execute"),
-            args: args.clone(),
-        });
-        let grants = Vec::from_iter(
-            &e,
-            contexts.iter().map(|context| {
-                InvokerContractAuthEntry::Contract(SubContractInvocation {
-                    context: ContractContext {
-                        contract: policy.clone(),
-                        fn_name: policy_fn.clone(),
-                        args: (prime.clone(), Context::Contract(context)).into_val(&e),
-                    },
-                    sub_invocations: Vec::new(&e),
-                })
-            }),
-        );
+        check_auths(&prime, &adapter, &grants, 0, &mut count);
+        let args: Vec<Val> = vec![&e, calls.clone().into_val(&e), grants.clone().into_val(&e)];
         // The next auth frame must consume these grants; no intervening contract call.
         e.authorize_as_current_contract(grants);
         prime.require_auth_for_args(args);
@@ -121,12 +82,9 @@ impl ExecutionAdapter {
     }
 }
 
-fn venue_target(forbidden: &[Address; 3], target: &Address) {
-    assert!(!forbidden.contains(target), "management target");
-}
-
 fn check_auths(
-    forbidden: &[Address; 3],
+    prime: &Address,
+    adapter: &Address,
     entries: &Vec<InvokerContractAuthEntry>,
     depth: u32,
     count: &mut u32,
@@ -138,8 +96,11 @@ fn check_auths(
         let InvokerContractAuthEntry::Contract(call) = entry else {
             panic!("contract creation authorization");
         };
-        venue_target(forbidden, &call.context.contract);
-        check_auths(forbidden, &call.sub_invocations, depth + 1, count);
+        assert!(
+            &call.context.contract != prime && &call.context.contract != adapter,
+            "management target"
+        );
+        check_auths(prime, adapter, &call.sub_invocations, depth + 1, count);
     }
 }
 

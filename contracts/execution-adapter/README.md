@@ -1,7 +1,9 @@
 # Stateless Prime execution adapter
 
 This implementation uses the existing v5 interpreter plus an executor binding.
-It does not use the historical `contracts/execution-policy` prototype.
+The historical `execution-policy` prototype was deleted: it was never deployed,
+and it included the interpreter's `dsl.rs` by file path, which tied two contracts
+together with nothing enforcing that they shipped the same version.
 
 ## Deployment and identity
 
