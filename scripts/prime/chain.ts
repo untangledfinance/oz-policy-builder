@@ -20,6 +20,7 @@ import {
   xdr,
 } from '@stellar/stellar-sdk'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 
 export const PASSPHRASE = Networks.TESTNET
 export const FEE = '6000000'
@@ -28,8 +29,30 @@ export const horizon = new Horizon.Server('https://horizon-testnet.stellar.org')
 export const POOL = 'CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF'
 export const ACCOUNT_WASM_HASH = '91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9'
 
-export const ENV_PATH = 'scripts/.env'
-export const STATE_PATH = 'scripts/.demo-state.json'
+/** Where the repo lives, so the compiled binary works from any directory.
+ *  PRIME_HOME wins; otherwise walk up from the working directory looking for
+ *  the repo's own shape; otherwise fall back to the directory holding the
+ *  executable, which is where `prime` is built. */
+function findHome(): string {
+  const explicit = process.env.PRIME_HOME
+  if (explicit) return explicit
+  const looksRight = (d: string) =>
+    existsSync(join(d, 'scripts')) && existsSync(join(d, 'contracts'))
+  for (const start of [process.cwd(), dirname(process.execPath)]) {
+    let d = start
+    for (let i = 0; i < 6; i++) {
+      if (looksRight(d)) return d
+      const up = dirname(d)
+      if (up === d) break
+      d = up
+    }
+  }
+  return process.cwd()
+}
+
+export const HOME = findHome()
+export const ENV_PATH = join(HOME, 'scripts/.env')
+export const STATE_PATH = join(HOME, 'scripts/.demo-state.json')
 
 /** The numbers the demo runs on. Small, and deliberately far apart so a
  *  refusal can only come from the bound it is meant to test. */
@@ -62,8 +85,8 @@ const SUBMIT = flag('submit')
 export function wasmPath(crate: string, file: string): string {
   const override = process.env.PRIME_WASM_DIR
   const candidate = override
-    ? `${override}/${file}.wasm`
-    : `contracts/${crate}/target/wasm32v1-none/release/${file}.wasm`
+    ? join(override, `${file}.wasm`)
+    : join(HOME, `contracts/${crate}/target/wasm32v1-none/release/${file}.wasm`)
   if (!existsSync(candidate)) {
     throw new Error(
       `missing ${file}.wasm at ${candidate}\n` +
@@ -95,7 +118,7 @@ export function loadSecrets(): Secrets {
   const missing = KEYS.filter((k) => !env[k])
   if (missing.length) {
     throw new Error(
-      `missing ${missing.join(', ')} in ${ENV_PATH}\nRun:  bun scripts/prime.ts up`,
+      `missing ${missing.join(', ')} in ${ENV_PATH}\nRun:  prime up   (or set PRIME_HOME to the repo root)`,
     )
   }
   return {
@@ -138,7 +161,7 @@ export type State = {
 
 export const loadState = (): State => {
   if (!existsSync(STATE_PATH)) {
-    throw new Error(`no ${STATE_PATH}\nRun:  bun scripts/prime.ts up`)
+    throw new Error(`no ${STATE_PATH}\nRun:  prime up   (or set PRIME_HOME to the repo root)`)
   }
   return JSON.parse(readFileSync(STATE_PATH, 'utf8'))
 }

@@ -16,8 +16,14 @@
 //   prime demo run [step] [--dry-run]     all | g1..g4 | one scenario id
 //   prime demo info                       everything on chain right now
 //
-// Run it as `bun scripts/prime.ts ...`, or `./scripts/prime.ts ...`, or put it
-// on PATH:  alias prime="bun $PWD/scripts/prime.ts"
+// Run it as `bun scripts/prime.ts ...`, or compile a standalone binary:
+//
+//   bun run prime:build     ->  ./prime   (61 MB, no runtime needed)
+//   ./prime status
+//
+// The binary finds the repo by PRIME_HOME, else by walking up from the working
+// directory, else by the directory it sits in. So `./prime` works from the repo
+// root, and a copy elsewhere needs PRIME_HOME.
 //
 // Every command takes --dry-run, which prints what would happen and sends
 // nothing. Read commands take --json.
