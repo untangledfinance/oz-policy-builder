@@ -4,14 +4,28 @@
 //! MAY FUNDS GO THERE?
 //!
 //! It knows nothing about Prime, adapters, interpreters or policies. Two
-//! addresses and a list: who may ask, and where funds may land.
+//! addresses and two lists: who may ask, which assets it may touch, and where
+//! funds may land.
 //!
-//! Amount is bounded twice already - by the allowance the custody account
-//! granted, and by the mandate Prime enforces - so this contract does not
-//! bound it a third time. It has no admin, no setter and no upgrade: to
-//! change the destinations, deploy another one and re-approve. Re-approving
-//! is the custody signing ceremony either way, so the change and its
-//! authorisation are one act.
+//! WHICH ASSET IS PART OF WHAT IT IS. `pull` takes the token as an argument,
+//! so a gate that did not name its assets could be asked for any asset the
+//! custody account had granted it an allowance for - the destination was
+//! bound per gate while the amount was bound per asset, and nothing tied the
+//! asset a policy named to the asset the gate drew. Naming them here closes
+//! that at the gate, whatever any policy above it remembers to pin.
+//!
+//! AMOUNT IS NOT BOUNDED HERE, and that is deliberate. It is bounded by the
+//! allowance the custody account granted - one per asset, enforced by the
+//! asset's own contract - and by the mandate Prime enforces. Holding a third
+//! number here would duplicate the first, let the two drift, and make raising
+//! a limit a redeployment: this contract has no setter, so its address would
+//! change and every policy naming it would have to be re-pointed. A limit
+//! lives where it can be raised in one custody transaction.
+//!
+//! It has no admin, no setter and no upgrade: to change the assets or the
+//! destinations, deploy another one and re-approve. Re-approving is the
+//! custody signing ceremony either way, so the change and its authorisation
+//! are one act.
 use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, token, Address, Env, Symbol, Vec};
 
 #[contracttype]
@@ -21,7 +35,11 @@ pub struct Cfg {
     /// The only address allowed to ask. Satisfied by the contract-invoker
     /// rule, so no signature is needed and no ABI is assumed.
     pub caller: Address,
+    /// Where funds may land.
     pub allowed: Vec<Address>,
+    /// Which assets may be drawn. Each carries its own limit and expiry, in
+    /// its own allowance on its own contract.
+    pub assets: Vec<Address>,
 }
 
 const CFG: Symbol = symbol_short!("cfg");
@@ -38,6 +56,7 @@ impl CustodyGate {
     pub fn pull(e: Env, token: Address, to: Address, amount: i128) {
         let c: Cfg = e.storage().instance().get(&CFG).unwrap();
         c.caller.require_auth();
+        assert!(c.assets.contains(&token), "asset");
         assert!(c.allowed.contains(&to), "destination");
         token::Client::new(&e, &token).transfer_from(
             &e.current_contract_address(),
@@ -77,6 +96,7 @@ mod tests {
                 custody: custody.clone(),
                 caller: caller.clone(),
                 allowed: vec![&e, allowed.clone()],
+                assets: vec![&e, sac.clone()],
             },),
         );
         token::Client::new(&e, &sac).approve(&custody, &gate, &50, &10_000);
@@ -102,6 +122,22 @@ mod tests {
             .try_pull(&f.sac, &f.allowed, &7)
             .is_err());
         assert_eq!(token::Client::new(&f.e, &f.sac).balance(&f.custody), 100);
+    }
+
+    /// The hole this list exists to close: `pull` takes the token as an
+    /// argument, so without it a gate could be asked for any asset the custody
+    /// account had granted it an allowance for.
+    #[test]
+    fn refuses_an_asset_not_on_the_list() {
+        let f = setup();
+        let admin = Address::generate(&f.e);
+        let other = f.e.register_stellar_asset_contract_v2(admin).address();
+        token::StellarAssetClient::new(&f.e, &other).mint(&f.custody, &100);
+        token::Client::new(&f.e, &other).approve(&f.custody, &f.gate, &50, &10_000);
+        assert!(CustodyGateClient::new(&f.e, &f.gate)
+            .try_pull(&other, &f.allowed, &7)
+            .is_err());
+        assert_eq!(token::Client::new(&f.e, &other).balance(&f.custody), 100);
     }
 
     #[test]
