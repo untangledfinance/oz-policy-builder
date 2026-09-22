@@ -670,12 +670,25 @@ export const InstallPolicyInputSchema = z
     /** Build the rule here instead of receiving it: record this transaction,
      *  synthesize against `smartAccount`, and install the result. The
      *  agent-friendly counterpart to `rule`, and the same handle
-     *  `synthesize_policy` accepts. */
+     *  `synthesize_policy` accepts.
+     *
+     *  EITHER A HASH OR A RECORDING. `synthesize_policy` has always taken
+     *  both, and a caller that has just recorded a transaction there held a
+     *  recording this tool would not accept - so it re-fetched the same
+     *  transaction from the network to reach the same bytes. Worse, a
+     *  transaction is only fetchable while the network still keeps it:
+     *  testnet prunes, and a hash that worked yesterday returns
+     *  RECORDING_FAILED today. A recording in hand does not expire. */
     fromHash: z
       .object({
         transactionHash: z
           .string()
-          .regex(/^[0-9a-f]{64}$/, 'transaction hash must be 64 lowercase hex characters'),
+          .regex(/^[0-9a-f]{64}$/, 'transaction hash must be 64 lowercase hex characters')
+          .optional(),
+        /** A recording the caller already holds, as `record_transaction` and
+         *  `synthesize_policy` return it. Mutually exclusive with
+         *  `transactionHash`. */
+        recordedTx: RecordedTransactionSchema.optional(),
         /** The keys this rule governs. Synthesis cannot choose them: it reads a
          *  transaction, and which keys a rule binds is the caller's security
          *  decision, not an inference from one recording. Naming a key here
@@ -687,6 +700,10 @@ export const InstallPolicyInputSchema = z
           .max(MAX_SIGNERS_PER_RULE)
           .optional(),
         userResponses: ComposeUserResponsesSchema.optional(),
+      })
+      .refine((v) => (v.transactionHash === undefined) !== (v.recordedTx === undefined), {
+        message:
+          'supply exactly one of `fromHash.transactionHash` (the server records it) or `fromHash.recordedTx` (a recording you already hold)',
       })
       .optional(),
     /** Install a predicate the caller ALREADY holds - the base64 string

@@ -1,5 +1,5 @@
-// Cross-layer parity: the grammar version this package emits MUST equal the
-// `SELF_VERSION` compiled into the interpreter wasm.
+// Cross-layer parity: every builder must stamp the grammar version the
+// interpreter it actually installs into is running.
 //
 // The contract refuses an install whose `grammar_version` differs from its own
 // (`lib.rs`, error 200 VERSION_MISMATCH). A skew is therefore total: every
@@ -11,6 +11,22 @@
 // it produced would have been rejected. The defect survived a green typecheck
 // and a green test run because nothing compared the two constants. This test is
 // that comparison.
+//
+// THERE IS NO LONGER ONE INTERPRETER, which is what this file used to assume.
+// A grammar change never upgrades in place - it means a new contract at a new
+// address - so the lines coexist, each with its own deployment and its own
+// builder:
+//
+//   grammar 4   this package, pinned below; both pins read back `4` on chain
+//   grammar 5   the app's v1 execution interpreter
+//   grammar 6   the source in `contracts/`, driven by the app's v2 adapter
+//
+// So comparing this package against `contracts/` compared two different lines
+// and failed permanently, which trains a reader to ignore the suite. What
+// actually protects an install is the pairing: a builder against ITS pin. That
+// is asserted below, and the divergence is pinned as a number rather than
+// waved through - move either side and this file fails until someone records
+// which line moved and why.
 
 import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
@@ -29,9 +45,31 @@ function selfVersionFromContract(): number {
   return Number(match[1])
 }
 
+/**
+ * The version the interpreter SOURCE in this repo implements.
+ *
+ * Not the version this package emits, and deliberately written out rather
+ * than read from the source and compared to itself: this constant is the
+ * record that the divergence is known. A bump in `version.rs` fails here
+ * until someone states which line moved, which is the conversation that
+ * should happen before a new grammar ships.
+ */
+const CONTRACT_SOURCE_GRAMMAR_VERSION = 6
+
 describe('grammar version parity (TS builder vs Rust contract)', () => {
-  it('GRAMMAR_VERSION equals the contract SELF_VERSION', () => {
-    expect(GRAMMAR_VERSION).toBe(selfVersionFromContract())
+  it('this package emits the grammar its own pinned interpreters run', () => {
+    // The pairing that decides whether an install lands. Both pinned
+    // addresses were read back with `grammar_version()` on their own networks
+    // and both answered 4, matching what this package stamps.
+    expect(GRAMMAR_VERSION).toBe(PINNED_INTERPRETER_GRAMMAR_VERSION)
+  })
+
+  it('the interpreter source is the line this package is NOT on, and stays put', () => {
+    // A fail here means `version.rs` moved. That is allowed - it is how a new
+    // grammar ships - but it must be recorded, because the number above is
+    // what tells a reader the two are different on purpose.
+    expect(selfVersionFromContract()).toBe(CONTRACT_SOURCE_GRAMMAR_VERSION)
+    expect(selfVersionFromContract()).not.toBe(GRAMMAR_VERSION)
   })
 
   // `PolicyDocument.grammarVersion` is the version the synthesiser advertises on
@@ -55,6 +93,8 @@ describe('grammar version parity (TS builder vs Rust contract)', () => {
   //
   // This assertion is the pair that was missing. It is EXPECTED TO FAIL while
   // the tree is ahead of the deployment; that is the signal, not a flake.
+  // Kept as its own case with the full remedy in the message: the assertion
+  // above says WHAT is wrong in one line, this says what to do about it.
   it('the pinned deployment speaks the grammar this tree emits', () => {
     if (PINNED_INTERPRETER_GRAMMAR_VERSION !== GRAMMAR_VERSION) {
       throw new Error(

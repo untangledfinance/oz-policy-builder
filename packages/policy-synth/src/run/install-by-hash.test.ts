@@ -14,10 +14,21 @@
 // install is covered by the testnet scripts.
 
 import { describe, expect, it } from 'bun:test'
+import { readFileSync } from 'node:fs'
 import { Keypair } from '@stellar/stellar-sdk'
 import { encodePredicate } from '../predicate/encode.ts'
+import type { RecordedTransaction } from '../types.ts'
 import { runInstallPolicy } from './index.ts'
 import { InstallPolicyInputSchema } from './schemas.ts'
+
+/** A spend, recorded once and kept here. See the guard test below for why
+ *  this is not a transaction hash. */
+function recording(name: string): RecordedTransaction {
+  const raw = JSON.parse(
+    readFileSync(new URL(`../../fixtures/recordings/${name}.json`, import.meta.url), 'utf8')
+  )
+  return (raw.data ?? raw) as RecordedTransaction
+}
 
 const SMART_ACCOUNT = 'CDEG66TYZB2RTKRSIEA4UTFMRXOYESCEQUKWS7R2JN357PJDSY272PFK'
 const SOURCE_ACCOUNT = Keypair.random().publicKey()
@@ -248,18 +259,48 @@ describe('install_policy guards', () => {
   })
 
   it('refuses to install a rule that bounds no amount when the recording shows a spend', async () => {
+    // FROM A RECORDING, not a transaction hash. This named a testnet
+    // transaction; testnet prunes history, and once it was gone the call
+    // failed with RECORDING_FAILED - which is `ok: false` too, so the first
+    // assertion still passed and only the message check caught it. A guard
+    // test that cannot tell "refused for the right reason" from "the network
+    // lost the evidence" is not testing the guard.
     const res = await runInstallPolicy({
       smartAccount: 'CAEI3JCERLHEWVARAUSLJOBSF4555B5O4KGIGSC3TBHHCWABO6M7GULQ',
       sourceAccount: 'GDI64EFSV4IVJ53EWNXAPTZG3XR6O5YM4AYR7DI67Z6DRFDU3DHR6TH2',
       network: 'testnet',
       fromHash: {
-        transactionHash: 'd520d9e1f601d7cfe64a9d75557d7db143c1ccf89c3917b02e64eb79165c4a6a',
+        recordedTx: recording('demo-rec-sep41'),
         signers: ['GDDNZBJTFTR46JICTYX2EYWW7OSXXHQWVH4TD7AUIMWIPDMQAKCHF3BX'],
       },
     })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error.message).toContain('does not bound')
+  })
+
+  it('takes a hash or a recording, never both and never neither', () => {
+    const rest = {
+      ...base,
+      smartAccount: 'CAEI3JCERLHEWVARAUSLJOBSF4555B5O4KGIGSC3TBHHCWABO6M7GULQ',
+    }
+    const tx = recording('demo-rec-sep41')
+    expect(
+      InstallPolicyInputSchema.safeParse({
+        ...rest,
+        fromHash: { recordedTx: tx, signers: [SOURCE_ACCOUNT] },
+      }).success
+    ).toBe(true)
+    expect(
+      InstallPolicyInputSchema.safeParse({
+        ...rest,
+        fromHash: { transactionHash: HASH, recordedTx: tx, signers: [SOURCE_ACCOUNT] },
+      }).success
+    ).toBe(false)
+    expect(
+      InstallPolicyInputSchema.safeParse({ ...rest, fromHash: { signers: [SOURCE_ACCOUNT] } })
+        .success
+    ).toBe(false)
   })
 })
 

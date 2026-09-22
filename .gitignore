@@ -29,3 +29,6 @@ target/
 plans/
 specs/
 docs/superpowers/
+
+# Disposable testnet keys for the scenario fixtures. Secrets: never commit.
+scripts/.scenario-state.json

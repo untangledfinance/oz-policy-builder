@@ -244,19 +244,42 @@ describe('the check tools accept an encoded predicate', () => {
   })
 
   it('prefers the caller predicate over re-synthesis, so a declared policy is what gets checked', async () => {
-    // A predicate that pins a function no recording of this transfer produces.
-    // If the tool re-synthesized from the hash instead of honouring what was
-    // passed, the call would be permitted and this would fail.
+    // DRIVEN FROM A FIXTURE, not a live transaction hash. This test named a
+    // testnet transaction, and testnet history does not keep: once it was
+    // pruned the call came back RECORDING_FAILED and the assertion failed
+    // for a reason that had nothing to do with the behaviour under test.
+    // A recording in the repo says the same thing and keeps saying it.
+    //
+    // The claim is a PREFERENCE between two predicates, so both halves are
+    // exercised here rather than one half plus a comment about the other.
+    const tx = recording('demo-rec-sep41')
+
+    // What re-synthesis produces: a predicate that permits this very call,
+    // because it was derived from it.
+    const synthesized = await runSynthesizePolicy({
+      source: 'recording',
+      network: 'testnet',
+      recordedTx: tx,
+      explain: true,
+      interpreter: { smartAccountAddress: SMART_ACCOUNT },
+    })
+    expect(synthesized.ok).toBe(true)
+    if (!synthesized.ok) return
+    const tree = synthesized.explain?.predicateTree
+    expect(tree).toBeTruthy()
+    const resynthesized = await runSimulatePolicy({ predicate: tree, permitTx: tx })
+    expect(resynthesized.ok).toBe(true)
+    if (!resynthesized.ok) return
+    expect(resynthesized.data.permitted).toBe(true)
+
+    // What the caller declared: a predicate pinning a function this recording
+    // does not call. Honoured, so the same call is refused.
     const encoded = encodePredicate({
       op: 'eq',
       left: { kind: 'call_fn' },
       right: { kind: 'literal_symbol', value: 'not_transfer' },
     }).encodedPredicate
-    const res = await runSimulatePolicy({
-      encodedPredicate: encoded,
-      transactionHash: HASH,
-      network: 'testnet',
-    })
+    const res = await runSimulatePolicy({ encodedPredicate: encoded, permitTx: tx })
     expect(res.ok).toBe(true)
     if (!res.ok) return
     expect(res.data.permitted).toBe(false)

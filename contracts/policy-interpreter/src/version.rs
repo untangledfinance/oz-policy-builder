@@ -27,4 +27,12 @@
 /// document no longer describes what this contract stores. The version gate
 /// refuses the skew before a half-understood install can appoint an admin
 /// set the author never reviewed.
+///
+/// Bumped to 6 when the predicate learned to address a BATCH. Grammar 5 is
+/// handed a flattened projection of one call and pins amounts by slot index;
+/// `call_path` reaches into the request itself, so a rule names the call, the
+/// argument and the field it means - and can therefore tie two arguments of a
+/// batch to each other, which a projection cannot express. The wire format of
+/// a predicate changes with it, so a v5 document does not decode here and the
+/// version gate refuses it.
 pub const SELF_VERSION: u32 = 6;

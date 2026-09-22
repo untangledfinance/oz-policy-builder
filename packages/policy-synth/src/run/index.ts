@@ -313,7 +313,10 @@ export async function runInstallPolicy(
     const synthArgs: SynthesizePolicyInput = {
       source: 'recording',
       network,
-      transactionHash: input.fromHash?.transactionHash,
+      // One or the other, and the schema has already refused both or neither.
+      ...(input.fromHash?.recordedTx !== undefined
+        ? { recordedTx: input.fromHash.recordedTx as SynthesizePolicyInput['recordedTx'] }
+        : { transactionHash: input.fromHash?.transactionHash }),
       interpreter: { smartAccountAddress: input.smartAccount },
       ...(input.fromHash?.userResponses !== undefined
         ? { userResponses: input.fromHash.userResponses }
