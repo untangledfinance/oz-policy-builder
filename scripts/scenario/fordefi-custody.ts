@@ -192,5 +192,48 @@ if (import.meta.main) {
     await trustlines()
   }
   if (cmd === 'trustlines') await trustlines()
+  if (cmd === 'proposer') await proposerWeight()
   await report()
+}
+
+/**
+ * Give the master key weight 1, so it can PROPOSE without being able to approve.
+ *
+ * Retired to 0, the master key is not a signer at all - and a wallet that is
+ * not a signer cannot even start a queue: the app refuses with "this wallet is
+ * not a signer for the Stellar account that still needs approval", which is
+ * correct and leaves nobody able to open a transaction for this account.
+ *
+ * A Fordefi wallet does not have this problem: it presents the custody
+ * ACCOUNT and collects its own quorum internally, so the connected address is
+ * already the account. A plain key cannot do that, so the account needs one
+ * key that can put a transaction on the table.
+ *
+ * THE THRESHOLD IS UNCHANGED, and that is what keeps the property. Weights
+ * become 1 + 10 + 5 + 5 = 21 against a medium threshold of 20, so:
+ *
+ *   all three signers          10 + 5 + 5 = 20   meets it
+ *   master plus any two        1 + 10 + 5 = 16   does not
+ *   master alone                            1    does not
+ *
+ * The master key can open a transaction and nothing else. Every signature
+ * that authorises anything still comes from the three signers.
+ */
+export async function proposerWeight(): Promise<void> {
+  const state = load()
+  const custody = Keypair.fromSecret(state.custody.secret)
+  const signers = (state.custody.signers as string[]).map((s) => Keypair.fromSecret(s))
+  const account = await horizon.loadAccount(custody.publicKey())
+  const master = account.signers.find((s) => s.key === custody.publicKey())
+  if (master?.weight === 1) {
+    console.log('master key already carries proposer weight')
+    return
+  }
+  const tx = new TransactionBuilder(account, { fee: '10000', networkPassphrase: Networks.TESTNET })
+    .addOperation(Operation.setOptions({ masterWeight: 1 }))
+    .setTimeout(120)
+    .build()
+  for (const s of signers) tx.sign(s)
+  const res = await horizon.submitTransaction(tx)
+  console.log('master key given proposer weight 1:', res.hash)
 }
