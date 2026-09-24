@@ -19,13 +19,15 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   both the next `execute` and the next `rebind` failed
   `Error(Value, InvalidInput)` for good. Found by the STRIDE re-run
   (`docs/stride-threat-model.md`, C9-D.2). Adapter wasm sha256 is now
-  `f3382def17f1c06643300b7e68f3fac835a4f4dc8d1c66c17030fc5d2181f671`
+  `5be8b08eefe704970fbb51612ef4f6222df3d4b0f2ab6704544e761e3576e708`
   (was `0e088421f568a9d8667cfcbd7ecb5fe93b71268c4463b2605df11059deb67714`);
   the gate is unchanged at
   `2788f05bfef003d04cc189192e31c2f7469b21b7990c0edebad91ed3fa34824f`. A gate
   pins its caller's code hash, so an existing gate keeps releasing only to the
   OLD adapter: adopting this build means a new gate and adapter generation for
-  an account already on v3.
+  an account already on v3. Note the hash moves on a comment-only edit -
+  `panic_with_error!` embeds source locations - so a wording change in
+  `lib.rs` is a new build, not a free one.
 - **`custody-gate-v3` and `execution-adapter-v3` are in the CI matrix.** Their
   unit tests existed and had never run on a push, on the two contracts that
   stand between an agent and custody's money. Adding them surfaced two gate

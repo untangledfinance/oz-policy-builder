@@ -90,9 +90,10 @@ impl ExecutionAdapter {
     /// THE SUCCESSOR IS ASKED WHO IT ANSWERS TO BEFORE THE BINDING MOVES, and
     /// that one call is what keeps this reversible. An address that cannot
     /// answer `custody` could never be rebound away from either, so a single
-    /// mistyped argument left the adapter unusable AND unrebindable - and the
-    /// Prime cannot deploy a replacement, because an OZ smart account deploys
-    /// exactly one contract through rule 0. Measured on testnet: rebound to a
+    /// mistyped argument left the adapter unusable AND unrebindable. Recovery
+    /// means abandoning it for a whole new gate generation, and every rule
+    /// scoped to the old adapter address dies with it. Measured on testnet:
+    /// rebound to a
     /// SAC, both `execute` and the next `rebind` failed
     /// `Error(Value, InvalidInput)` for good. Checking `allowed` too would buy
     /// nothing: a successor missing THAT is merely unusable, and custody can

@@ -237,11 +237,10 @@ fn the_binding_moves_only_with_the_gate_custody() {
 
 /// A successor that cannot answer `custody` would be FINAL: `execute` reads
 /// `allowed` from the binding and `rebind` reads `custody`, so an address that
-/// is neither leaves the adapter unusable and unrebindable - and the Prime
-/// cannot deploy a replacement, because an OZ smart account deploys exactly
-/// one contract through rule 0. Reproduced on testnet before the check
-/// existed: rebound to a SAC, both calls failed Error(Value, InvalidInput)
-/// for good.
+/// is neither leaves the adapter unusable and unrebindable; recovery means a
+/// whole new gate generation, and every rule scoped to the old adapter address
+/// dies with it. Reproduced on testnet before the check existed: rebound to a
+/// SAC, both calls failed Error(Value, InvalidInput) for good.
 #[test]
 #[should_panic]
 fn a_successor_that_is_not_a_gate_is_refused() {

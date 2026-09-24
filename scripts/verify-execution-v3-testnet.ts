@@ -659,9 +659,8 @@ await land(
 )
 // A SUCCESSOR THAT CANNOT ANSWER `custody` WOULD BE FINAL. `execute` reads
 // `allowed` from the binding and `rebind` reads `custody`, so storing an
-// address that is neither leaves the adapter unusable AND unrebindable - and
-// the Prime cannot deploy a replacement, because an OZ smart account deploys
-// exactly one contract through rule 0. Both shapes a typo actually produces:
+// address that is neither leaves the adapter unusable AND unrebindable, and
+// recovery means a whole new gate generation. Both shapes a typo produces:
 await land(
   'custody rebinds to a token contract',
   K.custody,
