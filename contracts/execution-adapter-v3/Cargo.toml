@@ -1,0 +1,19 @@
+[package]
+name = "execution-adapter-v3"
+version = "0.0.1"
+edition = "2021"
+publish = false
+[lib]
+crate-type = ["cdylib", "rlib"]
+doctest = false
+[dependencies]
+soroban-sdk = { version = "=27.0.2", features = ["hazmat-address"] }
+[dev-dependencies]
+soroban-sdk = { version = "=27.0.2", features = ["testutils", "hazmat-address"] }
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+panic = "abort"
+codegen-units = 1
+lto = true
+strip = "symbols"
