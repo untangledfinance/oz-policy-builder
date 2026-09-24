@@ -449,7 +449,7 @@ async function provision() {
   state.canonicalVersion = 1
   save()
   await check('approve Prime only', async () => {
-    await plain(
+    await await plain(
       owner,
       TOKEN,
       'approve',
@@ -488,7 +488,7 @@ async function cleanup() {
     const b = await authorize(owner, invoke(POOL, 'submit', args), { '*': 0 })
     await submit(b.tx, 'owner withdraw all Blend supply')
   }
-  await plain(
+  await await plain(
     owner,
     TOKEN,
     'approve',
@@ -676,7 +676,7 @@ async function prove() {
   await cleanup()
 }
 async function signedCapNegative() {
-  await plain(
+  await await plain(
     owner,
     TOKEN,
     'approve',

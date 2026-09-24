@@ -25,21 +25,21 @@
 // amount the predicate ties across the two calls sits six steps deep inside
 // Blend's request vector - the depth grammar 5 could not reach.
 
+import { existsSync, readFileSync } from 'node:fs'
 import {
   Address,
   Asset,
   Contract,
+  hash,
   Keypair,
   Networks,
-  Operation,
-  TransactionBuilder,
-  hash,
   nativeToScVal,
+  Operation,
   rpc,
   scValToNative,
+  TransactionBuilder,
   xdr,
 } from '@stellar/stellar-sdk'
-import { existsSync, readFileSync } from 'node:fs'
 
 const ACCOUNT_WASM_HASH = '91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9'
 // Artifacts come from each crate's own build output, so a fresh clone can run
@@ -54,7 +54,7 @@ function wasmPath(crate: string, file: string): string {
     throw new Error(
       `missing ${file}.wasm at ${candidate}\n` +
         `Build it:  cargo build --release --target wasm32v1-none --manifest-path contracts/${crate}/Cargo.toml\n` +
-        'or set PRIME_WASM_DIR to a directory holding the built artifacts.',
+        'or set PRIME_WASM_DIR to a directory holding the built artifacts.'
     )
   }
   return candidate
@@ -107,7 +107,7 @@ function invokeOp(
   contract: string,
   fn: string,
   args: xdr.ScVal[],
-  auth: xdr.SorobanAuthorizationEntry[] = [],
+  auth: xdr.SorobanAuthorizationEntry[] = []
 ) {
   return Operation.invokeHostFunction({
     func: xdr.HostFunction.hostFunctionTypeInvokeContract(
@@ -115,7 +115,7 @@ function invokeOp(
         contractAddress: Address.fromString(contract).toScAddress(),
         functionName: fn,
         args,
-      }),
+      })
     ),
     auth,
   })
@@ -133,8 +133,8 @@ const signaturePayload = (nonce: xdr.Int64, exp: number, inv: xdr.SorobanAuthori
         nonce,
         signatureExpirationLedger: exp,
         invocation: inv,
-      }),
-    ).toXDR(),
+      })
+    ).toXDR()
   )
 
 const authDigest = (payload: Buffer, ruleIds: number[]) =>
@@ -185,7 +185,7 @@ async function asAccount(opts: {
   const own = recorded.find(
     (e) =>
       e.credentials().switch() === xdr.SorobanCredentialsType.sorobanCredentialsAddress() &&
-      Address.fromScAddress(e.credentials().address().address()).toString() === prime,
+      Address.fromScAddress(e.credentials().address().address()).toString() === prime
   )
   if (!own) throw new Error(`${label}: no address-credential entry for Prime`)
 
@@ -207,11 +207,14 @@ async function asAccount(opts: {
               signerList
                 .map((a) => ({ a, k: delegatedSigner(a) }))
                 .sort((x, y) => Buffer.compare(x.k.toXDR(), y.k.toXDR()))
-                .map(({ k }) => new xdr.ScMapEntry({ key: k, val: xdr.ScVal.scvBytes(Buffer.alloc(0)) })),
-            ),
+                .map(
+                  ({ k }) =>
+                    new xdr.ScMapEntry({ key: k, val: xdr.ScVal.scvBytes(Buffer.alloc(0)) })
+                )
+            )
           ),
         ]),
-      }),
+      })
     ),
     rootInvocation: own.rootInvocation(),
   })
@@ -227,7 +230,7 @@ async function asAccount(opts: {
           contractAddress: Address.fromString(prime).toScAddress(),
           functionName: '__check_auth',
           args: [xdr.ScVal.scvBytes(digest)],
-        }),
+        })
       ),
       subInvocations: [],
     }),
@@ -270,7 +273,7 @@ async function asAccount(opts: {
     if (r && opts.showCost) {
       log(
         'COST',
-        `${label}: instructions ${r.instructions()}  readBytes ${r.diskReadBytes()}  writeBytes ${r.writeBytes()}`,
+        `${label}: instructions ${r.instructions()}  readBytes ${r.diskReadBytes()}  writeBytes ${r.writeBytes()}`
       )
     }
     return { denied: false, got: await settle(await server.sendTransaction(prepared), label) }
@@ -357,7 +360,9 @@ async function main() {
   console.log('=== grammar 6 + simplified adapter + custody gate: live testnet ===\n')
   const results: boolean[] = []
   const verdict = (name: string, ok: boolean, detail = '') => {
-    console.log(`\n  ${ok ? 'PASS' : '** UNEXPECTED **'}  ${name}${detail ? `\n        ${detail}` : ''}`)
+    console.log(
+      `\n  ${ok ? 'PASS' : '** UNEXPECTED **'}  ${name}${detail ? `\n        ${detail}` : ''}`
+    )
     results.push(ok)
   }
 
@@ -379,8 +384,11 @@ async function main() {
     gate: readFileSync(wasmPath('custody-gate', 'custody_gate')),
   }
   for (const [name, w] of Object.entries(wasms)) {
-    await send(admin, Operation.uploadContractWasm({ wasm: w }), `upload ${name}`)
-    log('UPLOAD', `${name.padEnd(11)} ${String(w.length).padStart(6)} bytes  ${hash(w).toString('hex').slice(0, 16)}…`)
+    await await send(admin, Operation.uploadContractWasm({ wasm: w }), `upload ${name}`)
+    log(
+      'UPLOAD',
+      `${name.padEnd(11)} ${String(w.length).padStart(6)} bytes  ${hash(w).toString('hex').slice(0, 16)}…`
+    )
   }
 
   const interpRes = await send(
@@ -390,7 +398,7 @@ async function main() {
       wasmHash: hash(wasms.interpreter),
       salt: hash(Buffer.from(`i-${Date.now()}-${Math.random()}`)),
     }),
-    'create interpreter',
+    'create interpreter'
   )
   const interpreter = Address.fromScVal(interpRes.returnValue!).toString()
   const gvTx = new TransactionBuilder(await server.getAccount(admin.publicKey()), {
@@ -412,7 +420,7 @@ async function main() {
       wasmHash: Buffer.from(ACCOUNT_WASM_HASH, 'hex'),
       constructorArgs: [vec([delegatedSigner(admin.publicKey())]), xdr.ScVal.scvMap([])],
     }),
-    'create prime',
+    'create prime'
   )
   const prime = Address.fromScVal(primeRes.returnValue!).toString()
   log('DEPLOY', `prime       ${prime}`)
@@ -437,8 +445,17 @@ async function main() {
 
   const sac = Asset.native().contractId(PASSPHRASE)
   const expLedger = (await server.getLatestLedger()).sequence + 6000
-  const primeAllowance = await readI128(sac, 'allowance', [addr(custody.publicKey()), addr(prime)], admin)
-  verdict('Prime holds no allowance on custody', primeAllowance === 0n, `allowance(custody → prime) = ${primeAllowance}`)
+  const primeAllowance = await readI128(
+    sac,
+    'allowance',
+    [addr(custody.publicKey()), addr(prime)],
+    admin
+  )
+  verdict(
+    'Prime holds no allowance on custody',
+    primeAllowance === 0n,
+    `allowance(custody → prime) = ${primeAllowance}`
+  )
 
   // ---------------------------------------------------------------- //
   // One grant per context the policy will be asked about. The adapter no
@@ -464,17 +481,12 @@ async function main() {
             kv('args', vec([addr(prime), ctxVal(contract, fn, args)])),
             kv('contract', addr(interpreter)),
             kv('fn_name', sym('enforce')),
-          ]),
+          ])
         ),
         kv('sub_invocations', vec([])),
       ]),
     ])
-  const call = (
-    target: string,
-    fn: string,
-    args: xdr.ScVal[],
-    execAuths: xdr.ScVal[] = [],
-  ) =>
+  const call = (target: string, fn: string, args: xdr.ScVal[], execAuths: xdr.ScVal[] = []) =>
     xdr.ScVal.scvMap([
       kv('args', vec(args)),
       kv('executor_authorizations', vec(execAuths)),
@@ -497,10 +509,10 @@ async function main() {
         ]),
       ],
     }),
-    'create gate2',
+    'create gate2'
   )
   const gate2 = Address.fromScVal(gate2Res.returnValue!).toString()
-  await send(
+  await await send(
     custody,
     invokeOp(sac, 'approve', [
       addr(custody.publicKey()),
@@ -508,7 +520,7 @@ async function main() {
       i128v(20_000_000n),
       u32v(expLedger),
     ]),
-    'approve gate2',
+    'approve gate2'
   )
   log('DEPLOY', `gate2       ${gate2}  (allowed: adapter)`)
   log('VENUE', `blend pool  ${POOL}  (real, testnet)`)
@@ -543,7 +555,7 @@ async function main() {
             kv('args', vec([addr(adapter), addr(POOL), i128v(amount)])),
             kv('contract', addr(sac)),
             kv('fn_name', sym('transfer')),
-          ]),
+          ])
         ),
         kv('sub_invocations', vec([])),
       ]),
@@ -551,14 +563,7 @@ async function main() {
 
   // ---- root rule
   const P_PULL_AMT = [u32v(0), u32v(0), sym('args'), u32v(2)]
-  const P_SUPPLY_AMT = [
-    u32v(0),
-    u32v(1),
-    sym('args'),
-    u32v(3),
-    u32v(0),
-    sym('amount'),
-  ]
+  const P_SUPPLY_AMT = [u32v(0), u32v(1), sym('args'), u32v(3), u32v(0), sym('amount')]
   const rootPredicate = and([
     eq(selector('call_fn'), sym('execute')),
     eq(callArgLen(0), u32v(2)),
@@ -594,7 +599,7 @@ async function main() {
           predicate: rootPredicate,
           adminPk: admin.publicKey(),
         }),
-        auth,
+        auth
       ),
     ruleIds: [0],
     label: 'install root rule',
@@ -623,7 +628,7 @@ async function main() {
           predicate: childPredicate,
           adminPk: admin.publicKey(),
         }),
-        auth,
+        auth
       ),
     ruleIds: [0],
     label: 'install child rule',
@@ -633,7 +638,12 @@ async function main() {
     kp: admin,
     prime,
     makeOp: (auth) =>
-      invokeOp(interpreter, 'bind_executor', [vec([addr(prime), u32v(childId)]), addr(adapter)], auth),
+      invokeOp(
+        interpreter,
+        'bind_executor',
+        [vec([addr(prime), u32v(childId)]), addr(adapter)],
+        auth
+      ),
     ruleIds: [0],
     label: 'bind child executor',
   })
@@ -643,7 +653,7 @@ async function main() {
     pull: bigint,
     supply: bigint,
     label: string,
-    opts: { expectFailure?: boolean; extraGrant?: boolean } = {},
+    opts: { expectFailure?: boolean; extraGrant?: boolean } = {}
   ) =>
     asAccount({
       kp: agent,
@@ -665,10 +675,10 @@ async function main() {
                     grant(POOL, 'submit', submitArgs(supply)),
                     grant(sac, 'transfer', [addr(prime), addr(agent.publicKey()), i128v(1n)]),
                   ]
-                : [grant(POOL, 'submit', submitArgs(supply))],
+                : [grant(POOL, 'submit', submitArgs(supply))]
             ),
           ],
-          auth,
+          auth
         ),
       ruleIds: [rootId, childId],
       signers: [agent.publicKey(), adapter],
@@ -686,7 +696,7 @@ async function main() {
   verdict(
     'a real Blend supply executes and spends exactly N of the gate allowance',
     !ok.denied && before - after === AMOUNT,
-    `allowance ${before} → ${after}   (Δ ${before - after}, expected ${AMOUNT})`,
+    `allowance ${before} → ${after}   (Δ ${before - after}, expected ${AMOUNT})`
   )
 
   // The allowance falling is not proof the money ARRIVED. Blend credits a
@@ -698,7 +708,7 @@ async function main() {
   verdict(
     'the supply is credited to Prime as a real Blend position',
     supplied !== undefined && BigInt(supplied as any) > 0n,
-    `get_positions(prime).supply = ${JSON.stringify(positions?.supply, (_, v) => (typeof v === 'bigint' ? v.toString() : v))}`,
+    `get_positions(prime).supply = ${JSON.stringify(positions?.supply, (_, v) => (typeof v === 'bigint' ? v.toString() : v))}`
   )
 
   // ---- and it can be taken back out, straight to custody
@@ -722,10 +732,7 @@ async function main() {
     eq(path([u32v(0), u32v(0), sym('target')]), addr(POOL)),
     eq(path([u32v(0), u32v(0), sym('function_name')]), sym('submit')),
     eq(path([u32v(0), u32v(0), sym('args'), u32v(2)]), addr(custody.publicKey())),
-    eq(
-      path([u32v(0), u32v(0), sym('args'), u32v(3), u32v(0), sym('request_type')]),
-      u32v(1),
-    ),
+    eq(path([u32v(0), u32v(0), sym('args'), u32v(3), u32v(0), sym('request_type')]), u32v(1)),
     // nothing leaves the adapter on a withdraw
     eq(path([u32v(0), u32v(0), sym('executor_authorizations'), xdr.ScVal.scvBool(true)]), u32v(0)),
   ])
@@ -744,7 +751,7 @@ async function main() {
           predicate: wPredicate,
           adminPk: admin.publicKey(),
         }),
-        auth,
+        auth
       ),
     ruleIds: [0],
     label: 'install withdraw root rule',
@@ -786,7 +793,7 @@ async function main() {
           vec([call(POOL, 'submit', strayArgs(AMOUNT))]),
           vec([grant(POOL, 'submit', strayArgs(AMOUNT))]),
         ],
-        auth,
+        auth
       ),
     ruleIds: [wRootId, childId],
     signers: [agent.publicKey(), adapter],
@@ -796,7 +803,7 @@ async function main() {
   verdict(
     'a withdrawal aimed away from custody is refused, #100',
     stray.denied && denialCode(stray.reason) === '100',
-    `to ${stranger.slice(0, 8)}... (not custody)   interpreter code ${denialCode(stray.reason)}`,
+    `to ${stranger.slice(0, 8)}... (not custody)   interpreter code ${denialCode(stray.reason)}`
   )
 
   const custodyBefore = await readI128(sac, 'balance', [addr(custody.publicKey())], admin)
@@ -813,7 +820,7 @@ async function main() {
           vec([call(POOL, 'submit', withdrawArgs(AMOUNT))]),
           vec([grant(POOL, 'submit', withdrawArgs(AMOUNT))]),
         ],
-        auth,
+        auth
       ),
     ruleIds: [wRootId, childId],
     signers: [agent.publicKey(), adapter],
@@ -824,15 +831,17 @@ async function main() {
   verdict(
     'the withdrawal returns the funds to custody',
     !wRun.denied && custodyAfter > custodyBefore,
-    `custody XLM ${custodyBefore} → ${custodyAfter}   (Δ +${custodyAfter - custodyBefore}, supplied ${AMOUNT})`,
+    `custody XLM ${custodyBefore} → ${custodyAfter}   (Δ +${custodyAfter - custodyBefore}, supplied ${AMOUNT})`
   )
 
   console.log('\n--- DENY: pull N, supply less ---')
-  const unequal = await runBlend(AMOUNT, AMOUNT - 1n, 'unequal blend batch', { expectFailure: true })
+  const unequal = await runBlend(AMOUNT, AMOUNT - 1n, 'unequal blend batch', {
+    expectFailure: true,
+  })
   verdict(
     'the six-step cross-call equality refuses it, #100',
     unequal.denied && denialCode(unequal.reason) === '100',
-    `interpreter code ${denialCode(unequal.reason)}`,
+    `interpreter code ${denialCode(unequal.reason)}`
   )
 
   console.log('\n--- DENY: amount at the cap ---')
@@ -840,7 +849,7 @@ async function main() {
   verdict(
     'an amount at the cap is refused, #100',
     over.denied && denialCode(over.reason) === '100',
-    `interpreter code ${denialCode(over.reason)}`,
+    `interpreter code ${denialCode(over.reason)}`
   )
 
   console.log('\n--- DENY: an extra grant ---')
@@ -851,7 +860,7 @@ async function main() {
   verdict(
     'a grant the predicate did not count is refused, #100',
     extra.denied && denialCode(extra.reason) === '100',
-    `interpreter code ${denialCode(extra.reason)}`,
+    `interpreter code ${denialCode(extra.reason)}`
   )
 
   // ---------------------------------------------------------------- //
@@ -880,7 +889,7 @@ async function main() {
           ]),
           vec([]),
         ],
-        auth,
+        auth
       ),
     ruleIds: [rootId, childId],
     signers: [agent.publicKey(), adapter],
@@ -890,7 +899,7 @@ async function main() {
   verdict(
     'a batch whose grant list is short cannot run',
     noGrant.denied,
-    (noGrant.reason ?? '').slice(0, 80),
+    (noGrant.reason ?? '').slice(0, 80)
   )
 
   const big = await asAccount({
@@ -905,19 +914,23 @@ async function main() {
           addr(interpreter),
           vec(
             Array.from({ length: 9 }, () =>
-              call(gate2, 'pull', [addr(sac), addr(adapter), i128v(1n)]),
-            ),
+              call(gate2, 'pull', [addr(sac), addr(adapter), i128v(1n)])
+            )
           ),
           vec([]),
         ],
-        auth,
+        auth
       ),
     ruleIds: [rootId],
     signers: [agent.publicKey(), adapter],
     label: 'oversized batch',
     expectFailure: true,
   })
-  verdict('a batch of nine calls is refused by the adapter', big.denied, (big.reason ?? '').slice(0, 80))
+  verdict(
+    'a batch of nine calls is refused by the adapter',
+    big.denied,
+    (big.reason ?? '').slice(0, 80)
+  )
 
   console.log('\n--- headroom: a predicate near the leaf cap ---')
   // calls[1] is the pool submit, the only call with a nested request vector.
@@ -949,14 +962,17 @@ async function main() {
             predicate: bulk,
             adminPk: admin.publicKey(),
           }),
-          auth,
+          auth
         ),
       ruleIds: [0],
       label: `install bulk-${pairs}`,
       expectFailure: true,
     })
     if (r.denied) {
-      log('HEADROOM', `${String(pairs).padStart(3)} compares (${bytes} B): install REFUSED, code ${denialCode(r.reason)}`)
+      log(
+        'HEADROOM',
+        `${String(pairs).padStart(3)} compares (${bytes} B): install REFUSED, code ${denialCode(r.reason)}`
+      )
       continue
     }
     const id = Number(scValToNative(r.got!.returnValue!).id)
@@ -976,7 +992,7 @@ async function main() {
             ]),
             vec([grant(POOL, 'submit', submitArgs(AMOUNT))]),
           ],
-          auth,
+          auth
         ),
       ruleIds: [id, childId],
       signers: [agent.publicKey(), adapter],
@@ -999,7 +1015,7 @@ async function main() {
               vec([call(POOL, 'submit', withdrawArgs(AMOUNT))]),
               vec([grant(POOL, 'submit', withdrawArgs(AMOUNT))]),
             ],
-            auth,
+            auth
           ),
         ruleIds: [wRootId, childId],
         signers: [agent.publicKey(), adapter],
@@ -1008,7 +1024,7 @@ async function main() {
     }
     log(
       'HEADROOM',
-      `${String(pairs).padStart(3)} compares (${bytes} B): ${run.denied ? `DENIED ${denialCode(run.reason)}` : 'executed'}`,
+      `${String(pairs).padStart(3)} compares (${bytes} B): ${run.denied ? `DENIED ${denialCode(run.reason)}` : 'executed'}`
     )
   }
 
@@ -1033,7 +1049,7 @@ async function main() {
           adminPk: admin.publicKey(),
           validUntil: nowLedger - 1,
         }),
-        auth,
+        auth
       ),
     ruleIds: [0],
     label: 'install an expired rule',
@@ -1043,7 +1059,7 @@ async function main() {
     verdict(
       'a rule whose valid_until is already past is refused at install',
       true,
-      `code ${denialCode(expiredRes.reason)}`,
+      `code ${denialCode(expiredRes.reason)}`
     )
   } else {
     const expiredId = Number(scValToNative(expiredRes.got!.returnValue!).id)
@@ -1063,7 +1079,7 @@ async function main() {
             ]),
             vec([grant(POOL, 'submit', submitArgs(AMOUNT))]),
           ],
-          auth,
+          auth
         ),
       ruleIds: [expiredId, childId],
       signers: [agent.publicKey(), adapter],
@@ -1073,7 +1089,7 @@ async function main() {
     verdict(
       'an expired rule installs but cannot authorise',
       useExpired.denied,
-      `rule ${expiredId} valid_until ${nowLedger - 1}, now ${nowLedger}; code ${denialCode(useExpired.reason)}`,
+      `rule ${expiredId} valid_until ${nowLedger - 1}, now ${nowLedger}; code ${denialCode(useExpired.reason)}`
     )
   }
 
@@ -1097,7 +1113,7 @@ async function main() {
           predicate: tooDeep,
           adminPk: admin.publicKey(),
         }),
-        auth,
+        auth
       ),
     ruleIds: [0],
     label: 'install over-deep predicate',
@@ -1106,14 +1122,14 @@ async function main() {
   verdict(
     'a 9-step path is refused at install, #201',
     deepRes.denied && denialCode(deepRes.reason) === '201',
-    `interpreter code ${denialCode(deepRes.reason)}`,
+    `interpreter code ${denialCode(deepRes.reason)}`
   )
 
   const primeStillZero = await readI128(
     sac,
     'allowance',
     [addr(custody.publicKey()), addr(prime)],
-    admin,
+    admin
   )
   verdict('Prime never holds an allowance', primeStillZero === 0n, `allowance = ${primeStillZero}`)
 

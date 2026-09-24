@@ -24,11 +24,7 @@
     "pool": 5,
     "supply": 6
   },
-  "bound": [
-    "token",
-    "pool",
-    "supply"
-  ],
+  "bound": ["token", "pool", "supply"],
   "salt": "163ebd5c5b6156a936c8f8f9b81af19e1f64727c1512eb6e7a63f42330986c07",
   "transactions": [
     {
@@ -217,12 +213,8 @@
     {
       "name": "SDK returns self-contained link without broadcast",
       "result": {
-        "signed": [
-          "GAUNCHMFN3P4QABYGA7XJSRZFSF52OXNSRVPSQA6GBPXBJAEKTNSEFA5"
-        ],
-        "missing": [
-          "GDUALFAK6KSYDVALNTUMPVNTLIIBBOORWCAD4K7VAJ5WG72EEUXLUJB7"
-        ],
+        "signed": ["GAUNCHMFN3P4QABYGA7XJSRZFSF52OXNSRVPSQA6GBPXBJAEKTNSEFA5"],
+        "missing": ["GDUALFAK6KSYDVALNTUMPVNTLIIBBOORWCAD4K7VAJ5WG72EEUXLUJB7"],
         "validUntil": 4707300,
         "urlOrigin": "https://prime.untangled.finance",
         "payloadBytes": 6094,
@@ -312,11 +304,7 @@
         "stage": "enforcing RPC simulation",
         "amount": "2000000",
         "signatureEntries": 6,
-        "contextRuleIds": [
-          6,
-          4,
-          5
-        ],
+        "contextRuleIds": [6, 4, 5],
         "policyError": "ArgMismatch #100",
         "unchanged": true
       }

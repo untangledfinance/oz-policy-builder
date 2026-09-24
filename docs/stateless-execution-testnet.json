@@ -28,15 +28,7 @@
     "claim": 6,
     "rollback": 7
   },
-  "bound": [
-    "token",
-    "pool",
-    "action",
-    "supply",
-    "withdraw",
-    "claim",
-    "rollback"
-  ],
+  "bound": ["token", "pool", "action", "supply", "withdraw", "claim", "rollback"],
   "salt": "163ebd5c5b6156a936c8f8f9b81af19e1f64727c1512eb6e7a63f42330986c07",
   "transactions": [
     {

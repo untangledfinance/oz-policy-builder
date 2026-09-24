@@ -23,12 +23,7 @@
     "supply": 3,
     "withdraw": 4
   },
-  "bound": [
-    "token",
-    "pool",
-    "supply",
-    "withdraw"
-  ],
+  "bound": ["token", "pool", "supply", "withdraw"],
   "transactions": [
     {
       "label": "deploy dedicated Prime",
@@ -42,18 +37,12 @@
       "events": [
         {
           "contract": "CBYG2TO43C7WIBD3KFCSJAAPODRJKAFFNNEU6YEYPF7G4YSUVG3EOC7G",
-          "topics": [
-            "signer_registered",
-            0
-          ],
+          "topics": ["signer_registered", 0],
           "data": "[object Object]"
         },
         {
           "contract": "CBYG2TO43C7WIBD3KFCSJAAPODRJKAFFNNEU6YEYPF7G4YSUVG3EOC7G",
-          "topics": [
-            "context_rule_added",
-            0
-          ],
+          "topics": ["context_rule_added", 0],
           "data": "[object Object]"
         }
       ]
@@ -81,26 +70,17 @@
       "events": [
         {
           "contract": "CBYG2TO43C7WIBD3KFCSJAAPODRJKAFFNNEU6YEYPF7G4YSUVG3EOC7G",
-          "topics": [
-            "signer_registered",
-            1
-          ],
+          "topics": ["signer_registered", 1],
           "data": "[object Object]"
         },
         {
           "contract": "CBYG2TO43C7WIBD3KFCSJAAPODRJKAFFNNEU6YEYPF7G4YSUVG3EOC7G",
-          "topics": [
-            "policy_registered",
-            0
-          ],
+          "topics": ["policy_registered", 0],
           "data": "[object Object]"
         },
         {
           "contract": "CBYG2TO43C7WIBD3KFCSJAAPODRJKAFFNNEU6YEYPF7G4YSUVG3EOC7G",
-          "topics": [
-            "context_rule_added",
-            1
-          ],
+          "topics": ["context_rule_added", 1],
           "data": "[object Object]"
         }
       ]
@@ -128,10 +108,7 @@
       "events": [
         {
           "contract": "CBYG2TO43C7WIBD3KFCSJAAPODRJKAFFNNEU6YEYPF7G4YSUVG3EOC7G",
-          "topics": [
-            "context_rule_added",
-            2
-          ],
+          "topics": ["context_rule_added", 2],
           "data": "[object Object]"
         }
       ]
@@ -159,18 +136,12 @@
       "events": [
         {
           "contract": "CBYG2TO43C7WIBD3KFCSJAAPODRJKAFFNNEU6YEYPF7G4YSUVG3EOC7G",
-          "topics": [
-            "signer_registered",
-            2
-          ],
+          "topics": ["signer_registered", 2],
           "data": "[object Object]"
         },
         {
           "contract": "CBYG2TO43C7WIBD3KFCSJAAPODRJKAFFNNEU6YEYPF7G4YSUVG3EOC7G",
-          "topics": [
-            "context_rule_added",
-            3
-          ],
+          "topics": ["context_rule_added", 3],
           "data": "[object Object]"
         }
       ]
@@ -198,10 +169,7 @@
       "events": [
         {
           "contract": "CBYG2TO43C7WIBD3KFCSJAAPODRJKAFFNNEU6YEYPF7G4YSUVG3EOC7G",
-          "topics": [
-            "context_rule_added",
-            4
-          ],
+          "topics": ["context_rule_added", 4],
           "data": "[object Object]"
         }
       ]

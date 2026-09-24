@@ -65,9 +65,16 @@ function bounded(leaf: PredicateLeaf, cap: string): PredicateNode[] {
  * sends the pool's tokens straight to custody. Request types 0 (supply) and 1
  * (withdraw) are both permitted; the amount is strictly bounded on every leg.
  */
-export function buildBlendExecutionMandate(p: BlendExecutionMandateParams): CompiledExecutionMandate {
+export function buildBlendExecutionMandate(
+  p: BlendExecutionMandateParams
+): CompiledExecutionMandate {
   const cap = p.maxAmountBaseUnits
-  const field = (key: string): PredicateLeaf => ({ kind: 'call_arg_field', index: 3, element: 0, field: key })
+  const field = (key: string): PredicateLeaf => ({
+    kind: 'call_arg_field',
+    index: 3,
+    element: 0,
+    field: key,
+  })
 
   const pull: PredicateNode = {
     op: 'and',

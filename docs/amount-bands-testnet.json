@@ -55,14 +55,7 @@
       ]
     }
   },
-  "bound": [
-    "low-token",
-    "low-pool",
-    "low-supply",
-    "high-token",
-    "high-pool",
-    "high-supply"
-  ],
+  "bound": ["low-token", "low-pool", "low-supply", "high-token", "high-pool", "high-supply"],
   "salt": "163ebd5c5b6156a936c8f8f9b81af19e1f64727c1512eb6e7a63f42330986c07",
   "transactions": [
     {
@@ -214,9 +207,7 @@
           "pool": 2
         },
         "requiredSignatures": 1,
-        "operatorKeys": [
-          "GBZD3RRN7BNLGNZQA5FYVQNMJRXOAOPIZSMJUZA5F5GOU2WO7PBGFCYH"
-        ],
+        "operatorKeys": ["GBZD3RRN7BNLGNZQA5FYVQNMJRXOAOPIZSMJUZA5F5GOU2WO7PBGFCYH"],
         "mandate": [
           "Atomic Blend supply from 1 base units inclusive to 20000000 exclusive.",
           "Custody GDAFDYQGVCCUEBHGBFZNX52TBVNHGLQBUL2TYAIVKGNGGQZKDGTW5RHF; position owner CB5HHVSDK2CGNPCRMQPBIZMVZQLCZHHUXEEK7ZCAIQHPG752AX4CYMVM; pool CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF.",
@@ -298,11 +289,7 @@
         "band": "low",
         "amount": "21000000",
         "signatureEntries": 3,
-        "contextRuleIds": [
-          3,
-          1,
-          2
-        ],
+        "contextRuleIds": [3, 1, 2],
         "policyError": "ArgMismatch #100",
         "stateUnchanged": true,
         "sourceSequenceUnchanged": true
@@ -315,11 +302,7 @@
         "band": "low",
         "amount": "20000000",
         "signatureEntries": 3,
-        "contextRuleIds": [
-          3,
-          1,
-          2
-        ],
+        "contextRuleIds": [3, 1, 2],
         "policyError": "ArgMismatch #100",
         "stateUnchanged": true,
         "sourceSequenceUnchanged": true
@@ -332,11 +315,7 @@
         "band": "high",
         "amount": "20000000",
         "signatureEntries": 6,
-        "contextRuleIds": [
-          6,
-          4,
-          5
-        ],
+        "contextRuleIds": [6, 4, 5],
         "policyError": "ArgMismatch #100",
         "stateUnchanged": true,
         "sourceSequenceUnchanged": true
@@ -349,11 +328,7 @@
         "band": "high",
         "amount": "1000000",
         "signatureEntries": 6,
-        "contextRuleIds": [
-          6,
-          4,
-          5
-        ],
+        "contextRuleIds": [6, 4, 5],
         "policyError": "ArgMismatch #100",
         "stateUnchanged": true,
         "sourceSequenceUnchanged": true
@@ -379,12 +354,8 @@
           "adapterAllowance": "0",
           "supplyShares": "10796533"
         },
-        "signed": [
-          "GBZD3RRN7BNLGNZQA5FYVQNMJRXOAOPIZSMJUZA5F5GOU2WO7PBGFCYH"
-        ],
-        "missing": [
-          "GDAFDYQGVCCUEBHGBFZNX52TBVNHGLQBUL2TYAIVKGNGGQZKDGTW5RHF"
-        ],
+        "signed": ["GBZD3RRN7BNLGNZQA5FYVQNMJRXOAOPIZSMJUZA5F5GOU2WO7PBGFCYH"],
+        "missing": ["GDAFDYQGVCCUEBHGBFZNX52TBVNHGLQBUL2TYAIVKGNGGQZKDGTW5RHF"],
         "noBroadcastBeforeCosign": true,
         "partialEnforcingDenied": true,
         "result": {

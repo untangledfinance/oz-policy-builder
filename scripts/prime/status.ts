@@ -4,7 +4,18 @@
 // can move the custody account, what the gatekeeper will release and to whom,
 // what the mandate pins, and what is currently at work in a venue.
 
-import { C, POOL, addr, custodyPk, horizon, loadState, readCall, secrets, server, u32v } from './chain.ts'
+import {
+  addr,
+  C,
+  custodyPk,
+  horizon,
+  loadState,
+  POOL,
+  readCall,
+  secrets,
+  server,
+  u32v,
+} from './chain.ts'
 import { readGateConfig } from './gate.ts'
 
 type Flags = Record<string, string | boolean>
@@ -39,16 +50,31 @@ export async function status(flags: Flags): Promise<void> {
     console.log(
       JSON.stringify(
         {
-          contracts: { prime: s.prime, adapter: s.adapter, gate: s.gate, interpreter: s.interpreter, sac: s.sac, venue: POOL },
+          contracts: {
+            prime: s.prime,
+            adapter: s.adapter,
+            gate: s.gate,
+            interpreter: s.interpreter,
+            sac: s.sac,
+            venue: POOL,
+          },
           gate3: { account: custodyPk(), thresholds: acct.thresholds, signers, oneKeyEnough },
-          gate1: { limitRemaining: String(allowance ?? 0), expiresAtLedger: s.allowanceExpiryLedger, ledgersRemaining: left },
+          gate1: {
+            limitRemaining: String(allowance ?? 0),
+            expiresAtLedger: s.allowanceExpiryLedger,
+            ledgersRemaining: left,
+          },
           gate2: { caller: cfg?.caller ?? s.adapter, allowList: cfg?.allowed ?? [] },
-          gate4: rules.map((r) => ({ id: Number(r.id), name: String(r.name ?? ''), policed: (r.policies ?? []).length > 0 })),
+          gate4: rules.map((r) => ({
+            id: Number(r.id),
+            name: String(r.name ?? ''),
+            policed: (r.policies ?? []).length > 0,
+          })),
           position: shares ? String(shares) : null,
         },
         null,
-        2,
-      ),
+        2
+      )
     )
     return
   }
@@ -58,11 +84,14 @@ export async function status(flags: Flags): Promise<void> {
   console.log(C.bold('\n━━ GATE 3 · who can change anything ') + C.dim('· yours'))
   row('custody account', custodyPk())
   row('XLM balance', acct.balances.find((b: any) => b.asset_type === 'native')?.balance ?? '0')
-  row('thresholds', `low ${acct.thresholds.low_threshold} / med ${med} / high ${acct.thresholds.high_threshold}`)
+  row(
+    'thresholds',
+    `low ${acct.thresholds.low_threshold} / med ${med} / high ${acct.thresholds.high_threshold}`
+  )
   for (const sg of signers) row('signer', `${sg.key}  weight ${sg.weight}`)
   row(
     'one key alone',
-    oneKeyEnough ? C.amber('CAN move value — Gate 3 is NOT in force') : C.green('cannot move value'),
+    oneKeyEnough ? C.amber('CAN move value — Gate 3 is NOT in force') : C.green('cannot move value')
   )
 
   console.log(C.bold('\n━━ GATE 1 · how much, until when ') + C.dim('· yours'))
@@ -70,7 +99,9 @@ export async function status(flags: Flags): Promise<void> {
   row('limit remaining', String(allowance ?? 0))
   row(
     'expires',
-    left > 0 ? `ledger ${s.allowanceExpiryLedger}  (${left} to go, ~${Math.round((left * 5) / 60)} min)` : C.amber('EXPIRED'),
+    left > 0
+      ? `ledger ${s.allowanceExpiryLedger}  (${left} to go, ~${Math.round((left * 5) / 60)} min)`
+      : C.amber('EXPIRED')
   )
 
   console.log(C.bold('\n━━ GATE 2 · which addresses it may release to ') + C.dim('· yours'))
@@ -85,7 +116,7 @@ export async function status(flags: Flags): Promise<void> {
     const policed = (r.policies ?? []).length > 0
     row(
       `rule #${Number(r.id)}`,
-      `${String(r.name ?? '(unnamed)')}  ${policed ? C.green('policed') : C.amber('NO POLICY — unrestricted')}`,
+      `${String(r.name ?? '(unnamed)')}  ${policed ? C.green('policed') : C.amber('NO POLICY — unrestricted')}`
     )
   }
   row('venue', POOL)
@@ -95,7 +126,5 @@ export async function status(flags: Flags): Promise<void> {
   row('prime', s.prime)
   row('execution step', s.adapter)
 
-  console.log(
-    C.dim('\n  Try to break it:  bun scripts/prime.ts demo run all\n'),
-  )
+  console.log(C.dim('\n  Try to break it:  bun scripts/prime.ts demo run all\n'))
 }

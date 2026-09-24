@@ -6,7 +6,7 @@
 // transactions and manage trustlines.
 
 import { BASE_FEE, Operation, TransactionBuilder } from '@stellar/stellar-sdk'
-import { C, PASSPHRASE, addr, custodyPk, horizon, loadState, readCall, secrets } from './chain.ts'
+import { C, custodyPk, horizon, PASSPHRASE, secrets } from './chain.ts'
 
 type Flags = Record<string, string | boolean>
 
@@ -23,7 +23,7 @@ export async function accountsSetup(flags: Flags): Promise<void> {
   console.log(C.bold('\nCustody account'))
   console.log(`  ${C.dim('account'.padEnd(20, '.'))} ${custodyPk()}`)
   console.log(
-    `  ${C.dim('thresholds now'.padEnd(20, '.'))} low ${acct.thresholds.low_threshold} / med ${acct.thresholds.med_threshold} / high ${acct.thresholds.high_threshold}`,
+    `  ${C.dim('thresholds now'.padEnd(20, '.'))} low ${acct.thresholds.low_threshold} / med ${acct.thresholds.med_threshold} / high ${acct.thresholds.high_threshold}`
   )
   for (const sg of acct.signers) {
     console.log(`  ${C.dim('signer now'.padEnd(20, '.'))} ${sg.key} weight ${sg.weight}`)
@@ -50,7 +50,7 @@ export async function accountsSetup(flags: Flags): Promise<void> {
         medThreshold: MED,
         highThreshold: HIGH,
         signer: { ed25519PublicKey: cosigner, weight: WEIGHT },
-      }),
+      })
     )
     .setTimeout(60)
     .build()
@@ -87,7 +87,7 @@ export async function accountsInfo(flags: Flags): Promise<void> {
   console.log(`  ${C.dim('XLM balance'.padEnd(24, '.'))} ${out.balance}`)
   console.log(C.bold('\nGate 3 — who can change anything'))
   console.log(
-    `  ${C.dim('thresholds'.padEnd(24, '.'))} low ${out.thresholds.low} / med ${out.thresholds.medium} / high ${out.thresholds.high}`,
+    `  ${C.dim('thresholds'.padEnd(24, '.'))} low ${out.thresholds.low} / med ${out.thresholds.medium} / high ${out.thresholds.high}`
   )
   for (const sg of out.signers) {
     console.log(`  ${C.dim('signer'.padEnd(24, '.'))} ${sg.key}  weight ${sg.weight}`)
@@ -98,6 +98,6 @@ export async function accountsInfo(flags: Flags): Promise<void> {
       out.singleKeyCanMoveValue
         ? C.amber('CAN move value — Gate 3 is not in force')
         : C.green('cannot move value, grant a limit, or close the account')
-    }`,
+    }`
   )
 }

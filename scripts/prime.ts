@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 // `prime` - a small CLI for demonstrating the four gates on Stellar testnet.
 //
 // This is demo tooling. It is not the published policy-builder CLI in
@@ -28,11 +29,11 @@
 // Every command takes --dry-run, which prints what would happen and sends
 // nothing. Read commands take --json.
 
-import { C, loadState, readState } from './prime/chain.ts'
 import { accountsInfo, accountsSetup } from './prime/accounts.ts'
-import { gateInfo, gateSetup } from './prime/gate.ts'
+import { C, loadState, readState } from './prime/chain.ts'
 import { demoSetup, runDemo } from './prime/demo.ts'
 import { execSupply, execWithdraw } from './prime/exec.ts'
+import { gateInfo, gateSetup } from './prime/gate.ts'
 import { rulesInstall, rulesList, rulesRemove } from './prime/rules.ts'
 import { status } from './prime/status.ts'
 

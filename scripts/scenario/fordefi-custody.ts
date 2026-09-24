@@ -17,7 +17,14 @@
 // keys only; nothing here reads a production secret.
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { Asset, Horizon, Keypair, Networks, Operation, TransactionBuilder } from '@stellar/stellar-sdk'
+import {
+  Asset,
+  Horizon,
+  Keypair,
+  Networks,
+  Operation,
+  TransactionBuilder,
+} from '@stellar/stellar-sdk'
 
 const HORIZON = 'https://horizon-testnet.stellar.org'
 const horizon = new Horizon.Server(HORIZON)
@@ -98,7 +105,10 @@ export async function provision(): Promise<State> {
   signerSecrets.forEach((secret, i) => {
     builder = builder.addOperation(
       Operation.setOptions({
-        signer: { ed25519PublicKey: Keypair.fromSecret(secret).publicKey(), weight: CUSTODY_WEIGHTS[i]! },
+        signer: {
+          ed25519PublicKey: Keypair.fromSecret(secret).publicKey(),
+          weight: CUSTODY_WEIGHTS[i]!,
+        },
       })
     )
   })
@@ -129,7 +139,6 @@ export async function report(): Promise<void> {
   console.log('prime signer candidates:')
   for (const s of state.primeSigners) console.log(`  ${Keypair.fromSecret(s).publicKey()}`)
 }
-
 
 /**
  * The assets the demo swaps INTO, and why custody needs a trustline for each.
@@ -172,9 +181,7 @@ export async function trustlines(): Promise<void> {
     networkPassphrase: Networks.TESTNET,
   })
   for (const a of missing) {
-    builder = builder.addOperation(
-      Operation.changeTrust({ asset: new Asset(a.code, a.issuer) })
-    )
+    builder = builder.addOperation(Operation.changeTrust({ asset: new Asset(a.code, a.issuer) }))
   }
   const tx = builder.setTimeout(120).build()
   // All three. Two would be 15 of the 20 this account requires, and the

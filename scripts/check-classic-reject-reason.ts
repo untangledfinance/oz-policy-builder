@@ -2,7 +2,15 @@
 // "txFailed" would mean auth PASSED and the operation failed - a very
 // different (and alarming) story from "txBadAuth". Decode it properly.
 
-import { Asset, BASE_FEE, Keypair, Networks, Operation, TransactionBuilder, rpc } from '@stellar/stellar-sdk'
+import {
+  Asset,
+  BASE_FEE,
+  Keypair,
+  Networks,
+  Operation,
+  rpc,
+  TransactionBuilder,
+} from '@stellar/stellar-sdk'
 
 const NETWORK = Networks.TESTNET
 const server = new rpc.Server('https://soroban-testnet.stellar.org')
@@ -35,7 +43,9 @@ async function send(ops: any, signers: Keypair[]) {
       console.log('  feeCharged  :', r.feeCharged().toString())
       try {
         const inner = r.result().results?.()
-        if (inner) for (const o of inner) console.log('  op result   :', o.tr?.().switch?.().name ?? o.switch().name)
+        if (inner)
+          for (const o of inner)
+            console.log('  op result   :', o.tr?.().switch?.().name ?? o.switch().name)
       } catch (e) {
         console.log('  (no op results - transaction never reached operation stage)')
       }
@@ -67,7 +77,10 @@ async function send(ops: any, signers: Keypair[]) {
 
 // Baseline: default thresholds, single signature -> must succeed
 console.log('\n1. BEFORE setOptions (default thresholds), payment signed by master only:')
-await send(Operation.payment({ destination: dest.publicKey(), asset: Asset.native(), amount: '1' }), [custody])
+await send(
+  Operation.payment({ destination: dest.publicKey(), asset: Asset.native(), amount: '1' }),
+  [custody]
+)
 
 console.log('\n2. Applying master=10, cosign=10, low=10 med=20 high=20 ...')
 await send(
@@ -78,14 +91,20 @@ await send(
     highThreshold: 20,
     signer: { ed25519PublicKey: cosign.publicKey(), weight: 10 },
   }),
-  [custody],
+  [custody]
 )
 
 console.log('\n3. AFTER setOptions, payment signed by master only (weight 10 vs med 20):')
-await send(Operation.payment({ destination: dest.publicKey(), asset: Asset.native(), amount: '1' }), [custody])
+await send(
+  Operation.payment({ destination: dest.publicKey(), asset: Asset.native(), amount: '1' }),
+  [custody]
+)
 
 console.log('\n4. AFTER setOptions, payment signed by BOTH (weight 20 vs med 20):')
-await send(Operation.payment({ destination: dest.publicKey(), asset: Asset.native(), amount: '1' }), [custody, cosign])
+await send(
+  Operation.payment({ destination: dest.publicKey(), asset: Asset.native(), amount: '1' }),
+  [custody, cosign]
+)
 
 console.log('\n5. AFTER setOptions, setOptions signed by master only (weight 10 vs HIGH 20):')
 await send(Operation.setOptions({ medThreshold: 1 }), [custody])

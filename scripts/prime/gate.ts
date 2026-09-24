@@ -4,21 +4,21 @@
 // the list of addresses funds may reach. It has no admin and no setter, so
 // changing the list means deploying another one and re-approving.
 
-import { Address, Asset, Operation, hash, scValToNative, xdr } from '@stellar/stellar-sdk'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { Address, Asset, hash, Operation, scValToNative, xdr } from '@stellar/stellar-sdk'
 import {
-  C,
-  LIMIT,
-  PASSPHRASE,
-  STATE_PATH,
-  type State,
   addr,
+  C,
   custodyPk,
   i128v,
   invokeOp,
   kv,
+  LIMIT,
   loadState,
+  PASSPHRASE,
   readCall,
+  STATE_PATH,
+  type State,
   secrets,
   send,
   server,
@@ -68,7 +68,8 @@ export async function gateSetup(flags: Flags): Promise<void> {
     prior = loadState()
     caller ??= prior.adapter
   }
-  if (!caller) throw new Error('--caller is required (no scripts/.demo-state.json to take an adapter from)')
+  if (!caller)
+    throw new Error('--caller is required (no scripts/.demo-state.json to take an adapter from)')
 
   const s = secrets()
   const sac = Asset.native().contractId(PASSPHRASE)
@@ -84,13 +85,15 @@ export async function gateSetup(flags: Flags): Promise<void> {
   console.log(`  ${C.dim('expires at'.padEnd(18, '.'))} ledger ${expiry} (${expiresIn} from now)`)
 
   if (dry) {
-    console.log(`\n  ${C.amber('DRY RUN')}  would deploy the gatekeeper and approve the limit to it.`)
+    console.log(
+      `\n  ${C.amber('DRY RUN')}  would deploy the gatekeeper and approve the limit to it.`
+    )
     console.log(`  ${C.dim('')}         Nothing was sent to the network.`)
     return
   }
 
   const wasm = readFileSync(wasmPath('custody-gate', 'custody_gate'))
-  await send(s.admin, Operation.uploadContractWasm({ wasm }), 'upload gate')
+  await await send(s.admin, Operation.uploadContractWasm({ wasm }), 'upload gate')
   const res = await send(
     s.admin,
     Operation.createCustomContract({
@@ -105,22 +108,22 @@ export async function gateSetup(flags: Flags): Promise<void> {
         ]),
       ],
     }),
-    'create gate',
+    'create gate'
   )
   const gate = Address.fromScVal(res.returnValue!).toString()
   console.log(`\n  deployed ${C.bold(gate)}`)
 
-  await send(
+  await await send(
     s.custody,
     invokeOp(sac, 'approve', [addr(custodyPk()), addr(gate), i128v(limit), u32v(expiry)]),
-    'approve gate',
+    'approve gate'
   )
   console.log(`  approved ${limit} to it, expiring at ledger ${expiry}`)
 
   if (prior) {
     writeFileSync(
       STATE_PATH,
-      `${JSON.stringify({ ...prior, gate, allowanceExpiryLedger: expiry }, null, 2)}\n`,
+      `${JSON.stringify({ ...prior, gate, allowanceExpiryLedger: expiry }, null, 2)}\n`
     )
     console.log(`  ${C.dim(`updated ${STATE_PATH}`)}`)
   }
@@ -130,14 +133,14 @@ export async function gateSetup(flags: Flags): Promise<void> {
 /** The gate has no getter - deliberately, since it has no admin either - so
  *  its configuration is read straight out of instance storage. */
 export async function readGateConfig(
-  gate: string,
+  gate: string
 ): Promise<{ custody: string; caller: string; allowed: string[] } | undefined> {
   const key = xdr.LedgerKey.contractData(
     new xdr.LedgerKeyContractData({
       contract: Address.fromString(gate).toScAddress(),
       key: xdr.ScVal.scvLedgerKeyContractInstance(),
       durability: xdr.ContractDataDurability.persistent(),
-    }),
+    })
   )
   const entries = await server.getLedgerEntries(key)
   const storage = entries.entries[0]?.val?.contractData()?.val()?.instance()?.storage()
@@ -184,7 +187,7 @@ export async function gateInfo(flags: Flags): Promise<void> {
   console.log(
     `  ${C.dim('expires'.padEnd(22, '.'))} ledger ${out.expiresAtLedger}  ${
       left > 0 ? `(${left} to go, about ${Math.round((left * 5) / 60)} min)` : C.amber('(expired)')
-    }`,
+    }`
   )
   console.log(C.bold('\nGate 2 — where funds may go'))
   for (const a of out.allowList) console.log(`  ${C.dim('allowed'.padEnd(22, '.'))} ${a}`)

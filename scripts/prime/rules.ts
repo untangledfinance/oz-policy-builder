@@ -11,17 +11,14 @@
 // an arbitrary predicate would be a foot-gun: an unsatisfiable one bricks the
 // rule, and a vacuous one silently constrains nothing.
 
-import { Address, scValToNative, xdr } from '@stellar/stellar-sdk'
 import { writeFileSync } from 'node:fs'
+import { Address, scValToNative, xdr } from '@stellar/stellar-sdk'
 import {
-  C,
-  POOL,
-  STATE_PATH,
-  type State,
   addRuleArgs,
   addr,
   and,
   asPrime,
+  C,
   callArg,
   callArgLen,
   cmp,
@@ -30,11 +27,13 @@ import {
   i128v,
   invokeOp,
   loadState,
+  POOL,
   path,
   readCall,
+  STATE_PATH,
+  type State,
   secrets,
   selector,
-  server,
   sym,
   u32v,
   vec,
@@ -100,8 +99,8 @@ export async function rulesList(flags: Flags): Promise<void> {
           rules: shown,
         },
         null,
-        2,
-      ),
+        2
+      )
     )
     return
   }
@@ -122,7 +121,7 @@ export async function rulesList(flags: Flags): Promise<void> {
     console.log(
       `  ${C.bold(`#${r.id}`)} ${r.name || C.dim('(unnamed)')}  ${
         policed ? C.green('policed') : C.amber('NO POLICY — unrestricted')
-      }`,
+      }`
     )
     if (r.context) console.log(`      ${C.dim('context'.padEnd(10, '.'))} ${r.context}`)
     for (const sg of r.signers) console.log(`      ${C.dim('signer'.padEnd(10, '.'))} ${sg}`)
@@ -134,19 +133,17 @@ export async function rulesList(flags: Flags): Promise<void> {
     if (unpoliced.length) {
       console.log(
         `\n  ${C.amber('UNCONSTRAINED')}  this key sits on ${unpoliced.length} rule(s) with no policy ` +
-          `(${unpoliced.map((r) => `#${r.id}`).join(', ')}).`,
+          `(${unpoliced.map((r) => `#${r.id}`).join(', ')}).`
       )
       console.log(
         C.dim(
           '  A caller names the rule that authorises a call, so this key can name one of\n' +
             '  those and the mandate never runs. Put a policed key on the policed rule and\n' +
-            '  nowhere else.',
-        ),
+            '  nowhere else.'
+        )
       )
     } else {
-      console.log(
-        `\n  ${C.green('CONSTRAINED')}  every rule this key can name carries a policy.`,
-      )
+      console.log(`\n  ${C.green('CONSTRAINED')}  every rule this key can name carries a policy.`)
     }
     return
   }
@@ -155,8 +152,8 @@ export async function rulesList(flags: Flags): Promise<void> {
     C.dim(
       '\n  Rule 0 carries unpoliced, permanent authority. Whoever signs it can install\n' +
         '  any rule, so it belongs on a multi-signature account you control.\n' +
-        '  See what one key can do:  prime rules list --signer G...',
-    ),
+        '  See what one key can do:  prime rules list --signer G...'
+    )
   )
 }
 
@@ -236,7 +233,9 @@ export async function rulesInstall(kind: string, flags: Flags): Promise<void> {
 
   if (kind === 'supply') {
     const ceiling = BigInt(need(flags, 'max-per-move'))
-    const returnTo = flags['return-to'] ? asAddress(String(flags['return-to']), 'return-to') : custodyPk()
+    const returnTo = flags['return-to']
+      ? asAddress(String(flags['return-to']), 'return-to')
+      : custodyPk()
     predicate = supplyPredicate({
       gate: s.gate,
       adapter: s.adapter,
@@ -251,14 +250,18 @@ export async function rulesInstall(kind: string, flags: Flags): Promise<void> {
     summary.push(
       `two calls: pull from ${s.gate}, then submit to ${venue}`,
       `amount strictly below ${ceiling}, and the amount pulled must equal the amount supplied`,
-      `proceeds addressed to ${returnTo}`,
+      `proceeds addressed to ${returnTo}`
     )
   } else if (kind === 'withdraw') {
     const to = flags.to ? asAddress(String(flags.to), 'to') : custodyPk()
     predicate = withdrawPredicate({ venue, to, prime: s.prime })
     scope = s.adapter
     signer = sec.agent.publicKey()
-    summary.push(`one call: submit to ${venue}`, `withdrawal, addressed to ${to}`, 'no executor authorizations')
+    summary.push(
+      `one call: submit to ${venue}`,
+      `withdrawal, addressed to ${to}`,
+      'no executor authorizations'
+    )
   } else {
     predicate = venuePredicate({ prime: s.prime, adapter: s.adapter })
     scope = venue
@@ -293,7 +296,7 @@ export async function rulesInstall(kind: string, flags: Flags): Promise<void> {
           predicate,
           adminPk: sec.admin.publicKey(),
         }),
-        auth,
+        auth
       ),
     ruleIds: [0],
     label: `install ${kind} rule`,
@@ -308,7 +311,12 @@ export async function rulesInstall(kind: string, flags: Flags): Promise<void> {
       kp: sec.admin,
       prime: s.prime,
       makeOp: (auth) =>
-        invokeOp(s.interpreter, 'bind_executor', [vec([addr(s.prime), u32v(id)]), addr(s.adapter)], auth),
+        invokeOp(
+          s.interpreter,
+          'bind_executor',
+          [vec([addr(s.prime), u32v(id)]), addr(s.adapter)],
+          auth
+        ),
       ruleIds: [0],
       label: 'bind executor',
       submit: true,
@@ -330,7 +338,8 @@ export async function rulesRemove(flags: Flags): Promise<void> {
   const s = loadState()
   const sec = secrets()
   const id = Number(need(flags, 'id'))
-  if (id === 0) throw new Error('rule 0 is the account\'s own recovery rule and cannot be removed here')
+  if (id === 0)
+    throw new Error("rule 0 is the account's own recovery rule and cannot be removed here")
 
   console.log(C.bold(`\nRemove rule #${id}`))
   const r: any = await readCall(s.prime, 'get_context_rule', [u32v(id)], sec.admin.publicKey())

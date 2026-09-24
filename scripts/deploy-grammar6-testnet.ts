@@ -7,19 +7,19 @@
 //
 //   bun scripts/deploy-grammar6-testnet.ts [--secret S...]
 
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import {
   Address,
   Contract,
+  hash,
   Keypair,
   Networks,
   Operation,
-  TransactionBuilder,
-  hash,
   rpc,
   scValToNative,
+  TransactionBuilder,
   xdr,
 } from '@stellar/stellar-sdk'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 
 // Artifacts come from each crate's own build output, so a fresh clone can run
 // this after `cargo build --release --target wasm32v1-none` in contracts/*.
@@ -33,7 +33,7 @@ function wasmPath(crate: string, file: string): string {
     throw new Error(
       `missing ${file}.wasm at ${candidate}\n` +
         `Build it:  cargo build --release --target wasm32v1-none --manifest-path contracts/${crate}/Cargo.toml\n` +
-        'or set PRIME_WASM_DIR to a directory holding the built artifacts.',
+        'or set PRIME_WASM_DIR to a directory holding the built artifacts.'
     )
   }
   return candidate
@@ -104,7 +104,7 @@ async function main() {
       wasmHash: Buffer.from(hashes.interpreter, 'hex'),
       salt: hash(Buffer.from('untangled.policy-interpreter.grammar6')),
     }),
-    'create interpreter',
+    'create interpreter'
   )
   const interpreter = Address.fromScVal(created.returnValue!).toString()
 
@@ -128,7 +128,7 @@ async function main() {
       contract: Address.fromString(interpreter).toScAddress(),
       key: xdr.ScVal.scvLedgerKeyContractInstance(),
       durability: xdr.ContractDataDurability.persistent(),
-    }),
+    })
   )
   const entries = await server.getLedgerEntries(instanceKey)
   const onChain = entries.entries[0]?.val

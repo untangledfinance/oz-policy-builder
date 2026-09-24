@@ -22,13 +22,13 @@ import {
   Address,
   Asset,
   BASE_FEE,
+  hash,
   Keypair,
   Networks,
-  Operation,
-  TransactionBuilder,
-  hash,
   nativeToScVal,
+  Operation,
   rpc,
+  TransactionBuilder,
   xdr,
 } from '@stellar/stellar-sdk'
 
@@ -48,8 +48,10 @@ async function loadAccount(pk: string): Promise<Account> {
 }
 
 /** Submit and wait. Returns {ok, status, detail}. Never throws on rejection. */
-async function submit(tx: any): Promise<{ ok: boolean; status: string; detail: string; hash?: string }> {
-  let sent
+async function submit(
+  tx: any
+): Promise<{ ok: boolean; status: string; detail: string; hash?: string }> {
+  let sent: Awaited<ReturnType<typeof server.sendTransaction>>
   try {
     sent = await server.sendTransaction(tx)
   } catch (e: any) {
@@ -62,7 +64,8 @@ async function submit(tx: any): Promise<{ ok: boolean; status: string; detail: s
   for (let i = 0; i < 30; i++) {
     await new Promise((r) => setTimeout(r, 1000))
     const got = await server.getTransaction(sent.hash)
-    if (got.status === 'SUCCESS') return { ok: true, status: 'SUCCESS', detail: '', hash: sent.hash }
+    if (got.status === 'SUCCESS')
+      return { ok: true, status: 'SUCCESS', detail: '', hash: sent.hash }
     if (got.status === 'FAILED') {
       let detail = 'FAILED'
       try {
@@ -93,7 +96,7 @@ async function classicTx(sourcePk: string, op: xdr.Operation, signers: Keypair[]
 function signAccountAuthEntry(
   entry: xdr.SorobanAuthorizationEntry,
   signers: Keypair[],
-  validUntilLedger: number,
+  validUntilLedger: number
 ): xdr.SorobanAuthorizationEntry {
   const creds = entry.credentials().address()
   creds.signatureExpirationLedger(validUntilLedger)
@@ -104,7 +107,7 @@ function signAccountAuthEntry(
       nonce: creds.nonce(),
       signatureExpirationLedger: validUntilLedger,
       invocation: entry.rootInvocation(),
-    }),
+    })
   )
   const payload = hash(preimage.toXDR())
 
@@ -121,7 +124,7 @@ function signAccountAuthEntry(
           key: xdr.ScVal.scvSymbol('signature'),
           val: xdr.ScVal.scvBytes(sig),
         }),
-      ]),
+      ])
     )
 
   creds.signature(xdr.ScVal.scvVec(sigs))
@@ -132,7 +135,7 @@ function invokeOp(
   contractId: string,
   fnName: string,
   args: xdr.ScVal[],
-  auth: xdr.SorobanAuthorizationEntry[],
+  auth: xdr.SorobanAuthorizationEntry[]
 ): xdr.Operation {
   return Operation.invokeHostFunction({
     func: xdr.HostFunction.hostFunctionTypeInvokeContract(
@@ -140,7 +143,7 @@ function invokeOp(
         contractAddress: Address.fromString(contractId).toScAddress(),
         functionName: fnName,
         args,
-      }),
+      })
     ),
     auth,
   })
@@ -159,7 +162,7 @@ async function sorobanTx(
   authSigners: Keypair[],
   /** Submit even if the enforcing simulation refuses, so the REJECTION comes
    *  from consensus rather than from the RPC declining to prepare. */
-  forceSubmit = false,
+  forceSubmit = false
 ) {
   const sequence = (await loadAccount(txSourceKp.publicKey())).sequenceNumber()
   const latest = await server.getLatestLedger()
@@ -205,7 +208,9 @@ async function sorobanTx(
 
   // On a forced run the enforcing simulation produced no resources, so borrow
   // the footprint from the unsigned probe - the invocation is identical.
-  const prepared = rpc.assembleTransaction(withAuth, rpc.Api.isSimulationError(sim2) ? sim : sim2).build()
+  const prepared = rpc
+    .assembleTransaction(withAuth, rpc.Api.isSimulationError(sim2) ? sim : sim2)
+    .build()
 
   // assembleTransaction can substitute the simulation's own auth; put ours back.
   const op = prepared.operations[0] as any
@@ -216,12 +221,16 @@ async function sorobanTx(
   return await submit(final)
 }
 
-function verdict(name: string, expectOk: boolean, got: { ok: boolean; status: string; detail: string }) {
+function verdict(
+  name: string,
+  expectOk: boolean,
+  got: { ok: boolean; status: string; detail: string }
+) {
   const pass = got.ok === expectOk
   const want = expectOk ? 'SUCCEED' : 'FAIL'
   console.log(
     `\n${pass ? '  PASS' : '  ** UNEXPECTED **'}  ${name}\n` +
-      `        expected: ${want}   got: ${got.ok ? 'SUCCESS' : `${got.status} / ${got.detail}`}`,
+      `        expected: ${want}   got: ${got.ok ? 'SUCCESS' : `${got.status} / ${got.detail}`}`
   )
   return pass
 }
@@ -256,14 +265,19 @@ async function main() {
       highThreshold: 20,
       signer: { ed25519PublicKey: cosign.publicKey(), weight: 10 },
     }),
-    [custody],
+    [custody]
   )
   if (!setup.ok) throw new Error(`setup failed: ${setup.status} ${setup.detail}`)
   log('SETUP', `thresholds applied  tx ${setup.hash}`)
 
-  const acct = await (await fetch(`https://horizon-testnet.stellar.org/accounts/${custody.publicKey()}`)).json()
+  const acct = await (
+    await fetch(`https://horizon-testnet.stellar.org/accounts/${custody.publicKey()}`)
+  ).json()
   log('SETUP', `thresholds now ${JSON.stringify(acct.thresholds)}`)
-  log('SETUP', `signers ${JSON.stringify(acct.signers.map((s: any) => ({ k: s.key.slice(0, 6), w: s.weight })))}`)
+  log(
+    'SETUP',
+    `signers ${JSON.stringify(acct.signers.map((s: any) => ({ k: s.key.slice(0, 6), w: s.weight })))}`
+  )
 
   const sac = Asset.native().contractId(NETWORK)
   log('SETUP', `native SAC ${sac}`)
@@ -274,7 +288,7 @@ async function main() {
   const a = await classicTx(
     custody.publicKey(),
     Operation.payment({ destination: dest.publicKey(), asset: Asset.native(), amount: '1' }),
-    [custody],
+    [custody]
   )
   results.push(verdict('A  classic payment, custody signature only', false, a))
 
@@ -282,7 +296,7 @@ async function main() {
   const a3 = await classicTx(
     custody.publicKey(),
     Operation.accountMerge({ destination: dest.publicKey() }),
-    [custody],
+    [custody]
   )
   results.push(verdict('A3 accountMerge, custody signature only', false, a3))
 
@@ -293,7 +307,7 @@ async function main() {
   const a4 = await classicTx(
     custody.publicKey(),
     Operation.setOptions({ medThreshold: 10, highThreshold: 10 }),
-    [custody],
+    [custody]
   )
   results.push(verdict('A4 setOptions lowering thresholds, custody signature only', false, a4))
 
@@ -301,7 +315,7 @@ async function main() {
   const a2 = await classicTx(
     custody.publicKey(),
     Operation.payment({ destination: dest.publicKey(), asset: Asset.native(), amount: '1' }),
-    [custody, cosign],
+    [custody, cosign]
   )
   results.push(verdict('A2 classic payment, both signatures', true, a2))
 
@@ -316,11 +330,23 @@ async function main() {
   const expLedger = latest.sequence + 5000
 
   // ---- B: Soroban approve auth entry, ONE signature -> must FAIL
-  const b = await sorobanTx(spender, sac, 'approve', approveArgs(50_000_000n, expLedger), [custody], true)
-  results.push(verdict('B  Soroban approve, custody signature only  <-- load bearing', false, b as any))
+  const b = await sorobanTx(
+    spender,
+    sac,
+    'approve',
+    approveArgs(50_000_000n, expLedger),
+    [custody],
+    true
+  )
+  results.push(
+    verdict('B  Soroban approve, custody signature only  <-- load bearing', false, b as any)
+  )
 
   // ---- C: Soroban approve auth entry, BOTH -> must SUCCEED
-  const c = await sorobanTx(spender, sac, 'approve', approveArgs(50_000_000n, expLedger), [custody, cosign])
+  const c = await sorobanTx(spender, sac, 'approve', approveArgs(50_000_000n, expLedger), [
+    custody,
+    cosign,
+  ])
   results.push(verdict('C  Soroban approve, both signatures', true, c as any))
 
   // ---- D: spender transfer_from, NO custody signature -> must SUCCEED
@@ -334,12 +360,14 @@ async function main() {
       new Address(dest.publicKey()).toScVal(),
       nativeToScVal(10_000_000n, { type: 'i128' }),
     ],
-    [],
+    []
   )
   results.push(verdict('D  transfer_from by spender, no custody signature', true, d as any))
 
   console.log(`\n=== ${results.filter(Boolean).length}/${results.length} as predicted ===`)
-  console.log(`custody account: https://stellar.expert/explorer/testnet/account/${custody.publicKey()}`)
+  console.log(
+    `custody account: https://stellar.expert/explorer/testnet/account/${custody.publicKey()}`
+  )
 }
 
 main().catch((e) => {

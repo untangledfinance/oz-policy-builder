@@ -13,20 +13,19 @@
 //
 // T1 and T2 must SUCCEED, T3 must FAIL. Every case is really submitted.
 
+import { existsSync, readFileSync } from 'node:fs'
 import {
   Address,
   Asset,
-  BASE_FEE,
+  hash,
   Keypair,
   Networks,
-  Operation,
-  TransactionBuilder,
-  hash,
   nativeToScVal,
+  Operation,
   rpc,
+  TransactionBuilder,
   xdr,
 } from '@stellar/stellar-sdk'
-import { existsSync, readFileSync } from 'node:fs'
 
 // Built from contracts/invoker-auth-probe:
 //   cargo build --release --target wasm32v1-none \
@@ -57,7 +56,8 @@ async function settle(sent: any): Promise<Outcome> {
   for (let i = 0; i < 40; i++) {
     await new Promise((r) => setTimeout(r, 1000))
     const got: any = await server.getTransaction(sent.hash)
-    if (got.status === 'SUCCESS') return { ok: true, status: 'SUCCESS', detail: '', hash: sent.hash, ret: got.returnValue }
+    if (got.status === 'SUCCESS')
+      return { ok: true, status: 'SUCCESS', detail: '', hash: sent.hash, ret: got.returnValue }
     if (got.status === 'FAILED') {
       let detail = 'FAILED'
       try {
@@ -70,7 +70,11 @@ async function settle(sent: any): Promise<Outcome> {
 }
 
 /** Build, prepare, sign with `signer` only, submit. No extra auth entries. */
-async function send(signer: Keypair, op: xdr.Operation, opts: { force?: boolean } = {}): Promise<Outcome> {
+async function send(
+  signer: Keypair,
+  op: xdr.Operation,
+  opts: { force?: boolean } = {}
+): Promise<Outcome> {
   const acct = await server.getAccount(signer.publicKey())
   const tx = new TransactionBuilder(acct, { fee: '2000000', networkPassphrase: NETWORK })
     .addOperation(op)
@@ -85,7 +89,10 @@ async function send(signer: Keypair, op: xdr.Operation, opts: { force?: boolean 
   }
   const requiredAuth = (sim as any).result?.auth ?? []
   if (requiredAuth.length) {
-    log('AUTH', `simulation says ${requiredAuth.length} auth entr${requiredAuth.length === 1 ? 'y' : 'ies'} required`)
+    log(
+      'AUTH',
+      `simulation says ${requiredAuth.length} auth entr${requiredAuth.length === 1 ? 'y' : 'ies'} required`
+    )
     for (const e of requiredAuth) {
       const c = e.credentials()
       log('AUTH', `  credentials = ${c.switch().name}`)
@@ -106,7 +113,7 @@ function invoke(contract: string, fn: string, args: xdr.ScVal[]): xdr.Operation 
         contractAddress: Address.fromString(contract).toScAddress(),
         functionName: fn,
         args,
-      }),
+      })
     ),
     auth: [],
   })
@@ -117,7 +124,7 @@ function verdict(name: string, expectOk: boolean, got: Outcome): boolean {
   console.log(
     `\n${pass ? '  PASS' : '  ** UNEXPECTED **'}  ${name}\n` +
       `        expected ${expectOk ? 'SUCCESS' : 'FAILURE'}   got ${got.ok ? 'SUCCESS' : `${got.status} / ${got.detail}`}` +
-      (got.hash ? `\n        ${got.hash}` : ''),
+      (got.hash ? `\n        ${got.hash}` : '')
   )
   return pass
 }
@@ -148,7 +155,7 @@ async function main() {
         'Build it first:\n' +
         '  cargo build --release --target wasm32v1-none \\\n' +
         '    --manifest-path contracts/invoker-auth-probe/Cargo.toml\n' +
-        'or point PROBE_WASM at an existing build.',
+        'or point PROBE_WASM at an existing build.'
     )
   }
   const wasm = readFileSync(WASM)
@@ -189,7 +196,7 @@ async function main() {
       Address.fromString(probeA).toScVal(),
       nativeToScVal(50_000_000n, { type: 'i128' }),
       xdr.ScVal.scvU32(latest.sequence + 5000),
-    ]),
+    ])
   )
   if (!approve.ok) throw new Error(`approve failed: ${approve.status} ${approve.detail}`)
   log('SETUP', `allowance user -> probeA granted  ${approve.hash}`)
@@ -205,7 +212,7 @@ async function main() {
       new Address(user.publicKey()).toScVal(),
       new Address(dest.publicKey()).toScVal(),
       nativeToScVal(10_000_000n, { type: 'i128' }),
-    ]),
+    ])
   )
   results.push(verdict('T1  gate-as-spender needs no signature of its own', true, t1))
 

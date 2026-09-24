@@ -1,26 +1,27 @@
 // Testnet ONLY. Generates disposable faucet-funded keys; never reads production keys.
 // Run from repository root with STATE and BUILD overrides if desired.
+
+import assert from 'node:assert/strict'
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
 import {
   Address,
   Contract,
+  hash,
   Keypair,
   Networks,
+  nativeToScVal,
   Operation,
   rpc,
+  StrKey,
   TransactionBuilder,
   xdr,
-  nativeToScVal,
-  hash,
-  StrKey,
 } from '@stellar/stellar-sdk'
-import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync } from 'node:fs'
-import { dirname } from 'node:path'
-import assert from 'node:assert/strict'
-import { encodePredicate } from '../packages/policy-synth/src/predicate/encode.ts'
 import {
   buildExecutionBatchPolicy,
   projectExecutionRequest,
 } from '../packages/policy-synth/src/install/execution-batch.ts'
+import { encodePredicate } from '../packages/policy-synth/src/predicate/encode.ts'
 import {
   accountEntry,
   authDigest,
@@ -43,7 +44,7 @@ const AMOUNT = 1000000n,
   CAP = 2000000n,
   ALL = (1n << 127n) - 1n
 const salt = hash(Buffer.from('prime.execution.adapter.v1'))
-let state: any = existsSync(STATE)
+const state: any = existsSync(STATE)
   ? JSON.parse(readFileSync(STATE, 'utf8'))
   : {
       owner: Keypair.random().secret(),
@@ -531,7 +532,7 @@ for (const [name, calls] of [
   await bind(name)
 }
 await check('approve Prime only', async () => {
-  await plain(
+  await await plain(
     owner,
     TOKEN,
     'approve',
@@ -578,7 +579,7 @@ await check('no-funding action', async () => {
 await check('late failure rolls back wallet pull', async () => {
   const before = await snapshot(),
     b = await execution([pull(AMOUNT), act(8)], 'rollback')
-  await plain(
+  await await plain(
     owner,
     state.contracts.fixture,
     'set_fail',
@@ -589,7 +590,7 @@ await check('late failure rolls back wallet pull', async () => {
   await submit(b.tx, 'failed batch rolls back', 'FAILED')
   const after = await snapshot()
   assert.deepEqual(after, fundedBefore)
-  await plain(
+  await await plain(
     owner,
     state.contracts.fixture,
     'set_fail',
@@ -638,7 +639,7 @@ await check('different Prime rejected', async () => {
   return { error: sim.error }
 })
 await check('revoke remaining test allowance', async () => {
-  await plain(
+  await await plain(
     owner,
     TOKEN,
     'approve',

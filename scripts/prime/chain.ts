@@ -4,23 +4,21 @@
 // Extracted verbatim from the four-gate demo once the CLI needed the same
 // machinery. Nothing here is specific to a scenario.
 
-import {
-  Address,
-  Asset,
-  BASE_FEE,
-  Horizon,
-  Keypair,
-  Networks,
-  Operation,
-  TransactionBuilder,
-  hash,
-  nativeToScVal,
-  rpc,
-  scValToNative,
-  xdr,
-} from '@stellar/stellar-sdk'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import {
+  Address,
+  Horizon,
+  hash,
+  Keypair,
+  Networks,
+  nativeToScVal,
+  Operation,
+  rpc,
+  scValToNative,
+  TransactionBuilder,
+  xdr,
+} from '@stellar/stellar-sdk'
 
 export const PASSPHRASE = Networks.TESTNET
 export const FEE = '6000000'
@@ -91,7 +89,7 @@ export function wasmPath(crate: string, file: string): string {
     throw new Error(
       `missing ${file}.wasm at ${candidate}\n` +
         `Build it:  cargo build --release --target wasm32v1-none --manifest-path contracts/${crate}/Cargo.toml\n` +
-        'or set PRIME_WASM_DIR to a directory holding the built artifacts.',
+        'or set PRIME_WASM_DIR to a directory holding the built artifacts.'
     )
   }
   return candidate
@@ -111,14 +109,19 @@ export function readEnv(): Record<string, string> {
   return out
 }
 
-const KEYS = ['DEMO_CUSTODY_SECRET', 'DEMO_COSIGN_SECRET', 'DEMO_AGENT_SECRET', 'DEMO_ADMIN_SECRET'] as const
+const KEYS = [
+  'DEMO_CUSTODY_SECRET',
+  'DEMO_COSIGN_SECRET',
+  'DEMO_AGENT_SECRET',
+  'DEMO_ADMIN_SECRET',
+] as const
 
 export function loadSecrets(): Secrets {
   const env = { ...readEnv(), ...process.env }
   const missing = KEYS.filter((k) => !env[k])
   if (missing.length) {
     throw new Error(
-      `missing ${missing.join(', ')} in ${ENV_PATH}\nRun:  prime up   (or set PRIME_HOME to the repo root)`,
+      `missing ${missing.join(', ')} in ${ENV_PATH}\nRun:  prime up   (or set PRIME_HOME to the repo root)`
     )
   }
   return {
@@ -140,7 +143,7 @@ export function writeEnv(s: Secrets) {
       `DEMO_AGENT_SECRET=${s.agent.secret()}`,
       `DEMO_ADMIN_SECRET=${s.admin.secret()}`,
       '',
-    ].join('\n'),
+    ].join('\n')
   )
 }
 
@@ -189,14 +192,17 @@ export async function send(kp: Keypair, op: xdr.Operation, label: string) {
     .build()
   const prepared = await server.prepareTransaction(tx)
   prepared.sign(kp)
-  return settle(await server.sendTransaction(prepared), label)
+  // Awaited here, not just returned: an async function that RETURNS a promise
+  // is typed `Promise<Promise<T>>` by the lint's inference, so every caller's
+  // correct `await send(...)` was reported as a floating promise.
+  return await settle(await server.sendTransaction(prepared), label)
 }
 
 export function invokeOp(
   contract: string,
   fn: string,
   args: xdr.ScVal[],
-  auth: xdr.SorobanAuthorizationEntry[] = [],
+  auth: xdr.SorobanAuthorizationEntry[] = []
 ) {
   return Operation.invokeHostFunction({
     func: xdr.HostFunction.hostFunctionTypeInvokeContract(
@@ -204,7 +210,7 @@ export function invokeOp(
         contractAddress: Address.fromString(contract).toScAddress(),
         functionName: fn,
         args,
-      }),
+      })
     ),
     auth,
   })
@@ -228,7 +234,11 @@ export async function readCall(contract: string, fn: string, args: xdr.ScVal[], 
 
 export const delegatedSigner = (a: string) => vec([sym('Delegated'), addr(a)])
 
-export const signaturePayload = (nonce: xdr.Int64, exp: number, inv: xdr.SorobanAuthorizedInvocation) =>
+export const signaturePayload = (
+  nonce: xdr.Int64,
+  exp: number,
+  inv: xdr.SorobanAuthorizedInvocation
+) =>
   hash(
     xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
       new xdr.HashIdPreimageSorobanAuthorization({
@@ -236,14 +246,19 @@ export const signaturePayload = (nonce: xdr.Int64, exp: number, inv: xdr.Soroban
         nonce,
         signatureExpirationLedger: exp,
         invocation: inv,
-      }),
-    ).toXDR(),
+      })
+    ).toXDR()
   )
 
 export const authDigest = (payload: Buffer, ruleIds: number[]) =>
   hash(Buffer.concat([payload, vec(ruleIds.map(u32v)).toXDR()]))
 
-export type Res = { denied: boolean; stage?: 'execution' | 'policy' | 'submit'; reason?: string; got?: any }
+export type Res = {
+  denied: boolean
+  stage?: 'execution' | 'policy' | 'submit'
+  reason?: string
+  got?: any
+}
 
 /**
  * Run `makeOp` under Prime's authority.
@@ -286,7 +301,7 @@ export async function asPrime(opts: {
   const own = recorded.find(
     (e) =>
       e.credentials().switch() === xdr.SorobanCredentialsType.sorobanCredentialsAddress() &&
-      Address.fromScAddress(e.credentials().address().address()).toString() === prime,
+      Address.fromScAddress(e.credentials().address().address()).toString() === prime
   )
   if (!own) throw new Error(`${label}: no address-credential entry for Prime`)
 
@@ -308,11 +323,14 @@ export async function asPrime(opts: {
               signerList
                 .map((a) => ({ a, k: delegatedSigner(a) }))
                 .sort((x, y) => Buffer.compare(x.k.toXDR(), y.k.toXDR()))
-                .map(({ k }) => new xdr.ScMapEntry({ key: k, val: xdr.ScVal.scvBytes(Buffer.alloc(0)) })),
-            ),
+                .map(
+                  ({ k }) =>
+                    new xdr.ScMapEntry({ key: k, val: xdr.ScVal.scvBytes(Buffer.alloc(0)) })
+                )
+            )
           ),
         ]),
-      }),
+      })
     ),
     rootInvocation: own.rootInvocation(),
   })
@@ -325,7 +343,7 @@ export async function asPrime(opts: {
           contractAddress: Address.fromString(prime).toScAddress(),
           functionName: '__check_auth',
           args: [xdr.ScVal.scvBytes(digest)],
-        }),
+        })
       ),
       subInvocations: [],
     }),
@@ -426,7 +444,7 @@ export const grant = (s: State, target: string, fn: string, args: xdr.ScVal[]) =
           kv('args', vec([addr(s.prime), ctxVal(target, fn, args)])),
           kv('contract', addr(s.interpreter)),
           kv('fn_name', sym('enforce')),
-        ]),
+        ])
       ),
       kv('sub_invocations', vec([])),
     ]),
@@ -464,14 +482,14 @@ export async function readState(s: State, want: string[]): Promise<Shown> {
     jobs.push(
       readCall(s.sac, 'allowance', [addr(custodyPk()), addr(s.gate)], admin).then((v) => {
         out['your spending limit, remaining'] = `${v ?? 0}`
-      }),
+      })
     )
   }
   if (want.includes('custody')) {
     jobs.push(
       readCall(s.sac, 'balance', [addr(custodyPk())], admin).then((v) => {
         out['your account balance'] = `${v ?? 0}`
-      }),
+      })
     )
   }
   if (want.includes('position')) {
@@ -480,7 +498,7 @@ export async function readState(s: State, want: string[]): Promise<Shown> {
         const supply = v?.supply
         const shares = supply ? Object.values(supply)[0] : undefined
         out['position held in our name'] = shares ? `${shares} shares` : 'none'
-      }),
+      })
     )
   }
   if (want.includes('ledger')) {
@@ -489,7 +507,7 @@ export async function readState(s: State, want: string[]): Promise<Shown> {
         out['ledger now'] = `${l.sequence}`
         out['your limit expires at ledger'] =
           `${s.allowanceExpiryLedger} (${s.allowanceExpiryLedger - l.sequence} to go)`
-      }),
+      })
     )
   }
   if (want.includes('thresholds')) {
@@ -497,8 +515,10 @@ export async function readState(s: State, want: string[]): Promise<Shown> {
       horizon.loadAccount(custodyPk()).then((a: any) => {
         out['your account thresholds'] =
           `low ${a.thresholds.low_threshold} / med ${a.thresholds.med_threshold} / high ${a.thresholds.high_threshold}`
-        out['signers'] = a.signers.map((x: any) => `${x.key.slice(0, 6)}… weight ${x.weight}`).join(', ')
-      }),
+        out['signers'] = a.signers
+          .map((x: any) => `${x.key.slice(0, 6)}… weight ${x.weight}`)
+          .join(', ')
+      })
     )
   }
   await Promise.all(jobs)
@@ -508,7 +528,6 @@ export async function readState(s: State, want: string[]): Promise<Shown> {
 export let _secrets: Secrets | undefined
 export const secrets = () => (_secrets ??= loadSecrets())
 export const custodyPk = () => secrets().custody.publicKey()
-
 
 export const setSecrets = (s: Secrets) => {
   _secrets = s

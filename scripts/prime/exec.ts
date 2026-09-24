@@ -17,8 +17,27 @@
 //                                                    unpoliced, which is the
 //                                                    exposure docs 9.7 names
 
-import { C, MOVE, type State, addr, custodyPk, grant, i128v, invokeOp, kv, loadState, call, readCall, secrets, sym, u32v, vec, asPrime, POOL } from './chain.ts'
 import { Keypair, xdr } from '@stellar/stellar-sdk'
+import {
+  addr,
+  asPrime,
+  C,
+  call,
+  custodyPk,
+  grant,
+  i128v,
+  invokeOp,
+  kv,
+  loadState,
+  MOVE,
+  POOL,
+  readCall,
+  type State,
+  secrets,
+  sym,
+  u32v,
+  vec,
+} from './chain.ts'
 
 type Flags = Record<string, string | boolean>
 
@@ -74,7 +93,7 @@ function supplyBatch(s: State, amount: bigint, venue: string) {
           kv('args', vec([addr(s.adapter), addr(venue), i128v(amount)])),
           kv('contract', addr(s.sac)),
           kv('fn_name', sym('transfer')),
-        ]),
+        ])
       ),
       kv('sub_invocations', vec([])),
     ]),
@@ -101,7 +120,10 @@ function withdrawBatch(s: State, amount: bigint, to: string, venue: string) {
       ]),
     ]),
   ]
-  return { calls: vec([call(venue, 'submit', args)]), grants: vec([grant(s, venue, 'submit', args)]) }
+  return {
+    calls: vec([call(venue, 'submit', args)]),
+    grants: vec([grant(s, venue, 'submit', args)]),
+  }
 }
 
 async function run(
@@ -110,14 +132,19 @@ async function run(
   ruleIds: number[],
   label: string,
   submit: boolean,
-  kp = secrets().agent,
+  kp = secrets().agent
 ): Promise<void> {
   const t = performance.now()
   const res = await asPrime({
     kp,
     prime: s.prime,
     makeOp: (auth) =>
-      invokeOp(s.adapter, 'execute', [addr(s.prime), addr(s.interpreter), batch.calls, batch.grants], auth),
+      invokeOp(
+        s.adapter,
+        'execute',
+        [addr(s.prime), addr(s.interpreter), batch.calls, batch.grants],
+        auth
+      ),
     ruleIds,
     signers: [kp.publicKey(), s.adapter],
     label,
@@ -139,14 +166,18 @@ async function run(
   }
   if (!submit) {
     console.log(`\n  ${C.green('PERMITTED')} by every gate   ${C.dim(`${took}ms`)}`)
-    console.log(C.dim('  Simulated against the real contracts. Nothing was sent. Add --submit to land it.'))
+    console.log(
+      C.dim('  Simulated against the real contracts. Nothing was sent. Add --submit to land it.')
+    )
     return
   }
   const hash = res.got?.txHash ?? res.got?.hash
   console.log(`\n  ${C.green('SUBMITTED')} and confirmed   ${C.dim(`${took}ms`)}`)
   if (hash) {
     console.log(`  ${C.dim('tx'.padEnd(24, '.'))} ${C.bold(hash)}`)
-    console.log(`  ${C.dim('explorer'.padEnd(24, '.'))} https://stellar.expert/explorer/testnet/tx/${hash}`)
+    console.log(
+      `  ${C.dim('explorer'.padEnd(24, '.'))} https://stellar.expert/explorer/testnet/tx/${hash}`
+    )
   }
   const after = await readCall(s.sac, 'balance', [addr(custodyPk())], secrets().admin.publicKey())
   console.log(`  ${C.dim('custody balance now'.padEnd(24, '.'))} ${after ?? '?'}`)
@@ -187,7 +218,7 @@ export async function execSupply(flags: Flags): Promise<void> {
     rulesFor(flags, [s.rootRuleId, s.childRuleId]),
     'supply',
     flags.submit === true,
-    who.kp,
+    who.kp
   )
 }
 
@@ -217,6 +248,6 @@ export async function execWithdraw(flags: Flags): Promise<void> {
     rulesFor(flags, [s.withdrawRuleId, s.childRuleId]),
     'withdraw',
     flags.submit === true,
-    who.kp,
+    who.kp
   )
 }

@@ -1,16 +1,18 @@
 // Read-only verification of public deployment evidence. No private keys required.
+
+import assert from 'node:assert/strict'
+import { readFileSync, writeFileSync } from 'node:fs'
 import {
   Address,
   Contract,
   Networks,
   rpc,
-  TransactionBuilder,
-  xdr,
   StrKey,
   scValToNative,
+  TransactionBuilder,
+  xdr,
 } from '@stellar/stellar-sdk'
-import { readFileSync, writeFileSync } from 'node:fs'
-import assert from 'node:assert/strict'
+
 const path = 'docs/stateless-execution-testnet.json'
 const evidence = JSON.parse(readFileSync(path, 'utf8'))
 assert.equal(evidence.network, 'TESTNET')
