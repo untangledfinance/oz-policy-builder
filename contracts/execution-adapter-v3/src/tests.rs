@@ -266,6 +266,23 @@ fn the_binding_is_unchanged_after_a_refused_rebind() {
     assert_eq!(bound, w.gate);
 }
 
+/// THE TWO LENGTHS THE ADDRESS WALK COMPARES ARE THE WHOLE CONSTRUCTIBLE SET,
+/// and this is the tripwire that says so. A contract can build an `Address`
+/// from data three ways: `from_string` and `from_string_bytes`, which take a
+/// 56-character G or C strkey, and `from_payload`, which takes the raw 32
+/// bytes. A muxed strkey is 69 characters and the host refuses it outright -
+/// "unexpected strkey length" - so there is no third encoding for the walk to
+/// miss. If a protocol ever widens what `from_string` accepts, this test fails
+/// and `scan_data` needs the new length.
+#[test]
+#[should_panic]
+fn a_muxed_strkey_is_not_an_address_this_host_can_build() {
+    let e = Env::default();
+    let muxed = "MBSRYJ7BNJNEOCMQ5EBAJOTSLHWAOQXSSUUYECRU7KWZVXGAZ5PXGAIBAEAQCAIBAGQ7A";
+    assert_eq!(muxed.len(), 69);
+    Address::from_string(&SString::from_str(&e, muxed));
+}
+
 #[test]
 fn the_deployment_convention_derives_the_address_custody_names() {
     // Tooling computes this; the contract no longer asserts it, but the
