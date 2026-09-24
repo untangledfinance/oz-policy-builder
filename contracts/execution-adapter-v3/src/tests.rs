@@ -23,6 +23,15 @@ impl FixtureGate {
     pub fn two(_e: Env, _a: Val, _b: Val) {}
 }
 
+/// A contract that is not a gate: it answers neither `allowed` nor `custody`.
+#[contract]
+pub struct Bystander;
+
+#[contractimpl]
+impl Bystander {
+    pub fn ping(_e: Env) {}
+}
+
 struct World {
     e: Env,
     adapter: Address,
@@ -42,7 +51,14 @@ fn world() -> World {
     let allowed = Vec::from_array(&e, [custody.clone(), prime.clone()]);
     let gate = e.register(FixtureGate, (allowed, custody.clone()));
     let adapter = e.register(ExecutionAdapter, (prime.clone(), gate.clone()));
-    World { e, adapter, gate, prime, custody, stranger }
+    World {
+        e,
+        adapter,
+        gate,
+        prime,
+        custody,
+        stranger,
+    }
 }
 
 fn call_to(e: &Env, target: &Address, f: &str, args: Vec<Val>) -> Call {
@@ -96,7 +112,15 @@ fn refuses_the_prime_as_a_target() {
 fn refuses_a_stranger_in_an_argument() {
     let w = world();
     let args = Vec::from_array(&w.e, [w.stranger.to_val()]);
-    let calls = Vec::from_array(&w.e, [call_to(&w.e, &w.gate, if args.len() == 2 { "two" } else { "one" }, args)]);
+    let calls = Vec::from_array(
+        &w.e,
+        [call_to(
+            &w.e,
+            &w.gate,
+            if args.len() == 2 { "two" } else { "one" },
+            args,
+        )],
+    );
     refused(&w, calls, E::AddressNotAllowed);
 }
 
@@ -106,21 +130,57 @@ fn refuses_a_stranger_buried_in_a_nested_argument() {
     let inner: Vec<Val> = Vec::from_array(&w.e, [w.stranger.to_val()]);
     let mid: Vec<Val> = Vec::from_array(&w.e, [inner.into_val(&w.e)]);
     let args = Vec::from_array(&w.e, [mid.into_val(&w.e)]);
-    refused(&w, Vec::from_array(&w.e, [call_to(&w.e, &w.gate, if args.len() == 2 { "two" } else { "one" }, args)]), E::AddressNotAllowed);
+    refused(
+        &w,
+        Vec::from_array(
+            &w.e,
+            [call_to(
+                &w.e,
+                &w.gate,
+                if args.len() == 2 { "two" } else { "one" },
+                args,
+            )],
+        ),
+        E::AddressNotAllowed,
+    );
 }
 
 #[test]
 fn refuses_a_stranger_written_as_a_strkey() {
     let w = world();
     let args = Vec::from_array(&w.e, [w.stranger.to_string().to_val()]);
-    refused(&w, Vec::from_array(&w.e, [call_to(&w.e, &w.gate, if args.len() == 2 { "two" } else { "one" }, args)]), E::AddressNotAllowed);
+    refused(
+        &w,
+        Vec::from_array(
+            &w.e,
+            [call_to(
+                &w.e,
+                &w.gate,
+                if args.len() == 2 { "two" } else { "one" },
+                args,
+            )],
+        ),
+        E::AddressNotAllowed,
+    );
 }
 
 #[test]
 fn permits_an_allowed_address_written_as_a_strkey() {
     let w = world();
     let args = Vec::from_array(&w.e, [w.custody.to_string().to_val()]);
-    assert!(run(&w, Vec::from_array(&w.e, [call_to(&w.e, &w.gate, if args.len() == 2 { "two" } else { "one" }, args)])).is_ok());
+    assert!(run(
+        &w,
+        Vec::from_array(
+            &w.e,
+            [call_to(
+                &w.e,
+                &w.gate,
+                if args.len() == 2 { "two" } else { "one" },
+                args
+            )]
+        )
+    )
+    .is_ok());
 }
 
 #[test]
@@ -129,7 +189,19 @@ fn permits_data_that_cannot_denote_an_address() {
     let blob = Bytes::from_array(&w.e, &[7u8; 64]);
     let note = SString::from_str(&w.e, "settlement 42");
     let args = Vec::from_array(&w.e, [blob.to_val(), note.to_val()]);
-    assert!(run(&w, Vec::from_array(&w.e, [call_to(&w.e, &w.gate, if args.len() == 2 { "two" } else { "one" }, args)])).is_ok());
+    assert!(run(
+        &w,
+        Vec::from_array(
+            &w.e,
+            [call_to(
+                &w.e,
+                &w.gate,
+                if args.len() == 2 { "two" } else { "one" },
+                args
+            )]
+        )
+    )
+    .is_ok());
 }
 
 #[test]
@@ -155,9 +227,43 @@ fn the_binding_moves_only_with_the_gate_custody() {
     let successor = w.e.register(FixtureGate, (allowed, w.custody.clone()));
     ExecutionAdapterClient::new(&w.e, &w.adapter).rebind(&successor);
     let bound: Address = w.e.as_contract(&w.adapter, || {
-        w.e.storage().instance().get(&symbol_short!("gate")).unwrap()
+        w.e.storage()
+            .instance()
+            .get(&symbol_short!("gate"))
+            .unwrap()
     });
     assert_eq!(bound, successor);
+}
+
+/// A successor that cannot answer `custody` would be FINAL: `execute` reads
+/// `allowed` from the binding and `rebind` reads `custody`, so an address that
+/// is neither leaves the adapter unusable and unrebindable - and the Prime
+/// cannot deploy a replacement, because an OZ smart account deploys exactly
+/// one contract through rule 0. Reproduced on testnet before the check
+/// existed: rebound to a SAC, both calls failed Error(Value, InvalidInput)
+/// for good.
+#[test]
+#[should_panic]
+fn a_successor_that_is_not_a_gate_is_refused() {
+    let w = world();
+    // A contract with neither entry point - the shape a mistyped address takes.
+    let not_a_gate = w.e.register(Bystander, ());
+    ExecutionAdapterClient::new(&w.e, &w.adapter).rebind(&not_a_gate);
+}
+
+#[test]
+fn the_binding_is_unchanged_after_a_refused_rebind() {
+    let w = world();
+    let not_a_gate = w.e.register(Bystander, ());
+    let attempt = ExecutionAdapterClient::new(&w.e, &w.adapter).try_rebind(&not_a_gate);
+    assert!(attempt.is_err());
+    let bound: Address = w.e.as_contract(&w.adapter, || {
+        w.e.storage()
+            .instance()
+            .get(&symbol_short!("gate"))
+            .unwrap()
+    });
+    assert_eq!(bound, w.gate);
 }
 
 #[test]

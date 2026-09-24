@@ -1,11 +1,27 @@
 # OZ Policy Builder - STRIDE Threat Model
 
-**Subject:** `policy-interpreter` Soroban contract plus the `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` off-chain toolchain.
-**Date:** 2026-08-23
+**Subject:** the `policy-interpreter`, `custody-gate-v3` and `execution-adapter-v3` Soroban contracts plus the `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` off-chain toolchain.
+**Date:** 2026-09-25 (re-run; first written 2026-08-23)
 **Methodology:** Stellar STRIDE Threat Modeling, "STRIDE Threat Model Template" and "Threat Modeling How-To Guide" pages at `developers.stellar.org/docs/build/security-docs/threat-modeling`. The Stellar template's four-question scaffold (What are we working on / What can go wrong / What are we going to do about it / Did we do a good job) and its STRIDE-per-element format are followed.
 **Repo:** `untangledfinance/oz-policy-builder`
-**Grammar version:** 4 (`SELF_VERSION`, `src/version.rs`)
-**Subject tree:** 1008 nSLOC of on-chain production code.
+**Grammar version:** 6 (`SELF_VERSION`, `src/version.rs`)
+**Subject tree:** 1074 nSLOC of on-chain production code - interpreter 893, adapter 128, gate 53.
+
+### What changed since the 2026-08-23 run
+
+Two things, and the second is why this is a re-run rather than a refresh.
+
+**Grammar 4 became grammar 6.** The leaf set gained `call_path`, which reaches
+into a BATCH - `calls[n].args[i]` - instead of addressing one call's arguments.
+That is a new shape, not a new value, and section 5 asks of it the question the
+last run learned to ask (C1-E.9).
+
+**Two contracts were added that stand between an agent and custody's money**,
+and neither was in the previous model: a custody gate that holds an allowance
+and releases it only to a code-pinned caller, and a per-Prime adapter that
+executes a batch and refuses any batch naming an address the gate does not.
+They are modelled here as C8 and C9. The threat this run found and closed was
+in that pair (C9-D.2).
 
 ---
 
@@ -14,13 +30,16 @@
 ### In scope
 
 - `contracts/policy-interpreter/` - the on-chain Soroban contract that evaluates one predicate per `enforce` call.
+- `contracts/custody-gate-v3/` - the client's gatekeeper. Holds no funds: it holds an allowance custody granted it, and releases inside that only to one code-pinned caller, only to a listed destination.
+- `contracts/execution-adapter-v3/` - the per-Prime batcher, bound to one gate. Refuses any batch mentioning an address the gate does not name.
 - `packages/policy-synth/` - the off-chain core: predicate encoder/decoder, recording synthesis, install/revoke/info wrappers, registry, schemas.
 - `packages/policy-builder-cli/` - the CLI front-end over the synth core.
 - `packages/policy-builder-mcp/` - the MCP server (stdio and Streamable HTTP transports) and its tool registrations.
 
 ### Out of scope, named with their trust assumption
 
-- `contracts/test-blend-pool/` - a test double. Trust assumption: NOT production code; testnet only. Not modelled.
+- `contracts/test-blend-pool/`, `contracts/execution-test-venue/`, `contracts/invoker-auth-probe/` - test doubles and probes. Trust assumption: NOT production code; testnet only. Not modelled.
+- `contracts/execution-adapter/`, `contracts/custody-gate/`, `contracts/execution-policy/` - the v1 and v2 generations, superseded by the pair above. Trust assumption: still deployed and still reachable by accounts holding v1 rules, but no longer the code this repo builds against. An account on them inherits the previous model, not this one.
 - OpenZeppelin Stellar smart-account contracts. Trust assumption: OZ smart-account correctness is assumed - the interpreter is a delegate of one. OZ's `__check_auth`, `add_context_rule`, `remove_context_rule` and signer-threshold semantics are external dependencies.
 - Stellar protocol, validators, RPC endpoints. Trust assumption: Stellar validators and pinned RPCs behave correctly; the install/revoke/info paths bind their signatures to whichever RPC answered.
 
@@ -47,6 +66,17 @@ integrity question: nothing can archive before its document and silently refill
 a cap, and no window can be counted twice. There is no circuit breaker, so no
 account-versus-rule scoping question about who may trip it.
 
+### The same property, in the two new contracts
+
+Neither new contract keeps a counter, an accumulator or a nonce either. The
+gate's configuration is written once by its constructor and has no setter; the
+adapter's `prime` is write-once and its `gate` moves only under the current
+custody's signature. So the questions state invites - replay, exhaustion, an
+entry archiving out from under a rule, a counter refilling a cap - do not arise
+for them any more than for `enforce`. What DOES carry state is the SAC
+allowance the gate spends, and that is an asset, not a mechanism either
+contract implements.
+
 ### Methodology followed
 
 The Stellar STRIDE Threat Model Template prescribes a four-question scaffold plus a STRIDE table per data flow. The How-To Guide adds: enumerate external entities, processes, data flows, data storage, trust boundaries; apply STRIDE per subprocess. Sections 2-8 follow that structure.
@@ -66,6 +96,9 @@ The Stellar STRIDE Threat Model Template prescribes a four-question scaffold plu
 | C5 | `policy-builder-cli` | off-chain (TypeScript) | Thin command-line surface over the synth core. No key custody. |
 | C6 | Wallet | user-side | Signs the unsigned XDR the MCP/CLI returns. The wallet signature is the user-confirmation step. |
 | C7 | Pinned Soroban RPC | external network | Provides `getAccount`, `simulateTransaction`, `getLatestLedger`, `getTransaction`. URL is pinned per network. |
+| C8 | `custody-gate-v3` contract | on-chain | Holds an allowance custody granted it and spends strictly inside it. No admin, no setter, no upgrade. `pull` requires the pinned caller's auth, that caller's pinned CODE, and a listed destination. |
+| C9 | `execution-adapter-v3` contract | on-chain | Per-Prime batcher, bound to one gate for life unless custody moves it. Runs a batch of calls under the Prime's authorisation and refuses any batch that mentions an address the gate does not name. |
+| C10 | Custody account | user-side | The party whose money the gate spends. Deploys the gate, grants it the SAC allowance, and is the only party who may move the adapter to a successor gate. |
 
 ### Data storage
 
@@ -78,6 +111,8 @@ lifecycle. There is no entry that `enforce` writes.
 | S2 | `(account, rule_id, K_NONCE=2)` -> `u32` | persistent; bumped alongside K_DOC | `install` | replay protection |
 | S3 | `(account, rule_id, K_SIGNERS_HASH=3)` -> `BytesN<32>` | persistent; bumped alongside K_DOC | `install`, `rotate_master_signer_set` | binds the policy to a signer set |
 | S4 | `(account, rule_id, K_MASTER_SET=4)` -> `Vec<Signer>` | persistent; bumped alongside K_DOC | `install`, `rotate_master_signer_set` | governs install/uninstall/rotate |
+| S5 | gate instance: `Cfg { custody, caller, caller_code, allowed }` | instance; written once | gate `__constructor` | no setter exists; changing any field means a new gate |
+| S6 | adapter instance: `prime`, `gate` | instance | adapter `__constructor`, `rebind` | `prime` is write-once; `gate` moves only with the CURRENT gate's custody signature |
 
 TTL: `TTL_BUMP_THRESHOLD` 100, `TTL_BUMP_TO` 518,400 (`src/storage.rs`). All
 four are extended together in `state::extend_state_ttl`, guarded on
@@ -106,7 +141,7 @@ cross-contract calls during `enforce`.
 
 - **One immutable, audited, versioned predicate interpreter; policy is DATA.** A bad policy is a user error (a known-acceptable risk); a bad interpreter is a systemic failure. The interpreter is the audit-once surface; policy bytes are untrusted data validated fail-closed at install and re-validated at every `enforce`.
 - **Wallet signature is the user-confirmation step.** The MCP server holds no key material; `install_policy` returns an unsigned XDR. The server is stateless, so there is no two-call handshake.
-- **v1 scope is one authorised call.** `extract_call` handles `Context::Contract` only and panics `MissingState` on any other context shape.
+- **One authorised call per `enforce`, and grammar 6 can reach inside it.** `extract_call` handles `Context::Contract` only and panics `MissingState` on any other context shape. What changed at grammar 6 is reach, not count: `call_path` addresses the batch INSIDE the one authorised `execute` call, which is why a batch predicate has to pin the call count as well as the calls (C1-E.9).
 - **Write-free enforcement is a security property.** `enforce` keeps no counter, accumulator or nonce of its own, so there is nothing at evaluation time to corrupt, replay, exhaust or let archive out from under a rule.
 
 ---
@@ -121,6 +156,8 @@ What an attacker wants:
 4. **Availability of `enforce`.** A DoS on `enforce` bricks the policed account - it falls through to OZ's no-policy rule, which requires all-of-N signers (see Verified Constraints). The interpreter fails CLOSED on every deny code; `panic_with_error!` rolls back the frame.
 5. **Master-set authority.** Whoever passes `require_master` can install, uninstall and rotate. The set is established at install and rotated only by itself.
 6. **Cross-layer integrity: TS encoder vs Rust decoder.** If they diverge, a TS-encoded policy could install cleanly and evaluate differently than the author intended. The conformance suite is the structural witness.
+7. **The custody allowance.** Not the custody balance: the gate can spend only what custody approved to it, so the allowance is the blast radius of everything downstream of it. What protects it is the gate's code pin and destination list, not the adapter's good behaviour.
+8. **The adapter's reachability.** An adapter that cannot run is a Prime cut off from custody-funded execution, and a Prime deploys exactly one contract through rule 0, so there is no second attempt. Availability of the BINDING is therefore an asset in its own right - which is what C9-D.2 was about.
 
 ### Verified constraints the model must respect
 
@@ -163,7 +200,10 @@ flowchart TB
     subgraph ONCH["On-chain - Soroban"]
         direction TB
         PI["policy-interpreter wasm - immutable, pinned, stateless at enforce"]
+        GATE["custody-gate-v3 - allowance holder, no admin, no setter"]
+        EXA["execution-adapter-v3 - per-Prime batcher, bound to one gate"]
     end
+    CU[/Custody account - grants the allowance/]
 
     U -->|"transaction hash or XDR"| TOOLS
     U -->|"tx hash / XDR"| TOOLS
@@ -178,6 +218,12 @@ flowchart TB
     TOOLS -->|"describes (decoded from XDR)"| U
     AG -->|"authenticated_signer"| OZ
     OZ -->|"Context::Contract"| PI
+    CU -->|"SAC approve - the allowance IS the bound"| GATE
+    AG -->|"execute(calls, grants)"| EXA
+    EXA -->|"reads allowed() every batch"| GATE
+    EXA -->|"pull(token, to, amount)"| GATE
+    GATE -->|"checks caller + caller CODE + destination"| GATE
+    OZ -->|"authorises the batch"| EXA
 
     subgraph TB1["TB-1: Principal <-> MCP server"]
         U -.-> TOOLS
@@ -203,6 +249,15 @@ flowchart TB
     subgraph TB8["TB-8: User-supplied predicate bytes <-> contract"]
         U -.-> PI
     end
+    subgraph TB9["TB-9: Custody <-> gate"]
+        CU -.-> GATE
+    end
+    subgraph TB10["TB-10: Adapter <-> gate"]
+        EXA -.-> GATE
+    end
+    subgraph TB11["TB-11: Agent-authored batch <-> adapter"]
+        AG -.-> EXA
+    end
 ```
 
 ### Trust boundaries (numbered)
@@ -217,6 +272,9 @@ flowchart TB
 | TB-6 | Agent key to OZ smart-account | signed auth entry per call | agent -> OZ (`authenticated_signers`; OZ fails the call if no signer authorises) |
 | TB-7 | MCP server to known-addresses registry | in-process lookup | read-only; addresses are pinned constants |
 | TB-8 | User-supplied predicate bytes to interpreter | `install` payload ScVal bytes | untrusted -> interpreter (fail-closed at install + re-validated every `enforce`) |
+| TB-9 | Custody account to custody gate | SAC `approve` allowance, granted once | custody -> gate (the allowance is the bound; the gate holds no funds) |
+| TB-10 | Adapter to gate | `pull` cross-contract call | untrusted caller -> gate (gate checks the caller's address, its CODE, and the destination) |
+| TB-11 | Agent-authored batch to adapter | `execute(calls, grants)` | untrusted -> adapter (every target, argument, nested value and authorization checked against the gate's list before any call runs) |
 
 There is no trust boundary between the interpreter and any external contract
 during evaluation: it makes no cross-contract calls.
@@ -250,6 +308,7 @@ during evaluation: it makes no cross-contract calls.
 | C1-E.5 | Elevation of privilege | Transitive authority through a permitted callee | The policy permits calling contract X; X then moves funds using a standing SEP-41 allowance the account granted earlier. That transfer needs no auth from this account, so it produces no `Context` and no `enforce` call | Medium | High | **Depth itself is covered:** OZ builds one `Context` per auth-tree node requiring this account's authorisation and calls `enforce` once per context, so a smuggled inner call that needs this account's auth IS evaluated on its own merits. `extract_call` handling only `Context::Contract` is a shape check, not a depth limit. | Residual by nature, not by scope. Mitigated operationally - a policed key must hold zero standing allowances. Tracked as R-1. |
 | C1-E.6 | Elevation of privilege | Grammar-version skew between the builder and the contract | An off-chain builder emitting an older `grammar_version` produces installs the contract refuses - or, in the inverse case, a contract that accepts a document written against a different leaf set | Medium | High | `install_params.grammar_version != SELF_VERSION` panics 200, and a test asserts the builder's literal equals `SELF_VERSION`. | None on chain. The off-chain side is the fragile half, since the parity is held by a test rather than by the type system. |
 | C1-E.7 | Elevation of privilege | An inverting `call_arg_scaled` ratio turns a slippage floor into a permit | A negative `num` or `den` flips the comparison, so `call_arg >= call_arg_scaled(in, -1, 100)` permits exactly the trades the floor was written to refuse - and at evaluate it looks like a policy working normally | Medium | High | Install refuses a zero or non-positive ratio: `InvalidScaledRatio` 214 (`dsl::validate_scaled_ratios`, which walks into `or` branches and literal vectors). `encodePredicate` refuses the same shapes off chain, and `declare_policy` refuses them again at the point the ratio is stated. | None on chain. The gate is at install, where the mistake is knowable; at evaluate a wrong-but-valid ratio is indistinguishable from an intended one. |
+| C1-E.9 | Elevation of privilege | A `call_path` bound reaches ONE call of a batch and says nothing about the others | Grammar 6 addresses `calls[n].args[i]`. A predicate pinning `calls[0]` and `calls[1]` permits a batch of five: the two it named are compliant and the other three are unexamined. Every extra call still has to survive the adapter's address rule, so the reachable set is the gate's own list - which names the gate. `gate.pull(token, adapter, amount)` appended to a compliant batch is therefore both listed and unbounded, and drains the allowance to its SAC limit | Medium | Critical | **A batch predicate needs a cardinality pin to be a bound at all**, exactly as `call_arg_field` needs one (F4-E.3). Every construction path emits `eq(call_arg_len(0), n)` over the calls vector and `eq(call_arg_len(1), m)` over the grants vector: `supplyPredicate`/`withdrawPredicate` here, and all three mandate shapes in the OctoPos builder. `PathStep::Len` makes the pin expressible; a `call_path` ending in `Len` reads a nested vector's length. | The interpreter cannot detect the omission: a predicate without the pin is well-formed and it enforces exactly what it was given. Anything constructing a grammar-6 batch predicate outside those paths must emit the pair itself. Same residual shape as F4-E.3, one level up. |
 | C1-E.8 | Elevation of privilege | `call_arg_scaled` arithmetic overflows and yields a bound the author did not write | `args[i] * num` exceeding i128 | Low | Medium | `checked_mul`/`checked_div` throughout; overflow and a zero denominator both deny with `ArithmeticOverflow` 102 rather than wrapping or panicking the frame. The TS reference evaluator applies the same i128 bounds so the two layers agree at the boundary. | None - fails closed. |
 
 ### Data flow F1 - install pipeline (U -> MCP -> synth -> unsigned XDR -> wallet -> chain -> OZ -> interpreter)
@@ -300,6 +359,40 @@ during evaluation: it makes no cross-contract calls.
 | F4-E.2 | Elevation of privilege | The off-chain builder emits a `grammar_version` the contract does not speak | Every install fails, or a document is built against the wrong leaf set | Medium | High | `POLICY_INSTALL_PARAM_FIELDS` is the ABI the host unpacks by field count; the version literal is pinned in the `PolicyDocument` type so a skew is a type error at the emitting sites. | A CI test asserts the TS literal equals `SELF_VERSION` parsed from `version.rs`, so a skew fails the build rather than the install. Tracked as R-5. |
 | F4-E.3 | Elevation of privilege | A bound on one element of a vector argument reads as a cap and permits any amount through a sibling element | Author a predicate carrying `lte(call_arg_field(i, 0, "amount"), N)` with no `eq(call_arg_len(i), n)` pin, or with a pin whose range covers an element nothing bounds | Medium | Critical | `call_arg_field` binds ONE element and says nothing about the others, so a cap needs BOTH the per-element bounds and the length pin. The four construction paths emit both by design (`declare.ts`, `compose-from-recording.ts`, and the two in the OctoPos install card / edit dialog); the one path that accepts an author-supplied predicate, the skill's `build-predicate.ts --json`, validates the shape and refuses. | The interpreter cannot detect it: it enforces exactly the predicate it is given, and this one is well-formed. Anything that constructs a predicate outside those paths must enforce the pair itself. |
 
+### Element C8 - `custody-gate-v3` contract
+
+The gate never holds funds. It holds an allowance, and the whole of its job is
+that the allowance can only be spent by one build of one contract, to one of a
+fixed set of destinations.
+
+| ID | Cat | Threat | Attack scenario | Likelihood | Impact | Mitigation | Residual |
+|---|---|---|---|---|---|---|---|
+| C8-S.1 | Spoofing | Anyone calls `pull` and spends custody's allowance | The gate is a public contract; `pull` moves money | High | Critical | `c.caller.require_auth()` - only the one adapter the config names can ask. | None beyond the host. |
+| C8-S.2 | Spoofing | The named caller address is squatted by different code | A Soroban contract id is `hash(network, deployer, salt)` and does NOT commit to code, so whoever deploys at the named address chooses what runs there. Naming the address alone buys nothing | Medium | Critical | `caller.executable() != Executable::Wasm(caller_code)` panics `WrongCallerCode` (2). Custody approves a HASH, not an address, and `pull` re-checks it on every draw. | None. Demonstrated before the check existed: unchecked code was deployed at the trusted address and drained custody. |
+| C8-T.1 | Tampering | The perimeter is widened after custody funded the gate | An admin call moves `allowed`, `caller` or `custody` | Low | Critical | **Structurally impossible.** No admin, no setter, no upgrade entry point exists. Changing anything means deploying another gate, which needs custody's signature. | None. |
+| C8-T.2 | Tampering | A token custody never approved is drawn | `pull` takes the token as an argument | Low | Medium | Not a gate concern by construction: a SAC allowance is granted per token, so a token custody never approved has nothing to spend and `transfer_from` fails on its own (`Error(Contract, #101)`). A list here would repeat the allowance and be one more thing to get wrong. | None. |
+| C8-I.1 | Info disclosure | The configuration is public | Instance storage is readable off chain | Low | Low | Deliberate: the approved code hash, the caller and the destination list are all readable, so a reviewer can check the whole perimeter without an accessor. | None; ledger state is public regardless. |
+| C8-E.1 | Elevation of privilege | Value leaves to an address custody did not approve | The adapter asks for a pull to a stranger | Medium | Critical | `c.allowed.contains(&to)` panics `DestinationNotAllowed` (1). The gate itself is not a destination it will pay. | None. |
+
+### Element C9 - `execution-adapter-v3` contract
+
+One rule: a batch may not mention an address the gate does not name. Where
+value can go therefore does not depend on this contract understanding any
+venue's ABI - which it cannot, and which is why guarding only its own token
+balance left a venue free to pay a stranger out of our position.
+
+| ID | Cat | Threat | Attack scenario | Likelihood | Impact | Mitigation | Residual |
+|---|---|---|---|---|---|---|---|
+| C9-S.1 | Spoofing | A batch runs without the Prime's authorisation | Anyone calls `execute` | High | Critical | `prime.require_auth_for_args(args)` over the WHOLE batch, so the authorisation covers the calls and grants actually run. | None beyond the host. |
+| C9-T.1 | Tampering | An early call moves value while a later one is still unexamined | Validate-and-invoke in one pass | Medium | Critical | Every call, argument, nested value and authorization is checked BEFORE any of them runs; the invocation loop is separate. | None. |
+| C9-E.1 | Elevation of privilege | A batch calls the smart account itself and moves the Prime's funds with only the gate's list to stop it | `execute` targets the Prime; the mandate rules never see the inner call | Medium | Critical | `call.target == prime` panics `PrimeTarget` (1). Re-entering this contract needs no rule: the host forbids re-entering a contract already on the stack. | None. |
+| C9-E.2 | Elevation of privilege | A stranger's address reaches a venue as DATA rather than as an `Address` | A venue that takes a destination as a string or as raw bytes would never be caught by an Address-typed walk | Medium | Critical | `scan_data` compares, rather than decodes: a 56-byte value is compared against each allowed address's strkey and a 32-byte value against its raw payload. Anything else passes untouched, so signatures, memos and identifiers still work. | **The two encodings are the coverage, and they are not all of them.** A contract id as 64-char hex, an address split across two arguments, or a muxed / claimable-balance / liquidity-pool strkey (69 and 68 bytes) are not compared and pass. The leak still needs a LISTED venue that accepts a destination in one of those forms. Tracked as R-8. |
+| C9-E.3 | Elevation of privilege | An authorization handed out as this contract does something the walk never saw | `CreateContractHostFn` / `CreateContractWithCtorHostFn` authorise DEPLOYING a contract as the adapter, carrying constructor arguments no address walk inspects | Low | Critical | Both variants are refused outright: `Uncheckable` (3). The adapter has no reason to deploy anything. | None. |
+| C9-D.1 | DoS | A batch too large or too deeply nested exhausts the host | A caller submits 400 calls or a value nested a thousand deep | Low | Low | The host bounds both first - 150 calls costs about a third of the instruction budget, 400 will not fit in a transaction, ~200 levels cannot be preflighted - and whoever submits it pays. A cap here refused nothing the host would have allowed and refused legitimate arguments deeper than a guess. Measured, not assumed. | None. |
+| C9-D.2 | DoS | **The binding moves to an address that is not a gate, and cannot move back** | `rebind` stored whatever it was given. `execute` reads `allowed` from the binding and `rebind` reads `custody` from it, so an address answering neither left the adapter unusable AND unrebindable - by one custody signature on a mistyped argument. Unrecoverable, because an OZ smart account deploys exactly ONE contract through rule 0, so the Prime cannot deploy a replacement adapter either | Medium | High | **Closed in this run.** `rebind` now asks the successor `custody()` before storing it; an address that cannot answer is refused and the binding is unchanged. Checking `allowed` too would buy nothing - a successor missing THAT is merely unusable, and custody can still rebind away from it - so one call is what makes this reversible. | None. Same stance as R-3: refusing converts an unrecoverable state into a loud, immediate error. |
+| C9-E.4 | Elevation of privilege | The Prime widens its own perimeter by moving to a gate it controls | The account, not custody, rebinds | Medium | Critical | `rebind` reads `custody()` from the CURRENT gate and requires ITS auth. The Prime can neither widen the perimeter nor point the adapter at a gate of its own. | None. |
+| C9-I.1 | Info disclosure | The binding is public | Instance storage is readable | Low | Low | Deliberate: anyone can read which Prime and which gate this contract answers to, so no getter exists to say it twice. | None. |
+
 ### Element C2 - OpenZeppelin smart-account (out of scope, named with trust assumption)
 
 | ID | Cat | Threat | Attack scenario | Likelihood | Impact | Mitigation | Residual |
@@ -330,7 +423,8 @@ What this model assumes and does NOT verify:
 3. **User's own key custody.** A compromised source-account key signs whatever the wallet presents; the contract does not second-guess the signature.
 4. **Soroban SDK 27 cross-contract execution semantics.** The interpreter reads `Context::Contract` only; deeper tree walking is out of scope (modelled as R-1).
 5. **Pinned RPC URLs** - assumed honest; the install/revoke auth digests bind to whichever host answered.
-6. **TS encoder / Rust decoder parity.** The conformance suite pins this: the same predicate encodes to the bytes the Rust decoder accepts, and the fixtures are regenerated from a checked-in recording.
+6. **Custody's own key custody and its choice of successor gate.** `rebind` now refuses an address that cannot answer `custody()`, which catches the typo; it does not and cannot judge whether a well-formed successor is a GOOD gate. A custodian who deliberately rebinds to a permissive gate is spending their own allowance.
+7. **TS encoder / Rust decoder parity.** The conformance suite pins this: the same predicate encodes to the bytes the Rust decoder accepts, and the fixtures are regenerated from a checked-in recording.
 
 ---
 
@@ -345,6 +439,8 @@ What this model assumes and does NOT verify:
 | R-3 | Master signer set cannot include `Signer::External(_, _)` because the interpreter cannot re-implement OZ's verifier protocol in v1. | **No action: refusing is the correct behaviour, not a limitation to fix.** An `External` master would be permanently unrecoverable, since `rotate_master_signer_set` and `uninstall` both gate on `require_master` and neither could ever satisfy it. Refusing at install converts an unrecoverable state into a loud, immediate error. Verified recoverable by contrast: with a valid master set, `rotate` and `uninstall` are direct calls that never route through `enforce`, so an account is never locked out of governing its own rule. |
 | R-4 | A signer's effective authority for a given call is the MAXIMUM over every context rule they belong to whose `context_type` matches it. OpenZeppelin documents multiple rules per context type as intended. Adding a tighter rule restricts nothing. | OZ protocol-level semantic. `do_check_auth` enforces only the policies of the rule the caller named, and the rule id is bound into the auth digest, so the signer commits to the rule they exercise. Mitigated off chain: `install_policy` READS the account and returns an `authorityScan` naming every rule a signer of the new policy could name instead (`existingRules` supplies them directly instead, for offline use). It REFUSES the two provable cases and reports the rest. Provable: a neighbour carrying no policy at all, and - when the install includes a rolling total - a neighbour whose policies are ALL recognised and include no spend cap, since a cap is stored per rule and a signer simply spends around it through that neighbour (`docs/audit/evidence/oz-two-rule-blend-cap.log`). A neighbour carrying any unrecognised policy stays advisory, because that policy could itself be a cap and refusing on "cannot decode" would be a guess. `allowAuthorityOverlap: true` installs anyway. `null` means "not checked" - covering a failed or incomplete read - distinct from "checked, nothing found". |
 | R-6 | Our builder gives every interpreter policy on one rule the SAME predicate. `encodePoliciesMap` applies one set of install params across the whole policies map, so a caller cannot express two interpreter policies with different predicates through `buildAddContextRuleArgs`. | A builder limitation, not a protocol one: OZ's `add_context_rule` takes `Map<Address, PolicyInstallParams>` and accepts distinct params per policy, as `scripts/oz-policy-composition.ts` demonstrates by hand-building the map. Fail-safe in direction - the worst case is a rule stricter than intended, since the same predicate applied twice cannot permit more than it does once. A policy kind that is NOT `interpreter` is now refused (`INSTALL_BUILD_FAILED`) rather than skipped: it was previously dropped in silence, so a caller attaching an OZ built-in beside the interpreter received a rule without it and no indication. |
+| R-7 | A grammar-6 batch predicate that pins some calls and not the count permits the rest. Every construction path emits the cardinality pin; nothing enforces it for an author-supplied predicate. | The interpreter enforces exactly the predicate it is given, and one without the pin is well-formed - the same residual as F4-E.3, one level up. What limits the damage is that an unexamined call still has to survive the adapter's address rule, so the reachable set is the gate's own list rather than the whole ledger. A hard gate would mean the interpreter deciding what a batch predicate MUST bind, which is policy adequacy, and section 7's trust-boundary note keeps that off chain. |
+| R-8 | The adapter's address rule compares two encodings - a 56-byte strkey and a 32-byte raw payload. Hex, split halves, and muxed / claimable-balance / liquidity-pool strkeys pass untouched. | It COMPARES rather than decodes, deliberately: neither conversion has a fallible form inside a contract, so parsing a value that turned out not to be an address would trap the whole batch instead of refusing one destination, and a 32-byte hash is an ordinary venue argument. The uncovered encodings cannot be compared either - a muxed strkey carries a mux id, so there is no single encoding of an allowed address to match it against. Exploiting it needs a LISTED venue that accepts a destination in one of those forms; the target check stands in front. |
 | R-5 | Grammar-version parity between the Rust contract and the TypeScript builder rests on a test, not on a shared type. | The test parses `SELF_VERSION` out of `version.rs` and asserts the builder's literal matches, so a skew fails the build. A skew that slipped past it would still be loud rather than silent: the contract refuses the install with 200. |
 
 ### Accepted risks (open, in scope, accepted with reason)
@@ -352,6 +448,7 @@ What this model assumes and does NOT verify:
 | ID | Accepted risk | Reason |
 |---|---|---|
 | A-1 | MCP HTTP transport has no authentication. | Mitigated by default-loopback binding plus an explicit `allowExternalHost: true` opt-in. A reverse proxy or firewall is the expected deployment-time auth. The server holds no key material, so the worst case is unsigned-XDR generation, not signing. |
+| A-3 | The v1 and v2 execution generations remain deployed and reachable by accounts holding rules against them. | Superseding code does not retire an installed rule: the account stores bytes, and an account on the old adapter keeps working against the old model. Retiring them is a product decision about existing accounts, not a defect. Named in scope above so a reader is not left assuming this model covers them. |
 | A-2 | `argument_reorder` excluded from synth deny-case generation. | The Soroban host dispatches by function identity with positional args, so a reordered-argument call is a different call the predicate already fails to match. |
 
 ### Trust-boundary note: the scope of the on-chain guarantee
@@ -379,12 +476,23 @@ operator who needs one sources it there:
 |---|---|
 | A cap on the value a call may move | The interpreter bounds the call's own amount argument (`call_arg(i) <= limit`), located from the protocol ABI. It is a per-call cap, not a rolling total: the interpreter is passed one authorised call, not the transaction's token movements, so it cannot accumulate spend across calls. |
 | Policy expiry | The context rule's `valid_until`, owned by the smart account. |
+| A cap on what a BATCH as a whole may do | Split across two layers, deliberately. The adapter bounds WHERE value can go - no batch may mention an address the gate does not name - and the interpreter bounds WHAT each call may be, per `call_path`. Neither bounds how many batches run; the allowance does. |
 | A bound on call frequency | Nowhere in this stack. The synthesiser reports `FREQUENCY_BOUND_MISSING` on incoming-only flows, so a caller is told rather than left to assume a cap. |
 | Price-conditioned authorisation | Nowhere in this stack. |
 
 ---
 
 ## 8. Did we do a good job? (Stellar template closing reflection)
+
+### What this run found
+
+| # | Finding | Status |
+|---|---|---|
+| 1 | **`rebind` to an address that is not a gate was final.** One custody signature on a mistyped argument left the adapter unusable and unrebindable, and the Prime cannot deploy a replacement. Reproduced on testnet before the fix: rebound to a SAC, both `execute` and the next `rebind` failed `Error(Value, InvalidInput)` for good. | **Fixed.** `rebind` asks the successor `custody()` first. Two unit tests and two live cases in `scripts/verify-execution-v3-testnet.ts`. |
+| 2 | **The two contracts that gate custody's money were outside CI.** The matrix listed `policy-interpreter` and `test-blend-pool`; `custody-gate-v3` and `execution-adapter-v3` had unit tests that had never run on a push. | **Fixed.** Both added to the matrix. |
+| 3 | **Three gates were already red on `main` and nobody was told.** `cargo fmt --check` failed on the interpreter (4 diffs), `cargo clippy -D warnings` failed on the adapter (3 doc-list errors), and `bun run check` failed repo-wide. The first two were invisible because nothing ran them; the third runs in CI and was simply red. | Two fixed. The lint backlog is **open**: see below. |
+| 4 | **`call_path` needs a cardinality pin to bound a batch** - the F4-E.3 shape one level up. Every construction path emits it; nothing enforces it. | Modelled as C1-E.9 / R-7. |
+| 5 | **The adapter's address rule covers two encodings, not all of them.** | Modelled as C9-E.2 / R-8. |
 
 ### How the model was validated
 
@@ -403,12 +511,15 @@ operator who needs one sources it there:
 
 ### Tool evidence
 
-All logs in `docs/audit/evidence/` were produced against this tree:
+Re-run 2026-09-25 against this tree:
 
 | Tool | Result |
 |---|---|
-| `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, reproducible wasm build, hash pin parity | clean; 125 tests across 6 binaries, 18 of them conformance; rebuilt wasm matches the pin |
-| `biome check`, `tsc --noEmit`, `bun test` | clean; 681 pass, 1 skip, 0 fail across 682 tests in 40 files |
+| `cargo fmt --check`, `clippy --all-targets -D warnings`, `cargo test` - per crate, all four now in the CI matrix | clean after the two fixes above; 167 tests (interpreter 151, adapter 13, gate 3) |
+| `scripts/verify-execution-v3-testnet.ts` - live testnet, fresh Prime, real Blend and Aquarius | all checks passed, including the two new refusals on `rebind` |
+| `bun test` | 771 pass, 1 skip, 0 fail across 772 tests in 52 files (was 681/682) |
+| `bun run check` (biome) | **FAILS**: 65 errors, 196 warnings across 180 files. 41 are auto-fixable formatting; ~24 are `noExplicitAny` / `noNonNullAssertion` in 19 testnet verification scripts added since the last run. Red on `main`, so the CI TypeScript job is red. |
+| `bun run typecheck` | not run in isolation: it resolves `@crediolabs/policy-synth` types from `dist/`, which CI builds first. |
 | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
 | `bun audit` | 0 vulnerabilities |
 | `clippy -W pedantic -W nursery` | 191 style warnings, 0 security |
@@ -419,9 +530,22 @@ All logs in `docs/audit/evidence/` were produced against this tree:
 
 - **R-1 and R-2 are structural**, inherited from the account model rather than
   from this contract, and no amount of interpreter work closes them.
-- **The off-chain half carries more risk than the on-chain half.** The contract
-  is 1008 nSLOC and write-free at `enforce`; the toolchain is 7,223 nSLOC and
-  holds the default-deny install gates.
+- **The off-chain half carries more risk than the on-chain half.** The on-chain
+  tree is 1074 nSLOC and write-free at `enforce`; the toolchain is 12,069 nSLOC
+  and holds the default-deny install gates.
+- **A gate nobody runs is not a gate, and this run found three of them.** The
+  fund-guarding contracts had tests that had never executed, and two lint gates
+  had been failing on `main` unnoticed - one because no job ran it, one because
+  the job that did was simply red. The previous run's "Both gates run in CI on
+  every push" was true when written and quietly stopped being true as contracts
+  were added beside a hard-coded matrix. Worth re-deriving the matrix from the
+  contracts directory rather than listing it.
+- **The lint backlog is real and unpriced.** 24 of the 65 errors are not
+  auto-fixable: `noExplicitAny` and `noNonNullAssertion` across 19 testnet
+  verification scripts. Auto-fixing the rest rewrites 2,696 lines across 29
+  files, including a 1,391-line reformat of the mainnet verification script,
+  which is why this run left it rather than burying a security fix underneath
+  it. It should be its own commit.
 - **Test files are outside the typecheck scope.** `tsconfig` excludes
   `src/**/*.test.ts`, so `bun run typecheck` never sees them and a test can
   reference a symbol that no longer exists while typecheck stays green. The

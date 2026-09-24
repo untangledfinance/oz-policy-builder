@@ -231,6 +231,13 @@ await go('the same with a stranger as raw 32 bytes', bulk(xdr.ScVal.scvBytes(pay
 
 console.log(C.bold('\n── the custody handover ──'))
 await land('the Prime admin tries to rebind', K.admin, invokeOp(adapter, 'rebind', [addr(gate2)]), 'REJECTED')
+// A SUCCESSOR THAT CANNOT ANSWER `custody` WOULD BE FINAL. `execute` reads
+// `allowed` from the binding and `rebind` reads `custody`, so storing an
+// address that is neither leaves the adapter unusable AND unrebindable - and
+// the Prime cannot deploy a replacement, because an OZ smart account deploys
+// exactly one contract through rule 0. Both shapes a typo actually produces:
+await land('custody rebinds to a token contract', K.custody, invokeOp(adapter, 'rebind', [addr(sac)]), 'REJECTED')
+await land('custody rebinds to a plain wallet', K.custody, invokeOp(adapter, 'rebind', [addr(STRANGER)]), 'REJECTED')
 await land('custody rebinds', K.custody, invokeOp(adapter, 'rebind', [addr(gate2)]), 'LANDS')
 {
   const key = xdr.LedgerKey.contractData(new xdr.LedgerKeyContractData({

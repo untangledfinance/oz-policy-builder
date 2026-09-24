@@ -824,7 +824,10 @@ fn call_path_compared_with_itself_is_vacuously_true() {
         right: same,
     };
     assert!(permit(evaluate(&env, &n, &ctx)));
-    assert!(crate::dsl::has_selector_leaf(&n), "and install does not catch it");
+    assert!(
+        crate::dsl::has_selector_leaf(&n),
+        "and install does not catch it"
+    );
 }
 
 #[test]

@@ -34,9 +34,9 @@
 //! here refused nothing the host would have allowed through, and refused
 //! legitimate arguments that merely happened to be deeper than a guess.
 //!
-//! THERE IS NO BATCH-SIZE CAP. Gas and transaction size already bound a batch
-//! - 150 calls costs about a third of the ledger's instruction budget and 400
-//! will not fit in a transaction - and whoever submits it pays. A number here
+//! THERE IS NO BATCH-SIZE CAP. Gas and transaction size already bound a batch:
+//! 150 calls costs about a third of the ledger's instruction budget and 400
+//! will not fit in a transaction, and whoever submits it pays. A number here
 //! would only refuse legitimate batches that happened to be one call longer
 //! than somebody once guessed.
 //!
@@ -45,8 +45,8 @@
 //! an accessor would only be a second way to say the same thing.
 use soroban_sdk::{
     address_payload::AddressPayload, auth::InvokerContractAuthEntry, contract, contracterror,
-    contractimpl, contracttype, panic_with_error, symbol_short, vec, Address, Bytes, Env,
-    IntoVal, Map, String, Symbol, TryFromVal, Val, Vec,
+    contractimpl, contracttype, panic_with_error, symbol_short, vec, Address, Bytes, Env, IntoVal,
+    Map, String, Symbol, TryFromVal, Val, Vec,
 };
 
 #[contracttype]
@@ -86,10 +86,23 @@ impl ExecutionAdapter {
     /// stake. After this the address no longer derives from the binding; the
     /// derivation was only ever how custody found this contract before it
     /// existed, and what the gate actually checks is caller and code.
+    ///
+    /// THE SUCCESSOR IS ASKED WHO IT ANSWERS TO BEFORE THE BINDING MOVES, and
+    /// that one call is what keeps this reversible. An address that cannot
+    /// answer `custody` could never be rebound away from either, so a single
+    /// mistyped argument left the adapter unusable AND unrebindable - and the
+    /// Prime cannot deploy a replacement, because an OZ smart account deploys
+    /// exactly one contract through rule 0. Measured on testnet: rebound to a
+    /// SAC, both `execute` and the next `rebind` failed
+    /// `Error(Value, InvalidInput)` for good. Checking `allowed` too would buy
+    /// nothing: a successor missing THAT is merely unusable, and custody can
+    /// still rebind away from it.
     pub fn rebind(e: Env, gate: Address) {
         let old: Address = e.storage().instance().get(&GATE).unwrap();
-        let custody: Address = e.invoke_contract(&old, &Symbol::new(&e, "custody"), vec![&e]);
-        custody.require_auth();
+        let custody: Symbol = Symbol::new(&e, "custody");
+        let who: Address = e.invoke_contract(&old, &custody, vec![&e]);
+        who.require_auth();
+        let _: Address = e.invoke_contract(&gate, &custody, vec![&e]);
         e.storage().instance().set(&GATE, &gate);
     }
 

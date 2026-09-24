@@ -367,8 +367,7 @@ fn eval_compare(
     // `has_selector_leaf` sees a selector. That is a new way to write a
     // no-constraint policy, and it joins the mis-specified policy in the
     // known-acceptable-risk column rather than being caught at install.
-    let (Some(actual), Some(expected)) = (resolve(env, left, ctx), resolve(env, right, ctx))
-    else {
+    let (Some(actual), Some(expected)) = (resolve(env, left, ctx), resolve(env, right, ctx)) else {
         return EvalDecision::Deny(miss);
     };
     let pass = match op {
@@ -498,7 +497,10 @@ fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext) -> Option<Val> {
                         .get(f.clone())?,
                     PathStep::Len => {
                         return Some(
-                            SorobanVec::<Val>::try_from_val(env, &cur).ok()?.len().into_val(env),
+                            SorobanVec::<Val>::try_from_val(env, &cur)
+                                .ok()?
+                                .len()
+                                .into_val(env),
                         )
                     }
                 };
@@ -619,10 +621,10 @@ mod dsl_decode {
     use soroban_sdk::{Address, Bytes, Env, Symbol, TryFromVal, Val, Vec as SorobanVec};
 
     use super::{
-        CompareOp, Leaf, Node, MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_PREDICATE_BYTES,
-        OP_AND, OP_EQ, OP_GT, OP_GTE, OP_IN, OP_LT, OP_LTE, OP_OR,
-        PathStep, SEL_CALL_ARG, SEL_CALL_ARG_FIELD, SEL_CALL_ARG_LEN, SEL_CALL_ARG_SCALED,
-        SEL_CALL_CONTRACT, SEL_CALL_FN, SEL_CALL_PATH,
+        CompareOp, Leaf, Node, PathStep, MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES,
+        MAX_PREDICATE_BYTES, OP_AND, OP_EQ, OP_GT, OP_GTE, OP_IN, OP_LT, OP_LTE, OP_OR,
+        SEL_CALL_ARG, SEL_CALL_ARG_FIELD, SEL_CALL_ARG_LEN, SEL_CALL_ARG_SCALED, SEL_CALL_CONTRACT,
+        SEL_CALL_FN, SEL_CALL_PATH,
     };
 
     /// Errors that can be raised while decoding a predicate root from the

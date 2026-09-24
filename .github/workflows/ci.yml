@@ -56,7 +56,13 @@ jobs:
       fail-fast: false
       matrix:
         crate:
+          # Every contract that holds or gates value. The v3 pair was added
+          # after this matrix and ran outside it: their unit tests existed and
+          # never ran on a push, on the two contracts that stand between an
+          # agent and custody's money.
           - policy-interpreter
+          - custody-gate-v3
+          - execution-adapter-v3
           - test-blend-pool
     defaults:
       run:

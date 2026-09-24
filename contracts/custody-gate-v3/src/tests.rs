@@ -42,12 +42,23 @@ fn world(wrong_build: bool) -> World {
     let cfg = Cfg {
         custody: custody.clone(),
         caller: caller.clone(),
-        caller_code: if wrong_build { BytesN::from_array(&e, &[9u8; 32]) } else { real },
+        caller_code: if wrong_build {
+            BytesN::from_array(&e, &[9u8; 32])
+        } else {
+            real
+        },
         allowed: Vec::from_array(&e, [custody.clone()]),
     };
     let gate = e.register(CustodyGate, (cfg,));
     token::Client::new(&e, &token).approve(&custody, &gate, &1_000_000, &10_000);
-    World { e, gate, token, custody, caller, stranger }
+    World {
+        e,
+        gate,
+        token,
+        custody,
+        caller,
+        stranger,
+    }
 }
 
 #[test]
