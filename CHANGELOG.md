@@ -7,6 +7,31 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ## [Unreleased]
 
+### Fixed
+
+- **`execution-adapter-v3.rebind` refuses a successor that cannot answer
+  `custody()`.** It used to store whatever address it was given. `execute`
+  reads `allowed` from the binding and `rebind` reads `custody` from it, so an
+  address answering neither left the adapter unusable AND unrebindable - and
+  the Prime cannot deploy a replacement, because an OZ smart account deploys
+  exactly one contract through rule 0. One custody signature on a mistyped
+  argument was final. Reproduced on testnet before the check: rebound to a SAC,
+  both the next `execute` and the next `rebind` failed
+  `Error(Value, InvalidInput)` for good. Found by the STRIDE re-run
+  (`docs/stride-threat-model.md`, C9-D.2). Adapter wasm sha256 is now
+  `f3382def17f1c06643300b7e68f3fac835a4f4dc8d1c66c17030fc5d2181f671`
+  (was `0e088421f568a9d8667cfcbd7ecb5fe93b71268c4463b2605df11059deb67714`);
+  the gate is unchanged at
+  `2788f05bfef003d04cc189192e31c2f7469b21b7990c0edebad91ed3fa34824f`. A gate
+  pins its caller's code hash, so an existing gate keeps releasing only to the
+  OLD adapter: adopting this build means a new gate and adapter generation for
+  an account already on v3.
+- **`custody-gate-v3` and `execution-adapter-v3` are in the CI matrix.** Their
+  unit tests existed and had never run on a push, on the two contracts that
+  stand between an agent and custody's money. Adding them surfaced two gate
+  failures already red on `main`: `cargo fmt --check` on the interpreter and
+  `cargo clippy -D warnings` on the adapter, both fixed.
+
 ### Added
 
 - The grammar-version-5 interpreter (Policy Signer role separation) is
