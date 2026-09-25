@@ -12,8 +12,8 @@
   },
   "interpreterSource": {
     "commit": "931514b41fa1c64f534b9f1fe436c14528efc455",
-    "reproducibleWasmSha256": "1c4bf2ff3ab32ea62d27cee2ddbfaa6736c69a024717e5711ded5c6a2c99e574",
-    "note": "The uploaded interpreter was a bare cargo build, which bakes machine paths into the wasm, so its hash cannot be rebuilt elsewhere. A bare build of this commit on the deploying machine gives exactly wasmHashes.interpreter (checked 2026-09-25); build-wasm.sh on the same source gives reproducibleWasmSha256, which CI rebuilds from main and compares."
+    "reproducibleWasmSha256": "5143e64159378c9aac27e8cf1c9cb1f14364672885c151ccc5d887109f776126",
+    "note": "The uploaded interpreter was a bare cargo build, which bakes machine paths into the wasm, so its hash cannot be rebuilt elsewhere. A bare build of this commit on the deploying machine gives exactly wasmHashes.interpreter (checked 2026-09-25). build-wasm.sh on the same source under Linux (rust:1.97.1, aarch64, and CI on x86_64) gives reproducibleWasmSha256, which CI rebuilds from main and compares. macOS builds a different hash from the same source, so only a Linux build is comparable."
   },
   "uploadTx": {
     "interpreter": "7fdef6cb4e65fca2fabaed4d9e848b58aaf56f25095bc12ff56eb72ff211e9a2",

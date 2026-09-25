@@ -16,8 +16,10 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   `docs/grammar6-testnet-deployment.json`. That instance
   (`CDPR5VTX…`, wasm `a7ef48e3…`) was uploaded from a bare cargo build; a
   bare build of `931514b` on the deploying machine reproduces `a7ef48e3…`
-  exactly, and `build-wasm.sh` on the same source gives `1c4bf2ff…`, now
-  recorded beside it. A later rustfmt reflow of `dsl.rs` had moved the build
+  exactly, and `build-wasm.sh` on the same source under Linux gives
+  `5143e641…`, now recorded beside it. `build-wasm.sh` is reproducible across
+  Linux machines only: macOS builds different bytes from the same source, so a
+  hash to compare with CI must come from a Linux build. A later rustfmt reflow of `dsl.rs` had moved the build
   off that hash with no change in behaviour; three `#[rustfmt::skip]` marks
   hold the deployed layout until the next redeploy.
   `deploy-grammar6-testnet.ts` now builds the interpreter through

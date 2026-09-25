@@ -26,8 +26,9 @@ import {
 // this after `cargo build --release --target wasm32v1-none` in contracts/*.
 // The interpreter is the exception: it is rebuilt here through build-wasm.sh,
 // because a bare cargo build bakes machine paths into the wasm and CI could not
-// check the deployed hash against the source. PRIME_WASM_DIR overrides with a
-// single directory holding all of them.
+// check the deployed hash against the source. Deploy from Linux: macOS builds
+// different bytes from the same source, and CI compares a Linux build.
+// PRIME_WASM_DIR overrides with a single directory holding all of them.
 function wasmPath(crate: string, file: string): string {
   const override = process.env.PRIME_WASM_DIR
   const candidate = override
