@@ -26,9 +26,17 @@ import { PINNED_OZ_STELLAR_CONTRACTS_TAG, RPC_URL_BY_NETWORK } from '../src/run/
 
 /** The state we last reviewed. A difference is a prompt to look, not a fault. */
 const BASELINE = {
-  /** Protocol version per network, as reviewed on 2026-08-28. Testnet running
-   *  ahead of mainnet is normal and expected, not drift. */
-  protocolVersion: { testnet: 28, mainnet: 27 },
+  /** Protocol version per network. Testnet running ahead of mainnet is normal
+   *  and expected, not drift.
+   *
+   *  Mainnet 28 was accepted on 2026-09-25 on TESTNET evidence, not a mainnet
+   *  run: e2e-network.ts passed every leg on testnet at protocol 28 (deploy,
+   *  install, permit, deny #100, rule-0 bypass blocked), and contract
+   *  behaviour follows the protocol version rather than the network. A
+   *  mainnet run needs a funded key and real transactions, and mainnet was
+   *  out of scope. Run it against mainnet before relying on a mainnet
+   *  deployment. */
+  protocolVersion: { testnet: 28, mainnet: 28 },
   /** Latest STABLE upstream release. Release candidates are ignored: we do not
    *  deploy from an rc, so an rc appearing is not something to act on. */
   ozLatestStable: 'v0.7.2',
