@@ -20,8 +20,8 @@ last run learned to ask (C1-E.9).
 and neither was in the previous model: a custody gate that holds an allowance
 and releases it only to a code-pinned caller, and a per-Prime adapter that
 executes a batch and refuses any batch naming an address the gate does not.
-They are modelled here as C8 and C9. The threat this run found and closed was
-in that pair (C9-D.2).
+They are modelled here as C8 and C9. Section 8 lists the seven things this run
+found; the two contract threats were both in that pair (C9-D.2, C9-D.3).
 
 ---
 
@@ -157,7 +157,7 @@ What an attacker wants:
 5. **Master-set authority.** Whoever passes `require_master` can install, uninstall and rotate. The set is established at install and rotated only by itself.
 6. **Cross-layer integrity: TS encoder vs Rust decoder.** If they diverge, a TS-encoded policy could install cleanly and evaluate differently than the author intended. The conformance suite is the structural witness.
 7. **The custody allowance.** Not the custody balance: the gate can spend only what custody approved to it, so the allowance is the blast radius of everything downstream of it. What protects it is the gate's code pin and destination list, not the adapter's good behaviour.
-8. **The adapter's reachability.** An adapter that cannot run is a Prime cut off from custody-funded execution, and a Prime deploys exactly one contract through rule 0, so there is no second attempt. Availability of the BINDING is therefore an asset in its own right - which is what C9-D.2 was about.
+8. **The adapter's reachability.** An adapter that cannot run is a Prime cut off from custody-funded execution until it is replaced - a new gate generation, a new adapter, and every rule scoped to the old adapter's address reinstalled. Availability of the BINDING, and of a pair whose builds agree, is therefore an asset in its own right - which is what C9-D.2 and C9-D.3 are about.
 
 ### Verified constraints the model must respect
 
@@ -344,6 +344,7 @@ during evaluation: it makes no cross-contract calls.
 | F3-T.1 | Tampering | JSON-RPC batch request | A malicious batch smuggles extra calls | Low | Low | Array bodies are explicitly rejected. | None. |
 | F3-R.1 | Repudiation | Tool-call log missing | Per-call stateless; no log | Low | Low | The wallet signature is the user-confirmation; OZ's auth tree is the audit path. | None. |
 | F3-I.1 | Info disclosure | HTTP errors leak host/URL detail | `simulateTransaction` errors echoed | Low | Low | Errors are mapped to short stable reasons; the full payload stays in SDK logs. | None. |
+| F3-I.2 | Info disclosure | A dependency of the HTTP transport mis-parses a URI | `fast-uri` < 3.1.6 (under `ajv`, under the MCP SDK) had SSRF and host-confusion advisories in its normalisation of IPv6, percent-encoded schemes and hostnames | Medium | High | Transitive versions pinned by `overrides` to patched releases within their majors; `bun audit` is a CI gate and now passes. | The pin is manual: an override must be revisited when the MCP SDK itself moves past the vulnerable range, or it holds the tree back. |
 | F3-D.1 | DoS | Non-loopback host exposes unauthenticated tools | `host: '0.0.0.0'` exposes the surface | Medium | Medium | Default-deny on non-loopback hosts; explicit `allowExternalHost: true` opt-in; 1 MB body cap enforced by the streaming reader. | The opt-in is auditable. |
 | F3-E.1 | Elevation of privilege | No auth on `/mcp` | Any caller who can reach the port calls the tools | High | High | Default-bind to loopback; no bearer/HMAC exists. A production deployment is expected to gate at a reverse proxy. | Tracked as A-1. |
 
@@ -390,6 +391,7 @@ balance left a venue free to pay a stranger out of our position.
 | C9-E.3 | Elevation of privilege | An authorization handed out as this contract does something the walk never saw | `CreateContractHostFn` / `CreateContractWithCtorHostFn` authorise DEPLOYING a contract as the adapter, carrying constructor arguments no address walk inspects | Low | Critical | Both variants are refused outright: `Uncheckable` (3). The adapter has no reason to deploy anything. | None. |
 | C9-D.1 | DoS | A batch too large or too deeply nested exhausts the host | A caller submits 400 calls or a value nested a thousand deep | Low | Low | The host bounds both first - 150 calls costs about a third of the instruction budget, 400 will not fit in a transaction, ~200 levels cannot be preflighted - and whoever submits it pays. A cap here refused nothing the host would have allowed and refused legitimate arguments deeper than a guess. Measured, not assumed. | None. |
 | C9-D.2 | DoS | **The binding moves to an address that is not a gate, and cannot move back** | `rebind` stored whatever it was given. `execute` reads `allowed` from the binding and `rebind` reads `custody` from it, so an address answering neither left the adapter unusable AND unrebindable - by one custody signature on a mistyped argument. Recovery means abandoning the adapter for a whole new gate generation, and every band rule scoped to the old adapter address dies with it | Medium | High | **Closed in this run.** `rebind` now asks the successor `custody()` before storing it; an address that cannot answer is refused and the binding is unchanged. Checking `allowed` too would buy nothing - a successor missing THAT is merely unusable, and custody can still rebind away from it - so one call is what makes this reversible. | None. Same stance as R-3: refusing converts a state that costs a migration into a loud, immediate error. |
+| C9-D.3 | DoS | **An adapter deployed on a build its gate does not pin** | The gate fixes `caller_code` at construction and cannot change it. Deploying any other build into that gate's derived address produces an adapter the gate refuses `WrongCallerCode` on every pull - and since the adapter's address is derived from the gate, the pair cannot be repaired, only replaced | Medium | High | Deployment tooling reads the build off the gate (`adapterCodeForGate`) instead of assuming the newest, and refuses a hash it does not recognise. Every build still in use stays recognised, so an account on an older build is served, not flagged. | Tooling-side: the contracts themselves cannot prevent a deployer choosing the wrong wasm. |
 | C9-E.4 | Elevation of privilege | The Prime widens its own perimeter by moving to a gate it controls | The account, not custody, rebinds | Medium | Critical | `rebind` reads `custody()` from the CURRENT gate and requires ITS auth. The Prime can neither widen the perimeter nor point the adapter at a gate of its own. | None. |
 | C9-I.1 | Info disclosure | The binding is public | Instance storage is readable | Low | Low | Deliberate: anyone can read which Prime and which gate this contract answers to, so no getter exists to say it twice. | None. |
 
@@ -490,9 +492,11 @@ operator who needs one sources it there:
 |---|---|---|
 | 1 | **`rebind` to an address that is not a gate was final for that adapter.** One custody signature on a mistyped argument left it unusable and unrebindable; recovery means a whole new gate generation, and every rule scoped to the old adapter address dies with it. Reproduced on testnet before the fix: rebound to a SAC, both `execute` and the next `rebind` failed `Error(Value, InvalidInput)` for good. | **Fixed.** `rebind` asks the successor `custody()` first. Two unit tests and two live cases in `scripts/verify-execution-v3-testnet.ts`. |
 | 2 | **The two contracts that gate custody's money were outside CI.** The matrix listed `policy-interpreter` and `test-blend-pool`; `custody-gate-v3` and `execution-adapter-v3` had unit tests that had never run on a push. | **Fixed.** Both added to the matrix. |
-| 3 | **Three gates were already red on `main` and nobody was told.** `cargo fmt --check` failed on the interpreter (4 diffs), `cargo clippy -D warnings` failed on the adapter (3 doc-list errors), and `bun run check` failed repo-wide. The first two were invisible because nothing ran them; the third runs in CI and was simply red. | Two fixed. The lint backlog is **open**: see below. |
+| 3 | **Four gates were already red on `main` and nobody was told.** `cargo fmt --check` failed on the interpreter (4 diffs), `cargo clippy -D warnings` failed on the adapter (3 doc-list errors), `bun run check` failed repo-wide (65 errors), and `bun audit` failed with 11 advisories, 6 high. The first two were invisible because nothing ran them; the last two run in CI and were simply red. | **All four fixed.** Of the 65 lint errors 24 were real - 6 unused imports, 17 floating promises, one untyped `let` - and two of the "floating promises" were the lint mis-typing an async function that returns a promise. The advisories are finding 7. |
 | 4 | **`call_path` needs a cardinality pin to bound a batch** - the F4-E.3 shape one level up. Every construction path emitted it; nothing enforced it. | **Enforced.** The OctoPos mandate encoder now refuses a predicate that reaches `calls[n]` without pinning the call and grant counts, checked against the ENCODED tree at the one funnel every mandate passes through. It cannot go on chain: the interpreter would have to know which argument is a list of independent actions rather than an ordinary vector, which is the venue ABI knowledge the design keeps out of it. Modelled as C1-E.9 / R-7. |
 | 5 | **The address rule's coverage was understated, and the first draft of R-8 was wrong.** | **Corrected, with a tripwire.** The two lengths it compares are the COMPLETE set a callee can turn back into an `Address`: `from_string`, `from_string_bytes` and `from_payload` are the only constructors, and the host refuses a muxed strkey with "unexpected strkey length" - measured, not read. A unit test fails if that ever widens. Modelled as C9-E.2 / R-8. |
+| 6 | **An adapter could be born broken.** A gate pins its caller's code hash at construction and has no setter; the app deployed its NEWEST adapter build regardless, so any account whose gate predated that build would get an adapter the gate refused on every pull, at an address derived from the gate and so unrepairable. Accounts with a gate and no adapter yet were one click from it. Found while shipping finding 1, which is what created a second build. | **Fixed in OctoPos.** The build is the gate's to choose: `adapterCodeForGate` reads `caller_code` off the gate and the activation op requires it, refusing a hash the app does not recognise. Verified on testnet both ways - a gate made today gets `5be8b08e`, a gate pinned to the first release gets `0e088421` and answers a pull rather than `WrongCallerCode`. Modelled as C9-D.3. |
+| 7 | **The MCP transport carried known SSRF and host-confusion advisories.** `fast-uri` 3.1.5 under `@modelcontextprotocol/sdk` (4 high), plus `hono` and `qs` (5 moderate), and `toml` under the Stellar SDK (2 high). The previous run recorded `bun audit` as clean; these are newer advisories, and CI has been failing on them. | **Fixed.** Overridden to the patched release within the same major: `fast-uri` 3.1.8, `hono` 4.13.9, `qs` 6.16.0, `toml` 4.3.0. The built MCP server was driven end to end through the SDK's own client afterwards, so the schema validator actually ran on the patched parser. Modelled as F3-I.2. |
 
 ### How the model was validated
 
@@ -500,31 +504,34 @@ operator who needs one sources it there:
   in `docs/audit/evidence/`.
 - Each of the contract's five entry points was checked against the access
   control failures that dominate the Stellar Security Portal corpus, pulled
-  2026-08-04 (832 Soroban findings, 150 critical/high; not re-verified for
-  grammar 4 - the portal API did not resolve, and no entry point changed).
+  2026-08-04 (832 Soroban findings, 150 critical/high). Not re-pulled for
+  this run: the interpreter's entry points are unchanged, but the gate's and
+  adapter's five entry points were checked against the same access-control
+  classes by hand, not against the corpus.
 - The review card is decoded from the final assembled transaction, and
   `summaryCrossCheck` fails if any predicate leaf is missing from the summary.
 - Grammar parity between the contract and the builder is asserted by a test
   that reads `SELF_VERSION` out of the Rust source.
-- Both gates run in CI on every push, including the two dependency-advisory
-  scanners.
+- Every gate named in the tool table runs in CI on every push, and as of this
+  run they all pass. That was not true when this run started (finding 3), so
+  the matrix is now a list worth re-deriving from `contracts/` rather than
+  trusting.
 
 ### Tool evidence
 
-Re-run 2026-09-25 against this tree:
+Run 2026-09-25 against this tree unless marked otherwise:
 
 | Tool | Result |
 |---|---|
-| `cargo fmt --check`, `clippy --all-targets -D warnings`, `cargo test` - per crate, all four now in the CI matrix | clean after the two fixes above; 167 tests (interpreter 151, adapter 13, gate 3) |
+| `cargo fmt --check`, `clippy --all-targets -D warnings`, `cargo test` - per crate, all four in the CI matrix | clean; 168 tests (interpreter 151, adapter 14, gate 3) |
 | `scripts/verify-execution-v3-testnet.ts` - live testnet, fresh Prime, real Blend and Aquarius | all checks passed, including the two new refusals on `rebind` |
+| `bun run check` (biome) | clean (was 65 errors) |
+| `bun run typecheck`, and the three package builds CI runs before it | clean |
 | `bun test` | 771 pass, 1 skip, 0 fail across 772 tests in 52 files (was 681/682) |
-| `bun run check` (biome) | **FAILS**: 65 errors, 196 warnings across 180 files. 41 are auto-fixable formatting; ~24 are `noExplicitAny` / `noNonNullAssertion` in 19 testnet verification scripts added since the last run. Red on `main`, so the CI TypeScript job is red. |
-| `bun run typecheck` | not run in isolation: it resolves `@crediolabs/policy-synth` types from `dist/`, which CI builds first. |
-| `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
-| `bun audit` | 0 vulnerabilities |
-| `clippy -W pedantic -W nursery` | 191 style warnings, 0 security |
-| `cargo scout-audit` | Analyzed: 0 Critical, 9 Medium, 0 Minor, 1 Enhancement |
-| Stellar Security Portal corpus | 832 findings, 150 critical/high, pulled 2026-08-04 and cross-checked against this contract's five entry points. Dated, not re-verified for grammar 4. |
+| `bun audit` | 0 vulnerabilities across 146 packages (was 11: 6 high, 5 moderate) |
+| MCP server, built, driven over stdio by the SDK's own client | 8 tools listed, tool call answered |
+| `cargo audit`, `cargo scout-audit`, `clippy -W pedantic -W nursery` | **carried over from 2026-08-23, not re-run**: neither audit tool is installed on the machine this run used. Then: 0 vulnerabilities / 0 Critical, 9 Medium / 191 style warnings, 0 security. |
+| Stellar Security Portal corpus | 832 findings, pulled 2026-08-04. Not re-pulled. |
 
 ### Where the model is weakest
 
@@ -540,27 +547,17 @@ Re-run 2026-09-25 against this tree:
   every push" was true when written and quietly stopped being true as contracts
   were added beside a hard-coded matrix. Worth re-deriving the matrix from the
   contracts directory rather than listing it.
-- **The lint backlog is real and unpriced.** 24 of the 65 errors are not
-  auto-fixable: `noExplicitAny` and `noNonNullAssertion` across 19 testnet
-  verification scripts. Auto-fixing the rest rewrites 2,696 lines across 29
-  files, including a 1,391-line reformat of the mainnet verification script,
-  which is why this run left it rather than burying a security fix underneath
-  it. It should be its own commit.
-- **Test files are outside the typecheck scope.** `tsconfig` excludes
-  `src/**/*.test.ts`, so `bun run typecheck` never sees them and a test can
-  reference a symbol that no longer exists while typecheck stays green. The
-  test run catches it; the type checker does not.
-- **Coverage of the MCP transport is thin** because the deployment model
-  (loopback stdio) makes the HTTP surface a secondary path. If that changes, F3
-  needs re-work and A-1 becomes load-bearing.
-- **The model reasoned per LEAF, not per SHAPE, and missed F4-E.3 on the first
-  pass.** It already held two entries for a bound that reads as a limit and
-  permits - C1-E.7 and C1-E.8, both on `call_arg_scaled` - but nothing for the
-  structural sibling: a bound on ONE element of a collection, which says
-  nothing about the others. `call_arg_field` was listed in the grammar table
-  and never asked what it does not constrain. A bound over a collection needs a
-  cardinality pin to be a bound at all, and that question should be asked of
-  any future leaf that addresses part of a larger value.
+- **The run's own first drafts were wrong twice, and measuring caught both.**
+  R-8 as first written listed encodings the host cannot even build an address
+  from, and C9-D.2 first called a bad rebind unrecoverable because an earlier
+  note said a Prime could deploy only once - a note a direct test then
+  disproved. Both were reasoning that read well. Rows here that were measured
+  say so; rows that were reasoned should be read as hypotheses.
+- **Contract comments are part of the build.** `panic_with_error!` embeds
+  source locations, so correcting a comment above a panic site changed the
+  adapter's wasm hash. Anything that pins a hash - a gate's `caller_code`, the
+  app's recognised set - moves with prose edits. The build is deterministic,
+  but it is line-sensitive.
 
 ### What would raise confidence further
 
