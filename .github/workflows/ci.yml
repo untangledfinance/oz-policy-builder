@@ -94,40 +94,41 @@ jobs:
         if: matrix.crate == 'policy-interpreter'
         run: cargo test --release --test conformance
 
-      # PINNED_INTERPRETER_WASM_SHA256 is the builder's claim about which binary
-      # the pinned instances run, and the grammar-version guard only compares the
-      # VERSION - a stale hash beside a correct version passes it. This rebuilds
-      # the wasm and compares.
+      # The source here is the grammar-6 line, and the instance that runs it is
+      # recorded in docs/grammar6-testnet-deployment.json. The package's
+      # PINNED_INTERPRETER_WASM_SHA256 names the grammar-4 instances the npm
+      # packages still target, so it is not this source's binary and comparing
+      # the two fails for good. This rebuilds the wasm and compares it with the
+      # record, so a source change that was never deployed turns this red.
       #
       # It must go through build-wasm.sh. A bare cargo build is NOT reproducible:
       # rustc bakes in the crate root and registry paths, so the hash differs per
       # machine. The script remaps both, which was verified to give a
       # byte-identical wasm across differing source paths and CARGO_HOMEs - that
-      # is what makes comparing hashes in CI meaningful rather than flaky.
+      # is what makes comparing hashes in CI meaningful rather than flaky. The
+      # current testnet instance predates that rule, so its record also carries
+      # the reproducible hash of the commit it was built from, and that is what
+      # this compares when present.
       - name: Wasm build and pin parity
         if: matrix.crate == 'policy-interpreter'
         run: |
           rustup target add wasm32v1-none
           built=$(./build-wasm.sh | tail -1)
-          pinned=$(grep -A2 'PINNED_INTERPRETER_WASM_SHA256' \
-            ../../packages/policy-synth/src/run/schemas.ts \
-            | grep -oE '[0-9a-f]{64}' | head -1)
+          record=../../docs/grammar6-testnet-deployment.json
+          pinned=$(jq -r '.interpreterSource.reproducibleWasmSha256 // .wasmHashes.interpreter // empty' "$record")
           echo "built:  $built"
           echo "pinned: $pinned"
           if [ -z "$pinned" ]; then
-            echo "could not read PINNED_INTERPRETER_WASM_SHA256 - has it been renamed?"
+            echo "could not read the interpreter hash from $record"
             exit 1
           fi
           if [ "$built" != "$pinned" ]; then
             echo ""
-            echo "The pinned wasm hash is not the wasm this tree builds."
-            echo "Either the contract changed without a redeploy, or a deployment"
-            echo "re-pinned the address and version but not the hash. Deploy the"
-            echo "current build and re-pin address, wasm hash and grammar version"
-            echo "together in run/schemas.ts."
-            echo "If the hashes differ but the source did not change, check that"
-            echo "the build went through build-wasm.sh - a bare cargo build is"
-            echo "not reproducible and will not match."
+            echo "The recorded grammar-6 interpreter is not the wasm this tree builds."
+            echo "Either the contract changed without a redeploy, or a redeploy did"
+            echo "not update $record. Deploy the current build with"
+            echo "scripts/deploy-grammar6-testnet.ts and re-pin the app together."
+            echo "A reflow by rustfmt counts: the wasm embeds every panic's line."
             exit 1
           fi
 

@@ -325,7 +325,7 @@ fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
 /// `call_arg_scaled` is the one exception to "the right side must be a
 /// literal". It is dispatched before that rule is applied, on either side,
 /// because a slippage floor has no constant to bound against.
-fn eval_compare(
+#[rustfmt::skip] fn eval_compare(
     env: &Env,
     op: CompareOp,
     left: &Leaf,
@@ -367,7 +367,8 @@ fn eval_compare(
     // `has_selector_leaf` sees a selector. That is a new way to write a
     // no-constraint policy, and it joins the mis-specified policy in the
     // known-acceptable-risk column rather than being caught at install.
-    let (Some(actual), Some(expected)) = (resolve(env, left, ctx), resolve(env, right, ctx)) else {
+    let (Some(actual), Some(expected)) = (resolve(env, left, ctx), resolve(env, right, ctx))
+    else {
         return EvalDecision::Deny(miss);
     };
     let pass = match op {
@@ -467,7 +468,7 @@ fn eval_scaled_arg_compare(
 /// argument index past the end, an argument whose shape is not what the leaf
 /// assumed, an absent map field. Every caller turns `None` into a deny, so an
 /// unresolvable leaf is always fail-closed.
-fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext) -> Option<Val> {
+#[rustfmt::skip] fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext) -> Option<Val> {
     match leaf {
         Leaf::CallContract => Some(ctx.contract.clone().into_val(env)),
         Leaf::CallFn => Some(ctx.fn_name.clone().into_val(env)),
@@ -497,10 +498,7 @@ fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext) -> Option<Val> {
                         .get(f.clone())?,
                     PathStep::Len => {
                         return Some(
-                            SorobanVec::<Val>::try_from_val(env, &cur)
-                                .ok()?
-                                .len()
-                                .into_val(env),
+                            SorobanVec::<Val>::try_from_val(env, &cur).ok()?.len().into_val(env),
                         )
                     }
                 };
@@ -620,11 +618,11 @@ mod dsl_decode {
     use soroban_sdk::xdr::FromXdr;
     use soroban_sdk::{Address, Bytes, Env, Symbol, TryFromVal, Val, Vec as SorobanVec};
 
-    use super::{
-        CompareOp, Leaf, Node, PathStep, MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES,
-        MAX_PREDICATE_BYTES, OP_AND, OP_EQ, OP_GT, OP_GTE, OP_IN, OP_LT, OP_LTE, OP_OR,
-        SEL_CALL_ARG, SEL_CALL_ARG_FIELD, SEL_CALL_ARG_LEN, SEL_CALL_ARG_SCALED, SEL_CALL_CONTRACT,
-        SEL_CALL_FN, SEL_CALL_PATH,
+    #[rustfmt::skip] use super::{
+        CompareOp, Leaf, Node, MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_PREDICATE_BYTES,
+        OP_AND, OP_EQ, OP_GT, OP_GTE, OP_IN, OP_LT, OP_LTE, OP_OR,
+        PathStep, SEL_CALL_ARG, SEL_CALL_ARG_FIELD, SEL_CALL_ARG_LEN, SEL_CALL_ARG_SCALED,
+        SEL_CALL_CONTRACT, SEL_CALL_FN, SEL_CALL_PATH,
     };
 
     /// Errors that can be raised while decoding a predicate root from the
@@ -981,3 +979,11 @@ mod dsl_decode {
         Symbol::try_from_val(env, &v).map_err(|_| DecodeError::MalformedPredicate)
     }
 }
+
+// The three `#[rustfmt::skip]` marks above hold `eval_compare`, `resolve` and
+// the decoder's import list in the layout the testnet grammar-6 instance was
+// built from. The wasm embeds the source line of every panic, so a reflow by a
+// newer rustfmt moves the hash with no change in behaviour, and the build would
+// stop matching `docs/grammar6-testnet-deployment.json`. Drop the marks when the
+// interpreter is next redeployed. This note sits at the end of the file because
+// a line added above any panic moves the hash too.

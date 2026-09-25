@@ -9,6 +9,19 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ### Fixed
 
+- **The interpreter's wasm-parity CI step checks the grammar-6 instance it
+  builds.** It compared the source against `PINNED_INTERPRETER_WASM_SHA256`,
+  which names the grammar-4 instances the packages still target, so it had
+  been red since grammar 6 landed. It now compares against
+  `docs/grammar6-testnet-deployment.json`. That instance
+  (`CDPR5VTX…`, wasm `a7ef48e3…`) was uploaded from a bare cargo build; a
+  bare build of `931514b` on the deploying machine reproduces `a7ef48e3…`
+  exactly, and `build-wasm.sh` on the same source gives `1c4bf2ff…`, now
+  recorded beside it. A later rustfmt reflow of `dsl.rs` had moved the build
+  off that hash with no change in behaviour; three `#[rustfmt::skip]` marks
+  hold the deployed layout until the next redeploy.
+  `deploy-grammar6-testnet.ts` now builds the interpreter through
+  `build-wasm.sh`, so the next record's hash is checkable as it stands.
 - **`execution-adapter-v3.rebind` refuses a successor that cannot answer
   `custody()`.** It used to store whatever address it was given. `execute`
   reads `allowed` from the binding and `rebind` reads `custody` from it, so an

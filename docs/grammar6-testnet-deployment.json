@@ -10,6 +10,11 @@
     "adapter": "75781757fb90a366330e5400fc65d105ce48e02b4e71bbf61acddfad2367319a",
     "gate": "c7c9238c57b4843d4ad33e605fab7d48095e3a8ec3351dd0433578a1398dc2fe"
   },
+  "interpreterSource": {
+    "commit": "931514b41fa1c64f534b9f1fe436c14528efc455",
+    "reproducibleWasmSha256": "1c4bf2ff3ab32ea62d27cee2ddbfaa6736c69a024717e5711ded5c6a2c99e574",
+    "note": "The uploaded interpreter was a bare cargo build, which bakes machine paths into the wasm, so its hash cannot be rebuilt elsewhere. A bare build of this commit on the deploying machine gives exactly wasmHashes.interpreter (checked 2026-09-25); build-wasm.sh on the same source gives reproducibleWasmSha256, which CI rebuilds from main and compares."
+  },
   "uploadTx": {
     "interpreter": "7fdef6cb4e65fca2fabaed4d9e848b58aaf56f25095bc12ff56eb72ff211e9a2",
     "adapter": "d4e6a66bb903187cf20b4bfee24b80ee6521fcb8cfa57737f792940db5192a9d",

@@ -7,6 +7,7 @@
 //
 //   bun scripts/deploy-grammar6-testnet.ts [--secret S...]
 
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import {
   Address,
@@ -23,7 +24,10 @@ import {
 
 // Artifacts come from each crate's own build output, so a fresh clone can run
 // this after `cargo build --release --target wasm32v1-none` in contracts/*.
-// PRIME_WASM_DIR overrides with a single directory holding all of them.
+// The interpreter is the exception: it is rebuilt here through build-wasm.sh,
+// because a bare cargo build bakes machine paths into the wasm and CI could not
+// check the deployed hash against the source. PRIME_WASM_DIR overrides with a
+// single directory holding all of them.
 function wasmPath(crate: string, file: string): string {
   const override = process.env.PRIME_WASM_DIR
   const candidate = override
@@ -82,6 +86,9 @@ async function main() {
   }
   log('DEPLOY', `deployer ${kp.publicKey()}`)
 
+  if (!process.env.PRIME_WASM_DIR) {
+    execFileSync('contracts/policy-interpreter/build-wasm.sh', { stdio: 'inherit' })
+  }
   const artifacts = {
     interpreter: readFileSync(wasmPath('policy-interpreter', 'policy_interpreter')),
     adapter: readFileSync(wasmPath('execution-adapter', 'execution_adapter')),
