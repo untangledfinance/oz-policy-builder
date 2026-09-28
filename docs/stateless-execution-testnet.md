@@ -1,5 +1,7 @@
 # Stateless execution — testnet deployment
 
+> **Retired source.** The contracts and scripts this record ran against were removed from `main` when the repo kept only the latest contract generation. They are at tag `archive/contracts-before-v3-only`; check that tag out to reproduce the run below.
+
 Deployed and verified on 2026-09-16 from contract source commit `47df478`,
 branch `feat/policy-signer`. Network: Stellar testnet. Mainnet unchanged.
 

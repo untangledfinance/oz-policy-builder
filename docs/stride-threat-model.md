@@ -38,8 +38,8 @@ found; the two contract threats were both in that pair (C9-D.2, C9-D.3).
 
 ### Out of scope, named with their trust assumption
 
-- `contracts/test-blend-pool/`, `contracts/execution-test-venue/`, `contracts/invoker-auth-probe/` - test doubles and probes. Trust assumption: NOT production code; testnet only. Not modelled.
-- `contracts/execution-adapter/`, `contracts/custody-gate/`, `contracts/execution-policy/` - the v1 and v2 generations, superseded by the pair above. Trust assumption: still deployed and still reachable by accounts holding v1 rules, but no longer the code this repo builds against. An account on them inherits the previous model, not this one.
+- `contracts/test-blend-pool/` - a test double. Trust assumption: NOT production code; testnet only. Not modelled.
+- The v1 and v2 generations (`execution-adapter`, `custody-gate`, `execution-policy`) and the probes `execution-test-venue` and `invoker-auth-probe`, superseded by the pair above. Their source was removed from `main` and lives at tag `archive/contracts-before-v3-only`. Trust assumption: still deployed and still reachable by accounts holding v1 rules, but no longer the code this repo builds. An account on them inherits the previous model, not this one.
 - OpenZeppelin Stellar smart-account contracts. Trust assumption: OZ smart-account correctness is assumed - the interpreter is a delegate of one. OZ's `__check_auth`, `add_context_rule`, `remove_context_rule` and signer-threshold semantics are external dependencies.
 - Stellar protocol, validators, RPC endpoints. Trust assumption: Stellar validators and pinned RPCs behave correctly; the install/revoke/info paths bind their signatures to whichever RPC answered.
 

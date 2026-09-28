@@ -1,5 +1,7 @@
 # Atomic SDK and co-sign continuation: live TESTNET proof
 
+> **Retired source.** The contracts and scripts this record ran against were removed from `main` when the repo kept only the latest contract generation. They are at tag `archive/contracts-before-v3-only`; check that tag out to reproduce the run below.
+
 Run date: 2026-09-16. Public evidence: [`atomic-cosign-testnet.json`](./atomic-cosign-testnet.json). Reproduction script: [`verify-atomic-cosign-testnet.ts`](../scripts/verify-atomic-cosign-testnet.ts).
 
 The shipped SDK discovered custody, asset, Blend pool, adapter, interpreter, rule IDs, amount cap and the mandatory 2-of-2 operator policy from the disposable agent key and Prime address. Network/RPC and app origin are infrastructure configuration. No wallet, token, pool, executor or rule ID was supplied to `connectExecutionLane`.

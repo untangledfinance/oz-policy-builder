@@ -1,5 +1,7 @@
 # Stateless execution deployment — mainnet
 
+> **Retired source.** The contracts and scripts this record ran against were removed from `main` when the repo kept only the latest contract generation. They are at tag `archive/contracts-before-v3-only`; check that tag out to reproduce the run below.
+
 Deployed September 16, 2026 from `feat/policy-signer`, contract source commit `47df478`; testnet verification commit `a40ed75`.
 
 - Interpreter: `CDIMIQDB6ZL6Q3TJM24HC3SU3YIKDNL2LB2GXHHVVCI4BRNHYDZGXEEW`

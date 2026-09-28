@@ -123,17 +123,12 @@ These use the real numbers from our test run: a limit of 20,000,000, moves of
 | Take 2,000,000 from you and put one unit less to work | Gate 4, ours | Refused. The amount taken and the amount invested must match exactly. | Live network |
 | Add an extra step to the batch that nobody declared | Gate 4, ours | The whole batch reverses. No part of it happens. | Live network |
 
-You can run every row in this table yourself:
-
-```
-bun scripts/prime.ts demo setup     # once
-bun scripts/prime.ts demo run all   # each gate, each scenario
-```
-
-It prints the on-chain state before each attempt and names which layer refused.
-[demo-runbook.md](demo-runbook.md) has the full command list.
-`--dry-run` shows what a step would do without touching the network, and
-`prime gate info` / `prime accounts info` show what each gate is holding.
+Every row was run with the `prime` demo CLI, which printed the on-chain state
+before each attempt and named which layer refused. That CLI and the gate
+generation it drove have since been retired; both are at tag
+`archive/contracts-before-v3-only`. The current gate and execution contract are
+checked end to end by `scripts/verify-execution-v3-testnet.ts`, and the app walks
+the same flow on testnet (`octopos/docs/fordefi-scenario-testnet-guide.md`).
 
 **Live network** means we ran it against Stellar's test network and read the
 network's own answer. **Our tests** means the contract's test suite covers it,

@@ -7,13 +7,13 @@
 //
 //   bun scripts/verify-execution-v3-testnet.ts
 //
-// Requires scripts/.env (throwaway testnet keys) only for the shared grammar-6
-// interpreter address in scripts/.demo-state.json; every account it uses is
-// created and funded fresh.
+// Reads the shared grammar-6 interpreter from docs/grammar6-testnet-deployment.json;
+// every account it uses is created and funded fresh.
 
 import { readFileSync } from 'node:fs'
 import {
   Address,
+  Asset,
   hash,
   Keypair,
   Operation,
@@ -24,6 +24,7 @@ import {
   XdrLargeInt,
   xdr,
 } from '@stellar/stellar-sdk'
+import { PINNED_INTERPRETER_TESTNET_ADDRESS } from '../packages/policy-synth/src/run/schemas.ts'
 import {
   ACCOUNT_WASM_HASH,
   addRuleArgs,
@@ -43,7 +44,6 @@ import {
   invokeOp,
   kv,
   LIMIT,
-  loadState,
   MOVE,
   PASSPHRASE,
   POOL,
@@ -55,7 +55,7 @@ import {
   u32v,
   vec,
   wasmPath,
-} from './prime/chain.ts'
+} from './lib/chain.ts'
 
 /** Live Aquarius XLM/USDT pool, and the token it pays out in. */
 const AQUA = 'CCMNSENXDBNJSY72BDIPH5CCXLLHBKZ4LXTRKDLKZN4UI2NJFQLWTLD6'
@@ -87,8 +87,10 @@ const contractId = (deployer: string, salt: Buffer) =>
   )
 
 let fails = 0
-const interpreter = loadState().interpreter
-const sac = loadState().sac
+const interpreter: string = JSON.parse(
+  readFileSync(new URL('../docs/grammar6-testnet-deployment.json', import.meta.url), 'utf8')
+).interpreter
+const sac = Asset.native().contractId(PASSPHRASE)
 
 const K = {
   admin: Keypair.random(),
@@ -535,7 +537,9 @@ await go('a 64-byte signature', pay(xdr.ScVal.scvBytes(Buffer.alloc(64, 7))), 'P
 await go('a short memo', pay(xdr.ScVal.scvString('settlement 42')), 'PASSES')
 
 console.log(C.bold('\n── inside an authorization ──'))
-const UNLISTED = loadState().adapter
+// Any live contract the gate does not name: the grammar-4 testnet interpreter the
+// packages pin, which no gate lists as a destination.
+const UNLISTED = PINNED_INTERPRETER_TESTNET_ADDRESS
 await go(
   'an auth entry naming an unlisted contract',
   {

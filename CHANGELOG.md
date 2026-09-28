@@ -7,6 +7,31 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ## [Unreleased]
 
+### Removed
+
+- **Every contract generation but the latest.** `contracts/` now holds the
+  grammar-6 `policy-interpreter`, the v3 pair `custody-gate-v3` and
+  `execution-adapter-v3`, and the `test-blend-pool` test double. The v1 and v2
+  gate and adapter (`custody-gate`, `execution-adapter`), `execution-policy`,
+  and the probes `execution-test-venue` and `invoker-auth-probe` are gone from
+  `main`, together with the scripts that only drove them
+  (`e2e-grammar6-testnet`, `stateless-execution-testnet`,
+  `verify-atomic-cosign-testnet`, `verify-amount-bands-testnet`,
+  `verify-invoker-auth-testnet`, `deploy-stateless-mainnet`). Their source is
+  kept at tag `archive/contracts-before-v3-only`; the deployed instances are
+  unaffected, and the evidence docs that ran against them say where to find it.
+- **The `prime` demo CLI** (`scripts/prime.ts`, `scripts/prime/`, the `prime`
+  and `prime:build` package scripts and `scripts/.env.example`). The helpers the
+  v3 verifier shares moved to `scripts/lib/chain.ts`, and the verifier now reads
+  the grammar-6 interpreter from `docs/grammar6-testnet-deployment.json` instead
+  of the CLI's state file.
+
+### Changed
+
+- `scripts/deploy-grammar6-testnet.ts` uploads the v3 gate and adapter.
+- The pre-v3 adapter's projection fixtures moved into policy-synth, which still
+  checks its encoder against them.
+
 ### Fixed
 
 - **The interpreter's wasm-parity CI step checks the grammar-6 instance it

@@ -1,7 +1,7 @@
 // Pin a grammar-6 deployment on TESTNET so the app and SDK have a stable
 // address to reference, instead of the throwaway one the e2e deploys per run.
 //
-// Uploads the interpreter, the adapter and the gate, creates the interpreter,
+// Uploads the interpreter and the v3 adapter and gate, creates the interpreter,
 // and reads its grammar back from the chain before recording anything. Writes
 // docs/grammar6-testnet-deployment.json.
 //
@@ -92,8 +92,8 @@ async function main() {
   }
   const artifacts = {
     interpreter: readFileSync(wasmPath('policy-interpreter', 'policy_interpreter')),
-    adapter: readFileSync(wasmPath('execution-adapter', 'execution_adapter')),
-    gate: readFileSync(wasmPath('custody-gate', 'custody_gate')),
+    adapter: readFileSync(wasmPath('execution-adapter-v3', 'execution_adapter_v3')),
+    gate: readFileSync(wasmPath('custody-gate-v3', 'custody_gate_v3')),
   }
   const hashes: Record<string, string> = {}
   const uploads: Record<string, string> = {}
@@ -156,16 +156,16 @@ async function main() {
     recorded: new Date().toISOString(),
     deployer: kp.publicKey(),
     grammar: 6,
-    adapterSaltText: 'prime.execution.adapter.v2',
+    adapterSaltText: 'prime.execution.adapter.v3',
     interpreter,
     wasmHashes: hashes,
     uploadTx: uploads,
     createTx: created.txHash,
     sizes: Object.fromEntries(Object.entries(artifacts).map(([k, v]) => [k, v.length])),
     note:
-      'Grammar 6 and the grants-as-data adapter. The adapter salt is v2 because ' +
-      'a Prime that already activated v1 has a contract at the v1 address and a ' +
-      'different code hash cannot take its place.',
+      'Grammar 6 and the v3 gate/adapter pair. Each Prime deploys its own gate and ' +
+      'adapter from these uploaded hashes; the adapter salt is derived from the ' +
+      'gate address under the v3 domain.',
   }
   writeFileSync('docs/grammar6-testnet-deployment.json', `${JSON.stringify(record, null, 2)}\n`)
   console.log(`\n${JSON.stringify(record, null, 2)}`)

@@ -384,6 +384,11 @@ over from a previous run.
 | `e2e-grammar6-testnet.ts` | 14 | The whole flow against the live Blend pool, including the refusals |
 | `grants-v1-blend-testnet.ts` (SDK) | 5 | The same flow driven by the shipped SDK builders and the pinned manifest |
 
+`verify-invoker-auth-testnet.ts` and `e2e-grammar6-testnet.ts` ran against the
+pre-v3 gate and adapter. Their source was removed from `main` with those
+contracts and is at tag `archive/contracts-before-v3-only`. The v3 pair is
+checked end to end by `scripts/verify-execution-v3-testnet.ts`.
+
 Alongside them, **375 local tests**: 151 interpreter, 22 adapter, 4 gate, 198
 SDK.
 
@@ -570,7 +575,8 @@ Protocol claims are from the CAP texts: CAP-46-11 (Soroban Authorization
 Framework, Final, Protocol 20), CAP-71 (Final, Protocol 27), CAP-72 (Draft).
 Network state read from `getNetwork` on Stellar mainnet, Protocol 28.
 Contract claims are from source at `contracts/` in this repository.
-Testnet results are reproducible with `scripts/e2e-grammar6-testnet.ts`,
-`scripts/verify-mpc-threshold-testnet.ts` and
+Testnet results are reproducible with `scripts/verify-mpc-threshold-testnet.ts`
+and `scripts/verify-execution-v3-testnet.ts`, and, at tag
+`archive/contracts-before-v3-only`, with `scripts/e2e-grammar6-testnet.ts` and
 `scripts/verify-invoker-auth-testnet.ts`; each run deploys fresh keys and
 contracts.

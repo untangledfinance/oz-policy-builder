@@ -81,8 +81,12 @@ describe('execution batch projection', () => {
   })
 })
 
-it('matches the shared Rust projection fixture bytes', () => {
-  const dir = new URL('../../../../contracts/execution-adapter/tests/fixtures/', import.meta.url)
+// The bytes the pre-v3 execution adapter's Rust tests projected, kept here
+// after that crate's source was retired (tag archive/contracts-before-v3-only).
+// Deployed pre-v3 adapters still compute this projection, so the TypeScript
+// side must keep matching it.
+it('matches the pre-v3 adapter projection fixture bytes', () => {
+  const dir = new URL('./fixtures/', import.meta.url)
   const request = xdr.ScVal.fromXDR(readFileSync(new URL('projection-request.xdr', dir)))
   expect(xdr.ScVal.scvVec(projectExecutionRequest(request)).toXDR('base64')).toBe(
     readFileSync(new URL('projection-args.xdr', dir)).toString('base64')
