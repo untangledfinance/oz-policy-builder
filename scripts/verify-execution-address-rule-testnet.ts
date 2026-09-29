@@ -65,7 +65,7 @@ const OUT = 'CDPXNHHVSLX3HFAHV7XOISM23MZH36WSXTO45RNDOBIDFZBGTSOVD4OY'
 /** The salt domain custody uses to find the adapter before it is deployed. */
 const DOMAIN = 'prime.execution.adapter.v4'
 /** No wait, and a window that never matters: this script is about the address
- *  rule. `verify-execution-v4-testnet.ts` covers waiting. The adapter's address
+ *  rule. `verify-execution-wait-testnet.ts` covers waiting. The adapter's address
  *  commits to both, so they are part of its salt. */
 const MIN_WAIT = 0
 const WINDOW = 100
@@ -135,8 +135,8 @@ const prime = Address.fromScVal(
   ).returnValue!
 ).toString()
 
-const gateWasm = readFileSync(wasmPath('custody-gate-v3', 'custody_gate_v3'))
-const adapWasm = readFileSync(wasmPath('execution-adapter-v4', 'execution_adapter_v4'))
+const gateWasm = readFileSync(wasmPath('custody-gate', 'custody_gate'))
+const adapWasm = readFileSync(wasmPath('execution-adapter', 'execution_adapter'))
 const GW = hash(gateWasm)
 const AW = hash(adapWasm)
 for (const w of [gateWasm, adapWasm]) {

@@ -1,5 +1,5 @@
 [package]
-name = "custody-gate-v3"
+name = "custody-gate"
 version = "0.0.1"
 edition = "2021"
 publish = false

@@ -18,7 +18,7 @@
 //   - the Prime cannot create the adapter at the address custody named with
 //     a lower floor or a different window than custody agreed to.
 //
-//   bun scripts/verify-execution-v4-testnet.ts
+//   bun scripts/verify-execution-wait-testnet.ts
 //
 // Reads the shared grammar-6 interpreter from deployments/grammar6-testnet.json;
 // every account it uses is created and funded fresh.
@@ -154,8 +154,8 @@ const prime = Address.fromScVal(
 // THE GATE IS THE v3 CONTRACT, UNCHANGED. It pins its caller's address and
 // code, so it takes the v4 adapter as it took v3 - only its configuration
 // names the new code.
-const gateWasm = readFileSync(wasmPath('custody-gate-v3', 'custody_gate_v3'))
-const adapWasm = readFileSync(wasmPath('execution-adapter-v4', 'execution_adapter_v4'))
+const gateWasm = readFileSync(wasmPath('custody-gate', 'custody_gate'))
+const adapWasm = readFileSync(wasmPath('execution-adapter', 'execution_adapter'))
 const GW = hash(gateWasm)
 const AW = hash(adapWasm)
 for (const w of [gateWasm, adapWasm]) {
@@ -327,7 +327,7 @@ const agentRule = await addRule({
 })
 
 console.log(C.bold('\nprime   ') + prime)
-console.log(C.bold('gate    ') + gate + C.dim('  (custody-gate-v3, unchanged)'))
+console.log(C.bold('gate    ') + gate + C.dim('  (custody-gate, unchanged)'))
 console.log(C.bold('adapter ') + adapter + C.dim(`  ${adapWasm.length}B, window ${WINDOW} ledgers`))
 console.log(C.bold('rules   ') + `pool ${poolRule}, run ${runRule}, agent ${agentRule}`)
 

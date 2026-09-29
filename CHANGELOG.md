@@ -9,7 +9,7 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ### Added
 
-- **`execution-adapter-v4`: a batch can wait.** `execute(calls, grants, wait)`
+- **`execution-adapter` (v4): a batch can wait.** `execute(calls, grants, wait)`
   runs at once when `wait` is 0, as v3 does. With a wait it stores the batch,
   and anyone can `run(id)` it from the ready ledger until the run window closes.
   The Prime or the custody account can `cancel(id, by)` it first.
@@ -22,7 +22,22 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   - A stored batch runs under a Prime rule scoped to the adapter, signed by the
     adapter, whose predicate permits `run` alone.
   - The gate is the unchanged v3 contract.
-  - Verified end to end on testnet by `scripts/verify-execution-v4-testnet.ts`.
+  - Verified end to end on testnet by `scripts/verify-execution-wait-testnet.ts`.
+
+- **Reproducible builds for the gate and the adapter.** Each crate has a
+  `build-wasm.sh`, like the interpreter's; the Linux builds are uploaded to
+  testnet and recorded in `deployments/execution-testnet.json` by
+  `scripts/upload-execution-testnet.ts`, and CI rebuilds both and compares them
+  with the record. The Prime app pins these hashes.
+
+### Changed
+
+- **Contract folders carry no version.** `contracts/custody-gate-v3` is now
+  `contracts/custody-gate` and `contracts/execution-adapter-v4` is
+  `contracts/execution-adapter`, with the crate names to match. The on-chain
+  conventions are unchanged: the adapter's salt domain is still
+  `prime.execution.adapter.v4`. `scripts/verify-execution-v4-testnet.ts` is now
+  `scripts/verify-execution-wait-testnet.ts`.
 
 ### Removed
 

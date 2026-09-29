@@ -1,5 +1,5 @@
 [package]
-name = "execution-adapter-v4"
+name = "execution-adapter"
 version = "0.0.1"
 edition = "2021"
 publish = false

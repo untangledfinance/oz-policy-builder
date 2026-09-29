@@ -89,8 +89,8 @@ The same wasm hash backs both networks; only the instance address differs.
 | `packages/policy-builder-cli` | CLI wrapper over the synth core (`@crediolabs/policy-builder-cli`). |
 | `packages/policy-builder-mcp` | MCP server exposing the seven policy tools (`@crediolabs/policy-builder-mcp`). |
 | `contracts/policy-interpreter` | The Soroban contract that enforces a predicate on chain. |
-| `contracts/custody-gate-v3` | The custody account's gate: holds its allowance and releases only to listed addresses. |
-| `contracts/execution-adapter-v4` | The per-Prime batcher, bound to one gate. A batch can wait a number of ledgers before it runs. |
+| `contracts/custody-gate` | The custody account's gate: holds its allowance and releases only to listed addresses. |
+| `contracts/execution-adapter` | The per-Prime batcher, bound to one gate. A batch can wait a number of ledgers before it runs. |
 | `contracts/test-blend-pool` | A Blend-`submit`-shaped stub, for testnet verification only. |
 | `deployments/` | Deployment records that CI and the scripts read. |
 | `evidence/` | Logs and receipts behind the claims in the docs. |
