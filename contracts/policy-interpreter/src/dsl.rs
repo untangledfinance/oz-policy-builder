@@ -984,6 +984,6 @@ mod dsl_decode {
 // the decoder's import list in the layout the testnet grammar-6 instance was
 // built from. The wasm embeds the source line of every panic, so a reflow by a
 // newer rustfmt moves the hash with no change in behaviour, and the build would
-// stop matching `docs/grammar6-testnet-deployment.json`. Drop the marks when the
+// stop matching `deployments/grammar6-testnet.json`. Drop the marks when the
 // interpreter is next redeployed. This note sits at the end of the file because
 // a line added above any panic moves the hash too.

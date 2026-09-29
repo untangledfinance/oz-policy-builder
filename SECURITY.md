@@ -25,7 +25,7 @@ There is currently no bug bounty programme.
 **These contracts are unaudited.** They have been through internal adversarial
 review, and the findings that came out of it were either fixed or documented
 as accepted trust assumptions, but no external audit has been completed.
-[docs/architecture.md](./docs/architecture.md) is specific about what each
+[docs/stellar.md](./docs/stellar.md) is specific about what each
 piece does and does not enforce; treat anything it does not claim as
 unenforced.
 

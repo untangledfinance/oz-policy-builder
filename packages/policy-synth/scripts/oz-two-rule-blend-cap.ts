@@ -79,7 +79,7 @@ const ACCOUNT_WASM_HASH = '91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850
 
 /** OZ `multisig-spending-limit-policy-example`, built by us from
  *  OpenZeppelin/stellar-contracts at TAG v0.7.2. Third-party code we did not
- *  audit - see docs/audit/README.md for the provenance note. */
+ *  audit - see evidence/README.md for the provenance note. */
 const SPENDING_LIMIT_BY_NETWORK: Record<Net, string> = {
   testnet: 'CDH4KOBRUEZI6TTZ72YXR5YUIODB6RH3AF75KX56Z73DELRCA5TWFISP',
   mainnet: 'CA7IBD266HIHFDUIBZLPIAITJUA3DVY4JAG6K3QMGBKLZCXXLP5E2F7A',

@@ -95,7 +95,7 @@ jobs:
         run: cargo test --release --test conformance
 
       # The source here is the grammar-6 line, and the instance that runs it is
-      # recorded in docs/grammar6-testnet-deployment.json. The package's
+      # recorded in deployments/grammar6-testnet.json. The package's
       # PINNED_INTERPRETER_WASM_SHA256 names the grammar-4 instances the npm
       # packages still target, so it is not this source's binary and comparing
       # the two fails for good. This rebuilds the wasm and compares it with the
@@ -114,7 +114,7 @@ jobs:
         run: |
           rustup target add wasm32v1-none
           built=$(./build-wasm.sh | tail -1)
-          record=../../docs/grammar6-testnet-deployment.json
+          record=../../deployments/grammar6-testnet.json
           pinned=$(jq -r '.interpreterSource.reproducibleWasmSha256 // .wasmHashes.interpreter // empty' "$record")
           echo "built:  $built"
           echo "pinned: $pinned"

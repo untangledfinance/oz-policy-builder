@@ -502,7 +502,7 @@ export const RPC_URL_BY_NETWORK: Record<Network, string> = {
  *  v0.7.2 and deployed by us. We have NOT audited them and upstream ships an
  *  "experimental software ... as is" disclaimer; anything surfacing one of
  *  these to a user must say so rather than implying we vouch for the code.
- *  Provenance detail in `docs/audit/README.md` finding 7. */
+ *  Provenance detail in `evidence/README.md` finding 7. */
 export type OzBuiltinPolicy = 'spending_limit' | 'simple_threshold' | 'weighted_threshold'
 
 /** The upstream tag the deployed policy instances were built from. Exported so

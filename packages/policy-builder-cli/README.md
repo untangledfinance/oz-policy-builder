@@ -59,7 +59,7 @@ small: the two commands that fit a pipe.
 ## Security model
 
 The CLI holds no key material and signs nothing. See the
-[architecture document](https://github.com/untangledfinance/oz-policy-builder/blob/main/docs/architecture.md)
+[Stellar technical document](https://github.com/untangledfinance/oz-policy-builder/blob/main/docs/stellar.md)
 for what the on-chain interpreter does and does not enforce, and the
 [repository README](https://github.com/untangledfinance/oz-policy-builder#readme) for
 the contracts' audit status.

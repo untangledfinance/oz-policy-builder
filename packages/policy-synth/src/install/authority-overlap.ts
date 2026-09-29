@@ -381,7 +381,7 @@ export function findAuthorityOverlaps(args: {
     // rule and nothing else. If the new rule carries one and a neighbour serves
     // the same calls without one, the signer names the neighbour and spends
     // without limit - the total was never a bound on the key. Proven on testnet
-    // in `docs/audit/evidence/oz-two-rule-blend-cap.log`, where an uncapped
+    // in `evidence/oz-two-rule-blend-cap.log`, where an uncapped
     // sibling rule passed the very amount the capped rule refused.
     //
     // Sound only when every policy on the neighbour was recognised. One

@@ -55,7 +55,7 @@ branch on them.
   embedding caller explicitly opts out (`allowExternalHost: true` via the
   programmatic API), because the surface is unauthenticated by design.
 - See the
-  [architecture document](https://github.com/untangledfinance/oz-policy-builder/blob/main/docs/architecture.md)
+  [Stellar technical document](https://github.com/untangledfinance/oz-policy-builder/blob/main/docs/stellar.md)
   for what the on-chain interpreter does and does not enforce, and the
   [repository README](https://github.com/untangledfinance/oz-policy-builder#readme)
   for the contracts' audit status.

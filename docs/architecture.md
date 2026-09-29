@@ -1,296 +1,136 @@
-# OZ Policy Builder architecture
+# Prime custody architecture
 
-The OZ Policy Builder governs a **key**: what a smart account is allowed to
-do on each call. This document describes each piece, and is careful about
-where enforcement actually lives.
+This page is for an institution deciding whether to let an agent work its
+treasury through Prime. It covers the setup we walked through on our call, what
+it promises, how Stellar and EVM each keep those promises, and what has been
+tested. The technical detail is in [stellar.md](stellar.md) and
+[evm.md](evm.md).
 
-A note on the trust boundary, because it is the thing most easily gotten
-wrong: the on-chain interpreter is the enforcer; the off-chain synthesiser is
-only a compiler. Nothing off chain is a security boundary.
+## The use case
 
-## Architecture at a glance
+You hold your treasury in an MPC wallet, such as a Fordefi vault. You want an
+agent to put part of it to work: swap it, supply it to a lending pool, withdraw
+it again. You do not want to move the treasury anywhere to make that happen,
+and you do not want anyone, us included, to be able to take it somewhere you
+did not agree to.
 
-The boundary that matters is off chain (compiles, never enforces) versus on
-chain (enforces).
+The setup below gives you two guarantees:
 
-```mermaid
-flowchart TB
-    op(["Operator / agent"])
-    subgraph oc1["off chain (TypeScript)"]
-        fe["policy-builder-cli / -mcp"]
-        ps["policy-synth<br/>compile + verify + gate install"]
-    end
-    subgraph on1["on chain (Soroban)"]
-        sa["OZ smart account"]
-        interp["policy-interpreter<br/>predicate enforcer"]
-    end
-    op --> fe --> ps
-    ps -- unsigned install tx --> sa
-    sa -- delegates each call --> interp
-```
+1. **Your MPC wallet always controls the funds.** The money stays in your
+   wallet. Nothing moves unless your wallet's own signers approved the limit it
+   moves under, and your signers can stop it at any time.
+2. **Only the destinations on your custody gate's list can receive funds.**
+   Your wallet grants its limit to a gate. The gate holds a list of the places
+   money may go, and it refuses everything else.
 
----
+## The setup
 
-## The problem
+These are the three steps from the call. Each chain implements them
+differently, and the next section shows how.
 
-An OpenZeppelin smart account on Soroban delegates each call to a context
-rule. A rule can carry OZ's built-in policies (a spending limit, an
-M-of-N threshold) and it can delegate to an external **policy contract** that
-returns permit or deny. OZ's built-ins cover common cases but cannot express
-"only these three recipients", "only this method on this contract", "only when
-this argument is under X", or an arbitrary boolean combination of those.
+### Step 1: set up
 
-The OZ Policy Builder fills that gap with one audit-once on-chain interpreter that evaluates a
-predicate, plus an off-chain toolkit that writes the predicate for you from a
-recorded transaction.
+Your MPC wallet needs all of its signers to move anything. In the setup we
+demonstrated, key A (your MPC key) carries weight 10, key B weight 5 and a
+trusted third party weight 5, against a threshold of 20. Any two keys reach 15
+at most, so no pair can act without the third.
 
-## The pieces
-
-| Piece | Package | Runs |
-| --- | --- | --- |
-| Synthesiser + install/verify flow | `@crediolabs/policy-synth` | off chain (TypeScript) |
-| CLI front-end | `@crediolabs/policy-builder-cli` | off chain |
-| MCP front-end | `@crediolabs/policy-builder-mcp` | off chain |
-| Predicate interpreter | `policy-interpreter` | on chain (Soroban) |
-
-## The pipeline
-
-The off-chain flow is exposed as eight MCP tools and as CLI subcommands. Each is a thin adapter over a pure core; nothing holds
-session state.
+Your wallet approves one thing: a limit for its custody gate. The limit has an
+amount and, on Stellar, an expiry date. The gate carries the list of addresses
+the funds may go to. The Prime
+account is a separate smart account with three signers, any two of which can
+approve. It holds no funds. The mandate, meaning what the agent may do, how
+much per move and at which venue, is installed on the Prime account.
 
 ```mermaid
 flowchart LR
-    rec["record_transaction<br/>tx hash / XDR"]
-    syn["synthesize_policy"]
-    ins["install_policy<br/>wallet signature = confirmation"]
-    rev["revoke_policy<br/>master-signer only"]
-
-    rec --> syn --> ins
-    ins -. later .-> rev
-
-    info["get_interpreter_info - deployment fingerprint<br/>+ live grammar check, any time"]
+    A["Key A<br/>your MPC key<br/>weight 10"] --> MPC
+    B["Key B<br/>weight 5"] --> MPC
+    T["Trusted third party<br/>weight 5"] --> MPC
+    MPC["Your MPC wallet<br/>holds the funds<br/>threshold 20"]
+    MPC -->|"approves a limit:<br/>amount, expiry,<br/>allowed destinations"| GATE["Custody gate"]
+    A2["Key A"] --> PRIME
+    C["Key C"] --> PRIME
+    PRIME["Prime account<br/>2 of 3 signers<br/>holds no funds"]
+    PRIME --- MANDATE["Mandate<br/>what the agent may do"]
 ```
 
-1. **record_transaction** - given a mainnet or testnet tx hash (or raw XDR),
-   decode it into a normalised `RecordedTransaction`: the contract, method,
-   arguments and token movements the flow actually performed.
-2. **synthesize_policy** - `synthesizeFromRecording` lowers the recorded flow
-   to an interpreter predicate that pins the contract, the method and the
-   arguments the recording carried. It requires `interpreter.smartAccountAddress`;
-   without it there is no backend to lower to and the call fails closed.
-3. **install_policy** - emit the unsigned Soroban transaction that adds the
-   context rule to the smart account. The wallet signature IS the user
-   confirmation; there is no two-call action-id handshake because the server
-   is stateless.
-4. **revoke_policy** - emit the unsigned `remove_context_rule` transaction.
-   Master-signer-only.
-5. **declare_policy** - lower a constraint stated outright to a predicate. No
-   transaction, no RPC, no `parseConfidence`. The method is required; the rest
-   are optional and cover four kinds of bound:
-   - the **contract** the call must land on;
-   - a **per-call amount cap** on a positional argument, or via `amountPath` on
-     an amount nested inside a vector argument. The nested form is the only
-     shape Blend's `submit` has, and it bounds every entry AND pins how many
-     entries the call may carry: a bound on one entry leaves the rest
-     unlimited, which is where the spend goes;
-   - a **recipient allowlist**;
-   - a **slippage floor**, `out >= in * num/den`, which bounds a swap against
-     its own size rather than against a fixed number.
-6. **simulate_policy** / **verify_policy** - evaluate a predicate against a
-   recorded call, and check the permit case alongside a generated deny case
-   per dimension.
-7. **get_interpreter_info** - return the pinned deployment fingerprint and,
-   optionally, a live `grammar_version()` read to confirm the on-chain
-   contract still matches the pin.
+### Step 2: execution
 
-## From recording to predicate
-
-There is no intermediate representation. The composer emits predicate nodes
-directly, and a `ComposedRule` carries scope, constraints and expiry.
+A move is one transaction. Key A, or the agent acting for it, prepares a batch
+of calls that moves funds from your wallet to a venue. The Prime account checks
+the batch against the mandate. Small moves need one signature; larger ones need
+a second Prime signer, key C in the diagram, before they run. The batch then
+runs through the adapter: the gate draws the funds from your wallet within the
+limit, the venue receives them, and whatever comes back goes to your wallet.
 
 ```mermaid
 flowchart LR
-    src["recording"] --> comp["composer<br/>ComposedRule"]
-    comp --> interp["interpreter adapter"]
+    A["Key A or the agent<br/>1. prepares the batch"] --> PRIME
+    C["Key C<br/>2. co-signs a large move"] -.-> PRIME
+    PRIME["Prime account<br/>checks the mandate"] --> AD
+    MPC["Your MPC wallet"] -->|"funds drawn<br/>within the limit"| GATE["Custody gate<br/>only listed destinations"]
+    GATE --> AD["Adapter<br/>runs the batch"]
+    AD --> VENUE["Venue<br/>lending pool or exchange"]
+    VENUE -->|"proceeds and withdrawals"| BACK["Back to your MPC wallet"]
 ```
 
-The **interpreter adapter** (`adapters/interpreter`) emits a single encoded
-predicate for the `policy-interpreter` contract, plus the context rule scoped
-to the recorded contract.
+If any call in the batch fails, the whole transaction reverses and the money is
+back where it started.
 
-A constraint the interpreter cannot express is **named in `uncovered`, never
-silently dropped**: expiry belongs to the context rule's `valid_until` rather
-than to the predicate.
+### Step 3: recovery
 
-## The predicate grammar
+If your wallet's signers lose access, the funds still need a way out that does
+not depend on them. A recovery address, such as a wallet held by the trusted
+third party, is set when the gate is created. The Prime account's own signers,
+two of three, can then move funds from your wallet to that address, and only to
+that address. An agent's mandate cannot reach it.
 
-A predicate is a boolean tree of leaves. The **Rust decoder in
-`policy-interpreter/src/dsl.rs` is authoritative**; the TypeScript encoder in
-`policy-synth/src/predicate/encode.ts` must agree with it byte for byte, and an
-unknown tag is fail-closed at decode.
+```mermaid
+flowchart LR
+    MPC["Your MPC wallet"] --> GATE["Custody gate"]
+    PRIME["Prime account<br/>2 of 3 signers"] -->|"asks for a recovery"| GATE
+    GATE -->|"only to the recovery address"| REC["Recovery wallet<br/>trusted third party"]
+```
 
-Boolean combinators: `and` and `or`. Terminal nodes are a comparison (`eq`,
-`lt`, `lte`, `gt`, `gte`) or an `in` set-membership test. Selectors (what a
-leaf reads from the authorised call):
+## How each chain keeps the two guarantees
 
-| Selector | Reads |
-| --- | --- |
-| `call_contract` | the contract being called |
-| `call_fn` | the method symbol |
-| `call_arg(i)` | argument `i` as a scalar |
-| `call_arg_len(i)` | length of a vector argument |
-| `call_arg_scaled(i, num, den)` | `args[i] * num / den`, truncating toward zero - the one COMPUTED leaf, and the only selector allowed on the right of a comparison |
-| `call_arg_field(i, elem, field)` | a field of a map element inside a vector arg |
+| | Stellar | EVM (Base) |
+|---|---|---|
+| Your MPC wallet | A classic Stellar account. The weights and the threshold of 20 are enforced by the network itself. | A Fordefi address. EVM cannot put weights on an address, so the rule that all your signers must approve has to live in your Fordefi policy, with Prime's automated co-signer and the trusted third party as required approvers. |
+| What your wallet approves | A token allowance to the custody gate, per asset, with an amount and an expiry of up to 180 days. | A token approval to the custody gate, per asset, with an amount. That amount is the gate's total budget. |
+| The custody gate | A small contract you deploy and own. It has no admin and no settings, and it releases funds only to addresses on its list. | A Safe that your wallet alone owns. Its rules name the only venues and addresses a move may reach, and only your wallet can change them. |
+| Where results go | Withdrawals and swap proceeds go straight to your wallet. While money is supplied to a lending pool, the position is held in the Prime account's name, and the mandate pins every withdrawal to your wallet. | Every result, including the lending position itself, goes to your wallet. |
+| Per-move limits | Amount bands in the mandate. Above the band, a second Prime signer must approve. | The same, plus a daily cap for the agent and a daily cap on everything leaving your wallet. |
+| Stopping it | Your wallet sets the allowance to zero, or lets it expire. | Your wallet turns off the gate's trading rules in one transaction. Recovery keeps working unless you stop that too. |
+| Recovery | The Prime's 2 of 3 can pull to the recovery address straight away. | The Prime's 2 of 3 schedule it, and it can run only after a waiting period (for example 48 hours) during which your wallet can cancel it. |
+| Contracts | Our own Soroban contracts: the gate, the adapter and the policy interpreter. | No contracts of ours. Only unmodified deployments of audited code: Safe, Zodiac Roles and OpenZeppelin's TimelockController. |
 
-Every selector is answered from the authorised call alone. That is the whole
-shape of the grammar: **at `enforce` the interpreter changes no value and reads
-only the two entries install fixed** - the predicate document and the signer-set
-hash - so no counter exists that could drift, replay, or archive out from under
-a rule. The single write-shaped operation is a TTL bump on the permit path,
-which extends those entries without creating or altering any.
+## What you control, and what we run
 
-Several selector symbols are deliberately **not** in the grammar and are
-refused at decode:
+You control your MPC wallet and every signer on it. You also control the
+limit, its expiry on Stellar, the gate's list of destinations and the recovery
+address.
+Setting or changing any of these is a transaction from your wallet, so it needs
+your wallet's signing quorum.
 
-- `amount` - the interpreter sees one authorised call, not the transaction's
-  token movements, so it cannot read what a transaction actually moved. A cap
-  on value is therefore expressed against the call's own amount argument
-  (`call_arg(i) <= limit`), which the synthesiser locates from the protocol
-  ABI. A rolling per-window total has no representation at all: accumulating
-  one needs stored state the interpreter does not keep.
-- `invocation_count(window)` - counting prior calls needs stored state.
-  Frequency is therefore not a guarantee this contract makes, and the
-  synthesiser says so explicitly rather than implying a cap it cannot keep.
-- `valid_until` - expiry belongs to the context rule's own `valid_until` field,
-  which the smart account owns.
-- `not` and `now` - not in grammar 4. `not` would let a policy be permissive
-  by negation; `now` would make `enforce` depend on a clock, which is half of
-  the property the contract's threat model turns on.
+We run the Prime account's tooling, the agent and the mandate. The mandate can
+refuse a move that your limit would allow. It cannot allow a move that your
+limit or your gate would refuse.
 
-Structural caps (authoritative in Rust, mirrored in TS): depth 5, 200 leaves,
-32 operands in an `in` list, 32 KB encoded.
+The most money at risk at any moment is the limit you granted, plus anything
+currently supplied to a venue.
 
-### What a predicate is actually matched against
+## What has been tested
 
-`call_fn` and `call_contract` read the AUTHORISED call - the call the smart
-account was asked to approve. That is not always the action a person would
-name, and two cases catch predicate authors out.
+Both chains were run end to end on test networks, against real venues, with
+every refusal checked for the reason it was refused.
 
-**A wrapper changes the call.** Invoking a token directly, so the token calls
-`account.require_auth()`, makes the transfer itself the authorised call:
-`call_fn` is `transfer` and `call_contract` is the token. Routing the same
-intent through an account-side wrapper such as `execute(token, "transfer",
-args)` makes the WRAPPER the authorised call - `call_fn` becomes `execute`,
-`call_contract` becomes the account, and the token and method move to
-`call_arg(0)` and `call_arg(1)`. A predicate synthesised from a recording pins
-the first shape, so running it against a wrapping client denies its own happy
-path. The e2e harness calls tokens directly for this reason.
-
-**One call can be several contexts.** A nested sub-invocation is its own
-authorization context. A Blend supply is `pool.submit` with a nested
-`token.transfer`, so it presents TWO authorised calls, each matched separately
-and each needing its own context rule. A predicate pinning
-`eq(call_fn, "submit")` governs the outer context ONLY; whatever rule covers
-the nested `transfer` governs that. Write predicates per context, not per
-user-visible action.
-
-**The account matches the rule the CALLER NAMES, not the strictest rule that
-could apply.** Authority is the maximum over the named rules, never the
-intersection. So a predicate only constrains a key if the policed rule is the
-ONLY rule that key is on. A key that also sits on an unpoliced rule is not
-constrained at all - it names the unpoliced rule and the predicate never runs.
-Verified on testnet: the identical forbidden call is denied `#100` naming the
-policed rule and PERMITTED naming an unpoliced one, same key, same account.
-
-This is the difference between "the interpreter denied that call" and "this key
-cannot make that call", and only the second is a security property. Getting it
-means signer separation, not predicate strength: put the constrained key on the
-policed rule and nowhere else. The e2e harness asserts the closure rather than
-assuming it, and `docs/audit/evidence/e2e-network.log` carries the result.
-
-`install_policy` reports this as `authorityScan`: every rule a signer of the
-install could name instead, with an unpoliced neighbour flagged `bypass`. It
-READS the account to build it, so the answer describes what is installed rather
-than what the caller happened to mention; passing `existingRules` supplies them
-directly instead, which keeps the scan usable offline. `null` means NOT CHECKED
-and covers a failed or incomplete read - never an empty list, because `[]` would
-turn "could not check" into "nothing found". See `docs/audit/README.md`
-finding 5.
-
-## The interpreter contract
-
-`policy-interpreter` is a single Soroban contract with this surface:
-
-| Entry point | Purpose |
-| --- | --- |
-| `grammar_version()` | the grammar version this binary enforces (`SELF_VERSION`) |
-| `install(...)` | validate and store a predicate + master signer set for a rule |
-| `enforce(...)` | evaluate the stored predicate against one authorised call |
-| `uninstall(...)` | remove a rule's stored entries (master-only) |
-| `rotate_master_signer_set(...)` | change the master set (master-only) |
-
-**Install is where the fail-closed checks live**, because a predicate that
-could fail unsafely at evaluation must never become installable in the first
-place:
-
-- grammar version must equal `SELF_VERSION`;
-- the encoded predicate must be within the 32 KB byte cap;
-- `sha256(predicate)` must equal the caller-supplied `predicate_hash`, so a
-  same-shape-but-different-bytes predicate cannot be installed under a stale
-  hash;
-- the predicate must decode cleanly;
-- the rule's signer set must be non-empty (an empty set pins no master and is
-  unguardable forever), and must not contain an `External` signer (the
-  interpreter cannot re-implement OZ's verifier protocol in v1, so it refuses
-  rather than store a master set it can never authorise);
-- the predicate must constrain at least one property of the call - a predicate
-  of literals only (no `call_contract` / `call_fn` / `call_arg*`) binds
-  nothing and is refused rather than installed as a permanent allow;
-- the signer set is capped at 16 (`MAX_SIGNERS`).
-
-And install requires `smart_account.require_auth()` on **every** install,
-including the first on a fresh rule id, so an attacker cannot pre-seed a rule
-id with their own master set and permanently poison it. A re-install on an
-existing rule additionally requires the existing master set to authorise and to
-match, and the install nonce to increment (replay protection).
-
-**Enforce** requires `smart_account.require_auth()` (so it is only reachable
-through the account it guards), requires a non-empty authenticated-signer set,
-checks the rule's live signer hash against the one stored at install (a rule
-whose signers changed behind the policy's back denies `RULE_SIGNERS_CHANGED`),
-decodes the stored predicate, extends the TTL of the rule's stored entries, and
-evaluates. A deny panics with the **specific** `DenyReason` so a review card can
-say "not on the allowlist" rather than a generic "predicate false". The TTL
-extend runs before the predicate check on purpose: a deny panics and the host
-rolls the bump back with the frame, so only a permit keeps it.
-
-Enforce writes nothing else. The four persistent entries a rule owns (doc,
-nonce, signers hash, master set) are all written at install and share one
-lifecycle; the TTL bump keeps them alive as long as the rule is used.
-
-`test-blend-pool` exists only for testnet verification (a real Blend pool
-cannot be stood up in a unit test) - it is never deployed to mainnet.
-
-## The default-deny install gates (off chain)
-
-`install_policy`, `revoke_policy` and `get_interpreter_info` (when it makes a
-live call) refuse two things unless the caller explicitly opts in:
-
-- an **interpreter policy address** other than the pinned interpreter for the
-  selected network - otherwise the smart account would delegate authorisation
-  to an interpreter the caller controls;
-- an **RPC URL** other than the pinned endpoint - the auth nonce and root
-  invocation the wallet signs come from whichever RPC answered, so a non-pinned
-  host could silently bind the caller.
-
-Both gates take an `allowUnpinned...` flag for the deliberate exception.
-
----
-
-## What each piece does and does not enforce
-
-| Piece | Enforces | Does not enforce |
-| --- | --- | --- |
-| `policy-synth` (off chain) | nothing on chain; it compiles and default-deny gates the install | the policy itself - that is the interpreter's job |
-| `policy-interpreter` (on chain) | the predicate, per call, fail-closed at install and enforce | anything about token movement amounts (it sees one authorised call) |
-
+- **Stellar testnet:** swaps on Aquarius, and supply and withdrawal on Blend.
+  Custody paid out exactly what the moves required. Recovery moved 1,000 XLM and then 500 XLM to a
+  trustee wallet with two Prime signatures and none of custody's. A single
+  custody key was refused on every route out of the account.
+- **Base Sepolia:** supply, swap and withdrawal on Aave and Uniswap, landing at
+  the custody address every time. All 48 attempts to act outside the rules were
+  refused. Recovery waited out its delay, a cancelled recovery never ran, and
+  recovery still worked with trading switched off.

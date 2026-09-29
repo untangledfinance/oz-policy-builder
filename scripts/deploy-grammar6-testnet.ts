@@ -3,7 +3,7 @@
 //
 // Uploads the interpreter and the v3 adapter and gate, creates the interpreter,
 // and reads its grammar back from the chain before recording anything. Writes
-// docs/grammar6-testnet-deployment.json.
+// deployments/grammar6-testnet.json.
 //
 //   bun scripts/deploy-grammar6-testnet.ts [--secret S...]
 
@@ -167,7 +167,7 @@ async function main() {
       'adapter from these uploaded hashes; the adapter salt is derived from the ' +
       'gate address under the v3 domain.',
   }
-  writeFileSync('docs/grammar6-testnet-deployment.json', `${JSON.stringify(record, null, 2)}\n`)
+  writeFileSync('deployments/grammar6-testnet.json', `${JSON.stringify(record, null, 2)}\n`)
   console.log(`\n${JSON.stringify(record, null, 2)}`)
 }
 

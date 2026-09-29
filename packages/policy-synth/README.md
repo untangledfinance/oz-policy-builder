@@ -55,7 +55,7 @@ Nothing in this package holds key material. Install and revoke return
 The synthesiser is the convenience layer; enforcement lives on chain in the
 policy interpreter, whose deployed addresses and wasm sha256 are pinned in
 `src/run/schemas.ts` and checked against the live network on install. The
-[architecture document](https://github.com/untangledfinance/oz-policy-builder/blob/main/docs/architecture.md)
+[Stellar technical document](https://github.com/untangledfinance/oz-policy-builder/blob/main/docs/stellar.md)
 is specific about what is and is not enforced; the audit status of the
 contracts is stated in the
 [repository README](https://github.com/untangledfinance/oz-policy-builder#readme).

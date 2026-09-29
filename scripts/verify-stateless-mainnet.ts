@@ -75,7 +75,7 @@ assert(
 )
 if (execute) assert(args[args.indexOf('--fee-cap-xlm') + 1] === '10', 'Requires --fee-cap-xlm 10')
 const rawServer = new rpc.Server(RPC),
-  EVIDENCE = 'docs/stateless-mainnet-verification.json'
+  EVIDENCE = 'evidence/stateless/mainnet-verification.json'
 let lastRpcAt = 0
 // Public RPC rate limits must not turn transport failures into policy-denial evidence.
 const server = new Proxy(rawServer, {

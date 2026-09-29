@@ -1,6 +1,6 @@
 # Audit evidence
 
-Logs in `evidence/` were produced against this tree.
+The logs in this folder were produced against this tree.
 
 All ten were regenerated on 2026-08-27 against `5bae0a8`, including both
 live-network legs. **`offchain-gate.log` was regenerated on 2026-08-30 against

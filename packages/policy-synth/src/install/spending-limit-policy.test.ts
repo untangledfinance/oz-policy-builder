@@ -8,7 +8,7 @@
 //
 // The wire shape is checked against the hand-built map in
 // `scripts/oz-policy-composition.ts`, which is the encoding already proven to
-// bind on testnet and mainnet (docs/audit/evidence/oz-spending-limit-binding.log).
+// bind on testnet and mainnet (evidence/oz-spending-limit-binding.log).
 // A second implementation that merely "looks right" is how a map the contract
 // reads differently gets shipped.
 

@@ -13,7 +13,7 @@ import {
   xdr,
 } from '@stellar/stellar-sdk'
 
-const path = 'docs/stateless-execution-testnet.json'
+const path = 'evidence/stateless/execution-testnet.json'
 const evidence = JSON.parse(readFileSync(path, 'utf8'))
 assert.equal(evidence.network, 'TESTNET')
 assert.equal(evidence.rpc, 'https://soroban-testnet.stellar.org')
@@ -125,7 +125,7 @@ const output = {
   positionClosed: true,
 }
 writeFileSync(
-  'docs/stateless-execution-testnet-verification.json',
+  'evidence/stateless/execution-testnet-verification.json',
   JSON.stringify(output, null, 2) + '\n'
 )
 console.log(

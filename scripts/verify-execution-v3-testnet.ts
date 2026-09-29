@@ -7,7 +7,7 @@
 //
 //   bun scripts/verify-execution-v3-testnet.ts
 //
-// Reads the shared grammar-6 interpreter from docs/grammar6-testnet-deployment.json;
+// Reads the shared grammar-6 interpreter from deployments/grammar6-testnet.json;
 // every account it uses is created and funded fresh.
 
 import { readFileSync } from 'node:fs'
@@ -88,7 +88,7 @@ const contractId = (deployer: string, salt: Buffer) =>
 
 let fails = 0
 const interpreter: string = JSON.parse(
-  readFileSync(new URL('../docs/grammar6-testnet-deployment.json', import.meta.url), 'utf8')
+  readFileSync(new URL('../deployments/grammar6-testnet.json', import.meta.url), 'utf8')
 ).interpreter
 const sac = Asset.native().contractId(PASSPHRASE)
 

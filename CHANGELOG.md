@@ -28,6 +28,16 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ### Changed
 
+- **`docs/` holds three documents.** `docs/architecture.md` describes the
+  custody setup on Stellar and EVM for an institutional reader, and
+  `docs/stellar.md` and `docs/evm.md` carry the technical detail. The
+  superseded proposals, the evidence write-ups for retired contract
+  generations, the devlog, the audit handover and the STRIDE report were
+  removed; they stay readable at tag `archive/contracts-before-v3-only` and at
+  `d89e17b`. Files that code reads moved out of `docs/`: the grammar-6 record
+  to `deployments/grammar6-testnet.json`, the audit logs and their provenance
+  note to `evidence/`, and the stateless-execution receipts to
+  `evidence/stateless/`. The release procedure moved into `CONTRIBUTING.md`.
 - `scripts/deploy-grammar6-testnet.ts` uploads the v3 gate and adapter.
 - The pre-v3 adapter's projection fixtures moved into policy-synth, which still
   checks its encoder against them.

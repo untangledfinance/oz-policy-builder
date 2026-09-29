@@ -74,7 +74,7 @@ const ACCOUNT_WASM_HASH = '91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850
  *  OpenZeppelin/stellar-contracts at TAG v0.7.2 and deployed to both networks.
  *  wasm sha256 9ce30ea1fe5c2dc5c9c49cf3462adb32e2c11d7dfadb15ef43a51ba56568de2b,
  *  identical on both. Third-party code we did not audit - see
- *  docs/audit/README.md for the provenance note. */
+ *  evidence/README.md for the provenance note. */
 const SPENDING_LIMIT_BY_NETWORK: Record<Net, string> = {
   testnet: 'CDH4KOBRUEZI6TTZ72YXR5YUIODB6RH3AF75KX56Z73DELRCA5TWFISP',
   mainnet: 'CA7IBD266HIHFDUIBZLPIAITJUA3DVY4JAG6K3QMGBKLZCXXLP5E2F7A',

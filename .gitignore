@@ -7,7 +7,7 @@ scripts/.demo-state.json
 *.log
 # ...except the audit evidence pack: these logs ARE the audit artifact and must
 # travel with the repo. Regenerate them whenever a claim they back changes.
-!docs/audit/evidence/*.log
+!evidence/*.log
 .superpowers/
 .worktrees/
 .docusaurus/

@@ -50,7 +50,7 @@ design - a policy constrains the keys put under it, not the account's owner.
 Reproduce either network with
 `bun packages/policy-synth/scripts/e2e-network.ts --network testnet`; the
 transcript of both runs is in
-[docs/audit/evidence/e2e-network.log](./docs/audit/evidence/e2e-network.log).
+[evidence/e2e-network.log](./evidence/e2e-network.log).
 Testnet funds itself through friendbot; mainnet needs a funded `--secret`.
 
 The deployment is pinned in `packages/policy-synth/src/run/schemas.ts`:
@@ -60,7 +60,7 @@ The deployment is pinned in `packages/policy-synth/src/run/schemas.ts`:
 | Interpreter (mainnet) | `CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52` |
 | Interpreter (testnet) | `CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5` |
 | Interpreter wasm sha256 | `b5ba1e35ccf20cd8c13c3a2c3098bf337033a92bcaf475d63c03ddc0cba0fcae` |
-| Grammar version | `3` |
+| Grammar version | `4` |
 
 The same wasm hash backs both networks; only the instance address differs.
 
@@ -68,15 +68,16 @@ The same wasm hash backs both networks; only the instance address differs.
 > **Audit status.** The interpreter contract has not been externally audited.
 > It has been through internal adversarial review, and an external review is
 > in progress; no audit report has been published yet.
-> [docs/architecture.md](./docs/architecture.md) is specific about what the
-> policy layer does and does not enforce - treat anything it does not claim
-> as unenforced. Report vulnerabilities per [SECURITY.md](./SECURITY.md).
+> [docs/stellar.md](./docs/stellar.md) is specific about what each contract
+> does and does not enforce - treat anything it does not claim as unenforced. Report vulnerabilities per [SECURITY.md](./SECURITY.md).
 
 ## Where to start
 
 | You want to | Read |
 | --- | --- |
-| Understand how the pieces fit together | [docs/architecture.md](./docs/architecture.md) |
+| Understand the custody setup Prime uses, on Stellar and EVM | [docs/architecture.md](./docs/architecture.md) |
+| Read the Stellar contracts and the policy builder in detail | [docs/stellar.md](./docs/stellar.md) |
+| Read the EVM design in detail | [docs/evm.md](./docs/evm.md) |
 | Build and install a policy from a shell | `packages/policy-builder-cli` (record + synthesize) |
 | Drive it from an agent | `packages/policy-builder-mcp` (MCP over stdio / Streamable HTTP) |
 
@@ -88,7 +89,11 @@ The same wasm hash backs both networks; only the instance address differs.
 | `packages/policy-builder-cli` | CLI wrapper over the synth core (`@crediolabs/policy-builder-cli`). |
 | `packages/policy-builder-mcp` | MCP server exposing the seven policy tools (`@crediolabs/policy-builder-mcp`). |
 | `contracts/policy-interpreter` | The Soroban contract that enforces a predicate on chain. |
+| `contracts/custody-gate-v3` | The custody account's gate: holds its allowance and releases only to listed addresses. |
+| `contracts/execution-adapter-v3` | The per-Prime batcher, bound to one gate. |
 | `contracts/test-blend-pool` | A Blend-`submit`-shaped stub, for testnet verification only. |
+| `deployments/` | Deployment records that CI and the scripts read. |
+| `evidence/` | Logs and receipts behind the claims in the docs. |
 
 ## Build and test
 
@@ -116,7 +121,7 @@ own directory:
 a green pull request; CI runs the same gates. Vulnerabilities go to
 [SECURITY.md](./SECURITY.md), not the issue tracker. Package release notes
 live in [CHANGELOG.md](./CHANGELOG.md), and the release procedure in
-[docs/releasing.md](./docs/releasing.md).
+[CONTRIBUTING.md](./CONTRIBUTING.md#releasing).
 
 ## License
 

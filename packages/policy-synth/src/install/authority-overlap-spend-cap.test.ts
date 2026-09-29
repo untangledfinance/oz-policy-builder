@@ -2,7 +2,7 @@
 // never a key. These cover the consequence: installing a cap next to a rule
 // that serves the same calls WITHOUT one leaves the cap decorative.
 //
-// Proven on chain first - see docs/audit/evidence/oz-two-rule-blend-cap.log,
+// Proven on chain first - see evidence/oz-two-rule-blend-cap.log,
 // where an uncapped sibling rule permitted the exact supply the capped rule
 // refused with #3221. These tests pin the scan to that observed behaviour.
 
