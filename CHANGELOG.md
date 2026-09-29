@@ -30,6 +30,17 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   `scripts/upload-execution-testnet.ts`, and CI rebuilds both and compares them
   with the record. The Prime app pins these hashes.
 
+### Fixed
+
+- **The adapter keeps itself and its stored moves live.** Soroban creates every
+  entry with the network's minimum lifetime - about 7 days on testnet, 120 on
+  mainnet - and a write does not extend it. `execute` and `run` now extend the
+  adapter's instance to about 30 days once fewer than about 7 remain, and a
+  stored move is extended to last until its run window closes, capped at the
+  network maximum. Build `68d012e7…`; the two earlier v4 builds are still
+  recognised. The rest of what a Prime depends on is kept live from outside, by
+  OctoPos's `apps/web/scripts/keep-alive.ts`.
+
 ### Changed
 
 - **Contract folders carry no version.** `contracts/custody-gate-v3` is now

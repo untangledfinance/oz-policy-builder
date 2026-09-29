@@ -1,14 +1,14 @@
-# bun scripts/verify-execution-address-rule-testnet.ts   (2026-09-29T11:45Z, Linux build, adapter 32a8658a94767e2a..., gate b01024f31a24108f...)
+# bun scripts/verify-execution-address-rule-testnet.ts   (2026-09-29T13:06Z, Linux build, adapter 68d012e79fd4f9b8..., gate b01024f31a24108f...)
 
-prime   CB46L3IIXAX52UDLF5I2HB2X4NIWBMIMYIGIBRUROVWJCFVDF7HFDKM4
-gate    CAUJGW7DOG2INPJ56N3WBE6R5XURHIDJTGMMYBQ2MFXAXTZZIQN5JYP2
-adapter CCIA263FJKHLGRO5WIP6YZVHKJUMWSW3EK6MCXPVPEN6CRSVBUBNZQIV   22206B adapter, 9026B gate
+prime   CDAVYUCB2HAIPAXQQTQBG76GDSKDZGKUTXSFPCN5G7JKXSNYSGCJXJFR
+gate    CC5H73JXPWYA4634W26QZGZTIU663AQDEO7FAWV7TRB7YH4VK7FGWBTN
+adapter CACM6K6IMU2BQLGO5JBXWDPVMQ7VVB6AT6PSY2WAQKQT7FOXNAYFECWD   22753B adapter, 9026B gate
 
 ── real venues ──
 ok   Blend supply                                       PERMIT  SUCCESS
 ok   Blend withdraw to custody                          PERMIT  SUCCESS
 ok   Aquarius swap, proceeds home                       PERMIT  SUCCESS
-  cost  6670017 instructions
+  cost  6700290 instructions
 
 ── the adapter and the Prime as targets ──
 ok   a batch calling the adapter back                   PASSES  Error(Context, InvalidAction)
@@ -59,4 +59,4 @@ ok   the binding on the ledger reads the successor      yes
 ok   the old gate is no longer reachable                REFUSE  #2 AddressNotAllowed
 
 all checks passed
-custody 9999.7469493   stranger 10000.0000000
+custody 9999.7468815   stranger 10000.0000000

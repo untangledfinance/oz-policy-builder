@@ -114,6 +114,14 @@ const MIN_WAIT: Symbol = symbol_short!("min_wait");
 const WINDOW: Symbol = symbol_short!("window");
 const NEXT: Symbol = symbol_short!("next");
 
+/// KEPT ALIVE WHILE IT IS USED. An instance is created with the network's
+/// minimum lifetime - ~7 days on testnet, ~120 on mainnet - and a write does
+/// not extend it, so an adapter nobody extended archived that long after it
+/// was created however busy it was. `execute` and `run` push it back out to
+/// ~30 days once fewer than ~7 remain.
+const INSTANCE_BELOW: u32 = 120_960;
+const INSTANCE_TO: u32 = 518_400;
+
 #[contract]
 pub struct ExecutionAdapter;
 
@@ -178,6 +186,9 @@ impl ExecutionAdapter {
         grants: Vec<InvokerContractAuthEntry>,
         wait: u32,
     ) -> Option<u32> {
+        e.storage()
+            .instance()
+            .extend_ttl(INSTANCE_BELOW, INSTANCE_TO);
         let prime: Address = e.storage().instance().get(&PRIME).unwrap();
         check(&e, &prime, &calls, &grants);
         let min_wait: u32 = e.storage().instance().get(&MIN_WAIT).unwrap();
@@ -202,10 +213,16 @@ impl ExecutionAdapter {
         let run_at = e.ledger().sequence() + wait;
         let id: u32 = e.storage().instance().get(&NEXT).unwrap_or(0) + 1;
         e.storage().instance().set(&NEXT, &id);
-        // A persistent entry outlives any sensible wait by default, and one
-        // that archives is restored, not lost.
         let stored: Stored = (calls, grants, run_at);
         e.storage().persistent().set(&id, &stored);
+        // LIVE UNTIL ITS WINDOW CLOSES. A new entry gets the network minimum
+        // (~7 days on testnet), so a longer wait would archive the move before
+        // it could run. Past the network's maximum (~180 days) it still
+        // archives, and is restored, not lost.
+        let window: u32 = e.storage().instance().get(&WINDOW).unwrap();
+        let live =
+            (run_at.saturating_add(window) - e.ledger().sequence()).min(e.storage().max_ttl());
+        e.storage().persistent().extend_ttl(&id, live, live);
         Some(id)
     }
 
@@ -227,6 +244,9 @@ impl ExecutionAdapter {
     /// can build the entry. The predicate is what keeps that rule from
     /// approving an immediate `execute` or a `cancel` the same way.
     pub fn run(e: Env, id: u32) {
+        e.storage()
+            .instance()
+            .extend_ttl(INSTANCE_BELOW, INSTANCE_TO);
         let (calls, grants, run_at): Stored = e
             .storage()
             .persistent()

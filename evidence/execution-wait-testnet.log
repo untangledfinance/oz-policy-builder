@@ -1,8 +1,8 @@
-# bun scripts/verify-execution-wait-testnet.ts   (2026-09-29T12:30Z, Linux build, adapter 32a8658a94767e2a..., gate b01024f31a24108f...)
+# bun scripts/verify-execution-wait-testnet.ts   (2026-09-29T13:06Z, Linux build, adapter 68d012e79fd4f9b8..., gate b01024f31a24108f...)
 
-prime   CCPB7Z332ISVWEZTM7XIMWQO24VKBLTTFPHZG4Z75SDIS4USFMILWDYX
-gate    CAQK3LNTIAZYF2CKSKN2F4PBMJVA3UUQH4E363WCPIWTMYXTMNLIHTL5  (custody-gate, unchanged)
-adapter CBXY5U5G4B4I5UBOUGSK7NPK2KS3EAJRMNHSYRMCCSOUA2LLH7H5GJCR  22206B, window 40 ledgers
+prime   CCCM2FXGHJLAYWKQDHO5VOQBC4EDJ6TPU3PEEMZDL4YJRZO6XMJN5JJM
+gate    CDTDQ6NLEJWKRPSXDOID4MIJKQM7RCD5QYVBVLV64EYUA6QXFCHVG4KL  (custody-gate, unchanged)
+adapter CDLC6FHNNLNNDDFVCGG5DZX33AJFDJQOTS4TVAZKHUSL54ZEPZ7CCSPX  22753B, window 40 ledgers
 rules   pool 1, run 2, agent 3
 
 ── a zero wait runs at once, as v3 did ──
@@ -17,7 +17,7 @@ ok   pay home, to be cancelled by custody                     PERMIT  batch 4
 ok   pay home, left to lapse                                  PERMIT  batch 5
 ok   pay home, wait 200                                       PERMIT  batch 6
 ok   a stranger in a stored batch is refused before storing   REFUSE  #2 AddressNotAllowed
-ok   the stored batch is readable off the ledger              run_at 4932309, expires 4932349
+ok   the stored batch is readable off the ledger              run_at 4932742, expires 4932782
 
 ── the agent: its rule demands a wait of its own ──
 ok   agent, wait 0                                            REFUSE  #100 
@@ -37,7 +37,7 @@ ok   the Prime cancels, at its own quorum                     LANDS
 ok   custody cancels                                          LANDS
 
 ── running once the wait is over, by someone with no role ──
-   waiting for ledger 4932309…
+   waiting for ledger 4932742…
 ok   the stored Blend supply runs, no Prime signature         LANDS
 ok   the stored recovery pays the trustee                     LANDS
 ok   the trustee received the recovery                        +0.2999999999992724 XLM
@@ -47,7 +47,7 @@ ok   a run batch is gone from the ledger                      gone
 ok   the agent's batch runs after its wait                    LANDS
 
 ── the run window ──
-   waiting for ledger 4932353…
+   waiting for ledger 4932785…
 ok   a batch past its window does not run                     #6 NotRunnable
 ok   a lapsed batch can be tidied away                        LANDS
 
@@ -60,8 +60,9 @@ ok   owners, wait 3, floor 4                                  REFUSE  #4 WaitToo
 ok   owners, wait 4, floor 4                                  PERMIT  
 
 ── what outlives what (threat model rows) ──
-ok   store a move to read its lifetime                        PERMIT  batch 8
-ok   a stored move lives the network minimum, whatever its wait 120959 ledgers left, minimum 120960
+ok   store a move with a wait past the minimum                PERMIT  batch 8
+ok   a stored move lives until its window closes, past the minimum 122000 ledgers left; wait 121960 + window 40, minimum 120960
+ok   using the adapter extends its own instance               518348 ledgers left
 ok   agent stores a move                                      PERMIT  batch 9
 ok   the owners remove the agent rule                         LANDS
 ok   the agent's stored move still runs after its rule is gone LANDS

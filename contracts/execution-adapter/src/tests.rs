@@ -1,7 +1,10 @@
 extern crate std;
 use super::*;
 use soroban_sdk::{
-    testutils::{Address as _, Ledger as _},
+    testutils::{
+        storage::{Instance as _, Persistent as _},
+        Address as _, Ledger as _,
+    },
     xdr::ToXdr,
     Bytes, IntoVal, String as SString,
 };
@@ -600,4 +603,40 @@ fn running_asks_the_prime_to_approve_the_run() {
     assert_eq!(contract, w.adapter);
     assert_eq!(f, Symbol::new(&w.e, "run"));
     assert_eq!(args, vec![&w.e, 1u32.into_val(&w.e)]);
+}
+
+#[test]
+fn a_stored_move_lives_until_its_window_closes() {
+    let w = world_with(0, 100);
+    // Longer than the minimum lifetime a new entry gets in this environment.
+    let min = w.e.as_contract(&w.adapter, || {
+        w.e.storage().persistent().set(&999u32, &1u32);
+        w.e.storage().persistent().get_ttl(&999u32)
+    });
+    let wait = min + 5_000;
+    client(&w).execute(&bump_batch(&w), &no_grants(&w), &wait);
+    let ttl =
+        w.e.as_contract(&w.adapter, || w.e.storage().persistent().get_ttl(&1u32));
+    assert!(
+        ttl >= wait + 100,
+        "lives {ttl} ledgers, needs {}",
+        wait + 100
+    );
+    // A short wait keeps the minimum; nothing is shortened.
+    client(&w).execute(&bump_batch(&w), &no_grants(&w), &10);
+    let ttl =
+        w.e.as_contract(&w.adapter, || w.e.storage().persistent().get_ttl(&2u32));
+    assert_eq!(ttl, min);
+}
+
+#[test]
+fn using_the_adapter_keeps_its_instance_alive() {
+    let w = world();
+    let before =
+        w.e.as_contract(&w.adapter, || w.e.storage().instance().get_ttl());
+    assert!(before < INSTANCE_BELOW);
+    client(&w).execute(&bump_batch(&w), &no_grants(&w), &0);
+    let after =
+        w.e.as_contract(&w.adapter, || w.e.storage().instance().get_ttl());
+    assert_eq!(after, INSTANCE_TO);
 }

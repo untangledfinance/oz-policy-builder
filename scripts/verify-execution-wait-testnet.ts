@@ -687,10 +687,10 @@ await execute('owners, wait 4, floor 4', flooredBatch, 4, 'PERMIT', toFloored)
 
 console.log(C.bold('\n── what outlives what (threat model rows) ──'))
 {
-  // A STORED MOVE LIVES THE NETWORK'S MINIMUM, not its wait. Persistent
-  // entries are created with the minimum TTL and writes do not extend it, so
-  // a wait longer than that archives the move before it can run (it can be
-  // restored, by anyone, for a fee). Measured on the entry itself.
+  // A STORED MOVE LIVES UNTIL ITS WINDOW CLOSES. A new entry gets the
+  // network minimum and a write does not extend it, so the adapter extends a
+  // stored move to cover its wait and window - measured with a wait longer
+  // than that minimum, on the entry itself.
   const cfgKey = xdr.LedgerKey.configSetting(
     new xdr.LedgerKeyConfigSetting({
       configSettingId: xdr.ConfigSettingId.configSettingStateArchival(),
@@ -700,13 +700,36 @@ console.log(C.bold('\n── what outlives what (threat model rows) ──'))
     .configSetting()
     .stateArchivalSettings()
     .minPersistentTtl() as number
-  const idTtl = await execute('store a move to read its lifetime', payHome(1n), 50, 'PERMIT')
+  const longWait = minTtl + 1000
+  const idTtl = await execute(
+    'store a move with a wait past the minimum',
+    payHome(1n),
+    longWait,
+    'PERMIT'
+  )
   const got = (await server.getLedgerEntries(storedKey(idTtl!))) as any
   const left = got.entries[0].liveUntilLedgerSeq - got.latestLedger
   report(
-    Math.abs(left - minTtl) <= 5,
-    'a stored move lives the network minimum, whatever its wait',
-    `${left} ledgers left, minimum ${minTtl}`
+    left >= longWait + WINDOW - 5,
+    'a stored move lives until its window closes, past the minimum',
+    `${left} ledgers left; wait ${longWait} + window ${WINDOW}, minimum ${minTtl}`
+  )
+  // AND USING THE ADAPTER KEEPS IT ALIVE: `execute` pushes its instance out
+  // to 518,400 ledgers once fewer than 120,960 remain.
+  const inst = (await server.getLedgerEntries(
+    xdr.LedgerKey.contractData(
+      new xdr.LedgerKeyContractData({
+        contract: Address.fromString(adapter).toScAddress(),
+        key: xdr.ScVal.scvLedgerKeyContractInstance(),
+        durability: xdr.ContractDataDurability.persistent(),
+      })
+    )
+  )) as any
+  const instLeft = inst.entries[0].liveUntilLedgerSeq - inst.latestLedger
+  report(
+    instLeft > minTtl,
+    'using the adapter extends its own instance',
+    `${instLeft} ledgers left`
   )
   await asPrime({
     kp: K.admin,

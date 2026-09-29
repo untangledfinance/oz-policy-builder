@@ -202,6 +202,29 @@ the address from the numbers it agrees to and names it on the gate.
 The gate is the unchanged v3 contract; it only has to name the v4 adapter and
 its build.
 
+### Keeping contracts live
+
+Every contract instance, persistent entry and uploaded wasm on Soroban starts
+with the network's minimum lifetime: about 7 days on testnet and 120 on
+mainnet. Using it does not extend it. When the lifetime runs out, the entry
+archives and every transaction that touches it fails until someone restores
+it. Anyone can restore or extend an entry by paying the fee.
+
+Two things now keep the Prime stack live:
+
+- **The adapter extends itself.** `execute` and `run` push its instance out to
+  about 30 days once fewer than 7 remain, and a stored move is kept until its
+  window closes. Earlier adapter builds do neither.
+- **A keep-alive job extends the rest.** OctoPos
+  `apps/web/scripts/keep-alive.ts` finds everything a Prime depends on - its
+  instance and wasm, its rules and the entries OpenZeppelin indexes them by,
+  its policies and the interpreter's per-rule entries, its gates, adapters and
+  stored moves, and the shared interpreter - then restores what has archived
+  and extends what has fewer than 21 days left to 30. On testnet it runs daily
+  from the CredioLabs VM for the accounts listed in
+  `apps/web/scripts/keep-alive.testnet.json`. An account not listed there is not
+  kept alive.
+
 ### Prime account and the mandate
 
 The Prime account is an OpenZeppelin smart account. Its rule 0 holds the three
@@ -329,16 +352,16 @@ nothing to spend, and recovery stops with it.
 |---|---|---|
 | Every route out of a threshold-20 account with one key | `scripts/verify-mpc-threshold-testnet.ts`, testnet | 7 of 7 |
 | The address rule against a real Prime and live Blend and Aquarius | `scripts/verify-execution-address-rule-testnet.ts`, testnet | All 35 checks passed against the adapter with no wait on 29 September 2026, on the Linux builds recorded in `deployments/execution-testnet.json` - the same results the v3 adapter gave. The log is `evidence/execution-address-rule-testnet.log`. A Blend supply, a withdrawal to custody and an Aquarius swap succeed. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put. |
-| The adapter's wait against a real Prime, the unchanged gate and live Blend | `scripts/verify-execution-wait-testnet.ts`, testnet | All 44 checks passed on 29 September 2026 on the Linux builds; the log is `evidence/execution-wait-testnet.log`. Succeeded:<br>• a Blend supply at once;<br>• a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role and no Prime signature;<br>• an agent's batch after the minimum wait its own rule demands.<br>Refused:<br>• the agent below that minimum, and the agent cancelling;<br>• the run rule used for an immediate `execute`, a stored batch or a `cancel`;<br>• a stranger cancelling;<br>• running early, twice, after a cancel, or after the run window;<br>• a wait below the adapter's floor;<br>• the Prime creating the adapter at custody's address with a lower floor or a longer window.<br>The Prime and custody both cancel. An agent's stored move still runs after its rule is removed; removing the run rule pauses a ready move; a stored move lives the network minimum (~7 days on testnet), whatever its wait. |
+| The adapter's wait against a real Prime, the unchanged gate and live Blend | `scripts/verify-execution-wait-testnet.ts`, testnet | All 45 checks passed on 29 September 2026 on the Linux builds; the log is `evidence/execution-wait-testnet.log`. Succeeded:<br>• a Blend supply at once;<br>• a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role and no Prime signature;<br>• an agent's batch after the minimum wait its own rule demands.<br>Refused:<br>• the agent below that minimum, and the agent cancelling;<br>• the run rule used for an immediate `execute`, a stored batch or a `cancel`;<br>• a stranger cancelling;<br>• running early, twice, after a cancel, or after the run window;<br>• a wait below the adapter's floor;<br>• the Prime creating the adapter at custody's address with a lower floor or a longer window.<br>The Prime and custody both cancel. An agent's stored move still runs after its rule is removed; removing the run rule pauses a ready move; a move stored with a wait past the network minimum lives until its window closes, and using the adapter extends its own instance to ~30 days. |
 | The full scenario in the Prime app | the Prime app's Fordefi scenario guide, on beta against testnet | 10 XLM under the low band succeeds with the agent alone; 150 XLM under the low band is refused; 150 XLM under the high band succeeds after the admin approves. Custody's XLM fell by exactly 315, the sum of the moves less the withdrawal. |
-| Contract unit tests | `cargo test` in each crate | interpreter 153, adapter 31, gate 3 |
+| Contract unit tests | `cargo test` in each crate | interpreter 153, adapter 33, gate 3 |
 
 ## Deployments
 
 | | Network | Address or hash |
 |---|---|---|
 | Policy interpreter, grammar 6 (custody design) | testnet | `CDPR5VTX6R2ZPKREPD7FBW5ANVWXMVJIBIH2GMF36XPOFNMHRDIRUAZQ`, recorded in [`deployments/grammar6-testnet.json`](../deployments/grammar6-testnet.json) |
-| Execution adapter build | testnet | `32a8658a94767e2adfd7682e282148b653f894ab16e561e32f202643c5001cf8`, the Linux build of `contracts/execution-adapter`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json) and rebuilt by CI. The Prime app pins it; `23a7b289…`, the same source built on macOS, is still recognised for gates set up with it. |
+| Execution adapter build | testnet | `68d012e79fd4f9b88584447cfb32e0b0dbb55fb8bcd084b7212bad3e63b6dfdd`, the Linux build of `contracts/execution-adapter`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json) and rebuilt by CI. The Prime app pins it. It still recognises `32a8658a…` and `23a7b289…`, earlier builds of the same design that do not extend themselves, for gates set up with them. |
 | Execution adapter v3 builds (earlier pairs) | - | `5be8b08eefe704970fbb51612ef4f6222df3d4b0f2ab6704544e761e3576e708` and `0e088421…`, still recognised by the app |
 | Custody gate build | testnet | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab`, the Linux build of `contracts/custody-gate`, recorded in the same file. Gates set up earlier run `2788f05b…`, the same design. |
 | Policy interpreter, grammar 4 (the npm packages' pin) | mainnet and testnet | pinned in `packages/policy-synth/src/run/schemas.ts` |
@@ -354,9 +377,9 @@ deployed and still reachable by accounts that use them; their source is at tag
 - **No external audit.** The contracts have been through internal adversarial
   review and a STRIDE threat model, last run on 29 September 2026
   ([report](../evidence/stride-threat-model.md)). That is not an audit. Its
-  open items: nothing keeps the contracts alive - each archives about 7 days
-  after creation on testnet and 120 on mainnet until someone restores it - and
-  nothing alerts anyone when a move is stored.
+  open item: nothing alerts anyone when a move is stored. Keeping contracts
+  live is handled on testnet (see Keeping contracts live); mainnet needs the
+  same job run with a funded account.
 - **The Prime account is on the gate's list, so the gate will pay it.** The
   adapter needs the Prime on the list because venue calls name it, and `pull`
   releases to any listed address. A batch run under the Prime's own authority
