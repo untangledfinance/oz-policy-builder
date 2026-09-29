@@ -39,14 +39,16 @@
 //! THE GATE IS NOT AN ARGUMENT. It is fixed at deployment, so there is nothing
 //! to pass, nothing to omit and nothing to substitute.
 //!
-//! WHERE THIS CONTRACT LIVES IS THE DEPLOYER'S PROBLEM, NOT ITS OWN. Custody
-//! finds it before it exists by deriving
-//! `deployer(prime, sha256("prime.execution.adapter.v4" + gate))` and naming
-//! that address on the gate. The convention belongs in the deployment tooling:
-//! an adapter deployed anywhere else is simply inert, because the gate demands
-//! authorization from the address it named and gets none. `rebind` breaks the
-//! address-to-gate correspondence deliberately anyway, so it was never an
-//! invariant this contract could hold.
+//! THE ADDRESS COMMITS TO THE WAIT. Custody finds this contract before it
+//! exists by deriving
+//! `deployer(prime, sha256("prime.execution.adapter.v4" + gate + min_wait +
+//! run_window))` - each part in its XDR encoding - and naming that address on
+//! the gate. The constructor refuses to run anywhere else. The numbers are
+//! custody's protection against the Prime's own owners, and the gate pins its
+//! caller's address and code but not its arguments: without this check the
+//! Prime could create the adapter at the named address with a `min_wait` of
+//! zero. `rebind` later moves the binding to another gate on purpose; the
+//! check is about what custody agreed to at creation.
 //!
 //! THE BINDING MOVES ONLY WITH CUSTODY'S SIGNATURE. Custody eventually
 //! rotates - a new custodian, a different venue set - and its gate has no
@@ -73,8 +75,8 @@
 //! an accessor would only be a second way to say the same thing.
 use soroban_sdk::{
     address_payload::AddressPayload, auth::InvokerContractAuthEntry, contract, contracterror,
-    contractimpl, contracttype, panic_with_error, symbol_short, vec, Address, Bytes, Env, IntoVal,
-    Map, String, Symbol, TryFromVal, Val, Vec,
+    contractimpl, contracttype, panic_with_error, symbol_short, vec, xdr::ToXdr, Address, Bytes,
+    Env, IntoVal, Map, String, Symbol, TryFromVal, Val, Vec,
 };
 
 #[contracttype]
@@ -98,6 +100,7 @@ pub enum E {
     NotScheduled = 5,
     NotRunnable = 6,
     NotACanceller = 7,
+    NotWhereAgreed = 8,
 }
 
 /// A batch waiting to run, stored under its number: the calls, the grants,
@@ -121,6 +124,16 @@ impl ExecutionAdapter {
     /// a move that sat unrun for longer was approved against a market that
     /// has since moved, and perhaps by an agent since revoked, so it lapses.
     pub fn __constructor(e: Env, prime: Address, gate: Address, min_wait: u32, run_window: u32) {
+        let mut salt = Bytes::from_slice(&e, b"prime.execution.adapter.v4");
+        salt.append(&gate.clone().to_xdr(&e));
+        salt.append(&min_wait.to_xdr(&e));
+        salt.append(&run_window.to_xdr(&e));
+        let agreed = e
+            .deployer()
+            .with_address(prime.clone(), e.crypto().sha256(&salt));
+        if agreed.deployed_address() != e.current_contract_address() {
+            panic_with_error!(&e, E::NotWhereAgreed);
+        }
         e.storage().instance().set(&PRIME, &prime);
         e.storage().instance().set(&GATE, &gate);
         e.storage().instance().set(&MIN_WAIT, &min_wait);

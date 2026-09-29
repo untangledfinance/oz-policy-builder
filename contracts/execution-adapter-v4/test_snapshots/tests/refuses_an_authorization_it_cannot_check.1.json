@@ -1,6 +1,6 @@
 {
   "generators": {
-    "address": 5,
+    "address": 4,
     "nonce": 0,
     "mux_id": 0
   },
@@ -72,7 +72,7 @@
           "data": {
             "contract_data": {
               "ext": "v0",
-              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM",
+              "contract": "CCOSD32LA4Q6QNORN53TJ43YNCE7GL7IKPUAQRRN6W2FN66DWP3WQAEQ",
               "key": "ledger_key_contract_instance",
               "durability": "persistent",
               "val": {

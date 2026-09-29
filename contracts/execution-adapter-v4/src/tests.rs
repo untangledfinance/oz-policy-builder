@@ -67,7 +67,9 @@ fn world_with(min_wait: u32, run_window: u32) -> World {
     // `allowed` names the gate's own perimeter; the adapter adds the gate.
     let allowed = Vec::from_array(&e, [custody.clone(), prime.clone()]);
     let gate = e.register(FixtureGate, (allowed, custody.clone()));
-    let adapter = e.register(
+    let at = agreed_address(&e, &prime, &gate, min_wait, run_window);
+    let adapter = e.register_at(
+        &at,
         ExecutionAdapter,
         (prime.clone(), gate.clone(), min_wait, run_window),
     );
@@ -304,20 +306,51 @@ fn a_muxed_strkey_is_not_an_address_this_host_can_build() {
     Address::from_string(&SString::from_str(&e, muxed));
 }
 
-#[test]
-fn the_deployment_convention_derives_the_address_custody_names() {
-    // Tooling computes this; the contract no longer asserts it, but the
-    // formula is the one the gate's `caller` has to be set to.
+/// Where custody expects the adapter: the Prime deploys it, and the salt
+/// commits to the gate and both numbers.
+fn agreed_address(e: &Env, prime: &Address, gate: &Address, min_wait: u32, window: u32) -> Address {
+    let mut b = Bytes::from_slice(e, b"prime.execution.adapter.v4");
+    b.append(&gate.clone().to_xdr(e));
+    b.append(&min_wait.to_xdr(e));
+    b.append(&window.to_xdr(e));
+    e.deployer()
+        .with_address(prime.clone(), e.crypto().sha256(&b))
+        .deployed_address()
+}
+
+fn creation_refused(at: impl FnOnce(&Env, &Address, &Address) -> Address, args: (u32, u32)) {
     let e = Env::default();
     let prime = Address::generate(&e);
-    let gate = Address::generate(&e);
-    let mut b = Bytes::from_slice(&e, b"prime.execution.adapter.v4");
-    b.append(&gate.clone().to_xdr(&e));
-    let derived = e
-        .deployer()
-        .with_address(prime.clone(), e.crypto().sha256(&b))
-        .deployed_address();
-    assert_ne!(derived, prime);
+    let custody = Address::generate(&e);
+    let gate = e.register(FixtureGate, (Vec::<Address>::new(&e), custody));
+    let at = at(&e, &prime, &gate);
+    let attempt = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        e.register_at(
+            &at,
+            ExecutionAdapter,
+            (prime.clone(), gate.clone(), args.0, args.1),
+        );
+    }));
+    assert!(
+        attempt.is_err(),
+        "the adapter was created where custody did not agree"
+    );
+}
+
+#[test]
+fn a_lower_minimum_than_the_address_commits_to_is_refused() {
+    // Custody named the adapter for a minimum wait of 17280; the Prime tries 0.
+    creation_refused(|e, p, g| agreed_address(e, p, g, 17_280, 100), (0, 100));
+}
+
+#[test]
+fn a_different_window_than_the_address_commits_to_is_refused() {
+    creation_refused(|e, p, g| agreed_address(e, p, g, 0, 100), (0, 1_000_000));
+}
+
+#[test]
+fn an_address_that_is_not_derived_at_all_is_refused() {
+    creation_refused(|e, _, _| Address::generate(e), (0, 100));
 }
 
 // ---------------------------------------------------------------- waiting ---

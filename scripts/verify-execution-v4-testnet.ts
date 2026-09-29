@@ -14,7 +14,9 @@
 //     and an agent's rule cannot cancel;
 //   - the Prime and custody can cancel, nobody else can;
 //   - a batch lapses after its run window, and the adapter's floor binds
-//     every caller.
+//     every caller;
+//   - the Prime cannot create the adapter at the address custody named with
+//     a lower floor or a different window than custody agreed to.
 //
 //   bun scripts/verify-execution-v4-testnet.ts
 //
@@ -72,6 +74,7 @@ const NAMES: Record<string, string> = {
   '5': 'NotScheduled',
   '6': 'NotRunnable',
   '7': 'NotACanceller',
+  '8': 'NotWhereAgreed',
 }
 /** Ledgers a stored batch may still run after its wait. Long enough for the
  *  checks between scheduling and running, short enough that the lapse check
@@ -97,7 +100,17 @@ const contractId = (deployer: string, salt: Buffer) =>
       ).toXDR()
     )
   )
-const adapterSalt = (gate: string) => hash(Buffer.concat([Buffer.from(DOMAIN), addr(gate).toXDR()]))
+/** Where custody expects the adapter: the salt commits to the gate and to
+ *  both numbers, and the adapter's constructor refuses any other address. */
+const adapterSalt = (gate: string, minWait: number, window: number) =>
+  hash(
+    Buffer.concat([
+      Buffer.from(DOMAIN),
+      addr(gate).toXDR(),
+      u32v(minWait).toXDR(),
+      u32v(window).toXDR(),
+    ])
+  )
 
 let fails = 0
 const report = (ok: boolean, label: string, got: string) => {
@@ -158,11 +171,13 @@ const must = (r: any, what: string) => {
   return r.got
 }
 
-/** A gate for this Prime and the adapter derived from it, deployed and funded. */
-async function pair(tag: string, minWait: number) {
+/** A gate for this Prime and the adapter derived from it, deployed and funded.
+ *  With `tamper`, the Prime first tries to create the adapter at the address
+ *  custody named but with a minimum wait of 0, which must be refused. */
+async function pair(tag: string, minWait: number, tamper = false) {
   const gateSalt = hash(Buffer.from(`v4.${tag}.${Date.now()}`))
   const gate = contractId(CUSTODY, gateSalt)
-  const adapter = contractId(prime, adapterSalt(gate))
+  const adapter = contractId(prime, adapterSalt(gate, minWait, WINDOW))
   await send(
     K.custody,
     Operation.createCustomContract({
@@ -190,6 +205,35 @@ async function pair(tag: string, minWait: number) {
     ]),
     `approve ${tag} limit`
   )
+  const create = (args: number[]) => (auth: xdr.SorobanAuthorizationEntry[]) =>
+    Operation.createCustomContract({
+      address: Address.fromString(prime),
+      wasmHash: AW,
+      salt: adapterSalt(gate, minWait, WINDOW),
+      constructorArgs: [addr(prime), addr(gate), ...args.map(u32v)],
+      auth,
+    } as any)
+  if (tamper) {
+    for (const [label, args] of [
+      ['the named address, with a minimum wait of 0', [0, WINDOW]],
+      ['the named address, with a longer run window', [minWait, WINDOW * 1000]],
+    ] as const) {
+      const r = await asPrime({
+        kp: K.admin,
+        prime,
+        ruleIds: [0],
+        label,
+        submit: false,
+        makeOp: create([...args]),
+      })
+      const code = codeOf(r.reason)
+      report(
+        r.denied && code === '8',
+        `created at ${label}`,
+        r.denied ? `REFUSE  #${code} ${NAMES[code ?? ''] ?? ''}` : 'PERMIT'
+      )
+    }
+  }
   must(
     await asPrime({
       kp: K.admin,
@@ -197,14 +241,7 @@ async function pair(tag: string, minWait: number) {
       ruleIds: [0],
       label: `deploy ${tag} adapter`,
       submit: true,
-      makeOp: (auth) =>
-        Operation.createCustomContract({
-          address: Address.fromString(prime),
-          wasmHash: AW,
-          salt: adapterSalt(gate),
-          constructorArgs: [addr(prime), addr(gate), u32v(minWait), u32v(WINDOW)],
-          auth,
-        } as any),
+      makeOp: create([minWait, WINDOW]),
     }),
     `deploy ${tag} adapter`
   )
@@ -634,7 +671,8 @@ await runStored('a batch past its window does not run', idLapse!, '6')
 }
 
 console.log(C.bold('\n── the adapter floor binds every caller ──'))
-const floored = await pair('floor', 4)
+console.log(C.dim('   custody names the adapter for a minimum wait of 4'))
+const floored = await pair('floor', 4, true)
 const flooredBatch = {
   calls: vec([
     call(floored.gate, 'pull', [addr(sac), addr(floored.adapter), i128v(1n)]),

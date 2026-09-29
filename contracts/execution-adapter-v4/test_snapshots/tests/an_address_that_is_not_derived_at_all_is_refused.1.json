@@ -6,12 +6,11 @@
   },
   "auth": [
     [],
-    [],
     []
   ],
   "ledger": {
     "protocol_version": 27,
-    "sequence_number": 1000,
+    "sequence_number": 0,
     "timestamp": 0,
     "network_id": "0000000000000000000000000000000000000000000000000000000000000000",
     "base_reserve": 0,
@@ -25,7 +24,7 @@
           "data": {
             "contract_data": {
               "ext": "v0",
-              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M",
               "key": "ledger_key_contract_instance",
               "durability": "persistent",
               "val": {
@@ -39,14 +38,7 @@
                         "symbol": "a"
                       },
                       "val": {
-                        "vec": [
-                          {
-                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
-                          },
-                          {
-                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
-                          }
-                        ]
+                        "vec": []
                       }
                     },
                     {
@@ -64,7 +56,7 @@
           },
           "ext": "v0"
         },
-        "live_until": 5095
+        "live_until": 4095
       },
       {
         "entry": {
@@ -72,7 +64,7 @@
           "data": {
             "contract_data": {
               "ext": "v0",
-              "contract": "CCOSD32LA4Q6QNORN53TJ43YNCE7GL7IKPUAQRRN6W2FN66DWP3WQAEQ",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4",
               "key": "ledger_key_contract_instance",
               "durability": "persistent",
               "val": {
@@ -80,47 +72,14 @@
                   "executable": {
                     "wasm": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
                   },
-                  "storage": [
-                    {
-                      "key": {
-                        "symbol": "gate"
-                      },
-                      "val": {
-                        "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4"
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "min_wait"
-                      },
-                      "val": {
-                        "u32": 0
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "prime"
-                      },
-                      "val": {
-                        "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "window"
-                      },
-                      "val": {
-                        "u32": 100
-                      }
-                    }
-                  ]
+                  "storage": null
                 }
               }
             }
           },
           "ext": "v0"
         },
-        "live_until": 5095
+        "live_until": 4095
       },
       {
         "entry": {
@@ -134,7 +93,7 @@
           },
           "ext": "v0"
         },
-        "live_until": 5095
+        "live_until": 4095
       }
     ]
   },

@@ -1,6 +1,6 @@
 {
   "generators": {
-    "address": 5,
+    "address": 4,
     "nonce": 0,
     "mux_id": 0
   },
@@ -15,7 +15,7 @@
         {
           "function": {
             "contract_fn": {
-              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM",
+              "contract_address": "CC3LHUOHIKJCBFXBBKAEK2CI6U6KJWNUOZCV3Z42YK4SFUSAXGVXMICA",
               "function_name": "execute",
               "args": [
                 {
@@ -156,7 +156,7 @@
           "data": {
             "contract_data": {
               "ext": "v0",
-              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM",
+              "contract": "CC3LHUOHIKJCBFXBBKAEK2CI6U6KJWNUOZCV3Z42YK4SFUSAXGVXMICA",
               "key": {
                 "u32": 1
               },
@@ -223,7 +223,7 @@
           "data": {
             "contract_data": {
               "ext": "v0",
-              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM",
+              "contract": "CC3LHUOHIKJCBFXBBKAEK2CI6U6KJWNUOZCV3Z42YK4SFUSAXGVXMICA",
               "key": "ledger_key_contract_instance",
               "durability": "persistent",
               "val": {

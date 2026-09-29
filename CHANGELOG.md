@@ -15,6 +15,9 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   The Prime or the custody account can `cancel(id, by)` it first.
   - `min_wait` binds every caller, including rule 0. `run_window` is set when
     the adapter is created.
+  - The adapter's address commits to both numbers, and its constructor refuses
+    any other address, so the Prime cannot create it at the address custody
+    named with a lower `min_wait`.
   - A rule can demand its own minimum wait with `call_arg(2) >= N`.
   - A stored batch runs under a Prime rule scoped to the adapter, signed by the
     adapter, whose predicate permits `run` alone.

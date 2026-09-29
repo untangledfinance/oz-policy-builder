@@ -156,7 +156,8 @@ with `call_arg(2) >= N`, because the grammar compares a `u32`.
 | `run(id)` | Anyone, from the ready ledger to the end of the run window | Checks the stored batch again against the gate bound now, then runs it. It runs once. |
 | `cancel(id, by)` | The Prime, at the quorum of whichever rule approves it, or the custody account the gate answers to | Drops a stored batch, waiting, ready or lapsed. |
 
-Two numbers are fixed when the adapter is created:
+Two numbers are fixed when the adapter is created, and custody agrees to both
+(see below):
 
 - **`min_wait`** binds every caller, including the Prime's own rule 0, which
   carries no predicate. Above 0, everything waits, recovery included, and the
@@ -184,9 +185,20 @@ permit `execute` only, so an agent cannot cancel.
 New errors: `WaitTooShort` 4, `NotScheduled` 5, `NotRunnable` 6 (before the
 ready ledger or after the window), `NotACanceller` 7. A stored batch sits in
 persistent storage under its number as `(calls, grants, run_at)`, readable by
-anyone; there are no events. The address derives from
-`sha256("prime.execution.adapter.v4" + gate)`. The gate is the unchanged v3
-contract; it only has to name the v4 adapter and its build.
+anyone; there are no events.
+
+**The address commits to both numbers.** It derives from
+`sha256("prime.execution.adapter.v4" + gate + min_wait + run_window)`, each
+part in its XDR encoding. The constructor refuses to run at any other address
+(`NotWhereAgreed`, 8).
+
+This matters because the gate pins its caller's address and build, not the
+arguments it was created with. Without the check, the Prime could create the
+adapter at the address custody named with a `min_wait` of 0. Custody derives
+the address from the numbers it agrees to and names it on the gate.
+
+The gate is the unchanged v3 contract; it only has to name the v4 adapter and
+its build.
 
 ### Prime account and the mandate
 
@@ -311,9 +323,9 @@ nothing to spend, and recovery stops with it.
 |---|---|---|
 | Every route out of a threshold-20 account with one key | `scripts/verify-mpc-threshold-testnet.ts`, testnet | 7 of 7 |
 | The v3 gate and adapter against a real Prime and live Blend and Aquarius | `scripts/verify-execution-v3-testnet.ts`, testnet | All 35 checks passed on a fresh run on 29 September 2026. A Blend supply, a withdrawal to custody and an Aquarius swap land. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put. |
-| The v4 adapter's wait against a real Prime, the unchanged v3 gate and live Blend | `scripts/verify-execution-v4-testnet.ts`, testnet | All 33 checks passed on 29 September 2026; the log is `evidence/execution-v4-testnet.log`. Landed:<br>• a Blend supply at once;<br>• a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role and no Prime signature;<br>• an agent's batch after the minimum wait its own rule demands.<br>Refused:<br>• the agent below that minimum, and the agent cancelling;<br>• the run rule used for an immediate `execute`, a stored batch or a `cancel`;<br>• a stranger cancelling;<br>• running early, twice, after a cancel, or after the run window;<br>• a wait below the adapter's floor.<br>The Prime and custody both cancel. |
+| The v4 adapter's wait against a real Prime, the unchanged v3 gate and live Blend | `scripts/verify-execution-v4-testnet.ts`, testnet | All 35 checks passed on 29 September 2026; the log is `evidence/execution-v4-testnet.log`. Landed:<br>• a Blend supply at once;<br>• a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role and no Prime signature;<br>• an agent's batch after the minimum wait its own rule demands.<br>Refused:<br>• the agent below that minimum, and the agent cancelling;<br>• the run rule used for an immediate `execute`, a stored batch or a `cancel`;<br>• a stranger cancelling;<br>• running early, twice, after a cancel, or after the run window;<br>• a wait below the adapter's floor;<br>• the Prime creating the adapter at custody's address with a lower floor or a longer window.<br>The Prime and custody both cancel. |
 | The full scenario in the Prime app | the Prime app's Fordefi scenario guide, on beta against testnet | 10 XLM under the low band lands with the agent alone; 150 XLM under the low band is refused; 150 XLM under the high band lands after the admin approves. Custody's XLM fell by exactly 315, the sum of the moves less the withdrawal. |
-| Contract unit tests | `cargo test` in each crate | interpreter 153, adapter v3 14, adapter v4 30, gate 3 |
+| Contract unit tests | `cargo test` in each crate | interpreter 153, adapter v3 14, adapter v4 31, gate 3 |
 
 ## Deployments
 
