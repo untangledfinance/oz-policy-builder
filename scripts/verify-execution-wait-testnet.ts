@@ -685,6 +685,100 @@ await execute('owners, wait 0, floor 4', flooredBatch, 0, 'REFUSE', toFloored)
 await execute('owners, wait 3, floor 4', flooredBatch, 3, 'REFUSE', toFloored)
 await execute('owners, wait 4, floor 4', flooredBatch, 4, 'PERMIT', toFloored)
 
+console.log(C.bold('\n── what outlives what (threat model rows) ──'))
+{
+  // A STORED MOVE LIVES THE NETWORK'S MINIMUM, not its wait. Persistent
+  // entries are created with the minimum TTL and writes do not extend it, so
+  // a wait longer than that archives the move before it can run (it can be
+  // restored, by anyone, for a fee). Measured on the entry itself.
+  const cfgKey = xdr.LedgerKey.configSetting(
+    new xdr.LedgerKeyConfigSetting({
+      configSettingId: xdr.ConfigSettingId.configSettingStateArchival(),
+    })
+  )
+  const minTtl = ((await server.getLedgerEntries(cfgKey)).entries[0]!.val as any)
+    .configSetting()
+    .stateArchivalSettings()
+    .minPersistentTtl() as number
+  const idTtl = await execute('store a move to read its lifetime', payHome(1n), 50, 'PERMIT')
+  const got = (await server.getLedgerEntries(storedKey(idTtl!))) as any
+  const left = got.entries[0].liveUntilLedgerSeq - got.latestLedger
+  report(
+    Math.abs(left - minTtl) <= 5,
+    'a stored move lives the network minimum, whatever its wait',
+    `${left} ledgers left, minimum ${minTtl}`
+  )
+  await asPrime({
+    kp: K.admin,
+    prime,
+    label: 'tidy',
+    submit: true,
+    ruleIds: [0],
+    makeOp: (auth) => invokeOp(adapter, 'cancel', [u32v(idTtl!), addr(prime)], auth),
+  })
+}
+{
+  // REVOKING AN AGENT DOES NOT REACH ITS STORED MOVES. The move was approved
+  // when it was stored; `run` answers through the run rule, not the agent's.
+  const idOrphan = await execute('agent stores a move', payHome(1n), AGENT_MIN, 'PERMIT', {
+    kp: K.agent,
+    rules: [agentRule],
+    signers: [K.agent.publicKey()],
+  })
+  const removed = await asPrime({
+    kp: K.admin,
+    prime,
+    label: 'remove the agent rule',
+    submit: true,
+    ruleIds: [0],
+    makeOp: (auth) => invokeOp(prime, 'remove_context_rule', [u32v(agentRule)], auth),
+  })
+  report(
+    !removed.denied,
+    'the owners remove the agent rule',
+    removed.denied ? String(removed.reason).slice(0, 60) : 'LANDS'
+  )
+  await untilLedger((await stored(idOrphan!)).run_at)
+  await runStored("the agent's stored move still runs after its rule is gone", idOrphan!, 'LANDS')
+}
+{
+  // REMOVING THE RUN RULE PAUSES EVERY STORED MOVE AT ONCE.
+  const idPaused = await execute('owners store a move', payHome(1n), 3, 'PERMIT')
+  const removed = await asPrime({
+    kp: K.admin,
+    prime,
+    label: 'remove the run rule',
+    submit: true,
+    ruleIds: [0],
+    makeOp: (auth) => invokeOp(prime, 'remove_context_rule', [u32v(runRule)], auth),
+  })
+  report(
+    !removed.denied,
+    'the owners remove the run rule',
+    removed.denied ? String(removed.reason).slice(0, 60) : 'LANDS'
+  )
+  await untilLedger((await stored(idPaused!)).run_at)
+  const r = await asPrime({
+    kp: K.keeper,
+    prime,
+    label: 'run without a run rule',
+    submit: false,
+    ruleIds: [runRule],
+    signers: [adapter],
+    makeOp: (auth) => invokeOp(adapter, 'run', [u32v(idPaused!)], auth),
+  })
+  report(
+    r.denied,
+    'with the run rule gone, a ready move cannot run',
+    r.denied ? 'REFUSE' : 'PERMIT'
+  )
+  report(
+    (await stored(idPaused!)) !== null,
+    'and it is still stored, to run if the rule returns',
+    'stored'
+  )
+}
+
 console.log(
   C.bold(
     `\n${fails === 0 ? '\x1b[32mall checks passed\x1b[0m' : `\x1b[31m${fails} MISMATCH(es)\x1b[0m`}`

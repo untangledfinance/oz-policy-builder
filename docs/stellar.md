@@ -327,7 +327,7 @@ nothing to spend, and recovery stops with it.
 |---|---|---|
 | Every route out of a threshold-20 account with one key | `scripts/verify-mpc-threshold-testnet.ts`, testnet | 7 of 7 |
 | The address rule against a real Prime and live Blend and Aquarius | `scripts/verify-execution-address-rule-testnet.ts`, testnet | All 35 checks passed against the adapter with no wait on 29 September 2026, on the Linux builds recorded in `deployments/execution-testnet.json` - the same results the v3 adapter gave. The log is `evidence/execution-address-rule-testnet.log`. A Blend supply, a withdrawal to custody and an Aquarius swap land. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put. |
-| The adapter's wait against a real Prime, the unchanged gate and live Blend | `scripts/verify-execution-wait-testnet.ts`, testnet | All 35 checks passed on 29 September 2026 on the Linux builds; the log is `evidence/execution-wait-testnet.log`. Landed:<br>• a Blend supply at once;<br>• a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role and no Prime signature;<br>• an agent's batch after the minimum wait its own rule demands.<br>Refused:<br>• the agent below that minimum, and the agent cancelling;<br>• the run rule used for an immediate `execute`, a stored batch or a `cancel`;<br>• a stranger cancelling;<br>• running early, twice, after a cancel, or after the run window;<br>• a wait below the adapter's floor;<br>• the Prime creating the adapter at custody's address with a lower floor or a longer window.<br>The Prime and custody both cancel. |
+| The adapter's wait against a real Prime, the unchanged gate and live Blend | `scripts/verify-execution-wait-testnet.ts`, testnet | All 44 checks passed on 29 September 2026 on the Linux builds; the log is `evidence/execution-wait-testnet.log`. Landed:<br>• a Blend supply at once;<br>• a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role and no Prime signature;<br>• an agent's batch after the minimum wait its own rule demands.<br>Refused:<br>• the agent below that minimum, and the agent cancelling;<br>• the run rule used for an immediate `execute`, a stored batch or a `cancel`;<br>• a stranger cancelling;<br>• running early, twice, after a cancel, or after the run window;<br>• a wait below the adapter's floor;<br>• the Prime creating the adapter at custody's address with a lower floor or a longer window.<br>The Prime and custody both cancel. An agent's stored move still runs after its rule is removed; removing the run rule pauses a ready move; a stored move lives the network minimum (~7 days on testnet), whatever its wait. |
 | The full scenario in the Prime app | the Prime app's Fordefi scenario guide, on beta against testnet | 10 XLM under the low band lands with the agent alone; 150 XLM under the low band is refused; 150 XLM under the high band lands after the admin approves. Custody's XLM fell by exactly 315, the sum of the moves less the withdrawal. |
 | Contract unit tests | `cargo test` in each crate | interpreter 153, adapter 31, gate 3 |
 
@@ -350,9 +350,11 @@ deployed and still reachable by accounts that use them; their source is at tag
 ## Limits
 
 - **No external audit.** The contracts have been through internal adversarial
-  review and a STRIDE threat model, last run on 25 September 2026
-  ([report](https://github.com/untangledfinance/oz-policy-builder/blob/d89e17b/docs/stride-threat-model.md)).
-  That is not an audit.
+  review and a STRIDE threat model, last run on 29 September 2026
+  ([report](../evidence/stride-threat-model.md)). That is not an audit. Its
+  open items: nothing keeps the contracts alive - each archives about 7 days
+  after creation on testnet and 120 on mainnet until someone restores it - and
+  nothing alerts anyone when a move is stored.
 - **The Prime account is on the gate's list, so the gate will pay it.** The
   adapter needs the Prime on the list because venue calls name it, and `pull`
   releases to any listed address. A batch run under the Prime's own authority
