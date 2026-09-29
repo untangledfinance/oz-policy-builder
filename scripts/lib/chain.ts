@@ -230,6 +230,11 @@ export async function asPrime(opts: {
     }),
   })
 
+  // Only a submitter that IS one of the signers vouches for the digest. A
+  // keeper running a stored batch is not: the rule it runs under is signed by
+  // a contract, so the keeper has nothing to vouch for.
+  const vouches = signerList.includes(kp.publicKey()) ? [signerEntry] : []
+
   const others = recorded
     .filter((e) => e !== own)
     .map((e) => {
@@ -247,7 +252,7 @@ export async function asPrime(opts: {
   // Reuse the account read above: simulation does not consume the sequence,
   // and a submit re-reads it below.
   const authed = new TransactionBuilder(acct, { fee: FEE, networkPassphrase: PASSPHRASE })
-    .addOperation(makeOp([accountEntry, signerEntry, ...others]))
+    .addOperation(makeOp([accountEntry, ...vouches, ...others]))
     .setTimeout(120)
     .build()
 
@@ -260,7 +265,7 @@ export async function asPrime(opts: {
     fee: FEE,
     networkPassphrase: PASSPHRASE,
   })
-    .addOperation(makeOp([accountEntry, signerEntry, ...others]))
+    .addOperation(makeOp([accountEntry, ...vouches, ...others]))
     .setTimeout(120)
     .build()
   const prepared = rpc.assembleTransaction(fresh, sim2).build()

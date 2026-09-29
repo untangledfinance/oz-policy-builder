@@ -63,6 +63,7 @@ jobs:
           - policy-interpreter
           - custody-gate-v3
           - execution-adapter-v3
+          - execution-adapter-v4
           - test-blend-pool
     defaults:
       run:

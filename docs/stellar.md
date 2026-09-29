@@ -133,6 +133,60 @@ it on the gate before it exists. `rebind` moves it to a successor gate. Only
 the current gate's custody account can call it, and it refuses a successor
 that cannot answer `custody()`.
 
+### Execution adapter v4: an optional wait
+
+`contracts/execution-adapter-v4/src/lib.rs`. The v3 adapter with one addition:
+a batch can wait a number of ledgers before it runs. It is not in the Prime
+app yet; the app still creates v3.
+
+`execute(calls, grants, wait)` takes the wait as a third argument.
+
+- **`wait` 0** runs the batch at once, exactly as v3.
+- **`wait` above 0** checks the batch, stores it whole on the ledger and
+  returns its number. It can run from `wait` ledgers later until its run
+  window closes.
+
+The Prime approves `(calls, grants, wait)` together, so nobody can shorten the
+wait afterwards. The batch keeps argument positions 0 and 1, so every existing
+predicate path into it still fits. A rule can demand a longer wait of its own
+with `call_arg(2) >= N`, because the grammar compares a `u32`.
+
+| Function | Who | What |
+|---|---|---|
+| `run(id)` | Anyone, from the ready ledger to the end of the run window | Checks the stored batch again against the gate bound now, then runs it. It runs once. |
+| `cancel(id, by)` | The Prime, at the quorum of whichever rule approves it, or the custody account the gate answers to | Drops a stored batch, waiting, ready or lapsed. |
+
+Two numbers are fixed when the adapter is created:
+
+- **`min_wait`** binds every caller, including the Prime's own rule 0, which
+  carries no predicate. Above 0, everything waits, recovery included, and the
+  custody account has that long to cancel.
+- **`run_window`** is how long a ready batch stays runnable. After that it
+  lapses (`Expired`), because it was approved against a market that has since
+  moved, and perhaps by an agent since revoked. With a window of 0 it can run
+  only on its ready ledger.
+
+**A stored batch runs under a "run" rule on the Prime.** This rule is scoped to
+the adapter, its signer is the adapter, and its predicate is
+`call_fn == "run"`. `run` asks the Prime to approve `run(id)`, and a venue that
+asks the Prime mid-batch, such as Blend's `submit`, sits inside that approval.
+
+Without the rule the venue's request would come first. The smart account checks
+a contract signer with `require_auth_for_args`, which the adapter passes only
+when it is the one asking, so the pool rule's adapter signature failed with
+`Error(Auth, InvalidAction)` on testnet. No key signs the run rule, so any
+account can run a stored batch.
+
+**The predicate is essential.** Without it, the rule would let anyone have the
+adapter approve an immediate `execute` or a `cancel` for the Prime. Agent rules
+permit `execute` only, so an agent cannot cancel.
+
+New errors: `WaitTooShort` 4, `NotScheduled` 5, `TooEarly` 6, `Expired` 7,
+`NotACanceller` 8. A stored batch sits in persistent storage under its number,
+readable by anyone; there are no events. The address derives from
+`sha256("prime.execution.adapter.v4" + gate)`. The gate is the unchanged v3
+contract; it only has to name the v4 adapter and its build.
+
 ### Prime account and the mandate
 
 The Prime account is an OpenZeppelin smart account. Its rule 0 holds the three
@@ -256,8 +310,9 @@ nothing to spend, and recovery stops with it.
 |---|---|---|
 | Every route out of a threshold-20 account with one key | `scripts/verify-mpc-threshold-testnet.ts`, testnet | 7 of 7 |
 | The v3 gate and adapter against a real Prime and live Blend and Aquarius | `scripts/verify-execution-v3-testnet.ts`, testnet | All 35 checks passed on a fresh run on 29 September 2026. A Blend supply, a withdrawal to custody and an Aquarius swap land. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put. |
+| The v4 adapter's wait against a real Prime, the unchanged v3 gate and live Blend | `scripts/verify-execution-v4-testnet.ts`, testnet | All 33 checks passed on 29 September 2026; the log is `evidence/execution-v4-testnet.log`. Landed:<br>• a Blend supply at once;<br>• a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role and no Prime signature;<br>• an agent's batch after the minimum wait its own rule demands.<br>Refused:<br>• the agent below that minimum, and the agent cancelling;<br>• the run rule used for an immediate `execute`, a stored batch or a `cancel`;<br>• a stranger cancelling;<br>• running early, twice, after a cancel, or after the run window;<br>• a wait below the adapter's floor.<br>The Prime and custody both cancel. |
 | The full scenario in the Prime app | the Prime app's Fordefi scenario guide, on beta against testnet | 10 XLM under the low band lands with the agent alone; 150 XLM under the low band is refused; 150 XLM under the high band lands after the admin approves. Custody's XLM fell by exactly 315, the sum of the moves less the withdrawal. |
-| Contract unit tests | `cargo test` in each crate | interpreter 153, adapter 14, gate 3 |
+| Contract unit tests | `cargo test` in each crate | interpreter 153, adapter v3 14, adapter v4 30, gate 3 |
 
 ## Deployments
 

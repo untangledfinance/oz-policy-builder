@@ -7,6 +7,21 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ## [Unreleased]
 
+### Added
+
+- **`execution-adapter-v4`: a batch can wait.** `execute(calls, grants, wait)`
+  runs at once when `wait` is 0, as v3 does. With a wait it stores the batch,
+  and anyone can `run(id)` it from the ready ledger until the run window closes.
+  The Prime or the custody account can `cancel(id, by)` it first.
+  - `min_wait` binds every caller, including rule 0. `run_window` is set when
+    the adapter is created.
+  - A rule can demand its own minimum wait with `call_arg(2) >= N`.
+  - A stored batch runs under a Prime rule scoped to the adapter, signed by the
+    adapter, whose predicate permits `run` alone.
+  - The gate is the unchanged v3 contract.
+  - Verified end to end on testnet by `scripts/verify-execution-v4-testnet.ts`.
+  - v3 stays until the Prime app moves to v4.
+
 ### Removed
 
 - **Every contract generation but the latest.** `contracts/` now holds the

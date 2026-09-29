@@ -1,0 +1,59 @@
+# bun scripts/verify-execution-v4-testnet.ts   (2026-09-29T09:27Z, adapter wasm 3b830de0acd192e0…, macOS build)
+
+prime   CDWR2CNP6SI5TO4Z76DSKUTRWK6HTVPHTMDPKKGOUW3YYVSAHMRKQLM5
+gate    CC3BVBEIYA7OZEPXWC5TMW74ZCX74JIIKGHECIKVEGMNS7I7JSODYQB5  (custody-gate-v3, unchanged)
+adapter CADXZHFEZ5UYLVWK2GE76DA6SWV6T7ZWJMZLH3H2NRF737ZVVL54ACG2  21955B, window 40 ledgers
+rules   pool 1, run 2, agent 3
+
+── a zero wait runs at once, as v3 did ──
+ok   Blend supply, wait 0                                     PERMIT  
+ok   drain to a stranger, wait 0                              REFUSE  #2 AddressNotAllowed
+
+── storing batches ──
+ok   Blend supply, wait 3                                     PERMIT  batch 1
+ok   recovery pull to the trustee, wait 3                     PERMIT  batch 2
+ok   pay home, to be cancelled by the Prime                   PERMIT  batch 3
+ok   pay home, to be cancelled by custody                     PERMIT  batch 4
+ok   pay home, left to lapse                                  PERMIT  batch 5
+ok   pay home, wait 200                                       PERMIT  batch 6
+ok   a stranger in a stored batch is refused before storing   REFUSE  #2 AddressNotAllowed
+ok   the stored batch is readable off the ledger              run_at 4930111, expires 4930151
+
+── the agent: its rule demands a wait of its own ──
+ok   agent, wait 0                                            REFUSE  #100 
+ok   agent, wait 4                                            REFUSE  #100 
+ok   agent, wait 5                                            PERMIT  batch 7
+ok   the agent cannot cancel, even its own                    REFUSE
+
+── the run rule approves `run` and nothing else ──
+ok   a stranger executes at once through the run rule         REFUSE  #100 
+ok   a stranger stores a batch through the run rule           REFUSE  #100 
+ok   a stranger cancels as the Prime through the run rule     REFUSE
+
+── cancelling ──
+ok   running before the wait is over                          #6 TooEarly
+ok   a stranger cancels                                       #8 NotACanceller
+ok   the Prime cancels, at its own quorum                     LANDS
+ok   custody cancels                                          LANDS
+
+── running once the wait is over, by someone with no role ──
+   waiting for ledger 4930111…
+ok   the stored Blend supply runs, no Prime signature         LANDS
+ok   the stored recovery pays the trustee                     LANDS
+ok   the trustee received the recovery                        +0.2999999999992724 XLM
+ok   a batch runs once                                        #5 NotScheduled
+ok   a cancelled batch does not run                           #5 NotScheduled
+ok   a run batch is gone from the ledger                      gone
+ok   the agent's batch runs after its wait                    LANDS
+
+── the run window ──
+   waiting for ledger 4930154…
+ok   a batch past its window does not run                     #7 Expired
+ok   a lapsed batch can be tidied away                        LANDS
+
+── the adapter floor binds every caller ──
+ok   owners, wait 0, floor 4                                  REFUSE  #4 WaitTooShort
+ok   owners, wait 3, floor 4                                  REFUSE  #4 WaitTooShort
+ok   owners, wait 4, floor 4                                  PERMIT  
+
+all checks passed
