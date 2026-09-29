@@ -23,7 +23,15 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
     adapter, whose predicate permits `run` alone.
   - The gate is the unchanged v3 contract.
   - Verified end to end on testnet by `scripts/verify-execution-v4-testnet.ts`.
-  - v3 stays until the Prime app moves to v4.
+
+### Removed
+
+- **`execution-adapter-v3`.** The Prime app now sets new gates up for v4, and
+  v4 with no wait is v3's rule and batch. Its source is kept at tag
+  `archive/execution-adapter-v3`; deployed v3 pairs are unaffected. The
+  address-rule verifier moved to v4 as
+  `scripts/verify-execution-address-rule-testnet.ts` (35 of 35 on testnet), and
+  `deploy-grammar6-testnet.ts` uploads the v4 adapter.
 
 ### Removed
 

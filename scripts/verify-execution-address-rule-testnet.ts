@@ -1,11 +1,13 @@
-// End-to-end check of the v3 execution pair against a REAL Prime smart account
+// End-to-end check of the execution adapter's address rule - the v4 adapter,
+// run with no wait, which is exactly the rule and the batch the v3 adapter had -
+// against a REAL Prime smart account
 // and live venues on testnet.
 //
 // It stands up a fresh Prime, a custody gate and the adapter bound to it, then
 // runs the legitimate flows and every refusal the pair is supposed to produce.
 // Nothing here is mocked: Blend and Aquarius are the live testnet contracts.
 //
-//   bun scripts/verify-execution-v3-testnet.ts
+//   bun scripts/verify-execution-address-rule-testnet.ts
 //
 // Reads the shared grammar-6 interpreter from deployments/grammar6-testnet.json;
 // every account it uses is created and funded fresh.
@@ -61,7 +63,21 @@ import {
 const AQUA = 'CCMNSENXDBNJSY72BDIPH5CCXLLHBKZ4LXTRKDLKZN4UI2NJFQLWTLD6'
 const OUT = 'CDPXNHHVSLX3HFAHV7XOISM23MZH36WSXTO45RNDOBIDFZBGTSOVD4OY'
 /** The salt domain custody uses to find the adapter before it is deployed. */
-const DOMAIN = 'prime.execution.adapter.v3'
+const DOMAIN = 'prime.execution.adapter.v4'
+/** No wait, and a window that never matters: this script is about the address
+ *  rule. `verify-execution-v4-testnet.ts` covers waiting. The adapter's address
+ *  commits to both, so they are part of its salt. */
+const MIN_WAIT = 0
+const WINDOW = 100
+const adapterSalt = (gate: string) =>
+  hash(
+    Buffer.concat([
+      Buffer.from(DOMAIN),
+      addr(gate).toXDR(),
+      u32v(MIN_WAIT).toXDR(),
+      u32v(WINDOW).toXDR(),
+    ])
+  )
 const NAMES: Record<string, string> = {
   '1': 'PrimeTarget',
   '2': 'AddressNotAllowed',
@@ -120,7 +136,7 @@ const prime = Address.fromScVal(
 ).toString()
 
 const gateWasm = readFileSync(wasmPath('custody-gate-v3', 'custody_gate_v3'))
-const adapWasm = readFileSync(wasmPath('execution-adapter-v3', 'execution_adapter_v3'))
+const adapWasm = readFileSync(wasmPath('execution-adapter-v4', 'execution_adapter_v4'))
 const GW = hash(gateWasm)
 const AW = hash(adapWasm)
 for (const w of [gateWasm, adapWasm]) {
@@ -137,7 +153,7 @@ const gateSalt = hash(Buffer.from(`v3.gate.${Date.now()}`))
 const secondSalt = hash(Buffer.from(`v3.gate2.${Date.now()}`))
 const gate = contractId(CUSTODY, gateSalt)
 const gate2 = contractId(CUSTODY, secondSalt)
-const adapter = contractId(prime, hash(Buffer.concat([Buffer.from(DOMAIN), addr(gate).toXDR()])))
+const adapter = contractId(prime, adapterSalt(gate))
 
 const cfg = (caller: string, allowed: string[]) =>
   xdr.ScVal.scvMap([
@@ -198,8 +214,8 @@ must(
       Operation.createCustomContract({
         address: Address.fromString(prime),
         wasmHash: AW,
-        salt: hash(Buffer.concat([Buffer.from(DOMAIN), addr(gate).toXDR()])),
-        constructorArgs: [addr(prime), addr(gate)],
+        salt: adapterSalt(gate),
+        constructorArgs: [addr(prime), addr(gate), u32v(MIN_WAIT), u32v(WINDOW)],
         auth,
       } as any),
   }),
@@ -325,7 +341,7 @@ async function go(
     submit,
     ruleIds: rules,
     signers: rules.length > 1 ? [K.admin.publicKey(), adapter] : [K.admin.publicKey()],
-    makeOp: (auth) => invokeOp(adapter, 'execute', [batch.calls, batch.grants], auth),
+    makeOp: (auth) => invokeOp(adapter, 'execute', [batch.calls, batch.grants, u32v(0)], auth),
   })
   const code = codeOf(r.reason)
   const got = !r.denied ? 'PERMIT' : code ? 'REFUSE' : 'PASSES'
@@ -410,7 +426,7 @@ await go(
     fee: FEE,
     networkPassphrase: PASSPHRASE,
   })
-    .addOperation(invokeOp(adapter, 'execute', [supply.calls, supply.grants]))
+    .addOperation(invokeOp(adapter, 'execute', [supply.calls, supply.grants, u32v(0)]))
     .setTimeout(60)
     .build()
   const s: any = await server.simulateTransaction(tx)
@@ -425,7 +441,7 @@ await go(
 console.log(C.bold('\n── the adapter and the Prime as targets ──'))
 await go(
   'a batch calling the adapter back',
-  { calls: vec([call(adapter, 'execute', [vec([]), vec([])])]), grants: vec([]) },
+  { calls: vec([call(adapter, 'execute', [vec([]), vec([]), u32v(0)])]), grants: vec([]) },
   'PASSES',
   [0],
   false,

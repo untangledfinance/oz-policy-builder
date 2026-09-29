@@ -25,7 +25,7 @@ The setup we tested, and the one the app builds:
 | Custody account | Classic `G…` account. Signers weighted **10** (the MPC key), **5** and **5** (a second signer and a trusted third party). Medium and high thresholds **20**, so every value-moving operation needs all three. The low threshold stays low (1 in our test setup) so the account can still start a transaction. |
 | Custody gate | `contracts/custody-gate-v3`, deployed by the custody account itself. Holds the allowance, answers to one caller running one build, releases only to listed addresses. |
 | Prime account | An OpenZeppelin smart account with **3 signers, any 2 of which approve**. Holds no funds. |
-| Execution adapter | `contracts/execution-adapter-v3`, one per Prime, bound to one gate. Runs a batch of calls in one transaction. |
+| Execution adapter | `contracts/execution-adapter-v4`, one per Prime, bound to one gate. Runs a batch of calls in one transaction, at once or after a wait. |
 | Policy interpreter | `contracts/policy-interpreter`, grammar 6. Evaluates the mandate on every call a band rule authorises. |
 | Agent | A signer on the band rules, not on rule 0. Under a band's top it acts alone; a larger move uses a high-band rule that also needs a second approver. |
 
@@ -109,7 +109,7 @@ names its token.
 
 ### Execution adapter
 
-`contracts/execution-adapter-v3/src/lib.rs`. It exists because Soroban allows
+`contracts/execution-adapter-v4/src/lib.rs`. It exists because Soroban allows
 one host-function invocation per transaction, so a contract has to make several
 calls atomically. It has one rule: **a batch may not mention an address the
 gate does not name.** Before any call runs, it checks:
@@ -127,17 +127,17 @@ It also refuses:
 
 Only then does it ask the Prime to authorise the whole batch and run the calls.
 
-The adapter is deployed by the Prime at an address derived from
-`sha256("prime.execution.adapter.v3" + gate)`, so the custody account can name
-it on the gate before it exists. `rebind` moves it to a successor gate. Only
+The adapter is deployed by the Prime at an address derived from the gate and
+its two wait numbers (see below), so the custody account can name it on the
+gate before it exists. `rebind` moves it to a successor gate. Only
 the current gate's custody account can call it, and it refuses a successor
 that cannot answer `custody()`.
 
-### Execution adapter v4: an optional wait
+### The wait
 
-`contracts/execution-adapter-v4/src/lib.rs`. The v3 adapter with one addition:
-a batch can wait a number of ledgers before it runs. It is not in the Prime
-app yet; the app still creates v3.
+A batch can wait a number of ledgers before it runs. The Prime app sets new
+gates up for this adapter; pairs made with the v3 adapter keep working, and its
+source is at tag `archive/execution-adapter-v3`.
 
 `execute(calls, grants, wait)` takes the wait as a third argument.
 
@@ -306,6 +306,10 @@ else. A band pins every destination, so an agent's rules cannot reach it.
 Nothing changed in the contracts to support this; it uses the gate's existing
 list.
 
+Through a v4 adapter the recovery is a stored batch like any other: it waits at
+least the adapter's `min_wait`, and the custody account or the Prime can cancel
+it until it runs. With `min_wait` at 0 it runs at once, as on v3.
+
 Walked on testnet through the Prime app (commit `f39950f5`): with a fresh
 10 / 5 / 5 custody account, 1,000 XLM and then 500 XLM were recovered to the
 trustee wallet, each signed by two Prime signers and none of the custody
@@ -322,17 +326,18 @@ nothing to spend, and recovery stops with it.
 | Check | Where | Result |
 |---|---|---|
 | Every route out of a threshold-20 account with one key | `scripts/verify-mpc-threshold-testnet.ts`, testnet | 7 of 7 |
-| The v3 gate and adapter against a real Prime and live Blend and Aquarius | `scripts/verify-execution-v3-testnet.ts`, testnet | All 35 checks passed on a fresh run on 29 September 2026. A Blend supply, a withdrawal to custody and an Aquarius swap land. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put. |
+| The address rule against a real Prime and live Blend and Aquarius | `scripts/verify-execution-address-rule-testnet.ts`, testnet | All 35 checks passed against the v4 adapter with no wait on 29 September 2026 - the same results the v3 adapter gave. A Blend supply, a withdrawal to custody and an Aquarius swap land. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put. |
 | The v4 adapter's wait against a real Prime, the unchanged v3 gate and live Blend | `scripts/verify-execution-v4-testnet.ts`, testnet | All 35 checks passed on 29 September 2026; the log is `evidence/execution-v4-testnet.log`. Landed:<br>• a Blend supply at once;<br>• a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role and no Prime signature;<br>• an agent's batch after the minimum wait its own rule demands.<br>Refused:<br>• the agent below that minimum, and the agent cancelling;<br>• the run rule used for an immediate `execute`, a stored batch or a `cancel`;<br>• a stranger cancelling;<br>• running early, twice, after a cancel, or after the run window;<br>• a wait below the adapter's floor;<br>• the Prime creating the adapter at custody's address with a lower floor or a longer window.<br>The Prime and custody both cancel. |
 | The full scenario in the Prime app | the Prime app's Fordefi scenario guide, on beta against testnet | 10 XLM under the low band lands with the agent alone; 150 XLM under the low band is refused; 150 XLM under the high band lands after the admin approves. Custody's XLM fell by exactly 315, the sum of the moves less the withdrawal. |
-| Contract unit tests | `cargo test` in each crate | interpreter 153, adapter v3 14, adapter v4 31, gate 3 |
+| Contract unit tests | `cargo test` in each crate | interpreter 153, adapter 31, gate 3 |
 
 ## Deployments
 
 | | Network | Address or hash |
 |---|---|---|
 | Policy interpreter, grammar 6 (custody design) | testnet | `CDPR5VTX6R2ZPKREPD7FBW5ANVWXMVJIBIH2GMF36XPOFNMHRDIRUAZQ`, recorded in [`deployments/grammar6-testnet.json`](../deployments/grammar6-testnet.json) |
-| Execution adapter v3 build | - | `5be8b08eefe704970fbb51612ef4f6222df3d4b0f2ab6704544e761e3576e708` (the first v3 release, `0e088421…`, is still recognised) |
+| Execution adapter v4 build | testnet | `23a7b28922ed3392839f228fc1e30fe212185e77c3f17374d86a1bc5964252a7`, uploaded and pinned by the Prime app. A macOS build; no Linux reproducible hash is recorded yet. |
+| Execution adapter v3 builds (earlier pairs) | - | `5be8b08eefe704970fbb51612ef4f6222df3d4b0f2ab6704544e761e3576e708` and `0e088421…`, still recognised by the app |
 | Custody gate v3 build | - | `2788f05bfef003d04cc189192e31c2f7469b21b7990c0edebad91ed3fa34824f` |
 | Policy interpreter, grammar 4 (the npm packages' pin) | mainnet and testnet | pinned in `packages/policy-synth/src/run/schemas.ts` |
 

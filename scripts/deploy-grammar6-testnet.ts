@@ -92,7 +92,7 @@ async function main() {
   }
   const artifacts = {
     interpreter: readFileSync(wasmPath('policy-interpreter', 'policy_interpreter')),
-    adapter: readFileSync(wasmPath('execution-adapter-v3', 'execution_adapter_v3')),
+    adapter: readFileSync(wasmPath('execution-adapter-v4', 'execution_adapter_v4')),
     gate: readFileSync(wasmPath('custody-gate-v3', 'custody_gate_v3')),
   }
   const hashes: Record<string, string> = {}

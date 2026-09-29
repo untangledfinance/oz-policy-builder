@@ -103,7 +103,7 @@ flowchart LR
 | Where results go | Withdrawals and swap proceeds go straight to your wallet. While money is supplied to a lending pool, the position is held in the Prime account's name, and the mandate pins every withdrawal to your wallet. | Every result, including the lending position itself, goes to your wallet. |
 | Per-move limits | Amount bands in the mandate. Above the band, a second Prime signer must approve. | The same, plus a daily cap for the agent and a daily cap on everything leaving your wallet. |
 | Stopping it | Your wallet sets the allowance to zero, or lets it expire. | Your wallet turns off the gate's trading rules in one transaction. Recovery keeps working unless you stop that too. |
-| Recovery | The Prime's 2 of 3 can pull to the recovery address straight away. | The Prime's 2 of 3 schedule it, and it can run only after a waiting period (for example 48 hours) during which your wallet can cancel it. |
+| Recovery | The Prime's 2 of 3 pull to the recovery address. It waits the execution contract's minimum wait, set when the gate is created, and your wallet can cancel it until it runs; with a minimum of 0 it runs straight away. | The Prime's 2 of 3 schedule it, and it can run only after a waiting period (for example 48 hours) during which your wallet can cancel it. |
 | Contracts | Our own Soroban contracts: the gate, the adapter and the policy interpreter. | No contracts of ours. Only unmodified deployments of audited code: Safe, Zodiac Roles and OpenZeppelin's TimelockController. |
 
 ## What you control, and what we run
