@@ -206,24 +206,27 @@ its build.
 
 Every contract instance, persistent entry and uploaded wasm on Soroban starts
 with the network's minimum lifetime: about 7 days on testnet and 120 on
-mainnet. Using it does not extend it. When the lifetime runs out, the entry
-archives and every transaction that touches it fails until someone restores
-it. Anyone can restore or extend an entry by paying the fee.
+mainnet. Using an entry does not extend it. When the lifetime runs out, the
+entry archives, and every transaction that touches it fails until someone
+restores it. Anyone can restore or extend an entry by paying the fee.
 
-Two things now keep the Prime stack live:
+The adapter and a keep-alive job share the work:
 
-- **The adapter extends itself.** `execute` and `run` push its instance out to
-  about 30 days once fewer than 7 remain, and a stored move is kept until its
-  window closes. Earlier adapter builds do neither.
-- **A keep-alive job extends the rest.** OctoPos
-  `apps/web/scripts/keep-alive.ts` finds everything a Prime depends on - its
+- **The adapter extends itself.** `execute` and `run` extend its instance to
+  about 30 days once fewer than about 7 remain. A stored move is extended to
+  last until its run window closes, up to the network maximum of about 180
+  days; a move whose window ends later archives first and has to be restored
+  before it runs. Adapter builds before `68d012e7…` do neither.
+- **The keep-alive job extends the rest.** OctoPos
+  `apps/web/scripts/keep-alive.ts` collects everything a Prime depends on: its
   instance and wasm, its rules and the entries OpenZeppelin indexes them by,
   its policies and the interpreter's per-rule entries, its gates, adapters and
-  stored moves, and the shared interpreter - then restores what has archived
-  and extends what has fewer than 21 days left to 30. On testnet it runs daily
-  from the CredioLabs VM for the accounts listed in
-  `apps/web/scripts/keep-alive.testnet.json`. An account not listed there is not
-  kept alive.
+  stored moves, the shared interpreter, and the gate and adapter builds a new
+  setup is created from. It restores what has archived and extends anything
+  with fewer than 21 days left to 30. We run it daily on testnet for the
+  accounts listed in `apps/web/scripts/keep-alive.testnet.json`; an account not
+  listed there is not kept live. On mainnet the job needs a funded account to
+  pay the fees.
 
 ### Prime account and the mandate
 
@@ -346,6 +349,9 @@ The custody account sets the allowance to zero, or lets it expire. Either needs
 the custody account's full threshold. Once the allowance is gone the gate has
 nothing to spend, and recovery stops with it.
 
+The custody account can also cancel any stored move before it runs, with
+`cancel(id, custody)`.
+
 ## What has been run
 
 | Check | Where | Result |
@@ -376,10 +382,19 @@ deployed and still reachable by accounts that use them; their source is at tag
 
 - **No external audit.** The contracts have been through internal adversarial
   review and a STRIDE threat model, last run on 29 September 2026
-  ([report](../evidence/stride-threat-model.md)). That is not an audit. Its
-  open item: nothing alerts anyone when a move is stored. Keeping contracts
-  live is handled on testnet (see Keeping contracts live); mainnet needs the
-  same job run with a funded account.
+  ([report](../evidence/stride-threat-model.md)). That is not an audit.
+- **Nothing alerts custody when a move is stored.** The adapter emits no
+  events, by design. A stored move is public on the ledger and the Prime app
+  lists it, but custody has to look.
+- **Keeping contracts live depends on the keep-alive job.** It covers the
+  testnet accounts it lists. For an unlisted account, everything except a
+  used adapter archives after the network minimum, and mainnet needs the job
+  run with a funded account (see
+  [Keeping contracts live](#keeping-contracts-live)).
+- **Revoking an agent's rule does not stop the moves it already stored.** A
+  stored move runs under the run rule, not the agent's. To stop one, cancel it,
+  or remove the run rule, which pauses every ready move until the rule is
+  reinstalled.
 - **The Prime account is on the gate's list, so the gate will pay it.** The
   adapter needs the Prime on the list because venue calls name it, and `pull`
   releases to any listed address. A batch run under the Prime's own authority

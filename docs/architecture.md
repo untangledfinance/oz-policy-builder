@@ -63,6 +63,11 @@ a second Prime signer, key C in the diagram, before they run. The batch then
 runs through the adapter: the gate draws the funds from your wallet within the
 limit, the venue receives them, and whatever comes back goes to your wallet.
 
+On Stellar a move can also wait. The batch is stored, anyone can run it once
+the wait is over, and your wallet or the Prime account can cancel it until
+then. Every move waits at least the minimum your wallet agreed to when it
+created the gate.
+
 ```mermaid
 flowchart LR
     A["Key A or the agent<br/>1. prepares the batch"] --> PRIME
@@ -83,7 +88,9 @@ If your wallet's signers lose access, the funds still need a way out that does
 not depend on them. A recovery address, such as a wallet held by the trusted
 third party, is set when the gate is created. The Prime account's own signers,
 two of three, can then move funds from your wallet to that address, and only to
-that address. An agent's mandate cannot reach it.
+that address. An agent's mandate cannot reach it. Your wallet can cancel a
+recovery while it waits: on EVM it always waits, and on Stellar it waits the
+minimum you set for the gate.
 
 ```mermaid
 flowchart LR
@@ -101,15 +108,16 @@ flowchart LR
 | The custody gate | A small contract you deploy and own. It has no admin and no settings, and it releases funds only to addresses on its list. | A Safe that your wallet alone owns. Its rules name the only venues and addresses a move may reach, and only your wallet can change them. |
 | Where results go | Withdrawals and swap proceeds go straight to your wallet. While money is supplied to a lending pool, the position is held in the Prime account's name, and the mandate pins every withdrawal to your wallet. | Every result, including the lending position itself, goes to your wallet. |
 | Per-move limits | Amount bands in the mandate. Above the band, a second Prime signer must approve. | The same, plus a daily cap for the agent and a daily cap on everything leaving your wallet. |
-| Stopping it | Your wallet sets the allowance to zero, or lets it expire. | Your wallet turns off the gate's trading rules in one transaction. Recovery keeps working unless you stop that too. |
-| Recovery | Two of the Prime account's three signers pull funds to the recovery address. The pull waits out a minimum delay set in the execution contract when the gate is created, and your wallet can cancel it until it runs. With a minimum of 0 it runs straight away. | Two of the Prime account's three signers schedule it, and it can run only after a waiting period (for example 48 hours) during which your wallet can cancel it. |
+| Stopping it | Your wallet sets the allowance to zero, or lets it expire, and can cancel any move still waiting. | Your wallet turns off the gate's trading rules in one transaction. Recovery keeps working unless you stop that too. |
+| Recovery | Two of the Prime account's three signers pull funds to the recovery address. The pull waits at least the minimum wait your wallet agreed to when it created the gate, and your wallet or the Prime account can cancel it until it runs. A minimum of 0 lets it run at once. | Two of the Prime account's three signers schedule it, and it can run only after a waiting period (for example 48 hours) during which your wallet can cancel it. |
 | Contracts | Our own Soroban contracts: the gate, the adapter and the policy interpreter. | No contracts of ours. Only unmodified deployments of audited code: Safe, Zodiac Roles and OpenZeppelin's TimelockController. |
 
 ## What you control, and what we run
 
 You control your MPC wallet and every signer on it. You also control the
-limit, its expiry on Stellar, the gate's list of destinations and the recovery
-address.
+limit, the gate's list of destinations and the recovery address, and on
+Stellar the limit's expiry, the minimum wait before a move runs and how long a
+move stays runnable after that.
 Setting or changing any of these is a transaction from your wallet, so it needs
 your wallet's signing quorum.
 
@@ -128,7 +136,9 @@ checked every refusal for the reason it was refused.
   The MPC wallet paid out exactly what each move required. Recovery moved
   1,000 XLM and then 500 XLM to a trustee wallet with two Prime signatures and
   none from the MPC wallet. A single MPC wallet key was refused on every route
-  out of the account.
+  out of the account. Stored moves ran after their wait, including a recovery
+  to the trustee; the Prime account and the custody wallet each cancelled one; an
+  agent or a stranger trying to cancel was refused.
 - **Base Sepolia:** supply, swap and withdrawal on Aave and Uniswap, with every
   result returned to the MPC wallet. All 48 attempts to act outside the rules were
   refused. Recovery waited out its delay, a cancelled recovery never ran, and
