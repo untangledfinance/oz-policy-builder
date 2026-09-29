@@ -1,8 +1,8 @@
-# bun scripts/verify-execution-v4-testnet.ts   (2026-09-29T09:27Z, adapter wasm 3b830de0acd192e0…, macOS build)
+# bun scripts/verify-execution-v4-testnet.ts   (2026-09-29T09:57Z, adapter wasm 5d3b9808635431ff…, macOS build)
 
-prime   CDWR2CNP6SI5TO4Z76DSKUTRWK6HTVPHTMDPKKGOUW3YYVSAHMRKQLM5
-gate    CC3BVBEIYA7OZEPXWC5TMW74ZCX74JIIKGHECIKVEGMNS7I7JSODYQB5  (custody-gate-v3, unchanged)
-adapter CADXZHFEZ5UYLVWK2GE76DA6SWV6T7ZWJMZLH3H2NRF737ZVVL54ACG2  21955B, window 40 ledgers
+prime   CBD7RODZZH55U2R5WQ3QH7KL3CZMQPUZV2D7HNQAR2Z6LD64UMODIPH4
+gate    CAFNXI2MUR5UE24TE3PC2GVWBVJJ75HW4Y3CAXQD2D6KRMPR3A5TQ6FF  (custody-gate-v3, unchanged)
+adapter CAXJ6CQVH5PEE2RG7WBT3Z2T3HH4A5FYLEOT6YQ2XXTCAWO2GHGEKDZA  21582B, window 40 ledgers
 rules   pool 1, run 2, agent 3
 
 ── a zero wait runs at once, as v3 did ──
@@ -17,7 +17,7 @@ ok   pay home, to be cancelled by custody                     PERMIT  batch 4
 ok   pay home, left to lapse                                  PERMIT  batch 5
 ok   pay home, wait 200                                       PERMIT  batch 6
 ok   a stranger in a stored batch is refused before storing   REFUSE  #2 AddressNotAllowed
-ok   the stored batch is readable off the ledger              run_at 4930111, expires 4930151
+ok   the stored batch is readable off the ledger              run_at 4930478, expires 4930518
 
 ── the agent: its rule demands a wait of its own ──
 ok   agent, wait 0                                            REFUSE  #100 
@@ -31,13 +31,13 @@ ok   a stranger stores a batch through the run rule           REFUSE  #100
 ok   a stranger cancels as the Prime through the run rule     REFUSE
 
 ── cancelling ──
-ok   running before the wait is over                          #6 TooEarly
-ok   a stranger cancels                                       #8 NotACanceller
+ok   running before the wait is over                          #6 NotRunnable
+ok   a stranger cancels                                       #7 NotACanceller
 ok   the Prime cancels, at its own quorum                     LANDS
 ok   custody cancels                                          LANDS
 
 ── running once the wait is over, by someone with no role ──
-   waiting for ledger 4930111…
+   waiting for ledger 4930478…
 ok   the stored Blend supply runs, no Prime signature         LANDS
 ok   the stored recovery pays the trustee                     LANDS
 ok   the trustee received the recovery                        +0.2999999999992724 XLM
@@ -47,8 +47,8 @@ ok   a run batch is gone from the ledger                      gone
 ok   the agent's batch runs after its wait                    LANDS
 
 ── the run window ──
-   waiting for ledger 4930154…
-ok   a batch past its window does not run                     #7 Expired
+   waiting for ledger 4930524…
+ok   a batch past its window does not run                     #6 NotRunnable
 ok   a lapsed batch can be tidied away                        LANDS
 
 ── the adapter floor binds every caller ──

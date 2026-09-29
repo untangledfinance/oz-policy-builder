@@ -70,9 +70,8 @@ const NAMES: Record<string, string> = {
   '3': 'Uncheckable',
   '4': 'WaitTooShort',
   '5': 'NotScheduled',
-  '6': 'TooEarly',
-  '7': 'Expired',
-  '8': 'NotACanceller',
+  '6': 'NotRunnable',
+  '7': 'NotACanceller',
 }
 /** Ledgers a stored batch may still run after its wait. Long enough for the
  *  checks between scheduling and running, short enough that the lapse check
@@ -423,9 +422,16 @@ const storedKey = (id: number) =>
       durability: xdr.ContractDataDurability.persistent(),
     })
   )
+/** A stored batch is `(calls, grants, run_at)`; it runs through run_at + WINDOW. */
 async function stored(id: number) {
   const e = (await server.getLedgerEntries(storedKey(id))).entries[0]
-  return e ? (scValToNative((e.val as any).contractData().val()) as any) : null
+  if (!e) return null
+  const [, , runAt] = scValToNative((e.val as any).contractData().val()) as [
+    unknown,
+    unknown,
+    number,
+  ]
+  return { run_at: Number(runAt), expires: Number(runAt) + WINDOW }
 }
 async function untilLedger(n: number) {
   for (;;) {
@@ -560,7 +566,7 @@ await land(
   'a stranger cancels',
   K.stranger,
   invokeOp(adapter, 'cancel', [u32v(idRecover!), addr(K.stranger.publicKey())]),
-  '8'
+  '7'
 )
 {
   const r = await asPrime({
@@ -610,7 +616,7 @@ console.log(C.bold('\n── the run window ──'))
 const lapse = (await stored(idLapse!)).expires as number
 console.log(C.dim(`   waiting for ledger ${lapse + 1}…`))
 await untilLedger(lapse + 1)
-await runStored('a batch past its window does not run', idLapse!, '7')
+await runStored('a batch past its window does not run', idLapse!, '6')
 {
   const r = await asPrime({
     kp: K.admin,

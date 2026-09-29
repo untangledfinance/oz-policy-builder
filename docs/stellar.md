@@ -162,7 +162,7 @@ Two numbers are fixed when the adapter is created:
   carries no predicate. Above 0, everything waits, recovery included, and the
   custody account has that long to cancel.
 - **`run_window`** is how long a ready batch stays runnable. After that it
-  lapses (`Expired`), because it was approved against a market that has since
+  lapses (`NotRunnable`), because it was approved against a market that has since
   moved, and perhaps by an agent since revoked. With a window of 0 it can run
   only on its ready ledger.
 
@@ -181,9 +181,10 @@ account can run a stored batch.
 adapter approve an immediate `execute` or a `cancel` for the Prime. Agent rules
 permit `execute` only, so an agent cannot cancel.
 
-New errors: `WaitTooShort` 4, `NotScheduled` 5, `TooEarly` 6, `Expired` 7,
-`NotACanceller` 8. A stored batch sits in persistent storage under its number,
-readable by anyone; there are no events. The address derives from
+New errors: `WaitTooShort` 4, `NotScheduled` 5, `NotRunnable` 6 (before the
+ready ledger or after the window), `NotACanceller` 7. A stored batch sits in
+persistent storage under its number as `(calls, grants, run_at)`, readable by
+anyone; there are no events. The address derives from
 `sha256("prime.execution.adapter.v4" + gate)`. The gate is the unchanged v3
 contract; it only has to name the v4 adapter and its build.
 

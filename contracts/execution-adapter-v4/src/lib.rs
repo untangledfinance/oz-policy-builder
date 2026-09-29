@@ -96,21 +96,14 @@ pub enum E {
     Uncheckable = 3,
     WaitTooShort = 4,
     NotScheduled = 5,
-    TooEarly = 6,
-    Expired = 7,
-    NotACanceller = 8,
+    NotRunnable = 6,
+    NotACanceller = 7,
 }
 
-/// A batch waiting to run. `run_at` and `expires` are ledger sequences, both
-/// inclusive: it may run on any ledger from the one to the other.
-#[contracttype]
-#[derive(Clone)]
-pub struct Scheduled {
-    pub calls: Vec<Call>,
-    pub grants: Vec<InvokerContractAuthEntry>,
-    pub run_at: u32,
-    pub expires: u32,
-}
+/// A batch waiting to run, stored under its number: the calls, the grants,
+/// and the ledger it becomes runnable on. It stays runnable through
+/// `run_at + run_window`, both inclusive.
+type Stored = (Vec<Call>, Vec<InvokerContractAuthEntry>, u32);
 
 const PRIME: Symbol = symbol_short!("prime");
 const GATE: Symbol = symbol_short!("gate");
@@ -191,27 +184,15 @@ impl ExecutionAdapter {
             return None;
         }
         prime.require_auth_for_args(args);
-        let window: u32 = e.storage().instance().get(&WINDOW).unwrap();
-        let now = e.ledger().sequence();
-        // Overflow is a refusal, not a wrap: a wrapped `run_at` would be in
-        // the past, and the batch would be runnable at once.
-        let run_at = now
-            .checked_add(wait)
-            .unwrap_or_else(|| panic_with_error!(&e, E::WaitTooShort));
-        let expires = run_at.saturating_add(window);
+        // Overflow traps (`overflow-checks` is on in release): a wrapped
+        // `run_at` would be in the past, and the batch runnable at once.
+        let run_at = e.ledger().sequence() + wait;
         let id: u32 = e.storage().instance().get(&NEXT).unwrap_or(0) + 1;
         e.storage().instance().set(&NEXT, &id);
-        // Stored under its number. A persistent entry outlives any sensible
-        // wait by default, and one that archives is restored, not lost.
-        e.storage().persistent().set(
-            &id,
-            &Scheduled {
-                calls,
-                grants,
-                run_at,
-                expires,
-            },
-        );
+        // A persistent entry outlives any sensible wait by default, and one
+        // that archives is restored, not lost.
+        let stored: Stored = (calls, grants, run_at);
+        e.storage().persistent().set(&id, &stored);
         Some(id)
     }
 
@@ -233,26 +214,24 @@ impl ExecutionAdapter {
     /// can build the entry. The predicate is what keeps that rule from
     /// approving an immediate `execute` or a `cancel` the same way.
     pub fn run(e: Env, id: u32) {
-        let batch: Scheduled = e
+        let (calls, grants, run_at): Stored = e
             .storage()
             .persistent()
             .get(&id)
             .unwrap_or_else(|| panic_with_error!(&e, E::NotScheduled));
+        let window: u32 = e.storage().instance().get(&WINDOW).unwrap();
         let now = e.ledger().sequence();
-        if now < batch.run_at {
-            panic_with_error!(&e, E::TooEarly);
-        }
-        if now > batch.expires {
-            panic_with_error!(&e, E::Expired);
+        if now < run_at || now > run_at.saturating_add(window) {
+            panic_with_error!(&e, E::NotRunnable);
         }
         // Gone before anything runs, so it runs once. A call cannot reach
         // this contract again anyway: the host refuses re-entry.
         e.storage().persistent().remove(&id);
         let prime: Address = e.storage().instance().get(&PRIME).unwrap();
-        check(&e, &prime, &batch.calls, &batch.grants);
-        e.authorize_as_current_contract(batch.grants);
+        check(&e, &prime, &calls, &grants);
+        e.authorize_as_current_contract(grants);
         prime.require_auth_for_args(vec![&e, id.into_val(&e)]);
-        invoke(&e, batch.calls);
+        invoke(&e, calls);
     }
 
     /// Drop a stored batch, waiting or ready, before it runs. `by` is the

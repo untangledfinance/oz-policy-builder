@@ -371,7 +371,7 @@ fn a_wait_stores_the_batch_and_it_runs_once_the_wait_is_over() {
     assert_eq!(count(&w), 0, "nothing runs while it waits");
 
     advance(&w, 9);
-    contract_error(client(&w).try_run(&1), E::TooEarly);
+    contract_error(client(&w).try_run(&1), E::NotRunnable);
 
     advance(&w, 1);
     client(&w).run(&1);
@@ -459,7 +459,7 @@ fn a_batch_lapses_after_its_window() {
     let w = world_with(0, 3);
     client(&w).execute(&bump_batch(&w), &no_grants(&w), &10);
     advance(&w, 14);
-    contract_error(client(&w).try_run(&1), E::Expired);
+    contract_error(client(&w).try_run(&1), E::NotRunnable);
     assert_eq!(count(&w), 0);
     // A lapsed batch can still be tidied away.
     client(&w).cancel(&1, &w.prime);
@@ -470,7 +470,7 @@ fn a_run_window_of_zero_leaves_exactly_the_ready_ledger() {
     let w = world_with(0, 0);
     client(&w).execute(&bump_batch(&w), &no_grants(&w), &10);
     advance(&w, 11);
-    contract_error(client(&w).try_run(&1), E::Expired);
+    contract_error(client(&w).try_run(&1), E::NotRunnable);
     let w = world_with(0, 0);
     client(&w).execute(&bump_batch(&w), &no_grants(&w), &10);
     advance(&w, 10);
@@ -481,10 +481,9 @@ fn a_run_window_of_zero_leaves_exactly_the_ready_ledger() {
 #[test]
 fn a_wait_past_the_last_ledger_is_refused() {
     let w = world();
-    contract_error(
-        client(&w).try_execute(&bump_batch(&w), &no_grants(&w), &u32::MAX),
-        E::WaitTooShort,
-    );
+    assert!(client(&w)
+        .try_execute(&bump_batch(&w), &no_grants(&w), &u32::MAX)
+        .is_err());
 }
 
 #[test]
