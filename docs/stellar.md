@@ -1,9 +1,11 @@
 # Prime on Stellar: technical detail
 
-This is the Stellar half of [architecture.md](architecture.md), which covers
-the use case and the three-step setup in plain terms. Everything named here is
-in this repository, in `contracts/`, `packages/` and `scripts/`, or in the
-Prime app that drives it.
+On Stellar, Prime runs on our own Soroban contracts: the custody gate, the
+execution adapter and the policy interpreter. They live in `contracts/` in
+this repository, with the tooling in `packages/` and `scripts/`; the Prime app
+drives them.
+[architecture.md](architecture.md) covers the use case and the three-step setup
+in plain terms.
 
 ## The use case and the setup
 
@@ -58,15 +60,15 @@ flowchart TB
 
 `scripts/scenario/fordefi-custody.ts` builds the test version.
 
-Soroban does not open a side door. CAP-46-11, the Soroban Authorization
-Framework, requires the medium threshold when a classic account authorises a
+Soroban calls face the same threshold as payments. CAP-46-11, the Soroban
+Authorization Framework, requires the medium threshold when a classic account authorises a
 contract call, so granting a fresh allowance through a contract needs the same
 20 as a payment. `scripts/verify-mpc-threshold-testnet.ts` checks every route
 out of the account on testnet, submitted to the network and not only
 simulated. With one key, `payment`, Soroban `approve`, `setOptions` and
 `accountMerge` are all refused; with enough weight, the same `payment` and
 `approve` succeed. That script uses weights of 10 and 10 against the same
-thresholds. The 10 / 5 / 5 account was walked through the app, where two of the
+thresholds. We ran the 10 / 5 / 5 account through the app, where two of the
 three signers reach 15 of 20 and are still refused.
 
 ### Custody gate
@@ -146,7 +148,7 @@ source is at tag `archive/execution-adapter-v3`.
   returns its number. It can run from `wait` ledgers later until its run
   window closes.
 
-The Prime approves `(calls, grants, wait)` together, so nobody can shorten the
+The Prime approves `(calls, grants, wait)` together, so no party can shorten the
 wait afterwards. The batch keeps argument positions 0 and 1, so every existing
 predicate path into it still fits. A rule can demand a longer wait of its own
 with `call_arg(2) >= N`, because the grammar compares a `u32`.
@@ -192,8 +194,8 @@ anyone; there are no events.
 part in its XDR encoding. The constructor refuses to run at any other address
 (`NotWhereAgreed`, 8).
 
-This matters because the gate pins its caller's address and build, not the
-arguments it was created with. Without the check, the Prime could create the
+The gate pins its caller's address and build but not the arguments it was
+created with. Without the address check, the Prime could create the
 adapter at the address custody named with a `min_wait` of 0. Custody derives
 the address from the numbers it agrees to and names it on the gate.
 
@@ -214,8 +216,8 @@ too.
 A band is one such rule. In the test setup, swaps and Blend supply and
 withdrawal each have a low band (the agent alone, 1 approval) and a high band
 (agent and admin, 2 approvals, enforced by OpenZeppelin's threshold policy).
-An over-band amount named on the low rule is refused by the predicate, not
-merely left waiting for a second signature.
+The predicate refuses an over-band amount named on the low rule outright,
+before any second signature is sought.
 
 Blend credits a supply to whoever authorises it, so a supplied position is held
 in the Prime account's name. Blend's `submit` takes `(from, spender, to, …)`,
@@ -310,7 +312,7 @@ Through a v4 adapter the recovery is a stored batch like any other: it waits at
 least the adapter's `min_wait`, and the custody account or the Prime can cancel
 it until it runs. With `min_wait` at 0 it runs at once, as on v3.
 
-Walked on testnet through the Prime app (commit `f39950f5`): with a fresh
+Run on testnet through the Prime app (commit `f39950f5`): with a fresh
 10 / 5 / 5 custody account, 1,000 XLM and then 500 XLM were recovered to the
 trustee wallet, each signed by two Prime signers and none of the custody
 signers.
@@ -326,9 +328,9 @@ nothing to spend, and recovery stops with it.
 | Check | Where | Result |
 |---|---|---|
 | Every route out of a threshold-20 account with one key | `scripts/verify-mpc-threshold-testnet.ts`, testnet | 7 of 7 |
-| The address rule against a real Prime and live Blend and Aquarius | `scripts/verify-execution-address-rule-testnet.ts`, testnet | All 35 checks passed against the adapter with no wait on 29 September 2026, on the Linux builds recorded in `deployments/execution-testnet.json` - the same results the v3 adapter gave. The log is `evidence/execution-address-rule-testnet.log`. A Blend supply, a withdrawal to custody and an Aquarius swap land. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put. |
-| The adapter's wait against a real Prime, the unchanged gate and live Blend | `scripts/verify-execution-wait-testnet.ts`, testnet | All 44 checks passed on 29 September 2026 on the Linux builds; the log is `evidence/execution-wait-testnet.log`. Landed:<br>• a Blend supply at once;<br>• a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role and no Prime signature;<br>• an agent's batch after the minimum wait its own rule demands.<br>Refused:<br>• the agent below that minimum, and the agent cancelling;<br>• the run rule used for an immediate `execute`, a stored batch or a `cancel`;<br>• a stranger cancelling;<br>• running early, twice, after a cancel, or after the run window;<br>• a wait below the adapter's floor;<br>• the Prime creating the adapter at custody's address with a lower floor or a longer window.<br>The Prime and custody both cancel. An agent's stored move still runs after its rule is removed; removing the run rule pauses a ready move; a stored move lives the network minimum (~7 days on testnet), whatever its wait. |
-| The full scenario in the Prime app | the Prime app's Fordefi scenario guide, on beta against testnet | 10 XLM under the low band lands with the agent alone; 150 XLM under the low band is refused; 150 XLM under the high band lands after the admin approves. Custody's XLM fell by exactly 315, the sum of the moves less the withdrawal. |
+| The address rule against a real Prime and live Blend and Aquarius | `scripts/verify-execution-address-rule-testnet.ts`, testnet | All 35 checks passed against the adapter with no wait on 29 September 2026, on the Linux builds recorded in `deployments/execution-testnet.json` - the same results the v3 adapter gave. The log is `evidence/execution-address-rule-testnet.log`. A Blend supply, a withdrawal to custody and an Aquarius swap succeed. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put. |
+| The adapter's wait against a real Prime, the unchanged gate and live Blend | `scripts/verify-execution-wait-testnet.ts`, testnet | All 44 checks passed on 29 September 2026 on the Linux builds; the log is `evidence/execution-wait-testnet.log`. Succeeded:<br>• a Blend supply at once;<br>• a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role and no Prime signature;<br>• an agent's batch after the minimum wait its own rule demands.<br>Refused:<br>• the agent below that minimum, and the agent cancelling;<br>• the run rule used for an immediate `execute`, a stored batch or a `cancel`;<br>• a stranger cancelling;<br>• running early, twice, after a cancel, or after the run window;<br>• a wait below the adapter's floor;<br>• the Prime creating the adapter at custody's address with a lower floor or a longer window.<br>The Prime and custody both cancel. An agent's stored move still runs after its rule is removed; removing the run rule pauses a ready move; a stored move lives the network minimum (~7 days on testnet), whatever its wait. |
+| The full scenario in the Prime app | the Prime app's Fordefi scenario guide, on beta against testnet | 10 XLM under the low band succeeds with the agent alone; 150 XLM under the low band is refused; 150 XLM under the high band succeeds after the admin approves. Custody's XLM fell by exactly 315, the sum of the moves less the withdrawal. |
 | Contract unit tests | `cargo test` in each crate | interpreter 153, adapter 31, gate 3 |
 
 ## Deployments
@@ -366,8 +368,8 @@ deployed and still reachable by accounts that use them; their source is at tag
   the addresses a batch may name.
 - **Rule 0 stands behind an open position.** A Blend position sits in the
   Prime's name, and rule 0's signers can install any rule, so while a position
-  is open the Prime's own 2 of 3 are the control that matters.
-- **Authority is the maximum over rules, not the intersection.** A key on both
+  is open the Prime's own 2 of 3 signers are the control that protects it.
+- **A key's authority is the most that any of its rules allows.** A key on both
   a policed rule and an unpoliced one names the unpoliced one and is not
   constrained. A constrained key must sit on the policed rule and nowhere else.
   `install_policy` reads the account and reports every rule a signer could name
@@ -382,7 +384,7 @@ deployed and still reachable by accounts that use them; their source is at tag
 - **A venue that decodes an address out of a longer blob** is outside the
   adapter's comparison, which covers the two encodings the host can turn back
   into an address. It would still have to be a listed venue.
-- **Swap prices are bounded by the mandate, not checked against a market.** A
+- **Swap prices have a floor from the mandate and no market check.** A
   band pins a minimum output, and the grammar can express a floor relative to
   the input (`call_arg_scaled`), but no contract reads a price feed.
 
@@ -395,7 +397,7 @@ install transaction for the user's wallet. The CLI
 (`packages/policy-builder-cli`) and the MCP server
 (`packages/policy-builder-mcp`) wrap the same core.
 
-Nothing off chain enforces anything. `policy-synth` compiles, and it refuses
+All enforcement happens onchain. `policy-synth` compiles, and it refuses
 two things by default: an interpreter address other than the pinned one for the
 network, and an RPC URL other than the pinned endpoint. The auth nonce the
 wallet signs comes from whichever RPC answered, so an unpinned host could bind

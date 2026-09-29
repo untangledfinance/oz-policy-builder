@@ -1,10 +1,10 @@
 # Prime custody architecture
 
-This page is for an institution deciding whether to let an agent work its
-treasury through Prime. It covers the setup we walked through on our call, what
-it promises, how Stellar and EVM each keep those promises, and what has been
-tested. The technical detail is in [stellar.md](stellar.md) and
-[evm.md](evm.md).
+Untangled Prime lets an agent put part of your treasury to work while the funds
+stay in your MPC wallet and can reach only the destinations you listed. Below
+are the setup, the two guarantees it gives, how Stellar and EVM each enforce
+them, and what has been tested. Chain-level detail is in
+[stellar.md](stellar.md) and [evm.md](evm.md).
 
 ## The use case
 
@@ -25,8 +25,8 @@ The setup below gives you two guarantees:
 
 ## The setup
 
-These are the three steps from the call. Each chain implements them
-differently, and the next section shows how.
+The setup has three steps. Stellar and EVM implement each one differently;
+the table after Step 3 compares them.
 
 ### Step 1: set up
 
@@ -37,9 +37,8 @@ at most, so no pair can act without the third.
 
 Your wallet approves one thing: a limit for its custody gate. The limit has an
 amount and, on Stellar, an expiry date. The gate carries the list of addresses
-the funds may go to. The Prime
-account is a separate smart account with three signers, any two of which can
-approve. It holds no funds. The mandate, meaning what the agent may do, how
+the funds may go to. The Prime account is a separate smart account with three
+signers, any two of which can approve. It holds no funds. The mandate, meaning what the agent may do, how
 much per move and at which venue, is installed on the Prime account.
 
 ```mermaid
@@ -103,7 +102,7 @@ flowchart LR
 | Where results go | Withdrawals and swap proceeds go straight to your wallet. While money is supplied to a lending pool, the position is held in the Prime account's name, and the mandate pins every withdrawal to your wallet. | Every result, including the lending position itself, goes to your wallet. |
 | Per-move limits | Amount bands in the mandate. Above the band, a second Prime signer must approve. | The same, plus a daily cap for the agent and a daily cap on everything leaving your wallet. |
 | Stopping it | Your wallet sets the allowance to zero, or lets it expire. | Your wallet turns off the gate's trading rules in one transaction. Recovery keeps working unless you stop that too. |
-| Recovery | The Prime's 2 of 3 pull to the recovery address. It waits the execution contract's minimum wait, set when the gate is created, and your wallet can cancel it until it runs; with a minimum of 0 it runs straight away. | The Prime's 2 of 3 schedule it, and it can run only after a waiting period (for example 48 hours) during which your wallet can cancel it. |
+| Recovery | Two of the Prime account's three signers pull funds to the recovery address. The pull waits out a minimum delay set in the execution contract when the gate is created, and your wallet can cancel it until it runs. With a minimum of 0 it runs straight away. | Two of the Prime account's three signers schedule it, and it can run only after a waiting period (for example 48 hours) during which your wallet can cancel it. |
 | Contracts | Our own Soroban contracts: the gate, the adapter and the policy interpreter. | No contracts of ours. Only unmodified deployments of audited code: Safe, Zodiac Roles and OpenZeppelin's TimelockController. |
 
 ## What you control, and what we run
@@ -115,22 +114,22 @@ Setting or changing any of these is a transaction from your wallet, so it needs
 your wallet's signing quorum.
 
 We run the Prime account's tooling, the agent and the mandate. The mandate can
-refuse a move that your limit would allow. It cannot allow a move that your
-limit or your gate would refuse.
+only narrow what your limit and your gate already allow.
 
 The most money at risk at any moment is the limit you granted, plus anything
 currently supplied to a venue.
 
 ## What has been tested
 
-Both chains were run end to end on test networks, against real venues, with
-every refusal checked for the reason it was refused.
+We ran both chains end to end on test networks against real venues and
+checked every refusal for the reason it was refused.
 
 - **Stellar testnet:** swaps on Aquarius, and supply and withdrawal on Blend.
-  Custody paid out exactly what the moves required. Recovery moved 1,000 XLM and then 500 XLM to a
-  trustee wallet with two Prime signatures and none of custody's. A single
-  custody key was refused on every route out of the account.
-- **Base Sepolia:** supply, swap and withdrawal on Aave and Uniswap, landing at
-  the custody address every time. All 48 attempts to act outside the rules were
+  The MPC wallet paid out exactly what each move required. Recovery moved
+  1,000 XLM and then 500 XLM to a trustee wallet with two Prime signatures and
+  none from the MPC wallet. A single MPC wallet key was refused on every route
+  out of the account.
+- **Base Sepolia:** supply, swap and withdrawal on Aave and Uniswap, with every
+  result returned to the MPC wallet. All 48 attempts to act outside the rules were
   refused. Recovery waited out its delay, a cancelled recovery never ran, and
   recovery still worked with trading switched off.

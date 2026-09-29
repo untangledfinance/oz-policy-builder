@@ -1,10 +1,10 @@
 # Prime on EVM: technical detail
 
-This is the EVM half of [architecture.md](architecture.md), which covers the
-use case and the three-step setup in plain terms. It describes the design
-tested on Base Sepolia on 29 September 2026. There are no contracts of ours on
-EVM: every contract is an unmodified deployment of audited code, and this
-repository holds no EVM source.
+On EVM, Prime runs only unmodified deployments of audited code: Safe, Zodiac
+Roles and OpenZeppelin's TimelockController. This repository holds no EVM
+source. The design below is the one tested on Base Sepolia on 29 September
+2026; [architecture.md](architecture.md) covers the use case and the three-step
+setup in plain terms.
 
 ## The use case and the setup
 
@@ -19,8 +19,8 @@ and what keeps each on EVM:
   F's Fordefi policy.
 - **Only the custody gate's listed destinations can receive funds.** The gate's
   rules let a move reach the Aave pool, the Uniswap router or F itself, and
-  recovery reach one trustee address. Every other destination is refused by the
-  chain.
+  recovery reach one trustee address. The chain refuses every other
+  destination.
 
 | | |
 |---|---|
@@ -71,8 +71,8 @@ flowchart TB
 ### F and its Fordefi policy
 
 F signs no message in this design, so its Fordefi policy can block every typed
-and personal message outright. That matters because a signed message from F
-can move funds with no transaction at all: tested on Base Sepolia, an EIP-2612
+and personal message outright. A signed message from F could otherwise move
+funds with no transaction at all: tested on Base Sepolia, an EIP-2612
 `permit` on USDC and on aUSDC let a stranger pull F's tokens, and Base mainnet
 USDC also accepts EIP-3009 signed transfers. The intended policy:
 
@@ -191,13 +191,13 @@ policy. If F alone may cancel a recovery, F alone can also block one.
 ## What was tested
 
 On Base Sepolia, against the real Aave v3 pool, Uniswap v3 router, Safe,
-Roles and OpenZeppelin contracts. Each refusal was checked by simulation at
-the latest state, for the contract's own error.
+Roles and OpenZeppelin contracts. We checked each refusal by simulation at the
+latest state, for the contract's own error.
 
 | Area | Result |
 |---|---|
 | State read back from chain | 43 of 43 checks when the stack was first deployed, and 20 of 20 after its recovery was moved to the timelock: owners, thresholds, modules, no guards, no fallback handler on the gate, each Roles module and the timelock owned and wired as designed, the timelock's code identical to OpenZeppelin's build, no Permit2 approval |
-| Moves | Agent supply 10, swap 10 and withdraw 5, and a shared-account supply of 150, all landed at F. The gate and the Prime account held nothing after each. |
+| Moves | Agent supply 10, swap 10 and withdraw 5, and a shared-account supply of 150, and every result reached F. The gate and the Prime account held nothing after each. |
 | Caps | The agent's daily cap refused a move over it and allowed a smaller twin. F's daily outflow cap refused a pull over it, even from the Prime. |
 | Refused | 48 attempts: a pull to the Prime or a stranger; another holder's funds; an approval, supply, withdrawal or swap paying a stranger; a swap with no minimum; WETH through trading; a delegatecall; changing the gate's owners, modules or rules; shortening the delay; skipping the timelock; scheduling or cancelling by anyone but the Prime and F; one Prime owner alone; a batch with `shouldRevert = false` |
 | Recovery | Executed after the delay by a third party; a cancelled recovery never ran; with trading switched off, recovery still moved all of F's WETH; during a full stop it could not run, and resuming cancelled it |
@@ -221,8 +221,8 @@ Not used, and why:
 
 - **Roles v2.1.0.** Its signature check accepts EIP-1271 revert data that
   carries the valid-signature code. A Safe member's own signature check can
-  call into an attacker's contract, so this looks exploitable with our setup;
-  that is read from the Safe code, not tested. v2.1.1 is the patch.
+  call into an attacker's contract, so this looks exploitable with our setup.
+  That reading comes from the Safe code and has not been tested. v2.1.1 is the patch.
 - **Zodiac Delay.** Every deployed version contains code changed after its 2021
   audit. The OpenZeppelin timelock replaces it.
 - **Zodiac ModuleProxyFactory 1.2.0.** It differs from the audited v1.0.0, so
@@ -235,16 +235,17 @@ Not used, and why:
 
 - **F's own key is limited only by Fordefi.** No chain can restrict a plain
   address: EIP-7702 delegation leaves the key in control, and Base's native
-  account abstraction launched without key revocation. The chain guarantees that nobody
-  else, the Prime, the agent or a stranger, can move F's funds except as above.
-- **Swap prices are bounded, not checked.** A swap must name a minimum output
+  account abstraction launched without key revocation. The chain guarantees
+  that no other party (the Prime, the agent or a stranger) can move F's funds
+  except as above.
+- **Swap prices have a floor but no price check.** A swap must name a minimum output
   above zero, but no audited Roles condition can compare it with a price. The
   band, the agent's daily cap, the gate's daily cap and the admin's co-signature
   on large moves limit what a bad price can cost.
 - **A pull on its own parks funds in the gate.** The gate belongs to F, the only
   exits lead to F or the trustee, and the recovery rules include what sits
   there.
-- **T1 can be blocked, not exploited.** If someone deploys one of the plain
+- **Front-running T1 only delays it.** If someone deploys one of the plain
   Safes first, T1 reverts and is sent again with a new salt.
 - **Base's sequencer could delay F's kill switch.** F is a plain address, so it
   can force the transaction through Base's L1 portal on Ethereum, up to about
