@@ -28,7 +28,7 @@ and what keeps each on EVM:
 | Custody gate | A Safe 1.4.1 whose only owner is F, threshold 1, with no fallback handler and no guard. The only contract F approves, and the contract that carries out every move. |
 | Trading rules | A Zodiac Roles v2.1.1 module on the gate. Its one member is the Prime account. |
 | Recovery rules | A second Roles v2.1.1 module on the gate. Its one member is the recovery timelock. |
-| Recovery timelock | OpenZeppelin TimelockController 5.6.0. The Prime proposes, F and the Prime can cancel, anyone executes after the delay. |
+| Recovery timelock | OpenZeppelin TimelockController 5.6.0. The Prime proposes; the Prime and the gate can cancel, so F cancels through its gate; anyone executes after the delay. |
 | Prime account | A Safe with 3 owners, 2 of whom approve, and a Roles module holding the agent's bands. Holds nothing. |
 | Shared account | A Safe with 2 owners (the agent and an admin), both of whom approve. The member of the high bands. |
 | Agent | A member of the Prime's low bands. |
@@ -125,7 +125,7 @@ Five transactions. F signs no message in any of them.
 | # | Sent by | What |
 |---|---|---|
 | T1 | anyone | One transaction creates the Prime account, the shared account and a bare gate owned by F, then runs the Prime's configuration (its Roles module, the MultiSend unwrapper, the agent's daily cap and the six bands), pre-signed by 2 of the Prime's 3 owners. |
-| T2 | F | Configures the gate: the trading rules, the daily outflow cap, the timelock and the recovery rules. The timelock gives F the canceller role, then F gives up the admin role. New contracts are deployed through Safe 1.4.1's CreateCall library. Safe accepts F as the sender, so no signature is needed. |
+| T2 | F | Configures the gate: the trading rules, the daily outflow cap, the timelock and the recovery rules. The gate takes the timelock's canceller role and then gives up its admin role, so F cancels through its gate. New contracts are deployed through Safe 1.4.1's CreateCall library. Safe accepts F as the sender, so no signature is needed. |
 | T3 to T5 | F | `approve(gate, budget)` for USDC, aUSDC and WETH. |
 
 A Safe cannot enable its own module from its creation data, because the
