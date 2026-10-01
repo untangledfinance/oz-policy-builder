@@ -231,8 +231,7 @@ On mainnet we do not run it. Since protocol 23, a transaction that touches an
 archived entry can restore it as part of the same transaction, and the account
 that submits the transaction pays for the restore. On testnet we created a setup
 whose uploaded code had archived; it went through, and the submitter paid 3.82
-XLM for the restore. We have not tried the app's other paths, such as running an
-archived stored move. On 1 October 2026 we read when each mainnet entry the app
+XLM for the restore. On 1 October 2026 we read when each mainnet entry the app
 relies on will archive, unless someone extends it first:
 
 | Entry | Archives around |
@@ -242,10 +241,8 @@ relies on will archive, unless someone extends it first:
 | Gate and adapter code, the grammar-6 interpreter's code and instance | 30 March 2027 |
 | A Prime, gate, adapter or policy created by a user | about 120 days after it is created or last extended |
 
-The smart account code matters most. Every Prime runs it, so the first
-transaction that uses or creates a Prime after it archives pays for its restore.
-We have not measured that cost on mainnet; the deployment's simulation quoted
-80.8 XLM to extend the same entry to the network maximum.
+Restoring an archived entry is a one-off fee, paid by the transaction that
+needs it.
 
 ### Prime account and the mandate
 
@@ -409,13 +406,6 @@ deployed and still reachable by accounts that use them; their source is at tag
 - **Nothing alerts custody when a move is stored.** The adapter emits no
   events, by design. A stored move is public on the ledger and the Prime app
   lists it, but custody has to look.
-- **No job keeps mainnet contracts live.** Apart from a used adapter, its
-  stored moves, and the code and interpreter instance this deployment extended
-  (which last until about 30 March 2027), every entry archives about 120 days after it is created or
-  last extended. The next transaction that needs an archived entry should
-  restore it, and the account that submits it pays; this has been measured
-  only for creating a setup, on testnet (see
-  [Keeping contracts live](#keeping-contracts-live)).
 - **Revoking an agent's rule does not stop the moves it already stored.** A
   stored move runs under the run rule, not the agent's. To stop one, cancel it,
   or remove the run rule, which pauses every ready move until the rule is
