@@ -371,8 +371,10 @@ The custody account can also cancel any stored move before it runs, with
 | Execution adapter v3 builds (earlier pairs) | - | `5be8b08eefe704970fbb51612ef4f6222df3d4b0f2ab6704544e761e3576e708` and `0e088421…`, still recognised by the app |
 | Custody gate build | testnet | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab`, the Linux build of `contracts/custody-gate`, recorded in the same file. Gates set up earlier run `2788f05b…`, the same design. |
 | Policy interpreter, grammar 4 (the npm packages' pin) | mainnet and testnet | pinned in `packages/policy-synth/src/run/schemas.ts` |
+| Policy interpreter, grammar 6 | mainnet | `CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R`, the Linux build `5143e641…` that CI rebuilds, created by `scripts/deploy-prime-mainnet.ts` and recorded in [`deployments/prime-mainnet.json`](../deployments/prime-mainnet.json) |
+| Execution adapter and custody gate builds | mainnet | `68d012e7…` and `b01024f3…`, the same Linux builds as testnet, uploaded by the same script |
 
-The grammar-6 interpreter and the v3 pair are not on mainnet. A gate pins its
+The v3 pair is not on mainnet. A gate pins its
 adapter's build and has no setter, so adopting a new adapter build means a new
 gate and adapter for that custody account. Earlier generations are still
 deployed and still reachable by accounts that use them; their source is at tag
