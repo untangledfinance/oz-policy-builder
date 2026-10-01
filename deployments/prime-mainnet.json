@@ -25,5 +25,5 @@
     "extend interpreter instance to ~3109400 ledgers ahead": "0975749caf2f42a4fb4ebcd0837f8da021afd1a3909cb84fef19cc439c358abc"
   },
   "feesChargedXlm": "158.3607754",
-  "note": "Linux builds through each build-wasm.sh, rebuilt by CI. The Prime app pins the gate and adapter hashes and this interpreter instance for mainnet. The OZ account code (91a2cd56) was not extended in this run; it is on the keep-alive list."
+  "note": "Linux builds through each build-wasm.sh, rebuilt by CI. The Prime app pins the gate and adapter hashes and this interpreter instance for mainnet. The OZ account code (91a2cd56) was not extended in this run. No job keeps mainnet entries live; the next transaction that needs an archived entry should restore it, and its submitter pays (measured only for creating a setup, on testnet)."
 }

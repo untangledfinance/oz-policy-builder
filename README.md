@@ -24,10 +24,10 @@ It is built as two halves:
 
 ## What is actually running
 
-The policy interpreter is deployed on Stellar mainnet and testnet, and both
-pinned instances have been exercised end to end against real accounts: a policy
-installed, the call it allows permitted, and the call it forbids denied by the
-contract.
+The grammar-4 policy interpreter, which the npm packages pin, is deployed on
+Stellar mainnet and testnet, and both pinned instances have been exercised end
+to end against real accounts: a policy installed, the call it allows permitted,
+and the call it forbids denied by the contract.
 
 On mainnet, smart account
 `CBASTKCV6RZFO6SPEBRFJJMAJ5FRCNYVERWX5I6QSRLE3YZ4X6OEVOAU` carries the
@@ -64,9 +64,20 @@ The deployment is pinned in `packages/policy-synth/src/run/schemas.ts`:
 
 The same wasm hash backs both networks; only the instance address differs.
 
+The Prime custody contracts went to mainnet on 1 October 2026 and the Prime app
+at app.untangled.finance uses them: the grammar-6 interpreter
+`CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R` and the custody gate
+and execution adapter code (`b01024f3…`, `68d012e7…`). They are the Linux builds
+that CI rebuilds and checks. Current testnet setups use the same gate and
+adapter code. Testnet's grammar-6 interpreter was built from the same source
+without `build-wasm.sh`, so its hash differs. Addresses, hashes and transactions
+are in [docs/stellar.md](./docs/stellar.md#deployments) and
+[deployments/prime-mainnet.json](./deployments/prime-mainnet.json).
+
 > [!IMPORTANT]
-> **Audit status.** The interpreter contract has not been externally audited.
-> It has been through internal adversarial review, and an external review is
+> **Audit status.** The interpreter, custody gate and execution adapter
+> contracts have not been externally audited.
+> They have been through internal adversarial review, and an external review is
 > in progress; no audit report has been published yet.
 > [docs/stellar.md](./docs/stellar.md) is specific about what each contract
 > does and does not enforce - treat anything it does not claim as unenforced. Report vulnerabilities per [SECURITY.md](./SECURITY.md).

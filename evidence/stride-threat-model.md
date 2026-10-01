@@ -1,13 +1,39 @@
 # OZ Policy Builder - STRIDE Threat Model
 
-**Subject:** the `policy-interpreter`, `custody-gate` and `execution-adapter` Soroban contracts plus the `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` off-chain toolchain. The Prime app's use of the adapter's new functions (OctoPos `apps/web`) is modelled as one adjacent data flow, F5, because that is where stored moves meet the people who run and cancel them.
-**Date:** 2026-09-29 (re-run; first written 2026-08-23, re-run 2026-09-25)
+**Subject:** the `policy-interpreter`, `custody-gate` and `execution-adapter` Soroban contracts plus the `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` off-chain toolchain, and, from this run, their deployment on Stellar mainnet. Two parts of the Prime app (OctoPos `apps/web`) are modelled as adjacent data flows: F5, where stored moves meet the people who run and cancel them, and F6, where a venue pool is picked for a rule or a gate's destination list.
+**Date:** 2026-10-01 (re-run for the mainnet deployment; first written 2026-08-23, re-run 2026-09-25 and 2026-09-29)
 **Methodology:** Stellar STRIDE Threat Modeling, "STRIDE Threat Model Template" and "Threat Modeling How-To Guide" pages at `developers.stellar.org/docs/build/security-docs/threat-modeling`. The four-question scaffold (What are we working on / What can go wrong / What are we going to do about it / Did we do a good job) and the STRIDE-per-element format are followed.
 **Repo:** `untangledfinance/oz-policy-builder`
 **Grammar version:** 6 (`SELF_VERSION`, `src/version.rs`)
 **Subject tree:** 1353 lines of on-chain production code - interpreter 1082, adapter 216, gate 55 - counted as non-blank, non-comment lines of each crate's production source. The 2026-09-25 run reported 1074 with a different count; the same count over that tree gives 1267 (interpreter 1082, adapter 130, gate 55), so the whole on-chain delta is the adapter's +86 (+79 for the wait, +7 for finding 2's fix).
 
-### What changed since the 2026-09-25 run
+### What changed since the 2026-09-29 run
+
+**The Prime contracts are on mainnet, and the Prime app uses them.** On
+1 October 2026 `scripts/deploy-prime-mainnet.ts` uploaded the gate code
+`b01024f3…`, the adapter code `68d012e7…` and the grammar-6 interpreter code
+`5143e641…`, created the interpreter instance
+`CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R`, and extended
+those four entries. Fees came to 158.36 XLM; every transaction is in
+`deployments/prime-mainnet.json`. The app at app.untangled.finance pins these
+hashes and the instance for mainnet.
+
+The contract source is the one the 2026-09-29 run modelled; no on-chain code
+changed. This run asks what the deployment itself adds:
+
+- who deployed it and what that key can still do (section 5, D1);
+- whether mainnet runs the code that was reviewed (D1);
+- what happens as mainnet entries archive, now that we have decided not to
+  keep them live on a schedule (D1-D.1, C8-D.1, C9-D.5, F5-D.2, A-5);
+- how the app chooses venue pools on mainnet, where it lists every Aquarius
+  and Blend pool from the portfolio API instead of a fixed testnet list (F6).
+
+Findings are in section 8. Three were fixed before this report. The one that
+mattered most: the pool list and the venue names trusted the API and the
+contract's own answers about what a pool is, so a lookalike contract could be
+put on a gate's destination list, which cannot be changed afterwards (F6-S.1).
+
+### What changed in the 2026-09-29 run, against 2026-09-25
 
 **The adapter can hold a move back.** `execute(calls, grants, wait)` runs at
 once when `wait` is 0, as before; with a wait it stores the batch, and anyone
@@ -44,7 +70,9 @@ hash moves with prose edits" without a check to catch it.
 - `contracts/custody-gate/` - the client's gatekeeper. Holds no funds: it holds an allowance custody granted it, and releases inside that only to one code-pinned caller, only to a listed destination.
 - `contracts/execution-adapter/` - the per-Prime batcher, bound to one gate. Refuses any batch mentioning an address the gate does not name, and can store a batch to run after a wait.
 - `packages/policy-synth/`, `packages/policy-builder-cli/`, `packages/policy-builder-mcp/` - the off-chain core, CLI and MCP server.
-- **Adjacent, one data flow (F5):** OctoPos `apps/web` - Prime Execution's wait field and stored-moves list, the keeper path that runs a stored move, the cancel paths, and Manage execution's install of the run rule.
+- **Adjacent, data flow F5:** OctoPos `apps/web` - Prime Execution's wait field and stored-moves list, the keeper path that runs a stored move, the cancel paths, and Manage execution's install of the run rule.
+- **Adjacent, data flow F6 (new):** OctoPos `apps/web` - the venue pool picker used by the rule dialogs and by gate setup, and the code that names a venue contract.
+- **The mainnet deployment (new, D1):** `scripts/deploy-prime-mainnet.ts`, the deployer account, and the entries it created, with their lifetimes.
 
 ### Out of scope, named with their trust assumption
 
@@ -67,7 +95,7 @@ the permit path that can never create an entry and is rolled back on a deny.
 |---|---|---|---|
 | `prime`, `gate`, `min_wait`, `window` | instance | constructor; `gate` also by `rebind` (custody only) | the instance's lifetime |
 | `next` - the last stored batch number | instance | `execute` with a wait | the instance's lifetime; a `u32` that only grows |
-| each stored batch `(calls, grants, run_at)` | persistent, keyed by its number | `execute` with a wait; removed by `run` and `cancel` | until its window closes, capped at the network maximum (~180 days) - extended when stored; the first build of this run left it the network minimum (C9-D.4) |
+| each stored batch `(calls, grants, run_at)` | persistent, keyed by its number | `execute` with a wait; removed by `run` and `cancel` | until its window closes, capped at the network maximum (~180 days) - extended when stored; the first build of the 2026-09-29 run left it the network minimum (C9-D.4) |
 
 The gate still keeps nothing but its constructor's configuration.
 
@@ -104,11 +132,11 @@ As the last run: enumerate external entities, processes, data flows, data storag
 | S3 | `(account, rule_id, K_SIGNERS_HASH=3)` -> `BytesN<32>` | persistent; bumped alongside K_DOC | `install`, `rotate_master_signer_set` | binds the policy to a signer set |
 | S4 | `(account, rule_id, K_MASTER_SET=4)` -> `Vec<Signer>` | persistent; bumped alongside K_DOC | `install`, `rotate_master_signer_set` | governs install/uninstall/rotate |
 | S5 | gate instance: `Cfg { custody, caller, caller_code, allowed }` | instance; written once; **never extended** | gate `__constructor` | no setter exists |
-| S6 | adapter instance: `prime`, `gate`, `min_wait`, `window`, `next` | instance; **extended by `execute` and `run`** to ~30 days once fewer than ~7 remain (fixed this run) | constructor, `rebind` (`gate`), `execute` (`next`) | `prime`, `min_wait`, `window` write-once; the address commits to the last two |
-| S7 | adapter persistent `u32 id` -> `(calls, grants, run_at)` | persistent; **extended when stored to last until its window closes**, capped at the network maximum (fixed this run) | `execute` with a wait; removed by `run`, `cancel` | public; one entry per pending move |
+| S6 | adapter instance: `prime`, `gate`, `min_wait`, `window`, `next` | instance; **extended by `execute` and `run`** to ~30 days once fewer than ~7 remain (fixed 2026-09-29) | constructor, `rebind` (`gate`), `execute` (`next`) | `prime`, `min_wait`, `window` write-once; the address commits to the last two |
+| S7 | adapter persistent `u32 id` -> `(calls, grants, run_at)` | persistent; **extended when stored to last until its window closes**, capped at the network maximum (fixed 2026-09-29) | `execute` with a wait; removed by `run`, `cancel` | public; one entry per pending move |
 
 Interpreter TTL: `TTL_BUMP_THRESHOLD` 100, `TTL_BUMP_TO` 518,400 on the permit
-path. When this run began nothing else in the stack extended anything, and on
+path. When the 2026-09-29 run began nothing else in the stack extended anything, and on
 Soroban a write does not extend an entry's lifetime either - measured, not assumed: the beta adapter
 `CA3OJ25D…` was last written at ledger 4,931,927 and still expires at
 5,052,059, exactly 120,960 ledgers after it was created. Network minimums,
@@ -136,7 +164,8 @@ cross-contract calls during `enforce`.
 | Agent key holder (policed signer) | trusted by the policy author, bounded by the rule | Stores or runs moves only as its rule's predicate allows, including a minimum wait of the rule's own (`call_arg(2) >= N`). Cannot cancel. |
 | Custody account | trusted for its own funds | Grants and revokes the allowance; cancels any stored move; rebinds the adapter. |
 | **Keeper** (new) | untrusted | ANY account. Runs a ready stored move by naming its number; chooses only WHEN, inside the run window. Pays the fee; signs nothing for the Prime. |
-| Operator / deployer | trusted at deploy time | Uploads the builds, pins hashes and addresses. |
+| Operator / deployer | trusted at deploy time only | Uploads the builds, pins hashes and addresses. On mainnet, account `GCIVG2AI…7NFN` uploaded the code and created the interpreter. None of the three contracts has an admin, a setter or an upgrade entry point, so the key holds no power over them once they exist (D1-E.1). |
+| Portfolio API (new) | untrusted for what a pool is | Lists venue pools for the picker (F6). The app checks each listed contract's code before offering it. |
 | Attacker classes | untrusted | As the last run (MCP transport, local user, compromised LLM agent, mistaken policy author, hand-crafted predicate), plus **(f) anyone who reads pending moves off the ledger** and **(g) a compromised or revoked agent with moves already stored**. |
 
 ### Design stance
@@ -162,7 +191,7 @@ What an attacker wants:
 8. **The adapter's reachability.** An adapter that cannot run cuts a Prime off from custody-funded execution until it is replaced.
 9. **The wait itself (new).** Custody's protection against the Prime's own owners is the time between a move being stored and it becoming runnable. Anything that shortens it - a lower `min_wait` than custody agreed, a wait the approver did not see, a run before `run_at` - defeats the feature.
 10. **The integrity of a stored move (new).** What runs must be exactly what was approved, once, and only while it is still meant to run.
-11. **Liveness of the pieces a move needs (new).** A stored move needs its own entry, the adapter's instance, the gate's instance, the Prime's rules, the run rule and the uploaded code all to be live when it runs - and none of them extends itself (C9-D.4, C9-D.5).
+11. **Liveness of the pieces a move needs (new).** A stored move needs its own entry, the adapter's instance, the gate's instance, the Prime's rules, the run rule and the uploaded code all to be live when it runs - and only the adapter and its stored moves extend themselves (C9-D.4, C9-D.5).
 
 ### Verified constraints the model must respect
 
@@ -177,14 +206,14 @@ Carried forward, re-verified by this run's test evidence where marked:
 - **`simple_threshold` restores the m-of-n that attaching a policy removes** (`evidence/oz-threshold-binding.log`).
 - **Grammar-version parity across layers**, asserted by a test.
 
-New this run, all measured on testnet (`evidence/execution-wait-testnet.log`,
+New in the 2026-09-29 run, all measured on testnet (`evidence/execution-wait-testnet.log`,
 `evidence/execution-address-rule-testnet.log`) or in the adapter's unit tests:
 
 - **A stored move can be run by anyone, and needs no Prime key.** Run from an account with no role: a Blend supply, a recovery pull to the trustee and an agent's move all landed.
 - **The run rule approves `run` and nothing else.** Named for an immediate `execute`, a stored `execute` or a `cancel`, it was refused `#100` each time.
 - **Revoking an agent does not reach its stored moves.** With the agent's rule removed, its stored move still ran.
 - **Removing the run rule pauses every stored move at once**, and they stay stored.
-- **A stored move lives the network minimum from when it is stored, whatever its wait**: 120,959 ledgers left on a move stored with a 50-ledger wait, against a minimum of 120,960.
+- **A stored move lives the network minimum from when it is stored, whatever its wait** (first v4 build; fixed in `68d012e7…`, C9-D.4): 120,959 ledgers left on a move stored with a 50-ledger wait, against a minimum of 120,960.
 - **The adapter's address commits to its numbers.** Created at custody's named address with a minimum wait of 0, or with a longer window, it was refused `#8 NotWhereAgreed`.
 - **The adapter's floor binds the owners.** Waits below it refused `#4`, for rule 0 too.
 - **A batch cannot call the adapter back.** `Error(Context, InvalidAction)` - the host refuses re-entry - so a stored move cannot cancel or run another.
@@ -278,7 +307,7 @@ user-supplied predicate bytes <-> contract.
 
 ## 5. STRIDE analysis per element
 
-C1 and F1-F4 are carried forward unchanged: their code is identical to the 2026-09-25 tree, and this run's tool evidence (section 8) re-verified them. C8 is carried with one new row; C9 is rewritten for the v4 adapter; F5 is new.
+C1 and F1-F4 are carried forward unchanged: their code is identical to the 2026-09-25 tree, and this run's tool evidence (section 8) re-verified them. C8, C9 and F5 are carried from the 2026-09-29 run, with their archival rows updated for mainnet; D1 and F6 are new. C2-C4 are out of scope and named with their trust assumption.
 
 ### Element C1 - `policy-interpreter` contract
 
@@ -341,7 +370,7 @@ C1 and F1-F4 are carried forward unchanged: their code is identical to the 2026-
 | F3-T.1 | Tampering | JSON-RPC batch request | A malicious batch smuggles extra calls | Low | Low | Array bodies are explicitly rejected. | None. |
 | F3-R.1 | Repudiation | Tool-call log missing | Per-call stateless; no log | Low | Low | The wallet signature is the user-confirmation; OZ's auth tree is the audit path. | None. |
 | F3-I.1 | Info disclosure | HTTP errors leak host/URL detail | `simulateTransaction` errors echoed | Low | Low | Errors are mapped to short stable reasons; the full payload stays in SDK logs. | None. |
-| F3-I.2 | Info disclosure | A dependency of the HTTP transport mis-parses a URI | `fast-uri` < 3.1.6 (under `ajv`, under the MCP SDK) had SSRF and host-confusion advisories in its normalisation of IPv6, percent-encoded schemes and hostnames | Medium | High | Transitive versions pinned by `overrides` to patched releases within their majors; `bun audit` is a CI gate and now passes. | The pin is manual: an override must be revisited when the MCP SDK itself moves past the vulnerable range, or it holds the tree back. |
+| F3-I.2 | Info disclosure | A dependency of the HTTP transport mis-parses a URI | `fast-uri` < 3.1.6 (under `ajv`, under the MCP SDK) had SSRF and host-confusion advisories in its normalisation of IPv6, percent-encoded schemes and hostnames | Medium | High | Transitive versions pinned by `overrides` to patched releases within their majors; `bun audit` is a CI gate and now passes. On 2026-10-01 new `axios` and `ip-address` advisories were fixed by a lockfile update inside the declared ranges. | The pin is manual: an override must be revisited when the MCP SDK itself moves past the vulnerable range, or it holds the tree back. |
 | F3-D.1 | DoS | Non-loopback host exposes unauthenticated tools | `host: '0.0.0.0'` exposes the surface | Medium | Medium | Default-deny on non-loopback hosts; explicit `allowExternalHost: true` opt-in; 1 MB body cap enforced by the streaming reader. | The opt-in is auditable. |
 | F3-E.1 | Elevation of privilege | No auth on `/mcp` | Any caller who can reach the port calls the tools | High | High | Default-bind to loopback; no bearer/HMAC exists. A production deployment is expected to gate at a reverse proxy. | Tracked as A-1. |
 
@@ -359,7 +388,7 @@ C1 and F1-F4 are carried forward unchanged: their code is identical to the 2026-
 
 ### Element C8 - `custody-gate` contract
 
-Same source as the last run (`custody-gate-v3` renamed); its rows stand and
+Same source as the 2026-09-25 run (`custody-gate-v3` renamed); its rows stand and
 one is added.
 
 | ID | Cat | Threat | Attack scenario | Likelihood | Impact | Mitigation | Residual |
@@ -367,10 +396,10 @@ one is added.
 | C8-S.1 | Spoofing | Anyone calls `pull` and spends custody's allowance | The gate is a public contract; `pull` moves money | High | Critical | `c.caller.require_auth()` - only the one adapter the config names can ask. | None beyond the host. |
 | C8-S.2 | Spoofing | The named caller address is squatted by different code | A contract id does not commit to code | Medium | Critical | `caller.executable() != Executable::Wasm(caller_code)` panics `WrongCallerCode` (2) on every draw. | None. |
 | C8-T.1 | Tampering | The perimeter is widened after custody funded the gate | An admin call moves `allowed`, `caller` or `custody` | Low | Critical | **Structurally impossible.** No admin, no setter, no upgrade entry point. | None. |
-| C8-T.2 | Tampering | A token custody never approved is drawn | `pull` takes the token as an argument | Low | Medium | A SAC allowance is per token; an unapproved token fails `transfer_from` (`#101`, measured again this run). | None. |
+| C8-T.2 | Tampering | A token custody never approved is drawn | `pull` takes the token as an argument | Low | Medium | A SAC allowance is per token; an unapproved token fails `transfer_from` (`#101`, measured again on 2026-09-29). | None. |
 | C8-I.1 | Info disclosure | The configuration is public | Instance storage is readable | Low | Low | Deliberate. | None. |
 | C8-E.1 | Elevation of privilege | Value leaves to an address custody did not approve | The adapter asks for a pull to a stranger | Medium | Critical | `c.allowed.contains(&to)` panics `DestinationNotAllowed` (1). | None. |
-| **C8-D.1** | DoS | **The gate archives, and every pull fails until it is restored** | The gate's instance is created with the network minimum lifetime and nothing extends it - not a pull, not a read. On testnet that is ~7 days after deployment; on mainnet ~120 | High (testnet) / Medium (mainnet) | High | The gate is unchanged, so it does not extend itself. **The keep-alive job** (OctoPos `apps/web/scripts/keep-alive.ts`) restores and extends each listed Prime's gates; it runs daily for the testnet accounts. | **R-13, reduced:** a gate kept alive only if its Prime is listed, and on mainnet only once the job runs there with a funded account. |
+| **C8-D.1** | DoS | **The gate archives, and every pull fails until it is restored** | The gate's instance is created with the network minimum lifetime and neither a pull nor a read extends it. On testnet that is ~7 days after deployment; on mainnet ~120 | High | High (testnet) / Low (mainnet) | The gate is unchanged, so it does not extend itself. On testnet the keep-alive job (OctoPos `apps/web/scripts/keep-alive.ts`) restores and extends each listed Prime's gates daily. On mainnet nothing extends it, and auto-restore applies (A-5); it has not been tried for a pull. | **R-13.** Testnet: a gate is kept only if its Prime is listed. Mainnet: accepted as A-5. |
 
 ### Element C9 - `execution-adapter` contract (v4)
 
@@ -394,8 +423,8 @@ and again when run, against the gate the adapter is bound to THEN.
 | C9-D.1 | DoS | A batch too large or too deep exhausts the host | | Low | Low | The host bounds both first; whoever submits pays. | None. |
 | C9-D.2 | DoS | The binding moves to an address that is not a gate | | Medium | High | `rebind` asks the successor `custody()` first (measured again: a SAC and a plain wallet refused). | None. |
 | C9-D.3 | DoS | An adapter deployed on a build its gate does not pin | | Medium | High | The app creates the adapter from the build the GATE names (`caller_code`), for v3 and v4 alike; both v4 builds (the Linux `32a8658a…` and the earlier macOS `23a7b289…`) are recognised. Measured on beta: a gate pinning each build ran a stored move through its adapter; creating an adapter from an earlier gate's build is a unit test (`creates it from the build the gate names`). | Tooling-side. |
-| **C9-D.4** | DoS | **A stored move archives before it can run** | A stored entry is created with the network minimum and nothing extends it. A wait longer than that - ~7 days on testnet, ~120 on mainnet - leaves a move that cannot run or be cancelled until someone restores it | Medium (testnet) / Low (mainnet) | Medium | **Fixed:** `execute` extends a stored move to last until its window closes, capped at the network maximum (~180 days). Measured on testnet with a wait past the minimum; unit test `a_stored_move_lives_until_its_window_closes`. The inaccurate comment is gone. The app shows an archived move as archived (F5-D.1). | A wait plus window beyond ~180 days still archives, and is restored, not lost. Moves stored by the two earlier v4 builds keep the network minimum; the keep-alive job extends those it finds. |
-| **C9-D.5** | DoS | **The adapter, the gate, the Prime and the uploaded code all archive** | Instances are created with the network minimum and writes do not extend them (measured: written at 4,931,927, expiring at creation + 120,960). The shared grammar-6 interpreter on testnet had ~5.8 days left on 2026-09-29; the demo Prime, gate and adapter ~5.9; another Prime ~2.7 | High (testnet) / Medium (mainnet) | High | **Fixed for the adapter, handled by a job for the rest:** `execute` and `run` extend the adapter's instance (unit test `using_the_adapter_keeps_its_instance_alive`; measured on testnet). The keep-alive job finds everything a Prime depends on - collection checked against the footprints of 20 real transactions, 205 persistent keys, 0 missed - restores what has archived and extends what is low. First run: 2 archived entries restored (a policy of Prime `CAIALO`), 69 extended. | **R-13, reduced:** only accounts listed in the job's config are kept; mainnet needs the job run with a funded account. |
+| **C9-D.4** | DoS | **A stored move archives before it can run** | A stored entry is created with the network minimum and nothing extends it. A wait longer than that - ~7 days on testnet, ~120 on mainnet - leaves a move that cannot run or be cancelled until someone restores it | Medium (testnet) / Low (mainnet) | Medium | **Fixed:** `execute` extends a stored move to last until its window closes, capped at the network maximum (~180 days). Measured on testnet with a wait past the minimum; unit test `a_stored_move_lives_until_its_window_closes`. The inaccurate comment is gone. The app shows an archived move as archived (F5-D.1). | A wait plus window beyond ~180 days still archives, and is restored, not lost. Moves stored by the two earlier v4 builds keep the network minimum; on testnet the keep-alive job extends those it finds, and mainnet never ran those builds. |
+| **C9-D.5** | DoS | **The adapter, the gate, the Prime and the uploaded code all archive** | Instances are created with the network minimum and writes do not extend them (measured: written at 4,931,927, expiring at creation + 120,960). The shared grammar-6 interpreter on testnet had ~5.8 days left on 2026-09-29; the demo Prime, gate and adapter ~5.9; another Prime ~2.7 | High | High (testnet) / Low (mainnet) | **Fixed for the adapter; on testnet a job handles the rest:** `execute` and `run` extend the adapter's instance (unit test `using_the_adapter_keeps_its_instance_alive`; measured on testnet). The keep-alive job finds everything a Prime depends on - collection checked against the footprints of 20 real transactions, 205 persistent keys, 0 missed - restores what has archived and extends what is low. First run: 2 archived entries restored (a policy of Prime `CAIALO`), 69 extended. | **R-13.** Testnet: only accounts listed in the job's config are kept. Mainnet: no job, accepted as A-5. |
 | **C9-D.6** | DoS | **Nobody runs a ready move, and it lapses** | `run` needs a submitter; there is no keeper | Medium | Low | A lapsed move cannot run (measured `#6`) and can be removed. The app offers Run to anyone who opens it. | **R-14.** Liveness is someone's job. For a recovery the owners are motivated; for an agent's move, an automation has to exist. |
 | **C9-D.7** | DoS | **Storage spam** | A rule stores many small moves | Medium | Low | Each store is paid by its submitter and bounded by its rule's predicate; the contract never iterates stored moves, so no function slows. | None on chain; the view it could hide things from is F5-T.1. |
 | C9-D.8 | DoS | `next` overflows | 4.29 billion stores | Low | Low | The increment traps in release; no number is reused. | None. |
@@ -413,11 +442,39 @@ and again when run, against the gate the adapter is bound to THEN.
 |---|---|---|---|---|---|---|---|
 | F5-S.1 | Spoofing | The keeper path signs for the Prime | Running a stored move from the app | Low | Critical | The Prime's entry names only the adapter as signer and the run rule (and a venue's rule) as the rules; the wallet only submits and pays. Verified end to end on beta. | None. |
 | F5-S.2 | Spoofing | The app treats a rule as the run rule by its name | A rule named `run_stored` with no predicate | Low | Critical | `findRunRule` requires scope = adapter, the one signer = adapter AND the run predicate's hash. | R-10. |
-| **F5-T.1** | Tampering | **A pending move is pushed out of the list** | The list read only the newest 100 numbers. An agent stores 100 small moves inside its own limits; an older one - the move custody most needs to see - drops out of view and nobody cancels it | Medium | High | **Fixed this run:** every number is read, 200 per request (the RPC limit), and a test puts the one live move behind 449 newer numbers. | Cost grows with the adapter's history, not with what an attacker hides. |
-| **F5-D.1** | DoS | **An archived stored move looks runnable** | Run and Cancel both fail with an unexplained error | Medium | Low | **Fixed this run:** an entry past its lifetime is shown as archived, "must be restored before it can run or be cancelled". | Restoring is not offered (finding 2). |
-| F5-D.2 | DoS | The app cannot restore or extend anything | Pieces archive on their own clock (C8-D.1, C9-D.4, C9-D.5) | High (testnet) | High | The keep-alive job does it outside the app, daily on testnet; the app detects an archived adapter and stored move. | R-13. An in-app action would let an account keep itself live without being listed. Not built. |
+| **F5-T.1** | Tampering | **A pending move is pushed out of the list** | The list read only the newest 100 numbers. An agent stores 100 small moves inside its own limits; an older one - the move custody most needs to see - drops out of view and nobody cancels it | Medium | High | **Fixed 2026-09-29:** every number is read, 200 per request (the RPC limit), and a test puts the one live move behind 449 newer numbers. | Cost grows with the adapter's history, not with what an attacker hides. |
+| **F5-D.1** | DoS | **An archived stored move looks runnable** | Run and Cancel both fail with an unexplained error | Medium | Low | **Fixed 2026-09-29:** an entry past its lifetime is shown as archived, "must be restored before it can run or be cancelled". | Restoring is not offered (2026-09-29 finding 2). |
+| F5-D.2 | DoS | The app cannot restore or extend anything | Pieces archive on their own clock (C8-D.1, C9-D.4, C9-D.5) | High | High (testnet) / Low (mainnet) | Testnet: the keep-alive job does it outside the app, daily. Mainnet: the app simulates every transaction, and the simulation marks archived entries for restore, so the transaction should restore them, and the account that submits it pays. Measured on testnet for one path: creating a setup whose uploaded code had archived succeeded and paid 3.82 XLM for the restore. Running or cancelling an archived stored move was not tried. The app detects an archived adapter and stored move. | R-13; A-5. The fee falls on whoever submits the first transaction that needs the entry. |
 | F5-E.1 | Elevation of privilege | The app creates the adapter with numbers that differ from the gate's | A browser that did not set the gate up types them | Low | Medium | The numbers are checked against the gate's `caller` before anything is signed, and the contract refuses anything else (`#8`). | None. |
 
+
+### Deployment D1 - the mainnet deployment (new)
+
+| ID | Cat | Threat | Attack scenario | Likelihood | Impact | Mitigation | Residual |
+|---|---|---|---|---|---|---|---|
+| **D1-S.1** | Spoofing | **Mainnet runs code other than the code reviewed** | A build made on another machine, or edited after review, is uploaded | Medium | Critical | The script refuses any artifact whose sha256 differs from the pinned hash. The pinned hashes are the Linux builds from each crate's `build-wasm.sh`, which CI rebuilds and compares. The app checks the gate's `caller_code` and the adapter's code against its pins before it signs anything. Read back after the deployment: each uploaded code entry exists under its hash, and the interpreter instance runs `5143e641…`. | None for the gate and the adapter. See D1-T.1 for the interpreter on testnet. |
+| **D1-T.1** | Tampering | **Testnet and mainnet run different interpreter builds** | The testnet grammar-6 interpreter is `a7ef48e3…`, built from the same source without `build-wasm.sh`; mainnet runs the reproducible `5143e641…`. The app pinned one hash, so on mainnet it would not have recognised the interpreter or offered the grammar-6 template | Medium | Medium | **Fixed before release:** the app pins the interpreter hash and address per network (`GRAMMAR6_INTERPRETER_*_BY_NETWORK`), with a test that derives the mainnet address from the deployer and salt. The reproducible build was run against a real Prime on testnet before mainnet: 45 of 45 wait checks and 35 of 35 address-rule checks (`evidence/execution-wait-testnet-reproducible-interpreter.log`, `evidence/execution-address-rule-testnet-reproducible-interpreter.log`). | Testnet still runs the bare build. Same source, different bytes; replacing it would mean new policies for every testnet Prime. |
+| D1-T.2 | Tampering | Someone takes the interpreter's address first | The address follows from the deployer and the salt `hash("untangled.policy-interpreter.grammar6")`, both public | Low | Medium | Only the deployer's signature can create a contract at a deployer-derived address. The app pins the resulting address and checks the code behind it. | None. |
+| D1-R.1 | Repudiation | Nobody can say what was deployed, by whom, at what cost | | Low | Low | `deployments/prime-mainnet.json` records the deployer, every transaction hash, the code hashes and the fees; all of it can be checked on the ledger. | None. |
+| **D1-I.1** | Info disclosure | **The deployer secret leaks** | The script reads it from an env file on the VM | Medium | Low | It is read from `DEPLOY_SECRET` or `MAINNET_DEPLOYER_SECRET` in an env file that is not in any repository, and never printed. The key holds no power over what it created (D1-E.1). A leak would expose only the XLM left on the account. | The account's balance. |
+| **D1-E.1** | Elevation of privilege | **The deployer can change the contracts after the fact** | | Low | Critical | None of the three contracts has an admin, a setter or `update_current_contract_wasm`; the interpreter has no constructor at all. A gate or adapter is created by the user's own accounts, not by the deployer. | None. |
+| **D1-D.1** | DoS | **Mainnet entries archive with nobody extending them** | Every entry starts with the network minimum, ~120 days; writes do not extend it. Measured on 2026-10-01: the OpenZeppelin smart account code `91a2cd56…` archives around 7 December 2026, the `simple_threshold` policy code around 23 December 2026, and the code and interpreter this deployment extended around 30 March 2027. A user's Prime, gate, adapter and policies archive ~120 days after they are created or last extended | High | Low | Auto-restore applies (A-5). The smart account code matters most: the deployment's simulation quoted 80.8 XLM to extend it to the network maximum, over the script's fee cap, so it was not extended. | **A-5.** Every Prime runs the smart account code, so the first transaction that uses or creates a Prime after 7 December 2026 pays for its restore, a cost not yet measured on mainnet. |
+
+### Data flow F6 - venue pool picker and venue names (adjacent, new)
+
+The rule dialogs and gate setup list every Aquarius and Blend pool on the
+network, read from the portfolio API (`/v1/protocols/{id}/pools`). A pool
+picked for gate setup goes onto the gate's destination list, which no one can
+change once the gate exists (C8-T.1). On 1 October 2026 the API listed 355
+Aquarius and 4 Blend pools on mainnet.
+
+| ID | Cat | Threat | Attack scenario | Likelihood | Impact | Mitigation | Residual |
+|---|---|---|---|---|---|---|---|
+| **F6-S.1** | Spoofing | **A lookalike contract is listed or named as a pool** | The API lists a contract that is not a pool, or someone pastes one. The app named an Aquarius pool from the contract's own `get_tokens` and a Blend pool from its own `name`, so any contract answering those calls was shown as "Aquarius pool XLM / USDC". Put on a gate's list, it is a permanent destination custody's allowance can pay | Medium | High | **Fixed this run:** the app reads each contract's code hash and accepts it as a pool only if the hash is a known pool build: on mainnet the three Aquarius codes (`ae0da5a8…` constant product, `f1077e0b…` stable, `12fca5a7…` concentrated) and the Blend code `a41fc53d…`; on testnet the demo pools' codes. Anything else is left out of the picker and shown by address, unnamed. Tests cover a lookalike in the API's list and a failed code read (the list comes back empty). Measured on mainnet after the fix: 355 and 4 pools kept; a gate, the interpreter and the USDC token are not named as pools. | A pasted address that is not a known pool can still be added. It is shown by address with no pool name, so the user is not told it is a pool. A new pool build stays out of the picker until its hash is added. |
+| F6-T.1 | Tampering | The API changes a pool's details | Token names, TVL | Medium | Low | The picker shows them for choosing only; what is stored is the address, and what the rule enforces is read from the chain. | None. |
+| F6-I.1 | Info disclosure | The API learns which pools a user looks at | | High | Low | The list is fetched whole, not per user, and needs no sign-in. | None. |
+| F6-D.1 | DoS | The API is down or slow | | Medium | Low | The picker is optional; an address can be pasted instead. If the code read fails, the picker shows no pools rather than unchecked ones. | None. |
+| F6-E.1 | Elevation of privilege | A picked pool lets a rule do more than the user meant | | Low | Medium | The picker fills in an address; the rule's predicate and the gate's list are built and reviewed as before, and every call still meets the adapter's address rule. | None. |
 
 ### Element C2 - OpenZeppelin smart-account (out of scope, named with trust assumption)
 
@@ -476,7 +533,7 @@ summarised here. New rows follow.
 | **R-10** | **The run rule's predicate is the whole of the restriction** (C9-S.3). A rule scoped to the adapter, signed by it, WITHOUT `call_fn == "run"` lets anyone make the adapter approve an immediate batch for the Prime. | Measured with the predicate: all three abuses refused. The rule is the Prime's own, installed by its owners; the app installs it only with the predicate and recognises it only by the predicate's hash. A hand-installed rule is the author's responsibility, as R-7. |
 | **R-11** | **Pending moves are public** for the whole wait (C9-I.2). | Inherent to an on-chain wait. Floors fixed at approval bound what an adversary positioning the market can take. |
 | **R-12** | **The wait covers custody's allowance only** (C9-E.7). | The adapter governs what passes through it. Positions held by the Prime itself move under its owners' rule with no wait. |
-| **R-13** | **Everything archives on its own clock** (C8-D.1, C9-D.4, C9-D.5): the gate, the adapter, each stored move, the Prime's state, the shared interpreter and the uploaded code - ~7 days after creation on testnet, ~120 on mainnet, whatever their use. | **Reduced - finding 2.** The adapter now extends itself and its stored moves; the keep-alive job restores and extends everything else a listed Prime depends on, daily on testnet. Residual: an account not listed, and mainnet until the job runs there. |
+| **R-13** | **Everything archives on its own clock** (C8-D.1, C9-D.4, C9-D.5): the gate, the adapter, each stored move, the Prime's state, the shared interpreter and the uploaded code - ~7 days after creation on testnet, ~120 on mainnet, whatever their use. | **Reduced on testnet, accepted on mainnet.** The adapter extends itself and its stored moves on both networks. On testnet the keep-alive job restores and extends everything else a listed Prime depends on, daily. On mainnet no job runs, by decision (A-5). |
 | **R-14** | **A ready move needs someone to run it** (C9-D.6). | Liveness, not safety: an unrun move lapses and moves nothing. An agent's moves need an automation that does not exist yet. |
 
 ### Accepted risks (open, in scope, accepted with reason)
@@ -487,6 +544,7 @@ summarised here. New rows follow.
 | A-2 | `argument_reorder` excluded from synth deny cases. | A reordered call is a different call the predicate already fails to match. |
 | A-3 | Earlier adapter generations remain deployed and reachable. | Superseding code does not retire an installed rule; the app still serves v3 pairs. |
 | **A-4** | **The adapter emits no events** (C9-R.1). | A decision taken to keep the adapter small (2026-09-29). The cost is detection: a watcher polls `next` and the stored entries instead of subscribing. Worth revisiting before a monitoring service is built, because custody's protection is only as good as its notice of a stored move. |
+| **A-5** | **No job keeps mainnet entries live** (D1-D.1, C8-D.1, C9-D.5, F5-D.2). Only the adapter and its stored moves extend themselves; the interpreter extends a rule's entries only when they have under 100 ledgers left. | We decided this on 2026-10-01. Auto-restore should let the next transaction that needs an archived entry restore it, with the account that submits it paying; this was measured only for creating a setup on testnet. A scheduled job would need a funded hot account and would spend fees on accounts that may never be used again. The cost lands unevenly: the first transaction that uses or creates a Prime after the smart account code archives (around 7 December 2026) pays for its restore, not yet measured on mainnet; the deployment's simulation quoted 80.8 XLM to extend the same entry. Revisit if users report it, or if a path other than creation turns out not to restore. |
 
 ### Trust-boundary note: the scope of the on-chain guarantee
 
@@ -494,7 +552,7 @@ Unchanged for the interpreter: it guarantees faithful evaluation, failing
 closed, and a predicate that binds at least one property of the call. Policy
 adequacy is owned off chain.
 
-For the adapter, the guarantee this run adds is narrow and exact: **a stored
+For the adapter, the guarantee the 2026-09-29 run added is narrow and exact: **a stored
 move runs at most once, exactly as the Prime approved it, no earlier than its
 wait and no later than its window, and only while the Prime still has a run
 rule.** It does NOT guarantee that the move is still wanted when it runs
@@ -511,24 +569,45 @@ pieces it needs are still live (R-13).
 | **A delay before value moves** | The adapter: `min_wait` for everyone, `call_arg(2) >= N` per rule. Covers custody's allowance only (R-12). |
 | **Stopping a move already approved** | `cancel` (Prime or custody); removing the run rule (all moves); revoking the allowance (everything). |
 | **Noticing a move in time** | Nowhere in this stack (A-4, trust assumption 8). The app lists moves to whoever opens it. |
-| **Keeping contracts live** | The adapter, for itself and its stored moves; the keep-alive job, for everything else a listed Prime depends on (R-13). |
+| **Keeping contracts live** | The adapter, for itself and its stored moves. On testnet, the keep-alive job, for everything else a listed Prime depends on (R-13). On mainnet, nothing else; an archived entry should be restored by the next transaction that needs it (A-5). |
+| **Which contracts count as venue pools** | The Prime app, by code hash (F6-S.1). The gate trusts its list as given. |
 | A bound on call frequency / price-conditioned authorisation | Nowhere in this stack. |
 
 ---
 
 ## 8. Did we do a good job? (Stellar template closing reflection)
 
-### What this run found
+### What this run found (2026-10-01, mainnet)
+
+| # | Finding | Status |
+|---|---|---|
+| 1 | **The pool picker and the venue names trusted the contract to say what it is.** The mainnet picker lists every pool the portfolio API returns, and the app named a contract "Aquarius pool" or "Blend pool" from its own answers to `get_tokens` and `name`. A lookalike from the API or a paste would have been offered and named as a pool and could go onto a gate's destination list, which cannot be changed later. | **Fixed** in OctoPos (F6-S.1): a contract counts as a pool only if its code hash is a known pool build. Unit tests; measured on mainnet. |
+| 2 | **Testnet and mainnet run different interpreter builds of the same source** (D1-T.1). The app pinned the testnet hash, so on mainnet it would not have recognised the interpreter. | **Fixed before release:** pins per network, with the mainnet address derived in a test. The mainnet build was checked against a real Prime on testnet first (45 of 45, 35 of 35). Testnet keeps its bare build. |
+| 3 | **Mainnet entries archive and no job extends them** (D1-D.1). The smart account code goes first, around 7 December 2026. | **Accepted** as A-5. Auto-restore was measured for creating a setup; other paths are untested. |
+| 4 | **The deployer key has no power after deployment** (D1-E.1). | **Confirmed:** no admin, setter or upgrade entry point in any of the three contracts. |
+| 5 | **New advisories in two transitive npm dependencies** since the last run: `axios` (under the Stellar SDK) and `ip-address` (under the MCP SDK). Neither is used by the contracts. | **Fixed** with a lockfile update inside the declared ranges; `bun audit` is clean again. |
+
+### What the 2026-09-29 run found
 
 | # | Finding | Status |
 |---|---|---|
 | 1 | **The app's stored-moves list could be made to hide a move.** It read only the newest 100 numbers, so an agent storing 100 small moves inside its own limits pushed an older one out of view - the move custody would most want to cancel. | **Fixed** in OctoPos: every number is read, 200 per request; a test places the one live move behind 449 newer numbers. An archived move is now shown as archived rather than failing on Run. Modelled as F5-T.1, F5-D.1. |
-| 2 | **Nothing kept the contracts alive.** Measured: instances and entries are created with the network minimum lifetime and writes do not extend it - ~7 days on testnet, ~120 on mainnet, from creation, whatever the use. On 2026-09-29 the shared grammar-6 interpreter on testnet had ~5.8 days left, the demo Prime, gate and adapter ~5.9, another Prime ~2.7 - and one policy that Prime depends on had **already archived**. The adapter's own comment ("a persistent entry outlives any sensible wait") held on mainnet only. | **Fixed, within a 7-line contract change and a job.** The adapter extends its own instance on `execute` and `run` and keeps each stored move until its window closes (new build `68d012e7…`, re-pinned in the app; unit tests and testnet checks). OctoPos `apps/web/scripts/keep-alive.ts` restores and extends everything else a Prime depends on; its collection matched the footprints of 20 real transactions with nothing missed, its first run restored the archived policy and extended 69 entries, and it runs daily from the VM for the testnet accounts in its config. Residual R-13: unlisted accounts, and mainnet until the job runs there. |
+| 2 | **Nothing kept the contracts alive.** Measured: instances and entries are created with the network minimum lifetime and writes do not extend it - ~7 days on testnet, ~120 on mainnet, from creation, whatever the use. On 2026-09-29 the shared grammar-6 interpreter on testnet had ~5.8 days left, the demo Prime, gate and adapter ~5.9, another Prime ~2.7 - and one policy that Prime depends on had **already archived**. The adapter's own comment ("a persistent entry outlives any sensible wait") held on mainnet only. | **Fixed with a 7-line contract change and a job.** The adapter extends its own instance on `execute` and `run` and keeps each stored move until its window closes (new build `68d012e7…`, re-pinned in the app; unit tests and testnet checks). OctoPos `apps/web/scripts/keep-alive.ts` restores and extends everything else a Prime depends on; its collection matched the footprints of 20 real transactions with nothing missed, its first run restored the archived policy and extended 69 entries, and it runs daily from the VM for the testnet accounts in its config. Residual R-13: unlisted accounts, and mainnet until the job runs there (superseded on 2026-10-01 by A-5: no job on mainnet). |
 | 3 | **A stored move outlives the authority that approved it**, including a revoked agent. | **Measured and documented** (R-9) - the design's trade, not a defect. The app should say so when a rule is removed: offer to cancel that rule's stored moves, or to pause runs. Not built. |
 | 4 | **The run rule is signed by no key**, so its predicate is its only restriction. | **Measured** - all three abuses refused - and bounded by R-10. |
 | 5 | **Detection depends on polling**, because the adapter emits no events (A-4). | **Accepted by decision**, recorded so it is revisited before anything watches for moves. |
 
 ### How the model was validated
+
+This run (2026-10-01):
+
+- D1 rows rest on the deployment record and a read-back of mainnet: each code entry exists under its pinned hash, the interpreter instance runs `5143e641…`, and the lifetimes in D1-D.1 were read from each entry's live-until ledger.
+- The interpreter build mainnet runs was checked on testnet against a real Prime before the deployment (`evidence/execution-wait-testnet-reproducible-interpreter.log`, 45 of 45; `evidence/execution-address-rule-testnet-reproducible-interpreter.log`, 35 of 35).
+- Using the app's code, a gate and an adapter were simulated against mainnet and both succeeded.
+- F6 was checked against every pool the API lists on mainnet: each of the 359 is on one of the four known pool codes, and contracts that are not pools are not named as pools.
+- Auto-restore was measured on testnet: a creation whose uploaded code had archived succeeded and paid 3.82 XLM for the restore.
+
+The 2026-09-29 run:
 
 - Every row marked "measured" is a check in `scripts/verify-execution-wait-testnet.ts` (45 of 45 on the fixed adapter, `evidence/execution-wait-testnet.log`) or `scripts/verify-execution-address-rule-testnet.ts` (35 of 35, `evidence/execution-address-rule-testnet.log`), both run against the Linux builds the app pins, or a unit test named in the row. The run-once, revocation, pause and lifetime checks were added to the wait verifier for this run.
 - The app rows were walked end to end on beta against testnet with fresh wallets: gate set up, adapter created, run rule installed, a recovery stored and run by a wallet with no role, one move cancelled by the Prime and one by custody, and a gate on the earlier build still running its moves.
@@ -536,6 +615,20 @@ pieces it needs are still live (R-13).
 - Carried rows (C1, F1-F4, C2-C4, R-1 to R-8) rest on code that has not changed since 2026-09-25, re-verified by this run's tool evidence below.
 
 ### Tool evidence
+
+Run 2026-10-01 in the CredioLabs VM (Linux x86_64) against this tree:
+
+| Tool | Result |
+|---|---|
+| `cargo fmt --check`, `clippy --all-targets -D warnings`, `cargo test --release` - interpreter, gate, adapter | clean; interpreter 151 tests across seven test binaries, the 18-test conformance suite among them, adapter 33, gate 3, 0 failed |
+| `cargo audit` - interpreter, gate, adapter | 0 vulnerabilities; the same allowed warning in each, `RUSTSEC-2024-0436` (`paste` unmaintained) |
+| Artifact hashes before upload, in `scripts/deploy-prime-mainnet.ts` | gate `b01024f3…`, adapter `68d012e7…`, interpreter `5143e641…`, each equal to its pin; the script stops on any difference |
+| `bun audit` | **14 advisories found** (7 high, 7 moderate): `axios` below 1.20.0, under `@stellar/stellar-sdk` in the CLI, and `ip-address` 10.5.1, under the MCP SDK's rate limiter. Both were moved to fixed versions inside their declared ranges (`bun audit fix`, lockfile only); afterwards 0 across 146 packages |
+| `bun run check` (biome) | no errors (99 warnings, 22 infos) |
+| Package builds, then `bun run typecheck` | clean |
+| `bun test` | 771 pass, 1 skip, 0 fail across 772 tests in 52 files |
+| OctoPos `apps/web` - typecheck and `bun test ui`, after F6-S.1's fix | clean; 5,716 pass, 0 fail |
+| `cargo scout-audit` | Not run, for the reason given under the 2026-09-29 run. |
 
 Run 2026-09-29 in the CredioLabs VM (Linux x86_64) against this tree:
 
@@ -557,14 +650,15 @@ Run 2026-09-29 in the CredioLabs VM (Linux x86_64) against this tree:
 
 ### Where the model is weakest
 
+- **The cost of a restore on mainnet is unmeasured.** The 80.8 XLM figure was quoted for extending the smart account code; the first restore on mainnet will give the real cost. Auto-restore was measured only for creating a setup, on testnet.
 - **The new risks are about time, and time is the one thing no test here can wait out.** Every lifetime row is measured at the moment of storing, not by watching something archive: a stored move was not left for seven days to see it fail. The claim rests on the measured lifetime plus the network's documented archival behaviour.
 - **Detection is assumed, not provided** (trust assumption 8). A wait that nobody watches is a delay, not a control. This is the most important thing to build next.
 - **The run rule moves the adapter's safety into a rule.** It is the one place where a well-meaning hand-installed rule could undo the design (R-10). The contract cannot see which rule answered it.
-- **The last run's lesson held again.** This run's first belief about lifetimes - "persistent entries live about 120 days" - was true on mainnet only, and it had already been written into the contract's comment and a design decision (the lifetime extension was removed on the strength of it). Measuring caught it.
+- **The 2026-09-25 run's lesson held again on 2026-09-29.** The 2026-09-29 run's first belief about lifetimes - "persistent entries live about 120 days" - was true on mainnet only, and it had already been written into the contract's comment and a design decision (the lifetime extension was removed on the strength of it). Measuring caught it.
 
 ### What would raise confidence further
 
 An alert when a move is stored, so the wait is watched rather than merely
-long; and the keep-alive run for mainnet accounts, with a funded account,
-before any of them is 120 days old.
+long; an external audit of the three contracts, which is in progress; and
+`cargo scout-audit` run from a machine where it builds.
 

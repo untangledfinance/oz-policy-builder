@@ -9,6 +9,16 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ### Added
 
+- **Prime contracts on mainnet.** `scripts/deploy-prime-mainnet.ts` uploads the
+  gate, adapter and interpreter code, creates the grammar-6 interpreter, and
+  extends the three uploaded code entries and the interpreter instance. It
+  runs as a dry run unless given `--execute` and a fee cap, refuses code whose
+  hash differs from the pinned builds, and rehearses on testnet with
+  `--network testnet`. Run on 1 October 2026: the interpreter is
+  `CAOBQ4ZX…XO2R`, fees came to 158.36 XLM, and every transaction is in
+  `deployments/prime-mainnet.json`. No job keeps mainnet entries live; see
+  "Keeping contracts live" in `docs/stellar.md`.
+
 - **`execution-adapter` (v4): a batch can wait.** `execute(calls, grants, wait)`
   runs at once when `wait` is 0, as v3 does. With a wait it stores the batch,
   and anyone can `run(id)` it from the ready ledger until the run window closes.
@@ -38,8 +48,8 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   adapter's instance to about 30 days once fewer than about 7 remain, and a
   stored move is extended to last until its run window closes, capped at the
   network maximum. Build `68d012e7…`; the two earlier v4 builds are still
-  recognised. The rest of what a Prime depends on is kept live from outside, by
-  OctoPos's `apps/web/scripts/keep-alive.ts`.
+  recognised. On testnet the rest of what a Prime depends on is kept live from
+  outside, by OctoPos's `apps/web/scripts/keep-alive.ts`.
 
 ### Changed
 

@@ -205,28 +205,47 @@ its build.
 ### Keeping contracts live
 
 Every contract instance, persistent entry and uploaded wasm on Soroban starts
-with the network's minimum lifetime: about 7 days on testnet and 120 on
-mainnet. Using an entry does not extend it. When the lifetime runs out, the
-entry archives, and every transaction that touches it fails until someone
-restores it. Anyone can restore or extend an entry by paying the fee.
+with the network's minimum lifetime: about 7 days on testnet and 120 on mainnet.
+Using an entry does not extend it unless the contract does so itself. When the
+lifetime runs out, the entry archives and has to be restored before anything can
+use it. Anyone can restore or extend an entry by paying the fee.
 
-The adapter and a keep-alive job share the work:
+The adapter extends itself. `execute` and `run` extend its instance to about
+30 days once fewer than about 7 remain. A stored move is extended to last
+until its run window closes, up to the network maximum of about 180 days; a
+move whose window ends later archives first and has to be restored before it
+runs. Adapter builds before `68d012e7…` do neither.
 
-- **The adapter extends itself.** `execute` and `run` extend its instance to
-  about 30 days once fewer than about 7 remain. A stored move is extended to
-  last until its run window closes, up to the network maximum of about 180
-  days; a move whose window ends later archives first and has to be restored
-  before it runs. Adapter builds before `68d012e7…` do neither.
-- **The keep-alive job extends the rest.** OctoPos
-  `apps/web/scripts/keep-alive.ts` collects everything a Prime depends on: its
-  instance and wasm, its rules and the entries OpenZeppelin indexes them by,
-  its policies and the interpreter's per-rule entries, its gates, adapters and
-  stored moves, the shared interpreter, and the gate and adapter builds a new
-  setup is created from. It restores what has archived and extends anything
-  with fewer than 21 days left to 30. We run it daily on testnet for the
-  accounts listed in `apps/web/scripts/keep-alive.testnet.json`; an account not
-  listed there is not kept live. On mainnet the job needs a funded account to
-  pay the fees.
+The interpreter extends a rule's entries back to about 30 days, but only when an
+allowed call uses them with fewer than 100 ledgers (about 8 minutes) left, so in
+practice they archive like everything else. Nothing else is extended on its own.
+On testnet, where entries last a week, OctoPos `apps/web/scripts/keep-alive.ts`
+runs daily for the accounts listed in
+`apps/web/scripts/keep-alive.testnet.json`. It collects everything a Prime
+depends on (its instance and wasm, its rules and policies, the interpreter's
+per-rule entries, its gates, adapters and stored moves, and the shared code),
+restores what has archived and extends anything with fewer than 21 days left to
+30.
+
+On mainnet we do not run it. Since protocol 23, a transaction that touches an
+archived entry can restore it as part of the same transaction, and the account
+that submits the transaction pays for the restore. On testnet we created a setup
+whose uploaded code had archived; it went through, and the submitter paid 3.82
+XLM for the restore. We have not tried the app's other paths, such as running an
+archived stored move. On 1 October 2026 we read when each mainnet entry the app
+relies on will archive, unless someone extends it first:
+
+| Entry | Archives around |
+|---|---|
+| OpenZeppelin smart account code `91a2cd56…` | 7 December 2026 |
+| OpenZeppelin `simple_threshold` policy code | 23 December 2026 |
+| Gate and adapter code, the grammar-6 interpreter's code and instance | 30 March 2027 |
+| A Prime, gate, adapter or policy created by a user | about 120 days after it is created or last extended |
+
+The smart account code matters most. Every Prime runs it, so the first
+transaction that uses or creates a Prime after it archives pays for its restore.
+We have not measured that cost on mainnet; the deployment's simulation quoted
+80.8 XLM to extend the same entry to the network maximum.
 
 ### Prime account and the mandate
 
@@ -277,7 +296,8 @@ a clock. Amount limits over time come from the allowance and its expiry.
 
 ## Setting it up
 
-In the Prime app, against testnet:
+In the Prime app (shown here on testnet; app.untangled.finance takes the same
+steps on mainnet):
 
 | Step | Where | Signatures |
 |---|---|---|
@@ -360,7 +380,7 @@ The custody account can also cancel any stored move before it runs, with
 | The address rule against a real Prime and live Blend and Aquarius | `scripts/verify-execution-address-rule-testnet.ts`, testnet | All 35 checks passed against the adapter with no wait on 29 September 2026, on the Linux builds recorded in `deployments/execution-testnet.json` - the same results the v3 adapter gave. The log is `evidence/execution-address-rule-testnet.log`. A Blend supply, a withdrawal to custody and an Aquarius swap succeed. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put. |
 | The adapter's wait against a real Prime, the unchanged gate and live Blend | `scripts/verify-execution-wait-testnet.ts`, testnet | All 45 checks passed on 29 September 2026 on the Linux builds; the log is `evidence/execution-wait-testnet.log`. Succeeded:<br>• a Blend supply at once;<br>• a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role and no Prime signature;<br>• an agent's batch after the minimum wait its own rule demands.<br>Refused:<br>• the agent below that minimum, and the agent cancelling;<br>• the run rule used for an immediate `execute`, a stored batch or a `cancel`;<br>• a stranger cancelling;<br>• running early, twice, after a cancel, or after the run window;<br>• a wait below the adapter's floor;<br>• the Prime creating the adapter at custody's address with a lower floor or a longer window.<br>The Prime and custody both cancel. An agent's stored move still runs after its rule is removed; removing the run rule pauses a ready move; a move stored with a wait past the network minimum lives until its window closes, and using the adapter extends its own instance to ~30 days. |
 | The full scenario in the Prime app | the Prime app's Fordefi scenario guide, on beta against testnet | 10 XLM under the low band succeeds with the agent alone; 150 XLM under the low band is refused; 150 XLM under the high band succeeds after the admin approves. Custody's XLM fell by exactly 315, the sum of the moves less the withdrawal. |
-| Contract unit tests | `cargo test` in each crate | interpreter 153, adapter 33, gate 3 |
+| Contract unit tests | `cargo test` in each crate | interpreter 151 (the conformance suite included), adapter 33, gate 3, run on 1 October 2026 |
 
 ## Deployments
 
@@ -383,15 +403,17 @@ deployed and still reachable by accounts that use them; their source is at tag
 ## Limits
 
 - **No external audit.** The contracts have been through internal adversarial
-  review and a STRIDE threat model, last run on 29 September 2026
+  review and a STRIDE threat model, last run on 1 October 2026
   ([report](../evidence/stride-threat-model.md)). That is not an audit.
 - **Nothing alerts custody when a move is stored.** The adapter emits no
   events, by design. A stored move is public on the ledger and the Prime app
   lists it, but custody has to look.
-- **Keeping contracts live depends on the keep-alive job.** It covers the
-  testnet accounts it lists. For an unlisted account, everything except a
-  used adapter archives after the network minimum, and mainnet needs the job
-  run with a funded account (see
+- **No job keeps mainnet contracts live.** Apart from a used adapter, its
+  stored moves, and the code and interpreter instance this deployment extended
+  (which last until about 30 March 2027), every entry archives about 120 days after it is created or
+  last extended. The next transaction that needs an archived entry should
+  restore it, and the account that submits it pays; this has been measured
+  only for creating a setup, on testnet (see
   [Keeping contracts live](#keeping-contracts-live)).
 - **Revoking an agent's rule does not stop the moves it already stored.** A
   stored move runs under the run rule, not the agent's. To stop one, cancel it,
