@@ -1,0 +1,22 @@
+{
+  "network": "testnet",
+  "recorded": "2026-10-01T12:17:38.783Z",
+  "deployer": "GAY3TELKLYMQWBWNLJ77D6H5WSYYP3BQJMGRJAKAXZUYSKXJUYCT3ATD",
+  "interpreter": "CBRRKTVURLAJRPJ3G44AWA5SCGUV47PCYF5CHND5TG3OGTFNXTSLBIJ5",
+  "interpreterSaltText": "untangled.policy-interpreter.grammar6",
+  "wasmSha256": {
+    "custody-gate": "b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab",
+    "execution-adapter": "68d012e79fd4f9b88584447cfb32e0b0dbb55fb8bcd084b7212bad3e63b6dfdd",
+    "policy-interpreter": "5143e64159378c9aac27e8cf1c9cb1f14364672885c151ccc5d887109f776126"
+  },
+  "sizes": {
+    "custody-gate": 9026,
+    "execution-adapter": 22753,
+    "policy-interpreter": 49855
+  },
+  "transactions": {
+    "create interpreter instance": "20256e0ac590f19a6fe13110a47dca7fa562c41fce3b6357a1321c181a7e5034"
+  },
+  "feesChargedXlm": "0.0060939",
+  "note": "Linux builds through each build-wasm.sh, rebuilt by CI. The Prime app pins the gate and adapter hashes and this interpreter instance for mainnet."
+}

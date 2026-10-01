@@ -1,0 +1,62 @@
+
+prime   CB6X4XGLAGOAYK5NCI3AFJKRM6UFZJSU6MUVMLO6DIGOZI7JYVDCEXNN
+gate    CABXHTCE5CDJYPENSWINOV7YVUTFPBCAM2BD64PUF4Q35QYI4WMI4ZDB
+adapter CAWQLS6PYKS5H4KDOUQLJDFKDSL53FAEOFKJ22OEPX5W7LB2AINTYKXR   22753B adapter, 9026B gate
+
+── real venues ──
+ok   Blend supply                                       PERMIT  SUCCESS
+ok   Blend withdraw to custody                          PERMIT  SUCCESS
+ok   Aquarius swap, proceeds home                       PERMIT  SUCCESS
+  cost  6641494 instructions
+
+── the adapter and the Prime as targets ──
+ok   a batch calling the adapter back                   PASSES  Error(Context, InvalidAction)
+ok   a batch adding a signer to the Prime               REFUSE  #1 PrimeTarget
+ok   a batch driving the Prime own execute              REFUSE  #1 PrimeTarget
+
+── destinations ──
+ok   drain to a stranger                                REFUSE  #2 AddressNotAllowed
+ok   Blend proceeds to a stranger                       REFUSE  #2 AddressNotAllowed
+ok   a stranger only in an auth entry                   REFUSE  #2 AddressNotAllowed
+
+── the gate ──
+ok   pull from a foreign gate listed on ours            PASSES  Error(Auth, InvalidAction)
+ok   our own gate still works                           PERMIT  
+ok   draw a token custody never approved                REFUSE  Error(Contract, #101)
+ok   pull with the gate itself as the destination       REFUSE  Error(Contract, #1)
+
+── data that can denote an address ──
+ok   an allowed account as a strkey                     PASSES  Error(Value, UnexpectedType)
+ok   an allowed contract as its 32-byte id              PASSES  Error(Value, UnexpectedType)
+ok   a stranger as a strkey                             REFUSE  #2 AddressNotAllowed
+ok   a stranger as its 32-byte key                      REFUSE  #2 AddressNotAllowed
+ok   a 64-byte signature                                PASSES  Error(Value, UnexpectedType)
+ok   a short memo                                       PASSES  Error(Value, UnexpectedType)
+
+── inside an authorization ──
+ok   an auth entry naming an unlisted contract          REFUSE  #2 AddressNotAllowed
+ok   a stranger nested one sub-invocation down          REFUSE  #2 AddressNotAllowed
+ok   a deploy authorization in a grant                  REFUSE  #3 Uncheckable
+ok   a deploy authorization nested one down             REFUSE  #3 Uncheckable
+
+── size and depth are bounded by the host, not by a guess ──
+ok   twenty calls                                       PERMIT  
+ok   a stranger buried 50 deep                          REFUSE  #2 AddressNotAllowed
+ok   a legitimate value nested 30 deep                  PERMIT  
+
+── everything at once ──
+ok   13 calls, nested data and auth, all listed         PERMIT  
+ok   the same with a stranger in the last one           REFUSE  #2 AddressNotAllowed
+ok   the same with a stranger as raw 32 bytes           REFUSE  #2 AddressNotAllowed
+
+── the custody handover ──
+ok   the Prime admin tries to rebind                    REJECTED refused
+ok   custody rebinds to a token contract                REJECTED Error(Value, InvalidInput)
+ok   custody rebinds to a plain wallet                  REJECTED Error(Object, InvalidInput)
+ok   custody rebinds                                    LANDS   ok
+ok   the binding on the ledger reads the successor      yes
+ok   the old gate is no longer reachable                REFUSE  #2 AddressNotAllowed
+
+all checks passed
+custody 9999.7379968   stranger 10000.0000000
+EXIT=0
