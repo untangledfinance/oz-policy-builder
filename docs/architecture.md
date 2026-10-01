@@ -1,10 +1,8 @@
 # Prime custody architecture
 
 Untangled Prime lets an agent put part of your treasury to work while the funds
-stay in your MPC wallet and can reach only the destinations you listed. Below
-are the setup, the two guarantees it gives, how Stellar and EVM each enforce
-them, and what has been tested. Chain-level detail is in
-[stellar.md](stellar.md) and [evm.md](evm.md).
+stay in your MPC wallet and can reach only the destinations you listed.
+Chain-level detail is in [stellar.md](stellar.md) and [evm.md](evm.md).
 
 ## The use case
 
@@ -103,6 +101,7 @@ flowchart LR
 
 | | Stellar | EVM (Base) |
 |---|---|---|
+| Network | Stellar mainnet since 1 October 2026, and testnet | Base Sepolia testnet |
 | Your MPC wallet | A classic Stellar account. The weights and the threshold of 20 are enforced by the network itself. | A Fordefi address. EVM cannot put weights on an address, so the rule that all your signers must approve has to live in your Fordefi policy, with Prime's automated co-signer and the trusted third party as required approvers. |
 | What your wallet approves | A token allowance to the custody gate, per asset, with an amount and an expiry of up to 180 days. | A token approval to the custody gate, per asset, with an amount. That amount is the gate's total budget. |
 | The custody gate | A small contract you deploy and own. It has no admin and no settings, and it releases funds only to addresses on its list. | A Safe that your wallet alone owns. Its rules name the only venues and addresses a move may reach, and only your wallet can change them. |

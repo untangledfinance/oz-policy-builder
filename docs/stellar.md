@@ -61,9 +61,9 @@ flowchart TB
 `scripts/scenario/fordefi-custody.ts` builds the test version.
 
 Soroban calls face the same threshold as payments. CAP-46-11, the Soroban
-Authorization Framework, requires the medium threshold when a classic account authorises a
-contract call, so granting a fresh allowance through a contract needs the same
-20 as a payment. `scripts/verify-mpc-threshold-testnet.ts` checks every route
+Authorization Framework, requires the medium threshold when a classic account
+authorises a contract call, so granting a fresh allowance through a contract
+needs the same 20 as a payment. `scripts/verify-mpc-threshold-testnet.ts` checks every route
 out of the account on testnet, submitted to the network and not only
 simulated. With one key, `payment`, Soroban `approve`, `setOptions` and
 `accountMerge` are all refused; with enough weight, the same `payment` and
@@ -180,8 +180,8 @@ when it is the one asking, so the pool rule's adapter signature failed with
 `Error(Auth, InvalidAction)` on testnet. No key signs the run rule, so any
 account can run a stored batch.
 
-**The predicate is essential.** Without it, the rule would let anyone have the
-adapter approve an immediate `execute` or a `cancel` for the Prime. Agent rules
+**The run rule needs its predicate.** Without it, the rule would let anyone
+have the adapter approve an immediate `execute` or a `cancel` for the Prime. Agent rules
 permit `execute` only, so an agent cannot cancel.
 
 New errors: `WaitTooShort` 4, `NotScheduled` 5, `NotRunnable` 6 (before the
@@ -348,8 +348,7 @@ to the gate's list when the gate is set up. The Prime account's own authority,
 2 of 3, can then run one call, `pull(asset, recoveryAddress, amount)`, through
 the adapter. It moves the custody account's funds to that address and nowhere
 else. A band pins every destination, so an agent's rules cannot reach it.
-Nothing changed in the contracts to support this; it uses the gate's existing
-list.
+Recovery uses the gate's existing list and needed no contract change.
 
 Through a v4 adapter the recovery is a stored batch like any other: it waits at
 least the adapter's `min_wait`, and the custody account or the Prime can cancel
@@ -391,8 +390,8 @@ The custody account can also cancel any stored move before it runs, with
 | Policy interpreter, grammar 6 | mainnet | `CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R`, the Linux build `5143e641…` that CI rebuilds, created by `scripts/deploy-prime-mainnet.ts` and recorded in [`deployments/prime-mainnet.json`](../deployments/prime-mainnet.json) |
 | Execution adapter and custody gate builds | mainnet | `68d012e7…` and `b01024f3…`, the same Linux builds as testnet, uploaded by the same script |
 
-The v3 pair is not on mainnet. A gate pins its
-adapter's build and has no setter, so adopting a new adapter build means a new
+The v3 pair is not on mainnet. A gate pins its adapter's build and has no
+setter, so adopting a new adapter build means a new
 gate and adapter for that custody account. Earlier generations are still
 deployed and still reachable by accounts that use them; their source is at tag
 `archive/contracts-before-v3-only`.
@@ -416,9 +415,9 @@ deployed and still reachable by accounts that use them; their source is at tag
   (rule 0, 2 of 3 in the app's setup) can therefore draw custody funds into the
   Prime account, within the allowance. Run on testnet on 29 September 2026: the
   gate paid 2,000,000 stroops of custody's XLM to the Prime under rule 0. An
-  agent's bands cannot do this. Closing it needs a
-  contract change: the gate would keep the addresses it may pay separate from
-  the addresses a batch may name.
+  agent's bands cannot do this. Closing it needs a contract change: the gate
+  would keep the addresses it may pay separate from the addresses a batch may
+  name.
 - **Rule 0 stands behind an open position.** A Blend position sits in the
   Prime's name, and rule 0's signers can install any rule, so while a position
   is open the Prime's own 2 of 3 signers are the control that protects it.
