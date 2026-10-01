@@ -1,0 +1,29 @@
+{
+  "network": "mainnet",
+  "recorded": "2026-10-01T12:30:35.602Z",
+  "deployer": "GCIVG2AIEWMDA43HX2HRCYVNY7PH7HMPYVN42LQ5XBSHBLHFUWG47NFN",
+  "interpreter": "CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R",
+  "interpreterSaltText": "untangled.policy-interpreter.grammar6",
+  "wasmSha256": {
+    "custody-gate": "b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab",
+    "execution-adapter": "68d012e79fd4f9b88584447cfb32e0b0dbb55fb8bcd084b7212bad3e63b6dfdd",
+    "policy-interpreter": "5143e64159378c9aac27e8cf1c9cb1f14364672885c151ccc5d887109f776126"
+  },
+  "sizes": {
+    "custody-gate": 9026,
+    "execution-adapter": 22753,
+    "policy-interpreter": 49855
+  },
+  "transactions": {
+    "upload custody-gate": "2dadad6ebd90c09e23e4eea1a8bebc62e079e69f28085c93eb2c342f8aeb9876",
+    "upload execution-adapter": "9c61e9c4f346573af46b2708335296b8f77a405b6f29d70f97ffcc8749988ecb",
+    "upload policy-interpreter": "acccdc95e8b981e2cf47c5d4ff63eed27f469c813a649150f240152e3975af91",
+    "create interpreter instance": "f9f3bdcfef63556821cc8d812eecef00df7f8a6899fc8cfb0ebc064fdb114c39",
+    "extend custody-gate code to ~3109400 ledgers ahead": "3e9e87dc93c0c5900dec5d102482c534d68e6792a08e6e37a42b009736e6fd1c",
+    "extend execution-adapter code to ~3109400 ledgers ahead": "40935eaca048b3d9279f9de1c6f5cb9abd889f5e9058fbb255d2a53d3d86b139",
+    "extend policy-interpreter code to ~3109400 ledgers ahead": "837f972618735556f3b480d496a5c09bb9400373b5aa93940b0dafacb0a782c0",
+    "extend interpreter instance to ~3109400 ledgers ahead": "0975749caf2f42a4fb4ebcd0837f8da021afd1a3909cb84fef19cc439c358abc"
+  },
+  "feesChargedXlm": "158.3607754",
+  "note": "Linux builds through each build-wasm.sh, rebuilt by CI. The Prime app pins the gate and adapter hashes and this interpreter instance for mainnet. The OZ account code (91a2cd56) was not extended in this run; it is on the keep-alive list."
+}
