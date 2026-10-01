@@ -402,9 +402,10 @@ deployed and still reachable by accounts that use them; their source is at tag
 
 ## Limits
 
-- **No external audit.** The contracts have been through internal adversarial
-  review and a STRIDE threat model, last run on 1 October 2026
-  ([report](../evidence/stride-threat-model.md)). That is not an audit.
+- **External audit in progress.** An external audit of the contracts is
+  under way, and its report has not been published yet. They have also been
+  through internal adversarial review and a STRIDE threat model, last run on
+  1 October 2026 ([report](../evidence/stride-threat-model.md)).
 - **Nothing alerts custody when a move is stored.** The adapter emits no
   events, by design. A stored move is public on the ledger and the Prime app
   lists it, but custody has to look.

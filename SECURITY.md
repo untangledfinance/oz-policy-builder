@@ -22,9 +22,10 @@ There is currently no bug bounty programme.
 
 ## Audit status
 
-**These contracts are unaudited.** They have been through internal adversarial
-review, and the findings that came out of it were either fixed or documented
-as accepted trust assumptions, but no external audit has been completed.
+**An external audit is in progress.** Its report has not been published yet.
+The contracts have also been through internal adversarial review and a STRIDE
+threat model, and the findings that came out of them were either fixed or
+documented as accepted trust assumptions.
 [docs/stellar.md](./docs/stellar.md) is specific about what each
 piece does and does not enforce; treat anything it does not claim as
 unenforced.
