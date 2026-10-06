@@ -1,0 +1,95 @@
+{
+ "admin": "GCFGOSRQVJXZNCRU2CLWBX3EHRCIDKOLBXKUFIPBPS7RRSV4UE75HCBN",
+ "adminB": "GCEVBRIX6FCRMMRTESQ25HMVVWHJTJFOG66HY56HV63RROMG45XYCUCX",
+ "adminC": "GAJUXMNAM4W46H3GXH7ODKLJSFPLGHL4RZNBYTNESAGAEV7SIN2NPDWN",
+ "path": "prime:session-spike/stellar-1",
+ "metamask": "0xCcD8af4Ae1a907Ac370FD151D6282da59bc7C570",
+ "prime": "CDW2FDNP4TYM7BTBTAFDURS55XD3RLQDXQDXYQT6IA6DGOJEKQXX6BW3",
+ "primeTx": "3dd6cdeb489f02c58db6cda1438dce089cc1e331637fe9b88fa086838653156d",
+ "signer": "CDRLTNNG2APUPPWNWZBVMUYRVWFJLQIN5LTAPILC7ZD6G6MGI2XJFVWN",
+ "signerTx": "7e05330d1510a31aecb19b266d85dfed846e4d001fedc5737adc740fcaa0be7d",
+ "uploadTx": "9fbc9841afcd7e295aead17eae88ca7e578ceaec1e0f61a18a42b728dc2b76cb",
+ "signerWasm": "edca6f742418a1f47f7463cfce4f2f0ac5fcc853cec3808922afdf3637cb9f5a",
+ "funded": "e2acd9445daa01200d7992c215f4509f28de1c1c9e4aba0421622bc8f8953bd6",
+ "venue": "GAY3HT6CSRI6KEKRNYX2RYOP7NT7TK4PAF7FQGVQTNMTKP3BI72FP4AF",
+ "installTx": "e994b7da66e8392e6cbcc0100942dfffea2dd1ab7c57169b8f670774b632c47a",
+ "installNearTx": "C92F5GyHhztrMkq7V9p1zhYjvi7c2gmUW9zi8AdvtBqq",
+ "installMpcMs": 20605,
+ "installMs": 27930,
+ "movesA": {
+  "1. session key moves 1 XLM to the allowed venue": {
+   "pass": true,
+   "ok": true,
+   "ms": 9117,
+   "hash": "e0963e690254fa00aefa1aa9a6aa1da69922cbf6fb5512909168ce2f4080855a"
+  },
+  "2. second move, same session": {
+   "pass": true,
+   "ok": true,
+   "ms": 5767,
+   "hash": "ad10f90410b32996f9332a219a21213c8e7528b443530024218a044329deb6e7"
+  },
+  "3. to an address that is not the venue": {
+   "pass": true,
+   "ok": false,
+   "ms": 1305,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "4. session key adds a rule to the account (session rule)": {
+   "pass": true,
+   "ok": false,
+   "ms": 959,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)"
+  },
+  "5. session key adds a rule to the account (rule 0)": {
+   "pass": true,
+   "ok": false,
+   "ms": 866,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)"
+  },
+  "6. session key moves funds under rule 0": {
+   "pass": true,
+   "ok": false,
+   "ms": 978,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)"
+  },
+  "7. rule 0 still needs 2 of 3: B alone adds a rule": {
+   "pass": true,
+   "ok": false,
+   "ms": 1671,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3202)"
+  },
+  "8. proof claims a later valid_until than MetaMask signed": {
+   "pass": true,
+   "ok": false,
+   "ms": 1184,
+   "error": "Error(Auth, InvalidAction)"
+  },
+  "9. grant signed by another wallet": {
+   "pass": true,
+   "ok": false,
+   "ms": 845,
+   "error": "Error(Auth, InvalidAction)"
+  },
+  "10. renewal: a new key, one new MetaMask signature, no NEAR": {
+   "pass": true,
+   "ok": true,
+   "ms": 5489,
+   "hash": "1ae90f2071c6f427da18c36ef455d9b7efdc786f016c59599756b8bec1db5fda"
+  }
+ },
+ "movesB": {
+  "11a. short session, before valid_until": {
+   "pass": true,
+   "ok": true,
+   "ms": 3370,
+   "hash": "2242a31287fb3b126f0e85099d78830c90f5cd0a7710e42a809976474ad5fc9e"
+  },
+  "11b. same session, after valid_until": {
+   "pass": true,
+   "ok": false,
+   "ms": 3085,
+   "error": "Error(Auth, InvalidAction)"
+  }
+ }
+}
