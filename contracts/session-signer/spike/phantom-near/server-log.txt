@@ -1,0 +1,23 @@
+14:26:38 listening http://127.0.0.1:8790
+14:26:47 ERR Unexpected end of JSON input
+14:27:02 ground gas {
+  gas: "30000070028736",
+  tries: "52479654",
+  secs: "3.7",
+}
+14:27:02 prepared {
+  implicit: "dff7d5e453d392e6fe11876b3cb45e40a945181ef9d751b2a26b4dc13869338b",
+  txBytes: 364,
+  hash: "1e110a630f7a32c9a6546827202b6acab41ac68b183d7c3f4e14416d424b3415",
+}
+14:27:11 phantom signature verifies over sha256(borsh(tx)) locally: true
+14:27:27 result {
+  local: true,
+  accepted: true,
+  nearTx: "32NJVvrjDKafT6JDKRCYym8ZkLWkGUGnhS4JyeGYvtvG",
+  ms: 16496,
+  mpcSignature: true,
+  mpcVerifies: true,
+  derivedMatchesContract: true,
+  derivedKey: "ed25519:3hN1wYZUtANYd6hNj4P7haVk2hR1GddZxXep2Rk3ej2o",
+}
