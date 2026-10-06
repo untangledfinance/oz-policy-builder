@@ -1,10 +1,8 @@
-// Setup that needs no NEAR signature: accounts, Prime Account, session-signer, funding.
-import { readFileSync } from 'node:fs';
+// Setup that needs no NEAR signature: accounts, the 2-of-3 Prime Account, funding.
 import { Sdk, XLM, friendbot, keypair, log, save, state, submit } from './stellar.ts';
 import { deriveEd25519 } from './near.ts';
 import { ethAccountId, metamask } from './mm.ts';
 const ACCOUNT_WASM_HASH = '91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9';
-const WASM = '/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/contracts/session-signer/target/wasm32v1-none/release/session_signer.wasm';
 const st = state();
 const fee = keypair('secrets/fee-payer.json');
 const PATH = 'prime:session-spike/stellar-1';
@@ -25,16 +23,6 @@ if (!prime) {
     ],
   }));
   prime = Sdk.Address.fromScVal(ret!).toString(); save({ prime, primeTx: hash }); log('Prime Account (rule 0: A=NEAR/MetaMask, B, C; 2 of 3)', prime, hash);
-}
-let signer = st.signer;
-if (!signer) {
-  const wasm = readFileSync(WASM);
-  const up = await submit(fee, Sdk.Operation.uploadContractWasm({ wasm }));
-  const { ret, hash } = await submit(fee, Sdk.Operation.createCustomContract({
-    address: Sdk.Address.fromString(fee.publicKey()), wasmHash: Sdk.hash(wasm),
-    constructorArgs: [Sdk.xdr.ScVal.scvBytes(Buffer.from(metamask.address.slice(2), 'hex')), new Sdk.Address(prime).toScVal()],
-  }));
-  signer = Sdk.Address.fromScVal(ret!).toString(); save({ signer, signerTx: hash, uploadTx: up.hash, signerWasm: Sdk.hash(wasm).toString('hex') }); log('session-signer', signer, hash);
 }
 if (!st.funded) {
   const { hash } = await submit(fee, new Sdk.Contract(XLM).call('transfer', new Sdk.Address(fee.publicKey()).toScVal(), new Sdk.Address(prime).toScVal(), Sdk.nativeToScVal(500_000_000n, { type: 'i128' })));

@@ -91,5 +91,154 @@
    "ms": 3085,
    "error": "Error(Auth, InvalidAction)"
   }
- }
+ },
+ "signer2": "CDJS7K7NRLFUD5ZUWZBSN7ON5HBVVXSJVVKI6KPFJTLN6CI4RC7ERIAD",
+ "signer2Tx": "d736f1730e4c0f02ce4445ff9310f3942ca7c014ec564d884af7f5f4942cf410",
+ "signer2Upload": "177be4310af5bca1ab9db704921e9c6d6d04bae739356222a03a65320d9818ec",
+ "signer2Wasm": "2a490349074953de6c78d9852f618b3ea7b8f832a2a50b7834f592d317fdcbb7",
+ "poolRuleTx": "b60bc8613593089fb997488d2312f3e24bb4ef1ae7e9c281d64afa2afc62b069",
+ "xlmRuleTx": "520549db26e222a0db3a3c64ef0ad50f6a08d91dfaee382a8a1ddc3a28959848",
+ "moves2": {
+  "1. supply 5 XLM to Blend (pool + nested XLM transfer, two rules)": {
+   "pass": true,
+   "ok": true,
+   "ms": 4437,
+   "hash": "23ff9b431473d1e8f734a586d01a09b02da532aab0941c3b5517dff120ea6754"
+  },
+  "2. withdraw 2 XLM from Blend": {
+   "pass": true,
+   "ok": true,
+   "ms": 5613,
+   "hash": "c540fa1aac9d249343be7f8ec796be162fce2d8f6d4ab2c71fce83f1a91f6563"
+  },
+  "3. borrow (request_type 4)": {
+   "pass": true,
+   "ok": false,
+   "ms": 234,
+   "error": "Error(Contract, #1205)"
+  },
+  "4. withdraw to another address": {
+   "pass": true,
+   "ok": false,
+   "ms": 755,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "5. two requests in one submit": {
+   "pass": true,
+   "ok": false,
+   "ms": 707,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "6. session key removes rule 0": {
+   "pass": true,
+   "ok": false,
+   "ms": 739,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)"
+  },
+  "7. XLM straight to the session holder": {
+   "pass": true,
+   "ok": false,
+   "ms": 569,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "3a. supply 5 XLM as collateral (request_type 2)": {
+   "pass": true,
+   "ok": true,
+   "ms": 6661,
+   "hash": "5221de11bab45ef4a3ca8bf40521be87ea3016f3367c619a3fcd2fc48586863a"
+  },
+  "3b. borrow 0.5 XLM against it (request_type 4)": {
+   "pass": true,
+   "ok": false,
+   "ms": 998,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #105)"
+  },
+  "8. grant made for the v1 instance, used on v2": {
+   "pass": true,
+   "ok": false,
+   "ms": 579,
+   "error": "Error(Auth, InvalidAction)"
+  },
+  "9. grant 7 days + 1 ledger ahead": {
+   "pass": true,
+   "ok": false,
+   "ms": 630,
+   "error": "Error(Auth, InvalidAction)"
+  },
+  "10. grant exactly 7 days ahead": {
+   "pass": true,
+   "ok": true,
+   "ms": 4243,
+   "hash": "94c3b02898c0580e465aa50b8da0dfc04b8244a2dba46a71d7dc038ad2b85d4a"
+  },
+  "11. grant signed by another wallet": {
+   "pass": true,
+   "ok": false,
+   "ms": 793,
+   "error": "Error(Auth, InvalidAction)"
+  },
+  "12. session R works": {
+   "pass": true,
+   "ok": true,
+   "ms": 2001,
+   "hash": "f567ebc443b34baf554e251bf56aa5a02205c1f3d8295e33e031fe160f7be4fb"
+  },
+  "13. revoke by a stranger": {
+   "pass": true
+  },
+  "14. owner revokes R": {
+   "pass": true,
+   "hash": "475e0f835c6af6469879178a1be0af4fcfc01d4e771a8d7f22f4d6e23cbe5146",
+   "ms": 4801
+  },
+  "15. session R after revoke": {
+   "pass": true,
+   "ok": false,
+   "ms": 871,
+   "error": "Error(Auth, InvalidAction)"
+  },
+  "16. another session still works": {
+   "pass": true,
+   "ok": true,
+   "ms": 5267,
+   "hash": "aaa99e7234c45c95f55ac4747d9e49d73ff32421c804eb300bd713c82a87c5f4"
+  },
+  "17.1 latency: supply 1 XLM": {
+   "pass": true,
+   "ok": true,
+   "ms": 3542,
+   "hash": "f65079dd9be9a56f0b29356515dcf1c770afbbc1917308833288dd9216cadb23"
+  },
+  "17.2 latency: supply 1 XLM": {
+   "pass": true,
+   "ok": true,
+   "ms": 5579,
+   "hash": "0488b95fc0f7f6c1eaf6949202633185687dd57e47c6f51a1c0a13a07f9cf379"
+  },
+  "17.3 latency: supply 1 XLM": {
+   "pass": true,
+   "ok": true,
+   "ms": 4423,
+   "hash": "8cd22b589f2682a1e93909fa0adf1e30a462233d5c6635ffb0f726975086db8b"
+  },
+  "17.4 latency: supply 1 XLM": {
+   "pass": true,
+   "ok": true,
+   "ms": 5997,
+   "hash": "6ad587f98b65e9129e16ee64bd736ef943817767447d8351c2af8e197ce5de37"
+  },
+  "17.5 latency: supply 1 XLM": {
+   "pass": true,
+   "ok": true,
+   "ms": 4728,
+   "hash": "2e8d292031e725ce7961a67e0c1c81b542bf4e1927e8b824cc4ee6edf873abd1"
+  }
+ },
+ "latency": [
+  3542,
+  5579,
+  4423,
+  5997,
+  4728
+ ]
 }

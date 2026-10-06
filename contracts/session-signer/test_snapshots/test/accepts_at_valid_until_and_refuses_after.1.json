@@ -11,9 +11,9 @@
   ],
   "ledger": {
     "protocol_version": 27,
-    "sequence_number": 500,
+    "sequence_number": 601,
     "timestamp": 0,
-    "network_id": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472",
+    "network_id": "0000000000000000000000000000000000000000000000000000000000000000",
     "base_reserve": 0,
     "min_persistent_entry_ttl": 4096,
     "min_temp_entry_ttl": 16,
@@ -39,14 +39,7 @@
                         "u32": 0
                       },
                       "val": {
-                        "vec": [
-                          {
-                            "bytes": "17c5185167401ed00cf5f5b2fc97d9bbfdb7d025"
-                          },
-                          {
-                            "address": "CD77AAD766IG4U64GIBCFHTQMCOX65FSDMP3CNPB75PSNEOFLX4G32RB"
-                          }
-                        ]
+                        "bytes": "4a62316623ad457f02cdc5d997ded67a383ec569"
                       }
                     }
                   ]

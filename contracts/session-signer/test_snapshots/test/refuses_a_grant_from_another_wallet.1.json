@@ -6,8 +6,6 @@
   },
   "auth": [
     [],
-    [],
-    [],
     []
   ],
   "ledger": {
@@ -40,14 +38,7 @@
                         "u32": 0
                       },
                       "val": {
-                        "vec": [
-                          {
-                            "bytes": "4a62316623ad457f02cdc5d997ded67a383ec569"
-                          },
-                          {
-                            "address": "CD77AAD766IG4U64GIBCFHTQMCOX65FSDMP3CNPB75PSNEOFLX4G32RB"
-                          }
-                        ]
+                        "bytes": "4a62316623ad457f02cdc5d997ded67a383ec569"
                       }
                     }
                   ]

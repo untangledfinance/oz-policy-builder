@@ -1,68 +1,98 @@
-// After setup: sessions and moves with NO NEAR signature.
-// Each session = fresh ed25519 key + ONE MetaMask EIP-712 signature (off chain).
+// v2 session tests against Blend TestnetV2. No NEAR signature anywhere here.
 import { sha256, toBytes, toHex } from 'viem';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
-import { Sdk, XLM, invokeAs, keypair, localSigner, log, save, server, state } from './stellar.ts';
+import { Sdk, XLM, invokeAs, keypair, log, save, server, state, submit } from './stellar.ts';
 import { DOMAIN, TYPES } from './eip712.ts';
 import { metamask } from './mm.ts';
+const POOL = 'CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF';
 const st = state();
 const fee = keypair('secrets/fee-payer.json');
-const PRIME: string = st.prime;
-const count = Sdk.scValToNative((await server.simulateTransaction(new Sdk.TransactionBuilder(await server.getAccount(fee.publicKey()), { fee: '100', networkPassphrase: Sdk.Networks.TESTNET }).addOperation(new Sdk.Contract(PRIME).call('get_context_rules_count')).setTimeout(30).build()) as any).result.retval);
-const RULE = Number(count) - 1;
+const PRIME: string = st.prime, SIGNER: string = st.signer2;
+const S = Sdk.xdr.ScVal;
+const sim = async (contract: string, fn: string, ...args: Sdk.xdr.ScVal[]) => {
+  const tx = new Sdk.TransactionBuilder(await server.getAccount(fee.publicKey()), { fee: '100', networkPassphrase: Sdk.Networks.TESTNET }).addOperation(new Sdk.Contract(contract).call(fn, ...args)).setTimeout(30).build();
+  return Sdk.scValToNative(((await server.simulateTransaction(tx)) as any).result.retval);
+};
+const n = Number(await sim(PRIME, 'get_context_rules_count'));
+const ids: Record<string, number> = {};
+for (let i = 0; i < n + 4 && Object.keys(ids).length < n; i++) { try { const r: any = await sim(PRIME, 'get_context_rule', S.scvU32(i)); ids[r.name] = i; } catch {} }
+const POOL_RULE = ids.session_blend!, XLM_RULE = ids.session_xlm!;
+log('rules', JSON.stringify(ids));
 const now = async () => (await server.getLatestLedger()).sequence;
-
-async function newSession(ledgers: number, wallet = metamask) {
-  const kp = Sdk.Keypair.random();
-  const until = (await now()) + ledgers;
-  const t0 = Date.now();
-  const grant = await wallet.signTypedData({ domain: DOMAIN, types: TYPES, primaryType: 'PrimeSession',
-    message: { account: PRIME, sessionKey: toHex(kp.rawPublicKey()), validUntil: until, network: sha256(toBytes(Sdk.Networks.TESTNET)) } });
-  return { kp, until, grant, grantMs: Date.now() - t0 };
+const network = sha256(toBytes(Sdk.Networks.TESTNET));
+async function grantFor(key: Buffer, until: number, wallet = metamask, signer = SIGNER) {
+  const sig = await wallet.signTypedData({ domain: DOMAIN, types: TYPES, primaryType: 'PrimeSession', message: { signer, sessionKey: toHex(key), validUntil: until, network } });
+  return { rs: Buffer.from(sig.slice(2, 130), 'hex'), v: parseInt(sig.slice(130, 132), 16) };
 }
-type S = Awaited<ReturnType<typeof newSession>>;
-const asSigner = (s: S, claimUntil = s.until) => ({ address: st.signer, signNested: async (p: Buffer) => Sdk.xdr.ScVal.scvVec([
-  Sdk.xdr.ScVal.scvBytes(s.kp.rawPublicKey()), Sdk.xdr.ScVal.scvU32(claimUntil),
-  Sdk.xdr.ScVal.scvBytes(Buffer.from(s.grant.slice(2), 'hex')), Sdk.xdr.ScVal.scvBytes(s.kp.sign(p)) ]) });
-const xfer = (to: string, stroops: bigint) => new Sdk.Contract(XLM).call('transfer', new Sdk.Address(PRIME).toScVal(), new Sdk.Address(to).toScVal(), Sdk.nativeToScVal(stroops, { type: 'i128' }));
+async function session(ledgers: number, opts: { wallet?: typeof metamask; signer?: string; claim?: number } = {}) {
+  const kp = Sdk.Keypair.random(), until = (await now()) + ledgers;
+  const g = await grantFor(kp.rawPublicKey(), until, opts.wallet, opts.signer);
+  return { kp, until, ...g, claim: opts.claim ?? until };
+}
+type Sess = Awaited<ReturnType<typeof session>>;
+const as = (s: Sess) => [{ address: SIGNER, signNested: async (p: Buffer) => S.scvVec([S.scvBytes(s.kp.rawPublicKey()), S.scvU32(s.claim), S.scvBytes(s.rs), S.scvU32(s.v), S.scvBytes(s.kp.sign(p))]) }];
+const req = (type: number, stroops: bigint) => S.scvMap([
+  new Sdk.xdr.ScMapEntry({ key: S.scvSymbol('address'), val: new Sdk.Address(XLM).toScVal() }),
+  new Sdk.xdr.ScMapEntry({ key: S.scvSymbol('amount'), val: Sdk.nativeToScVal(stroops, { type: 'i128' }) }),
+  new Sdk.xdr.ScMapEntry({ key: S.scvSymbol('request_type'), val: S.scvU32(type) })]);
+const submitOp = (reqs: Sdk.xdr.ScVal[], to = PRIME) => new Sdk.Contract(POOL).call('submit', new Sdk.Address(PRIME).toScVal(), new Sdk.Address(PRIME).toScVal(), new Sdk.Address(to).toScVal(), S.scvVec(reqs));
 const short = (e?: string) => [...new Set((e ?? '').match(/Error\([A-Za-z]+, #?\w+\)/g) ?? [])].join(' ') || (e ?? '').slice(0, 160);
-const results: Record<string, unknown> = {};
-async function run(name: string, expectOk: boolean, p: Promise<Awaited<ReturnType<typeof invokeAs>>>) {
-  const r = await p;
+const results: Record<string, unknown> = { ...(st.moves2 ?? {}) };
+async function run(name: string, expectOk: boolean, op: Sdk.xdr.Operation, ruleIds: number[], s: Sess) {
+  const r = await invokeAs({ feePayer: fee, op, account: PRIME, ruleIds, signers: as(s) });
   const pass = r.ok === expectOk;
-  if (process.env.RAW && !r.ok && name.startsWith(process.env.RAW)) console.log((r.error ?? '').slice(0, 3000));
   results[name] = { pass, ok: r.ok, ms: r.ms, hash: r.hash, error: r.ok ? undefined : short(r.error) };
   log(pass ? 'PASS' : 'FAIL', name, r.ok ? `ok ${r.ms} ms ${r.hash}` : `refused: ${short(r.error)}`);
+  save({ moves2: results });
+  return r;
 }
-const venue: string = st.venue;
-const which = process.argv[2] ?? 'all';
+const supplied = async () => { const p: any = await sim(POOL, 'get_positions', new Sdk.Address(PRIME).toScVal()); return JSON.stringify(p, (_, v) => (typeof v === 'bigint' ? v.toString() : v)); };
+const part = process.argv[2];
 
-if (which === 'all' || which === 'a') {
-  const s1 = await newSession(720); // ~1 hour
-  log(`session 1: key ${s1.kp.publicKey()}, valid until ledger ${s1.until}, MetaMask signed in ${s1.grantMs} ms`);
-  await run('1. session key moves 1 XLM to the allowed venue', true, invokeAs({ feePayer: fee, op: xfer(venue, 10_000_000n), account: PRIME, ruleIds: [RULE], signers: [asSigner(s1)] }));
-  await run('2. second move, same session', true, invokeAs({ feePayer: fee, op: xfer(venue, 10_000_000n), account: PRIME, ruleIds: [RULE], signers: [asSigner(s1)] }));
-  await run('3. to an address that is not the venue', false, invokeAs({ feePayer: fee, op: xfer(fee.publicKey(), 10_000_000n), account: PRIME, ruleIds: [RULE], signers: [asSigner(s1)] }));
-  const selfCall = new Sdk.Contract(PRIME).call('add_context_rule', Sdk.xdr.ScVal.scvVec([Sdk.xdr.ScVal.scvSymbol('Default')]), Sdk.xdr.ScVal.scvString('x'), Sdk.xdr.ScVal.scvVoid(),
-    Sdk.xdr.ScVal.scvVec([Sdk.xdr.ScVal.scvVec([Sdk.xdr.ScVal.scvSymbol('Delegated'), new Sdk.Address(fee.publicKey()).toScVal()])]), Sdk.xdr.ScVal.scvMap([]));
-  await run('4. session key adds a rule to the account (session rule)', false, invokeAs({ feePayer: fee, op: selfCall, account: PRIME, ruleIds: [RULE], signers: [asSigner(s1)] }));
-  await run('5. session key adds a rule to the account (rule 0)', false, invokeAs({ feePayer: fee, op: selfCall, account: PRIME, ruleIds: [0], signers: [asSigner(s1)] }));
-  await run('6. session key moves funds under rule 0', false, invokeAs({ feePayer: fee, op: xfer(fee.publicKey(), 10_000_000n), account: PRIME, ruleIds: [0], signers: [asSigner(s1)] }));
-  await run('7. rule 0 still needs 2 of 3: B alone adds a rule', false, invokeAs({ feePayer: fee, op: selfCall, account: PRIME, ruleIds: [0], signers: [localSigner(keypair('secrets/admin-b.json'))] }));
-  await run('8. proof claims a later valid_until than MetaMask signed', false, invokeAs({ feePayer: fee, op: xfer(venue, 10_000_000n), account: PRIME, ruleIds: [RULE], signers: [asSigner(s1, s1.until + 100_000)] }));
-  const stranger = privateKeyToAccount(generatePrivateKey());
-  const s2 = await newSession(720, stranger);
-  await run('9. grant signed by another wallet', false, invokeAs({ feePayer: fee, op: xfer(venue, 10_000_000n), account: PRIME, ruleIds: [RULE], signers: [asSigner(s2)] }));
-  const s3 = await newSession(720);
-  await run('10. renewal: a new key, one new MetaMask signature, no NEAR', true, invokeAs({ feePayer: fee, op: xfer(venue, 10_000_000n), account: PRIME, ruleIds: [RULE], signers: [asSigner(s3)] }));
-  save({ movesA: results });
+if (part === 'a') {
+  const s = await session(720);
+  log('positions before', await supplied());
+  await run('1. supply 5 XLM to Blend (pool + nested XLM transfer, two rules)', true, submitOp([req(0, 50_000_000n)]), [POOL_RULE, XLM_RULE], s);
+  await run('2. withdraw 2 XLM from Blend', true, submitOp([req(1, 20_000_000n)]), [POOL_RULE], s);
+  log('positions after', await supplied());
+  await run('3. borrow (request_type 4)', false, submitOp([req(4, 10_000_000n)]), [POOL_RULE], s);
+  await run('4. withdraw to another address', false, submitOp([req(1, 10_000_000n)], fee.publicKey()), [POOL_RULE], s);
+  await run('5. two requests in one submit', false, submitOp([req(0, 10_000_000n), req(0, 10_000_000n)]), [POOL_RULE, XLM_RULE], s);
+  const selfCall = new Sdk.Contract(PRIME).call('remove_context_rule', S.scvU32(0));
+  await run('6. session key removes rule 0', false, selfCall, [POOL_RULE], s);
+  await run('7. XLM straight to the session holder', false, new Sdk.Contract(XLM).call('transfer', new Sdk.Address(PRIME).toScVal(), new Sdk.Address(fee.publicKey()).toScVal(), Sdk.nativeToScVal(10_000_000n, { type: 'i128' })), [XLM_RULE], s);
 }
-if (which === 'all' || which === 'b') {
-  const s = await newSession(4);
-  log(`short session valid until ${s.until}`);
-  await run('11a. short session, before valid_until', true, invokeAs({ feePayer: fee, op: xfer(venue, 10_000_000n), account: PRIME, ruleIds: [RULE], signers: [asSigner(s)] }));
-  log('waiting for valid_until to pass');
-  while ((await now()) <= s.until + 1) await new Promise((r) => setTimeout(r, 2000));
-  await run('11b. same session, after valid_until', false, invokeAs({ feePayer: fee, op: xfer(venue, 10_000_000n), account: PRIME, ruleIds: [RULE], signers: [asSigner(s)] }));
-  save({ movesB: results });
+if (part === 'b') {
+  await run('8. grant made for the v1 instance, used on v2', false, submitOp([req(1, 10_000_000n)]), [POOL_RULE], await session(720, { signer: st.signer }));
+  await run('9. grant 7 days + 1 ledger ahead', false, submitOp([req(1, 10_000_000n)]), [POOL_RULE], await session(120_961));
+  await run('10. grant exactly 7 days ahead', true, submitOp([req(1, 10_000_000n)]), [POOL_RULE], await session(120_960));
+  await run('11. grant signed by another wallet', false, submitOp([req(1, 10_000_000n)]), [POOL_RULE], await session(720, { wallet: privateKeyToAccount(generatePrivateKey()) }));
+}
+if (part === 'c') {
+  const r = await session(720), keep = await session(720);
+  await run('12. session R works', true, submitOp([req(1, 10_000_000n)]), [POOL_RULE], r);
+  const bad = await grantFor(r.kp.rawPublicKey(), 0, privateKeyToAccount(generatePrivateKey()));
+  try { await submit(fee, new Sdk.Contract(SIGNER).call('revoke', S.scvBytes(r.kp.rawPublicKey()), S.scvBytes(bad.rs), S.scvU32(bad.v))); log('FAIL 13. revoke signed by a stranger went through'); results['13. revoke by a stranger'] = { pass: false }; }
+  catch (e) { log('PASS 13. revoke signed by a stranger refused:', short(String(e))); results['13. revoke by a stranger'] = { pass: true }; }
+  const t0 = Date.now();
+  const g = await grantFor(r.kp.rawPublicKey(), 0); // the owner's "end session" signature (off chain)
+  const rv = await submit(fee, new Sdk.Contract(SIGNER).call('revoke', S.scvBytes(r.kp.rawPublicKey()), S.scvBytes(g.rs), S.scvU32(g.v)));
+  log(`14. owner revoked session R in ${Date.now() - t0} ms, ${rv.hash}`); results['14. owner revokes R'] = { pass: true, hash: rv.hash, ms: Date.now() - t0 };
+  await run('15. session R after revoke', false, submitOp([req(1, 10_000_000n)]), [POOL_RULE], r);
+  await run('16. another session still works', true, submitOp([req(1, 10_000_000n)]), [POOL_RULE], keep);
+}
+if (part === 'd') {
+  const s = await session(720);
+  const ms: number[] = [];
+  for (let i = 0; i < 5; i++) { const r = await run(`17.${i + 1} latency: supply 1 XLM`, true, submitOp([req(0, 10_000_000n)]), [POOL_RULE, XLM_RULE], s); ms.push(r.ms); }
+  log('latency ms', ms.join(', '), 'median', [...ms].sort((a, b) => a - b)[2]);
+  save({ latency: ms });
+}
+if (part === 'e') {
+  const s = await session(720);
+  await run('3a. supply 5 XLM as collateral (request_type 2)', true, submitOp([req(2, 50_000_000n)]), [POOL_RULE, XLM_RULE], s);
+  log('positions', await supplied());
+  // Recording simulation runs Blend's own checks first; it must PASS for this borrow,
+  // so the refusal below can only come from the session rule's policy.
+  await run('3b. borrow 0.5 XLM against it (request_type 4)', false, submitOp([req(4, 5_000_000n)]), [POOL_RULE], s);
 }

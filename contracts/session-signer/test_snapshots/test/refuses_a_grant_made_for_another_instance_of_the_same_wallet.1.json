@@ -39,14 +39,39 @@
                         "u32": 0
                       },
                       "val": {
-                        "vec": [
-                          {
-                            "bytes": "4a62316623ad457f02cdc5d997ded67a383ec569"
-                          },
-                          {
-                            "address": "CD77AAD766IG4U64GIBCFHTQMCOX65FSDMP3CNPB75PSNEOFLX4G32RB"
-                          }
-                        ]
+                        "bytes": "4a62316623ad457f02cdc5d997ded67a383ec569"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 4595
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": "ledger_key_contract_instance",
+              "durability": "persistent",
+              "val": {
+                "contract_instance": {
+                  "executable": {
+                    "wasm": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  "storage": [
+                    {
+                      "key": {
+                        "u32": 0
+                      },
+                      "val": {
+                        "bytes": "4a62316623ad457f02cdc5d997ded67a383ec569"
                       }
                     }
                   ]
