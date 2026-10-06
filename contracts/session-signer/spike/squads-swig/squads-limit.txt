@@ -1,0 +1,19 @@
+PASS L0. create Swig W (root = admin key) | ok 357ms 7pnbosqfN4Sta3ihucvCeCwNdZZyB1Psn76W4GFhYLZ8VPSFQtG9qPUzP4xFajJzaqeBkXWPPLW5Bsvb5qyXf3C
+PASS L0a. W: add MetaMask SESSION role that may only call the Squads program | ok 437ms cNV3skHDZhyfyrkdn1brDL8VvjeJJSvXYuDDCiUoPo9TNbp6gRAYdFsiaQvLtXJdXWgPKKc2SBLb5x287uyDrKw
+PASS L0b. fund W for fees/rent | ok 394ms rQXxV2kmhyXtJ8c8neWGP3HdAdFFXZ4Ay8c4jPHw8XJ6NQuwH2WjdsFoVyEx4iGFLQA8AVC2AEiNA3ZbEpGaiCF
+PASS L1. config proposal: add spending limit (SOL, 0.05/day, VENUE only, members B and W) | ok 432ms juY35NnLQJb5YPDLeg442HRQyvLbtdaTA6zq3oYCCfo13toouqZ5x2xuhDz8sNQkrGCPmHvjMuT7tn3zbGe6Yvy
+PASS L1a. B approves | ok 434ms 3PncogHys9fHZBHZdzmToZeM8Tytw7C8UPWa5K6Yho5jV2QSL6hCAuErHpiHvAnkpU4mKdBrSsTvezWWpq7QHpdT
+   MetaMask -> NEAR MPC signed 212 bytes for A in 19.8s (NEAR tx GipbEnVnx3Rrb4ZMNWVB7KCa6uY22TxdXXfiUoGTzp8x)
+PASS L1b. A approves (MetaMask -> NEAR MPC) | ok 268ms tv1rX4o5eYuaurApcLo11oYc3idYAoisQQX7wrTLrQPyq35FEm5sguQYLwjqBfzKBm7AT11jAc5cXV7WwApoyiX
+PASS L1c. execute config change | ok 417ms 3aLuD3qQJPWCsZYmLFWKndoqPTd8dSvVa63LXLRXJ8idvDhReaccwmK4LsFjR6ubFkcTFap57G6Fph7bG9NdaPbn
+PASS L2. B alone: 0.01 SOL from the vault to VENUE | ok 422ms 5DkLmfJp3tGLLe4TMD1wNzjNRLhKDRuqkatwisTHKu7GbsWU6csMziPMooKrnjRhBPM9ieDqJAc48Xb1mkU9EuRb
+PASS L3. B alone: 0.01 SOL to another address | refused: Error Code: InvalidDestination
+PASS L4. B alone: 0.045 SOL to VENUE (over 0.05/day) | refused: Error Code: SpendingLimitExceeded
+PASS L5. non-member uses the limit | refused: Error Code: Unauthorized
+PASS L6. fund session key | ok 377ms 5u6aDSiZjpBusEDrUKpv6eRQMP6Sw87XtZav3zTokiPUwbaGP3rFnUUbPq26dz7R3WVxDWtxrf6hyxfhbekKCWJb
+PASS L6a. MetaMask opens a session on W (one personal_sign) | ok 418ms 2ZHnfBqmGEauoUF41veNRoCRL7qdg9NxFxKLcmijQVrsBr1T8HtfkKaHxcfw1Ltgxaw61owVTQfLU3JtH5y82v11
+PASS L6b. MetaMask session -> Swig W -> Squads limit: 0.01 SOL vault -> VENUE | ok 391ms wvpBdecLFMcm7xhUR4dZNwiVh481vUyjY3YSstnHCAWJfNVm2KjsCNZm8Re9sgLYvwt3SZFPbMMHp7inLtmzWd3
+PASS L6c. same path to another address | refused: Error Code: InvalidDestination
+PASS L6d. same path, total over 0.05/day | refused: Error Code: SpendingLimitExceeded
+PASS L6e. session key tries a non-Squads program through W (system transfer from W) | refused: custom program error: 0xbbe
+exit 0

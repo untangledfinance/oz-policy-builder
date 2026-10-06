@@ -1,0 +1,304 @@
+{
+ "results": [
+  {
+   "name": "Q1. create Squads multisig: members A (MetaMask via NEAR), B, C; threshold 2",
+   "pass": true,
+   "ok": true,
+   "ms": 427,
+   "detail": "31NPJJ6comed1k26PDGJ9UG7cU9DJtWJkF1Gxq9HfcYaVXY1VvZJ3sVRgfyAK16gaZ1AzekL3gJ14wxk6U6dxjz"
+  },
+  {
+   "name": "Q2. create Swig: root (all) = Squads vault",
+   "pass": true,
+   "ok": true,
+   "ms": 322,
+   "detail": "4TqUqUvWHG4YW4JcignDnD2MvZQNvPfyr2iwgqmKfNdWoevqQtpALYHiNnVMnNfruqk1iTgyWyZBvR45LuHT93LL"
+  },
+  {
+   "name": "Q2b. fund vault (rent for admin changes) and Swig wallet",
+   "pass": true,
+   "ok": true,
+   "ms": 411,
+   "detail": "3f5wZf5jcWhgb3aC3x3Fz2DaYN7pkAmFhf6ywAcmGXouHzm1axLm2E5nj7rYx39bc6LvTa5qVMJFBCvXzttq6fff"
+  },
+  {
+   "name": "Q3. B alone signs a Swig admin call on role 0",
+   "pass": true,
+   "ok": false,
+   "ms": 23,
+   "detail": "custom program error: 0xbbd"
+  },
+  {
+   "name": "Q4. add mover role: create vault tx #1 + proposal",
+   "pass": true,
+   "ok": true,
+   "ms": 206,
+   "detail": "2piCxLgZn3PaTezSTFU28UpBYNMEP24dyMKchxY3FsZxHg9Avkt3qnDafqqZY2MG1EQuv9dH2ChUUQ9ccwJC27SA"
+  },
+  {
+   "name": "Q4a. B approves",
+   "pass": true,
+   "ok": true,
+   "ms": 418,
+   "detail": "3EeU4246uD8dmGAhPhnxATx68VF7Sb8WD3UzFuGEcz2YGFDn9PiLLdygH9omWznJ5PeUA3hNP8PWyRcSUxUqDNEf"
+  },
+  {
+   "name": "Q4b. execute with 1 of 3 approvals",
+   "pass": true,
+   "ok": false,
+   "ms": 10,
+   "detail": "Error Code: InvalidProposalStatus"
+  },
+  {
+   "name": "Q4c. A approves (MetaMask -> NEAR MPC signature)",
+   "pass": true,
+   "ok": true,
+   "ms": 227,
+   "detail": "646XapuTXjMu9WFeEXpsBPe4b7D8zyPYeyjFMFQuuVsu8V1YnWAYESC4ug68n3mLxFM7CUPuYsmgkB2MEUH6jDhn"
+  },
+  {
+   "name": "Q4d. execute with A + B",
+   "pass": false,
+   "ok": false,
+   "ms": 20,
+   "detail": "custom program error: 0x8",
+   "note": "Swig refuses inbound CPI (SwigError::Cpi = 8): Squads cannot execute Swig admin calls"
+  },
+  {
+   "name": "Q4e. execute the same transaction again",
+   "pass": true,
+   "ok": false,
+   "ms": 424,
+   "detail": "custom program error: 0x8",
+   "note": "refused for the same CPI reason as Q4d, not a replay check"
+  },
+  {
+   "name": "Q5. a non-member approves a proposal",
+   "pass": true,
+   "ok": false,
+   "ms": 10,
+   "detail": "Error Code: NotAMember"
+  },
+  {
+   "name": "Q6. fund session key",
+   "pass": true,
+   "ok": true,
+   "ms": 361,
+   "detail": "5rAna68nJ7ySb3UMkQnWx54SANgtnQwnvZM4fxiXL6Rp8ZAsBsm1YZ1dNLXQNviGfGZv7yYmgZCFS1L8UujXGtuZ"
+  },
+  {
+   "name": "L0. create Swig W (root = admin key)",
+   "pass": true,
+   "ok": true,
+   "ms": 357,
+   "detail": "7pnbosqfN4Sta3ihucvCeCwNdZZyB1Psn76W4GFhYLZ8VPSFQtG9qPUzP4xFajJzaqeBkXWPPLW5Bsvb5qyXf3C"
+  },
+  {
+   "name": "L0a. W: add MetaMask SESSION role that may only call the Squads program",
+   "pass": true,
+   "ok": true,
+   "ms": 437,
+   "detail": "cNV3skHDZhyfyrkdn1brDL8VvjeJJSvXYuDDCiUoPo9TNbp6gRAYdFsiaQvLtXJdXWgPKKc2SBLb5x287uyDrKw"
+  },
+  {
+   "name": "L0b. fund W for fees/rent",
+   "pass": true,
+   "ok": true,
+   "ms": 394,
+   "detail": "rQXxV2kmhyXtJ8c8neWGP3HdAdFFXZ4Ay8c4jPHw8XJ6NQuwH2WjdsFoVyEx4iGFLQA8AVC2AEiNA3ZbEpGaiCF"
+  },
+  {
+   "name": "L1. config proposal: add spending limit (SOL, 0.05/day, VENUE only, members B and W)",
+   "pass": true,
+   "ok": true,
+   "ms": 432,
+   "detail": "juY35NnLQJb5YPDLeg442HRQyvLbtdaTA6zq3oYCCfo13toouqZ5x2xuhDz8sNQkrGCPmHvjMuT7tn3zbGe6Yvy"
+  },
+  {
+   "name": "L1a. B approves",
+   "pass": true,
+   "ok": true,
+   "ms": 434,
+   "detail": "3PncogHys9fHZBHZdzmToZeM8Tytw7C8UPWa5K6Yho5jV2QSL6hCAuErHpiHvAnkpU4mKdBrSsTvezWWpq7QHpdT"
+  },
+  {
+   "name": "L1b. A approves (MetaMask -> NEAR MPC)",
+   "pass": true,
+   "ok": true,
+   "ms": 268,
+   "detail": "tv1rX4o5eYuaurApcLo11oYc3idYAoisQQX7wrTLrQPyq35FEm5sguQYLwjqBfzKBm7AT11jAc5cXV7WwApoyiX"
+  },
+  {
+   "name": "L1c. execute config change",
+   "pass": true,
+   "ok": true,
+   "ms": 417,
+   "detail": "3aLuD3qQJPWCsZYmLFWKndoqPTd8dSvVa63LXLRXJ8idvDhReaccwmK4LsFjR6ubFkcTFap57G6Fph7bG9NdaPbn"
+  },
+  {
+   "name": "L2. B alone: 0.01 SOL from the vault to VENUE",
+   "pass": true,
+   "ok": true,
+   "ms": 422,
+   "detail": "5DkLmfJp3tGLLe4TMD1wNzjNRLhKDRuqkatwisTHKu7GbsWU6csMziPMooKrnjRhBPM9ieDqJAc48Xb1mkU9EuRb"
+  },
+  {
+   "name": "L3. B alone: 0.01 SOL to another address",
+   "pass": true,
+   "ok": false,
+   "ms": 28,
+   "detail": "Error Code: InvalidDestination"
+  },
+  {
+   "name": "L4. B alone: 0.045 SOL to VENUE (over 0.05/day)",
+   "pass": true,
+   "ok": false,
+   "ms": 27,
+   "detail": "Error Code: SpendingLimitExceeded"
+  },
+  {
+   "name": "L5. non-member uses the limit",
+   "pass": true,
+   "ok": false,
+   "ms": 14,
+   "detail": "Error Code: Unauthorized"
+  },
+  {
+   "name": "L6. fund session key",
+   "pass": true,
+   "ok": true,
+   "ms": 377,
+   "detail": "5u6aDSiZjpBusEDrUKpv6eRQMP6Sw87XtZav3zTokiPUwbaGP3rFnUUbPq26dz7R3WVxDWtxrf6hyxfhbekKCWJb"
+  },
+  {
+   "name": "L6a. MetaMask opens a session on W (one personal_sign)",
+   "pass": true,
+   "ok": true,
+   "ms": 418,
+   "detail": "2ZHnfBqmGEauoUF41veNRoCRL7qdg9NxFxKLcmijQVrsBr1T8HtfkKaHxcfw1Ltgxaw61owVTQfLU3JtH5y82v11"
+  },
+  {
+   "name": "L6b. MetaMask session -> Swig W -> Squads limit: 0.01 SOL vault -> VENUE",
+   "pass": true,
+   "ok": true,
+   "ms": 391,
+   "detail": "wvpBdecLFMcm7xhUR4dZNwiVh481vUyjY3YSstnHCAWJfNVm2KjsCNZm8Re9sgLYvwt3SZFPbMMHp7inLtmzWd3"
+  },
+  {
+   "name": "L6c. same path to another address",
+   "pass": true,
+   "ok": false,
+   "ms": 11,
+   "detail": "Error Code: InvalidDestination"
+  },
+  {
+   "name": "L6d. same path, total over 0.05/day",
+   "pass": true,
+   "ok": false,
+   "ms": 16,
+   "detail": "Error Code: SpendingLimitExceeded"
+  },
+  {
+   "name": "L6e. session key tries a non-Squads program through W (system transfer from W)",
+   "pass": true,
+   "ok": false,
+   "ms": 9,
+   "detail": "custom program error: 0xbbe"
+  },
+  {
+   "name": "R1. config proposal: add D, remove C",
+   "pass": true,
+   "ok": true,
+   "ms": 101,
+   "detail": "5ZR2jREX9Cqmdxxwyysir5PiEcyKQHK5Y5CQsp6xFin1Uzu1EUQSiVVc5ofBJQrGxFr3J65RZ25yZbzdMmXFeJ23"
+  },
+  {
+   "name": "R2. B approves",
+   "pass": true,
+   "ok": true,
+   "ms": 415,
+   "detail": "4HWuD5LajTDDdEAhTXkTH52R2uWMTZKUgbkBsPhbtqSFR4CGTmqUW4n5HWjyXFrLL6M6YaBwB2tCzQEeSVUgVhnB"
+  },
+  {
+   "name": "R3. A approves (MetaMask -> NEAR MPC)",
+   "pass": true,
+   "ok": true,
+   "ms": 82,
+   "detail": "61255m2jsXUZyaMQMK2GCeKAcSiniaqqLzYPVAoDsUsDKT1cVnqYi8BL2zd9iBeQv2kD6m1DDeiBEjvKC8sPJMtd"
+  },
+  {
+   "name": "R4. execute config change",
+   "pass": true,
+   "ok": true,
+   "ms": 415,
+   "detail": "4BExAW97ZHmHRdEox5Nj3QznA8WcNcVvb7fSPeiuV4Vnxj8wYWV3w4UvLxV5URCMGoRmJsFfSUUMa5PT5rQZ6XFz"
+  },
+  {
+   "name": "R5. members are now A, B, D (threshold 2)",
+   "pass": true,
+   "ok": true,
+   "ms": 0,
+   "detail": "3poMSj,AHSks4,EHuzgp"
+  },
+  {
+   "name": "R6. probe proposal: create vault tx #4 + proposal",
+   "pass": true,
+   "ok": true,
+   "ms": 422,
+   "detail": "5TTAkNsxv1otH27QcevQFYg6zHRT2kUw2b1ppwtK3FgcuUHz73CXFyqB35iDoZZ5SEZkjebHrJyVNYRBGEyy3Wwc"
+  },
+  {
+   "name": "R6a. removed member C approves",
+   "pass": true,
+   "ok": false,
+   "ms": 14,
+   "detail": "Error Code: NotAMember"
+  },
+  {
+   "name": "R6b. new member D approves",
+   "pass": true,
+   "ok": true,
+   "ms": 410,
+   "detail": "5U2EQvLgbwjeXELvzxbgvGDPAPi5hAoA1jEAqZ8JRXsvGxoN1TzafwTcRZFUhAeeihsY5Xqijs46yZ2wBnXwLS65"
+  },
+  {
+   "name": "X1. execute probe with only D approved",
+   "pass": true,
+   "ok": false,
+   "ms": 43,
+   "detail": "Error Code: InvalidProposalStatus"
+  },
+  {
+   "name": "X2. B approves the probe",
+   "pass": true,
+   "ok": true,
+   "ms": 84,
+   "detail": "5yVbRosweu4HVcNCeR7RTz5QHi33cLbhWzqeX1LqEgZ7oDnS3gRw2bgg25CZGui6Y1bLRXNf3KYP4xKxAoxBQQha"
+  },
+  {
+   "name": "X3. execute with D + B (owner A not needed)",
+   "pass": true,
+   "ok": true,
+   "ms": 422,
+   "detail": "4bJiWTJvxbpbxkjTSoJosksCjPUqcbkQsvecBYFTkp64JJh7f5xCCcmxyh1mhqrUibP9mm7XcaspNYdHy3vkdD7B"
+  },
+  {
+   "name": "X4. VENUE received exactly 1000 lamports from the vault",
+   "pass": true,
+   "ok": true,
+   "ms": 0,
+   "detail": "1000 lamports"
+  }
+ ],
+ "venue": "6pUkdaystNYNy4JWL7HnSMHTnZcmLGPsqAAuBGH6E7An",
+ "other": "DoUsWPzo6QyK8UA4BXb11JS6qSnXpEiDxQjXstVD2mFQ",
+ "multisig": "22JPfoZDUTYst2zCT3gwHuA5Sp3STAdwX2AGAnW4wopE",
+ "vault": "E6akeVcgzn66cPMhuUtksa8LWdd4qpj4FcWCkWj91R2F",
+ "swigId": "703e0a71ccdd62316f42d43d5d1e37a3edcf5661290bb3782c995c266034e3fe",
+ "swig": "5TXMJy7PomJ2oMWKe7zXxFeEqoVYJiEbyEa1oRgg7aSY",
+ "wallet": "3GiwxhCun54oxP6aNtnvBNeQTYtufCywHLbsz93Yc5Kd",
+ "moverRole": 0,
+ "W": "7EAeP5KEKgXRpJL43p4fR455iHTkUNoft7YttCYhBvye",
+ "wSwig": "5doEun6uYxDtd2JrvYRfBkxNExS3ovTJsQpwwFFeB9ys",
+ "spendingLimit": "6kvFA8hgGqj9scupw7RTBNTXCth5E48zdvxTaotKK9b8"
+}
