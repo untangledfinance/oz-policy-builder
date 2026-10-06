@@ -1,0 +1,13 @@
+Phantom G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4 -> NEAR account 0s0114c4dd2b404330f7326c362763cd8c5be77fa0
+   Phantom signed req-0 (248 bytes of text) in 37.8s, verifies over the text: true
+PASS 1. Phantom-signed readable request creates the NEAR account | 41.7s ed25519:G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4
+   Phantom signed req-1 (811 bytes of text) in 7.8s, verifies over the text: true
+PASS 2. Phantom -> MPC secp256k1 signature recovers to the derived EVM key | 13.5s EVM address 0xf550eedfbe4187dff9f4da369896931eedb0616a
+PASS 2b. derived EVM key == MPC contract derived_public_key | "secp256k1:3bjcBLSpzAd7Y3DJ6uuSpkUsSDNspV4QHCK437UyNMnzXWsVLk9SHVvHgxujQHy1JnKfW9oByKMQ9ywRkwgyHY9E"
+   Phantom signed req-2 (867 bytes of text) in 105.2s, verifies over the text: true
+PASS 3. Phantom -> MPC ed25519 (Solana key) signature verifies | 65uz3uLXJL2w9JLJYKujUpamzKW1Hbm7DHEDPg4iJy2o
+
+thread 'main' (1198079) panicked at contracts/wallet/signatures/sep53/examples/phantom.rs:135:212:
+attempt to multiply with overflow
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+exit 101

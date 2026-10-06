@@ -1,0 +1,216 @@
+{
+ "results": [
+  {
+   "name": "S1. create Swig, root = owner Phantom key (all)",
+   "pass": true,
+   "ok": true,
+   "ms": 674,
+   "detail": "61ZhYVtLKKXXpXW9ZSU6bkd5rCr5Fuy8Tag3PKDeNEju8xA4h7w7Jn8oYm73kqoKLChJRzFCsdtvkE3Yqr1EVX2m"
+  },
+  {
+   "name": "S2. fund Swig wallet 0.1 SOL",
+   "pass": true,
+   "ok": true,
+   "ms": 390,
+   "detail": "zkueKgogJKy4GTWvrsFsX2rLgyGBtJNi8c8JnpsGtTFqBBLe8Ev5fNWynt2bhScUmYCKSL592DN8MUUzagzqgFv"
+  },
+  {
+   "name": "S3. root adds MetaMask SESSION role (VENUE only, 0.05 SOL, sessions <= 300 slots)",
+   "pass": true,
+   "ok": true,
+   "ms": 422,
+   "detail": "3FU9nHA2KxczxqZsZYRAKZPm7idV9ca9bQh9vtgnS817BdyzbjF5MmD3vAEhiphsYsWcKoakbh3mSQ7ZjPjgGmiE"
+  },
+  {
+   "name": "S4. root adds Phantom SESSION role (same limits)",
+   "pass": true,
+   "ok": true,
+   "ms": 469,
+   "detail": "2SjFb98xUojwrevimGQvoGpxZ6TENJuhd4Fokjwnnup3JCdMdZHRPspmC6ijkSC6EB1wP1U6xwuuSo8m91W66Nbn"
+  },
+  {
+   "name": "M0. fund session key for fees (payer)",
+   "pass": true,
+   "ok": true,
+   "ms": 94,
+   "detail": "QnbMFDW4XEddLJ6GVe1zhx4vxSu2WpkC9vd7cXYXFnbFkDPGVy1Y3Fmoz6pYkssdzEFFsPtMcbgPvh1i3jkBkVi"
+  },
+  {
+   "name": "M1. MetaMask creates a session (one personal_sign)",
+   "pass": true,
+   "ok": true,
+   "ms": 360,
+   "detail": "4ekZs8FW7bte7Cu9TmJhNPr6aShesQpAwqLE6eCqRdy8gUZtssoJS42YwA6bsTgb45JCu6A8H7WNPD82zWk2CiNP"
+  },
+  {
+   "name": "M2. session key alone: 0.01 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "ms": 393,
+   "detail": "bZHBg2cJDGeqBErQZkUgzCddg4A3SgAnwu19TrrGnTRiPY2cJLFRcmJQ3Z6d7Xz72dzfcuyxdSWJkLWHCsiH6Yy"
+  },
+  {
+   "name": "M3. session key: 0.01 SOL to another address",
+   "pass": true,
+   "ok": false,
+   "ms": 13,
+   "detail": "failed: custom program error: 0xbbe"
+  },
+  {
+   "name": "M4. session key: 0.045 SOL to VENUE (over the 0.05 total)",
+   "pass": true,
+   "ok": false,
+   "ms": 9,
+   "detail": "failed: custom program error: 0xbd5"
+  },
+  {
+   "name": "M6. another EVM key tries to start a session on the MetaMask role",
+   "pass": true,
+   "ok": false,
+   "ms": 13,
+   "detail": "failed: custom program error: 0xbbd"
+  },
+  {
+   "name": "E0. fund short session key",
+   "pass": true,
+   "ok": true,
+   "ms": 321,
+   "detail": "1orMh2yYQtZtU3ezcc1xRXThK4e7S8rVXavXS2qnAHXULXCryBsjZhtSetF5D8Muf75vJUaSpLQVcuXUXQ8CkZo"
+  },
+  {
+   "name": "E1. MetaMask creates a 10-slot session",
+   "pass": true,
+   "ok": true,
+   "ms": 400,
+   "detail": "4MoxTLRsi9f9iJwxQ6Yj4rYfgxcgNN87TwUJdvJuAbATHfNwoHUR1ixbFnFtNciBEHCEeZghwhHcNaY8c5x6yVEo"
+  },
+  {
+   "name": "E2. expired session key: 0.001 SOL to VENUE",
+   "pass": true,
+   "ok": false,
+   "ms": 23,
+   "detail": "failed: custom program error: 0xbc6"
+  },
+  {
+   "name": "E3. session longer than the role max (400 > 300 slots)",
+   "pass": true,
+   "ok": false,
+   "ms": 12,
+   "detail": "failed: custom program error: 0xbce"
+  },
+  {
+   "name": "P0. fund session key",
+   "pass": true,
+   "ok": true,
+   "ms": 181,
+   "detail": "5gcCqL3JWjiPdP3ga6UrcSaWBaCoFZ1eNKTq5e5cL3dhBS3JNsu6tj6rgK3Ycah63S2YdB9Bk6SdCkiwhT2Jw5Sn"
+  },
+  {
+   "name": "P1. Phantom creates a session (signs the tx)",
+   "pass": true,
+   "ok": true,
+   "ms": 414,
+   "detail": "5JgL1bMNTXPVetxS7NGPiPvaeMvx7BspmjpW9mwAA4NRszphLbopq1drA7vhoZLRoYKNn7cR61Qvh1V6H6J1MAN9"
+  },
+  {
+   "name": "P2. Phantom session key alone: 0.005 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "ms": 407,
+   "detail": "2hyGocPzyMdevmyAiqQEYdykvxgvJrjq7BRsJjH2EPDnsdJ5QeYW455Y6a9EVVCGbVnmKrVgCff2PkA7m9MXhVse"
+  },
+  {
+   "name": "P2a. root adds a plain ed25519 MOVER role for key B (VENUE only, 0.05 SOL)",
+   "pass": true,
+   "ok": true,
+   "ms": 416,
+   "detail": "2wjvKbndQ4eb2mC6dRNiQe2DPFdefBEF3126yKsG33o86xcAxd7s3o1QiJ1Tng3ioHWbz9JVayRFCafCkoTEzuk2"
+  },
+  {
+   "name": "P2b. mover key B (properly signed) tries to add an authority",
+   "pass": true,
+   "ok": false,
+   "ms": 10,
+   "detail": "failed: custom program error: 0xbc2"
+  },
+  {
+   "name": "P2c. mover key B: 0.01 SOL to another address",
+   "pass": true,
+   "ok": false,
+   "ms": 27,
+   "detail": "failed: custom program error: 0xbbe"
+  },
+  {
+   "name": "P2d. mover key B: 0.005 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "ms": 381,
+   "detail": "4WnkzShWnM3foPUrCgSPLYGhAXvQm4TmG32yKUjWynX9jRwMy6rrEAkCvYqTkfgNpHfgywiBEvUm5uMY8G7CKwqK"
+  },
+  {
+   "name": "P3. root (owner) removes the MetaMask role",
+   "pass": true,
+   "ok": true,
+   "ms": 414,
+   "detail": "3zCUiKgJa7nED3bM318Phc4GEPKtpCBBpVsAdNF9u7GnsxA1S5L3XjaN2mjtTGjeReXEf3sjmh7pmbQ1EniypYRA"
+  },
+  {
+   "name": "P4. after P3 the MetaMask role is gone (roles now [0, 2, 3]); its sessions cannot be used",
+   "pass": true,
+   "ok": true,
+   "detail": "fetchSwig roles = [0, 2, 3]"
+  },
+  {
+   "name": "N1. root adds a SESSION role owned by the NEAR MPC key (VENUE only, 0.05 SOL)",
+   "pass": true,
+   "ok": true,
+   "ms": 338,
+   "detail": "j1jMR6Fa3yzN5EqDeinS9DnFRmvDPrd1hzkwkiZtoDSqVHD7BjWTrdko2HDjHrHGNKnTdufi7sZSB5hKjUGGgbk"
+  },
+  {
+   "name": "N2. fund session key",
+   "pass": true,
+   "ok": true,
+   "ms": 430,
+   "detail": "2WQdUbmBPBzcN3i2MjWePZCuSPEjA6d28CWbxiRMmLnBNTxhUQvbLBVtTtjHSGd7na7xcuQK9Aoc3o5EV1qFrJYR"
+  },
+  {
+   "name": "N3. NEAR MPC key (via Freighter) creates a Swig session",
+   "pass": true,
+   "ok": true,
+   "ms": 130,
+   "detail": "5xWA2yhBAohedMBMT4i3vWjzLNF3ryUfGhm5Z8W5CB65ZUAde1avs3EHso8ToqdfLu7bZHRb11ReVXK8xyWXn2LC"
+  },
+  {
+   "name": "N4. that session key alone: 0.005 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "ms": 397,
+   "detail": "2rpXLdLTE7r5nvaWiE9jYwdaNB38xe6k2A48ajGpwoEVf2xarmig1grpvquqsaTYuAeY74TdNJKYAGuqWmCbck5R"
+  },
+  {
+   "name": "N5. that session key: 0.005 SOL to another address",
+   "pass": true,
+   "ok": false,
+   "ms": 8,
+   "detail": "failed: custom program error: 0xbbe"
+  },
+  {
+   "name": "N6. session for the NEAR role signed by another key",
+   "pass": true,
+   "ok": false,
+   "detail": "Signature verification failed.\nInvalid signature for public key [`9gZYtDLo1C21zYpxUdZG84QaYo3fR8eptzwhpQ8hVUkK`]."
+  }
+ ],
+ "venue": "215sKmSbTv8DWmGhbArUEpvf6jobBdHHnF3pXhaeeY1a",
+ "other": "6WuNjczQdaYAs5JKnGzvficmNMA8Mh8BUzLdzRGos47V",
+ "swigId": "553351b5fd4d2d5e80c7477a723d7818463ee866f39320fa24d30336a061d7c5",
+ "swig": "84stGZVMtrdPNgMtBDsFwgy5z1r3gxbxoMbxrcWF1bCv",
+ "wallet": "9Yo9K3Y6LTtSscT5Qr1fjNN2MEMH6ZwM5Fv9SV1HALuh",
+ "funded": 1,
+ "mmRole": 1,
+ "phRole": 2,
+ "mmSessionPk": "DNPtMBdPU5qvxjVV3Xgtya1d6UCtnDC8JLwmzjXD83Lg",
+ "bRole": 3,
+ "nearRole": 4
+}

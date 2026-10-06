@@ -1,29 +1,31 @@
 diff --git a/Cargo.toml b/Cargo.toml
-index 8c05227..b0fe78a 100644
+index 8c05227..ba871a3 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
-@@ -13,6 +13,7 @@ members = [
+@@ -13,6 +13,8 @@ members = [
    "contracts/wallet",
    "contracts/wallet/signatures/ed25519",
    "contracts/wallet/signatures/no-sign",
 +  "contracts/wallet/signatures/sep53",
++  "contracts/wallet/signatures/text-ed25519",
    "contracts/wallet/signatures/webauthn",
    "contracts/wallet/signatures/webauthn/ed25519",
    "contracts/wallet/signatures/webauthn/p256",
-@@ -83,6 +84,7 @@ defuse-poa-token.path = "contracts/poa/token"
+@@ -83,6 +85,8 @@ defuse-poa-token.path = "contracts/poa/token"
  defuse-wallet.path = "contracts/wallet"
  defuse-wallet-ed25519.path = "contracts/wallet/signatures/ed25519"
  defuse-wallet-no-sign.path = "contracts/wallet/signatures/no-sign"
 +defuse-wallet-sep53.path = "contracts/wallet/signatures/sep53"
++defuse-wallet-text-ed25519.path = "contracts/wallet/signatures/text-ed25519"
  defuse-wallet-webauthn.path = "contracts/wallet/signatures/webauthn"
  defuse-wallet-webauthn-ed25519.path = "contracts/wallet/signatures/webauthn/ed25519"
  defuse-wallet-webauthn-p256.path = "contracts/wallet/signatures/webauthn/p256"
 diff --git a/contracts/wallet/signatures/sep53/Cargo.toml b/contracts/wallet/signatures/sep53/Cargo.toml
 new file mode 100644
-index 0000000..adafeea
+index 0000000..b4bd8fd
 --- /dev/null
 +++ b/contracts/wallet/signatures/sep53/Cargo.toml
-@@ -0,0 +1,46 @@
+@@ -0,0 +1,53 @@
 +lints.workspace = true
 +
 +[package]
@@ -56,26 +58,177 @@ index 0000000..adafeea
 +rand = { workspace = true, features = ["sys_rng"] }
 +near-sdk = { workspace = true, features = ["unit-testing"] }
 +anyhow.workspace = true
++hex.workspace = true
++sha3.workspace = true
 +bs58.workspace = true
 +defuse-sep53.workspace = true
 +defuse-crypto = { workspace = true, features = ["ed25519", "signing"] }
 +defuse-wallet-sdk = { workspace = true, features = ["mpc", "near-kit"] }
 +near-kit.workspace = true
 +stellar-strkey.workspace = true
++defuse-wallet-text-ed25519.workspace = true
 +tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
 +
 +[[example]]
 +name = "spike"
 +required-features = ["signer"]
 +
++[[example]]
++name = "phantom"
++required-features = ["signer"]
++
 +[package.metadata.cargo-machete]
 +ignored = ["near-sdk"]
+diff --git a/contracts/wallet/signatures/sep53/examples/phantom.rs b/contracts/wallet/signatures/sep53/examples/phantom.rs
+new file mode 100644
+index 0000000..a4ec358
+--- /dev/null
++++ b/contracts/wallet/signatures/sep53/examples/phantom.rs
+@@ -0,0 +1,138 @@
++//! NEAR testnet: the REAL Phantom extension controls a NEAR wallet-contract account by signing a
++//! readable UTF-8 request text (`WalletTextEd25519`), and that account gets NEAR MPC signatures:
++//! secp256k1 (an EVM key, the Phantom -> EVM case) and ed25519 (a Solana key).
++//!
++//! Signing is bridged to the browser: each request text is written to BRIDGE/req-N.txt and the
++//! Playwright driver has Phantom `signMessage` it, writing BRIDGE/req-N.sig (base58).
++use std::{path::PathBuf, time::{Duration, Instant}};
++
++use anyhow::{Context, Result, anyhow, bail};
++use defuse_crypto::{Curve, RecoverableCurve, ed25519::{Ed25519, Ed25519PublicKey, Ed25519Signature, ed25519_dalek}, secp256k1::Secp256k1};
++use defuse_wallet::{Request, RequestMessage, SignatureSchema, offchain::OffchainMessage};
++use defuse_wallet_sdk::{GlobalContractId, Proof, Wallet, WalletSigner, client::WalletContract};
++use defuse_wallet_sdk::mpc::kdf::{DeriveSigner, RecoverableDeriveSigner};
++use defuse_wallet_text_ed25519::WalletTextEd25519;
++use near_kit::{ExecutionStatus, Final, Near, NearToken};
++use serde_json::json;
++
++const MPC: &str = "v1.signer-prod.testnet";
++const BRIDGE: &str = "/home/ubuntu/work/phantom-spike/bridge";
++
++struct Phantom { pk: [u8; 32] }
++static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
++impl Phantom {
++    fn sign_text(&self, text: &str) -> Result<Proof> {
++        let n = N.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
++        let req = PathBuf::from(BRIDGE).join(format!("req-{n}.txt"));
++        let sig = req.with_extension("sig");
++        std::fs::write(&req, text)?;
++        let t = Instant::now();
++        while !sig.exists() {
++            if t.elapsed() > Duration::from_secs(240) { bail!("no Phantom signature for {}", req.display()) }
++            std::thread::sleep(Duration::from_millis(300));
++        }
++        std::thread::sleep(Duration::from_millis(200));
++        let raw = bs58::decode(std::fs::read_to_string(&sig)?.trim()).into_vec()?;
++        let s: [u8; 64] = raw.try_into().map_err(|_| anyhow!("sig len"))?;
++        let ok = ed25519_dalek::VerifyingKey::from_bytes(&self.pk)?.verify_strict(text.as_bytes(), &ed25519_dalek::Signature::from_bytes(&s)).is_ok();
++        println!("   Phantom signed req-{n} ({} bytes of text) in {:.1}s, verifies over the text: {ok}", text.len(), t.elapsed().as_secs_f32());
++        Ok(Ed25519Signature::from(ed25519_dalek::Signature::from_bytes(&s)).to_string())
++    }
++}
++impl WalletSigner<WalletTextEd25519> for Phantom {
++    type Error = std::io::Error;
++    fn public_key(&self) -> Ed25519PublicKey { Ed25519PublicKey(self.pk) }
++    async fn sign_request_msg(&self, msg: &RequestMessage) -> std::io::Result<Proof> {
++        self.sign_text(&WalletTextEd25519::request_text(msg)).map_err(|e| std::io::Error::other(e.to_string()))
++    }
++    async fn sign_offchain_msg(&self, msg: &OffchainMessage) -> std::io::Result<Proof> {
++        self.sign_text(&WalletTextEd25519::offchain_text(msg)).map_err(|e| std::io::Error::other(e.to_string()))
++    }
++}
++
++fn check(name: &str, pass: bool, detail: impl std::fmt::Display, all: &mut Vec<(String, bool)>) {
++    println!("{} {name} | {detail}", if pass { "PASS" } else { "FAIL" });
++    all.push((name.into(), pass));
++}
++
++async fn raw_execute(near: &Near, msg: &RequestMessage, proof: &str) -> Result<std::result::Result<String, String>> {
++    let out = near.transaction(&msg.signer_id)
++        .add_action(WalletContract::w_execute_signed((msg, proof.to_string()).into()).deposit(NearToken::from_yoctonear(1)).gas(near_kit::Gas::from_tgas(100)))
++        .send().wait_until::<Final>().await?;
++    let tx = out.transaction_hash().to_string();
++    for o in &out.receipts_outcome {
++        if o.outcome.executor_id == msg.signer_id {
++            if let ExecutionStatus::Failure(e) = &o.outcome.status {
++                let s = format!("{e:?}"); let i = s.find("panicked").unwrap_or(0);
++                return Ok(Err(format!("{tx}: {}", &s[i..s.len().min(i + 90)])));
++            }
++        }
++    }
++    Ok(Ok(tx))
++}
++
++#[tokio::main]
++async fn main() -> Result<()> {
++    std::fs::create_dir_all(BRIDGE)?;
++    let near = Near::from_env()?;
++    let hash: [u8; 32] = bs58::decode(std::env::var("TEXT_CODE_HASH")?).into_vec()?.try_into().map_err(|_| anyhow!("hash"))?;
++    let keys: serde_json::Value = serde_json::from_str(&std::fs::read_to_string("/home/ubuntu/work/phantom-spike/secrets/phantom-test.json")?)?;
++    let pk: [u8; 32] = hex::decode(keys["publicHex"].as_str().context("publicHex")?)?.try_into().map_err(|_| anyhow!("pk"))?;
++    let w = Wallet::<WalletTextEd25519>::new(GlobalContractId::CodeHash(hash), Phantom { pk })
++        .with_client(near.clone()).with_relayer(near.clone())
++        .with_mpc_contract_id(MPC.parse::<near_kit::AccountId>()?);
++    let id = w.account_id().clone();
++    let mut all = Vec::new();
++    println!("Phantom {} -> NEAR account {id}", keys["public"].as_str().unwrap_or(""));
++
++    // 1. First request (readable text in Phantom) creates the account.
++    let t = Instant::now();
++    w.initialize().await?;
++    let onchain_pk: String = near.contract::<WalletContract>(&id).w_public_key().await?;
++    check("1. Phantom-signed readable request creates the NEAR account", onchain_pk == Ed25519PublicKey(pk).to_string(), format!("{:.1}s {onchain_pk}", t.elapsed().as_secs_f32()), &mut all);
++
++    let skip = std::env::var("SKIP_MPC").is_ok();
++    if !skip {
++    // 2. Phantom -> NEAR MPC secp256k1: an EVM key (closes the "Solana wallet owns an EVM Prime Account" gap).
++    let path_evm = "prime:phantom-spike/evm-1";
++    let mpc_k1 = w.mpc_signer::<Secp256k1>(0).await?;
++    let k1 = mpc_k1.derive_public_key(path_evm);
++    let prehash = *b"keccak(EVM session grant) - test";
++    let t = Instant::now();
++    let (sig, rec) = mpc_k1.derive_sign_recoverable(path_evm, &prehash).await?;
++    let recovered = Secp256k1::recover(&prehash, &sig, rec);
++    let uncompressed = defuse_crypto::secp256k1::Secp256k1UncompressedPublicKey::from(k1);
++    let addr = { use sha3::{Digest, Keccak256}; let h = Keccak256::digest(&uncompressed.0[..]); format!("0x{}", hex::encode(&h[12..])) };
++    check("2. Phantom -> MPC secp256k1 signature recovers to the derived EVM key", recovered == Some(k1), format!("{:.1}s EVM address {addr}", t.elapsed().as_secs_f32()), &mut all);
++    let onchain_k1: serde_json::Value = near.view(MPC, "derived_public_key").args(json!({"path": path_evm, "predecessor": id.as_str(), "domain_id": 0})).await?;
++    check("2b. derived EVM key == MPC contract derived_public_key", onchain_k1.as_str() == Some(uncompressed.to_string().as_str()), onchain_k1, &mut all);
++
++    // 3. Phantom -> NEAR MPC ed25519: a Solana key.
++    let path_sol = "prime:phantom-spike/solana-1";
++    let mpc_ed = w.mpc_signer::<Ed25519>(1).await?;
++    let ed = mpc_ed.derive_public_key(path_sol);
++    let msg = b"Solana message bytes - test payload for MPC ed25519";
++    let s2 = mpc_ed.derive_sign(path_sol, msg).await?;
++    check("3. Phantom -> MPC ed25519 (Solana key) signature verifies", Ed25519::verify(&ed, msg, &s2), bs58::encode(Ed25519PublicKey::from(ed).0).into_string(), &mut all);
++
++    }
++    // 4. Refusals: another key's signature over the same text; a raw-hash signature; replay.
++    let attacker = ed25519_dalek::SigningKey::from_bytes(&rand_bytes());
++    let (m, p) = w.sign(Request::new()).await?;
++    let bad = Ed25519Signature::from(ed25519_dalek::Signer::sign(&attacker, WalletTextEd25519::request_text(&m).as_bytes())).to_string();
++    let r = raw_execute(&near, &m, &bad).await?;
++    check("4a. same request signed by another ed25519 key refused", r.is_err(), format!("{r:?}"), &mut all);
++    let ok = raw_execute(&near, &m, &p).await?;
++    check("4b. the genuine Phantom signature accepted", ok.is_ok(), format!("{ok:?}"), &mut all);
++    let replay = raw_execute(&near, &m, &p).await?;
++    check("4c. replay refused", replay.is_err(), format!("{replay:?}"), &mut all);
++    let _ = WalletTextEd25519::verify_request_msg;
++
++    std::fs::write(format!("{BRIDGE}/done"), "")?;
++    let passed = all.iter().filter(|c| c.1).count();
++    println!("\n{passed}/{} checks passed\nNEAR account {id}", all.len());
++    if passed != all.len() { bail!("some checks failed") }
++    Ok(())
++}
++
++fn rand_bytes() -> [u8; 32] { let mut b = [0u8; 32]; for (i, x) in b.iter_mut().enumerate() { *x = (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().subsec_nanos() as u8).wrapping_add(i as u8).wrapping_mul(31); } b }
 diff --git a/contracts/wallet/signatures/sep53/examples/spike.rs b/contracts/wallet/signatures/sep53/examples/spike.rs
 new file mode 100644
-index 0000000..32c3865
+index 0000000..d820c11
 --- /dev/null
 +++ b/contracts/wallet/signatures/sep53/examples/spike.rs
-@@ -0,0 +1,279 @@
+@@ -0,0 +1,280 @@
 +//! NEAR testnet spike: a Stellar wallet (Freighter) controls a deterministic
 +//! NEAR wallet account through SEP-53 signatures, and that account requests
 +//! NEAR MPC signatures (chain signatures).
@@ -242,7 +395,8 @@ index 0000000..32c3865
 +        let mpc = b_as_a.mpc_signer::<Ed25519>(1).await?;
 +        let msg: Vec<u8> = (0..hex.len()).step_by(2).map(|i| u8::from_str_radix(&hex[i..i + 2], 16)).collect::<Result<_, _>>()?;
 +        let t = Instant::now();
-+        let sig = mpc.derive_sign(PATH, &msg).await?;
++        let path = std::env::var("SPIKE_PATH").unwrap_or_else(|_| PATH.to_string());
++        let sig = mpc.derive_sign(&path, &msg).await?;
 +        let bytes: [u8; 64] = Ed25519Signature::from(sig).0;
 +        eprintln!("mpc sign {:.1}s", t.elapsed().as_secs_f32());
 +        println!("SIG {}", bytes.iter().map(|b| format!("{b:02x}")).collect::<String>());
@@ -564,5 +718,161 @@ index 0000000..77150b7
 +                )]),
 +        };
 +        println!("{}", WalletSep53::request_text(&msg));
++    }
++}
+diff --git a/contracts/wallet/signatures/text-ed25519/Cargo.toml b/contracts/wallet/signatures/text-ed25519/Cargo.toml
+new file mode 100644
+index 0000000..5215dd5
+--- /dev/null
++++ b/contracts/wallet/signatures/text-ed25519/Cargo.toml
+@@ -0,0 +1,28 @@
++lints.workspace = true
++
++[package]
++name = "defuse-wallet-text-ed25519"
++edition.workspace = true
++version = "0.1.0"
++rust-version.workspace = true
++repository.workspace = true
++
++[lib]
++crate-type = ["cdylib", "rlib"]
++
++[dependencies]
++defuse-crypto = { workspace = true, features = ["borsh", "ed25519", "fmt", "signing"] }
++defuse-wallet = { workspace = true, features = ["borsh", "digest", "json"] }
++serde_json.workspace = true
++
++near-sdk = { workspace = true, optional = true }
++
++[features]
++abi = ["defuse-crypto/abi", "defuse-wallet/abi", "near-sdk?/abi"]
++contract = ["defuse-crypto/borsh", "defuse-wallet/near-contract", "dep:near-sdk"]
++
++[dev-dependencies]
++near-sdk = { workspace = true, features = ["unit-testing"] }
++
++[package.metadata.cargo-machete]
++ignored = ["near-sdk"]
+diff --git a/contracts/wallet/signatures/text-ed25519/src/contract.rs b/contracts/wallet/signatures/text-ed25519/src/contract.rs
+new file mode 100644
+index 0000000..e2e9681
+--- /dev/null
++++ b/contracts/wallet/signatures/text-ed25519/src/contract.rs
+@@ -0,0 +1,13 @@
++use defuse_wallet::wallet;
++
++use crate::WalletTextEd25519;
++
++wallet! {
++    #[wallet(
++        schema = WalletTextEd25519,
++        metadata(
++            standard(standard = "wallet-text-ed25519", version = "1.0.0")
++        )
++    )]
++    struct Contract(_);
++}
+diff --git a/contracts/wallet/signatures/text-ed25519/src/lib.rs b/contracts/wallet/signatures/text-ed25519/src/lib.rs
+new file mode 100644
+index 0000000..449554c
+--- /dev/null
++++ b/contracts/wallet/signatures/text-ed25519/src/lib.rs
+@@ -0,0 +1,97 @@
++//! Wallet signature schema for Solana wallets (Phantom, Solflare, ...): the owner signs a
++//! readable UTF-8 text with `signMessage`, i.e. plain `ed25519(text)`. Phantom only signs
++//! valid UTF-8 that is not a Solana transaction, so the text is shown to the user as is.
++//!
++//! The text is built by the contract itself from the request, so the wallet shows exactly
++//! what will run and the signature covers all of it.
++#[cfg(feature = "contract")]
++mod contract;
++
++use core::str::FromStr;
++
++pub use defuse_crypto as crypto;
++use defuse_crypto::{
++    Curve,
++    ed25519::{Ed25519, Ed25519PublicKey, Ed25519Signature},
++};
++use defuse_wallet::{RequestMessage, SignatureSchema, offchain::OffchainMessage};
++
++pub struct WalletTextEd25519;
++
++impl WalletTextEd25519 {
++    /// Header of every signed request; separates it from other signed texts.
++    pub const REQUEST_HEADER: &str = "NEAR wallet request (NEAR_WALLET_CONTRACT/V1):\n";
++    /// Header of every signed NEP-641 offchain message.
++    pub const OFFCHAIN_HEADER: &str = "NEAR wallet offchain message (NEAR_WALLET_CONTRACT/V1):\n";
++
++    /// Text the Solana wallet signs for a request.
++    pub fn request_text(msg: &RequestMessage) -> String {
++        let json = serde_json::to_string_pretty(msg).expect("json: failed to serialize");
++        [Self::REQUEST_HEADER, &json].concat()
++    }
++
++    /// Text the Solana wallet signs for an offchain message.
++    pub fn offchain_text(msg: &OffchainMessage) -> String {
++        let json = serde_json::to_string_pretty(msg).expect("json: failed to serialize");
++        [Self::OFFCHAIN_HEADER, &json].concat()
++    }
++
++    fn verify_text(public_key: &Ed25519PublicKey, text: &str, proof: &str) -> bool {
++        let Ok(signature) = Ed25519Signature::from_str(proof) else {
++            return false;
++        };
++        let Ok(public_key) = <Ed25519 as Curve>::PublicKey::try_from(public_key) else {
++            return false;
++        };
++        Ed25519::verify(&public_key, text.as_bytes(), &signature.into())
++    }
++}
++
++impl SignatureSchema for WalletTextEd25519 {
++    type PublicKey = Ed25519PublicKey;
++
++    #[inline]
++    fn verify_request_msg(public_key: &Self::PublicKey, msg: &RequestMessage, proof: &str) -> bool {
++        Self::verify_text(public_key, &Self::request_text(msg), proof)
++    }
++
++    #[inline]
++    fn verify_offchain_msg(public_key: &Self::PublicKey, msg: &OffchainMessage, proof: &str) -> bool {
++        Self::verify_text(public_key, &Self::offchain_text(msg), proof)
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use defuse_crypto::ed25519::ed25519_dalek::{self, Signer};
++    use defuse_wallet::{DEFAULT_TIMEOUT, Request, Timestamp};
++
++    use super::*;
++
++    fn msg(nonce: u32) -> RequestMessage {
++        RequestMessage {
++            pay_for_gas: false,
++            chain_id: "testnet".into(),
++            signer_id: "signer.near".parse().unwrap(),
++            nonce,
++            created_at: Timestamp::now(),
++            timeout: DEFAULT_TIMEOUT,
++            request: Request::new(),
++        }
++    }
++
++    #[test]
++    fn sign_verify() {
++        let k = ed25519_dalek::SigningKey::from_bytes(&[7; 32]);
++        let other = ed25519_dalek::SigningKey::from_bytes(&[8; 32]);
++        let pk: Ed25519PublicKey = k.verifying_key().into();
++        let m = msg(1);
++        let p = |key: &ed25519_dalek::SigningKey, t: &[u8]| Ed25519Signature::from(key.sign(t)).to_string();
++        let text = WalletTextEd25519::request_text(&m);
++        assert!(text.is_ascii(), "request text must be plain text");
++        assert!(WalletTextEd25519::verify_request_msg(&pk, &m, &p(&k, text.as_bytes())));
++        assert!(!WalletTextEd25519::verify_request_msg(&pk, &msg(2), &p(&k, text.as_bytes())));
++        assert!(!WalletTextEd25519::verify_request_msg(&pk, &m, &p(&other, text.as_bytes())));
++        assert!(!WalletTextEd25519::verify_request_msg(&pk, &m, &p(&k, &m.hash())));
 +    }
 +}

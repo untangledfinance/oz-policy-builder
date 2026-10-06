@@ -1,0 +1,11 @@
+Phantom G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4 -> NEAR account 0s0114c4dd2b404330f7326c362763cd8c5be77fa0
+   Phantom signed req-0 (249 bytes of text) in 4.7s, verifies over the text: true
+PASS 1. Phantom-signed readable request creates the NEAR account | 8.6s ed25519:G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4
+   Phantom signed req-1 (249 bytes of text) in 5.3s, verifies over the text: true
+PASS 4a. same request signed by another ed25519 key refused | Err("3zBKyrSgu5diqbWWbzcLxgcyFzUDKs6yevVnNkccbzGx: panicked: invalid signature\")) }")
+PASS 4b. the genuine Phantom signature accepted | Ok("AAYBCCnSfZLVekZmrj887ZLoYARP8guefuZWPkqbk6W4")
+PASS 4c. replay refused | Err("FhzyMaGQbx7C1UJZmYNPmN1m25iggrkBcvmHEjPjXmVK: panicked: nonce: has already been used\")) }")
+
+4/4 checks passed
+NEAR account 0s0114c4dd2b404330f7326c362763cd8c5be77fa0
+exit 0

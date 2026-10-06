@@ -1,0 +1,166 @@
+bridge ready
+=== Phantom prompt 1 (Connect) ===
+P
+Prime NEAR spik
+Connect
+127.0.0.1:8791
+Confirming will allow this site to view balances and activity for the selected account.
+Account
+Prime NEAR spik
+Only connect to websites you trust
+Cancel
+Connect
+=== end prompt 1 ===
+=== Phantom prompt 2 (Confirm) ===
+P
+Prime NEAR spik
+Sign Message
+127.0.0.1:8791
+Signing this message will prove you have ownership of the selected account.
+Message
+NEAR wallet request (NEAR_WALLET_CONTRACT/V1):
+{
+  "chain_id": "testnet",
+  "signer_id": "0s0114c4dd2b404330f7326c362763cd8c5be77fa0",
+  "nonce": 3923764352,
+  "created_at": "2026-10-06T15:29:47.74255759Z",
+  "timeout_secs": 3600,
+  "request": {}
+}
+Network
+Solana
+Only confirm if you trust this website.
+Cancel
+Confirm
+=== end prompt 2 ===
+signed req-0.txt
+=== Phantom prompt 3 (Confirm) ===
+P
+Prime NEAR spik
+Sign Message
+127.0.0.1:8791
+Signing this message will prove you have ownership of the selected account.
+Message
+NEAR wallet request (NEAR_WALLET_CONTRACT/V1):
+{
+  "chain_id": "testnet",
+  "signer_id": "0s0114c4dd2b404330f7326c362763cd8c5be77fa0",
+  "nonce": 3923764353,
+  "created_at": "2026-10-06T15:30:29.305766449Z",
+  "timeout_secs": 3600,
+  "request": {
+    "external": [
+      {
+        "receiver_id": "v1.signer-prod.testnet",
+        "actions": [
+          {
+            "action": "function_call",
+            "payload": {
+              "function_name": "sign",
+              "args": "eyJyZXF1ZXN0Ijp7InBhdGgiOiJwcmltZTpwaGFudG9tLXNwaWtlL2V2bS0xIiwicGF5bG9hZF92MiI6eyJFY2RzYSI6IjZiNjU2MzYzNjE2YjI4NDU1NjRkMjA3MzY1NzM3MzY5NmY2ZTIwNjc3MjYxNmU3NDI5MjAyZDIwNzQ2NTczNzQifSwiZG9tYWluX2lkIjowfX0=",
+              "deposit": "1",
+              "gas": "15000000000000"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+Network
+Solana
+Only confirm if you trust this website.
+Cancel
+Confirm
+=== end prompt 3 ===
+signed req-1.txt
+sign error req-2.txt: page.evaluate: Target page, context or browser has been closed
+--- restart ---
+bridge ready
+=== Phantom prompt 1 (Confirm) ===
+P
+Prime NEAR spik
+Sign Message
+127.0.0.1:8791
+Signing this message will prove you have ownership of the selected account.
+Message
+NEAR wallet request (NEAR_WALLET_CONTRACT/V1):
+{
+  "chain_id": "testnet",
+  "signer_id": "0s0114c4dd2b404330f7326c362763cd8c5be77fa0",
+  "nonce": 3923764354,
+  "created_at": "2026-10-06T15:30:42.920481502Z",
+  "timeout_secs": 3600,
+  "request": {
+    "external": [
+      {
+        "receiver_id": "v1.signer-prod.testnet",
+        "actions": [
+          {
+            "action": "function_call",
+            "payload": {
+              "function_name": "sign",
+              "args": "eyJyZXF1ZXN0Ijp7InBhdGgiOiJwcmltZTpwaGFudG9tLXNwaWtlL3NvbGFuYS0xIiwicGF5bG9hZF92MiI6eyJFZGRzYSI6IjUzNmY2YzYxNmU2MTIwNmQ2NTczNzM2MTY3NjUyMDYyNzk3NDY1NzMyMDJkMjA3NDY1NzM3NDIwNzA2MTc5NmM2ZjYxNjQyMDY2NmY3MjIwNGQ1MDQzMjA2NTY0MzIzNTM1MzEzOSJ9LCJkb21haW5faWQiOjF9fQ==",
+              "deposit": "1",
+              "gas": "15000000000000"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+Network
+Solana
+Only confirm if you trust this website.
+Cancel
+Confirm
+=== end prompt 1 ===
+signed req-2.txt
+=== Phantom prompt 2 (Confirm) ===
+P
+Prime NEAR spik
+Sign Message
+127.0.0.1:8791
+Signing this message will prove you have ownership of the selected account.
+Message
+NEAR wallet request (NEAR_WALLET_CONTRACT/V1):
+{
+  "chain_id": "testnet",
+  "signer_id": "0s0114c4dd2b404330f7326c362763cd8c5be77fa0",
+  "nonce": 4082049824,
+  "created_at": "2026-10-06T15:33:25.668164968Z",
+  "timeout_secs": 3600,
+  "request": {}
+}
+Network
+Solana
+Only confirm if you trust this website.
+Cancel
+Confirm
+=== end prompt 2 ===
+signed req-0.txt
+=== Phantom prompt 3 (Confirm) ===
+P
+Prime NEAR spik
+Sign Message
+127.0.0.1:8791
+Signing this message will prove you have ownership of the selected account.
+Message
+NEAR wallet request (NEAR_WALLET_CONTRACT/V1):
+{
+  "chain_id": "testnet",
+  "signer_id": "0s0114c4dd2b404330f7326c362763cd8c5be77fa0",
+  "nonce": 4082049825,
+  "created_at": "2026-10-06T15:33:34.077287232Z",
+  "timeout_secs": 3600,
+  "request": {}
+}
+Network
+Solana
+Only confirm if you trust this website.
+Cancel
+Confirm
+=== end prompt 3 ===
+signed req-1.txt
+done
