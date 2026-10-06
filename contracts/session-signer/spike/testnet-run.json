@@ -240,5 +240,162 @@
   4423,
   5997,
   4728
- ]
+ ],
+ "mgmtRule": 4,
+ "mgmtTx": "3a551f697cc949d756719832015cefa298bb9d59cca757ae934519713c748443",
+ "mgmt": {
+  "W1. S+B add a rule for the Blend pool (via M)": {
+   "pass": true,
+   "ok": true,
+   "hash": "7449dbbaf0295dab3fc0d1ef9e16e2f7f1bdadefe981d13bb1768b2b567f5947"
+  },
+  "W2. S+B change that rule's expiry": {
+   "pass": true,
+   "ok": true,
+   "hash": "0254063ea92f96da0f65053f71b2277017066cd94f6b8cfbeb051115dea44009"
+  },
+  "W3. S+B remove that rule": {
+   "pass": true,
+   "ok": true,
+   "hash": "7dfe2ef73752c13eab283103d0d87e458899ac783b8bd13ec4d8df49d53e0a35"
+  },
+  "W4. S+B add a signer to rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "W5. S+B remove rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "W6. S+B remove M's interpreter": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "W7. S+B add a rule for every call (Default)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "W8. S+B add a rule scoped to the account itself": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #105)"
+  },
+  "W6b. S+B remove M's weighted_threshold": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "W9. S+B execute (XLM transfer out)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "W10. S+B upgrade the account": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "W11. S+B batch_add_signer on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "W12. S+B expire M": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "W14. S alone (weight 1)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)"
+  },
+  "W15. S+B through rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)"
+  },
+  "W16. S+B through the old XLM session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)"
+  },
+  "W17. a session granted by another wallet + B": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction)"
+  },
+  "W18. A+S: the owner twice (weight 2)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)"
+  },
+  "W19. B+C (weight 4) add a rule": {
+   "pass": true,
+   "ok": true,
+   "hash": "4f12413a2fbbbac5df108465e650c485d7b1505540805246ed208cf4d4b1c32c"
+  },
+  "W13. S+B add a signer to that later rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "W20. B+C remove it again": {
+   "pass": true,
+   "ok": true,
+   "hash": "f6e33d04b605de9eafdb684c342d97ddfc81d50a71cf77b1c41508b1914e28e8"
+  },
+  "W21. S+B replace M's predicate on the interpreter": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)"
+  },
+  "W22. S+B+C replace it through rule 0 (no A)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Value, UnexpectedType)"
+  },
+  "W23. control: A+B, A also signing as policy admin, re-install the same predicate": {
+   "pass": true,
+   "ok": true,
+   "hash": "4c657ecb3b24f2dbac876d33e9d5c8339ed0ca127a77d8e1e6a5db800f233872"
+  },
+  "W24. S+B add an XLM rule whose only signer is the thief (before tightening)": {
+   "pass": true,
+   "ok": true,
+   "hash": "a6b956945e72616b3ba4237aefba8f5ac2d3d6585fa25b50f5f09635a746bbba"
+  },
+  "W24 cleanup: S+B remove it": {
+   "pass": true,
+   "ok": true,
+   "hash": "9b04dba174a5579a1ecf7e58866fe46f9e5e9ad5964d0e8bca205a40ef91f5b6"
+  },
+  "W24b. S+B add a rule whose only signer is the thief (after tightening)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #105)"
+  },
+  "W24c. S+B add a rule with signers S and the thief": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "W25. S+B add a rule whose only signer is the session-signer (after tightening)": {
+   "pass": true,
+   "ok": true,
+   "hash": "1fb281232645ec94380eec4eed6b35fa5636a3b918befc66080ef6a19b96a095"
+  },
+  "W25 cleanup: S+B remove it": {
+   "pass": true,
+   "ok": true,
+   "hash": "cdcc50f0181fd8a193a40976bab83f747056853c48e2c0134900a68e95eae0d4"
+  }
+ },
+ "mgmtTestRule": 9,
+ "mgmtNonce": 3,
+ "tightenTx": "ae58811d9e682827434c42f05ddc56e4dd75278f529d1f9169db95de512a8875"
 }

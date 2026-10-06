@@ -61,6 +61,8 @@ export function nestedEntry(account: string, digest: Buffer, signer: string, n: 
 export async function invokeAs(opts: {
   feePayer: Sdk.Keypair; op: xdr.Operation; account: string; ruleIds: number[];
   signers: Array<{ address: string; signNested: (payload: Buffer) => Promise<xdr.ScVal> }>;
+  /** Sign root entries for other addresses (e.g. a G account a contract calls require_auth on). */
+  others?: Record<string, (payload: Buffer) => Promise<xdr.ScVal>>;
 }): Promise<{ ok: boolean; hash?: string; error?: string; ms: number; signMs: number }> {
   const t0 = Date.now();
   const src = await server.getAccount(opts.feePayer.publicKey());
@@ -73,7 +75,14 @@ export async function invokeAs(opts: {
   let signMs = 0;
   for (const e of sim.result!.auth) {
     const c = e.credentials();
-    if (c.switch().name !== 'sorobanCredentialsAddress' || Address.fromScAddress(c.address().address()).toString() !== opts.account) { entries.push(e); continue; }
+    const who = c.switch().name === 'sorobanCredentialsAddress' ? Address.fromScAddress(c.address().address()).toString() : '';
+    if (who && who !== opts.account && opts.others?.[who]) {
+      const ac = c.address();
+      const signed = new xdr.SorobanAuthorizationEntry({ credentials: xdr.SorobanCredentials.sorobanCredentialsAddress(new xdr.SorobanAddressCredentials({ address: ac.address(), nonce: ac.nonce(), signatureExpirationLedger: exp, signature: xdr.ScVal.scvVoid() })), rootInvocation: e.rootInvocation() });
+      signed.credentials().address().signature(await opts.others[who]!(signaturePayload(ac.nonce(), exp, e.rootInvocation())));
+      entries.push(signed); continue;
+    }
+    if (who !== opts.account) { entries.push(e); continue; }
     const ids = opts.ruleIds.length === 1 ? new Array(countContexts(e.rootInvocation())).fill(opts.ruleIds[0]) : opts.ruleIds;
     const payload = signaturePayload(c.address().nonce(), exp, e.rootInvocation());
     const digest = authDigest(payload, ids);

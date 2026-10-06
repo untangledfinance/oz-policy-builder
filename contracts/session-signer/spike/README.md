@@ -14,4 +14,6 @@ against the earlier contract, under `signer`, `installTx` and `movesA/B`).
 | `moves.ts` | Sessions with no NEAR signature (parts a-e): supply/withdraw on Blend, refusals, instance binding, the 7-day cap, revocation, latency. |
 | `vector.ts`, `t-mmlib.ts` | The EIP-712 vector the Rust tests pin, and the check that `@metamask/eth-sig-util` signs the same bytes as viem. |
 
+| `mgmt.ts` | Owner policy management through a session with no new contract. Rule 0 stays A, B, C (2 of 3). Rule M (`owner_management`, scoped to the account itself) has signers A, S, B, C, OZ `weighted_threshold` {A:1, S:1, B:2, C:2} >= 3, and the grammar-6 interpreter (`policy_admins` = [A]) allowing only `add_context_rule` (scope `CallContract`, allowlisted targets, one signer: the session-signer) and `remove_context_rule` / `update_context_rule_*` / `add_policy` / `remove_policy` on rules above M. Parts `setup`, `a`, `a6`, `b`, `b2`, `c`, `d`, `e`, `f`, `tighten`, `g`. |
+
 Secrets (`secrets/`) are generated on first run and are not committed.
