@@ -130,7 +130,7 @@ async function openSession(w: W, o: { seconds?: number; signAs?: W; text?: (t: s
 /** [ed25519 program ix, prime-session execute(inner)]. */
 function viaSession(s: Session, inner: TransactionInstruction, o: { until?: number; owner?: PublicKey; pda?: PublicKey; acct?: PublicKey } = {}): TransactionInstruction[] {
   const owner = o.owner ?? s.owner, pda = o.pda ?? s.pda, acct = o.acct ?? s.acct;
-  const head = Buffer.concat([Buffer.from([0]), owner.toBuffer(), acct.toBuffer(), Buffer.from(new BigInt64Array([BigInt(o.until ?? s.until)]).buffer), Buffer.from([0])]);
+  const head = Buffer.concat([owner.toBuffer(), acct.toBuffer(), Buffer.from(new BigInt64Array([BigInt(o.until ?? s.until)]).buffer), Buffer.from([0])]);
   const keys = [{ pubkey: SYSVAR_INSTRUCTIONS_PUBKEY, isSigner: false, isWritable: false }, { pubkey: s.key.publicKey, isSigner: true, isWritable: true },
     { pubkey: pda, isSigner: false, isWritable: false }, { pubkey: inner.programId, isSigner: false, isWritable: false },
     ...inner.keys.map((k) => ({ ...k, isSigner: k.pubkey.equals(pda) ? false : k.isSigner }))];
@@ -236,6 +236,18 @@ for (const w of [MM, FR, PH]) {
   await send('X6. grant signed for cluster mainnet, used on localnet', false, viaSession(cl, policyMove(cl.pda, sysTransfer(VENUE, 0.001))), relayed(cl));
   const pr = await openSession(PH, { text: (t) => t.replace(`program: ${PROG.toBase58()}`, 'program: 8xSaCrq6HidyjmE3khJ9DYewWdYNfn93nQEkYvqTEpig') });
   await send('X7. grant signed for another program id', false, viaSession(pr, policyMove(pr.pda, sysTransfer(VENUE, 0.001))), relayed(pr));
+  // prime-session has no explicit PDA check: Phantom signs a grant naming MetaMask's PDA (a real policy signer); the runtime
+  // must refuse, because invoke_signed's seeds derive only Phantom's PDA.
+  const mmPda = pdaOf(MM.key);
+  const fake = await openSession(PH, { text: (t) => t.replace(`signer: ${pdaOf(PH.key).toBase58()}`, `signer: ${mmPda.toBase58()}`) });
+  await send("X8. Phantom's own signed grant naming MetaMask's PDA", false, viaSession(fake, policyMove(mmPda, sysTransfer(VENUE, 0.001)), { pda: mmPda }), relayed(fake));
+  // right PDA and grant, but another Smart Account's settings in the data: the seeds then derive a different PDA
+  const ph8 = await openSession(PH);
+  await send('X9. valid Phantom grant, data names another settings address', false, viaSession(ph8, policyMove(ph8.pda, sysTransfer(VENUE, 0.001)), { acct: OUT.key }), relayed(ph8));
+  // the session key does not sign the transaction (only the relayer does)
+  const ns = viaSession(ph8, policyMove(ph8.pda, sysTransfer(VENUE, 0.001)));
+  ns[1] = new TransactionInstruction({ ...ns[1], keys: ns[1].keys.map((k, i) => (i === 1 ? { ...k, isSigner: false } : k)) });
+  await send('X10. the session key does not sign (relayer only)', false, ns, [payer]);
 }
 
 // ── A. A grant works in one Smart Account only ────────────────────────────────────────────────

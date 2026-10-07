@@ -1,0 +1,343 @@
+seats: 0xCcD8af4Ae1a907Ac370FD151D6282da59bc7C570 0x29A9ac479C237AC2CAE6f25cD6cec5D961C113fF 0x5F172afFBEEb59eb574fFF9be77B44898182F3b1
+PASS C0. a zero-owner PrimeKey accepts no grant (garbage signature) | refused: reverted with reason: grant sig
+PASS C1. create Safe (MetaMask first, PrimeX flow) | ok gas 259243
+PASS C2. seats MetaMask + Freighter(NEAR MPC) + Phantom(NEAR MPC), threshold 2; movers rule for the three PrimeKeys | ok gas 750059
+PASS C3. owners are exactly the three wallet keys (no PrimeKey), threshold 2 | ok 0x5f172affbeeb59eb574fff9be77b44898182f3b1,0x29a9ac479c237ac2cae6f25cd6cec5d961c113ff,0xccd8af4ae1a907ac370fd151d6282da59bc7c570 / 2
+PASS C4. mint 1000 tokens to the Safe | ok gas 46096
+PASS S1-MetaMask. MetaMask alone | refused: reverted with reason: GS020
+PASS S1-Freighter. Freighter alone | refused: reverted with reason: GS020
+PASS S1-Phantom. Phantom alone | refused: reverted with reason: GS020
+PASS S2. MetaMask + Freighter | ok gas 98591
+PASS S3. Freighter + Phantom (no MetaMask) | ok gas 81527
+PASS S4. Phantom + MetaMask | ok gas 81527
+PASS S5. DEST received exactly 3 | ok 3
+PASS S6. outsider + MetaMask | refused: reverted with reason: GS026
+PASS S7. the same wallet (Phantom) signs twice, as both votes | refused: reverted with reason: GS026
+PASS S8. Freighter's MPC key under another path + MetaMask | refused: reverted with reason: GS026
+PASS S9. Phantom approval of another Safe tx + MetaMask | refused: reverted with reason: GS026
+PASS N0. Phantom grants a session (used below) | ok gas 75768
+PASS N1. the session key's signature as a Safe owner + MetaMask | refused: reverted with reason: GS026
+PASS N2. PrimeKey(Phantom) as a contract signature + MetaMask | refused: Execution reverted for an unknown reason.
+PASS N3. session asks Roles to add the session key as a Safe owner | refused: Execution reverted for an unknown reason.
+PASS N4. session asks Roles for a delegatecall | refused: Execution reverted for an unknown reason.
+PASS N5. session asks Roles to call the Roles modifier itself (re-assign roles) | refused: Execution reverted for an unknown reason.
+PASS G-MetaMask1. MetaMask grants a 1-hour session (one signature), relayer submits | ok gas 75756
+PASS G-MetaMask2. move via relayer: 10 to VENUE | ok gas 160598
+ 6 |         const cause = getNodeError(err, args);
+ 7 |         if (cause instanceof UnknownNodeError)
+ 8 |             return err;
+ 9 |         return cause;
+10 |     })();
+11 |     return new TransactionExecutionError(cause, {
+                ^
+TransactionExecutionError: The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.
+
+This error could arise when the account does not have enough funds to:
+ - pay for the total gas fee,
+ - pay for the value to send.
+ 
+The cost of the transaction is calculated as `gas * gas fee + value`, where:
+ - `gas` is the amount of gas needed for transaction to execute,
+ - `gas fee` is the gas fee,
+ - `value` is the amount of ether to send to the recipient.
+ 
+Request Arguments:
+  from:   0xecebBf71Faa6682Ff31fD145646f8Eda82E98E11
+  to:     0xd4b64053914c69f898827834eAE67Ab3Cf15B856
+  value:  0.000003111696000663 ETH
+
+Details: insufficient funds for gas * price + value: have 1651144136034 want 3111696000663
+Version: viem@2.57.3
+    details: "insufficient funds for gas * price + value: have 1651144136034 want 3111696000663",
+   docsPath: undefined,
+ metaMessages: [
+  "This error could arise when the account does not have enough funds to:", " - pay for the total gas fee,",
+  " - pay for the value to send.", " ", "The cost of the transaction is calculated as `gas * gas fee + value`, where:",
+  " - `gas` is the amount of gas needed for transaction to execute,", " - `gas fee` is the gas fee,",
+  " - `value` is the amount of ether to send to the recipient.", " ", "Request Arguments:",
+  "  from:   0xecebBf71Faa6682Ff31fD145646f8Eda82E98E11\n  to:     0xd4b64053914c69f898827834eAE67Ab3Cf15B856\n  value:  0.000003111696000663 ETH"
+],
+ shortMessage: "The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.",
+    version: "2.57.3",
+
+      at getTransactionError (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/errors/getTransactionError.js:11:12)
+      at sendTransaction (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/actions/wallet/sendTransaction.js:244:15)
+      at async fund (/home/ubuntu/work/swig-spike/pkn.ts:50:92)
+      at async move (/home/ubuntu/work/swig-spike/pkn.ts:122:94)
+
+38 |     if (NonceTooLowError.nodeMessage.test(message))
+39 |         return new NonceTooLowError({ cause: err, nonce: args?.nonce });
+40 |     if (NonceMaxValueError.nodeMessage.test(message))
+41 |         return new NonceMaxValueError({ cause: err, nonce: args?.nonce });
+42 |     if (InsufficientFundsError.nodeMessage.test(message))
+43 |         return new InsufficientFundsError({ cause: err });
+                    ^
+InsufficientFundsError: The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.
+
+This error could arise when the account does not have enough funds to:
+ - pay for the total gas fee,
+ - pay for the value to send.
+ 
+The cost of the transaction is calculated as `gas * gas fee + value`, where:
+ - `gas` is the amount of gas needed for transaction to execute,
+ - `gas fee` is the gas fee,
+ - `value` is the amount of ether to send to the recipient.
+
+Details: insufficient funds for gas * price + value: have 1651144136034 want 3111696000663
+Version: viem@2.57.3
+    details: "insufficient funds for gas * price + value: have 1651144136034 want 3111696000663",
+   docsPath: undefined,
+ metaMessages: [
+  "This error could arise when the account does not have enough funds to:", " - pay for the total gas fee,",
+  " - pay for the value to send.", " ", "The cost of the transaction is calculated as `gas * gas fee + value`, where:",
+  " - `gas` is the amount of gas needed for transaction to execute,", " - `gas fee` is the gas fee,",
+  " - `value` is the amount of ether to send to the recipient."
+],
+ shortMessage: "The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.",
+    version: "2.57.3",
+
+      at getNodeError (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/errors/getNodeError.js:43:16)
+      at <anonymous> (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/errors/getTransactionError.js:6:23)
+      at getTransactionError (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/errors/getTransactionError.js:9:16)
+      at sendTransaction (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/actions/wallet/sendTransaction.js:244:15)
+      at async fund (/home/ubuntu/work/swig-spike/pkn.ts:50:92)
+      at async move (/home/ubuntu/work/swig-spike/pkn.ts:122:94)
+
+ 6 |         const cause = getNodeError(err, args);
+ 7 |         if (cause instanceof UnknownNodeError)
+ 8 |             return err;
+ 9 |         return cause;
+10 |     })();
+11 |     return new EstimateGasExecutionError(cause, {
+                ^
+EstimateGasExecutionError: The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.
+
+This error could arise when the account does not have enough funds to:
+ - pay for the total gas fee,
+ - pay for the value to send.
+ 
+The cost of the transaction is calculated as `gas * gas fee + value`, where:
+ - `gas` is the amount of gas needed for transaction to execute,
+ - `gas fee` is the gas fee,
+ - `value` is the amount of ether to send to the recipient.
+ 
+Estimate Gas Arguments:
+  from:                  0xecebBf71Faa6682Ff31fD145646f8Eda82E98E11
+  to:                    0xd4b64053914c69f898827834eAE67Ab3Cf15B856
+  value:                 0.000003111696000663 ETH
+  maxFeePerGas:          0.007 gwei
+  maxPriorityFeePerGas:  0.001 gwei
+  nonce:                 111
+
+Details: insufficient funds for gas * price + value: have 1651144136034 want 3111696000663
+Version: viem@2.57.3
+      cause: 38 |     if (NonceTooLowError.nodeMessage.test(message))
+39 |         return new NonceTooLowError({ cause: err, nonce: args?.nonce });
+40 |     if (NonceMaxValueError.nodeMessage.test(message))
+41 |         return new NonceMaxValueError({ cause: err, nonce: args?.nonce });
+42 |     if (InsufficientFundsError.nodeMessage.test(message))
+43 |         return new InsufficientFundsError({ cause: err });
+                    ^
+InsufficientFundsError: The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.
+
+This error could arise when the account does not have enough funds to:
+ - pay for the total gas fee,
+ - pay for the value to send.
+ 
+The cost of the transaction is calculated as `gas * gas fee + value`, where:
+ - `gas` is the amount of gas needed for transaction to execute,
+ - `gas fee` is the gas fee,
+ - `value` is the amount of ether to send to the recipient.
+
+Details: insufficient funds for gas * price + value: have 1651144136034 want 3111696000663
+Version: viem@2.57.3
+    details: "insufficient funds for gas * price + value: have 1651144136034 want 3111696000663",
+   docsPath: undefined,
+ metaMessages: [
+  "This error could arise when the account does not have enough funds to:", " - pay for the total gas fee,",
+  " - pay for the value to send.", " ", "The cost of the transaction is calculated as `gas * gas fee + value`, where:",
+  " - `gas` is the amount of gas needed for transaction to execute,", " - `gas fee` is the gas fee,",
+  " - `value` is the amount of ether to send to the recipient."
+],
+ shortMessage: "The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.",
+    version: "2.57.3",
+
+      at getNodeError (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/errors/getNodeError.js:43:16)
+      at <anonymous> (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/errors/getEstimateGasError.js:6:23)
+      at getEstimateGasError (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/errors/getEstimateGasError.js:9:16)
+      at estimateGas (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/actions/public/estimateGas.js:114:15)
+      at async prepareTransactionRequest (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/actions/wallet/prepareTransactionRequest.js:363:73)
+      at async sendTransaction (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/actions/wallet/sendTransaction.js:190:107)
+      at async fund (/home/ubuntu/work/swig-spike/pkn.ts:50:92)
+      at async move (/home/ubuntu/work/swig-spike/pkn.ts:122:94)
+
+60 |                     // -32002
+61 |                     case ResourceUnavailableRpcError.code:
+62 |                         throw new ResourceUnavailableRpcError(err);
+63 |                     // -32003
+64 |                     case TransactionRejectedRpcError.code:
+65 |                         throw new TransactionRejectedRpcError(err);
+                                   ^
+TransactionRejectedRpcError: Transaction creation failed.
+
+URL: https://sepolia.base.org
+Request body: {"method":"eth_estimateGas","params":[{"from":"0xecebBf71Faa6682Ff31fD145646f8Eda82E98E11","maxFeePerGas":"0x6acfc0","maxPriorityFeePerGas":"0xf4240","nonce":"0x6f","to":"0xd4b64053914c69f898827834eAE67Ab3Cf15B856","value":"0x2d47f88e697"}]}
+
+Details: insufficient funds for gas * price + value: have 1651144136034 want 3111696000663
+Version: viem@2.57.3
+    details: "insufficient funds for gas * price + value: have 1651144136034 want 3111696000663",
+   docsPath: undefined,
+ metaMessages: [
+  "URL: https://sepolia.base.org", "Request body: {\"method\":\"eth_estimateGas\",\"params\":[{\"from\":\"0xecebBf71Faa6682Ff31fD145646f8Eda82E98E11\",\"maxFeePerGas\":\"0x6acfc0\",\"maxPriorityFeePerGas\":\"0xf4240\",\"nonce\":\"0x6f\",\"to\":\"0xd4b64053914c69f898827834eAE67Ab3Cf15B856\",\"value\":\"0x2d47f88e697\"}]}"
+],
+ shortMessage: "Transaction creation failed.",
+    version: "2.57.3",
+       code: -32003,
+
+      at <anonymous> (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/buildRequest.js:65:31)
+      at async <anonymous> (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/promise/withRetry.js:24:36)
+
+68 |                     ];
+69 |                 const [{ error, result }] = await fn(body);
+70 |                 if (raw)
+71 |                     return { error, result };
+72 |                 if (error)
+73 |                     throw new RpcRequestError({
+                               ^
+RpcRequestError: RPC Request failed.
+
+URL: https://sepolia.base.org
+Request body: {"method":"eth_estimateGas","params":[{"from":"0xecebBf71Faa6682Ff31fD145646f8Eda82E98E11","maxFeePerGas":"0x6acfc0","maxPriorityFeePerGas":"0xf4240","nonce":"0x6f","to":"0xd4b64053914c69f898827834eAE67Ab3Cf15B856","value":"0x2d47f88e697"}]}
+
+Details: insufficient funds for gas * price + value: have 1651144136034 want 3111696000663
+Version: viem@2.57.3
+    details: "insufficient funds for gas * price + value: have 1651144136034 want 3111696000663",
+   docsPath: undefined,
+ metaMessages: [
+  "URL: https://sepolia.base.org", "Request body: {\"method\":\"eth_estimateGas\",\"params\":[{\"from\":\"0xecebBf71Faa6682Ff31fD145646f8Eda82E98E11\",\"maxFeePerGas\":\"0x6acfc0\",\"maxPriorityFeePerGas\":\"0xf4240\",\"nonce\":\"0x6f\",\"to\":\"0xd4b64053914c69f898827834eAE67Ab3Cf15B856\",\"value\":\"0x2d47f88e697\"}]}"
+],
+ shortMessage: "RPC Request failed.",
+    version: "2.57.3",
+       code: -32003,
+       data: undefined,
+        url: "https://sepolia.base.org",
+
+      at request (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/clients/transports/http.js:73:27)
+      at async <anonymous> (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/buildRequest.js:30:30)
+      at async <anonymous> (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/promise/withRetry.js:24:36)
+,
+    details: "insufficient funds for gas * price + value: have 1651144136034 want 3111696000663",
+   docsPath: undefined,
+ metaMessages: [
+  "This error could arise when the account does not have enough funds to:", " - pay for the total gas fee,",
+  " - pay for the value to send.", " ", "The cost of the transaction is calculated as `gas * gas fee + value`, where:",
+  " - `gas` is the amount of gas needed for transaction to execute,", " - `gas fee` is the gas fee,",
+  " - `value` is the amount of ether to send to the recipient.", " ", "Estimate Gas Arguments:",
+  "  from:                  0xecebBf71Faa6682Ff31fD145646f8Eda82E98E11\n  to:                    0xd4b64053914c69f898827834eAE67Ab3Cf15B856\n  value:                 0.000003111696000663 ETH\n  maxFeePerGas:          0.007 gwei\n  maxPriorityFeePerGas:  0.001 gwei\n  nonce:                 111"
+],
+ shortMessage: "The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.",
+    version: "2.57.3",
+
+      at getEstimateGasError (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/errors/getEstimateGasError.js:11:12)
+      at estimateGas (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/actions/public/estimateGas.js:114:15)
+      at async prepareTransactionRequest (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/actions/wallet/prepareTransactionRequest.js:363:73)
+      at async sendTransaction (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/actions/wallet/sendTransaction.js:190:107)
+      at async fund (/home/ubuntu/work/swig-spike/pkn.ts:50:92)
+      at async move (/home/ubuntu/work/swig-spike/pkn.ts:122:94)
+
+38 |     if (NonceTooLowError.nodeMessage.test(message))
+39 |         return new NonceTooLowError({ cause: err, nonce: args?.nonce });
+40 |     if (NonceMaxValueError.nodeMessage.test(message))
+41 |         return new NonceMaxValueError({ cause: err, nonce: args?.nonce });
+42 |     if (InsufficientFundsError.nodeMessage.test(message))
+43 |         return new InsufficientFundsError({ cause: err });
+                    ^
+InsufficientFundsError: The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.
+
+This error could arise when the account does not have enough funds to:
+ - pay for the total gas fee,
+ - pay for the value to send.
+ 
+The cost of the transaction is calculated as `gas * gas fee + value`, where:
+ - `gas` is the amount of gas needed for transaction to execute,
+ - `gas fee` is the gas fee,
+ - `value` is the amount of ether to send to the recipient.
+
+Details: insufficient funds for gas * price + value: have 1651144136034 want 3111696000663
+Version: viem@2.57.3
+    details: "insufficient funds for gas * price + value: have 1651144136034 want 3111696000663",
+   docsPath: undefined,
+ metaMessages: [
+  "This error could arise when the account does not have enough funds to:", " - pay for the total gas fee,",
+  " - pay for the value to send.", " ", "The cost of the transaction is calculated as `gas * gas fee + value`, where:",
+  " - `gas` is the amount of gas needed for transaction to execute,", " - `gas fee` is the gas fee,",
+  " - `value` is the amount of ether to send to the recipient."
+],
+ shortMessage: "The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.",
+    version: "2.57.3",
+
+      at getNodeError (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/errors/getNodeError.js:43:16)
+      at <anonymous> (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/errors/getEstimateGasError.js:6:23)
+      at getEstimateGasError (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/errors/getEstimateGasError.js:9:16)
+      at estimateGas (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/actions/public/estimateGas.js:114:15)
+      at async prepareTransactionRequest (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/actions/wallet/prepareTransactionRequest.js:363:73)
+      at async sendTransaction (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/actions/wallet/sendTransaction.js:190:107)
+      at async fund (/home/ubuntu/work/swig-spike/pkn.ts:50:92)
+      at async move (/home/ubuntu/work/swig-spike/pkn.ts:122:94)
+
+60 |                     // -32002
+61 |                     case ResourceUnavailableRpcError.code:
+62 |                         throw new ResourceUnavailableRpcError(err);
+63 |                     // -32003
+64 |                     case TransactionRejectedRpcError.code:
+65 |                         throw new TransactionRejectedRpcError(err);
+                                   ^
+TransactionRejectedRpcError: Transaction creation failed.
+
+URL: https://sepolia.base.org
+Request body: {"method":"eth_estimateGas","params":[{"from":"0xecebBf71Faa6682Ff31fD145646f8Eda82E98E11","maxFeePerGas":"0x6acfc0","maxPriorityFeePerGas":"0xf4240","nonce":"0x6f","to":"0xd4b64053914c69f898827834eAE67Ab3Cf15B856","value":"0x2d47f88e697"}]}
+
+Details: insufficient funds for gas * price + value: have 1651144136034 want 3111696000663
+Version: viem@2.57.3
+    details: "insufficient funds for gas * price + value: have 1651144136034 want 3111696000663",
+   docsPath: undefined,
+ metaMessages: [
+  "URL: https://sepolia.base.org", "Request body: {\"method\":\"eth_estimateGas\",\"params\":[{\"from\":\"0xecebBf71Faa6682Ff31fD145646f8Eda82E98E11\",\"maxFeePerGas\":\"0x6acfc0\",\"maxPriorityFeePerGas\":\"0xf4240\",\"nonce\":\"0x6f\",\"to\":\"0xd4b64053914c69f898827834eAE67Ab3Cf15B856\",\"value\":\"0x2d47f88e697\"}]}"
+],
+ shortMessage: "Transaction creation failed.",
+    version: "2.57.3",
+       code: -32003,
+
+      at <anonymous> (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/buildRequest.js:65:31)
+      at async <anonymous> (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/promise/withRetry.js:24:36)
+
+68 |                     ];
+69 |                 const [{ error, result }] = await fn(body);
+70 |                 if (raw)
+71 |                     return { error, result };
+72 |                 if (error)
+73 |                     throw new RpcRequestError({
+                               ^
+RpcRequestError: RPC Request failed.
+
+URL: https://sepolia.base.org
+Request body: {"method":"eth_estimateGas","params":[{"from":"0xecebBf71Faa6682Ff31fD145646f8Eda82E98E11","maxFeePerGas":"0x6acfc0","maxPriorityFeePerGas":"0xf4240","nonce":"0x6f","to":"0xd4b64053914c69f898827834eAE67Ab3Cf15B856","value":"0x2d47f88e697"}]}
+
+Details: insufficient funds for gas * price + value: have 1651144136034 want 3111696000663
+Version: viem@2.57.3
+    details: "insufficient funds for gas * price + value: have 1651144136034 want 3111696000663",
+   docsPath: undefined,
+ metaMessages: [
+  "URL: https://sepolia.base.org", "Request body: {\"method\":\"eth_estimateGas\",\"params\":[{\"from\":\"0xecebBf71Faa6682Ff31fD145646f8Eda82E98E11\",\"maxFeePerGas\":\"0x6acfc0\",\"maxPriorityFeePerGas\":\"0xf4240\",\"nonce\":\"0x6f\",\"to\":\"0xd4b64053914c69f898827834eAE67Ab3Cf15B856\",\"value\":\"0x2d47f88e697\"}]}"
+],
+ shortMessage: "RPC Request failed.",
+    version: "2.57.3",
+       code: -32003,
+       data: undefined,
+        url: "https://sepolia.base.org",
+
+      at request (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/clients/transports/http.js:73:27)
+      at async <anonymous> (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/buildRequest.js:30:30)
+      at async <anonymous> (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/promise/withRetry.js:24:36)
+
+Bun v1.4.2 (Linux x64)

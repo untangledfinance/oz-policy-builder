@@ -52,7 +52,7 @@ const PH_OTHER_PATH = await viaNear('Phantom', 'prime:stellar-other');
 const seat = (w: W, signAs: W = w) => ({ address: w.G, signNested: async (p: Buffer) => accountSig(signAs.pub, await signAs.signRaw(p)) });
 const S_OF: Record<Wallet, string> = { MetaMask: 'S_mm', Freighter: 'S_fr', Phantom: 'S_ph' };
 
-const grantText = (S: string, key: Buffer, until: number) => `Prime session\ncontract: ${S}\nsession key: ${key.toString('hex')}\nvalid until ledger: ${until}`;
+const grantText = (S: string, key: Buffer, until: number) => `Prime session\ncontract: ${S}\nsession key: ${key.toString('hex')}\nvalid until ledger (hex): ${until.toString(16).padStart(8, '0')}`;
 type Session = { kp: Sdk.Keypair; until: number; S: string; signer: { address: string; signNested: (p: Buffer) => Promise<Sdk.xdr.ScVal> } };
 async function session(w: W, o: { ledgers?: number; S?: string; signAs?: W; sign?: (t: string) => Promise<Buffer>; signedUntil?: number } = {}): Promise<Session> {
   const S = o.S ?? st[S_OF[w.name as Wallet]]; const kp = Sdk.Keypair.random(); const until = (await now()) + (o.ledgers ?? 720);

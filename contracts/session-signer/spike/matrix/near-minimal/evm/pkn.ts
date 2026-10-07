@@ -125,9 +125,9 @@ async function move(name: string, expectOk: boolean, s: Session, call: { to: Add
 }
 
 // ── C. Setup ───────────────────────────────────────────────────────────────────────────────────
-{
-  const r = await relayer.deployContract({ abi: PK.abi, bytecode: PK.bytecode.object, args: ['0x0000000000000000000000000000000000000000', fresh()] }).then((h) => pub.waitForTransactionReceipt({ hash: h })).then((x) => x.status === 'success', () => false);
-  record('C0. PrimeKey refuses a zero owner', false, r, r ? 'deployed' : 'reverted');
+{ // a zero owner can never match: OpenZeppelin's tryRecover never reports success for the zero address
+  const z = await deploy(PK, ['0x0000000000000000000000000000000000000000', fresh()]);
+  await send('C0. a zero-owner PrimeKey accepts no grant (garbage signature)', false, z, encodeFunctionData({ abi: PK.abi, functionName: 'grant', args: [fresh(), (await now()) + 3600n, ('0x' + '00'.repeat(65)) as Hex] }));
 }
 st.token = await deploy(TK);
 const proxyCreationCode = await pub.readContract({ address: CONTRACTS.safeProxyFactory, abi: parseAbi(['function proxyCreationCode() view returns (bytes)']), functionName: 'proxyCreationCode' }) as Hex;
@@ -196,7 +196,7 @@ for (const [w, pk] of [[MM, st.pkMM], [FR, st.pkFR], [PH, st.pkPH]] as [W, Addre
   await grant(`G-${w.name}12. old grant replayed with an earlier end`, false, pk, w, { key: s.key, end: s.end - 60n });
   await grant(`G-${w.name}13. grant for the zero key`, false, pk, w, { key: { address: '0x0000000000000000000000000000000000000000' } as any });
   const r = await grant(`G-${w.name}14. second session, granted with the session key paying gas itself`, true, pk, w, { selfPay: true });
-  await send(`G-${w.name}15. ${w.name} revokes it (one signature)`, true, pk, encodeFunctionData({ abi: PK.abi, functionName: 'revoke', args: [r.key.address, await w.personalSign(await grantText(pk, r.key.address, 0n))] }));
+  await send(`G-${w.name}15. ${w.name} revokes it: grant with end 0 (one signature)`, true, pk, encodeFunctionData({ abi: PK.abi, functionName: 'grant', args: [r.key.address, 0n, await w.personalSign(await grantText(pk, r.key.address, 0n))] }));
   await move(`G-${w.name}16. the revoked session`, false, r, tokenTransfer(VENUE, 1n));
   await grant(`G-${w.name}17. re-grant the revoked key`, false, pk, w, { key: r.key });
   await move(`G-${w.name}18. first session still works`, true, s, tokenTransfer(VENUE, 1n));
@@ -214,6 +214,14 @@ for (const [w, pk] of [[MM, st.pkMM], [FR, st.pkFR], [PH, st.pkPH]] as [W, Addre
   await move('X8. that session key used through PrimeKey(Phantom)', false, { ...s, pk: st.pkPH }, tokenTransfer(VENUE, 1n));
   await send('X9. a stranger calls Roles directly', false, st.roles, encodeFunctionData({ abi: parseAbi(['function execTransactionWithRole(address,uint256,bytes,uint8,bytes32,bool) returns (bool)']), functionName: 'execTransactionWithRole', args: [st.token, 0n, tokenTransfer(VENUE, 1n).data, 0, st.roleKey, true] }));
   await move('X10. a move over the daily cap (60 more)', false, s, tokenTransfer(VENUE, 60n));
+  // revoke is grant(key, 0, sig): only the owner's end-0 signature counts
+  await send("X12. Phantom's end-0 (revoke) signature on PrimeKey(Freighter) for Freighter's live session", false, st.pkFR, encodeFunctionData({ abi: PK.abi, functionName: 'grant', args: [s.key.address, 0n, await PH.personalSign(await grantText(st.pkFR, s.key.address, 0n))] }));
+  const pre = privateKeyToAccount(generatePrivateKey());
+  const preSig = await FR.personalSign(await grantText(st.pkFR, pre.address, 0n));
+  await send('X13. Freighter revokes a key it never granted (pre-emptive)', true, st.pkFR, encodeFunctionData({ abi: PK.abi, functionName: 'grant', args: [pre.address, 0n, preSig] }));
+  await grant('X14. that key can never be granted afterwards', false, st.pkFR, FR, { key: pre });
+  await send('X15. the same revoke replayed (harmless, key stays revoked)', true, st.pkFR, encodeFunctionData({ abi: PK.abi, functionName: 'grant', args: [pre.address, 0n, preSig] }));
+  await move('X16. Freighter session still works after X12', true, s, tokenTransfer(VENUE, 1n));
   if (LIVE) { // real chain: no time travel, so use a 20-second session and wait it out
     const short = await grant('X11a. Freighter 20-second session', true, st.pkFR, FR, { seconds: 20n });
     while ((await now()) <= short.end) await new Promise((r) => setTimeout(r, 2000));

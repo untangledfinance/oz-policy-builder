@@ -6,7 +6,7 @@
 //! held for MetaMask (its eth-implicit NEAR account) or Phantom (through prime-near-signer); the MPC signs the
 //! SEP-53 digest.
 //!
-//! grant text: "Prime session\ncontract: <this contract>\nsession key: <hex>\nvalid until ledger: <n>"
+//! grant text: "Prime session\ncontract: <this contract>\nsession key: <hex>\nvalid until ledger (hex): <8 hex digits>"
 //! (the contract address already commits to the network). Revoking is the same text with ledger 0.
 //!
 //! Proof: (session key, valid until, owner's SEP-53 signature of the grant text, session key's signature of the
@@ -65,23 +65,18 @@ pub fn grant_text(e: &Env, key: &BytesN<32>, until: u32) -> Bytes {
     let mut t = Bytes::from_slice(e, b"Prime session\ncontract: ");
     t.append(&e.current_contract_address().to_string().to_bytes());
     t.append(&Bytes::from_slice(e, b"\nsession key: "));
-    let mut h = [0u8; 64];
-    for (i, x) in key.to_array().iter().enumerate() {
-        h[2 * i] = b"0123456789abcdef"[(x >> 4) as usize];
-        h[2 * i + 1] = b"0123456789abcdef"[(x & 15) as usize];
+    t.append(&hex(e, &key.to_array()));
+    t.append(&Bytes::from_slice(e, b"\nvalid until ledger (hex): "));
+    t.append(&hex(e, &until.to_be_bytes()));
+    t
+}
+
+fn hex(e: &Env, b: &[u8]) -> Bytes {
+    let mut t = Bytes::new(e);
+    for x in b {
+        t.push_back(b"0123456789abcdef"[(x >> 4) as usize]);
+        t.push_back(b"0123456789abcdef"[(x & 15) as usize]);
     }
-    t.append(&Bytes::from_array(e, &h));
-    t.append(&Bytes::from_slice(e, b"\nvalid until ledger: "));
-    let (mut d, mut i, mut n) = ([0u8; 10], 10, until);
-    loop {
-        i -= 1;
-        d[i] = b'0' + (n % 10) as u8;
-        n /= 10;
-        if n == 0 {
-            break;
-        }
-    }
-    t.append(&Bytes::from_slice(e, &d[i..]));
     t
 }
 

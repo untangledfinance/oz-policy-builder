@@ -1,11 +1,11 @@
-self-paid: G-MetaMask3. relayer down: session key submits and pays gas  from 0x60834612fb933cd22fcc1489874df8629bf4e99f block 47803366n
-self-paid: G-MetaMask14. second session, granted with the session key p from 0xbc8ceea29b3911d6ef7cb4027fdb5f068da5d93b block 47803381n
-self-paid: G-Freighter3. relayer down: session key submits and pays gas from 0x7cb533e2da7efab1297070b9876f79fd2f440173 block 47803409n
-self-paid: G-Freighter14. second session, granted with the session key  from 0x37c43da4a5e458d9d3e6c2f7c389a6146e33380d block 47803443n
-self-paid: G-Phantom3. relayer down: session key submits and pays gas i from 0xea82f0a770f91b7f0d717ae177f290f31d9e1a67 block 47803477n
-self-paid: G-Phantom14. second session, granted with the session key pa from 0x28ff5c09a124c01edf933c9f99d34d19188beaa9 block 47803512n
+self-paid: G-MetaMask3. relayer down: session key submits and pays gas  from 0x503660bd5d83b46a15d2e6db3cb3ace82075e679 block 47809576n
+self-paid: G-MetaMask14. second session, granted with the session key p from 0x04b061b1e7d88b5168438a7b1d514b8e5b744ab3 block 47809592n
+self-paid: G-Freighter3. relayer down: session key submits and pays gas from 0xac2bd16b1e5ba52f9e0f9d01a2ad8b9b06a31053 block 47809618n
+self-paid: G-Freighter14. second session, granted with the session key  from 0xa970c3c689b8fd23b623b30e56c32d662d6ee02c block 47809653n
+self-paid: G-Phantom3. relayer down: session key submits and pays gas i from 0x0d055cf464d409fc1bc8752403c7a5e35713bcc4 block 47809686n
+self-paid: G-Phantom14. second session, granted with the session key pa from 0x117f58c566c17a74d6d6f631074ff3c3b0ce752e block 47809721n
 receipts success 30, failed 0
-Safe 0xE4408495D9ff5B37ADB67d5eC8e5b20d303fD632 version 1.4.1 owners [ "0x5F172afFBEEb59eb574fFF9be77B44898182F3b1",
+Safe 0x3F3D7716da883b3827E0553d8D992aEaD4721FC3 version 1.4.1 owners [ "0x5F172afFBEEb59eb574fFF9be77B44898182F3b1",
   "0x29A9ac479C237AC2CAE6f25cD6cec5D961C113fF", "0xCcD8af4Ae1a907Ac370FD151D6282da59bc7C570"
 ] threshold 2n
 Roles enabled on Safe: true

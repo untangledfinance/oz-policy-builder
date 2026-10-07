@@ -33,7 +33,7 @@ fn text(signer: &Address, key: &BytesN<32>, until: u32) -> std::string::String {
     let mut c = std::vec![0u8; signer.to_string().len() as usize];
     signer.to_string().copy_into_slice(&mut c);
     let hex: std::string::String = key.to_array().iter().map(|x| std::format!("{x:02x}")).collect();
-    std::format!("Prime session\ncontract: {}\nsession key: {hex}\nvalid until ledger: {until}", std::string::String::from_utf8(c).unwrap())
+    std::format!("Prime session\ncontract: {}\nsession key: {hex}\nvalid until ledger (hex): {until:08x}", std::string::String::from_utf8(c).unwrap())
 }
 
 /// What Freighter's signMessage (SEP-53) returns, and what NEAR MPC returns when asked to sign the SEP-53 digest.

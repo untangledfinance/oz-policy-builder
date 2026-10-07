@@ -21,22 +21,18 @@ contract PrimeKey {
     mapping(address => uint256) public until; // session key => last valid second; type(uint256).max = revoked
     mapping(address => uint256) public nonce;
 
+    /// No zero-owner check is needed: OpenZeppelin's tryRecover never reports success for the zero address.
     constructor(address owner_, IRoles roles_) {
-        require(owner_ != address(0), "owner");
         (owner, roles) = (owner_, roles_);
     }
 
-    /// Starts (or extends) a session, at most 7 days: the owner's signature over grantText(key, end).
+    /// The owner's signature over grantText(key, end) starts or extends a session (at most 7 days) or, with end 0,
+    /// ends it for good (until = max: exec refuses it and no later grant can follow).
     function grant(address key, uint256 end, bytes calldata sig) external {
-        require(key != address(0) && until[key] < end && block.timestamp < end && end <= block.timestamp + 7 days, "grant");
-        require(byOwner(grantText(key, end), sig), "grant sig");
-        until[key] = end;
-    }
-
-    /// Ends a session for good: the owner's signature over grantText(key, 0).
-    function revoke(address key, bytes calldata sig) external {
-        require(byOwner(grantText(key, 0), sig), "revoke");
-        until[key] = type(uint256).max;
+        (address a, ECDSA.RecoverError err,) = ECDSA.tryRecover(MessageHashUtils.toEthSignedMessageHash(bytes(grantText(key, end))), sig);
+        require(err == ECDSA.RecoverError.NoError && a == owner, "grant sig");
+        require(end == 0 || (key != address(0) && until[key] < end && block.timestamp < end && end <= block.timestamp + 7 days), "grant");
+        until[key] = end == 0 ? type(uint256).max : end;
     }
 
     /// One move signed by a live session key, submitted by a relayer or by the session key itself.
@@ -50,10 +46,5 @@ contract PrimeKey {
     function grantText(address key, uint256 end) public view returns (string memory) {
         return string.concat("Prime session\ncontract: ", address(this).toHexString(), "\nsession key: ", key.toHexString(),
             "\nvalid until (unix time): ", end.toString(), "\nnetwork: ", block.chainid.toString());
-    }
-
-    function byOwner(string memory text, bytes calldata sig) internal view returns (bool) {
-        (address a, ECDSA.RecoverError err,) = ECDSA.tryRecover(MessageHashUtils.toEthSignedMessageHash(bytes(text)), sig);
-        return err == ECDSA.RecoverError.NoError && a == owner;
     }
 }

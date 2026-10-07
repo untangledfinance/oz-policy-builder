@@ -1,47 +1,47 @@
 {
- "token": "0xF707C203182fd85CF7B30Df1495476e5FbdA35cA",
- "safe": "0xE4408495D9ff5B37ADB67d5eC8e5b20d303fD632",
- "roles": "0xD6C80C5FC2e7477e79F46C1787E0C5b95B43750E",
- "pkMM": "0x962d7E2DFB63d1F939510C2Cc2104439194eadB4",
- "pkFR": "0x064ceb320EC92aeD5Caf59c1737dee8eBC23D6Aa",
- "pkPH": "0x4cE0138E8849A307cB4c5A147c821CA983DAf752",
- "roleKey": "0x6d6f766572733a34613738326630610000000000000000000000000000000000",
- "drained": "82",
+ "token": "0x599B111490e4B5f82659692D7AE3EC5a1F302BE4",
+ "safe": "0x3F3D7716da883b3827E0553d8D992aEaD4721FC3",
+ "roles": "0x1E78C5498AD7E0Bdf47d5f823Ef012E960A5278A",
+ "pkMM": "0x52d6e78B03d5065EDbEc7E7053c95C89D0950E0e",
+ "pkFR": "0x1D4F874262bf86cab9a54A95F9B2A9891db0e768",
+ "pkPH": "0xc21198c28e223f8afadf22f0a0D5511Ef1D23638",
+ "roleKey": "0x6d6f766572733a35383330326464350000000000000000000000000000000000",
+ "drained": "9",
  "gas": {
-  "grantPhantom": "75748",
-  "grantMetaMask": "75748",
+  "grantPhantom": "75768",
+  "grantMetaMask": "75756",
   "moveRelayerMetaMask": "160586",
-  "moveSelfMetaMask": "126386",
-  "grantFreighter": "75748",
+  "moveSelfMetaMask": "126398",
+  "grantFreighter": "75768",
   "moveRelayerFreighter": "143486",
-  "moveSelfFreighter": "126386",
+  "moveSelfFreighter": "126398",
   "moveRelayerPhantom": "143486",
   "moveSelfPhantom": "126386"
  },
  "mpc": {
   "calls": 36,
-  "ms": 265921
+  "ms": 284660
  },
  "results": [
   {
-   "name": "C0. PrimeKey refuses a zero owner",
+   "name": "C0. a zero-owner PrimeKey accepts no grant (garbage signature)",
    "pass": true,
    "ok": false,
-   "detail": "reverted"
+   "detail": "reverted with reason: grant sig"
   },
   {
    "name": "C1. create Safe (MetaMask first, PrimeX flow)",
    "pass": true,
    "ok": true,
    "detail": "gas 259243",
-   "tx": "0x5a867f76822e886c591c8f8047ab1d6f7dd54b92de664be1e634e784f48972b4"
+   "tx": "0x7bb52679c2b7c598f25dda6e780801ae9f6e1d7144db3f1ccc47836e0379b087"
   },
   {
    "name": "C2. seats MetaMask + Freighter(NEAR MPC) + Phantom(NEAR MPC), threshold 2; movers rule for the three PrimeKeys",
    "pass": true,
    "ok": true,
    "detail": "gas 750047",
-   "tx": "0x63212de8f140c6bb78c40b3ccfbb46b17b93c8a68fbccdb2467a5619433e74b8"
+   "tx": "0x831dd0efd2dac68a116c46abc16c30223e7bb376f675ab2aa256ee581f722594"
   },
   {
    "name": "C3. owners are exactly the three wallet keys (no PrimeKey), threshold 2",
@@ -54,7 +54,7 @@
    "pass": true,
    "ok": true,
    "detail": "gas 46096",
-   "tx": "0x7f268fa2542b784edf222e469972fe60f1f48ee58493abd4a84844e95a3e5fea"
+   "tx": "0x30f840def66e6657b0601425522d2251609f16b2695539b812c0b97fbe916873"
   },
   {
    "name": "S1-MetaMask. MetaMask alone",
@@ -79,21 +79,21 @@
    "pass": true,
    "ok": true,
    "detail": "gas 98627",
-   "tx": "0x9c0feb7d25912c797333a0ea34af513c3838b639f0ccde9b8256676f81f6a0b2"
+   "tx": "0x7215745c38b97eab6dff4a3142fb550af1fcde3ea15121686fa5abc8c44f602b"
   },
   {
    "name": "S3. Freighter + Phantom (no MetaMask)",
    "pass": true,
    "ok": true,
-   "detail": "gas 81515",
-   "tx": "0xed980a8b1ba16c5a21facde4ff25285ad7ab7110d993623970ee5064fdf90b9e"
+   "detail": "gas 81527",
+   "tx": "0xdbee8c8971bf76c39370b15f64a9b9c4bc44322e33fa100c72eebe90909d0a36"
   },
   {
    "name": "S4. Phantom + MetaMask",
    "pass": true,
    "ok": true,
-   "detail": "gas 81515",
-   "tx": "0x9993bbc4f2d7f9cd54cc664bb2e3457b55fafe7ff671c0bb5350ee2ce2e9a38e"
+   "detail": "gas 81527",
+   "tx": "0xd97a1d263db2b984d7bb5c27b17517cda612da32ed85518699e4272fb2bc572b"
   },
   {
    "name": "S5. DEST received exactly 3",
@@ -129,8 +129,8 @@
    "name": "N0. Phantom grants a session (used below)",
    "pass": true,
    "ok": true,
-   "detail": "gas 75736",
-   "tx": "0x6552b3eca6ba51170f69b08176e3ea0f66f74a0c0fca168b417e13f94f8a77ee"
+   "detail": "gas 75768",
+   "tx": "0xaedd2061b22588695b843a1165c7137f9d031f447e87daada58d92a27b4c9ac7"
   },
   {
    "name": "N1. the session key's signature as a Safe owner + MetaMask",
@@ -166,22 +166,22 @@
    "name": "G-MetaMask1. MetaMask grants a 1-hour session (one signature), relayer submits",
    "pass": true,
    "ok": true,
-   "detail": "gas 75748",
-   "tx": "0x95da55b2cf276ac7d76ea9c134ff7c8688a9f358d1697b20b4adbf6efab54147"
+   "detail": "gas 75768",
+   "tx": "0xf1c07ded4816f23bb203ef81f878189c46b221299e991d9277aa50bda1273a18"
   },
   {
    "name": "G-MetaMask2. move via relayer: 10 to VENUE",
    "pass": true,
    "ok": true,
    "detail": "gas 160586",
-   "tx": "0x2c187faea618632ddbd923307a4e56fec426513418d44069c0e6966276bfa30e"
+   "tx": "0xb3fee1c6fda51260380ef1822e091f682e893186054e26bcdbc5f312cd91c914"
   },
   {
    "name": "G-MetaMask3. relayer down: session key submits and pays gas itself, 5 to VENUE",
    "pass": true,
    "ok": true,
-   "detail": "gas 126386 (paid by 0x608346…)",
-   "tx": "0x9673b14958c19a719f471948adfe1c1143f080aeaf4183c6165f71daf2dc95b3"
+   "detail": "gas 126398 (paid by 0x503660…)",
+   "tx": "0x5651426fc0bd0ee7820eaa08b6e41e974c5ff4ee6197d42c53eb4bd03efda1b4"
   },
   {
    "name": "G-MetaMask4. relayer down and the session key has no ETH",
@@ -199,8 +199,8 @@
    "name": "G-MetaMask6. move 3: 1 to VENUE",
    "pass": true,
    "ok": true,
-   "detail": "gas 126386",
-   "tx": "0xc0954d9bde25b9aacf00b151593cd2b2829d2776140dadae1a7786b0c52729a9"
+   "detail": "gas 126398",
+   "tx": "0x2eb38d816330d6923519ee98f43c997a591b7b95c6e209f578907e974ac40586"
   },
   {
    "name": "G-MetaMask7. move 3 replayed",
@@ -248,15 +248,15 @@
    "name": "G-MetaMask14. second session, granted with the session key paying gas itself",
    "pass": true,
    "ok": true,
-   "detail": "gas 75748 (paid by 0xbC8CEe…)",
-   "tx": "0xe8674030448952c3aa46501123f230820d4cf267379738db18a1896643cdf392"
+   "detail": "gas 75756 (paid by 0x04B061…)",
+   "tx": "0x05f6cf4ab1939a3a719597e663cadf23f1828daf2037161a1b20bc5e500108bf"
   },
   {
-   "name": "G-MetaMask15. MetaMask revokes it (one signature)",
+   "name": "G-MetaMask15. MetaMask revokes it: grant with end 0 (one signature)",
    "pass": true,
    "ok": true,
-   "detail": "gas 57482",
-   "tx": "0x37aebca160fadcb884b39c93e02bd8d5700c15c976e5b7c2156e4cc5de9c672d"
+   "detail": "gas 57672",
+   "tx": "0xcaec7725d72c41e04a58ee73af5d684fe9065c851a3eed734aacdeb74ecb1b86"
   },
   {
    "name": "G-MetaMask16. the revoked session",
@@ -274,29 +274,29 @@
    "name": "G-MetaMask18. first session still works",
    "pass": true,
    "ok": true,
-   "detail": "gas 126374",
-   "tx": "0x8bf69fd48fa79071367b81818c0bb35864d14a1faa7474a93db003d34cbc55b2"
+   "detail": "gas 126386",
+   "tx": "0x0b9014b872d762f14c071a237e21c8420573c29a053f50987470a4ab9ac16a48"
   },
   {
    "name": "G-Freighter1. Freighter grants a 1-hour session (one signature through NEAR), relayer submits",
    "pass": true,
    "ok": true,
-   "detail": "gas 75748",
-   "tx": "0x9331710d12e99e4c359530c16732eb0ef6065dd0e828aad0b1fa955f20fe7eb7"
+   "detail": "gas 75768",
+   "tx": "0xf0611fb8d917249554b8b4df23562e4e5396265c229598518e3e1bc05e410b46"
   },
   {
    "name": "G-Freighter2. move via relayer: 10 to VENUE",
    "pass": true,
    "ok": true,
    "detail": "gas 143486",
-   "tx": "0xc4234b3464e6e6e9e1788c480f97fdd4983f9899e8503d6cdd216d3aba0c17b7"
+   "tx": "0xdb63f0ced255e1d87d4fa7b50e3ebe043c4aa542165106af219c27516ce7e056"
   },
   {
    "name": "G-Freighter3. relayer down: session key submits and pays gas itself, 5 to VENUE",
    "pass": true,
    "ok": true,
-   "detail": "gas 126386 (paid by 0x7Cb533…)",
-   "tx": "0xe4c46a55379aea2fb5398001616de570be89f525b8bfe32ca0ffdf277968c835"
+   "detail": "gas 126398 (paid by 0xAc2Bd1…)",
+   "tx": "0x31c8a5f3aa340d900fa7b3a34d7978cf1f4c6c77b48e23bd6fa859cee955a318"
   },
   {
    "name": "G-Freighter4. relayer down and the session key has no ETH",
@@ -314,8 +314,8 @@
    "name": "G-Freighter6. move 3: 1 to VENUE",
    "pass": true,
    "ok": true,
-   "detail": "gas 126386",
-   "tx": "0xf8aa4e236f3430d9eb078d93b1e7e3ed98933f92a81a1d65c5675f6a33581fba"
+   "detail": "gas 126398",
+   "tx": "0x968fc1d3dcc98242e0a6ea52d43801a781e4c3069e856bdabd504a335c6923e2"
   },
   {
    "name": "G-Freighter7. move 3 replayed",
@@ -363,15 +363,15 @@
    "name": "G-Freighter14. second session, granted with the session key paying gas itself",
    "pass": true,
    "ok": true,
-   "detail": "gas 75736 (paid by 0x37c43d…)",
-   "tx": "0x7b2a0bc7b7d45092bd22f419432ae85e59b607e0f0cc6839cf8eb6c857fe8f0b"
+   "detail": "gas 75768 (paid by 0xa970C3…)",
+   "tx": "0xc2494c8375727b350bd5f699002529d8db097a1641e00007806b60efc330588d"
   },
   {
-   "name": "G-Freighter15. Freighter revokes it (one signature)",
+   "name": "G-Freighter15. Freighter revokes it: grant with end 0 (one signature)",
    "pass": true,
    "ok": true,
-   "detail": "gas 57470",
-   "tx": "0x8a819a2c2a6e001aa638f4fd0d473b357813276be16b87efd39f4d01cb53324b"
+   "detail": "gas 57672",
+   "tx": "0x42a0cd8bc579c46d014a60add4e077eeefa6c9ecc5f1f1e238fc79a9af1950ca"
   },
   {
    "name": "G-Freighter16. the revoked session",
@@ -389,29 +389,29 @@
    "name": "G-Freighter18. first session still works",
    "pass": true,
    "ok": true,
-   "detail": "gas 126374",
-   "tx": "0xc069e3a681e9cc0d59b4a847901c1136179af18b7fef45a063e6a161a4b56ea9"
+   "detail": "gas 126398",
+   "tx": "0x0e2acdf16b30ffd136af5533b3e9488ef5c60dd329a2da8687c169bb7f410b21"
   },
   {
    "name": "G-Phantom1. Phantom grants a 1-hour session (one signature through NEAR), relayer submits",
    "pass": true,
    "ok": true,
-   "detail": "gas 75748",
-   "tx": "0x8880a1a185ddb348b6e50a09d0b76365bfb7d55c6c8171e82a7df5ff9db94bc2"
+   "detail": "gas 75768",
+   "tx": "0xe72f4f4dfd2e18e454395b844321bfa38b75d83f255025d46a6d4212253e6e00"
   },
   {
    "name": "G-Phantom2. move via relayer: 10 to VENUE",
    "pass": true,
    "ok": true,
    "detail": "gas 143486",
-   "tx": "0xaf0ed9870f33a49a38588f5cd231c474bc6a89d408e198eaf95c0300c12d12ce"
+   "tx": "0x75aaec203a7a96a3c8327c89caf3694fc7cdcff3a2bbbe817ea56692a8737618"
   },
   {
    "name": "G-Phantom3. relayer down: session key submits and pays gas itself, 5 to VENUE",
    "pass": true,
    "ok": true,
-   "detail": "gas 126386 (paid by 0xEA82f0…)",
-   "tx": "0xae26b5212ffcabde8978017a8cf14a6e3a842808719d67b74674b60aa0b0f0b1"
+   "detail": "gas 126386 (paid by 0x0d055C…)",
+   "tx": "0xdf42a672aefdf417c73ae841e4672e08444966378eeb44b5ba9fab5dc6014d68"
   },
   {
    "name": "G-Phantom4. relayer down and the session key has no ETH",
@@ -429,8 +429,8 @@
    "name": "G-Phantom6. move 3: 1 to VENUE",
    "pass": true,
    "ok": true,
-   "detail": "gas 126386",
-   "tx": "0x09f8430b23d545bd13f6b4900035dd32393ecb9079240cd4e4a9bb4e3533ceab"
+   "detail": "gas 126398",
+   "tx": "0x40b1a9311cf5a80a8f559bfab15bcb0fa8e1a80502c5b38fd574463ffec254a3"
   },
   {
    "name": "G-Phantom7. move 3 replayed",
@@ -478,15 +478,15 @@
    "name": "G-Phantom14. second session, granted with the session key paying gas itself",
    "pass": true,
    "ok": true,
-   "detail": "gas 75748 (paid by 0x28fF5c…)",
-   "tx": "0x4a5115e8a835c8e94ad177a405fdddc656d8ae5ce3b2e11833b33addc7765bfa"
+   "detail": "gas 75768 (paid by 0x117f58…)",
+   "tx": "0x24de04d2ce47fda1defb63caa0ed210e31294ba9b3165b0909e5b8e0da1ef72c"
   },
   {
-   "name": "G-Phantom15. Phantom revokes it (one signature)",
+   "name": "G-Phantom15. Phantom revokes it: grant with end 0 (one signature)",
    "pass": true,
    "ok": true,
-   "detail": "gas 57470",
-   "tx": "0x0029ba2cfeaf66112035852be2e2ee494e1012878c738aa5ed115a20d7125391"
+   "detail": "gas 57672",
+   "tx": "0x2708a66b90d8ebd95ea58ea0a78e45831417ec8f61bdf55ab0799ffa364f80bf"
   },
   {
    "name": "G-Phantom16. the revoked session",
@@ -504,8 +504,8 @@
    "name": "G-Phantom18. first session still works",
    "pass": true,
    "ok": true,
-   "detail": "gas 126386",
-   "tx": "0xd320054d550cb13b90514beda92bea4b1d891a4c6852932fc31f3aca3cb5af20"
+   "detail": "gas 126398",
+   "tx": "0x91ced504f9b246aaec49c3b4a6c4d35d963a6087ac26ce7a5bb303567c89a29a"
   },
   {
    "name": "X1. PrimeKey(Freighter) with a grant signed by Phantom (NEAR)",
@@ -547,8 +547,8 @@
    "name": "X7. Freighter session",
    "pass": true,
    "ok": true,
-   "detail": "gas 75748",
-   "tx": "0x4f3fdf568312d920b0307eda9fa2ef3e563bd507a4fb599dbee9e1ea0e84355a"
+   "detail": "gas 75756",
+   "tx": "0x3fefe6b7ed4bc754d64cd368717bd7adf485f7cdafe28061b0b849fb0c91be51"
   },
   {
    "name": "X8. that session key used through PrimeKey(Phantom)",
@@ -572,8 +572,8 @@
    "name": "X11a. Freighter 20-second session",
    "pass": true,
    "ok": true,
-   "detail": "gas 75748",
-   "tx": "0x598918b5781c1b20dbb072fe16193e95dda5504ec82bb1b930ee1e42fd6b8d24"
+   "detail": "gas 75768",
+   "tx": "0x0305a681463c609ff274072405f926af16beb47a41bd8173ea56e67e6bb0bf56"
   },
   {
    "name": "X11. after the session ends",
