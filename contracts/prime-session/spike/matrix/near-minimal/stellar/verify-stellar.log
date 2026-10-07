@@ -1,0 +1,12 @@
+latest ledger 5073687
+prime CB52N6T5KWJQWGOCBGCLMEN7UM2MBZ3S6YCLETLXEHV6QLX2S254XALT wasm 91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9
+S_mm CDGBVPXVTCKNCE4PKGZRAFFIDNRGJH5TYYTXK6I4BO37IYWWDB37W4EL wasm 8c5e0ab928f8868f21e49663cccce20ac9a4d6f059f6932aefada161e24d73d6
+S_fr CCKH6RD53HGZMMSXPKETQGUVE5WLK2KILAXFGOJH5ONHIO6QSEYFFSO4 wasm 8c5e0ab928f8868f21e49663cccce20ac9a4d6f059f6932aefada161e24d73d6
+S_ph CCKPLOP4C4RQQV4RRI6WPUHTVRVLU7ZPAC3ATAN6ZRSA4ODDZQJPSM2O wasm 8c5e0ab928f8868f21e49663cccce20ac9a4d6f059f6932aefada161e24d73d6
+account wasm exports __check_auth,__constructor,add_context_rule,add_policy,add_signer,batch_add_signer,execute,get_context_rule,get_context_rules_count,get_policy_id,get_signer_id,memory,remove_context_rule,remove_policy,remove_signer,update_context_rule_name,update_context_rule_valid_until,upgrade
+prime-session wasm exports __check_auth,__constructor,memory,revoke
+rule 0 {"context_type":["Default"],"id":0,"name":"multisig","policies":["CCTNRFZCL45GTJICA3Z2KFQO3VEGBHGCVBLHQ3GLJKAGACQIJMYJS7T2"],"policy_ids":[0],"signer_ids":[0,1,2],"signers":[["Delegated","GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW"],["Delegated","GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I"],["Delegated","GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ"]],"valid_until":null}
+rule 3 {"context_type":["CallContract","CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"],"id":3,"name":"xlm_mm","policies":["CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5"],"policy_ids":[1],"signer_ids":[3],"signers":[["Delegated","CDGBVPXVTCKNCE4PKGZRAFFIDNRGJH5TYYTXK6I4BO37IYWWDB37W4EL"]],"valid_until":null}
+rule 4 {"context_type":["CallContract","CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"],"id":4,"name":"xlm_fr","policies":["CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5"],"policy_ids":[1],"signer_ids":[4],"signers":[["Delegated","CCKH6RD53HGZMMSXPKETQGUVE5WLK2KILAXFGOJH5ONHIO6QSEYFFSO4"]],"valid_until":null}
+rule 5 {"context_type":["CallContract","CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"],"id":5,"name":"xlm_ph","policies":["CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5"],"policy_ids":[1],"signer_ids":[5],"signers":[["Delegated","CCKPLOP4C4RQQV4RRI6WPUHTVRVLU7ZPAC3ATAN6ZRSA4ODDZQJPSM2O"]],"valid_until":null}
+minPersistentTtl 120960 maxEntryTtl 3110400 minTemporaryTtl 720

@@ -1,0 +1,21 @@
+16:44:46 build prime-session (Stellar)
+8c5e0ab928f8868f21e49663cccce20ac9a4d6f059f6932aefada161e24d73d6  target/wasm32v1-none/release/prime_session.wasm
+16:44:47 build prime-session (Solana)
+c5305242be20cfee3dfdc62022ed6fd60e3e63bf78b8c2329c0fd497dcec7d8c  target/deploy/prime_session.so
+16:44:47 build PrimeSession (EVM)
+ok
+16:44:49 unit tests (Stellar)
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+16:44:49 STELLAR
+16:53:11 stellar: 16:53:11 55/55 passed; NEAR MPC signatures this part: 0
+16:53:11 EVM fork
+16:58:39 evm fork: (grep missed the result line: pkn.log has binary bytes) 92/92 passed, see evm/pkn.log
+16:58:39 evm bytecode: 3/3 equal
+16:58:41 SOLANA
+17:03:21 solana: 81/82 passed
+17:03:21 solana program hash: on-chain code starts with local .so: true rest zero: true sha256(.so) c5305242be20cfee3dfdc62022ed6fd60e3e63bf78b8c2329c0fd497dcec7d8c 
+17:03:23 DONE
+17:04:23 SOLANA re-run (X11 corrected)
+17:09:03 solana: 83/83 passed
+17:09:04 solana program hash: on-chain code starts with local .so: true rest zero: true sha256(.so) c5305242be20cfee3dfdc62022ed6fd60e3e63bf78b8c2329c0fd497dcec7d8c
+17:09:06 DONE2

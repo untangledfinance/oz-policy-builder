@@ -1,0 +1,7 @@
+squads devnet program SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG programdata 2g3u9qgz4adKQVN1TUoh7bbBKqaSsjXtz1yX2ptagW5T last deploy slot 425429201 block time 2025-12-02T01:54:50.000Z
+stellar testnet minPersistentTtl 120960
+stellar mainnet minPersistentTtl 2073600
+base sepolia relayer 0xeceb…8E11 balance (ETH) 0.000001651144136034
+devnet airdrop 2026-10-07T17:16:42.141Z refused: {"code":429,"message":"You've either reached your airdrop limit today or the airdrop faucet has run dry. Please visit https://faucet.solana.com for alternate sources of test SOL"}
+Freighter (real extension) key GBXPJIRT…2OD2 = 6ef4a233…489d, MPC path "<key hex>/prime:evm", predecessor signer.prime-spike-muwguc60.testnet (bun secpderive.ts signer.prime-spike-muwguc60.testnet 6ef4a233159342df8a673546a193450c98d374ef87a55dbcd8046766307d489d/prime:evm):
+secp256k1 derived address 0xD114c061471A8448b7452Df6A14E16c38e1Ea952

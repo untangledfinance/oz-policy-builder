@@ -1,0 +1,307 @@
+{
+ "venue": "GBYPLTAQDJSXGA6W7QTLNFEQGQB27MPLA2YXTUF6IX77BDYBI234MJ23",
+ "other": "GDQQKCGNB2RTIDGESZNRRJKNGYC56QTJQC2FBXUBJQLWVYJAV74SGC3K",
+ "wasm": "8c5e0ab928f8868f21e49663cccce20ac9a4d6f059f6932aefada161e24d73d6",
+ "wasmTx": "e620d27a422d5bd5e4d48711e4708d9e0642f35cd78040a8ed73f64a18af652a",
+ "S_mm": "CDGBVPXVTCKNCE4PKGZRAFFIDNRGJH5TYYTXK6I4BO37IYWWDB37W4EL",
+ "S_fr": "CCKH6RD53HGZMMSXPKETQGUVE5WLK2KILAXFGOJH5ONHIO6QSEYFFSO4",
+ "S_ph": "CCKPLOP4C4RQQV4RRI6WPUHTVRVLU7ZPAC3ATAN6ZRSA4ODDZQJPSM2O",
+ "G_mm": "GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW",
+ "G_fr": "GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I",
+ "G_ph": "GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ",
+ "prime": "CB52N6T5KWJQWGOCBGCLMEN7UM2MBZ3S6YCLETLXEHV6QLX2S254XALT",
+ "primeTx": "2538f3f03c5d88a139ad1841f5dabb147fb4dc8ff9fd81b99d79f549724e858b",
+ "results": {
+  "P0. rule 0 signers are exactly the three wallet G keys (no prime-session)": {
+   "pass": true,
+   "detail": "[[\"Delegated\",\"GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW\"],[\"Delegated\",\"GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I\"],[\"Delegated\",\"GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ\"]]"
+  },
+  "Y1-MetaMask. MetaMask alone adds a rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)"
+  },
+  "Y1-Freighter. Freighter alone adds a rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)"
+  },
+  "Y1-Phantom. Phantom alone adds a rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)"
+  },
+  "Y2. MetaMask (NEAR) + Freighter add a rule": {
+   "pass": true,
+   "ok": true,
+   "hash": "70e1553d39789381681a70e854374ad65bc516ee54f732e16a1eebada4b1479d"
+  },
+  "Y3. Freighter + Phantom (NEAR) remove it": {
+   "pass": true,
+   "ok": true,
+   "hash": "376950f77cd9489911d14e0724e4251eef29fc8bd7dbcc65bfb4770d9949c69c"
+  },
+  "Y4. Phantom (NEAR) + MetaMask (NEAR) add a rule": {
+   "pass": true,
+   "ok": true,
+   "hash": "b35d53b2ea35a045ab0ed43f7dadfa08674950d90f04995111b5b8c9c47630d9"
+  },
+  "Y5. MetaMask + Phantom remove it": {
+   "pass": true,
+   "ok": true,
+   "hash": "1558b61bf3e0a13f45324cd05f5e12776148d16bb4f3b352742f26097371883e"
+  },
+  "Y6. outsider + Freighter": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)"
+  },
+  "Y7. MetaMask's seat signed by Phantom's MPC key + Freighter": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)"
+  },
+  "Y8. Phantom's seat signed by its MPC key under another path + Freighter": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)"
+  },
+  "R-xlm_mm. MetaMask + Freighter install xlm_mm: XLM to VENUE only, signer: that wallet's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "6f36d7e7acc2c740141325cd911a66582d203f70bd6f9f0d64faa3ddce41f332"
+  },
+  "R-xlm_fr. MetaMask + Freighter install xlm_fr: XLM to VENUE only, signer: that wallet's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "b4067a4df659d682a2b60711147218bbe12983a2005f5f4fd4c2d6b269ea02c6"
+  },
+  "R-xlm_ph. MetaMask + Freighter install xlm_ph: XLM to VENUE only, signer: that wallet's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "30bb833eb71d5eb0a5c47804436ab56bf6a38aaeabd38c035fb33c92a1b7a790"
+  },
+  "N1. Phantom's prime-session + Freighter on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)"
+  },
+  "N2. MetaMask's and Phantom's prime-sessions on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)"
+  },
+  "N3. Phantom session claims its session rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)"
+  },
+  "N4. the session key's own G account + Freighter on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)"
+  },
+  "N5. Phantom session removes rule 0 through its session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)"
+  },
+  "Q-MetaMask1. relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "7d85e983ef758da46071486a10d0765cf49282593c9029a163c9a39f084e1015"
+  },
+  "Q-MetaMask2. relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "bf903f53bda4bdffe077310ac0ae7140703117fafcf4216bd28b6fc3cf587a06"
+  },
+  "Q-MetaMask3. VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "Q-MetaMask4. relayer down and the session key has no account": {
+   "pass": true,
+   "ok": false,
+   "error": "Account not found: GDXPVEDOTI7AZYORUNZPZZIFWEKTLGF3UWLEY4DTLNWH75JX276T6LMN"
+  },
+  "Q-MetaMask5. 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "Q-MetaMask6. on another wallet's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)"
+  },
+  "Q-Freighter1. relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "16848c8fff20e127c251f2aa8c0f3f3e1344d26663a1fbf1a89a2a058fc3987c"
+  },
+  "Q-Freighter2. relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "cc923a65803b749c75702b077a9189054cde5a4d38f4d601d5a2fe9f415d41df"
+  },
+  "Q-Freighter3. VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "Q-Freighter4. relayer down and the session key has no account": {
+   "pass": true,
+   "ok": false,
+   "error": "Account not found: GDNN5DRPEOAZD37C2L7NYT2FIHWZMTKPQCKIMVXBGEUJ7JDVHXSRK326"
+  },
+  "Q-Freighter5. 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "Q-Freighter6. on another wallet's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)"
+  },
+  "Q-Phantom1. relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "a7fb154f131687ca708727eb392f7d736df611a498e925c6d9008226f8b2ad2a"
+  },
+  "Q-Phantom2. relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "c48e2c9999f92d1d562c0a4ef784a88ce212db29330235744b322eff66469012"
+  },
+  "Q-Phantom3. VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "Q-Phantom4. relayer down and the session key has no account": {
+   "pass": true,
+   "ok": false,
+   "error": "Account not found: GBRHZQK2NXR5H4CQFR4FHROOEWTS75HTBMRZJZSDMI7YSPYGQH5PEQP4"
+  },
+  "Q-Phantom5. 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "Q-Phantom6. on another wallet's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)"
+  },
+  "Q7. Phantom grant submitted with a later valid-until than signed": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Crypto, InvalidInput)"
+  },
+  "Q8. MetaMask grant longer than 7 days": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)"
+  },
+  "Q9-MetaMaska. session before revoke": {
+   "pass": true,
+   "ok": true,
+   "hash": "9540126197473e30d0180050f9ed4bf69476635fdc30ec333ac30392e16958ee"
+  },
+  "Q9-MetaMaskb. MetaMask revokes it (one signature, relayed)": {
+   "pass": true,
+   "detail": "3a57279e4e215f46b16475e045c31fed86641ba0a20746e29af660207a00efbc"
+  },
+  "Q9-MetaMaskc. the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #2)"
+  },
+  "Q9-MetaMaskd. another live session of the same wallet still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "25349be827ae5166b396790237f5f525bfed7908cf395c443ae89a40974170ab"
+  },
+  "Q9-Freightera. session before revoke": {
+   "pass": true,
+   "ok": true,
+   "hash": "12170f592656f5fcb30f8657d0ed70ea998dc520df4c6a8d396031972dcf322d"
+  },
+  "Q9-Freighterb. Freighter revokes it (one signature, relayed)": {
+   "pass": true,
+   "detail": "910bacd3f98c091c96c3ac816423a2bb01ed7289067fab8c5a9a6454cfb08e85"
+  },
+  "Q9-Freighterc. the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #2)"
+  },
+  "Q9-Freighterd. another live session of the same wallet still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "78561f8b9870143544a2efff71a2ee2d8c078a40427ccd0e68ce31b135a7707c"
+  },
+  "Q10. Freighter cannot revoke a Phantom session": {
+   "pass": true,
+   "detail": "refused"
+  },
+  "Q11. expired Phantom session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)"
+  },
+  "X1. Freighter's prime-session with a grant signed by Phantom (NEAR)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Crypto, InvalidInput)"
+  },
+  "X2. MetaMask's prime-session with Freighter's raw (non-SEP-53) signature": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Crypto, InvalidInput)"
+  },
+  "X3. MetaMask (NEAR) signs the grant text without the SEP-53 prefix": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Crypto, InvalidInput)"
+  },
+  "X4. Phantom's prime-session with its MPC key under another path": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Crypto, InvalidInput)"
+  },
+  "X5. Phantom grant (for MetaMask's prime-session) on MetaMask's rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Crypto, InvalidInput)"
+  },
+  "X6. MetaMask grant presented to Phantom's prime-session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Crypto, InvalidInput)"
+  }
+ },
+ "mpc_seats": {
+  "calls": 10,
+  "ms": 77877
+ },
+ "r_mm": 3,
+ "r_fr": 4,
+ "r_ph": 5,
+ "mpc_rules": {
+  "calls": 3,
+  "ms": 24007
+ },
+ "mpc_separation": {
+  "calls": 2,
+  "ms": 15511
+ },
+ "mpc_sessions": {
+  "calls": 12,
+  "ms": 99426
+ },
+ "mpc_cross": {
+  "calls": 5,
+  "ms": 35542
+ }
+}
