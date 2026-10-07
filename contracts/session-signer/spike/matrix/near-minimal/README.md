@@ -1,127 +1,98 @@
-# One small session contract per chain, wallets reached through NEAR
+# One small session contract per chain; NEAR only through stock code and one 21-line signer
 
-This replaces `../minimal/`. The goal is less of our own code on every chain, with each wallet's seat kept apart from its sessions.
+This replaces `../minimal/`. The goals were the least new code, no lines added to NEAR's open-source wallet contract, and seats kept apart from sessions.
 
-## The design
+## Routes
 
-Each wallet uses its own key on its home chain. On every other chain it signs through its NEAR account: NEAR's MPC signs with a key derived for that wallet's NEAR account and path.
+Each wallet uses its own key on its home chain. Elsewhere it signs through NEAR's MPC.
 
 | Wallet | EVM (Safe + Roles) | Solana (Squads Smart Account) | Stellar (OZ account) |
 |---|---|---|---|
-| MetaMask | **its own EOA** | NEAR eth-implicit account → MPC ed25519 | NEAR eth-implicit account → MPC ed25519 |
-| Freighter | our SEP-53 NEAR wallet contract → MPC secp256k1 | SEP-53 NEAR wallet → MPC ed25519 | **its own key** |
-| Phantom | our text NEAR wallet contract → MPC secp256k1 | **its own key** | text NEAR wallet → MPC ed25519 |
+| MetaMask | **own EOA** | NEAR **stock** eth-implicit account → MPC ed25519 | NEAR stock eth-implicit → MPC ed25519 |
+| Freighter | `prime-near-signer` (SEP-53) → MPC secp256k1 | `prime-near-signer` (SEP-53) → MPC ed25519 | **own key** |
+| Phantom | **own EVM account** (verified with the real extension, below), or `prime-near-signer` → MPC secp256k1 | **own key** | `prime-near-signer` (plain text) → MPC ed25519 |
 
-**Seats.** These keys are ordinary signers of the 2-of-3:
+**Seats.** These keys are ordinary 2-of-3 signers: Safe owners, Squads settings signers, Stellar `Delegated` G accounts. None of our contracts is a seat, so a session key can never vote.
 
-- EVM: Safe owners;
-- Solana: Squads settings signers;
-- Stellar: `Delegated` G accounts in rule 0.
+### Why NEAR's stock wallet serves only MetaMask
 
-None of our contracts is a seat.
+This was checked in the real Phantom 26.x extension code and with Freighter's signing path.
 
-**Sessions.** There is one small contract per wallet, and its owner is the same key. The owner signs one grant, and from then on the session key alone signs each move. Each contract checks only that chain's own message format:
+| Upstream `near/intents` wallet scheme | Freighter | Phantom |
+|---|---|---|
+| `ed25519` (raw 32-byte hash) | only signs SEP-53 or Stellar transactions | `signMessage` signs only valid UTF-8 that is not a Solana transaction (`isSafeMessage`) |
+| `webauthn`, `no-sign` | n/a | n/a |
+| eth-implicit (stock) | no EVM account | its EVM account cannot sign for NEAR's EVM chain (397/398): Phantom refuses chains outside its built-in list |
 
-| Chain | Contract | Owner signs | sLOC |
+### `near-signer/` (21 sLOC, ours, standalone, no fork of NEAR's wallet contract)
+
+It is deployed at `signer.prime-spike-muwguc60.testnet`, code hash `D2xgePUEzgfRysCScYruUGUFg2g8Twueuh1ipCpz3Hob`.
+
+- **One method,** `sign(key, sep53, path, domain_id, payload, signature)`.
+- **The wallet signs** the readable text `Prime NEAR signer\ncontract: <this>\npath: <path>\ndomain: <id>\npayload: <hex>`. Freighter signs it as SEP-53; Phantom signs it as plain text.
+- **The contract** checks that signature with NEAR's `ed25519_verify`, then asks the MPC to sign `payload` under the path `<wallet key hex>/<path>`.
+- **Key binding:** the path includes the wallet's own key, so no wallet can obtain another wallet's derived key.
+- **Stateless:** replaying a request only reproduces the same MPC signature, so there is no nonce or storage.
+- **For mainnet:** remove the testnet deploy key from the account, so the contract cannot be changed.
+
+### Session contracts (unchanged from the previous run)
+
+| Chain | Contract | Owner signs | sLOC | Revoke |
+|---|---|---|---|---|
+| EVM | `evm/src/PrimeKey.sol`: Roles member only | `personal_sign` text | 41 | yes (5 lines) |
+| Solana | `solana/prime-session/src/lib.rs`: policy-member PDA only | plain text | 37 | no (13 lines); expiry, or a 2-of-3 policy update |
+| Stellar | `contracts/session-signer/src/lib.rs`: signer of the wallet's session rule only | SEP-53 | 65 | yes (7 lines) |
+
+**Our new code in total:**
+- 21 sLOC on NEAR, replacing our two NEAR wallet-contract variants (58 + 53 sLOC, now retired);
+- 41 on EVM, 37 on Solana, 65 on Stellar.
+
+## Results (signer contract and stock NEAR only; no NEAR wallet-contract variants)
+
+| What | Where | Result | Log |
 |---|---|---|---|
-| EVM | `evm/src/PrimeKey.sol`: the wallet's Roles member, never a Safe owner | `personal_sign` text (MetaMask; for Freighter and Phantom, MPC signs the EIP-191 digest) | **41** (OpenZeppelin ECDSA / MessageHashUtils / Strings; **no ed25519 library**) |
-| Solana | `solana/prime-session/src/lib.rs`: PDA `["prime", owner]`, a policy member only, never a settings signer | plain text (Phantom `signMessage`; MPC signs the text for MetaMask and Freighter) | **37** |
-| Stellar | `contracts/session-signer/src/lib.rs`: a `Delegated` signer of that wallet's session rule only, never of rule 0 | SEP-53 (Freighter `signMessage`; MPC signs the SEP-53 digest for MetaMask and Phantom) | **65** |
+| Signer contract refusals | NEAR testnet | **11/11** | `near-signer/signer-neg.log` |
+| EVM matrix | Base Sepolia fork + NEAR testnet | **87/87** | `evm/pkn.log` |
+| Solana matrix | local validator (Smart Account from devnet) + NEAR testnet | **70/70** | `solana/psn.log` |
+| Stellar matrix | Stellar testnet + NEAR testnet | **55/55** | `stellar/stn.log` |
+| Phantom's own EVM account as a Safe seat | real Phantom extension + Base Sepolia fork | **P1, P2 pass** | `phantom-evm/phx.log`, `phantom-evm/pevm.log` |
 
-The previous version (`../minimal/`) had 59 sLOC plus a 1,104-line ed25519 library on EVM, 71 on Solana and 89 on Stellar.
+**Signer contract refusals.** Each of these is refused inside our contract, before any MPC call:
+- another wallet's signature for a key;
+- SEP-53 sent as plain text, and plain text sent as SEP-53;
+- a request signed for another payload, path, domain or signer contract;
+- a malformed key.
 
-**What NEAR adds.** NEAR brings our two NEAR wallet-contract variants: SEP-53, about 58 sLOC, and text-ed25519, about 53 sLOC. MetaMask uses NEAR's stock eth-implicit wallet. Each NEAR signature took 7–15 s on testnet.
+There are two accepted controls (Freighter on ed25519, Phantom on secp256k1). Upper-case payload hex is also accepted, because it decodes to the same bytes the wallet signed.
 
-**Revoke.**
+**The three matrices** cover what the previous run did, now on the new MPC keys. For every wallet on every chain:
+- seats: 2-of-3, single-wallet refusals, wrong-key refusals;
+- sessions cannot vote as seats;
+- grant, then moves paid by the relayer and by the session key itself;
+- every refusal, revoke, and the cross-wallet cases.
 
-- EVM and Stellar keep a per-session revoke: the owner signs the grant text with valid-until 0. It costs 5 and 7 lines.
-- Solana dropped it, because it cost 13 lines (over the 10-line limit). There, a session ends at its expiry (at most 7 days). It can be ended sooner by a 2-of-3 policy update that removes that wallet's PDA; that is tested as R1–R3.
+### Real Phantom's own EVM account, no NEAR (the "smaller things")
 
-**Gas and fees.** A relayer pays, and when it is down the session key pays from its own balance. Both paths are tested on every chain.
+- **Grant:** Phantom `personal_sign` of a PrimeKey grant text recovers to its EVM address `0x06e7…267c`.
+- **Seat:** a Safe on the Base Sepolia fork owned by MetaMask and Phantom's EVM address (threshold 2).
+  - **P1:** Phantom `personal_sign`s the Safe transaction hash; it signs the raw 32 bytes. Submitted as Safe's eth_sign form (v + 4) with MetaMask's signature, the transfer executed.
+  - **P2:** Phantom alone is refused (GS020).
+- **Limitation:** with Testnet mode on, Phantom answers `wallet_switchEthereumChain` to Base Sepolia with "ok" but stays on Sepolia. So `eth_signTypedData_v4` for a chain-84532 Safe is refused ("not connected to the requested chain"). The `personal_sign` path above does not depend on the selected chain.
+- **Code:** this route removes NEAR from Phantom on EVM, but **no lines**. The signer contract still needs secp256k1 for Freighter on EVM and plain text for Phantom on Stellar.
 
-## Results
+### MetaMask's own Solana account
 
-| Chain | Where | Result | Log |
-|---|---|---|---|
-| EVM | anvil fork of Base Sepolia, PrimeX onboarding/policy code from octopos, NEAR testnet MPC | **87/87** | `evm/pkn.log` |
-| Solana | local validator, Squads Smart Account cloned from devnet, NEAR testnet MPC | **70/70** | `solana/psn.log` |
-| Stellar | Stellar testnet and NEAR testnet | **55/55**, plus 13/13 unit tests | `stellar/stn.log` |
+**Not verified.** There is no MetaMask extension on this machine. It would remove NEAR from MetaMask on Solana but **no lines** of ours either: that route already uses stock NEAR.
 
-### What is covered, wallet by wallet, on every chain
+## Test-harness problems on the way, kept with their logs
 
-**Seats.**
-
-- Each wallet alone is refused.
-- Every pair moves funds or changes rules: MetaMask+Freighter, Freighter+Phantom, Phantom+MetaMask.
-- The amounts that arrive are checked exactly.
-- These are all refused:
-  - an outsider plus one seat;
-  - one wallet's seat signed by another wallet's MPC key;
-  - a seat signed by the right NEAR account under another derivation path;
-  - an approval of a different transaction.
-
-**A session can never vote as a seat.** This is the point of separating seats from sessions.
-
-- **EVM:**
-  - the session key's signature as a Safe owner is refused (GS026);
-  - PrimeKey as a contract signature is refused, because it has no seat function;
-  - a session that asks Roles to add an owner, to delegatecall, or to re-assign roles is refused.
-- **Solana:**
-  - a session PDA or session key approving or proposing is refused (NotASigner);
-  - adding itself as a signer is refused;
-  - calling any program other than the Smart Account is refused.
-- **Stellar:**
-  - session-signers on rule 0 are refused (#3016), whether one or two of them;
-  - the session key's own G account on rule 0 is refused;
-  - a session rule used for admin calls such as removing rule 0 is refused (#3002).
-
-**Sessions, for each wallet.**
-
-- One grant signature, then:
-  - a move via the relayer succeeds;
-  - a move with the session key paying its own fee succeeds;
-  - with no relayer and no funds the move is refused, and the logged reason is the missing balance or account.
-- Refused:
-  - another recipient;
-  - an amount over the rule's limit;
-  - a move signed by another key;
-  - a replayed move on EVM;
-  - a stretched valid-until;
-  - a grant longer than 7 days;
-  - an expired grant;
-  - someone else's key used with the grant;
-  - the zero key on EVM.
-- Revoke (EVM, Stellar):
-  - a revoked session is refused;
-  - a revoked key cannot be granted again;
-  - another live session of the same wallet still works;
-  - another wallet cannot revoke.
-- Daily caps are shared by all members.
-
-**Cross-wallet.** Every combination is refused:
-
-- a grant signed by another wallet (MetaMask, Freighter or Phantom, through NEAR or natively);
-- a grant signed with the right NEAR account under another path;
-- the wrong message format: a raw hash instead of `personal_sign`, or a missing SEP-53 prefix;
-- a grant made for one wallet's contract presented to another's;
-- a grant signed for another cluster or program (Solana).
-
-### Problems in the test harness, kept with their logs
-
-- **EVM run 1, 80/87** (`evm/pkn.run1.log`). Two viem copies disagreed on address checksum casing, so the owner check failed on exact string compare. Also, the "session key has no ETH" case reused a key that still held ETH, so that move succeeded and the balance checks after it were off by one. Both fixed: compare lower-cased, set the balance to 0.
-- **Solana run 1** (`solana/psn.run1-confirm-stall.log`). `confirmTransaction` stalled on a transaction that had landed, so the harness now polls the signature status.
-- **Solana run 2** (`solana/psn.run2.log`). Stopping the earlier job left its process running. Its writes interleaved with the new run's, and it used the same NEAR relayer key at the same time (a NEAR nonce collision). The surviving run reported 70/70. The "no SOL" refusals had logged an empty reason, so the harness now keeps the error message. The clean run is `solana/psn.log`.
-- **Solana run 3** (`solana/psn.run3-near-429.log`). NEAR's deprecated public testnet RPC `rpc.testnet.near.org` returned 429. The MetaMask path now uses `test.rpc.fastnear.com` (`near.ts`). Run 4 is the clean 70/70.
-- **Solana, four unreadable reasons.** In the clean run, four refusals logged `[object Object]`: the three "no SOL" cases (G-*4) and G12. An empty `getLogs()` result had overwritten the message. `solana/psn-probe.ts` reproduces both cases and prints the full errors:
-  - **G-*4:** "Attempt to debit an account but found no record of a prior credit", so the unfunded session key cannot pay.
-  - **G12:** Solana's ed25519 program itself rejects the tampered instruction (error 0x3, invalid data offsets) before prime-session runs. prime-session's own index check is a second line of defence that this case does not reach.
-  - **Control:** an untampered grant passes every prime-session check and fails only later, at the Smart Account call.
-  The harness now keeps the message.
-- **Stellar run 1** (`stellar/stn.run1-rulebuilder.log`). The rule-builder call was copied wrongly, which crashed the rules step. The rule builder is now copied verbatim from the earlier harness and the run resumed. The `separation` lines in the first part of the log come from the stopped process.
+- **EVM run 2** (`evm/pkn.run2-variants.log`) is the previous run on the wallet-contract variants.
+- **EVM runs 3 and 4** (`pkn.run3-near-expired.log`, `pkn.run4-near-nonce.log`) stopped on NEAR RPC errors: "Transaction has expired" and a stale access-key nonce. FastNear's load-balanced testnet RPC sometimes serves a node that is behind. A rejected NEAR transaction never lands, so `nearsig.ts` retries those two errors after 3 s.
+- **EVM run 5** (`pkn.run5-s7design.log`, 86/87). S7 "Freighter's seat signed by Phantom's MPC key" was accepted, and that is correct behaviour. A Safe recovers ECDSA owners from the signature itself, so that is simply Phantom voting. Its earlier "refused" results came from signature ordering (GS026), not a real check. S7 is now "one wallet signs twice", which is refused (GS026). The Solana (K6d) and Stellar (Y7) counterparts are sound, because there the signature is bound to the signer's key.
 
 ## Trade-offs to know
 
-- **Blind signing.** Through NEAR, the wallet signs a NEAR request that carries the payload as hex: a Safe transaction hash, a Solana transaction or a grant digest. It does not see the grant's readable text. Only the native path (MetaMask on EVM, Phantom on Solana, Freighter on Stellar) shows the text itself.
-- **Latency and availability.** Every NEAR-routed signature waits on NEAR's signing network, 7–15 s each on testnet. Seats and grants through NEAR depend on NEAR being up. Moves don't, because the session key signs them.
-- **NEAR-side code.** Our SEP-53 and text wallet-contract variants are our code on NEAR and need an audit along with the three contracts here. MetaMask's eth-implicit wallet is stock NEAR.
-- **Solana has no per-session revoke.** See above.
+- **Latency:** each NEAR-routed signature took 7–9 s on testnet.
+- **Availability:** seats and grants through NEAR need NEAR to be up; moves don't.
+- **Solana has no per-session revoke.**
+- **Audit scope:** the 21-line signer contract and the three session contracts.

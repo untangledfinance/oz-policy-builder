@@ -135,7 +135,9 @@ await send('C4. mint 1000 tokens to the Safe', true, st.token, encodeFunctionDat
   record('S5. DEST received exactly 3', true, (await bal(DEST)) - b === 3n * E18, `${((await bal(DEST)) - b) / E18}`);
   const outsider = privateKeyToAccount(generatePrivateKey());
   await safeTx('S6. outsider + MetaMask', false, t, async (h) => [{ owner: MM.addr, sig: await MM.signHash(h) }, { owner: outsider.address, sig: await outsider.sign({ hash: h }) }]);
-  await safeTx("S7. Freighter's seat signed by Phantom's MPC key + MetaMask", false, t, async (h) => [{ owner: MM.addr, sig: await MM.signHash(h) }, { owner: FR.addr, sig: await PH.signHash(h) }]);
+  // An ECDSA owner is recovered from its signature, so "Phantom's signature filed as Freighter's" is just Phantom voting.
+  // The real check: one wallet cannot count twice.
+  await safeTx('S7. the same wallet (Phantom) signs twice, as both votes', false, t, async (h) => { const s = await PH.signHash(h); return [{ owner: PH.addr, sig: s }, { owner: PH.addr, sig: s }]; });
   await safeTx("S8. Freighter's MPC key under another path + MetaMask", false, t, async (h) => [{ owner: MM.addr, sig: await MM.signHash(h) }, { owner: FR.addr, sig: await FR_OTHER_PATH.signHash(h) }]);
   await safeTx('S9. Phantom approval of another Safe tx + MetaMask', false, t, async (h) => [{ owner: MM.addr, sig: await MM.signHash(h) }, { owner: PH.addr, sig: await PH.signHash(keccak256(h)) }]);
 }

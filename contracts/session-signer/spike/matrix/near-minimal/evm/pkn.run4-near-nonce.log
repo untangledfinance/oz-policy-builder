@@ -1,0 +1,32 @@
+seats: 0xCcD8af4Ae1a907Ac370FD151D6282da59bc7C570 0x29A9ac479C237AC2CAE6f25cD6cec5D961C113fF 0x5F172afFBEEb59eb574fFF9be77B44898182F3b1
+PASS C0. PrimeKey refuses a zero owner | refused: reverted
+PASS C1. create Safe (MetaMask first, PrimeX flow) | ok gas 259243
+PASS C2. seats MetaMask + Freighter(NEAR MPC) + Phantom(NEAR MPC), threshold 2; movers rule for the three PrimeKeys | ok gas 750035
+PASS C3. owners are exactly the three wallet keys (no PrimeKey), threshold 2 | ok 0x5f172affbeeb59eb574fff9be77b44898182f3b1,0x29a9ac479c237ac2cae6f25cd6cec5d961c113ff,0xccd8af4ae1a907ac370fd151d6282da59bc7c570 / 2
+PASS C4. mint 1000 tokens to the Safe | ok gas 46096
+PASS S1-MetaMask. MetaMask alone | refused: reverted with reason: GS020
+PASS S1-Freighter. Freighter alone | refused: reverted with reason: GS020
+PASS S1-Phantom. Phantom alone | refused: reverted with reason: GS020
+PASS S2. MetaMask + Freighter | ok gas 98615
+1107 |   transaction_outcome;
+1108 | };
+1109 | function parseRpcError(errorObj) {
+1110 |   const result = {};
+1111 |   const errorClassName = walkSubtype(errorObj, rpc_error_schema_default.schema, result, "");
+1112 |   const error = new ServerError(formatError(errorClassName, result), errorClassName);
+                       ^
+error: Transaction nonce 271809408000469 must be larger than nonce of the used access key 271809408000469
+     type: "InvalidNonce",
+  context: undefined,
+ ak_nonce: 271809408000469,
+ tx_nonce: 271809408000469,
+     kind: {
+  ak_nonce: 271809408000469,
+  tx_nonce: 271809408000469,
+},
+
+      at parseRpcError (/home/ubuntu/work/near-session-spike/node_modules/@near-js/utils/lib/esm/index.js:1112:17)
+      at sendJsonRpc (/home/ubuntu/work/near-session-spike/node_modules/@near-js/providers/lib/esm/json-rpc-provider.js:460:15)
+
+Bun v1.4.2 (Linux x64)
+EXIT 1
