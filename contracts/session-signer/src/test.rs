@@ -29,7 +29,7 @@ fn setup() -> T {
     let e = Env::default();
     e.ledger().set_sequence_number(500);
     let eth = EthKey::from_slice(&[7u8; 32]).unwrap();
-    let signer = e.register(SessionSigner, (eth_address(&e, &eth),));
+    let signer = e.register(SessionSigner, (Owner::Evm(eth_address(&e, &eth)),));
     let session = SigningKey::from_bytes(&[9u8; 32]);
     T {
         e,
@@ -164,7 +164,7 @@ fn refuses_a_grant_for_another_key() {
 fn refuses_a_grant_made_for_another_instance_of_the_same_wallet() {
     let t = setup();
     let p = proof(&t, &[1; 32], 600);
-    let again = t.e.register(SessionSigner, (eth_address(&t.e, &t.eth),));
+    let again = t.e.register(SessionSigner, (Owner::Evm(eth_address(&t.e, &t.eth)),));
     assert_eq!(check_on(&t, &again, [1; 32], p), Err(Ok(NOT_OWNER)));
 }
 
@@ -258,7 +258,7 @@ fn matches_viem_and_metamask() {
         "CDRLTNNG2APUPPWNWZBVMUYRVWFJLQIN5LTAPILC7ZD6G6MGI2XJFVWN",
     );
     let owner = bytesn!(&e, 0x17c5185167401eD00cF5F5b2fc97D9BBfDb7D025);
-    let signer = e.register_at(&at, SessionSigner, (owner,));
+    let signer = e.register_at(&at, SessionSigner, (Owner::Evm(owner),));
     let key = bytesn!(
         &e,
         0x1111111111111111111111111111111111111111111111111111111111111111
@@ -280,4 +280,81 @@ fn matches_viem_and_metamask() {
         &ctx,
     );
     assert!(is_crypto(r), "{r:?}");
+}
+
+// v3: Stellar (Freighter, SEP-53) and Solana (Phantom, signMessage) owners.
+
+/// The grant text, rebuilt independently of the contract.
+fn text(e: &Env, signer: &Address, key: &BytesN<32>, until: u32) -> std::string::String {
+    let hex = |b: &[u8]| b.iter().map(|x| std::format!("{x:02x}")).collect::<std::string::String>();
+    let mut c = std::vec![0u8; signer.to_string().len() as usize];
+    signer.to_string().copy_into_slice(&mut c);
+    std::format!(
+        "Prime session\ncontract: {}\nsession key: {}\nvalid until ledger: {until}\nnetwork: {}",
+        std::string::String::from_utf8(c).unwrap(),
+        hex(&key.to_array()),
+        hex(&e.ledger().network_id().to_array())
+    )
+}
+
+fn sep53(t: &str) -> [u8; 32] {
+    use sha2::Digest as _;
+    sha2::Sha256::digest([b"Stellar Signed Message:\n".as_slice(), t.as_bytes()].concat()).into()
+}
+
+fn ed_setup(stellar: bool) -> (T, SigningKey) {
+    let t = setup();
+    let wallet = SigningKey::from_bytes(&[5u8; 32]);
+    let pk = BytesN::from_array(&t.e, &wallet.verifying_key().to_bytes());
+    let owner = if stellar { Owner::Stellar(pk) } else { Owner::Solana(pk) };
+    let signer = t.e.register(SessionSigner, (owner,));
+    (T { signer, ..t }, wallet)
+}
+
+fn ed_proof(t: &T, wallet: &SigningKey, stellar: bool, until: u32, signed_until: u32) -> Proof {
+    let msg = text(&t.e, &t.signer, &key(t), signed_until);
+    let sig = if stellar { wallet.sign(&sep53(&msg)) } else { wallet.sign(msg.as_bytes()) };
+    (key(t), until, BytesN::from_array(&t.e, &sig.to_bytes()), 0, BytesN::from_array(&t.e, &t.session.sign(&[1; 32]).to_bytes()))
+}
+
+#[test]
+fn grant_text_matches_the_contract() {
+    let (t, _) = ed_setup(true);
+    let on_chain = t.e.as_contract(&t.signer, || grant_text(&t.e, &key(&t), 600));
+    let mut b = std::vec![0u8; on_chain.len() as usize];
+    on_chain.copy_into_slice(&mut b);
+    assert_eq!(std::string::String::from_utf8(b).unwrap(), text(&t.e, &t.signer, &key(&t), 600));
+}
+
+#[test]
+fn stellar_owner_sep53_grant() {
+    let (t, w) = ed_setup(true);
+    assert_eq!(check(&t, ed_proof(&t, &w, true, 600, 600)), Ok(()));
+    // Same text without the SEP-53 prefix (a Phantom-style signature) is refused.
+    assert!(is_crypto(check(&t, ed_proof(&t, &w, false, 600, 600))));
+    // Stretched validity, another wallet, and the 7-day cap.
+    assert!(is_crypto(check(&t, ed_proof(&t, &w, true, 700, 600))));
+    assert!(is_crypto(check(&t, ed_proof(&t, &SigningKey::from_bytes(&[6u8; 32]), true, 600, 600))));
+    assert_eq!(check(&t, ed_proof(&t, &w, true, 500 + 120_961, 500 + 120_961)), Err(Ok(EXPIRED)));
+}
+
+#[test]
+fn solana_owner_text_grant() {
+    let (t, w) = ed_setup(false);
+    assert_eq!(check(&t, ed_proof(&t, &w, false, 600, 600)), Ok(()));
+    assert!(is_crypto(check(&t, ed_proof(&t, &w, true, 600, 600))));
+    assert!(is_crypto(check(&t, ed_proof(&t, &SigningKey::from_bytes(&[6u8; 32]), false, 600, 600))));
+    t.e.ledger().set_sequence_number(601);
+    assert_eq!(check(&t, ed_proof(&t, &w, false, 600, 600)), Err(Ok(EXPIRED)));
+}
+
+#[test]
+fn ed25519_owner_grant_is_bound_to_the_instance_and_revocable() {
+    let (t, w) = ed_setup(false);
+    let other = t.e.register(SessionSigner, (Owner::Solana(BytesN::from_array(&t.e, &w.verifying_key().to_bytes())),));
+    assert!(is_crypto(check_on(&t, &other, [1; 32], ed_proof(&t, &w, false, 600, 600))));
+    let rev = text(&t.e, &t.signer, &key(&t), 0);
+    let client = SessionSignerClient::new(&t.e, &t.signer);
+    client.revoke(&key(&t), &BytesN::from_array(&t.e, &w.sign(rev.as_bytes()).to_bytes()), &0);
+    assert_eq!(check(&t, ed_proof(&t, &w, false, 600, 600)), Err(Ok(REVOKED)));
 }

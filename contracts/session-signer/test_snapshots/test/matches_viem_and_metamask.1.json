@@ -38,7 +38,14 @@
                         "u32": 0
                       },
                       "val": {
-                        "bytes": "17c5185167401ed00cf5f5b2fc97d9bbfdb7d025"
+                        "vec": [
+                          {
+                            "symbol": "Evm"
+                          },
+                          {
+                            "bytes": "17c5185167401ed00cf5f5b2fc97d9bbfdb7d025"
+                          }
+                        ]
                       }
                     }
                   ]
