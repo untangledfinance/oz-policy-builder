@@ -1,0 +1,490 @@
+{
+ "results": [
+  {
+   "name": "S1. create Smart Account: signers A (MetaMask via NEAR), B, C; threshold 2; no settings authority",
+   "pass": true,
+   "ok": true,
+   "ms": 379,
+   "detail": "fZoLH1izuRzKE5WXadw71SQetJF7jPxA6LB9rYiC5ugukhAjRQvvnatNbWNntMNMpkyWVtcDvgQNZzCvFyTimX4"
+  },
+  {
+   "name": "S2. fund vault 1 SOL",
+   "pass": true,
+   "ok": true,
+   "ms": 418,
+   "detail": "vRFv55sXXZsZFJbKzVe7dtTZoZhihpRKxN8XuxSjzNjGJeRvsmY2XBeumFzLHsKHBMfanCdr4pPhTvdTJ1fMG1k"
+  },
+  {
+   "name": "S3. W_mm (root = MetaMask): create Swig wallet",
+   "pass": true,
+   "ok": true,
+   "ms": 377,
+   "detail": "uvqw5YTmdULyfn6yBbQEiYgWTww831UZZgmW7BzNvMB9XjXWFFvHTwcAoTaHzKehaZq8Ex17N32c3D8a7oKBySA"
+  },
+  {
+   "name": "S3a. MetaMask (root, one personal_sign) adds its SESSION role on W_mm: may only call the Smart Account program",
+   "pass": true,
+   "ok": true,
+   "ms": 416,
+   "detail": "2g2iKV3PQsKHunoQvm8pfHNTtcGXK86tzfcvd4M2kDPsLnAK3EwWnVvQVtygr2p2kDkZVGXL4LBJ5HV3bd3p7UPf"
+  },
+  {
+   "name": "S4. W_ph (root = Phantom): create Swig wallet",
+   "pass": true,
+   "ok": true,
+   "ms": 397,
+   "detail": "3UkCcHHFMxd8ZocxtdZLBNesQptmtPLHxRZrbiv5C9WzhRnmLePqUABCZkGTdhAYh5auNqR8xqw6u8AMJhLgjA7F"
+  },
+  {
+   "name": "S4a. Phantom (root) adds its SESSION role on W_ph (Smart Account program only)",
+   "pass": true,
+   "ok": true,
+   "ms": 439,
+   "detail": "g5vSFzJ6qxhQVgEx4s7Ab8QUsTSg6q2m2zbZqEChjegwPpenAvsbBbJ1mVsQcwcY8UynGDUiDnupmY92ttgtJcs"
+  },
+  {
+   "name": "S5. W_fr (root = K, the NEAR MPC key Freighter controls): create Swig wallet",
+   "pass": true,
+   "ok": true,
+   "ms": 417,
+   "detail": "3iLoTnLxK823K1Z3xHufjwCUfPxviHvMwA7VB9biEvK3ZWrw7UEWjLX1Wpqz6k962hS6AvTDab7GFvv2oBzZ7pZM"
+  },
+  {
+   "name": "S5a. K (Freighter via NEAR) adds its SESSION role on W_fr (Smart Account program only)",
+   "pass": true,
+   "ok": true,
+   "ms": 261,
+   "detail": "2gMHWQpYdK7uTQS455MSFevEE1z5ENyhC2pbYHCd6fsfwa7sQ131GNF6paS3gxaMjcku9ncTzpWGeUZrD3YQ5CoV"
+  },
+  {
+   "name": "P0. B alone installs the policy (1 of 2)",
+   "pass": true,
+   "ok": false,
+   "ms": 40,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "P0b. attacker + B install a policy",
+   "pass": true,
+   "ok": false,
+   "ms": 16,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P1. A (MetaMask via NEAR) + B install policy P1: signers W_mm, W_ph, W_fr (Swig wallet PDAs), threshold 1, 7-day expiry",
+   "pass": true,
+   "ok": true,
+   "ms": 478,
+   "detail": "54XLAoVvnAT4s4KojtNuWPYUXTtZEBYjH2scusPeypFxWbehwKSmxgsJoHRtm2jM1uMixqgxDqpKz1EUQwo1gotr"
+  },
+  {
+   "name": "P2. policy P1 on chain: 3 signers, threshold 1",
+   "pass": true,
+   "ok": true,
+   "ms": 0,
+   "detail": "signers 65ktLd,C1g6xG,DAVyzA"
+  },
+  {
+   "name": "M0: fund session key (fees only)",
+   "pass": true,
+   "ok": true,
+   "ms": 224,
+   "detail": "5eD3sQL2Zi2PoYNWAFeFk5tGkWY2S74ndK8F1yQiPzndfFcRFgDCzruPzY7k5WZF9r38fKChnx6ognHC9WuzyqUP"
+  },
+  {
+   "name": "M1. MetaMask opens a session on W_mm (one personal_sign, 200 slots)",
+   "pass": true,
+   "ok": true,
+   "ms": 423,
+   "detail": "TqweQMjUXEYXHzwbDnRGMFEWyGGRioHU9493SxY3CEycnwv2csUJcydAqmwMeutJQYBcVeh5aDjMS9i52QpPV5j"
+  },
+  {
+   "name": "M2. session key alone -> W_mm -> policy P1: 0.01 SOL vault -> VENUE",
+   "pass": true,
+   "ok": true,
+   "ms": 419,
+   "detail": "3xNtj9UAx37GnBVGGG89vKJf6mPTSjpF93W2szc4xnFuFV6jAU7pmJmQvuXy8U3b8Unb4AAroYpP69xLFRJfetqw"
+  },
+  {
+   "name": "M2b. VENUE got exactly 0.01 SOL from the vault",
+   "pass": true,
+   "ok": true,
+   "ms": 0,
+   "detail": "0.01 SOL"
+  },
+  {
+   "name": "M3. same path: 0.01 SOL to VENUE2 (also allowed)",
+   "pass": true,
+   "ok": true,
+   "ms": 419,
+   "detail": "4n9eMdTHZcD7HfYoJvdy5iKLMDzZEtyFmHW1M8CUTPund2SG2PRGCUq8YBxRGNwXmmU1nF9i9W9XqW2yh2RNwPH"
+  },
+  {
+   "name": "M4. same path: 0.01 SOL to another address",
+   "pass": true,
+   "ok": false,
+   "ms": 19,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "M5. same path: 0.06 SOL to VENUE (over 0.05 per transfer)",
+   "pass": true,
+   "ok": false,
+   "ms": 27,
+   "detail": "Error Code: ProgramInteractionInvalidNumericValue"
+  },
+  {
+   "name": "M6. same path: 0.05 SOL to VENUE (0.02 + 0.05 = 0.07, under 0.08/day)",
+   "pass": true,
+   "ok": true,
+   "ms": 366,
+   "detail": "5G4RKxh66vZCNLbB4r2Z7DwFsP4sTTa7z7sTEeR6bF1AQ59Wu2ErsiCYgSPPNgPHwYeeDdd4WBg7rh6329aX1gLx"
+  },
+  {
+   "name": "M7. same path: 0.02 SOL to VENUE (0.09 > 0.08/day)",
+   "pass": true,
+   "ok": false,
+   "ms": 18,
+   "detail": "Error Code: ProgramInteractionInsufficientLamportAllowance"
+  },
+  {
+   "name": "M8. session key: plain transfer out of W_mm (not the Smart Account program)",
+   "pass": true,
+   "ok": false,
+   "ms": 32,
+   "detail": "custom program error: 0xbbe"
+  },
+  {
+   "name": "M9. session key -> W_mm tries to change settings (add itself as a 2-of-3 signer)",
+   "pass": false,
+   "ok": false,
+   "ms": 13,
+   "detail": "Signature verification failed (harness: wrong reason, rent payer unsigned; superseded by rerun)"
+  },
+  {
+   "name": "M10. session key -> W_mm tries to install its own wider policy",
+   "pass": false,
+   "ok": false,
+   "ms": 19,
+   "detail": "Signature verification failed (harness: wrong reason, rent payer unsigned; superseded by rerun)"
+  },
+  {
+   "name": "M11. MetaMask session key signs the policy move directly (not through W)",
+   "pass": true,
+   "ok": false,
+   "ms": 9,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "M9r. session key -> W_mm tries to change settings (add W_mm as a 2-of-3 signer; W pays rent)",
+   "pass": true,
+   "ok": false,
+   "ms": 70,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "M10r. session key -> W_mm tries to install its own wider policy (W pays rent)",
+   "pass": true,
+   "ok": false,
+   "ms": 29,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "H0: fund session key (fees only)",
+   "pass": true,
+   "ok": true,
+   "ms": 211,
+   "detail": "3F2t7qLJ6u7ThisJqQdyDiCGyfp7zDgMAe871y1TcmrMoWzuD5b454G1yCiJxxjo35KvRSGx8SZ81FN3giHihZm5"
+  },
+  {
+   "name": "H1. Phantom opens a session on W_ph (signs one Solana tx)",
+   "pass": true,
+   "ok": true,
+   "ms": 417,
+   "detail": "4PSBdLn1VsRfodUTpArwA4tmi1JWL4jykbhKofZqbhkxaykNY4hRmk1d5v3hMwm32Q43zfNyfgvof7nSKcqpCChA"
+  },
+  {
+   "name": "H2. Phantom session -> W_ph -> P1: 0.005 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "ms": 429,
+   "detail": "59SXSLBhUD2FVDXxxQdx2GQ35GwpK2iPEHr5imCpmRK5xFoq6uwiVyjdwo16bkZrbLu6nsay27nsKbWF7te7Rzza"
+  },
+  {
+   "name": "H3. same path: 0.005 SOL to another address",
+   "pass": true,
+   "ok": false,
+   "ms": 25,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "H4. Phantom session tries to use W_mm (the MetaMask wallet) as the policy signer",
+   "pass": true,
+   "ok": false,
+   "ms": 16,
+   "detail": "Signature verification failed"
+  },
+  {
+   "name": "X1. attacker signs a policy move as itself",
+   "pass": true,
+   "ok": false,
+   "ms": 40,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "X2. B (a 2-of-3 signer, not a policy signer) signs a policy move alone",
+   "pass": true,
+   "ok": false,
+   "ms": 12,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "X3. B + C together: plain vault transfer to OTHER outside any policy (sync 2-of-3)",
+   "pass": false,
+   "ok": false,
+   "ms": 17,
+   "detail": "(harness: 1000 lamports to a new account is below rent minimum; superseded by rerun) Program SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG invoke ["
+  },
+  {
+   "name": "X3. B + C together: plain vault transfer of 0.01 SOL to OTHER outside any policy (sync 2-of-3)",
+   "pass": true,
+   "ok": true,
+   "ms": 383,
+   "detail": "mhBwMxwVpTimJjWF4mWDTcET1ox9iy15rNrBJHXHyechKjRQbEnANNUpyvCedpNuLfsGvLro7KK1VpuxcUbVF2t"
+  },
+  {
+   "name": "F0: fund session key (fees only)",
+   "pass": true,
+   "ok": true,
+   "ms": 201,
+   "detail": "3n5YJ5U8rY8Phv9vZERUsdy3GJWTL8SjMYWvnQiBJPCuHZKX9PUHXxgGsfapqbY2Ap5rhHuAAbyGHC26h3vVjzcm"
+  },
+  {
+   "name": "F1. Freighter opens a session on W_fr (one SEP-53 signature -> NEAR wallet contract -> MPC signs the Solana tx)",
+   "pass": true,
+   "ok": true,
+   "ms": 161,
+   "detail": "5gRgUkK76xq1KkkbSUmekajHzw3UFhBfadogJq6TJt2tLjvfnxxVH58VJ25Ppbq4VFamt2uQwL2hoW83crBga2Kt"
+  },
+  {
+   "name": "F2. Freighter session -> W_fr -> P1: 0.005 SOL to VENUE2",
+   "pass": true,
+   "ok": true,
+   "ms": 402,
+   "detail": "HnKME5BCX4GoB4aY4dHxhdE61gE3Y47z3udX4VVUK93iTVoRkBEi54DKNhARmbnpfSZSx5d2kD3rfTzP673XZMx"
+  },
+  {
+   "name": "F3. same path: 0.005 SOL to another address",
+   "pass": true,
+   "ok": false,
+   "ms": 24,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "F4. a session on W_fr signed by some other ed25519 key",
+   "pass": true,
+   "ok": false,
+   "ms": 4,
+   "detail": "Signature verification failed"
+  },
+  {
+   "name": "R0. daily cap is shared: M 0.07 + H 0.005 + F 0.005 = 0.08 used; MetaMask session +0.001 SOL",
+   "pass": false,
+   "ok": false,
+   "ms": 143,
+   "detail": "(harness: session had expired, Swig 0xbc6 SessionExpired; wrong reason; redone as V5/V8) custom program error: 0xbc6"
+  },
+  {
+   "name": "R1. B + C update P1: signers W_ph, W_fr (drop W_mm), cap raised to 0.2 SOL/day",
+   "pass": true,
+   "ok": true,
+   "ms": 439,
+   "detail": "4UgN2CeE5VE98v72dhMxX3DFYCtaqz4hNvzCDTAULbNeF7T7ZxypmoYbo1VJCK2nzJmkUgDhK41kUpscChyD8jpe"
+  },
+  {
+   "name": "R2. the MetaMask session (unexpired) after W_mm was dropped from P1",
+   "pass": false,
+   "ok": false,
+   "ms": 49,
+   "detail": "(harness: session had expired, Swig 0xbc6 SessionExpired; wrong reason; redone as V5/V8) custom program error: 0xbc6"
+  },
+  {
+   "name": "R3: fund session key (fees only)",
+   "pass": true,
+   "ok": true,
+   "ms": 380,
+   "detail": "ex3UBXNugUEAkohHyjpTbXBt1t5cLJ6kzf5jbBnvZi8unabXmXbugffYki1CTUi5u7CDndNH9Uf8g3ab2HZqpfN"
+  },
+  {
+   "name": "R3a. Phantom session",
+   "pass": true,
+   "ok": true,
+   "ms": 432,
+   "detail": "Qjwxr32P4UrGsBJjsLGKfFF3pTKjKjbZKDmu77aQYUgnS9jMthMp6aZ64VcNCewC9hQBjUSgLukVFG82MPk6MBz"
+  },
+  {
+   "name": "R3b. Phantom still moves after the update (0.01 SOL)",
+   "pass": true,
+   "ok": true,
+   "ms": 426,
+   "detail": "64KRjotR4gJWdKhWTrQQTYWvte9jURvqWxtVjXH744xJg7HFZ9LJQrBsUkGE5ihRrDCYQqWmQ6papgkmPGTdosGm"
+  },
+  {
+   "name": "R4. B + C remove P1 (kill switch)",
+   "pass": true,
+   "ok": true,
+   "ms": 438,
+   "detail": "5Uwj1yZBihZRVbcGWt7ratDqSQSoLPsKY51SoB55C6xa7S6dKBHzZ7yp15kC6CvchP14aifh7L7jZFLvtGERVWHD"
+  },
+  {
+   "name": "R5. Phantom session after P1 was removed",
+   "pass": true,
+   "ok": false,
+   "ms": 27,
+   "detail": "Error Code: AccountNotInitialized"
+  },
+  {
+   "name": "V1. B + C install P3: signers W_mm, W_ph; cap 0.02 SOL/day",
+   "pass": true,
+   "ok": true,
+   "ms": 122,
+   "detail": "EgKEyBHLh9zPRrq68uRTCzN4HGBGfDWSYLQ8vd3wLbZqtCyjgGVcX8ijXJNpjCgsgTCz6nxyx9pWJQuZ1qkZ7GT"
+  },
+  {
+   "name": "V2: fund session key (fees only)",
+   "pass": true,
+   "ok": true,
+   "ms": 414,
+   "detail": "5AH28QwoRBFbWTgsnyqFfHnXkpgvJEZZko9WCwR6YXbjRodea2TZLsdXxtJ5747C9UWx9Jegfka3dXjDoJKLQhEi"
+  },
+  {
+   "name": "V3: fund session key (fees only)",
+   "pass": true,
+   "ok": true,
+   "ms": 435,
+   "detail": "wJHfKSL9W694BBnsUCJzm412amxYn3Pph9jDjpbmpdrMN9AaLaQQYgRtxaHWK3CYVs5Xx6AZU819RnunTWf1nKX"
+  },
+  {
+   "name": "V2a. MetaMask session (300 slots)",
+   "pass": true,
+   "ok": true,
+   "ms": 426,
+   "detail": "4gXgKyBMLsoxEv8VBefGJBXGBGuzATYLQ5HHJ5efqKnKcq7HhQrriKzEaz4T6Zv9AdMoTZm4AjqRzNciroJQop6E"
+  },
+  {
+   "name": "V3a. Phantom session (300 slots)",
+   "pass": true,
+   "ok": true,
+   "ms": 458,
+   "detail": "5eLBTaaqkWMbj7PQZbxKjWT7bEaGDAj95dCEirBaX1dSjm8vTiiooBJ1La7Hm3Kkx5snu6YDJpGo8V1N6kt7EyWL"
+  },
+  {
+   "name": "V4. MetaMask: 0.015 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "ms": 440,
+   "detail": "67p83o2GpsUQT5JYMe6SzvdKpjp6JNJSppJLwyL8bAcdC99jX4Uk2MC1EXfGYHC4ufZubRyDhHr2enVnwgmrcMwm"
+  },
+  {
+   "name": "V5. Phantom: 0.01 SOL to VENUE (0.025 > 0.02/day, cap shared by all movers)",
+   "pass": true,
+   "ok": false,
+   "ms": 39,
+   "detail": "Error Code: ProgramInteractionInsufficientLamportAllowance"
+  },
+  {
+   "name": "V6. Phantom: 0.005 SOL to VENUE (0.02, exactly the cap)",
+   "pass": true,
+   "ok": true,
+   "ms": 380,
+   "detail": "3iZ3f7gH1FAk3eQgMNbQXsUfH1JPdHpBRpd2vNrfmpd8pM26M1VHVwsvwwrzMj1HgRqWbyDfkUr7ERM7XAvEqdnP"
+  },
+  {
+   "name": "V7. B + C update P3: drop W_mm, cap 0.2/day",
+   "pass": true,
+   "ok": true,
+   "ms": 438,
+   "detail": "c3Ti2DZsC7GSmKo4TN9LvCpXMLRv31dLRW3AspdBeUEauWfbT37YULQ5cTb2fJRgr643Yp1yuHKQEBcLCZGFpEW"
+  },
+  {
+   "name": "V8. MetaMask session (still valid) after W_mm was dropped: 0.001 SOL",
+   "pass": true,
+   "ok": false,
+   "ms": 25,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "V9. Phantom after the update: 0.01 SOL",
+   "pass": true,
+   "ok": true,
+   "ms": 406,
+   "detail": "4GJBygiLL1CTZyerVgEuwPTAtdDB2VZny1q2ZtjJ2wmFra6PuGT7TyHmcW6w5GZXKicYEvExReHJPXiwue3MbvLr"
+  },
+  {
+   "name": "V10. MetaMask session, same session, outside any policy: SMRT settings change",
+   "pass": true,
+   "ok": false,
+   "ms": 24,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "E1. B + C install P2 (W_ph only) that expires in 20 s",
+   "pass": true,
+   "ok": true,
+   "ms": 447,
+   "detail": "eV6YTPyyDV5egdj768bPMEbACEPteHvL1RE735cHwFDKMF7PPRpE8TUap4bYrddEB7AkLEoFQynEWcxP1ksMeHH"
+  },
+  {
+   "name": "E2: fund session key (fees only)",
+   "pass": true,
+   "ok": true,
+   "ms": 429,
+   "detail": "5Ufox2LgvtQDhQvUcQHVRDoYmdkkN1PnqmKnvPUHbCPw8aBnqChZHM5vunHxqFg9hTTuitSVGug22EtBE4KW57w6"
+  },
+  {
+   "name": "E2a. Phantom session",
+   "pass": true,
+   "ok": true,
+   "ms": 425,
+   "detail": "4Dq9i7ZiEPFRRkf9dwa4MPdAtcvsV8JKQiQzNhYFKzAS92CRep6njCufKQ87F4riiuKgHK2YrJbUjpDSg7axhNHd"
+  },
+  {
+   "name": "E3. move through P2 before expiry",
+   "pass": true,
+   "ok": true,
+   "ms": 427,
+   "detail": "46uBA5DckeEoL3bqVwbdNZZg4TZiYuZ2XfKrgExWcsHkUzkn8wWWiZzW7xMeH823EXyWAgpYMjdzb96T3aL3ZKKq"
+  },
+  {
+   "name": "E4. same move after P2 expired (session itself still valid)",
+   "pass": true,
+   "ok": false,
+   "ms": 69,
+   "detail": "Error Code: PolicyExpirationViolationTimestampExpired"
+  },
+  {
+   "name": "E5. B + C change the settings (rotate C -> C2 keeps working with 2-of-3)",
+   "pass": true,
+   "ok": true,
+   "ms": 326,
+   "detail": "3krLBcrYwZnNGArHSEKM3ZnfgXFTZYosVS4ti94c9oLjuPMQALJ4HTqRqrV9qWQjEUEaHtzt4heyfjY85wEsH8bR"
+  }
+ ],
+ "venue": "FiTdGrJYedYhExAv7MoKJvtiNbzJzezTxPG6RFScgr6t",
+ "venue2": "HrD3g98PPxKJx2cFLAecnQBhJPhtpjubthGXbn9ZXtGs",
+ "other": "7hnnXB4E8oB65g9dhTF4iRB1u6pRHJrgm4TDkEuQrN56",
+ "settings": "1w97kRYLEZRecUx5Q94v8a3V7r7uWU31ztLLRJ1JNDS",
+ "vault": "GQEU2ZAimiqwGw4TMdUcy9K7KmrismXQdaGmhUqpHJhm",
+ "wmmId": "878beac91e1fbbcf76e84848447ccd07ad2edc4701fa31c248d1b64ebd46793d",
+ "wmm": "DAVyzAmBRcYhU6Q4GyLZ1rxdN9cpx4nkE28Uvf3PBXEn",
+ "wmmRole": 1,
+ "wphId": "cbd4423a6ccc2fbd0ed46a27282f21cea60d5c40cb540bbba5905459b9a2ab59",
+ "wph": "C1g6xGENZcLZY4cQBtB7FAgTHMXTSkM6STdpB5QxGUVx",
+ "wphRole": 1,
+ "wfrId": "23217653e6b7823b9006aa906c6b5190a891259e90d042e6c413cb7b61b04b5c",
+ "wfr": "65ktLdufzhxx1XhLarwTB9Njb1fZq91KHdEeSEcyqJ2B",
+ "wfrRole": 1,
+ "p1": "5jnAoHB5K9M1hnvaBkGtufFBo8HoRGmJLEceTwq9natm",
+ "mmSession": "4LpzkJevBsQE7S451LuPAXAYX9g7DZTD8ip7TgYTYLh1",
+ "p3": "EYcsVnjscdxZXhhkTRQZZDh9pbZNjoXwhXpf6NoAdk8k"
+}
