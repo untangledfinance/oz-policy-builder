@@ -158,14 +158,6 @@ fn refuses_a_grant_made_for_another_instance_of_the_same_wallet() {
 }
 
 #[test]
-fn refuses_a_grant_made_for_another_network() {
-    let t = setup();
-    let p = proof(&t, &[1; 32], 600);
-    t.e.ledger().set_network_id([5u8; 32]);
-    assert_eq!(check(&t, p), Err(Ok(NOT_OWNER)));
-}
-
-#[test]
 fn refuses_a_bad_v() {
     let t = setup();
     let mut p = proof(&t, &[1; 32], 600);
@@ -254,13 +246,13 @@ fn matches_viem_and_metamask() {
     );
     let want = bytesn!(
         &e,
-        0xd80b3717d5b21ae6609b5750bf0b199e6da28b99bf9114e39c60b4ab0edaca5a
+        0xcd40652e71446661ddd26b667351dbc20fd0b7581fa6b727cbd6e9bec98e76d7
     );
     assert_eq!(digest(&e, &signer, &key, 1000), want.to_array());
-    let rs = bytesn!(&e, 0x262d04a4bad0d1406b903d365b4a881e5c552998950e49771a4b2a702e0e7eb73081fe39a92b506c3fd19d6bb3dcc950de38e9c5c4e0c4dc4b606db25a5b3fe5);
+    let rs = bytesn!(&e, 0xe1e2cb11122e90ec28884f615ef9cd224601cb9cd3abe4465cfef07e6b339f5c5a30b70b4e15ad07589a90d0a25a3f4736ef335639088771554f19e20468ae81);
     // The grant names key 0x11..11, whose secret nobody has: the owner check
     // must pass, so the session signature check is what refuses.
-    let p: Proof = (key, 1000, rs, 0x1c, BytesN::from_array(&e, &[0; 64]));
+    let p: Proof = (key, 1000, rs, 0x1b, BytesN::from_array(&e, &[0; 64]));
     let ctx: Vec<Context> = Vec::new(&e);
     let r = e.try_invoke_contract_check_auth::<Error>(
         &signer,
@@ -279,10 +271,9 @@ fn text(e: &Env, signer: &Address, key: &BytesN<32>, until: u32) -> std::string:
     let mut c = std::vec![0u8; signer.to_string().len() as usize];
     signer.to_string().copy_into_slice(&mut c);
     std::format!(
-        "Prime session\ncontract: {}\nsession key: {}\nvalid until ledger: {until}\nnetwork: {}",
+        "Prime session\ncontract: {}\nsession key: {}\nvalid until ledger: {until}",
         std::string::String::from_utf8(c).unwrap(),
-        hex(&key.to_array()),
-        hex(&e.ledger().network_id().to_array())
+        hex(&key.to_array())
     )
 }
 

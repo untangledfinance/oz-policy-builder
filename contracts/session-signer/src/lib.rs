@@ -6,7 +6,7 @@
 //! - `Stellar(key)`: Freighter `signMessage` (SEP-53: ed25519 over sha256 of the prefixed text);
 //! - `Solana(key)`: Phantom `signMessage` (ed25519 over the text).
 //!
-//! grant text: "Prime session\ncontract: <this contract>\nsession key: <hex>\nvalid until ledger: <n>\nnetwork: <hex>"
+//! grant text: "Prime session\ncontract: <this contract>\nsession key: <hex>\nvalid until ledger: <n>"
 //!
 //! The proof is `(session_key, valid_until, rs, v, session_sig)`: `rs`/`v` is the owner's signature
 //! (`v` only for EVM), `session_sig` the key's signature over the authorisation payload. Refused, with
@@ -64,27 +64,26 @@ fn need(ok: bool, code: u32) -> Result<(), Error> {
 /// True when the owner signed the grant text for `key` and `until`. A bad ed25519 signature traps.
 fn by_owner(e: &Env, key: &BytesN<32>, until: u32, rs: &BytesN<64>, v: u32) -> bool {
     let (c, text) = (e.crypto(), grant_text(e, key, until));
-    match e.storage().instance().get::<_, Owner>(&0u32).unwrap() {
+    let (pk, m) = match e.storage().instance().get::<_, Owner>(&0u32).unwrap() {
         Owner::Evm(owner) => {
             let mut m = Bytes::from_slice(e, b"\x19Ethereum Signed Message:\n");
             m.append(&dec(e, text.len()));
             m.append(&text);
             let pk = c.secp256k1_recover(&c.keccak256(&m), rs, v % 27);
-            c.keccak256(&Bytes::from_slice(e, &pk.to_array()[1..])).to_array()[12..] == owner.to_array()
+            return c.keccak256(&Bytes::from_slice(e, &pk.to_array()[1..])).to_array()[12..] == owner.to_array();
         }
         Owner::Stellar(pk) => {
             let mut m = Bytes::from_slice(e, b"Stellar Signed Message:\n");
             m.append(&text);
-            c.ed25519_verify(&pk, &c.sha256(&m).into(), rs);
-            true
+            (pk, Bytes::from_array(e, &c.sha256(&m).to_array()))
         }
-        Owner::Solana(pk) => {
-            c.ed25519_verify(&pk, &text, rs);
-            true
-        }
-    }
+        Owner::Solana(pk) => (pk, text),
+    };
+    c.ed25519_verify(&pk, &m, rs);
+    true
 }
 
+/// The contract address already commits to the network (its ID hashes the network ID), so no network line.
 pub fn grant_text(e: &Env, key: &BytesN<32>, until: u32) -> Bytes {
     let mut t = Bytes::from_slice(e, b"Prime session\ncontract: ");
     t.append(&e.current_contract_address().to_string().to_bytes());
@@ -92,8 +91,6 @@ pub fn grant_text(e: &Env, key: &BytesN<32>, until: u32) -> Bytes {
     t.append(&hex(e, &key.to_array()));
     t.append(&Bytes::from_slice(e, b"\nvalid until ledger: "));
     t.append(&dec(e, until));
-    t.append(&Bytes::from_slice(e, b"\nnetwork: "));
-    t.append(&hex(e, &e.ledger().network_id().to_array()));
     t
 }
 

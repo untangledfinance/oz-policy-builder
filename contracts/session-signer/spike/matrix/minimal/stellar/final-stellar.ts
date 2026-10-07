@@ -20,7 +20,7 @@ const WASM = '/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/con
 const ACCOUNT_WASM_HASH = '91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9';
 const WEIGHTED = 'CCTNRFZCL45GTJICA3Z2KFQO3VEGBHGCVBLHQ3GLJKAGACQIJMYJS7T2';
 const INTERPRETER = 'CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5';
-const FILE = 'state-final.json';
+const FILE = 'state-final2.json';
 const st: Record<string, any> = existsSync(FILE) ? JSON.parse(readFileSync(FILE, 'utf8')) : {};
 const save = (p: Record<string, unknown>) => { Object.assign(st, p); writeFileSync(FILE, JSON.stringify(st, null, 1)); };
 const fee = keypair('secrets/fee-payer.json');
@@ -40,7 +40,7 @@ const NET = vsha(toBytes(Sdk.Networks.TESTNET)).slice(2);
 // ── Grants ─────────────────────────────────────────────────────────────────
 type Wallet = 'MetaMask' | 'Freighter' | 'Phantom';
 const grantText = (S: string, key: Buffer, until: number) =>
-  `Prime session\ncontract: ${S}\nsession key: ${key.toString('hex')}\nvalid until ledger: ${until}\nnetwork: ${NET}`;
+  `Prime session\ncontract: ${S}\nsession key: ${key.toString('hex')}\nvalid until ledger: ${until}`;
 function freighterSignMessage(text: string): Buffer { // Freighter's signMessage code path (SEP-53)
   const d = mkdtempSync(`${tmpdir()}/fsign-`); writeFileSync(`${d}/m.txt`, text);
   try { return Buffer.from(execFileSync('bun', ['freighter-sign.ts', FREIGHTER_FILE, `${d}/m.txt`], { encoding: 'utf8' }), 'base64'); } finally { rmSync(d, { recursive: true }); }

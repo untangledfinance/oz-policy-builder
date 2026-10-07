@@ -20,7 +20,7 @@ Prime session
 contract: <the contract / signer>      (Solana: "signer: <PDA>")
 session key: <key>
 valid until …: <ledger | unix time>
-network: <id>                          (Solana: "cluster: <c>\nprogram: <id>")
+network: <id>                          (Stellar: none, the contract ID is network-bound; Solana: "cluster: <c>\nprogram: <id>")
 ```
 
 Revoking a session is the same text with "valid until" set to 0. A grant ending at 0 can never authorise a move.
@@ -31,8 +31,8 @@ sLOC counts non-blank lines that are not comments.
 
 | Chain | Contract | sLOC | Before | Replaces |
 |---|---|---|---|---|
-| EVM | `evm/src/PrimeKey.sol` | **75** (+ vendored ed25519 library) | 175 + separate verifier | SessionMember, Ed25519Owner, SessionMemberEd, Ed25519Wallet, and the separately deployed Ed25519Verifier |
-| Stellar | `session-signer/src/lib.rs` | **93** (wasm 5.1 KB) | 102 | the EIP-712 path, now one text grant for all three wallets |
+| EVM | `evm/src/PrimeKey.sol` | **59** (+ vendored ed25519 library; hex/decimal text, EIP-191 and ECDSA from OpenZeppelin 5.4) | 175 + separate verifier | SessionMember, Ed25519Owner, SessionMemberEd, Ed25519Wallet, and the separately deployed Ed25519Verifier |
+| Stellar | `session-signer/src/lib.rs` | **89** | 102 | the EIP-712 path, now one text grant for all three wallets; no network line (a Stellar contract ID already hashes the network ID) |
 | Solana | `solana/prime-session/src/lib.rs` | **71** | 94 (v2) | separate grant/revoke texts and duplicated parsing |
 
 The EVM count leaves out `lib/Ed25519.sol` (869 lines) and `lib/Sha512.sol` (235 lines). These are chengwenxi/Ed25519 (Apache-2.0, **unaudited**). The only change is wrapping each body in `unchecked {}` for 0.8. EVM has no ed25519 precompile, so Freighter and Phantom need this library on EVM unless NEAR does the signing. An audit must cover it.
@@ -147,3 +147,9 @@ The first run failed only V16, and the test caused it: the runtime refuses a 100
 - **EVM moves have no deadline:** a signed move can wait for up to the session's end. Its nonce and the 7-day cap bound it.
 - **Stellar's 7-day cap counts ledgers:** it is 120,960 ledgers, not seconds.
 - **Phantom on Solana:** the real Phantom refuses to `signMessage` raw bytes. The grant is UTF-8 text, so this is fine, and it was checked with the real extension in round 2.
+
+## Second trim
+
+- **EVM, 75 → 59 sLOC:** OpenZeppelin `Strings`, `MessageHashUtils` and `ECDSA` replace the hand-written hex/decimal, EIP-191 and recovery code. Revocation is now `until = type(uint256).max` instead of a second mapping; `exec` refuses any `until` more than 7 days ahead, and `grant` refuses because `until[key] < end` fails. Result: 104/104 again. The MetaMask grant fell from 96k to 76k gas.
+- **Stellar, 93 → 89 sLOC:** the `network:` line is dropped, and the two ed25519 owner branches share one verify call. Result: 27/27 on testnet and 17/17 unit tests. The `another network` unit test is gone because the contract ID already differs per network.
+- Build note: `evm/lib/oz` is OpenZeppelin Contracts 5.4.0 unpacked from npm (not committed): `npm pack @openzeppelin/contracts@5.4.0` and copy `package/utils` there.
