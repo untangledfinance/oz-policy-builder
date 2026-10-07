@@ -1,5 +1,7 @@
 # One minimal contract per chain
 
+> **Superseded by [`../near-minimal/README.md`](../near-minimal/README.md):** wallets now reach other chains through NEAR. That leaves smaller session-only contracts and no ed25519 library on EVM, and seats are kept apart from sessions.
+
 Each chain gets one new contract that does two jobs for each wallet (MetaMask, Freighter, Phantom):
 
 - **seat**: it is the wallet's seat in the account's 2-of-3;

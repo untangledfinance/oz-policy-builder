@@ -1,0 +1,43 @@
+== setup
+08:57:43 seats {
+  MetaMask: "GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW",
+  Freighter: "GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I",
+  Phantom: "GBTFOTXD3WLAMFVCAUEDNO2FM7F3YKQ6RWRVSA5M7VAQHGLJZ7CGBPGL",
+}
+08:57:57 session-signer wasm a60de71f45b2bac63b874a481e96d7fc91af31b50808b9f8c3f3d70eed782d05 adebd4dc89056cd11299ed9f1a0255e902133e650264d0426cab17893feaa4d3
+08:58:02 S_mm CA7FP2LRZMTARE2SPD35S3UMLOZXYELFY22SPCJJP25XFTLJUJBSCORR 1348e9de50e99ea538b31c4eb5d85b1415fec00b6ca000971f0aefe11e8bc935
+08:58:07 S_fr CAOUYJJMZ4CH332QMICFT4WKCZZ7KGJGXT42IPQN63A522VMAASGV4KA c8f2e6dbba848ab1345913b73ed98ee3275f7ecb0fb882e3c69c3417065f0d41
+08:58:12 S_ph CBOOP6QGSCJFJB53QDHJ3QT4RERRJJ4SKQHHXKGA3CZHSXW7DYYRFQX2 d6b46b39ea0241b1b79ed8f6d932037cc70c1878b69771f79327de39171923e5
+08:58:17 Prime Account CBHPTNXQWTOAG37MZ546D3T53VCM5Q5VMNODCIFZUTAORMSGPAQDMNKD a28d5b5f1190debd953cfee5221ddf7fcec33a9274e57267e70095724612fe95
+08:58:22 funded 30 XLM 6e1589db14aa56fb9767adb7dfad9fe117ff69c051d6526bf46890a90b5d2030
+08:58:22 PASS P0. rule 0 signers are exactly the three wallet G keys (no session-signer) [["Delegated","GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW"],["Delegated","GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I"],["Delegated","GBTFOTXD3WLAMFVCAUEDNO2FM7F3YKQ6RWRVSA5M7VAQHGLJZ7CGBPGL"]]
+== seats
+08:58:50 PASS Y1-MetaMask. MetaMask alone adds a rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+08:58:51 PASS Y1-Freighter. Freighter alone adds a rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+08:58:59 PASS Y1-Phantom. Phantom alone adds a rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+08:59:22 PASS Y2. MetaMask (NEAR) + Freighter add a rule ok 23207 ms 84668c6e7ab852bc625ccb1e160350ad56ff65cb38ae6d2da3525e854b3f3c57
+08:59:32 PASS Y3. Freighter + Phantom (NEAR) remove it ok 9436 ms 2e550a24bee088fe9c98602654006de5f333b6630f0527d92ec0778b7338585d
+09:00:03 PASS Y4. Phantom (NEAR) + MetaMask (NEAR) add a rule ok 30373 ms 7f88b80c394d3a461e4dda61fa64452a8906cb2fd17dcc0623fe66abd145a757
+09:00:38 PASS Y5. MetaMask + Phantom remove it ok 34137 ms 25f165254c6abe1d8532318abadb8e1d9371aaeccbaa9e963925b2543539d70f
+09:00:43 PASS Y6. outsider + Freighter refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:00:50 PASS Y7. MetaMask's seat signed by Phantom's MPC key + Freighter refused: Error(Auth, InvalidAction) Error(Contract, #5)
+09:00:57 PASS Y8. Phantom's seat signed by its MPC key under another path + Freighter refused: Error(Auth, InvalidAction) Error(Contract, #5)
+09:00:57 NEAR MPC: 10 signatures, average 11.8s
+== rules
+103 | export function buildAddContextRuleArgs(
+104 |   draft: ContextRuleDraft,
+105 |   args: BuildAddContextRuleArgs
+106 | ): AddContextRuleArgs {
+107 |   // ---- 1. Cap checks (fail-closed before any encoding) ----
+108 |   if (args.signers.length > OZ_LIMITS.maxSignersPerRule) {
+                 ^
+TypeError: undefined is not an object (evaluating 'args.signers.length')
+      at buildAddContextRuleArgs (/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/packages/policy-synth/src/install/build-add-context-rule.ts:108:12)
+      at /home/ubuntu/work/near-session-spike/stn.ts:130:187
+
+Bun v1.4.2 (Linux x64)
+EXIT 1
+== separation
+09:01:39 PASS N1. Phantom's session-signer + Freighter on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:01:40 PASS N2. MetaMask's and Phantom's session-signers on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:01:40 PASS N3. Phantom session claims its session rule for an account-admin call refused: XDR Write Error: invalid u32 value
