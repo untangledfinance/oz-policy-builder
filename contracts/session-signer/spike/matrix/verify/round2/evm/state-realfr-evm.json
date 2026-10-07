@@ -1,0 +1,8 @@
+{
+ "owner": "0xc5775724b956ad4391c689832da1207e77f56f3e",
+ "approvalText": "Prime approval\nsafe: 0x000000000000000000000000000000000000dead\nsafe tx: 0x8480c2e8fa94002f0a263c80580a4521d431e6c53eb51a618323dd791813ca1c",
+ "ownSafe": "0x1626ba7e",
+ "otherHash": "0xffffffff",
+ "otherSafe": "0xffffffff",
+ "pass": true
+}

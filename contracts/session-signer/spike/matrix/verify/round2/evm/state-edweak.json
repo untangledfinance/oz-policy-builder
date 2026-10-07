@@ -1,0 +1,62 @@
+[
+ {
+  "name": "K1. identity (y = 1)",
+  "pass": true,
+  "ok": false,
+  "d": "reverted with reason: weak key"
+ },
+ {
+  "name": "K2. order 2 (y = p - 1)",
+  "pass": true,
+  "ok": false,
+  "d": "reverted with reason: weak key"
+ },
+ {
+  "name": "K3. order 4 (y = 0)",
+  "pass": true,
+  "ok": false,
+  "d": "reverted with reason: weak key"
+ },
+ {
+  "name": "K4. order 4 (y = 0, sign bit)",
+  "pass": true,
+  "ok": false,
+  "d": "reverted with reason: weak key"
+ },
+ {
+  "name": "K5. order 8 (y8)",
+  "pass": true,
+  "ok": false,
+  "d": "reverted with reason: weak key"
+ },
+ {
+  "name": "K6. order 8 (y8, sign bit)",
+  "pass": true,
+  "ok": false,
+  "d": "reverted with reason: weak key"
+ },
+ {
+  "name": "K7. order 8 (p - y8)",
+  "pass": true,
+  "ok": false,
+  "d": "reverted with reason: weak key"
+ },
+ {
+  "name": "K8. order 8 (p - y8, sign bit)",
+  "pass": true,
+  "ok": false,
+  "d": "reverted with reason: weak key"
+ },
+ {
+  "name": "K9. non-canonical y = p + 1 (identity again)",
+  "pass": true,
+  "ok": false,
+  "d": "reverted with reason: weak key"
+ },
+ {
+  "name": "K10. a real Phantom-style key",
+  "pass": true,
+  "ok": true,
+  "d": "0xb1ca5054ec0031ae28b21ff59f14732afdd89f85"
+ }
+]

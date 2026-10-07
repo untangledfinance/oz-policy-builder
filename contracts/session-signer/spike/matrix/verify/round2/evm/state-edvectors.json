@@ -1,0 +1,71 @@
+{
+ "verifier": "0x57dcb0315fb08268a0f8c3c31ef6ae7c1f3bf6b9",
+ "gas": "913812",
+ "results": [
+  {
+   "name": "V1. RFC 8032 TEST 1 accepted",
+   "pass": true,
+   "got": true
+  },
+  {
+   "name": "V2. RFC 8032 TEST 2 accepted",
+   "pass": true,
+   "got": true
+  },
+  {
+   "name": "V3. RFC 8032 TEST 3 accepted",
+   "pass": true,
+   "got": true
+  },
+  {
+   "name": "V4. 40 random key/message pairs (0..1024 bytes) all accepted",
+   "pass": true,
+   "got": true
+  },
+  {
+   "name": "V5. genuine signature",
+   "pass": true,
+   "got": true
+  },
+  {
+   "name": "V6. one message bit flipped",
+   "pass": true,
+   "got": false
+  },
+  {
+   "name": "V7. one R bit flipped",
+   "pass": true,
+   "got": false
+  },
+  {
+   "name": "V8. one S bit flipped",
+   "pass": true,
+   "got": false
+  },
+  {
+   "name": "V9. another public key",
+   "pass": true,
+   "got": false
+  },
+  {
+   "name": "V10. malleated signature (S + L) refused",
+   "pass": true,
+   "got": false
+  },
+  {
+   "name": "V11. all-zero signature",
+   "pass": true,
+   "got": false
+  },
+  {
+   "name": "V12. RFC TEST 2 signature with TEST 3 message",
+   "pass": true,
+   "got": false
+  },
+  {
+   "name": "V13. small-order key (identity) + R=identity, S=0 forgery refused",
+   "pass": false,
+   "got": true
+  }
+ ]
+}

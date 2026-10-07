@@ -1,0 +1,79 @@
+{
+ "results": [
+  {
+   "name": "Z0. Smart Account: seats MetaMask (A), Phantom (P), Freighter (F); threshold 2; vault funded",
+   "pass": true,
+   "ok": true,
+   "detail": "4GaMT6mh58LZV2EMmWkvceeKbGtuTyujaP1BYFBnnKKivX9VPgn2viwivy3Djjug1mS5U9Ehec5f3GXfxEJ8cHC6"
+  },
+  {
+   "name": "Z1a. Phantom proposes 0.01 SOL vault -> DEST and approves (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "545CRF5yXjXdMYf2FXRa7SBfZRv7D35hDZnTAJCmtT21SS8GLtaC5yU7qTLiLYAkegzB355VG2cpN3vt5TETds1c"
+  },
+  {
+   "name": "Z1b. Phantom executes with only its own approval",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidProposalStatus"
+  },
+  {
+   "name": "Z2a. MetaMask proposes 0.01 SOL vault -> DEST and approves (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "27zGohGC36HetBxhvwV2DScpjzw5HAijpKdsZdTGEdWkfgWSZuvfuGrXgqzbwHj2BckT3hMqf8JGr73hQzfmScqD"
+  },
+  {
+   "name": "Z2b. Phantom approves and executes",
+   "pass": true,
+   "ok": true,
+   "detail": "2Jc3s86CEVADgX9W2coZxr4NtSRwgdKoCn5LX48KG4FshgA1tfXNi8GNx1ZVcBQBR5BHTzbsaPDnesmqugZuHUfb"
+  },
+  {
+   "name": "Z2c. DEST received exactly 0.01 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.01 SOL"
+  },
+  {
+   "name": "Z3a. Phantom proposes 0.01 SOL vault -> DEST and approves (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "55inJae3icQmWHiE4APCFeQgTqEeMGPJjvboX9ek6zeASyPgCjEs9zmnpypTr6QSYDUahFJf2rBpr1w5LAkSPjVa"
+  },
+  {
+   "name": "Z3b. Freighter approves and executes",
+   "pass": true,
+   "ok": true,
+   "detail": "5sdNYSbeopZPrckJkLZAgsFnWybfivKCr2GZ9PTuPYXWDE7tW2cLRbM2PNYeM4ZWyqjvBX892Ap3LmtHFJ8YAV9"
+  },
+  {
+   "name": "Z3c. DEST received exactly 0.01 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.01 SOL"
+  },
+  {
+   "name": "Z4a. Freighter proposes 0.01 SOL vault -> DEST and approves (one signature)",
+   "pass": false,
+   "ok": false,
+   "detail": "Transaction was not confirmed in 120.00 seconds. It is unknown if it succeeded or failed. Check signature 4ziJ9pgfEF2cxAPSTbmuQFQZDe4SGBwUFKUzs5RhEq36HqKUSgMdFd"
+  },
+  {
+   "name": "Z4b. MetaMask approves and executes",
+   "pass": false,
+   "ok": false,
+   "detail": "Transaction was not confirmed in 120.00 seconds. It is unknown if it succeeded or failed. Check signature yEtkrwTmRpLBVYr9ffhFqPVBv2cKwjNz5vN4RjYjGCPoDLJjwFYdaH"
+  },
+  {
+   "name": "Z4c. DEST received exactly 0.01 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.01 SOL"
+  }
+ ],
+ "dest": "G6pP2WdRzbDV8JfRM5RV3BBQeen8p8HbR8YVo32X4vJu",
+ "settings": "ALfAUdXFnGPZoPH8aqWBZ7vEYTgNUJAzns6VmSGUN35",
+ "vault": "AQgyHNLupYgj8oMQyqVUd8yJQdkk9jfWRByC2VNPrKMF"
+}
