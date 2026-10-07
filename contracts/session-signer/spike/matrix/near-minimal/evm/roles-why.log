@@ -1,0 +1,11 @@
+rpc https://sepolia.base.org
+ stranger calls Roles: {"jsonrpc":"2.0","id":1,"error":{"code":3,"message":"execution reverted","data":"0x4a0bfec1000000000000000000000000000000000000000000000000000000000000dead"}}
+ PrimeKey(MetaMask) -> token transfer to another address: ConditionViolation(ParameterNotAllowed) 0xd0a9bf58
+ PrimeKey(Freighter) -> delegatecall: ConditionViolation(1) 0xd0a9bf58
+ PrimeKey(Phantom) -> Safe addOwner: ConditionViolation(TargetAddressNotAllowed) 0xd0a9bf58
+rpc https://base-sepolia-rpc.publicnode.com
+ stranger calls Roles: {"jsonrpc":"2.0","id":1,"error":{"code":3,"message":"execution reverted","data":"0x4a0bfec1000000000000000000000000000000000000000000000000000000000000dead"}}
+ PrimeKey(MetaMask) -> token transfer to another address: ConditionViolation(ParameterNotAllowed) 0xd0a9bf58
+ PrimeKey(Freighter) -> delegatecall: ConditionViolation(1) 0xd0a9bf58
+ PrimeKey(Phantom) -> Safe addOwner: ConditionViolation(TargetAddressNotAllowed) 0xd0a9bf58
+token,safe,roles,pkMM,pkFR,pkPH,roleKey,drained,gas,mpc

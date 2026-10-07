@@ -1,0 +1,93 @@
+seats: 0xCcD8af4Ae1a907Ac370FD151D6282da59bc7C570 0x29A9ac479C237AC2CAE6f25cD6cec5D961C113fF 0x5F172afFBEEb59eb574fFF9be77B44898182F3b1
+PASS C0. PrimeKey refuses a zero owner | refused: reverted
+PASS C1. create Safe (MetaMask first, PrimeX flow) | ok gas 259243
+FAIL C2. seats MetaMask + Freighter(NEAR MPC) + Phantom(NEAR MPC), threshold 2; movers rule for the three PrimeKeys | refused: gas 87105
+29 |                 cause: err,
+30 |             });
+31 |         }
+32 |         return err;
+33 |     })();
+34 |     return new ContractFunctionExecutionError(cause, {
+                ^
+ContractFunctionExecutionError: The contract function "getOwners" returned no data ("0x").
+
+This could be due to any of the following:
+  - The contract does not have the function "getOwners",
+  - The parameters passed to the contract function may be invalid, or
+  - The address is not a contract.
+ 
+Contract Call:
+  address:   0x43D0109Bed01f7d1852D71B991A19C349843ec8B
+  function:  getOwners()
+
+Docs: https://viem.sh/docs/contract/readContract
+Version: viem@2.57.3
+    details: undefined,
+   docsPath: "/docs/contract/readContract",
+ metaMessages: [ "This could be due to any of the following:",
+  "  - The contract does not have the function \"getOwners\",", "  - The parameters passed to the contract function may be invalid, or",
+  "  - The address is not a contract.", " ", "Contract Call:", "  address:   0x43D0109Bed01f7d1852D71B991A19C349843ec8B\n  function:  getOwners()"
+],
+ shortMessage: "The contract function \"getOwners\" returned no data (\"0x\").",
+    version: "2.57.3",
+        abi: [
+  [Object ...], [Object ...], [Object ...], [Object ...]
+],
+       args: undefined,
+ contractAddress: "0x43D0109Bed01f7d1852D71B991A19C349843ec8B",
+ formattedArgs: undefined,
+ functionName: "getOwners",
+     sender: undefined,
+
+      at getContractError (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/errors/getContractError.js:34:12)
+      at readContract (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/actions/public/readContract.js:58:15)
+
+11 |             ? err.walk((err) => typeof err === 'object' && err !== null && 'data' in err) || err.walk()
+12 |             : {});
+13 |     const { code, data, details, message, shortMessage } = error;
+14 |     const cause = (() => {
+15 |         if (err instanceof AbiDecodingZeroDataError)
+16 |             return new ContractFunctionZeroDataError({ functionName, cause: err });
+                        ^
+ContractFunctionZeroDataError: The contract function "getOwners" returned no data ("0x").
+
+This could be due to any of the following:
+  - The contract does not have the function "getOwners",
+  - The parameters passed to the contract function may be invalid, or
+  - The address is not a contract.
+
+Version: viem@2.57.3
+    details: undefined,
+   docsPath: undefined,
+ metaMessages: [
+  "This could be due to any of the following:", "  - The contract does not have the function \"getOwners\",",
+  "  - The parameters passed to the contract function may be invalid, or", "  - The address is not a contract."
+],
+ shortMessage: "The contract function \"getOwners\" returned no data (\"0x\").",
+    version: "2.57.3",
+
+      at <anonymous> (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/errors/getContractError.js:16:20)
+      at getContractError (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/errors/getContractError.js:32:16)
+      at readContract (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/actions/public/readContract.js:58:15)
+
+ 9 | import { getArrayComponents } from './encodeAbiParameters.js';
+10 | export function decodeAbiParameters(params, data) {
+11 |     const bytes = typeof data === 'string' ? hexToBytes(data) : data;
+12 |     const cursor = createCursor(bytes);
+13 |     if (size(bytes) === 0 && params.length > 0)
+14 |         throw new AbiDecodingZeroDataError();
+                   ^
+AbiDecodingZeroDataError: Cannot decode zero data ("0x") with ABI parameters.
+
+Version: viem@2.57.3
+    details: undefined,
+   docsPath: undefined,
+ metaMessages: undefined,
+ shortMessage: "Cannot decode zero data (\"0x\") with ABI parameters.",
+    version: "2.57.3",
+
+      at decodeAbiParameters (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/abi/decodeAbiParameters.js:14:15)
+      at decodeFunctionResult (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/utils/abi/decodeFunctionResult.js:18:20)
+      at readContract (/home/ubuntu/work/swig-spike/node_modules/viem/_esm/actions/public/readContract.js:50:16)
+
+Bun v1.4.2 (Linux x64)

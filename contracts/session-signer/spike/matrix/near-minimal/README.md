@@ -1,5 +1,7 @@
 # One small session contract per chain; NEAR only through stock code and one 21-line signer
 
+The full design write-up, with diagrams and testnet proofs, is [`../../../ARCHITECTURE.md`](../../../ARCHITECTURE.md).
+
 This replaces `../minimal/`. The goals were the least new code, no lines added to NEAR's open-source wallet contract, and seats kept apart from sessions.
 
 ## Routes
@@ -53,6 +55,8 @@ It is deployed at `signer.prime-spike-muwguc60.testnet`, code hash `D2xgePUEzgfR
 |---|---|---|---|
 | Signer contract refusals | NEAR testnet | **11/11** | `near-signer/signer-neg.log` |
 | EVM matrix | Base Sepolia fork + NEAR testnet | **87/87** | `evm/pkn.log` |
+| EVM matrix, live | **real Base Sepolia** + NEAR testnet | **88/88** | `evm/pkn-live.log`, `evm/verify-evm.log` |
+| Real Phantom and real Freighter through the signer contract | NEAR testnet | both signed, MPC keys check out | `proof-near.log`, `real-wallets/` |
 | Solana matrix | local validator (Smart Account from devnet) + NEAR testnet | **70/70** | `solana/psn.log` |
 | Stellar matrix | Stellar testnet + NEAR testnet | **55/55** | `stellar/stn.log` |
 | Phantom's own EVM account as a Safe seat | real Phantom extension + Base Sepolia fork | **P1, P2 pass** | `phantom-evm/phx.log`, `phantom-evm/pevm.log` |

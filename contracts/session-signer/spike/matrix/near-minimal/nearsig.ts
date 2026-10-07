@@ -19,6 +19,8 @@ const { deriveEd25519 } = await import('/home/ubuntu/work/near-session-spike/nea
 process.chdir(here);
 export const metamask = mm.metamask;
 export const stats = { calls: 0, ms: 0 };
+/** NEAR transaction ids of every MPC request, newest last (proof links). */
+export const nearTxs: string[] = [];
 
 // Freighter and Phantom: one readable text per request, checked by our signer contract, which asks the MPC to sign
 // under "<wallet key hex>/<path>" (predecessor: the signer contract). No NEAR wallet contract involved.
@@ -48,6 +50,7 @@ async function viaSigner(w: 'Freighter' | 'Phantom', path: string, domain: 0 | 1
   const hex = Buffer.from(payload).toString('hex');
   const args = { key: walletKey(w), sep53: w === 'Freighter', path, domain_id: domain, payload: hex, signature: walletSign(w, requestText(path, domain, hex)) };
   const out: any = await retryExpired(() => mm.relayer.signAndSendTransaction({ receiverId: SIGNER, actions: [actionCreators.functionCall('sign', args, 300_000_000_000_000n, 1n)], waitUntil: 'FINAL', throwOnFailure: false }));
+  nearTxs.push(out.transaction_outcome?.id);
   const v = out.status?.SuccessValue;
   if (!v) throw new Error(`signer: no MPC result in ${out.transaction_outcome?.id}: ${JSON.stringify(out.status).slice(0, 600)}`);
   return JSON.parse(Buffer.from(v, 'base64').toString());
@@ -68,7 +71,7 @@ export async function edKey(w: Wallet, path: string): Promise<Uint8Array> {
 export async function edSign(w: Wallet, path: string, msg: Uint8Array): Promise<Uint8Array> {
   const t0 = Date.now();
   let sig: Uint8Array;
-  if (w === 'MetaMask') { const here2 = process.cwd(); process.chdir('/home/ubuntu/work/near-session-spike'); try { sig = (await retryExpired(() => mm.mpcSign(msg, path))).sig; } finally { process.chdir(here2); } }
+  if (w === 'MetaMask') { const here2 = process.cwd(); process.chdir('/home/ubuntu/work/near-session-spike'); try { const r = await retryExpired(() => mm.mpcSign(msg, path)); sig = r.sig; nearTxs.push(r.nearTx); } finally { process.chdir(here2); } }
   else { const r = await viaSigner(w, path, 1, msg); sig = Uint8Array.from(r.signature ?? r.Ed25519?.signature); }
   stats.calls++; stats.ms += Date.now() - t0;
   if (!nacl.sign.detached.verify(msg, sig, await edKey(w, path))) throw new Error(`MPC ed25519 signature for ${w} does not verify against its derived key`);

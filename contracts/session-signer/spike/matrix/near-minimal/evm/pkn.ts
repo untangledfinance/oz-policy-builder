@@ -1,11 +1,12 @@
 // EVM matrix, NEAR-routed: a Prime Account (Safe 1.4.1 + Zodiac Roles v2.1.1, PrimeX onboarding/policy code) on an
-// anvil fork of Base Sepolia.
+// anvil fork of Base Sepolia, or on real Base Sepolia with PKN_LIVE=1.
 //   seats (Safe owners, 2-of-3): MetaMask (its own EOA), Freighter and Phantom (their NEAR MPC secp256k1 addresses,
-//         reached through our SEP-53 / text-ed25519 NEAR wallet contracts)
+//         reached through the prime-near-signer NEAR contract: SEP-53 for Freighter, plain text for Phantom)
 //   sessions: one PrimeKey per wallet is its Roles member (never a Safe owner); the owner signs one personal_sign
 //         grant (MetaMask itself; MPC signs the EIP-191 digest for Freighter / Phantom), then the session key signs
 //         each move, submitted by the relayer or, when the relayer is down, by the session key paying its own gas.
-import { createPublicClient, createWalletClient, http, encodeFunctionData, parseAbi, getAddress, concat, pad, numberToHex, keccak256, toHex, hashMessage, encodeAbiParameters, parseEther, type Address, type Hex } from 'viem';
+import { createPublicClient, createWalletClient, http, encodeFunctionData, parseAbi, getAddress, concat, pad, numberToHex, keccak256, toHex, hashMessage, encodeAbiParameters, parseEther, nonceManager, type Address, type Hex } from 'viem';
+import { publicActionsL2 } from 'viem/op-stack';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -15,16 +16,18 @@ const ob = await import(`${OCT}/onboarding.ts`);
 const pol = await import(`${OCT}/evm-policy.ts`);
 const { CONTRACTS } = await import(`${OCT}/contracts.ts`);
 
-const RPC = 'http://127.0.0.1:8547';
-const pub = createPublicClient({ chain: baseSepolia, transport: http(RPC) });
-const relayerAcct = privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'); // anvil dev #0 (public)
+// PKN_LIVE=1 runs on real Base Sepolia (relayer key from PKN_KEY); otherwise on the local anvil fork.
+const LIVE = !!process.env.PKN_LIVE;
+const RPC = LIVE ? 'https://sepolia.base.org' : 'http://127.0.0.1:8547';
+const pub = createPublicClient({ chain: baseSepolia, transport: http(RPC), pollingInterval: 1000 }).extend(publicActionsL2());
+const relayerAcct = LIVE ? privateKeyToAccount(process.env.PKN_KEY as Hex, { nonceManager }) : privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'); // anvil dev #0 (public)
 const wallet = (a: ReturnType<typeof privateKeyToAccount>) => createWalletClient({ chain: baseSepolia, transport: http(RPC), account: a });
 const relayer = wallet(relayerAcct);
 const rpc = (method: string, params: unknown[]) => fetch(RPC, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) }).then((r) => r.json());
 const st: any = {}; const results: any[] = [];
-const save = () => writeFileSync('state-pkn.json', JSON.stringify({ ...st, results }, (_, v) => (typeof v === 'bigint' ? v.toString() : v), 1));
+const save = () => writeFileSync(LIVE ? 'state-pkn-live.json' : 'state-pkn.json', JSON.stringify({ ...st, results }, (_, v) => (typeof v === 'bigint' ? v.toString() : v), 1));
 function record(name: string, expectOk: boolean, ok: boolean, detail: string) {
-  const pass = ok === expectOk; results.push({ name, pass, ok, detail }); save();
+  const pass = ok === expectOk; results.push({ name, pass, ok, detail, tx: lastTx }); lastTx = undefined; save();
   console.log(`${pass ? 'PASS' : 'FAIL'} ${name} | ${ok ? `ok ${detail}` : `refused: ${detail}`}`);
   return ok;
 }
@@ -34,14 +37,35 @@ const reason = (e: any) => { const s = String(e?.shortMessage ?? e?.message ?? e
   if (/0xfd8e9f28/i.test(s)) return 'Roles NoMembership';
   return s.match(/(reverted with reason: [^.]*|GS\d{3}|reverted with the following reason:[^.]*|insufficient funds[^.]*|custom error 0x[0-9a-f]{8})/i)?.[0] ?? s.slice(0, 140); };
 const gasOf: Record<string, bigint> = {};
+let lastTx: Hex | undefined;
+// Public RPCs sit behind load balancers whose nodes can lag a block or two: wait until several reads agree on the new block.
+async function settle(block: bigint) { if (!LIVE) return; for (let ok = 0; ok < 4;) { ok = (await pub.getBlockNumber({ cacheTime: 0 })) > block ? ok + 1 : 0; await new Promise((r) => setTimeout(r, 500)); } }
+// Give `key` just enough ETH to submit `data` itself (fork: set the balance; live: a small transfer from the relayer).
+async function fund(key: Address, to: Address, data: Hex) {
+  if (!LIVE) return rpc('anvil_setBalance', [key, toHex(parseEther('0.01'))]);
+  const gp = await pub.getGasPrice();
+  let g = 400_000n; try { g = (await pub.estimateGas({ account: key, to, data })) * 2n; } catch {}
+  const l1 = await pub.estimateL1Fee({ account: key, to, data, chain: baseSepolia });
+  const need = g * gp * 2n + l1 * 3n, have = await pub.getBalance({ address: key });
+  if (have < need) await settle((await pub.waitForTransactionReceipt({ hash: await relayer.sendTransaction({ to: key, value: need - have }) })).blockNumber);
+}
+// Empty `key` (live: send everything back to the relayer, leaving less than any call costs).
+async function drain(key: ReturnType<typeof privateKeyToAccount>) {
+  if (!LIVE) return rpc('anvil_setBalance', [key.address, '0x0']);
+  const bal = await pub.getBalance({ address: key.address }), gp = await pub.getGasPrice();
+  const l1 = await pub.estimateL1Fee({ account: key, to: relayerAcct.address, value: 1n, gasPrice: gp, chain: baseSepolia });
+  const value = bal - 21000n * gp - l1 * 11n / 10n;
+  if (value > 0n) await settle((await pub.waitForTransactionReceipt({ hash: await wallet(key).sendTransaction({ to: relayerAcct.address, value, gas: 21000n, gasPrice: gp }) })).blockNumber);
+  return pub.getBalance({ address: key.address });
+}
 async function send(name: string, expectOk: boolean, to: Address, data: Hex, o: { from?: ReturnType<typeof privateKeyToAccount>; tag?: string } = {}) {
   let ok = true, d = '';
   const from = o.from ?? relayerAcct;
-  try { await pub.call({ account: from, to, data }); const h = await wallet(from).sendTransaction({ to, data, gas: 3_000_000n }); const r = await pub.waitForTransactionReceipt({ hash: h }); ok = r.status === 'success'; d = `gas ${r.gasUsed}${from === relayerAcct ? '' : ' (paid by ' + from.address.slice(0, 8) + '…)'}`; if (o.tag) gasOf[o.tag] = r.gasUsed; }
+  try { await pub.call({ account: from, to, data }); const gas = LIVE ? (await pub.estimateGas({ account: from, to, data })) * 3n / 2n : 3_000_000n; const h = await wallet(from).sendTransaction({ to, data, gas }); lastTx = h; const r = await pub.waitForTransactionReceipt({ hash: h }); await settle(r.blockNumber); ok = r.status === 'success'; d = `gas ${r.gasUsed}${from === relayerAcct ? '' : ' (paid by ' + from.address.slice(0, 8) + '…)'}`; if (o.tag) gasOf[o.tag] = r.gasUsed; }
   catch (e: any) { ok = false; d = reason(e); }
   return record(name, expectOk, ok, d);
 }
-async function deploy(a: any, args: any[] = []) { const h = await relayer.deployContract({ abi: a.abi, bytecode: a.bytecode.object, args }); return getAddress((await pub.waitForTransactionReceipt({ hash: h })).contractAddress!); }
+async function deploy(a: any, args: any[] = []) { const h = await relayer.deployContract({ abi: a.abi, bytecode: a.bytecode.object, args }); const r = await pub.waitForTransactionReceipt({ hash: h }); await settle(r.blockNumber); return getAddress(r.contractAddress!); }
 const art = (dir: string, n: string) => JSON.parse(readFileSync(`${dir}/out/${n}.sol/${n}.json`, 'utf8'));
 const PK = art('/home/ubuntu/work/prime-evm', 'PrimeKey'), TK = art('/home/ubuntu/work/evm-matrix', 'Token');
 const tokenAbi = parseAbi(['function mint(address,uint256)', 'function transfer(address,uint256) returns (bool)', 'function balanceOf(address) view returns (uint256)']);
@@ -84,8 +108,9 @@ async function grant(name: string, expectOk: boolean, pk: Address, w: W, o: { se
   const key = o.key ?? privateKeyToAccount(generatePrivateKey()); const end = o.end ?? (await now()) + (o.seconds ?? 3600n);
   const text = await grantText(o.textFor ?? pk, key.address, o.signedEnd ?? end);
   const sig = await w.personalSign(text);
-  if (o.selfPay) await rpc('anvil_setBalance', [key.address, toHex(parseEther('0.01'))]);
-  await send(name, expectOk, pk, encodeFunctionData({ abi: PK.abi, functionName: 'grant', args: [key.address, end, sig] }), { from: o.selfPay ? key : undefined, tag: expectOk ? `grant${w.name}` : undefined });
+  const data = encodeFunctionData({ abi: PK.abi, functionName: 'grant', args: [key.address, end, sig] });
+  if (o.selfPay) await fund(key.address, pk, data);
+  await send(name, expectOk, pk, data, { from: o.selfPay ? key : undefined, tag: expectOk ? `grant${w.name}` : undefined });
   return { pk, key, end };
 }
 async function move(name: string, expectOk: boolean, s: Session, call: { to: Address; value: bigint; data: Hex; operation: 0 | 1 }, o: { signer?: ReturnType<typeof privateKeyToAccount>; replay?: Hex; selfPay?: boolean; fund?: boolean; tag?: string } = {}) {
@@ -93,8 +118,9 @@ async function move(name: string, expectOk: boolean, s: Session, call: { to: Add
   const h = keccak256(encodeAbiParameters([{ type: 'address' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'address' }, { type: 'uint256' }, { type: 'bytes32' }, { type: 'uint8' }, { type: 'bytes32' }],
     [s.pk, 84532n, n, call.to, call.value, keccak256(call.data), call.operation, st.roleKey]));
   const sig = o.replay ?? await (o.signer ?? s.key).sign({ hash: h });
-  if (o.selfPay) await rpc('anvil_setBalance', [s.key.address, o.fund === false ? '0x0' : toHex(parseEther('0.01'))]);
-  await send(name, expectOk, s.pk, encodeFunctionData({ abi: PK.abi, functionName: 'exec', args: [call.to, call.value, call.data, call.operation, st.roleKey, s.key.address, sig] }), { from: o.selfPay ? s.key : undefined, tag: o.tag });
+  const data = encodeFunctionData({ abi: PK.abi, functionName: 'exec', args: [call.to, call.value, call.data, call.operation, st.roleKey, s.key.address, sig] });
+  if (o.selfPay) { if (o.fund === false) st.drained = String(await drain(s.key)); else await fund(s.key.address, s.pk, data); }
+  await send(name, expectOk, s.pk, data, { from: o.selfPay ? s.key : undefined, tag: o.tag });
   return sig;
 }
 
@@ -188,8 +214,11 @@ for (const [w, pk] of [[MM, st.pkMM], [FR, st.pkFR], [PH, st.pkPH]] as [W, Addre
   await move('X8. that session key used through PrimeKey(Phantom)', false, { ...s, pk: st.pkPH }, tokenTransfer(VENUE, 1n));
   await send('X9. a stranger calls Roles directly', false, st.roles, encodeFunctionData({ abi: parseAbi(['function execTransactionWithRole(address,uint256,bytes,uint8,bytes32,bool) returns (bool)']), functionName: 'execTransactionWithRole', args: [st.token, 0n, tokenTransfer(VENUE, 1n).data, 0, st.roleKey, true] }));
   await move('X10. a move over the daily cap (60 more)', false, s, tokenTransfer(VENUE, 60n));
-  await rpc('evm_increaseTime', [3601]); await rpc('evm_mine', []);
-  await move('X11. after the session ends', false, s, tokenTransfer(VENUE, 1n));
+  if (LIVE) { // real chain: no time travel, so use a 20-second session and wait it out
+    const short = await grant('X11a. Freighter 20-second session', true, st.pkFR, FR, { seconds: 20n });
+    while ((await now()) <= short.end) await new Promise((r) => setTimeout(r, 2000));
+    await move('X11. after the session ends', false, short, tokenTransfer(VENUE, 1n));
+  } else { await rpc('evm_increaseTime', [3601]); await rpc('evm_mine', []); await move('X11. after the session ends', false, s, tokenTransfer(VENUE, 1n)); }
 }
 console.log('gas:', Object.entries(gasOf).map(([k, v]) => `${k} ${v}`).join(', '));
 console.log(`NEAR MPC signatures: ${stats.calls}, average ${(stats.ms / Math.max(1, stats.calls) / 1000).toFixed(1)}s`);

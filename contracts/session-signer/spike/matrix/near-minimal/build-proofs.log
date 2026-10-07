@@ -1,0 +1,9 @@
+## prime-near-signer: local build vs deployed code_hash
+local wasm base58(sha256): D2xgePUEzgfRysCScYruUGUFg2g8Twueuh1ipCpz3Hob
+deployed code_hash: D2xgePUEzgfRysCScYruUGUFg2g8Twueuh1ipCpz3Hob
+## MetaMask eth-implicit account
+code_hash 11111111111111111111111111111111 global_contract_hash 3PpYvRxBfC5BkZxTw8ZFG3D52w1ZRhvDDWirKoxphMDn
+## session-signer: stellar contract build
+a60de71f45b2bac63b874a481e96d7fc91af31b50808b9f8c3f3d70eed782d05  /home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/contracts/session-signer/target/wasm32v1-none/release/session_signer.wasm
+## prime-session: cargo-build-sbf
+240f9bd23703073c8d52c304b7434b4b2e61dae279f067e2ced0fbc1ec958354  /home/ubuntu/work/prime-session/target/deploy/prime_session.so
