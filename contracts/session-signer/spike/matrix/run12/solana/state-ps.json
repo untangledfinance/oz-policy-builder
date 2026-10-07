@@ -1,0 +1,392 @@
+{
+ "results": [
+  {
+   "name": "P0. Smart Account: seats are the prime-session PDAs of MetaMask, Freighter, Phantom; threshold 2 (no NEAR, no Swig)",
+   "pass": true,
+   "ok": true,
+   "detail": "5vh6QLAa2xczXjmeiUhpDQNqwm8BzwXG2FfLWj7NAWmZcFu4Y3J359Axs3GHeGToN7NVsYUECwhcV9VcJ95CCF8P"
+  },
+  {
+   "name": "K1a0. Phantom session: create transaction",
+   "pass": true,
+   "ok": true,
+   "detail": "5RQZPrwT7arP5CWWWBuhA7GPbsaxqv3kTmk5vsb16w6zvVpL5VAVyxq9pWVKFaMQpqSHS3xtNcRsCZeuqSkbMxc3"
+  },
+  {
+   "name": "K1a1. Phantom session: proposal",
+   "pass": true,
+   "ok": true,
+   "detail": "4hZYmMSYB2RpdMN7ErgV9LhD1emY8J2kyheshGVxz8nB3tzN95WE2w7KdnFKAU1UiPg1fLKaxZxKhVu9udFbyayJ"
+  },
+  {
+   "name": "K1a. Phantom session approves",
+   "pass": true,
+   "ok": true,
+   "detail": "xd6Mpt89amGH8YeKYsTmFXQrZqLMqFn4K1fmYhds3KgKAXhX7HjpkB9v8sL3Vc6mmzLUSfJ45C24CNFzqHCU1Cc"
+  },
+  {
+   "name": "K1c. Phantom session executes with one approval",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidProposalStatus"
+  },
+  {
+   "name": "K2a0. MetaMask session: create transaction",
+   "pass": true,
+   "ok": true,
+   "detail": "5ADcHB7mmJX7stmkazAF9GAVgrL9pcWw4LdU2aJHkN8wtGfxNRhckW7rzGkXrbxBQT2LB21JhE1sPecKELh3nui6"
+  },
+  {
+   "name": "K2a1. MetaMask session: proposal",
+   "pass": true,
+   "ok": true,
+   "detail": "2B6KpXWEqsv1C2NjhH8EMgqfKpaVcs8Q2GRs9GWhd7SEffjbRcGPRJiVvcjyF9dUp5nYKXXwi9XLrQs35Bx4ut8L"
+  },
+  {
+   "name": "K2a. MetaMask session approves",
+   "pass": true,
+   "ok": true,
+   "detail": "w5RxSdi4vLHcBpGiBqVfmGpicHWzKcdn26wJi75vaeCk2snFW1YUeB7mYURDamSok7spf7kKUiA1sRcZnEZX4Gf"
+  },
+  {
+   "name": "K2b. Freighter session approves",
+   "pass": true,
+   "ok": true,
+   "detail": "FBwXkZhbYSqgnwU8DzcnUBh83J3ZXN8Vjdo2dsXb8Fj84pKCMXyNtfjiixVvxuW9TxV1fLjUeLZ2TYszvnxStfD"
+  },
+  {
+   "name": "K2c. Freighter session executes",
+   "pass": true,
+   "ok": true,
+   "detail": "6Nc91QQxtgv2jbhYMp1cdqnPCKyRiTgK7wxb5XbHukNqWxuiKurGMLWkiz28BCBPrVcQDX4RyYqBbgJ42yVx2Sa"
+  },
+  {
+   "name": "K2d. DEST received exactly 0.01 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.01"
+  },
+  {
+   "name": "K3a0. Freighter session: create transaction",
+   "pass": true,
+   "ok": true,
+   "detail": "2kL5JFLpiGsTuVUVRd3e7p8ccAvrDdGaAf8QV54RdUy1qFhC15ZarLXBL9ySmkynwtqiaadzMQyFyLSD8AiZuHKn"
+  },
+  {
+   "name": "K3a1. Freighter session: proposal",
+   "pass": true,
+   "ok": true,
+   "detail": "5ukJLjtjwfLkCX2XgLKV5TVBLzZvYsze9xCYxs6bg1p4KSpTigXdYMQ2JowndCoF2vAUFPCUaRyBvkmAqNdUxWby"
+  },
+  {
+   "name": "K3a. Freighter session approves",
+   "pass": true,
+   "ok": true,
+   "detail": "M57zqKNKsf2ha1ohn9TPgtSMVHSXxZTCpDTJKEQunncz6hGBHC31gwnTj1z6re9cKiLEVZWgmAKkcLvUd5CNnSB"
+  },
+  {
+   "name": "K3b. Phantom session approves",
+   "pass": true,
+   "ok": true,
+   "detail": "3aCEjjCzwG67Mm9unMgcvFKtNmymMC3fGBiEgeseJu28rVnuj1zZ7mZFyConx1esk16CLLvSPbx8B6xioUT4uwU9"
+  },
+  {
+   "name": "K3c. Phantom session executes",
+   "pass": true,
+   "ok": true,
+   "detail": "2mMt8igJZBb6cr1j9nFqYe2DSrgzrz88VS1yBrnno8mHaGMgasy4btgbxXwcYJaCxhMdBhiQTteeyw5xQE2R5miL"
+  },
+  {
+   "name": "K3d. DEST received exactly 0.01 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.01"
+  },
+  {
+   "name": "K4a0. Phantom session: create transaction",
+   "pass": true,
+   "ok": true,
+   "detail": "jV8t77RtsFFrpkJXT3vrZa7XM1P8vxqP9ujbFW7tJLntLhpvVWgsgEEqyBXAAiURgiz9vkY6hvFkqzoy2YgYfyK"
+  },
+  {
+   "name": "K4a1. Phantom session: proposal",
+   "pass": true,
+   "ok": true,
+   "detail": "4pEfHt5YmezCTSnBjeQmq8gN25GCTpgzUgRkh39R2NXMQ2tF41Q5qjqDf2veuuCgRX3hrXa4z96fXpfbukQ4o5E1"
+  },
+  {
+   "name": "K4a. Phantom session approves",
+   "pass": true,
+   "ok": true,
+   "detail": "5qUd6vpmRbZvrk2CQ3P4gY9rTZuoJZYqVkCj8kAMFas96eJCVdSc5DpJtX6hGyoF4wiWyEujNBz9Cm9ozrcfdcRC"
+  },
+  {
+   "name": "K4b. MetaMask session approves",
+   "pass": true,
+   "ok": true,
+   "detail": "fc72QtwU2qF6jSSJ3An8tpBifVuKHWJNmYTFtEPSiZTiYxY8KGmCdW9A89XmvrgJ5KfU6QLn93Rz3ygPRWhJpmg"
+  },
+  {
+   "name": "K4c. MetaMask session executes",
+   "pass": true,
+   "ok": true,
+   "detail": "3bJ3T62wj6p9HVqfufwMHQ6gMFJs9HXMo2w429LjLdTiDaR8YzvBAEVMKwf1r5yPbiVgvipUBjRj6VAP5wpzp5fT"
+  },
+  {
+   "name": "K4d. DEST received exactly 0.01 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.01"
+  },
+  {
+   "name": "K5a0. MetaMask session: create transaction",
+   "pass": true,
+   "ok": true,
+   "detail": "46Z1AnzLXYygjjU8geBUsmhG2SBzCQVJWK3uTbKU8xzM4DyZtufKazYCid9ufFndqDD6psU8H9NksHNyvWGkztPj"
+  },
+  {
+   "name": "K5a1. MetaMask session: proposal",
+   "pass": true,
+   "ok": true,
+   "detail": "5Hkj6wRf7MPAUocRg4gPR6UJZrAXvzcFU8PDZdfC3S7A4diLLzL8cCgndJCiDjbKHGbnG4Vg54vRngdVWyWRdViL"
+  },
+  {
+   "name": "K5a. MetaMask session approves",
+   "pass": true,
+   "ok": true,
+   "detail": "5t1ReLUPLKxnzbqUgFapJLhEgtYjGF5pQYoTuPdVeTrG619YMvSxxb9BLynNC3LXLThZTGYnGYZjoHEH9hpqiuT9"
+  },
+  {
+   "name": "K5b. Phantom session approves",
+   "pass": true,
+   "ok": true,
+   "detail": "5GPHoWPbEK7V636G7CXyGKUQ9DChY1AxVTcYu3Tc5W3tGdwDDcnt7eFygXTeUWq8HY8cxMt51W1QFmzRTGSopvgZ"
+  },
+  {
+   "name": "K5c. Phantom session executes",
+   "pass": true,
+   "ok": true,
+   "detail": "2od6yzWWMQ6Kk8rEuFyTyEmwe3FGb3GdFpikxZhtXofQcQnEc1x9Fe4i6RcGKDZJoZncMB2FGPfuJaKZG8nZkprx"
+  },
+  {
+   "name": "M-MetaMask1. one MetaMask signature -> session key alone: 0.01 SOL vault -> VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "5bR1DeLm79KxTwNxXeoQkG2gc3CNAH5kjZz1A25qBPwtCLSV9S1AzLLcqHTCNo64NVS2FW3xoyh5sACHtkYfKGPT"
+  },
+  {
+   "name": "M-MetaMask1b. VENUE received exactly 0.01 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.01"
+  },
+  {
+   "name": "M-MetaMask2. same session: 0.01 SOL elsewhere",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "M-MetaMask3. FINDING: same session moves the PDA's own SOL (the program does not limit the target; a session is the full seat)",
+   "pass": false,
+   "ok": false,
+   "detail": "(harness: 1000 lamports to an empty account fails the rent check; redone as M3r) Program 8xSaCrq6HidyjmE3khJ9DYewWdYNfn93nQEkYvqTEpig invoke "
+  },
+  {
+   "name": "M-Freighter1. one Freighter signature -> session key alone: 0.01 SOL vault -> VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "j9M6zr7PpX6mD9g48PZv7cpGErErvEgLM6bTu9RLPAcsjs6QBVt4vSLzzFZ6SkXC64WnSV22ds8eEwALFhFhUqx"
+  },
+  {
+   "name": "M-Freighter1b. VENUE received exactly 0.01 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.01"
+  },
+  {
+   "name": "M-Freighter2. same session: 0.01 SOL elsewhere",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "M-Freighter3. FINDING: same session moves the PDA's own SOL (the program does not limit the target; a session is the full seat)",
+   "pass": false,
+   "ok": false,
+   "detail": "(harness: 1000 lamports to an empty account fails the rent check; redone as M3r) Program 8xSaCrq6HidyjmE3khJ9DYewWdYNfn93nQEkYvqTEpig invoke "
+  },
+  {
+   "name": "M-Phantom1. one Phantom signature -> session key alone: 0.01 SOL vault -> VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "3FwJb2yg4SpvBD3pfeWynEPQJYXwNDfnH3ELktPVaqaP32tMJK42kaFjTWCaZyJRnbps5DV4PNWWTi7mn7wNJqjD"
+  },
+  {
+   "name": "M-Phantom1b. VENUE received exactly 0.01 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.01"
+  },
+  {
+   "name": "M-Phantom2. same session: 0.01 SOL elsewhere",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "M-Phantom3. FINDING: same session moves the PDA's own SOL (the program does not limit the target; a session is the full seat)",
+   "pass": false,
+   "ok": false,
+   "detail": "(harness: 1000 lamports to an empty account fails the rent check; redone as M3r) Program 8xSaCrq6HidyjmE3khJ9DYewWdYNfn93nQEkYvqTEpig invoke "
+  },
+  {
+   "name": "N1. Phantom PDA with a grant signed by another ed25519 key",
+   "pass": true,
+   "ok": false,
+   "detail": "prime-session: grant not signed by the owner over this text"
+  },
+  {
+   "name": "N2. Freighter key signs the grant WITHOUT the SEP-53 prefix",
+   "pass": true,
+   "ok": false,
+   "detail": "prime-session: grant not signed by the owner over this text"
+  },
+  {
+   "name": "N3. Phantom grant presented for the MetaMask PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "prime-session: grant not checked by the secp256k1 program"
+  },
+  {
+   "name": "N4. stretched valid-until (grant says less)",
+   "pass": true,
+   "ok": false,
+   "detail": "prime-session: grant not signed by the owner over this text"
+  },
+  {
+   "name": "N5. someone else replays the Phantom grant with their own key",
+   "pass": true,
+   "ok": false,
+   "detail": "prime-session: grant not signed by the owner over this text"
+  },
+  {
+   "name": "N6. grant longer than 7 days",
+   "pass": true,
+   "ok": false,
+   "detail": "prime-session: expired or longer than 7 days"
+  },
+  {
+   "name": "N7. expired grant",
+   "pass": true,
+   "ok": false,
+   "detail": "prime-session: expired or longer than 7 days"
+  },
+  {
+   "name": "N8. MetaMask grant with the signature program missing (only prime-session)",
+   "pass": true,
+   "ok": false,
+   "detail": "prime-session: grant not checked by the secp256k1 program"
+  },
+  {
+   "name": "N9. cap shared by all three: 0.03 used + 0.05 = 0.08 <= 0.1/day",
+   "pass": true,
+   "ok": true,
+   "detail": "52XBKJLG3cfVvUECr8TxEYTYzDYdENXDtRGpdDQJKv3C9njyzp9HXjVpfC8yrhvkEPhTgcZLrgZQx1suFzBCh4U9"
+  },
+  {
+   "name": "N9b. 0.08 + 0.05 = 0.13 > 0.1/day",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionInsufficientLamportAllowance"
+  },
+  {
+   "name": "W3. MetaMask session -> W proposes + approves a vault transfer",
+   "pass": false,
+   "ok": false,
+   "detail": "(Swig 3006: a Smart-Account-only session role may not spend W's own SOL on rent; redone as W3r) custom program error: 0xbbe"
+  },
+  {
+   "name": "M-MetaMask3r. FINDING: the session moves 0.01 SOL of the PDA's own SOL (the program does not limit the target)",
+   "pass": true,
+   "ok": true,
+   "detail": "4jcQ8EBjNnQBqAXDQ5wS8f6KYaznTvoF1xwt1kBCV9wLpuqYMPZtEubV4wcRPperwptCNmfXFRBcoEU88oHYTuD5"
+  },
+  {
+   "name": "M-Freighter3r. FINDING: the session moves 0.01 SOL of the PDA's own SOL (the program does not limit the target)",
+   "pass": true,
+   "ok": true,
+   "detail": "26Jwq8ygE6E9r5RB3etJYDadQixXKgYcQoR29g8YhsNi6vcvaUdfCxEvT9UKWy3W6Kh2e4iuQ9vhTnVrntEpQ2cH"
+  },
+  {
+   "name": "M-Phantom3r. FINDING: the session moves 0.01 SOL of the PDA's own SOL (the program does not limit the target)",
+   "pass": true,
+   "ok": true,
+   "detail": "3G5PLQ541JmadBoTxmhnqcXDp6zw5URR3wbisnz3hVU544nfqLre4h4xnVsaksm1jiYrE44pUQ2jDMpX5W46is1Z"
+  },
+  {
+   "name": "W0. Swig wallet W: root MetaMask",
+   "pass": true,
+   "ok": true,
+   "detail": "321a3nWBhRSQPPD637BB6dKAtWHgqJ9Yhcoe6SgEYWEuY6KBaoaB3bLtakRfz68FWrWfGtAUz68fKJE7Djick2yd"
+  },
+  {
+   "name": "W0a. MetaMask adds its session role on W (Smart Account program only)",
+   "pass": true,
+   "ok": true,
+   "detail": "2gvuu3t55cJyBvRFr56DLCHaZys3xcvg6rWya2pfB4PqQMivvEyivx3r1PvqTR1Sc5fXy7HibfZ5cqcuKcXSyDeb"
+  },
+  {
+   "name": "W1. Smart Account: seats W (MetaMask via Swig), B, C; threshold 2",
+   "pass": true,
+   "ok": true,
+   "detail": "R2qsEcuE8ArnUNxUp7z4xPaoLo9XVELU8MSmntK3AvyYxnp4xBq5grjHuhWUoxehTWh16qgesh2G6DCKP4t76ft"
+  },
+  {
+   "name": "W2. MetaMask opens a session on W (one personal_sign)",
+   "pass": true,
+   "ok": true,
+   "detail": "4DtdLPJPbwpDoSjGnqmeVTdzYpxJrTxF8DadqTBbcLET1X68LhUSET56qA7xAEkHXoBbFLpQnRXcgWQq14BxDGex"
+  },
+  {
+   "name": "W3r. MetaMask session -> W proposes + approves a vault transfer (session key pays rent)",
+   "pass": true,
+   "ok": true,
+   "detail": "bTueBNnJ2gxqzFtXkiMZjw2LUjRZWcWMLrPAbeMCMEVQMwkRV3b7jsDQVoDpghdXLgFs7AAnP8BteCVAKNar9mK"
+  },
+  {
+   "name": "W4. B approves and executes (MetaMask via Swig + B = 2 of 3)",
+   "pass": true,
+   "ok": true,
+   "detail": "PJpitGZ8SYhh5emcNrT49pHXA51AwphemnwLsRTUh8qe6bnuWwiXMFwTEgCEzSDpd2m7dCdyB7AXvpzURH2L5No"
+  },
+  {
+   "name": "W5. DEST received exactly 0.01 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.01"
+  },
+  {
+   "name": "RP5. real Phantom grant (prime-session text) -> session alone: 0.01 SOL vault -> VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "5FTjzmXLfFZHVHfw2ifujSGgxa6TG3Di2NkwwCQ9cYWsUht9tNsFDZdLi4i4rmfGhFzBh7Y4HSWQJ2iSTJjecHsg"
+  },
+  {
+   "name": "RP5b. VENUE received exactly 0.01 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.01"
+  }
+ ],
+ "venue": "9ZaD2GnL53X4b3rnnErBMfGpMdm79LPuTmhPTVeETy6s",
+ "other": "2sPZgN2b6D6Td3aZjBpvzyB4xbMP3bpRh2dj5pXs45oK",
+ "dest": "3SriBfFG8LH3TeZYRa5XtiMrSNpbm2ufbGjYAHLkC6VJ",
+ "pdas": {
+  "MetaMask": "6rQcKDXaCMF6rttjUCQ2jrbeBmSBZTWmwsnnj6C2c3c1",
+  "Freighter": "CQ79LdpWQ5i77T6PB41KSVoPecjNkNszjecWo9i48N9X",
+  "Phantom": "FnUBc8X68VCsoL4E7MMe5rEQBVWE8pJdpyJ2XjfE7Q8q"
+ },
+ "settings": "1w97kRYLEZRecUx5Q94v8a3V7r7uWU31ztLLRJ1JNDS",
+ "policy": "5jnAoHB5K9M1hnvaBkGtufFBo8HoRGmJLEceTwq9natm"
+}

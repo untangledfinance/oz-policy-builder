@@ -20,9 +20,10 @@ NEAR eth-implicit one for the Solana seat and the Stellar row, another for Solan
 | **Stellar** (OZ account + session-signer v3) | session-signer v3, owner `Evm` | native (Delegated G account) | session-signer v3, owner `Solana` | session-signer v3 `Evm` (EIP-712) | session-signer v3 `Stellar` (SEP-53) | session-signer v3 `Solana` (`signMessage` text) |
 | **EVM** (PrimeX Safe 1.4.1 + Roles v2.1.1) | native | NEAR wallet contract (SEP-53) → MPC secp256k1 | NEAR wallet contract (text) → MPC secp256k1 | `SessionMember` (EIP-712) | `SessionMember`, grant via NEAR MPC | `SessionMember`, grant via NEAR MPC |
 
-All cells pass. NEAR is needed only where a wallet cannot sign for that chain:
-Freighter on Solana, Freighter and Phantom on EVM (and MetaMask's Solana seat, which could instead be a
-Swig wallet as a Smart Account signer: not tested). Stellar needs no NEAR for any wallet.
+All cells pass. Run 11 said NEAR was *needed* for Freighter on Solana and Freighter / Phantom on EVM.
+**Run 12 (`run12/`) shows that is wrong:** a small Solana program (prime-session) and an ed25519 verifier
+in Solidity give every wallet a seat and sessions on every chain without NEAR, and a Swig wallet can hold
+MetaMask's Solana seat. NEAR is an option, not a requirement.
 
 ## Runs
 
