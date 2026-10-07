@@ -23,7 +23,7 @@ That is 3 wallets × 3 chains × 2 jobs = 18 cases. All 18 are tested (section 1
 | Seat | One of the three 2-of-3 votes. Always a plain key: an EVM address, a Solana key, or a Stellar account. |
 | Ledger | Stellar's word for a block. One ledger closes about every 5 seconds. |
 | Rule | What a session may do: which contract, which function, which recipient, and on EVM and Solana how much per move or per day. |
-| Session contract | Our small contract that the rules list as a member. It checks the wallet's one-time grant and the session key's signature on each move. |
+| Session contract | Our small contract that the rules list as a member (on Solana, the member is an address that only our program can sign for). It checks the wallet's one-time grant and the session key's signature on each move. |
 | Grant | Readable text the wallet signs once: "session key K may act until time T". |
 | Move | One action by a session key, such as "send 10 tokens to the venue". |
 | Relayer | Our server. It sends transactions and pays their fees. Freighter and Phantom hold no NEAR, so their NEAR requests go through it. MetaMask's NEAR account is funded once by the relayer and pays the MPC fee itself. Moves still work without the relayer. |
@@ -139,7 +139,7 @@ Each chain could check the other wallets' formats itself. An earlier version on 
 | NEAR | — | prime-near-signer 21 lines |
 | **Total** | **219 lines + 1,104 vendored** | **164 lines** |
 
-This is not an exact like-for-like comparison. In the earlier version, the same contracts were also the wallets' seats, and the Solana one had revoke. The point that matters: with NEAR, each chain's contract checks only one signature format, and no chain needs extra cryptography code. The cost is a NEAR round trip of 7–9 s for NEAR-routed seat votes, grants and revokes (never for moves).
+This is not an exact like-for-like comparison. In the earlier version, the same contracts were also the wallets' seats, and the Solana one had revoke. The point that matters: with NEAR, each chain's contract checks only one signature format, and no chain needs extra cryptography code. The cost is a NEAR round trip of about 7–9 s on average for NEAR-routed seat votes, grants and revokes (never for moves).
 
 ### 5.3 MetaMask: stock NEAR code only
 
@@ -223,7 +223,7 @@ sequenceDiagram
 
 - MetaMask signs with its own key. PrimeX already uses typed data (EIP-712) for this.
 - Freighter and Phantom sign the hash through NEAR MPC with their secp256k1 keys. On the live Base Sepolia Safe, Phantom's seat is its MPC key `0x5F17…F3b1`.
-- Phantom can instead use its own EVM account. Base Sepolia (84532) is on Phantom's chain list, but in our test (Testnet mode on), switching to it returned OK while Phantom stayed on Sepolia, so it refused the EIP-712 request for Base Sepolia. It can still `personal_sign` the hash; Safe accepts that as its signature type for a hash signed with `personal_sign`. This was tested with the real Phantom on a Base Sepolia fork.
+- Phantom can instead use its own EVM account. Base Sepolia (84532) is on Phantom's chain list, but in our test (Testnet mode on), Phantom reported the switch to Base Sepolia as done but stayed on Sepolia, so it refused to sign typed data (EIP-712) for Base Sepolia. It can still `personal_sign` the hash: Safe has a signature type for `personal_sign` signatures and accepts it. This was tested with the real Phantom on a Base Sepolia fork.
 
 ### 6.3 A session
 
@@ -259,7 +259,7 @@ sequenceDiagram
 |---|---|---|
 | Squads Smart Account program (`SMRTzfY6…`) | Squads, open source | Holds the funds. Its settings signers with threshold 2 are the seats. Its `ProgramInteraction` policies are the rules (allowed programs and accounts, per-move limit, daily allowance). |
 | Solana ed25519 program | built into Solana | Checks the wallet's grant signature inside the same transaction. |
-| **prime-session** | **ours, new, 37 lines** | Signs for one "PDA" per wallet. A PDA is an address with no private key that only its program can sign for. Each wallet's PDA (`["prime", wallet key]`) is a policy signer only. On each move, prime-session checks that the ed25519 program verified this wallet's grant in this transaction, then signs the Smart Account call as the PDA. |
+| **prime-session** | **ours, new, 37 lines** | Signs for one "PDA" per wallet per account. A PDA is an address with no private key that only its program can sign for. Each wallet's PDA (`["prime", wallet key, Smart Account settings address]`) is a policy signer only. On each move, prime-session checks that the ed25519 program verified this wallet's grant in this transaction, then signs the Smart Account call as the PDA. |
 
 Why a program at all? The policy needs a signer that is not a seat and that a wallet can hand to a session key with one signature. A PDA can be that signer, and only a program can sign for a PDA. Squads accepts it because it only checks that a policy signer is a member and has signed (`is_signer`), and a PDA signed by its program counts as signed.
 
@@ -278,18 +278,22 @@ sequenceDiagram
   K->>K: build the transaction with the relayer as fee payer<br/>(or K itself when the relayer is down), then sign it
   K->>R: the signed transaction
   R->>R: co-sign as fee payer, send it
-  R->>E: instruction 1: check the wallet's signature on the grant text
-  R->>P: instruction 2: execute(wallet key, end, call)
-  P->>P: K signed this transaction? the grant names K?<br/>instruction 1 checked this wallet and this text? not expired?
+  Note over E,P: one transaction, two instructions
+  R->>E: ed25519 instruction: check the wallet's signature on the grant text
+  R->>P: execute(wallet key, Smart Account settings address,<br/>end, index of the ed25519 instruction, call)
+  P->>P: K signed this transaction? the grant names K?<br/>the ed25519 instruction checked this wallet and this text? not expired?
   P->>SA: the call, signed by the PDA
   SA->>SA: PDA is a policy signer? call inside the policy?
 ```
 
+For a NEAR-routed wallet (MetaMask or Freighter on Solana), the first step goes through the relayer, NEAR and the MPC, as in section 5.
+
+- **The grant text** names the PDA, the session key, the end time, the cluster and the program id. The cluster is set when prime-session is built (`PRIME_CLUSTER`, default `localnet`), so a grant for another cluster or another program is refused (X6, X7).
 - **The session key is bound to the grant:** the grant text names the session key, and prime-session rebuilds the text with the key that signed the transaction.
 - **No nonce is needed:** the session key must sign every transaction, and Solana itself refuses a transaction it has already processed.
-- **No per-session revoke.** It would cost 13 lines; we add revoke only where it costs at most 10 lines per contract. A session ends at its time, or earlier when the 2-of-3 removes the PDA from the policy.
+- **No per-session revoke.** It would cost 13 lines; we add revoke only where it costs at most 10 lines per contract. A session ends at its time, or earlier when the 2-of-3 removes the PDA from the policy (R0–R3: after removal Freighter's live session is refused with `NotASigner`, and MetaMask's still works).
 - prime-session may call only the Smart Account program.
-- **Scope:** the PDA depends only on the wallet's key, so it is the same in every Prime Account that wallet uses. If two accounts both list it in a policy, one grant works in both (each still within its own policy). Section 13 has the fix.
+- **One account only:** the PDA depends on the wallet's key and on the Smart Account, and the grant text names the PDA. So a grant made for one Prime Account is refused in any other, even one with the same three seats (tests A0–A6).
 
 ## 8. Stellar: OpenZeppelin smart account + session-signer
 
@@ -324,6 +328,8 @@ sequenceDiagram
   A->>I: does the move match the rule?
 ```
 
+For a NEAR-routed wallet (MetaMask or Phantom on Stellar), the first step goes through the relayer, NEAR and the MPC, as in section 5.
+
 - The grant has no network line, because the contract address already differs per network.
 - Expiry is a ledger number, at most 120,960 ledgers (about 7 days) ahead.
 - A revoke is saved in long-lived ("persistent") storage. If Stellar archives that entry, any move that reads it fails until someone restores it with its old value, so a revoke can never quietly vanish. A new entry also lives at least 120,960 ledgers on testnet and 2,073,600 (about 120 days) on mainnet, both at least as long as the longest session.
@@ -346,18 +352,20 @@ Each chain tests both paths, plus a session key with no money, which is refused.
 |---|---|---|---|
 | EVM | **real Base Sepolia** + NEAR testnet | **88/88**: 30 transactions (all succeeded on chain), 53 refusals, 5 balance and owner checks | `evm/pkn-live.log`, `evm/verify-evm.log` |
 | Stellar | **Stellar testnet** + NEAR testnet | **55/55** | `stellar/stn.log`, `stellar/verify-stellar.log` |
-| Solana | local validator running the devnet Squads program unchanged + NEAR testnet | **70/70** | `solana/psn.log` |
+| Solana | local validator running the devnet Squads program unchanged + NEAR testnet | **78/78** | `solana/psn.log` |
 | prime-near-signer | NEAR testnet | **11/11**: 8 refusals, 3 accepted controls | `near-signer/signer-neg.log` |
 | session-signer unit tests | local | **13/13** | `cargo test` in `contracts/session-signer` |
 
-Every chain's matrix runs every wallet through the same groups:
+Each chain's matrix runs these groups. The table notes where a group covers only some wallets or chains.
 
 | Group | What is checked |
 |---|---|
-| Seats | every pair of wallets can act; each wallet alone is refused; an outsider is refused; one wallet cannot vote twice; a wallet's key under another NEAR path is refused |
+| Seats | every pair of wallets can act; each wallet alone is refused; an outsider is refused; a wallet's key under another NEAR path is refused; one wallet cannot vote twice (EVM; Stellar and Solana check that a seat is signed by its own key) |
 | Sessions cannot vote | a session key, or a session contract, is refused as a vote; a session cannot add owners, change rules or delegatecall (run code inside the account) |
 | Sessions | one-signature grant; move paid by the relayer; move paid by the session key; no money means refused; replay, wrong signer, wrong recipient, too long, expired: all refused; over the cap refused (EVM, Solana) |
 | Revoke (EVM: all three wallets; Stellar: MetaMask and Freighter) | one signature revokes; the revoked key is refused and cannot be granted again; the wallet's other sessions keep working |
+| One account only (Solana, A0–A6, Phantom's grants) | a second Smart Account with the same seats: a grant for account A is refused in account B and the other way round; a grant for B works in B |
+| Removal from the policy (Solana, R0–R3) | after the 2-of-3 removes Freighter's PDA, its live session is refused (`NotASigner`); MetaMask's still works |
 | Cross-wallet | wallet A's grant on wallet B's session contract; a grant text made for another contract; the wrong format (raw hash instead of `personal_sign`, plain text instead of SEP-53): all refused |
 
 ### 10.1 Real wallet apps versus stand-ins
@@ -369,7 +377,7 @@ Every chain's matrix runs every wallet through the same groups:
 | MetaMask | **not run** (no MetaMask extension on the test machine) | a test key signing the same chain-398 transaction and `personal_sign` text |
 
 - The real extensions used their own keys, not the matrices' test keys. So they prove that each route works with the real app; they are not the seats of the test accounts (for example, the test Safe's Freighter seat is `0x29A9…13fF`, the stand-in's key).
-- Freighter showed "Network: Main Net" on its prompt. `signMessage` signs only the text; the network setting plays no part. No mainnet transaction was made.
+- The Freighter test profile was first set to Main Net, which its prompt showed. `signMessage` signs only the text, so the network plays no part, and no mainnet transaction was made. The profile is now on Test Net, and a second real Freighter request showed "Network: Test Net" ([NEAR tx](https://testnet.nearblocks.io/txns/8npfk7AKj5qCLUruqvKTNmCm3pQi5mr7oVnQB8F6N57u), ed25519 key for Solana).
 
 ## 11. New code on top of open source
 
@@ -406,7 +414,7 @@ None of this is in the Prime apps yet. Solana has no Prime app; the spike create
 | prime-near-signer | NEAR testnet | base58(sha256) of our wasm equals the account's `code_hash` | `D2xgePUEzgfRysCScYruUGUFg2g8Twueuh1ipCpz3Hob`, equal |
 | PrimeKey ×3 | Base Sepolia | deployed bytecode equals our solc 0.8.28 build, ignoring the owner and Roles addresses each PrimeKey is deployed with (4 places in the code) | equal, all three |
 | session-signer ×3 | Stellar testnet | `stellar contract build` from this branch gives the deployed wasm hash | `a60de71f45b2bac63b874a481e96d7fc91af31b50808b9f8c3f3d70eed782d05`, equal |
-| prime-session | local validator | rebuild from this branch gives the tested binary | `240f9bd23703073c8d52c304b7434b4b2e61dae279f067e2ced0fbc1ec958354`, equal |
+| prime-session | local validator | the program code read back from the validator is our build plus zero padding (`solana/build-check.log`) | sha256 of our build `20a1bb171ca04848c3ad9ad58f5896adbb0a2c06b1f2fd3338285f18f6adcb0b`, equal |
 | Squads Smart Account | Solana devnet | the validator cloned the devnet program, last deployed at slot 425,429,201 (2 December 2025), before our 7 October 2026 runs | unchanged |
 
 ### 12.2 EVM, real Base Sepolia
@@ -458,10 +466,11 @@ On Stellar, grants are not transactions: the grant signature travels inside each
 | Freighter (stand-in) → signer → MPC secp256k1; address = Freighter's Safe seat `0x29A9…13fF` | [tx](https://testnet.nearblocks.io/txns/79S64xykAnBB1KRQ79McTGisU7DykbkCUGU7TJqzYHK1) |
 | Real Phantom → signer → MPC ed25519 | [tx](https://testnet.nearblocks.io/txns/2xhZduPcJKwfXJfqG2WrSaZuoMeWn34XBDWhUtuAptcb) |
 | Real Freighter → signer → MPC secp256k1 | [tx](https://testnet.nearblocks.io/txns/GZxKyDGL9LZtM3uaMpA2jBskZWNXik6PjbHPK8HmhpC3) |
+| Real Freighter (Test Net) → signer → MPC ed25519 | [tx](https://testnet.nearblocks.io/txns/8npfk7AKj5qCLUruqvKTNmCm3pQi5mr7oVnQB8F6N57u) |
 
 Each NEAR-derived key was checked three ways:
 - the MPC signature verifies against the key we derive offline;
-- the derived key equals the seat on the target chain (Stellar rule 0, Safe owners);
+- the derived key equals the seat on the target chain (Stellar rule 0, Safe owners, Solana settings signers);
 - the transaction's receipts show the call path signer → `v1.signer-prod.testnet` → `sign`.
 
 The EVM run made 36 NEAR MPC signatures, averaging 7.4 s each (`evm/pkn-live.log`, last lines).
@@ -486,10 +495,9 @@ The EVM run made 36 NEAR MPC signatures, averaging 7.4 s each (`evm/pkn-live.log
 
 ## 13. Limits and open items
 
-- **Solana session scope.** prime-session's PDA depends only on the wallet's key, so one grant works in every Prime Account that lists that wallet's PDA. Fix: add the Smart Account's settings address to the PDA seed (about one line), then re-run the Solana matrix. EVM and Stellar deploy one session contract per wallet per account, and the grant names it, so a grant works in one account only.
-- **Solana ran on a local validator**, not devnet: devnet airdrops were refused (rate limit), and we do not use the web faucet. The Squads program in it was cloned unchanged from devnet.
+- **Solana ran on a local validator**, not devnet: deploying prime-session needs about 0.25 SOL, devnet airdrops were refused (daily rate limit, re-tried on 7 October), other public devnet endpoints require a paid key, and we do not use the web faucet. Sending about 1 SOL to `5bevLKtW8bA6LCXXMqQAjnWBRCWcSXwcvQHiCbT6JjuY` on devnet would let the same matrix run there. The Squads program in it was cloned unchanged from devnet.
 - **MetaMask extension not run.** Its route uses only stock NEAR code and standard MetaMask methods.
-- **Latency.** Each NEAR-routed signature took 7–9 s on testnet. Moves never use NEAR; only NEAR-routed seat votes, grants and revokes do.
+- **Latency.** NEAR-routed signatures averaged 7.4 s (36 signatures, EVM run) to 8.5 s (27 signatures, Solana run) on testnet. Moves never use NEAR; only NEAR-routed seat votes, grants and revokes do.
 - **NEAR availability.** If NEAR or its MPC is down, NEAR-routed wallets cannot vote, start sessions or revoke them. Existing sessions keep working. Each chain has only one wallet that signs natively (two on EVM if Phantom uses its own EVM account), so stopping a session early may have to wait for NEAR to return, or for the session to end (at most 7 days).
 - **Solana has no per-session revoke** (section 7.2).
 - **Stellar amount limits** were not part of these tests (section 8.2).

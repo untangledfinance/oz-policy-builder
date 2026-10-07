@@ -4,12 +4,13 @@
 //! program (instruction introspection). No per-session revoke: a session ends at its time (at most 7 days), or
 //! earlier when the account's 2-of-3 removes the PDA from the policy.
 //!
-//! The owner is an ed25519 key that signs plain text: Phantom's own key (`signMessage`), or the NEAR MPC key of a
-//! MetaMask / Freighter NEAR account (the MPC signs the text bytes).
-//! PDA = ["prime", owner]. The owner signs:
+//! The owner is an ed25519 key that signs plain text: Phantom's own key (`signMessage`), or a NEAR MPC key held for
+//! MetaMask (its eth-implicit NEAR account) or Freighter (through prime-near-signer); the MPC signs the text bytes.
+//! PDA = ["prime", owner, settings]: one per wallet per Smart Account, so a grant works in that account only.
+//! The owner signs:
 //!   "Prime session\nsigner: <PDA>\nsession key: <key>\nvalid until (unix time): <t>\ncluster: <c>\nprogram: <id>"
 //!
-//! execute: 0 | owner (32) | t i64 | sig_ix u8 | Smart Account instruction data
+//! execute: 0 | owner (32) | settings (32) | t i64 | sig_ix u8 | Smart Account instruction data
 //!   accounts: [0] ix sysvar, [1] session key (signer), [2] PDA, [3] Smart Account program, [4..] its accounts
 use solana_program::{
     account_info::AccountInfo, entrypoint, entrypoint::ProgramResult, instruction::{AccountMeta, Instruction}, msg,
@@ -30,11 +31,11 @@ fn err(code: u32, m: &str) -> ProgramError {
 
 fn process(program_id: &Pubkey, accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
     let bad = ProgramError::InvalidInstructionData;
-    if data.len() < 42 { return Err(bad) }
-    let (op, owner, rest) = (data[0], &data[1..33], &data[33..]);
+    if data.len() < 74 { return Err(bad) }
+    let (op, owner, settings, rest) = (data[0], &data[1..33], &data[33..65], &data[65..]);
     let [ix_sysvar, signer, pda, next, tail @ ..] = accounts else { return Err(ProgramError::NotEnoughAccountKeys) };
     if !signer.is_signer { return Err(err(2, "session key / payer did not sign")) }
-    let (expected, bump) = Pubkey::find_program_address(&[b"prime", owner], program_id);
+    let (expected, bump) = Pubkey::find_program_address(&[b"prime", owner, settings], program_id);
     if *pda.key != expected { return Err(err(3, "wrong PDA for this owner")) }
     if op != 0 { return Err(bad) }
     let (key, until, sig_ix, inner) = (*signer.key, i64::from_le_bytes(rest[..8].try_into().unwrap()), rest[8], &rest[9..]);
@@ -52,5 +53,5 @@ fn process(program_id: &Pubkey, accounts: &[AccountInfo], data: &[u8]) -> Progra
     let metas = tail.iter().map(|a| AccountMeta { pubkey: *a.key, is_signer: a.key == pda.key || a.is_signer, is_writable: a.is_writable }).collect();
     let mut infos = tail.to_vec();
     infos.push(pda.clone());
-    invoke_signed(&Instruction { program_id: SMART_ACCOUNT, accounts: metas, data: inner.to_vec() }, &infos, &[&[b"prime", owner, &[bump]]])
+    invoke_signed(&Instruction { program_id: SMART_ACCOUNT, accounts: metas, data: inner.to_vec() }, &infos, &[&[b"prime", owner, settings, &[bump]]])
 }

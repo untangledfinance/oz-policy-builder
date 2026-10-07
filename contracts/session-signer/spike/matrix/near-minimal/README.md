@@ -42,7 +42,7 @@ It is deployed at `signer.prime-spike-muwguc60.testnet`, code hash `D2xgePUEzgfR
 | Chain | Contract | Owner signs | sLOC | Revoke |
 |---|---|---|---|---|
 | EVM | `evm/src/PrimeKey.sol`: Roles member only | `personal_sign` text | 41 | yes (5 lines) |
-| Solana | `solana/prime-session/src/lib.rs`: policy-member PDA only | plain text | 37 | no (13 lines); expiry, or a 2-of-3 policy update |
+| Solana | `solana/prime-session/src/lib.rs`: policy-member PDA only, one per wallet per Smart Account (`["prime", owner, settings]`) | plain text | 37 | no (13 lines); expiry, or a 2-of-3 policy update |
 | Stellar | `contracts/session-signer/src/lib.rs`: signer of the wallet's session rule only | SEP-53 | 65 | yes (7 lines) |
 
 **Our new code in total:**
@@ -57,7 +57,7 @@ It is deployed at `signer.prime-spike-muwguc60.testnet`, code hash `D2xgePUEzgfR
 | EVM matrix | Base Sepolia fork + NEAR testnet | **87/87** | `evm/pkn.log` |
 | EVM matrix, live | **real Base Sepolia** + NEAR testnet | **88/88** | `evm/pkn-live.log`, `evm/verify-evm.log` |
 | Real Phantom and real Freighter through the signer contract | NEAR testnet | both signed, MPC keys check out | `proof-near.log`, `real-wallets/` |
-| Solana matrix | local validator (Smart Account from devnet) + NEAR testnet | **70/70** | `solana/psn.log` |
+| Solana matrix | local validator (Smart Account from devnet) + NEAR testnet | **78/78** (A0–A6: a grant works in one Smart Account only) | `solana/psn.log`; the earlier per-wallet PDA run is `solana/psn.run5-pda-per-wallet.log` |
 | Stellar matrix | Stellar testnet + NEAR testnet | **55/55** | `stellar/stn.log` |
 | Phantom's own EVM account as a Safe seat | real Phantom extension + Base Sepolia fork | **P1, P2 pass** | `phantom-evm/phx.log`, `phantom-evm/pevm.log` |
 

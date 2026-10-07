@@ -1,7 +1,7 @@
 // Solana matrix, NEAR-routed: a Squads Smart Account (cloned from devnet) on a local validator.
 //   seats (settings signers, 2-of-3): Phantom (its own key), MetaMask and Freighter (their NEAR MPC ed25519 keys:
 //         eth-implicit account for MetaMask, our SEP-53 wallet contract for Freighter). Each signs Solana txs itself.
-//   sessions: prime-session PDA ["prime", owner] per wallet is a member of the movers policy only, never a settings
+//   sessions: prime-session PDA ["prime", owner, settings] per wallet per account is a member of the movers policy only, never a settings
 //         signer. The owner signs one plain-text grant (Phantom signMessage; NEAR MPC signs the text for the others),
 //         then the session key signs each move. Fee payer: the relayer, or the session key itself.
 import { Connection, Ed25519Program, Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram, SYSVAR_INSTRUCTIONS_PUBKEY, Transaction,
@@ -75,7 +75,10 @@ async function send(name: string, expectOk: boolean, ixs: TransactionInstruction
 }
 
 // ── Smart Account helpers ──────────────────────────────────────────────────────────────────────
-const settings = () => new PublicKey(st.settings);
+// `sel` switches every helper to a second Smart Account (account B) for the account-binding checks.
+let sel: 'A' | 'B' = 'A';
+const settings = () => new PublicKey(sel === 'B' ? st.settingsB : st.settings);
+const policyAddr = () => new PublicKey(sel === 'B' ? st.policyB : st.policy);
 const vault = () => sa.getSmartAccountPda({ settingsPda: settings(), accountIndex: 0 })[0];
 const ix = sa.instructions;
 const nextIndex = async () => BigInt((await sa.accounts.Settings.fromAccountAddress(conn, settings())).transactionIndex.toString()) + 1n;
@@ -88,7 +91,7 @@ const policyPayload = (): any => ({ __kind: 'ProgramInteraction', fields: [{ acc
   spendingLimits: [{ mint: PublicKey.default, timeConstraints: { start: 0, expiration: null, period: { __kind: 'Daily' } }, quantityConstraints: { maxPerPeriod: 0.1 * SOL } }] }] });
 const policyMove = (signer: PublicKey, inner: TransactionInstruction) => {
   const d = sa.utils.instructionsToSynchronousTransactionDetailsV2({ vaultPda: vault(), members: [signer], transaction_instructions: [inner] });
-  return ix.executePolicyPayloadSync({ policy: new PublicKey(st.policy), accountIndex: 0, numSigners: 1, instruction_accounts: d.accounts,
+  return ix.executePolicyPayloadSync({ policy: policyAddr(), accountIndex: 0, numSigners: 1, instruction_accounts: d.accounts,
     policyPayload: { __kind: 'ProgramInteraction', fields: [{ instructionConstraintIndices: new Uint8Array([0]), transactionPayload: { __kind: 'SyncTransaction', fields: [{ accountIndex: 0, instructions: d.instructions }] } }] } });
 };
 /** A 2-of-3 seat decision: a proposes and approves (one signature), b approves and executes (one signature). */
@@ -111,10 +114,10 @@ async function decide(label: string, a: W, b: W | null, actions: { vault?: Trans
 }
 
 // ── Sessions ───────────────────────────────────────────────────────────────────────────────────
-const pdaOf = (owner: PublicKey) => PublicKey.findProgramAddressSync([Buffer.from('prime'), owner.toBuffer()], PROG)[0];
+const pdaOf = (owner: PublicKey, acct = settings()) => PublicKey.findProgramAddressSync([Buffer.from('prime'), owner.toBuffer(), acct.toBuffer()], PROG)[0];
 const grantText = (pda: PublicKey, key: PublicKey, until: number, cluster = CLUSTER, program = PROG) =>
   `Prime session\nsigner: ${pda.toBase58()}\nsession key: ${key.toBase58()}\nvalid until (unix time): ${until}\ncluster: ${cluster}\nprogram: ${program.toBase58()}`;
-type Session = { owner: PublicKey; key: Keypair; until: number; pda: PublicKey; sigIx: TransactionInstruction };
+type Session = { owner: PublicKey; acct: PublicKey; key: Keypair; until: number; pda: PublicKey; sigIx: TransactionInstruction };
 async function openSession(w: W, o: { seconds?: number; signAs?: W; text?: (t: string) => string; fund?: number } = {}): Promise<Session> {
   const key = Keypair.generate(); const until = Math.floor(Date.now() / 1000) + (o.seconds ?? 3600); const pda = pdaOf(w.key);
   const text = (o.text ?? ((t) => t))(grantText(pda, key.publicKey, until));
@@ -122,12 +125,12 @@ async function openSession(w: W, o: { seconds?: number; signAs?: W; text?: (t: s
   const sig = await signer.sign(new TextEncoder().encode(text));
   const sigIx = Ed25519Program.createInstructionWithPublicKey({ publicKey: signer.key.toBytes(), message: Buffer.from(text), signature: sig });
   if (o.fund !== 0) await confirm(await conn.requestAirdrop(key.publicKey, o.fund ?? 0.05 * SOL));
-  return { owner: w.key, key, until, pda, sigIx };
+  return { owner: w.key, acct: settings(), key, until, pda, sigIx };
 }
 /** [ed25519 program ix, prime-session execute(inner)]. */
-function viaSession(s: Session, inner: TransactionInstruction, o: { until?: number; owner?: PublicKey; pda?: PublicKey } = {}): TransactionInstruction[] {
-  const owner = o.owner ?? s.owner, pda = o.pda ?? s.pda;
-  const head = Buffer.concat([Buffer.from([0]), owner.toBuffer(), Buffer.from(new BigInt64Array([BigInt(o.until ?? s.until)]).buffer), Buffer.from([0])]);
+function viaSession(s: Session, inner: TransactionInstruction, o: { until?: number; owner?: PublicKey; pda?: PublicKey; acct?: PublicKey } = {}): TransactionInstruction[] {
+  const owner = o.owner ?? s.owner, pda = o.pda ?? s.pda, acct = o.acct ?? s.acct;
+  const head = Buffer.concat([Buffer.from([0]), owner.toBuffer(), acct.toBuffer(), Buffer.from(new BigInt64Array([BigInt(o.until ?? s.until)]).buffer), Buffer.from([0])]);
   const keys = [{ pubkey: SYSVAR_INSTRUCTIONS_PUBKEY, isSigner: false, isWritable: false }, { pubkey: s.key.publicKey, isSigner: true, isWritable: true },
     { pubkey: pda, isSigner: false, isWritable: false }, { pubkey: inner.programId, isSigner: false, isWritable: false },
     ...inner.keys.map((k) => ({ ...k, isSigner: k.pubkey.equals(pda) ? false : k.isSigner }))];
@@ -138,13 +141,17 @@ const selfPaid = (s: Session) => [s.key];         // relayer down: the session k
 
 // ── P. Setup ───────────────────────────────────────────────────────────────────────────────────
 if ((await conn.getBalance(payer.publicKey)) < 10 * SOL) await confirm(await conn.requestAirdrop(payer.publicKey, 100 * SOL));
-{
+async function createAccount() {
   const pc = await sa.accounts.ProgramConfig.fromAccountAddress(conn, sa.getProgramConfigPda({})[0]);
   const [settingsPda] = sa.getSettingsPda({ accountIndex: BigInt(pc.smartAccountIndex.toString()) + 1n });
   const tx = new Transaction().add(ix.createSmartAccount({ treasury: pc.treasury, creator: payer.publicKey, settings: settingsPda, settingsAuthority: null,
     threshold: 2, timeLock: 0, rentCollector: null, signers: [MM, FR, PH].map((w) => ({ key: w.key, permissions: ALL })) }),
     SystemProgram.transfer({ fromPubkey: payer.publicKey, toPubkey: sa.getSmartAccountPda({ settingsPda, accountIndex: 0 })[0], lamports: 2 * SOL }));
   const sig = await conn.sendTransaction(tx, [payer]); await confirm(sig);
+  return { settingsPda, sig };
+}
+{
+  const { settingsPda, sig } = await createAccount();
   st.settings = settingsPda.toBase58(); save();
   const s = await sa.accounts.Settings.fromAccountAddress(conn, settings());
   record('P0. seats are exactly MetaMask(NEAR MPC), Freighter(NEAR MPC), Phantom(own key); threshold 2; vault funded', true,
@@ -229,6 +236,25 @@ for (const w of [MM, FR, PH]) {
   await send('X6. grant signed for cluster mainnet, used on localnet', false, viaSession(cl, policyMove(cl.pda, sysTransfer(VENUE, 0.001))), relayed(cl));
   const pr = await openSession(PH, { text: (t) => t.replace(`program: ${PROG.toBase58()}`, 'program: 8xSaCrq6HidyjmE3khJ9DYewWdYNfn93nQEkYvqTEpig') });
   await send('X7. grant signed for another program id', false, viaSession(pr, policyMove(pr.pda, sysTransfer(VENUE, 0.001))), relayed(pr));
+}
+
+// ── A. A grant works in one Smart Account only ────────────────────────────────────────────────
+{
+  const a = await openSession(PH);                       // granted for account A
+  const { settingsPda: B, sig } = await createAccount();  // account B: same three seats
+  st.settingsB = B.toBase58(); sel = 'B';
+  const seed = Number((await sa.accounts.Settings.fromAccountAddress(conn, settings())).policySeed ?? 0) + 1;
+  st.policyB = sa.getPolicyPda({ settingsPda: settings(), policySeed: seed })[0].toBase58(); save();
+  record('A0. account B created with the same three seats', true, true, sig);
+  await decide("A1. account B installs its movers policy (members: each wallet's PDA for account B):", MM, PH, { settings: [{ __kind: 'PolicyCreate', seed, policyCreationPayload: policyPayload(),
+    signers: [MM, FR, PH].map((w) => ({ key: pdaOf(w.key), permissions: ALL })), threshold: 1, timeLock: 0, startTimestamp: null, expirationArgs: null }], policies: [policyAddr()] }, true);
+  record("A2. each wallet's PDA differs between account A and account B", true, [MM, FR, PH].every((w) => !pdaOf(w.key, new PublicKey(st.settings)).equals(pdaOf(w.key, B))), [MM, FR, PH].map((w) => pdaOf(w.key).toBase58().slice(0, 6)).join(','));
+  await send("A3. account A's Phantom grant presented to account B (as Phantom's account-B PDA)", false, viaSession(a, policyMove(pdaOf(PH.key), sysTransfer(VENUE, 0.001)), { acct: B, pda: pdaOf(PH.key) }), relayed(a));
+  await send("A4. account A's Phantom PDA calling account B's policy", false, viaSession(a, policyMove(a.pda, sysTransfer(VENUE, 0.001))), relayed(a));
+  const b = await openSession(PH);                       // granted for account B
+  await send('A5. a Phantom grant made for account B works in account B', true, viaSession(b, policyMove(b.pda, sysTransfer(VENUE, 0.001))), relayed(b));
+  sel = 'A';
+  await send("A6. account B's grant presented to account A", false, viaSession(b, policyMove(pdaOf(PH.key), sysTransfer(VENUE, 0.001)), { acct: settings(), pda: pdaOf(PH.key) }), relayed(b));
 }
 
 // ── R. No per-session revoke: the 2-of-3 removes a wallet's session PDA from the policy ─────────

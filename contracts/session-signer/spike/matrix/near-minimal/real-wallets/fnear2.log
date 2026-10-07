@@ -1,0 +1,3 @@
+wallet key 6ef4a233159342df8a673546a193450c98d374ef87a55dbcd8046766307d489d signed text locally valid: (SEP-53, checked by contract)
+NEAR tx 8npfk7AKj5qCLUruqvKTNmCm3pQi5mr7oVnQB8F6N57u status [ "SuccessValue" ]
+MPC ed25519 signature verifies against the key derived for this wallet: true

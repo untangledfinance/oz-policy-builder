@@ -2,8 +2,9 @@
 //!
 //! An instance belongs to one wallet and is a `Delegated` signer of that wallet's session rules only, never of
 //! the account's 2-of-3 rule: a session key can make the moves its rules allow and can never vote as a seat.
-//! The owner is an ed25519 key that signs SEP-53 messages: Freighter's own key (`signMessage`), or the NEAR MPC
-//! key of a MetaMask / Phantom NEAR account (the MPC signs the SEP-53 digest).
+//! The owner is an ed25519 key that signs SEP-53 messages: Freighter's own key (`signMessage`), or a NEAR MPC key
+//! held for MetaMask (its eth-implicit NEAR account) or Phantom (through prime-near-signer); the MPC signs the
+//! SEP-53 digest.
 //!
 //! grant text: "Prime session\ncontract: <this contract>\nsession key: <hex>\nvalid until ledger: <n>"
 //! (the contract address already commits to the network). Revoking is the same text with ledger 0.
