@@ -1,5 +1,7 @@
 # Prime across Stellar, Solana and EVM: final verified architecture
 
+> **Superseded on contracts:** the EVM contracts (SessionMember, Ed25519Owner, SessionMemberEd) are now one contract, PrimeKey. The Stellar and Solana contracts are trimmed. See [`../minimal/README.md`](../minimal/README.md). The architecture below is otherwise unchanged.
+
 This report follows two verification rounds. **Round 1** re-ran every spike from clean state, with the harness bugs from earlier runs fixed. **Round 2** tried to break the result:
 - an independent security review of the four new contracts;
 - fixes for the review findings, with tests;

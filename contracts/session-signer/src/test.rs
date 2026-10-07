@@ -39,25 +39,14 @@ fn setup() -> T {
     }
 }
 
-/// The digest, rebuilt independently of the contract (the viem vector pins both).
+/// The personal_sign digest of the grant text, rebuilt independently of the contract.
 fn digest(e: &Env, signer: &Address, key: &BytesN<32>, until: u32) -> [u8; 32] {
-    let k = |b: &Bytes| e.crypto().keccak256(b).to_array();
-    let th = k(&Bytes::from_slice(
-        e,
-        b"PrimeSession(string signer,bytes32 sessionKey,uint32 validUntil,bytes32 network)",
-    ));
-    let mut s = Bytes::from_array(e, &th);
-    s.extend_from_array(&k(&signer.to_string().to_bytes()));
-    s.append(&key.clone().into());
-    s.extend_from_array(&[0u8; 28]);
-    s.extend_from_array(&until.to_be_bytes());
-    s.append(&e.ledger().network_id().into());
-    let mut m = Bytes::from_slice(e, &PREFIX[..]);
-    m.extend_from_array(&k(&s));
-    k(&m)
+    let t = text(e, signer, key, until);
+    let m = std::format!("\x19Ethereum Signed Message:\n{}{t}", t.len());
+    e.crypto().keccak256(&Bytes::from_slice(e, m.as_bytes())).to_array()
 }
 
-/// What MetaMask returns for eth_signTypedData_v4, split as the contract takes it.
+/// What MetaMask returns for personal_sign, split as the contract takes it.
 fn grant(t: &T, eth: &EthKey, signer: &Address, key: &BytesN<32>, until: u32) -> (BytesN<64>, u32) {
     let (sig, rec) = eth
         .sign_prehash_recoverable(&digest(&t.e, signer, key, until))
@@ -242,8 +231,8 @@ fn a_revocation_never_authorises() {
     assert_eq!(check(&t, p), Err(Ok(EXPIRED)));
 }
 
-/// The digest and grant are viem's `hashTypedData` / `signTypedData` output;
-/// `@metamask/eth-sig-util` signTypedData V4 returns the same bytes.
+/// The digest and grant are viem's `hashMessage` / `signMessage` output (MetaMask personal_sign),
+/// signed by the well-known test key of anvil account 0.
 #[test]
 fn matches_viem_and_metamask() {
     let e = Env::default();
@@ -257,7 +246,7 @@ fn matches_viem_and_metamask() {
         &e,
         "CDRLTNNG2APUPPWNWZBVMUYRVWFJLQIN5LTAPILC7ZD6G6MGI2XJFVWN",
     );
-    let owner = bytesn!(&e, 0x17c5185167401eD00cF5F5b2fc97D9BBfDb7D025);
+    let owner = bytesn!(&e, 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
     let signer = e.register_at(&at, SessionSigner, (Owner::Evm(owner),));
     let key = bytesn!(
         &e,
@@ -265,13 +254,13 @@ fn matches_viem_and_metamask() {
     );
     let want = bytesn!(
         &e,
-        0x58d242a0fce4fabaaecd1fce329a9997cf6f0982322e47533781fee67b3556a9
+        0xd80b3717d5b21ae6609b5750bf0b199e6da28b99bf9114e39c60b4ab0edaca5a
     );
     assert_eq!(digest(&e, &signer, &key, 1000), want.to_array());
-    let rs = bytesn!(&e, 0x8a421683d637bd83fd0b2f00cb985df9daf99bcf16c75335e5f52bec85f36bca1ffd7445c9e2ef07cd48a7f78c7362d83928fb4f0e40060ca6ee2f2434618356);
+    let rs = bytesn!(&e, 0x262d04a4bad0d1406b903d365b4a881e5c552998950e49771a4b2a702e0e7eb73081fe39a92b506c3fd19d6bb3dcc950de38e9c5c4e0c4dc4b606db25a5b3fe5);
     // The grant names key 0x11..11, whose secret nobody has: the owner check
     // must pass, so the session signature check is what refuses.
-    let p: Proof = (key, 1000, rs, 0x1b, BytesN::from_array(&e, &[0; 64]));
+    let p: Proof = (key, 1000, rs, 0x1c, BytesN::from_array(&e, &[0; 64]));
     let ctx: Vec<Context> = Vec::new(&e);
     let r = e.try_invoke_contract_check_auth::<Error>(
         &signer,
