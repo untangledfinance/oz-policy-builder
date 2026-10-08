@@ -51,6 +51,15 @@ Our new code in total is 122 sLOC: 32 + 33 + 37 + 20.
 - Logs: `round9/{evm,solana,stellar,near}/` (the later runs of 8 October are in `round9/{owners,seat,calls,wallets}/`) (and `round9/{swig,native}/` for the follow-up spikes below), plus Freighter prompt screenshots in `round9/stellar/freighter-prompt/` (collapsed and expanded authorization row, the earlier SEP-53 prompt, three parameter shapes). Logs are ignored by `*.log`, so add them with `git add -f`.
 - Stellar run record: `round9/stellar/run.out` and `run2.out` show two runs; the first stopped at the real Freighter step when the browser behind the bridge closed (`stn-realfr.attempt1.log`, `freighter-bridge.attempt1.out`), and the retry passed.
 
+## Optimization (8 October 2026)
+
+An optimization pass built smaller versions of the Solana contracts and tested them with the existing harnesses. Nothing here changes the deployed contracts. The write-up is `round9/opt/solana-opt.md`, the review and fixes of the gate are `round9/opt/gate-owned-review.md` and `round9/opt/gate-owned-fixes.md`.
+
+- **Results:** the Pinocchio ports cut the binaries by 27 to 29 percent (gate 36,000 bytes, session 39,592 bytes). The gate's own compute units fall by 14 to 43 percent. A line-cut gate is 84 lines as written, from 91. All 62 gate mutants die on both new gate sources.
+- **Harness gap closed:** a 22-mutant pass on the session found six survivors. `solana/psn.ts` now has section F (five checks: the signature instruction in second place, a key read from another instruction, a message read from another instruction, an instruction from another program, a signature read from another instruction). It runs 133 of 133 on today's build, with stub NEAR and with real NEAR.
+- **Mutation pass on today's `prime-session`:** 20 of 22 mutants die. Mutants 02 (any signature count) and 03 (signature index) survive because the precompile already enforces both: with a count of 0 it accepts only a two-byte instruction, and the signature has to verify against the key and message the program reads, wherever its bytes live. Log table: `round9/opt/session/mutants-today.md`.
+- **Files:** sources, crates and harness copies are in `opt/` (`gate/` line cut, Pinocchio and mutation scripts, `gate-pino/`, `session/` with `today/`, `pino/`, `noop/` and `mutants-today.py`). Logs are in `round9/opt/`. The build outputs, ledgers, key files and state files are not copied; the scripts recreate them. Add the logs with `git add -f`.
+
 ## Follow-up spikes (8 October 2026)
 
 Two spikes ran after round 9, on the round 9 contracts, with no contract change. The document sections are 5.6 (native accounts), 7.3 (Swig) and 12.6 (runs and logs).

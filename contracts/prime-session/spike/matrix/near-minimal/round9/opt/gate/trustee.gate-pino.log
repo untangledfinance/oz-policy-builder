@@ -1,0 +1,30 @@
+PASS T0. custody and Prime vault 5 form a 2-of-2 SPL multisig (the Prime Account itself is the trustee) | ok 317 CU, 456 B
+PASS T1. custody creates the gate for that multisig | ok 15082 CU, 485 B, gate 15082 CU
+PASS T2. custody alone raises the cap: refused (one slot of two) | refused: gate: custom program error: 0x1
+PASS T3. the owners (2 of 3) as vault 5 alone, without custody: refused (one slot of two) | refused: gate: custom program error: 0x1
+PASS T4. one owner alone as vault 5 with custody: refused by Squads (below the approval count) | refused: squads: InvalidSignerCount
+PASS T5. the owners (2 of 3) as vault 5 with custody's signature raise the cap to 50: both slots are filled | ok 30054 CU, 761 B, gate 3987 CU
+PASS T5b. the cap is 50 | ok 100 owner 5Ae3XZ delegate 4vJ67s 50 closer 5Ae3XZ
+PASS T6. the same pair releases the account to newKey | ok 29408 CU, 751 B, gate 3847 CU
+PASS T6b. owner and close authority are newKey | ok 100 owner 3or2m4 delegate - 0 closer 3or2m4
+{
+ "create Prime Account (Squads, 3 owners)": {
+  "cu": 22723,
+  "bytes": 423,
+  "gateCu": 0,
+  "n": 1
+ },
+ "allow by custody + the Prime vault as trustee (sync)": {
+  "cu": 30054,
+  "bytes": 761,
+  "gateCu": 3987,
+  "n": 1
+ },
+ "release by custody + the Prime vault as trustee (sync)": {
+  "cu": 29408,
+  "bytes": 751,
+  "gateCu": 3847,
+  "n": 1
+ }
+}
+9/9 checks passed

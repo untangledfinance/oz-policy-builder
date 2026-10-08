@@ -1,0 +1,24 @@
+| mutant | weakened check | result | failing checks (first three) | harness | time |
+|---|---|---|---|---|---|
+| s01 | the ed25519 instruction need not be the ed25519 program | killed | G10., G10. | 127/128 passed | 229s |
+| s02 | the ed25519 instruction may carry any signature count | killed | G10., G10. | 127/128 passed | 227s |
+| s03 | the signature may live in another instruction (index not 0xffff) | SURVIVED |  | 128/128 passed | 60s |
+| s04 | the public key may live in another instruction | SURVIVED |  | 128/128 passed | 59s |
+| s05 | the message may live in another instruction | SURVIVED |  | 128/128 passed | 62s |
+| s06 | the signing key need not be the owner | killed | X1., X2., X3. | 113/128 passed | 63s |
+| s07 | the signed message need not be the grant text | killed | G-MetaMask7., G-MetaMask8., G-Freighter7. | 116/128 passed | 69s |
+| s08 | the session PDA need not derive from the owner and settings | killed | X8., X9a., V4b. | 121/128 passed | 67s |
+| s09 | a revoked session still works (marker owner not checked) | killed | V2., V3b., V5b. | 124/128 passed | 63s |
+| s10 | the marker may be any address | killed | V8a., V8a. | 127/128 passed | 64s |
+| s11 | an expired grant works | killed | G10., G10. | 127/128 passed | 64s |
+| s12 | a grant may last longer than 7 days | killed | G9., G9. | 127/128 passed | 64s |
+| s13 | the session key need not sign a move | killed | X10., X10. | 127/128 passed | 66s |
+| s14 | the PDA does not sign the inner call | killed | G-MetaMask1. | no summary | 17s |
+| s15 | the signature instruction is always instruction 0 | SURVIVED |  | 128/128 passed | 61s |
+| s16 | a revoke does not assign the marker to the program | killed | V1b., V2., V3b. | 123/128 passed | 62s |
+| s17 | a revoke funds the marker below the rent minimum | killed | V1. | no summary | 47s |
+| s18 | the inner call goes to the System program | killed | G-MetaMask1. | no summary | 12s |
+| s19 | the inner call signs with another seed | killed | G-MetaMask1. | no summary | 14s |
+| s20 | every inner account is writable | killed | G-MetaMask1. | no summary | 12s |
+| s21 | a revoke is taken for a move (revoke branch skipped) | killed | V1. | no summary | 43s |
+| s22 | the grant text omits the session key | killed | G-MetaMask1. | no summary | 12s |

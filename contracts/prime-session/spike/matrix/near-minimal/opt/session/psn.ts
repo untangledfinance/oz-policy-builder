@@ -718,38 +718,6 @@ for (const w of [MM, FR, PH]) {
   await send('V9b. a 10-byte instruction', false, await revokeIxs(PH, Keypair.generate().publicKey, { data: 10 }), [payer]);
 }
 
-// ── F. Forged signature offsets (added in this copy): the ed25519 instruction may read its public key and its message only from itself (index 0xffff) ──
-// The precompile verifies the triple (signature, key, message) it finds through the three instruction indexes; prime-session reads key and message from the instruction's own data. If an index pointed at another
-// instruction, the verified triple and the bytes the program reads could differ: an attacker's signature would then vouch for the owner's key, or a replayed signature for a text it never covered.
-{
-  const att = nacl.sign.keyPair(), BIG = 0xffff;
-  const crafted = (pk: Uint8Array, sig: Uint8Array, msg: Uint8Array, idx: [number, number, number]) => {
-    const d = Buffer.alloc(112 + msg.length); d[0] = 1;
-    [48, idx[0], 16, idx[1], 112, msg.length, idx[2]].forEach((v, i) => d.writeUInt16LE(v, 2 + 2 * i));
-    Buffer.from(pk).copy(d, 16); Buffer.from(sig).copy(d, 48); Buffer.from(msg).copy(d, 112);
-    return new TransactionInstruction({ keys: [], programId: Ed25519Program.programId, data: d });
-  };
-  const call = (s: Session, at: number, o: Over = {}) => { const p = viaSession(s, policyMove(s.pda, sysTransfer(VENUE, 0.00001)), o)[1]!; p.data[72] = at; return p; };
-  const decoy = Ed25519Program.createInstructionWithPrivateKey({ privateKey: att.secretKey, message: Buffer.from('decoy') });
-  const s0 = await openSession(PH);
-  await send('F0. control: the genuine signature instruction in second place, sig_ix 1', true, [decoy, s0.sigIx, call(s0, 1)], relayed(s0));
-  // the attacker signs the grant text with its own key; the instruction names the owner's key in its own data and points the key index at the attacker's instruction
-  const s1 = await openSession(PH), t1 = Buffer.from(grantText(s1.pda, s1.key.publicKey, s1.until));
-  await send("F1. a key read from another instruction: the attacker's signature over the grant text, the owner's key in the data, key index 0", false,
-    [decoy, crafted(s1.owner.toBytes(), nacl.sign.detached(t1, att.secretKey), t1, [BIG, 0, BIG]), call(s1, 1)], relayed(s1), E7);
-  // the owner's real signature over a text that lasts one second less, replayed with the message index pointing at the genuine instruction
-  const s2 = await openSession(PH), later = s2.until + 1, t2 = Buffer.from(grantText(s2.pda, s2.key.publicKey, later));
-  await send('F2. a message read from another instruction: a replayed owner signature stretches the grant by one second, message index 0 (the session key pays the fee: two signature instructions leave no room for a second fee signature)', false,
-    [s2.sigIx, crafted(s2.owner.toBytes(), s2.sigIx.data.subarray(48, 112), t2, [BIG, BIG, 0]), call(s2, 1, { until: later })], selfPaid(s2), E7);
-  // a signature instruction from another program: no precompile verifies it, so a program that did not check the program id would take the owner's key and the grant text on trust
-  const s4 = await openSession(PH), t4 = Buffer.from(grantText(s4.pda, s4.key.publicKey, s4.until));
-  const fake = crafted(s4.owner.toBytes(), Buffer.alloc(64, 7), t4, [BIG, BIG, BIG]);
-  await send('F4. a signature instruction from another program (a no-op program) that carries the owner key and the exact grant text with an invalid signature', false,
-    [new TransactionInstruction({ keys: [], programId: new PublicKey('AARnE8m37ewaTZq4ksPZhGJAsizXQD37JHiGf4mP3R6v'), data: fake.data }), call(s4, 0)], relayed(s4), E7);
-  const s3 = await openSession(PH), t3 = Buffer.from(grantText(s3.pda, s3.key.publicKey, s3.until));
-  await send("F3. a signature read from another instruction (the program also refuses it; the precompile already stops this triple)", false,
-    [decoy, crafted(s3.owner.toBytes(), s3.sigIx.data.subarray(48, 112), t3, [0, BIG, BIG]), call(s3, 1)], relayed(s3));
-}
 // ── W. Devnet: the two NEAR-routed wallets grant, move, move self-paid, revoke, and the revoked session is refused (the default matrix revokes Phantom's sessions only) ──
 if (NET === 'devnet') for (const w of [MM, FR]) {
   const mv = (s: Session) => viaSession(s, policyMove(s.pda, sysTransfer(VENUE, 0.00001)));

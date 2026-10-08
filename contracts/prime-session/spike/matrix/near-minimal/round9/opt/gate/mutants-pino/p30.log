@@ -1,0 +1,194 @@
+--- M: the multisig that is custody's identity
+PASS M1. custody and the trustee create a 2-of-2 SPL multisig (Token program) | ok 317 CU, 456 B
+PASS M2. owned by the Token program, 355 bytes, m = 2, n = 2, initialised | ok 355 B, 3361680 lamports
+PASS M3. 12 signers: refused by the token program (the limit is 11) | refused: token: custom program error: 0x7
+PASS M4. m = 0: refused by the token program | refused: token: custom program error: 0x8
+PASS M5. m = 3 with 2 signers is ACCEPTED by the token program (it never checks m <= n): setup-checks and the gate must | ok 317 CU, 456 B
+PASS M6. 11 signers, m = 11: accepted (the maximum) | ok 478 CU, 753 B
+--- G: gate creation
+PASS G1. custody (a signer of the multisig) creates the gate: Prime P, agent lane 1, owners lane 3, window 60 s, recovery R, destinations [venue, vault 1] | ok 19500 CU, 517 B, gate 19500 CU
+PASS G1a. the gate account exists and holds at least the rent-exempt minimum for its 245 bytes | ok 2596080 lamports
+PASS G2. the gate account holds multisig, settings, agent lane = vault 1, owners lane = vault 3, recovery, until, window 60, seed, bump and the two destinations; 181 + 64 bytes, owned by the gate program | ok 245 B
+PASS G3. the trustee (the other signer of the multisig) creates a gate under another seed | ok 16500 CU, 517 B, gate 16500 CU
+PASS G4. a stranger (not a signer of the multisig) names it: refused | refused: gate: custom program error: 0x5
+PASS G5. a plain token account named as the multisig: refused (no slot holds the signer) | refused: gate: custom program error: 0x5
+PASS G6. custody's wallet (System program) named as the multisig: refused | refused: gate: custom program error: 0x5
+PASS G7. custody names a multisig it does not belong to (signers: stranger, other): refused | refused: gate: custom program error: 0x5
+PASS G8. a 355-byte Token-owned account that was never initialised: refused | refused: gate: custom program error: 0x5
+PASS G8b. a lookalike multisig owned by another program (custody in slot 0, m = 1, n = 1): refused, the identity must be a token program's multisig | refused: gate: custom program error: 0x5
+PASS G9. a multisig with m = 3 and n = 2 (no signer set can ever release or raise): refused by the gate | refused: gate: custom program error: 0x5
+PASS G10. the same gate again is refused (the address is taken) | refused: system: custom program error: 0x0 (Allocate: account Address { address: 98du3A5QQ5RzLaWSn72qXq14V73k3WHtbMXDaYDHU92a, base: N)
+PASS G11. a Prime Account with a settings authority is refused (that authority could add itself as an owner) | refused: gate: custom program error: 0x5
+PASS G12. a zero-filled account that Squads does not own as the settings: refused | refused: gate: custom program error: 0x5
+PASS G12b. the Squads program config (owned by Squads, not a Settings account) as the settings: refused (its bytes 24 to 56 are not zero) | refused: gate: custom program error: 0x5
+PASS G13. agent lane 0 (where session rules sign): refused | refused: gate: invalid instruction data
+PASS G13b. owners lane 0: refused | refused: gate: invalid instruction data
+PASS G13c. both lanes the same vault: refused | refused: gate: invalid instruction data
+PASS G14. without the signer's signature: refused | refused: gate: custom program error: 0x5
+PASS G15. at an address that is not the gate PDA: refused (the runtime gives the signature to the derived address only) | refused: gate: Cross-program invocation with unauthorized signer or writable account (CtMWmZx3XPNe8tPPSY4x2vJC3bcALxtoLNUreVmfkPEm's signer privilege escalated)
+PASS G16. instruction tag 10: there is no such instruction | refused: gate: invalid instruction data
+PASS G16. instruction tag 4: there is no such instruction | refused: gate: invalid instruction data
+PASS G16. instruction tag 9: there is no such instruction | refused: gate: invalid instruction data
+PASS G16b. create data whose destination list is not whole 32-byte entries (5 stray bytes after a valid create): refused by the gate | refused: gate: invalid instruction data
+PASS G16c. create data shorter than its fixed fields (22 bytes): refused by the gate (not a panic) | refused: gate: invalid instruction data
+PASS G16d. transfer data of 15 bytes: refused by the gate | refused: gate: invalid instruction data
+PASS G16e. allow data of 7 bytes: refused by the gate | refused: gate: invalid instruction data
+PASS G16f. release data of 31 bytes: refused by the gate | refused: gate: invalid instruction data
+PASS G20. custody creates a gate with agent lane 2 and owners lane 4 | ok 15000 CU, 517 B, gate 15000 CU
+PASS G20b. the gate stores vault 2 as the agent lane and vault 4 as the owners lane | ok 
+PASS G20c. the owners as vault 2 draw 5 to the venue | ok 24689 CU, 671 B, gate 5230 CU
+PASS G20d. vault 1 is no lane of this gate: refused | refused: gate: custom program error: 0x1
+PASS G20e. the owners as vault 4 recover 10 to R | ok 21551 CU, 671 B, gate 2092 CU
+PASS G20f. vault 3 is no lane of this gate: refused | refused: gate: custom program error: 0x1
+PASS G17. a stranger sends 1,000,000 lamports to the gate address before custody creates it | ok 150 CU, 215 B
+PASS G17b. custody's create at that address still works (Transfer, Allocate and Assign instead of CreateAccount) | ok 16500 CU, 517 B, gate 16500 CU
+PASS G17c. the account is owned by the gate program, holds its data and is rent-exempt | ok 3596080 lamports
+PASS G18. a stranger pre-funds another address with 5 SOL (more than the rent) | ok 150 CU, 215 B
+PASS G18b. custody's create there works and keeps the stranger's lamports | ok 21000 CU, 517 B, gate 21000 CU
+PASS G18c. the account holds at least 5 SOL | ok 
+PASS G19. one multisig holds gates for two Prime Accounts and for any number of seeds: the addresses differ | ok 
+--- H: hand-over: close authority first, then owner; custody alone is refused for everything
+PASS H1. custody hands the account to the gate: SetAuthority(CloseAccount) then SetAuthority(AccountOwner), both to the gate PDA | ok 251 CU, 374 B
+PASS H2. owner = gate, close authority = gate, no delegate | ok 0 owner 5ENPKp delegate - 0 closer 5ENPKp
+PASS H2b. setup-checks reads the same bytes back as clean | ok 
+PASS H3. before: custody holds the owner and a close authority of its own | ok 0 owner AAgpYY delegate - 0 closer AAgpYY
+PASS H3b. the same two SetAuthority calls, signed by custody as the close authority, hand both to the gate | ok 248 CU, 374 B
+PASS H3c. owner = gate, close authority = gate | ok 0 owner 5ENPKp delegate - 0 closer 5ENPKp
+PASS H4. owner first: the account goes to the gate | ok 118 CU, 334 B
+PASS H4b. then the close authority: refused (the signer must now be the gate) | refused: token: custom program error: 0x4
+PASS H4c. the close authority stays unset and falls back to the owner, the gate: custody cannot close or move it | ok 0 owner 5ENPKp delegate - 0 closer -
+PASS H4d. custody alone cannot close it (empty) | refused: token: custom program error: 0x4
+PASS H4e. an unset close authority is no obstacle: the threshold sets a cap on it | ok 3960 CU, 537 B, gate 3960 CU
+PASS H4f. and releases it (the close authority is set to the new owner first: the gate signs as the owner while it is unset) | ok 3844 CU, 528 B, gate 3844 CU
+PASS H4g. owner and close authority are newKey | ok 0 owner 7qu39P delegate - 0 closer 7qu39P
+PASS H5a. custody alone: transfer out of the gate-owned account | refused: token: custom program error: 0x4
+PASS H5b. custody alone: approve a delegate | refused: token: custom program error: 0x4
+PASS H5c. custody alone: SetAuthority(AccountOwner) back to a key | refused: token: custom program error: 0x4
+PASS H5d. custody alone: SetAuthority(CloseAccount) | refused: token: custom program error: 0x4
+PASS H5e. custody alone: revoke | refused: token: custom program error: 0x4
+PASS H6a. the trustee alone: transfer out of the gate-owned account | refused: token: custom program error: 0x4
+PASS H6b. the trustee alone: approve a delegate | refused: token: custom program error: 0x4
+PASS H6c. the trustee alone: SetAuthority(AccountOwner) back to a key | refused: token: custom program error: 0x4
+PASS H6d. the trustee alone: SetAuthority(CloseAccount) | refused: token: custom program error: 0x4
+PASS H6e. the trustee alone: revoke | refused: token: custom program error: 0x4
+PASS H7a. custody and the trustee (the multisig threshold): transfer out of the gate-owned account | refused: token: custom program error: 0x4
+PASS H7b. custody and the trustee (the multisig threshold): approve a delegate | refused: token: custom program error: 0x4
+PASS H7c. custody and the trustee (the multisig threshold): SetAuthority(AccountOwner) back to a key | refused: token: custom program error: 0x4
+PASS H7d. custody and the trustee (the multisig threshold): SetAuthority(CloseAccount) | refused: token: custom program error: 0x4
+PASS H7e. custody and the trustee (the multisig threshold): revoke | refused: token: custom program error: 0x4
+PASS H8a. a stranger: transfer out of the gate-owned account | refused: token: custom program error: 0x4
+PASS H8b. a stranger: approve a delegate | refused: token: custom program error: 0x4
+PASS H8c. a stranger: SetAuthority(AccountOwner) back to a key | refused: token: custom program error: 0x4
+PASS H8d. a stranger: SetAuthority(CloseAccount) | refused: token: custom program error: 0x4
+PASS H8e. a stranger: revoke | refused: token: custom program error: 0x4
+PASS H9. custody alone: close the empty gate-owned account (lamports to itself) | refused: token: custom program error: 0x4
+PASS H9b. custody and the trustee name the multisig as the owner and sign: close refused too (the multisig is not the owner) | refused: token: custom program error: 0x4
+PASS H10. no refused action moved anything | ok 
+PASS H11. before the hand-over custody approves a delegate on the account (a backdoor) | ok 123 CU, 341 B
+PASS H11b. the hand-over clears the delegate: the owner change resets delegate and allowance | ok 251 CU, 374 B
+PASS H11c. no delegate, allowance 0, balance intact | ok 100 owner 5ENPKp delegate - 0 closer 5ENPKp
+PASS H11d. the old delegate cannot spend | refused: token: custom program error: 0x4
+--- A: the cap: one signer lowers or suspends, the threshold raises
+PASS A1. before any cap the agent lane cannot draw: the cap PDA is no owner and no delegate (token program refuses) | refused: token: custom program error: 0x4
+PASS A2. custody alone sets the first cap (a raise): refused, the threshold is needed | refused: gate: custom program error: 0x1
+PASS A2b. the trustee alone: refused | refused: gate: custom program error: 0x1
+PASS A2c. a stranger: refused | refused: gate: custom program error: 0x1
+PASS A2d. custody and a stranger (one slot filled of two): refused | refused: gate: custom program error: 0x1
+PASS A2e. a signer named twice counts once: custody twice, refused | refused: gate: custom program error: 0x1
+PASS A2f. custody signs and the trustee is listed but does not sign: refused (a slot counts only when its key signs) | refused: gate: custom program error: 0x1
+PASS A3. the multisig threshold (custody and the trustee) sets the cap to 100 | ok 12980 CU, 537 B, gate 12980 CU
+PASS A3b. the delegate is the cap PDA, 100 delegated, the gate still owns the account | ok 1000 owner onoEmg delegate SxzpAe 100 closer onoEmg
+PASS A4. custody alone lowers the cap to 60 | ok 12876 CU, 440 B, gate 12876 CU
+PASS A4b. 60 delegated | ok 
+PASS A4c. the trustee alone lowers it to 40 | ok 12876 CU, 440 B, gate 12876 CU
+PASS A4d. a stranger cannot lower it | refused: gate: custom program error: 0x1
+PASS A5. one signer raises 40 to 50: refused | refused: gate: custom program error: 0x1
+PASS A5b. the trustee alone raises it: refused | refused: gate: custom program error: 0x1
+PASS A5c. the same cap again (40 to 40) is no raise: one signer may | ok 12876 CU, 440 B, gate 12876 CU
+PASS A6. the threshold raises it to 100 | ok 12980 CU, 537 B, gate 12980 CU
+PASS A7. custody alone suspends the cap (0) | ok 12876 CU, 440 B, gate 12876 CU
+PASS A7b. 0 delegated, delegate still the cap PDA | ok 1000 owner onoEmg delegate SxzpAe 0 closer onoEmg
+PASS A7c. the agent lane cannot draw while suspended (allowance 0) | refused: token: custom program error: 0x1
+PASS A7d. the recovery lane is not stopped by the suspended cap: 30 to R (uncapped) | ok 23051 CU, 671 B, gate 2092 CU
+PASS A7e. a single signer cannot lift the suspension (a raise) | refused: gate: custom program error: 0x1
+PASS A8. the threshold sets 100 again | ok 12980 CU, 537 B, gate 12980 CU
+PASS A9. the cap PDA is checked: naming a stranger as the delegate account is refused (one signer would otherwise hand a delegate to any key) | refused: gate: custom program error: 0x5
+PASS A9b. the same with the threshold and a bigger cap (a raise to a stranger delegate): refused | refused: gate: custom program error: 0x5
+PASS A10. signers of another multisig (stranger and other, 2 of 2) name their own multisig: refused, it is not the gate's | refused: gate: custom program error: 0x1
+PASS A11. a stranger names the real multisig and signs: refused (not a slot) | refused: gate: custom program error: 0x1
+PASS A12. a source the gate does not own (custody's plain account): the token program refuses the Approve | refused: token: custom program error: 0x4
+PASS A13. a hostile program as the token program: refused by the allow-list | refused: gate: custom program error: 0x5
+PASS A14. a token account that is no gate of this program (another account as the gate): refused | refused: gate: custom program error: 0x5
+PASS A15. no allow moved a balance | ok 970 left
+PASS A16. the agent lane draws exactly the rest of the cap (70 left of 100 after 30 recovered; delegated stays 100) | ok 36690 CU, 671 B, gate 12731 CU
+PASS A16b. the delegate is cleared by the token program, the cap is gone | ok 870 owner onoEmg delegate - 0 closer onoEmg
+PASS A16c. the next agent draw is refused by the token program: the cap PDA is no owner, so there is no fallback to an unlimited path | refused: token: custom program error: 0x4
+PASS A16d. recovery still works after the cap is used up | ok 23049 CU, 671 B, gate 2090 CU
+PASS A16e. one signer may lower a cap that is gone (0 to 0) | ok 12876 CU, 440 B, gate 12876 CU
+--- T: the agent lane and the owners lane
+PASS T1. the owners at their count sign as the agent lane and draw 10 to the venue | ok 27689 CU, 671 B, gate 3730 CU
+PASS T1b. the venue gained 10, the gate-owned account lost 10, the cap fell to 90 | ok 990 owner FqBEg9 delegate 8xwhL6 90 closer FqBEg9
+PASS T1c. the Prime vault's own account (the second listed destination) | ok 27719 CU, 671 B, gate 3760 CU
+PASS T2. to a stranger (not on the list): refused by the gate | refused: gate: custom program error: 0x2
+PASS T3. the agent lane pays the recovery address: refused (recovery is not a listed destination) | refused: gate: custom program error: 0x2
+PASS T4. over the cap (89 left, asks 95): refused by the token program | refused: token: custom program error: 0x1
+PASS T5. a not-after that has passed: refused by the gate | refused: gate: custom program error: 0x4
+PASS T5b. a not-after more than the gate's 60 s window ahead: refused by the gate | refused: gate: custom program error: 0x4
+PASS T5c. a not-after of 0 (no deadline): refused | refused: gate: custom program error: 0x4
+PASS T5d. a not-after 50 s ahead, inside the window: allowed | ok 27689 CU, 671 B, gate 3730 CU
+PASS T6. the owners sign as vault 2 (not a lane): refused | refused: gate: custom program error: 0x1
+PASS T6b. another Prime Account's owners sign as their vault 1: refused | refused: gate: custom program error: 0x1
+PASS T6c. the lane vault named without its signature: refused | refused: gate: custom program error: 0x1
+PASS T6d. custody signs as the lane: refused (custody is no lane) | refused: gate: custom program error: 0x1
+PASS T6e. a stranger signs as the lane: refused | refused: gate: custom program error: 0x1
+PASS T6f. the owners lane vault 3 as a vault of another index (vault 4 of P): refused | refused: gate: custom program error: 0x1
+PASS T7. a cap PDA that is not this gate's on the agent path: refused by the runtime (the gate cannot sign for it) | refused: gate: Cross-program invocation with unauthorized signer or writable account (dzueGoZKbsk9yxa7m7etcpLjmBwY8RByNeg5h5R1m4t's signer privilege escalated)
+PASS T7b. the gate itself named as the cap PDA (to sign as the owner, with no cap): refused | refused: gate: Cross-program invocation with unauthorized signer or writable account (FqBEg9UzZZb9pChKtdvPD8kKjWm4h3txnFxnSFKXsvdr's signer privilege escalated)
+PASS T8. custody hands an account to the cap PDA (owner = cap PDA) | ok 118 CU, 334 B
+PASS T8b. the agent lane draws from it: refused by the gate (the source must be owned by the gate) | refused: gate: custom program error: 0x5
+PASS T8c. the owners lane draws from it: refused by the token program (the gate is not its owner) | refused: token: custom program error: 0x4
+PASS T9. a forged gate account (owned by another program; the stranger as both lanes, recovery and destination): refused | refused: gate: custom program error: 0x5
+PASS T9b. the same on the owners path | refused: gate: custom program error: 0x5
+PASS T10. a hostile program named as the token program on the agent path: refused by the allow-list | refused: gate: custom program error: 0x5
+PASS T10b. the same on the owners path | refused: gate: custom program error: 0x5
+PASS T11. a destination that is not a token account (a wallet): refused | refused: gate: custom program error: 0x5
+PASS T12. the owners lane pays 300 to the recovery address while the cap is 88: not bounded by the cap | ok 23051 CU, 671 B, gate 2092 CU
+PASS T12b. R gained 300 (the cap is untouched at 88) | ok 688 owner FqBEg9 delegate 8xwhL6 88 closer FqBEg9
+PASS T13. the owners lane pays a listed venue: refused (recovery address only) | refused: gate: custom program error: 0x2
+PASS T13b. the owners lane pays a stranger: refused | refused: gate: custom program error: 0x2
+PASS T14. one owner alone as the owners lane (threshold 2): refused by Squads | refused: squads: InvalidSignerCount
+PASS T15. the owners lane needs a not-after too (a stored recovery lapses): a deadline that has passed is refused | refused: gate: custom program error: 0x4
+PASS T16. recovery of everything left to R | ok 23051 CU, 671 B, gate 2092 CU
+PASS T16b. the gate-owned account is empty, R holds everything that was recovered | ok 0 owner FqBEg9 delegate 8xwhL6 88 closer FqBEg9
+--- X: the close-and-reopen bypass is refused
+PASS X0. custody holds the owner and a close authority of its own on the account | ok 50 owner AAgpYY delegate - 0 closer AAgpYY
+PASS X1. custody hands over the OWNER only and keeps the close authority (the bypass setup) | ok 118 CU, 334 B
+PASS X1b. owner = gate, close authority = custody; setup-checks flags the read-back | ok 50 owner 92ESTd delegate - 0 closer AAgpYY
+PASS X2. the multisig threshold tries to set a cap: refused by the gate (a close authority that is neither the gate nor none) | refused: gate: custom program error: 0x5
+PASS X3. with no cap the agent lane cannot draw: refused by the token program | refused: token: custom program error: 0x4
+PASS X4. custody, the close authority, cannot close the account while it holds 50 | refused: token: custom program error: 0xb
+PASS X5. the bypass captures nothing: the cap cannot be set, so the account is never drawn empty and the venue pays no proceeds into an account custody can move alone | ok cap refused gate: custom program error: 0x5
+PASS X6. the owners recover the 50 to R (recovery works for a wrongly set up account too) | ok 23049 CU, 671 B, gate 2090 CU
+PASS X7. custody fixes the setup: it signs SetAuthority(CloseAccount) as the close authority and hands it to the gate | ok 130 CU, 334 B
+PASS X7b. the read-back is clean now | ok 0 owner 92ESTd delegate - 0 closer 92ESTd
+PASS X7c. the multisig threshold sets a cap on the repaired account | ok 3980 CU, 537 B, gate 3980 CU
+PASS X8. a close authority held by a stranger: custody sets it before the hand-over | ok 133 CU, 334 B
+PASS X8b. custody hands over the owner only (it cannot change the stranger's close authority) | ok 118 CU, 334 B
+PASS X8c. a cap is refused | refused: gate: custom program error: 0x5
+PASS X8d. release is refused too: the gate cannot change a close authority it does not hold (the token program refuses) | refused: token: custom program error: 0x4
+PASS X8e. recovery still gets the 20 out | ok 23049 CU, 671 B, gate 2090 CU
+--- E: the end time stops the agent lane; recovery works before and after it
+PASS E1. before the end time the agent lane draws 5 to the venue | ok 27689 CU, 671 B, gate 3730 CU
+PASS E1b. recovery before the end time: 10 to R | ok 23051 CU, 671 B, gate 2092 CU
+PASS E2. after the end time the agent lane is refused (destination not allowed) | refused: gate: custom program error: 0x2
+PASS E2b. the Prime vault's own account is refused too | refused: gate: custom program error: 0x2
+PASS E3. after the end time recovery works: 20 to R, above the cap left (95)? no, within | ok 23051 CU, 671 B, gate 2092 CU
+PASS E3b. recovery above the cap: 500 to R after the end time | ok 23051 CU, 671 B, gate 2092 CU
+PASS E4. one signer still lowers the cap after the end time | ok 3876 CU, 440 B, gate 3876 CU
+PASS E4b. the threshold raises it after the end time (the agent stays refused) | ok 3980 CU, 537 B, gate 3980 CU
+PASS E4c. the agent lane is still refused | refused: gate: custom program error: 0x2
+PASS E5. a gate created with an end time of 0 (already ended): the agent lane never works | refused: gate: custom program error: 0x2
+PASS E5b. recovery works on it | ok 23051 CU, 671 B, gate 2092 CU
+--- R: release: the multisig threshold hands the account back
+FAIL R1. custody alone: refused (one slot of two) | ok 3729 CU, 431 B, gate 3729 CU
+stopped at the first failing check (GATE_STOP_ON_FAIL)
