@@ -1,0 +1,235 @@
+{
+  MetaMask: "4TXiTPLxe5PrpwiY15tj9nP3wF5F8JPKUsYQyfHCCcod",
+  Freighter: "9BcBicoPrGtPJnVynJoj2g1p6zrvaFBkJccorLwGTMZo",
+  Phantom: "G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4",
+  sessionMetaMask: "3YomJ7dnhtqFnnPAzRUGmhC8EevR2R4F6Sdx7YN6Pppc",
+  sessionFreighter: "Cn2bjH8kGkjioVoB9MY86TDsJ6kKjvaiu9ZCmMsJVW74",
+  program: "FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G",
+  programB: "J38gUL2YFo91GDBnDXwVDaGpk6XWSJUhs7RuditRdiVo",
+  net: "localnet",
+}
+7-of-12: Phantom seat G5H71U owner G5H71U; MetaMask seat 4TXiTP owner 3YomJ7; Freighter seat 9BcBic owner Cn2bjH; Owner4 seat ALbk6d owner ALbk6d; Owner5 seat CDoWnB owner CDoWnB; Owner6 seat HrJhw6 owner HrJhw6; Owner7 seat CnEQsM owner CnEQsM; Owner8 seat 6CKrae owner 6CKrae; Owner9 seat CC3Dke owner CC3Dke; Owner10 seat AprcA6 owner AprcA6; Owner11 seat HadpAJ owner HadpAJ; Owner12 seat HF9TWD owner HF9TWD program FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G
+PASS O0. seats are exactly the 12 owner keys, threshold 7 | ok 2Sc1zwrBS4a8hnpVk7XMkMU9sH9SNNzmZvUnZbz8rwtCctMmApPsPHEqmCZHmDHpRYmm2HthYpBRCgy3rQKWgXwi
+PASS O0b. the 12 session owners and 12 session PDAs are all different, and no session PDA is a seat | ok 7BsCdN,39gzwQ,H7ehee,DX1Tpg,DxpdUQ,4qmShL,JDNKyA,J5k2dD,Dw41ct,3XadHX,EzQZeP,FVoTKM
+PASS K1.a Phantom proposes and approves | ok 5PKdM5Mg1TDnqjpKjJudrsAA1rFkpjtjeNMQp6BMzVvY2vgto6RYhQU5tQskukbYdWZyEWYDe8jjQR8K5LYPzvhW
+PASS K1.MetaMask approves | ok 2pZ7M3BbLB8NHJ1fdqho4UMiX8RMQ9niaZVMa3iBLfqrZu8sriYAvh76pZhCzzfN6BRSTmhkx9Hokd6y22vvozjY
+PASS K1.Freighter approves | ok 63DACnCmT1a1ZAqsos2XDCPnd9xLfzHd2eJsMi6qQsqjqV6DiFiyyVya2jM74kGEL2EY83EFACwBq9F6oPqe1qGJ
+PASS K1.Owner4 approves | ok 4ADc9fm7Wwx1g6Xv3CBj2mWRZb5jp5Fexn1QgcGJwPjs72kdvJR3fxYuzhcHQxNg49McxZw9aLC8kkmHVLhqZf5G
+PASS K1.Owner5 approves | ok 2oJA4X3Q4F15pjKUXJcdh37wEWDYcNYQY2dWQj1ppPbgtTc8BzJz3nnk3LTt1gTqRwaT1KwcVqJz7pBdsVKS1zPz
+PASS K1.Owner6 approves | ok 5Qk1oKpGYcgUxiHy9M1ddvrbbGxs48NH3CYbUoDnb4AS8Dxnrggc3RKhdjRaBM7FasimtSysZUn4bTj8dcL37hD7
+PASS K1.x Owner6 executes | refused: Error Code: InvalidProposalStatus
+PASS K1c. an outsider approves it | refused: Error Code: NotASigner
+PASS K1d. Phantom approves it a second time | refused: Error Code: AlreadyApproved
+PASS K2.x Owner7 approves and executes | ok 3cfNWWwTLaCtRi9h28oAGMk73MCbsuLcB2rT2y8qBxG7EhNsfRrfuAxzASqBesh4atADMCJHQjxEvSHDHybMWfp9
+PASS K3. a different 7 owners (Owner6 + Owner7 + Owner8 + Owner9 + Owner10 + Owner11 + Owner12):.a Owner6 proposes and approves | ok 4VgyNKfEayM9i9yTphahU8BrQqWKWeLvg6sVYjheDPkZbRY5utPX6aVR8AwPoQYShhpEkQpMLnX3s4mTEykg6diT
+PASS K3. a different 7 owners (Owner6 + Owner7 + Owner8 + Owner9 + Owner10 + Owner11 + Owner12):.Owner7 approves | ok wycVFZUEkY1TGu6XzdxqL3amYQY7bSXC9ZkTbkJ1t4DXX4MBqqGKauUBPTskkSQMSXUAEEDuGePobeTQMP2WHz2
+PASS K3. a different 7 owners (Owner6 + Owner7 + Owner8 + Owner9 + Owner10 + Owner11 + Owner12):.Owner8 approves | ok 2fpSnwEMbhi8SuHMNSMbAqtSQxT3JEYBvW9QWPoZC7pfHaApDzwWeycBfxjPAeEbUus5H5XBK9ncxurUiCZjYnTQ
+PASS K3. a different 7 owners (Owner6 + Owner7 + Owner8 + Owner9 + Owner10 + Owner11 + Owner12):.Owner9 approves | ok 3Ar41t2UjcnzztpbVjd88dptGYx6Wv6H2eZJgsLgidNLVQMWvoH3sFs8UTCJtVBTgX3VDo7RuX1sLBWZNLRKM8Vn
+PASS K3. a different 7 owners (Owner6 + Owner7 + Owner8 + Owner9 + Owner10 + Owner11 + Owner12):.Owner10 approves | ok 63rcW7hBHbofLf3CFGMXvYZBULSswigsLWkVP69ov8sVMY28EdbmRVqcfLLeBpa1aMKkJsEdETrSinKpCmqZ5naV
+PASS K3. a different 7 owners (Owner6 + Owner7 + Owner8 + Owner9 + Owner10 + Owner11 + Owner12):.Owner11 approves | ok 4eYpCNX35nGXdkcMxpi7foGYUV244HrJzTtU6qthUVbtMc8ErwFFDUcyupDqmR8PN4AdReCHrWU1aRXfz1ocon5e
+PASS K3. a different 7 owners (Owner6 + Owner7 + Owner8 + Owner9 + Owner10 + Owner11 + Owner12):.x Owner12 approves and executes | ok 2xLs6wG8dq7Qxud9VKCkZGr4CXDwAf4qQ8EhcrrKJyyhTqmwHTv9bVfFZnyEbxJeYY8tYpiReyYa5ks3wcAn9A2S
+PASS K4. DEST received exactly 0.02 SOL (the accepted transactions only) | ok 0.02
+PASS K5. 7 owners install the movers policy (members: the 12 session PDAs, Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.a Phantom proposes and approves | ok 423cnFLr6GAdTKvDo7MQeJGBZ4sLndGWM31XRpyX8n1aRiE8QaRabNWF8z7Fbv74HL3kQJoxBbwPRZHN6oa4urYi
+PASS K5. 7 owners install the movers policy (members: the 12 session PDAs, Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.MetaMask approves | ok 4kMRBMAbV17Woqq8rvXzYDhiCH5vsSHmwv4qsp4KCWpB9HkRXrK86AKDntNroUULuLH3se3pesZEeUn7La5KvFBa
+PASS K5. 7 owners install the movers policy (members: the 12 session PDAs, Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.Freighter approves | ok 3VBKfS73yoFsTeCsBPeiXJKrfC3vC9Cnv1r3xzE4Hi4yomKQehgyWNq3WtZiDR1w7kASwzV3iRSfKCamxUQTpxy3
+PASS K5. 7 owners install the movers policy (members: the 12 session PDAs, Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.Owner4 approves | ok EY95FHsiKHMsHeaSp7asXHZbGjuKnadT5T1SdEtrgWzWzPhbJRsBWj1piBsqq61XKUMgNrupbKYymjYXNdUiZ8L
+PASS K5. 7 owners install the movers policy (members: the 12 session PDAs, Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.Owner5 approves | ok 3gcbZa3easbD2uud9bGgH5RPaCbZniUTVWKccLcZjdRmrAiUxWHMsZhSDT2G5rRgwvHFb2Kd33XBQ4pVSAsJTuex
+PASS K5. 7 owners install the movers policy (members: the 12 session PDAs, Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.Owner6 approves | ok 3sBZBBZ8xYxbnZ8So8Bs1dC9bhcgcWdPNn5c5M48GR5YxBr5xWR4d96uSXnaPkErZMNbVmZhducDb8rTGKG2ZfFP
+PASS K5. 7 owners install the movers policy (members: the 12 session PDAs, Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.x Owner7 approves and executes | ok wbz7GkEWVvn6aANDsaotNAXjn5sgEFGSEvqwPDe6Z3MqCVYcECHC4MRnkT5L375HqEMq5cQwt7Lreq26vDPPyK9
+PASS N0.a Phantom proposes and approves | ok Ee9bLkJd1yvXYGLKYJD1BufQM8LQSKn51RdqB6d3kv2cbgSi8kSZ7CMJjusU4iwfBFRHSUR17ZvPnzXbhzjkXbW
+PASS N0.MetaMask approves | ok 5a9AipXokrwmcPdgkY29NHnWVpbxaZWwWycYPZAiYW7D7Azm7xRwVKBuVNvLdVJRSHcv9W5cHufXuKTCFewu8P3X
+PASS N0.Freighter approves | ok 372Q9Aa4JEktWVUoACE9i5uo1Vc19JyajD2L9DWRuriV4vhVfWnxCzQTi87CWf6T17VMCSzDjLgdQADpPJUSiUKD
+PASS N0.Owner4 approves | ok 3hZua8yve5Nk44te3RnUMiDPz4jHwui6dQrfaUnnAddnJVQvEgsbShJ79HPFNCihCjMdVXczcaXP2EZwQN2dehcG
+PASS N0.Owner5 approves | ok 32Rxg6WceZYFq3Be5FvMCDg17n97hG4L6teAG4CfHd3T71LWGgBdNoRokjmgGcV35Ex65fwpZZUWZY9bnDppNYod
+PASS N0.Owner6 approves | ok 2xqBkvH8wX1od3BBaFL9EDs2C1v2oBs2TA6Lm7fLz75yRaziXLKRViodeManUSANX23xM9vpzDqMJr23ZGHJ1q2z
+PASS P0-Phantom.1 one Phantom signature -> session; relayer pays: 0.002 SOL to VENUE | ok 5sdojAfSr5ncQ57XW28TLFMDmuN2ExcK7YEvr7QT2ifv6uLJsVMzfn7gP3SPAEd4aj722VKHQybj1CynSuiRR55p
+METRIC move-Phantom-relayed {"totalCu":57298,"primeSessionCu":57298,"bytes":975,"fee":15000}
+PASS P0-Phantom.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE | ok 33cxEW9VnU3cmQyFESAAqtmFCCTZjXjVWhPgUX4booURrVrGTix5aL1cBbbzkQvvVS1yqE4brp8PnX4f1fnvxa4r
+PASS P0-Phantom.3 VENUE received exactly 0.003 SOL | ok 0.003
+PASS P0-Phantom.4 0.002 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS P0-Phantom.5 the session approves an open seat proposal as its PDA | refused: Error Code: NotASigner
+PASS P0-Phantom.6 the session key approves it as itself | refused: Error Code: NotASigner
+PASS P0-Phantom.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA) | refused: Error Code: InvalidSignerCount
+PASS P0-Phantom.8 a second session works | ok 4XPKGPqck2vw9shTR9nYagKk8p2SqTve6GGXWzpCKVWdBLt32Zn31MZLAy7KioBprkmvcVYC6WCHRSw4UD8vKyvn
+PASS P0-Phantom.9 Phantom revokes it (one signature, relayed) | ok 2wxz6p3oPMSDQcy1oxoJvFHtg3boekrnt2GQnET5PadVTkYkJMR42trLfCtt7wgKbRLdwUwGGmLqcw1g8nA4DNfG
+PASS P0-Phantom.10 the revoked session | refused: custom program error: 0x2
+PASS P0-Phantom.11 the first session still works | ok t6T4kEY6wFygjUFjUDuGJtynMCtWtEmfi5tG4siVkrYe9NmP5XK5T6x6s7HRvHjc4XTRK65fBhWJhZcm42HeaPy
+PASS P0-Phantom.12 a grant for Phantom's PDA signed by MetaMask's owner key | refused: custom program error: 0x7
+PASS P1-MetaMask.1 one MetaMask signature -> session; relayer pays: 0.002 SOL to VENUE | ok 4K5iHaA8mTHKEzwdbwTx6ycvLtcMc327jjR5QQpMAG5SJWPMLMqsm2nxRW24Fb9FEcYimToKqcFwBayZHn9oN2x2
+METRIC move-MetaMask-relayed {"totalCu":57360,"primeSessionCu":57360,"bytes":975,"fee":15000}
+PASS P1-MetaMask.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE | ok 5wdriiM7NFfmYMUr8oo6XfScQdtTJcgkoZiEMZYe2VNcukSVArG3VagHkNarmfuvznSfg736BknyN23U8vdA9Yes
+PASS P1-MetaMask.3 VENUE received exactly 0.003 SOL | ok 0.003
+PASS P1-MetaMask.4 0.002 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS P1-MetaMask.5 the session approves an open seat proposal as its PDA | refused: Error Code: NotASigner
+PASS P1-MetaMask.6 the session key approves it as itself | refused: Error Code: NotASigner
+PASS P1-MetaMask.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA) | refused: Error Code: InvalidSignerCount
+PASS P1-MetaMask.8 a second session works | ok VBDh9Mg5KuwFYA69jCW19UuUoCTLaF2649mmwVUuYFYGrF2x85yDhaHh7fR3Mfkf2MXNb3JvL1tuV9EGyboBFNc
+PASS P1-MetaMask.9 MetaMask revokes it (one signature, relayed) | ok 2G7ez6LWZY6Ych1UvVkuUKXi9PAwmyvA45nqTKLwa7XCAdJkMouFwmsQ2TRnN14vyZBSAzX6Z6o9NGmHECRx2Mdq
+PASS P1-MetaMask.10 the revoked session | refused: custom program error: 0x2
+PASS P1-MetaMask.11 the first session still works | ok 4hhdPDL1878yWd1391LpZcMv9J3VWwjwHYpGDzA69uZy68ZMWHEgG6XhUTXNAVaMDnprK54e2E82t8VtBTubWziD
+PASS P1-MetaMask.12 a grant for MetaMask's PDA signed by Freighter's owner key | refused: custom program error: 0x7
+PASS P2-Freighter.1 one Freighter signature -> session; relayer pays: 0.002 SOL to VENUE | ok 5nt4KUJXFdcNw2xsZkfZMXfQkqpz8gFBnwqzWVgKwUY1xY4TsTWVKJ7LKXqcZ9z3dBiYfNvd1nrP3qWdtGY9zuxz
+METRIC move-Freighter-relayed {"totalCu":58799,"primeSessionCu":58799,"bytes":975,"fee":15000}
+PASS P2-Freighter.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE | ok 5UvejuMAcuSkLe4K4F9meziXEbMY4uQtjYSLivxUcjfcAW9P1fFAF4gmoLg8zj1AU5N6P42MWVtbBGG5eVeyZqvm
+PASS P2-Freighter.3 VENUE received exactly 0.003 SOL | ok 0.003
+PASS P2-Freighter.4 0.002 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS P2-Freighter.5 the session approves an open seat proposal as its PDA | refused: Error Code: NotASigner
+PASS P2-Freighter.6 the session key approves it as itself | refused: Error Code: NotASigner
+PASS P2-Freighter.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA) | refused: Error Code: InvalidSignerCount
+PASS P2-Freighter.8 a second session works | ok 47f3e8Fo7tBQfc5YFWBFHqh3ncWn7Ufyj5QTf2dQCTH2FFUtDHVJPWDEtUsbTTCZ5NDRBUtzVtTkt7bMQyMT3FAV
+PASS P2-Freighter.9 Freighter revokes it (one signature, relayed) | ok T8HCepf7HueQnq3BjkC6VGYzjD1ZtKT54N7Lx7iyjHYkKs4d8SSUZfSGAC55RyKDrwyrxN6iM7ab9cfyL3h4DBZ
+PASS P2-Freighter.10 the revoked session | refused: custom program error: 0x2
+PASS P2-Freighter.11 the first session still works | ok 5vCt3hEHnvTEUHb1cqVMuMFUxZT6DswXAUTT11D41qiUVvUjENLAk1rgNsKCbkYi11yR6S9jjzeh9A34MgZLe6xi
+PASS P2-Freighter.12 a grant for Freighter's PDA signed by Owner4's owner key | refused: custom program error: 0x7
+PASS P3-Owner4.1 one Owner4 signature -> session; relayer pays: 0.002 SOL to VENUE | ok 3t5K9W8MxutDz72PoFLfRETgUtu2rDaD9WFJ2o65yxKYBT2ntAJxSteTyLDL96LmYTPKoPHKoTXDnuwS4G9kQM42
+METRIC move-Owner4-relayed {"totalCu":57361,"primeSessionCu":57361,"bytes":975,"fee":15000}
+PASS P3-Owner4.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE | ok GP9PHpRbfkWVtyWD4SoxyD8UsqJu4M4wo48VtacPuiAKqDKNzA8kHYsrgidcTVNtwtJ2iC7QHxuCAx76EBK85FM
+PASS P3-Owner4.3 VENUE received exactly 0.003 SOL | ok 0.003
+PASS P3-Owner4.4 0.002 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS P3-Owner4.5 the session approves an open seat proposal as its PDA | refused: Error Code: NotASigner
+PASS P3-Owner4.6 the session key approves it as itself | refused: Error Code: NotASigner
+PASS P3-Owner4.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA) | refused: Error Code: InvalidSignerCount
+PASS P3-Owner4.8 a second session works | ok 5HX3ZM9dLdEwSU2j6V3DkAdWVXg4cwXrNsGp23kNLtz7GD2UK9YvMuRhYhBJdu9bqgvjs87pZP4GUEK1W2Svsrxi
+PASS P3-Owner4.9 Owner4 revokes it (one signature, relayed) | ok 2JQ8jnvQYDwLbAHdFasNaK6uiNugB8wbbjF7hYY4CF5iC2WdGyg2TydrBEbyNYNAPgbVgtLSHmhxUS4E4K5wDtzo
+PASS P3-Owner4.10 the revoked session | refused: custom program error: 0x2
+PASS P3-Owner4.11 the first session still works | ok 51uWkay1ZdGRArANR58b5QokGPeHohuYqH4aUKG1Ds1LE3xc9Mz8AJnKLoruEVx7jgZ75SzmBNYargsCa4pkRLFV
+PASS P3-Owner4.12 a grant for Owner4's PDA signed by Owner5's owner key | refused: custom program error: 0x7
+PASS P4-Owner5.1 one Owner5 signature -> session; relayer pays: 0.002 SOL to VENUE | ok 3R7zVqdpbzsjkb4Mjym9qfboRZGzCFhVre1QdJ9xeyaNsxbk3X9WLxhiSes9fxEAoxB16w8UQCghDfuSX4cvFtb8
+METRIC move-Owner5-relayed {"totalCu":58754,"primeSessionCu":58754,"bytes":974,"fee":15000}
+PASS P4-Owner5.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE | ok 5CPuxzoB1aCf9hYQ2VwdT76BpNX3H6Exqa1Psv5W37ZM4jjD3FdZqtwMEDvhiqULEaDTw3H6MRBKxctyjadYFgay
+PASS P4-Owner5.3 VENUE received exactly 0.003 SOL | ok 0.003
+PASS P4-Owner5.4 0.002 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS P4-Owner5.5 the session approves an open seat proposal as its PDA | refused: Error Code: NotASigner
+PASS P4-Owner5.6 the session key approves it as itself | refused: Error Code: NotASigner
+PASS P4-Owner5.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA) | refused: Error Code: InvalidSignerCount
+PASS P4-Owner5.8 a second session works | ok 4J9MCEQP4D5ZQAJFSShpBE9DQGUNz23AGMD1RjthSKi3iFLPDwBkDxBejtWAZ1f2MdvH8RFicYMXZVCQpLgV1LE7
+PASS P4-Owner5.9 Owner5 revokes it (one signature, relayed) | ok 4wY7zYvpv9WxnTUNboExbhfxpFiaXiSWJLexV8ivsu6U3BBxPuSq47jJ4McZBaY33RS29DfcKV5d5wGLT8EBhZbD
+PASS P4-Owner5.10 the revoked session | refused: custom program error: 0x2
+PASS P4-Owner5.11 the first session still works | ok G9sAY5vJgDjBJYepFCv4nwip6cmWBy29serdw11XXRRrBsh2s89TCqwMbE4ZeSLeVM1kvyaG1awHNdoJF8kc6fi
+PASS P4-Owner5.12 a grant for Owner5's PDA signed by Owner6's owner key | refused: custom program error: 0x7
+PASS P5-Owner6.1 one Owner6 signature -> session; relayer pays: 0.002 SOL to VENUE | ok 2g2rDqUy9AErRxZLSRuQBfC1m4AXsgzEn5Jgfmd2saVuX8LmK9CVAzEx5MBK6FCA97Z2g2LzcKTDnU79aLg66Tf7
+METRIC move-Owner6-relayed {"totalCu":57361,"primeSessionCu":57361,"bytes":975,"fee":15000}
+PASS P5-Owner6.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE | ok 2MVAE8Mcray266RQko1HdXxna9Qh5R8dBpHHgmeA53jDk6vnUGiBHd5hNVRu4tPeH4MYh8n89k2vdFuvJU8nPCWD
+PASS P5-Owner6.3 VENUE received exactly 0.003 SOL | ok 0.003
+PASS P5-Owner6.4 0.002 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS P5-Owner6.5 the session approves an open seat proposal as its PDA | refused: Error Code: NotASigner
+PASS P5-Owner6.6 the session key approves it as itself | refused: Error Code: NotASigner
+PASS P5-Owner6.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA) | refused: Error Code: InvalidSignerCount
+PASS P5-Owner6.8 a second session works | ok 4rXCJSmER651GFhGazBfXoUibA4RYoREvwza6MkubnTRNH11Dvc3XTd2yejX6wDKe9JxsznFgxvPrYxFDYfnTeBv
+PASS P5-Owner6.9 Owner6 revokes it (one signature, relayed) | ok MnLEJy2WQ9v6exYQW4Hat7cbebCqLqai86sKkdERyNDmosM1GLCTZ2CdaD4i7EghrwYCSVitbpnvmw9AQ54Ct6Q
+PASS P5-Owner6.10 the revoked session | refused: custom program error: 0x2
+PASS P5-Owner6.11 the first session still works | ok 4S6vyZH3mHa8pz7UZNvhhApithJUa5Q39r5DrEoDS1idFMUd2WwYW2kue363fLWEgiV9sBNvVvfLZ6bKSrd72sYu
+PASS P5-Owner6.12 a grant for Owner6's PDA signed by Owner7's owner key | refused: custom program error: 0x7
+PASS P6-Owner7.1 one Owner7 signature -> session; relayer pays: 0.002 SOL to VENUE | ok 546EkMt6EZz2zDCEvKWHTWnWy6VUhFojK6f4fXdnG9tXQg5ob3j9bpi8Au21zCJzf4Yv5Hn5VmeDnTV3QqqYN7S
+METRIC move-Owner7-relayed {"totalCu":58831,"primeSessionCu":58831,"bytes":975,"fee":15000}
+PASS P6-Owner7.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE | ok eEGmaHqEJ16SLoJPXbvBbZZQ5SRgPwYY3HEFZVWmckFkVmxjnkEU87W1uZLQ1MJLi4xu4YS7Rhmor6nuw2usqzu
+PASS P6-Owner7.3 VENUE received exactly 0.003 SOL | ok 0.003
+PASS P6-Owner7.4 0.002 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS P6-Owner7.5 the session approves an open seat proposal as its PDA | refused: Error Code: NotASigner
+PASS P6-Owner7.6 the session key approves it as itself | refused: Error Code: NotASigner
+PASS P6-Owner7.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA) | refused: Error Code: InvalidSignerCount
+PASS P6-Owner7.8 a second session works | ok 2dgqjaYP1go6U3JkKu29gLEhFMQCLqb514mPipFeRUV5YqV61kn8ZdZq6nWnKUZtd4mqqGoow1iCJsWSLFzMgkXs
+PASS P6-Owner7.9 Owner7 revokes it (one signature, relayed) | ok 5msTgykRdYfuoKXBMm6zK3wFfgJLfcrbps4KmXfdMRPqQmhhBupTYX1XAZ7Gd5guMRZbsNoUE4EuChyLz7Gj81Xh
+PASS P6-Owner7.10 the revoked session | refused: custom program error: 0x2
+PASS P6-Owner7.11 the first session still works | ok 3Ei8ZHdmv4DyQEfXnTLLTCCem7615mQ1FzkXg3DEYURENHStDyMbHktMKuTY6QUE9jGoTG9yWZqt41PtYXNam3Cu
+PASS P6-Owner7.12 a grant for Owner7's PDA signed by Owner8's owner key | refused: custom program error: 0x7
+PASS P7-Owner8.1 one Owner8 signature -> session; relayer pays: 0.002 SOL to VENUE | ok 3PdZRU5SPKp5Jb7cc6i48Xt92Aga7aevV5Nim1FySMZAKcMmrLQkgDy1sa9NfQ1RMVZ3YE8Jy8opVBfWu3UJzTTh
+METRIC move-Owner8-relayed {"totalCu":57362,"primeSessionCu":57362,"bytes":975,"fee":15000}
+PASS P7-Owner8.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE | ok 2VbFPyC9Rso5g38BCEURyiYfGB2Tkbu1fPbnNfdkfF57xD31wgxoC4dMVdgMAbD2Tr8QonwDsAUpfo93K6kcY6vc
+PASS P7-Owner8.3 VENUE received exactly 0.003 SOL | ok 0.003
+PASS P7-Owner8.4 0.002 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS P7-Owner8.5 the session approves an open seat proposal as its PDA | refused: Error Code: NotASigner
+PASS P7-Owner8.6 the session key approves it as itself | refused: Error Code: NotASigner
+PASS P7-Owner8.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA) | refused: Error Code: InvalidSignerCount
+PASS P7-Owner8.8 a second session works | ok 4ULXJDEMQeSEmSvqppbcvUXStXeTSk8CCNpBPtPPYjmuiTCShBKhH6iSkPyAVHrdLRJxS3xbLNbSUYDTto4bQ8wq
+PASS P7-Owner8.9 Owner8 revokes it (one signature, relayed) | ok 2CqnRocb9fo1Ktt9PRJgTc4sQRHZtQysQsbFFroWGEFWp7XsAJu7LjYXWqVaAj1FVde32Nnx5j17pt4rZLtiYdz3
+PASS P7-Owner8.10 the revoked session | refused: custom program error: 0x2
+PASS P7-Owner8.11 the first session still works | ok kuoGzwEXkMVR4TwE7riRBKLJxsAwjk55yKaEpbwRkMFtvFP7ysNq21VHq3UGYrvigu8HsskbAqrDqNnKSKgfUs5
+PASS P7-Owner8.12 a grant for Owner8's PDA signed by Owner9's owner key | refused: custom program error: 0x7
+PASS P8-Owner9.1 one Owner9 signature -> session; relayer pays: 0.002 SOL to VENUE | ok 4fpbBnN4gLV5iq7b6Pm8yJU1QnnVqLBL5H4n7xnmaXcSEMNWBtGhZdNLrALsnMyeLM1xcP8LE8dDegn5NTJ9sKGc
+METRIC move-Owner9-relayed {"totalCu":58830,"primeSessionCu":58830,"bytes":975,"fee":15000}
+PASS P8-Owner9.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE | ok 2Tx1nGSSaP8LxGHRVrC9dVg2S4tvtuY7w2gpFnMCz7VS7ipNPwLebAiLQKSkwbmP9LPinup4ZsUZFJXGpVeKbi1y
+PASS P8-Owner9.3 VENUE received exactly 0.003 SOL | ok 0.003
+PASS P8-Owner9.4 0.002 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS P8-Owner9.5 the session approves an open seat proposal as its PDA | refused: Error Code: NotASigner
+PASS P8-Owner9.6 the session key approves it as itself | refused: Error Code: NotASigner
+PASS P8-Owner9.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA) | refused: Error Code: InvalidSignerCount
+PASS P8-Owner9.8 a second session works | ok 1zfvoZCpS6dWhFKA4kBz11jenT1WYpVN7X8YxMrMdPEqzTb4a85izbmqYnSwEbcHiDKfrfmhhwFvR3PEMX85yuP
+PASS P8-Owner9.9 Owner9 revokes it (one signature, relayed) | ok 2jWsjVczhpo9xeXioFdPRR13rPFXd63PSsPgjQv7EUMxd5kbYeLbMdjNPmYuuBQbZE3b7ozCzPVhCVKpsfxDLbjb
+PASS P8-Owner9.10 the revoked session | refused: custom program error: 0x2
+PASS P8-Owner9.11 the first session still works | ok 3U6DLc7YjkkguR37q2aduq5k27RZzmM7bTFstCMzwTaUQxARfkhr8DeRHo7pK21soWfb9aoi8gFxEMrLgY85df6A
+PASS P8-Owner9.12 a grant for Owner9's PDA signed by Owner10's owner key | refused: custom program error: 0x7
+PASS P9-Owner10.1 one Owner10 signature -> session; relayer pays: 0.002 SOL to VENUE | ok 4aKRh6trK8gAb2ZvN6yxu15V6UPe29Z84sAuTQo1LdmKQEFYZSSgSruKth3mw6RFRXd8X9QNoE35QGRo7QLE38dY
+METRIC move-Owner10-relayed {"totalCu":57329,"primeSessionCu":57329,"bytes":975,"fee":15000}
+PASS P9-Owner10.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE | ok 3fy3RmdAokAYbyLSpEFTmgp99xFZjr1WABeNWaN5nVNqimP5EbYegoc6Gdafc5Ar9RgsCyoCkc3ZHb6UyDRfLCYc
+PASS P9-Owner10.3 VENUE received exactly 0.003 SOL | ok 0.003
+PASS P9-Owner10.4 0.002 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS P9-Owner10.5 the session approves an open seat proposal as its PDA | refused: Error Code: NotASigner
+PASS P9-Owner10.6 the session key approves it as itself | refused: Error Code: NotASigner
+PASS P9-Owner10.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA) | refused: Error Code: InvalidSignerCount
+PASS P9-Owner10.8 a second session works | ok 3FA2NTJwYZEZEeP9ptAQUMkR6c1ywwqAAWU3KjGcbAtWDyLfAKRyaC2651ZpxCZkSQr3AgzK1xcGxxCBch1jb6Sz
+PASS P9-Owner10.9 Owner10 revokes it (one signature, relayed) | ok 5ygfDRp2DtXcn1y2uBD1pGU6zE8gWLvhZcmgcK55roZ5rMAqQyWozoD3oTNRyPo46Zbs3yqfxSsaxMa64MXLE4Et
+PASS P9-Owner10.10 the revoked session | refused: custom program error: 0x2
+PASS P9-Owner10.11 the first session still works | ok 59bKb1MfcGJnSsS9oiPFEBRFfM1K5u9x64aKfKzMLXLMNpduwo7i3CryB2boXkGDEVeK4WjWtd1ATaQLKWXdLwUM
+PASS P9-Owner10.12 a grant for Owner10's PDA signed by Owner11's owner key | refused: custom program error: 0x7
+PASS P10-Owner11.1 one Owner11 signature -> session; relayer pays: 0.002 SOL to VENUE | ok 5sQh3DbakF6QPRDVtvWRF2cLnGAP7Pmui9CYPPyVeG5EwigUmW5JSfMoSaw4zJ1ArNBBHCrLZy5V6c7cmAuqyWR9
+METRIC move-Owner11-relayed {"totalCu":57361,"primeSessionCu":57361,"bytes":975,"fee":15000}
+PASS P10-Owner11.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE | ok 2wLTD26D2eApEj1YW38wDL4FYY6AppkxcBQQRYqHmcZsoDLMvS7iY8FE5g6RkEjCjGYYqnwsdNaenuXJWBa32Zon
+PASS P10-Owner11.3 VENUE received exactly 0.003 SOL | ok 0.003
+PASS P10-Owner11.4 0.002 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS P10-Owner11.5 the session approves an open seat proposal as its PDA | refused: Error Code: NotASigner
+PASS P10-Owner11.6 the session key approves it as itself | refused: Error Code: NotASigner
+PASS P10-Owner11.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA) | refused: Error Code: InvalidSignerCount
+PASS P10-Owner11.8 a second session works | ok 59mpCL9ZQepVDkZKxFfb61QwamEsGZFtU58PASif6GmLsLVYLzPxvFZ6MKi2k63HkXo4Wxv5Kiy5s1GY8zTbQXmd
+PASS P10-Owner11.9 Owner11 revokes it (one signature, relayed) | ok ZiMoSRWRhvrja9wSkMToH19f8WntCDZGwP5Ei9ZCXTznaeYxpx2bpSXx1QfSdHkpvTgrumuohMVNbyxafFWc4aW
+PASS P10-Owner11.10 the revoked session | refused: custom program error: 0x2
+PASS P10-Owner11.11 the first session still works | ok bHh1z8Rs6c7d4Re7WyHtGQemtrhgJrrBQd5g6GoK1nNN6GKmrMrc5qdhuZxwB4d4HJzYrKcgjvyBjhkK9XoQV4p
+PASS P10-Owner11.12 a grant for Owner11's PDA signed by Owner12's owner key | refused: custom program error: 0x7
+PASS P11-Owner12.1 one Owner12 signature -> session; relayer pays: 0.002 SOL to VENUE | ok 4H9ntXwGkX9Y1tVFzcQ6YE4nVzzz2DYeHU8kLFAm4JAKqvv9yuBFHnyGQGkcJv293ER3JstcmEAAvXFrLnZebyWr
+METRIC move-Owner12-relayed {"totalCu":58830,"primeSessionCu":58830,"bytes":975,"fee":15000}
+PASS P11-Owner12.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE | ok 5JqYk8B8KoyUGcXX8QYmUzotHiq5PDk4mU2s9cKBdcMBDqt9pcP9MwT13BMio9JjquBhoa8RbqxHNTQK6CM6fqnJ
+PASS P11-Owner12.3 VENUE received exactly 0.003 SOL | ok 0.003
+PASS P11-Owner12.4 0.002 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS P11-Owner12.5 the session approves an open seat proposal as its PDA | refused: Error Code: NotASigner
+PASS P11-Owner12.6 the session key approves it as itself | refused: Error Code: NotASigner
+PASS P11-Owner12.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA) | refused: Error Code: InvalidSignerCount
+PASS P11-Owner12.8 a second session works | ok 2q8uKuA2XtybReAR5bhfWixx4MSapRRTJ9xuxY68FGtzizftdwVagrtvz5whsu3uKCTfxLPXLP3TeuYY2r32GBn9
+PASS P11-Owner12.9 Owner12 revokes it (one signature, relayed) | ok nX5zXPJAbdVZoD3ojmz9d1HaL7b4Tm5XVAzMNWdK6jYHAwciX3r7GowC2MMZox4D7n1iZmStRZCr3sj6qZfcRBH
+PASS P11-Owner12.10 the revoked session | refused: custom program error: 0x2
+PASS P11-Owner12.11 the first session still works | ok 3uFi1i8Cxsh4W92j7gn7VCT2HHuENjkYAkvGZYxFzR7dH26HqvfYRxqYYoczymGaNbgJvR9kVshGTYQvvy7pbSES
+PASS P11-Owner12.12 a grant for Owner12's PDA signed by Phantom's owner key | refused: custom program error: 0x7
+PASS R0. Owner12's live session works before removal | ok 3dGcX1HygkzzhwbzNcwySD4mycd36eb4AM2pgcAu1dZHu8wYCxgSVdUqr2EYkpd89WWdjCrvkE8G6erUS8CB5GVr
+PASS R1. 6 owners try to remove Owner12's PDA from the policy:.a Phantom proposes and approves | ok 4hinJtWcoYer62uhuCHotC9q64Bz4qwRk5xPL47ahwm8TDDAz1ZSazJB8dwWsjDy1wMBPPxhqL8MfPVRFMPPJrV5
+PASS R1. 6 owners try to remove Owner12's PDA from the policy:.MetaMask approves | ok 5wDN2qsTL2mio9VdLfCQiC2id7Jckn723Q2dRSCyQzNjeMwAmz4nR4tLNpYhasbGphmA7eKgCvDexwtVZVv9yYZ7
+PASS R1. 6 owners try to remove Owner12's PDA from the policy:.Freighter approves | ok 3mR5RFzcbMrQBqXCR2T9EqbpufLwU8rGCL5sYLPKz8jH5aPHvsr4JvuWnpNcFtiL2NZP4gM1NQZ9cvV5xL78qM6n
+PASS R1. 6 owners try to remove Owner12's PDA from the policy:.Owner4 approves | ok G8znoJ2eRj2abYtTgGY5Uxo38gjgJWryR1QXkwppk2s86JsFN4zPKBZxLxYxPzrr8QaNLpDMA2AuvvDRGURZpKw
+PASS R1. 6 owners try to remove Owner12's PDA from the policy:.Owner5 approves | ok ePRfZv7yta7vMJLxWzXZAeJwbtwD8aHX9pDaiQ6X7mL2QH3fLmNQQJwaEkhMMsFwJXByra3MFtCs1R18WdtcNPt
+PASS R1. 6 owners try to remove Owner12's PDA from the policy:.x Owner6 approves and executes | refused: Error Code: InvalidProposalStatus
+PASS R2. 7 owners remove Owner12's PDA from the policy (Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.a Phantom proposes and approves | ok 4uA6xZxomnaRz9x2XiwDgSjW9L83z5CVgDBDLzrTHm3LDFgaphXHVXTQkU1fZGUmjT3n77uAXNM5p1YkmzTxXzZh
+PASS R2. 7 owners remove Owner12's PDA from the policy (Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.MetaMask approves | ok 2PXhqRLqyvgNkAEQFhMHM9iQW6NY1DeJoXVgA2a8HZ15vLkw6MsVWjUtwTkAPdU2u4M7kYn3Ammc4FLsUecwqozb
+PASS R2. 7 owners remove Owner12's PDA from the policy (Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.Freighter approves | ok 2BZNb7qLjoP65j6uGwG3zWPEi3Ng8V8LkePhaWDgMDMVdms7wdRaqb492vuvZXAqFobWPqs6Nboa47fvuvfKZPkG
+PASS R2. 7 owners remove Owner12's PDA from the policy (Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.Owner4 approves | ok 6fEmqv4ZjzStBFHVZJjdQPwBgUT7aWpPWZERNMzn2Yjfa2CugFcVVuyFQKzFxSA8myfQSBbH26GfUYRvNZcotMs
+PASS R2. 7 owners remove Owner12's PDA from the policy (Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.Owner5 approves | ok 3vdNMc3oRxJQeT77Pfw6tfpbyJGu7qQHjnY5NMZXKiuyR5aJLfLVqRdBnGHL4WTrtLsTtq2JG8oosP39VFM6aaXY
+PASS R2. 7 owners remove Owner12's PDA from the policy (Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.Owner6 approves | ok 5Ww5LLPY2HESXG1YGrsdwvFoXwVJzvHcwfAYp7KGj96iQQ4hktM38ibPT2bts3eBPhxipWYrMMcioqpNEagBmCps
+PASS R2. 7 owners remove Owner12's PDA from the policy (Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.x Owner7 approves and executes | ok 583vxT9eoxKtrAcob61D5TT19mzf8bKHDWFJxF2X1FSyBL9vgUePuim3mxjG7ax8rsJRWou3kXSZhq7tkn2tX7JF
+PASS R3. Owner12's live session after removal | refused: Error Code: NotASigner
+PASS R4. Owner12 signs a new grant: the session is still refused | refused: Error Code: NotASigner
+PASS R5. Phantom's session still works | ok 5vUSristHaU3fqdR3VpyBofDv73KTbbxYSZj382y3s6TqFsLiK4Bm22eXRvTWui8JA9PGTYySTYjeUQ5RaXVBbDw
+PASS R6. 7 owners remove Owner12 from the seats (threshold 7):.a Phantom proposes and approves | ok 3mpUDaiAR3CaKRUzzhP5Zby6Mgyr2cUsNM4kwEjU3RcfadnjL1v1hRXJcCcbsfLP9t53GGKhhhAa6xVcMRSFeNu4
+PASS R6. 7 owners remove Owner12 from the seats (threshold 7):.MetaMask approves | ok 2Crtq8yvAAwWfe4gpPhY4MfLv9q2MSD8snoAKpbB5Jqwdd8z1Qtbivw3WZ7BXDxveyEarpjdyvGzYenZYNRayDN7
+PASS R6. 7 owners remove Owner12 from the seats (threshold 7):.Freighter approves | ok 2rfis13LumKXgeBogmEvmUbCAsYS6oEhuzYRuBPdES8FBMASti4ESAMkW3btnPXVamGStJTbJDvvaaxzaLvY5rYv
+PASS R6. 7 owners remove Owner12 from the seats (threshold 7):.Owner4 approves | ok cHcy3KiKNFnoxVPEDYKfRxj5gwNAkqfsRQmVa8hP6keLPKhqm5A8LnTADhUpriKzf6uTwxQxBVYgaKUA4eTKFYs
+PASS R6. 7 owners remove Owner12 from the seats (threshold 7):.Owner5 approves | ok 5pY2B4w1GLEwWBu8KyrDPmKAgD8JjPbZZJCkQRNmLx6kjddebw1fwLjob2NdB1Jxv4SZGK6wkghWnUEfJCtEVcfh
+PASS R6. 7 owners remove Owner12 from the seats (threshold 7):.Owner6 approves | ok 4MQeRNLq6aFbSd99LBuqcMUXYwKBT9s6WhkxLigLF8vDjWgJYfvL8YYC9Ev1yQsYhFc7FUHYvTkdnSv5A8ffBCCG
+PASS R6. 7 owners remove Owner12 from the seats (threshold 7):.x Owner7 approves and executes | ok 37gkM11wpBKoV7hRbXowAoHSnbmr9fgyGeVBmoqST5YTZsWKt3aF7cpg82iSHkwwyyVCHfqcup13vHwHS7G5DYYX
+PASS R7. the account now has 11 seats without Owner12, threshold 7 | ok 11 / 7
+PASS R8.a Phantom proposes and approves | ok wdn3sDoUbE5CZMaX5RyWa2dYYfAAadga42L5Tf8sq4Ai55aGPDMGfhBys2mngLAjJYMfXu2oLYvQH4rC9CHrD6q
+PASS R8.MetaMask approves | ok 4S9FsxusKBkeUBoan7i6vchUGNDdMZMAozxC4pdZZuMupV9XfLyvP3MkRqF96EMfrscU8A6e9cQS3ZHQWNZu7CaJ
+PASS R8.Freighter approves | ok P1pJJQuifpKPzhoCqQ59wGdS7PrcHgCuSy2pktvQ45B9rCKBpfGh6qbMBbiutgB2YNhpEDNyt1Rov65pazHUrjF
+PASS R8.Owner4 approves | ok 2Yk91o7jwjjjNZBDGbNF4JmwSJkXnVw1fD62HdCWBQU3pLz1NV6fP6KZT3v519Coauhv5HW6wKSKbXJtGazRi4dt
+PASS R8.Owner5 approves | ok 2pm7J9bAyi3j5Pk4zviAcytQXvJNxcvVbYgjsCQsgP17QydrZENDRzrebQhjZB3iYzfny3K7iAnJk4Cnrn9nQKdx
+PASS R8.Owner6 approves | ok 5NZKaufi5vdxxf8oZcgWoMTFPe65SSmGi2bi9fbfJ3Nasr7HKeY7Y69iZvTE7dAgy7o9kz7Gsuap2CAWHd4Pj5xp
+PASS R8c. Owner12 approves a proposal after removal | refused: Error Code: NotASigner
+PASS R9.x Owner7 approves and executes | ok 3zv3Pd7yEhbPEHF6UqGTAtGLXXwtz75fE5HP19YkY9sf9RN52N5c8ZJYNx6vxrX9KWS9eAbsVA5Ak8hk4J6g5YHX
+NEAR MPC signatures: 22, average 0.0s
+7-of-12: 210/210 passed

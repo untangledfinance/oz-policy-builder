@@ -1,0 +1,85 @@
+{
+ "owner": "0x8970828c8E2C7483a0A872721AcF68f98B11D17F",
+ "session": "0x93e39aa04aa10600a4584976c41f1cbea7a81d1a",
+ "key": "0xdd0125Bea506FbB56Ea93e1340011858355b126d",
+ "end": "1791707066",
+ "grantText": "Prime session\ncontract: 0x93e39aa04aa10600a4584976c41f1cbea7a81d1a\nsession key: 0xdd0125bea506fbb56ea93e1340011858355b126d\nvalid until (unix time): 1791707066\nnetwork: 84532",
+ "nearText": "Prime NEAR signer\ncontract: signer.prime-spike-muwguc60.testnet\npath: prime:evm\ndomain: 0\npayload: ff11f72c734002a80a4424181a399eda9bb185668177e17e487b6fb3ada04101",
+ "safe": "0xA2E16A037267C3124bDDFab34265a925FBA6D32c",
+ "safeTxHash": "0xbf0efe861ea82eff6c69183717794814c16e13b7d44ecc41923dac8c98f605db",
+ "typed": {
+  "types": {
+   "EIP712Domain": [
+    {
+     "name": "chainId",
+     "type": "uint256"
+    },
+    {
+     "name": "verifyingContract",
+     "type": "address"
+    }
+   ],
+   "SafeTx": [
+    {
+     "name": "to",
+     "type": "address"
+    },
+    {
+     "name": "value",
+     "type": "uint256"
+    },
+    {
+     "name": "data",
+     "type": "bytes"
+    },
+    {
+     "name": "operation",
+     "type": "uint8"
+    },
+    {
+     "name": "safeTxGas",
+     "type": "uint256"
+    },
+    {
+     "name": "baseGas",
+     "type": "uint256"
+    },
+    {
+     "name": "gasPrice",
+     "type": "uint256"
+    },
+    {
+     "name": "gasToken",
+     "type": "address"
+    },
+    {
+     "name": "refundReceiver",
+     "type": "address"
+    },
+    {
+     "name": "nonce",
+     "type": "uint256"
+    }
+   ]
+  },
+  "primaryType": "SafeTx",
+  "domain": {
+   "chainId": 84532,
+   "verifyingContract": "0xA2E16A037267C3124bDDFab34265a925FBA6D32c"
+  },
+  "message": {
+   "to": "0x4c32C5d73B6Be66D9bba60f775d7106DeaAe8bf7",
+   "value": "1000",
+   "data": "0x",
+   "operation": 0,
+   "safeTxGas": "0",
+   "baseGas": "0",
+   "gasPrice": "0",
+   "gasToken": "0x0000000000000000000000000000000000000000",
+   "refundReceiver": "0x0000000000000000000000000000000000000000",
+   "nonce": "0"
+  }
+ },
+ "rpc": "http://127.0.0.1:8591",
+ "chainId": 84532
+}

@@ -124,7 +124,7 @@ async function safeTx(name: string, expectOk: boolean, call: { to: Address; valu
   const tail: Hex[] = []; let off = 65 * ps.length;
   const statics = ps.map((p) => { if (!p.dynamic) return p.sig; const len = (p.dynamic.length - 2) / 2; tail.push(concat([pad(numberToHex(len), { size: 32 }), p.dynamic]));
     const s = concat([pad(p.owner, { size: 32 }), pad(numberToHex(off), { size: 32 }), '0x00']); off += 32 + len; return s; });
-  return send(name, expectOk, st.safe, ob.encodeExecTransaction(tx, concat([...statics, ...tail])), { tag });
+  return send(name, expectOk, st.safe, ob.encodeExecTransaction(tx, statics.length ? concat([...statics, ...tail]) : '0x'), { tag });
 }
 const by = (...ws: W[]) => async (h: Hex) => Promise.all(ws.map(async (w) => ({ owner: w.addr, sig: await w.signHash(h) })));
 
@@ -166,6 +166,117 @@ async function grantAndMove(name: string, expectOk: boolean, pk: Address, w: W, 
   if (o.selfPay) await fund(key.address, MULTICALL3, data);
   await send(name, expectOk, MULTICALL3, data, { from: o.selfPay ? key : undefined, tag: o.tag });
   return s;
+}
+
+// ── O. Any number of owners and any threshold: PRIME_OWNERS (default 3) and PRIME_THRESHOLD (default 2) ───────────────
+// The default 3 and 2 run the matrix below. Any other pair runs this block instead: the first three owners are the real
+// wallets (MetaMask's own key, then Freighter and Phantom through NEAR), further owners are plain local keys; each owner has
+// its own PrimeSession. The block exits when it is done.
+const N_OWN = Number(process.env.PRIME_OWNERS ?? 3), THR = Number(process.env.PRIME_THRESHOLD ?? 2);
+if (!Number.isInteger(N_OWN) || !Number.isInteger(THR) || N_OWN < 1 || THR < 1 || THR > N_OWN) throw new Error(`PRIME_OWNERS=${N_OWN} PRIME_THRESHOLD=${THR}: need integers with 1 <= threshold <= owners`);
+if (N_OWN !== 3 || THR !== 2) {
+  if (NATIVE) throw new Error('PRIME_OWNERS / PRIME_THRESHOLD do not combine with PKN_NATIVE');
+  type Own = { name: string; seat: W; sess: W };
+  const plain = (n: number): Own => { const a = privateKeyToAccount(generatePrivateKey());
+    const w: W = { name: `Owner${n}`, addr: a.address, signHash: (h) => a.sign({ hash: h }), personalSign: (t) => a.signMessage({ message: t }) }; return { name: w.name, seat: w, sess: w }; };
+  const roster: Own[] = [{ name: 'MetaMask', seat: MM, sess: MM }, { name: 'Freighter', seat: FR, sess: FR_S }, { name: 'Phantom', seat: PH, sess: PH_S }]
+    .slice(0, N_OWN).concat(Array.from({ length: Math.max(0, N_OWN - 3) }, (_, i) => plain(i + 4)));
+  const TAG = `${THR}-of-${N_OWN}`;
+  const ext = parseAbi(['function removeOwner(address prevOwner, address owner, uint256 _threshold)']);
+  const rolesAbi = parseAbi(['function assignRoles(address module, bytes32[] roleKeys, bool[] memberOf)']);
+  const SENTINEL: Address = '0x0000000000000000000000000000000000000001';
+  const lc = (a: string) => a.toLowerCase();
+  const voteBy = (os: Own[]) => by(...os.map((o) => o.seat));
+  const safeOwners = async () => (await pub.readContract({ address: st.safe, abi: safeAbi, functionName: 'getOwners' }) as Address[]);
+  const sameSet = (a: Own[], b: Own[]) => a.length === b.length && a.every((o) => b.includes(o));
+  console.log(`${TAG}:`, roster.map((o) => `${o.name} seat ${o.seat.addr.slice(0, 8)} owner ${o.sess.addr.slice(0, 8)}`).join('; '));
+
+  st.token = await deploy(TK);
+  const t1 = tokenTransfer(DEST, 1n);
+  const proxyCreationCode = await pub.readContract({ address: CONTRACTS.safeProxyFactory, abi: parseAbi(['function proxyCreationCode() view returns (bytes)']), functionName: 'proxyCreationCode' }) as Hex;
+  const initializer = ob.encodeSafeInitializer([roster[0]!.seat.addr], 1n, CONTRACTS.compatibilityFallbackHandler);
+  const salt = BigInt(keccak256(toHex(`pkn-${TAG}-${Date.now()}`)));
+  st.safe = ob.predictSafeAddress(proxyCreationCode, initializer, salt); st.roles = ob.predictPrimeRolesAddress(st.safe);
+  st.pks = [] as Address[];
+  for (const [i, o] of roster.entries()) st.pks.push(await deploy(PK, [o.sess.addr, st.roles], i === 0 ? 'deployPrimeSession' : undefined));
+  const doc = { spendingLimit: 1 as const, token: st.token, recipients: [VENUE], amount: ((100n + 20n * BigInt(N_OWN)) * E18).toString(), period: '86400' };
+  const rule = pol.buildRuleInstall({ doc, docText: JSON.stringify(doc), name: 'movers', ctx: { prime: st.safe, primeRoles: st.roles }, proxyCreationCode, wallets: st.pks, threshold: 1 });
+  st.roleKey = rule.roleKey; st.owners = roster.map((o) => ({ name: o.name, seat: o.seat.addr, owner: o.sess.addr })); st.threshold = THR; save();
+  const pkOf = (o: Own) => st.pks[roster.indexOf(o)] as Address;
+  const c = ob.encodeCreateSafe(initializer, salt);
+  await send(`O1. create the Safe with ${roster[0]!.name} as its only owner`, true, c.to, c.data);
+  const init = ob.buildSafeInitializationTransaction(st.safe, roster.slice(1).map((o) => o.seat.addr), BigInt(THR), rule.calls);
+  await send(`O2. ${roster[0]!.name} adds the other ${N_OWN - 1} owners, sets threshold ${THR}, installs Roles with the ${N_OWN} PrimeSessions and the rule`, true, st.safe, ob.encodeExecTransaction(init, await roster[0]!.seat.signHash(ob.hashSafeTransaction(84532, st.safe, init))), { tag: 'setupSafe' });
+  { const own = (await safeOwners()).map(lc), thr = await pub.readContract({ address: st.safe, abi: safeAbi, functionName: 'getThreshold' });
+    record(`O3. Safe owners are exactly the ${N_OWN} seat keys (no PrimeSession), threshold ${THR}`, true, own.length === N_OWN && roster.every((o) => own.includes(lc(o.seat.addr))) && !st.pks.some((a: Address) => own.includes(lc(a))) && thr === BigInt(THR), `${own.length} owners / ${thr}`);
+    const po = await Promise.all(st.pks.map((a: Address) => pub.readContract({ address: a, abi: PK.abi, functionName: 'owner' }) as Promise<Address>));
+    record(`O4. each PrimeSession's owner is its own wallet's grant key, and all ${N_OWN} differ`, true, po.every((a, i) => a === roster[i]!.sess.addr) && new Set(po.map(lc)).size === N_OWN, po.map((a) => a.slice(0, 8)).join(',')); }
+  await send('O5. mint 100000 tokens to the Safe', true, st.token, encodeFunctionData({ abi: tokenAbi, functionName: 'mint', args: [st.safe, 100000n * E18] }));
+
+  // seats: threshold - 1 votes refused, threshold votes accepted, any threshold-sized subset
+  {
+    const first = roster.slice(0, THR), last = roster.slice(N_OWN - THR), outsider = privateKeyToAccount(generatePrivateKey());
+    const b = await bal(DEST);
+    await safeTx(`S1. ${THR - 1} of ${N_OWN} owners vote (threshold minus one)`, false, t1, voteBy(roster.slice(0, THR - 1)));
+    await safeTx(`S2. ${THR} owners vote (${first.map((o) => o.name).join(' + ')})`, true, t1, voteBy(first), 'safeThreshold');
+    if (!sameSet(first, last)) await safeTx(`S3. a different ${THR} owners vote (${last.map((o) => o.name).join(' + ')})`, true, t1, voteBy(last));
+    await safeTx(`S4. ${THR - 1} owners and an outsider vote`, false, t1, async (h) => [...await voteBy(roster.slice(0, THR - 1))(h), { owner: outsider.address, sig: await outsider.sign({ hash: h }) }]);
+    if (THR >= 2) await safeTx(`S5. ${roster[0]!.name} signs ${THR} times, as ${THR} votes`, false, t1, async (h) => { const s = await roster[0]!.seat.signHash(h); return Array.from({ length: THR }, () => ({ owner: roster[0]!.seat.addr, sig: s })); });
+    record(`S6. DEST received exactly ${sameSet(first, last) ? 1 : 2} (the accepted transactions only)`, true, (await bal(DEST)) - b === (sameSet(first, last) ? 1n : 2n) * E18, `${((await bal(DEST)) - b) / E18}`);
+  }
+
+  // each owner: a session of its own, relayed and self-paid moves, revoke, no vote
+  const live: Session[] = [];
+  for (const [i, o] of roster.entries()) {
+    const pk = pkOf(o), p = `P${i}-${o.name}`, others = roster.filter((x) => x !== o);
+    const s = await grant(`${p}.1 ${o.name} grants a 1-hour session on its own PrimeSession, relayer submits`, true, pk, o.sess); live.push(s);
+    const b = await bal(VENUE);
+    await move(`${p}.2 move via relayer: 3 to VENUE`, true, s, tokenTransfer(VENUE, 3n), { tag: `moveRelayer${o.name}` });
+    await move(`${p}.3 relayer down: the session key pays its own gas, 2 to VENUE`, true, s, tokenTransfer(VENUE, 2n), { selfPay: true, tag: `moveSelf${o.name}` });
+    record(`${p}.4 VENUE received exactly 5`, true, (await bal(VENUE)) - b === 5n * E18, `${((await bal(VENUE)) - b) / E18}`);
+    await move(`${p}.5 1 to another address (Roles rule)`, false, s, tokenTransfer(OTHER, 1n));
+    const voters = others.slice(0, THR - 1);
+    await safeTx(`${p}.6 the session key's signature as a Safe owner + ${voters.length} real owner votes (${THR} signatures)`, false, t1, async (h) => [...await voteBy(voters)(h), { owner: s.key.address, sig: await s.key.sign({ hash: h }) }]);
+    await safeTx(`${p}.7 the PrimeSession as a contract signature + ${voters.length} real owner votes`, false, t1, async (h) => [...await voteBy(voters)(h), { owner: pk, sig: '0x' as Hex, dynamic: await s.key.sign({ hash: h }) }]);
+    await move(`${p}.8 session asks Roles to add its key as a Safe owner`, false, s, { to: st.safe, value: 0n, operation: 0, data: encodeFunctionData({ abi: safeAbi, functionName: 'addOwnerWithThreshold', args: [s.key.address, 1n] }) });
+    const r = await grant(`${p}.9 ${o.name} grants a second session`, true, pk, o.sess);
+    await send(`${p}.10 ${o.name} revokes it: grant with end 0 (one signature)`, true, pk, encodeFunctionData({ abi: PK.abi, functionName: 'grant', args: [r.key.address, 0n, await o.sess.personalSign(await grantText(pk, r.key.address, 0n))] }), { tag: `revoke${o.name}` });
+    await move(`${p}.11 the revoked session`, false, r, tokenTransfer(VENUE, 1n));
+    await move(`${p}.12 the first session still works`, true, s, tokenTransfer(VENUE, 1n));
+    if (others.length) { const x = others[i % others.length]!;
+      await grant(`${p}.13 a grant signed by ${x.name} presented to ${o.name}'s PrimeSession`, false, pk, x.sess); }
+  }
+
+  // removal: the owners drop one owner's PrimeSession from Roles, then the owner itself from the Safe
+  {
+    const k = roster[N_OWN - 1]!, rest = roster.filter((x) => x !== k), voters = rest.length >= THR ? rest.slice(0, THR) : roster.slice(0, THR), pk = pkOf(k);
+    const ks = live[N_OWN - 1]!, other = roster.find((x) => x !== k);
+    await move(`R0. ${k.name}'s live session works before removal`, true, ks, tokenTransfer(VENUE, 1n));
+    await safeTx(`R1. ${THR - 1} owners try to remove ${k.name}'s PrimeSession from the Roles members`, false, { to: st.roles, value: 0n, operation: 0, data: encodeFunctionData({ abi: rolesAbi, functionName: 'assignRoles', args: [pk, [st.roleKey], [false]] }) }, voteBy(voters.slice(0, THR - 1)));
+    await safeTx(`R2. ${THR} owners remove ${k.name}'s PrimeSession from the Roles members (${voters.map((o) => o.name).join(' + ')})`, true, { to: st.roles, value: 0n, operation: 0, data: encodeFunctionData({ abi: rolesAbi, functionName: 'assignRoles', args: [pk, [st.roleKey], [false]] }) }, voteBy(voters));
+    await move(`R3. ${k.name}'s live session after removal`, false, ks, tokenTransfer(VENUE, 1n));
+    const again = await grant(`R4. ${k.name} signs a new grant (the contract still takes it)`, true, pk, k.sess);
+    await move('R5. the new session cannot move either (no Roles membership)', false, again, tokenTransfer(VENUE, 1n));
+    if (other) { const os = live[roster.indexOf(other)]!; await move(`R6. ${other.name}'s session still works`, true, os, tokenTransfer(VENUE, 1n)); }
+    if (N_OWN >= 2) {
+      const own = await safeOwners(), i = own.findIndex((a) => lc(a) === lc(k.seat.addr)), newThr = BigInt(Math.min(THR, N_OWN - 1));
+      const rm = { to: st.safe, value: 0n, operation: 0 as const, data: encodeFunctionData({ abi: ext, functionName: 'removeOwner', args: [i === 0 ? SENTINEL : own[i - 1]!, k.seat.addr, newThr] }) };
+      await safeTx(`R7. ${THR} owners remove ${k.name} from the Safe (new threshold ${newThr})`, true, rm, voteBy(voters));
+      const after = (await safeOwners()).map(lc), thr = await pub.readContract({ address: st.safe, abi: safeAbi, functionName: 'getThreshold' });
+      record(`R8. the Safe now has ${N_OWN - 1} owners without ${k.name}, threshold ${newThr}`, true, after.length === N_OWN - 1 && !after.includes(lc(k.seat.addr)) && thr === newThr, `${after.length} owners / ${thr}`);
+      const remain = rest.slice(0, Number(newThr) - 1);
+      await safeTx(`R9. ${k.name}'s vote and ${Number(newThr) - 1} other owners no longer reach the threshold`, false, t1, voteBy([...remain, k]));
+      await safeTx(`R10. ${newThr} remaining owners vote`, true, t1, voteBy(rest.slice(0, Number(newThr))));
+    } else {
+      await safeTx('R7. the sole owner removes itself from a 1-owner Safe', false, { to: st.safe, value: 0n, operation: 0, data: encodeFunctionData({ abi: ext, functionName: 'removeOwner', args: [SENTINEL, k.seat.addr, 1n] }) }, voteBy([k]));
+    }
+  }
+  console.log('gas:', Object.entries(gasOf).map(([k, v]) => `${k} ${v}`).join(', '));
+  console.log(`NEAR MPC signatures: ${stats.calls}, average ${(stats.ms / Math.max(1, stats.calls) / 1000).toFixed(1)}s`);
+  st.gas = gasOf; st.mpc = stats; save();
+  console.log(`${TAG}: ${results.filter((r) => r.pass).length}/${results.length} passed`);
+  for (const r of results.filter((r) => !r.pass)) console.log('FAIL', r.name, r.detail);
+  process.exit(0);
 }
 
 // ── C. Setup ───────────────────────────────────────────────────────────────────────────────────

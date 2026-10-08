@@ -1,0 +1,59 @@
+detect {"hana":null,"hanaTop":null,"rabet":["connect","sign","signMessage","on","close","disconnect","isUnlocked","getNetwork","__defineGetter__","__defineSetter__","hasOwnProperty","__lookupGetter__","__lookupSetter__","isPrototypeOf","propertyIsEnumerable","toString","valueOf","__proto__","toLocaleString"],"xbull":null,"freighter":null,"lobstrConnected":null}
+unlocked [connect]
+
+--- prompt [connect] dist/interaction.html#/contact-request buttons=["Cancel","Connect"]
+Connect Request
+localhost:8801
+Ma
+My account
+localhost:8801 would like to connect to your account
+Cancel
+Connect
+---
+clicked "Connect" [connect]
+[connect] ok {"publicKey":"GDEUQO6PLMALYL5RV7Y5ATWKUOYBV2UFP2LKSJ6LGKN5KN5QLMNOBNZR"}
+
+--- prompt [near] dist/interaction.html#/confirm buttons=["Reject","Confirm"]
+Test network
+Sign Message
+localhost:8801
+Source account
+My account
+Message:
+Prime NEAR signer contract: signer.prime-spike-muwguc60.testnet path: prime:stellar domain: 1 payload: d82e0aa4515698295dfa83dc43242482109fa283c81f3dd5928a0309304a5a04
+Reject
+Confirm
+---
+clicked "Confirm" [near]
+[near] ok {"message":"ec3k3XJDToloLIOnAmRj7EEHwa1mG4oSgcUxEXhHYZ8B6qmcoHYbm+ZiSSfs4hFL8aYbPGPE6XVLJLowWD+yDQ=="}
+[grant] ERROR page.evaluate: Error: ERR {"message":"window.rabet.signAuthEntry is not a function"}
+    at err (http://localhost:8801/stellar.js:117:11)
+    at Object.signAuthEntry (http://localhost:8801/stellar.js:123:7)
+    at eval (eval at evaluate (:370:30), <anonymous>:1:31)
+    at UtilityScript.evaluate (<anonymous>:372:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+[vote] ERROR page.evaluate: Error: ERR {"message":"window.rabet.signAuthEntry is not a function"}
+    at err (http://localhost:8801/stellar.js:117:11)
+    at Object.signAuthEntry (http://localhost:8801/stellar.js:123:7)
+    at eval (eval at evaluate (:370:30), <anonymous>:1:31)
+    at UtilityScript.evaluate (<anonymous>:372:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+
+--- prompt [tx] dist/interaction.html#/confirm buttons=["Reject","Confirm"]
+Test network
+Approve Transaction
+localhost:8801
+Source account
+My account
+#1-Payment
+destination
+GCUAXMXPWOQ45GTIBSI6MANYOFR6WUBWM3SHE3WDYR5SQCJ76WAIXLCF
+asset
+XLM
+amount
+1
+Reject
+Confirm
+---
+clicked "Confirm" [tx]
+[tx] ok {"xdr":"AAAAAgAAAADJSDvPWwC8L7Gv8dBOyqOwGuqFfpapJ8sym9U3sFsa4AAAAGQAAAAAAAAD6QAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAQAAAACoC7Lvs6HOmmgMkeYBuHFj61A2ZuRybsPEeygJP/WAiwAAAAAAAAAAAJiWgAAAAAAAAAAB

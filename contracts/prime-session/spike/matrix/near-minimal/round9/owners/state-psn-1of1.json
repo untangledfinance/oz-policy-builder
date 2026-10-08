@@ -1,0 +1,222 @@
+{
+ "program": "FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G",
+ "programB": "J38gUL2YFo91GDBnDXwVDaGpk6XWSJUhs7RuditRdiVo",
+ "sessionOwners": {
+  "MetaMask": "FGaZkHnnqWdGtGHwYBNg3XFJW9euiqWa9ParoHMfRWPX",
+  "Freighter": "GgnRgm9eVt6TNUNQUm13Nr9Zo7Mkv2Lvdm7nma6uzLZj",
+  "Phantom": "G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4"
+ },
+ "settings": "3g22u1APJ22M8gQ9iJY3qoiXYXCjdw341y2dzXaT1NbJ",
+ "policy": "8mz5qwjYHSTTMKyYY2GmZkaYNySiRZrS5TF28kBVrQCw",
+ "policySeed": 1,
+ "mpc": {
+  "calls": 0,
+  "ms": 0
+ },
+ "metrics": {
+  "createAccount": {
+   "owners": 1,
+   "settingsBytes": 168,
+   "settingsRentLamports": 2060160,
+   "relayerSpentLamports": 2065160,
+   "fee": 5000
+  },
+  "policy": {
+   "owners": 1,
+   "bytes": 434,
+   "rentLamports": 3911520
+  },
+  "move-Phantom-relayed": {
+   "totalCu": 50648,
+   "primeSessionCu": 50648,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "relayerSpend": {
+   "net": "localnet",
+   "spentLamports": 2037650680
+  }
+ },
+ "results": [
+  {
+   "name": "O0. seats are exactly the 1 owner keys, threshold 1",
+   "pass": true,
+   "ok": true,
+   "detail": "5U8sVu9YxuZzLf1hGcYkToZxEHfWLa7DpcCNzdZUUPjLfgcHfVRzgQf2KVcvMjMaDvkXNoH9b69xZr38wJ7ygqWS"
+  },
+  {
+   "name": "O0b. the 1 session owners and 1 session PDAs are all different, and no session PDA is a seat",
+   "pass": true,
+   "ok": true,
+   "detail": "CvwnKz"
+  },
+  {
+   "name": "K1.a Phantom proposes (no approval)",
+   "pass": true,
+   "ok": true,
+   "detail": "BueDt8d1AxmJ2exBWWaLrBxj6yDGwuyaZNwM7F8LMuU3S2wUnobrarozDgQaGF2ZuHW1RdJ3xN6UH4nSNP8GAsg"
+  },
+  {
+   "name": "K1.x Phantom executes",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidProposalStatus"
+  },
+  {
+   "name": "K1c. an outsider approves it",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "K2.x Phantom approves and executes",
+   "pass": true,
+   "ok": true,
+   "detail": "5Trb3RSKbVoqxqyRUKv185to5ASVyCwEfCe4JEJTiah6HmaR7Sst7WbtspYfWYZqkdax9gipvHfsab3tf88j9he8"
+  },
+  {
+   "name": "K4. DEST received exactly 0.01 SOL (the accepted transactions only)",
+   "pass": true,
+   "ok": true,
+   "detail": "0.01"
+  },
+  {
+   "name": "K5. 1 owners install the movers policy (members: the 1 session PDAs, Phantom):.a Phantom proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "3btmaT8q6NXp45QJc5xG5yM2ZHFTaaCHA2BJR2jEF3iVBQs1Vk4rwTVcRUGo2xB2PwiN6GVFBZT8KdvNxScTJLeK"
+  },
+  {
+   "name": "K5. 1 owners install the movers policy (members: the 1 session PDAs, Phantom):.x Phantom executes",
+   "pass": true,
+   "ok": true,
+   "detail": "363AP7ioLvXz15NRmwjnGhaXU7oiYH2TUCVEV3pqiLu4io2gkvxeAwVAnZjJRDczcBsndMqgU6rixbWHDqLtALgF"
+  },
+  {
+   "name": "N0.a Phantom proposes (no approval)",
+   "pass": true,
+   "ok": true,
+   "detail": "2t46mQbCvLJ8aS3cta2ZpGSQ5XULPdduCkdibUavp3b93Y8YvEd23Urw3L5PsRp3YmHoYko9Lwpc6AZJ4U3GPxQu"
+  },
+  {
+   "name": "P0-Phantom.1 one Phantom signature -> session; relayer pays: 0.002 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "5fbbqhy6E9Ybtj5axKHtRgnS5XKjwsF33zwpm2GBwGQrvzpTNG8KMtLceJvHigetp4rfKTbLXiXxqBsxcshe1y9A"
+  },
+  {
+   "name": "P0-Phantom.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "4gRzXPCkeBxE35FHQ3VhmXj86acwHVJLn5wUpLmzjcKRL27s7WB4KsKYsAbjABmTtB4whoQDeMrbrgmz61Gk9FQF"
+  },
+  {
+   "name": "P0-Phantom.3 VENUE received exactly 0.003 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.003"
+  },
+  {
+   "name": "P0-Phantom.4 0.002 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "P0-Phantom.5 the session approves an open seat proposal as its PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P0-Phantom.6 the session key approves it as itself",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P0-Phantom.7 the session adds its key as a seat (settings sync, its PDA as the only signer)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P0-Phantom.8 a second session works",
+   "pass": true,
+   "ok": true,
+   "detail": "5hHffekUnW5yRvPsmSs3N9sn4TEx4j4rtKCGLttCnbZYXmkPrNpLCFfVuLHSsrnfcRtKzBbn9VM7qmjTjihHZrDr"
+  },
+  {
+   "name": "P0-Phantom.9 Phantom revokes it (one signature, relayed)",
+   "pass": true,
+   "ok": true,
+   "detail": "2NhBThsTcB2r7fHW1bBmuedJqg4JRPT61xSJomVs5CSmDRRb3c4oDhiNLCjpyfifFy3R9MWDSAjTZkUhKP9kcAmh"
+  },
+  {
+   "name": "P0-Phantom.10 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "P0-Phantom.11 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "4rRX8Zog51sreTC31S3VVBCvqao12txd7mMLwA4FZpbzLeK4ShtkHxm4JjYBVgLKvc7DvQk3WVv5K4ZW1tsqpWxc"
+  },
+  {
+   "name": "R0. Phantom's live session works before removal",
+   "pass": true,
+   "ok": true,
+   "detail": "4AZEfeDjEFhS5WbNSBzo7k4KgnvvNv7dxgR4F8e4buEgpMzZTPXvwmJw21fJoXPGj6269jdGkagD1WozyHwZ3Sip"
+  },
+  {
+   "name": "R1. 0 owners try to remove Phantom's PDA from the policy:.a Phantom proposes (no approval)",
+   "pass": true,
+   "ok": true,
+   "detail": "5vWmgGRPbZDRN1nfjFWh9A3wCnRW3JhUyLHL6tFwxxfxu83T4HfwgYD67phEjbf7urCtVVptiihM7zvcnqCwaVUF"
+  },
+  {
+   "name": "R1. 0 owners try to remove Phantom's PDA from the policy:.x Phantom executes",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidProposalStatus"
+  },
+  {
+   "name": "R2. 1 owners remove Phantom's PDA from the policy (Phantom): refused, the policy would have no member:.a Phantom proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "3Nz3dLKqm4LCTwV4qtiU8XqNb66QhfzTGqfgRQmdju4pfhAaH9uF6mRHurtV5i99y7ngm16QMXTHf6GTEtquXckt"
+  },
+  {
+   "name": "R2. 1 owners remove Phantom's PDA from the policy (Phantom): refused, the policy would have no member:.x Phantom executes",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NoProposers"
+  },
+  {
+   "name": "R3. Phantom's live session after removal (nothing was removed)",
+   "pass": true,
+   "ok": true,
+   "detail": "qwL6QMKjdHfnw2nFz3YACt8YsCWod1SbthVzsgWfs57rEx3doCfFMTQyPyUeAWLvNcViEpBZAcygiUXnYUssNEG"
+  },
+  {
+   "name": "R4. Phantom signs a new grant: the session is the same as before",
+   "pass": true,
+   "ok": true,
+   "detail": "2HcamfzyyeXmkRYmSZUkJnbdj4SL8CYccQnsEGvQERwK6ZpzRUK8YTfKcGi1HWnf7jEpDKf6fSaUEdJ4SeqpwHWV"
+  },
+  {
+   "name": "R6. the sole owner removes itself from a 1-owner account:.a Phantom proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "4GgsBkNw4haZV9VtYFsGD5L9QwaDfZRGB32kHAm8kDFwhhmQSvKGMs96ERpN4QWGHqVH7LSEMq7jhLxCQjHWN8qF"
+  },
+  {
+   "name": "R6. the sole owner removes itself from a 1-owner account:.x Phantom executes",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NoProposers"
+  }
+ ]
+}

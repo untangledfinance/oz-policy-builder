@@ -1,0 +1,1 @@
+{api:'rabet', url:'http://localhost:8801/stellar.html', labels:[/^Connect/,/^Authorize/,/^Approve/,/^Sign$/,/^Confirm/,/^Allow/,/^Accept/,/^Continue/], timeout:60000, steps:['detect','connect','near','grant','vote','tx'], methods:{ signTransaction:'sign', txArgs:(P)=>[P.txXdr,'testnet'] }}

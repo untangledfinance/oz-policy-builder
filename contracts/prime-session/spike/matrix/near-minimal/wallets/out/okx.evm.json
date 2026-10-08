@@ -1,0 +1,12 @@
+{
+ "address": "0x8970828c8e2c7483a0a872721acf68f98b11d17f",
+ "chainId": "0x14a34",
+ "grant": "0xc72f0b9ec5d4a3ae6137e46d1e84b3380025c15c92e5e6c815ed372aa0a896503c41d659315adf89f817f2c0895080cd9afe356ef648cc89433957990babc1fe1c",
+ "near": "0x4391c48318d2087ee7815831315a2644174c0a66bb8a41e5eac3b0642a6efedb30cccdac30ab8017cdc5fa48ec24ae3d2351dbb1828ce4a6b7bbdd74f19b8a521c",
+ "ethSign": "0x72e6f4d1472b0f5e68b1c7eb06ae1c806f412935d111d6af164bf433beb10fb6071a0ffdd881907e2b5f189d18a83e9a84e8b3f0a27955dab55e374a543e5e7e1c",
+ "switchError": "page.evaluate: Error: RPC {\"code\":4902,\"message\":\"Unrecognized chain ID \\\"0x14a34\\\". Try adding the chain using wallet_addEthereumChain first.\"}\n    at rq (http://127.0.0.1:8801/evm.html:7:86)\n    at ",
+ "switched": "add",
+ "chainAfterSwitch": "0x14a34",
+ "typed": "0x9b8a25d17b2529d19f17245dc47176ab4b207ecd69a302407e1633bfaa93f093617b93328ad3b96cb8610b973886522f0e91f6a3b585e6c292b727cf3b962c851b",
+ "grantError": "page.evaluate: Target page, context or browser has been closed"
+}

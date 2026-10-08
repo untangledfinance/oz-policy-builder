@@ -1,0 +1,74 @@
+{
+ "detect": {
+  "solflare": [
+   "connect",
+   "disconnect",
+   "signTransaction",
+   "signAllTransactions",
+   "signAndSendTransaction",
+   "signMessage",
+   "signOffchainMessage",
+   "signIn",
+   "request",
+   "on",
+   "addEventListener",
+   "addListener",
+   "once",
+   "off",
+   "removeEventListener",
+   "removeListener",
+   "eventNames",
+   "listenerCount",
+   "listeners",
+   "removeAllListeners",
+   "publicKey",
+   "autoApprove",
+   "isSolflare",
+   "priorityFeesSupported",
+   "isConnected"
+  ],
+  "backpack": null,
+  "backpackSol": null,
+  "glow": null,
+  "glowSolana": null,
+  "solana": null,
+  "flags": {
+   "isSolflare": true
+  },
+  "std": []
+ },
+ "connectRaw": "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx",
+ "address": "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx",
+ "nearRaw": {
+  "sig": "eFar74EGmjaUZpCIVcxoOo1pwBZB4VBwFyA8KvBFJTtdt5fRql651TfBWzxVO2kP0cg7g/j+3NJhkLDBw27WCQ==",
+  "keys": [
+   "signature",
+   "publicKey"
+  ],
+  "pk": "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"
+ },
+ "near": "eFar74EGmjaUZpCIVcxoOo1pwBZB4VBwFyA8KvBFJTtdt5fRql651TfBWzxVO2kP0cg7g/j+3NJhkLDBw27WCQ==",
+ "grantRaw": {
+  "sig": "uxQl+PGteVtydz1MQI17U12wbrOk/k8mVubaKRxnIEG6x58fYYegU85P87hJHCbP5MQsonaKmuRyL+Y22q+MBg==",
+  "keys": [
+   "signature",
+   "publicKey"
+  ],
+  "pk": "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"
+ },
+ "grant": "uxQl+PGteVtydz1MQI17U12wbrOk/k8mVubaKRxnIEG6x58fYYegU85P87hJHCbP5MQsonaKmuRyL+Y22q+MBg==",
+ "legacyError": "timeout 60000",
+ "v0Error": "page.evaluate: Error: ERR {\"message\":\"Cancelled\",\"code\":4001}\n    at err (http://localhost:8801/solana.js:17218:11)\n    at Object.signTransaction (http://localhost:8801/solana.js:17224:7)\n    at async <anonymous>:396:30",
+ "legacyRaw": {
+  "signed": "AWwlO9SNl7rNkucA+F917s5EZBZronV0eecueEkXNmtixP2R/9yOS+pwF1HfLRs0FMGeDnod5tFcJWCIKzW9+AgBAAEDv5VqJ1IXydW29lThB4xcjZMYuERkwQ5R1qPmxlfWa1NHIYIb35c9V0htL3nSsw6dy9POl6hNePjpWaFxZnfpHgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYdCaAIPtIYEzlmWtAPvmm/PyH2fLTnfRVbiyglvzfSgBAgIAAQwCAAAA6AMAAAAAAAA="
+ },
+ "legacy": "AWwlO9SNl7rNkucA+F917s5EZBZronV0eecueEkXNmtixP2R/9yOS+pwF1HfLRs0FMGeDnod5tFcJWCIKzW9+AgBAAEDv5VqJ1IXydW29lThB4xcjZMYuERkwQ5R1qPmxlfWa1NHIYIb35c9V0htL3nSsw6dy9POl6hNePjpWaFxZnfpHgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYdCaAIPtIYEzlmWtAPvmm/PyH2fLTnfRVbiyglvzfSgBAgIAAQwCAAAA6AMAAAAAAAA=",
+ "v0Raw": {
+  "signed": "Acp1nBirr+N7y4ZT/GeJ3aRhK+xUbHbJ/46CjF3rbUGFH0t5D/HcIVtVCkfOXODLasWEF8KNiVpNvkdR/4W87QiAAQABA7+VaidSF8nVtvZU4QeMXI2TGLhEZMEOUdaj5sZX1mtTRyGCG9+XPVdIbS950rMOncvTzpeoTXj46VmhcWZ36R4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGHQmgCD7SGBM5ZlrQD75pvz8h9ny0530VW4soJb830oAQICAAEMAgAAAOgDAAAAAAAAAA=="
+ },
+ "v0": "Acp1nBirr+N7y4ZT/GeJ3aRhK+xUbHbJ/46CjF3rbUGFH0t5D/HcIVtVCkfOXODLasWEF8KNiVpNvkdR/4W87QiAAQABA7+VaidSF8nVtvZU4QeMXI2TGLhEZMEOUdaj5sZX1mtTRyGCG9+XPVdIbS950rMOncvTzpeoTXj46VmhcWZ36R4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGHQmgCD7SGBM5ZlrQD75pvz8h9ny0530VW4soJb830oAQICAAEMAgAAAOgDAAAAAAAAAA==",
+ "relayerRaw": {
+  "signed": "AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACEzTT0UZjveQsAg0IY525u0bVTttOpXHuF+YqZj+g/H/LC04ANGKz14RZqXTNVLsW7hZdkctcBzPRMCJmOOu8HAgEBA/+8nM0vI6ZVYw6/uUDad4YIFHuLt6eNl64hqbpGKPDlv5VqJ1IXydW29lThB4xcjZMYuERkwQ5R1qPmxlfWa1MFSlNamSkhBk0k6HFg2jh8fDW13bySu4HkH6hAQQVEjWHQmgCD7SGBM5ZlrQD75pvz8h9ny0530VW4soJb830oAQIBAQ9wcmltZSBzZWF0IHZvdGU="
+ },
+ "relayer": "AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACEzTT0UZjveQsAg0IY525u0bVTttOpXHuF+YqZj+g/H/LC04ANGKz14RZqXTNVLsW7hZdkctcBzPRMCJmOOu8HAgEBA/+8nM0vI6ZVYw6/uUDad4YIFHuLt6eNl64hqbpGKPDlv5VqJ1IXydW29lThB4xcjZMYuERkwQ5R1qPmxlfWa1MFSlNamSkhBk0k6HFg2jh8fDW13bySu4HkH6hAQQVEjWHQmgCD7SGBM5ZlrQD75pvz8h9ny0530VW4soJb830oAQIBAQ9wcmltZSBzZWF0IHZvdGU="
+}

@@ -1,0 +1,29 @@
+S_mm instance entry lives until ledger 5206699 (119033 ledgers, about 7 days from now)
+S_fr instance entry lives until ledger 5206700 (119034 ledgers, about 7 days from now)
+S_ph instance entry lives until ledger 5206701 (119035 ledgers, about 7 days from now)
+prime instance entry lives until ledger 5206702 (119036 ledgers, about 7 days from now)
+prime-seat code entry lives until ledger 5206274
+latest ledger 5087666
+build wasm sha256 27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992 2363 bytes
+S_mm CALJPZZ3VS6GRHLEBKLCUEYPJN4BQ5HEX53TC3C2UYJLD3SECPGBCTW7 wasm 27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992 == build
+S_fr CBUYZWT43XTBCW6EASFHT4FKG4T7B3YKX6YI2SCBE5Z3NK2S2ZMQHXGY wasm 27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992 == build
+S_ph CB4XBHWAAF7X2FKJFOEQ5TC4KOVO65VD3GDB3TPXLVMXWAZDVCYF4FMB wasm 27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992 == build
+uploaded wasm 27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992 == build
+S_mm owner GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO == expected owner
+S_fr owner GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I == expected owner
+S_ph owner GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN == expected owner
+owner MetaMask GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO thresholds 1/1/2 signers GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO:1 == locked
+owner Phantom GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN thresholds 1/1/2 signers GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN:1 == locked
+account wasm 91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9 == the OpenZeppelin smart account used in production
+prime-seat wasm exports __check_auth,__constructor,batch_canonicalize_key,grant,memory,verify
+rule 0 {"context_type":["Default"],"id":0,"name":"multisig","policies":["CCTNRFZCL45GTJICA3Z2KFQO3VEGBHGCVBLHQ3GLJKAGACQIJMYJS7T2"],"policy_ids":[0],"signer_ids":[1,2,8],"signers":[["External","CBUYZWT43XTBCW6EASFHT4FKG4T7B3YKX6YI2SCBE5Z3NK2S2ZMQHXGY",{"type":"Buffer","data":[1]}],["External","CB4XBHWAAF7X2FKJFOEQ5TC4KOVO65VD3GDB3TPXLVMXWAZDVCYF4FMB",{"type":"Buffer","data":[1]}],["External","CALJPZZ3VS6GRHLEBKLCUEYPJN4BQ5HEX53TC3C2UYJLD3SECPGBCTW7",{"type":"Buffer","data":[1]}]],"valid_until":null}
+rule 1 {"context_type":["CallContract","CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"],"id":1,"name":"f118","policies":[],"policy_ids":[],"signer_ids":[3],"signers":[["Delegated","GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I"]],"valid_until":null}
+rule 2 {"context_type":["CallContract","CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"],"id":2,"name":"xlm_mm","policies":["CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5"],"policy_ids":[1],"signer_ids":[4],"signers":[["Delegated","CALJPZZ3VS6GRHLEBKLCUEYPJN4BQ5HEX53TC3C2UYJLD3SECPGBCTW7"]],"valid_until":null}
+rule 3 {"context_type":["CallContract","CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"],"id":3,"name":"xlm_fr","policies":["CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5"],"policy_ids":[1],"signer_ids":[5],"signers":[["Delegated","CBUYZWT43XTBCW6EASFHT4FKG4T7B3YKX6YI2SCBE5Z3NK2S2ZMQHXGY"]],"valid_until":null}
+rule 4 {"context_type":["CallContract","CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"],"id":4,"name":"xlm_ph","policies":["CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5"],"policy_ids":[1],"signer_ids":[6],"signers":[["Delegated","CB4XBHWAAF7X2FKJFOEQ5TC4KOVO65VD3GDB3TPXLVMXWAZDVCYF4FMB"]],"valid_until":null}
+account 2 CBXKCEHJJBBSTS7NI72XHNKSR5QT3MKBXKZNBQFVF443TEFH3K46CWV5 wasm 91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9
+account 2 rule 0 {"context_type":["Default"],"id":0,"name":"multisig","policies":["CCTNRFZCL45GTJICA3Z2KFQO3VEGBHGCVBLHQ3GLJKAGACQIJMYJS7T2"],"policy_ids":[0],"signer_ids":[0,1,2],"signers":[["Delegated","GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO"],["Delegated","GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I"],["Delegated","GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN"]],"valid_until":null}
+account 2 rule 1 {"context_type":["CallContract","CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"],"id":1,"name":"f119","policies":[],"policy_ids":[],"signer_ids":[1],"signers":[["Delegated","GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I"]],"valid_until":null}
+account 2 rule 2 {"context_type":["CallContract","CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"],"id":2,"name":"ops","policies":["CCTNRFZCL45GTJICA3Z2KFQO3VEGBHGCVBLHQ3GLJKAGACQIJMYJS7T2"],"policy_ids":[0],"signer_ids":[3,4,5],"signers":[["External","CALJPZZ3VS6GRHLEBKLCUEYPJN4BQ5HEX53TC3C2UYJLD3SECPGBCTW7",{"type":"Buffer","data":[1]}],["External","CBUYZWT43XTBCW6EASFHT4FKG4T7B3YKX6YI2SCBE5Z3NK2S2ZMQHXGY",{"type":"Buffer","data":[1]}],["External","CB4XBHWAAF7X2FKJFOEQ5TC4KOVO65VD3GDB3TPXLVMXWAZDVCYF4FMB",{"type":"Buffer","data":[1]}]],"valid_until":null}
+minPersistentTtl 120960 maxEntryTtl 3110400 minTemporaryTtl 720
+OK: every prime-seat instance runs the built wasm, has its expected owner, and the MPC-derived owner accounts are locked

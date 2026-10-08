@@ -1,0 +1,2 @@
+#!/bin/bash
+while true; do b=$(curl -s -m 10 -X POST https://rpc.testnet.near.org -H "content-type: application/json" -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"view_account","finality":"final","account_id":"prime-spike-muwguc60.testnet"}}' | python3 -c "import sys,json;print(int(json.load(sys.stdin)['result']['amount'])/1e24)" 2>/dev/null); echo "$(date -u +%T) $b" >> /home/ubuntu/work/prime-refine/logs/owners/relayer-balance.log; sleep 20; done

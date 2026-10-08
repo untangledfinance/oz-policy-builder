@@ -1,0 +1,255 @@
+
+--- prompt [idle] onboarding.html#/success-import buttons=[]
+Pin Glow to the toolbar for easier access:
+Glow — Solana Wallet
+You’re All Set
+Your Glow wallet is ready for use.
+Buy SOL with Dollars or Euros
+Browse and Shop for Solana NFTs
+Follow @glowwallet on Twitter
+Tip: Glow is backward compatible with Phantom. You can connect to sites without a dedicated Glow button by clicking on the Phantom button.
+---
+detect {"solflare":null,"backpack":null,"backpackSol":null,"glow":["_events","_eventsCount","isGlow","address","signIn","connect","disconnect","signOut","signMessage","signAndSendTransaction","signAndSendAllTransactions","signTransaction","sendRequest","eventNames","publicKey","signAllTransactions"],"glowSolana":["_events","_eventsCount","publicKey","isPhantom","isGlow","isConnected","connect","disconnect","signMessage","signTransaction","signAndSendTransaction","sendRequest","eventNames","signAllTransactions"],"solana":["_events","_eventsCount","publicKey","isPhantom","isGlow","isConnected","connect","disconnect","signMessage","signTransaction","signAndSendTransaction","sendRequest","eventNames","signAllTransactions"],"flags":{"isGlow":true},"std":[]}
+
+--- prompt [connect] prompt.html buttons=[]
+Glow
+0.61.0
+---
+[connect] ok "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"
+
+--- prompt [near] prompt.html buttons=["Cancel","Approve"]
+Glow
+0.61.0
+Prime wallet test (Solana) wants you to sign the message:
+My Wallet
+Dts1m…kjNdx
+localhost
+Prime NEAR signer contract: signer.prime-spike-muwguc60.testnet path: prime:solana domain: 1 payload: 276593cc3dc4a63c408e369378b33a179ed490a144e82b938025e3024e534383
+This won’t create a transaction on the blockchain or incur a fee.
+Cancel
+Approve
+---
+[near] ok {"sig":"eFar74EGmjaUZpCIVcxoOo1pwBZB4VBwFyA8KvBFJTtdt5fRql651TfBWzxVO2kP0cg7g/j+3NJhkLDBw27WCQ==","keys":["signature","publicKey"],"pk":"Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"}
+
+--- prompt [grant] prompt.html buttons=["Cancel","Approve"]
+Glow
+0.61.0
+Prime wallet test (Solana) wants you to sign the message:
+My Wallet
+Dts1m…kjNdx
+localhost
+Prime session signer: 71wA2PnPFdyQQ1xSk4GKTmQXCL7DZWfXtSHT8kEBUene session key: 4vfQh8VAttqNyujDZT9dEwDZyB9B33FRyiw4q5nHcgEH valid until (unix time): 1791457095 cluster: devnet
+This won’t create a transaction on the blockchain or incur a fee.
+Cancel
+Approve
+---
+[grant] ok {"sig":"vHpyygNIvRH6/bZjDwcJhXc36CkkmuvvNuo+ItUgLopQkEPUZ3QnA/KrED0G2JfcToMYgLpre85eQEKFxou/CQ==","keys":["signature","publicKey"],"pk":"Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"}
+
+--- prompt [legacy] prompt.html buttons=["Troubleshoot","Retry","Cancel"]
+Glow
+0.61.0
+Prime wallet test (Solana) wants you to approve a transaction.
+My Wallet
+Dts1m…kjNdx
+localhost
+You don't have enough SOL to pay for the transaction.
+Troubleshoot
+Retry
+Cancel
+---
+[legacy] ERROR timeout 60000
+
+--- prompt [v0] prompt.html buttons=[]
+Glow
+0.61.0
+Prime wallet test (Solana) wants you to approve a transaction.
+My Wallet
+Dts1m…kjNdx
+localhost
+Simulating Transaction...
+---
+[v0] ERROR timeout 60000
+
+--- prompt [idle] onboarding.html#/success-import buttons=[]
+Pin Glow to the toolbar for easier access:
+Glow — Solana Wallet
+You’re All Set
+Your Glow wallet is ready for use.
+Buy SOL with Dollars or Euros
+Browse and Shop for Solana NFTs
+Follow @glowwallet on Twitter
+Tip: Glow is backward compatible with Phantom. You can connect to sites without a dedicated Glow button by clicking on the Phantom button.
+---
+
+--- prompt [idle] prompt.html buttons=["Troubleshoot","Retry","Cancel"]
+Glow
+0.61.0
+Prime wallet test (Solana) wants you to approve a transaction.
+My Wallet
+Dts1m…kjNdx
+localhost
+You don't have enough SOL to pay for the transaction.
+Troubleshoot
+Retry
+Cancel
+---
+
+--- prompt [near] prompt.html buttons=["Cancel","Approve"]
+Glow
+0.61.0
+Prime wallet test (Solana) wants you to sign the message:
+My Wallet
+Dts1m…kjNdx
+localhost
+Prime NEAR signer contract: signer.prime-spike-muwguc60.testnet path: prime:solana domain: 1 payload: 276593cc3dc4a63c408e369378b33a179ed490a144e82b938025e3024e534383
+This won’t create a transaction on the blockchain or incur a fee.
+Cancel
+Approve
+---
+[near] ok {"sig":"eFar74EGmjaUZpCIVcxoOo1pwBZB4VBwFyA8KvBFJTtdt5fRql651TfBWzxVO2kP0cg7g/j+3NJhkLDBw27WCQ==","keys":["signature","publicKey"],"pk":"Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"}
+
+--- prompt [grant] prompt.html buttons=[]
+Glow
+0.61.0
+---
+
+--- prompt [grant] prompt.html buttons=["Cancel","Approve"]
+Glow
+0.61.0
+Prime wallet test (Solana) wants you to sign the message:
+My Wallet
+Dts1m…kjNdx
+localhost
+Prime session signer: ASMVmqL4G96TYg4qw9kQgmRrg57gM15dcyp72fXvsGeZ session key: 8JAcdH9hBdxZa45s5q31wVJ1THN3sTdViJnHpMpUZv1H valid until (unix time): 1791457250 cluster: devnet
+This won’t create a transaction on the blockchain or incur a fee.
+Cancel
+Approve
+---
+[grant] ok {"sig":"8PCxL4grJ1kE9QK3X5QtquL39Yeo7+RZQjZre8N97VevQ1C9eR8MnQbJbPWXf7s1wmhfwb8jtLCEQjkCcHkyCg==","keys":["signature","publicKey"],"pk":"Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"}
+
+--- prompt [relayer] prompt.html buttons=["Troubleshoot","Retry","Cancel"]
+Glow
+0.61.0
+Prime wallet test (Solana) wants you to approve a transaction.
+My Wallet
+Dts1m…kjNdx
+localhost
+Glow detected an issue with the requested transaction.
+Troubleshoot
+Retry
+Cancel
+---
+[relayer] ERROR timeout 50000
+
+--- prompt [idle] onboarding.html#/success-import buttons=[]
+Pin Glow to the toolbar for easier access:
+Glow — Solana Wallet
+You’re All Set
+Your Glow wallet is ready for use.
+Buy SOL with Dollars or Euros
+Browse and Shop for Solana NFTs
+Follow @glowwallet on Twitter
+Tip: Glow is backward compatible with Phantom. You can connect to sites without a dedicated Glow button by clicking on the Phantom button.
+---
+
+--- prompt [idle] prompt.html buttons=["Troubleshoot","Retry","Cancel"]
+Glow
+0.61.0
+Prime wallet test (Solana) wants you to approve a transaction.
+My Wallet
+Dts1m…kjNdx
+localhost
+You don't have enough SOL to pay for the transaction.
+Troubleshoot
+Retry
+Cancel
+---
+
+--- prompt [idle] prompt.html buttons=["Troubleshoot","Retry","Cancel"]
+Glow
+0.61.0
+Prime wallet test (Solana) wants you to approve a transaction.
+My Wallet
+Dts1m…kjNdx
+localhost
+Glow detected an issue with the requested transaction.
+Troubleshoot
+Retry
+Cancel
+---
+[connect] ok "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"
+
+--- prompt [near] prompt.html buttons=[]
+Glow
+0.61.0
+---
+[near] ok {"sig":"eFar74EGmjaUZpCIVcxoOo1pwBZB4VBwFyA8KvBFJTtdt5fRql651TfBWzxVO2kP0cg7g/j+3NJhkLDBw27WCQ==","keys":["signature","publicKey"],"pk":"Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"}
+[grant] ok {"sig":"jIhOxTYboWC718VG5wVw9gHszSZ/4GUFSDLtvhAXuQI18Aj7swLJRRvSGYqag8Gy7lOiWPg0nr/TCKX+GZy0Cw==","keys":["signature","publicKey"],"pk":"Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"}
+[relayer] ERROR timeout 50000
+[connect] ok "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"
+
+--- prompt [near] prompt.html buttons=["Cancel","Approve"]
+Glow
+0.61.0
+Prime wallet test (Solana) wants you to sign the message:
+My Wallet
+Dts1m…kjNdx
+localhost
+Prime NEAR signer contract: signer.prime-spike-muwguc60.testnet path: prime:solana domain: 1 payload: 276593cc3dc4a63c408e369378b33a179ed490a144e82b938025e3024e534383
+This won’t create a transaction on the blockchain or incur a fee.
+Cancel
+Approve
+---
+[near] ok {"sig":"eFar74EGmjaUZpCIVcxoOo1pwBZB4VBwFyA8KvBFJTtdt5fRql651TfBWzxVO2kP0cg7g/j+3NJhkLDBw27WCQ==","keys":["signature","publicKey"],"pk":"Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"}
+
+--- prompt [grant] prompt.html buttons=["Cancel","Approve"]
+Glow
+0.61.0
+Prime wallet test (Solana) wants you to sign the message:
+My Wallet
+Dts1m…kjNdx
+localhost
+Prime session signer: 8ZD7vjkEhNxR2UnwSU66RSJzqaSsFsqCgo5Cex8YNoav session key: 4qHzF2PudhMPQA8hiLS6yK9hZpqUN9isauWwyhcCFL4f valid until (unix time): 1791457412 cluster: devnet
+This won’t create a transaction on the blockchain or incur a fee.
+Cancel
+Approve
+---
+[grant] ok {"sig":"YNlXa/e0+oCYhPRYAvHwHlE0GBqTCk3YLVwOKgcO30a0CvFyvOaovnjAnWCzhm02Lsn4rxKpdyWnZ7blCI0JBw==","keys":["signature","publicKey"],"pk":"Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"}
+
+--- prompt [relayer] prompt.html buttons=[]
+Glow
+0.61.0
+Prime wallet test (Solana) wants you to approve a transaction.
+My Wallet
+Dts1m…kjNdx
+localhost
+Simulating Transaction...
+---
+
+--- prompt [relayer] prompt.html buttons=["Troubleshoot","Retry","Cancel"]
+Glow
+0.61.0
+Prime wallet test (Solana) wants you to approve a transaction.
+My Wallet
+Dts1m…kjNdx
+localhost
+Glow detected an issue with the requested transaction.
+Troubleshoot
+Retry
+Cancel
+---
+
+--- prompt [relayer] prompt.html buttons=["Troubleshoot","Retry","Cancel"]
+Glow
+0.61.0
+Prime wallet test (Solana) wants you to approve a transaction.
+My Wallet
+Dts1m…kjNdx
+localhost
+Glow detected an issue with the requested transaction.
+Troubleshoot
+Retry
+Cancel
+Switch Network
+---
+[relayer] ERROR timeout 50000

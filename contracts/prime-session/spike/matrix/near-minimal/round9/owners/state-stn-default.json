@@ -1,0 +1,1127 @@
+{
+ "venue": "GAD2WVV7UNDW2UCWT6M5E6LIIYUR3VNOM3OIMJ6RKKQAWQ34RWWTBOC3",
+ "other": "GB5X74HWDW5KQJOE3HTDYEQNYZA56TSINOCDGRXBBU46B7U6QO4HVAC2",
+ "wasm": "e36d155f0381a466fb6c2c29b788a9d52e4a6f3e568f30da981609075bb7a0b3",
+ "wasmTx": "0660c493b4483e0ad4b065a130ab90209e055a922f158e862183fe85f59ad4ca",
+ "S_mm": "CBWADAVDF7AUUBCMYBXL732KDGFCUOKL5Z3CVZ4N4LM4GDLUQ4CFVI7M",
+ "S_mmTx": "96d4915321b057086d8b5a395684dcff07d618398282a04aa15616618ff6bc81",
+ "S_fr": "CAMZRYYHW5LY37C4YHV2MCUIWGNGULRZTOWXWZ3VDFPO5KGYADY4ZXGS",
+ "S_frTx": "aad44acdcd915dd0fb8bb5e45790e12fdea4c9ca2a58622bdf5e3e237712d2f0",
+ "S_ph": "CAZSREIJFWL55OQ4S72IQFVS55DBBLL7UPCMNH5XGVIDOY3UJFVGESWF",
+ "S_phTx": "6dba7afdd382111dd4e46e2f7253b509099d6d6d86ee60b26a1282e1445d1d70",
+ "S_rf": "CANWJ2RK7XKWDOZL6HE65R4ZFVH4DDBYYQ7PVV56LZMEAVW2XYCAJXTT",
+ "S_rfTx": "0ecbcb5564ded65651cced4a06645127d9c4912c69386efd19cfc0c47a81a7c7",
+ "G_mm": "GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW",
+ "G_fr": "GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I",
+ "G_ph": "GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ",
+ "G_mm_session": "GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO",
+ "G_ph_session": "GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN",
+ "G_rf": "GBXPJIRTCWJUFX4KM42UNIMTIUGJRU3U56D2KXN43ACGOZRQPVEJ2OD2",
+ "prime": "CBEPGT35XGRDNHR2OQ2EWVYBWVKMHSJ7GKACXNKQQA6KQXHERWR32FWP",
+ "primeTx": "d1f124f09e3296d9490a46e2d2b53d99706092bfa34081e4297de8d673788786",
+ "results": {
+  "P0. rule 0 signers are exactly the three wallet G keys (no prime-session)": {
+   "pass": true,
+   "detail": "[[\"Delegated\",\"GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW\"],[\"Delegated\",\"GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I\"],[\"Delegated\",\"GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ\"]]"
+  },
+  "P1. the session-owner keys of MetaMask and Phantom are not their seat keys and are not on rule 0": {
+   "pass": true,
+   "detail": "MetaMask GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO, Phantom GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN"
+  },
+  "L1-seat-MetaMask. master weight 1, thresholds low 1 / medium 1 / high 2, the account's own key is the only signer": {
+   "pass": true,
+   "detail": "GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW thresholds 1/1/2 signers GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW:1"
+  },
+  "L2-seat-MetaMask. control: a medium-threshold SetOptions (home domain) signed by the key is accepted": {
+   "pass": true,
+   "detail": "c2219bf4b614b5ae498e6d59aee8b82ff3d784975d7c017f876bd95770cf09d3"
+  },
+  "L3-seat-MetaMask. SetOptions that adds a signer, signed by the key, is refused": {
+   "pass": true,
+   "detail": "{\"transaction\":\"tx_failed\",\"operations\":[\"op_bad_auth\"]}"
+  },
+  "L4-seat-MetaMask. AccountMerge into the relayer, signed by the key, is refused": {
+   "pass": true,
+   "detail": "{\"transaction\":\"tx_failed\",\"operations\":[\"op_bad_auth\"]}"
+  },
+  "L5-seat-MetaMask. after both refusals the signer list and thresholds are unchanged and the account exists": {
+   "pass": true,
+   "detail": "1/1/2 GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW:1"
+  },
+  "L1-seat-Phantom. master weight 1, thresholds low 1 / medium 1 / high 2, the account's own key is the only signer": {
+   "pass": true,
+   "detail": "GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ thresholds 1/1/2 signers GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ:1"
+  },
+  "L2-seat-Phantom. control: a medium-threshold SetOptions (home domain) signed by the key is accepted": {
+   "pass": true,
+   "detail": "903c4f29a8e28e479f68e9d3e1ea9a804ca1ed296b51b7c8f5852d1fd2fd980c"
+  },
+  "L3-seat-Phantom. SetOptions that adds a signer, signed by the key, is refused": {
+   "pass": true,
+   "detail": "{\"transaction\":\"tx_failed\",\"operations\":[\"op_bad_auth\"]}"
+  },
+  "L4-seat-Phantom. AccountMerge into the relayer, signed by the key, is refused": {
+   "pass": true,
+   "detail": "{\"transaction\":\"tx_failed\",\"operations\":[\"op_bad_auth\"]}"
+  },
+  "L5-seat-Phantom. after both refusals the signer list and thresholds are unchanged and the account exists": {
+   "pass": true,
+   "detail": "1/1/2 GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ:1"
+  },
+  "L1-owner-MetaMask. master weight 1, thresholds low 1 / medium 1 / high 2, the account's own key is the only signer": {
+   "pass": true,
+   "detail": "GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO thresholds 1/1/2 signers GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO:1"
+  },
+  "L2-owner-MetaMask. control: a medium-threshold SetOptions (home domain) signed by the key is accepted": {
+   "pass": true,
+   "detail": "2442e3b0e67c0141181761e0c4e580671736052f9cc7ad21ad16fb71a2040559"
+  },
+  "L3-owner-MetaMask. SetOptions that adds a signer, signed by the key, is refused": {
+   "pass": true,
+   "detail": "{\"transaction\":\"tx_failed\",\"operations\":[\"op_bad_auth\"]}"
+  },
+  "L4-owner-MetaMask. AccountMerge into the relayer, signed by the key, is refused": {
+   "pass": true,
+   "detail": "{\"transaction\":\"tx_failed\",\"operations\":[\"op_bad_auth\"]}"
+  },
+  "L5-owner-MetaMask. after both refusals the signer list and thresholds are unchanged and the account exists": {
+   "pass": true,
+   "detail": "1/1/2 GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO:1"
+  },
+  "L1-owner-Phantom. master weight 1, thresholds low 1 / medium 1 / high 2, the account's own key is the only signer": {
+   "pass": true,
+   "detail": "GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN thresholds 1/1/2 signers GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN:1"
+  },
+  "L2-owner-Phantom. control: a medium-threshold SetOptions (home domain) signed by the key is accepted": {
+   "pass": true,
+   "detail": "4b1c9e41236682231e66cb82b828c8e8330b648678bb0170cce4280c7ac88c3a"
+  },
+  "L3-owner-Phantom. SetOptions that adds a signer, signed by the key, is refused": {
+   "pass": true,
+   "detail": "{\"transaction\":\"tx_failed\",\"operations\":[\"op_bad_auth\"]}"
+  },
+  "L4-owner-Phantom. AccountMerge into the relayer, signed by the key, is refused": {
+   "pass": true,
+   "detail": "{\"transaction\":\"tx_failed\",\"operations\":[\"op_bad_auth\"]}"
+  },
+  "L5-owner-Phantom. after both refusals the signer list and thresholds are unchanged and the account exists": {
+   "pass": true,
+   "detail": "1/1/2 GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN:1"
+  },
+  "Y1-MetaMask. MetaMask alone adds a rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Y1-Freighter. Freighter alone adds a rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Y1-Phantom. Phantom alone adds a rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Y2. MetaMask (NEAR) + Freighter add a rule": {
+   "pass": true,
+   "ok": true,
+   "hash": "4fbf769447d0131b36e8cb155489912fc1b7b2c4ca92966ca32cae1b8acb940e",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 3469641,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Y3. Freighter + Phantom (NEAR) remove it": {
+   "pass": true,
+   "ok": true,
+   "hash": "0f9141e301f8e863650cbb249604f84f536671e91f1c5cdfbe3822cd0cdfb0e1",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 44840,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Y4. Phantom (NEAR) + MetaMask (NEAR) add a rule": {
+   "pass": true,
+   "ok": true,
+   "hash": "674bb06eba5cb91f8053e3ae707f682acd2bb4dd0546df3d5f700277cdf45d08",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 232722,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Y5. MetaMask + Phantom remove it": {
+   "pass": true,
+   "ok": true,
+   "hash": "378152cfce0a484494a6246c1bffb09d28733e2578fa8390ba0cad24dabbbbd8",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 44848,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Y6. outsider + Freighter": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Y7. MetaMask's seat signed by Phantom's MPC key + Freighter": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Y8. Phantom's seat signed by its MPC key under another path + Freighter": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Y9. MetaMask's seat vote signed under the session path + Freighter": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Y10. Phantom's seat vote signed under the session path + Freighter": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Y11. the two session-owner accounts (MetaMask, Phantom) as the two votes on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "R-xlm_mm. MetaMask + Freighter install xlm_mm: XLM to VENUE only, signer: that wallet's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "3dde85d3c7a87c28f7a90960845284e633e2172010e46740f9fd9e37a1c4d353",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1210713,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R-xlm_fr. MetaMask + Freighter install xlm_fr: XLM to VENUE only, signer: that wallet's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "2e76f2a06e37b69e3c382cf6a6eb484b44bf07f2275474cd0cde53afa4f7211a",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1272748,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R-xlm_ph. MetaMask + Freighter install xlm_ph: XLM to VENUE only, signer: that wallet's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "31f332da168f0887b4298361178a4fee1b65c7c0c1594989db577e64cb533504",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1023046,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R-xlm_rf. MetaMask + Freighter install xlm_rf: XLM to VENUE only, signer: that wallet's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "47e7ff9d1d28dd22816bd43618c53c355dd2a53f4f5d72b1060d1479e1a74626",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1023046,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "N0a. Phantom grant (setup for N1-N5)": {
+   "pass": true,
+   "ok": true,
+   "hash": "cc5d7ec2ee923cbef249ee97d4790778fab1c71ddf8133623d3264d30f964e2e",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18118,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "N0b. MetaMask grant (setup for N2)": {
+   "pass": true,
+   "ok": true,
+   "hash": "89f58e8776721a01e7aea05d48d55371dcd0b4c691ca03b2dcc8afcaceaf4768",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18118,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "N1. Phantom's prime-session + Freighter on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "N2. MetaMask's and Phantom's prime-sessions on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "N3. Phantom session claims its session rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "N4. the session key's own G account + Freighter on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "N5. Phantom session removes rule 0 through its session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q-MetaMask0. MetaMask grant: one NEAR MPC authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "6e39491b141e5f28fec431a49b9e34c09076ee351b8317fb504a8a46753f0bf2",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18118,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q-MetaMask1. relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "ac9e2441e3494886b07cc245602510340a2892bc7ada0e914faaae1ddf4c5e49",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1393540,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q-MetaMask2a. MetaMask grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "ad53820357b8ea866cb00789e8287076fc3360d4cf993e8e021b099071a683be",
+   "kind": "grant",
+   "payer": "GBMRLUDFJALGECRB2ZTYD7KLEPOBURF5FPYH6VNHDZUXAD2RRXOKHYTB",
+   "selfPaid": true,
+   "fee": 18118,
+   "source": "GBMRLUDFJALGECRB2ZTYD7KLEPOBURF5FPYH6VNHDZUXAD2RRXOKHYTB"
+  },
+  "Q-MetaMask2. relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "b469dfe5337753a085b1dc9dc6037d930e2297d00fe8665561e9f050f421e8b0",
+   "kind": "move",
+   "payer": "GBMRLUDFJALGECRB2ZTYD7KLEPOBURF5FPYH6VNHDZUXAD2RRXOKHYTB",
+   "selfPaid": true,
+   "fee": 32890,
+   "source": "GBMRLUDFJALGECRB2ZTYD7KLEPOBURF5FPYH6VNHDZUXAD2RRXOKHYTB"
+  },
+  "Q-MetaMask3. VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "Q-MetaMask4a. MetaMask grant for a session key that has no account": {
+   "pass": true,
+   "ok": true,
+   "hash": "a54846744cee28e1bcffa9c186f43bdc0c879dc3f0297f9ef63c927bde19c9a5",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18118,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q-MetaMask4. relayer down and the session key has no account": {
+   "pass": true,
+   "ok": false,
+   "error": "Account not found: GCIKFPJ3C7MIZMR6J3UEXX6E2UGDWNTC3JWTCI23XL2IFRXRE23WMOCY",
+   "kind": "move",
+   "payer": "GCIKFPJ3C7MIZMR6J3UEXX6E2UGDWNTC3JWTCI23XL2IFRXRE23WMOCY",
+   "selfPaid": true
+  },
+  "Q-MetaMask5. 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q-MetaMask6. on another wallet's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q-Freighter0. Freighter grant: one signAuthEntry authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "076fa3164adca649adadbca38edfe90995cc3aba646b22b06397b9bd65109858",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18111,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q-Freighter1. relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "60fb3f3e838a561655c10b56a0abd1951d26389ade25df0a9bfebeb53e9539c5",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1049127,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q-Freighter2a. Freighter grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "21b16f4e637cffb425a894436c428db51f47aa27b4c36b87782bcb36a01f186e",
+   "kind": "grant",
+   "payer": "GBOQZTQH4XYLBXDTJ2QELCKIJTM5W2EHNVFT2RVRJRHW3E5ZZOLM5Z6I",
+   "selfPaid": true,
+   "fee": 18112,
+   "source": "GBOQZTQH4XYLBXDTJ2QELCKIJTM5W2EHNVFT2RVRJRHW3E5ZZOLM5Z6I"
+  },
+  "Q-Freighter2. relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "6f3a84fe6317ba5774e9293660a7e46fcc7e35c6ced395a96605bdf39dad79a6",
+   "kind": "move",
+   "payer": "GBOQZTQH4XYLBXDTJ2QELCKIJTM5W2EHNVFT2RVRJRHW3E5ZZOLM5Z6I",
+   "selfPaid": true,
+   "fee": 32891,
+   "source": "GBOQZTQH4XYLBXDTJ2QELCKIJTM5W2EHNVFT2RVRJRHW3E5ZZOLM5Z6I"
+  },
+  "Q-Freighter3. VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "Q-Freighter4a. Freighter grant for a session key that has no account": {
+   "pass": true,
+   "ok": true,
+   "hash": "a209e590f3681954b45b7fbeedbe23f613b922ab1db50fac5023895e80cb8f18",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18112,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q-Freighter4. relayer down and the session key has no account": {
+   "pass": true,
+   "ok": false,
+   "error": "Account not found: GBVIXWIA6FQLO6KN2UUDJGDHN4BSKEAOUZRLTVQRUXIUS6OG6SO4U3CJ",
+   "kind": "move",
+   "payer": "GBVIXWIA6FQLO6KN2UUDJGDHN4BSKEAOUZRLTVQRUXIUS6OG6SO4U3CJ",
+   "selfPaid": true
+  },
+  "Q-Freighter5. 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q-Freighter6. on another wallet's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q-Phantom0. Phantom grant: one NEAR MPC authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "f14237524c60eb281b8200e53d858f88dfbdb5b99330d027dda0dffc46c67e74",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18118,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q-Phantom1. relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "5bd602545b9489c62118682a403c28ac3ebe8a14eff84073fdb00fa01fbbd6fa",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1049139,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q-Phantom2a. Phantom grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "a6d5c87ff402f88415dbc9630f44802f37e2c8aab99d0a78601519621ec7cd1d",
+   "kind": "grant",
+   "payer": "GBHGU2WXZ5QLQWGGBK4CP74CESEH6LSEMCWNPLA7OCLXKM5WH4QFCF57",
+   "selfPaid": true,
+   "fee": 18118,
+   "source": "GBHGU2WXZ5QLQWGGBK4CP74CESEH6LSEMCWNPLA7OCLXKM5WH4QFCF57"
+  },
+  "Q-Phantom2. relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "a10ec93507705ec577d339a662d0fc5e21786bdafcb743c814ab09b5f30c885c",
+   "kind": "move",
+   "payer": "GBHGU2WXZ5QLQWGGBK4CP74CESEH6LSEMCWNPLA7OCLXKM5WH4QFCF57",
+   "selfPaid": true,
+   "fee": 32891,
+   "source": "GBHGU2WXZ5QLQWGGBK4CP74CESEH6LSEMCWNPLA7OCLXKM5WH4QFCF57"
+  },
+  "Q-Phantom3. VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "Q-Phantom4a. Phantom grant for a session key that has no account": {
+   "pass": true,
+   "ok": true,
+   "hash": "a0a3f8b90c9e6c6c1b7cc33d1c7466028e09d8a5cce989343f3f2671bd0b39d2",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18118,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q-Phantom4. relayer down and the session key has no account": {
+   "pass": true,
+   "ok": false,
+   "error": "Account not found: GCZ4FFPDDKI4INU75CD3GGFNZ5E3VCTS65FEWGA6RGVDUAIP6XTRD2VP",
+   "kind": "move",
+   "payer": "GCZ4FFPDDKI4INU75CD3GGFNZ5E3VCTS65FEWGA6RGVDUAIP6XTRD2VP",
+   "selfPaid": true
+  },
+  "Q-Phantom5. 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q-Phantom6. on another wallet's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q-never. a session key that was never granted": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q7. Phantom authorized one valid-until; the relayer submits a later one": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q7b. the key from Q7 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q8. MetaMask grant 10 ledgers beyond 7 days is refused at grant time": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Contract, #1)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q8b. the key from Q8 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q9-MetaMask0. MetaMask grant (first session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "9bdd40a4cf7ffed7871ee7366b198d9f22cf52b8eb66bd976a98379c47925c20",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18118,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q9-MetaMask00. MetaMask grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "0baa24f6c49ec39a096bd15907f7a3bc7cc3a9776b3f310922445c483c743030",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18118,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q9-MetaMaska. session before revoke": {
+   "pass": true,
+   "ok": true,
+   "hash": "31d276bd7e4197e15f6ed8ecd15165b389a23a435261518c8c317da91ebc5929",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32890,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q9-MetaMaskb. MetaMask revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "3e8ee890075fca1a1ff3b8e92929153f62110df76e8d131afdee1efc677701b6",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 758001,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q9-MetaMaskc. the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q9-MetaMaskd. another live session of the same wallet still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "8c4e20585d6b3e5f1bc3aaf419e4d661eb7545ddbaee855bc18cbc791b59ff6a",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32890,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q9-Freighter0. Freighter grant (first session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "be2a0718fd3ad1e4d30ce9b96925358dfb2caf3c57538511a01adaea94de841d",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18112,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q9-Freighter00. Freighter grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "6d3ed5488f7c3b75eb6bc282aa6386b97a7334de27ddf92d155a653257476414",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18112,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q9-Freightera. session before revoke": {
+   "pass": true,
+   "ok": true,
+   "hash": "7eb0c435b7fcee8b18d971daeb54189c804962be3c7dc0b10024c16adb0cde77",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32891,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q9-Freighterb. Freighter revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "f71f0a00a29df148f3a614da24e536678125ea5aebe5a6c1b281554f7d07a346",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 757993,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q9-Freighterc. the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q9-Freighterd. another live session of the same wallet still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "1b379a0da7dc15320fa8e877ef64934ec88042b0a833638d31e7d389fc7b6a00",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32891,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q10-0. Phantom grant (target of the Freighter revoke)": {
+   "pass": true,
+   "ok": true,
+   "hash": "d250f0d395eb685d7dbf2481c6f4e7e0ada4523a19a9d41dc6afc2a155b6c1f4",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18118,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q10. Freighter signs a revoke of a Phantom session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q10b. the Phantom session still works after the refused revoke": {
+   "pass": true,
+   "ok": true,
+   "hash": "4906c0a6178c99d0084518345418ae35dfff5721df652efabc32af529900c156",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32891,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q11-0. Phantom grant for 15 ledgers": {
+   "pass": true,
+   "ok": true,
+   "hash": "012b9efdb81d257420a8de98b46a7f52787239266e7d5686df381021699579fa",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18118,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q11a. the short session works before its end": {
+   "pass": true,
+   "ok": true,
+   "hash": "58d28bfc0210661b19489fa8d42cbda2af251da3e4c9dea179568718e1b721c6",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32891,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q11b. past its end the stored entry still exists": {
+   "pass": true,
+   "detail": "{\"until\":5087784,\"live\":5088491}"
+  },
+  "Q11c. the short session at until + 1": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q12-0. Freighter grant for the longest session (7 days less 20 ledgers)": {
+   "pass": true,
+   "ok": true,
+   "hash": "96124936baacfb79ae212ca0672f0b77256dc4ceaa10081a51c2f3c228044518",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 46722,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q12a. the 7-day entry stores its end and lives at least to it": {
+   "pass": true,
+   "detail": "{\"until\":5208726,\"live\":5208726} session end 5208726"
+  },
+  "Q12b. a move in the 7-day session": {
+   "pass": true,
+   "ok": true,
+   "hash": "0313bd46804d8ae4794e768b4c6da3a71b09e38be7c81975032db505de030294",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32891,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q13a. Freighter grant for the replay test": {
+   "pass": true,
+   "ok": true,
+   "hash": "1df5458298d1129a574ceab9bc910197f3af45199631eb9d979c58249ddbef46",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18112,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q13b. Freighter revokes it": {
+   "pass": true,
+   "ok": true,
+   "hash": "fa608bfd36a522f81cdd5943127ac6171a5fcd9349f2784141e080fd30f3e5ff",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 757992,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q13c. replay of the used grant authorization": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, ExistingValue)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q13d. the revoked key cannot move after the replay attempt": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q17-Freightera. Freighter grant (the first of two entries signed together)": {
+   "pass": true,
+   "ok": true,
+   "hash": "5f221d2ab12927e38d1a40621ee44b0619c46718abe5961bd72b3a96da13f2d6",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18112,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q17-Freighterb. the session moves": {
+   "pass": true,
+   "ok": true,
+   "hash": "f04048f2321f8a21db486f386408ab3e5975905afd83a703eaa05557d8e24d22",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32891,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q17-Freighterc. Freighter revokes it": {
+   "pass": true,
+   "ok": true,
+   "hash": "e835017104fc62f653eea8540b0947877af69334238b63ae3c35f4aa5298449f",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 757993,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q17-Freighterd. the held-back second entry, submitted after the revoke": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Contract, #1)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q17-Freightere. the key cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q17-Freighterf. a new authorization to grant the revoked key again": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Contract, #1)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q17-Freighterg. the revoke entry stores 0 and lives to at least 3,000,000 ledgers ahead": {
+   "pass": true,
+   "detail": "{\"until\":0,\"live\":8198193}"
+  },
+  "Q17-Phantoma. Phantom grant (the first of two entries signed together)": {
+   "pass": true,
+   "ok": true,
+   "hash": "8dbd8c4e0f7761369999cc0307f1939c841a22f51b07358f41dfaed1151d32b1",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18118,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q17-Phantomb. the session moves": {
+   "pass": true,
+   "ok": true,
+   "hash": "62118d1f075a9b999c81c6e848723a0dbf7e122f30e3992039ea4097d1e34f01",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32891,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q17-Phantomc. Phantom revokes it": {
+   "pass": true,
+   "ok": true,
+   "hash": "8d50056e0bf62e56e41f6974b1adb2137591d84c22ef5c3927b1151bde7de271",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 758000,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q17-Phantomd. the held-back second entry, submitted after the revoke": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Contract, #1)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q17-Phantome. the key cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q17-Phantomf. a new authorization to grant the revoked key again": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Contract, #1)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q17-Phantomg. the revoke entry stores 0 and lives to at least 3,000,000 ledgers ahead": {
+   "pass": true,
+   "detail": "{\"until\":0,\"live\":8198202}"
+  },
+  "Q14a. control: a grant authorization submitted before its signature-expiry ledger": {
+   "pass": true,
+   "ok": true,
+   "hash": "21f9be41092b368d4e3762943c0b9487a05f715140c7954573603ff5e35552f9",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18112,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Q14. the same authorization for another key, submitted after its signature-expiry ledger": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidInput)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q15. a stranger signs Freighter's grant authorization": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q16. a stranger sends a grant with no owner authorization, paying the fee": {
+   "pass": true,
+   "ok": false,
+   "hash": "04248d59379d9452885ef420e76ef321a540a08c01fa8291c98873da7e5b6cb4",
+   "error": "FAILED \"AAAAAAAALsH/////AAAAAQAAAAAAAAAY/////gAAAAA=\"",
+   "kind": "grant",
+   "payer": "GCGZY57HDYPXIP6LPPXCKFDDV5TWKDZFPQMAR2LBOMWYJJLMQB3SN2ON",
+   "selfPaid": true
+  },
+  "X1. Freighter's prime-session: grant signed by Phantom's session-owner key (NEAR)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "X1b. the key from X1 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "X4. Phantom's prime-session: grant signed by its MPC key under another path": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "X4b. the key from X4 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "X5. Phantom's session-owner key authorizes a grant on MetaMask's prime-session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "X5b. the key from X5 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "X6. MetaMask's grant authorization (for its own prime-session) sent to Phantom's prime-session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "X7. Phantom's seat key (prime:stellar) signs the grant of its own prime-session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "X7b. the key from X7 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "H1. Horizon: all 50 landed grants, revokes and moves have the payer as source account; the 6 self-paid ones have the session key's own account": {
+   "pass": true,
+   "detail": "ok"
+  }
+ },
+ "mpc_setup": {
+  "calls": 12,
+  "ms": 97694
+ },
+ "mpc_seats": {
+  "calls": 14,
+  "ms": 108011
+ },
+ "r_mm": 3,
+ "r_fr": 4,
+ "r_ph": 5,
+ "r_rf": 6,
+ "mpc_rules": {
+  "calls": 4,
+  "ms": 30619
+ },
+ "mpc_separation": {
+  "calls": 2,
+  "ms": 16749
+ },
+ "mpc_sessions": {
+  "calls": 17,
+  "ms": 131815
+ },
+ "mpc_cross": {
+  "calls": 5,
+  "ms": 38190
+ },
+ "fees": {
+  "tx relayed": {
+   "n": 8,
+   "min": 44840,
+   "median": 1023046,
+   "max": 3469641
+  },
+  "grant relayed": {
+   "n": 19,
+   "min": 18111,
+   "median": 18118,
+   "max": 46722
+  },
+  "move relayed": {
+   "n": 12,
+   "min": 32890,
+   "median": 32891,
+   "max": 1393540
+  },
+  "grant self-paid": {
+   "n": 3,
+   "min": 18112,
+   "median": 18118,
+   "max": 18118
+  },
+  "move self-paid": {
+   "n": 3,
+   "min": 32890,
+   "median": 32891,
+   "max": 32891
+  },
+  "revoke relayed": {
+   "n": 5,
+   "min": 757992,
+   "median": 757993,
+   "max": 758001
+  }
+ }
+}

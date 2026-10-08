@@ -1,0 +1,346 @@
+{
+ "token": "0xF8e1dC0C8E9CD8F4f91c0f24fF29a9184808db8e",
+ "safe": "0x9aeb9e2d348E9700399DB58ed3c63c20739f333D",
+ "roles": "0xBf04962f6A9669Ba319D3761D6af2B85A6b26Bb4",
+ "pks": [
+  "0x8d4E05C512D11426B8c16BfE573ff9946e480C7C",
+  "0x3Fe4f010bb70fA1f5B49DDCcFB54c44fC3CceE1b"
+ ],
+ "roleKey": "0x6d6f766572733a39386564393130360000000000000000000000000000000000",
+ "owners": [
+  {
+   "name": "MetaMask",
+   "seat": "0xCcD8af4Ae1a907Ac370FD151D6282da59bc7C570",
+   "owner": "0xCcD8af4Ae1a907Ac370FD151D6282da59bc7C570"
+  },
+  {
+   "name": "Freighter",
+   "seat": "0x29A9ac479C237AC2CAE6f25cD6cec5D961C113fF",
+   "owner": "0x235fdB241f269F0192fe41A9CF50Fdf5fd7Eb4aa"
+  }
+ ],
+ "threshold": 2,
+ "gas": {
+  "deployPrimeSession": "919172",
+  "setupSafe": "664905",
+  "safeThreshold": "98615",
+  "grantMetaMask": "75976",
+  "moveRelayerMetaMask": "141854",
+  "moveSelfMetaMask": "124754",
+  "revokeMetaMask": "57845",
+  "grantFreighter": "76000",
+  "moveRelayerFreighter": "124754",
+  "moveSelfFreighter": "124754",
+  "revokeFreighter": "57845"
+ },
+ "mpc": {
+  "calls": 16,
+  "ms": 119348
+ },
+ "results": [
+  {
+   "name": "O1. create the Safe with MetaMask as its only owner",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 259231",
+   "tx": "0x4c34a963ad7ab9aeb03b5dddd361bfacfa09a65d57f8c4439d2589986161e654"
+  },
+  {
+   "name": "O2. MetaMask adds the other 1 owners, sets threshold 2, installs Roles with the 2 PrimeSessions and the rule",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 664905",
+   "tx": "0x7137e40558a785b44436171aed4e5ce0997a4c3095664ab3710ceacec1ec993e"
+  },
+  {
+   "name": "O3. Safe owners are exactly the 2 seat keys (no PrimeSession), threshold 2",
+   "pass": true,
+   "ok": true,
+   "detail": "2 owners / 2"
+  },
+  {
+   "name": "O4. each PrimeSession's owner is its own wallet's grant key, and all 2 differ",
+   "pass": true,
+   "ok": true,
+   "detail": "0xCcD8af,0x235fdB"
+  },
+  {
+   "name": "O5. mint 100000 tokens to the Safe",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 46096",
+   "tx": "0x26d48669b70ea2c1dc52f08e1839e1a5996f01bf0be9fabf18bd6071e3f96664"
+  },
+  {
+   "name": "S1. 1 of 2 owners vote (threshold minus one)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS020"
+  },
+  {
+   "name": "S2. 2 owners vote (MetaMask + Freighter)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 98615",
+   "tx": "0xfd549aa54530464759af3bc451bd8750160e365c388e660fee70d5ecd1ae5346"
+  },
+  {
+   "name": "S4. 1 owners and an outsider vote",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "S5. MetaMask signs 2 times, as 2 votes",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "S6. DEST received exactly 1 (the accepted transactions only)",
+   "pass": true,
+   "ok": true,
+   "detail": "1"
+  },
+  {
+   "name": "P0-MetaMask.1 MetaMask grants a 1-hour session on its own PrimeSession, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x6d8f6495786f3521e151f22bfaa537f4008d9c7984eed557a3f8d82dd359711d"
+  },
+  {
+   "name": "P0-MetaMask.2 move via relayer: 3 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 141854",
+   "tx": "0xc1fd60d65ba841291905f6df646d1733df35ea437dea86af26a4c03e67303198"
+  },
+  {
+   "name": "P0-MetaMask.3 relayer down: the session key pays its own gas, 2 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754 (paid by 0xa5e8E9…)",
+   "tx": "0x472497ec54a8f8e5421e3f48e7446f9aec935f32884c714114707a46f26df169"
+  },
+  {
+   "name": "P0-MetaMask.4 VENUE received exactly 5",
+   "pass": true,
+   "ok": true,
+   "detail": "5"
+  },
+  {
+   "name": "P0-MetaMask.5 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P0-MetaMask.6 the session key's signature as a Safe owner + 1 real owner votes (2 signatures)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "P0-MetaMask.7 the PrimeSession as a contract signature + 1 real owner votes",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted for an unknown reason."
+  },
+  {
+   "name": "P0-MetaMask.8 session asks Roles to add its key as a Safe owner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P0-MetaMask.9 MetaMask grants a second session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 75976",
+   "tx": "0x60c25e0670bd713e5b9507c4ccca0aa817667ff8f305b743c36146cd5b5b1556"
+  },
+  {
+   "name": "P0-MetaMask.10 MetaMask revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 57845",
+   "tx": "0xcd40cb5e1ffadf4326a5d5df69044c985dce9a76790b965e59c7e26b7b1d3c00"
+  },
+  {
+   "name": "P0-MetaMask.11 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "P0-MetaMask.12 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0xcf2cddf219b990467a54594f7598c7bfa03488fb347c9dfcd9233d5c086c2263"
+  },
+  {
+   "name": "P0-MetaMask.13 a grant signed by Freighter presented to MetaMask's PrimeSession",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "P1-Freighter.1 Freighter grants a 1-hour session on its own PrimeSession, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0xfba4b159e73ac2ddd5b5d059fb2d1f7777db0534dfeffaa8bc14c7947b4ce154"
+  },
+  {
+   "name": "P1-Freighter.2 move via relayer: 3 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x9bd50b2b52510433e0f66d937ebebc2eff9e631f8dc56809687a35da04efc62e"
+  },
+  {
+   "name": "P1-Freighter.3 relayer down: the session key pays its own gas, 2 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754 (paid by 0x7daf57…)",
+   "tx": "0x4e66cf29281ee256b81fa63ea18e2e9771665b8daa20dae1289e280988b00854"
+  },
+  {
+   "name": "P1-Freighter.4 VENUE received exactly 5",
+   "pass": true,
+   "ok": true,
+   "detail": "5"
+  },
+  {
+   "name": "P1-Freighter.5 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P1-Freighter.6 the session key's signature as a Safe owner + 1 real owner votes (2 signatures)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "P1-Freighter.7 the PrimeSession as a contract signature + 1 real owner votes",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted for an unknown reason."
+  },
+  {
+   "name": "P1-Freighter.8 session asks Roles to add its key as a Safe owner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P1-Freighter.9 Freighter grants a second session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x834489935db4cc047b2e529b7eb47535969d82d9938b506b2043151cfb62663f"
+  },
+  {
+   "name": "P1-Freighter.10 Freighter revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 57845",
+   "tx": "0xe30b42825228a34a0580b5e505aa93102976f0317961fc97a03e2af767c5c52e"
+  },
+  {
+   "name": "P1-Freighter.11 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "P1-Freighter.12 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124742",
+   "tx": "0xa85592dfed2acb01394d51f0101a4289ad840bfe5ad77a5e31ffb759f5a4990d"
+  },
+  {
+   "name": "P1-Freighter.13 a grant signed by MetaMask presented to Freighter's PrimeSession",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "R0. Freighter's live session works before removal",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x2747fb2c0b30284015678c3f74f7e1a38f513e600c9687eee9412745bdfd0d83"
+  },
+  {
+   "name": "R1. 1 owners try to remove Freighter's PrimeSession from the Roles members",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS020"
+  },
+  {
+   "name": "R2. 2 owners remove Freighter's PrimeSession from the Roles members (MetaMask + Freighter)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 83207",
+   "tx": "0x2d3d7abe4d15d733700c7e94e82fd22efe00122f016973cc5a5169262a20ca8a"
+  },
+  {
+   "name": "R3. Freighter's live session after removal",
+   "pass": true,
+   "ok": false,
+   "detail": "Roles NoMembership"
+  },
+  {
+   "name": "R4. Freighter signs a new grant (the contract still takes it)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x59c45a49ba00b2ed048904ae7f2237be609774ac317e35b1cee7f83644088a49"
+  },
+  {
+   "name": "R5. the new session cannot move either (no Roles membership)",
+   "pass": true,
+   "ok": false,
+   "detail": "Roles NoMembership"
+  },
+  {
+   "name": "R6. MetaMask's session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x464e9a21ea7fece751d68af2d12c2896500ac6dd401e43eb629bcc26e9d3dd65"
+  },
+  {
+   "name": "R7. 2 owners remove Freighter from the Safe (new threshold 1)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 82350",
+   "tx": "0xe90f8813ed25b76da6fd730126f1c9703c3a09883b1021cdf0f870a4aacc78e2"
+  },
+  {
+   "name": "R8. the Safe now has 1 owners without Freighter, threshold 1",
+   "pass": true,
+   "ok": true,
+   "detail": "1 owners / 1"
+  },
+  {
+   "name": "R9. Freighter's vote and 0 other owners no longer reach the threshold",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "R10. 1 remaining owners vote",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 73798",
+   "tx": "0xedfb2339f1e24b52f7f104aeb07dd2f62579e5901f270bbc9c45a60a64f59e49"
+  }
+ ]
+}

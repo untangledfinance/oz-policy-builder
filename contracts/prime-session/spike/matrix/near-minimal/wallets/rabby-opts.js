@@ -1,0 +1,1 @@
+{labels:[/^Connect$/,/^Sign$/,/^Confirm$/,/^Continue$/,/^Add$/,/^Switch$/,/^Approve$/,/^Allow$/], skip:/index\.html|popup\.html/, timeout:150000, steps:['connect','near','chain','typed'], extra: async (p,t) => { const l = p.getByText('Ignore all'); if (await l.count()) await l.first().click({timeout:2000}); }}

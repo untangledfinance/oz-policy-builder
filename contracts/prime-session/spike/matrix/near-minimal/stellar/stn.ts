@@ -22,7 +22,7 @@ const WASM = '/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/con
 const ACCOUNT_WASM_HASH = '91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9';
 const WEIGHTED = 'CCTNRFZCL45GTJICA3Z2KFQO3VEGBHGCVBLHQ3GLJKAGACQIJMYJS7T2';
 const INTERPRETER = 'CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5';
-const FILE = 'state-stn.json';
+const FILE = process.env.STN_STATE ?? 'state-stn.json';
 const st: Record<string, any> = existsSync(FILE) ? JSON.parse(readFileSync(FILE, 'utf8')) : {};
 const save = (p: Record<string, unknown>) => { Object.assign(st, p); writeFileSync(FILE, JSON.stringify(st, null, 1)); };
 const fee = keypair('secrets/fee-payer.json'); // the relayer
@@ -356,6 +356,149 @@ if (part === 'realfr') {
   await mv('RF3. 1 XLM elsewhere', false, st.other, rule, s);
   await runGrant('RF4. real Freighter signAuthEntry authorizes the revoke, grant(key, 0)', true, RF, st.S_rf, s.kp.rawPublicKey(), 0);
   await mv('RF5. the revoked session', false, st.venue, rule, s);
+}
+if (part === 'owners') {
+  // Any number of owners and any threshold: PRIME_OWNERS and PRIME_THRESHOLD. A fresh Prime Account and one prime-session per owner are
+  // deployed (run with STN_STATE set to its own state file). The first three owners are the real wallets (Freighter's own key, then
+  // MetaMask and Phantom through NEAR); further owners are plain local keys that serve as both seat and session owner.
+  const N_OWN = Number(process.env.PRIME_OWNERS), THR = Number(process.env.PRIME_THRESHOLD);
+  if (!Number.isInteger(N_OWN) || !Number.isInteger(THR) || N_OWN < 1 || THR < 1 || THR > N_OWN) throw new Error(`PRIME_OWNERS=${N_OWN} PRIME_THRESHOLD=${THR}: need integers with 1 <= threshold <= owners`);
+  const TAG = `${THR}-of-${N_OWN}`;
+  const plain = (n: number): { seat: W; owner: W } => { const w = local(`Owner${n}`, Sdk.Keypair.random()); return { seat: w, owner: w }; };
+  const roster = [{ seat: FR, owner: FR }, { seat: MM, owner: MM_S }, { seat: PH, owner: PH_S }].slice(0, N_OWN).concat(Array.from({ length: Math.max(0, N_OWN - 3) }, (_, i) => plain(i + 4)));
+  for (const o of roster) { OWNER[o.seat.name] = o.owner; S_OF[o.seat.name] = `S_${o.seat.name}`; }
+  const seats = roster.map((o) => o.seat), names = (ws: W[]) => ws.map((w) => w.name).join(' + ');
+  const votes = (ws: W[]) => ws.map((w) => seat(w));
+  const rules: Record<string, number> = {};
+  log(TAG, roster.map((o) => `${o.seat.name} seat ${o.seat.G.slice(0, 6)} owner ${o.owner.G.slice(0, 6)}`).join('; '));
+
+  // setup: relayer, seat and owner accounts, one prime-session per owner, the Prime Account (weights 1, threshold T)
+  await friendbot(fee.publicKey());
+  for (const o of roster) { await friendbot(o.seat.G); await friendbot(o.owner.G); }
+  { const v = Sdk.Keypair.random(), x = Sdk.Keypair.random(); await friendbot(v.publicKey()); await friendbot(x.publicKey()); save({ venue: v.publicKey(), other: x.publicKey() }); }
+  { const { ret, hash } = await submit(fee, Sdk.Operation.uploadContractWasm({ wasm: readFileSync(WASM) })); save({ wasm: Buffer.from(ret!.bytes()).toString('hex'), wasmTx: hash }); }
+  for (const o of roster) {
+    const { ret, hash } = await submit(fee, Sdk.Operation.createCustomContract({ address: Sdk.Address.fromString(fee.publicKey()), wasmHash: Buffer.from(st.wasm, 'hex'), constructorArgs: [addr(o.owner.G)], salt: Buffer.from(Sdk.Keypair.random().rawPublicKey()) }));
+    save({ [S_OF[o.seat.name]!]: Sdk.Address.fromScVal(ret!).toString(), [`${S_OF[o.seat.name]}Tx`]: hash }); log(S_OF[o.seat.name], st[S_OF[o.seat.name]!], hash);
+  }
+  {
+    const weights = map([[sym('signer_weights'), map(seats.map((w) => [delegated(w.G), u32(1)] as [Sdk.xdr.ScVal, Sdk.xdr.ScVal]))], [sym('threshold'), u32(THR)]]);
+    const { ret, hash } = await submit(fee, Sdk.Operation.createCustomContract({ address: Sdk.Address.fromString(fee.publicKey()), wasmHash: Buffer.from(ACCOUNT_WASM_HASH, 'hex'),
+      constructorArgs: [vec(seats.map((w) => delegated(w.G))), map([[addr(WEIGHTED), weights]])], salt: Buffer.from(Sdk.Keypair.random().rawPublicKey()) }));
+    save({ prime: Sdk.Address.fromScVal(ret!).toString(), primeTx: hash }); log('Prime Account', st.prime, hash);
+    const fundXlm = Math.max(30, N_OWN * 5); log(`funded ${fundXlm} XLM`, (await submit(fee, new Sdk.Contract(XLM).call('transfer', addr(fee.publicKey()), addr(st.prime), Sdk.nativeToScVal(BigInt(fundXlm) * 10_000_000n, { type: 'i128' })))).hash);
+  }
+  const rule0 = async () => (await sim(call('get_context_rule', u32(0)))).result.retval as Sdk.xdr.ScVal;
+  {
+    const r0: any = Sdk.scValToNative(await rule0()), signers = JSON.stringify(r0.signers, (_, v) => (typeof v === 'bigint' ? v.toString() : v));
+    const S = seats.map((w) => st[S_OF[w.name]!] as string);
+    const wt: any = Sdk.scValToNative((await sim(new Sdk.Contract(WEIGHTED).call('get_threshold', u32(0), addr(st.prime)))).result.retval);
+    check(`P0. rule 0 signers are exactly the ${N_OWN} seat keys (no prime-session), weighted threshold ${THR}`, seats.every((w) => signers.includes(w.G)) && !S.some((s) => signers.includes(s)) && r0.signers.length === N_OWN && Number(wt) === THR, `${r0.signers.length} signers, threshold ${wt}`);
+    check(`P1. the ${N_OWN} prime-session contracts and the ${N_OWN} session-owner accounts are all different`, new Set(S).size === N_OWN && new Set(roster.map((o) => o.owner.G)).size === N_OWN, S.map((s) => s.slice(0, 6)).join(','));
+  }
+
+  // seats: threshold - 1 votes refused, threshold votes accepted, any threshold-sized subset, outsider and wrong-key votes refused
+  {
+    const first = seats.slice(0, THR), last = seats.slice(N_OWN - THR), stranger = Sdk.Keypair.random(); await friendbot(stranger.publicKey());
+    await run(`Y1. ${THR - 1} of ${N_OWN} owners vote (threshold minus one) to add a rule`, false, tmpRule('y1'), [0], votes(seats.slice(0, THR - 1)));
+    await run(`Y2. ${THR} owners vote (${names(first)}) to add a rule`, true, tmpRule('y2'), [0], votes(first));
+    await run(`Y3. a different ${THR} owners vote (${names(last)}) to remove it`, true, call('remove_context_rule', u32(await ruleId('y2'))), [0], votes(last));
+    await run(`Y4. ${THR - 1} owners and an outsider vote`, false, tmpRule('y4'), [0], [...votes(seats.slice(0, THR - 1)), localSigner(stranger)]);
+    await run(`Y5. ${seats[0]!.name}'s seat signed by another key, plus ${THR - 1} real owners`, false, tmpRule('y5'), [0], [seat(seats[0]!, (seats[1] ?? local('x', stranger)) as W), ...votes(seats.slice(1, THR))]);
+  }
+  // one session rule per owner, installed by threshold votes on rule 0
+  for (const o of roster) { const n = `xlm_${o.seat.name}`;
+    await run(`R-${n}. ${THR} owners install ${n}: XLM to VENUE only, signer: ${o.seat.name}'s prime-session`, true, call('add_context_rule', ...xlmRule(n, st[S_OF[o.seat.name]!])), [0], votes(seats.slice(0, THR)));
+    rules[o.seat.name] = await ruleId(n); }
+  save({ rules });
+
+  // each owner: its own session, relayed and self-paid moves, revoke, no vote
+  const live: Record<string, Session> = {};
+  for (const [i, o] of roster.entries()) {
+    const w = o.seat, n = w.name, p = `P${i}-${n}`, rule = rules[w.name]!, others = seats.filter((x) => x !== w);
+    const s = await session(w, `${p}.1 ${n} grant: one authorization (${o.owner === w ? 'own key' : 'NEAR MPC'}), relayer pays`); live[n] = s;
+    const b = await xlmBal(st.venue);
+    await mv(`${p}.2 relayer pays: 1 XLM to VENUE`, true, st.venue, rule, s);
+    const kp2 = Sdk.Keypair.random(); await friendbot(kp2.publicKey());
+    const s2 = await session(w, `${p}.3 ${n} grant, relayer down: the session key's own account is the transaction source`, { kp: kp2, payer: kp2 });
+    await mv(`${p}.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE`, true, st.venue, rule, s2, kp2);
+    check(`${p}.5 VENUE received exactly 2 XLM`, (await xlmBal(st.venue)) - b === 20_000_000n, `${(await xlmBal(st.venue)) - b} stroops`);
+    await mv(`${p}.6 1 XLM elsewhere`, false, st.other, rule, s);
+    if (others.length) await mv(`${p}.7 on ${others[0]!.name}'s session rule`, false, st.venue, rules[others[0]!.name]!, s);
+    await run(`${p}.8 the session and ${THR - 1} real owners vote on rule 0`, false, tmpRule(`n8_${i}`), [0], [s.signer, ...votes(others.slice(0, THR - 1))]);
+    await run(`${p}.9 the session claims its own rule for an account-admin call`, false, tmpRule(`n9_${i}`), [rule], [s.signer]);
+    await run(`${p}.10 the session removes rule 0 through its own rule`, false, call('remove_context_rule', u32(0)), [rule], [s.signer]);
+    const r = await session(w, `${p}.11 ${n} grant (second session)`);
+    await runGrant(`${p}.12 ${n} revokes it: grant(key, 0), one authorization, relayer pays`, true, OWNER[n]!, Sof(w), r.kp.rawPublicKey(), 0);
+    await mv(`${p}.13 the revoked session`, false, st.venue, rule, r);
+    await mv(`${p}.14 the first session still works`, true, st.venue, rule, s);
+    if (others.length) { const x = others[i % others.length]!, kp = Sdk.Keypair.random(), u = (await now()) + 720;
+      await runGrant(`${p}.15 a grant for ${n}'s prime-session signed by ${x.name}'s owner key`, false, OWNER[n]!, Sof(w), kp.rawPublicKey(), u, { signAs: OWNER[x.name]! });
+      await mv(`${p}.16 the key from ${p}.15 cannot move`, false, st.venue, rule, { kp, until: u, S: Sof(w), signer: proofSigner(Sof(w), kp) }); }
+  }
+
+  // removal: the owners drop one owner's session rule, then the owner's seat
+  {
+    const k = seats[N_OWN - 1]!, rest = seats.filter((x) => x !== k), voters = rest.length >= THR ? rest.slice(0, THR) : seats.slice(0, THR), ks = live[k.name]!, other = seats.find((x) => x !== k);
+    await mv(`R0. ${k.name}'s live session works before removal`, true, st.venue, rules[k.name]!, ks);
+    await run(`R1. ${THR - 1} owners try to remove ${k.name}'s session rule`, false, call('remove_context_rule', u32(rules[k.name]!)), [0], votes(voters.slice(0, THR - 1)));
+    await run(`R2. ${THR} owners remove ${k.name}'s session rule (${names(voters)})`, true, call('remove_context_rule', u32(rules[k.name]!)), [0], votes(voters));
+    await mv(`R3. ${k.name}'s live session after removal`, false, st.venue, rules[k.name]!, ks);
+    const again = await session(k, `R4. ${k.name} signs a new grant (the contract still takes it)`);
+    await mv('R5. the new session cannot move either (no rule)', false, st.venue, rules[k.name]!, again);
+    if (other) await mv(`R6. ${other.name}'s session still works`, true, st.venue, rules[other.name]!, live[other.name]!);
+    if (N_OWN >= 2) {
+      const newThr = Math.min(THR, N_OWN - 1), id = async (g: string) => Number(Sdk.scValToNative((await sim(call('get_signer_id', delegated(g)))).result.retval));
+      const exec = async (fn: string, ...a: Sdk.xdr.ScVal[]) => call('execute', addr(WEIGHTED), sym(fn), vec(a));
+      if (newThr !== THR) await run(`R7. ${THR} owners lower the threshold to ${newThr} (the account must not be left with fewer owners than votes)`, true, await exec('set_threshold', u32(newThr), await rule0(), addr(st.prime)), [0], votes(voters));
+      await run(`R8. ${newThr} owners remove ${k.name} from rule 0`, true, call('remove_signer', u32(0), u32(await id(k.G))), [0], votes(rest.slice(0, newThr)));
+      await run(`R9. ${newThr} owners set ${k.name}'s weight to 0 (cleanup)`, true, await exec('set_signer_weight', delegated(k.G), u32(0), await rule0(), addr(st.prime)), [0], votes(rest.slice(0, newThr)));
+      const r0: any = Sdk.scValToNative(await rule0());
+      check(`R10. rule 0 now has ${N_OWN - 1} signers without ${k.name}`, r0.signers.length === N_OWN - 1 && !JSON.stringify(r0.signers).includes(k.G), `${r0.signers.length} signers`);
+      await run(`R11. ${k.name}'s vote and ${newThr - 1} other owners no longer count`, false, tmpRule('r11'), [0], [...votes(rest.slice(0, newThr - 1)), seat(k)]);
+      await run(`R12. ${newThr} remaining owners vote`, true, tmpRule('r12'), [0], votes(rest.slice(0, newThr)));
+    } else {
+      const sole = seats[0]!, id = Number(Sdk.scValToNative((await sim(call('get_signer_id', delegated(sole.G)))).result.retval));
+      const r = await run('R7. the sole owner removes itself from rule 0 (observation: what the account allows)', true, call('remove_signer', u32(0), u32(id)), [0], votes([sole]));
+      check('R7b. observed: removing the only seat from rule 0 is ' + (r.ok ? 'accepted (the account is then unreachable)' : 'refused'), true, r.ok ? 'accepted' : short(r.error));
+    }
+  }
+  // fees of the setup transactions (Horizon)
+  {
+    const fees: Record<string, number> = {}; const sessionDeploy: number[] = [];
+    const feeOf = async (h: string) => { for (let i = 0; i < 15; i++) { const r = await fetch(`https://horizon-testnet.stellar.org/transactions/${h}`); if (r.ok) return Number((await r.json() as any).fee_charged); await new Promise((s) => setTimeout(s, 2000)); } return -1; };
+    fees.wasmUpload = await feeOf(st.wasmTx); fees.primeAccount = await feeOf(st.primeTx);
+    for (const o of roster) sessionDeploy.push(await feeOf(st[`${S_OF[o.seat.name]}Tx`]));
+    save({ setupFeesStroops: { ...fees, sessionDeploy } }); log('setup fees (stroops)', JSON.stringify({ ...fees, sessionDeploy }));
+  }
+  const all = Object.entries(results) as any;
+  log(`${TAG}: ${all.filter((x: any) => x[1].pass).length}/${all.length} passed; NEAR MPC signatures: ${stats.calls}, average ${(stats.ms / Math.max(1, stats.calls) / 1000).toFixed(1)}s`);
+  for (const [n, x] of all) if (!x.pass) log('FAIL', n, x.error ?? x.detail);
+}
+if (part === 'limits') {
+  // Chain limits that bound the number of owners: signers on rule 0, and rules on the account (one session rule per owner).
+  await friendbot(fee.publicKey()); await friendbot(FR.G);
+  const mk = async (gs: string[]) => {
+    const weights = map([[sym('signer_weights'), map(gs.map((g) => [delegated(g), u32(1)] as [Sdk.xdr.ScVal, Sdk.xdr.ScVal]))], [sym('threshold'), u32(1)]]);
+    try {
+      const { ret, hash } = await submit(fee, Sdk.Operation.createCustomContract({ address: Sdk.Address.fromString(fee.publicKey()), wasmHash: Buffer.from(ACCOUNT_WASM_HASH, 'hex'),
+        constructorArgs: [vec(gs.map(delegated)), map([[addr(WEIGHTED), weights]])], salt: Buffer.from(Sdk.Keypair.random().rawPublicKey()) }));
+      return { ok: true, id: Sdk.Address.fromScVal(ret!).toString(), hash };
+    } catch (e: any) { return { ok: false, id: '', hash: '', error: String(e?.message ?? e).replace(/\s+/g, ' ').slice(0, 300) }; }
+  };
+  for (const n of [15, 16]) {
+    const r = await mk(Array.from({ length: n }, () => Sdk.Keypair.random().publicKey()));
+    check(`L${n}. an account with ${n} rule-0 signers is ${r.ok ? 'created' : 'refused'}`, n === 15 ? r.ok : !r.ok, r.ok ? r.hash : (r as any).error);
+  }
+  const acct = await mk([FR.G]); save({ prime: acct.id });
+  let n = 0, last = '';
+  for (; n < 40; n++) {
+    const r = await invokeAs({ feePayer: fee, op: tmpRule(`lim${n}`), account: st.prime, ruleIds: [0], signers: [seat(FR)] });
+    if (!r.ok) { last = short(r.error); break; }
+  }
+  const total = n + 1;   // rule 0 plus the rules added
+  check(`L-rules. rules the account took before it refused one: ${total} (rule 0 and ${n} more)`, true, n === 40 ? 'no limit reached at 41 rules' : `refused rule ${total + 1}: ${last}`);
+  log('rule limit', JSON.stringify({ rulesAccepted: total, stoppedBy: n === 40 ? 'probe ceiling' : last }));
 }
 if (part === 'summary') {
   const horizon = async (h: string) => { for (let i = 0; i < 15; i++) { const r = await fetch(`https://horizon-testnet.stellar.org/transactions/${h}`); if (r.ok) return r.json() as any; await new Promise((s) => setTimeout(s, 2000)); } return undefined; };

@@ -1,0 +1,12 @@
+11:24:41 PASS X1. Freighter's prime-seat: grant signed by Phantom's owner key (NEAR) refused: Error(Auth, InvalidAction) Error(Contract, #5)
+11:24:43 PASS X1b. the key from X1 cannot move refused: Error(Auth, InvalidAction) Error(Contract, #1)
+11:24:52 PASS X4. Phantom's prime-seat: grant signed by its MPC key under another path refused: Error(Auth, InvalidAction) Error(Contract, #5)
+11:24:55 PASS X4b. the key from X4 cannot move refused: Error(Auth, InvalidAction) Error(Contract, #1)
+11:25:07 PASS X5. Phantom's owner key authorizes a grant on MetaMask's prime-seat refused: Error(Auth, InvalidAction)
+11:25:09 PASS X5b. the key from X5 cannot move refused: Error(Auth, InvalidAction) Error(Contract, #1)
+11:25:19 PASS X6. MetaMask's grant authorization (for its own prime-seat) sent to Phantom's prime-seat refused: Error(Auth, InvalidAction)
+11:25:28 PASS X7. Phantom's old seat key (prime:stellar) signs the grant of its own prime-seat refused: Error(Auth, InvalidAction) Error(Contract, #5)
+11:25:30 PASS X7b. the key from X7 cannot move refused: Error(Auth, InvalidAction) Error(Contract, #1)
+11:25:40 PASS X8. MetaMask's old seat key (prime:stellar) signs a vote-flag grant of its own prime-seat refused: Error(Auth, InvalidAction) Error(Contract, #5)
+11:25:43 PASS X8b. the key from X8 cannot move refused: Error(Auth, InvalidAction) Error(Contract, #1)
+11:25:43 NEAR MPC: 6 signatures, average 8.4s

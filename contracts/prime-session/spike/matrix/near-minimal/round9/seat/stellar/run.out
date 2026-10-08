@@ -1,0 +1,47 @@
+== setup queued 08:58:43
+== setup queued 09:33:10
+== setup exit 0 09:39:29
+== rules queued 09:39:29
+== rules exit 0 09:54:55
+== votes queued 09:54:55
+== restart after harness kill 10:27:02
+== votes start 10:27:02
+== setup skipped (passed)
+== rules skipped (passed)
+== votes queued 10:36:04
+== votes exit 0 pass 10:44:02
+== separation queued 10:44:02
+== separation exit 1 (marker not set) 10:48:08
+== danger queued 10:48:08
+== danger exit 1 (marker not set) 10:48:43
+== sessions queued 10:48:43
+== sessions exit 1 (marker not set) 10:48:45
+== cross queued 10:48:45
+== cross exit 1 (marker not set) 10:48:47
+== baseline queued 10:48:47
+== relayer empty 10:45-10:52: separation danger sessions cross baseline failed on NEAR balance (logs renamed *.relayer-empty.log); rerun after top-up
+== setup skipped (passed)
+== rules skipped (passed)
+== votes skipped (passed)
+== separation queued 10:53:02
+== separation exit 0 pass 10:53:47
+== danger queued 10:53:47
+== danger exit 0 pass 11:01:44
+== sessions queued 11:01:44
+== sessions exit 0 pass 11:18:37
+== cross queued 11:18:37
+== cross exit 0 pass 11:25:43
+== baseline queued 11:25:43
+== baseline exit 0 pass 12:02:28
+== nogov-setup queued 12:02:28
+== nogov-setup exit 0 pass 12:03:38
+== nogov queued 12:03:38
+== nogov exit 0 pass 12:09:07
+== feebench queued 12:09:07
+== feebench exit 0 pass 12:16:58
+== summary queued 12:16:58
+== summary exit 0 pass 12:18:36
+== verify exit 0 12:18:44
+== done 12:18:44
+== split exit 0 12:22:24
+== split exit 0 12:33:58

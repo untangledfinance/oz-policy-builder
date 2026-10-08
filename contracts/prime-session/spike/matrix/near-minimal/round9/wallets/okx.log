@@ -1,0 +1,140 @@
+providers {"found":["OKX Wallet com.okex.wallet"],"legacy":true}
+
+--- prompt [connect] notification.html#/connect/caa9946e-6afa-488e-ade6-243e4c10c9b7 buttons=["Cancel","Confirm(disabled)"]
+Cancel
+Confirm
+---
+
+--- prompt [connect] notification.html#/connect/caa9946e-6afa-488e-ade6-243e4c10c9b7 buttons=["Cancel","Connect"]
+Connect account
+Prime wallet test (EVM)
+127.0.0.1:8801
+Accounts used
+0x8970828c8e2c7483a0a872721acf68f98b11d17f
+Wallet 01
+-
+Account 01
+Allow this DApp to connect with your wallet.
+Cancel
+Connect
+---
+clicked "Connect" [connect]
+[connect] ok {"accounts":["0x8970828c8e2c7483a0a872721acf68f98b11d17f"],"chainId":"0x1"}
+
+--- prompt [connect] notification.html#/connect/caa9946e-6afa-488e-ade6-243e4c10c9b7 buttons=[]
+Connected
+---
+
+--- prompt [grant] notification.html#/dapp-entry buttons=["Data","Cancel","Confirm"]
+Confirm Sign
+127.0.0.1:8801
+Network
+Ethereum
+Wallet used
+0x8970828c8e2c7483a0a872721acf68f98b11d17f
+Wallet 01 - Account 01
+Advanced
+Data
+Cancel
+Confirm
+---
+clicked "Confirm" [grant]
+[grant] ok 0xc72f0b9ec5d4a3ae6137e46d1e84b3380025c1…
+clicked "Confirm" [near]
+[near] ok 0x4391c48318d2087ee7815831315a2644174c0a…
+clicked "Confirm" [ethSign]
+[ethSign] ok 0x72e6f4d1472b0f5e68b1c7eb06ae1c806f4129…
+[chain] switch ERROR page.evaluate: Error: RPC {"code":4902,"message":"Unrecognized chain ID \"0x14a34\". Try adding the chain using wallet_addEthereumChain first."}
+    at rq (http://127.0.0.1:8801/evm.html:7:86)
+    at 
+
+--- prompt [chain] notification.html#/dapp-entry buttons=["Cancel","Approve"]
+OKX Wallet doesn’t validate custom networks. Be aware of potential security risks.
+Confirm Add network
+Prime wallet test (EVM)
+127.0.0.1:8801
+Network
+Base Sepolia
+Network URL
+https://sepolia.base.org
+Chain ID
+84532
+Symbol
+ETH
+Block explorer URL
+https://sepolia.basescan.org
+Cancel
+Approve
+---
+clicked "Approve" [chain]
+
+--- prompt [typed] notification.html#/dapp-entry buttons=["Cancel","Confirm(disabled)"]
+Cancel
+Confirm
+---
+
+--- prompt [typed] notification.html#/dapp-entry buttons=["Data","Cancel","Confirm"]
+Confirm Sign
+127.0.0.1:8801
+Network
+Base Sepolia
+Wallet used
+0x8970828c8e2c7483a0a872721acf68f98b11d17f
+Wallet 01 - Account 01
+Advanced
+Data
+Cancel
+Confirm
+---
+clicked "Confirm" [typed]
+[typed] ok 0x9b8a25d17b2529d19f17245dc47176ab4b207e…
+providers {"found":["OKX Wallet com.okex.wallet"],"legacy":true}
+[connect] ok {"accounts":["0x8970828c8e2c7483a0a872721acf68f98b11d17f"],"chainId":"0x14a34"}
+
+--- prompt [grant] notification.html#/dapp-entry buttons=["Data","Cancel","Confirm"]
+Confirm Sign
+127.0.0.1:8801
+Network
+Wallet used
+0x8970828c8e2c7483a0a872721acf68f98b11d17f
+Wallet 01 - Account 01
+Advanced
+Data
+Cancel
+Confirm
+---
+
+--- prompt [grant] notification.html#/dapp-entry buttons=["Data","Cancel","Confirm"]
+Confirm Sign
+127.0.0.1:8801
+Network
+Base Sepolia
+Wallet used
+0x8970828c8e2c7483a0a872721acf68f98b11d17f
+Wallet 01 - Account 01
+Advanced
+Data
+Cancel
+Confirm
+---
+
+--- prompt [grant] notification.html#/dapp-entry buttons=["Data","Cancel","Confirm"]
+Confirm Sign
+127.0.0.1:8801
+Network
+Base Sepolia
+Wallet used
+0x8970828c8e2c7483a0a872721acf68f98b11d17f
+Wallet 01 - Account 01
+Advanced
+Data
+Cancel
+Confirm
+Data
+Prime session
+contract: 0x93e39aa04aa10600a4584976c41f1cbea7a81d1a
+session key: 0xdd0125bea506fbb56ea93e1340011858355b126d
+valid until (unix time): 1791707066
+network: 84532
+---
+[grant] ERROR page.evaluate: Target page, context or browser has been closed

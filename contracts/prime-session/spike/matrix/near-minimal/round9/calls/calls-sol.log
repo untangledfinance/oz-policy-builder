@@ -1,0 +1,96 @@
+vault 55FWFYpNzCN3wBych9TR22oZ5UGzUFb5wPp67L5iVY33 policy signer (session PDA) BSsGTQfcLuddANiCyEWxjsyUWWVmjqUXQzocGqSwWv8U prime-session FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G venue 7kSEx7WsFL6MnqmqkESwgMpThjjPR2GwSQZp5JBewaBg venue B 9kNMihGbC2Ej4o4bfhBfhnZRE4JSPVYCBE2umySjSHoW
+PASS P1. two seats install the policy (3 constraints, no spending limit, members: the Phantom-style key's session PDA):a. seat BcMV proposes and approves | ok 44xf2BDSXS2Q7EpSGbXypfEpbCmvcCaHkpYys5YPtEeexK4ttadhkJi9ktJ1wRxCBUxfXApbEaAknGWHx4NHp7a6
+PASS P1. two seats install the policy (3 constraints, no spending limit, members: the Phantom-style key's session PDA):b. seat CvZY approves and executes | ok 4C6UWjqnzfmYTJvy37kvZHoWSuCQwu26bW4wt4czRjbzM14Dpfrpj9KkccrYhZdw95tW6GmsGZRmXCp54t8od5Fs
+PASS P2. the policy account holds a ProgramInteraction policy with 3 instruction constraints and no spending limit | ok 3 constraints
+PASS P3. the seats are the three keys, threshold 2; the session PDA is not a settings signer | ok 3 signers / 2
+--- constraint 0: venue deposit(amount <= 1000, beneficiary == vault), ledger1 only
+PASS V1. allowed: deposit(100, vault) on ledger1 | ok 56880 CU, 1005 B
+PASS V2. ledger1 shows total 100, one call, caller = the vault (not the session key, not the PDA), beneficiary = vault | ok {"total":"100","caller":"55FWFYpNzCN3wBych9TR22oZ5UGzUFb5wPp67L5iVY33","beneficiary":"55FWFYpNzCN3wBych9TR22oZ5UGzUFb5wPp67L5iVY33","calls":"1"}
+PASS V3. boundary: deposit(1000, vault), amount equal to the cap | ok 56880 CU, 1005 B
+PASS V4. amount over the cap: deposit(1001, vault) | refused: Error Code: ProgramInteractionInvalidNumericValue
+PASS    V4. no ledger changed by the refused move | ok 1100/2 0/0 0/0 0/0
+PASS V5. amount = 2^64 - 1 | refused: Error Code: ProgramInteractionInvalidNumericValue
+PASS    V5. no ledger changed by the refused move | ok 1100/2 0/0 0/0 0/0
+PASS V6. different beneficiary (a stranger) | refused: Error Code: ProgramInteractionInvalidNumericValue
+PASS    V6. no ledger changed by the refused move | ok 1100/2 0/0 0/0 0/0
+PASS V7. beneficiary is the session key's own address | refused: Error Code: ProgramInteractionInvalidNumericValue
+PASS    V7. no ledger changed by the refused move | ok 1100/2 0/0 0/0 0/0
+PASS V8. another instruction on the same program: withdraw(1, vault) (discriminator 1) | refused: Error Code: ProgramInteractionInvalidNumericValue
+PASS    V8. no ledger changed by the refused move | ok 1100/2 0/0 0/0 0/0
+PASS V9. a different ledger account (ledger3, same program) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS    V9. no ledger changed by the refused move | ok 1100/2 0/0 0/0 0/0
+PASS V10. the caller account is the session key instead of the vault | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS    V10. no ledger changed by the refused move | ok 1100/2 0/0 0/0 0/0
+PASS V11. a second program with the same instruction and layout (venue B, its own ledger) | refused: Error Code: ProgramInteractionProgramIdMismatch
+PASS    V11. no ledger changed by the refused move | ok 1100/2 0/0 0/0 0/0
+PASS V12. the same wrong-program call | refused: constraint 0: Error Code: ProgramInteractionProgramIdMismatch; constraint 1: Error Code: ProgramInteractionProgramIdMismatch; constraint 2: Error Code: ProgramInteractionProgramIdMismatch
+PASS    V12. refused under constraint 0, 1 and 2, and no ledger changed | ok 1100/2 0/0 0/0 0/0
+PASS V13. the same over-cap call | refused: constraint 0: Error Code: ProgramInteractionInvalidNumericValue; constraint 1: Error Code: ProgramInteractionProgramIdMismatch; constraint 2: Error Code: ProgramInteractionAccountConstraintViolated
+PASS    V13. refused under constraint 0, 1 and 2, and no ledger changed | ok 1100/2 0/0 0/0 0/0
+PASS V14. the same wrong-beneficiary call | refused: constraint 0: Error Code: ProgramInteractionInvalidNumericValue; constraint 1: Error Code: ProgramInteractionProgramIdMismatch; constraint 2: Error Code: ProgramInteractionAccountConstraintViolated
+PASS    V14. refused under constraint 0, 1 and 2, and no ledger changed | ok 1100/2 0/0 0/0 0/0
+PASS V15. the same withdraw call | refused: constraint 0: Error Code: ProgramInteractionInvalidNumericValue; constraint 1: Error Code: ProgramInteractionProgramIdMismatch; constraint 2: Error Code: ProgramInteractionAccountConstraintViolated
+PASS    V15. refused under constraint 0, 1 and 2, and no ledger changed | ok 1100/2 0/0 0/0 0/0
+PASS V16. data too short: the discriminator alone | refused: Error Code: ProgramInteractionDataTooShort
+PASS    V16. no ledger changed by the refused move | ok 1100/2 0/0 0/0 0/0
+PASS V17. a deposit with only the ledger account (fewer accounts than the constraint addresses), next to a valid memo | refused: Program failed to complete
+PASS    V17. no ledger changed by the refused move | ok 1100/2 0/0 0/0 0/0
+PASS V18. the allowed call with 4 extra bytes after the arguments: accepted, the venue reads the same (7, vault) | ok 57165 CU, 1009 B
+PASS V18b. effect on the ledger is exactly deposit(7, vault) | ok +7
+PASS V19. no constraint indices sent with a policy that has constraints | refused: Error Code: ProgramInteractionInstructionCountMismatch
+PASS    V19. no ledger changed by the refused move | ok 1107/3 0/0 0/0 0/0
+PASS V20. indices sent for two instructions but only one instruction present | refused: Error Code: ProgramInteractionInstructionCountMismatch
+PASS    V20. no ledger changed by the refused move | ok 1107/3 0/0 0/0 0/0
+PASS V21. a constraint index outside the list (7) | refused: Error Code: ProgramInteractionConstraintIndexOutOfBounds
+PASS    V21. no ledger changed by the refused move | ok 1107/3 0/0 0/0 0/0
+--- constraint 1: Memo v2, text starts with "prime:"
+PASS M1. allowed: memo "prime:rebalance 2026-10-08" | ok 79504 CU, 956 B
+PASS M2. the Memo program logged the text, signed by the vault | ok Program MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr invoke [3]
+PASS M3. memo with another prefix: "hello" | refused: Error Code: ProgramInteractionInvalidNumericValue
+PASS    M3. no ledger changed by the refused move | ok 1107/3 0/0 0/0 0/0
+PASS M4. memo shorter than the prefix: "pri" | refused: Error Code: ProgramInteractionDataTooShort
+PASS    M4. no ledger changed by the refused move | ok 1107/3 0/0 0/0 0/0
+PASS M5. memo with the prefix but a different case: "Prime:x" | refused: Error Code: ProgramInteractionInvalidNumericValue
+PASS    M5. no ledger changed by the refused move | ok 1107/3 0/0 0/0 0/0
+PASS M6. the memo signer is not the vault (the session key signs the memo) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS    M6. no ledger changed by the refused move | ok 1107/3 0/0 0/0 0/0
+PASS M7. the same wrong-prefix memo | refused: constraint 0: Error Code: ProgramInteractionProgramIdMismatch; constraint 1: Error Code: ProgramInteractionInvalidNumericValue; constraint 2: Error Code: ProgramInteractionProgramIdMismatch
+PASS    M7. refused under constraint 0, 1 and 2, and no ledger changed | ok 1107/3 0/0 0/0 0/0
+--- one move, two instructions, each claiming its own constraint
+PASS B1. deposit(5, vault) and memo "prime:two" in one move, indices [0, 1] | ok 79065 CU, 1093 B
+PASS B2. both ran (ledger1 +5, memo logged) | ok +5
+PASS B3. the same two instructions claiming [0, 0]: the memo is checked against the deposit constraint | refused: Error Code: ProgramInteractionProgramIdMismatch
+PASS    B3. no ledger changed by the refused move | ok 1112/4 0/0 0/0 0/0
+PASS B4. a good deposit and a bad memo in one move: nothing runs (atomic) | refused: Error Code: ProgramInteractionInvalidNumericValue
+PASS    B4. no ledger changed by the refused move | ok 1112/4 0/0 0/0 0/0
+--- constraint 2: venue deposit to ledger2 only while ledger2's own total is <= 50
+PASS A1. ledger2 total is 0: deposit(40, vault) | ok 56899 CU, 1005 B
+PASS A2. ledger2 total is 40 (<= 50): deposit(40, vault) again, no amount cap on this constraint | ok 56899 CU, 1005 B
+PASS A3. ledger2 total is now 80 (> 50): the precondition fails | refused: Error Code: ProgramInteractionInvalidNumericValue
+PASS    A3. no ledger changed by the refused move | ok 1112/4 80/2 0/0 0/0
+PASS A4. ledger2 holds 80 after two accepted deposits; the third did not run | ok 80 / 2
+PASS A5. ledger3 (no Pubkey match, total 0) under constraint 2 | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS    A5. no ledger changed by the refused move | ok 1112/4 80/2 0/0 0/0
+PASS A6. ledger2 under constraint 0 (it is not the listed ledger1) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS    A6. no ledger changed by the refused move | ok 1112/4 80/2 0/0 0/0
+--- controls: the same calls made by two seats (2-of-3, no policy)
+PASS C1. two seats: deposit(1001, vault) (over the cap)a. seat BcMV proposes and approves | ok 4RxnpoXoJ3cj675WNuMRDqZxsqZFoo2WDAFnjWqiP9jwQgTm7aRD2S4qa5Gfvnc32xXbAN6HSHjdFhviH2iobHpG
+PASS C1. two seats: deposit(1001, vault) (over the cap)b. seat CvZY approves and executes | ok 35SxC9Ant373VEVmM17Xepxsbk2Jtc2ayGgM8mJgGicL6ZDUY4wpTe5oin7a5yVvqZrTwGXjc3HRd5aV9ovFjUYY
+PASS C2. two seats: deposit(100, stranger) (other beneficiary)a. seat CvZY proposes and approves | ok fSoq5aL9D9hqnjYyb2s5yxrZUTjw5DYMiYSRWfXEiUpiZQT7B3scp53ejtgKbSnLSgwQVdis5jsYCRqXhRQ6xvH
+PASS C2. two seats: deposit(100, stranger) (other beneficiary)b. seat 775j approves and executes | ok 4A2CCcTgqRpLvgbMtKyrMr5J5HqVzmEXwxp7WFW1nivzMk7SmMwhFwmgmmBS6F5rKWizMpRSRMKH4osqvpkMXqF5
+PASS C3. two seats: withdraw(1, vault) (other instruction)a. seat BcMV proposes and approves | ok RxEPZVaNzr5n8ZpSSXAQkVkcKXZmkwCe1BRX6YFDijEAnCbSE64iUz69wyFeiDM1SLvycERrLkdL3KzivLbi9fe
+PASS C3. two seats: withdraw(1, vault) (other instruction)b. seat 775j approves and executes | ok 5xsxgcKbn4Uzw9SjpPRakUFx1xLH8y621jaQjfmv4adYTunYjQFy1tRXRZqJdNYuxYbQ8vdw3DatRWVTLAKikQRE
+PASS C4. two seats: deposit on ledger3 (other account)a. seat BcMV proposes and approves | ok 47iux7j2CmTXEfWS2pbSZhN6CsW5LFNyMLHeYxUnYaT1BNo5J8P8cbGD3LXYpPZGuni9hGNsduGqFwBEBXcsu2wD
+PASS C4. two seats: deposit on ledger3 (other account)b. seat CvZY approves and executes | ok 5xMuaRFW45Mp1GgaPRGxvLAGwy1S6vYzVGXuQS9rFUo5pif9A3Vstt6aoCS98kgg3DhFX7vaCaZPkox9pEdmSE2B
+PASS C5. two seats: deposit on venue B (other program)a. seat CvZY proposes and approves | ok Q68tv5atkNGh3v2gprM7ynCChLmvhvex52Zo4byCc7ZZezxb8GSTYq2Trjy6vqFb1XFfGVy6jKJLdxaR8esGY6z
+PASS C5. two seats: deposit on venue B (other program)b. seat 775j approves and executes | ok 3Zm9mAs25Yy5hibFWSUasy5tXKD1Y6zfojk7dvJyZ3YjaHj3YUN37iND1xd6gFyESyCoCmkjHUPaMHLZhCMLJqha
+PASS C6. two seats: memo "hello world" (other prefix)a. seat BcMV proposes and approves | ok 2M7PneGY2ok6eiY5Nk1hqLHYZmtBSehSdr2iakTnrKwBS5fDVPHzFMAXw4QHQ94jPfD7kQVGHhB1Z8mbuSTacyPi
+PASS C6. two seats: memo "hello world" (other prefix)b. seat 775j approves and executes | ok 4CceuJRh5URMpPtq4DJUT83qHaooYAYSChQn6FShHYPY98g8gQn7NKxLkF3T4JK3FNKrqNBS4iyL3JAX3BQP47RB
+PASS C7. the controls changed the ledgers as asked: ledger1 +1001 +100 -1, ledger3 +100, ledger1B +100 | ok ledger1 +1100, ledger3 100, ledger1B 100
+PASS R1. expired session makes the otherwise allowed deposit(1, vault) | refused: custom program error: 0x4
+PASS    R1. no ledger changed by the refused move | ok 2212/7 80/2 100/1 100/1
+PASS R2. a session longer than 7 days | refused: custom program error: 0x4
+PASS    R2. no ledger changed by the refused move | ok 2212/7 80/2 100/1 100/1
+PASS R3. someone else replays the grant with their own key | refused: custom program error: 0x7
+PASS    R3. no ledger changed by the refused move | ok 2212/7 80/2 100/1 100/1
+89/89 passed

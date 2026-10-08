@@ -1,0 +1,536 @@
+{
+ "venue": "GC74JAZEVUGQWDEJZ47IWP6NIYGP53RYHLC6I3DQRT7MRNZASUILF67A",
+ "other": "GDHMTHXJINBCIL32YPX3BC2BFQLRBGC4XFXMKH5PZYHB7UOR4GNHMGFD",
+ "wasm": "e36d155f0381a466fb6c2c29b788a9d52e4a6f3e568f30da981609075bb7a0b3",
+ "wasmTx": "b0cedbe33921e54c20bcfa0517265ca5cdbcd8f8b062a7c15a6332db996d5886",
+ "S_Freighter": "CA6MYAXN2EXJG24LSEBPBLUYOZOIYSJHHOSO2CX4FD4DLXQ26K4Q4DC3",
+ "S_FreighterTx": "c428d513ecf7631bb3497a603954f6b2afcffacd711bcf48e039e4d20f882890",
+ "S_MetaMask": "CCQ4B24YJYO57VCD7RKSUDZ74YMGM4C2IUQ5K7LP3H3SKTAEZJQYWX56",
+ "S_MetaMaskTx": "936505aa2a42fdb0e7932f9f37c604333fd3bd973fc65221b199e349160cd0eb",
+ "prime": "CAIZPIKOQPUN5L5KQZCYELBJAKX7WEJGGHSCWJEP6LMNJTKWUA7EOURS",
+ "primeTx": "4b080c957b44c5ab2d339f558c3e8f060fa12422e1be64c51095a6d63e8d9e53",
+ "results": {
+  "P0. rule 0 signers are exactly the 2 seat keys (no prime-session), weighted threshold 2": {
+   "pass": true,
+   "detail": "2 signers, threshold 2"
+  },
+  "P1. the 2 prime-session contracts and the 2 session-owner accounts are all different": {
+   "pass": true,
+   "detail": "CA6MYA,CCQ4B2"
+  },
+  "Y1. 1 of 2 owners vote (threshold minus one) to add a rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Y2. 2 owners vote (Freighter + MetaMask) to add a rule": {
+   "pass": true,
+   "ok": true,
+   "hash": "a4b88e1925a62e3e91dbd205edf4931bab1c2d6c5d853737acfac8341fbac2f2",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 2855888,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Y3. a different 2 owners vote (Freighter + MetaMask) to remove it": {
+   "pass": true,
+   "ok": true,
+   "hash": "a0b2a27941dbb3535a7fab0adc15edb0f3a77e449952fe7aca3a498f0b0822b2",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 44349,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Y4. 1 owners and an outsider vote": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Y5. Freighter's seat signed by another key, plus 1 real owners": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "R-xlm_Freighter. 2 owners install xlm_Freighter: XLM to VENUE only, signer: Freighter's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "2b0dccee59fea63b407faef2e9daead82684655017f9875010301b16139d0c1e",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1200029,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R-xlm_MetaMask. 2 owners install xlm_MetaMask: XLM to VENUE only, signer: MetaMask's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "66e0ea20640c09f1edc971d53f580ff8dda16090f67c1166087363b124395984",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1259703,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P0-Freighter.1 Freighter grant: one authorization (own key), relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "aa74926d55a66ec9e38ff61ac03f0e13303524bdaafb37123b14b507954a54bd",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18108,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P0-Freighter.2 relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "a8573f33be84c8f419513e240bd7317599b5b9fad5fe94be563e9d79cc504e45",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1389871,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P0-Freighter.3 Freighter grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "7d9fbdf0e0f1e0aaeb68b8237174fec7ae8dace4194daeccce85bf3c4523bcf1",
+   "kind": "grant",
+   "payer": "GBHDV36PYWCDFCR6IXIBB7ES6ELZI3OBZ74QWATO4ZIKIYSJ6FW7OB7G",
+   "selfPaid": true,
+   "fee": 18108,
+   "source": "GBHDV36PYWCDFCR6IXIBB7ES6ELZI3OBZ74QWATO4ZIKIYSJ6FW7OB7G"
+  },
+  "P0-Freighter.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "078a9db6fcef6cf9d5916ba257f5f1d50d4ea26c0819115f9adfbd87e9b77be4",
+   "kind": "move",
+   "payer": "GBHDV36PYWCDFCR6IXIBB7ES6ELZI3OBZ74QWATO4ZIKIYSJ6FW7OB7G",
+   "selfPaid": true,
+   "fee": 32888,
+   "source": "GBHDV36PYWCDFCR6IXIBB7ES6ELZI3OBZ74QWATO4ZIKIYSJ6FW7OB7G"
+  },
+  "P0-Freighter.5 VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "P0-Freighter.6 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P0-Freighter.7 on MetaMask's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P0-Freighter.8 the session and 1 real owners vote on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P0-Freighter.9 the session claims its own rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P0-Freighter.10 the session removes rule 0 through its own rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P0-Freighter.11 Freighter grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "cfbe840344fb166dfa1a1b02db40fed83d1323b11f3d7e989f0ceee69927adc4",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18108,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P0-Freighter.12 Freighter revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "6ee2f08d89ddf442113acd3f7b515c8fbf5ee9c558ee78bf03a0f8e87ff36f06",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 747983,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P0-Freighter.13 the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P0-Freighter.14 the first session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "ccecb44012422ad702044972b01522ab675da5c8587c35d0892220c53c63cae1",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32888,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P0-Freighter.15 a grant for Freighter's prime-session signed by MetaMask's owner key": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P0-Freighter.16 the key from P0-Freighter.15 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P1-MetaMask.1 MetaMask grant: one authorization (NEAR MPC), relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "7fff5c6baacd9e5c99c0bab6cac57f387054e68a1b01106c8468fe48cccb6b47",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18114,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P1-MetaMask.2 relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "8642b80044628a4ee0e5d440ee7f44885ee8fb3c1d286fa05132373f05c1890b",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1042853,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P1-MetaMask.3 MetaMask grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "e17218daa6118f70b0baba6dee164bd33ba5be73d2324b59cfcff0f8e0872f02",
+   "kind": "grant",
+   "payer": "GABO6IQ75TSIAEFZEOLVLYLCZ4L7VHR3CY3D25TZ4KRUKR6ENSFBGYFS",
+   "selfPaid": true,
+   "fee": 18114,
+   "source": "GABO6IQ75TSIAEFZEOLVLYLCZ4L7VHR3CY3D25TZ4KRUKR6ENSFBGYFS"
+  },
+  "P1-MetaMask.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "4c8c53e05955186aaf38efd0f32185c5e813802cec655c95c19c1790ccf17f2f",
+   "kind": "move",
+   "payer": "GABO6IQ75TSIAEFZEOLVLYLCZ4L7VHR3CY3D25TZ4KRUKR6ENSFBGYFS",
+   "selfPaid": true,
+   "fee": 32891,
+   "source": "GABO6IQ75TSIAEFZEOLVLYLCZ4L7VHR3CY3D25TZ4KRUKR6ENSFBGYFS"
+  },
+  "P1-MetaMask.5 VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "P1-MetaMask.6 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P1-MetaMask.7 on Freighter's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P1-MetaMask.8 the session and 1 real owners vote on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P1-MetaMask.9 the session claims its own rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P1-MetaMask.10 the session removes rule 0 through its own rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P1-MetaMask.11 MetaMask grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "24538686f656734c0040e535dfc5f5cb9f4f2a88bccc4b897d6f4d5d6608a47f",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18114,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P1-MetaMask.12 MetaMask revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "9ad9ca404c2d74a9a8fadcd9f0c6e9e5c792647e1de954ae27df6e5e3b0e0a9e",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 747990,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P1-MetaMask.13 the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P1-MetaMask.14 the first session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "1f4e735bb9272c539e089faade95514da8fba5939d38a58e90bad53eebfa02a1",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32891,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P1-MetaMask.15 a grant for MetaMask's prime-session signed by Freighter's owner key": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P1-MetaMask.16 the key from P1-MetaMask.15 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "R0. MetaMask's live session works before removal": {
+   "pass": true,
+   "ok": true,
+   "hash": "790c7c7bd8b4b90e4e9374adb9350fb1de5e0317ef15d4fb4a834e5bcaa42816",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32891,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R1. 1 owners try to remove MetaMask's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "R2. 2 owners remove MetaMask's session rule (Freighter + MetaMask)": {
+   "pass": true,
+   "ok": true,
+   "hash": "f62ed9109489521dbf1e1306114b242b0f5fb96d8dfa84142c60a01bde471e39",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 52553,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R3. MetaMask's live session after removal": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3000)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "R4. MetaMask signs a new grant (the contract still takes it)": {
+   "pass": true,
+   "ok": true,
+   "hash": "08af59e0ce5dd5f055be662e959d261d42f3dbe6994e646958090e0dc015b1a5",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18114,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R5. the new session cannot move either (no rule)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3000)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "R6. Freighter's session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "54840d310a670ffa4a7e03260af246edac39ff1f589306ca110af9b2b361a621",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32888,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R7. 2 owners lower the threshold to 1 (the account must not be left with fewer owners than votes)": {
+   "pass": true,
+   "ok": true,
+   "hash": "59f438cf115d1cc0ccd5e18caa0af9515b08f5131b21fe7c152939b51d63b657",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 47355,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R8. 1 owners remove MetaMask from rule 0": {
+   "pass": true,
+   "ok": true,
+   "hash": "4919bcf2e2bcb3a4cb512d5a23792375cf7caeaa6a03aa41e04d6bcd87e8483a",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 34999,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R9. 1 owners set MetaMask's weight to 0 (cleanup)": {
+   "pass": true,
+   "ok": true,
+   "hash": "c4019972e3c43fe87c430c0d3b7b334e8a242ff7e0cb275873d4ccc55b5f0dc3",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 37368,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R10. rule 0 now has 1 signers without MetaMask": {
+   "pass": true,
+   "detail": "1 signers"
+  },
+  "R11. MetaMask's vote and 0 other owners no longer count": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "R12. 1 remaining owners vote": {
+   "pass": true,
+   "ok": true,
+   "hash": "7e76d093225a8684a37489b4a36a71fe1c031e2db3bfe4674582f31707e0204a",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 219643,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "H1. Horizon: all 26 landed grants, revokes and moves have the payer as source account; the 4 self-paid ones have the session key's own account": {
+   "pass": true,
+   "detail": "ok"
+  }
+ },
+ "rules": {
+  "Freighter": 2,
+  "MetaMask": 3
+ },
+ "setupFeesStroops": {
+  "wasmUpload": 11015,
+  "primeAccount": 1151662,
+  "sessionDeploy": [
+   97164,
+   97164
+  ]
+ },
+ "mpc_owners": {
+  "calls": 16,
+  "ms": 144075
+ },
+ "fees": {
+  "tx relayed": {
+   "n": 9,
+   "min": 34999,
+   "median": 52553,
+   "max": 2855888
+  },
+  "grant relayed": {
+   "n": 5,
+   "min": 18108,
+   "median": 18114,
+   "max": 18114
+  },
+  "move relayed": {
+   "n": 6,
+   "min": 32888,
+   "median": 32891,
+   "max": 1389871
+  },
+  "grant self-paid": {
+   "n": 2,
+   "min": 18108,
+   "median": 18114,
+   "max": 18114
+  },
+  "move self-paid": {
+   "n": 2,
+   "min": 32888,
+   "median": 32891,
+   "max": 32891
+  },
+  "revoke relayed": {
+   "n": 2,
+   "min": 747983,
+   "median": 747990,
+   "max": 747990
+  }
+ }
+}

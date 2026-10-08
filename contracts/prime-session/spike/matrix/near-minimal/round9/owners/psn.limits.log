@@ -1,0 +1,14 @@
+10:48:09 create with 20 signers in one transaction: ok tx bytes 985 
+10:48:10 create with 25 signers in one transaction: ok tx bytes 1150 
+10:48:10 create with 28 signers in one transaction: refused tx bytes -1 Transaction too large: 1249 > 1232
+10:48:10 create with 29 signers in one transaction: refused tx bytes -1 Transaction too large: 1282 > 1232
+10:48:10 create with 30 signers in one transaction: refused tx bytes -1 Transaction too large: 1315 > 1232
+10:48:10 create with 32 signers in one transaction: refused tx bytes -1 Transaction too large: 1381 > 1232
+10:48:10 create with 35 signers in one transaction: refused tx bytes -1 Transaction too large: 1480 > 1232
+10:48:10 create with 40 signers in one transaction: refused tx bytes -1 The value of "offset" is out of range. It must be >= 0 and <= 1231. Received 1232
+10:48:14 grown to 50 signers: settings has 50, 1785 bytes, rent 13314480 lamports
+10:48:15 growth stopped at 58 signers (target 100): Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 4: Program failed to complete. 
+Logs: 
+[
+  "Program SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG consumed 1048 o

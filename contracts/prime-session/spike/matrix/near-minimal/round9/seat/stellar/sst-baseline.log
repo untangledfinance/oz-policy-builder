@@ -1,0 +1,8 @@
+12:01:30 PASS B0. the control contract runs the round 9 build (sha256 e36d155f...) e36d155f0381a466fb6c2c29b788a9d52e4a6f3e568f30da981609075bb7a0b3 e36d155f0381a466fb6c2c29b788a9d52e4a6f3e568f30da981609075bb7a0b3
+12:01:52 PASS B1. MetaMask + Freighter install a session rule for the control contract (Delegated) ok 15062 ms d07ba395fd5c3422e821026bf707f838b759f0a7e44776f7777fa1bf65c6672b
+12:02:02 PASS B2. control grant(key, until), the round 9 signature, relayer pays ok 3546 ms e75675f2a8f8ed1ae4fff469ba954398424050411e76d0cca36448dd1ab10930
+12:02:08 PASS B2. control grant(key, until), the round 9 signature, relayer pays ok 5282 ms ca8ade4a3de07e622ed80129ec5aa3a0b5cebb283b38ba9a7628933f4dff4100
+12:02:12 PASS B3. control move: 1 XLM to VENUE through the Delegated session rule ok 4403 ms 3395b0a9e420859b03c5415e0c1c9069fb3e61127c51517bdd2ea94e28e229f1
+12:02:22 PASS B3. control move: 1 XLM to VENUE through the Delegated session rule ok 9687 ms 2a8235ab9d1d00c78d34c563f467024922567799176a86902e6fb7a6223539ed
+12:02:28 PASS B4. control revoke grant(key, 0) ok 5277 ms 3d0e40aaa21fb14d5130996863af2273c7a3b471ed508b815ad91b4ffcfe3769
+12:02:28 NEAR MPC: 1 signatures, average 7.4s

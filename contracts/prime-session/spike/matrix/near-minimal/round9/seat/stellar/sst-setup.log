@@ -1,0 +1,30 @@
+09:37:46 owners (seat owners) {
+  MetaMask: "GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO",
+  Freighter: "GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I",
+  Phantom: "GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN",
+}
+09:38:02 prime-seat wasm 27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992 df2fa58c1f52affc753d256cf4d523b91015d3d47984e7b040217b3e5a326380
+09:38:07 S_mm CALJPZZ3VS6GRHLEBKLCUEYPJN4BQ5HEX53TC3C2UYJLD3SECPGBCTW7 a06e07cfe8a1aa91e49f2a10a0746182fefa975dd3cbe3c9456a3f3e99d7cef7
+09:38:12 S_fr CBUYZWT43XTBCW6EASFHT4FKG4T7B3YKX6YI2SCBE5Z3NK2S2ZMQHXGY cf048d820eb5cb16c2f5955be06c620eea418d88322a8e6a8b595ebfcfdb5d51
+09:38:18 S_ph CB4XBHWAAF7X2FKJFOEQ5TC4KOVO65VD3GDB3TPXLVMXWAZDVCYF4FMB c64438211c78390ee45fbb39b8d6b1e717b497b58946d1795416e56c609d8de9
+09:38:22 Prime Account CBHAV7SJPL6HWIJ6QVFED2TBNBW62IF2GN7TQ45DFF2TODZOMFZCHY7T 2424353d3c009c92bbd87c6e8782a45c6a022a56fe5848e02e4cdc7d5daf40e2
+09:38:27 funded 30 XLM 4ab6c07e83882ab84fb26d8c8fe9ffacb682848eeb55aa533d68bb5af74773f6
+09:38:29 PASS P0. rule 0 holds exactly the three prime-seat contracts (External), no plain account [["External","CALJPZZ3VS6GRHLEBKLCUEYPJN4BQ5HEX53TC3C2UYJLD3SECPGBCTW7",{"type":"Buffer","data":[1]}],["External","CBUYZWT43XTBCW6EASFHT4FKG4T7B3YKX6YI2SCBE5Z3NK2S2ZMQHXGY",{"type":"Buffer","data":[1]}],["External","CB4XBHWAAF7X2FKJFOEQ5TC4KOVO65VD3GDB3TPXLVMXWAZDVCYF4FMB",{"type":"Buffer","data":[1
+09:38:29 PASS P1. the owners of MetaMask and Phantom are their prime:stellar-session keys, not their old seat keys MetaMask GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO, Phantom GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN
+09:38:29 PASS P2-S_mm. the stored owner of S_mm is the expected account GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO
+09:38:30 PASS P2-S_fr. the stored owner of S_fr is the expected account GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I
+09:38:30 PASS P2-S_ph. the stored owner of S_ph is the expected account GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN
+09:38:30 PASS P3-S_mm. S_mm runs the built wasm 27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992 build 27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992
+09:38:31 PASS P3-S_fr. S_fr runs the built wasm 27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992 build 27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992
+09:38:31 PASS P3-S_ph. S_ph runs the built wasm 27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992 build 27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992
+09:38:31 PASS L1-owner-MetaMask. master weight 1, thresholds low 1 / medium 1 / high 2, the account's own key is the only signer GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO thresholds 1/1/2 signers GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO:1
+09:38:42 PASS L2-owner-MetaMask. control: a medium-threshold SetOptions (home domain) signed by the key is accepted d1774be7577eed8fd0a25a9a80202d738955398ae063313dfef9d36ff46ec794
+09:38:52 PASS L3-owner-MetaMask. SetOptions that adds a signer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+09:39:01 PASS L4-owner-MetaMask. AccountMerge into the relayer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+09:39:01 PASS L5-owner-MetaMask. after both refusals the signer list and thresholds are unchanged and the account exists 1/1/2 GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO:1
+09:39:01 PASS L1-owner-Phantom. master weight 1, thresholds low 1 / medium 1 / high 2, the account's own key is the only signer GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN thresholds 1/1/2 signers GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN:1
+09:39:12 PASS L2-owner-Phantom. control: a medium-threshold SetOptions (home domain) signed by the key is accepted e94037cb5a8aa1619b9a2ee09496d1a1520e3d98f12e488503ce8a4dd5db6fdd
+09:39:21 PASS L3-owner-Phantom. SetOptions that adds a signer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+09:39:29 PASS L4-owner-Phantom. AccountMerge into the relayer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+09:39:29 PASS L5-owner-Phantom. after both refusals the signer list and thresholds are unchanged and the account exists 1/1/2 GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN:1
+09:39:29 NEAR MPC: 6 signatures, average 8.5s

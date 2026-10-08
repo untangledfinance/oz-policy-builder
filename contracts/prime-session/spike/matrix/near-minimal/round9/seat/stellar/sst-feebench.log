@@ -1,0 +1,27 @@
+12:11:52 PASS FB0a. Freighter grant, move+vote ok 3344 ms aea2ac864d52e767897f54ac9fb02a388d40afb6fa9ed7b6abd43c11cbc87f9a
+12:12:07 PASS FB0b. Phantom grant, move+vote ok 5695 ms 86b09059b7c494d8533cd0f325c4b65825df29d0db661ea3000c501a325b3075
+12:12:23 PASS FB1.0 owner + owner (Freighter, Phantom), warm-up ok 16027 ms 69b3b9660266f6278d3973eb67517a4502d71a3adfa31d744ec43f49d41dba63
+12:12:38 PASS FB2.0 vote session (Freighter) + owner (Phantom), warm-up ok 14839 ms 65f15cd7a1212311c94f56a7ed54d265a9e5d8176ab772d52404248473803da5
+12:12:42 PASS FB3.0 two vote sessions (Freighter, Phantom), warm-up ok 4037 ms 7273e15684eb9bd18d817a27346420e8e0b133570551ee1fc7907716601e487c
+12:12:57 PASS FB4.0 plain accounts (Freighter, Phantom) on a production-style rule 0, warm-up ok 15638 ms 8a01bc63be1a4e6591ab372b8c601cde6ee627a0424a6f619c2850d730f53e29
+12:13:12 PASS FB1.1 owner + owner (Freighter, Phantom), run 1 ok 14740 ms 11ceec4d0e1878bb4f7119bd00d897863125f9b9cf7f2c6599a74a29437f6c88
+12:13:28 PASS FB2.1 vote session (Freighter) + owner (Phantom), run 1 ok 15824 ms ce7e3cc28c5c45c1bdae21009e3a220c7a830da5c4828ea4b30f82220c2e4da1
+12:13:32 PASS FB3.1 two vote sessions (Freighter, Phantom), run 1 ok 3997 ms ed5efdd9d16255573d79bb8b9bd9efcc77688f561116f343c94e8688359177c4
+12:13:47 PASS FB4.1 plain accounts (Freighter, Phantom) on a production-style rule 0, run 1 ok 14937 ms 34fba65b21af7fb4d618c25d21c8186ece36da89d80a85976dfcd3638356c419
+12:14:02 PASS FB1.2 owner + owner (Freighter, Phantom), run 2 ok 15041 ms 2507a13ac51a081b17f85a44f69deed0bbe2e8d07e41421c6fd042e29ce8d232
+12:14:17 PASS FB2.2 vote session (Freighter) + owner (Phantom), run 2 ok 15534 ms a2a0db0ea7f127131f443186b16cac76d0fbd96ae30c03fc5afe499bb857ec18
+12:14:23 PASS FB3.2 two vote sessions (Freighter, Phantom), run 2 ok 5103 ms 6d9767d72d5de7c50cfb40f2654f26c54a4d757060736a38043f303b96415994
+12:14:37 PASS FB4.2 plain accounts (Freighter, Phantom) on a production-style rule 0, run 2 ok 14225 ms 4d2f5681505df38829e7bb4842b537d87a9adfc18929a573017e5fcef9ceba9b
+12:14:52 PASS FB1.3 owner + owner (Freighter, Phantom), run 3 ok 15668 ms 5b9b84ff362d094895bf7424f6e9fc3e7fdf83ad46d5751e169fa191557dbd48
+12:15:07 PASS FB2.3 vote session (Freighter) + owner (Phantom), run 3 ok 14283 ms 4d625bd9536f7df09a5d2bc330460b0e04f125fb7c614a59fecc505f566615f5
+12:15:12 PASS FB3.3 two vote sessions (Freighter, Phantom), run 3 ok 5565 ms 69d020961ece6ca2e4b9e95b6d93bfcbc4f7f8a240a7e9de4051b3b7bc3c91db
+12:15:28 PASS FB4.3 plain accounts (Freighter, Phantom) on a production-style rule 0, run 3 ok 15466 ms 8b029c5d139b1efb7e45a9fe6d94120a2e33cd0c9597017ff47340bab3dd8f59
+12:15:42 PASS FB1.4 owner + owner (Freighter, Phantom), run 4 ok 14698 ms 62c1246d844df4f73bcefc5c70a06b4ce9ef557b5383668d8f1a4b519ede641e
+12:15:58 PASS FB2.4 vote session (Freighter) + owner (Phantom), run 4 ok 15431 ms 3d60b454bedac773db27957c467a08749f131847c9b8c5390dda07ec052455fa
+12:16:02 PASS FB3.4 two vote sessions (Freighter, Phantom), run 4 ok 4306 ms 667581e83f47f0d1ebaba2a3b2e0d85331105d44ab65f8ddc13fe34e0e0de6a8
+12:16:12 PASS FB4.4 plain accounts (Freighter, Phantom) on a production-style rule 0, run 4 ok 9695 ms 879c518b589a3be23db93b2d87b347cd8a7c01688d8e38400f1cbf5c1398ef78
+12:16:27 PASS FB1.5 owner + owner (Freighter, Phantom), run 5 ok 14978 ms cbd275d21137d145017b06fea2500b9a68efeb913fd41ff1cd854eaa86324ffc
+12:16:43 PASS FB2.5 vote session (Freighter) + owner (Phantom), run 5 ok 15751 ms 7151e1fb0b617891442059872203055bafffbd195c9ec06113f9df652f13ed14
+12:16:47 PASS FB3.5 two vote sessions (Freighter, Phantom), run 5 ok 4144 ms 3d72a4bf9a34d778191b5ba18c90a7f922622bee459a9aa6c211592bc785450e
+12:16:58 PASS FB4.5 plain accounts (Freighter, Phantom) on a production-style rule 0, run 5 ok 10713 ms 4092c513de34d4decbf9bba5b92793a1c17f1a172f44c1cf028567ec945c322b
+12:16:58 NEAR MPC: 19 signatures, average 7.4s

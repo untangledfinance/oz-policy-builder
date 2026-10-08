@@ -48,7 +48,7 @@ Our new code in total is 122 sLOC: 32 + 33 + 37 + 20.
 - Sources: `evm/src/PrimeSession.sol`, `evm/test/PrimeSession.t.sol`, `solana/prime-session/src/lib.rs`, `near-signer/src/lib.rs`. The Stellar contract and its tests are `../../../src/` in this repository.
 - Harnesses: `evm/pkn.ts`, `evm/bytecode-eq.ts`, `evm/verify-evm.ts`, `evm/roles-why.ts`, `solana/psn.ts`, `solana/pdhash.ts`, `stellar/stn.ts`, `stellar/verify-stellar.ts`, `signer-neg.ts`, `proof-near.ts`. They import `stellar.ts`, `nearsig.ts` and `near.ts` (unchanged) and a local `keys.ts` that holds testnet key loading and is not copied.
 - Runner: `run-round9.sh` (all parts in sequence under one lock, because they share the NEAR relayer key).
-- Logs: `round9/{evm,solana,stellar,near}/` (and `round9/{swig,native}/` for the follow-up spikes below), plus Freighter prompt screenshots in `round9/stellar/freighter-prompt/` (collapsed and expanded authorization row, the earlier SEP-53 prompt, three parameter shapes). Logs are ignored by `*.log`, so add them with `git add -f`.
+- Logs: `round9/{evm,solana,stellar,near}/` (the later runs of 8 October are in `round9/{owners,seat,calls,wallets}/`) (and `round9/{swig,native}/` for the follow-up spikes below), plus Freighter prompt screenshots in `round9/stellar/freighter-prompt/` (collapsed and expanded authorization row, the earlier SEP-53 prompt, three parameter shapes). Logs are ignored by `*.log`, so add them with `git add -f`.
 - Stellar run record: `round9/stellar/run.out` and `run2.out` show two runs; the first stopped at the real Freighter step when the browser behind the bridge closed (`stn-realfr.attempt1.log`, `freighter-bridge.attempt1.out`), and the retry passed.
 
 ## Follow-up spikes (8 October 2026)
@@ -90,6 +90,92 @@ Swig wallets as the Squads policy signers in place of `prime-session`, on a loca
 - **Files:** `swig/psw.ts` (the matrix), `psw-near.ts`, `psw-probe.ts`, `psw-w3.ts`, `psw-slots.ts`, `psw-slots-series.ts`, `psw-trust.ts`, `psw-upgrades.ts`, `psw-summary.py` (counts the checks from a state file), `psw-errors.json` (Swig error names from source). They import `./keys.ts` (local testnet keys, kept out of the bundle) and `nearsig.ts`, and `psw.ts` reads `psw-errors.json` from the work directory. Run `bun psw.ts` with `PSW_LABEL` naming the build.
 - **Start commands:** from the work directory with the Solana CLI on `PATH`: `solana-test-validator --ledger psw-ledger --rpc-port 8919 --faucet-port 9919 --dynamic-port-range 18500-18560 --url https://api.devnet.solana.com --clone-upgradeable-program SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG --clone GmY9kVi3FhrCUn2MJkzzpE6C5618YoHuGsgqHU78cKus --clone-upgradeable-program swigypWHEksbC64pWKwah1WTeh9JXwx8H1rJHLdbQMB` for the devnet build. For the mainnet build, replace the last clone with `--upgradeable-program swigypWHEksbC64pWKwah1WTeh9JXwx8H1rJHLdbQMB <mainnet .so> 8o2ZThbZ5Bky4RcPVBYjyWuzVtqfwfqPMbsboTkFf3aQ`, where the `.so` comes from `solana program dump` on mainnet (read only).
 - **Logs:** `round9/swig/`, with the earlier runs in `round9/swig/prev/`.
+
+## Later runs on 8 October 2026 (owner counts, seat voting, contract calls, wallet matrix)
+
+These four pieces ran on the round 9 contracts after the follow-up spikes. Only the three harnesses changed, and each default path is identical to the earlier copy.
+
+### Any number of owners and any threshold
+
+`evm/pkn.ts` and `solana/psn.ts` take `PRIME_OWNERS` and `PRIME_THRESHOLD`; `stellar/stn.ts` takes the same through `bun stn.ts owners` and `STN_STATE` for the state file. The default pair (3 and 2) runs the old matrix. Every configuration passed with real NEAR signatures for the three wallets where they sign on a foreign chain. Owners 4 and up are local keys that act as seat and session owner.
+
+| Config | EVM (Safe + Roles) | Solana (Squads) | Stellar (OZ account) |
+|---|---|---|---|
+| 1 of 1 | 28/28 | 30/30 | 29/29 |
+| 2 of 2 | 47/47 | 49/49 | 54/54 |
+| 2 of 3 (default) | 134/134 | 128/128 | 132/132 |
+| 3 of 5 | 87/87 | 94/94 | 104/104 |
+| 7 of 12 | 178/178 | 210/210 | above the chain limit |
+| 8 of 15 | not run | not run | 274/274 |
+
+Chain limits on owner count:
+
+- **Stellar:** the OZ smart account holds at most 15 signers per rule. A 16th signer is refused with contract error 3010 (`TooManySigners`).
+- **Squads Smart Account:** one create transaction holds up to 25 signers (1,150 of 1,232 bytes); 28 fail with "Transaction too large: 1249 > 1232". Growth by `addSignerAsAuthority` reached **62 signers** (settings account 2,181 bytes) when each add ran in its own transaction. The add of the 63rd signer fails with `Access violation writing 2317 bytes at address 0x30000772e (in heap region)` after 68,046 compute units. The two earlier probe logs (`psn.limits.log`, `psn.limits2.log`) stopped at 58 on instruction index 4 of a transaction that held several instructions. The final run is `psn.limits3.log`, from `solana/psn-limits.ts` (local validator on port 8989 with the Smart Account cloned from devnet).
+- **Safe 1.4.1 and Zodiac Roles:** the contracts set no owner cap. A 12-owner setup took 1,518,079 gas, about 87,000 per extra owner.
+
+Solana moves cost about 900 compute units more per owner (50,648 with one owner, 60,267 to 61,860 with twelve). Stellar account creation costs about 0.026 XLM more per owner. The Stellar 8-of-15 run first failed 22 checks because the harness funded a flat 30 XLM; `stn.ts` now funds the larger of 30 and five times the owner count, and the first run is kept as `stn.8of15.funding-bug.log`. One 1-owner case differs by chain: a sole owner removing itself is refused on Safe and Squads and accepted on Stellar, which leaves the account unreachable.
+
+Logs: `round9/owners/` (`pkn.*.log`, `psn.*.log`, `stn.*.log`, the `*.stub.log` cross-checks with local keys in place of NEAR, `psn.limits*.log`, `stn.limits.log`, state files, runner scripts). The `*.before-owners.ts` files are the harnesses from before the owner parameters.
+
+### Seat voting: each seat is a session contract
+
+Spike code under `seat/`: the seat becomes the wallet's session contract itself, so a session key whose grant carries a vote flag can cast the seat's vote. All runs used the round 9 harness moves plus the new seat checks.
+
+| Chain | Build | Result | Logs (under `round9/seat/`) |
+|---|---|---|---|
+| EVM, Base Sepolia fork | `PrimeSession` as Safe owner through ERC-1271, 36 sLOC against 32, 4,810 bytes | **263/263**, forge tests 23 (13 vote, 10 no-governance) | `evm/pse.fork.log`, `evm/forge-test.log` |
+| Solana, local validator | `prime-seat` as Squads settings signer, 40 sLOC against 33 | **292/292** with real NEAR for MetaMask and Freighter | `solana/pss-dev3.log`, `solana/pss-full.log` |
+| Solana, no-governance build | `prime-seat-ng` | **291/291** with a local stand-in for NEAR | `solana/pss-ng.log` |
+| Stellar testnet | `prime-seat` as the rule-0 seat, 51 sLOC against 37, wasm 2,363 bytes | **263/263**; unit tests 18/18 | `stellar/sst-*.log`, `stellar/verify-sst.log` |
+| Stellar, split seat and owner keys | `prime-seat-split`, 52 sLOC | **22/22** on testnet; unit tests 20/20 | `stellar/split-sst.log`, `stellar/split-build.log` |
+
+Costs against round 9: EVM grant +659 gas, session move +7 gas, one Safe vote 97,508 to 103,056 gas against 81,515 for two plain keys. Stellar votes cost 27.5k to 43.5k stroops against 42.0k for plain keys.
+
+What the runs show:
+
+- A seat contract works as a Safe owner, a Squads settings signer and a rule-0 `External` signer without changes to those three systems.
+- A move-only session never votes, the vote flag is bound by the owner's signature, a revoke is final, and replays across wallets, accounts and chains fail.
+- A live vote session plus one other owner's vote reaches 2-of-3 and can lower the threshold or add a seat. The no-governance builds close this for settings changes and cost 4 or 5 more lines. On EVM and Stellar two vote sessions can still empty the account with no wallet signature.
+- Wallets that sign through NEAR approve a hex payload, so the vote flag looks the same as a move-only grant. The Stellar split build fixes this because the vote grant needs the seat key.
+- The independent review reproduced 282/282 on EVM and 303/303 on Solana in its own runs and recommends keeping plain-key seats; the no-governance design is adoptable only under the review's conditions.
+
+Layout: `seat/evm/` (`src/PrimeSession.sol`, `src/PrimeSessionNoGov.sol`, `test/`, `pse*.ts`, `nearsig-stub.ts`), `seat/solana/` (`prime-seat/`, `prime-seat-ng/`, `pss.ts`, `run-validator.sh`, `summary.py`, `reqtable.py`), `seat/stellar/` (`prime-seat/`, `prime-seat-u32/`, `prime-seat-split/`, `variants/`, `sst.ts`, `split-sst.ts`, `verify-sst.ts`, `stellar.ts`, `nearsig.ts`, run scripts, `tables.py`). Key files, build outputs, `target/`, `node_modules/`, `Cargo.lock`, test snapshots and run state files are left out. The harnesses import a local `keys.ts` and load testnet keys from a local `secrets/` directory, both kept out of the bundle.
+
+### Contract calls beyond token transfers
+
+Under `calls/`. A session key can make any call the account's rule allows: one contract, one function and conditions on each argument. The venue contract keeps a ledger and moves no token. Each refused call was checked by its error, by an unchanged venue ledger and, where a control exists, by the seats making the same call successfully.
+
+| Chain | Harness | Result | Accepted | Refused | Log (under `round9/calls/`) |
+|---|---|---|---|---|---|
+| EVM, Base Sepolia fork | `calls/evm/calls-evm.ts`, `src/Venue.sol` | **84/84** | 7 | 20 | `calls-evm.log` |
+| Solana, local validator | `calls/solana/calls-sol.ts`, `venue/` | **89/89** | 7 | 30 | `calls-sol.log` |
+| Stellar testnet | `calls/stellar/calls-stellar.ts`, `venue/` | **66/66** | 9 | 22 | `calls-stellar.log`, first run in `calls-stellar.run1.log` |
+
+All runs signed with local keys standing in for MetaMask (EVM), Phantom (Solana) and Freighter (Stellar), so they made no NEAR call. The Squads source checkout, the round 9 `.so` and `.wasm` builds and the run state files stay out of the bundle.
+
+### Wallet matrix with the real extensions
+
+Under `wallets/`: the bridge code that drives each real extension in Chromium, the local dapp pages, the payload builders, the offline verifiers, the per-wallet option files and the result files in `wallets/out/`. We ran 12 wallets on testnet with a locally generated test seed.
+
+| Chain | Result |
+|---|---|
+| EVM | Coinbase Wallet, Rabby, Rainbow, Trust and OKX pass all three formats: grant text, signer text and the Safe vote (EIP-712). `PrimeSession.grant` and `Safe.checkNSignatures` accepted each signature on the fork. |
+| Stellar | Freighter and Hana have all three calls (`signMessage`, `signAuthEntry`, `signTransaction`). xBull, Rabet, Albedo and LOBSTR lack `signAuthEntry`. SEP-53 `signMessage` passes in xBull and Albedo; Hana and Rabet sign the raw text, which the signer contract accepts with `sep53 = false`. The LOBSTR row comes from source reading. |
+| Solana | Solflare and Backpack pass `signMessage` and `signTransaction`. Glow passes `signMessage`; its `signTransaction` prompt showed no Approve button for either transaction shape. |
+
+Rabby, Trust and OKX need `wallet_addEthereumChain` for chain 84532 before the Safe vote. Backpack and Glow register aliases of other wallets (`window.solflare`, `window.solana` with `isPhantom`), so a dapp picks the wallet explicitly. Logs: `round9/wallets/<wallet>.log`. Results per wallet and format: `wallets/out/`.
+
+The extension builds (`crx/`, `ext/`), browser profiles, screenshots, the source clone of Albedo, built dapp bundles, the lockfile and the local seed are left out. `wallets/lib/seed.mjs` creates the seed on first use in a local `secrets/` directory.
+
+### Files that need `git add -f`
+
+`*.log` is ignored by `.gitignore`. These log files need `git add -f`:
+
+- `round9/owners/*.log`, `round9/calls/*.log`, `round9/wallets/*.log`
+- `round9/seat/evm/*.log`, `round9/seat/solana/*.log`, `round9/seat/stellar/*.log`
+
+One command from this directory adds them all: `git add -f round9/owners round9/seat round9/calls round9/wallets seat calls wallets`.
 
 ### Checks on `ARCHITECTURE.md`
 

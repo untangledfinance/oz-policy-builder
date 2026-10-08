@@ -1,0 +1,42 @@
+ℹ️  CARGO_BUILD_RUSTFLAGS=--remap-path-prefix=/home/ubuntu/.cargo/registry/src= SOROBAN_SDK_BUILD_SYSTEM_SUPPORTS_SPEC_SHAKING_V2=1 cargo rustc --manifest-path=Cargo.toml --crate-type=cdylib --target=wasm32v1-none --release
+   Compiling prime-seat v0.0.1 (/home/ubuntu/work/seat-spike/stellar/prime-seat)
+    Finished `release` profile [optimized] target(s) in 1.54s
+ℹ️  Build Summary:
+    Wasm File: target/wasm32v1-none/release/prime_seat.wasm (2363 bytes optimized (original size was 2696 bytes))
+    Wasm Hash: 27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992
+    Wasm Size: 2363 bytes optimized (original size was 2696 bytes)
+    Exported Functions: 5 found
+      • __check_auth
+      • __constructor
+      • batch_canonicalize_key
+      • grant
+      • verify
+✅ Build Complete
+
+   Compiling prime-seat v0.0.1 (/home/ubuntu/work/seat-spike/stellar/prime-seat)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.50s
+     Running unittests src/lib.rs (target/debug/deps/prime_seat-93bce8be94980ad3)
+
+running 18 tests
+test test::a_move_only_key_moves_but_never_votes ... ok
+test test::a_revoke_is_final_whatever_flag_it_carries ... ok
+test test::a_revoked_key_cannot_move_or_vote ... ok
+test test::a_far_future_entry_is_refused_after_a_revoke_and_the_revoke_outlives_its_signature ... ok
+test test::a_vote_key_moves_and_votes ... ok
+test test::a_revoked_key_is_never_granted_again_and_other_keys_still_are ... ok
+test test::an_owners_signed_vote_covers_one_payload_only ... ok
+test test::entry_outlives_a_long_session ... ok
+test test::at_most_seven_days ... ok
+test test::a_held_back_entry_is_refused_after_a_revoke ... ok
+test test::stranger_cannot_grant ... ok
+test test::the_owner_votes_only_with_its_own_authorization ... ok
+test test::owner_grants_then_session_key_moves ... ok
+test test::never_granted_key_and_wrong_signer_are_refused ... ok
+test test::expires_at_its_ledger ... ok
+test test::a_regrant_replaces_the_vote_flag_and_needs_the_owner ... ok
+test test::revoke_spares_the_wallets_other_session ... ok
+test test::the_vote_flag_is_bound_by_the_owners_signature ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+done

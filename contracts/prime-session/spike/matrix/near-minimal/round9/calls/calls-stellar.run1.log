@@ -1,0 +1,75 @@
+11:21:47 relayer GB47P3UE66NTEA3PMT6W4EFRUBUQ4K34DLF3YRIJHSFWZUXHXVNRVMRA seats GDDLU4GVB55G4ZHWUAB3IXBDP5AAFBDXNWIRD4IDOXKYHZU5SBKFQ4TA GBSINKMK5Z2SC7KC2LC4AAIS76NQPKKEQCGWLCD4XZYPKNUETQJQHSLB GDNLFTL3BM3BFJ6UYYQN2GCTHPRBMI7KRBP7UWBAI526355VOKJ27UYQ
+11:22:18 venue CDSXRGXOUONWRUK24LC2MDJE7GQPWVLH7RUS23DTA6LPWOKH4YTY3LLF venue2 CC4F3MKJBTEMTKH5FGZBVEVHHJ6FGBRYS6ME5ENECVAQKZZB4GVLVXJG prime-session CAEC6WT2J3UUWIOITNSM77JNQDNSM63ZXQY3YDC6FVXCMCO5IBEYNUXX Prime Account CDQ2KRNDX5QCPCWTR7DSUSQIGDKSNKD4YOANK7Y3JZFK7MRNFYMZCWEM
+11:22:18 PASS P0. rule 0 signers are exactly the three seat keys (no prime-session) ok 3 signers
+11:22:19 PASS P1. the testnet policy-interpreter speaks a grammar version ok grammar 4
+11:22:27 PASS P2. two seats (F + B) install the session rule: CallContract(venue), signer prime-session, interpreter predicate ok 8544 ms 437039a9242beb2e1aa6b075499a696bb2336f601299cc768dea3819fe7fbb89
+11:22:29 PASS P3. the session rule exists, scoped to the venue, with prime-session as its only signer and the interpreter as its policy ok rule 1, predicate 1472 bytes, hash 2d679bd418f2
+11:22:32 PASS G0. owner F signs one grant authorization (signAuthEntry-style); relayer submits grant(key, until) ok c4e03e4e61092e314263833f4e5e559746c9073c5c16ec9f1f2850720d1e3783
+11:22:32 --- deposit: from == account, 1 <= amount <= 1000, on_behalf_of == account
+11:22:43 PASS D1. allowed: deposit(account, 100, account) ok 6765 ms 6fa0b6d418d73aa18d0f8220b6991ad1aed2aabc1b0ac278316c7186cff3dba0
+11:22:46 PASS D2. the venue shows 100 for the account, one call, authorized by the account (last = the account, not the session key or prime-session) ok deposits 100, calls 1, last CDQ2KR
+11:22:52 PASS D3. boundary: amount equal to the cap (1000) ok 2997 ms 06b6cd8f827ef12313a0bc6e4a844f8efbd63630819143538f4d62392ac6b4e8
+11:23:03 PASS D4. boundary: amount 1 (lower bound) ok 5680 ms ed9ecadf8d7699e7cc9ca01fb1827faae60a9e85d4e301bfc050cedf30725d83
+11:23:10 PASS D5. amount over the cap (1001) refused: Error(Auth, InvalidAction) Error(Contract, #100)
+11:23:20 PASS    D5. venue ledgers unchanged by the refused call ok 3|0|1101|0,0,0,0,0,0
+11:23:25 FAIL D6. amount 2^127 - 1 refused: Error(WasmVm, InvalidAction)
+11:23:34 PASS    D6. venue ledgers unchanged by the refused call ok 3|0|1101|0,0,0,0,0,0
+11:23:39 PASS D7. amount 0 refused: Error(Auth, InvalidAction) Error(Contract, #100)
+11:23:48 PASS    D7. venue ledgers unchanged by the refused call ok 3|0|1101|0,0,0,0,0,0
+11:23:52 PASS D8. negative amount -5 (it would pass an upper bound alone) refused: Error(Auth, InvalidAction) Error(Contract, #100)
+11:24:01 PASS    D8. venue ledgers unchanged by the refused call ok 3|0|1101|0,0,0,0,0,0
+11:24:07 PASS D9. different on_behalf_of (a stranger) refused: Error(Auth, InvalidAction) Error(Contract, #100)
+11:24:17 PASS    D9. venue ledgers unchanged by the refused call ok 3|0|1101|0,0,0,0,0,0
+11:24:24 PASS D10. on_behalf_of is the session key's own G address refused: Error(Auth, InvalidAction) Error(Contract, #100)
+11:24:34 PASS    D10. venue ledgers unchanged by the refused call ok 3|0|1101|0,0,0,0,0,0
+11:24:41 PASS D11. another function on the same venue: withdraw(account, 1, account) refused: Error(Auth, InvalidAction) Error(Contract, #100)
+11:24:52 PASS    D11. venue ledgers unchanged by the refused call ok 3|0|1101|0,0,0,0,0,0
+11:24:58 PASS D12. the allowed deposit on another contract (a second venue deployment) refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+11:25:09 PASS    D12. venue ledgers unchanged by the refused call ok 3|0|1101|0,0,0,0,0,0
+11:25:09 --- submit: from, spender, to == account; one request; token == XLM, amount <= 1000, request_type in {0,1,2,3}
+11:25:23 PASS S1. allowed: submit with one request, type 0 (supply), 50 ok 8500 ms 4ac1b24caa9b87e8721f565d01de275e1a49ef4b2a256842d961be8ef18c90fe
+11:25:25 PASS S2. the venue shows 50 in kind 0 and no other kind ok kind0 50
+11:25:37 PASS S3-1. allowed: request type 1 ok 7422 ms a42ba9dd508f154b0f40eb750cbb4b2ae24673db942e97748450e100b2df9b07
+11:25:47 PASS S3-2. allowed: request type 2 ok 5083 ms af5f5c20d8c28b0684667634229ae2c30afb60d8ef73306e87482dcd72360422
+11:25:58 PASS S3-3. allowed: request type 3 ok 5719 ms b38cee9ed6c9f50aafc4c4b04ce6ae91fb02cb10aabf1fd1131c3bcab7cb74b5
+11:26:05 PASS S4. request type 4 refused: Error(Auth, InvalidAction) Error(Contract, #100)
+11:26:13 PASS    S4. venue ledgers unchanged by the refused call ok 7|0|1101|50,10,10,10,0,0
+11:26:19 PASS S5. request type 5 refused: Error(Auth, InvalidAction) Error(Contract, #100)
+11:26:25 PASS    S5. venue ledgers unchanged by the refused call ok 7|0|1101|50,10,10,10,0,0
+11:26:28 PASS S6. two requests in one submit (types 0 and 0) refused: Error(Auth, InvalidAction) Error(Contract, #100)
+11:26:33 PASS    S6. venue ledgers unchanged by the refused call ok 7|0|1101|50,10,10,10,0,0
+11:26:37 PASS S7. no request (an empty vector) refused: Error(Auth, InvalidAction) Error(Contract, #100)
+11:26:41 PASS    S7. venue ledgers unchanged by the refused call ok 7|0|1101|50,10,10,10,0,0
+11:26:46 PASS S8. request amount over the cap (1001) refused: Error(Auth, InvalidAction) Error(Contract, #100)
+11:26:52 PASS    S8. venue ledgers unchanged by the refused call ok 7|0|1101|50,10,10,10,0,0
+11:26:56 PASS S9. request token is another address (the venue itself) refused: Error(Auth, InvalidAction) Error(Contract, #100)
+11:27:05 PASS    S9. venue ledgers unchanged by the refused call ok 7|0|1101|50,10,10,10,0,0
+11:27:11 PASS S10. spender is another address refused: Error(Auth, InvalidAction) Error(Contract, #100)
+11:27:22 PASS    S10. venue ledgers unchanged by the refused call ok 7|0|1101|50,10,10,10,0,0
+11:27:29 PASS S11. to is another address refused: Error(Auth, InvalidAction) Error(Contract, #100)
+11:27:39 PASS    S11. venue ledgers unchanged by the refused call ok 7|0|1101|50,10,10,10,0,0
+11:27:47 PASS S12. the allowed submit on another contract (a second venue deployment) refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+11:27:56 PASS    S12. venue ledgers unchanged by the refused call ok 7|0|1101|50,10,10,10,0,0
+11:27:56 --- scope
+11:27:57 PASS X1. the session proof presented for rule 0 (the seats rule) refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+11:27:59 PASS X2. a stranger's key signs the session proof (not granted) refused: Error(Auth, InvalidAction) Error(Contract, #1)
+11:28:01 PASS X3. the session removes rule 0 through its own rule refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+11:28:02 PASS X4. the session adds a rule through its own rule refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+11:28:02 --- controls: the same calls made by two seats under rule 0 (no policy)
+11:28:13 PASS C1. two seats: deposit over the cap ok 5629 ms de9966f8cd8afcfca220a569b2bc64f187ae0b76bda2b4819600e5e478c38ae3
+11:28:22 PASS C2. two seats: deposit for a stranger ok 9508 ms 56879ce986da932df086a5d9dbc24822660d03745fdc7b1322f8486403fe69f7
+11:28:28 PASS C3. two seats: withdraw ok 5450 ms 21c2c10b913e5dad4c4e03f7a91a0f485b8864ca49475a10dacbf5527d00d06d
+11:28:38 PASS C4. two seats: deposit on the second venue ok 10474 ms 08c2c2d915b6f26faffb637a9678b6324cd10448a254fb0ebf7599847df279d0
+11:28:47 PASS C5. two seats: submit with request type 4 ok 9096 ms 24537f972631efb1825da79920c237392432bb45d385380082ab51b45bb31ab7
+11:28:53 PASS C6. two seats: submit with two requests ok 5836 ms 564035d7a60e9c2252d10277111a839542389c3a4772873da372e82b8b1db049
+11:29:03 PASS C7. two seats: negative deposit ok 9630 ms dd63667f6f187aa5c4ea835b61d303841816843124c07307bfd5aea64f2155b0
+11:29:16 PASS C8. the controls changed the ledgers as asked (venue 1 and 2 both saw calls) ok 7|0|1101|50,10,10,10,0,0 -> 13|1|2096|70,10,10,10,10,0
+11:29:16 --- revoke
+11:29:23 PASS R1. a second session ok ca135182a85c49be574abe5bed92cedf8f0dc5fde6ba42f12f639dab9938e60f
+11:29:32 PASS R2. the second session makes the allowed deposit(account, 5, account) ok 4987 ms 26fbab951c771824481cff0e453b0869a3a8e8a00cc2fb11c0aaafc80cad8dd4
+11:29:38 PASS R3. the owner revokes it: grant(key, 0), one authorization ok 22766f5f46b77d9f61346079c3fa374f4a1e3fbb210f32aa0d68ed9a87cd05de
+11:29:48 PASS R4. the revoked session makes the same allowed deposit refused: Error(Auth, InvalidAction) Error(Contract, #1)
+11:30:06 PASS    R4. venue ledgers unchanged by the refused call ok 14|1|2101|70,10,10,10,10,0
+11:30:18 PASS R5. the first session still works ok 6703 ms e01b647eb8bc4a7ac27c79c397f8dca33f9285dea683122e78c084c87562a7e5
+11:30:18 65/66 passed
+11:30:18 FAIL D6. amount 2^127 - 1 Error(WasmVm, InvalidAction)

@@ -1,0 +1,173 @@
+detect {"hana":null,"hanaTop":null,"rabet":null,"xbull":["isConnected","sendEventToContentScript","connect","getPublicKey","signXDR","enableConnection","getAddress","signTransaction","getNetwork","signMessage"],"freighter":null,"lobstrConnected":null}
+[connect] ERROR timeout 60000
+[near] ERROR timeout 60000
+[grant] ERROR page.evaluate: Error: ERR {"message":"window.xBullSDK.signAuthEntry is not a function"}
+    at err (http://localhost:8801/stellar.js:117:11)
+    at Object.signAuthEntry (http://localhost:8801/stellar.js:123:7)
+    at eval (eval at evaluate (:370:30), <anonymous>:1:31)
+    at UtilityScript.evaluate (<anonymous>:372:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+[vote] ERROR page.evaluate: Error: ERR {"message":"window.xBullSDK.signAuthEntry is not a function"}
+    at err (http://localhost:8801/stellar.js:117:11)
+    at Object.signAuthEntry (http://localhost:8801/stellar.js:123:7)
+    at eval (eval at evaluate (:370:30), <anonymous>:1:31)
+    at UtilityScript.evaluate (<anonymous>:372:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+[tx] ERROR timeout 60000
+detect {"hana":null,"hanaTop":null,"rabet":null,"xbull":["isConnected","sendEventToContentScript","connect","getPublicKey","signXDR","enableConnection","getAddress","signTransaction","getNetwork","signMessage"],"freighter":null,"lobstrConnected":null}
+
+--- prompt [connect] index.html#/sign-from-background buttons=["Reject","Confirm"]
+Site connection
+---
+clicked "Confirm" [connect]
+[connect] ok {"address":"GDEUQO6PLMALYL5RV7Y5ATWKUOYBV2UFP2LKSJ6LGKN5KN5QLMNOBNZR"}
+
+--- prompt [near] index.html#/sign-from-background buttons=["Reject","Accept"]
+Site connection
+Confirm and sign
+From: localhost:8801
+Network: TESTNET
+Signing with: GDEU....NOBNZR
+Message to sign:
+Prime NEAR signer contract: signer.prime-spike-muwguc60.testnet path: prime:stellar domain: 1 payload: d82e0aa4515698295dfa83dc43242482109fa283c81f3dd5928a0309304a5a04
+Reject
+Accept
+---
+clicked "Accept" [near]
+unlocked [near]
+[near] ok {"signedMessage":"5EqJODIejXGbaSW5nGlfHltHIHnbTYJ2CqAf/Mp4S4Knz89bmRXKonZ2OhDTOAA65bw6N64Pf0Ani3IwrVjBBA==","signerAddress":"GDEUQO6PLMALYL5RV7Y5ATWKUOYBV2UFP2LKSJ6LGKN5KN5QLMNOBNZR"}
+[grant] ERROR page.evaluate: Error: ERR {"message":"window.xBullSDK.signAuthEntry is not a function"}
+    at err (http://localhost:8801/stellar.js:117:11)
+    at Object.signAuthEntry (http://localhost:8801/stellar.js:123:7)
+    at eval (eval at evaluate (:370:30), <anonymous>:1:31)
+    at UtilityScript.evaluate (<anonymous>:372:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+[vote] ERROR page.evaluate: Error: ERR {"message":"window.xBullSDK.signAuthEntry is not a function"}
+    at err (http://localhost:8801/stellar.js:117:11)
+    at Object.signAuthEntry (http://localhost:8801/stellar.js:123:7)
+    at eval (eval at evaluate (:370:30), <anonymous>:1:31)
+    at UtilityScript.evaluate (<anonymous>:372:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+
+--- prompt [tx] index.html#/sign-from-background buttons=["Export XDR","Sign & Export","Reject","Accept"]
+Site connection
+Confirm and sign
+From: localhost:8801
+Network: TESTNET
+Signing with: GDEU....NOBNZR
+Envelope type:
+Transaction
+Sequence number:
+1001
+Transaction source:
+GDEU....NOBNZR
+Type:
+Payment
+Destination:
+GCUA....AIXLCF
+Code:
+XLM
+Amount:
+1
+Fee:
+0.00001 XLM
+Export XDR
+Sign & Export
+Reject
+Accept
+---
+clicked "Sign & Export" [tx]
+unlocked [tx]
+
+--- prompt [tx] index.html#/sign-from-background buttons=["Export XDR","Sign & Export","Reject","Accept","Cancel","Copy XDR"]
+Site connection
+Confirm and sign
+From: localhost:8801
+Network: TESTNET
+Signing with: GDEU....NOBNZR
+Envelope type:
+Transaction
+Sequence number:
+1001
+Transaction source:
+GDEU....NOBNZR
+Type:
+Payment
+Destination:
+GCUA....AIXLCF
+Code:
+XLM
+Amount:
+1
+Fee:
+0.00001 XLM
+Export XDR
+Sign & Export
+Reject
+Accept
+CancelCopy XDR
+---
+click err Sign & Export locator.click: Timeout 3000ms exceeded.
+Call log:
+  - waiting for getByText('Sig
+click err Sign & Export locator.click: Timeout 3000ms exceeded.
+Call log:
+  - waiting for getByText('Sig
+click err Sign & Export locator.click: Timeout 3000ms exceeded.
+Call log:
+  - waiting for getByText('Sig
+click err Sign & Export locator.click: Timeout 3000ms exceeded.
+Call log:
+  - waiting for getByText('Sig
+click err Sign & Export locator.click: Timeout 3000ms exceeded.
+Call log:
+  - waiting for getByText('Sig
+click err Sign & Export locator.click: Timeout 3000ms exceeded.
+Call log:
+  - waiting for getByText('Sig
+click err Sign & Export locator.click: Timeout 3000ms exceeded.
+Call log:
+  - waiting for getByText('Sig
+click err Sign & Export locator.click: Timeout 3000ms exceeded.
+Call log:
+  - waiting for getByText('Sig
+[tx] ERROR timeout 60000
+click err Sign & Export locator.click: Timeout 3000ms exceeded.
+Call log:
+  - waiting for getByText('Sig
+[connect] ok {"address":"GDEUQO6PLMALYL5RV7Y5ATWKUOYBV2UFP2LKSJ6LGKN5KN5QLMNOBNZR"}
+
+--- prompt [tx] index.html#/sign-from-background buttons=[]
+Site connection
+---
+
+--- prompt [tx] index.html#/sign-from-background buttons=["Export XDR","Sign & Export","Reject","Accept"]
+Site connection
+Confirm and sign
+From: localhost:8801
+Network: TESTNET
+Signing with: GDEU....NOBNZR
+Envelope type:
+Transaction
+Sequence number:
+1001
+Transaction source:
+GDEU....NOBNZR
+Type:
+Payment
+Destination:
+GCUA....AIXLCF
+Code:
+XLM
+Amount:
+1
+Fee:
+0.00001 XLM
+Export XDR
+Sign & Export
+Reject
+Accept
+---
+clicked "Accept" [tx]
+unlocked [tx]
+[tx] ok {"signedTxXdr":"AAAAAgAAAADJSDvPWwC8L7Gv8dBOyqOwGuqFfpapJ8sym9U3sFsa4AAAAGQAAAAAAAAD6QAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAQAAAACoC7Lvs6HOmmgMkeYBuHFj61A2ZuRybsPEeygJP/WAiwAAAAAAAAAAAJiWgAAA

@@ -1,0 +1,149 @@
+providers {"found":["Trust com.trustwallet.app"],"legacy":true}
+
+--- prompt [connect] popup.html?notification=1#/notification buttons=["Main wallet\n\nAccount 1","Cancel","Connect","Cancel and add to blocklist"]
+http://127.0.0.1:8801
+Connect to Trust Wallet
+Main wallet
+Account 1
+0x8970828c...f98B11D17F
+Allow viewing wallet balance and activity
+Allow sending requests for transactions
+Won't allow moving funds without your permission
+Cancel
+Connect
+Cancel and add to blocklist
+---
+clicked "Connect" [connect]
+[connect] ok {"accounts":["0x8970828c8E2C7483a0A872721AcF68f98B11D17F"],"chainId":"0x1"}
+
+--- prompt [grant] popup.html?notification=1#/notification buttons=["Cancel","Confirm"]
+Signature request
+Origin
+http://127.0.0.1:8801
+Message
+Prime session
+contract: 0x93e39aa04aa10600a4584976c41f1cbea7a81d1a
+session key: 0xdd0125bea506fbb56ea93e1340011858355b126d
+valid until (unix time): 1791707066
+network: 84532
+Cancel
+Confirm
+---
+clicked "Confirm" [grant]
+[grant] ok 0xc72f0b9ec5d4a3ae6137e46d1e84b3380025c1…
+
+--- prompt [near] popup.html?notification=1#/notification buttons=["Cancel","Confirm"]
+Main wallet
+Account 1
+$0.00
+0 ETH
+Signature request
+Origin
+http://127.0.0.1:8801
+Message
+Prime NEAR signer
+contract: signer.prime-spike-muwguc60.testnet
+path: prime:evm
+domain: 0
+payload: ff11f72c734002a80a4424181a399eda9bb185668177e17e487b6fb3ada04101
+Cancel
+Confirm
+---
+clicked "Confirm" [near]
+[near] ERROR timeout 100000
+
+--- prompt [ethSign] popup.html?notification=1#/notification buttons=["Cancel","Confirm"]
+Main wallet
+Account 1
+$0.00
+0 ETH
+Signature request
+Origin
+http://127.0.0.1:8801
+Message
+0xbf0efe861ea82eff6c69183717794814c16e13b7d44ecc41923dac8c98f605db
+Cancel
+Confirm
+---
+clicked "Confirm" [ethSign]
+[ethSign] ok 0x72e6f4d1472b0f5e68b1c7eb06ae1c806f4129…
+[chain] switch ERROR page.evaluate: Error: RPC {"code":4902,"message":"Unrecognized chain ID \"0x14a34\". Try adding the chain using wallet_addEthereumChain first.","data":{"method":"PUBLIC_switchEthereumChain"}}
+    at r
+
+--- prompt [chain] popup.html?notification=1#/notification buttons=["Cancel","Approve"]
+Add Custom Network
+This will allow this network to be used within Trust Wallet Extension.
+Origin
+http://127.0.0.1:8801
+Network Name
+Base Sepolia
+Name chosen by the site
+RPC URL
+https://sepolia.base.org
+Chain ID
+84532
+Token Symbol
+ETH
+Block Explorer
+https://sepolia.basescan.org
+Double check the network info
+A malicious network provider can lie about the state of the blockchain and record your network activity. Only add custom networks you trust.
+Cancel
+Approve
+---
+clicked "Approve" [chain]
+
+--- prompt [typed] popup.html?notification=1#/notification buttons=["0xA2E1...A6D32c","Cancel","Confirm"]
+Signature request
+Origin
+http://127.0.0.1:8801
+This is an off-chain, gas-less transaction
+Message · SafeTx
+to
+0x4c32C5d73B6Be66D9bba60f775d7106DeaAe8bf7
+value
+1000
+data
+0x
+operation
+0
+safeTxGas
+0
+baseGas
+0
+gasPrice
+0
+gasToken
+0x0000000000000000000000000000000000000000
+refundReceiver
+0x0000000000000000000000000000000000000000
+nonce
+0
+Signing domain
+Contract
+0xA2E1...A6D32c
+Network
+Base Sepolia (84532)
+Cancel
+Confirm
+---
+clicked "Confirm" [typed]
+[typed] ok 0x9b8a25d17b2529d19f17245dc47176ab4b207e…
+providers {"found":["Trust com.trustwallet.app"],"legacy":true}
+[connect] ok {"accounts":["0x8970828c8E2C7483a0A872721AcF68f98B11D17F"],"chainId":"0x14a34"}
+
+--- prompt [near] popup.html?notification=1#/notification buttons=["Cancel","Confirm"]
+Signature request
+Origin
+http://127.0.0.1:8801
+Message
+Prime NEAR signer
+contract: signer.prime-spike-muwguc60.testnet
+path: prime:evm
+domain: 0
+payload: ff11f72c734002a80a4424181a399eda9bb185668177e17e487b6fb3ada04101
+Cancel
+Confirm
+---
+clicked "Confirm" [near]
+[near] ok 0x4391c48318d2087ee7815831315a2644174c0a…

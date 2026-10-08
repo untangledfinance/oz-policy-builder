@@ -139,7 +139,7 @@ const MM = NATIVE ? MMN : await viaNear('MetaMask'), FR = await viaNear('Freight
 // Session owners: MetaMask and Freighter sign grants under their own path, so no grant signature can be filed as a seat vote.
 // Phantom's own key stays both seat and owner.
 const SMM = NATIVE ? MMN : await viaNear('MetaMask', SESSION_PATH), SFR = await viaNear('Freighter', SESSION_PATH);
-const own = (w: W): W => ({ MetaMask: SMM, Freighter: SFR, Phantom: PH } as Record<string, W>)[w.name]!;
+const own = (w: W): W => ({ MetaMask: SMM, Freighter: SFR, Phantom: PH } as Record<string, W>)[w.name] ?? w;
 const FR_OTHER_PATH = await viaNear('Freighter', 'prime:solana-other');
 const outsiderKp = Keypair.generate();
 const OUT: W = { name: 'outsider', key: outsiderKp.publicKey, sign: async (m) => nacl.sign.detached(m, outsiderKp.secretKey) };
@@ -281,6 +281,134 @@ async function createAccount() {
   const sig = await conn.sendTransaction(tx, [payer]); await confirm(sig);
   return { settingsPda, sig };
 }
+// ── O. Any number of owners and any threshold: PRIME_OWNERS (default 3) and PRIME_THRESHOLD (default 2) ───────────────
+// The default 3 and 2 run the matrix below. Any other pair runs this block instead: the first three owners are the real
+// wallets (Phantom's own key, then MetaMask and Freighter through NEAR), further owners are plain local keys; each owner has
+// its own session PDA. The block exits when it is done.
+const N_OWN = Number(process.env.PRIME_OWNERS ?? 3), THR = Number(process.env.PRIME_THRESHOLD ?? 2);
+if (!Number.isInteger(N_OWN) || !Number.isInteger(THR) || N_OWN < 1 || THR < 1 || THR > N_OWN) throw new Error(`PRIME_OWNERS=${N_OWN} PRIME_THRESHOLD=${THR}: need integers with 1 <= threshold <= owners`);
+if (N_OWN !== 3 || THR !== 2) {
+  if (NATIVE) throw new Error('PRIME_OWNERS / PRIME_THRESHOLD do not combine with PSN_NATIVE');
+  const plain = (n: number): W => { const kp = Keypair.generate(); return { name: `Owner${n}`, key: kp.publicKey, sign: async (m) => nacl.sign.detached(m, kp.secretKey) }; };
+  const roster: W[] = [PH, MM, FR].slice(0, N_OWN).concat(Array.from({ length: Math.max(0, N_OWN - 3) }, (_, i) => plain(i + 4)));
+  const TAG = `${THR}-of-${N_OWN}`;
+  const settingsTx = (index: bigint, a: W, actions: any[]) => ix.createSettingsTransaction({ settingsPda: settings(), transactionIndex: index, creator: a.key, rentPayer: payer.publicKey, actions });
+  /** A proposal made by the first voter (or the first owner when nobody votes), approved by every voter in `voters`; not executed. */
+  async function open(label: string, voters: W[], actions: { vault?: TransactionInstruction[]; settings?: any[] }): Promise<bigint> {
+    const index = await nextIndex(), a = voters[0] ?? roster[0]!;
+    const create = actions.settings ? settingsTx(index, a, actions.settings)
+      : ix.createTransaction({ settingsPda: settings(), transactionIndex: index, creator: a.key, rentPayer: payer.publicKey, accountIndex: 0, ephemeralSigners: 0, addressLookupTableAccounts: [],
+          transactionMessage: new TransactionMessage({ payerKey: vault(), recentBlockhash: (await conn.getLatestBlockhash()).blockhash, instructions: actions.vault! }) });
+    await sendBy(`${label}.a ${a.name} proposes${voters.length ? ' and approves' : ' (no approval)'}`, true, a, [create, ix.createProposal({ settingsPda: settings(), transactionIndex: index, creator: a.key, rentPayer: payer.publicKey }),
+      ...(voters.length ? [ix.approveProposal({ settingsPda: settings(), transactionIndex: index, signer: a.key })] : [])]);
+    for (const v of voters.slice(1)) await sendBy(`${label}.${v.name} approves`, true, v, [ix.approveProposal({ settingsPda: settings(), transactionIndex: index, signer: v.key })]);
+    return index;
+  }
+  /** `ex` executes proposal `index` (approving it in the same transaction when `approve`). */
+  async function finish(label: string, index: bigint, ex: W, actions: { vault?: TransactionInstruction[]; settings?: any[]; policies?: PublicKey[] }, expectOk: boolean, approve: boolean) {
+    const exec = actions.settings ? ix.executeSettingsTransaction({ settingsPda: settings(), transactionIndex: index, signer: ex.key, rentPayer: payer.publicKey, policies: actions.policies ?? [] })
+      : (await ix.executeTransaction({ connection: conn, settingsPda: settings(), transactionIndex: index, signer: ex.key })).instruction;
+    return sendBy(`${label}.x ${ex.name} ${approve ? 'approves and executes' : 'executes'}`, expectOk, ex, approve ? [ix.approveProposal({ settingsPda: settings(), transactionIndex: index, signer: ex.key }), exec] : [exec]);
+  }
+  /** `voters` all vote; the last one executes. */
+  async function decideN(label: string, voters: W[], actions: { vault?: TransactionInstruction[]; settings?: any[]; policies?: PublicKey[] }, expectOk: boolean) {
+    const many = voters.length >= 2, index = await open(label, many ? voters.slice(0, -1) : voters, actions);
+    await finish(label, index, many ? voters[voters.length - 1]! : voters[0] ?? roster[0]!, actions, expectOk, many);
+    return index;
+  }
+  const names = (os: W[]) => os.map((o) => o.name).join(' + ');
+  console.log(`${TAG}:`, roster.map((o) => `${o.name} seat ${o.key.toBase58().slice(0, 6)} owner ${own(o).key.toBase58().slice(0, 6)}`).join('; '), 'program', PROG.toBase58());
+
+  // setup
+  const pc = await sa.accounts.ProgramConfig.fromAccountAddress(conn, sa.getProgramConfigPda({})[0]);
+  const [settingsPda] = sa.getSettingsPda({ accountIndex: BigInt(pc.smartAccountIndex.toString()) + 1n });
+  const before = await conn.getBalance(payer.publicKey);
+  const csig = await conn.sendTransaction(new Transaction().add(ix.createSmartAccount({ treasury: pc.treasury, creator: payer.publicKey, settings: settingsPda, settingsAuthority: null, threshold: THR, timeLock: 0, rentCollector: null,
+    signers: roster.map((w) => ({ key: w.key, permissions: ALL })) }), SystemProgram.transfer({ fromPubkey: payer.publicKey, toPubkey: sa.getSmartAccountPda({ settingsPda, accountIndex: 0 })[0], lamports: VAULT_SOL * SOL })), [payer]);
+  await confirm(csig); st.settings = settingsPda.toBase58(); save();
+  { const info = (await conn.getAccountInfo(settingsPda))!, tx = await conn.getTransaction(csig, { commitment: 'confirmed', maxSupportedTransactionVersion: 0 });
+    metrics.createAccount = { owners: N_OWN, settingsBytes: info.data.length, settingsRentLamports: info.lamports, relayerSpentLamports: before - (await conn.getBalance(payer.publicKey)) - VAULT_SOL * SOL, fee: tx?.meta?.fee}; save(); }
+  { const s = await sa.accounts.Settings.fromAccountAddress(conn, settings());
+    record(`O0. seats are exactly the ${N_OWN} owner keys, threshold ${THR}`, true, s.signers.map((x: any) => x.key.toBase58()).sort().join() === roster.map((w) => w.key.toBase58()).sort().join() && s.threshold === THR, csig);
+    record(`O0b. the ${N_OWN} session owners and ${N_OWN} session PDAs are all different, and no session PDA is a seat`, true, new Set(roster.map((w) => pdaFor(w).toBase58())).size === N_OWN
+      && roster.every((w) => !s.signers.some((x: any) => x.key.equals(pdaFor(w)))) && new Set(roster.map((w) => own(w).key.toBase58())).size === N_OWN, roster.map((w) => pdaFor(w).toBase58().slice(0, 6)).join(',')); }
+
+  // seats: threshold - 1 approvals cannot execute, the threshold-th approval can, any threshold-sized subset works
+  {
+    const first = roster.slice(0, THR), last = roster.slice(N_OWN - THR), b = await conn.getBalance(DEST), outsider = OUT;
+    const idx = await open('K1', first.slice(0, THR - 1), { vault: [sysTransfer(DEST, 0.01)] });
+    await finish('K1', idx, roster[Math.max(0, THR - 2)]!, { vault: [] }, false, false);
+    await sendBy('K1c. an outsider approves it', false, outsider, [ix.approveProposal({ settingsPda: settings(), transactionIndex: idx, signer: outsider.key })]);
+    if (THR >= 2) await sendBy(`K1d. ${roster[0]!.name} approves it a second time`, false, roster[0]!, [ix.approveProposal({ settingsPda: settings(), transactionIndex: idx, signer: roster[0]!.key })]);
+    await finish('K2', idx, roster[THR - 1]!, { vault: [] }, true, true);
+    if (!(first.length === last.length && first.every((w, i) => w === last[i]))) await decideN(`K3. a different ${THR} owners (${names(last)}):`, last, { vault: [sysTransfer(DEST, 0.01)] }, true);
+    const n = first.every((w, i) => w === last[i]) ? 1 : 2;
+    record(`K4. DEST received exactly ${n * 0.01} SOL (the accepted transactions only)`, true, (await conn.getBalance(DEST)) - b === n * 0.01 * SOL, `${((await conn.getBalance(DEST)) - b) / SOL}`);
+  }
+  const seed = Number((await sa.accounts.Settings.fromAccountAddress(conn, settings())).policySeed ?? 0) + 1;
+  const policy = sa.getPolicyPda({ settingsPda: settings(), policySeed: seed })[0];
+  st.policy = policy.toBase58(); st.policySeed = seed; save();
+  await decideN(`K5. ${THR} owners install the movers policy (members: the ${N_OWN} session PDAs, ${names(roster.slice(0, THR))}):`, roster.slice(0, THR), { settings: [{ __kind: 'PolicyCreate', seed, policyCreationPayload: policyPayload(),
+    signers: roster.map((w) => ({ key: pdaFor(w), permissions: ALL })), threshold: 1, timeLock: 0, startTimestamp: null, expirationArgs: null }], policies: [policy] }, true);
+  { const pi = (await conn.getAccountInfo(policy))!; metrics.policy = { owners: N_OWN, bytes: pi.data.length, rentLamports: pi.lamports }; save(); }
+
+  // an open proposal that the sessions try to vote on
+  const idxOpen = await open('N0', roster.slice(0, THR - 1), { vault: [sysTransfer(DEST, 0.01)] });
+  const live: Session[] = [];
+  for (const [i, w] of roster.entries()) {
+    const p = `P${i}-${w.name}`, others = roster.filter((x) => x !== w);
+    const s = await openSession(w); live.push(s);
+    const b = await conn.getBalance(VENUE);
+    await send(`${p}.1 one ${w.name} signature -> session; relayer pays: 0.002 SOL to VENUE`, true, viaSession(s, policyMove(s.pda, sysTransfer(VENUE, 0.002))), relayed(s));
+    await measure(`move-${w.name}-relayed`);
+    await send(`${p}.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE`, true, viaSession(s, policyMove(s.pda, sysTransfer(VENUE, 0.001))), selfPaid(s));
+    record(`${p}.3 VENUE received exactly 0.003 SOL`, true, (await conn.getBalance(VENUE)) - b === 0.003 * SOL, `${((await conn.getBalance(VENUE)) - b) / SOL}`);
+    await send(`${p}.4 0.002 SOL elsewhere (policy)`, false, viaSession(s, policyMove(s.pda, sysTransfer(OTHER, 0.002))), relayed(s));
+    await send(`${p}.5 the session approves an open seat proposal as its PDA`, false, viaSession(s, ix.approveProposal({ settingsPda: settings(), transactionIndex: idxOpen, signer: s.pda })), relayed(s));
+    await send(`${p}.6 the session key approves it as itself`, false, [ix.approveProposal({ settingsPda: settings(), transactionIndex: idxOpen, signer: s.key.publicKey })], relayed(s));
+    await send(`${p}.7 the session adds its key as a seat (settings sync, its PDA as the only signer${THR >= 2 ? '; it is short of the threshold, so .5 is the check that names the PDA' : ''})`, false, viaSession(s, ix.executeSettingsTransactionSync({ settingsPda: settings(), feePayer: s.key.publicKey, signers: [s.pda],
+      actions: [{ __kind: 'AddSigner', newSigner: { key: s.key.publicKey, permissions: ALL } }] as any })), relayed(s));
+    const r = await openSession(w);
+    await send(`${p}.8 a second session works`, true, viaSession(r, policyMove(r.pda, sysTransfer(VENUE, 0.001))), relayed(r));
+    await send(`${p}.9 ${w.name} revokes it (one signature, relayed)`, true, await revokeIxs(w, r.key.publicKey), [payer]);
+    await send(`${p}.10 the revoked session`, false, viaSession(r, policyMove(r.pda, sysTransfer(VENUE, 0.001))), relayed(r), E2);
+    await send(`${p}.11 the first session still works`, true, viaSession(s, policyMove(s.pda, sysTransfer(VENUE, 0.001))), relayed(s));
+    if (others.length) { const x = others[i % others.length]!, bad = await openSession(w, { signAs: own(x) });
+      await send(`${p}.12 a grant for ${w.name}'s PDA signed by ${x.name}'s owner key`, false, viaSession(bad, policyMove(bad.pda, sysTransfer(VENUE, 0.001))), relayed(bad), E7); }
+  }
+
+  // removal: the owners drop one owner's PDA from the policy, then the owner itself from the account
+  {
+    const k = roster[N_OWN - 1]!, rest = roster.filter((x) => x !== k), voters = rest.length >= THR ? rest.slice(0, THR) : roster.slice(0, THR), ks = live[N_OWN - 1]!, other = roster.find((x) => x !== k);
+    await send(`R0. ${k.name}'s live session works before removal`, true, viaSession(ks, policyMove(ks.pda, sysTransfer(VENUE, 0.001))), relayed(ks));
+    const P = new PublicKey(st.policy), upd = { settings: [{ __kind: 'PolicyUpdate', policy: P, policyUpdatePayload: policyPayload(), signers: rest.map((w) => ({ key: pdaFor(w), permissions: ALL })), threshold: 1, timeLock: 0, expirationArgs: null }], policies: [P] };
+    const removable = rest.length > 0;   // a policy needs at least one member: with one owner its PDA cannot be removed
+    await decideN(`R1. ${THR - 1} owners try to remove ${k.name}'s PDA from the policy:`, voters.slice(0, THR - 1), upd, false);
+    await decideN(`R2. ${THR} owners remove ${k.name}'s PDA from the policy (${names(voters)})${removable ? '' : ': refused, the policy would have no member'}:`, voters, upd, removable);
+    await send(`R3. ${k.name}'s live session after removal${removable ? '' : ' (nothing was removed)'}`, !removable, viaSession(ks, policyMove(ks.pda, sysTransfer(VENUE, 0.001))), relayed(ks));
+    const again = await openSession(k);
+    await send(`R4. ${k.name} signs a new grant: the session is ${removable ? 'still refused' : 'the same as before'}`, !removable, viaSession(again, policyMove(again.pda, sysTransfer(VENUE, 0.001))), relayed(again));
+    if (other) { const os = live[roster.indexOf(other)]!; await send(`R5. ${other.name}'s session still works`, true, viaSession(os, policyMove(os.pda, sysTransfer(VENUE, 0.001))), relayed(os)); }
+    const newThr = Math.min(THR, N_OWN - 1), rm = { settings: [{ __kind: 'RemoveSigner', oldSigner: k.key }, ...(newThr !== THR ? [{ __kind: 'ChangeThreshold', newThreshold: newThr }] : [])] };
+    if (N_OWN >= 2) {
+      await decideN(`R6. ${THR} owners remove ${k.name} from the seats (threshold ${newThr}):`, voters, rm, true);
+      const s = await sa.accounts.Settings.fromAccountAddress(conn, settings());
+      record(`R7. the account now has ${N_OWN - 1} seats without ${k.name}, threshold ${newThr}`, true, s.signers.length === N_OWN - 1 && !s.signers.some((x: any) => x.key.equals(k.key)) && s.threshold === newThr, `${s.signers.length} / ${s.threshold}`);
+      const idx = await open('R8', rest.slice(0, newThr - 1), { vault: [sysTransfer(DEST, 0.01)] });
+      await sendBy(`R8c. ${k.name} approves a proposal after removal`, false, k, [ix.approveProposal({ settingsPda: settings(), transactionIndex: idx, signer: k.key })]);
+      await finish('R9', idx, rest[newThr - 1]!, { vault: [] }, true, true);
+    } else {
+      await decideN('R6. the sole owner removes itself from a 1-owner account:', [k], rm, false);
+    }
+  }
+  metrics.relayerSpend = { net: NET, spentLamports: startBalance - (await conn.getBalance(payer.publicKey)) }; save();
+  console.log(`NEAR MPC signatures: ${stats.calls}, average ${(stats.ms / Math.max(1, stats.calls) / 1000).toFixed(1)}s`);
+  st.mpc = stats; save();
+  console.log(`${TAG}: ${results.filter((r) => r.pass).length}/${results.length} passed`);
+  for (const r of results.filter((r) => !r.pass)) console.log('FAIL', r.name, r.detail);
+  process.exit(0);
+}
+
 {
   const { settingsPda, sig } = await createAccount();
   st.settings = settingsPda.toBase58(); save();

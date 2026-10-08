@@ -1,0 +1,23 @@
+1107 |   transaction_outcome;
+1108 | };
+1109 | function parseRpcError(errorObj) {
+1110 |   const result = {};
+1111 |   const errorClassName = walkSubtype(errorObj, rpc_error_schema_default.schema, result, "");
+1112 |   const error = new ServerError(formatError(errorClassName, result), errorClassName);
+                       ^
+error: Sender prime-spike-muwguc60.testnet does not have enough balance 0.299814275432731699998529 for operation costing 0.300921365987063500000001
+      type: "NotEnoughBalance",
+   context: undefined,
+   balance: "299814275432731699998529",
+      cost: "300921365987063500000001",
+ signer_id: "prime-spike-muwguc60.testnet",
+      kind: {
+  balance: "299814275432731699998529",
+  cost: "300921365987063500000001",
+  signer_id: "prime-spike-muwguc60.testnet",
+},
+
+      at parseRpcError (/home/ubuntu/work/near-session-spike/node_modules/@near-js/utils/lib/esm/index.js:1112:17)
+      at sendJsonRpc (/home/ubuntu/work/near-session-spike/node_modules/@near-js/providers/lib/esm/json-rpc-provider.js:460:15)
+
+Bun v1.4.2 (Linux x64)
