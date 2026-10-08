@@ -1,6 +1,6 @@
 # Prime on Stellar, EVM and Solana: three wallets, seats and sessions
 
-Status: spike, testnet only, branch `spike/session-signer` (created before the contracts were renamed). Refinement round 9, runs dated 8 October 2026. Claims link to a log, a testnet transaction or a source file (section 12). Round 9 logs sit under `round9/`; `evidence-r8.log` holds the read-only checks for network facts. Spike paths below are relative to `spike/matrix/near-minimal/`.
+Status: spike, testnet only, branch `spike/session-signer` (created before the contracts were renamed). Refinement round 9, runs dated 8 October 2026. Claims link to a log, a testnet transaction or a source file (section 12). Two follow-up spikes of the same day are in this document: native accounts on a second chain (section 5.6) and Swig as the Solana session layer (section 7.3). Round 9 logs sit under `round9/`, and the follow-up logs under `round9/native/` and `round9/swig/`; `evidence-r8.log` holds the read-only checks for network facts. Spike paths below are relative to `spike/matrix/near-minimal/`.
 
 ## 1. The goal
 
@@ -80,6 +80,8 @@ In one sentence: **each wallet uses its own key on its home chain, and a key hel
 
 On each chain, the wallet's seat keeps one MPC path (`prime:<chain>`). The session owner that signs grants uses a separate path for NEAR-routed wallets (`prime:<chain>-session`), which no seat vote uses. This prevents a session-owner signature from being filed as a seat vote. MetaMask's native keys on its home chain (EVM) and Freighter's on theirs (Stellar) do both jobs; Phantom's on Solana does both.
 
+**Option, a native account on a second chain:** Phantom can sign with its own EVM account and MetaMask with its own Solana account, as seat and as session owner. In the table above those two cells would read "own key", and NEAR drops out of them. NEAR stays the route for the other four cells and the fallback for any user who has not enabled the second account; both harnesses pick the route with a setting. Section 5.6 has the results and the open prompt choice.
+
 ## 4. Seats and sessions are kept apart
 
 Seats are plain keys. Our session contracts are only ever members of the rules, never seats.
@@ -105,7 +107,7 @@ flowchart TB
 | Solana | Squads settings signer | a signer of a Squads policy | a settings signer |
 | Stellar | signer of rule 0 | the only signer of that wallet's session rule | a signer of rule 0 |
 
-So a stolen session key can at worst make allowed moves until it expires. It cannot add owners, change rules or vote. Each chain's tests try to make a session vote; every attempt is refused (section 10).
+So a stolen session key can at worst make allowed moves until it expires. It cannot add owners, change rules or vote. Each chain's tests try to make a session vote; every attempt is refused (section 10). Where a native account's one key does both jobs, the message formats keep a grant and a vote apart (section 5.6).
 
 **Where the grant lives** differs by chain, to keep each contract small:
 
@@ -127,6 +129,8 @@ The problem is the wallets: each one refuses to sign some formats.
 | Freighter | Stellar transactions, Soroban authorization entries (`signAuthEntry`), and messages only in SEP-53 form: `sha256("Stellar Signed Message:\n" + text)` | sign an EVM message or a Solana transaction. Its key is ed25519 like Solana's, but it adds the SEP-53 prefix to every message, so a Solana transaction signature cannot be made. |
 | Phantom (Solana account) | Solana transactions, and messages that are valid UTF-8 and do not look like a Solana transaction | sign a Stellar transaction or authorization: those are 32 hash bytes, which are almost never valid UTF-8 |
 | Phantom (EVM account) | EVM, on its built-in chain list only | sign for NEAR's EVM chain ids (397/398), so it cannot use MetaMask's NEAR route |
+
+Both wallets can sign for the second chain with their own account once the user enables it (section 5.6): Phantom's EVM account signs `personal_sign` over raw bytes, and MetaMask's Solana account signs `signMessage` as plain ed25519 over the UTF-8 text.
 
 ### 5.2 Why NEAR, and not a signature checker on each chain
 
@@ -195,6 +199,62 @@ The signer passes the payload string through unchanged: the wallet signs the exa
 
 **Before mainnet:** delete the deploy key from the signer account so its code can never change. Today the account has one full-access key in place.
 
+### 5.6 Option: the wallet's own account on a second chain
+
+Two of the six cross-chain cells can skip NEAR: Phantom's own EVM account on Base, and MetaMask's own Solana account on Solana. The wallet's account becomes the seat and the session owner on that chain, with no `-session` path. NEAR stays for the other four cells and as the fallback for users who have not enabled the account. No contract changed. The harnesses select the route with `PKN_NATIVE` (EVM) and `PSN_NATIVE` (Solana), and the NEAR runs below show the original route on the same harnesses.
+
+| Chain | Route | Checks | Log (under `round9/native/`) |
+|---|---|---|---|
+| EVM (Base Sepolia fork) | NEAR route, same harness | **134/134** | `pkn.near-baseline-fork.log` |
+| EVM | Phantom native: the real Phantom extension signs all 25 Phantom signatures, real NEAR for Freighter | **137/137** | `pkn.native-fork.log` |
+| Solana (local validator cloned from devnet) | NEAR route, same harness | **128/128** | `psn.near-baseline-local.log` |
+| Solana | MetaMask native: the real MetaMask 13.50.0 signs 12 `signMessage` requests (every grant and revoke), a stand-in with the same key signs the Squads vote transactions, real NEAR for Freighter | **145/145** | `psn.native-local.log` |
+
+The native runs add separation checks and drop session-path checks, so the counts differ from the NEAR route by those checks. The same matrices also ran with a local stand-in in place of NEAR (`pkn.native-dry-stub-near.log`, 137/137; `psn.native-dry2-stub-near.log`, 145/145).
+
+**What the real wallets do:**
+
+- **Phantom, EVM:** `personal_sign` with a 0x-hex parameter signs the 32 raw bytes (EIP-191). Safe 1.4.1 accepts that as its eth_sign signature type (v + 4), and `PrimeSession` accepts the grant text signed the same way. In Testnet mode Phantom stays on Sepolia after a switch to Base Sepolia and refuses typed data for chain 84532 (error 4901), so a native Safe vote uses the eth_sign type. Typed data on Base mainnet is unchecked, because mainnet is read-only for us.
+- **MetaMask, Solana:** `signMessage` signs the UTF-8 bytes of the text with no prefix, which is the check prime-session makes through the ed25519 program. `signTransaction` can rewrite the transaction (next paragraph). The wallet disables Confirm when its own simulation reverts, and the matrix's Squads accounts exist only on the local validator, so the real wallet could not sign the matrix's vote transactions. The stand-in follows the wallet's code; the real wallet signed devnet memo transactions in seven cases that fix that behaviour (`mm-real-wallet-norewrite.log`).
+
+**The MetaMask transaction rule:** when a transaction has no signature yet and lacks a compute price or limit, the wallet prepends a `SetComputeUnitPrice` of 10,000 micro-lamports and appends a `SetComputeUnitLimit`, then signs that message. This changes what the relayer must co-sign and moves every instruction index: a prime-session `sig_ix` of 0 then points at the price instruction, and the program refuses a revoke with custom error 7 (reproduced). The client therefore builds every MetaMask-signed transaction with both compute-budget instructions in place (price first, limit last, limit set from a simulation with both present), and the wallet signs the message as built. An owner-submitted revoke puts `sig_ix` at 1. The relayer is the fee payer and a writable signer, so it validates the returned message before it co-signs: same fee payer and blockhash, same other instructions and accounts, at most one price and one limit with well-formed data, a priority fee under 25,000 lamports, and a wallet signature that verifies over the returned message. The harness accepts the unchanged message and a changed budget value, and refuses seven tampered returns.
+
+**Why a grant and a vote stay apart:** one key now does both jobs, so the message formats carry the separation.
+
+- **EVM:** the Safe checks an eth_sign vote over a 60-byte preimage (28 prefix bytes and the 32-byte hash). `PrimeSession` builds the grant text on chain from fixed parts, 160 to 256 bytes (164 to 241 measured), so a grant preimage has at least 189 bytes. Preimages of different lengths share a digest only through a keccak256 collision. A grant filed as a vote, and a vote offered as a grant, are both refused in the harness, and a valid vote on the same Safe transaction passes as control.
+- **Solana, grant as vote:** MetaMask's `signMessage` signs the text decoded as UTF-8 with NUL bytes removed, so it signs a transaction message only when that message is valid UTF-8 without NUL. Every Squads vote lists the Squads program id among its keys, and `SMRTzf…` contains the byte 0xFB, which never occurs in valid UTF-8 (a v0 message starts with the byte 0x80, which can never begin valid UTF-8). So `signMessage` can never yield a Squads vote, for any key. On the real wallet, `signMessage` over a 160-byte transaction message signed 269 different bytes.
+- **Solana, vote as grant:** every grant text starts with "Prime". Read as a transaction header it needs 3,488 key bytes, and the longest grant text has 191 bytes, so no grant text parses as a transaction message.
+
+**NEAR calls removed:** on EVM the matrix makes 27 NEAR signatures against 53 (26 fewer). On Solana the log shows 15 against 35; a new check adds two Freighter calls, so 22 of the removed calls are MetaMask's. Per flow, one NEAR call goes away for each seat vote, grant and revoke by the native wallet, and a 2-of-3 vote between the two native wallets or a session start by either needs none.
+
+**Latency** (harness runs of 8 October; browser automation included, and a person adds reaction time on every route):
+
+| Route | Time per signature |
+|---|---|
+| EVM, NEAR route (53 signatures) | 7.6 s |
+| EVM, Phantom native, real extension (25 signatures) | 3.7 s (5.6 s and 6.3 s in earlier runs) |
+| Solana, NEAR route (35 signatures) | 8.4 s |
+| Solana, MetaMask native, real `signMessage` (12 signatures) | 4.8 s (5.3 s alone) |
+| Solana, MetaMask native, real `signTransaction` (devnet, 1 signature) | 3.1 s |
+
+**Cost of the native route:** an EVM seat vote uses 136 to 172 more gas (81,663 to 81,687 against 81,515 to 81,527), the eth_sign prefix hash. A Solana vote that executes grows from 49,866 to 50,042 compute units and from 490 to 542 bytes, with a fee of 10,501 lamports against 10,000; the two budget instructions cause that. Grants, revokes and moves cost the same as on the NEAR route.
+
+**Seat-vote prompt (open, Tuan decides):** the prompt is the only thing a user sees before a seat vote, and it differs by route.
+
+| Route | Vote prompt | Grant prompt |
+|---|---|---|
+| NEAR | a labelled text: "Prime NEAR signer / contract: signer.prime-spike-muwguc60.testnet / path: prime:evm / domain: 0 / payload: <hash>" | the same layout with `path: prime:evm-session`; the payload is the EIP-191 digest, so the terms are hidden |
+| Phantom native | "Sign Message / Message: 0x<32-byte hash> / Network: Ethereum" | the full grant text: contract, session key, expiry and network |
+
+The native grant prompt is better than the NEAR one. The native vote prompt is a bare 32-byte hash. A `personal_sign` over 32 bytes is a common dapp request (login nonces, order hashes), so any site connected to Phantom's EVM account can ask for a seat vote behind a generic prompt, and one such vote plus one other seat completes a 2-of-3. On the NEAR route a page can copy the labelled text too, so the label helps a careful user and does not stop a page that copies the layout. The separation proof above holds in every option below.
+
+| Option | Seat vote | Grant | NEAR use | Effect |
+|---|---|---|---|---|
+| 1. Native for grants, NEAR for votes | labelled text through NEAR | native, full text | votes only | keeps today's labelled vote prompt; a session start loses the 8 s wait, and votes keep it |
+| 2. Native for both | bare-hash prompt | native, full text | none for Phantom | removes the NEAR calls for Phantom; every vote prompt is a bare hash |
+| 3. Option 2, and the app shows the decoded Safe transaction beside the prompt | bare-hash prompt, details in the app | native | none | helps a user inside the app's own flow; a phishing page shows no such details |
+| 4. EIP-712 votes where Phantom accepts the chain id | readable `SafeTx` fields in the wallet | native | none | gives the best prompt; Phantom refuses typed data on Base Sepolia, and Base mainnet (8453) is unchecked |
+
 ## 6. EVM (Base): Safe + Zodiac Roles + PrimeSession
 
 ### 6.1 Components and why each is needed
@@ -228,7 +288,7 @@ sequenceDiagram
 
 Seats use the `prime:<chain>` path. MetaMask signs with its own key using EIP-712 typed data. Freighter and Phantom sign the hash through NEAR MPC with their secp256k1 keys under `prime:evm`. The test shows Phantom's seat at MPC key `0x5F17…F3b1` on Base Sepolia.
 
-Phantom can instead use its own EVM account. Base Sepolia (84532) is on Phantom's chain list. The real Phantom on a Base Sepolia fork signed a grant with `personal_sign` (EIP-191) and acted as a Safe seat.
+Phantom can instead use its own EVM account. Base Sepolia (84532) is on Phantom's chain list. The real Phantom on a Base Sepolia fork signed a grant with `personal_sign` (EIP-191) and acted as a Safe seat. The full matrix has since run this way, with the real extension signing all 25 Phantom signatures (137/137, section 5.6). In Testnet mode Phantom stays on Sepolia and refuses typed data for chain 84532, so its vote is `personal_sign` over the 32 raw bytes of the Safe transaction hash, filed as the Safe's eth_sign signature type.
 
 ### 6.3 A session
 
@@ -256,7 +316,7 @@ sequenceDiagram
   R->>P: exec(call, key, session signature)
 ```
 
-- The grant owner is MetaMask's own key, or the NEAR MPC key of Freighter or Phantom under `prime:evm-session` (different from their seat path).
+- The grant owner is MetaMask's own key, or the NEAR MPC key of Freighter or Phantom under `prime:evm-session` (different from their seat path). Phantom can instead sign the grant with its own EVM account (section 5.6).
 - `personal_sign` (EIP-191) is the standard "sign this text" in EVM wallets. MetaMask signs the grant text itself. For Freighter and Phantom, NEAR MPC signs the same EIP-191 digest under `prime:evm-session`; the wallet itself signs only the prime-near-signer text, which carries that digest as hex.
 - **Grant and first move in one transaction**: on first use, the relayer or session key sends `grant` and `exec` through Multicall3 `aggregate3` with `allowFailure: true` on the grant call only. If someone submits the grant call alone first (a front-run), the combined call's grant fails harmlessly and the move runs (168,450 gas on the fork). `exec` still needs a live session, so a grant that fails for any other reason makes the move revert on its own `session` check, and a combined call with a bad grant signature reverts as a whole with nothing stored. A refused first move also reverts its grant. Later moves send only `exec`.
 - **Gas** (Base Sepolia fork, real Safe and Roles): the first relayed move costs 124,742 to 124,754 gas (round 8: 143,486); a later move costs 124,754; grant plus first move in one Multicall3 transaction costs 183,483 to 183,507, against 200,754 for the same two steps in two transactions (`round9/evm/pkn.fork-r9b.log`).
@@ -320,7 +380,7 @@ sequenceDiagram
   Note over P: later moves for this key find a program-owned marker and are refused
 ```
 
-For a NEAR-routed wallet (MetaMask or Freighter on Solana), the wallet signs under the session-owner path (`prime:solana-session`), and the first step goes through the relayer, NEAR and the MPC, as in section 5. Phantom's native key stays both seat and owner.
+For a NEAR-routed wallet (MetaMask or Freighter on Solana), the wallet signs under the session-owner path (`prime:solana-session`), and the first step goes through the relayer, NEAR and the MPC, as in section 5. Phantom's native key stays both seat and owner. MetaMask can instead sign with its own Solana account: its `signMessage` over the grant text is plain ed25519, the check prime-session already makes (section 5.6).
 
 - **The grant text** has four lines after its title: the PDA (derived from the session-owner key), the session key, the end time and the cluster. The text leaves out the program id, because the PDA already commits to it. The cluster is set when prime-session is built (`PRIME_CLUSTER`; a build without it fails at compile time), so a grant for another cluster is refused.
 - **The session key must sign the transaction** (refused when only the relayer signs).
@@ -332,6 +392,35 @@ For a NEAR-routed wallet (MetaMask or Freighter on Solana), the wallet signs und
 - **Cost** (local validator, one Smart Account, ten alternating samples each): a move uses a median of 53,205 compute units (round 8: 57,105; the spread, 52,455 to 61,455, comes from the marker bump search at about 1,500 units per extra step). The move transaction is 975 bytes (round 8: 995). The program is 54,024 bytes (round 8: 46,056). A revoke uses 22,229 compute units and a 726-byte transaction (`round9/solana/psn-local.log`).
 - **Only the Smart Account program can be called:** prime-session's inner call goes to a program id fixed in its code.
 - **One account only:** the PDA depends on the session-owner key and the Smart Account settings, and the grant text names the PDA. So a grant made for one Prime Account is refused in any other, even one with the same three seats.
+
+### 7.3 Why not Swig
+
+Swig (`swigypWH…`, source `anagrambuild/swig-wallet` at `0cc3b69`) is an upgradeable third-party wallet program with session keys. On 8 October 2026 we tested its wallets as the Squads policy signers in place of prime-session, on a local validator with the Smart Account program cloned from devnet. Swig ran as the devnet build and as the mainnet bytes loaded at the same program id.
+
+**It works:** the harness passed 256/256 on each build (247 checks and 9 findings), and a second run on a fresh validator reproduced 256/256 (that log is not in the bundle). A Swig session key moves money through a synchronous Squads policy execution with the Swig wallet address as the policy signer, for all four owner routes: MetaMask `personal_sign` on its own secp256k1 key, MetaMask's Solana account, Phantom, and Freighter through NEAR (13/13 with the real MPC, 5 signatures, 8.2 s average). The session key cannot vote, edit settings or call another program, and a 2-of-3 decision removes a wallet's Swig from the policy.
+
+**What it would save** (local validator, relayer pays; ten Swigs in ten accounts for the compute units):
+
+| | prime-session (round 9) | Swig |
+|---|---|---|
+| Our on-chain code | 33 sLOC, 54,024 B program | none |
+| Move transaction | 975 B | 561 B relayed, 465 B self-paid |
+| Move compute units, median | 53,205 | 38,981 (mainnet build), 38,090 (devnet build) |
+| Move fee, relayer pays | 15,000 lamports | 10,000 lamports |
+| Revoke | leaves an 890,880-lamport marker | leaves no rent |
+| Rent per wallet per account | none until a revoke | 3,507,840 lamports for an ed25519 owner (248 B account plus the 890,880-lamport wallet address), 3,563,520 for secp256k1 |
+
+Three wallets cost 10,579,200 lamports (0.0106 SOL) per Prime Account, so Swig's rent passes the 0.377 SOL of prime-session program rent after about 36 accounts. Four revokes by one wallet leave 3,563,520 lamports in prime-session markers, more than the 3,507,840 an ed25519 Swig holds.
+
+**Why we keep prime-session:**
+
+- **The 7-day cap counts slots:** Swig stores the maximum session length in slots. Mainnet slot time fell from about 420 ms in July to 267 ms since 18 September. A cap of 1,400,000 slots stays under 7 days in the slowest week of the last 90 days (6.85 days at 422.5 ms) and lasts 4.33 days at today's 267 ms. The harness's own 1,512,000 would have run 7.4 days in that week. prime-session reads the clock.
+- **One live session per role:** a second session start replaces the first. A second concurrent session needs another Swig role (136 bytes, 946,560 lamports, one owner signature). prime-session allows several, each revocable alone.
+- **The admin role needs a design:** Swig requires an admin role at creation. With the owner as admin, the owner can add a role ten times longer, so the cap binds the session key only. In the frozen setup, a throwaway key creates the Swig and hands role 0 to the vault, which cannot call Swig. The cap is then hard, and a leaked session key can delete its own role; the repair is a new Swig and a 2-of-3 policy update. A session role that holds `ManageAuthority` lets its key add a never-expiring authority (it moved 5,000,000 lamports in the harness), so the session role holds only the Smart Account program.
+- **The prompts get weaker:** Phantom signs a transaction that calls an unknown program, where prime-session shows the session key and expiry as text. MetaMask's `personal_sign` text is a 64-character hash. Freighter's request carries the transaction bytes in hex. We still need to run the real extensions against Swig; local keys stood in for all three wallets.
+- **Upgradeable third-party code joins the move path:** Swig's program and state hold about 15,990 lines, against 33 for prime-session. Its upgrade authority is vault 0 of a 3-of-4 Squads multisig with no time lock. The program data shows 29 successful transactions since 13 August 2025 (23 upgrades, 4 extensions, 2 authority changes) and seven upgrades since the end of the last audit window (Halborn, 4 to 31 August 2026), six of them between 28 September and 2 October. A build of the repository head (302,777 B) matches neither the mainnet bytes (283,561 B) nor the devnet bytes (280,937 B), and OtterSec lists the mainnet program as unverified. An upgrade could sign as any Swig wallet address in any policy. The Squads policy bounds each such move, and the seats stay out of reach because a Swig wallet address is no settings signer. prime-session deploys with `--final`.
+
+The Squads Smart Account program is upgradeable too (mainnet authority: a 3-of-5 multisig with no time lock, last deployed 31 August 2026, no verified build), and both designs depend on it. Both designs also need the relayer rule of section 13: a relayer-funded account creation of 10,240 bytes ran through Swig and cost the relayer 0.072 SOL.
 
 ## 8. Stellar: OpenZeppelin smart account + prime-session
 
@@ -426,6 +515,9 @@ Each chain tests both paths, plus a session key with no money (refused). On Sola
 | Stellar (stored grant, final revoke, locked accounts) | **Stellar testnet**, fresh deployment, + NEAR testnet | **138 distinct checks** (the summary log counts 139, because the state file keeps a superseded Horizon summary): seats, 20 lock checks, rule installs, separation, sessions, cross-wallet, and the real Freighter extension; 11/11 unit tests | `stellar/stn-*.log`, `stellar/verify-stellar.log`, `stellar/cargo-test.log` |
 | Solana (per-session revoke with marker) | local validator cloned from devnet + NEAR testnet | **138/138**: 128 matrix checks plus 10 paired round 8 move measurements | `solana/psn-local.log`, `solana/pdhash-local.log` |
 | prime-near-signer (payload pass-through) | NEAR testnet | **12/12**: 2 accept controls, 9 refusals inside the contract, and a non-hex payload that the contract passes on and the MPC rejects | `near/signer-neg.log`, `near/proof-near.log` |
+| EVM, Phantom's own account (option, section 5.6) | Base Sepolia **fork** + NEAR testnet + the real Phantom extension | **137/137** (the NEAR route on the same harness: 134/134) | `native/pkn.native-fork.log`, `native/pkn.near-baseline-fork.log` |
+| Solana, MetaMask's own account (option, section 5.6) | local validator cloned from devnet + NEAR testnet + the real MetaMask 13.50.0 for `signMessage` | **145/145** (the NEAR route on the same harness: 128/128) | `native/psn.native-local.log`, `native/psn.near-baseline-local.log` |
+| Solana, Swig as the policy signer (tested and left out, section 7.3) | local validator, Swig devnet build and mainnet bytes; one run with NEAR testnet | **256/256** on each build (247 checks and 9 findings); **13/13** with the real NEAR MPC | `swig/psw-devnet-build.log`, `swig/psw-mainnet-build.log`, `swig/psw-near.log` |
 | EVM, round 7 (previous PrimeKey build) | **real Base Sepolia** + NEAR testnet | **88/88**: 30 transactions (all succeeded on chain), 53 refusals, 5 balance and owner checks | `evm/pkn-live.log`, `evm/verify-evm.log` (section 12.2) |
 
 Each chain's matrix runs these groups. The table notes where a group covers only some wallets or chains.
@@ -441,15 +533,16 @@ Each chain's matrix runs these groups. The table notes where a group covers only
 | Locked accounts (Stellar) | for each of the four MPC-derived accounts: thresholds 1/1/2, a medium-threshold control accepted, a signer-adding SetOptions refused, an AccountMerge refused, state unchanged; seat votes and grants pass afterwards |
 | One account only (Solana, Phantom's grants) | a second Smart Account with the same seats: a grant for account A is refused in account B and the other way round; a grant for B works in B. The same program at a second id refuses grants made for the first |
 | Removal from the policy (Solana) | after the 2-of-3 removes Freighter's PDA, its live session is refused (`NotASigner`); MetaMask's still works |
+| Native accounts (option) | a grant signature filed as a seat vote, and a vote signature offered as a grant, are refused on both chains, with a valid vote as control. Solana: the relayer accepts the wallet's message unchanged or with a changed budget value and refuses seven tampered returns; a revoke the wallet submits itself passes with the budget instructions in front and `sig_ix` 1, and fails with custom error 7 without them |
 | Cross-wallet | wallet A's grant on wallet B's session contract; a grant text made for another contract; the wrong format (raw hash instead of `personal_sign`, plain text instead of SEP-53): all refused |
 
 ### 10.1 Real wallet apps versus stand-ins
 
 | Wallet | Run with the real browser extension | Stand-in in the matrices |
 |---|---|---|
-| Phantom 26.32.0 | Signed the prime-near-signer text as UTF-8 under `prime:stellar` (7 October 2026, earlier signer build), which NEAR MPC then signed with a derived ed25519 key; the signature verified against the key we derive offline ([NEAR tx](https://testnet.nearblocks.io/txns/2xhZduPcJKwfXJfqG2WrSaZuoMeWn34XBDWhUtuAptcb)). | a test ed25519 key signing the same UTF-8 text |
+| Phantom 26.32.0 | Signed the prime-near-signer text as UTF-8 under `prime:stellar` (7 October 2026, earlier signer build), which NEAR MPC then signed with a derived ed25519 key; the signature verified against the key we derive offline ([NEAR tx](https://testnet.nearblocks.io/txns/2xhZduPcJKwfXJfqG2WrSaZuoMeWn34XBDWhUtuAptcb)). On 8 October 2026 its own EVM account signed all 25 Phantom signatures of the native EVM matrix (Safe votes over raw hash bytes, grants, revokes; average 3.7 s, `round9/native/phantom-bridge-prompts.log`). | a test ed25519 key signing the same UTF-8 text |
 | Freighter 5.49.0 | Signed the prime-near-signer text as SEP-53, which NEAR MPC then signed with Freighter's derived EVM secp256k1 key (path `prime:evm`) and ed25519 key (path `prime:solana`, "Network: Test Net" in the prompt), both on 7 October 2026 with the earlier signer build. On Stellar, in round 9, the real extension signed a grant authorization entry and a revoke entry through `signAuthEntry`; the session key moved 1 XLM between them, and the revoked key was refused ([Stellar grant tx](https://stellar.expert/explorer/testnet/tx/4273fbb6a4efc8c80f4bede5e3492e88884772555a6ee400a4f8dd6aa3cd9eb7)). | Freighter's own `signMessage` code with a test key (NEAR routes); a test key signing the authorization entries (the matrix's Freighter owner) |
-| MetaMask | **not run** (no MetaMask extension on the test machine) | a test key signing the same chain-398 transaction and `personal_sign` text |
+| MetaMask 13.50.0 | Solana native run, 8 October 2026: 12 `signMessage` requests (every grant and revoke of the matrix, 4.8 s average, `round9/native/mm-bridge-prompts.log`) and `signTransaction` on devnet memo transactions (`round9/native/mm-real-wallet-norewrite.log`). Its own EVM key and the chain-398 NEAR route have not run with the extension. | a test key signing the same chain-398 transaction and `personal_sign` text; in the Solana native run, a stand-in with the wallet's seed-derived key signs the Squads vote transactions, because the wallet disables Confirm when its simulation reverts and the matrix's accounts exist only on the local validator |
 
 - The real extensions used their own keys. This proves that each route works with the real app. The matrices' test keys are separate from the wallet keys the extensions used.
 - The real Freighter extension on Stellar holds account `GBXPJIRT…2OD2`, the owner of its own prime-session `CB5GRYA2…OIUQ` and its own rule on the same Prime Account. This key is separate from the matrix's Freighter seat key.
@@ -477,6 +570,7 @@ sLOC means non-blank, non-comment lines in the source as written (repo style), r
 | EVM grant and move builders | grant text, move hash, relayer or self-paid submit, Multicall3 grant + first move | `evm/pkn.ts` (247, mostly tests) |
 | Solana grant, revoke and move builders | ed25519 instruction, policy move, marker revoke, fee payer choice; also sets up the Squads account and policy | `solana/psn.ts` (399, mostly tests) |
 | Stellar grant and move builders | grant authorization entry, move proof, fee source choice, lock of MPC-derived accounts | `stellar/stn.ts` (350, mostly tests), `stellar/stellar.ts` (131) |
+| MetaMask Solana transactions (option) | build with both compute-budget instructions, set `sig_ix` after the price instruction, check the returned message before the relayer co-signs | `solana/psn.ts` (`withBudget`, `acceptReturned`) |
 | Relayer endpoints | send NEAR, grant and move transactions; pay their fees | the spike uses a local key; the Prime relayer needs new endpoints |
 
 None of this is in the Prime apps yet. Solana has no Prime app; the spike creates its Squads account and policy directly.
@@ -587,6 +681,28 @@ NEAR MPC signatures in the final runs: the EVM fork run made 53 (7.8 s average, 
 | Persistent lifetime 120,960 (testnet), 2,073,600 (mainnet) ledgers (round 8 design; the stored grant now uses temporary storage) | `stateArchivalSettings.minPersistentTtl`, read from both networks (`evidence-r8.log`) |
 | The earlier on-chain format checks cost 219 lines + 1,104 vendored | `spike/matrix/minimal/README.md` ("Size", "What each contract does") |
 | MPC key derivation | `sha3_256("near-mpc-recovery v0.1.0 epsilon derivation:" + caller + "," + path)` added to the MPC root key; checked against live MPC signatures for both key types (`near.ts`, `secpderive.ts`) |
+| MetaMask's Solana `signMessage` signs the UTF-8 decoding of the bytes with NUL removed; `signTransaction` rewrites an unsigned transaction that lacks a compute price or limit | Solana wallet snap 5.0.1 inside MetaMask 13.50.0 (preinstalled snap file `b5669bd0fc61f314e2cf.json`, `partiallySignBase64String`); `round9/native/mm-real-wallet-check.log`, `round9/native/mm-real-wallet-norewrite.log` |
+| The Squads program id `SMRTzf…` contains the byte 0xFB | base58 decoding of the program id: the byte at index 25 of the 32 key bytes is 0xFB |
+| Phantom signs a 0x-hex `personal_sign` parameter as raw bytes and refuses typed data for chain 84532 in Testnet mode | `round9/native/phantom-bridge-prompts.before-review.log` (first line), `round9/native/pkn.native-fork.log` |
+| MetaMask 13.50.0 preinstalls a Stellar snap with `signMessage`, `signTransaction` and `signAuthEntry` | `npm:@metamask/stellar-wallet-snap` 1.0.0, preinstalled snap file `366253da94567b510382.json` (bundle read, snap not run) |
+| Swig's session length is stored in slots; one session per role; instructions run only at transaction top level | `anagrambuild/swig-wallet` at `0cc3b69` (`state/src/authority/`, `check_stack_height(1)`), checked by the harness in `swig/psw.ts` |
+| Mainnet slot time and Swig upgrade history, authority and build comparison | read-only queries of 8 October 2026: `round9/swig/psw-slots-series.log`, `psw-slots.log`, `psw-upgrades.log`, `psw-trust.log`, `psw-build-swig.log` |
+
+### 12.6 Swig and native-account runs (8 October 2026)
+
+| Run | Harness (in the bundle) | Logs under `round9/` |
+|---|---|---|
+| Swig, mainnet bytes (256 results) | `swig/psw.ts` | `swig/psw-mainnet-build.log`, `swig/state-psw-mainnet-build.json` |
+| Swig, devnet build (256 results) | `swig/psw.ts` | `swig/psw-devnet-build.log`, `swig/state-psw-devnet-build.json` |
+| Swig with the real NEAR MPC (13 checks) | `swig/psw-near.ts` | `swig/psw-near.log`, `swig/state-psw-near.json` |
+| Swig wallet as one seat of a 2-of-3 | `swig/psw-w3.ts` | `swig/psw-w3.log` |
+| Slot time, upgrade history, authority, build comparison (read only) | `swig/psw-slots.ts`, `psw-slots-series.ts`, `psw-upgrades.ts`, `psw-trust.ts` | `swig/psw-slots.log`, `psw-slots-series.log`, `psw-upgrades.log`, `psw-trust.log`, `psw-build-swig.log` |
+| Earlier Swig runs | `swig/psw.ts` | `swig/prev/` |
+| Native EVM, NEAR route and native route, with and without real Phantom | `evm/pkn.ts` (`PKN_NATIVE`, `PKN_PH_BRIDGE`) and `native/phantom-evm/bridge.mjs` | `native/pkn.near-baseline-fork.log`, `native/pkn.native-fork.log`, `native/pkn.native-dry-stub-near.log`, `native/phantom-bridge-prompts.log`, `native/state-pkn-*.json` |
+| Native Solana, NEAR route and native route, with and without real MetaMask | `solana/psn.ts` (`PSN_NATIVE`, `PSN_MM_BRIDGE`) and `native/metamask-sol/bridge.mjs` | `native/psn.near-baseline-local.log`, `native/psn.native-local.log`, `native/psn.native-dry2-stub-near.log`, `native/mm-bridge-prompts.log`, `native/state-psn-*.json` |
+| Real MetaMask transaction and message checks | `native/metamask-sol/stub/real-wallet-check.ts`, `real-wallet-norewrite.ts` | `native/mm-real-wallet-check.log`, `native/mm-real-wallet-norewrite.log` |
+
+The native runs taken before the independent review sit beside the final ones as `*.before-review.log` and `*.run1.log`; `native/pkn.before-native.ts` and `native/psn.before-native.ts` hold the harnesses as they were before the native option. Every NEAR-using run ran under one lock, `queue.log` records each launch, and the lock leaves no other trace.
 
 ## 13. Limits and open items
 
@@ -594,21 +710,28 @@ Pending live runs:
 
 - **EVM, Base Sepolia:** the round 9 live run needs about 0.000065 ETH (estimate: 10.9 M gas at 0.006 gwei). The relayer `0xecebBf71Faa6682Ff31fD145646f8Eda82E98E11` holds 0.00000165 ETH (read on 8 October 2026), about 2.5% of that. 0.0005 ETH leaves room for a price swing. Section 12.2 keeps the round 7 live links until then.
 - **Solana, devnet:** the payer `5bevLKtW8bA6LCXXMqQAjnWBRCWcSXwcvQHiCbT6JjuY` holds 0 SOL (read on 8 October 2026). The run needs about 1.43 SOL for two program deploys and the matrix (1.6 SOL recommended); the commands are in `run-round9.sh`. The matrix ran on a local validator cloned from devnet because the devnet airdrop returned 429 and the payer is empty.
-- **MetaMask extension:** no MetaMask extension was available on the test machine, so MetaMask runs with a test key. Its route uses only stock NEAR code and standard MetaMask methods (EIP-191 over chain 398 to the eth-implicit account).
+- **Solana devnet, real MetaMask votes:** the real MetaMask disables Confirm when its simulation reverts, and the matrix's Squads accounts exist only on the local validator, so a stand-in with the wallet's key signs the matrix's vote transactions. The real-wallet run needs a funded devnet Smart Account (the payer funding above) and a real-wallet transaction path in `sendBy` of `solana/psn.ts` (about 12 lines: send the built transaction to the bridge, check the returned one with `acceptReturned`, co-sign).
+- **MetaMask extension:** the real MetaMask 13.50.0 ran in the Solana native run (section 5.6). MetaMask's own EVM key and its chain-398 NEAR route still run with a test key. That route uses only stock NEAR code and standard MetaMask methods (EIP-191 over chain 398 to the eth-implicit account).
+- **MetaMask Stellar snap:** MetaMask 13.50.0 preinstalls a Stellar snap (`@metamask/stellar-wallet-snap` 1.0.0) whose bundle contains `signMessage`, `signTransaction`, `signAuthEntry` and the SEP-53 prefix text. If it exposes a Stellar account to dapps, MetaMask on Stellar could sign natively like the two cells in section 5.6. We still need to test it.
 
 Decisions and prompts:
 
+- **Swig as the Solana session layer (decision: keep prime-session):** Swig works as the policy signer for all four owner routes (256/256) and would save move bytes, compute units, fee, revoke rent and 33 sLOC, but its cap counts slots (1,400,000 slots last 4.3 to 6.9 days depending on slot time), it allows one live session per role, its admin role needs a trade-off, its prompts are weaker, and it adds upgradeable third-party code with an unverified build (section 7.3). The decision flips if Tuan accepts the slot cap and one live session per wallet, real extensions accept the prompts, a time lock or a freeze bounds the upgrade risk, or Squads ships session keys for policy signers.
+- **Seat-vote prompt for Phantom's own EVM account (open, Tuan decides):** a native vote is a bare 32-byte hash prompt. Option 1 keeps NEAR for votes, option 2 goes fully native, option 3 adds the decoded Safe transaction in the app, and option 4 uses EIP-712 where Phantom accepts the chain id (section 5.6). The grants can go native in every option.
 - **MetaMask on Solana and Stellar shows no path:** MetaMask signs an opaque chain-398 transaction to reach the MPC, so its prompt cannot tell `prime:solana` from `prime:solana-session`, or `prime:stellar` from `prime:stellar-session`. The keys stay separate on every chain (section 3), but the visible half of that separation depends on the other NEAR-routed wallet's prompt, which shows the path. EVM is unaffected, because MetaMask signs natively there. Until the decision on routing MetaMask through prime-near-signer with `personal_sign` (about 5 more lines, and it changes MetaMask's derived keys), the app labels each prompt "seat vote" or "start session" and shows the decoded path next to MetaMask's confirmation.
 - **Stellar Freighter prompt:** the expanded `grant` row shows the session key (64 hex digits) and the end ledger (decimal) without labels or a date, and shows nothing before the row is expanded. The app shows the key and the date next to the prompt (section 8.2). NEAR-routed owners (MetaMask, Phantom) see only a hash and `path: prime:stellar-session`.
+- **MetaMask on Solana with the native option:** the grant prompt shows the full grant text (`round9/native/mm-bridge-prompts.log`). The wallet's first connection uses Solana Mainnet, so the prompt reads "Network: Solana Mainnet" until the page moves the session to devnet; the grant text names the cluster that prime-session checks.
 
 Costs and behaviour to know:
 
 - **Stellar revoke cost:** a revoke costs about 0.072 XLM on testnet because its entry rents the maximum TTL (section 8.2). The mainnet rent rate was not measured; the maximum TTL itself reads 3,110,400 ledgers on both networks. A fresh key per session loses nothing to the finality.
 - **Stellar locks are permanent:** the four MPC-derived accounts can never rotate their key or be merged (section 8.3).
 - **Solana revoke rent:** each revoke leaves a permanent 890,880-lamport marker (0.00089088 SOL), paid by the relayer. The relayer must rate-limit revokes per owner and per account, and may refuse a revoke for a key with no matching grant. An owner who wants a revoke without the relayer can pre-fund the marker address and let anyone submit the signed revoke.
-- **Solana relayer rules:** the program forwards the transaction's outer signers into the Squads call, so the relayer must refuse any transaction that lists its own key anywhere except as fee payer or, for a revoke, rent payer.
-- **Latency:** NEAR-routed signatures averaged 8.3 s (Stellar run), 8.1 s (Solana) and 7.8 s (EVM fork) on testnet. Moves never use NEAR; only NEAR-routed seat votes, grants and revokes do.
-- **NEAR availability:** if NEAR or its MPC is down, NEAR-routed wallets cannot vote, start sessions or revoke them. Existing sessions keep working. Each chain has only one wallet that signs natively, so stopping a session early may have to wait for NEAR to return or for the session to end (at most 7 days).
+- **Solana relayer rules:** the program forwards the transaction's outer signers into the Squads call, so the relayer must refuse any transaction that lists its own key anywhere except as fee payer or, for a revoke, rent payer. A transaction that MetaMask signs comes back with the wallet's compute-budget instructions unless the client builds them first, so the relayer also checks the returned message before it co-signs (section 5.6).
+- **MetaMask on Solana, compute budget:** the client sets the limit at the simulated usage with no margin, and the priority fee of 10,000 micro-lamports per unit (about 500 lamports a vote) falls on the relayer. A transaction that costs more than its simulation fails on the limit, so the app simulates just before the wallet signs and sends the message unchanged; the relayer's check caps the fee at 25,000 lamports.
+- **MetaMask on Solana, binary messages:** for a message that is not valid UTF-8 the wallet shows garbled text, lets the user confirm, and signs an altered form. The altered form can never be a seat vote (section 5.6).
+- **Latency:** NEAR-routed signatures averaged 8.3 s (Stellar run), 8.1 s (Solana) and 7.8 s (EVM fork) on testnet. Moves never use NEAR; only NEAR-routed seat votes, grants and revokes do. With the native options (section 5.6), real Phantom signed in 3.7 s on average on EVM and real MetaMask `signMessage` in 4.8 s on Solana, browser automation included.
+- **NEAR availability:** if NEAR or its MPC is down, NEAR-routed wallets cannot vote, start sessions or revoke them. Existing sessions keep working. Each chain has only one wallet that signs natively, so stopping a session early may have to wait for NEAR to return or for the session to end (at most 7 days). With the native options on, Phantom on EVM and MetaMask on Solana also sign without NEAR.
 - **Stellar session length:** the 7-day cap counts ledgers (120,960). At 5 seconds per ledger that is 7 days; at 6 seconds it is 8.4 days.
 - **Stellar instance TTL:** prime-session does not extend its own instance or code TTL (unchanged since round 8).
 - **EVM move deadline:** an `exec` signature has no deadline of its own; the session end and the nonce bound it.
@@ -621,4 +744,4 @@ Before mainnet:
 - MetaMask's route points at chain 397 instead of 398.
 - Solana: build with `PRIME_CLUSTER=mainnet` (a build without the variable fails to compile), deploy mainnet from its own program keypair, and deploy with `--final` from the start (`solana program set-upgrade-authority <program> --final` locks a devnet run after the matrix).
 - Stellar: set up each MPC-derived G account with the lock (thresholds 1/1/2) and fund one session-owner account per NEAR-routed wallet. Pick which wasm build to pin: the deployed file comes from `stellar contract build`, and `build-wasm.sh` makes a different one. Measure the revoke rent on mainnet.
-- **Audit scope:** the four new contracts, 122 sLOC in total, plus the off-chain MPC key derivation and checks, which decide which keys become seats.
+- **Audit scope:** the four new contracts, 122 sLOC in total, plus the off-chain MPC key derivation and checks, which decide which keys become seats. With the native Solana option, the relayer's check of returned messages belongs in scope too.

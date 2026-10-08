@@ -6,7 +6,7 @@ This replaces `../minimal/`. The goals were the least new code, no lines added t
 
 ## Round 9 (current)
 
-Round 9 changed all four contracts and re-ran every matrix. The tables further down describe round 8 and stay as the earlier record. Where they differ from this section, this section applies.
+Round 9 changed all four contracts and re-ran every matrix. The tables further down describe round 8 and stay as the earlier record. Where they differ from this section, this section applies. The follow-up spikes of the same day (native second-chain accounts and Swig) follow the round 9 tables.
 
 ### What changed
 
@@ -48,8 +48,54 @@ Our new code in total is 122 sLOC: 32 + 33 + 37 + 20.
 - Sources: `evm/src/PrimeSession.sol`, `evm/test/PrimeSession.t.sol`, `solana/prime-session/src/lib.rs`, `near-signer/src/lib.rs`. The Stellar contract and its tests are `../../../src/` in this repository.
 - Harnesses: `evm/pkn.ts`, `evm/bytecode-eq.ts`, `evm/verify-evm.ts`, `evm/roles-why.ts`, `solana/psn.ts`, `solana/pdhash.ts`, `stellar/stn.ts`, `stellar/verify-stellar.ts`, `signer-neg.ts`, `proof-near.ts`. They import `stellar.ts`, `nearsig.ts` and `near.ts` (unchanged) and a local `keys.ts` that holds testnet key loading and is not copied.
 - Runner: `run-round9.sh` (all parts in sequence under one lock, because they share the NEAR relayer key).
-- Logs: `round9/{evm,solana,stellar,near}/`, plus Freighter prompt screenshots in `round9/stellar/freighter-prompt/` (collapsed and expanded authorization row, the earlier SEP-53 prompt, three parameter shapes). Logs are ignored by `*.log`, so add them with `git add -f`.
+- Logs: `round9/{evm,solana,stellar,near}/` (and `round9/{swig,native}/` for the follow-up spikes below), plus Freighter prompt screenshots in `round9/stellar/freighter-prompt/` (collapsed and expanded authorization row, the earlier SEP-53 prompt, three parameter shapes). Logs are ignored by `*.log`, so add them with `git add -f`.
 - Stellar run record: `round9/stellar/run.out` and `run2.out` show two runs; the first stopped at the real Freighter step when the browser behind the bridge closed (`stn-realfr.attempt1.log`, `freighter-bridge.attempt1.out`), and the retry passed.
+
+## Follow-up spikes (8 October 2026)
+
+Two spikes ran after round 9, on the round 9 contracts, with no contract change. The document sections are 5.6 (native accounts), 7.3 (Swig) and 12.6 (runs and logs).
+
+### Native accounts on a second chain (Phantom on EVM, MetaMask on Solana)
+
+Phantom's own EVM account and MetaMask's own Solana account act as seat and session owner, so NEAR drops out of those two cells. NEAR stays as the fallback route, and both harnesses select the route with `PKN_NATIVE` and `PSN_NATIVE`.
+
+| Chain | Route | Checks | Log (under `round9/native/`) |
+|---|---|---|---|
+| EVM, Base Sepolia fork | NEAR route, same harness | **134/134** | `pkn.near-baseline-fork.log` |
+| EVM | Phantom native, the real extension signs all 25 Phantom signatures, real NEAR for Freighter | **137/137** | `pkn.native-fork.log` |
+| Solana, local validator | NEAR route, same harness | **128/128** | `psn.near-baseline-local.log` |
+| Solana | MetaMask native, the real extension signs 12 `signMessage` requests, a stand-in with the same key signs the Squads votes, real NEAR for Freighter | **145/145** | `psn.native-local.log` |
+
+The dry runs with a local NEAR stand-in (`NEARSIG_STUB`) are `pkn.native-dry-stub-near.log` (137/137) and `psn.native-dry2-stub-near.log` (145/145). Runs taken before the independent review sit beside the final ones as `*.before-review.log` and `*.run1.log`.
+
+- **Rules found:** MetaMask's `signTransaction` prepends a compute price and appends a limit unless the transaction already holds both, so the client builds every MetaMask-signed transaction with both, and the relayer validates the returned message before it co-signs (`withBudget` and `acceptReturned` in `solana/psn.ts`). Phantom on Base Sepolia refuses typed data, so its Safe vote is `personal_sign` over the 32 raw bytes.
+- **Open:** the seat-vote prompt choice for Phantom's EVM account (the document, section 5.6), and the real-wallet vote run on a funded devnet Smart Account (it needs a real-wallet path in `sendBy`, about 12 lines).
+- **Side finding:** MetaMask 13.50.0 preinstalls a Stellar snap whose bundle contains `signAuthEntry`. We still need to run it.
+- **Files:** `native/phantom-evm/` (`bridge.mjs`, README) and `native/metamask-sol/` (`bridge.mjs`, `page.html`, `drive.mjs`, `onboard.mjs`, `d.sh`, `run-validator.sh`, README, `stub/` with the NEAR stand-in and the two real-wallet checks). The bridges drive the real extensions in Chrome under Xvfb and read the wallet password from a local `secrets/` file that is not copied. The extension builds, browser profiles and wallet seeds are not in the bundle; the MetaMask build is identified by `native/metamask-sol/SHA256SUMS`. `evm/pkn.ts` and `solana/psn.ts` are the final harnesses with the native switches; `round9/native/pkn.before-native.ts` and `psn.before-native.ts` are the copies from before.
+- **Logs:** `round9/native/` (the run logs, the bridge prompt logs, `queue.log` and the state files).
+
+### Swig as the Solana session layer (tested and left out)
+
+Swig wallets as the Squads policy signers in place of `prime-session`, on a local validator with the Smart Account program cloned from devnet. Swig ran as the devnet build and as the mainnet bytes at the same program id.
+
+| What | Result | Log (under `round9/swig/`) |
+|---|---|---|
+| Mainnet bytes | **256/256** (247 checks and 9 findings) | `psw-mainnet-build.log`, `state-psw-mainnet-build.json` |
+| Devnet build | **256/256** | `psw-devnet-build.log`, `state-psw-devnet-build.json` |
+| Freighter flows with the real NEAR MPC | **13/13**, 5 signatures, 8.2 s average | `psw-near.log`, `state-psw-near.json` |
+| Swig wallet as one seat of a 2-of-3 | passes | `psw-w3.log` |
+| Slot time, upgrade history, authority, build comparison (read only) | see the document, section 7.3 | `psw-slots.log`, `psw-slots-series.log`, `psw-upgrades.log`, `psw-trust.log`, `psw-build-swig.log` |
+
+- **Verdict:** keep `prime-session`. Swig works for all four owner routes and moves cost about 27% fewer compute units and 42% fewer bytes, but its cap counts slots (1,400,000 slots last 4.3 to 6.9 days), it allows one live session per role, and it adds upgradeable third-party code (document section 7.3).
+- **Files:** `swig/psw.ts` (the matrix), `psw-near.ts`, `psw-probe.ts`, `psw-w3.ts`, `psw-slots.ts`, `psw-slots-series.ts`, `psw-trust.ts`, `psw-upgrades.ts`, `psw-summary.py` (counts the checks from a state file), `psw-errors.json` (Swig error names from source). They import `./keys.ts` (local testnet keys, kept out of the bundle) and `nearsig.ts`, and `psw.ts` reads `psw-errors.json` from the work directory. Run `bun psw.ts` with `PSW_LABEL` naming the build.
+- **Start commands:** from the work directory with the Solana CLI on `PATH`: `solana-test-validator --ledger psw-ledger --rpc-port 8919 --faucet-port 9919 --dynamic-port-range 18500-18560 --url https://api.devnet.solana.com --clone-upgradeable-program SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG --clone GmY9kVi3FhrCUn2MJkzzpE6C5618YoHuGsgqHU78cKus --clone-upgradeable-program swigypWHEksbC64pWKwah1WTeh9JXwx8H1rJHLdbQMB` for the devnet build. For the mainnet build, replace the last clone with `--upgradeable-program swigypWHEksbC64pWKwah1WTeh9JXwx8H1rJHLdbQMB <mainnet .so> 8o2ZThbZ5Bky4RcPVBYjyWuzVtqfwfqPMbsboTkFf3aQ`, where the `.so` comes from `solana program dump` on mainnet (read only).
+- **Logs:** `round9/swig/`, with the earlier runs in `round9/swig/prev/`.
+
+### Checks on `ARCHITECTURE.md`
+
+- Mermaid: `node mermaid-check.mjs ../../../ARCHITECTURE.md` renders every diagram with the real Mermaid library (8 diagrams); the script holds the paths of its Mermaid copy and browser.
+- Links: `bun links-check.ts <document>` (the copy in `evm/`) re-reads every explorer link against its chain (60 links).
+- Prose: `python3 .claude/skills/human-voice/scripts/lint.py <file>` from the wiki repository must report zero hits.
 
 ## Routes
 
@@ -59,7 +105,7 @@ Each wallet uses its own key on its home chain. Elsewhere it signs through NEAR'
 |---|---|---|---|
 | MetaMask | **own EOA** | NEAR **stock** eth-implicit account → MPC ed25519 | NEAR stock eth-implicit → MPC ed25519 |
 | Freighter | `prime-near-signer` (SEP-53) → MPC secp256k1 | `prime-near-signer` (SEP-53) → MPC ed25519 | **own key** |
-| Phantom | `prime-near-signer` → MPC secp256k1 (used in the matrices), or its **own EVM account** (real extension, fork only; below) | **own key** | `prime-near-signer` (plain text) → MPC ed25519 |
+| Phantom | `prime-near-signer` → MPC secp256k1 (used in the matrices), or its **own EVM account** (real extension; follow-up spikes above) | **own key** | `prime-near-signer` (plain text) → MPC ed25519 |
 
 **Seats:** these keys are ordinary 2-of-3 signers: Safe owners, Squads settings signers, Stellar `Delegated` G accounts. None of our contracts is a seat, so a session key can never vote.
 
@@ -138,7 +184,7 @@ There are three accepted cases (11 = 8 refusals + 3): Freighter on ed25519, Phan
 
 ### MetaMask's own Solana account
 
-**Not verified:** there is no MetaMask extension on this machine. It would remove NEAR from MetaMask on Solana but **no lines** of ours either: that route already uses stock NEAR.
+**Not verified in round 8:** there was no MetaMask extension on the machine. The follow-up spike above ran the real MetaMask 13.50.0 on this route. It removes NEAR from MetaMask on Solana but **no lines** of ours either: that route already uses stock NEAR.
 
 ## Test-harness problems on the way, kept with their logs
 

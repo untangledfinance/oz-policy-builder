@@ -8,16 +8,12 @@
 //         The grant owner of a NEAR-routed wallet is its MPC key under prime:evm-session, a different key from its
 //         seat (prime:evm), so no signature made for a grant can count as a seat vote. MetaMask's own key is both.
 //         grant + first move can go in one transaction through Multicall3 aggregate3.
-//   PKN_NATIVE=1: Phantom uses its own EVM account as both its Safe seat and its PrimeSession owner (no NEAR for Phantom).
-//         Seat votes are personal_sign over the 32 raw bytes of the Safe transaction hash, filed as the Safe's eth_sign
-//         signature type (v + 4). Grants are personal_sign of the grant text. PKN_PH_BRIDGE=http://127.0.0.1:8831 sends
-//         every Phantom signature to the real extension (phantom-evm/bridge.mjs); without it a local key stands in.
-import { recoverAddress, createPublicClient, createWalletClient, http, encodeFunctionData, parseAbi, getAddress, concat, pad, numberToHex, keccak256, toHex, hashMessage, encodeAbiParameters, parseEther, nonceManager, type Address, type Hex } from 'viem';
+import { createPublicClient, createWalletClient, http, encodeFunctionData, parseAbi, getAddress, concat, pad, numberToHex, keccak256, toHex, hashMessage, encodeAbiParameters, parseEther, nonceManager, type Address, type Hex } from 'viem';
 import { publicActionsL2 } from 'viem/op-stack';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
 import { readFileSync, writeFileSync } from 'node:fs';
-const { metamask, secpAddr, secpSign, stats } = await import(process.env.NEARSIG_STUB ?? '/home/ubuntu/work/near-session-spike/nearsig.ts');
+const { metamask, secpAddr, secpSign, stats } = await import('/home/ubuntu/work/near-session-spike/nearsig.ts');
 const OCT = '/home/ubuntu/git/github.com/untangledfinance/octopos/apps/evm-web/src/core';
 const ob = await import(`${OCT}/onboarding.ts`);
 const pol = await import(`${OCT}/evm-policy.ts`);
@@ -25,7 +21,6 @@ const { CONTRACTS } = await import(`${OCT}/contracts.ts`);
 
 // PKN_LIVE=1 runs on real Base Sepolia (relayer key from PKN_KEY); otherwise on the local anvil fork.
 const LIVE = !!process.env.PKN_LIVE;
-const NATIVE = !!process.env.PKN_NATIVE, PH_BRIDGE = process.env.PKN_PH_BRIDGE;
 const RPC = LIVE ? 'https://sepolia.base.org' : 'http://127.0.0.1:8547';
 const pub = createPublicClient({ chain: baseSepolia, transport: http(RPC), pollingInterval: 1000 }).extend(publicActionsL2());
 const relayerAcct = LIVE ? privateKeyToAccount(process.env.PKN_KEY as Hex, { nonceManager }) : privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'); // anvil dev #0 (public)
@@ -33,7 +28,7 @@ const wallet = (a: ReturnType<typeof privateKeyToAccount>) => createWalletClient
 const relayer = wallet(relayerAcct);
 const rpc = (method: string, params: unknown[]) => fetch(RPC, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) }).then((r) => r.json());
 const st: any = {}; const results: any[] = [];
-const save = () => writeFileSync(process.env.PKN_STATE ?? (LIVE ? 'state-pkn-live.json' : NATIVE ? 'state-pkn-native.json' : 'state-pkn.json'), JSON.stringify({ ...st, results }, (_, v) => (typeof v === 'bigint' ? v.toString() : v), 1));
+const save = () => writeFileSync(LIVE ? 'state-pkn-live.json' : 'state-pkn.json', JSON.stringify({ ...st, results }, (_, v) => (typeof v === 'bigint' ? v.toString() : v), 1));
 function record(name: string, expectOk: boolean, ok: boolean, detail: string) {
   const pass = ok === expectOk; results.push({ name, pass, ok, detail, tx: lastTx }); lastTx = undefined; save();
   console.log(`${pass ? 'PASS' : 'FAIL'} ${name} | ${ok ? `ok ${detail}` : `refused: ${detail}`}`);
@@ -92,31 +87,15 @@ const viaNear = async (name: 'Freighter' | 'Phantom', path = PATH): Promise<W> =
   signHash: (h) => secpSign(name, path, h), personalSign: (t) => secpSign(name, path, hashMessage(t)) });
 const MM: W = { name: 'MetaMask', addr: metamask.address, signHash: (h) => metamask.sign({ hash: h }), personalSign: (t) => metamask.signMessage({ message: t }) };
 const SESSION_PATH = 'prime:evm-session';
-// Phantom's own EVM account. Its Safe vote is personal_sign over the 32 raw bytes of the Safe transaction hash; the Safe takes it as
-// an eth_sign signature (v + 4). The real extension signs through phantom-evm/bridge.mjs; without the bridge a local key stands in.
-const nat = { calls: 0, ms: 0 };
-const phLocal = privateKeyToAccount(generatePrivateKey());
-const phSign = async (message: string | Hex, raw: boolean): Promise<{ addr: Address; sig: Hex }> => {
-  const t0 = Date.now(); nat.calls++;
-  try {
-    if (!PH_BRIDGE) return { addr: phLocal.address, sig: await phLocal.signMessage({ message: raw ? { raw: message as Hex } : message }) };
-    const r = await (await fetch(PH_BRIDGE, { method: 'POST', body: JSON.stringify({ method: 'personal_sign', message }) })).json() as any;
-    if (r.error) throw new Error(`Phantom: ${r.error}`);
-    return { addr: getAddress(r.addr), sig: r.sig };
-  } finally { nat.ms += Date.now() - t0; }
-};
-const toEthSign = (sig: Hex): Hex => { const v = parseInt(sig.slice(-2), 16); return `${sig.slice(0, -2)}${(v < 27 ? v + 31 : v + 4).toString(16)}` as Hex; };
-const phAddr = !NATIVE ? undefined : !PH_BRIDGE ? phLocal.address : getAddress(((await (await fetch(PH_BRIDGE, { method: 'POST', body: JSON.stringify({ method: 'address' }) })).json()) as any).addr);
-const NPH: W = { name: 'Phantom', addr: phAddr!, signHash: async (h) => toEthSign((await phSign(h, true)).sig), personalSign: async (t) => (await phSign(t, false)).sig };
-const FR = await viaNear('Freighter'), PH = NATIVE ? NPH : await viaNear('Phantom');                                // seats
-const FR_S = await viaNear('Freighter', SESSION_PATH), PH_S = NATIVE ? NPH : await viaNear('Phantom', SESSION_PATH); // grant owners
+const FR = await viaNear('Freighter'), PH = await viaNear('Phantom');                              // seats
+const FR_S = await viaNear('Freighter', SESSION_PATH), PH_S = await viaNear('Phantom', SESSION_PATH); // grant owners
 const FR_OTHER_PATH = await viaNear('Freighter', 'prime:evm-other');
 console.log('seats:', MM.addr, FR.addr, PH.addr);
 console.log('session owners:', MM.addr, FR_S.addr, PH_S.addr);
 
 // ── Safe transactions (seats) ──────────────────────────────────────────────────────────────────
 type Part = { owner: Address; sig: Hex; dynamic?: Hex };
-async function safeTx(name: string, expectOk: boolean, call: { to: Address; value: bigint; data: Hex; operation: 0 | 1 }, parts: (h: Hex) => Promise<Part[]>, tag?: string) {
+async function safeTx(name: string, expectOk: boolean, call: { to: Address; value: bigint; data: Hex; operation: 0 | 1 }, parts: (h: Hex) => Promise<Part[]>) {
   const nonce = await pub.readContract({ address: st.safe, abi: safeAbi, functionName: 'nonce' });
   const tx = { ...call, safeTxGas: 0n, baseGas: 0n, gasPrice: 0n, gasToken: '0x0000000000000000000000000000000000000000' as Address, refundReceiver: '0x0000000000000000000000000000000000000000' as Address, nonce };
   const hash = ob.hashSafeTransaction(84532, st.safe, tx);
@@ -124,7 +103,7 @@ async function safeTx(name: string, expectOk: boolean, call: { to: Address; valu
   const tail: Hex[] = []; let off = 65 * ps.length;
   const statics = ps.map((p) => { if (!p.dynamic) return p.sig; const len = (p.dynamic.length - 2) / 2; tail.push(concat([pad(numberToHex(len), { size: 32 }), p.dynamic]));
     const s = concat([pad(p.owner, { size: 32 }), pad(numberToHex(off), { size: 32 }), '0x00']); off += 32 + len; return s; });
-  return send(name, expectOk, st.safe, ob.encodeExecTransaction(tx, concat([...statics, ...tail])), { tag });
+  return send(name, expectOk, st.safe, ob.encodeExecTransaction(tx, concat([...statics, ...tail])));
 }
 const by = (...ws: W[]) => async (h: Hex) => Promise.all(ws.map(async (w) => ({ owner: w.addr, sig: await w.signHash(h) })));
 
@@ -186,7 +165,7 @@ st.roleKey = rule.roleKey; save();
 const c = ob.encodeCreateSafe(initializer, salt);
 await send('C1. create Safe (MetaMask first, PrimeX flow)', true, c.to, c.data);
 const init = ob.buildSafeInitializationTransaction(st.safe, [FR.addr, PH.addr], 2n, rule.calls);
-await send(`C2. seats MetaMask + Freighter(NEAR MPC) + Phantom(${NATIVE ? 'own key' : 'NEAR MPC'}), threshold 2; movers rule for the three PrimeSessions`, true, st.safe,
+await send('C2. seats MetaMask + Freighter(NEAR MPC) + Phantom(NEAR MPC), threshold 2; movers rule for the three PrimeSessions', true, st.safe,
   ob.encodeExecTransaction(init, await MM.signHash(ob.hashSafeTransaction(84532, st.safe, init))));
 const owners = (await pub.readContract({ address: st.safe, abi: safeAbi, functionName: 'getOwners' }) as Address[]).map((a) => a.toLowerCase());
 const lc = (a: string) => a.toLowerCase();
@@ -195,8 +174,8 @@ record('C3. owners are exactly the three wallet keys (no PrimeSession), threshol
   owners.length === 3 && [MM.addr, FR.addr, PH.addr].every((a) => owners.includes(lc(a))) && ![st.pkMM, st.pkFR, st.pkPH].some((a) => owners.includes(lc(a))) && thr === 2n, `${owners.join(',')} / ${thr}`);
 await send('C4. mint 1000 tokens to the Safe', true, st.token, encodeFunctionData({ abi: tokenAbi, functionName: 'mint', args: [st.safe, 1000n * E18] }));
 { const owners3 = await Promise.all([st.pkMM, st.pkFR, st.pkPH].map((a) => pub.readContract({ address: a, abi: PK.abi, functionName: 'owner' }) as Promise<Address>));
-  record(NATIVE ? 'C5. grant owners: MetaMask and Phantom keep their own keys (seat and owner); Freighter uses a prime:evm-session key that differs from its seat' : 'C5. grant owners: MetaMask keeps its own key (seat and owner); Freighter and Phantom use prime:evm-session keys that differ from their seats', true,
-    owners3[0] === MM.addr && owners3[1] === FR_S.addr && owners3[2] === PH_S.addr && FR_S.addr !== FR.addr && (NATIVE ? PH_S.addr === PH.addr : PH_S.addr !== PH.addr) && FR_S.addr !== PH_S.addr, owners3.join(','));
+  record('C5. grant owners: MetaMask keeps its own key (seat and owner); Freighter and Phantom use prime:evm-session keys that differ from their seats', true,
+    owners3[0] === MM.addr && owners3[1] === FR_S.addr && owners3[2] === PH_S.addr && FR_S.addr !== FR.addr && PH_S.addr !== PH.addr && FR_S.addr !== PH_S.addr, owners3.join(','));
   const mcCode = await pub.getCode({ address: MULTICALL3 });
   record('C6. Multicall3 is deployed at the canonical address', true, (mcCode?.length ?? 0) > 2, `${((mcCode?.length ?? 2) - 2) / 2} bytes`); }
 
@@ -205,9 +184,9 @@ await send('C4. mint 1000 tokens to the Safe', true, st.token, encodeFunctionDat
   const t = tokenTransfer(DEST, 1n);
   for (const w of [MM, FR, PH]) await safeTx(`S1-${w.name}. ${w.name} alone`, false, t, by(w));
   const b = await bal(DEST);
-  await safeTx('S2. MetaMask + Freighter', true, t, by(MM, FR), 'safeMM+FR');
-  await safeTx('S3. Freighter + Phantom (no MetaMask)', true, t, by(FR, PH), 'safeFR+PH');
-  await safeTx('S4. Phantom + MetaMask', true, t, by(PH, MM), 'safePH+MM');
+  await safeTx('S2. MetaMask + Freighter', true, t, by(MM, FR));
+  await safeTx('S3. Freighter + Phantom (no MetaMask)', true, t, by(FR, PH));
+  await safeTx('S4. Phantom + MetaMask', true, t, by(PH, MM));
   record('S5. DEST received exactly 3', true, (await bal(DEST)) - b === 3n * E18, `${((await bal(DEST)) - b) / E18}`);
   const outsider = privateKeyToAccount(generatePrivateKey());
   await safeTx('S6. outsider + MetaMask', false, t, async (h) => [{ owner: MM.addr, sig: await MM.signHash(h) }, { owner: outsider.address, sig: await outsider.sign({ hash: h }) }]);
@@ -217,34 +196,8 @@ await send('C4. mint 1000 tokens to the Safe', true, st.token, encodeFunctionDat
   await safeTx("S8. Freighter's MPC key under another path + MetaMask", false, t, async (h) => [{ owner: MM.addr, sig: await MM.signHash(h) }, { owner: FR.addr, sig: await FR_OTHER_PATH.signHash(h) }]);
   await safeTx('S9. Phantom approval of another Safe tx + MetaMask', false, t, async (h) => [{ owner: MM.addr, sig: await MM.signHash(h) }, { owner: PH.addr, sig: await PH.signHash(keccak256(h)) }]);
   // A grant-path (prime:evm-session) signature over a Safe transaction hash, filed as a seat vote, counts for nothing.
-  if (!NATIVE) {
-    await safeTx('S10. Freighter and Phantom session-path signatures filed as their seat votes (no MetaMask)', false, t, async (h) => [{ owner: FR.addr, sig: await FR_S.signHash(h) }, { owner: PH.addr, sig: await PH_S.signHash(h) }]);
-    await safeTx("S11. Phantom's session-path signature filed as its seat vote + MetaMask", false, t, async (h) => [{ owner: MM.addr, sig: await MM.signHash(h) }, { owner: PH.addr, sig: await PH_S.signHash(h) }]);
-  } else {
-    // Phantom has one key for both jobs, so only Freighter keeps a separate session path.
-    await safeTx("S10. Freighter's session-path signature filed as its seat vote + Phantom", false, t, async (h) => [{ owner: FR.addr, sig: await FR_S.signHash(h) }, { owner: PH.addr, sig: await PH.signHash(h) }]);
-  }
-}
-
-// ── NS. Native Phantom: one key, two texts. A grant signature is no vote and a vote is no grant ────
-if (NATIVE) {
-  const t = tokenTransfer(DEST, 1n);
-  const probe = privateKeyToAccount(generatePrivateKey());
-  const gText = await grantText(st.pkPH, probe.address, (await now()) + 3600n);
-  const gSig = await PH.personalSign(gText);                     // what Phantom shows and signs for a session grant
-  const voteDigest = (h: Hex) => keccak256(concat([toHex('\x19Ethereum Signed Message:\n32'), h]));  // what the Safe recovers for an eth_sign vote
-  await safeTx("NS1. Phantom's grant signature filed as its Safe vote (eth_sign type, v + 4) + MetaMask", false, t, async (h) => [{ owner: MM.addr, sig: await MM.signHash(h) }, { owner: PH.addr, sig: toEthSign(gSig) }]);
-  await safeTx("NS2. Phantom's grant signature filed as a plain ECDSA vote over the Safe hash + MetaMask", false, t, async (h) => [{ owner: MM.addr, sig: await MM.signHash(h) }, { owner: PH.addr, sig: gSig }]);
-  const gDigest = hashMessage(gText);
-  { const h = ob.hashSafeTransaction(84532, st.safe, { ...t, safeTxGas: 0n, baseGas: 0n, gasPrice: 0n, gasToken: '0x0000000000000000000000000000000000000000', refundReceiver: '0x0000000000000000000000000000000000000000', nonce: await pub.readContract({ address: st.safe, abi: safeAbi, functionName: 'nonce' }) });
-    record('NS3. the two things Phantom signs are different digests (grant text vs eth_sign of a 32-byte Safe hash), and a grant text is not 32 bytes long', true,
-      gDigest !== voteDigest(h) && toHex(gText).length !== 2 + 64 && (await recoverAddress({ hash: gDigest, signature: gSig })) === PH.addr && (await recoverAddress({ hash: voteDigest(h), signature: gSig })) !== PH.addr,
-      `grant text ${toHex(gText).length / 2 - 1} bytes, digests ${gDigest.slice(0, 10)}… vs ${voteDigest(h).slice(0, 10)}…`); }
-  // A vote signature (personal_sign over the 32 raw bytes of a Safe hash) offered to PrimeSession(Phantom) as the grant signature
-  const vh = keccak256(toHex(`vote-${Date.now()}`)); const vSig = await phSign(vh, true).then((r) => r.sig);
-  await send("NS4. Phantom's Safe vote signature offered as its PrimeSession grant signature", false, st.pkPH, encodeFunctionData({ abi: PK.abi, functionName: 'grant', args: [probe.address, (await now()) + 3600n, vSig] }));
-  // The vote with the right Safe hash still works (the checks above did not disturb the Safe)
-  await safeTx('NS5. Phantom vote + MetaMask vote over the real Safe hash', true, t, by(PH, MM));
+  await safeTx('S10. Freighter and Phantom session-path signatures filed as their seat votes (no MetaMask)', false, t, async (h) => [{ owner: FR.addr, sig: await FR_S.signHash(h) }, { owner: PH.addr, sig: await PH_S.signHash(h) }]);
+  await safeTx("S11. Phantom's session-path signature filed as its seat vote + MetaMask", false, t, async (h) => [{ owner: MM.addr, sig: await MM.signHash(h) }, { owner: PH.addr, sig: await PH_S.signHash(h) }]);
 }
 
 // ── N. A session can never vote as a seat ──────────────────────────────────────────────────────
@@ -260,7 +213,7 @@ if (NATIVE) {
 
 // ── G. Sessions, every wallet ──────────────────────────────────────────────────────────────────
 for (const [w, pk] of [[MM, st.pkMM], [FR_S, st.pkFR], [PH_S, st.pkPH]] as [W, Address][]) {
-  const s = await grant(`G-${w.name}1. ${w.name} grants a 1-hour session (one signature${w === MM || (NATIVE && w === PH_S) ? '' : ' through NEAR'}), relayer submits`, true, pk, w);
+  const s = await grant(`G-${w.name}1. ${w.name} grants a 1-hour session (one signature${w === MM ? '' : ' through NEAR'}), relayer submits`, true, pk, w);
   const b = await bal(VENUE);
   await move(`G-${w.name}2. move via relayer: 10 to VENUE`, true, s, tokenTransfer(VENUE, 10n), { tag: `moveRelayer${w.name}` });
   await move(`G-${w.name}3. relayer down: session key submits and pays gas itself, 5 to VENUE`, true, s, tokenTransfer(VENUE, 5n), { selfPay: true, tag: `moveSelf${w.name}` });
@@ -303,7 +256,7 @@ for (const [w, pk] of [[MM, st.pkMM], [FR_S, st.pkFR], [PH_S, st.pkPH]] as [W, A
   await grant('X3. PrimeSession(Phantom) with a grant signed by MetaMask', false, st.pkPH, MM);
   await grant("X4. PrimeSession(Freighter) with Freighter's MPC key under another path", false, st.pkFR, FR_OTHER_PATH);
   await grant("X4b. PrimeSession(Freighter) with a grant signed by Freighter's seat key (prime:evm)", false, st.pkFR, FR);
-  if (!NATIVE) await grant("X4c. PrimeSession(Phantom) with a grant signed by Phantom's seat key (prime:evm)", false, st.pkPH, PH);
+  await grant("X4c. PrimeSession(Phantom) with a grant signed by Phantom's seat key (prime:evm)", false, st.pkPH, PH);
   await grant('X5. grant text made for PrimeSession(Freighter) presented to PrimeSession(Phantom), signed by Phantom', false, st.pkPH, PH_S, { textFor: st.pkFR });
   await grant('X6. raw-hash signature instead of personal_sign (Freighter)', false, st.pkFR, { ...FR_S, personalSign: async (t) => FR_S.signHash(keccak256(toHex(t))) });
   const s = await grant('X7. Freighter session', true, st.pkFR, FR_S);
@@ -326,8 +279,7 @@ for (const [w, pk] of [[MM, st.pkMM], [FR_S, st.pkFR], [PH_S, st.pkPH]] as [W, A
 }
 console.log('gas:', Object.entries(gasOf).map(([k, v]) => `${k} ${v}`).join(', '));
 console.log(`NEAR MPC signatures: ${stats.calls}, average ${(stats.ms / Math.max(1, stats.calls) / 1000).toFixed(1)}s`);
-if (NATIVE) console.log(`Phantom own-account signatures (${PH_BRIDGE ? 'real extension' : 'local stand-in'}): ${nat.calls}, average ${(nat.ms / Math.max(1, nat.calls) / 1000).toFixed(2)}s`);
-st.gas = gasOf; st.mpc = stats; st.phantomNative = NATIVE ? { ...nat, real: !!PH_BRIDGE, address: PH.addr } : undefined; save();
+st.gas = gasOf; st.mpc = stats; save();
 console.log(`${results.filter((r) => r.pass).length}/${results.length} passed`);
 for (const r of results.filter((r) => !r.pass)) console.log('FAIL', r.name, r.detail);
 process.exit(0);

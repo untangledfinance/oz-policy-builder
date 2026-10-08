@@ -1,0 +1,4 @@
+06:04:10 queued psn native
+07:08:54 psn.ts native final (flock near.lock) -> psn.native-local.log
+07:08:54 pkn.ts native final (flock near.lock) -> pkn.native-fork.log
+07:12:20 baselines queued under flock (psn then pkn, either order)

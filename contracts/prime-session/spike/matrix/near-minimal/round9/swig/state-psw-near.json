@@ -1,0 +1,125 @@
+{
+ "label": "near",
+ "swigProgramDataBytes": 392749,
+ "metrics": {
+  "swig-setup": {
+   "totalCu": 12653,
+   "swigCu": 9230,
+   "bytes": 582,
+   "fee": 10000,
+   "ms": 8863
+  },
+  "swigAccount-ed": {
+   "lamports": 2561280,
+   "bytes": 240,
+   "walletAddressLamports": 890880,
+   "roles": 2
+  },
+  "grant-freighter-mpc": {
+   "totalCu": 1009,
+   "swigCu": 1009,
+   "bytes": 349,
+   "fee": 10000,
+   "ms": 8706
+  },
+  "revoke-freighter-mpc": {
+   "totalCu": 1009,
+   "swigCu": 1009,
+   "bytes": 349,
+   "fee": 10000,
+   "ms": 8382
+  },
+  "grant-and-first-move-freighter-mpc": {
+   "totalCu": 40112,
+   "swigCu": 1009,
+   "squadsCu": 1052,
+   "bytes": 712,
+   "fee": 15000,
+   "ms": 8255
+  },
+  "mpc": {
+   "calls": 5,
+   "ms": 40856
+  }
+ },
+ "results": [
+  {
+   "name": "F0. Smart Account: seats B (MetaMask), C (Freighter), Phantom; threshold 2; vault funded 2 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "3nTpNc7ok7cL…"
+  },
+  {
+   "name": "F0-FR: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "QKjLNyWbGpWP…"
+  },
+  {
+   "name": "F1. the 2-of-3 installs the policy with the Freighter Swig wallet address",
+   "pass": true,
+   "ok": true,
+   "detail": "1sRbnvKWdmEQ…"
+  },
+  {
+   "name": "F2. Freighter starts a session: one SEP-53 signature, the signer contract, the NEAR MPC signs the Solana transaction",
+   "pass": true,
+   "ok": true,
+   "detail": "2bpeK1UNY9xX…"
+  },
+  {
+   "name": "F3. session key alone, relayer pays: 0.01 SOL vault -> VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "2mZ8Lf2YfgLX…"
+  },
+  {
+   "name": "F4. relayer down, session key pays: 0.005 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "38pj2WEpqTv8…"
+  },
+  {
+   "name": "F5. VENUE received exactly 0.015 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.015"
+  },
+  {
+   "name": "F6. same session: 0.01 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "F7. a session start signed by some other key",
+   "pass": true,
+   "ok": false,
+   "detail": "Signature verification failed"
+  },
+  {
+   "name": "F8. the owner revokes (a session for a dead key, 0 slots): one MPC signature",
+   "pass": true,
+   "ok": true,
+   "detail": "3SPsYp7h4EUM…"
+  },
+  {
+   "name": "F9. the revoked session key",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDenied (3005)"
+  },
+  {
+   "name": "F10. the relayer sends the grant it withheld before the revoke (still inside its blockhash lifetime)",
+   "pass": true,
+   "ok": true,
+   "detail": "5K48z825rQKe…"
+  },
+  {
+   "name": "F11. one transaction: the MPC-signed session start and the new key first move",
+   "pass": true,
+   "ok": true,
+   "detail": "2KoD94HoQZSA…"
+  }
+ ]
+}

@@ -1,0 +1,1951 @@
+{
+ "label": "devnet-build",
+ "settings": "Ag9vMuGq3FZyQtJM4QmedQ7iFQjD4iTMrsnttnrpno5V",
+ "metrics": {
+  "metamaskPrompt": {
+   "bytes": 64,
+   "text": "10155413a6fb652fc563d39a1fd462eba9bcb249dc7569322367aaae8d7a475d"
+  },
+  "swig-setup": {
+   "totalCu": 12838,
+   "swigCu": 9230,
+   "bytes": 590,
+   "fee": 10000,
+   "ms": 298
+  },
+  "swigAccount-secp": {
+   "lamports": 2672640,
+   "bytes": 256,
+   "walletAddressLamports": 890880,
+   "roles": 2
+  },
+  "swigAccount-ed": {
+   "lamports": 2616960,
+   "bytes": 248,
+   "walletAddressLamports": 890880,
+   "roles": 2
+  },
+  "grant-MetaMask(secp256k1)": {
+   "totalCu": 28386,
+   "swigCu": 28386,
+   "bytes": 390,
+   "fee": 5000,
+   "ms": 1097
+  },
+  "move-MetaMask(secp256k1)-relayed": {
+   "totalCu": 39446,
+   "swigCu": 39446,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 538
+  },
+  "move-MetaMask(secp256k1)-selfpaid": {
+   "totalCu": 39536,
+   "swigCu": 39536,
+   "squadsCu": 1052,
+   "bytes": 465,
+   "fee": 5000,
+   "ms": 545
+  },
+  "grant-MetaMask(Solana acct)": {
+   "totalCu": 1009,
+   "swigCu": 1009,
+   "bytes": 349,
+   "fee": 10000,
+   "ms": 549
+  },
+  "move-MetaMask(Solana acct)-relayed": {
+   "totalCu": 39494,
+   "swigCu": 39494,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 271
+  },
+  "move-MetaMask(Solana acct)-selfpaid": {
+   "totalCu": 39584,
+   "swigCu": 39584,
+   "squadsCu": 1052,
+   "bytes": 465,
+   "fee": 5000,
+   "ms": 522
+  },
+  "grant-Phantom": {
+   "totalCu": 1009,
+   "swigCu": 1009,
+   "bytes": 349,
+   "fee": 10000,
+   "ms": 525
+  },
+  "move-Phantom-relayed": {
+   "totalCu": 39463,
+   "swigCu": 39463,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 290
+  },
+  "move-Phantom-selfpaid": {
+   "totalCu": 39553,
+   "swigCu": 39553,
+   "squadsCu": 1052,
+   "bytes": 465,
+   "fee": 5000,
+   "ms": 531
+  },
+  "grant-Freighter(NEAR MPC)": {
+   "totalCu": 1009,
+   "swigCu": 1009,
+   "bytes": 349,
+   "fee": 10000,
+   "ms": 534
+  },
+  "move-Freighter(NEAR MPC)-relayed": {
+   "totalCu": 39464,
+   "swigCu": 39464,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 278
+  },
+  "move-Freighter(NEAR MPC)-selfpaid": {
+   "totalCu": 39554,
+   "swigCu": 39554,
+   "squadsCu": 1052,
+   "bytes": 465,
+   "fee": 5000,
+   "ms": 535
+  },
+  "slotTime": {
+   "localMsPerSlot": 471.4,
+   "maxSlots": "1512000",
+   "maxDaysAtLocalRate": 8.25
+  },
+  "revoke-MetaMask(secp256k1)": {
+   "totalCu": 28388,
+   "swigCu": 28388,
+   "bytes": 390,
+   "fee": 5000,
+   "ms": 516
+  },
+  "revoke-MetaMask(Solana acct)": {
+   "totalCu": 1009,
+   "swigCu": 1009,
+   "bytes": 349,
+   "fee": 10000,
+   "ms": 520
+  },
+  "revoke-Phantom": {
+   "totalCu": 1009,
+   "swigCu": 1009,
+   "bytes": 349,
+   "fee": 10000,
+   "ms": 534
+  },
+  "revoke-Freighter(NEAR MPC)": {
+   "totalCu": 1009,
+   "swigCu": 1009,
+   "bytes": 349,
+   "fee": 10000,
+   "ms": 516
+  },
+  "move-sample-0": {
+   "totalCu": 39441,
+   "swigCu": 39441,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 263
+  },
+  "move-sample-1": {
+   "totalCu": 39441,
+   "swigCu": 39441,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 552
+  },
+  "move-sample-2": {
+   "totalCu": 39441,
+   "swigCu": 39441,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 518
+  },
+  "move-sample-3": {
+   "totalCu": 39441,
+   "swigCu": 39441,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 283
+  },
+  "move-sample-4": {
+   "totalCu": 39441,
+   "swigCu": 39441,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 520
+  },
+  "move-sample-5": {
+   "totalCu": 39441,
+   "swigCu": 39441,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 281
+  },
+  "move-sample-6": {
+   "totalCu": 39441,
+   "swigCu": 39441,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 543
+  },
+  "move-sample-7": {
+   "totalCu": 39441,
+   "swigCu": 39441,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 528
+  },
+  "move-sample-8": {
+   "totalCu": 39441,
+   "swigCu": 39441,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 267
+  },
+  "move-sample-9": {
+   "totalCu": 39441,
+   "swigCu": 39441,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 523
+  },
+  "moveCu": {
+   "samples": [
+    39441,
+    39441,
+    39441,
+    39441,
+    39441,
+    39441,
+    39441,
+    39441,
+    39441,
+    39441
+   ],
+   "min": 39441,
+   "median": 39441,
+   "max": 39441,
+   "txBytes": 561
+  },
+  "grant-and-first-move-MetaMask(secp256k1)": {
+   "totalCu": 67810,
+   "swigCu": 28386,
+   "squadsCu": 1052,
+   "bytes": 721,
+   "fee": 10000,
+   "ms": 537
+  },
+  "grant-and-first-move-Phantom": {
+   "totalCu": 40450,
+   "swigCu": 1009,
+   "squadsCu": 1052,
+   "bytes": 712,
+   "fee": 15000,
+   "ms": 279
+  },
+  "grant-and-first-move-Freighter(NEAR MPC)": {
+   "totalCu": 40451,
+   "swigCu": 1009,
+   "squadsCu": 1052,
+   "bytes": 712,
+   "fee": 15000,
+   "ms": 536
+  },
+  "move-swig-0": {
+   "totalCu": 38840,
+   "swigCu": 38840,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 549
+  },
+  "move-swig-1": {
+   "totalCu": 40340,
+   "swigCu": 40340,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 538
+  },
+  "move-swig-2": {
+   "totalCu": 37339,
+   "swigCu": 37339,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 537
+  },
+  "move-swig-3": {
+   "totalCu": 40340,
+   "swigCu": 40340,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 520
+  },
+  "move-swig-4": {
+   "totalCu": 41840,
+   "swigCu": 41840,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 531
+  },
+  "move-swig-5": {
+   "totalCu": 37340,
+   "swigCu": 37340,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 272
+  },
+  "move-swig-6": {
+   "totalCu": 35808,
+   "swigCu": 35808,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 1678
+  },
+  "move-swig-7": {
+   "totalCu": 37340,
+   "swigCu": 37340,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 530
+  },
+  "move-swig-8": {
+   "totalCu": 35839,
+   "swigCu": 35839,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 560
+  },
+  "move-swig-9": {
+   "totalCu": 41840,
+   "swigCu": 41840,
+   "squadsCu": 1052,
+   "bytes": 561,
+   "fee": 10000,
+   "ms": 303
+  },
+  "moveCuAcrossSwigs": {
+   "samples": [
+    35808,
+    35839,
+    37339,
+    37340,
+    37340,
+    38840,
+    40340,
+    40340,
+    41840,
+    41840
+   ],
+   "min": 35808,
+   "median": 38090,
+   "max": 41840,
+   "mean": 38687
+  },
+  "move-token-transfer": {
+   "totalCu": 39840,
+   "swigCu": 39840,
+   "squadsCu": 1052,
+   "bytes": 593,
+   "fee": 10000,
+   "ms": 545
+  },
+  "move-token-ata-create-vault-funded": {
+   "totalCu": 61768,
+   "swigCu": 61768,
+   "squadsCu": 1052,
+   "bytes": 690,
+   "fee": 10000,
+   "ms": 286
+  },
+  "add-role": {
+   "totalCu": 3458,
+   "swigCu": 3458,
+   "bytes": 463,
+   "fee": 10000,
+   "ms": 531
+  },
+  "extraRole": {
+   "addedBytes": 136,
+   "addedLamports": 946560,
+   "fee": 10000
+  },
+  "swig-setup-frozen": {
+   "totalCu": 18211,
+   "swigCu": 13730,
+   "bytes": 636,
+   "fee": 10000,
+   "ms": 528
+  },
+  "relayerSpend": {
+   "spentLamports": 8279656520,
+   "sessionKeysFunded": 13
+  }
+ },
+ "results": [
+  {
+   "name": "P0. Smart Account: seats B (MetaMask), C (Freighter), Phantom; threshold 2; vault funded 2 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "4TBYJdTn61mY…"
+  },
+  {
+   "name": "P0-MetaMask(secp256k1): relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "3dS5Xja9vxwF…"
+  },
+  {
+   "name": "P0-MetaMask(Solana acct): relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "5yeFjfxgZPEA…"
+  },
+  {
+   "name": "P0-Phantom: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "2MBW7ssaUiFE…"
+  },
+  {
+   "name": "P0-Freighter(NEAR MPC): relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "4pLpKWdzfbfN…"
+  },
+  {
+   "name": "P1. settings signers are exactly the three seats, threshold 2 (no Swig wallet is a seat)",
+   "pass": true,
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "P2-MetaMask(secp256k1). Swig roles: 0 = owner root (no session), 1 = owner session authority with max 1512000 slots",
+   "pass": true,
+   "ok": true,
+   "detail": "roles 2, max 1512000"
+  },
+  {
+   "name": "P2-MetaMask(Solana acct). Swig roles: 0 = owner root (no session), 1 = owner session authority with max 1512000 slots",
+   "pass": true,
+   "ok": true,
+   "detail": "roles 2, max 1512000"
+  },
+  {
+   "name": "P2-Phantom. Swig roles: 0 = owner root (no session), 1 = owner session authority with max 1512000 slots",
+   "pass": true,
+   "ok": true,
+   "detail": "roles 2, max 1512000"
+  },
+  {
+   "name": "P2-Freighter(NEAR MPC). Swig roles: 0 = owner root (no session), 1 = owner session authority with max 1512000 slots",
+   "pass": true,
+   "ok": true,
+   "detail": "roles 2, max 1512000"
+  },
+  {
+   "name": "P3. the 2-of-3 installs the movers policy; signers = the four Swig wallet addresses (policy signers only)",
+   "pass": true,
+   "ok": true,
+   "detail": "5rUZaQqZsUDq…"
+  },
+  {
+   "name": "G-MetaMask(secp256k1)1. one owner signature starts the session (personal_sign), relayed",
+   "pass": true,
+   "ok": true,
+   "detail": "5pBhSdWyDmkJ…"
+  },
+  {
+   "name": "G-MetaMask(secp256k1)2. session key alone, relayer pays: 0.01 SOL vault -> VENUE through Swig -> Squads policy",
+   "pass": true,
+   "ok": true,
+   "detail": "HY1AiJAFC1vW…"
+  },
+  {
+   "name": "G-MetaMask(secp256k1)3. relayer down, session key pays its own fee: 0.005 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "sZxZTfDUGnTr…"
+  },
+  {
+   "name": "G-MetaMask(secp256k1)4. VENUE received exactly 0.015 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.015"
+  },
+  {
+   "name": "G-MetaMask(secp256k1)5. same session: 0.01 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "G-MetaMask(secp256k1)6. same session: 0.06 SOL to VENUE (over the per-move limit)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionInvalidNumericValue"
+  },
+  {
+   "name": "G-MetaMask(secp256k1)7a. a second session for a key with no SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "4eYc8Adg7eHL…"
+  },
+  {
+   "name": "G-MetaMask(secp256k1)7b. relayer down and the session key has no SOL",
+   "pass": true,
+   "ok": false,
+   "detail": "Attempt to debit an account but found no record of a pri"
+  },
+  {
+   "name": "G-MetaMask(secp256k1)8. the first session key stopped working when the second started (one live session per wallet)",
+   "pass": true,
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "G-MetaMask(Solana acct)1. one owner signature starts the session (Solana tx signature), relayed",
+   "pass": true,
+   "ok": true,
+   "detail": "mVZKVdHM6ANj…"
+  },
+  {
+   "name": "G-MetaMask(Solana acct)2. session key alone, relayer pays: 0.01 SOL vault -> VENUE through Swig -> Squads policy",
+   "pass": true,
+   "ok": true,
+   "detail": "3ex82PdvmcMP…"
+  },
+  {
+   "name": "G-MetaMask(Solana acct)3. relayer down, session key pays its own fee: 0.005 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "5jfXWc3EpARM…"
+  },
+  {
+   "name": "G-MetaMask(Solana acct)4. VENUE received exactly 0.015 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.015"
+  },
+  {
+   "name": "G-MetaMask(Solana acct)5. same session: 0.01 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "G-MetaMask(Solana acct)6. same session: 0.06 SOL to VENUE (over the per-move limit)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionInvalidNumericValue"
+  },
+  {
+   "name": "G-MetaMask(Solana acct)7a. a second session for a key with no SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "pKxJUo9iLkEf…"
+  },
+  {
+   "name": "G-MetaMask(Solana acct)7b. relayer down and the session key has no SOL",
+   "pass": true,
+   "ok": false,
+   "detail": "Attempt to debit an account but found no record of a pri"
+  },
+  {
+   "name": "G-MetaMask(Solana acct)8. the first session key stopped working when the second started (one live session per wallet)",
+   "pass": true,
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "G-Phantom1. one owner signature starts the session (Solana tx signature), relayed",
+   "pass": true,
+   "ok": true,
+   "detail": "5qHjBZgxZ6W7…"
+  },
+  {
+   "name": "G-Phantom2. session key alone, relayer pays: 0.01 SOL vault -> VENUE through Swig -> Squads policy",
+   "pass": true,
+   "ok": true,
+   "detail": "iv8WhNZoHVAK…"
+  },
+  {
+   "name": "G-Phantom3. relayer down, session key pays its own fee: 0.005 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "5cxBNLY2PCFh…"
+  },
+  {
+   "name": "G-Phantom4. VENUE received exactly 0.015 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.015"
+  },
+  {
+   "name": "G-Phantom5. same session: 0.01 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "G-Phantom6. same session: 0.06 SOL to VENUE (over the per-move limit)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionInvalidNumericValue"
+  },
+  {
+   "name": "G-Phantom7a. a second session for a key with no SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "jEf2Gd9X76Ng…"
+  },
+  {
+   "name": "G-Phantom7b. relayer down and the session key has no SOL",
+   "pass": true,
+   "ok": false,
+   "detail": "Attempt to debit an account but found no record of a pri"
+  },
+  {
+   "name": "G-Phantom8. the first session key stopped working when the second started (one live session per wallet)",
+   "pass": true,
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "G-Freighter(NEAR MPC)1. one owner signature starts the session (Solana tx signature), relayed",
+   "pass": true,
+   "ok": true,
+   "detail": "3FV64ZU22Dzw…"
+  },
+  {
+   "name": "G-Freighter(NEAR MPC)2. session key alone, relayer pays: 0.01 SOL vault -> VENUE through Swig -> Squads policy",
+   "pass": true,
+   "ok": true,
+   "detail": "3rJynbZTKXLv…"
+  },
+  {
+   "name": "G-Freighter(NEAR MPC)3. relayer down, session key pays its own fee: 0.005 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "3iJyHFkxvZcJ…"
+  },
+  {
+   "name": "G-Freighter(NEAR MPC)4. VENUE received exactly 0.015 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.015"
+  },
+  {
+   "name": "G-Freighter(NEAR MPC)5. same session: 0.01 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "G-Freighter(NEAR MPC)6. same session: 0.06 SOL to VENUE (over the per-move limit)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionInvalidNumericValue"
+  },
+  {
+   "name": "G-Freighter(NEAR MPC)7a. a second session for a key with no SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "4iPg3q2HLzFk…"
+  },
+  {
+   "name": "G-Freighter(NEAR MPC)7b. relayer down and the session key has no SOL",
+   "pass": true,
+   "ok": false,
+   "detail": "Attempt to debit an account but found no record of a pri"
+  },
+  {
+   "name": "G-Freighter(NEAR MPC)8. the first session key stopped working when the second started (one live session per wallet)",
+   "pass": true,
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "G10a. a policy that lists the Phantom Swig wallet address with the Execute permission only (mask 4)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NoProposers"
+  },
+  {
+   "name": "G10b. the same wallet with Execute only, next to seat B with Initiate and Vote (mask 3)",
+   "pass": true,
+   "ok": true,
+   "detail": "4ssYSTwdWUwQ…"
+  },
+  {
+   "name": "G10c. the Phantom session alone (Execute only) moves through that policy",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InsufficientAggregatePermissions"
+  },
+  {
+   "name": "N0. seat B proposes a vault transfer and approves it (1 of 2 approvals), so a vote would matter",
+   "pass": true,
+   "ok": true,
+   "detail": "GZkdZrdkeenw…"
+  },
+  {
+   "name": "N1. Phantom session approves that proposal as its Swig wallet address (through Swig)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "N2. Phantom session key approves it as itself (plain transaction)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "N3. Phantom session proposes a vault transaction as its Swig wallet address",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "N4. Phantom session adds its Swig wallet address as a seat (settings sync)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "N4b. Phantom session changes the threshold to 1 (settings sync)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "N5. Phantom session calls the System program as the Swig wallet address (not the Smart Account program)",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDeniedMissingPermission (3006)"
+  },
+  {
+   "name": "N5b. Phantom as OWNER (role 0, root key) signs a move directly: the root role holds no Program action, so only a session can move",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDeniedMissingPermission (3006)"
+  },
+  {
+   "name": "N6. Phantom session adds an All authority for an attacker key (Swig AddAuthority, acting role 1)",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDeniedToManageAuthority (3010)"
+  },
+  {
+   "name": "N6b. Phantom session widens its own role (Swig UpdateAuthority: add All)",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDeniedToManageAuthority (3010)"
+  },
+  {
+   "name": "N7. Phantom session key restarts its own session for the maximum length (Swig CreateSession, session key as the signer)",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDenied (3005)"
+  },
+  {
+   "name": "N8. session builds a Swig sign whose inner call is a System transfer FROM THE RELAYER (fee payer) to the attacker; relayer co-signs",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDeniedAuthorityExternalAssetChange (77)"
+  },
+  {
+   "name": "FINDING N8",
+   "pass": true,
+   "ok": true,
+   "detail": "refused on the devnet-build Swig build (0 lamports reached the attacker). Swig forwards outer signers into the inner call and its Program action only checks instructions that sign with the Swig wallet."
+  },
+  {
+   "name": "N8b. session builds a Swig sign whose inner call is a System createAccount of 10240 bytes funded BY THE RELAYER (0.07 SOL of rent), owner program = Token program",
+   "pass": true,
+   "ok": true,
+   "detail": "rxrxKioKma6P…"
+  },
+  {
+   "name": "FINDING N8b",
+   "pass": true,
+   "ok": true,
+   "detail": "executed on the devnet-build Swig build (relayer balance fell by 0.072 SOL). The relayer must refuse any transaction that lists its key in an instruction account list: that rule makes both attempts impossible."
+  },
+  {
+   "name": "N9-scratch: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "2YU8jHKBuFNC…"
+  },
+  {
+   "name": "N9a. scratch Swig: Phantom starts a session",
+   "pass": true,
+   "ok": true,
+   "detail": "4YMgeCxzRgnZ…"
+  },
+  {
+   "name": "N9b. scratch Swig: the session key removes its own role (Swig RemoveAuthority 1 by 1)",
+   "pass": true,
+   "ok": true,
+   "detail": "5bXXMwKR5rQF…"
+  },
+  {
+   "name": "FINDING N9",
+   "pass": true,
+   "ok": true,
+   "detail": "a session key can delete its own role: roles left on the Swig = 1; the owner (role 0, ManageAuthority) can add the role again with one signature"
+  },
+  {
+   "name": "X0. Smart Account: seats B (MetaMask), C (Freighter), Phantom; threshold 2; vault funded 2 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "2ihCg8xahpDB…"
+  },
+  {
+   "name": "X0-MM: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "5yGdVc51hizU…"
+  },
+  {
+   "name": "X0-PH: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "5ZBLVbS4r31P…"
+  },
+  {
+   "name": "X0b. account B installs its own movers policy (0.1 SOL a day): signers = its two Swig wallet addresses",
+   "pass": true,
+   "ok": true,
+   "detail": "3LoyDegNyo78…"
+  },
+  {
+   "name": "X0c. the Swig wallet addresses of account A and account B differ for the same owners",
+   "pass": true,
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "G9a. account B: MetaMask session",
+   "pass": true,
+   "ok": true,
+   "detail": "ALo1NoWuXvDp…"
+  },
+  {
+   "name": "G9b. account B: Phantom session",
+   "pass": true,
+   "ok": true,
+   "detail": "35dYiRRLSYSo…"
+  },
+  {
+   "name": "G9c. account B daily cap is 0.1 SOL for all wallets: MetaMask moves 0.05",
+   "pass": true,
+   "ok": true,
+   "detail": "3iPjskdG89LE…"
+  },
+  {
+   "name": "G9d. Phantom moves 0.045 (0.095 used)",
+   "pass": true,
+   "ok": true,
+   "detail": "2Yt4BPxN3vSo…"
+  },
+  {
+   "name": "G9e. MetaMask moves 0.01 more (0.105 > 0.1)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionInsufficientLamportAllowance"
+  },
+  {
+   "name": "G9f. Phantom moves 0.005 (exactly 0.1)",
+   "pass": true,
+   "ok": true,
+   "detail": "9Xh7ABF2mqGQ…"
+  },
+  {
+   "name": "X1. Phantom's session key signs a move on MetaMask's Swig (session-key slot swapped)",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDenied (3005)"
+  },
+  {
+   "name": "X2. MetaMask's Solana-account key signs a session start on Phantom's Swig (owner slot swapped)",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDenied (3005)"
+  },
+  {
+   "name": "X2b. a random key signs a session start on Phantom's Swig",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDenied (3005)"
+  },
+  {
+   "name": "X3. another secp256k1 key signs a session start on MetaMask's Swig",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDenied (3005)"
+  },
+  {
+   "name": "X4a. MetaMask session start (signed once)",
+   "pass": true,
+   "ok": true,
+   "detail": "MR1gyACvrKvQ…"
+  },
+  {
+   "name": "X4b. the identical instruction sent again (replay)",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDeniedSecp256k1SignatureReused (3017)"
+  },
+  {
+   "name": "X5-swig1: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "LiBwWJK3bSZn…"
+  },
+  {
+   "name": "X5-swig2: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "5PNkEiVLmNrH…"
+  },
+  {
+   "name": "X5. a MetaMask signature made for Swig 1 presented to Swig 2 (same owner key, same counter; account swapped)",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDenied (3005)"
+  },
+  {
+   "name": "X5b. the same signature on Swig 1 itself works",
+   "pass": true,
+   "ok": true,
+   "detail": "2XcVhXaJdghD…"
+  },
+  {
+   "name": "X6a. a signed session start with the session key replaced by the attacker key",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDenied (3005)"
+  },
+  {
+   "name": "X6b. a signed session start with the duration changed",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDenied (3005)"
+  },
+  {
+   "name": "X6c. a signed session start with the fee payer account swapped",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDenied (3005)"
+  },
+  {
+   "name": "X6d. the untouched signed session start works",
+   "pass": true,
+   "ok": true,
+   "detail": "46aEnkCZHdHu…"
+  },
+  {
+   "name": "X7. a MetaMask signature older than 60 slots",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDeniedSecp256k1InvalidSignature (3015)"
+  },
+  {
+   "name": "X7b. a MetaMask signature that names a slot in the future",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDeniedSecp256k1InvalidSignature (3015)"
+  },
+  {
+   "name": "X8-swig1: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "2Q4jtEUFqgMz…"
+  },
+  {
+   "name": "X8-swig2: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "4zxgNzTF7miH…"
+  },
+  {
+   "name": "X8. Phantom's signature over a session start for Swig 1, reused on a transaction that names Swig 2",
+   "pass": true,
+   "ok": false,
+   "detail": "Signature verification failed"
+  },
+  {
+   "name": "X9. Phantom's account-A session key moves in account B (A's Swig wallet is not a signer of B's policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "X10a. (misconfiguration) account B's 2-of-3 also installs account A's Phantom Swig wallet as a signer of a second policy",
+   "pass": true,
+   "ok": true,
+   "detail": "42MF4yoPgjF9…"
+  },
+  {
+   "name": "X10b. ...then Phantom's one session key moves in account B as well: a Swig session reaches every policy that lists its wallet address",
+   "pass": true,
+   "ok": true,
+   "detail": "ZWYtTsbeVRLW…"
+  },
+  {
+   "name": "FINDING X10",
+   "pass": true,
+   "ok": true,
+   "detail": "the account binding is the policy membership: use one Swig per wallet per Prime Account and never list a Swig wallet address in two accounts"
+  },
+  {
+   "name": "E1. session of 20 slots",
+   "pass": true,
+   "ok": true,
+   "detail": "4bk6UdtdUNwE…"
+  },
+  {
+   "name": "E2. a move inside the 20 slots",
+   "pass": true,
+   "ok": true,
+   "detail": "iD9wwejVEDur…"
+  },
+  {
+   "name": "E3. the same session after its expiry slot 298 (now 299)",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDeniedSessionExpired (3014)"
+  },
+  {
+   "name": "E4. session for exactly the maximum length",
+   "pass": true,
+   "ok": true,
+   "detail": "cD1c8KfrftnB…"
+  },
+  {
+   "name": "E4b. the expiry slot is the landing slot plus the maximum",
+   "pass": true,
+   "ok": true,
+   "detail": "landing 300, expiry 1512300, max 1512000"
+  },
+  {
+   "name": "E5. session for the maximum plus one slot",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig InvalidSessionDuration (3022)"
+  },
+  {
+   "name": "E5b. the maximum itself is on the role, and the owner cannot lengthen it without changing the role (checked in H2)",
+   "pass": true,
+   "ok": true,
+   "detail": "3KbiE4SekTFR…"
+  },
+  {
+   "name": "R-MetaMask(secp256k1)1. fresh session",
+   "pass": true,
+   "ok": true,
+   "detail": "2gqPPrXLZZAf…"
+  },
+  {
+   "name": "R-MetaMask(secp256k1)2. it works",
+   "pass": true,
+   "ok": true,
+   "detail": "5QcX8nst8FMA…"
+  },
+  {
+   "name": "R-MetaMask(secp256k1)3. the owner revokes: one owner signature starts a session for a dead key with duration 0",
+   "pass": true,
+   "ok": true,
+   "detail": "2fDPMWkz7SKD…"
+  },
+  {
+   "name": "R-MetaMask(secp256k1)4. the revoked session key (its key slot is gone: the role now names a dead key)",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDenied (3005)"
+  },
+  {
+   "name": "R-MetaMask(secp256k1)5. another wallet's session is unaffected (Phantom)",
+   "pass": true,
+   "ok": true,
+   "detail": "2XiiD2eoTbah…"
+  },
+  {
+   "name": "R-MetaMask(secp256k1)6. a new session on the same wallet",
+   "pass": true,
+   "ok": true,
+   "detail": "WiBVsmjVc2Jy…"
+  },
+  {
+   "name": "R-MetaMask(secp256k1)7. the new session works",
+   "pass": true,
+   "ok": true,
+   "detail": "5weDDoRvaKed…"
+  },
+  {
+   "name": "R-MetaMask(Solana acct)1. fresh session",
+   "pass": true,
+   "ok": true,
+   "detail": "2kyYMxF52qQG…"
+  },
+  {
+   "name": "R-MetaMask(Solana acct)2. it works",
+   "pass": true,
+   "ok": true,
+   "detail": "4wqAfoxpJ3sm…"
+  },
+  {
+   "name": "R-MetaMask(Solana acct)3. the owner revokes: one owner signature starts a session for a dead key with duration 0",
+   "pass": true,
+   "ok": true,
+   "detail": "S2vBkVtJyQVF…"
+  },
+  {
+   "name": "R-MetaMask(Solana acct)4. the revoked session key (its key slot is gone: the role now names a dead key)",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDenied (3005)"
+  },
+  {
+   "name": "R-MetaMask(Solana acct)5. another wallet's session is unaffected (MetaMask(secp256k1))",
+   "pass": true,
+   "ok": true,
+   "detail": "4Pnjt8rcgcG4…"
+  },
+  {
+   "name": "R-MetaMask(Solana acct)6. a new session on the same wallet",
+   "pass": true,
+   "ok": true,
+   "detail": "62b3mSrCgm7g…"
+  },
+  {
+   "name": "R-MetaMask(Solana acct)7. the new session works",
+   "pass": true,
+   "ok": true,
+   "detail": "5VJ1srTHT3PZ…"
+  },
+  {
+   "name": "R-Phantom1. fresh session",
+   "pass": true,
+   "ok": true,
+   "detail": "41eJq2qoMB6Q…"
+  },
+  {
+   "name": "R-Phantom2. it works",
+   "pass": true,
+   "ok": true,
+   "detail": "4raK6bGZov7p…"
+  },
+  {
+   "name": "R-Phantom3. the owner revokes: one owner signature starts a session for a dead key with duration 0",
+   "pass": true,
+   "ok": true,
+   "detail": "37wjoCsX7iUq…"
+  },
+  {
+   "name": "R-Phantom4. the revoked session key (its key slot is gone: the role now names a dead key)",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDenied (3005)"
+  },
+  {
+   "name": "R-Phantom5. another wallet's session is unaffected (MetaMask(secp256k1))",
+   "pass": true,
+   "ok": true,
+   "detail": "3drpBMhySGp5…"
+  },
+  {
+   "name": "R-Phantom6. a new session on the same wallet",
+   "pass": true,
+   "ok": true,
+   "detail": "3eJjhYLVKdgP…"
+  },
+  {
+   "name": "R-Phantom7. the new session works",
+   "pass": true,
+   "ok": true,
+   "detail": "rknwdbHBKdNT…"
+  },
+  {
+   "name": "R-Freighter(NEAR MPC)1. fresh session",
+   "pass": true,
+   "ok": true,
+   "detail": "2jiiWBoxNXb1…"
+  },
+  {
+   "name": "R-Freighter(NEAR MPC)2. it works",
+   "pass": true,
+   "ok": true,
+   "detail": "2rn3decP1wYz…"
+  },
+  {
+   "name": "R-Freighter(NEAR MPC)3. the owner revokes: one owner signature starts a session for a dead key with duration 0",
+   "pass": true,
+   "ok": true,
+   "detail": "5ysStqpeduus…"
+  },
+  {
+   "name": "R-Freighter(NEAR MPC)4. the revoked session key (its key slot is gone: the role now names a dead key)",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDenied (3005)"
+  },
+  {
+   "name": "R-Freighter(NEAR MPC)5. another wallet's session is unaffected (MetaMask(secp256k1))",
+   "pass": true,
+   "ok": true,
+   "detail": "5jvvqJs7fp2o…"
+  },
+  {
+   "name": "R-Freighter(NEAR MPC)6. a new session on the same wallet",
+   "pass": true,
+   "ok": true,
+   "detail": "4Y2kvu9FAQrj…"
+  },
+  {
+   "name": "R-Freighter(NEAR MPC)7. the new session works",
+   "pass": true,
+   "ok": true,
+   "detail": "5B63HvQ7U5qs…"
+  },
+  {
+   "name": "R2a. (Phantom) the owner signs a grant for key K1; the relayer withholds it. The owner then revokes by starting a session for a dead key",
+   "pass": true,
+   "ok": true,
+   "detail": "3EPpaYPU6eAw…"
+  },
+  {
+   "name": "R2b. the relayer now sends the withheld grant (still inside its blockhash lifetime)",
+   "pass": true,
+   "ok": true,
+   "detail": "67MBVx13d9Vi…"
+  },
+  {
+   "name": "FINDING R2",
+   "pass": true,
+   "ok": true,
+   "detail": "a revoked ed25519 session came back: K1 is live again (true). A Swig revoke overwrites the session key; it does not bar K1 for good, so an earlier owner-signed grant that was never sent can be sent after it, for as long as its blockhash lives (150 slots, about 40 seconds at today's slot time)."
+  },
+  {
+   "name": "R2c. (MetaMask) the revoke, signed after the grant but before it was sent, goes first",
+   "pass": true,
+   "ok": true,
+   "detail": "Tbp3VfHQPxfF…"
+  },
+  {
+   "name": "R2d. (MetaMask) the withheld grant sent afterwards",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDeniedSecp256k1SignatureReused (3017)"
+  },
+  {
+   "name": "fresh session on Phantom",
+   "pass": true,
+   "ok": true,
+   "detail": "4N8S91LbkesL…"
+  },
+  {
+   "name": "M0. Phantom session: one relayed move through Swig and the Squads policy (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "pmDRaGbiRKSp…"
+  },
+  {
+   "name": "M1. Phantom session: one relayed move through Swig and the Squads policy (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "5n1d9Rm5UzRE…"
+  },
+  {
+   "name": "M2. Phantom session: one relayed move through Swig and the Squads policy (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "v3zTUCFQ6xYh…"
+  },
+  {
+   "name": "M3. Phantom session: one relayed move through Swig and the Squads policy (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "etU78Luz2fTv…"
+  },
+  {
+   "name": "M4. Phantom session: one relayed move through Swig and the Squads policy (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "31mfKUzoDk6V…"
+  },
+  {
+   "name": "M5. Phantom session: one relayed move through Swig and the Squads policy (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "4oQGDLR2wCGU…"
+  },
+  {
+   "name": "M6. Phantom session: one relayed move through Swig and the Squads policy (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "vrVxFff6wako…"
+  },
+  {
+   "name": "M7. Phantom session: one relayed move through Swig and the Squads policy (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "2K9m6Qv1x8pH…"
+  },
+  {
+   "name": "M8. Phantom session: one relayed move through Swig and the Squads policy (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "4PGR2sPRZLhG…"
+  },
+  {
+   "name": "M9. Phantom session: one relayed move through Swig and the Squads policy (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "63yCsSXnqxPN…"
+  },
+  {
+   "name": "M-combo-MetaMask(secp256k1). one transaction: owner starts the session and the new key makes its first move",
+   "pass": true,
+   "ok": true,
+   "detail": "5uiVT2M7vV7Y…"
+  },
+  {
+   "name": "M-combo-Phantom. one transaction: owner starts the session and the new key makes its first move",
+   "pass": true,
+   "ok": true,
+   "detail": "3nsHBi1RPDVc…"
+  },
+  {
+   "name": "M-combo-Freighter(NEAR MPC). one transaction: owner starts the session and the new key makes its first move",
+   "pass": true,
+   "ok": true,
+   "detail": "4QzntSM56TM6…"
+  },
+  {
+   "name": "M2-0. Smart Account: seats B (MetaMask), C (Freighter), Phantom; threshold 2; vault funded 2 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "21r9JiyC4A9F…"
+  },
+  {
+   "name": "M2-swig0: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "9SjCBpDpBuzW…"
+  },
+  {
+   "name": "M2-p0. policy with three signers: this Swig wallet address and two other keys",
+   "pass": true,
+   "ok": true,
+   "detail": "5Bst8ocwQBR2…"
+  },
+  {
+   "name": "M2-g0. session on Swig 0",
+   "pass": true,
+   "ok": true,
+   "detail": "4A2AnA2d3oa7…"
+  },
+  {
+   "name": "M2-m0. one relayed move on Swig 0 (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "53rDKbq8qcn7…"
+  },
+  {
+   "name": "M2-1. Smart Account: seats B (MetaMask), C (Freighter), Phantom; threshold 2; vault funded 2 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "2Tm26tWRtiSP…"
+  },
+  {
+   "name": "M2-swig1: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "5vigFNknBLEh…"
+  },
+  {
+   "name": "M2-p1. policy with three signers: this Swig wallet address and two other keys",
+   "pass": true,
+   "ok": true,
+   "detail": "evbQMt3yKSFF…"
+  },
+  {
+   "name": "M2-g1. session on Swig 1",
+   "pass": true,
+   "ok": true,
+   "detail": "5oNFk2uBfaat…"
+  },
+  {
+   "name": "M2-m1. one relayed move on Swig 1 (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "K2FpNGCzfLos…"
+  },
+  {
+   "name": "M2-2. Smart Account: seats B (MetaMask), C (Freighter), Phantom; threshold 2; vault funded 2 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "4xf4Ya1YPQe9…"
+  },
+  {
+   "name": "M2-swig2: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "49EewyjVuAun…"
+  },
+  {
+   "name": "M2-p2. policy with three signers: this Swig wallet address and two other keys",
+   "pass": true,
+   "ok": true,
+   "detail": "3MEDvnGVGfu3…"
+  },
+  {
+   "name": "M2-g2. session on Swig 2",
+   "pass": true,
+   "ok": true,
+   "detail": "2h8w4FCAyjvQ…"
+  },
+  {
+   "name": "M2-m2. one relayed move on Swig 2 (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "4GhxPP3EiCf3…"
+  },
+  {
+   "name": "M2-3. Smart Account: seats B (MetaMask), C (Freighter), Phantom; threshold 2; vault funded 2 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "4ZXX8geHtgan…"
+  },
+  {
+   "name": "M2-swig3: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "2u49eiuC2wu1…"
+  },
+  {
+   "name": "M2-p3. policy with three signers: this Swig wallet address and two other keys",
+   "pass": true,
+   "ok": true,
+   "detail": "4z6zRpyunfQs…"
+  },
+  {
+   "name": "M2-g3. session on Swig 3",
+   "pass": true,
+   "ok": true,
+   "detail": "4zgbw2pa7pHz…"
+  },
+  {
+   "name": "M2-m3. one relayed move on Swig 3 (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "2Er4PrzFJwVU…"
+  },
+  {
+   "name": "M2-4. Smart Account: seats B (MetaMask), C (Freighter), Phantom; threshold 2; vault funded 2 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "2EEspKXg6bRm…"
+  },
+  {
+   "name": "M2-swig4: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "2GRLCUZ9UsWx…"
+  },
+  {
+   "name": "M2-p4. policy with three signers: this Swig wallet address and two other keys",
+   "pass": true,
+   "ok": true,
+   "detail": "2Ejsc41rB2Y7…"
+  },
+  {
+   "name": "M2-g4. session on Swig 4",
+   "pass": true,
+   "ok": true,
+   "detail": "KPzhntUEc4ZW…"
+  },
+  {
+   "name": "M2-m4. one relayed move on Swig 4 (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "4fS9EgPqHnHw…"
+  },
+  {
+   "name": "M2-5. Smart Account: seats B (MetaMask), C (Freighter), Phantom; threshold 2; vault funded 2 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "4MHU1egYqGyc…"
+  },
+  {
+   "name": "M2-swig5: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "35Woz84u5S5x…"
+  },
+  {
+   "name": "M2-p5. policy with three signers: this Swig wallet address and two other keys",
+   "pass": true,
+   "ok": true,
+   "detail": "4cMuYo5Tuq2Q…"
+  },
+  {
+   "name": "M2-g5. session on Swig 5",
+   "pass": true,
+   "ok": true,
+   "detail": "aUg87Aywzgcp…"
+  },
+  {
+   "name": "M2-m5. one relayed move on Swig 5 (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "4odeojFPNPXQ…"
+  },
+  {
+   "name": "M2-6. Smart Account: seats B (MetaMask), C (Freighter), Phantom; threshold 2; vault funded 2 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "2cKwHmmWPe5g…"
+  },
+  {
+   "name": "M2-swig6: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "3SHNnjdH4peB…"
+  },
+  {
+   "name": "M2-p6. policy with three signers: this Swig wallet address and two other keys",
+   "pass": true,
+   "ok": true,
+   "detail": "28CMTy26NqGc…"
+  },
+  {
+   "name": "M2-g6. session on Swig 6",
+   "pass": true,
+   "ok": true,
+   "detail": "5yVyB3vf3Dta…"
+  },
+  {
+   "name": "M2-m6. one relayed move on Swig 6 (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "3YUQLXVjuTUZ…"
+  },
+  {
+   "name": "M2-7. Smart Account: seats B (MetaMask), C (Freighter), Phantom; threshold 2; vault funded 2 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "5vuSScdqJNQf…"
+  },
+  {
+   "name": "M2-swig7: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "2BTG3ThowXq9…"
+  },
+  {
+   "name": "M2-p7. policy with three signers: this Swig wallet address and two other keys",
+   "pass": true,
+   "ok": true,
+   "detail": "33ddenk7SFzP…"
+  },
+  {
+   "name": "M2-g7. session on Swig 7",
+   "pass": true,
+   "ok": true,
+   "detail": "32N5ioHrebNk…"
+  },
+  {
+   "name": "M2-m7. one relayed move on Swig 7 (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "hUAhW8Dcozc9…"
+  },
+  {
+   "name": "M2-8. Smart Account: seats B (MetaMask), C (Freighter), Phantom; threshold 2; vault funded 2 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "SPfkeBvBCJT8…"
+  },
+  {
+   "name": "M2-swig8: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "4nGrDB8owk8X…"
+  },
+  {
+   "name": "M2-p8. policy with three signers: this Swig wallet address and two other keys",
+   "pass": true,
+   "ok": true,
+   "detail": "xB7KUV8FB3DF…"
+  },
+  {
+   "name": "M2-g8. session on Swig 8",
+   "pass": true,
+   "ok": true,
+   "detail": "2rNXkqWw37oj…"
+  },
+  {
+   "name": "M2-m8. one relayed move on Swig 8 (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "nVQS6rbmtqVp…"
+  },
+  {
+   "name": "M2-9. Smart Account: seats B (MetaMask), C (Freighter), Phantom; threshold 2; vault funded 2 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "2FFGjAiobRny…"
+  },
+  {
+   "name": "M2-swig9: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "2ux7oozzk9T4…"
+  },
+  {
+   "name": "M2-p9. policy with three signers: this Swig wallet address and two other keys",
+   "pass": true,
+   "ok": true,
+   "detail": "3CU1oCDTe3pX…"
+  },
+  {
+   "name": "M2-g9. session on Swig 9",
+   "pass": true,
+   "ok": true,
+   "detail": "5iGr8i1E4rLH…"
+  },
+  {
+   "name": "M2-m9. one relayed move on Swig 9 (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "4Zw28d5DRJVT…"
+  },
+  {
+   "name": "T0. Smart Account: seats B (MetaMask), C (Freighter), Phantom; threshold 2; vault funded 2 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "3bBHqEXA7Wh6…"
+  },
+  {
+   "name": "T0-PH: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "5hRyyo9qqEhV…"
+  },
+  {
+   "name": "T0b. mint with 6 decimals (relayer is the authority)",
+   "pass": true,
+   "ok": true,
+   "detail": "42zgGQkQUYyW…"
+  },
+  {
+   "name": "T0c. vault token account (owner = the Smart Account vault) with 1000 tokens, and the venue token account",
+   "pass": true,
+   "ok": true,
+   "detail": "5ScYBkYT1P3e…"
+  },
+  {
+   "name": "T1. the 2-of-3 installs a token policy: Token transfer <= 100 tokens to the venue account, Token approve <= 50 tokens for the venue, ATA creation",
+   "pass": true,
+   "ok": true,
+   "detail": "21x5RFsCDhvh…"
+  },
+  {
+   "name": "T2a. Phantom session on the token account",
+   "pass": true,
+   "ok": true,
+   "detail": "4DFNaz85LDpk…"
+  },
+  {
+   "name": "T2. session moves 10 tokens vault -> venue (SPL transfer through Swig and Squads)",
+   "pass": true,
+   "ok": true,
+   "detail": "46bRfLAfav8B…"
+  },
+  {
+   "name": "T2b. the venue token account received exactly 10 tokens",
+   "pass": true,
+   "ok": true,
+   "detail": "10"
+  },
+  {
+   "name": "T3. session moves 10 tokens to a token account the policy does not list",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "T4. session moves 200 tokens (over the 100 limit)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionInvalidNumericValue"
+  },
+  {
+   "name": "T5. session sets the venue as delegate of the vault token account for 20 tokens (SPL approve through Swig)",
+   "pass": true,
+   "ok": true,
+   "detail": "2meZXFMcghiB…"
+  },
+  {
+   "name": "T5b. the delegate is set on the vault token account",
+   "pass": true,
+   "ok": true,
+   "detail": "3eP6TxdLs14Tem9bCYqA2xNfzSsreW5N3pMGXLNkJuPo"
+  },
+  {
+   "name": "T6. session creates the other party's token account, rent paid by the vault",
+   "pass": true,
+   "ok": true,
+   "detail": "58wHxLR8yRvb…"
+  },
+  {
+   "name": "T7. session creates a token account with the RELAYER as rent payer inside the move",
+   "pass": true,
+   "ok": true,
+   "detail": "2vEGutdGDiSf…"
+  },
+  {
+   "name": "FINDING T7",
+   "pass": true,
+   "ok": true,
+   "detail": "executed (relayer paid 0.00204928 SOL); the relayer rule applies to a policy that allows account creation"
+  },
+  {
+   "name": "fresh session on Freighter(NEAR MPC)",
+   "pass": true,
+   "ok": true,
+   "detail": "2FbwW2Vf94HF…"
+  },
+  {
+   "name": "fresh session on MetaMask(secp256k1)",
+   "pass": true,
+   "ok": true,
+   "detail": "3f4Q3ccjRihf…"
+  },
+  {
+   "name": "D0. Freighter session works before the removal",
+   "pass": true,
+   "ok": true,
+   "detail": "416NawEptZ8w…"
+  },
+  {
+   "name": "D1. seats B (MetaMask) and Phantom update the policy: Freighter's Swig wallet address is dropped",
+   "pass": true,
+   "ok": true,
+   "detail": "rNW3BFQQbJ5E…"
+  },
+  {
+   "name": "D2. the live Freighter session after the removal",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "D3. the MetaMask session keeps working",
+   "pass": true,
+   "ok": true,
+   "detail": "2RyQkME3rG7K…"
+  },
+  {
+   "name": "D4. the 2-of-3 puts Freighter back",
+   "pass": true,
+   "ok": true,
+   "detail": "23RLdETPAWsj…"
+  },
+  {
+   "name": "D5. the same, still unexpired Freighter session works again",
+   "pass": true,
+   "ok": true,
+   "detail": "3cY51H5eWn2V…"
+  },
+  {
+   "name": "FINDING D5",
+   "pass": true,
+   "ok": true,
+   "detail": "removing a Swig wallet from the policy stops its sessions but does not revoke them: if the wallet is added back, an unexpired session works again (prime-session behaves the same unless the key was revoked)"
+  },
+  {
+   "name": "D6. B and C remove the whole policy (kill switch)",
+   "pass": true,
+   "ok": true,
+   "detail": "Jp5GXsSGv7Zj…"
+  },
+  {
+   "name": "D7. any session move after the policy is gone",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: AccountNotInitialized"
+  },
+  {
+   "name": "H1: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "phTg8ouK1jtP…"
+  },
+  {
+   "name": "H1a. Swig whose session role also holds ManageAuthority: Phantom starts a session",
+   "pass": true,
+   "ok": true,
+   "detail": "2JBskaeoW8GC…"
+  },
+  {
+   "name": "H1b. the session key adds an All authority for an attacker key (acting as its own role)",
+   "pass": true,
+   "ok": true,
+   "detail": "okgKkPf1CtUL…"
+  },
+  {
+   "name": "H1c. the attacker key then moves SOL out of the Swig wallet with no session at all",
+   "pass": true,
+   "ok": true,
+   "detail": "FbqiXbERzPEB…"
+  },
+  {
+   "name": "FINDING H1",
+   "pass": true,
+   "ok": true,
+   "detail": "a session role must never hold ManageAuthority: the attacker role has no expiry (moved 5000000 lamports)"
+  },
+  {
+   "name": "H2a. the owner (role 0, ManageAuthority) adds a second session role with ten times the maximum length",
+   "pass": true,
+   "ok": true,
+   "detail": "2TUmYKWziXrB…"
+  },
+  {
+   "name": "H2b. the owner starts a session of 15120000 slots on that role",
+   "pass": true,
+   "ok": true,
+   "detail": "3GzU61ybzT87…"
+  },
+  {
+   "name": "FINDING H2",
+   "pass": true,
+   "ok": true,
+   "detail": "with the owner as role 0, the 7-day cap binds the session key and not the owner (the owner can add a longer role). The frozen variant below removes that."
+  },
+  {
+   "name": "H3a. an attacker creates a Swig at the id the app meant to use, with the attacker as root",
+   "pass": true,
+   "ok": true,
+   "detail": "oHX3VgZSobVW…"
+  },
+  {
+   "name": "H3b. the app creates its Swig at the same id",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig OwnerMismatchSwigAccount (1)"
+  },
+  {
+   "name": "H3c. the squatted Swig is owned by the attacker, so the app must read role 0 before the 2-of-3 lists a wallet address",
+   "pass": true,
+   "ok": true,
+   "detail": "role 0 = attacker"
+  },
+  {
+   "name": "H4a. frozen variant: one transaction creates the Swig with a throwaway root key E, adds the owner session role, and replaces E with the vault address",
+   "pass": true,
+   "ok": true,
+   "detail": "3PXGi3daXCYy…"
+  },
+  {
+   "name": "H4b. role 0 is now the vault address, not E",
+   "pass": true,
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "H4c. E can no longer add an authority",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDenied (3005)"
+  },
+  {
+   "name": "H4d. the owner cannot add a longer role (it holds no admin role)",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig PermissionDenied (3005)"
+  },
+  {
+   "name": "H4e. the 2-of-3 cannot act as the admin either: Swig refuses any admin call that arrives by CPI",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig Cpi (8)"
+  },
+  {
+   "name": "H4f. the owner still starts sessions on the frozen Swig",
+   "pass": true,
+   "ok": true,
+   "detail": "47HYuBDTeScU…"
+  },
+  {
+   "name": "H4j. frozen variant for a MetaMask (secp256k1) owner: create, add the session role, hand role 0 to the vault, one transaction, no owner signature",
+   "pass": true,
+   "ok": true,
+   "detail": "3tGe7RXjsxLK…"
+  },
+  {
+   "name": "H4k. the MetaMask owner starts a session on the frozen Swig (one personal_sign)",
+   "pass": true,
+   "ok": true,
+   "detail": "2kRzLSScANM1…"
+  },
+  {
+   "name": "H4l. the frozen MetaMask Swig has role 0 = the vault and the maximum from creation",
+   "pass": true,
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "H4g. the frozen Swig keeps the maximum from the first transaction",
+   "pass": true,
+   "ok": true,
+   "detail": "1512000"
+  },
+  {
+   "name": "H4h. frozen Swig: the session key removes its own role",
+   "pass": true,
+   "ok": true,
+   "detail": "5XrBw7TEc521…"
+  },
+  {
+   "name": "H4i. ...then the owner cannot start a session any more, and nobody can add the role back: the 2-of-3 must replace the Swig (new Swig, policy update)",
+   "pass": true,
+   "ok": false,
+   "detail": "Swig InvalidAuthorityNotFoundByRoleId (12)"
+  }
+ ]
+}

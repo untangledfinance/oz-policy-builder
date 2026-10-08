@@ -1,0 +1,4 @@
+MetaMask Solana account F1cHwv19DfiWG9Bcr1Bn5LtukwGM1RfFrqtJuqaD5Uvu
+1. grant text: 5349 ms, verifies over the plain UTF-8 bytes: true
+2. transaction: 3093 ms; instructions ComputeB:9 MemoSq4g:23 ComputeB:5; price 10000 micro-lamports; limit 23594 (simulated 23294 + 300); fee payer signature empty; verifies over the returned message: true; over our original message: false
+3. tx message through signMessage: valid transaction signature false; verifies over the lossy-decoded, NUL-stripped bytes true (160 bytes became 269)

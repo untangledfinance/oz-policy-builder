@@ -1,0 +1,32 @@
+{
+  label: "near",
+  near: true,
+  maxSlots: "1512000",
+  swig: "swigypWHEksbC64pWKwah1WTeh9JXwx8H1rJHLdbQMB",
+  squads: "SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG",
+  freighterOwner: "GgnRgm9eVt6TNUNQUm13Nr9Zo7Mkv2Lvdm7nma6uzLZj",
+  phantom: "GyxTPX2YRMLHUWwLgnDxh634oB9b19mpgPY45mjJmRdm",
+  mmSolana: "GsNFKjmuNFg5meVpqZajV8z6LpoSsmbHVH7sEnbv3yz",
+  metamask: "0x712A7aD2b9B84932E485dE58f2eC8E302217C9CF",
+}
+Swig ProgramData length on this validator: 392749 (296888 = mainnet bytes, 392704 = devnet bytes)
+PASS F0. Smart Account: seats B (MetaMask), C (Freighter), Phantom; threshold 2; vault funded 2 SOL | ok 3nTpNc7ok7cL…
+PASS F0-FR: relayer creates the Swig wallet; owner root (ManageAuthority) + owner session role (Smart Account program only, max 1512000 slots); one owner signature | ok QKjLNyWbGpWP…
+METRIC swig-setup {"totalCu":12653,"swigCu":9230,"bytes":582,"fee":10000,"ms":8863}
+PASS F1. the 2-of-3 installs the policy with the Freighter Swig wallet address | ok 1sRbnvKWdmEQ…
+PASS F2. Freighter starts a session: one SEP-53 signature, the signer contract, the NEAR MPC signs the Solana transaction | ok 2bpeK1UNY9xX…
+METRIC grant-freighter-mpc {"totalCu":1009,"swigCu":1009,"bytes":349,"fee":10000,"ms":8706}
+PASS F3. session key alone, relayer pays: 0.01 SOL vault -> VENUE | ok 2mZ8Lf2YfgLX…
+PASS F4. relayer down, session key pays: 0.005 SOL | ok 38pj2WEpqTv8…
+PASS F5. VENUE received exactly 0.015 SOL | ok 0.015
+PASS F6. same session: 0.01 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS F7. a session start signed by some other key | refused: Signature verification failed
+PASS F8. the owner revokes (a session for a dead key, 0 slots): one MPC signature | ok 3SPsYp7h4EUM…
+METRIC revoke-freighter-mpc {"totalCu":1009,"swigCu":1009,"bytes":349,"fee":10000,"ms":8382}
+PASS F9. the revoked session key | refused: Swig PermissionDenied (3005)
+PASS F10. the relayer sends the grant it withheld before the revoke (still inside its blockhash lifetime) | ok 5K48z825rQKe…
+PASS F11. one transaction: the MPC-signed session start and the new key first move | ok 2KoD94HoQZSA…
+METRIC grant-and-first-move-freighter-mpc {"totalCu":40112,"swigCu":1009,"squadsCu":1052,"bytes":712,"fee":15000,"ms":8255}
+NEAR MPC signatures: 5, average 8.2 s
+
+13/13 passed

@@ -1,0 +1,9 @@
+OK   swig create (root MetaMask, All)
+OK   MetaMask adds its session role (Smart Account program only)
+OK   Smart Account with the Swig wallet W, B, C as settings signers; threshold 2
+OK   MetaMask starts a session on W
+OK   W3a. createTransaction with the session key as rent payer, session key pays the fee
+OK   W3b. createTransaction (index 2) with the relayer as rent payer and fee payer
+OK   W3b2. the three W3 instructions in one Swig sign, session key as rent payer and fee payer (index 3)
+OK   W3c. + createProposal + approveProposal as the Swig wallet, relayer pays (index 4)
+OK   W4. seat B approves and executes proposal 4: 2 of 3 with the Swig wallet as one seat

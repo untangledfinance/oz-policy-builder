@@ -1,0 +1,935 @@
+{
+ "program": "FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G",
+ "programB": "J38gUL2YFo91GDBnDXwVDaGpk6XWSJUhs7RuditRdiVo",
+ "sessionOwners": {
+  "MetaMask": "FGaZkHnnqWdGtGHwYBNg3XFJW9euiqWa9ParoHMfRWPX",
+  "Freighter": "GgnRgm9eVt6TNUNQUm13Nr9Zo7Mkv2Lvdm7nma6uzLZj",
+  "Phantom": "G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4"
+ },
+ "settings": "Ag9vMuGq3FZyQtJM4QmedQ7iFQjD4iTMrsnttnrpno5V",
+ "policy": "HjpBmYpiJ1xz85jUMWiKKWfLF8R8zo4nQe4zDh4YKL9M",
+ "policySeed": 1,
+ "settingsB": "3g22u1APJ22M8gQ9iJY3qoiXYXCjdw341y2dzXaT1NbJ",
+ "policyB": "8mz5qwjYHSTTMKyYY2GmZkaYNySiRZrS5TF28kBVrQCw",
+ "mpc": {
+  "calls": 35,
+  "ms": 293637
+ },
+ "metrics": {
+  "seat-propose-K2-MetaMask": {
+   "totalCu": 60014,
+   "bytes": 579,
+   "fee": 10000
+  },
+  "seat-exec-K2-Freighter": {
+   "totalCu": 49691,
+   "bytes": 490,
+   "fee": 10000
+  },
+  "seat-propose-K3-Freighter": {
+   "totalCu": 68828,
+   "bytes": 579,
+   "fee": 10000
+  },
+  "seat-exec-K3-Phantom": {
+   "totalCu": 52819,
+   "bytes": 490,
+   "fee": 10000
+  },
+  "seat-propose-K4-Phantom": {
+   "totalCu": 66020,
+   "bytes": 579,
+   "fee": 10000
+  },
+  "seat-exec-K4-MetaMask": {
+   "totalCu": 49866,
+   "bytes": 490,
+   "fee": 10000
+  },
+  "move-MetaMask-relayed": {
+   "totalCu": 56385,
+   "primeSessionCu": 56385,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-Freighter-relayed": {
+   "totalCu": 54884,
+   "primeSessionCu": 54884,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-Phantom-relayed": {
+   "totalCu": 54853,
+   "primeSessionCu": 54853,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-sample-0": {
+   "totalCu": 51885,
+   "primeSessionCu": 51885,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-sample-1": {
+   "totalCu": 53385,
+   "primeSessionCu": 53385,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-sample-2": {
+   "totalCu": 54885,
+   "primeSessionCu": 54885,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-sample-3": {
+   "totalCu": 57885,
+   "primeSessionCu": 57885,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-sample-4": {
+   "totalCu": 53372,
+   "primeSessionCu": 53372,
+   "bytes": 974,
+   "fee": 15000
+  },
+  "move-sample-5": {
+   "totalCu": 51885,
+   "primeSessionCu": 51885,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-sample-6": {
+   "totalCu": 51885,
+   "primeSessionCu": 51885,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-sample-7": {
+   "totalCu": 51885,
+   "primeSessionCu": 51885,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-sample-8": {
+   "totalCu": 59385,
+   "primeSessionCu": 59385,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-sample-9": {
+   "totalCu": 51885,
+   "primeSessionCu": 51885,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "moveCu": {
+   "samples": [
+    51885,
+    51885,
+    51885,
+    51885,
+    51885,
+    53372,
+    53385,
+    54885,
+    57885,
+    59385
+   ],
+   "min": 51885,
+   "median": 52628.5,
+   "max": 59385,
+   "txBytes": 975
+  },
+  "revoke": {
+   "totalCu": 22229,
+   "primeSessionCu": 22229,
+   "bytes": 726,
+   "fee": 10000
+  },
+  "revokeRent": {
+   "lamports": 890880,
+   "dataBytes": 0,
+   "owner": "FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G"
+  },
+  "relayerSpend": {
+   "net": "localnet",
+   "spentLamports": 4092309680,
+   "vaultFundingLamports": 4000000000,
+   "sessionKeysFunded": 41,
+   "sessionKeyFundingDevnetLamports": 82000000,
+   "devnetEstimateLamports": 674309680
+  }
+ },
+ "results": [
+  {
+   "name": "P0. seats are exactly MetaMask(NEAR MPC), Freighter(NEAR MPC), Phantom(own key); threshold 2; vault funded",
+   "pass": true,
+   "ok": true,
+   "detail": "5f6YkhS6MLTCxqyEas4aas8HqTbR3FT3tNnT1AvuhGGqGvdEjfDPRxPdAFmZWaYkMXXENJ37UFYfLecbUZpmwDdT"
+  },
+  {
+   "name": "K1-MetaMask. MetaMask alone:a. MetaMask proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "2wFE35sZTP5Q68kUp4MAf68bE15sEBHe28T8nFsRx69ZugDvQW65MXxhnki9HRYppaJvetpBMXHyzUa8zJdJgEyP"
+  },
+  {
+   "name": "K1-MetaMask. MetaMask alone:b. MetaMask executes with only its own approval",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidProposalStatus"
+  },
+  {
+   "name": "K1-Freighter. Freighter alone:a. Freighter proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "SuDfzQsHJsALuuifZEcKyPo73h3RB1KTWSzLx9Dim1LGzr9hKAd1nMU5KJ6gH9dSPkFfch6K89Vyx8nwz69hxKU"
+  },
+  {
+   "name": "K1-Freighter. Freighter alone:b. Freighter executes with only its own approval",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidProposalStatus"
+  },
+  {
+   "name": "K1-Phantom. Phantom alone:a. Phantom proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "4HGZ88DGBWBMyaVD1FRW4776VZUrKa48AFoXPUJQjzfrg9wgSgQQqfbyMhySfGLeVKNHJuab6dk1sy8wTfd8wqVH"
+  },
+  {
+   "name": "K1-Phantom. Phantom alone:b. Phantom executes with only its own approval",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidProposalStatus"
+  },
+  {
+   "name": "K2. MetaMask + Freighter:a. MetaMask proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "ayD5vJtRwcDib3HhNEDiMNLpjQejv3iDaFrWxcUDnQ4NUVE627QaH41YoZswy8gspA7E4vZ3EZLdNgBAWQpCqaB"
+  },
+  {
+   "name": "K2. MetaMask + Freighter:b. Freighter approves and executes",
+   "pass": true,
+   "ok": true,
+   "detail": "4jETfDJEGkBgHRs8HPHsEovtUcRmQzCEWn7LJ2LPGL6ys8pL8b4A9Q6evaqKwuEkuQGMZ5tN78Y8dCDzt7oLftzN"
+  },
+  {
+   "name": "K3. Freighter + Phantom:a. Freighter proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "2W3cxbtGe9DhWWJ4f41EehHXownULZs5ZXr4DbKzEAGSLB9TmRdUmdd9pMLuU1iwYFZjanA5kRUB7NsAxjeiDgzM"
+  },
+  {
+   "name": "K3. Freighter + Phantom:b. Phantom approves and executes",
+   "pass": true,
+   "ok": true,
+   "detail": "4YmYTmEyTtu1EPsHybn8f8oCbfZPVH4UMpfwE7ajDd9RW48UBeWRUL9xAky6TNfBXSMAMF4GUdX4LwPLmVMHPxZM"
+  },
+  {
+   "name": "K4. Phantom + MetaMask:a. Phantom proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "5Fh7AEpjVMgSDzYYwsG1GkvZgX8zkkE3EMP86LJw5aUTzEYAJUQds6z78kU9tE9MR5VgGmi7uEyUtC5Cb4G1YbZ5"
+  },
+  {
+   "name": "K4. Phantom + MetaMask:b. MetaMask approves and executes",
+   "pass": true,
+   "ok": true,
+   "detail": "5nQHR5Mwi8DEvrjiaurb2PMTGnTe242sKR8jL68EFCsv32MZ1wbYJc8DBXSR7KFruZZjyjw9a4HXrY7A4UbZhGAZ"
+  },
+  {
+   "name": "K5. DEST received exactly 0.03 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.03"
+  },
+  {
+   "name": "K6. MetaMask alone (open proposal):a. MetaMask proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "NRWJ2FpF641pqkcHucFHGXMeCjYPVJ99wRxr4fTyBLma4LwD7bA1yh8Xw8n92VZzuB8B1tWRk7CKiWWwAPQScts"
+  },
+  {
+   "name": "K6. MetaMask alone (open proposal):b. MetaMask executes with only its own approval",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidProposalStatus"
+  },
+  {
+   "name": "K6c. an outsider approves it",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "K6d. Freighter's seat signed by MetaMask's MPC key",
+   "pass": true,
+   "ok": false,
+   "detail": "Transaction did not pass signature verification"
+  },
+  {
+   "name": "K6e. Freighter's seat signed by its MPC key under another path",
+   "pass": true,
+   "ok": false,
+   "detail": "Transaction did not pass signature verification"
+  },
+  {
+   "name": "K6f-MetaMask. MetaMask's seat vote signed by its session-path key",
+   "pass": true,
+   "ok": false,
+   "detail": "Transaction did not pass signature verification"
+  },
+  {
+   "name": "K6g-MetaMask. MetaMask's session-path key approves as itself",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "K6f-Freighter. Freighter's seat vote signed by its session-path key",
+   "pass": true,
+   "ok": false,
+   "detail": "Transaction did not pass signature verification"
+  },
+  {
+   "name": "K6g-Freighter. Freighter's session-path key approves as itself",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "K7. install the movers policy (members: the three session PDAs):a. MetaMask proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "3bRuSkGSvQPddm8MTYaoyGFX2aJn3C3gffbuSrF1VZ9yuoey8bVgSAg6FANScoM4YbN8yQsGt1oGQqsy3sBPYPqK"
+  },
+  {
+   "name": "K7. install the movers policy (members: the three session PDAs):b. Phantom approves and executes",
+   "pass": true,
+   "ok": true,
+   "detail": "2nn54QJU36cgNQwKG99bPhQQxXedfPyDXA83kH3bv1zHrvBkhGjpM35CsRqJAKFzUmkDbRGwfVcgL2Vkcc2M3mZj"
+  },
+  {
+   "name": "N0. MetaMask alone (open proposal):a. MetaMask proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "4Zhm6N4QQ8BAQvrrnvwexi5zcqAYhbTtYFcbNtPvYS7GabUehQ2kDp6Yn8XfVXuhfGJ9oQFZc34j8yHT8PV2gR5P"
+  },
+  {
+   "name": "N0. MetaMask alone (open proposal):b. MetaMask executes with only its own approval",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidProposalStatus"
+  },
+  {
+   "name": "N1. Phantom session approves that proposal as its PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "N2. Phantom session key approves it as itself",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "N3. Phantom session proposes a vault transaction as its PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "N4. Phantom session adds its key as a seat (settings sync, as its PDA)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "N5. Phantom session calls a program other than the Smart Account (System transfer from its PDA)",
+   "pass": true,
+   "ok": false,
+   "detail": "Program FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G invoke [1] Unknown program SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG Program FTNMFWiECbRp7D5MwJUiNQfee6Nu"
+  },
+  {
+   "name": "G-MetaMask1. one MetaMask signature (through NEAR) -> session; relayer pays: 0.01 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "CVLx2eZMwAAbCJJf7RosogN9zbQdbou2cn6TMfvceMNgcqLup83PuH9keEGKRbb41Y22vt5mDLCqnmp6HVjPSR8"
+  },
+  {
+   "name": "G-MetaMask2. relayer down: session key pays the fee itself: 0.005 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "4sKTkg1LP9cyK85gG6LLp9W2jv3iTY5XMgumRc4McPEb9qqXeC5qbxMCaYBpDhBo33kNmsMceVHWUemf168NDZjz"
+  },
+  {
+   "name": "G-MetaMask3. VENUE received exactly 0.015 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.015"
+  },
+  {
+   "name": "G-MetaMask4. relayer down and the session key has no SOL",
+   "pass": true,
+   "ok": false,
+   "detail": "Attempt to debit an account but found no record of a prior credit"
+  },
+  {
+   "name": "G-MetaMask5. same session: 0.01 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "G-MetaMask6. same session: 0.06 SOL to VENUE (over the 0.05 per-move limit)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionInvalidNumericValue"
+  },
+  {
+   "name": "G-MetaMask7. stretched valid-until",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "G-MetaMask8. someone else replays the grant with their own key",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "G-Freighter1. one Freighter signature (through NEAR) -> session; relayer pays: 0.01 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "2VzccLvBprAMpsKNp2eSmeVdGGYuEabhJWfrPFkvER9ifbopbrKZQEcGkfLHyydTUDv7srcW6RzkN7GyZjGPuUXJ"
+  },
+  {
+   "name": "G-Freighter2. relayer down: session key pays the fee itself: 0.005 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "41bzaKhN5rsYJ64PFaURt6GBvUQknQGdRTME1hF8SngatLt8Upm3hStD4ZzksWu7E72RE7fjjw3zJ8m7NUGaeCEG"
+  },
+  {
+   "name": "G-Freighter3. VENUE received exactly 0.015 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.015"
+  },
+  {
+   "name": "G-Freighter4. relayer down and the session key has no SOL",
+   "pass": true,
+   "ok": false,
+   "detail": "Attempt to debit an account but found no record of a prior credit"
+  },
+  {
+   "name": "G-Freighter5. same session: 0.01 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "G-Freighter6. same session: 0.06 SOL to VENUE (over the 0.05 per-move limit)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionInvalidNumericValue"
+  },
+  {
+   "name": "G-Freighter7. stretched valid-until",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "G-Freighter8. someone else replays the grant with their own key",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "G-Phantom1. one Phantom signature -> session; relayer pays: 0.01 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "3Cfe9mNgzFZJQQZEBiBSMRxLHbPqo8x3ZPwXytAASz3y6ctNVAqxP5akQgHDyYSwbpgiA9Ld7niAZ9PE5xRJayhg"
+  },
+  {
+   "name": "G-Phantom2. relayer down: session key pays the fee itself: 0.005 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "2J5mH7HWNZ5LFdXzn4gHNjWjMs5JQaGFixTKAq3RLtKExJ9PAiX5GfciS9vgn3fCY6pmoQ5bC5sz8A8FP7NVfQ31"
+  },
+  {
+   "name": "G-Phantom3. VENUE received exactly 0.015 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.015"
+  },
+  {
+   "name": "G-Phantom4. relayer down and the session key has no SOL",
+   "pass": true,
+   "ok": false,
+   "detail": "Attempt to debit an account but found no record of a prior credit"
+  },
+  {
+   "name": "G-Phantom5. same session: 0.01 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "G-Phantom6. same session: 0.06 SOL to VENUE (over the 0.05 per-move limit)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionInvalidNumericValue"
+  },
+  {
+   "name": "G-Phantom7. stretched valid-until",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "G-Phantom8. someone else replays the grant with their own key",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "G9. grant longer than 7 days",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x4"
+  },
+  {
+   "name": "G10. expired grant",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x4"
+  },
+  {
+   "name": "G11. MetaMask grant with the ed25519 program instruction missing",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "G12. ed25519 instruction reading its public key from another instruction",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x0"
+  },
+  {
+   "name": "G13. daily cap shared by all: 0.045 used + 0.05 = 0.095 <= 0.1",
+   "pass": true,
+   "ok": true,
+   "detail": "3HMfY1HqLLbnfST1WE7Ly6r29QdQEi61LKry6CTxgA1gQ3oJSsc1sMnG916CADwudWtUdtGDpiYhio1pxHXUpVNN"
+  },
+  {
+   "name": "G13b. + 0.01 = 0.105 > 0.1",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionInsufficientLamportAllowance"
+  },
+  {
+   "name": "X1. Freighter's PDA with a grant signed by MetaMask (NEAR)",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "X2. Phantom's PDA with a grant signed by Freighter (NEAR)",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "X3. MetaMask's PDA with a grant signed by Phantom",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "X4. Freighter's PDA with its MPC key under another path",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "X4b. Freighter's session PDA with a grant signed by its seat key (prime:solana)",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "X5. Phantom grant presented for MetaMask's PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "X6. grant signed for cluster mainnet, used on localnet",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "X7a. a grant naming program A's PDA, presented to program B with A's PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "X7b. the same grant presented to program B with B's PDA (text mismatch)",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "X7c. a grant naming program B's PDA, presented to program A with B's PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "X7d. the same grant presented to program A with A's PDA (text mismatch)",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "X8. Phantom's own signed grant naming MetaMask's PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "X9a. valid Phantom grant, data names another settings address",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "X10. the session key does not sign (relayer only)",
+   "pass": true,
+   "ok": false,
+   "detail": "Program FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G invoke [1] Program FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G consumed 2483 of 203000 compute units Progr"
+  },
+  {
+   "name": "X11a. account 3 set to the System program instead of the Smart Account program: the move still runs",
+   "pass": true,
+   "ok": true,
+   "detail": "SVyN17SE23szZDy4qgMiZsJa2pc8YqfGG6eYNU7q3B3aBX6NQxrnxkRBv7efKmPPqvmUSMubJwKFUqGrxZomjPk"
+  },
+  {
+   "name": "X11b. ...and prime-session called only the Smart Account program",
+   "pass": true,
+   "ok": true,
+   "detail": "SVyN17SE23sz… Program SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG invoke [2]"
+  },
+  {
+   "name": "A0. account B created with the same three seats",
+   "pass": true,
+   "ok": true,
+   "detail": "2d1H3RkJbPcy99D76qCzP35ARQyAjMRrtiACxQVWRu6QBqYdvYoDRJv72STX31j6JEcRwK1B1xZX7sAPue86bFDH"
+  },
+  {
+   "name": "A1. account B installs its movers policy (members: each wallet's PDA for account B):a. MetaMask proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "5Q5wyyti6sB8v4Kz2vgjfqrNiGQj56whMmUfVxP8vhak9ocEmeD829vvEtFQ5SopufwH7wiARVNYtmFebhqT7tdV"
+  },
+  {
+   "name": "A1. account B installs its movers policy (members: each wallet's PDA for account B):b. Phantom approves and executes",
+   "pass": true,
+   "ok": true,
+   "detail": "62kaVVbJ69sna2ckfjvwuecdLm2EieMNDPo4bNNpkDjWsgV9WrzCoWGXR6hQUKeS2ZupnbzQDdzHELpZSDGkHeSW"
+  },
+  {
+   "name": "A2. each wallet's PDA differs between account A and account B",
+   "pass": true,
+   "ok": true,
+   "detail": "A3rGJU,8JWgA6,CvwnKz"
+  },
+  {
+   "name": "A3. account A's Phantom grant presented to account B (as Phantom's account-B PDA)",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "A4. account A's Phantom PDA calling account B's policy",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "A5. a Phantom grant made for account B works in account B",
+   "pass": true,
+   "ok": true,
+   "detail": "5zfZoSBqx4H9tV5naHZVeKfRExsxUfniXy9QQaqWKcazCYtSxvzhn6226qzHrnM2zr3xC5eMmWjF5JN55ko9zoMV"
+  },
+  {
+   "name": "A5-M0. Phantom session: one move through the Smart Account (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "4MDpmtmZNvi5APzV6217GfULPUQRLUGZUd7Xen8knLnAJrVWB9EXzQ2Ru9HU7BjXarxer9SFoBZ7gDBWtEuhQxc7"
+  },
+  {
+   "name": "A5-M1. Phantom session: one move through the Smart Account (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "2tBhcbgcxKpwDTHTZvbSH2P4eSH6RYe4jYpxcRrWUYS7jLjYAYgG2U5qnJc84Tbj5wvPYLJvuVgwvjVCeohhhDjD"
+  },
+  {
+   "name": "A5-M2. Phantom session: one move through the Smart Account (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "4G9Eg6CbCf2QQRK4MLpZW8KnyyB5FMfRwMAZvQxkjHSAR5qVnAEB9ZwZw8mAmQfi7aanSHLWKEgB9UQLTeyuzsRb"
+  },
+  {
+   "name": "A5-M3. Phantom session: one move through the Smart Account (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "4U5FfSpJtCJwzWVWYUGGt7VfNBaKuu6c35isPfc5FXmzkyEpoEJphAcUDkbutYeGTX48eAyUTZdBY14cohafgJRP"
+  },
+  {
+   "name": "A5-M4. Phantom session: one move through the Smart Account (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "2CHVW1wiJZXX8gUoyrXngdEkAXtAVfDxYz8tvrDBp39utxY4oshusBMkKRJqKHiNRuyPJ62A3MJX9yXcT4Q61i99"
+  },
+  {
+   "name": "A5-M5. Phantom session: one move through the Smart Account (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "27CUNSXPFpzUq3bVESopWyQDXE6nRnhTHuoYxAijagbLg6WeTkqbZEHrswD2VJURDC1fUp9iTKp3LTzotp3XWgje"
+  },
+  {
+   "name": "A5-M6. Phantom session: one move through the Smart Account (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "4bZQY5CDqPwgFcFCH3rGe8xYUNmhaxHnFaY5Z9fiD28nxftuzsUjJVnY33psWCsg99QnG4kePcMi55hhikUDXn1f"
+  },
+  {
+   "name": "A5-M7. Phantom session: one move through the Smart Account (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "2tkrsVG5yy9rYifAYqVdT6ochtk4dCpB7R3BJm96skUnDqWmub61t8F8ZYLzDqjpQP1h7kSgy1PUDiKequAaZ7ip"
+  },
+  {
+   "name": "A5-M8. Phantom session: one move through the Smart Account (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "4hon1SsmzF4aeVP3CaLy3wr3yqksr5XafjCDXYmHN2W94XGtyPv6fBgV94K5MZ5qfoQfj9xriCWfJBjhv3bmeNUp"
+  },
+  {
+   "name": "A5-M9. Phantom session: one move through the Smart Account (compute units recorded)",
+   "pass": true,
+   "ok": true,
+   "detail": "5wFfFhNMDMZagg2fFpWHdTaVLeaavV5qHK6ubyggv33DuYPJMLG9h2fP1L9rZ3ircfuUdNpNmMntSnJUwFqjTC6g"
+  },
+  {
+   "name": "A6. account B's grant presented to account A",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "V0a. Phantom session 1 works",
+   "pass": true,
+   "ok": true,
+   "detail": "2y8HFyUojLRd2wnJXwByctLvsvnd1jWCT63ehE7Cp16xfKLoCVqTuo5ETUcsDKPLuzQZ9XmjzhSEhakdS6DnKMna"
+  },
+  {
+   "name": "V0b. Phantom session 2 works",
+   "pass": true,
+   "ok": true,
+   "detail": "66sXt7zMohdC2iwb3NppRmB54YH6Rv84qou1YBJfKsQmuuvcdQ7b8rBqWBHiTdScxnges24gsnWC6aU552uUbPQ1"
+  },
+  {
+   "name": "V0c. no marker exists for session 1 yet",
+   "pass": true,
+   "ok": true,
+   "detail": "8RMoXXNbrFHNHdsomUyA8Hvj5UB9nEnUYkkxwmquuiTH"
+  },
+  {
+   "name": "V1. Phantom revokes session 1 (one signature, relayed, session key does not sign)",
+   "pass": true,
+   "ok": true,
+   "detail": "42DbkAWzxsSRpqtkfAECj2W7yVhiBGy2UVgyXDi3qwTpzku65MgYqsRZBzyECSuDiab6gtcqeF8ZvwhGTk3bBqGk"
+  },
+  {
+   "name": "V1b. the marker is empty, owned by prime-session and rent exempt",
+   "pass": true,
+   "ok": true,
+   "detail": "{\"lamports\":890880,\"dataBytes\":0,\"owner\":\"FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G\"}"
+  },
+  {
+   "name": "V2. the revoked session 1 is refused",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "V3. the same wallet's session 2 keeps working",
+   "pass": true,
+   "ok": true,
+   "detail": "43U7wm4q7gFHxCcDdRsrqh7p98kDZ8krrqwMWCx7itijbjvUX1hFomifEVzV6im4YA1hSuNNbjqknpyhR6HrnLzK"
+  },
+  {
+   "name": "V3b. revoking session 1 again is refused",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "V4a. MetaMask's session-owner key signs a revoke of Phantom's session 2 (data names Phantom as owner)",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "V4b. MetaMask signs a revoke naming Phantom's PDA under its own owner field",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "V4c. Phantom session 2 still works",
+   "pass": true,
+   "ok": true,
+   "detail": "4CWsvdBfDvQ7aYPpYrYtXPfZbkeiVmpXVcC5u3FNKG8HQPp6L9nY88HrcoQfUV1kAHX9q5yz9C9EZnQjYiLQPcMG"
+  },
+  {
+   "name": "V4d. MetaMask revokes the same key under its own PDA (a marker in MetaMask's namespace)",
+   "pass": true,
+   "ok": true,
+   "detail": "5Pn8qj5WCWCY72VnyNmjmozaSwhvfquaqEqiQ32vTrL9bMTYVhbPKZ6LPec4xCxjgx3f8morJdSUf7FdBkV2ZGev"
+  },
+  {
+   "name": "V4e. ...and Phantom's session 2 still works (the marker is per owner)",
+   "pass": true,
+   "ok": true,
+   "detail": "4deWbtyqUPnzTFbx3mNDL4YTHQBX7WvLRLvjsyTsK6VcbHfdgK3NGNMvXYz67BmJAwx8cqswNsaRDjBnbRSg1efn"
+  },
+  {
+   "name": "V5a. Phantom revokes a key it never granted",
+   "pass": true,
+   "ok": true,
+   "detail": "Fs8Fu95GtFxC2RZsmvdAHLgV5eg85TVniBbCNWDswknYUduheJyou26JnfVcEkpWdXZgHY7x4D33aLbbCbHQYmU"
+  },
+  {
+   "name": "V5b. a grant signed for that key afterwards is refused",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "V6a. a revoke signed for account A's PDA, sent with account B's settings and B's marker",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "V6b. no marker was created in account B",
+   "pass": true,
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "V6c. session 3 still works in account A",
+   "pass": true,
+   "ok": true,
+   "detail": "5byhJtcnG3Xk4fefhUN4EPDtsyuPKN6y7WEMXmWBQtXHgbeSoQ99LPopz8CHoVoCfTTWpgR1QGQjBysfF2hBN8JD"
+  },
+  {
+   "name": "V7a. a pre-fund below the rent minimum is refused by the runtime",
+   "pass": true,
+   "ok": false,
+   "detail": "{\"InsufficientFundsForRent\":{\"account_index\":1}}"
+  },
+  {
+   "name": "V7b. a stranger pre-funds the marker address with 0.001 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "29aeqknmKp6u3zRWj2ujXoWfLpkEhjUeJr7oySqEufjKEovw5ThZsyDCuHzgQXkqrbHFXBZNvpQzBL26s8FFXxdN"
+  },
+  {
+   "name": "V7c. the revoke still works",
+   "pass": true,
+   "ok": true,
+   "detail": "26zSPGKgFr1cXPLKg9mXuqdHX9VQefK38KxaoEyobSjda2fw6th6YbB36FtxgRLW9UXLDqwihUUxB1LenbJZeunS"
+  },
+  {
+   "name": "V7d. the revoked session 4 is refused",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "V8a. a move that passes another marker address",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "V8b. a move with non-canonical bump 253 (canonical 254) and the canonical PDA account",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "V8c. the same session with the canonical bump works",
+   "pass": true,
+   "ok": true,
+   "detail": "4jaCMK4ZhJ9w7tpKv6V2hE4txuyZsUZboWZgZG7tRxS6sjyYmCh1QQKFLRWayMLzF2QbQTbVHmp57iZgU1tJ4J8Z"
+  },
+  {
+   "name": "V9. a 72-byte instruction (the old length check)",
+   "pass": true,
+   "ok": false,
+   "detail": "Program FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G invoke [1] Program log: panicked at src/lib.rs:37:110:\nindex out of bounds: the len is 8 but the index is 8"
+  },
+  {
+   "name": "V9b. a 10-byte instruction",
+   "pass": true,
+   "ok": false,
+   "detail": "Program FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G invoke [1] Program log: panicked at src/lib.rs:35:41:\nrange end index 32 out of range for slice of length 1"
+  },
+  {
+   "name": "R0. Freighter session works before",
+   "pass": true,
+   "ok": true,
+   "detail": "sWEsKg1SeygVJchcwU42Nza9XG67PCAy5bfxuWQe9c8zGejQU1T5ZxnQKhZa4QQN6RgCwRX3GWKjZdmC2EYbT6R"
+  },
+  {
+   "name": "R1. MetaMask + Phantom update the policy: members MetaMask and Phantom PDAs only:a. MetaMask proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "3guZfJJF1QmDKEKFEzMAKMxK8EUQyKcn6ryE9mPDbA9iCeKpbH2nbPefDQyPFEkaQ3VmcnbjpwpRaKCAixEHx8Ed"
+  },
+  {
+   "name": "R1. MetaMask + Phantom update the policy: members MetaMask and Phantom PDAs only:b. Phantom approves and executes",
+   "pass": true,
+   "ok": true,
+   "detail": "3Dqy69gP5z3v592PXpsNEmrET3HA4PE2PeqPYohrw3wSqNopntJmceXMd85NKap7oTD73jmKpU9uaKuiUAUfRHP5"
+  },
+  {
+   "name": "R2. the live Freighter session after removal",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "R3. MetaMask session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "4yxeePbBvuhrpKM1gAbxsFrWWpvDpKBgCUDQ7gbYxYZu4f9Kz4ekLhTy95opRsJu8kMyUguxrTvQ6mNwxFKHkv7z"
+  }
+ ]
+}

@@ -6,24 +6,16 @@
 //         NEAR MPC under `prime:solana-session` for MetaMask and Freighter, so a grant signature can never be a seat vote),
 //         then the session key signs each move. Fee payer: the relayer, or the session key itself.
 //   revoke: the owner signs the grant text with time 0; one relayed transaction creates the revoked marker.
-//   PSN_NATIVE=1: MetaMask uses its own Solana account (built-in Solana snap) as both its settings signer and its grant owner, with no NEAR
-//         for MetaMask. Grants and revokes are signMessage (PSN_MM_BRIDGE=http://127.0.0.1:8830 sends them to the real extension,
-//         metamask-sol/bridge.mjs). Seat votes are transactions: MetaMask's signTransaction rewrites the transaction (adds a compute unit price
-//         first and a compute unit limit last), so the wallet's signer here does the same, using the key derived from the same test seed;
-//         the real wallet only signs transactions that simulate on devnet or mainnet, which a local validator cannot offer.
-import { ComputeBudgetProgram, Message, Connection, Ed25519Program, Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram, SYSVAR_INSTRUCTIONS_PUBKEY, Transaction,
+import { Connection, Ed25519Program, Keypair, LAMPORTS_PER_SOL, PublicKey, SystemProgram, SYSVAR_INSTRUCTIONS_PUBKEY, Transaction,
   TransactionInstruction, TransactionMessage } from '@solana/web3.js';
 import * as sa from '@sqds/smart-account';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { createHmac } from 'node:crypto';
-import { mnemonicToSeedSync } from '@scure/bip39';
 import { payer } from './keys.ts';
 const { edKey, edSign, stats } = await import(process.env.NEARSIG_STUB ?? '/home/ubuntu/work/near-session-spike/nearsig.ts');
 
 const NET = process.env.PSN_NET === 'devnet' ? 'devnet' : 'localnet';
-const NATIVE = !!process.env.PSN_NATIVE, MM_BRIDGE = process.env.PSN_MM_BRIDGE;
 const conn = new Connection(process.env.PSN_RPC ?? (NET === 'devnet' ? 'https://api.devnet.solana.com' : 'http://127.0.0.1:8899'), { commitment: 'confirmed', confirmTransactionInitialTimeout: 120_000 });
 // local: a fixed id given to the validator with --bpf-program; devnet: the id of the keypair that `solana program deploy` uses (target/deploy/prime_session-keypair.json)
 const PROG = NET === 'devnet' ? Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync('/home/ubuntu/work/prime-session/target/deploy/prime_session-keypair.json', 'utf8')))).publicKey
@@ -36,7 +28,7 @@ const CLUSTER = NET;
 const VAULT_SOL = NET === 'devnet' ? 0.25 : 2;
 const SESSION_FUND = (NET === 'devnet' ? 0.002 : 0.05) * LAMPORTS_PER_SOL;   // devnet: just above the 0 B rent minimum (890,880 lamports)
 const st: any = {}; const results: any[] = []; const metrics: any = {};
-const STATE = process.env.PSN_STATE ?? `/home/ubuntu/work/prime-refine/logs/${NATIVE ? 'native' : 'solana'}/state-psn-${NET}${NATIVE ? '-native' : ''}.json`;
+const STATE = process.env.PSN_STATE ?? `/home/ubuntu/work/prime-refine/logs/solana/state-psn-${NET}.json`;
 const save = () => writeFileSync(STATE, JSON.stringify({ ...st, metrics, results }, null, 1));
 const SOL = LAMPORTS_PER_SOL;
 const VENUE = Keypair.generate().publicKey, OTHER = Keypair.generate().publicKey, DEST = Keypair.generate().publicKey;
@@ -75,70 +67,15 @@ function record(name: string, expectOk: boolean, ok: boolean, detail: string, wa
 
 // ── Wallets ────────────────────────────────────────────────────────────────────────────────────
 const PATH = 'prime:solana', SESSION_PATH = 'prime:solana-session';
-type W = { name: string; key: PublicKey; sign: (m: Uint8Array) => Promise<Uint8Array>; signText?: (m: Uint8Array) => Promise<Uint8Array>;
-  prepare?: (ixs: TransactionInstruction[], feePayer: PublicKey) => Promise<TransactionInstruction[]>;   // the app's client rule for a wallet that rewrites
-  signTx?: (tx: Transaction) => Promise<Transaction> };   // the wallet's signTransaction: returns the transaction it signed (possibly rewritten)
+type W = { name: string; key: PublicKey; sign: (m: Uint8Array) => Promise<Uint8Array> };
 const viaNear = async (name: 'MetaMask' | 'Freighter', path = PATH): Promise<W> => ({ name, key: new PublicKey(await edKey(name, path)), sign: (m) => edSign(name, path, m) });
 const phSecret = bs58.decode(JSON.parse(readFileSync('/home/ubuntu/work/phantom-spike/secrets/phantom-test.json', 'utf8')).secret);
 const phKp = nacl.sign.keyPair.fromSecretKey(phSecret.length === 64 ? phSecret : nacl.sign.keyPair.fromSeed(phSecret).secretKey);
 const PH: W = { name: 'Phantom', key: new PublicKey(phKp.publicKey), sign: async (m) => nacl.sign.detached(m, phKp.secretKey) };
-// MetaMask's own Solana account: SLIP-0010 ed25519 at m/44'/501'/0'/0' of the test seed inside the extension profile.
-const nat = { msgCalls: 0, msgMs: 0, txCalls: 0, wouldRefuse: 0, wouldRefuseChecks: [] as string[] };
-let curCheck = '';
-const slip10 = (seed: Buffer, path: number[]) => { let I = createHmac('sha512', 'ed25519 seed').update(seed).digest(); let k = I.subarray(0, 32), c = I.subarray(32);
-  for (const i of path) { const d = Buffer.alloc(37); d.set(k, 1); d.writeUInt32BE((0x80000000 | i) >>> 0, 33); I = createHmac('sha512', c).update(d).digest(); k = I.subarray(0, 32); c = I.subarray(32); } return k; };
-const mmKp = NATIVE ? nacl.sign.keyPair.fromSeed(slip10(Buffer.from(mnemonicToSeedSync(JSON.parse(readFileSync('/home/ubuntu/work/metamask-sol/secrets/mm-test.json', 'utf8')).srp)), [44, 501, 0, 0])) : undefined;
-const bridge = async (body: object) => { const r = await (await fetch(MM_BRIDGE!, { method: 'POST', body: JSON.stringify(body) })).json() as any; if (r.error) throw new Error(`MetaMask: ${r.error}`); return r; };
-if (NATIVE && MM_BRIDGE) { const a = (await bridge({ method: 'address' })).address; if (a !== bs58.encode(mmKp!.publicKey)) throw new Error(`the real MetaMask account ${a} is not the key derived from its test seed`); }
-/** What MetaMask's Solana snap (5.0.1, signMessage) signs for a message: the bytes decoded as UTF-8 (invalid sequences become U+FFFD), U+0000 removed, encoded again. Plain text is signed as is. */
-const mmSignedBytes = (m: Uint8Array) => new TextEncoder().encode(new TextDecoder().decode(m).replace(/\u0000/g, ''));
-const CB = ComputeBudgetProgram.programId;
-const isBudget = (i: TransactionInstruction, kind: 2 | 3) => i.programId.equals(CB) && i.data[0] === kind;   // 2 = SetComputeUnitLimit, 3 = SetComputeUnitPrice
-const MM_PRICE = 10_000;                                                                                  // micro-lamports per unit: the snap's default
-/** The app's client rule for MetaMask: build the transaction with both budget instructions in place (price first, limit last), the limit set the way the snap sets it:
- *  the units a simulation consumes with a 1,400,000 limit in place. The snap then signs the message as built, so instruction indexes (prime-session's sig_ix) stay put. */
-async function withBudget(ixs: TransactionInstruction[], feePayer: PublicKey, blockhash?: string): Promise<TransactionInstruction[]> {
-  const base = ixs.filter((i) => !i.programId.equals(CB)), price = ixs.find((i) => isBudget(i, 3)) ?? ComputeBudgetProgram.setComputeUnitPrice({ microLamports: MM_PRICE });
-  const t = new Transaction().add(price, ...base, ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })); t.feePayer = feePayer; t.recentBlockhash = blockhash ?? (await conn.getLatestBlockhash('confirmed')).blockhash;
-  const sim = await conn.simulateTransaction(t); let units = 200_000;
-  if (sim.value.err || sim.value.unitsConsumed == null) { nat.wouldRefuse++; nat.wouldRefuseChecks.push(curCheck.split('.')[0]!); } else units = sim.value.unitsConsumed;   // a reverting simulation disables Confirm in the real wallet
-  return [price, ...base, ComputeBudgetProgram.setComputeUnitLimit({ units })];
-}
-/** The relayer's check before it co-signs a transaction a wallet returned: same fee payer and blockhash, the instructions it built (compute-budget ones aside),
- *  at most one price and one limit, a capped priority fee, and the wallet's signature valid over the returned message. Returns the reason to refuse, or null. */
-const MAX_PRIORITY_LAMPORTS = 25_000;
-function acceptReturned(built: Transaction, ret: Transaction, wallet: PublicKey): string | null {
-  if (!ret.feePayer?.equals(built.feePayer!)) return 'fee payer changed';
-  if (ret.recentBlockhash !== built.recentBlockhash) return 'blockhash changed';
-  const a = built.instructions.filter((i) => !i.programId.equals(CB)), b = ret.instructions.filter((i) => !i.programId.equals(CB));
-  if (a.length !== b.length || a.some((x, n) => !x.programId.equals(b[n]!.programId) || !Buffer.from(x.data).equals(Buffer.from(b[n]!.data)) || x.keys.length !== b[n]!.keys.length
-    || x.keys.some((k, m) => !k.pubkey.equals(b[n]!.keys[m]!.pubkey) || k.isSigner !== b[n]!.keys[m]!.isSigner || k.isWritable !== b[n]!.keys[m]!.isWritable))) return 'instructions or accounts differ from the ones the relayer built';
-  const budget = ret.instructions.filter((i) => i.programId.equals(CB)), prices = budget.filter((i) => isBudget(i, 3)), limits = budget.filter((i) => isBudget(i, 2));
-  if (budget.length !== prices.length + limits.length || prices.length > 1 || limits.length > 1) return 'a compute-budget instruction other than one price and one limit';
-  if (prices[0]?.data.length !== undefined && prices[0].data.length !== 9 || limits[0]?.data.length !== undefined && limits[0].data.length !== 5) return 'malformed compute-budget data';
-  const price = prices[0] ? prices[0].data.readBigUInt64LE(1) : 0n, limit = limits[0] ? BigInt(limits[0].data.readUInt32LE(1)) : 200_000n;
-  if (price * limit / 1_000_000n > BigInt(MAX_PRIORITY_LAMPORTS)) return `priority fee above the cap (${price * limit / 1_000_000n} lamports)`;
-  const sig = ret.signatures.find((x) => x.publicKey.equals(wallet))?.signature;
-  if (!sig || !nacl.sign.detached.verify(ret.serializeMessage(), sig, wallet.toBytes())) return "the wallet's signature does not verify over the returned message";
-  return null;
-}
-const MMN: W = { name: 'MetaMask', key: new PublicKey(mmKp?.publicKey ?? new Uint8Array(32)),
-  sign: async (m) => { nat.txCalls++; return nacl.sign.detached(m, mmKp!.secretKey); },   // signTransaction: the signature is over the (rewritten) message bytes
-  signText: async (m) => { nat.msgCalls++; const t0 = Date.now();
-    try { return MM_BRIDGE ? Uint8Array.from((await bridge({ method: 'signMessage', hex: Buffer.from(m).toString('hex') })).signature) : nacl.sign.detached(mmSignedBytes(m), mmKp!.secretKey); } finally { nat.msgMs += Date.now() - t0; } },
-  prepare: (ixs, feePayer) => withBudget(ixs, feePayer),
-  signTx: async (tx) => { nat.txCalls++;
-    // snap 5.0.1 partiallySignBase64String: any signature already in the transaction, or both budget instructions already present, and it signs the message as is
-    const keep = tx.signatures.some((x) => x.signature) || (tx.instructions.some((i) => isBudget(i, 3)) && tx.instructions.some((i) => isBudget(i, 2)));
-    const t = keep ? tx : Object.assign(new Transaction({ feePayer: tx.feePayer, recentBlockhash: tx.recentBlockhash }), { instructions: await withBudget(tx.instructions, tx.feePayer!, tx.recentBlockhash!) });
-    const out = new Transaction({ feePayer: t.feePayer, recentBlockhash: t.recentBlockhash }); out.instructions = t.instructions; out.signatures = t.signatures.map((x) => ({ ...x }));
-    const sig = nacl.sign.detached(out.serializeMessage(), mmKp!.secretKey); const i = out.signatures.findIndex((x) => x.publicKey.equals(MMN.key));
-    if (i < 0) out.signatures.push({ publicKey: MMN.key, signature: Buffer.from(sig) }); else out.signatures[i]!.signature = Buffer.from(sig);
-    return out; } };
-const MM = NATIVE ? MMN : await viaNear('MetaMask'), FR = await viaNear('Freighter');
+const MM = await viaNear('MetaMask'), FR = await viaNear('Freighter');
 // Session owners: MetaMask and Freighter sign grants under their own path, so no grant signature can be filed as a seat vote.
 // Phantom's own key stays both seat and owner.
-const SMM = NATIVE ? MMN : await viaNear('MetaMask', SESSION_PATH), SFR = await viaNear('Freighter', SESSION_PATH);
+const SMM = await viaNear('MetaMask', SESSION_PATH), SFR = await viaNear('Freighter', SESSION_PATH);
 const own = (w: W): W => ({ MetaMask: SMM, Freighter: SFR, Phantom: PH } as Record<string, W>)[w.name]!;
 const FR_OTHER_PATH = await viaNear('Freighter', 'prime:solana-other');
 const outsiderKp = Keypair.generate();
@@ -146,24 +83,16 @@ const OUT: W = { name: 'outsider', key: outsiderKp.publicKey, sign: async (m) =>
 console.log({ MetaMask: MM.key.toBase58(), Freighter: FR.key.toBase58(), Phantom: PH.key.toBase58(), sessionMetaMask: SMM.key.toBase58(), sessionFreighter: SFR.key.toBase58(), program: PROG.toBase58(), programB: PROG_B.toBase58(), net: NET });
 st.program = PROG.toBase58(); st.programB = PROG_B.toBase58(); st.sessionOwners = { MetaMask: SMM.key.toBase58(), Freighter: SFR.key.toBase58(), Phantom: PH.key.toBase58() };
 
-/** One tx: instructions signed by `w` (a seat), fee paid by the relayer (or by `w` with selfPaid). A wallet that rewrites gets the transaction with its budget instructions in
- *  place (noPrepare skips that, to show the rewrite); the relayer checks what the wallet returns before it co-signs. */
-async function sendBy(name: string, expectOk: boolean, w: W, ixs: TransactionInstruction[], signAs?: W, o: { want?: RegExp; selfPaid?: boolean; noPrepare?: boolean } = {}) {
-  curCheck = name;
-  const feePayer = o.selfPaid ? w.key : payer.publicKey;
-  const built = w.prepare && !o.noPrepare ? await w.prepare(ixs, feePayer) : ixs;
-  let tx = new Transaction().add(...built); tx.feePayer = feePayer; tx.recentBlockhash = (await conn.getLatestBlockhash('confirmed')).blockhash;
+/** One tx: instructions signed by `w` (a seat), fee paid by the relayer. */
+async function sendBy(name: string, expectOk: boolean, w: W, ixs: TransactionInstruction[], signAs?: W) {
+  const tx = new Transaction().add(...ixs); tx.feePayer = payer.publicKey; tx.recentBlockhash = (await conn.getLatestBlockhash('confirmed')).blockhash;
   let ok = true, d = '';
   try {
-    const signer = signAs ?? w;
-    if (signer.signTx) { const ret = await signer.signTx(tx); const bad = acceptReturned(tx, ret, w.key); if (bad) throw new Error(`relayer refuses the returned transaction: ${bad}`); tx = ret; }
-    else tx.addSignature(w.key, Buffer.from(await signer.sign(tx.serializeMessage())));
-    if (!o.selfPaid) tx.partialSign(payer);
-    const raw = tx.serialize({ verifySignatures: false }); last = { sig: '', bytes: raw.length };
-    d = await conn.sendRawTransaction(raw); await confirm(d); last.sig = d;
+    tx.addSignature(w.key, Buffer.from(await (signAs ?? w).sign(tx.serializeMessage()))); tx.partialSign(payer);
+    d = await conn.sendRawTransaction(tx.serialize({ verifySignatures: false })); await confirm(d);
     const s = await conn.getSignatureStatus(d); if (s.value?.err) { ok = false; d = JSON.stringify(s.value.err); }
   } catch (e: any) { ok = false; d = short(e); if (e?.getLogs) try { const l = await e.getLogs(conn); if (Array.isArray(l) && l.length) d = short({ logs: l }); } catch {} }
-  return record(name, expectOk, ok, d, o.want);
+  return record(name, expectOk, ok, d);
 }
 let last = { sig: '', bytes: 0 };
 /** One tx signed by plain keypairs (sessions); the first is the fee payer. */
@@ -209,14 +138,12 @@ async function decide(label: string, a: W, b: W | null, actions: { vault?: Trans
   await sendBy(`${label}a. ${a.name} proposes and approves`, true, a, [create,
     ix.createProposal({ settingsPda: settings(), transactionIndex: index, creator: a.key, rentPayer: payer.publicKey }),
     ix.approveProposal({ settingsPda: settings(), transactionIndex: index, signer: a.key })]);
-  if (/^K[234]\./.test(label)) await measure(`seat-propose-${label.slice(0, 2)}-${a.name}`);
   const ex = b ?? a;
   const exec = actions.settings
     ? ix.executeSettingsTransaction({ settingsPda: settings(), transactionIndex: index, signer: ex.key, rentPayer: payer.publicKey, policies: actions.policies ?? [] })
     : (await ix.executeTransaction({ connection: conn, settingsPda: settings(), transactionIndex: index, signer: ex.key })).instruction;
   const ixs = b ? [ix.approveProposal({ settingsPda: settings(), transactionIndex: index, signer: b.key }), exec] : [exec];
   await sendBy(`${label}b. ${b ? `${b.name} approves and executes` : `${a.name} executes with only its own approval`}`, expectOk, ex, ixs);
-  if (expectOk && /^K[234]\./.test(label)) await measure(`seat-exec-${label.slice(0, 2)}-${ex.name}`);
   return index;
 }
 
@@ -229,13 +156,12 @@ const bumpOf = (owner: PublicKey, acct: PublicKey, prog = PROG) => PublicKey.fin
 const grantText = (pda: PublicKey, key: PublicKey, until: number, cluster = CLUSTER) =>
   `Prime session\nsigner: ${pda.toBase58()}\nsession key: ${key.toBase58()}\nvalid until (unix time): ${until}\ncluster: ${cluster}`;
 type Session = { owner: PublicKey; acct: PublicKey; key: Keypair; until: number; pda: PublicKey; sigIx: TransactionInstruction };
-const signGrant = (w: W, text: string) => (w.signText ?? w.sign)(new TextEncoder().encode(text));
 const edIx = (signer: W, text: string, sig: Uint8Array) => Ed25519Program.createInstructionWithPublicKey({ publicKey: signer.key.toBytes(), message: Buffer.from(text), signature: sig });
 async function openSession(w: W, o: { seconds?: number; signAs?: W; text?: (t: string) => string; fund?: number; key?: Keypair } = {}): Promise<Session> {
   const key = o.key ?? Keypair.generate(); const until = Math.floor(Date.now() / 1000) + (o.seconds ?? 3600); const pda = pdaFor(w);
   const text = (o.text ?? ((t) => t))(grantText(pda, key.publicKey, until));
   const signer = o.signAs ?? own(w);
-  const sig = await signGrant(signer, text);
+  const sig = await signer.sign(new TextEncoder().encode(text));
   if (o.fund !== 0) await fund(key.publicKey, o.fund ?? SESSION_FUND);
   return { owner: own(w).key, acct: settings(), key, until, pda, sigIx: edIx(signer, text, sig) };
 }
@@ -251,14 +177,14 @@ function viaSession(s: Session, inner: TransactionInstruction, o: Over = {}): Tr
   return [s.sigIx, new TransactionInstruction({ programId: prog, keys, data: Buffer.concat([head, inner.data]) })];
 }
 /** A revoke: `owner` (a session owner key) signs the grant text with time 0 for `key`; the relayer pays and funds the marker. One owner signature. */
-async function revokeIxs(w: W, key: PublicKey, o: { signAs?: W; owner?: PublicKey; acct?: PublicKey; pda?: PublicKey; marker?: PublicKey; prog?: PublicKey; data?: number; sigIx?: number; payerKey?: PublicKey } = {}): Promise<TransactionInstruction[]> {
+async function revokeIxs(w: W, key: PublicKey, o: { signAs?: W; owner?: PublicKey; acct?: PublicKey; pda?: PublicKey; marker?: PublicKey; prog?: PublicKey; data?: number } = {}): Promise<TransactionInstruction[]> {
   const owner = o.owner ?? own(w).key, acct = o.acct ?? settings(), prog = o.prog ?? PROG, pda = o.pda ?? pdaOf(owner, acct, prog);
   const text = grantText(pda, key, 0), signer = o.signAs ?? own(w);
-  const sig = await signGrant(signer, text);
-  const head = Buffer.concat([owner.toBuffer(), acct.toBuffer(), Buffer.from(new BigInt64Array([0n]).buffer), Buffer.from([o.sigIx ?? 0, bumpOf(owner, acct, prog)])]);
+  const sig = await signer.sign(new TextEncoder().encode(text));
+  const head = Buffer.concat([owner.toBuffer(), acct.toBuffer(), Buffer.from(new BigInt64Array([0n]).buffer), Buffer.from([0, bumpOf(owner, acct, prog)])]);
   const keys = [{ pubkey: SYSVAR_INSTRUCTIONS_PUBKEY, isSigner: false, isWritable: false }, { pubkey: key, isSigner: false, isWritable: false },
     { pubkey: pda, isSigner: false, isWritable: false }, { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-    { pubkey: o.marker ?? markerOf(owner, acct, key, prog), isSigner: false, isWritable: true }, { pubkey: o.payerKey ?? payer.publicKey, isSigner: true, isWritable: true }];
+    { pubkey: o.marker ?? markerOf(owner, acct, key, prog), isSigner: false, isWritable: true }, { pubkey: payer.publicKey, isSigner: true, isWritable: true }];
   return [edIx(signer, text, sig), new TransactionInstruction({ programId: prog, keys, data: o.data !== undefined ? head.subarray(0, o.data) : head })];
 }
 const E2 = /0x2\b/, E4 = /0x4\b/, E7 = /0x7\b/;   // prime-session refusals: revoked or address not derived, expired or too long, not signed by the owner over this text
@@ -285,7 +211,7 @@ async function createAccount() {
   const { settingsPda, sig } = await createAccount();
   st.settings = settingsPda.toBase58(); save();
   const s = await sa.accounts.Settings.fromAccountAddress(conn, settings());
-  record(`P0. seats are exactly MetaMask(${NATIVE ? 'own key' : 'NEAR MPC'}), Freighter(NEAR MPC), Phantom(own key); threshold 2; vault funded`, true,
+  record('P0. seats are exactly MetaMask(NEAR MPC), Freighter(NEAR MPC), Phantom(own key); threshold 2; vault funded', true,
     s.signers.map((x: any) => x.key.toBase58()).sort().join() === [MM, FR, PH].map((w) => w.key.toBase58()).sort().join() && s.threshold === 2, sig);
 }
 
@@ -299,55 +225,12 @@ async function createAccount() {
   record('K5. DEST received exactly 0.03 SOL', true, (await conn.getBalance(DEST)) - b === 0.03 * SOL, `${((await conn.getBalance(DEST)) - b) / SOL}`);
   const idx = await decide('K6. MetaMask alone (open proposal):', MM, null, { vault: [sysTransfer(DEST, 0.01)] }, false);
   await sendBy('K6c. an outsider approves it', false, OUT, [ix.approveProposal({ settingsPda: settings(), transactionIndex: idx, signer: OUT.key })]);
-  await sendBy(`K6d. Freighter's seat signed by MetaMask's ${NATIVE ? 'own' : 'MPC'} key`, false, FR, [ix.approveProposal({ settingsPda: settings(), transactionIndex: idx, signer: FR.key })], MM);
+  await sendBy("K6d. Freighter's seat signed by MetaMask's MPC key", false, FR, [ix.approveProposal({ settingsPda: settings(), transactionIndex: idx, signer: FR.key })], MM);
   await sendBy("K6e. Freighter's seat signed by its MPC key under another path", false, FR, [ix.approveProposal({ settingsPda: settings(), transactionIndex: idx, signer: FR.key })], FR_OTHER_PATH);
   // A grant signature can never count as a seat vote: the session-owner keys are not settings signers and sign under their own path.
-  for (const [w, so] of ([[MM, SMM], [FR, SFR]] as [W, W][]).filter(([w]) => !(NATIVE && w === MM))) {
+  for (const [w, so] of [[MM, SMM], [FR, SFR]] as [W, W][]) {
     await sendBy(`K6f-${w.name}. ${w.name}'s seat vote signed by its session-path key`, false, w, [ix.approveProposal({ settingsPda: settings(), transactionIndex: idx, signer: w.key })], so);
     await sendBy(`K6g-${w.name}. ${w.name}'s session-path key approves as itself`, false, so, [ix.approveProposal({ settingsPda: settings(), transactionIndex: idx, signer: so.key })]);
-  }
-  if (NATIVE) {
-    // MetaMask has one key for both jobs. A grant signature is no vote, and a signMessage signature is never a transaction signature.
-    // Both are tried on a proposal MetaMask has not voted on, and a control vote on the same proposal passes, so a refusal here comes from the signature.
-    const idx2 = await decide('NS0. Freighter alone (open proposal MetaMask has not voted on):', FR, null, { vault: [sysTransfer(DEST, 0.01)] }, false);
-    const vote = () => [ix.approveProposal({ settingsPda: settings(), transactionIndex: idx2, signer: MM.key })];
-    const gtext = grantText(pdaFor(MM), Keypair.generate().publicKey, Math.floor(Date.now() / 1000) + 3600);
-    const gsig = await MM.signText!(new TextEncoder().encode(gtext));
-    const SIGFAIL = /signature verification/i;
-    await sendBy("NS1. MetaMask's grant signature filed as its vote on that proposal", false, MM, vote(), { name: 'grant signature', key: MM.key, sign: async () => gsig }, { want: SIGFAIL });
-    let sent = new Uint8Array(), viaMessage = new Uint8Array();
-    await sendBy("NS2. the vote's exact transaction message sent through signMessage, that signature filed as the vote", false, MM, vote(), { name: 'signMessage', key: MM.key, sign: async (m) => { sent = m; return (viaMessage = await MM.signText!(m)); } }, { want: SIGFAIL });
-    await sendBy('NS2c. control: the same vote signed through signTransaction passes', true, MM, vote());
-    let utf8 = true; try { new TextDecoder('utf-8', { fatal: true }).decode(sent); } catch { utf8 = false; }
-    record('NS3. the bytes MetaMask signs for that message differ from it (invalid UTF-8 or NUL bytes change them), so its signMessage signature cannot verify as the transaction signature',
-      true, !nacl.sign.detached.verify(sent, viaMessage, MM.key.toBytes()) && (!utf8 || sent.includes(0)) && Buffer.compare(Buffer.from(mmSignedBytes(sent)), Buffer.from(sent)) !== 0, `message ${sent.length} bytes, signed form ${mmSignedBytes(sent).length}`);
-    record('NS3b. every Squads vote message holds a byte that never occurs in valid UTF-8 (the program id), so no vote message survives signMessage unchanged', true,
-      sa.PROGRAM_ID.toBytes().some((x) => x === 0xc0 || x === 0xc1 || x >= 0xf5), `program id ${sa.PROGRAM_ID.toBase58().slice(0, 8)}…`);
-    record('NS4. a grant text is not a Solana transaction message', true, (() => { try { Transaction.populate(Message.from(Buffer.from(gtext))); return false; } catch { return true; } })(), 'parse refused');
-    // The relayer checks what the wallet returns before it co-signs.
-    {
-      curCheck = 'RV (probe transaction, not sent)';
-      const built = new Transaction().add(...await MM.prepare!(vote(), payer.publicKey)); built.feePayer = payer.publicKey; built.recentBlockhash = (await conn.getLatestBlockhash('confirmed')).blockhash;
-      const ret = await MM.signTx!(built);
-      const clone = (t: Transaction, f: (x: Transaction) => void) => { const c = new Transaction({ feePayer: t.feePayer, recentBlockhash: t.recentBlockhash }); c.instructions = [...t.instructions]; c.signatures = t.signatures.map((x) => ({ ...x })); f(c); return c; };
-      const resign = (t: Transaction) => { const sig = nacl.sign.detached(t.serializeMessage(), mmKp!.secretKey); const i = t.signatures.findIndex((x) => x.publicKey.equals(MM.key)); t.signatures[i]!.signature = Buffer.from(sig); return t; };
-      const refuse = (n: string, label: string, t: Transaction) => { const bad = acceptReturned(built, t, MM.key); record(`RV${n}. relayer ${label}`, false, bad === null, bad ?? 'accepted'); };
-      record('RV0. relayer accepts the wallet\'s transaction when the wallet returns the message it was given', true, Buffer.compare(ret.serializeMessage(), built.serializeMessage()) === 0 && acceptReturned(built, ret, MM.key) === null, 'unchanged');
-      const lowPrice = resign(clone(ret, (c) => { c.instructions = c.instructions.map((i) => (isBudget(i, 3) ? ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5_000 }) : i)); }));
-      record('RV0b. ...and when only the compute-budget values differ', true, acceptReturned(built, lowPrice, MM.key) === null, 'price 5,000');
-      refuse('1', 'refuses a transfer from the fee payer added to the returned message', resign(clone(ret, (c) => { c.instructions = [...c.instructions, SystemProgram.transfer({ fromPubkey: payer.publicKey, toPubkey: OTHER, lamports: 1_000_000 })]; })));
-      refuse('2', 'refuses changed instruction data', resign(clone(ret, (c) => { c.instructions = c.instructions.map((i) => (i.programId.equals(CB) ? i : new TransactionInstruction({ programId: i.programId, keys: i.keys, data: Buffer.concat([i.data, Buffer.from([1])]) }))); })));
-      refuse('3', 'refuses a priority fee above the cap', resign(clone(ret, (c) => { c.instructions = c.instructions.map((i) => (isBudget(i, 3) ? ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 10_000_000 }) : i)); })));
-      refuse('4', 'refuses a changed blockhash', resign(clone(ret, (c) => { c.recentBlockhash = Keypair.generate().publicKey.toBase58(); })));
-      refuse('5', 'refuses a second compute-unit limit', resign(clone(ret, (c) => { c.instructions = [...c.instructions, ComputeBudgetProgram.setComputeUnitLimit({ units: 1 })]; })));
-      refuse('6', 'refuses another compute-budget instruction (heap frame)', resign(clone(ret, (c) => { c.instructions = [...c.instructions, ComputeBudgetProgram.requestHeapFrame({ bytes: 65536 })]; })));
-      refuse('7', 'refuses a returned message the wallet did not sign', clone(ret, (c) => { c.signatures = c.signatures.map((x) => (x.publicKey.equals(MM.key) ? { ...x, signature: Buffer.alloc(64, 1) } : x)); }));
-    }
-    // MetaMask submits a revoke itself (fee payer and rent payer), as it would with the relayer down. prime-session finds the ed25519 instruction at sig_ix, so the
-    // transaction is built with the budget instructions in front (ed25519 at index 1); a transaction without them gets rewritten by the snap and sig_ix 0 then points at the price.
-    await fund(MM.key, 0.05 * SOL);
-    await sendBy('NS5. MetaMask revokes a session itself as fee payer, budget instructions in place, sig_ix 1', true, MM, await revokeIxs(MM, Keypair.generate().publicKey, { sigIx: 1, payerKey: MM.key }), undefined, { selfPaid: true });
-    await sendBy('NS6. the same revoke built without budget instructions: the wallet adds a price in front and sig_ix 0 points at it', false, MM, await revokeIxs(MM, Keypair.generate().publicKey, { payerKey: MM.key }), undefined, { selfPaid: true, noPrepare: true, want: E7 });
   }
   // movers policy: members are the three session PDAs; a 2-of-3 settings decision (MetaMask + Phantom)
   const seed = Number((await sa.accounts.Settings.fromAccountAddress(conn, settings())).policySeed ?? 0) + 1;
@@ -375,7 +258,7 @@ async function createAccount() {
 for (const w of [MM, FR, PH]) {
   const s = await openSession(w);
   const b = await conn.getBalance(VENUE);
-  await send(`G-${w.name}1. one ${w.name} signature${w === PH || (NATIVE && w === MM) ? '' : ' (through NEAR)'} -> session; relayer pays: 0.01 SOL to VENUE`, true, viaSession(s, policyMove(s.pda, sysTransfer(VENUE, 0.01))), relayed(s));
+  await send(`G-${w.name}1. one ${w.name} signature${w === PH ? '' : ' (through NEAR)'} -> session; relayer pays: 0.01 SOL to VENUE`, true, viaSession(s, policyMove(s.pda, sysTransfer(VENUE, 0.01))), relayed(s));
   await measure(`move-${w.name}-relayed`);
   await send(`G-${w.name}2. relayer down: session key pays the fee itself: 0.005 SOL to VENUE`, true, viaSession(s, policyMove(s.pda, sysTransfer(VENUE, 0.005))), selfPaid(s));
   record(`G-${w.name}3. VENUE received exactly 0.015 SOL`, true, (await conn.getBalance(VENUE)) - b === 0.015 * SOL, `${((await conn.getBalance(VENUE)) - b) / SOL}`);
@@ -403,7 +286,7 @@ for (const w of [MM, FR, PH]) {
 // ── X. Cross-wallet ────────────────────────────────────────────────────────────────────────────
 {
   const a = await openSession(FR, { signAs: MM });
-  await send(`X1. Freighter's PDA with a grant signed by MetaMask (${NATIVE ? 'own key' : 'NEAR'})`, false, viaSession(a, policyMove(a.pda, sysTransfer(VENUE, 0.001))), relayed(a), E7);
+  await send("X1. Freighter's PDA with a grant signed by MetaMask (NEAR)", false, viaSession(a, policyMove(a.pda, sysTransfer(VENUE, 0.001))), relayed(a), E7);
   const b = await openSession(PH, { signAs: FR });
   await send("X2. Phantom's PDA with a grant signed by Freighter (NEAR)", false, viaSession(b, policyMove(b.pda, sysTransfer(VENUE, 0.001))), relayed(b), E7);
   const c = await openSession(MM, { signAs: PH });
@@ -568,7 +451,6 @@ for (const w of [MM, FR, PH]) {
   console.log('METRIC relayerSpend', JSON.stringify(metrics.relayerSpend));
 }
 console.log(`NEAR MPC signatures: ${stats.calls}, average ${(stats.ms / Math.max(1, stats.calls) / 1000).toFixed(1)}s`);
-if (NATIVE) { console.log(`MetaMask own-account: ${nat.msgCalls} signMessage (${MM_BRIDGE ? 'real extension' : 'local stand-in'}, average ${(nat.msgMs / Math.max(1, nat.msgCalls) / 1000).toFixed(2)}s), ${nat.txCalls} transaction signatures (stand-in with the wallet's rewrite), ${nat.wouldRefuse} of them for transactions whose simulation reverts (the real wallet would refuse): ${nat.wouldRefuseChecks.join(', ')}`); metrics.nativeMetaMask = { ...nat, realExtension: !!MM_BRIDGE, address: MM.key.toBase58() }; }
 st.mpc = stats; save();
 console.log(`${results.filter((r) => r.pass).length}/${results.length} passed`);
 for (const r of results.filter((r) => !r.pass)) console.log('FAIL', r.name, r.detail);
