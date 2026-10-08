@@ -1,0 +1,8 @@
+03:19:27 PASS N0a. Phantom grant (setup for N1-N5) ok 4981 ms 6856b16fcbc83359f9f0f1bb72b651a7be02427efe9b2ef290789667130bd440
+03:19:42 PASS N0b. MetaMask grant (setup for N2) ok 4876 ms 08780836217c5bae470995b2865ec5c22415ec960dcb682fbdd2eae2b71fe81e
+03:19:43 PASS N1. Phantom's prime-session + Freighter on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+03:19:45 PASS N2. MetaMask's and Phantom's prime-sessions on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+03:19:46 PASS N3. Phantom session claims its session rule for an account-admin call refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+03:19:53 PASS N4. the session key's own G account + Freighter on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+03:19:54 PASS N5. Phantom session removes rule 0 through its session rule refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+03:19:54 NEAR MPC: 2 signatures, average 8.0s

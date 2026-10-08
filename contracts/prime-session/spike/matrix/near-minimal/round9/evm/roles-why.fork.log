@@ -1,0 +1,6 @@
+rpc http://127.0.0.1:8547
+ stranger calls Roles: {"jsonrpc":"2.0","id":1,"error":{"code":3,"message":"execution reverted: custom error 0x4a0bfec1: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000
+ PrimeKey(MetaMask) -> token transfer to another address: ConditionViolation(ParameterNotAllowed) 0xd0a9bf58
+ PrimeKey(Freighter) -> delegatecall: ConditionViolation(1) 0xd0a9bf58
+ PrimeKey(Phantom) -> Safe addOwner: ConditionViolation(TargetAddressNotAllowed) 0xd0a9bf58
+token,safe,roles,pkMM,pkFR,pkPH,ownerFR,ownerPH,roleKey,drained,gas,mpc

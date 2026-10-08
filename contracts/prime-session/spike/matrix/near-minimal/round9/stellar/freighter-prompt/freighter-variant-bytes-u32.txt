@@ -1,0 +1,17 @@
+Confirm Authorizations
+127.0.0.1
+Wallet
+GBXP…2OD2
+Network
+Test Net
+Authorizations
+grant
+Contract ID
+CC7Z5DD3XMZ7BCC6BFBTORP26KQVUTF7RCWX2DLNB5Q3OZEHADQUJ6RR
+Function Name
+grant
+Parameters
+466611a1c3382e24e0f0838bf08affc50972dcd6e02ef5cf24e3b01b43d19e0f
+5081334
+Cancel
+Confirm

@@ -1,0 +1,6 @@
+03:18:12 PASS R-xlm_mm. MetaMask + Freighter install xlm_mm: XLM to VENUE only, signer: that wallet's prime-session ok 13872 ms b7d9d7b4d0fca819e08e004faddc6b9edaebd9f6963a5c9887db309b35f9ab70
+03:18:28 PASS R-xlm_fr. MetaMask + Freighter install xlm_fr: XLM to VENUE only, signer: that wallet's prime-session ok 11473 ms 478ebd795fb2416755c3402d3a89b28e652bc2dc6bbe021486dd2c5ffc104fd8
+03:18:47 PASS R-xlm_ph. MetaMask + Freighter install xlm_ph: XLM to VENUE only, signer: that wallet's prime-session ok 15844 ms e3c6c852ce96b78cffec5fdbec3461aebb015bec5ed1c88d8021842ee0a5494b
+03:19:07 PASS R-xlm_rf. MetaMask + Freighter install xlm_rf: XLM to VENUE only, signer: that wallet's prime-session ok 14771 ms b9b07e69e628abfe42f68cbdb846e5aff2fdf92621f60e012d9767928993690c
+03:19:13 rules 3 4 5 6
+03:19:13 NEAR MPC: 4 signatures, average 8.5s

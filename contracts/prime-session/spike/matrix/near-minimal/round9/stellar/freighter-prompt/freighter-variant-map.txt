@@ -1,0 +1,16 @@
+Confirm Authorizations
+127.0.0.1
+Wallet
+GBXP…2OD2
+Network
+Test Net
+Authorizations
+grant
+Contract ID
+CC7Z5DD3XMZ7BCC6BFBTORP26KQVUTF7RCWX2DLNB5Q3OZEHADQUJ6RR
+Function Name
+grant
+Parameters
+{ "key": { "0": 70, "1": 102, "2": 17, "3": 161, "4": 195, "5": 56, "6": 46, "7": 36, "8": 224, "9": 240, "10": 131, "11": 139, "12": 240, "13": 138, "14": 255, "15": 197, "16": 9, "17": 114, "18": 220, "19": 214, "20": 224, "21": 46, "22": 245, "23": 207, "24": 36, "25": 227, "26": 176, "27": 27, "28": 67, "29": 209, "30": 158, "31": 15 }, "until": 5081334 }
+Cancel
+Confirm

@@ -5,6 +5,9 @@
 //   sessions: one PrimeSession per wallet is its Roles member (never a Safe owner); the owner signs one personal_sign
 //         grant (MetaMask itself; MPC signs the EIP-191 digest for Freighter / Phantom), then the session key signs
 //         each move, submitted by the relayer or, when the relayer is down, by the session key paying its own gas.
+//         The grant owner of a NEAR-routed wallet is its MPC key under prime:evm-session, a different key from its
+//         seat (prime:evm), so no signature made for a grant can count as a seat vote. MetaMask's own key is both.
+//         grant + first move can go in one transaction through Multicall3 aggregate3.
 import { createPublicClient, createWalletClient, http, encodeFunctionData, parseAbi, getAddress, concat, pad, numberToHex, keccak256, toHex, hashMessage, encodeAbiParameters, parseEther, nonceManager, type Address, type Hex } from 'viem';
 import { publicActionsL2 } from 'viem/op-stack';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
@@ -65,7 +68,7 @@ async function send(name: string, expectOk: boolean, to: Address, data: Hex, o: 
   catch (e: any) { ok = false; d = reason(e); }
   return record(name, expectOk, ok, d);
 }
-async function deploy(a: any, args: any[] = []) { const h = await relayer.deployContract({ abi: a.abi, bytecode: a.bytecode.object, args }); const r = await pub.waitForTransactionReceipt({ hash: h }); await settle(r.blockNumber); return getAddress(r.contractAddress!); }
+async function deploy(a: any, args: any[] = [], tag?: string) { const h = await relayer.deployContract({ abi: a.abi, bytecode: a.bytecode.object, args }); const r = await pub.waitForTransactionReceipt({ hash: h }); await settle(r.blockNumber); if (tag) gasOf[tag] = r.gasUsed; return getAddress(r.contractAddress!); }
 const art = (dir: string, n: string) => JSON.parse(readFileSync(`${dir}/out/${n}.sol/${n}.json`, 'utf8'));
 const PK = art('/home/ubuntu/work/prime-evm', 'PrimeSession'), TK = art('/home/ubuntu/work/evm-matrix', 'Token');
 const tokenAbi = parseAbi(['function mint(address,uint256)', 'function transfer(address,uint256) returns (bool)', 'function balanceOf(address) view returns (uint256)']);
@@ -83,9 +86,12 @@ type W = { name: string; addr: Address; signHash: (h: Hex) => Promise<Hex>; pers
 const viaNear = async (name: 'Freighter' | 'Phantom', path = PATH): Promise<W> => ({ name, addr: await secpAddr(name, path),
   signHash: (h) => secpSign(name, path, h), personalSign: (t) => secpSign(name, path, hashMessage(t)) });
 const MM: W = { name: 'MetaMask', addr: metamask.address, signHash: (h) => metamask.sign({ hash: h }), personalSign: (t) => metamask.signMessage({ message: t }) };
-const FR = await viaNear('Freighter'), PH = await viaNear('Phantom');
+const SESSION_PATH = 'prime:evm-session';
+const FR = await viaNear('Freighter'), PH = await viaNear('Phantom');                              // seats
+const FR_S = await viaNear('Freighter', SESSION_PATH), PH_S = await viaNear('Phantom', SESSION_PATH); // grant owners
 const FR_OTHER_PATH = await viaNear('Freighter', 'prime:evm-other');
 console.log('seats:', MM.addr, FR.addr, PH.addr);
+console.log('session owners:', MM.addr, FR_S.addr, PH_S.addr);
 
 // ── Safe transactions (seats) ──────────────────────────────────────────────────────────────────
 type Part = { owner: Address; sig: Hex; dynamic?: Hex };
@@ -113,15 +119,32 @@ async function grant(name: string, expectOk: boolean, pk: Address, w: W, o: { se
   await send(name, expectOk, pk, data, { from: o.selfPay ? key : undefined, tag: expectOk ? `grant${w.name}` : undefined });
   return { pk, key, end };
 }
+const execHash = (pk: Address, n: bigint, call: { to: Address; value: bigint; data: Hex; operation: 0 | 1 }) => keccak256(encodeAbiParameters([{ type: 'address' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'address' }, { type: 'uint256' }, { type: 'bytes32' }, { type: 'uint8' }, { type: 'bytes32' }],
+  [pk, 84532n, n, call.to, call.value, keccak256(call.data), call.operation, st.roleKey]));
+const execData = (s: Session, call: { to: Address; value: bigint; data: Hex; operation: 0 | 1 }, sig: Hex) => encodeFunctionData({ abi: PK.abi, functionName: 'exec', args: [call.to, call.value, call.data, call.operation, st.roleKey, s.key.address, sig] });
+const sessionNonce = async (s: Session) => (await pub.readContract({ address: s.pk, abi: PK.abi, functionName: 'sessions', args: [s.key.address] }) as readonly [bigint, bigint])[1];
+const sessionUntil = async (pk: Address, key: Address) => (await pub.readContract({ address: pk, abi: PK.abi, functionName: 'sessions', args: [key] }) as readonly [bigint, bigint])[0];
 async function move(name: string, expectOk: boolean, s: Session, call: { to: Address; value: bigint; data: Hex; operation: 0 | 1 }, o: { signer?: ReturnType<typeof privateKeyToAccount>; replay?: Hex; selfPay?: boolean; fund?: boolean; tag?: string } = {}) {
-  const n = await pub.readContract({ address: s.pk, abi: PK.abi, functionName: 'nonce', args: [s.key.address] }) as bigint;
-  const h = keccak256(encodeAbiParameters([{ type: 'address' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'address' }, { type: 'uint256' }, { type: 'bytes32' }, { type: 'uint8' }, { type: 'bytes32' }],
-    [s.pk, 84532n, n, call.to, call.value, keccak256(call.data), call.operation, st.roleKey]));
-  const sig = o.replay ?? await (o.signer ?? s.key).sign({ hash: h });
-  const data = encodeFunctionData({ abi: PK.abi, functionName: 'exec', args: [call.to, call.value, call.data, call.operation, st.roleKey, s.key.address, sig] });
+  const sig = o.replay ?? await (o.signer ?? s.key).sign({ hash: execHash(s.pk, await sessionNonce(s), call) });
+  const data = execData(s, call, sig);
   if (o.selfPay) { if (o.fund === false) st.drained = String(await drain(s.key)); else await fund(s.key.address, s.pk, data); }
   await send(name, expectOk, s.pk, data, { from: o.selfPay ? s.key : undefined, tag: o.tag });
   return sig;
+}
+// Grant + the session's first move in one transaction through Multicall3. The grant may fail (someone else already
+// submitted it); the move may not, and it needs a live session, so a bad grant signature still cannot move.
+const MULTICALL3: Address = '0xcA11bde05977b3631167028862bE2a173976CA11';
+const multicallAbi = parseAbi(['struct Call3 { address target; bool allowFailure; bytes callData; }', 'struct Result { bool success; bytes returnData; }', 'function aggregate3(Call3[] calls) payable returns (Result[] returnData)']);
+async function grantAndMove(name: string, expectOk: boolean, pk: Address, w: W, call: { to: Address; value: bigint; data: Hex; operation: 0 | 1 }, o: { selfPay?: boolean; tag?: string; pregrant?: string; badSig?: boolean } = {}): Promise<Session> {
+  const key = privateKeyToAccount(generatePrivateKey()); const end = (await now()) + 3600n; const s: Session = { pk, key, end };
+  const text = await grantText(pk, key.address, end);
+  const g = encodeFunctionData({ abi: PK.abi, functionName: 'grant', args: [key.address, end, o.badSig ? await privateKeyToAccount(generatePrivateKey()).signMessage({ message: text }) : await w.personalSign(text)] });
+  if (o.pregrant) await send(o.pregrant, true, pk, g);
+  const e = execData(s, call, await key.sign({ hash: execHash(pk, 0n, call) }));
+  const data = encodeFunctionData({ abi: multicallAbi, functionName: 'aggregate3', args: [[{ target: pk, allowFailure: true, callData: g }, { target: pk, allowFailure: false, callData: e }]] });
+  if (o.selfPay) await fund(key.address, MULTICALL3, data);
+  await send(name, expectOk, MULTICALL3, data, { from: o.selfPay ? key : undefined, tag: o.tag });
+  return s;
 }
 
 // ── C. Setup ───────────────────────────────────────────────────────────────────────────────────
@@ -134,7 +157,8 @@ const proxyCreationCode = await pub.readContract({ address: CONTRACTS.safeProxyF
 const initializer = ob.encodeSafeInitializer([MM.addr], 1n, CONTRACTS.compatibilityFallbackHandler);
 const salt = BigInt(keccak256(toHex(`pkn-${Date.now()}`)));
 st.safe = ob.predictSafeAddress(proxyCreationCode, initializer, salt); st.roles = ob.predictPrimeRolesAddress(st.safe);
-st.pkMM = await deploy(PK, [MM.addr, st.roles]); st.pkFR = await deploy(PK, [FR.addr, st.roles]); st.pkPH = await deploy(PK, [PH.addr, st.roles]);
+st.pkMM = await deploy(PK, [MM.addr, st.roles], 'deploy'); st.pkFR = await deploy(PK, [FR_S.addr, st.roles]); st.pkPH = await deploy(PK, [PH_S.addr, st.roles]);
+st.ownerFR = FR_S.addr; st.ownerPH = PH_S.addr;
 const doc = { spendingLimit: 1 as const, token: st.token, recipients: [VENUE], amount: (100n * E18).toString(), period: '86400' };
 const rule = pol.buildRuleInstall({ doc, docText: JSON.stringify(doc), name: 'movers', ctx: { prime: st.safe, primeRoles: st.roles }, proxyCreationCode, wallets: [st.pkMM, st.pkFR, st.pkPH], threshold: 1 });
 st.roleKey = rule.roleKey; save();
@@ -149,6 +173,11 @@ const thr = await pub.readContract({ address: st.safe, abi: safeAbi, functionNam
 record('C3. owners are exactly the three wallet keys (no PrimeSession), threshold 2', true,
   owners.length === 3 && [MM.addr, FR.addr, PH.addr].every((a) => owners.includes(lc(a))) && ![st.pkMM, st.pkFR, st.pkPH].some((a) => owners.includes(lc(a))) && thr === 2n, `${owners.join(',')} / ${thr}`);
 await send('C4. mint 1000 tokens to the Safe', true, st.token, encodeFunctionData({ abi: tokenAbi, functionName: 'mint', args: [st.safe, 1000n * E18] }));
+{ const owners3 = await Promise.all([st.pkMM, st.pkFR, st.pkPH].map((a) => pub.readContract({ address: a, abi: PK.abi, functionName: 'owner' }) as Promise<Address>));
+  record('C5. grant owners: MetaMask keeps its own key (seat and owner); Freighter and Phantom use prime:evm-session keys that differ from their seats', true,
+    owners3[0] === MM.addr && owners3[1] === FR_S.addr && owners3[2] === PH_S.addr && FR_S.addr !== FR.addr && PH_S.addr !== PH.addr && FR_S.addr !== PH_S.addr, owners3.join(','));
+  const mcCode = await pub.getCode({ address: MULTICALL3 });
+  record('C6. Multicall3 is deployed at the canonical address', true, (mcCode?.length ?? 0) > 2, `${((mcCode?.length ?? 2) - 2) / 2} bytes`); }
 
 // ── S. Seats ───────────────────────────────────────────────────────────────────────────────────
 {
@@ -166,12 +195,15 @@ await send('C4. mint 1000 tokens to the Safe', true, st.token, encodeFunctionDat
   await safeTx('S7. the same wallet (Phantom) signs twice, as both votes', false, t, async (h) => { const s = await PH.signHash(h); return [{ owner: PH.addr, sig: s }, { owner: PH.addr, sig: s }]; });
   await safeTx("S8. Freighter's MPC key under another path + MetaMask", false, t, async (h) => [{ owner: MM.addr, sig: await MM.signHash(h) }, { owner: FR.addr, sig: await FR_OTHER_PATH.signHash(h) }]);
   await safeTx('S9. Phantom approval of another Safe tx + MetaMask', false, t, async (h) => [{ owner: MM.addr, sig: await MM.signHash(h) }, { owner: PH.addr, sig: await PH.signHash(keccak256(h)) }]);
+  // A grant-path (prime:evm-session) signature over a Safe transaction hash, filed as a seat vote, counts for nothing.
+  await safeTx('S10. Freighter and Phantom session-path signatures filed as their seat votes (no MetaMask)', false, t, async (h) => [{ owner: FR.addr, sig: await FR_S.signHash(h) }, { owner: PH.addr, sig: await PH_S.signHash(h) }]);
+  await safeTx("S11. Phantom's session-path signature filed as its seat vote + MetaMask", false, t, async (h) => [{ owner: MM.addr, sig: await MM.signHash(h) }, { owner: PH.addr, sig: await PH_S.signHash(h) }]);
 }
 
 // ── N. A session can never vote as a seat ──────────────────────────────────────────────────────
 {
   const t = tokenTransfer(DEST, 1n);
-  const s = await grant('N0. Phantom grants a session (used below)', true, st.pkPH, PH);
+  const s = await grant('N0. Phantom grants a session (used below)', true, st.pkPH, PH_S);
   await safeTx("N1. the session key's signature as a Safe owner + MetaMask", false, t, async (h) => [{ owner: MM.addr, sig: await MM.signHash(h) }, { owner: s.key.address, sig: await s.key.sign({ hash: h }) }]);
   await safeTx('N2. PrimeSession(Phantom) as a contract signature + MetaMask', false, t, async (h) => [{ owner: MM.addr, sig: await MM.signHash(h) }, { owner: st.pkPH, sig: '0x' as Hex, dynamic: await s.key.sign({ hash: h }) }]);
   await move('N3. session asks Roles to add the session key as a Safe owner', false, s, { to: st.safe, value: 0n, operation: 0, data: encodeFunctionData({ abi: safeAbi, functionName: 'addOwnerWithThreshold', args: [s.key.address, 1n] }) });
@@ -180,50 +212,67 @@ await send('C4. mint 1000 tokens to the Safe', true, st.token, encodeFunctionDat
 }
 
 // ── G. Sessions, every wallet ──────────────────────────────────────────────────────────────────
-for (const [w, pk] of [[MM, st.pkMM], [FR, st.pkFR], [PH, st.pkPH]] as [W, Address][]) {
+for (const [w, pk] of [[MM, st.pkMM], [FR_S, st.pkFR], [PH_S, st.pkPH]] as [W, Address][]) {
   const s = await grant(`G-${w.name}1. ${w.name} grants a 1-hour session (one signature${w === MM ? '' : ' through NEAR'}), relayer submits`, true, pk, w);
   const b = await bal(VENUE);
   await move(`G-${w.name}2. move via relayer: 10 to VENUE`, true, s, tokenTransfer(VENUE, 10n), { tag: `moveRelayer${w.name}` });
   await move(`G-${w.name}3. relayer down: session key submits and pays gas itself, 5 to VENUE`, true, s, tokenTransfer(VENUE, 5n), { selfPay: true, tag: `moveSelf${w.name}` });
   await move(`G-${w.name}4. relayer down and the session key has no ETH`, false, s, tokenTransfer(VENUE, 1n), { selfPay: true, fund: false });
   record(`G-${w.name}5. VENUE received exactly 15`, true, (await bal(VENUE)) - b === 15n * E18, `${((await bal(VENUE)) - b) / E18}`);
-  const sig = await move(`G-${w.name}6. move 3: 1 to VENUE`, true, s, tokenTransfer(VENUE, 1n));
+  const sig = await move(`G-${w.name}6. move 3: 1 to VENUE`, true, s, tokenTransfer(VENUE, 1n), { tag: `moveLater${w.name}` });
   await move(`G-${w.name}7. move 3 replayed`, false, s, tokenTransfer(VENUE, 1n), { replay: sig });
   await move(`G-${w.name}8. 1 to another address (Roles rule)`, false, s, tokenTransfer(OTHER, 1n));
   await move(`G-${w.name}9. move signed by another key`, false, s, tokenTransfer(VENUE, 1n), { signer: privateKeyToAccount(generatePrivateKey()) });
   await grant(`G-${w.name}10. grant for 7 days + 1 hour`, false, pk, w, { seconds: 7n * 86400n + 3600n });
   await grant(`G-${w.name}11. grant submitted with a later end than signed`, false, pk, w, { end: s.end + 3600n, signedEnd: s.end });
   await grant(`G-${w.name}12. old grant replayed with an earlier end`, false, pk, w, { key: s.key, end: s.end - 60n });
-  await grant(`G-${w.name}13. grant for the zero key`, false, pk, w, { key: { address: '0x0000000000000000000000000000000000000000' } as any });
+  // The zero key is owner-signed, so storing it is harmless: no signature recovers to the zero address, so it can never move.
+  const zero: Session = { pk, key: { address: '0x0000000000000000000000000000000000000000' } as any, end: 0n };
+  zero.end = (await now()) + 3600n;
+  await grant(`G-${w.name}13. grant for the zero key is accepted (owner-signed, stored)`, true, pk, w, { key: zero.key, end: zero.end });
+  await move(`G-${w.name}13b. the zero key can never move (no signature recovers to it)`, false, zero, tokenTransfer(VENUE, 1n), { replay: `0x${'11'.repeat(32)}${'22'.repeat(32)}1b` as Hex });
   const r = await grant(`G-${w.name}14. second session, granted with the session key paying gas itself`, true, pk, w, { selfPay: true });
-  await send(`G-${w.name}15. ${w.name} revokes it: grant with end 0 (one signature)`, true, pk, encodeFunctionData({ abi: PK.abi, functionName: 'grant', args: [r.key.address, 0n, await w.personalSign(await grantText(pk, r.key.address, 0n))] }));
+  await send(`G-${w.name}15. ${w.name} revokes it: grant with end 0 (one signature)`, true, pk, encodeFunctionData({ abi: PK.abi, functionName: 'grant', args: [r.key.address, 0n, await w.personalSign(await grantText(pk, r.key.address, 0n))] }), { tag: `revoke${w.name}` });
   await move(`G-${w.name}16. the revoked session`, false, r, tokenTransfer(VENUE, 1n));
   await grant(`G-${w.name}17. re-grant the revoked key`, false, pk, w, { key: r.key });
   await move(`G-${w.name}18. first session still works`, true, s, tokenTransfer(VENUE, 1n));
+  const bc = await bal(VENUE);
+  const c1 = await grantAndMove(`G-${w.name}19. grant + first move in one Multicall3 transaction, relayer submits`, true, pk, w, tokenTransfer(VENUE, 2n), { tag: `grantMoveRelayer${w.name}` });
+  record(`G-${w.name}20. that session is live with nonce 1 afterwards, and VENUE got the 2`, true, (await sessionNonce(c1)) === 1n && (await sessionUntil(pk, c1.key.address)) === c1.end && (await bal(VENUE)) - bc === 2n * E18, `nonce ${await sessionNonce(c1)}`);
+  const c2 = await grantAndMove(`G-${w.name}21. grant + first move in one transaction, the session key pays its own gas`, true, pk, w, tokenTransfer(VENUE, 2n), { selfPay: true, tag: `grantMoveSelf${w.name}` });
+  await move(`G-${w.name}22. the combined session's second move`, true, c2, tokenTransfer(VENUE, 1n));
+  const bad = await grantAndMove(`G-${w.name}23. grant + a refused first move (1 to another address): the whole transaction reverts`, false, pk, w, tokenTransfer(OTHER, 1n));
+  record(`G-${w.name}24. and the grant was not stored`, true, (await sessionUntil(pk, bad.key.address)) === 0n, `until ${await sessionUntil(pk, bad.key.address)}`);
+  const pre = await grantAndMove(`G-${w.name}26. the same grant was already submitted alone: the combined call still makes the move`, true, pk, w, tokenTransfer(VENUE, 1n), { pregrant: `G-${w.name}25. grant submitted alone first (front-run)` });
+  record(`G-${w.name}27. that session shows nonce 1 (the move ran once)`, true, (await sessionNonce(pre)) === 1n, `nonce ${await sessionNonce(pre)}`);
+  const bs = await grantAndMove(`G-${w.name}28. combined call with a bad grant signature: the move is refused`, false, pk, w, tokenTransfer(VENUE, 1n), { badSig: true });
+  record(`G-${w.name}29. and nothing was stored for that key`, true, (await sessionUntil(pk, bs.key.address)) === 0n && (await sessionNonce(bs)) === 0n, `until ${await sessionUntil(pk, bs.key.address)}`);
 }
 
 // ── X. Cross-wallet ────────────────────────────────────────────────────────────────────────────
 {
-  await grant('X1. PrimeSession(Freighter) with a grant signed by Phantom (NEAR)', false, st.pkFR, PH);
-  await grant('X2. PrimeSession(MetaMask) with a grant signed by Freighter (NEAR)', false, st.pkMM, FR);
+  await grant('X1. PrimeSession(Freighter) with a grant signed by Phantom (NEAR)', false, st.pkFR, PH_S);
+  await grant('X2. PrimeSession(MetaMask) with a grant signed by Freighter (NEAR)', false, st.pkMM, FR_S);
   await grant('X3. PrimeSession(Phantom) with a grant signed by MetaMask', false, st.pkPH, MM);
   await grant("X4. PrimeSession(Freighter) with Freighter's MPC key under another path", false, st.pkFR, FR_OTHER_PATH);
-  await grant('X5. grant text made for PrimeSession(Freighter) presented to PrimeSession(Phantom), signed by Phantom', false, st.pkPH, PH, { textFor: st.pkFR });
-  await grant('X6. raw-hash signature instead of personal_sign (Freighter)', false, st.pkFR, { ...FR, personalSign: async (t) => FR.signHash(keccak256(toHex(t))) });
-  const s = await grant('X7. Freighter session', true, st.pkFR, FR);
+  await grant("X4b. PrimeSession(Freighter) with a grant signed by Freighter's seat key (prime:evm)", false, st.pkFR, FR);
+  await grant("X4c. PrimeSession(Phantom) with a grant signed by Phantom's seat key (prime:evm)", false, st.pkPH, PH);
+  await grant('X5. grant text made for PrimeSession(Freighter) presented to PrimeSession(Phantom), signed by Phantom', false, st.pkPH, PH_S, { textFor: st.pkFR });
+  await grant('X6. raw-hash signature instead of personal_sign (Freighter)', false, st.pkFR, { ...FR_S, personalSign: async (t) => FR_S.signHash(keccak256(toHex(t))) });
+  const s = await grant('X7. Freighter session', true, st.pkFR, FR_S);
   await move('X8. that session key used through PrimeSession(Phantom)', false, { ...s, pk: st.pkPH }, tokenTransfer(VENUE, 1n));
   await send('X9. a stranger calls Roles directly', false, st.roles, encodeFunctionData({ abi: parseAbi(['function execTransactionWithRole(address,uint256,bytes,uint8,bytes32,bool) returns (bool)']), functionName: 'execTransactionWithRole', args: [st.token, 0n, tokenTransfer(VENUE, 1n).data, 0, st.roleKey, true] }));
   await move('X10. a move over the daily cap (60 more)', false, s, tokenTransfer(VENUE, 60n));
   // revoke is grant(key, 0, sig): only the owner's end-0 signature counts
-  await send("X12. Phantom's end-0 (revoke) signature on PrimeSession(Freighter) for Freighter's live session", false, st.pkFR, encodeFunctionData({ abi: PK.abi, functionName: 'grant', args: [s.key.address, 0n, await PH.personalSign(await grantText(st.pkFR, s.key.address, 0n))] }));
+  await send("X12. Phantom's end-0 (revoke) signature on PrimeSession(Freighter) for Freighter's live session", false, st.pkFR, encodeFunctionData({ abi: PK.abi, functionName: 'grant', args: [s.key.address, 0n, await PH_S.personalSign(await grantText(st.pkFR, s.key.address, 0n))] }));
   const pre = privateKeyToAccount(generatePrivateKey());
-  const preSig = await FR.personalSign(await grantText(st.pkFR, pre.address, 0n));
+  const preSig = await FR_S.personalSign(await grantText(st.pkFR, pre.address, 0n));
   await send('X13. Freighter revokes a key it never granted (pre-emptive)', true, st.pkFR, encodeFunctionData({ abi: PK.abi, functionName: 'grant', args: [pre.address, 0n, preSig] }));
-  await grant('X14. that key can never be granted afterwards', false, st.pkFR, FR, { key: pre });
+  await grant('X14. that key can never be granted afterwards', false, st.pkFR, FR_S, { key: pre });
   await send('X15. the same revoke replayed (harmless, key stays revoked)', true, st.pkFR, encodeFunctionData({ abi: PK.abi, functionName: 'grant', args: [pre.address, 0n, preSig] }));
   await move('X16. Freighter session still works after X12', true, s, tokenTransfer(VENUE, 1n));
   if (LIVE) { // real chain: no time travel, so use a 20-second session and wait it out
-    const short = await grant('X11a. Freighter 20-second session', true, st.pkFR, FR, { seconds: 20n });
+    const short = await grant('X11a. Freighter 20-second session', true, st.pkFR, FR_S, { seconds: 20n });
     while ((await now()) <= short.end) await new Promise((r) => setTimeout(r, 2000));
     await move('X11. after the session ends', false, short, tokenTransfer(VENUE, 1n));
   } else { await rpc('evm_increaseTime', [3601]); await rpc('evm_mine', []); await move('X11. after the session ends', false, s, tokenTransfer(VENUE, 1n)); }

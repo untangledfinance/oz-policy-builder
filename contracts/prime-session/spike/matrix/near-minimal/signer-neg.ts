@@ -18,12 +18,16 @@ const sep53 = (t: string) => { const d = mkdtempSync(`${tmpdir()}/fs-`); writeFi
   try { return Buffer.from(execFileSync('bun', ['freighter-sign.ts', FREIGHTER_FILE, `${d}/m.txt`], { encoding: 'utf8' }), 'base64').toString('hex'); } finally { rmSync(d, { recursive: true }); } };
 const text = (t: string) => Buffer.from(nacl.sign.detached(Buffer.from(t, 'utf8'), ph.secretKey)).toString('hex');
 const results: any[] = [];
+const meter: { name: string; ms: number; tgas: number }[] = [];
+const burnt = (o: any) => Number(BigInt(o.transaction_outcome.outcome.gas_burnt) + (o.receipts_outcome ?? []).reduce((a: bigint, r: any) => a + BigInt(r.outcome.gas_burnt), 0n)) / 1e12;
 async function call(name: string, expectOk: boolean, args: any) {
+  const t0 = Date.now();
   const out: any = await relayer.signAndSendTransaction({ receiverId: SIGNER, actions: [actionCreators.functionCall('sign', args, 300_000_000_000_000n, 1n)], waitUntil: 'FINAL', throwOnFailure: false });
   const ok = !!out.status?.SuccessValue;
-  const why = ok ? 'MPC signature returned' : JSON.stringify(out.status?.Failure ?? out.status).match(/(not signed by this key|key|signature|payload)"?/)?.[0] ?? JSON.stringify(out.status).slice(0, 200);
+  const why = ok ? 'MPC signature returned' : JSON.stringify(out.status?.Failure ?? out.status).match(/(not signed by this key|key|signature|payload|Failure|ExecutionError[^,}]*)"?/)?.[0] ?? JSON.stringify(out.status).slice(0, 200);
   const pass = ok === expectOk; results.push({ name, pass });
-  console.log(`${pass ? 'PASS' : 'FAIL'} ${name} | ${ok ? 'ok' : 'refused: ' + why}`);
+  meter.push({ name: name.slice(0, 3), ms: Date.now() - t0, tgas: burnt(out) });
+  console.log(`${pass ? 'PASS' : 'FAIL'} ${name} | ${ok ? 'ok' : 'refused: ' + why} | signer receipt ${typeof out.receipts_outcome?.[0]?.outcome?.status === 'object' && 'SuccessReceiptId' in out.receipts_outcome[0].outcome.status ? 'ok' : 'failed'} | tx ${out.transaction_outcome.id} | ${burnt(out).toFixed(2)} Tgas burnt | ${Date.now() - t0} ms`);
 }
 const P = 'prime:neg', H = 'ab'.repeat(32);
 await call('S1. Freighter, SEP-53, ed25519 domain (control)', true, { key: FR, sep53: true, path: P, domain_id: 1, payload: H, signature: sep53(requestText(P, 1, H)) });
@@ -37,6 +41,7 @@ await call('S8. signed for another domain', false, { key: PH, sep53: false, path
 await call('S9. signed for another signer contract', false, { key: PH, sep53: false, path: P, domain_id: 1, payload: H,
   signature: text(requestText(P, 1, H).replace(`contract: ${SIGNER}`, 'contract: signer.someone-else.testnet')) });
 await call('S10. malformed key', false, { key: 'zz', sep53: false, path: P, domain_id: 1, payload: H, signature: text(requestText(P, 1, H)) });
-await call('S11. payload in upper-case hex (wallet signed the lower-case text)', true, { key: PH, sep53: false, path: P, domain_id: 1, payload: H.toUpperCase(), signature: text(requestText(P, 1, H)) });
+await call('S11. payload in upper-case hex (wallet signed the lower-case text; the text must match exactly)', false, { key: PH, sep53: false, path: P, domain_id: 1, payload: H.toUpperCase(), signature: text(requestText(P, 1, H)) });
+await call('S12. non-hex payload, correctly signed (our contract accepts it, the MPC call must fail)', false, { key: PH, sep53: false, path: P, domain_id: 1, payload: 'zz', signature: text(requestText(P, 1, 'zz')) });
 console.log(`${results.filter((r) => r.pass).length}/${results.length} passed`);
 process.exit(0);

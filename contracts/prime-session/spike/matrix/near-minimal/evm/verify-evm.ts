@@ -1,9 +1,10 @@
-// Read-only: re-check the live Base Sepolia run from the chain itself.
+// Read-only: re-check a run from the chain itself (live Base Sepolia; BE_FORK=1: the anvil fork run, state-pkn.json, port 8547).
 import { createPublicClient, http, parseAbi } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import { readFileSync } from 'node:fs';
-const st = JSON.parse(readFileSync('state-pkn-live.json', 'utf8'));
-const pub = createPublicClient({ chain: baseSepolia, transport: http('https://base-sepolia-rpc.publicnode.com') });
+const FORK = !!process.env.BE_FORK;
+const st = JSON.parse(readFileSync(FORK ? 'state-pkn.json' : 'state-pkn-live.json', 'utf8'));
+const pub = createPublicClient({ chain: baseSepolia, transport: http(FORK ? 'http://127.0.0.1:8547' : 'https://base-sepolia-rpc.publicnode.com') });
 const relayer = '0xecebBf71Faa6682Ff31fD145646f8Eda82E98E11'.toLowerCase();
 let ok = 0, bad = 0;
 for (const r of st.results.filter((r: any) => r.tx)) {

@@ -1,0 +1,14 @@
+03:15:31 PASS Y1-MetaMask. MetaMask alone adds a rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+03:15:31 PASS Y1-Freighter. Freighter alone adds a rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+03:15:40 PASS Y1-Phantom. Phantom alone adds a rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+03:15:58 PASS Y2. MetaMask (NEAR) + Freighter add a rule ok 17438 ms 0a65bb6ae49fd1d8b33f6c996df65eacb40c5c64bbd3131a0a2978df514b8b58
+03:16:12 PASS Y3. Freighter + Phantom (NEAR) remove it ok 12883 ms 6c819805d045c4aef938a2781d80821293c796ca8b42f70451f444baabaefc46
+03:16:32 PASS Y4. Phantom (NEAR) + MetaMask (NEAR) add a rule ok 19993 ms acd9090e4b40a866b4230fd72e12231563e3a3a4798666c082add7763dcdcc42
+03:16:52 PASS Y5. MetaMask + Phantom remove it ok 19493 ms 851c623d44d105cfeee3527cf5a93c5c0acad275c142752d908f20c370eb2ee7
+03:17:00 PASS Y6. outsider + Freighter refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+03:17:09 PASS Y7. MetaMask's seat signed by Phantom's MPC key + Freighter refused: Error(Auth, InvalidAction) Error(Contract, #5)
+03:17:18 PASS Y8. Phantom's seat signed by its MPC key under another path + Freighter refused: Error(Auth, InvalidAction) Error(Contract, #5)
+03:17:27 PASS Y9. MetaMask's seat vote signed under the session path + Freighter refused: Error(Auth, InvalidAction) Error(Contract, #5)
+03:17:36 PASS Y10. Phantom's seat vote signed under the session path + Freighter refused: Error(Auth, InvalidAction) Error(Contract, #5)
+03:17:54 PASS Y11. the two session-owner accounts (MetaMask, Phantom) as the two votes on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+03:17:54 NEAR MPC: 14 signatures, average 8.3s

@@ -1,0 +1,3 @@
+sha256(.so) be6ade02a14b495d528d69d4f4632a0ffb9c9c83a9165ac8d2e0b1dbac102e13 54024 bytes
+program A FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G: on-chain code starts with local .so: true rest zero: true sha256(on-chain code, .so length) be6ade02a14b495d528d69d4f4632a0ffb9c9c83a9165ac8d2e0b1dbac102e13
+program B J38gUL2YFo91GDBnDXwVDaGpk6XWSJUhs7RuditRdiVo: on-chain code starts with local .so: true rest zero: true sha256(on-chain code, .so length) be6ade02a14b495d528d69d4f4632a0ffb9c9c83a9165ac8d2e0b1dbac102e13

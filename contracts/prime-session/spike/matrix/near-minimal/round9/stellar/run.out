@@ -1,0 +1,19 @@
+== setup 03:11:40
+exit 0
+== seats 03:15:19
+exit 0
+== rules 03:17:54
+exit 0
+== separation 03:19:13
+exit 0
+== sessions 03:19:54
+exit 0
+== cross 03:28:07
+exit 0
+== realfr 03:29:03
+exit 1
+== summary 03:32:06
+exit 0
+== verify 03:32:11
+exit 0
+== done 03:32:15

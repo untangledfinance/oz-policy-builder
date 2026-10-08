@@ -1,0 +1,3 @@
+be6ade02a14b495d528d69d4f4632a0ffb9c9c83a9165ac8d2e0b1dbac102e13  /home/ubuntu/work/prime-session/target/deploy/prime_session.so
+8db245ab5ba25a6b8585bfd193be5d9241e5df0f331792437c34f1ac888b7b76  /home/ubuntu/work/prime-session/target/deploy-devnet/prime_session.so
+c5305242be20cfee3dfdc62022ed6fd60e3e63bf78b8c2329c0fd497dcec7d8c  r8.so

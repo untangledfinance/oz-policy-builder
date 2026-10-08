@@ -1,0 +1,80 @@
+extension id bpekalmkpanmhghgokemopeomefdinlg
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+bridge ready
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] unlocked
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] 127.0.0.1 Connection Request Allow 127.0.0.1 to view your wallet address, balance, activity and request approval for transactions Wallet GBXP…2OD2 Network Test Net Only confirm if you trust this site Cancel Connect
+[popup] connect 127.0.0.1 Connection Request Allow 127.0.0.1 to view your wallet address, balance, activity and request approval for transactions Wallet GBXP…2OD2 Network Test Net Only confirm if you trust this site 
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Confirm Authorizations 127.0.0.1 Wallet GBXP…2OD2 Network Test Net Authorizations grant Cancel Confirm
+
+=== Freighter authorization prompt ===
+Confirm Authorizations 127.0.0.1 Wallet GBXP…2OD2 Network Test Net Authorizations grant Cancel Confirm
+=== end ===
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+=== expanded ===
+Confirm Authorizations 127.0.0.1 Wallet GBXP…2OD2 Network Test Net Authorizations grant Contract ID CB5GRYA2OJBPJCJVBSTJHAVYQWFW222PUNGIVMZUQ74MVZ4CK5EMOIUQ Function Name grant Parameters dd3c09bf0695df1972371627a23d0941cbe8102525b08a76445974d90fb35de0 5082031 Cancel Confirm
+=== end ===
+signed auth-1791430145617.xdr
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Confirm Authorizations 127.0.0.1 Wallet GBXP…2OD2 Network Test Net Authorizations grant Cancel Confirm
+
+=== Freighter authorization prompt ===
+Confirm Authorizations 127.0.0.1 Wallet GBXP…2OD2 Network Test Net Authorizations grant Cancel Confirm
+=== end ===
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+=== expanded ===
+Confirm Authorizations 127.0.0.1 Wallet GBXP…2OD2 Network Test Net Authorizations grant Contract ID CB5GRYA2OJBPJCJVBSTJHAVYQWFW222PUNGIVMZUQ74MVZ4CK5EMOIUQ Function Name grant Parameters 8794e9265566a72434d34f3311bbb7c1e61e3f7799925cfc577c68783d076684 5082140 Cancel Confirm
+=== end ===
+signed auth-1791430691835.xdr
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Confirm Authorizations 127.0.0.1 Wallet GBXP…2OD2 Network Test Net Authorizations grant Cancel Confirm
+
+=== Freighter authorization prompt ===
+Confirm Authorizations 127.0.0.1 Wallet GBXP…2OD2 Network Test Net Authorizations grant Cancel Confirm
+=== end ===
+[popup] Freighter Wallet Create new wallet I already have a wallet
+=== expanded ===
+Confirm Authorizations 127.0.0.1 Wallet GBXP…2OD2 Network Test Net Authorizations grant Contract ID CB5GRYA2OJBPJCJVBSTJHAVYQWFW222PUNGIVMZUQ74MVZ4CK5EMOIUQ Function Name grant Parameters 8794e9265566a72434d34f3311bbb7c1e61e3f7799925cfc577c68783d076684 0 Cancel Confirm
+=== end ===
+signed auth-1791430714475.xdr
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+[popup] Freighter Wallet Create new wallet I already have a wallet
+done
+node:internal/process/promises:324
+    triggerUncaughtException(err, true /* fromPromise */);
+    ^
+
+page.waitForTimeout: Target page, context or browser has been closed
+    at _BrowserContext.<anonymous> (/home/ubuntu/work/freighter-ext/explore-auth.mjs:62:13) {
+  log: []
+}
+
+Node.js v26.4.0
