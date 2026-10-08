@@ -1,30 +1,35 @@
-# Prime on Stellar, EVM and Solana: three wallets, seats and sessions
+# Prime on Stellar, EVM and Solana: owners, wallets, seats and sessions
 
-Status: spike, testnet only, branch `spike/session-signer` (created before the contracts were renamed). Refinement round 9, runs dated 8 October 2026. Claims link to a log, a testnet transaction or a source file (section 12). Two follow-up spikes of the same day are in this document: native accounts on a second chain (section 5.6) and Swig as the Solana session layer (section 7.3). Round 9 logs sit under `round9/`, and the follow-up logs under `round9/native/` and `round9/swig/`; `evidence-r8.log` holds the read-only checks for network facts. Spike paths below are relative to `spike/matrix/near-minimal/`.
+Status: spike, testnet only, branch `spike/session-signer` (created before the contracts were renamed). Refinement round 9, runs dated 8 October 2026. Claims link to a log, a testnet transaction or a source file (section 12). Three follow-up pieces of work of the same day are in this document: native accounts on a second chain (section 5.6), Swig as the Solana session layer (section 7.3), and session keys that vote for their owner (section 14). Round 9 logs sit under `round9/`, and the follow-up logs under `round9/native/` and `round9/swig/`; `evidence-r8.log` holds the read-only checks for network facts. The owner-count runs (section 4.1), the wallet runs (section 10.2) and the seat-voting spike (section 14) have their logs and reports outside the bundle for now. Sections 6 to 8 and 10 describe the contracts as built and tested in round 9; the seat-voting variants of section 14 are spikes, and the production contracts are not switched to them yet. Spike paths below are relative to `spike/matrix/near-minimal/`.
 
 ## 1. The goal
 
-A **Prime Account** is a shared account with three owners. Each owner uses one of three wallets: **MetaMask**, **Freighter** or **Phantom**. The account can live on any of three chains: **Stellar**, **EVM** (Base) or **Solana**.
+A **Prime Account** is a shared account with **M-of-N owners**: any number of owners and any threshold, from one owner alone (1-of-1) to many (section 4.1). Each owner uses a wallet. Wallets come in three **signature families**: **EVM wallets** (MetaMask, Coinbase Wallet, Rabby and others), **Stellar wallets** (Freighter, Hana, xBull, Albedo, LOBSTR and others) and **Solana wallets** (Phantom, Solflare, Backpack and others). The test matrix was built on one wallet per family: **MetaMask**, **Freighter** and **Phantom**. Section 10.2 lists the other wallets we ran. The account can live on any of three chains: **Stellar**, **EVM** (Base) or **Solana**.
 
-Every wallet must be able to do two jobs on every chain:
+The tested baseline is a 2-of-3 account with those three wallets, and the examples below use it. The same contracts run other owner counts and thresholds (section 4.1).
 
-1. **Seat:** the wallet is one of three votes. Any two votes together can change anything (2-of-3). One vote alone can change nothing.
-2. **Session:** the wallet signs **once** to start a session key that lasts at most 7 days. The session key then makes moves by itself, but only the moves the account's rules allow. A session key can never vote.
+Every owner's wallet must be able to do two jobs on every chain:
+
+1. **Seat:** the wallet is one of the N votes. Any M votes together can change anything. Fewer than M votes can change nothing. In the baseline, M is 2 and N is 3.
+2. **Session:** the wallet signs **once** to start a session key that lasts at most 7 days. By default the session key makes only the moves the account's rules allow. A grant can also carry a **vote flag**, and then the session key casts its owner's seat vote, so a session key can act on behalf of its owner. In this design the seat is the owner's session contract, so the owner and its own session count once (section 14).
 
 Our **relayer** pays the fees for moves. If the relayer is down, the **session key pays its own fee**.
 
-That is 3 wallets × 3 chains × 2 jobs = 18 cases. All 18 are tested (section 10), with the limits listed in sections 10.1 and 13.
+For the baseline that is 3 wallets × 3 chains × 2 jobs = 18 cases. All 18 are tested (section 10), with the limits listed in sections 10.1 and 13. The vote flag is verified in separate spikes (section 14); the contracts that those 18 cases ran against keep seats as plain keys.
 
 ## 2. Words used here
 
 | Word | Meaning |
 |---|---|
-| Prime Account | The shared account: a Safe on EVM, a Squads Smart Account on Solana, an OpenZeppelin smart account on Stellar. |
-| Seat | One of the three 2-of-3 votes. Always a plain key: an EVM address, a Solana key, or a Stellar account. |
+| Prime Account | The shared account with M-of-N owners: a Safe on EVM, a Squads Smart Account on Solana, an OpenZeppelin smart account on Stellar. |
+| Owner | A person or organisation with one wallet on the account. Each owner has one seat and one session contract (or PDA, on Solana). |
+| Seat | One owner's vote, of the N; M are needed. In the current build a seat is a plain key: an EVM address, a Solana key, or a Stellar account. In the seat-voting design it is the owner's session contract (section 14). |
 | Ledger | Stellar's word for a block. One ledger closes about every 5 seconds. |
 | Rule | What a session may do: which contract, which function, which recipient, and on EVM and Solana how much per move or per day. |
 | Session contract | Called **prime-session** on every chain (`PrimeSession` in Solidity). Each chain has its own; the Stellar one is the crate at the root of this folder. Our small contract that the rules list as a member (on Solana, the member is an address that only our program can sign for). It checks the wallet's one-time grant and the session key's signature on each move. |
-| Grant | What the wallet signs once: "session key K may act until time T". On EVM and Solana it is readable text. On Stellar it is a Soroban authorization entry for `grant(key, until)`. |
+| Grant | What the wallet signs once: "session key K may act until time T". On EVM and Solana it is readable text. On Stellar it is a Soroban authorization entry for `grant(key, until)`. In the seat-voting design it can also carry a vote flag. |
+| Vote flag, vote session | A grant made with the vote flag starts a vote session: its key can cast the owner's seat vote as well as make moves. A grant without the flag starts a move-only session, the default. |
+| Signature family | The kind of signatures a wallet makes: EVM wallets sign secp256k1 messages and transactions, Stellar wallets sign ed25519 with Stellar's formats, Solana wallets sign ed25519 over raw text and Solana transactions. |
 | Move | One action by a session key, such as "send 10 tokens to the venue". |
 | Relayer | Our server. It sends transactions and pays their fees. Freighter and Phantom hold no NEAR, so their NEAR requests go through it. MetaMask's NEAR account is funded once by the relayer and pays the MPC fee itself. Moves still work without the relayer. |
 | NEAR MPC | NEAR's signing service (`v1.signer-prod.testnet`). A NEAR account asks it to sign bytes. The key it signs with is derived from the account's name and a "path" string, so every NEAR account gets its own keys for every chain. Each request carries a small fee (1 yoctoNEAR on testnet). |
@@ -39,9 +44,9 @@ Chain-specific terms are explained where they first appear.
 ```mermaid
 flowchart TB
   subgraph W[Wallets]
-    MM[MetaMask]
-    FR[Freighter]
-    PH[Phantom]
+    MM[EVM wallet<br/>MetaMask in the matrix]
+    FR[Stellar wallet<br/>Freighter in the matrix]
+    PH[Solana wallet<br/>Phantom in the matrix]
   end
   R[Relayer<br/>pays NEAR fees]
   subgraph N[NEAR]
@@ -70,44 +75,51 @@ flowchart TB
   MPC -. "Phantom's keys" .-> XLM
 ```
 
-In one sentence: **each wallet uses its own key on its home chain, and a key held for it by NEAR MPC on the other two.**
+In one sentence: **each wallet uses its own key on its home chain (the chain of its signature family), and a key held for it by NEAR MPC on the other two.**
 
-| Wallet | EVM | Solana | Stellar |
+The diagram and the table show the three baseline wallets. Any wallet of the same signature family takes the same cell: Coinbase Wallet or Rabby in MetaMask's, Hana in Freighter's, Solflare or Backpack in Phantom's. Section 10.2 lists which of them we ran and what each one can sign. A Prime Account with more owners repeats the pattern for each owner; every owner adds one MPC key per chain it does not sign for natively.
+
+| Wallet (family) | EVM | Solana | Stellar |
 |---|---|---|---|
-| MetaMask | **own key** | stock NEAR account → MPC ed25519 key | stock NEAR account → MPC ed25519 key |
-| Freighter | prime-near-signer → MPC secp256k1 key | prime-near-signer → MPC ed25519 key | **own key** |
-| Phantom | prime-near-signer → MPC secp256k1 key (or its own EVM account, section 6.2) | **own key** | prime-near-signer → MPC ed25519 key |
+| MetaMask (EVM) | **own key** | stock NEAR account → MPC ed25519 key | stock NEAR account → MPC ed25519 key |
+| Freighter (Stellar) | prime-near-signer → MPC secp256k1 key | prime-near-signer → MPC ed25519 key | **own key** |
+| Phantom (Solana) | prime-near-signer → MPC secp256k1 key (or its own EVM account, section 6.2) | **own key** | prime-near-signer → MPC ed25519 key |
 
-On each chain, the wallet's seat keeps one MPC path (`prime:<chain>`). The session owner that signs grants uses a separate path for NEAR-routed wallets (`prime:<chain>-session`), which no seat vote uses. This prevents a session-owner signature from being filed as a seat vote. MetaMask's native keys on its home chain (EVM) and Freighter's on theirs (Stellar) do both jobs; Phantom's on Solana does both.
+On each chain, the wallet's seat keeps one MPC path (`prime:<chain>`). In the built contracts, the session owner that signs grants uses a separate path for NEAR-routed wallets (`prime:<chain>-session`), which no seat vote uses. This prevents a session-owner signature from being filed as a seat vote. The seat-voting design merges the two paths unless a second key is added (section 14.6). MetaMask's native keys on its home chain (EVM) and Freighter's on theirs (Stellar) do both jobs; Phantom's on Solana does both.
 
 **Option, a native account on a second chain:** Phantom can sign with its own EVM account and MetaMask with its own Solana account, as seat and as session owner. In the table above those two cells would read "own key", and NEAR drops out of them. NEAR stays the route for the other four cells and the fallback for any user who has not enabled the second account; both harnesses pick the route with a setting. Section 5.6 has the results and the open prompt choice.
 
-## 4. Seats and sessions are kept apart
+## 4. Seats and sessions
 
-Seats are plain keys. Our session contracts are only ever members of the rules, never seats.
+By default a session is kept apart from the seats. In the built contracts, seats are plain keys, and our session contracts are only ever members of the rules. A grant can also carry a vote flag (section 14). In that design the seat is the owner's session contract, and the session key can cast its owner's vote. The drawing and table below show the built contracts, for the 2-of-3 baseline.
 
 ```mermaid
 flowchart TB
   subgraph A[Prime Account]
-    V[2-of-3 vote<br/>can change anything]
+    V[M-of-N vote, here 2-of-3<br/>can change anything]
     R[Rules<br/>allowed moves only]
   end
-  KMM[MetaMask key] --> V
-  KFR[Freighter key] --> V
-  KPH[Phantom key] --> V
-  SMM[MetaMask's session contract] --> R
-  SFR[Freighter's session contract] --> R
-  SPH[Phantom's session contract] --> R
+  KMM[Owner 1 key] --> V
+  KFR[Owner 2 key] --> V
+  KPH[Owner 3 key] --> V
+  SMM[Owner 1's session contract] --> R
+  SFR[Owner 2's session contract] --> R
+  SPH[Owner 3's session contract] --> R
   SK((session keys)) -. sign moves .-> SMM & SFR & SPH
+  SMM -. "seat-voting design: the contract is the seat,<br/>a vote flag lets its session key vote" .-> V
 ```
 
-| Chain | Seat (2-of-3) | Session contract is | and is not |
-|---|---|---|---|
-| EVM | Safe owner | a Zodiac Roles member | a Safe owner |
-| Solana | Squads settings signer | a signer of a Squads policy | a settings signer |
-| Stellar | signer of rule 0 | the only signer of that wallet's session rule | a signer of rule 0 |
+The dotted line from owner 1's session contract to the vote is the seat-voting design (section 14). Each owner adds one key to the vote and one session contract to the rules. The baseline uses MetaMask, Freighter and Phantom as owners 1 to 3.
 
-So a stolen session key can at worst make allowed moves until it expires. It cannot add owners, change rules or vote. Each chain's tests try to make a session vote; every attempt is refused (section 10). Where a native account's one key does both jobs, the message formats keep a grant and a vote apart (section 5.6).
+| Chain | Seat (M-of-N), built contracts | Session contract is | and is not | Seat in the seat-voting design |
+|---|---|---|---|---|
+| EVM | Safe owner (a key) | a Zodiac Roles member | a Safe owner | the owner's PrimeSession, through ERC-1271 |
+| Solana | Squads settings signer (a key) | a signer of a Squads policy | a settings signer | the same PDA, also a settings signer |
+| Stellar | signer of rule 0 (a Stellar account) | the only signer of that wallet's session rule | a signer of rule 0 | `External(prime-session)` in rule 0, served by `verify()` |
+
+So a stolen session key can at worst make allowed moves until it expires. In the built contracts it cannot add owners, change rules or vote, and each chain's tests try to make a session vote and see every attempt refused (section 10). Where a native account's one key does both jobs, the message formats keep a grant and a vote apart (section 5.6).
+
+**Session keys that vote for their owner:** an owner can ask for more. A grant made with the vote flag lets the session key cast the owner's seat vote, so the key acts on behalf of its owner. The seat is then the owner's session contract: it accepts a vote from the owner's key or from a live vote session of that owner, so the owner and its own session count once. Without the flag, the session stays a move-only session. That is the default, and it keeps the table above true. We built it on all three chains in spikes. The EVM and Solana spikes passed with the real NEAR MPC, and the Stellar run is under way. The production contracts are not switched yet (section 14).
 
 **Where the grant lives** differs by chain, to keep each contract small:
 
@@ -117,11 +129,37 @@ So a stolen session key can at worst make allowed moves until it expires. It can
 | Stellar | sent once in a `grant(key, until)` transaction that carries the owner's Soroban authorization; prime-session stores "valid until" in a temporary entry | each move carries only the session key's signature (96 bytes of proof), and the host's nonce and signature expiry stop replays |
 | Solana | not stored; the grant signature travels with every move and is checked every time | no storage and no extra transaction, so less code. A revoke is the one thing stored (a marker account) |
 
+### 4.1 How many owners
+
+The number of owners N and the threshold M are setup parameters. Every owner has its own seat and its own session contract (or PDA, on Solana), and every owner's session starts the same way. The 2-of-3 baseline is the configuration the 18-case matrix ran on (section 10). We also ran the same harnesses with other owner counts. Owner 1 to 3 are MetaMask, Freighter and Phantom; further owners are extra test keys with the same signing formats.
+
+Each cell shows the checks that passed out of the checks run, from the logs of 8 October 2026. "Being verified" means the run is not finished or has a failure we have not explained yet.
+
+| Owners (M-of-N) | EVM (Base Sepolia fork) | Solana (local validator) | Stellar (testnet) |
+|---|---|---|---|
+| 1-of-1 | 28/28 | 30/30 | 29/29 |
+| 2-of-2 | 47/47 | 49/49 | 54/54 |
+| 3-of-5 | 87/87 | 94/94 | 104/104 |
+| 7-of-12 | 178/178 | 208/210, being verified | not run |
+| 8-of-15 | not run | not run | 251 passed and 22 failed so far, being verified |
+
+Each run covers the same groups as section 10: M votes pass, fewer than M are refused, a different set of M passes, an outsider is refused, and every owner's session grants, makes moves, revokes and meets its refusals. A last group removes one owner by an M-vote and checks that the removed owner's vote and live session no longer count. The NEAR-routed owners use the real NEAR MPC, and the extra owners (owner 4 and up) are test keys with the same signing formats. The 7-of-12 Solana run has two failures in the removal step: a dropped network connection ended one approval, and the check that executes the proposal then found it unapproved. The rest of that run passed, and the run is being repeated. The Stellar 8-of-15 run uses the largest account Stellar accepts (15 signers in rule 0). Its session checks for owners 11 to 15 were refused with contract error 10 on moves, and we are finding the cause.
+
+What the runs showed about counts and limits:
+
+- **Per-owner cost:** each owner adds one session contract on EVM (one deployment of about 919,000 gas), one session contract on Stellar (a deployment fee of about 97,000 stroops), and one PDA on Solana. A Solana PDA needs no deployment and no rent until the owner revokes a session, when the revoke marker costs 890,880 lamports (section 7.2). The Stellar account setup fee grew from 890,203 stroops with 1 owner to 1,151,662 with 2 and 1,946,095 with 5.
+- **NEAR signatures grow with N:** the runs made 73 NEAR signatures on EVM 7-of-12 (9.5 s average) and 44 on Stellar 3-of-5 (8.0 s average). Owners whose wallets sign natively on a chain need none.
+- **Stellar limits (testnet):** an account accepts 15 signers in rule 0, and an account created with 16 is refused. The same account took 41 rules (rule 0 and 40 more) before the probe stopped, and no limit was reached.
+- **Last owner:** a 1-owner Safe refuses an owner removal that would leave it without owners (`GS013`) and Squads refuses the matching proposal (`NoProposers`). The Stellar account accepts removing its only signer from rule 0, and the account is then unreachable.
+- **One vote per owner:** the Safe refuses one owner signing three times as three votes (`GS026`), and Squads refuses a second approval by the same owner (`AlreadyApproved`). The Stellar runs refuse an outsider and a seat signed by another key (contract errors 3016 and 5).
+
+**Onboarding must check that the owner keys differ:** a Safe counts each contract owner once whatever key stands behind it (section 14).
+
 ## 5. NEAR: a key for chains the wallet cannot sign for
 
 ### 5.1 Why a wallet cannot use its own key everywhere
 
-The problem is the wallets: each one refuses to sign some formats.
+The problem is the wallets: each one refuses to sign some formats. The table covers MetaMask, Freighter and Phantom, one wallet per signature family. Wallets of the same family differ in details, and section 10.2 lists what each of the others signed.
 
 | Wallet | Signs | So it cannot |
 |---|---|---|
@@ -190,7 +228,7 @@ payload: 77d2870cebe528bcd6a869ff33ab3e0dc72c7a4e687c5fe2386507504a66a4e9
 | Part | Why it is there |
 |---|---|
 | Readable text | Freighter signs it as SEP-53 and Phantom as plain UTF-8, both without changes. The user sees which contract, path and key type they approve; the payload itself is a hash shown as hex, so the app must show what it means next to the prompt. |
-| Path ends in `-session` for grant owners | The path separates session owners (`prime:stellar-session`) from seats (`prime:stellar`). A signature made under one path cannot be filed as the other. |
+| Path ends in `-session` for grant owners | In the built contracts the path separates session owners (`prime:stellar-session`) from seats (`prime:stellar`), and a signature made under one path cannot be filed as the other. The seat-voting design signs both under the session path (section 14.6). |
 | The text names the contract, path, domain and payload | A signature for one request cannot be used for any other. Four refusal tests check this (another payload, path, domain or signer contract). |
 | The wallet's key starts the MPC path | The MPC derives the key from (caller, path), and the caller is always this contract. With the wallet's key in the path, wallet A can never get wallet B's key. |
 | No storage, no nonce | Replaying a request only gets another signature over the same payload. A signature is no use twice on a chain, because Soroban refuses a used authorization nonce and Solana refuses a processed transaction. |
@@ -261,16 +299,16 @@ The native grant prompt is better than the NEAR one. The native vote prompt is a
 
 | Component | Who wrote it | Why it is needed |
 |---|---|---|
-| Safe 1.4.1 (SafeL2, proxy factory, fallback handler, MultiSend) | Safe, open source | Holds the funds. Its owners and threshold are the 2-of-3 seats. |
+| Safe 1.4.1 (SafeL2, proxy factory, fallback handler, MultiSend) | Safe, open source | Holds the funds. Its owners and threshold are the M-of-N seats (2-of-3 in the baseline). |
 | Zodiac Roles v2 | Gnosis Guild, open source | The rules. A Safe "module" (an add-on the Safe trusts to send transactions) that lets each member call only allowed contracts, functions and arguments, within daily allowances. |
 | PrimeX onboarding and policy code | ours, already in PrimeX (`apps/evm-web/src/core/onboarding.ts`, `evm-policy.ts`) | Creates the Safe, deploys Roles, writes the rule. Will add PrimeSession as the Roles member, passing the session-owner address for NEAR-routed wallets. |
 | **PrimeSession** | **ours, new, 32 lines** | One per wallet per account, and that wallet's Roles member. It checks the wallet's grant and the session key's signature on each move, then calls Roles. Stores `until` and `nonce` in one slot. |
 | Multicall3 (aggregate3, `0xcA11bde05977b3631167028862bE2a173976CA11`) | mds1/multicall, open source, already deployed on Base Sepolia | Sends grant and first move in one atomic transaction, with `allowFailure: true` on the grant call only. |
 | OpenZeppelin ECDSA, MessageHashUtils, Strings 5.4 | OpenZeppelin, open source | Signature recovery and text building inside PrimeSession. |
 
-Why not make each session key a Roles member directly? Adding a member takes a 2-of-3 Safe transaction every time. With PrimeSession, the 2-of-3 adds PrimeSession once. After that, the wallet starts sessions alone with one signature.
+Why not make each session key a Roles member directly? Adding a member takes an M-of-N Safe transaction every time. With PrimeSession, the owners add it once. After that, the wallet starts sessions alone with one signature.
 
-### 6.2 A seat action (2-of-3)
+### 6.2 A seat action (M-of-N, shown for 2-of-3)
 
 ```mermaid
 sequenceDiagram
@@ -397,7 +435,7 @@ For a NEAR-routed wallet (MetaMask or Freighter on Solana), the wallet signs und
 
 Swig (`swigypWH…`, source `anagrambuild/swig-wallet` at `0cc3b69`) is an upgradeable third-party wallet program with session keys. On 8 October 2026 we tested its wallets as the Squads policy signers in place of prime-session, on a local validator with the Smart Account program cloned from devnet. Swig ran as the devnet build and as the mainnet bytes loaded at the same program id.
 
-**It works:** the harness passed 256/256 on each build (247 checks and 9 findings), and a second run on a fresh validator reproduced 256/256 (that log is not in the bundle). A Swig session key moves money through a synchronous Squads policy execution with the Swig wallet address as the policy signer, for all four owner routes: MetaMask `personal_sign` on its own secp256k1 key, MetaMask's Solana account, Phantom, and Freighter through NEAR (13/13 with the real MPC, 5 signatures, 8.2 s average). The session key cannot vote, edit settings or call another program, and a 2-of-3 decision removes a wallet's Swig from the policy.
+**It works:** the harness passed 256/256 on each build (247 checks and 9 findings), and a second run on a fresh validator reproduced 256/256 (that log is not in the bundle). A Swig session key moves money through a synchronous Squads policy execution with the Swig wallet address as the policy signer, for all four owner routes: MetaMask `personal_sign` on its own secp256k1 key, MetaMask's Solana account, Phantom, and Freighter through NEAR (13/13 with the real MPC, 5 signatures, 8.2 s average). The Swig session role holds no vote, no settings access and no other program, and the harness shows each of those refused. An M-of-N decision removes a wallet's Swig from the policy.
 
 **What it would save** (local validator, relayer pays; ten Swigs in ten accounts for the compute units):
 
@@ -429,7 +467,7 @@ The Squads Smart Account program is upgradeable too (mainnet authority: a 3-of-5
 | Component | Who wrote it | Why it is needed |
 |---|---|---|
 | Smart account (OpenZeppelin `stellar-accounts`, "context rules") | OpenZeppelin, open source | Holds the funds. Each rule lists signers and policies for some calls. Rule 0 covers everything and holds the three seats. Each seat is a `Delegated` signer: a Stellar account (G…) that must authorize the call itself. |
-| OZ weighted-threshold policy | OpenZeppelin, open source | Makes rule 0 a 2-of-3. |
+| OZ weighted-threshold policy | OpenZeppelin, open source | Makes rule 0 an M-of-N: equal weights and a threshold of M (2-of-3 in the baseline, tested up to 5 owners in section 4.1). A rule holds at most 15 signers on testnet. |
 | policy-interpreter | ours, already on testnet and mainnet | The session rules' policy. Checks each move against a predicate, such as "only `transfer`, only to the venue". Not changed by this work. |
 | **prime-session** | **ours, new, 37 lines** | One per wallet per account, and the only signer of that wallet's session rule. It stores the owner as an `Address` (Freighter's own account, or a G account whose key NEAR MPC holds). `grant(key, until)` needs the owner's authorization and stores `until` in a temporary entry. When the account asks it to approve a call (`__check_auth`), it checks that the session is live and that the session key signed the move. |
 
@@ -509,6 +547,8 @@ Each chain tests both paths, plus a session key with no money (refused). On Sola
 
 ## 10. What was tested
 
+The rows below are the 2-of-3 baseline against the contracts of sections 6 to 8. Other owner counts are in section 4.1, other wallets in section 10.2, and the seat-voting variants in section 14.
+
 | Chain | Where | Result | Log (under `round9/`) |
 |---|---|---|---|
 | EVM (PrimeSession, packed slot, Multicall3) | Base Sepolia **fork** + NEAR testnet | **134/134**: seats, sessions, revoke edge cases, combined grant + move, front-run harmlessness; bytecode of all three instances equals the build; 50 receipts verified; 6/6 forge tests | `evm/pkn.fork-r9b.log`, `evm/bytecode-eq.fork-r9b.log`, `evm/verify-evm.fork-r9b.log` |
@@ -518,6 +558,9 @@ Each chain tests both paths, plus a session key with no money (refused). On Sola
 | EVM, Phantom's own account (option, section 5.6) | Base Sepolia **fork** + NEAR testnet + the real Phantom extension | **137/137** (the NEAR route on the same harness: 134/134) | `native/pkn.native-fork.log`, `native/pkn.near-baseline-fork.log` |
 | Solana, MetaMask's own account (option, section 5.6) | local validator cloned from devnet + NEAR testnet + the real MetaMask 13.50.0 for `signMessage` | **145/145** (the NEAR route on the same harness: 128/128) | `native/psn.native-local.log`, `native/psn.near-baseline-local.log` |
 | Solana, Swig as the policy signer (tested and left out, section 7.3) | local validator, Swig devnet build and mainnet bytes; one run with NEAR testnet | **256/256** on each build (247 checks and 9 findings); **13/13** with the real NEAR MPC | `swig/psw-devnet-build.log`, `swig/psw-mainnet-build.log`, `swig/psw-near.log` |
+| EVM, Solana and Stellar with other owner counts (section 4.1) | Base Sepolia **fork**, local validator and **Stellar testnet**, with NEAR testnet | 1-of-1, 2-of-2 and 3-of-5 passed on all three chains; EVM 7-of-12 passed (178/178); Solana 7-of-12 and Stellar 8-of-15 are being verified | logs outside the bundle for now |
+| Twelve other wallets with their real software (section 10.2) | browser extensions on testnet, offline checks of every signature | five EVM wallets pass all three formats; Stellar and Solana results are in the tables of section 10.2 | outside the bundle for now |
+| Seat voting by session keys (section 14) | EVM: Base Sepolia **fork** + NEAR testnet; Solana: local validator + NEAR testnet; Stellar: testnet + NEAR testnet, running | EVM **263/263**, Solana **292/292** (no-governance build 291/291 with a stand-in for NEAR); Stellar under way | outside the bundle for now |
 | EVM, round 7 (previous PrimeKey build) | **real Base Sepolia** + NEAR testnet | **88/88**: 30 transactions (all succeeded on chain), 53 refusals, 5 balance and owner checks | `evm/pkn-live.log`, `evm/verify-evm.log` (section 12.2) |
 
 Each chain's matrix runs these groups. The table notes where a group covers only some wallets or chains.
@@ -526,7 +569,7 @@ Each chain's matrix runs these groups. The table notes where a group covers only
 |---|---|
 | Seats | every pair of wallets can act; each wallet alone is refused; an outsider is refused; a wallet's key under another NEAR path is refused; one wallet cannot vote twice (EVM; Stellar and Solana check that a seat is signed by its own key) |
 | Session-owner paths | on every chain, a signature made under a `*-session` path and filed as a seat vote is refused; a grant signed by a seat-path key is refused |
-| Sessions cannot vote | a session key, or a session contract, is refused as a vote; a session cannot add owners, change rules or delegatecall (run code inside the account) |
+| Sessions hold no seat (built contracts) | a session key, or a session contract, is refused as a vote; a session cannot add owners, change rules or delegatecall (run code inside the account) |
 | Sessions | one-signature grant; move paid by the relayer; move paid by the session key; no money means refused; replay, wrong signer, wrong recipient, too long, expired: all refused; over the daily amount limit refused (EVM, Solana) |
 | Revoke | one signature revokes (EVM and Stellar tested for all three wallets, Stellar also with the real Freighter); the wallet's other sessions keep working; another wallet's revoke is refused. EVM: a key can be revoked before it is ever granted and then never granted, and replaying a revoke changes nothing. Stellar: a second authorization signed together with the first and submitted after the revoke is refused, so is a fresh grant of the revoked key, and the revoke entry reads 0 and lives to about 3.11 million ledgers ahead. Solana: a revoke signed for account A and sent with account B's settings is refused; a pre-funded marker does not stop the revoke; a non-canonical bump is refused |
 | Combined grant and first move (EVM) | one Multicall3 transaction, paid by the relayer or by the session key; a refused first move reverts its grant; a grant already submitted alone first still lets the move run; a bad grant signature stores nothing |
@@ -548,6 +591,53 @@ Each chain's matrix runs these groups. The table notes where a group covers only
 - The real Freighter extension on Stellar holds account `GBXPJIRT…2OD2`, the owner of its own prime-session `CB5GRYA2…OIUQ` and its own rule on the same Prime Account. This key is separate from the matrix's Freighter seat key.
 - The Freighter authorization prompt (collapsed and expanded) is captured in `round9/stellar/freighter-prompt/`.
 
+### 10.2 Which wallets can be an owner
+
+Wallets fall into three signature families. The matrix of rounds 8 and 9 was built on one wallet per family: MetaMask (EVM), Freighter (Stellar) and Phantom (Solana). On 8 October 2026 we also ran twelve wallets with their real software on testnet: five EVM extensions, three Stellar extensions (xBull, Hana, Rabet), Albedo's web wallet, and three Solana extensions. The LOBSTR extension holds no key, so we read its source. Every signature was checked offline with the check the contract or prime-near-signer makes: `PrimeSession.grant` and the Safe's `checkNSignatures` on a Base Sepolia fork for EVM, SEP-53 and ed25519 checks for Stellar, and ed25519 over the raw text or the serialized transaction for Solana.
+
+Each cell carries one label. **Real-tested** means the extension signed the payload and the offline check ran. **Source-checked** means we read the wallet's source. **Docs-only** means we rely on documentation or an earlier round and did not run it here. The report for this table is outside the bundle for now.
+
+**EVM wallets** (grant text by `personal_sign`, the prime-near-signer text, and the Safe vote as EIP-712 typed data):
+
+| Wallet | Grant text | prime-near-signer text | Safe vote |
+|---|---|---|---|
+| MetaMask 13.50.0 | docs-only | docs-only | docs-only |
+| Phantom 26.32.0 (its own EVM account) | real-tested (25 EVM signatures in the native run, section 5.6) | real-tested (7 October 2026, section 10.1) | real-tested as `personal_sign` over the raw hash (the eth_sign form); typed data is refused on chain 84532 in Testnet mode |
+| Coinbase Wallet (EOA) 3.149.0 | real-tested | real-tested | real-tested |
+| Rabby 0.94.11 | real-tested | real-tested | real-tested |
+| Rainbow 1.6.13 | real-tested | real-tested | real-tested |
+| Trust 26.39.3 | real-tested | real-tested | real-tested |
+| OKX 4.18.1 | real-tested | real-tested | real-tested |
+
+Each EVM wallet's grant was accepted by `PrimeSession.grant` and each vote by `Safe.checkNSignatures`. A grant with a changed end time and a vote over another hash were both refused. Rabby, Rainbow, Trust and OKX also signed the eth_sign form of a Safe vote. Coinbase Wallet refused that form with code 4001 and no prompt, so it votes with typed data. No wallet showed a Safe digest: Trust shows the SafeTx fields, and the others show raw JSON or hide the data. Rabby, Trust and OKX answer an unknown chain 84532 with an error until the app calls `wallet_addEthereumChain`, and Rabby refuses typed data whose chain id differs from the active chain, so the app adds and switches the chain before a vote.
+
+**Stellar wallets:**
+
+| Wallet | `signMessage` | `signAuthEntry` (grant, seat vote) | `signTransaction` |
+|---|---|---|---|
+| Freighter 5.49.0 | SEP-53, real-tested in an earlier round (section 10.1) | real-tested (grant and revoke moved 1 XLM on testnet) | docs-only |
+| Hana 5.14.0 | raw text, no prefix; real-tested | real-tested for both preimages | real-tested |
+| xBull 1.40.0 | SEP-53; real-tested | absent: the SDK has no `signAuthEntry` | real-tested |
+| Albedo (web, intent 0.13.0) | SEP-53 in `signedMessage`; real-tested | absent: no such intent | real-tested |
+| Rabet 1.8.0 | raw text, no prefix; real-tested | absent: `window.rabet` has no `signAuthEntry` | real-tested |
+| LOBSTR 2.0.0 | the API exists and its format still needs a check; source-checked | absent; source-checked | the API exists and the phone app signs; source-checked |
+
+Only Freighter and Hana sign Soroban authorization entries, and Prime's Stellar grant and seat vote are authorization entries. xBull, Albedo, Rabet and LOBSTR therefore grant and vote through NEAR today, the route MetaMask and Phantom already use on Stellar (section 5): the wallet signs the prime-near-signer text with `signMessage`, and the MPC key signs the entry. The route costs about 8 seconds per signature. We checked these signatures offline and have not run the NEAR route with these four wallets. Albedo and xBull sign SEP-53, which the signer accepts with `sep53 = true`. Hana and Rabet sign raw text, which the signer accepts with `sep53 = false`; we checked that rule offline and did not submit those signatures to the deployed signer. Albedo's `sign_message` returns two signatures, and the app must read `signedMessage` (the SEP-53 one). The app carries one flag per wallet for the format. LOBSTR keeps its keys in a phone app, so its SEP-53 check needs a LOBSTR account that a person creates.
+
+**Solana wallets:**
+
+| Wallet | Grant text | prime-near-signer text | `signTransaction` (Squads vote shape) |
+|---|---|---|---|
+| Phantom 26.32.0 | docs-only | real-tested (7 October 2026, section 10.1) | docs-only |
+| MetaMask 13.50.0 (its own Solana account) | real-tested (12 `signMessage` requests, section 5.6) | docs-only | real-tested on devnet memo transactions (section 5.6) |
+| Solflare 2.40.0 | real-tested | real-tested | real-tested (legacy, v0 and relayer-paid shapes) |
+| Backpack 0.10.216 | real-tested | real-tested | real-tested (the same three shapes) |
+| Glow 0.61.0 | real-tested | real-tested | unresolved: the prompt showed no Approve button for either transaction shape we sent |
+
+Every passing Solana signature is ed25519 over the raw UTF-8 text with no prefix, the check prime-session makes through the ed25519 program, and every passing transaction signature verifies over the unchanged message. Backpack and Glow register aliases of other wallets (`window.solflare`, and `window.solana` with `isPhantom`), so the app picks the wallet through the wallet-standard list or an explicit choice.
+
+Wallets we did not run are Stellar Wallets Kit and the MetaMask Stellar snap (docs-only, section 13). The Glow transaction retest needs a funded devnet fee payer, which funding currently blocks.
+
 ## 11. New code on top of open source
 
 ### 11.1 On-chain code
@@ -561,6 +651,8 @@ Each chain's matrix runs these groups. The table notes where a group covers only
 | | | | **Total** | **122** | |
 
 sLOC means non-blank, non-comment lines in the source as written (repo style), recounted from the four final files. The Rust files use long lines; formatted with `rustfmt` and `forge fmt` at their default settings, the same files count 65 (EVM), 102 (Solana), 50 (Stellar) and 50 (NEAR), 267 in all. Nothing was added to NEAR's wallet contract.
+
+The seat-voting variants of section 14 are spikes and sit outside this total: EVM 36 sLOC against 32 (41 without governance), Solana 40 against 33 (44), and Stellar 51 against 37 (52 with separate seat and owner keys). Section 14.7 has the table.
 
 ### 11.2 Off-chain code (app and relayer)
 
@@ -686,6 +778,10 @@ NEAR MPC signatures in the final runs: the EVM fork run made 53 (7.8 s average, 
 | Phantom signs a 0x-hex `personal_sign` parameter as raw bytes and refuses typed data for chain 84532 in Testnet mode | `round9/native/phantom-bridge-prompts.before-review.log` (first line), `round9/native/pkn.native-fork.log` |
 | MetaMask 13.50.0 preinstalls a Stellar snap with `signMessage`, `signTransaction` and `signAuthEntry` | `npm:@metamask/stellar-wallet-snap` 1.0.0, preinstalled snap file `366253da94567b510382.json` (bundle read, snap not run) |
 | Swig's session length is stored in slots; one session per role; instructions run only at transaction top level | `anagrambuild/swig-wallet` at `0cc3b69` (`state/src/authority/`, `check_stack_height(1)`), checked by the harness in `swig/psw.ts` |
+| Wallet signing formats, per wallet (section 10.2) | the wallet-matrix report and its per-wallet logs and verifier output, run on 8 October 2026 with the official Chrome Web Store builds; Albedo's source at commit `c2fe8f6` and the live albedo.link site; LOBSTR's `background.min.js` (`signTypes`) |
+| Safe 1.4.1 calls `isValidSignature(bytes,bytes)` (selector `0x20c13b0b`) on a contract owner and needs owner addresses in strictly ascending order | Safe 1.4.1 `Safe.sol` (`checkNSignatures`) and `ISignatureValidator.sol`; read from the deployed Safe L2 code and traced with `callTracer` in the EVM seat spike |
+| Squads accepts a PDA as a settings signer for create, propose, approve and execute | `Squads-Protocol/smart-account-program` at `80bf1f7`, checked by the Solana seat spike |
+| Stellar `External` signers are served by `verify(hash, key_data, proof)`; the policy-interpreter refuses an `External` signer on a session rule | OpenZeppelin `stellar-accounts` signer interface; the refusal is a check in the Stellar seat run (`ExternalSignerNotSupported`) |
 | Mainnet slot time and Swig upgrade history, authority and build comparison | read-only queries of 8 October 2026: `round9/swig/psw-slots-series.log`, `psw-slots.log`, `psw-upgrades.log`, `psw-trust.log`, `psw-build-swig.log` |
 
 ### 12.6 Swig and native-account runs (8 October 2026)
@@ -712,10 +808,13 @@ Pending live runs:
 - **Solana, devnet:** the payer `5bevLKtW8bA6LCXXMqQAjnWBRCWcSXwcvQHiCbT6JjuY` holds 0 SOL (read on 8 October 2026). The run needs about 1.43 SOL for two program deploys and the matrix (1.6 SOL recommended); the commands are in `run-round9.sh`. The matrix ran on a local validator cloned from devnet because the devnet airdrop returned 429 and the payer is empty.
 - **Solana devnet, real MetaMask votes:** the real MetaMask disables Confirm when its simulation reverts, and the matrix's Squads accounts exist only on the local validator, so a stand-in with the wallet's key signs the matrix's vote transactions. The real-wallet run needs a funded devnet Smart Account (the payer funding above) and a real-wallet transaction path in `sendBy` of `solana/psn.ts` (about 12 lines: send the built transaction to the bridge, check the returned one with `acceptReturned`, co-sign).
 - **MetaMask extension:** the real MetaMask 13.50.0 ran in the Solana native run (section 5.6). MetaMask's own EVM key and its chain-398 NEAR route still run with a test key. That route uses only stock NEAR code and standard MetaMask methods (EIP-191 over chain 398 to the eth-implicit account).
+- **Owner counts:** Solana 7-of-12 (208/210) is being repeated, and Stellar 8-of-15 (22 failed session checks for owners 11 to 15) is being traced. Both are marked in section 4.1, and no other owner count beyond 3-of-5 on Stellar or Solana has passed yet. Every owner adds one session contract or PDA, so cost grows with N (section 4.1).
+- **Wallets:** LOBSTR's SEP-53 signing needs a LOBSTR account that a person creates. Glow's transaction signing needs a funded devnet fee payer. A raw-text signature from Hana or Rabet still has to go to the deployed prime-near-signer. xBull, Albedo, Rabet and LOBSTR have not run the NEAR route for Stellar grants and votes. Phantom's Solana grant text and a Squads vote transaction, and MetaMask's EVM `personal_sign` and Safe vote, still need a run with the real extension.
 - **MetaMask Stellar snap:** MetaMask 13.50.0 preinstalls a Stellar snap (`@metamask/stellar-wallet-snap` 1.0.0) whose bundle contains `signMessage`, `signTransaction`, `signAuthEntry` and the SEP-53 prefix text. If it exposes a Stellar account to dapps, MetaMask on Stellar could sign natively like the two cells in section 5.6. We still need to test it.
 
 Decisions and prompts:
 
+- **Session keys that vote (open, Tuan decides):** the spikes of section 14 pass on EVM and Solana and are running on Stellar, and the production contracts are not switched. Tuan chooses between the full vote flag and the no-governance variant, and whether to keep the current build. Section 14.8 lists the smaller choices that follow.
 - **Swig as the Solana session layer (decision: keep prime-session):** Swig works as the policy signer for all four owner routes (256/256) and would save move bytes, compute units, fee, revoke rent and 33 sLOC, but its cap counts slots (1,400,000 slots last 4.3 to 6.9 days depending on slot time), it allows one live session per role, its admin role needs a trade-off, its prompts are weaker, and it adds upgradeable third-party code with an unverified build (section 7.3). The decision flips if Tuan accepts the slot cap and one live session per wallet, real extensions accept the prompts, a time lock or a freeze bounds the upgrade risk, or Squads ships session keys for policy signers.
 - **Seat-vote prompt for Phantom's own EVM account (open, Tuan decides):** a native vote is a bare 32-byte hash prompt. Option 1 keeps NEAR for votes, option 2 goes fully native, option 3 adds the decoded Safe transaction in the app, and option 4 uses EIP-712 where Phantom accepts the chain id (section 5.6). The grants can go native in every option.
 - **MetaMask on Solana and Stellar shows no path:** MetaMask signs an opaque chain-398 transaction to reach the MPC, so its prompt cannot tell `prime:solana` from `prime:solana-session`, or `prime:stellar` from `prime:stellar-session`. The keys stay separate on every chain (section 3), but the visible half of that separation depends on the other NEAR-routed wallet's prompt, which shows the path. EVM is unaffected, because MetaMask signs natively there. Until the decision on routing MetaMask through prime-near-signer with `personal_sign` (about 5 more lines, and it changes MetaMask's derived keys), the app labels each prompt "seat vote" or "start session" and shows the decoded path next to MetaMask's confirmation.
@@ -744,4 +843,95 @@ Before mainnet:
 - MetaMask's route points at chain 397 instead of 398.
 - Solana: build with `PRIME_CLUSTER=mainnet` (a build without the variable fails to compile), deploy mainnet from its own program keypair, and deploy with `--final` from the start (`solana program set-upgrade-authority <program> --final` locks a devnet run after the matrix).
 - Stellar: set up each MPC-derived G account with the lock (thresholds 1/1/2) and fund one session-owner account per NEAR-routed wallet. Pick which wasm build to pin: the deployed file comes from `stellar contract build`, and `build-wasm.sh` makes a different one. Measure the revoke rent on mainnet.
-- **Audit scope:** the four new contracts, 122 sLOC in total, plus the off-chain MPC key derivation and checks, which decide which keys become seats. With the native Solana option, the relayer's check of returned messages belongs in scope too.
+- **Audit scope:** the four new contracts, 122 sLOC in total, plus the off-chain MPC key derivation and checks, which decide which keys become seats. With the native Solana option, the relayer's check of returned messages belongs in scope too. If the seat-voting design is adopted, the seat contracts replace the session contracts in that scope: they hold every owner's vote, and on Solana the program must deploy with `--final` and carry its own audit before it holds funds (section 14.3).
+
+## 14. Session keys that vote for their owner (seat-voting spike)
+
+Tuan asked that a session key can act on behalf of its owner, including the owner's seat vote. We built that on all three chains as spikes on 8 October 2026, in copies of the session contracts. **This is verified in spikes. The production contracts and every count in sections 10 and 12 are for the current build, and that build is not switched.** The choice between the full design and the no-governance design (section 14.5) is open (section 14.8). The spikes' reports and logs are outside the bundle for now.
+
+### 14.1 The design, the same on every chain
+
+- **The seat is the owner's session contract:** the account lists that one contract as the owner's vote. The contract accepts the owner's own authorization, or a live session key whose grant carries the vote flag.
+- **By default a session makes only rule-allowed moves:** a grant with the vote flag adds the owner's vote to that session key. The flag is part of what the owner signs, so a signature for one flag value is refused with the other, and a later grant can change the flag in either direction. A session that must lose its vote right is best revoked and replaced.
+- **The owner and its own session count once:** one contract is one vote, so the app does not need to track which of the two voted. EVM: the Safe requires owner addresses in strictly ascending order, and a repeat of the same contract stops at the second entry (`GS026`). Solana: Squads stores one approval per PDA, and the second fails with `AlreadyApproved`. Stellar: the rule lists the contract once, and the owner plus its own session were refused.
+- **A vote session alone cannot decide:** it needs M-1 other owners or other vote sessions. A move-only session offered as a vote is refused on every chain, and so are an expired, revoked or other wallet's session.
+- **Revoke is final and also ends the vote:** the marker, the stored end of 0 or the maximum value that stops moves also stops votes.
+
+### 14.2 EVM: PrimeSession as the Safe owner
+
+Safe 1.4.1 asks a contract owner through the legacy ERC-1271 call `isValidSignature(bytes data, bytes signature)`, selector `0x20c13b0b`, with the 66-byte EIP-712 payload of the Safe transaction. PrimeSession implements it: it recovers the signer of `keccak256(data)` and returns the magic value when the signer is the owner key or a session key with a live vote grant. The Safe stays unchanged. We read the selector from the deployed Safe L2 code and traced a real transaction to see two static calls to PrimeSession addresses.
+
+- **Contract:** 36 sLOC against 32 in the current build; one storage slot still holds `until`, `nonce` and the new `vote` flag; the grant ABI gains a `vote` argument and the grant text gains a line (`allows: moves only` or `allows: moves and the owner's Safe votes`).
+- **Signing:** an owner or session key signs `keccak256(data)` directly. MetaMask's typed-data signature of the Safe transaction produces exactly that digest. The grant stays a `personal_sign` of text, and the two digests cannot collide: a grant digest hashes an EIP-191 prefix with a length far from 32, and a vote digest hashes a preimage that starts `0x1901`.
+- **Result: 263/263** on a Base Sepolia fork with the real NEAR MPC (59 signatures, 8.1 s average); the same file passed 263/263 with local stand-in keys. 23 forge tests pass. The deployed bytecode equals the build.
+- **Cost:** grant 76,659 gas (76,000 today); a session move 124,761 (124,754). A Safe transaction with two plain-key votes costs 81,515 gas. Two owners through PrimeSession cost 97,508 (+15,993), a vote session plus an owner 100,288 (+18,773), and two vote sessions 103,056 (+21,541). Runtime code grows from 3,996 to 4,810 bytes and a deployment from 919,172 to 1,094,949 gas.
+- **Setup order:** the PrimeSessions need the Roles address, which depends on the Safe address, which depends on its owners. The harness creates the Safe with the first owner's key, deploys the PrimeSessions with the predicted Roles address, and in the first transaction adds the other PrimeSessions, deploys Roles, installs the rule and swaps the first key for its PrimeSession. One transaction did all of it (836,002 gas), and the PrimeX onboarding needs one added call.
+- **Not run yet:** Safe 1.5.0 asks through `isValidSignature(bytes32, bytes)` (selector `0x1626ba7e`); answering both forms is a scratch build at 39 sLOC with unit tests only. Safe{Wallet} and the transaction service with contract owners, and Phantom's own EVM account (its eth_sign form needs about 3 more sLOC, an estimate), still need a run.
+
+### 14.3 Solana: the PDA as a Squads settings signer
+
+Each owner's prime-session PDA (`["prime", owner, settings]`) is listed as a Squads settings signer with all three permissions, and stays the member of the movers policy. The program signs the Squads calls for the PDA with `invoke_signed` after it checks who asks:
+
+| Caller | Checked by | What the program lets through |
+|---|---|---|
+| Owner | the owner signed the transaction | any Smart Account call, as a seat |
+| Session key, move-only grant | ed25519 instruction over the grant text with `vote: false` | a policy move only |
+| Session key, vote grant | ed25519 instruction over the grant text with `vote: true` | any call (full build) |
+| Revoke | the owner signs the grant text with end 0 | creates the marker for that key |
+
+Squads accepts a PDA as a seat for create, propose, approve and execute, with the Initiate, Vote and Execute permission bits applying as for any signer. The owner path needs no grant, because the owner's transaction signature is its consent. The move-only gate is mandatory: once the PDA is a seat, a session that could call anything would hold the seat's power, so a move-only session may send only a synchronous policy execution to an account other than the settings account.
+
+- **Contract:** 40 sLOC against 33 (+7: five for the owner path, two for the gate); the program grows from 54,024 to 55,048 bytes; a vote byte and a `vote:` line join the grant text.
+- **Result: 292/292** on a local validator cloned from devnet, with the real NEAR MPC for MetaMask and Freighter (93 signatures, 8.2 s average) and a local key for Phantom. The on-chain bytes of both program ids equal the build.
+- **Cost:** an owner vote through the program uses 23,242 compute units against 16,199 for a plain key; a vote session uses 38,256 units and 888 bytes; a session move through the seat program costs the same as through prime-session within one search step.
+- **A new root of trust:** all seats become PDAs of one program. A bug in it can hand the account away or freeze it, and an upgrade authority would be a key to the whole account. Today a bug in prime-session reaches only the policy-bounded move path. The seat program therefore deploys with `--final` and carries an audit before it holds funds.
+- **Not run yet:** a deep venue call through the extra CPI level (the program sits above Squads, which then runs at stack height 2), and the real wallet extensions signing a vote transaction. Squads' own recovery without the program would need plain-key seats that reach the threshold, which changes the M-of-N model.
+
+### 14.4 Stellar: an `External` seat served by `verify()`
+
+Rule 0 lists each owner as `External(prime-session)`. The contract's `verify(hash, key_data, proof)` serves that seat: an empty proof means the owner's own Soroban authorization over the hash (a nested `require_auth_for_args`), and a 96-byte proof is a session key and its signature of the hash, accepted only when the key is live and its grant carries the vote flag. The session rules keep their `Delegated` signer and its `__check_auth`, which accepts any live key. The two entry points keep a move-only key out of rule 0, because a `Delegated` signer is told nothing about the rule it serves, and the policy-interpreter refuses an `External` signer on a session rule (`ExternalSignerNotSupported`, checked).
+
+- **Contract:** `grant(key, until, vote)` needs the owner's authorization, and the flag is bound by the owner's signature with the key and the end ledger. The vote sits in the top bit of the stored `u32`, so entries cost what they did. Revoke is `grant(key, 0, _)` as before and is final whatever flag it carried.
+- **Size:** 51 sLOC against 37; 52 with separate seat and owner keys.
+- **Stellar status:** the testnet run with the real NEAR MPC has passed its setup and rule stages and is working through the vote checks: one owner alone refused, owner pairs accepted, a vote session plus another owner accepted for each of the three wallets, two vote sessions accepted with no owner present, the relayer-down vote paid by the session key, and move-only, expired, revoked and other-seat keys refused. A run of the same checks with local stand-in keys in place of NEAR passed 258/258 on testnet. We report no final count until the real run ends.
+
+### 14.5 The no-governance variants
+
+A variant keeps the vote right for spending and takes governance out of a vote session's reach.
+
+- **EVM, 41 sLOC (+5 over the vote version):** the vote session's signature carries the ten fields of the Safe transaction (320 bytes). The contract hashes them with the SafeTx typehash and compares the result to the hash the Safe passed, which proves the fields are the transaction being voted on. It then refuses the vote when the transaction goes to the Safe itself (owner, threshold, module, guard and fallback changes), goes to the Roles modifier (rule changes), or is a delegatecall (including MultiSend batches). This needs no Safe guard. A token transfer by a vote session plus an owner passes (107,712 gas, 7,424 more than the vote version), and nine governance shapes are refused. The signature data grows by 320 bytes (836 to 1,156 bytes of calldata), and the code by 543 bytes. 19 checks passed within the 263.
+- **Solana, 44 sLOC (+4 over the full build):** a vote session may make a policy move and approve a proposal, and only when the proposal's transaction is not a settings transaction: the program derives the transaction address from the proposal index, checks that the account passed last is that address, and reads its discriminator. A vote session cannot create, execute or reject, and cannot approve a settings proposal. The build passed 291 checks with a local stand-in for the MPC. It costs about 5,000 more compute units per session vote (43,512 against 38,256) and 33 more bytes.
+- **Stellar:** a variant is part of the same run and has no size or result to report yet.
+
+Both variants stop takeover. Neither stops spending: a vote session plus one owner can still move funds that the Roles rule or Squads policy does not hold back (the EVM check moved 500 test tokens), and on Solana can still approve a vault transfer of the whole balance, as any two seats can. On EVM the check is a deny list, and a Safe guard could deny by function but would apply to every signer, is changed by a Safe transaction, and costs gas on every transaction, so we did not build one.
+
+### 14.6 The risks, stated plainly
+
+- **A vote session plus one owner can change the account:** with the full design, one live vote session and one other owner's vote reach the threshold. EVM: Freighter's vote session and MetaMask's vote added an attacker as owner with threshold 1; the attacker then moved all 1,000 test tokens alone and removed the three PrimeSessions, which locked the wallets out. Solana: a vote session plus an owner added an outside seat and set the threshold to 1, and the outside key then moved 0.9 SOL alone. On Stellar the same follows from the design, and the danger stage of the run is still to finish. A move-only session at the same step is refused on EVM.
+- **Two vote sessions can take the account with no wallet prompt:** EVM: two vote sessions alone moved all 1,000 test tokens and added an owner. Solana: two vote sessions set the threshold to 3 with no owner key signing anything. Whoever holds two vote session keys, such as one app or one browser profile, holds the account for up to 7 days.
+- **Today a thief needs two seats:** with vote sessions the thief needs one wallet signature on a hash the wallet cannot read (a NEAR prompt shows a hex payload) plus one stolen vote session key.
+- **One key signs votes and grants for NEAR-routed owners:** the current build keeps seat votes (`prime:<chain>`) apart from grants (`prime:<chain>-session`) so that a blind grant signature can never be a vote. The spikes sign both under the session path, so a NEAR prompt whose payload is a hash can be a vote. A second `seat` key restores the split: about 2 to 3 more sLOC on EVM (an estimate), and 1 more on Stellar (52 against 51). We have not built it on Solana.
+- **Onboarding must require distinct owner keys:** the Safe counts each PrimeSession address as one owner, whatever key stands behind it. Two PrimeSessions with the same owner key took one MetaMask signature in two entries, and the Safe counted two votes (accepted, 114,600 gas). With plain keys, the Safe's own owner list prevents that.
+- **A signed vote grant that the app holds back is usable until its end:** the owner can revoke a key it never granted, and then no grant for that key can follow.
+- **The seat contract is a root of trust on Solana:** section 14.3 explains why it deploys with `--final` and needs an audit.
+
+What reduces the risk: the app issues vote grants rarely and for minutes, shows the end as a date, never gives the vote flag to an agent's session, and keeps vote and move-only keys in different places. The owner signs `vote: true` or the flag line in the grant text, so the prompt differs from a move grant. A vote grant that names one proposal would limit a stolen key to one approval; we have not built it.
+
+### 14.7 Size and status of each spike
+
+| Chain | Current build | Full vote design | No-governance variant | Result |
+|---|---|---|---|---|
+| EVM | 32 sLOC | 36 sLOC, 4,810 bytes of runtime code | 41 sLOC, 5,353 bytes | 263/263 on a Base Sepolia fork with the real NEAR MPC |
+| Solana | 33 sLOC, 54,024 B | 40 sLOC, 55,048 B | 44 sLOC, 56,440 B | 292/292 (full, real NEAR MPC) and 291/291 (no-governance, stand-in) on a local validator |
+| Stellar | 37 sLOC | 51 sLOC (52 with separate seat and owner keys) | running | running on testnet; stand-in run 258/258 |
+
+All runs are testnet or local. Live runs on Base Sepolia and Solana devnet wait for funding, as in section 13.
+
+### 14.8 What stays open
+
+1. **Does Tuan want the vote right at all, and in which form?** The full design gives a session key the owner's whole seat. The no-governance variant keeps takeover out and leaves spending in. The current build keeps seats as plain keys.
+2. **Solana root of trust:** accept that all seats are PDAs of one frozen, audited program, or keep plain-key seats and move-only sessions.
+3. **One owner key or two** for votes and grants on NEAR-routed wallets (section 14.6).
+4. **Safe 1.4.1 only,** or both ERC-1271 forms for a later move to Safe 1.5.0 (+3 sLOC).
+5. **Prompt rate:** a vote session of minutes needs a grant for each use, and we have not asked whether that rate is acceptable.
+6. **Real extensions:** each wallet still needs one real signature of a vote and of a vote grant on Solana and Stellar, and Safe{Wallet} needs a run with contract owners on EVM.
