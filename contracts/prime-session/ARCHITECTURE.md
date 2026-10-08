@@ -538,14 +538,14 @@ flowchart LR
 | Part | Design | Status |
 |---|---|---|
 | Custody | One ed25519 key (an MPC wallet such as Fordefi signs like this). It creates the gate, calls `Approve` and `Revoke` on its token accounts and cancels stored moves | Verified: gate spike with a raw key. Fordefi's policy engine: Design only |
-| Gate account | PDA `["gate", custody, settings]`, 169 bytes plus 32 per destination: custody, settings, agent vault, owners vault, recovery address, minimum wait, run window, bump, destinations. Nothing writes to it after creation | Verified: gate spike (byte-identical after the run) |
+| Gate account | PDA `["gate", custody, settings]`, 169 bytes plus 32 per destination: custody, settings, agent vault, owners vault, recovery address, minimum wait, run window, bump, destinations. Nothing writes to it after creation. The minimum wait and run window fields are likely to go with the gate's own queue | Verified: gate spike (byte-identical after the run) |
 | Allowance | SPL delegate per token account: one amount, no expiry, one delegate per token account. A second gate needs a second token account | Verified: gate spike, 21/21 and 11/11 |
 | Destinations | The gate compares the owner field of the destination token account with the list set at creation, for every caller, owners at full approval included | Verified: gate spike, 19/19; review attack list |
 | Single caller | Agent lane: Squads vault `k` of the Prime Account, which only a `ProgramInteraction` policy created with `account_index = k` can sign for. Owners lane: a second vault that signs for the settings threshold. `create` refuses a Prime Account with a settings authority | Verified: gate spike, 15/15 and 14/14 |
 | Lane layout | The owners lane sits on its own vault index, away from vault 0, because session rules already sign as vault 0 | Under test (the review found the vault-0 overlap) |
 | End time | A stored end time after which the gate pays nothing, because the SPL allowance never expires | Under test |
-| Seed | A seed in the gate address, so one custody address can run an immediate and a waiting gate for the same Prime Account | Under test |
-| Rent refund | Each stored move records its rent payer, and `run` and `cancel` refund only that payer | Under test |
+| Seed | A seed in the gate address, so one custody address can run two gates for the same Prime Account. Likely unnecessary if the gate's own queue goes | Under test |
+| Rent refund | Each stored move records its rent payer, and `run` and `cancel` refund only that payer. Applies to the gate's own queue | Under test |
 | Agent rules | One policy per rule: one venue, one direction, an amount band, who must approve (two signers for the large band), atomic batches. The agent key is a policy signer and needs no prime-session grant | Verified: gate spike, 31/31 and 10/10 |
 | Real venues | A real venue (an Orca swap, a Kamino deposit) takes the caller's signature, so the listed destination is the Prime Account's vault and positions sit with the Prime Account, as Blend positions do on Stellar. The spike's venue mock pays anyone | Under test (review finding, cloned-venue run in the hardening run) |
 | Token-2022 | Plain `Transfer`: mints without extensions work, fee and hook mints are refused (the gate fails closed). A permanent delegate moves custody's tokens with no gate involved | Verified: gate spike 4/4; review probe |
@@ -560,7 +560,7 @@ Custody hands ownership of a dedicated token account (one that is no associated 
 
 - **Funds leave only by:** agent moves under the owners' rules, within the cap, to listed destinations; or recovery (below).
 - **Excluded by design:** an exit that custody and the owners take together, and an exit by notice. Tuan's rule: "It's the Recovery requirement."
-- **Custody keeps one-signature reducing powers:** lower the cap, suspend it and cancel a stored move.
+- **Custody keeps one-signature reducing powers:** lower the cap, suspend it and, while the gate's own queue exists, cancel a stored move.
 - **Stellar and EVM equivalent:** the docs restrict custody's own keys through account weights (Stellar) or a Safe (EVM). On Solana the lock sits on the token account.
 
 | Claim | Status |
@@ -572,32 +572,47 @@ Custody hands ownership of a dedicated token account (one that is no associated 
 
 #### Recovery
 
-The Prime owners at their normal approval count M sign as the owners lane. The gate pays the recovery address only, which custody fixed at creation and the gate never changes. Custody signs nothing. The move goes through the gate's wait, and custody or the owners can cancel it until it runs. Without a recovery address, custody's funds cannot be reached once its key is lost, except through the agent's rules within the allowance or cap. The owners can also sign as the agent lane, which gives them the agent's reach without a band, to listed destinations, as on Stellar.
+The Prime owners at their normal approval count M sign as the owners lane. The gate pays the recovery address only, which custody fixed at creation and the gate never changes. Custody signs nothing. The owners' recovery rule carries its own time lock, and the move waits for it. Without a recovery address, custody's funds cannot be reached once its key is lost, except through the agent's rules within the allowance or cap. The owners can also sign as the agent lane, which gives them the agent's reach without a band, to listed destinations, as on Stellar.
+
+**Open until the reviews report:**
+
+- **Who can cancel a recovery:** in the spike custody and the owners could cancel a queued recovery. The gate's own queue is likely to be removed, so the cancel right then depends on the recovery rule.
+- **Whether the cap bounds a recovery:** a bounded recovery limits what the owners can send. An unbounded one works after custody lowers the cap to zero.
 
 | Claim | Status |
 |---|---|
-| Owners at full count pay the recovery address only, through the wait, with no custody signature (27,492 compute units without a wait, 34,303 queued; by proposal 75,596 to propose and approve, 70,919 to approve and execute) | Verified: gate spike, 21/21, inside the SPL allowance |
+| Owners at full count pay the recovery address only, with no custody signature, inside the SPL allowance and through the gate's own wait (27,492 compute units without a wait, 34,303 queued; by proposal 75,596 to propose and approve, 70,919 to approve and execute) | Verified: gate spike, 21/21 |
 | A lowered or revoked allowance stops a recovery | Verified: gate spike (custody's kill switch) |
-| Recovery from a locked token account, and its relation to the cap | Under test |
+| The recovery rule's own time lock | Under test |
+| Who can cancel a recovery; whether the cap bounds it | Open (reviews) |
+| Recovery from a locked token account | Under test |
 | Account-level recovery of the Prime Account's own settings | Design only. The alternative design cannot offer it while Squads' `SettingsChange` writes nothing back |
 
 #### Time lock
 
-The gate has a minimum wait and a run window, and a rule can ask for a longer wait.
+**Decision (Tuan, 8 October 2026):** the whole batch waits on the owners' rule. The agent's rule carries a Squads policy time lock. Squads stores the whole call: the gate draw, the venue call and the proceeds back. The call waits, runs after the lock as one atomic transaction and is cancelled by the owners with a vote. A policy time lock closes the synchronous path (`TimeLockNotZero`), so the agent stores the move in three steps (create, propose, approve) and a run follows. The Prime Account's settings time lock stays 0 for the owners' synchronous path.
 
-- **In the spike, the draw waits and nothing else:** a waiting move is a stored 81-byte record that pays when `run` is called inside `[run_at, run_at + window]`. The venue call is a separate move.
-- **Whole-batch design:** the agent's rule carries a Squads policy time lock. Squads stores the whole call (the gate draw with the gate's wait at 0, plus the venue call). The call waits, runs after the lock as one atomic transaction and is cancelled by the owners with a vote. Custody stops it by lowering or suspending the cap, which empties the draw. A policy time lock closes the synchronous path (`TimeLockNotZero`), so the agent stores the move in three steps (create, propose, approve) and a run follows. The Prime Account's settings time lock stays 0 for the owners' synchronous path.
-- **Run window:** Squads checks only that the lock has passed since approval, and an approved move stays executable (`transaction_execute.rs:82-94`, `transaction_close.rs:220-222`). The gate needs its own latest-time field or its end time to make the stored batch lapse.
-- **Open design question:** with the wait on the rule, the minimum that no caller can undercut sits with the owners' rule, because the gate's own draw has wait 0. A custody that wants a floor the owners cannot lower keeps the gate's minimum and accepts that only the draw waits. The hardening run settles which of the two the gate offers.
+| Option | What it does | Outcome |
+|---|---|---|
+| 1. Wait inside the gate | The gate holds the minimum wait, so custody controls it. Only the draw waits and the venue call is a separate move. This is what the spike built | Set aside |
+| 2. The whole batch waits on the owners' rule | The rule's time lock stores and runs the batch. The owners set and change the minimum wait at M of N | Chosen |
+| 3. The gate checks Squads' stored transaction | The gate reads the stored batch to enforce a floor. It would add gate code that depends on Squads' internal layout | Set aside |
+
+- **Trade-off Tuan accepted:** custody does not control the minimum wait. The owners can set it low and custody cannot raise it.
+- **Custody's own protection:** the per-token cap (lowered or suspended at any time with one signature), the gate's end time, destinations fixed at creation and locked custody. These bound what a batch can take whatever the wait.
+- **Who cancels:** the owners, with a vote on the rule's stored move. Custody stops a stored batch by lowering or suspending the cap, which empties the draw. The agent cannot cancel.
+- **Lapse:** Squads has no run window. It checks only that the lock has passed since approval, and an approved move stays executable (`transaction_execute.rs:82-94`, `transaction_close.rs:220-222`). A stored batch lapses at the gate's end time, or through a small not-after check in the gate under evaluation.
+- **The gate's own queue:** the spike's gate stores moves (an 81-byte record, `run`, `cancel`, a minimum wait and a run window). Option 2 replaces it, so the queue is likely to be removed. A minimality review is running and decides.
 
 | Claim | Status |
 |---|---|
-| Gate minimum wait and run window bind every caller, a rule can ask more, anyone runs a stored draw inside the window, a late run lapses | Verified: gate spike, 26/26 |
-| Custody and the owners cancel a stored draw, no other signer can | Verified: gate spike, 13/13 |
 | A Squads rule with its own time lock stores a call, refuses an early run (`TimeLockNotReleased`), runs after the lock, checks the rule at run time and lets the owners cancel as a voter | Verified: spike of the alternative design (225/225); the stored call there was a single call into custody's gate |
-| The whole batch (gate draw and venue call) is stored by the rule and runs as one transaction after the wait | Under test |
-| Owners cancel the stored batch; custody stops it by lowering or suspending the cap | Under test |
-| Run window or lapse for the stored batch | Under test |
+| The gate's own queue: minimum wait and run window bind every caller, anyone runs a stored draw inside the window, a late run lapses, custody and the owners cancel | Verified, likely removed: gate spike, 26/26 and 13/13 |
+| The whole batch (draw, venue call, proceeds) is stored by the rule and runs as one transaction after the wait | Under test |
+| The owners set the wait, change it at M of N and cancel a stored batch | Under test |
+| Custody stops a stored batch by lowering or suspending the cap | Under test (lowering the allowance stopped a ready stored draw in the spike) |
+| Lapse through the gate's end time, or a not-after check | Under test |
+| Removing the gate's own queue | Design only (minimality review) |
 | Stored-move rent, paid by the relayer and returned on close (4,920,720 lamports in the alternative's spike; 1,454,640 for the gate's record) | Verified for each spike; the whole batch is Under test |
 
 #### Compared with OctoGate and the EVM gate
@@ -607,10 +622,10 @@ The gate has a minimum wait and a run window, and a rule can ask for a longer wa
 | Allowance per asset | Token allowance per asset, up to 180 days | ERC-20 approval per asset, no expiry | SPL `Approve` per token account, one total; end time Under test |
 | Destinations | List fixed at creation, every address in the batch checked | List fixed at creation | Owners of destination token accounts, fixed at creation; Squads rules pin the accounts of each call |
 | Single caller | Execution contract, pinned by code hash | TimelockController per gate | One Prime Account's vaults (agent lane, owners lane) |
-| Wait | Gate minimum in ledgers, a rule can ask more; the whole batch waits | Seconds; a second gate for immediate moves | Gate minimum in seconds, a rule can ask more; the whole batch waits Under test (Verified: the draw alone) |
-| Run window | Yes, then the move lapses | None | Yes for a stored draw (Verified); for a stored batch Under test |
-| Cancel | Custody or the account's signers | Custody, or the account at its approval count | Custody with one signature, or the owners |
-| Recovery | Account's full count, through the gate, to the recovery address | Same | Owners at count M, recovery address only, through the wait; locked recovery Under test |
+| Wait | Gate minimum in ledgers, a rule can ask more; the whole batch waits | Seconds; a second gate for immediate moves | The owners' rule carries the wait (M of N can change it); the whole batch waits (Under test; the draw alone is Verified in the gate's own queue). Custody does not control the minimum |
+| Run window | Yes, then the move lapses | None | Squads has none: lapse through the gate's end time, or a not-after check (Under test) |
+| Cancel | Custody or the account's signers | Custody, or the account at its approval count | The owners cancel the stored batch; custody lowers or suspends the cap with one signature |
+| Recovery | Account's full count, through the gate, to the recovery address | Same | Owners at count M, recovery address only, through the recovery rule's own time lock (Under test); who can cancel and whether the cap bounds it are open |
 | Locked custody | Account weights on the custody account | Funds in a Safe | `SetAuthority` of a dedicated token account to the gate, Under test |
 | Native asset | XLM through its asset contract | Wrapped ETH only | Wrapped SOL only |
 | New code | 55 + 221 sLOC | None (audited Safe, Zodiac Roles, OpenZeppelin TimelockController) | 99 sLOC (212 formatted), 84,296 bytes |
@@ -624,9 +639,9 @@ The independent review recommends this design for custody with one Solana addres
 | # | Condition | Status |
 |---|---|---|
 | 1 | Owners' lane on its own vault index, away from vault 0 | Under test |
-| 2 | Store the rent payer in each record and refund it on run and cancel | Under test |
+| 2 | Store the rent payer in each record and refund it on run and cancel | Under test (applies only if the gate keeps its own queue) |
 | 3 | An end time on the gate | Under test |
-| 4 | A seed so one custody address holds an immediate and a waiting gate | Under test |
+| 4 | A seed so one custody address holds an immediate and a waiting gate | Under test (likely unnecessary if the queue goes) |
 | 5 | `TransferChecked` with forwarded accounts if fee mints are in scope; hook mints stay refused | Design only |
 | 6 | A hostile-program test of the token-program allow-list; an external audit of the 212 formatted lines, a published build and a `--final` deploy; the app refuses a gate that has an upgrade authority | Hostile-program test: Under test. Audit and deploy: Design only |
 | 7 | Run against cloned real venues (an Orca swap and a Kamino deposit) with the Prime Account's vault as the listed destination, and decide whether positions held by the Prime Account are acceptable | Under test |
@@ -645,8 +660,9 @@ The review also records that the spike's runs used a runtime with SIMD-0268 acti
 | Real Phantom, Solflare, Backpack and Glow: grant, move, revoke, refusal | Verified | real-wallet run, 16/16 each, 8/8 setup, 41/41 cross-wallet |
 | Real seat votes by `signTransaction` | Verified for Backpack and Phantom (2 real signatures each, all executed); Solflare and Glow refuse on a local validator | real-wallet run, 14/14 |
 | Locked mode (`SetAuthority`, cap) | Under test | gate-a2 |
-| Whole-batch time lock: store, wait, one atomic run, cancel, cap stop, lapse | Under test | gate-a2 |
-| Recovery from a locked account | Under test | gate-a2 |
+| Whole-batch time lock on the owners' rule: store, wait, one atomic run, owners' cancel, cap stop, lapse | Under test | gate-a2 |
+| Recovery rule's own time lock; recovery from a locked account | Under test | gate-a2 |
+| Who can cancel a recovery; whether the cap bounds it; removal of the gate's own queue | Open | reviews (the minimality review is running) |
 | Review fixes (conditions 1 to 4) | Under test | gate-a2 |
 | Real Orca and Kamino venues | Under test | gate-a2 |
 | Fordefi policy engine, external audit, non-upgradeable deploy, devnet run | Design only | section 13 |
@@ -1002,7 +1018,7 @@ The native runs taken before the independent review sit beside the final ones as
 Pending live runs:
 
 - **EVM, Base Sepolia:** the round 9 live run needs about 0.000065 ETH (estimate: 10.9 M gas at 0.006 gwei). The relayer `0xecebBf71Faa6682Ff31fD145646f8Eda82E98E11` holds 0.00000165 ETH (read on 8 October 2026), about 2.5% of that. 0.0005 ETH leaves room for a price swing. Section 12.2 keeps the round 7 live links until then.
-- **Custody gate on Solana (section 7.4):** the hardening run (gate-a2) is still testing locked mode, the whole-batch time lock, recovery from a locked account, the review fixes (owners' lane off vault 0, rent refund, end time, seed) and real Orca and Kamino venues. Those claims stay Under test until it reports.
+- **Custody gate on Solana (section 7.4):** the hardening run (gate-a2) is still testing locked mode, the whole-batch time lock, recovery from a locked account, the review fixes (owners' lane off vault 0, rent refund, end time, seed) and real Orca and Kamino venues. Those claims stay Under test until it reports. Tuan chose the time lock on 8 October 2026: the whole batch waits on the owners' rule, and custody does not control the minimum wait. Three points stay open until the reviews report: the fate of the gate's own queue (a minimality review is running), who can cancel a recovery and whether the cap bounds it.
 - **Custody gate, Fordefi:** `create`, `Approve`, `Revoke`, cancel and, in locked mode, `SetAuthority` still need a run through Fordefi's policy engine. A custodian on another MPC provider needs the same run.
 - **Custody gate, audit and deploy:** an external audit of the gate (212 formatted lines), a published verifiable build and a `--final` deploy. The harness loads the gate non-upgradeable, and the app refuses a gate that still has an upgrade authority. The Squads Smart Account program stays upgradeable by a 3-of-5 multisig with no time lock.
 - **Custody gate, devnet:** the gate spike ran on a local validator with the Squads program cloned from devnet, and its re-runs used the devnet and mainnet feature sets. A devnet run needs the funded payer below.
