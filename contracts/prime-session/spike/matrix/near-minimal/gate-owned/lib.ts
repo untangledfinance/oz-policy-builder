@@ -13,7 +13,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { handOverIxs } from './setup-checks';
 
 export const RPC = process.env.GATE_RPC ?? 'http://127.0.0.1:9081';
-if (!/127\.0\.0\.1:9081/.test(RPC)) throw new Error('this harness runs on the local validator at port 9081 only');
+if (!/127\.0\.0\.1:(9081|9111)/.test(RPC)) throw new Error('this harness runs on a local validator at port 9081 or 9111 only');
 export const conn = new Connection(RPC, { commitment: 'confirmed', confirmTransactionInitialTimeout: 120_000 });
 export const here = new URL('.', import.meta.url).pathname;
 export const kp = (f: string) => Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync(`${here}secrets/${f}.json`, 'utf8'))));

@@ -514,9 +514,14 @@ Prime on Solana keeps the funds in custody, as OctoGate does on Stellar and the 
 
 **Final design (Tuan, 8 October 2026):** gate-owned custody, with a trustee. Custody hands the owner and the close authority to the gate. Custody plus the trustee can release the account back. Recovery is uncapped and always open to the recovery address, by default the trustee's wallet. The cap is the stop: any one custody signer lowers it, and the multisig's threshold raises it. This replaces the earlier designs (an SPL allowance with a locked mode, and a multisig as the token account's owner). The multisig-as-owner design stays in the history only: it kept custody alone out and let custody plus the trustee reverse the set-up (162/162 in its spike), it left the close authority with custody, and the token program accepts a multisig with m greater than n.
 
-**Status tags:** **Verified** names the check ids or counts of the gate-owned build's harness (`gate-spike/a4-min`, `reports/gate-a4-min.md`), or an earlier spike. **Pending** means the run is queued or the review is open. **Design only** means no code and no run exist yet. The custody gate is a spike: the production contracts of sections 7.1 to 7.3 are unchanged. The independent security review of the gate-owned build is pending.
+**Status tags:** **Verified** names the check ids or counts of the gate-owned build's harness (`gate-spike/a4-min`, `reports/gate-a4-min.md`), or an earlier spike. **Pending** means the run is queued or the work is open. **Design only** means no code and no run exist yet. The custody gate is a spike: the production contracts of sections 7.1 to 7.3 are unchanged. The independent security review of the gate-owned build is done with the verdict adopt with fixes (see "Independent review" below), and its fixes are in the app checks and in section 7.4.
 
-**Evidence:** the gate-owned build ran on a local validator with the mainnet feature set (mainnet Squads, Token-2022, Orca Whirlpool and Kamino Lend programs, mainnet state cloned read-only): 345/345 checks on the mock venue, 53/53 on real Orca and Kamino (including the whole-batch time lock, recovery, release and `prime-session` in the path), 9/9 with the trustee as a Prime vault, 56/56 gate mutants killed, and `setup-checks.ts` with 19 unit tests, 22 live checks and 28/28 mutants killed. Logs are in `logs/gate/a4/`.
+**Evidence:** the gate-owned build ran on a local validator with the mainnet feature set (mainnet Squads, Token-2022, Orca Whirlpool and Kamino Lend programs, mainnet state cloned read-only): 345/345 checks on the mock venue, 53/53 on real Orca and Kamino (including the whole-batch time lock, recovery, release and `prime-session` in the path), 9/9 with the trustee as a Prime vault, 56/56 gate mutants killed, and `setup-checks.ts` with 43 unit tests, 54 live checks and 88/88 mutants killed. Logs are in `logs/gate/a4/` and `logs/gate/a4-fix/`.
+
+**Two limits to know before the gate holds assets:**
+
+- **A freezable mint can be frozen by its issuer:** USDC and USDT carry a freeze authority. While the issuer freezes a token account, the token program refuses every transfer and ownership change on it, so recovery and release both fail until the issuer unfreezes it (FZ2 to FZ5b of the independent review). This holds on every chain and for every custody design, so the gate adds no risk of its own here. The app reads the mint before funds move and warns: "the issuer can freeze this account; while frozen, recovery and release are refused". Recovery is reliable for a mint whose issuer holds no freeze authority.
+- **An owner majority reaches the recovery address and the cap:** M owners can pay the fixed recovery address with no cap at any time, and draw up to the cap to any listed destination. Custody cannot stop a recovery once the owners sign. The wait before a recovery exists only when the Prime Account's own time lock is above 0 (see "Recovery").
 
 #### Design
 
@@ -558,10 +563,11 @@ flowchart LR
 | Seed | An 8-byte seed in the gate address lets one custody multisig run several gates. A pre-funded gate address does not block `create` | Verified: G17 to G18c, G20 |
 | Agent rules | One policy per rule: one venue, one direction, an amount band, who must approve, atomic batches, a time lock. The agent key is a policy signer and needs no prime-session grant | Verified: P1 to P10b, 14/14 |
 | Real venues | A real venue takes the caller's signature, so the listed destination is the Prime Account's vault. The venue's proceeds land in a gate-owned account of custody, so the Prime vault holds nothing afterwards | Verified: 53/53 on Orca and Kamino |
-| Token-2022 | Mints without fee or hook extensions work. Fee and hook mints fail closed (error 0x1f). A permanent delegate moves custody's tokens with no gate involved | Verified: Z1 to Z9b, 28/28; earlier review probe |
+| Token-2022 | Mints without fee or hook extensions work. Fee and hook mints fail closed (error 0x1f). The app reads the mint (`checkMint`) and refuses a permanent delegate (it moves custody's tokens with no gate involved), a transfer hook, a transfer fee, a non-transferable mint, frozen-by-default accounts, confidential transfer and any extension it cannot parse. It warns for a freeze authority and a pause authority, and says to prefer the classic Token program | Verified: Z1 to Z9b, 28/28; SX1 to SX7b live; PD1, PD2 and FZ2 to FZ5b of the independent review |
 | Native SOL | Wrapped SOL only; custody wraps after the hand-over | Verified: N1 to N7c, 16/16 |
 | Token programs | Only the Token and Token-2022 programs are called | Verified: T10, T10b, A13, R6 |
-| Upgrade | Gate deploys non-upgradeable (`--final`). The app refuses a gate program that still has an upgrade authority | Design only (the harness loads it non-upgradeable) |
+| Upgrade | Gate deploys non-upgradeable (`--final`). The app refuses a gate program that still has an upgrade authority. Squads and Token-2022 are upgradeable on mainnet and the classic Token program is immutable (see "Who you trust") | Design only (the harness loads it non-upgradeable) |
+| Gate read-back | Any one multisig signer can create a gate, so the app reads the gate account back (`checkGate`) and compares the owner, the address, the stored bump and every fixed field with the plan before the hand-over. The owners run the same check again before they install a rule | Verified: SX8 to SX16b live; unit tests |
 
 Gate size: 91 sLOC as written, 253 after `rustfmt`, 50,464 bytes (the earlier hardened gate: 119, 276, 87,160 bytes). A threshold-only variant of the cap rule is 90 and 251, 50,408 bytes, with 348/348 checks and no single-signature stop for custody; the one-signature rule costs one line and 56 bytes. Lines by function, as written and formatted: imports and constants 10 and 18, dispatch 9 and 17, `create` 19 and 67, `transfer` 16 and 61, `allow` 12 and 33, `release` 11 and 24, `load` 4 and 6, `votes` 6 and 11, `call` 4 and 16.
 
@@ -571,14 +577,15 @@ Costs on the local validator: `create` with two destinations 12,171 to 22,671 co
 
 1. Custody and the trustee create the multisig (2 of 2, or `[custody, backup, trustee, trustee]` with m = 3). The app runs `checkMultisig` and the zero-amount test signature.
 2. A multisig signer creates the gate (`create`), and pays its rent.
-3. Custody opens an empty dedicated token account `X` (165 bytes, owner custody).
-4. Custody signs `SetAuthority(CloseAccount)` and `SetAuthority(AccountOwner)` to the gate PDA in one transaction, in that order.
-5. The app reads `X` back (`checkHandedOver`): owner is the gate, close authority is the gate (none for wrapped SOL), no delegate, 165 bytes.
-6. Custody funds `X`.
-7. The multisig's threshold calls `allow` to set the cap.
-8. The owners install the agent rule and the recovery rule.
+3. The app reads the gate back (`checkGate`) and compares every field with the plan. Any difference stops the setup before anything is handed over.
+4. The app reads the token's mint (`checkMint`) and shows its warnings. Custody then opens an empty dedicated token account `X` (165 bytes, owner custody).
+5. Custody signs `SetAuthority(CloseAccount)` and `SetAuthority(AccountOwner)` to the gate PDA in one transaction, in that order.
+6. The app reads `X` back (`checkHandedOver`): owner is the gate, close authority is the gate (none for wrapped SOL), no delegate, 165 bytes.
+7. Custody funds `X`.
+8. The multisig's threshold calls `allow` to set the cap.
+9. The owners read the gate back again (`checkGate`), then install the agent rule and the recovery rule.
 
-Funding follows the read-back so that a wrong hand-over never holds funds. The Prime Account exists before step 2, because `create` reads its settings. The step-by-step guide is `docs/prime-solana-setup-and-recovery.md`.
+The hand-over follows the gate read-back because only a release reverses it. Funding follows the account's read-back so that a wrong hand-over never holds funds. The Prime Account exists before step 2, because `create` reads its settings. The step-by-step guide is `docs/prime-solana-setup-and-recovery.md`.
 
 #### Custody's powers and release
 
@@ -590,7 +597,7 @@ Funding follows the read-back so that a wrong hand-over never holds funds. The P
 | The agent | Draws to listed destinations within the cap, under the owners' rules |
 | The owners at M | Pay the recovery address with no cap, at any time |
 
-A stolen single custody key can stop the agent lane and cannot raise the cap, release or touch recovery. Gate accounts cannot be closed, so a retired gate keeps its rent.
+A stolen single custody key can stop the agent lane and cannot raise the cap, release or touch recovery. Gate accounts cannot be closed, so a retired gate keeps its rent. The gate has no close instruction either, so each gate-owned token account keeps its rent (2,039,280 lamports) while the gate owns it. A recovery empties the balance and leaves the account open, and the rent returns after a release hands the account back and the new owner closes it.
 
 | Claim | Status |
 |---|---|
@@ -603,8 +610,10 @@ A stolen single custody key can stop the agent lane and cannot raise the cap, re
 
 The Prime owners at their normal approval count M sign as the owners lane. The gate pays the recovery address only, which custody fixed at creation and the gate never changes. The recovery address is the trustee's wallet by default. Custody signs nothing. Recovery has no cap and is open at any time, before and after the end time, with the cap at 0. The agent lane cannot reach the recovery address unless custody lists it as a destination, and the app warns about that listing.
 
-- **The recovery address is the bound:** M owners acting in bad faith can pay only that address. A custody that wants a firmer bound picks an address under its own control. A recovery address that no key controls loses the funds, so the app warns when it equals a destination or has no known holder.
-- **The wait:** a recovery rule on the owners lane carries a time lock, and the owners cancel a stored recovery with their votes. The wait binds only when the Prime Account's own Squads time lock is above 0. At 0 the owners at M pay at once through the settings path (RR7). At 5 seconds the synchronous path is refused with `TimeLockNotZero` and only the stored recovery runs, after the rule's wait (RR8 to RR8g). A Prime Account time lock also delays every settings change.
+- **The full reach of an owner majority:** M owners act with no signature from custody or the agent. They reach the recovery address with no cap, at any time (T12, E3b, A7d, RR7), and any listed destination up to the cap, by signing as the agent lane through the account's settings path with no agent key and no installed rule (T1). If a listed destination is a Prime vault the owners control, M owners can draw the cap to themselves. They cannot pay another address, release an account, set a close authority or approve an arbitrary delegate.
+- **Custody cannot stop a recovery once the owners sign it:** lowering the cap with one signature stops the agent-lane draw and has no effect on a recovery (A7d, RR3b). Custody's defence is a release back to itself, which races the recovery and needs custody, the trustee and an unfrozen account. The recovery address is the whole bound on the owner majority. With the trustee's wallet as the recovery address, the majority can send every gate-owned balance to the trustee at any time, so custody, the owners and the investors must all trust the trustee. A custody that wants a firmer bound picks an address under its own control. A recovery address that no key controls loses the funds, so the app warns when it equals a destination or has no known holder.
+- **The wait exists only when the Prime Account's own Squads time lock is above 0:** a recovery rule on the owners lane carries a time lock, and the owners cancel a stored recovery with their votes. At 0 the owners at M pay at once through the settings path (RR7). At 5 seconds the synchronous path is refused with `TimeLockNotZero` and only the stored recovery runs, after the rule's wait (RR8 to RR8g). The owners' cancel window exists in the same case. A Prime Account time lock also delays every settings change.
+- **A frozen account refuses it:** if the mint's issuer freezes the gate-owned account, the recovery fails with `AccountFrozen` (0x11) until the issuer unfreezes it (FZ3).
 - **Lapse:** the owners lane carries a not-after too, so an approved stored recovery that waits past its window is refused (T15).
 - **Squads upgrade exposure (a reading of the code):** an upgrade that signs as the owners lane vault can move custody's gate-owned funds, with no cap, to the recovery address, and nowhere else. An upgrade that signs as the agent lane reaches the listed destinations within the cap.
 
@@ -654,7 +663,7 @@ The Prime owners at their normal approval count M sign as the owners lane. The g
 | Custody restricted | Account weights on the custody account | Funds in a Safe | The gate owns the dedicated token account; custody plus the trustee release it |
 | Native asset | XLM through its asset contract | Wrapped ETH only | Wrapped SOL only |
 | New code | 55 + 221 sLOC | None (audited Safe, Zodiac Roles, OpenZeppelin TimelockController) | 91 sLOC (253 formatted), 50,464 bytes |
-| Trust | Our gate and adapter (internal review, external audit in progress), OpenZeppelin account | Audited Safe, Roles and TimelockController | Our gate (independent review pending, external audit and `--final` deploy to do), plus Squads for lanes and rules |
+| Trust | Our gate and adapter (internal review, external audit in progress), OpenZeppelin account | Audited Safe, Roles and TimelockController | Our gate (independent review done, adopt with fixes; external audit and `--final` deploy to do), plus Squads for lanes and rules |
 | Position with a real venue | Held by the Prime Account for Blend | Held by custody | Held by custody in a gate-owned account |
 
 #### Findings from the build
@@ -665,7 +674,10 @@ The Prime owners at their normal approval count M sign as the owners lane. The g
 - **Token-2022 associated accounts:** their owner is immutable, so `SetAuthority(AccountOwner)` fails with error 0x22 (Z7b). A classic associated account hands over, and its address still names custody, so the associated token program refuses to create custody's own account for that mint (Z7d, Z7e). Both go in by transfer into a dedicated account, and the app flags them.
 - **Hand-over order:** close authority first, then owner, ends with both at the gate on Token, Token-2022 and wrapped SOL. Owner first is refused on the second call (error 0x4) and leaves the close authority unset, which falls back to the owner, the gate. That end state is safe and the app reports it (H1 to H4g, N1 to N2). A delegate set before the hand-over is cleared by the owner change (H11 to H11d).
 - **Multisig faults:** the token program accepts m greater than n, and a 2-of-3 whose two custody keys reach 2 passes the test signature with custody's keys alone. `checkMultisig` flags both (SC3 to SC5).
-- **A permanent delegate** on a Token-2022 mint moves custody's tokens with no gate involved. Custody should not hold such mints behind the gate.
+- **A permanent delegate** on a Token-2022 mint moves custody's tokens with no gate involved, and the token account stays 165 bytes, so `checkSourceAccount` alone passes it (PD1, PD2). `checkMint` reads the mint and refuses it, with the other unsafe mints of the Token-2022 row above (SX4 to SX7b).
+- **A freeze authority** stops recovery and release on a frozen account (FZ2 to FZ5b). `checkMint` warns before funds move. USDC and USDT both carry one.
+- **A rogue gate:** `create` accepts any one signer of the multisig, who then fixes the recovery address and the other fields. `checkGate` catches a difference from the plan before the hand-over and again at the owners' confirmation (SX9b to SX16b).
+- **Seed squatting:** any multisig signer can take the seed the app planned, because `create` refuses a taken address (G10). The app picks a random 8-byte seed and retries with a new one, so this is a nuisance and no loss of funds.
 
 #### The earlier design review's conditions
 
@@ -686,6 +698,28 @@ The independent review of the earlier designs (an SPL allowance gate against a S
 
 The earlier review also records that its spike runs used a runtime with SIMD-0268 active (CPI depth limit 8 instead of 4). On the devnet and mainnet feature sets the venue runs at stack height 2 under the gate design and keeps three levels below it, two when the call goes through prime-session (`probe-depth`). The final build's venue runs show the same: the gate and the venue at height 2, the token program at 3, and one level more through prime-session.
 
+#### Independent review: adopt with fixes
+
+The independent review is done (`reports/gate-owned-review.md`, 8 October 2026). The reviewer rebuilt the gate byte for byte, ran 345/345 and 348/348 harness checks on an own validator, re-ran the 19 unit tests and a 21-mutant pass with no survivors, and found no way for custody, the trustee, the owners, the agent, the relayer or a stranger alone to move funds off the fixed paths. The gate's logic is unchanged. The fixes concern the assets the gate may hold, the app's checks and the documents:
+
+| # | Finding | Fix | Status |
+|---|---|---|---|
+| F1 | High for freezable assets: the mint's freeze authority stops recovery and release | `checkMint` warns; the caveat sits above "Design" in section 7.4 | Done in code, tests and docs. The app screen is design only |
+| F2 | Medium: a permanent-delegate mint bypasses the gate and `checkSourceAccount` passed it | `checkMint` refuses the mints in the Token-2022 row and any extension it cannot parse | Done in code and tests (SX4 to SX7b) |
+| F3 | Medium: no gate read-back, and any one multisig member fixes the gate's fields | `checkGate` before the hand-over and again by the owners | Done in code and tests (SX8 to SX16b) |
+| F4 | Medium, by design: the owner majority's full reach, and custody cannot stop a recovery | Stated in "Recovery" | Done in docs |
+| F5 | Informational: Squads and Token-2022 are upgradeable, classic Token is immutable, the gate deploys with `--final` | Stated in "Who you trust" | Done in docs. The app's refusal of a gate program with an upgrade authority is design only |
+| F6 | Low: rent stays locked in gate-owned accounts until a release | Stated in "Custody's powers and release" | Done in docs |
+| F7 | Low: seed squatting | Stated in "Findings from the build", with the app's retry | Done in docs |
+
+#### Who you trust
+
+- **Squads Smart Account** (`SMRTzfY6...`) is upgradeable on mainnet, with upgrade authority `HT3JknwuufXdtVJggz5Z9JcnYtanPpLzTCqLWsVX1Vu2` and no time lock. The gate's two lanes are Squads vaults, so whoever holds that authority can change how the vaults sign. The reach stays inside the gate's fixed recovery address, cap and destination list, which bounds that party the same way an owner majority is bounded. The gate harness re-runs after each Squads upgrade.
+- **Token-2022** (`TokenzQd...`) is upgradeable on mainnet, with upgrade authority `AeLmXCbPaQHGWRLr2saFsEVfmMNuKnxRAbWCT9P5twgz`. Holding assets there adds that authority as a trusted party. The classic Token program (`Tokenkeg...`) is immutable, so prefer it where the asset allows.
+- **The gate deploys with `--final`:** a latent bug then cannot be patched, and the way out is a release to a fresh gate, which needs custody, the trustee and an unfrozen account. The small surface (253 formatted lines) and the external audit carry that risk.
+
+Upgrade authorities read on chain on 8 October 2026 (read-only, through the public RPC).
+
 #### Verification status
 
 | Item | Status | Where |
@@ -693,11 +727,11 @@ The earlier review also records that its spike runs used a runtime with SIMD-026
 | Mock-venue harness, primary build (threshold-only variant: 348/348) | Verified: 345/345 | `gate-a4.ts`, `logs/gate/a4/gate-a4.gate-owned.final.log` |
 | Real Orca and Kamino (deposit, redeem, swap, whole-batch time lock, recovery, release, `prime-session` v0), each build | Verified: 53/53 | `venues-a4.ts` |
 | The trustee as a Prime vault | Verified: 9/9 | `trustee-a4.ts` |
-| Gate mutants (56) and setup-check mutants (28) | Verified: 56/56 and 28/28 killed | `mutants.py`, `ts-mutants.py` |
-| `setup-checks.ts` | Verified: 19 unit tests, 22 live checks | `setup-checks.test.ts`, section SC of the harness |
+| Gate mutants (56) and setup-check mutants (88) | Verified: 56/56 and 88/88 killed | `mutants.py`, `ts-mutants.py` |
+| `setup-checks.ts` | Verified: 43 unit tests, 54 live checks (22 earlier, 32 for `checkMint` and `checkGate`) | `setup-checks.test.ts`, sections SC and SX of the harness |
 | Real Phantom, Solflare, Backpack and Glow: grant, move, revoke, refusal | Verified: 16/16 each, 8/8 setup, 41/41 cross-wallet | real-wallet run |
 | Real seat votes by `signTransaction` | Verified for Backpack and Phantom (2 real signatures each, all executed); Solflare and Glow refuse on a local validator | real-wallet run, 14/14 |
-| Independent security review of the gate-owned build | Pending | running |
+| Independent security review of the gate-owned build | Verified: adopt with fixes | `reports/gate-owned-review.md`; fixes above |
 | Fordefi policy engine, external audit, non-upgradeable deploy, gate on devnet | Design only | section 13 |
 
 #### References
@@ -1092,11 +1126,12 @@ The native runs taken before the independent review sit beside the final ones as
 Pending live runs:
 
 - **EVM, Base Sepolia:** the round 9 live run needs about 0.000065 ETH (estimate: 10.9 M gas at 0.006 gwei). The relayer `0xecebBf71Faa6682Ff31fD145646f8Eda82E98E11` holds 0.00000165 ETH (read on 8 October 2026), about 2.5% of that. 0.0005 ETH leaves room for a price swing. Section 12.2 keeps the round 7 live links until then.
-- **Independent security review (pending):** the gate-owned build (section 7.4, `reports/gate-a4-min.md`) is under independent security review. We add its result to section 7.4 when it reports.
+- **Independent security review (done, adopt with fixes):** the review of the gate-owned build (section 7.4, `reports/gate-owned-review.md`) is in. The code and test fixes (`checkMint`, `checkGate`) are done and the documents carry the rest. The app screens that show the mint warnings and the gate read-back are design only.
 - **Custody gate, Fordefi:** the hand-over (`SetAuthority` of a dedicated account to a program PDA), `allow` and `release` still need a run through Fordefi's policy engine, with the multisig's partial signatures. The harness signs with raw keys. A custodian on another MPC provider needs the same run.
-- **Custody gate, audit and deploy:** an external audit of the final source (253 formatted lines), a published verifiable build and a `--final` deploy. The harness loads the gate non-upgradeable, and the app refuses a gate that still has an upgrade authority. The Squads Smart Account program stays upgradeable by a 3-of-5 multisig with no time lock, so the gate harness re-runs after each Squads upgrade.
+- **Custody gate, audit and deploy:** an external audit of the final source (253 formatted lines), a published verifiable build and a `--final` deploy. The harness loads the gate non-upgradeable, and the app refuses a gate that still has an upgrade authority. The Squads Smart Account program stays upgradeable by a 3-of-5 multisig with no time lock, so the gate harness re-runs after each Squads upgrade. Token-2022 is upgradeable on mainnet too (authority `AeLmXCbPaQHGWRLr2saFsEVfmMNuKnxRAbWCT9P5twgz`), and the classic Token program is immutable, so the app says to prefer it.
 - **Custody gate, devnet deploy:** a `--final` deploy of the gate (50,464 bytes) on devnet costs 0.258 SOL net: program data 257,235,960 lamports and the program account 833,120, at 5,080 lamports per byte. The deploy peaks at 0.515 SOL, because the buffer (257,195,320 lamports) and the program data coexist until the loader returns the buffer. The payer `5bevLKtW8bA6LCXXMqQAjnWBRCWcSXwcvQHiCbT6JjuY` holds 0.276 SOL (read on 8 October 2026), so the peak does not fit: the net cost fits and the peak is short by about 0.24 SOL, plus a few thousandths of a SOL of write fees. The deploy waits for about 0.52 SOL on that payer. The gate has run on a local validator with the mainnet feature set only.
-- **Custody gate, recovery wait:** the wait before a recovery binds only when the Prime Account's own time lock is above 0, which also delays every settings change. Tuan decides whether the Prime Account sets its own time lock. Tuan also decides who the trustee is: a person's key, a Fordefi vault of its own, or a Prime vault (9/9), which trades the independent second party for fewer parties to manage.
+- **Custody gate, freezable mints:** a mint's freeze authority (USDC, USDT) can stop recovery and release for as long as the issuer keeps an account frozen. The app warns before funds move, and no gate change lifts a freeze (section 7.4).
+- **Custody gate, recovery wait:** the wait before a recovery binds only when the Prime Account's own time lock is above 0, which also delays every settings change. Custody cannot stop a recovery once the owners sign it, and the owner majority also reaches the listed destinations up to the cap (section 7.4). Tuan decides whether the Prime Account sets its own time lock. Tuan also decides who the trustee is: a person's key, a Fordefi vault of its own, or a Prime vault (9/9), which trades the independent second party for fewer parties to manage.
 - **Solana, Phantom priority fee:** real Phantom adds a priority fee of 75,000 lamports (a price of 375,000 micro-lamports and a limit of 200,000 units) to every transaction it signs, three times the 25,000-lamport relayer cap in the harness. The votes ran with a cap of 100,000 lamports. Tuan decides whether the relayer cap rises for Phantom votes, or the app sets the fee before Phantom signs. Grants and revokes use `signMessage` and add no fee.
 - **Solana, devnet (prime-session done, section 7.5):** the matrix passed 136/136 on devnet at `4tXCkZW2...BRoPRa`, and the program is final. It ran in a reduced shape for budget: no program B and the checks X7a to X7d (two program ids), and vaults of 0.25 SOL (A) and 0.03 SOL (B). The full matrix needs 1.227 SOL at devnet rent. A second main run needs fresh Smart Accounts, because G13 uses up the 0.1 SOL daily cap of account A's policy. The two vault leftovers (0.1209 SOL in A and 0.0279 SOL in B) stay, since a 2-of-3 transfer costs NEAR signatures.
 - **Solana devnet, real MetaMask votes:** the real MetaMask disables Confirm when its simulation reverts. The devnet Smart Accounts of section 7.5 now exist on the cluster, so a real-wallet run can drive them. It needs a real-wallet transaction path in `sendBy` of `solana/psn.ts` (about 12 lines: send the built transaction to the bridge, check the returned one with `acceptReturned`, co-sign), and the devnet run itself signed with keys and the NEAR MPC.

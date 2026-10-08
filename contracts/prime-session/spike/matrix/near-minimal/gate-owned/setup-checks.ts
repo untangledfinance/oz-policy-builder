@@ -100,6 +100,123 @@ export function checkSourceAccount(address: PublicKey, data: Uint8Array, program
   return out;
 }
 
+export type MintCheck = {
+  program: 'token' | 'token-2022' | null;
+  /** The mint must not be used: the gate cannot hold it safely, or the mint could not be read. Empty means the app may go on. */
+  refuse: Issue[];
+  /** What the app must show the user before funds move. A warning is not a refusal. */
+  warn: Issue[];
+};
+const MINT_LEN = 82, MINT_ACCOUNT_TYPE = 165, MINT_TLV_START = 166;
+export const FREEZE_WARNING = 'the issuer can freeze this account; while frozen, recovery and release are refused';
+// Mint extensions by Token-2022 type id. Anything not listed here is refused as unknown: a new extension may change what the issuer can do to a gate-owned account.
+const EXT_REFUSE: Record<number, [string, string]> = {
+  1: ['transfer-fee', 'a transfer fee takes a cut of every transfer, so the gate\'s plain transfer is refused by the token program'],
+  4: ['confidential-transfer', 'confidential transfers hide balances from the gate and its checks'],
+  9: ['non-transferable', 'a non-transferable mint cannot be moved, so neither the agent, recovery nor release can run'],
+  12: ['permanent-delegate', 'a permanent delegate can move any account of this mint with no gate call and no cap'],
+  14: ['transfer-hook', 'a transfer hook runs another program on every transfer and can block the gate\'s transfers'],
+  16: ['confidential-transfer-fee', 'confidential transfer fees hide balances from the gate and its checks'],
+  24: ['confidential-mint-burn', 'a confidential mint hides balances from the gate and its checks'],
+};
+// Extensions that leave the raw token amount, the transfer and the account authorities alone: [name, fixed length or 0 for variable].
+const EXT_BENIGN: Record<number, [string, number]> = {
+  3: ['mint-close-authority', 32], 10: ['interest-bearing', 52], 18: ['metadata-pointer', 64], 19: ['token-metadata', 0], 20: ['group-pointer', 64], 21: ['token-group', 80],
+  22: ['group-member-pointer', 64], 23: ['token-group-member', 72], 25: ['scaled-ui-amount', 56],
+};
+const EXT_PAUSABLE = 26, EXT_DEFAULT_STATE = 6, PAUSABLE_LEN = 33;
+
+/**
+ * Reads a mint account (owner program and data) before funds move and decides whether the gate can hold it. It refuses a Token-2022 mint with a permanent delegate, a transfer hook, a transfer fee,
+ * confidential transfers, non-transferable tokens or frozen-by-default accounts, and any extension it cannot parse (fail closed). It warns, for the app to show, when the mint has a freeze authority
+ * (USDC and USDT do) or a pause authority, and when the mint sits under Token-2022: the classic Token program is immutable and Token-2022 is upgradeable on mainnet, so prefer the classic Token program.
+ */
+export function checkMint(mint: { owner: PublicKey; data: Uint8Array }): MintCheck {
+  const refuse: Issue[] = [], warn: Issue[] = [], d = mint.data;
+  const stop = (code: string, message: string): MintCheck => ({ program, refuse: [...refuse, { code, message }], warn });
+  const program = mint.owner.equals(TOKEN_PROGRAM_ID) ? 'token' : mint.owner.equals(TOKEN_2022_PROGRAM_ID) ? 'token-2022' : null;
+  if (program === null) return stop('not-a-token-program', `the mint is owned by ${mint.owner.toBase58()}: only Token and Token-2022 are supported`);
+  if (d.length < MINT_LEN || (program === 'token' && d.length !== MINT_LEN)) return stop('malformed-mint', `a mint account of ${d.length} bytes is not a ${program} mint`);
+  if (d[45] !== 1) return stop('malformed-mint', 'the mint is not initialised');
+  const tag = u32(d, 46);
+  if (tag > 1 || u32(d, 0) > 1) return stop('malformed-mint', 'a mint authority or freeze authority flag is neither 0 nor 1');
+  if (tag === 1) warn.push({ code: 'freeze-authority', message: `${FREEZE_WARNING} (freeze authority ${pk(d, 50).toBase58()})` });
+  if (program === 'token-2022') {
+    warn.push({ code: 'token-2022', message: 'Token-2022 is upgradeable on mainnet, so its upgrade authority becomes a trusted party; the classic Token program is immutable: prefer it where the asset allows' });
+    if (d.length > MINT_LEN) {
+      if (d.length < MINT_TLV_START || d[MINT_ACCOUNT_TYPE] !== 1) return stop('malformed-mint', 'the mint account carries bytes after the base mint but no Token-2022 mint marker');
+      let o = MINT_TLV_START;
+      while (o < d.length) {
+        if (o + 4 > d.length) return stop('malformed-mint', 'an extension header is cut off');
+        const type = new DataView(d.buffer, d.byteOffset + o, 2).getUint16(0, true), len = new DataView(d.buffer, d.byteOffset + o + 2, 2).getUint16(0, true), v = d.subarray(o + 4, o + 4 + len);
+        if (type === 0) { if (d.subarray(o).some((b) => b !== 0)) return stop('malformed-mint', 'bytes after the last extension are not zero'); break; }
+        if (o + 4 + len > d.length) return stop('malformed-mint', `extension ${type} is cut off: it claims ${len} bytes`);
+        o += 4 + len;
+        if (EXT_REFUSE[type]) refuse.push({ code: EXT_REFUSE[type][0], message: EXT_REFUSE[type][1] });
+        else if (type === EXT_DEFAULT_STATE) {
+          if (len !== 1 || (v[0] !== 1 && v[0] !== 2)) return stop('malformed-mint', 'the default account state extension is not 1 byte holding initialised or frozen');
+          if (v[0] === 2) refuse.push({ code: 'default-account-state-frozen', message: 'every new account of this mint starts frozen: the gate-owned account could never move funds' });
+        } else if (type === EXT_PAUSABLE) {
+          if (len !== PAUSABLE_LEN) return stop('malformed-mint', 'the pausable extension has the wrong length');
+          warn.push({ code: 'pausable', message: 'the issuer can pause every transfer of this mint; while paused, recovery and release are refused' });
+        } else if (EXT_BENIGN[type]) {
+          const [name, want] = EXT_BENIGN[type];
+          if (want === 0 ? len < 76 : len !== want) return stop('malformed-mint', `the ${name} extension has the wrong length (${len})`);
+        } else refuse.push({ code: 'unknown-extension', message: `extension type ${type} is not one this check knows: it may let a third party move or block the account` });
+      }
+    }
+  }
+  return { program, refuse, warn };
+}
+
+export const GATE_FIXED_LEN = 181;
+export type GateState = { multisig: PublicKey; settings: PublicKey; agentLane: PublicKey; ownersLane: PublicKey; recovery: PublicKey; until: bigint; window: number; seed: Uint8Array; bump: number; destinations: PublicKey[] };
+
+/** The gate account written by `create`: multisig 0, settings 32, agent lane vault 64, owners lane vault 96, recovery 128, until i64 160, window u32 168, seed 172, bump 180, destinations (32 each) from 181. */
+export function parseGate(data: Uint8Array): GateState {
+  if (data.length < GATE_FIXED_LEN || (data.length - GATE_FIXED_LEN) % 32 !== 0) throw new Error(`a gate account is ${GATE_FIXED_LEN} bytes plus 32 per destination, got ${data.length}`);
+  const v = new DataView(data.buffer, data.byteOffset, data.length);
+  return {
+    multisig: pk(data, 0), settings: pk(data, 32), agentLane: pk(data, 64), ownersLane: pk(data, 96), recovery: pk(data, 128), until: v.getBigInt64(160, true), window: v.getUint32(168, true),
+    seed: data.slice(172, 180), bump: data[180], destinations: Array.from({ length: (data.length - GATE_FIXED_LEN) / 32 }, (_, i) => pk(data, GATE_FIXED_LEN + 32 * i)),
+  };
+}
+
+export type ExpectedGate = {
+  program: PublicKey; multisig: PublicKey; settings: PublicKey; agentLane: PublicKey; ownersLane: PublicKey; recovery: PublicKey; until: bigint | number; window: number; seed: Uint8Array; destinations: PublicKey[];
+  /** Keys custody controls (and the multisig itself): the recovery address must be none of them. */
+  custody: PublicKey[];
+};
+export const gateAddress = (program: PublicKey, multisig: PublicKey, settings: PublicKey, seed: Uint8Array) => PublicKey.findProgramAddressSync([Buffer.from('gate'), multisig.toBuffer(), settings.toBuffer(), seed], program);
+
+/**
+ * Compares a gate account with what custody and the owners expect. Run it before custody hands any token account over (the hand-over cannot be undone except by a release) and again when the owners
+ * confirm the gate, before they install any rule. Any one member of the multisig can create a gate, so every fixed field is compared, not just the recovery address. An empty result means the gate matches.
+ */
+export function checkGate(gate: { address: PublicKey; owner: PublicKey; data: Uint8Array }, want: ExpectedGate): Issue[] {
+  if (!gate.owner.equals(want.program)) return [{ code: 'gate-owner', message: `the account is owned by ${gate.owner.toBase58()}, not by the gate program ${want.program.toBase58()}` }];
+  let g: GateState;
+  try { g = parseGate(gate.data); } catch (e) { return [{ code: 'gate-malformed', message: String((e as Error).message) }]; }
+  const out: Issue[] = [], bad = (code: string, what: string, got: string, exp: string) => out.push({ code, message: `${what} is ${got}, expected ${exp}` });
+  const key = (code: string, what: string, got: PublicKey, exp: PublicKey) => { if (!got.equals(exp)) bad(code, what, got.toBase58(), exp.toBase58()); };
+  const [pda, bump] = gateAddress(want.program, want.multisig, want.settings, want.seed);
+  key('gate-address', 'the gate address', gate.address, pda);
+  if (g.bump !== bump) bad('gate-bump', 'the stored bump', String(g.bump), String(bump));
+  key('gate-multisig', 'the custody multisig', g.multisig, want.multisig);
+  key('gate-settings', 'the Prime settings', g.settings, want.settings);
+  key('gate-agent-lane', 'the agent lane vault', g.agentLane, want.agentLane);
+  key('gate-owners-lane', 'the owners lane vault', g.ownersLane, want.ownersLane);
+  key('gate-recovery', 'the recovery address', g.recovery, want.recovery);
+  if (g.until !== BigInt(want.until)) bad('gate-until', 'the end time', String(g.until), String(want.until));
+  if (g.window !== want.window) bad('gate-window', 'the window', String(g.window), String(want.window));
+  if (Buffer.compare(g.seed, want.seed) !== 0) bad('gate-seed', 'the seed', Buffer.from(g.seed).toString('hex'), Buffer.from(want.seed).toString('hex'));
+  if (g.destinations.length !== want.destinations.length || g.destinations.some((x, i) => !x.equals(want.destinations[i]))) bad('gate-destinations', 'the destination list', `[${g.destinations.map(String).join(', ')}]`, `[${want.destinations.map(String).join(', ')}]`);
+  if (g.recovery.equals(PublicKey.default)) out.push({ code: 'recovery-unset', message: 'the recovery address is empty: a recovery would send funds to no one' });
+  if ([want.multisig, ...want.custody].some((c) => c.equals(g.recovery))) out.push({ code: 'recovery-is-custody', message: 'the recovery address is custody\'s own (or the multisig): a recovery must land outside custody\'s control' });
+  if (g.destinations.some((x) => x.equals(g.recovery))) out.push({ code: 'recovery-is-destination', message: 'the recovery address is also a listed destination: keep the two apart so a capped draw and an uncapped recovery cannot be confused' });
+  return out;
+}
+
 /** The two SetAuthority calls that hand a dedicated account to the gate PDA: close authority first, then owner. `closer` is the current close authority, or the owner when none is set; it signs both. */
 export function handOverIxs(account: PublicKey, closer: PublicKey, gate: PublicKey, program: PublicKey = TOKEN_PROGRAM_ID): TransactionInstruction[] {
   return [AuthorityType.CloseAccount, AuthorityType.AccountOwner].map((t) => createSetAuthorityInstruction(account, closer, t, gate, [], program));
