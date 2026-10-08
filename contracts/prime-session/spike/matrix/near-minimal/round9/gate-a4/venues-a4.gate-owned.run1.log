@@ -1,0 +1,154 @@
+--- V0 setup: custody holds 100,000 USDC in a gate-owned account (the mint authority is a local key; the pool, reserve, vaults and programs are mainnet state)
+PASS V0a. the cloned Orca pool is the mainnet USDC/USDT whirlpool and the Kamino reserve is the mainnet USDC reserve | ok pool 653 B, reserve 8624 B
+PASS V1. custody (a multisig signer) creates the gate GV for P: agent lane 1, owners lane 3, the Prime vault (lane 1) is the one listed destination, window 60 s, recovery R | ok 16671 CU, 485 B, gate 16671 CU
+PASS V1b. custody's USDC, USDT and collateral accounts are dedicated accounts owned by the gate (owner and close authority); setup-checks reads each back clean | ok USDC 100000
+PASS V2. the multisig threshold (custody and the trustee) sets a cap of 10,000 USDC on the USDC account | ok 5732 CU, 537 B, gate 5732 CU
+--- V3 real deposit: Kamino Lend USDC reserve (gate draw into the Prime vault, refresh, deposit signed by the vault, collateral tokens to custody's gate-owned account)
+PASS V3. owners install rule PKM (agent alone): gate draw of 1 to 1,000 USDC into the vault, and the Kamino deposit with the reserve, market, source (vault) and collateral destination (custody's gate-owned account) pinned: | ok 48708 CU, 1069 B
+PASS V4. agent: refresh the reserve (top-level), then ONE Squads call: gate.transfer 100 USDC custody -> vault, klend deposit_reserve_liquidity signed by the vault, collateral tokens to custody | ok 119592 CU, 1002 B, gate 5307 CU
+PASS V5. custody lost 100 USDC and holds the Kamino collateral tokens in its gate-owned account, the vault holds nothing, the reserve supply vault gained 100 | ok cu 99900, ct 0, ck 83.02816, vu 0, pa 62142.10846, pb 655152.712067, sup 12945275.062726
+PASS V6. the agent aims the deposit at its own collateral account (not custody's): refused by the rule | refused: squads: ProgramInteractionAccountConstraintViolated
+PASS V7. 1,001 USDC (over the rule's band): refused by the rule | refused: squads: ProgramInteractionInvalidNumericValue
+--- V7b the way out: the collateral tokens come back through the same path (gate draw of collateral into the vault, redeem signed by the vault, USDC swept into custody's account)
+PASS V7b. the multisig threshold sets a cap of 1,000 collateral tokens on the collateral account | ok 5732 CU, 537 B, gate 5732 CU
+PASS V7c. owners install rule PKR (agent alone): gate draw of 1 to 1,000 collateral tokens into the vault, the Kamino redeem (reserve and market pinned, the vault's accounts), and a token transfer from the vault to custody's USDC account only: | ok 55152 CU, 1216 B
+PASS V7d. agent: refresh, then ONE Squads call: gate.transfer 40 collateral tokens custody -> vault, klend redeem_reserve_collateral signed by the vault (Kamino pays the vault), the vault sends 48 USDC to custody | ok 111132 CU, 1052 B, gate 5307 CU
+PASS V7e. custody gave 40 collateral tokens and got 48 USDC back; Kamino pays the redeem to the vault, so the vault keeps the rounding dust (under 1 USDC) | ok cu 99948, ct 0, ck 43.02816, vu 0.176425, pa 62142.10846, pb 655152.712067, sup 12945226.886301, vault dust 0.176425
+--- V8 real swap: Orca Whirlpool USDC/USDT (gate draw into the Prime vault, swap signed by the vault, USDT to custody's gate-owned USDT account)
+PASS V8. owners install rule PO (agent alone): gate draw of 1 to 1,000 USDC into the vault, and the Orca swap USDC -> USDT with the pool, input (vault) and output (custody) accounts pinned, exact-in: | ok 51766 CU, 1070 B
+PASS V9. agent: ONE Squads call: gate.transfer 100 USDC custody -> vault, orca swap 100 USDC for at least 99 USDT signed by the vault, USDT to custody | ok 83325 CU, 978 B, gate 5307 CU
+PASS V10. custody lost 100 USDC and gained about 100.04 USDT in its gate-owned USDT account (the pool price), the vault balance did not change, the pool vaults moved by the same amounts | ok cu 99848, ct 100.051686, ck 43.02816, vu 0.176425, pa 62242.10846, pb 655052.660381, sup 12945226.886301
+PASS V11. the agent sets the minimum output to 0 (below the rule's floor of 1): refused by the rule | refused: squads: ProgramInteractionInvalidNumericValue
+PASS V12. the agent aims the swap output at a stranger's USDT account: refused by the rule | refused: squads: ProgramInteractionAccountConstraintViolated
+PASS V13. the swap in the other direction (USDT -> USDC): refused by the rule (direction flag) | refused: squads: ProgramInteractionInvalidNumericValue
+PASS V14. the same swap by the owners at their full count signing as the agent lane (no rule): works, the gate and the venue decide | ok 68122 CU, 1065 B, gate 5307 CU
+PASS V14b. 10 USDC became about 10 USDT at custody | ok 
+PASS V15. a destination that is not listed (a stranger's USDC account) as the draw target: refused by the gate | refused: gate: custom program error: 0x2
+PASS V15b. the agent lane cannot pay the recovery address (not listed): refused by the gate | refused: gate: custom program error: 0x2
+--- V16 the whole batch waits: a rule with a Squads time lock stores the draw and the real swap, then runs both atomically
+PASS V16. owners install rule PTO (same constraints as PO) with a 6 s time lock; the owners lane may vote (cancel): | ok 54112 CU, 1103 B
+PASS V17a. the agent stores the draw and the swap: create the policy transaction | ok 44964 CU, 1035 B
+PASS V17b. open the proposal and approve it | ok 53022 CU, 401 B
+PASS V17c. storing moved nothing | ok 
+PASS V18. run before the time lock is over: refused | refused: squads: TimeLockNotReleased
+PASS V19. run after the wait: the gate draw and the Orca swap run as one atomic batch | ok 119151 CU, 942 B, gate 5307 CU
+PASS V20. custody lost 50 USDC and gained about 50 USDT in that one run | ok cu 99788, ct 160.082646, ck 43.02816, vu 0.176425, pa 62302.10846, pb 654992.629421, sup 12945226.886301
+PASS V21a. the agent stores the draw and the swap: create the policy transaction | ok 43464 CU, 1035 B
+PASS V21b. open the proposal and approve it | ok 56022 CU, 401 B
+PASS V22. custody alone lowers the cap to 1 USDC before the run (one signature) | ok 5409 CU, 440 B, gate 5409 CU
+PASS V23. the run is refused by the token program (over the cap); the swap does not run either | refused: token: custom program error: 0x1
+PASS V24. nothing moved and the stored batch is still Approved (the rule has no run window) | ok 
+PASS V25. the owners (2 of 3, as the owners lane) cancel the stored batch | ok 48708 CU, 564 B
+PASS V26. run the cancelled batch: refused | refused: squads: InvalidProposalStatus
+PASS V27. the threshold sets the cap back to 10,000 | ok 5732 CU, 537 B, gate 5732 CU
+PASS V28a. the agent stores the draw and the swap: create the policy transaction | ok 43464 CU, 1035 B
+PASS V28b. open the proposal and approve it | ok 60522 CU, 401 B
+PASS V28c. a batch whose not-after has passed (the agent chose a short one): refused by the gate, so it lapses without a cancel | refused: gate: custom program error: 0x4
+--- V30 recovery of real venue funds: the owners lane is not bounded by the cap
+PASS V30. custody alone suspends the cap (one signature) | ok 5409 CU, 440 B, gate 5409 CU
+PASS V30b. the agent lane is stopped by the suspended cap: a 10 USDC draw is refused | refused: token: custom program error: 0x1
+PASS V30c. the owners lane recovers 500 USDC to R with the cap at 0 (and 500 is far above any cap that was left) | ok 29239 CU, 711 B, gate 3662 CU
+PASS V30d. R gained 500 USDC | ok cap was 10000
+PASS V30e. the threshold restores the cap | ok 5732 CU, 537 B, gate 5732 CU
+--- V31 release of an account that held real venue funds
+PASS V31. the threshold releases the USDT account (the swap proceeds) to newKey | ok 5433 CU, 528 B, gate 5433 CU
+PASS V31b. newKey owns it with the whole balance, the gate can no longer pay from it | ok 160.082646 USDT
+PASS V31c. the gate cannot draw from it: refused by the gate (not its own) | refused: gate: custom program error: 0x5
+--- V40 prime-session in the path: a wallet-granted session key signs through the session PDA (one more level of CPI)
+PASS V40. owners install rule SPO: the wallet's session PDA is the policy signer; same constraints as PO: | ok 48766 CU, 1070 B
+PASS V41a. the same call as ONE legacy transaction with prime-session in front: refused, the transaction is too large | refused: Transaction too large: 1512 > 1232 | Error: Transaction too large: 1512 > 1232
+PASS V41b. the session key (no SOL, granted by the wallet) signs ONE version 0 transaction: prime-session -> Squads policy sync -> gate draw and Orca swap -> token | ok 107456 CU, 897 B (version 0, lookup table)
+PASS V42. custody lost 20 USDC and gained about 20 USDT, the vault balance did not change | ok cu 99268, ct 180.092957, ck 43.02816, vu 0.176425, pa 62322.10846, pb 654972.61911, sup 12945226.886301
+{
+ "create Prime Account (Squads, 3 owners)": {
+  "cu": 27415,
+  "bytes": 423,
+  "gateCu": 0,
+  "n": 1
+ },
+ "create gate (1 destination)": {
+  "cu": 16671,
+  "bytes": 485,
+  "gateCu": 16671,
+  "n": 1
+ },
+ "rule PKM (gate draw + Kamino deposit)": {
+  "bytes": 923,
+  "rent": 7314960
+ },
+ "REAL Kamino deposit through the gate (agent, policy sync)": {
+  "cu": 119592,
+  "bytes": 1002,
+  "gateCu": 5307,
+  "n": 1
+ },
+ "REAL Kamino redeem through the gate (agent, policy sync)": {
+  "cu": 111132,
+  "bytes": 1052,
+  "gateCu": 5307,
+  "n": 1
+ },
+ "rule PO (gate draw + Orca swap)": {
+  "bytes": 888,
+  "rent": 7071360
+ },
+ "REAL Orca swap through the gate (agent, policy sync)": {
+  "cu": 83325,
+  "bytes": 978,
+  "gateCu": 5307,
+  "n": 1
+ },
+ "REAL Orca swap through the gate (owners as the lane, sync)": {
+  "cu": 68122,
+  "bytes": 1065,
+  "gateCu": 5307,
+  "n": 1
+ },
+ "rule PTO (gate draw + Orca swap, time lock)": {
+  "bytes": 921,
+  "rent": 7301040
+ },
+ "time lock: store the Orca batch (create)": {
+  "cu": 43464,
+  "bytes": 1035,
+  "gateCu": 0,
+  "n": 3
+ },
+ "time lock: store the Orca batch (open and approve)": {
+  "cu": 56022,
+  "bytes": 401,
+  "gateCu": 0,
+  "n": 3
+ },
+ "time lock: stored Orca batch": {
+  "transactionBytes": 733,
+  "transactionRent": 5992560,
+  "proposalBytes": 294,
+  "proposalRent": 2937120
+ },
+ "time lock: run the stored Orca batch (draw + swap)": {
+  "cu": 119151,
+  "bytes": 942,
+  "gateCu": 5307,
+  "n": 1
+ },
+ "time lock: cancel by the owners (sync)": {
+  "cu": 48708,
+  "bytes": 564,
+  "gateCu": 0,
+  "n": 1
+ },
+ "REAL recovery of venue funds (owners lane)": {
+  "cu": 29239,
+  "bytes": 711,
+  "gateCu": 3662,
+  "n": 1
+ },
+ "REAL Orca swap through prime-session and the gate (session key, lookup table)": {
+  "cu": 107456,
+  "bytes": 897,
+  "gateCu": 0,
+  "n": 1
+ }
+}
+53/53 checks passed

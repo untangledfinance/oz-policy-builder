@@ -24,7 +24,17 @@ const { edKey, edSign, stats } = await import(process.env.NEARSIG_STUB ?? '/home
 
 const NET = process.env.PSN_NET === 'devnet' ? 'devnet' : 'localnet';
 const NATIVE = !!process.env.PSN_NATIVE, MM_BRIDGE = process.env.PSN_MM_BRIDGE;
-const conn = new Connection(process.env.PSN_RPC ?? (NET === 'devnet' ? 'https://api.devnet.solana.com' : 'http://127.0.0.1:8899'), { commitment: 'confirmed', confirmTransactionInitialTimeout: 120_000 });
+// devnet's public RPC answers 429 under steady use: space requests 150 ms apart and back off on 429 before the client library gives up
+let nextSlot = 0;
+const pacedFetch: typeof fetch = async (input, init) => {
+  for (let attempt = 0; ; attempt++) {
+    const at = Math.max(Date.now(), nextSlot); nextSlot = at + 150; await new Promise((r) => setTimeout(r, at - Date.now()));
+    const res = await fetch(input, init);
+    if (res.status !== 429 || attempt >= 8) return res;
+    await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+  }
+};
+const conn = new Connection(process.env.PSN_RPC ?? (NET === 'devnet' ? 'https://api.devnet.solana.com' : 'http://127.0.0.1:8899'), { commitment: 'confirmed', confirmTransactionInitialTimeout: 120_000, ...(NET === 'devnet' ? { fetch: pacedFetch } : {}) });
 // local: a fixed id given to the validator with --bpf-program; devnet: the id of the keypair that `solana program deploy` uses (target/deploy/prime_session-keypair.json)
 const PROG = NET === 'devnet' ? Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync('/home/ubuntu/work/prime-session/target/deploy/prime_session-keypair.json', 'utf8')))).publicKey
   : new PublicKey('FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G');
@@ -34,20 +44,29 @@ const PROG_B = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(readFileSync('/h
 const R8 = process.env.PSN_R8 && NET === 'localnet' ? new PublicKey('8xSaCrq6HidyjmE3khJ9DYewWdYNfn93nQEkYvqTEpig') : undefined;
 const CLUSTER = NET;
 const VAULT_SOL = NET === 'devnet' ? 0.25 : 2;
+const VAULT_B_SOL = NET === 'devnet' ? 0.03 : 2;   // account B only runs a few tiny moves
+const FLOOR_LAMPORTS = 0.05 * LAMPORTS_PER_SOL;     // devnet: the run stops when the relayer falls below this
 const SESSION_FUND = (NET === 'devnet' ? 0.002 : 0.05) * LAMPORTS_PER_SOL;   // devnet: just above the 0 B rent minimum (890,880 lamports)
 const st: any = {}; const results: any[] = []; const metrics: any = {};
 const STATE = process.env.PSN_STATE ?? `/home/ubuntu/work/prime-refine/logs/${NATIVE ? 'native' : 'solana'}/state-psn-${NET}${NATIVE ? '-native' : ''}.json`;
 const save = () => writeFileSync(STATE, JSON.stringify({ ...st, metrics, results }, null, 1));
 const SOL = LAMPORTS_PER_SOL;
-const VENUE = Keypair.generate().publicKey, OTHER = Keypair.generate().publicKey, DEST = Keypair.generate().publicKey;
+let VENUE = Keypair.generate().publicKey; const OTHER = Keypair.generate().publicKey, DEST = Keypair.generate().publicKey;
 const short = (e: any) => { const s = [e?.logs?.join(' '), e?.message, String(e)].filter(Boolean).join(' | ');
   return ((s.match(/prime-session: [^"]*?(?= Program|$)/) ?? s.match(/Error Code: \w+/) ?? s.match(/(custom program error: 0x[0-9a-f]+|Signature verification failed|Transaction did not pass signature verification|Transaction results in an account \(\d+\) with insufficient funds for rent|InsufficientFundsForRent|Attempt to debit an account but found no record of a prior credit|insufficient [a-z ]+|[A-Za-z]+Error[^"]{0,60})/i))?.[0] ?? s).slice(0, 160); };
+let guardTick = 0;
+/** Devnet: every 8th confirmed transaction reads the relayer balance and ends the run below the floor (a thrown error would be recorded as a refusal). */
+async function floorGuard() {
+  if (NET !== 'devnet' || ++guardTick % 8) return;
+  const bal = await conn.getBalance(payer.publicKey);
+  if (bal < FLOOR_LAMPORTS) { save(); console.error(`STOP: relayer holds ${bal / LAMPORTS_PER_SOL} SOL, below the 0.05 SOL floor`); process.exit(3); }
+}
 /** Wait for a signature by polling its status (confirmTransaction stalls on this validator even when the tx lands). */
 async function confirm(sig: string) {
   for (let i = 0; i < 180; i++) {
     const s = (await conn.getSignatureStatus(sig, { searchTransactionHistory: true })).value;
     if (s?.err) throw Object.assign(new Error(JSON.stringify(s.err)), { signature: sig });
-    if (s?.confirmationStatus === 'confirmed' || s?.confirmationStatus === 'finalized') return sig;
+    if (s?.confirmationStatus === 'confirmed' || s?.confirmationStatus === 'finalized') { await floorGuard(); return sig; }
     await new Promise((r) => setTimeout(r, 500));
   }
   throw new Error(`${sig} not confirmed after 90 s (status lookup)`);
@@ -267,17 +286,38 @@ const selfPaid = (s: Session) => [s.key];         // relayer down: the session k
 
 // ── P. Setup ───────────────────────────────────────────────────────────────────────────────────
 if (NET === 'localnet') { if ((await conn.getBalance(payer.publicKey)) < 10 * SOL) await confirm(await conn.requestAirdrop(payer.publicKey, 100 * SOL)); }
-else if ((await conn.getBalance(payer.publicKey)) < 0.8 * SOL) throw new Error(`relayer ${payer.publicKey.toBase58()} holds ${(await conn.getBalance(payer.publicKey)) / SOL} SOL on devnet; the run needs about 0.7 SOL after both programs are deployed`);
-if (NET === 'devnet') for (const [n, id] of [['A', PROG], ['B', PROG_B]] as const) {
+else if (!process.env.PSN_RERUN && (await conn.getBalance(payer.publicKey)) < 0.55 * SOL) throw new Error(`relayer ${payer.publicKey.toBase58()} holds ${(await conn.getBalance(payer.publicKey)) / SOL} SOL on devnet; the run needs about 0.47 SOL after program A is deployed`);
+if (NET === 'devnet') for (const [n, id] of [['A', PROG]] as const) {   // program B (two-program-id checks) exists only on the local validator
   if (!(await conn.getAccountInfo(id))?.executable) throw new Error(`prime-session ${n} (${id.toBase58()}) is not deployed on devnet: deploy target/deploy-devnet/prime_session.so first`);
 }
 const startBalance = await conn.getBalance(payer.publicKey);
-async function createAccount() {
+// PSN_RERUN=<state file of an earlier run>: re-runs two checks (X6 with a control grant, A5) against that run's Smart Accounts and policies.
+if (process.env.PSN_RERUN) {
+  Object.assign(st, JSON.parse(readFileSync(process.env.PSN_RERUN, 'utf8')), { results: undefined, metrics: undefined });
+  // the movers policy pins the venue address, which was drawn at random in the earlier run: read it back from the policy
+  VENUE = (await sa.accounts.Policy.fromAccountAddress(conn, new PublicKey(st.policyB)) as any).policyState.fields[0].instructionsConstraints[0].accountConstraints[0].accountConstraint.fields[0][0];
+  const cl = await openSession(PH, { text: (t) => t.replace(`cluster: ${CLUSTER}`, 'cluster: mainnet') });
+  await send(`X6. grant signed for cluster mainnet, used on ${CLUSTER}`, false, viaSession(cl, policyMove(cl.pda, sysTransfer(VENUE, 0.00001))), relayed(cl), E7);
+  const ok = await openSession(PH);
+  await send(`X6b. control: the same grant text for cluster ${CLUSTER} works`, true, viaSession(ok, policyMove(ok.pda, sysTransfer(VENUE, 0.00001))), relayed(ok));
+  sel = 'B';
+  const b = await openSession(PH);
+  await send('A5. a Phantom grant made for account B works in account B', true, viaSession(b, policyMove(b.pda, sysTransfer(VENUE, 0.001))), relayed(b));
+  console.log(`${results.filter((r) => r.pass).length}/${results.length} passed`);
+  process.exit(0);
+}
+async function createAccount(vaultSol: number) {
+  for (let attempt = 1; ; attempt++) try { return await createAccountOnce(vaultSol); } catch (e: any) {
+    if (attempt >= 5 || NET !== 'devnet' || /not confirmed/.test(String(e?.message))) throw e;   // the public Squads program hands out account indexes to everyone: another creator may take ours first
+    console.log(`createAccount attempt ${attempt} failed (${short(e)}), retrying`); }
+}
+async function createAccountOnce(vaultSol: number) {
+  if (NET === 'devnet' && (await conn.getBalance(payer.publicKey)) < FLOOR_LAMPORTS + vaultSol * SOL + 0.01 * SOL) { save(); console.error('STOP: the relayer cannot fund this vault and stay above the 0.05 SOL floor'); process.exit(3); }
   const pc = await sa.accounts.ProgramConfig.fromAccountAddress(conn, sa.getProgramConfigPda({})[0]);
   const [settingsPda] = sa.getSettingsPda({ accountIndex: BigInt(pc.smartAccountIndex.toString()) + 1n });
   const tx = new Transaction().add(ix.createSmartAccount({ treasury: pc.treasury, creator: payer.publicKey, settings: settingsPda, settingsAuthority: null,
     threshold: 2, timeLock: 0, rentCollector: null, signers: [MM, FR, PH].map((w) => ({ key: w.key, permissions: ALL })) }),
-    SystemProgram.transfer({ fromPubkey: payer.publicKey, toPubkey: sa.getSmartAccountPda({ settingsPda, accountIndex: 0 })[0], lamports: VAULT_SOL * SOL }));
+    SystemProgram.transfer({ fromPubkey: payer.publicKey, toPubkey: sa.getSmartAccountPda({ settingsPda, accountIndex: 0 })[0], lamports: vaultSol * SOL }));
   const sig = await conn.sendTransaction(tx, [payer]); await confirm(sig);
   return { settingsPda, sig };
 }
@@ -410,7 +450,7 @@ if (N_OWN !== 3 || THR !== 2) {
 }
 
 {
-  const { settingsPda, sig } = await createAccount();
+  const { settingsPda, sig } = await createAccount(VAULT_SOL);
   st.settings = settingsPda.toBase58(); save();
   const s = await sa.accounts.Settings.fromAccountAddress(conn, settings());
   record(`P0. seats are exactly MetaMask(${NATIVE ? 'own key' : 'NEAR MPC'}), Freighter(NEAR MPC), Phantom(own key); threshold 2; vault funded`, true,
@@ -542,10 +582,10 @@ for (const w of [MM, FR, PH]) {
   await send("X4b. Freighter's session PDA with a grant signed by its seat key (prime:solana)", false, viaSession(e, policyMove(e.pda, sysTransfer(VENUE, 0.001))), relayed(e), E7);
   const ph = await openSession(PH);
   await send("X5. Phantom grant presented for MetaMask's PDA", false, viaSession(ph, policyMove(pdaFor(MM), sysTransfer(VENUE, 0.001)), { owner: own(MM).key, pda: pdaFor(MM) }), relayed(ph), E7);
-  const cl = await openSession(PH, { text: (t) => t.replace('cluster: localnet', 'cluster: mainnet') });
-  await send('X6. grant signed for cluster mainnet, used on localnet', false, viaSession(cl, policyMove(cl.pda, sysTransfer(VENUE, 0.001))), relayed(cl), E7);
+  const cl = await openSession(PH, { text: (t) => t.replace(`cluster: ${CLUSTER}`, 'cluster: mainnet') });
+  await send(`X6. grant signed for cluster mainnet, used on ${CLUSTER}`, false, viaSession(cl, policyMove(cl.pda, sysTransfer(VENUE, 0.001))), relayed(cl), E7);
   // The same .so at a second program id (PROG_B). The grant text has no program line: the PDA it names commits to the program.
-  {
+  if (NET === 'localnet') {
     const gA = await openSession(PH);                                   // names program A's PDA
     const inner = (pda: PublicKey) => policyMove(pda, sysTransfer(VENUE, 0.001));
     const pdaB = pdaOf(PH.key, settings(), PROG_B);
@@ -582,7 +622,7 @@ for (const w of [MM, FR, PH]) {
 // ── A. A grant works in one Smart Account only ────────────────────────────────────────────────
 {
   const a = await openSession(PH);                       // granted for account A
-  const { settingsPda: B, sig } = await createAccount();  // account B: same three seats
+  const { settingsPda: B, sig } = await createAccount(VAULT_B_SOL);  // account B: same three seats
   st.settingsB = B.toBase58(); sel = 'B';
   const seed = Number((await sa.accounts.Settings.fromAccountAddress(conn, settings())).policySeed ?? 0) + 1;
   st.policyB = sa.getPolicyPda({ settingsPda: settings(), policySeed: seed })[0].toBase58(); save();
@@ -678,6 +718,18 @@ for (const w of [MM, FR, PH]) {
   await send('V9b. a 10-byte instruction', false, await revokeIxs(PH, Keypair.generate().publicKey, { data: 10 }), [payer]);
 }
 
+// ── W. Devnet: the two NEAR-routed wallets grant, move, move self-paid, revoke, and the revoked session is refused (the default matrix revokes Phantom's sessions only) ──
+if (NET === 'devnet') for (const w of [MM, FR]) {
+  const mv = (s: Session) => viaSession(s, policyMove(s.pda, sysTransfer(VENUE, 0.00001)));
+  const s = await openSession(w), t = await openSession(w);
+  await send(`W-${w.name}1. ${w.name} grant (one NEAR signature): relayed move`, true, mv(s), relayed(s));
+  await send(`W-${w.name}2. relayer down: the session key pays its own fee`, true, mv(s), selfPaid(s));
+  await send(`W-${w.name}3. ${w.name} revokes the session (one signature, relayed)`, true, await revokeIxs(w, s.key.publicKey), [payer]);
+  await send(`W-${w.name}4. the revoked session is refused, relayed`, false, mv(s), relayed(s), E2);
+  await send(`W-${w.name}5. the revoked session is refused, self-paid`, false, mv(s), selfPaid(s), E2);
+  await send(`W-${w.name}6. ${w.name}'s other session still works`, true, mv(t), relayed(t));
+}
+
 // ── R. The 2-of-3 removes a wallet's session PDA from the policy (stops every session of that wallet) ──
 {
   const fr = await openSession(FR), mm = await openSession(MM);
@@ -689,10 +741,10 @@ for (const w of [MM, FR, PH]) {
   await send('R3. MetaMask session still works', true, viaSession(mm, policyMove(mm.pda, sysTransfer(VENUE, 0.001))), relayed(mm));
 }
 {
-  const spent = startBalance - (await conn.getBalance(payer.publicKey)), accounts = 2;
+  const spent = startBalance - (await conn.getBalance(payer.publicKey));
   // devnet cost = what the relayer paid (rent, fees, vault funding) with the vault funding of this network swapped for the devnet one, plus the session keys' funding
-  metrics.relayerSpend = { net: NET, spentLamports: spent, vaultFundingLamports: accounts * VAULT_SOL * SOL, sessionKeysFunded: fundCount, sessionKeyFundingDevnetLamports: fundCount * 0.002 * SOL,
-    devnetEstimateLamports: spent - accounts * VAULT_SOL * SOL + accounts * 0.25 * SOL + (NET === 'devnet' ? 0 : fundCount * 0.002 * SOL) };
+  metrics.relayerSpend = { net: NET, spentLamports: spent, vaultFundingLamports: (VAULT_SOL + VAULT_B_SOL) * SOL, sessionKeysFunded: fundCount, sessionKeyFundingDevnetLamports: fundCount * 0.002 * SOL,
+    devnetEstimateLamports: spent - (VAULT_SOL + VAULT_B_SOL) * SOL + (0.25 + 0.03) * SOL + (NET === 'devnet' ? 0 : fundCount * 0.002 * SOL) };
   console.log('METRIC relayerSpend', JSON.stringify(metrics.relayerSpend));
 }
 console.log(`NEAR MPC signatures: ${stats.calls}, average ${(stats.ms / Math.max(1, stats.calls) / 1000).toFixed(1)}s`);

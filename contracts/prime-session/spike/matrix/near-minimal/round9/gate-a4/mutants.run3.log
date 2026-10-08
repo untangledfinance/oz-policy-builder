@@ -1,0 +1,3 @@
+('o49', 'create: the rent top-up transfers nothing', 'killed', 'G1a.', 'stopped at the first failure', '12s')
+('o53', 'transfer: the end time is exclusive (boundary second)', 'killed', 'N5b.', 'stopped at the first failure', '206s')
+('o54', 'transfer: a not-after equal to now is refused (boundary second)', 'killed', 'N5b.', 'stopped at the first failure', '206s')

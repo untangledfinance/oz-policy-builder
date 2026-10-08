@@ -1,0 +1,39 @@
+{
+ "program": "4tXCkZW255iZNT4gPHDuAbqR3eG8Zs3tRsgLRc1BoPRa",
+ "programB": "J38gUL2YFo91GDBnDXwVDaGpk6XWSJUhs7RuditRdiVo",
+ "sessionOwners": {
+  "MetaMask": "FGaZkHnnqWdGtGHwYBNg3XFJW9euiqWa9ParoHMfRWPX",
+  "Freighter": "GgnRgm9eVt6TNUNQUm13Nr9Zo7Mkv2Lvdm7nma6uzLZj",
+  "Phantom": "G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4"
+ },
+ "settings": "Ge5g2ZRrhKCufG5F1FtBVxPqwm5Tb3zKcuD5K46HKXUo",
+ "policy": "DS1oMrp2zGLixbPKkvHBQjJGkam9EnifJ5TVf1qFadgZ",
+ "policySeed": 1,
+ "settingsB": "GfpFgQHXZivfrhgYqBkn5N5iQaQXL13zLgirVZFt7L7o",
+ "policyB": "CDDPz6MAqDtZ13xhoxXCQgwzQ7xUvTFSbV8jjDYRWeMt",
+ "mpc": {
+  "calls": 41,
+  "ms": 356867
+ },
+ "metrics": {},
+ "results": [
+  {
+   "name": "X6. grant signed for cluster mainnet, used on devnet",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "X6b. control: the same grant text for cluster devnet works",
+   "pass": true,
+   "ok": true,
+   "detail": "tb7EFYLMpuERPP5FqkmM4qQdd6CJA11KhwEhPZmpgFmgjxqNoBbcSSQAWzd92Tzdpu5wUGzvHkPeej2KmqwkoZx"
+  },
+  {
+   "name": "A5. a Phantom grant made for account B works in account B",
+   "pass": true,
+   "ok": true,
+   "detail": "5p12f7GbJBuA8FnDnMVMh9SikxTFsm83MXbwrC1ycRQVSt73xuMLBULzgvyrBy6pzX1gNL1pjaR4hM5reEjmn7BZ"
+  }
+ ]
+}
