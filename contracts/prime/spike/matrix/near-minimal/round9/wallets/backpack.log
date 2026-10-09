@@ -1,0 +1,307 @@
+detect {"solflare":null,"backpack":["ethereum","solana","sui","aptos","tron","sidePanel","bitcoin","__defineGetter__","__defineSetter__","hasOwnProperty","__lookupGetter__","__lookupSetter__","isPrototypeOf","propertyIsEnumerable","toString","valueOf","__proto__","toLocaleString"],"backpackSol":["supportedTransactionVersions","connect","disconnect","openXnft","_backpackGetAccounts","signIn","sendAndConfirm","signAndSendTransaction","send","sendAll","simulate","signTransaction","signAllTransactions","signAndSendAllTransactions","prepareSolanaOffchainMessage","signMessage","isBackpack","isConnected","isXnft","publicKey","connection"],"glow":null,"glowSolana":null,"solana":null,"flags":{"isBackpack":true},"std":[{"name":"Backpack","version":"1.0.0","features":["standard:connect","standard:disconnect","standard:events","solana:signAndSendTransaction","solana:signTransaction","solana:signMessage","solana:signIn","backpack:"]}]}
+[connect] ERROR timeout 60000
+[near] ERROR timeout 60000
+[grant] ERROR page.evaluate: Target page, context or browser has been closed
+[legacy] ERROR page.evaluate: Target page, context or browser has been closed
+
+--- prompt [legacy] popout.html?windowId=backpack_84ec20c1-0b85-4a5a-bace-a562fb919477 buttons=["Wallet 1"]
+Wallet 1
+Prime wallet test (S... would like to connect!
+Prime wallet test (S...
+http://localhost:8801
+This app would like to:
+View wallet balance & activity
+Request approval for transactions
+Deny
+Approve
+Wallet 1
+Dts1m...kjNdx
+---
+[v0] ERROR page.evaluate: Target page, context or browser has been closed
+detect {"solflare":["supportedTransactionVersions","connect","disconnect","openXnft","_backpackGetAccounts","signIn","sendAndConfirm","signAndSendTransaction","send","sendAll","simulate","signTransaction","signAllTransactions","signAndSendAllTransactions","prepareSolanaOffchainMessage","signMessage","isBackpack","isConnected","isXnft","publicKey","connection"],"backpack":["ethereum","solana","sui","aptos","tron","sidePanel","bitcoin","__defineGetter__","__defineSetter__","hasOwnProperty","__lookupGetter__","__lookupSetter__","isPrototypeOf","propertyIsEnumerable","toString","valueOf","__proto__","toLocaleString"],"backpackSol":["supportedTransactionVersions","connect","disconnect","openXnft","_backpackGetAccounts","signIn","sendAndConfirm","signAndSendTransaction","send","sendAll","simulate","signTransaction","signAllTransactions","signAndSendAllTransactions","prepareSolanaOffchainMessage","signMessage","isBackpack","isConnected","isXnft","publicKey","connection"],"glow":null,"glowSolana":null,"solana":["supportedTransactionVersions","connect","disconnect","openXnft","_backpackGetAccounts","signIn","sendAndConfirm","signAndSendTransaction","send","sendAll","simulate","signTransaction","signAllTransactions","signAndSendAllTransactions","prepareSolanaOffchainMessage","signMessage","isBackpack","isConnected","isXnft","publicKey","connection"],"flags":{"isSolflare":true,"isBackpack":true},"std":[{"name":"Backpack","version":"1.0.0","features":["standard:connect","standard:disconnect","standard:events","solana:signAndSendTransaction","solana:signTransaction","solana:signMessage","solana:signIn","backpack:"]}]}
+[connect] ok "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"
+
+--- prompt [near] popout.html?windowId=backpack_44f8cce9-8423-465b-9c6e-b034be901b33 buttons=[]
+Approve Solana Message
+Prime wallet test (S...
+http://localhost:8801
+🎒 Account 1
+utf8
+Message:
+Prime NEAR signer
+contract: signer.prime-spike-muwguc60.testnet
+path: prime:solana
+domain: 1
+payload: 276593cc3dc4a63c408e369378b33a179ed490a144e82b938025e3024e534383
+Auto-approve message signing
+Default is disabled, safer. When enabled, auto-approves message signing for 24h.
+Wallet
+utf8
+Solana
+Deny
+Approve
+---
+[near] ERROR timeout 60000
+
+--- prompt [grant] popout.html?windowId=backpack_44f8cce9-8423-465b-9c6e-b034be901b33 buttons=[]
+Approve Solana Message
+Prime wallet test (S...
+http://localhost:8801
+🎒 Account 1
+utf8
+Message:
+Prime session
+signer: FNSeRhkqTSm587o3QWCGZL9HqqvS72RpzCVkKhKEfJAy
+session key: Hma2uXgRxUWaheJNF3inhrUnqbCJk9tR8zs31mjLN2UU
+valid until (unix time): 1791456562
+cluster: devnet
+Auto-approve message signing
+Default is disabled, safer. When enabled, auto-approves message signing for 24h.
+Wallet
+utf8
+Solana
+Deny
+Approve
+---
+[grant] ERROR timeout 60000
+
+--- prompt [legacy] popout.html?windowId=backpack_44f8cce9-8423-465b-9c6e-b034be901b33 buttons=[]
+Confirm Transaction
+Not enough SOL to pay for transaction fees. Buy, deposit, or trade to get more SOL.
+Simulation not supported
+Simulation is not supported on custom RPCs.
+Transaction priority
+Auto
+Fast
+Turbo
+Custom
+Requested by
+localhost:8801
+Prime wallet test (Solana)
+Auto-approve transaction signing
+Default is disabled, safer. When enabled, auto-approves transaction signing for 24h.
+Wallet 1
+Dts1...jNdx
+Solana
+Deny
+Approve
+---
+[legacy] ERROR page.evaluate: Target page, context or browser has been closed
+detect {"solflare":["supportedTransactionVersions","connect","disconnect","openXnft","_backpackGetAccounts","signIn","sendAndConfirm","signAndSendTransaction","send","sendAll","simulate","signTransaction","signAllTransactions","signAndSendAllTransactions","prepareSolanaOffchainMessage","signMessage","isBackpack","isConnected","isXnft","publicKey","connection"],"backpack":["ethereum","solana","sui","aptos","tron","sidePanel","bitcoin","__defineGetter__","__defineSetter__","hasOwnProperty","__lookupGetter__","__lookupSetter__","isPrototypeOf","propertyIsEnumerable","toString","valueOf","__proto__","toLocaleString"],"backpackSol":["supportedTransactionVersions","connect","disconnect","openXnft","_backpackGetAccounts","signIn","sendAndConfirm","signAndSendTransaction","send","sendAll","simulate","signTransaction","signAllTransactions","signAndSendAllTransactions","prepareSolanaOffchainMessage","signMessage","isBackpack","isConnected","isXnft","publicKey","connection"],"glow":null,"glowSolana":null,"solana":["supportedTransactionVersions","connect","disconnect","openXnft","_backpackGetAccounts","signIn","sendAndConfirm","signAndSendTransaction","send","sendAll","simulate","signTransaction","signAllTransactions","signAndSendAllTransactions","prepareSolanaOffchainMessage","signMessage","isBackpack","isConnected","isXnft","publicKey","connection"],"flags":{"isSolflare":true,"isBackpack":true},"std":[{"name":"Backpack","version":"1.0.0","features":["standard:connect","standard:disconnect","standard:events","solana:signAndSendTransaction","solana:signTransaction","solana:signMessage","solana:signIn","backpack:"]}]}
+[connect] ok "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"
+[near] ERROR timeout 60000
+[grant] ERROR timeout 60000
+[legacy] ERROR timeout 60000
+[v0] ERROR timeout 60000
+detect {"solflare":["supportedTransactionVersions","connect","disconnect","openXnft","_backpackGetAccounts","signIn","sendAndConfirm","signAndSendTransaction","send","sendAll","simulate","signTransaction","signAllTransactions","signAndSendAllTransactions","prepareSolanaOffchainMessage","signMessage","isBackpack","isConnected","isXnft","publicKey","connection"],"backpack":["ethereum","solana","sui","aptos","tron","sidePanel","bitcoin","__defineGetter__","__defineSetter__","hasOwnProperty","__lookupGetter__","__lookupSetter__","isPrototypeOf","propertyIsEnumerable","toString","valueOf","__proto__","toLocaleString"],"backpackSol":["supportedTransactionVersions","connect","disconnect","openXnft","_backpackGetAccounts","signIn","sendAndConfirm","signAndSendTransaction","send","sendAll","simulate","signTransaction","signAllTransactions","signAndSendAllTransactions","prepareSolanaOffchainMessage","signMessage","isBackpack","isConnected","isXnft","publicKey","connection"],"glow":null,"glowSolana":null,"solana":["supportedTransactionVersions","connect","disconnect","openXnft","_backpackGetAccounts","signIn","sendAndConfirm","signAndSendTransaction","send","sendAll","simulate","signTransaction","signAllTransactions","signAndSendAllTransactions","prepareSolanaOffchainMessage","signMessage","isBackpack","isConnected","isXnft","publicKey","connection"],"flags":{"isSolflare":true,"isBackpack":true},"std":[{"name":"Backpack","version":"1.0.0","features":["standard:connect","standard:disconnect","standard:events","solana:signAndSendTransaction","solana:signTransaction","solana:signMessage","solana:signIn","backpack:"]}]}
+[connect] ok "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"
+
+--- prompt [near] popout.html?windowId=backpack_43c34f09-2fc0-4a16-a3bd-63f73e958772 buttons=[]
+Approve Solana Message
+Prime wallet test (S...
+http://localhost:8801
+🎒 Account 1
+utf8
+Message:
+Prime NEAR signer
+contract: signer.prime-spike-muwguc60.testnet
+path: prime:solana
+domain: 1
+payload: 276593cc3dc4a63c408e369378b33a179ed490a144e82b938025e3024e534383
+Auto-approve message signing
+Default is disabled, safer. When enabled, auto-approves message signing for 24h.
+Wallet
+utf8
+Solana
+Deny
+Approve
+---
+[near] ok {"sig":"eFar74EGmjaUZpCIVcxoOo1pwBZB4VBwFyA8KvBFJTtdt5fRql651TfBWzxVO2kP0cg7g/j+3NJhkLDBw27WCQ==","keys":["signature"]}
+
+--- prompt [grant] popout.html?windowId=backpack_505a7dd3-1fb8-4e18-ae70-8191fa85aa73 buttons=[]
+Approve Solana Message
+Prime wallet test (S...
+http://localhost:8801
+🎒 Account 1
+utf8
+Message:
+Prime session
+signer: HddhmApJNAH963Kbe8xmZsiC4HPH1785cRFcVmTX4apA
+session key: 8Y62AoZF6NMJKuNj12Z23ZxKdtMUyxz1BDiXyK8VFvYb
+valid until (unix time): 1791456976
+cluster: devnet
+Auto-approve message signing
+Default is disabled, safer. When enabled, auto-approves message signing for 24h.
+Wallet
+utf8
+Solana
+Deny
+Approve
+---
+[grant] ok {"sig":"IgpoXXnNe6FAIeRyNYrxkcKzldDaGAWAYc9pmYXJW8TUHhTCDbhWbzffaKc4fDrOnnVauJWB24t+1YNaim/oAA==","keys":["signature"]}
+
+--- prompt [legacy] popout.html?windowId=backpack_acbc917a-c2ac-42fb-86fa-78d8683159fb buttons=[]
+Confirm Transaction
+Not enough SOL to pay for transaction fees. Buy, deposit, or trade to get more SOL.
+Simulation not supported
+Simulation is not supported on custom RPCs.
+Transaction priority
+Auto
+Fast
+Turbo
+Custom
+Requested by
+localhost:8801
+Prime wallet test (Solana)
+Auto-approve transaction signing
+Default is disabled, safer. When enabled, auto-approves transaction signing for 24h.
+Wallet 1
+Dts1...jNdx
+Solana
+Deny
+Approve
+---
+[legacy] ok {"signed":"ATyWvE/0fSawCGfOnr+Y3R/ABYLLyOK14toeC6RcpcimAmH+sxfDsSXbAAun+AC/ijbgMWviMI+wrEpTteiqjQEBAAEDv5VqJ1IXydW29lThB4xcjZMYuERkwQ5R1qPmxlfWa1OSAnIkyygWcohQH/y/3eCsouEM/ens4uL+mWv0rbqbbAAAAAAAAAAAA
+
+--- prompt [v0] popout.html?windowId=backpack_f5d70614-72b5-4bde-b161-46063a8e5010 buttons=[]
+Confirm Transaction
+Not enough SOL to pay for transaction fees. Buy, deposit, or trade to get more SOL.
+Simulation not supported
+Simulation is not supported on custom RPCs.
+Transaction priority
+Auto
+Fast
+Turbo
+Custom
+Requested by
+localhost:8801
+Prime wallet test (Solana)
+Auto-approve transaction signing
+Default is disabled, safer. When enabled, auto-approves transaction signing for 24h.
+Wallet 1
+Dts1...jNdx
+Solana
+Deny
+Approve
+---
+[v0] ok {"signed":"AfeZ0NbgozhdKcPO4KyQqm42N/05octoaEMq4aYIlUsqKDJSS+GJyoDoVstJDIdmGZg3nr86bTHC8kfyj4lMRgSAAQABA7+VaidSF8nVtvZU4QeMXI2TGLhEZMEOUdaj5sZX1mtTkgJyJMsoFnKIUB/8v93grKLhDP3p7OLi/plr9K26m2wAAAAAAAAAA
+detect {"solflare":["supportedTransactionVersions","connect","disconnect","openXnft","_backpackGetAccounts","signIn","sendAndConfirm","signAndSendTransaction","send","sendAll","simulate","signTransaction","signAllTransactions","signAndSendAllTransactions","prepareSolanaOffchainMessage","signMessage","isBackpack","isConnected","isXnft","publicKey","connection"],"backpack":["ethereum","solana","sui","aptos","tron","sidePanel","bitcoin","__defineGetter__","__defineSetter__","hasOwnProperty","__lookupGetter__","__lookupSetter__","isPrototypeOf","propertyIsEnumerable","toString","valueOf","__proto__","toLocaleString"],"backpackSol":["supportedTransactionVersions","connect","disconnect","openXnft","_backpackGetAccounts","signIn","sendAndConfirm","signAndSendTransaction","send","sendAll","simulate","signTransaction","signAllTransactions","signAndSendAllTransactions","prepareSolanaOffchainMessage","signMessage","isBackpack","isConnected","isXnft","publicKey","connection"],"glow":null,"glowSolana":null,"solana":["supportedTransactionVersions","connect","disconnect","openXnft","_backpackGetAccounts","signIn","sendAndConfirm","signAndSendTransaction","send","sendAll","simulate","signTransaction","signAllTransactions","signAndSendAllTransactions","prepareSolanaOffchainMessage","signMessage","isBackpack","isConnected","isXnft","publicKey","connection"],"flags":{"isSolflare":true,"isBackpack":true},"std":[{"name":"Backpack","version":"1.0.0","features":["standard:connect","standard:disconnect","standard:events","solana:signAndSendTransaction","solana:signTransaction","solana:signMessage","solana:signIn","backpack:"]}]}
+[connect] ok "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"
+unlocked [near]
+
+--- prompt [near] popout.html?windowId=backpack_6dd296f9-637e-4ada-9fc4-997bd350c6cb buttons=[]
+Approve Solana Message
+Prime wallet test (S...
+http://localhost:8801
+🎒 Account 1
+utf8
+Message:
+Prime NEAR signer
+contract: signer.prime-spike-muwguc60.testnet
+path: prime:solana
+domain: 1
+payload: 276593cc3dc4a63c408e369378b33a179ed490a144e82b938025e3024e534383
+Auto-approve message signing
+Default is disabled, safer. When enabled, auto-approves message signing for 24h.
+Wallet
+utf8
+Solana
+Deny
+Approve
+---
+[near] ok {"sig":"eFar74EGmjaUZpCIVcxoOo1pwBZB4VBwFyA8KvBFJTtdt5fRql651TfBWzxVO2kP0cg7g/j+3NJhkLDBw27WCQ==","keys":["signature"]}
+
+--- prompt [grant] popout.html?windowId=backpack_7807a53a-1729-403b-90f5-a205f65f05a4 buttons=[]
+Approve Solana Message
+Prime wallet test (S...
+http://localhost:8801
+🎒 Account 1
+utf8
+Message:
+Prime session
+signer: 81tWeknJtfe7KrMLPAWyptTQXf9py4jYbW5LzW5Ksee8
+session key: 4YhiUPLgV4PcN3NZV6D1vtjefF67ASeZBgQM8ae82LyM
+valid until (unix time): 1791457721
+cluster: devnet
+Auto-approve message signing
+Default is disabled, safer. When enabled, auto-approves message signing for 24h.
+Wallet
+utf8
+Solana
+Deny
+Approve
+---
+[grant] ok {"sig":"L1L5F8056ga4M5WehE6TcH8PsxbIcT8S3QYzPoP3p+pWEm0S1HkkgGWBleGQ3pyuTgRZVijqgwVlhVsNVR1LCw==","keys":["signature"]}
+
+--- prompt [legacy] popout.html?windowId=backpack_8b144e5f-e285-4136-a939-6ad511b8c977 buttons=[]
+Confirm Transaction
+Not enough SOL to pay for transaction fees. Buy, deposit, or trade to get more SOL.
+Simulation not supported
+Simulation is not supported on custom RPCs.
+Transaction priority
+Auto
+Fast
+Turbo
+Custom
+Requested by
+localhost:8801
+Prime wallet test (Solana)
+Auto-approve transaction signing
+Default is disabled, safer. When enabled, auto-approves transaction signing for 24h.
+Wallet 1
+Dts1...jNdx
+Solana
+Deny
+Approve
+---
+[legacy] ok {"signed":"AVSf2OCWnGvK19977QVdj9A1urbEMfi27CJSmCIrBEbxyN0NtGnl2YIHfK4tAOGeYuLCbdFds1eYS0XQpkEpkQcBAAEDv5VqJ1IXydW29lThB4xcjZMYuERkwQ5R1qPmxlfWa1O6tu/axmgl+WywMgTxTCyT2UT4AclqZxuoDLx+JkFlHQAAAAAAAAAAA
+
+--- prompt [v0] popout.html?windowId=backpack_b1f08a4a-5e8c-4e82-a602-4612a206fedd buttons=[]
+Confirm Transaction
+Not enough SOL to pay for transaction fees. Buy, deposit, or trade to get more SOL.
+Simulation not supported
+Simulation is not supported on custom RPCs.
+Transaction priority
+Auto
+Fast
+Turbo
+Custom
+Requested by
+localhost:8801
+Prime wallet test (Solana)
+Auto-approve transaction signing
+Default is disabled, safer. When enabled, auto-approves transaction signing for 24h.
+Wallet 1
+Dts1...jNdx
+Solana
+Deny
+Approve
+---
+[v0] ok {"signed":"AfKRd7gAjulm5yIYzCE5TNcuhBoFYNJo7NC8MsCX4IASajP5lWwiTJ9amtjI5LSsepCDVFtm7YTnlloTopWh0gyAAQABA7+VaidSF8nVtvZU4QeMXI2TGLhEZMEOUdaj5sZX1mtTurbv2sZoJflssDIE8Uwsk9lE+AHJamcbqAy8fiZBZR0AAAAAAAAAA
+
+--- prompt [relayer] popout.html?windowId=backpack_cc3ca811-1d10-473f-a80a-2d2462846abf buttons=[]
+Confirm Transaction
+Not enough SOL to pay for transaction fees. Buy, deposit, or trade to get more SOL.
+Simulation not supported
+Simulation is not supported on custom RPCs.
+Transaction preview
+JDHmpe...5jee2G
+Send
+0.00001 SOL
+Transaction priority
+Auto
+Fast
+Turbo
+Custom
+Requested by
+localhost:8801
+Prime wallet test (Solana)
+Auto-approve transaction signing
+Default is disabled, safer. When enabled, auto-approves transaction signing for 24h.
+Wallet 1
+Dts1...jNdx
+Solana
+Deny
+Approve
+---
+[relayer] ok {"signed":"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADsqSPzYQ4Wua/1kCDUCpWwPmrVxdfze9SYcQQEMbUR2Mg1Y1TmJMv/HHSwGkdUrH1trfv2vgxXJess5I3YPL0MAgEBA/+8nM0vI6ZVY

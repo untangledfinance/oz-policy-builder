@@ -1,0 +1,205 @@
+== setup
+12:03:39 seats {
+  MetaMask: "GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW",
+  Freighter: "GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I",
+  Phantom: "GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ",
+}
+12:03:39 session owners {
+  MetaMask: "GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO",
+  Freighter: "GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I",
+  Phantom: "GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN",
+}
+12:03:52 prime-session wasm e36d155f0381a466fb6c2c29b788a9d52e4a6f3e568f30da981609075bb7a0b3 0660c493b4483e0ad4b065a130ab90209e055a922f158e862183fe85f59ad4ca
+12:03:57 S_mm CBWADAVDF7AUUBCMYBXL732KDGFCUOKL5Z3CVZ4N4LM4GDLUQ4CFVI7M 96d4915321b057086d8b5a395684dcff07d618398282a04aa15616618ff6bc81
+12:04:02 S_fr CAMZRYYHW5LY37C4YHV2MCUIWGNGULRZTOWXWZ3VDFPO5KGYADY4ZXGS aad44acdcd915dd0fb8bb5e45790e12fdea4c9ca2a58622bdf5e3e237712d2f0
+12:04:07 S_ph CAZSREIJFWL55OQ4S72IQFVS55DBBLL7UPCMNH5XGVIDOY3UJFVGESWF 6dba7afdd382111dd4e46e2f7253b509099d6d6d86ee60b26a1282e1445d1d70
+12:04:12 S_rf CANWJ2RK7XKWDOZL6HE65R4ZFVH4DDBYYQ7PVV56LZMEAVW2XYCAJXTT 0ecbcb5564ded65651cced4a06645127d9c4912c69386efd19cfc0c47a81a7c7
+12:04:18 Prime Account CBEPGT35XGRDNHR2OQ2EWVYBWVKMHSJ7GKACXNKQQA6KQXHERWR32FWP d1f124f09e3296d9490a46e2d2b53d99706092bfa34081e4297de8d673788786
+12:04:22 funded 30 XLM e29bd028711ad66ad3050151aca50b1d92a6650b367f2f2a71ce1d230d19cafe
+12:04:23 PASS P0. rule 0 signers are exactly the three wallet G keys (no prime-session) [["Delegated","GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW"],["Delegated","GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I"],["Delegated","GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ"]]
+12:04:23 PASS P1. the session-owner keys of MetaMask and Phantom are not their seat keys and are not on rule 0 MetaMask GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO, Phantom GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN
+12:04:23 PASS L1-seat-MetaMask. master weight 1, thresholds low 1 / medium 1 / high 2, the account's own key is the only signer GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW thresholds 1/1/2 signers GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW:1
+12:04:37 PASS L2-seat-MetaMask. control: a medium-threshold SetOptions (home domain) signed by the key is accepted c2219bf4b614b5ae498e6d59aee8b82ff3d784975d7c017f876bd95770cf09d3
+12:04:47 PASS L3-seat-MetaMask. SetOptions that adds a signer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+12:04:56 PASS L4-seat-MetaMask. AccountMerge into the relayer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+12:04:56 PASS L5-seat-MetaMask. after both refusals the signer list and thresholds are unchanged and the account exists 1/1/2 GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW:1
+12:04:56 PASS L1-seat-Phantom. master weight 1, thresholds low 1 / medium 1 / high 2, the account's own key is the only signer GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ thresholds 1/1/2 signers GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ:1
+12:05:07 PASS L2-seat-Phantom. control: a medium-threshold SetOptions (home domain) signed by the key is accepted 903c4f29a8e28e479f68e9d3e1ea9a804ca1ed296b51b7c8f5852d1fd2fd980c
+12:05:15 PASS L3-seat-Phantom. SetOptions that adds a signer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+12:05:23 PASS L4-seat-Phantom. AccountMerge into the relayer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+12:05:23 PASS L5-seat-Phantom. after both refusals the signer list and thresholds are unchanged and the account exists 1/1/2 GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ:1
+12:05:23 PASS L1-owner-MetaMask. master weight 1, thresholds low 1 / medium 1 / high 2, the account's own key is the only signer GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO thresholds 1/1/2 signers GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO:1
+12:05:37 PASS L2-owner-MetaMask. control: a medium-threshold SetOptions (home domain) signed by the key is accepted 2442e3b0e67c0141181761e0c4e580671736052f9cc7ad21ad16fb71a2040559
+12:05:46 PASS L3-owner-MetaMask. SetOptions that adds a signer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+12:05:55 PASS L4-owner-MetaMask. AccountMerge into the relayer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+12:05:56 PASS L5-owner-MetaMask. after both refusals the signer list and thresholds are unchanged and the account exists 1/1/2 GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO:1
+12:05:56 PASS L1-owner-Phantom. master weight 1, thresholds low 1 / medium 1 / high 2, the account's own key is the only signer GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN thresholds 1/1/2 signers GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN:1
+12:06:07 PASS L2-owner-Phantom. control: a medium-threshold SetOptions (home domain) signed by the key is accepted 4b1c9e41236682231e66cb82b828c8e8330b648678bb0170cce4280c7ac88c3a
+12:06:15 PASS L3-owner-Phantom. SetOptions that adds a signer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+12:06:23 PASS L4-owner-Phantom. AccountMerge into the relayer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+12:06:23 PASS L5-owner-Phantom. after both refusals the signer list and thresholds are unchanged and the account exists 1/1/2 GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN:1
+12:06:23 NEAR MPC: 12 signatures, average 8.1s
+== seats
+12:09:18 PASS Y1-MetaMask. MetaMask alone adds a rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+12:09:19 PASS Y1-Freighter. Freighter alone adds a rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+12:09:27 PASS Y1-Phantom. Phantom alone adds a rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+12:09:43 PASS Y2. MetaMask (NEAR) + Freighter add a rule ok 16138 ms 4fbf769447d0131b36e8cb155489912fc1b7b2c4ca92966ca32cae1b8acb940e
+12:09:57 PASS Y3. Freighter + Phantom (NEAR) remove it ok 12706 ms 0f9141e301f8e863650cbb249604f84f536671e91f1c5cdfbe3822cd0cdfb0e1
+12:10:17 PASS Y4. Phantom (NEAR) + MetaMask (NEAR) add a rule ok 19654 ms 674bb06eba5cb91f8053e3ae707f682acd2bb4dd0546df3d5f700277cdf45d08
+12:10:43 PASS Y5. MetaMask + Phantom remove it ok 23680 ms 378152cfce0a484494a6246c1bffb09d28733e2578fa8390ba0cad24dabbbbd8
+12:10:50 PASS Y6. outsider + Freighter refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+12:10:59 PASS Y7. MetaMask's seat signed by Phantom's MPC key + Freighter refused: Error(Auth, InvalidAction) Error(Contract, #5)
+12:11:08 PASS Y8. Phantom's seat signed by its MPC key under another path + Freighter refused: Error(Auth, InvalidAction) Error(Contract, #5)
+12:11:18 PASS Y9. MetaMask's seat vote signed under the session path + Freighter refused: Error(Auth, InvalidAction) Error(Contract, #5)
+12:11:28 PASS Y10. Phantom's seat vote signed under the session path + Freighter refused: Error(Auth, InvalidAction) Error(Contract, #5)
+12:11:46 PASS Y11. the two session-owner accounts (MetaMask, Phantom) as the two votes on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+12:11:46 NEAR MPC: 14 signatures, average 7.7s
+== rules
+12:17:17 PASS R-xlm_mm. MetaMask + Freighter install xlm_mm: XLM to VENUE only, signer: that wallet's prime-session ok 12952 ms 3dde85d3c7a87c28f7a90960845284e633e2172010e46740f9fd9e37a1c4d353
+12:17:33 PASS R-xlm_fr. MetaMask + Freighter install xlm_fr: XLM to VENUE only, signer: that wallet's prime-session ok 11810 ms 2e76f2a06e37b69e3c382cf6a6eb484b44bf07f2275474cd0cde53afa4f7211a
+12:17:52 PASS R-xlm_ph. MetaMask + Freighter install xlm_ph: XLM to VENUE only, signer: that wallet's prime-session ok 15481 ms 31f332da168f0887b4298361178a4fee1b65c7c0c1594989db577e64cb533504
+12:18:12 PASS R-xlm_rf. MetaMask + Freighter install xlm_rf: XLM to VENUE only, signer: that wallet's prime-session ok 14123 ms 47e7ff9d1d28dd22816bd43618c53c355dd2a53f4f5d72b1060d1479e1a74626
+12:18:24 rules 3 4 5 6
+12:18:24 NEAR MPC: 4 signatures, average 7.7s
+== separation
+12:18:52 PASS N0a. Phantom grant (setup for N1-N5) ok 6138 ms cc5d7ec2ee923cbef249ee97d4790778fab1c71ddf8133623d3264d30f964e2e
+12:19:07 PASS N0b. MetaMask grant (setup for N2) ok 4918 ms 89f58e8776721a01e7aea05d48d55371dcd0b4c691ca03b2dcc8afcaceaf4768
+12:19:08 PASS N1. Phantom's prime-session + Freighter on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+12:19:09 PASS N2. MetaMask's and Phantom's prime-sessions on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+12:19:10 PASS N3. Phantom session claims its session rule for an account-admin call refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+12:19:13 PASS N4. the session key's own G account + Freighter on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+12:19:14 PASS N5. Phantom session removes rule 0 through its session rule refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+12:19:14 NEAR MPC: 2 signatures, average 8.4s
+== sessions
+12:22:37 PASS Q-MetaMask0. MetaMask grant: one NEAR MPC authorization, relayer pays ok 1863 ms 6e39491b141e5f28fec431a49b9e34c09076ee351b8317fb504a8a46753f0bf2
+12:22:37 MetaMask: session key GARJUD6K3QYYB2PRDTTM2Y2BCALRSRWXJZXYLXYOWUIVLZ7OTSCRSK6I until ledger 5088431
+12:22:42 PASS Q-MetaMask1. relayer pays: 1 XLM to VENUE ok 4574 ms ac9e2441e3494886b07cc245602510340a2892bc7ada0e914faaae1ddf4c5e49
+12:23:02 PASS Q-MetaMask2a. MetaMask grant, relayer down: the session key's own account is the transaction source ok 4162 ms ad53820357b8ea866cb00789e8287076fc3360d4cf993e8e021b099071a683be (fee paid by the session key)
+12:23:07 PASS Q-MetaMask2. relayer down: the session key's own account pays the fee, 1 XLM to VENUE ok 5295 ms b469dfe5337753a085b1dc9dc6037d930e2297d00fe8665561e9f050f421e8b0 (fee paid by the session key)
+12:23:08 PASS Q-MetaMask3. VENUE received exactly 2 XLM 20000000 stroops
+12:23:22 PASS Q-MetaMask4a. MetaMask grant for a session key that has no account ok 5123 ms a54846744cee28e1bcffa9c186f43bdc0c879dc3f0297f9ef63c927bde19c9a5
+12:23:23 PASS Q-MetaMask4. relayer down and the session key has no account refused: Account not found: GCIKFPJ3C7MIZMR6J3UEXX6E2UGDWNTC3JWTCI23XL2IFRXRE23WMOCY
+12:23:25 PASS Q-MetaMask5. 1 XLM elsewhere refused: Error(Auth, InvalidAction) Error(Contract, #100)
+12:23:26 PASS Q-MetaMask6. on another wallet's session rule refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+12:23:32 PASS Q-Freighter0. Freighter grant: one signAuthEntry authorization, relayer pays ok 5047 ms 076fa3164adca649adadbca38edfe90995cc3aba646b22b06397b9bd65109858
+12:23:32 Freighter: session key GCL76U6CZ6LIPCZNUNZSPWMUNSLLQL3ELEKRMQT44VA5Z6SFWCBOQRSY until ledger 5088443
+12:23:37 PASS Q-Freighter1. relayer pays: 1 XLM to VENUE ok 4739 ms 60fb3f3e838a561655c10b56a0abd1951d26389ade25df0a9bfebeb53e9539c5
+12:23:53 PASS Q-Freighter2a. Freighter grant, relayer down: the session key's own account is the transaction source ok 6489 ms 21b16f4e637cffb425a894436c428db51f47aa27b4c36b87782bcb36a01f186e (fee paid by the session key)
+12:23:57 PASS Q-Freighter2. relayer down: the session key's own account pays the fee, 1 XLM to VENUE ok 4096 ms 6f3a84fe6317ba5774e9293660a7e46fcc7e35c6ced395a96605bdf39dad79a6 (fee paid by the session key)
+12:23:58 PASS Q-Freighter3. VENUE received exactly 2 XLM 20000000 stroops
+12:24:02 PASS Q-Freighter4a. Freighter grant for a session key that has no account ok 3360 ms a209e590f3681954b45b7fbeedbe23f613b922ab1db50fac5023895e80cb8f18
+12:24:02 PASS Q-Freighter4. relayer down and the session key has no account refused: Account not found: GBVIXWIA6FQLO6KN2UUDJGDHN4BSKEAOUZRLTVQRUXIUS6OG6SO4U3CJ
+12:24:04 PASS Q-Freighter5. 1 XLM elsewhere refused: Error(Auth, InvalidAction) Error(Contract, #100)
+12:24:06 PASS Q-Freighter6. on another wallet's session rule refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+12:24:17 PASS Q-Phantom0. Phantom grant: one NEAR MPC authorization, relayer pays ok 2967 ms f14237524c60eb281b8200e53d858f88dfbdb5b99330d027dda0dffc46c67e74
+12:24:17 Phantom: session key GDOMGXCCTOQAV7MWDFKJGGEIN5PSJRJ7KG3TQH32QIV66I7QOK66Y7Y2 until ledger 5088451
+12:24:22 PASS Q-Phantom1. relayer pays: 1 XLM to VENUE ok 4666 ms 5bd602545b9489c62118682a403c28ac3ebe8a14eff84073fdb00fa01fbbd6fa
+12:24:37 PASS Q-Phantom2a. Phantom grant, relayer down: the session key's own account is the transaction source ok 2924 ms a6d5c87ff402f88415dbc9630f44802f37e2c8aab99d0a78601519621ec7cd1d (fee paid by the session key)
+12:24:42 PASS Q-Phantom2. relayer down: the session key's own account pays the fee, 1 XLM to VENUE ok 5261 ms a10ec93507705ec577d339a662d0fc5e21786bdafcb743c814ab09b5f30c885c (fee paid by the session key)
+12:24:43 PASS Q-Phantom3. VENUE received exactly 2 XLM 20000000 stroops
+12:24:58 PASS Q-Phantom4a. Phantom grant for a session key that has no account ok 6061 ms a0a3f8b90c9e6c6c1b7cc33d1c7466028e09d8a5cce989343f3f2671bd0b39d2
+12:24:58 PASS Q-Phantom4. relayer down and the session key has no account refused: Account not found: GCZ4FFPDDKI4INU75CD3GGFNZ5E3VCTS65FEWGA6RGVDUAIP6XTRD2VP
+12:24:59 PASS Q-Phantom5. 1 XLM elsewhere refused: Error(Auth, InvalidAction) Error(Contract, #100)
+12:25:01 PASS Q-Phantom6. on another wallet's session rule refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+12:25:03 PASS Q-never. a session key that was never granted refused: Error(Auth, InvalidAction) Error(Contract, #1)
+12:25:11 PASS Q7. Phantom authorized one valid-until; the relayer submits a later one refused: Error(Auth, InvalidAction)
+12:25:13 PASS Q7b. the key from Q7 cannot move refused: Error(Auth, InvalidAction) Error(Contract, #1)
+12:25:21 PASS Q8. MetaMask grant 10 ledgers beyond 7 days is refused at grant time refused: Error(Contract, #1)
+12:25:23 PASS Q8b. the key from Q8 cannot move refused: Error(Auth, InvalidAction) Error(Contract, #1)
+12:25:37 PASS Q9-MetaMask0. MetaMask grant (first session) ok 6001 ms 9bdd40a4cf7ffed7871ee7366b198d9f22cf52b8eb66bd976a98379c47925c20
+12:25:52 PASS Q9-MetaMask00. MetaMask grant (second session) ok 6335 ms 0baa24f6c49ec39a096bd15907f7a3bc7cc3a9776b3f310922445c483c743030
+12:25:58 PASS Q9-MetaMaska. session before revoke ok 5591 ms 31d276bd7e4197e15f6ed8ecd15165b389a23a435261518c8c317da91ebc5929
+12:26:12 PASS Q9-MetaMaskb. MetaMask revokes it: grant(key, 0), one authorization, relayer pays ok 6121 ms 3e8ee890075fca1a1ff3b8e92929153f62110df76e8d131afdee1efc677701b6
+12:26:13 PASS Q9-MetaMaskc. the revoked session refused: Error(Auth, InvalidAction) Error(Contract, #1)
+12:26:17 PASS Q9-MetaMaskd. another live session of the same wallet still works ok 3692 ms 8c4e20585d6b3e5f1bc3aaf419e4d661eb7545ddbaee855bc18cbc791b59ff6a
+12:26:22 PASS Q9-Freighter0. Freighter grant (first session) ok 4045 ms be2a0718fd3ad1e4d30ce9b96925358dfb2caf3c57538511a01adaea94de841d
+12:26:28 PASS Q9-Freighter00. Freighter grant (second session) ok 5258 ms 6d3ed5488f7c3b75eb6bc282aa6386b97a7334de27ddf92d155a653257476414
+12:26:38 PASS Q9-Freightera. session before revoke ok 9950 ms 7eb0c435b7fcee8b18d971daeb54189c804962be3c7dc0b10024c16adb0cde77
+12:26:43 PASS Q9-Freighterb. Freighter revokes it: grant(key, 0), one authorization, relayer pays ok 4697 ms f71f0a00a29df148f3a614da24e536678125ea5aebe5a6c1b281554f7d07a346
+12:26:45 PASS Q9-Freighterc. the revoked session refused: Error(Auth, InvalidAction) Error(Contract, #1)
+12:26:52 PASS Q9-Freighterd. another live session of the same wallet still works ok 7656 ms 1b379a0da7dc15320fa8e877ef64934ec88042b0a833638d31e7d389fc7b6a00
+12:27:07 PASS Q10-0. Phantom grant (target of the Freighter revoke) ok 6334 ms d250f0d395eb685d7dbf2481c6f4e7e0ada4523a19a9d41dc6afc2a155b6c1f4
+12:27:07 PASS Q10. Freighter signs a revoke of a Phantom session refused: Error(Auth, InvalidAction) Error(Contract, #5)
+12:27:13 PASS Q10b. the Phantom session still works after the refused revoke ok 5140 ms 4906c0a6178c99d0084518345418ae35dfff5721df652efabc32af529900c156
+12:27:27 PASS Q11-0. Phantom grant for 15 ledgers ok 6100 ms 012b9efdb81d257420a8de98b46a7f52787239266e7d5686df381021699579fa
+12:27:32 PASS Q11a. the short session works before its end ok 4714 ms 58d28bfc0210661b19489fa8d42cbda2af251da3e4c9dea179568718e1b721c6
+12:28:38 PASS Q11b. past its end the stored entry still exists {"until":5087784,"live":5088491}
+12:28:39 PASS Q11c. the short session at until + 1 refused: Error(Auth, InvalidAction) Error(Contract, #1)
+12:28:43 PASS Q12-0. Freighter grant for the longest session (7 days less 20 ledgers) ok 2987 ms 96124936baacfb79ae212ca0672f0b77256dc4ceaa10081a51c2f3c228044518
+12:28:43 PASS Q12a. the 7-day entry stores its end and lives at least to it {"until":5208726,"live":5208726} session end 5208726
+12:28:47 PASS Q12b. a move in the 7-day session ok 4183 ms 0313bd46804d8ae4794e768b4c6da3a71b09e38be7c81975032db505de030294
+12:28:52 PASS Q13a. Freighter grant for the replay test ok 3940 ms 1df5458298d1129a574ceab9bc910197f3af45199631eb9d979c58249ddbef46
+12:28:57 PASS Q13b. Freighter revokes it ok 4955 ms fa608bfd36a522f81cdd5943127ac6171a5fcd9349f2784141e080fd30f3e5ff
+12:28:58 PASS Q13c. replay of the used grant authorization refused: Error(Auth, ExistingValue)
+12:28:59 PASS Q13d. the revoked key cannot move after the replay attempt refused: Error(Auth, InvalidAction) Error(Contract, #1)
+12:29:07 PASS Q17-Freightera. Freighter grant (the first of two entries signed together) ok 6586 ms 5f221d2ab12927e38d1a40621ee44b0619c46718abe5961bd72b3a96da13f2d6
+12:29:12 PASS Q17-Freighterb. the session moves ok 4874 ms f04048f2321f8a21db486f386408ab3e5975905afd83a703eaa05557d8e24d22
+12:29:17 PASS Q17-Freighterc. Freighter revokes it ok 4316 ms e835017104fc62f653eea8540b0947877af69334238b63ae3c35f4aa5298449f
+12:29:17 PASS Q17-Freighterd. the held-back second entry, submitted after the revoke refused: Error(Contract, #1)
+12:29:18 PASS Q17-Freightere. the key cannot move refused: Error(Auth, InvalidAction) Error(Contract, #1)
+12:29:19 PASS Q17-Freighterf. a new authorization to grant the revoked key again refused: Error(Contract, #1)
+12:29:20 PASS Q17-Freighterg. the revoke entry stores 0 and lives to at least 3,000,000 ledgers ahead {"until":0,"live":8198193}
+12:29:42 PASS Q17-Phantoma. Phantom grant (the first of two entries signed together) ok 4973 ms 8dbd8c4e0f7761369999cc0307f1939c841a22f51b07358f41dfaed1151d32b1
+12:29:48 PASS Q17-Phantomb. the session moves ok 5311 ms 62118d1f075a9b999c81c6e848723a0dbf7e122f30e3992039ea4097d1e34f01
+12:30:03 PASS Q17-Phantomc. Phantom revokes it ok 6684 ms 8d50056e0bf62e56e41f6974b1adb2137591d84c22ef5c3927b1151bde7de271
+12:30:03 PASS Q17-Phantomd. the held-back second entry, submitted after the revoke refused: Error(Contract, #1)
+12:30:04 PASS Q17-Phantome. the key cannot move refused: Error(Auth, InvalidAction) Error(Contract, #1)
+12:30:13 PASS Q17-Phantomf. a new authorization to grant the revoked key again refused: Error(Contract, #1)
+12:30:14 PASS Q17-Phantomg. the revoke entry stores 0 and lives to at least 3,000,000 ledgers ahead {"until":0,"live":8198202}
+12:30:17 PASS Q14a. control: a grant authorization submitted before its signature-expiry ledger ok 2821 ms 21f9be41092b368d4e3762943c0b9487a05f715140c7954573603ff5e35552f9
+12:30:45 PASS Q14. the same authorization for another key, submitted after its signature-expiry ledger refused: Error(Auth, InvalidInput)
+12:30:55 PASS Q15. a stranger signs Freighter's grant authorization refused: Error(Auth, InvalidAction) Error(Contract, #5)
+12:30:57 PASS Q16. a stranger sends a grant with no owner authorization, paying the fee refused: FAILED "AAAAAAAALsH/////AAAAAQAAAAAAAAAY/////gAAAAA="
+12:30:57 NEAR MPC: 17 signatures, average 7.8s
+== cross
+12:34:09 PASS X1. Freighter's prime-session: grant signed by Phantom's session-owner key (NEAR) refused: Error(Auth, InvalidAction) Error(Contract, #5)
+12:34:10 PASS X1b. the key from X1 cannot move refused: Error(Auth, InvalidAction) Error(Contract, #1)
+12:34:19 PASS X4. Phantom's prime-session: grant signed by its MPC key under another path refused: Error(Auth, InvalidAction) Error(Contract, #5)
+12:34:20 PASS X4b. the key from X4 cannot move refused: Error(Auth, InvalidAction) Error(Contract, #1)
+12:34:28 PASS X5. Phantom's session-owner key authorizes a grant on MetaMask's prime-session refused: Error(Auth, InvalidAction)
+12:34:30 PASS X5b. the key from X5 cannot move refused: Error(Auth, InvalidAction) Error(Contract, #1)
+12:34:39 PASS X6. MetaMask's grant authorization (for its own prime-session) sent to Phantom's prime-session refused: Error(Auth, InvalidAction)
+12:34:48 PASS X7. Phantom's seat key (prime:stellar) signs the grant of its own prime-session refused: Error(Auth, InvalidAction) Error(Contract, #5)
+12:34:49 PASS X7b. the key from X7 cannot move refused: Error(Auth, InvalidAction) Error(Contract, #1)
+12:34:49 NEAR MPC: 5 signatures, average 7.6s
+== summary
+12:34:54 PASS H1. Horizon: all 50 landed grants, revokes and moves have the payer as source account; the 6 self-paid ones have the session key's own account ok
+fees (stroops, Horizon fee_charged) {
+ "tx relayed": {
+  "n": 8,
+  "min": 44840,
+  "median": 1023046,
+  "max": 3469641
+ },
+ "grant relayed": {
+  "n": 19,
+  "min": 18111,
+  "median": 18118,
+  "max": 46722
+ },
+ "move relayed": {
+  "n": 12,
+  "min": 32890,
+  "median": 32891,
+  "max": 1393540
+ },
+ "grant self-paid": {
+  "n": 3,
+  "min": 18112,
+  "median": 18118,
+  "max": 18118
+ },
+ "move self-paid": {
+  "n": 3,
+  "min": 32890,
+  "median": 32891,
+  "max": 32891
+ },
+ "revoke relayed": {
+  "n": 5,
+  "min": 757992,
+  "median": 757993,
+  "max": 758001
+ }
+}
+12:34:54 132/132 passed; NEAR MPC signatures this part: 0

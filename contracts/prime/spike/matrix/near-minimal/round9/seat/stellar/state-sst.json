@@ -1,0 +1,2781 @@
+{
+ "venue": "GBV4HEJ47K2HOR6D66CKVN3YIEK7W2HDZNVFVR5QCKMLJZHJ3JQLP7I5",
+ "other": "GA2U7SQEKLF3MZMHNKKSNKSG5V4BYKEHBJCD53YDDRWAIB7Y5GA54PQU",
+ "wasm": "27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992",
+ "wasmTx": "df2fa58c1f52affc753d256cf4d523b91015d3d47984e7b040217b3e5a326380",
+ "wasmSha256": "27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992",
+ "S_mm": "CALJPZZ3VS6GRHLEBKLCUEYPJN4BQ5HEX53TC3C2UYJLD3SECPGBCTW7",
+ "S_mmTx": "a06e07cfe8a1aa91e49f2a10a0746182fefa975dd3cbe3c9456a3f3e99d7cef7",
+ "S_fr": "CBUYZWT43XTBCW6EASFHT4FKG4T7B3YKX6YI2SCBE5Z3NK2S2ZMQHXGY",
+ "S_frTx": "cf048d820eb5cb16c2f5955be06c620eea418d88322a8e6a8b595ebfcfdb5d51",
+ "S_ph": "CB4XBHWAAF7X2FKJFOEQ5TC4KOVO65VD3GDB3TPXLVMXWAZDVCYF4FMB",
+ "S_phTx": "c64438211c78390ee45fbb39b8d6b1e717b497b58946d1795416e56c609d8de9",
+ "G_mm": "GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO",
+ "G_fr": "GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I",
+ "G_ph": "GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN",
+ "prime": "CBHAV7SJPL6HWIJ6QVFED2TBNBW62IF2GN7TQ45DFF2TODZOMFZCHY7T",
+ "primeTx": "2424353d3c009c92bbd87c6e8782a45c6a022a56fe5848e02e4cdc7d5daf40e2",
+ "results": {
+  "P0. rule 0 holds exactly the three prime-seat contracts (External), no plain account": {
+   "pass": true,
+   "detail": "[[\"External\",\"CALJPZZ3VS6GRHLEBKLCUEYPJN4BQ5HEX53TC3C2UYJLD3SECPGBCTW7\",{\"type\":\"Buffer\",\"data\":[1]}],[\"External\",\"CBUYZWT43XTBCW6EASFHT4FKG4T7B3YKX6YI2SCBE5Z3NK2S2ZMQHXGY\",{\"type\":\"Buffer\",\"data\":[1]}],[\"External\",\"CB4XBHWAAF7X2FKJFOEQ5TC4KOVO65VD3GDB3TPXLVMXWAZDVCYF4FMB\",{\"type\":\"Buffer\",\"data\":[1"
+  },
+  "P1. the owners of MetaMask and Phantom are their prime:stellar-session keys, not their old seat keys": {
+   "pass": true,
+   "detail": "MetaMask GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO, Phantom GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN"
+  },
+  "P2-S_mm. the stored owner of S_mm is the expected account": {
+   "pass": true,
+   "detail": "GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO"
+  },
+  "P2-S_fr. the stored owner of S_fr is the expected account": {
+   "pass": true,
+   "detail": "GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I"
+  },
+  "P2-S_ph. the stored owner of S_ph is the expected account": {
+   "pass": true,
+   "detail": "GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN"
+  },
+  "P3-S_mm. S_mm runs the built wasm": {
+   "pass": true,
+   "detail": "27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992 build 27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992"
+  },
+  "P3-S_fr. S_fr runs the built wasm": {
+   "pass": true,
+   "detail": "27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992 build 27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992"
+  },
+  "P3-S_ph. S_ph runs the built wasm": {
+   "pass": true,
+   "detail": "27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992 build 27472f1c27f0180bf3865c82eab7d347bef6a453415bcf25845b7ede7d6e1992"
+  },
+  "L1-owner-MetaMask. master weight 1, thresholds low 1 / medium 1 / high 2, the account's own key is the only signer": {
+   "pass": true,
+   "detail": "GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO thresholds 1/1/2 signers GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO:1"
+  },
+  "L2-owner-MetaMask. control: a medium-threshold SetOptions (home domain) signed by the key is accepted": {
+   "pass": true,
+   "detail": "d1774be7577eed8fd0a25a9a80202d738955398ae063313dfef9d36ff46ec794"
+  },
+  "L3-owner-MetaMask. SetOptions that adds a signer, signed by the key, is refused": {
+   "pass": true,
+   "detail": "{\"transaction\":\"tx_failed\",\"operations\":[\"op_bad_auth\"]}"
+  },
+  "L4-owner-MetaMask. AccountMerge into the relayer, signed by the key, is refused": {
+   "pass": true,
+   "detail": "{\"transaction\":\"tx_failed\",\"operations\":[\"op_bad_auth\"]}"
+  },
+  "L5-owner-MetaMask. after both refusals the signer list and thresholds are unchanged and the account exists": {
+   "pass": true,
+   "detail": "1/1/2 GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO:1"
+  },
+  "L1-owner-Phantom. master weight 1, thresholds low 1 / medium 1 / high 2, the account's own key is the only signer": {
+   "pass": true,
+   "detail": "GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN thresholds 1/1/2 signers GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN:1"
+  },
+  "L2-owner-Phantom. control: a medium-threshold SetOptions (home domain) signed by the key is accepted": {
+   "pass": true,
+   "detail": "e94037cb5a8aa1619b9a2ee09496d1a1520e3d98f12e488503ce8a4dd5db6fdd"
+  },
+  "L3-owner-Phantom. SetOptions that adds a signer, signed by the key, is refused": {
+   "pass": true,
+   "detail": "{\"transaction\":\"tx_failed\",\"operations\":[\"op_bad_auth\"]}"
+  },
+  "L4-owner-Phantom. AccountMerge into the relayer, signed by the key, is refused": {
+   "pass": true,
+   "detail": "{\"transaction\":\"tx_failed\",\"operations\":[\"op_bad_auth\"]}"
+  },
+  "L5-owner-Phantom. after both refusals the signer list and thresholds are unchanged and the account exists": {
+   "pass": true,
+   "detail": "1/1/2 GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN:1"
+  },
+  "R-probe. MetaMask + Freighter (both owners, nested owner authorization) add the probe rule": {
+   "pass": true,
+   "ok": true,
+   "hash": "5a35e982d5f4d5a341127cee949422d47ac37422313eab64e6508aee30ef6e3e",
+   "cpu": 5418350,
+   "kind": "admin:owner+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 3454499,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "R-xlm_mm. MetaMask + Freighter install xlm_mm: XLM to VENUE only, signer Delegated(that wallet's prime-seat)": {
+   "pass": true,
+   "ok": true,
+   "hash": "dce7f955181485cc926476f7c23728b075b19a0b3fe1aa271ef018b752ed3b52",
+   "cpu": 7524670,
+   "kind": "admin:owner+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1204282,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "R-xlm_fr. MetaMask + Freighter install xlm_fr: XLM to VENUE only, signer Delegated(that wallet's prime-seat)": {
+   "pass": true,
+   "ok": true,
+   "hash": "9fe0acbfbb55283a70b534f4ea2eaf0d2a12b9ecafc54c7972006730d090b797",
+   "cpu": 7526668,
+   "kind": "admin:owner+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1265853,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "R-xlm_ph. MetaMask + Freighter install xlm_ph: XLM to VENUE only, signer Delegated(that wallet's prime-seat)": {
+   "pass": true,
+   "ok": true,
+   "hash": "f02d45327c3fbb9bcf3ee8754ab5b7d8a37893902d9130231aac3dbf691bf99e",
+   "cpu": 7522736,
+   "kind": "admin:owner+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1017844,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "R-ext. the policy-interpreter refuses an External signer on a session rule (ExternalSignerNotSupported), so session rules keep Delegated signers": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Contract, #212)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V0a. Freighter grant, move+vote": {
+   "pass": true,
+   "ok": true,
+   "hash": "9141fcbc58560d60864bf7de1ee41c8870268bfbf5fc66bdd12787eae03ce7e7",
+   "cpu": 947016,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18196,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V0b. Freighter grant, move only": {
+   "pass": true,
+   "ok": true,
+   "hash": "ac007d9feae33983c84debd017d5c93187f9b2a6cf5177b31264d27b66323359",
+   "cpu": 948073,
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18197,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V0c. MetaMask grant (NEAR MPC), move+vote": {
+   "pass": true,
+   "ok": true,
+   "hash": "3e71cd6561d2b4f705a043ba1a3f04d1fc470f24f0acc58659b01e8be0be1481",
+   "cpu": 947568,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18204,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V0d. MetaMask grant (NEAR MPC), move only": {
+   "pass": true,
+   "ok": true,
+   "hash": "09afed5ed02f0609b939a5323cf80a1824fb39706e4a9cb69e966ec6882bbfc1",
+   "cpu": 947568,
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18204,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V0e. Phantom grant (NEAR MPC), move+vote": {
+   "pass": true,
+   "ok": true,
+   "hash": "0588fad8f01b5e439938f7962cd5f3342110231cc416df1f48fb10fc583d2d2c",
+   "cpu": 947568,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18204,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V0f. Phantom grant (NEAR MPC), move only": {
+   "pass": true,
+   "ok": true,
+   "hash": "a5829de150fae17f310da2eccb828ed1500c8852b576e0f12b1c08629d1dd956",
+   "cpu": 947568,
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18204,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V0g. Freighter grant, move+vote, 15 ledgers": {
+   "pass": true,
+   "ok": true,
+   "hash": "df05120f7e845328b14c1b8480fb74bf1581cf1dd21842f93a7e6551547a64b7",
+   "cpu": 947016,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18196,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V0h. Freighter grant, move+vote (revoked below)": {
+   "pass": true,
+   "ok": true,
+   "hash": "9099b6d8b9f76b256ff35d1ec23d25a15056fb05d79db7c55424dbc785e448cc",
+   "cpu": 948073,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18197,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V0i. the stored grant carries the vote flag: true for the vote session, false for the move-only one": {
+   "pass": true,
+   "detail": "{\"until\":5087156,\"vote\":true,\"live\":5087157} {\"until\":5087158,\"vote\":false,\"live\":5087158}"
+  },
+  "V1-Freighter. Freighter's owner authorization alone (one seat)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V1-MetaMask. MetaMask's owner authorization alone (one seat)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V1-Phantom. Phantom's owner authorization alone (one seat)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V2a. Freighter + Phantom owners (each through its own authorization)": {
+   "pass": true,
+   "ok": true,
+   "hash": "d2d701678922bdcd1c96374586bb8a4b65807101208b6c34bd96118d0ebf8c6b",
+   "cpu": 5076179,
+   "kind": "vote:owner+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 43501,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V2b. MetaMask + Phantom owners": {
+   "pass": true,
+   "ok": true,
+   "hash": "0ce9e143b3161eea49f3d0a397d3e3bff0d3505d8df96a07ddb1664eb4894218",
+   "cpu": 5074988,
+   "kind": "vote:owner+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 43507,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V3a. Freighter's vote session + Phantom's owner": {
+   "pass": true,
+   "ok": true,
+   "hash": "5763823bdd47c952477febf5bba1030dde11bc796312289d769abde798489098",
+   "cpu": 5008371,
+   "kind": "vote:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 35497,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V3b. MetaMask's vote session + Freighter's owner": {
+   "pass": true,
+   "ok": true,
+   "hash": "5dcc3efa84b14a237310da19ec0b9a42ae2d4cf520a60e56b66e23c91135c04a",
+   "cpu": 5013117,
+   "kind": "vote:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 35494,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V3c. Phantom's vote session + Freighter's owner": {
+   "pass": true,
+   "ok": true,
+   "hash": "3a7cd7d8f4f140eade20a29da5e16dd4be1acc0c414a53cb58daab8c3b4ba81d",
+   "cpu": 5007744,
+   "kind": "vote:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 35490,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V3d. two vote sessions (Freighter's + Phantom's) and no owner present": {
+   "pass": true,
+   "ok": true,
+   "hash": "a50a7b30a01bb599c0ddec615b6bc30a68916178b0513e576e729c5db44ce476",
+   "cpu": 4945781,
+   "kind": "vote:session+session",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 27492,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V3e0. Freighter grant, move+vote, for a key with its own account (relayer down)": {
+   "pass": true,
+   "ok": true,
+   "hash": "37fb152776af4e397513b9f988690f54b84fc77e73d1e38cc0bb9ea4d60643c2",
+   "cpu": 948073,
+   "kind": "grant+vote",
+   "payer": "GDOKETGCKULXI263VCDCGKDBS7ERS6MET7H5L5PNTJXIWXZIC4FNMC77",
+   "selfPaid": true,
+   "fee": 18197,
+   "source": "GDOKETGCKULXI263VCDCGKDBS7ERS6MET7H5L5PNTJXIWXZIC4FNMC77",
+   "okH": true
+  },
+  "V3e. relayer down: the vote session key's own account pays the fee for the vote": {
+   "pass": true,
+   "ok": true,
+   "hash": "3b5b0b3a8f607f7920ea306e138c430b843e099241d400c47939ef1c122dc8c4",
+   "cpu": 5008371,
+   "kind": "vote:session+owner",
+   "payer": "GDOKETGCKULXI263VCDCGKDBS7ERS6MET7H5L5PNTJXIWXZIC4FNMC77",
+   "selfPaid": true,
+   "fee": 35497,
+   "source": "GDOKETGCKULXI263VCDCGKDBS7ERS6MET7H5L5PNTJXIWXZIC4FNMC77",
+   "okH": true
+  },
+  "V4a. Freighter's move-only session + Phantom's owner": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3003)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V4b. MetaMask's move-only session + Freighter's owner": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3003)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V4c. Phantom's move-only session + Freighter's owner": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3003)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V4d. a move-only session + a vote session (two session seats)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3003)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V5a. Freighter's owner and Freighter's own vote session together (the seat counts once)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V5b. Freighter's owner authorization and no session proof, listed once, with nobody else": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V5c. Freighter's owner + the vote session key's own account as a second voter (not a signer of rule 0)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V6a. Freighter's vote session alone": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V6b. MetaMask's vote session alone": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V6c. Phantom's vote session alone": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V7a0. Freighter revokes a vote session: grant(key, 0, false)": {
+   "pass": true,
+   "ok": true,
+   "hash": "5ac8d2b2e57677ec803272e87a43ef17b531c72ac8f349ddab9d4bde660acd8d",
+   "cpu": 952829,
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 753015,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V7a. the revoked vote session + Phantom's owner": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3003)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V7b0. a revoked key cannot be granted again with the vote flag (revoke is final)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Contract, #1)",
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V7b. ... and it still cannot vote": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3003)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V7d0. Freighter grant, move+vote (revoked below with the flag set)": {
+   "pass": true,
+   "ok": true,
+   "hash": "e1e3b85b3a7f0f4f989e99c1ba7a5f63de76debc3b433535cb47bcc645b3f51a",
+   "cpu": 948073,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18197,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V7d1. Freighter revokes it with the vote flag set: grant(key, 0, true)": {
+   "pass": true,
+   "ok": true,
+   "hash": "d82934cacec1d934003d4a9ef574d06399b786c08f25015a93ec8b64cd049c05",
+   "cpu": 952829,
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 753010,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V7d2. the revoke is final whatever flag it carried: a new grant of the key is refused": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Contract, #1)",
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V7d3. ... and the key cannot vote": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3003)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V7c. an expired vote session (until + 1) + Phantom's owner": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3003)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V8a. Freighter's vote session key in Phantom's seat + Freighter's owner": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3003)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V8b. Freighter's vote session key in MetaMask's seat + Freighter's owner": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3003)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V8c. Phantom's vote session key in Freighter's seat + Phantom's owner": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3003)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V8d. an unknown key in Freighter's seat + Phantom's owner": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3003)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V8e. Freighter's vote session proof signed by another key (key claimed, signature from a stranger) + Phantom's owner": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Crypto, InvalidInput)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V9a. Freighter authorized move-only; the relayer submits move+vote": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction)",
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V9b. the key cannot vote": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3003)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V9c. Freighter authorized move+vote; the relayer submits move-only": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V9d. Phantom authorized move-only; the relayer submits move+vote": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction)",
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V10a. a stranger signs Freighter's owner authorization + Phantom's owner": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V10b. Phantom's owner key signs Freighter's owner authorization + Phantom's owner": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V10c. MetaMask's old seat key (prime:stellar) signs MetaMask's owner authorization + Freighter's owner": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V10d. Freighter's signed grant authorization offered as its owner vote + Phantom's owner": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V10e. Freighter's owner authorization for another digest (another transaction) + Phantom's owner": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V10f. no owner authorization at all for Freighter's seat (entry for Phantom's contract) + Phantom's owner": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V11a. Freighter grant, move+vote": {
+   "pass": true,
+   "ok": true,
+   "hash": "984429fd975dceb29a8f4c7c2447bd812e7ffa0b77d622379a0888c4311c8501",
+   "cpu": 948073,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18197,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V11b. the vote session votes": {
+   "pass": true,
+   "ok": true,
+   "hash": "37a951958186b0cf8146336d831a15b22a076de73b9a2b1d66e2e4e01ceec4ba",
+   "cpu": 5008371,
+   "kind": "vote:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 35497,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V11c. Freighter re-grants the same key and the same end ledger as move-only": {
+   "pass": true,
+   "ok": true,
+   "hash": "8597181946cf0c5db291176d0e5daf5ff156f00f8f6abe7c57d8fbbb4331136f",
+   "cpu": 957220,
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 15492,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V11d. the downgraded key cannot vote": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3003)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V11e. a stranger signs a re-grant of the key with the vote flag": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V11f. the key still cannot vote after the refused upgrade": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3003)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V11g. Freighter re-grants it with the vote flag": {
+   "pass": true,
+   "ok": true,
+   "hash": "e406590442dd8fde21544d304270f355905ff5899ca6bca2a704dcfb77c8eca4",
+   "cpu": 957220,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 15492,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V11h. the upgraded key votes again": {
+   "pass": true,
+   "ok": true,
+   "hash": "0407f1672a306f7b86d1aa57fb971c89a73ed1b1c1a77a5128f612c20d278b2a",
+   "cpu": 5008371,
+   "kind": "vote:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 35497,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V12a. a move+vote grant 10 ledgers beyond 7 days is refused at grant time": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Contract, #1)",
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "V12b. Freighter grant, move+vote, 7 days less 20 ledgers": {
+   "pass": true,
+   "ok": true,
+   "hash": "9e1c19d2a1917ecd09137b86dc5e59eddb92508ceda904978a972d93852bd631",
+   "cpu": 948073,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 46611,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "V12c. the 7-day vote grant stores its end and lives at least to it": {
+   "pass": true,
+   "detail": "{\"until\":5207466,\"vote\":true,\"live\":5207466} session end 5207466"
+  },
+  "V12d. the 7-day vote session votes": {
+   "pass": true,
+   "ok": true,
+   "hash": "2af6b9d74b8883b311ee55528174a4d8c697cc67c6611f526e0a9ef3d92b4bf4",
+   "cpu": 5008371,
+   "kind": "vote:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 35497,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "D0. Freighter grant, move+vote (the session under test)": {
+   "pass": true,
+   "ok": true,
+   "hash": "b999492985a65eb8c5c97c4af5c49440981322f86374b37b8424c9a23476d220",
+   "cpu": 948073,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18197,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "D0a. start: threshold 2, three External seats on rule 0": {
+   "pass": true,
+   "detail": "threshold 2"
+  },
+  "D1. vote session + Phantom owner lower the rule-0 threshold from 2 to 1 (execute set_threshold on the weighted policy)": {
+   "pass": true,
+   "ok": true,
+   "hash": "8f5e3fb0e78c55e4767f4ab01a504d6d43a9488a7234b3cc800449463fd3bfec",
+   "cpu": 5347373,
+   "kind": "admin:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 42386,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "D1a. the threshold now reads 1": {
+   "pass": true,
+   "detail": "threshold 1"
+  },
+  "D2. the vote session ALONE now passes rule 0": {
+   "pass": true,
+   "ok": true,
+   "hash": "3b36c9cdddc5778b5023d1934d0159df93dfac1987a7897d5f16483defbf9b49",
+   "cpu": 4036721,
+   "kind": "admin",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 25086,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "D3. the vote session alone raises the threshold back to 2": {
+   "pass": true,
+   "ok": true,
+   "hash": "0d284f6223abf3188afe01a664be9ac2675b3e153f6343d38ccd135a5e46c7d3",
+   "cpu": 4380696,
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 31979,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "D3a. the threshold reads 2 again": {
+   "pass": true,
+   "detail": "threshold 2"
+  },
+  "D3b. control: the vote session alone is refused again": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)",
+   "kind": "admin",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "D4. vote session + Phantom owner add a thief account as a seat of rule 0 (add_signer)": {
+   "pass": true,
+   "ok": true,
+   "hash": "3f171a153cfa1ee28bcfbb7a8660ef84af38749c174dfc9b8b4a8af760041ffd",
+   "cpu": 6412102,
+   "kind": "admin:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 266415,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "D5. vote session + Phantom owner give the thief weight 1 (execute set_signer_weight)": {
+   "pass": true,
+   "ok": true,
+   "hash": "13fcf3766c43f56f05f7c33884970166c58c395c6e57f62fbf491bce21b4e03a",
+   "cpu": 5589944,
+   "kind": "admin:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 650704,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "D6. the thief + Phantom owner now pass rule 0 (a third party holds a seat)": {
+   "pass": true,
+   "ok": true,
+   "hash": "7fff98858a6bdeace347646ee11cdf257d21ac2ce54aece473ea030dae6fc67a",
+   "cpu": 4899195,
+   "kind": "admin",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 43516,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "B0. the control contract runs the round 9 build (sha256 e36d155f...)": {
+   "pass": true,
+   "detail": "e36d155f0381a466fb6c2c29b788a9d52e4a6f3e568f30da981609075bb7a0b3 e36d155f0381a466fb6c2c29b788a9d52e4a6f3e568f30da981609075bb7a0b3"
+  },
+  "N0a. Phantom grant, move only": {
+   "pass": true,
+   "ok": true,
+   "hash": "41968e3a899cf68f0d00414a76424187e71c7cb6af81958db97d0ec7c1cfcbfa",
+   "cpu": 947568,
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18204,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "N0b. Phantom grant, move+vote": {
+   "pass": true,
+   "ok": true,
+   "hash": "153e92d7b28b9edd47eb3a534db9d93f6447f489348d657ac8b1336cebac972c",
+   "cpu": 947568,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18204,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "N1. Phantom's move-only key through the move entry point (Delegated) as a rule-0 seat + Freighter's owner": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "N2. Phantom's move-only key in the vote entry point (External) + Freighter's owner": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3003)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "N3. Phantom's move-only session asks its own session rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "N4. Phantom's move+vote session asks its session rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "N5. Phantom's move+vote session removes rule 0 through its session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "N6. Phantom's vote session key as an External signer of its session rule (not in that rule)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "N7. a plain account that is not a seat + Freighter's owner on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "D7. vote session + Phantom owner remove the thief seat (remove_signer)": {
+   "pass": true,
+   "ok": true,
+   "hash": "e9c8a0db57bd93bbfbe4e8e5781741250da85e09e65f7a3482d29c1ea1cc4ff5",
+   "cpu": 5121520,
+   "kind": "admin:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 39038,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "D7a. ... and clear its weight": {
+   "pass": true,
+   "ok": true,
+   "hash": "52a647d17deac64bf8b46c590c1253871f4601d720cc7c0c16c1ae7e997dcc3e",
+   "cpu": 5414259,
+   "kind": "admin:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 44042,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "D7b. control: the thief + Phantom owner are refused again": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "admin",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "D8. vote session + Phantom owner remove MetaMask's seat from rule 0": {
+   "pass": true,
+   "ok": true,
+   "hash": "eba68493aa3a06c82c08f5a0701984f20501e300def90450a9ef4169549cca91",
+   "cpu": 4962186,
+   "kind": "admin:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 38553,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "D9. MetaMask's owner + Freighter's owner are refused (the seat is gone)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "admin",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "D10. Freighter + Phantom owners put MetaMask's seat back (add_signer)": {
+   "pass": true,
+   "ok": true,
+   "hash": "bce576379149daf0caef19a16ea0d7653968898a324445ceb7a694c9923cdd1a",
+   "cpu": 6246517,
+   "kind": "admin:owner+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 276195,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "D11. MetaMask's owner + Freighter's owner pass again": {
+   "pass": true,
+   "ok": true,
+   "hash": "651308efed80fcfdbdbe8440fa22c397ed3629dfa3377e14fafe80c8cdf548c6",
+   "cpu": 5076483,
+   "kind": "admin",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 458138,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "D12. vote session + Phantom owner add a rule that the session key alone satisfies (the rule it would use for any call)": {
+   "pass": true,
+   "ok": true,
+   "hash": "17d90028e46855a0a0e3153adf9ec3d09b59170499f18895358b99d954fa9c5a",
+   "cpu": 5348271,
+   "kind": "admin:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 432028,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "D12a. ... and remove it again": {
+   "pass": true,
+   "ok": true,
+   "hash": "0bc37f1426c16f8f5e4a6cb74f2c47cdc92bf4f814f2ab481cbe58b895db8207",
+   "cpu": 5145634,
+   "kind": "admin:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 41725,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "D13. end state: rule 0 holds the three External seats again and the threshold is 2": {
+   "pass": true,
+   "detail": "3 signers, threshold 2"
+  },
+  "Q-MetaMask0. MetaMask grant (move only): one NEAR MPC authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "4dac2410f03e11997186356234802e072f8889c6afe269e56b10bd763ad0be13",
+   "cpu": 947568,
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18204,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q-MetaMask1. relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "e666a3dbeb41cae64951b2305268e505a85b569403e6bfa1c6dfc193948493d2",
+   "cpu": 4196448,
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1388798,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q-MetaMask2a. MetaMask grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "445f9dca218b0b2d6a9f3f9d9067086a30798f4980b4c66bf85bb67b5cccfec2",
+   "cpu": 947568,
+   "kind": "grant",
+   "payer": "GC2LBN456LBYPEDDSMLXGU25O26WYPCZUYUZU2ZZDYYCKFVSCQMX6QXN",
+   "selfPaid": true,
+   "fee": 18204,
+   "source": "GC2LBN456LBYPEDDSMLXGU25O26WYPCZUYUZU2ZZDYYCKFVSCQMX6QXN",
+   "okH": true
+  },
+  "Q-MetaMask2. relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "754b50ae206a106edf9cf78b76b73a937e7e21ce2dd869f85e14873220488360",
+   "cpu": 4192103,
+   "kind": "move",
+   "payer": "GC2LBN456LBYPEDDSMLXGU25O26WYPCZUYUZU2ZZDYYCKFVSCQMX6QXN",
+   "selfPaid": true,
+   "fee": 32907,
+   "source": "GC2LBN456LBYPEDDSMLXGU25O26WYPCZUYUZU2ZZDYYCKFVSCQMX6QXN",
+   "okH": true
+  },
+  "Q-MetaMask3. VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "Q-MetaMask4a. MetaMask grant for a session key that has no account": {
+   "pass": true,
+   "ok": true,
+   "hash": "d0851f935c4664a93cd5c0e98738f832cecc3f45cdbbd5bc0a358197b64643e5",
+   "cpu": 947568,
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18204,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q-MetaMask4. relayer down and the session key has no account": {
+   "pass": true,
+   "ok": false,
+   "error": "Account not found: GDMSFS4GS36T44HZYOYXIVXPPDESXADWBK5JQKVCSV2NEEKGLJRTXHEA",
+   "kind": "move",
+   "payer": "GDMSFS4GS36T44HZYOYXIVXPPDESXADWBK5JQKVCSV2NEEKGLJRTXHEA",
+   "selfPaid": true
+  },
+  "Q-MetaMask5. 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q-MetaMask6. on another wallet's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q-MetaMask7a. MetaMask grant, move+vote": {
+   "pass": true,
+   "ok": true,
+   "hash": "facecd4d3f1505a1ed2943e46a04ddafbd4875b7fe2b716ca686e41285a91e91",
+   "cpu": 947568,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18204,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q-MetaMask7. a move+vote session moves 1 XLM to VENUE too": {
+   "pass": true,
+   "ok": true,
+   "hash": "54e5c5d1eed0fbe5371e4562f1f0c42ce8a62bd6258c74cdce18f9260be03f25",
+   "cpu": 4192103,
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32907,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q-Freighter0. Freighter grant (move only): one signAuthEntry-style authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "5cc5d933e7e32af08474a19702447b3edb12c265b8db3b561afaecfa26cfda5c",
+   "cpu": 948073,
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18197,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q-Freighter1. relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "9de5bbfc9c369e7be0611dc5bb6001a2cbe17528ceeb69b374774b07a23fc1ab",
+   "cpu": 4193488,
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1045770,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q-Freighter2a. Freighter grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "15143ea45bc5ac7b53d5d6fdf310917ee0c8f8a7804984fa67bd785e56a45c39",
+   "cpu": 948073,
+   "kind": "grant",
+   "payer": "GDTBYI3CRMB5G2DXFM2JUYR2W2LFVDIFWG5RV37O4I7XALRZGE7R27OL",
+   "selfPaid": true,
+   "fee": 18197,
+   "source": "GDTBYI3CRMB5G2DXFM2JUYR2W2LFVDIFWG5RV37O4I7XALRZGE7R27OL",
+   "okH": true
+  },
+  "Q-Freighter2. relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "3087dfc289a200972fa5b0aadc7d2148c3c0dce60c564ed07a80512eb81f41ea",
+   "cpu": 4190768,
+   "kind": "move",
+   "payer": "GDTBYI3CRMB5G2DXFM2JUYR2W2LFVDIFWG5RV37O4I7XALRZGE7R27OL",
+   "selfPaid": true,
+   "fee": 32906,
+   "source": "GDTBYI3CRMB5G2DXFM2JUYR2W2LFVDIFWG5RV37O4I7XALRZGE7R27OL",
+   "okH": true
+  },
+  "Q-Freighter3. VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "Q-Freighter4a. Freighter grant for a session key that has no account": {
+   "pass": true,
+   "ok": true,
+   "hash": "df9583def99bb893cf13c608e24452c89937d60c4439fc821bd41e276dd3e13e",
+   "cpu": 948073,
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18197,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q-Freighter4. relayer down and the session key has no account": {
+   "pass": true,
+   "ok": false,
+   "error": "Account not found: GBFIYTZYFDFE5XW7PFJAK5BY5TFI2JG7DZO7FSDOIF75DVOWJYTWYXLR",
+   "kind": "move",
+   "payer": "GBFIYTZYFDFE5XW7PFJAK5BY5TFI2JG7DZO7FSDOIF75DVOWJYTWYXLR",
+   "selfPaid": true
+  },
+  "Q-Freighter5. 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q-Freighter6. on another wallet's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q-Freighter7a. Freighter grant, move+vote": {
+   "pass": true,
+   "ok": true,
+   "hash": "b725a4292772635e6028c3e75d2705fb79f35e4c755195a974585bc50c44f2f7",
+   "cpu": 948073,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18197,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q-Freighter7. a move+vote session moves 1 XLM to VENUE too": {
+   "pass": true,
+   "ok": true,
+   "hash": "98110b57c1a20ff2cce7de614ba92b888f6238d7bcaf8f38c105fbfcc55f533e",
+   "cpu": 4190768,
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32906,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q-Phantom0. Phantom grant (move only): one NEAR MPC authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "cee0c2c92143ce9bc29a8c3cd94bae844f99fe3389779644465c6b42922071cc",
+   "cpu": 947568,
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18204,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q-Phantom1. relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "89726ec888882784b782355e975547d20fe64e50b758dbce632d97c67b2f3ba0",
+   "cpu": 4193488,
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1045790,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q-Phantom2a. Phantom grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "e587d1917379d433d2ba4d5be6ca4ed9cf6ad7f34be8432bfb44c86a99af36a7",
+   "cpu": 947568,
+   "kind": "grant",
+   "payer": "GA6BYE735FKAP3XRWTOP4AGX4PJNV2HBPWAWNIAANOT7KMWFDCF2MDBV",
+   "selfPaid": true,
+   "fee": 18204,
+   "source": "GA6BYE735FKAP3XRWTOP4AGX4PJNV2HBPWAWNIAANOT7KMWFDCF2MDBV",
+   "okH": true
+  },
+  "Q-Phantom2. relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "eab6b1ed4a865f00dca021b4238d60a58c9f257b54eeb1c31dfd1c0811a3d4ca",
+   "cpu": 4190768,
+   "kind": "move",
+   "payer": "GA6BYE735FKAP3XRWTOP4AGX4PJNV2HBPWAWNIAANOT7KMWFDCF2MDBV",
+   "selfPaid": true,
+   "fee": 32906,
+   "source": "GA6BYE735FKAP3XRWTOP4AGX4PJNV2HBPWAWNIAANOT7KMWFDCF2MDBV",
+   "okH": true
+  },
+  "Q-Phantom3. VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "Q-Phantom4a. Phantom grant for a session key that has no account": {
+   "pass": true,
+   "ok": true,
+   "hash": "e8aad9c489fc98f352aab07f3abf5f165b7f49e13e935b609dc6717feb0a4bbd",
+   "cpu": 947568,
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18204,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q-Phantom4. relayer down and the session key has no account": {
+   "pass": true,
+   "ok": false,
+   "error": "Account not found: GAMRKVSDWXNLJCSXGJS6SIDCUHGXIMJR2H7HDMMKLJ5HBWVWXW3LXMV5",
+   "kind": "move",
+   "payer": "GAMRKVSDWXNLJCSXGJS6SIDCUHGXIMJR2H7HDMMKLJ5HBWVWXW3LXMV5",
+   "selfPaid": true
+  },
+  "Q-Phantom5. 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q-Phantom6. on another wallet's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q-Phantom7a. Phantom grant, move+vote": {
+   "pass": true,
+   "ok": true,
+   "hash": "f7cec7e9242a8fb2670ce0900d91c655a1428c1b34e6a70af42b97c913c5b313",
+   "cpu": 947568,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18204,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q-Phantom7. a move+vote session moves 1 XLM to VENUE too": {
+   "pass": true,
+   "ok": true,
+   "hash": "1d7d30d099ef4974d1ec30f76ec79f42b2310c7f9f5779f01a09fd16be08d897",
+   "cpu": 4190768,
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32906,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q-never. a session key that was never granted": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q7. Phantom authorized one valid-until; the relayer submits a later one": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q7b. the key from Q7 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q8. MetaMask grant 10 ledgers beyond 7 days is refused at grant time": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Contract, #1)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q8b. the key from Q8 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q9-MetaMask0. MetaMask grant (first session, move+vote)": {
+   "pass": true,
+   "ok": true,
+   "hash": "5f860f53ba67f2c5fbb7d4aa90dadc916510dfca5e38ece393b8d423972e0d57",
+   "cpu": 947568,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18204,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q9-MetaMask00. MetaMask grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "faeb58330d4765293173b94798af0df1b4878f929fba886a073cd18c6a110143",
+   "cpu": 947568,
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18204,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q9-MetaMaska. session before revoke": {
+   "pass": true,
+   "ok": true,
+   "hash": "707ad3bc5d2ec44042689daf758fa9adc9619e962f520f079a7e6239a142988a",
+   "cpu": 4192103,
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32907,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q9-MetaMaskb. MetaMask revokes it: grant(key, 0, false), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "c27aa97cc188bb8cbc990fe2d20230a7c9fdd5adae37e9da731c9bc3bb38825f",
+   "cpu": 953381,
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 753799,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q9-MetaMaskc. the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q9-MetaMaskd. another live session of the same wallet still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "95263b29558ced33806e564c7607bea43f34bb954f015b75f8b433fcc9fa0ee6",
+   "cpu": 4192103,
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32907,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q9-Freighter0. Freighter grant (first session, move+vote)": {
+   "pass": true,
+   "ok": true,
+   "hash": "89b4cb8fcfde74d468b68a70b40d8f96156699d5eeb76fb2abbbf6b90b5a884d",
+   "cpu": 948073,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18197,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q9-Freighter00. Freighter grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "66154b8768036e06d495d40cf558a39dca599504dd3f53c5f65d831f6846bc9d",
+   "cpu": 948073,
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18197,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q9-Freightera. session before revoke": {
+   "pass": true,
+   "ok": true,
+   "hash": "f87a0554c59419ad115949c581758a637ce6d8da1a62f64b51491db45fc273d6",
+   "cpu": 4190768,
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32906,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q9-Freighterb. Freighter revokes it: grant(key, 0, false), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "8832387c5694896635540e4df52413ddbf60bee95cb6cce9b61c29c3dac15f7a",
+   "cpu": 952829,
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 753790,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q9-Freighterc. the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q9-Freighterd. another live session of the same wallet still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "ef7857713ee41ea42bc75cda3f8a18f3b828acf541e066a701c7d67f67cf0a49",
+   "cpu": 4190768,
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32906,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q10-0. Phantom grant (target of the Freighter revoke)": {
+   "pass": true,
+   "ok": true,
+   "hash": "4256ce9e95d75e7c52fecc859eb7b4270964bfa43d4db41b42a89dbabe9a4181",
+   "cpu": 947568,
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18204,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q10. Freighter signs a revoke of a Phantom session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q10b. the Phantom session still works after the refused revoke": {
+   "pass": true,
+   "ok": true,
+   "hash": "f50622b924e0752d03cc377885e5a0f178639adef89b19e75dc12dd14760ccf2",
+   "cpu": 4190768,
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32906,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q11-0. Phantom grant for 15 ledgers": {
+   "pass": true,
+   "ok": true,
+   "hash": "3e9d2b868b602435c75408eec98badbda3b4fd0c0262e98f7577f6109eee4790",
+   "cpu": 947568,
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18204,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q11a. the short session works before its end": {
+   "pass": true,
+   "ok": true,
+   "hash": "ecc0600a6b9e89d0ae0e5ba8a20aa9bee70e386ea566c3262c2353e10fb03f7b",
+   "cpu": 4190768,
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32906,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q11b. past its end the stored entry still exists": {
+   "pass": true,
+   "detail": "{\"until\":5086916,\"vote\":false,\"live\":5087623}"
+  },
+  "Q11c. the short session at until + 1": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q12-0. Freighter grant for the longest session (7 days less 20 ledgers)": {
+   "pass": true,
+   "ok": true,
+   "hash": "a195e7cafc713857ee27e45fa8edf1a353c1204bc656313db42c81ed7f3a145d",
+   "cpu": 948073,
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 46651,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q12a. the 7-day entry stores its end and lives at least to it": {
+   "pass": true,
+   "detail": "{\"until\":5207858,\"vote\":false,\"live\":5207858} session end 5207858"
+  },
+  "Q12b. a move in the 7-day session": {
+   "pass": true,
+   "ok": true,
+   "hash": "b5fc8fdc285643d59a0593366b4d6d1a6bc29b90a1cb498d803e364e5712b1f4",
+   "cpu": 4190768,
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32906,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q13a. Freighter grant for the replay test": {
+   "pass": true,
+   "ok": true,
+   "hash": "f4c1dad1014d0762c1e0c729a91ad504cc814623ebdee17ebeed63baef6812a3",
+   "cpu": 948073,
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18197,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q13b. Freighter revokes it": {
+   "pass": true,
+   "ok": true,
+   "hash": "2de22da3b732979e8f449789091a8dd6a7f416c59638188ac7bfbf30cbe4bcf9",
+   "cpu": 952829,
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 754049,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q13c. replay of the used grant authorization": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, ExistingValue)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q13d. the revoked key cannot move after the replay attempt": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q17-Freightera. Freighter grant (the first of two entries signed together)": {
+   "pass": true,
+   "ok": true,
+   "hash": "463cb3b654da1bf477d588aa13eac516952afe88368e839ea618f34a280292a5",
+   "cpu": 948073,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18197,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q17-Freighterb. the session moves": {
+   "pass": true,
+   "ok": true,
+   "hash": "6cc83c606cdc9734120853b3a2909cd16f979f68e8478be72ea90e655a9fe630",
+   "cpu": 4190768,
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32906,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q17-Freighterc. Freighter revokes it": {
+   "pass": true,
+   "ok": true,
+   "hash": "c6c3dcbe4dee528fe5880a8d4f7161fa8d991915126603042c302ab28e02a061",
+   "cpu": 952829,
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 754050,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q17-Freighterd. the held-back second entry, submitted after the revoke": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Contract, #1)",
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q17-Freightere. the key cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q17-Freighterf. a new authorization to grant the revoked key again": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Contract, #1)",
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q17-Freighterg. the revoke entry stores 0 and lives to at least 3,000,000 ledgers ahead": {
+   "pass": true,
+   "detail": "{\"until\":0,\"vote\":false,\"live\":8197326}"
+  },
+  "Q17-Phantoma. Phantom grant (the first of two entries signed together)": {
+   "pass": true,
+   "ok": true,
+   "hash": "72055ed409dc9895fdd914bb519cc98b01138fb41d254748814e2f8adca297f1",
+   "cpu": 947568,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18204,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q17-Phantomb. the session moves": {
+   "pass": true,
+   "ok": true,
+   "hash": "de03b35275a98a81a15991b1b107966849d1c8b7fce31bf0e2dfccaee89c0cce",
+   "cpu": 4190768,
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32906,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q17-Phantomc. Phantom revokes it": {
+   "pass": true,
+   "ok": true,
+   "hash": "ca407194a497a40f0600f189c358ea2ffc5260192572a5d44b41a00d2c98e6c9",
+   "cpu": 953381,
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 754058,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q17-Phantomd. the held-back second entry, submitted after the revoke": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Contract, #1)",
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q17-Phantome. the key cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q17-Phantomf. a new authorization to grant the revoked key again": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Contract, #1)",
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q17-Phantomg. the revoke entry stores 0 and lives to at least 3,000,000 ledgers ahead": {
+   "pass": true,
+   "detail": "{\"until\":0,\"vote\":false,\"live\":8197334}"
+  },
+  "Q14a. control: a grant authorization submitted before its signature-expiry ledger": {
+   "pass": true,
+   "ok": true,
+   "hash": "ec4df63e88f35af55621ba7349e16bfbcbbee3024d077a78d7a6aec4258ad2d6",
+   "cpu": 947016,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18196,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "Q14. the same authorization for another key, submitted after its signature-expiry ledger": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidInput)",
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q15. a stranger signs Freighter's grant authorization": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Q16. a stranger sends a grant with no owner authorization, paying the fee": {
+   "pass": true,
+   "ok": false,
+   "hash": "1be67875164eaf6b124f79611db75202029683b57cd00f6fb76e1fa8a4fc4ed6",
+   "cpu": 962090,
+   "error": "FAILED \"AAAAAAAALxr/////AAAAAQAAAAAAAAAY/////gAAAAA=\"",
+   "kind": "grant+vote",
+   "payer": "GD2XGRFJUFROYIG2NJHTCV4QL6LEHONXI7PI2CVYCVX4WQAK7ZYAZ4Q2",
+   "selfPaid": true
+  },
+  "X1. Freighter's prime-seat: grant signed by Phantom's owner key (NEAR)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "X1b. the key from X1 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "X4. Phantom's prime-seat: grant signed by its MPC key under another path": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "X4b. the key from X4 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "X5. Phantom's owner key authorizes a grant on MetaMask's prime-seat": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "X5b. the key from X5 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "X6. MetaMask's grant authorization (for its own prime-seat) sent to Phantom's prime-seat": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "X7. Phantom's old seat key (prime:stellar) signs the grant of its own prime-seat": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "X7b. the key from X7 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "X8. MetaMask's old seat key (prime:stellar) signs a vote-flag grant of its own prime-seat": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "X8b. the key from X8 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "B1. MetaMask + Freighter install a session rule for the control contract (Delegated)": {
+   "pass": true,
+   "ok": true,
+   "hash": "d07ba395fd5c3422e821026bf707f838b759f0a7e44776f7777fa1bf65c6672b",
+   "cpu": 7528999,
+   "kind": "admin:owner+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1022890,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "B2. control grant(key, until), the round 9 signature, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "ca8ade4a3de07e622ed80129ec5aa3a0b5cebb283b38ba9a7628933f4dff4100",
+   "cpu": 920540,
+   "kind": "base:grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18109,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "B3. control move: 1 XLM to VENUE through the Delegated session rule": {
+   "pass": true,
+   "ok": true,
+   "hash": "2a8235ab9d1d00c78d34c563f467024922567799176a86902e6fb7a6223539ed",
+   "cpu": 4166151,
+   "kind": "base:move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32891,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "B4. control revoke grant(key, 0)": {
+   "pass": true,
+   "ok": true,
+   "hash": "3d0e40aaa21fb14d5130996863af2273c7a3b471ed508b815ad91b4ffcfe3769",
+   "cpu": 925761,
+   "kind": "base:revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 756303,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "NGS0. MetaMask + Freighter (plain owner accounts, rule 0) add the probe rule": {
+   "pass": true,
+   "ok": true,
+   "hash": "c2d45bf53cba3e2d6952d86037aa18fda985ab46767fe4881187d06a0f946850",
+   "cpu": 4639394,
+   "kind": "admin:plain+plain",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 3468474,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "NGS1. MetaMask + Freighter install the ops rule: CallContract(XLM), the three External seats, weighted 2-of-3": {
+   "pass": true,
+   "ok": true,
+   "hash": "0016f2482ff839708e68db8287a2c941b299610e1150f872639877c65ef4878c",
+   "cpu": 7379925,
+   "kind": "admin:plain+plain",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1419828,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "NGS2. rule 0 holds only the three owners' plain accounts; the ops rule holds only the three External seats": {
+   "pass": true,
+   "detail": "3 + 3 signers"
+  },
+  "NG0a. Freighter grant, move+vote": {
+   "pass": true,
+   "ok": true,
+   "hash": "f9d565d21e108a5a2d780e39744ea9a98ec14c22cdfa0a5ea0883f39e875c60d",
+   "cpu": 948073,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18198,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "NG0b. Phantom grant, move+vote": {
+   "pass": true,
+   "ok": true,
+   "hash": "21decc5e6db5cd066f7481358f9677b48be49f5e226a62ce04ac91450812e8e3",
+   "cpu": 947568,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18205,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "NG0c. Freighter grant, move only": {
+   "pass": true,
+   "ok": true,
+   "hash": "f0a393bbc6fa23bd649bd4ed9b2c97da94c6479f77c1dfb3095981de1791c38e",
+   "cpu": 948073,
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18198,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "NG1. baseline: plain owners MetaMask + Freighter on rule 0 (the production seat vote), same rename action": {
+   "pass": true,
+   "ok": true,
+   "hash": "083166e3530c070c69680de9baae9005e973d17c83a0ad7e9729bcac71f1fe93",
+   "cpu": 4293256,
+   "kind": "vote:plain+plain",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 41974,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "NG2. a vote session + Phantom owner (External seats) move 1 XLM to VENUE through the ops rule": {
+   "pass": true,
+   "ok": true,
+   "hash": "b354336394a45f4416dce0163c37f3bad2fe0547a3ea75b8d71ecd49927ce7d4",
+   "cpu": 4334938,
+   "kind": "ops:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 2796981,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "NG3. two owners (External seats) move 1 XLM through the ops rule": {
+   "pass": true,
+   "ok": true,
+   "hash": "19318686aee26c891015185b5be3078abca643827d8d91f56d637f6e3c0ade77",
+   "cpu": 4388619,
+   "kind": "ops:owner+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 46571,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "NG3a. VENUE received exactly 2 XLM from the account": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "NG4. two vote sessions move 1 XLM through the ops rule with no owner present": {
+   "pass": true,
+   "ok": true,
+   "hash": "d7fb0b39954815466a026315a550c967d3f63c7c5796ce0557f1c5115e570ef4",
+   "cpu": 4264639,
+   "kind": "ops:session+session",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 30566,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "NG5. a vote session + Phantom owner move 1 XLM to ANY address through the ops rule (the rule has no destination limit)": {
+   "pass": true,
+   "ok": true,
+   "hash": "c983f8b5e63f3322a3b73754cc519c3109ec1c5bde434ff7b089234a53d39034",
+   "cpu": 4325588,
+   "kind": "ops:any",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 38570,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "NG6. a vote session + Phantom owner add a seat to rule 0 through the ops rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "NG7. a vote session + Phantom owner lower the rule-0 threshold (execute set_threshold) through the ops rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "NG8. a vote session + Phantom owner rename a rule through the ops rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "NG9. the same governance call through rule 0 with the External seats (not signers of rule 0)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "NG10. a move-only session + Phantom owner through the ops rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3003)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "NG11. a vote session alone through the ops rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "NG12. the owners govern through rule 0 with their plain accounts: Phantom + Freighter set the rule-0 threshold (execute set_threshold, value 2)": {
+   "pass": true,
+   "ok": true,
+   "hash": "85990224190d76eb50ab5caf92790b519e3075739352071f97ed6dc5ee9f7d7f",
+   "cpu": 4657713,
+   "kind": "vote:plain+plain",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 49072,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB0a. Freighter grant, move+vote": {
+   "pass": true,
+   "ok": true,
+   "hash": "aea2ac864d52e767897f54ac9fb02a388d40afb6fa9ed7b6abd43c11cbc87f9a",
+   "cpu": 948073,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18199,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB0b. Phantom grant, move+vote": {
+   "pass": true,
+   "ok": true,
+   "hash": "86b09059b7c494d8533cd0f325c4b65825df29d0db661ea3000c501a325b3075",
+   "cpu": 947568,
+   "kind": "grant+vote",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18206,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB1.0 owner + owner (Freighter, Phantom), warm-up": {
+   "pass": true,
+   "ok": true,
+   "hash": "69b3b9660266f6278d3973eb67517a4502d71a3adfa31d744ec43f49d41dba63",
+   "cpu": 5093434,
+   "kind": "bench:warmup",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 43516,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB2.0 vote session (Freighter) + owner (Phantom), warm-up": {
+   "pass": true,
+   "ok": true,
+   "hash": "65f15cd7a1212311c94f56a7ed54d265a9e5d8176ab772d52404248473803da5",
+   "cpu": 5013429,
+   "kind": "bench:warmup",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 35503,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB3.0 two vote sessions (Freighter, Phantom), warm-up": {
+   "pass": true,
+   "ok": true,
+   "hash": "7273e15684eb9bd18d817a27346420e8e0b133570551ee1fc7907716601e487c",
+   "cpu": 4956163,
+   "kind": "bench:warmup",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 27500,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB4.0 plain accounts (Freighter, Phantom) on a production-style rule 0, warm-up": {
+   "pass": true,
+   "ok": true,
+   "hash": "8a01bc63be1a4e6591ab372b8c601cde6ee627a0424a6f619c2850d730f53e29",
+   "cpu": 4291178,
+   "kind": "bench:warmup",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 41974,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB1.1 owner + owner (Freighter, Phantom), run 1": {
+   "pass": true,
+   "ok": true,
+   "hash": "11ceec4d0e1878bb4f7119bd00d897863125f9b9cf7f2c6599a74a29437f6c88",
+   "cpu": 5092285,
+   "kind": "bench:owner+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 43515,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB2.1 vote session (Freighter) + owner (Phantom), run 1": {
+   "pass": true,
+   "ok": true,
+   "hash": "ce7e3cc28c5c45c1bdae21009e3a220c7a830da5c4828ea4b30f82220c2e4da1",
+   "cpu": 5012280,
+   "kind": "bench:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 35502,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB3.1 two vote sessions (Freighter, Phantom), run 1": {
+   "pass": true,
+   "ok": true,
+   "hash": "ed5efdd9d16255573d79bb8b9bd9efcc77688f561116f343c94e8688359177c4",
+   "cpu": 4955014,
+   "kind": "bench:session+session",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 27499,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB4.1 plain accounts (Freighter, Phantom) on a production-style rule 0, run 1": {
+   "pass": true,
+   "ok": true,
+   "hash": "34fba65b21af7fb4d618c25d21c8186ece36da89d80a85976dfcd3638356c419",
+   "cpu": 4290029,
+   "kind": "bench:plain+plain",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 41974,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB1.2 owner + owner (Freighter, Phantom), run 2": {
+   "pass": true,
+   "ok": true,
+   "hash": "2507a13ac51a081b17f85a44f69deed0bbe2e8d07e41421c6fd042e29ce8d232",
+   "cpu": 5092285,
+   "kind": "bench:owner+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 43515,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB2.2 vote session (Freighter) + owner (Phantom), run 2": {
+   "pass": true,
+   "ok": true,
+   "hash": "a2a0db0ea7f127131f443186b16cac76d0fbd96ae30c03fc5afe499bb857ec18",
+   "cpu": 5012280,
+   "kind": "bench:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 35502,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB3.2 two vote sessions (Freighter, Phantom), run 2": {
+   "pass": true,
+   "ok": true,
+   "hash": "6d9767d72d5de7c50cfb40f2654f26c54a4d757060736a38043f303b96415994",
+   "cpu": 4955014,
+   "kind": "bench:session+session",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 27499,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB4.2 plain accounts (Freighter, Phantom) on a production-style rule 0, run 2": {
+   "pass": true,
+   "ok": true,
+   "hash": "4d2f5681505df38829e7bb4842b537d87a9adfc18929a573017e5fcef9ceba9b",
+   "cpu": 4290029,
+   "kind": "bench:plain+plain",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 41974,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB1.3 owner + owner (Freighter, Phantom), run 3": {
+   "pass": true,
+   "ok": true,
+   "hash": "5b9b84ff362d094895bf7424f6e9fc3e7fdf83ad46d5751e169fa191557dbd48",
+   "cpu": 5092285,
+   "kind": "bench:owner+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 43515,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB2.3 vote session (Freighter) + owner (Phantom), run 3": {
+   "pass": true,
+   "ok": true,
+   "hash": "4d625bd9536f7df09a5d2bc330460b0e04f125fb7c614a59fecc505f566615f5",
+   "cpu": 5012280,
+   "kind": "bench:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 35502,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB3.3 two vote sessions (Freighter, Phantom), run 3": {
+   "pass": true,
+   "ok": true,
+   "hash": "69d020961ece6ca2e4b9e95b6d93bfcbc4f7f8a240a7e9de4051b3b7bc3c91db",
+   "cpu": 4955014,
+   "kind": "bench:session+session",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 27499,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB4.3 plain accounts (Freighter, Phantom) on a production-style rule 0, run 3": {
+   "pass": true,
+   "ok": true,
+   "hash": "8b029c5d139b1efb7e45a9fe6d94120a2e33cd0c9597017ff47340bab3dd8f59",
+   "cpu": 4290029,
+   "kind": "bench:plain+plain",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 41974,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB1.4 owner + owner (Freighter, Phantom), run 4": {
+   "pass": true,
+   "ok": true,
+   "hash": "62c1246d844df4f73bcefc5c70a06b4ce9ef557b5383668d8f1a4b519ede641e",
+   "cpu": 5092285,
+   "kind": "bench:owner+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 43515,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB2.4 vote session (Freighter) + owner (Phantom), run 4": {
+   "pass": true,
+   "ok": true,
+   "hash": "3d60b454bedac773db27957c467a08749f131847c9b8c5390dda07ec052455fa",
+   "cpu": 5012280,
+   "kind": "bench:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 35502,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB3.4 two vote sessions (Freighter, Phantom), run 4": {
+   "pass": true,
+   "ok": true,
+   "hash": "667581e83f47f0d1ebaba2a3b2e0d85331105d44ab65f8ddc13fe34e0e0de6a8",
+   "cpu": 4955014,
+   "kind": "bench:session+session",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 27499,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB4.4 plain accounts (Freighter, Phantom) on a production-style rule 0, run 4": {
+   "pass": true,
+   "ok": true,
+   "hash": "879c518b589a3be23db93b2d87b347cd8a7c01688d8e38400f1cbf5c1398ef78",
+   "cpu": 4290029,
+   "kind": "bench:plain+plain",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 41974,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB1.5 owner + owner (Freighter, Phantom), run 5": {
+   "pass": true,
+   "ok": true,
+   "hash": "cbd275d21137d145017b06fea2500b9a68efeb913fd41ff1cd854eaa86324ffc",
+   "cpu": 5092285,
+   "kind": "bench:owner+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 43515,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB2.5 vote session (Freighter) + owner (Phantom), run 5": {
+   "pass": true,
+   "ok": true,
+   "hash": "7151e1fb0b617891442059872203055bafffbd195c9ec06113f9df652f13ed14",
+   "cpu": 5012280,
+   "kind": "bench:session+owner",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 35502,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB3.5 two vote sessions (Freighter, Phantom), run 5": {
+   "pass": true,
+   "ok": true,
+   "hash": "3d72a4bf9a34d778191b5ba18c90a7f922622bee459a9aa6c211592bc785450e",
+   "cpu": 4955014,
+   "kind": "bench:session+session",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 27499,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "FB4.5 plain accounts (Freighter, Phantom) on a production-style rule 0, run 5": {
+   "pass": true,
+   "ok": true,
+   "hash": "4092c513de34d4decbf9bba5b92793a1c17f1a172f44c1cf028567ec945c322b",
+   "cpu": 4290029,
+   "kind": "bench:plain+plain",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 41974,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "okH": true
+  },
+  "H1. Horizon: all 133 landed transactions have the payer as source account; the 8 self-paid ones have the session key's own account": {
+   "pass": true,
+   "detail": "ok"
+  }
+ },
+ "mpc_setup": {
+  "calls": 6,
+  "ms": 51202
+ },
+ "r_probe": 1,
+ "r_mm": 2,
+ "r_fr": 3,
+ "r_ph": 4,
+ "mpc_rules": {
+  "calls": 4,
+  "ms": 31334
+ },
+ "probeN": 119,
+ "mpc_votes": {
+  "calls": 34,
+  "ms": 269531
+ },
+ "wasmBase": "e36d155f0381a466fb6c2c29b788a9d52e4a6f3e568f30da981609075bb7a0b3",
+ "wasmBaseTx": "6fe192de5c4b6c63c85e9ffe0f39ee96b11c8dae34ca54a7e537f4148f2def10",
+ "P_base": "CAY3HRF6R5JMN2MQ36YGBDXTGNCFOIQ3A6VI4GC33YKBL7SPHSOA6GDH",
+ "P_baseTx": "6ac11b407552cf460c93bd6fcf6e48bf9b3d19d1a0c9ae5059955278588bcfed",
+ "mpc_separation": {
+  "calls": 2,
+  "ms": 14770
+ },
+ "mpc_danger": {
+  "calls": 13,
+  "ms": 107420
+ },
+ "mpc_sessions": {
+  "calls": 19,
+  "ms": 151042
+ },
+ "mpc_cross": {
+  "calls": 6,
+  "ms": 50529
+ },
+ "r_base": 6,
+ "mpc_baseline": {
+  "calls": 1,
+  "ms": 7377
+ },
+ "prime2": "CBXKCEHJJBBSTS7NI72XHNKSR5QT3MKBXKZNBQFVF443TEFH3K46CWV5",
+ "prime2Tx": "802dbc145041ca3666a3afcaba2bd4aa6b555d9f8e3732c6d6b6a21514ba35bc",
+ "r2_probe": 1,
+ "r2_ops": 2,
+ "mpc_nogov-setup": {
+  "calls": 2,
+  "ms": 17536
+ },
+ "mpc_nogov": {
+  "calls": 11,
+  "ms": 86703
+ },
+ "mpc_feebench": {
+  "calls": 19,
+  "ms": 141513
+ },
+ "fees": {
+  "admin:owner+owner relayed": {
+   "n": 6,
+   "min": 276195,
+   "median": 1204282,
+   "max": 3454499,
+   "cpuMedian": 7524670
+  },
+  "grant+vote relayed": {
+   "n": 23,
+   "min": 15492,
+   "median": 18198,
+   "max": 46611,
+   "cpuMedian": 947568
+  },
+  "grant relayed": {
+   "n": 18,
+   "min": 15492,
+   "median": 18204,
+   "max": 46651,
+   "cpuMedian": 947568
+  },
+  "vote:owner+owner relayed": {
+   "n": 2,
+   "min": 43501,
+   "median": 43507,
+   "max": 43507,
+   "cpuMedian": 5076179
+  },
+  "vote:session+owner relayed": {
+   "n": 6,
+   "min": 35490,
+   "median": 35497,
+   "max": 35497,
+   "cpuMedian": 5008371
+  },
+  "vote:session+session relayed": {
+   "n": 1,
+   "min": 27492,
+   "median": 27492,
+   "max": 27492,
+   "cpuMedian": 4945781
+  },
+  "grant+vote self-paid": {
+   "n": 1,
+   "min": 18197,
+   "median": 18197,
+   "max": 18197,
+   "cpuMedian": 948073
+  },
+  "vote:session+owner self-paid": {
+   "n": 1,
+   "min": 35497,
+   "median": 35497,
+   "max": 35497,
+   "cpuMedian": 5008371
+  },
+  "revoke relayed": {
+   "n": 7,
+   "min": 753010,
+   "median": 753799,
+   "max": 754058,
+   "cpuMedian": 952829
+  },
+  "admin:session+owner relayed": {
+   "n": 8,
+   "min": 38553,
+   "median": 44042,
+   "max": 650704,
+   "cpuMedian": 5348271
+  },
+  "admin relayed": {
+   "n": 3,
+   "min": 25086,
+   "median": 43516,
+   "max": 458138,
+   "cpuMedian": 4899195
+  },
+  "tx relayed": {
+   "n": 1,
+   "min": 31979,
+   "median": 31979,
+   "max": 31979,
+   "cpuMedian": 4380696
+  },
+  "move relayed": {
+   "n": 15,
+   "min": 32906,
+   "median": 32906,
+   "max": 1388798,
+   "cpuMedian": 4190768
+  },
+  "grant self-paid": {
+   "n": 3,
+   "min": 18197,
+   "median": 18204,
+   "max": 18204,
+   "cpuMedian": 947568
+  },
+  "move self-paid": {
+   "n": 3,
+   "min": 32906,
+   "median": 32906,
+   "max": 32907,
+   "cpuMedian": 4190768
+  },
+  "base:grant relayed": {
+   "n": 1,
+   "min": 18109,
+   "median": 18109,
+   "max": 18109,
+   "cpuMedian": 920540
+  },
+  "base:move relayed": {
+   "n": 1,
+   "min": 32891,
+   "median": 32891,
+   "max": 32891,
+   "cpuMedian": 4166151
+  },
+  "base:revoke relayed": {
+   "n": 1,
+   "min": 756303,
+   "median": 756303,
+   "max": 756303,
+   "cpuMedian": 925761
+  },
+  "admin:plain+plain relayed": {
+   "n": 2,
+   "min": 1419828,
+   "median": 3468474,
+   "max": 3468474,
+   "cpuMedian": 7379925
+  },
+  "vote:plain+plain relayed": {
+   "n": 2,
+   "min": 41974,
+   "median": 49072,
+   "max": 49072,
+   "cpuMedian": 4657713
+  },
+  "ops:session+owner relayed": {
+   "n": 1,
+   "min": 2796981,
+   "median": 2796981,
+   "max": 2796981,
+   "cpuMedian": 4334938
+  },
+  "ops:owner+owner relayed": {
+   "n": 1,
+   "min": 46571,
+   "median": 46571,
+   "max": 46571,
+   "cpuMedian": 4388619
+  },
+  "ops:session+session relayed": {
+   "n": 1,
+   "min": 30566,
+   "median": 30566,
+   "max": 30566,
+   "cpuMedian": 4264639
+  },
+  "ops:any relayed": {
+   "n": 1,
+   "min": 38570,
+   "median": 38570,
+   "max": 38570,
+   "cpuMedian": 4325588
+  },
+  "bench:warmup relayed": {
+   "n": 4,
+   "min": 27500,
+   "median": 41974,
+   "max": 43516,
+   "cpuMedian": 5013429
+  },
+  "bench:owner+owner relayed": {
+   "n": 5,
+   "min": 43515,
+   "median": 43515,
+   "max": 43515,
+   "cpuMedian": 5092285
+  },
+  "bench:session+owner relayed": {
+   "n": 5,
+   "min": 35502,
+   "median": 35502,
+   "max": 35502,
+   "cpuMedian": 5012280
+  },
+  "bench:session+session relayed": {
+   "n": 5,
+   "min": 27499,
+   "median": 27499,
+   "max": 27499,
+   "cpuMedian": 4955014
+  },
+  "bench:plain+plain relayed": {
+   "n": 5,
+   "min": 41974,
+   "median": 41974,
+   "max": 41974,
+   "cpuMedian": 4290029
+  }
+ }
+}

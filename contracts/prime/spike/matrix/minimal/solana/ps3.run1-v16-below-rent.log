@@ -1,0 +1,87 @@
+== setup
+PASS P0. Smart Account: seats are the prime-session PDAs of MetaMask, Freighter, Phantom; threshold 2 (no NEAR, no Swig) | ok 67gYjvQtDd4ezFuphWAfnQtzd8EyWGvvA8Uz2oPLFDA9aEQANTid7MM3heiFFARE1fedc46u2sAeW1GW8mTK3JBq
+{
+  MetaMask: "515GarKZpdXa8VYKyEpAE9aPWEQy6neB4gGJvnMqwPXu",
+  Freighter: "993ccUVmPChvz45J9xyV7K73Mm2Ju6czz9q4uQ6Ke8DQ",
+  Phantom: "DeczDdepBCknfGKxkgf8RT5LDqaJKfMExmzs1LCkXygo",
+}
+== seats
+PASS K1a0. Phantom session: create transaction | ok DKRsFCFzYkWQ5nXEZfWbiv566ocWnh7ywURBhbTZpaJVNLDUP17yv1XCHHX71CpEVTiiDUx5q7RXZWu6FGhHMg3
+PASS K1a1. Phantom session: proposal | ok 2PdBtJ2aqZiQSU7JAPgv4ZUMvC3zJo4iRrDsUW6UvUKneb2Hp8CQEm3XjhNcUNm9tz9bS2SZBeo1H94y889xbHfq
+PASS K1a. Phantom session approves | ok wWR19Assh3wVJLMfiibfwEC63y92gucab28S7rYv9MVSSPC8KKHu4ZwV2M9f9N6P2hva6HwJCimyhMM1DDnFLDh
+PASS K1c. Phantom session executes with one approval | refused: Error Code: InvalidProposalStatus
+PASS K2a0. MetaMask session: create transaction | ok 3j2uDHo162uzhcN7fBCjqoKV4GceewVFxTuxe5hvd5mZ37QoddyhHNHmvApozHFJ4WnZv9nYyCygaor3E3SMDbed
+PASS K2a1. MetaMask session: proposal | ok 4sg3JEiUScQtG5oTe1NdfbjyfWw8jEFBxKqr8Jp4ou1VYREdKZTG4NdcaU8sjoms1DxTrTVFxLQo6YK1XTqtB4L8
+PASS K2a. MetaMask session approves | ok 4RzZrXxciH9prR8cxCTEppUjuJzf7qREeBkdp8upbtRNvHzEwuPXuRqRcS78nmqXq9xAJFi654QKv1X6RwQ5RWTq
+PASS K2b. Freighter session approves | ok 3a7JW4oCTXJyAd1HU2KrN87rgUHVYHmx27UBdRgvqhu4XkN1p5Ro4neo3UPfqU9YZQt52qiNHxjpBB5DgrDEGyk9
+PASS K2c. Freighter session executes | ok 4g9x2ezoAGNJqHwGr7W1UKxvbi62aFPL1boQRmqtBoiKmjsebH5zgXeFLkYTuMKehwXej6zKgUCQ3FgNDypXCZN
+PASS K2d. DEST received exactly 0.01 SOL | ok 0.01
+PASS K3a0. Freighter session: create transaction | ok 673iaqNK4UjGeLGmJwPeHYm6YxBvZnZfNvqnMzAn5hra8sWKYYSxMd21nwLtn7hQuPSSmtySH4K1LjxwwXP7ap3s
+PASS K3a1. Freighter session: proposal | ok 8yVinboWJKtjzbY8hzJ7GApUZZPi51UCCNMYdQCgxtXrEb9FkPySuXnSw3gy1R6aR1C1M3AfZNQnxpMvjUBzomk
+PASS K3a. Freighter session approves | ok 61wWcvmvyFrEMzix35Zyf4f9MmLTgXnWjciaKLQMLVMAdcwvAeaSs9KxMtQkyyqdBfzSfktyut41Q1WSTk87CEJg
+PASS K3b. Phantom session approves | ok 3BGDWkChSSavWDp14872vF1y8TvGpm5D4P1NwgkoBoKTroVGqTUhQ36vRQhWsi8HAmrQTqoQV5ZHT9bk7owpe6Qg
+PASS K3c. Phantom session executes | ok 29K4BTGzfpLxam9nsv8byWcR6ojUnx1guFyC7U8221ER78ZURVkAr8SoePcBjqkUstGtGn9REiWWWTFJwJfDryWv
+PASS K3d. DEST received exactly 0.01 SOL | ok 0.01
+PASS K4a0. Phantom session: create transaction | ok 2UfmXJPeRiZZgN42C3dVd8UKnktD4596y8apozqTHQEMgYbzbVUpa88o5JRs1W133pJBUecFMgPKpi4sfpMnYHNS
+PASS K4a1. Phantom session: proposal | ok 4ajV1LkQ9iffCU64BLWXS1fqY2RHxAt9YjJLH5Zird2vgUf6afMUTXQug31Gi2R6H6Qb9Ydb8hqJrn9YxbFgHL3y
+PASS K4a. Phantom session approves | ok Hha6G3XVvoxu4riTyDediYLV1N4LGo1amuWYyPMcxaS1Hj9ziXxpWXjkrx9bB85QcKPRkhcEzZ8FQEyrLpgC6t2
+PASS K4b. MetaMask session approves | ok 34ggBYG6K3UGZhcqNmYA8uFaGAQuZfBL6pAvT9tsTZPGzoRSEYShiaVySYRmsE94FZjwoXfpBnUJsKoYFEJme2sh
+PASS K4c. MetaMask session executes | ok 5R47WnfT3jnJetpftDBBVMzwMFrzM8guaPoPBU2iZKdVdgvbCDQM2CyW5Hj2nWEHCKn6jhtp84cBQdFx7T1s2x7b
+PASS K4d. DEST received exactly 0.01 SOL | ok 0.01
+PASS K5a0. MetaMask session: create transaction | ok tVybFmhHrPgBZUk72oqRpfXmW9eHdQ7rf2XoPePPfMqrjgKaTw4eDmC63Mr6ggKWYbBjZwBdiNGpbCdFat79PrH
+PASS K5a1. MetaMask session: proposal | ok 3PoZYQ3NQTaydpPXa4ABbpBazQygQmwvgFxG6nF1D2i8RkmqaRHtkCUAVPs7QEsRSbMuYdRX7wLPYu9YjNjzB1e6
+PASS K5a. MetaMask session approves | ok 121aEf2AVSp4PcfRC1SGHeNk2PQaQnuQ6Btw8dUhF2sUnAY2CBxD9BM7DjUPcWCNBhucU74wnMmysDkeWqsW22hP
+PASS K5b. Phantom session approves | ok 37BAJXrcgFpZQbingQGW7pSSyePDeLmpjbSPNWkmyt1h92xrfMkNSKhYifH9M1TUsLU9h5Sqz8aa9zPSfKgwRyAW
+PASS K5c. Phantom session executes | ok 4eoAFiU5gA4pRhLaaHBD1LAEdT4ZD1oDeKteWEeUQnMBsFXhHwBpxWkNajL6tbG8gWD9dP496iWqorfXJitZiNAA
+== sessions
+PASS M-MetaMask1. one MetaMask signature -> session key alone: 0.01 SOL vault -> VENUE | ok 26u2P56hU3ggz9SuZV7RJ7CH9RJvVaFXFA9bbzvBGMA6Xig9XUhk8irD7cX56KbVRSthYDqDkmBTPW6AboZh4gr1
+PASS M-MetaMask1b. VENUE received exactly 0.01 SOL | ok 0.01
+PASS M-MetaMask2. same session: 0.01 SOL elsewhere | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS M-MetaMask3. v2: same session tries a System transfer of the PDA's own SOL (target allowlist) | refused: prime-session: sessions may only call the Smart Account program
+PASS M-Freighter1. one Freighter signature -> session key alone: 0.01 SOL vault -> VENUE | ok 2dULEFpVd1Xw73oo4tkqooM9HyBKQWdXQMCCnwH7aJKznPwm7E9Ao2oZb1kYvWHHUMbrLn5njSNd2Mi47BfQ9aBr
+PASS M-Freighter1b. VENUE received exactly 0.01 SOL | ok 0.01
+PASS M-Freighter2. same session: 0.01 SOL elsewhere | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS M-Freighter3. v2: same session tries a System transfer of the PDA's own SOL (target allowlist) | refused: prime-session: sessions may only call the Smart Account program
+PASS M-Phantom1. one Phantom signature -> session key alone: 0.01 SOL vault -> VENUE | ok k3oYUXNkRcgPYnFQPiHrkcrAneFMpQC6L89R7QVneqwLzDutiLuuUB4tKjtJxcsiRJDHJW9kVksYEB6r1bXKypS
+PASS M-Phantom1b. VENUE received exactly 0.01 SOL | ok 0.01
+PASS M-Phantom2. same session: 0.01 SOL elsewhere | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS M-Phantom3. v2: same session tries a System transfer of the PDA's own SOL (target allowlist) | refused: prime-session: sessions may only call the Smart Account program
+PASS N1. Phantom PDA with a grant signed by another ed25519 key | refused: prime-session: not signed by the owner over this text
+PASS N2. Freighter key signs the grant WITHOUT the SEP-53 prefix | refused: prime-session: not signed by the owner over this text
+PASS N3. Phantom grant presented for the MetaMask PDA | refused: prime-session: not checked by the signature program
+PASS N4. stretched valid-until (grant says less) | refused: prime-session: not signed by the owner over this text
+PASS N5. someone else replays the Phantom grant with their own key | refused: prime-session: not signed by the owner over this text
+PASS N6. grant longer than 7 days | refused: prime-session: expired or longer than 7 days
+PASS N7. expired grant | refused: prime-session: expired or longer than 7 days
+PASS N8. MetaMask grant with the signature program missing (only prime-session) | refused: prime-session: not checked by the signature program
+PASS N9. cap shared by all three: 0.03 used + 0.05 = 0.08 <= 0.1/day | ok 61cUxf3CF4aY1uu7pZ2PWkwNjBphSrNCwVZcKHW7G74mVBMuGzQvmsfmYX9CVraEwLp4NQuHmrYxdwLhLRsHJ7fg
+PASS N9b. 0.08 + 0.05 = 0.13 > 0.1/day | refused: Error Code: ProgramInteractionInsufficientLamportAllowance
+== v2
+PASS V1. Phantom session before revoke: 0.005 SOL to VENUE | ok 4e4p5RkgzREsSWhNVaaqFBXskRPSHVJA55q55mUxUEkMuqT4AFXpqJWprpWR1rRBTiqRUTwdzvonTtL1JiGT2Hps
+PASS V2. revoke signed by another ed25519 key (claiming Phantom) | refused: prime-session: not signed by the owner over this text
+PASS V3. Phantom revokes its session (one signMessage over the revoke text) | ok 2wc8Xn1wM9wiXkRqnJWmqmAuQsFjppbRoSWVfLzSzBm9YV4kU5B4zo5kkqucab7QDdz2CiopxcS3Q1Up78wNaWqN
+PASS V4. the revoked Phantom session (still within validity) | refused: prime-session: session revoked
+PASS V5. a new Phantom session still works | ok 3697p64zc3v8kJiTYQRpV2T2S9FgtMVTjgQSF96PvCR3CmPTCbsjNXDkt7fAJhHfqAN4iyeCpHQD1PQPtCFxzfwc
+PASS V6. MetaMask revokes its session (personal_sign) | ok 4MG5FhNCNNRFAvqU4ZVQb6bsFm26DjjA5WMMef5RUWgoXg8nnsUQqx72sBydASFjSa1tsyE2q6vsdVSfj2JGcdWY
+PASS V7. the revoked MetaMask session | refused: prime-session: session revoked
+PASS V8. Freighter revokes its session (SEP-53) | ok 2d9QZRrwkcQqzEEswPTZBUfNbcpWKmMffCqtGCHCyMcw8oAtYDd4PDk5hQDRs9kDRBhBdmfTsNT4Z2du43y9TGwU
+PASS V9. the revoked Freighter session | refused: prime-session: session revoked
+PASS V10. revoked session with the marker account swapped for another | refused: prime-session: wrong revocation marker
+PASS V11. grant signed for cluster mainnet, used on localnet | refused: prime-session: not signed by the owner over this text
+PASS V12. grant signed for another program id, used here | refused: prime-session: not signed by the owner over this text
+PASS V13. a grant without cluster and program | refused: prime-session: not signed by the owner over this text
+PASS V14. session -> System Assign of its own PDA | refused: prime-session: sessions may only call the Smart Account program
+PASS V15. ed25519 instruction reading its public key from another instruction | refused: 
+FAIL V16. stranger pre-funds the marker of a live Freighter session | refused: Program 11111111111111111111111111111111 invoke [1] Program 11111111111111111111111111111111 success
+PASS V17. that session still works | ok 6239NXrdxVVfdAgqGdiWwkCQMBa7UkxxYQNusUZcALQY4b96V8mMuRoU3BaSDiJtZUvcEDAQnzm6EAGDwMN6EW3E
+PASS V18. Freighter revokes it (marker already holds lamports) | ok 3Mg6Vu8zRDDjFNBLhnkrx9LkyRgwkDEuKbBMv6VT2YwSihEYAKpY8GVRY97k7JNC3giCP4Quk1ogfz75pxTT8j55
+PASS V19. the revoked session | refused: prime-session: session revoked
+PASS V20. revoking again is a no-op | ok 51TsRzWNtrdmVB5zHXBQ34gEsonwBLvZmmT3ibEMAEkKVQY8ddBMApzaQ4fV1bqa9eaQntX1Vmu4qKx92k3yNzg
+PASS V21. stranger pre-funds a marker above rent exemption (0.01 SOL) | ok 3nJgVZmToXQRGpDebGaC9FskTfaffFpKReTfV6wCo2bkAGaDjeUE8kBEW2YPahpf9NascjHwwzpCpo8CZn6r9i3R
+PASS V22. that MetaMask session still works | ok 4Y8oH2kVa8AcDb8BLj7hz7wsg7ieoUq8nJ8wg9Y52MkNYPZ4qhvTgwXqwgNDazTJ8h3TSNnGWubAZhh63itAb6wU
+PASS V23. MetaMask revokes it | ok 3gv8YjQPEkcoJ2dVBqSFaCG1AVA2WExfZcqMwGVa5MLVLacseSsgn9Bo1tiXY5RxpPzmYZ6BfzrynRiemAcM1zxg
+PASS V24. the revoked session | refused: prime-session: session revoked
+PASS V25. a signed revoke text (valid until 0) used as a session grant | refused: prime-session: expired or longer than 7 days
+== summary
+74/75 passed
+FAIL V16. stranger pre-funds the marker of a live Freighter session Program 11111111111111111111111111111111 invoke [1] Program 11111111111111111111111111111111 success

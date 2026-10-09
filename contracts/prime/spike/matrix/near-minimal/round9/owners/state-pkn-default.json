@@ -1,0 +1,899 @@
+{
+ "token": "0xF254Af9734BeA4bf22ef8C0AB75E85cd0138D734",
+ "safe": "0x54D7B922261756bd9D8DbfD79e48ec5A9aeEbcB7",
+ "roles": "0xd2064189c1Dd6fde484270C3083bB41658c87f98",
+ "pkMM": "0x024Dd77F03B43895078f4558427c803C45B129b7",
+ "pkFR": "0x51Fd130c5CdAA43227EC476962141aFd2bffcB97",
+ "pkPH": "0xe250e9594bE9Aee35fF8E5034c2cDf734Af375F9",
+ "ownerFR": "0x235fdB241f269F0192fe41A9CF50Fdf5fd7Eb4aa",
+ "ownerPH": "0xAc3F3c821F35eeC99CBAE30F0E3383e71bCF2B13",
+ "roleKey": "0x6d6f766572733a37633232303637630000000000000000000000000000000000",
+ "drained": "[object Object]",
+ "gas": {
+  "deploy": "919172",
+  "safeMM+FR": "98627",
+  "safeFR+PH": "81515",
+  "safePH+MM": "81527",
+  "grantPhantom": "76000",
+  "grantMetaMask": "76000",
+  "moveRelayerMetaMask": "141842",
+  "moveSelfMetaMask": "124742",
+  "moveLaterMetaMask": "124742",
+  "revokeMetaMask": "57845",
+  "grantMoveRelayerMetaMask": "183507",
+  "grantMoveSelfMetaMask": "183483",
+  "grantFreighter": "75988",
+  "moveRelayerFreighter": "124754",
+  "moveSelfFreighter": "124754",
+  "moveLaterFreighter": "124754",
+  "revokeFreighter": "57845",
+  "grantMoveRelayerFreighter": "183507",
+  "grantMoveSelfFreighter": "183507",
+  "moveRelayerPhantom": "124754",
+  "moveSelfPhantom": "124754",
+  "moveLaterPhantom": "124742",
+  "revokePhantom": "57845",
+  "grantMoveRelayerPhantom": "183507",
+  "grantMoveSelfPhantom": "183507"
+ },
+ "mpc": {
+  "calls": 53,
+  "ms": 438229
+ },
+ "results": [
+  {
+   "name": "C0. a zero-owner PrimeSession accepts no grant (garbage signature)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xf645eedf"
+  },
+  {
+   "name": "C1. create Safe (MetaMask first, PrimeX flow)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 259243",
+   "tx": "0x19ececa4e9bc9bcfdb0a3a76d74dcee3930464d45c3ff4f9ca3ea7513ca2a5c5"
+  },
+  {
+   "name": "C2. seats MetaMask + Freighter(NEAR MPC) + Phantom(NEAR MPC), threshold 2; movers rule for the three PrimeSessions",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 750059",
+   "tx": "0x9298fa4416cc790a279f2088fd3522bfc445f0974edf0321e5adbc698cce9571"
+  },
+  {
+   "name": "C3. owners are exactly the three wallet keys (no PrimeSession), threshold 2",
+   "pass": true,
+   "ok": true,
+   "detail": "0x5f172affbeeb59eb574fff9be77b44898182f3b1,0x29a9ac479c237ac2cae6f25cd6cec5d961c113ff,0xccd8af4ae1a907ac370fd151d6282da59bc7c570 / 2"
+  },
+  {
+   "name": "C4. mint 1000 tokens to the Safe",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 46096",
+   "tx": "0x42118fd71dab054e7a18c38d34ddbef963bdbdf8294ebf4842d5003b4c642ff1"
+  },
+  {
+   "name": "C5. grant owners: MetaMask keeps its own key (seat and owner); Freighter and Phantom use prime:evm-session keys that differ from their seats",
+   "pass": true,
+   "ok": true,
+   "detail": "0xCcD8af4Ae1a907Ac370FD151D6282da59bc7C570,0x235fdB241f269F0192fe41A9CF50Fdf5fd7Eb4aa,0xAc3F3c821F35eeC99CBAE30F0E3383e71bCF2B13"
+  },
+  {
+   "name": "C6. Multicall3 is deployed at the canonical address",
+   "pass": true,
+   "ok": true,
+   "detail": "3808 bytes"
+  },
+  {
+   "name": "S1-MetaMask. MetaMask alone",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS020"
+  },
+  {
+   "name": "S1-Freighter. Freighter alone",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS020"
+  },
+  {
+   "name": "S1-Phantom. Phantom alone",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS020"
+  },
+  {
+   "name": "S2. MetaMask + Freighter",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 98627",
+   "tx": "0x3d6185c55d28385445291c0a465015b8b5b3c8c030645365fff4b836e9c36ee6"
+  },
+  {
+   "name": "S3. Freighter + Phantom (no MetaMask)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 81515",
+   "tx": "0x69cc7affbd488c7c072ee6ddffabc98ab42e3ce6051ffd7e180f0de02e40360d"
+  },
+  {
+   "name": "S4. Phantom + MetaMask",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 81527",
+   "tx": "0x410e3df77b4c276de44d4b05c5add277f25172dff91d2c4803ba55ef3fc87d15"
+  },
+  {
+   "name": "S5. DEST received exactly 3",
+   "pass": true,
+   "ok": true,
+   "detail": "3"
+  },
+  {
+   "name": "S6. outsider + MetaMask",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "S7. the same wallet (Phantom) signs twice, as both votes",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "S8. Freighter's MPC key under another path + MetaMask",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "S9. Phantom approval of another Safe tx + MetaMask",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "S10. Freighter and Phantom session-path signatures filed as their seat votes (no MetaMask)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "S11. Phantom's session-path signature filed as its seat vote + MetaMask",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "N0. Phantom grants a session (used below)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0xc51f3c790ddd4a15dd769a913a15c4f306b11b3e356f4510cf0118788842ea45"
+  },
+  {
+   "name": "N1. the session key's signature as a Safe owner + MetaMask",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "N2. PrimeSession(Phantom) as a contract signature + MetaMask",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted for an unknown reason."
+  },
+  {
+   "name": "N3. session asks Roles to add the session key as a Safe owner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "N4. session asks Roles for a delegatecall",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "N5. session asks Roles to call the Roles modifier itself (re-assign roles)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "G-MetaMask1. MetaMask grants a 1-hour session (one signature), relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 75988",
+   "tx": "0xdd37c68acaa142b00672acba04331dbeb80c7275200dc94eea961dcb6a238b1f"
+  },
+  {
+   "name": "G-MetaMask2. move via relayer: 10 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 141842",
+   "tx": "0x08313cce5563694b68bf6599d44aa9e7e295546911f07dd24aa70e17f9e27379"
+  },
+  {
+   "name": "G-MetaMask3. relayer down: session key submits and pays gas itself, 5 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124742 (paid by 0xfdDB39…)",
+   "tx": "0x54114000d451c79521e503d804a65bf74df60f988779c52f63028a8d3d62666a"
+  },
+  {
+   "name": "G-MetaMask4. relayer down and the session key has no ETH",
+   "pass": true,
+   "ok": false,
+   "detail": "The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account."
+  },
+  {
+   "name": "G-MetaMask5. VENUE received exactly 15",
+   "pass": true,
+   "ok": true,
+   "detail": "15"
+  },
+  {
+   "name": "G-MetaMask6. move 3: 1 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124742",
+   "tx": "0x8ec93cb9caeabb6f32eeb55f4af248f3b346363238736ad932c6071e260db4e3"
+  },
+  {
+   "name": "G-MetaMask7. move 3 replayed",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session sig"
+  },
+  {
+   "name": "G-MetaMask8. 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "G-MetaMask9. move signed by another key",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session sig"
+  },
+  {
+   "name": "G-MetaMask10. grant for 7 days + 1 hour",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "G-MetaMask11. grant submitted with a later end than signed",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "G-MetaMask12. old grant replayed with an earlier end",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "G-MetaMask13. grant for the zero key is accepted (owner-signed, stored)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 75760",
+   "tx": "0x3ec4c262b318c91c6fc58be8036cdf7687a7cfc3541f1a613ca90c6297b77785"
+  },
+  {
+   "name": "G-MetaMask13b. the zero key can never move (no signature recovers to it)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xf645eedf"
+  },
+  {
+   "name": "G-MetaMask14. second session, granted with the session key paying gas itself",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000 (paid by 0x59e277…)",
+   "tx": "0x4db91ed27e4f20d0ec85e29be3fb54e539fcaa06dc0710b7fa59286a59409e7f"
+  },
+  {
+   "name": "G-MetaMask15. MetaMask revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 57845",
+   "tx": "0xbda533d8883595a51ee609e7d62f0ccdef478094f7bf22639d5360f3c7d26ebf"
+  },
+  {
+   "name": "G-MetaMask16. the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "G-MetaMask17. re-grant the revoked key",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "G-MetaMask18. first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124742",
+   "tx": "0xb60cbd82a96d558e56e97fede9c2cd63a75a0b878eab7c982c3a5b0011ebd440"
+  },
+  {
+   "name": "G-MetaMask19. grant + first move in one Multicall3 transaction, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 183507",
+   "tx": "0xab12a7f5396f9fa75a27c5eb623fb7630d59a593825bca2a0c6dd6fd0aa756aa"
+  },
+  {
+   "name": "G-MetaMask20. that session is live with nonce 1 afterwards, and VENUE got the 2",
+   "pass": true,
+   "ok": true,
+   "detail": "nonce 1"
+  },
+  {
+   "name": "G-MetaMask21. grant + first move in one transaction, the session key pays its own gas",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 183483 (paid by 0xd4E79D…)",
+   "tx": "0x297764ec87c16d9b3f0c5de9ba63b26728acd9d1b904e1e3e62e72ab6443cc37"
+  },
+  {
+   "name": "G-MetaMask22. the combined session's second move",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124742",
+   "tx": "0xb2825f34c76f8992deb6feaf67bd60872ac83c7ffd87fcf0ba873cb4b8207881"
+  },
+  {
+   "name": "G-MetaMask23. grant + a refused first move (1 to another address): the whole transaction reverts",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: Multicall3: call failed"
+  },
+  {
+   "name": "G-MetaMask24. and the grant was not stored",
+   "pass": true,
+   "ok": true,
+   "detail": "until 0"
+  },
+  {
+   "name": "G-MetaMask25. grant submitted alone first (front-run)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x78551ae31e0f335ac96f1bccf86571e61a358c2b1e316f6b3e0c8e65e5b896ae"
+  },
+  {
+   "name": "G-MetaMask26. the same grant was already submitted alone: the combined call still makes the move",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 168450",
+   "tx": "0xebe9b7a58be206789d375ef52580c693df9250d38b18eb52068ca79829e1063e"
+  },
+  {
+   "name": "G-MetaMask27. that session shows nonce 1 (the move ran once)",
+   "pass": true,
+   "ok": true,
+   "detail": "nonce 1"
+  },
+  {
+   "name": "G-MetaMask28. combined call with a bad grant signature: the move is refused",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: Multicall3: call failed"
+  },
+  {
+   "name": "G-MetaMask29. and nothing was stored for that key",
+   "pass": true,
+   "ok": true,
+   "detail": "until 0"
+  },
+  {
+   "name": "G-Freighter1. Freighter grants a 1-hour session (one signature through NEAR), relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0xf18612cec8c861374b18f9a1e7a502b978c42612396c76349a88ccbc8eacb6c4"
+  },
+  {
+   "name": "G-Freighter2. move via relayer: 10 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0xd2cd29a8ea83b1f3608faefad07aae86c26d7c8d81f1e57603630434b5a06b67"
+  },
+  {
+   "name": "G-Freighter3. relayer down: session key submits and pays gas itself, 5 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754 (paid by 0x3286aB…)",
+   "tx": "0xe11a01feed8cd8802bc389c5323ef3a42f0d909050580355002c0c188c87040a"
+  },
+  {
+   "name": "G-Freighter4. relayer down and the session key has no ETH",
+   "pass": true,
+   "ok": false,
+   "detail": "The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account."
+  },
+  {
+   "name": "G-Freighter5. VENUE received exactly 15",
+   "pass": true,
+   "ok": true,
+   "detail": "15"
+  },
+  {
+   "name": "G-Freighter6. move 3: 1 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x557b2fb7e7be81bf55445fc24a0fa10f12b736f97c035369046202e85f74be4d"
+  },
+  {
+   "name": "G-Freighter7. move 3 replayed",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session sig"
+  },
+  {
+   "name": "G-Freighter8. 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "G-Freighter9. move signed by another key",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session sig"
+  },
+  {
+   "name": "G-Freighter10. grant for 7 days + 1 hour",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "G-Freighter11. grant submitted with a later end than signed",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "G-Freighter12. old grant replayed with an earlier end",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "G-Freighter13. grant for the zero key is accepted (owner-signed, stored)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 75760",
+   "tx": "0xf8f7f6e887ae7e45682631a812fa22ccea3a830a4c69fbf2ad759d8faa3f86a2"
+  },
+  {
+   "name": "G-Freighter13b. the zero key can never move (no signature recovers to it)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xf645eedf"
+  },
+  {
+   "name": "G-Freighter14. second session, granted with the session key paying gas itself",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 75976 (paid by 0x11bE91…)",
+   "tx": "0x35e2e532481890c3898f185b4b9b83106150395b57743f2b1fb0a825881d3c66"
+  },
+  {
+   "name": "G-Freighter15. Freighter revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 57845",
+   "tx": "0xbaa1159cb68fabf46801cf06be6be68ab0c5d2f2eb2d56b0ad9c2096364d16a9"
+  },
+  {
+   "name": "G-Freighter16. the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "G-Freighter17. re-grant the revoked key",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "G-Freighter18. first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x90916ba10cb9465222a1dc10aa1ff36134351b1cfff31ed520cd0ab748597a8d"
+  },
+  {
+   "name": "G-Freighter19. grant + first move in one Multicall3 transaction, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 183507",
+   "tx": "0x3a34b56dbd87c2fbb6539660cc30027b56bae93da776f47c8e4e8640d0bb8cd1"
+  },
+  {
+   "name": "G-Freighter20. that session is live with nonce 1 afterwards, and VENUE got the 2",
+   "pass": true,
+   "ok": true,
+   "detail": "nonce 1"
+  },
+  {
+   "name": "G-Freighter21. grant + first move in one transaction, the session key pays its own gas",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 183507 (paid by 0xe833aA…)",
+   "tx": "0x08e19acd63450d845a96c83bd18556baa588e75802ed175644038e4f2285d0da"
+  },
+  {
+   "name": "G-Freighter22. the combined session's second move",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124742",
+   "tx": "0x40ab1caf776acc7ea948b6f53ee58f2206cdf5c0197a15f61c7c6e1a5dc2f031"
+  },
+  {
+   "name": "G-Freighter23. grant + a refused first move (1 to another address): the whole transaction reverts",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: Multicall3: call failed"
+  },
+  {
+   "name": "G-Freighter24. and the grant was not stored",
+   "pass": true,
+   "ok": true,
+   "detail": "until 0"
+  },
+  {
+   "name": "G-Freighter25. grant submitted alone first (front-run)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0xbf78659167f6fb69a6fb768a2315c61e454595c70ee02b8d205a5965caa2cf61"
+  },
+  {
+   "name": "G-Freighter26. the same grant was already submitted alone: the combined call still makes the move",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 168438",
+   "tx": "0xf672874e249244718430b3dcc3ff63c24c255839fa0d8e94750ad4b841afe2e2"
+  },
+  {
+   "name": "G-Freighter27. that session shows nonce 1 (the move ran once)",
+   "pass": true,
+   "ok": true,
+   "detail": "nonce 1"
+  },
+  {
+   "name": "G-Freighter28. combined call with a bad grant signature: the move is refused",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: Multicall3: call failed"
+  },
+  {
+   "name": "G-Freighter29. and nothing was stored for that key",
+   "pass": true,
+   "ok": true,
+   "detail": "until 0"
+  },
+  {
+   "name": "G-Phantom1. Phantom grants a 1-hour session (one signature through NEAR), relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x91bd7a414b3eceef486e25315fac8d780bd531b0b48c10477007918b113c129d"
+  },
+  {
+   "name": "G-Phantom2. move via relayer: 10 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x1777bc65ed2e6d3bc35ae1d578d2b9cca3c99ead093e70d90121f76f61156ea8"
+  },
+  {
+   "name": "G-Phantom3. relayer down: session key submits and pays gas itself, 5 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754 (paid by 0x93d46e…)",
+   "tx": "0xcc155ce1b4c359f1c23c2d55e3b7049561743e743587bb8260fc21d4bb278152"
+  },
+  {
+   "name": "G-Phantom4. relayer down and the session key has no ETH",
+   "pass": true,
+   "ok": false,
+   "detail": "The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account."
+  },
+  {
+   "name": "G-Phantom5. VENUE received exactly 15",
+   "pass": true,
+   "ok": true,
+   "detail": "15"
+  },
+  {
+   "name": "G-Phantom6. move 3: 1 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124742",
+   "tx": "0x2490b1c0289b578912fe0257eacd6c1da29e380b8c3617957baa169366546a6d"
+  },
+  {
+   "name": "G-Phantom7. move 3 replayed",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session sig"
+  },
+  {
+   "name": "G-Phantom8. 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "G-Phantom9. move signed by another key",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session sig"
+  },
+  {
+   "name": "G-Phantom10. grant for 7 days + 1 hour",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "G-Phantom11. grant submitted with a later end than signed",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "G-Phantom12. old grant replayed with an earlier end",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "G-Phantom13. grant for the zero key is accepted (owner-signed, stored)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 75760",
+   "tx": "0xdad4f60c9f810d1ae8cf156b82cf46540c0ffb82268c7a74de34fc827edb12de"
+  },
+  {
+   "name": "G-Phantom13b. the zero key can never move (no signature recovers to it)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xf645eedf"
+  },
+  {
+   "name": "G-Phantom14. second session, granted with the session key paying gas itself",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000 (paid by 0x637760…)",
+   "tx": "0x7859c9055145efd826b5622a97aa947ee94b7cee90d8c2df30dc029213943297"
+  },
+  {
+   "name": "G-Phantom15. Phantom revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 57845",
+   "tx": "0xdff584e95876de464cf45d325838992a137fd428e5e3df481ecb6bb738e7a884"
+  },
+  {
+   "name": "G-Phantom16. the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "G-Phantom17. re-grant the revoked key",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "G-Phantom18. first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0xa7f8f61838d974822d38890cd917010149cbaaab85e0bb1681dc5c99903b5fd4"
+  },
+  {
+   "name": "G-Phantom19. grant + first move in one Multicall3 transaction, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 183507",
+   "tx": "0x0850e7da2bb4060b7d5433fc56c2b1ca260979994a7c9685fad5be63c8312359"
+  },
+  {
+   "name": "G-Phantom20. that session is live with nonce 1 afterwards, and VENUE got the 2",
+   "pass": true,
+   "ok": true,
+   "detail": "nonce 1"
+  },
+  {
+   "name": "G-Phantom21. grant + first move in one transaction, the session key pays its own gas",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 183507 (paid by 0x6BA9Bb…)",
+   "tx": "0xfb24cfe662ea4cfc14f80f6a44c62b42ac4a39f220b73267c56044eea94e5be4"
+  },
+  {
+   "name": "G-Phantom22. the combined session's second move",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0xf7246a624b0c59812a66a7d4d5b1a5c3ce509e2de824636aefce7d47026ba02a"
+  },
+  {
+   "name": "G-Phantom23. grant + a refused first move (1 to another address): the whole transaction reverts",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: Multicall3: call failed"
+  },
+  {
+   "name": "G-Phantom24. and the grant was not stored",
+   "pass": true,
+   "ok": true,
+   "detail": "until 0"
+  },
+  {
+   "name": "G-Phantom25. grant submitted alone first (front-run)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0xacd178808379bba609ec50702e4f43d670dd0eeef557243aecb471b5969b1f79"
+  },
+  {
+   "name": "G-Phantom26. the same grant was already submitted alone: the combined call still makes the move",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 168438",
+   "tx": "0x59356e9a6184722550c57780db951087da6a91ed52d06e401db821088b669cde"
+  },
+  {
+   "name": "G-Phantom27. that session shows nonce 1 (the move ran once)",
+   "pass": true,
+   "ok": true,
+   "detail": "nonce 1"
+  },
+  {
+   "name": "G-Phantom28. combined call with a bad grant signature: the move is refused",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: Multicall3: call failed"
+  },
+  {
+   "name": "G-Phantom29. and nothing was stored for that key",
+   "pass": true,
+   "ok": true,
+   "detail": "until 0"
+  },
+  {
+   "name": "X1. PrimeSession(Freighter) with a grant signed by Phantom (NEAR)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "X2. PrimeSession(MetaMask) with a grant signed by Freighter (NEAR)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "X3. PrimeSession(Phantom) with a grant signed by MetaMask",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "X4. PrimeSession(Freighter) with Freighter's MPC key under another path",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "X4b. PrimeSession(Freighter) with a grant signed by Freighter's seat key (prime:evm)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "X4c. PrimeSession(Phantom) with a grant signed by Phantom's seat key (prime:evm)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "X5. grant text made for PrimeSession(Freighter) presented to PrimeSession(Phantom), signed by Phantom",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "X6. raw-hash signature instead of personal_sign (Freighter)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "X7. Freighter session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 75988",
+   "tx": "0x69ca526ecac6636f5bd75c76285fe92e4b2c42c335816bc5c605d88f777dba8c"
+  },
+  {
+   "name": "X8. that session key used through PrimeSession(Phantom)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "X9. a stranger calls Roles directly",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0x4a0bfec1: 000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+  },
+  {
+   "name": "X10. a move over the daily cap (60 more)",
+   "pass": true,
+   "ok": false,
+   "detail": "Roles ConditionViolation(AllowanceExceeded)"
+  },
+  {
+   "name": "X12. Phantom's end-0 (revoke) signature on PrimeSession(Freighter) for Freighter's live session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "X13. Freighter revokes a key it never granted (pre-emptive)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 74897",
+   "tx": "0x5c9e2a39e5dc30f5dc07c4b44335622047e2b77e8a96a1e469a055475bc6e8ea"
+  },
+  {
+   "name": "X14. that key can never be granted afterwards",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "X15. the same revoke replayed (harmless, key stays revoked)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 54997",
+   "tx": "0xe0a1937e7cf4256c820b4c84b90c14342bead4b932044ee7facb6a7b8f4e27df"
+  },
+  {
+   "name": "X16. Freighter session still works after X12",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124742",
+   "tx": "0xd0ce1bba77fc6769a4291a0670e8252fab556f726f72001182a0743e9697aeff"
+  },
+  {
+   "name": "X11. after the session ends",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  }
+ ]
+}

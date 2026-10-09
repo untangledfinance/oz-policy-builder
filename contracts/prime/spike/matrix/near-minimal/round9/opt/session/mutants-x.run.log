@@ -1,0 +1,6 @@
+('s01', 'the ed25519 instruction need not be the ed25519 program', 'killed', 'F4., F4.', '132/133 passed', '61s')
+('s03', 'the signature may live in another instruction (index not 0xffff)', 'SURVIVED', '', '133/133 passed', '59s')
+('s04', 'the public key may live in another instruction', 'killed', 'F1., F1.', '132/133 passed', '59s')
+('s05', 'the message may live in another instruction', 'killed', 'F2., F2.', '132/133 passed', '58s')
+('s15', 'the signature instruction is always instruction 0', 'killed', 'F0., F0.', '132/133 passed', '56s')
+killed 4 of 5

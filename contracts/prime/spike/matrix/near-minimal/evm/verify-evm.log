@@ -1,0 +1,18 @@
+self-paid: G-MetaMask3. relayer down: session key submits and pays gas  from 0x503660bd5d83b46a15d2e6db3cb3ace82075e679 block 47809576n
+self-paid: G-MetaMask14. second session, granted with the session key p from 0x04b061b1e7d88b5168438a7b1d514b8e5b744ab3 block 47809592n
+self-paid: G-Freighter3. relayer down: session key submits and pays gas from 0xac2bd16b1e5ba52f9e0f9d01a2ad8b9b06a31053 block 47809618n
+self-paid: G-Freighter14. second session, granted with the session key  from 0xa970c3c689b8fd23b623b30e56c32d662d6ee02c block 47809653n
+self-paid: G-Phantom3. relayer down: session key submits and pays gas i from 0x0d055cf464d409fc1bc8752403c7a5e35713bcc4 block 47809686n
+self-paid: G-Phantom14. second session, granted with the session key pa from 0x117f58c566c17a74d6d6f631074ff3c3b0ce752e block 47809721n
+receipts success 30, failed 0
+Safe 0x3F3D7716da883b3827E0553d8D992aEaD4721FC3 version 1.4.1 owners [ "0x5F172afFBEEb59eb574fFF9be77B44898182F3b1",
+  "0x29A9ac479C237AC2CAE6f25cD6cec5D961C113fF", "0xCcD8af4Ae1a907Ac370FD151D6282da59bc7C570"
+] threshold 2n
+Roles enabled on Safe: true
+pkMM enabled module on Roles: true is Safe owner: false
+pkFR enabled module on Roles: true is Safe owner: false
+pkPH enabled module on Roles: true is Safe owner: false
+pkMM owner 0xCcD8af4Ae1a907Ac370FD151D6282da59bc7C570
+pkFR owner 0x29A9ac479C237AC2CAE6f25cD6cec5D961C113fF
+pkPH owner 0x5F172afFBEEb59eb574fFF9be77B44898182F3b1
+Roles proxy code 0x363d3d373d3d3d363d73f2964ce6161ce0e75964fe7927ce114cb0b283d55af43d82803e903d91602b57fd5bf3

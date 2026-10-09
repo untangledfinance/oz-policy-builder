@@ -1,0 +1,8 @@
+{
+ "address": "PASS m/44'/501'/0'/0'",
+ "prime-near-signer text: ed25519 over raw UTF-8": "PASS",
+ "prime-session grant text: ed25519 over raw UTF-8": "PASS",
+ "signTransaction legacy transfer: ed25519 over message": "PASS message unchanged",
+ "signTransaction v0 transfer: ed25519 over message": "PASS message unchanged",
+ "signTransaction relayer-paid memo (wallet is signer only): ed25519 over message": "PASS message unchanged"
+}

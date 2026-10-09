@@ -1,0 +1,15 @@
+key with two leading zero bytes after 22144 tries
+PASS FM0. the token account is 165 bytes, owned by the Token program, byte 0 (read as m) is 0 and bytes 131..163 (signer slot 4) equal the key | ok m 0 n 118
+FAIL FX1. with the length check, create refuses the token account as the multisig (Custom 5) | ok 14967 CU, 485 B, gate 14967 CU
+PASS FX2. a gate on a real 355-byte multisig is still created | ok 18111 CU, 485 B, gate 18111 CU
+PASS FX3. release by both signers still works | ok 5437 CU, 528 B, gate 5437 CU
+{
+ "create Prime Account (Squads, 3 owners)": {
+  "cu": 21496,
+  "bytes": 423,
+  "gateCu": 0,
+  "n": 1
+ }
+}
+3/4 checks passed
+FAILED FX1. with the length check, create refuses the token account as the multisig (Custom 5) 14967 CU, 485 B, gate 14967 CU

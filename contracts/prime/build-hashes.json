@@ -1,0 +1,10 @@
+{
+  "note": "Reproducible build hashes that CI compares against: Stellar from build-wasm.sh, Solana from cargo-build-sbf with PRIME_CLUSTER=localnet, NEAR from cargo-near with the path remaps in ci.yml. Update an entry together with the source it covers.",
+  "recorded": "2026-10-09",
+  "sha256": {
+    "stellar/prime-session": "547f67f375ca6baf7878d9eaa26625cd0892eeae7602ad7dc184427d4895b37f",
+    "solana/prime-session": "181013d2d2338f30614fe548661de0753c23e5a78605df49d1b114b7817a3f11",
+    "solana/custody-gate": "a5d19edb879e75d054f1025d710753ce5150726130c3dd74887236fbdbdc94e2",
+    "near/prime-near-signer": "c27904a329814b6ee92e8b37cc99490c8edbc9bbd3fd86a926b38e7d05b793c8"
+  }
+}

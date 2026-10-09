@@ -1,0 +1,115 @@
+09:39:31 3-of-5 Freighter seat GDHZ2J owner GDHZ2J; MetaMask seat GDVVSX owner GBDUSR; Phantom seat GB2UUG owner GC6ZPO; Owner4 seat GCWWEL owner GCWWEL; Owner5 seat GAAHOC owner GAAHOC
+09:40:02 S_Freighter CATVSEO72RBYRTUERGHZDBRJSJW7W5FJ2VDWKAOOUT65WOPCTFBG7ZAV 05b6743b242650f9e35af10e86161c3091bd8a8e3e2a27fac861f33acb89fe33
+09:40:08 S_MetaMask CDTM47CYPVQL3Z5WQESE3JAKCXRKSL3E7MMLIC26UT5R7GIIPD6VFRX6 ed3a3ec88cfa816896a516504724971c244f88bf9317fecedbc061e0ae38482e
+09:40:12 S_Phantom CBSCJZC2HF6CCOEX6QNRQUMFP3LTQINY6XYHJ2WABFYRRD2CHIFTW4VO 1c6bf8254f213dee00a81a83e6ffff6203e6b31d1f940182d9f23cc20d67c36b
+09:40:18 S_Owner4 CAA7GBSNJEL6Y5M2AXFV65YAGPJLTY5EMKGWCPHKP3AFM7TRFSXUZTQW 7749fb06389672190bc822f4255f8c58a912b4b7e7c5fd66cb2ac60dc52b7a60
+09:40:22 S_Owner5 CCR5AXUMFBXPLKNH6J4ZGPNV6RGC7URTDYGY64O2FF3DLOOKDWFBUVOZ 6f570fabbae6f2aece7ce1b393d54395e10d723f4fd36a171ad8adbfe48887cf
+09:40:28 Prime Account CAZFSAQIN3WVNJZZZPBJK4GPEXAEVZBQUS6XKYE4ZLV6VRGOUPI5YUTR 7e22302ef1e6e3ec69afae2c2cb746a7e238bab575fb89f173e98d6e3d29787b
+09:40:33 funded 30 XLM 3dddddcff6597f3f32c514251b0ab1bafc5b5650413a7d47e02fe8b74bd9c40c
+09:40:35 PASS P0. rule 0 signers are exactly the 5 seat keys (no prime-session), weighted threshold 3 5 signers, threshold 3
+09:40:35 PASS P1. the 5 prime-session contracts and the 5 session-owner accounts are all different CATVSE,CDTM47,CBSCJZ,CAA7GB,CCR5AX
+09:40:48 PASS Y1. 2 of 5 owners vote (threshold minus one) to add a rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+09:41:12 PASS Y2. 3 owners vote (Freighter + MetaMask + Phantom) to add a rule ok 24354 ms 13a4933ffd43b5cb72b2a91ee2bcd4516e737f28ed993e27c32b0732b8c506b9
+09:41:27 PASS Y3. a different 3 owners vote (Phantom + Owner4 + Owner5) to remove it ok 12786 ms 80f523890e9ac2bf6b6b03c9e2709c2dd21e9cfa44fdfc8eece2f78d1ee27639
+09:41:37 PASS Y4. 2 owners and an outsider vote refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:42:03 PASS Y5. Freighter's seat signed by another key, plus 2 real owners refused: Error(Auth, InvalidAction) Error(Contract, #5)
+09:42:27 PASS R-xlm_Freighter. 3 owners install xlm_Freighter: XLM to VENUE only, signer: Freighter's prime-session ok 24110 ms 8be09cda9bdee22eaa6acbc5899257cdee6e39a0f748689ea1f1f3f400373c1e
+09:42:53 PASS R-xlm_MetaMask. 3 owners install xlm_MetaMask: XLM to VENUE only, signer: MetaMask's prime-session ok 22861 ms e32441e336cc9e661190e3b646b3554e9298da2bd7c7221adec0ea7e06229a03
+09:43:17 PASS R-xlm_Phantom. 3 owners install xlm_Phantom: XLM to VENUE only, signer: Phantom's prime-session ok 22152 ms d6eb14e0eeca50932088f534c9f1155f0aabf2308c9041401d7ecaa10b6f704a
+09:43:42 PASS R-xlm_Owner4. 3 owners install xlm_Owner4: XLM to VENUE only, signer: Owner4's prime-session ok 22995 ms d8d7239b694c4269a9c7550985dd8107b8eb848cfb030a4aea07c9207336f9e0
+09:44:02 PASS R-xlm_Owner5. 3 owners install xlm_Owner5: XLM to VENUE only, signer: Owner5's prime-session ok 16711 ms 57f6b312360a87c5b53ac84c0846c1c354182e6aace77291e1c2a7b6bfddce46
+09:44:12 PASS P0-Freighter.1 Freighter grant: one authorization (own key), relayer pays ok 5517 ms 7e5d8086f7293a672448a83e921e7c9973c0736542a424e717894523072b03f6
+09:44:18 PASS P0-Freighter.2 relayer pays: 1 XLM to VENUE ok 5386 ms 2a2177704b44f533950478fc643fa25b808202d86d1a90ceba06db0840d00cde
+09:44:27 PASS P0-Freighter.3 Freighter grant, relayer down: the session key's own account is the transaction source ok 4170 ms 2050c36cd8233c1a58ef175d3a39759946708a05a26d88d2eaa6de94c029f031 (fee paid by the session key)
+09:44:33 PASS P0-Freighter.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE ok 5756 ms 6e1019edf51753374dea463ca2e7294194b9d90dd1a724856942d59403a7dae9 (fee paid by the session key)
+09:44:34 PASS P0-Freighter.5 VENUE received exactly 2 XLM 20000000 stroops
+09:44:35 PASS P0-Freighter.6 1 XLM elsewhere refused: Error(Auth, InvalidAction) Error(Contract, #100)
+09:44:37 PASS P0-Freighter.7 on MetaMask's session rule refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:44:53 PASS P0-Freighter.8 the session and 2 real owners vote on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:44:55 PASS P0-Freighter.9 the session claims its own rule for an account-admin call refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+09:44:57 PASS P0-Freighter.10 the session removes rule 0 through its own rule refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+09:45:02 PASS P0-Freighter.11 Freighter grant (second session) ok 4327 ms d653a58411583fb3b80b0908645af6ac97ade037bdb8956287c0f11410eb4654
+09:45:08 PASS P0-Freighter.12 Freighter revokes it: grant(key, 0), one authorization, relayer pays ok 5737 ms 72cd22a9a4bbcac8e90889f66fb4d919f94ca52772e1c138e1ec8b07d0631f6c
+09:45:10 PASS P0-Freighter.13 the revoked session refused: Error(Auth, InvalidAction) Error(Contract, #1)
+09:45:17 PASS P0-Freighter.14 the first session still works ok 7418 ms c0450b5feba2961bf139c9fc06928e07fd1b7d397051722c3d8fb707b4a55c04
+09:45:27 PASS P0-Freighter.15 a grant for Freighter's prime-session signed by MetaMask's owner key refused: Error(Auth, InvalidAction) Error(Contract, #5)
+09:45:30 PASS P0-Freighter.16 the key from P0-Freighter.15 cannot move refused: Error(Auth, InvalidAction) Error(Contract, #1)
+09:45:42 PASS P1-MetaMask.1 MetaMask grant: one authorization (NEAR MPC), relayer pays ok 3357 ms 55713c2b31088d4afb0df7c3f050fda1d61123cb76a28a086e3e1c8c0743f537
+09:45:48 PASS P1-MetaMask.2 relayer pays: 1 XLM to VENUE ok 5724 ms 20a12996dbe2c7459ec504e6333ebb388f5ab940fffb297a4c169f02a82087d5
+09:46:07 PASS P1-MetaMask.3 MetaMask grant, relayer down: the session key's own account is the transaction source ok 4415 ms e81d200771934088fe00a5deb22272c9a8b03019c726a3207dd6e121356474be (fee paid by the session key)
+09:46:12 PASS P1-MetaMask.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE ok 5176 ms 2192c2284b6f140c2c9af4ec6ea238346323f33340ae7afb60015363e8cddb18 (fee paid by the session key)
+09:46:14 PASS P1-MetaMask.5 VENUE received exactly 2 XLM 20000000 stroops
+09:46:16 PASS P1-MetaMask.6 1 XLM elsewhere refused: Error(Auth, InvalidAction) Error(Contract, #100)
+09:46:19 PASS P1-MetaMask.7 on Freighter's session rule refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:46:30 PASS P1-MetaMask.8 the session and 2 real owners vote on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:46:32 PASS P1-MetaMask.9 the session claims its own rule for an account-admin call refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+09:46:35 PASS P1-MetaMask.10 the session removes rule 0 through its own rule refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+09:46:53 PASS P1-MetaMask.11 MetaMask grant (second session) ok 5330 ms dc6fa7969b9f3de4ecee7aa37a7bc1695b5c014001090c71356e39679db36527
+09:47:07 PASS P1-MetaMask.12 MetaMask revokes it: grant(key, 0), one authorization, relayer pays ok 5679 ms 04671c98d5629177377420c50a7d9196e3666f62a17156ee24b986e388f854f5
+09:47:09 PASS P1-MetaMask.13 the revoked session refused: Error(Auth, InvalidAction) Error(Contract, #1)
+09:47:17 PASS P1-MetaMask.14 the first session still works ok 7981 ms e79e044697ae9c45ddd072d475b35643dc791cbc5200d7c8c1a21f01d020d2c9
+09:47:27 PASS P1-MetaMask.15 a grant for MetaMask's prime-session signed by Phantom's owner key refused: Error(Auth, InvalidAction) Error(Contract, #5)
+09:47:28 PASS P1-MetaMask.16 the key from P1-MetaMask.15 cannot move refused: Error(Auth, InvalidAction) Error(Contract, #1)
+09:47:42 PASS P2-Phantom.1 Phantom grant: one authorization (NEAR MPC), relayer pays ok 5409 ms 4dd84a82c9ff8ab18bc630af362d08cbd5bab7712c42f39ffcf54b3189988477
+09:47:47 PASS P2-Phantom.2 relayer pays: 1 XLM to VENUE ok 4287 ms 49c029074af5cfa236c9fea7538e50de031b04807f153ce70f550ff025ddc375
+09:48:07 PASS P2-Phantom.3 Phantom grant, relayer down: the session key's own account is the transaction source ok 5469 ms 7953f33e3530cab96687f5dd26c14239025f7d9319a73435d6e3b0e1930b0378 (fee paid by the session key)
+09:48:12 PASS P2-Phantom.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE ok 5144 ms ff00f566be21562ae7224130fb13150442c9a1c2ba3966aecaed58f685951fb7 (fee paid by the session key)
+09:48:13 PASS P2-Phantom.5 VENUE received exactly 2 XLM 20000000 stroops
+09:48:14 PASS P2-Phantom.6 1 XLM elsewhere refused: Error(Auth, InvalidAction) Error(Contract, #100)
+09:48:15 PASS P2-Phantom.7 on Freighter's session rule refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:48:25 PASS P2-Phantom.8 the session and 2 real owners vote on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:48:27 PASS P2-Phantom.9 the session claims its own rule for an account-admin call refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+09:48:28 PASS P2-Phantom.10 the session removes rule 0 through its own rule refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+09:48:42 PASS P2-Phantom.11 Phantom grant (second session) ok 6028 ms 946fb792717419735080468c5a0c21a3e4f73bd484e9430d5e78bbeab6ebf4b0
+09:48:57 PASS P2-Phantom.12 Phantom revokes it: grant(key, 0), one authorization, relayer pays ok 7090 ms 91ff1383a0793a6cadadac494e1d1c4f98265ff3c4c1df0ae3d892016baf5e8a
+09:48:58 PASS P2-Phantom.13 the revoked session refused: Error(Auth, InvalidAction) Error(Contract, #1)
+09:49:02 PASS P2-Phantom.14 the first session still works ok 3549 ms e6692ff7bb23989758d586fb21b03aaaf681341856616e434acfeaa1e27b6507
+09:49:03 PASS P2-Phantom.15 a grant for Phantom's prime-session signed by Owner4's owner key refused: Error(Auth, InvalidAction) Error(Contract, #5)
+09:49:05 PASS P2-Phantom.16 the key from P2-Phantom.15 cannot move refused: Error(Auth, InvalidAction) Error(Contract, #1)
+09:49:12 PASS P3-Owner4.1 Owner4 grant: one authorization (own key), relayer pays ok 5473 ms 726b88268eeae431863ea427fc0c4f368ff540873fc98ba9c9a6f26ef1056eeb
+09:49:18 PASS P3-Owner4.2 relayer pays: 1 XLM to VENUE ok 5377 ms f7d364b60dec89a0f383d00d054cce906caf0e72fc1f3e7a101cc599b3e35232
+09:49:28 PASS P3-Owner4.3 Owner4 grant, relayer down: the session key's own account is the transaction source ok 2959 ms 6cdc3b5cadc9d4c0cf0f697fae5c94929f30d6de8970cb8fb9ca31c5ad1a6df0 (fee paid by the session key)
+09:49:33 PASS P3-Owner4.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE ok 4799 ms d1966a126f602bf1790fce36faca3ebf5e3345cbfeef67a84e74aee47f46eaca (fee paid by the session key)
+09:49:34 PASS P3-Owner4.5 VENUE received exactly 2 XLM 20000000 stroops
+09:49:35 PASS P3-Owner4.6 1 XLM elsewhere refused: Error(Auth, InvalidAction) Error(Contract, #100)
+09:49:36 PASS P3-Owner4.7 on Freighter's session rule refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:49:47 PASS P3-Owner4.8 the session and 2 real owners vote on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:49:48 PASS P3-Owner4.9 the session claims its own rule for an account-admin call refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+09:49:49 PASS P3-Owner4.10 the session removes rule 0 through its own rule refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+09:49:53 PASS P3-Owner4.11 Owner4 grant (second session) ok 2858 ms 0d99ab170e3b6b99474076e7e639e8f74e186ee93ab2d4cf2115025afbd1e054
+09:49:57 PASS P3-Owner4.12 Owner4 revokes it: grant(key, 0), one authorization, relayer pays ok 4251 ms b53d3830d5e8da2bdf9b14ce94eb8a41b54275218d009f530ef729f98fba1d41
+09:49:59 PASS P3-Owner4.13 the revoked session refused: Error(Auth, InvalidAction) Error(Contract, #1)
+09:50:08 PASS P3-Owner4.14 the first session still works ok 8790 ms 8a69b86137e9839d254518b4544349755adafcc4290e8e52d123127eede93bde
+09:50:09 PASS P3-Owner4.15 a grant for Owner4's prime-session signed by Owner5's owner key refused: Error(Auth, InvalidAction) Error(Contract, #5)
+09:50:10 PASS P3-Owner4.16 the key from P3-Owner4.15 cannot move refused: Error(Auth, InvalidAction) Error(Contract, #1)
+09:50:12 PASS P4-Owner5.1 Owner5 grant: one authorization (own key), relayer pays ok 1778 ms 530d2576bdab6239aca9f533f783ae02afbca9917e228257c405a4c7aacde392
+09:50:18 PASS P4-Owner5.2 relayer pays: 1 XLM to VENUE ok 5146 ms 9c06a3cc5349b11229012268c9907b5740badc0a3a2dcfb300426a9ee6b558c2
+09:50:28 PASS P4-Owner5.3 Owner5 grant, relayer down: the session key's own account is the transaction source ok 4635 ms a0e0f9d60cad96a684dbf964a3ab5b1296ba68a221bb40b86d6f2941a4280a75 (fee paid by the session key)
+09:50:32 PASS P4-Owner5.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE ok 4267 ms 52e4e7ee39e1e43e02cb51b66a79b417d0d7e7a2fc78f6b44c4440c178ada848 (fee paid by the session key)
+09:50:33 PASS P4-Owner5.5 VENUE received exactly 2 XLM 20000000 stroops
+09:50:35 PASS P4-Owner5.6 1 XLM elsewhere refused: Error(Auth, InvalidAction) Error(Contract, #100)
+09:50:38 PASS P4-Owner5.7 on Freighter's session rule refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:50:48 PASS P4-Owner5.8 the session and 2 real owners vote on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:50:49 PASS P4-Owner5.9 the session claims its own rule for an account-admin call refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+09:50:50 PASS P4-Owner5.10 the session removes rule 0 through its own rule refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+09:50:52 PASS P4-Owner5.11 Owner5 grant (second session) ok 1550 ms 47d8287777125b5fdbd6308f045dd409d381ca3817afb28267509defbe8a499b
+09:50:57 PASS P4-Owner5.12 Owner5 revokes it: grant(key, 0), one authorization, relayer pays ok 4931 ms 6997ba74438a49050bcb355db540ba498ab69f94b958372c9b692078bf157f7b
+09:50:58 PASS P4-Owner5.13 the revoked session refused: Error(Auth, InvalidAction) Error(Contract, #1)
+09:51:02 PASS P4-Owner5.14 the first session still works ok 3973 ms 34e752098de14b3b21df2908a66b2524054bdde3072ed7dd14f4a7db68e9394e
+09:51:03 PASS P4-Owner5.15 a grant for Owner5's prime-session signed by Freighter's owner key refused: Error(Auth, InvalidAction) Error(Contract, #5)
+09:51:04 PASS P4-Owner5.16 the key from P4-Owner5.15 cannot move refused: Error(Auth, InvalidAction) Error(Contract, #1)
+09:51:07 PASS R0. Owner5's live session works before removal ok 2924 ms b59163922c70899a22927913fa3df61eac9fecf031f33ac402f67586d77c65fb
+09:51:17 PASS R1. 2 owners try to remove Owner5's session rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+09:51:38 PASS R2. 3 owners remove Owner5's session rule (Freighter + MetaMask + Phantom) ok 20948 ms 6a27386e54e5490d93f2e1b79f411f7c1541c0c860367adcadedfda97a5741e0
+09:51:39 PASS R3. Owner5's live session after removal refused: Error(Auth, InvalidAction) Error(Contract, #3000)
+09:51:42 PASS R4. Owner5 signs a new grant (the contract still takes it) ok 2858 ms 52773279950a4a8f1dc5500cd97423f590292e80f5a5c2a90046139f24fa5f94
+09:51:43 PASS R5. the new session cannot move either (no rule) refused: Error(Auth, InvalidAction) Error(Contract, #3000)
+09:51:47 PASS R6. Freighter's session still works ok 3404 ms be59e624477dca03e8b97484ec823887477acff11c75dc716250127965f21bd2
+09:52:07 PASS R8. 3 owners remove Owner5 from rule 0 ok 20304 ms 3ba51ce96748afb42868b0301e1c50e5cb9ee2d7144a2f5a76c38e52e1425a00
+09:52:28 PASS R9. 3 owners set Owner5's weight to 0 (cleanup) ok 20038 ms b8735d688c8281f49024e41a1a718056c8e454ae1b79ad623872c582abcc27a7
+09:52:28 PASS R10. rule 0 now has 4 signers without Owner5 4 signers
+09:52:38 PASS R11. Owner5's vote and 2 other owners no longer count refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:52:57 PASS R12. 3 remaining owners vote ok 19372 ms 87e00a472d4b3b18237b25510da0f75698a8de2e7fe2f5984860271a8205ff3b
+09:52:58 setup fees (stroops) {"wasmUpload":11015,"primeAccount":1946095,"sessionDeploy":[97708,97708,97708,97708,97708]}
+09:52:58 3-of-5: 104/104 passed; NEAR MPC signatures: 44, average 8.0s
+09:52:58 NEAR MPC: 44 signatures, average 8.0s

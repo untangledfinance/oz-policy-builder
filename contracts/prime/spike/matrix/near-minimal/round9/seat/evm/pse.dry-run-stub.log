@@ -1,0 +1,289 @@
+owners (MetaMask own key; Freighter and Phantom prime:evm-session MPC keys): 0x9969139D8A5d8805071CC04c748F075EAa902509 0x64F9807EFfEA834814719bC340DCB71943a9937c 0x0c9A0F07A6E5240B4EAD76a5123F68ac3D09c895
+---- C. setup
+PASS C0. Safe L2 1.4.1 code carries the legacy ERC-1271 selector 0x20c13b0b and GS027, and not the bytes32 selector 0x1626ba7e | ok 24421 bytes
+PASS C1. create the Safe with MetaMask as its only owner (PrimeX flow) | ok gas 259243
+PASS C2. first transaction: owners become the three PrimeSession contracts, threshold 2, Roles with the movers rule for the PrimeSessions | ok gas 836002
+PASS C3. Safe owners are exactly the three PrimeSession contracts (no wallet key), threshold 2 | ok 3 owners / 2
+PASS C4. mint 1000 tokens to the Safe | ok gas 46096
+---- C. side Safes
+PASS create Safe plain-key (2-of-3) | ok gas 306195
+PASS mint 1000 tokens to plain-key | ok gas 46096
+PASS create Safe three-of-three (3-of-3) | ok gas 306195
+PASS mint 1000 tokens to three-of-three | ok gas 46096
+PASS create Safe replay-A (2-of-3) | ok gas 306183
+PASS mint 1000 tokens to replay-A | ok gas 46096
+PASS create Safe replay-B (2-of-3) | ok gas 306195
+PASS mint 1000 tokens to replay-B | ok gas 46084
+PASS create Safe danger (2-of-3) | ok gas 306195
+PASS mint 1000 tokens to danger | ok gas 46096
+PASS create Safe danger-two-sessions (2-of-3) | ok gas 306183
+PASS mint 1000 tokens to danger-two-sessions | ok gas 46096
+PASS create Safe no-governance (2-of-3) | ok gas 306195
+PASS mint 1000 tokens to no-governance | ok gas 46096
+---- V. owner votes (contract signatures, v = 0)
+PASS V1. MetaMask (typed data, as a seat vote today) + Freighter (MPC raw hash), both through their PrimeSession | ok gas 114608
+PASS V1b. the Safe calls each contract owner with isValidSignature(bytes,bytes) 0x20c13b0b by STATICCALL; data is 0x1901 | domainSeparator | SafeTx hash, 66 bytes, and keccak256(data) is the Safe transaction hash | ok 2 calls, STATICCALL/STATICCALL, gas 4964/4964
+PASS V2. Freighter + Phantom (both NEAR MPC, no MetaMask) | ok gas 97520
+PASS V3. Phantom + MetaMask | ok gas 97520
+PASS V4-MetaMask. MetaMask alone | refused: reverted with reason: GS021
+PASS V4-Freighter. Freighter alone | refused: reverted with reason: GS021
+PASS V4-Phantom. Phantom alone | refused: reverted with reason: GS021
+PASS V5. MetaMask + an outsider key (plain ECDSA entry) | refused: reverted with reason: GS026
+PASS V6. MetaMask's key as a plain ECDSA owner entry + Freighter (the wallet key itself is no longer a Safe owner) | refused: reverted with reason: GS026
+PASS V7. Freighter's signature under MetaMask's PrimeSession + Phantom's own | refused: reverted with reason: GS024
+PASS V8. MetaMask's signature over another hash + Freighter | refused: reverted with reason: GS024
+PASS V10. MetaMask's personal_sign over the 32 raw bytes of the Safe hash (EIP-191 prefix) + Freighter | refused: reverted with reason: GS024
+PASS V11. the same signature with v + 4 (the Safe's own eth_sign marker) + Freighter | refused: reverted with reason: custom error 0xf645eedf
+PASS V12. DEST received exactly 3 (the accepted transactions only) | ok 3
+---- S. vote sessions
+PASS S0-MetaMaska. MetaMask grants a 1-hour VOTE session (flag signed in the grant text) | ok gas 76671
+PASS S0-MetaMaskb. MetaMask grants a 1-hour move-only session | ok gas 76659
+PASS S0-Freightera. Freighter grants a 1-hour VOTE session (flag signed in the grant text) | ok gas 76683
+PASS S0-Freighterb. Freighter grants a 1-hour move-only session | ok gas 76659
+PASS S0-Phantoma. Phantom grants a 1-hour VOTE session (flag signed in the grant text) | ok gas 76683
+PASS S0-Phantomb. Phantom grants a 1-hour move-only session | ok gas 76659
+PASS S1-MetaMask. MetaMask's vote session + Freighter's owner vote | ok gas 100288
+PASS S1-Freighter. Freighter's vote session + Phantom's owner vote | ok gas 100288
+PASS S1-Phantom. Phantom's vote session + MetaMask's owner vote | ok gas 100276
+PASS S2-MetaMask. MetaMask's MOVE-ONLY session + Freighter's owner vote | refused: reverted with reason: GS024
+PASS S2-Freighter. Freighter's MOVE-ONLY session + Phantom's owner vote | refused: reverted with reason: GS024
+PASS S2-Phantom. Phantom's MOVE-ONLY session + MetaMask's owner vote | refused: reverted with reason: GS024
+PASS S3-MetaMaska. MetaMask's owner vote + its own vote session (owner entry first) | refused: reverted with reason: GS026
+PASS S3-MetaMaskb. MetaMask's own vote session + its owner vote (session entry first) | refused: reverted with reason: GS026
+PASS S3-Freightera. Freighter's owner vote + its own vote session (owner entry first) | refused: reverted with reason: GS026
+PASS S3-Freighterb. Freighter's own vote session + its owner vote (session entry first) | refused: reverted with reason: GS026
+PASS S3-Phantoma. Phantom's owner vote + its own vote session (owner entry first) | refused: reverted with reason: GS026
+PASS S3-Phantomb. Phantom's own vote session + its owner vote (session entry first) | refused: reverted with reason: GS026
+---- S. duplicate-owner ordering rules, 3-of-3 Safe
+PASS T1. three different contracts in address order: Phantom owner, MetaMask owner, Freighter vote session | ok gas 133144
+PASS T2. Phantom owner, Phantom vote session, MetaMask owner (same contract twice, adjacent) | refused: reverted with reason: GS026
+PASS T3. Phantom owner, MetaMask owner, Phantom vote session (same contract again, after a larger address) | refused: reverted with reason: GS026
+PASS T4. Phantom owner, MetaMask owner, MetaMask vote session | refused: reverted with reason: GS026
+PASS T5. MetaMask owner first, then Phantom owner (descending addresses), Freighter session | refused: reverted with reason: GS026
+PASS T6. Phantom owner + Phantom session + Phantom owner (three entries, one contract) | refused: reverted with reason: GS026
+---- S. session alone, wrong seat, strangers
+PASS S4. A vote session alone (one signature of the two needed) | refused: reverted with reason: GS021
+PASS S5. MetaMask's vote session under both MetaMask's and Freighter's PrimeSession | refused: reverted with reason: GS024
+PASS S6-MetaMask. MetaMask's vote session presented for Freighter's seat + Phantom's owner vote | refused: reverted with reason: GS024
+PASS S6-Freighter. Freighter's vote session presented for Phantom's seat + MetaMask's owner vote | refused: reverted with reason: GS024
+PASS S6-Phantom. Phantom's vote session presented for MetaMask's seat + Freighter's owner vote | refused: reverted with reason: GS024
+PASS S7. A stranger key under MetaMask's PrimeSession + Freighter's owner vote | refused: reverted with reason: GS024
+PASS S8. A session key's signature in the plain ECDSA slot (as an EOA owner) + Freighter | refused: reverted with reason: GS026
+---- S. expiry
+PASS E1. MetaMask grants a 100-second vote session | ok gas 76659
+PASS E2. the session + Phantom: accepted while live | ok gas 100288
+PASS E3. the same session + Phantom after its end | refused: reverted with reason: GS024
+PASS E4. MetaMask owner + Phantom owner after that time: still accepted | ok gas 97520
+---- S. revoke
+PASS R1. MetaMask grants a 1-hour vote session | ok gas 76683
+PASS R2. the session + Freighter: accepted | ok gas 100276
+PASS R3. MetaMask revokes it (grant with end 0, one signature) | ok gas 58492
+PASS R4. the revoked session + Freighter | refused: reverted with reason: GS024
+PASS R5. the same key granted again after the revoke (any end, vote flag set) | refused: reverted with reason: grant
+PASS R6. still refused after the failed re-grant | refused: reverted with reason: GS024
+PASS R7. owner votes are unaffected (MetaMask + Freighter) | ok gas 97496
+PASS R8. MetaMask revokes a key it never granted (pre-emptive) | ok gas 75604
+PASS R9. that key can never be granted a vote session afterwards | refused: reverted with reason: grant
+---- S. the vote flag is bound by the owner signature
+PASS F1. owner signed "moves only", submitted with vote = true | refused: reverted with reason: grant sig
+PASS F2. owner signed "moves and votes", submitted with vote = false | refused: reverted with reason: grant sig
+PASS F3. move-only grant for the key (default) | ok gas 76647
+PASS F4. that session + Freighter | refused: reverted with reason: GS024
+PASS F5. later grant for the same key, longer, with the vote flag (upgrade) | ok gas 59571
+PASS F6. stored: vote flag set, end extended | ok 1791452675,0,true
+PASS F7. that session + Freighter: accepted | ok gas 100288
+PASS F8. later grant, longer, without the flag (downgrade) | ok gas 59547
+PASS F9. that session + Freighter after the downgrade | refused: reverted with reason: GS024
+PASS F10. a grant with the same end and the vote flag (no extension) is refused | refused: reverted with reason: grant
+---- Z. replay across Safes (A and B: same three PrimeSession owners, both at nonce 0)
+PASS Z0. A and B have different hashes for the identical transaction (the domain separator holds the Safe address) | ok 0x61b3ddd9… vs 0x0af2c75a…
+PASS Z1. signatures made for Safe A presented to Safe B (vote session + owner) | refused: reverted with reason: GS024
+PASS Z2. signatures made for Safe B presented to Safe A | refused: reverted with reason: GS024
+PASS Z3. control: Safe A with its own signatures | ok gas 117388
+PASS Z4. the accepted signatures of Safe A sent again to Safe A | refused: reverted with reason: GS024
+PASS Z5. control: Safe B with its own signatures | ok gas 117388
+---- Z. replay across chains
+PASS Y0. on another chain id the Safe has another domain separator | ok 0x3f0af07c… vs 0xce407627…
+PASS Y1. Safe signatures (vote session + owner) made on chain 84532, sent on chain 1 | refused: reverted with reason: GS024
+PASS Y2. an owner grant (vote flag set) signed on chain 84532, sent on chain 1 | refused: reverted with reason: grant sig
+PASS Y3. a session move signed on chain 84532, sent on chain 1 | refused: reverted with reason: session sig
+PASS Y4. chain id is back to 84532 and the domain separator is the first one | ok 84532
+PASS Y5. control: the same Safe signatures on chain 84532 | ok gas 100264
+PASS Y6. control: the same owner grant on chain 84532 | ok gas 59583
+PASS Y7. control: the same session move on chain 84532 | ok gas 141849
+---- D. the dangerous case: a vote session and one other owner are a 2-of-3
+PASS D1. Freighter's vote session + MetaMask's owner vote: addOwnerWithThreshold(attacker, 1) on the Safe itself | ok gas 141555
+PASS D2. the Safe now has 4 owners including the attacker, threshold 1 | ok 4 owners / 1
+PASS D3. the attacker alone moves all 1000 tokens out | ok gas 86098
+PASS D4. the attacker holds 1000 tokens | ok 1000
+PASS D5. the attacker removes 0xD1de9F… (a wallet's seat) | ok gas 70566
+PASS D5. the attacker removes 0xfb8474… (a wallet's seat) | ok gas 70554
+PASS D5. the attacker removes 0xaa9Da4… (a wallet's seat) | ok gas 70566
+PASS D6. the three wallets are locked out: the attacker is the only owner | ok 0xc697fb1a9ff3c8c9b8887a9ca6a368b6662746cf
+PASS D7. Freighter's MOVE-ONLY session + MetaMask's owner vote: addOwnerWithThreshold(attacker, 1) | refused: reverted with reason: GS024
+PASS D8. two vote sessions (MetaMask and Freighter) alone: all 1000 tokens to the attacker, no wallet prompt | ok gas 115356
+PASS D9. the same two vote sessions: addOwnerWithThreshold(attacker, 1) | ok gas 127235
+---- M. Safe messages (EIP-1271 on the Safe itself) accept the same signatures
+PASS M1. two owners sign a Safe message (control) | ok 0x1626ba7e
+PASS M2. Freighter's vote session + MetaMask's owner sign a Safe message | ok 0x1626ba7e
+PASS M3. Freighter's MOVE-ONLY session + MetaMask's owner sign a Safe message | refused: reverted with the following reason: GS024
+---- NG. no-governance variant: a vote session must show the Safe transaction and it may not govern
+PASS NG0. Freighter grants a vote session on its no-governance PrimeSession | ok gas 76671
+PASS NG1. vote session (signature + tx fields) + MetaMask owner: a token transfer | ok gas 124752
+PASS NG2. vote session + MetaMask owner: a token transfer again | ok gas 107664
+PASS NG3. the same session without the tx fields | refused: reverted with reason: tx fields
+PASS NG4. vote session + MetaMask owner: addOwnerWithThreshold(attacker, 1) | refused: reverted with reason: GS024
+PASS NG4. vote session + MetaMask owner: changeThreshold(1) | refused: reverted with reason: GS024
+PASS NG4. vote session + MetaMask owner: swapOwner | refused: reverted with reason: GS024
+PASS NG4. vote session + MetaMask owner: removeOwner | refused: reverted with reason: GS024
+PASS NG4. vote session + MetaMask owner: enableModule(attacker) | refused: reverted with reason: GS024
+PASS NG4. vote session + MetaMask owner: setGuard(attacker) | refused: reverted with reason: GS024
+PASS NG4. vote session + MetaMask owner: a call to the Roles modifier | refused: reverted with reason: GS024
+PASS NG4. vote session + MetaMask owner: a delegatecall | refused: reverted with reason: GS024
+PASS NG4. vote session + MetaMask owner: a MultiSend batch (delegatecall) with addOwnerWithThreshold inside | refused: reverted with reason: GS024
+PASS NG5. vote session signs addOwnerWithThreshold but supplies the fields of a token transfer | refused: reverted with reason: tx fields
+PASS NG6. what stays possible: the vote session + MetaMask owner send 500 tokens to the attacker | ok gas 107688
+PASS NG7. the attacker holds 500 more tokens | ok 500
+PASS NG8. the vote session cannot sign a Safe message (no SafeTx fields can match a message hash) | refused: reverted with the following reason: tx fields
+PASS NG9. two owners can still sign a Safe message | ok 0x1626ba7e
+PASS NG10. owners still govern: MetaMask + Freighter add an owner | ok gas 117608
+---- W. the Safe counts contracts, so onboarding must keep the three owner keys different
+PASS create Safe duplicate-key (2-of-3) | ok gas 306195
+PASS mint 1000 tokens to duplicate-key | ok gas 46096
+PASS W1. one MetaMask signature filed under two PrimeSessions that share its owner key: the Safe counts two votes | ok gas 114620
+---- N. a session (vote or not) cannot use Roles to govern
+PASS N-Freighter1. Freighter's vote session asks Roles to add its key as a Safe owner | refused: reverted with reason: custom error 0xd0a9bf58:                                                                
+PASS N-Freighter2. Freighter's vote session asks Roles for a delegatecall | refused: reverted with reason: custom error 0xd0a9bf58:                                                                
+PASS N-Freighter3. Freighter's vote session asks Roles to re-assign roles | refused: reverted with reason: custom error 0xd0a9bf58:                                                                
+PASS N-Phantom1. Phantom's vote session asks Roles to add its key as a Safe owner | refused: reverted with reason: custom error 0xd0a9bf58:                                                                
+PASS N-Phantom2. Phantom's vote session asks Roles for a delegatecall | refused: reverted with reason: custom error 0xd0a9bf58:                                                                
+PASS N-Phantom3. Phantom's vote session asks Roles to re-assign roles | refused: reverted with reason: custom error 0xd0a9bf58:                                                                
+---- G. sessions and moves, every wallet
+PASS G-MetaMask1. MetaMask grants a 1-hour move-only session (one signature), relayer submits | ok gas 76659
+PASS G-MetaMask2. move via relayer: 10 to VENUE | ok gas 124737
+PASS G-MetaMask3. relayer down: the session key submits and pays gas itself, 5 to VENUE | ok gas 124749 (paid by 0x16093f…)
+PASS G-MetaMask4. relayer down and the session key has no ETH | refused: The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.
+PASS G-MetaMask5. VENUE received exactly 15 | ok 15
+PASS G-MetaMask6. move 3: 1 to VENUE | ok gas 124749
+PASS G-MetaMask7. move 3 replayed | refused: reverted with reason: session sig
+PASS G-MetaMask8. 1 to another address (Roles rule) | refused: reverted with reason: custom error 0xd0a9bf58:                                                                
+PASS G-MetaMask9. move signed by another key | refused: reverted with reason: session sig
+PASS G-MetaMask10. grant for 7 days + 1 hour | refused: reverted with reason: grant
+PASS G-MetaMask11. grant submitted with a later end than signed | refused: reverted with reason: grant sig
+PASS G-MetaMask12. old grant replayed with an earlier end | refused: reverted with reason: grant
+PASS G-MetaMask13. grant for the zero key is accepted (owner-signed, stored) | ok gas 76419
+PASS G-MetaMask13b. the zero key can never move (no signature recovers to it) | refused: reverted with reason: custom error 0xf645eedf
+PASS G-MetaMask14. second session | ok gas 76659
+PASS G-MetaMask15. MetaMask revokes it: grant with end 0 (one signature) | ok gas 58492
+PASS G-MetaMask16. the revoked session | refused: reverted with reason: session
+PASS G-MetaMask17. re-grant the revoked key | refused: reverted with reason: grant
+PASS G-MetaMask18. first session still works | ok gas 124749
+PASS G-MetaMask19. grant + first move in one Multicall3 transaction, relayer submits | ok gas 184164
+PASS G-MetaMask20. that session is live with nonce 1 afterwards, and VENUE got the 2 | ok nonce 1
+PASS G-MetaMask21. grant + first move in one transaction, the session key pays its own gas | ok gas 184176 (paid by 0x64F051…)
+PASS G-MetaMask22. the combined session's second move | ok gas 124749
+PASS G-MetaMask23. grant + a refused first move (1 to another address): the whole transaction reverts | refused: reverted with reason: Multicall3: call failed
+PASS G-MetaMask24. and the grant was not stored | ok until 0
+PASS G-MetaMask30. a VOTE session also makes Roles moves: grant (vote flag set) + first move, 1 to VENUE | ok gas 184200
+PASS G-MetaMask31. that session is stored with the vote flag and nonce 1 | ok 1791453221,1,true
+PASS G-MetaMask32. the vote session is still held to the Roles rule (1 to another address) | refused: reverted with reason: custom error 0xd0a9bf58:                                                                
+PASS G-Freighter1. Freighter grants a 1-hour move-only session (one signature through NEAR), relayer submits | ok gas 76659
+PASS G-Freighter2. move via relayer: 10 to VENUE | ok gas 124749
+PASS G-Freighter3. relayer down: the session key submits and pays gas itself, 5 to VENUE | ok gas 124749 (paid by 0x23434a…)
+PASS G-Freighter4. relayer down and the session key has no ETH | refused: The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.
+PASS G-Freighter5. VENUE received exactly 15 | ok 15
+PASS G-Freighter6. move 3: 1 to VENUE | ok gas 124749
+PASS G-Freighter7. move 3 replayed | refused: reverted with reason: session sig
+PASS G-Freighter8. 1 to another address (Roles rule) | refused: reverted with reason: custom error 0xd0a9bf58:                                                                
+PASS G-Freighter9. move signed by another key | refused: reverted with reason: session sig
+PASS G-Freighter10. grant for 7 days + 1 hour | refused: reverted with reason: grant
+PASS G-Freighter11. grant submitted with a later end than signed | refused: reverted with reason: grant sig
+PASS G-Freighter12. old grant replayed with an earlier end | refused: reverted with reason: grant
+PASS G-Freighter13. grant for the zero key is accepted (owner-signed, stored) | ok gas 76419
+PASS G-Freighter13b. the zero key can never move (no signature recovers to it) | refused: reverted with reason: custom error 0xf645eedf
+PASS G-Freighter14. second session | ok gas 76647
+PASS G-Freighter15. Freighter revokes it: grant with end 0 (one signature) | ok gas 58504
+PASS G-Freighter16. the revoked session | refused: reverted with reason: session
+PASS G-Freighter17. re-grant the revoked key | refused: reverted with reason: grant
+PASS G-Freighter18. first session still works | ok gas 124749
+PASS G-Freighter19. grant + first move in one Multicall3 transaction, relayer submits | ok gas 184176
+PASS G-Freighter20. that session is live with nonce 1 afterwards, and VENUE got the 2 | ok nonce 1
+PASS G-Freighter21. grant + first move in one transaction, the session key pays its own gas | ok gas 184176 (paid by 0xEf5b42…)
+PASS G-Freighter22. the combined session's second move | ok gas 124749
+PASS G-Freighter23. grant + a refused first move (1 to another address): the whole transaction reverts | refused: reverted with reason: Multicall3: call failed
+PASS G-Freighter24. and the grant was not stored | ok until 0
+PASS G-Freighter30. a VOTE session also makes Roles moves: grant (vote flag set) + first move, 1 to VENUE | ok gas 184200
+PASS G-Freighter31. that session is stored with the vote flag and nonce 1 | ok 1791453223,1,true
+PASS G-Freighter32. the vote session is still held to the Roles rule (1 to another address) | refused: reverted with reason: custom error 0xd0a9bf58:                                                                
+PASS G-Phantom1. Phantom grants a 1-hour move-only session (one signature through NEAR), relayer submits | ok gas 76659
+PASS G-Phantom2. move via relayer: 10 to VENUE | ok gas 124749
+PASS G-Phantom3. relayer down: the session key submits and pays gas itself, 5 to VENUE | ok gas 124749 (paid by 0x266E93…)
+PASS G-Phantom4. relayer down and the session key has no ETH | refused: The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account.
+PASS G-Phantom5. VENUE received exactly 15 | ok 15
+PASS G-Phantom6. move 3: 1 to VENUE | ok gas 124749
+PASS G-Phantom7. move 3 replayed | refused: reverted with reason: session sig
+PASS G-Phantom8. 1 to another address (Roles rule) | refused: reverted with reason: custom error 0xd0a9bf58:                                                                
+PASS G-Phantom9. move signed by another key | refused: reverted with reason: session sig
+PASS G-Phantom10. grant for 7 days + 1 hour | refused: reverted with reason: grant
+PASS G-Phantom11. grant submitted with a later end than signed | refused: reverted with reason: grant sig
+PASS G-Phantom12. old grant replayed with an earlier end | refused: reverted with reason: grant
+PASS G-Phantom13. grant for the zero key is accepted (owner-signed, stored) | ok gas 76419
+PASS G-Phantom13b. the zero key can never move (no signature recovers to it) | refused: reverted with reason: custom error 0xf645eedf
+PASS G-Phantom14. second session | ok gas 76659
+PASS G-Phantom15. Phantom revokes it: grant with end 0 (one signature) | ok gas 58504
+PASS G-Phantom16. the revoked session | refused: reverted with reason: session
+PASS G-Phantom17. re-grant the revoked key | refused: reverted with reason: grant
+PASS G-Phantom18. first session still works | ok gas 124749
+PASS G-Phantom19. grant + first move in one Multicall3 transaction, relayer submits | ok gas 184152
+PASS G-Phantom20. that session is live with nonce 1 afterwards, and VENUE got the 2 | ok nonce 1
+PASS G-Phantom21. grant + first move in one transaction, the session key pays its own gas | ok gas 184164 (paid by 0xbB0931…)
+PASS G-Phantom22. the combined session's second move | ok gas 124749
+PASS G-Phantom23. grant + a refused first move (1 to another address): the whole transaction reverts | refused: reverted with reason: Multicall3: call failed
+PASS G-Phantom24. and the grant was not stored | ok until 0
+PASS G-Phantom30. a VOTE session also makes Roles moves: grant (vote flag set) + first move, 1 to VENUE | ok gas 184200
+PASS G-Phantom31. that session is stored with the vote flag and nonce 1 | ok 1791453224,1,true
+PASS G-Phantom32. the vote session is still held to the Roles rule (1 to another address) | refused: reverted with reason: custom error 0xd0a9bf58:                                                                
+PASS G-cap. a move over the daily cap (60 more) | refused: Roles ConditionViolation(AllowanceExceeded)
+---- X. cross-wallet grants, and grants versus votes
+PASS X1. PrimeSession(Freighter) with a grant signed by Phantom | refused: reverted with reason: grant sig
+PASS X2. PrimeSession(MetaMask) with a grant signed by Freighter | refused: reverted with reason: grant sig
+PASS X3. PrimeSession(Phantom) with a grant signed by MetaMask | refused: reverted with reason: grant sig
+PASS X5. grant text made for PrimeSession(Freighter) presented to PrimeSession(Phantom), signed by Phantom | refused: reverted with reason: grant sig
+PASS X6. raw-hash signature instead of personal_sign (Freighter) | refused: reverted with reason: grant sig
+PASS X7. MetaMask's grant signature (personal_sign of the grant text) filed as its vote + Freighter's owner vote | refused: reverted with reason: GS024
+PASS X8. MetaMask's vote signature over a Safe hash offered as a grant signature | refused: reverted with reason: grant sig
+PASS X9. Freighter vote session (used below) | ok gas 76659
+PASS X10. Phantom's end-0 (revoke) signature on PrimeSession(Freighter) for Freighter's live session | refused: reverted with reason: grant sig
+PASS X11. Freighter session still works after X10 | ok gas 124725
+---- GAS. a Safe vote: plain keys, owner contracts, session contracts (second transaction on each Safe, warm state)
+PASS GAS-plain1. warm-up transaction | ok gas 98615
+PASS GAS-plain2. measured transaction | ok gas 81503
+PASS GAS-ownerOwner1. warm-up transaction | ok gas 97508
+PASS GAS-ownerOwner2. measured transaction | ok gas 97508
+PASS GAS-sessionOwner1. warm-up transaction | ok gas 100276
+PASS GAS-sessionOwner2. measured transaction | ok gas 100264
+PASS GAS-sessionSession1. warm-up transaction | ok gas 103056
+PASS GAS-sessionSession2. measured transaction | ok gas 103056
+PASS GAS0. numbers collected | ok plain 81503, owner+owner 97508, session+owner 100264, session+session 103056, no-gov session+owner 107664
+---- GAS. PrimeSession against the production PrimeSession (same owner, same Roles rule)
+PASS GAS-production-grant | ok gas 75988
+PASS GAS-production-move1 | ok gas 124742
+PASS GAS-production-move2 | ok gas 124742
+PASS GAS-seatSpike-grant | ok gas 76659
+PASS GAS-seatSpike-move1 | ok gas 124749
+PASS GAS-seatSpike-move2 | ok gas 124749
+PASS GAS-seatSpike-grant | ok gas 76683
+PASS GAS-seatSpike-move1 | ok gas 124737
+PASS GAS-seatSpike-move2 | ok gas 124749
+---- B. deployed bytecode equals the build (immutables masked)
+PASS B. PrimeSession(MetaMask) at 0xD1de9F0D…: 4810 bytes, 5 immutable slots, equal to the build | ok 4810 bytes
+PASS B. PrimeSession(Freighter) at 0xfb84744c…: 4810 bytes, 5 immutable slots, equal to the build | ok 4810 bytes
+PASS B. PrimeSession(Phantom) at 0xaa9Da4d1…: 4810 bytes, 5 immutable slots, equal to the build | ok 4810 bytes
+PASS B. PrimeSessionNoGov(MetaMask) at 0x27a11864…: 5353 bytes, 6 immutable slots, equal to the build | ok 5353 bytes
+PASS B. PrimeSessionNoGov(Freighter) at 0xf0b43c66…: 5353 bytes, 6 immutable slots, equal to the build | ok 5353 bytes
+PASS B. PrimeSessionNoGov(Phantom) at 0x2722bD89…: 5353 bytes, 6 immutable slots, equal to the build | ok 5353 bytes
+PASS B. production PrimeSession (gas comparison) at 0x063508eB…: 3996 bytes, 4 immutable slots, equal to the build | ok 3996 bytes
+gas: deploy 1094949, deployBase 919172, setupSafe 836002, deployNoGov 1212127, isValidSignatureOwner 4964, grantVoteMetaMask 76671, grantMoveOnlyMetaMask 76659, grantVoteFreighter 76683, grantMoveOnlyFreighter 76659, grantVotePhantom 76683, grantMoveOnlyPhantom 76659, safeSO 100288, safeNoGovSO 107664, grantMetaMask 76659, moveRelayerMetaMask 124737, moveSelfMetaMask 124749, moveLaterMetaMask 124749, grantMoveRelayerMetaMask 184164, grantMoveSelfMetaMask 184176, grantFreighter 76659, moveRelayerFreighter 124749, moveSelfFreighter 124749, moveLaterFreighter 124749, grantMoveRelayerFreighter 184176, grantMoveSelfFreighter 184176, grantPhantom 76659, moveRelayerPhantom 124749, moveSelfPhantom 124749, moveLaterPhantom 124749, grantMoveRelayerPhantom 184152, grantMoveSelfPhantom 184164, plain 81503, ownerOwner 97508, sessionOwner 100264, sessionSession 103056, productionGrant 75988, productionMove1 124742, productionMove2 124742, seatSpikeGrant 76659, seatSpikeMove1 124749, seatSpikeMove2 124749, seatSpikeGrantVote 76683, seatSpikeMove1Vote 124737, seatSpikeMove2Vote 124749
+gas of one Safe vote: {"plain":"81503","ownerOwner":"97508","sessionOwner":"100264","sessionSession":"103056","noGovSessionOwner":"107664","calldataBytes":{"plain":644,"ownerOwner":836,"sessionOwner":836,"sessionSession":836},"ownerSubcalls":{"plain":"","ownerOwner":"4964+4964","sessionOwner":"4964+7732","sessionSession":"7732+7732"}}
+NEAR MPC signatures: 55, average 0.0s
+263/263 passed

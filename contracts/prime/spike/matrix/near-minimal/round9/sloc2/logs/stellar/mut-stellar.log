@@ -1,0 +1,29 @@
+S01 cap > -> >= KILLED
+S02 cap 120_960 -> 120_961 KILLED
+S03 cap check removed KILLED
+S04 revoked check on revoke too KILLED
+S05 revoked check always KILLED
+S06 revoked check never KILLED
+S07 revoked check inverted KILLED
+S08 ttl without saturation KILLED
+S09 stored until zeroed KILLED
+S10 stored until +1 KILLED
+S11 revoke arm 0 -> 1 KILLED
+S12 grant arm ttl -> 0 KILLED
+S13 revoke uses ttl not max_ttl KILLED
+S14 extend to 0 KILLED
+S15 extend threshold only KILLED
+S16 owner auth removed KILLED
+S17 constructor key moved KILLED
+S18 grant error code 2 KILLED
+S19 check_auth <  -> <= KILLED
+S20 check_auth default max KILLED
+S21 check_auth error code 2 KILLED
+S22 signature check removed KILLED
+S23 verify other key (sig as key) KILLED
+S24 grant reads persistent for revoked check KILLED
+S25 check_auth reads persistent KILLED
+S26 grant stores persistent KILLED
+S27 cap uses day-less ledgers 120_960 -> 17_280 KILLED
+S28 revoked check ignores key KILLED
+survivors: []

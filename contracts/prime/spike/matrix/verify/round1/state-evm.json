@@ -1,0 +1,268 @@
+{
+ "results": [
+  {
+   "name": "V0. rule members are the three SessionMembers directly (one approval each)",
+   "pass": true,
+   "ok": true,
+   "detail": "0xbeB916302e83f36c273e77265AbBD3b6c1A3EeCb,0x40FBe90c9f5F992B1FE1DEAFD5C3979CB168155b,0xFd1e82D82A80646B69B683BE1B3B4a7304a3f56b"
+  },
+  {
+   "name": "V1. create Safe (PrimeX flow: creator MetaMask first)",
+   "pass": true,
+   "ok": true,
+   "detail": "0x8224996b3306723c40365ceae4518e2c3060f693e200dcedcc2444de7ad18ec5"
+  },
+  {
+   "name": "V2. nonce 0 (MetaMask): seats MetaMask, Phantom (NEAR MPC), Freighter (NEAR MPC); threshold 2; Roles + spending-limit rule (100/day to VENUE)",
+   "pass": true,
+   "ok": true,
+   "detail": "0xa7b8f76ca18a4441bcfee0c8a38ebad9249799bf7281a8cef95cd47a82f10884"
+  },
+  {
+   "name": "V3. Safe owners = MetaMask, Phantom, Freighter; threshold 2",
+   "pass": true,
+   "ok": true,
+   "detail": "0xE048EdDb64bB8C92A95984b8Af20a000fa8B84D5,0x8f8a18790DA2EE12b6CD4009CBcb14ecB58Ce2b7,0x712A7aD2b9B84932E485dE58f2eC8E302217C9CF t=2"
+  },
+  {
+   "name": "V4. mint 1000 test tokens to the Safe",
+   "pass": true,
+   "ok": true,
+   "detail": "0x62087c545389df0e52d63b292cab75717a1b3b10d0278877153a4c753103a76a"
+  },
+  {
+   "name": "W1. MetaMask alone signs a Safe transfer",
+   "pass": true,
+   "ok": false,
+   "detail": "GS020"
+  },
+  {
+   "name": "W2. MetaMask + outsider",
+   "pass": true,
+   "ok": false,
+   "detail": "GS026"
+  },
+  {
+   "name": "W3. MetaMask + Phantom",
+   "pass": true,
+   "ok": true,
+   "detail": "0x9c061e41b7f3a0c901c3a3fb0a98f6480647165ae72b8bacf827aa82fafa5720"
+  },
+  {
+   "name": "W4. Phantom + Freighter (no MetaMask)",
+   "pass": true,
+   "ok": true,
+   "detail": "0x29da9ea915ef5d0d27cc90f3e5e921a3eef06f0c66a0fefafa0b953c49923d5c"
+  },
+  {
+   "name": "W5. Freighter + MetaMask",
+   "pass": true,
+   "ok": true,
+   "detail": "0x7fdba2f0929aa180a28743adc2415c49b698ef54eaf35c3112559fd2594da9e3"
+  },
+  {
+   "name": "W6. DEST received exactly 3 tokens",
+   "pass": true,
+   "ok": true,
+   "detail": "3"
+  },
+  {
+   "name": "X-MetaMask1. session: 10 tokens to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "0xc970eb04660f00bdaaf75ed03627d799a9d737b28b4d5c9bdce9192746a426e3"
+  },
+  {
+   "name": "X-MetaMask1b. VENUE received 10",
+   "pass": true,
+   "ok": true,
+   "detail": "10"
+  },
+  {
+   "name": "X-MetaMask2. session: 1 token to another address",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000."
+  },
+  {
+   "name": "X-MetaMask1r. session: a 0-token move (replayed next)",
+   "pass": true,
+   "ok": true,
+   "detail": "0x626e88886e74ac8e1f0ec2626ceec4fe2b4171c2fd695ca1afea3f69af53ead3"
+  },
+  {
+   "name": "X-MetaMask3. replay of a used, signed move",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted with reason: bad session sig."
+  },
+  {
+   "name": "X-MetaMask4. a move signed by another key",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted with reason: bad session sig."
+  },
+  {
+   "name": "X-Phantom1. session: 10 tokens to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "0xc435cc89f0abaa1369ae90e00f574a7f086efbe9ee886ebc0c00809735e28fb9"
+  },
+  {
+   "name": "X-Phantom1b. VENUE received 10",
+   "pass": true,
+   "ok": true,
+   "detail": "10"
+  },
+  {
+   "name": "X-Phantom2. session: 1 token to another address",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000."
+  },
+  {
+   "name": "X-Phantom1r. session: a 0-token move (replayed next)",
+   "pass": true,
+   "ok": true,
+   "detail": "0x015518ea80e7066f8fe5b6ea853441cfaf2dc923d329c5df096865271996c0fc"
+  },
+  {
+   "name": "X-Phantom3. replay of a used, signed move",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted with reason: bad session sig."
+  },
+  {
+   "name": "X-Phantom4. a move signed by another key",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted with reason: bad session sig."
+  },
+  {
+   "name": "X-Freighter1. session: 10 tokens to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "0xbeecb2f6bf92eb92d6672d88a5efcd0e1702af5211692fc8cba48c6ce27a0508"
+  },
+  {
+   "name": "X-Freighter1b. VENUE received 10",
+   "pass": true,
+   "ok": true,
+   "detail": "10"
+  },
+  {
+   "name": "X-Freighter2. session: 1 token to another address",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000."
+  },
+  {
+   "name": "X-Freighter1r. session: a 0-token move (replayed next)",
+   "pass": true,
+   "ok": true,
+   "detail": "0xae01862690b3cd8dd910d85abb8bf2c5d272e57c66752560e42367279fe890da"
+  },
+  {
+   "name": "X-Freighter3. replay of a used, signed move",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted with reason: bad session sig."
+  },
+  {
+   "name": "X-Freighter4. a move signed by another key",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted with reason: bad session sig."
+  },
+  {
+   "name": "X4. shared cap: MetaMask session 71 more (30 + 71 > 100/day)",
+   "pass": true,
+   "ok": false,
+   "detail": "Roles ConditionViolation(AllowanceExceeded)"
+  },
+  {
+   "name": "X5. shared cap: Phantom session 70 more (exactly 100)",
+   "pass": true,
+   "ok": true,
+   "detail": "0x0a921b4e28b11f8a4cda9492bc3f034b575f644832001a0765ba3ebb6003517f"
+  },
+  {
+   "name": "X6. MetaMask grant used on the Phantom member",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted with reason: not owner."
+  },
+  {
+   "name": "X7. stretched validUntil (grant was for less)",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted with reason: not owner."
+  },
+  {
+   "name": "X8. session longer than 7 days",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted with reason: expired."
+  },
+  {
+   "name": "X9. Freighter revokes its session (signature via NEAR)",
+   "pass": true,
+   "ok": true,
+   "detail": "0x04735ef2b7db99f54a9f6455b8437def5738f1e5e7582ee90d4b4ecb38354685"
+  },
+  {
+   "name": "X10. revoked Freighter session (still within its validity)",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted with reason: revoked."
+  },
+  {
+   "name": "X11. fresh Phantom session works next day",
+   "pass": true,
+   "ok": true,
+   "detail": "0x9d82b9995712c27fc2e75cdb00ab44432fa1728e3ef112641d3a829da42c10a2"
+  },
+  {
+   "name": "X12. that session after it expired",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted with reason: expired."
+  },
+  {
+   "name": "X13. MetaMask session before removal",
+   "pass": true,
+   "ok": true,
+   "detail": "0x564a4d11256fd0cf1d4c1ac44288d6f14e6cba853570f15ccc427b01f218b19e"
+  },
+  {
+   "name": "X14. Phantom + Freighter remove the MetaMask member from the rule",
+   "pass": true,
+   "ok": true,
+   "detail": "0x4eec6c398bd575e1559cf33989ec310c676bc70cb40bf739c4d91e5db628fa06"
+  },
+  {
+   "name": "X15. same MetaMask session after removal",
+   "pass": true,
+   "ok": false,
+   "detail": "Roles NoMembership"
+  },
+  {
+   "name": "X16. Phantom session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "0xeaefd52d9a0b1932b8dd6d6286798c9b87f7e0a789c9ae929357dac978decee8"
+  }
+ ],
+ "venue": "0x076F370d2C8D90f1d72b316902c2bd9Aea8405c9",
+ "other": "0xa2882581cB6C4C3394B58Cef49083ABd08d4b0e1",
+ "dest": "0xf5a67E4aF47268155a0505e770A0e6F196Bd2495",
+ "token": "0x14e5ef97965d58b9b8f02fc1693c8cee7997c3d7",
+ "safe": "0x06EA5281Cca741F8f28F4030F9Fc2B5733ceDd33",
+ "roles": "0x403434AcCe643aC5dCfc5d94a8F401BC2Ea2A320",
+ "members": {
+  "MetaMask": "0xbeb916302e83f36c273e77265abbd3b6c1a3eecb",
+  "Phantom": "0x40fbe90c9f5f992b1fe1deafd5c3979cb168155b",
+  "Freighter": "0xfd1e82d82a80646b69b683be1b3b4a7304a3f56b"
+ },
+ "roleKey": "0x6d6f766572733a64643731643430340000000000000000000000000000000000"
+}

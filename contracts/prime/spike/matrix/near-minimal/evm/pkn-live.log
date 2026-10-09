@@ -1,0 +1,92 @@
+seats: 0xCcD8af4Ae1a907Ac370FD151D6282da59bc7C570 0x29A9ac479C237AC2CAE6f25cD6cec5D961C113fF 0x5F172afFBEEb59eb574fFF9be77B44898182F3b1
+PASS C0. a zero-owner PrimeKey accepts no grant (garbage signature) | refused: reverted with reason: grant sig
+PASS C1. create Safe (MetaMask first, PrimeX flow) | ok gas 259243
+PASS C2. seats MetaMask + Freighter(NEAR MPC) + Phantom(NEAR MPC), threshold 2; movers rule for the three PrimeKeys | ok gas 750047
+PASS C3. owners are exactly the three wallet keys (no PrimeKey), threshold 2 | ok 0x5f172affbeeb59eb574fff9be77b44898182f3b1,0x29a9ac479c237ac2cae6f25cd6cec5d961c113ff,0xccd8af4ae1a907ac370fd151d6282da59bc7c570 / 2
+PASS C4. mint 1000 tokens to the Safe | ok gas 46096
+PASS S1-MetaMask. MetaMask alone | refused: reverted with reason: GS020
+PASS S1-Freighter. Freighter alone | refused: reverted with reason: GS020
+PASS S1-Phantom. Phantom alone | refused: reverted with reason: GS020
+PASS S2. MetaMask + Freighter | ok gas 98627
+PASS S3. Freighter + Phantom (no MetaMask) | ok gas 81527
+PASS S4. Phantom + MetaMask | ok gas 81527
+PASS S5. DEST received exactly 3 | ok 3
+PASS S6. outsider + MetaMask | refused: reverted with reason: GS026
+PASS S7. the same wallet (Phantom) signs twice, as both votes | refused: reverted with reason: GS026
+PASS S8. Freighter's MPC key under another path + MetaMask | refused: reverted with reason: GS026
+PASS S9. Phantom approval of another Safe tx + MetaMask | refused: reverted with reason: GS026
+PASS N0. Phantom grants a session (used below) | ok gas 75768
+PASS N1. the session key's signature as a Safe owner + MetaMask | refused: reverted with reason: GS026
+PASS N2. PrimeKey(Phantom) as a contract signature + MetaMask | refused: Execution reverted for an unknown reason.
+PASS N3. session asks Roles to add the session key as a Safe owner | refused: Execution reverted for an unknown reason.
+PASS N4. session asks Roles for a delegatecall | refused: Execution reverted for an unknown reason.
+PASS N5. session asks Roles to call the Roles modifier itself (re-assign roles) | refused: Execution reverted for an unknown reason.
+PASS G-MetaMask1. MetaMask grants a 1-hour session (one signature), relayer submits | ok gas 75768
+PASS G-MetaMask2. move via relayer: 10 to VENUE | ok gas 160586
+PASS G-MetaMask3. relayer down: session key submits and pays gas itself, 5 to VENUE | ok gas 126398 (paid by 0x503660…)
+PASS G-MetaMask4. relayer down and the session key has no ETH | refused: reverted with reason: gas required exceeds allowance (0)
+PASS G-MetaMask5. VENUE received exactly 15 | ok 15
+PASS G-MetaMask6. move 3: 1 to VENUE | ok gas 126398
+PASS G-MetaMask7. move 3 replayed | refused: reverted with reason: session sig
+PASS G-MetaMask8. 1 to another address (Roles rule) | refused: Execution reverted for an unknown reason.
+PASS G-MetaMask9. move signed by another key | refused: reverted with reason: session sig
+PASS G-MetaMask10. grant for 7 days + 1 hour | refused: reverted with reason: grant
+PASS G-MetaMask11. grant submitted with a later end than signed | refused: reverted with reason: grant sig
+PASS G-MetaMask12. old grant replayed with an earlier end | refused: reverted with reason: grant
+PASS G-MetaMask13. grant for the zero key | refused: reverted with reason: grant
+PASS G-MetaMask14. second session, granted with the session key paying gas itself | ok gas 75756 (paid by 0x04B061…)
+PASS G-MetaMask15. MetaMask revokes it: grant with end 0 (one signature) | ok gas 57672
+PASS G-MetaMask16. the revoked session | refused: reverted with reason: session
+PASS G-MetaMask17. re-grant the revoked key | refused: reverted with reason: grant
+PASS G-MetaMask18. first session still works | ok gas 126386
+PASS G-Freighter1. Freighter grants a 1-hour session (one signature through NEAR), relayer submits | ok gas 75768
+PASS G-Freighter2. move via relayer: 10 to VENUE | ok gas 143486
+PASS G-Freighter3. relayer down: session key submits and pays gas itself, 5 to VENUE | ok gas 126398 (paid by 0xAc2Bd1…)
+PASS G-Freighter4. relayer down and the session key has no ETH | refused: reverted with reason: gas required exceeds allowance (0)
+PASS G-Freighter5. VENUE received exactly 15 | ok 15
+PASS G-Freighter6. move 3: 1 to VENUE | ok gas 126398
+PASS G-Freighter7. move 3 replayed | refused: reverted with reason: session sig
+PASS G-Freighter8. 1 to another address (Roles rule) | refused: Execution reverted for an unknown reason.
+PASS G-Freighter9. move signed by another key | refused: reverted with reason: session sig
+PASS G-Freighter10. grant for 7 days + 1 hour | refused: reverted with reason: grant
+PASS G-Freighter11. grant submitted with a later end than signed | refused: reverted with reason: grant sig
+PASS G-Freighter12. old grant replayed with an earlier end | refused: reverted with reason: grant
+PASS G-Freighter13. grant for the zero key | refused: reverted with reason: grant
+PASS G-Freighter14. second session, granted with the session key paying gas itself | ok gas 75768 (paid by 0xa970C3…)
+PASS G-Freighter15. Freighter revokes it: grant with end 0 (one signature) | ok gas 57672
+PASS G-Freighter16. the revoked session | refused: reverted with reason: session
+PASS G-Freighter17. re-grant the revoked key | refused: reverted with reason: grant
+PASS G-Freighter18. first session still works | ok gas 126398
+PASS G-Phantom1. Phantom grants a 1-hour session (one signature through NEAR), relayer submits | ok gas 75768
+PASS G-Phantom2. move via relayer: 10 to VENUE | ok gas 143486
+PASS G-Phantom3. relayer down: session key submits and pays gas itself, 5 to VENUE | ok gas 126386 (paid by 0x0d055C…)
+PASS G-Phantom4. relayer down and the session key has no ETH | refused: reverted with reason: gas required exceeds allowance (0)
+PASS G-Phantom5. VENUE received exactly 15 | ok 15
+PASS G-Phantom6. move 3: 1 to VENUE | ok gas 126398
+PASS G-Phantom7. move 3 replayed | refused: reverted with reason: session sig
+PASS G-Phantom8. 1 to another address (Roles rule) | refused: Execution reverted for an unknown reason.
+PASS G-Phantom9. move signed by another key | refused: reverted with reason: session sig
+PASS G-Phantom10. grant for 7 days + 1 hour | refused: reverted with reason: grant
+PASS G-Phantom11. grant submitted with a later end than signed | refused: reverted with reason: grant sig
+PASS G-Phantom12. old grant replayed with an earlier end | refused: reverted with reason: grant
+PASS G-Phantom13. grant for the zero key | refused: reverted with reason: grant
+PASS G-Phantom14. second session, granted with the session key paying gas itself | ok gas 75768 (paid by 0x117f58…)
+PASS G-Phantom15. Phantom revokes it: grant with end 0 (one signature) | ok gas 57672
+PASS G-Phantom16. the revoked session | refused: reverted with reason: session
+PASS G-Phantom17. re-grant the revoked key | refused: reverted with reason: grant
+PASS G-Phantom18. first session still works | ok gas 126398
+PASS X1. PrimeKey(Freighter) with a grant signed by Phantom (NEAR) | refused: reverted with reason: grant sig
+PASS X2. PrimeKey(MetaMask) with a grant signed by Freighter (NEAR) | refused: reverted with reason: grant sig
+PASS X3. PrimeKey(Phantom) with a grant signed by MetaMask | refused: reverted with reason: grant sig
+PASS X4. PrimeKey(Freighter) with Freighter's MPC key under another path | refused: reverted with reason: grant sig
+PASS X5. grant text made for PrimeKey(Freighter) presented to PrimeKey(Phantom), signed by Phantom | refused: reverted with reason: grant sig
+PASS X6. raw-hash signature instead of personal_sign (Freighter) | refused: reverted with reason: grant sig
+PASS X7. Freighter session | ok gas 75756
+PASS X8. that session key used through PrimeKey(Phantom) | refused: reverted with reason: session
+PASS X9. a stranger calls Roles directly | refused: Execution reverted for an unknown reason.
+PASS X10. a move over the daily cap (60 more) | refused: Execution reverted for an unknown reason.
+PASS X11a. Freighter 20-second session | ok gas 75768
+PASS X11. after the session ends | refused: reverted with reason: session
+gas: grantPhantom 75768, grantMetaMask 75756, moveRelayerMetaMask 160586, moveSelfMetaMask 126398, grantFreighter 75768, moveRelayerFreighter 143486, moveSelfFreighter 126398, moveRelayerPhantom 143486, moveSelfPhantom 126386
+NEAR MPC signatures: 36, average 7.9s
+88/88 passed

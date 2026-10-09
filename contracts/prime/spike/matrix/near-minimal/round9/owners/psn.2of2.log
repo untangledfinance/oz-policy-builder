@@ -1,0 +1,64 @@
+{
+  MetaMask: "2mgK6QSMmExM2CDzKZK3dFHpaUYb5NkiS2spdL6yvGMZ",
+  Freighter: "BU4B8vczr3Xqzo1sq5fTUE9HG9VxvXcbUKv4Yv4q9AuU",
+  Phantom: "G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4",
+  sessionMetaMask: "FGaZkHnnqWdGtGHwYBNg3XFJW9euiqWa9ParoHMfRWPX",
+  sessionFreighter: "GgnRgm9eVt6TNUNQUm13Nr9Zo7Mkv2Lvdm7nma6uzLZj",
+  program: "FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G",
+  programB: "J38gUL2YFo91GDBnDXwVDaGpk6XWSJUhs7RuditRdiVo",
+  net: "localnet",
+}
+2-of-2: Phantom seat G5H71U owner G5H71U; MetaMask seat 2mgK6Q owner FGaZkH program FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G
+PASS O0. seats are exactly the 2 owner keys, threshold 2 | ok 5zkTarypeNd2V4yghmf2zzf2jmwqBEx8PgJm7573zTjocBHZgcnfzpztmaT7fYQ4EvkmeHfJALBwwXsiV6KLmbap
+PASS O0b. the 2 session owners and 2 session PDAs are all different, and no session PDA is a seat | ok ASruCa,62xrhZ
+PASS K1.a Phantom proposes and approves | ok 2YbQZNxA5aJNvpbgDzMMwor9CyWG7WK2RqQJqbpHZLspThHY2h7iQTWzBKznU3Au3eWqPsoqgHKUf6jDZWdKBpqM
+PASS K1.x Phantom executes | refused: Error Code: InvalidProposalStatus
+PASS K1c. an outsider approves it | refused: Error Code: NotASigner
+PASS K1d. Phantom approves it a second time | refused: Error Code: AlreadyApproved
+PASS K2.x MetaMask approves and executes | ok 4BpxyZsuvsjAhNZ2LY6SccbYFBsxwF82LZuZu3VmHidFrTcFrYmmSbqJBvNKUzm5KJeSHTAwqczoXx2kRVPxcCyf
+PASS K4. DEST received exactly 0.01 SOL (the accepted transactions only) | ok 0.01
+PASS K5. 2 owners install the movers policy (members: the 2 session PDAs, Phantom + MetaMask):.a Phantom proposes and approves | ok MHKi5BB3iQnU6xDVm2NFNsgudMjMspTr8QVaecvdeDUdEh79nhMKzztNNeXYJtsbBr8TG9TBQHdcEBa4o76bp5V
+PASS K5. 2 owners install the movers policy (members: the 2 session PDAs, Phantom + MetaMask):.x MetaMask approves and executes | ok rpnMdXoKqgwNMadZQeGsG2TQoSmu8cxitHxP2EQH4Ck5BEQqjQj4ewanuyFm5Ae4FGinnJydbQRqQi6Yd9r1k2u
+PASS N0.a Phantom proposes and approves | ok 2x9e1V4yey5nXZyXCecyM6G4LyV4AiJvA6XKAqJZjLirDkdopv7gdMTqQ3fQUQyRdVdPBXv4R6C7d9rJqDGK5JRU
+PASS P0-Phantom.1 one Phantom signature -> session; relayer pays: 0.002 SOL to VENUE | ok n7wFHR3mT5vuxQxitTCoGB5cuAZVg4xVUsgTULcCUhBpwWyevpGgqmsCYMRVjgLSjk1o114kBw5uUxN4RGLMQjL
+METRIC move-Phantom-relayed {"totalCu":54249,"primeSessionCu":54249,"bytes":975,"fee":15000}
+PASS P0-Phantom.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE | ok 5JebtFGkid287LWZE3R9vJeAGtuckHezgxu8frKC6tEmFGo7TE8LeTQRJVE4wruCBn85dmSFmNmdGaAtWpAsGrfp
+PASS P0-Phantom.3 VENUE received exactly 0.003 SOL | ok 0.003
+PASS P0-Phantom.4 0.002 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS P0-Phantom.5 the session approves an open seat proposal as its PDA | refused: Error Code: NotASigner
+PASS P0-Phantom.6 the session key approves it as itself | refused: Error Code: NotASigner
+PASS P0-Phantom.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA) | refused: Error Code: InvalidSignerCount
+PASS P0-Phantom.8 a second session works | ok 5NtBuz2xiq5ojLYv8mQWgQztSSEJr8ghHbdKazZ7Bbg2eELNyT9nqU8Y5bH7gKSnCqsoqJcrpt1mZtHVbSk7ZDH
+PASS P0-Phantom.9 Phantom revokes it (one signature, relayed) | ok 3o1bPHGq2YrwNQU9yvWYz7YWVXCvbL2H1yqtBzSdrYpVGD49m9oA1QnsvzG3iTbGpqV4aQXW8BvAes9wL22UD674
+PASS P0-Phantom.10 the revoked session | refused: custom program error: 0x2
+PASS P0-Phantom.11 the first session still works | ok 4Gr5ViYXC9HDWTQ63r37SxbQyj5taqyaLEiSqnu9511cfxBaD2iJYkKUo8TWbf98pgSsNPMjdtQhfcjLvdmBCGGs
+PASS P0-Phantom.12 a grant for Phantom's PDA signed by MetaMask's owner key | refused: custom program error: 0x7
+PASS P1-MetaMask.1 one MetaMask signature -> session; relayer pays: 0.002 SOL to VENUE | ok 4TKXXeyYoqWPsHkpfwBfHimMWaQZd3dVEAew4QVRLd9aUjRPtVpGDRJAW6xKwrUT9YDBqrfnDkcBVDXKSVv3ozTh
+METRIC move-MetaMask-relayed {"totalCu":54280,"primeSessionCu":54280,"bytes":975,"fee":15000}
+PASS P1-MetaMask.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE | ok 62aeXMTW8g6fJmxVfaDxXnANg9Ea8uJHtidqZ4m5mfu4qjuWqUgxvtjsv5ZzBZinDRuDBnY4RF7zLdcpKDPwATX9
+PASS P1-MetaMask.3 VENUE received exactly 0.003 SOL | ok 0.003
+PASS P1-MetaMask.4 0.002 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS P1-MetaMask.5 the session approves an open seat proposal as its PDA | refused: Error Code: NotASigner
+PASS P1-MetaMask.6 the session key approves it as itself | refused: Error Code: NotASigner
+PASS P1-MetaMask.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA) | refused: Error Code: InvalidSignerCount
+PASS P1-MetaMask.8 a second session works | ok 41fcP147xoU8PgrT4rrdk2K2rLYiCRDkNeVVYwAtB3GUFDG2zGtrvmDovoiWkMgTw4jYVzvqggMGM9mTYZVPKVNk
+PASS P1-MetaMask.9 MetaMask revokes it (one signature, relayed) | ok 5oWYPvs94jBtq6GuKMQXNkhayjZkRzCSiswT57a6fh8QG28yKDWQwk3rk2Qt3GT6BMjfDKJdP7U7DbWsjGBGTbAw
+PASS P1-MetaMask.10 the revoked session | refused: custom program error: 0x2
+PASS P1-MetaMask.11 the first session still works | ok 2BcH5LkTd94L8m4GnfFqJLM1wzGM2vQ913n2eANSbDgRLsV9ChvNZ4BdcsG9MUFphunMBDoBK4KXiSY1u1bRJSYV
+PASS P1-MetaMask.12 a grant for MetaMask's PDA signed by Phantom's owner key | refused: custom program error: 0x7
+PASS R0. MetaMask's live session works before removal | ok 3t9jHXrawoUYiwZhVfXvxby5hhz1ssg5Ek3Zy1vSYue6tWWPjZk5WS9KfxDBeyypPmkxtM8LFagx3ks6KFaXPT56
+PASS R1. 1 owners try to remove MetaMask's PDA from the policy:.a Phantom proposes and approves | ok PmvK2UfqtPhfv7QBcNhvE1ULKfokjeNJiM62mT5Ks9in9GFiWo4NtF7m49JWMcH9f4upX43mPWgkJrj9mwYY6SX
+PASS R1. 1 owners try to remove MetaMask's PDA from the policy:.x Phantom executes | refused: Error Code: InvalidProposalStatus
+PASS R2. 2 owners remove MetaMask's PDA from the policy (Phantom + MetaMask):.a Phantom proposes and approves | ok 3fthaHzKgVzSwVvFM3xxybs6xBoJXW49sJHmUq1pJbE8eGuKw7P8Ajq9spnnALMMK2zSCAVTco73w5u38fVBzAHW
+PASS R2. 2 owners remove MetaMask's PDA from the policy (Phantom + MetaMask):.x MetaMask approves and executes | ok 5M37CWfWtUvs1GwH1CBRcCUBZhYqtdhhoxWNzpadoVZSsrPxXN3KLuvCNAf4eRPHbRPVVSH5g61MwXoYMcegUPVP
+PASS R3. MetaMask's live session after removal | refused: Error Code: NotASigner
+PASS R4. MetaMask signs a new grant: the session is still refused | refused: Error Code: NotASigner
+PASS R5. Phantom's session still works | ok 26Dec7mzSPs6Mqe2HsxwwZTwSTtCQPDDphMU2mY5M11wLSMSZXJ5AY4Yr2NkQm8b1JEJdcbdGwXxAF2CrNDgWsDK
+PASS R6. 2 owners remove MetaMask from the seats (threshold 1):.a Phantom proposes and approves | ok 2uL4qNA2Nq8HLogbRqBtAhwRDkZvyY1RWVVezmNk4di6pb6pR5b1La7VDvbj5Vag66HRPDTnQmV4B7rGqet7Pi6m
+PASS R6. 2 owners remove MetaMask from the seats (threshold 1):.x MetaMask approves and executes | ok 43oz8ytvi9MQekuMNdYTwRgqWJ4BwtoHwFGheiibuE8yKd998hjSCVhLUyABfhLmrk4ukMqGL571aaB8Q8Bjcjj6
+PASS R7. the account now has 1 seats without MetaMask, threshold 1 | ok 1 / 1
+PASS R8.a Phantom proposes (no approval) | ok 2pSxocbq5p2MCB9sGmiGAspRK79DgTKY1DEKDJmMyBVN1EEfD2J9yohtBTmqSRjxudWACMXKYg769N8hNVaCCp4s
+PASS R8c. MetaMask approves a proposal after removal | refused: Error Code: NotASigner
+PASS R9.x Phantom approves and executes | ok 52oFndstEmG6XzEFDXzFUjKLQmicbN4gNdh5TtxUdfeBHENjp45C8iySpDqv3sAUUph7appjA1HjsDB87nxyNJFL
+NEAR MPC signatures: 10, average 8.5s
+2-of-2: 49/49 passed

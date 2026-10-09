@@ -1,0 +1,16 @@
+{
+  "name": "seat-spike-solana",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@noble/hashes": "^2.4.0",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.99.0",
+    "@sqds/multisig": "2.1.4",
+    "@sqds/smart-account": "./sqds-sa",
+    "@swig-wallet/classic": "2.1.0",
+    "bs58": "^6.0.0",
+    "tweetnacl": "^1.0.3",
+    "viem": "^2.57.3"
+  }
+}

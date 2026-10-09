@@ -18,7 +18,7 @@
 // Run with:
 //   bun run packages/policy-synth/scripts/gen-conformance-fixture.ts \
 //     --recording packages/policy-synth/fixtures/recordings/demo-tx-260725/recording-blend.json \
-//     --out contracts/policy-interpreter/tests/conformance/_generated.rs
+//     --out contracts/prime/stellar/policy-interpreter/tests/conformance/_generated.rs
 //
 // Restriction: signerWeights is out of scope; cases that need it are skipped
 // and counted in the generated header.

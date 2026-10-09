@@ -1,0 +1,1293 @@
+{
+ "token": "0x525c9C96b05476195e9c0dFAcFE1E8b1D593D713",
+ "safe": "0x70DfEC42aAde7Ca10557cf8de0B8521E9f5d32bD",
+ "roles": "0x15590fE042a325e3cB380f4b284E7bbA687AcFDa",
+ "pks": [
+  "0x8298B54D91d89F7657424e7C52Bb256c2C3F8e17",
+  "0x1236E2428C0DE1783ee2E6a6a3bc20572f2c0beD",
+  "0x7587Df9361F380BC9fe2F93ADB74960432C9F3D1",
+  "0x888eF9eC14551BA569AE0ADc7Db49f902d5bc4b0",
+  "0xb2228C0bE8274c91F53D6bDa17Af943f10D1Caa4",
+  "0x60B205F64BD0797396DC735fac4f7C25C8aF2F21",
+  "0xD58cAc5A1f09EAC1eEfB65ec738f8F16b541640A",
+  "0x1090049A3c65FB7E76eb81f1bF47991a0Bc865F1",
+  "0xbCa6Cc03BB595Bb8DC7343F22E740feE63ad1126",
+  "0x9EB8af9988bd9AD5eCd27A71FA8b326bfe70fB87",
+  "0x30507B848D2328FCcBf514CEDE6B1Af9cD61c8a1",
+  "0x72E94A0a859492A5c62A2D70f81f0905A751ae52"
+ ],
+ "roleKey": "0x6d6f766572733a30363932386139300000000000000000000000000000000000",
+ "owners": [
+  {
+   "name": "MetaMask",
+   "seat": "0x9ad34F435Fe03695e72F86a235B71A44eB54b4e5",
+   "owner": "0x9ad34F435Fe03695e72F86a235B71A44eB54b4e5"
+  },
+  {
+   "name": "Freighter",
+   "seat": "0x07c803DA260b7A25167D1C54885581C93E0FBe78",
+   "owner": "0xB6A1Ef271719cA3cC988CFC938dbF9c73Eff9cF3"
+  },
+  {
+   "name": "Phantom",
+   "seat": "0xeA6707f42AB4342DCB6D080BFe334fBCb5F9C516",
+   "owner": "0xD5F6Ca9E291e6c1c66f64866C9BeFE791d9D6577"
+  },
+  {
+   "name": "Owner4",
+   "seat": "0xF522B5b5140f056D5E4456197dCC4C002d1ECfB1",
+   "owner": "0xF522B5b5140f056D5E4456197dCC4C002d1ECfB1"
+  },
+  {
+   "name": "Owner5",
+   "seat": "0xE85fb9ADae7aC27a88221d226603E1Fc94Cc1D9D",
+   "owner": "0xE85fb9ADae7aC27a88221d226603E1Fc94Cc1D9D"
+  },
+  {
+   "name": "Owner6",
+   "seat": "0x1B06E510363a9e829a9b7CE2f91633d1C889b252",
+   "owner": "0x1B06E510363a9e829a9b7CE2f91633d1C889b252"
+  },
+  {
+   "name": "Owner7",
+   "seat": "0xD163c107f0c20FC05e621300793d71d6c76b68DE",
+   "owner": "0xD163c107f0c20FC05e621300793d71d6c76b68DE"
+  },
+  {
+   "name": "Owner8",
+   "seat": "0x5233Ce7086bf9d1B67C7169229624E9C0776FF6E",
+   "owner": "0x5233Ce7086bf9d1B67C7169229624E9C0776FF6E"
+  },
+  {
+   "name": "Owner9",
+   "seat": "0x6639Fd3b942bFc7e3A11Da73Ac1f71524E4f047f",
+   "owner": "0x6639Fd3b942bFc7e3A11Da73Ac1f71524E4f047f"
+  },
+  {
+   "name": "Owner10",
+   "seat": "0xaaAa1515d10c5A3817B5C3bd1f729de90afB60E9",
+   "owner": "0xaaAa1515d10c5A3817B5C3bd1f729de90afB60E9"
+  },
+  {
+   "name": "Owner11",
+   "seat": "0xa6Ab7880f83Dd074b49d496E8E833d2a6E54BeE0",
+   "owner": "0xa6Ab7880f83Dd074b49d496E8E833d2a6E54BeE0"
+  },
+  {
+   "name": "Owner12",
+   "seat": "0x92725c58600B9dB7a595b491F3fdd28232c58929",
+   "owner": "0x92725c58600B9dB7a595b491F3fdd28232c58929"
+  }
+ ],
+ "threshold": 7,
+ "gas": {
+  "deployPrimeSession": "919172",
+  "setupSafe": "1518067",
+  "safeThreshold": "137268",
+  "grantMetaMask": "76000",
+  "moveRelayerMetaMask": "141854",
+  "moveSelfMetaMask": "124754",
+  "revokeMetaMask": "57845",
+  "grantFreighter": "76000",
+  "moveRelayerFreighter": "124754",
+  "moveSelfFreighter": "124754",
+  "revokeFreighter": "57833",
+  "grantPhantom": "75988",
+  "moveRelayerPhantom": "124742",
+  "moveSelfPhantom": "124754",
+  "revokePhantom": "57845",
+  "grantOwner4": "76000",
+  "moveRelayerOwner4": "124754",
+  "moveSelfOwner4": "124754",
+  "revokeOwner4": "57845",
+  "grantOwner5": "76000",
+  "moveRelayerOwner5": "124754",
+  "moveSelfOwner5": "124754",
+  "revokeOwner5": "57821",
+  "grantOwner6": "76000",
+  "moveRelayerOwner6": "124754",
+  "moveSelfOwner6": "124754",
+  "revokeOwner6": "57845",
+  "grantOwner7": "76000",
+  "moveRelayerOwner7": "124754",
+  "moveSelfOwner7": "124754",
+  "revokeOwner7": "57845",
+  "grantOwner8": "76000",
+  "moveRelayerOwner8": "124754",
+  "moveSelfOwner8": "124754",
+  "revokeOwner8": "57845",
+  "grantOwner9": "76000",
+  "moveRelayerOwner9": "124754",
+  "moveSelfOwner9": "124754",
+  "revokeOwner9": "57833",
+  "grantOwner10": "76000",
+  "moveRelayerOwner10": "124754",
+  "moveSelfOwner10": "124754",
+  "revokeOwner10": "57833",
+  "grantOwner11": "76000",
+  "moveRelayerOwner11": "124754",
+  "moveSelfOwner11": "124754",
+  "revokeOwner11": "57845",
+  "grantOwner12": "76000",
+  "moveRelayerOwner12": "124754",
+  "moveSelfOwner12": "124742",
+  "revokeOwner12": "57845"
+ },
+ "mpc": {
+  "calls": 68,
+  "ms": 0
+ },
+ "results": [
+  {
+   "name": "O1. create the Safe with MetaMask as its only owner",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 259243",
+   "tx": "0xd4a0fecfbc2a654f30baee0de27103f469534bbe1bdcb1c18c87472720d1c059"
+  },
+  {
+   "name": "O2. MetaMask adds the other 11 owners, sets threshold 7, installs Roles with the 12 PrimeSessions and the rule",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 1518067",
+   "tx": "0x1f9593efc36a6961188394e101dcbbe8f2958eca20f050d6458b0a1f7d484153"
+  },
+  {
+   "name": "O3. Safe owners are exactly the 12 seat keys (no PrimeSession), threshold 7",
+   "pass": true,
+   "ok": true,
+   "detail": "12 owners / 7"
+  },
+  {
+   "name": "O4. each PrimeSession's owner is its own wallet's grant key, and all 12 differ",
+   "pass": true,
+   "ok": true,
+   "detail": "0x9ad34F,0xB6A1Ef,0xD5F6Ca,0xF522B5,0xE85fb9,0x1B06E5,0xD163c1,0x5233Ce,0x6639Fd,0xaaAa15,0xa6Ab78,0x92725c"
+  },
+  {
+   "name": "O5. mint 100000 tokens to the Safe",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 46108",
+   "tx": "0xfc99365e8bb99e80620fb09ddc80a4ea1c677c41f2a8ef0828acec86c586b502"
+  },
+  {
+   "name": "S1. 6 of 12 owners vote (threshold minus one)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS020"
+  },
+  {
+   "name": "S2. 7 owners vote (MetaMask + Freighter + Phantom + Owner4 + Owner5 + Owner6 + Owner7)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 137268",
+   "tx": "0x6f9b996a480a71a7066c09f879152350c98ccb90b422287a26e1c24798462f95"
+  },
+  {
+   "name": "S3. a different 7 owners vote (Owner6 + Owner7 + Owner8 + Owner9 + Owner10 + Owner11 + Owner12)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 120168",
+   "tx": "0xc1ebe99be668a51752e31e86bf96c058ce3963fa6e75bd0c4106e3171a5a64d1"
+  },
+  {
+   "name": "S4. 6 owners and an outsider vote",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "S5. MetaMask signs 7 times, as 7 votes",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "S6. DEST received exactly 2 (the accepted transactions only)",
+   "pass": true,
+   "ok": true,
+   "detail": "2"
+  },
+  {
+   "name": "P0-MetaMask.1 MetaMask grants a 1-hour session on its own PrimeSession, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x0b29b47b18cb1f980ec7f1235c7caddeba8ef33fd48e0c16f51f276cdd100cca"
+  },
+  {
+   "name": "P0-MetaMask.2 move via relayer: 3 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 141854",
+   "tx": "0x8af0efb480ba960fe5ae774e33b11723d6d22d8953bd4b2ddd1ca46c8d744cc0"
+  },
+  {
+   "name": "P0-MetaMask.3 relayer down: the session key pays its own gas, 2 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754 (paid by 0xa8240D…)",
+   "tx": "0x786b08fa8de872b4c9de9eebfa759a5c3ef9bfcdf7adac9c5f35bb977776b454"
+  },
+  {
+   "name": "P0-MetaMask.4 VENUE received exactly 5",
+   "pass": true,
+   "ok": true,
+   "detail": "5"
+  },
+  {
+   "name": "P0-MetaMask.5 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P0-MetaMask.6 the session key's signature as a Safe owner + 6 real owner votes (7 signatures)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "P0-MetaMask.7 the PrimeSession as a contract signature + 6 real owner votes",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted for an unknown reason."
+  },
+  {
+   "name": "P0-MetaMask.8 session asks Roles to add its key as a Safe owner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P0-MetaMask.9 MetaMask grants a second session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0xb5385558c3d532a791cbfe943e4b48d3b65ab2e04d745e73f82df497628ee86a"
+  },
+  {
+   "name": "P0-MetaMask.10 MetaMask revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 57845",
+   "tx": "0xe7b8d4940bf070d6b39539ea2343e5e387ecc98c875a8b2c3adf5fafc0a1d91d"
+  },
+  {
+   "name": "P0-MetaMask.11 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "P0-MetaMask.12 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0xd0ea0a7a083b2ba8498d978ebe4529608552057de6b9d4688d2b0e2b38826e14"
+  },
+  {
+   "name": "P0-MetaMask.13 a grant signed by Freighter presented to MetaMask's PrimeSession",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "P1-Freighter.1 Freighter grants a 1-hour session on its own PrimeSession, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x2fd5472fff9709f08078a72d25a7f08eeb389cc6699ebff48910444aa52e2135"
+  },
+  {
+   "name": "P1-Freighter.2 move via relayer: 3 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x1316b1be8fc8c69852afe030ea49497805c00ee78dbbb56cc8bbb3033f844e0d"
+  },
+  {
+   "name": "P1-Freighter.3 relayer down: the session key pays its own gas, 2 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754 (paid by 0x7b41b8…)",
+   "tx": "0xf9b29fff5d7cb7a9e3ceddd210af7c53141e4c14721a320b221147a12b65e610"
+  },
+  {
+   "name": "P1-Freighter.4 VENUE received exactly 5",
+   "pass": true,
+   "ok": true,
+   "detail": "5"
+  },
+  {
+   "name": "P1-Freighter.5 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P1-Freighter.6 the session key's signature as a Safe owner + 6 real owner votes (7 signatures)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "P1-Freighter.7 the PrimeSession as a contract signature + 6 real owner votes",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted for an unknown reason."
+  },
+  {
+   "name": "P1-Freighter.8 session asks Roles to add its key as a Safe owner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P1-Freighter.9 Freighter grants a second session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x0a6b406c5ef088886b195dac2524a37d53e2d25f532191304f741af490ee860a"
+  },
+  {
+   "name": "P1-Freighter.10 Freighter revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 57833",
+   "tx": "0x81be9aee4fc95909615c069e03178029770fb51f3f496248a25b25d37dcca1a7"
+  },
+  {
+   "name": "P1-Freighter.11 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "P1-Freighter.12 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x0ba619292fcaafe77c28adb8e3d2393528cc9611c163eae5fd4dc1ac58330bf7"
+  },
+  {
+   "name": "P1-Freighter.13 a grant signed by Phantom presented to Freighter's PrimeSession",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "P2-Phantom.1 Phantom grants a 1-hour session on its own PrimeSession, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x02f7fd9308a5a562d94b171fd7c3e8e61247227500752af1f254b85754df5254"
+  },
+  {
+   "name": "P2-Phantom.2 move via relayer: 3 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124742",
+   "tx": "0xa55b5d8219a6dfb96af94671512a3a840825780933bbf1814b66b87709a674ab"
+  },
+  {
+   "name": "P2-Phantom.3 relayer down: the session key pays its own gas, 2 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754 (paid by 0x7a156f…)",
+   "tx": "0x93a6506e131e752a6603e0076d8e63005fd57c7a284fa27dafe6c367514e57fe"
+  },
+  {
+   "name": "P2-Phantom.4 VENUE received exactly 5",
+   "pass": true,
+   "ok": true,
+   "detail": "5"
+  },
+  {
+   "name": "P2-Phantom.5 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P2-Phantom.6 the session key's signature as a Safe owner + 6 real owner votes (7 signatures)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "P2-Phantom.7 the PrimeSession as a contract signature + 6 real owner votes",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted for an unknown reason."
+  },
+  {
+   "name": "P2-Phantom.8 session asks Roles to add its key as a Safe owner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P2-Phantom.9 Phantom grants a second session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 75988",
+   "tx": "0xcf315e6fe75d0ae70914ff91b96ffb34c94ca043782d61efb27a8287cf8fc294"
+  },
+  {
+   "name": "P2-Phantom.10 Phantom revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 57845",
+   "tx": "0xe75045269018a7d498bdc860009a6d98c0cc8a251e31535f65b8123fac13a656"
+  },
+  {
+   "name": "P2-Phantom.11 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "P2-Phantom.12 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124742",
+   "tx": "0xab9bc752aed02ce0b0e2b1707c04df506b81cd762602334bed22d014e3b5abb0"
+  },
+  {
+   "name": "P2-Phantom.13 a grant signed by Owner4 presented to Phantom's PrimeSession",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "P3-Owner4.1 Owner4 grants a 1-hour session on its own PrimeSession, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x5aaee2a950bcaf8be1d0bd8bc569164d2ebda4638c16e27f53ad55f492b564ad"
+  },
+  {
+   "name": "P3-Owner4.2 move via relayer: 3 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x6384c3bf7d45da09c3e1b42bc335286d7c2518c5e8566e9afe0e514907c06c59"
+  },
+  {
+   "name": "P3-Owner4.3 relayer down: the session key pays its own gas, 2 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754 (paid by 0x7dFCb5…)",
+   "tx": "0x1c3f2626da5894e86fe7259825d3f3b55a7159b8ed7a8e5de7fedcac2d7a8bea"
+  },
+  {
+   "name": "P3-Owner4.4 VENUE received exactly 5",
+   "pass": true,
+   "ok": true,
+   "detail": "5"
+  },
+  {
+   "name": "P3-Owner4.5 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P3-Owner4.6 the session key's signature as a Safe owner + 6 real owner votes (7 signatures)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "P3-Owner4.7 the PrimeSession as a contract signature + 6 real owner votes",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted for an unknown reason."
+  },
+  {
+   "name": "P3-Owner4.8 session asks Roles to add its key as a Safe owner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P3-Owner4.9 Owner4 grants a second session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x4158047ee2b9a3414beb039d603a0e971b5921aac6f5fa6239b8fd280c95b610"
+  },
+  {
+   "name": "P3-Owner4.10 Owner4 revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 57845",
+   "tx": "0x2c913dc886545e3a3dc99f4832f795c4a6e5f8799f78e9492416722b2dff527b"
+  },
+  {
+   "name": "P3-Owner4.11 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "P3-Owner4.12 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x6d533aa233e987b322091327bac79566485fbe18d3912aa07d6831c0e2d2a6c6"
+  },
+  {
+   "name": "P3-Owner4.13 a grant signed by Owner5 presented to Owner4's PrimeSession",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "P4-Owner5.1 Owner5 grants a 1-hour session on its own PrimeSession, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 75988",
+   "tx": "0xce1a75fe8791f1adf177caee3eb6a6821e797aad2ed5ee21614b974c9265b8d1"
+  },
+  {
+   "name": "P4-Owner5.2 move via relayer: 3 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x046583f1c2481c806ce3ef12809389d7052b9a0ce73f2c2f49f2ea1a52e775bb"
+  },
+  {
+   "name": "P4-Owner5.3 relayer down: the session key pays its own gas, 2 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754 (paid by 0x6234CC…)",
+   "tx": "0xccaca6d691281d1ae0ee2f96983893d9078622033c75a567345de2ff393cc623"
+  },
+  {
+   "name": "P4-Owner5.4 VENUE received exactly 5",
+   "pass": true,
+   "ok": true,
+   "detail": "5"
+  },
+  {
+   "name": "P4-Owner5.5 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P4-Owner5.6 the session key's signature as a Safe owner + 6 real owner votes (7 signatures)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "P4-Owner5.7 the PrimeSession as a contract signature + 6 real owner votes",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted for an unknown reason."
+  },
+  {
+   "name": "P4-Owner5.8 session asks Roles to add its key as a Safe owner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P4-Owner5.9 Owner5 grants a second session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x41c5fbeab7ad6be1848e63a29a295fe518b2d3a75830c9d4accdf7ca56d4250e"
+  },
+  {
+   "name": "P4-Owner5.10 Owner5 revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 57821",
+   "tx": "0x799946926c6c83766121269c327cd6c98b2a0d5d36242bbd60425f8faa81df87"
+  },
+  {
+   "name": "P4-Owner5.11 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "P4-Owner5.12 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124742",
+   "tx": "0xfe043076662d5ff911bd18fbdd118243c7b68504b475e3c7bcf9d536d7c9ee2d"
+  },
+  {
+   "name": "P4-Owner5.13 a grant signed by Owner6 presented to Owner5's PrimeSession",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "P5-Owner6.1 Owner6 grants a 1-hour session on its own PrimeSession, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0xa8efa8f0b90d32280e10af6aff0d6410ee44fb16bf4bee4221dfc0c95c72099d"
+  },
+  {
+   "name": "P5-Owner6.2 move via relayer: 3 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x0a09e4ca806b92d272a4c9e60e4ede63e5258443ae2b2f6ae42ba4f70634a946"
+  },
+  {
+   "name": "P5-Owner6.3 relayer down: the session key pays its own gas, 2 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754 (paid by 0x9A0188…)",
+   "tx": "0xe1b51c27bbd3e349104605f13fe78ad7f0fb948f3492c4ab000898ac955461ac"
+  },
+  {
+   "name": "P5-Owner6.4 VENUE received exactly 5",
+   "pass": true,
+   "ok": true,
+   "detail": "5"
+  },
+  {
+   "name": "P5-Owner6.5 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P5-Owner6.6 the session key's signature as a Safe owner + 6 real owner votes (7 signatures)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "P5-Owner6.7 the PrimeSession as a contract signature + 6 real owner votes",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted for an unknown reason."
+  },
+  {
+   "name": "P5-Owner6.8 session asks Roles to add its key as a Safe owner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P5-Owner6.9 Owner6 grants a second session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x66ab81098906cbeae2ce37358a0cc72c86cd32f8acc2e1c0a34c837797ac1118"
+  },
+  {
+   "name": "P5-Owner6.10 Owner6 revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 57845",
+   "tx": "0x67ed8ce41be3c766d677b57a7bb0a24c4ebd0c4fd8ff033fdcb1e4d5774da727"
+  },
+  {
+   "name": "P5-Owner6.11 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "P5-Owner6.12 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124742",
+   "tx": "0xc7d3f2b92ff96e9c19757b70b5b9fd70381e2ec248c5c535da975bba597bb409"
+  },
+  {
+   "name": "P5-Owner6.13 a grant signed by Owner7 presented to Owner6's PrimeSession",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "P6-Owner7.1 Owner7 grants a 1-hour session on its own PrimeSession, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0xe38bfb17812ab02fd42925a0b86abe49e1f4bf1aaed4c4d91b26bfddb196f6a8"
+  },
+  {
+   "name": "P6-Owner7.2 move via relayer: 3 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x947b332e9a79f14f7a3a743cdf88e6d1130014529861a27d083821f3afdce20e"
+  },
+  {
+   "name": "P6-Owner7.3 relayer down: the session key pays its own gas, 2 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754 (paid by 0x3fC009…)",
+   "tx": "0xb8f286ec36f062d66d9f232485339cb0798b848d68b7afb29fe5882994a73a32"
+  },
+  {
+   "name": "P6-Owner7.4 VENUE received exactly 5",
+   "pass": true,
+   "ok": true,
+   "detail": "5"
+  },
+  {
+   "name": "P6-Owner7.5 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P6-Owner7.6 the session key's signature as a Safe owner + 6 real owner votes (7 signatures)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "P6-Owner7.7 the PrimeSession as a contract signature + 6 real owner votes",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted for an unknown reason."
+  },
+  {
+   "name": "P6-Owner7.8 session asks Roles to add its key as a Safe owner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P6-Owner7.9 Owner7 grants a second session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0xe7830e4f02ddb3745e41fbb1eea062fbabe2c146ac5441ded066807d3db5e2b9"
+  },
+  {
+   "name": "P6-Owner7.10 Owner7 revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 57845",
+   "tx": "0x283dcd083c160070bf4025e8821fc68bee6adbd07351e5f60c19c07a57072f38"
+  },
+  {
+   "name": "P6-Owner7.11 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "P6-Owner7.12 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x90fa24281bd6f1e40c26bbb10015efc8bbb270856ba83d802f2e3098e8833363"
+  },
+  {
+   "name": "P6-Owner7.13 a grant signed by Owner8 presented to Owner7's PrimeSession",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "P7-Owner8.1 Owner8 grants a 1-hour session on its own PrimeSession, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x1d29dfaa887f492808b2665031501b7bd489c637939cc36287eea4cccde1efd5"
+  },
+  {
+   "name": "P7-Owner8.2 move via relayer: 3 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0xf20e9275a9c5199d9fcb559c5e65854b4d941a9d0dc9e04f0aea5293e17771e1"
+  },
+  {
+   "name": "P7-Owner8.3 relayer down: the session key pays its own gas, 2 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754 (paid by 0x955971…)",
+   "tx": "0x5d0e2c3913e849f55c6453397b09b243dccf1d2a919403434295de2b2807c68f"
+  },
+  {
+   "name": "P7-Owner8.4 VENUE received exactly 5",
+   "pass": true,
+   "ok": true,
+   "detail": "5"
+  },
+  {
+   "name": "P7-Owner8.5 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P7-Owner8.6 the session key's signature as a Safe owner + 6 real owner votes (7 signatures)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "P7-Owner8.7 the PrimeSession as a contract signature + 6 real owner votes",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted for an unknown reason."
+  },
+  {
+   "name": "P7-Owner8.8 session asks Roles to add its key as a Safe owner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P7-Owner8.9 Owner8 grants a second session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x7ebf90d318653e8ee1cde2453cf8fce02f341b5fe3352c65856b0f3293fbe4f9"
+  },
+  {
+   "name": "P7-Owner8.10 Owner8 revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 57845",
+   "tx": "0xf7349d6de9708d3ab556004884178997f141e7260182c36f5ec46099d77ce7ea"
+  },
+  {
+   "name": "P7-Owner8.11 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "P7-Owner8.12 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0xadc4c3be59d84dee610bb3f13b356e399f8ea5b65c85f55881902e49ebf812f7"
+  },
+  {
+   "name": "P7-Owner8.13 a grant signed by Owner9 presented to Owner8's PrimeSession",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "P8-Owner9.1 Owner9 grants a 1-hour session on its own PrimeSession, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 75988",
+   "tx": "0x3679c0268ecd552d8503b2030967acf99c5d0c0581d9816941a4f9cecd857feb"
+  },
+  {
+   "name": "P8-Owner9.2 move via relayer: 3 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0xe0388f4e1c5b2971eab95f625af2511483e54af7c0eb0556bf525557b0e5cf02"
+  },
+  {
+   "name": "P8-Owner9.3 relayer down: the session key pays its own gas, 2 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754 (paid by 0x480AaF…)",
+   "tx": "0xd8314a2dea65795979304e4068853a59c295b94dcf75f058bf8248220ea5daa2"
+  },
+  {
+   "name": "P8-Owner9.4 VENUE received exactly 5",
+   "pass": true,
+   "ok": true,
+   "detail": "5"
+  },
+  {
+   "name": "P8-Owner9.5 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P8-Owner9.6 the session key's signature as a Safe owner + 6 real owner votes (7 signatures)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "P8-Owner9.7 the PrimeSession as a contract signature + 6 real owner votes",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted for an unknown reason."
+  },
+  {
+   "name": "P8-Owner9.8 session asks Roles to add its key as a Safe owner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P8-Owner9.9 Owner9 grants a second session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x45347ca3f5257d661141a3b81585520514e397655ce5fea3c4d87f9374cdde60"
+  },
+  {
+   "name": "P8-Owner9.10 Owner9 revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 57833",
+   "tx": "0x9ee1b73f840785d0ab86000314c48794ffcf058717b355b2f10b615696b7d0ab"
+  },
+  {
+   "name": "P8-Owner9.11 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "P8-Owner9.12 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x5b95619c97e122c26bdb6bb3b261397484def90f7aef7ff2922ae5ff7cc850ec"
+  },
+  {
+   "name": "P8-Owner9.13 a grant signed by Owner10 presented to Owner9's PrimeSession",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "P9-Owner10.1 Owner10 grants a 1-hour session on its own PrimeSession, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0xf8c907d04596875d6e1334337b45e944ea40d51bfa295da1bdf439520d8cfa31"
+  },
+  {
+   "name": "P9-Owner10.2 move via relayer: 3 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0xc68f005f5737c0f6910745afc0406604d9c4da20eadfd41bc04a0a72786d73a9"
+  },
+  {
+   "name": "P9-Owner10.3 relayer down: the session key pays its own gas, 2 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754 (paid by 0x1B5B0D…)",
+   "tx": "0xb3213ca50f6f6d2ee071287d2d0a4ed64afc53f9c701922e7705ce7caa183fad"
+  },
+  {
+   "name": "P9-Owner10.4 VENUE received exactly 5",
+   "pass": true,
+   "ok": true,
+   "detail": "5"
+  },
+  {
+   "name": "P9-Owner10.5 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P9-Owner10.6 the session key's signature as a Safe owner + 6 real owner votes (7 signatures)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "P9-Owner10.7 the PrimeSession as a contract signature + 6 real owner votes",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted for an unknown reason."
+  },
+  {
+   "name": "P9-Owner10.8 session asks Roles to add its key as a Safe owner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P9-Owner10.9 Owner10 grants a second session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x0b2bda8bd1a622ba126727d817197b8333cb73c7702dd5071dbb202b445c0198"
+  },
+  {
+   "name": "P9-Owner10.10 Owner10 revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 57833",
+   "tx": "0x44f365ca3f531f22ff7a0a7b4df2eee7e3c2530b2a97a7f0f8f98032781477a3"
+  },
+  {
+   "name": "P9-Owner10.11 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "P9-Owner10.12 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124742",
+   "tx": "0xc52a8ed5d4ca7e56b3c99136d28059a2404b7a2472e4ee735ea1d33524f745d8"
+  },
+  {
+   "name": "P9-Owner10.13 a grant signed by Owner11 presented to Owner10's PrimeSession",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "P10-Owner11.1 Owner11 grants a 1-hour session on its own PrimeSession, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0xbdee13978dec8af2f1ab99a183524ba5c04b48f3402c8d8e248e0f7f41976247"
+  },
+  {
+   "name": "P10-Owner11.2 move via relayer: 3 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x191e2718721a8095351063d005c168d94cf72b24d9235e68bda269e1713efa71"
+  },
+  {
+   "name": "P10-Owner11.3 relayer down: the session key pays its own gas, 2 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754 (paid by 0x322BE5…)",
+   "tx": "0x725a818d75dd349b347ff3baee82bd43053b77157f982557210906d86ce0e8a4"
+  },
+  {
+   "name": "P10-Owner11.4 VENUE received exactly 5",
+   "pass": true,
+   "ok": true,
+   "detail": "5"
+  },
+  {
+   "name": "P10-Owner11.5 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P10-Owner11.6 the session key's signature as a Safe owner + 6 real owner votes (7 signatures)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "P10-Owner11.7 the PrimeSession as a contract signature + 6 real owner votes",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted for an unknown reason."
+  },
+  {
+   "name": "P10-Owner11.8 session asks Roles to add its key as a Safe owner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P10-Owner11.9 Owner11 grants a second session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x69ee533a9aef66bcffb8ba3d97ae9a991f40b7b47ad5dd311c789b8774bf570e"
+  },
+  {
+   "name": "P10-Owner11.10 Owner11 revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 57845",
+   "tx": "0xbfafc6e79481fa747e2ffacdcdc4ee551e7fd77bf8bb6c14b72442b282c95dd5"
+  },
+  {
+   "name": "P10-Owner11.11 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "P10-Owner11.12 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x16486b05f41df2a4e6a37aa3182b0e2831667d96b14a88455d77b0ec181b688d"
+  },
+  {
+   "name": "P10-Owner11.13 a grant signed by Owner12 presented to Owner11's PrimeSession",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "P11-Owner12.1 Owner12 grants a 1-hour session on its own PrimeSession, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0xba1b9014b97e0aa80a0368715c2dafaea870400fb82ad3d1b48027de285f694c"
+  },
+  {
+   "name": "P11-Owner12.2 move via relayer: 3 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x3b7c86f7795892cf123aa5af458a77f93f53ec7f1810a92ba94e75be5bb3a4e0"
+  },
+  {
+   "name": "P11-Owner12.3 relayer down: the session key pays its own gas, 2 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124742 (paid by 0x8f8CB1…)",
+   "tx": "0xdbee9f62af1d749dda7d23498e775e4a1c8e251a6cfc845356f2c3dab4d13be4"
+  },
+  {
+   "name": "P11-Owner12.4 VENUE received exactly 5",
+   "pass": true,
+   "ok": true,
+   "detail": "5"
+  },
+  {
+   "name": "P11-Owner12.5 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P11-Owner12.6 the session key's signature as a Safe owner + 6 real owner votes (7 signatures)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "P11-Owner12.7 the PrimeSession as a contract signature + 6 real owner votes",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted for an unknown reason."
+  },
+  {
+   "name": "P11-Owner12.8 session asks Roles to add its key as a Safe owner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P11-Owner12.9 Owner12 grants a second session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x73ae874d0ac97f11867461c7cfd97a96b45a8a5ad15a80c3b78681a632716d0e"
+  },
+  {
+   "name": "P11-Owner12.10 Owner12 revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 57845",
+   "tx": "0xace6bd01e1d332bb1bc3362b2fdcc064559bbf801c82e0b435031aa19e7a127f"
+  },
+  {
+   "name": "P11-Owner12.11 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "P11-Owner12.12 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0xdf3b55f256ec709c0922569ffc0e8b5c1df59d45cb7996f37dad3318894edcf2"
+  },
+  {
+   "name": "P11-Owner12.13 a grant signed by MetaMask presented to Owner12's PrimeSession",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "R0. Owner12's live session works before removal",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x6501cc189efb819240b0f879fb76e9e5ad6c7aea6920fcf7b90aff7d4b65a74e"
+  },
+  {
+   "name": "R1. 6 owners try to remove Owner12's PrimeSession from the Roles members",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS020"
+  },
+  {
+   "name": "R2. 7 owners remove Owner12's PrimeSession from the Roles members (MetaMask + Freighter + Phantom + Owner4 + Owner5 + Owner6 + Owner7)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 121873",
+   "tx": "0x73e57726db4f1a10dc6ead6d285e746b77f640a51627698bac7d4f7b8246425b"
+  },
+  {
+   "name": "R3. Owner12's live session after removal",
+   "pass": true,
+   "ok": false,
+   "detail": "Roles NoMembership"
+  },
+  {
+   "name": "R4. Owner12 signs a new grant (the contract still takes it)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0xe83abef99f2b8b929f48fc54c1c32ab0e8b1803050ed2c1d32b136788bcc407a"
+  },
+  {
+   "name": "R5. the new session cannot move either (no Roles membership)",
+   "pass": true,
+   "ok": false,
+   "detail": "Roles NoMembership"
+  },
+  {
+   "name": "R6. MetaMask's session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x3cf006f6ae88da3194eb32c0b3ba85fbd455c26ecc8a116070dd0590484c6e05"
+  },
+  {
+   "name": "R7. 7 owners remove Owner12 from the Safe (new threshold 7)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 118734",
+   "tx": "0x0d18ab5db96cb012d5eeb2ef17aaae532cc7cc07ad59a3304e50df54584021a3"
+  },
+  {
+   "name": "R8. the Safe now has 11 owners without Owner12, threshold 7",
+   "pass": true,
+   "ok": true,
+   "detail": "11 owners / 7"
+  },
+  {
+   "name": "R9. Owner12's vote and 6 other owners no longer reach the threshold",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "R10. 7 remaining owners vote",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 120192",
+   "tx": "0xe38b03d01d5e6461fd8a14666b7c1aacb421245ed37b20b3238f93b6c07f779f"
+  }
+ ]
+}

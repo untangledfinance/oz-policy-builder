@@ -1,0 +1,107 @@
+PASS A1. RFC 8032 TEST 1 | ok 
+PASS A2. RFC 8032 TEST 2 | ok 
+PASS A3. RFC 8032 TEST 3 | ok 
+PASS A4. 40 random key/message pairs (0..1024 bytes) accepted | ok 40/40
+PASS A5. message bit flipped | refused: 
+PASS A6. R bit flipped | refused: 
+PASS A7. S bit flipped | refused: 
+PASS A8. another key | refused: 
+PASS A9. malleated S + L | refused: 
+PASS A10. all-zero signature | refused: 
+   one ed25519 verification of 160 bytes: ~641960 gas
+PASS B1. MetaMask owner = zero address | refused: reverted with reason: owner
+PASS B2. MetaMask owner wider than 20 bytes | refused: reverted with reason: owner
+PASS B3. kind 3 | refused: reverted with reason: owner
+PASS B4. Freighter small-order/non-canonical key: identity y=1 | refused: reverted with reason: owner
+PASS B5. Phantom small-order/non-canonical key: identity y=1 | refused: reverted with reason: owner
+PASS B6. Freighter small-order/non-canonical key: order 2 y=p-1 | refused: reverted with reason: owner
+PASS B7. Phantom small-order/non-canonical key: order 2 y=p-1 | refused: reverted with reason: owner
+PASS B8. Freighter small-order/non-canonical key: order 4 y=0 | refused: reverted with reason: owner
+PASS B9. Phantom small-order/non-canonical key: order 4 y=0 | refused: reverted with reason: owner
+PASS B10. Freighter small-order/non-canonical key: order 4 y=0 sign bit | refused: reverted with reason: owner
+PASS B11. Phantom small-order/non-canonical key: order 4 y=0 sign bit | refused: reverted with reason: owner
+PASS B12. Freighter small-order/non-canonical key: order 8 y8 | refused: reverted with reason: owner
+PASS B13. Phantom small-order/non-canonical key: order 8 y8 | refused: reverted with reason: owner
+PASS B14. Freighter small-order/non-canonical key: order 8 y8 sign bit | refused: reverted with reason: owner
+PASS B15. Phantom small-order/non-canonical key: order 8 y8 sign bit | refused: reverted with reason: owner
+PASS B16. Freighter small-order/non-canonical key: order 8 p-y8 | refused: reverted with reason: owner
+PASS B17. Phantom small-order/non-canonical key: order 8 p-y8 | refused: reverted with reason: owner
+PASS B18. Freighter small-order/non-canonical key: order 8 p-y8 sign bit | refused: reverted with reason: owner
+PASS B19. Phantom small-order/non-canonical key: order 8 p-y8 sign bit | refused: reverted with reason: owner
+PASS B20. Freighter small-order/non-canonical key: non-canonical y=p+1 | refused: reverted with reason: owner
+PASS B21. Phantom small-order/non-canonical key: non-canonical y=p+1 | refused: reverted with reason: owner
+PASS B22. real MetaMask / Freighter / Phantom owners | ok 0x9ea86d9885d6344663f48a85286e2744695cd53f 0xef60e3fbfd02392ad12ee68eba44dac96ae5781f 0x206d4d902ec455f7d0eef4cffb500d5d2fb649a3
+PASS C1. create Safe (MetaMask first, PrimeX flow) | ok gas 259243
+PASS C2. seats MetaMask + PrimeKey(Freighter) + PrimeKey(Phantom), threshold 2, movers rule for the three PrimeKeys | ok gas 750035
+PASS C3. owners and threshold | ok 3 owners, threshold 2
+PASS C4. mint 1000 tokens to the Safe | ok gas 46096
+PASS S1. Freighter alone | refused: reverted with reason: GS021
+PASS S2. Phantom alone | refused: reverted with reason: GS021
+PASS S3. Freighter + Phantom | ok gas 1207189
+PASS S4. MetaMask + Freighter | ok gas 542071
+PASS S5. Phantom + MetaMask | ok gas 725403
+PASS S6. DEST received exactly 3 | ok 3
+PASS S7. Freighter key signs WITHOUT the SEP-53 prefix (+ MetaMask) | refused: reverted with reason: GS024
+PASS S8. Phantom seat signed by the Freighter key (+ MetaMask) | refused: reverted with reason: GS024
+PASS S9. Phantom approval of another Safe tx (+ MetaMask) | refused: reverted with reason: GS024
+PASS S10. Phantom approval naming another Safe (+ MetaMask) | refused: reverted with reason: GS024
+PASS S11. Phantom seat with a MetaMask personal_sign of the text (+ MetaMask) | refused: reverted with reason: GS024
+PASS G-MetaMask1. MetaMask grants a 1-hour session (one signature) | ok gas 75885
+PASS G-MetaMask2. move 1: 10 tokens to VENUE | ok gas 160690
+PASS G-MetaMask3. move 2: 5 tokens to VENUE | ok gas 126490
+PASS G-MetaMask4. VENUE received exactly 15 | ok 15
+PASS G-MetaMask5. move 2 replayed | refused: reverted with reason: session sig
+PASS G-MetaMask6. 1 token to another address (Roles rule) | refused: reverted with reason: custom error 0xd0a9bf58: 
+PASS G-MetaMask7. move signed by another key | refused: reverted with reason: session sig
+PASS G-MetaMask8. grant for 7 days + 1 hour | refused: reverted with reason: grant
+PASS G-MetaMask9. grant submitted with a later end than signed | refused: reverted with reason: grant sig
+PASS G-MetaMask10. grant replayed with an earlier end (shortening) | refused: reverted with reason: grant
+PASS G-MetaMask11. grant for the zero key | refused: reverted with reason: grant
+PASS G-MetaMask12. second session | ok gas 75885
+PASS G-MetaMask13. MetaMask revokes it (one signature) | ok gas 57619
+PASS G-MetaMask14. the revoked session | refused: reverted with reason: session
+PASS G-MetaMask15. re-grant the revoked key | refused: reverted with reason: grant
+PASS G-MetaMask16. first session still works after the other's revoke | ok gas 126490
+PASS G-Freighter1. Freighter grants a 1-hour session (one signature) | ok gas 500409
+PASS G-Freighter2. move 1: 10 tokens to VENUE | ok gas 143590
+PASS G-Freighter3. move 2: 5 tokens to VENUE | ok gas 126490
+PASS G-Freighter4. VENUE received exactly 15 | ok 15
+PASS G-Freighter5. move 2 replayed | refused: reverted with reason: session sig
+PASS G-Freighter6. 1 token to another address (Roles rule) | refused: reverted with reason: custom error 0xd0a9bf58: 
+PASS G-Freighter7. move signed by another key | refused: reverted with reason: session sig
+PASS G-Freighter8. grant for 7 days + 1 hour | refused: reverted with reason: grant
+PASS G-Freighter9. grant submitted with a later end than signed | refused: reverted with reason: grant sig
+PASS G-Freighter10. grant replayed with an earlier end (shortening) | refused: reverted with reason: grant
+PASS G-Freighter11. grant for the zero key | refused: reverted with reason: grant
+PASS G-Freighter12. second session | ok gas 499007
+PASS G-Freighter13. Freighter revokes it (one signature) | ok gas 481431
+PASS G-Freighter14. the revoked session | refused: reverted with reason: session
+PASS G-Freighter15. re-grant the revoked key | refused: reverted with reason: grant
+PASS G-Freighter16. first session still works after the other's revoke | ok gas 126490
+PASS G-Phantom1. Phantom grants a 1-hour session (one signature) | ok gas 695198
+PASS G-Phantom2. move 1: 10 tokens to VENUE | ok gas 143590
+PASS G-Phantom3. move 2: 5 tokens to VENUE | ok gas 126490
+PASS G-Phantom4. VENUE received exactly 15 | ok 15
+PASS G-Phantom5. move 2 replayed | refused: reverted with reason: session sig
+PASS G-Phantom6. 1 token to another address (Roles rule) | refused: reverted with reason: custom error 0xd0a9bf58: 
+PASS G-Phantom7. move signed by another key | refused: reverted with reason: session sig
+PASS G-Phantom8. grant for 7 days + 1 hour | refused: reverted with reason: grant
+PASS G-Phantom9. grant submitted with a later end than signed | refused: reverted with reason: grant sig
+PASS G-Phantom10. grant replayed with an earlier end (shortening) | refused: reverted with reason: grant
+PASS G-Phantom11. grant for the zero key | refused: reverted with reason: grant
+PASS G-Phantom12. second session | ok gas 691046
+PASS G-Phantom13. Phantom revokes it (one signature) | ok gas 670097
+PASS G-Phantom14. the revoked session | refused: reverted with reason: session
+PASS G-Phantom15. re-grant the revoked key | refused: reverted with reason: grant
+PASS G-Phantom16. first session still works after the other's revoke | ok gas 126490
+PASS X1. PrimeKey(Phantom) with a Freighter-signed grant | refused: reverted with reason: grant sig
+PASS X2. PrimeKey(Freighter) with the Freighter key WITHOUT the SEP-53 prefix | refused: reverted with reason: grant sig
+PASS X3. PrimeKey(MetaMask) with a Phantom grant | refused: reverted with reason: grant sig
+PASS X4. Phantom grant text made for PrimeKey(Freighter) replayed to PrimeKey(Phantom) | refused: reverted with reason: grant sig
+PASS X5. Freighter session | ok gas 497659
+PASS X6. that session key used through PrimeKey(Phantom) | refused: reverted with reason: session
+PASS X7. a stranger calls Roles directly as if a member | refused: reverted with reason: custom error 0x4a0bfec1: 000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266
+PASS X8. a move over the daily cap (60 more) | refused: Roles ConditionViolation(AllowanceExceeded)
+PASS X9. after the session ends | refused: reverted with reason: session
+gas: seatApproval 1207189, grantMetaMask 75885, move1MetaMask 160690, move2MetaMask 126490, grantFreighter 500409, move1Freighter 143590, move2Freighter 126490, grantPhantom 695198, move1Phantom 143590, move2Phantom 126490
+104/104 passed

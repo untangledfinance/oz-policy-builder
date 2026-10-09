@@ -36,7 +36,7 @@ import { DEFAULT_GRAMMAR_VERSION } from './build-add-context-rule.ts'
 
 /** Parse `pub const SELF_VERSION: u32 = N;` out of the contract source. */
 function selfVersionFromContract(): number {
-  const path = `${import.meta.dir}/../../../../contracts/policy-interpreter/src/version.rs`
+  const path = `${import.meta.dir}/../../../../contracts/prime/stellar/policy-interpreter/src/version.rs`
   const src = readFileSync(path, 'utf8')
   const match = src.match(/pub const SELF_VERSION:\s*u32\s*=\s*(\d+)\s*;/)
   if (!match?.[1]) {
@@ -105,7 +105,7 @@ describe('grammar version parity (TS builder vs Rust contract)', () => {
           `VersionMismatch, because install_policy also refuses any interpreter address other ` +
           `than the pinned one.\n` +
           `To clear it: deploy a version-${GRAMMAR_VERSION} interpreter to a NEW address (a ` +
-          `grammar change never upgrades in place - see contracts/policy-interpreter/src/` +
+          `grammar change never upgrades in place - see contracts/prime/stellar/policy-interpreter/src/` +
           `version.rs), then re-pin PINNED_INTERPRETER_MAINNET_ADDRESS, _TESTNET_ADDRESS, ` +
           `_WASM_SHA256 and _GRAMMAR_VERSION together in run/schemas.ts.\n` +
           `Do NOT "fix" this by editing _GRAMMAR_VERSION alone: that re-hides the skew and ` +

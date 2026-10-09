@@ -1,0 +1,161 @@
+{
+ "venue": "GCLJO6ZCHURZ2IGF3TAX6ZKEATZXCDBKWOX2LD54O5NBARQ7GNJBUBI6",
+ "other": "GC7BXXDMJGK3XKCXZTU4DVIWE3LUAWOABLIXWEMYTJQPKC5WATMLT5HB",
+ "wasm": "326f1d8ae35a21de8bfe9b6f515360f9672b958b37d5d03fec84e57d7a45c89e",
+ "wasmTx": "b1deb3df222d9101dfbba20eaf9d39ff4d4784da1ab74b67896d86957eef6f06",
+ "S_mm": "CCPGSV3BF66KBGIGREONUKG6ID4MXWJZACQZUV7QBH3D4YBUHP7AXIWV",
+ "S_ph": "CAEE4EER4DUTY5UREKEDCBUFOKDRHAFLOKBZ7RNMFSUWIZSJTSI26EVY",
+ "metamask": "0xCcD8af4Ae1a907Ac370FD151D6282da59bc7C570",
+ "phantom": "G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4",
+ "S_fr": "CAL5U6JYJGJBNVELHXXNHR4DP6IDMAYOGPJ4UY4IUTVZABHD4WV2KBBE",
+ "F": "GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I",
+ "prime": "CB2XV2RFG3OZMEP2S5HBWPCMBELIQDRGUNTWW6UNU7AX2C3I2OHFUS4I",
+ "primeTx": "e19dda8546f96f347395148aa5029b8a7a2edb13975c690d4e3aa75d4b1ce4de",
+ "results": {
+  "Y1. Freighter alone adds a rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)"
+  },
+  "Y2. Phantom alone (its session-signer) adds a rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)"
+  },
+  "Y3. MetaMask + Freighter add a rule": {
+   "pass": true,
+   "ok": true,
+   "hash": "e267c7f80f39d6d29df78e2cb102d94ea4cd7be13ec490dde9821afbf7aa9aef"
+  },
+  "Y4. Freighter + Phantom remove it": {
+   "pass": true,
+   "ok": true,
+   "hash": "4084ddde12c7edf60a5bfca63ec13e9e50bb6291c3b335af7c4120a25bb7c885"
+  },
+  "Y5. MetaMask + Phantom add a rule": {
+   "pass": true,
+   "ok": true,
+   "hash": "52ea7f36e3d8eb3f878f42d49dd1bc37cca4190ae5cf47d49df584fb1319671f"
+  },
+  "Y6. MetaMask + Phantom remove it": {
+   "pass": true,
+   "ok": true,
+   "hash": "10a1533f585a14b0335da3156c9b3d686cc9c62eccb458b8f2f3d06dc8c3d44f"
+  },
+  "Y7. outsider + Freighter": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)"
+  },
+  "Y8. Phantom seat with a grant signed by Freighter (SEP-53) + MetaMask": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction)"
+  },
+  "R-xlm_mm. MetaMask + Freighter install xlm_mm: XLM to VENUE only, signer mm session-signer": {
+   "pass": true,
+   "ok": true,
+   "hash": "2bc0327c7e5077d8fc511c8cb08a52a9f4dac9f585d1855443118ca33c718a94"
+  },
+  "R-xlm_fr. MetaMask + Freighter install xlm_fr: XLM to VENUE only, signer fr session-signer": {
+   "pass": true,
+   "ok": true,
+   "hash": "0de4c1e4e8f0b9fc482ccf4ba0a8862bc7f22f08226d9af8c7feef1f43e75dc3"
+  },
+  "R-xlm_ph. MetaMask + Freighter install xlm_ph: XLM to VENUE only, signer ph session-signer": {
+   "pass": true,
+   "ok": true,
+   "hash": "730fe080d4d11caa961958338e77a82073ec1edd9fdcf819d2e98888a35adfcf"
+  },
+  "Q-MetaMask1. session alone: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "475fdcc5f17c4513cb32751f35f5044a381d291fd57fa8056718dbea1c6b709d"
+  },
+  "Q-MetaMask2. session alone: 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "Q-MetaMask3. session alone: change rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)"
+  },
+  "Q-Freighter1. session alone: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "a58e1588175028dd0ce4d7b98a44e2ac6f9fe8761e9333a5d485206beea88ff4"
+  },
+  "Q-Freighter2. session alone: 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "Q-Freighter3. session alone: change rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)"
+  },
+  "Q-Phantom1. session alone: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "7d5bfec02a488b230d0279effa0f57670ea0fb88941e31e05356b07456b24e2b"
+  },
+  "Q-Phantom2. session alone: 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+  },
+  "Q-Phantom3. session alone: change rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)"
+  },
+  "Q4. Phantom session on the MetaMask session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)"
+  },
+  "Q5. Freighter session-signer with a Phantom-style (unprefixed) grant": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction)"
+  },
+  "Q6. Phantom grant presented to the MetaMask session-signer": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction)"
+  },
+  "Q7. Freighter session before revoke": {
+   "pass": true,
+   "ok": true,
+   "hash": "6eb907a2eb06fa91c02b0642c1e36d9a349b6d0e89d9e4ec93241006ce4175c2"
+  },
+  "Q8a. Freighter revokes its session (one SEP-53 signature, relayed)": {
+   "pass": true,
+   "hash": "3c4aef47012447f3f9ac54b7d50cef4f28ae81f6ff090fc25608e13943ec8745"
+  },
+  "Q8. revoked Freighter session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction)"
+  },
+  "Q9. expired Phantom session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction)"
+  },
+  "Q8r. revoked Freighter session: session-signer code": {
+   "pass": true,
+   "error": "Error(Contract, #2)"
+  },
+  "Q9r. expired Phantom session: session-signer code": {
+   "pass": true,
+   "error": "Error(Contract, #1)"
+  }
+ },
+ "r_mm": 3,
+ "r_fr": 4,
+ "r_ph": 5
+}

@@ -1,0 +1,29 @@
+12:19:15 owner key GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO seat key GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW
+12:19:32 PASS SP0. the deployed contract runs the built split wasm cd3aefbdfb6ff3830a503a1b11317bc27a68b4c56fd9d4b2e37f7a845ac6fc73 build cd3aefbdfb6ff3830a503a1b11317bc27a68b4c56fd9d4b2e37f7a845ac6fc73
+12:19:32 PASS SP1. the contract stores the owner key at 0 and the seat key at 1, and they differ owner GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO seat GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW
+12:19:48 PASS SG1. the owner key grants a move-only session ok 5437 ms
+12:19:58 PASS SG2. the owner key grants a session with the vote flag: refused (the contract asks the seat key) refused: Error(Auth, InvalidAction)
+12:19:58 PASS SG2b. ... and the key holds no grant no entry
+12:20:12 PASS SG3. the seat key grants a session with the vote flag ok 4301 ms
+12:20:21 PASS SG4. the seat key grants a move-only session: refused (the contract asks the owner key) refused: Error(Auth, InvalidAction)
+12:20:30 FAIL SG5. a stranger signs the seat key's vote grant refused: Error(Auth, InvalidAction) Error(Contract, #5)
+12:20:30 PASS SG6. stored: the move-only key has no vote flag, the vote key has it {"until":5088397,"vote":false} {"until":5088397,"vote":true}
+12:20:43 PASS SV1. the seat key authorizes the seat's own vote (verify, empty proof) ok 4701 ms returned true
+12:20:51 PASS SV2. the owner key authorizes a vote: refused (the contract asks the seat key) refused: Error(Auth, InvalidAction)
+12:20:58 FAIL SV3. no authorization at all refused: FAILED
+12:21:02 PASS SV4. a session key with the vote flag votes ok 4339 ms returned true
+12:21:07 PASS SV5. a move-only session key does not vote ok 4902 ms returned false
+12:21:18 PASS SR0. the seat key grants a second vote session ok 2932 ms
+12:21:32 PASS SR1. the owner key re-grants it move-only (a downgrade) ok 6162 ms
+12:21:38 PASS SR2. the downgraded key does not vote ok 5424 ms returned false
+12:21:47 PASS SR3. the owner key tries to upgrade the move-only key to a vote session: refused refused: Error(Auth, InvalidAction)
+12:21:57 PASS SR4. the owner key revokes the vote session (grant(key, 0, false)), the same wallet's other keys stay ok 3037 ms
+12:22:02 FAIL SR5. the revoked key does not vote ok 4362 ms
+12:22:10 PASS SR6. the seat key cannot grant the revoked key again (revoke is final) refused: Error(Contract, #1)
+12:22:22 PASS SR7. the move-only session is still live after the revoke of the other key ok 4212 ms
+fees (stroops) {"SG1. the owner key grants a move-only session":18208,"SG3. the seat key grants a session with the vote flag":18208,"SV1. the seat key authorizes the seat's own vote (verify, empty proof)":12465,"SV3. no authorization at all":9016,"SV4. a session key with the vote flag votes":4464,"SV5. a move-only session key does not vote":4170,"SR0. the seat key grants a second vote session":18208,"SR1. the owner key re-grants it move-only (a downgrade)":15502,"SR2. the downgraded key does not vote":4170,"SR4. the owner key revokes the vote session (grant(key, 0, false)), the same wallet's other keys stay":757834,"SR5. the revoked key does not vote":4170,"SR7. the move-only session is still live after the revoke of the other key":15502}
+12:22:24 19/22 passed
+12:22:24 FAIL SG5. a stranger signs the seat key's vote grant refused: Error(Auth, InvalidAction) Error(Contract, #5)
+12:22:24 FAIL SV3. no authorization at all refused: FAILED
+12:22:24 FAIL SR5. the revoked key does not vote ok 4362 ms
+12:22:24 NEAR MPC: 13 signatures, average 8.0s

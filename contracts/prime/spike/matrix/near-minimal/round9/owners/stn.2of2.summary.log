@@ -1,0 +1,40 @@
+08:56:30 PASS H1. Horizon: all 26 landed grants, revokes and moves have the payer as source account; the 4 self-paid ones have the session key's own account ok
+fees (stroops, Horizon fee_charged) {
+ "tx relayed": {
+  "n": 9,
+  "min": 34999,
+  "median": 52553,
+  "max": 2855888
+ },
+ "grant relayed": {
+  "n": 5,
+  "min": 18108,
+  "median": 18114,
+  "max": 18114
+ },
+ "move relayed": {
+  "n": 6,
+  "min": 32888,
+  "median": 32891,
+  "max": 1389871
+ },
+ "grant self-paid": {
+  "n": 2,
+  "min": 18108,
+  "median": 18114,
+  "max": 18114
+ },
+ "move self-paid": {
+  "n": 2,
+  "min": 32888,
+  "median": 32891,
+  "max": 32891
+ },
+ "revoke relayed": {
+  "n": 2,
+  "min": 747983,
+  "median": 747990,
+  "max": 747990
+ }
+}
+08:56:30 55/55 passed; NEAR MPC signatures this part: 0

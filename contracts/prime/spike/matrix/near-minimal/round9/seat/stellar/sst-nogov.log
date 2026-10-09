@@ -1,0 +1,17 @@
+12:06:33 PASS NG0a. Freighter grant, move+vote ok 7807 ms f9d565d21e108a5a2d780e39744ea9a98ec14c22cdfa0a5ea0883f39e875c60d
+12:06:47 PASS NG0b. Phantom grant, move+vote ok 4681 ms 21decc5e6db5cd066f7481358f9677b48be49f5e226a62ce04ac91450812e8e3
+12:06:52 PASS NG0c. Freighter grant, move only ok 2967 ms f0a393bbc6fa23bd649bd4ed9b2c97da94c6479f77c1dfb3095981de1791c38e
+12:07:07 PASS NG1. baseline: plain owners MetaMask + Freighter on rule 0 (the production seat vote), same rename action ok 14938 ms 083166e3530c070c69680de9baae9005e973d17c83a0ad7e9729bcac71f1fe93
+12:07:22 PASS NG2. a vote session + Phantom owner (External seats) move 1 XLM to VENUE through the ops rule ok 14664 ms b354336394a45f4416dce0163c37f3bad2fe0547a3ea75b8d71ecd49927ce7d4
+12:07:37 PASS NG3. two owners (External seats) move 1 XLM through the ops rule ok 15273 ms 19318686aee26c891015185b5be3078abca643827d8d91f56d637f6e3c0ade77
+12:07:39 PASS NG3a. VENUE received exactly 2 XLM from the account 20000000 stroops
+12:07:47 PASS NG4. two vote sessions move 1 XLM through the ops rule with no owner present ok 8209 ms d7fb0b39954815466a026315a550c967d3f63c7c5796ce0557f1c5115e570ef4
+12:08:03 PASS NG5. a vote session + Phantom owner move 1 XLM to ANY address through the ops rule (the rule has no destination limit) ok 16087 ms c983f8b5e63f3322a3b73754cc519c3109ec1c5bde434ff7b089234a53d39034
+12:08:14 PASS NG6. a vote session + Phantom owner add a seat to rule 0 through the ops rule refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+12:08:24 PASS NG7. a vote session + Phantom owner lower the rule-0 threshold (execute set_threshold) through the ops rule refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+12:08:33 PASS NG8. a vote session + Phantom owner rename a rule through the ops rule refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+12:08:43 PASS NG9. the same governance call through rule 0 with the External seats (not signers of rule 0) refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+12:08:53 PASS NG10. a move-only session + Phantom owner through the ops rule refused: Error(Auth, InvalidAction) Error(Contract, #3003)
+12:08:54 PASS NG11. a vote session alone through the ops rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+12:09:07 PASS NG12. the owners govern through rule 0 with their plain accounts: Phantom + Freighter set the rule-0 threshold (execute set_threshold, value 2) ok 12428 ms 85990224190d76eb50ab5caf92790b519e3075739352071f97ed6dc5ee9f7d7f
+12:09:07 NEAR MPC: 11 signatures, average 7.9s

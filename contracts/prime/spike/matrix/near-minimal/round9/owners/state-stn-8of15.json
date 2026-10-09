@@ -1,0 +1,2502 @@
+{
+ "venue": "GDHS7CJE7LFVY5OYCLH37TLQPCATMAXMOSFLXSJFTDJ4GCVNPE2BJLB4",
+ "other": "GDLD3TG7B7ZZ4QCNJHK6XEUNZ2WASJQEAWBQVAEVRU54WQLMA42H7MTK",
+ "wasm": "e36d155f0381a466fb6c2c29b788a9d52e4a6f3e568f30da981609075bb7a0b3",
+ "wasmTx": "3fd5f934952fddfa8ed385b2982a50f0ef773e3abfdb45f9eaa5055c400fc8c4",
+ "S_Freighter": "CBPSSM452VFMLZT73NTSA5MZQWNZAD6CZB3BFMCA2WO756EL42PKNUXU",
+ "S_FreighterTx": "27d7b67f4ae70e64c152f8a044f8b6b7086656eb030ef7acedf3187958b8366e",
+ "S_MetaMask": "CCVUB2GCJC27HRJGNGCMS2D36OPMGQRRSZAPIKB5WTC7HHSGHI753KAE",
+ "S_MetaMaskTx": "665bb782381e8cae3898c8c4ba39f0c251b3ca061a4b8658e1e911798708baf6",
+ "S_Phantom": "CANQ6ZFGDIKJEYR4EGU5XHDSA4ZISCEAUC3RCSCQBORECZ55WA7T5J7L",
+ "S_PhantomTx": "26d38dee02c7554b10fcdd8b07ec1715f04f21346a57b7d04b88532a0923afe3",
+ "S_Owner4": "CCLK4W3GNFCXVJULG7NXVFHSLBXFCLP2ISETD56EXAECG62PTTYAZSTQ",
+ "S_Owner4Tx": "3568040daf4fd52f45e31b14f0d7c929259bf000cc6a394e7fbdcb1af9876b48",
+ "S_Owner5": "CAAEU6TW4CQTQBKCVROC5W6RGZWQXNQELWSLE2HZGXDNBX42VXIEAOFD",
+ "S_Owner5Tx": "396f95a1ee4232334a636fe8d25946720e10c8161f3faa639e27338f186de0b8",
+ "S_Owner6": "CDOUE4REK77HJYU3GH3G2R7K6ANEHXZ7KZJJH654WCHP36WFAOVE4I42",
+ "S_Owner6Tx": "665d16cdaa03a4ecbdc88b234f4173b5d245dba930ddc2ccd89e7dc84aaa94a2",
+ "S_Owner7": "CDH7IPI6OTXS4XF27WZJATZYNWHZZZHM55LZ2UBKYFI7O6SYX566DW25",
+ "S_Owner7Tx": "47f700147d428e009f8362a486e04742ec8c7029958a80533b0bcd4fbeea9d43",
+ "S_Owner8": "CCMLYHGYHVNQ2DY5OF5LPEHQLRZHZAIM5Y4SDIWAZ7WTWMCRKZAE6OZP",
+ "S_Owner8Tx": "08f12b6ee450cfb39cc18cf70b82cdb33c08abc65af2845b0058f56b88bde246",
+ "S_Owner9": "CAGQ5U2SFDSCJY6DVRK53OCOGKY5ZPYSHXGUDVXBICDXYOMRI7Z6445M",
+ "S_Owner9Tx": "e2b3fd1cbd40cca59da7aa747080ba5d4623b098d39343506746879ed6605b44",
+ "S_Owner10": "CDKIKSYLKNNHHBVMGERLTJU3DC72ZINBDQGX6SHYQMTLXXFF55DDM2XB",
+ "S_Owner10Tx": "8e0dfa3b409f4c46a201194a6df315aced8111b7fa57cfcbedc5cf6761ee64d3",
+ "S_Owner11": "CD4XJBISMPQESL4OQO3HBHKKOU4SKE4MTV7ZSTLO6R3Y3DETCFG2H3YS",
+ "S_Owner11Tx": "6e9127c33289380cd2f6ee27843002a6735a41eb0cbc519c0f5d67378c34df66",
+ "S_Owner12": "CDX4L5PE7HH5SLG3RKGLZXEATQF6SQUQRXXHVBHT4YTYEP2AN4MPFVMT",
+ "S_Owner12Tx": "6ebedcb89ecbbb28782e829c5af6b5cd8deb5ba7e6a552ff60aef5560c88281d",
+ "S_Owner13": "CC7OUU3XN66J247BFMJYESBJZFQX7SGWTTJMUHSHFODUSCGX7RFJFAZ2",
+ "S_Owner13Tx": "5ab3abae99f152ad9b052d466eb891b9f3ac2518261bc4485e163ab194872d7f",
+ "S_Owner14": "CB3WODGNP2AQZZQRUS2TASXWO3SVMX274WXTMMSTKRDUGSUXD2APUJI2",
+ "S_Owner14Tx": "03edf6e97bba19fbc140aada744108a0069296a35ebb0560c8afc656276e9978",
+ "S_Owner15": "CDPZJFCZXML6WB6PWOJZMMH4ZBPR2RKVBB3VCLSSER65TDX63IZ2NERG",
+ "S_Owner15Tx": "f3407035a8d88284e73c1b54cc7a96941809f3aeb4aea741ba3faea182ade046",
+ "prime": "CCI7VBYRFWKS7ZJ7JO3Q4WYAAILWQX4HSGYOYKJLFIOW6IXZP6RILYZ5",
+ "primeTx": "4a721fb16c102e2ffd057312a6425cbb56d4842f6226cc23dfaef513252826f0",
+ "results": {
+  "P0. rule 0 signers are exactly the 15 seat keys (no prime-session), weighted threshold 8": {
+   "pass": true,
+   "detail": "15 signers, threshold 8"
+  },
+  "P1. the 15 prime-session contracts and the 15 session-owner accounts are all different": {
+   "pass": true,
+   "detail": "CBPSSM,CCVUB2,CANQ6Z,CCLK4W,CAAEU6,CDOUE4,CDH7IP,CCMLYH,CAGQ5U,CDKIKS,CD4XJB,CDX4L5,CC7OUU,CB3WOD,CDPZJF"
+  },
+  "Y1. 7 of 15 owners vote (threshold minus one) to add a rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Y2. 8 owners vote (Freighter + MetaMask + Phantom + Owner4 + Owner5 + Owner6 + Owner7 + Owner8) to add a rule": {
+   "pass": true,
+   "ok": true,
+   "hash": "30250d08d94b641d479cb6a786eba130902a6ba95f3eb7ca1069c287b45b6636",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 10418899,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Y3. a different 8 owners vote (Owner8 + Owner9 + Owner10 + Owner11 + Owner12 + Owner13 + Owner14 + Owner15) to remove it": {
+   "pass": true,
+   "ok": true,
+   "hash": "985757cffbcaee9ddfca0a29b9d8017a31ba460c635e1cda34f23ea5d6b11dc5",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 110489,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "Y4. 7 owners and an outsider vote": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "Y5. Freighter's seat signed by another key, plus 7 real owners": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "R-xlm_Freighter. 8 owners install xlm_Freighter: XLM to VENUE only, signer: Freighter's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "8859acdfe8b510e2b1e8e655a0e4bfe332de1d9e9aa6cd3f25d5e8cc5552a0fa",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1276845,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R-xlm_MetaMask. 8 owners install xlm_MetaMask: XLM to VENUE only, signer: MetaMask's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "303f1386a6a7da4ca0b227988c865ea30373c06b811399b80af2631b1ca3197f",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1336315,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R-xlm_Phantom. 8 owners install xlm_Phantom: XLM to VENUE only, signer: Phantom's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "8c0b1f29620d52017d52e2481ce4207860fe69082ab8d20c41b6857c1c873621",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1087565,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R-xlm_Owner4. 8 owners install xlm_Owner4: XLM to VENUE only, signer: Owner4's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "ff964e04d4d0679a54f66f55e7977b0c84c89d5da2b3b4fb3b5fa1c2b9108c82",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1087890,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R-xlm_Owner5. 8 owners install xlm_Owner5: XLM to VENUE only, signer: Owner5's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "a4bc1e8a5b3e012f250c00a4daf94eabbd2fb6a84104b7b692a23d1cb4c1c880",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1087890,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R-xlm_Owner6. 8 owners install xlm_Owner6: XLM to VENUE only, signer: Owner6's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "9c2933e718aeb60adced34070b6db7d5c0da14d019fe9866eb2d07f0ae6edb52",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1087890,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R-xlm_Owner7. 8 owners install xlm_Owner7: XLM to VENUE only, signer: Owner7's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "5787d60c958f013578a8cc37ab9d2c755b9487e581e1b9ad3187cb41177c1396",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1087890,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R-xlm_Owner8. 8 owners install xlm_Owner8: XLM to VENUE only, signer: Owner8's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "f9176d22ed22736a5635d5a57013ee2af9dd96b6f12e2fa82233ad171710342b",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1087890,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R-xlm_Owner9. 8 owners install xlm_Owner9: XLM to VENUE only, signer: Owner9's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "c5607fd1503821677a06de3b0a39cd26b8ba2d71a5699b8b881fe4d551fae2fe",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1087890,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R-xlm_Owner10. 8 owners install xlm_Owner10: XLM to VENUE only, signer: Owner10's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "efcf7e71ddad72ea20735ed33ce10bb8841dcb4e58eea40f8549bdc61aee434e",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1087890,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R-xlm_Owner11. 8 owners install xlm_Owner11: XLM to VENUE only, signer: Owner11's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "29e0a541a977e0aa12e64d423dbe96963a21d1ec93deedab5467ed1b8cec07d8",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1087890,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R-xlm_Owner12. 8 owners install xlm_Owner12: XLM to VENUE only, signer: Owner12's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "32726f9115cc79a25f7b7af304531c826bcfd581eb0ac1b0c0f0363cb1fa5730",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1087890,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R-xlm_Owner13. 8 owners install xlm_Owner13: XLM to VENUE only, signer: Owner13's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "f94ea9964c09108aa204d6ec4705d81e274f09c68501798c0113e3f61be29ab1",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1087890,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R-xlm_Owner14. 8 owners install xlm_Owner14: XLM to VENUE only, signer: Owner14's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "c314fabf37a426ccc4d2188ee940e0828c6c20dfb3ae9547b54e3763175a0c75",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1087890,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R-xlm_Owner15. 8 owners install xlm_Owner15: XLM to VENUE only, signer: Owner15's prime-session": {
+   "pass": true,
+   "ok": true,
+   "hash": "7a953f47730230b726253dda2e83e2318bb55cb36ca9b427e9b39a70f34ef1e5",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1088379,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P0-Freighter.1 Freighter grant: one authorization (own key), relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "badb410292601452b90c42120bbf26615a582f9e0f4091afcdc06f33fd37ee02",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P0-Freighter.2 relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "9c5ef1e32eade4dfc7cd786425cbb336e059c80b087ed290a32993662c00bfe1",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1403346,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P0-Freighter.3 Freighter grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "bbad22cf6c3f11c81562415ed208cdd73cd53fa86ac78a4e7ebe4ba4ca92d4f3",
+   "kind": "grant",
+   "payer": "GANNHRZZXJMYVNWF3JD2FNWE5OCBISFV62HEFWZ5GHSF74CEFMDUUXM7",
+   "selfPaid": true,
+   "fee": 18110,
+   "source": "GANNHRZZXJMYVNWF3JD2FNWE5OCBISFV62HEFWZ5GHSF74CEFMDUUXM7"
+  },
+  "P0-Freighter.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "6c0a271619c987e45287596579353b0f6052f0fa5940a10df9d6a2398854436a",
+   "kind": "move",
+   "payer": "GANNHRZZXJMYVNWF3JD2FNWE5OCBISFV62HEFWZ5GHSF74CEFMDUUXM7",
+   "selfPaid": true,
+   "fee": 32894,
+   "source": "GANNHRZZXJMYVNWF3JD2FNWE5OCBISFV62HEFWZ5GHSF74CEFMDUUXM7"
+  },
+  "P0-Freighter.5 VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "P0-Freighter.6 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P0-Freighter.7 on MetaMask's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P0-Freighter.8 the session and 7 real owners vote on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P0-Freighter.9 the session claims its own rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P0-Freighter.10 the session removes rule 0 through its own rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P0-Freighter.11 Freighter grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "405fef5c33157a7f5ff349687c183df9421d8a55f147a8395d96f5aa6b7a5bfa",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P0-Freighter.12 Freighter revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "9e9ea764b2185975ffca3480ddf3f117f23e5617d319bc928bc6430dd003d6ed",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 755132,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P0-Freighter.13 the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P0-Freighter.14 the first session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "3d7c4f50e3f4b31d403958a029560e4bcf8b1dffba73e06a4d30688fa204e90a",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32894,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P0-Freighter.15 a grant for Freighter's prime-session signed by MetaMask's owner key": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P0-Freighter.16 the key from P0-Freighter.15 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P1-MetaMask.1 MetaMask grant: one authorization (NEAR MPC), relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "5fa8f0d74d84032f60e26c4eb612089cbec232e8badab9e49f1b0d57a6b9d104",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18116,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P1-MetaMask.2 relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "0bf1a11aea856f19f95a71d341c71f4cafab296decfa1a8d3dff749131496076",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1052879,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P1-MetaMask.3 MetaMask grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "832d0ff66977db8fcf8d777a8c31509c9ed5dcdcf29899fe645af1acbe10df18",
+   "kind": "grant",
+   "payer": "GAIYQHBJJKKY4GPFGSU2PVOIVVI22G6PJRPQNPZGUWIT574YO35XFXCJ",
+   "selfPaid": true,
+   "fee": 18116,
+   "source": "GAIYQHBJJKKY4GPFGSU2PVOIVVI22G6PJRPQNPZGUWIT574YO35XFXCJ"
+  },
+  "P1-MetaMask.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "6192fb1b69e254bedde598c8db4d00c973035a938533a189cb0e2fdc7ddc5356",
+   "kind": "move",
+   "payer": "GAIYQHBJJKKY4GPFGSU2PVOIVVI22G6PJRPQNPZGUWIT574YO35XFXCJ",
+   "selfPaid": true,
+   "fee": 32895,
+   "source": "GAIYQHBJJKKY4GPFGSU2PVOIVVI22G6PJRPQNPZGUWIT574YO35XFXCJ"
+  },
+  "P1-MetaMask.5 VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "P1-MetaMask.6 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P1-MetaMask.7 on Freighter's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P1-MetaMask.8 the session and 7 real owners vote on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P1-MetaMask.9 the session claims its own rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P1-MetaMask.10 the session removes rule 0 through its own rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P1-MetaMask.11 MetaMask grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "946c2d7595b7004a09718706617583dbb264441783d856f20aa568bd7cef7ce8",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18116,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P1-MetaMask.12 MetaMask revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "2ddd19bf49a8f87be0ff685c572ae1c5501f0819b10f4f1a0aad5d66a2d97e6f",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 755140,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P1-MetaMask.13 the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P1-MetaMask.14 the first session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "c45e54595cc488eaa695606be0be0ceade15edd7d0ee20c22119053b76e44576",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32895,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P1-MetaMask.15 a grant for MetaMask's prime-session signed by Phantom's owner key": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P1-MetaMask.16 the key from P1-MetaMask.15 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P2-Phantom.1 Phantom grant: one authorization (NEAR MPC), relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "bd38d4d321f3c9a8176cef03d1fc0cbe4caf1d1798ab4617b33f8366c2511e04",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18116,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P2-Phantom.2 relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "5e56fb97f48200c64751fe79282ebfab9a105cbf70ae12f5b649aa715da0023b",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1052927,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P2-Phantom.3 Phantom grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "b0c7a348d48af894ae2dba944515f07a8b11517a023b882fb23bcfce63199e87",
+   "kind": "grant",
+   "payer": "GCLKKTYWDFVPGYHYSBED56P2NQ5ETZMVLD6U2SPFHMSDHBQ6JDRQXABC",
+   "selfPaid": true,
+   "fee": 18116,
+   "source": "GCLKKTYWDFVPGYHYSBED56P2NQ5ETZMVLD6U2SPFHMSDHBQ6JDRQXABC"
+  },
+  "P2-Phantom.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "fcfdc88f7d503d9681caf1c5d988a5686cddcf0c0c9aeae5702880dc369b493a",
+   "kind": "move",
+   "payer": "GCLKKTYWDFVPGYHYSBED56P2NQ5ETZMVLD6U2SPFHMSDHBQ6JDRQXABC",
+   "selfPaid": true,
+   "fee": 32894,
+   "source": "GCLKKTYWDFVPGYHYSBED56P2NQ5ETZMVLD6U2SPFHMSDHBQ6JDRQXABC"
+  },
+  "P2-Phantom.5 VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "P2-Phantom.6 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P2-Phantom.7 on Freighter's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P2-Phantom.8 the session and 7 real owners vote on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P2-Phantom.9 the session claims its own rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P2-Phantom.10 the session removes rule 0 through its own rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P2-Phantom.11 Phantom grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "802cd199fc0015e4fd744f06d4561fa7e02aa08b116c0ea4c5ac1a66df807686",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18116,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P2-Phantom.12 Phantom revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "a2035ea9e7087e4156ccd7579c65e315fbfe46dbd05a0447e91709725027c8e8",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 755140,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P2-Phantom.13 the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P2-Phantom.14 the first session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "c4319c7bdac81b03c7297cc0a878163f98f21a529aa25784011081b0583a1630",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32894,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P2-Phantom.15 a grant for Phantom's prime-session signed by Owner4's owner key": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P2-Phantom.16 the key from P2-Phantom.15 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P3-Owner4.1 Owner4 grant: one authorization (own key), relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "af62a6578d9055b320904ab350ab1f0fb3e3890adbe5032622af57f2f979336f",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P3-Owner4.2 relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "f99bc661ab6c3b79ab5856dee42d9b427a221739098612355de116e28b995ffb",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1053327,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P3-Owner4.3 Owner4 grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "3e02178b97b1321cd7b82fbf843f448fa2cff3b2cdba745b4e78688d9ddc6c91",
+   "kind": "grant",
+   "payer": "GCR4KTQKYSBBQ6NVWDJTLTOUQBLRKKA4DE2A2DIHGP3MZNWKLBF6L33E",
+   "selfPaid": true,
+   "fee": 18110,
+   "source": "GCR4KTQKYSBBQ6NVWDJTLTOUQBLRKKA4DE2A2DIHGP3MZNWKLBF6L33E"
+  },
+  "P3-Owner4.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "3a4a2e59f825115cede294a46e5125daabf5f5a6687086e88d439b059f64ade5",
+   "kind": "move",
+   "payer": "GCR4KTQKYSBBQ6NVWDJTLTOUQBLRKKA4DE2A2DIHGP3MZNWKLBF6L33E",
+   "selfPaid": true,
+   "fee": 32895,
+   "source": "GCR4KTQKYSBBQ6NVWDJTLTOUQBLRKKA4DE2A2DIHGP3MZNWKLBF6L33E"
+  },
+  "P3-Owner4.5 VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "P3-Owner4.6 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P3-Owner4.7 on Freighter's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P3-Owner4.8 the session and 7 real owners vote on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P3-Owner4.9 the session claims its own rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P3-Owner4.10 the session removes rule 0 through its own rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P3-Owner4.11 Owner4 grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "491088cd6b3e25f0b8b016c59e517cc5d5ebdfba5f0aa086b6f24dabf9a1656a",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P3-Owner4.12 Owner4 revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "b55e2406f582d366f83161bf5aac5795c2b8d784700e4c6be7cb648a917e60b1",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 755392,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P3-Owner4.13 the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P3-Owner4.14 the first session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "646e8e4dfb3941188b29f540241af5b7027a9036517f9dbb39956d9f2ac983ff",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32895,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P3-Owner4.15 a grant for Owner4's prime-session signed by Owner5's owner key": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P3-Owner4.16 the key from P3-Owner4.15 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P4-Owner5.1 Owner5 grant: one authorization (own key), relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "dbfa6017558131cae8cdbc16fa6755480742449d91ca77dfa485a9881bb9fd3b",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P4-Owner5.2 relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "d7189d1db53a15111665b9d4ade34363825769943d38321237e36521cee21b2d",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1053360,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P4-Owner5.3 Owner5 grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "ac3583ec57dcb30b70efb0551b6b40ddc037ff8e8d7c275d758b81b0f4940875",
+   "kind": "grant",
+   "payer": "GBT4TLD3RZFI6LBSYXDX5MRSGR7FVWDI77LT3WUW3N3O3PJMJAGJUJSC",
+   "selfPaid": true,
+   "fee": 18110,
+   "source": "GBT4TLD3RZFI6LBSYXDX5MRSGR7FVWDI77LT3WUW3N3O3PJMJAGJUJSC"
+  },
+  "P4-Owner5.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "f8dcc6d1628f7cb6ae7db990c38dbe09b86f69200629f5206904a0919d1f8402",
+   "kind": "move",
+   "payer": "GBT4TLD3RZFI6LBSYXDX5MRSGR7FVWDI77LT3WUW3N3O3PJMJAGJUJSC",
+   "selfPaid": true,
+   "fee": 32894,
+   "source": "GBT4TLD3RZFI6LBSYXDX5MRSGR7FVWDI77LT3WUW3N3O3PJMJAGJUJSC"
+  },
+  "P4-Owner5.5 VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "P4-Owner5.6 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P4-Owner5.7 on Freighter's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P4-Owner5.8 the session and 7 real owners vote on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P4-Owner5.9 the session claims its own rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P4-Owner5.10 the session removes rule 0 through its own rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P4-Owner5.11 Owner5 grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "04d9384e2dee1dff26adbf9e00271fb33c19e85fc52d763bb6d5bfc718c01cdf",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18109,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P4-Owner5.12 Owner5 revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "25d7949588d2e6464f083d413b17a3e789cf965437fb7e42a0a5bd29c3b955b1",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 755392,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P4-Owner5.13 the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P4-Owner5.14 the first session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "53f011fff5046008c9286c8cd9ac62ec5626833197d4663f7835faaf45f25fbe",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32894,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P4-Owner5.15 a grant for Owner5's prime-session signed by Owner6's owner key": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P4-Owner5.16 the key from P4-Owner5.15 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P5-Owner6.1 Owner6 grant: one authorization (own key), relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "e9074f4f5896fdb8501faf1176f62854997a9520d733c30add7e433ad0f72519",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P5-Owner6.2 relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "19b142893ee88f495d8f325e33e88ca9de7cc391ac91d542f45263b4d42aed02",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1053393,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P5-Owner6.3 Owner6 grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "8d3605d4141a9fbf907b6b9ec2996e60f79db74d0e466138d1440ad246aef733",
+   "kind": "grant",
+   "payer": "GD22PH75C24BU5RXI3KC47CA2BTOBLXDWN7AJYZTILH4RO4S3GM5B6KH",
+   "selfPaid": true,
+   "fee": 18110,
+   "source": "GD22PH75C24BU5RXI3KC47CA2BTOBLXDWN7AJYZTILH4RO4S3GM5B6KH"
+  },
+  "P5-Owner6.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "f619ed14a12116b0534903998df0511fdc119eff62f931052b1a090979ace647",
+   "kind": "move",
+   "payer": "GD22PH75C24BU5RXI3KC47CA2BTOBLXDWN7AJYZTILH4RO4S3GM5B6KH",
+   "selfPaid": true,
+   "fee": 32897,
+   "source": "GD22PH75C24BU5RXI3KC47CA2BTOBLXDWN7AJYZTILH4RO4S3GM5B6KH"
+  },
+  "P5-Owner6.5 VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "P5-Owner6.6 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P5-Owner6.7 on Freighter's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P5-Owner6.8 the session and 7 real owners vote on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P5-Owner6.9 the session claims its own rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P5-Owner6.10 the session removes rule 0 through its own rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P5-Owner6.11 Owner6 grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "d8b49780293fd9bb301b6b53c8954b0e60d2d3ea627ea1b575b93b75d473e9dc",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P5-Owner6.12 Owner6 revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "f1b9f324f00f34fe95b0f55fc8333994e579dbcc3ec09b8a9f173042dad779e5",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 755392,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P5-Owner6.13 the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P5-Owner6.14 the first session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "2129eb160354fe0360cdcbd6fd223029a2b0f374045de7a6fcb3e63be7a5cad2",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32897,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P5-Owner6.15 a grant for Owner6's prime-session signed by Owner7's owner key": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P5-Owner6.16 the key from P5-Owner6.15 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P6-Owner7.1 Owner7 grant: one authorization (own key), relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "c6c49f0300a749fb4a11bc9c86b6ac77e2b6f214130f6620eec1110f352676e5",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P6-Owner7.2 relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "a5664a452342583d3bf0150b43598fd185749b3d7e3252c26d311f08a85a8817",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1053416,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P6-Owner7.3 Owner7 grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "e77803ef1cd6090e847ab34e9f916b3e480bfbfd7ae340fff210bc6f007067a5",
+   "kind": "grant",
+   "payer": "GCLE4HSH4E45FNLSLLROHVE23LFVNGXAMK54BMMQHCP3PLG5OMRGSRIO",
+   "selfPaid": true,
+   "fee": 18110,
+   "source": "GCLE4HSH4E45FNLSLLROHVE23LFVNGXAMK54BMMQHCP3PLG5OMRGSRIO"
+  },
+  "P6-Owner7.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "d07a944ba4e0324525c41988b401845467a5f9c3df339bd84f6b9dbf0a280284",
+   "kind": "move",
+   "payer": "GCLE4HSH4E45FNLSLLROHVE23LFVNGXAMK54BMMQHCP3PLG5OMRGSRIO",
+   "selfPaid": true,
+   "fee": 32895,
+   "source": "GCLE4HSH4E45FNLSLLROHVE23LFVNGXAMK54BMMQHCP3PLG5OMRGSRIO"
+  },
+  "P6-Owner7.5 VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "P6-Owner7.6 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P6-Owner7.7 on Freighter's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P6-Owner7.8 the session and 7 real owners vote on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P6-Owner7.9 the session claims its own rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P6-Owner7.10 the session removes rule 0 through its own rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P6-Owner7.11 Owner7 grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "73fe1a973db0750274ec6409b629c2835ba3808c0b68adf18fd2e492721caa27",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P6-Owner7.12 Owner7 revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "545596f0c0c7324f8cfa4438a135716afd72a2fdfc913e60b68b7bc55f5eb228",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 755782,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P6-Owner7.13 the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P6-Owner7.14 the first session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "af7f493109fed0bff125641be5518e4058993348ff375f47808e6ca5ae7867dd",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32895,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P6-Owner7.15 a grant for Owner7's prime-session signed by Owner8's owner key": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P6-Owner7.16 the key from P6-Owner7.15 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P7-Owner8.1 Owner8 grant: one authorization (own key), relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "fda19399b9bce3593b05865b4ea52ab261129febc844655144d9c4b0a3de85d3",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P7-Owner8.2 relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "20534b115d4e8f1e4baabda8bb1df16d2701a459b5dcdb4dab60b3e20966dd3a",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1053981,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P7-Owner8.3 Owner8 grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "9cc0dc85de960fe023d02a1383ece575d67457b7a6d1657f84d70e3973299929",
+   "kind": "grant",
+   "payer": "GAHDAOO57UAZ2EZ3LYIZEAWEJ2TGSKXCBQWYCJH4UCI7IEGDFHDMOXMX",
+   "selfPaid": true,
+   "fee": 18110,
+   "source": "GAHDAOO57UAZ2EZ3LYIZEAWEJ2TGSKXCBQWYCJH4UCI7IEGDFHDMOXMX"
+  },
+  "P7-Owner8.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "bedf5259bb3691f9c898c7b35238fd54939080de7d6e1dcac7348d0d3e863212",
+   "kind": "move",
+   "payer": "GAHDAOO57UAZ2EZ3LYIZEAWEJ2TGSKXCBQWYCJH4UCI7IEGDFHDMOXMX",
+   "selfPaid": true,
+   "fee": 32895,
+   "source": "GAHDAOO57UAZ2EZ3LYIZEAWEJ2TGSKXCBQWYCJH4UCI7IEGDFHDMOXMX"
+  },
+  "P7-Owner8.5 VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "P7-Owner8.6 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P7-Owner8.7 on Freighter's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P7-Owner8.8 the session and 7 real owners vote on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P7-Owner8.9 the session claims its own rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P7-Owner8.10 the session removes rule 0 through its own rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P7-Owner8.11 Owner8 grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "769b1ec3c4abaea62614318242e570109e57d0c2185a37c87eda3a0fab67851b",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P7-Owner8.12 Owner8 revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "960bd8c40cdfb50620ea7995be6c5e42c4d1a356515f9e79382f8da5b0150b33",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 755782,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P7-Owner8.13 the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P7-Owner8.14 the first session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "56b6fb5242da3974fb8a094cf9ee606588eb6d47493d05aaa7fb354700cf5d3b",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32895,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P7-Owner8.15 a grant for Owner8's prime-session signed by Owner9's owner key": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P7-Owner8.16 the key from P7-Owner8.15 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P8-Owner9.1 Owner9 grant: one authorization (own key), relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "69196bda70d749249cb5b91bc2b8b4f59482e2c71cf5a07f01fab3ba1fb3feb9",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18109,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P8-Owner9.2 relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "4771facaa372445070de75555f2278634cbc20428cec883234ab3ad1afc04064",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1054006,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P8-Owner9.3 Owner9 grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "b43853379c7e7d469adf0d77553963ff35234df9ab08d74be939f91ea7b2739e",
+   "kind": "grant",
+   "payer": "GB4EQBM7HPOSU63GI7QUVRHOSQD7DDHHOKLN7P2A67DCPKDHQFONI65J",
+   "selfPaid": true,
+   "fee": 18110,
+   "source": "GB4EQBM7HPOSU63GI7QUVRHOSQD7DDHHOKLN7P2A67DCPKDHQFONI65J"
+  },
+  "P8-Owner9.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "d66f2782aac7c91607839248e63f576c8e6d38288e8a536937dff9a72a63ca5b",
+   "kind": "move",
+   "payer": "GB4EQBM7HPOSU63GI7QUVRHOSQD7DDHHOKLN7P2A67DCPKDHQFONI65J",
+   "selfPaid": true,
+   "fee": 32894,
+   "source": "GB4EQBM7HPOSU63GI7QUVRHOSQD7DDHHOKLN7P2A67DCPKDHQFONI65J"
+  },
+  "P8-Owner9.5 VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "P8-Owner9.6 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P8-Owner9.7 on Freighter's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P8-Owner9.8 the session and 7 real owners vote on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P8-Owner9.9 the session claims its own rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P8-Owner9.10 the session removes rule 0 through its own rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P8-Owner9.11 Owner9 grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "2291d98e9c0525b17a4a94f2cfa4da4bb0c3a5aafd29732b802010e1dd5aec63",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18109,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P8-Owner9.12 Owner9 revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "824dfc7bd0628eff79a3cc08d0a604440d00a9c722fb9bbb706aa66d600f69b3",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 755782,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P8-Owner9.13 the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P8-Owner9.14 the first session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "4b85656bbcb1bd5acc26211310cf6af2fee02e6e8db6cc8e50cbebd95a3c4be6",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32894,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P8-Owner9.15 a grant for Owner9's prime-session signed by Owner10's owner key": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P8-Owner9.16 the key from P8-Owner9.15 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P9-Owner10.1 Owner10 grant: one authorization (own key), relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "9539db060cff200b9a3e3889a1b2a163154ae23369ab198fd6f2eb55f4fe2012",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P9-Owner10.2 relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "712460936140234eb75972fbce70469a658c9b9128a809aa5dc3956545be34a5",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1054037,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P9-Owner10.3 Owner10 grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "f943abc9d3c802bb3d6ec78f9d489bfab814b5837b6d68de60046226e471be69",
+   "kind": "grant",
+   "payer": "GBDM7XF3ZFZZJHRDVINZAKXUMGN2J7B6WZBZNTT3DQGIUYA2YRWRFXZF",
+   "selfPaid": true,
+   "fee": 18110,
+   "source": "GBDM7XF3ZFZZJHRDVINZAKXUMGN2J7B6WZBZNTT3DQGIUYA2YRWRFXZF"
+  },
+  "P9-Owner10.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "08d1b9a87fc937e8efd3f7dbf32d08607d19ef36fa63ff2cd1cddde5b703d6aa",
+   "kind": "move",
+   "payer": "GBDM7XF3ZFZZJHRDVINZAKXUMGN2J7B6WZBZNTT3DQGIUYA2YRWRFXZF",
+   "selfPaid": true,
+   "fee": 32895,
+   "source": "GBDM7XF3ZFZZJHRDVINZAKXUMGN2J7B6WZBZNTT3DQGIUYA2YRWRFXZF"
+  },
+  "P9-Owner10.5 VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "P9-Owner10.6 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P9-Owner10.7 on Freighter's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P9-Owner10.8 the session and 7 real owners vote on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P9-Owner10.9 the session claims its own rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P9-Owner10.10 the session removes rule 0 through its own rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P9-Owner10.11 Owner10 grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "6385162338c385bbd8b2aaa133fa5df66ef16b862ab2b614958edcbd4cc1087e",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18109,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P9-Owner10.12 Owner10 revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "d1b77a9eb896c7d76a93998b1661a81ff3b24d7eaeb1c281e3d2abe4f5463480",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 755782,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P9-Owner10.13 the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P9-Owner10.14 the first session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "6f992e73140ddeddcd0f0137a70acf7259d897090a94c73505f7fb495a77d949",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32895,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P9-Owner10.15 a grant for Owner10's prime-session signed by Owner11's owner key": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P9-Owner10.16 the key from P9-Owner10.15 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P10-Owner11.1 Owner11 grant: one authorization (own key), relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "7b4780634d2cc136b20b30b70b99247c4265d1d496db253b2e37a3d86afafead",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P10-Owner11.2 relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "7565c046aee1579ab7c75331e80543e4e30be4806bf5fc71957537dd77d77d09",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1054065,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P10-Owner11.3 Owner11 grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "dcaf389943f1bce234f207c7f59e1727b345c257ba6a6d680a551cca12f12355",
+   "kind": "grant",
+   "payer": "GB4447ETUK3JSRVOOILDT52HZS3YCMRKKXGCQGBXPLQSF3VQFCMERDZC",
+   "selfPaid": true,
+   "fee": 18110,
+   "source": "GB4447ETUK3JSRVOOILDT52HZS3YCMRKKXGCQGBXPLQSF3VQFCMERDZC"
+  },
+  "P10-Owner11.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "36762df8c56aa4118cdab3f3e257d7da4094e1ee9ee47e43b38572f75a774207",
+   "kind": "move",
+   "payer": "GB4447ETUK3JSRVOOILDT52HZS3YCMRKKXGCQGBXPLQSF3VQFCMERDZC",
+   "selfPaid": true,
+   "fee": 32897,
+   "source": "GB4447ETUK3JSRVOOILDT52HZS3YCMRKKXGCQGBXPLQSF3VQFCMERDZC"
+  },
+  "P10-Owner11.5 VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "P10-Owner11.6 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P10-Owner11.7 on Freighter's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P10-Owner11.8 the session and 7 real owners vote on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P10-Owner11.9 the session claims its own rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P10-Owner11.10 the session removes rule 0 through its own rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P10-Owner11.11 Owner11 grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "03901c6ff2a6fd63f6f930f14a0a9bd7ce30245d5be1b6b125954ddfd7f8964c",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P10-Owner11.12 Owner11 revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "04e68b63f07ea2efb59f364536e518303934c0507dba778cfbbbdd6374603091",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 756042,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P10-Owner11.13 the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P10-Owner11.14 the first session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "7bff9ef98b3717dcedc2f0c3be58d7eab5cee075ab46739c003d3cef9eabec88",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32897,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P10-Owner11.15 a grant for Owner11's prime-session signed by Owner12's owner key": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P10-Owner11.16 the key from P10-Owner11.15 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P11-Owner12.1 Owner12 grant: one authorization (own key), relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "7024f7bbd76f0b6b12555614febefc421241c96ba9cd8e8230423f6491fb71fa",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P11-Owner12.2 relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "d8794b70aeb2491453e2ad4ec94afc2e12bf60466b864cba8fe26f9b983e1f68",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1054449,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P11-Owner12.3 Owner12 grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "ddc7e08d63bf9ae057c05384a625901b94f601dab04e8ca21a0a08d16784a8dd",
+   "kind": "grant",
+   "payer": "GA64JQG6S7QDNQIK4EYDB7GXL3LAACSTMGZ4D3PQTMNN4XUMZUEG2TS6",
+   "selfPaid": true,
+   "fee": 18110,
+   "source": "GA64JQG6S7QDNQIK4EYDB7GXL3LAACSTMGZ4D3PQTMNN4XUMZUEG2TS6"
+  },
+  "P11-Owner12.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "ae9a3ba45dc8cbdfa9945aafadc3f17f5029f43ce813051e8a22d7ad05a1c280",
+   "kind": "move",
+   "payer": "GA64JQG6S7QDNQIK4EYDB7GXL3LAACSTMGZ4D3PQTMNN4XUMZUEG2TS6",
+   "selfPaid": true,
+   "fee": 32897,
+   "source": "GA64JQG6S7QDNQIK4EYDB7GXL3LAACSTMGZ4D3PQTMNN4XUMZUEG2TS6"
+  },
+  "P11-Owner12.5 VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "P11-Owner12.6 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P11-Owner12.7 on Freighter's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P11-Owner12.8 the session and 7 real owners vote on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P11-Owner12.9 the session claims its own rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P11-Owner12.10 the session removes rule 0 through its own rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P11-Owner12.11 Owner12 grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "4ce302365e3d094e3d48b7cb53b9d988a7aaacb2faa72007c517f9730d6b46f5",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18109,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P11-Owner12.12 Owner12 revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "61cac1549af5a5be041dec8949df499d869baeab422132e085d2fe17eeb9a091",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 756042,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P11-Owner12.13 the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P11-Owner12.14 the first session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "b9a34845c5aa5eacf8580380e5f8329c9e711cee6290d81b0bfcc77d4dff56ec",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32897,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P11-Owner12.15 a grant for Owner12's prime-session signed by Owner13's owner key": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P11-Owner12.16 the key from P11-Owner12.15 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P12-Owner13.1 Owner13 grant: one authorization (own key), relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "1791b8e3100c58137471ea533cf4fb1c3549641ccb8486ca82af220f8ccdf449",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P12-Owner13.2 relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "47f84a58950c40358a4791060bde4cc4e481c94385d24c4711f9cff49f3336d2",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1054472,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P12-Owner13.3 Owner13 grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "3a972ea27eaa63eeb38810a0143f0dc688c52f2ceb8c0cfc956059cee2be81da",
+   "kind": "grant",
+   "payer": "GD46EG2XSOSEMG2GUF4S2BK2JWRSD5TWGHZMZJOKQW5NZRO3NHCQVGHG",
+   "selfPaid": true,
+   "fee": 18110,
+   "source": "GD46EG2XSOSEMG2GUF4S2BK2JWRSD5TWGHZMZJOKQW5NZRO3NHCQVGHG"
+  },
+  "P12-Owner13.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "a20214dd3103f25234eeb0b0dffc79936dbad8ea4198ddc038cd688ee2eb58ba",
+   "kind": "move",
+   "payer": "GD46EG2XSOSEMG2GUF4S2BK2JWRSD5TWGHZMZJOKQW5NZRO3NHCQVGHG",
+   "selfPaid": true,
+   "fee": 32895,
+   "source": "GD46EG2XSOSEMG2GUF4S2BK2JWRSD5TWGHZMZJOKQW5NZRO3NHCQVGHG"
+  },
+  "P12-Owner13.5 VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "P12-Owner13.6 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P12-Owner13.7 on Freighter's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P12-Owner13.8 the session and 7 real owners vote on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P12-Owner13.9 the session claims its own rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P12-Owner13.10 the session removes rule 0 through its own rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P12-Owner13.11 Owner13 grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "fea6b61478d1a6298cd218b39637388f2cf07d558354635278a758f9fbde1148",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P12-Owner13.12 Owner13 revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "865a58e554341fce67b5cd91a7289d3473c6e1d6d4952a7fb3eb0ece30419a82",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 756042,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P12-Owner13.13 the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P12-Owner13.14 the first session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "4d9243f68ba72d4ee2132b1fac6f7e4e7a98e58ddfde292e54a5b6245b72062a",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32895,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P12-Owner13.15 a grant for Owner13's prime-session signed by Owner14's owner key": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P12-Owner13.16 the key from P12-Owner13.15 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P13-Owner14.1 Owner14 grant: one authorization (own key), relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "aff68b04ea041a9f1cd7c441be391653bce467a65ce708fab55cebcf3de9c3c3",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P13-Owner14.2 relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "a47145d3705f0c77034544c8b3458ecc50dff2ba834c88d8a5795d60607775f4",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1054490,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P13-Owner14.3 Owner14 grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "436be842b5e2ce7ae8a986c495e07aa4f9eb857ad218e7fb06f07da271639e31",
+   "kind": "grant",
+   "payer": "GABEA7PN7URVN42JJYG4AE3OIG322QVRN2BKY6EDFZ5MNYZQ7EU7PLQU",
+   "selfPaid": true,
+   "fee": 18110,
+   "source": "GABEA7PN7URVN42JJYG4AE3OIG322QVRN2BKY6EDFZ5MNYZQ7EU7PLQU"
+  },
+  "P13-Owner14.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "007e41b9dbbbb1285319fe45c5224b1956e072f726a0de4132c552c20c2f255f",
+   "kind": "move",
+   "payer": "GABEA7PN7URVN42JJYG4AE3OIG322QVRN2BKY6EDFZ5MNYZQ7EU7PLQU",
+   "selfPaid": true,
+   "fee": 32894,
+   "source": "GABEA7PN7URVN42JJYG4AE3OIG322QVRN2BKY6EDFZ5MNYZQ7EU7PLQU"
+  },
+  "P13-Owner14.5 VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "P13-Owner14.6 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P13-Owner14.7 on Freighter's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P13-Owner14.8 the session and 7 real owners vote on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P13-Owner14.9 the session claims its own rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P13-Owner14.10 the session removes rule 0 through its own rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P13-Owner14.11 Owner14 grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "31a192bf1f3e6aa6f62cfd89ecc1ab26ba409bd2a296b2f5290bd0983f603f65",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P13-Owner14.12 Owner14 revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "0eb20f4d4a946bc15556156a271ccbbd8bed3e68230d1e0e2f9f7bc5753187ca",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 756042,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P13-Owner14.13 the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P13-Owner14.14 the first session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "4d2a45a30c810ebfe3823c46fe05d48c5650ad958f0aaadb41c71b54ed4638c4",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32894,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P13-Owner14.15 a grant for Owner14's prime-session signed by Owner15's owner key": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P13-Owner14.16 the key from P13-Owner14.15 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P14-Owner15.1 Owner15 grant: one authorization (own key), relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "ae60be51f2e0f721cb78d1a6231d3e44c71738acc75b03f3d9d650f9d9ebad17",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18109,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P14-Owner15.2 relayer pays: 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "faabe5c93b79768ef95da49d38fbe3c5f947376cb5dbf41b673864430d49c6f7",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 1054526,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P14-Owner15.3 Owner15 grant, relayer down: the session key's own account is the transaction source": {
+   "pass": true,
+   "ok": true,
+   "hash": "5eb92af65e20e0b924cd76d0f918c114b76beeec27c2c4d00fcbedff0f3818d1",
+   "kind": "grant",
+   "payer": "GDQXFXHHTRTPIW4E26PKXJSDOVMLY3PH3WTWYH3LIYE6VRJ3FB45PVS7",
+   "selfPaid": true,
+   "fee": 18110,
+   "source": "GDQXFXHHTRTPIW4E26PKXJSDOVMLY3PH3WTWYH3LIYE6VRJ3FB45PVS7"
+  },
+  "P14-Owner15.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE": {
+   "pass": true,
+   "ok": true,
+   "hash": "c7a38be1acc1afa766a3778ef9d8de87dde2445be76f221638fa4102a8718490",
+   "kind": "move",
+   "payer": "GDQXFXHHTRTPIW4E26PKXJSDOVMLY3PH3WTWYH3LIYE6VRJ3FB45PVS7",
+   "selfPaid": true,
+   "fee": 32897,
+   "source": "GDQXFXHHTRTPIW4E26PKXJSDOVMLY3PH3WTWYH3LIYE6VRJ3FB45PVS7"
+  },
+  "P14-Owner15.5 VENUE received exactly 2 XLM": {
+   "pass": true,
+   "detail": "20000000 stroops"
+  },
+  "P14-Owner15.6 1 XLM elsewhere": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #100)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P14-Owner15.7 on Freighter's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P14-Owner15.8 the session and 7 real owners vote on rule 0": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P14-Owner15.9 the session claims its own rule for an account-admin call": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P14-Owner15.10 the session removes rule 0 through its own rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3002)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P14-Owner15.11 Owner15 grant (second session)": {
+   "pass": true,
+   "ok": true,
+   "hash": "c29d4ebb08cab7f3c0db89a6730f8adabc0aaf5de29e82bdc4731c46d7089387",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P14-Owner15.12 Owner15 revokes it: grant(key, 0), one authorization, relayer pays": {
+   "pass": true,
+   "ok": true,
+   "hash": "ae1a7c27ff01ee3eeb981de4343f28e21269f8a824eeed8dda3051e8436807f5",
+   "kind": "revoke",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 756302,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P14-Owner15.13 the revoked session": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P14-Owner15.14 the first session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "80764565f6e3651dc1827f7cb70b4981a1650ecfbd1db9445740593b6057e67a",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32897,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "P14-Owner15.15 a grant for Owner15's prime-session signed by Freighter's owner key": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #5)",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "P14-Owner15.16 the key from P14-Owner15.15 cannot move": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "R0. Owner15's live session works before removal": {
+   "pass": true,
+   "ok": true,
+   "hash": "6e0ac8d156450ef33dcb92ef652e8aa90e209890a3549841ec103f3f5f32b1ea",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32897,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R1. 7 owners try to remove Owner15's session rule": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3213)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "R2. 8 owners remove Owner15's session rule (Freighter + MetaMask + Phantom + Owner4 + Owner5 + Owner6 + Owner7 + Owner8)": {
+   "pass": true,
+   "ok": true,
+   "hash": "16883b3fe631138406d2ae961a8a5ef42d62e3b4de8d3ba71e98ef3ecccc3c01",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 118766,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R3. Owner15's live session after removal": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3000)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "R4. Owner15 signs a new grant (the contract still takes it)": {
+   "pass": true,
+   "ok": true,
+   "hash": "958b61c08d67d2329ccaf6c96fd67c5872012651c229758828ddee78d969e7bd",
+   "kind": "grant",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 18110,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R5. the new session cannot move either (no rule)": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3000)",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "R6. Freighter's session still works": {
+   "pass": true,
+   "ok": true,
+   "hash": "46dd0a89dad4e4c3bafb4d70f4e27a998eb83b1dc15efd9c47ce18d28df61640",
+   "kind": "move",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 32894,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R8. 8 owners remove Owner15 from rule 0": {
+   "pass": true,
+   "ok": true,
+   "hash": "bc7da9b82fddf8db6026ff52e8c0283cdde03d4d954697184bfaf9791096572b",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 111162,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R9. 8 owners set Owner15's weight to 0 (cleanup)": {
+   "pass": true,
+   "ok": true,
+   "hash": "8c8575686fadf8f8e1dd78bafd67dacd4797949d8fccb8cc08e6484900d8de8d",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 129451,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "R10. rule 0 now has 14 signers without Owner15": {
+   "pass": true,
+   "detail": "14 signers"
+  },
+  "R11. Owner15's vote and 7 other owners no longer count": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #3016)",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false
+  },
+  "R12. 8 remaining owners vote": {
+   "pass": true,
+   "ok": true,
+   "hash": "0014ae07707557d9fdb2b50958556578494c787bba2b0c5e4bea9930c0453887",
+   "kind": "tx",
+   "payer": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI",
+   "selfPaid": false,
+   "fee": 297710,
+   "source": "GBXBF6E4J2IYIFGQUD27DI3W2MDXIS57DWIKU6KIDAUMNM6OUTGOGTMI"
+  },
+  "H1. Horizon: all 129 landed grants, revokes and moves have the payer as source account; the 30 self-paid ones have the session key's own account": {
+   "pass": true,
+   "detail": "ok"
+  }
+ },
+ "rules": {
+  "Freighter": 2,
+  "MetaMask": 3,
+  "Phantom": 4,
+  "Owner4": 5,
+  "Owner5": 6,
+  "Owner6": 7,
+  "Owner7": 8,
+  "Owner8": 9,
+  "Owner9": 10,
+  "Owner10": 11,
+  "Owner11": 12,
+  "Owner12": 13,
+  "Owner13": 14,
+  "Owner14": 15,
+  "Owner15": 16
+ },
+ "setupFeesStroops": {
+  "wasmUpload": 11015,
+  "primeAccount": 4586525,
+  "sessionDeploy": [
+   98004,
+   98004,
+   98004,
+   98004,
+   98004,
+   98004,
+   98004,
+   98004,
+   98004,
+   98004,
+   98004,
+   98004,
+   98004,
+   98004,
+   98004
+  ]
+ },
+ "mpc_owners": {
+  "calls": 89,
+  "ms": 716703
+ },
+ "fees": {
+  "tx relayed": {
+   "n": 21,
+   "min": 110489,
+   "median": 1087890,
+   "max": 10418899
+  },
+  "grant relayed": {
+   "n": 31,
+   "min": 18109,
+   "median": 18110,
+   "max": 18116
+  },
+  "move relayed": {
+   "n": 32,
+   "min": 32894,
+   "median": 32897,
+   "max": 1403346
+  },
+  "grant self-paid": {
+   "n": 15,
+   "min": 18110,
+   "median": 18110,
+   "max": 18116
+  },
+  "move self-paid": {
+   "n": 15,
+   "min": 32894,
+   "median": 32895,
+   "max": 32897
+  },
+  "revoke relayed": {
+   "n": 15,
+   "min": 755132,
+   "median": 755782,
+   "max": 756302
+  }
+ }
+}

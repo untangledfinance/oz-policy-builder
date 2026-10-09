@@ -1,0 +1,14 @@
+{
+  MetaMask: "2mgK6QSMmExM2CDzKZK3dFHpaUYb5NkiS2spdL6yvGMZ",
+  Freighter: "BU4B8vczr3Xqzo1sq5fTUE9HG9VxvXcbUKv4Yv4q9AuU",
+  Phantom: "G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4",
+  sessionMetaMask: "FGaZkHnnqWdGtGHwYBNg3XFJW9euiqWa9ParoHMfRWPX",
+  sessionFreighter: "GgnRgm9eVt6TNUNQUm13Nr9Zo7Mkv2Lvdm7nma6uzLZj",
+  program: "4tXCkZW255iZNT4gPHDuAbqR3eG8Zs3tRsgLRc1BoPRa",
+  programB: "J38gUL2YFo91GDBnDXwVDaGpk6XWSJUhs7RuditRdiVo",
+  net: "devnet",
+}
+PASS X6. grant signed for cluster mainnet, used on devnet | refused: custom program error: 0x7
+PASS X6b. control: the same grant text for cluster devnet works | ok tb7EFYLMpuERPP5FqkmM4qQdd6CJA11KhwEhPZmpgFmgjxqNoBbcSSQAWzd92Tzdpu5wUGzvHkPeej2KmqwkoZx
+PASS A5. a Phantom grant made for account B works in account B | ok 5p12f7GbJBuA8FnDnMVMh9SikxTFsm83MXbwrC1ycRQVSt73xuMLBULzgvyrBy6pzX1gNL1pjaR4hM5reEjmn7BZ
+3/3 passed

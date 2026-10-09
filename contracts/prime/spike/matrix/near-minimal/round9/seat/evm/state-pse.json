@@ -1,0 +1,1837 @@
+{
+ "token": "0x5197D7051ac19aD80dbD8829E46062B8d6d451aE",
+ "safe": "0x074e75A42D71a8C26156AE54188b3c8Bada4FaAd",
+ "roles": "0xa20439e22046f91f4b6d9BF0c66439D45f1F4683",
+ "pkMM": "0xf42821eF06F68a01bba08c91a16368A83C002586",
+ "pkFR": "0xCcF6091bB163431D3C51C3B48CC853549df003E2",
+ "pkPH": "0xEe045dF461915D9E4C919DAFbB2Df2af7e62922b",
+ "pkBase": "0x9BfbaDc8108F2e1959A2a58a647a6DAf07C99527",
+ "roleKey": "0x6d6f766572733a66346238336536650000000000000000000000000000000000",
+ "plain": "0x4e0f77A97C8D224A51F98595119ed4FB787dE650",
+ "tri": "0x30B4b1C4dD56A03b99842d5a67978e972e7C00D7",
+ "ra": "0x49d1458c39Fb5d580284fb49b901953E660B2107",
+ "rb": "0xCA077079113f07ad60c70cD8455e3C65590e677B",
+ "danger": "0x172b0a7060b6F601a201EAd802138781A9E30A81",
+ "dangerTwo": "0xdaC63B76389e79A100ef461dc89D1eECA725450c",
+ "ngMM": "0xd1B8EeE90aC676798c50173e8858151cDd7102A5",
+ "ngFR": "0x936Cd5AEd3611B2AE2D04FF3B6D4651501Ea3093",
+ "ngPH": "0xED41EddDB37e64F05fDe5c8bbB19e2dab0bCCc93",
+ "ng": "0x9507333375A9c3Ae648DC8561008f40C07062397",
+ "sv": [
+  {
+   "pk": "0xf42821eF06F68a01bba08c91a16368A83C002586",
+   "key": "0x03FC254Ee0611ee0A87747D3469a894c6F8e11C4",
+   "end": "1791454460"
+  },
+  {
+   "pk": "0xCcF6091bB163431D3C51C3B48CC853549df003E2",
+   "key": "0xd64cadB8049BC7558dbdE035E30350b2c088aAd0",
+   "end": "1791454475"
+  },
+  {
+   "pk": "0xEe045dF461915D9E4C919DAFbB2Df2af7e62922b",
+   "key": "0xaa21CB5BbC7Ac031a5d7437B517bEd7483D2C6a2",
+   "end": "1791454491"
+  }
+ ],
+ "sm": [
+  {
+   "pk": "0xf42821eF06F68a01bba08c91a16368A83C002586",
+   "key": "0x15c5e51E0855264e503ab4ec01321B6F909BE28f",
+   "end": "1791454475"
+  },
+  {
+   "pk": "0xCcF6091bB163431D3C51C3B48CC853549df003E2",
+   "key": "0xEad0aC2963FC56F5393aBC4a2A23166FCe3dF945",
+   "end": "1791454483"
+  },
+  {
+   "pk": "0xEe045dF461915D9E4C919DAFbB2Df2af7e62922b",
+   "key": "0xEe9095d6e842EdC5b670A8F3767a2287178b9210",
+   "end": "1791454498"
+  }
+ ],
+ "triOrder": [
+  "Freighter",
+  "Phantom",
+  "MetaMask"
+ ],
+ "noGovCalldataBytes": 1156,
+ "gasSafeVote": {
+  "plain": "81515",
+  "ownerOwner": "97508",
+  "sessionOwner": "100288",
+  "sessionSession": "103056",
+  "noGovSessionOwner": "107712",
+  "calldataBytes": {
+   "plain": 644,
+   "ownerOwner": 836,
+   "sessionOwner": 836,
+   "sessionSession": 836
+  },
+  "ownerSubcalls": {
+   "plain": "",
+   "ownerOwner": "4964+4964",
+   "sessionOwner": "7732+4964",
+   "sessionSession": "7732+7732"
+  }
+ },
+ "gasSession": {
+  "productionGrant": "76000",
+  "productionMove1": "124754",
+  "productionMove2": "124754",
+  "seatSpikeGrant": "76659",
+  "seatSpikeMove1": "124761",
+  "seatSpikeMove2": "124761",
+  "seatSpikeGrantVote": "76671",
+  "seatSpikeMove1Vote": "124749",
+  "seatSpikeMove2Vote": "124749"
+ },
+ "gas": {
+  "deploy": "1094949",
+  "deployBase": "919172",
+  "setupSafe": "836002",
+  "deployNoGov": "1212127",
+  "isValidSignatureOwner": "4964",
+  "grantVoteMetaMask": "76683",
+  "grantMoveOnlyMetaMask": "76647",
+  "grantVoteFreighter": "76683",
+  "grantMoveOnlyFreighter": "76659",
+  "grantVotePhantom": "76671",
+  "grantMoveOnlyPhantom": "76659",
+  "safeSO": "100300",
+  "safeNoGovSO": "107712",
+  "grantMetaMask": "76647",
+  "moveRelayerMetaMask": "124761",
+  "moveSelfMetaMask": "124761",
+  "moveLaterMetaMask": "124761",
+  "grantMoveRelayerMetaMask": "184164",
+  "grantMoveSelfMetaMask": "184164",
+  "grantFreighter": "76647",
+  "moveRelayerFreighter": "124749",
+  "moveSelfFreighter": "124749",
+  "moveLaterFreighter": "124749",
+  "grantMoveRelayerFreighter": "184176",
+  "grantMoveSelfFreighter": "184188",
+  "grantPhantom": "76659",
+  "moveRelayerPhantom": "124761",
+  "moveSelfPhantom": "124761",
+  "moveLaterPhantom": "124761",
+  "grantMoveRelayerPhantom": "184188",
+  "grantMoveSelfPhantom": "184188",
+  "plain": "81515",
+  "ownerOwner": "97508",
+  "sessionOwner": "100288",
+  "sessionSession": "103056",
+  "productionGrant": "76000",
+  "productionMove1": "124754",
+  "productionMove2": "124754",
+  "seatSpikeGrant": "76659",
+  "seatSpikeMove1": "124761",
+  "seatSpikeMove2": "124761",
+  "seatSpikeGrantVote": "76671",
+  "seatSpikeMove1Vote": "124749",
+  "seatSpikeMove2Vote": "124749"
+ },
+ "mpc": {
+  "calls": 59,
+  "ms": 475628
+ },
+ "results": [
+  {
+   "name": "C0. Safe L2 1.4.1 code carries the legacy ERC-1271 selector 0x20c13b0b and GS027, and not the bytes32 selector 0x1626ba7e",
+   "pass": true,
+   "ok": true,
+   "detail": "24421 bytes"
+  },
+  {
+   "name": "C1. create the Safe with MetaMask as its only owner (PrimeX flow)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 259243",
+   "tx": "0xfa1737573e7cd2beee2bef5cdbd4659ba846629c676624381e4ce06b6cd9f670"
+  },
+  {
+   "name": "C2. first transaction: owners become the three PrimeSession contracts, threshold 2, Roles with the movers rule for the PrimeSessions",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 836002",
+   "tx": "0x43e49eb640de584672c20e27f26b5993660b3910133093d4bccfd71b3e7b10db"
+  },
+  {
+   "name": "C3. Safe owners are exactly the three PrimeSession contracts (no wallet key), threshold 2",
+   "pass": true,
+   "ok": true,
+   "detail": "3 owners / 2"
+  },
+  {
+   "name": "C4. mint 1000 tokens to the Safe",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 46096",
+   "tx": "0x433ba4e549816dca37c222bd21e530903bf115ab6e5cd9c9be00da1e2ddd9648"
+  },
+  {
+   "name": "create Safe plain-key (2-of-3)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 306183",
+   "tx": "0x3523b155d05f89e7372cc061cb11a5e286f8047fd3153d80822692e28426c69e"
+  },
+  {
+   "name": "mint 1000 tokens to plain-key",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 46096",
+   "tx": "0x4fddd05ffe2366e06bb5e3c979b331a6701c424e9db56d9f3320cf444e0ae152"
+  },
+  {
+   "name": "create Safe three-of-three (3-of-3)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 306183",
+   "tx": "0x56434fd6e5aecb05d52a33e34077fc3edb75406acdc2e2e17f845ecda0b7ecdd"
+  },
+  {
+   "name": "mint 1000 tokens to three-of-three",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 46084",
+   "tx": "0x8845a00f466a0ca03fea029bf3e6d69006e6b3841ca11a32ca6a7083980474e2"
+  },
+  {
+   "name": "create Safe replay-A (2-of-3)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 306171",
+   "tx": "0x5a3899384e6303d030ab93c08386e822a5ae4a77cbb6cdee4820a211e221af92"
+  },
+  {
+   "name": "mint 1000 tokens to replay-A",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 46096",
+   "tx": "0xd65e2f3d08460bd7232312f9ccd71a642a1f55308afa6190f6d302f2ae417a66"
+  },
+  {
+   "name": "create Safe replay-B (2-of-3)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 306183",
+   "tx": "0x3d0ce2e6954e4a031fe91e66fa9fccc737b35306014436d0f0772b0664c922c5"
+  },
+  {
+   "name": "mint 1000 tokens to replay-B",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 46096",
+   "tx": "0xc8727c80d8a76a4ebf157718e729212647c0f649a0f6205ec7157ee841670525"
+  },
+  {
+   "name": "create Safe danger (2-of-3)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 306183",
+   "tx": "0xd7b4a48331f565d7fdf04f0febb5aa686e706830726aefe6938a76e02b74d836"
+  },
+  {
+   "name": "mint 1000 tokens to danger",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 46096",
+   "tx": "0x5288a0173401bd3de7f12f7d8c5c6ba2cf7a76f0ed8c026c9eaaf31796cefa60"
+  },
+  {
+   "name": "create Safe danger-two-sessions (2-of-3)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 306183",
+   "tx": "0x25043bd1d0156837007bf88332f2091150428bb4bd3f5bb62bcf9f879cb61de4"
+  },
+  {
+   "name": "mint 1000 tokens to danger-two-sessions",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 46084",
+   "tx": "0xe0261b2d4a502710b78c7fb5eeaaf9144b660a13cdf68fdcfab4154597d84142"
+  },
+  {
+   "name": "create Safe no-governance (2-of-3)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 306195",
+   "tx": "0x9e6b8a130cbc8046f2b166ab2741914cbb3d2d228a0788dcb9032981a6bcdc22"
+  },
+  {
+   "name": "mint 1000 tokens to no-governance",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 46096",
+   "tx": "0xce46fc33e67a7dc9c652d3e37e6902bc0fb40cdd871eb8beec3f2cf3543db2da"
+  },
+  {
+   "name": "V1. MetaMask (typed data, as a seat vote today) + Freighter (MPC raw hash), both through their PrimeSession",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 114608",
+   "tx": "0xe19d6edcf4fccabb4821f57c9fbfa46665c5abe73be354ee8ca96620d2a1a4ef"
+  },
+  {
+   "name": "V1b. the Safe calls each contract owner with isValidSignature(bytes,bytes) 0x20c13b0b by STATICCALL; data is 0x1901 | domainSeparator | SafeTx hash, 66 bytes, and keccak256(data) is the Safe transaction hash",
+   "pass": true,
+   "ok": true,
+   "detail": "2 calls, STATICCALL/STATICCALL, gas 4964/4964"
+  },
+  {
+   "name": "V2. Freighter + Phantom (both NEAR MPC, no MetaMask)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 97520",
+   "tx": "0x771003d3c04f7a661dbceb491c4ff39864c1d4d333ab12e638acd51add36f7d4"
+  },
+  {
+   "name": "V3. Phantom + MetaMask",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 97520",
+   "tx": "0x4c12837ea6ccf35a162c70d1eb6d06cbf020a9e961e7ddec7292559fefb70d4c"
+  },
+  {
+   "name": "V4-MetaMask. MetaMask alone",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS021"
+  },
+  {
+   "name": "V4-Freighter. Freighter alone",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS021"
+  },
+  {
+   "name": "V4-Phantom. Phantom alone",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS021"
+  },
+  {
+   "name": "V5. MetaMask + an outsider key (plain ECDSA entry)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "V6. MetaMask's key as a plain ECDSA owner entry + Freighter (the wallet key itself is no longer a Safe owner)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "V7. Freighter's signature under MetaMask's PrimeSession + Phantom's own",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "V8. MetaMask's signature over another hash + Freighter",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "V10. MetaMask's personal_sign over the 32 raw bytes of the Safe hash (EIP-191 prefix) + Freighter",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "V11. the same signature with v + 4 (the Safe's own eth_sign marker) + Freighter",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xf645eedf"
+  },
+  {
+   "name": "V12. DEST received exactly 3 (the accepted transactions only)",
+   "pass": true,
+   "ok": true,
+   "detail": "3"
+  },
+  {
+   "name": "S0-MetaMaska. MetaMask grants a 1-hour VOTE session (flag signed in the grant text)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76683",
+   "tx": "0xcacb8ea6e3b5e31a58de436a32160ab359930bcf19fa10011d23f5ae0e1205e0"
+  },
+  {
+   "name": "S0-MetaMaskb. MetaMask grants a 1-hour move-only session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76647",
+   "tx": "0x433f707a257e5129800b9cd87144c401bcc746885ffad399555300c0aadb1f09"
+  },
+  {
+   "name": "S0-Freightera. Freighter grants a 1-hour VOTE session (flag signed in the grant text)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76683",
+   "tx": "0x8544cf8e6fca2dc297f32a0483ef685bb0eb325c786aac257fb951c1c3e2d6e9"
+  },
+  {
+   "name": "S0-Freighterb. Freighter grants a 1-hour move-only session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76659",
+   "tx": "0x876b7a23e18d13c562e2d03480e5a36fbc27d06249c89cacf5557ee5b61e6fa8"
+  },
+  {
+   "name": "S0-Phantoma. Phantom grants a 1-hour VOTE session (flag signed in the grant text)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76671",
+   "tx": "0x88b954aeec3c094d49d0c75fdd1212f6dbfaa69e50735481bc2a2e3007c8b28f"
+  },
+  {
+   "name": "S0-Phantomb. Phantom grants a 1-hour move-only session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76659",
+   "tx": "0x73abda496838dd921834639a4607626f2b5e6d9e1d3f09d04620b1c503c84b56"
+  },
+  {
+   "name": "S1-MetaMask. MetaMask's vote session + Freighter's owner vote",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 100288",
+   "tx": "0xbe6f72482a4646d041f6bf5f61797975e376194e7c766d440fd3d7c41d6933f8"
+  },
+  {
+   "name": "S1-Freighter. Freighter's vote session + Phantom's owner vote",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 100300",
+   "tx": "0xd04a70725b437fafc9d84cd36fbb6c6dfacb213ac98cb2b75a0f982319ecd771"
+  },
+  {
+   "name": "S1-Phantom. Phantom's vote session + MetaMask's owner vote",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 100276",
+   "tx": "0x842529d42f5625ea382b45283d581cef18e2767ef5fe011b09695f5d07378313"
+  },
+  {
+   "name": "S2-MetaMask. MetaMask's MOVE-ONLY session + Freighter's owner vote",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "S2-Freighter. Freighter's MOVE-ONLY session + Phantom's owner vote",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "S2-Phantom. Phantom's MOVE-ONLY session + MetaMask's owner vote",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "S3-MetaMaska. MetaMask's owner vote + its own vote session (owner entry first)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "S3-MetaMaskb. MetaMask's own vote session + its owner vote (session entry first)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "S3-Freightera. Freighter's owner vote + its own vote session (owner entry first)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "S3-Freighterb. Freighter's own vote session + its owner vote (session entry first)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "S3-Phantoma. Phantom's owner vote + its own vote session (owner entry first)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "S3-Phantomb. Phantom's own vote session + its owner vote (session entry first)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "T1. three different contracts in address order: Freighter owner, Phantom owner, MetaMask vote session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 133120",
+   "tx": "0x135bdaa57e37f97a3ccd8fc087ad49f191cb74e9f24010711bb89be54cac8086"
+  },
+  {
+   "name": "T2. Freighter owner, Freighter vote session, Phantom owner (same contract twice, adjacent)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "T3. Freighter owner, Phantom owner, Freighter vote session (same contract again, after a larger address)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "T4. Freighter owner, Phantom owner, Phantom vote session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "T5. Phantom owner first, then Freighter owner (descending addresses), MetaMask session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "T6. Freighter owner + Freighter session + Freighter owner (three entries, one contract)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "S4. A vote session alone (one signature of the two needed)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS021"
+  },
+  {
+   "name": "S5. MetaMask's vote session under both MetaMask's and Freighter's PrimeSession",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "S6-MetaMask. MetaMask's vote session presented for Freighter's seat + Phantom's owner vote",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "S6-Freighter. Freighter's vote session presented for Phantom's seat + MetaMask's owner vote",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "S6-Phantom. Phantom's vote session presented for MetaMask's seat + Freighter's owner vote",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "S7. A stranger key under MetaMask's PrimeSession + Freighter's owner vote",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "S8. A session key's signature in the plain ECDSA slot (as an EOA owner) + Freighter",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "E1. MetaMask grants a 100-second vote session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76683",
+   "tx": "0xc3dfa67914e5cddafcf6715660392034a375cb9869de77c1f502e310a1c1da9f"
+  },
+  {
+   "name": "E2. the session + Phantom: accepted while live",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 100276",
+   "tx": "0x6d3c661af1b2f24958dad8b4803fb51ff5a9fa2fcfec157420919d89d669d658"
+  },
+  {
+   "name": "E3. the same session + Phantom after its end",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "E4. MetaMask owner + Phantom owner after that time: still accepted",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 97508",
+   "tx": "0xba30f5f2ece06dd26505511fda87324cc0fbe0e1fab0c9d4828734c00618f86e"
+  },
+  {
+   "name": "R1. MetaMask grants a 1-hour vote session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76683",
+   "tx": "0xd85ebad8338c62f0cb3e9754890ee81ad13ab34ac29b1493cf969842f87b681a"
+  },
+  {
+   "name": "R2. the session + Freighter: accepted",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 100264",
+   "tx": "0x55fab0b6837c49f470c984c14a121d612e5cf459c28c6e3165bf8c8f35f4955f"
+  },
+  {
+   "name": "R3. MetaMask revokes it (grant with end 0, one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 58504",
+   "tx": "0xeaf8a8ca1a59fd636152b3bf5127fad22cfb1c1aa397fde8979331e2a4460ea4"
+  },
+  {
+   "name": "R4. the revoked session + Freighter",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "R5. the same key granted again after the revoke (any end, vote flag set)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "R6. still refused after the failed re-grant",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "R7. owner votes are unaffected (MetaMask + Freighter)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 97520",
+   "tx": "0x0c788197814e449696e3283ccab0dddc657ebfb014f976fa57cab4a7577aaf80"
+  },
+  {
+   "name": "R8. MetaMask revokes a key it never granted (pre-emptive)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 75592",
+   "tx": "0xd3424c40f3f1d151e72bb32419985522b8c3d08b203582644b8e169f00fa92d2"
+  },
+  {
+   "name": "R9. that key can never be granted a vote session afterwards",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "F1. owner signed \"moves only\", submitted with vote = true",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "F2. owner signed \"moves and votes\", submitted with vote = false",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "F3. move-only grant for the key (default)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76647",
+   "tx": "0xa27786471a72c99d357fc670567f745f43a4d1fb7f18bc57f770a196f3feefcb"
+  },
+  {
+   "name": "F4. that session + Freighter",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "F5. later grant for the same key, longer, with the vote flag (upgrade)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 59583",
+   "tx": "0x95e8c7e8306c7a29f898da7926c3714b25c60726603123e89dd9c4ac16e31e47"
+  },
+  {
+   "name": "F6. stored: vote flag set, end extended",
+   "pass": true,
+   "ok": true,
+   "detail": "1791454141,0,true"
+  },
+  {
+   "name": "F7. that session + Freighter: accepted",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 100288",
+   "tx": "0x045b94a0d61398eeff09d959644a066210ede090c52fdbf1cc8635c52ef5a359"
+  },
+  {
+   "name": "F8. later grant, longer, without the flag (downgrade)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 59559",
+   "tx": "0xef018f97d9aa039b9b56ee27ecddd35a4464c73049940efbc5bd27f53493d717"
+  },
+  {
+   "name": "F9. that session + Freighter after the downgrade",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "F10. a grant with the same end and the vote flag (no extension) is refused",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "Z0. A and B have different hashes for the identical transaction (the domain separator holds the Safe address)",
+   "pass": true,
+   "ok": true,
+   "detail": "0xe9d50ed8… vs 0xc24c6f5e…"
+  },
+  {
+   "name": "Z1. signatures made for Safe A presented to Safe B (vote session + owner)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "Z2. signatures made for Safe B presented to Safe A",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "Z3. control: Safe A with its own signatures",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 117364",
+   "tx": "0x394084475b2d77f6968e34af5c120a787f1b27cc043e52489b693165af5a270f"
+  },
+  {
+   "name": "Z4. the accepted signatures of Safe A sent again to Safe A",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "Z5. control: Safe B with its own signatures",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 117388",
+   "tx": "0xd5a402dfe9b197ddf048464d0af368f759ca7124a7af152912a998ea501b9c1f"
+  },
+  {
+   "name": "Y0. on another chain id the Safe has another domain separator",
+   "pass": true,
+   "ok": true,
+   "detail": "0x9a527db3… vs 0x62116cb3…"
+  },
+  {
+   "name": "Y1. Safe signatures (vote session + owner) made on chain 84532, sent on chain 1",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "Y2. an owner grant (vote flag set) signed on chain 84532, sent on chain 1",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "Y3. a session move signed on chain 84532, sent on chain 1",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session sig"
+  },
+  {
+   "name": "Y4. chain id is back to 84532 and the domain separator is the first one",
+   "pass": true,
+   "ok": true,
+   "detail": "84532"
+  },
+  {
+   "name": "Y5. control: the same Safe signatures on chain 84532",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 100276",
+   "tx": "0x00604271d0ed166b9befdccd51431156bab47983797c420554e36c30eb81b372"
+  },
+  {
+   "name": "Y6. control: the same owner grant on chain 84532",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 59571",
+   "tx": "0xe80eb4842e5a2b805b4f29f4cdd4bc4a2a46a10a6c3de98f94e72bcb79f893d2"
+  },
+  {
+   "name": "Y7. control: the same session move on chain 84532",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 141861",
+   "tx": "0x2fd0b4e2012e359672c2674c1f5a21d2495085e18d2875fcb5374c16c04a65f9"
+  },
+  {
+   "name": "D1. Freighter's vote session + MetaMask's owner vote: addOwnerWithThreshold(attacker, 1) on the Safe itself",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 141555",
+   "tx": "0xf7502a63692bcfa083930f1e356495c643d2ca578aea30629137a07720c99717"
+  },
+  {
+   "name": "D2. the Safe now has 4 owners including the attacker, threshold 1",
+   "pass": true,
+   "ok": true,
+   "detail": "4 owners / 1"
+  },
+  {
+   "name": "D3. the attacker alone moves all 1000 tokens out",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 86110",
+   "tx": "0xf3513b70223465d7a8faf1a02f796b8c3a9b3a55887dfe4ca2aa48f062e8edc6"
+  },
+  {
+   "name": "D4. the attacker holds 1000 tokens",
+   "pass": true,
+   "ok": true,
+   "detail": "1000"
+  },
+  {
+   "name": "D5. the attacker removes 0xf42821… (a wallet's seat)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 70554",
+   "tx": "0xb74916d1a4e0d50ebc8e9b5a244d986e1cdf9824dea6fc606d256879c5762d32"
+  },
+  {
+   "name": "D5. the attacker removes 0xCcF609… (a wallet's seat)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 70566",
+   "tx": "0x04a1ee22ddf0437bbec6d948e9e4b7f0049bc1eca36da06f9c0a8433cf0391f4"
+  },
+  {
+   "name": "D5. the attacker removes 0xEe045d… (a wallet's seat)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 70566",
+   "tx": "0x50c5d85d45381693d65ec8a25079ebc2453310010e761cd86d6f8cdbf5e326ef"
+  },
+  {
+   "name": "D6. the three wallets are locked out: the attacker is the only owner",
+   "pass": true,
+   "ok": true,
+   "detail": "0x44ad8ca68436365cc8d06d626651cc8f55b3f0f8"
+  },
+  {
+   "name": "D7. Freighter's MOVE-ONLY session + MetaMask's owner vote: addOwnerWithThreshold(attacker, 1)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "D8. two vote sessions (MetaMask and Freighter) alone: all 1000 tokens to the attacker, no wallet prompt",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 115356",
+   "tx": "0xbc4bc2e70246f12410838ad296da1e9384c71d617d98e41a43a1ff73f5599148"
+  },
+  {
+   "name": "D9. the same two vote sessions: addOwnerWithThreshold(attacker, 1)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 127211",
+   "tx": "0xa8c1adabd5d309a94782d0384905c4e9bd3bf3174e9bcf88b0a06484b49378be"
+  },
+  {
+   "name": "M1. two owners sign a Safe message (control)",
+   "pass": true,
+   "ok": true,
+   "detail": "0x1626ba7e"
+  },
+  {
+   "name": "M2. Freighter's vote session + MetaMask's owner sign a Safe message",
+   "pass": true,
+   "ok": true,
+   "detail": "0x1626ba7e"
+  },
+  {
+   "name": "M3. Freighter's MOVE-ONLY session + MetaMask's owner sign a Safe message",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with the following reason: GS024"
+  },
+  {
+   "name": "NG0. Freighter grants a vote session on its no-governance PrimeSession",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76683",
+   "tx": "0x9fb40882eae2ce0baaa9ff114f83707028e1fc08ae3aca000c276916b14d989d"
+  },
+  {
+   "name": "NG1. vote session (signature + tx fields) + MetaMask owner: a token transfer",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124776",
+   "tx": "0xb117be5f31f6dcd454be6176d8f84dbc4586d8cb70f91a52116f2b4d4baefe68"
+  },
+  {
+   "name": "NG2. vote session + MetaMask owner: a token transfer again",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 107712",
+   "tx": "0x0cba48fdf9749ed0f8e1a2431371f44a3e8703870bcb2fa1057d3692f25fa948"
+  },
+  {
+   "name": "NG3. the same session without the tx fields",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: tx fields"
+  },
+  {
+   "name": "NG4. vote session + MetaMask owner: addOwnerWithThreshold(attacker, 1)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "NG4. vote session + MetaMask owner: changeThreshold(1)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "NG4. vote session + MetaMask owner: swapOwner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "NG4. vote session + MetaMask owner: removeOwner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "NG4. vote session + MetaMask owner: enableModule(attacker)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "NG4. vote session + MetaMask owner: setGuard(attacker)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "NG4. vote session + MetaMask owner: a call to the Roles modifier",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "NG4. vote session + MetaMask owner: a delegatecall",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "NG4. vote session + MetaMask owner: a MultiSend batch (delegatecall) with addOwnerWithThreshold inside",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "NG5. vote session signs addOwnerWithThreshold but supplies the fields of a token transfer",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: tx fields"
+  },
+  {
+   "name": "NG6. what stays possible: the vote session + MetaMask owner send 500 tokens to the attacker",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 107724",
+   "tx": "0xbd8333302b328d57bd7e1356a07e8c4f9a470c7fa8c5931260c79bd199580b07"
+  },
+  {
+   "name": "NG7. the attacker holds 500 more tokens",
+   "pass": true,
+   "ok": true,
+   "detail": "500"
+  },
+  {
+   "name": "NG8. the vote session cannot sign a Safe message (no SafeTx fields can match a message hash)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with the following reason: tx fields"
+  },
+  {
+   "name": "NG9. two owners can still sign a Safe message",
+   "pass": true,
+   "ok": true,
+   "detail": "0x1626ba7e"
+  },
+  {
+   "name": "NG10. owners still govern: MetaMask + Freighter add an owner",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 117608",
+   "tx": "0x31cbc88738cfd7cc3f1af7f11eec2be5bc4aa6e24b46cffead17dd7c2b5a5c80"
+  },
+  {
+   "name": "create Safe duplicate-key (2-of-3)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 306183",
+   "tx": "0x5814139990c8da8365da2fab21638fc7b7f2dbf3151fffe8e504b6d792bb5513"
+  },
+  {
+   "name": "mint 1000 tokens to duplicate-key",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 46096",
+   "tx": "0x4df3b6dda6db7f07fc10cd5e8a2a2faae0ef788264571a1260a5e3d32cc7e732"
+  },
+  {
+   "name": "W1. one MetaMask signature filed under two PrimeSessions that share its owner key: the Safe counts two votes",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 114596",
+   "tx": "0xbe9fa402d4de31546fccaff6f47815393403d4ee8eb3706e095f889147c9118c"
+  },
+  {
+   "name": "N-Freighter1. Freighter's vote session asks Roles to add its key as a Safe owner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "N-Freighter2. Freighter's vote session asks Roles for a delegatecall",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "N-Freighter3. Freighter's vote session asks Roles to re-assign roles",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "N-Phantom1. Phantom's vote session asks Roles to add its key as a Safe owner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "N-Phantom2. Phantom's vote session asks Roles for a delegatecall",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0001\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "N-Phantom3. Phantom's vote session asks Roles to re-assign roles",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "G-MetaMask1. MetaMask grants a 1-hour move-only session (one signature), relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76647",
+   "tx": "0x082c0bfa92526a365038e1eff9e72ee465ba3f3b086cd8c722f6364b43bf8ea5"
+  },
+  {
+   "name": "G-MetaMask2. move via relayer: 10 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124761",
+   "tx": "0xe786243b5ab71521392f8fdefce68072d060d4b3b0b8108618bfad4b6a324e1b"
+  },
+  {
+   "name": "G-MetaMask3. relayer down: the session key submits and pays gas itself, 5 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124761 (paid by 0xf3814d…)",
+   "tx": "0x2ad2cf3f08339cc8a62e6c5f3d92ca00139b0b6eab5e2dde733ca8e9590e6f32"
+  },
+  {
+   "name": "G-MetaMask4. relayer down and the session key has no ETH",
+   "pass": true,
+   "ok": false,
+   "detail": "The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account."
+  },
+  {
+   "name": "G-MetaMask5. VENUE received exactly 15",
+   "pass": true,
+   "ok": true,
+   "detail": "15"
+  },
+  {
+   "name": "G-MetaMask6. move 3: 1 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124761",
+   "tx": "0x77011e4fe433bed31dc2441fb3e18b3d3ff69cae0727d91b149fb29b45af8861"
+  },
+  {
+   "name": "G-MetaMask7. move 3 replayed",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session sig"
+  },
+  {
+   "name": "G-MetaMask8. 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "G-MetaMask9. move signed by another key",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session sig"
+  },
+  {
+   "name": "G-MetaMask10. grant for 7 days + 1 hour",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "G-MetaMask11. grant submitted with a later end than signed",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "G-MetaMask12. old grant replayed with an earlier end",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "G-MetaMask13. grant for the zero key is accepted (owner-signed, stored)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76419",
+   "tx": "0x73d5b0c8311ba0618336300a444384a09711b0a72ac02f831c89971ea2ea6ea0"
+  },
+  {
+   "name": "G-MetaMask13b. the zero key can never move (no signature recovers to it)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xf645eedf"
+  },
+  {
+   "name": "G-MetaMask14. second session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76659",
+   "tx": "0xdda756e0941421ab4ef560e4a85a49ae574335d566f81af7b4c0070adc74d15d"
+  },
+  {
+   "name": "G-MetaMask15. MetaMask revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 58492",
+   "tx": "0x668975f571344389dd6dd6a04dce8a4ee0c536e504f3dadcbc5fe35cfce62fa4"
+  },
+  {
+   "name": "G-MetaMask16. the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "G-MetaMask17. re-grant the revoked key",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "G-MetaMask18. first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124761",
+   "tx": "0x245cbe80c79cb7b36b5a1cebdbb8a7eb648e2c049779aed8565af2b685e184d6"
+  },
+  {
+   "name": "G-MetaMask19. grant + first move in one Multicall3 transaction, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 184164",
+   "tx": "0x33e28d3540459f4b6616e4ba9161c48363b2b81c2c274f573c877b4a1deec661"
+  },
+  {
+   "name": "G-MetaMask20. that session is live with nonce 1 afterwards, and VENUE got the 2",
+   "pass": true,
+   "ok": true,
+   "detail": "nonce 1"
+  },
+  {
+   "name": "G-MetaMask21. grant + first move in one transaction, the session key pays its own gas",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 184164 (paid by 0xd4340C…)",
+   "tx": "0x6671206162f8245a7e1cd1ad6b75577a54f8a9775c0e8148a633c332e705e165"
+  },
+  {
+   "name": "G-MetaMask22. the combined session's second move",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124761",
+   "tx": "0x9335a08f67928793c65e4bbd9bf6d4b621179c2f42a716b73d41ad08b9133fc2"
+  },
+  {
+   "name": "G-MetaMask23. grant + a refused first move (1 to another address): the whole transaction reverts",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: Multicall3: call failed"
+  },
+  {
+   "name": "G-MetaMask24. and the grant was not stored",
+   "pass": true,
+   "ok": true,
+   "detail": "until 0"
+  },
+  {
+   "name": "G-MetaMask30. a VOTE session also makes Roles moves: grant (vote flag set) + first move, 1 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 184176",
+   "tx": "0xa394478b7ecf8074c851d4049a0f936d3ab5e86bf18da83f4dc6f25d63f72253"
+  },
+  {
+   "name": "G-MetaMask31. that session is stored with the vote flag and nonce 1",
+   "pass": true,
+   "ok": true,
+   "detail": "1791454732,1,true"
+  },
+  {
+   "name": "G-MetaMask32. the vote session is still held to the Roles rule (1 to another address)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "G-Freighter1. Freighter grants a 1-hour move-only session (one signature through NEAR), relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76647",
+   "tx": "0xbe6cae545fef4432a4caeec4c425adc46511187890db75666b9969e96cd116ea"
+  },
+  {
+   "name": "G-Freighter2. move via relayer: 10 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124749",
+   "tx": "0x0f9175fd158294605f87695543ddb2e92e1bed66c5981c99914b8cbb0028b97f"
+  },
+  {
+   "name": "G-Freighter3. relayer down: the session key submits and pays gas itself, 5 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124749 (paid by 0x1F8BDA…)",
+   "tx": "0x728fc263def5178de83e4e131b62e92aa34e3e6bfc3e91479b9bcb5510a1832b"
+  },
+  {
+   "name": "G-Freighter4. relayer down and the session key has no ETH",
+   "pass": true,
+   "ok": false,
+   "detail": "The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account."
+  },
+  {
+   "name": "G-Freighter5. VENUE received exactly 15",
+   "pass": true,
+   "ok": true,
+   "detail": "15"
+  },
+  {
+   "name": "G-Freighter6. move 3: 1 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124749",
+   "tx": "0x427a88cd835a04cfb0db9c8cf508abaa450a91efd59ad6d37d1edb4a6e58e6dc"
+  },
+  {
+   "name": "G-Freighter7. move 3 replayed",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session sig"
+  },
+  {
+   "name": "G-Freighter8. 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "G-Freighter9. move signed by another key",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session sig"
+  },
+  {
+   "name": "G-Freighter10. grant for 7 days + 1 hour",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "G-Freighter11. grant submitted with a later end than signed",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "G-Freighter12. old grant replayed with an earlier end",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "G-Freighter13. grant for the zero key is accepted (owner-signed, stored)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76419",
+   "tx": "0x5c115ce248c19e0ddcdcf29c5f2ffcceb323a04bf1b2dba0d1c89e0aee818d6d"
+  },
+  {
+   "name": "G-Freighter13b. the zero key can never move (no signature recovers to it)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xf645eedf"
+  },
+  {
+   "name": "G-Freighter14. second session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76659",
+   "tx": "0xa025ee0f2558dceb1d114fd3b1a1e025a50b5bda405d51f99d0ec20577d0aa75"
+  },
+  {
+   "name": "G-Freighter15. Freighter revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 58504",
+   "tx": "0x46ca7a7610b62c379ddeb61195e06d88dbf62fe2f40fb3177ec6672499e8df57"
+  },
+  {
+   "name": "G-Freighter16. the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "G-Freighter17. re-grant the revoked key",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "G-Freighter18. first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124749",
+   "tx": "0x0d769cd60936c51b09c0304a366435ceb3a2adfe2c4afe3b7b13e6856155e94b"
+  },
+  {
+   "name": "G-Freighter19. grant + first move in one Multicall3 transaction, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 184176",
+   "tx": "0xd27a3fc6175d4a01f0469738b2e7abfd9a66c9683f71652f197c6636bcd61959"
+  },
+  {
+   "name": "G-Freighter20. that session is live with nonce 1 afterwards, and VENUE got the 2",
+   "pass": true,
+   "ok": true,
+   "detail": "nonce 1"
+  },
+  {
+   "name": "G-Freighter21. grant + first move in one transaction, the session key pays its own gas",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 184188 (paid by 0x71f463…)",
+   "tx": "0x2191eb4895be1ad3aa85d51cb5272fb3c4d7ec1969c3d956a7af6df8ce4e0d7f"
+  },
+  {
+   "name": "G-Freighter22. the combined session's second move",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124761",
+   "tx": "0x1c9d1c7cb8a0f723bc8f0170b83740f36da0d0b5f5838266d17c48611a4fe542"
+  },
+  {
+   "name": "G-Freighter23. grant + a refused first move (1 to another address): the whole transaction reverts",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: Multicall3: call failed"
+  },
+  {
+   "name": "G-Freighter24. and the grant was not stored",
+   "pass": true,
+   "ok": true,
+   "detail": "until 0"
+  },
+  {
+   "name": "G-Freighter30. a VOTE session also makes Roles moves: grant (vote flag set) + first move, 1 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 184200",
+   "tx": "0x6e32df73360ec50f638005b76d46461c38dabbf9b4bc2e17d23f0fcba06fca88"
+  },
+  {
+   "name": "G-Freighter31. that session is stored with the vote flag and nonce 1",
+   "pass": true,
+   "ok": true,
+   "detail": "1791454814,1,true"
+  },
+  {
+   "name": "G-Freighter32. the vote session is still held to the Roles rule (1 to another address)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "G-Phantom1. Phantom grants a 1-hour move-only session (one signature through NEAR), relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76659",
+   "tx": "0x52cdedb4e17602cf545299937792d4c975dbf21aacb87e4cdebdb8213b9e653f"
+  },
+  {
+   "name": "G-Phantom2. move via relayer: 10 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124761",
+   "tx": "0xbec80532c1dd00d43675807edcc2b6beacd23506d6d6dfeaba76aef27f48afd7"
+  },
+  {
+   "name": "G-Phantom3. relayer down: the session key submits and pays gas itself, 5 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124761 (paid by 0x4740DC…)",
+   "tx": "0x1499ac1e91063bc3eae25a27a6a3650ca7f030d4ff54e8d41b1ecd175f3240ac"
+  },
+  {
+   "name": "G-Phantom4. relayer down and the session key has no ETH",
+   "pass": true,
+   "ok": false,
+   "detail": "The total cost (gas * gas fee + value) of executing this transaction exceeds the balance of the account."
+  },
+  {
+   "name": "G-Phantom5. VENUE received exactly 15",
+   "pass": true,
+   "ok": true,
+   "detail": "15"
+  },
+  {
+   "name": "G-Phantom6. move 3: 1 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124761",
+   "tx": "0xda5d23e57bc92f446f357653b3347c89342a4acc5f4a4bc6898219b5ffd8fb2d"
+  },
+  {
+   "name": "G-Phantom7. move 3 replayed",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session sig"
+  },
+  {
+   "name": "G-Phantom8. 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "G-Phantom9. move signed by another key",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session sig"
+  },
+  {
+   "name": "G-Phantom10. grant for 7 days + 1 hour",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "G-Phantom11. grant submitted with a later end than signed",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "G-Phantom12. old grant replayed with an earlier end",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "G-Phantom13. grant for the zero key is accepted (owner-signed, stored)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76407",
+   "tx": "0xcac0598a0dff80f4c57e254928f16f535eaaefdb74aa863bf8b3906425b06ad4"
+  },
+  {
+   "name": "G-Phantom13b. the zero key can never move (no signature recovers to it)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xf645eedf"
+  },
+  {
+   "name": "G-Phantom14. second session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76659",
+   "tx": "0xaaf29afb58782bac0efc96fe500fd5c1566f541dc0416819aeed1ddd733672d6"
+  },
+  {
+   "name": "G-Phantom15. Phantom revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 58504",
+   "tx": "0xa0ff8ee69351efaecf4d6229cce76fce8b3846ef33ed59c59c8a46c7c4047255"
+  },
+  {
+   "name": "G-Phantom16. the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "G-Phantom17. re-grant the revoked key",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant"
+  },
+  {
+   "name": "G-Phantom18. first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124761",
+   "tx": "0xcc38ba3d0a0b03c3611207f083aafb60a09119255131767aa8e15ac731268d81"
+  },
+  {
+   "name": "G-Phantom19. grant + first move in one Multicall3 transaction, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 184188",
+   "tx": "0xdebcdf1328ff66c5132adeecc424754cdbd3238cbaee24ec5a9a47bc277741df"
+  },
+  {
+   "name": "G-Phantom20. that session is live with nonce 1 afterwards, and VENUE got the 2",
+   "pass": true,
+   "ok": true,
+   "detail": "nonce 1"
+  },
+  {
+   "name": "G-Phantom21. grant + first move in one transaction, the session key pays its own gas",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 184188 (paid by 0x03eb1f…)",
+   "tx": "0xd70a7c141479c605f9583d6a8e4eceb29e42ef424e1727d656885b999c7f0a23"
+  },
+  {
+   "name": "G-Phantom22. the combined session's second move",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124761",
+   "tx": "0xf2e4b69dc8158ff4eed95b57a84bbdb49b74030f970e2202c0811f56aee855d9"
+  },
+  {
+   "name": "G-Phantom23. grant + a refused first move (1 to another address): the whole transaction reverts",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: Multicall3: call failed"
+  },
+  {
+   "name": "G-Phantom24. and the grant was not stored",
+   "pass": true,
+   "ok": true,
+   "detail": "until 0"
+  },
+  {
+   "name": "G-Phantom30. a VOTE session also makes Roles moves: grant (vote flag set) + first move, 1 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 184200",
+   "tx": "0xaeafe68869b16e38bec63cf0b4b1562c5e29a2a5f29850f73d0b04bdd491715b"
+  },
+  {
+   "name": "G-Phantom31. that session is stored with the vote flag and nonce 1",
+   "pass": true,
+   "ok": true,
+   "detail": "1791454911,1,true"
+  },
+  {
+   "name": "G-Phantom32. the vote session is still held to the Roles rule (1 to another address)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "G-cap. a move over the daily cap (60 more)",
+   "pass": true,
+   "ok": false,
+   "detail": "Roles ConditionViolation(AllowanceExceeded)"
+  },
+  {
+   "name": "X1. PrimeSession(Freighter) with a grant signed by Phantom",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "X2. PrimeSession(MetaMask) with a grant signed by Freighter",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "X3. PrimeSession(Phantom) with a grant signed by MetaMask",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "X5. grant text made for PrimeSession(Freighter) presented to PrimeSession(Phantom), signed by Phantom",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "X6. raw-hash signature instead of personal_sign (Freighter)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "X7. MetaMask's grant signature (personal_sign of the grant text) filed as its vote + Freighter's owner vote",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "X8. MetaMask's vote signature over a Safe hash offered as a grant signature",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "X9. Freighter vote session (used below)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76683",
+   "tx": "0xb1c615921aded0ec5fa38a4093237b249d3e371061d89790f8b6fa6ee9b79141"
+  },
+  {
+   "name": "X10. Phantom's end-0 (revoke) signature on PrimeSession(Freighter) for Freighter's live session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: grant sig"
+  },
+  {
+   "name": "X11. Freighter session still works after X10",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124761",
+   "tx": "0x6e971ca482fbac4dc8da5c9c8240c6fb3036cbd194c77c255fd683e281729abc"
+  },
+  {
+   "name": "GAS-plain1. warm-up transaction",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 98603",
+   "tx": "0x36dee42391750559f27b7db23f0bec3524aa55b6634f05ad2a82ecdea8d5a5d8"
+  },
+  {
+   "name": "GAS-plain2. measured transaction",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 81515",
+   "tx": "0xa3df72264f612efe74297fea36244acb34dbd5231f0f7c7de8cbd382bc0f86ec"
+  },
+  {
+   "name": "GAS-ownerOwner1. warm-up transaction",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 97520",
+   "tx": "0x107dda6943d445c5ccd3344d0e5d48e3f6eabc1b09de71abff95086fc79f9dba"
+  },
+  {
+   "name": "GAS-ownerOwner2. measured transaction",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 97508",
+   "tx": "0x4af5eca69b6e62486deada23b001dd2871e2b686333cbd7e5b80b77b4c5c58a5"
+  },
+  {
+   "name": "GAS-sessionOwner1. warm-up transaction",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 100264",
+   "tx": "0xf7fcd91eaaf4a60a523b1cef252fbfeee116c2673647a40ee4e49bb78a92703b"
+  },
+  {
+   "name": "GAS-sessionOwner2. measured transaction",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 100288",
+   "tx": "0x4f15bbdb6cc29f662b4f49e1963b5b6ac747c1a3564ad5589b8af2020778c5c9"
+  },
+  {
+   "name": "GAS-sessionSession1. warm-up transaction",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 103044",
+   "tx": "0xc063de888e31675c1a7f0dacf6724bee274d7018f684ad6c5ab1a9fe2e37c6b1"
+  },
+  {
+   "name": "GAS-sessionSession2. measured transaction",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 103056",
+   "tx": "0x71a0d26d8c3b11e700651a417f014e5dec08be6d2c1a76c71d0b8092f5809be1"
+  },
+  {
+   "name": "GAS0. numbers collected",
+   "pass": true,
+   "ok": true,
+   "detail": "plain 81515, owner+owner 97508, session+owner 100288, session+session 103056, no-gov session+owner 107712"
+  },
+  {
+   "name": "GAS-production-grant",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x6967c53b233976264c4907f8f6b2e924ba83c2633bd58caddff145787bacc5d1"
+  },
+  {
+   "name": "GAS-production-move1",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x9b3e32da9a9db03dee8f5963c77b8f5c5e783d0a6311694c93dbb1cb0556ece5"
+  },
+  {
+   "name": "GAS-production-move2",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124754",
+   "tx": "0x7e7b3b1ea7b8c9cfe770cfb44bcbe7addc31587b907eec79f6be0551beda1897"
+  },
+  {
+   "name": "GAS-seatSpike-grant",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76659",
+   "tx": "0x8e65ba341e4eb4fc4422d9a219a7da338212d22dd5e37e657fbfdcc2f5b2632e"
+  },
+  {
+   "name": "GAS-seatSpike-move1",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124761",
+   "tx": "0x74f673128978fc06a0cd1b23ec3bd1b33bc0032e2f76149d86fc8883578f586b"
+  },
+  {
+   "name": "GAS-seatSpike-move2",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124761",
+   "tx": "0x77453979b4bca7f4e0592a28d1c7d09d923532736dffd7d415f9c0fca91766ee"
+  },
+  {
+   "name": "GAS-seatSpike-grant",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76671",
+   "tx": "0x61bfb83bac326991a90b28a20b81b893794de9e31f1c23ad9de7146af3f46048"
+  },
+  {
+   "name": "GAS-seatSpike-move1",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124749",
+   "tx": "0xdde34d4050234de7d4ae2143874857b06e3d865a4a944fab78f30951165ab9ad"
+  },
+  {
+   "name": "GAS-seatSpike-move2",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124749",
+   "tx": "0x8d64be745d814633b6daec8391a1a610201c1f47291514f59f6459433b0b4a3d"
+  },
+  {
+   "name": "B. PrimeSession(MetaMask) at 0xf42821eF…: 4810 bytes, 5 immutable slots, equal to the build",
+   "pass": true,
+   "ok": true,
+   "detail": "4810 bytes"
+  },
+  {
+   "name": "B. PrimeSession(Freighter) at 0xCcF6091b…: 4810 bytes, 5 immutable slots, equal to the build",
+   "pass": true,
+   "ok": true,
+   "detail": "4810 bytes"
+  },
+  {
+   "name": "B. PrimeSession(Phantom) at 0xEe045dF4…: 4810 bytes, 5 immutable slots, equal to the build",
+   "pass": true,
+   "ok": true,
+   "detail": "4810 bytes"
+  },
+  {
+   "name": "B. PrimeSessionNoGov(MetaMask) at 0xd1B8EeE9…: 5353 bytes, 6 immutable slots, equal to the build",
+   "pass": true,
+   "ok": true,
+   "detail": "5353 bytes"
+  },
+  {
+   "name": "B. PrimeSessionNoGov(Freighter) at 0x936Cd5AE…: 5353 bytes, 6 immutable slots, equal to the build",
+   "pass": true,
+   "ok": true,
+   "detail": "5353 bytes"
+  },
+  {
+   "name": "B. PrimeSessionNoGov(Phantom) at 0xED41EddD…: 5353 bytes, 6 immutable slots, equal to the build",
+   "pass": true,
+   "ok": true,
+   "detail": "5353 bytes"
+  },
+  {
+   "name": "B. production PrimeSession (gas comparison) at 0x9BfbaDc8…: 3996 bytes, 4 immutable slots, equal to the build",
+   "pass": true,
+   "ok": true,
+   "detail": "3996 bytes"
+  }
+ ]
+}

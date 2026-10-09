@@ -1,0 +1,6 @@
+12:02:48 Prime Account 2 (plain owners in rule 0) CBXKCEHJJBBSTS7NI72XHNKSR5QT3MKBXKZNBQFVF443TEFH3K46CWV5 802dbc145041ca3666a3afcaba2bd4aa6b555d9f8e3732c6d6b6a21514ba35bc
+12:02:52 funded 30 XLM e3f5e17419d863056f9515ca2a29c6c31abb5a58dbb4e49f219596764c64b948
+12:03:12 PASS NGS0. MetaMask + Freighter (plain owner accounts, rule 0) add the probe rule ok 14967 ms c2d45bf53cba3e2d6952d86037aa18fda985ab46767fe4881187d06a0f946850
+12:03:33 PASS NGS1. MetaMask + Freighter install the ops rule: CallContract(XLM), the three External seats, weighted 2-of-3 ok 15373 ms 0016f2482ff839708e68db8287a2c941b299610e1150f872639877c65ef4878c
+12:03:38 PASS NGS2. rule 0 holds only the three owners' plain accounts; the ops rule holds only the three External seats 3 + 3 signers
+12:03:38 NEAR MPC: 2 signatures, average 8.8s

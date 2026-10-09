@@ -1,0 +1,24 @@
+12:51:18 create with 20 signers in one transaction: ok tx bytes 985 
+12:51:18 create with 25 signers in one transaction: ok tx bytes 1150 
+12:51:18 create with 28 signers in one transaction: refused tx bytes -1 Transaction too large: 1249 > 1232 | 
+12:51:18 create with 29 signers in one transaction: refused tx bytes -1 Transaction too large: 1282 > 1232 | 
+12:51:19 create with 30 signers in one transaction: refused tx bytes -1 Transaction too large: 1315 > 1232 | 
+12:51:19 create with 32 signers in one transaction: refused tx bytes -1 Transaction too large: 1381 > 1232 | 
+12:51:19 create with 35 signers in one transaction: refused tx bytes -1 Transaction too large: 1480 > 1232 | 
+12:51:19 create with 40 signers in one transaction: refused tx bytes -1 The value of "offset" is out of range. It must be >= 0 and <= 1231. Received 1232 | 
+12:51:45 grown to 50 signers: settings has 50, 1785 bytes, rent 13314480 lamports
+12:51:47 grown to 55 signers: settings has 55, 1950 bytes, rent 14462880 lamports
+12:51:49 grown to 58 signers: settings has 58, 2049 bytes, rent 15151920 lamports
+12:51:50 grown to 60 signers: settings has 60, 2115 bytes, rent 15611280 lamports
+12:51:51 growth stopped at 62 signers (target 64): Simulation failed. 
+Message: Transaction simulation failed: Error processing Instruction 0: Program failed to complete. 
+Logs: 
+[
+  "Program SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG invoke [1]",
+  "Program log: Instruction: AddSignerAsAuthority",
+  "Program 11111111111111111111111111111111 invoke [2]",
+  "Program 11111111111111111111111111111111 success",
+  "Program SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG consumed 68046 of 200000 compute units",
+  "Program SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG failed: Access violation writing 2317 bytes at address 0x30000772e (in heap region)"
+]. 
+Catch the `SendTransactionError` and call `getLogs()` on it for full details. | Program SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG invoke [1] / Program log: Instruction: AddSignerAsAuthority / Program 11111111111111111111111111111111 invoke [2] / Program 11111111111111111111111111111111 success / Program SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG consumed 68046 of 200000 compute units / Program SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG failed: Access violation writing 2317 bytes at address 0x30000772e (in heap region)

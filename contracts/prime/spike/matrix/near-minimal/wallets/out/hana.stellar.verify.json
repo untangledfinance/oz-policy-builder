@@ -1,0 +1,7 @@
+{
+ "address": "PASS GDEUQO6PLMALYL5RV7Y5ATWKUOYBV2UFP2LKSJ6LGKN5KN5QLMNOBNZR",
+ "near text: SEP-53 sha256(\"Stellar Signed Message:\\n\"+text)": "FAIL rawText",
+ "grant auth entry: ed25519 over sha256(preimage)": "PASS expected",
+ "seat-vote auth entry: ed25519 over sha256(preimage)": "PASS expected",
+ "signTransaction: ed25519 over tx hash": "PASS 1 sig(s), same payload: true"
+}

@@ -1,0 +1,22 @@
+10:48:23 PASS D0. Freighter grant, move+vote (the session under test) ok 3977 ms dd5b46f723b0c63584ed61393cf3d2f341690cba1105bfc1da8d71689f8399a1
+10:48:31 PASS D0a. start: threshold 2, three External seats on rule 0 threshold 2
+10:48:34 FAIL D1. vote session + Phantom owner lower the rule-0 threshold from 2 to 1 (execute set_threshold on the weighted policy) refused: Sender prime-spike-muwguc60.testnet does not have enough balance 0.299814275432731699998529 for operation costing 0.300921365987063500000001
+10:48:35 FAIL D1a. the threshold now reads 1 threshold 2
+10:48:36 FAIL D2. the vote session ALONE now passes rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+10:48:37 FAIL D3. the vote session alone raises the threshold back to 2 refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+10:48:38 PASS D3a. the threshold reads 2 again threshold 2
+10:48:39 PASS D3b. control: the vote session alone is refused again refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+10:48:40 FAIL D4. vote session + Phantom owner add a thief account as a seat of rule 0 (add_signer) refused: Sender prime-spike-muwguc60.testnet does not have enough balance 0.299814275432731699998529 for operation costing 0.300921365987063500000001
+10:48:42 FAIL D5. vote session + Phantom owner give the thief weight 1 (execute set_signer_weight) refused: Sender prime-spike-muwguc60.testnet does not have enough balance 0.299814275432731699998529 for operation costing 0.300921365987063500000001
+10:48:42 FAIL D6. the thief + Phantom owner now pass rule 0 (a third party holds a seat) refused: Sender prime-spike-muwguc60.testnet does not have enough balance 0.299814275432731699998529 for operation costing 0.300921365987063500000001
+261 | };
+262 | const rule0 = async () => (await sim(call('get_context_rule', u32(0)))).result.retval as Sdk.xdr.ScVal;
+263 | const rule0Signers = async () => JSON.stringify((Sdk.scValToNative(await rule0()) as any).signers, (_, v) => (typeof v === 'bigint' ? v.toString() : v));
+264 | const weightedCall = async (fn: string, ...a: Sdk.xdr.ScVal[]) => call('execute', addr(WEIGHTED), sym(fn), vec([...a, await rule0(), addr(ACC())]));
+265 | const threshold = async () => Number(Sdk.scValToNative((await sim(new Sdk.Contract(WEIGHTED).call('get_threshold', u32(0), addr(ACC())))).result.retval));
+266 | const signerId = async (s: Sdk.xdr.ScVal) => Number(Sdk.scValToNative((await sim(call('get_signer_id', s))).result.retval));
+                                                                                                                  ^
+TypeError: undefined is not an object (evaluating '(await sim(call("get_signer_id", s))).result.retval')
+      at <anonymous> (/home/ubuntu/work/seat-spike/stellar/sst.ts:266:109)
+
+Bun v1.4.2 (Linux x64)

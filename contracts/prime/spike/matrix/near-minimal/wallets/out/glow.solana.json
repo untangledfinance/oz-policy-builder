@@ -1,0 +1,23 @@
+{
+ "connectRaw": "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx",
+ "address": "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx",
+ "nearRaw": {
+  "sig": "eFar74EGmjaUZpCIVcxoOo1pwBZB4VBwFyA8KvBFJTtdt5fRql651TfBWzxVO2kP0cg7g/j+3NJhkLDBw27WCQ==",
+  "keys": [
+   "signature",
+   "publicKey"
+  ],
+  "pk": "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"
+ },
+ "near": "eFar74EGmjaUZpCIVcxoOo1pwBZB4VBwFyA8KvBFJTtdt5fRql651TfBWzxVO2kP0cg7g/j+3NJhkLDBw27WCQ==",
+ "grantRaw": {
+  "sig": "YNlXa/e0+oCYhPRYAvHwHlE0GBqTCk3YLVwOKgcO30a0CvFyvOaovnjAnWCzhm02Lsn4rxKpdyWnZ7blCI0JBw==",
+  "keys": [
+   "signature",
+   "publicKey"
+  ],
+  "pk": "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"
+ },
+ "grant": "YNlXa/e0+oCYhPRYAvHwHlE0GBqTCk3YLVwOKgcO30a0CvFyvOaovnjAnWCzhm02Lsn4rxKpdyWnZ7blCI0JBw==",
+ "relayerError": "timeout 50000"
+}

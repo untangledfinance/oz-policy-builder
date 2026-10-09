@@ -1,0 +1,101 @@
+== setup
+08:57:43 seats {
+  MetaMask: "GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW",
+  Freighter: "GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I",
+  Phantom: "GBTFOTXD3WLAMFVCAUEDNO2FM7F3YKQ6RWRVSA5M7VAQHGLJZ7CGBPGL",
+}
+08:57:57 session-signer wasm a60de71f45b2bac63b874a481e96d7fc91af31b50808b9f8c3f3d70eed782d05 adebd4dc89056cd11299ed9f1a0255e902133e650264d0426cab17893feaa4d3
+08:58:02 S_mm CA7FP2LRZMTARE2SPD35S3UMLOZXYELFY22SPCJJP25XFTLJUJBSCORR 1348e9de50e99ea538b31c4eb5d85b1415fec00b6ca000971f0aefe11e8bc935
+08:58:07 S_fr CAOUYJJMZ4CH332QMICFT4WKCZZ7KGJGXT42IPQN63A522VMAASGV4KA c8f2e6dbba848ab1345913b73ed98ee3275f7ecb0fb882e3c69c3417065f0d41
+08:58:12 S_ph CBOOP6QGSCJFJB53QDHJ3QT4RERRJJ4SKQHHXKGA3CZHSXW7DYYRFQX2 d6b46b39ea0241b1b79ed8f6d932037cc70c1878b69771f79327de39171923e5
+08:58:17 Prime Account CBHPTNXQWTOAG37MZ546D3T53VCM5Q5VMNODCIFZUTAORMSGPAQDMNKD a28d5b5f1190debd953cfee5221ddf7fcec33a9274e57267e70095724612fe95
+08:58:22 funded 30 XLM 6e1589db14aa56fb9767adb7dfad9fe117ff69c051d6526bf46890a90b5d2030
+08:58:22 PASS P0. rule 0 signers are exactly the three wallet G keys (no session-signer) [["Delegated","GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW"],["Delegated","GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I"],["Delegated","GBTFOTXD3WLAMFVCAUEDNO2FM7F3YKQ6RWRVSA5M7VAQHGLJZ7CGBPGL"]]
+== seats
+08:58:50 PASS Y1-MetaMask. MetaMask alone adds a rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+08:58:51 PASS Y1-Freighter. Freighter alone adds a rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+08:58:59 PASS Y1-Phantom. Phantom alone adds a rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+08:59:22 PASS Y2. MetaMask (NEAR) + Freighter add a rule ok 23207 ms 84668c6e7ab852bc625ccb1e160350ad56ff65cb38ae6d2da3525e854b3f3c57
+08:59:32 PASS Y3. Freighter + Phantom (NEAR) remove it ok 9436 ms 2e550a24bee088fe9c98602654006de5f333b6630f0527d92ec0778b7338585d
+09:00:03 PASS Y4. Phantom (NEAR) + MetaMask (NEAR) add a rule ok 30373 ms 7f88b80c394d3a461e4dda61fa64452a8906cb2fd17dcc0623fe66abd145a757
+09:00:38 PASS Y5. MetaMask + Phantom remove it ok 34137 ms 25f165254c6abe1d8532318abadb8e1d9371aaeccbaa9e963925b2543539d70f
+09:00:43 PASS Y6. outsider + Freighter refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:00:50 PASS Y7. MetaMask's seat signed by Phantom's MPC key + Freighter refused: Error(Auth, InvalidAction) Error(Contract, #5)
+09:00:57 PASS Y8. Phantom's seat signed by its MPC key under another path + Freighter refused: Error(Auth, InvalidAction) Error(Contract, #5)
+09:00:57 NEAR MPC: 10 signatures, average 11.8s
+== rules
+103 | export function buildAddContextRuleArgs(
+104 |   draft: ContextRuleDraft,
+105 |   args: BuildAddContextRuleArgs
+106 | ): AddContextRuleArgs {
+107 |   // ---- 1. Cap checks (fail-closed before any encoding) ----
+108 |   if (args.signers.length > OZ_LIMITS.maxSignersPerRule) {
+                 ^
+TypeError: undefined is not an object (evaluating 'args.signers.length')
+      at buildAddContextRuleArgs (/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/packages/policy-synth/src/install/build-add-context-rule.ts:108:12)
+      at /home/ubuntu/work/near-session-spike/stn.ts:130:187
+
+Bun v1.4.2 (Linux x64)
+EXIT 1
+== separation
+09:01:39 PASS N1. Phantom's session-signer + Freighter on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:01:40 PASS N2. MetaMask's and Phantom's session-signers on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:01:40 PASS N3. Phantom session claims its session rule for an account-admin call refused: XDR Write Error: invalid u32 value
+== rules
+09:02:27 PASS R-xlm_mm. MetaMask + Freighter install xlm_mm: XLM to VENUE only, signer: that wallet's session-signer ok 25888 ms 27025d2fed46f9720063ececf50a72a8655cb7bb1f851f43123e39c42d2c5e2e
+09:02:57 PASS R-xlm_fr. MetaMask + Freighter install xlm_fr: XLM to VENUE only, signer: that wallet's session-signer ok 26921 ms 4e7796e747d06f99ff3c5c9223be65f50cc28c9c6c95bdbc63050442373f1b96
+09:03:28 PASS R-xlm_ph. MetaMask + Freighter install xlm_ph: XLM to VENUE only, signer: that wallet's session-signer ok 27694 ms cc82fdb184c195c3ea42755bdf2051cb6e427f11943671f59f951f57e413a78a
+09:03:33 rules 3 4 5
+09:03:33 NEAR MPC: 3 signatures, average 20.4s
+== separation
+09:04:09 PASS N1. Phantom's session-signer + Freighter on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:04:10 PASS N2. MetaMask's and Phantom's session-signers on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:04:11 PASS N3. Phantom session claims its session rule for an account-admin call refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+09:04:19 PASS N4. the session key's own G account + Freighter on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:04:20 PASS N5. Phantom session removes rule 0 through its session rule refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+09:04:20 NEAR MPC: 2 signatures, average 13.9s
+== sessions
+09:04:56 MetaMask: one NEAR MPC signature -> session key GDJLP725MSXXAJ34QGVE7FIXJ3BHXKBOARF27AHJFJ635XPPDZUZFKGD until ledger 5068775
+09:05:02 PASS Q-MetaMask1. relayer pays: 1 XLM to VENUE ok 5514 ms e3b44a7c8377ce0926ae96d3ce1019d724d954eee3ea440f90cf970d774cf1d7
+09:05:12 PASS Q-MetaMask2. relayer down: the session key's own account pays the fee, 1 XLM to VENUE ok 4508 ms 030ae151b9118962aca890a7bd8dde468d110270e4717332dc8aadda42411600 (fee paid by the session key)
+09:05:12 PASS Q-MetaMask3. VENUE received exactly 2 XLM 20000000 stroops
+09:05:33 PASS Q-MetaMask4. relayer down and the session key has no account refused: Account not found: GARZKV4OV5HOCOP67WNCIJMNV43C2WO54GPZNB3L6IJVGOCS3ZFVUIX7
+09:05:34 PASS Q-MetaMask5. 1 XLM elsewhere refused: Error(Auth, InvalidAction) Error(Contract, #100)
+09:05:35 PASS Q-MetaMask6. on another wallet's session rule refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:05:36 Freighter: one Freighter signMessage signature -> session key GBVFGE6JAZN5AY7EXQC442PKL5Y2SEFEEIYGFKYDE4AKWOT7UL3BAKVE until ledger 5068789
+09:05:43 PASS Q-Freighter1. relayer pays: 1 XLM to VENUE ok 6917 ms 58959ee0d2186a5aa8720dc4c46e09aee527ae74a87bb1ddc4c66d0ddf7832e1
+09:05:52 PASS Q-Freighter2. relayer down: the session key's own account pays the fee, 1 XLM to VENUE ok 5009 ms 19987551f8279643a88bdc92d61d61e3049bfd1b6c0af2f5260a8965d279511c (fee paid by the session key)
+09:05:53 PASS Q-Freighter3. VENUE received exactly 2 XLM 20000000 stroops
+09:05:54 PASS Q-Freighter4. relayer down and the session key has no account refused: Account not found: GBW43Q7D6D756U2C6RBXFBCWLKOLHIZHMGB7SSSSEPV4WPH2JUSE7XNA
+09:05:55 PASS Q-Freighter5. 1 XLM elsewhere refused: Error(Auth, InvalidAction) Error(Contract, #100)
+09:05:56 PASS Q-Freighter6. on another wallet's session rule refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:06:02 Phantom: one NEAR MPC signature -> session key GBB3SXHK3OXZ2COYHWWNDJSI6CSBPC5ZWNIS2RHUOCUQPGB5CAKAQYWZ until ledger 5068793
+09:06:08 PASS Q-Phantom1. relayer pays: 1 XLM to VENUE ok 5934 ms 8d142b9c553175b935b6d3bc43308996f9053d518bd4296cf5b4fb64684ee379
+09:06:18 PASS Q-Phantom2. relayer down: the session key's own account pays the fee, 1 XLM to VENUE ok 5888 ms 6326a10de0fb884a2c27f8856da8a28730af005ac0203288e3a7c817dcb619ec (fee paid by the session key)
+09:06:18 PASS Q-Phantom3. VENUE received exactly 2 XLM 20000000 stroops
+09:06:25 PASS Q-Phantom4. relayer down and the session key has no account refused: Account not found: GCMZCX73N6ZBANJLSPUJ7CIZ743VR56US6I7Q5KAD3LOPRGONFFWVY2S
+09:06:26 PASS Q-Phantom5. 1 XLM elsewhere refused: Error(Auth, InvalidAction) Error(Contract, #100)
+09:06:26 PASS Q-Phantom6. on another wallet's session rule refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+09:06:34 PASS Q7. Phantom grant submitted with a later valid-until than signed refused: Error(Auth, InvalidAction) Error(Crypto, InvalidInput)
+09:06:57 PASS Q8. MetaMask grant longer than 7 days refused: Error(Auth, InvalidAction) Error(Contract, #1)
+09:07:43 PASS Q9-MetaMaska. session before revoke ok 3490 ms 8a3e43a07ce9a4c15aca4433e3fc3b66f7db2cf78eb8cb1a11c2222dea6b8dfd
+09:08:07 PASS Q9-MetaMaskb. MetaMask revokes it (one signature, relayed) 1d573f156aac6568b83dd6532a474ea2865d2bc55973747ace0771c8a03e759c
+09:08:08 PASS Q9-MetaMaskc. the revoked session refused: Error(Auth, InvalidAction) Error(Contract, #2)
+09:08:13 PASS Q9-MetaMaskd. another live session of the same wallet still works ok 4373 ms 32310900bdfdd9593caf043b752c725568a4bab29de2c111ca0c859490bd48e1
+09:08:17 PASS Q9-Freightera. session before revoke ok 2508 ms 6d2342e187dcbcab10284e4bd85112b9b675c57f310820c7dbf1bd94bc9dd544
+09:08:22 PASS Q9-Freighterb. Freighter revokes it (one signature, relayed) fe26ed85179f79e1845ffa187e8497d9da88282a7ae4257cf13cbb076b3caccb
+09:08:23 PASS Q9-Freighterc. the revoked session refused: Error(Auth, InvalidAction) Error(Contract, #2)
+09:08:27 PASS Q9-Freighterd. another live session of the same wallet still works ok 3907 ms 1c6fb1ddbf27c80a9451ae347460fb06ff1f1e0c9199bfe8334742cad1e94cc7
+09:08:41 PASS Q10. Freighter cannot revoke a Phantom session refused
+09:09:05 PASS Q11. expired Phantom session refused: Error(Auth, InvalidAction) Error(Contract, #1)
+09:09:05 NEAR MPC: 12 signatures, average 14.2s
+== cross
+09:09:18 PASS X1. Freighter's session-signer with a grant signed by Phantom (NEAR) refused: Error(Auth, InvalidAction) Error(Crypto, InvalidInput)
+09:09:19 PASS X2. MetaMask's session-signer with Freighter's raw (non-SEP-53) signature refused: Error(Auth, InvalidAction) Error(Crypto, InvalidInput)
+09:09:40 PASS X3. MetaMask (NEAR) signs the grant text without the SEP-53 prefix refused: Error(Auth, InvalidAction) Error(Crypto, InvalidInput)
+09:09:47 PASS X4. Phantom's session-signer with its MPC key under another path refused: Error(Auth, InvalidAction) Error(Crypto, InvalidInput)
+09:09:55 PASS X5. Phantom grant (for MetaMask's session-signer) on MetaMask's rule refused: Error(Auth, InvalidAction) Error(Crypto, InvalidInput)
+09:10:16 PASS X6. MetaMask grant presented to Phantom's session-signer refused: Error(Auth, InvalidAction) Error(Crypto, InvalidInput)
+09:10:16 NEAR MPC: 5 signatures, average 11.7s
+== summary
+09:10:22 55/55 passed; NEAR MPC signatures this part: 0

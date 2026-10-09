@@ -1,0 +1,83 @@
+{
+ "detect": {
+  "solflare": null,
+  "backpack": null,
+  "backpackSol": null,
+  "glow": [
+   "_events",
+   "_eventsCount",
+   "isGlow",
+   "address",
+   "signIn",
+   "connect",
+   "disconnect",
+   "signOut",
+   "signMessage",
+   "signAndSendTransaction",
+   "signAndSendAllTransactions",
+   "signTransaction",
+   "sendRequest",
+   "eventNames",
+   "publicKey",
+   "signAllTransactions"
+  ],
+  "glowSolana": [
+   "_events",
+   "_eventsCount",
+   "publicKey",
+   "isPhantom",
+   "isGlow",
+   "isConnected",
+   "connect",
+   "disconnect",
+   "signMessage",
+   "signTransaction",
+   "signAndSendTransaction",
+   "sendRequest",
+   "eventNames",
+   "signAllTransactions"
+  ],
+  "solana": [
+   "_events",
+   "_eventsCount",
+   "publicKey",
+   "isPhantom",
+   "isGlow",
+   "isConnected",
+   "connect",
+   "disconnect",
+   "signMessage",
+   "signTransaction",
+   "signAndSendTransaction",
+   "sendRequest",
+   "eventNames",
+   "signAllTransactions"
+  ],
+  "flags": {
+   "isGlow": true
+  },
+  "std": []
+ },
+ "connectRaw": "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx",
+ "address": "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx",
+ "nearRaw": {
+  "sig": "eFar74EGmjaUZpCIVcxoOo1pwBZB4VBwFyA8KvBFJTtdt5fRql651TfBWzxVO2kP0cg7g/j+3NJhkLDBw27WCQ==",
+  "keys": [
+   "signature",
+   "publicKey"
+  ],
+  "pk": "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"
+ },
+ "near": "eFar74EGmjaUZpCIVcxoOo1pwBZB4VBwFyA8KvBFJTtdt5fRql651TfBWzxVO2kP0cg7g/j+3NJhkLDBw27WCQ==",
+ "grantRaw": {
+  "sig": "vHpyygNIvRH6/bZjDwcJhXc36CkkmuvvNuo+ItUgLopQkEPUZ3QnA/KrED0G2JfcToMYgLpre85eQEKFxou/CQ==",
+  "keys": [
+   "signature",
+   "publicKey"
+  ],
+  "pk": "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx"
+ },
+ "grant": "vHpyygNIvRH6/bZjDwcJhXc36CkkmuvvNuo+ItUgLopQkEPUZ3QnA/KrED0G2JfcToMYgLpre85eQEKFxou/CQ==",
+ "legacyError": "timeout 60000",
+ "v0Error": "timeout 60000"
+}

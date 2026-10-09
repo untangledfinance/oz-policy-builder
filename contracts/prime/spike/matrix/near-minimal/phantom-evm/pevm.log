@@ -1,0 +1,10 @@
+PAGE about:blank
+PAGE about:blank
+PAGE chrome-extension://bfnaelmomeimhlpmgjnjophhpkkoljpa/notification.html
+BTNS ["A2","Cancel","Confirm"] TEXT "A2\nAccount 2\nSign Message\n127.0.0.1:8793\n\nSigning this message will prove you have ownership of the selected account.\n\nPlease proceed with caution and only confirm if you trust this site.\n\nMessage\nPrime session\ncontract: 0x2222222222222222222222222222222222222222\nsession key: 0x3333333333333333333333333333333333333333\nvalid until (unix time): 1900000000\nnetwork: 84532\n\nNetwork\n\nEthereum\n\nOnly conf"
+CLICKED Confirm
+PAGE chrome-extension://bfnaelmomeimhlpmgjnjophhpkkoljpa/notification.html
+BTNS ["A2","Cancel","Confirm"] TEXT "A2\nAccount 2\nSign Message\n127.0.0.1:8793\n\nSigning this message will prove you have ownership of the selected account.\n\nPlease proceed with caution and only confirm if you trust this site.\n\nMessage\n0xe0883477b17bac77539479012800f68383601aca668da7daa8ea4f29c6a06c13\n\nNetwork\n\nEthereum\n\nOnly confirm if you trust this website.\n\nCancel\nConfirm"
+CLICKED Confirm
+{"addr":"0x06e72750f02ff10eedfc8e7d661d5f89766b267c","chainBefore":"0xaa36a7","switch":"ok","chainAfter":"0xaa36a7","personal":"0x0f8f85505c8dd4c6490a144eff81cb882c9f670e72aa2fcf9dcdfbb39e1a3b16121ce084b31c464913544361f53d1ae785a95419ee268092488eae3eb80b56291b","hashSig":"0xbd05d0164f9b31a4c55ea8494cb6089fca9aff04b67357a4b1cbfacf1fd95a32788b285fd6550136dfde2e7ac1b1364cf38308583f8fa64dc56371eaa99c9e6c1c"}
+EXIT 0

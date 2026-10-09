@@ -1,0 +1,12 @@
+{
+  MetaMask: "2mgK6QSMmExM2CDzKZK3dFHpaUYb5NkiS2spdL6yvGMZ",
+  Freighter: "BU4B8vczr3Xqzo1sq5fTUE9HG9VxvXcbUKv4Yv4q9AuU",
+  Phantom: "G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4",
+  sessionMetaMask: "FGaZkHnnqWdGtGHwYBNg3XFJW9euiqWa9ParoHMfRWPX",
+  sessionFreighter: "GgnRgm9eVt6TNUNQUm13Nr9Zo7Mkv2Lvdm7nma6uzLZj",
+  program: "6JyReewxbo6D6UQNHEWWTXnC1CdBU8CqcQjoQbGNj9Ba",
+  programB: "GLabPwsshHoaXMrHM6nHsHEkf51MFkKP86WCdRpXg3SD",
+  net: "devnet",
+}
+PASS F4. a signature instruction from another program (a no-op program) that carries the owner key and the exact grant text with an invalid signature | refused: custom program error: 0x7
+1/1 passed

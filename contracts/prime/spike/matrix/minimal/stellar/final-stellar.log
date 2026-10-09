@@ -1,0 +1,43 @@
+== setup
+07:41:37 session-signer v3 wasm 99e73cdc1ee390b675659bda5a25333e001bb735de661e08cf22d0f3724c7a38 311324b0316f15ec63b2b81648ddb84227bd0a71bef02480dbe9af2e58121019
+07:41:42 S_mm CCZ4LHOOYIFTHJJWFIKL7F5WPXSFNKG2UKB7V3YXXUIFH6YCA5NG43QN 08d14a21dc1b5375353c4a48f640913ae1208e0cc170bca794749b19c7c5c598
+07:41:47 S_fr CARMIZLZVHJLKOXB54DN54JBRYVTTAZPHMCFE5VWQC6YZQIZIO4J3DXJ 21f2b9d5efed463c9868639f1e6fcbc95499be3d63c14df5299f432cfbb41d80
+07:41:52 S_ph CD7OSHNPTGV55AMTSZUYEUHWCNS2GZIHXQYJYZ3Y32SZFEFTAV4NJJQD 23298690215529ea7f5ab1005f05e630fdd87c45cb49316adcdc429fac054c95
+07:41:58 Prime Account CB4MIWDVBKUWOWAJPHKDVSQIEJ4GDYNNSN4ZW4ACCEUAW4DZEQVWNGVI eac61b3c93223411d79e560dbb7ed822fd4ef59b4f16c8bb550e9fcb9ee4b8c2
+07:42:02 funded 30 XLM 26a0ff2da8cf2f67a9d160b7b82344c599a5ae1c6fbae14bca260932148d3130
+== seats
+07:42:04 PASS Y1. Freighter alone adds a rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+07:42:05 PASS Y2. Phantom alone (its session-signer) adds a rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+07:42:12 PASS Y3. MetaMask + Freighter add a rule ok 6975 ms 2d02289397fe16ecc9133e6cade2c09bae05687a6d33052042cc1d7e2c6f3415
+07:42:17 PASS Y4. Freighter + Phantom remove it ok 2476 ms 13840b0e4ad8413fb7bef1bc60249cceee2464cbda469381ed69131a37dcb236
+07:42:23 PASS Y5. MetaMask + Phantom add a rule ok 5919 ms b667744f42ca5dc831f587731a1b513a8598e76953536108efd05dc9118724ac
+07:42:33 PASS Y6. MetaMask + Phantom remove it ok 8286 ms 3fefb19fe9ce6f8cba87210fd96c6be67703c3da17fe7fb815a41e1d811293ce
+07:42:38 PASS Y7. outsider + Freighter refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+07:42:40 PASS Y8. Phantom seat with a grant signed by Freighter (SEP-53) + MetaMask refused: Error(Auth, InvalidAction) Error(Crypto, InvalidInput)
+== rules
+07:42:52 PASS R-xlm_mm. MetaMask + Freighter install xlm_mm: XLM to VENUE only, signer mm session-signer ok 5150 ms 88a3a3274d2ccacad526998c13da99b35d7a3c5800f10746e4550e6176e49740
+07:43:02 PASS R-xlm_fr. MetaMask + Freighter install xlm_fr: XLM to VENUE only, signer fr session-signer ok 5123 ms b998f6ba3eb60d50f69d8e0e0c866dfe47630603c5e96bceaeb033dd79d62fc8
+07:43:12 PASS R-xlm_ph. MetaMask + Freighter install xlm_ph: XLM to VENUE only, signer ph session-signer ok 5366 ms d0be844f292380d9f4135692dd9dd21146d0d35354b5968dcc38cf95f61b38ed
+07:43:19 rules 3 4 5
+== sessions
+07:43:20 MetaMask: one signature -> session key GAMLDC3YRS3ORKUSDSM3TJEU6OZZOF77DDQ2PDLRMWIYURCECAKD3TK3 until ledger 5067802
+07:43:27 PASS Q-MetaMask1. session alone: 1 XLM to VENUE ok 7018 ms 71aeaf3b219e538de3c6eda66974be3094ccaf1cf2a921174e93bdf040e9e35f
+07:43:28 PASS Q-MetaMask2. session alone: 1 XLM elsewhere refused: Error(Auth, InvalidAction) Error(Contract, #100)
+07:43:29 PASS Q-MetaMask3. session alone: change rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+07:43:30 Freighter: one signature -> session key GCC4QIRJ7CNJ6VZXZH4WIWZVHQ3MDFANOFFA2OLA552AZEWSLH5NJL7J until ledger 5067804
+07:43:32 PASS Q-Freighter1. session alone: 1 XLM to VENUE ok 2416 ms aaf9420a08617841ac618f7a98fa6593bf1a78590ee632746c20de505245ee45
+07:43:33 PASS Q-Freighter2. session alone: 1 XLM elsewhere refused: Error(Auth, InvalidAction) Error(Contract, #100)
+07:43:34 PASS Q-Freighter3. session alone: change rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+07:43:34 Phantom: one signature -> session key GD33BAF7NVV6KQWYMCNOTEDWKX5JFEG27U3HRSPTZWF7BNV6UDMNI57V until ledger 5067805
+07:43:37 PASS Q-Phantom1. session alone: 1 XLM to VENUE ok 3363 ms 686c4aa930b6189ecf15582272977faf2ba08daa601822f3a15066faaa8f22db
+07:43:38 PASS Q-Phantom2. session alone: 1 XLM elsewhere refused: Error(Auth, InvalidAction) Error(Contract, #100)
+07:43:40 PASS Q-Phantom3. session alone: change rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+07:43:41 PASS Q4. Phantom session on the MetaMask session rule refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+07:43:42 PASS Q5. Freighter session-signer with a Phantom-style (unprefixed) grant refused: Error(Auth, InvalidAction) Error(Crypto, InvalidInput)
+07:43:42 PASS Q6. Phantom grant presented to the MetaMask session-signer refused: Error(Auth, InvalidAction) Error(Crypto, InvalidInput)
+07:43:47 PASS Q7. Freighter session before revoke ok 4433 ms 11e8ffef9553c22995058d957e81efccb35c9ec40b1ac8bc47d9b1e042d2d248
+07:43:52 Freighter revoked the session 919cfb25517b76be4b759a611ceefc5405a61739b20b09599c49eb6dd348cd82
+07:43:54 PASS Q8. revoked Freighter session refused: Error(Auth, InvalidAction) Error(Contract, #2)
+07:44:19 PASS Q9. expired Phantom session refused: Error(Auth, InvalidAction) Error(Contract, #1)
+== summary
+07:44:19 27/27 passed

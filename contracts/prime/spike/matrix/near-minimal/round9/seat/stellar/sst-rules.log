@@ -1,0 +1,7 @@
+09:53:38 PASS R-probe. MetaMask + Freighter (both owners, nested owner authorization) add the probe rule ok 15412 ms 5a35e982d5f4d5a341127cee949422d47ac37422313eab64e6508aee30ef6e3e
+09:53:57 PASS R-xlm_mm. MetaMask + Freighter install xlm_mm: XLM to VENUE only, signer Delegated(that wallet's prime-seat) ok 13371 ms dce7f955181485cc926476f7c23728b075b19a0b3fe1aa271ef018b752ed3b52
+09:54:18 PASS R-xlm_fr. MetaMask + Freighter install xlm_fr: XLM to VENUE only, signer Delegated(that wallet's prime-seat) ok 14866 ms 9fe0acbfbb55283a70b534f4ea2eaf0d2a12b9ecafc54c7972006730d090b797
+09:54:37 PASS R-xlm_ph. MetaMask + Freighter install xlm_ph: XLM to VENUE only, signer Delegated(that wallet's prime-seat) ok 12918 ms f02d45327c3fbb9bcf3ee8754ab5b7d8a37893902d9130231aac3dbf691bf99e
+09:54:38 PASS R-ext. the policy-interpreter refuses an External signer on a session rule (ExternalSignerNotSupported), so session rules keep Delegated signers refused: Error(Contract, #212)
+09:54:54 rules 1 2 3 4
+09:54:54 NEAR MPC: 4 signatures, average 7.8s

@@ -1,0 +1,16 @@
+(node:3420038) TimeoutNegativeWarning: -1 is a negative number.
+Timeout duration was set to 1.
+(Use `bun --trace-warnings ...` to show where the warning was created)
+payer before 8.94700352
+A 1n skip Active
+A 2n skip Active
+A 3n skip Active
+A 4n closed
+A 5n closed
+A 6n closed
+A 7n skip Active
+A 8n closed
+A 9n skip Active
+A 10n closed
+B 1n closed
+payer after 8.97673216

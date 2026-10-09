@@ -1,0 +1,7 @@
+A. no budget instructions, no signature (the report's case): 6559 ms; message returned changed (3 instructions: Comp Memo Comp); fee payer slot empty
+B. no budget instructions, fee payer slot holds a signature: 9545 ms; message returned unchanged; fee payer slot kept
+C. price first and limit last already present, no signature: 4842 ms; message returned unchanged; fee payer slot empty
+D. only a limit present, no signature: 5969 ms; message returned changed (3 instructions: Comp Memo Comp); fee payer slot empty
+E. only a price present, no signature: 8806 ms; message returned changed (3 instructions: Comp Memo Comp); fee payer slot empty
+F. price, ed25519 instruction (index 1), memo, limit; no signature: 3836 ms; message returned unchanged; fee payer slot empty
+G. ed25519 instruction first, memo, no budget instructions; no signature (what a prime-session transaction looks like before the wallet): 3674 ms; message returned changed (4 instructions: Comp Ed25 Memo Comp; the ed25519 instruction is now at index 1); fee payer slot empty

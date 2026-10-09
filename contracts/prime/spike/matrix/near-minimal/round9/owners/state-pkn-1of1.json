@@ -1,0 +1,213 @@
+{
+ "token": "0x99c8cFE4fD55921abDE0B210B0301554974683e4",
+ "safe": "0x2a0Cf8b35EE4a9f2B2f8Cf789cc219d665ce42Ec",
+ "roles": "0x316304f0a833Fa2F6011Da14839AACB6F9c0FB5c",
+ "pks": [
+  "0xBa4a97aCE5C564e4bDBc8762064cCf329022eBE7"
+ ],
+ "roleKey": "0x6d6f766572733a65353566366432320000000000000000000000000000000000",
+ "owners": [
+  {
+   "name": "MetaMask",
+   "seat": "0xCcD8af4Ae1a907Ac370FD151D6282da59bc7C570",
+   "owner": "0xCcD8af4Ae1a907Ac370FD151D6282da59bc7C570"
+  }
+ ],
+ "threshold": 1,
+ "gas": {
+  "deployPrimeSession": "919172",
+  "setupSafe": "565526",
+  "safeThreshold": "90886",
+  "grantMetaMask": "76000",
+  "moveRelayerMetaMask": "141842",
+  "moveSelfMetaMask": "124742",
+  "revokeMetaMask": "57833"
+ },
+ "mpc": {
+  "calls": 5,
+  "ms": 69366
+ },
+ "results": [
+  {
+   "name": "O1. create the Safe with MetaMask as its only owner",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 259243",
+   "tx": "0x41177e131dd53ca6302c5c423551b1f546cb4f31dd41022e93b15ee0e2346f5c"
+  },
+  {
+   "name": "O2. MetaMask adds the other 0 owners, sets threshold 1, installs Roles with the 1 PrimeSessions and the rule",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 565526",
+   "tx": "0x680e45e91b71d44e223f8c7e969981878f646fae9daf1a5599495b7eee119326"
+  },
+  {
+   "name": "O3. Safe owners are exactly the 1 seat keys (no PrimeSession), threshold 1",
+   "pass": true,
+   "ok": true,
+   "detail": "1 owners / 1"
+  },
+  {
+   "name": "O4. each PrimeSession's owner is its own wallet's grant key, and all 1 differ",
+   "pass": true,
+   "ok": true,
+   "detail": "0xCcD8af"
+  },
+  {
+   "name": "O5. mint 100000 tokens to the Safe",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 46108",
+   "tx": "0x363176d5192e1223dbbc0090ceba03cc73aa3d8f8b29d8fce014792b08e322f5"
+  },
+  {
+   "name": "S1. 0 of 1 owners vote (threshold minus one)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS020"
+  },
+  {
+   "name": "S2. 1 owners vote (MetaMask)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 90886",
+   "tx": "0xd5123d32c9a0feea5bef4dde8cc52b69ebbae38b42c569d87a4d9b8d2a50d58e"
+  },
+  {
+   "name": "S4. 0 owners and an outsider vote",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "S6. DEST received exactly 1 (the accepted transactions only)",
+   "pass": true,
+   "ok": true,
+   "detail": "1"
+  },
+  {
+   "name": "P0-MetaMask.1 MetaMask grants a 1-hour session on its own PrimeSession, relayer submits",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x121fdc88cca1cad571e95ec123d15e7c639aa9bdbfba351c83db3b482cce0d38"
+  },
+  {
+   "name": "P0-MetaMask.2 move via relayer: 3 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 141842",
+   "tx": "0x3071555b95103446561a77297537012c67d50e1d8bfa8953eb1bcdccbee097f5"
+  },
+  {
+   "name": "P0-MetaMask.3 relayer down: the session key pays its own gas, 2 to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124742 (paid by 0xD62F5c…)",
+   "tx": "0x2ef1851733342d1f96dcf2746bb5b53e4f7d324183f65ac91e02c5cd3b378a2c"
+  },
+  {
+   "name": "P0-MetaMask.4 VENUE received exactly 5",
+   "pass": true,
+   "ok": true,
+   "detail": "5"
+  },
+  {
+   "name": "P0-MetaMask.5 1 to another address (Roles rule)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P0-MetaMask.6 the session key's signature as a Safe owner + 0 real owner votes (1 signatures)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS026"
+  },
+  {
+   "name": "P0-MetaMask.7 the PrimeSession as a contract signature + 0 real owner votes",
+   "pass": true,
+   "ok": false,
+   "detail": "Execution reverted for an unknown reason."
+  },
+  {
+   "name": "P0-MetaMask.8 session asks Roles to add its key as a Safe owner",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "P0-MetaMask.9 MetaMask grants a second session",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0x2d0435621c1a48b5708f05327abb80a79a23977d9a0bff8958687355ba8f4cee"
+  },
+  {
+   "name": "P0-MetaMask.10 MetaMask revokes it: grant with end 0 (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 57833",
+   "tx": "0xf2da34b61a5f8ffb240dd86a0e7e97f70818025f850dcef320614ec22441c195"
+  },
+  {
+   "name": "P0-MetaMask.11 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: session"
+  },
+  {
+   "name": "P0-MetaMask.12 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124742",
+   "tx": "0xd3dbde91155e11939b339ad0fd1857a714dfd5e03919b0d539b0d8b7d1cf7501"
+  },
+  {
+   "name": "R0. MetaMask's live session works before removal",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 124742",
+   "tx": "0xf688358a5a1ab6fd9cafd7ebcff0c7da30fcc6158f8ca64d8e21cbfcc4dd8976"
+  },
+  {
+   "name": "R1. 0 owners try to remove MetaMask's PrimeSession from the Roles members",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS020"
+  },
+  {
+   "name": "R2. 1 owners remove MetaMask's PrimeSession from the Roles members (MetaMask)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 75478",
+   "tx": "0xaaff79275617ec25a3e0a8e4afdc5d50896dec1e7f16e59fa790450cbfbb79b2"
+  },
+  {
+   "name": "R3. MetaMask's live session after removal",
+   "pass": true,
+   "ok": false,
+   "detail": "Roles NoMembership"
+  },
+  {
+   "name": "R4. MetaMask signs a new grant (the contract still takes it)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 76000",
+   "tx": "0xb3724032ac78295826e1d43209b6acdbc77f6aadc5d378242c4b8c63275bd54d"
+  },
+  {
+   "name": "R5. the new session cannot move either (no Roles membership)",
+   "pass": true,
+   "ok": false,
+   "detail": "Roles NoMembership"
+  },
+  {
+   "name": "R7. the sole owner removes itself from a 1-owner Safe",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS013"
+  }
+ ]
+}

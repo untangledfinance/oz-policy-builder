@@ -1,0 +1,35 @@
+08:29:19 1-of-1 Freighter seat GDHZ2J owner GDHZ2J
+08:29:43 S_Freighter CA67RBRXPKBRP2MN7VXPULRF6F7YPNC3Y3JIJKOBMY2Y3NGXZBQZCEPW f4800a5a9c6c0c9bfab4cd9af4356fe07d6eb34d0d227bba3f572647cf587839
+08:29:48 Prime Account CBUVGEA7CMJJVUQR67YEWGGPE4ZOCDUEXGN2BPI42Z2IVWTSYU5KLHNA cd03a40a586a5b853ab4c87b1c0184fe7d5fceb4020bf0dc893c2850823785d3
+08:29:52 funded 30 XLM 452439997385f11e7aad90ea5708cd9e84b0da9472ec4bc2d33fdb3a3690724b
+08:29:53 PASS P0. rule 0 signers are exactly the 1 seat keys (no prime-session), weighted threshold 1 1 signers, threshold 1
+08:29:53 PASS P1. the 1 prime-session contracts and the 1 session-owner accounts are all different CA67RB
+08:29:58 PASS Y1. 0 of 1 owners vote (threshold minus one) to add a rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+08:30:03 PASS Y2. 1 owners vote (Freighter) to add a rule ok 4536 ms 2bf31df93392f9261609da26644ae586277e1e86c77cc2f0a756c056bd5ca14e
+08:30:07 PASS Y3. a different 1 owners vote (Freighter) to remove it ok 3725 ms 9b53db5192f384a7f8ba5f85d1c0b5743cc2c4d4692b3adc3525ffd9f6626919
+08:30:08 PASS Y4. 0 owners and an outsider vote refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+08:30:09 PASS Y5. Freighter's seat signed by another key, plus 0 real owners refused: Error(Auth, InvalidAction) Error(Contract, #5)
+08:30:17 PASS R-xlm_Freighter. 1 owners install xlm_Freighter: XLM to VENUE only, signer: Freighter's prime-session ok 7874 ms 019b816c5601c358f6f1d996644fefa2cc422c9ee7126b53bdccaafe76301251
+08:30:28 PASS P0-Freighter.1 Freighter grant: one authorization (own key), relayer pays ok 7750 ms 16243071705db50b7c2cb5f1f26af60045ca0c78e832c2c81fc0f3d5b537b0e5
+08:30:33 PASS P0-Freighter.2 relayer pays: 1 XLM to VENUE ok 4784 ms 1ccb1b71896be90e54606fd6dcbf89768a5ea2b4abc2cf061f89da69fdca924b
+08:30:47 PASS P0-Freighter.3 Freighter grant, relayer down: the session key's own account is the transaction source ok 7625 ms 0f031fd4c0d48c9b4603526eee6cdae69ed03ff6802aa05faecc46fc7d841af9 (fee paid by the session key)
+08:30:53 PASS P0-Freighter.4 relayer down: the session key's own account pays the fee, 1 XLM to VENUE ok 5575 ms 34dcaaa528e8970ae9268ea56bf9526bf16d87dc8db8c39469bd2ee4edd06181 (fee paid by the session key)
+08:30:54 PASS P0-Freighter.5 VENUE received exactly 2 XLM 20000000 stroops
+08:30:56 PASS P0-Freighter.6 1 XLM elsewhere refused: Error(Auth, InvalidAction) Error(Contract, #100)
+08:30:57 PASS P0-Freighter.8 the session and 0 real owners vote on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+08:30:59 PASS P0-Freighter.9 the session claims its own rule for an account-admin call refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+08:31:00 PASS P0-Freighter.10 the session removes rule 0 through its own rule refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+08:31:07 PASS P0-Freighter.11 Freighter grant (second session) ok 5740 ms fa1a3f2f46c81769a81fd04581f057d56779fdb51c92f9c1d28a14547fe5e6b7
+08:31:13 PASS P0-Freighter.12 Freighter revokes it: grant(key, 0), one authorization, relayer pays ok 4693 ms 4ea6316ea31d8c94c4532cb3104bb3c1d129ceb8b09c4d67bb51f0399cc0cf2d
+08:31:14 PASS P0-Freighter.13 the revoked session refused: Error(Auth, InvalidAction) Error(Contract, #1)
+08:31:23 PASS P0-Freighter.14 the first session still works ok 8101 ms 87659521893becb14daac0440e081a5db1371cf9f2a52de5a5b0ff7900af5236
+08:31:28 PASS R0. Freighter's live session works before removal ok 4968 ms f83c42e8f2d361863fc9af9484ac6afc91ccf2be8e97f4342f5f7cf5517a85ed
+08:31:29 PASS R1. 0 owners try to remove Freighter's session rule refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+08:31:32 PASS R2. 1 owners remove Freighter's session rule (Freighter) ok 3282 ms 11563bdc7e66ef6fb04a66a95f33615db4f85b9a1b052881c0661ed6230e63fe
+08:31:34 PASS R3. Freighter's live session after removal refused: Error(Auth, InvalidAction) Error(Contract, #3000)
+08:31:37 PASS R4. Freighter signs a new grant (the contract still takes it) ok 1782 ms 68e033563e473ee4c152ed7ef28fb90a076d9d9b7198bf987a4243e1eb2c8494
+08:31:38 PASS R5. the new session cannot move either (no rule) refused: Error(Auth, InvalidAction) Error(Contract, #3000)
+08:31:43 PASS R7. the sole owner removes itself from rule 0 (observation: what the account allows) ok 4506 ms c09f5ba66ab432f3a40938d526b4462e6469a6c6f6b72fd476d5f500bfe52380
+08:31:43 PASS R7b. observed: removing the only seat from rule 0 is accepted (the account is then unreachable) accepted
+08:31:43 setup fees (stroops) {"wasmUpload":11015,"primeAccount":890203,"sessionDeploy":[97117]}
+08:31:43 1-of-1: 29/29 passed; NEAR MPC signatures: 0, average 0.0s

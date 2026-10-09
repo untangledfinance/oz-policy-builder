@@ -1,0 +1,4 @@
+key with two leading zero bytes after 40725 tries
+PASS FM0. the token account is 165 bytes, owned by the Token program, byte 0 (read as m) is 0 and bytes 131..163 (signer slot 4) equal the key | ok m 0 n 242
+FAIL FX1. with the length check, create refuses the token account as the multisig (Custom 5) | ok 14967 CU, 485 B, gate 14967 CU
+stopped at the first failing check (GATE_STOP_ON_FAIL)

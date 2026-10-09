@@ -1,0 +1,144 @@
+{
+  MetaMask: "4TXiTPLxe5PrpwiY15tj9nP3wF5F8JPKUsYQyfHCCcod",
+  Freighter: "9BcBicoPrGtPJnVynJoj2g1p6zrvaFBkJccorLwGTMZo",
+  Phantom: "G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4",
+  sessionMetaMask: "3YomJ7dnhtqFnnPAzRUGmhC8EevR2R4F6Sdx7YN6Pppc",
+  sessionFreighter: "Cn2bjH8kGkjioVoB9MY86TDsJ6kKjvaiu9ZCmMsJVW74",
+  program: "FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G",
+  programB: "J38gUL2YFo91GDBnDXwVDaGpk6XWSJUhs7RuditRdiVo",
+  net: "localnet",
+}
+PASS P0. seats are exactly MetaMask(NEAR MPC), Freighter(NEAR MPC), Phantom(own key); threshold 2; vault funded | ok 4X3ajVZ2NqxCxUXmGfsUHbTwPTWx7bpP3HppehtUFsncL3AouRP7vuQ4GEuDjHd63m1RfAS3akyNSugvrNjv7kHY
+PASS K1-MetaMask. MetaMask alone:a. MetaMask proposes and approves | ok 5LUTPaQ6bnt7pLVwmFPB1KdGf4UAH4KopazTkLHe2eSzfwDhNjJXwUmVwRPurjKdzvCXpcLbSeTmNv5NL8ASQpwk
+PASS K1-MetaMask. MetaMask alone:b. MetaMask executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K1-Freighter. Freighter alone:a. Freighter proposes and approves | ok 5Rnen2fQK9WqgvMXA5X5b65uFYuc5jNg647C9Qm7NdHWKSrb6U31b4r8mhtcJQLLfT7VBHHGwD2ovS3qsrNfCL9K
+PASS K1-Freighter. Freighter alone:b. Freighter executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K1-Phantom. Phantom alone:a. Phantom proposes and approves | ok 6rX4y5xhskiKWksLiYtsKcPnsuDWenm5DYcPtvwc56r5BTvxfjnaX1avcaHd9WTUfrg8tUm4kYgryHEd7DENMcw
+PASS K1-Phantom. Phantom alone:b. Phantom executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K2. MetaMask + Freighter:a. MetaMask proposes and approves | ok 2MWu7aHb1JprnaPfBazq5kDv1m2vYXKD2jmRzxchnvKE2jKQjRxtMFwEFNcFrkw52JwDTxFQU2c5ApBo6XxpEjk8
+METRIC seat-propose-K2-MetaMask {"totalCu":78014,"bytes":579,"fee":10000}
+PASS K2. MetaMask + Freighter:b. Freighter approves and executes | ok fJKNGwmWzbNuSHS29opshnHtKAGf5uPz3hHqqsgrF6DriKskbRsKq7rLq42Yk92u4TukxJNPFYQG5PH3XnUXqFP
+METRIC seat-exec-K2-Freighter {"totalCu":67701,"bytes":490,"fee":10000}
+PASS K3. Freighter + Phantom:a. Freighter proposes and approves | ok 2cga1FVvbNk6smfzHk1bvp3R5XeHnDJ5Up1PHqmt75mH9v5TzJErc61pVGAHQY4jaKj1isUiVm9HSRiQ8axBuXkq
+METRIC seat-propose-K3-Freighter {"totalCu":83828,"bytes":579,"fee":10000}
+PASS K3. Freighter + Phantom:b. Phantom approves and executes | ok 5SNqxovnNdfUW24PQVdQoUwJhFGKvn2tUPH6X2D1tSsgYJafH5Ekme7kYLxmuVWHWxpJoDBUdug4BhPJXfmaZ62C
+METRIC seat-exec-K3-Phantom {"totalCu":70829,"bytes":490,"fee":10000}
+PASS K4. Phantom + MetaMask:a. Phantom proposes and approves | ok 2HHsWh821X52tRQikAWLxQ6pVetf4Q4qCsrYyZtopaUoQQykGEEY5MT28s4FnecGLY4C4XbqpEb4iucf4UHqi3zq
+METRIC seat-propose-K4-Phantom {"totalCu":79520,"bytes":579,"fee":10000}
+PASS K4. Phantom + MetaMask:b. MetaMask approves and executes | ok meedjaPUSpFRoMqV7kc5RaDRraFwvYGkKT35pyjarT9Pft58Vva7FyYQn1ANcfTYDZkd3JKNYUBKT7QRwsN1uxv
+METRIC seat-exec-K4-MetaMask {"totalCu":67876,"bytes":490,"fee":10000}
+PASS K5. DEST received exactly 0.03 SOL | ok 0.03
+PASS K6. MetaMask alone (open proposal):a. MetaMask proposes and approves | ok 63queSHy31WsEdKnjtw3nASGGef2pLoLpMkQVY31VGt17zX7vbZWJCAGoedSq85EEfAag855Dh3hqn9rKEfhcntf
+PASS K6. MetaMask alone (open proposal):b. MetaMask executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K6c. an outsider approves it | refused: Error Code: NotASigner
+PASS K6d. Freighter's seat signed by MetaMask's MPC key | refused: Transaction did not pass signature verification
+PASS K6e. Freighter's seat signed by its MPC key under another path | refused: Transaction did not pass signature verification
+PASS K6f-MetaMask. MetaMask's seat vote signed by its session-path key | refused: Transaction did not pass signature verification
+PASS K6g-MetaMask. MetaMask's session-path key approves as itself | refused: Error Code: NotASigner
+PASS K6f-Freighter. Freighter's seat vote signed by its session-path key | refused: Transaction did not pass signature verification
+PASS K6g-Freighter. Freighter's session-path key approves as itself | refused: Error Code: NotASigner
+PASS K7. install the movers policy (members: the three session PDAs):a. MetaMask proposes and approves | ok 2rsEh6qa9vEzdfGv3K8AgWXj2uzfE8BV6EzGvo5bDw8pbra9em9C2BncXo4UsD7YgT6R6GbEAKLyciPmrNkpw3ff
+PASS K7. install the movers policy (members: the three session PDAs):b. Phantom approves and executes | ok 5x9cuxZ7ACi1XAFuJZ99ZWfwSdXhz6A7TBnjLTm5fxutoTX6gybXAAEzaDqt5UKo4j8we7tH5bevmaPw1DeBKj7r
+PASS N0. MetaMask alone (open proposal):a. MetaMask proposes and approves | ok 3RdJsDzQDBNJ36vnxrFSqboQsrfLEp8VAkWj6QoLGNEdkjRg6vv3sA7v5x7DPne3A2PnAYnNrVNHhb6cCXtxm9Wg
+PASS N0. MetaMask alone (open proposal):b. MetaMask executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS N1. Phantom session approves that proposal as its PDA | refused: Error Code: NotASigner
+PASS N2. Phantom session key approves it as itself | refused: Error Code: NotASigner
+PASS N3. Phantom session proposes a vault transaction as its PDA | refused: Error Code: NotASigner
+PASS N4. Phantom session adds its key as a seat (settings sync, as its PDA) | refused: Error Code: InvalidSignerCount
+PASS N5. Phantom session calls a program other than the Smart Account (System transfer from its PDA) | refused: Program FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G invoke [1] Unknown program SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG Program FTNMFWiECbRp7D5MwJUiNQfee6Nu
+PASS G-MetaMask1. one MetaMask signature (through NEAR) -> session; relayer pays: 0.01 SOL to VENUE | ok 44Mt6jSo5rm6nyp3MKz8vcGSoK2AGCVWPrWhwSLsYGFUGkDSbCKTzhGoLi1qB6BsLN4SHhBkpta6GvNTkHdT4GNL
+METRIC move-MetaMask-relayed {"totalCu":57865,"primeSessionCu":57865,"bytes":975,"fee":15000}
+PASS G-MetaMask2. relayer down: session key pays the fee itself: 0.005 SOL to VENUE | ok 5G2gkrzF1p3Qs3bbagHiZfFVKThYqobEkCtRHwCpA8NAMrvA7jZZktQAWTdut4z9fwXHUxVM88rotugcLFc5J7wg
+PASS G-MetaMask3. VENUE received exactly 0.015 SOL | ok 0.015
+PASS G-MetaMask4. relayer down and the session key has no SOL | refused: Attempt to debit an account but found no record of a prior credit
+PASS G-MetaMask5. same session: 0.01 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS G-MetaMask6. same session: 0.06 SOL to VENUE (over the 0.05 per-move limit) | refused: Error Code: ProgramInteractionInvalidNumericValue
+PASS G-MetaMask7. stretched valid-until | refused: custom program error: 0x7
+PASS G-MetaMask8. someone else replays the grant with their own key | refused: custom program error: 0x7
+PASS G-Freighter1. one Freighter signature (through NEAR) -> session; relayer pays: 0.01 SOL to VENUE | ok 4yE1QPufEhpJivhv3G5BohaSur6qgvtiBk2njxbDHgstcZXT9ahARU9anHm1kNSNQmeZ27ehrGB6MupM5Rhh2Aqy
+METRIC move-Freighter-relayed {"totalCu":56321,"primeSessionCu":56321,"bytes":974,"fee":15000}
+PASS G-Freighter2. relayer down: session key pays the fee itself: 0.005 SOL to VENUE | ok 4JuiSeMCmkfeXevnLq1FDfUSZL6YbEZf6qiYz95EkVzyLQYq8kMTFxmeWbeDcVjEhCZxsbDvyzNeKpkFatDRtAsv
+PASS G-Freighter3. VENUE received exactly 0.015 SOL | ok 0.015
+PASS G-Freighter4. relayer down and the session key has no SOL | refused: Attempt to debit an account but found no record of a prior credit
+PASS G-Freighter5. same session: 0.01 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS G-Freighter6. same session: 0.06 SOL to VENUE (over the 0.05 per-move limit) | refused: Error Code: ProgramInteractionInvalidNumericValue
+PASS G-Freighter7. stretched valid-until | refused: custom program error: 0x7
+PASS G-Freighter8. someone else replays the grant with their own key | refused: custom program error: 0x7
+PASS G-Phantom1. one Phantom signature -> session; relayer pays: 0.01 SOL to VENUE | ok 4gVtj2NCcowKti6tG2k1s4MTFDKLyM2E2VM6M9Z9KdJ4DW1ZMqJXCZrSZSjDW62Wz5yYrAmA4HHqrfb1svEWByQz
+METRIC move-Phantom-relayed {"totalCu":56366,"primeSessionCu":56366,"bytes":975,"fee":15000}
+PASS G-Phantom2. relayer down: session key pays the fee itself: 0.005 SOL to VENUE | ok 5Y4nDELz297QDkhb171oEWEC4jv4YpgTmjYntMRYVM65Ev4xcZT7EB53w7iDXyKAWroz3Z2b1ANx8SUFTiT9TVcY
+PASS G-Phantom3. VENUE received exactly 0.015 SOL | ok 0.015
+PASS G-Phantom4. relayer down and the session key has no SOL | refused: Attempt to debit an account but found no record of a prior credit
+PASS G-Phantom5. same session: 0.01 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS G-Phantom6. same session: 0.06 SOL to VENUE (over the 0.05 per-move limit) | refused: Error Code: ProgramInteractionInvalidNumericValue
+PASS G-Phantom7. stretched valid-until | refused: custom program error: 0x7
+PASS G-Phantom8. someone else replays the grant with their own key | refused: custom program error: 0x7
+PASS G9. grant longer than 7 days | refused: custom program error: 0x4
+PASS G10. expired grant | refused: custom program error: 0x4
+PASS G11. MetaMask grant with the ed25519 program instruction missing | refused: custom program error: 0x7
+PASS G12. ed25519 instruction reading its public key from another instruction | refused: custom program error: 0x0
+PASS G13. daily cap shared by all: 0.045 used + 0.05 = 0.095 <= 0.1 | ok HDSidPms8EtLrVkHDVGg1pQPoXEv9fwc19sbevuxpCEfoY2GWvvejoJoYKprUoePe29ZSxssCbXBj7KCehehS1w
+PASS G13b. + 0.01 = 0.105 > 0.1 | refused: Error Code: ProgramInteractionInsufficientLamportAllowance
+PASS X1. Freighter's PDA with a grant signed by MetaMask (NEAR) | refused: custom program error: 0x7
+PASS X2. Phantom's PDA with a grant signed by Freighter (NEAR) | refused: custom program error: 0x7
+PASS X3. MetaMask's PDA with a grant signed by Phantom | refused: custom program error: 0x7
+PASS X4. Freighter's PDA with its MPC key under another path | refused: custom program error: 0x7
+PASS X4b. Freighter's session PDA with a grant signed by its seat key (prime:solana) | refused: custom program error: 0x7
+PASS X5. Phantom grant presented for MetaMask's PDA | refused: custom program error: 0x7
+PASS X6. grant signed for cluster mainnet, used on localnet | refused: custom program error: 0x7
+PASS X7a. a grant naming program A's PDA, presented to program B with A's PDA | refused: custom program error: 0x2
+PASS X7b. the same grant presented to program B with B's PDA (text mismatch) | refused: custom program error: 0x7
+PASS X7c. a grant naming program B's PDA, presented to program A with B's PDA | refused: custom program error: 0x2
+PASS X7d. the same grant presented to program A with A's PDA (text mismatch) | refused: custom program error: 0x7
+PASS X8. Phantom's own signed grant naming MetaMask's PDA | refused: custom program error: 0x2
+PASS X9a. valid Phantom grant, data names another settings address | refused: custom program error: 0x2
+PASS X10. the session key does not sign (relayer only) | refused: Program FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G invoke [1] Program FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G consumed 2483 of 203000 compute units Progr
+PASS X11a. account 3 set to the System program instead of the Smart Account program: the move still runs | ok 2JufpgEbhQgYJSLv7ufgt5njA3AAYfNX7XhvfVtjYGx95Ri9ydk9emrSuy5JGfGbftTS8sFHJmgEPP8pZ1AMTeuM
+PASS X11b. ...and prime-session called only the Smart Account program | ok 2JufpgEbhQgY… Program SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG invoke [2]
+PASS A0. account B created with the same three seats | ok 4jwozkyeQLET59kadK9h3BhWbrRvQkaBGWNHbNKoUTxLwVWWcaLHQBCGbW9ZmDi2VP2H73CHNNbpG4xPqmHUa1Pr
+PASS A1. account B installs its movers policy (members: each wallet's PDA for account B):a. MetaMask proposes and approves | ok 4jFvRg4dhzcXnxcP96WgQ1Z8BZCBEGuqMKPf7TBnUgr6y3NBmmQ3zXRr7V6xUiLoPkqoufd33fswhqkNQLp8Rix1
+PASS A1. account B installs its movers policy (members: each wallet's PDA for account B):b. Phantom approves and executes | ok 5iX39ScbMDhqBscqCkvKGYmbG3yFP9uWkUxdzjQEYZgCWfCPmmPexoQUe9AkH51VPzAq2X8TJb1My2HkqogLcLNQ
+PASS A2. each wallet's PDA differs between account A and account B | ok 7qriG5,J5qGs8,CxMTvv
+PASS A3. account A's Phantom grant presented to account B (as Phantom's account-B PDA) | refused: custom program error: 0x7
+PASS A4. account A's Phantom PDA calling account B's policy | refused: Error Code: NotASigner
+PASS A5. a Phantom grant made for account B works in account B | ok 66ig7H4xZkU4uN9Luav1oj1w5yARJVbqWk8TacXNmKARtNCHKhAnZxXdANS8Y58BDiEJsHvotW3aQwneMchPjK4Z
+PASS A5-M0. Phantom session: one move through the Smart Account (compute units recorded) | ok 5jeAsS2e7sQ1bsZiiQos4PEvKjb2b1GK7r7pVKyBERh7enb2wnN8o4gTbF6woFP8CGNnvrW7LKc71si2qVUFvBaX
+METRIC move-sample-0 {"totalCu":56334,"primeSessionCu":56334,"bytes":975,"fee":15000}
+PASS A5-M1. Phantom session: one move through the Smart Account (compute units recorded) | ok 5eHCowFijWa24DfBqHZFNh9DJaLntmhwBEWo8kJ3L44j77Zp3fKHJAeSDpHqJjS9BpJ18dC8XNg4rwzKDZESuSMt
+METRIC move-sample-1 {"totalCu":53334,"primeSessionCu":53334,"bytes":975,"fee":15000}
+PASS A5-M2. Phantom session: one move through the Smart Account (compute units recorded) | ok 4sNMMtpnenckrktyAPsPUnQpftihcQKuV64BQRQrwh7Wr32aegacauu9uBEKwXiUQyHHPbNdfPWRviPXPUTS2yVU
+METRIC move-sample-2 {"totalCu":53334,"primeSessionCu":53334,"bytes":975,"fee":15000}
+PASS A5-M3. Phantom session: one move through the Smart Account (compute units recorded) | ok 47zTzpCwYQtKX4EPGS5UyWbgUzSLCbZ2hmsmjjW7P33ExzrcA8JcphtH57qXPLCc7cBFtW6Tx969trKPe8QniLa3
+METRIC move-sample-3 {"totalCu":53334,"primeSessionCu":53334,"bytes":975,"fee":15000}
+PASS A5-M4. Phantom session: one move through the Smart Account (compute units recorded) | ok w7bJ7yy3GodugACwhcofgBuqQYMoi4ateCuMap1m7ZLURo8MRFgWmoaGSWfqYDibbsJfYJeCpGvaFWVWQgh2xzY
+METRIC move-sample-4 {"totalCu":57834,"primeSessionCu":57834,"bytes":975,"fee":15000}
+PASS A5-M5. Phantom session: one move through the Smart Account (compute units recorded) | ok cbN5QQHW7ZkSknFKtA1B4PC9Nk6Y9irWTAZuPXYJGv9ve6kMArNeTmGPPpvnXdv6jc5emJ3jVn8ng5UEBWKYcJf
+METRIC move-sample-5 {"totalCu":56334,"primeSessionCu":56334,"bytes":975,"fee":15000}
+PASS A5-M6. Phantom session: one move through the Smart Account (compute units recorded) | ok 2SYbDqwnSpRmpGH2yb4PmtArTssR64GkLGK7PmWRgJGaCW2u1qimbhPRKu58qraafGXpqg15YrinzmCza5esJcaw
+METRIC move-sample-6 {"totalCu":53334,"primeSessionCu":53334,"bytes":975,"fee":15000}
+PASS A5-M7. Phantom session: one move through the Smart Account (compute units recorded) | ok 3W9M1iRTfsmGSbmVdBEatq7vEWZ7cLd7okuNYm4AEbgFmkYhzKuGuuuKgzXC8mt4EzB5kKES5pw4dUrVrVE7dtdJ
+METRIC move-sample-7 {"totalCu":54834,"primeSessionCu":54834,"bytes":975,"fee":15000}
+PASS A5-M8. Phantom session: one move through the Smart Account (compute units recorded) | ok 4xgVuNGaLFSdensqzTAN5E6iPiWrmKWrRm8r5TfmH8hNeU9QHu1nJoYLfn2eit6DNGpSMLGbXEJY2i8PVUmtc9Xp
+METRIC move-sample-8 {"totalCu":53334,"primeSessionCu":53334,"bytes":975,"fee":15000}
+PASS A5-M9. Phantom session: one move through the Smart Account (compute units recorded) | ok 3q3urpjD1dyzrRWrVCSUXmAy66ZWS5yM6rvguiHXKfBKQWKprhu93hS1g56T8eVFJyQNzQ46jHKZPFcBxd1qxTnN
+METRIC move-sample-9 {"totalCu":54834,"primeSessionCu":54834,"bytes":975,"fee":15000}
+PASS A6. account B's grant presented to account A | refused: custom program error: 0x7
+PASS V0a. Phantom session 1 works | ok 5xwCktuVznmDWwrEYRiXyHjsnnhhdu27CM8Y3upNpUeuuR1HUxVqJNk6iPPiAgauCZMBmvNVgysHvh6e8nST4KPD
+PASS V0b. Phantom session 2 works | ok A8shVT65wTMFP8YqHaGsg3Dp7V2hJMFhesN59h8mKQyz9KK4rx5tr7ogDi3iZHE6n1x3qQiQzHDuEfEXnavnFbc
+PASS V0c. no marker exists for session 1 yet | ok Fe1g5JJSXJYSW4rXzou4WEvPzc7aEwzg94viYX1q5wBx
+FAIL V1. Phantom revokes session 1 (one signature, relayed, session key does not sign) | refused: Program FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G invoke [1] Program 11111111111111111111111111111111 invoke [2] Program 11111111111111111111111111111111 suc
+7679 |     } = extractCommitmentFromConfig(rawConfig);
+7680 |     const args = this._buildArgsAtLeastConfirmed([signature], commitment, undefined /* encoding */, config);
+7681 |     const unsafeRes = await this._rpcRequest('getTransaction', args);
+7682 |     const res = superstruct.create(unsafeRes, GetTransactionRpcResult);
+7683 |     if ('error' in res) {
+7684 |       throw new SolanaJSONRPCError(res.error, 'failed to get transaction');
+                   ^
+SolanaJSONRPCError: failed to get transaction: Invalid param: WrongSize
+ code: -32602,
+ data: undefined,
+
+      at getTransaction (/home/ubuntu/work/swig-spike/node_modules/@solana/web3.js/lib/index.cjs.js:7684:13)
+      at async measure (/home/ubuntu/work/opt/session/psn.x.ts:76:24)
+
+Bun v1.4.2 (Linux x64)

@@ -1,0 +1,22 @@
+10:58:22 PASS D0. Freighter grant, move+vote (the session under test) ok 6160 ms b999492985a65eb8c5c97c4af5c49440981322f86374b37b8424c9a23476d220
+10:58:29 PASS D0a. start: threshold 2, three External seats on rule 0 threshold 2
+10:58:42 PASS D1. vote session + Phantom owner lower the rule-0 threshold from 2 to 1 (execute set_threshold on the weighted policy) ok 12211 ms 8f5e3fb0e78c55e4767f4ab01a504d6d43a9488a7234b3cc800449463fd3bfec
+10:58:43 PASS D1a. the threshold now reads 1 threshold 1
+10:58:48 PASS D2. the vote session ALONE now passes rule 0 ok 4405 ms 3b36c9cdddc5778b5023d1934d0159df93dfac1987a7897d5f16483defbf9b49
+10:58:52 PASS D3. the vote session alone raises the threshold back to 2 ok 4018 ms 0d284f6223abf3188afe01a664be9ac2675b3e153f6343d38ccd135a5e46c7d3
+10:58:53 PASS D3a. the threshold reads 2 again threshold 2
+10:58:55 PASS D3b. control: the vote session alone is refused again refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+10:59:07 PASS D4. vote session + Phantom owner add a thief account as a seat of rule 0 (add_signer) ok 12101 ms 3f171a153cfa1ee28bcfbb7a8660ef84af38749c174dfc9b8b4a8af760041ffd
+10:59:22 PASS D5. vote session + Phantom owner give the thief weight 1 (execute set_signer_weight) ok 14393 ms 13fcf3766c43f56f05f7c33884970166c58c395c6e57f62fbf491bce21b4e03a
+10:59:37 PASS D6. the thief + Phantom owner now pass rule 0 (a third party holds a seat) ok 14866 ms 7fff98858a6bdeace347646ee11cdf257d21ac2ce54aece473ea030dae6fc67a
+10:59:52 PASS D7. vote session + Phantom owner remove the thief seat (remove_signer) ok 14931 ms e9c8a0db57bd93bbfbe4e8e5781741250da85e09e65f7a3482d29c1ea1cc4ff5
+11:00:07 PASS D7a. ... and clear its weight ok 14052 ms 52a647d17deac64bf8b46c590c1253871f4601d720cc7c0c16c1ae7e997dcc3e
+11:00:16 PASS D7b. control: the thief + Phantom owner are refused again refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+11:00:32 PASS D8. vote session + Phantom owner remove MetaMask's seat from rule 0 ok 15913 ms eba68493aa3a06c82c08f5a0701984f20501e300def90450a9ef4169549cca91
+11:00:42 PASS D9. MetaMask's owner + Freighter's owner are refused (the seat is gone) refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+11:00:57 PASS D10. Freighter + Phantom owners put MetaMask's seat back (add_signer) ok 14451 ms bce576379149daf0caef19a16ea0d7653968898a324445ceb7a694c9923cdd1a
+11:01:13 PASS D11. MetaMask's owner + Freighter's owner pass again ok 15958 ms 651308efed80fcfdbdbe8440fa22c397ed3629dfa3377e14fafe80c8cdf548c6
+11:01:28 PASS D12. vote session + Phantom owner add a rule that the session key alone satisfies (the rule it would use for any call) ok 14867 ms 17d90028e46855a0a0e3153adf9ec3d09b59170499f18895358b99d954fa9c5a
+11:01:42 PASS D12a. ... and remove it again ok 11556 ms 0bc37f1426c16f8f5e4a6cb74f2c47cdc92bf4f814f2ab481cbe58b895db8207
+11:01:44 PASS D13. end state: rule 0 holds the three External seats again and the threshold is 2 3 signers, threshold 2
+11:01:44 NEAR MPC: 13 signatures, average 8.3s

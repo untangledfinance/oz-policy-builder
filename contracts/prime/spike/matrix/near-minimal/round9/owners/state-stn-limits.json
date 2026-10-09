@@ -1,0 +1,17 @@
+{
+ "results": {
+  "L15. an account with 15 rule-0 signers is created": {
+   "pass": true,
+   "detail": "8679820d8fb1d953d5ae4eaf3671cc9f1d4bf27716a782fca529f27ce35f62f0"
+  },
+  "L16. an account with 16 rule-0 signers is refused": {
+   "pass": true,
+   "detail": "HostError: Error(Context, InvalidAction) Event log (newest first): 0: [Diagnostic Event] topics:[error, Error(Context, InvalidAction)], data:[\"constructor invocation has failed with error\", Error(Contract, #3010)] 1: [Failed Diagnostic Event (not emitted)] contract:CCMSXXEFGYARZQZZRI3T22CHH57MGXXY5X"
+  },
+  "L-rules. rules the account took before it refused one: 41 (rule 0 and 40 more)": {
+   "pass": true,
+   "detail": "no limit reached at 41 rules"
+  }
+ },
+ "prime": "CCRRPZNOUIMDKW4JHPAAWHB2IDETFZ6F7EDNLDEQDER4ILIYP2YF6EYA"
+}

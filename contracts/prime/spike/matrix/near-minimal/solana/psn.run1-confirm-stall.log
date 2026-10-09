@@ -1,0 +1,16 @@
+{
+  MetaMask: "2mgK6QSMmExM2CDzKZK3dFHpaUYb5NkiS2spdL6yvGMZ",
+  Freighter: "3phr2yADbejXKtscxyze9kRz8b7rmVuxHytsDY7jXwF1",
+  Phantom: "G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4",
+}
+PASS P0. seats are exactly MetaMask(NEAR MPC), Freighter(NEAR MPC), Phantom(own key); threshold 2; vault funded | ok 5gP1JDCpuG5XqaYsY97RYgnvu1kQcrQxxLEEhkY71KyVaHtg1HK4KnnV1qmE8RSKkNRQReGTqQn6DWhxn62c69jB
+PASS K1-MetaMask. MetaMask alone:a. MetaMask proposes and approves | ok 22tgAWi7xjYYqHHC9GmgRtbmP8tGWYWBoMMn1gXh8u9EGCDaEeQ7dDG7bg91tU9iAuP3scbmbC9EccfsgDRsxUP3
+PASS K1-MetaMask. MetaMask alone:b. MetaMask executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K1-Freighter. Freighter alone:a. Freighter proposes and approves | ok haSSH73kpfoBo9yrFa9WKr3EEFDeCreEzSPSs6vP8pCYexYajLtTihSDTsD9AVG4kxVwBVMK1qpXRTRoJcZ7kq6
+PASS K1-Freighter. Freighter alone:b. Freighter executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K1-Phantom. Phantom alone:a. Phantom proposes and approves | ok eUFDK8UtYmgoTJTq71ww2HaZked1WNMFVLs8jRqQAWj13hE7FLq5rDoUKYRaHMht2iUJD2Qg8tRj4zZonZg5tM9
+PASS K1-Phantom. Phantom alone:b. Phantom executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K2. MetaMask + Freighter:a. MetaMask proposes and approves | ok 4XEjcTPxTy4463V5SpKNqNeWMM8wr59nRQQVyfg555FV7ZXwg33MngGWKhN5jdN4SAj2JtRT3aHKGh4AgNx3R1P8
+PASS K2. MetaMask + Freighter:b. Freighter approves and executes | ok ptJS5bR8Ai3EHcZn5r6L4eJr3SqJqL3YiWBwkZdQhtA8H7Rp6emN3vmZWYycZSUZCLRdVPPx28RLDvtq4eCKDz9
+PASS K3. Freighter + Phantom:a. Freighter proposes and approves | ok 98ma7Lmr8u67P6Dn4WcfnRsr3msA1RVxGqKvRd3H8WvvTfmFAXpoQrZ95cgtFnC8tV5ZSwZqdv2Pc2PmL6gzNDg
+FAIL K3. Freighter + Phantom:b. Phantom approves and executes | refused: Transaction was not confirmed in 120.00 seconds. It is unknown if it succeeded or failed. Check signature WTYo9W9aTvYrrPLJQaiSm5SDAm3cbZtQd2e27m4QPyLz21N6fa1D83

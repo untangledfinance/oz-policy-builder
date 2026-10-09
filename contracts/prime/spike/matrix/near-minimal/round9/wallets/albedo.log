@@ -1,0 +1,18 @@
+Albedo web wallet, albedo.link v1.2.3 (footer), intent library @albedo-link/intent 0.13.0, 8 Oct 2026
+Albedo has no browser extension. Dapp opens https://albedo.link/confirm as a popup; keys live in the user's browser or are typed in.
+Chromium profile wallet-matrix/real/profiles/albedo. Account choice used: "Provide secret key directly" (no Albedo account created).
+The test secret key is the local seed's Stellar key GDEUQO6P...LMNOBNZR; it is never printed or screenshotted.
+
+[intents in source] stellar-expert/albedo @ c2fe8f6: public_key, sign_message, tx, pay, trust, exchange, implicit_flow, manage_account, batch
+  no auth-entry intent exists.
+[source check] frontend/src/actions/action-authentication-context.js signMessage():
+  returns signAlbedo (legacy "<pubkey>:<message>" signature) and signSep53 =
+  ed25519 over sha256("Stellar Signed Message:\n" + message) as `signedMessage` (hex).
+
+[near] sign_message prompt (shots/albedo-1.png): "Sign text message / localhost:8801 requested permission to sign a message", message shown on one line
+  result keys: intent, message, pubkey, signed_message, message_signature, signedMessage, signerAddress
+  signedMessage verifies as SEP-53 over the prime-near-signer text: PASS (out/albedo.stellar.verify.json)
+  message_signature is the legacy Albedo format (signature over "<pubkey>:<text>"); the near-signer's sep53 = true check does not accept it.
+[tx] tx intent prompt (shots/albedo-tx-1.png): "Sign transaction / Network: testnet / Send 1 XLM to GCUA...XLCF"
+  signed_envelope_xdr: 1 signature, ed25519 over the tx hash, same payload: PASS
+[grant, vote] no signAuthEntry intent: not callable.

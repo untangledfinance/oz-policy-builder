@@ -64,9 +64,12 @@ jobs:
           - custody-gate
           - execution-adapter
           - test-blend-pool
+          # The session signer on an OZ smart account. Its wasm is pinned in
+          # contracts/prime/build-hashes.json.
+          - prime-session
     defaults:
       run:
-        working-directory: contracts/${{ matrix.crate }}
+        working-directory: contracts/prime/stellar/${{ matrix.crate }}
     steps:
       - uses: actions/checkout@v4
 
@@ -75,7 +78,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: contracts/${{ matrix.crate }}
+          workspaces: contracts/prime/stellar/${{ matrix.crate }}
 
       - name: Format check
         run: cargo fmt --check
@@ -114,7 +117,7 @@ jobs:
         run: |
           rustup target add wasm32v1-none
           built=$(./build-wasm.sh | tail -1)
-          record=../../deployments/grammar6-testnet.json
+          record=../../../../deployments/grammar6-testnet.json
           pinned=$(jq -r '.interpreterSource.reproducibleWasmSha256 // .wasmHashes.interpreter // empty' "$record")
           echo "built:  $built"
           echo "pinned: $pinned"
@@ -142,7 +145,7 @@ jobs:
         run: |
           rustup target add wasm32v1-none
           built=$(./build-wasm.sh | tail -1)
-          record=../../deployments/execution-testnet.json
+          record=../../../../deployments/execution-testnet.json
           pinned=$(jq -r --arg c "${{ matrix.crate }}" '.wasmSha256[$c] // empty' "$record")
           echo "built:  $built"
           echo "pinned: $pinned"
@@ -154,6 +157,18 @@ jobs:
             exit 1
           fi
 
+      # The session signer is not deployed as a shared instance, so there is no
+      # deployments/ record. Its reproducible build (build-wasm.sh, which remaps
+      # the crate and registry paths) is pinned in contracts/prime/build-hashes.json.
+      # The testnet instances run the stellar contract build wasm, whose hash
+      # depends on the build machine's paths and cannot be compared here.
+      - name: Wasm build and pin parity
+        if: matrix.crate == 'prime-session'
+        run: |
+          rustup target add wasm32v1-none
+          ./build-wasm.sh
+          ../../check-build-hash.sh stellar/prime-session target/wasm32v1-none/release/prime_session.wasm
+
       # RustSec advisories against the locked dependency set. Needs 0.22 or
       # later: the advisory database now carries CVSS 4.0 entries, and 0.21
       # fails to load the whole database when it meets one.
@@ -162,3 +177,168 @@ jobs:
         run: |
           cargo install cargo-audit --locked --version ^0.22
           cargo audit
+
+  # The EVM session contract. It imports three OpenZeppelin Contracts 5.4.0 files,
+  # mapped by foundry.toml to lib/oz/, and lib/ stays out of git. The fetch below
+  # is the one contracts/prime/README.md documents.
+  evm-prime-session:
+    name: Contracts (evm/prime-session)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: contracts/prime/evm/prime-session
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.8.4
+
+      - name: Fetch OpenZeppelin Contracts 5.4.0
+        run: |
+          npm pack @openzeppelin/contracts@5.4.0
+          tar xzf openzeppelin-contracts-5.4.0.tgz
+          mkdir -p lib/oz && cp -r package/utils package/interfaces lib/oz/
+
+      # The test files are not formatted, so the check covers the contract.
+      - name: Format check
+        run: forge fmt --check src
+
+      - name: Build
+        run: forge build
+
+      - name: Test
+        run: forge test
+
+  # The two Solana programs build with the Solana CLI's cargo-build-sbf, pinned
+  # to the release the hashes were recorded with. PRIME_CLUSTER is a compile-time
+  # string that goes into the grant text a wallet signs, so each cluster has its
+  # own .so; localnet is the one recorded here.
+  #
+  # The sources are rustfmt output, and the docs state their formatted size
+  # (126 and 64 lines).
+  solana:
+    name: Contracts (solana/${{ matrix.crate }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - crate: prime-session
+            artifact: prime_session.so
+          - crate: custody-gate
+            artifact: gate.so
+    env:
+      SOLANA_VERSION: v4.3.0
+      # cargo-build-sbf builds with its own platform tools but asks cargo for
+      # package metadata first. Without this the repo's rust-toolchain.toml
+      # makes that call download Rust 1.97.1 and the wasm target for nothing.
+      RUSTUP_TOOLCHAIN: stable
+    defaults:
+      run:
+        working-directory: contracts/prime/solana/${{ matrix.crate }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Solana toolchain
+        id: solana-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/solana/install
+            ~/.cache/solana
+          key: solana-${{ env.SOLANA_VERSION }}-platform-tools
+
+      - name: Install Solana toolchain
+        if: steps.solana-cache.outputs.cache-hit != 'true'
+        run: |
+          sh -c "$(curl -sSfL https://release.anza.xyz/${SOLANA_VERSION}/install)"
+
+      - name: Put the Solana CLI on PATH
+        run: echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contracts/prime/solana/${{ matrix.crate }}
+
+      - name: Format check
+        run: cargo fmt --check
+
+      - name: Build (cargo-build-sbf, localnet)
+        run: PRIME_CLUSTER=localnet cargo-build-sbf -- --locked
+
+      - name: Build parity
+        run: ../../check-build-hash.sh solana/${{ matrix.crate }} target/deploy/${{ matrix.artifact }}
+
+  # The NEAR signer. Its source packs several statements per line, so it has no
+  # format check; the docs state its size after rustfmt (42 lines, 22 as written).
+  #
+  # cargo-near's non-reproducible-wasm build embeds the registry and the Rust
+  # standard library paths, so the same source gives other bytes on another
+  # machine. The recorded hash is the wasm deployed at
+  # signer.prime-spike-muwguc60.testnet, built under a toolchain directory named
+  # stable. The remaps below write those two paths in their original form, so a
+  # runner reproduces the deployed bytes. The toolchain is pinned to the stable
+  # release the hash was recorded with (1.98.1) and keeps rust-src, which is
+  # where the standard library path text comes from. cargo-near replaces its
+  # default RUSTFLAGS when --env sets them, so -C link-arg=-s is restated.
+  near:
+    name: Contracts (near/prime-near-signer)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RUSTUP_TOOLCHAIN: 1.98.1
+    defaults:
+      run:
+        working-directory: contracts/prime/near/prime-near-signer
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        run: rustup toolchain install 1.98.1 --profile minimal --target wasm32-unknown-unknown --component rust-src
+
+      - name: Install cargo-near
+        run: |
+          curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.22.0/cargo-near-installer.sh | sh
+          cargo-near --version
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contracts/prime/near/prime-near-signer
+
+      - name: Build (cargo-near)
+        run: |
+          sysroot="$(rustc --print sysroot)"
+          registry="${CARGO_HOME:-$HOME/.cargo}/registry/src"
+          cargo-near near build non-reproducible-wasm --no-abi --locked \
+            --env "RUSTFLAGS=-C link-arg=-s --remap-path-prefix=${sysroot}=/home/ubuntu/.rustup/toolchains/stable-x86_64-unknown-linux-gnu --remap-path-prefix=${registry}=/home/ubuntu/.cargo/registry/src"
+
+      - name: Build parity
+        run: ../../check-build-hash.sh near/prime-near-signer target/near/prime_near_signer.wasm
+
+  # The Prime app's checks around a gate-owned token account. They carry their own
+  # dependencies and lockfile: the root bunfig.toml limits bun test to packages/.
+  app-checks:
+    name: TypeScript (solana/custody-gate/app-checks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: contracts/prime/solana/custody-gate/app-checks
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck (strict)
+        run: bun run typecheck
+
+      - name: Test
+        run: bun test

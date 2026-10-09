@@ -1,0 +1,45 @@
+popup after unlock: 
+  [page] about:blank
+  [page] chrome-extension://bfnaelmomeimhlpmgjnjophhpkkoljpa/popup.html
+  [page] http://127.0.0.1:8790/
+  [page] chrome-extension://bfnaelmomeimhlpmgjnjophhpkkoljpa/notification.html
+prompt 1: unlocked wallet
+
+=== Phantom prompt 1 ===
+P
+Prime NEAR spik
+Sign Message
+127.0.0.1:8790
+
+Signing this message will prove you have ownership of the selected account.
+
+Message
+
+cz2ɦTh' +jʴƋ=|?NAmBK4
+
+Network
+
+Solana
+
+Only confirm if you trust this website.
+
+Cancel
+Confirm
+=== end prompt 1 ===
+buttons: P | Cancel | Confirm
+prompt 1: clicked Confirm
+  [page] about:blank
+  [page] chrome-extension://bfnaelmomeimhlpmgjnjophhpkkoljpa/popup.html
+  [page] http://127.0.0.1:8790/
+
+RESULT {
+ "local": true,
+ "accepted": true,
+ "nearTx": "32NJVvrjDKafT6JDKRCYym8ZkLWkGUGnhS4JyeGYvtvG",
+ "ms": 16496,
+ "mpcSignature": true,
+ "mpcVerifies": true,
+ "derivedMatchesContract": true,
+ "derivedKey": "ed25519:3hN1wYZUtANYd6hNj4P7haVk2hR1GddZxXep2Rk3ej2o"
+}
+GLOBAL TIMEOUT

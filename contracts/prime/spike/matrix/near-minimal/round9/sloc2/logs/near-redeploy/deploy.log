@@ -1,0 +1,3 @@
+signer signer.prime-spike-muwguc60.testnet code_hash before AfRTxyBpBmUDYi88xxytL5z4yfPn3tBa1SYawt4Jzh3b build E6986kfXDAec5nZvuYiBiC3fmonHCrynwRCtd33s1U5u key ed25519:K7JPXNYz7uKwm65G3bqeYuWkh6e4Wbiv766Xv9w2pDB
+deploy tx 82Cj53AxZjzodX4DKba2eyhgcDVBHb6USAKcHtytLdwf gas burnt 1043243024855 {"SuccessValue":""}
+code_hash after E6986kfXDAec5nZvuYiBiC3fmonHCrynwRCtd33s1U5u equals build: true

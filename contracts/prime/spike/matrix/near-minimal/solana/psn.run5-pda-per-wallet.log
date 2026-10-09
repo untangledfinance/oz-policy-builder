@@ -1,0 +1,78 @@
+{
+  MetaMask: "2mgK6QSMmExM2CDzKZK3dFHpaUYb5NkiS2spdL6yvGMZ",
+  Freighter: "BU4B8vczr3Xqzo1sq5fTUE9HG9VxvXcbUKv4Yv4q9AuU",
+  Phantom: "G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4",
+}
+PASS P0. seats are exactly MetaMask(NEAR MPC), Freighter(NEAR MPC), Phantom(own key); threshold 2; vault funded | ok vQNB1TDg6hPvttXxjTAnDAF4CjmapF6gHMgA6yjSD645UMxCfkUDizCm3s5pcpLbrbsgtP1VmsWDYEukZm2WCgA
+PASS K1-MetaMask. MetaMask alone:a. MetaMask proposes and approves | ok 5SgKnZgsgjQciXDW2hQfFRNfWkjx55wc5t1R5V12towpccBVGzxY4MDwknWEnnPzew5QA9tmiZoLuZM6eBfJ2h33
+PASS K1-MetaMask. MetaMask alone:b. MetaMask executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K1-Freighter. Freighter alone:a. Freighter proposes and approves | ok 2bqvRrFePFx9y9sbszEMxTHshRsMZf6s7mFLZo7NP6rYFhQaPdLQWmggdLeXuTxfSwCJNP6t8ArvfossNxrhjzcc
+PASS K1-Freighter. Freighter alone:b. Freighter executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K1-Phantom. Phantom alone:a. Phantom proposes and approves | ok 5GryiSmJ3M3FFQm8jrndPgJrYZ6zLc9MeiNEMmvpxZhYkZi4DkmjZJbSg5MGBbJgYtTREEQrCnor6QxSkaB1aVXY
+PASS K1-Phantom. Phantom alone:b. Phantom executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K2. MetaMask + Freighter:a. MetaMask proposes and approves | ok hqV9tuhTsAV34FGt8dSWAYX8k2Pb46VRkzZy7B1Q8puZXLCPAuPqeu944JxRWViDGzkau6qeYPE8CxVzZ25HbBP
+PASS K2. MetaMask + Freighter:b. Freighter approves and executes | ok AXXz2f4hxA2asmNXGyXs7UWz2rrDF2c3aeEV2CaV3KUhFjipv645VrBrZFtaxRbMRNCfxK9AuEpdcq9wJJzEdRD
+PASS K3. Freighter + Phantom:a. Freighter proposes and approves | ok 2MvJxpeqNrvc3ANPWR2bxJN9gzBRJi7QfBNEuNKvAHo3J4KpJip9dNVEhooqVKrMSZpEssj5nUcTFi26zWZGDQ24
+PASS K3. Freighter + Phantom:b. Phantom approves and executes | ok AP3LkK9Xt9czAikbVz8NCBrvh9WqcuxxjL6rDnKfzfcSXgXccAjVohpZ1AYg2ApJ1fU6nRC9Zf4GEPgaTEAXvvy
+PASS K4. Phantom + MetaMask:a. Phantom proposes and approves | ok 43McbYZQyaMX5zCMNkxLuzzfd6PwqBaCk986pB3yCaY1QSfSW17bEn8m8o7XjUidgscPom6XQXG4YFr2BDURfwvR
+PASS K4. Phantom + MetaMask:b. MetaMask approves and executes | ok 5KpQ8dTVxmSuGPhLsZBMYj9ReZLjevdgSBY9piDq4ey26jQXZXq5Vm4CPoqXAFqJtjFAjcTg8odE2fXr4y1vur21
+PASS K5. DEST received exactly 0.03 SOL | ok 0.03
+PASS K6. MetaMask alone (open proposal):a. MetaMask proposes and approves | ok 5RK9kq8YkMNthPHDuhiLjKYPWtBWrn1bfYWnMGAD293RWE2jHpZqUNznJsDrGuHLGwbzKQVrX9BbzSaPskPjV7Mj
+PASS K6. MetaMask alone (open proposal):b. MetaMask executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K6c. an outsider approves it | refused: Error Code: NotASigner
+PASS K6d. Freighter's seat signed by MetaMask's MPC key | refused: SendTransactionError` and call `getLogs()` on it for full details. | Error: Simu
+PASS K6e. Freighter's seat signed by its MPC key under another path | refused: SendTransactionError` and call `getLogs()` on it for full details. | Error: Simu
+PASS K7. install the movers policy (members: the three session PDAs):a. MetaMask proposes and approves | ok 3YhrmMuX5pKiDo2xrLHFY3SCQJoKqe2KBBgMWKJdTQi6PXrCKpjxzh5ujAjnwd97oa5CDkSCTwzsP9cghFifRZQM
+PASS K7. install the movers policy (members: the three session PDAs):b. Phantom approves and executes | ok VXN86v3NNAmtMTpemHf5zZD8T35yQUwUTuhhdfFpP4kdRzEsNppteG5fUFxsT17eQvYQmR8L94it7Sn3BY1z2ci
+PASS N0. MetaMask alone (open proposal):a. MetaMask proposes and approves | ok 4YZQzn7gSVHzDAWJnmgNS6YMQnm8zoCZ7XWnPQiu4DtPMW516mndrJNHj13qgUKriydF67NYDc6F3dJ7Htgy8kQB
+PASS N0. MetaMask alone (open proposal):b. MetaMask executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS N1. Phantom session approves that proposal as its PDA | refused: Error Code: NotASigner
+PASS N2. Phantom session key approves it as itself | refused: Error Code: NotASigner
+PASS N3. Phantom session proposes a vault transaction as its PDA | refused: Error Code: NotASigner
+PASS N4. Phantom session adds its key as a seat (settings sync, as its PDA) | refused: Error Code: InvalidSignerCount
+PASS N5. Phantom session calls a program other than the Smart Account (System transfer from its PDA) | refused: prime-session: sessions may only call the Smart Account program
+PASS G-MetaMask1. one MetaMask signature (through NEAR) -> session; relayer pays: 0.01 SOL to VENUE | ok oEbGfMY4m1a2P1R5kVfRgv1HjgXQhmLnciKf7HQ6DoVZkDmLV8vWofb4drdsw9w1nBsyRQg65h1iPb2vsUbBGZS
+PASS G-MetaMask2. relayer down: session key pays the fee itself: 0.005 SOL to VENUE | ok 3ypZmC4qHsJeuYVXB48h25ArDw2GKQRgQWsmBoS5oQx92FLe1eSN3xvLpGPRF3xirSjNxLQt5ovAjgY2FXBnPntY
+PASS G-MetaMask3. VENUE received exactly 0.015 SOL | ok 0.015
+PASS G-MetaMask4. relayer down and the session key has no SOL | refused: Attempt to debit an account but found no record of a prior credit
+PASS G-MetaMask5. same session: 0.01 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS G-MetaMask6. same session: 0.06 SOL to VENUE (over the 0.05 per-move limit) | refused: Error Code: ProgramInteractionInvalidNumericValue
+PASS G-MetaMask7. stretched valid-until | refused: prime-session: not signed by the owner over this text
+PASS G-MetaMask8. someone else replays the grant with their own key | refused: prime-session: not signed by the owner over this text
+PASS G-Freighter1. one Freighter signature (through NEAR) -> session; relayer pays: 0.01 SOL to VENUE | ok 5UQSYmxFMiauNQMtsSqydPN1SH2UhEJLbcMpRdD6ZdscPNVX381A4xWKaqwZokX8MMVRvxxno48VPLnZnWRmrujJ
+PASS G-Freighter2. relayer down: session key pays the fee itself: 0.005 SOL to VENUE | ok 2BUiUYHrHcRSzo9HHpTKD4FHNoc8DFRLbfUbCJCvjMWtcpKvRbhntA4R2wZGsZHcsCk3FYPHzH6ix4WfP8bpesnT
+PASS G-Freighter3. VENUE received exactly 0.015 SOL | ok 0.015
+PASS G-Freighter4. relayer down and the session key has no SOL | refused: Attempt to debit an account but found no record of a prior credit
+PASS G-Freighter5. same session: 0.01 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS G-Freighter6. same session: 0.06 SOL to VENUE (over the 0.05 per-move limit) | refused: Error Code: ProgramInteractionInvalidNumericValue
+PASS G-Freighter7. stretched valid-until | refused: prime-session: not signed by the owner over this text
+PASS G-Freighter8. someone else replays the grant with their own key | refused: prime-session: not signed by the owner over this text
+PASS G-Phantom1. one Phantom signature -> session; relayer pays: 0.01 SOL to VENUE | ok 3AqhQpk7JitkJy7eqoskoTwyRDgx5PJEUbJXf1s9sF5g5WoY2Cr8kfDyXeTRycxtS7HBap2Ne5LeZ7d3iCMQCXyt
+PASS G-Phantom2. relayer down: session key pays the fee itself: 0.005 SOL to VENUE | ok 2XTfWjSiWKzXBoTbPqZmCLS1375iS826kNAGnWWTDK5eV2yEiFWipFsz3Y6ik6kzE11fdBW8hHjkxuDoMxbqR3EE
+PASS G-Phantom3. VENUE received exactly 0.015 SOL | ok 0.015
+PASS G-Phantom4. relayer down and the session key has no SOL | refused: Attempt to debit an account but found no record of a prior credit
+PASS G-Phantom5. same session: 0.01 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS G-Phantom6. same session: 0.06 SOL to VENUE (over the 0.05 per-move limit) | refused: Error Code: ProgramInteractionInvalidNumericValue
+PASS G-Phantom7. stretched valid-until | refused: prime-session: not signed by the owner over this text
+PASS G-Phantom8. someone else replays the grant with their own key | refused: prime-session: not signed by the owner over this text
+PASS G9. grant longer than 7 days | refused: prime-session: expired or longer than 7 days
+PASS G10. expired grant | refused: prime-session: expired or longer than 7 days
+PASS G11. MetaMask grant with the ed25519 program instruction missing | refused: prime-session: not signed by the owner over this text
+PASS G12. ed25519 instruction reading its public key from another instruction | refused: custom program error: 0x0
+PASS G13. daily cap shared by all: 0.045 used + 0.05 = 0.095 <= 0.1 | ok 28URC3yEUgpHumCznBVNRCiEwVQN6TaTKTwCUjrLXdwbQfAdGzHSLKy8miWVQb2A8TtDYM7ihULNEFg9XVc7MgPs
+PASS G13b. + 0.01 = 0.105 > 0.1 | refused: Error Code: ProgramInteractionInsufficientLamportAllowance
+PASS X1. Freighter's PDA with a grant signed by MetaMask (NEAR) | refused: prime-session: not signed by the owner over this text
+PASS X2. Phantom's PDA with a grant signed by Freighter (NEAR) | refused: prime-session: not signed by the owner over this text
+PASS X3. MetaMask's PDA with a grant signed by Phantom | refused: prime-session: not signed by the owner over this text
+PASS X4. Freighter's PDA with its MPC key under another path | refused: prime-session: not signed by the owner over this text
+PASS X5. Phantom grant presented for MetaMask's PDA | refused: prime-session: not signed by the owner over this text
+PASS X6. grant signed for cluster mainnet, used on localnet | refused: prime-session: not signed by the owner over this text
+PASS X7. grant signed for another program id | refused: prime-session: not signed by the owner over this text
+PASS R0. Freighter session works before | ok 2ReZmYUvUN4YegbChMecHLFZP6myeVJRMUcK5qxL4V1F54tXGpKetEteSmUaJNkCJkC1MKn4ZbibqK1E3SzxdpR5
+PASS R1. MetaMask + Phantom update the policy: members MetaMask and Phantom PDAs only:a. MetaMask proposes and approves | ok TjzXxDtTeUjyFaXCMxuSGKz6DQobR3FT9odcVxVetdzPxPwq77WpnQLpKsTrauKFBTgrjKQATQLJSc6MYZwdNs8
+PASS R1. MetaMask + Phantom update the policy: members MetaMask and Phantom PDAs only:b. Phantom approves and executes | ok 2UvLgRVgyBkZidhKHEuVKxsSGTNMKPWTL5igBTeCULueXbvpbDit2qtMw99nyNVFnfkENf4HBZZJQvYoe2zshwpG
+PASS R2. the live Freighter session after removal | refused: Error Code: NotASigner
+PASS R3. MetaMask session still works | ok tXqtUifTZMYcSRAdhMZRyDKLryQ633pP6NUq9NRrYqKuYE6eGrG2DTGxFej9VHA5t91rv2Kdugp7V6ivfow5hMg
+NEAR MPC signatures: 26, average 8.6s
+70/70 passed
+EXIT 0

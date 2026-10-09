@@ -1,7 +1,7 @@
 // Upload the custody gate and execution adapter builds to testnet, and record
 // them in deployments/execution-testnet.json.
 //
-//   contracts/custody-gate/build-wasm.sh && contracts/execution-adapter/build-wasm.sh
+//   contracts/prime/stellar/custody-gate/build-wasm.sh && contracts/prime/stellar/execution-adapter/build-wasm.sh
 //   bun scripts/upload-execution-testnet.ts
 //
 // UPLOAD ONLY. Neither contract is a shared instance: the custody account

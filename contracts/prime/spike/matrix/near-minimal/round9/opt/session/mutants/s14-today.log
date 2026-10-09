@@ -1,0 +1,64 @@
+{
+  MetaMask: "4TXiTPLxe5PrpwiY15tj9nP3wF5F8JPKUsYQyfHCCcod",
+  Freighter: "9BcBicoPrGtPJnVynJoj2g1p6zrvaFBkJccorLwGTMZo",
+  Phantom: "G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4",
+  sessionMetaMask: "3YomJ7dnhtqFnnPAzRUGmhC8EevR2R4F6Sdx7YN6Pppc",
+  sessionFreighter: "Cn2bjH8kGkjioVoB9MY86TDsJ6kKjvaiu9ZCmMsJVW74",
+  program: "FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G",
+  programB: "J38gUL2YFo91GDBnDXwVDaGpk6XWSJUhs7RuditRdiVo",
+  net: "localnet",
+}
+PASS P0. seats are exactly MetaMask(NEAR MPC), Freighter(NEAR MPC), Phantom(own key); threshold 2; vault funded | ok 3PbfigmWkCY5s4quxG6SYK1dVoxWThLepkB24UoATpGqH5wrjdB5UzP4F9S2n54sU4rVhAZFEzQH4mpFG65nDUwL
+PASS K1-MetaMask. MetaMask alone:a. MetaMask proposes and approves | ok 5i8R3yBUNGJcwcaZdTsKcMJ1pLJt9XGYyGNPmuhP8oMJnJFNVoZMNUgPpzUuW87DpQ5EAgfNmVRppvkGfFM9jo7i
+PASS K1-MetaMask. MetaMask alone:b. MetaMask executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K1-Freighter. Freighter alone:a. Freighter proposes and approves | ok 2gp5HskcMJJPQdKPzMWCYHZmpfAFejoaQwmCMiXRo6rJJXfMfa3n8e9fDns4Z73SVjKx4dbqKUhMnGAnpCEHFx4K
+PASS K1-Freighter. Freighter alone:b. Freighter executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K1-Phantom. Phantom alone:a. Phantom proposes and approves | ok wFSg9nMNouR3qdYUePj1vDWRzPxSKBrcRuSEkA9zG5ruidYVoRc9HYdwzrXU5zeZwPorTn8r2My3muvRpUqpQ4k
+PASS K1-Phantom. Phantom alone:b. Phantom executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K2. MetaMask + Freighter:a. MetaMask proposes and approves | ok 27Rc6GrD3msgqCPzw64vjVNjMQLkF1dNQE12NgRYJ4T36FnzB7Yw5szjZQNQi4YcC2PFZCA55KB3QX8DRS7xszHh
+METRIC seat-propose-K2-MetaMask {"totalCu":78014,"bytes":579,"fee":10000}
+PASS K2. MetaMask + Freighter:b. Freighter approves and executes | ok 4v1KUwf8rbAAKPam35V3sXoJ5iZbbNrwsEh8e3AbCAB1Uq3joTkgaTed3ztWUQUSLMqHuRTa9z7CcwBbZKHRy6t3
+METRIC seat-exec-K2-Freighter {"totalCu":67701,"bytes":490,"fee":10000}
+PASS K3. Freighter + Phantom:a. Freighter proposes and approves | ok 5dH6qCvFV1CNcoqemyCcpKCtv6eGShYPqdB5sCADJY8jAs4cwvLzdw1BQE3SKe1sPGe6gbvScALTth71EhzzV6Uc
+METRIC seat-propose-K3-Freighter {"totalCu":83828,"bytes":579,"fee":10000}
+PASS K3. Freighter + Phantom:b. Phantom approves and executes | ok 3qJqsirNuVaqYJTaGMnEsnSmWSYsu1nthBJn1fHN4GqYogvmXdBxNEk2X5RtBnXsUFMbU2WdbNoPi8wQpa6jdUU
+METRIC seat-exec-K3-Phantom {"totalCu":70829,"bytes":490,"fee":10000}
+PASS K4. Phantom + MetaMask:a. Phantom proposes and approves | ok 46fXWVaRz6i8jJE8Cf1MBH4KkTabavHeVLT3FjPTZmzwb5Mn6DD1rSDjpKaJ4QstR8KfC6AJ79dQcxTeT9HWa959
+METRIC seat-propose-K4-Phantom {"totalCu":79520,"bytes":579,"fee":10000}
+PASS K4. Phantom + MetaMask:b. MetaMask approves and executes | ok 3k432Tn3QxB7cca5NRutLNhFhcykYww8d9cabeHPHaPFeRpLScpjbMoPaMBar7Zyg97XgGxd2QhCr8fPm6HwEDy4
+METRIC seat-exec-K4-MetaMask {"totalCu":67876,"bytes":490,"fee":10000}
+PASS K5. DEST received exactly 0.03 SOL | ok 0.03
+PASS K6. MetaMask alone (open proposal):a. MetaMask proposes and approves | ok 5ezwmoNNTnWZmgGxZv4Dz4eb9rwSq113PddqWLSD2Us7MFjeSKvY2JahUPz8aHgsSbp1JQkBKzqcW4BY7tzGWsYi
+PASS K6. MetaMask alone (open proposal):b. MetaMask executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K6c. an outsider approves it | refused: Error Code: NotASigner
+PASS K6d. Freighter's seat signed by MetaMask's MPC key | refused: Transaction did not pass signature verification
+PASS K6e. Freighter's seat signed by its MPC key under another path | refused: Transaction did not pass signature verification
+PASS K6f-MetaMask. MetaMask's seat vote signed by its session-path key | refused: Transaction did not pass signature verification
+PASS K6g-MetaMask. MetaMask's session-path key approves as itself | refused: Error Code: NotASigner
+PASS K6f-Freighter. Freighter's seat vote signed by its session-path key | refused: Transaction did not pass signature verification
+PASS K6g-Freighter. Freighter's session-path key approves as itself | refused: Error Code: NotASigner
+PASS K7. install the movers policy (members: the three session PDAs):a. MetaMask proposes and approves | ok 3pSSvzqKS5uDSuo9Dg9tBEHEdATzNT86pYhKEcouzm1vV8TJDwCRxvpsx5xph3SaLV9ehiuzUv9bPteAbbRsefnL
+PASS K7. install the movers policy (members: the three session PDAs):b. Phantom approves and executes | ok 5LuiBjudYhV8JTxyPfGt7uPawhJHTDKXJyLqJJXLmKvoN273eWPKzBz6w5fgEkAMsPiCa6o4z1ZfA7kzXLrwPxK8
+PASS N0. MetaMask alone (open proposal):a. MetaMask proposes and approves | ok 5EdGKNo1d1gjBkZviUpmZLN2wpLbHM7iCz3EXW5kHWeMgNE9sov63d764xZbKe3yTjyR7t3DPsJjvQvzRBjTZeZq
+PASS N0. MetaMask alone (open proposal):b. MetaMask executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS N1. Phantom session approves that proposal as its PDA | refused: Error Code: AccountNotSigner
+PASS N2. Phantom session key approves it as itself | refused: Error Code: NotASigner
+PASS N3. Phantom session proposes a vault transaction as its PDA | refused: Error Code: AccountNotSigner
+PASS N4. Phantom session adds its key as a seat (settings sync, as its PDA) | refused: Error Code: InvalidSignerCount
+PASS N5. Phantom session calls a program other than the Smart Account (System transfer from its PDA) | refused: Program FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G invoke [1] Unknown program SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG Program FTNMFWiECbRp7D5MwJUiNQfee6Nu
+FAIL G-MetaMask1. one MetaMask signature (through NEAR) -> session; relayer pays: 0.01 SOL to VENUE | refused: Error Code: MissingSignature
+7679 |     } = extractCommitmentFromConfig(rawConfig);
+7680 |     const args = this._buildArgsAtLeastConfirmed([signature], commitment, undefined /* encoding */, config);
+7681 |     const unsafeRes = await this._rpcRequest('getTransaction', args);
+7682 |     const res = superstruct.create(unsafeRes, GetTransactionRpcResult);
+7683 |     if ('error' in res) {
+7684 |       throw new SolanaJSONRPCError(res.error, 'failed to get transaction');
+                   ^
+SolanaJSONRPCError: failed to get transaction: Invalid param: WrongSize
+ code: -32602,
+ data: undefined,
+
+      at getTransaction (/home/ubuntu/work/swig-spike/node_modules/@solana/web3.js/lib/index.cjs.js:7684:13)
+      at async measure (/home/ubuntu/work/opt/session/psn.x.ts:76:24)
+
+Bun v1.4.2 (Linux x64)

@@ -1,0 +1,207 @@
+12:18:36 PASS H1. Horizon: all 133 landed transactions have the payer as source account; the 8 self-paid ones have the session key's own account ok
+fees (stroops, Horizon fee_charged) {
+ "admin:owner+owner relayed": {
+  "n": 6,
+  "min": 276195,
+  "median": 1204282,
+  "max": 3454499,
+  "cpuMedian": 7524670
+ },
+ "grant+vote relayed": {
+  "n": 23,
+  "min": 15492,
+  "median": 18198,
+  "max": 46611,
+  "cpuMedian": 947568
+ },
+ "grant relayed": {
+  "n": 18,
+  "min": 15492,
+  "median": 18204,
+  "max": 46651,
+  "cpuMedian": 947568
+ },
+ "vote:owner+owner relayed": {
+  "n": 2,
+  "min": 43501,
+  "median": 43507,
+  "max": 43507,
+  "cpuMedian": 5076179
+ },
+ "vote:session+owner relayed": {
+  "n": 6,
+  "min": 35490,
+  "median": 35497,
+  "max": 35497,
+  "cpuMedian": 5008371
+ },
+ "vote:session+session relayed": {
+  "n": 1,
+  "min": 27492,
+  "median": 27492,
+  "max": 27492,
+  "cpuMedian": 4945781
+ },
+ "grant+vote self-paid": {
+  "n": 1,
+  "min": 18197,
+  "median": 18197,
+  "max": 18197,
+  "cpuMedian": 948073
+ },
+ "vote:session+owner self-paid": {
+  "n": 1,
+  "min": 35497,
+  "median": 35497,
+  "max": 35497,
+  "cpuMedian": 5008371
+ },
+ "revoke relayed": {
+  "n": 7,
+  "min": 753010,
+  "median": 753799,
+  "max": 754058,
+  "cpuMedian": 952829
+ },
+ "admin:session+owner relayed": {
+  "n": 8,
+  "min": 38553,
+  "median": 44042,
+  "max": 650704,
+  "cpuMedian": 5348271
+ },
+ "admin relayed": {
+  "n": 3,
+  "min": 25086,
+  "median": 43516,
+  "max": 458138,
+  "cpuMedian": 4899195
+ },
+ "tx relayed": {
+  "n": 1,
+  "min": 31979,
+  "median": 31979,
+  "max": 31979,
+  "cpuMedian": 4380696
+ },
+ "move relayed": {
+  "n": 15,
+  "min": 32906,
+  "median": 32906,
+  "max": 1388798,
+  "cpuMedian": 4190768
+ },
+ "grant self-paid": {
+  "n": 3,
+  "min": 18197,
+  "median": 18204,
+  "max": 18204,
+  "cpuMedian": 947568
+ },
+ "move self-paid": {
+  "n": 3,
+  "min": 32906,
+  "median": 32906,
+  "max": 32907,
+  "cpuMedian": 4190768
+ },
+ "base:grant relayed": {
+  "n": 1,
+  "min": 18109,
+  "median": 18109,
+  "max": 18109,
+  "cpuMedian": 920540
+ },
+ "base:move relayed": {
+  "n": 1,
+  "min": 32891,
+  "median": 32891,
+  "max": 32891,
+  "cpuMedian": 4166151
+ },
+ "base:revoke relayed": {
+  "n": 1,
+  "min": 756303,
+  "median": 756303,
+  "max": 756303,
+  "cpuMedian": 925761
+ },
+ "admin:plain+plain relayed": {
+  "n": 2,
+  "min": 1419828,
+  "median": 3468474,
+  "max": 3468474,
+  "cpuMedian": 7379925
+ },
+ "vote:plain+plain relayed": {
+  "n": 2,
+  "min": 41974,
+  "median": 49072,
+  "max": 49072,
+  "cpuMedian": 4657713
+ },
+ "ops:session+owner relayed": {
+  "n": 1,
+  "min": 2796981,
+  "median": 2796981,
+  "max": 2796981,
+  "cpuMedian": 4334938
+ },
+ "ops:owner+owner relayed": {
+  "n": 1,
+  "min": 46571,
+  "median": 46571,
+  "max": 46571,
+  "cpuMedian": 4388619
+ },
+ "ops:session+session relayed": {
+  "n": 1,
+  "min": 30566,
+  "median": 30566,
+  "max": 30566,
+  "cpuMedian": 4264639
+ },
+ "ops:any relayed": {
+  "n": 1,
+  "min": 38570,
+  "median": 38570,
+  "max": 38570,
+  "cpuMedian": 4325588
+ },
+ "bench:warmup relayed": {
+  "n": 4,
+  "min": 27500,
+  "median": 41974,
+  "max": 43516,
+  "cpuMedian": 5013429
+ },
+ "bench:owner+owner relayed": {
+  "n": 5,
+  "min": 43515,
+  "median": 43515,
+  "max": 43515,
+  "cpuMedian": 5092285
+ },
+ "bench:session+owner relayed": {
+  "n": 5,
+  "min": 35502,
+  "median": 35502,
+  "max": 35502,
+  "cpuMedian": 5012280
+ },
+ "bench:session+session relayed": {
+  "n": 5,
+  "min": 27499,
+  "median": 27499,
+  "max": 27499,
+  "cpuMedian": 4955014
+ },
+ "bench:plain+plain relayed": {
+  "n": 5,
+  "min": 41974,
+  "median": 41974,
+  "max": 41974,
+  "cpuMedian": 4290029
+ }
+}
+12:18:36 263/263 passed

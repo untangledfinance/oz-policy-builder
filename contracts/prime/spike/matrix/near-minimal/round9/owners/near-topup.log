@@ -1,0 +1,10 @@
+relayer before 0.2979 NEAR | signer before 2.9991 NEAR
+signer.prime-spike-muwguc60.testnet -> relayer 1.5 NEAR tx EjZcgb24kdBFPX3f2oxnxVigM1evhGSV2Hu2JjwnQ3HL {"SuccessValue":""}
+primefaucet-1791294164d.testnet -> relayer 0.04 NEAR tx FsC2koifYsSoaQ7kysYNBujgxU5SeU5dcaG1arKa77W5 {"SuccessValue":""}
+primefaucet-1791294137a.testnet -> relayer 0.04 NEAR tx 2GTg2e3wN1sK2kZoH3gSrMqi3bM3Yqk8nkGM7VsH2akk {"SuccessValue":""}
+primefaucet-1791300384e.testnet -> relayer 0.04 NEAR tx 6M4K25r5CyQn6c1yCE6Z2CnvJgn4rejydbaRp7XuLFzB {"SuccessValue":""}
+primefaucet-1791300395f.testnet -> relayer 0.04 NEAR tx 6qaS4UFuEtdsS3zL5LdcjupgrE2xncY1xnx23pLq6the {"SuccessValue":""}
+primefaucet-1791294154b.testnet -> relayer 0.04 NEAR tx AS7Qowb35wiQAYyvdyTZUY1Suv9TVSVsXk9jsdRFEddF {"SuccessValue":""}
+primefaucet-1791294160c.testnet -> relayer 0.04 NEAR tx FQU23Sgc6YzFo4u1Bme2w1SFT5TcAVya8woQLH2v1DgA {"SuccessValue":""}
+primefaucet-1791300405g.testnet -> relayer 0.04 NEAR tx AnRCYFbgJmZ4PR2X4rBYyEeBRvLjg6vzUmZAV47E92Y9 {"SuccessValue":""}
+relayer after 2.0779 NEAR | signer after 1.4991 NEAR

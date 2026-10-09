@@ -51,7 +51,7 @@ here for the first time (section 5, C9 and F5).
 **Everything else is the same code.** The interpreter and the three packages
 differ from the 2026-09-25 tree only in ten comment and path lines, and CI's
 interpreter build parity still matches the deployed hash. The gate is the same
-source under a new folder name (`contracts/custody-gate`, was
+source under a new folder name (`contracts/prime/stellar/custody-gate`, was
 `custody-gate-v3`). Their rows are carried forward and were re-verified by
 this run's tool evidence (section 8), not re-derived.
 
@@ -66,9 +66,9 @@ hash moves with prose edits" without a check to catch it.
 
 ### In scope
 
-- `contracts/policy-interpreter/` - the on-chain Soroban contract that evaluates one predicate per `enforce` call.
-- `contracts/custody-gate/` - the client's gatekeeper. Holds no funds: it holds an allowance custody granted it, and releases inside that only to one code-pinned caller, only to a listed destination.
-- `contracts/execution-adapter/` - the per-Prime batcher, bound to one gate. Refuses any batch mentioning an address the gate does not name, and can store a batch to run after a wait.
+- `contracts/prime/stellar/policy-interpreter/` - the on-chain Soroban contract that evaluates one predicate per `enforce` call.
+- `contracts/prime/stellar/custody-gate/` - the client's gatekeeper. Holds no funds: it holds an allowance custody granted it, and releases inside that only to one code-pinned caller, only to a listed destination.
+- `contracts/prime/stellar/execution-adapter/` - the per-Prime batcher, bound to one gate. Refuses any batch mentioning an address the gate does not name, and can store a batch to run after a wait.
 - `packages/policy-synth/`, `packages/policy-builder-cli/`, `packages/policy-builder-mcp/` - the off-chain core, CLI and MCP server.
 - **Adjacent, data flow F5:** OctoPos `apps/web` - Prime Execution's wait field and stored-moves list, the keeper path that runs a stored move, the cancel paths, and Manage execution's install of the run rule.
 - **Adjacent, data flow F6 (new):** OctoPos `apps/web` - the venue pool picker used by the rule dialogs and by gate setup, and the code that names a venue contract.
@@ -76,7 +76,7 @@ hash moves with prose edits" without a check to catch it.
 
 ### Out of scope, named with their trust assumption
 
-- `contracts/test-blend-pool/` - a test double, testnet only. Not modelled.
+- `contracts/prime/stellar/test-blend-pool/` - a test double, testnet only. Not modelled.
 - The v1, v2 and v3 adapter generations and the older gate builds. v1/v2 source is at tag `archive/contracts-before-v3-only`, v3 at `archive/execution-adapter-v3`. Trust assumption: still deployed and reachable by accounts that use them; an account on them inherits the model of its generation, not this one. The Prime app still recognises v3 pairs.
 - OpenZeppelin Stellar smart-account contracts (v0.7.2). Trust assumption: `__check_auth`, context-rule selection and signer semantics are correct. This run relies on one more of their behaviours than the last - a `Delegated` contract signer is verified with `require_auth_for_args`, which a contract passes only when it is the one that asked (measured, C9-S.3).
 - Stellar protocol, validators, RPC endpoints, and the network's state-archival settings (measured in C9-D.4/D.5, not assumed).

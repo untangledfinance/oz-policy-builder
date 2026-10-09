@@ -1,0 +1,72 @@
+l01 built
+l02 built
+l03 built
+l04 built
+l05 built
+l06 built
+l07 built
+l08 built
+l09 built
+l10 built
+l11 built
+l12 built
+l13 built
+l14 built
+l15 built
+l16 built
+l17 built
+l18 built
+l19 built
+l20 built
+l21 built
+l22 built
+l23 built
+l24 built
+l25 built
+l26 built
+l27 BUILD FAILED - the nearest open delimiter
+...
+78 |     need(Pubkey::find_program_address(&[b"cap", gate.key.as_ref()], pid).0 == *cap.key || true) && (s[129..133] == [0; 4] || s[133..165] == *gate.key.as_ref()), 5)?;
+   |                                                                                                                                                                   - missing open `(` for this delimiter
+79 |     call(a, tok, [&[4][..], d].concat(), &[src, cap, gate], 1, &gate_seeds(&g))
+80 | }
+   | ^ unexpected closing delimiter
+
+error: could not compile `gate` (lib) due to 1 previous error
+
+l28 built
+l29 built
+l30 built
+l31 built
+l32 built
+l33 built
+l34 built
+l35 built
+l36 built
+l37 built
+l38 built
+l39 built
+l40 built
+l41 built
+l42 built
+l43 built
+l44 built
+l45 built
+l46 built
+l47 built
+l48 built
+l49 built
+l50 built
+l51 built
+l52 built
+l53 built
+l54 built
+l55 built
+l56 built
+l57 built
+l58 built
+l59 built
+l60 built
+l61 built
+l62 built
+done, problems: 1

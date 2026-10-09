@@ -1,0 +1,121 @@
+{
+ "results": [
+  {
+   "name": "Z0. Smart Account: seats MetaMask (A), Phantom (P), Freighter (F); threshold 2; vault funded",
+   "pass": true,
+   "ok": true,
+   "detail": "9KE3bwMGv3R67SSnhPEXHzBBD6pgU8CExf6qq4YT257S5F75LSTLTqvZe8KEVozCofGqvhWCMzAyzUo5HMEb9nR"
+  },
+  {
+   "name": "Z1a. Phantom proposes 0.01 SOL vault -> DEST and approves (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "668VurSdqRcfXpxK6DpH914oqY2dHpXH95Lnais7KF9yBRgbj5eWrhWqjGEedY5WJXRtqR8R9a6LGEbhuEbHbwop"
+  },
+  {
+   "name": "Z1b. Phantom executes with only its own approval",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidProposalStatus"
+  },
+  {
+   "name": "Z2a. MetaMask proposes 0.01 SOL vault -> DEST and approves (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "2yHvyaMj8DWzo7BKv8AmD7UogD6ET6JLiQ4Lbwv4Gf748yodKZWuTpFjqXXgZ4bspGBJehfNcHPmEmjQbUiTDywH"
+  },
+  {
+   "name": "Z2b. Phantom approves and executes",
+   "pass": true,
+   "ok": true,
+   "detail": "3DUAAcfyunjCbLJfAUKR4JmZLMLSgidnqJgQhw9pFwo5aWErCWu4iykfJ7rYE9jMmfxhPjRa5H39NDEqxfXxBP6K"
+  },
+  {
+   "name": "Z2c. DEST received exactly 0.01 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.01 SOL"
+  },
+  {
+   "name": "Z3a. Phantom proposes 0.01 SOL vault -> DEST and approves (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "4qjTBepRQGDfgQbY9WVsDBXDRjEJ7ie13sH7iXr3VgSUJK51DEfJis8Yba8gBFbzZTTNN1PC5JrudAeqYJxZD9ua"
+  },
+  {
+   "name": "Z3b. Freighter approves and executes",
+   "pass": true,
+   "ok": true,
+   "detail": "V2LkmB7rh1WhRk4e3RH2a4u85qnaWGS1nFZVs8nQXpuNG86NRdaGCZGNWsDVkYyhzNBVEdWet8drZPj7ScRgrQv"
+  },
+  {
+   "name": "Z3c. DEST received exactly 0.01 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.01 SOL"
+  },
+  {
+   "name": "Z4a. Freighter proposes 0.01 SOL vault -> DEST and approves (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "4kkkacnqYeeRtoVPatMAHFnUqD6CHatTshRCh5y5mqrbYhjTsfKGe5fjQxbrGYsYaN8XuxgsJ2LAs2E6Do9m3z2s"
+  },
+  {
+   "name": "Z4b. MetaMask approves and executes",
+   "pass": true,
+   "ok": true,
+   "detail": "3SN9Whw5wYRYZFp2rquQXJZpLQ678GPJsBjnfsGC1fLBHFWjQdh54drboVxx84KkzxTbT6hVPwThDxHvbdMjEttj"
+  },
+  {
+   "name": "Z4c. DEST received exactly 0.01 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.01 SOL"
+  },
+  {
+   "name": "Z5a. MetaMask proposes 0.01 SOL vault -> DEST and approves (one signature)",
+   "pass": true,
+   "ok": true,
+   "detail": "4iTb8E2HmM4DUQ498s2wk7WY8XKtqBTwfSud1GwnUSSq2r82yJ5fN4rxqdwdMvAmo6tYjHLymhnkXp2zDnJHFwsE"
+  },
+  {
+   "name": "Z5b. MetaMask executes with only its own approval",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidProposalStatus"
+  },
+  {
+   "name": "Z5d. a non-member approves that proposal",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "Z6a. Freighter proposes: add D, remove Phantom; approves",
+   "pass": true,
+   "ok": true,
+   "detail": "rRXzD9xpMcoygyzVqX7GG8Ki7Bg7W35cHPVq4788izHZmx7oUdNkjahJySvPN3MDEzMm2gzipYdX1BoP94fL37s"
+  },
+  {
+   "name": "Z6b. MetaMask approves and executes the settings change",
+   "pass": true,
+   "ok": true,
+   "detail": "3b4j2G3wxzsLEjKDRkuEAdrNuxBC58YFNjbRkVkdkuToFkyE1EXqH9tssp1Pbtp4jLidy6qUSYFcbUb9tyqjkmTV"
+  },
+  {
+   "name": "Z6c. seats are now MetaMask, Freighter, D (threshold 2)",
+   "pass": true,
+   "ok": true,
+   "detail": "ArphXk,BNoRWe,CD6JU7"
+  },
+  {
+   "name": "Z7. removed Phantom seat tries to propose",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  }
+ ],
+ "dest": "2tSZshzGY8wuWz5cCwNVySXEU6of5M1wwnPzXzcJYtkj",
+ "settings": "1w97kRYLEZRecUx5Q94v8a3V7r7uWU31ztLLRJ1JNDS",
+ "vault": "GQEU2ZAimiqwGw4TMdUcy9K7KmrismXQdaGmhUqpHJhm"
+}

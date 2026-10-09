@@ -1,0 +1,18 @@
+<!doctype html><meta charset=utf-8><title>Prime wallet test (EVM)</title><body>Prime wallet test (EVM)<pre id=o></pre><script>
+const found = [];
+addEventListener('eip6963:announceProvider', (e) => found.push(e.detail));
+dispatchEvent(new Event('eip6963:requestProvider'));
+const prov = (name) => { const f = name ? found.find((x) => x.info.name.toLowerCase().includes(name.toLowerCase())) : found[0]; return f ? f.provider : window.ethereum; };
+let current;
+const rq = async (a) => { try { return await current.request(a); } catch (e) { throw new Error('RPC ' + JSON.stringify({ code: e.code, message: e.message, data: e.data })); } };
+window.wm = {
+  list: () => ({ found: found.map((f) => f.info.name + ' ' + f.info.rdns), legacy: !!window.ethereum }),
+  async connect(name) { current = prov(name); if (!current) throw new Error('no provider'); const a = await rq({ method: 'eth_requestAccounts' }); const c = await rq({ method: 'eth_chainId' }); return { accounts: a, chainId: c }; },
+  async chain() { return rq({ method: 'eth_chainId' }); },
+  async switchChain(hex) { return rq({ method: 'wallet_switchEthereumChain', params: [{ chainId: hex }] }); },
+  async addChain(p) { return rq({ method: 'wallet_addEthereumChain', params: [p] }); },
+  async personal(hexMsg, addr) { return rq({ method: 'personal_sign', params: [hexMsg, addr] }); },
+  async typed(addr, obj) { return rq({ method: 'eth_signTypedData_v4', params: [addr, JSON.stringify(obj)] }); },
+  async ethSignHash(addr, hash) { return rq({ method: 'eth_sign', params: [addr, hash] }); },
+};
+</script>

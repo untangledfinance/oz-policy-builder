@@ -1,0 +1,63 @@
+--- M: the multisig that is custody's identity
+PASS M1. custody and the trustee create a 2-of-2 SPL multisig (Token program) | ok 317 CU, 456 B
+PASS M2. owned by the Token program, 355 bytes, m = 2, n = 2, initialised | ok 355 B, 3361680 lamports
+PASS M3. 12 signers: refused by the token program (the limit is 11) | refused: token: custom program error: 0x7
+PASS M4. m = 0: refused by the token program | refused: token: custom program error: 0x8
+PASS M5. m = 3 with 2 signers is ACCEPTED by the token program (it never checks m <= n): setup-checks and the gate must | ok 317 CU, 456 B
+PASS M6. 11 signers, m = 11: accepted (the maximum) | ok 478 CU, 753 B
+--- G: gate creation
+PASS G1. custody (a signer of the multisig) creates the gate: Prime P, agent lane 1, owners lane 3, window 60 s, recovery R, destinations [venue, vault 1] | ok 18000 CU, 517 B, gate 18000 CU
+PASS G1a. the gate account exists and holds at least the rent-exempt minimum for its 245 bytes | ok 2596080 lamports
+PASS G2. the gate account holds multisig, settings, agent lane = vault 1, owners lane = vault 3, recovery, until, window 60, seed, bump and the two destinations; 181 + 64 bytes, owned by the gate program | ok 245 B
+PASS G3. the trustee (the other signer of the multisig) creates a gate under another seed | ok 15000 CU, 517 B, gate 15000 CU
+PASS G4. a stranger (not a signer of the multisig) names it: refused | refused: gate: custom program error: 0x5
+PASS G5. a plain token account named as the multisig: refused (no slot holds the signer) | refused: gate: custom program error: 0x5
+PASS G6. custody's wallet (System program) named as the multisig: refused | refused: gate: custom program error: 0x5
+PASS G7. custody names a multisig it does not belong to (signers: stranger, other): refused | refused: gate: custom program error: 0x5
+PASS G8. a 355-byte Token-owned account that was never initialised: refused | refused: gate: custom program error: 0x5
+PASS G8b. a lookalike multisig owned by another program (custody in slot 0, m = 1, n = 1): refused, the identity must be a token program's multisig | refused: gate: custom program error: 0x5
+PASS G9. a multisig with m = 3 and n = 2 (no signer set can ever release or raise): refused by the gate | refused: gate: custom program error: 0x5
+PASS G10. the same gate again is refused (the address is taken) | refused: system: custom program error: 0x0 (Allocate: account Address { address: 5iRSUwZftfs9LfBjVkqB4kBWPABuZ47cpKjUWN2zsLXT, base: N)
+PASS G11. a Prime Account with a settings authority is refused (that authority could add itself as an owner) | refused: gate: custom program error: 0x5
+PASS G12. a zero-filled account that Squads does not own as the settings: refused | refused: gate: custom program error: 0x5
+PASS G12b. the Squads program config (owned by Squads, not a Settings account) as the settings: refused (its bytes 24 to 56 are not zero) | refused: gate: custom program error: 0x5
+PASS G13. agent lane 0 (where session rules sign): refused | refused: gate: invalid instruction data
+PASS G13b. owners lane 0: refused | refused: gate: invalid instruction data
+PASS G13c. both lanes the same vault: refused | refused: gate: invalid instruction data
+PASS G14. without the signer's signature: refused | refused: gate: custom program error: 0x5
+PASS G15. at an address that is not the gate PDA: refused (the runtime gives the signature to the derived address only) | refused: gate: Cross-program invocation with unauthorized signer or writable account (4MU9CHYn55FA3uPu3QaMVaxZY3TgWEM1prZefigZq9yw's signer privilege escalated)
+PASS G16. instruction tag 10: there is no such instruction | refused: gate: invalid instruction data
+PASS G16. instruction tag 4: there is no such instruction | refused: gate: invalid instruction data
+PASS G16. instruction tag 9: there is no such instruction | refused: gate: invalid instruction data
+PASS G16b. create data whose destination list is not whole 32-byte entries (5 stray bytes after a valid create): refused by the gate | refused: gate: invalid instruction data
+PASS G16c. create data shorter than its fixed fields (22 bytes): refused by the gate (not a panic) | refused: gate: invalid instruction data
+PASS G16d. transfer data of 15 bytes: refused by the gate | refused: gate: invalid instruction data
+PASS G16e. allow data of 7 bytes: refused by the gate | refused: gate: invalid instruction data
+PASS G16f. release data of 31 bytes: refused by the gate | refused: gate: invalid instruction data
+PASS G20. custody creates a gate with agent lane 2 and owners lane 4 | ok 18000 CU, 517 B, gate 18000 CU
+PASS G20b. the gate stores vault 2 as the agent lane and vault 4 as the owners lane | ok 
+PASS G20c. the owners as vault 2 draw 5 to the venue | ok 24657 CU, 671 B, gate 3730 CU
+PASS G20d. vault 1 is no lane of this gate: refused | refused: gate: custom program error: 0x1
+PASS G20e. the owners as vault 4 recover 10 to R | ok 27519 CU, 671 B, gate 2092 CU
+PASS G20f. vault 3 is no lane of this gate: refused | refused: gate: custom program error: 0x1
+PASS G17. a stranger sends 1,000,000 lamports to the gate address before custody creates it | ok 150 CU, 215 B
+PASS G17b. custody's create at that address still works (Transfer, Allocate and Assign instead of CreateAccount) | ok 18000 CU, 517 B, gate 18000 CU
+PASS G17c. the account is owned by the gate program, holds its data and is rent-exempt | ok 3596080 lamports
+PASS G18. a stranger pre-funds another address with 5 SOL (more than the rent) | ok 150 CU, 215 B
+PASS G18b. custody's create there works and keeps the stranger's lamports | ok 15000 CU, 517 B, gate 15000 CU
+PASS G18c. the account holds at least 5 SOL | ok 
+PASS G19. one multisig holds gates for two Prime Accounts and for any number of seeds: the addresses differ | ok 
+--- H: hand-over: close authority first, then owner; custody alone is refused for everything
+PASS H1. custody hands the account to the gate: SetAuthority(CloseAccount) then SetAuthority(AccountOwner), both to the gate PDA | ok 251 CU, 374 B
+PASS H2. owner = gate, close authority = gate, no delegate | ok 0 owner 7j1zbk delegate - 0 closer 7j1zbk
+PASS H2b. setup-checks reads the same bytes back as clean | ok 
+PASS H3. before: custody holds the owner and a close authority of its own | ok 0 owner AZ7h4o delegate - 0 closer AZ7h4o
+PASS H3b. the same two SetAuthority calls, signed by custody as the close authority, hand both to the gate | ok 248 CU, 374 B
+PASS H3c. owner = gate, close authority = gate | ok 0 owner 7j1zbk delegate - 0 closer 7j1zbk
+PASS H4. owner first: the account goes to the gate | ok 118 CU, 334 B
+PASS H4b. then the close authority: refused (the signer must now be the gate) | refused: token: custom program error: 0x4
+PASS H4c. the close authority stays unset and falls back to the owner, the gate: custody cannot close or move it | ok 0 owner 7j1zbk delegate - 0 closer -
+PASS H4d. custody alone cannot close it (empty) | refused: token: custom program error: 0x4
+PASS H4e. an unset close authority is no obstacle: the threshold sets a cap on it | ok 3960 CU, 537 B, gate 3960 CU
+FAIL H4f. and releases it (the close authority is set to the new owner first: the gate signs as the owner while it is unset) | refused: token: custom program error: 0x4
+stopped at the first failing check (GATE_STOP_ON_FAIL)

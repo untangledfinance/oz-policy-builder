@@ -469,7 +469,7 @@ export const PINNED_INTERPRETER_WASM_SHA256 =
   'b5ba1e35ccf20cd8c13c3a2c3098bf337033a92bcaf475d63c03ddc0cba0fcae'
 
 /** The grammar version the interpreter enforces (matches SELF_VERSION in
- *  contracts/policy-interpreter/src/version.rs). */
+ *  contracts/prime/stellar/policy-interpreter/src/version.rs). */
 export const PINNED_INTERPRETER_GRAMMAR_VERSION = 4
 
 /** Default Soroban RPC for the install / revoke / info tools. The recorder

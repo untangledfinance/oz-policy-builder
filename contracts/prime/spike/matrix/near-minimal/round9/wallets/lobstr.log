@@ -1,0 +1,18 @@
+LOBSTR Signer Extension 2.0.0 (Chrome, MV3), fresh profile wallet-matrix/real/profiles/lobstr, 8 Oct 2026
+dapp API: @lobstrco/signer-extension-api 2.1.0 (isConnected, getPublicKey, signTransaction, signMessage)
+
+[onboarding] Welcome screen -> Get Started -> "Connect your wallet": QR code to scan with the LOBSTR mobile app
+  steps shown: 1. open the LOBSTR wallet app on your phone, 2. tap Scan, 3. confirm the connection request
+  screenshots: shots/lb-start.png, shots/lb-s3.png, shots/lb-s4.png
+[result] The extension holds no key. No "import secret key" or "import recovery phrase" screen exists.
+  Pairing needs the LOBSTR phone app, which needs a LOBSTR account. Rules forbid creating one.
+[source check] ext/lobstr/background.min.js
+  signTypes for Stellar: ["transaction","message"]  (no auth entry type)
+  request types handled: SIGN_TRANSACTION, SUBMIT_TRANSACTION, SIGN, REQUEST_CONNECTION_STATUS, GET_SUPPORTED_NETWORKS
+  signing flow: the background worker posts the request to lobstr.co and polls .../transactions/<id>/ or .../messages/<id>/
+  every 5 s (up to 720 polls) until state = signed, then returns xdr or signature. The phone app signs.
+  The stellar-sdk bundle inside the extension (338.min.js) contains the generic signAuthEntry helper of the SDK
+  only; the dapp API has no signAuthEntry function.
+[verdict] signMessage: API exists since 2.0.0, signing happens on the phone, format (SEP-53 or not) unverified.
+          signAuthEntry: absent.  signTransaction: API exists, signing on the phone.
+          Status: source-checked, cannot be run with a local test seed.

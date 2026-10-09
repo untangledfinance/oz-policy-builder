@@ -1,0 +1,11 @@
+NEAR MPC key for 0s2ee0a84eed813ebcaf80280ed3c8cbad311e52d5 prime:freighter-spike/solana-1 = 9gZYtDLo1C21zYpxUdZG84QaYo3fR8eptzwhpQ8hVUkK
+PASS N1. root adds a SESSION role owned by the NEAR MPC key (VENUE only, 0.05 SOL) | ok 338ms j1jMR6Fa3yzN5EqDeinS9DnFRmvDPrd1hzkwkiZtoDSqVHD7BjWTrdko2HDjHrHGNKnTdufi7sZSB5hKjUGGgbk
+PASS N2. fund session key | ok 430ms 2WQdUbmBPBzcN3i2MjWePZCuSPEjA6d28CWbxiRMmLnBNTxhUQvbLBVtTtjHSGd7na7xcuQK9Aoc3o5EV1qFrJYR
+   signers required: [ "5bevLKtW8bA6LCXXMqQAjnWBRCWcSXwcvQHiCbT6JjuY", "9gZYtDLo1C21zYpxUdZG84QaYo3fR8eptzwhpQ8hVUkK" ]
+   NEAR MPC signed 220 bytes in 10.4s (Freighter-signed NEAR request)
+PASS N3. NEAR MPC key (via Freighter) creates a Swig session | 5xWA2yhBAohedMBMT4i3vWjzLNF3ryUfGhm5Z8W5CB65ZUAde1avs3EHso8ToqdfLu7bZHRb11ReVXK8xyWXn2LC
+PASS N4. that session key alone: 0.005 SOL to VENUE | ok 397ms 2rpXLdLTE7r5nvaWiE9jYwdaNB38xe6k2A48ajGpwoEVf2xarmig1grpvquqsaTYuAeY74TdNJKYAGuqWmCbck5R
+PASS N5. that session key: 0.005 SOL to another address | refused: failed: custom program error: 0xbbe
+PASS N6. session for the NEAR role signed by another key | refused: Signature verification failed.
+Invalid signature for public key [`9gZYtDLo1C21zYpxUdZG84QaYo3fR8eptzwhpQ8hVUkK`].
+exit 0

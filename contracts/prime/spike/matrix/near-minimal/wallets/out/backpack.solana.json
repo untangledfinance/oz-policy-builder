@@ -1,0 +1,143 @@
+{
+ "detect": {
+  "solflare": [
+   "supportedTransactionVersions",
+   "connect",
+   "disconnect",
+   "openXnft",
+   "_backpackGetAccounts",
+   "signIn",
+   "sendAndConfirm",
+   "signAndSendTransaction",
+   "send",
+   "sendAll",
+   "simulate",
+   "signTransaction",
+   "signAllTransactions",
+   "signAndSendAllTransactions",
+   "prepareSolanaOffchainMessage",
+   "signMessage",
+   "isBackpack",
+   "isConnected",
+   "isXnft",
+   "publicKey",
+   "connection"
+  ],
+  "backpack": [
+   "ethereum",
+   "solana",
+   "sui",
+   "aptos",
+   "tron",
+   "sidePanel",
+   "bitcoin",
+   "__defineGetter__",
+   "__defineSetter__",
+   "hasOwnProperty",
+   "__lookupGetter__",
+   "__lookupSetter__",
+   "isPrototypeOf",
+   "propertyIsEnumerable",
+   "toString",
+   "valueOf",
+   "__proto__",
+   "toLocaleString"
+  ],
+  "backpackSol": [
+   "supportedTransactionVersions",
+   "connect",
+   "disconnect",
+   "openXnft",
+   "_backpackGetAccounts",
+   "signIn",
+   "sendAndConfirm",
+   "signAndSendTransaction",
+   "send",
+   "sendAll",
+   "simulate",
+   "signTransaction",
+   "signAllTransactions",
+   "signAndSendAllTransactions",
+   "prepareSolanaOffchainMessage",
+   "signMessage",
+   "isBackpack",
+   "isConnected",
+   "isXnft",
+   "publicKey",
+   "connection"
+  ],
+  "glow": null,
+  "glowSolana": null,
+  "solana": [
+   "supportedTransactionVersions",
+   "connect",
+   "disconnect",
+   "openXnft",
+   "_backpackGetAccounts",
+   "signIn",
+   "sendAndConfirm",
+   "signAndSendTransaction",
+   "send",
+   "sendAll",
+   "simulate",
+   "signTransaction",
+   "signAllTransactions",
+   "signAndSendAllTransactions",
+   "prepareSolanaOffchainMessage",
+   "signMessage",
+   "isBackpack",
+   "isConnected",
+   "isXnft",
+   "publicKey",
+   "connection"
+  ],
+  "flags": {
+   "isSolflare": true,
+   "isBackpack": true
+  },
+  "std": [
+   {
+    "name": "Backpack",
+    "version": "1.0.0",
+    "features": [
+     "standard:connect",
+     "standard:disconnect",
+     "standard:events",
+     "solana:signAndSendTransaction",
+     "solana:signTransaction",
+     "solana:signMessage",
+     "solana:signIn",
+     "backpack:"
+    ]
+   }
+  ]
+ },
+ "connectRaw": "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx",
+ "address": "Dts1mwBHvFYR3LpA8snip2aRpx7DXxsCeBm51L1kjNdx",
+ "nearRaw": {
+  "sig": "eFar74EGmjaUZpCIVcxoOo1pwBZB4VBwFyA8KvBFJTtdt5fRql651TfBWzxVO2kP0cg7g/j+3NJhkLDBw27WCQ==",
+  "keys": [
+   "signature"
+  ]
+ },
+ "near": "eFar74EGmjaUZpCIVcxoOo1pwBZB4VBwFyA8KvBFJTtdt5fRql651TfBWzxVO2kP0cg7g/j+3NJhkLDBw27WCQ==",
+ "grantRaw": {
+  "sig": "L1L5F8056ga4M5WehE6TcH8PsxbIcT8S3QYzPoP3p+pWEm0S1HkkgGWBleGQ3pyuTgRZVijqgwVlhVsNVR1LCw==",
+  "keys": [
+   "signature"
+  ]
+ },
+ "grant": "L1L5F8056ga4M5WehE6TcH8PsxbIcT8S3QYzPoP3p+pWEm0S1HkkgGWBleGQ3pyuTgRZVijqgwVlhVsNVR1LCw==",
+ "legacyRaw": {
+  "signed": "AVSf2OCWnGvK19977QVdj9A1urbEMfi27CJSmCIrBEbxyN0NtGnl2YIHfK4tAOGeYuLCbdFds1eYS0XQpkEpkQcBAAEDv5VqJ1IXydW29lThB4xcjZMYuERkwQ5R1qPmxlfWa1O6tu/axmgl+WywMgTxTCyT2UT4AclqZxuoDLx+JkFlHQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASvP5rRzBAP0NqMcOffXxqOO10/8aqTkdU0mtHgSGm6kBAgIAAQwCAAAA6AMAAAAAAAA="
+ },
+ "legacy": "AVSf2OCWnGvK19977QVdj9A1urbEMfi27CJSmCIrBEbxyN0NtGnl2YIHfK4tAOGeYuLCbdFds1eYS0XQpkEpkQcBAAEDv5VqJ1IXydW29lThB4xcjZMYuERkwQ5R1qPmxlfWa1O6tu/axmgl+WywMgTxTCyT2UT4AclqZxuoDLx+JkFlHQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASvP5rRzBAP0NqMcOffXxqOO10/8aqTkdU0mtHgSGm6kBAgIAAQwCAAAA6AMAAAAAAAA=",
+ "v0Raw": {
+  "signed": "AfKRd7gAjulm5yIYzCE5TNcuhBoFYNJo7NC8MsCX4IASajP5lWwiTJ9amtjI5LSsepCDVFtm7YTnlloTopWh0gyAAQABA7+VaidSF8nVtvZU4QeMXI2TGLhEZMEOUdaj5sZX1mtTurbv2sZoJflssDIE8Uwsk9lE+AHJamcbqAy8fiZBZR0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAErz+a0cwQD9DajHDn318ajjtdP/Gqk5HVNJrR4EhpupAQICAAEMAgAAAOgDAAAAAAAAAA=="
+ },
+ "v0": "AfKRd7gAjulm5yIYzCE5TNcuhBoFYNJo7NC8MsCX4IASajP5lWwiTJ9amtjI5LSsepCDVFtm7YTnlloTopWh0gyAAQABA7+VaidSF8nVtvZU4QeMXI2TGLhEZMEOUdaj5sZX1mtTurbv2sZoJflssDIE8Uwsk9lE+AHJamcbqAy8fiZBZR0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAErz+a0cwQD9DajHDn318ajjtdP/Gqk5HVNJrR4EhpupAQICAAEMAgAAAOgDAAAAAAAAAA==",
+ "relayerRaw": {
+  "signed": "AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADsqSPzYQ4Wua/1kCDUCpWwPmrVxdfze9SYcQQEMbUR2Mg1Y1TmJMv/HHSwGkdUrH1trfv2vgxXJess5I3YPL0MAgEBA/+8nM0vI6ZVYw6/uUDad4YIFHuLt6eNl64hqbpGKPDlv5VqJ1IXydW29lThB4xcjZMYuERkwQ5R1qPmxlfWa1MFSlNamSkhBk0k6HFg2jh8fDW13bySu4HkH6hAQQVEjUrz+a0cwQD9DajHDn318ajjtdP/Gqk5HVNJrR4EhpupAQIBAQ9wcmltZSBzZWF0IHZvdGU="
+ },
+ "relayer": "AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADsqSPzYQ4Wua/1kCDUCpWwPmrVxdfze9SYcQQEMbUR2Mg1Y1TmJMv/HHSwGkdUrH1trfv2vgxXJess5I3YPL0MAgEBA/+8nM0vI6ZVYw6/uUDad4YIFHuLt6eNl64hqbpGKPDlv5VqJ1IXydW29lThB4xcjZMYuERkwQ5R1qPmxlfWa1MFSlNamSkhBk0k6HFg2jh8fDW13bySu4HkH6hAQQVEjUrz+a0cwQD9DajHDn318ajjtdP/Gqk5HVNJrR4EhpupAQIBAQ9wcmltZSBzZWF0IHZvdGU="
+}

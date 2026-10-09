@@ -1,0 +1,7 @@
+$ bun phx.ts prepare <real Phantom result>
+Safe 0xf877bfcc3478458BC1d44E91D41a6696e1317f75 owners 0xCcD8af4Ae1a907Ac370FD151D6282da59bc7C570,0x06E72750F02Ff10eedfc8e7d661d5f89766b267c safeTxHash 0xe0883477b17bac77539479012800f68383601aca668da7daa8ea4f29c6a06c13
+$ bun phx.ts execute <real Phantom personal_sign of that hash>
+Phantom personal_sign(hash) recovers, as the 32 raw bytes, to 0x06E72750F02Ff10eedfc8e7d661d5f89766b267c (Phantom: signed the raw hash)
+PASS P1. Safe tx executed with MetaMask + real Phantom (own EVM account, personal_sign, no NEAR)
+PASS P2. Phantom alone refused: GS020
+# earlier: real Phantom personal_sign of the PrimeKey grant text recovered to 0x06e72750f02ff10eedfc8e7d661d5f89766b267c

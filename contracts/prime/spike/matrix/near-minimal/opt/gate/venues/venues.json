@@ -1,0 +1,66 @@
+{
+ "orca": {
+  "pool": "4fuUiYxTQ6QCrdSq9ouBYcTM7bqSwYTSyLueGZLTy4T4",
+  "spacing": 1,
+  "tick": 5,
+  "mintA": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "mintB": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+  "vaultA": "4oY1eVHJrt7ywuFoQnAZwto4qcQip1QhYMAhD11PU4QL",
+  "vaultB": "4dSG9tKHZR4CAictyEnH9XuGZyKapodWXq5xyg7uFwE9",
+  "oracle": "3NxDBWt55DZnEwwQ2bhQ3xWG8Jd18TdUXAG4Zdr7jDai",
+  "ticks": [
+   {
+    "start": -264,
+    "addr": "BMGfBaW69aUm6hRdmsfAcNEmAW59C2rWJ9EX7gWnrVN9",
+    "exists": true
+   },
+   {
+    "start": -176,
+    "addr": "2B48L1ACPvVb67UKeSMkUGdzrnhvNMm6pFt2nspGKxs4",
+    "exists": true
+   },
+   {
+    "start": -88,
+    "addr": "8kZSTVuV7C4GD9ZVR4wDtRSXv1SvsSQPfqUbthueRNGV",
+    "exists": true
+   },
+   {
+    "start": 0,
+    "addr": "FqFkv2xNNCUyx1RYV61pGZ9AMzGfgcD8uXC9zCF5JKnR",
+    "exists": true
+   },
+   {
+    "start": 88,
+    "addr": "A7sdy3NoAZp49cQNpreMGARAb9QJjYrrSyDALhThgk3D",
+    "exists": true
+   },
+   {
+    "start": 176,
+    "addr": "9opqNK3dWUijw8VNLtvne4juCTq1qADaph29tZqkoZHa",
+    "exists": true
+   },
+   {
+    "start": 264,
+    "addr": "4LqUiu73XnUr2tDQEqPaG2FSUFAVD45gx3nwMaZivhBV",
+    "exists": true
+   }
+  ],
+  "feeRate": 100,
+  "liquidity": "312209136339900"
+ },
+ "kamino": {
+  "market": "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF",
+  "reserve": "D6q6wuQSrifJKZYpR1M8R4YawnLDtDsMmWM1NbBmgJ59",
+  "liquidityMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "supplyVault": "Bgq7trRgVMeq33yt235zM2onQ4bRDBsY5EWiTetF4qw6",
+  "feeVault": "BbDUrk1bVtSixgQsPLBJFZEF7mwGstnD5joA1WzYvYFX",
+  "collateralMint": "B8V6WVjPxW1UGwVDfxH2d2r8SyT4cqn7dQRK6XneVa7D",
+  "scope": "3t4JZcueEzTbVP6kLxXrL3VpWx45jDer4eqysweBchNH",
+  "marketAuthority": "9DrvZvyWh1HuAoZxvYWMvkf2XCzryCpGgHqrMjyDWpmo"
+ },
+ "usdc": {
+  "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "authority": "2f7xqpzfvNwEveJ2U4812SqKff5PxA9KU6G1BscqLs7V",
+  "decimals": 6
+ }
+}

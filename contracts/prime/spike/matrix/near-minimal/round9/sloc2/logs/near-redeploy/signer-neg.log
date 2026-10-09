@@ -1,0 +1,13 @@
+PASS S1. Freighter, SEP-53, ed25519 domain (control) | ok | signer receipt ok | tx 6DKioeKMMeYaHaFkC3z9WAmih6ouwLK7EXFk1LPemoFt | 10.74 Tgas burnt | 7408 ms
+PASS S2. Phantom, text, secp256k1 domain (control) | ok | signer receipt ok | tx 57QEJhJA2zbhpdQDshn9Amcxo3qaK6DH6sasuamuZx1Y | 10.74 Tgas burnt | 7899 ms
+PASS S3. Phantom's signature presented as Freighter's key | refused: ExecutionError":"Smart contract panicked: not signed by this key" | signer receipt failed | tx BE5HieGNMvVyWdxNgoCjemzWAFxjoTNVnv2gaodd3TDR | 2.13 Tgas burnt | 3544 ms
+PASS S4. Freighter SEP-53 signature submitted as plain text | refused: ExecutionError":"Smart contract panicked: not signed by this key" | signer receipt failed | tx 65Nz186ozFejVo7CTTDDYG1gKniy9nnk5EhtQEfRJ16f | 2.13 Tgas burnt | 3443 ms
+PASS S5. Phantom plain-text signature submitted as SEP-53 | refused: ExecutionError":"Smart contract panicked: not signed by this key" | signer receipt failed | tx 24T4UrRuY8hT7ZNaCgn1PhWH1JiTzfkrfvZY41QxnLah | 2.15 Tgas burnt | 3659 ms
+PASS S6. signed for another payload | refused: ExecutionError":"Smart contract panicked: not signed by this key" | signer receipt failed | tx E2qtsJ1KVAFptvqWUUYR24vafcpEXWbBLn3i7CG2mUjg | 2.13 Tgas burnt | 3689 ms
+PASS S7. signed for another path | refused: ExecutionError":"Smart contract panicked: not signed by this key" | signer receipt failed | tx HXn5ced9jeWARsR2c49LQCcw69yaZSn2vnP9fbRZZ8Af | 2.13 Tgas burnt | 3504 ms
+PASS S8. signed for another domain | refused: ExecutionError":"Smart contract panicked: not signed by this key" | signer receipt failed | tx 6iVKnvvZDr63XCxqAZwQdFzp3RnMYnCgQpFspUp6AATh | 2.13 Tgas burnt | 3596 ms
+PASS S9. signed for another signer contract | refused: ExecutionError":"Smart contract panicked: not signed by this key" | signer receipt failed | tx 9NM2Z6bpuTDrASg7Si5VqbYAuHaqGgJpXWFyq2PKFfnM | 2.13 Tgas burnt | 3733 ms
+PASS S10. malformed key | refused: ExecutionError":"Smart contract panicked: key" | signer receipt failed | tx G7YQUWiNqJc7zJwgmaDUkSY3CRFp6xRM6vdTYfZSscGj | 1.88 Tgas burnt | 3598 ms
+PASS S11. payload in upper-case hex (wallet signed the lower-case text; the text must match exactly) | refused: ExecutionError":"Smart contract panicked: not signed by this key" | signer receipt failed | tx 4D2uTQxmkBPDVCiuKgtNMtMAGEQ1MJ5ejsTAKgowjFdn | 2.13 Tgas burnt | 3460 ms
+PASS S12. non-hex payload, correctly signed (our contract accepts it, the MPC call must fail) | refused: ExecutionError":"Smart contract panicked: Failed to deserialize input from JSON. Error: `Invalid character 'z' at position 0 at line 1 column 123`" | signer receipt ok | tx FyNdtTZ2GAaEkhXPktyj2rL4F8JFzXSPEAm3wpCusFFm | 5.11 Tgas burnt | 3733 ms
+12/12 passed

@@ -1,0 +1,3 @@
+sha256(.so) 8db245ab5ba25a6b8585bfd193be5d9241e5df0f331792437c34f1ac888b7b76 54024 bytes
+program A 4tXCkZW255iZNT4gPHDuAbqR3eG8Zs3tRsgLRc1BoPRa: executable true, upgrade authority none (final)
+program A 4tXCkZW255iZNT4gPHDuAbqR3eG8Zs3tRsgLRc1BoPRa: on-chain code starts with local .so: true rest zero: true sha256(on-chain code, .so length) 8db245ab5ba25a6b8585bfd193be5d9241e5df0f331792437c34f1ac888b7b76

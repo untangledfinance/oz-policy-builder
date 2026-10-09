@@ -1,0 +1,44 @@
+03:11:43 seats {
+  MetaMask: "GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW",
+  Freighter: "GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I",
+  Phantom: "GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ",
+}
+03:11:43 session owners {
+  MetaMask: "GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO",
+  Freighter: "GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I",
+  Phantom: "GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN",
+}
+03:11:58 prime-session wasm e36d155f0381a466fb6c2c29b788a9d52e4a6f3e568f30da981609075bb7a0b3 3d77c0f1eff7a9772f83ad12d7ca338fc7d33a42935993826a73aa4ab998f8e6
+03:12:03 S_mm CAHJHPZFB2M7FNWOYHVV7YR45AR2BCJDUR6WFLKJD5I7SE4PQD3HDMTI 6efded24623fb0cd1eb20f679eaae05dbe34635a3b77e72b5519fbd3ed89e1a3
+03:12:07 S_fr CDTN6U5HIV76RSG3C2JNU6JWQX6VF3AJZDKVPVANA5BTIDVN5CFAULY5 eb4ed3ef0e70daad6a7a2d06abc9ba81bae120df3b8319e84f74b9cd142fe996
+03:12:12 S_ph CCCJ3LW2MOP3WFNEOHYUJDHZLTYYMFWBRJTCFOEYRBNIOJEV5AKN25IH 09a70ed70a6a2f4a4519c67ef1686f76188aeb413e132307843e6c52759025cb
+03:12:17 S_rf CB5GRYA2OJBPJCJVBSTJHAVYQWFW222PUNGIVMZUQ74MVZ4CK5EMOIUQ 15b2edfaf13320fc793e2d7af4fc75a636d3f69670e4506a45ac1fa1e38956ae
+03:12:22 Prime Account CCGGOBFHDOSHJSNKE5OD5OWOE6T4BOV54FG2PGRNSPIP5FWAAR6V6ONO 26626d640480d823d4f2265b99b84e220b370a86bdf8eaf5b09921240a9b873b
+03:12:27 funded 30 XLM f7c63b02ef4d550b81b52918197d96e66c7615a922101293a0f586a1d588c77d
+03:12:27 PASS P0. rule 0 signers are exactly the three wallet G keys (no prime-session) [["Delegated","GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW"],["Delegated","GDHZ2JROFT36GPQUCJDOHPGC45UN7FV7NEYG72RVV7U6CGAIPJR2PO2I"],["Delegated","GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ"]]
+03:12:27 PASS P1. the session-owner keys of MetaMask and Phantom are not their seat keys and are not on rule 0 MetaMask GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO, Phantom GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN
+03:12:42    lock seat-MetaMask GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW d8306a2760cb1d91f9924159ad9f3658765cd3053984eb0bb47a2bd7c5e68e15
+03:12:42 PASS L1-seat-MetaMask. master weight 1, thresholds low 1 / medium 1 / high 2, the account's own key is the only signer GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW thresholds 1/1/2 signers GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW:1
+03:12:57 PASS L2-seat-MetaMask. control: a medium-threshold SetOptions (home domain) signed by the key is accepted b150da6b6cefea1ff3776fdc3594e5b028550e71d7755c712c0a87bfa58250fc
+03:13:06 PASS L3-seat-MetaMask. SetOptions that adds a signer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+03:13:14 PASS L4-seat-MetaMask. AccountMerge into the relayer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+03:13:15 PASS L5-seat-MetaMask. after both refusals the signer list and thresholds are unchanged and the account exists 1/1/2 GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW:1
+03:13:27    lock seat-Phantom GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ e64b8aae5fb551ad9721f8d8df592fbdee0d90c65b86be0ea79fe7180af286b0
+03:13:27 PASS L1-seat-Phantom. master weight 1, thresholds low 1 / medium 1 / high 2, the account's own key is the only signer GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ thresholds 1/1/2 signers GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ:1
+03:13:37 PASS L2-seat-Phantom. control: a medium-threshold SetOptions (home domain) signed by the key is accepted c74eacc37ad25d7eb4a4bd805860423d19ebd5191f7f4bdd7e5fe9330d39568c
+03:13:46 PASS L3-seat-Phantom. SetOptions that adds a signer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+03:13:54 PASS L4-seat-Phantom. AccountMerge into the relayer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+03:13:54 PASS L5-seat-Phantom. after both refusals the signer list and thresholds are unchanged and the account exists 1/1/2 GB2UUGB6GRDXFWQZGI2LQW2TX3PLQ7E6WMCYEJZBQM67Z2PTE7BWKJQJ:1
+03:14:07    lock owner-MetaMask GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO d693dc0585de6a81ace7b2a9b18809cfae2bf8faa9da17a97d13a2b58412686e
+03:14:07 PASS L1-owner-MetaMask. master weight 1, thresholds low 1 / medium 1 / high 2, the account's own key is the only signer GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO thresholds 1/1/2 signers GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO:1
+03:14:22 PASS L2-owner-MetaMask. control: a medium-threshold SetOptions (home domain) signed by the key is accepted 34d2f00584b8a7a957f34c66f2c7fa9a32aa02c267f68bf43b017d94991469fa
+03:14:31 PASS L3-owner-MetaMask. SetOptions that adds a signer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+03:14:40 PASS L4-owner-MetaMask. AccountMerge into the relayer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+03:14:40 PASS L5-owner-MetaMask. after both refusals the signer list and thresholds are unchanged and the account exists 1/1/2 GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO:1
+03:14:52    lock owner-Phantom GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN 2cda15d7b08529a02960824226889253ee863cd68d249c0c4b861a55ea33142f
+03:14:52 PASS L1-owner-Phantom. master weight 1, thresholds low 1 / medium 1 / high 2, the account's own key is the only signer GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN thresholds 1/1/2 signers GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN:1
+03:15:02 PASS L2-owner-Phantom. control: a medium-threshold SetOptions (home domain) signed by the key is accepted 056e97ff414ae3c556d10c1c4a7d4c2cc2d7489e085809ece35d2b99a7528b7c
+03:15:11 PASS L3-owner-Phantom. SetOptions that adds a signer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+03:15:19 PASS L4-owner-Phantom. AccountMerge into the relayer, signed by the key, is refused {"transaction":"tx_failed","operations":["op_bad_auth"]}
+03:15:19 PASS L5-owner-Phantom. after both refusals the signer list and thresholds are unchanged and the account exists 1/1/2 GC6ZPOMRB5C3OP2NYCFXBUWPS5US5GQ2FSWABPC4UREPRSJ6QBF7TCRN:1
+03:15:19 NEAR MPC: 16 signatures, average 8.2s

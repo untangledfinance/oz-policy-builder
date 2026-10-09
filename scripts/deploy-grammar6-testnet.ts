@@ -23,7 +23,7 @@ import {
 } from '@stellar/stellar-sdk'
 
 // Artifacts come from each crate's own build output, so a fresh clone can run
-// this after `cargo build --release --target wasm32v1-none` in contracts/*.
+// this after `cargo build --release --target wasm32v1-none` in contracts/prime/stellar/*.
 // The interpreter is the exception: it is rebuilt here through build-wasm.sh,
 // because a bare cargo build bakes machine paths into the wasm and CI could not
 // check the deployed hash against the source. Deploy from Linux: macOS builds
@@ -33,11 +33,11 @@ function wasmPath(crate: string, file: string): string {
   const override = process.env.PRIME_WASM_DIR
   const candidate = override
     ? `${override}/${file}.wasm`
-    : `contracts/${crate}/target/wasm32v1-none/release/${file}.wasm`
+    : `contracts/prime/stellar/${crate}/target/wasm32v1-none/release/${file}.wasm`
   if (!existsSync(candidate)) {
     throw new Error(
       `missing ${file}.wasm at ${candidate}\n` +
-        `Build it:  cargo build --release --target wasm32v1-none --manifest-path contracts/${crate}/Cargo.toml\n` +
+        `Build it:  cargo build --release --target wasm32v1-none --manifest-path contracts/prime/stellar/${crate}/Cargo.toml\n` +
         'or set PRIME_WASM_DIR to a directory holding the built artifacts.'
     )
   }
@@ -88,7 +88,7 @@ async function main() {
   log('DEPLOY', `deployer ${kp.publicKey()}`)
 
   if (!process.env.PRIME_WASM_DIR) {
-    execFileSync('contracts/policy-interpreter/build-wasm.sh', { stdio: 'inherit' })
+    execFileSync('contracts/prime/stellar/policy-interpreter/build-wasm.sh', { stdio: 'inherit' })
   }
   const artifacts = {
     interpreter: readFileSync(wasmPath('policy-interpreter', 'policy_interpreter')),

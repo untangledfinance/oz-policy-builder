@@ -1,0 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import nacl from 'tweetnacl';
+import bs58 from 'bs58';
+const near = JSON.parse(readFileSync('/home/ubuntu/work/near-session-spike/secrets/near.json', 'utf8'));
+const phSecret = bs58.decode(JSON.parse(readFileSync('/home/ubuntu/work/phantom-spike/secrets/phantom-test.json', 'utf8')).secret);
+const ph = nacl.sign.keyPair.fromSecretKey(phSecret.length === 64 ? phSecret : nacl.sign.keyPair.fromSeed(phSecret).secretKey);
+const pred = `signer.${near.accountId}`;
+const path = `${Buffer.from(ph.publicKey).toString('hex')}/prime:evm`;
+process.stdout.write(execFileSync('bun', ['secpderive.ts', pred, path], { cwd: '/home/ubuntu/work/near-session-spike', encoding: 'utf8' }));

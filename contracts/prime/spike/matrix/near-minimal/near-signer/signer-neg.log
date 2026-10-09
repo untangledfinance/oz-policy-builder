@@ -1,0 +1,13 @@
+PASS S1. Freighter, SEP-53, ed25519 domain (control) | ok
+PASS S2. Phantom, text, secp256k1 domain (control) | ok
+PASS S3. Phantom's signature presented as Freighter's key | refused: not signed by this key"
+PASS S4. Freighter SEP-53 signature submitted as plain text | refused: not signed by this key"
+PASS S5. Phantom plain-text signature submitted as SEP-53 | refused: not signed by this key"
+PASS S6. signed for another payload | refused: not signed by this key"
+PASS S7. signed for another path | refused: not signed by this key"
+PASS S8. signed for another domain | refused: not signed by this key"
+PASS S9. signed for another signer contract | refused: not signed by this key"
+PASS S10. malformed key | refused: key"
+PASS S11. payload in upper-case hex (wallet signed the lower-case text) | ok
+11/11 passed
+EXIT 0

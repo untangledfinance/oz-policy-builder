@@ -1,0 +1,44 @@
+{
+  MetaMask: "2mgK6QSMmExM2CDzKZK3dFHpaUYb5NkiS2spdL6yvGMZ",
+  Freighter: "BU4B8vczr3Xqzo1sq5fTUE9HG9VxvXcbUKv4Yv4q9AuU",
+  Phantom: "G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4",
+  sessionMetaMask: "FGaZkHnnqWdGtGHwYBNg3XFJW9euiqWa9ParoHMfRWPX",
+  sessionFreighter: "GgnRgm9eVt6TNUNQUm13Nr9Zo7Mkv2Lvdm7nma6uzLZj",
+  program: "FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G",
+  programB: "J38gUL2YFo91GDBnDXwVDaGpk6XWSJUhs7RuditRdiVo",
+  net: "localnet",
+}
+1-of-1: Phantom seat G5H71U owner G5H71U program FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G
+PASS O0. seats are exactly the 1 owner keys, threshold 1 | ok 5U8sVu9YxuZzLf1hGcYkToZxEHfWLa7DpcCNzdZUUPjLfgcHfVRzgQf2KVcvMjMaDvkXNoH9b69xZr38wJ7ygqWS
+PASS O0b. the 1 session owners and 1 session PDAs are all different, and no session PDA is a seat | ok CvwnKz
+PASS K1.a Phantom proposes (no approval) | ok BueDt8d1AxmJ2exBWWaLrBxj6yDGwuyaZNwM7F8LMuU3S2wUnobrarozDgQaGF2ZuHW1RdJ3xN6UH4nSNP8GAsg
+PASS K1.x Phantom executes | refused: Error Code: InvalidProposalStatus
+PASS K1c. an outsider approves it | refused: Error Code: NotASigner
+PASS K2.x Phantom approves and executes | ok 5Trb3RSKbVoqxqyRUKv185to5ASVyCwEfCe4JEJTiah6HmaR7Sst7WbtspYfWYZqkdax9gipvHfsab3tf88j9he8
+PASS K4. DEST received exactly 0.01 SOL (the accepted transactions only) | ok 0.01
+PASS K5. 1 owners install the movers policy (members: the 1 session PDAs, Phantom):.a Phantom proposes and approves | ok 3btmaT8q6NXp45QJc5xG5yM2ZHFTaaCHA2BJR2jEF3iVBQs1Vk4rwTVcRUGo2xB2PwiN6GVFBZT8KdvNxScTJLeK
+PASS K5. 1 owners install the movers policy (members: the 1 session PDAs, Phantom):.x Phantom executes | ok 363AP7ioLvXz15NRmwjnGhaXU7oiYH2TUCVEV3pqiLu4io2gkvxeAwVAnZjJRDczcBsndMqgU6rixbWHDqLtALgF
+PASS N0.a Phantom proposes (no approval) | ok 2t46mQbCvLJ8aS3cta2ZpGSQ5XULPdduCkdibUavp3b93Y8YvEd23Urw3L5PsRp3YmHoYko9Lwpc6AZJ4U3GPxQu
+PASS P0-Phantom.1 one Phantom signature -> session; relayer pays: 0.002 SOL to VENUE | ok 5fbbqhy6E9Ybtj5axKHtRgnS5XKjwsF33zwpm2GBwGQrvzpTNG8KMtLceJvHigetp4rfKTbLXiXxqBsxcshe1y9A
+METRIC move-Phantom-relayed {"totalCu":50648,"primeSessionCu":50648,"bytes":975,"fee":15000}
+PASS P0-Phantom.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE | ok 4gRzXPCkeBxE35FHQ3VhmXj86acwHVJLn5wUpLmzjcKRL27s7WB4KsKYsAbjABmTtB4whoQDeMrbrgmz61Gk9FQF
+PASS P0-Phantom.3 VENUE received exactly 0.003 SOL | ok 0.003
+PASS P0-Phantom.4 0.002 SOL elsewhere (policy) | refused: Error Code: ProgramInteractionAccountConstraintViolated
+PASS P0-Phantom.5 the session approves an open seat proposal as its PDA | refused: Error Code: NotASigner
+PASS P0-Phantom.6 the session key approves it as itself | refused: Error Code: NotASigner
+PASS P0-Phantom.7 the session adds its key as a seat (settings sync, its PDA as the only signer) | refused: Error Code: NotASigner
+PASS P0-Phantom.8 a second session works | ok 5hHffekUnW5yRvPsmSs3N9sn4TEx4j4rtKCGLttCnbZYXmkPrNpLCFfVuLHSsrnfcRtKzBbn9VM7qmjTjihHZrDr
+PASS P0-Phantom.9 Phantom revokes it (one signature, relayed) | ok 2NhBThsTcB2r7fHW1bBmuedJqg4JRPT61xSJomVs5CSmDRRb3c4oDhiNLCjpyfifFy3R9MWDSAjTZkUhKP9kcAmh
+PASS P0-Phantom.10 the revoked session | refused: custom program error: 0x2
+PASS P0-Phantom.11 the first session still works | ok 4rRX8Zog51sreTC31S3VVBCvqao12txd7mMLwA4FZpbzLeK4ShtkHxm4JjYBVgLKvc7DvQk3WVv5K4ZW1tsqpWxc
+PASS R0. Phantom's live session works before removal | ok 4AZEfeDjEFhS5WbNSBzo7k4KgnvvNv7dxgR4F8e4buEgpMzZTPXvwmJw21fJoXPGj6269jdGkagD1WozyHwZ3Sip
+PASS R1. 0 owners try to remove Phantom's PDA from the policy:.a Phantom proposes (no approval) | ok 5vWmgGRPbZDRN1nfjFWh9A3wCnRW3JhUyLHL6tFwxxfxu83T4HfwgYD67phEjbf7urCtVVptiihM7zvcnqCwaVUF
+PASS R1. 0 owners try to remove Phantom's PDA from the policy:.x Phantom executes | refused: Error Code: InvalidProposalStatus
+PASS R2. 1 owners remove Phantom's PDA from the policy (Phantom): refused, the policy would have no member:.a Phantom proposes and approves | ok 3Nz3dLKqm4LCTwV4qtiU8XqNb66QhfzTGqfgRQmdju4pfhAaH9uF6mRHurtV5i99y7ngm16QMXTHf6GTEtquXckt
+PASS R2. 1 owners remove Phantom's PDA from the policy (Phantom): refused, the policy would have no member:.x Phantom executes | refused: Error Code: NoProposers
+PASS R3. Phantom's live session after removal (nothing was removed) | ok qwL6QMKjdHfnw2nFz3YACt8YsCWod1SbthVzsgWfs57rEx3doCfFMTQyPyUeAWLvNcViEpBZAcygiUXnYUssNEG
+PASS R4. Phantom signs a new grant: the session is the same as before | ok 2HcamfzyyeXmkRYmSZUkJnbdj4SL8CYccQnsEGvQERwK6ZpzRUK8YTfKcGi1HWnf7jEpDKf6fSaUEdJ4SeqpwHWV
+PASS R6. the sole owner removes itself from a 1-owner account:.a Phantom proposes and approves | ok 4GgsBkNw4haZV9VtYFsGD5L9QwaDfZRGB32kHAm8kDFwhhmQSvKGMs96ERpN4QWGHqVH7LSEMq7jhLxCQjHWN8qF
+PASS R6. the sole owner removes itself from a 1-owner account:.x Phantom executes | refused: Error Code: NoProposers
+NEAR MPC signatures: 0, average 0.0s
+1-of-1: 30/30 passed

@@ -1,0 +1,1 @@
+on-chain code starts with local .so: true rest zero: true sha256(.so) c5305242be20cfee3dfdc62022ed6fd60e3e63bf78b8c2329c0fd497dcec7d8c

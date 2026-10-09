@@ -1,0 +1,1368 @@
+{
+ "program": "FTNMFWiECbRp7D5MwJUiNQfee6NuJPjE7S11J9yc2B9G",
+ "programB": "J38gUL2YFo91GDBnDXwVDaGpk6XWSJUhs7RuditRdiVo",
+ "sessionOwners": {
+  "MetaMask": "FGaZkHnnqWdGtGHwYBNg3XFJW9euiqWa9ParoHMfRWPX",
+  "Freighter": "GgnRgm9eVt6TNUNQUm13Nr9Zo7Mkv2Lvdm7nma6uzLZj",
+  "Phantom": "G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4"
+ },
+ "settings": "FQLRQ47PYsGQw9nCUPHXn3jLuusrgfckyxrc9KqMY235",
+ "policy": "5WHLZnuM6dQdJSQGz7Spck18YXvujkfzTvhf2ZpQLyrK",
+ "policySeed": 1,
+ "mpc": {
+  "calls": 19,
+  "ms": 156246
+ },
+ "metrics": {
+  "createAccount": {
+   "owners": 12,
+   "settingsBytes": 531,
+   "settingsRentLamports": 4586640,
+   "relayerSpentLamports": 4591640,
+   "fee": 5000
+  },
+  "policy": {
+   "owners": 12,
+   "bytes": 797,
+   "rentLamports": 6438000
+  },
+  "move-Phantom-relayed": {
+   "totalCu": 60267,
+   "primeSessionCu": 60267,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-MetaMask-relayed": {
+   "totalCu": 60360,
+   "primeSessionCu": 60360,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-Freighter-relayed": {
+   "totalCu": 60299,
+   "primeSessionCu": 60299,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-Owner4-relayed": {
+   "totalCu": 63298,
+   "primeSessionCu": 63298,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-Owner5-relayed": {
+   "totalCu": 60361,
+   "primeSessionCu": 60361,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-Owner6-relayed": {
+   "totalCu": 61829,
+   "primeSessionCu": 61829,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-Owner7-relayed": {
+   "totalCu": 60362,
+   "primeSessionCu": 60362,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-Owner8-relayed": {
+   "totalCu": 61830,
+   "primeSessionCu": 61830,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-Owner9-relayed": {
+   "totalCu": 63331,
+   "primeSessionCu": 63331,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-Owner10-relayed": {
+   "totalCu": 60330,
+   "primeSessionCu": 60330,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-Owner11-relayed": {
+   "totalCu": 61861,
+   "primeSessionCu": 61861,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "move-Owner12-relayed": {
+   "totalCu": 63361,
+   "primeSessionCu": 63361,
+   "bytes": 975,
+   "fee": 15000
+  },
+  "relayerSpend": {
+   "net": "localnet",
+   "spentLamports": 2133056120
+  }
+ },
+ "results": [
+  {
+   "name": "O0. seats are exactly the 12 owner keys, threshold 7",
+   "pass": true,
+   "ok": true,
+   "detail": "3zmSYa6Cw1Az6hm5Xi2qzykCordrQi5WVSLF935qxc8exTw6zq4NWxjZDpiVW5uZy4HaGDHU3FEgrd24uPZwgftk"
+  },
+  {
+   "name": "O0b. the 12 session owners and 12 session PDAs are all different, and no session PDA is a seat",
+   "pass": true,
+   "ok": true,
+   "detail": "8Bq7Ls,23F4UR,BKqNZC,66oB2b,6YyGsK,3QiSU6,Etn3s6,6iGizo,GZJD9X,AwydSW,9TW5K8,3VE3Zz"
+  },
+  {
+   "name": "K1.a Phantom proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "5Zh4MDRtGGbLaQduWfuensrVfZUc2bftswUSrQzbJC8HxkEbN2AAG3wzPbiif5f9uGvX77STHw9uQzE62FNG7e8w"
+  },
+  {
+   "name": "K1.MetaMask approves",
+   "pass": true,
+   "ok": true,
+   "detail": "5XJrA7NEX6x7ae18wWTCDN9n4x24LfWUricMsafXxJX48cA13RoBNGwPb6rrAQuRLA4jGqrjmhygdVaQfUTeh1GS"
+  },
+  {
+   "name": "K1.Freighter approves",
+   "pass": true,
+   "ok": true,
+   "detail": "5cj8SigGEyHxR45bpqzW9iStia8LaBsBjGQKmK5iLzcAxV4zaaZD2ikSkKFeeZPpWdDu9PucTrYcnQRgoEV8npKe"
+  },
+  {
+   "name": "K1.Owner4 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "4VP727fAkfpuCV6ufeQKyVCsJFiVARqNnUSvoDeYUpJac3aEcLY9CVQU4J91xq7SuYg9dXc43FjLKFNenwqqjxyA"
+  },
+  {
+   "name": "K1.Owner5 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "Vi5m6A1mAY9zMoX3qovGfFvuk4bW1cQqJ2a4TM2dp6XSoJpkYaFd1NqkFGhYLEnJdjM7LfQtgca6nCjeQBh48M5"
+  },
+  {
+   "name": "K1.Owner6 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "7FRZntofVtScBDoWhCfwsgdxbQ768eQxd3ETkDmssoUw2Huk79ax3K9YEoV7jMa9u6GdZwPFHeBmtKAFndQPddp"
+  },
+  {
+   "name": "K1.x Owner6 executes",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidProposalStatus"
+  },
+  {
+   "name": "K1c. an outsider approves it",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "K1d. Phantom approves it a second time",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: AlreadyApproved"
+  },
+  {
+   "name": "K2.x Owner7 approves and executes",
+   "pass": true,
+   "ok": true,
+   "detail": "62A2UPDsMkboLoBRiUdN9Tn8ig8LN72jDMifoDUAEgWBGo6TZAJQFWCkzrQL3sZmD1zqnrTeBQirbKJkyNxbxeGQ"
+  },
+  {
+   "name": "K3. a different 7 owners (Owner6 + Owner7 + Owner8 + Owner9 + Owner10 + Owner11 + Owner12):.a Owner6 proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "2PwUbu2AfTnr11YnKSQzN57mqpvjjxLxM1hdg1Z7JrGS86Q1Q4SYCr22KRKk7wKosm84qUCqkicKFQb2HJZFvdW3"
+  },
+  {
+   "name": "K3. a different 7 owners (Owner6 + Owner7 + Owner8 + Owner9 + Owner10 + Owner11 + Owner12):.Owner7 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "59wWddm8X6a44YnzVTSjkxQVyvm1h17XPB5CRx9f8sQ9k9Vnx2azrmb1KkqkPydJR5kNb6Taev6dMmACZv4jxzWP"
+  },
+  {
+   "name": "K3. a different 7 owners (Owner6 + Owner7 + Owner8 + Owner9 + Owner10 + Owner11 + Owner12):.Owner8 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "3LjKuAFL2K1FjMRtw7A9vSzC4iiE65A4nEWdx9RwVWGavdqqWsvdexs8gQGwShZwZBdWAEomVbGnrCsGptknhCiA"
+  },
+  {
+   "name": "K3. a different 7 owners (Owner6 + Owner7 + Owner8 + Owner9 + Owner10 + Owner11 + Owner12):.Owner9 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "3MU3UKomhuoygg8VBUXmcyRvRz8fnfCGPEg9BCdxUiSCoijW39y8R8eqiXHt6y7iALajBvPbfaZqmfNwbBU2tBAp"
+  },
+  {
+   "name": "K3. a different 7 owners (Owner6 + Owner7 + Owner8 + Owner9 + Owner10 + Owner11 + Owner12):.Owner10 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "58Kn6UzV7tiknkVuCjyPGrCFmrYEFd5XVtqBQ34okqLqAsNnHoiwQf5vVVcU1r4DZKnPtgUyzpQP878tEgkeCAMP"
+  },
+  {
+   "name": "K3. a different 7 owners (Owner6 + Owner7 + Owner8 + Owner9 + Owner10 + Owner11 + Owner12):.Owner11 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "4Xe9cFch8ttWtsWgPK9E9a2q36JfEuFqTUPafvdgCNerHGY4LNo4YyKmjDKrcVEbgCgdZS1YBV2zitXkgeik5Sk"
+  },
+  {
+   "name": "K3. a different 7 owners (Owner6 + Owner7 + Owner8 + Owner9 + Owner10 + Owner11 + Owner12):.x Owner12 approves and executes",
+   "pass": true,
+   "ok": true,
+   "detail": "2hFXMS6cp3vkDSxfMPG91NJBJa8SXeGsgXsePQURxoTwN9SJYHBuywMVXtvod5HJtY6k59fsnjJxqiRranUkhvcF"
+  },
+  {
+   "name": "K4. DEST received exactly 0.02 SOL (the accepted transactions only)",
+   "pass": true,
+   "ok": true,
+   "detail": "0.02"
+  },
+  {
+   "name": "K5. 7 owners install the movers policy (members: the 12 session PDAs, Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.a Phantom proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "3kJrgsgWaJWdQpZgZp6B7n2hLYjEHkd1bicNBEx3ZWJPD4qnexPg1my3wKMA7hkZJy7DDDiX9YUiFGq5ySrHoCo7"
+  },
+  {
+   "name": "K5. 7 owners install the movers policy (members: the 12 session PDAs, Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.MetaMask approves",
+   "pass": true,
+   "ok": true,
+   "detail": "59w2cPkfndhLrWFxx7V9G8SxhkfTFLryWzeTgmP6G72wdXFrLoyZKesJzXS93WsBC7nFiTd4dJ9bzXNShxVhXDXR"
+  },
+  {
+   "name": "K5. 7 owners install the movers policy (members: the 12 session PDAs, Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.Freighter approves",
+   "pass": true,
+   "ok": true,
+   "detail": "5bN4KG2eqpmhSepr86vbuEGYQkSxHHpg5b7ePBvftanUMjZnhAP9xnnVDD5BLsKXr4uovWGMh9wNoEYfCYaHooRD"
+  },
+  {
+   "name": "K5. 7 owners install the movers policy (members: the 12 session PDAs, Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.Owner4 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "2ER1w7QUhdMQHp43xctzsnWWELBTLXpuLNWV8BEuvMuBJYTefCq4aPqb4sXQWTq1WBsg2rWSuCRuGwGuiWMaPpS8"
+  },
+  {
+   "name": "K5. 7 owners install the movers policy (members: the 12 session PDAs, Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.Owner5 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "27qGKymTDXr1ec5NujHpG58DiDmx4fXGwUWq9yJJg4i5zFTQqKM5EPVdbZSdJXTvLDqzQCNruTrdTBYBddtuFtVp"
+  },
+  {
+   "name": "K5. 7 owners install the movers policy (members: the 12 session PDAs, Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.Owner6 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "G1GKMGWAxbBcEZDJdTETqLhKcryo1xcxj4oCH6Z6mHGDfGtWWzVWsXF8WrNjiLkJs1hTtChcPS2xafrGawTXmqd"
+  },
+  {
+   "name": "K5. 7 owners install the movers policy (members: the 12 session PDAs, Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.x Owner7 approves and executes",
+   "pass": true,
+   "ok": true,
+   "detail": "362MsZvrEnnRqc8tDFaHXfCJ5uPutqDbDw56TJuPQfVYsz427VmjHo13v6SHUAw6kqSFf1SJccWeL9PxMzkW4gmf"
+  },
+  {
+   "name": "N0.a Phantom proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "2vmymhHZUNUUnCxxpQhN88eH92R8mtZJY34VpN6ojYMDQFeEPPtNHZTV6em2MzSGNmCMcmkECCLRRYTtFrbCfjcC"
+  },
+  {
+   "name": "N0.MetaMask approves",
+   "pass": true,
+   "ok": true,
+   "detail": "4NhnZxYmnSCyRs3H7QFo5KJDb1VVXGgiceC2h6JgE9sWJcDWkTx9sfmMP3DAWnQmSzQ4SVrGkFe8AA4XCNyTAshg"
+  },
+  {
+   "name": "N0.Freighter approves",
+   "pass": true,
+   "ok": true,
+   "detail": "5YyjWjEpNSTw93Cxwjr4L2o9TWDB4f3K2KtrFiidNEm1k5ZSjYxEQ6giX6VFkDtAZt8EyVQFTpL9knWkuK2nQ1Bx"
+  },
+  {
+   "name": "N0.Owner4 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "58N8HfWHcjpdJhWuKKKkEqz3pFnFppxXJyD14EvPG9pQt7KsFnnRPteGrnv6x1TTCa5HVMsCX63bnVtGsxxPk5Q5"
+  },
+  {
+   "name": "N0.Owner5 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "euqaiqB6SWi9HJTjFGdTHcL7UrRhuv9rgeZykp8tA142Q4ki4e8yqSejuFfqhEhQtnuLSqdR8xFi9KWb3WTTg29"
+  },
+  {
+   "name": "N0.Owner6 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "2DUChwXKtocA8TUQ2FkeyjHRmPrs6c2yCN2JhnQ7Ya2a6UmJUdUJvdB6sH5XdrtBZsAn6KLs62WY1ej3KCMU8wLV"
+  },
+  {
+   "name": "P0-Phantom.1 one Phantom signature -> session; relayer pays: 0.002 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "2RQhVa21jHnjx3zzNRv6pinj4MNpe83jvdDiTeHdc81QzSS5NWYZAVxNnJNSzAHiTLWc8xvM3TF6PvWGHs84wdsd"
+  },
+  {
+   "name": "P0-Phantom.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "5CsurLvxYmHQeZpR7HXWzxtWHK1Wr4DH2sgxmM9f8XeL53bSycDdb35BzZ3EqzGB8xFqFJQtvwvAeCw5fubqy6QV"
+  },
+  {
+   "name": "P0-Phantom.3 VENUE received exactly 0.003 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.003"
+  },
+  {
+   "name": "P0-Phantom.4 0.002 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "P0-Phantom.5 the session approves an open seat proposal as its PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P0-Phantom.6 the session key approves it as itself",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P0-Phantom.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "P0-Phantom.8 a second session works",
+   "pass": true,
+   "ok": true,
+   "detail": "64CA49f8v6BhdxdwoU3VqVgimyvY1sHFRY13JjXATwtbaBMAExg8wTymthfe4jZPt3ApLQtQgFoTt2LsDBDuHPAj"
+  },
+  {
+   "name": "P0-Phantom.9 Phantom revokes it (one signature, relayed)",
+   "pass": true,
+   "ok": true,
+   "detail": "2ngHrsk3H4fBd8T8qfU4gv4cN86zR6Ughiv83dvZb9UByfsUf3cjA2BJaeZQNjDmG21RmCa8SdKLmBYFzuaQbQq8"
+  },
+  {
+   "name": "P0-Phantom.10 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "P0-Phantom.11 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "3VmTuZ6mztqWmhz7Mx7Ck8wrfZiNRfxDKbU2M5SrvZQwRMFqFsavkpPeZ3KPHYgLy2GNQLWYpNwfgHoLDmySKFMe"
+  },
+  {
+   "name": "P0-Phantom.12 a grant for Phantom's PDA signed by MetaMask's owner key",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "P1-MetaMask.1 one MetaMask signature -> session; relayer pays: 0.002 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "3vQQQ4GRzWwsPfumDtSqznaLkrK3iWdXR4ewDammp6aoQHMZsrps8iRQUAYV6tr6AA6atd9izgCwKzoSAEVTjaJS"
+  },
+  {
+   "name": "P1-MetaMask.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "2dEYt9YC7AvhEduerfZW9H5J6bMuZ2VRpfu6X32xV4z2Lx68ibTBBqL6KE8JWB7cyWNrs4ibGdhm5Je645bJ1o8k"
+  },
+  {
+   "name": "P1-MetaMask.3 VENUE received exactly 0.003 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.003"
+  },
+  {
+   "name": "P1-MetaMask.4 0.002 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "P1-MetaMask.5 the session approves an open seat proposal as its PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P1-MetaMask.6 the session key approves it as itself",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P1-MetaMask.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "P1-MetaMask.8 a second session works",
+   "pass": true,
+   "ok": true,
+   "detail": "32u757a8v2EvsTioCraScNyZDombcRJ6Jj1LmmrDbWNdozxvjxHD9MftxwojWTC2nEKT3uya2fuUskzmWL7KpZ1K"
+  },
+  {
+   "name": "P1-MetaMask.9 MetaMask revokes it (one signature, relayed)",
+   "pass": true,
+   "ok": true,
+   "detail": "f2MitP3RxX8UPEN2Uc9HDbtDWJfAS9ZAfv4TQF1w854CXPqgh2oMgP5jYabXFcGihv4EFuFaEB9hssswNbyy54F"
+  },
+  {
+   "name": "P1-MetaMask.10 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "P1-MetaMask.11 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "2FYiDo5iXq4kPnHX8ji8e3zyzKqhxj6xV5p9QU4LANdEMVqhyJfEqGhYWaHLe7pjzUJH4nzi5mgxGNr8VJpRZXHA"
+  },
+  {
+   "name": "P1-MetaMask.12 a grant for MetaMask's PDA signed by Freighter's owner key",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "P2-Freighter.1 one Freighter signature -> session; relayer pays: 0.002 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "5XK4QKtGCMaVDKUbkSWoMjyQiuLuWDDoWFKKZrztGE2Qg2zFr39jiH74KVNSkfC9qMo1y3F8LZQhgyWW8t8j9CTS"
+  },
+  {
+   "name": "P2-Freighter.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "2iNFdwngMZMv4wZmcDfP49WaDenTCn4axJgqy2kHBo1RZK6Bw9DkHC5JSEX4HKrRXvNvTa5WSbgyutGQP1oiB4b3"
+  },
+  {
+   "name": "P2-Freighter.3 VENUE received exactly 0.003 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.003"
+  },
+  {
+   "name": "P2-Freighter.4 0.002 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "P2-Freighter.5 the session approves an open seat proposal as its PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P2-Freighter.6 the session key approves it as itself",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P2-Freighter.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "P2-Freighter.8 a second session works",
+   "pass": true,
+   "ok": true,
+   "detail": "MeZDCbjerAKdkNcTd2QvuLniUosaufXrf3Ymn45d54AWDoCCDksLdLV3qXUhLUWbxJnyrSbNLTRHR1mhD7pVYCd"
+  },
+  {
+   "name": "P2-Freighter.9 Freighter revokes it (one signature, relayed)",
+   "pass": true,
+   "ok": true,
+   "detail": "5j9yuQDLpJ2NwNmyzhmyEe36oRySkGj6PTWLZ3SWtwwUsSavHkT7vALCwJV66fALcUgbQSa1368PxmWXqYKkYd2t"
+  },
+  {
+   "name": "P2-Freighter.10 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "P2-Freighter.11 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "4oDMRcnU7TZPTb4HqFQZcqYFPGQktGf6ASiFvg8sb7thkkMyME5sNizyUbVtP28KLEERrLczxfkwUR9XddUYAeaZ"
+  },
+  {
+   "name": "P2-Freighter.12 a grant for Freighter's PDA signed by Owner4's owner key",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "P3-Owner4.1 one Owner4 signature -> session; relayer pays: 0.002 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "5TANzNrqbKjworXuhJHcJDZN6mwAW9LsTtugTsfm4vHwSAC1uMQXwcg7Kv7bvruCdzt7medHQZAs1BFh7Q4rttPr"
+  },
+  {
+   "name": "P3-Owner4.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "oDsyStqisLu4V41Jtva6z6awbLk147UdQmUirdNJe3pc1tFPBM2W7Jd8pGxgnDeBnyXEGzmJJ9nS7K8rxP5vrtL"
+  },
+  {
+   "name": "P3-Owner4.3 VENUE received exactly 0.003 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.003"
+  },
+  {
+   "name": "P3-Owner4.4 0.002 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "P3-Owner4.5 the session approves an open seat proposal as its PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P3-Owner4.6 the session key approves it as itself",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P3-Owner4.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "P3-Owner4.8 a second session works",
+   "pass": true,
+   "ok": true,
+   "detail": "5StTUtYDsaoqppzfG3n5JjhYGo7T2NLvkfuZS3ywmHR25S3QeHtjqMns2avpSEvPrxyM6XZpKvFTTXrrwnR8oQE2"
+  },
+  {
+   "name": "P3-Owner4.9 Owner4 revokes it (one signature, relayed)",
+   "pass": true,
+   "ok": true,
+   "detail": "LEAHGmBVrS2JYukPQugePUxm6fULjcwrNqmY5NG9vJjHfeFfpfpaYJCoZZCnHQMWHjcuBXaaU1WEHYBoTMLCKes"
+  },
+  {
+   "name": "P3-Owner4.10 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "P3-Owner4.11 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "2ZnFb2rhmPq3CgC57HUMjK6rLdbrJ4tJDuzFWodVU9tBQepqd55149n6aDr4xrjyYgg8Hbaqx5JuPZUQuaRtKHjC"
+  },
+  {
+   "name": "P3-Owner4.12 a grant for Owner4's PDA signed by Owner5's owner key",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "P4-Owner5.1 one Owner5 signature -> session; relayer pays: 0.002 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "vwMun1LcLFFPL7cWkEnmRLu1bcGNLmMxzzEMU1rKq2bG6mee55UsHkZ2r5U9MUVHuuYZFWwLtEEi9rmtfpewzbx"
+  },
+  {
+   "name": "P4-Owner5.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "SZvhdiamPKmftMFe5Y47o1N2D4rteaweUEXae2k76YtG4MVZ8YdNZXk2uHnDmnKaiYYzheMqcdJo2Cm4CKkU3Fm"
+  },
+  {
+   "name": "P4-Owner5.3 VENUE received exactly 0.003 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.003"
+  },
+  {
+   "name": "P4-Owner5.4 0.002 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "P4-Owner5.5 the session approves an open seat proposal as its PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P4-Owner5.6 the session key approves it as itself",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P4-Owner5.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "P4-Owner5.8 a second session works",
+   "pass": true,
+   "ok": true,
+   "detail": "26PDqJxCWh9xtvjsiA3bfKVKxDtdve682g2B4YU2YSZ4VxmijF35zhDdgiKxmqDwA3b5NWwxhL4wtvEuGTXRrUi7"
+  },
+  {
+   "name": "P4-Owner5.9 Owner5 revokes it (one signature, relayed)",
+   "pass": true,
+   "ok": true,
+   "detail": "4cRh69wdm43xziegW4JfmFL9D7SkRedvPy4rXtrUCAR9ALMGpk712e4pgV1uP6qE9BWsZ55pdVJN92tLdf6R3182"
+  },
+  {
+   "name": "P4-Owner5.10 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "P4-Owner5.11 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "4dWp9X415ZeEZngMBgaGWmcLghS2NSwhWod3fc1ynhKRgDgY4XUTtJpfRYLetD1UtJZHURFriVzAXjLFSKixuxr5"
+  },
+  {
+   "name": "P4-Owner5.12 a grant for Owner5's PDA signed by Owner6's owner key",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "P5-Owner6.1 one Owner6 signature -> session; relayer pays: 0.002 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "4vs8SQEMu8fFBJ3qPkYRPaFZQr3WzVJYRNqDgZG3w3e3mAz4UHhiiUxs2tb4swefhwBdJLHGoaJXcempyDVTRQyv"
+  },
+  {
+   "name": "P5-Owner6.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "2UBwKN4yGXXe6yyHdGtRohcBBsnJ1GrXGLQnan8NnrEdZ4jZbQD236ZyNXKgTUMRoEoppNyG74Rh6ebrD3sW6vre"
+  },
+  {
+   "name": "P5-Owner6.3 VENUE received exactly 0.003 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.003"
+  },
+  {
+   "name": "P5-Owner6.4 0.002 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "P5-Owner6.5 the session approves an open seat proposal as its PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P5-Owner6.6 the session key approves it as itself",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P5-Owner6.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "P5-Owner6.8 a second session works",
+   "pass": true,
+   "ok": true,
+   "detail": "2WqntbyMhCSfTLz2Rvn3f21j51xezN81KqVUCXbHgtRH6KcMit17affTHwDCPyshjNBCXB2jTC22FmvqmjinTuSC"
+  },
+  {
+   "name": "P5-Owner6.9 Owner6 revokes it (one signature, relayed)",
+   "pass": true,
+   "ok": true,
+   "detail": "2uheqh5caYyEYWenGKFGBhS9Jf3ERyTFLqV2AYrdSMq5J1GVA8GnY2zhkjXdbqKZYN8wCBopoSQ8RCAJivyWp3X6"
+  },
+  {
+   "name": "P5-Owner6.10 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "P5-Owner6.11 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "3LT7PUJnnM5Lgz7uWDgjz2f59CQe3NphT85wFb6jYdxBQFccdMqPTs83QTfxFqDzY2ajFJj6hWv3mLphG78UsX58"
+  },
+  {
+   "name": "P5-Owner6.12 a grant for Owner6's PDA signed by Owner7's owner key",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "P6-Owner7.1 one Owner7 signature -> session; relayer pays: 0.002 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "3KQUCSPjZus5VQp6behsAY7ovTxfdDsmA9VAuR4Q4CPetAitKvPmZbYAoXXeosmsTeuTQf6F8fNSXKafof7UmyFe"
+  },
+  {
+   "name": "P6-Owner7.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "2Zwf6qWX9aaNsxzvCCsZvRihGe38oScoLvGY3XsXFyGZNf6G1iuVybyySxmhUCJcycWoDMdhpdNhxytzk3sXbEMy"
+  },
+  {
+   "name": "P6-Owner7.3 VENUE received exactly 0.003 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.003"
+  },
+  {
+   "name": "P6-Owner7.4 0.002 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "P6-Owner7.5 the session approves an open seat proposal as its PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P6-Owner7.6 the session key approves it as itself",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P6-Owner7.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "P6-Owner7.8 a second session works",
+   "pass": true,
+   "ok": true,
+   "detail": "3PSDwQLso9x9DQDPLxGkgGx37VFuT2WxT6W9sAJktzPbL9gTnH5RvLr1BmGT3sXCHKPc3d12WQh1CXXm45Z4fAU4"
+  },
+  {
+   "name": "P6-Owner7.9 Owner7 revokes it (one signature, relayed)",
+   "pass": true,
+   "ok": true,
+   "detail": "3zx2zsTmxTYJkDsvDf1B3y4vr3rTpXk15b9mVRm6Jioj6JD1vjubDoztVTPTDZVXQc8pgNeZUqES5F7SZDGE2Shb"
+  },
+  {
+   "name": "P6-Owner7.10 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "P6-Owner7.11 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "4a8XS1hNfqBm2YPegUHBGnk3i3ZxGcd6WrqY7FUsuKmCXnq1zLZNMfyR94kjkT5aLYb6HF3HkMrHJ3SRXQYFabTq"
+  },
+  {
+   "name": "P6-Owner7.12 a grant for Owner7's PDA signed by Owner8's owner key",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "P7-Owner8.1 one Owner8 signature -> session; relayer pays: 0.002 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "22hxHqMqbBreqqyuTM6JQ8pCKadVPJafijQBUPpixuxCxbHKtMD1QXtySAfepk39sPtXkGdJtN9HdaJJ4BVH6FyK"
+  },
+  {
+   "name": "P7-Owner8.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "38vKqaTd8vAqQ5KotSxcuSjkbFw4Z6QRYMsSqMDEBnf4vSZvov3jyoq78npCSdwpvzBk4dGFy9iSiwUq7Ud7T5Sc"
+  },
+  {
+   "name": "P7-Owner8.3 VENUE received exactly 0.003 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.003"
+  },
+  {
+   "name": "P7-Owner8.4 0.002 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "P7-Owner8.5 the session approves an open seat proposal as its PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P7-Owner8.6 the session key approves it as itself",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P7-Owner8.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "P7-Owner8.8 a second session works",
+   "pass": true,
+   "ok": true,
+   "detail": "5VpJQ1LaXFmvY4d3t9MT4e3wzMKMCWpPGJa48sbKY1Napf3iiNngRZ96J4hJwdK2Ca9q9rjsaH4Aj5XtVhSsqDK7"
+  },
+  {
+   "name": "P7-Owner8.9 Owner8 revokes it (one signature, relayed)",
+   "pass": true,
+   "ok": true,
+   "detail": "5YdTDZG1vwgXhzBcUAGtQcqURhzKddxzzdyBpkiN8ZuSg1Mhabe6KFSuEUwp43m2jmpYyjBFrUZnirtmbtsGWqbM"
+  },
+  {
+   "name": "P7-Owner8.10 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "P7-Owner8.11 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "36wXw2J5oQF8sRhyqf3w4DyGTHKoJR96b36qDqaxxjs24aNt53C8w7V2Q8tctiaYyoVhGPv9XuReCe7oU9vRY53F"
+  },
+  {
+   "name": "P7-Owner8.12 a grant for Owner8's PDA signed by Owner9's owner key",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "P8-Owner9.1 one Owner9 signature -> session; relayer pays: 0.002 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "337bhL7ZVn9SfTsWbcmCCeJMscPawrYMnkEZudFnn5iqCRfmAdZcGFVTXgLxXGs3NR2uXu455xVE4ZrcSwJGvqBd"
+  },
+  {
+   "name": "P8-Owner9.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "4P5VkcbAaFDA9gFcbk9CRKk36czkuHTrGaEb59Xq8n2jNHW9prKuvj6v8bYweQfwP7HfPLVfzFG5DLGVsGvLcTSs"
+  },
+  {
+   "name": "P8-Owner9.3 VENUE received exactly 0.003 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.003"
+  },
+  {
+   "name": "P8-Owner9.4 0.002 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "P8-Owner9.5 the session approves an open seat proposal as its PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P8-Owner9.6 the session key approves it as itself",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P8-Owner9.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "P8-Owner9.8 a second session works",
+   "pass": true,
+   "ok": true,
+   "detail": "3W72xk7e9maTLkgGrsYk9ohMiNPoyrSiBbSrJnTatPgpEq9iDDbQ4hQ84h6yxa1NyyTHLf5iLTLjqkTw7bXBPFWk"
+  },
+  {
+   "name": "P8-Owner9.9 Owner9 revokes it (one signature, relayed)",
+   "pass": true,
+   "ok": true,
+   "detail": "a8p1knQ3jXYrAADr1VkTPU4DdAQtyscfSVUHtQzmDQJ79Rs3dru53iPkK6SK7UmyQ9Kc9JatX2AHxKnUwt4c4cZ"
+  },
+  {
+   "name": "P8-Owner9.10 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "P8-Owner9.11 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "349HEvAKb8oUBXytv4QGrYxerK46PRe1Lb3AZQYecuHpsFE8ZWWUUFYmS5CSd29iSCG8ScCTNkoRekpaKskw6XwA"
+  },
+  {
+   "name": "P8-Owner9.12 a grant for Owner9's PDA signed by Owner10's owner key",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "P9-Owner10.1 one Owner10 signature -> session; relayer pays: 0.002 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "qGvcZB1HeBgkLRaD7rP4E4jFstEBi9VDZ6JeQwoKm8SGcagMHxnQ9saZCseBqbyvWPZ9Hzc7afuNEPDyqw6Po5o"
+  },
+  {
+   "name": "P9-Owner10.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "i1SntS6ThU9rG3moV4zsLwKAgBSwEbbtAygVL9oA7E3QTAJhc7dzhUdVTsg3PXRUt3AjB2kETvMLrpS1EpFVwjH"
+  },
+  {
+   "name": "P9-Owner10.3 VENUE received exactly 0.003 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.003"
+  },
+  {
+   "name": "P9-Owner10.4 0.002 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "P9-Owner10.5 the session approves an open seat proposal as its PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P9-Owner10.6 the session key approves it as itself",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P9-Owner10.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "P9-Owner10.8 a second session works",
+   "pass": true,
+   "ok": true,
+   "detail": "3AVSZUAD3CawTVudGyeLZVMDoK24e6gZmqa9TnPXTRoD5jLLj8eUg1KSVxKGPGDpGtte8Qb3TKzNoGxpJZgpok5T"
+  },
+  {
+   "name": "P9-Owner10.9 Owner10 revokes it (one signature, relayed)",
+   "pass": true,
+   "ok": true,
+   "detail": "65w1KHGbseM21sT8mGT1QWyQzeiCD2V9MgaT4RthAzK6zYVSVDiXaHr7CmPx8tuyH6PpNNujBNna59D7EYRcnGin"
+  },
+  {
+   "name": "P9-Owner10.10 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "P9-Owner10.11 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "43HpKTZEwH9xtPpwr9QMeRdZES7xKdzKvv5owXzDerMMusSnACf1BqsUSYy9AJ7oeudSAPtpVLiz27GP9kASBdBq"
+  },
+  {
+   "name": "P9-Owner10.12 a grant for Owner10's PDA signed by Owner11's owner key",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "P10-Owner11.1 one Owner11 signature -> session; relayer pays: 0.002 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "4AsBTeKHXx8rCADTj5X4rjCZuNMN6maGmCra9nFScuQELXaPVHcGJtVuezdLdAcv5QNDeM5HaC9HedNKsDeYCFrj"
+  },
+  {
+   "name": "P10-Owner11.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "3ouyPK8KWRJHJ6528BhCf6LecZa5LEcww9kJshQ8m11ypPmtK3BTmB9pdW9GVjPBnZuSSWuZPA2kZCHVQxNmaFbK"
+  },
+  {
+   "name": "P10-Owner11.3 VENUE received exactly 0.003 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.003"
+  },
+  {
+   "name": "P10-Owner11.4 0.002 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "P10-Owner11.5 the session approves an open seat proposal as its PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P10-Owner11.6 the session key approves it as itself",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P10-Owner11.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "P10-Owner11.8 a second session works",
+   "pass": true,
+   "ok": true,
+   "detail": "2n7GVMKhCYZMi1UWXoJQ6PvXDMdb4WLH7GFgBHjgPg7Tzn9Eu8iPe7VumBBphh7uNm5HxbBJ2SmYmrNzaXe3xuki"
+  },
+  {
+   "name": "P10-Owner11.9 Owner11 revokes it (one signature, relayed)",
+   "pass": true,
+   "ok": true,
+   "detail": "2momMHQGdPe2J8S91xt7adD3Fz6VCzHWY38tVZBMSaTnPTmPXHfEcWeri1V4xWPbYnnzth4SaNVs8pV7hLoaax7y"
+  },
+  {
+   "name": "P10-Owner11.10 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "P10-Owner11.11 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "24LHjPqd8fzdz9wZX4CR3iPfGxbp7U79Qwm3br2KGmnfUKSkYKsexbpMWLjv3o5axRmxeqYm81DEW7obhaXH4oEY"
+  },
+  {
+   "name": "P10-Owner11.12 a grant for Owner11's PDA signed by Owner12's owner key",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "P11-Owner12.1 one Owner12 signature -> session; relayer pays: 0.002 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "3u4JHQpE9o8CVDrjVHAmYN4XxhG6GrSuE7ThKKYJ6KAUHPd2LoA2W7ubF6nu5ZojWrTT5j5PKHsVMBErG7nvuuKT"
+  },
+  {
+   "name": "P11-Owner12.2 relayer down: the session key pays the fee itself: 0.001 SOL to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "3X3FqxztWfEUcUHctG2hnsS7ayFpZ1qsam7PDmTvNvEa1Hb6ubRsa34mbuVBpBHav6j8jrwEHNuvyx625YVoFCYZ"
+  },
+  {
+   "name": "P11-Owner12.3 VENUE received exactly 0.003 SOL",
+   "pass": true,
+   "ok": true,
+   "detail": "0.003"
+  },
+  {
+   "name": "P11-Owner12.4 0.002 SOL elsewhere (policy)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: ProgramInteractionAccountConstraintViolated"
+  },
+  {
+   "name": "P11-Owner12.5 the session approves an open seat proposal as its PDA",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P11-Owner12.6 the session key approves it as itself",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "P11-Owner12.7 the session adds its key as a seat (settings sync, its PDA as the only signer; it is short of the threshold, so .5 is the check that names the PDA)",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidSignerCount"
+  },
+  {
+   "name": "P11-Owner12.8 a second session works",
+   "pass": true,
+   "ok": true,
+   "detail": "6XbDm5VArmh62XDg2Leu7Jn3VE1re8ngncBMaQRmiQX7vJPpfJF6k6JqSBeMqn1PHJag8VgzBWLb72HXBiwkDcx"
+  },
+  {
+   "name": "P11-Owner12.9 Owner12 revokes it (one signature, relayed)",
+   "pass": true,
+   "ok": true,
+   "detail": "4EArGSwvpk8FBSbAx8iKiEWWCuscShpW76soNo3RXT1TLXBkpxdTmt2RYL4PyeqeZarh2syERduTMjSPiHKHu67R"
+  },
+  {
+   "name": "P11-Owner12.10 the revoked session",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x2"
+  },
+  {
+   "name": "P11-Owner12.11 the first session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "2CkTTjeo82dreGda47iD7dnaUEMTerhvipAfWL5iYSfoEhGMDbN8K1ThfggRq1YbezqGaiVQrTReWeHUTmDLdHRB"
+  },
+  {
+   "name": "P11-Owner12.12 a grant for Owner12's PDA signed by Phantom's owner key",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  },
+  {
+   "name": "R0. Owner12's live session works before removal",
+   "pass": true,
+   "ok": true,
+   "detail": "3pkMvSf6823STQUDeV7zQtBy9u4HQCRCUPtncxKf9qdSPbt2513xgUi8ADovuKp43Rh1jEcd1RnpgZxbYRTEG8vc"
+  },
+  {
+   "name": "R1. 6 owners try to remove Owner12's PDA from the policy:.a Phantom proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "5eEc2bjeX39a8c7mVHbQAUv1krQ2GqQAan3N8zpHbivhJo9vvXSz9ZNgyu8jt9pGkkgDdjsDWspRep4b17tzLH9N"
+  },
+  {
+   "name": "R1. 6 owners try to remove Owner12's PDA from the policy:.MetaMask approves",
+   "pass": true,
+   "ok": true,
+   "detail": "5sSMjKvjJ45Q8jNt2Rx1dEMBtcXTLYPr7QqX4qBaBNbfZawX1N8ykiWxbEJC35MaMDK84Y4LF9YBHqfaVizMvK5h"
+  },
+  {
+   "name": "R1. 6 owners try to remove Owner12's PDA from the policy:.Freighter approves",
+   "pass": true,
+   "ok": true,
+   "detail": "59MeHw5cjWKS7vy66LPKm3ZEpkhMTKJwMzmULi1Ms7NMutYzhMa1CchvcuMWwwoJ69cK1eoZVBvKqhuLXbdi8SSx"
+  },
+  {
+   "name": "R1. 6 owners try to remove Owner12's PDA from the policy:.Owner4 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "3zdbR5QHcmj8LtUG2S1utYVDehJs4Q8vfmmgUr1BnyuZoZRXbmjzKPYFPVK9tXtU51RXqaihxssN1jSjkQkbsoeY"
+  },
+  {
+   "name": "R1. 6 owners try to remove Owner12's PDA from the policy:.Owner5 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "2PzaYdNMcBxMf8Nyd9fEvBrK9ZVMxKgf8qPtA8ZxyaHHxPtzVnxTZbzGzJ1tgpnpaJrNewQt44jMaC4U1Dx1nLTL"
+  },
+  {
+   "name": "R1. 6 owners try to remove Owner12's PDA from the policy:.x Owner6 approves and executes",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: InvalidProposalStatus"
+  },
+  {
+   "name": "R2. 7 owners remove Owner12's PDA from the policy (Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.a Phantom proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "3DuGi6wQAPpuMUsAEEkCQ3HmvwG3b87oxbYyPyKCTS4pBLXCU5RTrKGBd1Uw1kJhiFNm6PJpPQ9s3bWFW4ro9kzQ"
+  },
+  {
+   "name": "R2. 7 owners remove Owner12's PDA from the policy (Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.MetaMask approves",
+   "pass": true,
+   "ok": true,
+   "detail": "4C74ncYf5yhQ5dtWBZwe3DYPbp4TrqP6h9iPpmcY88Z9GgH5qcPXw3t1LK3wKFLUYetLRh8GEXRyiT2AE23sU7Df"
+  },
+  {
+   "name": "R2. 7 owners remove Owner12's PDA from the policy (Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.Freighter approves",
+   "pass": true,
+   "ok": true,
+   "detail": "2v1uHvv2LrWnKRb7PVc1u3JMrePH6VW1WWa7xwBaDJ9LQMJLoG7q6F7dYSEYJBmgthoaW2FEmMJ9YWnMgqghfbJG"
+  },
+  {
+   "name": "R2. 7 owners remove Owner12's PDA from the policy (Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.Owner4 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "4yVDV8sbxqmTyE3H7wFBy1qiJRvKjbkjV8id9aCRdNnXkC4UraKeCsErFpaCt1XtC87Qqxu6vos2EXSRRw4aRDmu"
+  },
+  {
+   "name": "R2. 7 owners remove Owner12's PDA from the policy (Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.Owner5 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "5EHUyzaMLCK2N4xDiM48r1cVmQxTac2xtJiBTLP6UmRH1v8KVEjNmypkoxYr2mnLHnn4c9bMhZRwPJV7DVdmzS71"
+  },
+  {
+   "name": "R2. 7 owners remove Owner12's PDA from the policy (Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.Owner6 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "p46G72zFXbwG3TsAdedFFaZPjHuBTCLjbivT9fafBLWanZWe8iygTPQSmn6DBZYMsFXAm24rJ4V5ZjJndfPCyph"
+  },
+  {
+   "name": "R2. 7 owners remove Owner12's PDA from the policy (Phantom + MetaMask + Freighter + Owner4 + Owner5 + Owner6 + Owner7):.x Owner7 approves and executes",
+   "pass": true,
+   "ok": true,
+   "detail": "4eMkfQbueti22E7Ks53h8J1v7cRrJwq9Hi9LX2PUsfq6tUCveV3ud5VYi5UTeVkaksNDYRkbUpxAXc4Ab3t89vLy"
+  },
+  {
+   "name": "R3. Owner12's live session after removal",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "R4. Owner12 signs a new grant: the session is still refused",
+   "pass": true,
+   "ok": false,
+   "detail": "Error Code: NotASigner"
+  },
+  {
+   "name": "R5. Phantom's session still works",
+   "pass": true,
+   "ok": true,
+   "detail": "5C6EoUJcQoT6EMVRhRowjtnfW8X38VvZEVCt7v4ZwR8pqzr6ne1R48ktHSmTudRyYSDRRY4no3Vuw3YM9CPNuotH"
+  },
+  {
+   "name": "R6. 7 owners remove Owner12 from the seats (threshold 7):.a Phantom proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "5zvYkVwYN1k1n7UwhSFDTNPQo9czFRppn5r8qY4a8L8u21EADfeY2U5YJxF2fgVkLDBuTsZ2ZsjH9o7Gsu69omJq"
+  },
+  {
+   "name": "R6. 7 owners remove Owner12 from the seats (threshold 7):.MetaMask approves",
+   "pass": true,
+   "ok": true,
+   "detail": "4hLnk8P3QNyBQQsLXZjA5airx5P97XNJ4LrXKagqfHsAdDar13Qta9A95wL9gDkHGpWjX6wL9WK5LGAVPyMChb4d"
+  },
+  {
+   "name": "R6. 7 owners remove Owner12 from the seats (threshold 7):.Freighter approves",
+   "pass": false,
+   "ok": false,
+   "detail": "Sender prime-spike-muwguc60.testnet does not have enough balance 0.299814275432731699998529 for operation costing 0.300923845511210500000001 | Error: Sender pri"
+  },
+  {
+   "name": "R6. 7 owners remove Owner12 from the seats (threshold 7):.Owner4 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "5prwP9ZcDqyYQFF2t3XVQZ1UBh85fwv7WTz2y6AihYmzZcLYLUEFVjD757mPY8mZqkHa99tHFSLhoAVoQRgA99nE"
+  },
+  {
+   "name": "R6. 7 owners remove Owner12 from the seats (threshold 7):.Owner5 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "4nqAuChmqBD3ArFsPEeGxjuARQLic3tRGdWaSJqQ8jCZH9JrhU1bVrLj15tiUgZStEUKDBw1sxi7vb2uZMVrYNCm"
+  },
+  {
+   "name": "R6. 7 owners remove Owner12 from the seats (threshold 7):.Owner6 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "2csk5WtYrxdBeE9hSGVJL7k6c7bX87WLRrgKXS3YzUyEm2FULRstaKVDDxVDBYKqocBPa93P2aydwatZCPAD8QQS"
+  },
+  {
+   "name": "R6. 7 owners remove Owner12 from the seats (threshold 7):.x Owner7 approves and executes",
+   "pass": false,
+   "ok": false,
+   "detail": "Error Code: InvalidProposalStatus"
+  },
+  {
+   "name": "R7. the account now has 11 seats without Owner12, threshold 7",
+   "pass": false,
+   "ok": false,
+   "detail": "12 / 7"
+  },
+  {
+   "name": "R8.a Phantom proposes and approves",
+   "pass": true,
+   "ok": true,
+   "detail": "VMX4cJQVykZLkxLhGfXTqYDRdYUTHG9LfVUyDg4JozJagcVb1DZWv8nZwbogGAgE8WFu8X3xKYB9FaQz4s8deKv"
+  },
+  {
+   "name": "R8.MetaMask approves",
+   "pass": false,
+   "ok": false,
+   "detail": "Sender prime-spike-muwguc60.testnet does not have enough balance 0.299814275432731699998529 for operation costing 0.300928167167704 | Error: Sender prime-spike-"
+  },
+  {
+   "name": "R8.Freighter approves",
+   "pass": false,
+   "ok": false,
+   "detail": "Sender prime-spike-muwguc60.testnet does not have enough balance 0.299814275432731699998529 for operation costing 0.300923845511210500000001 | Error: Sender pri"
+  },
+  {
+   "name": "R8.Owner4 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "qx6zzFpLzbbXcWfqFWvLrqmJNExvRjpSMvuVPynCKRmncSEY4BTc4H8huDemkGt4dZ9u76cQpfWwzLrA5kMkD5T"
+  },
+  {
+   "name": "R8.Owner5 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "CPPEaJPtPXZzVAw5bezKjpXhGjqjTv2C9EemeS9QFaVbG9Q4YyedAzZECdZZVsEXV7pa1uLMQm6qptG7pQtcgpb"
+  },
+  {
+   "name": "R8.Owner6 approves",
+   "pass": true,
+   "ok": true,
+   "detail": "4b7mXP96oBHHERHKMq7YjBsefXrZ4A5W6ug4jZamXSMB2DHcficgBe4251Ry8QXjRzq382K4rVjVP99WWrpjnPmk"
+  },
+  {
+   "name": "R8c. Owner12 approves a proposal after removal",
+   "pass": false,
+   "ok": true,
+   "detail": "3iySEmDxv4oaM4cTt4HxVccimhDFD8gjiCLUgLFyKzGx4cZ8by3apyahznyf1eMoujNg9nz92r9cDnCMcxhwozn3"
+  },
+  {
+   "name": "R9.x Owner7 approves and executes",
+   "pass": false,
+   "ok": false,
+   "detail": "Error Code: InvalidProposalStatus"
+  }
+ ]
+}

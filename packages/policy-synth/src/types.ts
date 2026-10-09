@@ -121,7 +121,7 @@ export type PolicyRef =
     }
 
 /** Grammar version baked into the interpreter wasm, mirroring `SELF_VERSION` in
- *  `contracts/policy-interpreter/src/version.rs`. Every value this package puts on
+ *  `contracts/prime/stellar/policy-interpreter/src/version.rs`. Every value this package puts on
  *  the wire derives from here; `grammar-version-parity.test.ts` pins it to the
  *  contract so a skew cannot pass a green test run. */
 export const GRAMMAR_VERSION = 4 as const

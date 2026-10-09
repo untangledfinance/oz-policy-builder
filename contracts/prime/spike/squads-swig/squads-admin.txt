@@ -1,0 +1,22 @@
+PASS Q3. B alone signs a Swig admin call on role 0 | refused: custom program error: 0xbbd
+PASS Q4. add mover role: create vault tx #1 + proposal | ok 206ms 2piCxLgZn3PaTezSTFU28UpBYNMEP24dyMKchxY3FsZxHg9Avkt3qnDafqqZY2MG1EQuv9dH2ChUUQ9ccwJC27SA
+PASS Q4a. B approves | ok 418ms 3EeU4246uD8dmGAhPhnxATx68VF7Sb8WD3UzFuGEcz2YGFDn9PiLLdygH9omWznJ5PeUA3hNP8PWyRcSUxUqDNEf
+PASS Q4b. execute with 1 of 3 approvals | refused: Error Code: InvalidProposalStatus
+   MetaMask -> NEAR MPC signed 212 bytes for A in 20.9s (NEAR tx 3HqJ3yezApnkstSNrbFWXomqGPV1tx2NWRvgmC4537jD)
+PASS Q4c. A approves (MetaMask -> NEAR MPC signature) | ok 227ms 646XapuTXjMu9WFeEXpsBPe4b7D8zyPYeyjFMFQuuVsu8V1YnWAYESC4ug68n3mLxFM7CUPuYsmgkB2MEUH6jDhn
+FAIL Q4d. execute with A + B | refused: custom program error: 0x8
+PASS Q4e. execute the same transaction again | refused: custom program error: 0x8
+PASS Q5. a non-member approves a proposal | refused: Error Code: NotAMember
+PASS Q6. fund session key | ok 361ms 5rAna68nJ7ySb3UMkQnWx54SANgtnQwnvZM4fxiXL6Rp8ZAsBsm1YZ1dNLXQNviGfGZv7yYmgZCFS1L8UujXGtuZ
+7025 |     roleId,
+7026 |     false,
+7027 |     options
+7028 |   );
+7029 |   if (!role.isSessionBased()) {
+7030 |     throw new Error(
+                     ^
+error: Cannot create session for Role Id: 0. Role is not a session-based
+      at <anonymous> (/home/ubuntu/work/swig-spike/node_modules/@swig-wallet/lib/dist/index.cjs:7030:15)
+      at async getCreateSessionInstructions (/home/ubuntu/work/swig-spike/node_modules/@swig-wallet/classic/dist/index.cjs:267:65)
+Bun v1.4.2 (Linux x64)
+exit 1

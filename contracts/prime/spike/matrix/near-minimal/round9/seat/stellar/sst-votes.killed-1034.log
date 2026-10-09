@@ -1,0 +1,55 @@
+10:27:23 PASS V0a. Freighter grant, move+vote ok 7222 ms 5a123b9496f6bd4baacb690dc29e0ad0e97d9130f1a2eca17ec50d993a260c1c
+10:27:27 PASS V0b. Freighter grant, move only ok 3379 ms e69114815520fca362082c3d30a3ead83c021218666bd421d6be36b974064774
+10:27:43 PASS V0c. MetaMask grant (NEAR MPC), move+vote ok 6373 ms ebeab8b0d3c5c6701d743b591f00dd3250984684162f1cf6fe923d32cbcafcd5
+10:27:57 PASS V0d. MetaMask grant (NEAR MPC), move only ok 5789 ms af851e3a4a8fdf987c138aa565345ab49b9468c6b4790972388a0498084da228
+10:28:12 PASS V0e. Phantom grant (NEAR MPC), move+vote ok 5666 ms 6b5402042ce94efd0e820ac0656400c3e4d9aeb04e764ff68852bc97e9089cc0
+10:28:27 PASS V0f. Phantom grant (NEAR MPC), move only ok 6723 ms e76af34e35705916c9d71ed884ce62253804476722dba96a19f9ba41e0399d08
+10:28:33 PASS V0g. Freighter grant, move+vote, 15 ledgers ok 4697 ms 2663646116a11c299de747a42b3fb1bc6d0ce94ca4c0daa8b31cc85f87e534b4
+10:28:38 PASS V0h. Freighter grant, move+vote (revoked below) ok 4031 ms 3f822df291ae3b31088e2cf756c83509fba19fd788a30d116d5b4cae40259454
+10:28:38 PASS V0i. the stored grant carries the vote flag: true for the vote session, false for the move-only one {"until":5087049,"vote":true,"live":5087050} {"until":5087051,"vote":false,"live":5087051}
+10:28:40 PASS V1-Freighter. Freighter's owner authorization alone (one seat) refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+10:28:59 PASS V1-MetaMask. MetaMask's owner authorization alone (one seat) refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+10:29:07 PASS V1-Phantom. Phantom's owner authorization alone (one seat) refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+10:29:22 PASS V2a. Freighter + Phantom owners (each through its own authorization) ok 14319 ms 5cadcdee8f40e60d075ef2dfc24293b8a89a60924fbd2e3da321430bc7767c1e
+10:29:42 PASS V2b. MetaMask + Phantom owners ok 20071 ms 6baee9e874d5dab95599611824372ab5f8e23f2eaebaa56448b68a574f9a353b
+10:30:27 PASS V3a. Freighter's vote session + Phantom's owner ok 45022 ms 9769daf4af79847d8efd1e3eda12b0d0b3383fa24662eec05d0edc4f374f6e0f
+10:30:32 PASS V3b. MetaMask's vote session + Freighter's owner ok 5206 ms 005a88f8090935bbb4bf73f4382dd061a63beaabcac8a21e38517ff0541a4bf8
+10:30:37 PASS V3c. Phantom's vote session + Freighter's owner ok 5308 ms 0f8b0b5dc5168318591d9bf5812a12e761a295a2eee62159545a483cc628b53b
+10:30:42 PASS V3d. two vote sessions (Freighter's + Phantom's) and no owner present ok 4516 ms 4c6b34adb561294b37657dd464e791d0d849e65363b90dc594d3a926bd8a155d
+10:30:53 PASS V3e0. Freighter grant, move+vote, for a key with its own account (relayer down) ok 4155 ms 38baf0c1be3904e951e8394cf3453b39073ba3997b9d8c993ea45b6d835c0f84 (fee paid by the session key)
+10:31:07 PASS V3e. relayer down: the vote session key's own account pays the fee for the vote ok 14310 ms 1506e2e04cd55bf0a6b83331c1fe71fd9be6a37c9b1a45a3e69fa26eabcbe421 (fee paid by the session key)
+10:31:15 PASS V4a. Freighter's move-only session + Phantom's owner refused: Error(Auth, InvalidAction) Error(Contract, #3003)
+10:31:16 PASS V4b. MetaMask's move-only session + Freighter's owner refused: Error(Auth, InvalidAction) Error(Contract, #3003)
+10:31:17 PASS V4c. Phantom's move-only session + Freighter's owner refused: Error(Auth, InvalidAction) Error(Contract, #3003)
+10:31:18 PASS V4d. a move-only session + a vote session (two session seats) refused: Error(Auth, InvalidAction) Error(Contract, #3003)
+10:31:19 PASS V5a. Freighter's owner and Freighter's own vote session together (the seat counts once) refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+10:31:20 PASS V5b. Freighter's owner authorization and no session proof, listed once, with nobody else refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+10:31:24 PASS V5c. Freighter's owner + the vote session key's own account as a second voter (not a signer of rule 0) refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+10:31:25 PASS V6a. Freighter's vote session alone refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+10:31:26 PASS V6b. MetaMask's vote session alone refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+10:31:27 PASS V6c. Phantom's vote session alone refused: Error(Auth, InvalidAction) Error(Contract, #3213)
+10:31:32 PASS V7a0. Freighter revokes a vote session: grant(key, 0, false) ok 5025 ms 582415d8f7adda4308235aac8fa0956d876a0c0c8b6f2e33db8c79fe66a910cc
+10:31:42 PASS V7a. the revoked vote session + Phantom's owner refused: Error(Auth, InvalidAction) Error(Contract, #3003)
+10:31:44 PASS V7b0. a revoked key cannot be granted again with the vote flag (revoke is final) refused: Error(Contract, #1)
+10:31:53 PASS V7b. ... and it still cannot vote refused: Error(Auth, InvalidAction) Error(Contract, #3003)
+10:31:58 PASS V7d0. Freighter grant, move+vote (revoked below with the flag set) ok 4050 ms fffdfdb26ea7a039d86fba07fc6cd20d8cfb65589e4d85c032c9dd2b7b3fc2c4
+10:32:03 PASS V7d1. Freighter revokes it with the vote flag set: grant(key, 0, true) ok 4596 ms 0fa04d6e8deaf3de05d9e045c3fc4e71bd4e94fc44c60525b05a63e498afb616
+10:32:04 PASS V7d2. the revoke is final whatever flag it carried: a new grant of the key is refused refused: Error(Contract, #1)
+10:32:16 PASS V7d3. ... and the key cannot vote refused: Error(Auth, InvalidAction) Error(Contract, #3003)
+10:32:26 PASS V7c. an expired vote session (until + 1) + Phantom's owner refused: Error(Auth, InvalidAction) Error(Contract, #3003)
+10:32:27 PASS V8a. Freighter's vote session key in Phantom's seat + Freighter's owner refused: Error(Auth, InvalidAction) Error(Contract, #3003)
+10:32:28 PASS V8b. Freighter's vote session key in MetaMask's seat + Freighter's owner refused: Error(Auth, InvalidAction) Error(Contract, #3003)
+10:32:36 PASS V8c. Phantom's vote session key in Freighter's seat + Phantom's owner refused: Error(Auth, InvalidAction) Error(Contract, #3003)
+10:32:46 PASS V8d. an unknown key in Freighter's seat + Phantom's owner refused: Error(Auth, InvalidAction) Error(Contract, #3003)
+10:32:55 PASS V8e. Freighter's vote session proof signed by another key (key claimed, signature from a stranger) + Phantom's owner refused: Error(Auth, InvalidAction) Error(Crypto, InvalidInput)
+10:32:56 PASS V9a. Freighter authorized move-only; the relayer submits move+vote refused: Error(Auth, InvalidAction)
+10:33:05 PASS V9b. the key cannot vote refused: Error(Auth, InvalidAction) Error(Contract, #3003)
+10:33:06 PASS V9c. Freighter authorized move+vote; the relayer submits move-only refused: Error(Auth, InvalidAction)
+10:33:13 PASS V9d. Phantom authorized move-only; the relayer submits move+vote refused: Error(Auth, InvalidAction)
+10:33:26 PASS V10a. a stranger signs Freighter's owner authorization + Phantom's owner refused: Error(Auth, InvalidAction) Error(Contract, #5)
+10:33:42 PASS V10b. Phantom's owner key signs Freighter's owner authorization + Phantom's owner refused: Error(Auth, InvalidAction) Error(Contract, #5)
+10:33:51 PASS V10c. MetaMask's old seat key (prime:stellar) signs MetaMask's owner authorization + Freighter's owner refused: Error(Auth, InvalidAction) Error(Contract, #5)
+10:34:02 PASS V10d. Freighter's signed grant authorization offered as its owner vote + Phantom's owner refused: Error(Auth, InvalidAction)
+10:34:22 PASS V10e. Freighter's owner authorization for another digest (another transaction) + Phantom's owner refused: Error(Auth, InvalidAction)
+10:34:32 PASS V10f. no owner authorization at all for Freighter's seat (entry for Phantom's contract) + Phantom's owner refused: Error(Auth, InvalidAction)
+10:34:38 PASS V11a. Freighter grant, move+vote ok 5002 ms 30eb887268ec817a3e0276cc071a3a3a9accd6ad3b291bb29c394886c4305953

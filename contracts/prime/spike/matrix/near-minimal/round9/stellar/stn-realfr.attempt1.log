@@ -1,0 +1,11 @@
+59 | const RF_G: string = JSON.parse(readFileSync('/home/ubuntu/work/freighter-ext/secrets/freighter-real.json', 'utf8')).public;
+60 | async function realFreighterAuth(preimage: Buffer): Promise<Buffer> {
+61 |   const n = Date.now(), sig = `${BRIDGE}/auth-${n}.sig`;
+62 |   writeFileSync(`${BRIDGE}/auth-${n}.xdr`, preimage.toString('base64'));
+63 |   for (let i = 0; i < 600 && !existsSync(sig) && !existsSync(`${sig}.err`); i++) await new Promise((r) => setTimeout(r, 300));
+64 |   if (!existsSync(sig)) throw new Error(`no Freighter signature for auth-${n}: ${existsSync(`${sig}.err`) ? readFileSync(`${sig}.err`, 'utf8') : 'timeout'}`);
+                                       ^
+error: no Freighter signature for auth-1791430145617: timeout
+      at realFreighterAuth (/home/ubuntu/work/near-session-spike/stn.ts:64:35)
+
+Bun v1.4.2 (Linux x64)

@@ -1,0 +1,10 @@
+PASS R1. config proposal: add D, remove C | ok 101ms 5ZR2jREX9Cqmdxxwyysir5PiEcyKQHK5Y5CQsp6xFin1Uzu1EUQSiVVc5ofBJQrGxFr3J65RZ25yZbzdMmXFeJ23
+PASS R2. B approves | ok 415ms 4HWuD5LajTDDdEAhTXkTH52R2uWMTZKUgbkBsPhbtqSFR4CGTmqUW4n5HWjyXFrLL6M6YaBwB2tCzQEeSVUgVhnB
+   MetaMask -> NEAR MPC signed 212 bytes for A in 20.6s (NEAR tx GB7MXUS3NfcC3JRsfzxF4Tvy1zmvooUAAG7ydU4NauK6)
+PASS R3. A approves (MetaMask -> NEAR MPC) | ok 82ms 61255m2jsXUZyaMQMK2GCeKAcSiniaqqLzYPVAoDsUsDKT1cVnqYi8BL2zd9iBeQv2kD6m1DDeiBEjvKC8sPJMtd
+PASS R4. execute config change | ok 415ms 4BExAW97ZHmHRdEox5Nj3QznA8WcNcVvb7fSPeiuV4Vnxj8wYWV3w4UvLxV5URCMGoRmJsFfSUUMa5PT5rQZ6XFz
+PASS R5. members are now A, B, D (threshold 2) | ok 3poMSj,AHSks4,EHuzgp
+PASS R6. probe proposal: create vault tx #4 + proposal | ok 422ms 5TTAkNsxv1otH27QcevQFYg6zHRT2kUw2b1ppwtK3FgcuUHz73CXFyqB35iDoZZ5SEZkjebHrJyVNYRBGEyy3Wwc
+PASS R6a. removed member C approves | refused: Error Code: NotAMember
+PASS R6b. new member D approves | ok 410ms 5U2EQvLgbwjeXELvzxbgvGDPAPi5hAoA1jEAqZ8JRXsvGxoN1TzafwTcRZFUhAeeihsY5Xqijs46yZ2wBnXwLS65
+exit 0

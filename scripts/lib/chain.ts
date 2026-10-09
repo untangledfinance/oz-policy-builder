@@ -53,11 +53,11 @@ export function wasmPath(crate: string, file: string): string {
   const override = process.env.PRIME_WASM_DIR
   const candidate = override
     ? join(override, `${file}.wasm`)
-    : join(HOME, `contracts/${crate}/target/wasm32v1-none/release/${file}.wasm`)
+    : join(HOME, `contracts/prime/stellar/${crate}/target/wasm32v1-none/release/${file}.wasm`)
   if (!existsSync(candidate)) {
     throw new Error(
       `missing ${file}.wasm at ${candidate}\n` +
-        `Build it:  cargo build --release --target wasm32v1-none --manifest-path contracts/${crate}/Cargo.toml\n` +
+        `Build it:  cargo build --release --target wasm32v1-none --manifest-path contracts/prime/stellar/${crate}/Cargo.toml\n` +
         'or set PRIME_WASM_DIR to a directory holding the built artifacts.'
     )
   }
@@ -283,7 +283,7 @@ export const and = (xs: xdr.ScVal[]) => vec([sym('and'), vec(xs)])
 export const selector = (s: string) => vec([sym(s)])
 export const callArg = (i: number) => vec([sym('call_arg'), u32v(i)])
 
-/** `PolicyInstallParams` from contracts/policy-interpreter/src/types.rs.
+/** `PolicyInstallParams` from contracts/prime/stellar/policy-interpreter/src/types.rs.
  *  ScMap keys must be sorted, and every field must be present. */
 export function installParams(predicate: xdr.ScVal, adminPk: string) {
   const bytes = predicate.toXDR()

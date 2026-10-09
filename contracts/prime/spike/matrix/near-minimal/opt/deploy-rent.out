@@ -1,0 +1,17 @@
+Wrote new keypair to /tmp/tmp.t8KBNmmY8U/payer.json
+Requesting airdrop of 500 SOL
+
+Signature: 2haP2nSXo5Y92SxMtnpMQ1MnDYGm6Cd5N4Z1d9785NicVJtn9Yqj4KFSVPay5Ev5RtFxLhfjtWndvxHGEa14eiod
+
+500 SOL
+build                            bytes payer_cost_lamports rent_local_lamports rent_devnet_lamports rent_devnet_SOL
+Wrote new keypair to /tmp/tmp.t8KBNmmY8U/gate-today.json
+gate-today                       50464      353844960      353574960      258069080         0.2581
+Wrote new keypair to /tmp/tmp.t8KBNmmY8U/gate-linecut.json
+gate-linecut                     47304      331836360      331581360      242016280          0.242
+Wrote new keypair to /tmp/tmp.t8KBNmmY8U/gate-pinocchio.json
+gate-pinocchio                   36000      253105520      252905520      184591960         0.1846
+Wrote new keypair to /tmp/tmp.t8KBNmmY8U/session-today.json
+session-today                    54024      378642560      378352560      276153880         0.2762
+Wrote new keypair to /tmp/tmp.t8KBNmmY8U/session-pinocchio.json
+session-pinocchio                39592      278125840      277905840      202839320         0.2028

@@ -1,0 +1,97 @@
+[
+  {
+    "check": "1a. same Stellar key -> same NEAR account",
+    "pass": true,
+    "detail": "0s2ee0a84eed813ebcaf80280ed3c8cbad311e52d5"
+  },
+  {
+    "check": "1b. other Stellar key -> other NEAR account",
+    "pass": true,
+    "detail": "0s1840f2f4073905b2ca79b33a4fb51484c7b14ce3"
+  },
+  {
+    "check": "2. account created by first Freighter-signed request",
+    "pass": true,
+    "detail": "8.0s, w_public_key=ed25519:2JPV2JGfBBu1YMt4wFj6g7PrycJwfuTwbWFkuFzcNdQT"
+  },
+  {
+    "check": "3a. derived key == MPC contract derived_public_key(A)",
+    "pass": true,
+    "detail": "ed25519:BTUHzDR9VV3sFLUbFuj44iW6gantX4s1goaxaJoqEkYw"
+  },
+  {
+    "check": "3b. Freighter-signed request -> MPC ed25519 signature verifies",
+    "pass": true,
+    "detail": "6.7s"
+  },
+  {
+    "check": "3c. any other caller (the relayer) gets a different MPC key",
+    "pass": true,
+    "detail": "ed25519:BhLxhogX8cF3x8fQCcPZzxyEVJbKxABjCrfvEyyTvazi"
+  },
+  {
+    "check": "4a. valid request accepted",
+    "pass": true,
+    "detail": "Ok(\"2U6eTi9ZhNnPKLTc9Enww5MeoX4fDruDLKwpaoA94sAf\")"
+  },
+  {
+    "check": "4b. replay of the same signed request refused",
+    "pass": true,
+    "detail": "Err(\"DEwfBMeA1xH6FFEJGHoqGZc2uEP6BBfBFEZBMKX7iZZY: Smart contract panicked: nonce: has already been used\\\")) }\")"
+  },
+  {
+    "check": "4c. request changed after signing refused",
+    "pass": true,
+    "detail": "Err(\"B1KemYMgjd4KGM3PoyfFKiDxBghPBoQHmEadqzbMCPcL: Smart contract panicked: invalid signature\\\")) }\")"
+  },
+  {
+    "check": "4d. request signed by another Stellar key refused",
+    "pass": true,
+    "detail": "Err(\"FXn2khesrWDU3XYKiXJ3PDoe9HAZPepVSVDSDZuAc5JH: Smart contract panicked: invalid signature\\\")) }\")"
+  },
+  {
+    "check": "4e. A's raw-hash (non-SEP-53) signature refused",
+    "pass": true,
+    "detail": "Err(\"Gd6te7GfSGYmQ1ebWyE7PtWQ9zpavTr4dqt97Co8mgSV: Smart contract panicked: invalid signature\\\")) }\")"
+  },
+  {
+    "check": "4f. request signed for mainnet refused on testnet",
+    "pass": true,
+    "detail": "Err(\"8yKycdcprXjxYvjArjZDxx8xoDV1uU59GavxPMpaL32B: Smart contract panicked: invalid chain_id\\\")) }\")"
+  },
+  {
+    "check": "4g. expired request refused",
+    "pass": true,
+    "detail": "Err(\"5GQLRBZyAYTb2DdF1eYzhQAZpGMSay7Bxz49VV8LWAWg: Smart contract panicked: nonce: expired or from the future\\\")) }\")"
+  },
+  {
+    "check": "4h. A's signature used on B's account refused",
+    "pass": true,
+    "detail": "Err(\"7XDjJ5ExWkfGAx4DbwTm8sMd9zwxs3MafnKfVkR4GNPU: Smart contract panicked: invalid signature\\\")) }\")"
+  },
+  {
+    "check": "4i. an account that is not an extension cannot drive A",
+    "pass": true,
+    "detail": "Err(\"FYgbVH8zDD6QF13t4urxkB6TZGEeKCqnyMpzT14GdGNq: Smart contract panicked: extension 'prime-spike-muwguc60.testnet' is not enabled\\\")) }\")"
+  },
+  {
+    "check": "5a. A adds B's account as an extension",
+    "pass": true,
+    "detail": "3.8s {AccountId(\"0s1840f2f4073905b2ca79b33a4fb51484c7b14ce3\")}"
+  },
+  {
+    "check": "5b. B signs through A's account -> same MPC key, signature verifies",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "check": "5c. B turns off A's old key",
+    "pass": true,
+    "detail": "w_is_signature_allowed=false"
+  },
+  {
+    "check": "5d. A's old Freighter key refused afterwards",
+    "pass": true,
+    "detail": "Err(\"J2FYKLkHGnSay33BMyF1fZ8w98xaC2wr6ccoDSPvimLB: Smart contract panicked: signature is disabled, use extensions to act on behalf of this wallet\\\")) }\")"
+  }
+]

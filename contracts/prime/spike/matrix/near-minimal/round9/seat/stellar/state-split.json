@@ -1,0 +1,122 @@
+{
+ "wasm": "cd3aefbdfb6ff3830a503a1b11317bc27a68b4c56fd9d4b2e37f7a845ac6fc73",
+ "wasmTx": "64bc6fdbf97868fb8bf34f3c7c6dbc4786e0b6754324febacb72b6fb19756b77",
+ "S": "CDAHBX7U4KEXYDGQCNWJ6XCWYEEH6HRWT464AGAVMS3CY3TL5R3DCKGE",
+ "STx": "059732abb47d262461546e930c9bf6a60073e1dbd060f31d1b8827658852fff6",
+ "results": {
+  "SP0. the deployed contract runs the built split wasm": {
+   "pass": true,
+   "detail": "cd3aefbdfb6ff3830a503a1b11317bc27a68b4c56fd9d4b2e37f7a845ac6fc73 build cd3aefbdfb6ff3830a503a1b11317bc27a68b4c56fd9d4b2e37f7a845ac6fc73"
+  },
+  "SP1. the contract stores the owner key at 0 and the seat key at 1, and they differ": {
+   "pass": true,
+   "detail": "owner GBDUSRWW2OKYUCKSF4A4SKIQDVHL4ASYKEIHWR4GA4ZRWAYDZ6QK3SIO seat GDVVSXHOBP76OPRF7Q34I4IBBG3MIRTKYUBLA2YHSVM5CJQJCUWX4SJW"
+  },
+  "SG1. the owner key grants a move-only session": {
+   "pass": true,
+   "detail": "ok 4086 ms",
+   "hash": "f4a238484d23023bc6f8691bc90b3512685f2c86b5f0211d8f5f8a4cea326610"
+  },
+  "SG2. the owner key grants a session with the vote flag: refused (the contract asks the seat key)": {
+   "pass": true,
+   "detail": "refused: Error(Auth, InvalidAction)"
+  },
+  "SG2b. ... and the key holds no grant": {
+   "pass": true,
+   "detail": "no entry"
+  },
+  "SG3. the seat key grants a session with the vote flag": {
+   "pass": true,
+   "detail": "ok 2938 ms",
+   "hash": "bac7f534edd5b42205accc3cd18c54a11f72a280eed555b7e595c922eb9ddd18"
+  },
+  "SG4. the seat key grants a move-only session: refused (the contract asks the owner key)": {
+   "pass": true,
+   "detail": "refused: Error(Auth, InvalidAction)"
+  },
+  "SG5. a stranger signs the seat key's vote grant": {
+   "pass": true,
+   "detail": "refused: Error(Auth, InvalidAction) Error(Contract, #5)"
+  },
+  "SG6. stored: the move-only key has no vote flag, the vote key has it": {
+   "pass": true,
+   "detail": "{\"until\":5088534,\"vote\":false} {\"until\":5088534,\"vote\":true}"
+  },
+  "SV1. the seat key authorizes the seat's own vote (verify, empty proof)": {
+   "pass": true,
+   "detail": "ok 5961 ms returned true",
+   "hash": "16b42c1fc77008c75e983bb3f1cc4b3172f9bdd3caf678d41f1c30103cd5884d"
+  },
+  "SV2. the owner key authorizes a vote: refused (the contract asks the seat key)": {
+   "pass": true,
+   "detail": "refused: Error(Auth, InvalidAction)"
+  },
+  "SV3. no authorization at all": {
+   "pass": true,
+   "detail": "refused: FAILED",
+   "hash": "549ed1ff88a8634b7ddd77d438edcf7d0285fb85a3aa2f4948847db489baaeda"
+  },
+  "SV4. a session key with the vote flag votes": {
+   "pass": true,
+   "detail": "ok 5101 ms returned true",
+   "hash": "d64ffd303abc694867fda02f1d706ca876075da8025a96df490d08c6a898a5eb"
+  },
+  "SV5. a move-only session key does not vote": {
+   "pass": true,
+   "detail": "ok 4985 ms returned false",
+   "hash": "c4b164595ed8f585710ddeba885191f4286d419dfcb75bcd554b9e234bd7feb0"
+  },
+  "SR0. the seat key grants a second vote session": {
+   "pass": true,
+   "detail": "ok 6588 ms",
+   "hash": "276b9b41c8d88bdd3c52d44808bb015100e10a997cdd5dbb8d4c021feeb0828b"
+  },
+  "SR1. the owner key re-grants it move-only (a downgrade)": {
+   "pass": true,
+   "detail": "ok 6379 ms",
+   "hash": "c05c75609fb6d5c27deb4f2534cec8c9582e70127bf8d7b89331ada2f5b19994"
+  },
+  "SR2. the downgraded key does not vote": {
+   "pass": true,
+   "detail": "ok 4496 ms returned false",
+   "hash": "309d6c7a2038970ed100019dd0d623be8217d63e003e5c8d36942c76e7b4e30b"
+  },
+  "SR3. the owner key tries to upgrade the move-only key to a vote session: refused": {
+   "pass": true,
+   "detail": "refused: Error(Auth, InvalidAction)"
+  },
+  "SR4. the owner key revokes the vote session (grant(key, 0, false)), the same wallet's other keys stay": {
+   "pass": true,
+   "detail": "ok 4043 ms",
+   "hash": "3fd4d7250276a9a2e96dd3aae3e660cd7ee1f2d33be54fde3e160fdd309bcaf6"
+  },
+  "SR5. the revoked key does not vote": {
+   "pass": true,
+   "detail": "ok 4833 ms returned false",
+   "hash": "d0184754571a9721c11062de176ae967db88d5dc7e7d80079399f1ff8eeb6bc2"
+  },
+  "SR6. the seat key cannot grant the revoked key again (revoke is final)": {
+   "pass": true,
+   "detail": "refused: Error(Contract, #1)"
+  },
+  "SR7. the move-only session is still live after the revoke of the other key": {
+   "pass": true,
+   "detail": "ok 6018 ms",
+   "hash": "6e1c4af77504fd4c9ab013f080273bedab68201d15a6c3fa8018b13909bd99e3"
+  }
+ },
+ "fees": {
+  "SG1. the owner key grants a move-only session": 18208,
+  "SG3. the seat key grants a session with the vote flag": 18208,
+  "SV1. the seat key authorizes the seat's own vote (verify, empty proof)": 12465,
+  "SV3. no authorization at all": 9016,
+  "SV4. a session key with the vote flag votes": 4464,
+  "SV5. a move-only session key does not vote": 4170,
+  "SR0. the seat key grants a second vote session": 18208,
+  "SR1. the owner key re-grants it move-only (a downgrade)": 15502,
+  "SR2. the downgraded key does not vote": 4170,
+  "SR4. the owner key revokes the vote session (grant(key, 0, false)), the same wallet's other keys stay": 758485,
+  "SR5. the revoked key does not vote": 4170,
+  "SR7. the move-only session is still live after the revoke of the other key": 15502
+ }
+}

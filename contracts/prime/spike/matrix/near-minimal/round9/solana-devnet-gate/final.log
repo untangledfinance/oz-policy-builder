@@ -1,0 +1,13 @@
+Account Type: Program
+Authority: none
+
+Error: Dynamic program error: No default signer found, run "solana-keygen new -o /home/ubuntu/.config/solana/id.json" to create a new one
+
+Program Id: 58L4q3DgvPdvRh7kX4v148EwEwd29WHh4RfaZJR69iYx
+Owner: BPFLoaderUpgradeab1e11111111111111111111111
+ProgramData Address: 12zjuTsmzpN75z1QWoUR7eb2ZJuq2mbrcCfSTDDdn1TS
+Authority: none
+Last Deployed In Slot: 509094290
+Data Length: 47160 (0xb838) bytes
+Balance: 0.24045164 SOL
+

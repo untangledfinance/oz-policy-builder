@@ -194,7 +194,7 @@ export const SOROSWAP_ABI: ProtocolAbi = {
  *     1.0 threshold - lowering the gate for unknown protocols remains
  *     a separate, opt-in production override (see RecordInput below).
  *
- *  ABI source: contracts/policy-interpreter/tests/fixtures/multisig_account_example.wasm,
+ *  ABI source: contracts/prime/stellar/policy-interpreter/tests/fixtures/multisig_account_example.wasm,
  *  pinned from the OpenZeppelin Reloaded `multisig_account_example`
  *  contract (commit ef82b65, fetched 2026-07-28).
  *

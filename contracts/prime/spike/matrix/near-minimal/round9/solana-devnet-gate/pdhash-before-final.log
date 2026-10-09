@@ -1,0 +1,4 @@
+genesis EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG
+sha256(.so) 6d196cab5b6c6d29bc6cf650a1526b4be56c0550bed479b55090364d7a04dfd7 47160 bytes
+program 58L4q3DgvPdvRh7kX4v148EwEwd29WHh4RfaZJR69iYx: executable true, program data 12zjuTsmzpN75z1QWoUR7eb2ZJuq2mbrcCfSTDDdn1TS (47160 B of code space), upgrade authority 5bevLKtW8bA6LCXXMqQAjnWBRCWcSXwcvQHiCbT6JjuY
+on-chain code starts with the local .so: true | code space equals .so length: true | sha256(on-chain code, .so length) 6d196cab5b6c6d29bc6cf650a1526b4be56c0550bed479b55090364d7a04dfd7

@@ -1,0 +1,87 @@
+PASS C1. create the Safe (MetaMask-style key first, PrimeX flow) | ok gas 259243
+PASS C2. three seats, threshold 2; Roles installed; rule A for PrimeSession A | ok gas 581187
+PASS C3. Safe owners are exactly the three seat keys (no PrimeSession), threshold 2 | ok 3 owners
+PASS C4. Roles is owned by the Safe; the venue is a contract that never saw this Safe before | ok calls 0
+--- rule A: deposit(amount <= 1000, onBehalfOf == Safe) on one venue
+PASS A0. MetaMask-style key grants a 1-hour session on PrimeSession A (one personal_sign) | ok gas 76000
+PASS A1. allowed: deposit(100, Safe) | ok gas 166492
+PASS A2. the venue ledger shows 100 for the Safe, and its caller was the Safe (not the session key, not PrimeSession) | ok deposits 100, lastCaller 0x28304dd8, calls 1
+PASS A3. boundary: deposit(1000, Safe), amount equal to the cap | ok gas 112404
+PASS A4. amount over the cap: deposit(1001, Safe) | refused: Roles ConditionViolation(ParameterGreaterThanAllowed)
+PASS    A4. refusal reason is ParameterGreaterThanAllowed | ok ParameterGreaterThanAllowed
+PASS    A4. venue state unchanged by the refused call | ok 2/0/1100/0/0
+PASS    A4. control: the same call from the Safe itself would succeed (so the rule is what refuses it) | ok ok
+PASS A5. amount = 2^256 - 1 | refused: Roles ConditionViolation(ParameterGreaterThanAllowed)
+PASS    A5. refusal reason is ParameterGreaterThanAllowed | ok ParameterGreaterThanAllowed
+PASS    A5. venue state unchanged by the refused call | ok 2/0/1100/0/0
+PASS A6. different onBehalfOf (a stranger): deposit(100, other) | refused: Roles ConditionViolation(ParameterNotAllowed)
+PASS    A6. refusal reason is ParameterNotAllowed | ok ParameterNotAllowed
+PASS    A6. venue state unchanged by the refused call | ok 2/0/1100/0/0
+PASS    A6. control: the same call from the Safe itself would succeed (so the rule is what refuses it) | ok ok
+PASS A7. onBehalfOf is the session key's own address | refused: Roles ConditionViolation(ParameterNotAllowed)
+PASS    A7. refusal reason is ParameterNotAllowed | ok ParameterNotAllowed
+PASS    A7. venue state unchanged by the refused call | ok 2/0/1100/0/0
+PASS    A7. control: the same call from the Safe itself would succeed (so the rule is what refuses it) | ok ok
+PASS A8. onBehalfOf is the zero address | refused: Roles ConditionViolation(ParameterNotAllowed)
+PASS    A8. refusal reason is ParameterNotAllowed | ok ParameterNotAllowed
+PASS    A8. venue state unchanged by the refused call | ok 2/0/1100/0/0
+PASS    A8. control: the same call from the Safe itself would succeed (so the rule is what refuses it) | ok ok
+PASS A9. another function on the same venue: withdraw(1, Safe) | refused: Roles ConditionViolation(FunctionNotAllowed)
+PASS    A9. refusal reason is FunctionNotAllowed | ok FunctionNotAllowed
+PASS    A9. venue state unchanged by the refused call | ok 2/0/1100/0/0
+PASS    A9. control: the same call from the Safe itself would succeed (so the rule is what refuses it) | ok ok
+PASS A10. the same allowed call on another contract (a second venue) | refused: Roles ConditionViolation(TargetAddressNotAllowed)
+PASS    A10. refusal reason is TargetAddressNotAllowed | ok TargetAddressNotAllowed
+PASS    A10. venue state unchanged by the refused call | ok 2/0/1100/0/0
+PASS    A10. control: the same call from the Safe itself would succeed (so the rule is what refuses it) | ok ok
+PASS A11. delegatecall of the allowed deposit | refused: Roles ConditionViolation(DelegateCallNotAllowed)
+PASS    A11. refusal reason is DelegateCallNotAllowed | ok DelegateCallNotAllowed
+PASS    A11. venue state unchanged by the refused call | ok 2/0/1100/0/0
+PASS A12. the allowed deposit with 1 wei of ETH attached | refused: Roles ConditionViolation(SendNotAllowed)
+PASS    A12. refusal reason is SendNotAllowed | ok SendNotAllowed
+PASS    A12. venue state unchanged by the refused call | ok 2/0/1100/0/0
+PASS A13. a call to the Safe itself (addOwnerWithThreshold) | refused: Roles ConditionViolation(TargetAddressNotAllowed)
+PASS    A13. refusal reason is TargetAddressNotAllowed | ok TargetAddressNotAllowed
+PASS    A13. venue state unchanged by the refused call | ok 2/0/1100/0/0
+PASS A14. empty calldata to the venue (fallback) | refused: Roles ConditionViolation(FunctionNotAllowed)
+PASS    A14. venue state unchanged by the refused call | ok 2/0/1100/0/0
+PASS A15. the deposit selector with no arguments (short calldata) | refused: Roles CalldataOutOfBounds
+PASS    A15. venue state unchanged by the refused call | ok 2/0/1100/0/0
+PASS A16. the allowed call with 4 extra bytes after the arguments: accepted, and the venue reads the same (7, Safe) | ok gas 112440
+PASS A16b. effect on the venue is exactly deposit(7, Safe) | ok +7
+PASS A17. replay of the accepted A1 signature (nonce already used) | refused: reverted with reason: session sig
+PASS    A17. venue state unchanged by the refused call | ok 3/0/1107/0/0
+PASS A19. allowed: deposit(5, Safe) again | ok gas 112380
+PASS A20. session nonce advanced by exactly one for the accepted move, none for refused ones | ok nonce 3 -> 4
+PASS A21. totals: Safe deposited 100 + 1000 + 7 + 5 = 1112 and the venue counted 4 calls; no refused call changed anything | ok deposits 1112, calls 4, other 0, venue2 calls 0 (state before A17 3/0/1107/0/0)
+--- rule B: deposit(10 <= amount <= 100, onBehalfOf in {Safe, treasury}), withdraw(any amount, to == Safe)
+PASS B0. two seats install rule B for PrimeSession B (a Safe transaction, 2-of-3) | ok gas 499909
+PASS B1. MetaMask-style key grants a session on PrimeSession B | ok gas 76000
+PASS B2. allowed: deposit(10, Safe), the lower bound | ok gas 126659
+PASS B3. allowed: deposit(100, treasury), the upper bound and the second listed address | ok gas 145130
+PASS B4. below the range: deposit(9, Safe) | refused: Roles ConditionViolation(ParameterLessThanAllowed)
+PASS    B4. refusal reason is ParameterLessThanAllowed | ok ParameterLessThanAllowed
+PASS    B4. venue state unchanged by the refused call | ok 6/0/1122/0/100
+PASS    B4. control: the same call from the Safe itself would succeed (so the rule is what refuses it) | ok ok
+PASS B5. above the range: deposit(101, Safe) | refused: Roles ConditionViolation(ParameterGreaterThanAllowed)
+PASS    B5. refusal reason is ParameterGreaterThanAllowed | ok ParameterGreaterThanAllowed
+PASS    B5. venue state unchanged by the refused call | ok 6/0/1122/0/100
+PASS    B5. control: the same call from the Safe itself would succeed (so the rule is what refuses it) | ok ok
+PASS B6. onBehalfOf outside the set: deposit(50, other) | refused: Roles ConditionViolation(OrViolation)
+PASS    B6. refusal reason is OrViolation | ok OrViolation
+PASS    B6. venue state unchanged by the refused call | ok 6/0/1122/0/100
+PASS    B6. control: the same call from the Safe itself would succeed (so the rule is what refuses it) | ok ok
+PASS B7. allowed: withdraw(5, Safe), any amount (no condition on the first argument) | ok gas 111530
+PASS B8. withdraw to the treasury (the recipient must be the Safe) | refused: Roles ConditionViolation(ParameterNotAllowed)
+PASS    B8. refusal reason is ParameterNotAllowed | ok ParameterNotAllowed
+PASS    B8. venue state unchanged by the refused call | ok 7/0/1117/0/100
+PASS B9. PrimeSession B asks for rule A's role key (a role it is not a member of) | refused: Roles NoMembership
+PASS    B9. venue state unchanged by the refused call | ok 7/0/1117/0/100
+PASS B10. totals: Safe 1112 + 10 - 5 = 1117, treasury 100, 7 calls on the venue, none on the second venue | ok safe 1117, treasury 100, calls 7
+PASS R1. a second session on PrimeSession A | ok gas 75988
+PASS R2. the owner revokes it: grant with end 0 (one signature) | ok gas 57833
+PASS R3. the revoked session makes the otherwise allowed deposit(1, Safe) | refused: reverted with reason: session
+PASS    R3. venue state unchanged by the refused call | ok 7/0/1117/0/100
+PASS R4. after the session ends, the first session makes the allowed deposit(1, Safe) | refused: reverted with reason: session
+PASS    R4. venue state unchanged by the refused call | ok 7/0/1117/0/100
+84/84 passed

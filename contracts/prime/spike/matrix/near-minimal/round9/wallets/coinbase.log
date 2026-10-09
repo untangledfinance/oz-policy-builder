@@ -1,0 +1,178 @@
+providers {"found":["Coinbase Wallet com.coinbase.wallet"],"legacy":true}
+
+--- prompt [connect] index.html?inPageRequest=true&type=extensionUIRequest&action=requestEthereumAccounts&id=a0f8d69ec3288d60131228f49241d43c0x1&originTabId=1501838483 buttons=[]
+3.149.0
+QA
+---
+
+--- prompt [connect] index.html?inPageRequest=true&type=extensionUIRequest&action=requestEthereumAccounts&id=a0f8d69ec3288d60131228f49241d43c0x1&originTabId=1501838483 buttons=["Switch to smart wallet","Deny","Connect"]
+3.149.0
+QA
+Connecting with 0x8970…D17F
+Using browser extension. Switch to smart wallet
+Connected
+Connect to website
+127.0.0.1
+󰈚
+Let it see your wallet balance and activity
+󰈚
+Let it send you requests for transactions
+󰉄
+Funds will not leave your wallet until you execute a transaction
+Deny
+Connect
+---
+clicked "Connect" [connect]
+[connect] ok {"accounts":["0x8970828c8e2c7483a0a872721acf68f98b11d17f"],"chainId":"0x1"}
+clicked "Connect" [grant]
+[grant] ERROR page.evaluate: Error: RPC {"code":4001,"message":"User denied message signature"}
+    at rq (http://127.0.0.1:8801/evm.html:7:86)
+    at async <anonymous>:396:30
+
+--- prompt [near] index.html?inPageRequest=true&type=extensionUIRequest&action=signEthereumMessage&id=a0f8d69ec3288d60131228f49241d43c0x4&originTabId=1501838483 buttons=[]
+3.149.0
+QA
+---
+
+--- prompt [near] index.html?inPageRequest=true&type=extensionUIRequest&action=signEthereumMessage&id=a0f8d69ec3288d60131228f49241d43c0x4&originTabId=1501838483 buttons=["Cancel","Sign"]
+3.149.0
+QA
+Confirm signature request
+Signing with 0x8970…d17f
+Review
+Request from 127.0.0.1
+󰔀
+Message:
+Prime NEAR signer contract: signer.prime-spike-muwguc60.testnet path: prime:evm domain: 0 payload: ff11f72c734002a80a4424181a399eda9bb185668177e17e487b6fb3ada04101
+Cancel
+Sign
+---
+clicked "Sign" [near]
+[near] ok 0x4391c48318d2087ee7815831315a2644174c0a…
+[ethSign] ERROR page.evaluate: Error: RPC {"code":4001,"message":"User denied message signature"}
+    at rq (http://127.0.0.1:8801/evm.html:7:86)
+    at async <anonymous>:396:30
+
+--- prompt [typed] index.html?inPageRequest=true&type=extensionUIRequest&action=signEthereumMessage&id=a0f8d69ec3288d60131228f49241d43c0x7&originTabId=1501838483 buttons=[]
+3.149.0
+QA
+---
+
+--- prompt [typed] index.html?inPageRequest=true&type=extensionUIRequest&action=signEthereumMessage&id=a0f8d69ec3288d60131228f49241d43c0x7&originTabId=1501838483 buttons=["Cancel","Sign"]
+3.149.0
+QA
+Confirm signature request
+Signing with 0x8970…d17f
+Review
+Request from 127.0.0.1
+󰔀
+Previewing your message....
+󰔀
+Loading Cell
+Loading
+Loading
+Message:
+{
+ "types": {
+  "EIP712Domain": [
+   {
+    "name": "chainId",
+    "type": "uint256"
+   },
+   {
+    "name": "verifyingContract",
+    "type": "address"
+   }
+  ],
+  "SafeTx": [
+   {
+    "name": "to",
+    "type": "address"
+   },
+   {
+    "name": "value",
+    "type": "uint256"
+   },
+   {
+    "name": "data",
+    "type": "bytes"
+   },
+   {
+    "name": "operation",
+    "type": "uint8"
+   },
+   {
+    "name": "safeTxGas",
+    "type": "uint256"
+   },
+   {
+    "name": "baseGas",
+    "type": "uint256"
+   },
+   {
+    "name": "gasPrice",
+    "type": "uint256"
+   },
+   {
+    "name": "gasToken",
+    "type": "address"
+   },
+   {
+    "name": "refundReceiver",
+    "type": "address"
+   },
+   {
+    "name": "nonce",
+    "type": "uint256"
+   }
+  ]
+ },
+ "primaryType": "SafeTx",
+ "domain": {
+  "chainId": 84532,
+  "verifyingContract": "0xA2E16A037267C3124bDDFab34265a925FBA6D32c"
+ },
+ "message": {
+  "to": "0x4c32C5d73B6Be66D9bba60f775d7106DeaAe8bf7",
+  "value": "1000",
+  "data": "0x",
+  "operation": 0,
+  "safeTxGas": "0",
+  "baseGas": "0",
+  "gasPrice": "0",
+  "gasToken": "0x0000000000000000000000000000000000000000",
+  "refundReceiver": "0x0000000000000000000000000000000000000000",
+  "nonce": "0"
+ }
+}
+Cancel
+Sign
+---
+clicked "Sign" [typed]
+[typed] ok 0x9b8a25d17b2529d19f17245dc47176ab4b207e…
+providers {"found":["Coinbase Wallet com.coinbase.wallet"],"legacy":true}
+[connect] ok {"accounts":["0x8970828c8e2c7483a0a872721acf68f98b11d17f"],"chainId":"0x14a34"}
+
+--- prompt [grant] index.html?inPageRequest=true&type=extensionUIRequest&action=signEthereumMessage&id=861c5dbbd95b80532193dc3856842db10x1&originTabId=1501838493 buttons=[]
+3.149.0
+QA
+---
+
+--- prompt [grant] index.html?inPageRequest=true&type=extensionUIRequest&action=signEthereumMessage&id=861c5dbbd95b80532193dc3856842db10x1&originTabId=1501838493 buttons=["Cancel","Sign"]
+3.149.0
+QA
+Confirm signature request
+Signing with 0x8970…d17f
+Review
+Request from 127.0.0.1
+󰔀
+Message:
+Prime session contract: 0x93e39aa04aa10600a4584976c41f1cbea7a81d1a session key: 0xdd0125bea506fbb56ea93e1340011858355b126d valid until (unix time): 1791707066 network: 84532
+Cancel
+Sign
+---
+clicked "Sign" [grant]
+[grant] ok 0xc72f0b9ec5d4a3ae6137e46d1e84b3380025c1…
+[ethSign] ERROR page.evaluate: Error: RPC {"code":4001,"message":"User denied message signature"}
+    at rq (http://127.0.0.1:8801/evm.html:7:86)
+    at async <anonymous>:396:30

@@ -1,0 +1,3 @@
+('s01', 'the ed25519 instruction need not be the ed25519 program', 'SURVIVED', '', '128/128 passed', '53s')
+('s02', 'the ed25519 instruction may carry any signature count', 'SURVIVED', '', '128/128 passed', '53s')
+killed 0 of 2

@@ -1,0 +1,67 @@
+| mutant | weakened check | result | first failing check | harness | time |
+|---|---|---|---|---|---|
+| f01 | create: both lanes may be the same vault | killed | G13c. | stopped at the first failure | 17s |
+| f02 | create: agent lane 0 (where session rules sign) is accepted | killed | G13. | stopped at the first failure | 14s |
+| f03 | create: owners lane 0 is accepted | killed | G13b. | stopped at the first failure | 18s |
+| f04 | create: the destination list need not be whole 32-byte entries | killed | G16b. | stopped at the first failure | 13s |
+| f05 | create: the signer need not be a signer of the multisig | killed | G4. | stopped at the first failure | 10s |
+| f06 | create: a multisig with m greater than n is accepted | killed | G9. | stopped at the first failure | 13s |
+| f07 | create: the settings account need not be owned by Squads | killed | G12. | stopped at the first failure | 14s |
+| f08 | create: a Prime Account with a settings authority is accepted | killed | G11. | stopped at the first failure | 13s |
+| f09 | votes: the identity need not belong to a token program | killed | G6. | stopped at the first failure | 9s |
+| f10 | votes: a key counts although it did not sign | killed | G14. | stopped at the first failure | 13s |
+| f11 | create: the seed is not part of the gate address | killed | G1. | stopped at the first failure | 9s |
+| f12 | create: the two lane vaults are stored swapped | killed | G2. | stopped at the first failure | 8s |
+| f13 | transfer: the lane need not sign | killed | T6c. | stopped at the first failure | 35s |
+| f14 | transfer: any signer counts as a lane | killed | G20d. | stopped at the first failure | 18s |
+| f15 | transfer: the not-after may have passed | killed | T5. | stopped at the first failure | 35s |
+| f16 | transfer: the not-after has no upper bound (custody's window) | killed | T5b. | stopped at the first failure | 36s |
+| f17 | transfer: the gate end time is ignored | killed | E2. | stopped at the first failure | 59s |
+| f18 | transfer: the agent lane may pay any destination | killed | T2. | stopped at the first failure | 35s |
+| f19 | transfer: the owners lane may pay any destination | killed | T13. | stopped at the first failure | 38s |
+| f20 | transfer: the agent lane may pay the recovery address | killed | T3. | stopped at the first failure | 35s |
+| f21 | transfer: the agent path accepts a source the cap PDA owns (no limit) | killed | T8b. | stopped at the first failure | 36s |
+| f22 | call: any program may serve as the token program | killed | A13. | stopped at the first failure | 30s |
+| f23 | load: a gate account of another program is accepted | killed | A14. | stopped at the first failure | 31s |
+| f24 | allow: one signer may raise the cap | killed | A2. | stopped at the first failure | 27s |
+| f25 | allow: the same cap counts as a raise | killed | A5c. | stopped at the first failure | 28s |
+| f26 | allow: the multisig need not be the gate's | killed | A10. | stopped at the first failure | 30s |
+| f27 | allow: the cap PDA account is not checked | killed | A9. | stopped at the first failure | 30s |
+| f28 | allow: a foreign close authority is accepted | killed | X2. | stopped at the first failure | 41s |
+| f29 | allow: an unset close authority is refused | killed | H4e. | stopped at the first failure | 21s |
+| f30 | release: one signer may release | killed | R1. | stopped at the first failure | 64s |
+| f31 | release: the multisig need not be the gate's | killed | R5. | stopped at the first failure | 66s |
+| f32 | release: the owner changes before the close authority | killed | H4f. | stopped at the first failure | 22s |
+| f33 | release: only the owner is handed back | killed | H4g. | stopped at the first failure | 22s |
+| f34 | release: only the close authority is handed back | killed | H4g. | stopped at the first failure | 22s |
+| f35 | transfer: the destination owner is read from the mint field | killed | G20c. | stopped at the first failure | 14s |
+| f36 | transfer: the cap PDA signs with another seed (agent path) | killed | A1. | stopped at the first failure | 28s |
+| f37 | create: the Allocate step is dropped | killed | G1. | stopped at the first failure | 8s |
+| f38 | allow: the gate approves its own address as the delegate (the cap PDA is not used) | killed | G20c. | stopped at the first failure | 17s |
+| f39 | transfer: the owners lane signs as the cap PDA (bounded by the cap) | killed | A7d. | stopped at the first failure | 31s |
+| f40 | transfer: the owners lane is stopped by the end time | killed | E3. | stopped at the first failure | 61s |
+| f41 | process: a create shorter than its fixed fields reaches create | killed | G16c. | stopped at the first failure | 14s |
+| f42 | process: a transfer of the wrong length reaches transfer | killed | G16d. | stopped at the first failure | 15s |
+| f43 | process: an allow of the wrong length reaches allow | killed | G16e. | stopped at the first failure | 16s |
+| f44 | process: a release of the wrong length reaches release | killed | G16f. | stopped at the first failure | 16s |
+| f45 | allow: the current cap is read from the balance field | killed | A2. | stopped at the first failure | 28s |
+| f46 | release: the close authority is cleared instead of handed back | killed | H4f. | stopped at the first failure | 24s |
+| f47 | votes: only the first two signer slots count | killed | R12c. | stopped at the first failure | 74s |
+| f48 | votes: m and n are read swapped | killed | G9. | stopped at the first failure | 13s |
+| f49 | create: the rent top-up transfers nothing | killed | G1a. | stopped at the first failure | 8s |
+| f50 | create: the Assign step is dropped | killed | G1. | stopped at the first failure | 8s |
+| f51 | create: the agent lane index is fixed at 1 | killed | G20b. | stopped at the first failure | 17s |
+| f52 | create: the owners lane index is fixed at 3 | killed | G20b. | stopped at the first failure | 15s |
+| f53 | transfer: the end time is exclusive (boundary second) | killed | B1. | stopped at the first failure | 250s |
+| f54 | transfer: a not-after equal to now is refused (boundary second) | killed | B2. | stopped at the first failure | 286s |
+| f55 | le: little-endian numbers are read big-endian | killed | G20c. | stopped at the first failure | 15s |
+| f56 | cpi: one account too many is writable | killed | setup | stopped at the first failure | 15s |
+| f57 | cpi: no account signs | killed | G1. | stopped at the first failure | 10s |
+| f58 | gate_seeds: the bump is read from the seed's last byte | killed | setup | stopped at the first failure | 14s |
+| f59 | gate_seeds: the seed is read one byte late | killed | setup | stopped at the first failure | 14s |
+| f60 | load: the last byte of the gate account is dropped | killed | T1c. | stopped at the first failure | 34s |
+| f61 | need: a failed condition passes | killed | G1. | stopped at the first failure | 7s |
+| f62 | create: the system calls sign for nothing (system call signer count 0) | killed | G1. | stopped at the first failure | 8s |
+| f63 | votes: a token-owned account of any length is accepted as the multisig (a token account posing as custody) | killed | FX1. | stopped at the first failure | 11s |
+
+Mutant f63 removes the multisig length check. The mock harness never builds a token account that poses as the multisig, so `probe-fakems.ts` with `EXPECT_REFUSE=1` judges it (`mutants/f63.log`). The first pass ran the mock harness for f63 and was stopped by hand, which `mutants-lcfix.run.log` shows as CRASHED; the table has the probe result.

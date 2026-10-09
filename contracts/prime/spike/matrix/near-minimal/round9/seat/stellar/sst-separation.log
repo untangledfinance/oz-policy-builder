@@ -1,0 +1,10 @@
+10:53:23 PASS N0a. Phantom grant, move only ok 3038 ms 41968e3a899cf68f0d00414a76424187e71c7cb6af81958db97d0ec7c1cfcbfa
+10:53:38 PASS N0b. Phantom grant, move+vote ok 7334 ms 153e92d7b28b9edd47eb3a534db9d93f6447f489348d657ac8b1336cebac972c
+10:53:39 PASS N1. Phantom's move-only key through the move entry point (Delegated) as a rule-0 seat + Freighter's owner refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+10:53:41 PASS N2. Phantom's move-only key in the vote entry point (External) + Freighter's owner refused: Error(Auth, InvalidAction) Error(Contract, #3003)
+10:53:42 PASS N3. Phantom's move-only session asks its own session rule for an account-admin call refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+10:53:43 PASS N4. Phantom's move+vote session asks its session rule for an account-admin call refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+10:53:44 PASS N5. Phantom's move+vote session removes rule 0 through its session rule refused: Error(Auth, InvalidAction) Error(Contract, #3002)
+10:53:46 PASS N6. Phantom's vote session key as an External signer of its session rule (not in that rule) refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+10:53:47 PASS N7. a plain account that is not a seat + Freighter's owner on rule 0 refused: Error(Auth, InvalidAction) Error(Contract, #3016)
+10:53:47 NEAR MPC: 2 signatures, average 7.4s

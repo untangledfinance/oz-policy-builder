@@ -1,0 +1,185 @@
+{
+ "results": [
+  {
+   "name": "E0. ed25519 verifier: genuine signature true, wrong key false",
+   "pass": true,
+   "ok": true,
+   "detail": "estimateGas 939760 per verification"
+  },
+  {
+   "name": "E1. create Safe (MetaMask first, PrimeX flow)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 259243 0xaac98787dff38500…"
+  },
+  {
+   "name": "E2. nonce 0: seats MetaMask, Ed25519Owner(Freighter), Ed25519Owner(Phantom); threshold 2; movers rule — no NEAR",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 750059 0x988c4531068c923f…"
+  },
+  {
+   "name": "E3. owners are MetaMask + the two Ed25519Owner contracts, threshold 2",
+   "pass": true,
+   "ok": true,
+   "detail": "0xbBB9dDF625449b5c90C89BcaC3Feaa5bb6da7C40,0x3985E19caE7c91AE6e713A3c1a428c3e13F4Ac05,0x712A7aD2b9B84932E485dE58f2eC8E302217C9CF"
+  },
+  {
+   "name": "E4. mint 1000 tokens to the Safe",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 46096 0xd2c2f24de52d6296…"
+  },
+  {
+   "name": "F1. Freighter alone (contract signature)",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS021"
+  },
+  {
+   "name": "F2. Phantom alone",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS021"
+  },
+  {
+   "name": "F3. Freighter + Phantom (no MetaMask, no NEAR)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 1824140 0xaf19a2304d0ffedb…"
+  },
+  {
+   "name": "F4. MetaMask + Freighter",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 830884 0x1b1c6d07bca0cdec…"
+  },
+  {
+   "name": "F5. Phantom + MetaMask",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 1063416 0xdaeaf64528992428…"
+  },
+  {
+   "name": "F6. DEST received exactly 3 tokens",
+   "pass": true,
+   "ok": true,
+   "detail": "3"
+  },
+  {
+   "name": "F7. Freighter key signs the approval text WITHOUT the SEP-53 prefix + MetaMask",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "F8. Phantom seat signed by the Freighter key + MetaMask",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "F9. Phantom approval of another Safe tx hash + MetaMask",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: GS024"
+  },
+  {
+   "name": "G-Freighter1. one-signature session: 10 tokens to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 962346 0xdd4a20ae1bd16eb9…"
+  },
+  {
+   "name": "G-Freighter1b. VENUE received 10",
+   "pass": true,
+   "ok": true,
+   "detail": "10"
+  },
+  {
+   "name": "G-Freighter2. 1 token elsewhere",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "G-Freighter3. stretched validUntil",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: not owner"
+  },
+  {
+   "name": "G-Freighter4. Freighter revokes a live session (one signature, no NEAR)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 808385 0xbb39758100792041…"
+  },
+  {
+   "name": "G-Freighter5. that session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: revoked"
+  },
+  {
+   "name": "G-Phantom1. one-signature session: 10 tokens to VENUE",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 1163852 0x489aa29db6322fe9…"
+  },
+  {
+   "name": "G-Phantom1b. VENUE received 10",
+   "pass": true,
+   "ok": true,
+   "detail": "10"
+  },
+  {
+   "name": "G-Phantom2. 1 token elsewhere",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: custom error 0xd0a9bf58: \u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0007\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"
+  },
+  {
+   "name": "G-Phantom3. stretched validUntil",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: not owner"
+  },
+  {
+   "name": "G-Phantom4. Phantom revokes a live session (one signature, no NEAR)",
+   "pass": true,
+   "ok": true,
+   "detail": "gas 1047752 0x909c8cdf4913008c…"
+  },
+  {
+   "name": "G-Phantom5. that session",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: revoked"
+  },
+  {
+   "name": "G6. Phantom member with a Freighter-signed grant",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: not owner"
+  },
+  {
+   "name": "G7. Freighter member with the Freighter key signing the grant WITHOUT the SEP-53 prefix",
+   "pass": true,
+   "ok": false,
+   "detail": "reverted with reason: not owner"
+  }
+ ],
+ "venue": "0x8aaB1491C6f20FC4B9903485908BF2A43CDB0A07",
+ "other": "0x5862c072b31915168D9a0cB40dcd61746AEf228B",
+ "dest": "0x82f0c7c5Ec1D2F3204354bDa87451E416FdD6ba1",
+ "verifier": "0xac6a9d59fcdc80b2a1e7a462f0f643a7aac0b40c",
+ "token": "0x6f8e36ad8eba34c11890e14e346fd6c9500b5536",
+ "frOwner": "0x3985e19cae7c91ae6e713a3c1a428c3e13f4ac05",
+ "phOwner": "0xbbb9ddf625449b5c90c89bcac3feaa5bb6da7c40",
+ "safe": "0xC5d8014083c57FD9C5B656eaB9B02Ba021B4e859",
+ "roles": "0x9CFED94569D8deA95e6f5DAdC03e5C39FAD2f735",
+ "smMM": "0x45f8ed650378b1c0902c749f98e80c4a15e49d20",
+ "smFR": "0xd6f7bd2eb75b0ccd8361e3702f0c7abdcff76106",
+ "smPH": "0x0bbd7eed30226095d3f7084f3130f2942f07206f",
+ "roleKey": "0x6d6f766572733a66343639633162380000000000000000000000000000000000"
+}

@@ -1,0 +1,47 @@
+{
+  MetaMask: "2mgK6QSMmExM2CDzKZK3dFHpaUYb5NkiS2spdL6yvGMZ",
+  Freighter: "3phr2yADbejXKtscxyze9kRz8b7rmVuxHytsDY7jXwF1",
+  Phantom: "G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4",
+}
+PASS P0. seats are exactly MetaMask(NEAR MPC), Freighter(NEAR MPC), Phantom(own key); threshold 2; vault funded | ok 6PzQYgpyyyMRVxUSq74794cCHRi1iNWc4QtUpgz9CE7rn5uhCemU9yNdH6iMkAnp3nu2vbq6azKJJao5qSsFj1s
+PASS K1-MetaMask. MetaMask alone:a. MetaMask proposes and approves | ok 3kS27xMkQ3c2rYBGcN2LuFGa33DGWUWE6uNV7zngT62o9KSBePwYBTS3aQui98gPwU2GSWbRvsrvfXZxTVQXoXZf
+PASS K1-MetaMask. MetaMask alone:b. MetaMask executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K1-Freighter. Freighter alone:a. Freighter proposes and approves | ok 39FnaCBcDwYT1xYiNi8H8eYyzm2twWcMzcUSmGhmTGoNjLHK5MwkB2WYiVpQGzoSwMv5frFvWeeb4nCT27zAWhfQ
+PASS K1-Freighter. Freighter alone:b. Freighter executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K1-Phantom. Phantom alone:a. Phantom proposes and approves | ok 3TEpgQowzi5VXgM2rekqTVAVtYbMTzgNAKTdeoS5xqHMFJ31rCEVwmM9xsignTyFuFTZuTXVmTLEgZNvL67fagLr
+PASS K1-Phantom. Phantom alone:b. Phantom executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K2. MetaMask + Freighter:a. MetaMask proposes and approves | ok 9ywnEepnkUHXugPv2LrPD2Phd3GkrHMVk9RANrPrUNnnwFUPnh2EnWdHXH3rx1o4jM2Cwbf4EzWqmY5cfvnthC4
+PASS K2. MetaMask + Freighter:b. Freighter approves and executes | ok 5vkZ9T1ZgiYaEVmBfCZR3eCZWFfNZSTgLVTfW45k5Jvgq5YLrLZd7sp1cXVTGynQk7wiE1yNWjxddiJVT5txA4NY
+PASS K3. Freighter + Phantom:a. Freighter proposes and approves | ok 655EWZHytqTWKSYufEN4PiZyBumvhtRJnnX5yX9FMu9MznNqTq9cwb1zukpSHFp4c6rUjFGwuGip7VFLaxdswPoz
+PASS K3. Freighter + Phantom:b. Phantom approves and executes | ok 3bQfCET36HLf83iP5HtdDTnmkLBjMJJANRKgH2afBgsu6grxFZHZuDAdgoWKBBurR9jUkJ7f3iR5EDyGKRjAbPSe
+PASS K4. Phantom + MetaMask:a. Phantom proposes and approves | ok 2F6LKa53dp1z2sKvm3Q6bbQNc1x26DKzhqmXXUMFDxZpDKJedLNFJnfpa23vXWr9Nz6zJc8APePsx3LZxykkHGng
+PASS K4. Phantom + MetaMask:b. MetaMask approves and executes | ok 3VGjze6oMFrgX4pit35uDVr5JHkEsn5uxhDiNRdXLLf1Finvyoo8mggkCbtsg4TrQE3YQ866gCcwcaY11kar5Kif
+PASS K5. DEST received exactly 0.03 SOL | ok 0.03
+PASS K6. MetaMask alone (open proposal):a. MetaMask proposes and approves | ok 3fwhfrbNzJgwumJnedTjCPBoq3JxReJWXdJ4s73qdnRJSsvQiaiTw9afrcJP4jfqwGrP9MU4JRbNmMNBUXwSd6Be
+PASS K6. MetaMask alone (open proposal):b. MetaMask executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS K6c. an outsider approves it | refused: Error Code: NotASigner
+PASS K6d. Freighter's seat signed by MetaMask's MPC key | refused: [object Object]
+PASS K6e. Freighter's seat signed by its MPC key under another path | refused: [object Object]
+PASS K7. install the movers policy (members: the three session PDAs):a. MetaMask proposes and approves | ok 3i7yUAfJjJkGpMcRUYG7hopz3AnnMyMg4m5hMYAmwfEFMyrWmGZgEtCfLywxXeEJGktHov4d2PEWmE6V7MGuFSCp
+PASS K7. install the movers policy (members: the three session PDAs):b. Phantom approves and executes | ok s2iam5TRZVR6Q2co6kBUwCUmJgMhnnhtoSdsnCvUzUeETtMKJBv1QxXscY3o4T8yT5diehiwP8toHS8GRPzB1jY
+PASS N0. MetaMask alone (open proposal):a. MetaMask proposes and approves | ok 5ep2DMs77kgsCtnQJmCGEMxUHcTrpbGx9pnGLvRTYY9jQN6pE6AfMkRvxwzYsh7G1NgDFR4pi3WVGEhA8fMEpz2V
+PASS N0. MetaMask alone (open proposal):b. MetaMask executes with only its own approval | refused: Error Code: InvalidProposalStatus
+PASS N1. Phantom session approves that proposal as its PDA | refused: Error Code: NotASigner
+PASS N2. Phantom session key approves it as itself | refused: Error Code: NotASigner
+PASS N3. Phantom session proposes a vault transaction as its PDA | refused: Error Code: NotASigner
+PASS N4. Phantom session adds its key as a seat (settings sync, as its PDA) | refused: Error Code: InvalidSignerCount
+PASS N5. Phantom session calls a program other than the Smart Account (System transfer from its PDA) | refused: prime-session: sessions may only call the Smart Account program
+44 |       throw new ProviderError("Request validation error", { cause: status });
+45 |     } else if (status === 503) {
+46 |       throw new ProviderError(`${url} unavailable`, { cause: status });
+47 |     }
+48 |     if (!ok) {
+49 |       throw new ProviderError(await res.text(), { cause: status });
+                 ^
+error: {"jsonrpc": "2.0", "error": {"code": -429, "message": "WARNING! THIS ENDPOINT IS DEPRECATED! STOP USING IT NOW! Switch to https://fastnear.com or alternative RPC providers at https://docs.near.org/api/rpc/providers"}, "id": "1"}
+ cause: 429,
+
+      at <anonymous> (/home/ubuntu/work/near-session-spike/node_modules/@near-js/providers/lib/esm/fetch_json.js:49:13)
+
+Bun v1.4.2 (Linux x64)
+EXIT 1

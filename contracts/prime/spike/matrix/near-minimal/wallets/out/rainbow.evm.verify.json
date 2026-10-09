@@ -1,0 +1,12 @@
+{
+ "address": "PASS 0x8970828c8e2c7483a0a872721acf68f98b11d17f",
+ "grant: recovers to owner (EIP-191 over text)": "PASS",
+ "grant: PrimeSession.grant accepts it": "PASS",
+ "grant: changed end refused (control)": "PASS grant sig",
+ "near text: recovers to owner (EIP-191 over text)": "PASS",
+ "typed: recovers to owner over the SafeTx hash": "PASS",
+ "typed: Safe.checkNSignatures accepts (EIP-712 vote)": "PASS",
+ "typed: other hash refused (control)": "PASS",
+ "eth_sign: recovers to owner over EIP-191(32 raw bytes)": "PASS",
+ "eth_sign: Safe.checkNSignatures accepts (v + 4)": "PASS"
+}

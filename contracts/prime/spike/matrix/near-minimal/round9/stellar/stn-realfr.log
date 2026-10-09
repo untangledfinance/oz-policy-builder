@@ -1,0 +1,8 @@
+03:38:22    REAL Freighter signed auth-1791430691835 (signAuthEntry, 156 bytes of preimage)
+03:38:27 PASS RF0. real Freighter signAuthEntry authorizes grant(key, until), relayer pays ok 4971 ms 4273fbb6a4efc8c80f4bede5e3492e88884772555a6ee400a4f8dd6aa3cd9eb7
+03:38:32 PASS RF1. the session key moves 1 XLM to VENUE under that grant ok 4990 ms 345c976b3f20a66f4da1ba248b6ae7ec6f6c6264126113aad04dbac788561533
+03:38:33 PASS RF2. VENUE received exactly 1 XLM 10000000 stroops
+03:38:34 PASS RF3. 1 XLM elsewhere refused: Error(Auth, InvalidAction) Error(Contract, #100)
+03:38:38    REAL Freighter signed auth-1791430714475 (signAuthEntry, 156 bytes of preimage)
+03:38:43 PASS RF4. real Freighter signAuthEntry authorizes the revoke, grant(key, 0) ok 4788 ms ac3770d51f32ec1f580ec6483446ab5f1f84e3cfac6ddff0d144386b29fd826d
+03:38:44 PASS RF5. the revoked session refused: Error(Auth, InvalidAction) Error(Contract, #1)

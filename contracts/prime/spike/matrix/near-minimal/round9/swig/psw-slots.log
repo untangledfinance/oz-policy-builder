@@ -1,0 +1,14 @@
+
+== mainnet: slot 454452778 at 2026-10-08T05:38:05.000Z
+last ~12 h, 60 s windows: ms per slot min 258.6  median 267.9  max 280.4  (n=265)
+daily windows (70): ms per slot min 265.4  median 317.3  max 423.4
+7-day windows (64): slots per 7 days min 1431606  median 1888851  max 2269300  | ms per slot at the min 422.5, at the max 266.5
+whole span 90.4 days: 345.8 ms per slot -> 1749019 slots per 7 days
+nominal 400 ms -> 1512000 slots per 7 days
+
+== devnet: slot 508714051 at 2026-10-08T05:40:07.000Z
+last ~12 h, 60 s windows: ms per slot min 232.6  median 238.1  max 245.9  (n=720)
+daily windows (70): ms per slot min 164.1  median 165.8  max 279.2
+7-day windows (64): slots per 7 days min 2308986  median 3647825  max 3678482  | ms per slot at the min 261.9, at the max 164.4
+whole span 56.3 days: 191.3 ms per slot -> 3160786 slots per 7 days
+nominal 400 ms -> 1512000 slots per 7 days

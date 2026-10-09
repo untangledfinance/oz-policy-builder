@@ -1,0 +1,25 @@
+<!doctype html><meta charset=utf-8><title>PrimeX</title><body><script>
+const wallets = []; const api = { register: (...ws) => { wallets.push(...ws); return () => {}; } };
+window.addEventListener('wallet-standard:register-wallet', (e) => e.detail(api));
+window.dispatchEvent(new CustomEvent('wallet-standard:app-ready', { detail: api }));
+const b58 = (b) => { const A = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'; let n = 0n; for (const x of b) n = n * 256n + BigInt(x); let s = ''; while (n > 0n) { s = A[Number(n % 58n)] + s; n /= 58n; } for (const x of b) { if (x) break; s = '1' + s; } return s; };
+window.b58 = b58;
+window.list = () => wallets.map((w) => ({ name: w.name, chains: w.chains, features: Object.keys(w.features), accounts: w.accounts.map((a) => ({ address: a.address, chains: a.chains, features: a.features })) }));
+window.mm = () => wallets.find((w) => /metamask/i.test(w.name));
+window.connect = async () => { const w = window.mm(); const r = await w.features['standard:connect'].connect(); return r.accounts.map((a) => ({ address: a.address, chains: a.chains, features: a.features, pub: [...a.publicKey] })); };
+window.signMsg = async (text, accIdx = 0) => { const w = window.mm(); const acc = w.accounts[accIdx]; const msg = typeof text === 'string' ? new TextEncoder().encode(text) : new Uint8Array(text);
+  const [r] = await w.features['solana:signMessage'].signMessage({ account: acc, message: msg });
+  return { signedMessage: [...r.signedMessage], signature: [...r.signature], sigType: r.signatureType ?? null }; };
+window.signTx = async (b64, chain) => { const w = window.mm(); const acc = w.accounts[0]; const tx = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const [r] = await w.features['solana:signTransaction'].signTransaction({ account: acc, transaction: tx, chain: chain ?? 'solana:devnet' });
+  return { signedTransaction: btoa(String.fromCharCode(...r.signedTransaction)) }; };
+window.signMsgHex = async (hex) => { const w = window.mm(); const acc = w.accounts[0]; const msg = Uint8Array.from(hex.match(/../g).map((h) => parseInt(h, 16)));
+  const [r] = await w.features['solana:signMessage'].signMessage({ account: acc, message: msg });
+  return { signature: [...r.signature], signedMessage: [...r.signedMessage] }; };
+const CAIP = { 'solana:mainnet': 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp', 'solana:devnet': 'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1', 'solana:testnet': 'solana:4uhcVJyU9pJkvQyS88uRDiswHXSCkY3z' };
+window.useScope = async (name) => { const scope = CAIP[name]; const w = window.mm(); const addr = w.accounts[0].address;
+  await w.client.createSession({ optionalScopes: { [scope]: { accounts: [`${scope}:${addr}`], methods: [], notifications: [] } }, sessionProperties: { solana_accountChanged_notifications: true } });
+  const others = Object.values(CAIP).filter((x) => x !== scope);
+  await w.client.revokeSession({ scopes: others }).catch(() => {});
+  w.updateSession(await w.client.getSession()); return { scope: w.scope, sessionScopes: Object.keys((await w.client.getSession())?.sessionScopes ?? {}) }; };
+</script>
