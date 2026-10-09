@@ -421,7 +421,7 @@ Kamino reads the transaction's instruction list, so a Kamino batch needs a `refr
 
 ### Cancel by the owners
 
-Until a batch runs, the owners at the rule's approval count can cancel it, through a vote seat the rule gives the owners lane. The agent and custody cannot cancel. Custody stops a stored batch by lowering the cap, and the same batch runs again if the cap is restored before its not-after.
+Until a batch runs, the owners can cancel it with no help from the agent or custody. Squads cancels an approved batch once as many signers have voted to cancel as the rule has approvals, and one signer votes once. A Squads vault signs as one vault, so the rule gives the owners one vote-only seat for each approval it needs: the owners lane's vault, then vaults 100, 101 and so on, up to five seats. A rule with one approval has one seat and a rule with two approvals has two. Each cancel vote is a proposal of the Prime Account that the owners approve at their normal approval count, so cancelling a batch of a rule with two approvals takes two proposals. The seats are not gate lanes: the gate pays only the agent lane and the owners lane, so a seat can vote and cannot pay. A seat can also approve a stored batch, which the owners already reach as the agent lane. The cancel is itself held by the account's time lock, so the rule's wait has to be longer than that lock plus a minute. The agent holds the vote permission on its own rule, so it can cancel its own approved batch. Custody cannot cancel. Custody stops a stored batch by lowering the cap, and the same batch runs again if the cap is restored before its not-after.
 
 Measured on the local validator (compute units and bytes of the whole transaction):
 

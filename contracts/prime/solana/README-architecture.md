@@ -338,9 +338,9 @@ sequenceDiagram
 
 **Who controls what:**
 
-- **The owners** set the wait. M of N can change it, as they change any rule. They cancel a stored batch with a vote.
+- **The owners** set the wait. M of N can change it, as they change any rule. They cancel a stored batch through vote-only seats the rule gives them: the owners lane's vault, then vaults 100 and up, one per approval the rule needs.
 - **Custody** protects itself by other means: the cap, which any one signer lowers or suspends at any time; the gate's end time; the destinations fixed at creation; and gate-owned custody (section 5).
-- **The agent** cannot cancel.
+- **The agent** can cancel its own approved batch, because its seat holds the vote permission. Custody cannot cancel.
 
 **The trade-off Tuan accepted:** custody does not control the minimum wait. The owners' rule carries it, so the owners can set it low, and custody cannot raise it. Custody's protection is the cap, the end time, the fixed destinations and the gate-owned account, which bound what a batch can take whatever the wait.
 
@@ -595,7 +595,7 @@ Attacks on the custody gate:
 | A call from another Prime Account or another vault | The gate accepts only the two lane vaults of the Prime Account it was made for | Verified: T6 to T6f |
 | Skip the wait | The rule's time lock holds the whole batch. Custody does not control that minimum | Verified: TL1 to TL11b, 24 of 24 |
 | Run a stored batch late | The batch's mandatory not-after, the gate's end time and the rule's expiry refuse it | Verified: T5 to T5c, E2, TL checks |
-| The agent cancels, votes or reaches the owners' lane | A rule signs only as the vault at its own number, and the agent holds no cancel call | Verified: P1 to P10b; gate spike, 10 of 10 |
+| The agent cancels, votes or reaches the owners' lane | A rule signs only as the vault at its own number. The agent holds the vote permission on its own rule, so it can cancel its own approved batch and nothing else | Verified: P1 to P10b; gate spike, 10 of 10 |
 | A hostile program posing as a token program | The gate accepts only the two Solana token programs | Verified: T10, T10b, R6 |
 | A forged gate account or a cap address that is not this gate's | The gate checks its own account's owner, and the runtime signs only for derived addresses | Verified: T7, T7b, T9, T9b |
 | A rule at vault 0 reaching the owners' lane | Both lanes sit at vault 1 or above, and vault 0 reaches nothing of the gate | Verified: G1 to G20f, P1 to P10b |
