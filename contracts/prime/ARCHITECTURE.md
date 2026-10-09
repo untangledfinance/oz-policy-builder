@@ -551,7 +551,7 @@ flowchart LR
 
 | Part | Design | Status |
 |---|---|---|
-| Custody | One ed25519 key (an MPC wallet such as Fordefi signs like this). It opens an empty dedicated token account and signs two `SetAuthority` calls on it, close authority first, owner second, both to the gate PDA. From then on custody alone is refused for transfer, close, `SetAuthority`, approve and revoke | Verified: H5 to H10. Fordefi's policy engine: Design only |
+| Custody | One ed25519 key (an MPC wallet such as Fordefi signs like this). It opens an empty dedicated token account and signs two `SetAuthority` calls on it, close authority first, owner second, both to the gate PDA. From then on custody alone is refused for transfer, close, `SetAuthority`, approve and revoke | Verified: H5 to H10. Fordefi as custody's signer: Design only |
 | Trustee and multisig | The trustee holds its own key, independent of custody and of the owners, and represents the investor side as on Stellar. Custody's identity in the gate is an SPL Token multisig, 2 of 2 or the weighted `[custody, backup, trustee, trustee]` with m = 3, so custody's keys never reach m without the trustee. A Prime vault can fill the trustee slot | Verified: R12 to R12g; 9/9 with a Prime vault as trustee |
 | Gate account | PDA `["gate", multisig, settings, seed]`, 181 bytes plus 32 per destination: multisig 0..32, settings 32..64, agent lane vault, owners lane vault, recovery address, end time (i64), run window (u32), seed (8 bytes), bump, destinations. 245 bytes and 2,596,080 lamports of rent with two destinations. Nothing writes to it after creation | Verified: Y1 (byte-identical after draws, a recovery, a cap change and a release) |
 | Instructions | Tag 0 `create` (recovery, end time, run window, seed, the two lane numbers, destinations), tag 1 `transfer` (amount, not-after), tag 2 `allow` (cap), tag 3 `release` (new owner). Cap PDA `["cap", gate]`. Errors: `Custom(1)` no lane or too few signers, `2` destination not allowed or gate ended, `4` outside the run window, `5` wrong account | Verified: G1 to G20f, T1 to T16, A1 to A16e, R1 to R14 |
@@ -663,7 +663,7 @@ The Prime owners at their normal approval count M sign as the owners lane. The g
 | Custody restricted | Account weights on the custody account | Funds in a Safe | The gate owns the dedicated token account; custody plus the trustee release it |
 | Native asset | XLM through its asset contract | Wrapped ETH only | Wrapped SOL only |
 | New code | 55 + 221 sLOC | None (audited Safe, Zodiac Roles, OpenZeppelin TimelockController) | 84 sLOC (241 formatted), 47,160 bytes |
-| Trust | Our gate and adapter (internal review, external audit in progress), OpenZeppelin account | Audited Safe, Roles and TimelockController | Our gate (independent review done, adopt with fixes; external audit and `--final` deploy to do), plus Squads for lanes and rules |
+| Trust | Our gate and adapter (internal review, external audit in progress), OpenZeppelin account | Audited Safe, Roles and TimelockController | Our gate (independent review done, adopt with fixes), plus Squads for lanes and rules |
 | Position with a real venue | Held by the Prime Account for Blend | Held by custody | Held by custody in a gate-owned account |
 
 #### Findings from the build
@@ -690,9 +690,9 @@ The independent review of the earlier designs (an SPL allowance gate against a S
 | 3 | An end time on the gate | Verified: E1 to E5, B1 |
 | 4 | A seed so one custody address holds several gates | Verified: G17 to G20 |
 | 5 | `TransferChecked` with forwarded accounts if fee mints are in scope; hook mints stay refused | Fee and hook mints fail closed (Z8, Verified). Supporting fee mints: Design only |
-| 6 | A hostile-program test of the token-program allow-list; an external audit of the final source (241 formatted lines), a published build and a `--final` deploy; the app refuses a gate that has an upgrade authority | Hostile-program test: Verified (T10, T10b, A13, R6). Audit and deploy: Design only |
+| 6 | A hostile-program test of the token-program allow-list; a published build and a `--final` deploy; the app refuses a gate that has an upgrade authority | Hostile-program test: Verified (T10, T10b, A13, R6). Published build and deploy: Design only |
 | 7 | Run against cloned real venues with the Prime Account's vault as the listed destination, and decide whether positions held by the Prime Account are acceptable | Verified: 53/53. The proceeds land in custody's gate-owned account, so the position sits with custody |
-| 8 | Run the custody calls through Fordefi's policy engine | Design only: the hand-over, `allow` and `release` |
+| 8 | Run the custody calls through Fordefi's policy engine | Dropped: Fordefi can be a multisig signer (Design only, from Fordefi's documentation) |
 | 9 | Relayer rule: its key appears only as fee payer and as rent payer of a stored move | Design only |
 | 10 | Run every harness on a feature set cloned from the target cluster | Verified: the final build ran with `--clone-feature-set` of mainnet |
 
@@ -724,7 +724,7 @@ The fix is a length condition inside the existing line of `votes`: `need(TOKEN.c
 
 - **Squads Smart Account** (`SMRTzfY6...`) is upgradeable on mainnet, with upgrade authority `HT3JknwuufXdtVJggz5Z9JcnYtanPpLzTCqLWsVX1Vu2` and no time lock. The gate's two lanes are Squads vaults, so whoever holds that authority can change how the vaults sign. The reach stays inside the gate's fixed recovery address, cap and destination list, which bounds that party the same way an owner majority is bounded. The gate harness re-runs after each Squads upgrade.
 - **Token-2022** (`TokenzQd...`) is upgradeable on mainnet, with upgrade authority `AeLmXCbPaQHGWRLr2saFsEVfmMNuKnxRAbWCT9P5twgz`. Holding assets there adds that authority as a trusted party. The classic Token program (`Tokenkeg...`) is immutable, so prefer it where the asset allows.
-- **The gate deploys with `--final`:** a latent bug then cannot be patched, and the way out is a release to a fresh gate, which needs custody, the trustee and an unfrozen account. The small surface (241 formatted lines) and the external audit carry that risk.
+- **The gate deploys with `--final`:** a latent bug then cannot be patched, and the way out is a release to a fresh gate, which needs custody, the trustee and an unfrozen account. The small surface (241 formatted lines) carries that risk.
 
 Upgrade authorities read on chain on 8 October 2026 (read-only, through the public RPC).
 
@@ -742,7 +742,7 @@ Upgrade authorities read on chain on 8 October 2026 (read-only, through the publ
 | Forged multisig: a token account posing as custody's multisig is refused, a real 355-byte multisig still works | Verified: 4/4 | [`probe-fakems.ts`](spike/matrix/near-minimal/opt/gate/probe-fakems.ts), [`probe-fakems.log`](spike/matrix/near-minimal/round9/opt/gate/msfix/probe-fakems.log) |
 | Independent security review of the gate-owned build | Verified: adopt with fixes | [`gate-owned-review.md`](spike/matrix/near-minimal/round9/gate-a4/gate-owned-review.md); fixes above |
 | Independent security review of the line-cut build | Verified: adopt, with finding L1 fixed | [`gate-linecut-review.md`](spike/matrix/near-minimal/round9/opt/gate-linecut-review.md) |
-| Fordefi policy engine, external audit, non-upgradeable deploy, gate on devnet | Design only | section 13 |
+| Fordefi as a multisig signer, non-upgradeable deploy, gate on devnet | Design only | section 13 |
 
 #### References
 
@@ -758,7 +758,7 @@ External links resolved on 8 October 2026; Squads source links use commit `80bf1
 
 ### 7.5 prime-session on Solana devnet
 
-prime-session is deployed on Solana devnet and passed the Solana matrix there on 8 October 2026 with the real NEAR MPC (41 signatures, 8.7 s average). The Smart Account has settings signers MetaMask (NEAR `prime:solana`), Freighter (NEAR `prime:solana`) and Phantom (its own key), with threshold 2. The report is `reports/solana-devnet.md`; the logs are in `logs/solana-devnet/`.
+prime-session is deployed on Solana devnet and passed the Solana matrix there on 8 October 2026 with the real NEAR MPC (41 signatures, 8.7 s average). The Smart Account has settings signers MetaMask (NEAR `prime:solana`), Freighter (NEAR `prime:solana`) and Phantom (its own key), with threshold 2. The run logs, the plan and the transaction list are in [`spike/matrix/near-minimal/round9/solana-devnet/`](spike/matrix/near-minimal/round9/solana-devnet/).
 
 | Item | Value |
 |---|---|
@@ -767,11 +767,11 @@ prime-session is deployed on Solana devnet and passed the Solana matrix there on
 | Build | `PRIME_CLUSTER=devnet`, sha256 `8db245ab5ba25a6b8585bfd193be5d9241e5df0f331792437c34f1ac888b7b76`. `pdhash.ts` on devnet: the on-chain code starts with the local `.so`, the rest is zero, and its sha256 equals the build hash |
 | Deploy transaction | [`62AXRoHp...57KJL`](https://explorer.solana.com/tx/62AXRoHpF3UQSN6jdfAeCGjE6uGaMp95Wh2HibgpJvPPHzVyzcX2qguyerx2YpEQcJfKnwnzWuihBCo33jk57KJL?cluster=devnet) (slot 508,872,959) |
 | Final transaction | [`3M5HBwXP...FX8FH`](https://explorer.solana.com/tx/3M5HBwXP2BHmxZiFZoVF6C8WBvhZShYC46xhN2nJkm46cycdjN4BWBwcULsqaaaPU7b8mYvdwfL667J1ZhFfX8FH?cluster=devnet): `set-upgrade-authority --final` (slot 508,876,374). After it `pdhash.ts` reads executable true, upgrade authority none, same hash |
-| Smart Accounts (settings addresses) | A [`Ge5g2ZRr...HKXUo`](https://explorer.solana.com/address/Ge5g2ZRrhKCufG5F1FtBVxPqwm5Tb3zKcuD5K46HKXUo?cluster=devnet), B [`GfpFgQHX...Z7L7o`](https://explorer.solana.com/address/GfpFgQHXZivfrhgYqBkn5N5iQaQXL13zLgirVZFt7L7o?cluster=devnet). `logs/solana-devnet/tx-signatures.md` lists 62 transactions with explorer links |
+| Smart Accounts (settings addresses) | A [`Ge5g2ZRr...HKXUo`](https://explorer.solana.com/address/Ge5g2ZRrhKCufG5F1FtBVxPqwm5Tb3zKcuD5K46HKXUo?cluster=devnet), B [`GfpFgQHX...Z7L7o`](https://explorer.solana.com/address/GfpFgQHXZivfrhgYqBkn5N5iQaQXL13zLgirVZFt7L7o?cluster=devnet). [`tx-signatures.md`](spike/matrix/near-minimal/round9/solana-devnet/tx-signatures.md) lists 62 transactions with explorer links |
 | Result | 136/136 distinct checks (134/136 in the first run; two harness defects, X6's cluster text and a 429 from the public RPC on A5, re-ran on the same accounts and passed, 3/3). The local default run after the edits passes 128/128 |
 | Cost | 0.7239 SOL of 1.0 SOL: deploy 0.2764, main run 0.4354, re-run and `--final` 0.0121. The payer holds 0.2761 SOL. No buffer is left |
 
-Devnet charges 5,080 lamports per byte for rent, against 6,960 on the local validator, so the program costs 0.2762 SOL there (program data 0.27532, program account 0.00083) and the deploy peaks at 0.5514 SOL while the buffer and the program data coexist. Program B and the checks X7a to X7d (two program ids) and the round 8 comparison moves ran locally only (138/138, `reports/solana-refine.md`).
+Devnet charges 5,080 lamports per byte for rent, against 6,960 on the local validator, so the program costs 0.2762 SOL there (program data 0.27532, program account 0.00083) and the deploy peaks at 0.5514 SOL while the buffer and the program data coexist. Program B and the checks X7a to X7d (two program ids) and the round 8 comparison moves ran locally only (138/138, [`psn-local.log`](spike/matrix/near-minimal/round9/solana/psn-local.log)).
 
 What ran on devnet: every pair of the three seats reaches 2-of-3 and a single seat is refused (`InvalidProposalStatus`); an outsider is refused; a session-path key cannot vote as a seat. Per wallet route: one grant signature, a relayed move, a self-paid move (the session key pays its own fee), a session key without SOL refused, a wrong recipient and an over-limit move refused, a stretched `valid until` refused, and a replay by another key refused. Revoke: Phantom through the V section, and MetaMask and Freighter through block W (grant, relayed move, self-paid move, revoke by one relayed signature, then the revoked session refused both ways with error 2, and the wallet's other session still works). A grant for account A is refused in account B and the reverse. A grant text signed for `cluster: mainnet` is refused on devnet with error 7. Removing Freighter's PDA from the policy stops its live session and leaves MetaMask's working.
 
@@ -1137,8 +1137,8 @@ Pending live runs:
 
 - **EVM, Base Sepolia:** the round 9 live run needs about 0.000065 ETH (estimate: 10.9 M gas at 0.006 gwei). The relayer `0xecebBf71Faa6682Ff31fD145646f8Eda82E98E11` holds 0.00000165 ETH (read on 8 October 2026), about 2.5% of that. 0.0005 ETH leaves room for a price swing. Section 12.2 keeps the round 7 live links until then.
 - **Independent security review (done, adopt with fixes):** the review of the gate-owned build (section 7.4, [`gate-owned-review.md`](spike/matrix/near-minimal/round9/gate-a4/gate-owned-review.md)) is in. The code and test fixes (`checkMint`, `checkGate`) are done and the documents carry the rest. The app screens that show the mint warnings and the gate read-back are design only.
-- **Custody gate, Fordefi:** the hand-over (`SetAuthority` of a dedicated account to a program PDA), `allow` and `release` still need a run through Fordefi's policy engine, with the multisig's partial signatures. The harness signs with raw keys. A custodian on another MPC provider needs the same run.
-- **Custody gate, audit and deploy:** an external audit of the final source (241 formatted lines), a published verifiable build and a `--final` deploy. The harness loads the gate non-upgradeable, and the app refuses a gate that still has an upgrade authority. The Squads Smart Account program stays upgradeable by a 3-of-5 multisig with no time lock, so the gate harness re-runs after each Squads upgrade. Token-2022 is upgradeable on mainnet too (authority `AeLmXCbPaQHGWRLr2saFsEVfmMNuKnxRAbWCT9P5twgz`), and the classic Token program is immutable, so the app says to prefer it.
+- **Custody gate, Fordefi:** Fordefi can be a multisig signer for custody's key or the trustee's key, as an untested design from Fordefi's raw Solana transaction API, which accepts the other signers' partial signatures. The harness signs with raw keys.
+- **Custody gate, deploy:** a published verifiable build and a `--final` deploy. The harness loads the gate non-upgradeable, and the app refuses a gate that still has an upgrade authority. The Squads Smart Account program stays upgradeable by a 3-of-5 multisig with no time lock, so the gate harness re-runs after each Squads upgrade. Token-2022 is upgradeable on mainnet too (authority `AeLmXCbPaQHGWRLr2saFsEVfmMNuKnxRAbWCT9P5twgz`), and the classic Token program is immutable, so the app says to prefer it.
 - **Custody gate, devnet deploy:** a `--final` deploy of the gate (47,160 bytes) on devnet costs 0.241 SOL net: program data 240,451,640 lamports and the program account 833,120, at 5,080 lamports per byte. The deploy peaks at 0.482 SOL, because the buffer (240,411,000 lamports) and the program data coexist until the loader returns the buffer. The payer `5bevLKtW8bA6LCXXMqQAjnWBRCWcSXwcvQHiCbT6JjuY` holds 0.276 SOL (read on 8 October 2026), so the peak does not fit: the net cost fits and the peak is short by about 0.21 SOL, plus a few thousandths of a SOL of write fees. The deploy waits for about 0.48 SOL on that payer. The gate has run on a local validator with the mainnet feature set only.
 - **Custody gate, freezable mints:** a mint's freeze authority (USDC, USDT) can stop recovery and release for as long as the issuer keeps an account frozen. The app warns before funds move, and no gate change lifts a freeze (section 7.4).
 - **Custody gate, recovery wait:** the wait before a recovery binds only when the Prime Account's own time lock is above 0, which also delays every settings change. Custody cannot stop a recovery once the owners sign it, and the owner majority also reaches the listed destinations up to the cap (section 7.4). Tuan decides whether the Prime Account sets its own time lock. Tuan also decides who the trustee is: a person's key, a Fordefi vault of its own, or a Prime vault (9/9), which trades the independent second party for fewer parties to manage.
@@ -1184,7 +1184,6 @@ Before mainnet:
 - MetaMask's route points at chain 397 instead of 398.
 - Solana: build with `PRIME_CLUSTER=mainnet` (a build without the variable fails to compile), deploy mainnet from its own program keypair, and deploy with `--final` from the start. The devnet program was deployed upgradeable and locked with `set-upgrade-authority --final` after the matrix (section 7.5).
 - Stellar: set up each MPC-derived G account with the lock (thresholds 1/1/2) and fund one session-owner account per NEAR-routed wallet. Pick which wasm build to pin: the deployed file comes from `stellar contract build`, and `build-wasm.sh` makes a different one. Measure the revoke rent on mainnet.
-- **Audit scope:** the four new contracts, 122 sLOC in total, plus the off-chain MPC key derivation and checks, which decide which keys become seats. The Solana custody gate (84 sLOC, 241 formatted) needs its own audit before it holds funds. With the native Solana option, the relayer's check of returned messages belongs in scope too. If the seat-voting design is adopted, the seat contracts replace the session contracts in that scope: they hold every owner's vote, and on Solana the program must deploy with `--final` and carry its own audit before it holds funds (section 14.3).
 
 ## 14. Session keys that vote for their owner (seat-voting spike)
 

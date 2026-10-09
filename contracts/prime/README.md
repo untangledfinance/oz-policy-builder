@@ -8,6 +8,8 @@ This folder holds every contract behind a Prime account, one folder per chain. T
 contracts/prime/
   README.md
   ARCHITECTURE.md
+  build-hashes.json             build hashes that CI compares against
+  check-build-hash.sh           the comparison CI runs
   spike/                        evidence bundle: harnesses, logs, testnet records
   stellar/
     prime-session/              session signer on an OZ smart account (new code)
@@ -23,7 +25,7 @@ contracts/prime/
   near/prime-near-signer/       pass-through signer that checks a wallet signature, then asks NEAR MPC to sign
 ```
 
-## Audit scope
+## Contract size
 
 sLOC counts the non-blank, non-comment lines of the contract source, test files excluded. The same count gave the figures in the refinement reports.
 
@@ -39,7 +41,7 @@ sLOC counts the non-blank, non-comment lines of the contract source, test files 
 | Stellar | `stellar/policy-interpreter` | 1,082 | OctoGate, on mainnet, outside the new-code budget |
 | Stellar | `stellar/test-blend-pool` | 22 | test double, testnet only |
 
-Per chain, the new code to audit is 32 on EVM, 20 on NEAR, 84 + 33 = 117 on Solana and 37 on Stellar. The OctoGate contracts have their own external audit.
+Per chain, the new code is 32 on EVM, 20 on NEAR, 84 + 33 = 117 on Solana and 37 on Stellar. The OctoGate contracts have their own external audit.
 
 ## Build and test
 
@@ -86,11 +88,13 @@ Both programs build with the Solana CLI on `PATH` (4.3.0, `cargo-build-sbf` with
 
 The gate harnesses live in the spike bundle, in [`spike/matrix/near-minimal/opt/gate/`](spike/matrix/near-minimal/opt/gate/). `run-validator.sh` there starts a local validator with its own ledger, the mainnet feature set, the mainnet Squads and Token-2022 builds and every gate build in `so/`. The mainnet dumps and fixture programs it loads stay out of git. The logs of the length-check run are in [`spike/matrix/near-minimal/round9/opt/gate/msfix/`](spike/matrix/near-minimal/round9/opt/gate/msfix/), and the independent review is [`gate-linecut-review.md`](spike/matrix/near-minimal/round9/opt/gate-linecut-review.md).
 
-`app-checks/` holds the checks an app runs before funds move: mint extensions, the gate read-back and the setup transactions. It needs `@solana/web3.js` 1.99.0 and `@solana/spl-token` 0.4.15. The root `bunfig.toml` limits `bun test` to `packages/`, so run these tests from `app-checks/` after `bun add` of both libraries.
+`app-checks/` holds the checks an app runs before funds move: mint extensions, the gate read-back and the setup transactions. It has its own `package.json` and lockfile (`@solana/web3.js` 1.99.0, `@solana/spl-token` 0.4.15). The root `bunfig.toml` limits `bun test` to `packages/`, so run `bun install --frozen-lockfile`, `bun run typecheck` and `bun test` from `app-checks/`.
 
 ### NEAR
 
 `non-reproducible-wasm` embeds the path of the Rust standard library, so the hash depends on the toolchain directory name. It matches under the `stable` toolchain (rustc 1.98.1), which the `RUSTUP_TOOLCHAIN=stable` prefix selects. The repository's `rust-toolchain.toml` pins 1.97.1 and gives another hash. The build used `cargo-near` 0.22.0.
+
+CI builds the same wasm on any runner. It pins Rust 1.98.1 (what `stable` was on 9 October 2026) with `rust-src`, and passes two `--remap-path-prefix` flags through `cargo-near --env RUSTFLAGS` that write the registry and toolchain paths in the form the deployed build had. The result is the deployed hash `8f90ea67…`.
 
 ## Stellar hashes before and after the move
 
@@ -106,3 +110,17 @@ The five Stellar crates moved from `contracts/<name>` and `contracts/prime-sessi
 | `test-blend-pool` (remapped paths) | `7ba261ed4d1320ceabc47abcbe6819824c27529d0ae7e55ce2fc363555418e76` | same | none |
 
 The records are `deployments/grammar6-testnet.json`, `deployments/execution-testnet.json` and `deployments/prime-mainnet.json`. They stay where they were, and CI reads them from `../../../../deployments/`.
+
+## CI
+
+`.github/workflows/ci.yml` builds and tests every contract in this folder.
+
+| Job | What it runs |
+|---|---|
+| `Contracts (<stellar crate>)` | `cargo fmt --check` (every crate except `prime-session`, which stays as written), `cargo clippy -D warnings`, `cargo test`, and for `prime-session` the `build-wasm.sh` hash against `build-hashes.json` |
+| `Contracts (evm/prime-session)` | Foundry 1.8.4, the OpenZeppelin fetch from the EVM section, `forge build`, `forge test` |
+| `Contracts (solana/<crate>)` | Solana CLI v4.3.0 installed from `release.anza.xyz` and cached, `PRIME_CLUSTER=localnet cargo-build-sbf`, the `.so` hash against `build-hashes.json` |
+| `Contracts (near/prime-near-signer)` | Rust 1.98.1, `cargo-near` 0.22.0, the build described under NEAR, the wasm hash against `build-hashes.json` |
+| `TypeScript (solana/custody-gate/app-checks)` | `bun install --frozen-lockfile`, `tsc --strict`, `bun test` |
+
+`build-hashes.json` holds the four hashes. Change an entry in the same commit as the source it covers. The two Solana programs and the NEAR signer have no format check, because rustfmt would change the size of the sources the sections above state as written (84, 33 and 20 lines). The `spike/` folder is archived evidence and sits outside the repo's biome run (`biome.jsonc` says why).

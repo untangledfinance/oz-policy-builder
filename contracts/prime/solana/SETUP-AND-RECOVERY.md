@@ -14,7 +14,7 @@ On Solana, custody hands the owner and the close authority of a dedicated token 
 
 **Screens:** the Prime app for Solana is still to be built. Each step says what the app does and which transaction it sends. The command lines come from the [SPL Token documentation](https://www.solana-program.com/docs/token), and every other flag is left to the app.
 
-**Where it ran:** the gate ran on a local validator with the mainnet feature set (mainnet Squads, Token-2022, Orca Whirlpool and Kamino Lend programs, with mainnet state cloned read-only). A devnet deploy of the gate needs more SOL than the payer holds (section 4 has the figures). The independent security reviews of the gate are done, with the verdicts adopt with fixes and, for the line-cut build this guide describes, adopt (section 14). The fixes sit in the gate, in the app checks (section 13) and in this guide. Mainnet stays untouched until the external audit and the `--final` deploy of the gate.
+**Where it ran:** the gate ran on a local validator with the mainnet feature set (mainnet Squads, Token-2022, Orca Whirlpool and Kamino Lend programs, with mainnet state cloned read-only). A devnet deploy of the gate needs more SOL than the payer holds (section 4 has the figures). The independent security reviews of the gate are done, with the verdicts adopt with fixes and, for the line-cut build this guide describes, adopt (section 14). The fixes sit in the gate, in the app checks (section 13) and in this guide. Mainnet stays untouched until the `--final` deploy of the gate.
 
 **Read first: two limits that no setup removes.**
 
@@ -168,7 +168,7 @@ A Fordefi vault address is an ed25519 key whose signature goes into the transact
 - **Verified:** multisig creation, the refusal of custody alone for transfer, approve, revoke, close and re-own, and m signers doing each of them: gate-a3, 162 of 162 on Token, Token-2022 and wrapped SOL, local validator. Duplicate slots as weights: gate-a3, B5 to B9. The weighted multisig with custody's key lost: R12 to R12g.
 - **Verified:** the token program accepts m greater than n (gate-a3, M5 and M5b), and `checkMultisig` flags it. The test signature works with no funds: a zero-amount transfer passes on an empty account. A 3 of 2 multisig fails it even with both signers, and a 2 of 3 whose custody keys reach 2 passes it with custody's keys alone, and `checkMultisig` flags both (SC1 to SC5, [`contracts/prime/solana/custody-gate/app-checks/setup-checks.ts`](custody-gate/app-checks/setup-checks.ts): 43 unit tests, 54 live checks and 88 of 88 mutants in all, section 13).
 - **Verified:** the eleven-signer sizes above (SC8 to SC8e), and the trustee as a Prime vault (9 of 9).
-- **Design only:** a live run through Fordefi's policy engine. The transactions carry SPL Token instructions that the policy must allow, and the multisig's partial signatures come from the caller.
+- **Design only:** Fordefi as custody's signer or the trustee's signer, an untested design from Fordefi's documentation. The transactions carry SPL Token instructions, and the multisig's partial signatures come from the caller.
 
 ## 4. Create the gate
 
@@ -548,7 +548,7 @@ The gate stays on chain with an empty account. Recreate the arrangement with new
 
 ## 13. Checks the app runs before funds move
 
-These checks read bytes or build instructions. None holds a key or sends a transaction. They are the functions of [`contracts/prime/solana/custody-gate/app-checks/setup-checks.ts`](custody-gate/app-checks/setup-checks.ts) (265 lines, `tsc --strict` clean), and each blocks the next step until it passes.
+These checks read bytes or build instructions. None holds a key or sends a transaction. They are the functions of [`contracts/prime/solana/custody-gate/app-checks/setup-checks.ts`](custody-gate/app-checks/setup-checks.ts) (623 lines after formatting, `tsc --strict` clean), and each blocks the next step until it passes.
 
 | Function | What it checks or builds | Issue codes | Evidence |
 |---|---|---|---|
@@ -605,7 +605,7 @@ The app keeps `checkGate` and `checkMultisig` as hard steps before any hand-over
 
 - **Squads Smart Account** (`SMRTzfY6...`) is upgradeable on mainnet. Its upgrade authority is `HT3JknwuufXdtVJggz5Z9JcnYtanPpLzTCqLWsVX1Vu2`, with no time lock. The gate's two lanes are Squads vaults, so whoever holds that authority can change how the vaults sign. The reach stays inside the gate's fixed recovery address, cap and destination list, which bounds that party the same way an owner majority is bounded (section 11). Re-check the gate after each Squads upgrade.
 - **Token-2022** (`TokenzQd...`) is upgradeable on mainnet. Its upgrade authority is `AeLmXCbPaQHGWRLr2saFsEVfmMNuKnxRAbWCT9P5twgz`. Holding assets there adds that authority as a trusted party. The classic Token program (`Tokenkeg...`) is immutable, so prefer it where the asset allows. The app says so for each Token-2022 mint.
-- **The gate deploys with `--final`:** a latent bug in the gate then cannot be patched, and the way out is a release to a fresh gate, which needs custody, the trustee and an unfrozen account. The small surface (253 formatted lines) and the external audit carry that risk. The app refuses a gate program that still has an upgrade authority, and the harness loads the gate as non-upgradeable.
+- **The gate deploys with `--final`:** a latent bug in the gate then cannot be patched, and the way out is a release to a fresh gate, which needs custody, the trustee and an unfrozen account. The small surface (253 formatted lines) carries that risk. The app refuses a gate program that still has an upgrade authority, and the harness loads the gate as non-upgradeable.
 
 Upgrade authorities read on chain on 8 October 2026 (read-only, through the public RPC).
 

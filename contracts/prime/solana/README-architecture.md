@@ -165,8 +165,8 @@ The app shows each warning before any funds move. The gate cannot lift a freeze,
 | Native SOL moves as [wrapped SOL](https://solana.com/docs/tokens/basics/sync-native) | Verified | N1 to N7c, 16 of 16 |
 | One custody multisig can run two gates for the same Prime Account | Verified | seed in the gate address; lanes 2 and 4 in a second gate (G20). Each gate needs its own token account |
 | Moves with real venue programs: Kamino deposit and redeem, Orca swap, with the whole-batch time lock on Orca and `prime-session` in the path | Verified | `venues-a4`, 53 of 53, call depth 3 of 5 (4 with `prime-session`). Real venues take the caller's signature, so the listed destination is the Prime Account's vault. A venue's proceeds land in a gate-owned account of custody. The Kamino deposit leaves custody holding collateral tokens |
-| Custody's MPC provider signs the gate's instructions | Design only | custody signs the hand-over (two `SetAuthority` calls), `allow` and `release` as a multisig signer. We still need to run them through Fordefi's policy engine |
-| The gate deploys non-upgradeable and carries an external audit | Design only | the harness loads the gate as non-upgradeable. Production needs a `--final` deploy and a published build. The app refuses a gate that still has an upgrade authority |
+| Custody's MPC provider signs the gate's instructions | Design only | custody signs the hand-over (two `SetAuthority` calls), `allow` and `release` as a multisig signer. Fordefi can be that signer, as an untested design from Fordefi's documentation |
+| The gate deploys non-upgradeable | Design only | the harness loads the gate as non-upgradeable. Production needs a `--final` deploy and a published build. The app refuses a gate that still has an upgrade authority |
 | An independent security review of the gate-owned build | Verified: adopt with fixes | [`contracts/prime/spike/matrix/near-minimal/round9/gate-a4/gate-owned-review.md`](../spike/matrix/near-minimal/round9/gate-a4/gate-owned-review.md); the fixes are in section 17 |
 
 ## 5. Gate-owned custody
@@ -607,16 +607,15 @@ Attacks on the custody gate:
 | A [permanent delegate](https://solana.com/docs/tokens/extensions/permanent-delegate) on a Token-2022 mint | It moves custody's tokens with no gate involved. `checkMint` refuses such a mint before funds move | Verified: PD1, PD2 (independent review), SX4 |
 | An issuer that freezes the gate-owned account | Nothing in the gate stops it. `checkMint` warns for a freeze authority, and recovery and release wait for the issuer to unfreeze | Verified: FZ2 to FZ5b (independent review), SX2 |
 | A multisig signer who creates a gate with its own recovery address | `checkGate` compares every field with the plan before the hand-over, and the owners run it again before they install a rule | Verified: SX9b to SX16b |
-| A gate bug or an upgrade of the gate | The gate deploys non-upgradeable and carries an external audit | Design only |
+| A gate bug or an upgrade of the gate | The gate deploys non-upgradeable | Design only |
 | A bug in the final gate that the harness did not meet | An independent security review of the gate-owned build | Verified: adopt with fixes, with no way found for one party alone to move funds off the fixed paths |
 
 **What we rely on:**
 
 - **The Squads program:** it can be upgraded by a 3-of-5 multisig ([on-chain read, 8 October 2026](#references)) with no time lock. It was last deployed on 31 August 2026, and no verified build is published. An upgrade of it reaches the account itself. With the custody gate, an upgrade that signs as the owners lane reaches the recovery address only, with no cap, and an upgrade that signs as the agent lane reaches the listed destinations within the cap. Both stop at addresses custody chose. We re-run the gate harness after each Squads upgrade.
 - **Token-2022:** the program is upgradeable on mainnet, with upgrade authority `AeLmXCbPaQHGWRLr2saFsEVfmMNuKnxRAbWCT9P5twgz` (read on chain on 8 October 2026). Holding assets there adds that authority as a trusted party. The classic Token program is immutable, so prefer it where the asset allows.
-- **The gate program:** it owns the dedicated token accounts, so its code can pay out as far as its lanes allow. It deploys with `--final`, so a latent bug cannot be patched, and the way out is a release to a fresh gate (custody, the trustee and an unfrozen account). That is why it needs an external audit.
+- **The gate program:** it owns the dedicated token accounts, so its code can pay out as far as its lanes allow. It deploys with `--final`, so a latent bug cannot be patched, and the way out is a release to a fresh gate (custody, the trustee and an unfrozen account).
 - **The relayer's rules:** the relayer signs only as fee payer, as rent payer for a revoke and as rent payer for a stored move. prime-session and Squads forward a transaction's outer signers into the inner call, so the relayer must refuse any transaction that lists its key anywhere else.
-- **The audit scope:** prime-session (33 lines), the NEAR signer (20 lines), the custody gate (84 lines as written, 241 after formatting) and the off-chain key derivation that decides which keys become owners. With the native MetaMask option, the relayer's check of returned messages belongs in scope too.
 
 ## 16. Costs and limits
 
@@ -702,8 +701,8 @@ Devnet charges 5,080 lamports per byte for rent, against 6,960 on the local vali
 | L1 | Low, found in the line-cut review and present in the gate-owned build too: a classic Token account can pose as custody's multisig with a threshold of 0 | The gate accepts a multisig account of exactly 355 bytes only, an extra condition in the existing check of `votes` | Done in the gate with no extra line, tested (4 of 4 on the forged-multisig probe) and covered by a mutant |
 
 - **Independent review of the line cut: done, adopt** ([`contracts/prime/spike/matrix/near-minimal/round9/opt/gate-linecut-review.md`](../spike/matrix/near-minimal/round9/opt/gate-linecut-review.md)). The line cut is a refactor of the gate-owned build. A host differential test on 3 million random inputs per seed found no difference except one signer flag on a System `Transfer` that the System program ignores, and the harnesses pass unchanged. Finding L1, the one issue the review added, is fixed in the gate (table above); the fixed build is the one this document describes.
-- **Fordefi:** run the hand-over (`SetAuthority` of a dedicated account to a program PDA), `allow` and `release` through Fordefi's policy engine, with the multisig's partial signatures. The harness signs with raw keys.
-- **External audit:** an audit of the final source (241 formatted lines), a published verifiable build and a `--final` deploy. The app refuses a gate program that still has an upgrade authority.
+- **Fordefi:** Fordefi can be a multisig signer for custody's key or the trustee's key, as an untested design from Fordefi's raw Solana transaction API. The harness signs with raw keys.
+- **Gate deploy:** a published verifiable build and a `--final` deploy. The app refuses a gate program that still has an upgrade authority.
 - **Gate on devnet:** a `--final` deploy of the gate on devnet needs 0.241 SOL net and peaks at 0.482 SOL while the buffer and the program data coexist. The payer holds 0.276 SOL, so the deploy waits for about 0.21 SOL more. `prime-session` already runs on devnet (section 16).
 - **Squads upgrades:** the program upgrades on mainnet with no time lock, so the gate harness re-runs after each upgrade.
 - **Devnet seat votes:** Solflare's and Glow's seat votes through the real extensions and the grant text with `cluster: devnet` signed by the real extensions follow once a funded devnet account is available. The devnet run of `prime-session` used keys and the NEAR MPC.
