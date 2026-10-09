@@ -1,0 +1,3 @@
+[test]
+# The Solana app checks and the spike bundle carry tests with their own dependencies; CI runs the workspace packages.
+root = "packages"

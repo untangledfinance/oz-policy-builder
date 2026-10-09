@@ -130,7 +130,7 @@ const RPC_URL =
     : RPC_URL_BY_NETWORK[NETWORK]
 
 const POOL_WASM = new URL(
-  '../../../contracts/test-blend-pool/target/wasm32v1-none/release/test_blend_pool.wasm',
+  '../../../contracts/prime/stellar/test-blend-pool/target/wasm32v1-none/release/test_blend_pool.wasm',
   import.meta.url
 ).pathname
 

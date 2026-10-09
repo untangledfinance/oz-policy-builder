@@ -47,7 +47,7 @@ done
 
 # Cross-layer conformance: TS-encoded fixtures must evaluate identically
 # on the Rust interpreter.
-( cd contracts/policy-interpreter && cargo test --release --test conformance )
+( cd contracts/prime/stellar/policy-interpreter && cargo test --release --test conformance )
 ```
 
 ## Style
@@ -58,7 +58,7 @@ done
 - Comments earn their place by stating an invariant, a constraint, or a
   deliberate decision the code cannot show on its own. Several files carry
   invariant blocks in their file-level comments (for example
-  `contracts/policy-interpreter/src/dsl.rs`); read them before touching
+  `contracts/prime/stellar/policy-interpreter/src/dsl.rs`); read them before touching
   the code they guard, and do not remove them.
 
 ## Changes to the contracts
@@ -129,7 +129,7 @@ crates.io. A contract "release" is a deployment:
   build means a new wasm hash, new instance addresses, updating those pins,
   and releasing the npm packages that carry them.
 - A predicate grammar change additionally bumps `SELF_VERSION`
-  (`contracts/policy-interpreter/src/version.rs`) and regenerates the
+  (`contracts/prime/stellar/policy-interpreter/src/version.rs`) and regenerates the
   conformance fixtures; `install` refuses a grammar version it does not
   speak, so old synthesisers cannot install onto a new interpreter.
 

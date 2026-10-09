@@ -2,9 +2,9 @@
 // execution adapter builds, upload the grammar-6 policy interpreter and create
 // its shared instance, then extend the code the Prime app depends on.
 //
-//   contracts/custody-gate/build-wasm.sh
-//   contracts/execution-adapter/build-wasm.sh
-//   contracts/policy-interpreter/build-wasm.sh
+//   contracts/prime/stellar/custody-gate/build-wasm.sh
+//   contracts/prime/stellar/execution-adapter/build-wasm.sh
+//   contracts/prime/stellar/policy-interpreter/build-wasm.sh
 //   bun scripts/deploy-prime-mainnet.ts                          # dry run
 //   bun scripts/deploy-prime-mainnet.ts --execute --fee-cap-xlm 140
 //   bun scripts/deploy-prime-mainnet.ts --execute --extend --fee-cap-xlm 220
@@ -66,15 +66,15 @@ const server = new rpc.Server(RPC_URL)
 /** The builds the Prime app pins (gate, adapter) and CI rebuilds (all three). */
 const ARTIFACTS = {
   'custody-gate': {
-    file: 'contracts/custody-gate/target/wasm32v1-none/release/custody_gate.wasm',
+    file: 'contracts/prime/stellar/custody-gate/target/wasm32v1-none/release/custody_gate.wasm',
     sha256: 'b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab',
   },
   'execution-adapter': {
-    file: 'contracts/execution-adapter/target/wasm32v1-none/release/execution_adapter.wasm',
+    file: 'contracts/prime/stellar/execution-adapter/target/wasm32v1-none/release/execution_adapter.wasm',
     sha256: '68d012e79fd4f9b88584447cfb32e0b0dbb55fb8bcd084b7212bad3e63b6dfdd',
   },
   'policy-interpreter': {
-    file: 'contracts/policy-interpreter/target/wasm32v1-none/release/policy_interpreter.wasm',
+    file: 'contracts/prime/stellar/policy-interpreter/target/wasm32v1-none/release/policy_interpreter.wasm',
     sha256: '5143e64159378c9aac27e8cf1c9cb1f14364672885c151ccc5d887109f776126',
   },
 } as const

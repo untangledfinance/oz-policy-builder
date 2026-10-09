@@ -99,10 +99,12 @@ are in [docs/stellar.md](./docs/stellar.md#deployments) and
 | `packages/policy-synth` | The synthesiser and the record, verify, install and revoke flow. Published as `@crediolabs/policy-synth`. |
 | `packages/policy-builder-cli` | CLI wrapper over the synth core (`@crediolabs/policy-builder-cli`). |
 | `packages/policy-builder-mcp` | MCP server exposing the seven policy tools (`@crediolabs/policy-builder-mcp`). |
-| `contracts/policy-interpreter` | The Soroban contract that enforces a predicate on chain. |
-| `contracts/custody-gate` | The custody account's gate: holds its allowance and releases only to listed addresses. |
-| `contracts/execution-adapter` | The per-Prime batcher, bound to one gate. A batch can wait a number of ledgers before it runs. |
-| `contracts/test-blend-pool` | A Blend-`submit`-shaped stub, for testnet verification only. |
+| `contracts/prime/stellar/policy-interpreter` | The Soroban contract that enforces a predicate on chain. |
+| `contracts/prime/stellar/custody-gate` | The custody account's gate: holds its allowance and releases only to listed addresses. |
+| `contracts/prime/stellar/execution-adapter` | The per-Prime batcher, bound to one gate. A batch can wait a number of ledgers before it runs. |
+| `contracts/prime/stellar/test-blend-pool` | A Blend-`submit`-shaped stub, for testnet verification only. |
+| `contracts/prime/stellar/prime-session` | The Stellar session signer for a Prime account. New code, in the audit scope. |
+| `contracts/prime/{evm,solana,near}` | The PrimeX session contracts and the Solana custody gate. See [contracts/prime/README.md](contracts/prime/README.md). |
 | `deployments/` | Deployment records that CI and the scripts read. |
 | `evidence/` | Logs and receipts behind the claims in the docs. |
 
@@ -122,8 +124,8 @@ The Soroban contracts are standalone Cargo crates (soroban-sdk 27, built for
 own directory:
 
 ```sh
-( cd contracts/policy-interpreter && cargo test )
-( cd contracts/test-blend-pool    && cargo test )
+( cd contracts/prime/stellar/policy-interpreter && cargo test )
+( cd contracts/prime/stellar/test-blend-pool    && cargo test )
 ```
 
 ## Contributing and security

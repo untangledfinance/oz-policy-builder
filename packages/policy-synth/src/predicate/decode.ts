@@ -7,7 +7,7 @@
 // this module takes it from there.
 //
 // Mirrors `decode_leaf` / `decode_node` in
-// `contracts/policy-interpreter/src/dsl.rs`. Two rules carry most of the
+// `contracts/prime/stellar/policy-interpreter/src/dsl.rs`. Two rules carry most of the
 // weight, and both come from the Rust decoder verbatim:
 //
 //   1. A `Vec` whose FIRST element is a Symbol is a selector tuple. A `Vec`

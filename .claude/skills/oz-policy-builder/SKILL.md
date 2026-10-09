@@ -222,7 +222,7 @@ number and a validity window of roughly eight minutes.
 
 ## Error codes
 
-From the interpreter (`contracts/policy-interpreter/src/storage.rs`):
+From the interpreter (`contracts/prime/stellar/policy-interpreter/src/storage.rs`):
 
 | Code | Name | Means |
 | --- | --- | --- |

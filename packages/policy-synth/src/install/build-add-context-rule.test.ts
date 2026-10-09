@@ -145,7 +145,7 @@ describe('buildAddContextRuleArgs - happy path', () => {
     // contract has and neither this list nor the builder does fails every
     // install on chain with `Error(Object, UnexpectedSize)`. Only a real
     // install against a deployed contract closes that gap. The list must
-    // match `PolicyInstallParams` in contracts/policy-interpreter/src/types.rs.
+    // match `PolicyInstallParams` in contracts/prime/stellar/policy-interpreter/src/types.rs.
     expect(fields).toEqual(['grammar_version', 'install_nonce', 'predicate', 'predicate_hash'])
 
     // The pointer sorted alphabetically by symbol string; str-equivalent keys

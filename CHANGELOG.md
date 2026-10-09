@@ -53,6 +53,13 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ### Changed
 
+- **Contracts sit under `contracts/prime/`, one folder per chain.** The
+  Stellar contracts moved to `contracts/prime/stellar/` (`custody-gate`,
+  `execution-adapter`, `policy-interpreter`, `test-blend-pool`,
+  `prime-session`), with the session contracts for EVM, Solana and NEAR beside
+  them and the evidence bundle in `contracts/prime/spike/`. Every wasm hash is
+  unchanged, including the three recorded on mainnet. The scripts, CI and docs
+  point at the new paths, and `deployments/` stays where it was.
 - **Contract folders carry no version.** `contracts/custody-gate-v3` is now
   `contracts/custody-gate` and `contracts/execution-adapter-v4` is
   `contracts/execution-adapter`, with the crate names to match. The on-chain

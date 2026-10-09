@@ -1,7 +1,7 @@
 # Prime on Stellar: technical detail
 
 On Stellar, Prime runs on our own Soroban contracts: the custody gate, the
-execution adapter and the policy interpreter. They live in `contracts/` in
+execution adapter and the policy interpreter. They live in `contracts/prime/stellar/` in
 this repository, with the tooling in `packages/` and `scripts/`; the Prime app
 drives them.
 [architecture.md](architecture.md) covers the use case and the three-step setup
@@ -25,10 +25,10 @@ The setup we tested, and the one the app builds:
 | | |
 |---|---|
 | Custody account | Classic `G…` account. Signers weighted **10** (the MPC key), **5** and **5** (a second signer and a trusted third party). Medium and high thresholds **20**, so every value-moving operation needs all three. The low threshold stays low (1 in our test setup) so the account can still start a transaction. |
-| Custody gate | `contracts/custody-gate`, deployed by the custody account itself. Holds the allowance, answers to one caller running one build, releases only to listed addresses. |
+| Custody gate | `contracts/prime/stellar/custody-gate`, deployed by the custody account itself. Holds the allowance, answers to one caller running one build, releases only to listed addresses. |
 | Prime account | An OpenZeppelin smart account with **3 signers, any 2 of which approve**. Holds no funds. |
-| Execution adapter | `contracts/execution-adapter`, one per Prime, bound to one gate. Runs a batch of calls in one transaction, at once or after a wait. |
-| Policy interpreter | `contracts/policy-interpreter`, grammar 6. Evaluates the mandate on every call a band rule authorises. |
+| Execution adapter | `contracts/prime/stellar/execution-adapter`, one per Prime, bound to one gate. Runs a batch of calls in one transaction, at once or after a wait. |
+| Policy interpreter | `contracts/prime/stellar/policy-interpreter`, grammar 6. Evaluates the mandate on every call a band rule authorises. |
 | Agent | A signer on the band rules, not on rule 0. Under a band's top it acts alone; a larger move uses a high-band rule that also needs a second approver. |
 
 ## Components
@@ -73,7 +73,7 @@ three signers reach 15 of 20 and are still refused.
 
 ### Custody gate
 
-`contracts/custody-gate/src/lib.rs`, 91 lines including comments. Its
+`contracts/prime/stellar/custody-gate/src/lib.rs`, 91 lines including comments. Its
 configuration is written once by the constructor:
 
 | Field | Meaning |
@@ -111,7 +111,7 @@ names its token.
 
 ### Execution adapter
 
-`contracts/execution-adapter/src/lib.rs`. It exists because Soroban allows
+`contracts/prime/stellar/execution-adapter/src/lib.rs`. It exists because Soroban allows
 one host-function invocation per transaction, so a contract has to make several
 calls atomically. It has one rule: **a batch may not mention an address the
 gate does not name.** Before any call runs, it checks:
@@ -268,11 +268,11 @@ the custody account. Swap proceeds go straight to the custody account.
 
 ### Policy interpreter
 
-`contracts/policy-interpreter`, grammar 6 (`SELF_VERSION` in
+`contracts/prime/stellar/policy-interpreter`, grammar 6 (`SELF_VERSION` in
 `src/version.rs`). The smart account calls `enforce` on every call a policed
 rule authorises. The predicate grammar, its structural caps and the install
 checks are documented in
-[contracts/policy-interpreter/README.md](../contracts/policy-interpreter/README.md).
+[contracts/prime/stellar/policy-interpreter/README.md](../contracts/prime/stellar/policy-interpreter/README.md).
 The properties the custody design leans on:
 
 - **`enforce` changes no value.** It reads the predicate document and the
@@ -383,9 +383,9 @@ The custody account can also cancel any stored move before it runs, with
 | | Network | Address or hash |
 |---|---|---|
 | Policy interpreter, grammar 6 (custody design) | testnet | `CDPR5VTX6R2ZPKREPD7FBW5ANVWXMVJIBIH2GMF36XPOFNMHRDIRUAZQ`, recorded in [`deployments/grammar6-testnet.json`](../deployments/grammar6-testnet.json) |
-| Execution adapter build | testnet | `68d012e79fd4f9b88584447cfb32e0b0dbb55fb8bcd084b7212bad3e63b6dfdd`, the Linux build of `contracts/execution-adapter`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json) and rebuilt by CI. The Prime app pins it. It still recognises `32a8658a…` and `23a7b289…`, earlier builds of the same design that do not extend themselves, for gates set up with them. |
+| Execution adapter build | testnet | `68d012e79fd4f9b88584447cfb32e0b0dbb55fb8bcd084b7212bad3e63b6dfdd`, the Linux build of `contracts/prime/stellar/execution-adapter`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json) and rebuilt by CI. The Prime app pins it. It still recognises `32a8658a…` and `23a7b289…`, earlier builds of the same design that do not extend themselves, for gates set up with them. |
 | Execution adapter v3 builds (earlier pairs) | - | `5be8b08eefe704970fbb51612ef4f6222df3d4b0f2ab6704544e761e3576e708` and `0e088421…`, still recognised by the app |
-| Custody gate build | testnet | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab`, the Linux build of `contracts/custody-gate`, recorded in the same file. Gates set up earlier run `2788f05b…`, the same design. |
+| Custody gate build | testnet | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab`, the Linux build of `contracts/prime/stellar/custody-gate`, recorded in the same file. Gates set up earlier run `2788f05b…`, the same design. |
 | Policy interpreter, grammar 4 (the npm packages' pin) | mainnet and testnet | pinned in `packages/policy-synth/src/run/schemas.ts` |
 | Policy interpreter, grammar 6 | mainnet | `CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R`, the Linux build `5143e641…` that CI rebuilds, created by `scripts/deploy-prime-mainnet.ts` and recorded in [`deployments/prime-mainnet.json`](../deployments/prime-mainnet.json) |
 | Execution adapter and custody gate builds | mainnet | `68d012e7…` and `b01024f3…`, the same Linux builds as testnet, uploaded by the same script |

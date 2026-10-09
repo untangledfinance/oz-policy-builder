@@ -66,7 +66,7 @@ jobs:
           - test-blend-pool
     defaults:
       run:
-        working-directory: contracts/${{ matrix.crate }}
+        working-directory: contracts/prime/stellar/${{ matrix.crate }}
     steps:
       - uses: actions/checkout@v4
 
@@ -75,7 +75,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: contracts/${{ matrix.crate }}
+          workspaces: contracts/prime/stellar/${{ matrix.crate }}
 
       - name: Format check
         run: cargo fmt --check
@@ -114,7 +114,7 @@ jobs:
         run: |
           rustup target add wasm32v1-none
           built=$(./build-wasm.sh | tail -1)
-          record=../../deployments/grammar6-testnet.json
+          record=../../../../deployments/grammar6-testnet.json
           pinned=$(jq -r '.interpreterSource.reproducibleWasmSha256 // .wasmHashes.interpreter // empty' "$record")
           echo "built:  $built"
           echo "pinned: $pinned"
@@ -142,7 +142,7 @@ jobs:
         run: |
           rustup target add wasm32v1-none
           built=$(./build-wasm.sh | tail -1)
-          record=../../deployments/execution-testnet.json
+          record=../../../../deployments/execution-testnet.json
           pinned=$(jq -r --arg c "${{ matrix.crate }}" '.wasmSha256[$c] // empty' "$record")
           echo "built:  $built"
           echo "pinned: $pinned"
