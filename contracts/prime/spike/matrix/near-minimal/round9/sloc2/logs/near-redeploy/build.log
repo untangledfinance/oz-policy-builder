@@ -1,0 +1,84 @@
+• Collecting cargo project metadata...
+• done
+
+• Checking rustc version...
+INFO: contract's near-sdk targets protocol version 84; rustc 1.98.1 accepted (bulk-memory opcodes supported by nearcore VM)
+• done
+
+• Checking the host environment...
+• done
+
+• Building contract
+ │    Compiling proc-macro2 v1.0.107
+ │    Compiling unicode-ident v1.0.26
+ │    Compiling quote v1.0.47
+ │    Compiling ident_case v1.0.1
+ │    Compiling winnow v1.0.4
+ │    Compiling hashbrown v0.17.1
+ │    Compiling serde_core v1.0.229
+ │    Compiling zmij v1.0.23
+ │    Compiling equivalent v1.0.2
+ │    Compiling toml_datetime v1.1.1+spec-1.1.0
+ │    Compiling cfg_aliases v0.2.2
+ │    Compiling strsim v0.11.1
+ │    Compiling borsh v1.8.1
+ │    Compiling serde v1.0.229
+ │    Compiling once_cell v1.21.4
+ │    Compiling serde_json v1.0.151
+ │    Compiling indexmap v2.14.2
+ │    Compiling itoa v1.0.18
+ │    Compiling syn v3.0.6
+ │    Compiling toml_parser v1.1.3+spec-1.1.0
+ │    Compiling syn v2.0.119
+ │    Compiling memchr v2.8.3
+ │    Compiling fnv v1.0.7
+ │    Compiling rustversion v1.0.23
+ │    Compiling toml_edit v0.25.15+spec-1.1.0
+ │    Compiling hex v0.4.3
+ │    Compiling near-sys v0.2.14
+ │    Compiling bs58 v0.5.1
+ │    Compiling base64 v0.23.1
+ │    Compiling near-sdk-env v0.1.6
+ │    Compiling proc-macro-crate v3.5.0
+ │    Compiling near-sdk-macros v5.29.1
+ │    Compiling wee_alloc v0.4.5
+ │    Compiling heck v0.5.0
+ │    Compiling near-crypto-hash v0.2.0
+ │    Compiling strum v0.26.3
+ │    Compiling Inflector v0.11.4
+ │    Compiling base64 v0.22.1
+ │    Compiling memory_units v0.4.0
+ │    Compiling cfg-if v0.1.10
+ │    Compiling darling_core v0.20.11
+ │    Compiling darling_core v0.24.1
+ │    Compiling serde_derive v1.0.229
+ │    Compiling borsh-derive v1.8.1
+ │    Compiling strum_macros v0.26.4
+ │    Compiling cfg_eval v0.1.2
+ │    Compiling darling_macro v0.20.11
+ │    Compiling darling v0.20.11
+ │    Compiling darling_macro v0.24.1
+ │    Compiling darling v0.24.1
+ │    Compiling serde_with_macros v3.24.0
+ │    Compiling serde_with v3.24.0
+ │    Compiling near-account-id v2.6.0
+ │    Compiling near-gas v0.3.7
+ │    Compiling near-token v0.3.6
+ │    Compiling near-global-contracts v0.2.6
+ │    Compiling near-sdk-core v4.2.3
+ │    Compiling near-sdk v5.29.1
+ │    Compiling prime-near-signer v0.1.0 (/home/ubuntu/work/prime-refine/logs/near-sloc2/build)
+ │     Finished `release` profile [optimized] target(s) in 16.38s
+
+• Running an optimize for size post-step with wasm-opt --enable-nontrapping-float-to-int --enable-bulk-memory...
+    Finished wasm-opt -O in 726ms
+• done
+
+✓ Contract successfully built! (in CARGO_NEAR_BUILD_ENVIRONMENT=host)
+     -                Binary: /home/ubuntu/work/prime-refine/logs/near-sloc2/build/target/near/prime_near_signer.wasm
+     -                  Size: 110.1 KB (110145 bytes)
+     - SHA-256 checksum hex : c27904a329814b6ee92e8b37cc99490c8edbc9bbd3fd86a926b38e7d05b793c8
+     - SHA-256 checksum bs58: E6986kfXDAec5nZvuYiBiC3fmonHCrynwRCtd33s1U5u
+    Finished cargo near build in 19s
+Here is the console command if you ever need to re-run it again:
+/home/ubuntu/work/near-wallet-spike/bin/cargo-near near build non-reproducible-wasm --no-abi

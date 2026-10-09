@@ -1,0 +1,5 @@
+    294173  OK
+     99664  PANIC called `Result::unwrap()` on an `Err` value: HostError(GuestPanic { panic_msg: "key" })
+     57846  PANIC called `Result::unwrap()` on an `Err` value: HostError(GuestPanic { panic_msg: "not signed by this key" })
+     48317  PANIC called `Result::unwrap()` on an `Err` value: HostError(GuestPanic { panic_msg: "signature" })
+cases 500000: ok 294173, panics 205827, differences 0

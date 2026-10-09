@@ -1,0 +1,20 @@
+   Compiling prime-session v0.0.1 (/home/ubuntu/work/sloc2/stellar)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.88s
+     Running unittests src/lib.rs (target/debug/deps/prime_session-51b77f2fde62c791)
+
+running 12 tests
+test test::a_revoked_key_cannot_move ... ok
+test test::at_most_seven_days ... ok
+test test::expires_at_its_ledger ... ok
+test test::grant_refusals_carry_contract_error_1 ... ok
+test test::a_far_future_entry_is_refused_after_a_revoke_and_the_revoke_outlives_its_signature ... ok
+test test::a_revoked_key_is_never_granted_again_and_other_keys_still_are ... ok
+test test::entry_outlives_a_long_session ... ok
+test test::stranger_cannot_grant ... ok
+test test::owner_grants_then_session_key_moves ... ok
+test test::a_held_back_entry_is_refused_after_a_revoke ... ok
+test test::never_granted_key_and_wrong_signer_are_refused ... ok
+test test::revoke_spares_the_wallets_other_session ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+

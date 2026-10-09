@@ -1,0 +1,62 @@
+self-paid: C1. create Safe (MetaMask first, PrimeX flow) from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882071n
+self-paid: C2. seats MetaMask + Freighter(NEAR MPC) + Phantom(NEAR MPC) from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882072n
+self-paid: C4. mint 1000 tokens to the Safe from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882073n
+self-paid: S2. MetaMask + Freighter from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882074n
+self-paid: S3. Freighter + Phantom (no MetaMask) from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882075n
+self-paid: S4. Phantom + MetaMask from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882076n
+self-paid: N0. Phantom grants a session (used below) from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882077n
+self-paid: G-MetaMask1. MetaMask grants a 1-hour session (one signature from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882078n
+self-paid: G-MetaMask2. move via relayer: 10 to VENUE from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882079n
+self-paid: G-MetaMask3. relayer down: session key submits and pays gas  from 0x5164189fc2c80ad6ce695b36c4c125b3d5c22c2c block 47882080n
+self-paid: G-MetaMask6. move 3: 1 to VENUE from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882081n
+self-paid: G-MetaMask13. grant for the zero key is accepted (owner-sign from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882082n
+self-paid: G-MetaMask14. second session, granted with the session key p from 0xaa3cc9bfd8dcdff0870dbf973ff239e695246ebe block 47882083n
+self-paid: G-MetaMask15. MetaMask revokes it: grant with end 0 (one sig from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882084n
+self-paid: G-MetaMask18. first session still works from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882085n
+self-paid: G-MetaMask19. grant + first move in one Multicall3 transacti from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882086n
+self-paid: G-MetaMask21. grant + first move in one transaction, the ses from 0x197df20bd40a975094912a9ce5b98971786cbc81 block 47882087n
+self-paid: G-MetaMask22. the combined session's second move from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882088n
+self-paid: G-MetaMask25. grant submitted alone first (front-run) from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882089n
+self-paid: G-MetaMask26. the same grant was already submitted alone: th from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882090n
+self-paid: G-Freighter1. Freighter grants a 1-hour session (one signatu from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882091n
+self-paid: G-Freighter2. move via relayer: 10 to VENUE from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882092n
+self-paid: G-Freighter3. relayer down: session key submits and pays gas from 0x818e1c92d1694bb27b720b92c379881f5ea51110 block 47882093n
+self-paid: G-Freighter6. move 3: 1 to VENUE from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882094n
+self-paid: G-Freighter13. grant for the zero key is accepted (owner-sig from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882095n
+self-paid: G-Freighter14. second session, granted with the session key  from 0xdfe96abd9aee9e29a3a90ab2b550d9fdb408ab01 block 47882096n
+self-paid: G-Freighter15. Freighter revokes it: grant with end 0 (one s from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882097n
+self-paid: G-Freighter18. first session still works from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882098n
+self-paid: G-Freighter19. grant + first move in one Multicall3 transact from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882099n
+self-paid: G-Freighter21. grant + first move in one transaction, the se from 0x3baa0598e176e56e90bb44f39e172a07dd319a40 block 47882100n
+self-paid: G-Freighter22. the combined session's second move from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882101n
+self-paid: G-Freighter25. grant submitted alone first (front-run) from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882102n
+self-paid: G-Freighter26. the same grant was already submitted alone: t from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882103n
+self-paid: G-Phantom1. Phantom grants a 1-hour session (one signature t from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882104n
+self-paid: G-Phantom2. move via relayer: 10 to VENUE from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882105n
+self-paid: G-Phantom3. relayer down: session key submits and pays gas i from 0x9c0e6ed0fa862b19d4e073173b486bd7c47475c8 block 47882106n
+self-paid: G-Phantom6. move 3: 1 to VENUE from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882107n
+self-paid: G-Phantom13. grant for the zero key is accepted (owner-signe from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882108n
+self-paid: G-Phantom14. second session, granted with the session key pa from 0x4e1809bc973c63d2c3d19124f2a4198c0766ff57 block 47882109n
+self-paid: G-Phantom15. Phantom revokes it: grant with end 0 (one signa from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882110n
+self-paid: G-Phantom18. first session still works from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882111n
+self-paid: G-Phantom19. grant + first move in one Multicall3 transactio from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882112n
+self-paid: G-Phantom21. grant + first move in one transaction, the sess from 0xf28217bce4bd4758686445d659f52d83d3967807 block 47882113n
+self-paid: G-Phantom22. the combined session's second move from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882114n
+self-paid: G-Phantom25. grant submitted alone first (front-run) from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882115n
+self-paid: G-Phantom26. the same grant was already submitted alone: the from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882116n
+self-paid: X7. Freighter session from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882117n
+self-paid: X13. Freighter revokes a key it never granted (pre-emptive) from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882118n
+self-paid: X15. the same revoke replayed (harmless, key stays revoked) from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882119n
+self-paid: X16. Freighter session still works after X12 from 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 block 47882120n
+receipts success 50, failed 0
+Safe 0xcA834d8aA5b836ed7B5DCf55f4d558111874448f version 1.4.1 owners [ "0x5F172afFBEEb59eb574fFF9be77B44898182F3b1",
+  "0x29A9ac479C237AC2CAE6f25cD6cec5D961C113fF", "0xCcD8af4Ae1a907Ac370FD151D6282da59bc7C570"
+] threshold 2n
+Roles enabled on Safe: true
+pkMM enabled module on Roles: true is Safe owner: false
+pkFR enabled module on Roles: true is Safe owner: false
+pkPH enabled module on Roles: true is Safe owner: false
+pkMM owner 0xCcD8af4Ae1a907Ac370FD151D6282da59bc7C570
+pkFR owner 0x235fdB241f269F0192fe41A9CF50Fdf5fd7Eb4aa
+pkPH owner 0xAc3F3c821F35eeC99CBAE30F0E3383e71bCF2B13
+Roles proxy code 0x363d3d373d3d3d363d73f2964ce6161ce0e75964fe7927ce114cb0b283d55af43d82803e903d91602b57fd5bf3

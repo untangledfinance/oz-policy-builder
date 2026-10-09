@@ -1,0 +1,61 @@
+== create
+   22746 create Custom(119) (injected cpi failure)
+  227822 create Custom(5)
+   76400 create Custom(5) (injected cpi failure)
+    4160 create InvalidArgument
+    1435 create InvalidArgument (injected cpi failure)
+  411429 create InvalidInstructionData
+  136887 create InvalidInstructionData (injected cpi failure)
+   11727 create MissingRequiredSignature
+    3870 create MissingRequiredSignature (injected cpi failure)
+   26607 create NotEnoughAccountKeys
+    8959 create NotEnoughAccountKeys (injected cpi failure)
+   67958 create ok
+scenarios 1000000 seed 13: mismatches 0; successful runs whose raw CPI log differs only by the documented Transfer signer flag 0; failed runs with the same error but a different partial CPI log 0
+== transfer
+  200747 transfer Custom(1)
+   66753 transfer Custom(1) (injected cpi failure)
+    4185 transfer Custom(119) (injected cpi failure)
+  131990 transfer Custom(2)
+   44440 transfer Custom(2) (injected cpi failure)
+  208601 transfer Custom(4)
+   69992 transfer Custom(4) (injected cpi failure)
+   93324 transfer Custom(5)
+   30900 transfer Custom(5) (injected cpi failure)
+   44832 transfer InvalidInstructionData
+   14840 transfer InvalidInstructionData (injected cpi failure)
+    1389 transfer MissingRequiredSignature
+     506 transfer MissingRequiredSignature (injected cpi failure)
+   28152 transfer NotEnoughAccountKeys
+    9373 transfer NotEnoughAccountKeys (injected cpi failure)
+   36835 transfer ok
+    8266 transfer ok (injected cpi failure)
+    3640 transfer panic
+    1235 transfer panic (injected cpi failure)
+scenarios 1000000 seed 13: mismatches 0; successful runs whose raw CPI log differs only by the documented Transfer signer flag 0; failed runs with the same error but a different partial CPI log 0
+== allow
+  164268 allow Custom(1)
+   54337 allow Custom(1) (injected cpi failure)
+   17739 allow Custom(119) (injected cpi failure)
+  360235 allow Custom(5)
+  120376 allow Custom(5) (injected cpi failure)
+   44788 allow InvalidInstructionData
+   15167 allow InvalidInstructionData (injected cpi failure)
+   22658 allow NotEnoughAccountKeys
+    7634 allow NotEnoughAccountKeys (injected cpi failure)
+  157709 allow ok
+   35089 allow ok (injected cpi failure)
+scenarios 1000000 seed 13: mismatches 0; successful runs whose raw CPI log differs only by the documented Transfer signer flag 0; failed runs with the same error but a different partial CPI log 0
+== release
+  229535 release Custom(1)
+   76336 release Custom(1) (injected cpi failure)
+   59709 release Custom(119) (injected cpi failure)
+  185591 release Custom(5)
+   61137 release Custom(5) (injected cpi failure)
+   45325 release InvalidInstructionData
+   14982 release InvalidInstructionData (injected cpi failure)
+   20689 release NotEnoughAccountKeys
+    6909 release NotEnoughAccountKeys (injected cpi failure)
+  270034 release ok
+   29753 release ok (injected cpi failure)
+scenarios 1000000 seed 13: mismatches 0; successful runs whose raw CPI log differs only by the documented Transfer signer flag 0; failed runs with the same error but a different partial CPI log 0

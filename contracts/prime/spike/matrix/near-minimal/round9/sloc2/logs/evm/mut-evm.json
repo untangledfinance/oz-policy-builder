@@ -1,0 +1,230 @@
+[
+ [
+  "M01 grant sig == owner -> !=",
+  "KILLED"
+ ],
+ [
+  "M02 grant sig check bypassed",
+  "KILLED"
+ ],
+ [
+  "M03 end == 0 || -> end != 0 ||",
+  "KILLED"
+ ],
+ [
+  "M04 revoke path needs the window checks",
+  "KILLED"
+ ],
+ [
+  "M05 until < end -> <=",
+  "KILLED"
+ ],
+ [
+  "M06 until < end removed",
+  "KILLED"
+ ],
+ [
+  "M07 now < end -> <=",
+  "KILLED"
+ ],
+ [
+  "M08 now < end removed",
+  "KILLED"
+ ],
+ [
+  "M09 end <= now+7d -> <",
+  "KILLED"
+ ],
+ [
+  "M10 grant cap 7 -> 8 days",
+  "KILLED"
+ ],
+ [
+  "M11 grant cap removed",
+  "KILLED"
+ ],
+ [
+  "M12 revoke marker max-1",
+  "KILLED"
+ ],
+ [
+  "M13 end==0 ? flipped",
+  "KILLED"
+ ],
+ [
+  "M14 stored until +1",
+  "KILLED"
+ ],
+ [
+  "M15 exec now <= until -> <",
+  "KILLED"
+ ],
+ [
+  "M16 exec lower bound removed",
+  "KILLED"
+ ],
+ [
+  "M17 exec until <= now+7d -> <",
+  "KILLED"
+ ],
+ [
+  "M18 exec cap 7 -> 8 days",
+  "KILLED"
+ ],
+ [
+  "M19 exec cap removed",
+  "KILLED"
+ ],
+ [
+  "M20 nonce not advanced",
+  "KILLED"
+ ],
+ [
+  "M21 nonce pre-increment",
+  "KILLED"
+ ],
+ [
+  "M22 digest without contract address",
+  "KILLED"
+ ],
+ [
+  "M23 digest without chain id",
+  "KILLED"
+ ],
+ [
+  "M24 digest without to",
+  "KILLED"
+ ],
+ [
+  "M25 digest without value",
+  "KILLED"
+ ],
+ [
+  "M26 digest without data",
+  "KILLED"
+ ],
+ [
+  "M27 digest without op",
+  "KILLED"
+ ],
+ [
+  "M28 digest without role",
+  "KILLED"
+ ],
+ [
+  "M29 session sig == key -> !=",
+  "KILLED"
+ ],
+ [
+  "M30 session sig bypassed",
+  "KILLED"
+ ],
+ [
+  "M31 shouldRevert false",
+  "KILLED"
+ ],
+ [
+  "M32 roles value dropped",
+  "KILLED"
+ ],
+ [
+  "M33 roles data dropped",
+  "KILLED"
+ ],
+ [
+  "M34 roles op dropped",
+  "KILLED"
+ ],
+ [
+  "M35 roles role dropped",
+  "KILLED"
+ ],
+ [
+  "M36 roles to dropped",
+  "KILLED"
+ ],
+ [
+  "M37 constructor owner not stored",
+  "KILLED"
+ ],
+ [
+  "M38 constructor roles not stored",
+  "KILLED"
+ ],
+ [
+  "M39 struct fields swapped",
+  "KILLED"
+ ],
+ [
+  "M40 struct until narrowed",
+  "KILLED(compile)"
+ ],
+ [
+  "M41 grantText prefix",
+  "KILLED"
+ ],
+ [
+  "M42 grantText key label",
+  "KILLED"
+ ],
+ [
+  "M43 grantText end label",
+  "KILLED"
+ ],
+ [
+  "M44 grantText network label",
+  "KILLED"
+ ],
+ [
+  "M45 grantText contract = key",
+  "KILLED"
+ ],
+ [
+  "M46 grantText end +1",
+  "KILLED"
+ ],
+ [
+  "M47 grantText chain constant",
+  "KILLED"
+ ],
+ [
+  "M48 grant pointer to owner slot",
+  "KILLED"
+ ],
+ [
+  "M49 exec pointer to wrong slot",
+  "KILLED"
+ ],
+ [
+  "M50 no EIP-191 prefix",
+  "KILLED"
+ ],
+ [
+  "M51 revert text grant sig",
+  "KILLED"
+ ],
+ [
+  "M52 revert text grant",
+  "KILLED"
+ ],
+ [
+  "M53 revert text session",
+  "KILLED"
+ ],
+ [
+  "M54 revert text session sig",
+  "KILLED"
+ ],
+ [
+  "M55 interface op type",
+  "KILLED"
+ ],
+ [
+  "M56 interface drops return",
+  "KILLED"
+ ],
+ [
+  "M57 exec message hash unsigned",
+  "KILLED"
+ ]
+]

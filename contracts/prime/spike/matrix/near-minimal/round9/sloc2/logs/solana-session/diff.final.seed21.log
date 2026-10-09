@@ -1,0 +1,45 @@
+== move
+   13011 move Custom(119) (injected cpi failure)
+   38551 move Custom(2)
+    9654 move Custom(2) (injected cpi failure)
+  114910 move Custom(4)
+   28569 move Custom(4) (injected cpi failure)
+  282055 move Custom(7)
+   70290 move Custom(7) (injected cpi failure)
+   93380 move InvalidArgument
+   23299 move InvalidArgument (injected cpi failure)
+    4680 move InvalidSeeds
+    1153 move InvalidSeeds (injected cpi failure)
+   91415 move MissingRequiredSignature
+   22720 move MissingRequiredSignature (injected cpi failure)
+   26139 move NotEnoughAccountKeys
+    6663 move NotEnoughAccountKeys (injected cpi failure)
+   15346 move UnsupportedSysvar
+    3776 move UnsupportedSysvar (injected cpi failure)
+  104613 move ok
+   12922 move ok (injected cpi failure)
+   29582 move panic
+    7272 move panic (injected cpi failure)
+scenarios 1000000 seed 21: mismatches 0; failed runs with the same error but a different partial CPI log 0
+== revoke
+   14020 revoke Custom(119) (injected cpi failure)
+   43820 revoke Custom(2)
+   10781 revoke Custom(2) (injected cpi failure)
+    6622 revoke Custom(4)
+    1669 revoke Custom(4) (injected cpi failure)
+  320804 revoke Custom(7)
+   79822 revoke Custom(7) (injected cpi failure)
+  143997 revoke InvalidArgument
+   36239 revoke InvalidArgument (injected cpi failure)
+    5169 revoke InvalidSeeds
+    1335 revoke InvalidSeeds (injected cpi failure)
+  142818 revoke MissingRequiredSignature
+   35713 revoke MissingRequiredSignature (injected cpi failure)
+   25962 revoke NotEnoughAccountKeys
+    6408 revoke NotEnoughAccountKeys (injected cpi failure)
+   17619 revoke UnsupportedSysvar
+    4384 revoke UnsupportedSysvar (injected cpi failure)
+   56285 revoke ok
+   37181 revoke panic
+    9352 revoke panic (injected cpi failure)
+scenarios 1000000 seed 21: mismatches 0; failed runs with the same error but a different partial CPI log 0

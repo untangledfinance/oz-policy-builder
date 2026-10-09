@@ -1,0 +1,118 @@
+[
+ [
+  "N01 key decode result inverted",
+  "KILLED"
+ ],
+ [
+  "N02 key refusal text",
+  "KILLED"
+ ],
+ [
+  "N03 signature refusal text",
+  "KILLED"
+ ],
+ [
+  "N04 key check bypassed",
+  "KILLED"
+ ],
+ [
+  "N05 signature check bypassed",
+  "KILLED"
+ ],
+ [
+  "N06 signature result inverted",
+  "KILLED"
+ ],
+ [
+  "N07 alg picks Eddsa for domain 0",
+  "KILLED"
+ ],
+ [
+  "N08 alg always Ecdsa",
+  "KILLED"
+ ],
+ [
+  "N09 alg label typo",
+  "KILLED"
+ ],
+ [
+  "N10 payload_v2 carries path",
+  "KILLED"
+ ],
+ [
+  "N11 text path label",
+  "KILLED"
+ ],
+ [
+  "N12 text domain label",
+  "KILLED(compile)"
+ ],
+ [
+  "N13 text payload label",
+  "KILLED"
+ ],
+ [
+  "N14 text header",
+  "KILLED"
+ ],
+ [
+  "N15 sep53 flag inverted",
+  "KILLED"
+ ],
+ [
+  "N16 sep53 prefix typo",
+  "KILLED"
+ ],
+ [
+  "N17 verification bypassed",
+  "KILLED"
+ ],
+ [
+  "N18 verification text",
+  "KILLED"
+ ],
+ [
+  "N19 verifies text not msg",
+  "KILLED"
+ ],
+ [
+  "N20 path uses raw key string",
+  "KILLED"
+ ],
+ [
+  "N21 request domain_id zeroed",
+  "KILLED"
+ ],
+ [
+  "N22 method name",
+  "KILLED"
+ ],
+ [
+  "N23 deposit zero",
+  "KILLED"
+ ],
+ [
+  "N24 gas weight 2",
+  "KILLED"
+ ],
+ [
+  "N25 gas fixed 1 Tgas",
+  "KILLED"
+ ],
+ [
+  "N26 MPC default account",
+  "KILLED"
+ ],
+ [
+  "N27 request key renamed",
+  "KILLED"
+ ],
+ [
+  "N28 path key renamed",
+  "KILLED"
+ ],
+ [
+  "N29 path separator",
+  "KILLED"
+ ]
+]
