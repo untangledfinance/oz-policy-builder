@@ -18,13 +18,15 @@ pub struct Signer;
 impl Signer {
     #[payable]
     pub fn sign(&mut self, key: String, sep53: bool, path: String, domain_id: u32, payload: String, signature: String) -> Promise {
-        let k: [u8; 32] = hex::decode(&key).ok().and_then(|b| b.try_into().ok()).unwrap_or_else(|| env::panic_str("key"));
-        let s: [u8; 64] = hex::decode(&signature).ok().and_then(|b| b.try_into().ok()).unwrap_or_else(|| env::panic_str("signature"));
+        let mut k = [0; 32];
+        require!(hex::decode_to_slice(key, &mut k).is_ok(), "key");
+        let mut s = [0; 64];
+        require!(hex::decode_to_slice(signature, &mut s).is_ok(), "signature");
         let text = format!("Prime NEAR signer\ncontract: {}\npath: {path}\ndomain: {domain_id}\npayload: {payload}", env::current_account_id());
         let msg = if sep53 { env::sha256([b"Stellar Signed Message:\n".as_slice(), text.as_bytes()].concat()) } else { text.into_bytes() };
         require!(env::ed25519_verify(&s, &msg, &k), "not signed by this key");
-        let payload_v2 = if domain_id == 0 { json!({ "Ecdsa": payload }) } else { json!({ "Eddsa": payload }) };
-        let args = json!({ "request": { "path": format!("{}/{path}", hex::encode(k)), "payload_v2": payload_v2, "domain_id": domain_id } });
+        let alg = if domain_id == 0 { "Ecdsa" } else { "Eddsa" };
+        let args = json!({ "request": { "path": format!("{}/{path}", hex::encode(k)), "payload_v2": { alg: payload }, "domain_id": domain_id } });
         Promise::new(MPC.parse::<AccountId>().unwrap())
             .function_call_weight("sign", args.to_string().into_bytes(), env::attached_deposit(), Gas::from_tgas(0), GasWeight(1))
     }
