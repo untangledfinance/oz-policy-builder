@@ -146,7 +146,7 @@ fn signed_grant(t: &T, osk: &SigningKey, key: &BytesN<32>, until: u32, nonce: i6
     let args: std::vec::Vec<xdr::ScVal> = std::vec![xdr::ScVal::Bytes(xdr::ScBytes(key.to_array().to_vec().try_into().unwrap())), xdr::ScVal::U32(until)];
     let inv = xdr::SorobanAuthorizedInvocation {
         function: xdr::SorobanAuthorizedFunction::ContractFn(xdr::InvokeContractArgs {
-            contract_address: (&t.id).try_into().unwrap(),
+            contract_address: (&t.id).into(),
             function_name: "grant".try_into().unwrap(),
             args: args.try_into().unwrap(),
         }),
@@ -162,7 +162,7 @@ fn signed_grant(t: &T, osk: &SigningKey, key: &BytesN<32>, until: u32, nonce: i6
     let sig = osk.sign(&payload).to_bytes();
     xdr::SorobanAuthorizationEntry {
         credentials: xdr::SorobanCredentials::Address(xdr::SorobanAddressCredentials {
-            address: (&t.owner).try_into().unwrap(),
+            address: (&t.owner).into(),
             nonce,
             signature_expiration_ledger: exp,
             signature: xdr::ScVal::Bytes(xdr::ScBytes(sig.to_vec().try_into().unwrap())),
@@ -172,7 +172,7 @@ fn signed_grant(t: &T, osk: &SigningKey, key: &BytesN<32>, until: u32, nonce: i6
 }
 
 fn submit(t: &T, entry: &xdr::SorobanAuthorizationEntry, key: &BytesN<32>, until: u32) -> bool {
-    t.e.set_auths(&[entry.clone()]);
+    t.e.set_auths(std::slice::from_ref(entry));
     matches!(t.client.try_grant(key, &until), Ok(Ok(())))
 }
 
