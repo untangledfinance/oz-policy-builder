@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Mutation pass for the line-cut gate (variants/gate-lc.rs, flavour lc) and its Pinocchio port (variants/gate-pino.rs, flavour pino).
+"""Mutation pass for the line-cut gate (variants/gate-lc.rs, flavour lc; variants/gate-lc-msfix.rs with the multisig length check, flavour lcfix) and its Pinocchio port (variants/gate-pino.rs, flavour pino).
 Each mutant weakens exactly one check; the same table drives both flavours (the Pinocchio text differs only in accessor syntax, which tr() translates; a few entries carry their own pino pattern).
-  mutants2.py <lc|pino> build            builds every mutant into mut/<prefix><nn>.so (+ .rs) and makes secrets/<id>.json
+  mutants2.py <lc|lcfix|pino> build            builds every mutant into mut/<prefix><nn>.so (+ .rs) and makes secrets/<id>.json
   mutants2.py <lc|pino> run [-j N] [id]  runs the whole mock-venue harness (gate-a4.ts) against each mutant, GATE_STOP_ON_FAIL=1, on the validator at GATE_RPC (start it with MUTANTS=1 MUTSET=<prefix>).
 A mutant is killed when a check fails; logs go to logs/mutants-<flavour>/<id>.log and the table to logs/mutants-<flavour>.md."""
 import os, re, subprocess, sys, time, shutil
 from concurrent.futures import ThreadPoolExecutor
 D = os.path.dirname(os.path.abspath(__file__))
-FLAV = {'lc': dict(src='variants/gate-lc.rs', prefix='l', crate=f'{D}/gate'), 'pino': dict(src='variants/gate-pino.rs', prefix='p', crate=f'{D}/../gate-pino')}
+FLAV = {'lc': dict(src='variants/gate-lc.rs', prefix='l', crate=f'{D}/gate'), 'lcfix': dict(src='variants/gate-lc-msfix.rs', prefix='f', crate=f'{D}/gate'), 'pino': dict(src='variants/gate-pino.rs', prefix='p', crate=f'{D}/../gate-pino')}
 
 def tr(s):  # lc text -> pino text
     s = re.sub(r'\.key\b(?!\()', '.key()', s); s = re.sub(r'\.owner\b(?!\()', '.owner()', s); s = re.sub(r'\.is_signer\b(?!\()', '.is_signer()', s)
@@ -78,6 +78,8 @@ M = [
  ('60', 'load: the last byte of the gate account is dropped', 'read(gate, 0..gate.data_len())', 'read(gate, 0..gate.data_len() - 1)'),
  ('61', 'need: a failed condition passes', 'ok.then_some(())', '(!ok).then_some(())'),
  ('62', 'create: the system calls sign for nothing (system call signer count 0)', 'keys, keys.len(), keys.len(), &[seeds[0]', 'keys, keys.len(), 0, &[seeds[0]'),
+ # lcfix only: the multisig length check
+ ('63', 'votes: a token-owned account of any length is accepted as the multisig (a token account posing as custody)', ' && d.len() == 355', ''),
 ]
 
 def pino_pair(m):
@@ -86,14 +88,18 @@ def pino_pair(m):
 
 def mutant(flavour, m, src):
     if flavour == 'lc': return m[2], m[3]
+    if flavour == 'lcfix': return m[2].replace('need(TOKEN.contains(ms.owner), 5)', 'need(TOKEN.contains(ms.owner) && d.len() == 355, 5)'), m[3]
     return pino_pair(m)
+
+def applicable(flavour):  # mutant 63 removes the length check, which only the lcfix source has
+    return [m for m in M if m[0] != '63' or flavour == 'lcfix']
 
 def build(flavour):
     f = FLAV[flavour]; src = open(f'{D}/{f["src"]}').read(); os.makedirs(f'{D}/mut', exist_ok=True)
     env = dict(os.environ, PATH='/home/ubuntu/work/swig-spike/solana-release/bin:' + os.environ['PATH'])
     only = [a for a in sys.argv[3:] if not a.startswith('-')]
     bad = 0
-    for m in M:
+    for m in applicable(flavour):
         mid = f'{f["prefix"]}{m[0]}'
         if only and mid not in only: continue
         if os.path.exists(f'{D}/mut/{mid}.so') and '-f' not in sys.argv: continue
@@ -113,7 +119,9 @@ def run_one(flavour, m):
     env = dict(os.environ, GATE_ID=mid, GATE_STOP_ON_FAIL='1', GATE_STATE=f'/tmp/opt-mut-{mid}.json')
     t0 = time.time()
     with open(f'{L}/{mid}.log', 'w') as lf:
-        try: subprocess.run(['bun', 'gate-a4.ts'], cwd=D, env=env, stdout=lf, stderr=subprocess.STDOUT, timeout=1700)
+        # the mock harness never builds a token account that poses as the multisig, so mutant 63 is judged by the forged-multisig probe (EXPECT_REFUSE=1: the gate must refuse it)
+        if flavour == 'lcfix' and m[0] == '63': env['EXPECT_REFUSE'] = '1'
+        try: subprocess.run(['bun', 'probe-fakems.ts' if env.get('EXPECT_REFUSE') else 'gate-a4.ts'], cwd=D, env=env, stdout=lf, stderr=subprocess.STDOUT, timeout=1700)
         except subprocess.TimeoutExpired: pass
     log = open(f'{L}/{mid}.log').read()
     fails = re.findall(r'^FAIL (\S+)', log, re.M); tot = re.search(r'(\d+)/(\d+) checks passed', log)
@@ -122,7 +130,7 @@ def run_one(flavour, m):
 
 def run(flavour, ids, workers):
     f = FLAV[flavour]; os.makedirs(f'{D}/logs/mutants-{flavour}', exist_ok=True)
-    todo = [m for m in M if not ids or f'{f["prefix"]}{m[0]}' in ids]
+    todo = [m for m in applicable(flavour) if not ids or f'{f["prefix"]}{m[0]}' in ids]
     rows = []
     with ThreadPoolExecutor(max_workers=workers) as ex:
         for r in ex.map(lambda m: run_one(flavour, m), todo):
