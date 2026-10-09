@@ -16,8 +16,10 @@ contracts/prime/
     policy-interpreter/         OctoGate: grammar 6, evaluates the mandate on every call
     test-blend-pool/            Blend-shaped stub, testnet only
   evm/prime-session/            PrimeSession.sol, a Roles member of Safe 1.4.1 and Zodiac Roles v2
+  solana/README-architecture.md Solana design: Squads, prime-session and the custody gate
+  solana/SETUP-AND-RECOVERY.md  step-by-step guide: set up the custody gate and recover custody funds
   solana/prime-session/         session PDA that acts inside a Squads Smart Account
-  solana/custody-gate/          gate-owned custody gate (line-cut build), plus app-checks/
+  solana/custody-gate/          gate-owned custody gate (line-cut build with the multisig length check), plus app-checks/
   near/prime-near-signer/       pass-through signer that checks a wallet signature, then asks NEAR MPC to sign
 ```
 
@@ -58,7 +60,9 @@ Every result below was measured on 9 October 2026 after the move into this folde
 | `evm/prime-session` | `~/.foundry/bin/forge build`, then `forge test` | build clean, 6 passed; creation and runtime bytecode equal the earlier build (3,996 bytes of runtime code) |
 | `solana/prime-session` | `PRIME_CLUSTER=localnet cargo-build-sbf` | `.so` sha256 `be6ade02a14b495d528d69d4f4632a0ffb9c9c83a9165ac8d2e0b1dbac102e13`, equal to the round 9 localnet build |
 | | `PRIME_CLUSTER=devnet cargo-build-sbf` | `8db245ab5ba25a6b8585bfd193be5d9241e5df0f331792437c34f1ac888b7b76` |
-| `solana/custody-gate` | `cargo-build-sbf` | `.so` sha256 `00d6a5c4d7f04be1b23c635bc3cd8c952354404bb799875fcaf0c9346b7f7871` (47,304 bytes), equal to the line-cut build measured in the Solana optimisation round |
+| `solana/custody-gate` | `cargo-build-sbf` | `.so` sha256 `6d196cab5b6c6d29bc6cf650a1526b4be56c0550bed479b55090364d7a04dfd7` (47,160 bytes), 84 sLOC (241 after `rustfmt`), equal to the build the independent review tested. The line cut without the multisig length check (`00d6a5c4d7f04be1b23c635bc3cd8c952354404bb799875fcaf0c9346b7f7871`, 47,304 bytes) is the build before the fix |
+| | harnesses on a local validator (mainnet feature set, mainnet Squads and Token-2022 builds): `gate-a4.ts`, `venues-a4.ts`, `trustee-a4.ts`, `probe-fakems.ts` | 345/345 mock venue, 53/53 real Orca and Kamino, 9/9 trustee, 4/4 forged multisig refused |
+| | `mutants2.py lcfix` | 63/63 gate mutants killed, including the one that removes the multisig length check |
 | `solana/custody-gate/app-checks` | `tsc --strict --noEmit setup-checks.ts`, then `bun test setup-checks.test.ts` | clean, 43 passed |
 | `near/prime-near-signer` | `RUSTUP_TOOLCHAIN=stable cargo-near near build non-reproducible-wasm --no-abi` | wasm sha256 `8f90ea67e5202105b3ebec4c902d48dc72120262b193d97a1d06b8a9576510ce`, code hash `AfRTxyBpBmUDYi88xxytL5z4yfPn3tBa1SYawt4Jzh3b`, the hash deployed at `signer.prime-spike-muwguc60.testnet` |
 
@@ -78,7 +82,9 @@ mkdir -p lib/oz && cp -r package/utils package/interfaces lib/oz/
 
 ### Solana
 
-Both programs build with the Solana CLI on `PATH` (4.3.0, `cargo-build-sbf` with platform tools v1.57 and rustc 1.95.0). `PRIME_CLUSTER` is a compile-time string that goes into the grant text a wallet signs, so each cluster gets its own `.so`. `custody-gate` is the gate-owned custody gate in its line-cut form (84 sLOC, standard `solana_program`).
+Both programs build with the Solana CLI on `PATH` (4.3.0, `cargo-build-sbf` with platform tools v1.57 and rustc 1.95.0). `PRIME_CLUSTER` is a compile-time string that goes into the grant text a wallet signs, so each cluster gets its own `.so`. `custody-gate` is the gate-owned custody gate in its line-cut form (84 sLOC, standard `solana_program`, Pinocchio not adopted) with the multisig length check, which refuses a token account posing as custody's multisig. The design and the setup guide are in [README-architecture.md](solana/README-architecture.md) and [SETUP-AND-RECOVERY.md](solana/SETUP-AND-RECOVERY.md).
+
+The gate harnesses live in the spike bundle, in [`spike/matrix/near-minimal/opt/gate/`](spike/matrix/near-minimal/opt/gate/). `run-validator.sh` there starts a local validator with its own ledger, the mainnet feature set, the mainnet Squads and Token-2022 builds and every gate build in `so/`. The mainnet dumps and fixture programs it loads stay out of git. The logs of the length-check run are in [`spike/matrix/near-minimal/round9/opt/gate/msfix/`](spike/matrix/near-minimal/round9/opt/gate/msfix/), and the independent review is [`gate-linecut-review.md`](spike/matrix/near-minimal/round9/opt/gate-linecut-review.md).
 
 `app-checks/` holds the checks an app runs before funds move: mint extensions, the gate read-back and the setup transactions. It needs `@solana/web3.js` 1.99.0 and `@solana/spl-token` 0.4.15. The root `bunfig.toml` limits `bun test` to `packages/`, so run these tests from `app-checks/` after `bun add` of both libraries.
 
