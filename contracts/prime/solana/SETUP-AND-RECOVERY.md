@@ -423,6 +423,12 @@ Kamino reads the transaction's instruction list, so a Kamino batch needs a `refr
 
 Until a batch runs, the owners can cancel it with no help from the agent or custody. Squads cancels an approved batch once as many signers have voted to cancel as the rule has approvals, and one signer votes once. A Squads vault signs as one vault, so the rule gives the owners one vote-only seat for each approval it needs: the owners lane's vault, then vaults 100, 101 and so on, up to five seats. A rule with one approval has one seat and a rule with two approvals has two. Each cancel vote is a proposal of the Prime Account that the owners approve at their normal approval count, so cancelling a batch of a rule with two approvals takes two proposals. The seats are not gate lanes: the gate pays only the agent lane and the owners lane, so a seat can vote and cannot pay. A seat can also approve a stored batch, which the owners already reach as the agent lane. The cancel is itself held by the account's time lock, so the rule's wait has to be longer than that lock plus a minute. The agent holds the vote permission on its own rule, so it can cancel its own approved batch. Custody cannot cancel. Custody stops a stored batch by lowering the cap, and the same batch runs again if the cap is restored before its not-after.
 
+**Settings changes and open votes:** any change to the Prime Account's settings makes open cancel votes stale. The owners must propose them again. Rejecting a stored batch takes one more rejection than before, because the seats count as voters: a rule that needed m approvals to install now needs m+1 rejections to refuse a batch, one per seat, because each seat is a voter on Squads.
+
+**Upgrading existing rules:** rules installed with a wait and several approvals before this change have too few seats. The fix is to revoke and reinstall them at the new approval count.
+
+**Wait and time lock constraints:** the app refuses a rule whose wait is not longer than the account's time lock plus a minute. It also refuses raising the time lock above an existing rule's wait less a minute. This keeps the cancel window open and prevents the time lock from blocking the rule's own wait.
+
 Measured on the local validator (compute units and bytes of the whole transaction):
 
 | Move | Compute units | Bytes |

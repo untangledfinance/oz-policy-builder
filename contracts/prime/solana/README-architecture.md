@@ -338,11 +338,11 @@ sequenceDiagram
 
 **Who controls what:**
 
-- **The owners** set the wait. M of N can change it, as they change any rule. They cancel a stored batch through vote-only seats the rule gives them: the owners lane's vault, then vaults 100 and up, one per approval the rule needs.
+- **The owners** set the wait. M of N can change it, as they change any rule. They cancel a stored batch through vote-only seats the rule gives them: the owners lane's vault, then vaults 100 and up, one per approval the rule needs. Any change to the account's settings makes open cancel votes stale, and the owners must propose them again.
 - **Custody** protects itself by other means: the cap, which any one signer lowers or suspends at any time; the gate's end time; the destinations fixed at creation; and gate-owned custody (section 5).
 - **The agent** can cancel its own approved batch, because its seat holds the vote permission. Custody cannot cancel.
 
-**The trade-off Tuan accepted:** custody does not control the minimum wait. The owners' rule carries it, so the owners can set it low, and custody cannot raise it. Custody's protection is the cap, the end time, the fixed destinations and the gate-owned account, which bound what a batch can take whatever the wait.
+**The trade-off Tuan accepted:** custody does not control the minimum wait. The owners' rule carries it, so the owners can set it low, and custody cannot raise it. Custody's protection is the cap, the end time, the fixed destinations and the gate-owned account, which bound what a batch can take whatever the wait. The app enforces that a rule's wait must exceed the account's time lock plus a minute, and the time lock cannot be raised above an existing rule's wait less a minute.
 
 **Lapse:** Squads has no run window, and an approved batch stays runnable. Three bounds close it: a mandatory not-after in each batch that lies at most the run window ahead (custody's own bound, 60 seconds in the tests), the gate's end time and the rule's expiry. The gate refuses a batch that runs past its not-after, and the batch stays approved until the owners cancel it.
 
@@ -355,12 +355,14 @@ Stellar and EVM compare as follows. On Stellar the whole batch waits, the gate h
 | A Squads rule with its own time lock stores a call, refuses an early run, runs it after the wait, checks the rule at run time and lets the owners cancel. The sync path of a rule with a wait is refused | Verified | spike of the other design (custody inside its own Squads account), 225 of 225; the stored call there was a single call |
 | The whole batch (draw, venue call, proceeds back) is stored by the rule, an early run is refused, and it runs as one transaction after the wait. A second run is refused | Verified | TL1 to TL11b, 24 of 24; on real Orca state, 50 USDC became about 50 USDT in one run under a 6-second time lock (119,159 compute units) |
 | The owners set the wait, change it at M of N and cancel a stored batch | Verified | TL1 to TL11b; the cancel on real Orca state (48,709 compute units) |
+| Any change to the account's settings makes open cancel votes stale, and the owners must propose them again | Verified | Devnet confirmed |
+| Rules installed with a wait and several approvals before this change have too few seats and must be revoked and reinstalled | Verified | Migration path confirmed |
 | Custody stops a stored batch by lowering or suspending the cap | Verified | TL7, V22, V23: the run fails once the cap is lowered |
 | Lapse through the not-after, a not-after beyond the window, the gate's end time and the rule's expiry | Verified | TL1 to TL11b; the lapse on real Orca state (V28c) |
 | The gate has no queue of its own | Verified | the final gate has four instructions: `create`, `transfer`, `allow`, `release` |
 | The Squads close call that returns a stored batch's rent | Design only | a later run |
 
-A rule with a time lock cannot use Squads' synchronous path, so the agent stores the batch in three steps (create, propose, approve) and a run follows. The relayer pays the rent for a stored batch, and the rent returns when the batch runs or is cancelled. A stored mock batch took 468 bytes and 4,148,160 lamports plus a 294-byte proposal at 2,937,120; a stored Orca batch took 733 bytes and 5,992,560 lamports plus the proposal.
+A rule with a time lock cannot use Squads' synchronous path, so the agent stores the batch in three steps (create, propose, approve) and a run follows. The relayer pays the rent for a stored batch, and the rent returns when the batch runs or is cancelled. A stored mock batch took 468 bytes and 4,148,160 lamports plus a 294-byte proposal at 2,937,120; a stored Orca batch took 733 bytes and 5,992,560 lamports plus the proposal. Rejecting a stored batch takes one more rejection than before, because the seats count as voters: a rule that needed m approvals to install now needs m+1 rejections to refuse a batch, one per seat.
 
 ## 9. Recovery
 
