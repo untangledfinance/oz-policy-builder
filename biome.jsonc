@@ -16,7 +16,12 @@
       "!**/*.tsbuildinfo",
       "!**/worker-configuration.d.ts",
       "!**/test_snapshots",
-      "!agents"
+      "!agents",
+      // Archived evidence of the Prime session refinement: harnesses, logs and testnet records
+      // kept byte-for-byte as they ran, so the results they back stay reproducible. Linting or
+      // reformatting them would change what the logs were produced from. The contract sources
+      // and the app checks outside this folder stay linted.
+      "!contracts/prime/spike"
     ]
   },
   "formatter": {

@@ -53,7 +53,7 @@ done
 ## Style
 
 - TypeScript is formatted and linted by [Biome](https://biomejs.dev)
-  (`biome.json` at the root). Do not hand-format around it.
+  (`biome.jsonc` at the root). Do not hand-format around it.
 - Rust is formatted by `rustfmt` with default settings.
 - Comments earn their place by stating an invariant, a constraint, or a
   deliberate decision the code cannot show on its own. Several files carry
