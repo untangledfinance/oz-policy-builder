@@ -1,0 +1,6 @@
+sha256(.so) c883636111dfda411ef0dc80e7e73646cb6ee4d1fa9e924f645c0b6c33e68263 53720 bytes
+program A 6JyReewxbo6D6UQNHEWWTXnC1CdBU8CqcQjoQbGNj9Ba: executable true, upgrade authority 5bevLKtW8bA6LCXXMqQAjnWBRCWcSXwcvQHiCbT6JjuY
+program A 6JyReewxbo6D6UQNHEWWTXnC1CdBU8CqcQjoQbGNj9Ba: program data 2o1PtHRJguYDbihKyutSRTyGXkgMo8ZRPD7dGgKdhRaC, code space 53720 bytes, on-chain code starts with local .so: true, rest zero: true, sha256(on-chain code) c883636111dfda411ef0dc80e7e73646cb6ee4d1fa9e924f645c0b6c33e68263, sha256(first 53720 bytes) c883636111dfda411ef0dc80e7e73646cb6ee4d1fa9e924f645c0b6c33e68263
+program B GLabPwsshHoaXMrHM6nHsHEkf51MFkKP86WCdRpXg3SD: executable true, upgrade authority 5bevLKtW8bA6LCXXMqQAjnWBRCWcSXwcvQHiCbT6JjuY
+program B GLabPwsshHoaXMrHM6nHsHEkf51MFkKP86WCdRpXg3SD: program data 6CEGGuVY6vEaoCGczVyDSYhqPjd9uQrrY3tAAzBXndHd, code space 53720 bytes, on-chain code starts with local .so: true, rest zero: true, sha256(on-chain code) c883636111dfda411ef0dc80e7e73646cb6ee4d1fa9e924f645c0b6c33e68263, sha256(first 53720 bytes) c883636111dfda411ef0dc80e7e73646cb6ee4d1fa9e924f645c0b6c33e68263
+OK: on-chain code equals the .so

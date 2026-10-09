@@ -1,0 +1,4 @@
+sha256(.so) a5d19edb879e75d054f1025d710753ce5150726130c3dd74887236fbdbdc94e2 47472 bytes
+program gate 6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz: executable true, upgrade authority 5bevLKtW8bA6LCXXMqQAjnWBRCWcSXwcvQHiCbT6JjuY
+program gate 6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz: program data BFMMi5dhPNXpF1PwBzGHCK4u46VUikmsxoEBqUdXsLbu, code space 47472 bytes, on-chain code starts with local .so: true, rest zero: true, sha256(on-chain code) a5d19edb879e75d054f1025d710753ce5150726130c3dd74887236fbdbdc94e2, sha256(first 47472 bytes) a5d19edb879e75d054f1025d710753ce5150726130c3dd74887236fbdbdc94e2
+OK: on-chain code equals the .so

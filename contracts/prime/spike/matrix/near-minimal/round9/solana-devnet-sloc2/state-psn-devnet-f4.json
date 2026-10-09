@@ -1,0 +1,27 @@
+{
+ "program": "6JyReewxbo6D6UQNHEWWTXnC1CdBU8CqcQjoQbGNj9Ba",
+ "programB": "GLabPwsshHoaXMrHM6nHsHEkf51MFkKP86WCdRpXg3SD",
+ "sessionOwners": {
+  "MetaMask": "FGaZkHnnqWdGtGHwYBNg3XFJW9euiqWa9ParoHMfRWPX",
+  "Freighter": "GgnRgm9eVt6TNUNQUm13Nr9Zo7Mkv2Lvdm7nma6uzLZj",
+  "Phantom": "G5H71U2pASYLeei9MYvWVmCZzjHp2VscWTjpdLYa6LT4"
+ },
+ "settings": "BADcvrN6ym7xekL4LVoid4RXPqPpzgrj57zibU2DXYUb",
+ "policy": "6wYPcFkNjjiYGCZMnQShuU4f1Xr4hejm2FNn3ezeqMjK",
+ "policySeed": 1,
+ "settingsB": "68xJKwva4kanNWAVsHMRGtk56iX7RJgaJgbJKJ1q2rh5",
+ "policyB": "FhFAQymuSV787ny3A556yoZXs9AKAVDnYCWUfNp2GqEv",
+ "mpc": {
+  "calls": 41,
+  "ms": 340204
+ },
+ "metrics": {},
+ "results": [
+  {
+   "name": "F4. a signature instruction from another program (a no-op program) that carries the owner key and the exact grant text with an invalid signature",
+   "pass": true,
+   "ok": false,
+   "detail": "custom program error: 0x7"
+  }
+ ]
+}

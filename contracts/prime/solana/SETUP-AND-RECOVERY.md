@@ -14,7 +14,7 @@ On Solana, custody hands the owner and the close authority of a dedicated token 
 
 **Screens:** the Prime app for Solana is still to be built. Each step says what the app does and which transaction it sends. The command lines come from the [SPL Token documentation](https://www.solana-program.com/docs/token), and every other flag is left to the app.
 
-**Where it ran:** the gate ran on a local validator with the mainnet feature set (mainnet Squads, Token-2022, Orca Whirlpool and Kamino Lend programs, with mainnet state cloned read-only). The previous gate build (84 lines as written, 241 formatted, 47,160 bytes) is also deployed on devnet at `58L4q3DgvPdvRh7kX4v148EwEwd29WHh4RfaZJR69iYx`. The current build (126 lines formatted) needs a devnet redeploy at a new program id, because the deployed gate is final; that waits for SOL (section 4 has the figures). The independent security reviews of the gate are done, with the verdicts adopt with fixes and, for the line-cut build this guide describes, adopt (section 14). The fixes sit in the gate, in the app checks (section 13) and in this guide. Mainnet stays untouched until the `--final` deploy of the gate.
+**Where it ran:** the gate ran on a local validator with the mainnet feature set (mainnet Squads, Token-2022, Orca Whirlpool and Kamino Lend programs, with mainnet state cloned read-only). The current build (126 lines formatted, 47,472 bytes) is deployed with `--final` on devnet at [`6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz`](https://explorer.solana.com/address/6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz?cluster=devnet), and the gate-owned custody flow passes 84 of 84 checks there, including the forged-multisig refusal (section 4 has the figures). The previous gate build (84 lines as written, 241 formatted, 47,160 bytes) stays on devnet at `58L4q3DgvPdvRh7kX4v148EwEwd29WHh4RfaZJR69iYx` as a previous build; it is final too and passed 84 of 84. The independent security reviews of the gate are done, with the verdicts adopt with fixes and, for the line-cut build this guide describes, adopt (section 14). The fixes sit in the gate, in the app checks (section 13) and in this guide. Mainnet stays untouched until the `--final` deploy of the gate.
 
 **Read first: two limits that no setup removes.**
 
@@ -95,7 +95,7 @@ The hand-over comes after the gate read-back, because only a release by custody 
 
 ### Testnet first
 
-Run every step on devnet with test tokens before mainnet. A mistake in the gate's fixed fields has no edit, only a release by custody and the trustee, and a wrong multisig can stop that release (section 12). The app checks in section 13 run before any funds move. The gate's own devnet run follows once the payer can cover the deploy (section 4).
+Run every step on devnet with test tokens before mainnet. A mistake in the gate's fixed fields has no edit, only a release by custody and the trustee, and a wrong multisig can stop that release (section 12). The app checks in section 13 run before any funds move. The gate's own devnet run passed 84 of 84 on the final build (section 4).
 
 ## 2. Create the Prime Account
 
@@ -231,7 +231,7 @@ The cap address is `["cap", gate]`. The gate approves it as the delegate of the 
 
 The gate program is 126 lines after `rustfmt` (the source is formatter output), a 47,472-byte binary. It calls only the Token and Token-2022 programs. Deploy rent is about 0.333 SOL on the local validator (6,960 lamports per byte), and with prime-session about 0.709 SOL.
 
-Devnet charges 5,080 lamports per byte. A `--final` deploy there costs 0.258 SOL net: the program data account 257,235,960 lamports and the program account 833,120. The deploy peaks at 0.515 SOL, because the buffer (257,195,320 lamports) and the program data coexist until the loader returns the buffer. The devnet payer holds 0.276 SOL, so the peak does not fit. It needs about 0.24 SOL more, plus fees of a few thousandths of a SOL for the write transactions.
+Devnet charges 5,080 lamports per byte of account size plus 128 bytes of overhead. The `--final` deploy of the current gate cost 0.2429 SOL net there: the program data account 242,036,600 lamports and the program account 833,120. The deploy peaked at 0.4849 SOL, because the buffer (241,995,960 lamports) and the program data coexist until the loader returns the buffer. One run of the custody flow on devnet cost 0.0266 SOL gross and 0.0135 SOL after the clean-up, which closes the token accounts and the agent rule and sweeps the float of custody and the trustee back to the payer.
 
 ### Choose the recovery address
 
