@@ -19,3 +19,5 @@ panic = "abort"
 codegen-units = 1
 lto = true
 strip = "symbols"
+[lints.clippy]
+unit_arg = "allow"

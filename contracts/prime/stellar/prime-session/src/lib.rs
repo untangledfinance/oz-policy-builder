@@ -15,8 +15,7 @@
 //! days ahead, or a grant of a revoked key (contract error 1); a bad signature (trap).
 #![no_std]
 
-use soroban_sdk::{auth::*, crypto::*};
-use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, Error, Vec};
+use soroban_sdk::{auth::*, contract, contractimpl, crypto::*, Address, BytesN, Env, Error, Vec};
 
 #[contract]
 pub struct PrimeSession;
@@ -29,15 +28,17 @@ impl PrimeSession {
 
     /// Starts, extends, shortens or (with a past ledger) ends a session; at most 120,960 ledgers (7 days) ahead.
     pub fn grant(e: Env, key: BytesN<32>, until: u32) -> Result<(), Error> {
-        e.storage().instance().get::<u32, Address>(&0).unwrap().require_auth();
+        Address::require_auth(&e.storage().instance().get(&0u32).unwrap());
         let ttl = until.saturating_sub(e.ledger().sequence());
         if ttl > 120_960 || (until != 0 && e.storage().temporary().get(&key) == Some(0u32)) {
             return Err(Error::from_contract_error(1));
         }
         e.storage().temporary().set(&key, &until);
-        let ttl = if until == 0 { e.storage().max_ttl() } else { ttl };
-        e.storage().temporary().extend_ttl(&key, ttl, ttl);
-        Ok(())
+        let ttl = match until {
+            0 => e.storage().max_ttl(),
+            _ => ttl,
+        };
+        Ok(e.storage().temporary().extend_ttl(&key, ttl, ttl))
     }
 }
 
@@ -46,13 +47,16 @@ impl CustomAccountInterface for PrimeSession {
     type Signature = (BytesN<32>, BytesN<64>);
     type Error = Error;
 
-    fn __check_auth(e: Env, payload: Hash<32>, p: Self::Signature, _c: Vec<Context>) -> Result<(), Error> {
-        let (key, sig) = p;
-        if e.storage().temporary().get(&key).unwrap_or(0u32) < e.ledger().sequence() {
+    fn __check_auth(
+        e: Env,
+        payload: Hash<32>,
+        p: Self::Signature,
+        _c: Vec<Context>,
+    ) -> Result<(), Error> {
+        if e.storage().temporary().get(&p.0).unwrap_or(0u32) < e.ledger().sequence() {
             return Err(Error::from_contract_error(1));
         }
-        e.crypto().ed25519_verify(&key, &payload.into(), &sig);
-        Ok(())
+        Ok(e.crypto().ed25519_verify(&p.0, &payload.into(), &p.1))
     }
 }
 
