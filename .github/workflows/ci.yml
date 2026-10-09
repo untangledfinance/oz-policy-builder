@@ -64,8 +64,8 @@ jobs:
           - custody-gate
           - execution-adapter
           - test-blend-pool
-          # The session signer on an OZ smart account. It skips the format check
-          # (see the step) and its wasm is pinned in contracts/prime/build-hashes.json.
+          # The session signer on an OZ smart account. Its wasm is pinned in
+          # contracts/prime/build-hashes.json.
           - prime-session
     defaults:
       run:
@@ -80,12 +80,7 @@ jobs:
         with:
           workspaces: contracts/prime/stellar/${{ matrix.crate }}
 
-      # prime-session is kept as written. rustfmt reflows its source from 37 to 50
-      # lines, which changes the size the docs state for it, and the line shift
-      # changes the reproducible wasm (build-wasm.sh) even though the deployed
-      # stellar contract build wasm keeps its hash.
       - name: Format check
-        if: matrix.crate != 'prime-session'
         run: cargo fmt --check
 
       - name: Lint (clippy)
@@ -206,6 +201,10 @@ jobs:
           tar xzf openzeppelin-contracts-5.4.0.tgz
           mkdir -p lib/oz && cp -r package/utils package/interfaces lib/oz/
 
+      # The test files are not formatted, so the check covers the contract.
+      - name: Format check
+        run: forge fmt --check src
+
       - name: Build
         run: forge build
 
@@ -217,8 +216,8 @@ jobs:
   # string that goes into the grant text a wallet signs, so each cluster has its
   # own .so; localnet is the one recorded here.
   #
-  # No format check on purpose: the docs state the size of these sources as
-  # written (84 and 33 lines), and rustfmt would grow the gate to 241 lines.
+  # The sources are rustfmt output, and the docs state their formatted size
+  # (126 and 64 lines).
   solana:
     name: Contracts (solana/${{ matrix.crate }})
     runs-on: ubuntu-latest
@@ -264,14 +263,17 @@ jobs:
         with:
           workspaces: contracts/prime/solana/${{ matrix.crate }}
 
+      - name: Format check
+        run: cargo fmt --check
+
       - name: Build (cargo-build-sbf, localnet)
         run: PRIME_CLUSTER=localnet cargo-build-sbf -- --locked
 
       - name: Build parity
         run: ../../check-build-hash.sh solana/${{ matrix.crate }} target/deploy/${{ matrix.artifact }}
 
-  # The NEAR signer. Its sources are kept as written, like the Solana programs,
-  # so there is no format check.
+  # The NEAR signer. Its source packs several statements per line, so it has no
+  # format check; the docs state its size after rustfmt (42 lines, 22 as written).
   #
   # cargo-near's non-reproducible-wasm build embeds the registry and the Rust
   # standard library paths, so the same source gives other bytes on another
