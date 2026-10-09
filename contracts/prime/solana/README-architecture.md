@@ -1,6 +1,6 @@
 # Prime on Solana
 
-Date: 8 October 2026, updated 9 October 2026 for the line-cut gate. Status: testnet and local-validator results only. `prime-session` runs on Solana devnet. The custody gate runs on a local validator with the mainnet feature set, and its independent security reviews are done, with the verdicts adopt with fixes and, for the line cut, adopt (section 17). Sources: the Prime session architecture document, the 33-line `prime-session` program, the line-cut custody gate (84 lines, built from the gate-owned design of [`contracts/prime/spike/matrix/near-minimal/round9/gate-a4/gate-a4-min.md`](../spike/matrix/near-minimal/round9/gate-a4/gate-a4-min.md)), the devnet run of `prime-session` ([`contracts/prime/spike/matrix/near-minimal/round9/solana-devnet/`](../spike/matrix/near-minimal/round9/solana-devnet)), the real-wallet run and the refinement reports of 8 October 2026. Every number below comes from those.
+Date: 8 October 2026, updated 9 October 2026 for the line-cut gate and for the size pass (formatted sLOC is the official count). Status: testnet and local-validator results only. `prime-session` and the custody gate run on Solana devnet as the previous builds; a devnet redeploy of the new builds is pending SOL. The custody gate also runs on a local validator with the mainnet feature set, and its independent security reviews are done, with the verdicts adopt with fixes and, for the line cut, adopt (section 17). Sources: the Prime session architecture document, the 64-line `prime-session` program, the line-cut custody gate (126 lines formatted, built from the gate-owned design of [`contracts/prime/spike/matrix/near-minimal/round9/gate-a4/gate-a4-min.md`](../spike/matrix/near-minimal/round9/gate-a4/gate-a4-min.md)), the devnet run of `prime-session` ([`contracts/prime/spike/matrix/near-minimal/round9/solana-devnet/`](../spike/matrix/near-minimal/round9/solana-devnet)), the real-wallet run and the refinement reports of 8 October 2026. Every number below comes from those.
 
 **How to read the status tags:** each claim about the custody gate carries one of three tags:
 
@@ -41,8 +41,8 @@ Terms used from here on:
 | Piece | Who made it | What it does |
 |---|---|---|
 | Squads Smart Account | Squads | Holds the Prime Account's vaults. Its settings signers are the seats. Its policies are the rules. |
-| Custody gate | Us, 84 lines as written (241 formatted, 47,160 bytes) | A PDA of the gate program owns custody's dedicated token account. It pays only listed destinations within a cap, only for one Prime Account, and pays the recovery address on the owners' say. |
-| prime-session | Us, 33 lines | Checks an owner's grant on each move, then signs the Squads call for the owner's session PDA. |
+| Custody gate | Us, 126 lines formatted (47,472 bytes) | A PDA of the gate program owns custody's dedicated token account. It pays only listed destinations within a cap, only for one Prime Account, and pays the recovery address on the owners' say. |
+| prime-session | Us, 64 lines formatted (53,720 bytes) | Checks an owner's grant on each move, then signs the Squads call for the owner's session PDA. |
 | Session PDA | Derived, one per owner per account | The address that carries a session's authority. It sits in the policy only. |
 | ed25519 program | Built into Solana | Verifies the owner's signature on the grant text inside the move transaction. |
 | Relayer | Us | Pays the fee for moves and revokes. It signs only as fee payer, and as rent payer for stored moves and revokes. |
@@ -147,7 +147,7 @@ The app shows each warning before any funds move. The gate cannot lift a freeze,
 
 ### What is proven
 
-**Gate status (line-cut gate with the multisig length check, [`contracts/prime/solana/custody-gate/src/lib.rs`](custody-gate/src/lib.rs), 9 October 2026):** on the mainnet feature set, the mock venue harness passes 345 of 345 checks, and the real venues 53 of 53 (Kamino deposit and redeem, an Orca swap, the whole-batch time lock on a real Orca swap, recovery, release and `prime-session` in the path). The trustee run passes 9 of 9 and the forged-multisig probe 4 of 4. A mutation pass kills 63 of 63 gate mutants and 88 of 88 [`contracts/prime/solana/custody-gate/app-checks/setup-checks.ts`](custody-gate/app-checks/setup-checks.ts) mutants. The gate is 84 sLOC as written, 241 after `rustfmt` and 47,160 bytes (sha256 `6d196cab5b6c6d29bc6cf650a1526b4be56c0550bed479b55090364d7a04dfd7`), against 91, 253 and 50,464 for the gate-owned build before the line cut and 119, 276 and 87,160 for the earlier hardened build. It uses the standard `solana_program` crate. A Pinocchio port (86 sLOC, 36,000 bytes) was built and is not adopted. The independent security reviews of both builds are done (adopt with fixes, then adopt), and their findings are listed in section 17.
+**Gate status (line-cut gate with the multisig length check, [`contracts/prime/solana/custody-gate/src/lib.rs`](custody-gate/src/lib.rs), 9 October 2026):** on the mainnet feature set, the mock venue harness passes 345 of 345 checks, and the real venues 53 of 53 (Kamino deposit and redeem, an Orca swap, the whole-batch time lock on a real Orca swap, recovery, release and `prime-session` in the path). The trustee run passes 9 of 9 and the forged-multisig probe 4 of 4. A mutation pass kills 63 of 63 gate mutants and 88 of 88 [`contracts/prime/solana/custody-gate/app-checks/setup-checks.ts`](custody-gate/app-checks/setup-checks.ts) mutants. The gate is 126 sLOC formatted and 47,472 bytes (sha256 `a5d19edb879e75d054f1025d710753ce5150726130c3dd74887236fbdbdc94e2`). The build the reviews tested was 84 as written, 241 after `rustfmt` and 47,160 bytes (sha256 `6d196cab5b6c6d29bc6cf650a1526b4be56c0550bed479b55090364d7a04dfd7`), against 91, 253 and 50,464 for the gate-owned build before the line cut and 119, 276 and 87,160 for the earlier hardened build. The 9 October 2026 size pass rebuilt the gate from the formatted source and re-ran the harnesses against it (345 of 345, 53 of 53, 9 of 9 and 4 of 4), with 78 of 78 gate mutants killed and 12 million differential scenarios against the build above with no mismatch. It uses the standard `solana_program` crate. A Pinocchio port (86 sLOC, 36,000 bytes) was built and is not adopted. The independent security reviews of both builds are done (adopt with fixes, then adopt), and their findings are listed in section 17.
 
 | Claim | Status | Evidence |
 |---|---|---|
@@ -543,7 +543,7 @@ flowchart LR
 | Backpack | Native | The real extension (0.10.216) signed the grant and revoke texts, 16 of 16 checks, and two seat votes that executed. |
 | Glow | Native for text | The real extension (0.61.0) signed the grant and revoke texts, 16 of 16 checks. Its transaction prompt shows no Approve button in our runs. |
 | MetaMask | Native or NEAR | Native: MetaMask 13.50.0 signed 12 grant and revoke requests with its own Solana account (145 of 145 checks). Seat-vote transactions used a stand-in with the same key, because MetaMask's simulation refuses the local validator's accounts. NEAR route: stock NEAR code only. |
-| Freighter | NEAR | Freighter adds a Stellar prefix to every message, so it cannot sign the Solana text. It goes through our 20-line NEAR contract, `prime-near-signer`. |
+| Freighter | NEAR | Freighter adds a Stellar prefix to every message, so it cannot sign the Solana text. It goes through our 42-line NEAR contract, `prime-near-signer`. |
 
 On the NEAR route the MPC key signs the same grant text, and prime-session checks that key as the owner. A NEAR-routed wallet uses one MPC key for seat votes and another for sessions, so a session signature can never count as a vote. The NEAR route adds about 8 seconds per signature. The native route took 4.8 seconds for MetaMask's `signMessage` in our runs, browser automation included. Moves never use NEAR.
 
@@ -619,7 +619,7 @@ Attacks on the custody gate:
 
 ## 16. Costs and limits
 
-Measured on a local validator, with the relayer paying.
+Measured on a local validator, with the relayer paying, on the round 9 build. The 9 October 2026 build costs 89 compute units more per session move (53,423 against 53,334 in the same deterministic run) and 32 more per revoke; the gate costs 32 to 305 more per call.
 
 | Item | Value |
 |---|---|
@@ -627,7 +627,7 @@ Measured on a local validator, with the relayer paying.
 | Move with more owners | About 900 more compute units per owner: 50,648 with 1 owner, 60,267 to 61,860 with 12 |
 | Revoke | 726 bytes, 22,229 compute units, fee 10,000 lamports |
 | Revoke rent | 890,880 lamports (0.00089 SOL) per revoked key. The relayer pays it, and it stays locked. |
-| Program size | 54,024 bytes, 33 lines of code, 0.377 SOL of deploy rent |
+| Program size | 53,720 bytes, 64 lines of code (formatted), about 0.375 SOL of deploy rent. The round 9 build, which runs on devnet, is 54,024 bytes and 0.377 SOL |
 | Cost per owner | 0.00046 SOL of refundable rent for the larger settings and policy |
 | Owners | 62 at most in one account. 25 fit in the create transaction, then each extra owner is added in its own transaction. |
 | Owners tested | 1-of-1, 2-of-2, 2-of-3, 3-of-5 and 7-of-12 |
@@ -652,13 +652,13 @@ Custody gate, gate-owned build, on a local validator (compute units vary run to 
 | Recovery by the owners (sync) | 23,090 to 36,590 compute units, 671 bytes (the gate's own share: 3,662) |
 | A stored recovery runs | 65,464 compute units, 645 bytes |
 | Agent rule, install | 0.0060 to 0.0104 SOL of rent, three transactions |
-| The gate program, once | 47,160 bytes. Deploy rent is 0.331 SOL on the local validator (6,960 lamports per byte), and 0.709 SOL with prime-session. On devnet (5,080 per byte) the gate costs 0.241 SOL net and peaks at 0.482 SOL |
+| The gate program, once | 47,472 bytes. Deploy rent is 0.333 SOL on the local validator (6,960 lamports per byte), and 0.709 SOL with prime-session. On devnet (5,080 per byte) the previous gate (47,160 bytes) cost 0.241 SOL net and peaked at 0.482 SOL; the new one costs about 0.243 SOL net and peaks near 0.484 SOL |
 
 Real venue runs: a Kamino deposit 119,676 compute units, a Kamino redeem 111,049, an Orca swap through a rule 83,328, the same through `prime-session` as a version 0 transaction 107,462 (897 bytes, depth 4; the legacy form is 1,512 bytes and refused as too large).
 
 ### prime-session on devnet
 
-`prime-session` is deployed on Solana devnet and runs the full matrix with the 2-of-3 Squads Smart Account, all three wallet routes (Phantom's own key, MetaMask and Freighter through NEAR) and the refusals.
+`prime-session` is deployed on Solana devnet (the round 9 build; the reduced source of 9 October 2026 is pending a redeploy at a new program id, because this program is final) and runs the full matrix with the 2-of-3 Squads Smart Account, all three wallet routes (Phantom's own key, MetaMask and Freighter through NEAR) and the refusals.
 
 | Item | Value |
 |---|---|
@@ -703,7 +703,7 @@ Devnet charges 5,080 lamports per byte for rent, against 6,960 on the local vali
 - **Independent review of the line cut: done, adopt** ([`contracts/prime/spike/matrix/near-minimal/round9/opt/gate-linecut-review.md`](../spike/matrix/near-minimal/round9/opt/gate-linecut-review.md)). The line cut is a refactor of the gate-owned build. A host differential test on 3 million random inputs per seed found no difference except one signer flag on a System `Transfer` that the System program ignores, and the harnesses pass unchanged. Finding L1, the one issue the review added, is fixed in the gate (table above); the fixed build is the one this document describes.
 - **Fordefi:** Fordefi can be a multisig signer for custody's key or the trustee's key, as an untested design from Fordefi's raw Solana transaction API. The harness signs with raw keys.
 - **Gate deploy:** a published verifiable build and a `--final` deploy. The app refuses a gate program that still has an upgrade authority.
-- **Gate on devnet:** a `--final` deploy of the gate on devnet needs 0.241 SOL net and peaks at 0.482 SOL while the buffer and the program data coexist. The payer holds 0.276 SOL, so the deploy waits for about 0.21 SOL more. `prime-session` already runs on devnet (section 16).
+- **Gate on devnet:** the previous gate build (`6d196cab…`, 47,160 bytes) is deployed with `--final` on devnet at `58L4q3DgvPdvRh7kX4v148EwEwd29WHh4RfaZJR69iYx` and passes 84 of 84 checks there. The 9 October 2026 size pass built a new gate (`a5d19edb…`) and a new session (`181013d2…`). Both devnet programs are final, so the new builds go to new program ids. That redeploy is pending SOL: the payer holds about 0.23 SOL and the two deploys need about 1 SOL (section 16).
 - **Squads upgrades:** the program upgrades on mainnet with no time lock, so the gate harness re-runs after each upgrade.
 - **Devnet seat votes:** Solflare's and Glow's seat votes through the real extensions and the grant text with `cluster: devnet` signed by the real extensions follow once a funded devnet account is available. The devnet run of `prime-session` used keys and the NEAR MPC.
 - **Relayer cap:** Phantom adds a 75,000-lamport priority fee, and the harness cap is 25,000. Tuan decides whether the cap rises for Phantom votes or the app sets the fee before Phantom signs.

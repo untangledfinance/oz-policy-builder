@@ -38,6 +38,8 @@ Our new code in total is 122 sLOC: 32 + 33 + 37 + 20.
 | NEAR signer code hash | `AfRTxyBpBmUDYi88xxytL5z4yfPn3tBa1SYawt4Jzh3b`, equal to the build; the derived MPC keys are unchanged from before the redeploy |
 | EVM runtime bytecode | three instances compared by `evm/bytecode-eq.ts` with immutables masked (`bytecode-eq.fork-r9b.log`) |
 
+The size pass of 9 October 2026 changed the sources and the hashes of all four contracts without changing their behaviour. Its table, scripts and logs are in [`round9/sloc2/`](round9/sloc2/README.md).
+
 ### Pending live runs
 
 - **Base Sepolia:** the relayer holds 0.0000017 ETH. The matrix needs about 0.00007 ETH; 0.0005 ETH leaves margin. Run `PKN_LIVE=1 bun pkn.ts` after funding.

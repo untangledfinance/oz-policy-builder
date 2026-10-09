@@ -2,7 +2,7 @@
 
 Date: 8 October 2026. Draft for review, written in the walkthrough style of the published Prime docs for [Stellar](https://docs.untangled.finance/docs/Prime/set-up-the-custody-gate/) and [EVM](https://docs.untangled.finance/docs/Prime/prime-on-evm/). The design background is in [`contracts/prime/solana/README-architecture.md`](README-architecture.md). This guide follows the final gate-owned build ([`contracts/prime/spike/matrix/near-minimal/round9/gate-a4/gate-a4-min.md`](../spike/matrix/near-minimal/round9/gate-a4/gate-a4-min.md), the design Tuan chose on 8 October 2026).
 
-On Solana, custody hands the owner and the close authority of a dedicated token account to the custody gate, a small program of ours (84 lines as written, 241 after formatting, 47,160 bytes, built on the standard Solana program library). The funds stay in that one account, and only the gate can sign for it. The gate pays the Prime Account's agent within a cap, to addresses fixed at creation. Custody's identity is an SPL Token multisig of custody and a trustee, so a release back to custody needs both. If custody loses its keys, the Prime Account's owners can pay the recovery address without custody signing, with no cap and at any time.
+On Solana, custody hands the owner and the close authority of a dedicated token account to the custody gate, a small program of ours (126 lines formatted, 47,472 bytes, built on the standard Solana program library). The funds stay in that one account, and only the gate can sign for it. The gate pays the Prime Account's agent within a cap, to addresses fixed at creation. Custody's identity is an SPL Token multisig of custody and a trustee, so a release back to custody needs both. If custody loses its keys, the Prime Account's owners can pay the recovery address without custody signing, with no cap and at any time.
 
 **Status tags:** each step ends with one of three tags:
 
@@ -14,7 +14,7 @@ On Solana, custody hands the owner and the close authority of a dedicated token 
 
 **Screens:** the Prime app for Solana is still to be built. Each step says what the app does and which transaction it sends. The command lines come from the [SPL Token documentation](https://www.solana-program.com/docs/token), and every other flag is left to the app.
 
-**Where it ran:** the gate ran on a local validator with the mainnet feature set (mainnet Squads, Token-2022, Orca Whirlpool and Kamino Lend programs, with mainnet state cloned read-only). A devnet deploy of the gate needs more SOL than the payer holds (section 4 has the figures). The independent security reviews of the gate are done, with the verdicts adopt with fixes and, for the line-cut build this guide describes, adopt (section 14). The fixes sit in the gate, in the app checks (section 13) and in this guide. Mainnet stays untouched until the `--final` deploy of the gate.
+**Where it ran:** the gate ran on a local validator with the mainnet feature set (mainnet Squads, Token-2022, Orca Whirlpool and Kamino Lend programs, with mainnet state cloned read-only). The previous gate build (84 lines as written, 241 formatted, 47,160 bytes) is also deployed on devnet at `58L4q3DgvPdvRh7kX4v148EwEwd29WHh4RfaZJR69iYx`. The current build (126 lines formatted) needs a devnet redeploy at a new program id, because the deployed gate is final; that waits for SOL (section 4 has the figures). The independent security reviews of the gate are done, with the verdicts adopt with fixes and, for the line-cut build this guide describes, adopt (section 14). The fixes sit in the gate, in the app checks (section 13) and in this guide. Mainnet stays untouched until the `--final` deploy of the gate.
 
 **Read first: two limits that no setup removes.**
 
@@ -229,7 +229,7 @@ The cap address is `["cap", gate]`. The gate approves it as the delegate of the 
 
 ### The program
 
-The gate program is 91 lines as written and 253 after `rustfmt`, a 50,464-byte binary. It calls only the Token and Token-2022 programs. Deploy rent is 0.354 SOL on the local validator (6,960 lamports per byte), and with prime-session 0.732 SOL.
+The gate program is 126 lines after `rustfmt` (the source is formatter output), a 47,472-byte binary. It calls only the Token and Token-2022 programs. Deploy rent is about 0.333 SOL on the local validator (6,960 lamports per byte), and with prime-session about 0.709 SOL.
 
 Devnet charges 5,080 lamports per byte. A `--final` deploy there costs 0.258 SOL net: the program data account 257,235,960 lamports and the program account 833,120. The deploy peaks at 0.515 SOL, because the buffer (257,195,320 lamports) and the program data coexist until the loader returns the buffer. The devnet payer holds 0.276 SOL, so the peak does not fit. It needs about 0.24 SOL more, plus fees of a few thousandths of a SOL for the write transactions.
 
@@ -593,7 +593,7 @@ The first independent review, of the gate-owned build, is done: **adopt with fix
 | F6 | Low: rent stays locked in gate-owned accounts until a release | Stated in sections 4 and 5 | Done in this guide |
 | F7 | Low: seed squatting | Stated in section 4. The app retries with a new seed | Done in this guide |
 
-The line-cut build (84 lines, the one this guide describes) has a second independent review ([`contracts/prime/spike/matrix/near-minimal/round9/opt/gate-linecut-review.md`](../spike/matrix/near-minimal/round9/opt/gate-linecut-review.md), 9 October 2026): **adopt**. The cut is a refactor, and a differential test on 3 million random inputs per seed found no difference except one signer flag that the System program ignores. The review added one low finding:
+The line-cut build (84 lines as written when it was reviewed, 126 formatted now; the one this guide describes) has a second independent review ([`contracts/prime/spike/matrix/near-minimal/round9/opt/gate-linecut-review.md`](../spike/matrix/near-minimal/round9/opt/gate-linecut-review.md), 9 October 2026): **adopt**. The cut is a refactor, and a differential test on 3 million random inputs per seed found no difference except one signer flag that the System program ignores. The review added one low finding:
 
 | # | Finding | Fix | Status |
 |---|---|---|---|
@@ -605,7 +605,7 @@ The app keeps `checkGate` and `checkMultisig` as hard steps before any hand-over
 
 - **Squads Smart Account** (`SMRTzfY6...`) is upgradeable on mainnet. Its upgrade authority is `HT3JknwuufXdtVJggz5Z9JcnYtanPpLzTCqLWsVX1Vu2`, with no time lock. The gate's two lanes are Squads vaults, so whoever holds that authority can change how the vaults sign. The reach stays inside the gate's fixed recovery address, cap and destination list, which bounds that party the same way an owner majority is bounded (section 11). Re-check the gate after each Squads upgrade.
 - **Token-2022** (`TokenzQd...`) is upgradeable on mainnet. Its upgrade authority is `AeLmXCbPaQHGWRLr2saFsEVfmMNuKnxRAbWCT9P5twgz`. Holding assets there adds that authority as a trusted party. The classic Token program (`Tokenkeg...`) is immutable, so prefer it where the asset allows. The app says so for each Token-2022 mint.
-- **The gate deploys with `--final`:** a latent bug in the gate then cannot be patched, and the way out is a release to a fresh gate, which needs custody, the trustee and an unfrozen account. The small surface (253 formatted lines) carries that risk. The app refuses a gate program that still has an upgrade authority, and the harness loads the gate as non-upgradeable.
+- **The gate deploys with `--final`:** a latent bug in the gate then cannot be patched, and the way out is a release to a fresh gate, which needs custody, the trustee and an unfrozen account. The small surface (126 formatted lines) carries that risk. The app refuses a gate program that still has an upgrade authority, and the harness loads the gate as non-upgradeable.
 
 Upgrade authorities read on chain on 8 October 2026 (read-only, through the public RPC).
 
