@@ -1,24 +1,69 @@
-# Contract gate - 2026-08-27T18:13:52Z
-# fmt, clippy -D warnings, tests, conformance, wasm rebuild, hash pin parity
+# Contract gate - 2026-10-10T05:16:11Z at 0358af5
+# Per crate, as CI runs it: fmt, clippy -D warnings, tests, conformance (interpreter), wasm rebuild, record parity
+
+## contracts/policy-interpreter
 
 $ cargo fmt --check
 (no output = clean)
+exit 0
 
 $ cargo clippy --all-targets -- -D warnings
-    Checking policy-interpreter v0.1.0 (/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/contracts/policy-interpreter)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.63s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.59s
+exit 0
 
 $ cargo test
-test result: ok. 67 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
-test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
-test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
-test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
-test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+test result: ok. 82 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+exit 0
 
 $ cargo test --release --test conformance
-test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+exit 0
 
 $ ./build-wasm.sh
-b5ba1e35ccf20cd8c13c3a2c3098bf337033a92bcaf475d63c03ddc0cba0fcae
-(matches PINNED_INTERPRETER_WASM_SHA256)
+5143e64159378c9aac27e8cf1c9cb1f14364672885c151ccc5d887109f776126
+(matches deployments/grammar6-testnet.json interpreterSource.reproducibleWasmSha256, the record CI compares)
+(matches deployments/prime-mainnet.json policy-interpreter, the mainnet instance's code)
+
+## contracts/custody-gate
+
+$ cargo fmt --check
+(no output = clean)
+exit 0
+
+$ cargo clippy --all-targets -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.81s
+exit 0
+
+$ cargo test
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+exit 0
+
+$ ./build-wasm.sh
+b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab
+(matches deployments/execution-testnet.json, the record CI compares)
+(matches deployments/prime-mainnet.json)
+
+## contracts/execution-adapter
+
+$ cargo fmt --check
+(no output = clean)
+exit 0
+
+$ cargo clippy --all-targets -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.34s
+exit 0
+
+$ cargo test
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s
+exit 0
+
+$ ./build-wasm.sh
+68d012e79fd4f9b88584447cfb32e0b0dbb55fb8bcd084b7212bad3e63b6dfdd
+(matches deployments/execution-testnet.json, the record CI compares)
+(matches deployments/prime-mainnet.json)

@@ -1,31 +1,25 @@
 # Audit evidence
 
-The logs in this folder were produced against this tree.
+The six local logs (`contract-gate.log`, `offchain-gate.log`, `cargo-audit.log`,
+`bun-audit.log`, `clippy-pedantic.log` and `scout-audit.log`) were regenerated
+on 2026-10-10 against `0358af5`, the tip of `main` on 2026-10-01. They cover
+the three contracts in scope, `policy-interpreter`, `custody-gate` and
+`execution-adapter`, and the three npm packages. Each contract's rebuilt wasm
+matches the code deployed on mainnet (`deployments/prime-mainnet.json`) and the
+record CI compares.
 
-All ten were regenerated on 2026-08-27 against `5bae0a8`, including both
-live-network legs. **`offchain-gate.log` was regenerated on 2026-08-30 against
-the `v1.2.0` release tree (`2b14ec6`)**, because the off-chain source changed
-after `5bae0a8` (three releases, the `spending_limit` composition, the handle
-refactor, `outPath`, and the cross-rule install refusal).
+The live-network logs spend testnet and mainnet funds, so they were run once
+against deployed contracts, and each row below says which:
 
-**The other nine still describe this tree, and that is checked rather than
-assumed.** They all exercise the Rust interpreter, and it has not changed:
-
-```
-git diff --stat 5bae0a8..HEAD -- contracts/policy-interpreter/   # empty
-```
-
-The only Rust change since is a new `test-swap-router` stub crate, which nothing
-in those logs runs. `contract-gate-recheck-e2d2a95.log` corroborates it: `cargo
-fmt --check`, `clippy -D warnings` and `cargo test` re-run at `e2d2a95` give the
-same **125 tests, 0 failed**. That re-check is narrower than `contract-gate.log`
-- it omits the conformance regeneration, the wasm rebuild and the hash-pin
-parity - so it supplements that log rather than replacing it, and the wasm and
-pin results hold because the source producing them is byte-identical.
-
-The three live-network legs were deliberately NOT re-run. They prove properties
-of the deployed interpreter, which is unchanged, and re-running them spends
-mainnet and testnet funds for a result that cannot differ.
+- `e2e-network.log` and the `oz-*` logs ran between 2026-08-22 and 2026-08-31
+  against the grammar-4 interpreter the npm packages pin (testnet `CCBHVZ…`,
+  mainnet `CDN755…`), built from `5bae0a8`. `main` builds grammar 6.
+- `execution-wait-testnet.log` and `execution-address-rule-testnet.log` ran on
+  2026-09-29 against the gate and adapter builds `b01024f3…` and `68d012e7…`,
+  which are the builds `main` produces and mainnet runs.
+- The two `-reproducible-interpreter` logs re-ran those checks on testnet with
+  the grammar-6 interpreter build mainnet runs (`5143e641…`), before the
+  mainnet deployment on 2026-10-01.
 
 `offchain-gate.log` is generated from a clean `git archive` export, so what it
 measures is exactly what a reviewer gets from a clone and nothing that only
@@ -46,20 +40,20 @@ gitignored `dist/`.
 
 | Log | Command | Result |
 | --- | --- | --- |
-| `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm rebuild, hash pin parity | clean; 125 tests across 6 binaries, 18 of them conformance; rebuilt wasm matches the pin |
-| `offchain-gate.log` | `biome check .`, build, `bun run typecheck`, `bun test` | clean; 144 files checked, 750 pass, 1 skip, 0 fail across 751 tests in 49 files (`v1.2.0`) |
-| `contract-gate-recheck-e2d2a95.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test` per crate | clean; same 125 tests, 0 failed, confirming the interpreter is unchanged since `5bae0a8`. Narrower than `contract-gate.log`: no conformance, wasm rebuild or pin parity |
-| `cargo-audit.log` | `cargo audit` | 0 vulnerabilities across 202 crates; 1 unmaintained-crate warning |
-| `bun-audit.log` | `bun audit` | 0 vulnerabilities |
-| `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` | 191 style warnings, 0 security; all 8 cast warnings are in test files |
-| `scout-audit.log` | `cargo scout-audit` | Analyzed: 0 Critical, 9 Medium, 0 Minor, 1 Enhancement |
+| `contract-gate.log` | per crate: `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm rebuild, record parity | clean; interpreter 151 tests across 7 binaries (18 of them conformance, also run in release), gate 3, adapter 33; each rebuilt wasm matches `deployments/prime-mainnet.json` and the record CI compares |
+| `offchain-gate.log` | `biome check .`, build, `bun run typecheck`, `bun test` | passes; biome checks 170 files with 0 errors, 99 warnings and 22 infos (finding 9); 771 pass, 1 skip, 0 fail across 772 tests in 52 files (`v1.3.0`) |
+| `cargo-audit.log` | `cargo audit` per crate | 0 vulnerabilities (interpreter 202 crates, gate and adapter 215 each); 1 unmaintained-crate warning |
+| `bun-audit.log` | `bun audit` | 2 advisories, both through `@modelcontextprotocol/sdk` 1.30.0 (finding 10) |
+| `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` per crate | style warnings only: interpreter 206, gate 16, adapter 35; all 8 cast warnings are in the interpreter's test files |
+| `scout-audit.log` | `cargo scout-audit` per crate | interpreter 2 Critical, 13 Medium; gate 0 Critical, 3 Medium; adapter 3 Critical, 14 Medium; 1 Enhancement each. All reviewed in finding 2 |
 | `oz-policy-composition.log` | `scripts/oz-policy-composition.ts` | two interpreter policies on ONE rule, disagreeing about the same call: the refusing one is decisive. OZ composes attached policies as ALL-OF |
 | `oz-spending-limit-binding.log` | `scripts/oz-spending-limit-binding.ts --network testnet` and `--network mainnet` | OZ's own `spending_limit` beside the interpreter denies an over-cap transfer `#3221` on both networks; control rule without the cap permits the same transfer |
 | `oz-threshold-binding.log` | `scripts/oz-threshold-binding.ts --network testnet` and `--network mainnet` | OZ's own `simple_threshold(2)` beside the interpreter denies a lone signer `#3202` and permits the two-signer call on both networks; control rule without the threshold permits that same lone signer |
 | `e2e-network.log` | `scripts/e2e-network.ts --network testnet` and `--network mainnet` | policy installed against the pinned interpreter on both networks; permitted call succeeds, forbidden call denied `#100`, and the agent's attempt to route the forbidden call through the unpoliced rule is refused on membership. Both networks re-run for this generation |
-| `stride-threat-model.md` | STRIDE re-run, 2026-09-29 | the threat model for the interpreter, the gate, the v4 adapter and the toolchain, with the app's stored-move flow as one adjacent data flow. Supersedes the 2026-09-25 report (at `d89e17b:docs/stride-threat-model.md`) |
+| `stride-threat-model.md` | STRIDE re-run, 2026-09-29 | the threat model for the interpreter, the gate, the v4 adapter and the toolchain, with the app's stored-move flow as one adjacent data flow. Supersedes the 2026-09-25 report (at `d89e17b:docs/stride-threat-model.md`). Its tool table is dated 2026-10-01; for Scout and `bun audit`, the 2026-10-10 logs above are current |
 | `execution-wait-testnet.log` | `scripts/verify-execution-wait-testnet.ts` | 44 of 44 against the Linux builds: waits, stored moves, run, cancel, the run rule's refusals, revocation, pause and a stored move's measured lifetime |
 | `execution-address-rule-testnet.log` | `scripts/verify-execution-address-rule-testnet.ts` | 35 of 35 against the Linux builds: the adapter's address rule, run with no wait |
+| `execution-wait-testnet-reproducible-interpreter.log`, `execution-address-rule-testnet-reproducible-interpreter.log` | the same two scripts | 45 of 45 and 35 of 35 with the reproducible grammar-6 interpreter build that mainnet runs |
 
 ## Findings
 
@@ -67,11 +61,58 @@ gitignored `dist/`.
 
 Transitive through `soroban-sdk`. The advisory is "no longer maintained", not a
 vulnerability. Not actionable without an SDK change; `cargo audit` reports 0
-vulnerabilities across 202 crate dependencies.
+vulnerabilities in each crate's lockfile (202 crates for the interpreter, 215
+for the gate and the adapter).
 
-### 2. Scout MEDIUMs - reviewed, no change
+### 2. Scout findings - reviewed, no change
 
-- *unbounded operations* x3: the walks are bounded by the 32 KB byte cap
+The 2026-10-10 run covers all three crates. Line numbers below are from
+`0358af5`.
+
+**CRITICAL, all five arithmetic, none reachable as a wrong result.** Every crate
+sets `overflow-checks = true` for release, so an overflow traps and the call is
+refused.
+
+- `execution-adapter/src/lib.rs:213`, `run_at = sequence + wait`: a wrap
+  would put `run_at` in the past; the trap refuses the batch instead, as the
+  comment above it states.
+- `execution-adapter/src/lib.rs:214`, the batch number `+ 1`: traps after
+  4,294,967,295 stored batches.
+- `execution-adapter/src/lib.rs:224`, `run_at.saturating_add(window) -
+  sequence`: `run_at` is `sequence + wait`, so the left side is never below
+  `sequence`.
+- `policy-interpreter/src/dsl.rs:927`, `items.len() - 1`: the decoder refuses
+  an empty list before this point (`dsl.rs:862`).
+- `policy-interpreter/src/dsl.rs:939`, `n + 1`: `n` is below `items.len()`, a
+  `u32`.
+
+**MEDIUM, `custody-gate` and `execution-adapter`.**
+
+- *unsafe `unwrap`* x3 in the gate and x9 in the adapter: each reads instance
+  configuration the constructor wrote (`cfg`, `PRIME`, `GATE`, `MIN_WAIT`,
+  `WINDOW`), which is always present.
+- *Vec parameter without validating contents* x2 (`execute`'s `calls` and
+  `grants`): `check` walks both before anything runs.
+- *storage op without access control* x1 (`lib.rs:292`): `ok.push_back(gate)`
+  on a local vector inside `check`.
+- *dynamic types in persistent storage* x1 (`lib.rs:217`): the stored batch,
+  written only after the Prime approved it and bounded by the transaction size.
+- *`extend_ttl` with identical arguments* x1 (`lib.rs:225`): deliberate; it
+  keeps a stored batch live until its run window closes.
+
+**MEDIUM, `policy-interpreter`.** The 2026-08-27 run found nine; the dispositions
+below carry over with current line numbers, plus four new ones:
+
+- *unsafe `unwrap`* x2 (`lib.rs:182-183`, new, in `bind_executor`): on a rule
+  with nothing installed the call traps with a host error where
+  `MissingState` (`#206`) would be clearer. The direction is refusal.
+- *unbounded operations*: the fourth (`dsl.rs:932`, new) walks a `call_path`,
+  capped at `MAX_PATH_STEPS` 8.
+- *unsafe Map access*: the second (`dsl.rs:496`, new) is the same `Option`
+  returning `get` in the `call_path` walk.
+
+
+- *unbounded operations* x3 (`dsl.rs:800`, `:845`, `:871`): the walks are bounded by the 32 KB byte cap
   plus `MAX_DEPTH` 5 / `MAX_LEAVES` 200 / `MAX_IN_OPERAND_COUNT` 32.
 - *dynamic types in persistent storage* x2: the master signer set is a
   `Vec<Signer>` by necessity - it mirrors OZ's own rule shape - and is capped
@@ -81,13 +122,13 @@ vulnerabilities across 202 crate dependencies.
   signer set is re-hashed against the hash stored at install;
   `rotate_master_signer_set`'s `new_set` is checked non-empty, capped, and
   refused if it contains an `External` signer.
-- *storage op without access control* x1: reported at `dsl.rs:237`, which is
+- *storage op without access control* x1: reported at `dsl.rs:281`, which is
   `vals.push_back(..)` on a local `SorobanVec` inside `literal_to_val`. `dsl.rs`
   makes no `storage()` call anywhere, so the lint has matched an in-memory push
   and access control does not apply to it. (The contract's real storage writes,
   in `lib.rs` and `storage.rs`, do sit behind `require_auth` / `require_master`
   on every path - but that is not what this finding points at.)
-- *unsafe Map access* x1: reported at `dsl.rs:431`, which is `map.get(field)`.
+- *unsafe Map access* x1: reported at `dsl.rs:487`, which is `map.get(field)`.
   Soroban's `Map::get` returns `Option`; the panicking variant is
   `get_unchecked`, which this line does not use. That `Option` is `resolve`'s
   return value, so a missing field resolves to "no value" rather than trapping.
@@ -101,13 +142,14 @@ re-audited, retried again on 2026-08-27, so they are dated rather than restated 
 current.
 
 The cross-check itself is unaffected: it is a claim about this contract's entry
-points against the access-control class that dominates the corpus, and grammar 4
-added no entry point. There are still five, with the same controls.
+points against the access-control class that dominates the corpus. Grammar 6
+adds one entry point, `bind_executor`, so there are six.
 
 | Entry point | Control |
 | --- | --- |
 | `install` | `smart_account.require_auth()` on every install (including the first, so a rule id cannot be pre-seeded), plus `require_master` and a matching signer set on re-install, plus a strictly incrementing `install_nonce` |
-| `enforce` | `smart_account.require_auth()`, non-empty authenticated-signer set, live signer hash must equal the hash stored at install |
+| `enforce` | `smart_account.require_auth()`, non-empty authenticated-signer set, live signer hash must equal the hash stored at install, and the bound executor's authorisation when one is bound |
+| `bind_executor` | `smart_account.require_auth()` plus `require_master` on the stored master set |
 | `uninstall` | `require_master` |
 | `rotate_master_signer_set` | `require_master` on the *old* set |
 | `grammar_version` | read-only, touches no state |
@@ -285,18 +327,40 @@ reach and permanently block the rule; adding them silently weakens a strict
 
 Composing it with the interpreter converts that silent weakening into a loud
 failure: the interpreter stores `sha256` of the rule's signer set at install and
-re-checks it on every `enforce` (`lib.rs:182-185`), denying `RuleSignersChanged`
+re-checks it on every `enforce` (`lib.rs:226-228`), denying `RuleSignersChanged`
 on any drift. Under ALL-OF composition that refusal is decisive, so a signer
 added behind the threshold's back bricks the rule instead of quietly lowering
 the bar. Fail-closed, but still a surprise worth surfacing to whoever edits the
 signer set.
+
+### 9. Biome warnings in the verification scripts
+
+`biome check .` passes with 0 errors, 99 warnings and 22 infos. 90 of the 121
+are `noExplicitAny` and 22 are `useTemplate`. 112 sit in `scripts/`, the
+testnet and mainnet verification scripts; the other 9 are in
+`packages/policy-synth`.
+
+### 10. Two advisories through `@modelcontextprotocol/sdk` 1.30.0
+
+- GHSA-6qxp-vccf-f47h (high), in the SDK's OAuth client: it could send
+  credentials to an authorisation server the MCP server chose. Fixed in 1.31.0.
+- GHSA-jqcg-44mw-7w3h (critical), in `proxy-addr` 2.0.7, which the SDK pulls in
+  through `express`: IP spoofing through an IPv4-mapped IPv6 trust subnet.
+  Fixed in 2.0.8.
+
+`@crediolabs/policy-builder-mcp` uses the SDK's server side only (the stdio and
+Streamable HTTP server transports), and its HTTP transport runs on `node:http`,
+so neither the OAuth client nor `express` is on its request path. Status: to
+fix by moving to SDK 1.31.0 or later and `proxy-addr` 2.0.8 or later.
 
 ## Reproducing the Scout run
 
 `cargo-scout-audit` 0.3.16 cannot analyse a `soroban-sdk` 27 crate unpatched, and
 reports a build that never compiled as `Analyzed` with 0 findings. Confirm a
 compiled artifact exists under `target/dylint/` before quoting any Scout number;
-this run produced 11.
+this run produced 11 per crate. Its `detector-helper` links OpenSSL, so the
+machine needs `libssl-dev`, or `OPENSSL_INCLUDE_DIR` and `OPENSSL_LIB_DIR`
+pointing at one.
 
 ```sh
 rustup target add wasm32v1-none --toolchain nightly-2025-08-07

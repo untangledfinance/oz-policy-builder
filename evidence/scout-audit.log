@@ -1,55 +1,67 @@
-# cargo scout-audit - 2026-08-27T18:15:23Z
+# cargo scout-audit 0.3.16 - 2026-10-10T05:32:06Z at 0358af5
 #
-# 0.3.16 reports a build that never compiled as 'Analyzed' with 0 findings.
-# Artifact count under target/dylint/ confirms a real run: 11 .so files.
+# Run per crate. A real run is confirmed by the artifact count under
+# target/dylint/ (11 .so files per crate), since this version reports a build
+# that never compiled as 'Analyzed' with 0 findings.
+# detector-helper links OpenSSL; this machine has no libssl-dev, so the run
+# pointed OPENSSL_INCLUDE_DIR / OPENSSL_LIB_DIR at an extracted libssl-dev.
 
 $ cargo scout-audit --manifest-path ./Cargo.toml --exclude storage-change-events -- \
     -Ztarget-applies-to-host -Zhost-config \
     --config 'host.rustflags=["-Zcrate-attr=feature(round_char_boundary)"]'
 
-# Findings by category (count, severity, lint):
-      1 warning: [ENHANCEMENT] Use the latest version of Soroban
-      2 warning: [MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
-      3 warning: [MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
-      1 warning: [MEDIUM] This storage (vector or map) operation is called without access control
-      1 warning: [MEDIUM] Unsafe access on Map, method could panic.
-      2 warning: [MEDIUM] Using dynamic types in instance or persistent storage can lead to unnecessary growth or storage-related vulnerabilities.
+## contracts/policy-interpreter
+# Findings (severity, location, lint):
+  src/dsl.rs:939:24  [CRITICAL] This operation could overflow or underflow.
+  src/dsl.rs:927:25  [CRITICAL] This subtraction operation could underflow.
+  (crate)  [ENHANCEMENT] Use the latest version of Soroban
+  src/lib.rs:192:9  [MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
+  src/lib.rs:275:9  [MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
+  src/dsl.rs:800:9  [MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
+  src/dsl.rs:845:9  [MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
+  src/dsl.rs:871:13  [MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
+  src/dsl.rs:932:13  [MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
+  src/dsl.rs:281:22  [MEDIUM] This storage (vector or map) operation is called without access control
+  src/dsl.rs:487:13  [MEDIUM] Unsafe access on Map, method could panic.
+  src/dsl.rs:496:43  [MEDIUM] Unsafe access on Map, method could panic.
+  src/lib.rs:182:34  [MEDIUM] Unsafe usage of `unwrap`
+  src/lib.rs:183:43  [MEDIUM] Unsafe usage of `unwrap`
+  src/lib.rs:166:9  [MEDIUM] Using dynamic types in instance or persistent storage can lead to unnecessary growth or storage-related vulnerabilities.
+  src/lib.rs:294:9  [MEDIUM] Using dynamic types in instance or persistent storage can lead to unnecessary growth or storage-related vulnerabilities.
+# Summary:
+| Crate | Status | Critical | Medium | Minor | Enhancement | 
+| policy_interpreter | Analyzed | 2 | 13 | 0 | 1 | 
 
-# Each finding with its location:
+## contracts/custody-gate
+# Findings (severity, location, lint):
+  (crate)  [ENHANCEMENT] Use the latest version of Soroban
+  src/lib.rs:61:22  [MEDIUM] Unsafe usage of `unwrap`
+  src/lib.rs:68:22  [MEDIUM] Unsafe usage of `unwrap`
+  src/lib.rs:73:22  [MEDIUM] Unsafe usage of `unwrap`
+# Summary:
+| Crate | Status | Critical | Medium | Minor | Enhancement | 
+| custody_gate | Analyzed | 0 | 3 | 0 | 1 | 
 
-[ENHANCEMENT] Use the latest version of Soroban
-
-[MEDIUM] This storage (vector or map) operation is called without access control
-   --> src/dsl.rs:237:22
-
-[MEDIUM] Unsafe access on Map, method could panic.
-   --> src/dsl.rs:431:13
-
-[MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
-   --> src/dsl.rs:724:9
-
-[MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
-   --> src/dsl.rs:769:9
-
-[MEDIUM] In order to prevent a single transaction from consuming all the gas in a block, unbounded operations must be avoided
-   --> src/dsl.rs:795:13
-
-[MEDIUM] Using dynamic types in instance or persistent storage can lead to unnecessary growth or storage-related vulnerabilities.
-   --> src/lib.rs:138:9
-
-[MEDIUM] Using dynamic types in instance or persistent storage can lead to unnecessary growth or storage-related vulnerabilities.
-   --> src/lib.rs:244:9
-
-[MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
-   --> src/lib.rs:231:9
-
-[MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
-   --> src/lib.rs:152:9
-
-# Summary as printed:
-Summary:
-+--------------------+----------+----------+--------+-------+-------------+
-| Crate              | Status   | Critical | Medium | Minor | Enhancement | 
-+--------------------+----------+----------+--------+-------+-------------+
-| policy_interpreter | Analyzed | 0        | 9      | 0     | 1           | 
-+--------------------+----------+----------+--------+-------+-------------+
+## contracts/execution-adapter
+# Findings (severity, location, lint):
+  src/lib.rs:213:22  [CRITICAL] This addition operation could overflow.
+  src/lib.rs:214:23  [CRITICAL] This addition operation could overflow.
+  src/lib.rs:224:13  [CRITICAL] This subtraction operation could underflow.
+  (crate)  [ENHANCEMENT] Use the latest version of Soroban
+  src/lib.rs:185:9  [MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
+  src/lib.rs:186:9  [MEDIUM] Avoid accepting soroban_sdk::Vec or Map parameters without validating their contents.
+  src/lib.rs:292:8  [MEDIUM] This storage (vector or map) operation is called without access control
+  src/lib.rs:169:28  [MEDIUM] Unsafe usage of `unwrap`
+  src/lib.rs:192:30  [MEDIUM] Unsafe usage of `unwrap`
+  src/lib.rs:194:29  [MEDIUM] Unsafe usage of `unwrap`
+  src/lib.rs:222:27  [MEDIUM] Unsafe usage of `unwrap`
+  src/lib.rs:255:27  [MEDIUM] Unsafe usage of `unwrap`
+  src/lib.rs:263:30  [MEDIUM] Unsafe usage of `unwrap`
+  src/lib.rs:275:30  [MEDIUM] Unsafe usage of `unwrap`
+  src/lib.rs:276:29  [MEDIUM] Unsafe usage of `unwrap`
+  src/lib.rs:290:25  [MEDIUM] Unsafe usage of `unwrap`
+  src/lib.rs:217:9  [MEDIUM] Using dynamic types in instance or persistent storage can lead to unnecessary growth or storage-related vulnerabilities.
+  src/lib.rs:225:34  [MEDIUM] extend_ttl called with identical or smaller TTL arguments keeps refreshing the entry without enforcing expiration
+# Summary:
+| Crate | Status | Critical | Medium | Minor | Enhancement | 
+| execution_adapter | Analyzed | 3 | 14 | 0 | 1 | 
