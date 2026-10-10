@@ -51,6 +51,15 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   recognised. On testnet the rest of what a Prime depends on is kept live from
   outside, by OctoPos's `apps/web/scripts/keep-alive.ts`.
 
+### Security
+
+- **`@modelcontextprotocol/sdk` 1.32.1 and `proxy-addr` 2.0.8.** Clears
+  GHSA-6qxp-vccf-f47h (the SDK's OAuth client) and GHSA-jqcg-44mw-7w3h
+  (`proxy-addr`, through the SDK's `express`), which turned `bun audit` red.
+  `@crediolabs/policy-builder-mcp` uses the SDK's server transports only, so
+  neither code path served its requests. `proxy-addr` is pinned through the
+  root `overrides`.
+
 ### Changed
 
 - **Contract folders carry no version.** `contracts/custody-gate-v3` is now

@@ -4,7 +4,8 @@ The six local logs (`contract-gate.log`, `offchain-gate.log`, `cargo-audit.log`,
 `bun-audit.log`, `clippy-pedantic.log` and `scout-audit.log`) were regenerated
 on 2026-10-10 against `0358af5`, the tip of `main` on 2026-10-01. They cover
 the three contracts in scope, `policy-interpreter`, `custody-gate` and
-`execution-adapter`, and the three npm packages. Each contract's rebuilt wasm
+`execution-adapter`, and the three npm packages. `bun-audit.log` was run again
+after the dependency update in finding 10. Each contract's rebuilt wasm
 matches the code deployed on mainnet (`deployments/prime-mainnet.json`) and the
 record CI compares.
 
@@ -43,7 +44,7 @@ gitignored `dist/`.
 | `contract-gate.log` | per crate: `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm rebuild, record parity | clean; interpreter 151 tests across 7 binaries (18 of them conformance, also run in release), gate 3, adapter 33; each rebuilt wasm matches `deployments/prime-mainnet.json` and the record CI compares |
 | `offchain-gate.log` | `biome check .`, build, `bun run typecheck`, `bun test` | passes; biome checks 170 files with 0 errors, 99 warnings and 22 infos (finding 9); 771 pass, 1 skip, 0 fail across 772 tests in 52 files (`v1.3.0`) |
 | `cargo-audit.log` | `cargo audit` per crate | 0 vulnerabilities (interpreter 202 crates, gate and adapter 215 each); 1 unmaintained-crate warning |
-| `bun-audit.log` | `bun audit` | 2 advisories, both through `@modelcontextprotocol/sdk` 1.30.0 (finding 10) |
+| `bun-audit.log` | `bun audit` | 0 vulnerabilities across 146 packages, after the SDK and `proxy-addr` updates in finding 10 |
 | `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` per crate | style warnings only: interpreter 206, gate 16, adapter 35; all 8 cast warnings are in the interpreter's test files |
 | `scout-audit.log` | `cargo scout-audit` per crate | interpreter 2 Critical, 13 Medium; gate 0 Critical, 3 Medium; adapter 3 Critical, 14 Medium; 1 Enhancement each. All reviewed in finding 2 |
 | `oz-policy-composition.log` | `scripts/oz-policy-composition.ts` | two interpreter policies on ONE rule, disagreeing about the same call: the refusing one is decisive. OZ composes attached policies as ALL-OF |
@@ -340,7 +341,7 @@ are `noExplicitAny` and 22 are `useTemplate`. 112 sit in `scripts/`, the
 testnet and mainnet verification scripts; the other 9 are in
 `packages/policy-synth`.
 
-### 10. Two advisories through `@modelcontextprotocol/sdk` 1.30.0
+### 10. Two advisories through `@modelcontextprotocol/sdk` 1.30.0 (FIXED)
 
 - GHSA-6qxp-vccf-f47h (high), in the SDK's OAuth client: it could send
   credentials to an authorisation server the MCP server chose. Fixed in 1.31.0.
@@ -350,8 +351,9 @@ testnet and mainnet verification scripts; the other 9 are in
 
 `@crediolabs/policy-builder-mcp` uses the SDK's server side only (the stdio and
 Streamable HTTP server transports), and its HTTP transport runs on `node:http`,
-so neither the OAuth client nor `express` is on its request path. Status: to
-fix by moving to SDK 1.31.0 or later and `proxy-addr` 2.0.8 or later.
+so neither the OAuth client nor `express` is on its request path. Fixed on
+2026-10-10 by moving to SDK 1.32.1 and pinning `proxy-addr` ^2.0.8 in the root
+`overrides`; `bun-audit.log` is the run after the fix.
 
 ## Reproducing the Scout run
 
