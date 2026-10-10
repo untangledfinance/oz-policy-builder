@@ -20,13 +20,14 @@ bun add @crediolabs/policy-synth
 
 ## What it does
 
-The `@crediolabs/policy-synth/run` entry point exposes the seven tool bodies
+The `@crediolabs/policy-synth/run` entry point exposes eight tool bodies
 that also back the CLI and the MCP server:
 
 | Function | Purpose |
 | --- | --- |
 | `runRecordTransaction` | Decode a Soroban transaction (on-chain hash or base64 envelope XDR) into a `RecordedTransaction`. |
-| `runSynthesizePolicy` | Synthesise a `ProposedPolicy` from a recording or a deterministic `MandateSpec`. |
+| `runDeclarePolicy` | Build a predicate from a stated constraint, with no transaction to record: the method, and optionally the contract, a per-call amount cap, a recipient allowlist and a minimum-output ratio. |
+| `runSynthesizePolicy` | Synthesise a `ProposedPolicy` from a recording. |
 | `runSimulatePolicy` | Replay a recording against a proposed predicate and run the deny-case battery. |
 | `runVerifyPolicy` | Static minimality check: every conjunct must be load-bearing. |
 | `runInstallPolicy` | Build the unsigned `add_context_rule` transaction XDR for the smart account. |

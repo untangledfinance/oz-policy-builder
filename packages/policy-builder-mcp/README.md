@@ -35,7 +35,8 @@ Claude Desktop / Claude Code configuration:
 | Tool | Purpose |
 | --- | --- |
 | `record_transaction` | Decode a transaction (hash or envelope XDR) into a `RecordedTransaction`. |
-| `synthesize_policy` | Synthesise a `ProposedPolicy` from a recording or a `MandateSpec`. |
+| `declare_policy` | Build a predicate from a stated constraint, with no transaction to record: the method, and optionally the contract, a per-call amount cap, a recipient allowlist and a minimum-output ratio. |
+| `synthesize_policy` | Synthesise a `ProposedPolicy` from a recording. |
 | `simulate_policy` | Replay a recording against a proposed predicate; run the deny-case battery. |
 | `verify_policy` | Static minimality check on a proposed predicate. |
 | `install_policy` | Build the unsigned `add_context_rule` transaction XDR. |

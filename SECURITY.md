@@ -15,7 +15,9 @@ There is currently no bug bounty programme.
 
 | Component | Where it runs |
 | --- | --- |
-| `policy-interpreter` | Soroban contract, deployed on Stellar mainnet and testnet (addresses pinned in `packages/policy-synth/src/run/schemas.ts`) |
+| `policy-interpreter` | Soroban contract on Stellar mainnet and testnet. The npm packages pin the grammar-4 interpreter (addresses in `packages/policy-synth/src/run/schemas.ts`); the Prime mainnet deployment uses the grammar-6 interpreter (address and code hash in `deployments/prime-mainnet.json`). `main` builds grammar 6 (`SELF_VERSION` in `contracts/policy-interpreter/src/version.rs`). See [docs/stellar.md#deployments](./docs/stellar.md#deployments) for current addresses and hashes. |
+| `custody-gate` | Soroban contract on Stellar mainnet and testnet, one instance per custody account. The pinned code hashes are in `deployments/prime-mainnet.json` (mainnet) and `deployments/execution-testnet.json` (testnet); see [docs/stellar.md#custody-gate](./docs/stellar.md#custody-gate). |
+| `execution-adapter` | Soroban contract on Stellar mainnet and testnet, one instance per custody account. The pinned code hashes are in `deployments/prime-mainnet.json` (mainnet) and `deployments/execution-testnet.json` (testnet); see [docs/stellar.md#execution-adapter](./docs/stellar.md#execution-adapter). |
 | `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` | Published on npm, run off-chain |
 
 `test-blend-pool` is a testnet-only fixture and is out of scope.

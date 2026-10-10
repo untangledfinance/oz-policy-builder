@@ -228,13 +228,25 @@ From the interpreter (`contracts/policy-interpreter/src/storage.rs`):
 | --- | --- | --- |
 | `#100` | `ArgMismatch` | An argument bound was not satisfied - an over-cap amount lands here. The cap working |
 | `#101` | `ContractScope` | The call went to a contract the predicate does not pin |
+| `#102` | `ArithmeticOverflow` | A `call_arg_scaled` operand overflowed, or reached the evaluator with a zero denominator |
+| `#103` | `UnsupportedNode` | The predicate uses a node this grammar does not support |
 | `#105` | `NotInAllowlist` | The recipient is not on the allowlist |
 | `#107` | `SlippageFloor` | Output fell below `in * num / den` |
 | `#200` | `VersionMismatch` | The package pins grammar 4 |
+| `#201` | `MalformedPredicate` | The predicate bytes do not decode |
 | `#202` | `NonceReplay` | `install_nonce` must equal `stored_nonce + 1` |
+| `#203` | `MasterAuthRequired` | A re-install presented a different admin set from the one stored. Changing it is `rotate_master_signer_set`'s job |
 | `#204` | `RuleSignersChanged` | The signer set changed since install. The interpreter stored a hash of it and denies rather than quietly meaning less - the rule stops working, which is the safe direction |
+| `#206` | `MissingState` | The rule has no stored predicate, signer hash or master set: nothing was installed for it |
+| `#207` | `PredicateTooLarge` | The predicate is over the byte cap |
 | `#208` | `PredicateHashMismatch` | The blob does not match the hash installed beside it |
 | `#209` | `EmptySignerSet` | The rule governs no key |
+| `#210` | `NoAuthenticatedSigners` | `enforce` was handed no authenticated signer |
+| `#212` | `ExternalSignerNotSupported` | The signer set contains an `External` (contract) signer |
+| `#214` | `InvalidScaledRatio` | A `call_arg_scaled` leaf has `den` 0 or a `num` or `den` below 1. Refused at install |
+| `#216` | `SelectorLeafRequired` | The predicate reads nothing from the call, so it would permit everything or nothing. Refused at install |
+| `#217` | `TooManySigners` | The signer set has more than 16 signers (`MAX_SIGNERS`) |
+| `#218` | `DefaultContextNotSupported` | The rule has `Default` scope. Predicates install on scoped rules only |
 
 From the OpenZeppelin account layer, not this interpreter:
 

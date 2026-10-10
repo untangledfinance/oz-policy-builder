@@ -98,7 +98,7 @@ are in [docs/stellar.md](./docs/stellar.md#deployments) and
 | --- | --- |
 | `packages/policy-synth` | The synthesiser and the record, verify, install and revoke flow. Published as `@crediolabs/policy-synth`. |
 | `packages/policy-builder-cli` | CLI wrapper over the synth core (`@crediolabs/policy-builder-cli`). |
-| `packages/policy-builder-mcp` | MCP server exposing the seven policy tools (`@crediolabs/policy-builder-mcp`). |
+| `packages/policy-builder-mcp` | MCP server exposing the eight policy tools (`@crediolabs/policy-builder-mcp`). |
 | `contracts/policy-interpreter` | The Soroban contract that enforces a predicate on chain. |
 | `contracts/custody-gate` | The custody account's gate: holds its allowance and releases only to listed addresses. |
 | `contracts/execution-adapter` | The per-Prime batcher, bound to one gate. A batch can wait a number of ledgers before it runs. |

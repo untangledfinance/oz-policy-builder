@@ -7,6 +7,9 @@
 <!-- Check what you ran locally. CI runs all of these. -->
 
 - [ ] `bun run check` (biome)
+- [ ] `bun run --cwd packages/policy-synth build`
+- [ ] `bun run --cwd packages/policy-builder-cli build`
+- [ ] `bun run --cwd packages/policy-builder-mcp build`
 - [ ] `bun run typecheck`
 - [ ] `bun test`
 - [ ] `cargo fmt --check` + `cargo test` in each touched crate

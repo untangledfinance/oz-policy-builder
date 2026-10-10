@@ -13,6 +13,7 @@ is [`@crediolabs/policy-synth`](../../packages/policy-synth/).
 | Function | Purpose |
 | --- | --- |
 | `install` | Store a predicate for a `(smart account, context rule)` pair. Refuses a grammar version it does not speak, an oversized predicate (byte cap before any parse work), and any payload whose sha256 does not match the supplied hash. |
+| `bind_executor` | Make a rule also demand the execution adapter's own authorisation, so a venue call that did not come through the adapter is refused. Needs the smart account's authorisation and the master signer set. A re-install keeps the binding. |
 | `enforce` | The policy hook the smart account calls on every guarded operation: decode, evaluate, permit or deny. |
 | `uninstall` | Remove the stored predicate for a rule. |
 | `rotate_master_signer_set` | Update the master signer set an installation is bound to. |
