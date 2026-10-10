@@ -29,14 +29,14 @@ const BASELINE = {
   /** Protocol version per network. Testnet running ahead of mainnet is normal
    *  and expected, not drift.
    *
-   *  Mainnet 28 was accepted on 2026-09-25 on TESTNET evidence, not a mainnet
-   *  run: e2e-network.ts passed every leg on testnet at protocol 28 (deploy,
+   *  Both networks moved to 29 by 2026-10-05. Mainnet 29 was accepted on
+   *  2026-10-10 on TESTNET evidence, as mainnet 28 was on 2026-09-25:
+   *  e2e-network.ts passed every leg on testnet at protocol 29 (deploy,
    *  install, permit, deny #100, rule-0 bypass blocked), and contract
    *  behaviour follows the protocol version rather than the network. A
-   *  mainnet run needs a funded key and real transactions, and mainnet was
-   *  out of scope. Run it against mainnet before relying on a mainnet
-   *  deployment. */
-  protocolVersion: { testnet: 28, mainnet: 28 },
+   *  mainnet run needs a funded key and real transactions. Run it against
+   *  mainnet before relying on a mainnet deployment. */
+  protocolVersion: { testnet: 29, mainnet: 29 },
   /** Latest STABLE upstream release. Release candidates are ignored: we do not
    *  deploy from an rc, so an rc appearing is not something to act on. */
   ozLatestStable: 'v0.7.2',
