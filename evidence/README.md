@@ -19,7 +19,7 @@ against deployed contracts, and each row below says which:
   2026-09-29 against the gate and adapter builds `b01024f3…` and `68d012e7…`,
   which are the builds `main` produces and mainnet runs.
 - `execution-muxed-testnet-before.log` and `execution-muxed-testnet-after.log`
-  ran on 2026-10-11 against adapter builds `68d012e7…` and `eefcfdd7…`. The
+  ran on 2026-10-11 against adapter builds `68d012e7…` and `3dd675c0…`. The
   first is the control: that build pays a stranger written as a muxed address.
   The second refuses it, and the refused batch is also on chain as a failed
   transaction.

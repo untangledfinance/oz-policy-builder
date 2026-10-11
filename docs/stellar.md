@@ -118,8 +118,9 @@ gate does not name.** Before any call runs, it checks:
 
 - every call target;
 - every argument, however deeply nested, including 32-byte and 56-byte values
-  that could be read back as an address, and 69-byte values that could be read
-  back as a muxed address;
+  that could be read back as an address, 40-, 44- and 48-byte values that could
+  be read back as the XDR of an address or a muxed address, and 69-byte values
+  that could be read back as a muxed address;
 - every authorisation it is about to hand out as itself.
 
 It also refuses:
@@ -131,7 +132,7 @@ It also refuses:
   among them (`Uncheckable`, 3). Numbers, times and symbols pass. A token's
   `transfer` takes its recipient as a muxed address and credits the account
   behind it, so a walk that passed what it did not recognise let a batch pay an
-  account the gate never listed. Builds before `eefcfdd7…` do that.
+  account the gate never listed. Builds before `3dd675c0…` do that.
 
 Only then does it ask the Prime to authorise the whole batch and run the calls.
 
@@ -389,12 +390,12 @@ The custody account can also cancel any stored move before it runs, with
 | | Network | Address or hash |
 |---|---|---|
 | Policy interpreter, grammar 6 (custody design) | testnet | `CDPR5VTX6R2ZPKREPD7FBW5ANVWXMVJIBIH2GMF36XPOFNMHRDIRUAZQ`, recorded in [`deployments/grammar6-testnet.json`](../deployments/grammar6-testnet.json) |
-| Execution adapter build | testnet | `eefcfdd76c0668c03470843b9394d086be239e8de908edbeaf705d4a1207746b`, the Linux build of `contracts/execution-adapter`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json) and rebuilt by CI. It refuses a muxed address. The Prime app pins it for new gates. It still recognises `68d012e7…`, `32a8658a…` and `23a7b289…`, earlier builds of the same design, for gates set up with them. Those builds pass a muxed address. |
+| Execution adapter build | testnet | `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3`, the Linux build of `contracts/execution-adapter`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json) and rebuilt by CI. It refuses a muxed address. The Prime app pins it for new gates. It still recognises `68d012e7…`, `32a8658a…` and `23a7b289…`, earlier builds of the same design, for gates set up with them. Those builds pass a muxed address. |
 | Execution adapter v3 builds (earlier pairs) | - | `5be8b08eefe704970fbb51612ef4f6222df3d4b0f2ab6704544e761e3576e708` and `0e088421…`, still recognised by the app |
 | Custody gate build | testnet | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab`, the Linux build of `contracts/custody-gate`, recorded in the same file. Gates set up earlier run `2788f05b…`, the same design. |
 | Policy interpreter, grammar 4 (the npm packages' pin) | mainnet and testnet | pinned in `packages/policy-synth/src/run/schemas.ts` |
 | Policy interpreter, grammar 6 | mainnet | `CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R`, the Linux build `5143e641…` that CI rebuilds, created by `scripts/deploy-prime-mainnet.ts` and recorded in [`deployments/prime-mainnet.json`](../deployments/prime-mainnet.json) |
-| Execution adapter and custody gate builds | mainnet | `68d012e7…` and `b01024f3…`, uploaded by the same script. Mainnet still runs the adapter build that passes a muxed address; the fixed build `eefcfdd7…` is on testnet only. |
+| Execution adapter and custody gate builds | mainnet | `68d012e7…` and `b01024f3…`, uploaded by the same script. Mainnet still runs the adapter build that passes a muxed address; the fixed build `3dd675c0…` is on testnet only. |
 
 The v3 pair is not on mainnet. A gate pins its adapter's build and has no
 setter, so adopting a new adapter build means a new

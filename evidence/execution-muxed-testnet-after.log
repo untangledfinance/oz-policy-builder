@@ -1,20 +1,22 @@
-# ADAPTER_WASM=eefcfdd7... (build-wasm.sh) GATE_WASM=b01024f3... EXPECT=new bun scripts/verify-execution-muxed-testnet.ts   (2026-10-11, testnet, throwaway friendbot keys)
+# ADAPTER_WASM=3dd675c0... (build-wasm.sh) GATE_WASM=b01024f3... EXPECT=new bun scripts/verify-execution-muxed-testnet.ts   (2026-10-11, testnet, throwaway friendbot keys)
 
-adapter build  new  eefcfdd76c0668c03470843b9394d086be239e8de908edbeaf705d4a1207746b  24027B
-prime   CCNLYZF43BIOLJ7R5EMXTIPPOKFBNKFE5ZMB6HW3XKJULAHBB5DMBTAF
-gate    CCS6RWZGANZ2PBVUTPGW3M4H5RLVNFIB7T4A74LQ4GQVS2B6SHTZEA22   lists: adapter, custody, native asset, prime
-adapter CA5PFA2634UNCY6ENBJ5R3LLLFUMR2B3IXY54CF34BDJZ33UIYKX52FV
-stranger GBV2TKXIVIEDI7GAFZ67CUIFKIVMTFVCVC4HZZ3WLSW7LEZICLMYCE7G   not on the gate
+adapter build  new  3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3  24118B
+prime   CCQSHE763DEBXG4EHDGYDEE6E7K53H5AXSVXAVPBK32R5E6NORFV7DUQ
+gate    CCYAQZCARZTU5MWZ7MUXYZOIJSZTCVYZZFZOQM36DYP4V3BE5TNHWLPC   lists: adapter, custody, native asset, prime
+adapter CDWCBPYMKQQKAUHHRWTMGWUM7SK76B3KXYF32Y72YM2G35XMLJIAUIMN
+stranger GDNN26DCG4B2MWUYGVVUN3U43P7KYKYK22HOMU33H43X5IZIWWTBNGHG   not on the gate
 
 ── the same batch, three recipients ──
-ok   pay custody (listed)                           permitted                          7e37d1746dda825731f50b105f9de8212726583ab4af8de2f3bde87ae5098fe3
+ok   pay custody (listed)                           permitted                          2a46e629307b35e8d407fe181d8834908b969257a598bd3c6f10842003f45350
 ok   pay stranger, plain address                    refused, contract error #2         
 ok   stranger balance after the plain attempt       10000 XLM                          
 
 ── the stranger as a muxed address ──
 ok   pay stranger, muxed, immediately               refused, contract error #3         
 ok   pay stranger, muxed, stored (wait 720)         refused, contract error #3         
-ok   muxed batch submitted on chain                 FAILED, Error(Contract, #3)        30e6818881855db715f5ec3f945573ace18f19262c797c4be0c718b645d41918
+ok   stranger as XDR bytes (44)                     refused, contract error #2         
+ok   muxed stranger as XDR bytes (48)               refused, contract error #2         
+ok   muxed batch submitted on chain                 FAILED, Error(Contract, #3)        0b53373a9b7bed3a980e93d3ea6ad8a2e2d8abe8dcb5ba07379e2e849800553f
 ok   stranger balance after the muxed batch         10000 XLM                          
 
 all checks passed

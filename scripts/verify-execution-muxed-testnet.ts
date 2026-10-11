@@ -248,6 +248,13 @@ if (EXPECT === 'old') {
 } else {
   await run('pay stranger, muxed, immediately', muxed, 0, 'REFUSE', '3')
   await run(`pay stranger, muxed, stored (wait ${STORED_WAIT})`, muxed, STORED_WAIT, 'REFUSE', '3')
+  // The XDR of an address, handed over as bytes for a venue to decode.
+  const asBytes = (v: xdr.ScVal) => ({
+    calls: vec([call(sac, 'balance', [xdr.ScVal.scvBytes(v.toXDR())])]),
+    grants: vec([]),
+  })
+  await run('stranger as XDR bytes (44)', asBytes(addr(STRANGER)), 0, 'REFUSE', '2')
+  await run('muxed stranger as XDR bytes (48)', asBytes(muxedOf(STRANGER, '7')), 0, 'REFUSE', '2')
   // Put the refused batch on chain, so the refusal has a transaction.
   const forced = await asPrime({
     kp: K.admin,
