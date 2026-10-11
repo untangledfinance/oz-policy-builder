@@ -381,29 +381,43 @@ fn is_plain_object(e: &Env, v: &Val) -> bool {
 /// 32-byte hash is a perfectly ordinary venue argument. Checking how each
 /// allowed address encodes costs the same and cannot trap.
 ///
-/// A muxed address is the exception to "neither conversion builds one":
-/// `MuxedAddress::from_string` accepts the 69-character `M` strkey, and the
-/// account behind it is credited by a token's `transfer`. It is spelled in 69
-/// bytes and an allowed address never is, so data of that length is refused.
+/// Two more spellings can reach an address through a venue that decodes
+/// bytes: the XDR of an address value, which `Address::from_xdr` takes (40
+/// bytes for a contract, 44 for an account), and a muxed address, which
+/// `MuxedAddress::from_string` builds from its 69-character `M` strkey and
+/// `from_xdr` from its 48-byte XDR. A token's `transfer` credits the account
+/// behind a muxed address. Data of those three XDR lengths must equal the XDR
+/// of an allowed address, which a muxed one never does, and data of 69 bytes
+/// is refused outright because an allowed address is never spelled that way.
 ///
-/// Data of any other length cannot denote an address under either conversion
+/// Data of any other length cannot denote an address under these conversions
 /// and passes untouched, so venues that take signatures, memos or identifiers
 /// still work. The length decides WHICH encoding to compare before the loop
-/// starts: checking both for every address cost a third more on a batch that
-/// carries strkeys, for no extra safety, since the other one can never match.
+/// starts: checking every encoding for every address cost a third more on a
+/// batch that carries strkeys, for no extra safety, since the others can never
+/// match.
+///
+/// THE LIMIT OF AN ABI-BLIND WALK: a number can carry 32 key bytes. A U256
+/// holding a stranger's key passes, and a venue that turned it back into bytes
+/// and then into an address would pay the stranger. The rule assumes a listed
+/// venue reads an address from an argument shaped like one.
 fn scan_data(e: &Env, ok: &Vec<Address>, b: &Bytes) {
     // 32 bytes is the raw account key or contract id `Address::from_payload`
-    // takes; 56 is the same thing spelled as the strkey `from_string` takes.
+    // takes; 56 is the same thing spelled as the strkey `from_string` takes;
+    // 40 and 44 are the XDR of a contract and an account address.
     if b.len() == 69 {
         panic_with_error!(e, E::AddressNotAllowed);
     }
     let strkey = b.len() == 56;
-    if !strkey && b.len() != 32 {
+    let xdr = matches!(b.len(), 40 | 44 | 48);
+    if !strkey && !xdr && b.len() != 32 {
         return;
     }
     for a in ok.iter() {
         let hit = if strkey {
             a.to_string().to_bytes() == *b
+        } else if xdr {
+            a.to_xdr(e) == *b
         } else if let Some(
             AddressPayload::AccountIdPublicKeyEd25519(p) | AddressPayload::ContractIdHash(p),
         ) = a.to_payload()
