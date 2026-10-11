@@ -45,7 +45,7 @@ flowchart LR
 | Prime owners | The shared account's N owners, with an approval count M. M owners together change anything on the account: rules, owners, recovery. | Votes in the Prime Account |
 | Custody | The institution that holds the funds, usually with an MPC wallet such as Fordefi that has one Solana address. | The multisig's transactions: the hand-over, `create` (any one multisig signer), `allow` and `release` |
 | Trustee | A trusted third party that represents the investor side of the institution or asset manager, as on Stellar. It holds its own key, in its own wallet or custody, independent of custody and of the Prime owners. It is the mandatory signer in custody's multisig and the default recovery address. | The multisig's transactions: a release and a higher cap. It can also lower the cap alone. |
-| Agent | One plain key with no SOL. It is the signer of each rule the owners install. | Moves, inside the rules |
+| Agent | One plain key that holds some SOL for its own fees and stored-batch rent. It is the signer of each rule the owners install. | Moves, inside the rules |
 | Relayer | A server of ours that pays fees. It signs as fee payer, and as rent payer for stored batches. | Fees only |
 
 The owners, custody and the trustee are three separate parties in a real set-up. The trustee's key must be one that custody and the Prime owners cannot use. A second vault at custody's own provider does not count as independent: the provider's administrators, or custody's own policy, can sign for both vaults, so custody would hold the trustee's slots too and the multisig would require nothing from the investor side. Fordefi works as the trustee only when the trustee holds its own Fordefi organisation.
@@ -72,7 +72,7 @@ The gate can never be edited, so decide these before you build anything.
 - [ ] The end time is a date everyone has written down.
 - [ ] The tokens are known. Each needs its own dedicated token account. Fee, hook, permanent-delegate, non-transferable, frozen-by-default and confidential mints are out, and a mint with a freeze authority (USDC, USDT) shows the freeze warning (section 5).
 - [ ] The plan is written down in one place: recovery address, destinations, lanes, end time, run window and seed. The app compares the gate with it before the hand-over, and the owners compare it again (sections 4 and 7).
-- [ ] Enough SOL is on hand for rent: 0.0034 SOL for the multisig (3,361,680 lamports), 0.0020 SOL for each token account (2,039,280) and 0.0026 SOL for a gate with two destinations (2,596,080). The relayer pays move fees and the rent of stored batches. The rent in a gate-owned account stays locked until a release (section 5).
+- [ ] Enough SOL is on hand for rent: 0.0034 SOL for the multisig (3,361,680 lamports), 0.0020 SOL for each token account (2,039,280) and 0.0026 SOL for a gate with two destinations (2,596,080). In the app each signer pays its own fees: the agent key pays its move fees and the rent of its stored batches (the relayer is off). The rent in a gate-owned account stays locked until a release (section 5).
 - [ ] The whole run is rehearsed on devnet first, with small amounts and the same signers.
 
 ### The order
@@ -250,7 +250,7 @@ The recovery address is where every token of the gate goes if the owners run a r
 
 - **Verified:** `create` with its Prime Account checks and the multisig checks: signer and slot, m greater than n, a Squads-owned settings account, autonomy, the 8-byte seed, the stored lane vaults and the data lengths (G1 to G20f, 41 of 41). A pre-funded gate address works and the creator pays the full rent (G17 to G18c). The gate's account is byte-identical after creation (Y1). The `create` mutants all die: o05 to o08, o11, o12, o37 and o49 to o52 (56 of 56 gate mutants killed overall).
 - **Verified:** `checkGate` reads a live gate back and passes it, and refuses a gate with another recovery address, an extra destination, another end time or window, swapped lanes, a recovery address that is custody's own, another multisig and another Prime Account (SX8 to SX16b, live; 24 unit tests of the mint and gate checks).
-- **Design only:** the **Connect a custody gate** screen and the app's recovery-address warnings.
+- **Verified on beta:** the app's **Confirm the gate** screen connects a gate, including one set up on another browser, and fails the read for an empty recovery address, custody's own address or a listed destination (architecture doc, section 14.1). **To verify:** a warning for a recovery address with no known holder. Next step: check the wizard for that warning on beta.
 
 ## 5. Hand the funds to the gate
 
@@ -403,19 +403,20 @@ Custody does not control the minimum wait. Custody's own protection is the cap, 
 
 - **Verified:** the whole batch is stored, an early run is refused, the batch runs atomically after the wait and a second run is refused. The owners cancel, custody lowers the cap and the run fails, the not-after lapses, a not-after beyond the window is refused, and so are a run after the gate's end time and a run after the rule's expiry (TL1 to TL11b, 24 of 24). The same whole batch ran on real Orca state under a 6-second time lock: 50 USDC became about 50 USDT in one run (119,159 compute units to run). A rule that pins the band, the accounts, the atomic draw and payback, rolls back on a failed leg and leaves vault 0 session rules with no reach (P1 to P10b, 14 of 14).
 - **Verified:** the owners' read-back of the gate is the same `checkGate` call as custody's, and it refuses every tampered gate of section 4 (SX8 to SX16b).
-- **Design only:** the Solana templates and the Policies screens, and the Squads close call that returns a stored batch's rent.
+- **Verified on beta:** the Solana rule templates and the Policies screens (Add rule, Replace rule, Switch off; architecture doc, sections 14.2 and 10.1).
+- **Design only:** the Squads close call that returns a stored batch's rent. The app does not make it (`components/stored-rent.ts`).
 
 ## 8. Day to day
 
 ### An agent move
 
 1. The agent builds a batch under one rule: the draw through the gate, the venue call and the payback to custody. A batch can be a swap on Orca or a deposit into Kamino.
-2. If the rule has no wait, the agent signs and the move runs at once. The relayer pays the fee, about 10,000 lamports.
+2. If the rule has no wait, the agent signs and the move runs at once. The agent key pays the fee, about 10,000 lamports in the harness runs.
 3. The gate checks the lane, the destination against the allow-list, the cap, the end time and the batch's not-after before it pays.
 
 ### The queue of time-locked batches
 
-If the rule has a wait, signing stores the batch in three steps: create, propose and approve. The relayer pays the rent of the stored batch, and it returns when the batch runs or is cancelled. The app lists stored batches under **Transactions**, then **Queue**, as waiting, with the time left, and then as ready to run. Once a batch is ready, any wallet can run it with no new approval. A batch that passes its not-after, or whose gate has passed its end time, is refused by the gate, and the batch stays approved until it is cancelled.
+If the rule has a wait, signing stores the batch in three steps: create, propose and approve. The agent key pays the rent of the stored batch in the app (the relayer paid it in the harness runs). The app does not close the stored accounts, so the rent returns only after a Squads close call (design only). The app lists stored batches under **Transactions**, then **Queue**, as waiting, with the time left, and then as ready to run. Once a batch is ready, any wallet can run it with no new approval. A batch that passes its not-after, or whose gate has passed its end time, is refused by the gate, and the batch stays approved until it is cancelled.
 
 Kamino reads the transaction's instruction list, so a Kamino batch needs a `refresh_reserve` as a top-level instruction. The relayer adds it at the run.
 
@@ -428,6 +429,8 @@ Until a batch runs, the owners can cancel it with no help from the agent or cust
 **Upgrading existing rules:** rules installed with a wait and several approvals before this change have too few seats. The fix is to revoke and reinstall them at the new approval count.
 
 **Wait and time lock constraints:** the app refuses a rule whose wait is not longer than the account's time lock plus a minute. It also refuses raising the time lock above an existing rule's wait less a minute. This keeps the cancel window open and prevents the time lock from blocking the rule's own wait.
+
+**Rule removal and Switch off:** removing a rule (`PolicyRemove`) runs only from the wallet that paid the rule's rent at its install, because Squads returns the rent to that wallet. If that wallet is gone, the owners use **Switch off**: a `PolicyUpdate` that sets the rule's end time to the chain time, through a normal settings proposal at the owners' approval count. Once switched off, a move under that rule is refused by the chain with `PolicyExpirationViolationTimestampExpired` (sess-fix-7.md, devnet proof of PR #20). The owners can then install a new rule if they choose. Switch off is built and on octopos main (PR #20, commit c0c8d5f5), with an 11 of 11 devnet proof (sess-fix-7.md, "Switch off"). A mistaken switch-off needs a new rule.
 
 Measured on the local validator (compute units and bytes of the whole transaction):
 
@@ -492,7 +495,7 @@ They cannot pay an address outside those two sets, release an account, set a clo
 
 **Custody cannot stop a recovery once the owners sign it:** lowering the cap with one signature stops the agent-lane draw and has no effect on a recovery (A7d, RR3b). Custody's one defence against owners acting in bad faith is a release back to itself. That races the recovery and needs custody, the trustee and an unfrozen account. With the trustee's wallet as the recovery address, the owner majority can send every gate-owned balance to the trustee at any time, so custody, the owners and the investors must all trust the trustee.
 
-**The wait exists only when the Prime Account's own time lock is above 0:** at 0, the owners at M pay the recovery address at once through the settings path (RR7). With the account's time lock at 5 seconds, that path is refused with `TimeLockNotZero`, and only the stored recovery under the owners' rule runs, after the rule's wait (RR8d, RR8e). The owners' cancel window exists in the same case. Set the account's time lock above 0 when a wait before recovery matters. It then delays every settings change as well.
+**The wait exists only when the Prime Account's own time lock is above 0:** at 0, the owners at M pay the recovery address at once through the settings path (RR7). With the account's time lock at 5 seconds, that synchronous path is refused with `TimeLockNotZero` (RR8d, RR8e), and the harness's stored recovery under a recovery rule ran after that rule's wait (RR8f, RR8g). In the app, the owners' recovery is an asynchronous vault transaction on the owners lane. Squads runs it after the Prime Account's own time lock, and the Recover screen involves no recovery rule, so the owners' floor is the account's time lock itself (`core/flows.ts` `buildRecovery`, lines 586 to 609; `components/custody-recovery-dialog.tsx`, lines 242 to 245). The app's asynchronous path with a time lock above 0 is to verify on devnet. Next step: set a time lock on a test account, propose a recovery in the app, confirm that a run before the lock is refused and that it runs after, and record the signatures. The owners' cancel window exists in the same case. Set the account's time lock above 0 when a wait before recovery matters. It then delays every settings change as well.
 
 ```mermaid
 sequenceDiagram
@@ -515,8 +518,8 @@ sequenceDiagram
 3. **Check the recovery address:** ask its holder to confirm that they control the wallet today. The gate pays a token account whose owner is that address, so the destination token account for each token must exist. The app creates it for the recovery address when it does not exist yet.
 4. **Prepare:** select **Recover custody funds**, choose the token and the amount. The amount starts at the dedicated account's whole balance. Select **Prepare in Prime Execution**. It opens with one call: the gate pays the recovery address, as the owners lane.
 5. **Approve at M:** the owners' wallets sign from the queue, until the approval count is reached. Each owner reads the destination before signing.
-6. **Wait, if the owners set a wait:** a recovery rule on the owners lane can carry a time lock. The owners store the move, approve it and run it after the wait, and they can cancel with their votes until then. The wait binds only when the Prime Account's own time lock is above 0 (see the reach above).
-7. **Run:** once the wait has passed and before the move's not-after, anyone selects **Run**. The relayer pays the fee.
+6. **Wait, if the account has a time lock:** the app's recovery is a vault transaction on the owners lane. Once enough owners have approved it, it waits the Prime Account's time lock, and an owner then runs it from the Queue. It has to run within the lock plus the gate's run window, or the gate refuses it and the owners propose it again. A recovery rule with its own wait is a harness design. The policy builder has a recovery rule template that this pass did not test (see the reach above).
+7. **Run:** once the wait has passed and before the move's not-after, anyone selects **Run**. The wallet that runs it pays the fee.
 8. **Check:** the recovery address's token account holds the amount. The dedicated account shows what is left. Repeat for each token.
 
 ### After a recovery
@@ -526,8 +529,9 @@ The gate stays on chain with an empty account. Recreate the arrangement with new
 **Status:**
 
 - **Verified:** the owners lane pays the recovery address before the end time, after it, with the cap at 0 and above any cap that was ever set (T12, E1b, E3, E3b, A7d, RR4, V30c). A venue or a stranger as destination is refused, and the agent lane cannot reach the recovery address unless custody lists it (T3, T13, T13b). On real Orca state, recovery of 500 USDC with the cap at 0 costs 29,240 compute units.
-- **Verified:** the recovery rule with a time lock stores, waits, runs and is cancelled by the owners (RR1 to RR8g, 21 of 21). The owners at M pay at once through the settings path (RR7). After the Prime Account's time lock is set to 5 seconds, the synchronous path is refused with `TimeLockNotZero` and only the stored recovery under the owners' rule runs, after the rule's wait (RR8 to RR8g). A rule's time lock binds those who use the rule. A Prime Account time lock also delays every settings change.
-- **Design only:** the **Recover custody funds** screen, and the app creating the recovery address's token account.
+- **Verified in the harness:** a recovery rule with a time lock stores, waits, runs and is cancelled by the owners (RR1 to RR8g, 21 of 21). The owners at M pay at once through the settings path (RR7). After the Prime Account's time lock is set to 5 seconds, the synchronous path is refused with `TimeLockNotZero` (RR8d, RR8e).
+- **To verify on devnet:** the app's asynchronous recovery with an account time lock above 0 (`core/flows.ts` `buildRecovery`). Next step: set a time lock on a test account, recover in the app, confirm a run before the lock is refused and a run after it succeeds, and record the signatures. A rule's time lock binds those who use the rule. A Prime Account time lock also delays every settings change.
+- **Verified on beta:** the **Recover custody funds** screen on the Policies gate card, which opens the recovery address's token account when it does not exist yet, proposes the transfer on the owners lane and collects the approvals (`components/custody-recovery-dialog.tsx`, `proposeRecovery` in `components/gate-actions.ts`; walkthrough video 7, recorded 10 October 2026, with two finalized devnet signatures in `solana-web-walk/logs/reverify-07-recover-custody-funds.log`).
 - **Reading of the code:** an upgrade of Squads that signs as the owners lane vault can move custody's gate-owned funds, with no cap, to the recovery address custody fixed at creation, and nowhere else. An upgrade that signs as the agent lane reaches the listed destinations within the cap. Both reaches stop at addresses custody chose.
 
 ## 12. Mistakes and how to fix them
@@ -573,7 +577,7 @@ The gate enforces on chain what the app also checks before funds move: the Prime
 
 **The order they run in:** `checkMultisig` and the test signature, then `checkGate` against the plan, then `checkMint` and `checkSourceAccount`, then the hand-over, then `checkHandedOver`. The owners run `checkGate` again before they install a rule.
 
-The app also checks, with no code behind these yet:
+The app also checks these. The first two are built in Confirm the gate, the third is covered by the Recover dialog opening the account, and the fourth is to verify:
 
 - the multisig and the token account belong to the same token program;
 - the gate program has no upgrade authority;
@@ -583,7 +587,8 @@ The app also checks, with no code behind these yet:
 **Status:**
 
 - **Verified:** `setup-checks.ts` ran as 43 unit tests on synthetic bytes (the 19 earlier ones and 24 for `checkMint` and `checkGate`) and 54 live checks: the 22 earlier ones (SC1 to SC8e) that run the token program, a simulation and a version 0 transaction, and 32 for the mint and gate checks (SX1 to SX16b) on a local validator with the mainnet feature set. A mutation pass of 88 mutants (the 28 earlier ones and 60 for the new code) killed 88 of 88 ([`contracts/prime/spike/matrix/near-minimal/round9/gate-a4/ts-mutants.final.log`](../spike/matrix/near-minimal/round9/gate-a4/ts-mutants.final.log)).
-- **Design only:** the checks in the second list, and the app screens that show the results.
+- **Verified on beta:** the first two checks of the second list (`components/gate-actions.ts` `confirmAgainstPlan`: the multisig's token program, the gate program's upgrade authority) and the screen that shows them (Confirm the gate).
+- **To verify:** the check that the agent rules pin the destination accounts. Next step: read the rule templates' pins against this list.
 
 ## 14. Independent reviews of the gate
 
@@ -591,11 +596,11 @@ The first independent review, of the gate-owned build, is done: **adopt with fix
 
 | # | Finding | Fix | Status |
 |---|---|---|---|
-| F1 | High for freezable assets: the mint's freeze authority stops recovery and release (FZ2 to FZ5b) | `checkMint` warns for a freeze authority. The caveat is at the top of this guide and in section 5 | Done in code, tests and this guide. The app screen is design only |
+| F1 | High for freezable assets: the mint's freeze authority stops recovery and release (FZ2 to FZ5b) | `checkMint` warns for a freeze authority. The caveat is at the top of this guide and in section 5 | Done in code, tests and this guide, and in the app: the wizard and Confirm the gate show the warning (`FREEZE_WARNING`, `core/setup-checks.ts`) |
 | F2 | Medium: a permanent-delegate mint bypasses the gate and `checkSourceAccount` passes it (PD1, PD2) | `checkMint` refuses the mints in section 5 and any extension it cannot parse | Done in code and tests (SX4 to SX7) |
 | F3 | Medium: no gate read-back, and any one multisig member fixes the gate's fields | `checkGate`, run before the hand-over and again by the owners (sections 4 and 7) | Done in code and tests (SX8 to SX16b) |
 | F4 | Medium, by design: the owner majority's full reach, and custody cannot stop a recovery | Stated in full in section 11, with the wait and the Prime Account's time lock | Done in this guide |
-| F5 | Informational: Squads and Token-2022 are upgradeable on mainnet, classic Token is immutable, and the gate deploys with `--final` | Stated in section 15. The app's refusal of a gate program that has an upgrade authority is still design only | Done in this guide |
+| F5 | Informational: Squads and Token-2022 are upgradeable on mainnet, classic Token is immutable, and the gate deploys with `--final` | Stated in section 15. The app's Confirm the gate refuses a gate program that has an upgrade authority | Done in this guide |
 | F6 | Low: rent stays locked in gate-owned accounts until a release | Stated in sections 4 and 5 | Done in this guide |
 | F7 | Low: seed squatting | Stated in section 4. The app retries with a new seed | Done in this guide |
 
