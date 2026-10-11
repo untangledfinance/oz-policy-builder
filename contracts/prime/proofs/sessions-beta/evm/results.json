@@ -1,0 +1,165 @@
+{
+ "E1": {
+  "pass": true,
+  "tx": "0x4f348ddaf1b45a962b171933422001a230636cd3e5aeeaa2cb4125a7c249d91f",
+  "gasUsed": "1004880",
+  "predictedPrimeSession": "0x1F79D456C112F575De68c892ed1131b46EB34400",
+  "codeBytes": 3914,
+  "sessionsUntil": "1791742499",
+  "end": "1791742499",
+  "keyBalanceWei": "81000000021806",
+  "floatWei": "81000000021806",
+  "l1FeeEstimateWei": "2502",
+  "calldataBytes": 5124,
+  "vector": {
+   "chainId": 84532,
+   "safe": "0xb4652E85B012A7A1B239cfA926Fb66A3c8f70bb9",
+   "owner": "0x723344A053FDdA7261cF167A4ec25F1cbB01E364",
+   "roles": "0x2a9f4F1DB8844ee8b72ef3e8C8f8741C43A042a5",
+   "primeSession": "0x1F79D456C112F575De68c892ed1131b46EB34400",
+   "salt": "0xb2ff9ce4385425dd6e3d21fda645c6bb9ef5458bc1e93b03e46f60511b3c20dd"
+  },
+  "ownerAndRolesRead": {
+   "owner": "0x723344A053FDdA7261cF167A4ec25F1cbB01E364",
+   "roles": "0x2a9f4F1DB8844ee8b72ef3e8C8f8741C43A042a5"
+  },
+  "deployAndGrantAndFundInOneTransaction": true
+ },
+ "E2": {
+  "pass": true,
+  "moveTx": "0xd2d4918b98c28ed487804f0aa44e63e01e5aea12ab040e31b96dc4e343216798",
+  "moveGasSelfPaid": "135019",
+  "tokenReachedDestination": "4000000000000000000",
+  "nonceAfter": "1",
+  "viaOwnerB": {
+   "startTx": "0x179a5f77d447b1cfd69487804b326e5f501c225dee05b716d817c8fd1af5de75",
+   "moveTx": "0x3076c0cab91cf4e3f47f5c11b46618f26c799f7e37f65597b8cf8644f341f323",
+   "pass": true
+  },
+  "strangerNotInRule": {
+   "reason": "Roles NotAuthorized(0x099b8b96d84c9e2192fefebdd4fbb5a344082995)",
+   "pass": true
+  },
+  "roleKey": "0x73657373696f6e5f6d6f7665733a643363393231643700000000000000000000",
+  "members": [
+   "0x1F79D456C112F575De68c892ed1131b46EB34400",
+   "0x03f359d42447e8865e800E237F6b6096396ce4B0"
+  ],
+  "ruleCalls": 4,
+  "installedInSafeSetupTx": "0x8efd49dbddc44fbe8e371dc8b24f9d22cb69c21c1c1c3e58199f1d8f4ae53e72"
+ },
+ "E3": {
+  "pass": true,
+  "overBand": "Roles ConditionViolation(ParameterGreaterThanAllowed)",
+  "amountZero": "Roles ConditionViolation(ParameterLessThanAllowed)",
+  "otherDestination": "Roles ConditionViolation(ParameterNotAllowed)",
+  "ungrantedKey": "reverted with reason: session",
+  "wrongNonce": "reverted with reason: session sig",
+  "eightDayGrantRefused": "reverted with reason: grant",
+  "expiredKey": "reverted with reason: session"
+ },
+ "E6": {
+  "pass": true,
+  "tx": "0xfb29ef0d9eb8ff7bb192acbe46a4c4c4c06e9b0ae5d44dbfddda69833b04ef97",
+  "gasUsedNoDeploy": "118796",
+  "gasUsedFirstStart": "1004880",
+  "gasUsedWithDoomedDeployCall": "3742991",
+  "txWithDoomedDeployCall": "0xb6e3d717f5040592ff25d15879fea64e5259aae2da9dc79e1a0ed7d09e6be223",
+  "l1FeeEstimateWei": "221",
+  "calldataBytes": 708,
+  "calldataBytesFirstStart": 5124,
+  "sessionsUntil": "1791742501"
+ },
+ "E4": {
+  "pass": true,
+  "tx": "0xa5fc50850fe01c30d4ed1d762330b706f2864db145f50942365962f11e15e0aa",
+  "gasUsed": "75730",
+  "sessionsUntil": "340282366920938463463374607431768211455",
+  "ownerGainWei": "79247923957138",
+  "restWei": "79247923957138",
+  "keyBalanceBeforeWei": "81000000021806",
+  "keyBalanceLeftWei": "1465664750071",
+  "l1FeeEstimateWei": "218",
+  "margin": "the key keeps gasLimit x maxFeePerGas (2 x estimate x 3 x base fee) plus 2x the L1 fee estimate: the balance check counts the limit, not the gas used",
+  "revokeText": "Prime session\ncontract: 0x1f79d456c112f575de68c892ed1131b46eb34400\nsession key: 0x8f8f2179a6fee5896ae62e03b501ed70559f6ef8\nvalid until (unix time): 0\nnetwork: 84532"
+ },
+ "E5": {
+  "pass": true,
+  "execFromOwner": "reverted with reason: session",
+  "regrantAfterRevoke": "reverted with reason: grant"
+ },
+ "E7": {
+  "pass": true,
+  "primeSession": "0x1F79D456C112F575De68c892ed1131b46EB34400",
+  "chainId": 84532,
+  "vectors": [
+   {
+    "key": "0xCbC66c7973e3A90485b4C8b41341219007a785A4",
+    "end": "1900000000",
+    "text": "Prime session\ncontract: 0x1f79d456c112f575de68c892ed1131b46eb34400\nsession key: 0xcbc66c7973e3a90485b4c8b41341219007a785a4\nvalid until (unix time): 1900000000\nnetwork: 84532"
+   },
+   {
+    "key": "0xF6c77B1ef942a50e5e6eAEb62bBc3c4F3b3D8B03",
+    "end": "0",
+    "text": "Prime session\ncontract: 0x1f79d456c112f575de68c892ed1131b46eb34400\nsession key: 0xf6c77b1ef942a50e5e6eaeb62bbc3c4f3b3d8b03\nvalid until (unix time): 0\nnetwork: 84532"
+   },
+   {
+    "key": "0x67c29960F74fdF24bDF1168eB7B3ed53b68b50Ce",
+    "end": "1791742507",
+    "text": "Prime session\ncontract: 0x1f79d456c112f575de68c892ed1131b46eb34400\nsession key: 0x67c29960f74fdf24bdf1168eb7b3ed53b68b50ce\nvalid until (unix time): 1791742507\nnetwork: 84532"
+   }
+  ]
+ },
+ "fees": {
+  "forkGasPriceWei": "3904670",
+  "liveGasPriceWei": "5000000",
+  "gas": {
+   "safeSetup": "646339",
+   "moveSelfPaid": "135019",
+   "moveSelfPaidB": "117931",
+   "revokeByKey": "75730"
+  },
+  "l1FeeEstimateWei": {
+   "move": "215",
+   "revoke": "153",
+   "firstStart": "2502",
+   "startNoDeploy": "221"
+  },
+  "floatFormula": "moves * (moveGas * 2 * gasPrice + 2 * l1Move) + (revokeGas * 2 * gasPrice + 2 * l1Revoke), moveGas and revokeGas taken as bounds above the measured gas",
+  "boundsUsed": {
+   "moveGas": "160000",
+   "revokeGas": "100000"
+  },
+  "measured": {
+   "moveGas": "135019",
+   "revokeGas": "75730"
+  },
+  "floatFor50MovesAndRevokeWei": "81000000021806",
+  "floatFor50MovesAndRevokeEth": "0.000081000000021806",
+  "perMoveCostWei": "675095000215",
+  "note": "the fork charges no L1 data fee; the L1 fee is read from the Base Sepolia GasPriceOracle with the same calldata"
+ },
+ "setup": {
+  "chainId": 84532,
+  "forkRpc": "http://127.0.0.1:8548",
+  "safe": "0xb4652E85B012A7A1B239cfA926Fb66A3c8f70bb9",
+  "roles": "0x2a9f4F1DB8844ee8b72ef3e8C8f8741C43A042a5",
+  "token": "0xD58cAc5A1f09EAC1eEfB65ec738f8F16b541640A",
+  "owners": [
+   "0x723344A053FDdA7261cF167A4ec25F1cbB01E364",
+   "0x626B39e82b1119874a7C53bdde213D6383F7E37d"
+  ],
+  "primeSessions": {
+   "a": "0x1F79D456C112F575De68c892ed1131b46EB34400",
+   "b": "0x03f359d42447e8865e800E237F6b6096396ce4B0",
+   "stranger": "0x099b8b96d84C9E2192FEfEBdD4fbB5A344082995"
+  },
+  "roleKey": "0x73657373696f6e5f6d6f7665733a643363393231643700000000000000000000",
+  "safeCreateTx": "0xd9f557838b3df8d161e3046a661edc3c7d2b8a1b8a50f13f95077dcefd5c68ce",
+  "safeSetupTx": "0x8efd49dbddc44fbe8e371dc8b24f9d22cb69c21c1c1c3e58199f1d8f4ae53e72",
+  "safeSetupGas": "646339",
+  "pass": true,
+  "bytecodeHash": "0x6df5a388056de2c27275e79298985d7c03f8b50a22df95d692c4af83b50fc02e",
+  "forkBlock": "47981589"
+ }
+}

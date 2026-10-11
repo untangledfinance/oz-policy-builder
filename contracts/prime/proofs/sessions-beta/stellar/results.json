@@ -1,0 +1,234 @@
+{
+ "codeTtl": {
+  "ok": true,
+  "hash": "cbdd1da2239168f70a21763754f813d8d1b63a6208b6b374eed82413af385ffc",
+  "codeHash": "e36d155f0381a466fb6c2c29b788a9d52e4a6f3e568f30da981609075bb7a0b3",
+  "latestAtSend": 5141319,
+  "maxEntryTtl": 3110400,
+  "before": 5202065,
+  "after": 8251719,
+  "daysAfter": 180,
+  "payer": "GCFOACWD7QW4EYPKYCC7D4CFMRQXLBMBRYC22EVRLMWENEA22FOWKD44"
+ },
+ "friendbot": {
+  "status": 200,
+  "freshKey": "GCVZKAT2BQNRRAQ7R6NM234QXDUBC3J3MLECY26S5G64P2UVBHLP3TW5",
+  "hash": "365d91c29631357c52ded38b9fd8129db0f122b21ff8dc45db3f8cba1bf623da",
+  "ok": true,
+  "note": "friendbot funds a fresh throwaway key with 10,000 XLM; fresh key only, no secret kept"
+ },
+ "S2": {
+  "pass": true,
+  "detail": "deployer = owner G, salt = sha256(\"prime-session\" || account C raw id), constructor [owner]; predicted id equals deployed id for 3 owners; same salt under a different deployer gives a different id",
+  "account": "CCG3D7QGVRVZ46DKBOY2ZJKS6UMT4U5PUJ6GQLPZCAR6Y6BTXFZXGRUC",
+  "S_a": "CBBHSP6YAIY3XDBKUI7X5OUB4HHMGIDJIPBR3NX7AMEUDOYJZPXUS3F7",
+  "S_b": "CBRSZVJBYW3D6FKPMWQOBGFQVFIFKUKW7FZGNYTMH5WKEBWVCN2DILXQ",
+  "S_x": "CCBLPIHCZKH4F747V2BYKDJHKWJNPFUGA6WZUJYDVDFENFDVKI5FLANG",
+  "deployTx": {
+   "S_a": "65b4fb936cb769d7e10c16480ad1a00d8ccb5a8c154aa70e3a7f116aca28bc78",
+   "S_b": "7f6f13513753610e00887026ea63f44d37530d1c8b5207ef56f6e1c54abb862f",
+   "S_x": "f92789dee3317c37dd57107c2184f0e86561a9139a0167bf322f4038d77a5fd1"
+  },
+  "deployFeeStroops": 106093,
+  "wasm": "e36d155f0381a466fb6c2c29b788a9d52e4a6f3e568f30da981609075bb7a0b3"
+ },
+ "S1": {
+  "pass": true,
+  "shape": "one rule, two Delegated(prime-session) signers (A1 holds if pass)",
+  "account": "CCG3D7QGVRVZ46DKBOY2ZJKS6UMT4U5PUJ6GQLPZCAR6Y6BTXFZXGRUC",
+  "ruleId": 1,
+  "ruleInstallTx": "90abdfd8bc067eda9b3a6aa0b4afb04c1b0da2edd772664cd375c6796db2315a",
+  "S_a": "CBBHSP6YAIY3XDBKUI7X5OUB4HHMGIDJIPBR3NX7AMEUDOYJZPXUS3F7",
+  "S_b": "CBRSZVJBYW3D6FKPMWQOBGFQVFIFKUKW7FZGNYTMH5WKEBWVCN2DILXQ",
+  "grants": {
+   "a": {
+    "ok": true,
+    "hash": "07830b671df0ddaf32226d025104237a8488e0c2f5cb703ae7d0db3b16f91c37",
+    "fee": 18138
+   },
+   "b": {
+    "ok": true,
+    "hash": "1578e3feb95e5a27ae7666c91212b71869cbf6e76075c6cd9de05bcb157cefe7",
+    "fee": 18137
+   },
+   "x": {
+    "ok": true,
+    "hash": "ae2afa015e654e45093d0146a9e1d1de02b081141788c63882cd1891a98438b2",
+    "fee": 18137
+   }
+  },
+  "results": {
+   "moveViaA": {
+    "pass": true,
+    "ok": true,
+    "hash": "c496708c510bde866a415b67a476c5d2ddf9b745b0c27473f4f8dacc589fb32b"
+   },
+   "moveViaB": {
+    "pass": true,
+    "ok": true,
+    "hash": "8a3f8582cad219e76e3961cd61cc2d9dbdaf3f1f4a296de1360aa3094c111238"
+   },
+   "otherDestination": {
+    "pass": true,
+    "ok": false,
+    "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+   },
+   "amountZero": {
+    "pass": true,
+    "ok": false,
+    "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+   },
+   "amountMaxPlus1": {
+    "pass": true,
+    "ok": false,
+    "error": "Error(Auth, InvalidAction) Error(Contract, #100)"
+   },
+   "amountMax": {
+    "pass": true,
+    "ok": true,
+    "hash": "7bca0b074721e51fbb76e3b2be45dad9d15bf6037ee374f25291aea0f6f95c94"
+   },
+   "strangerS": {
+    "pass": true,
+    "ok": false,
+    "error": "Error(Auth, InvalidAction) Error(Contract, #3016)"
+   },
+   "wrongKey": {
+    "pass": true,
+    "ok": false,
+    "error": "Error(Auth, InvalidAction) Error(Contract, #1)"
+   }
+  },
+  "maxPerMoveStroops": "50000000",
+  "destination": "GA6CRIRTC6LMB4UNSDLIVE4TTWXTL3YRPDXV3HNQRTRA3AERKYRLS7RJ"
+ },
+ "S3": {
+  "pass": true,
+  "grantTx": "3ce93a05970bbe24def5c5e59acc8f45a496a8018fb12cd618f06e3c85b6e273",
+  "extendTx": "980697eac3d4ce24d19af1a990fd7a3ec011d12dc10e04e7c538841951917753",
+  "extendFeeStroops": 7381,
+  "until": 5142142,
+  "target": 5263384,
+  "before": {
+   "latest": 5141424,
+   "inst": 5262328,
+   "code": 8251719
+  },
+  "after": {
+   "latest": 5141425,
+   "inst": 5265385,
+   "code": 8251719
+  },
+  "note": "target = a 7-day session end + 1000; source = a G account (a session key pays the same way); the code entry was already at 180 days from the step 1 extension, so the extension left it unchanged"
+ },
+ "S4": {
+  "pass": true,
+  "key": "GDII3RM2GIPPATXSM63YF63JIGNGWR2KJMB6L4XOY7ER6RZUDRUMR5E4",
+  "extractable": false,
+  "until": 5158696,
+  "createAccountTx": "b9b8f3f20fb5bc56ff071848fcec6bd2d4a31dcdd905bfb180428fbbd983430e",
+  "createAccountFee": 100,
+  "grantTx": "6455b5f9b52974ff576351df422ed2cd7c386e1fe039c6ae2b485271c1ff9482",
+  "grantFeeStroops": 22420,
+  "storedUntil": 5158696,
+  "storedLive": 5158696,
+  "keyBalanceStroopsAfterGrant": 19977580,
+  "ownerBalanceBefore": 99998776323,
+  "grantSentBy": "the key G account (fee paid by the key)"
+ },
+ "S5": {
+  "pass": true,
+  "revokeTx": "e2a2a1214c22c4fe817de421c7e3899eae9dce054e36125760dfb9c47b15f548",
+  "revokeFeeStroops": 817797,
+  "refusal": "Error(Auth, InvalidAction) Error(Contract, #1)",
+  "mergeTx": "4e41ebdd485d0608172205a5ae0d3f1c50e144ffb2ddb8ffb85ca122ce72cb13",
+  "mergeFeeStroops": 100,
+  "keyBalanceBeforeMerge": 19159783,
+  "keyAccountGone": true,
+  "ownerBalanceBeforeRevoke": 99978776223,
+  "ownerBalanceAfterMerge": 99997935906,
+  "storedAfterRevoke": {
+   "until": 0,
+   "live": 8251818
+  },
+  "note": "revoke sent by the key; the key account merged to the owner afterwards"
+ },
+ "S6": {
+  "pass": true,
+  "grantTx": "a23f5f02ab8b8df92e45fed597cfe7a849bf9bc7a17ab92590b34fd1a246f85b",
+  "controlMove": {
+   "pass": true,
+   "ok": true,
+   "hash": "105d50dfcd68d14d8fa4ce12558901061af90e3ef3d24075dc8cf8b1acf10d5d"
+  },
+  "revokeTx": "d9af4680c63835b759075dc87f3e8dd1ca2915a8979f313890b2c2f3b4ea5b5d",
+  "revokeFeeStroops": 822079,
+  "revokeSentBy": "owner own account, key not involved",
+  "moveAfter": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)"
+  },
+  "regrantRefused": true,
+  "regrantError": "Error(Contract, #1)"
+ },
+ "S7": {
+  "pass": true,
+  "grantTx": "a6ad978281ea6f950282798d07fc48dbf31b3ed139835f22098dcbcea6cf99ef",
+  "until": 5141444,
+  "controlMove": {
+   "pass": true,
+   "ok": true,
+   "hash": "8f1c23fffcafaa462302266ac8ad8aa25e418c11d42f1d9e7ccf08849468efd8"
+  },
+  "moveAtUntilPlus1": {
+   "pass": true,
+   "ok": false,
+   "error": "Error(Auth, InvalidAction) Error(Contract, #1)"
+  },
+  "storedEntry": {
+   "until": 5141444,
+   "live": 5142150
+  }
+ },
+ "sharedTtl": {
+  "ok": true,
+  "hash": "c6ceaa73f82817ea4edc587362601d736f2edf5eed541ccfcac8efc4d63e428d",
+  "entries": [
+   "account wasm 91a2cd56",
+   "interpreter wasm a7ef48e3",
+   "interpreter instance CDPR5VTX",
+   "simple_threshold wasm 01c0be09",
+   "simple_threshold instance CAYTIVQO"
+  ],
+  "before": [
+   5616853,
+   5616853,
+   5616853,
+   5616853,
+   5616853
+  ],
+  "after": [
+   6141461,
+   6141461,
+   6141461,
+   6141461,
+   6141461
+  ]
+ },
+ "fees": {
+  "moveViaPrimeSession": 2296270,
+  "grantFromKeyAccount": 22420,
+  "grantFromRelayer": 18138,
+  "ruleInstall": 4189224,
+  "deployPrimeSession": 106093,
+  "extendTtlInstance": 7381,
+  "revokeByKey": 817797,
+  "revokeByOwner": 822079,
+  "accountMerge": 100,
+  "createAccount": 100,
+  "note": "stroops, Horizon/RPC fee_charged. 1 XLM = 10,000,000 stroops First move on a new rule 2,296,270 (policy state set up on first touch, here through S_a); later moves 38,333.",
+  "moveSteadyState": 38333,
+  "moveFirstOnNewRule": 2296270
+ }
+}
