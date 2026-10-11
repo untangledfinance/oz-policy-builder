@@ -12,7 +12,7 @@
 //   plain address, (c) the same stranger written as a muxed address.
 //
 // EXPECT=old is the control: an adapter built before the muxed-address fix pays
-// the stranger on (c), now and as a stored move. EXPECT=new is the fix: (c) is
+// the stranger on (c) when run at once, and accepts it as a stored move. EXPECT=new is the fix: (c) is
 // refused with Uncheckable, and the refused batch is also put on chain as a
 // failed transaction so the refusal has a hash.
 //

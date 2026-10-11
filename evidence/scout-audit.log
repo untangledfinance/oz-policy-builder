@@ -1,4 +1,4 @@
-# cargo scout-audit 0.3.16 - 2026-10-11T16:49:02Z at c520ac1
+# cargo scout-audit 0.3.16 - 2026-10-11T16:49:02Z on 45b73ae (c520ac1 plus a comment in the adapter's tests.rs)
 #
 # Run per crate. A real run is confirmed by the artifact count under
 # target/dylint/ (11 .so files per crate: 11, 11 and 11 here), since this version reports a build

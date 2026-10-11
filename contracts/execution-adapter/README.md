@@ -20,7 +20,7 @@ every shape an address can take when a venue passes it as an argument:
 | An address | Must be on the gate's list, or be the gate. |
 | A vector or a map | Each element, key and value is walked. |
 | Bytes or text of 32 or 56 bytes | Must equal the raw key or the strkey of a listed address. |
-| Bytes of 40, 44 or 48 bytes | Must equal the XDR of a listed address. The 48-byte length is the XDR of a muxed address, which never matches. |
+| Bytes or text of 40, 44 or 48 bytes | Must equal the XDR of a listed address. The 48-byte length is the XDR of a muxed address, which never matches. Text of these lengths is refused unless its bytes equal that XDR. |
 | Bytes or text of 69 bytes | Refused. That is the length of a muxed `M` strkey. |
 | Numbers, times and symbols | Pass. |
 | Any other host object, a muxed address among them | Refused with `Uncheckable`. A later protocol's new object type is refused the same way until the walk learns it. |
@@ -88,7 +88,7 @@ rebuilds it and compares it with the testnet record.
 | --- | --- | --- |
 | `3dd675c0…` (24,118 bytes) | Testnet. This is what `main` builds. New gates on testnet pin it. | Deny by default; the XDR lengths are compared. |
 | `eefcfdd7…` (24,027 bytes) | Testnet, an interim build with the first fix. No gate uses it. | Deny by default; passes 40-, 44- and 48-byte XDR of any address. |
-| Earlier builds | Gates set up before the fix. | Pass a muxed address and the XDR route; the fix is in `3dd675c0…`. |
+| Earlier builds | Gates set up before the fix. The earlier v4 builds and the v3 builds share the old walk. | Pass a muxed address and the XDR route; the fix is in `3dd675c0…`. |
 
 A deployed build can lag `main`: each network's record in `deployments/` says
 which build it runs.

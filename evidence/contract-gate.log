@@ -1,6 +1,6 @@
-# Contract gate - 2026-10-11T16:26:04Z to 16:41Z at c520ac1
+# Contract gate - 2026-10-11T16:26:04Z to 16:41Z
 # Per crate, as CI runs it: fmt, clippy -D warnings, tests, conformance (interpreter), wasm rebuild, record parity
-# The adapter section was run again after the comment above its tripwire test changed (tests.rs only; the wasm hash is the same).
+# The interpreter and gate sections ran at c520ac1. The adapter section ran on 45b73ae: c520ac1 plus the comment above its tripwire test (tests.rs only; the wasm hash is the same).
 
 
 ## contracts/policy-interpreter

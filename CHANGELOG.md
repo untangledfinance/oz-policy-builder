@@ -75,9 +75,10 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   decode. The first build with this fix, `eefcfdd7…` (24,027 bytes), is on
   testnet and no gate uses it. Verified on testnet by
   `scripts/verify-execution-muxed-testnet.ts`: the earlier build pays a stranger
-  written as a muxed address, and the fixed build refuses it, now and as a
-  stored move (`evidence/execution-muxed-testnet-before.log` and
-  `-after.log`).
+  written as a muxed address and accepts the same batch as a stored move, and the
+  fixed build refuses both (`evidence/execution-muxed-testnet-before.log` and
+  `-after.log`). A stored batch was accepted on chain and never run there; a
+  unit probe shows it paying on `run`.
 
 - **`execution-adapter` refuses an address passed as XDR bytes (#6):** data of
   40, 44 and 48 bytes must equal the XDR of an allowed address: those are the

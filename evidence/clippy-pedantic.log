@@ -1,4 +1,5 @@
-# clippy pedantic + nursery - 2026-10-11T16:26:04Z to 16:41Z at c520ac1
+# clippy pedantic + nursery - 2026-10-11T16:26:04Z to 16:41Z
+# The interpreter and gate sections ran at c520ac1; the adapter section ran on 45b73ae (c520ac1 plus a comment in tests.rs).
 # Per crate. Counts are 'warning:' lines less the per-target summary lines.
 
 

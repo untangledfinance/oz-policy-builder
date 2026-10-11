@@ -7,7 +7,9 @@ muxed-address fixes (#4 and #6). They cover the three contracts in scope,
 `policy-interpreter`, `custody-gate` and `execution-adapter`, and the three npm
 packages. The interpreter and the gate are byte-identical to the tree the
 2026-10-10 logs covered (`0358af5`); the adapter's source changed, so its
-sections are new.
+sections are new. The adapter sections of `contract-gate.log`,
+`clippy-pedantic.log` and `scout-audit.log` ran on `45b73ae`, which adds one
+comment in the adapter's `tests.rs` to `c520ac1` and leaves the wasm hash alone.
 
 Each contract's rebuilt wasm was compared with the records in `deployments/`:
 
@@ -82,7 +84,7 @@ gitignored `dist/`.
 | `execution-wait-testnet-3dd675c0.log` | `scripts/verify-execution-wait-testnet.ts` | 45 of 45 against `b01024f3…` and `3dd675c0…`, the build `main` produces, run on 2026-10-11 |
 | `execution-address-rule-testnet.log` | `scripts/verify-execution-address-rule-testnet.ts` | 35 of 35 against `b01024f3…` and `68d012e7…`, run on 2026-09-29: the adapter's address rule, run with no wait |
 | `execution-address-rule-testnet-3dd675c0.log` | `scripts/verify-execution-address-rule-testnet.ts` | 35 of 35 against `b01024f3…` and `3dd675c0…`, run on 2026-10-11 |
-| `execution-muxed-testnet-before.log`, `execution-muxed-testnet-after.log` | `scripts/verify-execution-muxed-testnet.ts` | the control (`68d012e7…`) pays a stranger written as a muxed address, now and as a stored move; `3dd675c0…` refuses it `#3`, refuses the stranger and the muxed stranger as XDR bytes `#2`, and the refused batch is a failed transaction on chain |
+| `execution-muxed-testnet-before.log`, `execution-muxed-testnet-after.log` | `scripts/verify-execution-muxed-testnet.ts` | the control (`68d012e7…`) pays a stranger written as a muxed address when run at once and accepts the same batch as a stored move (accepted on chain, never run there); `3dd675c0…` refuses it `#3`, refuses the stranger and the muxed stranger as XDR bytes `#2`, and the refused batch is a failed transaction on chain |
 | `execution-gate-list-testnet.log` | `scripts/verify-gate-list-testnet.ts` | 3 of 3 against `3dd675c0…`: the owners' rule 0 cannot pull to an unlisted stranger, can pull to the listed Prime account, and the Prime then pays the stranger with no wait and no list |
 | `execution-wait-testnet-reproducible-interpreter.log`, `execution-address-rule-testnet-reproducible-interpreter.log` | the same two scripts | 45 of 45 and 35 of 35 with the reproducible grammar-6 interpreter build that mainnet runs |
 
@@ -395,7 +397,8 @@ behind a muxed recipient, so a batch could pay an account the gate never listed.
 #4 made the walk refuse every object outside a safe list and every 69-byte
 value, and #6 made 40-, 44- and 48-byte data match the XDR of a listed address.
 `execution-muxed-testnet-before.log` shows the build before the fix paying a
-stranger, now and as a stored move. `execution-muxed-testnet-after.log` shows
+stranger when run at once and accepting the same batch as a stored move; a
+unit probe shows a stored batch paying on `run`. `execution-muxed-testnet-after.log` shows
 `3dd675c0…` refusing both, and the refused batch on chain as a failed
 transaction. The two limits that remain, a `U256` that carries key bytes and
 composite XDR decoded by a listed venue, are in
