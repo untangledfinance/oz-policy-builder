@@ -1,0 +1,11 @@
+# bun scripts/verify-gate-list-testnet.ts   (2026-10-11, testnet, Linux build, adapter 3dd675c06a1f9b27..., gate b01024f31a24108f..., throwaway friendbot keys)
+adapter build  3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3  24118B
+prime   CDKL77GQ5QPPU7KLXBSLXPS2UL7YSJK4DO6XDFGRDN3H44EDEHL6JDLS
+gate    CAYP2BBPZQH3LR2HGM2SGE5AVLBRDDRCTCHRCU4EFPX53ALDDABVGDFN   lists: adapter, custody, native asset, prime
+adapter CCTJUXZJ7D3CQBHQE5NULUC4OIGF5PPIRWGO2O7EQYXQ5ZZKOKROZOYM
+stranger GC5FNCVLUP6VHAJF5XYBDCUYZD3AYY4D3CI66CRV3KGKHMNXHSTEA3K5   not on the gate
+── the owners' rule 0, which carries no predicate ──
+ok   pull to a stranger (unlisted)                        refused, contract error #2     
+ok   pull to the Prime (listed)                           permitted, Prime +1000000 stroops b1c657a650a6fceb605ec8b8e3da79de6f6c9ac67e471712ecf69b226a6bc589
+ok   the Prime sends it to the stranger, no wait, no list permitted, stranger 10000 -> 10000.1 XLM 2f7b0d1cf410cd842ad0f93d7d02ab74499b9b4d7cf407a14a00d2ccce9c786f
+all checks passed
