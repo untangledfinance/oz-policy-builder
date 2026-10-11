@@ -293,16 +293,19 @@ fn the_binding_is_unchanged_after_a_refused_rebind() {
 }
 
 /// THE LENGTHS THE ADDRESS WALK COMPARES OR REFUSES ARE THE WHOLE
-/// CONSTRUCTIBLE SET, and this is the tripwire for the strkey one. A contract
-/// can build an `Address` from data four ways: `from_string` and
-/// `from_string_bytes`, which take a 56-character G or C strkey,
+/// CONSTRUCTIBLE SET OF A SINGLE ADDRESS, and this is the tripwire for the
+/// strkey one. An address inside a larger encoding (a vector or a tuple of
+/// addresses decoded from bytes) is outside that set, as is a key carried in a
+/// number. A contract can build an `Address` from data four ways: `from_string`
+/// and `from_string_bytes`, which take a 56-character G or C strkey,
 /// `from_payload`, which takes the raw 32 bytes, and `from_xdr`, which takes the
 /// XDR of an address value (40 bytes for a contract, 44 for an account). A
 /// muxed address has two more spellings, both refused outright by the walk: the
 /// 69-character `M` strkey that `MuxedAddress::from_string` takes, and its
-/// 48-byte XDR. `Address::from_string` itself refuses the `M` strkey - "unexpected
-/// strkey length" - which is what this test holds. If a protocol ever widens
-/// what it accepts, this test fails and `scan_data` needs the new length.
+/// 48-byte XDR. `Address::from_string` itself refuses the `M` strkey -
+/// "unexpected strkey length" - which is what this test holds. If a protocol
+/// ever widens what it accepts, this test fails and `scan_data` needs the new
+/// length.
 #[test]
 #[should_panic]
 fn a_muxed_strkey_is_not_an_address_this_host_can_build() {
