@@ -17,7 +17,9 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   `--network testnet`. Run on 1 October 2026: the interpreter is
   `CAOBQ4ZX…XO2R`, fees came to 158.36 XLM, and every transaction is in
   `deployments/prime-mainnet.json`. No job keeps mainnet entries live; see
-  "Keeping contracts live" in `docs/stellar.md`.
+  "Keeping contracts live" in `docs/stellar.md`. On 11 October 2026 the
+  adapter build `3dd675c0…` was uploaded and its code entry extended (47.76 XLM);
+  the transactions are in the same file.
 
 - **`execution-adapter` (v4): a batch can wait:** `execute(calls, grants, wait)`
   runs at once when `wait` is 0, as v3 does. With a wait it stores the batch,
