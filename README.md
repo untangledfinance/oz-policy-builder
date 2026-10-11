@@ -38,14 +38,15 @@ key's `approve` on the same token was refused by the interpreter with
 the token had no reason of its own to reject it and the predicate is the only
 thing that did.
 
-The agent key sits on the policed rule and on no other, which is what makes
-that a statement about the KEY rather than about one routing choice. A smart
+The agent key sits on the policed rule and on no other, so the result describes
+the key and holds for every routing choice. A smart
 account resolves a call against the rule the caller names, so a key that also
 sat on the unpoliced admin rule could simply name that one and never reach the
 predicate. The run proves the closure directly: the same forbidden call, routed
 by the agent through the unpoliced rule, is rejected because the agent is not a
-signer there. The admin key does retain full authority through that rule, by
-design - a policy constrains the keys put under it, not the account's owner.
+signer there. The admin key retains full authority through that rule by
+design: a policy constrains the keys put under it, and the account's owner
+stays outside it.
 
 Reproduce either network with
 `bun packages/policy-synth/scripts/e2e-network.ts --network testnet`; the
@@ -67,11 +68,13 @@ The same wasm hash backs both networks; only the instance address differs.
 The Prime custody contracts went to mainnet on 1 October 2026 and the Prime app
 at app.untangled.finance uses them: the grammar-6 interpreter
 `CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R` and the custody gate
-and execution adapter code (`b01024f3…`, `68d012e7…`). They are the Linux builds
-that CI rebuilds and checks. Testnet gates set up after 11 October 2026 name
-the adapter build `3dd675c0…`, which refuses a muxed address; mainnet runs `68d012e7…`. Testnet's grammar-6 interpreter was built from the same source
-without `build-wasm.sh`, so its hash differs. Addresses, hashes and transactions
-are in [docs/stellar.md](./docs/stellar.md#deployments) and
+and execution adapter code. A deployed build can lag `main`: each network's
+record in `deployments/` says which build it runs. `main` builds the adapter
+`3dd675c0…`, which refuses a muxed address and the XDR of an address passed as
+bytes, and testnet gates set up after 11 October 2026 name it. Testnet's
+grammar-6 interpreter was built from the same source without `build-wasm.sh`, so
+its hash differs. Addresses, hashes and transactions are in
+[docs/stellar.md](./docs/stellar.md#deployments) and
 [deployments/prime-mainnet.json](./deployments/prime-mainnet.json).
 
 > [!IMPORTANT]
@@ -123,6 +126,8 @@ own directory:
 
 ```sh
 ( cd contracts/policy-interpreter && cargo test )
+( cd contracts/custody-gate       && cargo test )
+( cd contracts/execution-adapter  && cargo test )
 ( cd contracts/test-blend-pool    && cargo test )
 ```
 
@@ -130,7 +135,7 @@ own directory:
 
 [CONTRIBUTING.md](./CONTRIBUTING.md) is the short path from a fresh clone to
 a green pull request; CI runs the same gates. Vulnerabilities go to
-[SECURITY.md](./SECURITY.md), not the issue tracker. Package release notes
+[SECURITY.md](./SECURITY.md); the issue tracker is for everything else. Package release notes
 live in [CHANGELOG.md](./CHANGELOG.md), and the release procedure in
 [CONTRIBUTING.md](./CONTRIBUTING.md#releasing).
 

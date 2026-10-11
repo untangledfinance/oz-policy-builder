@@ -1,5 +1,7 @@
-# Contract gate - 2026-10-10T05:16:11Z at 0358af5
+# Contract gate - 2026-10-11T16:26:04Z to 16:41Z
 # Per crate, as CI runs it: fmt, clippy -D warnings, tests, conformance (interpreter), wasm rebuild, record parity
+# The interpreter and gate sections ran at c520ac1. The adapter section ran on 45b73ae: c520ac1 plus the comment above its tripwire test (tests.rs only; the wasm hash is the same).
+
 
 ## contracts/policy-interpreter
 
@@ -8,25 +10,26 @@ $ cargo fmt --check
 exit 0
 
 $ cargo clippy --all-targets -- -D warnings
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.59s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 14s
 exit 0
 
 $ cargo test
 test result: ok. 82 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
-test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
-test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
-test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
-test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
 exit 0
 
 $ cargo test --release --test conformance
-test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 exit 0
 
 $ ./build-wasm.sh
 5143e64159378c9aac27e8cf1c9cb1f14364672885c151ccc5d887109f776126
+size: 49855 bytes
 (matches deployments/grammar6-testnet.json interpreterSource.reproducibleWasmSha256, the record CI compares)
 (matches deployments/prime-mainnet.json policy-interpreter, the mainnet instance's code)
 
@@ -37,17 +40,19 @@ $ cargo fmt --check
 exit 0
 
 $ cargo clippy --all-targets -- -D warnings
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.81s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 14s
 exit 0
 
 $ cargo test
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 exit 0
 
 $ ./build-wasm.sh
 b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab
+size: 9026 bytes
 (matches deployments/execution-testnet.json, the record CI compares)
 (matches deployments/prime-mainnet.json)
+
 
 ## contracts/execution-adapter
 
@@ -56,14 +61,14 @@ $ cargo fmt --check
 exit 0
 
 $ cargo clippy --all-targets -- -D warnings
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.34s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.20s
 exit 0
 
 $ cargo test
-test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s
+test result: ok. 45 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
 exit 0
 
 $ ./build-wasm.sh
-68d012e79fd4f9b88584447cfb32e0b0dbb55fb8bcd084b7212bad3e63b6dfdd
+3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3
+size: 24118 bytes
 (matches deployments/execution-testnet.json, the record CI compares)
-(matches deployments/prime-mainnet.json)

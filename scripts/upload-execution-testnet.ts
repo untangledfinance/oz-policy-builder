@@ -6,7 +6,8 @@
 //   ONLY=execution-adapter bun scripts/upload-execution-testnet.ts
 //
 // ONLY uploads one crate and keeps the other's entry in the record as it was,
-// for a change to one contract that leaves the other's build alone.
+// for a change to one contract that leaves the other's build alone. The record's
+// note and its interimBuilds entry are kept as they were in either case.
 //
 // UPLOAD ONLY. Neither contract is a shared instance: the custody account
 // deploys its own gate and the Prime its own adapter, both from these hashes.
@@ -18,7 +19,7 @@
 // Build on Linux first (the build scripts say why): a macOS build uploads a
 // hash nobody else can rebuild.
 
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { hash, Keypair, Operation } from '@stellar/stellar-sdk'
 import { send, wasmPath } from './lib/chain.ts'
 
@@ -28,7 +29,8 @@ await new Promise((r) => setTimeout(r, 6000))
 
 const recordUrl = new URL('../deployments/execution-testnet.json', import.meta.url)
 const only = process.env.ONLY
-const kept = only ? JSON.parse(readFileSync(recordUrl, 'utf8')) : null
+const prior = existsSync(recordUrl) ? JSON.parse(readFileSync(recordUrl, 'utf8')) : null
+const kept = only ? prior : null
 const artifacts: Record<string, Buffer> = {}
 if (only !== 'execution-adapter') {
   artifacts['custody-gate'] = readFileSync(wasmPath('custody-gate', 'custody_gate'))
@@ -57,7 +59,10 @@ writeFileSync(
       wasmSha256,
       uploadTx,
       sizes,
-      note: "Linux builds through each crate's build-wasm.sh, so the hashes can be rebuilt from source; CI does. The Prime app pins these: new gates are created from the custody-gate hash and name the execution-adapter hash as their caller's code.",
+      note:
+        prior?.note ??
+        "Linux builds through each crate's build-wasm.sh, so the hashes can be rebuilt from source; CI does. The Prime app pins these: new gates are created from the custody-gate hash and name the execution-adapter hash as their caller's code.",
+      ...(prior?.interimBuilds ? { interimBuilds: prior.interimBuilds } : {}),
     },
     null,
     2
