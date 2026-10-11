@@ -1,16 +1,17 @@
-# clippy pedantic + nursery - 2026-10-10T05:36:01Z at 0358af5
+# clippy pedantic + nursery - 2026-10-11T16:26:04Z to 16:41Z at c520ac1
 # Per crate. Counts are 'warning:' lines less the per-target summary lines.
+
 
 ## contracts/policy-interpreter
 $ cargo clippy --all-targets -- -W clippy::pedantic -W clippy::nursery
-warning: `policy-interpreter` (lib) generated 97 warnings (run `cargo clippy --fix --lib -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 63 suggestions)
-warning: `policy-interpreter` (test "enforce_state") generated 6 warnings (run `cargo clippy --fix --test "enforce_state" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 6 suggestions)
-warning: `policy-interpreter` (test "conformance") generated 44 warnings (run `cargo clippy --fix --test "conformance" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 31 suggestions)
+warning: `policy-interpreter` (lib) generated 97 warnings (5 duplicates) (run `cargo clippy --fix --lib -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 61 suggestions)
+warning: `policy-interpreter` (lib test) generated 120 warnings (91 duplicates) (run `cargo clippy --fix --lib -p policy-interpreter --tests -- -W clippy::pedantic -W clippy::nursery` to apply 20 suggestions)
 warning: `policy-interpreter` (test "oz_integration") generated 5 warnings (run `cargo clippy --fix --test "oz_integration" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 5 suggestions)
-warning: `policy-interpreter` (test "role_separation") generated 9 warnings (run `cargo clippy --fix --test "role_separation" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 9 suggestions)
+warning: `policy-interpreter` (test "conformance") generated 44 warnings (run `cargo clippy --fix --test "conformance" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 31 suggestions)
 warning: `policy-interpreter` (test "oz_abi") generated 7 warnings (run `cargo clippy --fix --test "oz_abi" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 4 suggestions)
+warning: `policy-interpreter` (test "role_separation") generated 9 warnings (run `cargo clippy --fix --test "role_separation" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 9 suggestions)
+warning: `policy-interpreter` (test "enforce_state") generated 6 warnings (run `cargo clippy --fix --test "enforce_state" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 6 suggestions)
 warning: `policy-interpreter` (test "install_enforce") generated 14 warnings (run `cargo clippy --fix --test "install_enforce" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 12 suggestions)
-warning: `policy-interpreter` (lib test) generated 120 warnings (96 duplicates) (run `cargo clippy --fix --lib -p policy-interpreter --tests -- -W clippy::pedantic -W clippy::nursery` to apply 18 suggestions)
 lint warnings: 206
 # By lint:
      61 warning: item in documentation is missing backticks
@@ -41,16 +42,17 @@ lint warnings: 206
       1 warning: casting `i128` to `u128` may lose the sign of the value
 # Cast warnings by file:
       4 src/dsl_tests.rs
-      2 tests/install_enforce.rs
       2 tests/oz_abi.rs
+      2 tests/install_enforce.rs
 # Panic-related warnings by file:
-      1 src/lib.rs
       2 tests/conformance/_helpers.rs
+      1 src/lib.rs
+(clippy exit 0)
 
 ## contracts/custody-gate
 $ cargo clippy --all-targets -- -W clippy::pedantic -W clippy::nursery
-warning: `custody-gate` (lib test) generated 16 warnings (12 duplicates)
 warning: `custody-gate` (lib) generated 12 warnings (run `cargo clippy --fix --lib -p custody-gate -- -W clippy::pedantic -W clippy::nursery` to apply 2 suggestions)
+warning: `custody-gate` (lib test) generated 16 warnings (12 duplicates)
 lint warnings: 16
 # By lint:
      11 warning: this argument is passed by value, but not consumed in the function body
@@ -59,23 +61,26 @@ lint warnings: 16
 # Cast warnings by file:
 # Panic-related warnings by file:
       3 src/lib.rs
+(clippy exit 0)
+
 
 ## contracts/execution-adapter
 $ cargo clippy --all-targets -- -W clippy::pedantic -W clippy::nursery
-warning: `execution-adapter` (lib test) generated 40 warnings (5 duplicates) (run `cargo clippy --fix --lib -p execution-adapter --tests -- -W clippy::pedantic -W clippy::nursery` to apply 6 suggestions)
-warning: `execution-adapter` (lib) generated 19 warnings (19 duplicates)
-lint warnings: 35
+warning: `execution-adapter` (lib) generated 20 warnings (run `cargo clippy --fix --lib -p execution-adapter -- -W clippy::pedantic -W clippy::nursery` to apply 4 suggestions)
+warning: `execution-adapter` (lib test) generated 52 warnings (25 duplicates) (run `cargo clippy --fix --lib -p execution-adapter --tests -- -W clippy::pedantic -W clippy::nursery` to apply 3 suggestions)
+lint warnings: 47
 # By lint:
-     18 warning: this argument is passed by value, but not consumed in the function body
+     28 warning: this argument is passed by value, but not consumed in the function body
       4 warning: used underscore-prefixed binding
       4 warning: docs for function which may panic missing `# Panics` section
       3 warning: redundant clone
+      2 warning: this argument (8 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
+      2 warning: item in documentation is missing backticks
       2 warning: #[should_panic] attribute without a reason
       1 warning: variables can be used directly in the `format!` string
       1 warning: this method could have a `#[must_use]` attribute
-      1 warning: this argument (8 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
-      1 warning: item in documentation is missing backticks
 # Cast warnings by file:
 # Panic-related warnings by file:
       4 src/lib.rs
       2 src/tests.rs
+(clippy exit 0)

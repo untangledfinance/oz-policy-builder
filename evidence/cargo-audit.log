@@ -1,4 +1,4 @@
-# cargo audit - 2026-10-10T05:35:17Z at 0358af5
+# cargo audit - 2026-10-11T16:40:38Z at c520ac1, advisory database 7eebec69 (2026-10-09), fetched at run time
 # Each crate has its own Cargo.lock, so each is audited.
 
 ## contracts/policy-interpreter
@@ -12,7 +12,6 @@ Title:     paste - no longer maintained
 Date:      2024-10-07
 ID:        RUSTSEC-2024-0436
 URL:       https://rustsec.org/advisories/RUSTSEC-2024-0436
-
 warning: 1 allowed warning found
 exit 0
 
@@ -27,7 +26,6 @@ Title:     paste - no longer maintained
 Date:      2024-10-07
 ID:        RUSTSEC-2024-0436
 URL:       https://rustsec.org/advisories/RUSTSEC-2024-0436
-
 warning: 1 allowed warning found
 exit 0
 
@@ -42,6 +40,5 @@ Title:     paste - no longer maintained
 Date:      2024-10-07
 ID:        RUSTSEC-2024-0436
 URL:       https://rustsec.org/advisories/RUSTSEC-2024-0436
-
 warning: 1 allowed warning found
 exit 0

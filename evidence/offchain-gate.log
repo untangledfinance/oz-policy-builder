@@ -1,22 +1,24 @@
-# Off-chain gate - 2026-10-10T05:20:14Z
+# Off-chain gate - 2026-10-11T16:42:42Z
 # biome check, build, typecheck, bun test
-# Generated from a clean 'git archive' export of 0358af5, not a working tree.
+# Generated from a clean 'git archive' export of c520ac1, not a working tree.
 
 $ bun install --frozen-lockfile
 bun install v1.4.2 (744846f84)
+
 + @biomejs/biome@2.5.5
 + @stellar/stellar-sdk@14.4.0
 + @types/node@26.1.1
 + typescript@5.9.3
-+ @modelcontextprotocol/sdk@1.30.0
++ @modelcontextprotocol/sdk@1.32.1
 + zod@3.25.76
-144 packages installed [236.00ms]
+
+144 packages installed [612.00ms]
 exit 0
 
 $ bun run check   (biome check .)
-Checked 170 files in 5s. No fixes applied.
-Found 99 warnings.
-Found 22 infos.
+Checked 171 files in 5s. No fixes applied.
+Found 105 warnings.
+Found 23 infos.
 exit 0
 
 $ bun run --cwd packages/<pkg> build   (policy-synth first, its types feed the others)
@@ -31,10 +33,9 @@ $ bun run typecheck
 exit 0
 
 $ bun test
-
  771 pass
  1 skip
  0 fail
  1868 expect() calls
-Ran 772 tests across 52 files. [14.75s]
+Ran 772 tests across 52 files. [31.04s]
 exit 0
