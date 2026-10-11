@@ -76,7 +76,7 @@
 use soroban_sdk::{
     address_payload::AddressPayload, auth::InvokerContractAuthEntry, contract, contracterror,
     contractimpl, contracttype, panic_with_error, symbol_short, vec, xdr::ToXdr, Address, Bytes,
-    Env, IntoVal, Map, String, Symbol, TryFromVal, Val, Vec,
+    Duration, Env, IntoVal, Map, String, Symbol, Timepoint, TryFromVal, Val, Vec, I256, U256,
 };
 
 #[contracttype]
@@ -329,6 +329,15 @@ fn want(e: &Env, ok: &Vec<Address>, a: &Address) {
 
 /// Every address in a value, however deeply it is buried - and a refusal for
 /// anything that could be carrying one out of sight.
+///
+/// DENY BY DEFAULT. A host object this walk cannot read is refused rather than
+/// passed. A muxed address is one: a token's `transfer` takes its recipient as
+/// a `MuxedAddress` and credits the account behind it, yet the value converts
+/// to no type below, so a walk that only refused what it recognised let a
+/// batch pay an account the gate never named. Numbers, times and symbols
+/// cannot name an account and pass; so does every value that is not a host
+/// object. The next object type a protocol adds is refused until this walk
+/// learns it.
 fn scan(e: &Env, ok: &Vec<Address>, v: &Val) {
     if let Ok(a) = Address::try_from_val(e, v) {
         want(e, ok, &a);
@@ -345,7 +354,23 @@ fn scan(e: &Env, ok: &Vec<Address>, v: &Val) {
         scan_data(e, ok, &b);
     } else if let Ok(s) = String::try_from_val(e, v) {
         scan_data(e, ok, &s.to_bytes());
+    } else if v.is_object() && !is_plain_object(e, v) {
+        panic_with_error!(e, E::Uncheckable);
     }
+}
+
+/// A host object that holds a number, a time or a symbol and so cannot name an
+/// account.
+fn is_plain_object(e: &Env, v: &Val) -> bool {
+    u64::try_from_val(e, v).is_ok()
+        || i64::try_from_val(e, v).is_ok()
+        || u128::try_from_val(e, v).is_ok()
+        || i128::try_from_val(e, v).is_ok()
+        || U256::try_from_val(e, v).is_ok()
+        || I256::try_from_val(e, v).is_ok()
+        || Timepoint::try_from_val(e, v).is_ok()
+        || Duration::try_from_val(e, v).is_ok()
+        || Symbol::try_from_val(e, v).is_ok()
 }
 
 /// Bytes and strings a callee could read back as an address.
@@ -356,6 +381,11 @@ fn scan(e: &Env, ok: &Vec<Address>, v: &Val) {
 /// 32-byte hash is a perfectly ordinary venue argument. Checking how each
 /// allowed address encodes costs the same and cannot trap.
 ///
+/// A muxed address is the exception to "neither conversion builds one":
+/// `MuxedAddress::from_string` accepts the 69-character `M` strkey, and the
+/// account behind it is credited by a token's `transfer`. It is spelled in 69
+/// bytes and an allowed address never is, so data of that length is refused.
+///
 /// Data of any other length cannot denote an address under either conversion
 /// and passes untouched, so venues that take signatures, memos or identifiers
 /// still work. The length decides WHICH encoding to compare before the loop
@@ -364,6 +394,9 @@ fn scan(e: &Env, ok: &Vec<Address>, v: &Val) {
 fn scan_data(e: &Env, ok: &Vec<Address>, b: &Bytes) {
     // 32 bytes is the raw account key or contract id `Address::from_payload`
     // takes; 56 is the same thing spelled as the strkey `from_string` takes.
+    if b.len() == 69 {
+        panic_with_error!(e, E::AddressNotAllowed);
+    }
     let strkey = b.len() == 56;
     if !strkey && b.len() != 32 {
         return;
