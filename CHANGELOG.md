@@ -60,8 +60,8 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   or as a stored move, wherever a rule left the recipient to the gate's list.
   The walk now refuses every host object outside numbers, times, symbols,
   addresses, vectors, maps, bytes and strings (`Uncheckable`), and refuses
-  69-byte data, the length of an `M` strkey (`AddressNotAllowed`). Build
-  `eefcfdd7…`, recorded in `deployments/execution-testnet.json`. A gate pins
+  data of 40, 44 and 48 bytes unless it equals an allowed address's XDR, and 69-byte data (`AddressNotAllowed`). Those are the XDR of an address and of a muxed address, and the length of an `M` strkey, for a venue that decodes bytes. Build
+  `3dd675c0…`, recorded in `deployments/execution-testnet.json`. A gate pins
   its caller's code hash, so a gate set up for an earlier build keeps that
   build until custody makes a new gate. Verified on testnet by
   `scripts/verify-execution-muxed-testnet.ts`: the earlier build pays a stranger
