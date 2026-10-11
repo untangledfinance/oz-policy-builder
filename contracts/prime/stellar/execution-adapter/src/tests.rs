@@ -292,14 +292,17 @@ fn the_binding_is_unchanged_after_a_refused_rebind() {
     assert_eq!(bound, w.gate);
 }
 
-/// THE TWO LENGTHS THE ADDRESS WALK COMPARES ARE THE WHOLE CONSTRUCTIBLE SET,
-/// and this is the tripwire that says so. A contract can build an `Address`
-/// from data three ways: `from_string` and `from_string_bytes`, which take a
-/// 56-character G or C strkey, and `from_payload`, which takes the raw 32
-/// bytes. A muxed strkey is 69 characters and the host refuses it outright -
-/// "unexpected strkey length" - so there is no third encoding for the walk to
-/// miss. If a protocol ever widens what `from_string` accepts, this test fails
-/// and `scan_data` needs the new length.
+/// THE LENGTHS THE ADDRESS WALK COMPARES OR REFUSES ARE THE WHOLE
+/// CONSTRUCTIBLE SET, and this is the tripwire for the strkey one. A contract
+/// can build an `Address` from data four ways: `from_string` and
+/// `from_string_bytes`, which take a 56-character G or C strkey,
+/// `from_payload`, which takes the raw 32 bytes, and `from_xdr`, which takes the
+/// XDR of an address value (40 bytes for a contract, 44 for an account). A
+/// muxed address has two more spellings, both refused outright by the walk: the
+/// 69-character `M` strkey that `MuxedAddress::from_string` takes, and its
+/// 48-byte XDR. `Address::from_string` itself refuses the `M` strkey - "unexpected
+/// strkey length" - which is what this test holds. If a protocol ever widens
+/// what it accepts, this test fails and `scan_data` needs the new length.
 #[test]
 #[should_panic]
 fn a_muxed_strkey_is_not_an_address_this_host_can_build() {
@@ -814,5 +817,139 @@ mod muxed {
             let calls = Vec::from_array(e, [call_to(e, &m.w.gate, "one", Vec::from_array(e, [a]))]);
             assert!(run(&m.w, calls).is_ok());
         }
+    }
+}
+
+/// A listed venue that reads a Bytes argument back as an address from its XDR.
+#[contract]
+pub struct XdrPay;
+
+#[contractimpl]
+impl XdrPay {
+    pub fn pay(e: Env, to: Bytes, amount: i128) {
+        use soroban_sdk::xdr::FromXdr as _;
+        let who = Address::from_xdr(&e, &to).unwrap();
+        let b: i128 = e.storage().persistent().get(&who).unwrap_or(0);
+        e.storage().persistent().set(&who, &(b + amount));
+    }
+    pub fn balance(e: Env, of: Address) -> i128 {
+        e.storage().persistent().get(&of).unwrap_or(0)
+    }
+}
+
+mod xdr_bytes {
+    use super::*;
+    use soroban_sdk::MuxedAddress;
+
+    const M: &str = "MBSRYJ7BNJNEOCMQ5EBAJOTSLHWAOQXSSUUYECRU7KWZVXGAZ5PXGAIBAEAQCAIBAGQ7A";
+
+    fn setup(min_wait: u32) -> (World, Address, Address) {
+        let e = Env::default();
+        e.ledger().set_sequence_number(1_000);
+        e.mock_all_auths();
+        let prime = Address::generate(&e);
+        let custody = Address::generate(&e);
+        let stranger = Address::generate(&e);
+        let token = e.register(MuxToken, ());
+        let venue = e.register(XdrPay, ());
+        let allowed = Vec::from_array(
+            &e,
+            [custody.clone(), prime.clone(), token.clone(), venue.clone()],
+        );
+        let gate = e.register(FixtureGate, (allowed, custody.clone()));
+        let at = agreed_address(&e, &prime, &gate, min_wait, 100);
+        let adapter = e.register_at(
+            &at,
+            ExecutionAdapter,
+            (prime.clone(), gate.clone(), min_wait, 100u32),
+        );
+        let w = World {
+            e,
+            adapter,
+            gate,
+            prime,
+            custody,
+            stranger,
+        };
+        (w, token, venue)
+    }
+
+    fn pay_bytes(w: &World, venue: &Address, to: Bytes) -> Vec<Call> {
+        let e = &w.e;
+        let args = Vec::from_array(e, [to.to_val(), 100i128.into_val(e)]);
+        Vec::from_array(e, [call_to(e, venue, "pay", args)])
+    }
+
+    #[test]
+    fn the_xdr_of_a_stranger_is_refused_and_not_paid() {
+        let (w, _, venue) = setup(0);
+        let xdr = w.stranger.clone().to_xdr(&w.e);
+        assert!(xdr.len() == 40 || xdr.len() == 44);
+        refused(&w, pay_bytes(&w, &venue, xdr), E::AddressNotAllowed);
+        assert_eq!(XdrPayClient::new(&w.e, &venue).balance(&w.stranger), 0);
+    }
+
+    #[test]
+    fn both_xdr_lengths_of_an_address_are_refused() {
+        let (w, _, venue) = setup(0);
+        let e = &w.e;
+        let key = soroban_sdk::BytesN::from_array(e, &[9u8; 32]);
+        let contract = Address::from_payload(e, AddressPayload::ContractIdHash(key.clone()));
+        let account = Address::from_payload(e, AddressPayload::AccountIdPublicKeyEd25519(key));
+        assert_eq!(contract.clone().to_xdr(e).len(), 40);
+        assert_eq!(account.clone().to_xdr(e).len(), 44);
+        for stranger in [contract, account] {
+            refused(
+                &w,
+                pay_bytes(&w, &venue, stranger.to_xdr(e)),
+                E::AddressNotAllowed,
+            );
+        }
+    }
+
+    #[test]
+    fn the_xdr_of_a_muxed_address_is_refused() {
+        let (w, _, venue) = setup(0);
+        let xdr = MuxedAddress::from_str(&w.e, M).to_xdr(&w.e);
+        assert_eq!(xdr.len(), 48);
+        refused(&w, pay_bytes(&w, &venue, xdr), E::AddressNotAllowed);
+    }
+
+    #[test]
+    fn the_xdr_of_a_listed_address_still_passes() {
+        let (w, _, venue) = setup(0);
+        let xdr = w.custody.clone().to_xdr(&w.e);
+        assert!(run(&w, pay_bytes(&w, &venue, xdr)).is_ok());
+        assert_eq!(XdrPayClient::new(&w.e, &venue).balance(&w.custody), 100);
+    }
+
+    #[test]
+    fn data_of_other_lengths_near_those_still_passes() {
+        let (w, _, venue) = setup(0);
+        for len in [39u32, 41, 43, 45, 47, 49, 68, 70] {
+            let data = Bytes::from_slice(&w.e, &std::vec![7u8; len as usize]);
+            let args = Vec::from_array(&w.e, [data.to_val()]);
+            let calls = Vec::from_array(&w.e, [call_to(&w.e, &w.gate, "one", args)]);
+            assert!(run(&w, calls).is_ok(), "length {len} refused");
+        }
+        let _ = venue;
+    }
+
+    /// `run` checks again before it invokes anything. A stored muxed batch
+    /// cannot arrive through `execute` on this build, so it is written
+    /// straight into the adapter's storage, the way one stored by an earlier
+    /// build would sit there.
+    #[test]
+    fn run_refuses_a_stored_muxed_batch() {
+        let (w, token, _) = setup(720);
+        let e = &w.e;
+        let muxed = MuxedAddress::from_str(e, M);
+        let args = Vec::from_array(e, [w.prime.to_val(), muxed.to_val(), 100i128.into_val(e)]);
+        let calls = Vec::from_array(e, [call_to(e, &token, "transfer", args)]);
+        let stored: Stored = (calls, Vec::new(e), 1_000 + 720);
+        e.as_contract(&w.adapter, || e.storage().persistent().set(&1u32, &stored));
+        advance(&w, 720);
+        contract_error(client(&w).try_run(&1), E::Uncheckable);
+        assert_eq!(MuxTokenClient::new(e, &token).balance(&muxed.address()), 0);
     }
 }
