@@ -14,7 +14,7 @@
     "custody-gate": 9026,
     "execution-adapter": 24118
   },
-  "note": "Linux builds through each crate's build-wasm.sh, so the hashes can be rebuilt from source; CI does. The Prime app pins these: new gates are created from the custody-gate hash and name the execution-adapter hash as their caller's code. The record holds the build main produces, 3dd675c0, which refuses a muxed address. A deployed build can lag main: each network's record says which build it runs.",
+  "note": "Linux builds through each crate's build-wasm.sh, so the hashes can be rebuilt from source; CI does. The Prime app pins these: new gates are created from the custody-gate hash and name the execution-adapter hash as their caller's code. A deployed build can lag main: each network's record says which build it runs.",
   "interimBuilds": {
     "execution-adapter": {
       "wasmSha256": "eefcfdd76c0668c03470843b9394d086be239e8de908edbeaf705d4a1207746b",
