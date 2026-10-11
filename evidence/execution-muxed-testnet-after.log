@@ -1,0 +1,20 @@
+# ADAPTER_WASM=eefcfdd7... (build-wasm.sh) GATE_WASM=b01024f3... EXPECT=new bun scripts/verify-execution-muxed-testnet.ts   (2026-10-11, testnet, throwaway friendbot keys)
+
+adapter build  new  eefcfdd76c0668c03470843b9394d086be239e8de908edbeaf705d4a1207746b  24027B
+prime   CCNLYZF43BIOLJ7R5EMXTIPPOKFBNKFE5ZMB6HW3XKJULAHBB5DMBTAF
+gate    CCS6RWZGANZ2PBVUTPGW3M4H5RLVNFIB7T4A74LQ4GQVS2B6SHTZEA22   lists: adapter, custody, native asset, prime
+adapter CA5PFA2634UNCY6ENBJ5R3LLLFUMR2B3IXY54CF34BDJZ33UIYKX52FV
+stranger GBV2TKXIVIEDI7GAFZ67CUIFKIVMTFVCVC4HZZ3WLSW7LEZICLMYCE7G   not on the gate
+
+── the same batch, three recipients ──
+ok   pay custody (listed)                           permitted                          7e37d1746dda825731f50b105f9de8212726583ab4af8de2f3bde87ae5098fe3
+ok   pay stranger, plain address                    refused, contract error #2         
+ok   stranger balance after the plain attempt       10000 XLM                          
+
+── the stranger as a muxed address ──
+ok   pay stranger, muxed, immediately               refused, contract error #3         
+ok   pay stranger, muxed, stored (wait 720)         refused, contract error #3         
+ok   muxed batch submitted on chain                 FAILED, Error(Contract, #3)        30e6818881855db715f5ec3f945573ace18f19262c797c4be0c718b645d41918
+ok   stranger balance after the muxed batch         10000 XLM                          
+
+all checks passed

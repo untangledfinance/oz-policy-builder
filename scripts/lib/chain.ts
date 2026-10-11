@@ -159,6 +159,18 @@ export async function asPrime(opts: {
   signers?: string[]
   label: string
   submit?: boolean
+  /**
+   * Put a call the contracts would refuse on chain, so the refusal has a
+   * transaction hash. Simulation refuses it and a refused simulation cannot be
+   * submitted, so the footprint and resources come from `sibling`, an
+   * accepted call of the same shape, and `rootInvocation` swaps in the refused
+   * call's own invocation for the signature. The transaction fails in the
+   * contract and is recorded as failed.
+   */
+  forge?: {
+    sibling: (auth: xdr.SorobanAuthorizationEntry[]) => xdr.Operation
+    rootInvocation: (own: xdr.SorobanAuthorizedInvocation) => xdr.SorobanAuthorizedInvocation
+  }
 }): Promise<Res> {
   const { kp, prime, makeOp, ruleIds, label } = opts
   const signerList = opts.signers ?? [kp.publicKey()]
@@ -171,7 +183,7 @@ export async function asPrime(opts: {
   ])
 
   const probe = new TransactionBuilder(acct, { fee: FEE, networkPassphrase: PASSPHRASE })
-    .addOperation(makeOp([]))
+    .addOperation((opts.forge?.sibling ?? makeOp)([]))
     .setTimeout(120)
     .build()
 
@@ -187,7 +199,8 @@ export async function asPrime(opts: {
   if (!own) throw new Error(`${label}: no address-credential entry for Prime`)
 
   const exp = latest.sequence + 100
-  const payload = signaturePayload(own.credentials().address().nonce(), exp, own.rootInvocation())
+  const root = opts.forge ? opts.forge.rootInvocation(own.rootInvocation()) : own.rootInvocation()
+  const payload = signaturePayload(own.credentials().address().nonce(), exp, root)
   const digest = authDigest(payload, ruleIds)
 
   const accountEntry = new xdr.SorobanAuthorizationEntry({
@@ -213,7 +226,7 @@ export async function asPrime(opts: {
         ]),
       })
     ),
-    rootInvocation: own.rootInvocation(),
+    rootInvocation: root,
   })
 
   const signerEntry = new xdr.SorobanAuthorizationEntry({
@@ -249,6 +262,39 @@ export async function asPrime(opts: {
         : e
     })
 
+  if (opts.forge) {
+    // Not simulated again: the simulation would refuse it, which is the point.
+    const forged = new TransactionBuilder(await server.getAccount(kp.publicKey()), {
+      fee: FEE,
+      networkPassphrase: PASSPHRASE,
+    })
+      .addOperation(makeOp([accountEntry, ...vouches, ...others]))
+      .setSorobanData(sim.transactionData.build())
+      .setTimeout(120)
+      .build()
+    forged.sign(kp)
+    const sent: any = await server.sendTransaction(forged)
+    if (sent.status === 'ERROR') {
+      return {
+        denied: true,
+        stage: 'submit',
+        reason: JSON.stringify(sent.errorResult?.toXDR('base64')),
+      }
+    }
+    for (let i = 0; i < 45; i++) {
+      await new Promise((r) => setTimeout(r, 1000))
+      const got: any = await server.getTransaction(sent.hash)
+      if (got.status === 'NOT_FOUND') continue
+      return {
+        denied: got.status !== 'SUCCESS',
+        stage: 'submit',
+        reason: contractErrorIn(got),
+        got: { ...got, hash: sent.hash },
+      }
+    }
+    throw new Error(`${label}: ${sent.hash} did not confirm`)
+  }
+
   // Reuse the account read above: simulation does not consume the sequence,
   // and a submit re-reads it below.
   const authed = new TransactionBuilder(acct, { fee: FEE, networkPassphrase: PASSPHRASE })
@@ -271,6 +317,30 @@ export async function asPrime(opts: {
   const prepared = rpc.assembleTransaction(fresh, sim2).build()
   prepared.sign(kp)
   return { denied: false, got: await settle(await server.sendTransaction(prepared), label) }
+}
+
+/** The contract error a failed transaction's diagnostic events carry, as text. */
+function contractErrorIn(got: any): string | undefined {
+  const found: string[] = []
+  const walk = (v: xdr.ScVal) => {
+    if (v.switch() === xdr.ScValType.scvError()) {
+      const e = v.error()
+      if (e.switch() === xdr.ScErrorType.sceContract())
+        found.push(`Error(Contract, #${e.contractCode()})`)
+    }
+    if (v.switch() === xdr.ScValType.scvVec()) for (const x of v.vec() ?? []) walk(x)
+    if (v.switch() === xdr.ScValType.scvMap())
+      for (const m of v.map() ?? []) {
+        walk(m.key())
+        walk(m.val())
+      }
+  }
+  for (const ev of got.diagnosticEventsXdr ?? []) {
+    const body = ev.event().body().v0()
+    for (const t of body.topics()) walk(t)
+    walk(body.data())
+  }
+  return found[0]
 }
 
 export const codeOf = (r?: string) => (r ?? '').match(/Error\(Contract, #(\d+)\)/)?.[1]

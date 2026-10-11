@@ -53,6 +53,21 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ### Security
 
+- **`execution-adapter` refuses a muxed address:** the address walk passed any
+  host object it could not read, and a muxed address is one: a token's
+  `transfer` takes its recipient as a `MuxedAddress` and credits the account
+  behind it. A batch could therefore pay an account the gate never listed, now
+  or as a stored move, wherever a rule left the recipient to the gate's list.
+  The walk now refuses every host object outside numbers, times, symbols,
+  addresses, vectors, maps, bytes and strings (`Uncheckable`), and refuses
+  69-byte data, the length of an `M` strkey (`AddressNotAllowed`). Build
+  `eefcfdd7…`, recorded in `deployments/execution-testnet.json`. A gate pins
+  its caller's code hash, so a gate set up for an earlier build keeps that
+  build until custody makes a new gate. Verified on testnet by
+  `scripts/verify-execution-muxed-testnet.ts`: the earlier build pays a stranger
+  written as a muxed address, and this one refuses it. Mainnet runs the earlier
+  build and is not changed here.
+
 - **`@modelcontextprotocol/sdk` 1.32.1 and `proxy-addr` 2.0.8.** Clears
   GHSA-6qxp-vccf-f47h (the SDK's OAuth client) and GHSA-jqcg-44mw-7w3h
   (`proxy-addr`, through the SDK's `express`), which turned `bun audit` red.

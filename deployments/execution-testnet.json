@@ -1,18 +1,18 @@
 {
   "network": "testnet",
-  "recorded": "2026-09-29T13:06:12.672Z",
-  "uploader": "GCGSVOCK7TTY6LLPVRIEXPTT67ZGAA6JJLYK2Y6V6BFM2ICUN7FEGARK",
+  "recorded": "2026-10-11T15:37:37.814Z",
+  "uploader": "GCLHY7C7CSCLTCUN3DIEUHRQ3EULBWX23MQRIX3IVMPUTHAPMGECLQ73",
   "wasmSha256": {
     "custody-gate": "b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab",
-    "execution-adapter": "68d012e79fd4f9b88584447cfb32e0b0dbb55fb8bcd084b7212bad3e63b6dfdd"
+    "execution-adapter": "eefcfdd76c0668c03470843b9394d086be239e8de908edbeaf705d4a1207746b"
   },
   "uploadTx": {
     "custody-gate": "c7c9dedbabdb1a9f2cd64eb587a334a4346c8e97fc7b1f7bcbc811c574f08e2d",
-    "execution-adapter": "619c729f31f8a720b8070094f63fafc821f088b8ecb89a859437f2ae85b32db4"
+    "execution-adapter": "73c7cea3a4f628e3689aa48c273fcf2be3a14a7a09bff996b78e00b0e3b97576"
   },
   "sizes": {
     "custody-gate": 9026,
-    "execution-adapter": 22753
+    "execution-adapter": 24027
   },
   "note": "Linux builds through each crate's build-wasm.sh, so the hashes can be rebuilt from source; CI does. The Prime app pins these: new gates are created from the custody-gate hash and name the execution-adapter hash as their caller's code."
 }
