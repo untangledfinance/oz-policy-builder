@@ -63,7 +63,8 @@ const HORIZON_URL =
 const HOME = join(import.meta.dir, '..')
 const server = new rpc.Server(RPC_URL)
 
-/** The builds the Prime app pins (gate, adapter) and CI rebuilds (all three). */
+/** The builds the Prime app pins (gate, adapter) and CI rebuilds (all three). The adapter build
+ *  68d012e7… uploaded on 1 October 2026 stays on chain for gates created before this pin. */
 const ARTIFACTS = {
   'custody-gate': {
     file: 'contracts/custody-gate/target/wasm32v1-none/release/custody_gate.wasm',
@@ -71,7 +72,7 @@ const ARTIFACTS = {
   },
   'execution-adapter': {
     file: 'contracts/execution-adapter/target/wasm32v1-none/release/execution_adapter.wasm',
-    sha256: '68d012e79fd4f9b88584447cfb32e0b0dbb55fb8bcd084b7212bad3e63b6dfdd',
+    sha256: '3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3',
   },
   'policy-interpreter': {
     file: 'contracts/policy-interpreter/target/wasm32v1-none/release/policy_interpreter.wasm',
