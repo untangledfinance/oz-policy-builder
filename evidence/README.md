@@ -2,30 +2,51 @@
 
 The six local logs (`contract-gate.log`, `offchain-gate.log`, `cargo-audit.log`,
 `bun-audit.log`, `clippy-pedantic.log` and `scout-audit.log`) were regenerated
-on 2026-10-10 against `0358af5`, the tip of `main` on 2026-10-01. They cover
-the three contracts in scope, `policy-interpreter`, `custody-gate` and
-`execution-adapter`, and the three npm packages. `bun-audit.log` was run again
-after the dependency update in finding 10. Each contract's rebuilt wasm
-matches the code deployed on mainnet (`deployments/prime-mainnet.json`) and the
-record CI compares.
+on 2026-10-11 against `c520ac1`, the tip of `main` after the adapter's
+muxed-address fixes (#4 and #6). They cover the three contracts in scope,
+`policy-interpreter`, `custody-gate` and `execution-adapter`, and the three npm
+packages. The interpreter and the gate are byte-identical to the tree the
+2026-10-10 logs covered (`0358af5`); the adapter's source changed, so its
+sections are new.
+
+Each contract's rebuilt wasm was compared with the records in `deployments/`:
+
+| Contract | Rebuilt hash | Record |
+| --- | --- | --- |
+| `policy-interpreter` | `5143e641…` | matches `grammar6-testnet.json` and `prime-mainnet.json` |
+| `custody-gate` | `b01024f3…` | matches `execution-testnet.json` and `prime-mainnet.json` |
+| `execution-adapter` | `3dd675c0…` | matches `execution-testnet.json` |
+
+A deployed build can lag `main`: each network's record says which build it
+runs. The record CI compares for the adapter is the testnet one.
 
 The live-network logs spend testnet and mainnet funds, so they were run once
-against deployed contracts, and each row below says which:
+against deployed contracts, and each row below says which. Nothing in this
+directory was run against mainnet after 2026-10-01, and no mainnet funds were
+spent for the 2026-10-11 run.
 
 - `e2e-network.log` and the `oz-*` logs ran between 2026-08-22 and 2026-08-31
   against the grammar-4 interpreter the npm packages pin (testnet `CCBHVZ…`,
   mainnet `CDN755…`), built from `5bae0a8`. `main` builds grammar 6.
 - `execution-wait-testnet.log` and `execution-address-rule-testnet.log` ran on
-  2026-09-29 against the gate and adapter builds `b01024f3…` and `68d012e7…`,
-  which are the builds `main` produces and mainnet runs.
+  2026-09-29 against the gate and adapter builds `b01024f3…` and `68d012e7…`.
+  `main` now builds a different adapter.
+- `execution-wait-testnet-3dd675c0.log` and
+  `execution-address-rule-testnet-3dd675c0.log` ran the same two scripts on
+  2026-10-11 against the build `main` produces, `3dd675c0…`, with the gate
+  `b01024f3…`.
 - `execution-muxed-testnet-before.log` and `execution-muxed-testnet-after.log`
   ran on 2026-10-11 against adapter builds `68d012e7…` and `3dd675c0…`. The
   first is the control: that build pays a stranger written as a muxed address.
   The second refuses it, and the refused batch is also on chain as a failed
-  transaction.
+  transaction. An interim build, `eefcfdd7…` (the first fix, before #6), is on
+  testnet as well; no gate uses it and no log covers it.
+- `execution-gate-list-testnet.log` ran on 2026-10-11 against `3dd675c0…`. It
+  shows what the owners' rule 0 can do with the gate's list: pull to the Prime
+  account, which the wizard lists, and spend it from there.
 - The two `-reproducible-interpreter` logs re-ran those checks on testnet with
   the grammar-6 interpreter build mainnet runs (`5143e641…`), before the
-  mainnet deployment on 2026-10-01.
+  mainnet deployment on 2026-10-01. They ran against adapter `68d012e7…`.
 
 `offchain-gate.log` is generated from a clean `git archive` export, so what it
 measures is exactly what a reviewer gets from a clone and nothing that only
@@ -35,7 +56,7 @@ That distinction used to matter and was hiding a defect. The export was
 originally adopted as a workaround: `biome check .` reads untracked files, and
 the tree carried 21 untracked scripts whose lint errors were not the repo's. But
 four of those scripts were the ones this report's own reproduction commands tell
-you to run, so the artefact best placed to notice they were missing was the one
+you to run, so the artefact best placed to notice their absence was the one
 built to look past them. They are committed as of `370734d`; the working tree
 now holds no untracked scripts, `bun run check` passes in place, and the export
 and the working tree agree.
@@ -46,36 +67,42 @@ gitignored `dist/`.
 
 | Log | Command | Result |
 | --- | --- | --- |
-| `contract-gate.log` | per crate: `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm rebuild, record parity | clean; interpreter 151 tests across 7 binaries (18 of them conformance, also run in release), gate 3, adapter 33; each rebuilt wasm matches `deployments/prime-mainnet.json` and the record CI compares |
-| `offchain-gate.log` | `biome check .`, build, `bun run typecheck`, `bun test` | passes; biome checks 170 files with 0 errors, 99 warnings and 22 infos (finding 9); 771 pass, 1 skip, 0 fail across 772 tests in 52 files (`v1.3.0`) |
+| `contract-gate.log` | per crate: `cargo fmt --check`, `clippy -D warnings`, `cargo test`, conformance, wasm rebuild, record parity | clean; interpreter 151 tests across 7 binaries (18 of them conformance, also run in release), gate 3, adapter 45. The interpreter and gate wasm match their records; the adapter wasm (`3dd675c0…`) matches the testnet record |
+| `offchain-gate.log` | `biome check .`, build, `bun run typecheck`, `bun test` | passes; biome checks 171 files with 0 errors, 105 warnings and 23 infos (finding 9); 771 pass, 1 skip, 0 fail across 772 tests in 52 files (`v1.3.0`) |
 | `cargo-audit.log` | `cargo audit` per crate | 0 vulnerabilities (interpreter 202 crates, gate and adapter 215 each); 1 unmaintained-crate warning |
 | `bun-audit.log` | `bun audit` | 0 vulnerabilities across 146 packages, after the SDK and `proxy-addr` updates in finding 10 |
-| `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` per crate | style warnings only: interpreter 206, gate 16, adapter 35; all 8 cast warnings are in the interpreter's test files |
-| `scout-audit.log` | `cargo scout-audit` per crate | interpreter 2 Critical, 13 Medium; gate 0 Critical, 3 Medium; adapter 3 Critical, 14 Medium; 1 Enhancement each. All reviewed in finding 2 |
+| `clippy-pedantic.log` | `clippy -W clippy::pedantic -W clippy::nursery` per crate | style warnings only: interpreter 206, gate 16, adapter 47; all 8 cast warnings are in the interpreter's test files |
+| `scout-audit.log` | `cargo scout-audit` per crate | interpreter 2 Critical, 13 Medium; gate 0 Critical, 3 Medium; adapter 3 Critical, 14 Medium; 1 Enhancement each. The same 38 findings, at the same lines, as the 2026-10-10 run: the new walk adds none. All reviewed in finding 2 |
 | `oz-policy-composition.log` | `scripts/oz-policy-composition.ts` | two interpreter policies on ONE rule, disagreeing about the same call: the refusing one is decisive. OZ composes attached policies as ALL-OF |
 | `oz-spending-limit-binding.log` | `scripts/oz-spending-limit-binding.ts --network testnet` and `--network mainnet` | OZ's own `spending_limit` beside the interpreter denies an over-cap transfer `#3221` on both networks; control rule without the cap permits the same transfer |
 | `oz-threshold-binding.log` | `scripts/oz-threshold-binding.ts --network testnet` and `--network mainnet` | OZ's own `simple_threshold(2)` beside the interpreter denies a lone signer `#3202` and permits the two-signer call on both networks; control rule without the threshold permits that same lone signer |
 | `e2e-network.log` | `scripts/e2e-network.ts --network testnet` and `--network mainnet` | policy installed against the pinned interpreter on both networks; permitted call succeeds, forbidden call denied `#100`, and the agent's attempt to route the forbidden call through the unpoliced rule is refused on membership. Both networks re-run for this generation |
-| `stride-threat-model.md` | STRIDE re-run, 2026-09-29 | the threat model for the interpreter, the gate, the v4 adapter and the toolchain, with the app's stored-move flow as one adjacent data flow. Supersedes the 2026-09-25 report (at `d89e17b:docs/stride-threat-model.md`). Its tool table is dated 2026-10-01; for Scout and `bun audit`, the 2026-10-10 logs above are current |
-| `execution-wait-testnet.log` | `scripts/verify-execution-wait-testnet.ts` | 44 of 44 against the Linux builds: waits, stored moves, run, cancel, the run rule's refusals, revocation, pause and a stored move's measured lifetime |
-| `execution-address-rule-testnet.log` | `scripts/verify-execution-address-rule-testnet.ts` | 35 of 35 against the Linux builds: the adapter's address rule, run with no wait |
+| `stride-threat-model.md` | STRIDE re-run, 2026-10-11 | the threat model for the interpreter, the gate, the v4 adapter, the toolchain and the mainnet deployment, with the app's stored-move flow and pool picker as adjacent data flows. It adds the adapter's deny-by-default walk and the difference between the adapter on `main` and on mainnet. Supersedes the 2026-10-01 report. Its tool table is dated 2026-10-11 and uses the logs above |
+| `execution-wait-testnet.log` | `scripts/verify-execution-wait-testnet.ts` | 45 of 45 against `b01024f3…` and `68d012e7…`, run on 2026-09-29: waits, stored moves, run, cancel, the run rule's refusals, revocation, pause and a stored move's measured lifetime |
+| `execution-wait-testnet-3dd675c0.log` | `scripts/verify-execution-wait-testnet.ts` | 45 of 45 against `b01024f3…` and `3dd675c0…`, the build `main` produces, run on 2026-10-11 |
+| `execution-address-rule-testnet.log` | `scripts/verify-execution-address-rule-testnet.ts` | 35 of 35 against `b01024f3…` and `68d012e7…`, run on 2026-09-29: the adapter's address rule, run with no wait |
+| `execution-address-rule-testnet-3dd675c0.log` | `scripts/verify-execution-address-rule-testnet.ts` | 35 of 35 against `b01024f3…` and `3dd675c0…`, run on 2026-10-11 |
+| `execution-muxed-testnet-before.log`, `execution-muxed-testnet-after.log` | `scripts/verify-execution-muxed-testnet.ts` | the control (`68d012e7…`) pays a stranger written as a muxed address, now and as a stored move; `3dd675c0…` refuses it `#3`, refuses the stranger and the muxed stranger as XDR bytes `#2`, and the refused batch is a failed transaction on chain |
+| `execution-gate-list-testnet.log` | `scripts/verify-gate-list-testnet.ts` | 3 of 3 against `3dd675c0…`: the owners' rule 0 cannot pull to an unlisted stranger, can pull to the listed Prime account, and the Prime then pays the stranger with no wait and no list |
 | `execution-wait-testnet-reproducible-interpreter.log`, `execution-address-rule-testnet-reproducible-interpreter.log` | the same two scripts | 45 of 45 and 35 of 35 with the reproducible grammar-6 interpreter build that mainnet runs |
 
 ## Findings
 
 ### 1. `paste` 1.0.15 unmaintained - RUSTSEC-2024-0436 (ACCEPTED)
 
-Transitive through `soroban-sdk`. The advisory is "no longer maintained", not a
-vulnerability. Not actionable without an SDK change; `cargo audit` reports 0
+Transitive through `soroban-sdk`. The advisory says "no longer maintained" and reports
+no vulnerability. Not actionable without an SDK change; `cargo audit` reports 0
 vulnerabilities in each crate's lockfile (202 crates for the interpreter, 215
 for the gate and the adapter).
 
 ### 2. Scout findings - reviewed, no change
 
-The 2026-10-10 run covers all three crates. Line numbers below are from
-`0358af5`.
+The 2026-10-11 run covers all three crates and gives the same 38 findings as
+the 2026-10-10 run, at the same lines: the interpreter and the gate did not
+change, and the adapter's findings all sit above the walk that #4 and #6
+rewrote. Line numbers below are from `c520ac1`.
 
-**CRITICAL, all five arithmetic, none reachable as a wrong result.** Every crate
+**CRITICAL, all five arithmetic, none reachable as a wrong result:** every crate
 sets `overflow-checks = true` for release, so an overflow traps and the call is
 refused.
 
@@ -96,7 +123,7 @@ refused.
 
 - *unsafe `unwrap`* x3 in the gate and x9 in the adapter: each reads instance
   configuration the constructor wrote (`cfg`, `PRIME`, `GATE`, `MIN_WAIT`,
-  `WINDOW`), which is always present.
+  `WINDOW`), and that configuration is always present.
 - *Vec parameter without validating contents* x2 (`execute`'s `calls` and
   `grants`): `check` walks both before anything runs.
 - *storage op without access control* x1 (`lib.rs:292`): `ok.push_back(gate)`
@@ -106,7 +133,7 @@ refused.
 - *`extend_ttl` with identical arguments* x1 (`lib.rs:225`): deliberate; it
   keeps a stored batch live until its run window closes.
 
-**MEDIUM, `policy-interpreter`.** The 2026-08-27 run found nine; the dispositions
+**MEDIUM, `policy-interpreter`:** the 2026-08-27 run found nine; the dispositions
 below carry over with current line numbers, plus four new ones:
 
 - *unsafe `unwrap`* x2 (`lib.rs:182-183`, new, in `bind_executor`): on a rule
@@ -128,24 +155,24 @@ below carry over with current line numbers, plus four new ones:
   signer set is re-hashed against the hash stored at install;
   `rotate_master_signer_set`'s `new_set` is checked non-empty, capped, and
   refused if it contains an `External` signer.
-- *storage op without access control* x1: reported at `dsl.rs:281`, which is
+- *storage op without access control* x1: reported at `dsl.rs:281`: the call is
   `vals.push_back(..)` on a local `SorobanVec` inside `literal_to_val`. `dsl.rs`
   makes no `storage()` call anywhere, so the lint has matched an in-memory push
   and access control does not apply to it. (The contract's real storage writes,
   in `lib.rs` and `storage.rs`, do sit behind `require_auth` / `require_master`
   on every path - but that is not what this finding points at.)
-- *unsafe Map access* x1: reported at `dsl.rs:487`, which is `map.get(field)`.
+- *unsafe Map access* x1: reported at `dsl.rs:487`: the call is `map.get(field)`.
   Soroban's `Map::get` returns `Option`; the panicking variant is
   `get_unchecked`, which this line does not use. That `Option` is `resolve`'s
-  return value, so a missing field resolves to "no value" rather than trapping.
+  return value, so an absent field resolves to "no value" and the call does not trap.
 
 ### 3. Stellar Security Portal corpus cross-checked
 
 Pulled from the portal's open API on 2026-08-04: 832 findings, 150 critical or
 high. Those counts are carried forward from that pull and were NOT re-verified
 for grammar 4 - the portal's API still did not resolve when this tree was
-re-audited, retried again on 2026-08-27, so they are dated rather than restated as
-current.
+re-audited, retried again on 2026-08-27, so they carry their dates and make no claim about the
+current state.
 
 The cross-check itself is unaffected: it is a claim about this contract's entry
 points against the access-control class that dominates the corpus. Grammar 6
@@ -160,8 +187,8 @@ adds one entry point, `bind_executor`, so there are six.
 | `rotate_master_signer_set` | `require_master` on the *old* set |
 | `grammar_version` | read-only, touches no state |
 
-`require_master` refuses an empty set rather than treating zero `require_auth`
-calls as satisfied - the corpus's "authorization that silently no-ops" class.
+`require_master` refuses an empty set, so zero `require_auth`
+calls never count as satisfied - the corpus's "authorization that silently no-ops" class.
 The nonce covers its double-spend/replay class.
 
 ### 4. End-to-end enforcement on both networks
@@ -172,18 +199,17 @@ anything. `scripts/e2e-network.ts` deploys a fresh OZ smart account, installs
 verdicts through submitted transactions. Mainnet and testnet both pass; five
 independent mainnet runs produced the same outcome against different accounts.
 
-Three conditions make the result a claim about the KEY rather than about one
-call:
+Three conditions make the result describe the KEY, whatever call it makes:
 
-- **The deny is attributed.** The harness fails unless the refusal names the
+- **The deny is attributed:** the harness fails unless the refusal names the
   interpreter contract and carries `#100 ArgMismatch`. A test asserting only
   that a call failed passes for any reason.
-- **The forbidden call is otherwise valid.** `approve` is given an expiration
+- **The forbidden call is otherwise valid:** `approve` is given an expiration
   ledger ahead of the current one, so the token has no reason of its own to
   reject it and the predicate is the only thing that can.
-- **The deny is unroutable.** An account resolves a call against the rule the
-  caller NAMES, taking the maximum authority over the named rules rather than
-  the intersection, so a predicate constrains a key only when the policed rule
+- **The deny is unroutable:** an account resolves a call against the rule the
+  caller NAMES and takes the maximum authority across the rules the caller can
+  pick from, so a predicate constrains a key only when the policed rule
   is the only rule that key is on. The constrained agent is a signer on the
   policed rule and nowhere else, and the harness asserts that its forbidden
   call routed through the unpoliced admin rule is rejected on membership.
@@ -193,7 +219,7 @@ the same account, rule and policy, so an unbound policy would have let the
 `approve` through.
 
 The admin key retains full authority through the unpoliced rule by design. A
-policy constrains the keys placed under it, not the account's owner, and any
+policy constrains the keys placed under it and leaves the account's owner alone, and any
 deployment putting a constrained key on a second unpoliced rule has no
 constraint at all.
 
@@ -213,7 +239,7 @@ Exposed as `findAuthorityOverlaps` from `@crediolabs/policy-synth/install`;
 `install_policy` returns it as `authorityScan`.
 
 `install_policy` READS the account to build it, so the scan describes what is
-actually installed rather than what the caller happened to mention. Rule ids are
+installed, whatever the caller happened to mention. Rule ids are
 not contiguous - OZ never reuses an id after a removal - so the walk climbs ids
 until it has accounted for `Count` live rules; iterating `0..Count-1` would skip
 live rules at higher ids, and a skipped rule is a missed overlap. A caller can
@@ -221,9 +247,9 @@ still pass `existingRules` to supply them directly, which keeps the scan usable
 offline.
 
 **Limit:** `authorityScan: null` means NOT CHECKED, and covers a read that
-failed as well as one that could not account for every live rule. It is never an
-empty list in those cases, because reporting `[]` would turn "could not check"
-into "nothing found".
+failed as well as one that could not account for every live rule. In those cases
+the field stays `null` and never becomes an empty list, because reporting `[]`
+would turn "could not check" into "nothing found".
 
 ### 6. On-chain spec resolution widens the RPC trust boundary
 
@@ -233,15 +259,15 @@ on compiled-in data now depends on a network response.
 
 An attacker controlling the RPC endpoint can serve a fabricated spec whose types
 match the recorded call, turning a refusal into a `parseConfidence` of 1.0 for a
-contract nobody understands. The synthesised predicate still pins only the
+contract the tool does not understand. The synthesised predicate still pins only the
 contract address and method observed, so what the attacker gains is the removal
-of a warning, not a wider policy.
+of a warning and no wider policy.
 
 Bounds:
 
 - The spec is read from the same endpoint the transaction was fetched from, so
   no new trusted party is added; the blast radius of an existing one widens.
-- Recognition is all-or-nothing per contract and only ever adds. A missing spec,
+- Recognition is all-or-nothing per contract and only ever adds. An absent spec,
   an unreachable endpoint or a call the interface does not describe leaves the
   recording unchanged, so the failure direction is refusal.
 - `resolveContractSpecs: false` restores registry-only behaviour.
@@ -263,16 +289,16 @@ policy, on testnet and mainnet. Three calls, each load-bearing:
 | 20000000 stroops | interpreter + cap 5000000 | deny `#3221` | denied `#3221` |
 
 The control is what attributes the deny: the identical transfer passes when the
-cap is absent, so the refusal is not the interpreter's, not the amount's and not
-an empty balance. The under-cap permit rules out a rule that simply denies
+cap is absent, so the cap alone explains the refusal: the interpreter, the amount and
+an empty balance are ruled out. The under-cap permit rules out a rule that simply denies
 everything. Raising the cap to 50000000 flips the third row to permitted, so the
-verdict tracks the cap VALUE rather than the presence of a second policy.
+verdict tracks the cap VALUE, and the presence of a second policy alone changes nothing.
 
 The rules are `ContextRuleType::CallContract(SAC)` because `spending_limit`'s
 install refuses any other rule type, pinning the cap to one token so every
 metered transfer is denominated the same way.
 
-**Provenance of the deployed policy contracts.** These are OZ *example* contracts
+**Provenance of the deployed policy contracts:** these are OZ *example* contracts
 that we built and deployed ourselves; they are not ours and we did not audit them.
 
 - Built from `OpenZeppelin/stellar-contracts` at tag `v0.7.2` (`a9c4216`,
@@ -300,7 +326,7 @@ The same provenance covers `simple_threshold`
 time. All six addresses and all three wasm hashes were read back from chain and
 are pinned in `PINNED_OZ_POLICY_ADDRESS_BY_NETWORK` /
 `PINNED_OZ_POLICY_WASM_SHA256`, exported from `@crediolabs/policy-synth/run` so
-consumers import the pin rather than copying a literal.
+consumers import the pin and have no literal to copy.
 
 ### 8. `simple_threshold` restores m-of-n, which a policy otherwise removes
 
@@ -321,11 +347,11 @@ Two signers on both rules; only the extra policy varies. On testnet and mainnet:
 | signers A + B | interpreter + threshold(2) | permit | permitted |
 
 The control does double duty: it attributes the deny to the threshold, and it
-demonstrates the any-of-N inversion rather than asserting it. Dropping the
+demonstrates the any-of-N inversion and leaves nothing to assertion. Dropping the
 threshold to 1 flips the lone-signer call to permitted, so the verdict tracks
 the threshold value.
 
-**Carried hazard, from OZ's own module header.** `simple_threshold` validates
+**Carried hazard, from OZ's own module header:** `simple_threshold` validates
 the threshold against the rule's signer count AT INSTALL and is not notified
 when signers change afterwards. Removing signers can put the threshold out of
 reach and permanently block the rule; adding them silently weakens a strict
@@ -341,10 +367,11 @@ signer set.
 
 ### 9. Biome warnings in the verification scripts
 
-`biome check .` passes with 0 errors, 99 warnings and 22 infos. 90 of the 121
-are `noExplicitAny` and 22 are `useTemplate`. 112 sit in `scripts/`, the
+`biome check .` passes with 0 errors, 105 warnings and 23 infos. 96 of the 128
+are `noExplicitAny` and 23 are `useTemplate`. 119 sit in `scripts/`, the
 testnet and mainnet verification scripts; the other 9 are in
-`packages/policy-synth`.
+`packages/policy-synth`. The count at `c520ac1` includes the muxed-address
+verifier; `scripts/verify-gate-list-testnet.ts` adds 3 warnings and 1 info.
 
 ### 10. Two advisories through `@modelcontextprotocol/sdk` 1.30.0 (FIXED)
 
@@ -359,6 +386,29 @@ Streamable HTTP server transports), and its HTTP transport runs on `node:http`,
 so neither the OAuth client nor `express` is on its request path. Fixed on
 2026-10-10 by moving to SDK 1.32.1 and pinning `proxy-addr` ^2.0.8 in the root
 `overrides`; `bun-audit.log` is the run after the fix.
+
+### 11. A muxed address passed the adapter's address rule (FIXED)
+
+The adapter's walk passed any host object it could not read, and a muxed
+address is one. The Stellar Asset Contract's `transfer` credits the account
+behind a muxed recipient, so a batch could pay an account the gate never listed.
+#4 made the walk refuse every object outside a safe list and every 69-byte
+value, and #6 made 40-, 44- and 48-byte data match the XDR of a listed address.
+`execution-muxed-testnet-before.log` shows the build before the fix paying a
+stranger, now and as a stored move. `execution-muxed-testnet-after.log` shows
+`3dd675c0…` refusing both, and the refused batch on chain as a failed
+transaction. The two limits that remain, a `U256` that carries key bytes and
+composite XDR decoded by a listed venue, are in
+`contracts/execution-adapter/README.md`, and the threat model covers them
+([stride-threat-model.md](./stride-threat-model.md)).
+
+### 12. The gate's list also lists its payees (OPEN)
+
+`pull` pays any address on the gate's list, and the Prime app lists the Prime
+account because Blend's `submit` names it. `execution-gate-list-testnet.log`
+shows the owners' rule 0 drawing custody's allowance into the Prime account and
+the Prime paying a stranger from it, with no wait. `docs/stellar.md` lists this
+under Limits.
 
 ## Reproducing the Scout run
 

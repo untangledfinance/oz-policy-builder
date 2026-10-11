@@ -14,5 +14,13 @@
     "custody-gate": 9026,
     "execution-adapter": 24118
   },
-  "note": "Linux builds through each crate's build-wasm.sh, so the hashes can be rebuilt from source; CI does. The Prime app pins these: new gates are created from the custody-gate hash and name the execution-adapter hash as their caller's code."
+  "note": "Linux builds through each crate's build-wasm.sh, so the hashes can be rebuilt from source; CI does. The Prime app pins these: new gates are created from the custody-gate hash and name the execution-adapter hash as their caller's code. The record holds the build main produces, 3dd675c0, which refuses a muxed address. A deployed build can lag main: each network's record says which build it runs.",
+  "interimBuilds": {
+    "execution-adapter": {
+      "wasmSha256": "eefcfdd76c0668c03470843b9394d086be239e8de908edbeaf705d4a1207746b",
+      "uploadTx": "73c7cea3a4f628e3689aa48c273fcf2be3a14a7a09bff996b78e00b0e3b97576",
+      "size": 24027,
+      "note": "The first muxed-address fix (#4), before #6 added the XDR comparison. It refuses a muxed address and passes the XDR of an address as bytes. No gate uses it and no CI check reads this entry."
+    }
+  }
 }

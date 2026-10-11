@@ -9,7 +9,7 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ### Added
 
-- **Prime contracts on mainnet.** `scripts/deploy-prime-mainnet.ts` uploads the
+- **Prime contracts on mainnet:** `scripts/deploy-prime-mainnet.ts` uploads the
   gate, adapter and interpreter code, creates the grammar-6 interpreter, and
   extends the three uploaded code entries and the interpreter instance. It
   runs as a dry run unless given `--execute` and a fee cap, refuses code whose
@@ -19,7 +19,7 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   `deployments/prime-mainnet.json`. No job keeps mainnet entries live; see
   "Keeping contracts live" in `docs/stellar.md`.
 
-- **`execution-adapter` (v4): a batch can wait.** `execute(calls, grants, wait)`
+- **`execution-adapter` (v4): a batch can wait:** `execute(calls, grants, wait)`
   runs at once when `wait` is 0, as v3 does. With a wait it stores the batch,
   and anyone can `run(id)` it from the ready ledger until the run window closes.
   The Prime or the custody account can `cancel(id, by)` it first.
@@ -27,22 +27,33 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
     the adapter is created.
   - The adapter's address commits to both numbers, and its constructor refuses
     any other address, so the Prime cannot create it at the address custody
-    named with a lower `min_wait`.
+    derived for a higher `min_wait`.
   - A rule can demand its own minimum wait with `call_arg(2) >= N`.
   - A stored batch runs under a Prime rule scoped to the adapter, signed by the
     adapter, whose predicate permits `run` alone.
   - The gate is the unchanged v3 contract.
   - Verified end to end on testnet by `scripts/verify-execution-wait-testnet.ts`.
 
-- **Reproducible builds for the gate and the adapter.** Each crate has a
+- **Reproducible builds for the gate and the adapter:** each crate has a
   `build-wasm.sh`, like the interpreter's; the Linux builds are uploaded to
   testnet and recorded in `deployments/execution-testnet.json` by
   `scripts/upload-execution-testnet.ts`, and CI rebuilds both and compares them
   with the record. The Prime app pins these hashes.
 
+- **`scripts/verify-gate-list-testnet.ts`:** stands up a Prime, a gate that lists
+  the Prime account (as the app's wizard does) and an adapter, then runs the
+  owners' rule 0: a pull to an unlisted stranger is refused, a pull to the Prime
+  is paid, and the Prime pays the stranger from it with no wait. 3 of 3 on
+  `3dd675c0…`; the log is `evidence/execution-gate-list-testnet.log`.
+
+- **The wait and address-rule verifiers on `3dd675c0…`.** 45 of 45 and 35 of 35 on
+  testnet, in `evidence/execution-wait-testnet-3dd675c0.log` and
+  `evidence/execution-address-rule-testnet-3dd675c0.log`. The 2026-09-29 logs
+  stay as the record of the earlier build they ran against.
+
 ### Fixed
 
-- **The adapter keeps itself and its stored moves live.** Soroban creates every
+- **The adapter keeps itself and its stored moves live:** soroban creates every
   entry with the network's minimum lifetime - about 7 days on testnet, 120 on
   mainnet - and a write does not extend it. `execute` and `run` now extend the
   adapter's instance to about 30 days once fewer than about 7 remain, and a
@@ -53,22 +64,33 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ### Security
 
-- **`execution-adapter` refuses a muxed address:** the address walk passed any
-  host object it could not read, and a muxed address is one: a token's
+- **`execution-adapter` refuses a muxed address (#4):** the address walk passed
+  any host object it could not read, and a muxed address is one: a token's
   `transfer` takes its recipient as a `MuxedAddress` and credits the account
   behind it. A batch could therefore pay an account the gate never listed, now
   or as a stored move, wherever a rule left the recipient to the gate's list.
   The walk now refuses every host object outside numbers, times, symbols,
   addresses, vectors, maps, bytes and strings (`Uncheckable`), and refuses
-  data of 40, 44 and 48 bytes unless it equals an allowed address's XDR, and 69-byte data (`AddressNotAllowed`). Those are the XDR of an address and of a muxed address, and the length of an `M` strkey, for a venue that decodes bytes. Build
-  `3dd675c0…`, recorded in `deployments/execution-testnet.json`. A gate pins
-  its caller's code hash, so a gate set up for an earlier build keeps that
-  build until custody makes a new gate. Verified on testnet by
+  69-byte data (`AddressNotAllowed`), the length of an `M` strkey a venue could
+  decode. The first build with this fix, `eefcfdd7…` (24,027 bytes), is on
+  testnet and no gate uses it. Verified on testnet by
   `scripts/verify-execution-muxed-testnet.ts`: the earlier build pays a stranger
-  written as a muxed address, and this one refuses it. Mainnet runs the earlier
-  build and is not changed here.
+  written as a muxed address, and the fixed build refuses it, now and as a
+  stored move (`evidence/execution-muxed-testnet-before.log` and
+  `-after.log`).
 
-- **`@modelcontextprotocol/sdk` 1.32.1 and `proxy-addr` 2.0.8.** Clears
+- **`execution-adapter` refuses an address passed as XDR bytes (#6):** data of
+  40, 44 and 48 bytes must equal the XDR of an allowed address: those are the
+  lengths of a contract address, an account address and a muxed address as a
+  venue's `from_xdr` reads them. A test now covers `run` refusing a stored
+  muxed batch. This is build `3dd675c0…` (24,118 bytes), recorded in
+  `deployments/execution-testnet.json` and the build `main` produces. A gate
+  pins its caller's code hash, so a gate set up for an earlier build keeps that
+  build until custody makes a new gate. Two limits of an address walk that cannot read a venue's ABI stay open and are
+  documented: a `U256` can carry 32 key bytes, and a listed venue that decodes
+  a `Vec<Address>` or an `(Address, u32)` out of bytes passes the walk.
+
+- **`@modelcontextprotocol/sdk` 1.32.1 and `proxy-addr` 2.0.8:** clears
   GHSA-6qxp-vccf-f47h (the SDK's OAuth client) and GHSA-jqcg-44mw-7w3h
   (`proxy-addr`, through the SDK's `express`), which turned `bun audit` red.
   `@crediolabs/policy-builder-mcp` uses the SDK's server transports only, so
@@ -77,7 +99,19 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ### Changed
 
-- **Contract folders carry no version.** `contracts/custody-gate-v3` is now
+- **Threat model re-run (11 October 2026), and the evidence regenerated against
+  `c520ac1`.** `evidence/stride-threat-model.md` re-examines the adapter's
+  deny-by-default walk, adds the difference between the build on `main` and the
+  builds deployed on each network as a threat in its own right, and records each
+  finding's status. The six local logs were regenerated, and `evidence/README.md`
+  says which build each log covers. `deployments/execution-testnet.json` says
+  which build it holds and records the interim testnet build `eefcfdd7…`.
+  `docs/architecture.md` no longer says the Prime's signers can pay only the
+  recovery address: the gate pays any address on its list. The README,
+  `SECURITY.md`, `docs/stellar.md` and the adapter README say that a deployed
+  build can lag `main` and state the two limits of the address walk.
+
+- **Contract folders carry no version:** `contracts/custody-gate-v3` is now
   `contracts/custody-gate` and `contracts/execution-adapter-v4` is
   `contracts/execution-adapter`, with the crate names to match. The on-chain
   conventions are unchanged: the adapter's salt domain is still
@@ -86,7 +120,7 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ### Removed
 
-- **`execution-adapter-v3`.** The Prime app now sets new gates up for v4, and
+- **`execution-adapter-v3`:** the Prime app now sets new gates up for v4, and
   v4 with no wait is v3's rule and batch. Its source is kept at tag
   `archive/execution-adapter-v3`; deployed v3 pairs are unaffected. The
   address-rule verifier moved to v4 as
@@ -95,7 +129,7 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ### Removed
 
-- **Every contract generation but the latest.** `contracts/` now holds the
+- **Every contract generation but the latest:** `contracts/` now holds the
   grammar-6 `policy-interpreter`, the v3 pair `custody-gate-v3` and
   `execution-adapter-v3`, and the `test-blend-pool` test double. The v1 and v2
   gate and adapter (`custody-gate`, `execution-adapter`), `execution-policy`,
@@ -114,7 +148,7 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ### Changed
 
-- **`docs/` holds three documents.** `docs/architecture.md` describes the
+- **`docs/` holds three documents:** `docs/architecture.md` describes the
   custody setup on Stellar and EVM for an institutional reader, and
   `docs/stellar.md` and `docs/evm.md` carry the technical detail. The
   superseded proposals, the evidence write-ups for retired contract
@@ -133,7 +167,7 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 - **The interpreter's wasm-parity CI step checks the grammar-6 instance it
   builds.** It compared the source against `PINNED_INTERPRETER_WASM_SHA256`,
   which names the grammar-4 instances the packages still target, so it had
-  been red since grammar 6 landed. It now compares against
+  been red since grammar 6 arrived. It now compares against
   `docs/grammar6-testnet-deployment.json`. That instance
   (`CDPR5VTX…`, wasm `a7ef48e3…`) was uploaded from a bare cargo build; a
   bare build of `931514b` on the deploying machine reproduces `a7ef48e3…`
@@ -163,8 +197,8 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   OLD adapter: adopting this build means a new gate and adapter generation for
   an account already on v3. Note the hash moves on a comment-only edit -
   `panic_with_error!` embeds source locations - so a wording change in
-  `lib.rs` is a new build, not a free one.
-- **`custody-gate-v3` and `execution-adapter-v3` are in the CI matrix.** Their
+  `lib.rs` is a new build with a cost.
+- **`custody-gate-v3` and `execution-adapter-v3` are in the CI matrix:** their
   unit tests existed and had never run on a push, on the two contracts that
   stand between an agent and custody's money. Adding them surfaced two gate
   failures already red on `main`: `cargo fmt --check` on the interpreter and
@@ -180,7 +214,7 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   The package pins still point at the grammar-4 instances: the synthesiser
   does not yet encode `policy_admins`, and a v4 document is refused by the
   v5 version gate in both directions. Pins move when the encoder does.
-- **Prime execution layer (batch-only venue policies).** New generic executor
+- **Prime execution layer (batch-only venue policies):** new generic executor
   contract (`execute(prime, calls)`, immutable per-Prime binding) and
   `ExecutionPolicy` that closes the direct-call bypass by in-transaction
   ARMING: the `execute` context validates the whole batch and arms single-use
@@ -215,7 +249,7 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 - `authorityScan` entries now carry `spendCap` (a neighbour's own cap, read from
   the policy's own storage) and `capBypass`. Where both rules are capped the
-  advice states the COMBINED figure, because separate budgets add up rather than
+  advice states the COMBINED figure, because separate budgets add up and never
   cancel; where the periods differ it says so instead of adding them.
 
 - `findAuthorityOverlaps` takes an optional `knownPolicies`. Omit it and the
@@ -224,10 +258,10 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ## [1.2.0] - 2026-08-30
 
-A minor rather than a patch, because an install that used to succeed can now
+This is a minor release, because an install that used to succeed can now
 fail. Both changes came out of a red-team pass over the tree: the tool already
 knew the rule it was about to build could not bind, and said so in a field
-nobody reads.
+that went unread.
 
 ### Changed
 
@@ -253,7 +287,7 @@ nobody reads.
 - `install_policy`'s `outPath` now writes a staging file and renames it into
   place. A plain write truncates first, so anything watching the directory - a
   signer picking up envelopes is the obvious case - could read a half-written
-  file and report a malformed *transaction* rather than a malformed *file*. The
+  file and report a malformed *transaction* when the real fault was a half-written *file*. The
   path now either does not exist or holds the complete envelope. A refused
   install writes nothing at all.
 
@@ -261,7 +295,7 @@ nobody reads.
 
 Diagnostics. Every change here came from watching an agent fail to install a
 policy and be sent in the wrong direction by our own error, so the theme is
-saying *which* thing is wrong rather than only *that* something is.
+saying *which* thing is wrong as well as *that* something is.
 
 ### Fixed
 
@@ -269,7 +303,7 @@ saying *which* thing is wrong rather than only *that* something is.
   `sourceAccount` at the boundary, **naming the field**. Both were validated by
   a shape regex only, so an address with the right prefix and length but a bad
   checksum passed and failed much later inside the build, surfacing as a bare
-  `invalid checksum` that named nothing. A caller holding six addresses could
+  `invalid checksum` that identified nothing. A caller holding six addresses could
   not tell which one was wrong. (`signers` was already checksum-validated; this
   brings the other fields up to it.)
 
@@ -280,9 +314,9 @@ saying *which* thing is wrong rather than only *that* something is.
   only route from a tool result onto disk is the caller re-emitting it, so a
   truncated copy is easy to produce and hard to spot: it fails later as
   `failed to decode XDR: xdr value invalid`, which reads like a malformed
-  transaction rather than a transport problem. Check both before signing.
+  transaction and hides the transport problem. Check both before signing.
 
-  This is a mitigation, not a cure. A multi-kilobyte value cannot reach disk
+  This mitigates the problem and falls short of a cure. A multi-kilobyte value cannot reach disk
   without passing through the caller; making truncation *detectable* turns a
   silent, fatal failure into a retry.
 
@@ -291,8 +325,8 @@ saying *which* thing is wrong rather than only *that* something is.
   authorise **two** contexts (the venue call and the token `transfer` funding
   it), so cover both or the account refuses everything with `#3014`; pin the
   transfer arm's **destination**, because bounding only its amount lets the key
-  send funds anywhere; read a pool address from the venue's factory rather than
-  deriving it; and write the unsigned XDR exactly as returned - base64, one
+  send funds anywhere; read a pool address from the venue's factory and never
+  derive it; and write the unsigned XDR exactly as returned - base64, one
   line - because a decoded or re-wrapped file fails at the signer.
 
 ## [1.1.0] - 2026-08-29
@@ -311,8 +345,7 @@ saying *which* thing is wrong rather than only *that* something is.
 
   The `oz_builtin` policy-ref kind was removed in 0.3.0 and the builder kept
   applying one set of install params across the whole policies map, so nothing
-  but the interpreter could be expressed - a builder limitation rather than a
-  protocol one (threat model R-6). `PolicyRef` is a union again and each policy
+  but the interpreter could be expressed - a builder limitation with no protocol cause (threat model R-6). `PolicyRef` is a union again and each policy
   carries its own params.
 
   Verified on testnet: a rule with a 10 XLM per-call predicate and a 15 XLM
@@ -323,7 +356,7 @@ saying *which* thing is wrong rather than only *that* something is.
   verdicts for the same call.
 
 - `install_policy` refuses a rolling total on a rule that is not scoped to a
-  single contract. The primitive meters the third argument of a call named
+  single contract. The primitive meters the third argument of a call to a function called
   exactly `transfer`; on a default-scoped rule it would install and meter
   nothing, which reads as a working cap.
 
@@ -335,18 +368,18 @@ saying *which* thing is wrong rather than only *that* something is.
   `describes.policies` reports the window and the total.
 
 - `serverInfo.version` was hardcoded again after 1.0.0 and would have reported
-  `1.0.0` from a 1.1.0 package. It is now pinned to `package.json` by a test, so
-  a bump that forgets it fails rather than shipping a plausible-looking lie.
+  `1.0.0` from a 1.1.0 package. A test now pins it to `package.json`, so
+  a bump that forgets it fails and no plausible-looking lie ships.
 
 ## [1.0.0] - 2026-08-28
 
 The 1.0 release. No behaviour changes from 0.5.6 beyond the one noted below;
-the version reflects that the surface is what Tranche #3 delivers, not new work.
+the version reflects that the surface is what Tranche #3 delivers and adds no new work.
 
 ### Fixed
 
 - The MCP server reported `serverInfo.version` as `0.0.0` to every client
-  (`src/server.ts`), because the value was hardcoded rather than taken from the
+  (`src/server.ts`), because the value was hardcoded and never taken from the
   package. A client asking the server what it was got `0.0.0` regardless of what
   was installed. It now reports `1.0.0`.
 
@@ -365,10 +398,10 @@ published in the repository.
   struct argument. A declared cap lowered only to `lte(call_arg(i),
   literal_i128)`, which addresses a positional argument; a Blend `submit`
   carries no top-level amount - it is `requests[i].amount` inside a vec of
-  maps - so no index named it and `maxAmount` had nothing to bind to, even
-  though the grammar has reached nested fields since `call_arg_field` landed.
+  maps - so no index pointed at it and `maxAmount` had nothing to bind to, even
+  though the grammar has reached nested fields since `call_arg_field` shipped.
 
-  `amountPath` names a COUNT, not an index, and that is the whole safety
+  `amountPath` holds a COUNT and never an index, and that is the whole safety
   property: `call_arg_field` binds ONE element and says nothing about the
   others, so a bound on a single entry leaves the rest of the vec
   unconstrained and the caller puts the spend in an unbounded one. Every entry
@@ -377,7 +410,7 @@ published in the repository.
 
   THE CAP IS PER ENTRY. With `elements: 3` and `maxAmount` 100, one call may
   carry three requests of 100 and move 300 in total; the returned warning
-  states the multiplication rather than leaving the caller to notice it. A
+  states the multiplication so the caller does not have to notice it. A
   single-entry cap denies a call carrying more than one entry, and says so.
 
   Reachable from the run schema, the MCP tool shape, and the CLI as
@@ -388,7 +421,7 @@ published in the repository.
 ### Fixed
 
 - `renderConstraint` no longer withholds an `or` of `and` branches. It returned
-  null for a bare `and` on the basis that `and` is structural rather than a
+  null for a bare `and` on the basis that `and` is structural and never a
   constraint leaf - true on the walk path, where `walkPredicate` descends into a
   top-level `and` and never passes one in, and false on the `or` path, which
   recurses into arbitrary children.
@@ -398,7 +431,7 @@ published in the repository.
   withheld. `describePredicate` then returned an empty list for a restrictive
   policy, and an empty list reads as "no constraints" - inverting the guard it
   was protecting. The withhold exists so a disjunction never reads STRICTER than
-  reality; withholding the only line reads as UNRESTRICTED, which is the worse
+  reality; withholding the only line reads as UNRESTRICTED, the worse
   direction. The branch is composed instead, and the withhold is kept for
   genuinely unrenderable children.
 
@@ -413,7 +446,7 @@ published in the repository.
   smart-account address is supplied.
 - An unrecognised protocol no longer leaves every recipient unconstrained. It
   emitted zero address constraints, because with no ABI no argument can be
-  singled out by role. Rather than guess which address is the recipient, every
+  singled out by role. Without guessing which address is the recipient, every
   address argument the call actually carried is pinned.
 
 ## [0.5.2] - 2026-08-23
@@ -424,11 +457,11 @@ published in the repository.
   `interpreter`, with `INSTALL_BUILD_FAILED`. It previously skipped one in
   silence, so a caller attaching an OpenZeppelin built-in beside the
   interpreter - a spending cap, say - received a rule WITHOUT it and nothing
-  reported the loss. The user signed an install missing the restriction they
-  asked for. A dropped policy is a missing restriction, so this fails loudly.
+  reported the loss. The user signed an install that lacked the restriction they
+  asked for. A dropped policy is a lost restriction, so this fails loudly.
 
   `PolicyRef` has a single shape today, so no typed caller can reach the new
-  branch; the guard is for the built JavaScript, which is reachable untyped,
+  branch; the guard is for the built JavaScript, reachable untyped,
   and for the next kind added to the union without a case in the encoder.
 
 ## [0.5.1] - 2026-08-23
@@ -446,7 +479,7 @@ published in the repository.
   pin was read back from chain.
 
   These are OpenZeppelin EXAMPLE contracts that we built from tag v0.7.2 and
-  deployed ourselves. We have not audited them and upstream disclaims them as
+  deployed ourselves. We still need to audit them, and upstream disclaims them as
   experimental software; anything surfacing one to a user should say so.
 
 ## [0.5.0] - 2026-08-22
@@ -460,7 +493,7 @@ published in the repository.
   not be said at all.
 - Slippage floors. `call_arg_scaled` evaluates to `args[i] * num / den`
   truncating toward zero, and is the only selector permitted on the right of a
-  comparison, which is what lets a swap bound its output against its own input:
+  comparison, and that lets a swap bound its output against its own input:
   `call_arg(out) >= call_arg_scaled(in, 99, 100)`. A constant cannot express
   this - it would pin the policy to a single trade size. Reachable through
   `declare_policy` / `policy-builder declare --min-out-ratio 99/100 --in-arg 0
@@ -486,17 +519,17 @@ published in the repository.
   A version-3 document still decodes under 4 - the grammar only widened - so
   the version gate is the only thing refusing it, and it does.
 - Deny code 102 (`ARITHMETIC_OVERFLOW`) returns to its original meaning, which
-  `call_arg_scaled` needs again. It is a restoration, not a recycle: a consumer
+  `call_arg_scaled` needs again. It restores the old meaning: a consumer
   that remembers `102 = ARITHMETIC_OVERFLOW` stays right. New in this version:
   107 `SLIPPAGE_FLOOR` and 214 `INVALID_SCALED_RATIO`.
 - The review card renders a disjunction as ONE line. A line per branch would
-  read as "all of these are required", which is both wrong and the dangerous
+  read as "all of these are required", a reading that is wrong and runs in the dangerous
   direction - it makes a policy look tighter than it is.
 
 ### Verified
 
 - **Multiple policies on one OZ context rule compose as ALL-OF**, established by
-  experiment rather than read from documentation
+  experiment and no documentation
   (`scripts/oz-policy-composition.ts`, evidence in
   `docs/audit/evidence/oz-policy-composition.log`). Two interpreter instances
   were attached to one rule with predicates that disagreed about the same call,
@@ -512,10 +545,9 @@ published in the repository.
   comparison, so a floor would permit exactly the trades it was written to
   refuse, and at evaluate that is indistinguishable from a policy working
   normally. The same shapes are refused by `encodePredicate` off chain and by
-  `declare_policy` at the point the ratio is stated.
+  `declare_policy` where the ratio is stated.
 - `call_arg_scaled` arithmetic is `checked_mul`/`checked_div` throughout;
-  overflow and a zero denominator deny rather than wrapping or panicking the
-  frame. The TypeScript reference evaluator applies the same i128 bounds so the
+  overflow and a zero denominator deny, and the frame never wraps or panics. The TypeScript reference evaluator applies the same i128 bounds so the
   two layers agree at the boundary.
 
 ## [0.4.0] - 2026-08-22
@@ -528,9 +560,9 @@ published in the repository.
   recognise had no path at all. `declare` takes the constraint stated outright
   - the method to pin, and optionally the contract, a per-call amount cap and a
   recipient allowlist - with no RPC and no parseConfidence, so a registry miss
-  cannot refuse it. It is the surviving half of the removed `MandateSpec` and
+  cannot refuse it; it is the surviving half of the removed `MandateSpec` and
   deliberately not the rest: the input schema is strict, so naming
-  `spendingLimit` or `approvalThreshold` is an error rather than a silent
+  `spendingLimit` or `approvalThreshold` is an error and never a silent
   no-op. A defaulted argument index emits a warning naming the index assumed.
 - The cross-rule authority check is back, adapted to grammar 3:
   `findAuthorityOverlaps` from `@crediolabs/policy-synth/install`, and
@@ -540,14 +572,14 @@ published in the repository.
   only constrains a key when the policed rule is the only rule that key is on,
   and that mistake was made in this project's own end-to-end harness. Pass
   `existingRules` to turn it on; omitting them returns `null`, meaning NOT
-  CHECKED rather than nothing found. It was published in 0.2.0 and lost when the
+  CHECKED, which differs from nothing found. The scan was published in 0.2.0 and lost when the
   npm lineage moved to this repository from its previous source repo.
 - The recorder now reads a contract's own interface OFF CHAIN when the
   compiled-in registry does not recognise it, and verifies every recorded call
   against it. A Soroban contract embeds a typed spec in its wasm, so the
   recorder had been refusing calls whose interface was one RPC round-trip
-  away. Recognition is all-or-nothing per contract and only ever ADDS: a
-  missing spec, an unreachable endpoint or a call the interface does not
+  away. Recognition is all-or-nothing per contract and only ever ADDS: an
+  absent spec, an unreachable endpoint or a call the interface does not
   describe leaves the recording exactly as it was. Set
   `resolveContractSpecs: false` for registry-only behaviour.
 
@@ -559,7 +591,7 @@ published in the repository.
   shape omitted `network`, and a field absent from a tool shape is stripped
   before the tool body runs, so the input schema's `testnet` default always
   won and no MCP client could reach the mainnet interpreter pin. It presented
-  as a deliberate testnet pin rather than a missing parameter, so integrators
+  as a deliberate testnet pin and hid the absent parameter, so integrators
   built the install by hand instead of reporting it. Shipped 0.3.0 with this
   defect, alongside the mainnet pins it makes unreachable.
 - The build no longer ships compiled files for deleted source. `tsc` writes
@@ -570,8 +602,8 @@ published in the repository.
   that exists. All three builds now clear `dist/` and `dist-cjs/` first.
 - The remediation for an unrecognised contract no longer tells the caller to
   supply an ABI. There is no input that accepts one, and the reason code
-  `no-abi` names a miss against this package's compiled-in registry rather
-  than a contract without an interface - most Soroban contracts publish a
+  `no-abi` names a miss against this package's compiled-in registry and leaves open whether
+  the contract has an interface - most Soroban contracts publish a
   typed spec on chain, which this package does not read. The text now says
   what happened and points at `confidenceOverride` and re-capture. The reason
   code itself is unchanged: it is a published enum value, so renaming it
@@ -582,7 +614,7 @@ published in the repository.
 Version 0.2.0 was published from a different repository, which carries its own
 copy of these packages pinned to the grammar-1 interpreter. This release
 takes the packages back to `oz-policy-builder` and jumps past that version
-rather than reusing it.
+and never reuses it.
 
 ### Changed - BREAKING
 
@@ -604,11 +636,11 @@ rather than reusing it.
 
 ### Removed
 
-Capabilities present in the published 0.2.0 and NOT in this release. They were
+Capabilities present in the published 0.2.0 and absent from this release. They were
 never part of this repository: 0.2.0 came from a different repository, which
 carries its own copy of these packages, so moving the npm lineage here drops them. Anyone
-upgrading 0.2.0 -> 0.3.0 loses them, which is why they are listed as removals
-rather than left implicit in the lineage note above.
+upgrading 0.2.0 -> 0.3.0 loses them, so they are listed as removals
+in place of a mention buried in the lineage note above.
 
 - `install/authority-overlap`, and the `authorityScan` report `install_policy`
   returned with it. It compared the rule being installed against every other
@@ -621,8 +653,8 @@ rather than left implicit in the lineage note above.
 - `install/read-account-rules` and `install/build-install-predicate`.
 - `install/build-merge-policy`, `install/plan-merge-policy`, and with them the
   `merge_policy` MCP tool - 7 tools here against 0.2.0's 8. There is no tighten
-  path on this version: adding a second rule WIDENS authority rather than
-  narrowing it, because a caller may name whichever rule is more permissive.
+  path on this version: adding a second rule WIDENS authority and never
+  narrows it, because a caller may name whichever rule is more permissive.
 
 ### Fixed
 

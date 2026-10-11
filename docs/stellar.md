@@ -13,10 +13,10 @@ An institution keeps its treasury in an MPC wallet and wants an agent to swap
 and lend part of it without moving custody. Two guarantees make that safe, and
 on Stellar each rests on something the network or our contracts enforce:
 
-- **The MPC wallet always controls the funds.** The custody account is a
+- **The MPC wallet always controls the funds:** the custody account is a
   classic Stellar account whose signing thresholds need every custody signer,
   and it only ever grants a bounded allowance.
-- **Only the custody gate's listed addresses can receive funds.** The allowance
+- **Only the custody gate's listed addresses can receive funds:** the allowance
   is granted to a gate the custody account deploys itself, and the gate
   releases only to addresses on a list fixed when it was deployed.
 
@@ -29,7 +29,7 @@ The setup we tested, and the one the app builds:
 | Prime account | An OpenZeppelin smart account with **3 signers, any 2 of which approve**. Holds no funds. |
 | Execution adapter | `contracts/execution-adapter`, one per Prime, bound to one gate. Runs a batch of calls in one transaction, at once or after a wait. |
 | Policy interpreter | `contracts/policy-interpreter`, grammar 6. Evaluates the mandate on every call a band rule authorises. |
-| Agent | A signer on the band rules, not on rule 0. Under a band's top it acts alone; a larger move uses a high-band rule that also needs a second approver. |
+| Agent | A signer on the band rules only; it holds no seat on rule 0. Under a band's top it acts alone; a larger move uses a high-band rule that also needs a second approver. |
 
 ## Components
 
@@ -80,7 +80,7 @@ configuration is written once by the constructor:
 |---|---|
 | `custody` | Whose money. The allowance is granted from here. |
 | `caller` | The one adapter that may call `pull`. |
-| `caller_code` | The wasm hash that adapter must be running. A Soroban contract id commits to deployer and salt, not to code, so the gate checks the running build on every draw. |
+| `caller_code` | The wasm hash that adapter must be running. A Soroban contract id commits to the deployer and the salt and says nothing about the code, so the gate checks the running build on every draw. |
 | `allowed` | Every address a batch through that adapter may name, and every address `pull` may pay. |
 
 `pull(token, to, amount)` requires the caller's authorisation, refuses a caller
@@ -136,6 +136,20 @@ It also refuses:
 
 Only then does it ask the Prime to authorise the whole batch and run the calls.
 
+The walk reads values and cannot read the venue that receives them, so two
+shapes reach an address without being recognised:
+
+- a `U256` can hold 32 key bytes, and a listed venue that turns the number back
+  into bytes and then into an address pays the account behind it;
+- a listed venue that decodes a `Vec<Address>` or an `(Address, u32)` out of
+  bytes reaches an address in data whose length the walk does not compare. The
+  walk compares the XDR of a single address only.
+
+Both need a listed venue that decodes values this way. The rule assumes a listed
+venue reads an address from an argument shaped like one. Any 32-byte value that
+is not a listed address's raw key is refused, so a venue call that carries a
+32-byte hash cannot go through the adapter.
+
 The adapter is deployed by the Prime at an address derived from the gate and
 its two wait numbers (see below), so the custody account can name it on the
 gate before it exists. `rebind` moves it to a successor gate. Only
@@ -176,7 +190,7 @@ Two numbers are fixed when the adapter is created, and custody agrees to both
   moved, and perhaps by an agent since revoked. With a window of 0 it can run
   only on its ready ledger.
 
-**A stored batch runs under a "run" rule on the Prime.** This rule is scoped to
+**A stored batch runs under a "run" rule on the Prime:** this rule is scoped to
 the adapter, its signer is the adapter, and its predicate is
 `call_fn == "run"`. `run` asks the Prime to approve `run(id)`, and a venue that
 asks the Prime mid-batch, such as Blend's `submit`, sits inside that approval.
@@ -187,7 +201,7 @@ when it is the one asking, so the pool rule's adapter signature failed with
 `Error(Auth, InvalidAction)` on testnet. No key signs the run rule, so any
 account can run a stored batch.
 
-**The run rule needs its predicate.** Without it, the rule would let anyone
+**The run rule needs its predicate:** without it, the rule would let anyone
 have the adapter approve an immediate `execute` or a `cancel` for the Prime. Agent rules
 permit `execute` only, so an agent cannot cancel.
 
@@ -196,15 +210,16 @@ ready ledger or after the window), `NotACanceller` 7. A stored batch sits in
 persistent storage under its number as `(calls, grants, run_at)`, readable by
 anyone; there are no events.
 
-**The address commits to both numbers.** It derives from
+**The address commits to both numbers:** it derives from
 `sha256("prime.execution.adapter.v4" + gate + min_wait + run_window)`, each
 part in its XDR encoding. The constructor refuses to run at any other address
 (`NotWhereAgreed`, 8).
 
 The gate pins its caller's address and build but not the arguments it was
 created with. Without the address check, the Prime could create the
-adapter at the address custody named with a `min_wait` of 0. Custody derives
-the address from the numbers it agrees to and names it on the gate.
+adapter at the address custody derived from its agreed numbers and pass a
+`min_wait` of 0. Custody derives the address from the numbers it agrees to and
+lists it on the gate.
 
 The gate is the unchanged v3 contract; it only has to name the v4 adapter and
 its build.
@@ -265,7 +280,7 @@ too.
 A band is one such rule. In the test setup, swaps and Blend supply and
 withdrawal each have a low band (the agent alone, 1 approval) and a high band
 (agent and admin, 2 approvals, enforced by OpenZeppelin's threshold policy).
-The predicate refuses an over-band amount named on the low rule outright,
+The predicate refuses an over-band amount on the low rule outright,
 before any second signature is sought.
 
 Blend credits a supply to whoever authorises it, so a supplied position is held
@@ -282,10 +297,10 @@ checks are documented in
 [contracts/policy-interpreter/README.md](../contracts/policy-interpreter/README.md).
 The properties the custody design leans on:
 
-- **`enforce` changes no value.** It reads the predicate document and the
+- **`enforce` changes no value:** it reads the predicate document and the
   signer-set hash that install wrote, and nothing else. A permit bumps the
   rule's storage TTL; a deny rolls that back.
-- **It fails closed.** An undecodable predicate, an unknown node or a selector
+- **It fails closed:** an undecodable predicate, an unknown node or a selector
   the call cannot answer all deny, with a specific deny code.
 - **Grammar 6 adds `call_path`**, which walks into the batch the adapter
   submits (`calls[n].args[i]`, map keys, lengths). That is what lets one
@@ -380,22 +395,25 @@ The custody account can also cancel any stored move before it runs, with
 | Check | Where | Result |
 |---|---|---|
 | Every route out of a threshold-20 account with one key | `scripts/verify-mpc-threshold-testnet.ts`, testnet | 7 of 7 |
-| The address rule against a real Prime and live Blend and Aquarius | `scripts/verify-execution-address-rule-testnet.ts`, testnet | All 35 checks passed against the adapter with no wait on 29 September 2026, on the Linux builds recorded in `deployments/execution-testnet.json` - the same results the v3 adapter gave. The log is `evidence/execution-address-rule-testnet.log`. A Blend supply, a withdrawal to custody and an Aquarius swap succeed. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put. |
-| The adapter's wait against a real Prime, the unchanged gate and live Blend | `scripts/verify-execution-wait-testnet.ts`, testnet | All 45 checks passed on 29 September 2026 on the Linux builds; the log is `evidence/execution-wait-testnet.log`. Succeeded:<br>• a Blend supply at once;<br>• a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role and no Prime signature;<br>• an agent's batch after the minimum wait its own rule demands.<br>Refused:<br>• the agent below that minimum, and the agent cancelling;<br>• the run rule used for an immediate `execute`, a stored batch or a `cancel`;<br>• a stranger cancelling;<br>• running early, twice, after a cancel, or after the run window;<br>• a wait below the adapter's floor;<br>• the Prime creating the adapter at custody's address with a lower floor or a longer window.<br>The Prime and custody both cancel. An agent's stored move still runs after its rule is removed; removing the run rule pauses a ready move; a move stored with a wait past the network minimum lives until its window closes, and using the adapter extends its own instance to ~30 days. |
+| The address rule against a real Prime and live Blend and Aquarius | `scripts/verify-execution-address-rule-testnet.ts`, testnet | All 35 checks passed against the adapter with no wait, on 29 September 2026 against build `68d012e7…` and again on 11 October 2026 against `3dd675c0…`, the build `main` produces - the same results the v3 adapter gave. The logs are `evidence/execution-address-rule-testnet.log` and `evidence/execution-address-rule-testnet-3dd675c0.log`. A Blend supply, a withdrawal to custody and an Aquarius swap succeed. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put. |
+| The adapter's wait against a real Prime, the unchanged gate and live Blend | `scripts/verify-execution-wait-testnet.ts`, testnet | All 45 checks passed on 29 September 2026 against build `68d012e7…` and again on 11 October 2026 against `3dd675c0…`; the logs are `evidence/execution-wait-testnet.log` and `evidence/execution-wait-testnet-3dd675c0.log`. Succeeded:<br>• a Blend supply at once;<br>• a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role and no Prime signature;<br>• an agent's batch after the minimum wait its own rule demands.<br>Refused:<br>• the agent below that minimum, and the agent cancelling;<br>• the run rule used for an immediate `execute`, a stored batch or a `cancel`;<br>• a stranger cancelling;<br>• running early, twice, after a cancel, or after the run window;<br>• a wait below the adapter's floor;<br>• the Prime creating the adapter at custody's address with a lower floor or a longer window.<br>The Prime and custody both cancel. An agent's stored move still runs after its rule is removed; removing the run rule pauses a ready move; a move stored with a wait past the network minimum lives until its window closes, and using the adapter extends its own instance to ~30 days. |
+| A muxed recipient against the adapter | `scripts/verify-execution-muxed-testnet.ts`, testnet | On 11 October 2026 an earlier build (`68d012e7…`) paid a stranger written as a muxed address, now and as a stored move. `3dd675c0…` refused it (`Uncheckable`), refused the stranger and the muxed stranger as XDR bytes (`AddressNotAllowed`), and the refused batch is a failed transaction on chain. The logs are `evidence/execution-muxed-testnet-before.log` and `-after.log`. |
+| What the owners reach through the gate's list | `scripts/verify-gate-list-testnet.ts`, testnet | 3 of 3 on 11 October 2026 against `3dd675c0…`: under rule 0 a pull to an unlisted stranger is refused, a pull to the listed Prime account is paid, and the Prime then pays the stranger with no wait. The log is `evidence/execution-gate-list-testnet.log`. |
 | The full scenario in the Prime app | the Prime app's Fordefi scenario guide, on beta against testnet | 10 XLM under the low band succeeds with the agent alone; 150 XLM under the low band is refused; 150 XLM under the high band succeeds after the admin approves. Custody's XLM fell by exactly 315, the sum of the moves less the withdrawal. |
-| Contract unit tests | `cargo test` in each crate | interpreter 151 (the conformance suite included), adapter 33, gate 3, run on 1 October 2026 |
+| Contract unit tests | `cargo test` in each crate | interpreter 151 (the conformance suite included), adapter 45, gate 3, run on 11 October 2026 |
 
 ## Deployments
 
 | | Network | Address or hash |
 |---|---|---|
 | Policy interpreter, grammar 6 (custody design) | testnet | `CDPR5VTX6R2ZPKREPD7FBW5ANVWXMVJIBIH2GMF36XPOFNMHRDIRUAZQ`, recorded in [`deployments/grammar6-testnet.json`](../deployments/grammar6-testnet.json) |
-| Execution adapter build | testnet | `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3`, the Linux build of `contracts/execution-adapter`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json) and rebuilt by CI. It refuses a muxed address. The Prime app pins it for new gates. It still recognises `68d012e7…`, `32a8658a…` and `23a7b289…`, earlier builds of the same design, for gates set up with them. Those builds pass a muxed address. |
+| Execution adapter build | testnet | `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3`, the Linux build of `contracts/execution-adapter`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json) and rebuilt by CI. It refuses a muxed address. The Prime app pins it for new gates. It still recognises earlier builds of the same design, for gates set up with them; they do not have the muxed-address fix. |
+| Execution adapter, interim build | testnet | `eefcfdd76c0668c03470843b9394d086be239e8de908edbeaf705d4a1207746b` (24,027 bytes), uploaded in transaction `73c7cea3…` with the first fix. It refuses a muxed address and still passes the XDR of an address as bytes. No gate uses it. |
 | Execution adapter v3 builds (earlier pairs) | - | `5be8b08eefe704970fbb51612ef4f6222df3d4b0f2ab6704544e761e3576e708` and `0e088421…`, still recognised by the app |
 | Custody gate build | testnet | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab`, the Linux build of `contracts/custody-gate`, recorded in the same file. Gates set up earlier run `2788f05b…`, the same design. |
 | Policy interpreter, grammar 4 (the npm packages' pin) | mainnet and testnet | pinned in `packages/policy-synth/src/run/schemas.ts` |
 | Policy interpreter, grammar 6 | mainnet | `CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R`, the Linux build `5143e641…` that CI rebuilds, created by `scripts/deploy-prime-mainnet.ts` and recorded in [`deployments/prime-mainnet.json`](../deployments/prime-mainnet.json) |
-| Execution adapter and custody gate builds | mainnet | `68d012e7…` and `b01024f3…`, uploaded by the same script. Mainnet still runs the adapter build that passes a muxed address; the fixed build `3dd675c0…` is on testnet only. |
+| Execution adapter and custody gate builds | mainnet | recorded in [`deployments/prime-mainnet.json`](../deployments/prime-mainnet.json), uploaded by the same script. A deployed build can lag `main`: each network's record says which build it runs. |
 
 The v3 pair is not on mainnet. A gate pins its adapter's build and has no
 setter, so adopting a new adapter build means a new
@@ -405,18 +423,18 @@ deployed and still reachable by accounts that use them; their source is at tag
 
 ## Limits
 
-- **External audit in progress.** An external audit of the contracts is
+- **External audit in progress:** an external audit of the contracts is
   under way, and its report has not been published yet. They have also been
   through internal adversarial review and a STRIDE threat model, last run on
-  1 October 2026 ([report](../evidence/stride-threat-model.md)).
-- **Nothing alerts custody when a move is stored.** The adapter emits no
+  11 October 2026 ([report](../evidence/stride-threat-model.md)).
+- **Nothing alerts custody when a move is stored:** the adapter emits no
   events, by design. A stored move is public on the ledger and the Prime app
   lists it, but custody has to look.
-- **Revoking an agent's rule does not stop the moves it already stored.** A
-  stored move runs under the run rule, not the agent's. To stop one, cancel it,
+- **Revoking an agent's rule does not stop the moves it already stored:** a
+  stored move runs under the run rule, and the agent's rule plays no part once it is stored. To stop one, cancel it,
   or remove the run rule, which pauses every ready move until the rule is
   reinstalled.
-- **The Prime account is on the gate's list, so the gate will pay it.** The
+- **The Prime account is on the gate's list, so the gate will pay it:** the
   adapter needs the Prime on the list because venue calls name it, and `pull`
   releases to any listed address. A batch run under the Prime's own authority
   (rule 0, 2 of 3 in the app's setup) can therefore draw custody funds into the
@@ -425,25 +443,31 @@ deployed and still reachable by accounts that use them; their source is at tag
   agent's bands cannot do this. Closing it needs a contract change: the gate
   would keep the addresses it may pay separate from the addresses a batch may
   name.
-- **Rule 0 stands behind an open position.** A Blend position sits in the
+- **Rule 0 stands behind an open position:** a Blend position sits in the
   Prime's name, and rule 0's signers can install any rule, so while a position
   is open the Prime's own 2 of 3 signers are the control that protects it.
-- **A key's authority is the most that any of its rules allows.** A key on both
+- **A key's authority is the most that any of its rules allows:** a key on both
   a policed rule and an unpoliced one names the unpoliced one and is not
   constrained. A constrained key must sit on the policed rule and nowhere else.
   `install_policy` reads the account and reports every rule a signer could name
   instead (`authorityScan`).
-- **Transitive authority.** Once a policy permits calling a contract, it also
+- **Transitive authority:** once a policy permits calling a contract, it also
   permits whatever that contract can do with authority it already holds. A
   policed key should hold no standing allowances.
 - **A predicate built outside the encoder can pin some calls and not the
   count.** The encoder refuses that shape. A hand-built one is its author's
   responsibility, and any extra call still has to pass the adapter's address
   rule.
-- **A venue that decodes an address out of a longer blob** is outside the
-  adapter's comparison, which covers the two encodings the host can turn back
-  into an address. It would still have to be a listed venue.
-- **Swap prices have a floor from the mandate and no market check.** A
+- **A venue that decodes an address out of a number or a larger encoding** is
+  outside the adapter's comparison. The comparison covers each single-address
+  spelling the host can turn back into an address: the raw key, the strkey and
+  the XDR of an address. A `U256` that holds a key, and the XDR of a
+  `Vec<Address>` or an `(Address, u32)`, pass it. The venue would still have to
+  be a listed venue.
+- **A deployed build can lag `main`:** each network's record in `deployments/`
+  says which build it runs, and a fix on `main` reaches an account when that
+  account runs a build that contains it.
+- **Swap prices have a floor from the mandate and no market check:** a
   band pins a minimum output, and the grammar can express a floor relative to
   the input (`call_arg_scaled`), but no contract reads a price feed.
 

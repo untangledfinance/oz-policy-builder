@@ -14,7 +14,7 @@ did not agree to.
 
 The setup below gives you two guarantees:
 
-1. **Your MPC wallet always controls the funds.** The money stays in your
+1. **Your MPC wallet always controls the funds:** the money stays in your
    wallet. Nothing moves unless your wallet's own signers approved the limit it
    moves under, and your signers can stop it at any time.
 2. **Only the destinations on your custody gate's list can receive funds.**
@@ -85,16 +85,18 @@ back where it started.
 If your wallet's signers lose access, the funds still need a way out that does
 not depend on them. A recovery address, such as a wallet held by the trusted
 third party, is set when the gate is created. The Prime account's own signers,
-two of three, can then move funds from your wallet to that address, and only to
-that address. An agent's mandate cannot reach it. Your wallet can cancel a
-recovery while it waits: on EVM it always waits, and on Stellar it waits the
-minimum you set for the gate.
+two of three, can then move funds from your wallet to that address. On Stellar
+the gate pays any address on its list, and the list also holds the Prime
+account and the venues, so the same two signers can draw funds to those as well,
+within your limit. An agent's mandate cannot reach the recovery address. Your
+wallet can cancel a recovery while it waits: on EVM it always waits, and on
+Stellar it waits the minimum you set for the gate.
 
 ```mermaid
 flowchart LR
     MPC["Your MPC wallet"] --> GATE["Custody gate"]
     PRIME["Prime account<br/>2 of 3 signers"] -->|"asks for a recovery"| GATE
-    GATE -->|"only to the recovery address"| REC["Recovery wallet<br/>trusted third party"]
+    GATE -->|"to the recovery address"| REC["Recovery wallet<br/>trusted third party"]
 ```
 
 ## How each chain keeps the two guarantees
