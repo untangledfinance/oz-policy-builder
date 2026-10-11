@@ -68,8 +68,8 @@ The Prime custody contracts went to mainnet on 1 October 2026 and the Prime app
 at app.untangled.finance uses them: the grammar-6 interpreter
 `CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R` and the custody gate
 and execution adapter code (`b01024f3…`, `68d012e7…`). They are the Linux builds
-that CI rebuilds and checks. Current testnet setups use the same gate and
-adapter code. Testnet's grammar-6 interpreter was built from the same source
+that CI rebuilds and checks. Testnet gates set up after 11 October 2026 name
+the adapter build `eefcfdd7…`, which refuses a muxed address; mainnet runs `68d012e7…`. Testnet's grammar-6 interpreter was built from the same source
 without `build-wasm.sh`, so its hash differs. Addresses, hashes and transactions
 are in [docs/stellar.md](./docs/stellar.md#deployments) and
 [deployments/prime-mainnet.json](./deployments/prime-mainnet.json).

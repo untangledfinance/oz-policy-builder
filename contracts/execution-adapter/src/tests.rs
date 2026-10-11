@@ -640,3 +640,179 @@ fn using_the_adapter_keeps_its_instance_alive() {
         w.e.as_contract(&w.adapter, || w.e.storage().instance().get_ttl());
     assert_eq!(after, INSTANCE_TO);
 }
+
+/// The Stellar Asset Contract's protocol-23 `transfer`: `to` is a
+/// MuxedAddress, and the account behind it is credited.
+#[contract]
+pub struct MuxToken;
+
+#[contractimpl]
+impl MuxToken {
+    pub fn transfer(e: Env, from: Address, to: soroban_sdk::MuxedAddress, amount: i128) {
+        from.require_auth();
+        let k = to.address();
+        let b: i128 = e.storage().persistent().get(&k).unwrap_or(0);
+        e.storage().persistent().set(&k, &(b + amount));
+    }
+    pub fn balance(e: Env, of: Address) -> i128 {
+        e.storage().persistent().get(&of).unwrap_or(0)
+    }
+}
+
+mod muxed {
+    use super::*;
+    use soroban_sdk::{Map, MuxedAddress};
+
+    const M: &str = "MBSRYJ7BNJNEOCMQ5EBAJOTSLHWAOQXSSUUYECRU7KWZVXGAZ5PXGAIBAEAQCAIBAGQ7A";
+
+    struct Muxed {
+        w: World,
+        token: Address,
+    }
+
+    fn setup(min_wait: u32) -> Muxed {
+        let e = Env::default();
+        e.ledger().set_sequence_number(1_000);
+        e.mock_all_auths();
+        let prime = Address::generate(&e);
+        let custody = Address::generate(&e);
+        let stranger = Address::generate(&e);
+        let token = e.register(MuxToken, ());
+        let allowed = Vec::from_array(&e, [custody.clone(), prime.clone(), token.clone()]);
+        let gate = e.register(FixtureGate, (allowed, custody.clone()));
+        let at = agreed_address(&e, &prime, &gate, min_wait, 100);
+        let adapter = e.register_at(
+            &at,
+            ExecutionAdapter,
+            (prime.clone(), gate.clone(), min_wait, 100u32),
+        );
+        Muxed {
+            w: World {
+                e,
+                adapter,
+                gate,
+                prime,
+                custody,
+                stranger,
+            },
+            token,
+        }
+    }
+
+    fn transfer_to(m: &Muxed, to: Val) -> Vec<Call> {
+        let e = &m.w.e;
+        let args = Vec::from_array(e, [m.w.prime.to_val(), to, 100i128.into_val(e)]);
+        Vec::from_array(e, [call_to(e, &m.token, "transfer", args)])
+    }
+
+    fn paid(m: &Muxed, who: &Address) -> i128 {
+        MuxTokenClient::new(&m.w.e, &m.token).balance(who)
+    }
+
+    #[test]
+    fn a_plain_stranger_is_refused() {
+        let m = setup(0);
+        let calls = transfer_to(&m, m.w.stranger.to_val());
+        refused(&m.w, calls, E::AddressNotAllowed);
+        assert_eq!(paid(&m, &m.w.stranger), 0);
+    }
+
+    #[test]
+    fn a_muxed_stranger_is_refused_and_not_paid() {
+        let m = setup(0);
+        let muxed = MuxedAddress::from_str(&m.w.e, M);
+        let underlying = muxed.address();
+        let calls = transfer_to(&m, muxed.to_val());
+        refused(&m.w, calls, E::Uncheckable);
+        assert_eq!(paid(&m, &underlying), 0);
+    }
+
+    #[test]
+    fn a_muxed_stranger_is_refused_before_it_is_stored() {
+        let m = setup(720);
+        let muxed = MuxedAddress::from_str(&m.w.e, M);
+        let underlying = muxed.address();
+        let calls = transfer_to(&m, muxed.to_val());
+        contract_error(
+            client(&m.w).try_execute(&calls, &no_grants(&m.w), &720),
+            E::Uncheckable,
+        );
+        advance(&m.w, 720);
+        contract_error(client(&m.w).try_run(&1), E::NotScheduled);
+        assert_eq!(paid(&m, &underlying), 0);
+    }
+
+    #[test]
+    fn a_muxed_value_buried_in_a_vec_or_map_is_refused() {
+        let m = setup(0);
+        let e = &m.w.e;
+        let muxed = MuxedAddress::from_str(e, M);
+        let nested: Vec<Val> = Vec::from_array(e, [muxed.to_val()]);
+        refused(
+            &m.w,
+            Vec::from_array(
+                e,
+                [call_to(
+                    e,
+                    &m.w.gate,
+                    "one",
+                    Vec::from_array(e, [nested.to_val()]),
+                )],
+            ),
+            E::Uncheckable,
+        );
+        let mut map: Map<Val, Val> = Map::new(e);
+        map.set(1u32.into_val(e), muxed.to_val());
+        refused(
+            &m.w,
+            Vec::from_array(
+                e,
+                [call_to(
+                    e,
+                    &m.w.gate,
+                    "one",
+                    Vec::from_array(e, [map.to_val()]),
+                )],
+            ),
+            E::Uncheckable,
+        );
+    }
+
+    #[test]
+    fn a_muxed_strkey_as_text_or_bytes_is_refused() {
+        let m = setup(0);
+        let e = &m.w.e;
+        let as_string = SString::from_str(e, M);
+        let as_bytes = Bytes::from_slice(e, M.as_bytes());
+        for v in [as_string.to_val(), as_bytes.to_val()] {
+            let calls = Vec::from_array(e, [call_to(e, &m.w.gate, "one", Vec::from_array(e, [v]))]);
+            refused(&m.w, calls, E::AddressNotAllowed);
+        }
+    }
+
+    #[test]
+    fn ordinary_values_still_pass() {
+        let m = setup(0);
+        let e = &m.w.e;
+        let args: Vec<Val> = Vec::from_array(
+            e,
+            [
+                u64::MAX.into_val(e),
+                i64::MIN.into_val(e),
+                u128::MAX.into_val(e),
+                i128::MIN.into_val(e),
+                7u32.into_val(e),
+                true.into_val(e),
+                symbol_short!("ok").into_val(e),
+                Symbol::new(e, "a_longer_symbol_name").into_val(e),
+                ().into_val(e),
+                Bytes::from_slice(e, &[7u8; 68]).into_val(e),
+                SString::from_str(e, "memo").into_val(e),
+            ],
+        );
+        for a in args.iter() {
+            let calls = Vec::from_array(e, [call_to(e, &m.w.gate, "one", Vec::from_array(e, [a]))]);
+            assert!(run(&m.w, calls).is_ok());
+        }
+    }
+}

@@ -3,6 +3,10 @@
 //
 //   contracts/custody-gate/build-wasm.sh && contracts/execution-adapter/build-wasm.sh
 //   bun scripts/upload-execution-testnet.ts
+//   ONLY=execution-adapter bun scripts/upload-execution-testnet.ts
+//
+// ONLY uploads one crate and keeps the other's entry in the record as it was,
+// for a change to one contract that leaves the other's build alone.
 //
 // UPLOAD ONLY. Neither contract is a shared instance: the custody account
 // deploys its own gate and the Prime its own adapter, both from these hashes.
@@ -22,13 +26,19 @@ const kp = Keypair.random()
 await fetch(`https://friendbot.stellar.org?addr=${kp.publicKey()}`)
 await new Promise((r) => setTimeout(r, 6000))
 
-const artifacts = {
-  'custody-gate': readFileSync(wasmPath('custody-gate', 'custody_gate')),
-  'execution-adapter': readFileSync(wasmPath('execution-adapter', 'execution_adapter')),
+const recordUrl = new URL('../deployments/execution-testnet.json', import.meta.url)
+const only = process.env.ONLY
+const kept = only ? JSON.parse(readFileSync(recordUrl, 'utf8')) : null
+const artifacts: Record<string, Buffer> = {}
+if (only !== 'execution-adapter') {
+  artifacts['custody-gate'] = readFileSync(wasmPath('custody-gate', 'custody_gate'))
 }
-const wasmSha256: Record<string, string> = {}
-const uploadTx: Record<string, string> = {}
-const sizes: Record<string, number> = {}
+if (only !== 'custody-gate') {
+  artifacts['execution-adapter'] = readFileSync(wasmPath('execution-adapter', 'execution_adapter'))
+}
+const wasmSha256: Record<string, string> = { ...kept?.wasmSha256 }
+const uploadTx: Record<string, string> = { ...kept?.uploadTx }
+const sizes: Record<string, number> = { ...kept?.sizes }
 for (const [name, wasm] of Object.entries(artifacts)) {
   wasmSha256[name] = hash(wasm).toString('hex')
   sizes[name] = wasm.length
@@ -38,7 +48,7 @@ for (const [name, wasm] of Object.entries(artifacts)) {
 }
 
 writeFileSync(
-  new URL('../deployments/execution-testnet.json', import.meta.url),
+  recordUrl,
   `${JSON.stringify(
     {
       network: 'testnet',

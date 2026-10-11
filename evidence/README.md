@@ -18,6 +18,11 @@ against deployed contracts, and each row below says which:
 - `execution-wait-testnet.log` and `execution-address-rule-testnet.log` ran on
   2026-09-29 against the gate and adapter builds `b01024f3…` and `68d012e7…`,
   which are the builds `main` produces and mainnet runs.
+- `execution-muxed-testnet-before.log` and `execution-muxed-testnet-after.log`
+  ran on 2026-10-11 against adapter builds `68d012e7…` and `eefcfdd7…`. The
+  first is the control: that build pays a stranger written as a muxed address.
+  The second refuses it, and the refused batch is also on chain as a failed
+  transaction.
 - The two `-reproducible-interpreter` logs re-ran those checks on testnet with
   the grammar-6 interpreter build mainnet runs (`5143e641…`), before the
   mainnet deployment on 2026-10-01.
