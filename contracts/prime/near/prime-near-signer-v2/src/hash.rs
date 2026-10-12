@@ -10,15 +10,6 @@ pub fn hexn<const N: usize>(s: &str, pre: &str, what: &str) -> [u8; N] {
     o
 }
 
-pub fn hexv(s: &str) -> Vec<u8> {
-    let b = s
-        .strip_prefix("0x")
-        .and_then(|h| hex::decode(h).ok())
-        .unwrap_or_default();
-    require!(s == format!("0x{}", hex::encode(&b)), "data");
-    b
-}
-
 /// Base58 has one spelling per byte string, so a 32-byte decode is canonical.
 pub fn b58(s: &str) -> [u8; 32] {
     let b = bs58::decode(s)
@@ -112,86 +103,4 @@ pub fn grant(chain: Chain, account: &str, seat: &str, key: &str, start: u64, end
         env::sha256(b"Test SDF Network ; September 2015")
     };
     env::sha256_array([b"prime-seat-grant".as_slice(), &net, &a, &s, &k, &st, &en].concat())
-}
-
-/// The Safe EIP-712 digest with the five gas and refund fields fixed at zero.
-pub fn safe(
-    safe: [u8; 32],
-    to: [u8; 32],
-    value: u128,
-    data: &[u8],
-    delegate: bool,
-    nonce: u64,
-) -> [u8; 32] {
-    let k = |b: &[u8]| env::keccak256_array(b);
-    let domain = k(&[
-        &k(b"EIP712Domain(uint256 chainId,address verifyingContract)")[..],
-        &word(84532),
-        &safe,
-    ]
-    .concat());
-    let ty = k(b"SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)");
-    let v = [[0; 16].as_slice(), &value.to_be_bytes()].concat();
-    let tx = k(&[
-        &ty[..],
-        &to,
-        &v,
-        &k(data),
-        &word(delegate as u64),
-        &[0; 160],
-        &word(nonce),
-    ]
-    .concat());
-    k(&[&[0x19, 1][..], &domain, &tx].concat())
-}
-
-/// Binds the program, every account with its flags and the data, so a vote fits exactly one instruction.
-pub fn vote(
-    seat: [u8; 32],
-    valid_until: u64,
-    program: [u8; 32],
-    accounts: &[([u8; 32], bool, bool)],
-    data: &[u8],
-) -> [u8; 32] {
-    let mut m = [program.as_slice(), &(accounts.len() as u16).to_be_bytes()].concat();
-    for (key, signer, writable) in accounts {
-        m.extend_from_slice(key);
-        m.extend_from_slice(&[*signer as u8, *writable as u8]);
-    }
-    m.extend_from_slice(&(data.len() as u32).to_be_bytes());
-    m.extend_from_slice(data);
-    env::sha256_array(
-        [
-            b"prime-seat-vote".as_slice(),
-            b"devnet",
-            &seat,
-            &valid_until.to_be_bytes(),
-            &env::sha256(&m),
-        ]
-        .concat(),
-    )
-}
-
-/// True when `key` is the Squads transaction (or proposal) address of `index` under `consensus`.
-pub fn is_pda(
-    key: &[u8; 32],
-    program: &[u8; 32],
-    consensus: &[u8; 32],
-    index: u64,
-    proposal: bool,
-) -> bool {
-    let tail: &[u8] = if proposal { b"proposal" } else { b"" };
-    (0..=255u8).rev().any(|bump| {
-        let seeds = [
-            b"smart_account".as_slice(),
-            consensus,
-            b"transaction",
-            &index.to_le_bytes(),
-            tail,
-            &[bump],
-            program,
-            b"ProgramDerivedAddress",
-        ];
-        env::sha256_array(seeds.concat()) == *key
-    })
 }

@@ -1,11 +1,13 @@
 //! prime-near-signer v2: gives a wallet on another chain NEAR MPC signatures under keys only it controls, for the
-//! Prime seat grants and votes. The caller sends typed fields; this contract parses each into fixed bytes (refusing any
-//! spelling that is not canonical), renders the readable text, checks the wallet's signature over that text, applies the
-//! time rules and asks the MPC to sign the chain hash it computes from the same fields. No request carries a free payload.
+//! Prime seat grants. The caller sends typed fields; this contract parses each into fixed bytes (refusing any spelling
+//! that is not canonical), renders the readable text, checks the wallet's signature over that text, applies the time
+//! rules and asks the MPC to sign the grant hash it computes from the same fields. No request carries a free payload.
+//! Vote requests (Safe, Squads, Stellar) are named so that they are refused with a clear reason.
 //!
 //! Wallet text signatures: Sep53 = Freighter signMessage (ed25519 over sha256("Stellar Signed Message:\n" + text)),
 //! Raw = Phantom signMessage (ed25519 over the text), Eip191 = MetaMask personal_sign. Stateless.
-use near_sdk::{env, near, require, serde_json::json, AccountId, Gas, GasWeight, Promise};
+use near_sdk::serde_json::{json, Value};
+use near_sdk::{env, near, require, AccountId, Gas, GasWeight, Promise};
 
 mod hash;
 mod render;
@@ -52,48 +54,6 @@ pub enum Scope {
 }
 
 #[near(serializers=[json])]
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub enum Op {
-    Call,
-    DelegateCall,
-}
-
-#[near(serializers=[json])]
-pub struct Meta {
-    pub key: String,
-    pub signer: bool,
-    pub writable: bool,
-}
-
-#[near(serializers=[json])]
-pub struct Ix {
-    pub program: String,
-    pub accounts: Vec<Meta>,
-    pub data: String,
-}
-
-#[near(serializers=[json])]
-pub struct SafeVote {
-    pub safe: String,
-    pub seat: String,
-    pub to: String,
-    pub value: String,
-    pub data: String,
-    pub operation: Op,
-    pub nonce: u64,
-}
-
-#[near(serializers=[json])]
-pub struct SolanaVote {
-    pub settings: String,
-    pub seat: String,
-    pub consensus: String,
-    pub index: u64,
-    pub valid_until: u64,
-    pub instruction: Ix,
-}
-
-#[near(serializers=[json])]
 pub enum Request {
     Grant {
         chain: Chain,
@@ -110,8 +70,9 @@ pub enum Request {
         seat: String,
         key: String,
     },
-    SafeVote(SafeVote),
-    SolanaVote(SolanaVote),
+    SafeVote(Value),
+    SolanaVote(Value),
+    StellarVote(Value),
 }
 
 pub struct Plan {
@@ -160,11 +121,7 @@ pub fn plan(wallet: &str, scheme: Scheme, request: &Request, now: u64, me: &str)
                 hash::grant(*chain, account, seat, key, 0, 0),
             ),
         ),
-        Request::SafeVote(v) => (Chain::BaseSepolia, &v.safe, render::safe(v, me)),
-        Request::SolanaVote(v) => {
-            require!(v.valid_until <= now + 900, "valid_until");
-            (Chain::SolanaDevnet, &v.settings, render::solana(v, me))
-        }
+        _ => env::panic_str("vote"),
     };
     let domain = if chain == Chain::BaseSepolia { 0 } else { 1 };
     Plan {
