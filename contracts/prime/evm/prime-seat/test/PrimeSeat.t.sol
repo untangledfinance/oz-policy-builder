@@ -123,11 +123,20 @@ contract PrimeSeatTest {
         return seat.isValidSignature(data, sig);
     }
 
+    // the digest carries the end of the key's stored session, so a held-back signature dies with that session
+    function execSigEnd(PrimeSeat s, uint256 pk, uint128 nonce, uint64 end, address to, uint256 value, bytes memory data, uint8 op)
+        internal
+        returns (bytes memory)
+    {
+        return sign(pk, keccak256(abi.encode(address(s), block.chainid, nonce, end, to, value, keccak256(data), op, ROLE)));
+    }
+
     function execSig(PrimeSeat s, uint256 pk, uint128 nonce, address to, uint256 value, bytes memory data, uint8 op)
         internal
         returns (bytes memory)
     {
-        return sign(pk, keccak256(abi.encode(address(s), block.chainid, nonce, to, value, keccak256(data), op, ROLE)));
+        (, uint64 end,) = s.sessions(key);
+        return execSigEnd(s, pk, nonce, end, to, value, data, op);
     }
 
     function exec(address to, uint256 value, bytes memory data, uint8 op) internal {
@@ -413,9 +422,9 @@ contract PrimeSeatTest {
     }
 
     function test_execRefusesDeadKeys() public {
-        bytes memory sig = execSig(seat, KEY_PK, 0, address(7), 0, "", 0);
-        assert(failsExec(address(7), 0, "", 0, key, sig)); // never granted
+        assert(failsExec(address(7), 0, "", 0, key, execSig(seat, KEY_PK, 0, address(7), 0, "", 0))); // never granted
         begin(1 hours);
+        bytes memory sig = execSig(seat, KEY_PK, 0, address(7), 0, "", 0);
         vm.warp(NOW + 1 hours);
         seatExec(sig); // end == now is live
         vm.warp(NOW + 1 hours + 1);
@@ -449,7 +458,7 @@ contract PrimeSeatTest {
         other.grant(key, uint64(NOW - 120), uint64(NOW + 3600), sign(OWNER_PK, grantHash(other, key, uint64(NOW - 120), uint64(NOW + 3600))));
         bytes memory forOther = execSig(other, KEY_PK, 0, address(7), 0, "", 0);
         assert(failsExec(address(7), 0, "", 0, key, forOther));
-        bytes memory otherChain = sign(KEY_PK, keccak256(abi.encode(address(seat), block.chainid + 1, uint128(0), address(7), uint256(0), keccak256(""), uint8(0), ROLE)));
+        bytes memory otherChain = sign(KEY_PK, keccak256(abi.encode(address(seat), block.chainid + 1, uint128(0), uint64(NOW + 8 hours), address(7), uint256(0), keccak256(""), uint8(0), ROLE)));
         assert(failsExec(address(7), 0, "", 0, key, otherChain));
     }
 
@@ -479,6 +488,37 @@ contract PrimeSeatTest {
         safe.setModule(module, false);
         exec(module, 0, "", 0); // the same target passes while the Safe has not enabled it
         assert(roles.calls() == 1);
+    }
+
+    function test_heldBackExecDiesWithItsSession() public {
+        begin(1 hours);
+        bytes memory held = execSig(seat, KEY_PK, 0, address(7), 0, "", 0); // signed in the first session, held back
+        vm.warp(NOW + 1 hours + 10); // the session ends by time
+        assert(failsExec(address(7), 0, "", 0, key, held));
+        uint64 s = uint64(NOW + 1 hours);
+        uint64 e = uint64(NOW + 9 hours);
+        seat.grant(key, s, e, sign(OWNER_PK, grantHash(seat, key, s, e))); // the owner grants the same key again
+        assert(failsExec(address(7), 0, "", 0, key, held)); // the held signature does not come back to life
+        assert(roles.calls() == 0);
+        exec(address(7), 0, "", 0); // a signature made in the new session works
+        assert(roles.calls() == 1);
+    }
+
+    function test_extensionRetiresSignaturesMadeBeforeIt() public {
+        begin(1 hours);
+        bytes memory before = execSig(seat, KEY_PK, 0, address(7), 0, "", 0);
+        uint64 s = uint64(NOW - 60);
+        uint64 e = uint64(NOW + 2 hours);
+        seat.grant(key, s, e, sign(OWNER_PK, grantHash(seat, key, s, e)));
+        assert(failsExec(address(7), 0, "", 0, key, before));
+        exec(address(7), 0, "", 0);
+    }
+
+    function test_execRefusesMultiSendAsADelegatecall() public {
+        begin(8 hours);
+        address multiSend = address(0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526);
+        assert(failsExec(multiSend, 0, hex"8d80ff0a", 1, key, execSig(seat, KEY_PK, 0, multiSend, 0, hex"8d80ff0a", 1)));
+        assert(roles.calls() == 0);
     }
 
     function test_execRefusesDelegatecall() public {
