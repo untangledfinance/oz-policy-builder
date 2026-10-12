@@ -9,6 +9,7 @@ interface Vm {
     function warp(uint256) external;
     function chainId(uint256) external;
     function load(address, bytes32) external view returns (bytes32);
+    function store(address, bytes32, bytes32) external;
     function expectRevert() external;
     function prank(address) external;
 }
@@ -352,6 +353,47 @@ contract PrimeSeatTest {
         assert(e == type(uint64).max);
     }
 
+    // ---- use-time checks on states a grant cannot store ------------------------------------------------------------
+
+    function inject(uint64 s, uint64 e, uint128 n) internal {
+        bytes32 slot = keccak256(abi.encode(key, uint256(0)));
+        vm.store(address(seat), slot, bytes32(uint256(s) | (uint256(e) << 64) | (uint256(n) << 128)));
+    }
+
+    function usable(uint128 nonce) internal returns (bool execOk, bool voteOk) {
+        bytes memory sig = execSig(seat, KEY_PK, nonce, address(7), 0, "", 0);
+        execOk = !failsExec(address(7), 0, "", 0, key, sig);
+        bytes32 h = keccak256("safe tx 1");
+        voteOk = modern(h, proof(seat, KEY_PK, NATIVE_PK, h)) == MODERN;
+    }
+
+    function test_useRefusesAWindowOverSevenDays() public {
+        inject(uint64(NOW - 120), uint64(NOW - 120 + 7 days), 0);
+        (bool execOk, bool voteOk) = usable(0);
+        assert(execOk && voteOk); // exactly seven days is live
+        inject(uint64(NOW - 120), uint64(NOW - 120 + 7 days + 1), 0);
+        (execOk, voteOk) = usable(0);
+        assert(!execOk && !voteOk);
+    }
+
+    function test_useRefusesAFutureStart() public {
+        inject(uint64(NOW), uint64(NOW + 100), 0);
+        (bool execOk, bool voteOk) = usable(0);
+        assert(execOk && voteOk); // start == now is live
+        inject(uint64(NOW + 1), uint64(NOW + 100), 0);
+        (execOk, voteOk) = usable(0);
+        assert(!execOk && !voteOk);
+    }
+
+    function test_nonceHasRoomAboveSixtyFourBits() public {
+        uint128 n = uint128(type(uint64).max) + 5;
+        inject(uint64(NOW - 120), uint64(NOW + 3600), n);
+        (bool execOk,) = usable(n);
+        assert(execOk);
+        (,, uint128 after_) = session();
+        assert(after_ == n + 1);
+    }
+
     // ---- exec ----------------------------------------------------------------------------------------------------
 
     function test_execCallsRolesAsTheSeat() public {
@@ -524,26 +566,29 @@ contract PrimeSeatTest {
         assert(legacy(data, dsig) == LEGACY);
     }
 
+    function legacyProof(bytes memory data) internal returns (bytes memory) {
+        return proof(seat, KEY_PK, NATIVE_PK, keccak256(data));
+    }
+
     function test_legacyFormRequiresTheSafeEncoding() public {
         begin(8 hours);
-        bytes memory data = safeData(keccak256("safe tx 1"));
-        bytes32 h = keccak256(data);
-        bytes memory sig = proof(seat, KEY_PK, NATIVE_PK, h);
-        assert(legacy(data, sig) == LEGACY);
+        bytes32 txHash = keccak256("safe tx 1");
+        bytes memory data = safeData(txHash);
+        assert(legacy(data, legacyProof(data)) == LEGACY);
 
-        bytes memory wrongPrefix = data;
-        wrongPrefix[1] = 0x02;
-        assert(legacy(wrongPrefix, proof(seat, KEY_PK, NATIVE_PK, keccak256(wrongPrefix))) == NO);
-        bytes memory wrongFirst = data;
-        wrongFirst[0] = 0x18;
-        assert(legacy(wrongFirst, proof(seat, KEY_PK, NATIVE_PK, keccak256(wrongFirst))) == NO);
-        bytes memory longer = abi.encodePacked(data, bytes1(0x00));
-        assert(legacy(longer, proof(seat, KEY_PK, NATIVE_PK, keccak256(longer))) == NO);
+        bytes memory wrongSecondByte = safeData(txHash);
+        wrongSecondByte[1] = 0x02;
+        assert(legacy(wrongSecondByte, legacyProof(wrongSecondByte)) == NO);
+        bytes memory wrongFirstByte = safeData(txHash);
+        wrongFirstByte[0] = 0x18;
+        assert(legacy(wrongFirstByte, legacyProof(wrongFirstByte)) == NO);
+        bytes memory longer = abi.encodePacked(safeData(txHash), bytes1(0x00));
+        assert(legacy(longer, legacyProof(longer)) == NO);
         bytes memory shorter = new bytes(65);
         for (uint256 i = 0; i < 65; i++) {
             shorter[i] = data[i];
         }
-        assert(legacy(shorter, proof(seat, KEY_PK, NATIVE_PK, keccak256(shorter))) == NO);
+        assert(legacy(shorter, legacyProof(shorter)) == NO);
     }
 
     function test_grantPreimageAsDataIsRefused() public {
