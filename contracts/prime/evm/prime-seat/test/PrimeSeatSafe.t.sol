@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import {PrimeSeat, IRoles} from "../src/PrimeSeat.sol";
 
 // Real Safe 1.4.1 and 1.5.0 L2 contracts on a fork of Base Sepolia. Run with FORK_URL set to a Base Sepolia RPC
-// (a public endpoint or a local anvil fork); without it every test returns at once.
+// (a public endpoint or a local anvil fork); without it every test is skipped.
 
 interface Vm {
     function sign(uint256, bytes32) external returns (uint8, bytes32, bytes32);
@@ -12,6 +12,7 @@ interface Vm {
     function createSelectFork(string calldata) external returns (uint256);
     function envOr(string calldata, string calldata) external returns (string memory);
     function deal(address, uint256) external;
+    function skip(bool) external;
 }
 
 interface ISafeFull {
@@ -59,7 +60,6 @@ contract PrimeSeatSafeTest {
     address constant PAYEE = address(0xD00D);
 
     address ROLES;
-    bool forked;
     ISafeFull safe;
     PrimeSeat seatA;
     PrimeSeat seatB;
@@ -73,8 +73,8 @@ contract PrimeSeatSafeTest {
 
     function setUp() public {
         string memory url = vm.envOr("FORK_URL", "");
-        forked = bytes(url).length != 0;
-        if (forked) vm.createSelectFork(url);
+        if (bytes(url).length == 0) vm.skip(true);
+        vm.createSelectFork(url);
         native = vm.addr(NATIVE_PK);
         ROLES = address(new RolesStub());
     }
@@ -251,7 +251,6 @@ contract PrimeSeatSafeTest {
     }
 
     function test_safe141VoteShapes() public {
-        if (!forked) return;
         createSafe(SAFE141, FACTORY141, FALLBACK141);
         assert(keccak256(bytes(safe.VERSION())) == keccak256("1.4.1"));
         onboard();
@@ -259,7 +258,6 @@ contract PrimeSeatSafeTest {
     }
 
     function test_safe150VoteShapes() public {
-        if (!forked) return;
         createSafe(SAFE150, FACTORY150, FALLBACK150);
         assert(keccak256(bytes(safe.VERSION())) == keccak256("1.5.0"));
         onboard();
@@ -268,7 +266,6 @@ contract PrimeSeatSafeTest {
 
     // a Safe 1.4.1 with seats moves to 1.5.0 by an M-of-N vote, then votes again
     function test_migrationFrom141To150KeepsTheSeatsVoting() public {
-        if (!forked) return;
         createSafe(SAFE141, FACTORY141, FALLBACK141);
         onboard();
         bytes32 h = payHash();
@@ -294,7 +291,6 @@ contract PrimeSeatSafeTest {
 
     // after a seat's session ends, the account stops counting it, and an ended seat cannot vote again
     function test_endedSessionStopsVotingOnTheSafe() public {
-        if (!forked) return;
         createSafe(SAFE141, FACTORY141, FALLBACK141);
         onboard();
         address key = vm.addr(KEY_A_PK);
@@ -317,7 +313,6 @@ contract PrimeSeatSafeTest {
     }
 
     function test_execRefusesModulesTheSafeEnabled() public {
-        if (!forked) return;
         createSafe(SAFE141, FACTORY141, FALLBACK141);
         onboard();
         address[2] memory targets = [address(0x30D), ROLES];
