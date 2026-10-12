@@ -67,6 +67,8 @@ jobs:
           # The session signer on an OZ smart account. Its wasm is pinned in
           # contracts/prime/build-hashes.json.
           - prime-session
+          # The NEAR-routed owner's seat on an OZ smart account.
+          - prime-seat
     defaults:
       run:
         working-directory: contracts/prime/stellar/${{ matrix.crate }}
@@ -157,17 +159,18 @@ jobs:
             exit 1
           fi
 
-      # The session signer is not deployed as a shared instance, so there is no
+      # The session signer and the seat are not deployed as shared instances, so there is no
       # deployments/ record. Its reproducible build (build-wasm.sh, which remaps
       # the crate and registry paths) is pinned in contracts/prime/build-hashes.json.
       # The testnet instances run the stellar contract build wasm, whose hash
       # depends on the build machine's paths and cannot be compared here.
       - name: Wasm build and pin parity
-        if: matrix.crate == 'prime-session'
+        if: matrix.crate == 'prime-session' || matrix.crate == 'prime-seat'
         run: |
           rustup target add wasm32v1-none
           ./build-wasm.sh
-          ../../check-build-hash.sh stellar/prime-session target/wasm32v1-none/release/prime_session.wasm
+          wasm="${{ matrix.crate }}"
+          ../../check-build-hash.sh "stellar/${wasm}" "target/wasm32v1-none/release/${wasm//-/_}.wasm"
 
       # RustSec advisories against the locked dependency set. Needs 0.22 or
       # later: the advisory database now carries CVSS 4.0 entries, and 0.21
@@ -210,6 +213,60 @@ jobs:
 
       - name: Test
         run: forge test
+
+  # The EVM seat for a NEAR-routed owner. Same OpenZeppelin fetch as the session
+  # contract. The runtime and creation code are pinned in
+  # contracts/prime/build-hashes.json, so a source change that is not re-recorded
+  # turns this red. The real-Safe tests run only with FORK_URL set (a Base Sepolia
+  # fork, see the contract's README), which this job does not set.
+  evm-prime-seat:
+    name: Contracts (evm/prime-seat)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: contracts/prime/evm/prime-seat
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.8.4
+
+      - name: Fetch OpenZeppelin Contracts 5.4.0
+        run: |
+          npm pack @openzeppelin/contracts@5.4.0
+          tar xzf openzeppelin-contracts-5.4.0.tgz
+          mkdir -p lib/oz && cp -r package/utils package/interfaces lib/oz/
+
+      # The test files are not formatted, so the check covers the contract.
+      - name: Format check
+        run: forge fmt --check src
+
+      - name: Build
+        run: forge build
+
+      - name: Test
+        run: forge test
+
+      - name: Build hash parity
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, sys
+          art = json.load(open("out/PrimeSeat.sol/PrimeSeat.json"))
+          pins = json.load(open("../../build-hashes.json"))["sha256"]
+          bad = False
+          for kind, field in (("runtime", "deployedBytecode"), ("creation", "bytecode")):
+              built = hashlib.sha256(bytes.fromhex(art[field]["object"][2:])).hexdigest()
+              pinned = pins.get("evm/prime-seat:" + kind, "")
+              print(kind, "built: ", built)
+              print(kind, "pinned:", pinned)
+              if built != pinned:
+                  print("The recorded evm/prime-seat:" + kind + " build is not what this tree builds.")
+                  print("Update contracts/prime/build-hashes.json together with the source and the README build table.")
+                  bad = True
+          sys.exit(1 if bad else 0)
+          PY
 
   # The two Solana programs build with the Solana CLI's cargo-build-sbf, pinned
   # to the release the hashes were recorded with. PRIME_CLUSTER is a compile-time
