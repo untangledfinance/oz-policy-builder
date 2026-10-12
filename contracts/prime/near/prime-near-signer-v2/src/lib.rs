@@ -37,6 +37,12 @@ pub enum Chain {
     StellarTestnet,
 }
 
+impl Scheme {
+    fn name(self) -> &'static str {
+        ["sep53", "raw", "eip191"][self as usize]
+    }
+}
+
 impl Chain {
     fn label(self) -> &'static str {
         ["Base Sepolia (84532)", "Solana devnet", "Stellar testnet"][self as usize]
@@ -47,13 +53,7 @@ impl Chain {
 }
 
 #[near(serializers=[json])]
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub enum Scope {
-    Votes,
-    RulesOnly,
-}
-
-#[near(serializers=[json])]
+#[serde(deny_unknown_fields)]
 pub enum Request {
     Grant {
         chain: Chain,
@@ -62,7 +62,6 @@ pub enum Request {
         key: String,
         start: u64,
         end: u64,
-        scope: Scope,
     },
     End {
         chain: Chain,
@@ -89,6 +88,7 @@ pub fn plan(wallet: &str, scheme: Scheme, request: &Request, now: u64, me: &str)
     } else {
         hexn::<32>(wallet, "", "wallet");
     }
+    let tail = format!("Signature scheme: {}\nSigner: {me}", scheme.name());
     let (chain, account, (text, payload)) = match request {
         Request::Grant {
             chain,
@@ -97,11 +97,10 @@ pub fn plan(wallet: &str, scheme: Scheme, request: &Request, now: u64, me: &str)
             key,
             start,
             end,
-            scope,
         } => {
             require!(*start <= now + 300, "start");
             require!(end > start && end - start <= 604_800, "window");
-            let text = render::grant(*chain, [account, seat, key], *start, *end, *scope, me);
+            let text = render::grant(*chain, [account, seat, key], *start, *end, &tail);
             (
                 *chain,
                 account,
@@ -117,7 +116,7 @@ pub fn plan(wallet: &str, scheme: Scheme, request: &Request, now: u64, me: &str)
             *chain,
             account,
             (
-                render::end(*chain, account, seat, key, me),
+                render::end(*chain, account, seat, key, &tail),
                 hash::grant(*chain, account, seat, key, 0, 0),
             ),
         ),
@@ -126,7 +125,11 @@ pub fn plan(wallet: &str, scheme: Scheme, request: &Request, now: u64, me: &str)
     let domain = if chain == Chain::BaseSepolia { 0 } else { 1 };
     Plan {
         text,
-        path: format!("{wallet}/prime:{}:{account}", chain.slug()),
+        path: format!(
+            "{}:{wallet}/prime:{}:{account}",
+            scheme.name(),
+            chain.slug()
+        ),
         domain,
         payload,
     }

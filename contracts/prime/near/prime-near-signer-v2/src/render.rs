@@ -1,4 +1,4 @@
-use crate::{Chain, Scope};
+use crate::Chain;
 
 /// UTC date and time with the unix value in brackets.
 pub fn when(t: u64) -> String {
@@ -26,24 +26,20 @@ pub fn grant(
     [account, seat, key]: [&str; 3],
     start: u64,
     end: u64,
-    scope: Scope,
-    me: &str,
+    tail: &str,
 ) -> String {
-    let scope = match scope {
-        Scope::RulesOnly => "Until it ends, this key acts for you in rules that list your seat on this Prime Account.".to_string(),
-        Scope::Votes => format!(
-            "Until it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature{}.",
-            if chain == Chain::StellarTestnet { " through the sessions rule" } else { "" }
-        ),
-    };
+    let scope = format!(
+        "Until it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature{}.",
+        if chain == Chain::StellarTestnet { " through the sessions rule" } else { "" }
+    );
     format!(
-        "Prime: start a session\nChain: {}\nPrime Account: {account}\nYour seat: {seat}\nSession key: {key}\nStarts: {}\nEnds: {}\n{scope}\nSigner: {me}",
+        "Prime: start a session\nChain: {}\nPrime Account: {account}\nYour seat: {seat}\nSession key: {key}\nStarts: {}\nEnds: {}\n{scope}\n{tail}",
         chain.label(),
         when(start),
         when(end)
     )
 }
 
-pub fn end(chain: Chain, account: &str, seat: &str, key: &str, me: &str) -> String {
-    format!("Prime: end a session\nChain: {}\nPrime Account: {account}\nYour seat: {seat}\nSession key: {key}\nAfter this, the key can never act again.\nSigner: {me}", chain.label())
+pub fn end(chain: Chain, account: &str, seat: &str, key: &str, tail: &str) -> String {
+    format!("Prime: end a session\nChain: {}\nPrime Account: {account}\nYour seat: {seat}\nSession key: {key}\nAfter this, the key can never act again.\n{tail}", chain.label())
 }

@@ -55,7 +55,7 @@ fn call(c: &Value) -> Result<Promise, String> {
 fn text_path_domain_and_hash_match_the_vectors() {
     let v = vectors();
     let cases = v["cases"].as_array().unwrap();
-    assert!(cases.len() >= 14);
+    assert!(cases.len() >= 11);
     for c in cases {
         at(c["now"].as_u64().unwrap());
         let (scheme, request): (Scheme, Request) = (
@@ -82,6 +82,13 @@ fn text_path_domain_and_hash_match_the_vectors() {
             str_of(c, "payload"),
             "{id}: payload"
         );
+        if let Some(other) = c.get("not_path") {
+            assert_ne!(
+                p.path,
+                other.as_str().unwrap(),
+                "{id}: another scheme must derive another path"
+            );
+        }
         if let Some(other) = c.get("not_payload") {
             assert_ne!(
                 hex::encode(p.payload),
@@ -107,7 +114,7 @@ fn every_shape_and_scheme_is_covered_by_three_or_more_cases() {
         assert!(count("shape", shape) >= 3, "{shape}");
     }
     for scheme in ["Sep53", "Raw", "Eip191"] {
-        assert!(count("scheme", scheme) >= 4, "{scheme}");
+        assert!(count("scheme", scheme) >= 3, "{scheme}");
     }
 }
 
@@ -140,7 +147,7 @@ fn signed_vectors_reach_the_mpc_with_the_derived_path_and_hash() {
 fn every_refusal_is_refused_for_its_reason() {
     let v = vectors();
     let refusals = v["refusals"].as_array().unwrap();
-    assert!(refusals.len() >= 44);
+    assert!(refusals.len() >= 42);
     for c in refusals {
         let (id, want) = (str_of(c, "id"), str_of(c, "error"));
         match call(c) {
@@ -148,6 +155,7 @@ fn every_refusal_is_refused_for_its_reason() {
             Err(e) if want == "chain" || want == "variant" => {
                 assert!(e.contains("unknown variant"), "{id}: {e}")
             }
+            Err(e) if want == "field" => assert!(e.contains("unknown field"), "{id}: {e}"),
             Err(e) => assert_eq!(e, want, "{id}"),
         }
     }

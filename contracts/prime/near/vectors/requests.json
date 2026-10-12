@@ -6,8 +6,9 @@
  "hash_notes": {
   "evm_grant": "keccak256(abi.encode(keccak256('PrimeSeatGrant(uint256 chainId,address safe,address seat,address key,uint64 start,uint64 end)'), 84532, account, seat, key, start, end)); End = same with start 0 and end 0",
   "solana_stellar_grant": "sha256('prime-seat-grant' || domain || account || seat || key || be64(start) || be64(end)); domain = ascii 'devnet' on Solana, sha256('Test SDF Network ; September 2015') on Stellar; keys are raw 32 bytes; End = same with start 0 and end 0",
-  "paths": "<wallet id>/prime:<evm|solana|stellar>:<account>; domain 0 for evm (Ecdsa), 1 for solana and stellar (Eddsa); payload is the 32-byte hash as lowercase hex",
-  "votes": "SafeVote, SolanaVote and StellarVote requests are refused with reason 'vote' (refusals 'vote-*'); the Safe and Squads vote hashes of the earlier build are no longer produced",
+  "paths": "<scheme>:<wallet id>/prime:<evm|solana|stellar>:<account>; scheme is sep53, raw or eip191 (lowercase), so one ed25519 key used under two schemes derives two seat keys; domain 0 for evm (Ecdsa), 1 for solana and stellar (Eddsa); payload is the 32-byte hash as lowercase hex",
+  "texts": "every text ends with 'Signature scheme: <scheme>' and 'Signer: <v2 account>'; there is one session type, so a Grant carries no scope field",
+  "votes": "SafeVote, SolanaVote and StellarVote requests are refused with reason 'vote' (refusals 'vote-*')",
   "stellar_network_id_hex": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472"
  },
  "cases": [
@@ -24,38 +25,14 @@
      "seat": "0x8dd3231a50339bdce203fbe24e1a620d47e19dc1",
      "key": "0xc8a9981f31091870b8aaf1f28caa78e876a82ae4",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "text": "Prime: start a session\nChain: Base Sepolia (84532)\nPrime Account: 0x164a074f012d24867bb97ba6dc542bd678b8404c\nYour seat: 0x8dd3231a50339bdce203fbe24e1a620d47e19dc1\nSession key: 0xc8a9981f31091870b8aaf1f28caa78e876a82ae4\nStarts: 2026-10-12 09:58:00 UTC (1791799080)\nEnds: 2026-10-12 17:58:00 UTC (1791827880)\nUntil it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature.\nSigner: seats.prime-spike-muwguc60.testnet",
-   "path": "0x1819fda580d5587f393e2de749a45cc7f1d2f431/prime:evm:0x164a074f012d24867bb97ba6dc542bd678b8404c",
+   "text": "Prime: start a session\nChain: Base Sepolia (84532)\nPrime Account: 0x164a074f012d24867bb97ba6dc542bd678b8404c\nYour seat: 0x8dd3231a50339bdce203fbe24e1a620d47e19dc1\nSession key: 0xc8a9981f31091870b8aaf1f28caa78e876a82ae4\nStarts: 2026-10-12 09:58:00 UTC (1791799080)\nEnds: 2026-10-12 17:58:00 UTC (1791827880)\nUntil it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature.\nSignature scheme: eip191\nSigner: seats.prime-spike-muwguc60.testnet",
+   "path": "eip191:0x1819fda580d5587f393e2de749a45cc7f1d2f431/prime:evm:0x164a074f012d24867bb97ba6dc542bd678b8404c",
    "domain": 0,
    "payload": "75c874f598219799889d98bf2f7035510b474497d4d04037db3a05fb0823a58f",
-   "signature": "cd3396f722537a0413672dafd9be9bed97f7ff75c35a1dcae73d629cbdc139e90f48d79a087cfbdb24c2f5bdd14d8b4dcb5300c471d5b38c47a934857898ff0c1b"
-  },
-  {
-   "id": "grant-evm-rules-only",
-   "shape": "Grant",
-   "now": 1791799200,
-   "wallet": "851564e1582709b8d902b1a3f4696f5b4c5f5ffa6cbf5c5d743c5ebdfd85b29b",
-   "scheme": "Sep53",
-   "request": {
-    "Grant": {
-     "chain": "BaseSepolia",
-     "account": "0x5d747db63132a97666493809e9605cd90ae75491",
-     "seat": "0x2d60c9948fe793f0a7af6fe9063f3ccfaf85320f",
-     "key": "0xfe99035fb6507b989bed5905d8f15b14669ed461",
-     "start": 1791799080,
-     "end": 1791802680,
-     "scope": "RulesOnly"
-    }
-   },
-   "text": "Prime: start a session\nChain: Base Sepolia (84532)\nPrime Account: 0x5d747db63132a97666493809e9605cd90ae75491\nYour seat: 0x2d60c9948fe793f0a7af6fe9063f3ccfaf85320f\nSession key: 0xfe99035fb6507b989bed5905d8f15b14669ed461\nStarts: 2026-10-12 09:58:00 UTC (1791799080)\nEnds: 2026-10-12 10:58:00 UTC (1791802680)\nUntil it ends, this key acts for you in rules that list your seat on this Prime Account.\nSigner: seats.prime-spike-muwguc60.testnet",
-   "path": "851564e1582709b8d902b1a3f4696f5b4c5f5ffa6cbf5c5d743c5ebdfd85b29b/prime:evm:0x5d747db63132a97666493809e9605cd90ae75491",
-   "domain": 0,
-   "payload": "415f2e6a3670241f4129f1666e729f3fe2834f5573adf452c9b9285064264dae",
-   "signature": "06ba3eac95401df3fb239e48286bc750456b6b1c68acbb112a05553c0c92e33bb24fb32b3545ba352080c34294366fdf9dccab48b9e3c2efc435c2188298dc04"
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b"
   },
   {
    "id": "grant-evm-leap-day",
@@ -70,15 +47,14 @@
      "seat": "0xa264f5ecbff23394429aba76c0df7726b229f525",
      "key": "0x0d97783beb2394c939b3af6828c5ebb7fc331b75",
      "start": 1835438280,
-     "end": 1835524680,
-     "scope": "Votes"
+     "end": 1835524680
     }
    },
-   "text": "Prime: start a session\nChain: Base Sepolia (84532)\nPrime Account: 0xdc5758025bb4f3075cd5a01c61dfcb342b662159\nYour seat: 0xa264f5ecbff23394429aba76c0df7726b229f525\nSession key: 0x0d97783beb2394c939b3af6828c5ebb7fc331b75\nStarts: 2028-02-29 11:58:00 UTC (1835438280)\nEnds: 2028-03-01 11:58:00 UTC (1835524680)\nUntil it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature.\nSigner: seats.prime-spike-muwguc60.testnet",
-   "path": "38c209138f7642ec6ae337c3040053af13b2d318a86f9946882bf4adeebf5dfd/prime:evm:0xdc5758025bb4f3075cd5a01c61dfcb342b662159",
+   "text": "Prime: start a session\nChain: Base Sepolia (84532)\nPrime Account: 0xdc5758025bb4f3075cd5a01c61dfcb342b662159\nYour seat: 0xa264f5ecbff23394429aba76c0df7726b229f525\nSession key: 0x0d97783beb2394c939b3af6828c5ebb7fc331b75\nStarts: 2028-02-29 11:58:00 UTC (1835438280)\nEnds: 2028-03-01 11:58:00 UTC (1835524680)\nUntil it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature.\nSignature scheme: raw\nSigner: seats.prime-spike-muwguc60.testnet",
+   "path": "raw:38c209138f7642ec6ae337c3040053af13b2d318a86f9946882bf4adeebf5dfd/prime:evm:0xdc5758025bb4f3075cd5a01c61dfcb342b662159",
    "domain": 0,
    "payload": "6b5ac9582621414d26f9a2c649eedc288a17baa62950eef157f4f85c5e9df744",
-   "signature": "05a02a9071070ffa87b365146bf553a9a4e2479ccc7199f188eacb945f7649fc97e81d939bbc062d4abbbb28354daa2a6ace80c9a6672cae50f6ab29a37aab0c"
+   "signature": "a41bc2be1c64a873598546f54617686475c1bf872d703a4be00933c07d84e0efe22c0f5b25d8e55d094e391299076624c7e9c9b859b5384fb883374d0ef72003"
   },
   {
    "id": "grant-solana-votes",
@@ -93,38 +69,14 @@
      "seat": "6pkY5EaXrYQbY145r7PwZod2oJtvQJg7uBofrj79uCMt",
      "key": "5uqxKUEQKq414fwudjqhRAXAxHJsTMLwHgJ1j8r9NW6d",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "text": "Prime: start a session\nChain: Solana devnet\nPrime Account: 9eUopsCmsKQMBUsYTBc5Lvgtchkyeq3PG6qhRW8F8rdX\nYour seat: 6pkY5EaXrYQbY145r7PwZod2oJtvQJg7uBofrj79uCMt\nSession key: 5uqxKUEQKq414fwudjqhRAXAxHJsTMLwHgJ1j8r9NW6d\nStarts: 2026-10-12 09:58:00 UTC (1791799080)\nEnds: 2026-10-12 17:58:00 UTC (1791827880)\nUntil it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature.\nSigner: seats.prime-spike-muwguc60.testnet",
-   "path": "851564e1582709b8d902b1a3f4696f5b4c5f5ffa6cbf5c5d743c5ebdfd85b29b/prime:solana:9eUopsCmsKQMBUsYTBc5Lvgtchkyeq3PG6qhRW8F8rdX",
+   "text": "Prime: start a session\nChain: Solana devnet\nPrime Account: 9eUopsCmsKQMBUsYTBc5Lvgtchkyeq3PG6qhRW8F8rdX\nYour seat: 6pkY5EaXrYQbY145r7PwZod2oJtvQJg7uBofrj79uCMt\nSession key: 5uqxKUEQKq414fwudjqhRAXAxHJsTMLwHgJ1j8r9NW6d\nStarts: 2026-10-12 09:58:00 UTC (1791799080)\nEnds: 2026-10-12 17:58:00 UTC (1791827880)\nUntil it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature.\nSignature scheme: sep53\nSigner: seats.prime-spike-muwguc60.testnet",
+   "path": "sep53:851564e1582709b8d902b1a3f4696f5b4c5f5ffa6cbf5c5d743c5ebdfd85b29b/prime:solana:9eUopsCmsKQMBUsYTBc5Lvgtchkyeq3PG6qhRW8F8rdX",
    "domain": 1,
    "payload": "9450e293098d0b90b0fb2acf2157456f17145f7583eab156229b559339d040b9",
-   "signature": "977cacc34a557e3273dcea455a4a46058fc11dd5e8714471b6951fe36e8f5e50f0c360d245945ba6c379a2918c735d763e05a51b68531bf730d17ed44b26260b"
-  },
-  {
-   "id": "grant-solana-rules-only",
-   "shape": "Grant",
-   "now": 1791799200,
-   "wallet": "0x1819fda580d5587f393e2de749a45cc7f1d2f431",
-   "scheme": "Eip191",
-   "request": {
-    "Grant": {
-     "chain": "SolanaDevnet",
-     "account": "48fVTFi4eEeWqH1CK1jSGsUK3X8oq7sKbwtrDxuxscnq",
-     "seat": "DPUw1HyTN3vQrdbAEf94sovjy4S2Dd8fwHK9bSFv8i4j",
-     "key": "27eN5AESDaG7SHnFeXUpKyq7X2LNQsLZpjTJa2sqvfDn",
-     "start": 1791799200,
-     "end": 1791802800,
-     "scope": "RulesOnly"
-    }
-   },
-   "text": "Prime: start a session\nChain: Solana devnet\nPrime Account: 48fVTFi4eEeWqH1CK1jSGsUK3X8oq7sKbwtrDxuxscnq\nYour seat: DPUw1HyTN3vQrdbAEf94sovjy4S2Dd8fwHK9bSFv8i4j\nSession key: 27eN5AESDaG7SHnFeXUpKyq7X2LNQsLZpjTJa2sqvfDn\nStarts: 2026-10-12 10:00:00 UTC (1791799200)\nEnds: 2026-10-12 11:00:00 UTC (1791802800)\nUntil it ends, this key acts for you in rules that list your seat on this Prime Account.\nSigner: seats.prime-spike-muwguc60.testnet",
-   "path": "0x1819fda580d5587f393e2de749a45cc7f1d2f431/prime:solana:48fVTFi4eEeWqH1CK1jSGsUK3X8oq7sKbwtrDxuxscnq",
-   "domain": 1,
-   "payload": "5e071fbcd274335a403ccc911799ab6023ae4b58cd09fab5d27bcb7772627bd0",
-   "signature": "00db306f83e61b6b15aa76285909dea2ed02689590469d1d71044634e903c1da15db423278a10fcdb9757a651cd81e346b735fb3978a0f21512eec7d044801b21b"
+   "signature": "8c19c66986c54fe1479aef59ecdd269dd2534f3c986b114a341086da3456c9badb532135b6f3148d97d6a57ea6ead9645daccf5a60e2f0e326d13c106feb0400"
   },
   {
    "id": "grant-solana-2038",
@@ -139,15 +91,14 @@
      "seat": "DEfRamAWbVDdgie15VzJqV3RQXG1jHrrHwR9oSC7zNJa",
      "key": "HDJyKKS14YEsgNekCrFxUXj3W1nVZqKVPgexZAiR2L1D",
      "start": 2147481728,
-     "end": 2147488928,
-     "scope": "Votes"
+     "end": 2147488928
     }
    },
-   "text": "Prime: start a session\nChain: Solana devnet\nPrime Account: Dq6J2shjxgqyCViFSsbQdeM7xnsqiCegXFt1V2AFSJCd\nYour seat: DEfRamAWbVDdgie15VzJqV3RQXG1jHrrHwR9oSC7zNJa\nSession key: HDJyKKS14YEsgNekCrFxUXj3W1nVZqKVPgexZAiR2L1D\nStarts: 2038-01-19 02:42:08 UTC (2147481728)\nEnds: 2038-01-19 04:42:08 UTC (2147488928)\nUntil it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature.\nSigner: seats.prime-spike-muwguc60.testnet",
-   "path": "38c209138f7642ec6ae337c3040053af13b2d318a86f9946882bf4adeebf5dfd/prime:solana:Dq6J2shjxgqyCViFSsbQdeM7xnsqiCegXFt1V2AFSJCd",
+   "text": "Prime: start a session\nChain: Solana devnet\nPrime Account: Dq6J2shjxgqyCViFSsbQdeM7xnsqiCegXFt1V2AFSJCd\nYour seat: DEfRamAWbVDdgie15VzJqV3RQXG1jHrrHwR9oSC7zNJa\nSession key: HDJyKKS14YEsgNekCrFxUXj3W1nVZqKVPgexZAiR2L1D\nStarts: 2038-01-19 02:42:08 UTC (2147481728)\nEnds: 2038-01-19 04:42:08 UTC (2147488928)\nUntil it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature.\nSignature scheme: raw\nSigner: seats.prime-spike-muwguc60.testnet",
+   "path": "raw:38c209138f7642ec6ae337c3040053af13b2d318a86f9946882bf4adeebf5dfd/prime:solana:Dq6J2shjxgqyCViFSsbQdeM7xnsqiCegXFt1V2AFSJCd",
    "domain": 1,
    "payload": "845c9eacff5156e3e389e06085dccc2a4801ba181bde2a19fbad2dcc61a09d7a",
-   "signature": "016fd6d5761b921799d6d9804b97d449677dc32d0519d1cba7c024c2718473a4810dd0a6a8a31cd58734e87c47e1d926717df5cc65915573664b8aea1e6e4908"
+   "signature": "e50c9221a442f29c48a9479697e19768f2b580926d1f7c5c4f179a06305520cb77f1fff6911edab88842ee29ba504ee38b158e24ad205f2e8f12a9f9e4c8e600"
   },
   {
    "id": "grant-stellar-votes",
@@ -162,38 +113,14 @@
      "seat": "CDZPWOQO4SRC6XOWIDYKCYK6DPBA25B542YKW7L56OAEYJVXZLZGDM4Z",
      "key": "GAEPREQKX4GBTQSRLQV5J5C2LHRZQHMQNBKT7MHSFBGLRXWVBGFXLWXA",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "text": "Prime: start a session\nChain: Stellar testnet\nPrime Account: CAR5IKJTBWVHIVVS6KR5HNNTMDRXI6GRIIMFFDY7HXF3XERGLVS7DRMH\nYour seat: CDZPWOQO4SRC6XOWIDYKCYK6DPBA25B542YKW7L56OAEYJVXZLZGDM4Z\nSession key: GAEPREQKX4GBTQSRLQV5J5C2LHRZQHMQNBKT7MHSFBGLRXWVBGFXLWXA\nStarts: 2026-10-12 09:58:00 UTC (1791799080)\nEnds: 2026-10-12 17:58:00 UTC (1791827880)\nUntil it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature through the sessions rule.\nSigner: seats.prime-spike-muwguc60.testnet",
-   "path": "38c209138f7642ec6ae337c3040053af13b2d318a86f9946882bf4adeebf5dfd/prime:stellar:CAR5IKJTBWVHIVVS6KR5HNNTMDRXI6GRIIMFFDY7HXF3XERGLVS7DRMH",
+   "text": "Prime: start a session\nChain: Stellar testnet\nPrime Account: CAR5IKJTBWVHIVVS6KR5HNNTMDRXI6GRIIMFFDY7HXF3XERGLVS7DRMH\nYour seat: CDZPWOQO4SRC6XOWIDYKCYK6DPBA25B542YKW7L56OAEYJVXZLZGDM4Z\nSession key: GAEPREQKX4GBTQSRLQV5J5C2LHRZQHMQNBKT7MHSFBGLRXWVBGFXLWXA\nStarts: 2026-10-12 09:58:00 UTC (1791799080)\nEnds: 2026-10-12 17:58:00 UTC (1791827880)\nUntil it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature through the sessions rule.\nSignature scheme: raw\nSigner: seats.prime-spike-muwguc60.testnet",
+   "path": "raw:38c209138f7642ec6ae337c3040053af13b2d318a86f9946882bf4adeebf5dfd/prime:stellar:CAR5IKJTBWVHIVVS6KR5HNNTMDRXI6GRIIMFFDY7HXF3XERGLVS7DRMH",
    "domain": 1,
    "payload": "20896a451e7ec53375a3134a86e263ad8af4a7098bb2c5c1dc86a853c8c3cc9b",
-   "signature": "064a8af3535bfd2faf1b346e6511814bf5e60479632523c33ae9db4c76975a73849e5a3a45e9b4548fa40901ce87c65a27712914b4346db7b82e56b4ed23250a"
-  },
-  {
-   "id": "grant-stellar-rules-only",
-   "shape": "Grant",
-   "now": 1791799200,
-   "wallet": "851564e1582709b8d902b1a3f4696f5b4c5f5ffa6cbf5c5d743c5ebdfd85b29b",
-   "scheme": "Sep53",
-   "request": {
-    "Grant": {
-     "chain": "StellarTestnet",
-     "account": "CAEUBVIH42RV7DKYLJ44OCKZZCPUAKXDYLLU6YGQ44ZA7MWQQSFMAPMP",
-     "seat": "CD3CMAIAJ6WGYO7OLV3RJSPXWHICHZT4UZ4G4IMVVS4ANIJ2IICOO5S3",
-     "key": "GDZCACRYUYVBDZVSLXU7ROAVMYIROLKG4NCD25HYQJXGTPHO5QFFL4SD",
-     "start": 1791799080,
-     "end": 1791885480,
-     "scope": "RulesOnly"
-    }
-   },
-   "text": "Prime: start a session\nChain: Stellar testnet\nPrime Account: CAEUBVIH42RV7DKYLJ44OCKZZCPUAKXDYLLU6YGQ44ZA7MWQQSFMAPMP\nYour seat: CD3CMAIAJ6WGYO7OLV3RJSPXWHICHZT4UZ4G4IMVVS4ANIJ2IICOO5S3\nSession key: GDZCACRYUYVBDZVSLXU7ROAVMYIROLKG4NCD25HYQJXGTPHO5QFFL4SD\nStarts: 2026-10-12 09:58:00 UTC (1791799080)\nEnds: 2026-10-13 09:58:00 UTC (1791885480)\nUntil it ends, this key acts for you in rules that list your seat on this Prime Account.\nSigner: seats.prime-spike-muwguc60.testnet",
-   "path": "851564e1582709b8d902b1a3f4696f5b4c5f5ffa6cbf5c5d743c5ebdfd85b29b/prime:stellar:CAEUBVIH42RV7DKYLJ44OCKZZCPUAKXDYLLU6YGQ44ZA7MWQQSFMAPMP",
-   "domain": 1,
-   "payload": "6c92c0b522a1867d5fb114968e21e30cb0e8da3ce470300e373befba17d8275f",
-   "signature": "6af20672a17f91a67b3e01be760a68bb93297a005c216a3845b301fcea0d3eebb8ffb3ad8e6d85140c7e15a7135cc354c4e4b42291507a7547cad16399f5d90f"
+   "signature": "75594ce12c1e2afc324c01bb2357beb25c23cf99595e6d7c81eb90d209df13eb3a995c8948ec35cf6b60fd62395bdb07b2ad708e5779c68433b3d99841a9cd09"
   },
   {
    "id": "grant-stellar-year-end-max-window",
@@ -208,15 +135,14 @@
      "seat": "CDAXPDLZS76OGJ6VTFTFA5LLJKT6YEMSTFKJE4F4EEKW6FOTIOVNQKSX",
      "key": "GBGAPCP7YFJV4KGPEL65YPLJMCNWAOGZYXCUB27VOHBWXSMDVL3UWQ6R",
      "start": 1798761840,
-     "end": 1799366640,
-     "scope": "Votes"
+     "end": 1799366640
     }
    },
-   "text": "Prime: start a session\nChain: Stellar testnet\nPrime Account: CDFRZ4MLT6W6KJ4QPXIKQ7PWOKH2AR53KRFRGPB4ELNHPO63KHZDKSFM\nYour seat: CDAXPDLZS76OGJ6VTFTFA5LLJKT6YEMSTFKJE4F4EEKW6FOTIOVNQKSX\nSession key: GBGAPCP7YFJV4KGPEL65YPLJMCNWAOGZYXCUB27VOHBWXSMDVL3UWQ6R\nStarts: 2027-01-01 00:04:00 UTC (1798761840)\nEnds: 2027-01-08 00:04:00 UTC (1799366640)\nUntil it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature through the sessions rule.\nSigner: seats.prime-spike-muwguc60.testnet",
-   "path": "0x1819fda580d5587f393e2de749a45cc7f1d2f431/prime:stellar:CDFRZ4MLT6W6KJ4QPXIKQ7PWOKH2AR53KRFRGPB4ELNHPO63KHZDKSFM",
+   "text": "Prime: start a session\nChain: Stellar testnet\nPrime Account: CDFRZ4MLT6W6KJ4QPXIKQ7PWOKH2AR53KRFRGPB4ELNHPO63KHZDKSFM\nYour seat: CDAXPDLZS76OGJ6VTFTFA5LLJKT6YEMSTFKJE4F4EEKW6FOTIOVNQKSX\nSession key: GBGAPCP7YFJV4KGPEL65YPLJMCNWAOGZYXCUB27VOHBWXSMDVL3UWQ6R\nStarts: 2027-01-01 00:04:00 UTC (1798761840)\nEnds: 2027-01-08 00:04:00 UTC (1799366640)\nUntil it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature through the sessions rule.\nSignature scheme: eip191\nSigner: seats.prime-spike-muwguc60.testnet",
+   "path": "eip191:0x1819fda580d5587f393e2de749a45cc7f1d2f431/prime:stellar:CDFRZ4MLT6W6KJ4QPXIKQ7PWOKH2AR53KRFRGPB4ELNHPO63KHZDKSFM",
    "domain": 1,
    "payload": "6a8afcc28414e2d52b05b2c9826d82a693d20e4423f867befd3c13da8a2b9c6f",
-   "signature": "8e4e101f58a7c90e302830f1a8835a32a8b2d1d679f75ba81f410c160d97e1736af4c2746bb1ac58244e7326dae250cb15ef1db0a38f087a2ba28c31a30e156a1c"
+   "signature": "5347660107d1b121683785ddc0499c87c3aa0e129637997b6e7c77f5f1a729631f8a39834ae887283cda600f06adb38768eef6425116267f33343bd81644b73f1b"
   },
   {
    "id": "grant-evm-2000-leap-day",
@@ -231,15 +157,14 @@
      "seat": "0x405ff44edad12d30b7b1ae9c5486da157eabce59",
      "key": "0x304641887258de375f0c9676c4910c06c6e5a6f0",
      "start": 951825480,
-     "end": 951829080,
-     "scope": "Votes"
+     "end": 951829080
     }
    },
-   "text": "Prime: start a session\nChain: Base Sepolia (84532)\nPrime Account: 0x1cd6d17e04545ef301ee8337e34b56f4bf8ba5ad\nYour seat: 0x405ff44edad12d30b7b1ae9c5486da157eabce59\nSession key: 0x304641887258de375f0c9676c4910c06c6e5a6f0\nStarts: 2000-02-29 11:58:00 UTC (951825480)\nEnds: 2000-02-29 12:58:00 UTC (951829080)\nUntil it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature.\nSigner: seats.prime-spike-muwguc60.testnet",
-   "path": "851564e1582709b8d902b1a3f4696f5b4c5f5ffa6cbf5c5d743c5ebdfd85b29b/prime:evm:0x1cd6d17e04545ef301ee8337e34b56f4bf8ba5ad",
+   "text": "Prime: start a session\nChain: Base Sepolia (84532)\nPrime Account: 0x1cd6d17e04545ef301ee8337e34b56f4bf8ba5ad\nYour seat: 0x405ff44edad12d30b7b1ae9c5486da157eabce59\nSession key: 0x304641887258de375f0c9676c4910c06c6e5a6f0\nStarts: 2000-02-29 11:58:00 UTC (951825480)\nEnds: 2000-02-29 12:58:00 UTC (951829080)\nUntil it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature.\nSignature scheme: sep53\nSigner: seats.prime-spike-muwguc60.testnet",
+   "path": "sep53:851564e1582709b8d902b1a3f4696f5b4c5f5ffa6cbf5c5d743c5ebdfd85b29b/prime:evm:0x1cd6d17e04545ef301ee8337e34b56f4bf8ba5ad",
    "domain": 0,
    "payload": "c4c16f9a0d13bcf1371b17bba7335f5ee95dfa2a20b2d8a07ddc64cefd8eceb6",
-   "signature": "ea864db2afe9e225fdb620ca59c59b9c3045b2e25959b6ab66d2156b17db8db18065c6d1a6c951a42c5829e02f60c2c9b3fc82a6fc2104a9ca1644c5cce19d09"
+   "signature": "b849cf26aefd44c0662d01e15b5e203ce512c1f55a929d5240258d2a6e92c44a9177e317308ba69a1d8d24a8d76c99b82b4c48b5f46640bcdd4c4735ccf9830c"
   },
   {
    "id": "grant-evm-2100-no-leap",
@@ -254,15 +179,37 @@
      "seat": "0xaf03cd1543463c0520cc959fe4959a04b88fbdc5",
      "key": "0x4b59c68f85d9881c868327010e91100b6d5fcb8e",
      "start": 4107538680,
-     "end": 4107563880,
-     "scope": "Votes"
+     "end": 4107563880
     }
    },
-   "text": "Prime: start a session\nChain: Base Sepolia (84532)\nPrime Account: 0xda6d9d0a6c0c19c61f6e15e111d86bd7928cf990\nYour seat: 0xaf03cd1543463c0520cc959fe4959a04b88fbdc5\nSession key: 0x4b59c68f85d9881c868327010e91100b6d5fcb8e\nStarts: 2100-02-28 22:58:00 UTC (4107538680)\nEnds: 2100-03-01 05:58:00 UTC (4107563880)\nUntil it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature.\nSigner: seats.prime-spike-muwguc60.testnet",
-   "path": "0x1819fda580d5587f393e2de749a45cc7f1d2f431/prime:evm:0xda6d9d0a6c0c19c61f6e15e111d86bd7928cf990",
+   "text": "Prime: start a session\nChain: Base Sepolia (84532)\nPrime Account: 0xda6d9d0a6c0c19c61f6e15e111d86bd7928cf990\nYour seat: 0xaf03cd1543463c0520cc959fe4959a04b88fbdc5\nSession key: 0x4b59c68f85d9881c868327010e91100b6d5fcb8e\nStarts: 2100-02-28 22:58:00 UTC (4107538680)\nEnds: 2100-03-01 05:58:00 UTC (4107563880)\nUntil it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature.\nSignature scheme: eip191\nSigner: seats.prime-spike-muwguc60.testnet",
+   "path": "eip191:0x1819fda580d5587f393e2de749a45cc7f1d2f431/prime:evm:0xda6d9d0a6c0c19c61f6e15e111d86bd7928cf990",
    "domain": 0,
    "payload": "189a0863127696efd7cea2941567faef7df43f2fe979657311376afacec2ba4a",
-   "signature": "7026545988d0092de4366f38d8bac9612a9b81eaf428eee03310094f4f332d4a07a2f8a6932a7f251c475ae161c71119edd70573b38bcdf8b007558b713bec541b"
+   "signature": "5e89bb02d1402038cb53f09f1539ce606e91cf5ae2d5c3b86698ecca5b38e6aa4fe0bcf5fd6f039592ad53fff4327e8376b31c4723286aa85693e05331d01be01b"
+  },
+  {
+   "id": "cross-scheme-phantom-digest-as-sep53",
+   "shape": "Grant",
+   "now": 1791799200,
+   "wallet": "38c209138f7642ec6ae337c3040053af13b2d318a86f9946882bf4adeebf5dfd",
+   "scheme": "Sep53",
+   "request": {
+    "Grant": {
+     "chain": "BaseSepolia",
+     "account": "0x0e45a888cf0d1ce408b23273b7dc800c4c819710",
+     "seat": "0xaa298f68021033b7de45f23f4e96050647cb2b15",
+     "key": "0x50411c1c681ef25d7b1f6a5ba3f131b1d6991aea",
+     "start": 1791799080,
+     "end": 1791802680
+    }
+   },
+   "text": "Prime: start a session\nChain: Base Sepolia (84532)\nPrime Account: 0x0e45a888cf0d1ce408b23273b7dc800c4c819710\nYour seat: 0xaa298f68021033b7de45f23f4e96050647cb2b15\nSession key: 0x50411c1c681ef25d7b1f6a5ba3f131b1d6991aea\nStarts: 2026-10-12 09:58:00 UTC (1791799080)\nEnds: 2026-10-12 10:58:00 UTC (1791802680)\nUntil it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature.\nSignature scheme: sep53\nSigner: seats.prime-spike-muwguc60.testnet",
+   "path": "sep53:38c209138f7642ec6ae337c3040053af13b2d318a86f9946882bf4adeebf5dfd/prime:evm:0x0e45a888cf0d1ce408b23273b7dc800c4c819710",
+   "domain": 0,
+   "payload": "7d34baa726bc79f4e7d333ec317cb17c1df435a4c15138a04a131ac8d4bdbc48",
+   "signature": "a15c27f201020d35dc86c14102799af16aac4f67f07d65a8a9d24a95255469505440456f38083d6bbce0b8dd808ce9ef09d63b00b0d7690b3233b7f38059700e",
+   "not_path": "raw:38c209138f7642ec6ae337c3040053af13b2d318a86f9946882bf4adeebf5dfd/prime:evm:0x0e45a888cf0d1ce408b23273b7dc800c4c819710"
   },
   {
    "id": "end-evm",
@@ -278,11 +225,11 @@
      "key": "0xa4d165989ce32119c4100ee29a3bb5f4ffb3c7f2"
     }
    },
-   "text": "Prime: end a session\nChain: Base Sepolia (84532)\nPrime Account: 0xe7fae20dc15baf40bd5a6f9435d995c51fe43afb\nYour seat: 0x9ede745571ff1934db38b90124e9c4aff98488ba\nSession key: 0xa4d165989ce32119c4100ee29a3bb5f4ffb3c7f2\nAfter this, the key can never act again.\nSigner: seats.prime-spike-muwguc60.testnet",
-   "path": "38c209138f7642ec6ae337c3040053af13b2d318a86f9946882bf4adeebf5dfd/prime:evm:0xe7fae20dc15baf40bd5a6f9435d995c51fe43afb",
+   "text": "Prime: end a session\nChain: Base Sepolia (84532)\nPrime Account: 0xe7fae20dc15baf40bd5a6f9435d995c51fe43afb\nYour seat: 0x9ede745571ff1934db38b90124e9c4aff98488ba\nSession key: 0xa4d165989ce32119c4100ee29a3bb5f4ffb3c7f2\nAfter this, the key can never act again.\nSignature scheme: raw\nSigner: seats.prime-spike-muwguc60.testnet",
+   "path": "raw:38c209138f7642ec6ae337c3040053af13b2d318a86f9946882bf4adeebf5dfd/prime:evm:0xe7fae20dc15baf40bd5a6f9435d995c51fe43afb",
    "domain": 0,
    "payload": "d5a7c248bbfd4783656c6f226818ec7a6d8c53f34eef228a5d174f387125db79",
-   "signature": "02374afa043bb679a7e5a7709788af75077efbfef712661a2a663a48f108f98266c84abbe9035e6102c7ac0377abd9618a624a3a4d44a0fcd418b922b0ce8905"
+   "signature": "3d4c3aaefc0c7644b5da15b0701e21b895f5910354c640b9f1a210f7557a641cd401b89bc177e99051da60ec5d8baab8966c830002337f0729ef881e4c452404"
   },
   {
    "id": "end-solana",
@@ -298,11 +245,11 @@
      "key": "5fg1uyvPYrKxoDWYe8fz1oc1QsMByjDc8jeujbSq4ZTe"
     }
    },
-   "text": "Prime: end a session\nChain: Solana devnet\nPrime Account: 6FyDNbkjncn8WQKdAxcjUJyvbDneR1fvhzAE4WniKPEJ\nYour seat: 9Atr8tkEVAxNWELEA2crrHpCiXFjh1HqyenBwqbYjjdh\nSession key: 5fg1uyvPYrKxoDWYe8fz1oc1QsMByjDc8jeujbSq4ZTe\nAfter this, the key can never act again.\nSigner: seats.prime-spike-muwguc60.testnet",
-   "path": "0x1819fda580d5587f393e2de749a45cc7f1d2f431/prime:solana:6FyDNbkjncn8WQKdAxcjUJyvbDneR1fvhzAE4WniKPEJ",
+   "text": "Prime: end a session\nChain: Solana devnet\nPrime Account: 6FyDNbkjncn8WQKdAxcjUJyvbDneR1fvhzAE4WniKPEJ\nYour seat: 9Atr8tkEVAxNWELEA2crrHpCiXFjh1HqyenBwqbYjjdh\nSession key: 5fg1uyvPYrKxoDWYe8fz1oc1QsMByjDc8jeujbSq4ZTe\nAfter this, the key can never act again.\nSignature scheme: eip191\nSigner: seats.prime-spike-muwguc60.testnet",
+   "path": "eip191:0x1819fda580d5587f393e2de749a45cc7f1d2f431/prime:solana:6FyDNbkjncn8WQKdAxcjUJyvbDneR1fvhzAE4WniKPEJ",
    "domain": 1,
    "payload": "e6f008c41e233ff7c16f5ebbe7622c33c51290f99fe13dc22690f3d5f38592eb",
-   "signature": "9339de4b7b7e3d69de58ca64e2c05ba03435e1edc8b6dc788db012b3db363c315e6971729252da9dd24efd108a5cfa45c2e67a2f1a6c20f31d914efb2454fe831c"
+   "signature": "bb3d23e5a4f8d3f0b91fdc762757745d5dc57ed5ce5121c9e4c1f927ad99cac30b9a423d1d7b91739c22ba87b1c74f3f491b2bb7e611818286d7eebbdddf71741b"
   },
   {
    "id": "end-stellar",
@@ -318,11 +265,11 @@
      "key": "GA3QYJJPQGO2IDCBDY5MFCX6UOW5MVLQWE4BZQDBT44WUX2726HU34H6"
     }
    },
-   "text": "Prime: end a session\nChain: Stellar testnet\nPrime Account: CDP2UUBIKGBENTBJTHERJXPHD5PZURDBPECJAENXX7FWAHDSVOQKLNYN\nYour seat: CDNM6GNBRYQA76J7DRVVEBNIY3CJD2XQCBHSHSFRKFLJL5V4DIV2TRR6\nSession key: GA3QYJJPQGO2IDCBDY5MFCX6UOW5MVLQWE4BZQDBT44WUX2726HU34H6\nAfter this, the key can never act again.\nSigner: seats.prime-spike-muwguc60.testnet",
-   "path": "851564e1582709b8d902b1a3f4696f5b4c5f5ffa6cbf5c5d743c5ebdfd85b29b/prime:stellar:CDP2UUBIKGBENTBJTHERJXPHD5PZURDBPECJAENXX7FWAHDSVOQKLNYN",
+   "text": "Prime: end a session\nChain: Stellar testnet\nPrime Account: CDP2UUBIKGBENTBJTHERJXPHD5PZURDBPECJAENXX7FWAHDSVOQKLNYN\nYour seat: CDNM6GNBRYQA76J7DRVVEBNIY3CJD2XQCBHSHSFRKFLJL5V4DIV2TRR6\nSession key: GA3QYJJPQGO2IDCBDY5MFCX6UOW5MVLQWE4BZQDBT44WUX2726HU34H6\nAfter this, the key can never act again.\nSignature scheme: sep53\nSigner: seats.prime-spike-muwguc60.testnet",
+   "path": "sep53:851564e1582709b8d902b1a3f4696f5b4c5f5ffa6cbf5c5d743c5ebdfd85b29b/prime:stellar:CDP2UUBIKGBENTBJTHERJXPHD5PZURDBPECJAENXX7FWAHDSVOQKLNYN",
    "domain": 1,
    "payload": "11374e52f0fd2264b6552f5a2e776cd414a6e3b435cdeed7ac19416a92df2fe4",
-   "signature": "aed73c74e299f1d9ac37ce89e94d7f8384352ee3d8477b2493d9dd55e78c4cfb0073f83711942e4c8f8b610fcdbb5d6c9f9dd7ad039c06a76030a4eb83d2bb01"
+   "signature": "171676fec564e5e60a9b93f8b5d9978b485625be66bd4a5ae82c118f09f5bec7ad4c6750df68824c85832883d4195ad9c34e729a0aba71d5ddb1fa9f7a320308"
   }
  ],
  "refusals": [
@@ -338,11 +285,10 @@
      "seat": "0x8dd3231a50339bdce203fbe24e1a620d47e19dc1",
      "key": "0xc8a9981f31091870b8aaf1f28caa78e876a82ae4",
      "start": 1791799501,
-     "end": 1791828301,
-     "scope": "Votes"
+     "end": 1791828301
     }
    },
-   "signature": "cd3396f722537a0413672dafd9be9bed97f7ff75c35a1dcae73d629cbdc139e90f48d79a087cfbdb24c2f5bdd14d8b4dcb5300c471d5b38c47a934857898ff0c1b",
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b",
    "error": "start"
   },
   {
@@ -357,11 +303,10 @@
      "seat": "0x8dd3231a50339bdce203fbe24e1a620d47e19dc1",
      "key": "0xc8a9981f31091870b8aaf1f28caa78e876a82ae4",
      "start": 1791799080,
-     "end": 1792403881,
-     "scope": "Votes"
+     "end": 1792403881
     }
    },
-   "signature": "cd3396f722537a0413672dafd9be9bed97f7ff75c35a1dcae73d629cbdc139e90f48d79a087cfbdb24c2f5bdd14d8b4dcb5300c471d5b38c47a934857898ff0c1b",
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b",
    "error": "window"
   },
   {
@@ -376,11 +321,10 @@
      "seat": "0x8dd3231a50339bdce203fbe24e1a620d47e19dc1",
      "key": "0xc8a9981f31091870b8aaf1f28caa78e876a82ae4",
      "start": 1791799080,
-     "end": 1791799080,
-     "scope": "Votes"
+     "end": 1791799080
     }
    },
-   "signature": "cd3396f722537a0413672dafd9be9bed97f7ff75c35a1dcae73d629cbdc139e90f48d79a087cfbdb24c2f5bdd14d8b4dcb5300c471d5b38c47a934857898ff0c1b",
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b",
    "error": "window"
   },
   {
@@ -395,11 +339,10 @@
      "seat": "0x8dd3231a50339bdce203fbe24e1a620d47e19dc1",
      "key": "0xc8a9981f31091870b8aaf1f28caa78e876a82ae4",
      "start": 1791799080,
-     "end": 1791799079,
-     "scope": "Votes"
+     "end": 1791799079
     }
    },
-   "signature": "cd3396f722537a0413672dafd9be9bed97f7ff75c35a1dcae73d629cbdc139e90f48d79a087cfbdb24c2f5bdd14d8b4dcb5300c471d5b38c47a934857898ff0c1b",
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b",
    "error": "window"
   },
   {
@@ -414,11 +357,10 @@
      "seat": "0x8dd3231a50339bdce203fbe24e1a620d47e19dc1",
      "key": "0xc8a9981f31091870b8aaf1f28caa78e876a82ae4",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "cd3396f722537a0413672dafd9be9bed97f7ff75c35a1dcae73d629cbdc139e90f48d79a087cfbdb24c2f5bdd14d8b4dcb5300c471d5b38c47a934857898ff0c1b",
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b",
    "error": "address"
   },
   {
@@ -433,11 +375,10 @@
      "seat": "0X8dd3231a50339bdce203fbe24e1a620d47e19dc1",
      "key": "0xc8a9981f31091870b8aaf1f28caa78e876a82ae4",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "cd3396f722537a0413672dafd9be9bed97f7ff75c35a1dcae73d629cbdc139e90f48d79a087cfbdb24c2f5bdd14d8b4dcb5300c471d5b38c47a934857898ff0c1b",
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b",
    "error": "address"
   },
   {
@@ -452,11 +393,10 @@
      "seat": "0x8dd3231a50339bdce203fbe24e1a620d47e19dc1",
      "key": "0xc8a9981f31091870b8aaf1f28caa78e876a82a",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "cd3396f722537a0413672dafd9be9bed97f7ff75c35a1dcae73d629cbdc139e90f48d79a087cfbdb24c2f5bdd14d8b4dcb5300c471d5b38c47a934857898ff0c1b",
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b",
    "error": "address"
   },
   {
@@ -471,11 +411,10 @@
      "seat": "6pkY5EaXrYQbY145r7PwZod2oJtvQJg7uBofrj79uCM0",
      "key": "5uqxKUEQKq414fwudjqhRAXAxHJsTMLwHgJ1j8r9NW6d",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "977cacc34a557e3273dcea455a4a46058fc11dd5e8714471b6951fe36e8f5e50f0c360d245945ba6c379a2918c735d763e05a51b68531bf730d17ed44b26260b",
+   "signature": "8c19c66986c54fe1479aef59ecdd269dd2534f3c986b114a341086da3456c9badb532135b6f3148d97d6a57ea6ead9645daccf5a60e2f0e326d13c106feb0400",
    "error": "address"
   },
   {
@@ -490,11 +429,10 @@
      "seat": "6pkY5EaXrYQbY145r7PwZod2oJtvQJg7uBofrj79uCMt",
      "key": "27jJwE9KsLdhgvAGWKWEGSKkBkPqTmL4tCjEd6hQK7a",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "977cacc34a557e3273dcea455a4a46058fc11dd5e8714471b6951fe36e8f5e50f0c360d245945ba6c379a2918c735d763e05a51b68531bf730d17ed44b26260b",
+   "signature": "8c19c66986c54fe1479aef59ecdd269dd2534f3c986b114a341086da3456c9badb532135b6f3148d97d6a57ea6ead9645daccf5a60e2f0e326d13c106feb0400",
    "error": "address"
   },
   {
@@ -509,11 +447,10 @@
      "seat": "6pkY5EaXrYQbY145r7PwZod2oJtvQJg7uBofrj79uCMt",
      "key": "68p1cyxSiHyyguuSdaygmDFz4pAbQU7TpEm3cAxMVNw3t",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "977cacc34a557e3273dcea455a4a46058fc11dd5e8714471b6951fe36e8f5e50f0c360d245945ba6c379a2918c735d763e05a51b68531bf730d17ed44b26260b",
+   "signature": "8c19c66986c54fe1479aef59ecdd269dd2534f3c986b114a341086da3456c9badb532135b6f3148d97d6a57ea6ead9645daccf5a60e2f0e326d13c106feb0400",
    "error": "address"
   },
   {
@@ -528,11 +465,10 @@
      "seat": "CDZPWOQO4SRC6XOWIDYKCYK6DPBA25B542YKW7L56OAEYJVXZLZGDM4Z",
      "key": "GAEPREQKX4GBTQSRLQV5J5C2LHRZQHMQNBKT7MHSFBGLRXWVBGFXLWXA",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "064a8af3535bfd2faf1b346e6511814bf5e60479632523c33ae9db4c76975a73849e5a3a45e9b4548fa40901ce87c65a27712914b4346db7b82e56b4ed23250a",
+   "signature": "75594ce12c1e2afc324c01bb2357beb25c23cf99595e6d7c81eb90d209df13eb3a995c8948ec35cf6b60fd62395bdb07b2ad708e5779c68433b3d99841a9cd09",
    "error": "address"
   },
   {
@@ -547,11 +483,10 @@
      "seat": "CDZPWOQO4SRC6XOWIDYKCYK6DPBA25B542YKW7L56OAEYJVXZLZGDM4Z",
      "key": "GAEPREQKX4GBTQSRLQV5J5C2LHRZQHMQNBKT7MHSFBGLRXWVBGFXLWXA",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "064a8af3535bfd2faf1b346e6511814bf5e60479632523c33ae9db4c76975a73849e5a3a45e9b4548fa40901ce87c65a27712914b4346db7b82e56b4ed23250a",
+   "signature": "75594ce12c1e2afc324c01bb2357beb25c23cf99595e6d7c81eb90d209df13eb3a995c8948ec35cf6b60fd62395bdb07b2ad708e5779c68433b3d99841a9cd09",
    "error": "address"
   },
   {
@@ -566,11 +501,10 @@
      "seat": "CDZPWOQO4SRC6XOWIDYKCYK6DPBA25B542YKW7L56OAEYJVXZLZGDM4Z",
      "key": "CAZGL3XWDUVZAKNSURQ2NC42LT6DND2WO6LF5T2OXJOAQTI4J3KPEBNH",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "064a8af3535bfd2faf1b346e6511814bf5e60479632523c33ae9db4c76975a73849e5a3a45e9b4548fa40901ce87c65a27712914b4346db7b82e56b4ed23250a",
+   "signature": "75594ce12c1e2afc324c01bb2357beb25c23cf99595e6d7c81eb90d209df13eb3a995c8948ec35cf6b60fd62395bdb07b2ad708e5779c68433b3d99841a9cd09",
    "error": "address"
   },
   {
@@ -585,11 +519,10 @@
      "seat": "CDZPWOQO4SRC6XOWIDYKCYK6DPBA25B542YKW7L56OAEYJVXZLZGDM4A",
      "key": "GAEPREQKX4GBTQSRLQV5J5C2LHRZQHMQNBKT7MHSFBGLRXWVBGFXLWXA",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "064a8af3535bfd2faf1b346e6511814bf5e60479632523c33ae9db4c76975a73849e5a3a45e9b4548fa40901ce87c65a27712914b4346db7b82e56b4ed23250a",
+   "signature": "75594ce12c1e2afc324c01bb2357beb25c23cf99595e6d7c81eb90d209df13eb3a995c8948ec35cf6b60fd62395bdb07b2ad708e5779c68433b3d99841a9cd09",
    "error": "address"
   },
   {
@@ -604,11 +537,10 @@
      "seat": "6pkY5EaXrYQbY145r7PwZod2oJtvQJg7uBofrj79uCMt",
      "key": "5uqxKUEQKq414fwudjqhRAXAxHJsTMLwHgJ1j8r9NW6d",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "977cacc34a557e3273dcea455a4a46058fc11dd5e8714471b6951fe36e8f5e50f0c360d245945ba6c379a2918c735d763e05a51b68531bf730d17ed44b26260b",
+   "signature": "8c19c66986c54fe1479aef59ecdd269dd2534f3c986b114a341086da3456c9badb532135b6f3148d97d6a57ea6ead9645daccf5a60e2f0e326d13c106feb0400",
    "error": "address"
   },
   {
@@ -623,11 +555,10 @@
      "seat": "0x8dd3231a50339bdce203fbe24e1a620d47e19dc1",
      "key": "0xc8a9981f31091870b8aaf1f28caa78e876a82ae4",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "cd3396f722537a0413672dafd9be9bed97f7ff75c35a1dcae73d629cbdc139e90f48d79a087cfbdb24c2f5bdd14d8b4dcb5300c471d5b38c47a934857898ff0c1b",
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b",
    "error": "chain"
   },
   {
@@ -642,11 +573,10 @@
      "seat": "6pkY5EaXrYQbY145r7PwZod2oJtvQJg7uBofrj79uCMt",
      "key": "5uqxKUEQKq414fwudjqhRAXAxHJsTMLwHgJ1j8r9NW6d",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "977cacc34a557e3273dcea455a4a46058fc11dd5e8714471b6951fe36e8f5e50f0c360d245945ba6c379a2918c735d763e05a51b68531bf730d17ed44b26260b",
+   "signature": "8c19c66986c54fe1479aef59ecdd269dd2534f3c986b114a341086da3456c9badb532135b6f3148d97d6a57ea6ead9645daccf5a60e2f0e326d13c106feb0400",
    "error": "wallet"
   },
   {
@@ -661,11 +591,10 @@
      "seat": "0x8dd3231a50339bdce203fbe24e1a620d47e19dc1",
      "key": "0xc8a9981f31091870b8aaf1f28caa78e876a82ae4",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "cd3396f722537a0413672dafd9be9bed97f7ff75c35a1dcae73d629cbdc139e90f48d79a087cfbdb24c2f5bdd14d8b4dcb5300c471d5b38c47a934857898ff0c1b",
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b",
    "error": "wallet"
   },
   {
@@ -680,11 +609,10 @@
      "seat": "6pkY5EaXrYQbY145r7PwZod2oJtvQJg7uBofrj79uCMt",
      "key": "5uqxKUEQKq414fwudjqhRAXAxHJsTMLwHgJ1j8r9NW6d",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "977cacc34a557e3273dcea455a4a46058fc11dd5e8714471b6951fe36e8f5e50f0c360d245945ba6c379a2918c735d763e05a51b68531bf730d17ed44b26260b",
+   "signature": "8c19c66986c54fe1479aef59ecdd269dd2534f3c986b114a341086da3456c9badb532135b6f3148d97d6a57ea6ead9645daccf5a60e2f0e326d13c106feb0400",
    "error": "wallet"
   },
   {
@@ -699,11 +627,10 @@
      "seat": "6pkY5EaXrYQbY145r7PwZod2oJtvQJg7uBofrj79uCMt",
      "key": "5uqxKUEQKq414fwudjqhRAXAxHJsTMLwHgJ1j8r9NW6d",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "977cacc34a557e3273dcea455a4a46058fc11dd5e8714471b6951fe36e8f5e50f0c360d245945ba6c379a2918c735d763e05a51b68531bf730d17ed44b262600",
+   "signature": "8c19c66986c54fe1479aef59ecdd269dd2534f3c986b114a341086da3456c9badb532135b6f3148d97d6a57ea6ead9645daccf5a60e2f0e326d13c106feb0401",
    "error": "signature"
   },
   {
@@ -718,11 +645,10 @@
      "seat": "DEfRamAWbVDdgie15VzJqV3RQXG1jHrrHwR9oSC7zNJa",
      "key": "HDJyKKS14YEsgNekCrFxUXj3W1nVZqKVPgexZAiR2L1D",
      "start": 2147481728,
-     "end": 2147488928,
-     "scope": "Votes"
+     "end": 2147488928
     }
    },
-   "signature": "006fd6d5761b921799d6d9804b97d449677dc32d0519d1cba7c024c2718473a4810dd0a6a8a31cd58734e87c47e1d926717df5cc65915573664b8aea1e6e4908",
+   "signature": "000c9221a442f29c48a9479697e19768f2b580926d1f7c5c4f179a06305520cb77f1fff6911edab88842ee29ba504ee38b158e24ad205f2e8f12a9f9e4c8e600",
    "error": "signature"
   },
   {
@@ -737,11 +663,10 @@
      "seat": "0x8dd3231a50339bdce203fbe24e1a620d47e19dc1",
      "key": "0xc8a9981f31091870b8aaf1f28caa78e876a82ae4",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "cd3396f722037a0413672dafd9be9bed97f7ff75c35a1dcae73d629cbdc139e90f48d79a087cfbdb24c2f5bdd14d8b4dcb5300c471d5b38c47a934857898ff0c1b",
+   "signature": "5401f003b801bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b",
    "error": "signature"
   },
   {
@@ -756,11 +681,10 @@
      "seat": "0x8dd3231a50339bdce203fbe24e1a620d47e19dc1",
      "key": "0xc8a9981f31091870b8aaf1f28caa78e876a82ae4",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "cd3396f722537a0413672dafd9be9bed97f7ff75c35a1dcae73d629cbdc139e9f0b72865f7830424db3d0a422eb274b0ef5bdc223d72ecaf78292a07579d42351c",
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e04730763141ea898ee37d22b74df5c8d52cb23b6b3117fa7be03ca81076dd27688bdcbb1ed61c",
    "error": "signature"
   },
   {
@@ -775,11 +699,10 @@
      "seat": "0x8dd3231a50339bdce203fbe24e1a620d47e19dc1",
      "key": "0xc8a9981f31091870b8aaf1f28caa78e876a82ae4",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "cd3396f722537a0413672dafd9be9bed97f7ff75c35a1dcae73d629cbdc139e90f48d79a087cfbdb24c2f5bdd14d8b4dcb5300c471d5b38c47a934857898ff0c00",
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b00",
    "error": "signature"
   },
   {
@@ -794,11 +717,10 @@
      "seat": "0x8dd3231a50339bdce203fbe24e1a620d47e19dc1",
      "key": "0xc8a9981f31091870b8aaf1f28caa78e876a82ae4",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "cd3396f722537a0413672dafd9be9bed97f7ff75c35a1dcae73d629cbdc139e90f48d79a087cfbdb24c2f5bdd14d8b4dcb5300c471d5b38c47a934857898ff0c",
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b",
    "error": "signature"
   },
   {
@@ -813,11 +735,10 @@
      "seat": "6pkY5EaXrYQbY145r7PwZod2oJtvQJg7uBofrj79uCMt",
      "key": "5uqxKUEQKq414fwudjqhRAXAxHJsTMLwHgJ1j8r9NW6d",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "977cacc34a557e3273dcea455a4a46058fc11dd5e8714471b6951fe36e8f5e50f0c360d245945ba6c379a2918c735d763e05a51b68531bf730d17ed44b26260b1b",
+   "signature": "8c19c66986c54fe1479aef59ecdd269dd2534f3c986b114a341086da3456c9badb532135b6f3148d97d6a57ea6ead9645daccf5a60e2f0e326d13c106feb04001b",
    "error": "signature"
   },
   {
@@ -832,11 +753,10 @@
      "seat": "6pkY5EaXrYQbY145r7PwZod2oJtvQJg7uBofrj79uCMt",
      "key": "5uqxKUEQKq414fwudjqhRAXAxHJsTMLwHgJ1j8r9NW6d",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "zz7cacc34a557e3273dcea455a4a46058fc11dd5e8714471b6951fe36e8f5e50f0c360d245945ba6c379a2918c735d763e05a51b68531bf730d17ed44b26260b",
+   "signature": "zz19c66986c54fe1479aef59ecdd269dd2534f3c986b114a341086da3456c9badb532135b6f3148d97d6a57ea6ead9645daccf5a60e2f0e326d13c106feb0400",
    "error": "signature"
   },
   {
@@ -851,11 +771,10 @@
      "seat": "6pkY5EaXrYQbY145r7PwZod2oJtvQJg7uBofrj79uCMt",
      "key": "5uqxKUEQKq414fwudjqhRAXAxHJsTMLwHgJ1j8r9NW6d",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "064a8af3535bfd2faf1b346e6511814bf5e60479632523c33ae9db4c76975a73849e5a3a45e9b4548fa40901ce87c65a27712914b4346db7b82e56b4ed23250a",
+   "signature": "75594ce12c1e2afc324c01bb2357beb25c23cf99595e6d7c81eb90d209df13eb3a995c8948ec35cf6b60fd62395bdb07b2ad708e5779c68433b3d99841a9cd09",
    "error": "signature"
   },
   {
@@ -870,11 +789,10 @@
      "seat": "6pkY5EaXrYQbY145r7PwZod2oJtvQJg7uBofrj79uCMt",
      "key": "5uqxKUEQKq414fwudjqhRAXAxHJsTMLwHgJ1j8r9NW6d",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
-   "signature": "977cacc34a557e3273dcea455a4a46058fc11dd5e8714471b6951fe36e8f5e50f0c360d245945ba6c379a2918c735d763e05a51b68531bf730d17ed44b26260b",
+   "signature": "8c19c66986c54fe1479aef59ecdd269dd2534f3c986b114a341086da3456c9badb532135b6f3148d97d6a57ea6ead9645daccf5a60e2f0e326d13c106feb0400",
    "error": "signature"
   },
   {
@@ -889,11 +807,28 @@
      "seat": "DEfRamAWbVDdgie15VzJqV3RQXG1jHrrHwR9oSC7zNJa",
      "key": "HDJyKKS14YEsgNekCrFxUXj3W1nVZqKVPgexZAiR2L1D",
      "start": 2147481728,
-     "end": 2147488928,
-     "scope": "Votes"
+     "end": 2147488928
     }
    },
-   "signature": "016fd6d5761b921799d6d9804b97d449677dc32d0519d1cba7c024c2718473a4810dd0a6a8a31cd58734e87c47e1d926717df5cc65915573664b8aea1e6e4908",
+   "signature": "e50c9221a442f29c48a9479697e19768f2b580926d1f7c5c4f179a06305520cb77f1fff6911edab88842ee29ba504ee38b158e24ad205f2e8f12a9f9e4c8e600",
+   "error": "signature"
+  },
+  {
+   "id": "sig-raw-over-sep53-text-as-raw",
+   "now": 1791799200,
+   "wallet": "38c209138f7642ec6ae337c3040053af13b2d318a86f9946882bf4adeebf5dfd",
+   "scheme": "Raw",
+   "request": {
+    "Grant": {
+     "chain": "BaseSepolia",
+     "account": "0x0e45a888cf0d1ce408b23273b7dc800c4c819710",
+     "seat": "0xaa298f68021033b7de45f23f4e96050647cb2b15",
+     "key": "0x50411c1c681ef25d7b1f6a5ba3f131b1d6991aea",
+     "start": 1791799080,
+     "end": 1791802680
+    }
+   },
+   "signature": "254c49940d04f9bd25611e231bc254d143fc8d2ae1fefa4b596d3cafea79ec4becaf03f44bc12f67508afd0523ce54d245ad86de5d2fc6032c3ca1385bc18b04",
    "error": "signature"
   },
   {
@@ -908,11 +843,10 @@
      "seat": "0x8dd3231a50339bdce203fbe24e1a620d47e19dc1",
      "key": "0xc8a9981f31091870b8aaf1f28caa78e876a82ae4",
      "start": 1791799080,
-     "end": 1791827881,
-     "scope": "Votes"
+     "end": 1791827881
     }
    },
-   "signature": "cd3396f722537a0413672dafd9be9bed97f7ff75c35a1dcae73d629cbdc139e90f48d79a087cfbdb24c2f5bdd14d8b4dcb5300c471d5b38c47a934857898ff0c1b",
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b",
    "error": "signature"
   },
   {
@@ -927,8 +861,7 @@
      "seat": "6pkY5EaXrYQbY145r7PwZod2oJtvQJg7uBofrj79uCMt",
      "key": "5uqxKUEQKq414fwudjqhRAXAxHJsTMLwHgJ1j8r9NW6d",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
    "signature": "9178136246b49051548fa189d9f55dc49941d8a7fe5fc9ddc2a49985ba3054918b1babac4da1ad151558c28b9aa396490ddecc87cf7d6719006899554ac4a205",
@@ -946,8 +879,7 @@
      "seat": "DEfRamAWbVDdgie15VzJqV3RQXG1jHrrHwR9oSC7zNJa",
      "key": "HDJyKKS14YEsgNekCrFxUXj3W1nVZqKVPgexZAiR2L1D",
      "start": 2147481728,
-     "end": 2147488928,
-     "scope": "Votes"
+     "end": 2147488928
     }
    },
    "signature": "da02ba0ecea90a7c38167ab994c6160d116ed30b5d061ab5ea175bedb3bb2cd4e758b060d34022e80136c746d50a857580773e7c4e5a9a4634f19930b273740e",
@@ -965,12 +897,43 @@
      "seat": "0x8dd3231a50339bdce203fbe24e1a620d47e19dc1",
      "key": "0xc8a9981f31091870b8aaf1f28caa78e876a82ae4",
      "start": 1791799080,
-     "end": 1791827880,
-     "scope": "Votes"
+     "end": 1791827880
     }
    },
    "signature": "1ff607ca35ee4f4c555d606663df81af20091c9123788881ec502d221b5a2d857653c892b29c3095343a2234583dfda74ff86e540f8c28afd420c52b7f723a8b1c",
    "error": "signature"
+  },
+  {
+   "id": "grant-with-scope-field",
+   "now": 1791799200,
+   "wallet": "0x1819fda580d5587f393e2de749a45cc7f1d2f431",
+   "scheme": "Eip191",
+   "request": {
+    "Grant": {
+     "chain": "BaseSepolia",
+     "account": "0x164a074f012d24867bb97ba6dc542bd678b8404c",
+     "seat": "0x8dd3231a50339bdce203fbe24e1a620d47e19dc1",
+     "key": "0xc8a9981f31091870b8aaf1f28caa78e876a82ae4",
+     "start": 1791799080,
+     "end": 1791827880,
+     "scope": "RulesOnly"
+    }
+   },
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b",
+   "error": "field"
+  },
+  {
+   "id": "request-unknown-shape",
+   "now": 1791799200,
+   "wallet": "0x1819fda580d5587f393e2de749a45cc7f1d2f431",
+   "scheme": "Eip191",
+   "request": {
+    "Transfer": {
+     "to": "0x164a074f012d24867bb97ba6dc542bd678b8404c"
+    }
+   },
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b",
+   "error": "variant"
   },
   {
    "id": "vote-safe-eth-transfer",
@@ -979,8 +942,8 @@
    "scheme": "Eip191",
    "request": {
     "SafeVote": {
-     "safe": "0xaa64be114616b7acd8e545684ef9d17e801f3db6",
-     "seat": "0x6b3950e4f65783c8a8ceb386f11982d1b6c0f6ef",
+     "safe": "0x8411cc0ca1d0f5c6c45ea3d00305a2bb10611d29",
+     "seat": "0xc88889fb8ae058d0d5ae8c23a5572707c072337e",
      "to": "0x54f0d3a4156e9d3d05095e5a28e71a439787661e",
      "value": "1000000000000000000",
      "data": "0x",
@@ -988,150 +951,30 @@
      "nonce": 12
     }
    },
-   "signature": "49cc5d810a5a0c83c16c63413870a4e27e0b85e639549fcc21fbe956c44853464739bf560c1445c867a500659372eea29a4ec3a59feff5b35a0824b6ed1ddfc51c",
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b",
    "error": "vote"
   },
   {
-   "id": "vote-safe-erc20-transfer",
+   "id": "vote-safe-delegatecall",
    "now": 1791799200,
-   "wallet": "851564e1582709b8d902b1a3f4696f5b4c5f5ffa6cbf5c5d743c5ebdfd85b29b",
-   "scheme": "Sep53",
+   "wallet": "0x1819fda580d5587f393e2de749a45cc7f1d2f431",
+   "scheme": "Eip191",
    "request": {
     "SafeVote": {
-     "safe": "0xb1d44a924b4d3e2de95839a5f2cba44e7e8d90de",
-     "seat": "0x2908082f0af201efa5c16fbc8eb8b30821f4dc3e",
-     "to": "0x2028aa623f95d2de00ee1f4be9d606ee8c89d5fb",
-     "value": "0",
-     "data": "0xa9059cbb00000000000000000000000054f0d3a4156e9d3d05095e5a28e71a439787661e000000000000000000000000000000000000000000000000000000000016e360",
-     "operation": "Call",
-     "nonce": 0
-    }
-   },
-   "signature": "d35721fa2b7ecc8934cb8e68ba00007e55315fefd17158b69bc147b9384ceae97624ee4df415583d03b793f28b813a5c370f86fe6c89f147ad20e98f450b530e",
-   "error": "vote"
-  },
-  {
-   "id": "vote-safe-multisend-delegatecall",
-   "now": 1791799200,
-   "wallet": "38c209138f7642ec6ae337c3040053af13b2d318a86f9946882bf4adeebf5dfd",
-   "scheme": "Raw",
-   "request": {
-    "SafeVote": {
-     "safe": "0x4c93e8bc254657b100c356d3da47dc0f58e69116",
-     "seat": "0x257cb8419c310f36e4917bdce3730b24e8acf43e",
+     "safe": "0x8411cc0ca1d0f5c6c45ea3d00305a2bb10611d29",
+     "seat": "0xc88889fb8ae058d0d5ae8c23a5572707c072337e",
      "to": "0x2c555dd6f08c2e92f71a4c03190ddaeafe994550",
      "value": "0",
-     "data": "0x8d80ff0a00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000040abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab",
+     "data": "0x8d80ff0a",
      "operation": "DelegateCall",
      "nonce": 7
     }
    },
-   "signature": "f5c2f4a63cb318e6b94cd498db68c34a1d1532a30a6be1dc93c0476f2762d37c12ec408732c4d10c4553495f8efc1f98b3a68f84a238c1b608b6470897302a02",
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b",
    "error": "vote"
   },
   {
-   "id": "vote-sol-create-proposal",
-   "now": 1791799200,
-   "wallet": "851564e1582709b8d902b1a3f4696f5b4c5f5ffa6cbf5c5d743c5ebdfd85b29b",
-   "scheme": "Sep53",
-   "request": {
-    "SolanaVote": {
-     "settings": "EuqdgGPBay7EFMrqbFAngqc9DhgUiy1uq9nwZmaW3mev",
-     "seat": "J1qvQxCCi7uGJWyGF9GGSZHcZqGF9Zr9Wj7uSm4Ypam3",
-     "consensus": "EuqdgGPBay7EFMrqbFAngqc9DhgUiy1uq9nwZmaW3mev",
-     "index": 12,
-     "valid_until": 1791800100,
-     "instruction": {
-      "program": "SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG",
-      "accounts": [
-       {
-        "key": "EuqdgGPBay7EFMrqbFAngqc9DhgUiy1uq9nwZmaW3mev",
-        "signer": false,
-        "writable": false
-       },
-       {
-        "key": "9ZJCnhA84MpkYkYWcw1Jnup3eK18UjDH3u5vu8NZjgmZ",
-        "signer": false,
-        "writable": true
-       },
-       {
-        "key": "J1qvQxCCi7uGJWyGF9GGSZHcZqGF9Zr9Wj7uSm4Ypam3",
-        "signer": true,
-        "writable": false
-       },
-       {
-        "key": "J1qvQxCCi7uGJWyGF9GGSZHcZqGF9Zr9Wj7uSm4Ypam3",
-        "signer": true,
-        "writable": true
-       },
-       {
-        "key": "11111111111111111111111111111111",
-        "signer": false,
-        "writable": false
-       },
-       {
-        "key": "SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG",
-        "signer": false,
-        "writable": false
-       }
-      ],
-      "data": "0x847444aed8a0c6160c0000000000000000"
-     }
-    }
-   },
-   "signature": "76791a022216fc026894eec4f6a9c9544b8869bef4472b0ed71248d12dd018eb7ac143b4b267678c7f7077060451cc366e04c698aad65fd599df7dfb5c139f01",
-   "error": "vote"
-  },
-  {
-   "id": "vote-sol-approve",
-   "now": 1791799200,
-   "wallet": "851564e1582709b8d902b1a3f4696f5b4c5f5ffa6cbf5c5d743c5ebdfd85b29b",
-   "scheme": "Sep53",
-   "request": {
-    "SolanaVote": {
-     "settings": "EuqdgGPBay7EFMrqbFAngqc9DhgUiy1uq9nwZmaW3mev",
-     "seat": "J1qvQxCCi7uGJWyGF9GGSZHcZqGF9Zr9Wj7uSm4Ypam3",
-     "consensus": "EuqdgGPBay7EFMrqbFAngqc9DhgUiy1uq9nwZmaW3mev",
-     "index": 12,
-     "valid_until": 1791800100,
-     "instruction": {
-      "program": "SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG",
-      "accounts": [
-       {
-        "key": "EuqdgGPBay7EFMrqbFAngqc9DhgUiy1uq9nwZmaW3mev",
-        "signer": false,
-        "writable": false
-       },
-       {
-        "key": "J1qvQxCCi7uGJWyGF9GGSZHcZqGF9Zr9Wj7uSm4Ypam3",
-        "signer": true,
-        "writable": true
-       },
-       {
-        "key": "9ZJCnhA84MpkYkYWcw1Jnup3eK18UjDH3u5vu8NZjgmZ",
-        "signer": false,
-        "writable": true
-       },
-       {
-        "key": "SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG",
-        "signer": false,
-        "writable": false
-       },
-       {
-        "key": "SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG",
-        "signer": false,
-        "writable": false
-       }
-      ],
-      "data": "0x886c66556272079300"
-     }
-    }
-   },
-   "signature": "ad8417a22099106d3a7bda458e195b09d466bd0d0c7fe99fac04e77befc95842122c96d821f54ad31751fb10576e56f35ebdb1f29dd9735a88a42d35da047405",
-   "error": "vote"
-  },
-  {
-   "id": "vote-sol-execute-transaction",
+   "id": "vote-squads-approve",
    "now": 1791799200,
    "wallet": "0x1819fda580d5587f393e2de749a45cc7f1d2f431",
    "scheme": "Eip191",
@@ -1148,104 +991,21 @@
        {
         "key": "EuqdgGPBay7EFMrqbFAngqc9DhgUiy1uq9nwZmaW3mev",
         "signer": false,
-        "writable": true
-       },
-       {
-        "key": "9ZJCnhA84MpkYkYWcw1Jnup3eK18UjDH3u5vu8NZjgmZ",
-        "signer": false,
-        "writable": true
-       },
-       {
-        "key": "A8dksQtBATb3i34yMuemeA8diwsXmJigTdB3YTosAp7X",
-        "signer": false,
-        "writable": false
-       },
-       {
-        "key": "J1qvQxCCi7uGJWyGF9GGSZHcZqGF9Zr9Wj7uSm4Ypam3",
-        "signer": true,
-        "writable": false
-       },
-       {
-        "key": "SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG",
-        "signer": false,
-        "writable": false
-       },
-       {
-        "key": "ADf25wiDA1gEBkkR9cgjYZprzthyPxoFXfktV8ka3mxX",
-        "signer": false,
-        "writable": true
-       },
-       {
-        "key": "11111111111111111111111111111111",
-        "signer": false,
         "writable": false
        }
       ],
-      "data": "0xe7ad315beb184413"
+      "data": "0x886c66556272079300"
      }
     }
    },
-   "signature": "08d5abfae924658214c20d6d9a884b0d73b8d57f5105d0d196554c8623ec4b5c6e3ce9e91d388bffb2a54581c6223de9eb848a120bc3b3312351e03bbbdcc9cf1b",
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b",
    "error": "vote"
   },
   {
-   "id": "vote-sol-settings-add-signer",
+   "id": "vote-squads-create-vault-transaction",
    "now": 1791799200,
-   "wallet": "851564e1582709b8d902b1a3f4696f5b4c5f5ffa6cbf5c5d743c5ebdfd85b29b",
-   "scheme": "Sep53",
-   "request": {
-    "SolanaVote": {
-     "settings": "EuqdgGPBay7EFMrqbFAngqc9DhgUiy1uq9nwZmaW3mev",
-     "seat": "J1qvQxCCi7uGJWyGF9GGSZHcZqGF9Zr9Wj7uSm4Ypam3",
-     "consensus": "EuqdgGPBay7EFMrqbFAngqc9DhgUiy1uq9nwZmaW3mev",
-     "index": 13,
-     "valid_until": 1791800100,
-     "instruction": {
-      "program": "SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG",
-      "accounts": [
-       {
-        "key": "EuqdgGPBay7EFMrqbFAngqc9DhgUiy1uq9nwZmaW3mev",
-        "signer": false,
-        "writable": true
-       },
-       {
-        "key": "2yTvVcsSwyZB1fsiyxvCxJKqbMXrmrEUSPioZS7hvTcL",
-        "signer": false,
-        "writable": true
-       },
-       {
-        "key": "J1qvQxCCi7uGJWyGF9GGSZHcZqGF9Zr9Wj7uSm4Ypam3",
-        "signer": true,
-        "writable": false
-       },
-       {
-        "key": "J1qvQxCCi7uGJWyGF9GGSZHcZqGF9Zr9Wj7uSm4Ypam3",
-        "signer": true,
-        "writable": true
-       },
-       {
-        "key": "11111111111111111111111111111111",
-        "signer": false,
-        "writable": false
-       },
-       {
-        "key": "SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG",
-        "signer": false,
-        "writable": false
-       }
-      ],
-      "data": "0x65a8fecbde665fc001000000007766c98c652285a508c9b455cdc703b42ed2d48623a1a99d07003477f1b7aa280700"
-     }
-    }
-   },
-   "signature": "3c11f360e582359e5bef8e9ebdf7f09528891bdd577d368925c076dafae2b7eb8c5b2383fcc05bd07045438f0d8fb17d17eaf2e9c4971f77ba30d7e488cf6301",
-   "error": "vote"
-  },
-  {
-   "id": "vote-sol-vault-sol-transfer",
-   "now": 1791799200,
-   "wallet": "851564e1582709b8d902b1a3f4696f5b4c5f5ffa6cbf5c5d743c5ebdfd85b29b",
-   "scheme": "Sep53",
+   "wallet": "0x1819fda580d5587f393e2de749a45cc7f1d2f431",
+   "scheme": "Eip191",
    "request": {
     "SolanaVote": {
      "settings": "EuqdgGPBay7EFMrqbFAngqc9DhgUiy1uq9nwZmaW3mev",
@@ -1255,72 +1015,28 @@
      "valid_until": 1791800100,
      "instruction": {
       "program": "SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG",
-      "accounts": [
-       {
-        "key": "EuqdgGPBay7EFMrqbFAngqc9DhgUiy1uq9nwZmaW3mev",
-        "signer": false,
-        "writable": true
-       },
-       {
-        "key": "7r3dU2HYpbq9t4LJ4zu67LZyWweN1DfmE3RH3YpCRsnP",
-        "signer": false,
-        "writable": true
-       },
-       {
-        "key": "J1qvQxCCi7uGJWyGF9GGSZHcZqGF9Zr9Wj7uSm4Ypam3",
-        "signer": true,
-        "writable": false
-       },
-       {
-        "key": "J1qvQxCCi7uGJWyGF9GGSZHcZqGF9Zr9Wj7uSm4Ypam3",
-        "signer": true,
-        "writable": true
-       },
-       {
-        "key": "11111111111111111111111111111111",
-        "signer": false,
-        "writable": false
-       },
-       {
-        "key": "SMRTzfY6DfH5ik3TKiyLFfXexV8uSG3d2UksSCYdunG",
-        "signer": false,
-        "writable": false
-       }
-      ],
-      "data": "0xe3c135ef377e70690000007800000001010103064fd7b851f1eb75ef74c98e2cb2e5748a41a94e89bbc90a049d5fec01f73a80fa7b925e00fd0c6c1980a31fb68a96ca75c7ba64a29e97428e23c468c23fe2da000000000000000000000000000000000000000000000000000000000000000001020200010c000200000040420f00000000000000"
+      "accounts": [],
+      "data": "0xe3c135ef377e7069"
      }
     }
    },
-   "signature": "74be2b8971455280f605d24564f0db852b3e02cba960412d56aabc67b0b9a133f74b62f8e02e0ca18cf0f52f907e74f52d9f351f87f74a95b15d1913ac760300",
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b",
    "error": "vote"
   },
   {
    "id": "vote-stellar-authorization",
    "now": 1791799200,
-   "wallet": "38c209138f7642ec6ae337c3040053af13b2d318a86f9946882bf4adeebf5dfd",
-   "scheme": "Raw",
+   "wallet": "0x1819fda580d5587f393e2de749a45cc7f1d2f431",
+   "scheme": "Eip191",
    "request": {
     "StellarVote": {
-     "account": "CAR5IKJTBWVHIVVS6KR5HNNTMDRXI6GRIIMFFDY7HXF3XERGLVS7DRMH",
-     "seat": "CDZPWOQO4SRC6XOWIDYKCYK6DPBA25B542YKW7L56OAEYJVXZLZGDM4Z",
+     "account": "CDVK7PUFMDUNCZWZSKNV6AMTHWIPJWQ2KXW3OTTXMVBV7M6PDX7WFTKR",
+     "seat": "CB36LLMTJAVNNRHIVVI6BHD35DNOS6VCC3DTDHALPRFBGLILZJ7Z7X6T",
      "function": "add_signer"
     }
    },
-   "signature": "064a8af3535bfd2faf1b346e6511814bf5e60479632523c33ae9db4c76975a73849e5a3a45e9b4548fa40901ce87c65a27712914b4346db7b82e56b4ed23250a",
+   "signature": "5401f003b8a1bac2414987b38377030c07dadd9823036258e566e047307631411576711c82dd48b20a372ad34dc494cda2b4610672a08fc4e2aaf600f37b226b1b",
    "error": "vote"
-  },
-  {
-   "id": "request-unknown-shape",
-   "now": 1791799200,
-   "wallet": "38c209138f7642ec6ae337c3040053af13b2d318a86f9946882bf4adeebf5dfd",
-   "scheme": "Raw",
-   "request": {
-    "Transfer": {
-     "to": "CAR5IKJTBWVHIVVS6KR5HNNTMDRXI6GRIIMFFDY7HXF3XERGLVS7DRMH"
-    }
-   },
-   "signature": "064a8af3535bfd2faf1b346e6511814bf5e60479632523c33ae9db4c76975a73849e5a3a45e9b4548fa40901ce87c65a27712914b4346db7b82e56b4ed23250a",
-   "error": "variant"
   }
  ]
 }
