@@ -34,7 +34,7 @@ Hash formats are in `hash_notes` of `../vectors/requests.json`. Refusal reasons 
 ```
 cargo test                                   # vectors, MPC call arguments, refusals
 cargo mutants --in-place --timeout 60        # every mutant killed
-RUSTFLAGS="-C link-arg=-s" cargo build --release --target wasm32-unknown-unknown
+RUSTFLAGS="-C link-arg=-s --cfg near" cargo build --release --target wasm32-unknown-unknown
 ```
 
-The vectors come from independent code (viem, `@stellar/stellar-sdk`, `@solana/web3.js`, `@sqds/smart-account`, `@noble`). The generator lives outside the repo at `/home/ubuntu/work/near-int/near/gen.ts`; send changes to the vectors to the `near-signer` agent. `near-sdk` needs its `unstable` feature for `env::ecrecover`.
+The vectors come from independent code (viem, `@stellar/stellar-sdk`, `@solana/web3.js`, `@sqds/smart-account`, `@noble`). The generator lives outside the repo at `/home/ubuntu/work/near-int/near/gen.ts`; send changes to the vectors to the `near-signer` agent. `near-sdk` needs its `unstable` feature for `env::ecrecover`, and the wasm build needs `--cfg near`. Without that flag `near-sdk` compiles software hashing into the wasm and every refusal traps with no message.
