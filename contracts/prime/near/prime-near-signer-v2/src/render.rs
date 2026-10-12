@@ -28,10 +28,7 @@ pub fn grant(
     end: u64,
     tail: &str,
 ) -> String {
-    let scope = format!(
-        "Until it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature{}.",
-        if chain == Chain::StellarTestnet { " through the sessions rule" } else { "" }
-    );
+    let scope = "Until it ends, this key approves and votes for you on this Prime Account beside a signature from one of its own wallets, and acts alone in rules that list your seat.";
     format!(
         "Prime: start a session\nChain: {}\nPrime Account: {account}\nYour seat: {seat}\nSession key: {key}\nStarts: {}\nEnds: {}\n{scope}\n{tail}",
         chain.label(),

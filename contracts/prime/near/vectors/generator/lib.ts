@@ -61,16 +61,16 @@ export const chains = {
 } as const;
 export type ChainName = keyof typeof chains;
 
-const SCOPE_VOTES = "Until it ends, this key approves and votes for you on this Prime Account, and acts alone in rules that list your seat. Every change to the account still needs one wallet signature";
-export function scopeLine(chain: ChainName) {
-  return SCOPE_VOTES + (chain === "StellarTestnet" ? " through the sessions rule." : ".");
+const SCOPE = "Until it ends, this key approves and votes for you on this Prime Account beside a signature from one of its own wallets, and acts alone in rules that list your seat.";
+export function scopeLine() {
+  return SCOPE;
 }
 
 export type Addrs = { account: string; seat: string; key: string };
 export function grantText(chain: ChainName, a: Addrs, start: number, end: number, scheme: string) {
   return [
     "Prime: start a session", `Chain: ${chains[chain].label}`, `Prime Account: ${a.account}`, `Your seat: ${a.seat}`, `Session key: ${a.key}`,
-    `Starts: ${fmtTime(start)}`, `Ends: ${fmtTime(end)}`, scopeLine(chain), `Signature scheme: ${scheme}`, `Signer: ${SIGNER}`,
+    `Starts: ${fmtTime(start)}`, `Ends: ${fmtTime(end)}`, scopeLine(), `Signature scheme: ${scheme}`, `Signer: ${SIGNER}`,
   ].join("\n");
 }
 export function endText(chain: ChainName, a: Addrs, scheme: string) {
