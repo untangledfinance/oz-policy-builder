@@ -50,7 +50,8 @@ contract PrimeSeat {
         }
     }
 
-    /// One call through Roles signed by a live session key.
+    /// One call through Roles signed by a live session key. The digest carries the session's end, so a signature held
+    /// back past its session stays dead after the owner grants the key again.
     function exec(
         address to,
         uint256 value,
@@ -63,8 +64,8 @@ contract PrimeSeat {
         require(
             live(key) && op == 0 && to != safe && !ISafe(safe).isModuleEnabled(to) && to != address(this), "refused"
         );
-        bytes32 h =
-            keccak256(abi.encode(this, block.chainid, sessions[key].nonce++, to, value, keccak256(data), op, role));
+        Session storage s = sessions[key];
+        bytes32 h = keccak256(abi.encode(this, block.chainid, s.nonce++, s.end, to, value, keccak256(data), op, role));
         require(ECDSA.recover(h, sig) == key, "sig");
         roles.execTransactionWithRole(to, value, data, op, role, true);
     }

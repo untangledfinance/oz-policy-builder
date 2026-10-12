@@ -7,7 +7,7 @@ import json, os, shutil, subprocess, sys, tempfile
 SRC = "src/PrimeSeat.sol"  # relative to the scratch copy made in main()
 FORGE = shutil.which("forge") or os.path.expanduser("~/.foundry/bin/forge")
 H = "keccak256(abi.encode(GRANT, block.chainid, safe, this, key, start, end))"
-X = "keccak256(abi.encode(this, block.chainid, sessions[key].nonce++, to, value, keccak256(data), op, role))"
+X = "keccak256(abi.encode(this, block.chainid, s.nonce++, s.end, to, value, keccak256(data), op, role))"
 M = [
     # constants, storage layout, constructor
     ("typehash text", "address key,uint64 start", "address  key,uint64 start"),
@@ -54,7 +54,7 @@ M = [
     ("grant: stored end kept", "(s.start, s.end) = (start, end);", "(s.start, s.end) = (start, s.end);"),
     ("grant: stored end off by one", "(s.start, s.end) = (start, end);", "(s.start, s.end) = (start, end + 1);"),
     ("grant: stored start off by one", "(s.start, s.end) = (start, end);", "(s.start, s.end) = (start + 1, end);"),
-    ("grant: stored in wrong key", "Session storage s = sessions[key];", "Session storage s = sessions[owner];"),
+    ("grant: stored in wrong key", "Session storage s = sessions[key];\n        if (end == 0)", "Session storage s = sessions[owner];\n        if (end == 0)"),
     ("grant: window checks joined by or (1)", "start <= block.timestamp && block.timestamp <= end &&", "start <= block.timestamp || block.timestamp <= end &&"),
     ("grant: window checks joined by or (2)", "block.timestamp <= end && end - start", "block.timestamp <= end || end - start"),
     ("grant: window checks joined by or (3)", "end - start <= 7 days && end > s.end", "end - start <= 7 days || end > s.end"),
@@ -75,7 +75,9 @@ M = [
     ("exec digest drops seat", X, X.replace("this, ", "address(0), ")),
     ("exec digest drops chainid", X, X.replace("block.chainid, ", "uint256(1), ")),
     ("exec digest keeps nonce", X, X.replace("nonce++", "nonce")),
-    ("exec digest pre-increments nonce", X, X.replace("nonce++", "++sessions[key].nonce")),
+    ("exec digest pre-increments nonce", X, X.replace("s.nonce++", "++s.nonce")),
+    ("exec digest drops end", X, X.replace("s.end, to", "to")),
+    ("exec digest uses start", X, X.replace("s.end, to", "s.start, to")),
     ("exec digest drops to", X, X.replace(", to, value", ", address(0), value")),
     ("exec digest drops value", X, X.replace(", value, keccak", ", uint256(0), keccak")),
     ("exec digest drops data", X, X.replace("keccak256(data)", 'keccak256("")')),
@@ -93,7 +95,7 @@ M = [
     ("exec: role dropped", "execTransactionWithRole(to, value, data, op, role, true)", "execTransactionWithRole(to, value, data, op, bytes32(0), true)"),
     ("exec: to dropped", "execTransactionWithRole(to, value, data, op, role, true)", "execTransactionWithRole(address(0), value, data, op, role, true)"),
     ("exec: roles call removed", "roles.execTransactionWithRole(to, value, data, op, role, true);", ""),
-    ("exec: nonce kept per owner", "sessions[key].nonce++", "sessions[owner].nonce++"),
+    ("exec: session of the owner", "Session storage s = sessions[key];\n        bytes32 h", "Session storage s = sessions[owner];\n        bytes32 h"),
     # 1.5.0 form
     ("vote: any caller", "(msg.sender == safe || msg.sender == address(0))", "true"),
     ("vote: address 0 refused", " || msg.sender == address(0))", ")"),

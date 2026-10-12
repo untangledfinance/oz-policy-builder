@@ -33,6 +33,12 @@ interface IFactory {
     function createProxyWithNonce(address, bytes memory, uint256) external returns (address);
 }
 
+contract RolesStub {
+    function execTransactionWithRole(address, uint256, bytes calldata, uint8, bytes32, bool) external pure returns (bool) {
+        return true;
+    }
+}
+
 contract PrimeSeatSafeTest {
     Vm constant vm = Vm(0x7109709ECfa91a80626fF3989D68f67F5b1DD12D);
     address constant SAFE141 = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
@@ -43,7 +49,6 @@ contract PrimeSeatSafeTest {
     address constant FALLBACK150 = 0x3EfCBb83A4A7AfcB4F68D501E2c2203a38be77f4;
     address constant MIGRATION = 0x6439e7ABD8Bb915A5263094784C5CF561c4172AC;
     address constant MULTISEND = 0x9641d764fc13c8B624c04430C7356C1C7C8102e2; // MultiSendCallOnly 1.4.1
-    address constant ROLES = address(0xDEAD);
     uint256 constant NATIVE_PK = 0xCA11;
     uint256 constant OWNER_A_PK = 0xA11CE; // seat owners (NEAR MPC keys)
     uint256 constant OWNER_B_PK = 0xB0B0;
@@ -53,6 +58,7 @@ contract PrimeSeatSafeTest {
     bytes32 constant GRANT = keccak256("PrimeSeatGrant(uint256 chainId,address safe,address seat,address key,uint64 start,uint64 end)");
     address constant PAYEE = address(0xD00D);
 
+    address ROLES;
     bool forked;
     ISafeFull safe;
     PrimeSeat seatA;
@@ -70,6 +76,7 @@ contract PrimeSeatSafeTest {
         forked = bytes(url).length != 0;
         if (forked) vm.createSelectFork(url);
         native = vm.addr(NATIVE_PK);
+        ROLES = address(new RolesStub());
     }
 
     // ---- helpers -------------------------------------------------------------------------------------------------
@@ -298,22 +305,31 @@ contract PrimeSeatSafeTest {
         assert(!ok);
     }
 
-    // a module the M-of-N enabled is a refused exec target, Roles included, on the real Safe
+    // a module the M-of-N enabled is a refused exec target, Roles included, on the real Safe. Before it is enabled the
+    // same exec reaches Roles, so the refusal comes from the module check.
+    function execTo(address m, uint128 nonce) internal returns (bool ok) {
+        (, uint64 end,) = seatA.sessions(vm.addr(KEY_A_PK));
+        bytes memory sig = sign(
+            KEY_A_PK,
+            keccak256(abi.encode(address(seatA), block.chainid, nonce, end, m, uint256(0), keccak256(""), uint8(0), bytes32("movers")))
+        );
+        (ok,) = address(seatA).call(abi.encodeCall(PrimeSeat.exec, (m, 0, "", 0, bytes32("movers"), vm.addr(KEY_A_PK), sig)));
+    }
+
     function test_execRefusesModulesTheSafeEnabled() public {
         if (!forked) return;
         createSafe(SAFE141, FACTORY141, FALLBACK141);
         onboard();
-        address module = address(0x30D);
+        address[2] memory targets = [address(0x30D), ROLES];
         for (uint256 i = 0; i < 2; i++) {
-            address m = i == 0 ? module : ROLES;
+            address m = targets[i];
+            assert(execTo(m, uint128(i))); // control: not enabled yet, the call goes through
             bytes memory en = abi.encodeWithSignature("enableModule(address)", m);
             bytes32 h = hashOf(address(safe), 0, en, 0);
             Part memory s = seatPart(seatA, KEY_A_PK, NATIVE_PK, h);
             (bool ok,) = run(address(safe), 0, en, 0, two(nativePart(h), s));
             assert(ok);
-            bytes memory sig = sign(KEY_A_PK, keccak256(abi.encode(address(seatA), block.chainid, uint128(0), m, uint256(0), keccak256(""), uint8(0), bytes32("movers"))));
-            (ok,) = address(seatA).call(abi.encodeCall(PrimeSeat.exec, (m, 0, "", 0, bytes32("movers"), vm.addr(KEY_A_PK), sig)));
-            assert(!ok);
+            assert(!execTo(m, uint128(i + 1))); // enabled: refused; the refusal reverts, so the nonce stays at i + 1
         }
     }
 }
