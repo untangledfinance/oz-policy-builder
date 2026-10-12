@@ -7,7 +7,7 @@ use soroban_sdk::testutils::{
     storage::{Instance as _, Temporary as _},
     Address as _, Ledger as _,
 };
-use soroban_sdk::{IntoVal, InvokeError, Symbol};
+use soroban_sdk::{IntoVal, InvokeError, Symbol, Val};
 
 const NOW: u64 = 1_800_000_000;
 const NET: [u8; 32] = [7; 32];
@@ -137,41 +137,103 @@ impl T {
         sha(&[&raw(&self.e, &self.seat), hash])
     }
 
-    fn proof(&self, key: &SigningKey, signer: &SigningKey, hash: &[u8; 32]) -> Bytes {
+    fn ids_xdr(&self, ids: &[u32]) -> std::vec::Vec<u8> {
+        let mut v: Vec<u32> = Vec::new(&self.e);
+        ids.iter().for_each(|i| v.push_back(*i));
+        let x = v.to_xdr(&self.e);
+        let mut out = std::vec![0u8; x.len() as usize];
+        x.copy_into_slice(&mut out);
+        out
+    }
+
+    /// What the account hashes into its digest: the payload, then the XDR of the rule ids.
+    fn pre(&self, payload: &[u8; 32], ids: &[u32]) -> std::vec::Vec<u8> {
+        let mut p = std::vec::Vec::from(*payload);
+        p.extend(self.ids_xdr(ids));
+        p
+    }
+
+    fn proof_ids(
+        &self,
+        key: &SigningKey,
+        signer: &SigningKey,
+        payload: &[u8; 32],
+        ids: &[u32],
+    ) -> Bytes {
+        let pre = self.pre(payload, ids);
         let mut p = std::vec::Vec::from(pk(key));
-        p.extend_from_slice(&signer.sign(&self.digest(hash)).to_bytes());
+        p.extend_from_slice(&signer.sign(&self.digest(&sha(&[&pre]))).to_bytes());
+        p.extend(pre);
         Bytes::from_slice(&self.e, &p)
     }
 
-    fn verify(&self, kd: &Bytes, proof: &Bytes, hash: &[u8; 32]) -> Result<bool, ()> {
-        let h = Bytes::from_array(&self.e, hash);
+    fn proof(&self, key: &SigningKey, signer: &SigningKey, payload: &[u8; 32]) -> Bytes {
+        self.proof_ids(key, signer, payload, &[0])
+    }
+
+    fn verify_ids(
+        &self,
+        kd: &Bytes,
+        proof: &Bytes,
+        payload: &[u8; 32],
+        ids: &[u32],
+    ) -> Result<bool, ()> {
+        let h = Bytes::from_array(&self.e, &sha(&[&self.pre(payload, ids)]));
         self.client
             .try_verify(&h, kd, proof)
             .map(|x| x.unwrap())
             .map_err(|_| ())
     }
 
+    fn verify(&self, kd: &Bytes, proof: &Bytes, payload: &[u8; 32]) -> Result<bool, ()> {
+        self.verify_ids(kd, proof, payload, &[0])
+    }
+
     fn kd(&self) -> Bytes {
         Bytes::from_array(&self.e, &raw(&self.e, &self.account))
     }
 
-    fn check(
+    /// `seat.__check_auth` with the signature bound to `tag` and the account's nested frame as the context.
+    #[allow(clippy::too_many_arguments)]
+    fn check_raw(
         &self,
         seat: &Address,
+        tag: &Address,
         key: &SigningKey,
         signer: &SigningKey,
+        payload: [u8; 32],
+        pre: std::vec::Vec<u8>,
         ctx: &Vec<Context>,
     ) -> R {
-        let payload = [9u8; 32];
         let sig = signer
-            .sign(&sha(&[&raw(&self.e, seat), &payload]))
+            .sign(&sha(&[&raw(&self.e, tag), &payload]))
             .to_bytes();
+        let pre = Bytes::from_slice(&self.e, &pre);
         self.e.try_invoke_contract_check_auth::<Error>(
             seat,
             &bn(&self.e, &payload),
-            (bn(&self.e, &pk(key)), bn(&self.e, &sig)).into_val(&self.e),
+            (bn(&self.e, &pk(key)), bn(&self.e, &sig), pre).into_val(&self.e),
             ctx,
         )
+    }
+
+    fn frame(&self, contract: &Address, digest: &[u8; 32]) -> Vec<Context> {
+        let arg: Val = Bytes::from_array(&self.e, digest).into_val(&self.e);
+        Vec::from_array(
+            &self.e,
+            [Context::Contract(ContractContext {
+                contract: contract.clone(),
+                fn_name: Symbol::new(&self.e, "__check_auth"),
+                args: Vec::from_array(&self.e, [arg]),
+            })],
+        )
+    }
+
+    /// The use of a seat the way the account makes it: the rule ids it authorizes with.
+    fn check(&self, seat: &Address, key: &SigningKey, signer: &SigningKey, ids: &[u32]) -> R {
+        let (payload, pre) = ([9u8; 32], self.pre(&[9u8; 32], ids));
+        let ctx = self.frame(&self.account, &sha(&[&pre]));
+        self.check_raw(seat, seat, key, signer, payload, pre, &ctx)
     }
 
     fn no_ctx(&self) -> Vec<Context> {
@@ -200,7 +262,7 @@ fn the_owner_grants_and_the_key_votes_and_acts() {
     t.live(&k);
     let h = [5u8; 32];
     assert_eq!(t.verify(&t.kd(), &t.proof(&k, &k, &h), &h), Ok(true));
-    assert_eq!(t.check(&t.seat, &k, &k, &t.no_ctx()), Ok(()));
+    assert_eq!(t.check(&t.seat, &k, &k, &[1]), Ok(()));
 }
 
 #[test]
@@ -213,7 +275,7 @@ fn only_the_owner_signs_a_grant() {
     assert_eq!(g, Err(Ok(REFUSED)));
     let g = t.grant_by(&k, NOW - 120, NOW + 3600, &t.owner, &stranger);
     assert!(matches!(g, Err(Ok(e)) if e != REFUSED), "{g:?}");
-    assert_eq!(t.check(&t.seat, &k, &k, &t.no_ctx()), Err(Ok(REFUSED)));
+    assert_eq!(t.check(&t.seat, &k, &k, &[1]), Err(Ok(REFUSED)));
 }
 
 #[test]
@@ -360,11 +422,11 @@ fn a_key_is_live_to_its_end_second_and_then_refused_while_its_entry_lives() {
     let h = [5u8; 32];
     t.at(NOW + 3600);
     assert_eq!(t.verify(&t.kd(), &t.proof(&k, &k, &h), &h), Ok(true));
-    assert_eq!(t.check(&t.seat, &k, &k, &t.no_ctx()), Ok(()));
+    assert_eq!(t.check(&t.seat, &k, &k, &[1]), Ok(()));
     t.at(NOW + 3601);
     assert!(t.ttl(&k) > 0);
     assert_eq!(t.verify(&t.kd(), &t.proof(&k, &k, &h), &h), Ok(false));
-    assert_eq!(t.check(&t.seat, &k, &k, &t.no_ctx()), Err(Ok(REFUSED)));
+    assert_eq!(t.check(&t.seat, &k, &k, &[1]), Err(Ok(REFUSED)));
 }
 
 #[test]
@@ -373,10 +435,10 @@ fn an_ungranted_key_and_a_wrong_signature_are_refused() {
     let (k, other) = (sk(9), sk(8));
     let h = [5u8; 32];
     assert_eq!(t.verify(&t.kd(), &t.proof(&k, &k, &h), &h), Ok(false));
-    assert_eq!(t.check(&t.seat, &k, &k, &t.no_ctx()), Err(Ok(REFUSED)));
+    assert_eq!(t.check(&t.seat, &k, &k, &[1]), Err(Ok(REFUSED)));
     t.live(&k);
     assert_eq!(t.verify(&t.kd(), &t.proof(&k, &other, &h), &h), Err(()));
-    assert!(is_crypto(&t.check(&t.seat, &k, &other, &t.no_ctx())));
+    assert!(is_crypto(&t.check(&t.seat, &k, &other, &[1])));
     assert_eq!(
         t.verify(&t.kd(), &t.proof(&other, &other, &h), &h),
         Ok(false)
@@ -396,7 +458,7 @@ fn an_end_by_the_owner_or_by_the_key_is_final_and_a_stranger_cannot_end() {
         assert_eq!(t.grant_by(&k, 0, 0, by, by), Ok(()));
         let h = [5u8; 32];
         assert_eq!(t.verify(&t.kd(), &t.proof(&k, &k, &h), &h), Ok(false));
-        assert_eq!(t.check(&t.seat, &k, &k, &t.no_ctx()), Err(Ok(REFUSED)));
+        assert_eq!(t.check(&t.seat, &k, &k, &[1]), Err(Ok(REFUSED)));
         let replay = t.client.try_grant(
             &bn(&t.e, &pk(&k)),
             &(NOW - 120),
@@ -424,7 +486,7 @@ fn an_end_stores_zero_for_the_maximum_ttl_and_spares_other_keys() {
         t.e.as_contract(&t.seat, || t.e.storage().instance().get_ttl()),
         before
     );
-    assert_eq!(t.check(&t.seat, &b, &b, &t.no_ctx()), Ok(()));
+    assert_eq!(t.check(&t.seat, &b, &b, &[1]), Ok(()));
 }
 
 #[test]
@@ -445,29 +507,20 @@ fn a_regrant_must_end_later_and_a_replay_cannot_shorten_a_session() {
     assert_eq!(t.grant(&k, NOW - 120, NOW + 7200), Ok(()));
     assert_eq!(t.grant(&k, NOW - 120, NOW + 3600), Err(Ok(REFUSED)));
     t.at(NOW + 7000);
-    assert_eq!(t.check(&t.seat, &k, &k, &t.no_ctx()), Ok(()));
+    assert_eq!(t.check(&t.seat, &k, &k, &[1]), Ok(()));
 }
 
 #[test]
-fn the_entry_and_the_instance_live_past_the_end() {
+fn every_grant_entry_lives_to_the_maximum_ttl() {
     let t = setup();
     let k = sk(9);
     let before =
         t.e.as_contract(&t.seat, || t.e.storage().instance().get_ttl());
     t.live(&k);
-    let want = (3600 / 4) as u32 + 1;
-    assert_eq!(t.ttl(&k), want);
+    assert_eq!(t.ttl(&k), t.e.storage().max_ttl());
     assert_eq!(
         t.e.as_contract(&t.seat, || t.e.storage().instance().get_ttl()),
-        want.max(before)
-    );
-    let long = sk(8);
-    assert_eq!(t.grant(&long, NOW - 120, NOW - 120 + 604_800), Ok(()));
-    let longest = ((604_800 - 120) / 4 + 1) as u32;
-    assert_eq!(t.ttl(&long), longest);
-    assert_eq!(
-        t.e.as_contract(&t.seat, || t.e.storage().instance().get_ttl()),
-        longest
+        before
     );
 }
 
@@ -492,13 +545,61 @@ fn a_proof_covers_one_hash_and_names_the_seat() {
     t.live(&k);
     let (h, h2) = ([5u8; 32], [6u8; 32]);
     let p = t.proof(&k, &k, &h);
-    assert_eq!(t.verify(&t.kd(), &p, &h2), Err(()));
+    assert_eq!(t.verify(&t.kd(), &p, &h2), Ok(false));
     let bare = {
+        let pre = t.pre(&h, &[0]);
         let mut v = std::vec::Vec::from(pk(&k));
-        v.extend_from_slice(&k.sign(&h).to_bytes());
+        v.extend_from_slice(&k.sign(&sha(&[&pre])).to_bytes());
+        v.extend(pre);
         Bytes::from_slice(&t.e, &v)
     };
     assert_eq!(t.verify(&t.kd(), &bare, &h), Err(()));
+}
+
+#[test]
+fn an_external_entry_serves_rule_zero_only() {
+    let t = setup();
+    let k = sk(9);
+    t.live(&k);
+    let h = [5u8; 32];
+    for (ids, want) in [
+        (&[0][..], true),
+        (&[0, 0], true),
+        (&[1], false),
+        (&[0, 1], false),
+        (&[1, 0], false),
+        (&[7, 7], false),
+    ] {
+        let p = t.proof_ids(&k, &k, &h, ids);
+        assert_eq!(t.verify_ids(&t.kd(), &p, &h, ids), Ok(want), "{ids:?}");
+    }
+}
+
+#[test]
+fn an_external_proof_must_carry_the_preimage_of_the_hash() {
+    let t = setup();
+    let k = sk(9);
+    t.live(&k);
+    let h = [5u8; 32];
+    let p = t.proof(&k, &k, &h);
+    let hash = Bytes::from_array(&t.e, &sha(&[&t.pre(&h, &[0])]));
+    assert_eq!(
+        t.client.try_verify(&hash, &t.kd(), &p).map(|x| x.unwrap()),
+        Ok(true)
+    );
+    let other = Bytes::from_array(&t.e, &[3u8; 32]);
+    assert_eq!(
+        t.client.try_verify(&other, &t.kd(), &p).map(|x| x.unwrap()),
+        Ok(false)
+    );
+    let mut pre = t.pre(&h, &[0]);
+    pre.truncate(pre.len() - 3);
+    let mut v = std::vec::Vec::from(pk(&k));
+    v.extend_from_slice(&k.sign(&t.digest(&sha(&[&pre]))).to_bytes());
+    v.extend(pre.clone());
+    let bad = Bytes::from_slice(&t.e, &v);
+    let hash = Bytes::from_array(&t.e, &sha(&[&pre]));
+    assert!(t.client.try_verify(&hash, &t.kd(), &bad).is_err());
 }
 
 #[test]
@@ -529,18 +630,15 @@ fn one_session_signature_serves_one_seat() {
     let h = [5u8; 32];
     let p = t.proof(&k, &k, &h);
     assert_eq!(t.verify(&t.kd(), &p, &h), Ok(true));
-    let on_second = c2.try_verify(&Bytes::from_array(&t.e, &h), &t.kd(), &p);
-    assert!(on_second.is_err());
-    assert_eq!(t.check(&t.seat, &k, &k, &t.no_ctx()), Ok(()));
-    assert!(t.check(&second, &k, &k, &t.no_ctx()).is_ok());
-    let sig = k.sign(&sha(&[&raw(&t.e, &t.seat), &[9u8; 32]])).to_bytes();
-    let wrong = t.e.try_invoke_contract_check_auth::<Error>(
-        &second,
-        &bn(&t.e, &[9u8; 32]),
-        (bn(&t.e, &pk(&k)), bn(&t.e, &sig)).into_val(&t.e),
-        &t.no_ctx(),
-    );
-    assert!(is_crypto(&wrong));
+    let hash = Bytes::from_array(&t.e, &sha(&[&t.pre(&h, &[0])]));
+    assert!(c2.try_verify(&hash, &t.kd(), &p).is_err());
+    assert_eq!(t.check(&t.seat, &k, &k, &[1]), Ok(()));
+    assert_eq!(t.check(&second, &k, &k, &[1]), Ok(()));
+    let (payload, pre) = ([9u8; 32], t.pre(&[9u8; 32], &[1]));
+    let ctx = t.frame(&t.account, &sha(&[&pre]));
+    assert!(is_crypto(
+        &t.check_raw(&second, &t.seat, &k, &k, payload, pre, &ctx)
+    ));
 }
 
 #[test]
@@ -568,20 +666,48 @@ fn canonical_keys_are_one_constant_per_seat() {
 }
 
 #[test]
-fn check_auth_ignores_the_contexts_because_a_delegated_seat_sees_only_the_accounts_own() {
+fn a_delegated_use_needs_a_rule_other_than_zero() {
     let t = setup();
     let k = sk(9);
     t.live(&k);
-    let nested = Context::Contract(ContractContext {
-        contract: t.account.clone(),
-        fn_name: Symbol::new(&t.e, "__check_auth"),
-        args: Vec::new(&t.e),
-    });
-    let other = Context::Contract(ContractContext {
-        contract: Address::generate(&t.e),
-        fn_name: Symbol::new(&t.e, "transfer"),
-        args: Vec::new(&t.e),
-    });
-    let ctx = Vec::from_array(&t.e, [nested, other]);
-    assert_eq!(t.check(&t.seat, &k, &k, &ctx), Ok(()));
+    for (ids, ok) in [
+        (&[1][..], true),
+        (&[2, 3], true),
+        (&[0], false),
+        (&[1, 0], false),
+        (&[0, 1], false),
+    ] {
+        let r = t.check(&t.seat, &k, &k, ids);
+        assert_eq!(r, if ok { Ok(()) } else { Err(Ok(REFUSED)) }, "{ids:?}");
+    }
+}
+
+#[test]
+fn a_delegated_use_is_bound_to_the_pinned_account_and_its_digest() {
+    let t = setup();
+    let k = sk(9);
+    t.live(&k);
+    let (payload, pre) = ([9u8; 32], t.pre(&[9u8; 32], &[1]));
+    let digest = sha(&[&pre]);
+    let go = |ctx: &Vec<Context>, pre: std::vec::Vec<u8>| {
+        t.check_raw(&t.seat, &t.seat, &k, &k, payload, pre, ctx)
+    };
+    assert_eq!(go(&t.frame(&t.account, &digest), pre.clone()), Ok(()));
+    let other = Address::generate(&t.e);
+    assert_eq!(go(&t.frame(&other, &digest), pre.clone()), Err(Ok(REFUSED)));
+    assert_eq!(
+        go(&t.frame(&t.account, &[4u8; 32]), pre.clone()),
+        Err(Ok(REFUSED))
+    );
+    assert_eq!(go(&t.no_ctx(), pre.clone()), Err(Ok(REFUSED)));
+    let mut cut = pre.clone();
+    cut.truncate(cut.len() - 3);
+    assert!(go(&t.frame(&t.account, &sha(&[&cut])), cut).is_err());
+}
+
+#[test]
+fn a_delegated_use_of_a_dead_key_is_refused() {
+    let t = setup();
+    let k = sk(9);
+    assert_eq!(t.check(&t.seat, &k, &k, &[1]), Err(Ok(REFUSED)));
 }
