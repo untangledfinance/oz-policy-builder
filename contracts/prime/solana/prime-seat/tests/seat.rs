@@ -549,17 +549,20 @@ fn an_unknown_discriminator_or_short_data_is_refused() {
     }
 }
 
-// Policy use is execute_transaction_sync_v2 with a Policy payload (tag 1) that is not SettingsChange (tag 3).
+// Policy use is execute_transaction_sync_v2 with a Policy payload (tag 1) of a kind Squads has today and that cannot change settings:
+// InternalFundTransfer (0), ProgramInteraction (1) and SpendingLimit (2). SettingsChange (3) and any kind Squads adds later are refused.
 #[test]
-fn policy_use_passes_for_every_policy_type_but_settings_change() {
+fn policy_use_passes_only_for_the_three_kinds_that_cannot_change_settings() {
     for kind in [0u8, 1, 2] {
         let mut c = Case::new();
         c.inner = sync(kind);
         assert_eq!(c.ok()[0].data, c.inner);
     }
-    let mut c = Case::new();
-    c.inner = sync(3);
-    c.refused(E::Custom(8));
+    for kind in [3u8, 4, 5, 127, 255] {
+        let mut c = Case::new();
+        c.inner = sync(kind);
+        c.refused(E::Custom(8));
+    }
 }
 
 #[test]

@@ -18,11 +18,11 @@ A session key signs the Solana transaction. The program forwards exactly one Squ
 |---|---|
 | `createProposal`, `activateProposal`, `approveProposal`, `rejectProposal` | yes |
 | `executeTransaction`, `executeSettingsTransaction` | yes |
-| `executeTransactionSyncV2` with a policy payload that is not `SettingsChange` | yes |
+| `executeTransactionSyncV2` with a policy payload of kind 0, 1 or 2 (`InternalFundTransfer`, `ProgramInteraction`, `SpendingLimit`) | yes |
 | `executeTransactionSyncV2` with a vault transaction payload (the settings consensus) | no |
 | `createTransaction`, `createSettingsTransaction`, `cancelProposal`, `useSpendingLimit`, every other call | no |
 
-Only a native owner creates a transaction, so every change to the account carries a native owner's content. Sessions supply the other approvals, and they act alone only inside a policy that lists the seat. The payload tags in the call data pin the policy case: tag 1 (a policy payload) and a kind other than 3 (`SettingsChange`). Squads checks that the payload kind matches the policy's own type, and a policy payload sent to the settings consensus fails in Squads.
+Only a native owner creates a transaction, so every change to the account carries a native owner's content. Sessions supply the other approvals, and they act alone only inside a policy that lists the seat. The payload tags in the call data pin the policy case: tag 1 (a policy payload) and a kind from 0 to 2. Kind 3 (`SettingsChange`) and any kind Squads adds later are refused, because this program is final and Squads can be upgraded. Squads checks that the payload kind matches the policy's own type, and a policy payload sent to the settings consensus fails in Squads.
 
 ## Instruction data
 
@@ -71,6 +71,12 @@ The marker is the PDA `[owner, settings, key]` under this program. The program a
 | `MissingRequiredSignature` | the session key did not sign a mode 0 call |
 | `InsufficientFunds` | an End with an unfunded marker |
 
+## Notes for integrators
+
+- **Call depth:** `prime-seat` adds one call level above Squads. Devnet and mainnet run the 4-level limit today (SIMD-0268 is inactive there). A venue called through a policy move can then nest 3 calls below itself for a native signer and 2 for a seat session. Kamino and Orca calls fit. A venue that needs 3 nested calls goes through a native executor, and a depth probe on devnet should come before any deeper venue.
+- **Creating a transaction is consent:** in a 2-of-3 account with one native owner and two seats, a native owner that creates a transaction and then rejects it cannot stop the two sessions from approving and executing it. Tell the native owner that creating a transaction is its signature on the decision.
+- **A seat belongs to one account:** the grant binds the seat to its account by address, and the program forwards the call to any Squads account that lists the seat. Only the owners of that account can list it, so onboarding should check that a seat appears only in its own account and that account's policies.
+
 ## Build and test
 
 ```
@@ -79,11 +85,13 @@ PRIME_CLUSTER=devnet cargo mutants --in-place         # every viable mutant caug
 PRIME_CLUSTER=devnet cargo-build-sbf -- --locked      # target/deploy/prime_seat.so
 ```
 
+`cargo mutants` offers `Default::default()` for `ProgramResult` and never `Ok(())`, so it skips the three most important mutants. The agents' `manual-mutants.py` adds them with every literal the tool leaves alone.
+
 `PRIME_CLUSTER` has no default, so a build without it fails. The host tests call `process` with the syscalls stubbed and record every inner call the program makes with the privileges the runtime would give it. A validator matrix against the real Squads program, a grant by real NEAR MPC and a venue-depth probe sit outside the repository (the agents' `near-int/solana` folder); their results are in the pull request.
 
 | Build | sha256 | Bytes |
 |---|---|---|
-| `PRIME_CLUSTER=localnet` (CI) | `1816ad3f7065fc19e00426ee5d143d6ba5b5f4e1bd8367b73091868af136c6c8` | 35,248 |
-| `PRIME_CLUSTER=devnet` (beta) | `f247128841925b226e52b3eac0a7584c505baf23ff876a01f832744f1e4f3774` | 35,248 |
+| `PRIME_CLUSTER=localnet` (CI) | `4428191fcb70aeb9230ff1706edaa0cdee853c75ee99aae0fa1c347d25177e3e` | 35,248 |
+| `PRIME_CLUSTER=devnet` (beta) | `a389f4a1cbf67bee9be5170e2199e3fc4c02e596fe4fbab0406ecdeb8f5e9bb2` | 35,248 |
 
-The source is 75 formatted lines (rustfmt defaults, non-blank non-comment). Deploy with `--final`, since the program holds no state and has nothing to upgrade. The devnet build is deployed final at `5cMh4xVeYKX2BMdMKpbMbc4gXMaUUz6e96KtUmtsUiTs` (upgrade authority none, deployed bytes equal the build).
+The source is 75 formatted lines (rustfmt defaults, non-blank non-comment). Deploy with `--final`, since the program holds no state and has nothing to upgrade. The devnet build is deployed final at `7ygNrKpK3GYoNLMCkAa4e3mznGPF2KVGbKZsJcq8wSCb` (upgrade authority none, deployed bytes equal the build). An earlier deployment, `5cMh4xVeYKX2BMdMKpbMbc4gXMaUUz6e96KtUmtsUiTs`, ran the deny-list build and is superseded.

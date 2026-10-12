@@ -5,7 +5,7 @@
 //! same hash with start and end at 0; the owner (or the key itself) ends a session by creating an empty account at the marker
 //! [owner, settings, key] that this program owns, and a call must pass that address and is refused when the account exists.
 //! A session may do only what a vote needs: createProposal, activateProposal, approveProposal, rejectProposal, executeTransaction,
-//! executeSettingsTransaction, and policy use, which is executeTransactionSyncV2 with a policy payload other than SettingsChange.
+//! executeSettingsTransaction, and policy use, which is executeTransactionSyncV2 with a policy payload of kind 0, 1 or 2 (not SettingsChange, nor any kind Squads adds).
 //! It cannot create a transaction, so the content of every change comes from a native owner.
 //!
 //! data: mode u8 (0 session action, 2 end) | owner (32) | settings (32) | sig_ix u8 | for mode 0: start i64 | end i64 | Squads data
@@ -72,7 +72,7 @@ pub fn process(pid: &Pubkey, a: &[AccountInfo], d: &[u8]) -> ProgramResult {
     let live = start <= now && now <= end && end <= start.saturating_add(7 * 86_400);
     need(live, E::Custom(4))?;
     let tag = inner.first_chunk().map_or(0, |x| u64::from_le_bytes(*x));
-    let sync = tag == SYNC_V2 && matches!(inner.get(10..12), Some([1, kind]) if *kind != 3);
+    let sync = tag == SYNC_V2 && matches!(inner.get(10..12), Some([1, 0..=2]));
     need(sync || VOTE.contains(&tag), E::Custom(8))?;
     let metas = tail
         .iter()
