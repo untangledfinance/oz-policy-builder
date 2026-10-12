@@ -2,7 +2,7 @@
 
 `PrimeSeat` is the Safe owner for one NEAR-routed owner on one Prime Account on EVM. A Freighter or Phantom owner has no EVM wallet, so the owner signs through NEAR to start or end a session. While the session is live, a session key stands in for that owner on the Safe, beside a signature from a native owner (a Safe owner EOA such as MetaMask). Every Safe decision carries one native signature.
 
-The contract is 66 formatted sLOC. Runtime code is 4,155 bytes and creation code 4,417 bytes (sha256 in [Build](#build)).
+The contract is 70 formatted sLOC. Runtime code is 4,247 bytes and creation code 4,509 bytes (sha256 in [Build](#build)).
 
 ## Roles of the keys
 
@@ -10,7 +10,7 @@ The contract is 66 formatted sLOC. Runtime code is 4,155 bytes and creation code
 |---|---|---|
 | `owner` | the NEAR MPC key for `<wallet id>/prime:evm:<safe>` | sign a grant or an end. It never votes. |
 | session key | the browser of the NEAR-routed owner | vote beside a native signature, call `exec`, end itself |
-| native owner | an EOA that the Safe lists as an owner | its signature over the Safe transaction hash makes a seat proof count |
+| native owner | an EOA that the Safe lists as an owner | its EIP-712 signature (`v` 27 or 28) over the Safe transaction hash makes a seat proof count. An `eth_sign` signature, an approved hash or a contract wallet cannot co-sign; the seat reverts on them. |
 
 ## Interface
 
@@ -33,19 +33,19 @@ GRANT_TYPEHASH = keccak256("PrimeSeatGrant(uint256 chainId,address safe,address 
 ```
 
 - `end != 0`: the `owner` signs. The grant needs `start <= now <= end`, `end - start <= 7 days` and `end` later than the stored end. A grant replaces the stored start and end and keeps the nonce.
-- `end == 0`: an end. The `owner` or the key itself signs the hash with `start` and `end` both 0, and the key is finished for good. A later grant for it fails, including a grant signed before the end and filed after it.
+- `end == 0`: an end. The `owner` or the key itself signs the hash for `end` 0. The NEAR signer signs the End with `start` 0 as well, and the contract ends the key for any `start` it is given. The key is finished for good. A later grant for it fails, including a grant signed before the end and filed after it.
 - A session uses one storage slot: `uint64 start`, `uint64 end`, `uint128 nonce`. An ended key stores `end = type(uint64).max`.
 - Use checks the stored values again: `start <= now <= end` and `end - start <= 7 days`. An ended key fails the second test.
 
-The shared vectors in `contracts/prime/near/vectors/requests.json` carry the hash for `grant-evm-votes` and `end-evm`. `PrimeSeat.t.sol` checks both.
+The shared vectors in `contracts/prime/near/vectors/requests.json` (on branch `feat/near-seats-signer`) carry the hash for `grant-evm-votes` and `end-evm`. `PrimeSeat.t.sol` checks both.
 
 ### exec
 
-A live session key signs `keccak256(abi.encode(seat, chainid, nonce, to, value, keccak256(data), op, role))`. The seat then calls `roles.execTransactionWithRole(to, value, data, op, role, true)`. The nonce goes up by one on each call. `exec` refuses `to` equal to the Safe, the Roles module or the seat, and any `op` other than 0. Use it for Roles rules that list the seat.
+A live session key signs `keccak256(abi.encode(seat, chainid, nonce, to, value, keccak256(data), op, role))`. The seat then calls `roles.execTransactionWithRole(to, value, data, op, role, true)`. The nonce goes up by one on each call. `exec` refuses `to` equal to the Safe or the seat, any module the Safe has enabled (Roles included, asked through `isModuleEnabled`), and any `op` other than 0. Use it for Roles rules that list the seat.
 
 ### Votes
 
-Safe calls `isValidSignature` on a contract owner, and only the Safe may ask. Safe 1.4.1 calls the `bytes` form (`0x20c13b0b`) with `data = 0x1901 | domain separator | SafeTx hash`. Safe 1.5.0 calls the `bytes32` form (`0x1626ba7e`) with the hash. The `bytes` form needs 66 bytes of data that start with `0x1901`, and then asks the `bytes32` form about `keccak256(data)`.
+Safe calls `isValidSignature` on a contract owner. The Safe may ask, and so may address 0, which is the sender of an off-chain `eth_call` such as the one the Safe Transaction Service makes to check a confirmation. Both functions are `view`, so an `eth_call` changes nothing on chain, and every other caller gets `0xffffffff`. Safe 1.4.1 calls the `bytes` form (`0x20c13b0b`) with `data = 0x1901 | domain separator | SafeTx hash`. Safe 1.5.0 calls the `bytes32` form (`0x1626ba7e`) with the hash. The `bytes` form needs 66 bytes of data that start with `0x1901`, and then asks the `bytes32` form about `keccak256(data)`. Safe 1.4.1 already checks `keccak256(data) == dataHash` before it calls a contract owner (`GS027`); the 66-byte check limits the form to EIP-712 preimages.
 
 The `sig` for hash `h` is 130 bytes:
 
@@ -60,7 +60,7 @@ A malformed signature (wrong length, bad `v`, high `s`) reverts as OpenZeppelin 
 
 - Create the Safe with the native owner as its only owner. Nonce 0, signed by that owner alone, deploys the seats from the Safe with CreateCall (so each address follows from the Safe address), adds them as owners with the final threshold, deploys and enables Roles, and installs the rules that list the seats.
 - Every account needs at least one native owner. Two NEAR-routed owners cannot move the account alone.
-- A Roles rule that lists a seat lets the session act alone inside the rule. Rules must not reach the Safe, Roles or the seat; `exec` enforces that, and the app refuses and flags such rules.
+- A Roles rule that lists a seat lets the session act alone inside the rule. `exec` refuses the Safe, the seat and every enabled module as a target. The app must also refuse and flag rule targets that `exec` cannot see: the guard, the fallback handler, other seats, a Safe that this account owns (a session could call `approveHash` on it), and any contract whose `owner()`, `avatar()` or `target()` is this Safe or that gives the Safe admin power.
 
 ## Tests
 
@@ -74,9 +74,9 @@ forge test                                  # unit suite, no network
 FORK_URL=<Base Sepolia RPC> forge test      # adds the real Safe 1.4.1 and 1.5.0 tests
 ```
 
-- `test/PrimeSeat.t.sol`: 45 unit tests against stub Safe and Roles contracts. Each rule in this file has a test, including a grant preimage passed as `data`, an end that arrives after a held-back grant, and window and start checks on stored states a grant cannot create.
-- `test/PrimeSeatSafe.t.sol`: the seat as a contract owner of a real Safe 1.4.1 L2 and a real Safe 1.5.0 L2 (a fork of Base Sepolia), with nonce 0 through MultiSend. It covers the accepted and refused vote shapes on both versions, and a migration of a Safe 1.4.1 to 1.5.0 by an M-of-N vote through the official `SafeMigration`, followed by votes in the 1.5.0 form.
-- `mutate.py`: the mutation pass (117 mutants). `FORK_URL=<rpc> ./mutate.py out.json` edits one spot at a time and runs the whole suite. 114 mutants die. The three that survive have no effect on behaviour: two change the `op` argument that `exec` already requires to be 0, and one changes the text of a revert reason.
+- `test/PrimeSeat.t.sol`: 47 unit tests against stub Safe and Roles contracts. Each rule in this file has a test, including enabled modules as `exec` targets, address 0 as a read-only caller, a grant preimage passed as `data`, an end that arrives after a held-back grant, and window and start checks on stored states a grant cannot create.
+- `test/PrimeSeatSafe.t.sol`: five tests with the seat as a contract owner of a real Safe 1.4.1 L2 and a real Safe 1.5.0 L2 (a fork of Base Sepolia), with nonce 0 through MultiSend. It covers the accepted and refused vote shapes on both versions, and a migration of a Safe 1.4.1 to 1.5.0 by an M-of-N vote through the official `SafeMigration`, followed by votes in the 1.5.0 form.
+- `mutate.py`: the mutation pass (121 mutants). `FORK_URL=<rpc> ./mutate.py out.json` copies the project to a scratch folder, edits one spot at a time there and runs the whole suite. 118 mutants die. The three that survive have no effect on behaviour: two change the `op` argument that `exec` already requires to be 0, and one changes the text of a revert reason.
 
 ## Build
 
@@ -84,8 +84,8 @@ Foundry 1.8.4, Solidity 0.8.28, optimizer 200 runs, `via_ir` off. The contract i
 
 | Artifact | Bytes | sha256 |
 |---|---|---|
-| runtime code | 4,155 | `df99988b727e7b904de0eedab4da01b6ca8abf315f99330611aebad7776b3b7e` |
-| creation code | 4,417 | `f53336b63e3804f6c4deb66eed943722bc72db712af783007802821a05e3f6d4` |
+| runtime code | 4,247 | `50dd9e00610d4170e9b5a7459d955e577bff490da7878a3def2c2476a44517e5` |
+| creation code | 4,509 | `9200b251f9c29d203a2c6359653d2ebedc7ad1879247190373db0020f01a68da` |
 
 The hashes are of the bytes in `out/PrimeSeat.sol/PrimeSeat.json` from `forge build`.
 
@@ -95,13 +95,13 @@ Receipts on a fork of Base Sepolia, 5 runs of each operation, median and maximum
 
 | Operation | Safe 1.4.1 median | max | Safe 1.5.0 median | max |
 |---|---|---|---|---|
-| Deploy a seat (plain CREATE) | 953,101 | 953,101 | 953,089 | 953,089 |
+| Deploy a seat (plain CREATE) | 972,984 | 972,984 | 972,984 | 972,984 |
 | `grant` (start a session) | 51,182 | 51,182 | 51,182 | 51,182 |
 | End signed by the owner | 33,499 | 33,499 | 33,499 | 33,499 |
 | End signed by the key | 33,591 | 33,591 | 33,591 | 33,591 |
-| Vote: native owner plus one session | 100,141 | 100,153 | 98,316 | 98,328 |
-| Vote: two sessions, native copy in each | 120,741 | 120,765 | 117,710 | 117,710 |
-| Vote: two native owners (plain-key Safe) | 81,515 | 98,615 | 80,945 | 98,057 |
-| `exec` move through Roles | 125,123 | 125,123 | 127,444 | 127,444 |
+| Vote: native owner plus one session | 100,170 | 100,170 | 98,333 | 98,357 |
+| Vote: two sessions, native copy in each | 120,799 | 120,799 | 117,744 | 117,756 |
+| Vote: two native owners (plain-key Safe) | 81,527 | 98,615 | 80,957 | 98,057 |
+| `exec` move through Roles | 128,509 | 128,509 | 130,776 | 130,776 |
 
-Nonce 0 with two seats, one native owner and a spending rule costs 2,654,834 gas on Safe 1.4.1 (median of 3). The same nonce 0 with three native owners and no seats costs 750,047.
+Nonce 0 with two seats, one native owner and a spending rule costs 2,695,602 gas on Safe 1.4.1 (median of 3). The same nonce 0 with three native owners and no seats costs 749,939.

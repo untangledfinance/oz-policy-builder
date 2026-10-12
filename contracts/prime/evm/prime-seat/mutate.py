@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Mutation pass for src/PrimeSeat.sol: each mutant edits one spot, then the whole forge suite runs (the Safe fork tests
-need FORK_URL). A mutant is killed when the suite fails or the build breaks. Usage: FORK_URL=... ./mutate.py out.json"""
-import json, os, shutil, subprocess, sys
+"""Mutation pass for src/PrimeSeat.sol on a scratch copy of the project (the working tree is never edited). Each mutant
+edits one spot, then the whole forge suite runs (the Safe fork tests need FORK_URL). A mutant is killed when the suite
+fails or the build breaks. Usage: FORK_URL=... ./mutate.py out.json"""
+import json, os, shutil, subprocess, sys, tempfile
 
-SRC = "src/PrimeSeat.sol"
+SRC = "src/PrimeSeat.sol"  # relative to the scratch copy made in main()
 FORGE = shutil.which("forge") or os.path.expanduser("~/.foundry/bin/forge")
 H = "keccak256(abi.encode(GRANT, block.chainid, safe, this, key, start, end))"
 X = "keccak256(abi.encode(this, block.chainid, sessions[key].nonce++, to, value, keccak256(data), op, role))"
@@ -59,16 +60,17 @@ M = [
     ("grant: window checks joined by or (3)", "end - start <= 7 days && end > s.end", "end - start <= 7 days || end > s.end"),
     ("grant: revert text", '"grant");', '"x");'),
     # exec guards
-    ("exec: liveness dropped", "require(live(key) && op == 0", "require(true && op == 0"),
+    ("exec: liveness dropped", "live(key) && op == 0 && to != safe", "true && op == 0 && to != safe"),
     ("exec: delegatecall allowed", "&& op == 0 &&", "&& op <= 1 &&"),
     ("exec: operation unchecked", "&& op == 0 &&", "&& true &&"),
     ("exec: safe allowed", "to != safe &&", "true &&"),
-    ("exec: roles allowed", "to != address(roles) &&", "true &&"),
+    ("exec: enabled module allowed", "!ISafe(safe).isModuleEnabled(to) &&", "true &&"),
+    ("exec: module test negated", "!ISafe(safe).isModuleEnabled(to) &&", "ISafe(safe).isModuleEnabled(to) &&"),
     ("exec: seat allowed", "to != address(this),", "true,"),
     ("exec: guards joined by or (1)", "live(key) && op == 0", "live(key) || op == 0"),
     ("exec: guards joined by or (2)", "op == 0 && to != safe", "op == 0 || to != safe"),
-    ("exec: guards joined by or (3)", "to != safe && to != address(roles)", "to != safe || to != address(roles)"),
-    ("exec: guards joined by or (4)", "to != address(roles) && to != address(this)", "to != address(roles) || to != address(this)"),
+    ("exec: guards joined by or (3)", "to != safe && !ISafe(safe).isModuleEnabled(to)", "to != safe || !ISafe(safe).isModuleEnabled(to)"),
+    ("exec: guards joined by or (4)", "isModuleEnabled(to) && to != address(this)", "isModuleEnabled(to) || to != address(this)"),
     # exec digest
     ("exec digest drops seat", X, X.replace("this, ", "address(0), ")),
     ("exec digest drops chainid", X, X.replace("block.chainid, ", "uint256(1), ")),
@@ -93,8 +95,11 @@ M = [
     ("exec: roles call removed", "roles.execTransactionWithRole(to, value, data, op, role, true);", ""),
     ("exec: nonce kept per owner", "sessions[key].nonce++", "sessions[owner].nonce++"),
     # 1.5.0 form
-    ("vote: any caller", "msg.sender == safe &&", "true &&"),
-    ("vote: caller negated", "msg.sender == safe &&", "msg.sender != safe &&"),
+    ("vote: any caller", "(msg.sender == safe || msg.sender == address(0))", "true"),
+    ("vote: address 0 refused", " || msg.sender == address(0))", ")"),
+    ("vote: only address 0 asks", "(msg.sender == safe ||", "(false ||"),
+    ("vote: caller negated", "(msg.sender == safe ||", "(msg.sender != safe ||"),
+    ("vote: address 0 negated", "msg.sender == address(0))", "msg.sender != address(0))"),
     ("vote: key liveness dropped", "live(ECDSA.recover(keccak256(abi.encode(this, h)), sig[:65]))", "(ECDSA.recover(keccak256(abi.encode(this, h)), sig[:65]) != address(0))"),
     ("vote: proof does not name the seat", "keccak256(abi.encode(this, h))", "keccak256(abi.encode(address(0), h))"),
     ("vote: proof is the bare hash", "keccak256(abi.encode(this, h))", "h"),
@@ -106,7 +111,7 @@ M = [
     ("vote: native check negated", "ISafe(safe).isOwner(ECDSA.recover(h, sig[65:]))", "!ISafe(safe).isOwner(ECDSA.recover(h, sig[65:]))"),
     ("vote: native over another hash", "ECDSA.recover(h, sig[65:])", "ECDSA.recover(keccak256(abi.encode(h)), sig[65:])"),
     ("vote: native recovered from key part", "ECDSA.recover(h, sig[65:])", "ECDSA.recover(h, sig[:65])"),
-    ("vote: conditions joined by or (1)", "msg.sender == safe && live(", "msg.sender == safe || live("),
+    ("vote: conditions joined by or (1)", "address(0))\n            && live(", "address(0))\n            || live("),
     ("vote: conditions joined by or (2)", "sig[:65]))\n            && ISafe", "sig[:65]))\n            || ISafe"),
     ("vote: success value", "bytes4(0x1626ba7e)", "bytes4(0x1626ba7f)"),
     ("vote: failure value", ": bytes4(0xffffffff);\n    }\n\n    /// Safe 1.4.1", ": bytes4(0xfffffffe);\n    }\n\n    /// Safe 1.4.1"),
@@ -139,24 +144,30 @@ M = [
 
 
 def main():
-    out = sys.argv[1]
+    out = os.path.abspath(sys.argv[1])
+    here = os.path.dirname(os.path.abspath(__file__))
+    work = tempfile.mkdtemp(prefix="prime-seat-mutate-")
+    for d in ("src", "test"):
+        shutil.copytree(os.path.join(here, d), os.path.join(work, d))
+    shutil.copy(os.path.join(here, "foundry.toml"), work)
+    os.symlink(os.path.join(here, "lib"), os.path.join(work, "lib"))
+    os.chdir(work)
     src = open(SRC).read()
-    shutil.copy(SRC, "/tmp/PrimeSeat.sol.orig")
     res = []
-    try:
-        for name, old, new in M:
-            if src.count(old) != 1:
-                res.append((name, f"NOAPPLY({src.count(old)})"))
-                print(name, res[-1][1], flush=True)
-                continue
-            open(SRC, "w").write(src.replace(old, new, 1))
-            r = subprocess.run([FORGE, "test"], capture_output=True, text=True)
-            o = r.stdout + r.stderr
-            st = "SURVIVED" if r.returncode == 0 else ("KILLED(build)" if "Compiler run failed" in o else "KILLED")
-            res.append((name, st))
-            print(name, st, flush=True)
-    finally:
-        shutil.copy("/tmp/PrimeSeat.sol.orig", SRC)
+    for name, old, new in M:
+        if os.environ.get("ONLY") and os.environ["ONLY"] not in name:
+            continue
+        if src.count(old) != 1:
+            res.append((name, f"NOAPPLY({src.count(old)})"))
+            print(name, res[-1][1], flush=True)
+            continue
+        open(SRC, "w").write(src.replace(old, new, 1))
+        r = subprocess.run([FORGE, "test"], capture_output=True, text=True)
+        o = r.stdout + r.stderr
+        st = "SURVIVED" if r.returncode == 0 else ("KILLED(build)" if "Compiler run failed" in o else "KILLED")
+        res.append((name, st))
+        print(name, st, flush=True)
+    shutil.rmtree(work)
     json.dump(res, open(out, "w"), indent=1)
     bad = [n for n, s in res if s.startswith(("SURVIVED", "NOAPPLY"))]
     print(f"{len(res)} mutants, {sum(s.startswith('KILLED') for _, s in res)} killed; open: {bad}")

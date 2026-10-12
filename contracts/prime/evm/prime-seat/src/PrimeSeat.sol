@@ -5,6 +5,7 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 interface ISafe {
     function isOwner(address) external view returns (bool);
+    function isModuleEnabled(address) external view returns (bool);
 }
 
 interface IRoles {
@@ -13,7 +14,7 @@ interface IRoles {
 
 /// The seat of one NEAR-routed owner on one Prime Account (Safe + Zodiac Roles). `owner` is the NEAR MPC address
 /// that signs grants; it never votes. A live session key votes as the seat only beside a native Safe owner's signature
-/// over the same hash, and acts alone only through Roles, never on the Safe, Roles or the seat itself.
+/// over the same hash, and acts alone only through Roles, never on the Safe, an enabled module or the seat itself.
 contract PrimeSeat {
     bytes32 constant GRANT =
         keccak256("PrimeSeatGrant(uint256 chainId,address safe,address seat,address key,uint64 start,uint64 end)");
@@ -59,17 +60,21 @@ contract PrimeSeat {
         address key,
         bytes calldata sig
     ) external {
-        require(live(key) && op == 0 && to != safe && to != address(roles) && to != address(this), "refused");
+        require(
+            live(key) && op == 0 && to != safe && !ISafe(safe).isModuleEnabled(to) && to != address(this), "refused"
+        );
         bytes32 h =
             keccak256(abi.encode(this, block.chainid, sessions[key].nonce++, to, value, keccak256(data), op, role));
         require(ECDSA.recover(h, sig) == key, "sig");
         roles.execTransactionWithRole(to, value, data, op, role, true);
     }
 
-    /// Safe 1.5.0 form. sig = a live key's signature over keccak256(abi.encode(seat, h)), then a Safe owner's own
+    /// Safe 1.5.0 form. The Safe asks; address 0 (an off-chain eth_call, as the Safe Transaction Service makes) may
+    /// read the same answer. sig = a live key's signature over keccak256(abi.encode(seat, h)), then a Safe owner's own
     /// signature over h (65 bytes each).
     function isValidSignature(bytes32 h, bytes calldata sig) public view returns (bytes4) {
-        return msg.sender == safe && live(ECDSA.recover(keccak256(abi.encode(this, h)), sig[:65]))
+        return (msg.sender == safe || msg.sender == address(0))
+            && live(ECDSA.recover(keccak256(abi.encode(this, h)), sig[:65]))
             && ISafe(safe).isOwner(ECDSA.recover(h, sig[65:]))
             ? bytes4(0x1626ba7e)
             : bytes4(0xffffffff);

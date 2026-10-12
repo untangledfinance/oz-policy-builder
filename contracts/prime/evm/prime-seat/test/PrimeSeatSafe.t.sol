@@ -297,4 +297,23 @@ contract PrimeSeatSafeTest {
         (bool ok,) = pay(two(nativePart(h), seatPart(seatA, KEY_A_PK, NATIVE_PK, h)));
         assert(!ok);
     }
+
+    // a module the M-of-N enabled is a refused exec target, Roles included, on the real Safe
+    function test_execRefusesModulesTheSafeEnabled() public {
+        if (!forked) return;
+        createSafe(SAFE141, FACTORY141, FALLBACK141);
+        onboard();
+        address module = address(0x30D);
+        for (uint256 i = 0; i < 2; i++) {
+            address m = i == 0 ? module : ROLES;
+            bytes memory en = abi.encodeWithSignature("enableModule(address)", m);
+            bytes32 h = hashOf(address(safe), 0, en, 0);
+            Part memory s = seatPart(seatA, KEY_A_PK, NATIVE_PK, h);
+            (bool ok,) = run(address(safe), 0, en, 0, two(nativePart(h), s));
+            assert(ok);
+            bytes memory sig = sign(KEY_A_PK, keccak256(abi.encode(address(seatA), block.chainid, uint128(0), m, uint256(0), keccak256(""), uint8(0), bytes32("movers"))));
+            (ok,) = address(seatA).call(abi.encodeCall(PrimeSeat.exec, (m, 0, "", 0, bytes32("movers"), vm.addr(KEY_A_PK), sig)));
+            assert(!ok);
+        }
+    }
 }

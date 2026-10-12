@@ -16,9 +16,14 @@ interface Vm {
 
 contract StubSafe {
     mapping(address => bool) public isOwner;
+    mapping(address => bool) public isModuleEnabled;
 
     function setOwner(address a, bool on) external {
         isOwner[a] = on;
+    }
+
+    function setModule(address a, bool on) external {
+        isModuleEnabled[a] = on;
     }
 }
 
@@ -68,6 +73,7 @@ contract PrimeSeatTest {
         native = vm.addr(NATIVE_PK);
         safe.setOwner(native, true);
         safe.setOwner(address(seat), true);
+        safe.setModule(address(roles), true);
     }
 
     // ---- helpers -------------------------------------------------------------------------------------------------
@@ -465,6 +471,16 @@ contract PrimeSeatTest {
         assert(roles.calls() == 1);
     }
 
+    function test_execRefusesEveryEnabledModule() public {
+        begin(8 hours);
+        address module = address(0x30D);
+        safe.setModule(module, true);
+        assert(failsExec(module, 0, "", 0, key, execSig(seat, KEY_PK, 0, module, 0, "", 0)));
+        safe.setModule(module, false);
+        exec(module, 0, "", 0); // the same target passes while the Safe has not enabled it
+        assert(roles.calls() == 1);
+    }
+
     function test_execRefusesDelegatecall() public {
         begin(8 hours);
         assert(failsExec(address(7), 0, "", 1, key, execSig(seat, KEY_PK, 0, address(7), 0, "", 1)));
@@ -551,6 +567,38 @@ contract PrimeSeatTest {
         assert(other.isValidSignature(h, forSeat) == NO);
         bytes memory forOther = proof(other, KEY_PK, NATIVE_PK, h);
         assert(modern(h, forOther) == NO);
+    }
+
+    function test_addressZeroReadsTheSameAnswerAndChangesNothing() public {
+        begin(8 hours);
+        bytes memory data = safeData(keccak256("safe tx 1"));
+        bytes32 h = keccak256(data);
+        bytes memory good = proof(seat, KEY_PK, NATIVE_PK, h);
+        bytes32 slot = keccak256(abi.encode(key, uint256(0)));
+        bytes32 before = vm.load(address(seat), slot);
+        bytes memory nativeOnly = abi.encodePacked(sign(STRANGER_PK, keccak256(abi.encode(address(seat), h))), sign(NATIVE_PK, h));
+
+        // an off-chain eth_call has no sender; the node runs it as address 0, and the call is a static call
+        vm.prank(address(0));
+        (bool ok, bytes memory ret) = address(seat).staticcall(abi.encodeWithSignature("isValidSignature(bytes32,bytes)", h, good));
+        assert(ok && bytes4(abi.decode(ret, (bytes32))) == MODERN);
+        vm.prank(address(0));
+        (ok, ret) = address(seat).staticcall(abi.encodeWithSignature("isValidSignature(bytes,bytes)", data, good));
+        assert(ok && bytes4(abi.decode(ret, (bytes32))) == LEGACY);
+
+        // the proof still has to hold: a stranger's key part, or no native part, is refused
+        vm.prank(address(0));
+        (ok, ret) = address(seat).staticcall(abi.encodeWithSignature("isValidSignature(bytes32,bytes)", h, nativeOnly));
+        assert(ok && bytes4(abi.decode(ret, (bytes32))) == NO);
+        vm.prank(address(0));
+        (ok,) = address(seat).staticcall(abi.encodeWithSignature("isValidSignature(bytes32,bytes)", h, sign(KEY_PK, keccak256(abi.encode(address(seat), h)))));
+        assert(!ok);
+
+        // any other caller is refused, and nothing in the seat's storage moved
+        vm.prank(address(0xBEEF));
+        (ok, ret) = address(seat).staticcall(abi.encodeWithSignature("isValidSignature(bytes32,bytes)", h, good));
+        assert(ok && bytes4(abi.decode(ret, (bytes32))) == NO);
+        assert(vm.load(address(seat), slot) == before);
     }
 
     function test_onlyTheSafeMayAsk() public {
