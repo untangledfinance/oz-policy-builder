@@ -35,7 +35,16 @@ interface IFactory {
 }
 
 contract RolesStub {
-    function execTransactionWithRole(address, uint256, bytes calldata, uint8, bytes32, bool) external pure returns (bool) {
+    mapping(address => bool) public member;
+    uint256 public calls;
+
+    function setMember(address a, bool on) external {
+        member[a] = on;
+    }
+
+    function execTransactionWithRole(address, uint256, bytes calldata, uint8, bytes32, bool) external returns (bool) {
+        require(member[msg.sender], "NoMembership");
+        calls++;
         return true;
     }
 }
@@ -182,6 +191,8 @@ contract PrimeSeatSafeTest {
         (bool ok,) = run(MULTISEND, 0, data, 1, one(nativePart(h)));
         assert(ok);
         assert(safe.getThreshold() == 2 && safe.isOwner(address(seatA)) && safe.isOwner(address(seatB)));
+        RolesStub(ROLES).setMember(address(seatA), true);
+        RolesStub(ROLES).setMember(address(seatB), true);
         grantTo(seatA, OWNER_A_PK, KEY_A_PK);
         grantTo(seatB, OWNER_B_PK, KEY_B_PK);
     }
@@ -326,5 +337,34 @@ contract PrimeSeatSafeTest {
             assert(ok);
             assert(!execTo(m, uint128(i + 1))); // enabled: refused; the refusal reverts, so the nonce stays at i + 1
         }
+    }
+
+    // after the Safe removes a seat as an owner, its session cannot exec: not while the seat is still a Roles member
+    // (the app has not removed it yet) and not after the app removes it. A current owner's seat still execs.
+    function removalRefusesExec() internal {
+        RolesStub roles = RolesStub(ROLES);
+        assert(execTo(address(0x30D), 0)); // control: an owner's seat that is a role member goes through
+        assert(roles.calls() == 1);
+        // the native owner and seat B's session remove seat A (the seat before it in the owner list is the sentinel)
+        bytes memory rm = abi.encodeWithSignature("removeOwner(address,address,uint256)", address(seatB), address(seatA), 2);
+        bytes32 h = hashOf(address(safe), 0, rm, 0);
+        (bool ok,) = run(address(safe), 0, rm, 0, two(nativePart(h), seatPart(seatB, KEY_B_PK, NATIVE_PK, h)));
+        assert(ok && !safe.isOwner(address(seatA)));
+        assert(!execTo(address(0x30D), 1)); // still a role member, no longer an owner
+        roles.setMember(address(seatA), false);
+        assert(!execTo(address(0x30D), 1)); // out of the role too
+        assert(roles.calls() == 1);
+    }
+
+    function test_removedOwnerSeatCannotExecOnSafe141() public {
+        createSafe(SAFE141, FACTORY141, FALLBACK141);
+        onboard();
+        removalRefusesExec();
+    }
+
+    function test_removedOwnerSeatCannotExecOnSafe150() public {
+        createSafe(SAFE150, FACTORY150, FALLBACK150);
+        onboard();
+        removalRefusesExec();
     }
 }

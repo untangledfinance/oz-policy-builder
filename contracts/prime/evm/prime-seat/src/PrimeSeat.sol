@@ -62,7 +62,9 @@ contract PrimeSeat {
         bytes calldata sig
     ) external {
         require(
-            live(key) && op == 0 && to != safe && !ISafe(safe).isModuleEnabled(to) && to != address(this), "refused"
+            ISafe(safe).isOwner(address(this)) && live(key) && op == 0 && to != safe && !ISafe(safe).isModuleEnabled(to)
+                && to != address(this),
+            "refused"
         );
         Session storage s = sessions[key];
         bytes32 h = keccak256(abi.encode(this, block.chainid, s.nonce++, s.end, to, value, keccak256(data), op, role));

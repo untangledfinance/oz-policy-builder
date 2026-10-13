@@ -2,7 +2,7 @@
 
 `PrimeSeat` is the Safe owner for one NEAR-routed owner on one Prime Account on EVM. A Freighter or Phantom owner has no EVM wallet, so the owner signs through NEAR to start or end a session. While the session is live, a session key stands in for that owner on the Safe, beside a signature from a native owner (a Safe owner EOA such as MetaMask). Every Safe decision carries one native signature.
 
-The contract is 70 formatted sLOC. Runtime code is 4,293 bytes and creation code 4,555 bytes (sha256 in [Build](#build)).
+The contract is 72 formatted sLOC. Runtime code is 4,434 bytes and creation code 4,703 bytes (sha256 in [Build](#build)).
 
 ## Roles of the keys
 
@@ -41,7 +41,7 @@ The shared vectors in `contracts/prime/near/vectors/requests.json` (on branch `f
 
 ### exec
 
-A live session key signs `keccak256(abi.encode(seat, chainid, nonce, end, to, value, keccak256(data), op, role))`, where `nonce` and `end` come from `sessions(key)`. The `end` ties the signature to one session: a signature held back past its session stays dead when the owner grants the key again, and an extension of the same session retires signatures made before it. The signer reads `sessions(key)` just before it signs. The seat then calls `roles.execTransactionWithRole(to, value, data, op, role, true)`. The nonce goes up by one on each call. `exec` refuses `to` equal to the Safe or the seat, any module the Safe has enabled (Roles included, asked through `isModuleEnabled`), and any `op` other than 0. A delegatecall to MultiSend is refused with every other delegatecall, so a session cannot batch through Roles. Use it for Roles rules that list the seat.
+A live session key signs `keccak256(abi.encode(seat, chainid, nonce, end, to, value, keccak256(data), op, role))`, where `nonce` and `end` come from `sessions(key)`. The `end` ties the signature to one session: a signature held back past its session stays dead when the owner grants the key again, and an extension of the same session retires signatures made before it. The signer reads `sessions(key)` just before it signs. The seat then calls `roles.execTransactionWithRole(to, value, data, op, role, true)`. The nonce goes up by one on each call. `exec` refuses unless the Safe still lists the seat as an owner (`isOwner(seat)`), so a seat that the Safe removed cannot move funds through a Roles membership it kept. It also refuses `to` equal to the Safe or the seat, any module the Safe has enabled (Roles included, asked through `isModuleEnabled`), and any `op` other than 0. A delegatecall to MultiSend is refused with every other delegatecall, so a session cannot batch through Roles. Use it for Roles rules that list the seat.
 
 ### Votes
 
@@ -74,9 +74,9 @@ forge test                                  # unit suite, no network
 FORK_URL=<Base Sepolia RPC> forge test      # adds the real Safe 1.4.1 and 1.5.0 tests
 ```
 
-- `test/PrimeSeat.t.sol`: 50 unit tests against stub Safe and Roles contracts. Each rule in this file has a test, including enabled modules and MultiSend as `exec` targets, held-back `exec` signatures after a re-grant and after an extension, address 0 as a read-only caller, a grant preimage passed as `data`, an end that arrives after a held-back grant, and window and start checks on stored states a grant cannot create.
-- `test/PrimeSeatSafe.t.sol`: five tests with the seat as a contract owner of a real Safe 1.4.1 L2 and a real Safe 1.5.0 L2 (a fork of Base Sepolia), with nonce 0 through MultiSend. It covers the accepted and refused vote shapes on both versions, a module the Safe enables (the same `exec` goes through before and is refused after, with Roles as the second case), and a migration of a Safe 1.4.1 to 1.5.0 by an M-of-N vote through the official `SafeMigration`, followed by votes in the 1.5.0 form.
-- `mutate.py`: the mutation pass (123 mutants). `FORK_URL=<rpc> ./mutate.py out.json` copies the project to a scratch folder, edits one spot at a time there and runs the whole suite. 120 mutants die. The three that survive have no effect on behaviour: two change the `op` argument that `exec` already requires to be 0, and one changes the text of a revert reason.
+- `test/PrimeSeat.t.sol`: 51 unit tests against stub Safe and Roles contracts. Each rule in this file has a test, including enabled modules and MultiSend as `exec` targets, a seat that is no longer an owner, held-back `exec` signatures after a re-grant and after an extension, address 0 as a read-only caller, a grant preimage passed as `data`, an end that arrives after a held-back grant, and window and start checks on stored states a grant cannot create.
+- `test/PrimeSeatSafe.t.sol`: seven tests with the seat as a contract owner of a real Safe 1.4.1 L2 and a real Safe 1.5.0 L2 (a fork of Base Sepolia), with nonce 0 through MultiSend. It covers the accepted and refused vote shapes on both versions, a module the Safe enables (the same `exec` goes through before and is refused after, with Roles as the second case), and a migration of a Safe 1.4.1 to 1.5.0 by an M-of-N vote through the official `SafeMigration`, followed by votes in the 1.5.0 form. Two more tests remove a seat as an owner on each Safe version, with a Roles stub that only lets members call: the same `exec` goes through before the removal and is refused after it, both while the seat is still a Roles member and after the app takes it out.
+- `mutate.py`: the mutation pass (128 mutants). `FORK_URL=<rpc> ./mutate.py out.json` copies the project to a scratch folder, edits one spot at a time there and runs the whole suite. 125 mutants die. The three that survive have no effect on behaviour: two change the `op` argument that `exec` already requires to be 0, and one changes the text of a revert reason.
 
 ## Build
 
@@ -84,8 +84,8 @@ Foundry 1.8.4, Solidity 0.8.28, optimizer 200 runs, `via_ir` off. The contract i
 
 | Artifact | Bytes | sha256 |
 |---|---|---|
-| runtime code | 4,293 | `6fb89a15ab39bc552d6c667d6e72851709e975727560de674910b67eddcd1667` |
-| creation code | 4,555 | `7e6b3652e6d96cebbc0d4957dab50cb93290e95a5dad37b6a597c95e4d81f8b1` |
+| runtime code | 4,434 | `3b4402d54f28ef3eb23bc14e9ac1e44c4aa946da42c4c3cea46cd76970c438d6` |
+| creation code | 4,703 | `4d3558643131eebbbb8087fc65ed8c52581e0c48619adcf60cdc756cb83a0de7` |
 
 The hashes are of the bytes in `out/PrimeSeat.sol/PrimeSeat.json` from `forge build`.
 
@@ -95,13 +95,13 @@ Receipts on a fork of Base Sepolia, 5 runs of each operation, median and maximum
 
 | Operation | Safe 1.4.1 median | max | Safe 1.5.0 median | max |
 |---|---|---|---|---|
-| Deploy a seat (plain CREATE) | 982,937 | 982,937 | 982,937 | 982,937 |
+| Deploy a seat (plain CREATE) | 1,013,182 | 1,013,182 | 1,013,182 | 1,013,182 |
 | `grant` (start a session) | 51,170 | 51,182 | 51,170 | 51,182 |
 | End signed by the owner | 33,499 | 33,499 | 33,499 | 33,499 |
 | End signed by the key | 33,591 | 33,591 | 33,591 | 33,591 |
 | Vote: native owner plus one session | 100,158 | 100,170 | 98,357 | 98,357 |
 | Vote: two sessions, native copy in each | 120,787 | 120,799 | 117,756 | 117,756 |
 | Vote: two native owners (plain-key Safe) | 81,515 | 98,579 | 80,945 | 98,057 |
-| `exec` move through Roles | 128,777 | 128,777 | 131,032 | 131,044 |
+| `exec` move through Roles | 132,165 | 132,177 | 134,451 | 134,451 |
 
-Nonce 0 with two seats, one native owner and a spending rule costs 2,716,855 gas on Safe 1.4.1 (median of 3). The same nonce 0 with three native owners and no seats costs 749,939.
+Nonce 0 with two seats, one native owner and a spending rule costs 2,779,625 gas on Safe 1.4.1 (median of 3). The same nonce 0 with three native owners and no seats costs 749,939.

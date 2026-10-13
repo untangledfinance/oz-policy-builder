@@ -480,6 +480,21 @@ contract PrimeSeatTest {
         assert(roles.calls() == 1);
     }
 
+    // a seat the Safe no longer lists as an owner cannot exec, and it works again once the Safe lists it
+    function test_execRefusesASeatThatIsNoLongerAnOwner() public {
+        begin(8 hours);
+        exec(address(7), 0, "", 0); // control: a current owner's seat goes through
+        assert(roles.calls() == 1);
+        safe.setOwner(address(seat), false);
+        assert(failsExec(address(7), 0, "", 0, key, execSig(seat, KEY_PK, 1, address(7), 0, "", 0)));
+        assert(roles.calls() == 1);
+        (,, uint128 n) = session();
+        assert(n == 1); // the refusal reverts, so the nonce stays
+        safe.setOwner(address(seat), true);
+        exec(address(7), 0, "", 0);
+        assert(roles.calls() == 2);
+    }
+
     function test_execRefusesEveryEnabledModule() public {
         begin(8 hours);
         address module = address(0x30D);
