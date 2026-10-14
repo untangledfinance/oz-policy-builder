@@ -1543,6 +1543,44 @@ fn decode_refuses_a_non_positive_literal_numerator() {
 }
 
 #[test]
+fn decode_refuses_a_non_positive_literal_source() {
+    // `src * num` commutes, so the constant written first is held to the same
+    // rule as the one written second.
+    let env = Env::default();
+    let zero = Leaf::LiteralI128(0);
+    let with_src = |src: Leaf| {
+        let s = scaled(src, call_arg(0), 100, Leaf::LiteralI128(1));
+        compare(CompareOp::Gte, call_arg(1), s)
+    };
+    for src in [0, -1, -99, i128::MIN] {
+        let n = with_src(Leaf::LiteralI128(src));
+        let err = decode(&env, &bytes_from_node(&env, &n))
+            .expect_err("a literal src <= 0 must not decode");
+        assert_eq!(err.code(), "MALFORMED_PREDICATE", "src = {src}");
+    }
+    assert!(decode(&env, &bytes_from_node(&env, &with_src(Leaf::LiteralU32(0)))).is_err());
+    let hidden = Node::Or(StdVec::from([
+        cmp_i128(CompareOp::Eq, 1, 1),
+        with_src(Leaf::LiteralI128(-1)),
+    ]));
+    assert!(decode(&env, &bytes_from_node(&env, &hidden)).is_err());
+    // The selector-cancelling form: `scaled(0, arg, 1, 0) >= 0`.
+    let vacuous = compare(
+        CompareOp::Gte,
+        scaled(zero.clone(), call_arg(0), 1, zero.clone()),
+        zero,
+    );
+    assert!(decode(&env, &bytes_from_node(&env, &vacuous)).is_err());
+    // A positive or variable source is fine.
+    assert!(decode(
+        &env,
+        &bytes_from_node(&env, &with_src(Leaf::LiteralI128(1)))
+    )
+    .is_ok());
+    assert!(decode(&env, &bytes_from_node(&env, &with_src(call_arg(1)))).is_ok());
+}
+
+#[test]
 fn decode_accepts_a_positive_or_a_variable_numerator() {
     // A numerator that is read from the call cannot be judged at install, so
     // it is allowed; so is a negative literal `add`, which is how a

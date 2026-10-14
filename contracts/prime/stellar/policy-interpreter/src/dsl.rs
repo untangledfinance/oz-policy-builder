@@ -749,18 +749,20 @@ mod dsl_decode {
         } else if head == sym_const(env, b"scaled") {
             // (scaled, src, num, den, add). `den` is a constant and must be
             // positive: zero cannot divide, and a negative one would flip the
-            // sign of every bound it scales. A literal `num` is held to the
-            // same rule, for the same reason: `-99/100` turns a floor into a
-            // ceiling that permits a zero output. A `num` that is read from the
-            // call or a contract cannot be judged here; guard it in the rule
-            // (see the README).
+            // sign of every bound it scales. A literal `src` or `num` is held
+            // to the same rule, for the same reason (`src * num` commutes):
+            // `-99/100` turns a floor into a ceiling that permits a zero
+            // output. An operand that is read from the call or a contract
+            // cannot be judged here; guard it in the rule (see the README).
             ensure(items.len() == 5)?;
             let den = expect::<i128>(env, items, 3)?;
             ensure(den > 0)?;
             let operand = |i| decode_leaf(env, &at(items, i)?, depth + 1);
-            let n = operand(2)?;
-            ensure(!matches!(n, Leaf::LiteralI128(..=0) | Leaf::LiteralU32(0)))?;
-            Ok(Leaf::Scaled(Box::new([operand(1)?, n, operand(4)?]), den))
+            let leaves = [operand(1)?, operand(2)?, operand(4)?];
+            let non_positive =
+                |l: &Leaf| matches!(l, Leaf::LiteralI128(..=0) | Leaf::LiteralU32(0));
+            ensure(!leaves[..2].iter().any(non_positive))?;
+            Ok(Leaf::Scaled(Box::new(leaves), den))
         } else {
             // Unknown symbol at a selector position -> MALFORMED.
             Err(DecodeError::MalformedPredicate)

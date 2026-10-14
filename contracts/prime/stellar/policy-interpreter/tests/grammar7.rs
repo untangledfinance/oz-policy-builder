@@ -986,6 +986,28 @@ fn a_variable_numerator_is_accepted_and_a_literal_one_is_not() {
 }
 
 #[test]
+fn a_literal_source_is_held_to_the_same_rule_as_a_literal_numerator() {
+    // `src * num` commutes: `scaled(-99, arg, 100, 0)` is the zero-output swap
+    // with the multiplicands written the other way round, and
+    // `scaled(0, arg, 1, 0) >= 0` cancels the selector.
+    for s in [0, -1, -99] {
+        let w = World::new();
+        let swap = cmp("gte", call_arg(1), scaled(num(s), call_arg(0), 100, num(0)));
+        assert_eq!(w.install(&rule_for(swap)), MALFORMED, "src = {s}");
+    }
+    let w = World::new();
+    let vacuous = cmp("gte", scaled(num(0), call_arg(0), 1, num(0)), num(0));
+    assert_eq!(w.install(&rule_for(vacuous)), MALFORMED);
+    let w = World::new();
+    let ok = cmp(
+        "gte",
+        call_arg(1),
+        scaled(num(99), call_arg(0), 100, num(0)),
+    );
+    assert_eq!(w.install(&rule_for(ok)), Ok(()));
+}
+
+#[test]
 fn in_haystacks_and_literal_vecs_hold_constants_only() {
     let w = World::new();
     let o = oracle(&w, 1, 0);

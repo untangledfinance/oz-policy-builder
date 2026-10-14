@@ -21,7 +21,7 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   - `scaled(src, num, den, add)` is `src * num / den + add` over any value
     leaf, nested `scaled` included. Multiply, then divide (truncating toward
     zero), then add, each checked; overflow denies `ARITHMETIC_OVERFLOW`. `den`
-    is a constant and must be positive, and so must a literal `num` (a negative
+    is a constant and must be positive, and so must a literal `src` or `num` (a negative
     one would turn a floor into a ceiling); write a subtraction by moving the
     term across the comparison. It replaces `call_arg_scaled(i, num,
     den)`, which is now `scaled(call_arg(i), num, den, 0)`. Together they

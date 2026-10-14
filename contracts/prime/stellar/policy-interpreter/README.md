@@ -40,7 +40,7 @@ authorized call" no longer holds.
 | `call_path(step, ...)` | A walk into the arguments, one to eight steps: a `u32` indexes a vec, a symbol keys a map, a final `true` takes the length. The three leaves above are shorthand for it, and the decoder lowers them to it |
 | `now` | The ledger timestamp (seconds). Ordering widens it to `i128`; `eq` compares by value, so `eq(now, <i128>)` never holds - write `gte`/`lte` |
 | `read(contract, fn, args, path)` | A number read from another contract: call `fn(args)` on `contract`, then walk `path` (zero to eight steps, the same steps as `call_path`) into the result. `contract` and `fn` are fixed fields of the predicate, so its hash pins them. `args` are literals only |
-| `scaled(src, num, den, add)` | `src * num / den + add`. `src`, `num` and `add` are any value leaf, `scaled` included; `den` is a constant and must be positive, and a literal `num` must be too. Multiplies first, divides second (truncating toward zero), adds third, every step checked |
+| `scaled(src, num, den, add)` | `src * num / den + add`. `src`, `num` and `add` are any value leaf, `scaled` included; `den` is a constant and must be positive, and a literal `src` or `num` must be too. Multiplies first, divides second (truncating toward zero), adds third, every step checked |
 | `literal_*` | Constants on either side of a comparison, or inside an `in` allowlist |
 
 Nodes: `and`, `or`, `eq`, `lt`, `lte`, `gt`, `gte`, `in`. Literals:
@@ -48,12 +48,15 @@ Nodes: `and`, `or`, `eq`, `lt`, `lte`, `gt`, `gte`, `in`. Literals:
 `literal_vec`. Both sides of a comparison are resolved, so any value leaf can
 stand on either side.
 
-A literal `num` must be positive, as grammar 6 required: `-99/100` would turn a
-floor into a ceiling that permits a zero output, and `0` cancels the selector.
+A literal `src` or `num` must be positive (`src * num` commutes, so both
+multiplicands are held to it): `-99/100` would turn a floor into a ceiling that
+permits a zero output, and `0` cancels the selector.
 `den` is positive for the same reason. Write a subtraction by moving the term
 across the comparison (`ts >= now - 300` is `ts + 300 >= now`, which is
 `gte(scaled(ts, 1, 1, 300), now)`); `add` is any value and may be a negative
-literal. `in` haystacks and literal vectors hold constants only: a selector,
+literal. A negative constant can still be built on purpose by nesting (for
+example `num = scaled(1, 1, 1, -100)`), the same class as comparing a selector
+with itself: install cannot tell a deliberate rule from a bad one. `in` haystacks and literal vectors hold constants only: a selector,
 `read`, `scaled` or `now` in one is refused at decode, as it could never be
 compared.
 
@@ -112,7 +115,10 @@ Read this before writing a rule with a `read`.
   both the unpinned batch that is let through and the pinned one that refuses
   an appended call. Called directly (not through the adapter), a pool the
   authorised call itself targets is on the call stack, so reading it is refused
-  as re-entry; read the oracle, and take the pool's own numbers from the call.
+  as re-entry. A rule on a direct pool call therefore cannot read that pool, and
+  the call's arguments are supplied by the agent being policed, so they prove
+  nothing about the pool: route the call through the adapter (the pool is then
+  not on the stack), or rely on the pool's own on-chain checks.
 - **Failure denies.** A read that panics, hits a missing function or contract,
   returns void or a non-number, or finds no field at `path` resolves to
   nothing, and the comparison denies (`ARG_MISMATCH`). That includes `eq`: two
@@ -147,7 +153,7 @@ Read this before writing a rule with a `read`.
   the negative case is refused; `tests/grammar7.rs` shows both.
 - **Arithmetic fails closed.** Overflow in any step of a `scaled` (the multiply,
   the divide, the add) denies `ARITHMETIC_OVERFLOW`; it never wraps. A `den`
-  of zero or less, or a literal `num` of zero or less, is refused at install
+  of zero or less, or a literal `src` or `num` of zero or less, is refused at install
   as `MALFORMED_PREDICATE`, and the
   evaluator still refuses to divide by zero if that gate ever regresses.
 
