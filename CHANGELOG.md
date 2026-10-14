@@ -138,7 +138,7 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   - **Cheaper `enforce`.** It decodes the stored predicate without the install
     caps (leaf and read counts), and the wasm is built at `opt-level = 3`: the
     PayFi four-check rule went from 7.36M to about 5.5M CPU and the wasm from
-    56,530 to about 51.7 KB. `custody-gate` and `execution-adapter` are built
+    56,530 to 52,384 B. `custody-gate` and `execution-adapter` are built
     from their own manifests and are byte-identical.
   - Source is 623 formatted sLOC (693 before the audit's cuts and fixes).
 
