@@ -661,6 +661,7 @@ fn decode_steps(env: &Env, items: &Vals, from: u32, min: u32) -> Res<Vec<PathSte
     Ok(steps)
 }
 
+/// Decoder side: `Err(MalformedPredicate)` unless `ok` (the contract's `deny_unless` panics).
 fn ensure(ok: bool) -> Res<()> {
     cap(ok, DecodeError::MalformedPredicate)
 }

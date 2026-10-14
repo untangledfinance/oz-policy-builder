@@ -22,7 +22,7 @@ pub use version::SELF_VERSION;
 use soroban_sdk::xdr::ToXdr;
 use soroban_sdk::{auth::Context, contract, contractimpl, Address, BytesN, Env, IntoVal, Vec};
 
-use crate::storage::{deny, ensure, load, PolicyError as E, TTL_BUMP_THRESHOLD, TTL_BUMP_TO};
+use crate::storage::{deny, deny_unless, load, PolicyError as E, TTL_BUMP_THRESHOLD, TTL_BUMP_TO};
 
 #[contract]
 pub struct PolicyInterpreter;
@@ -40,12 +40,12 @@ impl PolicyInterpreter {
         smart_account: Address,
     ) {
         let p = &install_params;
-        ensure(e, p.grammar_version == SELF_VERSION, E::VersionMismatch);
+        deny_unless(e, p.grammar_version == SELF_VERSION, E::VersionMismatch);
 
         // (a) Byte cap - reject before any parse work so the host never
         //     sees an oversized payload.
         let small = p.predicate.len() <= dsl::MAX_PREDICATE_BYTES;
-        ensure(e, small, E::PredicateTooLarge);
+        deny_unless(e, small, E::PredicateTooLarge);
 
         // (b) Hash check - mandatory invariant #11. The caller supplies
         //     `sha256(predicate_bytes)` in `predicate_hash`; we recompute it
@@ -53,7 +53,7 @@ impl PolicyInterpreter {
         //     Closes the gap where a same-shape-but-different-bytes predicate
         //     could be installed under a stale hash.
         let hash: BytesN<32> = e.crypto().sha256(&p.predicate).into();
-        ensure(e, hash == p.predicate_hash, E::PredicateHashMismatch);
+        deny_unless(e, hash == p.predicate_hash, E::PredicateHashMismatch);
 
         // (c) Parse + decode - the host does the XDR work; we walk the
         //     resulting native `Vec<Val>`. The AST is rebuilt on enforce from
@@ -82,14 +82,14 @@ impl PolicyInterpreter {
         let own = [smart_account.clone(), e.current_contract_address()];
         let admin = matches!(scope, ContextRuleType::Default)
             || matches!(scope, ContextRuleType::CallContract(a) if own.contains(a));
-        ensure(e, !admin, E::DefaultContextNotSupported);
+        deny_unless(e, !admin, E::DefaultContextNotSupported);
 
         // (d4) Minimum constraint. A predicate carrying no selector leaf -
         //      literals on both sides of every compare - is trivially true
         //      or trivially false at install time, so it would permit
         //      everything or nothing forever. Refuse it so a no-constraint
         //      policy cannot install under any name.
-        ensure(e, dsl::has_selector_leaf(&root), E::SelectorLeafRequired);
+        deny_unless(e, dsl::has_selector_leaf(&root), E::SelectorLeafRequired);
 
         let key = (smart_account.clone(), context_rule.id);
         let prior: Option<StoredDoc> = e.storage().persistent().get(&key);
@@ -110,10 +110,10 @@ impl PolicyInterpreter {
             // with its own two-party authorisation; letting a re-install
             // smuggle a new set in would bypass that.
             let same = stored.master_set == p.policy_admins;
-            ensure(e, same, E::MasterAuthRequired);
+            deny_unless(e, same, E::MasterAuthRequired);
         }
         let fresh = p.install_nonce == prior.as_ref().map_or(0, |p| p.nonce).saturating_add(1);
-        ensure(e, fresh, E::NonceReplay);
+        deny_unless(e, fresh, E::NonceReplay);
 
         let doc = StoredDoc {
             predicate_bytes: install_params.predicate,
@@ -155,7 +155,7 @@ impl PolicyInterpreter {
         // OZ rejects this too; the interpreter previously ignored the
         // argument entirely.
         let signed = !authenticated_signers.is_empty();
-        ensure(e, signed, E::NoAuthenticatedSigners);
+        deny_unless(e, signed, E::NoAuthenticatedSigners);
 
         let key = (smart_account.clone(), context_rule.id);
         let doc = load(e, &key);
@@ -164,7 +164,7 @@ impl PolicyInterpreter {
             executor.require_auth_for_args((smart_account, context.clone()).into_val(e));
         }
         let unchanged = signers_hash(e, &context_rule.signers) == doc.signers_hash;
-        ensure(e, unchanged, E::RuleSignersChanged);
+        deny_unless(e, unchanged, E::RuleSignersChanged);
 
         let root = dsl::decode_stored(e, &doc.predicate_bytes)
             .unwrap_or_else(|_| deny(e, E::MalformedPredicate));
@@ -256,12 +256,12 @@ fn signers_hash(e: &Env, signers: &Vec<Signer>) -> BytesN<32> {
 /// - This interpreter's own address: `require_auth` on it is satisfied only by
 ///   a call the interpreter makes itself, so no one can ever authorise as it.
 fn require_usable_signer_set(e: &Env, signers: &Vec<Signer>) {
-    ensure(e, !signers.is_empty(), E::EmptySignerSet);
-    ensure(e, signers.len() <= types::MAX_SIGNERS, E::TooManySigners);
+    deny_unless(e, !signers.is_empty(), E::EmptySignerSet);
+    deny_unless(e, signers.len() <= types::MAX_SIGNERS, E::TooManySigners);
     let external = signers.iter().any(|s| matches!(s, Signer::External(..)));
-    ensure(e, !external, E::ExternalSignerNotSupported);
+    deny_unless(e, !external, E::ExternalSignerNotSupported);
     let own = Signer::Delegated(e.current_contract_address());
-    ensure(e, !signers.contains(own), E::SignerIsInterpreter);
+    deny_unless(e, !signers.contains(own), E::SignerIsInterpreter);
 }
 
 /// Call `require_auth` on every signer in `master_set`. If any one is not
@@ -276,7 +276,7 @@ fn require_usable_signer_set(e: &Env, signers: &Vec<Signer>) {
 /// all, and it let anyone re-install an arbitrary predicate on such a rule.
 /// The guard lives here so no caller can obtain a silently no-op check.
 fn require_master(e: &Env, master_set: &Vec<Signer>) {
-    ensure(e, !master_set.is_empty(), E::EmptySignerSet);
+    deny_unless(e, !master_set.is_empty(), E::EmptySignerSet);
     master_set.iter().for_each(|s| match s {
         Signer::Delegated(a) | Signer::External(a, _) => a.require_auth(),
     });

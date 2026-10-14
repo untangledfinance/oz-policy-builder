@@ -102,8 +102,8 @@ pub fn deny(e: &Env, error: PolicyError) -> ! {
     panic_with_error!(e, error);
 }
 
-/// Deny with `error` unless `ok`.
-pub fn ensure(e: &Env, ok: bool, error: PolicyError) {
+/// Contract side: deny with `error` unless `ok` (the decoder's `ensure` returns a `Result`).
+pub fn deny_unless(e: &Env, ok: bool, error: PolicyError) {
     if !ok {
         deny(e, error);
     }
