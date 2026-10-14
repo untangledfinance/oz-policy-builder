@@ -233,13 +233,16 @@ canonically sorted like `and`'s, so authoring order is not preserved; when every
 branch denies, the reported reason is the first branch's in wire order.
 
 Deliberately absent, because the interpreter sees one authorized call and no
-history: what a transaction actually moved (`amount`), rolling per-window spend
-totals, call-frequency caps, and policy expiry. Rolling spend caps and approval
-thresholds belong to the OpenZeppelin account layer, not here. A cap on value is
-expressed instead against the call's own amount argument (`call_arg(i) <=
-limit`); expiry belongs to the context rule's own `valid_until`. The
-synthesiser reports each of the absent ones as uncovered rather than emitting a
-constraint that would never bind.
+history (`read` shows it a contract's state, not the transaction's moves): what a
+transaction actually moved (`amount`), rolling per-window spend totals and
+call-frequency caps. Rolling spend caps and approval thresholds belong to the
+OpenZeppelin account layer, not here. A cap on value is expressed instead
+against the call's own amount argument (`call_arg(i) <= limit`). Expiry IS
+expressible: `now` is the ledger clock, so `lte(now, T)` beside a selector
+permits until `T` and denies (`ARG_MISMATCH`) after it, and the context rule's
+own `valid_until` is the account-level alternative. The synthesiser reports each
+of the absent ones as uncovered rather than emitting a constraint that would
+never bind.
 
 Retired deny codes: `107` (`SLIPPAGE_FLOOR`) and `214`
 (`INVALID_SCALED_RATIO`) are not emitted by grammar 7 and are not reused.
