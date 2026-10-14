@@ -358,7 +358,6 @@ fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext, memo: &mut Memo) -> Result
     })
 }
 
-/// Follow `steps` from `cur`; `None` when a step finds something else.
 /// `src * num / den + add`: multiply, divide (truncating toward zero), add, each
 /// step checked.
 fn scale(src: i128, num: i128, den: i128, add: i128) -> Option<i128> {
@@ -385,6 +384,7 @@ fn constant(leaf: &Leaf) -> Option<i128> {
     }
 }
 
+/// Follow `steps` from `cur`; `None` when a step finds something else.
 fn walk(env: &Env, cur: Val, steps: &[PathStep]) -> Option<Val> {
     steps.iter().try_fold(cur, |cur, step| {
         Some(match step {
@@ -405,9 +405,9 @@ fn walk(env: &Env, cur: Val, steps: &[PathStep]) -> Option<Val> {
 ///
 /// Only a leaf that reads the authorised call counts. `read` and `now` do not:
 /// a rule made of reads and the clock alone says nothing about the call it
-/// authorises. Recurses into `scaled` operands, since a selector inside one is
-/// still a selector. `in` haystacks and literal vectors hold constants only
-/// (the decoder refuses anything else), so they are not searched.
+/// authorises. Looks through `scaled` operands, since a selector inside one is
+/// still a selector. `in` haystacks and literal vectors hold constants only (the
+/// decoder refuses anything else); `leaves` visits them, and none can match.
 pub fn has_selector_leaf(root: &Node) -> bool {
     let selects = |l: &&Leaf| matches!(l, Leaf::CallContract | Leaf::CallFn | Leaf::CallPath(_));
     leaves(root).iter().any(selects)
@@ -447,19 +447,19 @@ fn val_to_i128(env: &Env, v: &Val) -> Option<i128> {
 // ============================================================================
 
 /// Errors that can be raised while decoding a predicate root from the
-/// canonical ScVal wire format. Every variant maps to the matching wire
-/// variant named in its doc.
+/// canonical ScVal wire format. On chain every one of them is reported as
+/// `MALFORMED_PREDICATE` (201) by `install` and `enforce`; the variants exist
+/// so tests can tell the causes apart.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DecodeError {
     /// Empty / wrong-Variant / wrong-arity / unknown op or selector
-    /// symbol / `in []` at decode. Maps to `MALFORMED_PREDICATE`.
+    /// symbol / `in []` at decode.
     MalformedPredicate,
     /// Depth exceeded MAX_DEPTH (5), in the node tree or in a leaf's
-    /// nesting. Maps to `PREDICATE_TOO_DEEP`.
+    /// nesting.
     PredicateTooDeep,
     /// Leaf count exceeded MAX_LEAVES (200), or DISTINCT `read` calls exceeded
-    /// MAX_READS (4). Decoder reason `TOO_MANY_LEAVES`; install and enforce
-    /// report every decode failure as `MALFORMED_PREDICATE` (201).
+    /// MAX_READS (4).
     TooManyLeaves,
     /// An `in` haystack exceeded MAX_IN_OPERAND_COUNT (32).
     InOperandLimit,
@@ -564,8 +564,8 @@ fn leaf_at(env: &Env, items: &Vals, i: u32) -> Res<Leaf> {
 /// number of times.
 fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
     cap(depth <= MAX_DEPTH, DecodeError::PredicateTooDeep)?;
-    // Selector tuples are `Vec<Val>` whose head is a `Symbol`. Literal
-    // vectors are `Vec<Val>` whose head is NOT a known selector symbol.
+    // Selector tuples are `Vec<Val>` whose head is a `Symbol` (an unknown one is
+    // refused). Literal vectors are `Vec<Val>` whose head is anything else.
     if let Ok(items) = Vals::try_from_val(env, val) {
         ensure(!items.is_empty())?;
         if let Ok(sym) = expect::<Symbol>(env, &items, 0) {

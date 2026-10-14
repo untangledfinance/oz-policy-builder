@@ -1,11 +1,11 @@
 //! Per-(smart_account, rule_id) state and the contract error ABI.
 //!
 //! Storage layout (`persistent()`, never `instance()`): ONE entry per rule,
-//! `(account, rule_id) -> StoredDoc`. The predicate, executor binding, install
-//! nonce, operator-set hash and master set were separate entries; they share a
-//! lifecycle (written together at install, bumped together on every permit),
-//! and any one archiving would have bricked the rule, so they now live and
-//! expire together.
+//! `(account, rule_id) -> StoredDoc`. Grammar 6 kept four entries per rule (the
+//! predicate and executor in one doc, plus the nonce, the operator-set hash and
+//! the master set); they share a lifecycle (written together at install, bumped
+//! together on every permit), and any one archiving would have bricked the rule,
+//! so they now live and expire together.
 
 use soroban_sdk::{contracterror, contracttype, panic_with_error, Address, Bytes, BytesN, Env};
 
@@ -74,7 +74,8 @@ pub enum PolicyError {
     /// time, so it permits everything or nothing forever. Refused at
     /// install.
     SelectorLeafRequired = 216,
-    /// Master signer set exceeded `MAX_SIGNERS`. Re-hashed on every permit
+    /// A signer set (the master set or the rule's operators) exceeded
+    /// `MAX_SIGNERS`. Re-hashed on every permit
     /// and one `require_auth` per signer; an unbounded set pushes `enforce`
     /// past the CPU budget and bricks the rule.
     TooManySigners = 217,
@@ -126,9 +127,11 @@ pub fn load(e: &Env, key: &(Address, u32)) -> StoredDoc {
 pub const TTL_BUMP_THRESHOLD: u32 = 100;
 
 /// Bump back up to this many ledgers. Roughly 30 days at Stellar's ~5s close
-/// time (30 * 24 * 60 * 60 / 5 = 518,400), so a rule used at least monthly
-/// never archives, while an abandoned rule still ages out rather than
-/// occupying state rent forever.
+/// time (30 * 24 * 60 * 60 / 5 = 518,400). The bump runs only when fewer than
+/// `TTL_BUMP_THRESHOLD` ledgers (about eight minutes) remain, so a permit keeps
+/// the rule alive only if one lands in that last window; a rule authorised less
+/// often archives, and a restore brings it back. An abandoned rule ages out
+/// rather than occupying state rent forever.
 pub const TTL_BUMP_TO: u32 = 518_400;
 
 // ---- stored doc -----

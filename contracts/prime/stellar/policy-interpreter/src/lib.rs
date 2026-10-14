@@ -143,12 +143,12 @@ impl PolicyInterpreter {
         context_rule: ContextRule,
         smart_account: Address,
     ) {
-        // `enforce` MUTATES state - it commits counters on every permit - so
-        // it must be reachable only through the account it guards. Without
-        // this, anyone could call it with a permitting context and burn the
-        // agent's rate limit for the window, locking the legitimate caller
-        // out. OpenZeppelin's own audited spending-limit policy opens with
-        // the same requirement (accounts/src/policies/spending_limit.rs).
+        // `enforce` writes (the TTL bump below) and, through a `read`, may
+        // change state in the contracts it reads, so it must be reachable only
+        // through the account it guards: anyone could otherwise drive a
+        // predicate's reads on the account's behalf and keep a rule alive.
+        // OpenZeppelin's own audited spending-limit policy opens with the same
+        // requirement (accounts/src/policies/spending_limit.rs).
         smart_account.require_auth();
 
         // An enforcement that authenticated nobody is not an authorisation.

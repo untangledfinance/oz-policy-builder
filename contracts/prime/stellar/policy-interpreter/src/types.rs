@@ -28,15 +28,17 @@ pub enum ContextRuleType {
     CreateContract(BytesN<32>),
 }
 
-/// Upper bound on the master signer set stored per rule. Far above any
-/// realistic OZ context rule; low enough that re-hashing the set on every
-/// permit and one `require_auth` per signer stay well inside the CPU budget.
+/// Upper bound on a signer set: the master set stored per rule, and the rule's
+/// own signers (which `enforce` re-hashes). Far above any realistic OZ context
+/// rule; low enough that re-hashing on every permit and one `require_auth` per
+/// signer stay well inside the CPU budget.
 pub const MAX_SIGNERS: u32 = 16;
 
 /// OZ's `ContextRule`, in full.
 ///
 /// Every field is declared even though the interpreter only reads `id`,
-/// `signers` and (via the caller) `valid_until`. A `#[contracttype]` struct
+/// `context_type` (to refuse the scopes that reach the admin surface) and
+/// `signers`. A `#[contracttype]` struct
 /// decodes from a host map keyed by field name and requires an EXACT field
 /// set - a subset raises `Error(Object, UnexpectedSize)` and the call traps
 /// before any policy logic runs. This type is the wire shape the smart

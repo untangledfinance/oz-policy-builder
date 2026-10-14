@@ -8,13 +8,14 @@
 //!
 //! Run with:
 //!   cargo test --test conformance -p policy-interpreter
-//! Regenerate the fixtures with:
+//! Regenerate `_generated.rs` with:
 //!   bun run packages/policy-synth/scripts/gen-conformance-fixture.ts \
 //!     --recording packages/policy-synth/fixtures/recordings/demo-tx-260725/recording-blend.json \
 //!     --out contracts/prime/stellar/policy-interpreter/tests/conformance/_generated.rs
-//!   bun run packages/policy-synth/scripts/gen-conformance-fixture.ts \
-//!     --scenario packages/policy-synth/fixtures/conformance/grammar-v4-scenario.json \
-//!     --out contracts/prime/stellar/policy-interpreter/tests/conformance/_generated_v4.rs
+//!
+//! Do NOT regenerate `_generated_v4.rs`: the TypeScript generator still speaks
+//! grammar 6, and the file was migrated by hand to the grammar-7 form of its one
+//! scaled leaf (see the README).
 //!
 //! `_generated.rs` covers the predicate a recording synthesises. `_generated_v4.rs`
 //! covers the grammar-4 operators, which the recording path cannot reach: its
