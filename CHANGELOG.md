@@ -9,6 +9,31 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ### Added
 
+- **Policy interpreter grammar 7 (source only, not deployed).** The interpreter
+  at `contracts/prime/stellar/policy-interpreter` speaks grammar 7 and
+  `SELF_VERSION` is 7, so it accepts grammar-7 predicates only; the deployed
+  grammar-6 instances are unchanged.
+  - `read(contract, fn, args, path)` calls a fixed function of a fixed contract
+    with literal arguments and picks a number out of the result with the same
+    steps `call_path` takes. At most four per predicate. A failed call, a void
+    or non-numeric result, or a missing field denies.
+  - `now` is the ledger timestamp.
+  - `scaled(src, num, den, add)` is `src * num / den + add` over any value
+    leaf, nested `scaled` included. Multiply, then divide (truncating toward
+    zero), then add, each checked; overflow denies `ARITHMETIC_OVERFLOW`. `den`
+    is a constant and must be positive. It replaces `call_arg_scaled(i, num,
+    den)`, which is now `scaled(call_arg(i), num, den, 0)`. Together they
+    express live-price LTV, a first-loss balance floor and an oracle freshness
+    bound. Leaf nesting is capped at `MAX_DEPTH`.
+  - **`enforce` now calls other contracts.** Soroban has no read-only call, so a
+    read target must be a contract the owner trusts, ideally immutable; a read
+    cannot target a contract already on the call stack (the host refuses
+    re-entry, which denies); simulate with real signatures so the reads'
+    footprint is captured. A rule must still constrain the authorised call:
+    reads and `now` alone are refused at install. The grammar-6 property that
+    `enforce` reads only the authorised call no longer holds. See the
+    [interpreter README](contracts/prime/stellar/policy-interpreter/README.md#cross-contract-reads).
+
 - **Prime contracts on mainnet.** `scripts/deploy-prime-mainnet.ts` uploads the
   gate, adapter and interpreter code, creates the grammar-6 interpreter, and
   extends the three uploaded code entries and the interpreter instance. It
@@ -53,6 +78,19 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ### Changed
 
+- **Interpreter grammar 7 wire and codes.** `call_arg_scaled` no longer decodes
+  (a grammar-6 document is refused by the version gate in any case). `call_arg`,
+  `call_arg_len` and `call_arg_field` keep their wire form and are decoded as the
+  `call_path` they abbreviate. A comparison against a scaled value that fails
+  denies `ARG_MISMATCH`; codes 107 (`SLIPPAGE_FLOOR`) and 214
+  (`INVALID_SCALED_RATIO`) are retired and not reused, and a non-positive
+  `den` is refused at install as `MALFORMED_PREDICATE`. Scaled-versus-scaled
+  comparisons, refused in grammar 6, now compare two numbers. Literal vectors
+  nested deeper than `MAX_DEPTH` are refused. The `#[rustfmt::skip]` marks that
+  held the grammar-6 build's line layout are gone, and the source is plain
+  `cargo fmt` output. `packages/policy-synth` and its TypeScript reference
+  evaluator still speak grammar 6; `tests/conformance/_generated_v4.rs` was
+  migrated by hand until they catch up.
 - **Contracts sit under `contracts/prime/`, one folder per chain.** The
   Stellar contracts moved to `contracts/prime/stellar/` (`custody-gate`,
   `execution-adapter`, `policy-interpreter`, `test-blend-pool`,

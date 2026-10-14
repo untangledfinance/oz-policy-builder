@@ -22,7 +22,7 @@
                         "symbol": "grammar_version"
                       },
                       "val": {
-                        "u32": 6
+                        "u32": 7
                       }
                     },
                     {
@@ -180,7 +180,7 @@
                         "symbol": "grammar_version"
                       },
                       "val": {
-                        "u32": 6
+                        "u32": 7
                       }
                     },
                     {
@@ -336,7 +336,7 @@
                         "symbol": "grammar_version"
                       },
                       "val": {
-                        "u32": 6
+                        "u32": 7
                       }
                     },
                     {

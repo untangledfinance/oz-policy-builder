@@ -35,4 +35,12 @@
 /// batch to each other, which a projection cannot express. The wire format of
 /// a predicate changes with it, so a v5 document does not decode here and the
 /// version gate refuses it.
-pub const SELF_VERSION: u32 = 6;
+///
+/// Bumped to 7 when the predicate learned to read other contracts and the
+/// clock. `read(contract, fn, args, path)` calls a fixed function of a fixed
+/// contract with literal arguments; `now` is the ledger timestamp; and
+/// `scaled(src, num, den, add)` replaces `call_arg_scaled(index, num, den)`
+/// with a computed value over any value leaf. `call_arg_scaled` no longer
+/// decodes, so a v6 document is refused by the version gate. `enforce` now
+/// performs cross-contract calls, which v6 never did.
+pub const SELF_VERSION: u32 = 7;

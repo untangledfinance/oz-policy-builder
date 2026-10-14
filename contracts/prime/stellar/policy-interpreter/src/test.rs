@@ -13,10 +13,10 @@ fn reports_its_grammar_version() {
     assert_eq!(client.grammar_version(), SELF_VERSION);
 }
 
-/// The literal, not the constant: grammar 6 adds the `call_arg_field_at`
-/// leaf, which changes what a predicate can address. A v5 builder must not
-/// read this build's answer as an invitation to install.
+/// The literal, not the constant: grammar 7 adds `read` and `now` and replaces
+/// `call_arg_scaled`, which changes what a predicate can say. A v6 builder must
+/// not read this build's answer as an invitation to install.
 #[test]
-fn grammar_version_is_six() {
-    assert_eq!(SELF_VERSION, 6);
+fn grammar_version_is_seven() {
+    assert_eq!(SELF_VERSION, 7);
 }

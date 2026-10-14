@@ -25,7 +25,7 @@ use alloc::vec::Vec as StdVec;
 use crate::dsl::{
     decode, decode_with_byte_cap, evaluate, CompareOp, DenyReason, EvalContext, EvalDecision, Leaf,
     Node, PathStep, MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_PATH_STEPS,
-    MAX_PREDICATE_BYTES,
+    MAX_PREDICATE_BYTES, MAX_READS,
 };
 use soroban_sdk::testutils::Address as _;
 use soroban_sdk::xdr::{FromXdr, ScVal, ToXdr, VecM};
@@ -152,41 +152,28 @@ fn leaf_to_scval(env: &Env, l: &Leaf) -> ScVal {
     match l {
         Leaf::CallContract => vec_scval(&[sym("call_contract")]),
         Leaf::CallFn => vec_scval(&[sym("call_fn")]),
-        Leaf::CallArg(i) => vec_scval(&[sym("call_arg"), u32_scval(*i)]),
-        Leaf::CallArgLen(i) => vec_scval(&[sym("call_arg_len"), u32_scval(*i)]),
-        Leaf::CallArgField {
-            index,
-            element,
-            field,
-        } => {
-            let sym_field: ScVal = ScVal::Symbol(soroban_sdk::xdr::ScSymbol(
-                field.to_string().as_bytes().to_vec().try_into().unwrap(),
-            ));
-            vec_scval(&[
-                sym("call_arg_field"),
-                u32_scval(*index),
-                u32_scval(*element),
-                sym_field,
-            ])
-        }
         Leaf::CallPath(steps) => {
             let mut items = alloc::vec![sym("call_path")];
-            for st in steps {
-                items.push(match st {
-                    PathStep::Index(i) => u32_scval(*i),
-                    PathStep::Len => ScVal::Bool(true),
-                    PathStep::Field(f) => ScVal::Symbol(soroban_sdk::xdr::ScSymbol(
-                        f.to_string().as_bytes().to_vec().try_into().unwrap(),
-                    )),
-                });
-            }
+            items.extend(steps_scval(steps));
             vec_scval(&items)
         }
-        Leaf::CallArgScaled { index, num, den } => vec_scval(&[
-            sym("call_arg_scaled"),
-            u32_scval(*index),
-            i128_scval(*num),
+        Leaf::Now => vec_scval(&[sym("now")]),
+        Leaf::Read(contract, func, args, steps) => {
+            let mut items = alloc::vec![
+                sym("read"),
+                scval_of(env, contract.clone()),
+                scval_of(env, func.clone()),
+                scval_of(env, args.clone()),
+            ];
+            items.extend(steps_scval(steps));
+            vec_scval(&items)
+        }
+        Leaf::Scaled(k, den) => vec_scval(&[
+            sym("scaled"),
+            leaf_to_scval(env, &k[0]),
+            leaf_to_scval(env, &k[1]),
             i128_scval(*den),
+            leaf_to_scval(env, &k[2]),
         ]),
         Leaf::LiteralAddress(_) => addr_scval(),
         Leaf::LiteralI128(v) => i128_scval(*v),
@@ -204,6 +191,32 @@ fn leaf_to_scval(env: &Env, l: &Leaf) -> ScVal {
                 .collect::<StdVec<_>>(),
         ),
     }
+}
+
+fn scval_of<T: IntoVal<Env, Val>>(env: &Env, v: T) -> ScVal {
+    let v: Val = v.into_val(env);
+    ScVal::from_xdr(env, &v.to_xdr(env)).expect("round-trip")
+}
+
+fn steps_scval(steps: &[PathStep]) -> StdVec<ScVal> {
+    steps
+        .iter()
+        .map(|st| match st {
+            PathStep::Index(i) => u32_scval(*i),
+            PathStep::Len => ScVal::Bool(true),
+            PathStep::Field(f) => ScVal::Symbol(soroban_sdk::xdr::ScSymbol(
+                f.to_string().as_bytes().to_vec().try_into().unwrap(),
+            )),
+        })
+        .collect()
+}
+
+fn call_arg(i: u32) -> Leaf {
+    Leaf::CallPath(alloc::vec![PathStep::Index(i)])
+}
+
+fn call_arg_len(i: u32) -> Leaf {
+    Leaf::CallPath(alloc::vec![PathStep::Index(i), PathStep::Len])
 }
 
 fn op_name(op: CompareOp) -> &'static str {
@@ -406,7 +419,7 @@ fn sel_call_arg_eq_address_permits_when_match() {
     ctx.args = args;
     let n = Node::Compare {
         op: CompareOp::Eq,
-        left: Leaf::CallArg(0),
+        left: call_arg(0),
         right: Leaf::LiteralAddress(arg),
     };
     assert!(permit(evaluate(&env, &n, &ctx)));
@@ -421,7 +434,7 @@ fn sel_call_arg_eq_i128_denies_other_value() {
     ctx.args = args;
     let n = Node::Compare {
         op: CompareOp::Eq,
-        left: Leaf::CallArg(0),
+        left: call_arg(0),
         right: Leaf::LiteralI128(11),
     };
     assert_eq!(
@@ -437,7 +450,7 @@ fn sel_call_arg_out_of_bounds_denies() {
     ctx.args = SorobanVec::<Val>::new(&env);
     let n = Node::Compare {
         op: CompareOp::Eq,
-        left: Leaf::CallArg(7),
+        left: call_arg(7),
         right: Leaf::LiteralI128(0),
     };
     assert_eq!(
@@ -457,7 +470,7 @@ fn sel_call_arg_len_eq_match_permits() {
     ctx.args = args;
     let n = Node::Compare {
         op: CompareOp::Eq,
-        left: Leaf::CallArgLen(0),
+        left: call_arg_len(0),
         right: Leaf::LiteralU32(1),
     };
     assert!(permit(evaluate(&env, &n, &ctx)));
@@ -474,7 +487,7 @@ fn sel_call_arg_len_eq_mismatch_denies() {
     ctx.args = args;
     let n = Node::Compare {
         op: CompareOp::Eq,
-        left: Leaf::CallArgLen(0),
+        left: call_arg_len(0),
         right: Leaf::LiteralU32(99),
     };
     assert_eq!(
@@ -496,11 +509,11 @@ fn sel_call_arg_field_eq_u32_match_permits() {
     ctx.args = args;
     let n = Node::Compare {
         op: CompareOp::Eq,
-        left: Leaf::CallArgField {
-            index: 0,
-            element: 0,
-            field: Symbol::new(&env, "request_type"),
-        },
+        left: Leaf::CallPath(alloc::vec![
+            PathStep::Index(0),
+            PathStep::Index(0),
+            PathStep::Field(Symbol::new(&env, "request_type")),
+        ]),
         right: Leaf::LiteralU32(3),
     };
     assert!(permit(evaluate(&env, &n, &ctx)));
@@ -1187,7 +1200,7 @@ fn ordering_op_over_call_contract_is_unsupported() {
     }
 }
 
-// ----- Tests: call_arg_scaled / slippage floor -------------------------------
+// ----- Tests: scaled ---------------------------------------------------------
 
 /// `args = [in, out]` as i128, the shape a swap policy bounds.
 fn swap_ctx(env: &Env, input: i128, output: i128) -> EvalContext {
@@ -1199,13 +1212,28 @@ fn swap_ctx(env: &Env, input: i128, output: i128) -> EvalContext {
     ctx
 }
 
-/// The canonical floor: `call_arg(1) >= call_arg_scaled(0, num, den)`.
+/// `scaled(src, num, den, add)`.
+fn scaled(src: Leaf, num: Leaf, den: i128, add: Leaf) -> Leaf {
+    Leaf::Scaled(alloc::boxed::Box::new([src, num, add]), den)
+}
+
+/// `scaled(call_arg(0), num, den, 0)` - the grammar-6 `call_arg_scaled`.
+fn arg_scaled(num: i128, den: i128) -> Leaf {
+    scaled(
+        call_arg(0),
+        Leaf::LiteralI128(num),
+        den,
+        Leaf::LiteralI128(0),
+    )
+}
+
+fn compare(op: CompareOp, left: Leaf, right: Leaf) -> Node {
+    Node::Compare { op, left, right }
+}
+
+/// The canonical floor: `call_arg(1) >= scaled(call_arg(0), num, den, 0)`.
 fn floor_node(num: i128, den: i128) -> Node {
-    Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(1),
-        right: Leaf::CallArgScaled { index: 0, num, den },
-    }
+    compare(CompareOp::Gte, call_arg(1), arg_scaled(num, den))
 }
 
 #[test]
@@ -1217,13 +1245,13 @@ fn scaled_floor_permits_output_above_the_ratio() {
 }
 
 #[test]
-fn scaled_floor_denies_output_below_the_ratio_with_slippage_reason() {
+fn scaled_floor_denies_output_below_the_ratio() {
     let env = Env::default();
     let ctx = swap_ctx(&env, 1000, 989);
     assert_eq!(
         reason(evaluate(&env, &floor_node(99, 100), &ctx)),
-        Some(DenyReason::SlippageFloor),
-        "a floor miss must be its own reason, not a generic ArgMismatch"
+        Some(DenyReason::ArgMismatch),
+        "a floor miss is an ordinary comparison miss now that scaled is a number"
     );
 }
 
@@ -1241,27 +1269,64 @@ fn scaled_truncates_toward_zero() {
     // >= floor; if the division rounded UP to 334 this would deny.
     let ctx = swap_ctx(&env, 1000, 333);
     assert!(permit(evaluate(&env, &floor_node(1, 3), &ctx)));
+    // and toward zero, not toward minus infinity: -1000 / 3 = -333.
+    let ctx = swap_ctx(&env, -1000, -333);
+    assert!(permit(evaluate(&env, &floor_node(1, 3), &ctx)));
+    let ctx = swap_ctx(&env, -1000, -334);
+    assert!(!permit(evaluate(&env, &floor_node(1, 3), &ctx)));
+}
+
+#[test]
+fn scaled_multiplies_before_it_divides() {
+    // 7 * 3 / 2 = 10; dividing first would give 3 * 3 = 9.
+    let env = Env::default();
+    let n = compare(CompareOp::Eq, arg_scaled(3, 2), call_arg(1));
+    assert!(permit(evaluate(&env, &n, &swap_ctx(&env, 7, 10))));
+    assert!(!permit(evaluate(&env, &n, &swap_ctx(&env, 7, 9))));
+}
+
+#[test]
+fn scaled_adds_after_the_division() {
+    // 7 * 1 / 2 + 5 = 3 + 5 = 8.
+    let env = Env::default();
+    let s = scaled(call_arg(0), Leaf::LiteralI128(1), 2, Leaf::LiteralI128(5));
+    let n = compare(CompareOp::Eq, s, call_arg(1));
+    assert!(permit(evaluate(&env, &n, &swap_ctx(&env, 7, 8))));
 }
 
 #[test]
 fn scaled_on_the_left_compares_in_written_order() {
-    // `call_arg_scaled(0, 99, 100) <= call_arg(1)` is the mirror of the
-    // canonical form and must agree with it.
+    // `scaled(...) <= call_arg(1)` is the mirror of the canonical form and
+    // must agree with it.
     let env = Env::default();
-    let n = Node::Compare {
-        op: CompareOp::Lte,
-        left: Leaf::CallArgScaled {
-            index: 0,
-            num: 99,
-            den: 100,
-        },
-        right: Leaf::CallArg(1),
-    };
+    let n = compare(CompareOp::Lte, arg_scaled(99, 100), call_arg(1));
     assert!(permit(evaluate(&env, &n, &swap_ctx(&env, 1000, 995))));
     assert_eq!(
         reason(evaluate(&env, &n, &swap_ctx(&env, 1000, 989))),
-        Some(DenyReason::SlippageFloor)
+        Some(DenyReason::ArgMismatch)
     );
+}
+
+#[test]
+fn scaled_versus_scaled_compares_two_numbers() {
+    // Grammar 6 refused this. Both sides resolve to a plain number now.
+    let env = Env::default();
+    let n = compare(CompareOp::Gte, arg_scaled(1, 1), arg_scaled(1, 2));
+    assert!(permit(evaluate(&env, &n, &swap_ctx(&env, 10, 10))));
+    let n = compare(CompareOp::Lt, arg_scaled(1, 1), arg_scaled(1, 2));
+    assert!(!permit(evaluate(&env, &n, &swap_ctx(&env, 10, 10))));
+}
+
+#[test]
+fn scaled_operands_may_all_be_selectors() {
+    // src, num and add are each any value leaf: here args[0] * args[1] / 1
+    // + args[2] over three call arguments.
+    let env = Env::default();
+    let mut ctx = swap_ctx(&env, 6, 7);
+    ctx.args.push_back(8i128.into_val(&env));
+    let s = scaled(call_arg(0), call_arg(1), 1, call_arg(2));
+    let n = compare(CompareOp::Eq, s, Leaf::LiteralI128(50));
+    assert!(permit(evaluate(&env, &n, &ctx)));
 }
 
 #[test]
@@ -1269,61 +1334,65 @@ fn scaled_overflow_denies_rather_than_panicking() {
     let env = Env::default();
     // i128::MAX * 2 cannot fit; checked_mul must deny, not wrap or trap.
     let ctx = swap_ctx(&env, i128::MAX, 1);
-    let n = floor_node(2, 1);
     assert_eq!(
-        reason(evaluate(&env, &n, &ctx)),
+        reason(evaluate(&env, &floor_node(2, 1), &ctx)),
+        Some(DenyReason::ArithmeticOverflow)
+    );
+}
+
+#[test]
+fn scaled_add_overflow_denies_rather_than_wrapping() {
+    let env = Env::default();
+    let s = scaled(call_arg(0), Leaf::LiteralI128(1), 1, Leaf::LiteralI128(1));
+    let n = compare(CompareOp::Gte, call_arg(1), s);
+    assert_eq!(
+        reason(evaluate(&env, &n, &swap_ctx(&env, i128::MAX, 0))),
+        Some(DenyReason::ArithmeticOverflow)
+    );
+}
+
+#[test]
+fn an_overflow_in_a_nested_scaled_reaches_the_top() {
+    let env = Env::default();
+    let inner = scaled(call_arg(0), Leaf::LiteralI128(2), 1, Leaf::LiteralI128(0));
+    let outer = scaled(inner, Leaf::LiteralI128(1), 1, Leaf::LiteralI128(0));
+    let n = compare(CompareOp::Gte, call_arg(1), outer);
+    assert_eq!(
+        reason(evaluate(&env, &n, &swap_ctx(&env, i128::MAX, 0))),
         Some(DenyReason::ArithmeticOverflow)
     );
 }
 
 #[test]
 fn scaled_zero_denominator_denies_at_evaluate() {
-    // Install refuses this, so reaching the evaluator means the install gate
+    // Decode refuses this, so reaching the evaluator means the decode gate
     // regressed. It must still deny rather than divide by zero.
     let env = Env::default();
     let ctx = swap_ctx(&env, 1000, 995);
-    let n = floor_node(99, 0);
     assert_eq!(
-        reason(evaluate(&env, &n, &ctx)),
+        reason(evaluate(&env, &floor_node(99, 0), &ctx)),
         Some(DenyReason::ArithmeticOverflow)
     );
 }
 
 #[test]
-fn scaled_versus_scaled_is_unsupported() {
+fn scaled_division_overflow_denies_rather_than_wrapping() {
+    // `i128::MIN / -1` is the only division that overflows i128. Decode refuses
+    // a negative denominator; if that gate ever regresses, the evaluator must
+    // still deny rather than wrap to a garbage bound.
     let env = Env::default();
-    let n = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArgScaled {
-            index: 0,
-            num: 1,
-            den: 1,
-        },
-        right: Leaf::CallArgScaled {
-            index: 1,
-            num: 1,
-            den: 1,
-        },
-    };
+    let ctx = swap_ctx(&env, i128::MIN, 0);
     assert_eq!(
-        reason(evaluate(&env, &n, &swap_ctx(&env, 10, 10))),
-        Some(DenyReason::UnsupportedNode)
+        reason(evaluate(&env, &floor_node(1, -1), &ctx)),
+        Some(DenyReason::ArithmeticOverflow)
     );
 }
 
 #[test]
-fn scaled_index_out_of_bounds_is_arg_mismatch_not_slippage() {
-    // Could not READ the operand is a different failure from read-and-missed.
+fn scaled_index_out_of_bounds_is_arg_mismatch() {
     let env = Env::default();
-    let n = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(1),
-        right: Leaf::CallArgScaled {
-            index: 9,
-            num: 1,
-            den: 1,
-        },
-    };
+    let s = scaled(call_arg(9), Leaf::LiteralI128(1), 1, Leaf::LiteralI128(0));
+    let n = compare(CompareOp::Gte, call_arg(1), s);
     assert_eq!(
         reason(evaluate(&env, &n, &swap_ctx(&env, 10, 10))),
         Some(DenyReason::ArgMismatch)
@@ -1344,41 +1413,309 @@ fn scaled_non_numeric_source_is_arg_mismatch() {
     );
 }
 
-// ----- Tests: install-time ratio validation ----------------------------------
+#[test]
+fn scaled_ordering_ops_keep_their_strictness_at_the_bound() {
+    // 1000 * 99 / 100 = 990 exactly. Each operator must behave at the bound
+    // the same way it does against a literal: a STRICT floor written as
+    // `out > in * num/den` has to refuse an exactly-at-bound trade, and a
+    // non-strict one has to allow it. Collapsing the two silently turns a
+    // strict policy into a permissive one.
+    let env = Env::default();
+    let ctx = swap_ctx(&env, 1000, 990);
+    let at_bound =
+        |op: CompareOp| evaluate(&env, &compare(op, call_arg(1), arg_scaled(99, 100)), &ctx);
+    assert!(permit(at_bound(CompareOp::Gte)), "gte permits at the bound");
+    assert!(permit(at_bound(CompareOp::Lte)), "lte permits at the bound");
+    assert!(permit(at_bound(CompareOp::Eq)), "eq permits at the bound");
+    assert_eq!(
+        reason(at_bound(CompareOp::Gt)),
+        Some(DenyReason::ArgMismatch),
+        "gt must DENY at the bound; permitting there silently weakens a strict floor"
+    );
+    assert_eq!(
+        reason(at_bound(CompareOp::Lt)),
+        Some(DenyReason::ArgMismatch),
+        "lt must DENY at the bound"
+    );
+}
+
+// ----- Tests: now ------------------------------------------------------------
 
 #[test]
-fn validate_scaled_ratios_accepts_a_real_floor() {
-    assert!(crate::dsl::validate_scaled_ratios(&floor_node(99, 100)).is_ok());
+fn now_is_the_ledger_timestamp() {
+    use soroban_sdk::testutils::Ledger as _;
+    let env = Env::default();
+    env.ledger().with_mut(|l| l.timestamp = 1_000);
+    let ctx = empty_ctx(&env);
+    // Ordering widens both sides to i128, which is how a clock is meant to be
+    // used. (`eq` compares by value, so a u64 timestamp never equals an i128.)
+    let ge = compare(CompareOp::Gte, Leaf::Now, Leaf::LiteralI128(1_000));
+    let gt = compare(CompareOp::Gt, Leaf::Now, Leaf::LiteralI128(1_000));
+    assert!(permit(evaluate(&env, &ge, &ctx)));
+    assert!(!permit(evaluate(&env, &gt, &ctx)));
+    env.ledger().with_mut(|l| l.timestamp = 1_001);
+    assert!(permit(evaluate(&env, &gt, &ctx)));
 }
 
 #[test]
-fn validate_scaled_ratios_refuses_zero_denominator() {
-    assert!(crate::dsl::validate_scaled_ratios(&floor_node(99, 0)).is_err());
+fn now_composes_with_scaled() {
+    use soroban_sdk::testutils::Ledger as _;
+    let env = Env::default();
+    env.ledger().with_mut(|l| l.timestamp = 1_000);
+    // now - 300 <= call_arg(0)
+    let window = scaled(Leaf::Now, Leaf::LiteralI128(1), 1, Leaf::LiteralI128(-300));
+    let n = compare(CompareOp::Lte, window, call_arg(0));
+    assert!(permit(evaluate(&env, &n, &swap_ctx(&env, 700, 0))));
+    assert!(!permit(evaluate(&env, &n, &swap_ctx(&env, 699, 0))));
+}
+
+// ----- Tests: the selector gate under grammar 7 -------------------------------
+
+fn dummy_read(env: &Env) -> Leaf {
+    Leaf::Read(
+        contract(env),
+        Symbol::new(env, "price"),
+        SorobanVec::new(env),
+        StdVec::new(),
+    )
 }
 
 #[test]
-fn validate_scaled_ratios_refuses_an_inverting_ratio() {
-    // The dangerous case: a negative numerator flips `>=` so the floor
-    // PERMITS exactly the trades it was written to refuse.
-    assert!(crate::dsl::validate_scaled_ratios(&floor_node(-1, 100)).is_err());
-    assert!(crate::dsl::validate_scaled_ratios(&floor_node(1, -100)).is_err());
-    assert!(crate::dsl::validate_scaled_ratios(&floor_node(0, 100)).is_err());
+fn scaled_over_a_selector_counts_as_a_selector() {
+    // It reads the call, so a predicate made only of it is still constrained.
+    assert!(crate::dsl::has_selector_leaf(&floor_node(99, 100)));
 }
 
 #[test]
-fn validate_scaled_ratios_walks_into_or_branches() {
-    // A bad ratio hidden in an `or` branch must not slip past the gate.
-    let n = Node::Or(StdVec::from([
+fn scaled_over_literals_does_not() {
+    let lits = scaled(
+        Leaf::LiteralI128(1),
+        Leaf::LiteralI128(1),
+        1,
+        Leaf::LiteralI128(1),
+    );
+    assert!(!crate::dsl::has_selector_leaf(&compare(
+        CompareOp::Gte,
+        lits,
+        Leaf::LiteralI128(0)
+    )));
+}
+
+#[test]
+fn read_and_now_do_not_count_as_selectors() {
+    let env = Env::default();
+    let reads = compare(CompareOp::Gte, dummy_read(&env), Leaf::Now);
+    assert!(!crate::dsl::has_selector_leaf(&reads));
+    let dressed = compare(
+        CompareOp::Gte,
+        scaled(dummy_read(&env), Leaf::Now, 1, Leaf::Now),
+        Leaf::LiteralI128(0),
+    );
+    assert!(!crate::dsl::has_selector_leaf(&dressed));
+    let both = Node::And(StdVec::from([reads, floor_node(1, 1)]));
+    assert!(crate::dsl::has_selector_leaf(&both));
+}
+
+// ----- Tests: decode of the grammar-7 leaves -----------------------------------
+
+#[test]
+fn decode_refuses_a_non_positive_denominator() {
+    let env = Env::default();
+    for den in [0, -1, i128::MIN] {
+        let err = decode(&env, &bytes_from_node(&env, &floor_node(99, den)))
+            .expect_err("den <= 0 must not decode");
+        assert_eq!(err.code(), "MALFORMED_PREDICATE", "den = {den}");
+    }
+    // The denominator is refused wherever the leaf sits.
+    let hidden = Node::Or(StdVec::from([
         cmp_i128(CompareOp::Eq, 1, 1),
         floor_node(1, 0),
     ]));
-    assert!(crate::dsl::validate_scaled_ratios(&n).is_err());
+    assert!(decode(&env, &bytes_from_node(&env, &hidden)).is_err());
 }
 
 #[test]
-fn scaled_leaf_counts_as_a_selector() {
-    // It reads the call, so a predicate made only of it is still constrained.
-    assert!(crate::dsl::has_selector_leaf(&floor_node(99, 100)));
+fn decode_accepts_any_numerator() {
+    let env = Env::default();
+    for num in [-1, 0, 1] {
+        assert!(decode(&env, &bytes_from_node(&env, &floor_node(num, 100))).is_ok());
+    }
+}
+
+#[test]
+fn decode_lowers_call_arg_leaves_to_paths() {
+    // `call_arg`, `call_arg_len` and `call_arg_field` stay on the wire but are
+    // decoded as the `call_path` they are shorthand for.
+    let env = Env::default();
+    let node = decode(
+        &env,
+        &bytes_from_scval(
+            &env,
+            vec_scval(&[
+                sym("eq"),
+                vec_scval(&[
+                    sym("call_arg_field"),
+                    u32_scval(1),
+                    u32_scval(2),
+                    sym("amount"),
+                ]),
+                u32_scval(5),
+            ]),
+        ),
+    )
+    .unwrap();
+    let Node::Compare { left, .. } = node else {
+        panic!("compare")
+    };
+    let Leaf::CallPath(steps) = left else {
+        panic!("path")
+    };
+    assert_eq!(
+        steps,
+        StdVec::from([
+            PathStep::Index(1),
+            PathStep::Index(2),
+            PathStep::Field(Symbol::new(&env, "amount"))
+        ])
+    );
+}
+
+fn read_wire(args: StdVec<ScVal>, path: StdVec<ScVal>) -> ScVal {
+    let mut items = StdVec::from([sym("read"), addr_scval(), sym("price"), vec_scval(&args)]);
+    items.extend(path);
+    vec_scval(&[sym("gte"), vec_scval(&items), i128_scval(0)])
+}
+
+#[test]
+fn wire_read_round_trips_and_may_have_an_empty_path() {
+    let env = Env::default();
+    let with_path = read_wire(StdVec::from([sym("POT")]), StdVec::from([sym("price")]));
+    let Node::Compare { left, .. } = decode(&env, &bytes_from_scval(&env, with_path)).unwrap()
+    else {
+        panic!("compare")
+    };
+    let Leaf::Read(_, func, args, path) = left else {
+        panic!("read")
+    };
+    assert_eq!(func, Symbol::new(&env, "price"));
+    assert_eq!(args.len(), 1);
+    assert_eq!(path.len(), 1);
+    // no arguments, no path: the result is the value itself.
+    let bare = read_wire(StdVec::new(), StdVec::new());
+    assert!(decode(&env, &bytes_from_scval(&env, bare)).is_ok());
+}
+
+#[test]
+fn wire_read_with_fewer_than_four_items_is_malformed() {
+    let env = Env::default();
+    let short = vec_scval(&[
+        sym("gte"),
+        vec_scval(&[sym("read"), addr_scval(), sym("price")]),
+        i128_scval(0),
+    ]);
+    let err = decode(&env, &bytes_from_scval(&env, short)).expect_err("arity");
+    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+}
+
+#[test]
+fn wire_read_refuses_non_literal_arguments() {
+    let env = Env::default();
+    let inner = vec_scval(&[sym("call_arg"), u32_scval(0)]);
+    for bad in [
+        inner,
+        vec_scval(&[sym("now")]),
+        vec_scval(&[sym("call_contract")]),
+    ] {
+        let wire = read_wire(StdVec::from([bad]), StdVec::new());
+        let err = decode(&env, &bytes_from_scval(&env, wire)).expect_err("literal only");
+        assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    }
+}
+
+#[test]
+fn wire_read_must_not_take_an_address_or_symbol_from_the_call() {
+    let env = Env::default();
+    let wire = vec_scval(&[
+        sym("gte"),
+        vec_scval(&[
+            sym("read"),
+            vec_scval(&[sym("call_arg"), u32_scval(0)]),
+            sym("price"),
+            vec_scval(&[]),
+        ]),
+        i128_scval(0),
+    ]);
+    assert!(decode(&env, &bytes_from_scval(&env, wire)).is_err());
+}
+
+#[test]
+fn wire_read_path_is_capped() {
+    let env = Env::default();
+    let steps = |n: usize| (0..n).map(|_| u32_scval(0)).collect::<StdVec<_>>();
+    let ok = read_wire(StdVec::new(), steps(MAX_PATH_STEPS as usize));
+    assert!(decode(&env, &bytes_from_scval(&env, ok)).is_ok());
+    let long = read_wire(StdVec::new(), steps(MAX_PATH_STEPS as usize + 1));
+    assert!(decode(&env, &bytes_from_scval(&env, long)).is_err());
+}
+
+#[test]
+fn wire_read_count_is_capped_at_four() {
+    let env = Env::default();
+    let read_node = |n: usize| {
+        Node::And(
+            (0..n)
+                .map(|_| compare(CompareOp::Gte, dummy_read(&env), Leaf::LiteralI128(0)))
+                .collect(),
+        )
+    };
+    assert!(decode(&env, &bytes_from_node(&env, &read_node(MAX_READS as usize))).is_ok());
+    let err = decode(
+        &env,
+        &bytes_from_node(&env, &read_node(MAX_READS as usize + 1)),
+    )
+    .expect_err("a fifth read");
+    assert_eq!(err.code(), "TOO_MANY_LEAVES");
+}
+
+#[test]
+fn wire_scaled_leaf_nesting_is_capped_at_max_depth() {
+    let env = Env::default();
+    let nest = |n: u32| {
+        let mut leaf = Leaf::LiteralI128(1);
+        for _ in 0..n {
+            leaf = scaled(leaf, Leaf::LiteralI128(1), 1, Leaf::LiteralI128(0));
+        }
+        compare(CompareOp::Gte, call_arg(0), leaf)
+    };
+    assert!(decode(&env, &bytes_from_node(&env, &nest(MAX_DEPTH - 1))).is_ok());
+    let err = decode(&env, &bytes_from_node(&env, &nest(MAX_DEPTH))).expect_err("too deep");
+    assert_eq!(err.code(), "PREDICATE_TOO_DEEP");
+}
+
+#[test]
+fn wire_scaled_leaves_count_toward_the_leaf_cap() {
+    // Each scaled is four leaves (itself and three operands). Fifty of them
+    // are 200; one more leaf tips the predicate over MAX_LEAVES.
+    let env = Env::default();
+    let one = || {
+        scaled(
+            Leaf::LiteralI128(1),
+            Leaf::LiteralI128(1),
+            1,
+            Leaf::LiteralI128(1),
+        )
+    };
+    let n = |count: usize| {
+        Node::And(
+            (0..count)
+                .map(|_| compare(CompareOp::Gte, call_arg(0), one()))
+                .collect(),
+        )
+    };
+    // each compare is 1 (call_arg) + 4 = 5 leaves
+    assert!(decode(&env, &bytes_from_node(&env, &n(40))).is_ok());
+    let err = decode(&env, &bytes_from_node(&env, &n(41))).expect_err("over the leaf cap");
+    assert_eq!(err.code(), "TOO_MANY_LEAVES");
 }
 
 // ----- Tests: v4 wire round-trips --------------------------------------------
@@ -1415,14 +1752,14 @@ fn wire_ordering_ops_round_trip() {
 }
 
 #[test]
-fn wire_call_arg_scaled_round_trips() {
+fn wire_scaled_round_trips() {
     let env = Env::default();
     let n = floor_node(99, 100);
     let decoded = decode(&env, &bytes_from_node(&env, &n)).expect("scaled leaf must decode");
     assert!(permit(evaluate(&env, &decoded, &swap_ctx(&env, 1000, 995))));
     assert_eq!(
         reason(evaluate(&env, &decoded, &swap_ctx(&env, 1000, 900))),
-        Some(DenyReason::SlippageFloor)
+        Some(DenyReason::ArgMismatch)
     );
 }
 
@@ -1437,28 +1774,48 @@ fn wire_empty_or_is_malformed() {
 }
 
 #[test]
-fn wire_call_arg_scaled_wrong_arity_is_malformed() {
+fn wire_scaled_wrong_arity_is_malformed() {
     let env = Env::default();
-    // Three items where the leaf needs four: (sym, index, num) with no den.
-    let leaf = vec_scval(&[sym("call_arg_scaled"), u32_scval(0), i128_scval(99)]);
-    let node = vec_scval(&[sym("gte"), leaf_to_scval(&env, &Leaf::CallArg(1)), leaf]);
+    // Four items where the leaf needs five: (sym, src, num, den) with no add.
+    let leaf = vec_scval(&[
+        sym("scaled"),
+        leaf_to_scval(&env, &call_arg(0)),
+        i128_scval(99),
+        i128_scval(100),
+    ]);
+    let node = vec_scval(&[sym("gte"), leaf_to_scval(&env, &call_arg(1)), leaf]);
     let err = decode(&env, &bytes_from_scval(&env, node)).expect_err("arity must be checked");
     assert_eq!(err.code(), "MALFORMED_PREDICATE");
 }
 
 #[test]
-fn wire_call_arg_scaled_rejects_u32_in_the_ratio_slot() {
+fn wire_scaled_rejects_u32_in_the_denominator_slot() {
     // The decoder is the single place that pins operand TYPE. A u32 in the
-    // num slot must not be silently widened into an i128 ratio.
+    // den slot must not be silently widened into an i128 constant.
+    let env = Env::default();
+    let leaf = vec_scval(&[
+        sym("scaled"),
+        leaf_to_scval(&env, &call_arg(0)),
+        i128_scval(99),
+        u32_scval(100),
+        i128_scval(0),
+    ]);
+    let node = vec_scval(&[sym("gte"), leaf_to_scval(&env, &call_arg(1)), leaf]);
+    let err = decode(&env, &bytes_from_scval(&env, node)).expect_err("den must be an i128");
+    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+}
+
+#[test]
+fn wire_grammar_6_call_arg_scaled_is_refused() {
     let env = Env::default();
     let leaf = vec_scval(&[
         sym("call_arg_scaled"),
         u32_scval(0),
-        u32_scval(99),
+        i128_scval(99),
         i128_scval(100),
     ]);
-    let node = vec_scval(&[sym("gte"), leaf_to_scval(&env, &Leaf::CallArg(1)), leaf]);
-    let err = decode(&env, &bytes_from_scval(&env, node)).expect_err("num must be an i128");
+    let node = vec_scval(&[sym("gte"), leaf_to_scval(&env, &call_arg(1)), leaf]);
+    let err = decode(&env, &bytes_from_scval(&env, node)).expect_err("retired leaf");
     assert_eq!(err.code(), "MALFORMED_PREDICATE");
 }
 
@@ -1472,69 +1829,6 @@ fn wire_or_counts_toward_the_depth_cap() {
     }
     let err = decode(&env, &bytes_from_node(&env, &n)).expect_err("deep or must deny");
     assert_eq!(err.code(), "PREDICATE_TOO_DEEP");
-}
-
-#[test]
-fn scaled_ordering_ops_keep_their_strictness_at_the_bound() {
-    // 1000 * 99 / 100 = 990 exactly. Each operator must behave at the bound
-    // the same way it does against a literal: a STRICT floor written as
-    // `out > in * num/den` has to refuse an exactly-at-bound trade, and a
-    // non-strict one has to allow it. Collapsing the two silently turns a
-    // strict policy into a permissive one.
-    let env = Env::default();
-    let ctx = swap_ctx(&env, 1000, 990);
-    let scaled = Leaf::CallArgScaled {
-        index: 0,
-        num: 99,
-        den: 100,
-    };
-    let at_bound = |op: CompareOp| {
-        evaluate(
-            &env,
-            &Node::Compare {
-                op,
-                left: Leaf::CallArg(1),
-                right: scaled.clone(),
-            },
-            &ctx,
-        )
-    };
-    assert!(permit(at_bound(CompareOp::Gte)), "gte permits at the bound");
-    assert!(permit(at_bound(CompareOp::Lte)), "lte permits at the bound");
-    assert!(permit(at_bound(CompareOp::Eq)), "eq permits at the bound");
-    assert_eq!(
-        reason(at_bound(CompareOp::Gt)),
-        Some(DenyReason::SlippageFloor),
-        "gt must DENY at the bound; permitting there silently weakens a strict floor"
-    );
-    assert_eq!(
-        reason(at_bound(CompareOp::Lt)),
-        Some(DenyReason::SlippageFloor),
-        "lt must DENY at the bound"
-    );
-}
-
-#[test]
-fn scaled_division_overflow_denies_rather_than_wrapping() {
-    // `i128::MIN / -1` is the only division that overflows i128. Install
-    // refuses a negative denominator, so this is the same belt-and-braces
-    // case as the zero denominator: if that gate ever regresses, the
-    // evaluator must still deny rather than wrap to a garbage bound.
-    let env = Env::default();
-    let ctx = swap_ctx(&env, i128::MIN, 0);
-    let n = Node::Compare {
-        op: CompareOp::Gte,
-        left: Leaf::CallArg(1),
-        right: Leaf::CallArgScaled {
-            index: 0,
-            num: 1,
-            den: -1,
-        },
-    };
-    assert_eq!(
-        reason(evaluate(&env, &n, &ctx)),
-        Some(DenyReason::ArithmeticOverflow)
-    );
 }
 
 #[test]

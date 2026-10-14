@@ -27,8 +27,11 @@ fn delegated(env: &Env, addr: &Address) -> Val {
     v.into_val(env)
 }
 
-/// `eq(call_fn, <name>)` - scopes the policy to one function by name, which
-/// avoids needing the account's address before it exists.
+/// A grammar-7 rule: `eq(call_fn, <name>)` scopes the policy to one function by
+/// name, which avoids needing the account's address before it exists, and
+/// `read(oracle, "price") >= scaled(now, 1, 1, -300)` exercises the three new
+/// leaves on the install path. Install decodes and gates the whole predicate but
+/// evaluates none of it, so the oracle address only has to be well formed.
 fn predicate_on_fn(env: &Env, fn_name: &str) -> Bytes {
     let sym = |s: &str| {
         ScVal::Symbol(soroban_sdk::xdr::ScSymbol(
@@ -39,10 +42,41 @@ fn predicate_on_fn(env: &Env, fn_name: &str) -> Bytes {
         let v: VecM<ScVal> = items.try_into().unwrap();
         ScVal::Vec(Some(soroban_sdk::xdr::ScVec(v)))
     };
+    let int = |n: i128| {
+        ScVal::I128(soroban_sdk::xdr::Int128Parts {
+            hi: (n >> 64) as i64,
+            lo: n as u64,
+        })
+    };
+    let oracle = ScVal::Address(soroban_sdk::xdr::ScAddress::Contract(
+        soroban_sdk::xdr::ContractId(soroban_sdk::xdr::Hash([7u8; 32])),
+    ));
+    let fresh = scvec(alloc::vec![
+        sym("gte"),
+        scvec(alloc::vec![
+            sym("read"),
+            oracle,
+            sym("price"),
+            scvec(alloc::vec![])
+        ]),
+        scvec(alloc::vec![
+            sym("scaled"),
+            scvec(alloc::vec![sym("now")]),
+            int(1),
+            int(1),
+            int(-300)
+        ]),
+    ]);
     let root = scvec(alloc::vec![
-        sym("eq"),
-        scvec(alloc::vec![sym("call_fn")]),
-        sym(fn_name),
+        sym("and"),
+        scvec(alloc::vec![
+            scvec(alloc::vec![
+                sym("eq"),
+                scvec(alloc::vec![sym("call_fn")]),
+                sym(fn_name)
+            ]),
+            fresh,
+        ]),
     ]);
     let val: Val = root.into_val(env);
     val.to_xdr(env)
@@ -56,7 +90,7 @@ fn install_params(
     let predicate = predicate_on_fn(env, fn_name);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
     PolicyInstallParams {
-        grammar_version: 6,
+        grammar_version: 7,
         install_nonce: 1,
         predicate,
         predicate_hash,
@@ -186,7 +220,7 @@ fn the_account_rejects_a_policy_whose_predicate_is_malformed() {
     let garbage = Bytes::from_array(&env, &[0xde, 0xad, 0xbe, 0xef]);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&garbage).into();
     let bad = PolicyInstallParams {
-        grammar_version: 6,
+        grammar_version: 7,
         install_nonce: 1,
         predicate: garbage,
         predicate_hash,

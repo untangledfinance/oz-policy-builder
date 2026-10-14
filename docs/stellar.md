@@ -268,8 +268,10 @@ the custody account. Swap proceeds go straight to the custody account.
 
 ### Policy interpreter
 
-`contracts/prime/stellar/policy-interpreter`, grammar 6 (`SELF_VERSION` in
-`src/version.rs`). The smart account calls `enforce` on every call a policed
+`contracts/prime/stellar/policy-interpreter`. The source on the
+`feat/grammar-v7` branch is grammar 7 (`SELF_VERSION` in `src/version.rs`) and
+is not deployed; the instances recorded below run grammar 6, and the bullets
+below describe grammar 6 unless they say otherwise. The smart account calls `enforce` on every call a policed
 rule authorises. The predicate grammar, its structural caps and the install
 checks are documented in
 [contracts/prime/stellar/policy-interpreter/README.md](../contracts/prime/stellar/policy-interpreter/README.md).
@@ -283,13 +285,29 @@ The properties the custody design leans on:
 - **Grammar 6 adds `call_path`**, which walks into the batch the adapter
   submits (`calls[n].args[i]`, map keys, lengths). That is what lets one
   predicate bound a whole batch and relate two of its calls.
+- **Grammar 7 adds `read`, `now` and `scaled`.** `read(contract, fn, args,
+  path)` calls a fixed function of a fixed contract with literal arguments and
+  picks a number out of the result, so a rule can check a live price, a pool's
+  debt or a custody balance. `now` is the ledger timestamp, and
+  `scaled(src, num, den, add)` computes `src * num / den + add` over any of
+  those, with every step checked. `scaled` replaces `call_arg_scaled`. **This
+  ends the grammar-6 property that `enforce` reads nothing but the authorised
+  call:** it now calls the contracts its predicate names. Soroban has no
+  read-only call, so those contracts must be ones the owner trusts, ideally
+  immutable; a read cannot target a contract already on the call stack (the
+  host refuses re-entry and the read denies); a simulation must carry real
+  signatures so the reads' ledger entries land in the footprint. A rule must
+  still constrain the call itself: reads and the clock alone do not satisfy
+  the install check. The full list of caps and failure modes is in the
+  [interpreter README](../contracts/prime/stellar/policy-interpreter/README.md#cross-contract-reads).
 - **An executor binding** (`bind_executor`) makes a venue rule demand the
   adapter's own authorisation as well, so a venue call that did not come
   through the adapter is refused.
 
 The interpreter answers one question: is this call one the policy permits? It
-does not see what a transaction moved, keep rolling totals, count calls or read
-a clock. Amount limits over time come from the allowance and its expiry.
+does not see what a transaction moved, keep rolling totals or count calls
+(grammar 7 can read the ledger clock and named contracts, as above). Amount
+limits over time come from the allowance and its expiry.
 
 ## Setting it up
 
@@ -438,7 +456,10 @@ deployed and still reachable by accounts that use them; their source is at tag
   into an address. It would still have to be a listed venue.
 - **Swap prices have a floor from the mandate and no market check.** A
   band pins a minimum output, and the grammar can express a floor relative to
-  the input (`call_arg_scaled`), but no contract reads a price feed.
+  the input (`call_arg_scaled` in grammar 6, `scaled` in grammar 7). Grammar 6
+  reads no price feed. Grammar 7 can `read` one, but only through an oracle
+  whose lookup takes plain arguments, and the rule is then as trustworthy as
+  that oracle.
 
 ## The policy builder
 

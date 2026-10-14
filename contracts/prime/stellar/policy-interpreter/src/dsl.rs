@@ -1,4 +1,5 @@
-//! Predicate DSL decoder and pure evaluator.
+//! Predicate DSL decoder and evaluator. The evaluator is pure except for the
+//! `read` leaf, which calls the contract it names.
 //!
 //! The decoder ingests raw canonical ScVal XDR bytes via `Val::from_xdr`
 //! (the host does the XDR parse), then walks the resulting `Vec<Val>` tree
@@ -8,10 +9,10 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 
 use soroban_sdk::xdr::ToXdr;
-use soroban_sdk::{Address, Env, IntoVal, Map, Symbol, TryFromVal, Val, Vec as SorobanVec};
+use soroban_sdk::{Address, Env, Error, IntoVal, Map, Symbol, TryFromVal, Val, Vec as SorobanVec};
 
 pub use dsl_decode::{decode, decode_with_byte_cap};
 
@@ -20,6 +21,9 @@ pub use dsl_decode::{decode, decode_with_byte_cap};
 pub const MAX_DEPTH: u32 = 5;
 pub const MAX_LEAVES: u32 = 200;
 pub const MAX_IN_OPERAND_COUNT: u32 = 32;
+/// `read` leaves per predicate. Each is a cross-contract call made on every
+/// `enforce`, so the count is capped at decode.
+pub const MAX_READS: u32 = 4;
 pub const MAX_PREDICATE_BYTES: u32 = 32 * 1024;
 
 // Tag / selector name bytes. These come from the encoder verbatim (see
@@ -69,16 +73,6 @@ const SEL_CALL_PATH: &[u8] = b"call_path";
 /// refuses a forbidden target at ANY depth. The predicate does not need to
 /// restate either.
 pub const MAX_PATH_STEPS: u32 = 8;
-// `call_arg_scaled(index, num, den)` evaluates to `args[index] * num / den`,
-// truncating toward zero. It is the only leaf whose value is COMPUTED from
-// the call rather than read from it, and the only selector the grammar
-// permits on the right-hand side of a compare - which is what lets a swap
-// policy bound its output against its own input (`out >= in * num / den`)
-// instead of against a constant that would pin the policy to one trade size.
-// `checked_mul`/`checked_div` throughout, so a hostile ratio denies rather
-// than wrapping.
-const SEL_CALL_ARG_SCALED: &[u8] = b"call_arg_scaled";
-
 // Stateful selectors.
 //
 // `amount` and `window_spent` are deliberately NOT part of the grammar: the
@@ -93,6 +87,10 @@ const SEL_CALL_ARG_SCALED: &[u8] = b"call_arg_scaled";
 /// One predicate node. Owned (children inside `Vec`) so the AST can be moved
 /// without lifetime entanglement. Size is bounded by `MAX_DEPTH` and
 /// `MAX_LEAVES`.
+// Only the native test build is large: there `Env` carries the whole host, and a
+// `Read` leaf holds an `Address`, a `Symbol` and a `Vec` of it. On wasm it is a
+// zero-sized handle, so boxing would add code for no saving.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum Node {
     And(Vec<Node>),
@@ -131,26 +129,29 @@ pub enum PathStep {
 
 /// One literal or selector leaf. Host types are stored directly so the
 /// evaluator can compare without re-encoding.
+///
+/// `call_arg`, `call_arg_len` and `call_arg_field` are not leaves of their own:
+/// the decoder lowers them to the equivalent `CallPath`, so one walker serves
+/// every way of reaching into the authorised call.
 #[derive(Debug, Clone)]
 pub enum Leaf {
     CallContract,
     CallFn,
-    CallArg(u32),
-    CallArgLen(u32),
-    CallArgField {
-        index: u32,
-        element: u32,
-        field: Symbol,
-    },
     /// See `SEL_CALL_PATH`. Steps apply to the argument vector in order.
-    CallPath(alloc::vec::Vec<PathStep>),
-    /// `args[index] * num / den`, truncating toward zero. See
-    /// `SEL_CALL_ARG_SCALED` for why this leaf exists.
-    CallArgScaled {
-        index: u32,
-        num: i128,
-        den: i128,
-    },
+    CallPath(Vec<PathStep>),
+    /// The ledger timestamp.
+    Now,
+    /// `read(contract, fn, args, path)`: call a fixed function of a fixed
+    /// contract with literal arguments and pick a field of the result with the
+    /// same steps a `CallPath` takes. Soroban has no read-only call, so the
+    /// target must be a contract the policy owner trusts. A failed call or a
+    /// result that is not a number resolves to nothing, which denies.
+    Read(Address, Symbol, SorobanVec<Val>, Vec<PathStep>),
+    /// `[src, num, add]` and `den`: `src * num / den + add`, multiplying
+    /// first, truncating toward zero, every step checked. Each of the three
+    /// operands is any value leaf, nested `Scaled` included; `den` is a
+    /// constant, positive by decode.
+    Scaled(Box<[Leaf; 3]>, i128),
     LiteralAddress(Address),
     LiteralI128(i128),
     LiteralSymbol(Symbol),
@@ -177,18 +178,13 @@ pub enum EvalDecision {
 pub enum DenyReason {
     ArgMismatch,
     ContractScope,
-    /// A `call_arg_scaled` product or quotient did not fit `i128`, or its
-    /// denominator was zero at evaluate.
+    /// A `scaled` step did not fit `i128`, or its denominator was zero.
     ArithmeticOverflow,
     UnsupportedNode,
     /// `in` membership failed. Distinct from ArgMismatch so a review card can
     /// say "not on the allowlist" rather than "argument mismatch"; the
     /// reference evaluator draws the same distinction.
     NotInAllowlist,
-    /// A comparison against a `call_arg_scaled` operand failed. Distinct from
-    /// ArgMismatch for the same reason NotInAllowlist is: the review card
-    /// should read as the policy the author wrote.
-    SlippageFloor,
 }
 
 impl DenyReason {
@@ -199,13 +195,13 @@ impl DenyReason {
             DenyReason::ArithmeticOverflow => "ARITHMETIC_OVERFLOW",
             DenyReason::UnsupportedNode => "UNSUPPORTED_NODE",
             DenyReason::NotInAllowlist => "NOT_IN_ALLOWLIST",
-            DenyReason::SlippageFloor => "SLIPPAGE_FLOOR",
         }
     }
 }
 
 // ---- Pure evaluator ----
 
+/// Pure apart from `Leaf::Read`, which calls out to the contract it names.
 pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
     match node {
         Node::And(children) => {
@@ -239,21 +235,14 @@ pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
             // practice; denying is the fail-closed answer if it ever is not.
             first_deny.unwrap_or(EvalDecision::Deny(DenyReason::UnsupportedNode))
         }
-        Node::Compare { op, left, right } => eval_compare(env, *op, left, right, ctx),
+        Node::Compare { op, left, right } => compare(env, *op, left, right, ctx)
+            .err()
+            .map_or(EvalDecision::Permit, EvalDecision::Deny),
         Node::In { needle, haystack } => {
-            if haystack.is_empty() {
-                return EvalDecision::Deny(DenyReason::NotInAllowlist);
-            }
-            // The needle can be either a literal (a haystack of literals) or
-            // a selector leaf (e.g. call_arg[i]). Resolve via the live
-            // context first; fall back to literal_to_val for pure-literal
-            // needles. Both paths feed the same Val equality (host shallow_eq).
-            let expected = resolve(env, needle, ctx);
             // An opaque or undecodable needle fails closed as a membership
             // miss, not an argument mismatch: it cannot be on the allowlist
-            // because it cannot be compared at all. The reference draws the
-            // same line.
-            let Some(expected) = expected else {
+            // because it cannot be compared at all.
+            let Ok(expected) = resolve(env, needle, ctx) else {
                 return EvalDecision::Deny(DenyReason::NotInAllowlist);
             };
             for h in haystack {
@@ -287,8 +276,6 @@ fn literal_to_val(env: &Env, leaf: &Leaf) -> Option<Val> {
     Some(v)
 }
 
-/// Partial value equality. Host types compare directly via `==`; `Val`
-/// equality is shallow (handles nested objects via host).
 /// Compare two `Val`s BY VALUE.
 ///
 /// `shallow_eq` compares the Val's immediate 64-bit payload. That is correct
@@ -312,41 +299,25 @@ fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
     false
 }
 
-/// Evaluate one `compare` node.
+/// Evaluate one `compare` node. Both sides are resolved and compared once;
+/// every failure to resolve or convert is a deny.
 ///
-/// Both sides are reduced to a `Val` and compared once. The left side may be
-/// any leaf, including a selector, and is resolved against the call under
-/// evaluation; the right side must be a literal, which is what keeps the
-/// grammar from expressing selector-to-selector comparisons.
-///
-/// Every failure to resolve or convert is a deny. The reason is a property of
-/// the left leaf, so it is chosen once up front rather than at each exit.
-///
-/// `call_arg_scaled` is the one exception to "the right side must be a
-/// literal". It is dispatched before that rule is applied, on either side,
-/// because a slippage floor has no constant to bound against.
-#[rustfmt::skip] fn eval_compare(
+/// A selector may be compared with another selector, or with itself, which is
+/// vacuously true and installs cleanly because `has_selector_leaf` sees a
+/// selector. That is a way to write a no-constraint policy and sits in the
+/// known-acceptable-risk column rather than being caught at install.
+fn compare(
     env: &Env,
     op: CompareOp,
     left: &Leaf,
     right: &Leaf,
     ctx: &EvalContext,
-) -> EvalDecision {
-    // Scaled operands first, so the dedicated reasons (ArithmeticOverflow,
-    // SlippageFloor) reach the review card instead of a generic mismatch.
-    // Right-hand dispatch leads because `out >= in * num / den` is the
-    // canonical swap form.
-    if let Leaf::CallArgScaled { index, num, den } = right {
-        return eval_scaled_arg_compare(env, op, left, *index, *num, *den, true, ctx);
-    }
-    if let Leaf::CallArgScaled { index, num, den } = left {
-        return eval_scaled_arg_compare(env, op, right, *index, *num, *den, false, ctx);
-    }
+) -> Result<(), DenyReason> {
     // `call_contract` and `call_fn` name an identity, not a quantity, so an
     // ordering comparison over either is a node the interpreter never
     // supported - distinct from a value that merely failed to match.
     if op != CompareOp::Eq && matches!(left, Leaf::CallContract | Leaf::CallFn) {
-        return EvalDecision::Deny(DenyReason::UnsupportedNode);
+        return Err(DenyReason::UnsupportedNode);
     }
     // A contract-scope miss is reported as its own reason so a review card can
     // say "wrong contract" rather than "argument mismatch".
@@ -355,158 +326,79 @@ fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
     } else {
         DenyReason::ArgMismatch
     };
-    // Grammar 6 resolves BOTH sides. Until v5 the right operand had to be a
-    // literal, which made a constraint BETWEEN two calls inexpressible - the
-    // adapter had to flatten the whole batch into one synthetic argument list
-    // so both operands became indices into it. Resolving the right operand is
-    // what lets that projection move out of the adapter and the constraint be
-    // stated where it is enforced.
-    //
-    // The cost, stated plainly: a predicate may now compare a selector with
-    // itself, which is vacuously true and installs cleanly because
-    // `has_selector_leaf` sees a selector. That is a new way to write a
-    // no-constraint policy, and it joins the mis-specified policy in the
-    // known-acceptable-risk column rather than being caught at install.
-    let (Some(actual), Some(expected)) = (resolve(env, left, ctx), resolve(env, right, ctx))
-    else {
-        return EvalDecision::Deny(miss);
-    };
+    let (a, b) = (resolve(env, left, ctx)?, resolve(env, right, ctx)?);
     let pass = match op {
-        CompareOp::Eq => val_eq(env, &actual, &expected),
+        CompareOp::Eq => val_eq(env, &a, &b),
         // A non-numeric operand (an address, a vector) has no ordering, so
         // every ordering op shares one numeric-widening path.
-        CompareOp::Lt | CompareOp::Lte | CompareOp::Gt | CompareOp::Gte => {
-            match (val_to_i128(env, &actual), val_to_i128(env, &expected)) {
-                (Some(a), Some(b)) => match op {
-                    CompareOp::Lt => a < b,
-                    CompareOp::Lte => a <= b,
-                    CompareOp::Gt => a > b,
-                    CompareOp::Gte => a >= b,
-                    CompareOp::Eq => unreachable!("Eq is handled above"),
-                },
-                _ => return EvalDecision::Deny(miss),
+        _ => {
+            let (a, b) = (
+                val_to_i128(env, &a).ok_or(miss)?,
+                val_to_i128(env, &b).ok_or(miss)?,
+            );
+            match op {
+                CompareOp::Lt => a < b,
+                CompareOp::Lte => a <= b,
+                CompareOp::Gt => a > b,
+                _ => a >= b,
             }
         }
     };
-    if pass {
-        EvalDecision::Permit
-    } else {
-        EvalDecision::Deny(miss)
-    }
-}
-
-/// Evaluate a comparison with a `call_arg_scaled` leaf on one side.
-///
-/// The scaled side is `args[index] * num / den`, truncating toward zero.
-/// Arithmetic that does not fit denies with `ArithmeticOverflow` rather than
-/// panicking the frame; a comparison that simply fails denies with
-/// `SlippageFloor`.
-///
-/// `scaled_on_right` says which side the scaled leaf came from, so the
-/// operator is applied in the order the author wrote it:
-///   - `true`  => `other <op> scaled`, the canonical `out >= in * num / den`
-///   - `false` => `scaled <op> other`
-///
-/// Scaled-versus-scaled is refused: chaining two computed operands has no
-/// meaning a review card could state plainly.
-#[allow(clippy::too_many_arguments)]
-fn eval_scaled_arg_compare(
-    env: &Env,
-    op: CompareOp,
-    other: &Leaf,
-    index: u32,
-    num: i128,
-    den: i128,
-    scaled_on_right: bool,
-    ctx: &EvalContext,
-) -> EvalDecision {
-    if matches!(other, Leaf::CallArgScaled { .. }) {
-        return EvalDecision::Deny(DenyReason::UnsupportedNode);
-    }
-    // Out-of-bounds or non-numeric source both surface as ArgMismatch: the
-    // operand could not be READ, which is a different failure from a floor
-    // that was read and not met.
-    let Some(raw) = ctx.args.get(index) else {
-        return EvalDecision::Deny(DenyReason::ArgMismatch);
-    };
-    let Some(input) = val_to_i128(env, &raw) else {
-        return EvalDecision::Deny(DenyReason::ArgMismatch);
-    };
-    // Install refuses a zero or non-positive ratio, so this is belt and
-    // braces: a future regression in that gate must not panic the frame.
-    if den == 0 {
-        return EvalDecision::Deny(DenyReason::ArithmeticOverflow);
-    }
-    let Some(scaled) = input.checked_mul(num).and_then(|p| p.checked_div(den)) else {
-        return EvalDecision::Deny(DenyReason::ArithmeticOverflow);
-    };
-    let Some(other_val) = resolve(env, other, ctx).and_then(|v| val_to_i128(env, &v)) else {
-        return EvalDecision::Deny(DenyReason::ArgMismatch);
-    };
-    let (lhs, rhs) = if scaled_on_right {
-        (other_val, scaled)
-    } else {
-        (scaled, other_val)
-    };
-    let pass = match op {
-        CompareOp::Eq => lhs == rhs,
-        CompareOp::Lt => lhs < rhs,
-        CompareOp::Lte => lhs <= rhs,
-        CompareOp::Gt => lhs > rhs,
-        CompareOp::Gte => lhs >= rhs,
-    };
-    if pass {
-        EvalDecision::Permit
-    } else {
-        EvalDecision::Deny(DenyReason::SlippageFloor)
-    }
+    pass.then_some(()).ok_or(miss)
 }
 
 /// Resolve a leaf to the `Val` it denotes for the call under evaluation.
 ///
-/// `None` means the leaf named something this call does not carry - an
-/// argument index past the end, an argument whose shape is not what the leaf
-/// assumed, an absent map field. Every caller turns `None` into a deny, so an
-/// unresolvable leaf is always fail-closed.
-#[rustfmt::skip] fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext) -> Option<Val> {
-    match leaf {
-        Leaf::CallContract => Some(ctx.contract.clone().into_val(env)),
-        Leaf::CallFn => Some(ctx.fn_name.clone().into_val(env)),
-        Leaf::CallArg(i) => ctx.args.get(*i),
-        Leaf::CallArgLen(i) => {
-            let items = SorobanVec::<Val>::try_from_val(env, &ctx.args.get(*i)?).ok()?;
-            Some(items.len().into_val(env))
+/// An `Err` is always a deny. `ArgMismatch` means the leaf named something
+/// this call does not carry - an argument past the end, a shape other than the
+/// leaf assumed, a read that failed or returned a non-number;
+/// `ArithmeticOverflow` is a `scaled` step that did not fit.
+fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext) -> Result<Val, DenyReason> {
+    let miss = DenyReason::ArgMismatch;
+    Ok(match leaf {
+        Leaf::CallContract => ctx.contract.clone().into_val(env),
+        Leaf::CallFn => ctx.fn_name.clone().into_val(env),
+        Leaf::CallPath(steps) => walk(env, ctx.args.clone().into_val(env), steps).ok_or(miss)?,
+        Leaf::Now => env.ledger().timestamp().into_val(env),
+        Leaf::Read(contract, func, args, steps) => env
+            .try_invoke_contract::<Val, Error>(contract, func, args.clone())
+            .ok()
+            .and_then(|r| r.ok())
+            .and_then(|v| walk(env, v, steps))
+            .filter(|v| val_to_i128(env, v).is_some())
+            .ok_or(miss)?,
+        Leaf::Scaled(k, den) => {
+            let n = |l: &Leaf| resolve(env, l, ctx).and_then(|v| val_to_i128(env, &v).ok_or(miss));
+            let (src, num, add) = (n(&k[0])?, n(&k[1])?, n(&k[2])?);
+            src.checked_mul(num)
+                .and_then(|p| p.checked_div(*den))
+                .and_then(|q| q.checked_add(add))
+                .ok_or(DenyReason::ArithmeticOverflow)?
+                .into_val(env)
         }
-        Leaf::CallArgField {
-            index,
-            element,
-            field,
-        } => {
-            let outer = SorobanVec::<Val>::try_from_val(env, &ctx.args.get(*index)?).ok()?;
-            let map = Map::<Symbol, Val>::try_from_val(env, &outer.get(*element)?).ok()?;
-            map.get(field.clone())
-        }
-        Leaf::CallPath(steps) => {
-            let mut cur: Val = ctx.args.clone().into_val(env);
-            for step in steps.iter() {
-                cur = match step {
-                    PathStep::Index(i) => {
-                        SorobanVec::<Val>::try_from_val(env, &cur).ok()?.get(*i)?
-                    }
-                    PathStep::Field(f) => Map::<Symbol, Val>::try_from_val(env, &cur)
+        _ => literal_to_val(env, leaf).ok_or(miss)?,
+    })
+}
+
+/// Follow `steps` from `cur`; `None` when a step finds something else.
+fn walk(env: &Env, mut cur: Val, steps: &[PathStep]) -> Option<Val> {
+    for step in steps {
+        cur = match step {
+            PathStep::Index(i) => SorobanVec::<Val>::try_from_val(env, &cur).ok()?.get(*i)?,
+            PathStep::Field(f) => Map::<Symbol, Val>::try_from_val(env, &cur)
+                .ok()?
+                .get(f.clone())?,
+            PathStep::Len => {
+                return Some(
+                    SorobanVec::<Val>::try_from_val(env, &cur)
                         .ok()?
-                        .get(f.clone())?,
-                    PathStep::Len => {
-                        return Some(
-                            SorobanVec::<Val>::try_from_val(env, &cur).ok()?.len().into_val(env),
-                        )
-                    }
-                };
+                        .len()
+                        .into_val(env),
+                )
             }
-            Some(cur)
-        }
-        _ => literal_to_val(env, leaf),
+        };
     }
+    Some(cur)
 }
 
 /// True when the predicate constrains at least one property of the call
@@ -517,19 +409,17 @@ fn eval_scaled_arg_compare(
 /// permits everything or nothing forever. `install` refuses such a predicate
 /// so a no-constraint policy cannot install under any name.
 ///
-/// Recurses into `LiteralVec`: a selector wrapped in a literal vector is
-/// still a selector.
+/// Only a leaf that reads the authorised call counts. `read` and `now` do not:
+/// a rule made of reads and the clock alone says nothing about the call it
+/// authorises. Recurses into the vectors and `scaled` operands that hold other
+/// leaves, since a selector inside either is still a selector.
 pub fn has_selector_leaf(root: &Node) -> bool {
     fn selects(leaf: &Leaf) -> bool {
         match leaf {
-            Leaf::LiteralAddress(_)
-            | Leaf::LiteralI128(_)
-            | Leaf::LiteralSymbol(_)
-            | Leaf::LiteralU32(_) => false,
+            Leaf::CallContract | Leaf::CallFn | Leaf::CallPath(_) => true,
             Leaf::LiteralVec(elements) => elements.iter().any(selects),
-            // Every remaining variant reads something from the call under
-            // evaluation, so it constrains the policy.
-            _ => true,
+            Leaf::Scaled(k, _) => k.iter().any(selects),
+            _ => false,
         }
     }
     match root {
@@ -537,62 +427,6 @@ pub fn has_selector_leaf(root: &Node) -> bool {
         Node::Compare { left, right, .. } => selects(left) || selects(right),
         Node::In { needle, haystack } => selects(needle) || haystack.iter().any(selects),
     }
-}
-
-/// Why a predicate is not installable on slippage-floor grounds.
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
-pub enum ScaledRatioError {
-    /// `den == 0`. The division would fail at evaluate; refusing here is
-    /// loud once rather than a rule that denies forever.
-    ZeroDenominator,
-    /// `num <= 0` or `den <= 0`. A negative ratio silently INVERTS the
-    /// comparison, so a floor permits exactly what it was written to refuse.
-    NonPositiveRatio,
-}
-
-/// Refuse a `call_arg_scaled` whose ratio cannot express a floor.
-///
-/// Checked at install rather than only at evaluate because both failures are
-/// properties of the predicate itself, knowable the moment it is written.
-pub fn validate_scaled_ratios(root: &Node) -> Result<(), ScaledRatioError> {
-    fn leaf(l: &Leaf) -> Result<(), ScaledRatioError> {
-        match l {
-            Leaf::CallArgScaled { num, den, .. } => {
-                if *den == 0 {
-                    return Err(ScaledRatioError::ZeroDenominator);
-                }
-                if *num <= 0 || *den < 0 {
-                    return Err(ScaledRatioError::NonPositiveRatio);
-                }
-                Ok(())
-            }
-            Leaf::LiteralVec(elements) => {
-                for e in elements {
-                    leaf(e)?;
-                }
-                Ok(())
-            }
-            _ => Ok(()),
-        }
-    }
-    match root {
-        Node::And(children) | Node::Or(children) => {
-            for c in children {
-                validate_scaled_ratios(c)?;
-            }
-        }
-        Node::Compare { left, right, .. } => {
-            leaf(left)?;
-            leaf(right)?;
-        }
-        Node::In { needle, haystack } => {
-            leaf(needle)?;
-            for h in haystack {
-                leaf(h)?;
-            }
-        }
-    }
-    Ok(())
 }
 
 /// Widen any integral `Val` the host may carry to `i128` for ordering.
@@ -613,15 +447,15 @@ fn val_to_i128(env: &Env, v: &Val) -> Option<i128> {
 mod dsl_decode {
     extern crate alloc;
 
-    use alloc::vec::Vec;
+    use alloc::{boxed::Box, vec, vec::Vec};
 
     use soroban_sdk::xdr::FromXdr;
     use soroban_sdk::{Address, Bytes, Env, Symbol, TryFromVal, Val, Vec as SorobanVec};
 
-    #[rustfmt::skip] use super::{
-        CompareOp, Leaf, Node, MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_PREDICATE_BYTES,
-        OP_AND, OP_EQ, OP_GT, OP_GTE, OP_IN, OP_LT, OP_LTE, OP_OR,
-        PathStep, SEL_CALL_ARG, SEL_CALL_ARG_FIELD, SEL_CALL_ARG_LEN, SEL_CALL_ARG_SCALED,
+    use super::{
+        literal_to_val, CompareOp, Leaf, Node, PathStep, MAX_DEPTH, MAX_IN_OPERAND_COUNT,
+        MAX_LEAVES, MAX_PATH_STEPS, MAX_PREDICATE_BYTES, MAX_READS, OP_AND, OP_EQ, OP_GT, OP_GTE,
+        OP_IN, OP_LT, OP_LTE, OP_OR, SEL_CALL_ARG, SEL_CALL_ARG_FIELD, SEL_CALL_ARG_LEN,
         SEL_CALL_CONTRACT, SEL_CALL_FN, SEL_CALL_PATH,
     };
 
@@ -633,9 +467,11 @@ mod dsl_decode {
         /// Empty / wrong-Variant / wrong-arity / unknown op or selector
         /// symbol / `in []` at decode. Maps to `MALFORMED_PREDICATE`.
         MalformedPredicate,
-        /// Depth exceeded MAX_DEPTH (5). Maps to `PREDICATE_TOO_DEEP`.
+        /// Depth exceeded MAX_DEPTH (5), in the node tree or in a leaf's
+        /// nesting. Maps to `PREDICATE_TOO_DEEP`.
         PredicateTooDeep,
-        /// Leaf count exceeded MAX_LEAVES (200). Maps to `TOO_MANY_LEAVES`.
+        /// Leaf count exceeded MAX_LEAVES (200), or `read` count exceeded
+        /// MAX_READS (4). Maps to `TOO_MANY_LEAVES`.
         TooManyLeaves,
         /// An `in` haystack exceeded MAX_IN_OPERAND_COUNT (32).
         InOperandLimit,
@@ -662,16 +498,13 @@ mod dsl_decode {
         let v: Val = Val::from_xdr(env, bytes).map_err(|_| DecodeError::MalformedPredicate)?;
         let root: SorobanVec<Val> = SorobanVec::<Val>::try_from_val(env, &v)
             .map_err(|_| DecodeError::MalformedPredicate)?;
-        if root.is_empty() {
-            return Err(DecodeError::MalformedPredicate);
-        }
         let root_node = decode_node(env, &root)?;
         let mut stats = NodeStats::default();
         walk(&root_node, 1, &mut stats);
         if stats.depth > MAX_DEPTH {
             return Err(DecodeError::PredicateTooDeep);
         }
-        if stats.leaves > MAX_LEAVES {
+        if stats.leaves > MAX_LEAVES || stats.reads > MAX_READS {
             return Err(DecodeError::TooManyLeaves);
         }
         if stats.max_in_operands > MAX_IN_OPERAND_COUNT {
@@ -695,13 +528,12 @@ mod dsl_decode {
     struct NodeStats {
         depth: u32,
         leaves: u32,
+        reads: u32,
         max_in_operands: u32,
     }
 
     fn walk(node: &Node, d: u32, s: &mut NodeStats) {
-        if d > s.depth {
-            s.depth = d;
-        }
+        s.depth = s.depth.max(d);
         match node {
             Node::And(children) | Node::Or(children) => {
                 for c in children {
@@ -709,44 +541,32 @@ mod dsl_decode {
                 }
             }
             Node::Compare { left, right, .. } => {
-                s.leaves = s.leaves.saturating_add(leaf_leaves(left));
-                s.leaves = s.leaves.saturating_add(leaf_leaves(right));
+                tally(left, s);
+                tally(right, s);
             }
             Node::In { needle, haystack } => {
-                s.leaves = s.leaves.saturating_add(leaf_leaves(needle));
-                for h in haystack {
-                    s.leaves = s.leaves.saturating_add(leaf_leaves(h));
-                }
-                let operands = u32::try_from(haystack.len()).unwrap_or(u32::MAX);
-                if operands > s.max_in_operands {
-                    s.max_in_operands = operands;
-                }
+                tally(needle, s);
+                haystack.iter().for_each(|h| tally(h, s));
+                s.max_in_operands = s.max_in_operands.max(haystack.len() as u32);
             }
         }
     }
 
-    fn leaf_leaves(leaf: &Leaf) -> u32 {
+    /// Count one leaf, and everything nested inside it, against the caps.
+    fn tally(leaf: &Leaf, s: &mut NodeStats) {
+        s.leaves = s.leaves.saturating_add(1);
         match leaf {
-            Leaf::LiteralVec(elements) => {
-                let mut n: u32 = 1;
-                for e in elements {
-                    n = n.saturating_add(leaf_leaves(e));
-                }
-                n
-            }
-            _ => 1,
+            Leaf::LiteralVec(elements) => elements.iter().for_each(|e| tally(e, s)),
+            Leaf::Scaled(operands, _) => operands.iter().for_each(|e| tally(e, s)),
+            Leaf::Read(..) => s.reads += 1,
+            _ => {}
         }
     }
 
     // ---- structural decoder ----
 
     fn decode_node(env: &Env, items: &SorobanVec<Val>) -> Result<Node, DecodeError> {
-        if items.is_empty() {
-            return Err(DecodeError::MalformedPredicate);
-        }
-        let head = items.get(0).ok_or(DecodeError::MalformedPredicate)?;
-        let head_sym =
-            Symbol::try_from_val(env, &head).map_err(|_| DecodeError::MalformedPredicate)?;
+        let head_sym = expect::<Symbol>(env, items, 0)?;
         // Compare via PartialEq (works on wasm; Symbol has no ToString on
         // the wasm target because the SDK hides the underlying string
         // representation behind a host object).
@@ -776,8 +596,8 @@ mod dsl_decode {
     /// PartialEq dispatch in the decoder; avoids any string-conversion
     /// host call.
     fn sym_const(env: &Env, bytes: &[u8]) -> Symbol {
-        // SAFETY: every literal here is a short ASCII string (≤ 9 bytes),
-        // which the SDK accepts as a small (SymbolSmall) symbol.
+        // SAFETY: every literal here is ASCII, which the SDK accepts as a
+        // symbol.
         let s = core::str::from_utf8(bytes).expect("tag is ASCII");
         Symbol::new(env, s)
     }
@@ -787,21 +607,12 @@ mod dsl_decode {
     /// so neither can degenerate into a node that permits (empty `and`) or
     /// denies (empty `or`) regardless of the call.
     fn decode_children(env: &Env, items: &SorobanVec<Val>) -> Result<Vec<Node>, DecodeError> {
-        if items.len() != 2 {
-            return Err(DecodeError::MalformedPredicate);
-        }
-        let inner_val = items.get(1).ok_or(DecodeError::MalformedPredicate)?;
-        let children_items: SorobanVec<Val> = SorobanVec::<Val>::try_from_val(env, &inner_val)
-            .map_err(|_| DecodeError::MalformedPredicate)?;
-        if children_items.is_empty() {
-            return Err(DecodeError::MalformedPredicate);
-        }
+        ensure(items.len() == 2)?;
+        let children_items = expect::<SorobanVec<Val>>(env, items, 1)?;
+        ensure(!children_items.is_empty())?;
         let mut children: Vec<Node> = Vec::with_capacity(children_items.len() as usize);
         for i in 0..children_items.len() {
-            let c = children_items
-                .get(i)
-                .ok_or(DecodeError::MalformedPredicate)?;
-            children.push(decode_node(env, &single_tuple(env, &c)?)?);
+            children.push(decode_node(env, &expect(env, &children_items, i)?)?);
         }
         Ok(children)
     }
@@ -811,13 +622,9 @@ mod dsl_decode {
         items: &SorobanVec<Val>,
         op_name: &[u8],
     ) -> Result<Node, DecodeError> {
-        if items.len() != 3 {
-            return Err(DecodeError::MalformedPredicate);
-        }
-        let left_val = items.get(1).ok_or(DecodeError::MalformedPredicate)?;
-        let right_val = items.get(2).ok_or(DecodeError::MalformedPredicate)?;
-        let left = decode_leaf(env, &left_val)?;
-        let right = decode_leaf(env, &right_val)?;
+        ensure(items.len() == 3)?;
+        let left = decode_leaf(env, &at(items, 1)?, 1)?;
+        let right = decode_leaf(env, &at(items, 2)?, 1)?;
         let op = match op_name {
             OP_EQ => CompareOp::Eq,
             OP_LT => CompareOp::Lt,
@@ -830,47 +637,36 @@ mod dsl_decode {
     }
 
     fn decode_in(env: &Env, items: &SorobanVec<Val>) -> Result<Node, DecodeError> {
-        if items.len() != 3 {
-            return Err(DecodeError::MalformedPredicate);
-        }
-        let needle_val = items.get(1).ok_or(DecodeError::MalformedPredicate)?;
-        let needle = decode_leaf(env, &needle_val)?;
-        let haystack_val = items.get(2).ok_or(DecodeError::MalformedPredicate)?;
-        let haystack_items: SorobanVec<Val> = SorobanVec::<Val>::try_from_val(env, &haystack_val)
-            .map_err(|_| DecodeError::MalformedPredicate)?;
-        if haystack_items.is_empty() {
-            return Err(DecodeError::MalformedPredicate);
-        }
+        ensure(items.len() == 3)?;
+        let needle = decode_leaf(env, &at(items, 1)?, 1)?;
+        let haystack_items = expect::<SorobanVec<Val>>(env, items, 2)?;
+        ensure(!haystack_items.is_empty())?;
         let mut haystack: Vec<Leaf> = Vec::with_capacity(haystack_items.len() as usize);
         for i in 0..haystack_items.len() {
-            let h = haystack_items
-                .get(i)
-                .ok_or(DecodeError::MalformedPredicate)?;
-            haystack.push(decode_leaf(env, &h)?);
+            haystack.push(decode_leaf(env, &at(&haystack_items, i)?, 1)?);
         }
         Ok(Node::In { needle, haystack })
     }
 
-    fn single_tuple(env: &Env, v: &Val) -> Result<SorobanVec<Val>, DecodeError> {
-        SorobanVec::<Val>::try_from_val(env, v).map_err(|_| DecodeError::MalformedPredicate)
-    }
-
-    pub(super) fn decode_leaf(env: &Env, val: &Val) -> Result<Leaf, DecodeError> {
+    /// Decode one leaf. `depth` is how deeply it is nested inside other
+    /// leaves (a literal vector, a `scaled` operand), and is capped at
+    /// `MAX_DEPTH` so the decoder and the evaluator both recurse a bounded
+    /// number of times.
+    pub(super) fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Result<Leaf, DecodeError> {
+        if depth > MAX_DEPTH {
+            return Err(DecodeError::PredicateTooDeep);
+        }
         // Selector tuples are `Vec<Val>` whose head is a `Symbol`. Literal
         // vectors are `Vec<Val>` whose head is NOT a known selector symbol.
         if let Ok(items) = SorobanVec::<Val>::try_from_val(env, val) {
-            if items.is_empty() {
-                return Err(DecodeError::MalformedPredicate);
-            }
-            let head = items.get(0).ok_or(DecodeError::MalformedPredicate)?;
-            if let Ok(sym) = Symbol::try_from_val(env, &head) {
-                return decode_selector_leaf(env, &items, sym);
+            ensure(!items.is_empty())?;
+            if let Ok(sym) = expect::<Symbol>(env, &items, 0) {
+                return decode_selector_leaf(env, &items, sym, depth);
             }
             // Literal vector: order preserved verbatim.
             let mut elems: Vec<Leaf> = Vec::with_capacity(items.len() as usize);
             for i in 0..items.len() {
-                let e = items.get(i).ok_or(DecodeError::MalformedPredicate)?;
-                elems.push(decode_leaf(env, &e)?);
+                elems.push(decode_leaf(env, &at(&items, i)?, depth + 1)?);
             }
             return Ok(Leaf::LiteralVec(elems));
         }
@@ -894,96 +690,114 @@ mod dsl_decode {
         env: &Env,
         items: &SorobanVec<Val>,
         head: Symbol,
+        depth: u32,
     ) -> Result<Leaf, DecodeError> {
         if head == sym_const(env, SEL_CALL_CONTRACT) {
-            check_arity(items.len(), 1)?;
+            ensure(items.len() == 1)?;
             Ok(Leaf::CallContract)
         } else if head == sym_const(env, SEL_CALL_FN) {
-            check_arity(items.len(), 1)?;
+            ensure(items.len() == 1)?;
             Ok(Leaf::CallFn)
+        } else if head == sym_const(env, b"now") {
+            ensure(items.len() == 1)?;
+            Ok(Leaf::Now)
         } else if head == sym_const(env, SEL_CALL_ARG) {
-            check_arity(items.len(), 2)?;
-            let i = expect_u32(env, items.get(1).ok_or(DecodeError::MalformedPredicate)?)?;
-            Ok(Leaf::CallArg(i))
+            ensure(items.len() == 2)?;
+            Ok(Leaf::CallPath(vec![PathStep::Index(expect(
+                env, items, 1,
+            )?)]))
         } else if head == sym_const(env, SEL_CALL_ARG_LEN) {
-            check_arity(items.len(), 2)?;
-            let i = expect_u32(env, items.get(1).ok_or(DecodeError::MalformedPredicate)?)?;
-            Ok(Leaf::CallArgLen(i))
+            ensure(items.len() == 2)?;
+            Ok(Leaf::CallPath(vec![
+                PathStep::Index(expect(env, items, 1)?),
+                PathStep::Len,
+            ]))
         } else if head == sym_const(env, SEL_CALL_ARG_FIELD) {
-            check_arity(items.len(), 4)?;
-            let i = expect_u32(env, items.get(1).ok_or(DecodeError::MalformedPredicate)?)?;
-            let e = expect_u32(env, items.get(2).ok_or(DecodeError::MalformedPredicate)?)?;
-            let f = expect_symbol(env, items.get(3).ok_or(DecodeError::MalformedPredicate)?)?;
-            Ok(Leaf::CallArgField {
-                index: i,
-                element: e,
-                field: f,
-            })
+            ensure(items.len() == 4)?;
+            Ok(Leaf::CallPath(vec![
+                PathStep::Index(expect(env, items, 1)?),
+                PathStep::Index(expect(env, items, 2)?),
+                PathStep::Field(expect(env, items, 3)?),
+            ]))
         } else if head == sym_const(env, SEL_CALL_PATH) {
-            // Variable arity: (symbol, step, step, ...). At least one step,
-            // at most MAX_PATH_STEPS. A step is a u32 index or a symbol key;
-            // anything else is refused here rather than reinterpreted at
-            // evaluate.
-            let count = items.len() - 1;
-            if count == 0 || count > super::MAX_PATH_STEPS {
-                return Err(DecodeError::MalformedPredicate);
+            Ok(Leaf::CallPath(decode_steps(env, items, 1, 1)?))
+        } else if head == sym_const(env, b"read") {
+            // (read, contract, fn, [args], step...). The contract and function
+            // are fixed fields, so the predicate hash pins them. Arguments
+            // must be literals: a selector, a `now`, another `read` or a
+            // `scaled` has no `Val` form here and is refused.
+            ensure(items.len() >= 4)?;
+            let mut args = SorobanVec::<Val>::new(env);
+            for a in expect::<SorobanVec<Val>>(env, items, 3)?.iter() {
+                let literal = literal_to_val(env, &decode_leaf(env, &a, depth + 1)?);
+                args.push_back(literal.ok_or(DecodeError::MalformedPredicate)?);
             }
-            let mut steps = alloc::vec::Vec::new();
-            for n in 1..items.len() {
-                let raw = items.get(n).ok_or(DecodeError::MalformedPredicate)?;
-                if let Ok(i) = expect_u32(env, raw) {
-                    steps.push(PathStep::Index(i));
-                } else if bool::try_from_val(env, &raw).unwrap_or(false) {
-                    // `true` marks the length step, and it must be last:
-                    // a length has nothing to index into.
-                    if n + 1 != items.len() {
-                        return Err(DecodeError::MalformedPredicate);
-                    }
-                    steps.push(PathStep::Len);
-                } else {
-                    steps.push(PathStep::Field(expect_symbol(env, raw)?));
-                }
-            }
-            Ok(Leaf::CallPath(steps))
-        } else if head == sym_const(env, SEL_CALL_ARG_SCALED) {
-            // Arity 4: (symbol, u32 index, i128 num, i128 den). The decoder
-            // is the single place that validates type and presence, so a
-            // hand-crafted tuple carrying a u32 in the num/den slot is
-            // refused here rather than reinterpreted at evaluate.
-            check_arity(items.len(), 4)?;
-            let i = expect_u32(env, items.get(1).ok_or(DecodeError::MalformedPredicate)?)?;
-            let num = expect_i128(env, items.get(2).ok_or(DecodeError::MalformedPredicate)?)?;
-            let den = expect_i128(env, items.get(3).ok_or(DecodeError::MalformedPredicate)?)?;
-            Ok(Leaf::CallArgScaled { index: i, num, den })
+            Ok(Leaf::Read(
+                expect(env, items, 1)?,
+                expect(env, items, 2)?,
+                args,
+                decode_steps(env, items, 4, 0)?,
+            ))
+        } else if head == sym_const(env, b"scaled") {
+            // (scaled, src, num, den, add). `den` is a constant and must be
+            // positive: zero cannot divide, and a negative one would flip the
+            // sign of every bound it scales.
+            ensure(items.len() == 5)?;
+            let den = expect::<i128>(env, items, 3)?;
+            ensure(den > 0)?;
+            let operand = |i| decode_leaf(env, &at(items, i)?, depth + 1);
+            Ok(Leaf::Scaled(
+                Box::new([operand(1)?, operand(2)?, operand(4)?]),
+                den,
+            ))
         } else {
             // Unknown symbol at a selector position -> MALFORMED.
             Err(DecodeError::MalformedPredicate)
         }
     }
 
-    fn check_arity(actual: u32, expected: u32) -> Result<(), DecodeError> {
-        if actual == expected {
-            Ok(())
-        } else {
-            Err(DecodeError::MalformedPredicate)
+    /// The path steps in `items[from..]`, at most `MAX_PATH_STEPS`. A step is
+    /// a u32 index or a symbol key; `true` marks the length step, which must
+    /// be last because a length has nothing to index into. Anything else is
+    /// refused here rather than reinterpreted at evaluate. `min` is the fewest
+    /// steps: `call_path` needs one; a `read` result may be the value itself.
+    fn decode_steps(
+        env: &Env,
+        items: &SorobanVec<Val>,
+        from: u32,
+        min: u32,
+    ) -> Result<Vec<PathStep>, DecodeError> {
+        ensure((min..=MAX_PATH_STEPS).contains(&(items.len() - from)))?;
+        let mut steps = Vec::new();
+        for n in from..items.len() {
+            steps.push(if let Ok(i) = expect(env, items, n) {
+                PathStep::Index(i)
+            } else if expect(env, items, n).unwrap_or(false) {
+                ensure(n + 1 == items.len())?;
+                PathStep::Len
+            } else {
+                PathStep::Field(expect(env, items, n)?)
+            });
         }
+        Ok(steps)
     }
 
-    fn expect_u32(env: &Env, v: Val) -> Result<u32, DecodeError> {
-        u32::try_from_val(env, &v).map_err(|_| DecodeError::MalformedPredicate)
+    fn ensure(ok: bool) -> Result<(), DecodeError> {
+        ok.then_some(()).ok_or(DecodeError::MalformedPredicate)
     }
-    fn expect_i128(env: &Env, v: Val) -> Result<i128, DecodeError> {
-        i128::try_from_val(env, &v).map_err(|_| DecodeError::MalformedPredicate)
+
+    fn at(items: &SorobanVec<Val>, i: u32) -> Result<Val, DecodeError> {
+        items.get(i).ok_or(DecodeError::MalformedPredicate)
     }
-    fn expect_symbol(env: &Env, v: Val) -> Result<Symbol, DecodeError> {
-        Symbol::try_from_val(env, &v).map_err(|_| DecodeError::MalformedPredicate)
+
+    /// `items[i]` as a `T`; a missing item or a different type is MALFORMED.
+    /// The decoder is the single place that pins operand type, so a `u32` is
+    /// never silently widened into an `i128` slot.
+    fn expect<T: TryFromVal<Env, Val>>(
+        env: &Env,
+        items: &SorobanVec<Val>,
+        i: u32,
+    ) -> Result<T, DecodeError> {
+        T::try_from_val(env, &at(items, i)?).map_err(|_| DecodeError::MalformedPredicate)
     }
 }
-
-// The three `#[rustfmt::skip]` marks above hold `eval_compare`, `resolve` and
-// the decoder's import list in the layout the testnet grammar-6 instance was
-// built from. The wasm embeds the source line of every panic, so a reflow by a
-// newer rustfmt moves the hash with no change in behaviour, and the build would
-// stop matching `deployments/grammar6-testnet.json`. Drop the marks when the
-// interpreter is next redeployed. This note sits at the end of the file because
-// a line added above any panic moves the hash too.

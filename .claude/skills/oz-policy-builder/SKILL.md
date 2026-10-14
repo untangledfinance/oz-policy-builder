@@ -39,7 +39,7 @@ you build anything.
 | Ask what one call would do | `simulate_policy`, same inputs as verify |
 | Remove a rule | `revoke_policy` with `ruleId`. Master-only: the source must be the master signer set |
 | Check the interpreter the rule will point at | `get_interpreter_info` with `verifyLive: true` |
-| "at least N out" - a slippage floor on a swap | `declare_policy` with a minimum-output ratio. It bounds the call's OUTPUT against its own INPUT (`out >= in * num / den`), which is what lets one rule cover every trade size. Never infer the ratio from a recording: a recorded rate is a price at one moment, and freezing it as policy denies ordinary trades later. Ask for the ratio |
+| "at least N out" - a slippage floor on a swap | `declare_policy` with a minimum-output ratio. It bounds the call's OUTPUT against its own INPUT (`out >= in * num / den`), which is what lets one rule cover every trade size. Never infer the ratio from a recording: a recorded rate is a price at one moment, and freezing it as policy denies ordinary trades later. Ask for the ratio. A grammar-7 interpreter spells it `scaled(call_arg(i), num, den, 0)` and can also bound a price read from an oracle (`read`), against `now` for freshness. Grammar 7 makes `enforce` call the contracts a rule reads, so those must be trusted ones |
 | "N per day" - a rolling total | `install_policy` with `spendingLimit: { amount, periodLedgers }`. It attaches an OpenZeppelin `spending_limit` beside the predicate on the same rule; both must permit. NOT expressible as a predicate - the interpreter sees one call and keeps no state - so a per-call cap alone lets N through repeatedly. `periodLedgers` counts LEDGERS (~5s each); the rule must be scoped to the token contract whose transfers it meters |
 
 Pass both handle forms rather than retyping structures: `transactionHash` for a
@@ -229,7 +229,8 @@ From the interpreter (`contracts/prime/stellar/policy-interpreter/src/storage.rs
 | `#100` | `ArgMismatch` | An argument bound was not satisfied - an over-cap amount lands here. The cap working |
 | `#101` | `ContractScope` | The call went to a contract the predicate does not pin |
 | `#105` | `NotInAllowlist` | The recipient is not on the allowlist |
-| `#107` | `SlippageFloor` | Output fell below `in * num / den` |
+| `#107` | `SlippageFloor` | Output fell below `in * num / den`. Grammar 6 only; grammar 7 reports the same miss as `#100` |
+| `#102` | `ArithmeticOverflow` | A `scaled` step overflowed `i128` (grammar 7: the multiply, the divide or the add) |
 | `#200` | `VersionMismatch` | The package pins grammar 4 |
 | `#202` | `NonceReplay` | `install_nonce` must equal `stored_nonce + 1` |
 | `#204` | `RuleSignersChanged` | The signer set changed since install. The interpreter stored a hash of it and denies rather than quietly meaning less - the rule stops working, which is the safe direction |
