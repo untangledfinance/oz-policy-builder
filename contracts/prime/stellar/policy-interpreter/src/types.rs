@@ -8,8 +8,6 @@
 //! `Vec<Val>`) lets install hash-check them with `env.crypto().sha256` and
 //! enforce the 32 KB cap before any parsing work.
 
-extern crate alloc;
-
 use soroban_sdk::{contracttype, Bytes, BytesN};
 
 /// An authorised identity for a context rule.
@@ -23,8 +21,7 @@ pub enum Signer {
 impl Signer {
     pub fn address(&self) -> &soroban_sdk::Address {
         match self {
-            Signer::Delegated(a) => a,
-            Signer::External(a, _) => a,
+            Signer::Delegated(a) | Signer::External(a, _) => a,
         }
     }
 }

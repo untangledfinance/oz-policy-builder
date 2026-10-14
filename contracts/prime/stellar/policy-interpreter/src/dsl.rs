@@ -460,6 +460,9 @@ impl DecodeError {
     }
 }
 
+type Res<T> = Result<T, DecodeError>;
+type Vals = SorobanVec<Val>;
+
 /// Decode a predicate root, checking the byte-size cap against the raw XDR
 /// (the only place the payload length is still in hand) and then the cap trio
 /// (depth / leaves / `read`s). `in` haystacks are capped as they decode.
@@ -482,7 +485,7 @@ pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
 
 // ---- structural decoder ----
 
-fn decode_node(env: &Env, items: &SorobanVec<Val>) -> Result<Node, DecodeError> {
+fn decode_node(env: &Env, items: &Vals) -> Res<Node> {
     let head = expect::<Symbol>(env, items, 0)?;
     // Compare via PartialEq (works on wasm; Symbol has no ToString on the wasm
     // target because the SDK hides the underlying string representation
@@ -515,40 +518,39 @@ fn decode_node(env: &Env, items: &SorobanVec<Val>) -> Result<Node, DecodeError> 
 /// operand, a non-empty vector of child tuples; an empty list is refused
 /// so neither can degenerate into a node that permits (empty `and`) or
 /// denies (empty `or`) regardless of the call.
-fn decode_children(env: &Env, items: &SorobanVec<Val>) -> Result<Vec<Node>, DecodeError> {
+fn decode_children(env: &Env, items: &Vals) -> Res<Vec<Node>> {
     ensure(items.len() == 2)?;
-    let children: SorobanVec<Val> = expect(env, items, 1)?;
+    let children: Vals = expect(env, items, 1)?;
     ensure(!children.is_empty())?;
-    children
-        .iter()
-        .map(|c| decode_node(env, &to(env, &c)?))
-        .collect()
+    each(&children, |c| decode_node(env, &to(env, &c)?))
 }
 
-fn leaf_at(env: &Env, items: &SorobanVec<Val>, i: u32) -> Result<Leaf, DecodeError> {
+/// Decode every element of `vals`, failing on the first that does not.
+fn each<T>(vals: &Vals, f: impl FnMut(Val) -> Res<T>) -> Res<Vec<T>> {
+    vals.iter().map(f).collect()
+}
+
+fn leaf_at(env: &Env, items: &Vals, i: u32) -> Res<Leaf> {
     decode_leaf(env, &at(items, i)?, 1)
 }
 
-fn decode_in(env: &Env, items: &SorobanVec<Val>) -> Result<Node, DecodeError> {
+fn decode_in(env: &Env, items: &Vals) -> Res<Node> {
     ensure(items.len() == 3)?;
     let needle = leaf_at(env, items, 1)?;
-    let entries: SorobanVec<Val> = expect(env, items, 2)?;
+    let entries: Vals = expect(env, items, 2)?;
     ensure(!entries.is_empty())?;
     if entries.len() > MAX_IN_OPERAND_COUNT {
         return Err(DecodeError::InOperandLimit);
     }
-    let haystack: Result<_, _> = entries.iter().map(|h| literal(env, &h, 1)).collect();
-    Ok(Node::In {
-        needle,
-        haystack: haystack?,
-    })
+    let haystack = each(&entries, |h| literal(env, &h, 1))?;
+    Ok(Node::In { needle, haystack })
 }
 
 /// Decode one leaf. `depth` is how deeply it is nested inside other
 /// leaves (a literal vector, a `scaled` operand), and is capped at
 /// `MAX_DEPTH` so the decoder and the evaluator both recurse a bounded
 /// number of times.
-fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Result<Leaf, DecodeError> {
+fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
     if depth > MAX_DEPTH {
         return Err(DecodeError::PredicateTooDeep);
     }
@@ -560,8 +562,7 @@ fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Result<Leaf, DecodeError> {
             return decode_selector_leaf(env, &items, sym, depth);
         }
         // Literal vector: order preserved verbatim.
-        let elems = items.iter().map(|e| literal(env, &e, depth + 1));
-        return elems.collect::<Result<_, _>>().map(Leaf::LiteralVec);
+        return each(&items, |e| literal(env, &e, depth + 1)).map(Leaf::LiteralVec);
     }
     // Bare literals.
     Address::try_from_val(env, val)
@@ -576,17 +577,12 @@ fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Result<Leaf, DecodeError> {
 /// A leaf that must be a constant: an `in` entry or a literal-vec element.
 /// Anything else would decode, count toward the caps and the selector
 /// check, and then never be compared.
-fn literal(env: &Env, val: &Val, depth: u32) -> Result<Leaf, DecodeError> {
+fn literal(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
     let leaf = decode_leaf(env, val, depth)?;
     literal_to_val(env, &leaf).ok_or(DecodeError::MalformedPredicate)?;
     Ok(leaf)
 }
-fn decode_selector_leaf(
-    env: &Env,
-    items: &SorobanVec<Val>,
-    head: Symbol,
-    depth: u32,
-) -> Result<Leaf, DecodeError> {
+fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Res<Leaf> {
     let is = |n: u32, name: &str| items.len() == n && head == Symbol::new(env, name);
     let step = |i| expect(env, items, i).map(PathStep::Index);
     if is(1, "call_contract") {
@@ -614,12 +610,11 @@ fn decode_selector_leaf(
             let leaf = decode_leaf(env, &a, depth + 1)?;
             literal_to_val(env, &leaf).ok_or(DecodeError::MalformedPredicate)
         };
-        let args: SorobanVec<Val> = expect(env, items, 3)?;
-        let args: Result<Vec<Val>, _> = args.iter().map(arg).collect();
+        let args: Vals = expect(env, items, 3)?;
         Ok(Leaf::Read(
             expect(env, items, 1)?,
             expect(env, items, 2)?,
-            SorobanVec::from_slice(env, &args?),
+            SorobanVec::from_slice(env, &each(&args, arg)?),
             decode_steps(env, items, 4, 0)?,
         ))
     } else if is(5, "scaled") {
@@ -648,12 +643,7 @@ fn decode_selector_leaf(
 /// be last because a length has nothing to index into. Anything else is
 /// refused here rather than reinterpreted at evaluate. `min` is the fewest
 /// steps: `call_path` needs one; a `read` result may be the value itself.
-fn decode_steps(
-    env: &Env,
-    items: &SorobanVec<Val>,
-    from: u32,
-    min: u32,
-) -> Result<Vec<PathStep>, DecodeError> {
+fn decode_steps(env: &Env, items: &Vals, from: u32, min: u32) -> Res<Vec<PathStep>> {
     ensure((min..=MAX_PATH_STEPS).contains(&(items.len() - from)))?;
     let mut steps = Vec::new();
     for n in from..items.len() {
@@ -669,25 +659,21 @@ fn decode_steps(
     Ok(steps)
 }
 
-fn ensure(ok: bool) -> Result<(), DecodeError> {
+fn ensure(ok: bool) -> Res<()> {
     ok.then_some(()).ok_or(DecodeError::MalformedPredicate)
 }
 
-fn at(items: &SorobanVec<Val>, i: u32) -> Result<Val, DecodeError> {
+fn at(items: &Vals, i: u32) -> Res<Val> {
     items.get(i).ok_or(DecodeError::MalformedPredicate)
 }
 
 /// `items[i]` as a `T`; a missing item or a different type is MALFORMED.
 /// The decoder is the single place that pins operand type, so a `u32` is
 /// never silently widened into an `i128` slot.
-fn expect<T: TryFromVal<Env, Val>>(
-    env: &Env,
-    items: &SorobanVec<Val>,
-    i: u32,
-) -> Result<T, DecodeError> {
+fn expect<T: TryFromVal<Env, Val>>(env: &Env, items: &Vals, i: u32) -> Res<T> {
     to(env, &at(items, i)?)
 }
 
-fn to<T: TryFromVal<Env, Val>>(env: &Env, v: &Val) -> Result<T, DecodeError> {
+fn to<T: TryFromVal<Env, Val>>(env: &Env, v: &Val) -> Res<T> {
     T::try_from_val(env, v).map_err(|_| DecodeError::MalformedPredicate)
 }
