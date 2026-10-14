@@ -212,7 +212,41 @@ fn eval(env: &Env, node: &Node, ctx: &EvalContext) -> Result<(), DenyReason> {
             // practice; denying is the fail-closed answer if it ever is not.
             Err(first_deny.unwrap_or(DenyReason::UnsupportedNode))
         }
-        Node::Compare { op, left, right } => compare(env, *op, left, right, ctx),
+        // One `compare` node: both sides are resolved and compared once, and
+        // every failure to resolve or convert is a deny.
+        //
+        // A selector may be compared with another selector, or with itself,
+        // which is vacuously true and installs cleanly because
+        // `has_selector_leaf` sees a selector. That is a way to write a
+        // no-constraint policy and sits in the known-acceptable-risk column
+        // rather than being caught at install.
+        Node::Compare { op, left, right } => {
+            // `call_contract` and `call_fn` name an identity, not a quantity,
+            // so an ordering comparison over either is a node the interpreter
+            // never supported - distinct from a value that merely failed to
+            // match.
+            if *op != CompareOp::Eq && matches!(left, Leaf::CallContract | Leaf::CallFn) {
+                return Err(DenyReason::UnsupportedNode);
+            }
+            // A contract-scope miss is reported as its own reason so a review
+            // card can say "wrong contract" rather than "argument mismatch".
+            let miss = if matches!(left, Leaf::CallContract) {
+                DenyReason::ContractScope
+            } else {
+                DenyReason::ArgMismatch
+            };
+            let (a, b) = (resolve(env, left, ctx)?, resolve(env, right, ctx)?);
+            // A non-numeric operand (an address, a vector) has no ordering.
+            let n = |v: &Val| val_to_i128(env, v).ok_or(miss);
+            let pass = match op {
+                CompareOp::Eq => val_eq(env, &a, &b),
+                CompareOp::Lt => n(&a)? < n(&b)?,
+                CompareOp::Lte => n(&a)? <= n(&b)?,
+                CompareOp::Gt => n(&a)? > n(&b)?,
+                CompareOp::Gte => n(&a)? >= n(&b)?,
+            };
+            pass.then_some(()).ok_or(miss)
+        }
         // An opaque or undecodable needle fails closed as a membership miss,
         // not an argument mismatch: it cannot be on the allowlist because it
         // cannot be compared at all.
@@ -262,54 +296,6 @@ fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
         return (*a).to_xdr(env) == (*b).to_xdr(env);
     }
     false
-}
-
-/// Evaluate one `compare` node. Both sides are resolved and compared once;
-/// every failure to resolve or convert is a deny.
-///
-/// A selector may be compared with another selector, or with itself, which is
-/// vacuously true and installs cleanly because `has_selector_leaf` sees a
-/// selector. That is a way to write a no-constraint policy and sits in the
-/// known-acceptable-risk column rather than being caught at install.
-fn compare(
-    env: &Env,
-    op: CompareOp,
-    left: &Leaf,
-    right: &Leaf,
-    ctx: &EvalContext,
-) -> Result<(), DenyReason> {
-    // `call_contract` and `call_fn` name an identity, not a quantity, so an
-    // ordering comparison over either is a node the interpreter never
-    // supported - distinct from a value that merely failed to match.
-    if op != CompareOp::Eq && matches!(left, Leaf::CallContract | Leaf::CallFn) {
-        return Err(DenyReason::UnsupportedNode);
-    }
-    // A contract-scope miss is reported as its own reason so a review card can
-    // say "wrong contract" rather than "argument mismatch".
-    let miss = if matches!(left, Leaf::CallContract) {
-        DenyReason::ContractScope
-    } else {
-        DenyReason::ArgMismatch
-    };
-    let (a, b) = (resolve(env, left, ctx)?, resolve(env, right, ctx)?);
-    let pass = match op {
-        CompareOp::Eq => val_eq(env, &a, &b),
-        // A non-numeric operand (an address, a vector) has no ordering, so
-        // every ordering op shares one numeric-widening path.
-        _ => {
-            let (a, b) = (
-                val_to_i128(env, &a).ok_or(miss)?,
-                val_to_i128(env, &b).ok_or(miss)?,
-            );
-            match op {
-                CompareOp::Lt => a < b,
-                CompareOp::Lte => a <= b,
-                CompareOp::Gt => a > b,
-                _ => a >= b,
-            }
-        }
-    };
-    pass.then_some(()).ok_or(miss)
 }
 
 /// Resolve a leaf to the `Val` it denotes for the call under evaluation.
