@@ -198,6 +198,24 @@ pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
 /// reuses it, so a distinct call is made at most once per `enforce`.
 type Memo = Vec<((Address, Symbol, Vals), Option<Val>)>;
 
+// Decoder guarantees. The evaluator below relies on these and does not check
+// them again; `decode` (install) and `decode_stored` (enforce) establish them,
+// and `install` is the only writer of a stored predicate.
+//
+//  - `and` and `or` have at least one child; an `in` has 1..=32 entries, each a
+//    constant `literal_to_val` can convert; a compare has exactly two leaves.
+//  - An ordering compare (`lt`, `lte`, `gt`, `gte`) has no address, symbol or
+//    vector literal on either side, and `scaled` has none as an operand.
+//  - A `scaled` has exactly three operands and `den` in 1..=MAX_DEN; a constant
+//    `src` or `num` is positive, and a constant product or fold never overflows.
+//  - A `read` target is a contract address, its arguments are constants, and its
+//    path has at most MAX_PATH_STEPS steps; a `call_path` has 1..=MAX_PATH_STEPS,
+//    with `Len` only last.
+//  - Node depth and leaf nesting are at most MAX_DEPTH, so recursion is bounded.
+//  - Install only (not re-checked on enforce): at most MAX_LEAVES leaves, at most
+//    MAX_READS distinct reads, at most MAX_PREDICATE_BYTES bytes, and at least
+//    one selector leaf.
+
 fn eval(env: &Env, node: &Node, ctx: &EvalContext, memo: &mut Memo) -> Result<(), DenyReason> {
     match node {
         Node::And(children) => children.iter().try_for_each(|c| eval(env, c, ctx, memo)),
