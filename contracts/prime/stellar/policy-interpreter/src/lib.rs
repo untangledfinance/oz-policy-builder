@@ -23,7 +23,6 @@ use soroban_sdk::xdr::ToXdr;
 use soroban_sdk::{auth::Context, contract, contractimpl, Address, BytesN, Env, IntoVal, Vec};
 
 use crate::storage::{deny, ensure, load, PolicyError as E, TTL_BUMP_THRESHOLD, TTL_BUMP_TO};
-use crate::types::MAX_SIGNERS;
 
 #[contract]
 pub struct PolicyInterpreter;
@@ -108,20 +107,17 @@ impl PolicyInterpreter {
             let same = stored.master_set == p.policy_admins;
             ensure(e, same, E::MasterAuthRequired);
         }
-        let stored_nonce = prior.as_ref().map_or(0, |p| p.nonce);
-        let fresh = p.install_nonce == stored_nonce.saturating_add(1);
+        let fresh = p.install_nonce == prior.as_ref().map_or(0, |p| p.nonce).saturating_add(1);
         ensure(e, fresh, E::NonceReplay);
 
-        e.storage().persistent().set(
-            &key,
-            &StoredDoc {
-                predicate_bytes: install_params.predicate,
-                executor: prior.and_then(|p| p.executor),
-                nonce: install_params.install_nonce,
-                signers_hash: signers_hash(e, &context_rule.signers),
-                master_set: install_params.policy_admins,
-            },
-        );
+        let doc = StoredDoc {
+            predicate_bytes: install_params.predicate,
+            executor: prior.and_then(|p| p.executor),
+            nonce: install_params.install_nonce,
+            signers_hash: signers_hash(e, &context_rule.signers),
+            master_set: install_params.policy_admins,
+        };
+        e.storage().persistent().set(&key, &doc);
     }
 
     /// Bind every execution child rule before enabling its agent; preserve on reinstall.
@@ -130,10 +126,9 @@ impl PolicyInterpreter {
         let mut doc = load(e, &rule);
         require_master(e, &doc.master_set);
         doc.executor = Some(executor);
-        e.storage().persistent().set(&rule, &doc);
-        e.storage()
-            .persistent()
-            .extend_ttl(&rule, TTL_BUMP_THRESHOLD, TTL_BUMP_TO);
+        let store = e.storage().persistent();
+        store.set(&rule, &doc);
+        store.extend_ttl(&rule, TTL_BUMP_THRESHOLD, TTL_BUMP_TO);
     }
 
     pub fn enforce(
@@ -173,9 +168,8 @@ impl PolicyInterpreter {
         // back with the rest of the frame, so only a permit keeps the bump.
         // The rule is ONE entry, so its doc, nonce, signers hash and master
         // set share a lifecycle and cannot archive apart.
-        e.storage()
-            .persistent()
-            .extend_ttl(&key, TTL_BUMP_THRESHOLD, TTL_BUMP_TO);
+        let store = e.storage().persistent();
+        store.extend_ttl(&key, TTL_BUMP_THRESHOLD, TTL_BUMP_TO);
 
         // The interpreter is only invoked from a Contract auth context; any
         // other shape denies MISSING_STATE so the tx reverts cleanly.
@@ -185,7 +179,15 @@ impl PolicyInterpreter {
         // Surface the SPECIFIC deny code so a review card can say "not on the
         // allowlist" rather than "predicate false" (see `DenyReason`).
         if let dsl::EvalDecision::Deny(reason) = dsl::evaluate(e, &root, call) {
-            deny(e, E::from(reason));
+            // Exhaustive: a new `DenyReason` does not compile without its code.
+            let code = match reason {
+                DenyReason::ArgMismatch => E::ArgMismatch,
+                DenyReason::ContractScope => E::ContractScope,
+                DenyReason::ArithmeticOverflow => E::ArithmeticOverflow,
+                DenyReason::UnsupportedNode => E::UnsupportedNode,
+                DenyReason::NotInAllowlist => E::NotInAllowlist,
+            };
+            deny(e, code);
         }
     }
 
@@ -248,7 +250,7 @@ fn signers_hash(e: &Env, signers: &Vec<Signer>) -> BytesN<32> {
 ///   the alternative is byte-for-byte parity with OZ's `VerifierClient::verify`.
 fn require_usable_signer_set(e: &Env, signers: &Vec<Signer>) {
     ensure(e, !signers.is_empty(), E::EmptySignerSet);
-    ensure(e, signers.len() <= MAX_SIGNERS, E::TooManySigners);
+    ensure(e, signers.len() <= types::MAX_SIGNERS, E::TooManySigners);
     let external = signers.iter().any(|s| matches!(s, Signer::External(..)));
     ensure(e, !external, E::ExternalSignerNotSupported);
 }
@@ -266,5 +268,7 @@ fn require_usable_signer_set(e: &Env, signers: &Vec<Signer>) {
 /// The guard lives here so no caller can obtain a silently no-op check.
 fn require_master(e: &Env, master_set: &Vec<Signer>) {
     ensure(e, !master_set.is_empty(), E::EmptySignerSet);
-    master_set.iter().for_each(|s| s.address().require_auth());
+    master_set.iter().for_each(|s| match s {
+        Signer::Delegated(a) | Signer::External(a, _) => a.require_auth(),
+    });
 }

@@ -18,14 +18,6 @@ pub enum Signer {
     External(soroban_sdk::Address, Bytes),
 }
 
-impl Signer {
-    pub fn address(&self) -> &soroban_sdk::Address {
-        match self {
-            Signer::Delegated(a) | Signer::External(a, _) => a,
-        }
-    }
-}
-
 /// What a context rule is scoped to. Mirrors OZ's
 /// `smart_account::storage::ContextRuleType`.
 #[contracttype]

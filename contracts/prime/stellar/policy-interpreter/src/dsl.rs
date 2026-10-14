@@ -7,15 +7,10 @@
 //! evaluator can compare `Address`/`Symbol`/`Bytes` directly without
 //! byte-extraction helpers.
 
-extern crate alloc;
-
 use alloc::{boxed::Box, vec, vec::Vec};
-use core::cell::RefCell;
 
 use soroban_sdk::xdr::{FromXdr, ToXdr};
-use soroban_sdk::{
-    Address, Bytes, Env, Error, IntoVal, Map, Symbol, TryFromVal, Val, Vec as SorobanVec,
-};
+use soroban_sdk::{Address, Bytes, Env, Error, IntoVal, Map, Symbol, TryFromVal, Val};
 
 // ---- caps (mirrors TS PREDICATE_CAPS; the Rust side is authoritative) -----
 
@@ -138,7 +133,7 @@ pub enum Leaf {
     /// same steps a `CallPath` takes. Soroban has no read-only call, so the
     /// target must be a contract the policy owner trusts. A failed call or a
     /// result that is not a number resolves to nothing, which denies.
-    Read(Address, Symbol, SorobanVec<Val>, Vec<PathStep>),
+    Read(Address, Symbol, Vals, Vec<PathStep>),
     /// `[src, num, add]` and `den`: `src * num / den + add`, multiplying
     /// first, truncating toward zero, every step checked. Each of the three
     /// operands is any value leaf, nested `Scaled` included; `den` is a
@@ -193,7 +188,7 @@ impl DenyReason {
 
 /// Pure apart from `Leaf::Read`, which calls out to the contract it names.
 pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
-    eval(env, node, ctx, &Memo::default())
+    eval(env, node, ctx, &mut Memo::new())
         .err()
         .map_or(EvalDecision::Permit, EvalDecision::Deny)
 }
@@ -201,9 +196,9 @@ pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
 /// The calls this evaluation has already made, keyed by `(contract, fn, args)`
 /// and holding the raw result (`None` for a call that failed). A repeated read
 /// reuses it, so a distinct call is made at most once per `enforce`.
-type Memo = RefCell<Vec<(Address, Symbol, SorobanVec<Val>, Option<Val>)>>;
+type Memo = Vec<((Address, Symbol, Vals), Option<Val>)>;
 
-fn eval(env: &Env, node: &Node, ctx: &EvalContext, memo: &Memo) -> Result<(), DenyReason> {
+fn eval(env: &Env, node: &Node, ctx: &EvalContext, memo: &mut Memo) -> Result<(), DenyReason> {
     match node {
         Node::And(children) => children.iter().try_for_each(|c| eval(env, c, ctx, memo)),
         // Permits on the first branch that holds; when none does, reports the
@@ -213,16 +208,12 @@ fn eval(env: &Env, node: &Node, ctx: &EvalContext, memo: &Memo) -> Result<(), De
         // run last. It is deliberately not tied to authoring order - the
         // canonical encoding does not preserve that.
         Node::Or(children) => {
-            let mut first_deny = None;
-            for c in children {
-                match eval(env, c, ctx, memo) {
-                    Err(reason) => first_deny = first_deny.or(Some(reason)),
-                    permit => return permit,
-                }
-            }
+            let mut results = children.iter().map(|c| eval(env, c, ctx, memo));
             // An empty `or` is refused at decode, so this is unreachable in
             // practice; denying is the fail-closed answer if it ever is not.
-            Err(first_deny.unwrap_or(DenyReason::UnsupportedNode))
+            let first = results.next().unwrap_or(Err(DenyReason::UnsupportedNode));
+            // Lazy: later branches run only until one permits.
+            first.or_else(|deny| results.any(|r| r.is_ok()).then_some(()).ok_or(deny))
         }
         // One `compare` node: both sides are resolved and compared once, and
         // every failure to resolve or convert is a deny.
@@ -242,15 +233,12 @@ fn eval(env: &Env, node: &Node, ctx: &EvalContext, memo: &Memo) -> Result<(), De
             }
             // A contract-scope miss is reported as its own reason so a review
             // card can say "wrong contract" rather than "argument mismatch".
-            let miss = if matches!(left, Leaf::CallContract) {
-                DenyReason::ContractScope
-            } else {
-                DenyReason::ArgMismatch
+            let miss = match left {
+                Leaf::CallContract => DenyReason::ContractScope,
+                _ => DenyReason::ArgMismatch,
             };
-            let (a, b) = (
-                resolve(env, left, ctx, memo)?,
-                resolve(env, right, ctx, memo)?,
-            );
+            let a = resolve(env, left, ctx, memo)?;
+            let b = resolve(env, right, ctx, memo)?;
             // A non-numeric operand (an address, a vector) has no ordering.
             let n = |v: &Val| val_to_i128(env, v).ok_or(miss);
             let pass = match op {
@@ -267,7 +255,7 @@ fn eval(env: &Env, node: &Node, ctx: &EvalContext, memo: &Memo) -> Result<(), De
         // cannot be compared at all.
         Node::In { needle, haystack } => resolve(env, needle, ctx, memo)
             .is_ok_and(|x| {
-                let mut hay = haystack.iter().filter_map(|h| literal_to_val(env, h));
+                let mut hay = haystack.iter().filter_map(|h| literal_to_val(env, h).ok());
                 hay.any(|h| val_eq(env, &x, &h))
             })
             .then_some(())
@@ -276,17 +264,17 @@ fn eval(env: &Env, node: &Node, ctx: &EvalContext, memo: &Memo) -> Result<(), De
 }
 
 /// Convert a literal leaf to its `Val` form for equality comparisons.
-fn literal_to_val(env: &Env, leaf: &Leaf) -> Option<Val> {
-    Some(match leaf {
+fn literal_to_val(env: &Env, leaf: &Leaf) -> Res<Val> {
+    Ok(match leaf {
         Leaf::LiteralAddress(a) => a.into_val(env),
         Leaf::LiteralI128(v) => (*v).into_val(env),
         Leaf::LiteralSymbol(s) => s.into_val(env),
         Leaf::LiteralU32(v) => (*v).into_val(env),
         Leaf::LiteralVec(elements) => {
-            let vals: Option<Vec<Val>> = elements.iter().map(|e| literal_to_val(env, e)).collect();
-            SorobanVec::from_slice(env, &vals?).into_val(env)
+            let vals: Res<Vec<Val>> = elements.iter().map(|e| literal_to_val(env, e)).collect();
+            Vals::from_slice(env, &vals?).into_val(env)
         }
-        _ => return None,
+        _ => return Err(DecodeError::MalformedPredicate),
     })
 }
 
@@ -314,7 +302,7 @@ fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
 /// this call does not carry - an argument past the end, a shape other than the
 /// leaf assumed, a read that failed or returned a non-number;
 /// `ArithmeticOverflow` is a `scaled` step that did not fit.
-fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext, memo: &Memo) -> Result<Val, DenyReason> {
+fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext, memo: &mut Memo) -> Result<Val, DenyReason> {
     let miss = DenyReason::ArgMismatch;
     Ok(match leaf {
         Leaf::CallContract => ctx.contract.clone().into_val(env),
@@ -322,14 +310,12 @@ fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext, memo: &Memo) -> Result<Val
         Leaf::CallPath(steps) => walk(env, ctx.args.clone().into_val(env), steps).ok_or(miss)?,
         Leaf::Now => env.ledger().timestamp().into_val(env),
         Leaf::Read(c, f, a, steps) => {
-            let hit = (memo.borrow().iter())
-                .find(|r| (&r.0, &r.1, &r.2) == (c, f, a))
-                .map(|r| r.3);
+            let key = (c.clone(), f.clone(), a.clone());
+            let hit = memo.iter().find(|r| r.0 == key).map(|r| r.1);
             let raw = hit.unwrap_or_else(|| {
                 let call = env.try_invoke_contract::<Val, Error>(c, f, a.clone());
                 let raw = call.ok().and_then(|r| r.ok());
-                memo.borrow_mut()
-                    .push((c.clone(), f.clone(), a.clone(), raw));
+                memo.push((key, raw));
                 raw
             });
             raw.and_then(|v| walk(env, v, steps))
@@ -337,15 +323,11 @@ fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext, memo: &Memo) -> Result<Val
                 .ok_or(miss)?
         }
         Leaf::Scaled(k, den) => {
-            let n = |l: &Leaf| {
-                resolve(env, l, ctx, memo).and_then(|v| val_to_i128(env, &v).ok_or(miss))
-            };
-            let (src, num, add) = (n(&k[0])?, n(&k[1])?, n(&k[2])?);
-            scale(src, num, *den, add)
-                .ok_or(DenyReason::ArithmeticOverflow)?
-                .into_val(env)
+            let mut n = |l: &Leaf| val_to_i128(env, &resolve(env, l, ctx, memo)?).ok_or(miss);
+            let scaled = scale(n(&k[0])?, n(&k[1])?, *den, n(&k[2])?);
+            scaled.ok_or(DenyReason::ArithmeticOverflow)?.into_val(env)
         }
-        _ => literal_to_val(env, leaf).ok_or(miss)?,
+        _ => literal_to_val(env, leaf).map_err(|_| miss)?,
     })
 }
 
@@ -356,30 +338,24 @@ fn scale(src: i128, num: i128, den: i128, add: i128) -> Option<i128> {
     src.checked_mul(num)?.checked_div(den)?.checked_add(add)
 }
 
-/// The value of a leaf made of literals alone: `Some(Some(v))`, or `Some(None)`
-/// when the fold overflows; `None` for anything that depends on the call, the
-/// clock or another contract.
-fn constant(leaf: &Leaf) -> Option<Option<i128>> {
-    Some(match leaf {
+/// The value of a leaf made of literals alone; `None` for anything that
+/// depends on the call, the clock or another contract, and for a fold that
+/// overflows (decode refuses that one, so a nested constant never does).
+fn constant(leaf: &Leaf) -> Option<i128> {
+    match leaf {
         Leaf::LiteralI128(v) => Some(*v),
         Leaf::LiteralU32(v) => Some(i128::from(*v)),
-        Leaf::Scaled(k, den) => {
-            let [s, n, a] = [constant(&k[0])?, constant(&k[1])?, constant(&k[2])?];
-            s.zip(n).zip(a).and_then(|((s, n), a)| scale(s, n, *den, a))
-        }
-        _ => return None,
-    })
+        Leaf::Scaled(k, den) => scale(constant(&k[0])?, constant(&k[1])?, *den, constant(&k[2])?),
+        _ => None,
+    }
 }
 
 fn walk(env: &Env, cur: Val, steps: &[PathStep]) -> Option<Val> {
-    let vec = |v: &Val| SorobanVec::<Val>::try_from_val(env, v).ok();
     steps.iter().try_fold(cur, |cur, step| {
         Some(match step {
-            PathStep::Index(i) => vec(&cur)?.get(*i)?,
-            PathStep::Field(f) => Map::<Symbol, Val>::try_from_val(env, &cur)
-                .ok()?
-                .get(f.clone())?,
-            PathStep::Len => vec(&cur)?.len().into_val(env),
+            PathStep::Index(i) => to::<Vals>(env, &cur).ok()?.get(*i)?,
+            PathStep::Field(f) => to::<Map<Symbol, Val>>(env, &cur).ok()?.get(f.clone())?,
+            PathStep::Len => to::<Vals>(env, &cur).ok()?.len().into_val(env),
         })
     })
 }
@@ -413,40 +389,21 @@ fn leaves(node: &Node) -> Vec<&Leaf> {
             _ => {}
         }
     }
-    match node {
-        Node::And(children) | Node::Or(children) => children.iter().flat_map(leaves).collect(),
-        Node::Compare { left, right, .. } => {
-            let mut out = Vec::new();
-            [left, right].into_iter().for_each(|l| nested(l, &mut out));
-            out
-        }
-        Node::In { needle, haystack } => {
-            let mut out = Vec::new();
-            [needle]
-                .into_iter()
-                .chain(haystack)
-                .for_each(|l| nested(l, &mut out));
-            out
-        }
-    }
-}
-
-fn depth(node: &Node) -> u32 {
-    match node {
-        Node::And(children) | Node::Or(children) => {
-            1 + children.iter().map(depth).max().unwrap_or(0)
-        }
-        _ => 1,
-    }
+    let top = match node {
+        Node::And(kids) | Node::Or(kids) => return kids.iter().flat_map(leaves).collect(),
+        Node::Compare { left, right, .. } => vec![left, right],
+        Node::In { needle, haystack } => haystack.iter().chain([needle]).collect(),
+    };
+    let mut out = Vec::new();
+    top.into_iter().for_each(|l| nested(l, &mut out));
+    out
 }
 
 /// Widen any integral `Val` the host may carry to `i128` for ordering.
 fn val_to_i128(env: &Env, v: &Val) -> Option<i128> {
-    let small = u32::try_from_val(env, v).map(i128::from).ok();
-    let wide = || u64::try_from_val(env, v).map(i128::from).ok();
-    small
-        .or_else(wide)
-        .or_else(|| i128::try_from_val(env, v).ok())
+    let wide = |_| to::<u64>(env, v).map(i128::from);
+    let small = to::<u32>(env, v).map(i128::from).or_else(wide);
+    small.or_else(|_| to(env, v)).ok()
 }
 
 // ============================================================================
@@ -455,7 +412,7 @@ fn val_to_i128(env: &Env, v: &Val) -> Option<i128> {
 
 /// Errors that can be raised while decoding a predicate root from the
 /// canonical ScVal wire format. Every variant maps to the matching wire
-/// code via `code()`.
+/// variant named in its doc.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DecodeError {
     /// Empty / wrong-Variant / wrong-arity / unknown op or selector
@@ -474,71 +431,59 @@ pub enum DecodeError {
     PredicateTooLarge,
 }
 
-impl DecodeError {
-    pub const fn code(&self) -> &'static str {
-        match self {
-            DecodeError::MalformedPredicate => "MALFORMED_PREDICATE",
-            DecodeError::PredicateTooDeep => "PREDICATE_TOO_DEEP",
-            DecodeError::TooManyLeaves => "TOO_MANY_LEAVES",
-            DecodeError::InOperandLimit => "IN_OPERAND_LIMIT",
-            DecodeError::PredicateTooLarge => "PREDICATE_TOO_LARGE",
-        }
-    }
-}
-
 type Res<T> = Result<T, DecodeError>;
-type Vals = SorobanVec<Val>;
+type Vals = soroban_sdk::Vec<Val>;
 
 /// Decode a predicate root, checking the byte-size cap against the raw XDR
 /// (the only place the payload length is still in hand) and then the cap trio
 /// (depth / leaves / `read`s). `in` haystacks are capped as they decode.
 pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
-    if bytes.len() > MAX_PREDICATE_BYTES {
-        return Err(DecodeError::PredicateTooLarge);
-    }
+    let small = bytes.len() <= MAX_PREDICATE_BYTES;
+    cap(small, DecodeError::PredicateTooLarge)?;
     let v = Val::from_xdr(env, bytes).map_err(|_| DecodeError::MalformedPredicate)?;
-    let root_node = decode_node(env, &to(env, &v)?)?;
+    let root_node = decode_node(env, &to(env, &v)?, 1)?;
     let all = leaves(&root_node);
     // Reads of the same `(contract, fn, args)` are one call (see `Memo`).
     let mut calls = Vec::new();
     for l in &all {
-        if let Leaf::Read(c, f, a, _) = l {
-            if !calls.contains(&(c, f, a)) {
-                calls.push((c, f, a));
-            }
+        match l {
+            Leaf::Read(c, f, a, _) if !calls.contains(&(c, f, a)) => calls.push((c, f, a)),
+            _ => {}
         }
     }
-    if depth(&root_node) > MAX_DEPTH {
-        return Err(DecodeError::PredicateTooDeep);
-    }
-    if all.len() > MAX_LEAVES as usize || calls.len() > MAX_READS as usize {
-        return Err(DecodeError::TooManyLeaves);
-    }
+    let few = all.len() <= MAX_LEAVES as usize && calls.len() <= MAX_READS as usize;
+    cap(few, DecodeError::TooManyLeaves)?;
     Ok(root_node)
 }
 
 // ---- structural decoder ----
 
-fn decode_node(env: &Env, items: &Vals) -> Res<Node> {
+/// Decode one node `depth` levels down from the root (the root is 1); a node
+/// deeper than `MAX_DEPTH` is refused before its children are decoded.
+fn decode_node(env: &Env, items: &Vals, depth: u32) -> Res<Node> {
+    cap(depth <= MAX_DEPTH, DecodeError::PredicateTooDeep)?;
     let head = expect::<Symbol>(env, items, 0)?;
     // Compare via PartialEq (works on wasm; Symbol has no ToString on the wasm
     // target because the SDK hides the underlying string representation
     // behind a host object).
     let is = |name: &str| head == Symbol::new(env, name);
-    let ops = [
-        ("eq", CompareOp::Eq),
-        ("lt", CompareOp::Lt),
-        ("lte", CompareOp::Lte),
-        ("gt", CompareOp::Gt),
-        ("gte", CompareOp::Gte),
-    ];
+    use CompareOp as C;
+    let names = ["eq", "lt", "lte", "gt", "gte"];
+    let mut ops = names.iter().zip([C::Eq, C::Lt, C::Lte, C::Gt, C::Gte]);
     if is("and") {
-        decode_children(env, items).map(Node::And)
+        decode_children(env, items, depth).map(Node::And)
     } else if is("or") {
-        decode_children(env, items).map(Node::Or)
+        decode_children(env, items, depth).map(Node::Or)
     } else if is("in") {
-        decode_in(env, items)
-    } else if let Some((_, op)) = ops.into_iter().find(|(name, _)| is(name)) {
+        ensure(items.len() == 3)?;
+        let needle = leaf_at(env, items, 1)?;
+        let entries: Vals = expect(env, items, 2)?;
+        ensure(!entries.is_empty())?;
+        let short = entries.len() <= MAX_IN_OPERAND_COUNT;
+        cap(short, DecodeError::InOperandLimit)?;
+        let haystack = each(&entries, |h| literal(env, &h, 1))?;
+        Ok(Node::In { needle, haystack })
+    } else if let Some((_, op)) = ops.find(|(name, _)| is(name)) {
         ensure(items.len() == 3)?;
         let (left, right) = (leaf_at(env, items, 1)?, leaf_at(env, items, 2)?);
         Ok(Node::Compare { op, left, right })
@@ -552,11 +497,11 @@ fn decode_node(env: &Env, items: &Vals) -> Res<Node> {
 /// operand, a non-empty vector of child tuples; an empty list is refused
 /// so neither can degenerate into a node that permits (empty `and`) or
 /// denies (empty `or`) regardless of the call.
-fn decode_children(env: &Env, items: &Vals) -> Res<Vec<Node>> {
+fn decode_children(env: &Env, items: &Vals, depth: u32) -> Res<Vec<Node>> {
     ensure(items.len() == 2)?;
     let children: Vals = expect(env, items, 1)?;
     ensure(!children.is_empty())?;
-    each(&children, |c| decode_node(env, &to(env, &c)?))
+    each(&children, |c| decode_node(env, &to(env, &c)?, depth + 1))
 }
 
 /// Decode every element of `vals`, failing on the first that does not.
@@ -568,29 +513,15 @@ fn leaf_at(env: &Env, items: &Vals, i: u32) -> Res<Leaf> {
     decode_leaf(env, &at(items, i)?, 1)
 }
 
-fn decode_in(env: &Env, items: &Vals) -> Res<Node> {
-    ensure(items.len() == 3)?;
-    let needle = leaf_at(env, items, 1)?;
-    let entries: Vals = expect(env, items, 2)?;
-    ensure(!entries.is_empty())?;
-    if entries.len() > MAX_IN_OPERAND_COUNT {
-        return Err(DecodeError::InOperandLimit);
-    }
-    let haystack = each(&entries, |h| literal(env, &h, 1))?;
-    Ok(Node::In { needle, haystack })
-}
-
 /// Decode one leaf. `depth` is how deeply it is nested inside other
 /// leaves (a literal vector, a `scaled` operand), and is capped at
 /// `MAX_DEPTH` so the decoder and the evaluator both recurse a bounded
 /// number of times.
 fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
-    if depth > MAX_DEPTH {
-        return Err(DecodeError::PredicateTooDeep);
-    }
+    cap(depth <= MAX_DEPTH, DecodeError::PredicateTooDeep)?;
     // Selector tuples are `Vec<Val>` whose head is a `Symbol`. Literal
     // vectors are `Vec<Val>` whose head is NOT a known selector symbol.
-    if let Ok(items) = SorobanVec::<Val>::try_from_val(env, val) {
+    if let Ok(items) = Vals::try_from_val(env, val) {
         ensure(!items.is_empty())?;
         if let Ok(sym) = expect::<Symbol>(env, &items, 0) {
             return decode_selector_leaf(env, &items, sym, depth);
@@ -599,13 +530,11 @@ fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
         return each(&items, |e| literal(env, &e, depth + 1)).map(Leaf::LiteralVec);
     }
     // Bare literals.
-    Address::try_from_val(env, val)
+    to(env, val)
         .map(Leaf::LiteralAddress)
-        .ok()
-        .or_else(|| Symbol::try_from_val(env, val).map(Leaf::LiteralSymbol).ok())
-        .or_else(|| u32::try_from_val(env, val).map(Leaf::LiteralU32).ok())
-        .or_else(|| i128::try_from_val(env, val).map(Leaf::LiteralI128).ok())
-        .ok_or(DecodeError::MalformedPredicate)
+        .or_else(|_| to(env, val).map(Leaf::LiteralSymbol))
+        .or_else(|_| to(env, val).map(Leaf::LiteralU32))
+        .or_else(|_| to(env, val).map(Leaf::LiteralI128))
 }
 
 /// A leaf that must be a constant: an `in` entry or a literal-vec element.
@@ -613,8 +542,7 @@ fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
 /// check, and then never be compared.
 fn literal(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
     let leaf = decode_leaf(env, val, depth)?;
-    literal_to_val(env, &leaf).ok_or(DecodeError::MalformedPredicate)?;
-    Ok(leaf)
+    literal_to_val(env, &leaf).map(|_| leaf)
 }
 fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Res<Leaf> {
     let is = |n: u32, name: &str| items.len() == n && head == Symbol::new(env, name);
@@ -640,17 +568,13 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
         // must be literals: a selector, a `now`, another `read` or a
         // `scaled` has no `Val` form here and is refused.
         ensure(items.len() >= 4)?;
-        let arg = |a: Val| {
-            let leaf = decode_leaf(env, &a, depth + 1)?;
-            literal_to_val(env, &leaf).ok_or(DecodeError::MalformedPredicate)
-        };
-        let args: Vals = expect(env, items, 3)?;
+        let arg = |a| literal_to_val(env, &decode_leaf(env, &a, depth + 1)?);
         let target: Address = expect(env, items, 1)?;
         ensure(target.clone().to_xdr(env).get(7) == Some(1))?;
         Ok(Leaf::Read(
             target,
             expect(env, items, 2)?,
-            SorobanVec::from_slice(env, &each(&args, arg)?),
+            Vals::from_slice(env, &each(&expect(env, items, 3)?, arg)?),
             decode_steps(env, items, 4, 0)?,
         ))
     } else if is(items.len(), "variant") {
@@ -659,10 +583,8 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
         // `Asset::Stellar(addr)`). A bare vector headed by a symbol is read as
         // a selector, so a variant needs its own tag. Payload entries are
         // constants, like every other literal.
-        ensure(items.len() >= 2)?;
-        let parts = (1..items.len()).map(|i| literal(env, &at(items, i)?, depth + 1));
-        let parts = parts.collect::<Res<Vec<_>>>()?;
-        ensure(matches!(parts[0], Leaf::LiteralSymbol(_)))?;
+        let parts = each(&items.slice(1..), |p| literal(env, &p, depth + 1))?;
+        ensure(matches!(parts.first(), Some(Leaf::LiteralSymbol(_))))?;
         Ok(Leaf::LiteralVec(parts))
     } else if is(5, "scaled") {
         // (scaled, src, num, den, add). `den` is a constant and must be
@@ -676,12 +598,12 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
         ensure((1..=MAX_DEN).contains(&den))?;
         let operand = |i| decode_leaf(env, &at(items, i)?, depth + 1);
         let leaves = [operand(1)?, operand(2)?, operand(4)?];
-        let non_positive = |l: &Leaf| constant(l).is_some_and(|v| v.is_some_and(|v| v <= 0));
-        ensure(!leaves[..2].iter().any(non_positive))?;
+        let [s, n, a] = leaves.each_ref().map(constant);
+        ensure(![s, n].iter().any(|v| v.is_some_and(|v| v <= 0)))?;
         // A constant that overflows would deny every call: refuse it here.
-        let folded = Leaf::Scaled(Box::new(leaves), den);
-        ensure(constant(&folded) != Some(None))?;
-        Ok(folded)
+        let fold = s.zip(n).zip(a).map(|((s, n), a)| scale(s, n, den, a));
+        ensure(fold != Some(None))?;
+        Ok(Leaf::Scaled(Box::new(leaves), den))
     } else {
         // Unknown symbol at a selector position -> MALFORMED.
         Err(DecodeError::MalformedPredicate)
@@ -710,7 +632,12 @@ fn decode_steps(env: &Env, items: &Vals, from: u32, min: u32) -> Res<Vec<PathSte
 }
 
 fn ensure(ok: bool) -> Res<()> {
-    ok.then_some(()).ok_or(DecodeError::MalformedPredicate)
+    cap(ok, DecodeError::MalformedPredicate)
+}
+
+/// `Ok` when `ok`, else `err`.
+fn cap(ok: bool, err: DecodeError) -> Res<()> {
+    ok.then_some(()).ok_or(err)
 }
 
 fn at(items: &Vals, i: u32) -> Res<Val> {

@@ -7,11 +7,8 @@
 //! and any one archiving would have bricked the rule, so they now live and
 //! expire together.
 
-use soroban_sdk::{
-    contracterror, contracttype, panic_with_error, Address, Bytes, BytesN, Env, Vec,
-};
+use soroban_sdk::{contracterror, contracttype, panic_with_error, Address, Bytes, BytesN, Env};
 
-use crate::dsl::DenyReason;
 use crate::types::Signer;
 
 // ---- contract error ABI ----
@@ -90,22 +87,6 @@ pub enum PolicyError {
     DefaultContextNotSupported = 218,
 }
 
-impl From<DenyReason> for PolicyError {
-    /// Exhaustively maps every `DenyReason` to a `PolicyError` variant. A
-    /// new variant added to `DenyReason` will fail to compile until it is
-    /// wired here, which is what the audit wants - the contract ABI cannot
-    /// drift behind the evaluator.
-    fn from(r: DenyReason) -> Self {
-        match r {
-            DenyReason::ArgMismatch => PolicyError::ArgMismatch,
-            DenyReason::ContractScope => PolicyError::ContractScope,
-            DenyReason::ArithmeticOverflow => PolicyError::ArithmeticOverflow,
-            DenyReason::UnsupportedNode => PolicyError::UnsupportedNode,
-            DenyReason::NotInAllowlist => PolicyError::NotInAllowlist,
-        }
-    }
-}
-
 // ---- deny -----
 //
 // Every deny goes through `panic_with_error!` so the host emits
@@ -160,5 +141,5 @@ pub struct StoredDoc {
     /// Hash of the rule's operator set, re-checked on every enforce.
     pub signers_hash: BytesN<32>,
     /// The Policy Signer role: authorises re-install, uninstall and rotation.
-    pub master_set: Vec<Signer>,
+    pub master_set: soroban_sdk::Vec<Signer>,
 }

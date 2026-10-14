@@ -605,7 +605,7 @@ fn sel_call_path_with_no_steps_is_malformed() {
         vec_scval(&[sym("eq"), vec_scval(&[sym("call_path")]), u32_scval(1)]),
     );
     let err = decode(&env, &bogus).expect_err("a path with no steps must be refused");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
 }
 
 /// Blend's shape: `calls[n].args[3][0].amount`, five steps deep. This is the
@@ -687,7 +687,7 @@ fn sel_call_path_len_must_be_the_last_step() {
         ]),
     );
     let err = decode(&env, &bogus).expect_err("a step after len must be refused");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
 }
 
 // ---- call_path, adversarially -----------------------------------------------
@@ -788,7 +788,7 @@ fn call_path_refuses_more_steps_than_the_cap() {
         &bytes_from_scval(&env, eq_node_with_path((MAX_PATH_STEPS + 1) as usize)),
     )
     .expect_err("a path longer than the cap must be refused");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
 }
 
 #[test]
@@ -811,7 +811,7 @@ fn call_path_step_of_an_unsupported_type_is_malformed() {
     ]);
     let err =
         decode(&env, &bytes_from_scval(&env, bogus)).expect_err("an i128 step must be refused");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
 }
 
 /// Documented, not desired. Resolving both operands is what makes a
@@ -847,7 +847,7 @@ fn fc_unknown_node_symbol_returns_malformed() {
     let env = Env::default();
     let bogus = bytes_from_scval(&env, vec_scval(&[sym("not_a_real_op"), u32_scval(0)]));
     let err = decode(&env, &bogus).expect_err("unknown op must deny");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
 }
 
 #[test]
@@ -862,7 +862,7 @@ fn fc_unknown_selector_symbol_returns_malformed() {
         ]),
     );
     let err = decode(&env, &bogus).expect_err("unknown selector must deny");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
 }
 
 #[test]
@@ -871,7 +871,7 @@ fn fc_wrong_arity_on_compare_returns_malformed() {
     let env = Env::default();
     let bogus = bytes_from_scval(&env, vec_scval(&[sym("eq"), u32_scval(1)]));
     let err = decode(&env, &bogus).expect_err("2-arg compare must deny");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
 }
 
 #[test]
@@ -887,7 +887,7 @@ fn fc_wrong_val_type_as_call_arg_index_returns_malformed() {
         ]),
     );
     let err = decode(&env, &bogus).expect_err("i128 in call_arg slot must deny");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
 }
 
 #[test]
@@ -898,7 +898,7 @@ fn fc_in_empty_haystack_at_decode() {
         vec_scval(&[sym("in"), i128_scval(1), empty_vec_scval()]),
     );
     let err = decode(&env, &bogus).expect_err("in [] must deny at decode");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
 }
 
 #[test]
@@ -912,15 +912,15 @@ fn fc_undecoded_value_never_matches_by_stringification() {
     //    ScVal::U32 instead of a Vec).
     let wrong_root = bytes_from_scval(&env, u32_scval(42));
     assert_eq!(
-        decode(&env, &wrong_root).err().map(|e| e.code()),
-        Some("MALFORMED_PREDICATE")
+        decode(&env, &wrong_root).err(),
+        Some(crate::dsl::DecodeError::MalformedPredicate)
     );
     // 2. An empty Vec root (zero-element wrapper) is also rejected: the wire
     //    must carry a head symbol, so a length-0 Vec can never be valid.
     let empty_root = bytes_from_scval(&env, empty_vec_scval());
     assert_eq!(
-        decode(&env, &empty_root).err().map(|e| e.code()),
-        Some("MALFORMED_PREDICATE")
+        decode(&env, &empty_root).err(),
+        Some(crate::dsl::DecodeError::MalformedPredicate)
     );
 }
 
@@ -968,7 +968,7 @@ fn cap_depth_over_limit_returns_predicate_too_deep() {
     let n = balanced_depth_n(&env, MAX_DEPTH as usize);
     let bytes = bytes_from_node(&env, &n);
     let err = decode(&env, &bytes).expect_err("depth > MAX_DEPTH must deny");
-    assert_eq!(err.code(), "PREDICATE_TOO_DEEP");
+    assert_eq!(err, crate::dsl::DecodeError::PredicateTooDeep);
 }
 
 #[test]
@@ -978,7 +978,7 @@ fn cap_leaves_over_limit_returns_too_many_leaves() {
     let n = wide_leaves_n(&env, (MAX_LEAVES as usize / 2) + 1);
     let bytes = bytes_from_node(&env, &n);
     let err = decode(&env, &bytes).expect_err("leaves > MAX_LEAVES must deny");
-    assert_eq!(err.code(), "TOO_MANY_LEAVES");
+    assert_eq!(err, crate::dsl::DecodeError::TooManyLeaves);
 }
 
 #[test]
@@ -992,7 +992,7 @@ fn cap_in_operand_count_over_limit_returns_in_operand_limit() {
     };
     let bytes = bytes_from_node(&env, &n);
     let err = decode(&env, &bytes).expect_err("in haystack > MAX_IN_OPERAND_COUNT must deny");
-    assert_eq!(err.code(), "IN_OPERAND_LIMIT");
+    assert_eq!(err, crate::dsl::DecodeError::InOperandLimit);
 }
 
 #[test]
@@ -1005,7 +1005,7 @@ fn cap_predicate_bytes_over_limit_returns_predicate_too_large() {
     ));
     let bytes = Bytes::from_slice(&env, &payload);
     let err = decode(&env, &bytes).expect_err("over-byte predicate must deny");
-    assert_eq!(err.code(), "PREDICATE_TOO_LARGE");
+    assert_eq!(err, crate::dsl::DecodeError::PredicateTooLarge);
 }
 
 // ----- Tests: i128 checked arithmetic ---------------------------------------
@@ -1022,7 +1022,7 @@ fn fc_amount_selector_is_refused_at_decode() {
         ]),
     );
     let err = decode(&env, &bytes).expect_err("`amount` must not decode");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
 }
 
 #[test]
@@ -1037,7 +1037,7 @@ fn fc_window_spent_selector_is_refused_at_decode() {
         ]),
     );
     let err = decode(&env, &bytes).expect_err("`window_spent` must not decode");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
 }
 
 #[test]
@@ -1513,7 +1513,11 @@ fn decode_refuses_a_non_positive_denominator() {
     for den in [0, -1, i128::MIN] {
         let err = decode(&env, &bytes_from_node(&env, &floor_node(99, den)))
             .expect_err("den <= 0 must not decode");
-        assert_eq!(err.code(), "MALFORMED_PREDICATE", "den = {den}");
+        assert_eq!(
+            err,
+            crate::dsl::DecodeError::MalformedPredicate,
+            "den = {den}"
+        );
     }
     // The denominator is refused wherever the leaf sits.
     let hidden = Node::Or(StdVec::from([
@@ -1529,7 +1533,11 @@ fn decode_refuses_a_non_positive_literal_numerator() {
     for num in [0, -1, i128::MIN] {
         let err = decode(&env, &bytes_from_node(&env, &floor_node(num, 100)))
             .expect_err("a literal num <= 0 must not decode");
-        assert_eq!(err.code(), "MALFORMED_PREDICATE", "num = {num}");
+        assert_eq!(
+            err,
+            crate::dsl::DecodeError::MalformedPredicate,
+            "num = {num}"
+        );
     }
     // ... wherever the leaf sits, and as a u32 literal too.
     let hidden = Node::Or(StdVec::from([
@@ -1556,7 +1564,11 @@ fn decode_refuses_a_non_positive_literal_source() {
         let n = with_src(Leaf::LiteralI128(src));
         let err = decode(&env, &bytes_from_node(&env, &n))
             .expect_err("a literal src <= 0 must not decode");
-        assert_eq!(err.code(), "MALFORMED_PREDICATE", "src = {src}");
+        assert_eq!(
+            err,
+            crate::dsl::DecodeError::MalformedPredicate,
+            "src = {src}"
+        );
     }
     assert!(decode(&env, &bytes_from_node(&env, &with_src(Leaf::LiteralU32(0)))).is_err());
     let hidden = Node::Or(StdVec::from([
@@ -1611,7 +1623,7 @@ fn decode_refuses_non_constant_entries_in_an_in_haystack() {
             haystack: StdVec::from([Leaf::LiteralI128(1), bad]),
         };
         let err = decode(&env, &bytes_from_node(&env, &n)).expect_err("non-constant entry");
-        assert_eq!(err.code(), "MALFORMED_PREDICATE");
+        assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
     }
     let ok = Node::In {
         needle: call_arg(0),
@@ -1633,7 +1645,7 @@ fn decode_refuses_non_constant_elements_in_a_literal_vec() {
             Leaf::LiteralVec(StdVec::from([Leaf::LiteralU32(1), bad])),
         );
         let err = decode(&env, &bytes_from_node(&env, &n)).expect_err("non-constant element");
-        assert_eq!(err.code(), "MALFORMED_PREDICATE");
+        assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
     }
     // nested one level down, too
     let inner = Leaf::LiteralVec(StdVec::from([Leaf::CallFn]));
@@ -1717,7 +1729,7 @@ fn wire_read_with_fewer_than_four_items_is_malformed() {
         i128_scval(0),
     ]);
     let err = decode(&env, &bytes_from_scval(&env, short)).expect_err("arity");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
 }
 
 #[test]
@@ -1731,7 +1743,7 @@ fn wire_read_refuses_non_literal_arguments() {
     ] {
         let wire = read_wire(StdVec::from([bad]), StdVec::new());
         let err = decode(&env, &bytes_from_scval(&env, wire)).expect_err("literal only");
-        assert_eq!(err.code(), "MALFORMED_PREDICATE");
+        assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
     }
 }
 
@@ -1777,7 +1789,7 @@ fn wire_read_count_is_capped_at_four() {
         &bytes_from_node(&env, &read_node(MAX_READS as usize + 1)),
     )
     .expect_err("a fifth distinct read");
-    assert_eq!(err.code(), "TOO_MANY_LEAVES");
+    assert_eq!(err, crate::dsl::DecodeError::TooManyLeaves);
     // Identical reads are one call: any number of them decode.
     let one = dummy_read(&env);
     let same = Node::And(
@@ -1800,7 +1812,7 @@ fn wire_scaled_leaf_nesting_is_capped_at_max_depth() {
     };
     assert!(decode(&env, &bytes_from_node(&env, &nest(MAX_DEPTH - 1))).is_ok());
     let err = decode(&env, &bytes_from_node(&env, &nest(MAX_DEPTH))).expect_err("too deep");
-    assert_eq!(err.code(), "PREDICATE_TOO_DEEP");
+    assert_eq!(err, crate::dsl::DecodeError::PredicateTooDeep);
 }
 
 #[test]
@@ -1827,7 +1839,7 @@ fn wire_scaled_leaves_count_toward_the_leaf_cap() {
     // each compare is 1 (call_arg) + 4 = 5 leaves
     assert!(decode(&env, &bytes_from_node(&env, &n(40))).is_ok());
     let err = decode(&env, &bytes_from_node(&env, &n(41))).expect_err("over the leaf cap");
-    assert_eq!(err.code(), "TOO_MANY_LEAVES");
+    assert_eq!(err, crate::dsl::DecodeError::TooManyLeaves);
 }
 
 // ----- Tests: v4 wire round-trips --------------------------------------------
@@ -1882,7 +1894,7 @@ fn wire_empty_or_is_malformed() {
     let env = Env::default();
     let n = Node::Or(StdVec::new());
     let err = decode(&env, &bytes_from_node(&env, &n)).expect_err("empty or must deny");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
 }
 
 #[test]
@@ -1897,7 +1909,7 @@ fn wire_scaled_wrong_arity_is_malformed() {
     ]);
     let node = vec_scval(&[sym("gte"), leaf_to_scval(&env, &call_arg(1)), leaf]);
     let err = decode(&env, &bytes_from_scval(&env, node)).expect_err("arity must be checked");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
 }
 
 #[test]
@@ -1914,7 +1926,7 @@ fn wire_scaled_rejects_u32_in_the_denominator_slot() {
     ]);
     let node = vec_scval(&[sym("gte"), leaf_to_scval(&env, &call_arg(1)), leaf]);
     let err = decode(&env, &bytes_from_scval(&env, node)).expect_err("den must be an i128");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
 }
 
 #[test]
@@ -1928,7 +1940,7 @@ fn wire_grammar_6_call_arg_scaled_is_refused() {
     ]);
     let node = vec_scval(&[sym("gte"), leaf_to_scval(&env, &call_arg(1)), leaf]);
     let err = decode(&env, &bytes_from_scval(&env, node)).expect_err("retired leaf");
-    assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
 }
 
 #[test]
@@ -1940,7 +1952,7 @@ fn wire_or_counts_toward_the_depth_cap() {
         n = Node::Or(StdVec::from([n]));
     }
     let err = decode(&env, &bytes_from_node(&env, &n)).expect_err("deep or must deny");
-    assert_eq!(err.code(), "PREDICATE_TOO_DEEP");
+    assert_eq!(err, crate::dsl::DecodeError::PredicateTooDeep);
 }
 
 #[test]
