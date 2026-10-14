@@ -74,10 +74,15 @@ impl PolicyInterpreter {
         // (c2c) A Default-scoped rule matches every operation on the account,
         //      including its own administration, so the predicate would be the
         //      only fence around `add_context_rule` itself - and a weakened
-        //      predicate would hand the operators the admin surface. Scoped
-        //      rules only.
-        let scoped = !matches!(context_rule.context_type, ContextRuleType::Default);
-        ensure(e, scoped, E::DefaultContextNotSupported);
+        //      predicate would hand the operators the admin surface. So does a
+        //      rule scoped to the account (`add_context_rule`) or to this
+        //      interpreter (`install`, `rotate_master_signer_set`). Every other
+        //      scoped rule is fine.
+        let scope = &context_rule.context_type;
+        let own = [smart_account.clone(), e.current_contract_address()];
+        let admin = matches!(scope, ContextRuleType::Default)
+            || matches!(scope, ContextRuleType::CallContract(a) if own.contains(a));
+        ensure(e, !admin, E::DefaultContextNotSupported);
 
         // (d4) Minimum constraint. A predicate carrying no selector leaf -
         //      literals on both sides of every compare - is trivially true

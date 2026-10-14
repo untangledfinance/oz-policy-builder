@@ -78,12 +78,13 @@ pub enum PolicyError {
     /// and one `require_auth` per signer; an unbounded set pushes `enforce`
     /// past the CPU budget and bricks the rule.
     TooManySigners = 217,
-    /// The context rule is `Default`-scoped. That scope matches every
-    /// operation on the account, including its own administration
-    /// (`add_context_rule` and friends), so the predicate would be the only
-    /// fence around the admin surface and a weakened predicate would hand
-    /// the rule's operators the whole account. Predicates install on scoped
-    /// rules only.
+    /// The context rule reaches the admin surface: it is `Default`-scoped
+    /// (matches every operation on the account, including its own
+    /// administration), or scoped to the smart account itself or to this
+    /// interpreter. The predicate would be the only fence around
+    /// `add_context_rule` and the interpreter's own install and rotation, and
+    /// a weakened predicate would hand the rule's operators the whole account.
+    /// Predicates install on rules scoped to some other contract only.
     DefaultContextNotSupported = 218,
 }
 

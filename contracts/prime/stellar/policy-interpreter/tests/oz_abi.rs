@@ -161,21 +161,23 @@ fn enforce_accepts_a_rule_built_the_way_the_smart_account_builds_it() {
     let smart_account = Address::generate(&env);
     let signers: Vec<Signer> = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
 
-    // Scoped to the account itself, since the predicate permits calls whose
-    // target is `smart_account`; predicates refuse Default-context rules.
+    // Scoped to a venue contract, since the predicate permits calls whose
+    // target is `venue`; predicates refuse Default-context rules and rules
+    // scoped to the account itself.
+    let venue = Address::generate(&env);
     let rule = ContextRule::try_from_val(
         &env,
         &oz_context_rule_val(
             &env,
             1,
             &signers,
-            oz_call_contract_context_type(&env, &smart_account),
+            oz_call_contract_context_type(&env, &venue),
         ),
     )
     .expect("decodes");
 
     // Install through the decoded rule, then enforce through it.
-    let predicate = always_true_predicate(&env, &smart_account);
+    let predicate = always_true_predicate(&env, &venue);
     let predicate_hash: soroban_sdk::BytesN<32> = env.crypto().sha256(&predicate).into();
     client.install(
         &policy_interpreter::PolicyInstallParams {
@@ -190,7 +192,7 @@ fn enforce_accepts_a_rule_built_the_way_the_smart_account_builds_it() {
     );
 
     let ctx = soroban_sdk::auth::Context::Contract(soroban_sdk::auth::ContractContext {
-        contract: smart_account.clone(),
+        contract: venue.clone(),
         fn_name: Symbol::new(&env, "transfer"),
         args: Vec::new(&env),
     });

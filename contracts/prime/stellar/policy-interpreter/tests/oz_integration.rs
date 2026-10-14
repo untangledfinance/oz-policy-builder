@@ -185,6 +185,61 @@ fn the_account_cannot_install_a_policy_on_its_default_rule() {
     );
 }
 
+/// `add_context_rule` on the real account, scoped to whatever `scope` picks out
+/// of `(account, interpreter)`, with the interpreter as the rule's policy.
+fn add_scoped_rule(scope: impl Fn(&Env, &Address, &Address) -> Address) -> Result<(), u32> {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (account, interpreter, signer_addr) = deploy(&env);
+    let admins = soroban_sdk::vec![
+        &env,
+        policy_interpreter::Signer::Delegated(signer_addr.clone())
+    ];
+    let mut policies: Map<Address, Val> = Map::new(&env);
+    policies.set(
+        interpreter.clone(),
+        install_params(&env, "add_context_rule", &Address::generate(&env), &admins).into_val(&env),
+    );
+    let target = scope(&env, &account, &interpreter);
+    let mut args: Vec<Val> = Vec::new(&env);
+    args.push_back(call_contract_context(&env, &target));
+    args.push_back(soroban_sdk::String::from_str(&env, "rule").into_val(&env));
+    args.push_back(Option::<u32>::None.into_val(&env));
+    args.push_back(soroban_sdk::vec![&env, delegated(&env, &signer_addr)].into_val(&env));
+    args.push_back(policies.into_val(&env));
+    match env.try_invoke_contract::<Val, soroban_sdk::Error>(
+        &account,
+        &Symbol::new(&env, "add_context_rule"),
+        args,
+    ) {
+        Ok(_) => Ok(()),
+        Err(Ok(e)) => Err(e.get_code()),
+        Err(Err(e)) => panic!("trapped: {e:?}"),
+    }
+}
+
+#[test]
+fn a_rule_scoped_to_the_account_itself_is_refused_like_default() {
+    // `CallContract(account)` matches `add_context_rule` on the account, so it
+    // reaches the same admin surface `Default` does (218 for both).
+    assert_eq!(add_scoped_rule(|_, account, _| account.clone()), Err(218));
+}
+
+#[test]
+fn a_rule_scoped_to_the_interpreter_is_refused_like_default() {
+    // `CallContract(interpreter)` matches `install` and `rotate_master_signer_set`
+    // on the interpreter itself, so a rule holder could squat rule ids.
+    assert_eq!(
+        add_scoped_rule(|_, _, interpreter| interpreter.clone()),
+        Err(218)
+    );
+}
+
+#[test]
+fn a_rule_scoped_to_any_other_contract_is_installed() {
+    assert_eq!(add_scoped_rule(|env, _, _| Address::generate(env)), Ok(()));
+}
+
 // ---- why the first `enforce` attempts here were dropped ----
 //
 // (The `enforce` half IS covered now, at the bottom of this file, through the
