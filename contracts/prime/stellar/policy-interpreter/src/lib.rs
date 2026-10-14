@@ -9,11 +9,9 @@ extern crate alloc;
 #[allow(dead_code)]
 static __SOROBAN_ALLOC_KEEP: alloc::vec::Vec<u8> = alloc::vec::Vec::new();
 
-pub mod auth;
 pub mod dsl;
 #[cfg(test)]
 mod dsl_tests;
-pub mod state;
 pub mod storage;
 #[cfg(test)]
 mod test;
@@ -23,7 +21,7 @@ pub use dsl::{CompareOp, DenyReason, EvalContext, EvalDecision, Leaf, Node};
 pub use storage::{PolicyError, RuleKey, StoredDoc};
 pub use types::{ContextRule, ContextRuleType, PolicyInstallParams, Signer};
 
-use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, IntoVal, Vec};
+use soroban_sdk::{auth::Context, contract, contractimpl, Address, BytesN, Env, IntoVal, Vec};
 
 use crate::types::MAX_SIGNERS;
 
@@ -159,7 +157,7 @@ impl PolicyInterpreter {
         smart_account.require_auth();
 
         if let Some(ref stored_master) = prior_master {
-            auth::require_master(e, stored_master);
+            require_master(e, stored_master);
             // A re-install must present the SAME admin set it is authorised
             // by. Changing who administers the mandate is rotation's job,
             // with its own two-party authorisation; letting a re-install
@@ -209,11 +207,11 @@ impl PolicyInterpreter {
         rule.0.require_auth();
         let key = storage::RuleKey::new(rule.0, rule.1);
         let p = e.storage().persistent();
-        auth::require_master(e, &p.get(&key.master_set_key()).unwrap());
+        require_master(e, &p.get(&key.master_set_key()).unwrap());
         let mut doc: storage::StoredDoc = p.get(&key.doc_key()).unwrap();
         doc.executor = Some(executor);
         p.set(&key.doc_key(), &doc);
-        state::extend_state_ttl(e, &key);
+        extend_state_ttl(e, &key);
     }
 
     pub fn enforce(
@@ -265,10 +263,12 @@ impl PolicyInterpreter {
 
         // Before the predicate check. A deny panics and the host rolls this
         // back with the rest of the frame, so only a permit keeps the bump.
-        state::extend_state_ttl(e, &key);
+        extend_state_ttl(e, &key);
 
-        let eval_ctx = state::build_eval_context(e, &context);
-        match dsl::evaluate(e, &predicate_root, &eval_ctx) {
+        let Context::Contract(call) = &context else {
+            storage::deny(e, storage::PolicyError::MissingState)
+        };
+        match dsl::evaluate(e, &predicate_root, call) {
             dsl::EvalDecision::Permit => {}
             // Surface the SPECIFIC deny code so a review card can say
             // "not on the allowlist" rather than "predicate false"
@@ -288,7 +288,7 @@ impl PolicyInterpreter {
             Some(s) => s,
             None => storage::deny(e, storage::PolicyError::MissingState),
         };
-        auth::require_master(e, &master_set);
+        require_master(e, &master_set);
         if !e.storage().persistent().has(&key.doc_key()) {
             storage::deny(e, storage::PolicyError::MissingState);
         }
@@ -315,7 +315,7 @@ impl PolicyInterpreter {
         // Owner would have no on-chain veto over who administers the
         // mandate.
         smart_account.require_auth();
-        auth::require_master(e, &old_set);
+        require_master(e, &old_set);
         // The same rules install applies. Rotating into a set that cannot
         //      authorise anything is unrecoverable: rotation and `uninstall`
         //      are both gated on `require_master`.
@@ -357,4 +357,47 @@ fn require_usable_signer_set(e: &Env, signers: &Vec<Signer>) {
     if signers.iter().any(|s| matches!(s, Signer::External(_, _))) {
         storage::deny(e, storage::PolicyError::ExternalSignerNotSupported);
     }
+}
+
+/// Extend the TTL of every persistent entry this rule depends on.
+///
+/// Called BEFORE the predicate check. The doc, nonce, signers_hash, and
+/// master_set share ONE lifecycle: they were all written at install, and
+/// `enforce` reads signers_hash on every call while every master op reads
+/// nonce + master_set. Persistent entries that archive cannot be read as
+/// absent and cannot be recreated (the nonce check would loop the new
+/// install), so any one of those four archiving bricks the rule. Bumping
+/// them together on every permit keeps the rule alive as long as it is used.
+///
+/// Only keys that exist are bumped: `extend_ttl` on a missing key panics.
+fn extend_state_ttl(e: &Env, key: &storage::RuleKey) {
+    let p = e.storage().persistent();
+    for k in [
+        key.doc_key(),
+        key.nonce_key(),
+        key.signers_hash_key(),
+        key.master_set_key(),
+    ] {
+        if p.has(&k) {
+            p.extend_ttl(&k, storage::TTL_BUMP_THRESHOLD, storage::TTL_BUMP_TO);
+        }
+    }
+}
+
+/// Call `require_auth` on every signer in `master_set`. If any one is not
+/// authorised, Soroban reverts the tx before this returns.
+///
+/// An EMPTY set is refused rather than treated as satisfied. Iterating an
+/// empty set calls `require_auth` zero times, which is not "authorised by
+/// nobody" - it is no authorisation at all, and it let anyone re-install an
+/// arbitrary predicate on such a rule. OpenZeppelin permits a context rule
+/// with zero signers as long as it carries at least one policy
+/// (`smart_account/storage.rs`: `signer_ids.is_empty() && policy_ids.is_empty()`),
+/// so this is reachable, not hypothetical. The guard lives here so no caller
+/// can obtain a silently no-op check.
+pub fn require_master(e: &Env, master_set: &Vec<Signer>) {
+    if master_set.is_empty() {
+        storage::deny(e, storage::PolicyError::EmptySignerSet);
+    }
+    master_set.iter().for_each(|s| s.address().require_auth());
 }

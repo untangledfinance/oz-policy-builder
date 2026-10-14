@@ -147,12 +147,9 @@ pub enum Leaf {
 
 // ---- EvalContext ----
 
-#[derive(Debug, Clone)]
-pub struct EvalContext {
-    pub contract: Address,
-    pub fn_name: Symbol,
-    pub args: SorobanVec<Val>,
-}
+/// The authorised call: the host's own contract-context triple (contract,
+/// function name, arguments).
+pub use soroban_sdk::auth::ContractContext as EvalContext;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum EvalDecision {
