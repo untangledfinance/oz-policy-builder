@@ -86,6 +86,10 @@ pub enum PolicyError {
     /// a weakened predicate would hand the rule's operators the whole account.
     /// Predicates install on rules scoped to some other contract only.
     DefaultContextNotSupported = 218,
+    /// A signer set (the rule's operators or the master set) holds this
+    /// interpreter's own address. Nobody can authorise as it, so the master set
+    /// could never uninstall or rotate and the rule would be bricked.
+    SignerIsInterpreter = 219,
 }
 
 // ---- deny -----

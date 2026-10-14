@@ -253,11 +253,15 @@ fn signers_hash(e: &Env, signers: &Vec<Signer>) -> BytesN<32> {
 ///   on the verifier address, which a plain verifier contract never satisfies,
 ///   so such a set can never be authorised. Refusing is the fail-closed option;
 ///   the alternative is byte-for-byte parity with OZ's `VerifierClient::verify`.
+/// - This interpreter's own address: `require_auth` on it is satisfied only by
+///   a call the interpreter makes itself, so no one can ever authorise as it.
 fn require_usable_signer_set(e: &Env, signers: &Vec<Signer>) {
     ensure(e, !signers.is_empty(), E::EmptySignerSet);
     ensure(e, signers.len() <= types::MAX_SIGNERS, E::TooManySigners);
     let external = signers.iter().any(|s| matches!(s, Signer::External(..)));
     ensure(e, !external, E::ExternalSignerNotSupported);
+    let own = Signer::Delegated(e.current_contract_address());
+    ensure(e, !signers.contains(own), E::SignerIsInterpreter);
 }
 
 /// Call `require_auth` on every signer in `master_set`. If any one is not

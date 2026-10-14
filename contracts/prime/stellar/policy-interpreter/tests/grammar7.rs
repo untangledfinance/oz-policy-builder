@@ -1942,3 +1942,47 @@ fn a_rule_scoped_to_create_contract_denies_missing_state() {
         refused(PolicyError::MissingState)
     );
 }
+
+#[test]
+fn the_interpreters_own_address_cannot_be_a_signer() {
+    // `require_auth` on the interpreter is satisfied only by a call the
+    // interpreter itself makes, so a master set holding it can never authorise
+    // an uninstall or a rotation and the rule is bricked. Refused as 219 at
+    // install (operators and admins both) and at rotation.
+    let w = World::new();
+    let ok = soroban_sdk::vec![&w.env, Signer::Delegated(w.account.clone())];
+    let own = soroban_sdk::vec![&w.env, Signer::Delegated(w.policy.clone())];
+    let predicate: Bytes = {
+        let val: Val = rule_for(is_advance()).into_val(&w.env);
+        val.to_xdr(&w.env)
+    };
+    let try_install = |operators: &SorobanVec<Signer>, admins: &SorobanVec<Signer>| {
+        let params = PolicyInstallParams {
+            grammar_version: 7,
+            install_nonce: 1,
+            predicate: predicate.clone(),
+            predicate_hash: w.env.crypto().sha256(&predicate).into(),
+            policy_admins: admins.clone(),
+        };
+        let rule = ContextRule {
+            signers: operators.clone(),
+            ..w.rule.clone()
+        };
+        w.client().try_install(&params, &rule, &w.account)
+    };
+    let code = |r: Result<_, Result<soroban_sdk::Error, _>>| match r {
+        Ok(_) => None,
+        Err(e) => e.ok().map(|e: soroban_sdk::Error| e.get_code()),
+    };
+    assert_eq!(code(try_install(&ok, &own)), Some(219), "as admin");
+    assert_eq!(code(try_install(&own, &ok)), Some(219), "as operator");
+    assert_eq!(code(try_install(&ok, &ok)), None);
+    assert_eq!(
+        code(
+            w.client()
+                .try_rotate_master_signer_set(&w.account, &1, &own)
+        ),
+        Some(219),
+        "at rotation"
+    );
+}
