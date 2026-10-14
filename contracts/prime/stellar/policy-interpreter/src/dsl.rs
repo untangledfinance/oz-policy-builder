@@ -189,16 +189,14 @@ impl DenyReason {
 
 /// Pure apart from `Leaf::Read`, which calls out to the contract it names.
 pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
+    eval(env, node, ctx)
+        .err()
+        .map_or(EvalDecision::Permit, EvalDecision::Deny)
+}
+
+fn eval(env: &Env, node: &Node, ctx: &EvalContext) -> Result<(), DenyReason> {
     match node {
-        Node::And(children) => {
-            for c in children {
-                match evaluate(env, c, ctx) {
-                    EvalDecision::Permit => continue,
-                    d @ EvalDecision::Deny(_) => return d,
-                }
-            }
-            EvalDecision::Permit
-        }
+        Node::And(children) => children.iter().try_for_each(|c| eval(env, c, ctx)),
         // Permits on the first branch that holds; when none does, reports the
         // FIRST branch's deny. "First" is wire order, and the encoder sorts
         // `or` children canonically, so the reported reason is stable for a
@@ -206,60 +204,44 @@ pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
         // run last. It is deliberately not tied to authoring order - the
         // canonical encoding does not preserve that.
         Node::Or(children) => {
-            let mut first_deny: Option<EvalDecision> = None;
+            let mut first_deny = None;
             for c in children {
-                match evaluate(env, c, ctx) {
-                    EvalDecision::Permit => return EvalDecision::Permit,
-                    d @ EvalDecision::Deny(_) => {
-                        if first_deny.is_none() {
-                            first_deny = Some(d);
-                        }
-                    }
+                match eval(env, c, ctx) {
+                    Err(reason) => first_deny = first_deny.or(Some(reason)),
+                    permit => return permit,
                 }
             }
             // An empty `or` is refused at decode, so this is unreachable in
             // practice; denying is the fail-closed answer if it ever is not.
-            first_deny.unwrap_or(EvalDecision::Deny(DenyReason::UnsupportedNode))
+            Err(first_deny.unwrap_or(DenyReason::UnsupportedNode))
         }
-        Node::Compare { op, left, right } => compare(env, *op, left, right, ctx)
-            .err()
-            .map_or(EvalDecision::Permit, EvalDecision::Deny),
-        Node::In { needle, haystack } => {
-            // An opaque or undecodable needle fails closed as a membership
-            // miss, not an argument mismatch: it cannot be on the allowlist
-            // because it cannot be compared at all.
-            let Ok(expected) = resolve(env, needle, ctx) else {
-                return EvalDecision::Deny(DenyReason::NotInAllowlist);
-            };
-            for h in haystack {
-                if let Some(actual) = literal_to_val(env, h) {
-                    if val_eq(env, &expected, &actual) {
-                        return EvalDecision::Permit;
-                    }
-                }
-            }
-            EvalDecision::Deny(DenyReason::NotInAllowlist)
-        }
+        Node::Compare { op, left, right } => compare(env, *op, left, right, ctx),
+        // An opaque or undecodable needle fails closed as a membership miss,
+        // not an argument mismatch: it cannot be on the allowlist because it
+        // cannot be compared at all.
+        Node::In { needle, haystack } => resolve(env, needle, ctx)
+            .is_ok_and(|x| {
+                let literals = haystack.iter().filter_map(|h| literal_to_val(env, h));
+                literals.any(|h| val_eq(env, &x, &h))
+            })
+            .then_some(())
+            .ok_or(DenyReason::NotInAllowlist),
     }
 }
 
 /// Convert a literal leaf to its `Val` form for equality comparisons.
 fn literal_to_val(env: &Env, leaf: &Leaf) -> Option<Val> {
-    let v: Val = match leaf {
-        Leaf::LiteralAddress(a) => a.clone().into_val(env),
+    Some(match leaf {
+        Leaf::LiteralAddress(a) => a.into_val(env),
         Leaf::LiteralI128(v) => (*v).into_val(env),
-        Leaf::LiteralSymbol(s) => s.clone().into_val(env),
+        Leaf::LiteralSymbol(s) => s.into_val(env),
         Leaf::LiteralU32(v) => (*v).into_val(env),
         Leaf::LiteralVec(elements) => {
-            let mut vals: SorobanVec<Val> = SorobanVec::new(env);
-            for e in elements {
-                vals.push_back(literal_to_val(env, e)?);
-            }
-            vals.into_val(env)
+            let vals: Option<Vec<Val>> = elements.iter().map(|e| literal_to_val(env, e)).collect();
+            SorobanVec::from_slice(env, &vals?).into_val(env)
         }
         _ => return None,
-    };
-    Some(v)
+    })
 }
 
 /// Compare two `Val`s BY VALUE.
@@ -367,24 +349,17 @@ fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext) -> Result<Val, DenyReason>
 }
 
 /// Follow `steps` from `cur`; `None` when a step finds something else.
-fn walk(env: &Env, mut cur: Val, steps: &[PathStep]) -> Option<Val> {
-    for step in steps {
-        cur = match step {
-            PathStep::Index(i) => SorobanVec::<Val>::try_from_val(env, &cur).ok()?.get(*i)?,
+fn walk(env: &Env, cur: Val, steps: &[PathStep]) -> Option<Val> {
+    let vec = |v: &Val| SorobanVec::<Val>::try_from_val(env, v).ok();
+    steps.iter().try_fold(cur, |cur, step| {
+        Some(match step {
+            PathStep::Index(i) => vec(&cur)?.get(*i)?,
             PathStep::Field(f) => Map::<Symbol, Val>::try_from_val(env, &cur)
                 .ok()?
                 .get(f.clone())?,
-            PathStep::Len => {
-                return Some(
-                    SorobanVec::<Val>::try_from_val(env, &cur)
-                        .ok()?
-                        .len()
-                        .into_val(env),
-                )
-            }
-        };
-    }
-    Some(cur)
+            PathStep::Len => vec(&cur)?.len().into_val(env),
+        })
+    })
 }
 
 /// True when the predicate constrains at least one property of the call
@@ -417,13 +392,11 @@ pub fn has_selector_leaf(root: &Node) -> bool {
 
 /// Widen any integral `Val` the host may carry to `i128` for ordering.
 fn val_to_i128(env: &Env, v: &Val) -> Option<i128> {
-    if let Ok(n) = u32::try_from_val(env, v) {
-        return Some(i128::from(n));
-    }
-    if let Ok(n) = u64::try_from_val(env, v) {
-        return Some(i128::from(n));
-    }
-    i128::try_from_val(env, v).ok()
+    let small = u32::try_from_val(env, v).map(i128::from).ok();
+    let wide = || u64::try_from_val(env, v).map(i128::from).ok();
+    small
+        .or_else(wide)
+        .or_else(|| i128::try_from_val(env, v).ok())
 }
 
 // ============================================================================
