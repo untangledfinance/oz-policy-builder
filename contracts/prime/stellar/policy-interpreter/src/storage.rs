@@ -4,7 +4,7 @@
 //! `(account, rule_id) -> StoredDoc`. Grammar 6 kept four entries per rule (the
 //! predicate and executor in one doc, plus the nonce, the operator-set hash and
 //! the master set); they share a lifecycle (written together at install, bumped
-//! together on every permit), and any one archiving would have bricked the rule,
+//! together when a permit bumps them), and any one archiving would have bricked the rule,
 //! so they now live and expire together.
 
 use soroban_sdk::{contracterror, contracttype, panic_with_error, Address, Bytes, BytesN, Env};
@@ -51,7 +51,8 @@ pub enum PolicyError {
     ContractScope = 101,
     /// A `scaled` step overflowed `i128` (`checked_mul`/`checked_div`/
     /// `checked_add`). Denies rather than panicking the frame on the arithmetic
-    /// itself. A constant-only overflow is refused at install instead.
+    /// itself. A constant product or fold that overflows is refused at install
+    /// instead, whether or not `add` is constant.
     ArithmeticOverflow = 102,
     UnsupportedNode = 103,
     NotInAllowlist = 105,
@@ -85,11 +86,14 @@ pub enum PolicyError {
     /// interpreter. The predicate would be the only fence around
     /// `add_context_rule` and the interpreter's own install and rotation, and
     /// a weakened predicate would hand the rule's operators the whole account.
-    /// Predicates install on rules scoped to some other contract only.
+    /// Only those three are refused: a rule scoped to any other contract still
+    /// installs, including another policy contract (a second interpreter, OZ's
+    /// `spending_limit`), whose own admin calls it would then expose.
     DefaultContextNotSupported = 218,
     /// A signer set (the rule's operators or the master set) holds this
-    /// interpreter's own address. Nobody can authorise as it, so the master set
-    /// could never uninstall or rotate and the rule would be bricked.
+    /// interpreter's own address. Nobody can authorise as it: an operator set
+    /// holding it could never authorise a call, and a master set holding it could
+    /// never uninstall or rotate (the rule would be bricked).
     SignerIsInterpreter = 219,
 }
 

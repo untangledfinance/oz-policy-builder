@@ -17,8 +17,9 @@ use soroban_sdk::{Address, Bytes, Env, Error, IntoVal, Map, Symbol, TryFromVal, 
 pub const MAX_DEPTH: u32 = 5;
 pub const MAX_LEAVES: u32 = 200;
 pub const MAX_IN_OPERAND_COUNT: u32 = 32;
-/// Distinct `read` calls per predicate. Each is a cross-contract call made on
-/// every `enforce` (identical reads share one), so the count is capped at decode.
+/// Distinct `read` calls per predicate. Each is a cross-contract call made when
+/// `enforce` evaluates it (identical reads share one), so the count is capped at
+/// decode.
 pub const MAX_READS: u32 = 4;
 pub const MAX_PREDICATE_BYTES: u32 = 32 * 1024;
 
@@ -318,7 +319,8 @@ fn literal_to_val(env: &Env, leaf: &Leaf) -> Res<Val> {
 /// serialising, so this works on wasm, and `Bytes` compares by value.
 ///
 /// Two numbers (u32, u64, i128) compare as numbers, whatever their types, the
-/// same widening ordering uses; `5u32` equals `5i128`. Anything else is exact:
+/// same widening ordering uses; `5u32` equals `5i128`. Only at the top level:
+/// numbers inside a vector compare by XDR, type included. Anything else is exact:
 /// a number never equals a symbol, and an address only its own address.
 fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
     if let (Some(x), Some(y)) = (val_to_i128(env, a), val_to_i128(env, b)) {

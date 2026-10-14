@@ -13,7 +13,7 @@
 //!     at decode, call_arg index out of bounds at evaluate, garbage bytes
 //!     fail-closed as malformed
 //!   - caps with the exact wire codes: MAX_DEPTH 5 -> PREDICATE_TOO_DEEP,
-//!     MAX_LEAVES 200 -> TOO_MANY_LEAVES, MAX_IN_OPERAND_COUNT 32 ->
+//!     MAX_LEAVES 200 -> TooManyLeaves, MAX_IN_OPERAND_COUNT 32 ->
 //!     IN_OPERAND_LIMIT, MAX_PREDICATE_BYTES 32768 -> PREDICATE_TOO_LARGE
 //!   - i128 checked semantics at the boundary
 
