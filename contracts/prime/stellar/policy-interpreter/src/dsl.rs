@@ -345,6 +345,14 @@ fn scale(src: i128, num: i128, den: i128, add: i128) -> Option<i128> {
     src.checked_mul(num)?.checked_div(den)?.checked_add(add)
 }
 
+/// A literal that is not a number: it has no order and cannot be scaled.
+fn non_number(leaf: &Leaf) -> bool {
+    matches!(
+        leaf,
+        Leaf::LiteralAddress(_) | Leaf::LiteralSymbol(_) | Leaf::LiteralVec(_)
+    )
+}
+
 /// The value of a leaf made of literals alone; `None` for anything that
 /// depends on the call, the clock or another contract, and for a fold that
 /// overflows (decode refuses that one, so a nested constant never does).
@@ -501,6 +509,8 @@ fn decode_node(env: &Env, items: &Vals, depth: u32) -> Res<Node> {
     } else if let Some((_, op)) = ops.find(|(name, _)| is(name)) {
         ensure(items.len() == 3)?;
         let (left, right) = (leaf_at(env, items, 1)?, leaf_at(env, items, 2)?);
+        // An ordering over an address, symbol or vector literal could never permit.
+        ensure(op == CompareOp::Eq || !(non_number(&left) || non_number(&right)))?;
         Ok(Node::Compare { op, left, right })
     } else {
         // Bare selector tuples at a Node position are MALFORMED.
@@ -615,6 +625,7 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
         let leaves = [operand(1)?, operand(2)?, operand(4)?];
         let [s, n, a] = leaves.each_ref().map(constant);
         ensure(![s, n].iter().any(|v| v.is_some_and(|v| v <= 0)))?;
+        ensure(!leaves.iter().any(non_number))?;
         // A constant that overflows would deny every call: refuse it here. The
         // product and quotient do not depend on `add`, so they are folded even
         // when it varies (as `0`; the constant addend is folded too).

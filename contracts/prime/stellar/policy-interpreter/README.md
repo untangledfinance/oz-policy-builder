@@ -52,6 +52,9 @@ stand on either side.
 **Numbers compare as numbers.** `eq`, `lt`, `lte`, `gt`, `gte` and `in` treat a
 `u32`, `u64` or `i128` by value, whatever its type: `eq(call_arg(0), 5)` holds
 for a 5 of any of the three, and a `u32` literal matches an `i128` argument.
+An ordering (`lt`, `lte`, `gt`, `gte`) over a literal address, symbol or vector,
+and an address, symbol or vector literal as a `scaled` operand, are refused at
+install (201): they could never permit. Use `eq` or `in` to match them.
 Everything else compares exactly: addresses, symbols and vectors equal only
 their own kind and value, and never equal a number. `i64`, `i32` and `u128` are
 not widened (they fail an ordering and equal nothing numeric). The type each

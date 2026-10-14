@@ -2095,3 +2095,64 @@ fn in_compares_numbers_by_value_across_types() {
         Ok(())
     );
 }
+
+// ---- a literal that is not a number has no place in arithmetic or ordering --
+
+/// Install the rule `check(world)` on a fresh world.
+fn installs(check: impl Fn(&World) -> ScVal) -> Result<(), u32> {
+    let w = World::new();
+    w.install(&rule_for(check(&w)))
+}
+
+#[test]
+fn an_ordering_over_a_non_numeric_literal_is_refused_at_install() {
+    // It would deny every call (an address, symbol or vector has no order), so
+    // it is refused (201) instead of installing a rule that never permits.
+    type Lit = fn(&World) -> ScVal;
+    let literals: [Lit; 4] = [
+        |_| sym("x"),
+        |w| addr(&w.env, &w.target),
+        |_| tuple(alloc::vec![num(1), num(2)]),
+        |w| variant("Stellar", alloc::vec![addr(&w.env, &w.target)]),
+    ];
+    for lit in literals {
+        for op in ["lt", "lte", "gt", "gte"] {
+            assert_eq!(installs(|w| cmp(op, call_arg(0), lit(w))), MALFORMED);
+            assert_eq!(installs(|w| cmp(op, lit(w), call_arg(0))), MALFORMED);
+        }
+        // `eq` is the way to match them.
+        assert_eq!(installs(|w| cmp("eq", call_arg(0), lit(w))), Ok(()));
+    }
+    // Numeric literals of either type order fine.
+    assert_eq!(installs(|_| cmp("gte", call_arg(0), ScVal::U32(1))), Ok(()));
+    assert_eq!(installs(|_| cmp("lt", num(1), call_arg(0))), Ok(()));
+}
+
+#[test]
+fn a_non_numeric_literal_in_scaled_is_refused_at_install() {
+    let bad = |src: ScVal, n: ScVal, add: ScVal| {
+        installs(|_| {
+            cmp(
+                "gte",
+                call_arg(0),
+                scaled(src.clone(), n.clone(), 1, add.clone()),
+            )
+        })
+    };
+    let target = installs_addr();
+    assert_eq!(bad(sym("x"), call_arg(1), num(0)), MALFORMED);
+    assert_eq!(bad(call_arg(1), target, num(0)), MALFORMED);
+    assert_eq!(bad(call_arg(1), num(1), sym("x")), MALFORMED);
+    assert_eq!(
+        bad(call_arg(1), num(1), tuple(alloc::vec![num(1)])),
+        MALFORMED
+    );
+    assert_eq!(bad(call_arg(1), num(1), num(0)), Ok(()));
+    assert_eq!(bad(call_arg(1), ScVal::U32(2), ScVal::U32(0)), Ok(()));
+}
+
+/// Some address as a literal (any: the rule is refused or accepted on its type).
+fn installs_addr() -> ScVal {
+    let env = Env::default();
+    addr(&env, &Address::generate(&env))
+}
