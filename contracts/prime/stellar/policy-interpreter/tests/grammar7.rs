@@ -1042,6 +1042,98 @@ fn a_literal_source_is_held_to_the_same_rule_as_a_literal_numerator() {
 }
 
 #[test]
+fn a_constant_multiplicand_is_refused_when_it_folds_to_zero_or_less() {
+    // `scaled(1, 1, 1, -100)` is the constant -99 however it is spelled, in
+    // either multiplicand slot; so is a nested zero.
+    let neg = || scaled(num(1), num(1), 1, num(-100));
+    let zero = || scaled(num(1), num(1), 1, num(-1));
+    for bad in [neg(), zero()] {
+        let a = scaled(call_arg(0), bad.clone(), 100, num(0));
+        let b = scaled(bad, call_arg(0), 100, num(0));
+        for s in [a, b] {
+            let w = World::new();
+            assert_eq!(w.install(&rule_for(cmp("gte", call_arg(1), s))), MALFORMED);
+        }
+    }
+    // A constant that folds positive is fine, and so is one that overflows
+    // (it cannot be judged here; at enforce it denies as an overflow).
+    let w = World::new();
+    let pos = scaled(num(2), num(3), 1, num(0));
+    w.arm(cmp(
+        "gte",
+        call_arg(1),
+        scaled(call_arg(0), pos, 100, num(0)),
+    ));
+    let w = World::new();
+    let big = scaled(num(i128::MAX), num(2), 1, num(0));
+    w.arm(cmp(
+        "gte",
+        call_arg(1),
+        scaled(call_arg(0), big, 100, num(0)),
+    ));
+    assert_eq!(w.enforce(&[1, 1]), refused(PolicyError::ArithmeticOverflow));
+}
+
+#[test]
+fn den_is_bounded_so_an_absurd_one_cannot_zero_a_floor() {
+    let rule = |den| {
+        rule_for(cmp(
+            "gte",
+            call_arg(1),
+            scaled(call_arg(0), num(99), den, num(0)),
+        ))
+    };
+    let w = World::new();
+    assert_eq!(w.install(&rule(policy_interpreter::dsl::MAX_DEN)), Ok(()));
+    for den in [policy_interpreter::dsl::MAX_DEN + 1, i128::MAX] {
+        assert_eq!(World::new().install(&rule(den)), MALFORMED, "den = {den}");
+    }
+}
+
+#[test]
+fn a_read_target_must_be_a_contract_address() {
+    // A G-account makes the host abort the whole enforce instead of failing the
+    // call, even inside an `or`; refuse it at install so it denies cleanly.
+    let w = World::new();
+    let g = Address::from_str(
+        &w.env,
+        "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7",
+    );
+    let r = read(&w.env, &g, "balance", alloc::vec![], &[]);
+    assert_eq!(
+        w.install(&rule_for(cmp("gte", r.clone(), num(0)))),
+        MALFORMED
+    );
+    let or = tuple(alloc::vec![
+        sym("or"),
+        tuple(alloc::vec![cmp("gte", r, num(0)), is_advance()])
+    ]);
+    assert_eq!(w.install(&or), MALFORMED);
+}
+
+#[test]
+fn floors_truncate_toward_zero_so_they_are_lenient_by_under_one_unit() {
+    // 101 * 99 / 100 = 99.99 truncates to 99, so an output of 99 passes a
+    // floor of 99.99; an exact floor is written cross-multiplied.
+    let w = World::new();
+    w.arm(cmp(
+        "gte",
+        call_arg(1),
+        scaled(call_arg(0), num(99), 100, num(0)),
+    ));
+    assert_eq!(w.enforce(&[101, 99]), Ok(()));
+    let w = World::new();
+    let exact = cmp(
+        "gte",
+        scaled(call_arg(1), num(100), 1, num(0)),
+        scaled(call_arg(0), num(99), 1, num(0)),
+    );
+    w.arm(exact);
+    assert_eq!(w.enforce(&[101, 99]), denied());
+    assert_eq!(w.enforce(&[101, 100]), Ok(()));
+}
+
+#[test]
 fn in_haystacks_and_literal_vecs_hold_constants_only() {
     let w = World::new();
     let o = oracle(&w, 1, 0);
@@ -1064,6 +1156,11 @@ fn in_haystacks_and_literal_vecs_hold_constants_only() {
 /// What the adapter hands the policy: `execute(calls, grants, wait)`, each call
 /// a map with `target`, `function_name` and `args`.
 fn batch_context(w: &World, functions: &[&str]) -> Context {
+    batch_context_waiting(w, functions, 0)
+}
+
+/// The same, with `wait` ledgers before the batch may run.
+fn batch_context_waiting(w: &World, functions: &[&str], wait: u32) -> Context {
     let mut calls = SorobanVec::<Val>::new(&w.env);
     for f in functions {
         let mut c = soroban_sdk::Map::<Symbol, Val>::new(&w.env);
@@ -1081,7 +1178,7 @@ fn batch_context(w: &World, functions: &[&str]) -> Context {
     let mut args = SorobanVec::<Val>::new(&w.env);
     args.push_back(calls.into_val(&w.env));
     args.push_back(SorobanVec::<Val>::new(&w.env).into_val(&w.env));
-    args.push_back(0u32.into_val(&w.env));
+    args.push_back(wait.into_val(&w.env));
     Context::Contract(ContractContext {
         contract: w.target.clone(),
         fn_name: Symbol::new(&w.env, "execute"),
@@ -1095,6 +1192,14 @@ fn batch_rule(w: &World, oracle: &Address, pin_shape: bool) -> ScVal {
         price_floor(w, oracle, 100),
     ];
     if pin_shape {
+        // No waiting and no grants: with `wait > 0` the rule is answered when
+        // the batch is STORED, and the read would be stale when it runs.
+        checks.push(cmp("eq", call_arg(2), ScVal::U32(0)));
+        checks.push(cmp(
+            "eq",
+            call_path(&[Step::I(1), Step::Len]),
+            ScVal::U32(0),
+        ));
         // the whole batch: exactly one call, and it is `advance`
         checks.push(cmp(
             "eq",
@@ -1143,6 +1248,93 @@ fn a_pinned_batch_refuses_an_appended_call_and_a_swapped_one() {
         w.enforce_context(&batch_context(&w, &["withdraw"])),
         denied()
     );
+}
+
+#[test]
+fn a_rule_on_execute_is_answered_when_a_waiting_batch_is_stored() {
+    // `wait` is the adapter's third argument. An unpinned rule permits a batch
+    // that will run a million ledgers later, on the strength of a read taken now;
+    // pinning `wait == 0` refuses it, and `wait == 0` still permits.
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    w.install(&batch_rule(&w, &o, false)).unwrap();
+    let waiting = batch_context_waiting(&w, &["advance"], 1_000_000);
+    assert_eq!(w.enforce_context(&waiting), Ok(()));
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    w.install(&batch_rule(&w, &o, true)).unwrap();
+    assert_eq!(w.enforce_context(&batch_context(&w, &["advance"])), Ok(()));
+    assert_eq!(
+        w.enforce_context(&batch_context_waiting(&w, &["advance"], 1)),
+        denied()
+    );
+}
+
+// ---- reads see the state at authorisation time -----------------------------
+
+/// A value anyone can set: a spot price, an agent-debitable balance.
+#[contract]
+pub struct Spot;
+
+#[contractimpl]
+impl Spot {
+    pub fn set(e: &Env, p: i128) {
+        e.storage().instance().set(&0u32, &p);
+    }
+
+    pub fn price(e: &Env) -> i128 {
+        e.storage().instance().get(&0u32).unwrap_or(0)
+    }
+}
+
+/// The submitter's wrapper: move the spot price, have the account's
+/// authorisation checked (here: `enforce`), move it back - one invocation.
+#[contract]
+pub struct Sandwich;
+
+#[contractimpl]
+impl Sandwich {
+    pub fn go(
+        e: &Env,
+        spot: Address,
+        policy: Address,
+        context: Context,
+        rule: ContextRule,
+        account: Address,
+    ) {
+        let s = SpotClient::new(e, &spot);
+        let before = s.price();
+        s.set(&1_000_000);
+        PolicyInterpreterClient::new(e, &policy).enforce(&context, &rule.signers, &rule, &account);
+        s.set(&before);
+    }
+}
+
+#[test]
+fn a_read_of_state_the_submitter_can_move_is_defeated_inside_one_transaction() {
+    // Reads see the state at the moment the account's authorisation is checked,
+    // which a submitter can arrange to follow its own earlier calls. A spot
+    // value is therefore not a safe thing to read: the rule denies at the real
+    // price and permits inside the wrapper, and the price is back afterwards.
+    let w = World::new();
+    let spot = w.env.register(Spot, ());
+    let sandwich = w.env.register(Sandwich, ());
+    SpotClient::new(&w.env, &spot).set(&10);
+    w.arm(cmp(
+        "gte",
+        read(&w.env, &spot, "price", alloc::vec![], &[]),
+        num(1_000),
+    ));
+    assert_eq!(w.enforce(&[]), denied());
+    let go = SandwichClient::new(&w.env, &sandwich).try_go(
+        &spot,
+        &w.policy,
+        &w.context(&[]),
+        &w.rule,
+        &w.account,
+    );
+    assert!(go.is_ok());
+    assert_eq!(SpotClient::new(&w.env, &spot).price(), 10);
 }
 
 // ---- a Reflector-style oracle: enum argument, Option result ----------------

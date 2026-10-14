@@ -499,7 +499,7 @@ fn a_bound_rule_enforces_only_with_the_executors_authorisation() {
             sub_invokes: &[],
         },
     };
-    env.mock_auths(&[account_auth.clone()]);
+    env.mock_auths(core::slice::from_ref(&account_auth));
     let res = client.try_enforce(&ctx, &signers, &rule, &smart_account);
     assert!(
         res.is_err(),

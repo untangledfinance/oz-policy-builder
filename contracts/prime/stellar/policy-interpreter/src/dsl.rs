@@ -59,6 +59,9 @@ pub const MAX_PREDICATE_BYTES: u32 = 32 * 1024;
 /// refuses a forbidden target at ANY depth. The predicate does not need to
 /// restate either.
 pub const MAX_PATH_STEPS: u32 = 8;
+/// Largest `scaled` denominator. `den` is positive and bounded so an absurd one
+/// (`i128::MAX`) cannot quietly truncate every product to zero.
+pub const MAX_DEN: i128 = 1_000_000_000_000_000_000;
 // Stateful selectors.
 //
 // `amount` and `window_spent` are deliberately NOT part of the grammar: the
@@ -316,9 +319,7 @@ fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext) -> Result<Val, DenyReason>
         Leaf::Scaled(k, den) => {
             let n = |l: &Leaf| resolve(env, l, ctx).and_then(|v| val_to_i128(env, &v).ok_or(miss));
             let (src, num, add) = (n(&k[0])?, n(&k[1])?, n(&k[2])?);
-            src.checked_mul(num)
-                .and_then(|p| p.checked_div(*den))
-                .and_then(|q| q.checked_add(add))
+            scale(src, num, *den, add)
                 .ok_or(DenyReason::ArithmeticOverflow)?
                 .into_val(env)
         }
@@ -327,6 +328,23 @@ fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext) -> Result<Val, DenyReason>
 }
 
 /// Follow `steps` from `cur`; `None` when a step finds something else.
+/// `src * num / den + add`: multiply, divide (truncating toward zero), add, each
+/// step checked.
+fn scale(src: i128, num: i128, den: i128, add: i128) -> Option<i128> {
+    src.checked_mul(num)?.checked_div(den)?.checked_add(add)
+}
+
+/// The value of a leaf made of literals alone, when it fits; `None` for
+/// anything that depends on the call, the clock or another contract.
+fn constant(leaf: &Leaf) -> Option<i128> {
+    match leaf {
+        Leaf::LiteralI128(v) => Some(*v),
+        Leaf::LiteralU32(v) => Some(i128::from(*v)),
+        Leaf::Scaled(k, den) => scale(constant(&k[0])?, constant(&k[1])?, *den, constant(&k[2])?),
+        _ => None,
+    }
+}
+
 fn walk(env: &Env, cur: Val, steps: &[PathStep]) -> Option<Val> {
     let vec = |v: &Val| SorobanVec::<Val>::try_from_val(env, v).ok();
     steps.iter().try_fold(cur, |cur, step| {
@@ -592,8 +610,10 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
             literal_to_val(env, &leaf).ok_or(DecodeError::MalformedPredicate)
         };
         let args: Vals = expect(env, items, 3)?;
+        let target: Address = expect(env, items, 1)?;
+        ensure(target.clone().to_xdr(env).get(7) == Some(1))?;
         Ok(Leaf::Read(
-            expect(env, items, 1)?,
+            target,
             expect(env, items, 2)?,
             SorobanVec::from_slice(env, &each(&args, arg)?),
             decode_steps(env, items, 4, 0)?,
@@ -618,10 +638,10 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
         // output. An operand that is read from the call or a contract
         // cannot be judged here; guard it in the rule (see the README).
         let den = expect::<i128>(env, items, 3)?;
-        ensure(den > 0)?;
+        ensure((1..=MAX_DEN).contains(&den))?;
         let operand = |i| decode_leaf(env, &at(items, i)?, depth + 1);
         let leaves = [operand(1)?, operand(2)?, operand(4)?];
-        let non_positive = |l: &Leaf| matches!(l, Leaf::LiteralI128(..=0) | Leaf::LiteralU32(0));
+        let non_positive = |l: &Leaf| constant(l).is_some_and(|v| v <= 0);
         ensure(!leaves[..2].iter().any(non_positive))?;
         Ok(Leaf::Scaled(Box::new(leaves), den))
     } else {
