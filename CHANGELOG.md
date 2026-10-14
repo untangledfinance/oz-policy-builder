@@ -26,8 +26,9 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   - `now` is the ledger timestamp.
   - `scaled(src, num, den, add)` is `src * num / den + add` over any value
     leaf, nested `scaled` included. Multiply, then divide (truncating toward
-    zero), then add, each checked; overflow denies `ARITHMETIC_OVERFLOW`. `den`
-    is a constant and must be positive, and so must any constant `src` or `num`, folded at decode (a negative
+    zero), then add, each checked; overflow denies `ARITHMETIC_OVERFLOW` (105 as an
+    `in` needle). `den`
+    is a constant and must be positive, and so must any constant `src` or `num`, checked at decode (a negative
     one would turn a floor into a ceiling); write a subtraction by moving the
     term across the comparison. It replaces `call_arg_scaled(i, num,
     den)`, which is now `scaled(call_arg(i), num, den, 0)`. Together they
@@ -111,7 +112,7 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   is grammar 7 and still source only.
   - **One entry per rule.** A rule is one `(account, rule_id) -> StoredDoc`
     entry (predicate, executor, nonce, operator-set hash, master set). Grammar 6
-    kept four `(account, rule_id, tag)` entries. A permit bumps one entry, an
+    kept four `(account, rule_id, tag)` entries. A permit bumps one entry (when fewer than 100 ledgers of TTL remain), an
     install writes one, and the rule cannot archive in pieces. Off-chain readers
     of the old four-entry layout (`keep-alive.ts`, `read-account-rules.ts`) must
     read the new key.
@@ -121,20 +122,26 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
     grammar 6 (only an owner could exploit the alias).
   - **Rules that reach the admin surface are refused.** Besides `Default`, a rule
     scoped to the smart account (`add_context_rule`) or to the interpreter itself
-    (`install`, `rotate_master_signer_set`) is refused as `218`; grammar 6, live
+    (`install`, `rotate_master_signer_set`) is refused as `218` (only those two
+    addresses: a rule scoped to another policy contract, such as a second
+    interpreter or OZ's `spending_limit`, still installs, so the TS builder must
+    refuse known policy addresses as scope targets); grammar 6, live
     on mainnet, accepts both. A signer set (operators or master) holding the
     interpreter's own address is refused as the new code `219`, since nobody can
-    authorise as it and the rule could never be uninstalled or rotated.
+    authorise as it: an operator set holding it could never authorise a call, and
+    a master set holding it could never uninstall or rotate.
   - **`eq` and `in` compare numbers by value.** A `u32`, `u64` or `i128` equals
     any of the three with the same value, as the orderings already did, so
     `call_arg_scaled(i, n, d)` and `scaled(call_arg(i), n, d, 0)` are equal under
-    `eq` too. Other values still compare exactly.
+    `eq` too. Only top-level numbers widen; numbers inside a vector or `variant`
+    compare by exact type, and other values compare exactly.
   - **Rules that could never permit are refused at install (201).** An ordering
-    over an address, symbol or vector literal, such a literal as a `scaled`
-    operand, and a constant `src * num` that overflows when `add` varies.
+    over an address, symbol or vector literal, such a literal, `call_fn` or
+    `call_contract` as a `scaled` operand, and a constant `src * num` that overflows when `add` varies.
   - **The deny reason no longer depends on the side** a selector is written on
     (`UNSUPPORTED_NODE` for an ordering over `call_contract` or `call_fn`,
-    `CONTRACT_SCOPE` for a missed `eq` on the contract).
+    `CONTRACT_SCOPE` for a missed `eq` on the contract, even when the other side
+    cannot resolve).
   - **Cheaper `enforce`.** It decodes the stored predicate without the install
     caps (leaf and read counts), and the wasm is built at `opt-level = 3`: the
     PayFi four-check rule went from 7.36M to about 5.5M CPU and the wasm from
