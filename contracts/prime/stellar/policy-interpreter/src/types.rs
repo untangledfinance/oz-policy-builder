@@ -14,7 +14,7 @@ use soroban_sdk::{contracttype, Bytes, BytesN};
 
 /// An authorised identity for a context rule.
 #[contracttype]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Signer {
     Delegated(soroban_sdk::Address),
     External(soroban_sdk::Address, Bytes),

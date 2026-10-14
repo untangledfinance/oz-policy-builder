@@ -31,16 +31,3 @@ pub fn require_master(e: &Env, master_set: &Vec<Signer>) {
         signer.address().require_auth();
     }
 }
-
-/// Compare two signer sets element-by-element.
-pub fn signer_sets_equal(a: &Vec<Signer>, b: &Vec<Signer>) -> bool {
-    a.len() == b.len() && a.iter().zip(b.iter()).all(|(x, y)| signer_eq(&x, &y))
-}
-
-fn signer_eq(a: &Signer, b: &Signer) -> bool {
-    match (a, b) {
-        (Signer::Delegated(x), Signer::Delegated(y)) => x == y,
-        (Signer::External(x, kx), Signer::External(y, ky)) => x == y && kx == ky,
-        _ => false,
-    }
-}
