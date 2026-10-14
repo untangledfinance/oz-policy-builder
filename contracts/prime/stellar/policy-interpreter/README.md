@@ -19,7 +19,10 @@ is [`@crediolabs/policy-synth`](../../../../packages/policy-synth/).
 | `grammar_version` | The predicate grammar version this build speaks (`SELF_VERSION`). |
 
 Evaluation fails closed: an undecodable predicate, an unsupported node, or a
-selector the call cannot answer all deny.
+selector the call cannot answer all deny. Which reason is reported does not
+depend on the side an operand is written on: an ordering over `call_contract` or
+`call_fn` is `UNSUPPORTED_NODE` (103), and a missed `eq` against `call_contract`
+is `CONTRACT_SCOPE` (101), whichever side they are on.
 
 ## What the predicate can say
 
@@ -172,7 +175,9 @@ Read this before writing a rule with a `read`.
 - **Failure denies.** A read that panics, hits a missing function or contract,
   returns void or a non-number, or finds no field at `path` resolves to
   nothing, and the comparison denies (`ARG_MISMATCH`). That includes `eq`: two
-  failed reads are never "equal".
+  failed reads are never "equal". As the needle of an `in`, every failure
+  (a failed read, a missing argument, an overflow) denies `NOT_IN_ALLOWLIST`
+  (105) instead: a needle that cannot be resolved cannot be on the allowlist.
 - **Caps, enforced at decode.** At most four DISTINCT `read` calls per
   predicate, a call being `(contract, fn, args)`: reads that differ only in
   `path` are one call, and `enforce` makes it once and reuses the result for
@@ -209,7 +214,8 @@ Read this before writing a rule with a `read`.
   negative advance lowers the debt side and passes the bound). With the guards
   the negative case is refused; `tests/grammar7.rs` shows both.
 - **Arithmetic fails closed.** Overflow in any step of a `scaled` (the multiply,
-  the divide, the add) denies `ARITHMETIC_OVERFLOW`; it never wraps. A `den`
+  the divide, the add) denies `ARITHMETIC_OVERFLOW` (`NOT_IN_ALLOWLIST` inside an
+  `in` needle); it never wraps. A `den`
   of zero or less or above `MAX_DEN`, or a constant `src` or `num` that folds to zero or less, is refused at install
   as `MALFORMED_PREDICATE`, and the
   evaluator still refuses to divide by zero if that gate ever regresses.
