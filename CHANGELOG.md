@@ -17,6 +17,8 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
     with literal arguments and picks a number out of the result with the same
     steps `call_path` takes. At most four per predicate. A failed call, a void
     or non-numeric result, or a missing field denies.
+  - `variant(name, payload...)` writes an enum value (`[name, payload...]`)
+    as a constant, so a `read` can pass Reflector's `Asset::Stellar(addr)`.
   - `now` is the ledger timestamp.
   - `scaled(src, num, den, add)` is `src * num / den + add` over any value
     leaf, nested `scaled` included. Multiply, then divide (truncating toward

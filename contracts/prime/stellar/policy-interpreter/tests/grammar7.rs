@@ -1147,9 +1147,11 @@ fn a_pinned_batch_refuses_an_appended_call_and_a_swapped_one() {
 
 // ---- a Reflector-style oracle: enum argument, Option result ----------------
 
-/// `variant(name, [payload...])`.
+/// `variant(name, payload...)`.
 fn variant(name: &str, payload: StdVec<ScVal>) -> ScVal {
-    tuple(alloc::vec![sym("variant"), sym(name), tuple(payload)])
+    let mut items = alloc::vec![sym("variant"), sym(name)];
+    items.extend(payload);
+    tuple(items)
 }
 
 /// `lastprice(Asset::Stellar(pot))` and a field of the `PriceData` it returns.
@@ -1335,8 +1337,8 @@ fn a_variant_is_a_constant_and_nothing_else() {
             "Stellar",
             alloc::vec![variant("Inner", alloc::vec![call_fn()])],
         ),
-        tuple(alloc::vec![sym("variant"), num(1), tuple(alloc::vec![])]),
-        tuple(alloc::vec![sym("variant"), sym("Stellar")]),
+        tuple(alloc::vec![sym("variant"), num(1), sym("Stellar")]),
+        tuple(alloc::vec![sym("variant")]),
         tuple(alloc::vec![sym("Stellar"), num(1)]),
         call_arg(0),
     ];
