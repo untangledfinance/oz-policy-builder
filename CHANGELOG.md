@@ -107,6 +107,41 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   `cargo fmt` output. `packages/policy-synth` and its TypeScript reference
   evaluator still speak grammar 6; `tests/conformance/_generated_v4.rs` was
   migrated by hand until they catch up.
+- **Interpreter grammar 7 storage, signer hash and audit fixes.** All of this
+  is grammar 7 and still source only.
+  - **One entry per rule.** A rule is one `(account, rule_id) -> StoredDoc`
+    entry (predicate, executor, nonce, operator-set hash, master set). Grammar 6
+    kept four `(account, rule_id, tag)` entries. A permit bumps one entry, an
+    install writes one, and the rule cannot archive in pieces. Off-chain readers
+    of the old four-entry layout (`keep-alive.ts`, `read-account-rules.ts`) must
+    read the new key.
+  - **The operator-set hash is `sha256(Vec<Signer> XDR)`**, not a length-prefixed
+    concatenation of per-signer XDR. The new form tags every variant and key, so
+    `Delegated(a)` and `External(a, [])` no longer hash alike, which they did in
+    grammar 6 (only an owner could exploit the alias).
+  - **Rules that reach the admin surface are refused.** Besides `Default`, a rule
+    scoped to the smart account (`add_context_rule`) or to the interpreter itself
+    (`install`, `rotate_master_signer_set`) is refused as `218`; grammar 6, live
+    on mainnet, accepts both. A signer set (operators or master) holding the
+    interpreter's own address is refused as the new code `219`, since nobody can
+    authorise as it and the rule could never be uninstalled or rotated.
+  - **`eq` and `in` compare numbers by value.** A `u32`, `u64` or `i128` equals
+    any of the three with the same value, as the orderings already did, so
+    `call_arg_scaled(i, n, d)` and `scaled(call_arg(i), n, d, 0)` are equal under
+    `eq` too. Other values still compare exactly.
+  - **Rules that could never permit are refused at install (201).** An ordering
+    over an address, symbol or vector literal, such a literal as a `scaled`
+    operand, and a constant `src * num` that overflows when `add` varies.
+  - **The deny reason no longer depends on the side** a selector is written on
+    (`UNSUPPORTED_NODE` for an ordering over `call_contract` or `call_fn`,
+    `CONTRACT_SCOPE` for a missed `eq` on the contract).
+  - **Cheaper `enforce`.** It decodes the stored predicate without the install
+    caps (leaf and read counts), and the wasm is built at `opt-level = 3`: the
+    PayFi four-check rule went from 7.36M to about 5.5M CPU and the wasm from
+    56,530 to about 51.7 KB. `custody-gate` and `execution-adapter` are built
+    from their own manifests and are byte-identical.
+  - Source is 623 formatted sLOC (693 before the audit's cuts and fixes).
+
 - **Contracts sit under `contracts/prime/`, one folder per chain.** The
   Stellar contracts moved to `contracts/prime/stellar/` (`custody-gate`,
   `execution-adapter`, `policy-interpreter`, `test-blend-pool`,
