@@ -41,6 +41,7 @@ authorized call" no longer holds.
 | `now` | The ledger timestamp (seconds). Ordering widens it to `i128`; `eq` compares by value, so `eq(now, <i128>)` never holds - write `gte`/`lte` |
 | `read(contract, fn, args, path)` | A number read from another contract: call `fn(args)` on `contract`, then walk `path` (zero to eight steps, the same steps as `call_path`) into the result. `contract` and `fn` are fixed fields of the predicate, so its hash pins them. `args` are literals only |
 | `scaled(src, num, den, add)` | `src * num / den + add`. `src`, `num` and `add` are any value leaf, `scaled` included; `den` is a constant and must be positive, and a literal `src` or `num` must be too. Multiplies first, divides second (truncating toward zero), adds third, every step checked |
+| `variant(name, [payload...])` | An enum value as a constant: the vec `[name, payload...]`, for a `read` argument such as Reflector's `Asset::Stellar(addr)`. Payload entries are constants. Also legal wherever another literal is |
 | `literal_*` | Constants on either side of a comparison, or inside an `in` allowlist |
 
 Nodes: `and`, `or`, `eq`, `lt`, `lte`, `gt`, `gte`, `in`. Literals:
@@ -91,12 +92,15 @@ Read this before writing a rule with a `read`.
   it, do not approve it, do not grant it a role on any contract, and name only
   read-only functions in a `read`.
 - **Arguments are literals.** `read` takes an address, a symbol, a `u32` or an
-  `i128` (or a vec of those that does not begin with a symbol). A selector,
-  `now`, `scaled` or another `read` in an argument is refused at install. An
-  argument that is a vec starting with a symbol, which is how a Soroban enum
-  value is encoded, cannot be written: the shared literal decoder reads such a
-  vec as a selector. An oracle whose lookup takes an enum needs a thin wrapper
-  that takes a plain symbol.
+  `i128`, a vec of those that does not begin with a symbol, or an enum variant
+  written `variant(name, [payload...])`. A selector, `now`, `scaled` or another
+  `read` in an argument is refused at install. A Soroban enum value is the vec
+  `[name, payload...]`, and a bare vec that begins with a symbol is read as a
+  selector, so a variant carries its own tag: Reflector's
+  `lastprice(Asset::Stellar(addr))` takes `variant(Stellar, [addr])`. Payload
+  entries are constants, like every other literal, and a variant is also a
+  legal literal anywhere else (an `in` haystack entry, a compare operand, a
+  vec element).
 - **A read cannot target a contract that is already on the call stack.** The
   host refuses re-entry. When the authorized call's own target is the read
   target - a token's `transfer` checking that token's `balance` - the read

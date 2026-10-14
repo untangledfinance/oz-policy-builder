@@ -61,6 +61,40 @@ impl Oracle {
     }
 }
 
+/// Reflector's asset key: `Stellar(contract)` or `Other(symbol)`. A Soroban enum
+/// is the vec `[name, payload...]` on the wire.
+#[contracttype]
+#[derive(Clone, PartialEq)]
+pub enum Asset {
+    Stellar(Address),
+    Other(Symbol),
+}
+
+/// The exact Reflector price-feed signature: `lastprice(asset: Asset) ->
+/// Option<PriceData>`. It answers for the one asset it was built with and
+/// returns `None` (void on the wire) for any other.
+#[contract]
+pub struct Reflector;
+
+#[contractimpl]
+impl Reflector {
+    pub fn __constructor(e: &Env, asset: Asset, price: i128, timestamp: u64) {
+        e.storage().instance().set(&0u32, &asset);
+        e.storage()
+            .instance()
+            .set(&1u32, &PriceData { price, timestamp });
+    }
+
+    pub fn lastprice(e: &Env, asset: Asset) -> Option<PriceData> {
+        let known: Asset = e.storage().instance().get(&0u32).unwrap();
+        if asset == known {
+            e.storage().instance().get(&1u32)
+        } else {
+            None
+        }
+    }
+}
+
 /// A token with one balance, enough for the first-loss check.
 #[contract]
 pub struct Token;
@@ -1107,6 +1141,258 @@ fn a_pinned_batch_refuses_an_appended_call_and_a_swapped_one() {
     );
     assert_eq!(
         w.enforce_context(&batch_context(&w, &["withdraw"])),
+        denied()
+    );
+}
+
+// ---- a Reflector-style oracle: enum argument, Option result ----------------
+
+/// `variant(name, [payload...])`.
+fn variant(name: &str, payload: StdVec<ScVal>) -> ScVal {
+    tuple(alloc::vec![sym("variant"), sym(name), tuple(payload)])
+}
+
+/// `lastprice(Asset::Stellar(pot))` and a field of the `PriceData` it returns.
+fn reflector_read(w: &World, feed: &Address, pot: &Address, field: &'static str) -> ScVal {
+    let asset = variant("Stellar", alloc::vec![addr(&w.env, pot)]);
+    read(
+        &w.env,
+        feed,
+        "lastprice",
+        alloc::vec![asset],
+        &[Step::F(field)],
+    )
+}
+
+/// The LTV check of `ltv`, with the price leaf supplied.
+fn ltv_over(w: &World, pool: &Address, price: ScVal) -> ScVal {
+    let debt = read(&w.env, pool, "debt", alloc::vec![], &[]);
+    let coll = read(&w.env, pool, "collateral", alloc::vec![], &[]);
+    let pledged = scaled(coll, num(1), 1, call_arg(1)); // coll + P
+    cmp(
+        "lte",
+        scaled(debt, num(1), 1, call_arg(0)), // debt + B
+        scaled(price, scaled(pledged, num(92), 1, num(0)), 100, num(0)),
+    )
+}
+
+/// A world with a Reflector-style feed that knows `Asset::Stellar(pot)`.
+fn reflector_world(price: i128, timestamp: u64) -> (World, Address, Address) {
+    let w = World::new();
+    w.env.ledger().with_mut(|l| l.timestamp = 10_000);
+    let pot = Address::generate(&w.env);
+    let feed = w
+        .env
+        .register(Reflector, (Asset::Stellar(pot.clone()), price, timestamp));
+    (w, feed, pot)
+}
+
+#[test]
+fn a_reflector_style_feed_serves_the_price_floor() {
+    let check = |price| {
+        let (w, feed, pot) = reflector_world(price, 0);
+        let floor = cmp("gte", reflector_read(&w, &feed, &pot, "price"), num(100));
+        w.arm(floor);
+        w.enforce(&[])
+    };
+    assert_eq!(check(100), Ok(()));
+    assert_eq!(check(99), denied());
+}
+
+/// The LTV rule of `ltv_over` with the price read from the Reflector feed:
+/// `debt + B <= 92% * price * (coll + P)` over a pool at debt 900, coll 600.
+#[test]
+fn a_reflector_style_feed_serves_the_ltv_check() {
+    let (w, feed, pot) = reflector_world(2, 0);
+    let pool = w.env.register(Pool, (900i128, 600i128));
+    w.arm(ltv_over(
+        &w,
+        &pool,
+        reflector_read(&w, &feed, &pot, "price"),
+    ));
+    // capacity 0.92 * 2 * 600 = 1,104: B = 204 sits exactly on it.
+    assert_eq!(w.enforce(&[204, 0, 0]), Ok(()));
+    assert_eq!(w.enforce(&[205, 0, 0]), denied());
+    // ... and pledging P = 100 lifts it to 0.92 * 2 * 700 = 1,288.
+    assert_eq!(w.enforce(&[300, 100, 0]), Ok(()));
+    // The live price decides: at 1 the same advance is refused.
+    let (w, feed, pot) = reflector_world(1, 0);
+    let pool = w.env.register(Pool, (900i128, 600i128));
+    w.arm(ltv_over(
+        &w,
+        &pool,
+        reflector_read(&w, &feed, &pot, "price"),
+    ));
+    assert_eq!(w.enforce(&[100, 0, 0]), denied());
+}
+
+#[test]
+fn a_reflector_style_feed_serves_the_freshness_check() {
+    let check = |timestamp| {
+        let (w, feed, pot) = reflector_world(1, timestamp);
+        let stamp = reflector_read(&w, &feed, &pot, "timestamp");
+        w.arm(cmp("gte", stamp, scaled(now(), num(1), 1, num(-300))));
+        w.enforce(&[])
+    };
+    assert_eq!(check(9_700), Ok(())); // exactly 300 s old
+    assert_eq!(check(9_699), denied()); // 301 s old
+}
+
+#[test]
+fn the_first_loss_check_does_not_involve_the_feed() {
+    // It reads a token balance, so the enum argument is not in play; kept here
+    // so the four checks sit side by side.
+    let (w, tusd, custody) = first_loss_world(1_050);
+    w.arm(first_loss(&w, &tusd, &custody, 1_000));
+    assert_eq!(w.enforce(&[0, 0, 50]), Ok(()));
+    assert_eq!(w.enforce(&[0, 0, 51]), denied());
+}
+
+#[test]
+fn a_none_result_denies_and_a_some_result_is_walked_by_its_path() {
+    // `Some(PriceData)` arrives as the struct itself, so `price` is found.
+    let w = World::new();
+    let pot = Address::generate(&w.env);
+    let feed = w
+        .env
+        .register(Reflector, (Asset::Stellar(pot.clone()), 150i128, 0u64));
+    w.arm(cmp(
+        "gte",
+        reflector_read(&w, &feed, &pot, "price"),
+        num(150),
+    ));
+    assert_eq!(w.enforce(&[]), Ok(()));
+
+    // The same rule against an asset the feed does not know: `None` is void,
+    // which has no `price` and denies - under `gte` and under `lte` alike.
+    for op in ["gte", "lte"] {
+        let w = World::new();
+        let known = Address::generate(&w.env);
+        let unknown = Address::generate(&w.env);
+        let feed = w
+            .env
+            .register(Reflector, (Asset::Stellar(known), 150i128, 0u64));
+        w.arm(cmp(
+            op,
+            reflector_read(&w, &feed, &unknown, "price"),
+            num(0),
+        ));
+        assert_eq!(w.enforce(&[]), denied(), "{op}");
+    }
+    // Another variant of the same enum is `None` too (`Other` is not `Stellar`).
+    let w = World::new();
+    let pot = Address::generate(&w.env);
+    let feed = w
+        .env
+        .register(Reflector, (Asset::Stellar(pot), 150i128, 0u64));
+    let other = variant("Other", alloc::vec![sym("POT")]);
+    let read_other = read(
+        &w.env,
+        &feed,
+        "lastprice",
+        alloc::vec![other],
+        &[Step::F("price")],
+    );
+    w.arm(cmp("gte", read_other, num(0)));
+    assert_eq!(w.enforce(&[]), denied());
+}
+
+#[test]
+fn a_variant_is_a_constant_and_nothing_else() {
+    let w = World::new();
+    let o = oracle(&w, 1, 0);
+    let rd = |arg: ScVal| {
+        let r = read(
+            &w.env,
+            &o,
+            "lastprice",
+            alloc::vec![arg],
+            &[Step::F("price")],
+        );
+        rule_for(cmp("gte", r, num(0)))
+    };
+    // A well-formed variant installs, with and without a payload.
+    assert_eq!(
+        w.install(&rd(variant("Other", alloc::vec![sym("POT")]))),
+        Ok(())
+    );
+    let w = World::new();
+    let o = oracle(&w, 1, 0);
+    let unit = read(
+        &w.env,
+        &o,
+        "lastprice",
+        alloc::vec![variant("Unit", alloc::vec![])],
+        &[],
+    );
+    assert_eq!(w.install(&rule_for(cmp("gte", unit, num(0)))), Ok(()));
+    // Anything that is not a constant inside one is refused, as is a variant
+    // with a non-symbol name, a bare symbol-headed vec, and a selector.
+    let bad = [
+        variant("Stellar", alloc::vec![call_arg(0)]),
+        variant("Stellar", alloc::vec![now()]),
+        variant(
+            "Stellar",
+            alloc::vec![variant("Inner", alloc::vec![call_fn()])],
+        ),
+        tuple(alloc::vec![sym("variant"), num(1), tuple(alloc::vec![])]),
+        tuple(alloc::vec![sym("variant"), sym("Stellar")]),
+        tuple(alloc::vec![sym("Stellar"), num(1)]),
+        call_arg(0),
+    ];
+    for b in bad {
+        let w = World::new();
+        let o = oracle(&w, 1, 0);
+        let r = read(&w.env, &o, "lastprice", alloc::vec![b], &[Step::F("price")]);
+        assert_eq!(w.install(&rule_for(cmp("gte", r, num(0)))), MALFORMED);
+    }
+    // The same holds where a variant is an operand rather than a read
+    // argument: a selector in its payload is refused, not left to deny at
+    // enforce (where it would still satisfy the selector-leaf install check).
+    let w = World::new();
+    let hidden = variant("Stellar", alloc::vec![call_fn()]);
+    assert_eq!(w.install(&cmp("eq", hidden.clone(), hidden)), MALFORMED);
+    // A variant does not count as a selector: a rule of reads and the clock
+    // alone is still refused.
+    let w = World::new();
+    let o = oracle(&w, 1, 0);
+    let r = read(
+        &w.env,
+        &o,
+        "lastprice",
+        alloc::vec![variant("A", alloc::vec![])],
+        &[],
+    );
+    assert_eq!(
+        w.install(&cmp("gte", r, num(0))),
+        Err(PolicyError::SelectorLeafRequired as u32)
+    );
+}
+
+#[test]
+fn a_variant_literal_pins_an_enum_argument_of_the_call() {
+    // `eq(call_arg(0), variant(Stellar, [pot]))`: the authorised call must
+    // pass exactly that asset.
+    let w = World::new();
+    let pot = Address::generate(&w.env);
+    w.arm(cmp(
+        "eq",
+        call_arg(0),
+        variant("Stellar", alloc::vec![addr(&w.env, &pot)]),
+    ));
+    let ctx = |asset: Asset| {
+        let args: SorobanVec<Val> = soroban_sdk::vec![&w.env, asset.into_val(&w.env)];
+        Context::Contract(ContractContext {
+            contract: w.target.clone(),
+            fn_name: Symbol::new(&w.env, "advance"),
+            args,
+        })
+    };
+    assert_eq!(w.enforce_context(&ctx(Asset::Stellar(pot.clone()))), Ok(()));
+    let other = Asset::Stellar(Address::generate(&w.env));
+    assert_eq!(w.enforce_context(&ctx(other)), denied());
+    assert_eq!(
+        w.enforce_context(&ctx(Asset::Other(Symbol::new(&w.env, "POT")))),
         denied()
     );
 }

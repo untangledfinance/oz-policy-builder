@@ -598,6 +598,17 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
             SorobanVec::from_slice(env, &each(&args, arg)?),
             decode_steps(env, items, 4, 0)?,
         ))
+    } else if is(3, "variant") {
+        // (variant, name, [payload...]): an enum variant literal, which the
+        // host holds as the vector `[name, payload...]` (Reflector's
+        // `Asset::Stellar(addr)`). A bare vector headed by a symbol is read as
+        // a selector, so a variant needs its own tag. Payload entries are
+        // constants, like every other literal.
+        let name = expect::<Symbol>(env, items, 1)?;
+        let payload: Vals = expect(env, items, 2)?;
+        let mut parts = each(&payload, |p| literal(env, &p, depth + 1))?;
+        parts.insert(0, Leaf::LiteralSymbol(name));
+        Ok(Leaf::LiteralVec(parts))
     } else if is(5, "scaled") {
         // (scaled, src, num, den, add). `den` is a constant and must be
         // positive: zero cannot divide, and a negative one would flip the
