@@ -12,9 +12,9 @@ is [`@crediolabs/policy-synth`](../../../../packages/policy-synth/).
 
 | Function | Purpose |
 | --- | --- |
-| `install` | Store a predicate for a `(smart account, context rule)` pair. Refuses a grammar version it does not speak, an oversized predicate (byte cap, `207`, before any parse work), any payload whose sha256 does not match the supplied hash, a rule that reaches the admin surface (`Default`-scoped, or scoped to the smart account or to this interpreter: `218`), and a signer set (the rule's operators or the master set) that is empty, over 16, holds an `External` signer, or holds this interpreter's own address (`219`: nobody can authorise as it, so the rule could never be uninstalled or rotated). |
+| `install` | Store a predicate for a `(smart account, context rule)` pair. Refuses a grammar version it does not speak, an oversized predicate (byte cap, `207`, before any parse work), any payload whose sha256 does not match the supplied hash, a rule that reaches the admin surface (`Default`-scoped, or scoped to the smart account or to this interpreter: `218`; **only those two addresses** - a rule scoped to another policy contract, such as a second interpreter instance or OZ's `spending_limit`, still installs and exposes that contract's own admin calls, so never scope a rule to a policy contract), and a signer set (the rule's operators or the master set) that is empty, over 16, holds an `External` signer, or holds this interpreter's own address (`219`: nobody can authorise as it, so an operator set holding it could never authorise a call and a master set holding it could never uninstall or rotate). A contract address in a master set bricks the rule just the same unless that contract itself calls `uninstall`/`rotate_master_signer_set`; only the interpreter's own address is checked, because the others cannot be enumerated. |
 | `enforce` | The policy hook the smart account calls on every guarded operation: decode, evaluate, permit or deny. |
-| `bind_executor` | Bind a rule to an execution adapter, whose own authorisation of the exact account and context `enforce` then also requires. Master set only; kept across a re-install. |
+| `bind_executor` | Bind a rule to an execution adapter, whose own authorisation of the exact account and context `enforce` then also requires. Needs the smart account's authorisation and the master set's; kept across a re-install. |
 | `uninstall` | Remove the stored predicate for a rule. |
 | `rotate_master_signer_set` | Update the master signer set an installation is bound to. |
 | `grammar_version` | The predicate grammar version this build speaks (`SELF_VERSION`). |
@@ -59,7 +59,10 @@ for a 5 of any of the three, and a `u32` literal matches an `i128` argument.
 An ordering (`lt`, `lte`, `gt`, `gte`) over a literal address, symbol or vector,
 and an address, symbol or vector literal as a `scaled` operand, are refused at
 install (201): they could never permit. Use `eq` or `in` to match them.
-Everything else compares exactly: addresses, symbols and vectors equal only
+Widening is top-level only: numbers inside a vector or a `variant` compare
+exactly, type included (`variant(Amt, 5)` never matches a `u32` or `u64`
+payload, and `[u32 5]` never matches `[i128 5]`); pin a nested number with
+`call_path` to the element instead. Everything else compares exactly: addresses, symbols and vectors equal only
 their own kind and value, and never equal a number. `i64`, `i32` and `u128` are
 not widened (they fail an ordering and equal nothing numeric). The type each
 leaf yields: `call_contract` an address; `call_fn` a symbol; `call_arg`,
@@ -192,8 +195,7 @@ Read this before writing a rule with a `read`.
   denies). So one price feed read for a floor, an LTV and a freshness bound is
   one call, and the full PayFi set (feed, debt, collateral, custody balance) is
   exactly four. Reads count inside `scaled` too; the fifth distinct call is refused at install as
-  `MALFORMED_PREDICATE`, decoder reason `TOO_MANY_LEAVES` - every decoder cap
-  surfaces as 201, except the byte cap at install, which is 207),
+  `MALFORMED_PREDICATE`, every decoder cap surfaces as 201, except the byte cap at install, which is 207),
   `read` paths and `call_path`s of at most eight steps, and leaf nesting
   (`scaled` operands, literal vecs, `read` arguments, `variant` payloads) of at
   most `MAX_DEPTH` (5) levels. The 200-leaf cap counts `scaled` operands,
@@ -233,8 +235,12 @@ Read this before writing a rule with a `read`.
   outside the transaction's footprint aborts the whole transaction with a
   storage `ExceededLimit` that no rule can catch (not even inside an `or`), which
   is why you simulate the signed transaction. The builder that emits predicates
-  must warn about both, and about the memory figure above; that check is
-  off-chain and belongs to the TypeScript side.
+  must warn about both, and about the memory figure above. It must also refuse
+  as a rule's scope any known policy contract address (the pinned grammar-6 and
+  grammar-7 interpreters, OZ policies), which the contract does not. Those checks
+  are off-chain and belong to the TypeScript side (the M3 gate). A claimable-balance
+  or liquidity-pool address anywhere in a predicate also traps in the host's XDR
+  reader (`Error(Context, InvalidAction)`) rather than returning 201.
 - **An oracle read is only as good as the oracle.** A stale or manipulable price
   satisfies the rule. Pair a price with a `now` freshness bound
   (`read(...).timestamp >= scaled(now, 1, 1, -300)`).
