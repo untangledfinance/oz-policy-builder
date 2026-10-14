@@ -373,17 +373,45 @@ fn walk(env: &Env, cur: Val, steps: &[PathStep]) -> Option<Val> {
 /// still a selector. `in` haystacks and literal vectors hold constants only
 /// (the decoder refuses anything else), so they are not searched.
 pub fn has_selector_leaf(root: &Node) -> bool {
-    fn selects(leaf: &Leaf) -> bool {
+    let selects = |l: &&Leaf| matches!(l, Leaf::CallContract | Leaf::CallFn | Leaf::CallPath(_));
+    leaves(root).iter().any(selects)
+}
+
+/// Every leaf of the tree, nested `scaled` operands and literal-vec elements
+/// included.
+fn leaves(node: &Node) -> Vec<&Leaf> {
+    fn nested<'a>(leaf: &'a Leaf, out: &mut Vec<&'a Leaf>) {
+        out.push(leaf);
         match leaf {
-            Leaf::CallContract | Leaf::CallFn | Leaf::CallPath(_) => true,
-            Leaf::Scaled(k, _) => k.iter().any(selects),
-            _ => false,
+            Leaf::LiteralVec(inner) => inner.iter().for_each(|l| nested(l, out)),
+            Leaf::Scaled(inner, _) => inner.iter().for_each(|l| nested(l, out)),
+            _ => {}
         }
     }
-    match root {
-        Node::And(children) | Node::Or(children) => children.iter().any(has_selector_leaf),
-        Node::Compare { left, right, .. } => selects(left) || selects(right),
-        Node::In { needle, .. } => selects(needle),
+    match node {
+        Node::And(children) | Node::Or(children) => children.iter().flat_map(leaves).collect(),
+        Node::Compare { left, right, .. } => {
+            let mut out = Vec::new();
+            [left, right].into_iter().for_each(|l| nested(l, &mut out));
+            out
+        }
+        Node::In { needle, haystack } => {
+            let mut out = Vec::new();
+            [needle]
+                .into_iter()
+                .chain(haystack)
+                .for_each(|l| nested(l, &mut out));
+            out
+        }
+    }
+}
+
+fn depth(node: &Node) -> u32 {
+    match node {
+        Node::And(children) | Node::Or(children) => {
+            1 + children.iter().map(depth).max().unwrap_or(0)
+        }
+        _ => 1,
     }
 }
 
@@ -441,52 +469,15 @@ pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
     }
     let v = Val::from_xdr(env, bytes).map_err(|_| DecodeError::MalformedPredicate)?;
     let root_node = decode_node(env, &to(env, &v)?)?;
-    let mut stats = NodeStats::default();
-    tally_node(&root_node, 1, &mut stats);
-    if stats.depth > MAX_DEPTH {
+    let all = leaves(&root_node);
+    let reads = all.iter().filter(|l| matches!(l, Leaf::Read(..))).count();
+    if depth(&root_node) > MAX_DEPTH {
         return Err(DecodeError::PredicateTooDeep);
     }
-    if stats.leaves > MAX_LEAVES || stats.reads > MAX_READS {
+    if all.len() > MAX_LEAVES as usize || reads > MAX_READS as usize {
         return Err(DecodeError::TooManyLeaves);
     }
     Ok(root_node)
-}
-
-#[derive(Default)]
-struct NodeStats {
-    depth: u32,
-    leaves: u32,
-    reads: u32,
-}
-
-fn tally_node(node: &Node, d: u32, s: &mut NodeStats) {
-    s.depth = s.depth.max(d);
-    match node {
-        Node::And(children) | Node::Or(children) => {
-            for c in children {
-                tally_node(c, d.saturating_add(1), s);
-            }
-        }
-        Node::Compare { left, right, .. } => {
-            tally(left, s);
-            tally(right, s);
-        }
-        Node::In { needle, haystack } => {
-            tally(needle, s);
-            haystack.iter().for_each(|h| tally(h, s));
-        }
-    }
-}
-
-/// Count one leaf, and everything nested inside it, against the caps.
-fn tally(leaf: &Leaf, s: &mut NodeStats) {
-    s.leaves = s.leaves.saturating_add(1);
-    match leaf {
-        Leaf::LiteralVec(elements) => elements.iter().for_each(|e| tally(e, s)),
-        Leaf::Scaled(operands, _) => operands.iter().for_each(|e| tally(e, s)),
-        Leaf::Read(..) => s.reads += 1,
-        _ => {}
-    }
 }
 
 // ---- structural decoder ----
