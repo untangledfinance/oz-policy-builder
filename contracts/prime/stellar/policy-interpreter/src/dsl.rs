@@ -289,13 +289,8 @@ fn literal_to_val(env: &Env, leaf: &Leaf) -> Option<Val> {
 /// equal precisely when they serialise identically. The host does the
 /// serialising, so this works on wasm, and `Bytes` compares by value.
 fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
-    if a.shallow_eq(b) {
-        return true;
-    }
-    if a.is_object() || b.is_object() {
-        return (*a).to_xdr(env) == (*b).to_xdr(env);
-    }
-    false
+    let objects = a.is_object() || b.is_object();
+    a.shallow_eq(b) || (objects && (*a).to_xdr(env) == (*b).to_xdr(env))
 }
 
 /// Resolve a leaf to the `Val` it denotes for the call under evaluation.
