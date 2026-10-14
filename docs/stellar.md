@@ -296,10 +296,17 @@ The properties the custody design leans on:
   read-only call, so those contracts must be ones the owner trusts, ideally
   immutable; a read cannot target a contract already on the call stack (the
   host refuses re-entry and the read denies); a simulation must carry real
-  signatures so the reads' ledger entries land in the footprint. A read is
-  point-in-time: it sees the state before the authorised call or batch runs,
-  so a rule that reads over a batch must pin the batch's length and every
-  element, or a later call can break what the read checked. The interpreter's
+  signatures so the reads' ledger entries land in the footprint. A read
+  sees the state at the moment the account's authorisation is checked, after
+  anything the submitter ran earlier in the same transaction and before the
+  calls the authorisation covers. Read only values the submitter cannot move
+  and restore within one transaction (an oracle-signed or admin-set price, a
+  balance the agent cannot debit), never a spot AMM price or an
+  agent-debitable balance. A rule that reads over a batch must pin the batch's
+  length, every element and its `executor_authorizations`, and `grants`; and
+  because a rule on `execute` with `wait > 0` is evaluated when the batch is
+  stored, not when it runs, it must pin `wait` to 0 (put read checks on the
+  venue rules instead). The interpreter's
   address must never hold value, allowances or roles, because a read target
   sees it as its caller. A rule must
   still constrain the call itself: reads and the clock alone do not satisfy

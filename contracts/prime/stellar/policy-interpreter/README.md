@@ -49,15 +49,21 @@ Nodes: `and`, `or`, `eq`, `lt`, `lte`, `gt`, `gte`, `in`. Literals:
 `literal_vec`. Both sides of a comparison are resolved, so any value leaf can
 stand on either side.
 
-A literal `src` or `num` must be positive (`src * num` commutes, so both
-multiplicands are held to it): `-99/100` would turn a floor into a ceiling that
-permits a zero output, and `0` cancels the selector.
-`den` is positive for the same reason. Write a subtraction by moving the term
+`src` and `num` multiply, so a constant in either is held to the same rule:
+anything made of literals alone (a literal, or a `scaled` of literals, folded at
+decode) must come out above zero. `-99/100` would turn a floor into a ceiling
+that permits a zero output, and `0` cancels the selector. Grammar 6 had one
+literal factor, `num`, so the same rule is stricter here (it also covers `src`
+and nested constants); a factor that comes from the call, the clock or a read
+cannot be judged at install and stays the rule author's to guard. `den` is
+positive and at most `MAX_DEN` (10^18), so an absurd one cannot truncate every
+product to zero. Division truncates toward zero, which loosens a floor by less
+than one unit (`gte(out, scaled(in, 99, 100, 0))` permits `out = 99` for
+`in = 101`, a floor of 99.99) and a negative bound the other way; write an exact
+bound cross-multiplied, `gte(scaled(out, 100, 1, 0), scaled(in, 99, 1, 0))`. Write a subtraction by moving the term
 across the comparison (`ts >= now - 300` is `ts + 300 >= now`, which is
 `gte(scaled(ts, 1, 1, 300), now)`); `add` is any value and may be a negative
-literal. A negative constant can still be built on purpose by nesting (for
-example `num = scaled(1, 1, 1, -100)`), the same class as comparing a selector
-with itself: install cannot tell a deliberate rule from a bad one. `in` haystacks and literal vectors hold constants only: a selector,
+literal. A negative factor can still be built from a variable (`num = scaled(call_arg(1), 1, 1, -100)`), the same class as comparing a selector with itself: install cannot tell a deliberate rule from a bad one. `in` haystacks and literal vectors hold constants only: a selector,
 `read`, `scaled` or `now` in one is refused at decode, as it could never be
 compared.
 
@@ -101,41 +107,62 @@ Read this before writing a rule with a `read`.
   entries are constants, like every other literal, and a variant is also a
   legal literal anywhere else (an `in` haystack entry, a compare operand, a
   vec element).
-- **A read cannot target a contract that is already on the call stack.** The
-  host refuses re-entry. When the authorized call's own target is the read
+- **A read target must be a contract address, and not one already on the call stack.** A G-account target is refused at install (the host would abort the whole `enforce` on it). The host refuses re-entry, so when the authorized call's own target is the read
   target - a token's `transfer` checking that token's `balance` - the read
   fails, and a failed read denies. Read a contract the authorized call does not
   pass through.
-- **A read is point-in-time: it sees the state BEFORE the authorised call or
-  batch runs.** The account authorises first and the calls run after, so a
-  `read` cannot see what the call itself does. Through the execution adapter
-  one authorisation covers a whole batch, and a rule such as "debt + B stays
-  under 92% of collateral" is checked against the state before ANY call of the
-  batch: `execute([advance(B), withdraw_collateral(X)])` passes and then breaks
-  the bound, and a first-loss balance can be drained by a later call the same
-  way. A rule that uses `read` over a batch must therefore pin the batch shape:
-  its length (`call_path(0, true)`) and every element (target, function,
-  arguments), so no call can be appended or swapped. `tests/grammar7.rs` shows
-  both the unpinned batch that is let through and the pinned one that refuses
-  an appended call. Called directly (not through the adapter), a pool the
-  authorised call itself targets is on the call stack, so reading it is refused
-  as re-entry. A rule on a direct pool call therefore cannot read that pool, and
-  the call's arguments are supplied by the agent being policed, so they prove
-  nothing about the pool: route the call through the adapter (the pool is then
-  not on the stack), or rely on the pool's own on-chain checks.
+- **A read sees the state at the moment the account's authorisation is
+  checked, not a protected snapshot.** That is after anything the submitter ran
+  earlier in the same transaction (the host accepts non-root authorisation
+  entries, so a submitter can wrap the authorised call in its own contract,
+  move a value, have the authorisation checked, and move it back), and before
+  the calls the authorisation covers. So `read` is only safe against values
+  the submitter cannot move cheaply inside one transaction: an oracle-signed or
+  admin-set price feed, not a spot AMM price, a pool's utilisation or a
+  balance the agent can debit and restore. A balance floor on an address the
+  agent cannot debit (a custody account) is safe against the agent and still
+  rises with any donation. `tests/grammar7.rs` shows the wrapper defeating a
+  spot read.
+  Three timings follow from this, and a rule author has to pick the one the
+  rule is evaluated at:
+  - a direct venue call: the rule is evaluated at the transaction's
+    authorisation, before the call;
+  - the execution adapter's `execute(calls, grants, wait)` with `wait == 0`:
+    one authorisation covers the whole batch, so a rule such as "debt + B stays
+    under 92% of collateral" is checked against the state before ANY call of
+    the batch (`execute([advance(B), withdraw_collateral(X)])` passes and then
+    breaks the bound). Pin the batch shape: its length (`call_path(0, true)`),
+    every element (target, function, arguments and its `executor_authorizations`)
+    and `grants` (`call_path(1, true)` equal to 0), so nothing can be appended or
+    swapped;
+  - `execute` with `wait > 0`: the rule is evaluated when the batch is STORED,
+    not when it runs, and the run is approved by a separate `run(id)` rule that
+    cannot re-check the batch. A read-based rule on `execute` must pin
+    `call_arg(2)` (the wait) to 0; put read checks on the venue rules instead,
+    which are evaluated when the batch runs, mid-batch, after its earlier calls.
+  `tests/grammar7.rs` shows the unpinned batch and the waiting batch that are
+  let through and the pinned rule that refuses both. Called directly (not
+  through the adapter), a pool the authorised call itself targets is on the call
+  stack, so reading it is refused as re-entry. A rule on a direct pool call
+  therefore cannot read that pool, and the call's arguments are supplied by the
+  agent being policed, so they prove nothing about the pool: route the call
+  through the adapter (the pool is then not on the stack), or rely on the pool's
+  own on-chain checks.
 - **Failure denies.** A read that panics, hits a missing function or contract,
   returns void or a non-number, or finds no field at `path` resolves to
   nothing, and the comparison denies (`ARG_MISMATCH`). That includes `eq`: two
   failed reads are never "equal".
 - **Caps, enforced at decode.** At most four `read` leaves per predicate
-  (counted inside `scaled` too; the fifth is refused as `TOO_MANY_LEAVES`),
+  (counted inside `scaled` too; the fifth is refused at install as
+  `MALFORMED_PREDICATE`, decoder reason `TOO_MANY_LEAVES` - every decoder cap
+  surfaces as 201),
   `read` paths and `call_path`s of at most eight steps, and leaf nesting
   (`scaled` operands, literal vecs) of at most `MAX_DEPTH` (5) levels. With the
   existing 200-leaf cap, evaluation work is bounded and each `read` runs at most
   once per `enforce`.
 - **A rule still has to constrain the call.** `install` refuses a predicate with
   no leaf over the authorized call (`call_contract`, `call_fn`, `call_arg*`,
-  `call_path`), seen through `scaled` and literal vecs. `read` and `now` do not
+  `call_path`), seen through `scaled`. `read` and `now` do not
   count, so a rule made only of reads and the clock is refused
   (`SELECTOR_LEAF_REQUIRED`). The check is that one such leaf exists somewhere,
   as before; it does not prove every branch of an `or` constrains the call.
@@ -157,7 +184,7 @@ Read this before writing a rule with a `read`.
   the negative case is refused; `tests/grammar7.rs` shows both.
 - **Arithmetic fails closed.** Overflow in any step of a `scaled` (the multiply,
   the divide, the add) denies `ARITHMETIC_OVERFLOW`; it never wraps. A `den`
-  of zero or less, or a literal `src` or `num` of zero or less, is refused at install
+  of zero or less or above `MAX_DEN`, or a constant `src` or `num` that folds to zero or less, is refused at install
   as `MALFORMED_PREDICATE`, and the
   evaluator still refuses to divide by zero if that gate ever regresses.
 
