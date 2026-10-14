@@ -259,7 +259,6 @@ fn eval(env: &Env, node: &Node, ctx: &EvalContext, memo: &mut Memo) -> Result<()
                 false => DenyReason::ArgMismatch,
             };
             // A side that cannot resolve is the same miss (overflow keeps its own).
-            // A side that cannot resolve is the same miss (overflow keeps its own).
             let mut side = |l| match resolve(env, l, ctx, memo) {
                 Err(DenyReason::ArgMismatch) => Err(miss),
                 other => other,
