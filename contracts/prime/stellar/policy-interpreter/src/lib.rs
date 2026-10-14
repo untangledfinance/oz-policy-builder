@@ -166,8 +166,8 @@ impl PolicyInterpreter {
         let unchanged = signers_hash(e, &context_rule.signers) == doc.signers_hash;
         ensure(e, unchanged, E::RuleSignersChanged);
 
-        let root =
-            dsl::decode(e, &doc.predicate_bytes).unwrap_or_else(|_| deny(e, E::MalformedPredicate));
+        let root = dsl::decode_stored(e, &doc.predicate_bytes)
+            .unwrap_or_else(|_| deny(e, E::MalformedPredicate));
 
         // Before the predicate check. A deny panics and the host rolls this
         // back with the rest of the frame, so only a permit keeps the bump.

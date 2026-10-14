@@ -434,14 +434,13 @@ pub enum DecodeError {
 type Res<T> = Result<T, DecodeError>;
 type Vals = soroban_sdk::Vec<Val>;
 
-/// Decode a predicate root, checking the byte-size cap against the raw XDR
-/// (the only place the payload length is still in hand) and then the cap trio
-/// (depth / leaves / `read`s). `in` haystacks are capped as they decode.
+/// Decode a predicate root for `install`: the byte-size cap against the raw XDR
+/// (the only place the payload length is still in hand), then the structure
+/// (`decode_stored`), then the count caps (leaves / distinct `read`s).
 pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
     let small = bytes.len() <= MAX_PREDICATE_BYTES;
     cap(small, DecodeError::PredicateTooLarge)?;
-    let v = Val::from_xdr(env, bytes).map_err(|_| DecodeError::MalformedPredicate)?;
-    let root_node = decode_node(env, &to(env, &v)?, 1)?;
+    let root_node = decode_stored(env, bytes)?;
     let all = leaves(&root_node);
     // Reads of the same `(contract, fn, args)` are one call (see `Memo`).
     let mut calls = Vec::new();
@@ -454,6 +453,14 @@ pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
     let few = all.len() <= MAX_LEAVES as usize && calls.len() <= MAX_READS as usize;
     cap(few, DecodeError::TooManyLeaves)?;
     Ok(root_node)
+}
+
+/// Decode bytes `install` already accepted, for `enforce`: the structure and its
+/// depth caps, without the byte and count caps (`install` is the only writer of
+/// a stored predicate, and re-counting is most of what `enforce` would spend).
+pub fn decode_stored(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
+    let v = Val::from_xdr(env, bytes).map_err(|_| DecodeError::MalformedPredicate)?;
+    decode_node(env, &to(env, &v)?, 1)
 }
 
 // ---- structural decoder ----

@@ -620,3 +620,46 @@ fn the_byte_cap_is_inclusive() {
         "got {res:?}"
     );
 }
+
+/// `install` is the only writer of a rule's predicate, and it enforces every
+/// cap. `enforce` decodes the stored bytes structurally and does not run the
+/// install-time count caps again: a stored 202-leaf predicate (which install
+/// would refuse) is evaluated as written.
+#[test]
+fn enforce_trusts_the_caps_install_already_applied() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(PolicyInterpreter, ());
+    let client = PolicyInterpreterClient::new(&env, &contract_id);
+    let smart_account = Address::generate(&env);
+    let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
+    let rule = make_rule(&env, 1, signers.clone());
+    let is_transfer = || {
+        scvec(alloc::vec![
+            sym("eq"),
+            scvec(alloc::vec![sym("call_fn")]),
+            sym("transfer")
+        ])
+    };
+    let root = scvec(alloc::vec![
+        sym("and"),
+        scvec((0..101).map(|_| is_transfer()).collect())
+    ]);
+    let val: soroban_sdk::Val = root.into_val(&env);
+    let predicate = val.to_xdr(&env);
+    let hash: BytesN<32> = env.crypto().sha256(&signers.clone().to_xdr(&env)).into();
+    env.as_contract(&contract_id, || {
+        env.storage().persistent().set(
+            &doc_key(&smart_account),
+            &policy_interpreter::StoredDoc {
+                executor: None,
+                predicate_bytes: predicate,
+                nonce: 1,
+                signers_hash: hash,
+                master_set: signers.clone(),
+            },
+        );
+    });
+    let ctx = call_context(&env, &Address::generate(&env));
+    client.enforce(&ctx, &signers, &rule, &smart_account);
+}
