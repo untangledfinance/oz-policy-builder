@@ -1805,8 +1805,9 @@ fn wire_scaled_leaf_nesting_is_capped_at_max_depth() {
 
 #[test]
 fn wire_scaled_leaves_count_toward_the_leaf_cap() {
-    // Each scaled is four leaves (itself and three operands). Fifty of them
-    // are 200; one more leaf tips the predicate over MAX_LEAVES.
+    // Each compare is five leaves (`call_arg`, a `scaled` and its three
+    // operands), so forty are exactly 200 and one more compare tips the
+    // predicate over MAX_LEAVES.
     let env = Env::default();
     let one = || {
         scaled(

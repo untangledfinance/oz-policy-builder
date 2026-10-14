@@ -538,3 +538,85 @@ fn install_refuses_an_oversized_predicate_as_207() {
     let expected = soroban_sdk::Error::from_contract_error(207);
     assert!(matches!(res, Err(Ok(e)) if e == expected), "got {res:?}");
 }
+
+/// `bind_executor` rewrites the rule's entry, so it must keep it alive like
+/// every other write: a rule near expiry is bumped.
+#[test]
+fn bind_executor_extends_the_rules_ttl() {
+    let env = Env::default();
+    env.mock_all_auths();
+    env.ledger()
+        .with_mut(|li| li.max_entry_ttl = MAINNET_MAX_ENTRY_TTL);
+    let contract_id = env.register(PolicyInterpreter, ());
+    let client = PolicyInterpreterClient::new(&env, &contract_id);
+    let smart_account = Address::generate(&env);
+    let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
+    let rule = make_rule(&env, 1, signers);
+    install_policy(&env, &client, &smart_account, &rule);
+    wind_down_to(&env, &contract_id, &smart_account, 50);
+
+    client.bind_executor(&doc_key(&smart_account), &Address::generate(&env));
+
+    let after = env.as_contract(&contract_id, || {
+        env.storage().persistent().get_ttl(&doc_key(&smart_account))
+    });
+    assert!(
+        after >= policy_interpreter::storage::TTL_BUMP_TO,
+        "got {after}"
+    );
+}
+
+/// Install and rotation refuse an `External` admin, so none is ever stored.
+/// `require_master` still answers for one that is: it must ask the address to
+/// authorise, never skip it. With no auth mocked, that is a refusal.
+#[test]
+fn require_master_asks_an_external_admin_to_authorise() {
+    let env = Env::default();
+    let contract_id = env.register(PolicyInterpreter, ());
+    let client = PolicyInterpreterClient::new(&env, &contract_id);
+    let smart_account = Address::generate(&env);
+    let rule = make_rule(&env, 1, soroban_sdk::vec![&env]);
+    let external = Signer::External(Address::generate(&env), Bytes::new(&env));
+    env.as_contract(&contract_id, || {
+        env.storage().persistent().set(
+            &doc_key(&smart_account),
+            &policy_interpreter::StoredDoc {
+                executor: None,
+                predicate_bytes: permitting_predicate_bytes(&env),
+                nonce: 1,
+                signers_hash: BytesN::from_array(&env, &[0; 32]),
+                master_set: soroban_sdk::vec![&env, external],
+            },
+        );
+    });
+    assert!(client.try_uninstall(&rule, &smart_account).is_err());
+}
+
+/// The byte cap is inclusive: exactly `MAX_PREDICATE_BYTES` is parsed (and
+/// refused there, being zeros, by the host's XDR parser), one more is 207.
+#[test]
+fn the_byte_cap_is_inclusive() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(PolicyInterpreter, ());
+    let client = PolicyInterpreterClient::new(&env, &contract_id);
+    let smart_account = Address::generate(&env);
+    let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
+    let rule = make_rule(&env, 1, signers.clone());
+    let at_cap = policy_interpreter::dsl::MAX_PREDICATE_BYTES as usize;
+    let predicate = Bytes::from_slice(&env, &alloc::vec![0u8; at_cap]);
+    let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
+    let params = PolicyInstallParams {
+        grammar_version: 7,
+        install_nonce: 1,
+        predicate,
+        predicate_hash,
+        policy_admins: signers,
+    };
+    let res = client.try_install(&params, &rule, &smart_account);
+    let too_large = soroban_sdk::Error::from_contract_error(207);
+    assert!(
+        res.is_err() && !matches!(res, Err(Ok(e)) if e == too_large),
+        "got {res:?}"
+    );
+}

@@ -574,17 +574,18 @@ fn an_overflowing_add_denies_rather_than_wrapping() {
 
 #[test]
 fn scaled_multiplies_first_then_truncates_toward_zero_then_adds() {
-    // (7 * 1 / 2) + 10 = 3 + 10 = 13; multiplying after dividing would give 14.
+    // (7 * 3 / 2) + 10 = 10 + 10 = 20; dividing first would give 9 + 10 = 19.
     let w = World::new();
     w.arm(cmp(
         "eq",
-        scaled(call_arg(0), num(1), 2, num(10)),
+        scaled(call_arg(0), num(3), 2, num(10)),
         call_arg(1),
     ));
-    assert_eq!(w.enforce(&[7, 13]), Ok(()));
-    assert_eq!(w.enforce(&[7, 14]), denied());
-    // toward zero: -7 / 2 = -3, not -4.
-    assert_eq!(w.enforce(&[-7, 7]), Ok(()));
+    assert_eq!(w.enforce(&[7, 20]), Ok(()));
+    assert_eq!(w.enforce(&[7, 19]), denied());
+    // toward zero: -7 * 3 / 2 = -10 (floor would be -11), plus 10 is 0.
+    assert_eq!(w.enforce(&[-7, 0]), Ok(()));
+    assert_eq!(w.enforce(&[-7, -1]), denied());
 }
 
 #[test]
@@ -878,7 +879,7 @@ fn a_read_of_an_address_with_no_contract_denies() {
 }
 
 #[test]
-fn a_deny_still_denies_when_another_or_branch_cannot_resolve() {
+fn an_or_permits_through_a_branch_that_cannot_resolve() {
     // `or` falls through a branch that cannot resolve to the next one.
     let w = World::new();
     let o = oracle(&w, 100, 0);
@@ -1129,6 +1130,23 @@ fn a_read_target_must_be_a_contract_address() {
         tuple(alloc::vec![cmp("gte", r, num(0)), is_advance()])
     ]);
     assert_eq!(w.install(&or), MALFORMED);
+}
+
+#[test]
+fn a_muxed_account_is_not_a_read_target_either() {
+    use soroban_sdk::xdr::{MuxedEd25519Account, ScAddress, Uint256};
+    let w = World::new();
+    let muxed = ScAddress::MuxedAccount(MuxedEd25519Account {
+        id: 1,
+        ed25519: Uint256([7; 32]),
+    });
+    let target = tuple(alloc::vec![
+        sym("read"),
+        ScVal::Address(muxed),
+        sym("balance"),
+        tuple(alloc::vec![])
+    ]);
+    assert_eq!(w.install(&rule_for(cmp("gte", target, num(0)))), MALFORMED);
 }
 
 #[test]
@@ -1732,9 +1750,10 @@ fn a_fifth_distinct_read_is_refused_and_repeats_are_free() {
 }
 
 #[test]
-fn a_failing_shared_read_denies_every_leaf_that_uses_it() {
-    // The feed does not know this asset: `None` for both the price and the
-    // timestamp leaf, and the one memoised failure denies each.
+fn a_void_shared_read_denies_every_leaf_that_uses_it() {
+    // The feed does not know this asset: void for both the price and the
+    // timestamp leaf, and the one memoised result denies each. (A call that
+    // FAILS is `a_failed_read_is_made_once`.)
     let (w, feed, _) = reflector_world(2, 9_700);
     let unknown = Address::generate(&w.env);
     let both = all(alloc::vec![
@@ -1762,4 +1781,164 @@ fn a_failing_shared_read_denies_every_leaf_that_uses_it() {
     ]);
     w.install(&or).unwrap();
     assert_eq!(w.enforce(&[]), Ok(()));
+}
+
+// ---- the memo, the leaf cap and `or`: what a regression must not change ----
+
+fn or(children: StdVec<ScVal>) -> ScVal {
+    tuple(alloc::vec![sym("or"), tuple(children)])
+}
+
+/// A holder's `balance` as a floor: `balance(holder) >= floor`.
+fn holds(w: &World, token: &Address, holder: &Address, floor: i128) -> ScVal {
+    let balance = read(
+        &w.env,
+        token,
+        "balance",
+        alloc::vec![addr(&w.env, holder)],
+        &[],
+    );
+    cmp("gte", balance, num(floor))
+}
+
+/// `balance(rich) >= 1000` and `balance(poor) <= 0`, or the two holders swapped.
+fn two_holders(swapped: bool) -> Verdict {
+    let w = World::new();
+    let (rich, poor) = (Address::generate(&w.env), Address::generate(&w.env));
+    let token = w.env.register(Token, (rich.clone(), 1_050i128));
+    let (a, b) = if swapped {
+        (&poor, &rich)
+    } else {
+        (&rich, &poor)
+    };
+    w.install(&both_with(&w, &token, a, b)).unwrap();
+    w.enforce(&[])
+}
+
+#[test]
+fn reads_of_one_function_with_different_arguments_are_different_calls() {
+    // The memo key is (contract, fn, args). If it ignored the arguments the
+    // second read would be answered with the first one's balance.
+    assert_eq!(two_holders(false), Ok(()));
+    assert_eq!(two_holders(true), denied());
+}
+
+fn both_with(w: &World, token: &Address, a: &Address, b: &Address) -> ScVal {
+    let owes_nothing = cmp(
+        "lte",
+        read(&w.env, token, "balance", alloc::vec![addr(&w.env, b)], &[]),
+        num(0),
+    );
+    all(alloc::vec![
+        is_advance(),
+        holds(w, token, a, 1_000),
+        owes_nothing
+    ])
+}
+
+/// CPU spent by one `enforce` of `or(dead reads.., advance)`, where `dead`
+/// panics. `distinct` registers a fresh target per read, so none can share.
+fn cost_of_dead_reads(distinct: bool) -> u64 {
+    let w = World::new();
+    let first = oracle(&w, 1, 0);
+    let dead = |o: &Address| cmp("gte", read(&w.env, o, "boom", alloc::vec![], &[]), num(0));
+    let mut branches = alloc::vec![dead(&first)];
+    for _ in 1..4 {
+        let o = if distinct {
+            oracle(&w, 1, 0)
+        } else {
+            first.clone()
+        };
+        branches.push(dead(&o));
+    }
+    branches.push(is_advance());
+    w.install(&or(branches)).unwrap();
+    w.env.cost_estimate().budget().reset_unlimited();
+    assert_eq!(w.enforce(&[]), Ok(()));
+    w.env.cost_estimate().budget().cpu_instruction_cost()
+}
+
+#[test]
+fn a_failed_read_is_made_once() {
+    // A call that panics is remembered like any other: four identical dead
+    // reads are one failed call, four distinct ones are four.
+    let (same, distinct) = (cost_of_dead_reads(false), cost_of_dead_reads(true));
+    assert!(
+        same * 100 < distinct * 90,
+        "identical dead reads cost {same}, distinct ones {distinct}: failures are not memoised"
+    );
+}
+
+#[test]
+fn an_or_stops_at_the_first_branch_that_permits() {
+    // `or(advance, read)`: the read branch never runs, so the feed is never
+    // called. With the branches the other way round it is.
+    let (w, feed, pot) = reflector_world(2, 9_700);
+    let live = cmp("gte", reflector_read(&w, &feed, &pot, "price"), num(0));
+    w.install(&or(alloc::vec![is_advance(), live.clone()]))
+        .unwrap();
+    assert_eq!(w.enforce(&[]), Ok(()));
+    assert_eq!(ReflectorClient::new(&w.env, &feed).calls(), 0);
+
+    let (w, feed, pot) = reflector_world(2, 9_700);
+    let live = cmp("gte", reflector_read(&w, &feed, &pot, "price"), num(0));
+    w.install(&or(alloc::vec![cmp("eq", call_fn(), sym("other")), live]))
+        .unwrap();
+    assert_eq!(w.enforce(&[]), Ok(()));
+    assert_eq!(ReflectorClient::new(&w.env, &feed).calls(), 1);
+}
+
+#[test]
+fn an_or_reports_its_first_deny() {
+    // Both branches deny: the reason is the first branch's, CONTRACT_SCOPE or
+    // ARG_MISMATCH depending on which is written first.
+    let w = World::new();
+    let elsewhere = addr(&w.env, &Address::generate(&w.env));
+    let scope = cmp("eq", tuple(alloc::vec![sym("call_contract")]), elsewhere);
+    let mismatch = cmp("eq", call_fn(), sym("other"));
+    w.install(&or(alloc::vec![scope.clone(), mismatch.clone()]))
+        .unwrap();
+    assert_eq!(w.enforce(&[]), refused(PolicyError::ContractScope));
+    let w = World::new();
+    w.install(&or(alloc::vec![mismatch, scope])).unwrap();
+    assert_eq!(w.enforce(&[]), denied());
+}
+
+/// `in(call_fn, [x0.. x(n-1)])`: `1 + n` leaves.
+fn member(n: usize) -> ScVal {
+    let entries = (0..n).map(|i| sym(&alloc::format!("f{i}"))).collect();
+    tuple(alloc::vec![sym("in"), call_fn(), tuple(entries)])
+}
+
+#[test]
+fn the_leaf_cap_is_exactly_200_and_counts_in_entries() {
+    // Six `in` of 32 entries are 6 * 33 = 198 leaves. A two-leaf `in` makes
+    // 200 (installs); a three-leaf one makes 201 (refused). The entries must
+    // count: without them the 201 would be 12.
+    let w = World::new();
+    let mut rule = alloc::vec![member(32); 6];
+    rule.push(member(1));
+    w.install(&all(rule.clone())).expect("exactly 200 leaves");
+    rule.pop();
+    rule.push(member(2));
+    assert_eq!(w.install(&all(rule)), MALFORMED, "201 leaves");
+}
+
+#[test]
+fn a_rule_scoped_to_create_contract_denies_missing_state() {
+    // The interpreter only evaluates a contract call. A rule scoped to
+    // `CreateContract` can carry this policy, and its context is not one.
+    use soroban_sdk::auth::{ContractExecutable, CreateContractHostFnContext};
+    let mut w = World::new();
+    w.rule.context_type = ContextRuleType::CreateContract(BytesN::from_array(&w.env, &[1; 32]));
+    w.install(&rule_for(cmp("eq", call_fn(), sym("advance"))))
+        .unwrap();
+    let create = Context::CreateContractHostFn(CreateContractHostFnContext {
+        executable: ContractExecutable::Wasm(BytesN::from_array(&w.env, &[1; 32])),
+        salt: BytesN::from_array(&w.env, &[2; 32]),
+    });
+    assert_eq!(
+        w.enforce_context(&create),
+        refused(PolicyError::MissingState)
+    );
 }

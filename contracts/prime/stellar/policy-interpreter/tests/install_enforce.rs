@@ -428,14 +428,11 @@ fn f2_first_install_requires_smart_account_authorization() {
     );
 }
 
-// ---- F4: bound distinct invocation-count windows at install ----
+// ---- F4: a retired selector is refused ----
 //
-// `commit_state_updates` writes one persistent entry per DISTINCT window on
-// every permit, and Soroban's per-tx write-entry cap is 50. A predicate with
-// 51 distinct windows installs today and then fails EVERY enforce with
-// "write ledger entries: 52 > 50". The synthesizer emits at most one, so a
-// small cap is the right shape: refuse the install loudly instead of letting
-// the predicate run out of budget on its first call.
+// `invocation_count` was a grammar-3 selector and is no longer in the grammar,
+// so a predicate naming it is refused at install as MALFORMED_PREDICATE (201)
+// however many windows it carries. The helper builds one clause per window.
 
 /// Build `and([ lte(invocation_count(ws_i), 0) for each i ])`. Each clause is
 /// a single distinct invocation-count window, so N clauses -> N distinct
@@ -465,7 +462,7 @@ fn many_windows_predicate_bytes(env: &Env, windows: &[u64]) -> Bytes {
 }
 
 #[test]
-fn f4_install_refuses_more_invocation_windows_than_the_cap() {
+fn f4_install_refuses_the_retired_invocation_count_selector() {
     let env = Env::default();
     env.mock_all_auths();
     let contract_id = env.register(PolicyInterpreter, ());
@@ -475,8 +472,6 @@ fn f4_install_refuses_more_invocation_windows_than_the_cap() {
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
     let rule = make_ctx_rule(&env, &signers, 1);
 
-    // Cap is 8 (defined in dsl.rs). Twelve distinct windows blows past it.
-    // Hard-coded so the test fails to compile only when the cap is removed.
     let windows: std::vec::Vec<u64> = (1..=12).map(|i| i * 60).collect();
     let predicate = many_windows_predicate_bytes(&env, &windows);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
@@ -491,10 +486,8 @@ fn f4_install_refuses_more_invocation_windows_than_the_cap() {
         &rule,
         &smart_account,
     );
-    assert!(
-        res.is_err(),
-        "install with more distinct invocation_count windows than the cap must be refused"
-    );
+    let expected = soroban_sdk::Error::from_contract_error(201);
+    assert!(matches!(res, Err(Ok(e)) if e == expected), "got {res:?}");
 }
 
 #[test]
@@ -641,10 +634,10 @@ fn f9_install_refuses_a_predicate_carrying_a_valid_until_leaf() {
         &rule,
         &smart_account,
     );
+    let expected = soroban_sdk::Error::from_contract_error(201);
     assert!(
-        res.is_err(),
-        "a predicate carrying a `valid_until` leaf must not install - the selector \
-         is not in the grammar, so it cannot decode"
+        matches!(res, Err(Ok(e)) if e == expected),
+        "`valid_until` is not in the grammar, so it cannot decode: {res:?}"
     );
 }
 
