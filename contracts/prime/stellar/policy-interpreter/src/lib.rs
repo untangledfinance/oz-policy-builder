@@ -12,57 +12,18 @@ pub mod storage;
 #[cfg(test)]
 mod test;
 pub mod types;
+mod version;
 
 pub use dsl::{CompareOp, DenyReason, EvalContext, EvalDecision, Leaf, Node};
 pub use storage::{PolicyError, StoredDoc};
 pub use types::{ContextRule, ContextRuleType, PolicyInstallParams, Signer};
+pub use version::SELF_VERSION;
 
 use soroban_sdk::xdr::ToXdr;
 use soroban_sdk::{auth::Context, contract, contractimpl, Address, BytesN, Env, IntoVal, Vec};
 
 use crate::storage::{deny, ensure, load, PolicyError as E, TTL_BUMP_THRESHOLD, TTL_BUMP_TO};
 use crate::types::MAX_SIGNERS;
-
-/// Grammar version this interpreter implements. A new condition type means a
-/// new grammar version, which means a new interpreter at a new address - never
-/// an upgrade of this one.
-///
-/// Bumped to 2 when the `oracle_price` / `oracle_threshold` leaves were
-/// retired, then to 3 when the grammar was reduced to what the synthesiser
-/// actually emits. Removing a leaf variant changes the predicate wire format,
-/// so any previously-installed doc carrying a retired variant is refused at
-/// install by the version mismatch gate. See `dsl.rs` for the current grammar.
-///
-/// Bumped to 4 when `or`, `lt`, `gt`, `gte` and the `call_arg_scaled` leaf
-/// were added. Widening the grammar rather than narrowing it means a v3
-/// document would still decode here, but the version gate refuses it anyway:
-/// a v3 builder cannot know whether the interpreter it is addressing speaks
-/// the wider grammar, and letting it guess is how a policy silently means
-/// something other than what its author reviewed.
-///
-/// Bumped to 5 when the Policy Signer role was separated from the operators.
-/// The predicate grammar is unchanged, but the install ABI is not:
-/// `PolicyInstallParams` gained `policy_admins`, so a v4 builder's install
-/// document no longer describes what this contract stores. The version gate
-/// refuses the skew before a half-understood install can appoint an admin
-/// set the author never reviewed.
-///
-/// Bumped to 6 when the predicate learned to address a BATCH. Grammar 5 is
-/// handed a flattened projection of one call and pins amounts by slot index;
-/// `call_path` reaches into the request itself, so a rule names the call, the
-/// argument and the field it means - and can therefore tie two arguments of a
-/// batch to each other, which a projection cannot express. The wire format of
-/// a predicate changes with it, so a v5 document does not decode here and the
-/// version gate refuses it.
-///
-/// Bumped to 7 when the predicate learned to read other contracts and the
-/// clock. `read(contract, fn, args, path)` calls a fixed function of a fixed
-/// contract with literal arguments; `now` is the ledger timestamp; and
-/// `scaled(src, num, den, add)` replaces `call_arg_scaled(index, num, den)`
-/// with a computed value over any value leaf. `call_arg_scaled` no longer
-/// decodes, so a v6 document is refused by the version gate. `enforce` now
-/// performs cross-contract calls, which v6 never did.
-pub const SELF_VERSION: u32 = 7;
 
 #[contract]
 pub struct PolicyInterpreter;
