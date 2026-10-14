@@ -1,16 +1,14 @@
-//! Per-(smart_account, rule_id) state, panic helpers, sha256 utilities.
+//! Per-(smart_account, rule_id) state and the contract error ABI.
 //!
-//! Storage layout (everything `persistent()`, never `instance()`):
-//!   `(account, rule_id, K_DOC)`                      -> `StoredDoc`
-//!   `(account, rule_id, K_NONCE)`                    -> `u32`
-//!   `(account, rule_id, K_SIGNERS_HASH)`             -> `BytesN<32>`
-//!   `(account, rule_id, K_MASTER_SET)`               -> `Vec<Signer>`
+//! Storage layout (`persistent()`, never `instance()`): ONE entry per rule,
+//! `(account, rule_id) -> StoredDoc`. The predicate, executor binding, install
+//! nonce, operator-set hash and master set were separate entries; they share a
+//! lifecycle (written together at install, bumped together on every permit),
+//! and any one archiving would have bricked the rule, so they now live and
+//! expire together.
 
-extern crate alloc;
-
-use soroban_sdk::Vec;
 use soroban_sdk::{
-    contracterror, contracttype, panic_with_error, Address, Bytes, BytesN, Env, IntoVal,
+    contracterror, contracttype, panic_with_error, Address, Bytes, BytesN, Env, Vec,
 };
 
 use crate::dsl::DenyReason;
@@ -118,12 +116,17 @@ pub fn deny(e: &Env, error: PolicyError) -> ! {
     panic_with_error!(e, error);
 }
 
-// ---- storage key constants (u32 because u8 doesn't impl IntoVal) -----
+/// Deny with `error` unless `ok`.
+pub fn ensure(e: &Env, ok: bool, error: PolicyError) {
+    if !ok {
+        deny(e, error);
+    }
+}
 
-pub const K_DOC: u32 = 1;
-pub const K_NONCE: u32 = 2;
-pub const K_SIGNERS_HASH: u32 = 3;
-pub const K_MASTER_SET: u32 = 4;
+/// The rule's stored entry; a missing one is `MISSING_STATE`.
+pub fn load(e: &Env, key: &(Address, u32)) -> StoredDoc {
+    (e.storage().persistent().get(key)).unwrap_or_else(|| deny(e, PolicyError::MissingState))
+}
 
 // ---- TTL self-extend -----
 //
@@ -142,37 +145,10 @@ pub const TTL_BUMP_THRESHOLD: u32 = 100;
 /// occupying state rent forever.
 pub const TTL_BUMP_TO: u32 = 518_400;
 
-pub struct RuleKey {
-    pub account: Address,
-    pub rule_id: u32,
-}
-
-impl RuleKey {
-    pub fn new(account: Address, rule_id: u32) -> Self {
-        Self { account, rule_id }
-    }
-
-    pub fn doc_key(&self) -> RuleStorageKey {
-        (self.account.clone(), self.rule_id, K_DOC)
-    }
-    pub fn nonce_key(&self) -> RuleStorageKey {
-        (self.account.clone(), self.rule_id, K_NONCE)
-    }
-    pub fn signers_hash_key(&self) -> RuleStorageKey {
-        (self.account.clone(), self.rule_id, K_SIGNERS_HASH)
-    }
-    pub fn master_set_key(&self) -> RuleStorageKey {
-        (self.account.clone(), self.rule_id, K_MASTER_SET)
-    }
-}
-
-/// Every per-rule entry is keyed by the same `(account, rule_id, tag)` shape.
-pub type RuleStorageKey = (Address, u32, u32);
-
 // ---- stored doc -----
 //
-// Persist the raw canonical ScVal XDR bytes the install payload carried.
-// Enforce re-decodes from these on every call via the host's `Val::from_xdr`.
+// The raw canonical ScVal XDR bytes the install payload carried; enforce
+// re-decodes from these on every call via the host's `Val::from_xdr`.
 
 #[contracttype]
 #[derive(Clone, Debug)]
@@ -180,32 +156,9 @@ pub struct StoredDoc {
     /// Part of the document lifecycle; requires a fresh interpreter deployment.
     pub executor: Option<Address>,
     pub predicate_bytes: Bytes,
-}
-
-// ---- sha256 helpers ----
-
-/// Stable 32-byte hash of the signer set. Each signer is serialized via the
-/// SDK's `Val::to_xdr` (its canonical XDR form) and prefixed with a length
-/// to keep the encoding unambiguous. The host computes sha256.
-pub fn sha256_of_signer_set(env: &Env, signers: &Vec<Signer>) -> BytesN<32> {
-    let mut buf: Bytes = Bytes::new(env);
-    for s in signers.iter() {
-        let part: Bytes = match &s {
-            Signer::Delegated(a) => val_to_xdr(env, &a.clone().into_val(env)),
-            Signer::External(a, sig) => {
-                let mut b = val_to_xdr(env, &a.clone().into_val(env));
-                b.append(sig);
-                b
-            }
-        };
-        let len: u32 = part.len();
-        buf.append(&Bytes::from_slice(env, &len.to_be_bytes()));
-        buf.append(&part);
-    }
-    env.crypto().sha256(&buf).into()
-}
-
-fn val_to_xdr(env: &Env, val: &soroban_sdk::Val) -> Bytes {
-    use soroban_sdk::xdr::ToXdr;
-    (*val).to_xdr(env)
+    pub nonce: u32,
+    /// Hash of the rule's operator set, re-checked on every enforce.
+    pub signers_hash: BytesN<32>,
+    /// The Policy Signer role: authorises re-install, uninstall and rotation.
+    pub master_set: Vec<Signer>,
 }

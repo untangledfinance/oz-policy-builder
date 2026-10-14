@@ -86,12 +86,8 @@ fn denied_call_context(env: &Env, target: &Address) -> Context {
 // max_entry_ttl to the Stellar mainnet value (3,110,400 ledgers) first.
 const MAINNET_MAX_ENTRY_TTL: u32 = 3_110_400;
 
-fn doc_key(smart_account: &Address) -> (Address, u32, u32) {
-    (
-        smart_account.clone(),
-        1u32,
-        policy_interpreter::storage::K_DOC,
-    )
+fn doc_key(smart_account: &Address) -> (Address, u32) {
+    (smart_account.clone(), 1u32)
 }
 
 /// Move the ledger forward until only `remaining` ledgers of TTL are left on
@@ -119,43 +115,9 @@ fn f3_allow_path_extends_ttl_of_every_rule_key() {
     let rule = make_rule(&env, 1, signers.clone());
     install_policy(&env, &client, &smart_account, &rule);
 
-    // doc, nonce, signers_hash, master_set - all written at install with
-    // the same TTL. Their tuples are all (Address, u32, u32) so the helper
-    // can fetch each via a string label.
-    let rule_keys: alloc::vec::Vec<(&str, (Address, u32, u32))> = alloc::vec![
-        (
-            "doc",
-            (
-                smart_account.clone(),
-                1u32,
-                policy_interpreter::storage::K_DOC
-            ),
-        ),
-        (
-            "nonce",
-            (
-                smart_account.clone(),
-                1u32,
-                policy_interpreter::storage::K_NONCE
-            ),
-        ),
-        (
-            "signers_hash",
-            (
-                smart_account.clone(),
-                1u32,
-                policy_interpreter::storage::K_SIGNERS_HASH,
-            ),
-        ),
-        (
-            "master_set",
-            (
-                smart_account.clone(),
-                1u32,
-                policy_interpreter::storage::K_MASTER_SET,
-            ),
-        ),
-    ];
+    // The doc, nonce, signers hash and master set are ONE entry, so a single
+    // bump keeps all of them alive; they cannot archive apart.
+    let rule_keys = alloc::vec![("rule", doc_key(&smart_account))];
 
     // Wind every rule key down to near expiry so the bump is observable.
     for (_, k) in &rule_keys {
@@ -438,4 +400,40 @@ fn f8_enforce_deny_reaches_chain_as_contract_error_code() {
             "expected Error(Contract, 100) ArgMismatch on the diagnostic event, got {other:?}"
         ),
     }
+}
+
+/// The operator set is pinned at install by a hash and re-checked on every
+/// enforce. A different set is refused with 204, including a set whose
+/// encoding would alias the installed one under a length-prefix-and-concatenate
+/// hash (`External(a, empty)` against `Delegated(a)`).
+#[test]
+fn enforce_refuses_an_operator_set_other_than_the_installed_one() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(PolicyInterpreter, ());
+    let client = PolicyInterpreterClient::new(&env, &contract_id);
+    let smart_account = Address::generate(&env);
+    let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
+    let rule = make_rule(&env, 1, signers.clone());
+    install_policy(&env, &client, &smart_account, &rule);
+    let ctx = call_context(&env, &Address::generate(&env));
+
+    let other = Signer::Delegated(Address::generate(&env));
+    let aliased = Signer::External(smart_account.clone(), Bytes::new(&env));
+    let appended = Signer::Delegated(Address::generate(&env));
+    let swaps = [
+        soroban_sdk::vec![&env, other],
+        soroban_sdk::vec![&env, aliased],
+        soroban_sdk::vec![&env, signers.get(0).unwrap(), appended],
+    ];
+    for changed in swaps {
+        let r = make_rule(&env, 1, changed.clone());
+        let res = client.try_enforce(&ctx, &changed, &r, &smart_account);
+        let expected = soroban_sdk::Error::from_contract_error(204);
+        assert!(matches!(res, Err(Ok(e)) if e == expected), "got {res:?}");
+    }
+    // The installed set still passes.
+    assert!(client
+        .try_enforce(&ctx, &signers, &rule, &smart_account)
+        .is_ok());
 }

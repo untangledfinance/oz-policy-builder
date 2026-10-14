@@ -495,11 +495,7 @@ fn executor_binding_requires_account_and_admin() {
     s.env.mock_all_auths();
     client.bind_executor(&key, &executor);
     let doc: policy_interpreter::StoredDoc = s.env.as_contract(&s.contract_id, || {
-        s.env
-            .storage()
-            .persistent()
-            .get(&policy_interpreter::RuleKey::new(key.0, key.1).doc_key())
-            .unwrap()
+        s.env.storage().persistent().get(&(key.0, key.1)).unwrap()
     });
     assert_eq!(doc.executor, Some(executor));
 }
@@ -524,15 +520,13 @@ fn executor_binding_survives_reinstall_and_is_removed_with_document() {
     );
     client.bind_executor(&(s.smart_account.clone(), rule.id), &executor);
     client.install(&make_params(&s.env, 2, admins), &rule, &s.smart_account);
-    let key = policy_interpreter::RuleKey::new(s.smart_account.clone(), rule.id);
+    let key = (s.smart_account.clone(), rule.id);
     let doc: policy_interpreter::StoredDoc = s.env.as_contract(&s.contract_id, || {
-        s.env.storage().persistent().get(&key.doc_key()).unwrap()
+        s.env.storage().persistent().get(&key).unwrap()
     });
     assert_eq!(doc.executor, Some(executor));
     client.uninstall(&rule, &s.smart_account);
-    assert!(!s.env.as_contract(&s.contract_id, || s
+    assert!(!s
         .env
-        .storage()
-        .persistent()
-        .has(&key.doc_key())));
+        .as_contract(&s.contract_id, || s.env.storage().persistent().has(&key)));
 }
