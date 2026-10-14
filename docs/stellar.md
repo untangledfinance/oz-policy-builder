@@ -216,16 +216,19 @@ until its run window closes, up to the network maximum of about 180 days; a
 move whose window ends later archives first and has to be restored before it
 runs. Adapter builds before `68d012e7…` do neither.
 
-The interpreter extends a rule's entries back to about 30 days, but only when an
-allowed call uses them with fewer than 100 ledgers (about 8 minutes) left, so in
-practice they archive like everything else. Nothing else is extended on its own.
+The interpreter extends a rule's record back to about 30 days (grammar 7 keeps
+one record per rule, keyed `(account, rule_id)`, instead of grammar 6's four
+entries), but only when an allowed call uses it with fewer than 100 ledgers (about 8 minutes) left, so in
+practice it archives like everything else. Nothing else is extended on its own.
 On testnet, where entries last a week, OctoPos `apps/web/scripts/keep-alive.ts`
 runs daily for the accounts listed in
 `apps/web/scripts/keep-alive.testnet.json`. It collects everything a Prime
 depends on (its instance and wasm, its rules and policies, the interpreter's
-per-rule entries, its gates, adapters and stored moves, and the shared code),
+per-rule entries (grammar-6 keys only; see below), its gates, adapters and stored moves, and the shared code),
 restores what has archived and extends anything with fewer than 21 days left to
-30.
+30. That script and `read-account-rules.ts` only know the grammar-6 keys, so
+they do not yet cover a grammar-7 rule record; that is an off-chain fix on the
+M3 deployment gate.
 
 On mainnet we do not run it. Since protocol 23, a transaction that touches an
 archived entry can restore it as part of the same transaction, and the account

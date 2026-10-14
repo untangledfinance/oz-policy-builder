@@ -53,8 +53,8 @@ pub enum PolicyError {
     ArgMismatch = 100,
     ContractScope = 101,
     /// A `scaled` step overflowed `i128` (`checked_mul`/`checked_div`/
-    /// `checked_add`), or reached the evaluator with a zero denominator.
-    /// Denies rather than panicking the frame on the arithmetic itself.
+    /// `checked_add`). Denies rather than panicking the frame on the arithmetic
+    /// itself. A constant-only overflow is refused at install instead.
     ArithmeticOverflow = 102,
     UnsupportedNode = 103,
     NotInAllowlist = 105,

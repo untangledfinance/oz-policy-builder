@@ -1068,8 +1068,8 @@ fn a_constant_multiplicand_is_refused_when_it_folds_to_zero_or_less() {
             assert_eq!(w.install(&rule_for(cmp("gte", call_arg(1), s))), MALFORMED);
         }
     }
-    // A constant that folds positive is fine, and so is one that overflows
-    // (it cannot be judged here; at enforce it denies as an overflow).
+    // A constant that folds positive is fine; one that overflows would deny
+    // every call, so it is refused instead of installing.
     let w = World::new();
     let pos = scaled(num(2), num(3), 1, num(0));
     w.arm(cmp(
@@ -1079,16 +1079,20 @@ fn a_constant_multiplicand_is_refused_when_it_folds_to_zero_or_less() {
     ));
     let w = World::new();
     let big = scaled(num(i128::MAX), num(2), 1, num(0));
-    w.arm(cmp(
+    let r = cmp(
         "gte",
         call_arg(1),
-        scaled(call_arg(0), big, 100, num(0)),
-    ));
-    assert_eq!(w.enforce(&[1, 1]), refused(PolicyError::ArithmeticOverflow));
+        scaled(call_arg(0), big.clone(), 100, num(0)),
+    );
+    assert_eq!(w.install(&rule_for(r)), MALFORMED);
+    assert_eq!(
+        w.install(&rule_for(cmp("gte", call_arg(1), big))),
+        MALFORMED
+    );
 }
 
 #[test]
-fn den_is_bounded_so_an_absurd_one_cannot_zero_a_floor() {
+fn den_is_capped_at_max_den_which_stops_i128_max_but_not_a_tiny_ratio() {
     let rule = |den| {
         rule_for(cmp(
             "gte",
@@ -1098,6 +1102,9 @@ fn den_is_bounded_so_an_absurd_one_cannot_zero_a_floor() {
     };
     let w = World::new();
     assert_eq!(w.install(&rule(policy_interpreter::dsl::MAX_DEN)), Ok(()));
+    // What the cap does not stop: 99 / 10^18 floors at zero for ordinary
+    // amounts, so a zero output passes. Avoiding that ratio is the author's.
+    assert_eq!(w.enforce(&[1_000_000, 0]), Ok(()));
     for den in [policy_interpreter::dsl::MAX_DEN + 1, i128::MAX] {
         assert_eq!(World::new().install(&rule(den)), MALFORMED, "den = {den}");
     }
@@ -1174,18 +1181,34 @@ fn batch_context(w: &World, functions: &[&str]) -> Context {
 
 /// The same, with `wait` ledgers before the batch may run.
 fn batch_context_waiting(w: &World, functions: &[&str], wait: u32) -> Context {
+    batch_context_with(w, functions, wait, &w.target, 0, 0)
+}
+
+/// The full shape: each call goes to `target` with `nargs` arguments and
+/// `nauth` executor authorisations.
+fn batch_context_with(
+    w: &World,
+    functions: &[&str],
+    wait: u32,
+    target: &Address,
+    nargs: u32,
+    nauth: u32,
+) -> Context {
+    let list = |n: u32| {
+        let mut v = SorobanVec::<Val>::new(&w.env);
+        (0..n).for_each(|i| v.push_back(i.into_val(&w.env)));
+        v.into_val(&w.env)
+    };
     let mut calls = SorobanVec::<Val>::new(&w.env);
     for f in functions {
         let mut c = soroban_sdk::Map::<Symbol, Val>::new(&w.env);
-        c.set(Symbol::new(&w.env, "target"), w.target.to_val());
+        c.set(Symbol::new(&w.env, "target"), target.to_val());
         c.set(
             Symbol::new(&w.env, "function_name"),
             Symbol::new(&w.env, f).into_val(&w.env),
         );
-        c.set(
-            Symbol::new(&w.env, "args"),
-            SorobanVec::<Val>::new(&w.env).into_val(&w.env),
-        );
+        c.set(Symbol::new(&w.env, "args"), list(nargs));
+        c.set(Symbol::new(&w.env, "executor_authorizations"), list(nauth));
         calls.push_back(c.into_val(&w.env));
     }
     let mut args = SorobanVec::<Val>::new(&w.env);
@@ -1213,7 +1236,21 @@ fn batch_rule(w: &World, oracle: &Address, pin_shape: bool) -> ScVal {
             call_path(&[Step::I(1), Step::Len]),
             ScVal::U32(0),
         ));
-        // the whole batch: exactly one call, and it is `advance`
+        // the whole batch: exactly one call, and it is `advance` on the target
+        // with no arguments and no executor authorisations
+        let first = |f: &'static str| [Step::I(0), Step::I(0), Step::F(f)];
+        let len = |f: &'static str| [Step::I(0), Step::I(0), Step::F(f), Step::Len];
+        checks.push(cmp(
+            "eq",
+            call_path(&first("target")),
+            addr(&w.env, &w.target),
+        ));
+        checks.push(cmp("eq", call_path(&len("args")), ScVal::U32(0)));
+        checks.push(cmp(
+            "eq",
+            call_path(&len("executor_authorizations")),
+            ScVal::U32(0),
+        ));
         checks.push(cmp(
             "eq",
             call_path(&[Step::I(0), Step::Len]),
@@ -1261,6 +1298,19 @@ fn a_pinned_batch_refuses_an_appended_call_and_a_swapped_one() {
         w.enforce_context(&batch_context(&w, &["withdraw"])),
         denied()
     );
+}
+
+#[test]
+fn a_pinned_batch_also_pins_the_target_its_args_and_executor_authorisations() {
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    w.install(&batch_rule(&w, &o, true)).unwrap();
+    let ok = |t: &Address, a, n| batch_context_with(&w, &["advance"], 0, t, a, n);
+    assert_eq!(w.enforce_context(&ok(&w.target, 0, 0)), Ok(()));
+    let elsewhere = Address::generate(&w.env);
+    assert_eq!(w.enforce_context(&ok(&elsewhere, 0, 0)), denied());
+    assert_eq!(w.enforce_context(&ok(&w.target, 1, 0)), denied());
+    assert_eq!(w.enforce_context(&ok(&w.target, 0, 1)), denied());
 }
 
 #[test]

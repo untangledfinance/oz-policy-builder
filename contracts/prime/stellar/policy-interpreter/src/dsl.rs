@@ -60,8 +60,10 @@ pub const MAX_PREDICATE_BYTES: u32 = 32 * 1024;
 /// refuses a forbidden target at ANY depth. The predicate does not need to
 /// restate either.
 pub const MAX_PATH_STEPS: u32 = 8;
-/// Largest `scaled` denominator. `den` is positive and bounded so an absurd one
-/// (`i128::MAX`) cannot quietly truncate every product to zero.
+/// Largest `scaled` denominator. It stops an absurd one (`i128::MAX`) from
+/// truncating every product to zero. It does NOT stop a tiny `num / den` ratio
+/// (`99 / 10^18` still floors at zero for ordinary amounts); that is the rule
+/// author's to avoid.
 pub const MAX_DEN: i128 = 1_000_000_000_000_000_000;
 // Stateful selectors.
 //
@@ -140,7 +142,8 @@ pub enum Leaf {
     /// `[src, num, add]` and `den`: `src * num / den + add`, multiplying
     /// first, truncating toward zero, every step checked. Each of the three
     /// operands is any value leaf, nested `Scaled` included; `den` is a
-    /// constant, positive by decode. A literal `num` must be positive too.
+    /// constant in `1..=MAX_DEN`. A constant `src` or `num` must fold to a positive
+    /// value, and a constant that overflows is refused.
     Scaled(Box<[Leaf; 3]>, i128),
     LiteralAddress(Address),
     LiteralI128(i128),
@@ -353,15 +356,19 @@ fn scale(src: i128, num: i128, den: i128, add: i128) -> Option<i128> {
     src.checked_mul(num)?.checked_div(den)?.checked_add(add)
 }
 
-/// The value of a leaf made of literals alone, when it fits; `None` for
-/// anything that depends on the call, the clock or another contract.
-fn constant(leaf: &Leaf) -> Option<i128> {
-    match leaf {
+/// The value of a leaf made of literals alone: `Some(Some(v))`, or `Some(None)`
+/// when the fold overflows; `None` for anything that depends on the call, the
+/// clock or another contract.
+fn constant(leaf: &Leaf) -> Option<Option<i128>> {
+    Some(match leaf {
         Leaf::LiteralI128(v) => Some(*v),
         Leaf::LiteralU32(v) => Some(i128::from(*v)),
-        Leaf::Scaled(k, den) => scale(constant(&k[0])?, constant(&k[1])?, *den, constant(&k[2])?),
-        _ => None,
-    }
+        Leaf::Scaled(k, den) => {
+            let [s, n, a] = [constant(&k[0])?, constant(&k[1])?, constant(&k[2])?];
+            s.zip(n).zip(a).and_then(|((s, n), a)| scale(s, n, *den, a))
+        }
+        _ => return None,
+    })
 }
 
 fn walk(env: &Env, cur: Val, steps: &[PathStep]) -> Option<Val> {
@@ -457,8 +464,9 @@ pub enum DecodeError {
     /// Depth exceeded MAX_DEPTH (5), in the node tree or in a leaf's
     /// nesting. Maps to `PREDICATE_TOO_DEEP`.
     PredicateTooDeep,
-    /// Leaf count exceeded MAX_LEAVES (200), or `read` count exceeded
-    /// MAX_READS (4). Maps to `TOO_MANY_LEAVES`.
+    /// Leaf count exceeded MAX_LEAVES (200), or DISTINCT `read` calls exceeded
+    /// MAX_READS (4). Decoder reason `TOO_MANY_LEAVES`; install and enforce
+    /// report every decode failure as `MALFORMED_PREDICATE` (201).
     TooManyLeaves,
     /// An `in` haystack exceeded MAX_IN_OPERAND_COUNT (32).
     InOperandLimit,
@@ -668,9 +676,12 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
         ensure((1..=MAX_DEN).contains(&den))?;
         let operand = |i| decode_leaf(env, &at(items, i)?, depth + 1);
         let leaves = [operand(1)?, operand(2)?, operand(4)?];
-        let non_positive = |l: &Leaf| constant(l).is_some_and(|v| v <= 0);
+        let non_positive = |l: &Leaf| constant(l).is_some_and(|v| v.is_some_and(|v| v <= 0));
         ensure(!leaves[..2].iter().any(non_positive))?;
-        Ok(Leaf::Scaled(Box::new(leaves), den))
+        // A constant that overflows would deny every call: refuse it here.
+        let folded = Leaf::Scaled(Box::new(leaves), den);
+        ensure(constant(&folded) != Some(None))?;
+        Ok(folded)
     } else {
         // Unknown symbol at a selector position -> MALFORMED.
         Err(DecodeError::MalformedPredicate)

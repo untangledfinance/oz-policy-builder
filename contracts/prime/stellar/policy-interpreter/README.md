@@ -56,8 +56,11 @@ that permits a zero output, and `0` cancels the selector. Grammar 6 had one
 literal factor, `num`, so the same rule is stricter here (it also covers `src`
 and nested constants); a factor that comes from the call, the clock or a read
 cannot be judged at install and stays the rule author's to guard. `den` is
-positive and at most `MAX_DEN` (10^18), so an absurd one cannot truncate every
-product to zero. Division truncates toward zero, which loosens a floor by less
+positive and at most `MAX_DEN` (10^18). The cap stops an `i128::MAX`-style `den`
+only; it does not stop a tiny `num / den` ratio (`99 / 10^18` still floors at
+zero for ordinary amounts), which the rule author has to avoid. A constant that
+overflows is refused at install rather than installing a rule that always
+denies. Division truncates toward zero, which loosens a floor by less
 than one unit (`gte(out, scaled(in, 99, 100, 0))` permits `out = 99` for
 `in = 101`, a floor of 99.99) and a negative bound the other way; write an exact
 bound cross-multiplied, `gte(scaled(out, 100, 1, 0), scaled(in, 99, 1, 0))`. Write a subtraction by moving the term
@@ -139,7 +142,11 @@ Read this before writing a rule with a `read`.
     not when it runs, and the run is approved by a separate `run(id)` rule that
     cannot re-check the batch. A read-based rule on `execute` must pin
     `call_arg(2)` (the wait) to 0; put read checks on the venue rules instead,
-    which are evaluated when the batch runs, mid-batch, after its earlier calls.
+    which are evaluated when the batch runs, mid-batch, after its earlier calls
+    (so a venue read sees the state the batch's earlier calls left). Keep the
+    shape pin on `execute` (wait, length, every target, function, arguments and
+    `executor_authorizations`, and `grants`) even when the reads move to venue
+    rules; `tests/grammar7.rs` pins all of them.
   `tests/grammar7.rs` shows the unpinned batch and the waiting batch that are
   let through and the pinned rule that refuses both. Called directly (not
   through the adapter), a pool the authorised call itself targets is on the call

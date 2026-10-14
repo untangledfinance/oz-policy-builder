@@ -201,6 +201,14 @@
                                       },
                                       {
                                         "key": {
+                                          "symbol": "executor_authorizations"
+                                        },
+                                        "val": {
+                                          "vec": []
+                                        }
+                                      },
+                                      {
+                                        "key": {
                                           "symbol": "function_name"
                                         },
                                         "val": {
@@ -392,6 +400,14 @@
                                       },
                                       {
                                         "key": {
+                                          "symbol": "executor_authorizations"
+                                        },
+                                        "val": {
+                                          "vec": []
+                                        }
+                                      },
+                                      {
+                                        "key": {
                                           "symbol": "function_name"
                                         },
                                         "val": {
@@ -413,6 +429,14 @@
                                       {
                                         "key": {
                                           "symbol": "args"
+                                        },
+                                        "val": {
+                                          "vec": []
+                                        }
+                                      },
+                                      {
+                                        "key": {
+                                          "symbol": "executor_authorizations"
                                         },
                                         "val": {
                                           "vec": []
