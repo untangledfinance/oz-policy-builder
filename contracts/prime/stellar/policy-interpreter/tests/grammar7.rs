@@ -1986,3 +1986,27 @@ fn the_interpreters_own_address_cannot_be_a_signer() {
         "at rotation"
     );
 }
+
+#[test]
+fn a_constant_product_that_overflows_is_refused_even_when_the_addend_varies() {
+    // src * num does not depend on `add`, so 1e20 * 1e20 would deny every call
+    // with ARITHMETIC_OVERFLOW whatever the call carries. Refuse it at install.
+    let big = 100_000_000_000_000_000_000i128;
+    let w = World::new();
+    let floor = |src, n| cmp("gte", call_arg(1), scaled(num(src), num(n), 1, call_arg(0)));
+    assert_eq!(w.install(&rule_for(floor(big, big))), MALFORMED);
+    // Nested: the overflow is in the numerator's own constant fold.
+    let nested = scaled(num(big), num(big), 1, num(0));
+    assert_eq!(
+        w.install(&rule_for(cmp(
+            "gte",
+            call_arg(1),
+            scaled(nested, num(1), 1, call_arg(0))
+        ))),
+        MALFORMED
+    );
+    // A product that fits installs, with a variable addend, at the edge.
+    assert_eq!(w.install(&rule_for(floor(i128::MAX, 1))), Ok(()));
+    // And the addend still decides the answer: i128::MAX + 1 overflows.
+    assert_eq!(w.enforce(&[1, 0]), refused(PolicyError::ArithmeticOverflow));
+}

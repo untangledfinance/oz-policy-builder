@@ -600,8 +600,10 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
         let leaves = [operand(1)?, operand(2)?, operand(4)?];
         let [s, n, a] = leaves.each_ref().map(constant);
         ensure(![s, n].iter().any(|v| v.is_some_and(|v| v <= 0)))?;
-        // A constant that overflows would deny every call: refuse it here.
-        let fold = s.zip(n).zip(a).map(|((s, n), a)| scale(s, n, den, a));
+        // A constant that overflows would deny every call: refuse it here. The
+        // product and quotient do not depend on `add`, so they are folded even
+        // when it varies (as `0`; the constant addend is folded too).
+        let fold = s.zip(n).map(|(s, n)| scale(s, n, den, a.unwrap_or(0)));
         ensure(fold != Some(None))?;
         Ok(Leaf::Scaled(Box::new(leaves), den))
     } else {
