@@ -1431,13 +1431,16 @@ fn now_is_the_ledger_timestamp() {
     let env = Env::default();
     env.ledger().with_mut(|l| l.timestamp = 1_000);
     let ctx = empty_ctx(&env);
-    // Ordering widens both sides to i128, which is how a clock is meant to be
-    // used. (`eq` compares by value, so a u64 timestamp never equals an i128.)
+    // A clock is meant to be bounded, so these order it; `eq` compares numbers
+    // by value too, so the u64 timestamp equals an i128 of the same value.
     let ge = compare(CompareOp::Gte, Leaf::Now, Leaf::LiteralI128(1_000));
     let gt = compare(CompareOp::Gt, Leaf::Now, Leaf::LiteralI128(1_000));
+    let eq = compare(CompareOp::Eq, Leaf::Now, Leaf::LiteralI128(1_000));
     assert!(permit(evaluate(&env, &ge, &ctx)));
+    assert!(permit(evaluate(&env, &eq, &ctx)));
     assert!(!permit(evaluate(&env, &gt, &ctx)));
     env.ledger().with_mut(|l| l.timestamp = 1_001);
+    assert!(!permit(evaluate(&env, &eq, &ctx)));
     assert!(permit(evaluate(&env, &gt, &ctx)));
 }
 

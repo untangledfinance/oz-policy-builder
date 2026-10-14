@@ -2010,3 +2010,88 @@ fn a_constant_product_that_overflows_is_refused_even_when_the_addend_varies() {
     // And the addend still decides the answer: i128::MAX + 1 overflows.
     assert_eq!(w.enforce(&[1, 0]), refused(PolicyError::ArithmeticOverflow));
 }
+
+// ---- eq and in compare numbers as numbers ----------------------------------
+
+/// `enforce` of `advance(args)` with arguments of any type.
+fn call_with(w: &World, args: StdVec<Val>) -> Verdict {
+    let mut v = SorobanVec::<Val>::new(&w.env);
+    args.into_iter().for_each(|a| v.push_back(a));
+    w.enforce_context(&Context::Contract(ContractContext {
+        contract: w.target.clone(),
+        fn_name: Symbol::new(&w.env, "advance"),
+        args: v,
+    }))
+}
+
+#[test]
+fn eq_compares_u32_u64_and_i128_by_value() {
+    // Ordering already widened; eq now does too, so `eq(x, 5)` holds for a 5 of
+    // any integer type, and a literal of one type matches an argument of another.
+    let w = World::new();
+    w.arm(cmp("eq", call_arg(0), num(5)));
+    let e = &w.env;
+    assert_eq!(call_with(&w, alloc::vec![5i128.into_val(e)]), Ok(()));
+    assert_eq!(call_with(&w, alloc::vec![5u32.into_val(e)]), Ok(()));
+    assert_eq!(call_with(&w, alloc::vec![5u64.into_val(e)]), Ok(()));
+    assert_eq!(call_with(&w, alloc::vec![6u32.into_val(e)]), denied());
+    assert_eq!(call_with(&w, alloc::vec![6u64.into_val(e)]), denied());
+
+    let w = World::new();
+    w.arm(cmp("eq", call_arg(0), ScVal::U32(5)));
+    let e = &w.env;
+    assert_eq!(call_with(&w, alloc::vec![5i128.into_val(e)]), Ok(()));
+    assert_eq!(call_with(&w, alloc::vec![5u64.into_val(e)]), Ok(()));
+    assert_eq!(call_with(&w, alloc::vec![6i128.into_val(e)]), denied());
+    // A value outside u32 range is a different number, not a truncation.
+    assert_eq!(
+        call_with(&w, alloc::vec![(5i128 + (1 << 32)).into_val(e)]),
+        denied()
+    );
+}
+
+#[test]
+fn eq_on_values_that_are_not_numbers_is_unchanged() {
+    // Symbols, addresses and vectors still compare exactly, and never against a
+    // number; a number and a symbol are different values.
+    let w = World::new();
+    let other = Address::generate(&w.env);
+    w.arm(all(alloc::vec![
+        cmp("eq", call_arg(0), sym("x")),
+        cmp("eq", call_arg(1), addr(&w.env, &w.target)),
+    ]));
+    let e = &w.env;
+    let (x, y) = (Symbol::new(e, "x"), Symbol::new(e, "y"));
+    let ok = |a: Val, b: Val| call_with(&w, alloc::vec![a, b]);
+    assert_eq!(ok(x.to_val(), w.target.to_val()), Ok(()));
+    assert_eq!(ok(y.to_val(), w.target.to_val()), denied());
+    assert_eq!(ok(x.to_val(), other.to_val()), denied());
+    assert_eq!(ok(5u32.into_val(e), w.target.to_val()), denied());
+    assert_eq!(ok(x.to_val(), 5u32.into_val(e)), denied());
+}
+
+#[test]
+fn in_compares_numbers_by_value_across_types() {
+    let w = World::new();
+    w.arm(tuple(alloc::vec![
+        sym("in"),
+        call_arg(0),
+        tuple(alloc::vec![num(5), ScVal::U32(7), sym("s")])
+    ]));
+    let e = &w.env;
+    for permitted in [
+        5u32.into_val(e),
+        7i128.into_val(e),
+        7u64.into_val(e),
+        5i128.into_val(e),
+    ] {
+        assert_eq!(call_with(&w, alloc::vec![permitted]), Ok(()));
+    }
+    let not_in = refused(PolicyError::NotInAllowlist);
+    assert_eq!(call_with(&w, alloc::vec![6u32.into_val(e)]), not_in);
+    assert_eq!(call_with(&w, alloc::vec![8i128.into_val(e)]), not_in);
+    assert_eq!(
+        call_with(&w, alloc::vec![Symbol::new(e, "s").to_val()]),
+        Ok(())
+    );
+}

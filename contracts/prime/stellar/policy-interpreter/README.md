@@ -38,7 +38,7 @@ authorized call" no longer holds.
 | `call_arg_len(i)` | Length of a vec-typed argument - pins the element count so an extra entry cannot be appended |
 | `call_arg_field(i, element, field)` | A field of a map element inside a vec-typed argument |
 | `call_path(step, ...)` | A walk into the arguments, one to eight steps: a `u32` indexes a vec, a symbol keys a map, a final `true` takes the length. The three leaves above are shorthand for it, and the decoder lowers them to it |
-| `now` | The ledger timestamp (seconds). Ordering widens it to `i128`; `eq` compares by value, so `eq(now, <i128>)` never holds - write `gte`/`lte` |
+| `now` | The ledger timestamp (seconds), a `u64`. A clock is normally bounded, not matched: write `gte`/`lte` |
 | `read(contract, fn, args, path)` | A number read from another contract: call `fn(args)` on `contract`, then walk `path` (zero to eight steps, the same steps as `call_path`) into the result. `contract` and `fn` are fixed fields of the predicate, so its hash pins them. `args` are literals only |
 | `scaled(src, num, den, add)` | `src * num / den + add`. `src`, `num` and `add` are any value leaf, `scaled` included; `den` is a constant and must be positive, and a literal `src` or `num` must be too. Multiplies first, divides second (truncating toward zero), adds third, every step checked |
 | `variant(name, payload...)` | An enum value as a constant: the vec `[name, payload...]`, for a `read` argument such as Reflector's `Asset::Stellar(addr)`. Payload entries are constants. Also legal wherever another literal is |
@@ -48,6 +48,17 @@ Nodes: `and`, `or`, `eq`, `lt`, `lte`, `gt`, `gte`, `in`. Literals:
 `literal_address`, `literal_i128`, `literal_symbol`, `literal_u32`,
 `literal_vec`. Both sides of a comparison are resolved, so any value leaf can
 stand on either side.
+
+**Numbers compare as numbers.** `eq`, `lt`, `lte`, `gt`, `gte` and `in` treat a
+`u32`, `u64` or `i128` by value, whatever its type: `eq(call_arg(0), 5)` holds
+for a 5 of any of the three, and a `u32` literal matches an `i128` argument.
+Everything else compares exactly: addresses, symbols and vectors equal only
+their own kind and value, and never equal a number. `i64`, `i32` and `u128` are
+not widened (they fail an ordering and equal nothing numeric). The type each
+leaf yields: `call_contract` an address; `call_fn` a symbol; `call_arg`,
+`call_arg_field` and `call_path` whatever the call carries; `now` a `u64`;
+`read` the value found, which must be a `u32`, `u64` or `i128` or the leaf
+denies; `scaled` an `i128`; literals an address, `i128`, symbol, `u32` or vec.
 
 `src` and `num` multiply, so a constant in either is held to the same rule:
 anything made of literals alone (a literal, or a `scaled` of literals, folded at

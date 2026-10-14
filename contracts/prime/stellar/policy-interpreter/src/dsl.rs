@@ -291,7 +291,14 @@ fn literal_to_val(env: &Env, leaf: &Leaf) -> Res<Val> {
 /// Falling back to canonical XDR gives structural equality: two values are
 /// equal precisely when they serialise identically. The host does the
 /// serialising, so this works on wasm, and `Bytes` compares by value.
+///
+/// Two numbers (u32, u64, i128) compare as numbers, whatever their types, the
+/// same widening ordering uses; `5u32` equals `5i128`. Anything else is exact:
+/// a number never equals a symbol, and an address only its own address.
 fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
+    if let (Some(x), Some(y)) = (val_to_i128(env, a), val_to_i128(env, b)) {
+        return x == y;
+    }
     let objects = a.is_object() || b.is_object();
     a.shallow_eq(b) || (objects && (*a).to_xdr(env) == (*b).to_xdr(env))
 }
@@ -399,7 +406,8 @@ fn leaves(node: &Node) -> Vec<&Leaf> {
     out
 }
 
-/// Widen any integral `Val` the host may carry to `i128` for ordering.
+/// Widen a `u32`, `u64` or `i128` to `i128`, for ordering and equality. Any other
+/// `Val`, `i64`, `i32` and `u128` included, is not a number here.
 fn val_to_i128(env: &Env, v: &Val) -> Option<i128> {
     let wide = |_| to::<u64>(env, v).map(i128::from);
     let small = to::<u32>(env, v).map(i128::from).or_else(wide);
