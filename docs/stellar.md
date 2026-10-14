@@ -296,7 +296,12 @@ The properties the custody design leans on:
   read-only call, so those contracts must be ones the owner trusts, ideally
   immutable; a read cannot target a contract already on the call stack (the
   host refuses re-entry and the read denies); a simulation must carry real
-  signatures so the reads' ledger entries land in the footprint. A rule must
+  signatures so the reads' ledger entries land in the footprint. A read is
+  point-in-time: it sees the state before the authorised call or batch runs,
+  so a rule that reads over a batch must pin the batch's length and every
+  element, or a later call can break what the read checked. The interpreter's
+  address must never hold value, allowances or roles, because a read target
+  sees it as its caller. A rule must
   still constrain the call itself: reads and the clock alone do not satisfy
   the install check. The full list of caps and failure modes is in the
   [interpreter README](../contracts/prime/stellar/policy-interpreter/README.md#cross-contract-reads).

@@ -1057,17 +1057,6 @@ fn selector_leaf_gate_refuses_literals_on_both_sides() {
     assert!(!crate::dsl::has_selector_leaf(&n));
 }
 
-#[test]
-fn selector_leaf_gate_sees_through_a_literal_vec() {
-    // A selector wrapped in a literal vector is still a selector; without the
-    // recursion the wrapper would be a bypass of the gate.
-    let n = Node::In {
-        needle: Leaf::LiteralVec(StdVec::from([Leaf::CallFn])),
-        haystack: StdVec::from([Leaf::LiteralU32(1)]),
-    };
-    assert!(crate::dsl::has_selector_leaf(&n));
-}
-
 // ----- Tests: v4 operators (or / lt / gt / gte) ------------------------------
 
 #[test]
@@ -1535,11 +1524,87 @@ fn decode_refuses_a_non_positive_denominator() {
 }
 
 #[test]
-fn decode_accepts_any_numerator() {
+fn decode_refuses_a_non_positive_literal_numerator() {
     let env = Env::default();
-    for num in [-1, 0, 1] {
-        assert!(decode(&env, &bytes_from_node(&env, &floor_node(num, 100))).is_ok());
+    for num in [0, -1, i128::MIN] {
+        let err = decode(&env, &bytes_from_node(&env, &floor_node(num, 100)))
+            .expect_err("a literal num <= 0 must not decode");
+        assert_eq!(err.code(), "MALFORMED_PREDICATE", "num = {num}");
     }
+    // ... wherever the leaf sits, and as a u32 literal too.
+    let hidden = Node::Or(StdVec::from([
+        cmp_i128(CompareOp::Eq, 1, 1),
+        floor_node(-1, 100),
+    ]));
+    assert!(decode(&env, &bytes_from_node(&env, &hidden)).is_err());
+    let zero = scaled(call_arg(0), Leaf::LiteralU32(0), 1, Leaf::LiteralI128(0));
+    let n = compare(CompareOp::Gte, call_arg(1), zero);
+    assert!(decode(&env, &bytes_from_node(&env, &n)).is_err());
+}
+
+#[test]
+fn decode_accepts_a_positive_or_a_variable_numerator() {
+    // A numerator that is read from the call cannot be judged at install, so
+    // it is allowed; so is a negative literal `add`, which is how a
+    // subtraction is written. (A rule using a variable `num` should guard it,
+    // see the README.)
+    let env = Env::default();
+    assert!(decode(&env, &bytes_from_node(&env, &floor_node(1, 100))).is_ok());
+    let variable = scaled(call_arg(0), call_arg(1), 1, Leaf::LiteralI128(-300));
+    let n = compare(CompareOp::Gte, call_arg(1), variable);
+    assert!(decode(&env, &bytes_from_node(&env, &n)).is_ok());
+}
+
+#[test]
+fn decode_refuses_non_constant_entries_in_an_in_haystack() {
+    // They would count toward the caps and satisfy the selector gate, and then
+    // never be compared.
+    let env = Env::default();
+    for bad in [
+        call_arg(0),
+        Leaf::CallFn,
+        Leaf::Now,
+        dummy_read(&env),
+        scaled(call_arg(0), Leaf::LiteralI128(1), 1, Leaf::LiteralI128(0)),
+        Leaf::LiteralVec(StdVec::from([Leaf::CallFn])),
+    ] {
+        let n = Node::In {
+            needle: call_arg(0),
+            haystack: StdVec::from([Leaf::LiteralI128(1), bad]),
+        };
+        let err = decode(&env, &bytes_from_node(&env, &n)).expect_err("non-constant entry");
+        assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    }
+    let ok = Node::In {
+        needle: call_arg(0),
+        haystack: StdVec::from([
+            Leaf::LiteralI128(1),
+            Leaf::LiteralVec(StdVec::from([Leaf::LiteralU32(2)])),
+        ]),
+    };
+    assert!(decode(&env, &bytes_from_node(&env, &ok)).is_ok());
+}
+
+#[test]
+fn decode_refuses_non_constant_elements_in_a_literal_vec() {
+    let env = Env::default();
+    for bad in [call_arg(0), Leaf::Now, dummy_read(&env)] {
+        let n = compare(
+            CompareOp::Eq,
+            call_arg(1),
+            Leaf::LiteralVec(StdVec::from([Leaf::LiteralU32(1), bad])),
+        );
+        let err = decode(&env, &bytes_from_node(&env, &n)).expect_err("non-constant element");
+        assert_eq!(err.code(), "MALFORMED_PREDICATE");
+    }
+    // nested one level down, too
+    let inner = Leaf::LiteralVec(StdVec::from([Leaf::CallFn]));
+    let n = compare(
+        CompareOp::Eq,
+        call_arg(1),
+        Leaf::LiteralVec(StdVec::from([inner])),
+    );
+    assert!(decode(&env, &bytes_from_node(&env, &n)).is_err());
 }
 
 #[test]

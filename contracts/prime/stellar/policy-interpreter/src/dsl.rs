@@ -150,7 +150,7 @@ pub enum Leaf {
     /// `[src, num, add]` and `den`: `src * num / den + add`, multiplying
     /// first, truncating toward zero, every step checked. Each of the three
     /// operands is any value leaf, nested `Scaled` included; `den` is a
-    /// constant, positive by decode.
+    /// constant, positive by decode. A literal `num` must be positive too.
     Scaled(Box<[Leaf; 3]>, i128),
     LiteralAddress(Address),
     LiteralI128(i128),
@@ -411,13 +411,13 @@ fn walk(env: &Env, mut cur: Val, steps: &[PathStep]) -> Option<Val> {
 ///
 /// Only a leaf that reads the authorised call counts. `read` and `now` do not:
 /// a rule made of reads and the clock alone says nothing about the call it
-/// authorises. Recurses into the vectors and `scaled` operands that hold other
-/// leaves, since a selector inside either is still a selector.
+/// authorises. Recurses into `scaled` operands, since a selector inside one is
+/// still a selector. `in` haystacks and literal vectors hold constants only
+/// (the decoder refuses anything else), so they are not searched.
 pub fn has_selector_leaf(root: &Node) -> bool {
     fn selects(leaf: &Leaf) -> bool {
         match leaf {
             Leaf::CallContract | Leaf::CallFn | Leaf::CallPath(_) => true,
-            Leaf::LiteralVec(elements) => elements.iter().any(selects),
             Leaf::Scaled(k, _) => k.iter().any(selects),
             _ => false,
         }
@@ -425,7 +425,7 @@ pub fn has_selector_leaf(root: &Node) -> bool {
     match root {
         Node::And(children) | Node::Or(children) => children.iter().any(has_selector_leaf),
         Node::Compare { left, right, .. } => selects(left) || selects(right),
-        Node::In { needle, haystack } => selects(needle) || haystack.iter().any(selects),
+        Node::In { needle, .. } => selects(needle),
     }
 }
 
@@ -643,7 +643,7 @@ mod dsl_decode {
         ensure(!haystack_items.is_empty())?;
         let mut haystack: Vec<Leaf> = Vec::with_capacity(haystack_items.len() as usize);
         for i in 0..haystack_items.len() {
-            haystack.push(decode_leaf(env, &at(&haystack_items, i)?, 1)?);
+            haystack.push(literal(env, &at(&haystack_items, i)?, 1)?);
         }
         Ok(Node::In { needle, haystack })
     }
@@ -666,7 +666,7 @@ mod dsl_decode {
             // Literal vector: order preserved verbatim.
             let mut elems: Vec<Leaf> = Vec::with_capacity(items.len() as usize);
             for i in 0..items.len() {
-                elems.push(decode_leaf(env, &at(&items, i)?, depth + 1)?);
+                elems.push(literal(env, &at(&items, i)?, depth + 1)?);
             }
             return Ok(Leaf::LiteralVec(elems));
         }
@@ -686,6 +686,14 @@ mod dsl_decode {
         Err(DecodeError::MalformedPredicate)
     }
 
+    /// A leaf that must be a constant: an `in` entry or a literal-vec element.
+    /// Anything else would decode, count toward the caps and the selector
+    /// check, and then never be compared.
+    fn literal(env: &Env, val: &Val, depth: u32) -> Result<Leaf, DecodeError> {
+        let leaf = decode_leaf(env, val, depth)?;
+        literal_to_val(env, &leaf).ok_or(DecodeError::MalformedPredicate)?;
+        Ok(leaf)
+    }
     fn decode_selector_leaf(
         env: &Env,
         items: &SorobanVec<Val>,
@@ -741,15 +749,18 @@ mod dsl_decode {
         } else if head == sym_const(env, b"scaled") {
             // (scaled, src, num, den, add). `den` is a constant and must be
             // positive: zero cannot divide, and a negative one would flip the
-            // sign of every bound it scales.
+            // sign of every bound it scales. A literal `num` is held to the
+            // same rule, for the same reason: `-99/100` turns a floor into a
+            // ceiling that permits a zero output. A `num` that is read from the
+            // call or a contract cannot be judged here; guard it in the rule
+            // (see the README).
             ensure(items.len() == 5)?;
             let den = expect::<i128>(env, items, 3)?;
             ensure(den > 0)?;
             let operand = |i| decode_leaf(env, &at(items, i)?, depth + 1);
-            Ok(Leaf::Scaled(
-                Box::new([operand(1)?, operand(2)?, operand(4)?]),
-                den,
-            ))
+            let n = operand(2)?;
+            ensure(!matches!(n, Leaf::LiteralI128(..=0) | Leaf::LiteralU32(0)))?;
+            Ok(Leaf::Scaled(Box::new([operand(1)?, n, operand(4)?]), den))
         } else {
             // Unknown symbol at a selector position -> MALFORMED.
             Err(DecodeError::MalformedPredicate)

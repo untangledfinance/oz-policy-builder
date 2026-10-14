@@ -40,13 +40,22 @@ authorized call" no longer holds.
 | `call_path(step, ...)` | A walk into the arguments, one to eight steps: a `u32` indexes a vec, a symbol keys a map, a final `true` takes the length. The three leaves above are shorthand for it, and the decoder lowers them to it |
 | `now` | The ledger timestamp (seconds). Ordering widens it to `i128`; `eq` compares by value, so `eq(now, <i128>)` never holds - write `gte`/`lte` |
 | `read(contract, fn, args, path)` | A number read from another contract: call `fn(args)` on `contract`, then walk `path` (zero to eight steps, the same steps as `call_path`) into the result. `contract` and `fn` are fixed fields of the predicate, so its hash pins them. `args` are literals only |
-| `scaled(src, num, den, add)` | `src * num / den + add`. `src`, `num` and `add` are any value leaf, `scaled` included; `den` is a constant and must be positive. Multiplies first, divides second (truncating toward zero), adds third, every step checked |
+| `scaled(src, num, den, add)` | `src * num / den + add`. `src`, `num` and `add` are any value leaf, `scaled` included; `den` is a constant and must be positive, and a literal `num` must be too. Multiplies first, divides second (truncating toward zero), adds third, every step checked |
 | `literal_*` | Constants on either side of a comparison, or inside an `in` allowlist |
 
 Nodes: `and`, `or`, `eq`, `lt`, `lte`, `gt`, `gte`, `in`. Literals:
 `literal_address`, `literal_i128`, `literal_symbol`, `literal_u32`,
 `literal_vec`. Both sides of a comparison are resolved, so any value leaf can
 stand on either side.
+
+A literal `num` must be positive, as grammar 6 required: `-99/100` would turn a
+floor into a ceiling that permits a zero output, and `0` cancels the selector.
+`den` is positive for the same reason. Write a subtraction by moving the term
+across the comparison (`ts >= now - 300` is `ts + 300 >= now`, which is
+`gte(scaled(ts, 1, 1, 300), now)`); `add` is any value and may be a negative
+literal. `in` haystacks and literal vectors hold constants only: a selector,
+`read`, `scaled` or `now` in one is refused at decode, as it could never be
+compared.
 
 `scaled` replaces grammar 6's `call_arg_scaled(i, num, den)`, which is now
 `scaled(call_arg(i), num, den, 0)`. Because it resolves to a plain number, a
@@ -69,6 +78,15 @@ Read this before writing a rule with a `read`.
   steered by the call being authorized. Whatever state the target changes
   while being read is committed if the call is permitted and rolled back if it
   is denied, so name only functions that are read-only in fact.
+- **The interpreter's address must never hold value, allowances or roles.** A
+  read target sees the interpreter as its direct caller, so any
+  `require_auth(interpreter)` inside it passes, and a target's state changes
+  commit when the authorisation is permitted - even one made by an `or` branch
+  that then denied. `or(gte(read(token.transfer(interpreter, ...)), 0), <branch
+  that permits>)` would move the interpreter's tokens if it held any. Nothing in
+  this repository trusts the interpreter's address, and nothing may: do not fund
+  it, do not approve it, do not grant it a role on any contract, and name only
+  read-only functions in a `read`.
 - **Arguments are literals.** `read` takes an address, a symbol, a `u32` or an
   `i128` (or a vec of those that does not begin with a symbol). A selector,
   `now`, `scaled` or another `read` in an argument is refused at install. An
@@ -81,6 +99,20 @@ Read this before writing a rule with a `read`.
   target - a token's `transfer` checking that token's `balance` - the read
   fails, and a failed read denies. Read a contract the authorized call does not
   pass through.
+- **A read is point-in-time: it sees the state BEFORE the authorised call or
+  batch runs.** The account authorises first and the calls run after, so a
+  `read` cannot see what the call itself does. Through the execution adapter
+  one authorisation covers a whole batch, and a rule such as "debt + B stays
+  under 92% of collateral" is checked against the state before ANY call of the
+  batch: `execute([advance(B), withdraw_collateral(X)])` passes and then breaks
+  the bound, and a first-loss balance can be drained by a later call the same
+  way. A rule that uses `read` over a batch must therefore pin the batch shape:
+  its length (`call_path(0, true)`) and every element (target, function,
+  arguments), so no call can be appended or swapped. `tests/grammar7.rs` shows
+  both the unpinned batch that is let through and the pinned one that refuses
+  an appended call. Called directly (not through the adapter), a pool the
+  authorised call itself targets is on the call stack, so reading it is refused
+  as re-entry; read the oracle, and take the pool's own numbers from the call.
 - **Failure denies.** A read that panics, hits a missing function or contract,
   returns void or a non-number, or finds no field at `path` resolves to
   nothing, and the comparison denies (`ARG_MISMATCH`). That includes `eq`: two
@@ -107,9 +139,16 @@ Read this before writing a rule with a `read`.
 - **An oracle read is only as good as the oracle.** A stale or manipulable price
   satisfies the rule. Pair a price with a `now` freshness bound
   (`read(...).timestamp >= scaled(now, 1, 1, -300)`).
+- **Guard variable operands.** A `num` or a call amount that is not a literal
+  cannot be judged at install, so the rule must. Put `gt(read(price), 0)` beside
+  a price used as a multiplier (zero or negative makes an upper bound trivial)
+  and `gte(call_path(amount), 0)` beside every amount taken from the call (a
+  negative advance lowers the debt side and passes the bound). With the guards
+  the negative case is refused; `tests/grammar7.rs` shows both.
 - **Arithmetic fails closed.** Overflow in any step of a `scaled` (the multiply,
   the divide, the add) denies `ARITHMETIC_OVERFLOW`; it never wraps. A `den`
-  of zero or less is refused at install as `MALFORMED_PREDICATE`, and the
+  of zero or less, or a literal `num` of zero or less, is refused at install
+  as `MALFORMED_PREDICATE`, and the
   evaluator still refuses to divide by zero if that gate ever regresses.
 
 The grammar carries only what a policy needs and no more. `not` is absent by

@@ -12,9 +12,11 @@
 extern crate alloc;
 
 use policy_interpreter::{PolicyInstallParams, PolicyInterpreter};
-use soroban_sdk::testutils::Address as _;
-use soroban_sdk::xdr::{ScVal, ToXdr, VecM};
-use soroban_sdk::{Address, Bytes, BytesN, Env, IntoVal, Map, Symbol, TryFromVal, Val, Vec};
+use soroban_sdk::testutils::{Address as _, Ledger as _};
+use soroban_sdk::xdr::{FromXdr, ScVal, ToXdr, VecM};
+use soroban_sdk::{
+    contract, contractimpl, Address, Bytes, BytesN, Env, IntoVal, Map, Symbol, TryFromVal, Val, Vec,
+};
 
 /// OZ's reference multisig smart account.
 const OZ_ACCOUNT_WASM: &[u8] = include_bytes!("fixtures/multisig_account_example.wasm");
@@ -29,10 +31,9 @@ fn delegated(env: &Env, addr: &Address) -> Val {
 
 /// A grammar-7 rule: `eq(call_fn, <name>)` scopes the policy to one function by
 /// name, which avoids needing the account's address before it exists, and
-/// `read(oracle, "price") >= scaled(now, 1, 1, -300)` exercises the three new
-/// leaves on the install path. Install decodes and gates the whole predicate but
-/// evaluates none of it, so the oracle address only has to be well formed.
-fn predicate_on_fn(env: &Env, fn_name: &str) -> Bytes {
+/// `read(oracle, "updated") >= scaled(now, 1, 1, -300)` - the oracle's last
+/// update is under five minutes old - exercises the three new leaves.
+fn predicate_on_fn(env: &Env, fn_name: &str, oracle: &Address) -> Bytes {
     let sym = |s: &str| {
         ScVal::Symbol(soroban_sdk::xdr::ScSymbol(
             s.as_bytes().to_vec().try_into().unwrap(),
@@ -48,15 +49,16 @@ fn predicate_on_fn(env: &Env, fn_name: &str) -> Bytes {
             lo: n as u64,
         })
     };
-    let oracle = ScVal::Address(soroban_sdk::xdr::ScAddress::Contract(
-        soroban_sdk::xdr::ContractId(soroban_sdk::xdr::Hash([7u8; 32])),
-    ));
+    let oracle = {
+        let v: Val = oracle.into_val(env);
+        ScVal::from_xdr(env, &v.to_xdr(env)).unwrap()
+    };
     let fresh = scvec(alloc::vec![
         sym("gte"),
         scvec(alloc::vec![
             sym("read"),
             oracle,
-            sym("price"),
+            sym("updated"),
             scvec(alloc::vec![])
         ]),
         scvec(alloc::vec![
@@ -85,9 +87,10 @@ fn predicate_on_fn(env: &Env, fn_name: &str) -> Bytes {
 fn install_params(
     env: &Env,
     fn_name: &str,
+    oracle: &Address,
     admins: &Vec<policy_interpreter::Signer>,
 ) -> PolicyInstallParams {
-    let predicate = predicate_on_fn(env, fn_name);
+    let predicate = predicate_on_fn(env, fn_name, oracle);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
     PolicyInstallParams {
         grammar_version: 7,
@@ -138,7 +141,7 @@ fn the_account_installs_our_policy_when_it_adds_a_scoped_context_rule() {
     let mut policies: Map<Address, Val> = Map::new(&env);
     policies.set(
         interpreter.clone(),
-        install_params(&env, "batch_add_signer", &admins).into_val(&env),
+        install_params(&env, "batch_add_signer", &Address::generate(&env), &admins).into_val(&env),
     );
 
     let mut args: Vec<Val> = Vec::new(&env);
@@ -170,7 +173,7 @@ fn the_account_cannot_install_a_policy_on_its_default_rule() {
     let mut policies: Map<Address, Val> = Map::new(&env);
     policies.set(
         interpreter,
-        install_params(&env, "batch_add_signer", &admins).into_val(&env),
+        install_params(&env, "batch_add_signer", &Address::generate(&env), &admins).into_val(&env),
     );
 
     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -182,9 +185,11 @@ fn the_account_cannot_install_a_policy_on_its_default_rule() {
     );
 }
 
-// ---- what is NOT covered here, and why ----
+// ---- why the first `enforce` attempts here were dropped ----
 //
-// The `enforce` half of the flow - the account calling our policy from
+// (The `enforce` half IS covered now, at the bottom of this file, through the
+// SDK's `try_invoke_contract_check_auth`; the two approaches below are why that
+// is the only way.) The `enforce` half of the flow - the account calling our policy from
 // `__check_auth` - is deliberately absent from this file.
 //
 // Two approaches were tried and BOTH produced false positives:
@@ -246,4 +251,108 @@ fn the_account_fixture_is_a_soroban_wasm() {
     let _ = ScVal::Void;
     let env = Env::default();
     let _ = Val::try_from_val(&env, &());
+}
+
+// ---- enforce, through the real account --------------------------------------
+//
+// The note above explains why `mock_all_auths` + a self-authorizing call proves
+// nothing: the host approves mocked auth without running the account's
+// `__check_auth`. The SDK's `try_invoke_contract_check_auth` runs it for real,
+// so the account decodes its `AuthPayload`, picks the context rule, and calls
+// our `enforce`, which in turn calls the oracle named in the predicate.
+
+/// A price oracle's freshness field, the only thing the rule reads.
+#[contract]
+pub struct Oracle;
+
+#[contractimpl]
+impl Oracle {
+    pub fn __constructor(e: &Env, updated: u64) {
+        e.storage().instance().set(&0u32, &updated);
+    }
+    pub fn updated(e: &Env) -> u64 {
+        e.storage().instance().get(&0u32).unwrap()
+    }
+}
+
+/// `AuthPayload { signers: {Delegated(signer): ""}, context_rule_ids: [id] }`.
+fn auth_payload(env: &Env, signer: &Address, rule_id: u32) -> Val {
+    let mut signers: Map<Val, Bytes> = Map::new(env);
+    signers.set(delegated(env, signer), Bytes::new(env));
+    let mut payload: Map<Symbol, Val> = Map::new(env);
+    payload.set(
+        Symbol::new(env, "context_rule_ids"),
+        soroban_sdk::vec![env, rule_id].into_val(env),
+    );
+    payload.set(Symbol::new(env, "signers"), signers.into_val(env));
+    payload.into_val(env)
+}
+
+/// The account with a policy-guarded rule 1 for `batch_add_signer` on `venue`
+/// whose predicate reads `oracle`, and the result of asking the account to
+/// authorise that call.
+type Verdict = Result<(), Result<soroban_sdk::Error, soroban_sdk::InvokeError>>;
+
+fn authorise(oracle_updated: u64, fn_name: &str) -> Verdict {
+    let env = Env::default();
+    env.mock_all_auths_allowing_non_root_auth();
+    env.ledger().with_mut(|l| l.timestamp = 10_000);
+    let (account, interpreter, signer_addr) = deploy(&env);
+    let oracle = env.register(Oracle, (oracle_updated,));
+
+    let admins: Vec<policy_interpreter::Signer> = soroban_sdk::vec![
+        &env,
+        policy_interpreter::Signer::Delegated(signer_addr.clone())
+    ];
+    let venue = Address::generate(&env);
+    let mut policies: Map<Address, Val> = Map::new(&env);
+    policies.set(
+        interpreter,
+        install_params(&env, "batch_add_signer", &oracle, &admins).into_val(&env),
+    );
+    let mut args: Vec<Val> = Vec::new(&env);
+    args.push_back(call_contract_context(&env, &venue));
+    args.push_back(soroban_sdk::String::from_str(&env, "agent-rule").into_val(&env));
+    args.push_back(Option::<u32>::None.into_val(&env));
+    args.push_back(soroban_sdk::vec![&env, delegated(&env, &signer_addr)].into_val(&env));
+    args.push_back(policies.into_val(&env));
+    let _: Val = env.invoke_contract(&account, &Symbol::new(&env, "add_context_rule"), args);
+
+    let ctx = soroban_sdk::auth::Context::Contract(soroban_sdk::auth::ContractContext {
+        contract: venue,
+        fn_name: Symbol::new(&env, fn_name),
+        args: Vec::new(&env),
+    });
+    env.try_invoke_contract_check_auth::<soroban_sdk::Error>(
+        &account,
+        &BytesN::from_array(&env, &[7u8; 32]),
+        auth_payload(&env, &signer_addr, 1),
+        &soroban_sdk::vec![&env, ctx],
+    )
+}
+
+/// Our `ARG_MISMATCH` (100), as the account surfaces it.
+fn arg_mismatch() -> Verdict {
+    Err(Ok(soroban_sdk::Error::from_contract_error(100)))
+}
+
+#[test]
+fn the_account_permits_a_call_when_the_read_in_its_rule_holds() {
+    // The oracle updated 200 s ago; the rule asks for under 300. Exactly 300
+    // is still inside the window.
+    assert_eq!(authorise(9_800, "batch_add_signer"), Ok(()));
+    assert_eq!(authorise(9_700, "batch_add_signer"), Ok(()));
+}
+
+#[test]
+fn the_account_refuses_a_call_when_the_read_in_its_rule_fails() {
+    // 301 s old: the account's `__check_auth` calls our `enforce`, which reads
+    // the oracle and denies, and the denial reaches the host.
+    assert_eq!(authorise(9_699, "batch_add_signer"), arg_mismatch());
+}
+
+#[test]
+fn the_account_refuses_a_call_the_rule_does_not_name_even_when_the_read_holds() {
+    // The read alone is not the rule: `eq(call_fn, ..)` still binds the call.
+    assert_eq!(authorise(9_800, "burn"), arg_mismatch());
 }

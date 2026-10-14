@@ -21,15 +21,21 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   - `scaled(src, num, den, add)` is `src * num / den + add` over any value
     leaf, nested `scaled` included. Multiply, then divide (truncating toward
     zero), then add, each checked; overflow denies `ARITHMETIC_OVERFLOW`. `den`
-    is a constant and must be positive. It replaces `call_arg_scaled(i, num,
+    is a constant and must be positive, and so must a literal `num` (a negative
+    one would turn a floor into a ceiling); write a subtraction by moving the
+    term across the comparison. It replaces `call_arg_scaled(i, num,
     den)`, which is now `scaled(call_arg(i), num, den, 0)`. Together they
     express live-price LTV, a first-loss balance floor and an oracle freshness
-    bound. Leaf nesting is capped at `MAX_DEPTH`.
+    bound. Leaf nesting is capped at `MAX_DEPTH`, and `in` haystacks and literal
+    vectors hold constants only.
   - **`enforce` now calls other contracts.** Soroban has no read-only call, so a
     read target must be a contract the owner trusts, ideally immutable; a read
     cannot target a contract already on the call stack (the host refuses
     re-entry, which denies); simulate with real signatures so the reads'
-    footprint is captured. A rule must still constrain the authorised call:
+    footprint is captured. Reads are point-in-time, before the authorised call or
+    batch runs, so a rule reading over a batch must pin its shape; and the
+    interpreter's address must never hold value, allowances or roles. A rule
+    must still constrain the authorised call:
     reads and `now` alone are refused at install. The grammar-6 property that
     `enforce` reads only the authorised call no longer holds. See the
     [interpreter README](contracts/prime/stellar/policy-interpreter/README.md#cross-contract-reads).

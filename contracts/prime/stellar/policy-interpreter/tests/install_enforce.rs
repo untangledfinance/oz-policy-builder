@@ -877,12 +877,18 @@ fn install_rejects_a_non_positive_denominator_with_201() {
 }
 
 #[test]
-fn install_accepts_any_numerator_because_it_is_a_value() {
-    // In grammar 6 the numerator was a constant and a non-positive one was
-    // refused. It is now an operand like any other, resolved per call, so the
-    // sign cannot be judged at install.
-    for num in [-1, 0, 1] {
-        assert_eq!(install_scaled_expecting_code(num, 100), Ok(()));
+fn install_rejects_a_non_positive_literal_numerator_with_201() {
+    // The dangerous one: a negative numerator flips `>=`, so a floor written
+    // to refuse bad trades would permit a zero output instead. Zero cancels the
+    // selector altogether. Both are properties of the literal, so install
+    // refuses them; the decoder does, and `enforce` runs the same decoder.
+    use soroban_sdk::InvokeError;
+    for num in [0, -1, -99, i128::MIN] {
+        assert_eq!(
+            install_scaled_expecting_code(num, 100),
+            Err(InvokeError::Contract(201)),
+            "num == {num} must be refused at install as MALFORMED_PREDICATE"
+        );
     }
 }
 

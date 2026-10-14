@@ -143,6 +143,7 @@ fn addr(env: &Env, a: &Address) -> ScVal {
 enum Step {
     I(u32),
     F(&'static str),
+    Len,
 }
 
 fn steps(path: &[Step]) -> StdVec<ScVal> {
@@ -150,12 +151,19 @@ fn steps(path: &[Step]) -> StdVec<ScVal> {
         .map(|s| match s {
             Step::I(i) => ScVal::U32(*i),
             Step::F(f) => sym(f),
+            Step::Len => ScVal::Bool(true),
         })
         .collect()
 }
 
 fn call_arg(i: u32) -> ScVal {
     tuple(alloc::vec![sym("call_arg"), ScVal::U32(i)])
+}
+
+fn call_path(path: &[Step]) -> ScVal {
+    let mut items = alloc::vec![sym("call_path")];
+    items.extend(steps(path));
+    tuple(items)
 }
 
 fn call_fn() -> ScVal {
@@ -274,12 +282,14 @@ impl World {
 
     /// Run `enforce` on an authorised `advance(args)`.
     fn enforce(&self, args: &[i128]) -> Verdict {
-        match self.client().try_enforce(
-            &self.context(args),
-            &self.rule.signers,
-            &self.rule,
-            &self.account,
-        ) {
+        self.enforce_context(&self.context(args))
+    }
+
+    fn enforce_context(&self, context: &Context) -> Verdict {
+        match self
+            .client()
+            .try_enforce(context, &self.rule.signers, &self.rule, &self.account)
+        {
             Ok(_) => Ok(()),
             Err(Ok(e)) => Err(Some(e)),
             Err(Err(_)) => Err(None),
@@ -789,7 +799,11 @@ fn a_read_that_panics_denies() {
         read(&w.env, &o, "boom", alloc::vec![], &[]),
         num(0),
     ));
-    assert!(w.enforce(&[]).is_err(), "a panicking read must not permit");
+    assert_eq!(
+        w.enforce(&[]),
+        denied(),
+        "a panicking read denies as an unresolved operand, it does not trap"
+    );
 }
 
 #[test]
@@ -801,7 +815,7 @@ fn a_read_of_a_missing_function_denies() {
         read(&w.env, &o, "nope", alloc::vec![], &[]),
         num(0),
     ));
-    assert!(w.enforce(&[]).is_err());
+    assert_eq!(w.enforce(&[]), denied());
 }
 
 #[test]
@@ -813,7 +827,7 @@ fn a_read_of_an_address_with_no_contract_denies() {
         read(&w.env, &nobody, "balance", alloc::vec![], &[]),
         num(0),
     ));
-    assert!(w.enforce(&[]).is_err());
+    assert_eq!(w.enforce(&[]), denied());
 }
 
 #[test]
@@ -902,5 +916,175 @@ fn a_grammar_6_document_is_refused_by_the_version_gate() {
     assert_eq!(
         res.err().map(|e| e.unwrap().get_code()),
         Some(PolicyError::VersionMismatch as u32)
+    );
+}
+
+// ---- authoring guards ------------------------------------------------------
+
+/// The LTV rule with the guards the README recommends beside variable
+/// operands: the price must be positive (a zero or negative multiplier makes an
+/// upper bound trivial) and the advance and the pledge must not be negative.
+fn guarded_ltv(w: &World, pool: &Address, oracle: &Address) -> ScVal {
+    let price = || read(&w.env, oracle, "lastprice", pot(), &[Step::F("price")]);
+    all(alloc::vec![
+        cmp("gt", price(), num(0)),
+        cmp("gte", call_path(&[Step::I(0)]), num(0)),
+        cmp("gte", call_path(&[Step::I(1)]), num(0)),
+        ltv(w, pool, oracle),
+    ])
+}
+
+#[test]
+fn a_negative_amount_slips_through_an_unguarded_ltv_rule() {
+    // The hazard the guard exists for: B = -500 "advances" a negative amount,
+    // which lowers the debt side and passes the bound.
+    let (w, pool, o) = ltv_world(2);
+    w.arm(ltv(&w, &pool, &o));
+    assert_eq!(w.enforce(&[-500, 0, 0]), Ok(()));
+}
+
+#[test]
+fn a_negative_amount_is_refused_when_the_guard_is_present() {
+    let (w, pool, o) = ltv_world(2);
+    w.arm(guarded_ltv(&w, &pool, &o));
+    assert_eq!(w.enforce(&[-500, 0, 0]), denied());
+    assert_eq!(w.enforce(&[100, -1, 0]), denied(), "a negative pledge too");
+    assert_eq!(w.enforce(&[100, 0, 0]), Ok(()), "the guard costs nothing");
+}
+
+#[test]
+fn a_non_positive_price_is_refused_when_the_guard_is_present() {
+    let (w, pool, o) = ltv_world(0);
+    w.arm(guarded_ltv(&w, &pool, &o));
+    assert_eq!(w.enforce(&[100, 0, 0]), denied());
+}
+
+#[test]
+fn a_subtraction_is_written_by_moving_the_term_across_the_comparison() {
+    // `ts >= now - 300` is `ts + 300 >= now`: `num` cannot be negative, but
+    // `add` is any value.
+    let w = World::new();
+    w.env.ledger().with_mut(|l| l.timestamp = 10_000);
+    let o = oracle(&w, 1, 9_700);
+    let ts = read(&w.env, &o, "lastprice", pot(), &[Step::F("timestamp")]);
+    w.arm(cmp("gte", scaled(ts, num(1), 1, num(300)), now()));
+    assert_eq!(w.enforce(&[]), Ok(()));
+    w.env.ledger().with_mut(|l| l.timestamp = 10_001);
+    assert_eq!(w.enforce(&[]), denied());
+}
+
+#[test]
+fn a_variable_numerator_is_accepted_and_a_literal_one_is_not() {
+    let w = World::new();
+    let variable = scaled(call_arg(0), call_arg(1), 1, num(0));
+    assert_eq!(w.install(&rule_for(cmp("gte", variable, num(0)))), Ok(()));
+    for n in [0, -1] {
+        let literal = scaled(call_arg(0), num(n), 1, num(0));
+        let w = World::new();
+        assert_eq!(w.install(&rule_for(cmp("gte", literal, num(0)))), MALFORMED);
+    }
+}
+
+#[test]
+fn in_haystacks_and_literal_vecs_hold_constants_only() {
+    let w = World::new();
+    let o = oracle(&w, 1, 0);
+    let rd = read(&w.env, &o, "lastprice", pot(), &[]);
+    let hay = |entry: ScVal| {
+        tuple(alloc::vec![
+            sym("in"),
+            call_arg(0),
+            tuple(alloc::vec![num(1), entry])
+        ])
+    };
+    assert_eq!(w.install(&rule_for(hay(num(2)))), Ok(()));
+    for bad in [call_arg(0), call_fn(), now(), rd] {
+        assert_eq!(w.install(&rule_for(hay(bad))), MALFORMED);
+    }
+}
+
+// ---- a batch: reads are taken before the batch runs ------------------------
+
+/// What the adapter hands the policy: `execute(calls, grants, wait)`, each call
+/// a map with `target`, `function_name` and `args`.
+fn batch_context(w: &World, functions: &[&str]) -> Context {
+    let mut calls = SorobanVec::<Val>::new(&w.env);
+    for f in functions {
+        let mut c = soroban_sdk::Map::<Symbol, Val>::new(&w.env);
+        c.set(Symbol::new(&w.env, "target"), w.target.to_val());
+        c.set(
+            Symbol::new(&w.env, "function_name"),
+            Symbol::new(&w.env, f).into_val(&w.env),
+        );
+        c.set(
+            Symbol::new(&w.env, "args"),
+            SorobanVec::<Val>::new(&w.env).into_val(&w.env),
+        );
+        calls.push_back(c.into_val(&w.env));
+    }
+    let mut args = SorobanVec::<Val>::new(&w.env);
+    args.push_back(calls.into_val(&w.env));
+    args.push_back(SorobanVec::<Val>::new(&w.env).into_val(&w.env));
+    args.push_back(0u32.into_val(&w.env));
+    Context::Contract(ContractContext {
+        contract: w.target.clone(),
+        fn_name: Symbol::new(&w.env, "execute"),
+        args,
+    })
+}
+
+fn batch_rule(w: &World, oracle: &Address, pin_shape: bool) -> ScVal {
+    let mut checks = alloc::vec![
+        cmp("eq", call_fn(), sym("execute")),
+        price_floor(w, oracle, 100),
+    ];
+    if pin_shape {
+        // the whole batch: exactly one call, and it is `advance`
+        checks.push(cmp(
+            "eq",
+            call_path(&[Step::I(0), Step::Len]),
+            ScVal::U32(1),
+        ));
+        checks.push(cmp(
+            "eq",
+            call_path(&[Step::I(0), Step::I(0), Step::F("function_name")]),
+            sym("advance"),
+        ));
+    }
+    all(checks)
+}
+
+#[test]
+fn an_unpinned_batch_lets_a_later_call_break_what_the_read_checked() {
+    // The read is taken at authorisation, before ANY call of the batch runs, so
+    // the price check holds for [advance] and for [advance, withdraw] alike: the
+    // second call can undo the condition and the rule has already permitted.
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    w.install(&batch_rule(&w, &o, false)).unwrap();
+    assert_eq!(w.enforce_context(&batch_context(&w, &["advance"])), Ok(()));
+    assert_eq!(
+        w.enforce_context(&batch_context(&w, &["advance", "withdraw"])),
+        Ok(())
+    );
+}
+
+#[test]
+fn a_pinned_batch_refuses_an_appended_call_and_a_swapped_one() {
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    w.install(&batch_rule(&w, &o, true)).unwrap();
+    assert_eq!(w.enforce_context(&batch_context(&w, &["advance"])), Ok(()));
+    assert_eq!(
+        w.enforce_context(&batch_context(&w, &["advance", "withdraw"])),
+        denied()
+    );
+    assert_eq!(
+        w.enforce_context(&batch_context(&w, &["withdraw", "advance"])),
+        denied()
+    );
+    assert_eq!(
+        w.enforce_context(&batch_context(&w, &["withdraw"])),
+        denied()
     );
 }
