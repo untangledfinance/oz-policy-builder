@@ -257,8 +257,13 @@ fn eval(env: &Env, node: &Node, ctx: &EvalContext, memo: &mut Memo) -> Result<()
                 true => DenyReason::ContractScope,
                 false => DenyReason::ArgMismatch,
             };
-            let a = resolve(env, left, ctx, memo)?;
-            let b = resolve(env, right, ctx, memo)?;
+            // A side that cannot resolve is the same miss (overflow keeps its own).
+            // A side that cannot resolve is the same miss (overflow keeps its own).
+            let mut side = |l| match resolve(env, l, ctx, memo) {
+                Err(DenyReason::ArgMismatch) => Err(miss),
+                other => other,
+            };
+            let (a, b) = (side(left)?, side(right)?);
             // A non-numeric operand (an address, a vector) has no ordering.
             let n = |v: &Val| val_to_i128(env, v).ok_or(miss);
             let pass = match op {

@@ -2193,6 +2193,20 @@ fn the_deny_reason_is_the_same_whichever_side_the_selector_is_on() {
     };
     assert_eq!(verdict(cmp("eq", contract(), elsewhere())), scope);
     assert_eq!(verdict(cmp("eq", elsewhere(), contract())), scope);
+    // The other side not resolving at all is the same miss, not ARG_MISMATCH.
+    assert_eq!(verdict(cmp("eq", contract(), call_arg(9))), scope);
+    assert_eq!(verdict(cmp("eq", call_arg(9), contract())), scope);
+    // An overflow keeps its own reason.
+    let w = World::new();
+    w.arm(cmp(
+        "eq",
+        contract(),
+        scaled(call_arg(0), num(2), 1, num(0)),
+    ));
+    assert_eq!(
+        w.enforce(&[i128::MAX]),
+        refused(PolicyError::ArithmeticOverflow)
+    );
     assert_eq!(verdict(cmp("eq", call_fn(), sym("other"))), denied());
     assert_eq!(verdict(cmp("eq", sym("other"), call_fn())), denied());
 }
