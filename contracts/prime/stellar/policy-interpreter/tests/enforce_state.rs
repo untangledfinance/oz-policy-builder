@@ -13,8 +13,8 @@ use policy_interpreter::{
 };
 use soroban_sdk::auth::{Context, ContractContext};
 use soroban_sdk::testutils::storage::Persistent as _;
-use soroban_sdk::testutils::Address as _;
 use soroban_sdk::testutils::Ledger as _;
+use soroban_sdk::testutils::{Address as _, MockAuth, MockAuthInvoke};
 use soroban_sdk::xdr::{ScVal, ToXdr, VecM};
 use soroban_sdk::{Address, Bytes, BytesN, Env, IntoVal, Symbol, Vec as SorobanVec};
 
@@ -436,4 +436,105 @@ fn enforce_refuses_an_operator_set_other_than_the_installed_one() {
     assert!(client
         .try_enforce(&ctx, &signers, &rule, &smart_account)
         .is_ok());
+}
+
+/// An enforcement that authenticated nobody is not an authorisation (210).
+#[test]
+fn enforce_refuses_an_empty_authenticated_signer_list() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(PolicyInterpreter, ());
+    let client = PolicyInterpreterClient::new(&env, &contract_id);
+    let smart_account = Address::generate(&env);
+    let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
+    let rule = make_rule(&env, 1, signers.clone());
+    install_policy(&env, &client, &smart_account, &rule);
+    let ctx = call_context(&env, &Address::generate(&env));
+
+    let none = SorobanVec::new(&env);
+    let res = client.try_enforce(&ctx, &none, &rule, &smart_account);
+    let expected = soroban_sdk::Error::from_contract_error(210);
+    assert!(matches!(res, Err(Ok(e)) if e == expected), "got {res:?}");
+}
+
+/// A rule bound to an executor demands the executor's own authorisation of
+/// this exact (account, context) as well as the account's: the account alone
+/// is refused, both together permit.
+#[test]
+fn a_bound_rule_enforces_only_with_the_executors_authorisation() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(PolicyInterpreter, ());
+    let client = PolicyInterpreterClient::new(&env, &contract_id);
+    let smart_account = Address::generate(&env);
+    let executor = Address::generate(&env);
+    let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
+    let rule = make_rule(&env, 1, signers.clone());
+    install_policy(&env, &client, &smart_account, &rule);
+    client.bind_executor(&(smart_account.clone(), 1u32), &executor);
+    let ctx = call_context(&env, &Address::generate(&env));
+
+    let enforce_args: SorobanVec<soroban_sdk::Val> = (
+        ctx.clone(),
+        signers.clone(),
+        rule.clone(),
+        smart_account.clone(),
+    )
+        .into_val(&env);
+    let account_auth = MockAuth {
+        address: &smart_account,
+        invoke: &MockAuthInvoke {
+            contract: &contract_id,
+            fn_name: "enforce",
+            args: enforce_args.clone(),
+            sub_invokes: &[],
+        },
+    };
+    let executor_auth = MockAuth {
+        address: &executor,
+        invoke: &MockAuthInvoke {
+            contract: &contract_id,
+            fn_name: "enforce",
+            args: (smart_account.clone(), ctx.clone()).into_val(&env),
+            sub_invokes: &[],
+        },
+    };
+    env.mock_auths(&[account_auth.clone()]);
+    let res = client.try_enforce(&ctx, &signers, &rule, &smart_account);
+    assert!(
+        res.is_err(),
+        "the account alone must not satisfy a bound rule"
+    );
+
+    env.mock_auths(&[account_auth, executor_auth]);
+    client
+        .try_enforce(&ctx, &signers, &rule, &smart_account)
+        .unwrap()
+        .unwrap();
+}
+
+/// The byte cap is refused as 207 before any hashing or parsing.
+#[test]
+fn install_refuses_an_oversized_predicate_as_207() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(PolicyInterpreter, ());
+    let client = PolicyInterpreterClient::new(&env, &contract_id);
+    let smart_account = Address::generate(&env);
+    let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
+    let rule = make_rule(&env, 1, signers.clone());
+
+    let big = policy_interpreter::dsl::MAX_PREDICATE_BYTES as usize + 1;
+    let predicate = Bytes::from_slice(&env, &alloc::vec![0u8; big]);
+    let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
+    let params = PolicyInstallParams {
+        grammar_version: 7,
+        install_nonce: 1,
+        predicate,
+        predicate_hash,
+        policy_admins: signers,
+    };
+    let res = client.try_install(&params, &rule, &smart_account);
+    let expected = soroban_sdk::Error::from_contract_error(207);
+    assert!(matches!(res, Err(Ok(e)) if e == expected), "got {res:?}");
 }
