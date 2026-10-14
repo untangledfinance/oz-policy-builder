@@ -23,9 +23,8 @@ use alloc::string::ToString;
 use alloc::vec::Vec as StdVec;
 
 use crate::dsl::{
-    decode, decode_with_byte_cap, evaluate, CompareOp, DenyReason, EvalContext, EvalDecision, Leaf,
-    Node, PathStep, MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_PATH_STEPS,
-    MAX_PREDICATE_BYTES, MAX_READS,
+    decode, evaluate, CompareOp, DenyReason, EvalContext, EvalDecision, Leaf, Node, PathStep,
+    MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_PATH_STEPS, MAX_PREDICATE_BYTES, MAX_READS,
 };
 use soroban_sdk::testutils::Address as _;
 use soroban_sdk::xdr::{FromXdr, ScVal, ToXdr, VecM};
@@ -605,7 +604,7 @@ fn sel_call_path_with_no_steps_is_malformed() {
         &env,
         vec_scval(&[sym("eq"), vec_scval(&[sym("call_path")]), u32_scval(1)]),
     );
-    let err = decode_with_byte_cap(&env, &bogus).expect_err("a path with no steps must be refused");
+    let err = decode(&env, &bogus).expect_err("a path with no steps must be refused");
     assert_eq!(err.code(), "MALFORMED_PREDICATE");
 }
 
@@ -687,7 +686,7 @@ fn sel_call_path_len_must_be_the_last_step() {
             u32_scval(1),
         ]),
     );
-    let err = decode_with_byte_cap(&env, &bogus).expect_err("a step after len must be refused");
+    let err = decode(&env, &bogus).expect_err("a step after len must be refused");
     assert_eq!(err.code(), "MALFORMED_PREDICATE");
 }
 
@@ -784,7 +783,7 @@ fn eq_node_with_path(steps: usize) -> ScVal {
 #[test]
 fn call_path_refuses_more_steps_than_the_cap() {
     let env = Env::default();
-    let err = decode_with_byte_cap(
+    let err = decode(
         &env,
         &bytes_from_scval(&env, eq_node_with_path((MAX_PATH_STEPS + 1) as usize)),
     )
@@ -795,7 +794,7 @@ fn call_path_refuses_more_steps_than_the_cap() {
 #[test]
 fn call_path_accepts_exactly_the_cap() {
     let env = Env::default();
-    decode_with_byte_cap(
+    decode(
         &env,
         &bytes_from_scval(&env, eq_node_with_path(MAX_PATH_STEPS as usize)),
     )
@@ -810,8 +809,8 @@ fn call_path_step_of_an_unsupported_type_is_malformed() {
         vec_scval(&[sym("call_path"), u32_scval(0), i128_scval(3)]),
         u32_scval(1),
     ]);
-    let err = decode_with_byte_cap(&env, &bytes_from_scval(&env, bogus))
-        .expect_err("an i128 step must be refused");
+    let err =
+        decode(&env, &bytes_from_scval(&env, bogus)).expect_err("an i128 step must be refused");
     assert_eq!(err.code(), "MALFORMED_PREDICATE");
 }
 
@@ -847,7 +846,7 @@ fn call_path_compared_with_itself_is_vacuously_true() {
 fn fc_unknown_node_symbol_returns_malformed() {
     let env = Env::default();
     let bogus = bytes_from_scval(&env, vec_scval(&[sym("not_a_real_op"), u32_scval(0)]));
-    let err = decode_with_byte_cap(&env, &bogus).expect_err("unknown op must deny");
+    let err = decode(&env, &bogus).expect_err("unknown op must deny");
     assert_eq!(err.code(), "MALFORMED_PREDICATE");
 }
 
@@ -862,7 +861,7 @@ fn fc_unknown_selector_symbol_returns_malformed() {
             u32_scval(0),
         ]),
     );
-    let err = decode_with_byte_cap(&env, &bogus).expect_err("unknown selector must deny");
+    let err = decode(&env, &bogus).expect_err("unknown selector must deny");
     assert_eq!(err.code(), "MALFORMED_PREDICATE");
 }
 
@@ -871,7 +870,7 @@ fn fc_wrong_arity_on_compare_returns_malformed() {
     // eq with only one argument (no left, no right) -> structurally MALFORMED.
     let env = Env::default();
     let bogus = bytes_from_scval(&env, vec_scval(&[sym("eq"), u32_scval(1)]));
-    let err = decode_with_byte_cap(&env, &bogus).expect_err("2-arg compare must deny");
+    let err = decode(&env, &bogus).expect_err("2-arg compare must deny");
     assert_eq!(err.code(), "MALFORMED_PREDICATE");
 }
 
@@ -887,7 +886,7 @@ fn fc_wrong_val_type_as_call_arg_index_returns_malformed() {
             u32_scval(7),
         ]),
     );
-    let err = decode_with_byte_cap(&env, &bogus).expect_err("i128 in call_arg slot must deny");
+    let err = decode(&env, &bogus).expect_err("i128 in call_arg slot must deny");
     assert_eq!(err.code(), "MALFORMED_PREDICATE");
 }
 
@@ -898,7 +897,7 @@ fn fc_in_empty_haystack_at_decode() {
         &env,
         vec_scval(&[sym("in"), i128_scval(1), empty_vec_scval()]),
     );
-    let err = decode_with_byte_cap(&env, &bogus).expect_err("in [] must deny at decode");
+    let err = decode(&env, &bogus).expect_err("in [] must deny at decode");
     assert_eq!(err.code(), "MALFORMED_PREDICATE");
 }
 
@@ -913,18 +912,14 @@ fn fc_undecoded_value_never_matches_by_stringification() {
     //    ScVal::U32 instead of a Vec).
     let wrong_root = bytes_from_scval(&env, u32_scval(42));
     assert_eq!(
-        decode_with_byte_cap(&env, &wrong_root)
-            .err()
-            .map(|e| e.code()),
+        decode(&env, &wrong_root).err().map(|e| e.code()),
         Some("MALFORMED_PREDICATE")
     );
     // 2. An empty Vec root (zero-element wrapper) is also rejected: the wire
     //    must carry a head symbol, so a length-0 Vec can never be valid.
     let empty_root = bytes_from_scval(&env, empty_vec_scval());
     assert_eq!(
-        decode_with_byte_cap(&env, &empty_root)
-            .err()
-            .map(|e| e.code()),
+        decode(&env, &empty_root).err().map(|e| e.code()),
         Some("MALFORMED_PREDICATE")
     );
 }
@@ -963,7 +958,7 @@ fn cap_depth_at_limit_permits() {
     // resulting max depth is exactly MAX_DEPTH.
     let n = balanced_depth_n(&env, (MAX_DEPTH as usize) - 1);
     let bytes = bytes_from_node(&env, &n);
-    let root = decode_with_byte_cap(&env, &bytes).expect("MAX_DEPTH must decode");
+    let root = decode(&env, &bytes).expect("MAX_DEPTH must decode");
     assert!(matches!(root, Node::And(_)));
 }
 
@@ -1009,7 +1004,7 @@ fn cap_predicate_bytes_over_limit_returns_predicate_too_large() {
         (MAX_PREDICATE_BYTES as usize) + 1,
     ));
     let bytes = Bytes::from_slice(&env, &payload);
-    let err = decode_with_byte_cap(&env, &bytes).expect_err("over-byte predicate must deny");
+    let err = decode(&env, &bytes).expect_err("over-byte predicate must deny");
     assert_eq!(err.code(), "PREDICATE_TOO_LARGE");
 }
 
@@ -1026,7 +1021,7 @@ fn fc_amount_selector_is_refused_at_decode() {
             i128_scval(1000),
         ]),
     );
-    let err = decode_with_byte_cap(&env, &bytes).expect_err("`amount` must not decode");
+    let err = decode(&env, &bytes).expect_err("`amount` must not decode");
     assert_eq!(err.code(), "MALFORMED_PREDICATE");
 }
 
@@ -1041,7 +1036,7 @@ fn fc_window_spent_selector_is_refused_at_decode() {
             i128_scval(1000),
         ]),
     );
-    let err = decode_with_byte_cap(&env, &bytes).expect_err("`window_spent` must not decode");
+    let err = decode(&env, &bytes).expect_err("`window_spent` must not decode");
     assert_eq!(err.code(), "MALFORMED_PREDICATE");
 }
 

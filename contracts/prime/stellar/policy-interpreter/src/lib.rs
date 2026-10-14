@@ -20,7 +20,7 @@ mod test;
 pub mod types;
 mod version;
 
-pub use dsl::{decode_with_byte_cap, CompareOp, DenyReason, EvalContext, EvalDecision, Leaf, Node};
+pub use dsl::{CompareOp, DenyReason, EvalContext, EvalDecision, Leaf, Node};
 pub use storage::{PolicyError, RuleKey, StoredDoc};
 pub use types::{ContextRule, ContextRuleType, PolicyInstallParams, Signer};
 pub use version::SELF_VERSION;
@@ -67,7 +67,7 @@ impl PolicyInterpreter {
 
         // (c) Parse + decode - the host does the XDR work; we walk the
         //     resulting native `Vec<Val>`.
-        let root = match dsl::decode_with_byte_cap(e, &install_params.predicate) {
+        let root = match dsl::decode(e, &install_params.predicate) {
             Ok(n) => n,
             Err(_) => storage::deny(e, storage::PolicyError::MalformedPredicate),
         };
@@ -219,7 +219,7 @@ impl PolicyInterpreter {
             storage::deny(e, storage::PolicyError::RuleSignersChanged);
         }
 
-        let predicate_root = match dsl::decode_with_byte_cap(e, &doc.predicate_bytes) {
+        let predicate_root = match dsl::decode(e, &doc.predicate_bytes) {
             Ok(n) => n,
             Err(_) => storage::deny(e, storage::PolicyError::MalformedPredicate),
         };

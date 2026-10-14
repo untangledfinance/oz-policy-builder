@@ -221,8 +221,8 @@ fn eval(env: &Env, node: &Node, ctx: &EvalContext) -> Result<(), DenyReason> {
         // cannot be compared at all.
         Node::In { needle, haystack } => resolve(env, needle, ctx)
             .is_ok_and(|x| {
-                let literals = haystack.iter().filter_map(|h| literal_to_val(env, h));
-                literals.any(|h| val_eq(env, &x, &h))
+                let mut hay = haystack.iter().filter_map(|h| literal_to_val(env, h));
+                hay.any(|h| val_eq(env, &x, &h))
             })
             .then_some(())
             .ok_or(DenyReason::NotInAllowlist),
@@ -435,14 +435,15 @@ impl DecodeError {
     }
 }
 
-/// Decode a predicate root and re-check the cap trio
-/// (depth / leaves / `in`-operand). The byte cap is checked separately
-/// by `decode_with_byte_cap`, which is the install-time entry point.
+/// Decode a predicate root, checking the byte-size cap against the raw XDR
+/// (the only place the payload length is still in hand) and then the cap trio
+/// (depth / leaves / `read`s). `in` haystacks are capped as they decode.
 pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
-    let v: Val = Val::from_xdr(env, bytes).map_err(|_| DecodeError::MalformedPredicate)?;
-    let root: SorobanVec<Val> =
-        SorobanVec::<Val>::try_from_val(env, &v).map_err(|_| DecodeError::MalformedPredicate)?;
-    let root_node = decode_node(env, &root)?;
+    if bytes.len() > MAX_PREDICATE_BYTES {
+        return Err(DecodeError::PredicateTooLarge);
+    }
+    let v = Val::from_xdr(env, bytes).map_err(|_| DecodeError::MalformedPredicate)?;
+    let root_node = decode_node(env, &to(env, &v)?)?;
     let mut stats = NodeStats::default();
     tally_node(&root_node, 1, &mut stats);
     if stats.depth > MAX_DEPTH {
@@ -451,21 +452,7 @@ pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
     if stats.leaves > MAX_LEAVES || stats.reads > MAX_READS {
         return Err(DecodeError::TooManyLeaves);
     }
-    if stats.max_in_operands > MAX_IN_OPERAND_COUNT {
-        return Err(DecodeError::InOperandLimit);
-    }
     Ok(root_node)
-}
-
-/// Decode AND check the byte-size cap against the raw XDR bytes. This is
-/// the only enforcement point for `MAX_PREDICATE_BYTES` - `decode` cannot
-/// see how many bytes the input was, so the cap has to be applied at the
-/// install boundary where the raw payload is still in hand.
-pub fn decode_with_byte_cap(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
-    if bytes.len() > MAX_PREDICATE_BYTES {
-        return Err(DecodeError::PredicateTooLarge);
-    }
-    decode(env, bytes)
 }
 
 #[derive(Default)]
@@ -473,7 +460,6 @@ struct NodeStats {
     depth: u32,
     leaves: u32,
     reads: u32,
-    max_in_operands: u32,
 }
 
 fn tally_node(node: &Node, d: u32, s: &mut NodeStats) {
@@ -491,7 +477,6 @@ fn tally_node(node: &Node, d: u32, s: &mut NodeStats) {
         Node::In { needle, haystack } => {
             tally(needle, s);
             haystack.iter().for_each(|h| tally(h, s));
-            s.max_in_operands = s.max_in_operands.max(haystack.len() as u32);
         }
     }
 }
@@ -544,13 +529,12 @@ fn decode_node(env: &Env, items: &SorobanVec<Val>) -> Result<Node, DecodeError> 
 /// denies (empty `or`) regardless of the call.
 fn decode_children(env: &Env, items: &SorobanVec<Val>) -> Result<Vec<Node>, DecodeError> {
     ensure(items.len() == 2)?;
-    let children_items = expect::<SorobanVec<Val>>(env, items, 1)?;
-    ensure(!children_items.is_empty())?;
-    let mut children: Vec<Node> = Vec::with_capacity(children_items.len() as usize);
-    for i in 0..children_items.len() {
-        children.push(decode_node(env, &expect(env, &children_items, i)?)?);
-    }
-    Ok(children)
+    let children: SorobanVec<Val> = expect(env, items, 1)?;
+    ensure(!children.is_empty())?;
+    children
+        .iter()
+        .map(|c| decode_node(env, &to(env, &c)?))
+        .collect()
 }
 
 fn leaf_at(env: &Env, items: &SorobanVec<Val>, i: u32) -> Result<Leaf, DecodeError> {
@@ -560,13 +544,16 @@ fn leaf_at(env: &Env, items: &SorobanVec<Val>, i: u32) -> Result<Leaf, DecodeErr
 fn decode_in(env: &Env, items: &SorobanVec<Val>) -> Result<Node, DecodeError> {
     ensure(items.len() == 3)?;
     let needle = leaf_at(env, items, 1)?;
-    let haystack_items = expect::<SorobanVec<Val>>(env, items, 2)?;
-    ensure(!haystack_items.is_empty())?;
-    let mut haystack: Vec<Leaf> = Vec::with_capacity(haystack_items.len() as usize);
-    for i in 0..haystack_items.len() {
-        haystack.push(literal(env, &at(&haystack_items, i)?, 1)?);
+    let entries: SorobanVec<Val> = expect(env, items, 2)?;
+    ensure(!entries.is_empty())?;
+    if entries.len() > MAX_IN_OPERAND_COUNT {
+        return Err(DecodeError::InOperandLimit);
     }
-    Ok(Node::In { needle, haystack })
+    let haystack: Result<_, _> = entries.iter().map(|h| literal(env, &h, 1)).collect();
+    Ok(Node::In {
+        needle,
+        haystack: haystack?,
+    })
 }
 
 /// Decode one leaf. `depth` is how deeply it is nested inside other
@@ -585,26 +572,17 @@ fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Result<Leaf, DecodeError> {
             return decode_selector_leaf(env, &items, sym, depth);
         }
         // Literal vector: order preserved verbatim.
-        let mut elems: Vec<Leaf> = Vec::with_capacity(items.len() as usize);
-        for i in 0..items.len() {
-            elems.push(literal(env, &at(&items, i)?, depth + 1)?);
-        }
-        return Ok(Leaf::LiteralVec(elems));
+        let elems = items.iter().map(|e| literal(env, &e, depth + 1));
+        return elems.collect::<Result<_, _>>().map(Leaf::LiteralVec);
     }
     // Bare literals.
-    if let Ok(addr) = Address::try_from_val(env, val) {
-        return Ok(Leaf::LiteralAddress(addr));
-    }
-    if let Ok(sym) = Symbol::try_from_val(env, val) {
-        return Ok(Leaf::LiteralSymbol(sym));
-    }
-    if let Ok(n) = u32::try_from_val(env, val) {
-        return Ok(Leaf::LiteralU32(n));
-    }
-    if let Ok(n) = i128::try_from_val(env, val) {
-        return Ok(Leaf::LiteralI128(n));
-    }
-    Err(DecodeError::MalformedPredicate)
+    Address::try_from_val(env, val)
+        .map(Leaf::LiteralAddress)
+        .ok()
+        .or_else(|| Symbol::try_from_val(env, val).map(Leaf::LiteralSymbol).ok())
+        .or_else(|| u32::try_from_val(env, val).map(Leaf::LiteralU32).ok())
+        .or_else(|| i128::try_from_val(env, val).map(Leaf::LiteralI128).ok())
+        .ok_or(DecodeError::MalformedPredicate)
 }
 
 /// A leaf that must be a constant: an `in` entry or a literal-vec element.
@@ -621,54 +599,42 @@ fn decode_selector_leaf(
     head: Symbol,
     depth: u32,
 ) -> Result<Leaf, DecodeError> {
-    let is = |name: &str| head == Symbol::new(env, name);
-    if is("call_contract") {
-        ensure(items.len() == 1)?;
+    let is = |n: u32, name: &str| items.len() == n && head == Symbol::new(env, name);
+    let step = |i| expect(env, items, i).map(PathStep::Index);
+    if is(1, "call_contract") {
         Ok(Leaf::CallContract)
-    } else if is("call_fn") {
-        ensure(items.len() == 1)?;
+    } else if is(1, "call_fn") {
         Ok(Leaf::CallFn)
-    } else if is("now") {
-        ensure(items.len() == 1)?;
+    } else if is(1, "now") {
         Ok(Leaf::Now)
-    } else if is("call_arg") {
-        ensure(items.len() == 2)?;
-        Ok(Leaf::CallPath(vec![PathStep::Index(expect(
-            env, items, 1,
-        )?)]))
-    } else if is("call_arg_len") {
-        ensure(items.len() == 2)?;
-        Ok(Leaf::CallPath(vec![
-            PathStep::Index(expect(env, items, 1)?),
-            PathStep::Len,
-        ]))
-    } else if is("call_arg_field") {
-        ensure(items.len() == 4)?;
-        Ok(Leaf::CallPath(vec![
-            PathStep::Index(expect(env, items, 1)?),
-            PathStep::Index(expect(env, items, 2)?),
-            PathStep::Field(expect(env, items, 3)?),
-        ]))
-    } else if is("call_path") {
+    } else if is(2, "call_arg") {
+        Ok(Leaf::CallPath(vec![step(1)?]))
+    } else if is(2, "call_arg_len") {
+        Ok(Leaf::CallPath(vec![step(1)?, PathStep::Len]))
+    } else if is(4, "call_arg_field") {
+        let field = PathStep::Field(expect(env, items, 3)?);
+        Ok(Leaf::CallPath(vec![step(1)?, step(2)?, field]))
+    } else if is(items.len(), "call_path") {
         Ok(Leaf::CallPath(decode_steps(env, items, 1, 1)?))
-    } else if is("read") {
+    } else if is(items.len(), "read") {
         // (read, contract, fn, [args], step...). The contract and function
         // are fixed fields, so the predicate hash pins them. Arguments
         // must be literals: a selector, a `now`, another `read` or a
         // `scaled` has no `Val` form here and is refused.
         ensure(items.len() >= 4)?;
-        let mut args = SorobanVec::<Val>::new(env);
-        for a in expect::<SorobanVec<Val>>(env, items, 3)?.iter() {
-            let literal = literal_to_val(env, &decode_leaf(env, &a, depth + 1)?);
-            args.push_back(literal.ok_or(DecodeError::MalformedPredicate)?);
-        }
+        let arg = |a: Val| {
+            let leaf = decode_leaf(env, &a, depth + 1)?;
+            literal_to_val(env, &leaf).ok_or(DecodeError::MalformedPredicate)
+        };
+        let args: SorobanVec<Val> = expect(env, items, 3)?;
+        let args: Result<Vec<Val>, _> = args.iter().map(arg).collect();
         Ok(Leaf::Read(
             expect(env, items, 1)?,
             expect(env, items, 2)?,
-            args,
+            SorobanVec::from_slice(env, &args?),
             decode_steps(env, items, 4, 0)?,
         ))
-    } else if is("scaled") {
+    } else if is(5, "scaled") {
         // (scaled, src, num, den, add). `den` is a constant and must be
         // positive: zero cannot divide, and a negative one would flip the
         // sign of every bound it scales. A literal `src` or `num` is held
@@ -676,7 +642,6 @@ fn decode_selector_leaf(
         // `-99/100` turns a floor into a ceiling that permits a zero
         // output. An operand that is read from the call or a contract
         // cannot be judged here; guard it in the rule (see the README).
-        ensure(items.len() == 5)?;
         let den = expect::<i128>(env, items, 3)?;
         ensure(den > 0)?;
         let operand = |i| decode_leaf(env, &at(items, i)?, depth + 1);
@@ -732,5 +697,9 @@ fn expect<T: TryFromVal<Env, Val>>(
     items: &SorobanVec<Val>,
     i: u32,
 ) -> Result<T, DecodeError> {
-    T::try_from_val(env, &at(items, i)?).map_err(|_| DecodeError::MalformedPredicate)
+    to(env, &at(items, i)?)
+}
+
+fn to<T: TryFromVal<Env, Val>>(env: &Env, v: &Val) -> Result<T, DecodeError> {
+    T::try_from_val(env, v).map_err(|_| DecodeError::MalformedPredicate)
 }
