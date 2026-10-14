@@ -26,31 +26,17 @@ pub const MAX_IN_OPERAND_COUNT: u32 = 32;
 pub const MAX_READS: u32 = 4;
 pub const MAX_PREDICATE_BYTES: u32 = 32 * 1024;
 
-// Tag / selector name bytes. These come from the encoder verbatim (see
-// `policy-synth/src/predicate/encode.ts`); an unknown tag is fail-closed at
+// Tag and selector names come from the encoder verbatim (see
+// `policy-synth/src/predicate/encode.ts`); an unknown one is fail-closed at
 // decode time.
-const OP_AND: &[u8] = b"and";
-const OP_OR: &[u8] = b"or";
-const OP_EQ: &[u8] = b"eq";
-const OP_LT: &[u8] = b"lt";
-const OP_LTE: &[u8] = b"lte";
-const OP_GT: &[u8] = b"gt";
-const OP_GTE: &[u8] = b"gte";
-const OP_IN: &[u8] = b"in";
-
-const SEL_CALL_CONTRACT: &[u8] = b"call_contract";
-const SEL_CALL_FN: &[u8] = b"call_fn";
-const SEL_CALL_ARG: &[u8] = b"call_arg";
-const SEL_CALL_ARG_LEN: &[u8] = b"call_arg_len";
-const SEL_CALL_ARG_FIELD: &[u8] = b"call_arg_field";
-/// A walk into the authorised call's arguments: each step is either a u32
-/// index into a vector or a symbol key into a map. `call_arg_field` stops at
-/// a fixed depth of three; a batch puts the value a predicate cares about
-/// deeper than that - `calls[n].args[i]`, or Blend's `calls[n].args[3][0].amount`.
-/// One variable-depth leaf reaches all of them, which is what lets the batch
-/// be constrained HERE instead of through a flattened projection built
-/// outside the contract that enforces it.
-const SEL_CALL_PATH: &[u8] = b"call_path";
+//
+// `call_path` is a walk into the authorised call's arguments: each step is
+// either a u32 index into a vector or a symbol key into a map. `call_arg_field`
+// stops at a fixed depth of three; a batch puts the value a predicate cares
+// about deeper than that - `calls[n].args[i]`, or Blend's
+// `calls[n].args[3][0].amount`. One variable-depth leaf reaches all of them,
+// which is what lets the batch be constrained HERE instead of through a
+// flattened projection built outside the contract that enforces it.
 /// Steps per path. Measured against the shapes a root predicate actually has
 /// to reach, counting from the committed argument list:
 ///
@@ -137,7 +123,7 @@ pub enum PathStep {
 pub enum Leaf {
     CallContract,
     CallFn,
-    /// See `SEL_CALL_PATH`. Steps apply to the argument vector in order.
+    /// Steps apply to the argument vector in order.
     CallPath(Vec<PathStep>),
     /// The ledger timestamp.
     Now,
@@ -551,40 +537,32 @@ fn tally(leaf: &Leaf, s: &mut NodeStats) {
 // ---- structural decoder ----
 
 fn decode_node(env: &Env, items: &SorobanVec<Val>) -> Result<Node, DecodeError> {
-    let head_sym = expect::<Symbol>(env, items, 0)?;
-    // Compare via PartialEq (works on wasm; Symbol has no ToString on
-    // the wasm target because the SDK hides the underlying string
-    // representation behind a host object).
-    if head_sym == sym_const(env, OP_AND) {
+    let head = expect::<Symbol>(env, items, 0)?;
+    // Compare via PartialEq (works on wasm; Symbol has no ToString on the wasm
+    // target because the SDK hides the underlying string representation
+    // behind a host object).
+    let is = |name: &str| head == Symbol::new(env, name);
+    let ops = [
+        ("eq", CompareOp::Eq),
+        ("lt", CompareOp::Lt),
+        ("lte", CompareOp::Lte),
+        ("gt", CompareOp::Gt),
+        ("gte", CompareOp::Gte),
+    ];
+    if is("and") {
         decode_children(env, items).map(Node::And)
-    } else if head_sym == sym_const(env, OP_OR) {
+    } else if is("or") {
         decode_children(env, items).map(Node::Or)
-    } else if head_sym == sym_const(env, OP_EQ) {
-        decode_compare(env, items, OP_EQ)
-    } else if head_sym == sym_const(env, OP_LT) {
-        decode_compare(env, items, OP_LT)
-    } else if head_sym == sym_const(env, OP_LTE) {
-        decode_compare(env, items, OP_LTE)
-    } else if head_sym == sym_const(env, OP_GT) {
-        decode_compare(env, items, OP_GT)
-    } else if head_sym == sym_const(env, OP_GTE) {
-        decode_compare(env, items, OP_GTE)
-    } else if head_sym == sym_const(env, OP_IN) {
+    } else if is("in") {
         decode_in(env, items)
+    } else if let Some((_, op)) = ops.into_iter().find(|(name, _)| is(name)) {
+        ensure(items.len() == 3)?;
+        let (left, right) = (leaf_at(env, items, 1)?, leaf_at(env, items, 2)?);
+        Ok(Node::Compare { op, left, right })
     } else {
         // Bare selector tuples at a Node position are MALFORMED.
         Err(DecodeError::MalformedPredicate)
     }
-}
-
-/// Build a short host Symbol from a literal byte tag. Used for direct
-/// PartialEq dispatch in the decoder; avoids any string-conversion
-/// host call.
-fn sym_const(env: &Env, bytes: &[u8]) -> Symbol {
-    // SAFETY: every literal here is ASCII, which the SDK accepts as a
-    // symbol.
-    let s = core::str::from_utf8(bytes).expect("tag is ASCII");
-    Symbol::new(env, s)
 }
 
 /// Decode the child list shared by `and` and `or`. Both carry exactly one
@@ -602,24 +580,13 @@ fn decode_children(env: &Env, items: &SorobanVec<Val>) -> Result<Vec<Node>, Deco
     Ok(children)
 }
 
-fn decode_compare(env: &Env, items: &SorobanVec<Val>, op_name: &[u8]) -> Result<Node, DecodeError> {
-    ensure(items.len() == 3)?;
-    let left = decode_leaf(env, &at(items, 1)?, 1)?;
-    let right = decode_leaf(env, &at(items, 2)?, 1)?;
-    let op = match op_name {
-        OP_EQ => CompareOp::Eq,
-        OP_LT => CompareOp::Lt,
-        OP_LTE => CompareOp::Lte,
-        OP_GT => CompareOp::Gt,
-        OP_GTE => CompareOp::Gte,
-        _ => return Err(DecodeError::MalformedPredicate),
-    };
-    Ok(Node::Compare { op, left, right })
+fn leaf_at(env: &Env, items: &SorobanVec<Val>, i: u32) -> Result<Leaf, DecodeError> {
+    decode_leaf(env, &at(items, i)?, 1)
 }
 
 fn decode_in(env: &Env, items: &SorobanVec<Val>) -> Result<Node, DecodeError> {
     ensure(items.len() == 3)?;
-    let needle = decode_leaf(env, &at(items, 1)?, 1)?;
+    let needle = leaf_at(env, items, 1)?;
     let haystack_items = expect::<SorobanVec<Val>>(env, items, 2)?;
     ensure(!haystack_items.is_empty())?;
     let mut haystack: Vec<Leaf> = Vec::with_capacity(haystack_items.len() as usize);
@@ -681,36 +648,37 @@ fn decode_selector_leaf(
     head: Symbol,
     depth: u32,
 ) -> Result<Leaf, DecodeError> {
-    if head == sym_const(env, SEL_CALL_CONTRACT) {
+    let is = |name: &str| head == Symbol::new(env, name);
+    if is("call_contract") {
         ensure(items.len() == 1)?;
         Ok(Leaf::CallContract)
-    } else if head == sym_const(env, SEL_CALL_FN) {
+    } else if is("call_fn") {
         ensure(items.len() == 1)?;
         Ok(Leaf::CallFn)
-    } else if head == sym_const(env, b"now") {
+    } else if is("now") {
         ensure(items.len() == 1)?;
         Ok(Leaf::Now)
-    } else if head == sym_const(env, SEL_CALL_ARG) {
+    } else if is("call_arg") {
         ensure(items.len() == 2)?;
         Ok(Leaf::CallPath(vec![PathStep::Index(expect(
             env, items, 1,
         )?)]))
-    } else if head == sym_const(env, SEL_CALL_ARG_LEN) {
+    } else if is("call_arg_len") {
         ensure(items.len() == 2)?;
         Ok(Leaf::CallPath(vec![
             PathStep::Index(expect(env, items, 1)?),
             PathStep::Len,
         ]))
-    } else if head == sym_const(env, SEL_CALL_ARG_FIELD) {
+    } else if is("call_arg_field") {
         ensure(items.len() == 4)?;
         Ok(Leaf::CallPath(vec![
             PathStep::Index(expect(env, items, 1)?),
             PathStep::Index(expect(env, items, 2)?),
             PathStep::Field(expect(env, items, 3)?),
         ]))
-    } else if head == sym_const(env, SEL_CALL_PATH) {
+    } else if is("call_path") {
         Ok(Leaf::CallPath(decode_steps(env, items, 1, 1)?))
-    } else if head == sym_const(env, b"read") {
+    } else if is("read") {
         // (read, contract, fn, [args], step...). The contract and function
         // are fixed fields, so the predicate hash pins them. Arguments
         // must be literals: a selector, a `now`, another `read` or a
@@ -727,7 +695,7 @@ fn decode_selector_leaf(
             args,
             decode_steps(env, items, 4, 0)?,
         ))
-    } else if head == sym_const(env, b"scaled") {
+    } else if is("scaled") {
         // (scaled, src, num, den, add). `den` is a constant and must be
         // positive: zero cannot divide, and a negative one would flip the
         // sign of every bound it scales. A literal `src` or `num` is held
