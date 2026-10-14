@@ -12,8 +12,9 @@ is [`@crediolabs/policy-synth`](../../../../packages/policy-synth/).
 
 | Function | Purpose |
 | --- | --- |
-| `install` | Store a predicate for a `(smart account, context rule)` pair. Refuses a grammar version it does not speak, an oversized predicate (byte cap before any parse work), and any payload whose sha256 does not match the supplied hash. |
+| `install` | Store a predicate for a `(smart account, context rule)` pair. Refuses a grammar version it does not speak, an oversized predicate (byte cap, `207`, before any parse work), any payload whose sha256 does not match the supplied hash, a rule that reaches the admin surface (`Default`-scoped, or scoped to the smart account or to this interpreter: `218`), and a signer set (the rule's operators or the master set) that is empty, over 16, holds an `External` signer, or holds this interpreter's own address (`219`: nobody can authorise as it, so the rule could never be uninstalled or rotated). |
 | `enforce` | The policy hook the smart account calls on every guarded operation: decode, evaluate, permit or deny. |
+| `bind_executor` | Bind a rule to an execution adapter, whose own authorisation of the exact account and context `enforce` then also requires. Master set only; kept across a re-install. |
 | `uninstall` | Remove the stored predicate for a rule. |
 | `rotate_master_signer_set` | Update the master signer set an installation is bound to. |
 | `grammar_version` | The predicate grammar version this build speaks (`SELF_VERSION`). |
@@ -28,9 +29,9 @@ is `CONTRACT_SCOPE` (101), whichever side they are on.
 
 The grammar is version 7 (`SELF_VERSION`); this contract accepts grammar-7
 predicates only. Most leaves are answered from the authorized call itself, and
-`enforce` writes no value. A permit pays for one TTL bump on the rule's stored
-entry; it creates nothing and alters no value, and a deny is rolled
-back with the frame. The exception is `read`, below: **in grammar 7 `enforce`
+`enforce` writes no value. A permit bumps the rule's stored entry's TTL when
+fewer than 100 ledgers remain on it; it creates nothing and alters no value, and
+a deny is rolled back with the frame. The exception is `read`, below: **in grammar 7 `enforce`
 calls other contracts**, so the grammar-6 property "`enforce` reads only the
 authorized call" no longer holds.
 
@@ -43,7 +44,7 @@ authorized call" no longer holds.
 | `call_path(step, ...)` | A walk into the arguments, one to eight steps: a `u32` indexes a vec, a symbol keys a map, a final `true` takes the length. The three leaves above are shorthand for it, and the decoder lowers them to it |
 | `now` | The ledger timestamp (seconds), a `u64`. A clock is normally bounded, not matched: write `gte`/`lte` |
 | `read(contract, fn, args, path)` | A number read from another contract: call `fn(args)` on `contract`, then walk `path` (zero to eight steps, the same steps as `call_path`) into the result. `contract` and `fn` are fixed fields of the predicate, so its hash pins them. `args` are literals only |
-| `scaled(src, num, den, add)` | `src * num / den + add`. `src`, `num` and `add` are any value leaf, `scaled` included; `den` is a constant and must be positive, and a literal `src` or `num` must be too. Multiplies first, divides second (truncating toward zero), adds third, every step checked |
+| `scaled(src, num, den, add)` | `src * num / den + add`. `src`, `num` and `add` are any value leaf, `scaled` included; `den` is an `i128` constant (a `u32` is refused) and must be positive, and a literal `src` or `num` must be too. Multiplies first, divides second (truncating toward zero), adds third, every step checked |
 | `variant(name, payload...)` | An enum value as a constant: the vec `[name, payload...]`, for a `read` argument such as Reflector's `Asset::Stellar(addr)`. Payload entries are constants. Also legal wherever another literal is |
 | `literal_*` | Constants on either side of a comparison, or inside an `in` allowlist |
 
@@ -67,17 +68,19 @@ leaf yields: `call_contract` an address; `call_fn` a symbol; `call_arg`,
 denies; `scaled` an `i128`; literals an address, `i128`, symbol, `u32` or vec.
 
 `src` and `num` multiply, so a constant in either is held to the same rule:
-anything made of literals alone (a literal, or a `scaled` of literals, folded at
-decode) must come out above zero. `-99/100` would turn a floor into a ceiling
+anything made of literals alone (a literal, or a `scaled` of literals, checked at
+decode; the tree keeps the `scaled` and recomputes it on every `enforce`) must
+come out above zero. `-99/100` would turn a floor into a ceiling
 that permits a zero output, and `0` cancels the selector. Grammar 6 had one
 literal factor, `num`, so the same rule is stricter here (it also covers `src`
 and nested constants); a factor that comes from the call, the clock or a read
 cannot be judged at install and stays the rule author's to guard. `den` is
 positive and at most `MAX_DEN` (10^18). The cap stops an `i128::MAX`-style `den`
 only; it does not stop a tiny `num / den` ratio (`99 / 10^18` still floors at
-zero for ordinary amounts), which the rule author has to avoid. A constant that
-overflows is refused at install rather than installing a rule that always
-denies. Division truncates toward zero, which loosens a floor by less
+zero for ordinary amounts), which the rule author has to avoid. A constant `src * num`, or a
+`scaled` of constants, that overflows is refused at install rather than
+installing a rule that always denies (an overflow that depends on the call's
+own arguments still denies at `enforce`). Division truncates toward zero, which loosens a floor by less
 than one unit (`gte(out, scaled(in, 99, 100, 0))` permits `out = 99` for
 `in = 101`, a floor of 99.99) and a negative bound the other way; write an exact
 bound cross-multiplied, `gte(scaled(out, 100, 1, 0), scaled(in, 99, 1, 0))`. Write a subtraction by moving the term
@@ -88,7 +91,8 @@ literal. A negative factor can still be built from a variable (`num = scaled(cal
 compared.
 
 `scaled` replaces grammar 6's `call_arg_scaled(i, num, den)`, which is now
-`scaled(call_arg(i), num, den, 0)`. Because it resolves to a plain number, a
+`scaled(call_arg(i), num, den, 0)` (equal under every comparison, `eq` included,
+since numbers compare by value). Because it resolves to a plain number, a
 comparison against it is an ordinary comparison: a miss denies `ARG_MISMATCH`
 (there is no separate slippage reason), and two `scaled` leaves compare with
 each other. Nesting gives sums, differences, products and small integer powers:
@@ -99,7 +103,10 @@ each other. Nesting gives sums, differences, products and small integer powers:
 
 Read this before writing a rule with a `read`.
 
-- **`enforce` performs a call into each contract a `read` names.** Soroban has
+- **`enforce` performs a call into each contract a `read` names, when the
+  evaluation reaches it** (`or(eq(call_fn, advance), gte(read(feed), 0))`
+  permits without calling the feed, so a rule's footprint depends on the branch
+  that runs). Soroban has
   no read-only call: the host runs whatever function was named, with the same
   rights as any other call. A `read` target must therefore be a contract the
   policy owner trusts, and ideally one that cannot be upgraded, because a
@@ -186,10 +193,12 @@ Read this before writing a rule with a `read`.
   one call, and the full PayFi set (feed, debt, collateral, custody balance) is
   exactly four. Reads count inside `scaled` too; the fifth distinct call is refused at install as
   `MALFORMED_PREDICATE`, decoder reason `TOO_MANY_LEAVES` - every decoder cap
-  surfaces as 201),
+  surfaces as 201, except the byte cap at install, which is 207),
   `read` paths and `call_path`s of at most eight steps, and leaf nesting
-  (`scaled` operands, literal vecs) of at most `MAX_DEPTH` (5) levels. With the
-  existing 200-leaf cap, evaluation work is bounded and each distinct
+  (`scaled` operands, literal vecs, `read` arguments, `variant` payloads) of at
+  most `MAX_DEPTH` (5) levels. The 200-leaf cap counts `scaled` operands,
+  literal-vec elements and `in` entries but not `read` arguments, which only the
+  32 KB byte cap bounds. With the 200-leaf cap, evaluation work is bounded and each distinct
   `read` runs at most once per `enforce`.
 - **A rule still has to constrain the call.** `install` refuses a predicate with
   no leaf over the authorized call (`call_contract`, `call_fn`, `call_arg*`,
@@ -200,7 +209,8 @@ Read this before writing a rule with a `read`.
 - **Simulate with real signatures.** A read's ledger entries are part of the
   transaction's footprint. A simulation that skips authorization may not reach
   `enforce`, and so not the reads, and the submitted transaction then fails on
-  a footprint it did not declare. Simulate the signed transaction.
+  a footprint it did not declare. Simulate the signed transaction, and remember
+  that which reads run depends on which branch of an `or` permits.
 - **Cost.** Each read is a contract call inside the account's authorization
   check and spends the transaction's budget; a slow or heavy target makes every
   call it guards slow or heavy.
@@ -250,7 +260,9 @@ can turn the default inside out.
 
 `or` carries no such hazard - an unresolvable leaf still denies its own branch -
 and it is what lets one rule permit either of two token pairs. Its children are
-canonically sorted like `and`'s, so authoring order is not preserved; when every
+canonically sorted like `and`'s by the encoder (the contract does not check the
+order, and evaluates in wire order), so authoring order is not preserved; an
+empty `or`, `and` or literal vector is refused at install. When every
 branch denies, the reported reason is the first branch's in wire order.
 
 Deliberately absent, because the interpreter sees one authorized call and no
@@ -266,7 +278,9 @@ of the absent ones as uncovered rather than emitting a constraint that would
 never bind.
 
 Retired deny codes: `107` (`SLIPPAGE_FLOOR`) and `214`
-(`INVALID_SCALED_RATIO`) are not emitted by grammar 7 and are not reused.
+(`INVALID_SCALED_RATIO`) are not emitted by grammar 7 and are not reused. New in
+grammar 7: `219` (`SIGNER_IS_INTERPRETER`); `218` also covers a rule scoped to
+the account or the interpreter, not only `Default`.
 
 ## Deployments
 
