@@ -204,6 +204,27 @@ Read this before writing a rule with a `read`.
 - **Cost.** Each read is a contract call inside the account's authorization
   check and spends the transaction's budget; a slow or heavy target makes every
   call it guards slow or heavy.
+- **Memory is the limit that binds.** Each distinct read instantiates the target
+  in its own VM, about 1.2 MB of the transaction's 40 MiB memory whatever the
+  target's size, and the memo is per `enforce`, so the same read in two contexts
+  runs twice. Measured through the OpenZeppelin account: the four-read PayFi
+  rule costs about 6.2 MB, a `__check_auth` that authorises N such contexts
+  costs about 7.5 MB for one and 6.2 MB more for each further one, and the
+  seventh breaks the limit (44.7 MB). Plan for at most about five read-rule
+  contexts in one transaction, fewer when the authorised calls themselves run in
+  the same budget (an adapter `execute` batch whose inner calls each hit a read
+  rule). The transaction aborts with `Budget ExceededLimit`, so it fails closed;
+  a batch that passes with two calls can fail with six. CPU is not the limit: the
+  PayFi rule is about 5.5M of the 400M instruction budget (1.4%).
+- **Limits the host decides, not the contract.** A predicate nested deeper than
+  about 47 levels cannot be parsed: the host's XDR reader traps
+  (`Error(Context, InvalidAction)`) before `install` sees it, so the failure is
+  a trap rather than a contract code. A `read` whose target or storage is
+  outside the transaction's footprint aborts the whole transaction with a
+  storage `ExceededLimit` that no rule can catch (not even inside an `or`), which
+  is why you simulate the signed transaction. The builder that emits predicates
+  must warn about both, and about the memory figure above; that check is
+  off-chain and belongs to the TypeScript side.
 - **An oracle read is only as good as the oracle.** A stale or manipulable price
   satisfies the rule. Pair a price with a `now` freshness bound
   (`read(...).timestamp >= scaled(now, 1, 1, -300)`).
