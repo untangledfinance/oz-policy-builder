@@ -606,9 +606,11 @@ fn nesting_gives_products_and_powers() {
 #[test]
 fn a_non_numeric_operand_denies() {
     let w = World::new();
-    // `call_fn` is a symbol, not a number.
-    w.arm(cmp("gte", scaled(call_fn(), num(1), 1, num(0)), num(0)));
-    assert_eq!(w.enforce(&[]), denied());
+    // The argument is a symbol, not a number (a literal one is refused at
+    // install, and so is `call_fn`).
+    w.arm(cmp("gte", scaled(call_arg(0), num(1), 1, num(0)), num(0)));
+    let symbol = Symbol::new(&w.env, "x").to_val();
+    assert_eq!(call_with(&w, alloc::vec![symbol]), denied());
 }
 
 // ---- safety: install-time refusals -----------------------------------------
@@ -2193,4 +2195,25 @@ fn the_deny_reason_is_the_same_whichever_side_the_selector_is_on() {
     assert_eq!(verdict(cmp("eq", elsewhere(), contract())), scope);
     assert_eq!(verdict(cmp("eq", call_fn(), sym("other"))), denied());
     assert_eq!(verdict(cmp("eq", sym("other"), call_fn())), denied());
+}
+
+#[test]
+fn call_contract_and_call_fn_are_not_scaled_operands() {
+    // An address or a symbol has no value to scale: every call would deny 100.
+    let id = |name: &str| tuple(alloc::vec![sym(name)]);
+    for name in ["call_fn", "call_contract"] {
+        for slot in 0..3 {
+            let mut ops = [call_arg(1), num(2), num(0)];
+            ops[slot] = id(name);
+            let [s, n, a] = ops;
+            let check = cmp("gte", call_arg(0), scaled(s, n, 1, a));
+            assert_eq!(
+                installs(|_| check.clone()),
+                MALFORMED,
+                "{name} in slot {slot}"
+            );
+        }
+    }
+    // An ordering over them is still decided at enforce (103), not refused.
+    assert_eq!(installs(|_| cmp("lt", call_fn(), num(5))), Ok(()));
 }

@@ -364,7 +364,9 @@ fn scale(src: i128, num: i128, den: i128, add: i128) -> Option<i128> {
     src.checked_mul(num)?.checked_div(den)?.checked_add(add)
 }
 
-/// A literal that is not a number: it has no order and cannot be scaled.
+/// A literal that is not a number: it has no order and cannot be scaled. (An
+/// identity selector is refused as a `scaled` operand too, but an ordering over
+/// one is still decided at `enforce`.)
 fn non_number(leaf: &Leaf) -> bool {
     matches!(
         leaf,
@@ -645,7 +647,8 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
         let leaves = [operand(1)?, operand(2)?, operand(4)?];
         let [s, n, a] = leaves.each_ref().map(constant);
         ensure(![s, n].iter().any(|v| v.is_some_and(|v| v <= 0)))?;
-        ensure(!leaves.iter().any(non_number))?;
+        let identity = |l: &Leaf| matches!(l, Leaf::CallContract | Leaf::CallFn);
+        ensure(!leaves.iter().any(|l| non_number(l) || identity(l)))?;
         // A constant that overflows would deny every call: refuse it here. The
         // product and quotient do not depend on `add`, so they are folded even
         // when it varies (as `0`; the constant addend is folded too).
