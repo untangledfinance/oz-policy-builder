@@ -79,37 +79,26 @@ impl PolicyInterpreter {
         context_rule: ContextRule,
         smart_account: Address,
     ) {
-        ensure(
-            e,
-            install_params.grammar_version == SELF_VERSION,
-            E::VersionMismatch,
-        );
+        let p = &install_params;
+        ensure(e, p.grammar_version == SELF_VERSION, E::VersionMismatch);
 
         // (a) Byte cap - reject before any parse work so the host never
         //     sees an oversized payload.
-        ensure(
-            e,
-            install_params.predicate.len() <= dsl::MAX_PREDICATE_BYTES,
-            E::PredicateTooLarge,
-        );
+        let small = p.predicate.len() <= dsl::MAX_PREDICATE_BYTES;
+        ensure(e, small, E::PredicateTooLarge);
 
         // (b) Hash check - mandatory invariant #11. The caller supplies
         //     `sha256(predicate_bytes)` in `predicate_hash`; we recompute it
         //     against the raw bytes via the host and refuse any mismatch.
         //     Closes the gap where a same-shape-but-different-bytes predicate
         //     could be installed under a stale hash.
-        let computed_hash: BytesN<32> = e.crypto().sha256(&install_params.predicate).into();
-        ensure(
-            e,
-            computed_hash == install_params.predicate_hash,
-            E::PredicateHashMismatch,
-        );
+        let hash: BytesN<32> = e.crypto().sha256(&p.predicate).into();
+        ensure(e, hash == p.predicate_hash, E::PredicateHashMismatch);
 
         // (c) Parse + decode - the host does the XDR work; we walk the
         //     resulting native `Vec<Val>`. The AST is rebuilt on enforce from
         //     the stored bytes; here decoding is the validation.
-        let root = dsl::decode(e, &install_params.predicate)
-            .unwrap_or_else(|_| deny(e, E::MalformedPredicate));
+        let root = dsl::decode(e, &p.predicate).unwrap_or_else(|_| deny(e, E::MalformedPredicate));
 
         // (c2) The rule's signers (the operators) stay bounded: `enforce`
         //      re-hashes the set on every permit, so the same size and shape
@@ -120,7 +109,7 @@ impl PolicyInterpreter {
         //      `policy_admins`, not captured from the rule's signers. It must
         //      be able to authorise later admin-gated calls, so the same
         //      usability rules apply to it.
-        require_usable_signer_set(e, &install_params.policy_admins);
+        require_usable_signer_set(e, &p.policy_admins);
 
         // (c2c) A Default-scoped rule matches every operation on the account,
         //      including its own administration, so the predicate would be the
@@ -155,15 +144,12 @@ impl PolicyInterpreter {
             // by. Changing who administers the mandate is rotation's job,
             // with its own two-party authorisation; letting a re-install
             // smuggle a new set in would bypass that.
-            let same = stored.master_set == install_params.policy_admins;
+            let same = stored.master_set == p.policy_admins;
             ensure(e, same, E::MasterAuthRequired);
         }
         let stored_nonce = prior.as_ref().map_or(0, |p| p.nonce);
-        ensure(
-            e,
-            install_params.install_nonce == stored_nonce.saturating_add(1),
-            E::NonceReplay,
-        );
+        let fresh = p.install_nonce == stored_nonce.saturating_add(1);
+        ensure(e, fresh, E::NonceReplay);
 
         e.storage().persistent().set(
             &key,
@@ -207,11 +193,8 @@ impl PolicyInterpreter {
         // An enforcement that authenticated nobody is not an authorisation.
         // OZ rejects this too; the interpreter previously ignored the
         // argument entirely.
-        ensure(
-            e,
-            !authenticated_signers.is_empty(),
-            E::NoAuthenticatedSigners,
-        );
+        let signed = !authenticated_signers.is_empty();
+        ensure(e, signed, E::NoAuthenticatedSigners);
 
         let key = (smart_account.clone(), context_rule.id);
         let doc = load(e, &key);
