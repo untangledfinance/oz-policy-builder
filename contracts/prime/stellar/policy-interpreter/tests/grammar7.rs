@@ -85,7 +85,16 @@ impl Reflector {
             .set(&1u32, &PriceData { price, timestamp });
     }
 
+    /// How many times `lastprice` has run (a committed counter, so it is only
+    /// visible after a permit).
+    pub fn calls(e: &Env) -> u32 {
+        e.storage().instance().get(&2u32).unwrap_or(0)
+    }
+
     pub fn lastprice(e: &Env, asset: Asset) -> Option<PriceData> {
+        e.storage()
+            .instance()
+            .set(&2u32, &(Reflector::calls(e) + 1));
         let known: Asset = e.storage().instance().get(&0u32).unwrap();
         if asset == known {
             e.storage().instance().get(&1u32)
@@ -621,12 +630,10 @@ fn up_to_four_reads_install_and_a_fifth_is_refused() {
     let o = oracle(&w, 1, 0);
     let r = |n: usize| {
         let reads = (0..n)
-            .map(|_| {
-                cmp(
-                    "gte",
-                    read(&w.env, &o, "lastprice", pot(), &[Step::F("price")]),
-                    num(0),
-                )
+            .map(|i| {
+                let asset = alloc::vec![sym(&alloc::format!("A{i}"))];
+                let r = read(&w.env, &o, "lastprice", asset, &[Step::F("price")]);
+                cmp("gte", r, num(0))
             })
             .collect();
         rule_for(all(reads))
@@ -640,13 +647,19 @@ fn reads_nested_in_scaled_count_toward_the_cap() {
     // Reads folded into one expression are still reads: four install, five do not.
     let w = World::new();
     let o = oracle(&w, 1, 0);
-    let rd = || read(&w.env, &o, "lastprice", pot(), &[Step::F("price")]);
-    let four = scaled(rd(), scaled(rd(), rd(), 1, num(0)), 1, rd());
+    let rd = |i: u32| {
+        let asset = alloc::vec![sym(&alloc::format!("A{i}"))];
+        read(&w.env, &o, "lastprice", asset, &[Step::F("price")])
+    };
+    let four = scaled(rd(0), scaled(rd(1), rd(2), 1, num(0)), 1, rd(3));
     assert_eq!(w.install(&rule_for(cmp("gte", four, num(0)))), Ok(()));
     let w = World::new();
     let o = oracle(&w, 1, 0);
-    let rd = || read(&w.env, &o, "lastprice", pot(), &[Step::F("price")]);
-    let five = scaled(rd(), scaled(rd(), rd(), 1, rd()), 1, rd());
+    let rd = |i: u32| {
+        let asset = alloc::vec![sym(&alloc::format!("A{i}"))];
+        read(&w.env, &o, "lastprice", asset, &[Step::F("price")])
+    };
+    let five = scaled(rd(0), scaled(rd(1), rd(2), 1, rd(3)), 1, rd(4));
     assert_eq!(w.install(&rule_for(cmp("gte", five, num(0)))), MALFORMED);
 }
 
@@ -1589,4 +1602,114 @@ fn a_variant_literal_pins_an_enum_argument_of_the_call() {
         w.enforce_context(&ctx(Asset::Other(Symbol::new(&w.env, "POT")))),
         denied()
     );
+}
+
+// ---- identical reads are one call; the cap counts distinct calls -----------
+
+/// All four PayFi checks as ONE predicate on the payout rule: price floor,
+/// exact LTV, first-loss float and freshness. The feed is read three times
+/// (price twice, timestamp once) and is one call; with debt, collateral and
+/// the custody balance that is four distinct calls.
+fn payfi_rule(w: &World, feed: &Address, pot: &Address) -> ScVal {
+    let pool = w.env.register(Pool, (900i128, 600i128));
+    let custody = Address::generate(&w.env);
+    let tusd = w.env.register(Token, (custody.clone(), 1_050i128));
+    let price = || reflector_read(w, feed, pot, "price");
+    let fresh = cmp(
+        "gte",
+        reflector_read(w, feed, pot, "timestamp"),
+        scaled(now(), num(1), 1, num(-300)),
+    );
+    all(alloc::vec![
+        is_advance(),
+        cmp("gte", price(), num(2)),
+        ltv_over(w, &pool, price()),
+        first_loss(w, &tusd, &custody, 1_000),
+        fresh,
+    ])
+}
+
+#[test]
+fn the_four_payfi_checks_are_one_rule_and_the_feed_is_called_once() {
+    // price 2, 300 s old: B <= 204 passes LTV (capacity 1,104 - 900), T <= 50.
+    let (w, feed, pot) = reflector_world(2, 9_700);
+    let rule = payfi_rule(&w, &feed, &pot);
+    w.install(&rule)
+        .expect("one predicate carries all four checks");
+    assert_eq!(w.enforce(&[204, 0, 50]), Ok(()));
+    let feed_calls = ReflectorClient::new(&w.env, &feed).calls();
+    assert_eq!(
+        feed_calls, 1,
+        "price floor, LTV price and freshness share one call"
+    );
+}
+
+#[test]
+fn each_payfi_check_refuses_inside_the_one_rule() {
+    let permit = |price, stamp, args: [i128; 3]| {
+        let (w, feed, pot) = reflector_world(price, stamp);
+        let rule = payfi_rule(&w, &feed, &pot);
+        w.install(&rule).unwrap();
+        w.enforce(&args)
+    };
+    assert_eq!(permit(2, 9_700, [204, 0, 50]), Ok(()));
+    assert_eq!(permit(1, 9_700, [0, 0, 0]), denied(), "price floor (2)");
+    assert_eq!(permit(2, 9_700, [205, 0, 0]), denied(), "LTV one over");
+    assert_eq!(permit(2, 9_700, [0, 0, 51]), denied(), "first-loss float");
+    assert_eq!(permit(2, 9_699, [0, 0, 0]), denied(), "stale price");
+}
+
+#[test]
+fn a_fifth_distinct_read_is_refused_and_repeats_are_free() {
+    let (w, feed, pot) = reflector_world(2, 9_700);
+    let rule = payfi_rule(&w, &feed, &pot);
+    // A fifth DISTINCT call (the feed asked about another asset) is refused.
+    let other = Address::generate(&w.env);
+    let fifth = reflector_read(&w, &feed, &other, "price");
+    let over = all(alloc::vec![rule.clone(), cmp("gte", fifth, num(0))]);
+    assert_eq!(w.install(&over), MALFORMED);
+    // The same call again, any path, any number of times, installs.
+    let again = |field| cmp("gte", reflector_read(&w, &feed, &pot, field), num(0));
+    let repeats: StdVec<ScVal> = ["price", "timestamp", "price", "price", "timestamp"]
+        .into_iter()
+        .map(again)
+        .collect();
+    let mut checks = alloc::vec![rule];
+    checks.extend(repeats);
+    assert_eq!(w.install(&all(checks)), Ok(()));
+    assert_eq!(w.enforce(&[204, 0, 50]), Ok(()));
+    assert_eq!(ReflectorClient::new(&w.env, &feed).calls(), 1);
+}
+
+#[test]
+fn a_failing_shared_read_denies_every_leaf_that_uses_it() {
+    // The feed does not know this asset: `None` for both the price and the
+    // timestamp leaf, and the one memoised failure denies each.
+    let (w, feed, _) = reflector_world(2, 9_700);
+    let unknown = Address::generate(&w.env);
+    let both = all(alloc::vec![
+        is_advance(),
+        cmp("gte", reflector_read(&w, &feed, &unknown, "price"), num(0)),
+        cmp(
+            "lte",
+            reflector_read(&w, &feed, &unknown, "timestamp"),
+            num(i128::MAX)
+        ),
+    ]);
+    w.install(&both).unwrap();
+    assert_eq!(w.enforce(&[]), denied());
+    // ... also inside an `or`, where the sibling branch still permits.
+    let w = World::new();
+    let unknown = Address::generate(&w.env);
+    let feed = w.env.register(
+        Reflector,
+        (Asset::Stellar(Address::generate(&w.env)), 2i128, 0u64),
+    );
+    let dead = cmp("gte", reflector_read(&w, &feed, &unknown, "price"), num(0));
+    let or = tuple(alloc::vec![
+        sym("or"),
+        tuple(alloc::vec![dead.clone(), dead, is_advance()])
+    ]);
+    w.install(&or).unwrap();
+    assert_eq!(w.enforce(&[]), Ok(()));
 }

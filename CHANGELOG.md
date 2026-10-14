@@ -15,7 +15,9 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   grammar-6 instances are unchanged.
   - `read(contract, fn, args, path)` calls a fixed function of a fixed contract
     with literal arguments and picks a number out of the result with the same
-    steps `call_path` takes. At most four per predicate. A failed call, a void
+    steps `call_path` takes. At most four distinct calls per predicate (same contract, function
+    and arguments is one call, made once per `enforce` and shared by every
+    path that uses it). A failed call, a void
     or non-numeric result, or a missing field denies.
   - `variant(name, payload...)` writes an enum value (`[name, payload...]`)
     as a constant, so a `read` can pass Reflector's `Asset::Stellar(addr)`.

@@ -10,6 +10,7 @@
 extern crate alloc;
 
 use alloc::{boxed::Box, vec, vec::Vec};
+use core::cell::RefCell;
 
 use soroban_sdk::xdr::{FromXdr, ToXdr};
 use soroban_sdk::{
@@ -21,8 +22,8 @@ use soroban_sdk::{
 pub const MAX_DEPTH: u32 = 5;
 pub const MAX_LEAVES: u32 = 200;
 pub const MAX_IN_OPERAND_COUNT: u32 = 32;
-/// `read` leaves per predicate. Each is a cross-contract call made on every
-/// `enforce`, so the count is capped at decode.
+/// Distinct `read` calls per predicate. Each is a cross-contract call made on
+/// every `enforce` (identical reads share one), so the count is capped at decode.
 pub const MAX_READS: u32 = 4;
 pub const MAX_PREDICATE_BYTES: u32 = 32 * 1024;
 
@@ -189,14 +190,19 @@ impl DenyReason {
 
 /// Pure apart from `Leaf::Read`, which calls out to the contract it names.
 pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
-    eval(env, node, ctx)
+    eval(env, node, ctx, &Memo::default())
         .err()
         .map_or(EvalDecision::Permit, EvalDecision::Deny)
 }
 
-fn eval(env: &Env, node: &Node, ctx: &EvalContext) -> Result<(), DenyReason> {
+/// The calls this evaluation has already made, keyed by `(contract, fn, args)`
+/// and holding the raw result (`None` for a call that failed). A repeated read
+/// reuses it, so a distinct call is made at most once per `enforce`.
+type Memo = RefCell<Vec<(Address, Symbol, SorobanVec<Val>, Option<Val>)>>;
+
+fn eval(env: &Env, node: &Node, ctx: &EvalContext, memo: &Memo) -> Result<(), DenyReason> {
     match node {
-        Node::And(children) => children.iter().try_for_each(|c| eval(env, c, ctx)),
+        Node::And(children) => children.iter().try_for_each(|c| eval(env, c, ctx, memo)),
         // Permits on the first branch that holds; when none does, reports the
         // FIRST branch's deny. "First" is wire order, and the encoder sorts
         // `or` children canonically, so the reported reason is stable for a
@@ -206,7 +212,7 @@ fn eval(env: &Env, node: &Node, ctx: &EvalContext) -> Result<(), DenyReason> {
         Node::Or(children) => {
             let mut first_deny = None;
             for c in children {
-                match eval(env, c, ctx) {
+                match eval(env, c, ctx, memo) {
                     Err(reason) => first_deny = first_deny.or(Some(reason)),
                     permit => return permit,
                 }
@@ -238,7 +244,10 @@ fn eval(env: &Env, node: &Node, ctx: &EvalContext) -> Result<(), DenyReason> {
             } else {
                 DenyReason::ArgMismatch
             };
-            let (a, b) = (resolve(env, left, ctx)?, resolve(env, right, ctx)?);
+            let (a, b) = (
+                resolve(env, left, ctx, memo)?,
+                resolve(env, right, ctx, memo)?,
+            );
             // A non-numeric operand (an address, a vector) has no ordering.
             let n = |v: &Val| val_to_i128(env, v).ok_or(miss);
             let pass = match op {
@@ -253,7 +262,7 @@ fn eval(env: &Env, node: &Node, ctx: &EvalContext) -> Result<(), DenyReason> {
         // An opaque or undecodable needle fails closed as a membership miss,
         // not an argument mismatch: it cannot be on the allowlist because it
         // cannot be compared at all.
-        Node::In { needle, haystack } => resolve(env, needle, ctx)
+        Node::In { needle, haystack } => resolve(env, needle, ctx, memo)
             .is_ok_and(|x| {
                 let mut hay = haystack.iter().filter_map(|h| literal_to_val(env, h));
                 hay.any(|h| val_eq(env, &x, &h))
@@ -302,22 +311,32 @@ fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
 /// this call does not carry - an argument past the end, a shape other than the
 /// leaf assumed, a read that failed or returned a non-number;
 /// `ArithmeticOverflow` is a `scaled` step that did not fit.
-fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext) -> Result<Val, DenyReason> {
+fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext, memo: &Memo) -> Result<Val, DenyReason> {
     let miss = DenyReason::ArgMismatch;
     Ok(match leaf {
         Leaf::CallContract => ctx.contract.clone().into_val(env),
         Leaf::CallFn => ctx.fn_name.clone().into_val(env),
         Leaf::CallPath(steps) => walk(env, ctx.args.clone().into_val(env), steps).ok_or(miss)?,
         Leaf::Now => env.ledger().timestamp().into_val(env),
-        Leaf::Read(contract, func, args, steps) => env
-            .try_invoke_contract::<Val, Error>(contract, func, args.clone())
-            .ok()
-            .and_then(|r| r.ok())
-            .and_then(|v| walk(env, v, steps))
-            .filter(|v| val_to_i128(env, v).is_some())
-            .ok_or(miss)?,
+        Leaf::Read(c, f, a, steps) => {
+            let hit = (memo.borrow().iter())
+                .find(|r| (&r.0, &r.1, &r.2) == (c, f, a))
+                .map(|r| r.3);
+            let raw = hit.unwrap_or_else(|| {
+                let call = env.try_invoke_contract::<Val, Error>(c, f, a.clone());
+                let raw = call.ok().and_then(|r| r.ok());
+                memo.borrow_mut()
+                    .push((c.clone(), f.clone(), a.clone(), raw));
+                raw
+            });
+            raw.and_then(|v| walk(env, v, steps))
+                .filter(|v| val_to_i128(env, v).is_some())
+                .ok_or(miss)?
+        }
         Leaf::Scaled(k, den) => {
-            let n = |l: &Leaf| resolve(env, l, ctx).and_then(|v| val_to_i128(env, &v).ok_or(miss));
+            let n = |l: &Leaf| {
+                resolve(env, l, ctx, memo).and_then(|v| val_to_i128(env, &v).ok_or(miss))
+            };
             let (src, num, add) = (n(&k[0])?, n(&k[1])?, n(&k[2])?);
             scale(src, num, *den, add)
                 .ok_or(DenyReason::ArithmeticOverflow)?
@@ -472,11 +491,19 @@ pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
     let v = Val::from_xdr(env, bytes).map_err(|_| DecodeError::MalformedPredicate)?;
     let root_node = decode_node(env, &to(env, &v)?)?;
     let all = leaves(&root_node);
-    let reads = all.iter().filter(|l| matches!(l, Leaf::Read(..))).count();
+    // Reads of the same `(contract, fn, args)` are one call (see `Memo`).
+    let mut calls = Vec::new();
+    for l in &all {
+        if let Leaf::Read(c, f, a, _) = l {
+            if !calls.contains(&(c, f, a)) {
+                calls.push((c, f, a));
+            }
+        }
+    }
     if depth(&root_node) > MAX_DEPTH {
         return Err(DecodeError::PredicateTooDeep);
     }
-    if all.len() > MAX_LEAVES as usize || reads > MAX_READS as usize {
+    if all.len() > MAX_LEAVES as usize || calls.len() > MAX_READS as usize {
         return Err(DecodeError::TooManyLeaves);
     }
     Ok(root_node)

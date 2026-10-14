@@ -1456,10 +1456,15 @@ fn now_composes_with_scaled() {
 // ----- Tests: the selector gate under grammar 7 -------------------------------
 
 fn dummy_read(env: &Env) -> Leaf {
+    dummy_read_of(env, 0)
+}
+
+/// A read whose single `u32` argument is `n`: distinct `n`, distinct call.
+fn dummy_read_of(env: &Env, n: u32) -> Leaf {
     Leaf::Read(
         contract(env),
         Symbol::new(env, "price"),
-        SorobanVec::new(env),
+        soroban_sdk::vec![env, n.into_val(env)],
         StdVec::new(),
     )
 }
@@ -1761,8 +1766,8 @@ fn wire_read_count_is_capped_at_four() {
     let env = Env::default();
     let read_node = |n: usize| {
         Node::And(
-            (0..n)
-                .map(|_| compare(CompareOp::Gte, dummy_read(&env), Leaf::LiteralI128(0)))
+            (0..n as u32)
+                .map(|i| compare(CompareOp::Gte, dummy_read_of(&env, i), Leaf::LiteralI128(0)))
                 .collect(),
         )
     };
@@ -1771,8 +1776,16 @@ fn wire_read_count_is_capped_at_four() {
         &env,
         &bytes_from_node(&env, &read_node(MAX_READS as usize + 1)),
     )
-    .expect_err("a fifth read");
+    .expect_err("a fifth distinct read");
     assert_eq!(err.code(), "TOO_MANY_LEAVES");
+    // Identical reads are one call: any number of them decode.
+    let one = dummy_read(&env);
+    let same = Node::And(
+        (0..2 * MAX_READS)
+            .map(|_| compare(CompareOp::Gte, one.clone(), Leaf::LiteralI128(0)))
+            .collect(),
+    );
+    assert!(decode(&env, &bytes_from_node(&env, &same)).is_ok());
 }
 
 #[test]

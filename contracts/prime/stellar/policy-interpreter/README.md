@@ -25,8 +25,8 @@ selector the call cannot answer all deny.
 
 The grammar is version 7 (`SELF_VERSION`); this contract accepts grammar-7
 predicates only. Most leaves are answered from the authorized call itself, and
-`enforce` writes no value. A permit pays for one TTL bump on the rule's four
-existing entries; it creates nothing and alters no value, and a deny is rolled
+`enforce` writes no value. A permit pays for one TTL bump on the rule's stored
+entry; it creates nothing and alters no value, and a deny is rolled
 back with the frame. The exception is `read`, below: **in grammar 7 `enforce`
 calls other contracts**, so the grammar-6 property "`enforce` reads only the
 authorized call" no longer holds.
@@ -152,14 +152,19 @@ Read this before writing a rule with a `read`.
   returns void or a non-number, or finds no field at `path` resolves to
   nothing, and the comparison denies (`ARG_MISMATCH`). That includes `eq`: two
   failed reads are never "equal".
-- **Caps, enforced at decode.** At most four `read` leaves per predicate
-  (counted inside `scaled` too; the fifth is refused at install as
+- **Caps, enforced at decode.** At most four DISTINCT `read` calls per
+  predicate, a call being `(contract, fn, args)`: reads that differ only in
+  `path` are one call, and `enforce` makes it once and reuses the result for
+  every leaf (a failed call is remembered too, so each leaf that uses it
+  denies). So one price feed read for a floor, an LTV and a freshness bound is
+  one call, and the full PayFi set (feed, debt, collateral, custody balance) is
+  exactly four. Reads count inside `scaled` too; the fifth distinct call is refused at install as
   `MALFORMED_PREDICATE`, decoder reason `TOO_MANY_LEAVES` - every decoder cap
   surfaces as 201),
   `read` paths and `call_path`s of at most eight steps, and leaf nesting
   (`scaled` operands, literal vecs) of at most `MAX_DEPTH` (5) levels. With the
-  existing 200-leaf cap, evaluation work is bounded and each `read` runs at most
-  once per `enforce`.
+  existing 200-leaf cap, evaluation work is bounded and each distinct
+  `read` runs at most once per `enforce`.
 - **A rule still has to constrain the call.** `install` refuses a predicate with
   no leaf over the authorized call (`call_contract`, `call_fn`, `call_arg*`,
   `call_path`), seen through `scaled`. `read` and `now` do not

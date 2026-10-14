@@ -290,7 +290,9 @@ The properties the custody design leans on:
   picks a number out of the result, so a rule can check a live price, a pool's
   debt or a custody balance. `now` is the ledger timestamp, and
   `scaled(src, num, den, add)` computes `src * num / den + add` over any of
-  those, with every step checked. `scaled` replaces `call_arg_scaled`. **This
+  those, with every step checked. `scaled` replaces `call_arg_scaled`. A predicate may make at most four
+  distinct reads; identical reads (same contract, function, arguments) are one
+  call, made once per `enforce`. **This
   ends the grammar-6 property that `enforce` reads nothing but the authorised
   call:** it now calls the contracts its predicate names. Soroban has no
   read-only call, so those contracts must be ones the owner trusts, ideally
