@@ -225,17 +225,19 @@ fn eval(env: &Env, node: &Node, ctx: &EvalContext, memo: &mut Memo) -> Result<()
         // rather than being caught at install.
         Node::Compare { op, left, right } => {
             // `call_contract` and `call_fn` name an identity, not a quantity,
-            // so an ordering comparison over either is a node the interpreter
-            // never supported - distinct from a value that merely failed to
-            // match.
-            if *op != CompareOp::Eq && matches!(left, Leaf::CallContract | Leaf::CallFn) {
+            // so an ordering comparison over either, on either side, is a node
+            // the interpreter never supported - distinct from a value that
+            // merely failed to match.
+            let sides = [left, right];
+            let is_id = |l: &&Leaf| matches!(l, Leaf::CallContract | Leaf::CallFn);
+            if *op != CompareOp::Eq && sides.iter().any(is_id) {
                 return Err(DenyReason::UnsupportedNode);
             }
             // A contract-scope miss is reported as its own reason so a review
             // card can say "wrong contract" rather than "argument mismatch".
-            let miss = match left {
-                Leaf::CallContract => DenyReason::ContractScope,
-                _ => DenyReason::ArgMismatch,
+            let miss = match sides.iter().any(|l| matches!(l, Leaf::CallContract)) {
+                true => DenyReason::ContractScope,
+                false => DenyReason::ArgMismatch,
             };
             let a = resolve(env, left, ctx, memo)?;
             let b = resolve(env, right, ctx, memo)?;

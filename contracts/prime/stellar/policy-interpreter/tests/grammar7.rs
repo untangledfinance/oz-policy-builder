@@ -2156,3 +2156,41 @@ fn installs_addr() -> ScVal {
     let env = Env::default();
     addr(&env, &Address::generate(&env))
 }
+
+// ---- the deny reason does not depend on which side a selector is on --------
+
+#[test]
+fn the_deny_reason_is_the_same_whichever_side_the_selector_is_on() {
+    let unsupported = refused(PolicyError::UnsupportedNode);
+    let scope = refused(PolicyError::ContractScope);
+    let contract = || tuple(alloc::vec![sym("call_contract")]);
+    let verdict = |check: ScVal| {
+        let w = World::new();
+        w.arm(check);
+        w.enforce(&[])
+    };
+    // An ordering over an identity is unsupported on either side ...
+    for op in ["lt", "lte", "gt", "gte"] {
+        assert_eq!(
+            verdict(cmp(op, call_fn(), num(5))),
+            unsupported,
+            "{op} left"
+        );
+        assert_eq!(
+            verdict(cmp(op, num(5), call_fn())),
+            unsupported,
+            "{op} right"
+        );
+        assert_eq!(verdict(cmp(op, contract(), num(5))), unsupported);
+        assert_eq!(verdict(cmp(op, num(5), contract())), unsupported);
+    }
+    // ... and a missed `eq` on the contract is CONTRACT_SCOPE on either side.
+    let elsewhere = || {
+        let env = Env::default();
+        addr(&env, &Address::generate(&env))
+    };
+    assert_eq!(verdict(cmp("eq", contract(), elsewhere())), scope);
+    assert_eq!(verdict(cmp("eq", elsewhere(), contract())), scope);
+    assert_eq!(verdict(cmp("eq", call_fn(), sym("other"))), denied());
+    assert_eq!(verdict(cmp("eq", sym("other"), call_fn())), denied());
+}
