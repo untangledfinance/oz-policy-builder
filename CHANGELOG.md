@@ -14,11 +14,12 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   `SELF_VERSION` is 7, so it accepts grammar-7 predicates only; the deployed
   grammar-6 instances are unchanged.
   - `read(contract, fn, args, path)` calls a fixed function of a fixed contract
-    with literal arguments and picks a number out of the result with the same
+    and picks a value out of the result with the same
     steps `call_path` takes. At most four distinct calls per predicate (same contract, function
-    and arguments is one call, made once per `enforce` and shared by every
+    and constant arguments is one call, made once per `enforce` and shared by every
     path that uses it). A failed call, a void
-    or non-numeric result, or a missing field denies.
+    result, or a missing field denies. Arguments and result types: see the
+    generic constructs below.
   - `variant(name, payload...)` writes an enum value (`[name, payload...]`)
     as a constant, so a `read` can pass Reflector's `Asset::Stellar(addr)`.
   - A `read` target must be a contract address (a G-account is refused at
@@ -50,6 +51,36 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
     reads and `now` alone are refused at install. The grammar-6 property that
     `enforce` reads only the authorised call no longer holds. See the
     [interpreter README](contracts/prime/stellar/policy-interpreter/README.md#cross-contract-reads).
+
+- **Policy interpreter grammar 7 is generic.** Still grammar 7
+  (`SELF_VERSION` 7, no new error codes); the constructs below mean a new use
+  case is a new rule, not a redeploy.
+  - `lit(x)`: a constant of any ScVal type (string, bytes, bool, `u64`, `i64`,
+    `i32`, `u128`, `Timepoint`, `Duration`, map...) wherever a constant is
+    allowed. The bare address, symbol, number and vec forms still work. Every
+    constant is one leaf.
+  - `ne` and `nin`: permit only when every operand resolves and they differ (a
+    denylist). An unresolvable side denies. There is still no general `not`.
+  - Numeric widening: `i32`, `i64`, `Timepoint`, `Duration` and a `u128` that
+    fits in an `i128` are numbers for `eq`/`ne`/`in`/`nin`, the orderings and
+    `scaled`. A `u128` above `i128::MAX` is not a number.
+  - A path step may be a map key of any constant: a bare symbol, or `lit(x)`
+    (an address, a number, a string...). A `u32` stays an index into a vec.
+  - `read` arguments may be taken from the call (`call_path`, `call_contract`,
+    `call_fn`) or `now`, as well as constants, and the result may be any value but
+    void under `eq`/`ne`/`in`/`nin`. A read with a call-derived argument counts
+    as its own distinct call at decode (cap four, unchanged); the runtime memo
+    is keyed by the resolved arguments. Read arguments now count toward the
+    200-leaf cap, and a read whose argument is a call path constrains the call.
+    Example: a registry contract's `contains(call_arg(1))` as a KYC list.
+  - `all(vec, P)`, `any(vec, P)`, `elem(...)` and `sum(vec, ...)`. `all` of an
+    empty vec permits and `any` of one denies; a vec over `MAX_ELEMS` (32) denies;
+    each leaf of a body counts 32 times toward `MAX_LEAVES`; no quantifier or
+    `sum` in a body; `elem` only in a body; a body `read` cannot take `elem`
+    (so a body makes no more external calls than its leaves would: at most four
+    per `enforce` in all).
+  - Time windows (`09:00-17:00 UTC`, Monday-Friday) are written with `now` and
+    `scaled`; see the README.
 
 - **Prime contracts on mainnet.** `scripts/deploy-prime-mainnet.ts` uploads the
   gate, adapter and interpreter code, creates the grammar-6 interpreter, and

@@ -289,13 +289,18 @@ The properties the custody design leans on:
   submits (`calls[n].args[i]`, map keys, lengths). That is what lets one
   predicate bound a whole batch and relate two of its calls.
 - **Grammar 7 adds `read`, `now` and `scaled`.** `read(contract, fn, args,
-  path)` calls a fixed function of a fixed contract with literal arguments and
-  picks a number out of the result, so a rule can check a live price, a pool's
-  debt or a custody balance. `now` is the ledger timestamp, and
+  path)` calls a fixed function of a fixed contract and picks a value out of the
+  result, so a rule can check a live price, a pool's debt or a custody balance.
+  Its arguments may be constants or taken from the call, and the result may be
+  any value but void, so `eq(read(REGISTRY, contains, [call_arg(1)]), lit(true))`
+  asks a registry contract whether the receiver is on its list, and the list
+  can change without reinstalling the rule. `now` is the ledger timestamp, and
   `scaled(src, num, den, add)` computes `src * num / den + add` over any of
   those, with every step checked. `scaled` replaces `call_arg_scaled`. A predicate may make at most four
-  distinct reads; identical reads (same contract, function, arguments) are one
-  call, made once per `enforce`. **This
+  distinct reads; identical reads (same contract, function, constant arguments)
+  are one call, made once per `enforce`, and a read with a call-derived argument
+  counts as its own call, so `enforce` never makes more than four external
+  calls, quantifiers included. **This
   ends the grammar-6 property that `enforce` reads nothing but the authorised
   call:** it now calls the contracts its predicate names. Soroban has no
   read-only call, so those contracts must be ones the owner trusts, ideally
@@ -317,6 +322,17 @@ The properties the custody design leans on:
   still constrain the call itself: reads and the clock alone do not satisfy
   the install check. The full list of caps and failure modes is in the
   [interpreter README](../contracts/prime/stellar/policy-interpreter/README.md#cross-contract-reads).
+- **Grammar 7 is generic enough that a new use case is a new rule, not a new
+  interpreter.** `lit(x)` is a constant of any type (a string, bytes, a bool, a
+  map...), `ne` and `nin` are a denylist whose unresolvable operand still
+  denies, every integer type compares as a number, and a map key in a path may
+  be any constant. The quantifiers `all(vec, P)` and `any(vec, P)` state a
+  property of every or some element of a vector (a batch, a payout list, a swap
+  route; `elem(...)` is the current element), and `sum(vec, ...)` totals one;
+  vectors over 32 elements deny, each body leaf counts 32 times toward the
+  200-leaf cap, and quantifiers do not nest. Time windows (office hours, weekdays)
+  are `now` and `scaled`; there is no extra leaf. Details and the fail-safe
+  rules are in the [interpreter README](../contracts/prime/stellar/policy-interpreter/README.md#quantifiers-all-any-elem-sum).
 - **An executor binding** (`bind_executor`) makes a venue rule demand the
   adapter's own authorisation as well, so a venue call that did not come
   through the adapter is refused.
