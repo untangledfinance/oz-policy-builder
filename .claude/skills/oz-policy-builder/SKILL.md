@@ -96,8 +96,8 @@ user thinks. They are the reason to read a result rather than skim it.
   the call and refuses each way of breaking each constraint, not that it
   expresses the intent. `ok` also needs every branch of an `or` (nested ones included, which
   have no case of their own and make it not `ok`) to have been taken by a
-  call you gave (`unexamined` lists the ones nothing took: pass a `call`/recording for
-  each). `untested` lists conjuncts nothing was tried against (a read, the clock). 
+  call you gave (`unexamined` lists the ones nothing took: pass `calls`, one per branch, or a
+  recording). `untested` lists conjuncts nothing was tried against (a read, the clock). 
   `minimal: false` lists conjuncts that were not needed, which means an exact duplicate
   and nothing else: a conjunct whose case another conjunct also refuses (a spend cap
   beside a floor derived from the same amount) is `untested`, not redundant.
@@ -120,8 +120,10 @@ user thinks. They are the reason to read a result rather than skim it.
   fails with the rule id to fix. Fix it at the source: remove the shared signer
   from that rule, or attach a policy to it. Do NOT reach for
   `allowOverlap: true` to make the error go away; it installs
-  a rule that constrains nothing. A neighbour whose policy the tool cannot decode
-  is only reported, not refused - read that advice by hand.
+  a rule that constrains nothing. A neighbour whose policy the tool cannot read or judge
+  (an interpreter of another grammar, a rule with only a spending limit or another
+  policy) is refused too, and so is any neighbour that permits something the new rule
+  forbids; only a tighter readable one is listed for review.
 
   **Pin the transfer arm as tightly as the venue arm.** A transfer rule that
   bounds only the amount lets the key send the treasury ANYWHERE up to that

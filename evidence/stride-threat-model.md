@@ -1,5 +1,8 @@
 # OZ Policy Builder - STRIDE Threat Model
 
+> **Historical (1.x).** The rows below that name `existingRules`, `rpcUrl`/`allowUnpinnedRpcUrl` or `outPath` describe the 1.x package. In 2.0.0 those inputs are gone (the endpoint is the operator's, the scan always reads the chain, `outFile` is a name inside the operator's directory); see `CHANGELOG.md`.
+
+
 **Subject:** the `policy-interpreter`, `custody-gate` and `execution-adapter` Soroban contracts plus the `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` off-chain toolchain, and, from this run, their deployment on Stellar mainnet. Two parts of the Prime app (OctoPos `apps/web`) are modelled as adjacent data flows: F5, where stored moves meet the people who run and cancel them, and F6, where a venue pool is picked for a rule or a gate's destination list.
 **Date:** 2026-10-01 (re-run for the mainnet deployment; first written 2026-08-23, re-run 2026-09-25 and 2026-09-29)
 **Methodology:** Stellar STRIDE Threat Modeling, "STRIDE Threat Model Template" and "Threat Modeling How-To Guide" pages at `developers.stellar.org/docs/build/security-docs/threat-modeling`. The four-question scaffold (What are we working on / What can go wrong / What are we going to do about it / Did we do a good job) and the STRIDE-per-element format are followed.

@@ -40,7 +40,10 @@ a mainnet install names its own, which must run a trusted build).
   signer could bypass through an unpoliced or looser rule, a rolling total with no
   cap on the neighbour, a neighbour it cannot read or judge (policed by an
   interpreter of another grammar, such as the mainnet grammar-6 Prime interpreter,
-  or with only a spending limit), or an account whose rules cannot all be read;
+  or by any policy other than our grammar-7 record, an OZ threshold included), a
+  neighbour that permits something the new rule forbids (only a provably tighter
+  one is listed), or an account whose rules cannot all be read (a whole batch of ids
+  with no rule, or any RPC failure other than "no such rule", ends the walk);
   `allowOverlap` (was `allowAuthorityOverlap`) overrides. The account is read on grammar 7's
   one-record key `(account, rule id)`.
 - **Faster.** The install build and the account read use fewer sequential round trips
@@ -60,7 +63,9 @@ Breaking changes to callers:
 | `install_policy` by `encodedPredicate` never asked the amount question | asks it for the amount arguments of a known function (an upper bound on each) |
 | An intent or template that leaves an amount uncapped installed silently | refused with the amount question unless `allowUnboundedAmount` (recordings already were) |
 | Intent rules `{ "rule": "cap", ... }`, type `Rule` | Intent constraints `{ "constraint": "cap", ... }`, type `Constraint` ("rule" had four meanings: this, the OZ context rule, the predicate, the install draft) |
-| MCP: an unknown input key was dropped | refused, as `run` and the CLI do |
+| MCP: an unknown input key was dropped | refused, as `run` and the CLI do (over MCP as a JSON-RPC `-32602` protocol error, not the tool envelope) |
+| `revoke_policy` removed any rule, described only as `args: [id]` | reads the rule and returns it as `removes`; rule 0 and Default-scoped rules need `allowAdminRule` |
+| `baseFee` unbounded | at most 10,000,000 stroops |
 | CLI `--limit 100` | was refused (parsed as a number); a number stays a string where the tool takes one |
 | `import { ... } from '@crediolabs/policy-synth'` (61 names) | 19 names: `TOOLS`, `run`, the codec, `card`, the pins, `Refusal`; the builders, the scan and the deny-case derivation are internal |
 | `record_transaction` output (`invocations`, `tokenMovements`, `events`, `parseConfidence`) | `{ network, source, ledger, signers, contexts[] }`; there is no confidence gate: an unrecognised function is pinned argument by argument and its amounts are asked for |
@@ -85,7 +90,7 @@ Breaking changes to callers:
   TESTNET only (`deployments/grammar7-testnet.json`, `CA5ICI2O...`, wasm `a975353d...`;
   the first build `CDL7KHDK...` is still deployed and is refused).
 
-- **Policy interpreter grammar 7 (source only, not deployed).** The interpreter
+- **Policy interpreter grammar 7 (source; deployed on testnet only, see `check` above).** The interpreter
   at `contracts/prime/stellar/policy-interpreter` speaks grammar 7 and
   `SELF_VERSION` is 7, so it accepts grammar-7 predicates only; the deployed
   grammar-6 instances are unchanged.

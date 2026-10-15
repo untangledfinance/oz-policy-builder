@@ -401,7 +401,7 @@ const simulate_policy = tool(
 
 const verify_policy = tool(
   'verify_policy',
-  `Check a predicate against a call it must permit: the call must pass, every constraint is turned against the call and must refuse it, and each conjunct is dropped in turn to see the call it guards get through (minimality). \`ok\` needs the permit and every deny case. ${CHECKED} At most about 2 x the number of constraints + 1 calls are made, a few at a time.`,
+  `Check a predicate against a call it must permit: the call must pass, every constraint is turned against the call and must refuse it, and each conjunct is dropped in turn to see the call it guards get through (minimality). Give the call that must be permitted as \`call\`, or one per branch of an \`or\` as \`calls\` (or a recording). \`ok\` needs every call permitted, every deny case refused, and every branch of an \`or\` taken by a call; a conjunct holding a nested \`or\` that nothing was tried against makes it not \`ok\`. \`complete\` also needs nothing \`untested\`; \`redundant\` lists exact duplicates only. ${CHECKED} At most 64 calls are made in all (a length bound above 255 derives no case), a few at a time.`,
   { ...predicateInput, call: call.optional() },
   async (i, signal) => {
     const s = await subject(i)

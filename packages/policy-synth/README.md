@@ -90,7 +90,9 @@ await run('verify_policy', { network: 'testnet', encodedPredicate: rule.encodedP
   interpreter is a build, not an address**: `INTERPRETER_WASM` in `src/config.ts`
   lists the reproducible wasm hashes this package trusts, and whatever address is
   used, its live `grammar_version()` and code hash must match (any contract can
-  answer `grammar_version() = 7`). install, simulate and verify all check it. Only
+  answer `grammar_version() = 7`). The pinned address is trusted as it stands (an
+  immutable contract); `install_policy` fingerprints it live too, and simulate and
+  verify check any other address live before asking it anything. Only
   a testnet interpreter is pinned; on mainnet name one with `interpreterAddress`
   and it is accepted only if it runs a trusted build.
 - The RPC endpoint is the operator's, never a tool's input: the network's own, or

@@ -188,9 +188,9 @@ Exposed as `findAuthorityOverlaps` from `@crediolabs/policy-synth/install`;
 actually installed rather than what the caller happened to mention. Rule ids are
 not contiguous - OZ never reuses an id after a removal - so the walk climbs ids
 until it has accounted for `Count` live rules; iterating `0..Count-1` would skip
-live rules at higher ids, and a skipped rule is a missed overlap. A caller can
-still pass `existingRules` to supply them directly, which keeps the scan usable
-offline.
+live rules at higher ids, and a skipped rule is a missed overlap. (1.x let a caller pass
+`existingRules` to supply them directly; that input was removed in 2.0.0 because it
+switched the refusal off and reported a clean scan.)
 
 **Limit:** `authorityScan: null` means NOT CHECKED, and covers a read that
 failed as well as one that could not account for every live rule. It is never an
