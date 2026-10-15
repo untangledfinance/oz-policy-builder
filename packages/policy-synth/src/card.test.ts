@@ -1254,6 +1254,39 @@ describe('--raw says where a name came from, on whichever side it stands', () =>
   })
 })
 
+describe('names follow the function down into every group of the rule', () => {
+  it("an and inside an or inside a pinned function is still that function's arguments", () => {
+    const e: Expr = [
+      'and',
+      [
+        ['eq', ['call_fn'], 'transfer'],
+        [
+          'or',
+          [
+            [
+              'and',
+              [
+                ['lte', ['call_arg', 2], { i128: '5' }],
+                ['eq', ['call_arg', 1], A],
+              ],
+            ],
+            ['all', ['call_arg', 1], ['eq', ['elem'], A]],
+          ],
+        ],
+      ],
+    ]
+    expect(card(e, tokenOf(['transfer'])).slice(1)).toEqual([
+      '└─ transfer(from, to, amount)',
+      '   └─ any one of',
+      '      ├─ all of',
+      '      │  ├─ amount:  must be at most  0.0000005 USDC (5)',
+      `      │  └─ to:  must be  ${short(A)}`,
+      '      └─ every item of to',
+      `         └─ the item:  must be  ${short(A)}`,
+    ])
+  })
+})
+
 describe('an item field and a call argument of one name read differently', () => {
   it('x <= y is not y <= x', () => {
     const view: View = {
