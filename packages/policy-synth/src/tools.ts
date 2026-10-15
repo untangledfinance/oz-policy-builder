@@ -14,24 +14,17 @@ import {
   ensureInterpreter,
   fingerprint,
   interpreterFor,
-  mismatch,
   pinnedWasm,
   rpcOverride,
 } from './chain.ts'
 import { MAX_CHECKS, runChecks, verifyRule } from './check.ts'
-import {
-  GRAMMAR_VERSION,
-  INTERPRETER_WASM,
-  type Network,
-  POLICY_CONTRACTS,
-  SPENDING_LIMIT,
-} from './config.ts'
+import { GRAMMAR_VERSION, INTERPRETER_WASM, type Network } from './config.ts'
 import { type ErrorCode, messageOf, Refusal, type ToolResponse } from './envelope.ts'
 import { buildInstall, buildRevoke, type Chain, type Chosen, planInstall } from './install.ts'
 import type { Intent } from './intent.ts'
 import { type Call, decodeEnvelope, type Recording, recordHash } from './record.ts'
 import { TEMPLATES } from './registry.ts'
-import { overlaps, readRules, selectors } from './rules.ts'
+import { readRules, selectors } from './rules.ts'
 import {
   type Answers,
   type ProposedRule,

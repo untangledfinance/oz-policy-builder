@@ -266,7 +266,12 @@ describe('planInstall: the guards', () => {
 
   it('a rule scoped to any policy contract, or to the account itself, is refused before anything is asked', async () => {
     let asked = 0
-    const counting = chain({ fingerprint: async () => (asked++, ours) })
+    const counting = chain({
+      fingerprint: async () => {
+        asked++
+        return ours
+      },
+    })
     for (const contract of [...POLICY_CONTRACTS, ACCOUNT])
       await refused(
         planInstall(input, { ...rule, contract }, counting),
@@ -338,7 +343,12 @@ describe('planInstall: the guards', () => {
         spendingLimit: { amount: '5', periodLedgers: 2 },
       },
       rule,
-      chain({ build: async (d) => ((seen = d), built) })
+      chain({
+        build: async (d) => {
+          seen = d
+          return built
+        },
+      })
     )
     expect(seen).toMatchObject({
       signers: [SIGNER],
@@ -348,7 +358,16 @@ describe('planInstall: the guards', () => {
       validUntil: 9,
     })
     expect(seen?.cap).toEqual({ address: SPENDING_LIMIT.testnet, amount: '5', periodLedgers: 2 })
-    await planInstall(input, rule, chain({ build: async (d) => ((seen = d), built) }))
+    await planInstall(
+      input,
+      rule,
+      chain({
+        build: async (d) => {
+          seen = d
+          return built
+        },
+      })
+    )
     expect(seen).toMatchObject({ admins: [SIGNER], nonce: 1, validUntil: null })
   })
 })

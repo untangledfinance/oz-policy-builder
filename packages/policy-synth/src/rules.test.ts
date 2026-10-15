@@ -231,7 +231,7 @@ describe('readRules, on a live account', () => {
 
 import { Address, type rpc, xdr } from '@stellar/stellar-sdk'
 import { dataKey } from './chain.ts'
-import { encode, toScVal, type Val } from './wire.ts'
+import { encode, toScVal } from './wire.ts'
 
 describe('implies, against brute force over the integers', () => {
   const ops = ['lt', 'lte', 'gt', 'gte'] as const
