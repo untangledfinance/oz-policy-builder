@@ -217,3 +217,85 @@ fn a_symbol_headed_vec_is_data_inside_lit() {
     let p = cmp("eq", arg(0), lit(data.clone()));
     assert!(permits(&p, &[data]) && denies(&p, &[sym("call_fn")]));
 }
+
+// ---- C: numeric widening ---------------------------------------------------
+
+/// The same number 5 (and 9, -3) in every integer type the host has.
+fn forms(v: i64) -> StdVec<ScVal> {
+    let mut all = alloc::vec![ScVal::I64(v), ScVal::I32(v as i32), n(i128::from(v))];
+    if v >= 0 {
+        all.extend([
+            ScVal::Timepoint(TimePoint(v as u64)),
+            ScVal::Duration(Duration(v as u64)),
+            u128v(v as u128),
+            ScVal::U64(v as u64),
+            ScVal::U32(v as u32),
+        ]);
+    }
+    all
+}
+
+#[test]
+fn every_integer_type_equals_the_same_number() {
+    let eq = cmp("eq", arg(0), n(5));
+    let hay = set("in", arg(0), &[n(1), n(5)]);
+    for five in forms(5) {
+        assert!(permits(&eq, &[five.clone()]), "{five:?}");
+        assert!(permits(&hay, &[five]));
+    }
+    for six in forms(6) {
+        assert!(denies(&eq, &[six.clone()]) && denies(&hay, &[six]));
+    }
+}
+
+#[test]
+fn every_integer_type_orders_as_a_number() {
+    let le = cmp("lte", arg(0), n(10));
+    let gt = cmp("gt", arg(0), n(10));
+    for nine in forms(9) {
+        assert!(permits(&le, &[nine.clone()]) && denies(&gt, &[nine]));
+    }
+    for eleven in forms(11) {
+        assert!(denies(&le, &[eleven.clone()]) && permits(&gt, &[eleven]));
+    }
+    let neg = cmp("lt", arg(0), n(0));
+    for minus in forms(-3) {
+        assert!(permits(&neg, &[minus]));
+    }
+}
+
+#[test]
+fn a_narrow_literal_equals_a_wide_argument() {
+    let p = cmp("eq", arg(0), lit(ScVal::Duration(Duration(300))));
+    assert!(permits(&p, &[ScVal::I64(300)]) && denies(&p, &[ScVal::I64(301)]));
+}
+
+#[test]
+fn scaled_accepts_the_widened_types() {
+    let p = cmp("eq", tup(&[sym("scaled"), arg(0), n(2), n(1), n(0)]), n(10));
+    for five in forms(5) {
+        assert!(permits(&p, &[five]));
+    }
+}
+
+#[test]
+fn a_u128_that_does_not_fit_i128_is_not_a_number() {
+    let big = u128v(i128::MAX as u128 + 1);
+    assert!(denies(&cmp("gte", arg(0), n(0)), &[big.clone()]));
+    assert!(denies(&cmp("lte", arg(0), n(i128::MAX)), &[big.clone()]));
+    assert!(denies(&cmp("eq", arg(0), n(i128::MAX)), &[big.clone()]));
+    assert!(denies(&set("in", arg(0), &[n(i128::MAX)]), &[big.clone()]));
+    let edge = u128v(i128::MAX as u128);
+    assert!(permits(&cmp("eq", arg(0), n(i128::MAX)), &[edge]));
+    // Not a number, but still a value: it equals itself exactly.
+    assert!(permits(&cmp("eq", arg(0), lit(big.clone())), &[big]));
+    assert!(denies(&cmp("eq", arg(0), lit(u128v(1))), &[u128v(2)]));
+}
+
+#[test]
+fn non_integers_are_still_not_numbers() {
+    for other in [ScVal::Bool(true), text("5"), sym("five"), ScVal::Void] {
+        assert!(denies(&cmp("gte", arg(0), n(0)), &[other.clone()]));
+        assert!(denies(&cmp("eq", arg(0), n(5)), &[other]));
+    }
+}

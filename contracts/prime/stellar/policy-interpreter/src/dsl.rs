@@ -10,7 +10,9 @@
 use alloc::{boxed::Box, vec, vec::Vec};
 
 use soroban_sdk::xdr::{FromXdr, ToXdr};
-use soroban_sdk::{Address, Bytes, Env, Error, IntoVal, Map, Symbol, TryFromVal, Val};
+use soroban_sdk::{
+    Address, Bytes, Duration, Env, Error, IntoVal, Map, Symbol, Timepoint, TryFromVal, Val,
+};
 
 // ---- caps (mirrors TS PREDICATE_CAPS; the Rust side is authoritative) -----
 
@@ -430,12 +432,28 @@ fn leaves(node: &Node) -> Vec<&Leaf> {
     out
 }
 
-/// Widen a `u32`, `u64` or `i128` to `i128`, for ordering and equality. Any other
-/// `Val`, `i64`, `i32` and `u128` included, is not a number here.
+/// Widen any integer `Val` to `i128`, for ordering and equality: `u32`, `i32`,
+/// `u64`, `i64`, `Timepoint`, `Duration`, `i128`, and `u128` when it fits. Any
+/// other `Val` (a `u128` above `i128::MAX` included) is not a number here.
 fn val_to_i128(env: &Env, v: &Val) -> Option<i128> {
-    let wide = |_| to::<u64>(env, v).map(i128::from);
-    let small = to::<u32>(env, v).map(i128::from).or_else(wide);
-    small.or_else(|_| to(env, v)).ok()
+    to::<u32>(env, v)
+        .ok()
+        .map(i128::from)
+        .or_else(|| to::<i32>(env, v).ok().map(i128::from))
+        .or_else(|| to::<u64>(env, v).ok().map(i128::from))
+        .or_else(|| to::<i64>(env, v).ok().map(i128::from))
+        .or_else(|| {
+            Timepoint::try_from_val(env, v)
+                .ok()
+                .map(|t| t.to_unix().into())
+        })
+        .or_else(|| {
+            Duration::try_from_val(env, v)
+                .ok()
+                .map(|d| d.to_seconds().into())
+        })
+        .or_else(|| to::<u128>(env, v).ok().and_then(|x| i128::try_from(x).ok()))
+        .or_else(|| to::<i128>(env, v).ok())
 }
 
 // ============================================================================
