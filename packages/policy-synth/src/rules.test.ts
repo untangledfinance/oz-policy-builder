@@ -391,7 +391,8 @@ describe('readRules, against a stub account', () => {
   const stub = (
     rules: Record<number, Val>,
     count: number,
-    ledger: Record<string, xdr.LedgerEntry> = {}
+    ledger: Record<string, xdr.LedgerEntry> = {},
+    absent = 'HostError: Error(Contract, #3000)'
   ) => {
     const asked: number[] = []
     const server = {
@@ -410,8 +411,7 @@ describe('readRules, against a stub account', () => {
           return { latestLedger: 1, result: { auth: [], retval: toScVal(count) } }
         const id = call?.args()[0]?.u32() as number
         asked.push(id)
-        if (rules[id] === undefined)
-          return { latestLedger: 1, error: 'HostError: Error(Contract, #3000)' }
+        if (rules[id] === undefined) return { latestLedger: 1, error: absent }
         return { latestLedger: 1, result: { auth: [], retval: toScVal(rules[id]) } }
       },
       async getLedgerEntries(...keys: xdr.LedgerKey[]) {
@@ -428,15 +428,41 @@ describe('readRules, against a stub account', () => {
 
   it('walks ids upward until every live rule is found, across gaps and batches', async () => {
     const { server, asked } = stub(
-      { 0: ruleVal(0), 3: ruleVal(3), 9: ruleVal(9), 20: ruleVal(20) },
+      { 0: ruleVal(0), 3: ruleVal(3), 9: ruleVal(9), 17: ruleVal(17) },
       4
     )
     const r = await readRules(server, 'testnet', ACC, INTERP)
-    expect(r.rules.map((x) => x.id)).toEqual([0, 3, 9, 20])
+    expect(r.rules.map((x) => x.id)).toEqual([0, 3, 9, 17])
     expect(r.complete).toBe(true)
     // The count says 4, so the first batch asks 4 ids; then batches of eight until all four are found.
     expect(asked.slice(0, 4).sort((x, y) => x - y)).toEqual([0, 1, 2, 3])
-    expect(Math.max(...asked)).toBe(27)
+    expect(Math.max(...asked)).toBe(19)
+  })
+
+  it('a whole batch of ids with no rule ends the walk: incomplete, not 500 more simulations', async () => {
+    const { server, asked } = stub({ 0: ruleVal(0), 30: ruleVal(30) }, 2)
+    const r = await readRules(server, 'testnet', ACC, INTERP)
+    expect(r).toMatchObject({ complete: false })
+    expect(r.rules.map((x) => x.id)).toEqual([0])
+    expect(Math.max(...asked)).toBe(9) // the first two ids, then one batch of eight, then stop
+  })
+
+  it('only "no such rule" (#3000) is an absent id: a rate limit or any other failure is an error, at once', async () => {
+    for (const failure of [
+      'HostError: Error(Contract, #3001)',
+      'HostError: Error(WasmVm, MissingValue)',
+      'rate limited (429)',
+    ]) {
+      const { server, asked } = stub({ 0: ruleVal(0) }, 2, {}, failure)
+      await expect(readRules(server, 'testnet', ACC, INTERP)).rejects.toThrow()
+      expect(asked.length).toBeLessThanOrEqual(8)
+    }
+  })
+
+  it('every id failing for another reason costs one batch, however high the count it claims', async () => {
+    const { server, asked } = stub({}, 500, {}, 'rate limited (429)')
+    await expect(readRules(server, 'testnet', ACC, INTERP)).rejects.toThrow()
+    expect(asked.length).toBeLessThanOrEqual(8)
   })
 
   it('asks the count first and then only as many ids as there are rules: two rules, two simulations', async () => {
@@ -457,7 +483,7 @@ describe('readRules, against a stub account', () => {
     const at = stub({ 0: ruleVal(0) }, 512)
     const r = await readRules(at.server, 'testnet', ACC, INTERP)
     expect(r.complete).toBe(false) // one rule of 512 was found
-    expect(Math.max(...at.asked)).toBe(511)
+    expect(Math.max(...at.asked)).toBeLessThan(16)
     const past = stub({ 0: ruleVal(0) }, 513)
     expect((await readRules(past.server, 'testnet', ACC, INTERP)).complete).toBe(false)
     expect(past.asked).toEqual([])
@@ -476,7 +502,7 @@ describe('readRules, against a stub account', () => {
     const r = await readRules(server, 'testnet', ACC, INTERP)
     expect(r.complete).toBe(false)
     expect(r.rules).toHaveLength(1)
-    expect(Math.max(...asked)).toBe(511) // and not one past it
+    expect(Math.max(...asked)).toBeLessThan(16) // and not the 500 more the count would walk
   })
 
   it('a rule that comes back void is skipped, not an error', async () => {

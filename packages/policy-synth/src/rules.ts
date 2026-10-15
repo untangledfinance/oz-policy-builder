@@ -11,6 +11,7 @@
 import { Address, type rpc, StrKey, xdr } from '@stellar/stellar-sdk'
 import { dataKey, entries, pool, read } from './chain.ts'
 import { INTERPRETERS, type Network, SPENDING_LIMIT } from './config.ts'
+import { Refusal } from './envelope.ts'
 import {
   branches,
   decode,
@@ -83,6 +84,32 @@ function scopeOf(v: Val): Scope {
   return { kind: 'default' }
 }
 
+/** The context rule `id` on `account`, or undefined when there is none. Only the account's
+ *  own "no such rule" (`Error(Contract, #3000)`) means none: any other failure (a rate limit,
+ *  a trap) is an error, so it is never read as an empty account. */
+export async function readRule(
+  server: rpc.Server,
+  network: Network,
+  account: string,
+  id: number
+): Promise<ObservedRule | undefined> {
+  let raw: Val
+  try {
+    raw = fromScVal(await read(server, network, account, 'get_context_rule', xdr.ScVal.scvU32(id)))
+  } catch (e) {
+    if (e instanceof Refusal && e.message.includes('Error(Contract, #3000)')) return undefined
+    throw e
+  }
+  const f = fields(raw)
+  if (f.id === undefined) return undefined
+  return {
+    id: f.id as number,
+    scope: scopeOf(f.context_type as Val),
+    signers: (f.signers as Val[]).map(signerKey),
+    policies: f.policies as string[],
+  }
+}
+
 /** Every context rule on `account`, with the stored predicate filled in for those
  *  our interpreter polices. `complete` is false when ids ran out before every live
  *  rule was found: the list is then a subset and must not be read as safety. */
@@ -94,29 +121,12 @@ export async function readRules(
   signal?: AbortSignal
 ): Promise<RulesRead> {
   const rules: ObservedRule[] = []
-  // `n` ids from `from` upward, never past the limit.
+  // `n` ids from `from` upward, never past the limit; how many it found.
   const batch = async (from: number, n: number) => {
     const ids = Array.from({ length: Math.min(n, MAX_RULE_ID - from) }, (_, i) => from + i)
-    const got = await pool(
-      ids,
-      WIDTH,
-      (id) =>
-        read(server, network, account, 'get_context_rule', xdr.ScVal.scvU32(id)).then(
-          fromScVal,
-          () => undefined
-        ),
-      signal
-    )
-    for (const raw of got) {
-      const f = fields(raw)
-      if (f.id === undefined) continue
-      rules.push({
-        id: f.id as number,
-        scope: scopeOf(f.context_type as Val),
-        signers: (f.signers as Val[]).map(signerKey),
-        policies: f.policies as string[],
-      })
-    }
+    const got = await pool(ids, WIDTH, (id) => readRule(server, network, account, id), signal)
+    rules.push(...got.filter((r) => r !== undefined))
+    return got.filter((r) => r !== undefined).length
   }
   // The count first: an account that claims more rules than there are ids cannot be
   // read (and need not be asked about), and one with few rules needs few calls. Ids are
@@ -125,8 +135,10 @@ export async function readRules(
   const count = Number((await read(server, network, account, 'get_context_rules_count')).u32())
   if (count > MAX_RULE_ID) return { rules, complete: false, unreadable: [] }
   await batch(0, Math.min(count, WIDTH))
+  // A whole batch with no rule in it ends the walk (incomplete, which is refused): a sparse or
+  // hostile account must not cost the public RPC hundreds of simulations.
   for (let from = Math.min(count, WIDTH); rules.length < count && from < MAX_RULE_ID; from += WIDTH)
-    await batch(from, WIDTH)
+    if ((await batch(from, WIDTH)) === 0) break
   const mine = rules.filter((r) => r.policies.includes(interpreter))
   const capped = rules.filter((r) => r.policies.includes(SPENDING_LIMIT[network]))
   const rid = (r: ObservedRule) => xdr.ScVal.scvU32(r.id)
