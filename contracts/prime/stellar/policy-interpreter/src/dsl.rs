@@ -702,7 +702,8 @@ fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
             return decode_selector_leaf(env, &items, spelled(env, &sym)?, depth);
         }
         // Literal vector: order preserved verbatim.
-        return each(&items, |e| literal(env, &e, depth + 1)).map(|_| Leaf::Lit(*val));
+        let parts = each(&items, |e| literal(env, &e, depth + 1))?;
+        return Ok(Leaf::Lit(Vals::from_slice(env, &parts).into_val(env)));
     }
     // Any other bare value is a constant.
     Ok(Leaf::Lit(*val))

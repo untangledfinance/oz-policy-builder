@@ -2804,3 +2804,39 @@ fn a_read_argument_that_resolves_to_a_wrong_type_is_a_failed_call_not_void() {
     let who = Address::generate(&w.env);
     assert_eq!(w.enforce_context(&advance_to(&w, &who)), denied());
 }
+
+#[test]
+fn a_variant_inside_a_bare_vec_read_argument_reaches_the_target_unwrapped() {
+    // echo returns its argument: `[Stellar(addr)]` must come back as written.
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let who = Address::generate(&w.env);
+    let arg = tuple(alloc::vec![
+        num(1),
+        tuple(alloc::vec![
+            sym("variant"),
+            sym("Stellar"),
+            addr(&w.env, &who)
+        ])
+    ]);
+    let echoed = read(&w.env, &reg, "echo", alloc::vec![arg], &[]);
+    let want: SorobanVec<Val> = soroban_sdk::vec![
+        &w.env,
+        1i128.into_val(&w.env),
+        SorobanVec::<Val>::from_slice(
+            &w.env,
+            &[
+                Symbol::new(&w.env, "Stellar").into_val(&w.env),
+                who.into_val(&w.env)
+            ]
+        )
+        .into_val(&w.env)
+    ];
+    let want_sc = {
+        let v: Val = want.into_val(&w.env);
+        ScVal::from_xdr(&w.env, &v.to_xdr(&w.env)).unwrap()
+    };
+    w.install(&rule_for(cmp("eq", echoed, lit(want_sc))))
+        .expect("installs");
+    assert_eq!(w.enforce(&[]), Ok(()));
+}

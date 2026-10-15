@@ -1152,3 +1152,29 @@ fn ne_still_permits_what_differs_and_denies_what_cannot_resolve() {
     assert!(permits(&cmp("ne", arg(0), g(0xBB)), &[text("x")]));
     assert!(denies(&cmp("ne", arg(3), g(0xBB)), &[g(0xAA)]));
 }
+
+// ---- X2: a bare vec of constants is the vec of what its elements decode to ---
+
+#[test]
+fn lit_and_variant_inside_a_bare_vec_are_unwrapped() {
+    let wrapped = tup(&[n(5), lit(n(7)), tup(&[sym("variant"), sym("Tag"), n(1)])]);
+    let value = tup(&[n(5), n(7), tup(&[sym("Tag"), n(1)])]);
+    assert!(permits(
+        &cmp("eq", arg(0), wrapped.clone()),
+        &[value.clone()]
+    ));
+    assert!(denies(
+        &cmp("eq", arg(0), wrapped.clone()),
+        &[tup(&[n(5), n(8)])]
+    ));
+    assert!(permits(
+        &set("in", arg(0), &[wrapped.clone()]),
+        &[value.clone()]
+    ));
+    // a denylist entry written this way must match the value it describes
+    assert!(denies(
+        &set("nin", arg(0), &[wrapped.clone()]),
+        &[value.clone()]
+    ));
+    assert!(denies(&cmp("ne", arg(0), wrapped), &[value]));
+}
