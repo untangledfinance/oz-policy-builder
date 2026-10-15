@@ -7,7 +7,7 @@
 // is derived from the leaf itself) and the rule must deny it. And is each
 // conjunct needed? Drop it, re-run, and the call it was guarding must now pass.
 
-import { Address, rpc, StrKey, xdr } from '@stellar/stellar-sdk'
+import { rpc, StrKey, xdr } from '@stellar/stellar-sdk'
 import { pool, reasonOf, simulate } from './chain.ts'
 import type { Network } from './config.ts'
 import { Refusal } from './envelope.ts'
