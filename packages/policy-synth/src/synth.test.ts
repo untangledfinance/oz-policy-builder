@@ -223,6 +223,13 @@ describe('an intent is asked the question a recording is: how much?', () => {
       []
     )
     expect(swap([cap, { constraint: 'floor', at: [1], min: '1' }])).toEqual([])
+    // A floor of zero (or below) is no floor.
+    expect(swap([cap, { constraint: 'floor', at: [1], min: '0' }])).toEqual([
+      'SLIPPAGE_FLOOR_MISSING',
+    ])
+    expect(swap([cap, { constraint: 'floor', at: [1], min: '-5' }])).toEqual([
+      'SLIPPAGE_FLOOR_MISSING',
+    ])
     // A floor on another argument does not set it.
     expect(swap([cap, { constraint: 'floor', at: [0], min: '1' }])).toEqual([
       'SLIPPAGE_FLOOR_MISSING',
@@ -257,6 +264,55 @@ describe('an encoded predicate is asked the same question', () => {
     expect(asks(pin('transfer', ['lte', ['call_arg', 1], amt]))).toEqual(['AMOUNT_BOUND_MISSING'])
   })
 
+  it('is asked per branch of an or, and a bound counts only against a constant', () => {
+    const cap: Expr = ['lte', ['call_arg', 2], amt]
+    const branch = (...r: Expr[]) => pin('transfer', ...r)
+    // The second branch is an uncapped transfer: the first one's cap does not cover it.
+    expect(asks(['or', [branch(cap), branch(['eq', ['call_arg', 1], A])]])).toEqual([
+      'AMOUNT_BOUND_MISSING',
+    ])
+    expect(asks(['or', [branch(cap), branch(['lt', ['call_arg', 2], amt])]])).toEqual([])
+    // A cap inside a nested or holds for one alternative only.
+    expect(asks(branch(['or', [cap, ['eq', ['call_arg', 1], A]]]))).toEqual([
+      'AMOUNT_BOUND_MISSING',
+    ])
+    // An amount compared with itself (or with another argument) bounds nothing.
+    expect(asks(branch(['lte', ['call_arg', 2], ['call_arg', 2]]))).toEqual([
+      'AMOUNT_BOUND_MISSING',
+    ])
+    expect(asks(branch(['lte', ['call_arg', 2], ['call_arg', 0]]))).toEqual([
+      'AMOUNT_BOUND_MISSING',
+    ])
+  })
+
+  it('a cap on requests[0] only is no cap on the requests: it needs all of them (or each recorded one and a length bound)', () => {
+    const one: Expr = ['lte', ['call_path', 3, 0, 'amount'], amt]
+    expect(asks(pin('submit', one))).toEqual(['AMOUNT_BOUND_MISSING'])
+    expect(asks(pin('submit', one, ['lte', ['call_path', 3, true], 1]))).toEqual([])
+    expect(asks(pin('submit', one, ['lte', ['call_path', 3, true], 2]))).toEqual([
+      'AMOUNT_BOUND_MISSING',
+    ])
+    expect(
+      asks(
+        pin(
+          'submit',
+          one,
+          ['lte', ['call_path', 3, 1, 'amount'], amt],
+          ['lte', ['call_path', 3, true], 2]
+        )
+      )
+    ).toEqual([])
+  })
+
+  it('a floor of zero is no floor on the least output', () => {
+    const swap = (...r: Expr[]): Expr =>
+      pin('swap_exact_tokens_for_tokens', ['lte', ['call_arg', 0], amt], ...r)
+    expect(asks(swap(['gte', ['call_arg', 1], { i128: '0' }]))).toEqual(['SLIPPAGE_FLOOR_MISSING'])
+    expect(asks(swap(['gt', ['call_arg', 1], { i128: '-1' }]))).toEqual(['SLIPPAGE_FLOOR_MISSING'])
+    expect(asks(swap(['gte', ['call_arg', 1], { i128: '1' }]))).toEqual([])
+    expect(asks(swap(['gt', ['call_arg', 1], { i128: '0' }]))).toEqual([])
+  })
+
   it('a requests argument needs an upper bound on a field called amount; a function nobody knows is not guessed at', () => {
     expect(asks(pin('submit', ['lte', ['call_path', 3, true], 1]))).toEqual([
       'AMOUNT_BOUND_MISSING',
@@ -267,7 +323,10 @@ describe('an encoded predicate is asked the same question', () => {
     expect(asks(pin('submit', ['all', ['call_arg', 3], ['lte', ['elem', 'amount'], amt]]))).toEqual(
       []
     )
-    expect(asks(pin('submit', ['lte', ['call_path', 3, 0, 'amount'], amt]))).toEqual([])
+    // One request's cap alone is not a cap on them all (see the test below).
+    expect(asks(pin('submit', ['lte', ['call_path', 3, 0, 'amount'], amt]))).toEqual([
+      'AMOUNT_BOUND_MISSING',
+    ])
     expect(asks(pin('weird', ['eq', ['call_arg', 0], A]))).toEqual([])
     // An or of functions asks about each one.
     expect(asks(['or', [pin('transfer'), pin('burn')]])).toHaveLength(2)

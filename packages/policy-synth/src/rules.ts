@@ -231,7 +231,7 @@ const scopeSel = (s: Scope): Sel[] =>
 
 const key = (v: Val) => JSON.stringify(v)
 
-const FLIP: Record<string, string> = {
+export const FLIP: Record<string, string> = {
   lt: 'gt',
   lte: 'gte',
   gt: 'lt',

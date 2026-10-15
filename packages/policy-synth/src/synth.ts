@@ -5,17 +5,23 @@
 
 import { Refusal } from './envelope.ts'
 import type { CallIntent, Constraint, Intent, Path } from './intent.ts'
-import { callExpr, intentExprs } from './intent.ts'
+import { and, callExpr, intentExprs } from './intent.ts'
 import type { Call } from './record.ts'
 import { identify, type Kind, PROTOCOLS } from './registry.ts'
-import { canon, constantLast, selectors } from './rules.ts'
+import { canon, constantLast, FLIP, selectors } from './rules.ts'
 import {
+  branches,
+  conjuncts,
+  DECODE_LIMITS,
   type Expr,
   encode,
   fields,
   hashOf,
+  intOf,
+  isConstant,
   isSelector,
   isTagged,
+  unlit,
   type Val,
   validate,
 } from './wire.ts'
@@ -113,6 +119,8 @@ export function unbounded(intent: Intent): Synthesis['ambiguities'] {
       !kinds.includes(r.constraint)
     )
       return []
+    // A floor of zero or less admits every output.
+    if (r.constraint === 'floor' && BigInt(r.min) <= 0n) return []
     return [r.constraint === 'total' ? [...r.at, ...(r.of ?? [])] : r.at]
   }
   return intent.calls.flatMap((c) => {
@@ -132,34 +140,89 @@ export function unbounded(intent: Intent): Synthesis['ambiguities'] {
   })
 }
 
-/** The same question of a finished predicate: for each function it can serve that the
- *  registry knows, an upper bound (`lte`/`lt`) must be on each amount argument. */
-export function unboundedExpr(expr: Expr): Synthesis['ambiguities'] {
-  const upper: Val[] = []
-  const lower: Val[] = []
-  const walk = (e: Val) => {
-    if (!Array.isArray(e)) return
-    const [op, a] = constantLast(e as Expr) as [string, Val]
-    if (isSelector(e) && (op === 'lte' || op === 'lt')) upper.push(a)
-    if (isSelector(e) && (op === 'gte' || op === 'gt')) lower.push(a)
-    for (const x of e) walk(x as Val)
+/** A bound a branch puts on a leaf: `op` against `to`, `to` being a constant or a leaf. */
+interface Bound {
+  op: string
+  at: Val
+  to: Val
+}
+
+/** The bounds a conjunct list guarantees: those of an `and`'s children, and of an `all` body
+ *  (as `elem` leaves, returned under `each` with the vec they range over). An `or` guarantees
+ *  none of its children's bounds, so it adds nothing. */
+function bounds(conj: Expr[], out: { top: Bound[]; each: { over: string; b: Bound }[] }) {
+  for (const e of conj) {
+    if (!isSelector(e)) continue
+    if (e[0] === 'and') bounds(e[1] as Expr[], out)
+    else if (e[0] === 'all') {
+      const inner = { top: [] as Bound[], each: [] as typeof out.each }
+      bounds(conjuncts(e[2] as Expr), inner)
+      for (const b of inner.top) out.each.push({ over: canon(e[1] as Val), b })
+    } else if (e[0] in FLIP && e.length === 3) {
+      const [op, at, to] = constantLast(e) as [string, Val, Val]
+      out.top.push({ op, at, to })
+    }
   }
-  walk(expr)
-  const fns = [...new Set(selectors(expr).map((s) => s.fn))].filter((f) => f !== '*')
-  return fns.flatMap((fn) =>
-    rowOf(fn).flatMap(([name, kind], i): Synthesis['ambiguities'] => {
-      const ask = { contract: '', fn, args: [] as Val[] }
-      const at = canon(['call_arg', i])
-      if (kind === 'amount') return upper.some((b) => canon(b) === at) ? [] : [missing(ask, name)]
-      if (kind === 'min') return lower.some((b) => canon(b) === at) ? [] : [slippage(ask, name)]
-      const field = (b: Val) =>
-        JSON.stringify(b).includes('"amount"') &&
-        (JSON.stringify(b).includes(`["call_arg",${i}]`) ||
-          canon(b).includes(`["call_path",${i},`) ||
-          (isSelector(b) && b[0] === 'elem'))
-      return kind === 'requests' && !upper.some(field) ? [missing(ask, name)] : []
-    })
-  )
+}
+
+/** The same question of a finished predicate, asked of each branch of it: for each
+ *  function a branch can serve that the registry knows, the branch itself must put an
+ *  upper bound (`lte`/`lt` against a constant) on each amount argument, a lower bound that
+ *  is more than zero on a least output, and for requests a bound on every element. */
+export function unboundedExpr(expr: Expr): Synthesis['ambiguities'] {
+  const asked = new Map<string, Synthesis['ambiguities'][number]>()
+  for (const branch of branches(expr)) {
+    const got = { top: [] as Bound[], each: [] as { over: string; b: Bound }[] }
+    bounds(branch, got)
+    const upper = got.top.filter((b) => (b.op === 'lte' || b.op === 'lt') && isConstant(b.to))
+    const num = (b: Bound) => {
+      const n = intOf(unlit(b.to))
+      return n === undefined ? undefined : b.op === 'lt' ? n - 1n : n
+    }
+    const fns = [...new Set(selectors(and(branch)).map((s) => s.fn))].filter((f) => f !== '*')
+    for (const fn of fns)
+      rowOf(fn).forEach(([name, kind], i) => {
+        const at = canon(['call_arg', i])
+        const ask = { contract: '', fn, args: [] as Val[] }
+        let q: Synthesis['ambiguities'][number] | undefined
+        if (kind === 'amount')
+          q = upper.some((b) => canon(b.at) === at) ? undefined : missing(ask, name)
+        else if (kind === 'min') {
+          // More than nothing: `>= 0` and `> -1` admit every output; a scaled floor is a ratio.
+          const floor = (b: Bound) => {
+            const n = intOf(unlit(b.to))
+            const scaled = isSelector(b.to) && b.to[0] === 'scaled'
+            return (
+              canon(b.at) === at &&
+              (b.op === 'gte' || b.op === 'gt') &&
+              (scaled ||
+                (isConstant(b.to) && n !== undefined && (b.op === 'gte' ? n > 0n : n >= 0n)))
+            )
+          }
+          q = got.top.some(floor) ? undefined : slippage(ask, name)
+        } else if (kind === 'requests') {
+          // Every request is capped: by an `all` over the vec, or by a length bound and a cap on each.
+          const len = upper.find((b) => canon(b.at) === canon(['call_path', i, true]))
+          const n = len === undefined ? undefined : num(len)
+          const eachCap = got.each.some(
+            (e) =>
+              e.over === at &&
+              (e.b.op === 'lte' || e.b.op === 'lt') &&
+              isConstant(e.b.to) &&
+              canon(e.b.at) === canon(['elem', 'amount'])
+          )
+          const flat =
+            n !== undefined &&
+            n <= BigInt(DECODE_LIMITS.elems) &&
+            Array.from({ length: Number(n) }, (_, k) => k).every((k) =>
+              upper.some((b) => canon(b.at) === canon(['call_path', i, k, 'amount']))
+            )
+          q = eachCap || flat ? undefined : missing(ask, name)
+        }
+        if (q) asked.set(q.question, q)
+      })
+  }
+  return [...asked.values()]
 }
 
 /** The question of a swap's least output: nothing says what the account must get back. */
