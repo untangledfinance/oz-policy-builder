@@ -360,13 +360,13 @@ describe('amounts', () => {
     expect(amount('0')).toContain('  0 USDC (0)')
   })
 
-  it('decimals 0, no symbol, no decimals: the unit it can say, else the number alone', () => {
-    const t = (token: object): View => ({ info: { [C]: { fns: SAC, token } } })
+  it('decimals 0, and no token at all: the number alone', () => {
+    const t = (token: object): View => ({ info: { [C]: { fns: SAC, token } as never } })
     expect(amount('1234', t({ decimals: 0, symbol: 'X' }))).toContain('1,234 X (1234)')
-    expect(amount('50000000000', t({ decimals: 7 }))).toContain('5,000 (50000000000)')
-    expect(amount('50000000000', t({ symbol: 'USDC' })).endsWith('  50000000000')).toBe(true)
-    expect(amount('50000000000', t({})).endsWith('  50000000000')).toBe(true)
     expect(amount('50000000000', { info: {} }).endsWith('  50000000000')).toBe(true)
+    expect(amount('50000000000', { info: { [C]: { fns: SAC } } }).endsWith('  50000000000')).toBe(
+      true
+    )
   })
 
   it("only the SEP-41 amount of the token's own function: nothing is guessed from a name", () => {

@@ -1,11 +1,14 @@
 // What names a call's arguments: a contract's interface (the `contractspecv0` of its wasm, or
-// the SEP-41 table for a Stellar Asset Contract) and, for a token, its decimals and symbol.
+// the SEP-41 table for a Stellar Asset Contract) and, for a token, the unit its amounts are in.
+// A token is known only by what cannot be chosen by the contract: a Stellar Asset Contract
+// (always 7 decimals, named by its `name()`, `CODE:ISSUER`) or one in the package's own list.
 // They only make a review readable, so every step is best effort and bounded: a failure, a
 // timeout or an abort leaves the plain wording, and nothing here can touch a verdict.
 
 import { type rpc, contract as soroban, xdr } from '@stellar/stellar-sdk'
 import { connect, dataKey, type Endpoint, entries, pool, read } from './chain.ts'
-import type { Network } from './config.ts'
+import { type Network, TOKENS } from './config.ts'
+import { Refusal } from './envelope.ts'
 
 /** A parameter's type, as far as a path can walk it. An option is its value, an enum or any
  *  type that cannot be walked is its name, and a type that refers back to itself is `deep`. */
@@ -18,14 +21,14 @@ export type Ty =
 export type Fns = Record<string, [name: string, ty: Ty][]>
 export interface Info {
   fns?: Fns | undefined
-  /** Present for a token; the decimals and symbol are absent when they could not be read. */
-  token?: { decimals?: number; symbol?: string } | undefined
+  /** Present for a token whose unit is known; its amounts read in `decimals`, named `symbol`. */
+  token?: { decimals: number; symbol: string } | undefined
 }
 
-const WASM_MAX = 262_144 // twice the largest wasm the network accepts
+const WASM_MAX = 131_072 // the largest wasm the network accepts
 const CONTRACTS_MAX = 16
-const WAIT_MS = 5_000
-const CACHE_MAX = 256
+const WAIT_MS = 2_000
+const CACHE_MAX = 64
 
 /** SEP-41, as a Stellar Asset Contract exposes it (it has no wasm, so no spec to read). */
 const SEP41 = {
@@ -45,9 +48,10 @@ export const SAC: Fns = Object.fromEntries(
 ) as Fns
 
 // Process-lifetime caches, bounded: a spec by its wasm hash (null: a wasm with none to use),
-// a token by network and address. Only an answer is kept, never a failure to ask.
+// a Stellar Asset Contract's token by network and address (null: not one). Only an answer is
+// kept, never a failure to ask.
 const specs = new Map<string, Fns | null>()
-const tokens = new Map<string, NonNullable<Info['token']>>()
+const tokens = new Map<string, NonNullable<Info['token']> | null>()
 const keep = <V>(m: Map<string, V>, k: string, v: V): V => {
   if (m.size >= CACHE_MAX) m.delete(m.keys().next().value as string)
   return m.set(k, v).get(k) as V
@@ -93,18 +97,21 @@ export function interfaceOf(wasm: Buffer): Fns | null {
   }
 }
 
-/** A token's decimals and symbol, read once. A contract can answer with anything, so a
- *  decimals above 38 or an odd symbol is not used. */
-async function tokenOf(server: rpc.Server, network: Network, address: string) {
-  const [d, s] = await Promise.allSettled(
-    ['decimals', 'symbol'].map((f) => read(server, network, address, f))
-  )
-  const decimals = d?.status === 'fulfilled' ? Number(d.value.u32()) : 99
-  const symbol = s?.status === 'fulfilled' ? s.value.str().toString() : ''
-  return keep(tokens, `${network}:${address}`, {
-    ...(decimals <= 38 ? { decimals } : {}),
-    ...(/^[A-Za-z0-9._-]{1,12}$/.test(symbol) ? { symbol } : {}),
-  })
+/** The unit of a Stellar Asset Contract: 7 decimals, named by its `name()` (`CODE:ISSUER`, or
+ *  `native`), the issuer shortened. Read once; a contract that answers anything else is no token,
+ *  and a failure to ask (a rate limit, a dropped connection) is not remembered as an answer. */
+async function sacToken(server: rpc.Server, network: Network, address: string) {
+  const id = `${network}:${address}`
+  if (tokens.has(id)) return tokens.get(id) ?? undefined
+  try {
+    const v = await read(server, network, address, 'name')
+    const name = v.switch().name === 'scvString' ? v.str().toString() : ''
+    const m = name.match(/^(?:(native)|([A-Za-z0-9]{1,12}):(G[A-Z2-7]{55}))$/)
+    const symbol = m?.[1] ?? (m ? `${m[2]}:${m[3]?.slice(0, 4)}…${m[3]?.slice(-4)}` : '')
+    return keep(tokens, id, symbol ? { decimals: 7, symbol } : null) ?? undefined
+  } catch (e) {
+    return e instanceof Refusal ? (keep(tokens, id, null) ?? undefined) : undefined
+  }
 }
 
 /** The interface and token details of each contract (at most 16), one fetch per contract: the
@@ -129,16 +136,24 @@ export async function infoFor(
       return x ? [[c, wasm ? Buffer.from(x.wasmHash()).toString('hex') : ''] as const] : []
     })
     const missing = [...new Set(code.map((c) => c[1]))].filter((h) => h && !specs.has(h))
-    await pool(missing, 4, async (h) => {
-      const wasm = await server.getContractWasmByHash(h, 'hex').catch(() => undefined)
-      if (wasm) keep(specs, h, interfaceOf(wasm))
-    })
-    await pool(code, 4, async ([c, h]) => {
-      const fns = h ? (specs.get(h) ?? undefined) : SAC
-      const token = !h || (fns && Object.hasOwn(fns, 'decimals') && Object.hasOwn(fns, 'symbol'))
-      const known = token ? tokens.get(`${e.network}:${c}`) : undefined
-      out[c] = { fns, token: token ? (known ?? (await tokenOf(server, e.network, c))) : undefined }
-    })
+    await pool(
+      missing,
+      4,
+      async (h) => {
+        const wasm = await server.getContractWasmByHash(h, 'hex').catch(() => undefined)
+        if (wasm) keep(specs, h, interfaceOf(wasm))
+      },
+      stop
+    )
+    await pool(
+      code,
+      4,
+      async ([c, h]) => {
+        const token = h ? TOKENS[e.network][c] : await sacToken(server, e.network, c)
+        out[c] = { fns: h ? (specs.get(h) ?? undefined) : SAC, token }
+      },
+      stop
+    )
   }
   await Promise.race([
     run().catch(() => undefined),

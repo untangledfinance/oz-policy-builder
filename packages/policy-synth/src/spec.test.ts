@@ -7,6 +7,7 @@ import { afterAll, describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { Address, StrKey, xdr } from '@stellar/stellar-sdk'
 import { contract } from '../test/fixtures.ts'
+import { TOKENS } from './config.ts'
 import { infoFor, interfaceOf, SAC } from './spec.ts'
 
 // ---- a wasm with a spec, built by hand ----
@@ -130,9 +131,9 @@ describe('the interface of a wasm', () => {
         data,
       ])
     }
-    expect(pad(262_144)).toHaveLength(262_144)
-    expect(interfaceOf(pad(262_144))).not.toBeNull()
-    expect(interfaceOf(pad(262_145))).toBeNull()
+    expect(pad(131_072)).toHaveLength(131_072)
+    expect(interfaceOf(pad(131_072))).not.toBeNull()
+    expect(interfaceOf(pad(131_073))).toBeNull()
   })
 
   it('names are 1 to 30 plain characters, and one bad field spoils the struct', () => {
@@ -154,7 +155,7 @@ describe('the interface of a wasm', () => {
   it('no spec, a spec that is not one, a wasm that is not one, too much of either: nothing', () => {
     expect(interfaceOf(wasmWith(spec, 'other'))).toBeNull()
     expect(interfaceOf(Buffer.from('not wasm'))).toBeNull()
-    expect(interfaceOf(Buffer.alloc(300_000))).toBeNull()
+    expect(interfaceOf(Buffer.alloc(140_000))).toBeNull()
   })
 
   it('a real contract: the policy interpreter that ships in this repo', () => {
@@ -186,8 +187,9 @@ interface Fake {
   /** contract -> wasm hash, or '' for a Stellar Asset Contract. */
   instances: Record<string, string>
   wasms: Record<string, Buffer>
-  /** contract -> [decimals, symbol] as the contract answers (a number, a string, or an error). */
-  tokens?: Record<string, [unknown, unknown]>
+  /** contract -> what its `name()` answers: a string, a number (a wrong type), `'fail'` for a
+   *  dropped connection; absent for a contract error. */
+  names?: Record<string, string | number>
   /** What to do with the next getLedgerEntries: fail, or hang. */
   mode?: 'fail' | 'hang' | undefined
   /** Milliseconds each simulation takes. */
@@ -256,14 +258,12 @@ function network(f: Fake) {
           .operations()[0]
         const call = op?.body().invokeHostFunctionOp().hostFunction().invokeContract()
         const id = Address.fromScAddress(call?.contractAddress() as xdr.ScAddress).toString()
-        const [dec, sym] = f.tokens?.[id] ?? [undefined, undefined]
-        const answer = call?.functionName().toString() === 'decimals' ? dec : sym
+        const answer = f.names?.[id]
+        if (answer === 'fail') return new Response('', { status: 503 })
         if (answer === undefined)
           return reply({ latestLedger: 1, error: 'HostError: Error(Contract, #1)' })
         const val =
-          typeof answer === 'number'
-            ? xdr.ScVal.scvU32(answer)
-            : xdr.ScVal.scvString(String(answer))
+          typeof answer === 'number' ? xdr.ScVal.scvU32(answer) : xdr.ScVal.scvString(answer)
         return reply({ latestLedger: 1, results: [{ xdr: val.toXDR('base64'), auth: [] }] })
       }
       return Response.json({ jsonrpc: '2.0', id: body.id, error: { code: -32601, message: 'no' } })
@@ -286,29 +286,49 @@ const open = (f: Fake) => {
   return n
 }
 
+const ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5'
+const circle = `USDC:${ISSUER}`
+const short = `USDC:${ISSUER.slice(0, 4)}…${ISSUER.slice(-4)}`
+
 describe('what is known of a contract', () => {
   // Contracts and wasm hashes are distinct per test: the caches live as long as the process.
-  it('a token wasm: its interface, decimals and symbol, in two reads and two simulations', async () => {
+  it('a wasm contract: its interface, and no token unit it only claims for itself', async () => {
     const [tok, other] = [contract(21), contract(22)]
     const n = open({
       instances: { [tok]: hashOf(21), [other]: hashOf(22) },
       wasms: { [hashOf(21)]: wasmWith(spec), [hashOf(22)]: wasmWith([fn('f', [['a', Z()]])]) },
-      tokens: { [tok]: [7, 'USDC'], [other]: [1, 'X'] },
+      names: { [tok]: 'USDC', [other]: 'X' },
     })
     const got = await infoFor(n.endpoint, [tok, other, tok])
-    expect(got[tok]?.token).toEqual({ decimals: 7, symbol: 'USDC' })
+    // `tok` has decimals() and symbol() in its spec: it would say whatever it likes.
+    expect(got[tok]?.token).toBeUndefined()
     expect(got[tok]?.fns?.pay?.[0]?.[0]).toBe('payments')
-    // `other` has no decimals() and symbol() in its spec, so it is not a token and is not asked.
-    expect(got[other]).toEqual({ fns: { f: [['a', 'address']] } })
-    expect(n.calls).toMatchObject({ instances: 2, codes: 2, sims: 2 })
+    expect(got[other]).toEqual({ fns: { f: [['a', 'address']] }, token: undefined })
+    expect(n.calls).toMatchObject({ instances: 2, codes: 2, sims: 0 })
   })
 
-  it('a Stellar Asset Contract: the SEP-41 table, no code read', async () => {
-    const sac = contract(23)
-    const n = open({ instances: { [sac]: '' }, wasms: {}, tokens: { [sac]: [7, 'XLM'] } })
+  it('a wasm token the package lists is in its listed unit; nothing else is asked of it', async () => {
+    const tok = unique(5000)
+    TOKENS.testnet[tok] = { decimals: 6, symbol: 'LISTED' }
+    try {
+      const n = open({ instances: { [tok]: hashOf(23) }, wasms: { [hashOf(23)]: wasmWith(spec) } })
+      expect((await infoFor(n.endpoint, [tok]))[tok]?.token).toEqual({
+        decimals: 6,
+        symbol: 'LISTED',
+      })
+      expect(n.calls.sims).toBe(0)
+      expect(TOKENS.mainnet).toEqual({})
+    } finally {
+      delete TOKENS.testnet[tok]
+    }
+  })
+
+  it('a Stellar Asset Contract: the SEP-41 table, 7 decimals, named CODE:ISSUER by name()', async () => {
+    const sac = unique(5001)
+    const n = open({ instances: { [sac]: '' }, wasms: {}, names: { [sac]: circle } })
     const got = await infoFor(n.endpoint, [sac])
-    expect(got[sac]).toEqual({ fns: SAC, token: { decimals: 7, symbol: 'XLM' } })
-    expect(n.calls.codes).toBe(0)
+    expect(got[sac]).toEqual({ fns: SAC, token: { decimals: 7, symbol: short } })
+    expect(n.calls).toMatchObject({ codes: 0, sims: 1 }) // one read: name(), not decimals()
     expect(SAC.transfer?.map((p) => p[0])).toEqual(['from', 'to', 'amount'])
     expect(SAC.transfer_from?.map((p) => p[0])).toEqual(['spender', 'from', 'to', 'amount'])
     expect(SAC.approve?.map((p) => p[0])).toEqual([
@@ -331,103 +351,118 @@ describe('what is known of a contract', () => {
     expect(SAC.mint?.[1]).toEqual(['amount', 'i128'])
   })
 
-  it('a spec is read once per wasm, a token once, for the life of the process', async () => {
-    const [a, b] = [contract(24), contract(25)]
-    const n = open({
-      instances: { [a]: hashOf(24), [b]: hashOf(24) },
-      wasms: { [hashOf(24)]: wasmWith(spec) },
-      tokens: { [a]: [2, 'AAA'], [b]: [3, 'BBB'] },
+  it('the native asset is `native`', async () => {
+    const xlm = unique(5002)
+    const n = open({ instances: { [xlm]: '' }, wasms: {}, names: { [xlm]: 'native' } })
+    expect((await infoFor(n.endpoint, [xlm]))[xlm]?.token).toEqual({
+      decimals: 7,
+      symbol: 'native',
     })
-    await infoFor(n.endpoint, [a])
-    await infoFor(n.endpoint, [a, b])
-    expect(n.calls.codes).toBe(1)
-    expect(n.calls.sims).toBe(4) // a: 2, b: 2; a is not read again
   })
 
-  it('an answer that cannot be trusted is not used: odd symbol, absurd decimals, an error', async () => {
-    const [x, y, z] = [contract(26), contract(27), contract(28)]
+  it.each([
+    ['a name that is not CODE:ISSUER', 'USDC'],
+    ['a code that is too long', `ABCDEFGHIJKLM:${ISSUER}`],
+    [
+      'an issuer that is not an account',
+      'USDC:CBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+    ],
+    ['a line break', `US\nDC:${ISSUER}`],
+    ['a wrong type', 7],
+  ])('%s: the amounts stay raw', async (_n, name) => {
+    const c = unique(5100 + Math.floor(Math.random() * 1000))
+    const n = open({ instances: { [c]: '' }, wasms: {}, names: { [c]: name } })
+    expect((await infoFor(n.endpoint, [c]))[c]).toEqual({ fns: SAC, token: undefined })
+  })
+
+  it('one contract that answers wrongly or fails does not take the names of the others', async () => {
+    const ids = [unique(5200), unique(5201), unique(5202), unique(5203)]
     const n = open({
-      instances: { [x]: '', [y]: '', [z]: '' },
+      instances: Object.fromEntries(ids.map((c) => [c, ''])),
       wasms: {},
-      tokens: { [x]: [7, 'US\nDC'], [y]: [99, 'USDC'], [z]: [undefined, undefined] },
+      names: { [ids[0] as string]: 7, [ids[1] as string]: 'fail', [ids[3] as string]: circle },
     })
-    const got = await infoFor(n.endpoint, [x, y, z])
-    expect(got[x]?.token).toEqual({ decimals: 7 })
-    expect(got[y]?.token).toEqual({ symbol: 'USDC' })
-    expect(got[z]?.token).toEqual({})
+    const got = await infoFor(n.endpoint, ids)
+    expect(ids.map((c) => got[c]?.fns === SAC)).toEqual([true, true, true, true])
+    expect(got[ids[3] as string]?.token?.symbol).toBe(short)
+    expect(got[ids[0] as string]?.token).toBeUndefined()
+  })
+
+  it('a refusal is an answer and is kept; a dropped connection is not, and is asked again', async () => {
+    const [refused, flaky] = [unique(5300), unique(5301)]
+    const n = open({
+      instances: { [refused]: '', [flaky]: '' },
+      wasms: {},
+      names: { [flaky]: 'fail' },
+    })
+    await infoFor(n.endpoint, [refused, flaky])
+    await infoFor(n.endpoint, [refused, flaky])
+    expect(n.calls.sims).toBe(3) // refused once, flaky twice
+    const again = open({ instances: { [flaky]: '' }, wasms: {}, names: { [flaky]: circle } })
+    expect((await infoFor(again.endpoint, [flaky]))[flaky]?.token?.symbol).toBe(short)
+  })
+
+  it('a spec is read once per wasm, a token once, for the life of the process', async () => {
+    const [a, b, s] = [contract(24), contract(25), unique(5400)]
+    const n = open({
+      instances: { [a]: hashOf(24), [b]: hashOf(24), [s]: '' },
+      wasms: { [hashOf(24)]: wasmWith(spec) },
+      names: { [s]: circle },
+    })
+    await infoFor(n.endpoint, [a, s])
+    await infoFor(n.endpoint, [a, b, s])
+    expect(n.calls.codes).toBe(1)
+    expect(n.calls.sims).toBe(1)
   })
 
   it('a contract that is not there, a wasm that is not there, a wasm too big: names missing, nothing thrown', async () => {
     const [gone, nocode, big] = [contract(29), contract(30), contract(31)]
     const n = open({
       instances: { [nocode]: hashOf(30), [big]: hashOf(31) },
-      wasms: { [hashOf(31)]: Buffer.alloc(300_000) },
+      wasms: { [hashOf(31)]: Buffer.alloc(140_000) },
     })
     const got = await infoFor(n.endpoint, [gone, nocode, big])
     expect(got[gone]).toBeUndefined()
-    expect(got[nocode]).toEqual({ fns: undefined })
-    expect(got[big]).toEqual({ fns: undefined })
+    expect(got[nocode]?.fns).toBeUndefined()
+    expect(got[big]?.fns).toBeUndefined()
   })
 
   it('at most sixteen contracts, and none at all costs nothing', async () => {
-    const all = Array.from({ length: 20 }, (_, i) => contract(40 + i))
-    const n = open({
-      instances: Object.fromEntries(all.map((c) => [c, ''])),
-      wasms: {},
-      tokens: {},
-    })
+    const all = Array.from({ length: 20 }, (_, i) => unique(5500 + i))
+    const n = open({ instances: Object.fromEntries(all.map((c) => [c, ''])), wasms: {} })
     const got = await infoFor(n.endpoint, all)
     expect(Object.keys(got)).toHaveLength(16)
     expect(n.calls.instances).toBe(16)
     expect(await infoFor(n.endpoint, [])).toEqual({})
   })
 
-  it('a token is answered once, and the cache is bounded: the oldest goes first', async () => {
-    const ids = Array.from({ length: 300 }, (_, i) => unique(1000 + i))
+  it('the token cache is bounded: the oldest goes first', async () => {
+    const ids = Array.from({ length: 80 }, (_, i) => unique(6000 + i))
     const n = open({
       instances: Object.fromEntries(ids.map((c) => [c, ''])),
       wasms: {},
-      tokens: Object.fromEntries(ids.map((c) => [c, [7, 'T']])),
+      names: Object.fromEntries(ids.map((c) => [c, circle])),
     })
     for (let i = 0; i < ids.length; i += 16) await infoFor(n.endpoint, ids.slice(i, i + 16))
-    expect(n.calls.sims).toBe(600)
+    expect(n.calls.sims).toBe(80)
     await infoFor(n.endpoint, ids.slice(-1)) // the newest is still known
-    await infoFor(n.endpoint, ids.slice(44, 45)) // so is the 256th from the end
-    expect(n.calls.sims).toBe(600)
-    await infoFor(n.endpoint, ids.slice(43, 44)) // the one before it was dropped
-    expect(n.calls.sims).toBe(602)
+    await infoFor(n.endpoint, ids.slice(16, 17)) // so is the 64th from the end
+    expect(n.calls.sims).toBe(80)
+    await infoFor(n.endpoint, ids.slice(15, 16)) // the one before it was dropped
+    expect(n.calls.sims).toBe(81)
   })
 
-  it('what an answer may be: symbols of 1 to 12 plain characters, decimals up to 38', async () => {
-    const cases: [unknown, unknown, object][] = [
-      [38, 'A', { decimals: 38, symbol: 'A' }],
-      [39, '0123456789ab', { symbol: '0123456789ab' }],
-      [0, '0123456789abc', { decimals: 0 }],
-      [7, '9._-z', { decimals: 7, symbol: '9._-z' }],
-      [7, '', { decimals: 7 }],
-    ]
-    const ids = cases.map((_, i) => unique(2000 + i))
+  it('reads go a few at a time, never all at once', async () => {
+    const ids = Array.from({ length: 12 }, (_, i) => unique(7000 + i))
     const n = open({
       instances: Object.fromEntries(ids.map((c) => [c, ''])),
       wasms: {},
-      tokens: Object.fromEntries(ids.map((c, i) => [c, [cases[i]?.[0], cases[i]?.[1]]])),
-    })
-    const got = await infoFor(n.endpoint, ids)
-    for (const [i, c] of cases.entries())
-      expect(got[ids[i] as string]?.token).toEqual(c[2] as never)
-  })
-
-  it('token reads go a few at a time, never all at once', async () => {
-    const ids = Array.from({ length: 12 }, (_, i) => unique(3000 + i))
-    const n = open({
-      instances: Object.fromEntries(ids.map((c) => [c, ''])),
-      wasms: {},
-      tokens: Object.fromEntries(ids.map((c) => [c, [7, 'T']])),
+      names: Object.fromEntries(ids.map((c) => [c, circle])),
       delay: 20,
     })
     await infoFor(n.endpoint, ids)
-    expect(n.calls.sims).toBe(24)
-    expect(n.calls.peak).toBeLessThanOrEqual(8)
+    expect(n.calls.sims).toBe(12)
+    expect(n.calls.peak).toBeLessThanOrEqual(4)
   })
 
   it('a network that errors, a url that is not allowed, an abort: the empty answer, in time', async () => {
@@ -447,9 +482,27 @@ describe('what is known of a contract', () => {
     expect(await infoFor(hung.endpoint, [c], gone.signal)).toEqual({})
   })
 
-  it('what was learned before the abort is kept', async () => {
-    const [fast] = [contract(71)]
-    const n = open({ instances: { [fast]: '' }, wasms: {}, tokens: { [fast]: [7, 'FAST'] } })
-    expect((await infoFor(n.endpoint, [fast]))[fast]?.token?.symbol).toBe('FAST')
+  it('an abort stops the reads that have not started', async () => {
+    const ids = Array.from({ length: 16 }, (_, i) => unique(8000 + i))
+    const n = open({
+      instances: Object.fromEntries(ids.map((c) => [c, ''])),
+      wasms: {},
+      names: Object.fromEntries(ids.map((c) => [c, circle])),
+      delay: 60,
+    })
+    const ctl = new AbortController()
+    setTimeout(() => ctl.abort(), 80)
+    await infoFor(n.endpoint, ids, ctl.signal)
+    await Bun.sleep(300)
+    expect(n.calls.sims).toBeLessThanOrEqual(8) // two batches of four, not sixteen
+  })
+
+  it('a hung server costs no more than the wait (2 s)', async () => {
+    const c = contract(72)
+    const hung = open({ instances: { [c]: '' }, wasms: {}, mode: 'hang' })
+    const t = Date.now()
+    expect(await infoFor(hung.endpoint, [c])).toEqual({})
+    expect(Date.now() - t).toBeGreaterThanOrEqual(1_900)
+    expect(Date.now() - t).toBeLessThan(3_000)
   })
 })

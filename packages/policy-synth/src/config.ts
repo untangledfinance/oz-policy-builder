@@ -34,6 +34,14 @@ export const INTERPRETER_WASM: ReadonlySet<string> = new Set(
   Object.values(INTERPRETER).flatMap((p) => (p ? [p.wasmSha256] : []))
 )
 
+/** Tokens that are not Stellar Asset Contracts, whose amounts a review may show in their own
+ *  unit: by address, per network. A wasm token chooses its own `decimals()` and `symbol()`, so
+ *  none is believed until it is listed here (a Stellar Asset Contract is named by its `name()`). */
+export const TOKENS: Record<Network, Record<string, { decimals: number; symbol: string }>> = {
+  testnet: {},
+  mainnet: {},
+}
+
 /** The upstream tag the deployed OpenZeppelin policies were built from, so that
  *  `scripts/upstream-drift-check.ts` can compare it with the latest release. */
 export const OZ_STELLAR_CONTRACTS_TAG = 'v0.7.2'

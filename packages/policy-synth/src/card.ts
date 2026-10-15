@@ -102,13 +102,12 @@ function constant(v: Val, c: View, typed = c.raw): string {
   return NUMBER.test(tag) && !typed ? String(x) : `${x} (${tag})`
 }
 
-/** A token amount as `5,000 USDC (50000000000)`: the unit is the token's, the raw number stays. */
+/** A token amount as `5,000 USDC:GATA…V56 (50000000000)`: the unit is the token's, the raw number stays. */
 function money(x: string, { decimals: d, symbol }: NonNullable<Info['token']>): string {
-  if (d === undefined) return x
   const n = x.replace('-', '').padStart(d + 1, '0')
   const frac = n.slice(n.length - d).replace(/0+$/, '')
   const whole = n.slice(0, n.length - d).replace(/\B(?=(\d{3})+$)/g, ',')
-  return `${x < '0' ? '-' : ''}${whole}${frac && `.${frac}`}${symbol ? ` ${symbol}` : ''} (${x})`
+  return `${x < '0' ? '-' : ''}${whole}${frac && `.${frac}`} ${symbol} (${x})`
 }
 
 /** A constant, in the unit its other side is read in. */
