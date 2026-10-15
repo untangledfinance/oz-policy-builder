@@ -30,7 +30,7 @@ pub const MAX_PREDICATE_BYTES: u32 = 32 * 1024;
 // decode time.
 //
 // `call_path` is a walk into the authorised call's arguments: each step is
-// either a u32 index into a vector or a symbol key into a map. `call_arg_field`
+// either a u32 index into a vector or a constant key into a map. `call_arg_field`
 // stops at a fixed depth of three; a batch puts the value a predicate cares
 // about deeper than that - `calls[n].args[i]`, or Blend's
 // `calls[n].args[3][0].amount`. One variable-depth leaf reaches all of them,
@@ -107,10 +107,12 @@ pub enum CompareOp {
 }
 
 /// One step of a `CallPath`: into a vector, or into a map.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum PathStep {
     Index(u32),
-    Field(Symbol),
+    /// A map key: a constant of any type (a bare symbol is the usual case;
+    /// everything else is written `lit(x)`).
+    Key(Val),
     /// Terminal step: the LENGTH of the vector reached so far. Without it a
     /// predicate can pin every element a batch declares and still say nothing
     /// about an element APPENDED after it was written - which is exactly how
@@ -391,7 +393,7 @@ fn walk(env: &Env, cur: Val, steps: &[PathStep]) -> Option<Val> {
     steps.iter().try_fold(cur, |cur, step| {
         Some(match step {
             PathStep::Index(i) => to::<Vals>(env, &cur).ok()?.get(*i)?,
-            PathStep::Field(f) => to::<Map<Symbol, Val>>(env, &cur).ok()?.get(f.clone())?,
+            PathStep::Key(k) => to::<Map<Val, Val>>(env, &cur).ok()?.get(*k)?,
             PathStep::Len => to::<Vals>(env, &cur).ok()?.len().into_val(env),
         })
     })
@@ -626,7 +628,7 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
     } else if is(2, "call_arg_len") {
         Ok(Leaf::CallPath(vec![step(1)?, PathStep::Len]))
     } else if is(4, "call_arg_field") {
-        let field = PathStep::Field(expect(env, items, 3)?);
+        let field = PathStep::Key(at(items, 3)?);
         Ok(Leaf::CallPath(vec![step(1)?, step(2)?, field]))
     } else if is(items.len(), "call_path") {
         Ok(Leaf::CallPath(decode_steps(env, items, 1, 1)?))
@@ -685,24 +687,24 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
 }
 
 /// The path steps in `items[from..]`, at most `MAX_PATH_STEPS`. A step is
-/// a u32 index or a symbol key; `true` marks the length step, which must
-/// be last because a length has nothing to index into. Anything else is
-/// refused here rather than reinterpreted at evaluate. `min` is the fewest
+/// a u32 index, `true` (the length step, which must be last because a length
+/// has nothing to index into), or a constant map key: a bare symbol or any
+/// `lit(x)`. Anything else is refused here rather than reinterpreted at evaluate. `min` is the fewest
 /// steps: `call_path` needs one; a `read` result may be the value itself.
 fn decode_steps(env: &Env, items: &Vals, from: u32, min: u32) -> Res<Vec<PathStep>> {
     ensure((min..=MAX_PATH_STEPS).contains(&(items.len() - from)))?;
-    let mut steps = Vec::new();
-    for n in from..items.len() {
-        steps.push(if let Ok(i) = expect(env, items, n) {
-            PathStep::Index(i)
-        } else if expect(env, items, n).unwrap_or(false) {
-            ensure(n + 1 == items.len())?;
-            PathStep::Len
-        } else {
-            PathStep::Field(expect(env, items, n)?)
-        });
-    }
-    Ok(steps)
+    (from..items.len())
+        .map(
+            |n| match (expect::<u32>(env, items, n), expect::<bool>(env, items, n)) {
+                (Ok(i), _) => Ok(PathStep::Index(i)),
+                (_, Ok(true)) => ensure(n + 1 == items.len()).map(|_| PathStep::Len),
+                _ => match decode_leaf(env, &at(items, n)?, 1)? {
+                    Leaf::Lit(k) => Ok(PathStep::Key(k)),
+                    _ => Err(DecodeError::MalformedPredicate),
+                },
+            },
+        )
+        .collect()
 }
 
 /// Decoder side: `Err(MalformedPredicate)` unless `ok` (the contract's `deny_unless` panics).

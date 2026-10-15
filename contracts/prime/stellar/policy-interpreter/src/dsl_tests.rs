@@ -19,7 +19,6 @@
 
 extern crate alloc;
 
-use alloc::string::ToString;
 use alloc::vec::Vec as StdVec;
 
 use crate::dsl::{
@@ -165,7 +164,7 @@ fn leaf_to_scval(env: &Env, l: &Leaf) -> ScVal {
         Leaf::CallFn => vec_scval(&[sym("call_fn")]),
         Leaf::CallPath(steps) => {
             let mut items = alloc::vec![sym("call_path")];
-            items.extend(steps_scval(steps));
+            items.extend(steps_scval(env, steps));
             vec_scval(&items)
         }
         Leaf::Now => vec_scval(&[sym("now")]),
@@ -176,7 +175,7 @@ fn leaf_to_scval(env: &Env, l: &Leaf) -> ScVal {
                 scval_of(env, func.clone()),
                 scval_of(env, args.clone()),
             ];
-            items.extend(steps_scval(steps));
+            items.extend(steps_scval(env, steps));
             vec_scval(&items)
         }
         Leaf::Scaled(k, den) => vec_scval(&[
@@ -195,15 +194,17 @@ fn scval_of<T: IntoVal<Env, Val>>(env: &Env, v: T) -> ScVal {
     ScVal::from_xdr(env, &v.to_xdr(env)).expect("round-trip")
 }
 
-fn steps_scval(steps: &[PathStep]) -> StdVec<ScVal> {
+fn key(env: &Env, name: &str) -> PathStep {
+    PathStep::Key(Symbol::new(env, name).into_val(env))
+}
+
+fn steps_scval(env: &Env, steps: &[PathStep]) -> StdVec<ScVal> {
     steps
         .iter()
         .map(|st| match st {
             PathStep::Index(i) => u32_scval(*i),
             PathStep::Len => ScVal::Bool(true),
-            PathStep::Field(f) => ScVal::Symbol(soroban_sdk::xdr::ScSymbol(
-                f.to_string().as_bytes().to_vec().try_into().unwrap(),
-            )),
+            PathStep::Key(k) => vec_scval(&[sym("lit"), scval_of(env, *k)]),
         })
         .collect()
 }
@@ -502,7 +503,7 @@ fn sel_call_arg_field_eq_u32_match_permits() {
         left: Leaf::CallPath(alloc::vec![
             PathStep::Index(0),
             PathStep::Index(0),
-            PathStep::Field(Symbol::new(&env, "request_type")),
+            key(&env, "request_type"),
         ]),
         right: lu(&env, 3),
     };
@@ -531,7 +532,7 @@ fn at(env: &Env, element: u32, index_in_args: u32) -> Leaf {
     Leaf::CallPath(alloc::vec![
         PathStep::Index(0),
         PathStep::Index(element),
-        PathStep::Field(Symbol::new(env, "args")),
+        key(env, "args"),
         PathStep::Index(index_in_args),
     ])
 }
@@ -625,10 +626,10 @@ fn sel_call_path_reaches_a_nested_request_amount() {
         left: Leaf::CallPath(alloc::vec![
             PathStep::Index(0),
             PathStep::Index(0),
-            PathStep::Field(Symbol::new(&env, "args")),
+            key(&env, "args"),
             PathStep::Index(0),
             PathStep::Index(0),
-            PathStep::Field(Symbol::new(&env, "amount")),
+            key(&env, "amount"),
         ]),
         right: li(&env, 42),
     };
@@ -713,7 +714,7 @@ fn call_path_wrong_step_kind_denies_rather_than_panics() {
     assert!(denies_with(
         &env,
         &ctx,
-        path_leaf(alloc::vec![PathStep::Field(Symbol::new(&env, "nope"))])
+        path_leaf(alloc::vec![key(&env, "nope")])
     ));
     // A vector index where a map key belongs.
     assert!(denies_with(
@@ -732,7 +733,7 @@ fn call_path_wrong_step_kind_denies_rather_than_panics() {
         path_leaf(alloc::vec![
             PathStep::Index(0),
             PathStep::Index(0),
-            PathStep::Field(Symbol::new(&env, "absent"))
+            key(&env, "absent")
         ])
     ));
     // An index past the end.
@@ -793,15 +794,16 @@ fn call_path_accepts_exactly_the_cap() {
 }
 
 #[test]
-fn call_path_step_of_an_unsupported_type_is_malformed() {
+fn call_path_step_that_is_not_a_constant_is_malformed() {
+    // A step is an index, `true`, or a constant key; a selector is none of them.
     let env = Env::default();
     let bogus = vec_scval(&[
         sym("eq"),
-        vec_scval(&[sym("call_path"), u32_scval(0), i128_scval(3)]),
+        vec_scval(&[sym("call_path"), u32_scval(0), vec_scval(&[sym("call_fn")])]),
         u32_scval(1),
     ]);
     let err =
-        decode(&env, &bytes_from_scval(&env, bogus)).expect_err("an i128 step must be refused");
+        decode(&env, &bytes_from_scval(&env, bogus)).expect_err("a selector step must be refused");
     assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
 }
 
@@ -818,7 +820,7 @@ fn call_path_compared_with_itself_is_vacuously_true() {
     let same = path_leaf(alloc::vec![
         PathStep::Index(0),
         PathStep::Index(0),
-        PathStep::Field(Symbol::new(&env, "args")),
+        key(&env, "args"),
         PathStep::Index(2),
     ]);
     let n = Node::Compare {
@@ -1677,13 +1679,9 @@ fn decode_lowers_call_arg_leaves_to_paths() {
     let Leaf::CallPath(steps) = left else {
         panic!("path")
     };
-    assert_eq!(
-        steps,
-        StdVec::from([
-            PathStep::Index(1),
-            PathStep::Index(2),
-            PathStep::Field(Symbol::new(&env, "amount"))
-        ])
+    let amount: Val = Symbol::new(&env, "amount").into_val(&env);
+    assert!(
+        matches!(&steps[..], [PathStep::Index(1), PathStep::Index(2), PathStep::Key(k)] if k.shallow_eq(&amount))
     );
 }
 

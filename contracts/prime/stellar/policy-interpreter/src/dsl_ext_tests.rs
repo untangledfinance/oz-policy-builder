@@ -410,3 +410,80 @@ fn nin_counts_the_needle_once_per_entry_toward_the_leaf_cap() {
         "256 leaves"
     );
 }
+
+// ---- D: map keys of any constant -------------------------------------------
+
+#[test]
+fn an_address_keyed_map_is_walked_with_a_lit_key() {
+    let book = |a: i128, b: i128| map(&[(account(1), n(a)), (account(2), n(b))]);
+    let cap = cmp("lte", path(&[ScVal::U32(0), lit(account(1))]), n(150));
+    assert!(permits(&cap, &[book(100, 900)]));
+    assert!(
+        denies(&cap, &[book(151, 0)]),
+        "the key's own value, not the other"
+    );
+    assert!(denies(&cap, &[map(&[(account(3), n(1))])]), "key absent");
+    assert!(denies(&cap, &[n(5)]), "not a map");
+    let second = cmp("eq", path(&[ScVal::U32(0), lit(account(2))]), n(900));
+    assert!(permits(&second, &[book(100, 900)]) && denies(&second, &[book(100, 1)]));
+}
+
+#[test]
+fn a_bare_address_or_symbol_is_a_key_too() {
+    let by_addr = cmp("eq", path(&[ScVal::U32(0), account(1)]), n(7));
+    assert!(permits(&by_addr, &[map(&[(account(1), n(7))])]));
+    let by_sym = cmp("eq", path(&[ScVal::U32(0), sym("fee")]), n(7));
+    assert!(permits(&by_sym, &[map(&[(sym("fee"), n(7))])]));
+    assert!(denies(&by_sym, &[map(&[(sym("tax"), n(7))])]));
+}
+
+#[test]
+fn a_numeric_key_needs_lit_because_a_bare_u32_is_an_index() {
+    let m = map(&[(ScVal::U32(7), n(5))]);
+    let keyed = cmp("eq", path(&[ScVal::U32(0), lit(ScVal::U32(7))]), n(5));
+    assert!(permits(&keyed, &[m.clone()]));
+    let bare = cmp("eq", path(&[ScVal::U32(0), ScVal::U32(7)]), n(5));
+    assert!(
+        denies(&bare, &[m.clone()]),
+        "a bare u32 indexes a vec, never a map"
+    );
+    let vec = tup(&[n(0), n(0), n(0), n(0), n(0), n(0), n(0), n(5)]);
+    assert!(permits(&bare, &[vec.clone()]) && denies(&keyed, &[vec]));
+    // The key's type is part of it: an i128 7 is not a u32 7.
+    let wide = cmp("eq", path(&[ScVal::U32(0), n(7)]), n(5));
+    assert!(denies(&wide, &[m]));
+    assert!(permits(&wide, &[map(&[(n(7), n(5))])]));
+}
+
+#[test]
+fn text_bool_and_bytes_keys() {
+    for (k, other) in [
+        (text("usd"), text("eur")),
+        (ScVal::Bool(true), ScVal::Bool(false)),
+        (blob(&[1, 2]), blob(&[1, 3])),
+    ] {
+        let p = cmp("eq", path(&[ScVal::U32(0), lit(k.clone())]), n(1));
+        assert!(permits(&p, &[map(&[(k.clone(), n(1))])]));
+        assert!(denies(&p, &[map(&[(other, n(1))])]));
+    }
+}
+
+#[test]
+fn a_step_that_is_not_a_constant_is_refused() {
+    let selector = path(&[ScVal::U32(0), tup(&[sym("call_fn")])]);
+    assert_eq!(refused(&cmp("eq", selector, n(1))), MALFORMED);
+    let bad = path(&[ScVal::U32(0), tup(&[sym("lit")])]);
+    assert_eq!(refused(&cmp("eq", bad, n(1))), MALFORMED);
+}
+
+#[test]
+fn len_is_still_only_the_last_step() {
+    let ok = cmp("eq", path(&[ScVal::U32(0), ScVal::Bool(true)]), n(2));
+    assert!(permits(&ok, &[tup(&[n(1), n(1)])]));
+    let mid = cmp(
+        "eq",
+        path(&[ScVal::U32(0), ScVal::Bool(true), ScVal::U32(0)]),
+        n(2),
+    );
+    assert_eq!(refused(&mid), MALFORMED);
+}
