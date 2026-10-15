@@ -591,17 +591,14 @@ fn payment(to: u8, amount: i128) -> ScVal {
     map(&[(sym("to"), account(to)), (sym("amount"), n(amount))])
 }
 
-/// Multi-recipient payout: every recipient is approved, none is paid over 500,
-/// and the batch total is at most 1000. The body has 6 leaves (192 of the 200
-/// budget), the vector 1 and the total 3: 196.
+/// Multi-recipient payout: every recipient is approved, no amount is negative
+/// (so the total cannot be lowered by one), and the batch total is at most 1000.
+/// The body has 5 leaves (160 of the 200 budget), the vector 1 and the total 34
+/// (a `sum` weighs `MAX_ELEMS`, as it walks that many elements): 195.
 fn payout_rule() -> ScVal {
     let body = and(&[
-        set(
-            "in",
-            elem(&[sym("to")]),
-            &[account(1), account(2), account(3)],
-        ),
-        cmp("lte", elem(&[sym("amount")]), n(500)),
+        set("in", elem(&[sym("to")]), &[account(1), account(2)]),
+        cmp("gte", elem(&[sym("amount")]), n(0)),
     ]);
     and(&[
         all_of(path(&[ScVal::U32(0)]), body),
@@ -614,15 +611,17 @@ fn payout_rule() -> ScVal {
 }
 
 #[test]
-fn payout_permits_approved_recipients_within_the_caps() {
+fn payout_permits_approved_recipients_within_the_total() {
     let p = payout_rule();
-    assert!(permits(&p, &[list(&[payment(1, 400), payment(2, 500)])]));
-    assert!(permits(&p, &[list(&[payment(3, 500)])]));
+    assert!(permits(&p, &[list(&[payment(1, 400), payment(2, 600)])]));
+    assert!(permits(&p, &[list(&[payment(2, 1000)])]));
+    assert!(permits(&p, &[list(&[payment(1, 0)])]));
 }
 
 #[test]
 fn payout_refuses_each_way_of_breaking_a_rule() {
     let p = payout_rule();
+    let one = |pay: ScVal| [list(&[pay])];
     assert!(
         denies(&p, &[list(&[payment(1, 100), payment(9, 100)])]),
         "stranger"
@@ -631,22 +630,18 @@ fn payout_refuses_each_way_of_breaking_a_rule() {
         denies(&p, &[list(&[payment(9, 100), payment(1, 100)])]),
         "stranger first"
     );
+    assert!(denies(&p, &one(payment(1, -1))), "a negative amount");
+    // the negative one is what would lower the total of a larger payment
     assert!(
-        denies(&p, &[list(&[payment(1, 501)])]),
-        "one payment over its cap"
+        denies(&p, &[list(&[payment(1, 1500), payment(2, -600)])]),
+        "net 900"
     );
+    assert!(denies(&p, &one(payment(1, 1001))), "over the total");
     assert!(
-        denies(
-            &p,
-            &[list(&[payment(1, 400), payment(2, 400), payment(3, 400)])]
-        ),
-        "total"
-    );
-    assert!(
-        denies(&p, &[list(&[map(&[(sym("to"), account(1))])])]),
+        denies(&p, &one(map(&[(sym("to"), account(1))]))),
         "no amount"
     );
-    assert!(denies(&p, &[list(&[n(5)])]), "element is not a map");
+    assert!(denies(&p, &one(n(5))), "element is not a map");
     assert!(denies(&p, &[n(5)]), "not a vector");
     assert!(denies(&p, &[]), "no argument");
 }
@@ -661,6 +656,19 @@ fn payout_total_is_checked_at_its_boundary() {
     assert!(
         denies(&p, &[list(&[payment(1, 500), payment(2, 501)])]),
         "1001"
+    );
+}
+
+#[test]
+fn a_sum_weighs_as_many_leaves_as_it_walks_elements() {
+    // gte(sum(v), 0) is a sum (32) + its vector (1) + the constant (1): 34 leaves.
+    let total = || cmp("gte", sum(path(&[ScVal::U32(0)]), &[]), n(0));
+    let sums = |k: usize| and(&(0..k).map(|_| total()).collect::<StdVec<_>>());
+    assert_eq!(refused(&sums(5)), None, "170 leaves");
+    assert_eq!(
+        refused(&sums(6)),
+        Some(DecodeError::TooManyLeaves),
+        "204 leaves"
     );
 }
 

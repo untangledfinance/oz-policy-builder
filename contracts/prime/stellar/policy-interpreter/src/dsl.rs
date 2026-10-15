@@ -505,10 +505,13 @@ pub fn has_selector_leaf(root: &Node) -> bool {
 
 /// Every leaf of the tree, nested `scaled` operands and `read` arguments
 /// included, each with its weight: how many times evaluation may reach it, which
-/// is `MAX_ELEMS` for every leaf of a quantifier body and 1 elsewhere.
+/// is `MAX_ELEMS` for every leaf of a quantifier body, `MAX_ELEMS` for a `sum`
+/// (it walks that many elements), and 1 elsewhere.
 fn leaves(node: &Node) -> Vec<(&Leaf, u32)> {
     fn nested<'a>(leaf: &'a Leaf, w: u32, out: &mut Vec<(&'a Leaf, u32)>) {
-        out.push((leaf, w));
+        // A `sum` walks up to MAX_ELEMS elements, so it weighs that much itself.
+        let sum = matches!(leaf, Leaf::Sum(..));
+        out.push((leaf, if sum { w * MAX_ELEMS } else { w }));
         match leaf {
             Leaf::Scaled(inner, _) => inner.iter().for_each(|l| nested(l, w, out)),
             Leaf::Read(_, _, args, _) => args.iter().for_each(|l| nested(l, w, out)),
@@ -610,11 +613,11 @@ pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
             }
         }
     }
-    // `elem` only in a quantifier body (weight `MAX_ELEMS`), `sum` and a nested
-    // quantifier (weight above it) never in one.
+    // `elem` only in a quantifier body (weight `MAX_ELEMS`); a `sum` only outside
+    // one (its own weight is `MAX_ELEMS`), and a nested quantifier never.
     let placed = |(l, w): &(&Leaf, u32)| match l {
         Leaf::Elem(_) => *w == MAX_ELEMS,
-        Leaf::Sum(..) => *w == 1,
+        Leaf::Sum(..) => *w == MAX_ELEMS,
         _ => *w <= MAX_ELEMS,
     };
     ensure(all.iter().all(placed))?;
