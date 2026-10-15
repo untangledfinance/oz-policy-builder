@@ -38,6 +38,55 @@ describe('parity with the contract (fixtures/parity/grammar7.json)', () => {
   }
 })
 
+// ---- the edge corpus (fixtures/parity/accuracy.json): 106 shapes at the edges of the wire
+// format, as the host's canonical bytes, with what `check` says about each ----
+
+const edges: { name: string; xdr: string; check: number; installEnforce: number }[] = JSON.parse(
+  readFileSync(new URL('../fixtures/parity/accuracy.json', import.meta.url), 'utf8')
+).cases
+
+describe("the edge corpus: the host's bytes, byte for byte, and the contract's refusals, case for case", () => {
+  it('has 106 cases, on which check and a real install + enforce agree', () => {
+    expect(edges).toHaveLength(106)
+    for (const c of edges) expect(c.check).toBe(c.installEnforce)
+  })
+  for (const c of edges) {
+    it(`${c.name}: decode then encode gives the host's bytes`, () => {
+      expect(encode(decode(c.xdr))).toBe(c.xdr)
+    })
+    it(`${c.name}: validate ${REFUSED.has(c.check) ? 'refuses' : 'accepts'} like check (${c.check})`, () => {
+      const e = decode(c.xdr)
+      if (REFUSED.has(c.check)) expect(() => validate(e)).toThrow(WireError)
+      else expect(() => validate(e)).not.toThrow()
+    })
+  }
+
+  it('map entries written in any order are sorted as the host sorts them', () => {
+    for (const c of edges) {
+      const e = decode(c.xdr)
+      const flip = (v: Val): Val =>
+        Array.isArray(v)
+          ? v.map(flip)
+          : v !== null && typeof v === 'object' && 'map' in v
+            ? { map: [...v.map].reverse().map(([k, x]) => [flip(k), flip(x)] as [Val, Val]) }
+            : v
+      expect(encode(flip(e))).toBe(c.xdr)
+    }
+  })
+})
+
+describe('a string that is not text, and the empty symbol', () => {
+  it('keeps the bytes of a string that is not UTF-8 (they are not text, so they are hex)', () => {
+    const v: Val = { stringHex: 'fffe41' }
+    const back = decode(encode(v))
+    expect(back).toEqual(v)
+    expect(decode(encode({ string: 'héllo €' }))).toEqual({ string: 'héllo €' })
+  })
+  it('the empty symbol is a symbol', () => {
+    expect(decode(encode(['eq', ['call_fn'], '']))).toEqual(['eq', ['call_fn'], ''])
+  })
+})
+
 const HASH = 'cf1a39b616d66c17e7645d181c7842dc57f1b529006da4a7fe9380d9a5658244' // sha256 of the corpus case "eq fn", taken with sha256sum
 const G = 'GDVCJST665C2GG4NNSQI6W2YIUX4HCIOEFWUJB7UDMHQEETEIGA5FTCO'
 
@@ -47,7 +96,6 @@ describe('the codec refuses what it cannot encode exactly', () => {
     ['a number past u32', 2 ** 32],
     ['a fraction', 1.5],
     ['a symbol with a space', 'a b'],
-    ['an empty symbol', ''],
     ['a symbol over 32 characters', 'a'.repeat(33)],
     ['an i128 out of range', { i128: (2n ** 127n).toString() }],
     ['a u64 below zero', { u64: '-1' }],
@@ -317,5 +365,19 @@ describe('validate: what is not a node, and the byte cap to the byte', () => {
     expect(Buffer.from(encode(sized(exact)), 'base64').length).toBe(32 * 1024)
     expect(() => validate(sized(exact))).not.toThrow()
     expect(() => validate(sized(exact + 4))).toThrow(/32768 bytes/)
+  })
+})
+
+describe('validate does not throw anything but a WireError', () => {
+  it('a malformed den is refused as a wire error', () => {
+    const e = (den: Val): Val => [
+      'eq',
+      ['call_arg', 0],
+      ['scaled', ['call_arg', 1], { i128: '1' }, den, { i128: '0' }],
+    ]
+    expect(() => validate(e({ i128: 'abc' }))).toThrow(WireError)
+    expect(() => validate(e({ i128: '0' }))).toThrow(WireError)
+    expect(() => validate(e({ i128: '1000000000000000001' }))).toThrow(WireError)
+    expect(() => validate(e({ i128: '1000000000000000000' }))).not.toThrow()
   })
 })

@@ -17,7 +17,8 @@
 //   [..]            Vec (a vec whose head is a symbol is a selector or node)
 //   {"i128": "5"}   a one-key object for every other type: i128 u128 i64 u64 i256
 //                   u256 timepoint duration (decimal strings), i32 (a number),
-//                   bytes (hex), string, map ([[k, v], ...])
+//                   bytes (hex), string (text; stringHex: hex, for a string that
+//                   is not UTF-8), map ([[k, v], ...])
 //
 // Parity with the contract is checked against the corpus the contract's own test
 // writes (`fixtures/parity/grammar7.json`).
@@ -37,13 +38,14 @@ export type Tagged =
   | { i32: number }
   | { bytes: string }
   | { string: string }
+  | { stringHex: string }
   | { map: [Val, Val][] }
 export type Val = null | boolean | number | string | Val[] | Tagged
 /** An expression is a value: the node tree and its constants are one thing. */
 export type Expr = Val
 
 const ADDRESS = /^(?:[GC][A-Z2-7]{55}|M[A-Z2-7]{68})$/
-const SYMBOL = /^[A-Za-z0-9_]{1,32}$/
+const SYMBOL = /^[A-Za-z0-9_]{0,32}$/
 export const BITS: Record<string, [number, boolean]> = {
   i128: [128, true],
   u128: [128, false],
@@ -110,6 +112,9 @@ export function toScVal(v: Val): xdr.ScVal {
     return xdr.ScVal.scvBytes(Buffer.from(x, 'hex'))
   }
   if (tag === 'string' && typeof x === 'string') return xdr.ScVal.scvString(x)
+  if (tag === 'stringHex' && typeof x === 'string' && /^(?:[0-9a-f]{2})*$/i.test(x)) {
+    return xdr.ScVal.scvString(Buffer.from(x, 'hex'))
+  }
   if (tag === 'map' && Array.isArray(x)) {
     const entries = x.map(([k, val]: [Val, Val]) => ({ key: toScVal(k), val: toScVal(val) }))
     // The host keeps map keys sorted and unique; an unsorted map would not load.
@@ -122,8 +127,9 @@ export function toScVal(v: Val): xdr.ScVal {
   throw new WireError(`not a value: ${JSON.stringify(v)}`)
 }
 
-/** The host's order for map keys: by type, then by value (a number by value,
- *  text and bytes byte by byte; the XDR length prefix would sort them wrong). */
+/** The host's order for map keys (the order of `ScVal`): by type, then by value. A
+ *  number compares by value, text and bytes byte by byte, a vec or a map entry by
+ *  entry and then by length; the XDR length prefix would sort them wrong. */
 function order(a: xdr.ScVal, b: xdr.ScVal): number {
   const [ta, tb] = [a.switch().value, b.switch().value]
   if (ta !== tb) return ta - tb
@@ -133,9 +139,28 @@ function order(a: xdr.ScVal, b: xdr.ScVal): number {
     big ? scValToBigInt(s) : name === 'scvU32' ? s.u32() : name === 'scvI32' ? s.i32() : undefined
   const [x, y] = [raw(a), raw(b)]
   if (x !== undefined && y !== undefined) return x < y ? -1 : x > y ? 1 : 0
-  const bytes = (s: xdr.ScVal) =>
-    name === 'scvSymbol' ? s.sym() : name === 'scvString' ? s.str() : s.toXDR()
-  return Buffer.compare(Buffer.from(bytes(a)), Buffer.from(bytes(b)))
+  const each = (xs: xdr.ScVal[], ys: xdr.ScVal[]) =>
+    xs.reduce((r, v, i) => r || (ys[i] ? order(v, ys[i]) : 1), 0) || xs.length - ys.length
+  switch (name) {
+    case 'scvBool':
+      return Number(a.b()) - Number(b.b())
+    case 'scvBytes':
+      return Buffer.compare(a.bytes(), b.bytes())
+    case 'scvString':
+      return Buffer.compare(Buffer.from(a.str()), Buffer.from(b.str()))
+    case 'scvSymbol':
+      return Buffer.compare(Buffer.from(a.sym()), Buffer.from(b.sym()))
+    case 'scvVec':
+      return each(a.vec() ?? [], b.vec() ?? [])
+    case 'scvMap': {
+      const [m, n] = [a.map() ?? [], b.map() ?? []]
+      return each(
+        m.flatMap((e) => [e.key(), e.val()]),
+        n.flatMap((e) => [e.key(), e.val()])
+      )
+    }
+  }
+  return Buffer.compare(a.toXDR(), b.toXDR())
 }
 
 export function fromScVal(s: xdr.ScVal): Val {
@@ -157,8 +182,11 @@ export function fromScVal(s: xdr.ScVal): Val {
       return (s.vec() ?? []).map(fromScVal)
     case 'scvBytes':
       return { bytes: Buffer.from(s.bytes()).toString('hex') }
-    case 'scvString':
-      return { string: s.str().toString() }
+    case 'scvString': {
+      const raw = Buffer.from(s.str())
+      const text = raw.toString('utf8')
+      return Buffer.from(text).equals(raw) ? { string: text } : { stringHex: raw.toString('hex') }
+    }
     case 'scvMap':
       return { map: (s.map() ?? []).map((e) => [fromScVal(e.key()), fromScVal(e.val())]) }
   }
@@ -175,6 +203,12 @@ export const hashOf = (b64: string): string =>
   createHash('sha256').update(Buffer.from(b64, 'base64')).digest('hex')
 
 // ---- the contract's decode refusals, mirrored ----
+//
+// `validate` accepts and refuses exactly what `install`'s decoder does (`dsl.rs`:
+// 201 for a malformed predicate, 216 for no leaf over the call), so a rule that
+// leaves here is a rule that installs. The edge corpus (`fixtures/parity/accuracy.json`)
+// and the grammar corpus hold it to that, case by case; the contract stays the
+// authority, and `check` is the way to ask it.
 
 /** `dsl.rs`: the caps decode enforces. A quantifier body and a `sum` weigh `elems` leaves. */
 export const CAPS = {
@@ -187,6 +221,8 @@ export const CAPS = {
   elems: 32,
 } as const
 const MAX_DEN = 10n ** 18n
+const I128 = 2n ** 127n
+const fits = (x: bigint) => x >= -I128 && x < I128
 
 /** Exact arity of a selector, head included; the path selectors take their own minimum. */
 const ARITY: Record<string, number> = {
@@ -204,9 +240,32 @@ const COMPARE = new Set(['eq', 'ne', 'lt', 'lte', 'gt', 'gte'])
 /** A leaf that reads the call: every known selector named `call_*`. */
 const isCall = (head: string) => head.startsWith('call_')
 
-/** A constant's value when the contract reads it as a number (any integer of up
- *  to 128 bits, a timepoint or a duration; not a 256-bit integer), else undefined. */
-const numOf = (v: Val) => (isTagged(v) && ('i256' in v || 'u256' in v) ? undefined : intOf(v))
+/** A constant's value when the contract reads it as a number: an integer of up to
+ *  128 bits, a timepoint or a duration; a `u128` only when it fits an `i128`, and
+ *  never a 256-bit integer. */
+const numOf = (v: Val) =>
+  isTagged(v) && ('i256' in v || 'u256' in v)
+    ? undefined
+    : [intOf(v)].find((n) => n !== undefined && fits(n))
+
+/** `src * num / den + add`, truncating toward zero, each step checked against `i128`. */
+const scale = (src: bigint, num: bigint, den: bigint, add: bigint): bigint | undefined => {
+  const p = src * num
+  const r = fits(p) ? p / den + add : undefined
+  return r !== undefined && fits(r) ? r : undefined
+}
+
+/** The value of a leaf made of constants alone (a `scaled` of constants folds), else undefined. */
+function constant(v: Val): bigint | undefined {
+  if (!isSelector(v)) return numOf(v)
+  if (v[0] === 'lit') return numOf(v[1] as Val)
+  if (v[0] !== 'scaled') return undefined
+  const [s, n, a] = [v[1], v[2], v[4]].map((x) => constant(x as Val))
+  const d = intOf(v[3])
+  return s === undefined || n === undefined || a === undefined || d === undefined
+    ? undefined
+    : scale(s, n, d, a)
+}
 
 interface Walk {
   weight: number
@@ -215,8 +274,7 @@ interface Walk {
 }
 
 /** Throws `WireError` for what the contract's decoder refuses at install (201, 216),
- *  and for an oversized encoding (207). Everything it accepts the contract may
- *  still refuse for a reason this does not model (`check` is the authority). */
+ *  and for an oversized encoding (207). */
 export function validate(expr: Expr): void {
   const w: Walk = { weight: 0, reads: new Set(), selector: false }
   node(expr, 1, false, w)
@@ -264,8 +322,8 @@ function node(e: Expr, depth: number, body: boolean, w: Walk): void {
     const entries = list(b)
     if (entries.length > CAPS.entries) bad(`${op}: more than ${CAPS.entries} entries`)
     for (const x of entries) {
-      if (!isConstant(x)) bad(`${op}: entries are constants`)
       leaf(x, 1, body, w)
+      if (!isConstant(x)) bad(`${op}: entries are constants`)
     }
   } else if ((op === 'all' || op === 'any') && r.length === 2) {
     if (body) bad('a quantifier inside a quantifier')
@@ -280,11 +338,16 @@ function node(e: Expr, depth: number, body: boolean, w: Walk): void {
   }
 }
 
+/** A step index: a u32. */
+const index = (x: Val | undefined): void => {
+  if (typeof x !== 'number') bad('an index is a u32')
+}
+
 function leaf(v: Val, nest: number, body: boolean, w: Walk): void {
   if (nest > CAPS.depth) bad(`leaf nested deeper than ${CAPS.depth}`)
   w.weight += 1
   if (!isSelector(v)) {
-    constant(v, nest)
+    constantValue(v, nest)
     return
   }
   const [head, ...r] = v
@@ -296,30 +359,27 @@ function leaf(v: Val, nest: number, body: boolean, w: Walk): void {
   const next = (x: Val) => leaf(x, nest + 1, body, w)
   if (isCall(head)) w.selector = true
   if (head === 'elem' && !body) bad('elem outside a quantifier body')
+  if (head === 'call_arg' || head === 'call_arg_len') index(r[0])
+  if (head === 'call_arg_field') {
+    index(r[0])
+    index(r[1])
+    steps(r.slice(2))
+  }
   if (head === 'call_path' || head === 'elem') steps(r)
   if (head === 'sum') {
     if (body) bad('a sum inside a quantifier')
-    w.weight += CAPS.elems
+    // A sum walks up to `elems` elements, so it weighs that many leaves in all.
+    w.weight += CAPS.elems - 1
     next(r[0] as Val)
     steps(r.slice(1))
   }
-  if (head === 'scaled') {
-    const den = r[2] as Val
-    const n = isTagged(den) && 'i128' in den ? den.i128 : null
-    if (n === null || BigInt(n) < 1n || BigInt(n) > MAX_DEN)
-      bad('scaled: den must be an i128 in 1..10^18')
-    for (const x of [r[0], r[1], r[3]] as Val[]) {
-      next(x)
-      if (isConstant(x) && numOf(unlit(x)) === undefined) bad('scaled: operands are numbers')
-    }
-    for (const x of [r[0], r[1]] as Val[]) {
-      if ((numOf(unlit(x)) ?? 1n) <= 0n) bad('scaled: a constant factor must be positive')
-    }
-  }
+  if (head === 'scaled') scaledLeaf(r, next)
   if (head === 'read') {
     const [target, fn, args] = r as [Val, Val, Val]
-    if (typeof target !== 'string' || !target.startsWith('C')) bad('read: target is a contract')
-    if (typeof fn !== 'string' || !Array.isArray(args)) bad('read: (contract, fn, [args], path...)')
+    if (typeof target !== 'string' || !target.startsWith('C') || !isAddress(target))
+      bad('read: target is a contract')
+    if (typeof fn !== 'string' || isAddress(fn) || !Array.isArray(args))
+      bad('read: (contract, fn, [args], path...)')
     steps(r.slice(3))
     for (const x of args as Val[]) {
       if (isSelector(x) && !isCall(x[0]) && x[0] !== 'now' && x[0] !== 'lit') {
@@ -330,29 +390,54 @@ function leaf(v: Val, nest: number, body: boolean, w: Walk): void {
     // Reads of one call with constant arguments are one call; a read with an
     // argument taken from the call is its own, whatever it resembles.
     const fixed = (args as Val[]).every(isConstant)
-    w.reads.add(JSON.stringify([target, fn, fixed ? args : w.reads.size]))
+    w.reads.add(JSON.stringify([target, fn, fixed ? (args as Val[]).map(unlit) : w.reads.size]))
   }
 }
 
+/** `scaled(src, num, den, add)`: the operands are numbers read from the call or constants,
+ *  `den` is an i128 constant in 1..10^18, a constant `src` or `num` (a fold of constants
+ *  included) is positive, and a fold of constants does not overflow. */
+function scaledLeaf(r: Val[], next: (x: Val) => void): void {
+  const den = r[2] as Val
+  const d = (isTagged(den) && 'i128' in den ? intOf(den) : undefined) ?? 0n
+  if (d < 1n || d > MAX_DEN) bad('scaled: den must be an i128 in 1..10^18')
+  const [src, num, add] = [r[0], r[1], r[3]] as [Val, Val, Val]
+  for (const x of [src, num, add]) {
+    next(x)
+    if (isConstant(x) && numOf(unlit(x)) === undefined) bad('scaled: operands are numbers')
+    if (isSelector(x) && (x[0] === 'call_contract' || x[0] === 'call_fn'))
+      bad('scaled: an operand is a number, not an identity')
+  }
+  const [s, f, a] = [src, num, add].map((x) => constant(x))
+  if ([s, f].some((c) => c !== undefined && c <= 0n))
+    bad('scaled: a constant factor must be positive')
+  if (s !== undefined && f !== undefined && scale(s, f, d, a ?? 0n) === undefined)
+    bad('scaled: a constant that overflows')
+}
+
 /** A bare constant: a value, or a non-empty vec of them (never a selector or a map). */
-function constant(v: Val, nest: number): void {
+function constantValue(v: Val, nest: number): void {
   if (nest > CAPS.depth) bad('a constant is nested too deep')
   if (Array.isArray(v)) {
     if (v.length === 0) bad('an empty vec constant')
     for (const x of v) {
       if (isSelector(x)) bad('a bare vec holds plain values: write lit([...])')
-      constant(x, nest + 1)
+      constantValue(x, nest + 1)
     }
   } else if (isTagged(v) && 'map' in v) {
     bad('a bare map: write lit({...})')
   }
 }
 
-/** A path: u32 indexes, a symbol or `lit` key, and a final `true` (the length). */
+/** A path: u32 indexes, constant keys (a symbol, a bare value, or `lit(x)`), and a final
+ *  `true` (the length). The last step may be the only one, up to `steps` of them. */
 function steps(s: Val[]): void {
   if (s.length > CAPS.steps) bad(`a path of at most ${CAPS.steps} steps`)
   s.forEach((x, i) => {
     if (x === true && i !== s.length - 1) bad('the length step is last')
+    if (typeof x === 'number' || x === true) return
     if (isSelector(x) && x[0] !== 'lit') bad('a path step is not a selector')
+    // The contract reads a key as it reads a constant leaf, at depth 1.
+    if (!isSelector(x)) constantValue(x, 1)
   })
 }
