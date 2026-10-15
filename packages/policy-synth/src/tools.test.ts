@@ -238,12 +238,17 @@ describe('synthesize_policy', () => {
     ])
     const [rule] = r.data.rules
     expect(rule.contract).toBe(TOKEN)
+    const short = (a: string) => `${a.slice(0, 4)}…${a.slice(-4)}`
     expect(rule.review).toEqual([
-      `the contract must be ${TOKEN}`,
-      'the function must be transfer',
-      `argument 0 must be ${account(1)}`,
-      `argument 1 must be ${account(2)}`,
+      short(TOKEN),
+      '└─ transfer',
+      `   ├─ argument 0:  must be  ${short(account(1))}`,
+      `   └─ argument 1:  must be  ${short(account(2))}`,
     ])
+    // The tree carries the wire leaves it was read from, and says nothing the predicate does not.
+    expect(rule.reviewTree[0]).toMatchObject({ op: 'contract', value: TOKEN })
+    expect(rule.reviewTree[0].raw).toEqual(['eq', ['call_contract'], TOKEN])
+    expect(rule.reviewTree[0].children[0].children[1].raw).toEqual(rule.predicate[1][3])
     expect(rule.predicateHash).toBe(hashOf(rule.encodedPredicate))
     expect(rule.encodedPredicate).toBe(encode(rule.predicate))
   })
@@ -251,7 +256,27 @@ describe('synthesize_policy', () => {
   it('answered with a limit, the cap is in the rule', async () => {
     const r = await call('synthesize_policy', { xdr: transferXdr(), limit: '9000000' }, false)
     expect(r.data.ambiguities).toEqual([])
-    expect(r.data.rules[0].review.at(-1)).toBe('argument 2 must be at most 9000000')
+    expect(r.data.rules[0].review.at(-1)).toBe('   └─ argument 2:  must be at most  9000000')
+  })
+
+  it('raw: the wire index of every name, the whole address, the value as written', async () => {
+    const r = await call('synthesize_policy', { xdr: transferXdr(), limit: '9000000', raw: true })
+    expect(r.data.rules[0].review).toEqual([
+      TOKEN,
+      '└─ transfer',
+      `   ├─ argument 0 (argument 0):  must be  ${account(1)}`,
+      `   ├─ argument 1 (argument 1):  must be  ${account(2)}`,
+      '   └─ argument 2 (argument 2):  must be at most  9000000',
+    ])
+  })
+
+  it('a name the request gives an address is a label on it', async () => {
+    const r = await call('synthesize_policy', {
+      xdr: transferXdr(),
+      limit: '9000000',
+      allow: { to: [account(2)] },
+    })
+    expect(r.data.rules[0].review.at(-2)).toContain('GABA…EJXA (to)')
   })
 
   it('an intent, a template and a recording are other ways in', async () => {
@@ -259,7 +284,7 @@ describe('synthesize_policy', () => {
       calls: [{ contract: TOKEN, fn: 'pay', where: [{ constraint: 'cap', at: [0], max: '5' }] }],
     }
     expect((await call('synthesize_policy', { intent }, false)).data.rules[0].review.at(-1)).toBe(
-      'argument 0 must be at most 5'
+      '   └─ argument 0:  must be at most  5'
     )
     const template = {
       name: 'adapter_batch',
@@ -267,7 +292,7 @@ describe('synthesize_policy', () => {
     }
     expect(
       (await call('synthesize_policy', { template }, false)).data.rules[0].review.join('\n')
-    ).toContain('For every item in argument 0:')
+    ).toContain('every item of argument 0')
     const r = await call('synthesize_policy', { recording: recording('sep41'), limit: '1' }, false)
     expect(r.data.rules).toHaveLength(1)
   })
@@ -325,6 +350,23 @@ describe('simulate_policy', () => {
     expect(r.data.predicateHash).toBe(hashOf(encodedRule))
   })
 
+  it('a predicate and no call is only explained: no check is made', async () => {
+    const r = await call('simulate_policy', { expr: rule })
+    expect(r.ok).toBe(true)
+    expect(r.data.results).toEqual([])
+    expect(r.data.predicateHash).toBe(hashOf(encodedRule))
+    expect(r.data.review.at(-1)).toBe('   └─ argument 2:  must be at most  9000000')
+    expect(r.data.reviewTree[0].raw).toEqual(['eq', ['call_contract'], TOKEN])
+    const same = await call('simulate_policy', { encodedPredicate: encodedRule, raw: true })
+    expect(same.data.review.at(-1)).toBe('   └─ argument 2 (argument 2):  must be at most  9000000')
+  })
+
+  it('with calls it checks them and explains the rule too', async () => {
+    const r = await call('simulate_policy', { encodedPredicate: encodedRule, xdr: transferXdr() })
+    expect(r.data.results[0].permitted).toBe(true)
+    expect(r.data.review[0]).toBe(`${TOKEN.slice(0, 4)}…${TOKEN.slice(-4)}`)
+  })
+
   it('a call over the cap is denied with 100', async () => {
     const over = {
       contract: TOKEN,
@@ -341,7 +383,11 @@ describe('simulate_policy', () => {
   })
 
   it.each<[string, object, RegExp]>([
-    ['nothing to check', { expr: rule }, /no call to check/],
+    [
+      'nothing to check',
+      { intent: { calls: [{ contract: TOKEN, fn: 'pay' }] } },
+      /no call to check/,
+    ],
     [
       'no predicate and no source',
       { calls: [{ contract: TOKEN, fn: 'x', args: [] }] },
@@ -391,6 +437,8 @@ describe('verify_policy', () => {
     })
     expect(r.data).toMatchObject({ ok: true, minimal: true, checks: 1 + 10 })
     expect(r.data.cases).toHaveLength(5)
+    expect(r.data.review.at(-1)).toBe('   └─ argument 2:  must be at most  9000000')
+    expect(r.data.reviewTree[0].raw).toEqual(['eq', ['call_contract'], TOKEN])
   })
 
   it('takes the permit case from a recording, and says when it has none', async () => {
@@ -457,8 +505,21 @@ describe('install_policy', () => {
       [2, 'other'],
     ])
     expect(r.data.interpreter.matches).toBe(true)
-    expect(r.data.rule.review).toContain('argument 2 must be at most 9000000')
+    expect(r.data.rule.review.at(-1)).toBe('   └─ argument 2:  must be at most  9000000')
+    expect(r.data.rule.reviewTree[0].raw).toEqual(['eq', ['call_contract'], TOKEN])
     expect(r.data.unsignedXdrLength).toBe(r.data.unsignedXdr.length)
+  })
+
+  it('the review names the accounts the request names', async () => {
+    const r = await call('install_policy', {
+      ...base,
+      allowOverlap: true,
+      admins: [account(2)],
+      signers: [SIGNER, account(1)],
+    })
+    const text = r.data.rule.review.join('\n')
+    expect(text).toContain('GAAQ…DZ7H (signer)')
+    expect(text).toContain('GABA…EJXA (admin)')
   })
 
   it('a signer the account does not share is a clean install', async () => {
@@ -809,6 +870,23 @@ describe('revoke_policy', () => {
       signers: [SIGNER],
     })
   })
+  it('a rule this interpreter polices comes back with what it says', async () => {
+    const r = await call('revoke_policy', {
+      smartAccount: ACCOUNT,
+      sourceAccount: SIGNER,
+      ruleId: 2,
+    })
+    expect(r.data.removes.expr).toEqual(['and', expect.any(Array)])
+    expect(r.data.removes.review.at(-1)).toBe('   └─ argument 2:  must be at most  1000')
+    expect(r.data.removes.reviewTree[0]).toMatchObject({ op: 'contract', raw: expect.any(Array) })
+    // A rule it does not police has none.
+    const plain = await call('revoke_policy', {
+      smartAccount: ACCOUNT,
+      sourceAccount: SIGNER,
+      ruleId: 1,
+    })
+    expect(plain.data.removes.review).toBeUndefined()
+  })
   it("refuses the account's admin rule 0 unless told to", async () => {
     const base = { smartAccount: ACCOUNT, sourceAccount: SIGNER, ruleId: 0 }
     await failing('revoke_policy', base, 'REVOKE_BUILD_FAILED', /lock/)
@@ -860,6 +938,17 @@ describe('get_interpreter_info', () => {
       wasmSha256: r.data.wasmSha256,
       matches: true,
     })
+  })
+  it('explainAccount reads the rules and explains the ones this interpreter polices', async () => {
+    const r = await call('get_interpreter_info', { explainAccount: ACCOUNT })
+    const rules = r.data.account.rules
+    expect(rules.map((x: { id: number }) => x.id)).toEqual([0, 1, 2])
+    expect(r.data.account).toMatchObject({ complete: true })
+    expect(rules[0].review).toBeUndefined()
+    expect(rules[2].review.join('\n')).toContain('└─ transfer')
+    expect(rules[2].review.join('\n')).toContain('(smart account)')
+    const raw = await call('get_interpreter_info', { explainAccount: ACCOUNT, raw: true })
+    expect(raw.data.account.rules[2].review.join('\n')).toContain(ACCOUNT)
   })
   it('mainnet has no pin yet, and says so rather than guess', async () => {
     await failing(

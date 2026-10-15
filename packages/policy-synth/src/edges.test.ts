@@ -4,7 +4,6 @@
 
 import { describe, expect, it } from 'bun:test'
 import { account, contract } from '../test/fixtures.ts'
-import { card, operand } from './card.ts'
 import type { CallIntent } from './intent.ts'
 import type { Call } from './record.ts'
 import { TEMPLATES, TemplateParams } from './registry.ts'
@@ -105,19 +104,6 @@ describe('what each template lowers to', () => {
       { constraint: 'pin', at: [2], to: contract(4) },
     ])
     expect(other?.[5]).toEqual({ constraint: 'cap', at: [3, 0, 'request_type'], max: '0' })
-  })
-})
-
-describe('the review card, the edges', () => {
-  it('the length step of a path is (count); a read with one argument names it; an in list shows its lit entries as values', () => {
-    expect(card(['eq', ['call_arg_field', 3, 0, true], 1])).toEqual([
-      'argument 3 > 0 > (count) must be 1',
-    ])
-    expect(operand(['read', C, 'price', ['USD']])).toBe(`price(USD) on ${C}`)
-    expect(operand(['read', C, 'price', []])).toBe(`price() on ${C}`)
-    expect(card(['in', ['call_arg', 0], [['lit', { string: 'a' }], 5]])).toEqual([
-      'argument 0 must be one of ["a", 5]',
-    ])
   })
 })
 

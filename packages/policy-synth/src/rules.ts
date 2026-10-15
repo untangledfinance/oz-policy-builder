@@ -84,14 +84,15 @@ function scopeOf(v: Val): Scope {
   return { kind: 'default' }
 }
 
-/** The context rule `id` on `account`, or undefined when there is none. Only the account's
+/** The context rule `id` on `account` (with its stored predicate when `interpreter` polices it), or undefined when there is none. Only the account's
  *  own "no such rule" (`Error(Contract, #3000)`) means none: any other failure (a rate limit,
  *  a trap) is an error, so it is never read as an empty account. */
 export async function readRule(
   server: rpc.Server,
   network: Network,
   account: string,
-  id: number
+  id: number,
+  interpreter?: string
 ): Promise<ObservedRule | undefined> {
   let raw: Val
   try {
@@ -102,12 +103,46 @@ export async function readRule(
   }
   const f = fields(raw)
   if (f.id === undefined) return undefined
-  return {
+  const rule: ObservedRule = {
     id: f.id as number,
     scope: scopeOf(f.context_type as Val),
     signers: (f.signers as Val[]).map(signerKey),
     policies: f.policies as string[],
   }
+  // Its predicate too, when `interpreter` polices it; a rule read for what it says, so a failure is no answer.
+  if (interpreter) await readPredicates(server, interpreter, account, [rule]).catch(() => [])
+  return rule
+}
+
+/** Fill in the stored predicate of each of `rules` that `interpreter` polices (the interpreter
+ *  keeps one record per account and rule id). The ids whose record could not be read. */
+export async function readPredicates(
+  server: rpc.Server,
+  interpreter: string,
+  account: string,
+  rules: ObservedRule[]
+): Promise<number[]> {
+  const mine = rules.filter((r) => r.policies.includes(interpreter))
+  const acct = new Address(account).toScVal()
+  const docs = await entries(
+    server,
+    mine.map((r) => dataKey(interpreter, xdr.ScVal.scvVec([acct, xdr.ScVal.scvU32(r.id)])))
+  )
+  const unreadable: number[] = []
+  mine.forEach((r, i) => {
+    const bytes = (
+      fields(docs[i] && fromScVal(docs[i] as xdr.ScVal)).predicate_bytes as
+        | { bytes: string }
+        | undefined
+    )?.bytes
+    try {
+      if (!bytes) throw new Error('no stored predicate')
+      r.expr = decode(Buffer.from(bytes, 'hex').toString('base64'))
+    } catch {
+      unreadable.push(r.id)
+    }
+  })
+  return unreadable
 }
 
 /** Every context rule on `account`, with the stored predicate filled in for those
@@ -139,39 +174,20 @@ export async function readRules(
   // hostile account must not cost the public RPC hundreds of simulations.
   for (let from = Math.min(count, WIDTH); rules.length < count && from < MAX_RULE_ID; from += WIDTH)
     if ((await batch(from, WIDTH)) === 0) break
-  const mine = rules.filter((r) => r.policies.includes(interpreter))
   const capped = rules.filter((r) => r.policies.includes(SPENDING_LIMIT[network]))
-  const rid = (r: ObservedRule) => xdr.ScVal.scvU32(r.id)
   const acct = new Address(account).toScVal()
-  const [docs, caps] = await Promise.all([
-    entries(
-      server,
-      mine.map((r) => dataKey(interpreter, xdr.ScVal.scvVec([acct, rid(r)])))
-    ),
+  const [unreadable, caps] = await Promise.all([
+    readPredicates(server, interpreter, account, rules),
     entries(
       server,
       capped.map((r) =>
         dataKey(
           SPENDING_LIMIT[network],
-          xdr.ScVal.scvVec([xdr.ScVal.scvSymbol('AccountContext'), acct, rid(r)])
+          xdr.ScVal.scvVec([xdr.ScVal.scvSymbol('AccountContext'), acct, xdr.ScVal.scvU32(r.id)])
         )
       )
     ),
   ])
-  const unreadable: number[] = []
-  mine.forEach((r, i) => {
-    const bytes = (
-      fields(docs[i] && fromScVal(docs[i] as xdr.ScVal)).predicate_bytes as
-        | { bytes: string }
-        | undefined
-    )?.bytes
-    try {
-      if (!bytes) throw new Error('no stored predicate')
-      r.expr = decode(Buffer.from(bytes, 'hex').toString('base64'))
-    } catch {
-      unreadable.push(r.id)
-    }
-  })
   capped.forEach((r, i) => {
     const f = fields(caps[i] && fromScVal(caps[i] as xdr.ScVal))
     const limit = f.spending_limit as { i128: string } | undefined

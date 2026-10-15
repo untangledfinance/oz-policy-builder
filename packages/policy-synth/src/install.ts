@@ -19,7 +19,6 @@ import {
   type Transaction,
   xdr,
 } from '@stellar/stellar-sdk'
-import { card } from './card.ts'
 import { type Fingerprint, interpreterFor, mismatch, reasonOf, txOf } from './chain.ts'
 import {
   GRAMMAR_VERSION,
@@ -390,7 +389,7 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   }
   return {
     ...got(built),
-    rule: { contract: rule.contract, predicateHash: rule.hash, review: card(rule.expr) },
+    rule: { contract: rule.contract, predicateHash: rule.hash },
     interpreter: fingerprint,
     authorityScan: { complete: read.complete, overlaps: found },
   }
