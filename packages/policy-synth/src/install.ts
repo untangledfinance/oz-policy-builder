@@ -17,10 +17,9 @@ import {
   Operation,
   rpc,
   type Transaction,
-  TransactionBuilder,
   xdr,
 } from '@stellar/stellar-sdk'
-import { reasonOf } from './chain.ts'
+import { reasonOf, txOf } from './chain.ts'
 import { GRAMMAR_VERSION, type Network, PASSPHRASE } from './config.ts'
 import { type ErrorCode, Refusal } from './envelope.ts'
 import type { Scope } from './rules.ts'
@@ -42,32 +41,24 @@ export interface RuleDraft {
 }
 
 const MAX_SIGNERS = 15
-const MAX_POLICIES = 5
 const AUTH_LEDGERS = 300 // about 25 minutes
 
 const delegated = (a: string): Val => ['Delegated', a]
 
 /** The five arguments of OZ's `add_context_rule`, as wire values. */
 export function ruleArgs(d: RuleDraft, interpreter: string): Val[] {
-  const wasm = d.scope.kind === 'create_contract' ? d.scope.wasmHash : ''
   const scope: Val =
     d.scope.kind === 'call_contract'
       ? ['CallContract', d.scope.contract]
       : d.scope.kind === 'create_contract'
-        ? ['CreateContract', { bytes: wasm }]
+        ? ['CreateContract', { bytes: d.scope.wasmHash }]
         : ['Default']
-  if (d.signers.length === 0)
-    throw new Refusal('INSTALL_BUILD_FAILED', 'the rule names no signer, so it would govern no key')
+  const no = (m: string) => new Refusal('INSTALL_BUILD_FAILED', m)
+  if (d.signers.length === 0) throw no('the rule names no signer, so it would govern no key')
   if (d.signers.length > MAX_SIGNERS)
-    throw new Refusal(
-      'INSTALL_BUILD_FAILED',
-      `${d.signers.length} signers; OpenZeppelin allows ${MAX_SIGNERS}`
-    )
+    throw no(`${d.signers.length} signers; OpenZeppelin allows ${MAX_SIGNERS}`)
   if (d.admins.length === 0)
-    throw new Refusal(
-      'INSTALL_BUILD_FAILED',
-      'the rule names no policy admin: the interpreter refuses an empty admin set'
-    )
+    throw no('the rule names no policy admin: the interpreter refuses an empty admin set')
   const policies: [Val, Val][] = [
     [
       interpreter,
@@ -93,8 +84,6 @@ export function ruleArgs(d: RuleDraft, interpreter: string): Val[] {
       },
     ])
   }
-  if (policies.length > MAX_POLICIES)
-    throw new Refusal('INSTALL_BUILD_FAILED', 'too many policies on one rule')
   return [scope, { string: d.name }, d.validUntil, d.signers.map(delegated), { map: policies }]
 }
 
@@ -167,13 +156,7 @@ export async function buildSelfCall(
       auth,
     })
   const tx = (o: xdr.Operation, sequence: string) =>
-    new TransactionBuilder(new Account(a.sourceAccount, sequence), {
-      fee: String(a.baseFee ?? BASE_FEE),
-      networkPassphrase: PASSPHRASE[network],
-    })
-      .addOperation(o)
-      .setTimeout(0)
-      .build()
+    txOf(network, new Account(a.sourceAccount, sequence), o, String(a.baseFee ?? BASE_FEE))
   const simulate = async (t: Transaction, what: string) => {
     const sim = await server.simulateTransaction(t)
     if (rpc.Api.isSimulationError(sim))

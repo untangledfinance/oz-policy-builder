@@ -8,7 +8,7 @@ import type { CallIntent, Intent, Path, Rule } from './intent.ts'
 import { callExpr, intentExprs } from './intent.ts'
 import type { Call } from './record.ts'
 import { identify, type Kind } from './registry.ts'
-import { type Expr, encode, hashOf, type Val, validate } from './wire.ts'
+import { type Expr, encode, fields, hashOf, isTagged, type Val, validate } from './wire.ts'
 
 /** What the recording cannot say, supplied by the person who knows. */
 export interface Answers {
@@ -26,9 +26,6 @@ export interface Synthesis {
   ambiguities: { code: 'AMOUNT_BOUND_MISSING'; question: string }[]
   warnings: string[]
 }
-
-const isMap = (v: Val): v is { map: [Val, Val][] } =>
-  typeof v === 'object' && v !== null && 'map' in v
 
 export function synthesize(contexts: Call[], answers: Answers = {}): Synthesis {
   const out: Synthesis = { intent: { calls: [] }, ambiguities: [], warnings: [] }
@@ -89,10 +86,7 @@ function callIntent(c: Call, a: Answers, out: Synthesis): CallIntent {
   return flat
 }
 
-const kindOf = (v: Val): Kind =>
-  typeof v === 'object' && v !== null && !Array.isArray(v) && ('i128' in v || 'u128' in v)
-    ? 'amount'
-    : 'exact'
+const kindOf = (v: Val): Kind => (isTagged(v) && ('i128' in v || 'u128' in v) ? 'amount' : 'exact')
 
 const missing = (c: Call, name: string): Synthesis['ambiguities'][number] => ({
   code: 'AMOUNT_BOUND_MISSING',
@@ -112,12 +106,11 @@ function requests(
   out: Synthesis,
   flat: boolean
 ): Rule[] {
-  const maps = vec
-    .filter(isMap)
-    .map((m) => Object.fromEntries(m.map.map(([k, x]) => [String(k), x])))
-  const fields = [...new Set(maps.flatMap((m) => Object.keys(m)))]
+  // Every element is a map: that is the shape `requests` is recognised by.
+  const maps = vec.map(fields)
+  const names = [...new Set(maps.flatMap((m) => Object.keys(m)))]
   const bound = a.limits?.[`${name}.amount`] ?? a.limit
-  if (fields.includes('amount') && bound === undefined)
+  if (names.includes('amount') && bound === undefined)
     out.ambiguities.push(missing(c, `${name}.amount`))
   const field = (f: string, seen: Val[], path: Path): Rule[] => {
     if (f === 'amount') return bound === undefined ? [] : [{ rule: 'cap', at: path, max: bound }]
@@ -131,9 +124,9 @@ function requests(
     const seen = (f: string) => [
       ...new Map(maps.map((m) => [JSON.stringify(m[f]), m[f] as Val])).values(),
     ]
-    return [...rules, { rule: 'each', at, where: fields.flatMap((f) => field(f, seen(f), [f])) }]
+    return [...rules, { rule: 'each', at, where: names.flatMap((f) => field(f, seen(f), [f])) }]
   }
-  const one = maps.flatMap((m, i) => fields.flatMap((f) => field(f, [m[f] as Val], [...at, i, f])))
+  const one = maps.flatMap((m, i) => names.flatMap((f) => field(f, [m[f] as Val], [...at, i, f])))
   return [...rules, ...one]
 }
 

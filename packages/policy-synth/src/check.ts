@@ -11,8 +11,19 @@ import { Address, type rpc, StrKey, xdr } from '@stellar/stellar-sdk'
 import { pool, read } from './chain.ts'
 import type { Network } from './config.ts'
 import { Refusal } from './envelope.ts'
+import { and } from './intent.ts'
 import type { Call } from './record.ts'
-import { type Expr, isSelector as isSel, type Tagged, toScVal, unlit, type Val } from './wire.ts'
+import {
+  BITS,
+  intOf as big,
+  type Expr,
+  encode,
+  isTagged as isObj,
+  isSelector as isSel,
+  toScVal,
+  unlit,
+  type Val,
+} from './wire.ts'
 
 export const REASONS: Record<number, string> = {
   0: 'PERMIT',
@@ -69,32 +80,15 @@ export async function runChecks(
 // ---- deny cases: each leaf of the rule, turned against a permitted call ----
 
 type Num = bigint
-const isObj = (v: Val | undefined): v is Tagged =>
-  typeof v === 'object' && v !== null && !Array.isArray(v)
 const same = (a: Val, b: Val) => JSON.stringify(a) === JSON.stringify(b)
 
-/** The integer a value carries, whatever its type, or undefined. */
-function big(v: Val | undefined): Num | undefined {
-  if (typeof v === 'number') return BigInt(v)
-  if (
-    isObj(v) &&
-    typeof Object.values(v as object)[0] === 'string' &&
-    /^-?\d+$/.test(Object.values(v as object)[0] as string)
-  ) {
-    return BigInt(Object.values(v as object)[0] as string)
-  }
-  return undefined
-}
 /** An integer written the way `like` was written (a u32 stays a u32 while it fits). */
 function as(like: Val | undefined, n: Num): Val {
   if (typeof like === 'number' && n >= 0n && n <= 0xffffffffn) return Number(n)
   const tag = isObj(like) ? Object.keys(like)[0] : undefined
   if (tag === 'i32') return { i32: Number(n) }
-  const wide = tag && BIG_TAGS.has(tag) ? tag : 'i128'
-  return { [wide]: n.toString() } as Val
+  return { [tag && tag in BITS ? tag : 'i128']: n.toString() } as Val
 }
-
-const BIG_TAGS = new Set(['i128', 'u128', 'i64', 'u64', 'i256', 'u256', 'timepoint', 'duration'])
 
 /** The argument steps a leaf reaches, or undefined for a leaf that is not a path. */
 function stepsOf(sel: Val): Val[] | undefined {
@@ -177,12 +171,7 @@ function value(call: Call, leaf: Val): Val | undefined {
   const [head, ...r] = leaf
   if (head === 'lit') return r[0]
   if (head === 'scaled') {
-    const [s, n, d, a] = [
-      value(call, r[0] as Val),
-      value(call, r[1] as Val),
-      value(call, r[2] as Val),
-      value(call, r[3] as Val),
-    ].map(big)
+    const [s, n, d, a] = r.map((x) => big(value(call, x as Val)))
     return s === undefined || n === undefined || d === undefined || a === undefined
       ? undefined
       : as({ i128: '' }, (s * n) / d + a)
@@ -198,6 +187,8 @@ export interface DenyCase {
   conjunct: Expr
 }
 
+/** How far past an ordering's bound a value must move to break it. */
+const SHIFT: Record<string, Num> = { lte: 1n, lt: 0n, gte: -1n, gt: 0n }
 const FLIP: Record<string, string> = {
   lt: 'gt',
   lte: 'gte',
@@ -218,24 +209,9 @@ function breakCompare(call: Call, e: Expr[]): Call | undefined {
   const bound = value(call, b)
   const now = t?.get()
   if (!t || bound === undefined || now === undefined) return undefined
-  const n = big(bound)
-  const to: Val | undefined =
-    op === 'eq'
-      ? other(bound)
-      : op === 'ne'
-        ? bound
-        : n === undefined
-          ? undefined
-          : op === 'lte'
-            ? as(now, n + 1n)
-            : op === 'lt'
-              ? as(now, n)
-              : op === 'gte'
-                ? as(now, n - 1n)
-                : op === 'gt'
-                  ? as(now, n)
-                  : undefined
-  return to === undefined ? undefined : t.set(to)
+  const [n, shift] = [big(bound), SHIFT[op]]
+  if (op === 'eq' || op === 'ne') return t.set(op === 'eq' ? other(bound) : bound)
+  return n === undefined || shift === undefined ? undefined : t.set(as(now, n + shift))
 }
 
 /** Push the first element's field up (or down) until the total crosses the bound. */
@@ -247,8 +223,9 @@ function breakSum(call: Call, op: string, sum: [string, ...Val[]], b: Val): Call
   if (!base || !Array.isArray(items) || items.length === 0 || bound === undefined) return undefined
   const part = (x: Val) => big(walk(x, field)) ?? 0n
   const total = items.reduce<bigint>((t, x) => t + part(x), 0n)
-  const want = op === 'lte' ? bound + 1n : op === 'lt' ? bound : op === 'gte' ? bound - 1n : bound
-  if (op !== 'lte' && op !== 'lt' && op !== 'gte' && op !== 'gt') return undefined
+  const shift = SHIFT[op]
+  if (shift === undefined) return undefined
+  const want = bound + shift
   const first = walk(items[0] as Val, field)
   const t = target(call, ['call_path', ...base, 0, ...field])
   return t?.set(as(first, (big(first) ?? 0n) + want - total))
@@ -273,12 +250,10 @@ function breakConjunct(call: Call, c: Expr): Call | undefined {
     const vec = v?.get()
     if (!v || !Array.isArray(vec) || vec.length === 0) return undefined
     if (op === 'any') return v.set([])
-    const first = (body: Expr): Expr[] =>
-      isSel(body) && body[0] === 'and' ? (body[1] as Expr[]) : [body]
     const base = stepsOf(a as Val) ?? []
     const abs = (x: Val): Val =>
       isSel(x) && x[0] === 'elem' ? (['call_path', ...base, 0, ...x.slice(1)] as Val) : x
-    for (const leaf of first(b as Expr)) {
+    for (const leaf of conjuncts(b as Expr)) {
       if (!isSel(leaf)) continue
       const broken = breakConjunct(call, [leaf[0], abs(leaf[1] as Val), abs(leaf[2] as Val)])
       if (broken) return broken
@@ -290,12 +265,13 @@ function breakConjunct(call: Call, c: Expr): Call | undefined {
 
 const phrase = (c: Expr): string => JSON.stringify(c).slice(0, 80)
 
+/** The children of an `and`, or the expression alone. */
+const conjuncts = (e: Expr): Expr[] => (isSel(e) && e[0] === 'and' ? (e[1] as Expr[]) : [e])
+
 /** The conjuncts of each branch the permitted call can take: the children of a
  *  top-level `and`, one branch per child of a top-level `or`. */
-export function branches(expr: Expr): Expr[][] {
-  const kids = (e: Expr): Expr[] => (isSel(e) && e[0] === 'and' ? (e[1] as Expr[]) : [e])
-  return isSel(expr) && expr[0] === 'or' ? (expr[1] as Expr[]).map(kids) : [kids(expr)]
-}
+export const branches = (expr: Expr): Expr[][] =>
+  isSel(expr) && expr[0] === 'or' ? (expr[1] as Expr[]).map(conjuncts) : [conjuncts(expr)]
 
 /** One deny case per conjunct, derived from the leaf and the call it must refuse. */
 export function denyCases(conjuncts: Expr[], permit: Call): DenyCase[] {
@@ -318,10 +294,7 @@ export interface Verification {
 
 const MAX_CASES = 24
 const rebuild = (all: Expr[][], dropped?: Expr): Expr => {
-  const keep = (cs: Expr[]) => cs.filter((c) => c !== dropped)
-  const ands = all.map((cs) =>
-    keep(cs).length === 1 ? (keep(cs)[0] as Expr) : (['and', keep(cs)] as Expr)
-  )
+  const ands = all.map((cs) => and(cs.filter((c) => c !== dropped)))
   return ands.length === 1 ? (ands[0] as Expr) : ['or', ands]
 }
 
@@ -330,7 +303,6 @@ export async function verifyRule(
   network: Network,
   interpreter: string,
   expr: Expr,
-  encode: (e: Expr) => string,
   permit: Call
 ): Promise<Verification> {
   const one = async (e: Expr, call: Call) =>

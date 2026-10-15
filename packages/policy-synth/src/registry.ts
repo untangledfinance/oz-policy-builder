@@ -8,12 +8,11 @@
 // any Blend pool is recognised).
 
 import type { Intent } from './intent.ts'
-import { isAddress, type Val } from './wire.ts'
+import { isAddress, isTagged, type Val } from './wire.ts'
 
 export type Kind = 'who' | 'amount' | 'min' | 'time' | 'exact' | 'requests'
 
-const isNum = (v: Val, ...tags: string[]) =>
-  typeof v === 'object' && v !== null && !Array.isArray(v) && tags.some((t) => t in v)
+const isNum = (v: Val, ...tags: string[]) => isTagged(v) && tags.some((t) => t in v)
 
 /** The shape each kind of argument has. */
 export const SHAPE: Record<Kind, (v: Val) => boolean> = {
@@ -22,68 +21,64 @@ export const SHAPE: Record<Kind, (v: Val) => boolean> = {
   min: (v) => isNum(v, 'i128'),
   time: (v) => typeof v === 'number' || isNum(v, 'u64'),
   exact: () => true,
-  requests: (v) =>
-    Array.isArray(v) && v.every((e) => typeof e === 'object' && e !== null && 'map' in e),
+  // `'map' in []` holds (Array.prototype.map): an element must be a `{map}` value, not a vec.
+  requests: (v) => Array.isArray(v) && v.every((e) => isTagged(e) && 'map' in e),
 }
 
 type Row = [name: string, kind: Kind][]
 
-const SEP41: Record<string, Row> = {
-  transfer: [
-    ['from', 'who'],
-    ['to', 'who'],
-    ['amount', 'amount'],
-  ],
-  approve: [
-    ['from', 'who'],
-    ['spender', 'who'],
-    ['amount', 'amount'],
-    ['expiration_ledger', 'time'],
-  ],
-  mint: [
-    ['to', 'who'],
-    ['amount', 'amount'],
-  ],
-  burn: [
-    ['from', 'who'],
-    ['amount', 'amount'],
-  ],
-}
-const BLEND: Record<string, Row> = {
-  submit: [
-    ['from', 'who'],
-    ['spender', 'who'],
-    ['to', 'who'],
-    ['requests', 'requests'],
-  ],
-  claim: [
-    ['from', 'who'],
-    ['reserve_token_ids', 'exact'],
-    ['to', 'who'],
-  ],
-}
-const SOROSWAP: Record<string, Row> = {
-  swap_exact_tokens_for_tokens: [
-    ['amount_in', 'amount'],
-    ['amount_out_min', 'min'],
-    ['path', 'exact'],
-    ['to', 'who'],
-    ['deadline', 'time'],
-  ],
-  swap_tokens_for_exact_tokens: [
-    ['amount_out', 'amount'],
-    ['amount_in_max', 'min'],
-    ['path', 'exact'],
-    ['to', 'who'],
-    ['deadline', 'time'],
-  ],
-}
-
 /** Function name -> the protocols that use it, in the order they are tried. */
 export const PROTOCOLS: Record<string, Record<string, Row>> = {
-  sep41: SEP41,
-  blend: BLEND,
-  soroswap: SOROSWAP,
+  sep41: {
+    transfer: [
+      ['from', 'who'],
+      ['to', 'who'],
+      ['amount', 'amount'],
+    ],
+    approve: [
+      ['from', 'who'],
+      ['spender', 'who'],
+      ['amount', 'amount'],
+      ['expiration_ledger', 'time'],
+    ],
+    mint: [
+      ['to', 'who'],
+      ['amount', 'amount'],
+    ],
+    burn: [
+      ['from', 'who'],
+      ['amount', 'amount'],
+    ],
+  },
+  blend: {
+    submit: [
+      ['from', 'who'],
+      ['spender', 'who'],
+      ['to', 'who'],
+      ['requests', 'requests'],
+    ],
+    claim: [
+      ['from', 'who'],
+      ['reserve_token_ids', 'exact'],
+      ['to', 'who'],
+    ],
+  },
+  soroswap: {
+    swap_exact_tokens_for_tokens: [
+      ['amount_in', 'amount'],
+      ['amount_out_min', 'min'],
+      ['path', 'exact'],
+      ['to', 'who'],
+      ['deadline', 'time'],
+    ],
+    swap_tokens_for_exact_tokens: [
+      ['amount_out', 'amount'],
+      ['amount_in_max', 'min'],
+      ['path', 'exact'],
+      ['to', 'who'],
+      ['deadline', 'time'],
+    ],
+  },
 }
 
 export interface Known {

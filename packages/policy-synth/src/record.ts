@@ -66,11 +66,7 @@ export function decodeEnvelope(b64: string, network: Network, ledger = 0): Recor
     }
     walk(entry.rootInvocation(), contexts, 0)
   }
-  const seen = new Set<string>()
-  const unique = contexts.filter((c) => {
-    const key = JSON.stringify(c)
-    return !seen.has(key) && seen.add(key)
-  })
+  const unique = [...new Map(contexts.map((c) => [JSON.stringify(c), c])).values()]
   if (unique.length > MAX_CONTEXTS) throw new Refusal('RECORDING_FAILED', 'too many calls')
   return {
     network,

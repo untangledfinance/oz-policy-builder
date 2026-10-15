@@ -9,7 +9,7 @@
 // is relative to the element. Lowering is a table, one row per rule: a new rule
 // is a new row, not new code.
 
-import type { Expr, Val } from './wire.ts'
+import { type Expr, intOf, type Val } from './wire.ts'
 
 export type Path = (number | string)[]
 export type Arg = { arg: Path }
@@ -60,16 +60,7 @@ const isArg = (v: unknown): v is Arg => typeof v === 'object' && v !== null && '
 /** A constant as the contract wants it: a bare scalar, or `lit` for what a bare
  *  value cannot carry (a vec, a map, bytes, text, a bool or a void). */
 export function konst(v: Val): Val {
-  const bare =
-    typeof v === 'number' ||
-    typeof v === 'string' ||
-    (typeof v === 'object' &&
-      v !== null &&
-      !Array.isArray(v) &&
-      !('map' in v) &&
-      !('bytes' in v) &&
-      !('string' in v))
-  return bare ? v : ['lit', v]
+  return typeof v === 'string' || intOf(v) !== undefined ? v : ['lit', v]
 }
 
 /** The value at `at`: the call's argument, or inside a quantifier the element. */
@@ -81,7 +72,7 @@ export function ref(at: Path, body: boolean, len = false): Expr {
     : (['call_path', ...steps] as Expr)
 }
 
-const and = (xs: Expr[]): Expr => (xs.length === 1 ? (xs[0] as Expr) : ['and', xs])
+export const and = (xs: Expr[]): Expr => (xs.length === 1 ? (xs[0] as Expr) : ['and', xs])
 const operand = (a: Val | Arg): Expr => (isArg(a) ? ref(a.arg, false) : konst(a))
 
 const LOWER: { [K in Rule['rule']]: (r: Extract<Rule, { rule: K }>, body: boolean) => Expr } = {

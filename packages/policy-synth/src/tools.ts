@@ -11,22 +11,16 @@ import { isAbsolute } from 'node:path'
 import { StrKey } from '@stellar/stellar-sdk'
 import { z } from 'zod'
 import { card } from './card.ts'
-import { connect, fingerprint, interpreterFor } from './chain.ts'
+import { connect, type Endpoint, fingerprint, interpreterFor, pinnedWasm } from './chain.ts'
 import { MAX_CHECKS, runChecks, verifyRule } from './check.ts'
-import {
-  GRAMMAR_VERSION,
-  INTERPRETER,
-  type Network,
-  POLICY_CONTRACTS,
-  SPENDING_LIMIT,
-} from './config.ts'
+import { GRAMMAR_VERSION, type Network, POLICY_CONTRACTS, SPENDING_LIMIT } from './config.ts'
 import { type ErrorCode, messageOf, Refusal, type ToolResponse } from './envelope.ts'
 import { buildInstall, buildRevoke, type RuleDraft } from './install.ts'
 import type { Intent } from './intent.ts'
 import { type Call, decodeEnvelope, type Recording, recordHash } from './record.ts'
 import { TEMPLATES } from './registry.ts'
 import { type ObservedRule, overlaps, readRules, selectors } from './rules.ts'
-import { type Answers, propose, synthesize } from './synth.ts'
+import { type Answers, type ProposedRule, propose, type Synthesis, synthesize } from './synth.ts'
 import { CAPS, decode, type Expr, encode, hashOf, validate, WireError } from './wire.ts'
 
 // ---- input fragments ----
@@ -188,6 +182,7 @@ function tool<S extends z.ZodRawShape>(
   }
 }
 
+const SOURCES = ['hash', 'xdr', 'recording', 'intent', 'template']
 const exactlyOne = (i: object, keys: string[]): string => {
   const given = keys.filter((k) => (i as Record<string, unknown>)[k] !== undefined)
   if (given.length !== 1)
@@ -197,20 +192,11 @@ const exactlyOne = (i: object, keys: string[]): string => {
 
 // ---- shared steps ----
 
-interface Source {
-  recording?: Recording
-  intent: Intent
-  warnings: string[]
-  ambiguities: { code: string; question: string }[]
-}
+type Source = Synthesis & { recording?: Recording }
 
-async function recordOf(i: {
-  network: Network
-  hash?: string | undefined
-  xdr?: string | undefined
-  rpcUrl?: string | undefined
-  allowUnpinnedRpcUrl?: boolean | undefined
-}): Promise<Recording> {
+async function recordOf(
+  i: Endpoint & { hash?: string | undefined; xdr?: string | undefined }
+): Promise<Recording> {
   if (i.xdr !== undefined) return decodeEnvelope(i.xdr, i.network)
   const other: Network = i.network === 'mainnet' ? 'testnet' : 'mainnet'
   // The wrong-network hint asks the other network's own endpoint, so only when this one is.
@@ -219,7 +205,7 @@ async function recordOf(i: {
 }
 
 async function sourceOf(i: z.infer<z.ZodObject<typeof from & typeof net>>): Promise<Source> {
-  const kind = exactlyOne(i, ['hash', 'xdr', 'recording', 'intent', 'template'])
+  const kind = exactlyOne(i, SOURCES)
   if (kind === 'intent') return { intent: i.intent as Intent, warnings: [], ambiguities: [] }
   if (kind === 'template') {
     const t = i.template as NonNullable<typeof i.template>
@@ -241,12 +227,7 @@ const present = (r: ReturnType<typeof propose>[number]) => ({
 
 /** The rule a request is about: the one for `contract`, or the only one. */
 function pick(rules: ReturnType<typeof propose>, contract?: string) {
-  const hit =
-    contract === undefined
-      ? rules.length === 1
-        ? rules[0]
-        : undefined
-      : rules.find((r) => r.contract === contract)
+  const hit = contract ? rules.find((r) => r.contract === contract) : rules.length === 1 && rules[0]
   if (!hit) {
     const names = rules.map((r) => r.contract).join(', ')
     throw new Refusal(
@@ -258,10 +239,7 @@ function pick(rules: ReturnType<typeof propose>, contract?: string) {
 }
 
 /** A predicate given as an expression or as its encoding, validated. */
-function given(i: { expr?: unknown; encodedPredicate?: string | undefined }): {
-  expr: Expr
-  encoded: string
-} {
+function given(i: { expr?: unknown; encodedPredicate?: string | undefined }) {
   const kind = exactlyOne(i, ['expr', 'encodedPredicate'])
   let expr: Expr
   try {
@@ -327,9 +305,7 @@ const check = {
 
 /** The predicate and the calls a simulate or verify is about. */
 async function subject(i: z.infer<z.ZodObject<typeof check>>) {
-  const hasSource = ['hash', 'xdr', 'recording', 'intent', 'template'].some(
-    (k) => (i as Record<string, unknown>)[k] !== undefined
-  )
+  const hasSource = SOURCES.some((k) => (i as Record<string, unknown>)[k] !== undefined)
   const src = hasSource ? await sourceOf(i) : undefined
   const pred = i.expr !== undefined || i.encodedPredicate !== undefined ? given(i) : undefined
   if (!pred && !src)
@@ -340,11 +316,8 @@ async function subject(i: z.infer<z.ZodObject<typeof check>>) {
   const rule = pred ? undefined : pick(propose((src as Source).intent), i.contract)
   const contexts = src?.recording?.contexts ?? []
   const calls = i.calls ?? contexts.filter((c) => !rule || c.contract === rule.contract)
-  return {
-    expr: pred?.expr ?? (rule as NonNullable<typeof rule>).expr,
-    encoded: pred?.encoded ?? (rule as NonNullable<typeof rule>).encoded,
-    calls: calls as Call[],
-  }
+  const { expr, encoded } = pred ?? (rule as ProposedRule)
+  return { expr, encoded, calls: calls as Call[] }
 }
 
 const simulate_policy = tool(
@@ -388,7 +361,6 @@ const verify_policy = tool(
         i.network,
         interpreterFor(i.network, i.interpreterAddress),
         s.expr,
-        encode,
         permit as Call
       )),
     }
@@ -468,10 +440,7 @@ const install_policy = tool(
       )
     }
     const interpreter = interpreterFor(network, i.interpreterAddress)
-    const expectedWasm =
-      INTERPRETER[network]?.address === interpreter
-        ? INTERPRETER[network]?.wasmSha256
-        : i.interpreterWasmSha256
+    const expectedWasm = pinnedWasm(network, interpreter) ?? i.interpreterWasmSha256
     if (expectedWasm === undefined)
       throw fail(
         'an interpreter that is not the pinned one needs `interpreterWasmSha256`, the build you expect it to run'
@@ -498,17 +467,7 @@ const install_policy = tool(
             unreadable: [],
           })
         : readRules(server, network, i.smartAccount, interpreter),
-      buildInstall(
-        {
-          server,
-          network,
-          smartAccount: i.smartAccount,
-          sourceAccount: i.sourceAccount,
-          baseFee: i.baseFee,
-        },
-        draft,
-        interpreter
-      ),
+      buildInstall({ ...i, server }, draft, interpreter),
     ])
     if (!live.matches) {
       throw new Refusal(
@@ -517,19 +476,7 @@ const install_policy = tool(
         { details: live }
       )
     }
-    const found = overlaps(
-      {
-        scope: draft.scope,
-        signers: i.signers,
-        expr: chosen.expr,
-        ...(draft.cap
-          ? { cap: { amount: draft.cap.amount, periodLedgers: draft.cap.periodLedgers } }
-          : {}),
-      },
-      scan.rules,
-      interpreter,
-      network
-    )
+    const found = overlaps({ ...draft, expr: chosen.expr }, scan.rules, interpreter, network)
     const refused = found.filter((o) => o.severity === 'refuse')
     if (i.allowOverlap !== true) {
       if (refused.length > 0) {
@@ -581,17 +528,7 @@ const revoke_policy = tool(
     ruleId: z.number().int().nonnegative(),
     baseFee: z.number().int().positive().optional(),
   },
-  async (i) =>
-    buildRevoke(
-      {
-        server: connect(i),
-        network: i.network,
-        smartAccount: i.smartAccount,
-        sourceAccount: i.sourceAccount,
-        baseFee: i.baseFee,
-      },
-      i.ruleId
-    )
+  async (i) => buildRevoke({ ...i, server: connect(i) }, i.ruleId)
 )
 
 const get_interpreter_info = tool(
@@ -599,25 +536,16 @@ const get_interpreter_info = tool(
   'The interpreter a network uses: its pinned address, grammar version and wasm sha256, the predicate caps, and with `verifyLive` what is deployed at that address right now (grammar_version() and the code hash) and whether it matches the pin.',
   { ...net, verifyLive: z.boolean().optional(), interpreterAddress: contractId.optional() },
   async (i) => {
-    const pin = INTERPRETER[i.network]
     const address = interpreterFor(i.network, i.interpreterAddress)
+    const wasm = pinnedWasm(i.network, address)
     return {
       network: i.network,
       address,
-      pinned: pin?.address === address,
+      pinned: wasm !== undefined,
       grammarVersion: GRAMMAR_VERSION,
-      wasmSha256: pin?.address === address ? pin.wasmSha256 : null,
+      wasmSha256: wasm ?? null,
       caps: CAPS,
-      ...(i.verifyLive
-        ? {
-            live: await fingerprint(
-              connect(i),
-              i.network,
-              address,
-              pin?.address === address ? pin.wasmSha256 : undefined
-            ),
-          }
-        : {}),
+      ...(i.verifyLive ? { live: await fingerprint(connect(i), i.network, address, wasm) } : {}),
     }
   }
 )

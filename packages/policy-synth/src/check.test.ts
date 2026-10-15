@@ -219,7 +219,7 @@ describe('check, on the live interpreter', () => {
 })
 
 describe('verify, on the live interpreter', () => {
-  const check = (e: Expr, call = pay) => verifyRule(server, 'testnet', interpreter, e, encode, call)
+  const check = (e: Expr, call = pay) => verifyRule(server, 'testnet', interpreter, e, call)
 
   it('a tight rule: the permit passes, every leaf turned against the call is refused, each conjunct is needed', async () => {
     const v = await check(rule)

@@ -10,8 +10,9 @@
 
 import { Address, type rpc, xdr } from '@stellar/stellar-sdk'
 import { dataKey, entries, pool, read } from './chain.ts'
+import { branches } from './check.ts'
 import { type Network, SPENDING_LIMIT } from './config.ts'
-import { decode, type Expr, fromScVal, isSelector, unlit, type Val } from './wire.ts'
+import { decode, type Expr, fields, fromScVal, intOf, isSelector, unlit, type Val } from './wire.ts'
 
 export type Scope =
   | { kind: 'default' }
@@ -31,12 +32,8 @@ export interface ObservedRule {
   expr?: Expr
   cap?: Cap
 }
-export interface Intended {
-  scope: Scope
-  signers: string[]
-  expr: Expr
-  cap?: Cap
-}
+/** The rule about to be installed. */
+export type Intended = Pick<ObservedRule, 'scope' | 'signers' | 'cap'> & { expr: Expr }
 export interface Overlap {
   ruleId: number
   /** `refuse`: the new rule cannot bind a shared signer. `review`: it may, read the advice. */
@@ -49,13 +46,6 @@ export interface Overlap {
 
 const MAX_RULE_ID = 512
 const WIDTH = 8
-type Fields = Record<string, Val>
-const fields = (v: Val | undefined): Fields =>
-  Object.fromEntries(
-    v && typeof v === 'object' && !Array.isArray(v) && 'map' in v
-      ? v.map.map(([k, x]) => [String(k), x])
-      : []
-  )
 
 function signerKey(s: Val): string {
   const [tag, a, key] = s as [string, string, { bytes: string }?]
@@ -198,12 +188,6 @@ const scopeSel = (s: Scope): Sel[] =>
 
 // ---- is one rule at least as permissive as another? ----
 
-const num = (v: Val | undefined): bigint | undefined => {
-  const x = typeof v === 'object' && v !== null && !Array.isArray(v) ? Object.values(v)[0] : v
-  return typeof x === 'number' || (typeof x === 'string' && /^-?\d+$/.test(x))
-    ? BigInt(x)
-    : undefined
-}
 const key = (v: Val) => JSON.stringify(v)
 
 /** `nc` (a conjunct of the new rule) allows nothing `oc` (of the old) forbids. */
@@ -213,33 +197,19 @@ export function implies(nc: Expr, oc: Expr): boolean {
   const [no, na, nb] = nc as [string, Val, Val]
   const [oo, oa, ob] = oc as [string, Val, Val]
   if (key(na) !== key(oa)) return false
-  const [x, y] = [num(nb), num(ob)]
+  const [x, y] = [intOf(nb), intOf(ob)]
   const strict = (o: string) => o === 'lt' || o === 'gt'
-  if (
-    x !== undefined &&
-    y !== undefined &&
-    ['lte', 'lt'].includes(no) &&
-    ['lte', 'lt'].includes(oo)
-  ) {
-    return strict(oo) ? x < y : strict(no) ? x <= y + 1n : x <= y
-  }
-  if (
-    x !== undefined &&
-    y !== undefined &&
-    ['gte', 'gt'].includes(no) &&
-    ['gte', 'gt'].includes(oo)
-  ) {
-    return strict(oo) ? x > y : strict(no) ? x >= y - 1n : x >= y
+  // An upper bound as is, a lower bound negated: `x >= y` is `-x <= -y`.
+  const sign = (o: string) =>
+    o === 'lte' || o === 'lt' ? 1n : o === 'gte' || o === 'gt' ? -1n : 0n
+  const s = sign(no)
+  if (x !== undefined && y !== undefined && s !== 0n && s === sign(oo)) {
+    const [a, b] = [s * x, s * y]
+    return strict(oo) ? a < b : strict(no) ? a <= b + 1n : a <= b
   }
   const inSet = (set: Val[], v: Val) => set.some((s) => key(unlit(s)) === key(unlit(v)))
   if (oo === 'in' && no === 'in') return (nb as Val[]).every((v) => inSet(ob as Val[], v))
   return oo === 'in' && no === 'eq' ? inSet(ob as Val[], nb) : false
-}
-
-/** Each branch of an expression as its list of conjuncts. */
-const branches = (e: Expr): Expr[][] => {
-  const kids = (x: Expr): Expr[] => (isSelector(x) && x[0] === 'and' ? (x[1] as Expr[]) : [x])
-  return isSelector(e) && e[0] === 'or' ? (e[1] as Expr[]).map(kids) : [kids(e)]
 }
 
 /** The old rule permits every call the new one does. */

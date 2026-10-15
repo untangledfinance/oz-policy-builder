@@ -38,6 +38,10 @@ export function connect(e: Endpoint): rpc.Server {
   return new rpc.Server(url, { allowHttp: loopback })
 }
 
+/** The wasm sha256 pinned for `address` on `network`, or undefined when it is not the pin. */
+export const pinnedWasm = (network: Network, address: string): string | undefined =>
+  INTERPRETER[network]?.address === address ? INTERPRETER[network]?.wasmSha256 : undefined
+
 /** The interpreter a network uses: its pin, or the one the caller names (mainnet has none yet). */
 export function interpreterFor(network: Network, address?: string): string {
   const pinned = INTERPRETER[network]?.address
@@ -71,19 +75,20 @@ export async function read(
   fn: string,
   ...args: xdr.ScVal[]
 ): Promise<xdr.ScVal> {
-  const tx = new TransactionBuilder(new Account(SOURCE, '0'), {
-    fee: BASE_FEE,
-    networkPassphrase: PASSPHRASE[network],
-  })
-    .addOperation(new Contract(contract).call(fn, ...args))
-    .setTimeout(0)
-    .build()
+  const tx = txOf(network, new Account(SOURCE, '0'), new Contract(contract).call(fn, ...args))
   const sim = await server.simulateTransaction(tx)
   if (rpc.Api.isSimulationError(sim))
     throw new Refusal('SIMULATION_ERROR', `${fn}: ${reasonOf(sim.error)}`)
   if (!sim.result) throw new Refusal('SIMULATION_ERROR', `${fn}: no result`)
   return sim.result.retval
 }
+
+/** A one-operation transaction from `source`, unsigned and without time bounds. */
+export const txOf = (network: Network, source: Account, op: xdr.Operation, fee = BASE_FEE) =>
+  new TransactionBuilder(source, { fee, networkPassphrase: PASSPHRASE[network] })
+    .addOperation(op)
+    .setTimeout(0)
+    .build()
 
 /** Soroban's own `Error(Type, #Code)` forms, and nothing about which host answered. */
 export const reasonOf = (error: string): string =>
@@ -142,13 +147,7 @@ export async function fingerprint(
   address: string,
   expectedWasmSha256?: string
 ): Promise<Fingerprint> {
-  const instance = xdr.LedgerKey.contractData(
-    new xdr.LedgerKeyContractData({
-      contract: new Address(address).toScAddress(),
-      key: xdr.ScVal.scvLedgerKeyContractInstance(),
-      durability: xdr.ContractDataDurability.persistent(),
-    })
-  )
+  const instance = dataKey(address, xdr.ScVal.scvLedgerKeyContractInstance())
   const [version, got] = await Promise.all([
     read(server, network, address, 'grammar_version'),
     server.getLedgerEntries(instance),

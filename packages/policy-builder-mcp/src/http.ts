@@ -57,10 +57,7 @@ export async function startHttpServer(opts: HttpOptions) {
       return send(res, 400, { error: 'JSON-RPC batch requests are not supported' })
     const server = createMcpServer()
     const transport = new StreamableHTTPServerTransport()
-    res.on('close', () => {
-      void transport.close().catch(() => {})
-      void server.close().catch(() => {})
-    })
+    res.on('close', () => void Promise.allSettled([transport.close(), server.close()]))
     try {
       await server.connect(transport as unknown as Transport)
       await transport.handleRequest(req as IncomingMessage & { auth?: never }, res, body)
@@ -69,10 +66,9 @@ export async function startHttpServer(opts: HttpOptions) {
       else send(res, 500, { error: 'internal server error' })
     }
   })
-  await new Promise<void>((resolve, reject) => {
-    http.once('error', reject)
-    http.listen(opts.port, host, () => resolve())
-  })
+  await new Promise<void>((resolve, reject) =>
+    http.once('error', reject).listen(opts.port, host, resolve)
+  )
   return {
     port: (http.address() as AddressInfo).port,
     host,

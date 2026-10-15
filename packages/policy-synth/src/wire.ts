@@ -44,7 +44,7 @@ export type Expr = Val
 
 const ADDRESS = /^(?:[GC][A-Z2-7]{55}|M[A-Z2-7]{68})$/
 const SYMBOL = /^[A-Za-z0-9_]{1,32}$/
-const BITS: Record<string, [number, boolean]> = {
+export const BITS: Record<string, [number, boolean]> = {
   i128: [128, true],
   u128: [128, false],
   i64: [64, true],
@@ -54,20 +54,25 @@ const BITS: Record<string, [number, boolean]> = {
   timepoint: [64, false],
   duration: [64, false],
 }
-const BIG_TYPES: Record<string, string> = {
-  scvI128: 'i128',
-  scvU128: 'u128',
-  scvI64: 'i64',
-  scvU64: 'u64',
-  scvI256: 'i256',
-  scvU256: 'u256',
-  scvTimepoint: 'timepoint',
-  scvDuration: 'duration',
-}
+/** `scvI128` -> `i128`, `scvTimepoint` -> `timepoint`: the JSON tag of an ScVal type. */
+const tagOf = (type: string): string => type.slice(3).toLowerCase()
 
 export class WireError extends Error {}
 
 export const isAddress = (v: unknown): v is string => typeof v === 'string' && ADDRESS.test(v)
+export const isTagged = (v: unknown): v is Tagged =>
+  typeof v === 'object' && v !== null && !Array.isArray(v)
+/** A `{map}` as a record keyed by the keys' text; anything else as an empty one. */
+export const fields = (v: Val | undefined): Record<string, Val> =>
+  Object.fromEntries(isTagged(v) && 'map' in v ? v.map.map(([k, x]) => [String(k), x]) : [])
+
+/** The integer a value carries (a u32, or a tagged integer, timepoint or duration), else undefined. */
+export function intOf(v: Val | undefined): bigint | undefined {
+  if (typeof v === 'number') return BigInt(v)
+  const [tag, x] = isTagged(v) ? (Object.entries(v)[0] as [string, unknown]) : []
+  const known = tag !== undefined && (tag in BITS || tag === 'i32')
+  return known && /^-?\d+$/.test(String(x)) ? BigInt(String(x)) : undefined
+}
 
 export function toScVal(v: Val): xdr.ScVal {
   if (v === null) return xdr.ScVal.scvVoid()
@@ -123,7 +128,7 @@ function order(a: xdr.ScVal, b: xdr.ScVal): number {
   const [ta, tb] = [a.switch().value, b.switch().value]
   if (ta !== tb) return ta - tb
   const name = a.switch().name
-  const big = name in BIG_TYPES
+  const big = tagOf(name) in BITS
   const raw = (s: xdr.ScVal) =>
     big ? scValToBigInt(s) : name === 'scvU32' ? s.u32() : name === 'scvI32' ? s.i32() : undefined
   const [x, y] = [raw(a), raw(b)]
@@ -157,8 +162,8 @@ export function fromScVal(s: xdr.ScVal): Val {
     case 'scvMap':
       return { map: (s.map() ?? []).map((e) => [fromScVal(e.key()), fromScVal(e.val())]) }
   }
-  const tag = BIG_TYPES[type]
-  if (tag === undefined) throw new WireError(`no JSON form for ${type}`)
+  const tag = tagOf(type)
+  if (!(tag in BITS)) throw new WireError(`no JSON form for ${type}`)
   return { [tag]: scValToBigInt(s).toString() } as Tagged
 }
 
@@ -196,23 +201,12 @@ const ARITY: Record<string, number> = {
 }
 const PATH_MIN: Record<string, number> = { call_path: 2, read: 4, elem: 1, sum: 2 }
 const COMPARE = new Set(['eq', 'ne', 'lt', 'lte', 'gt', 'gte'])
-const CALLS = new Set([
-  'call_contract',
-  'call_fn',
-  'call_arg',
-  'call_arg_len',
-  'call_arg_field',
-  'call_path',
-])
+/** A leaf that reads the call: every known selector named `call_*`. */
+const isCall = (head: string) => head.startsWith('call_')
 
 /** A constant's value when the contract reads it as a number (any integer of up
- *  to 128 bits, a timepoint or a duration; not a 256-bit integer), else null. */
-function numOf(v: Val): bigint | null {
-  if (typeof v === 'number') return BigInt(v)
-  if (typeof v !== 'object' || v === null || Array.isArray(v)) return null
-  const [tag, x] = Object.entries(v)[0] as [string, string | number]
-  return (tag in BITS && BITS[tag]?.[0] !== 256) || tag === 'i32' ? BigInt(x) : null
-}
+ *  to 128 bits, a timepoint or a duration; not a 256-bit integer), else undefined. */
+const numOf = (v: Val) => (isTagged(v) && ('i256' in v || 'u256' in v) ? undefined : intOf(v))
 
 interface Walk {
   weight: number
@@ -259,7 +253,10 @@ function node(e: Expr, depth: number, body: boolean, w: Walk): void {
     leaf(a as Val, 1, body, w)
     leaf(b as Val, 1, body, w)
     const ordering = op !== 'eq' && op !== 'ne'
-    if (ordering && [a, b].some((x) => isConstant(x as Val) && numOf(unlit(x as Val)) === null)) {
+    if (
+      ordering &&
+      [a, b].some((x) => isConstant(x as Val) && numOf(unlit(x as Val)) === undefined)
+    ) {
       bad(`${op}: an ordering needs numbers`)
     }
   } else if ((op === 'in' || op === 'nin') && r.length === 2) {
@@ -297,7 +294,7 @@ function leaf(v: Val, nest: number, body: boolean, w: Walk): void {
     bad(`unknown selector or wrong arity: ${head}/${r.length}`)
   }
   const next = (x: Val) => leaf(x, nest + 1, body, w)
-  if (CALLS.has(head)) w.selector = true
+  if (isCall(head)) w.selector = true
   if (head === 'elem' && !body) bad('elem outside a quantifier body')
   if (head === 'call_path' || head === 'elem') steps(r)
   if (head === 'sum') {
@@ -308,15 +305,12 @@ function leaf(v: Val, nest: number, body: boolean, w: Walk): void {
   }
   if (head === 'scaled') {
     const den = r[2] as Val
-    const n =
-      typeof den === 'object' && den !== null && !Array.isArray(den) && 'i128' in den
-        ? den.i128
-        : null
+    const n = isTagged(den) && 'i128' in den ? den.i128 : null
     if (n === null || BigInt(n) < 1n || BigInt(n) > MAX_DEN)
       bad('scaled: den must be an i128 in 1..10^18')
     for (const x of [r[0], r[1], r[3]] as Val[]) {
       next(x)
-      if (isConstant(x) && numOf(unlit(x)) === null) bad('scaled: operands are numbers')
+      if (isConstant(x) && numOf(unlit(x)) === undefined) bad('scaled: operands are numbers')
     }
     for (const x of [r[0], r[1]] as Val[]) {
       if ((numOf(unlit(x)) ?? 1n) <= 0n) bad('scaled: a constant factor must be positive')
@@ -328,7 +322,7 @@ function leaf(v: Val, nest: number, body: boolean, w: Walk): void {
     if (typeof fn !== 'string' || !Array.isArray(args)) bad('read: (contract, fn, [args], path...)')
     steps(r.slice(3))
     for (const x of args as Val[]) {
-      if (isSelector(x) && !CALLS.has(x[0]) && x[0] !== 'now' && x[0] !== 'lit') {
+      if (isSelector(x) && !isCall(x[0]) && x[0] !== 'now' && x[0] !== 'lit') {
         bad('read: an argument is a constant or a plain leaf')
       }
       next(x)
@@ -349,7 +343,7 @@ function constant(v: Val, nest: number): void {
       if (isSelector(x)) bad('a bare vec holds plain values: write lit([...])')
       constant(x, nest + 1)
     }
-  } else if (typeof v === 'object' && v !== null && 'map' in v) {
+  } else if (isTagged(v) && 'map' in v) {
     bad('a bare map: write lit({...})')
   }
 }

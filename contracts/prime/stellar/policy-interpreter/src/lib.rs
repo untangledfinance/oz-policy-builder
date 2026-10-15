@@ -22,9 +22,7 @@ pub use types::{ContextRule, ContextRuleType, PolicyInstallParams, Signer};
 pub use version::SELF_VERSION;
 
 use soroban_sdk::xdr::ToXdr;
-use soroban_sdk::{
-    auth::Context, contract, contractimpl, Address, Bytes, BytesN, Env, IntoVal, Vec,
-};
+use soroban_sdk::{auth::Context, contract, contractimpl, Address, BytesN, Env, IntoVal, Vec};
 
 use crate::storage::{deny, deny_unless, load, PolicyError as E, TTL_BUMP_THRESHOLD, TTL_BUMP_TO};
 
@@ -196,7 +194,7 @@ impl PolicyInterpreter {
     /// checks and evaluate it against `context`. Returns 0 to permit, else the
     /// code `install` or `enforce` would have raised. No storage, no auth, no
     /// state change of its own; a `read` runs as it does in `enforce`.
-    pub fn check(e: &Env, predicate: Bytes, context: Context) -> u32 {
+    pub fn check(e: &Env, predicate: soroban_sdk::Bytes, context: Context) -> u32 {
         let Context::Contract(call) = &context else {
             return E::MissingState as u32;
         };

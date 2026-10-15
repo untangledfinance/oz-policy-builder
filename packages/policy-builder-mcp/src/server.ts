@@ -8,10 +8,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 export const VERSION = '2.0.0'
 
 export function createMcpServer(): McpServer {
-  const server = new McpServer(
-    { name: 'policy-builder-mcp', version: VERSION },
-    { capabilities: { tools: {} } }
-  )
+  // Registering a tool declares the `tools` capability.
+  const server = new McpServer({ name: 'policy-builder-mcp', version: VERSION })
   for (const t of TOOLS) {
     server.tool(t.name, t.description, t.shape, async (args) => {
       const res = await t.run(args)
