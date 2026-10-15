@@ -72,11 +72,17 @@ export const PROTOCOLS: Record<string, Record<string, Row>> = {
       ['deadline', 'time'],
     ],
     swap_tokens_for_exact_tokens: [
-      ['amount_out', 'amount'],
-      ['amount_in_max', 'min'],
+      ['amount_out', 'min'],
+      ['amount_in_max', 'amount'],
       ['path', 'exact'],
       ['to', 'who'],
       ['deadline', 'time'],
+    ],
+    swap_exact_in_for_tokens: [
+      ['amount_in', 'amount'],
+      ['amount_out_min', 'min'],
+      ['path', 'exact'],
+      ['to', 'who'],
     ],
   },
 }
@@ -90,7 +96,8 @@ export interface Known {
  *  have the shape the row says (never guess a role from a name alone). */
 export function identify(fn: string, args: Val[]): Known | null {
   for (const [protocol, fns] of Object.entries(PROTOCOLS)) {
-    const row = fns[fn]
+    // Own keys only: `constructor` and `toString` are on every object.
+    const row = Object.hasOwn(fns, fn) ? fns[fn] : undefined
     if (row && row.length === args.length && row.every(([, k], i) => SHAPE[k](args[i] as Val))) {
       return { protocol, args: row }
     }
