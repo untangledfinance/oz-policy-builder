@@ -44,6 +44,18 @@ fn empty_ctx(env: &Env) -> EvalContext {
     }
 }
 
+fn lit<T: IntoVal<Env, Val>>(env: &Env, v: T) -> Leaf {
+    Leaf::Lit(v.into_val(env))
+}
+
+fn li(env: &Env, v: i128) -> Leaf {
+    lit(env, v)
+}
+
+fn lu(env: &Env, v: u32) -> Leaf {
+    lit(env, v)
+}
+
 fn permit(d: EvalDecision) -> bool {
     matches!(d, EvalDecision::Permit)
 }
@@ -174,21 +186,7 @@ fn leaf_to_scval(env: &Env, l: &Leaf) -> ScVal {
             i128_scval(*den),
             leaf_to_scval(env, &k[2]),
         ]),
-        Leaf::LiteralAddress(_) => addr_scval(),
-        Leaf::LiteralI128(v) => i128_scval(*v),
-        Leaf::LiteralSymbol(s) => {
-            // Round-trip so host and wire see the same canonical symbol bytes.
-            let _: &Env = env;
-            let v: Val = s.clone().into_val(env);
-            ScVal::from_xdr(env, &v.to_xdr(env)).expect("sym round-trip")
-        }
-        Leaf::LiteralU32(v) => u32_scval(*v),
-        Leaf::LiteralVec(elements) => vec_scval(
-            &elements
-                .iter()
-                .map(|e| leaf_to_scval(env, e))
-                .collect::<StdVec<_>>(),
-        ),
+        Leaf::Lit(v) => vec_scval(&[sym("lit"), scval_of(env, *v)]),
     }
 }
 
@@ -234,8 +232,8 @@ fn op_name(op: CompareOp) -> &'static str {
 fn op_and_all_permit_passes() {
     let env = Env::default();
     let n = Node::And(StdVec::from([
-        cmp_i128(CompareOp::Eq, 10, 10),
-        cmp_i128(CompareOp::Lte, 5, 10),
+        cmp_i128(&env, CompareOp::Eq, 10, 10),
+        cmp_i128(&env, CompareOp::Lte, 5, 10),
     ]));
     assert!(permit(evaluate(&env, &n, &empty_ctx(&env))));
 }
@@ -244,8 +242,8 @@ fn op_and_all_permit_passes() {
 fn op_and_fail_fast_returns_first_violation() {
     let env = Env::default();
     let n = Node::And(StdVec::from([
-        cmp_i128(CompareOp::Lte, 10, 5), // fails -> ArgMismatch
-        cmp_i128(CompareOp::Eq, 5, 5),   // would also permit — but first deny short-circuits
+        cmp_i128(&env, CompareOp::Lte, 10, 5), // fails -> ArgMismatch
+        cmp_i128(&env, CompareOp::Eq, 5, 5),   // would also permit — but first deny short-circuits
     ]));
     assert_eq!(
         reason(evaluate(&env, &n, &empty_ctx(&env))),
@@ -257,12 +255,8 @@ fn op_and_fail_fast_returns_first_violation() {
 fn op_in_needle_in_haystack_permits() {
     let env = Env::default();
     let n = Node::In {
-        needle: Leaf::LiteralI128(2),
-        haystack: StdVec::from([
-            Leaf::LiteralI128(1),
-            Leaf::LiteralI128(2),
-            Leaf::LiteralI128(3),
-        ]),
+        needle: li(&env, 2),
+        haystack: StdVec::from([li(&env, 1), li(&env, 2), li(&env, 3)]),
     };
     assert!(permit(evaluate(&env, &n, &empty_ctx(&env))));
 }
@@ -271,12 +265,8 @@ fn op_in_needle_in_haystack_permits() {
 fn op_in_needle_missing_deny() {
     let env = Env::default();
     let n = Node::In {
-        needle: Leaf::LiteralI128(99),
-        haystack: StdVec::from([
-            Leaf::LiteralI128(1),
-            Leaf::LiteralI128(2),
-            Leaf::LiteralI128(3),
-        ]),
+        needle: li(&env, 99),
+        haystack: StdVec::from([li(&env, 1), li(&env, 2), li(&env, 3)]),
     };
     assert!(!permit(evaluate(&env, &n, &empty_ctx(&env))));
 }
@@ -286,7 +276,7 @@ fn op_in_empty_haystack_deny_fails_closed() {
     // Runtime-built AST (decode-time `in []` is also covered below) - deny.
     let env = Env::default();
     let n = Node::In {
-        needle: Leaf::LiteralI128(1),
+        needle: li(&env, 1),
         haystack: StdVec::new(),
     };
     assert_eq!(
@@ -300,7 +290,7 @@ fn op_eq_literal_i128_permits_when_match() {
     let env = Env::default();
     assert!(permit(evaluate(
         &env,
-        &cmp_i128(CompareOp::Eq, 7, 7),
+        &cmp_i128(&env, CompareOp::Eq, 7, 7),
         &empty_ctx(&env)
     )));
 }
@@ -311,7 +301,7 @@ fn op_eq_literal_i128_denies_when_mismatch() {
     assert_eq!(
         reason(evaluate(
             &env,
-            &cmp_i128(CompareOp::Eq, 7, 8),
+            &cmp_i128(&env, CompareOp::Eq, 7, 8),
             &empty_ctx(&env)
         )),
         Some(DenyReason::ArgMismatch)
@@ -323,16 +313,16 @@ fn op_lte_permits_at_bound() {
     let env = Env::default();
     assert!(permit(evaluate(
         &env,
-        &cmp_i128(CompareOp::Lte, 10, 10),
+        &cmp_i128(&env, CompareOp::Lte, 10, 10),
         &empty_ctx(&env)
     )));
 }
 
-fn cmp_i128(op: CompareOp, left: i128, right: i128) -> Node {
+fn cmp_i128(env: &Env, op: CompareOp, left: i128, right: i128) -> Node {
     Node::Compare {
         op,
-        left: Leaf::LiteralI128(left),
-        right: Leaf::LiteralI128(right),
+        left: li(&env, left),
+        right: li(&env, right),
     }
 }
 
@@ -346,7 +336,7 @@ fn sel_call_contract_eq_match_permits() {
     let n = Node::Compare {
         op: CompareOp::Eq,
         left: Leaf::CallContract,
-        right: Leaf::LiteralAddress(ctx.contract.clone()),
+        right: lit(&env, ctx.contract.clone()),
     };
     assert!(permit(evaluate(&env, &n, &ctx)));
 }
@@ -357,7 +347,7 @@ fn sel_call_contract_eq_other_denies_contract_scope() {
     let n = Node::Compare {
         op: CompareOp::Eq,
         left: Leaf::CallContract,
-        right: Leaf::LiteralAddress(Address::generate(&env)),
+        right: lit(&env, Address::generate(&env)),
     };
     assert_eq!(
         reason(evaluate(&env, &n, &empty_ctx(&env))),
@@ -371,7 +361,7 @@ fn sel_call_contract_with_non_eq_op_unsupported() {
     let n = Node::Compare {
         op: CompareOp::Lte,
         left: Leaf::CallContract,
-        right: Leaf::LiteralAddress(Address::generate(&env)),
+        right: lit(&env, Address::generate(&env)),
     };
     assert_eq!(
         reason(evaluate(&env, &n, &empty_ctx(&env))),
@@ -387,7 +377,7 @@ fn sel_call_fn_eq_match_permits() {
     let n = Node::Compare {
         op: CompareOp::Eq,
         left: Leaf::CallFn,
-        right: Leaf::LiteralSymbol(Symbol::new(&env, "submit")),
+        right: lit(&env, Symbol::new(&env, "submit")),
     };
     assert!(permit(evaluate(&env, &n, &ctx)));
 }
@@ -400,7 +390,7 @@ fn sel_call_fn_eq_mismatch_denies() {
     let n = Node::Compare {
         op: CompareOp::Eq,
         left: Leaf::CallFn,
-        right: Leaf::LiteralSymbol(Symbol::new(&env, "submit")),
+        right: lit(&env, Symbol::new(&env, "submit")),
     };
     assert_eq!(
         reason(evaluate(&env, &n, &ctx)),
@@ -419,7 +409,7 @@ fn sel_call_arg_eq_address_permits_when_match() {
     let n = Node::Compare {
         op: CompareOp::Eq,
         left: call_arg(0),
-        right: Leaf::LiteralAddress(arg),
+        right: lit(&env, arg),
     };
     assert!(permit(evaluate(&env, &n, &ctx)));
 }
@@ -434,7 +424,7 @@ fn sel_call_arg_eq_i128_denies_other_value() {
     let n = Node::Compare {
         op: CompareOp::Eq,
         left: call_arg(0),
-        right: Leaf::LiteralI128(11),
+        right: li(&env, 11),
     };
     assert_eq!(
         reason(evaluate(&env, &n, &ctx)),
@@ -450,7 +440,7 @@ fn sel_call_arg_out_of_bounds_denies() {
     let n = Node::Compare {
         op: CompareOp::Eq,
         left: call_arg(7),
-        right: Leaf::LiteralI128(0),
+        right: li(&env, 0),
     };
     assert_eq!(
         reason(evaluate(&env, &n, &empty_ctx(&env))),
@@ -470,7 +460,7 @@ fn sel_call_arg_len_eq_match_permits() {
     let n = Node::Compare {
         op: CompareOp::Eq,
         left: call_arg_len(0),
-        right: Leaf::LiteralU32(1),
+        right: lu(&env, 1),
     };
     assert!(permit(evaluate(&env, &n, &ctx)));
 }
@@ -487,7 +477,7 @@ fn sel_call_arg_len_eq_mismatch_denies() {
     let n = Node::Compare {
         op: CompareOp::Eq,
         left: call_arg_len(0),
-        right: Leaf::LiteralU32(99),
+        right: lu(&env, 99),
     };
     assert_eq!(
         reason(evaluate(&env, &n, &ctx)),
@@ -513,7 +503,7 @@ fn sel_call_arg_field_eq_u32_match_permits() {
             PathStep::Index(0),
             PathStep::Field(Symbol::new(&env, "request_type")),
         ]),
-        right: Leaf::LiteralU32(3),
+        right: lu(&env, 3),
     };
     assert!(permit(evaluate(&env, &n, &ctx)));
 }
@@ -553,7 +543,7 @@ fn sel_call_path_reaches_one_argument_of_one_call() {
     let n = Node::Compare {
         op: CompareOp::Eq,
         left: at(&env, 0, 2),
-        right: Leaf::LiteralU32(7),
+        right: lu(&env, 7),
     };
     assert!(permit(evaluate(&env, &n, &ctx)));
 }
@@ -590,7 +580,7 @@ fn sel_call_path_out_of_range_denies() {
     let n = Node::Compare {
         op: CompareOp::Eq,
         left: at(&env, 0, 9),
-        right: Leaf::LiteralU32(7),
+        right: lu(&env, 7),
     };
     assert!(!permit(evaluate(&env, &n, &ctx)));
 }
@@ -639,7 +629,7 @@ fn sel_call_path_reaches_a_nested_request_amount() {
             PathStep::Index(0),
             PathStep::Field(Symbol::new(&env, "amount")),
         ]),
-        right: Leaf::LiteralI128(42),
+        right: li(&env, 42),
     };
     assert!(permit(evaluate(&env, &n, &ctx)));
 }
@@ -657,7 +647,7 @@ fn sel_call_path_len_reads_a_nested_vector_length() {
         &Node::Compare {
             op: CompareOp::Eq,
             left: len_of_calls.clone(),
-            right: Leaf::LiteralU32(2),
+            right: lu(&env, 2),
         },
         &ctx
     )));
@@ -667,7 +657,7 @@ fn sel_call_path_len_reads_a_nested_vector_length() {
             &Node::Compare {
                 op: CompareOp::Eq,
                 left: len_of_calls,
-                right: Leaf::LiteralU32(3),
+                right: lu(&env, 3),
             },
             &ctx
         )),
@@ -706,7 +696,7 @@ fn denies_with(env: &Env, ctx: &EvalContext, left: Leaf) -> bool {
         &Node::Compare {
             op: CompareOp::Eq,
             left,
-            right: Leaf::LiteralU32(1),
+            right: lu(&env, 1),
         },
         ctx,
     ))
@@ -931,7 +921,7 @@ fn balanced_depth_n(env: &Env, target_depth: usize) -> Node {
         return Node::Compare {
             op: CompareOp::Eq,
             left: Leaf::CallContract,
-            right: Leaf::LiteralAddress(contract(env)),
+            right: lit(&env, contract(env)),
         };
     }
     Node::And(StdVec::from([balanced_depth_n(env, target_depth - 1)]))
@@ -943,7 +933,7 @@ fn wide_leaves_n(env: &Env, target_pairs: usize) -> Node {
         children.push(Node::Compare {
             op: CompareOp::Eq,
             left: Leaf::CallContract,
-            right: Leaf::LiteralAddress(contract(env)),
+            right: lit(&env, contract(env)),
         });
     }
     Node::And(children)
@@ -985,9 +975,9 @@ fn cap_leaves_over_limit_returns_too_many_leaves() {
 fn cap_in_operand_count_over_limit_returns_in_operand_limit() {
     let env = Env::default();
     let n = Node::In {
-        needle: Leaf::LiteralI128(0),
+        needle: li(&env, 0),
         haystack: (0..=(MAX_IN_OPERAND_COUNT as i128))
-            .map(Leaf::LiteralI128)
+            .map(|i| li(&env, i))
             .collect::<StdVec<_>>(),
     };
     let bytes = bytes_from_node(&env, &n);
@@ -1044,10 +1034,11 @@ fn fc_window_spent_selector_is_refused_at_decode() {
 fn selector_leaf_gate_refuses_literals_on_both_sides() {
     // The case the gate exists for: nothing about the call is read, so the
     // predicate binds nothing and would be a permanent allow.
+    let env = Env::default();
     let n = Node::Compare {
         op: CompareOp::Eq,
-        left: Leaf::LiteralU32(1),
-        right: Leaf::LiteralU32(1),
+        left: lu(&env, 1),
+        right: lu(&env, 1),
     };
     assert!(!crate::dsl::has_selector_leaf(&n));
 }
@@ -1058,8 +1049,8 @@ fn selector_leaf_gate_refuses_literals_on_both_sides() {
 fn op_or_first_child_permit_short_circuits() {
     let env = Env::default();
     let n = Node::Or(StdVec::from([
-        cmp_i128(CompareOp::Eq, 5, 5),   // permits
-        cmp_i128(CompareOp::Eq, 1, 999), // would deny, never reached
+        cmp_i128(&env, CompareOp::Eq, 5, 5),   // permits
+        cmp_i128(&env, CompareOp::Eq, 1, 999), // would deny, never reached
     ]));
     assert!(permit(evaluate(&env, &n, &empty_ctx(&env))));
 }
@@ -1068,9 +1059,9 @@ fn op_or_first_child_permit_short_circuits() {
 fn op_or_last_child_permit_still_permits() {
     let env = Env::default();
     let n = Node::Or(StdVec::from([
-        cmp_i128(CompareOp::Eq, 1, 999),
-        cmp_i128(CompareOp::Eq, 2, 998),
-        cmp_i128(CompareOp::Eq, 7, 7), // the only permit
+        cmp_i128(&env, CompareOp::Eq, 1, 999),
+        cmp_i128(&env, CompareOp::Eq, 2, 998),
+        cmp_i128(&env, CompareOp::Eq, 7, 7), // the only permit
     ]));
     assert!(permit(evaluate(&env, &n, &empty_ctx(&env))));
 }
@@ -1084,10 +1075,10 @@ fn op_or_all_deny_reports_the_first_childs_reason() {
     let env = Env::default();
     let n = Node::Or(StdVec::from([
         Node::In {
-            needle: Leaf::LiteralI128(9),
-            haystack: StdVec::from([Leaf::LiteralI128(1)]),
+            needle: li(&env, 9),
+            haystack: StdVec::from([li(&env, 1)]),
         }, // NotInAllowlist
-        cmp_i128(CompareOp::Lte, 10, 5), // ArgMismatch
+        cmp_i128(&env, CompareOp::Lte, 10, 5), // ArgMismatch
     ]));
     assert_eq!(
         reason(evaluate(&env, &n, &empty_ctx(&env))),
@@ -1099,10 +1090,10 @@ fn op_or_all_deny_reports_the_first_childs_reason() {
 fn op_or_nested_under_and_permits_when_one_branch_holds() {
     let env = Env::default();
     let n = Node::And(StdVec::from([
-        cmp_i128(CompareOp::Eq, 1, 1),
+        cmp_i128(&env, CompareOp::Eq, 1, 1),
         Node::Or(StdVec::from([
-            cmp_i128(CompareOp::Eq, 2, 3),
-            cmp_i128(CompareOp::Eq, 4, 4),
+            cmp_i128(&env, CompareOp::Eq, 2, 3),
+            cmp_i128(&env, CompareOp::Eq, 4, 4),
         ])),
     ]));
     assert!(permit(evaluate(&env, &n, &empty_ctx(&env))));
@@ -1113,13 +1104,13 @@ fn op_lt_is_strict_at_the_bound() {
     let env = Env::default();
     assert!(permit(evaluate(
         &env,
-        &cmp_i128(CompareOp::Lt, 9, 10),
+        &cmp_i128(&env, CompareOp::Lt, 9, 10),
         &empty_ctx(&env)
     )));
     assert_eq!(
         reason(evaluate(
             &env,
-            &cmp_i128(CompareOp::Lt, 10, 10),
+            &cmp_i128(&env, CompareOp::Lt, 10, 10),
             &empty_ctx(&env)
         )),
         Some(DenyReason::ArgMismatch),
@@ -1132,13 +1123,13 @@ fn op_gt_is_strict_at_the_bound() {
     let env = Env::default();
     assert!(permit(evaluate(
         &env,
-        &cmp_i128(CompareOp::Gt, 11, 10),
+        &cmp_i128(&env, CompareOp::Gt, 11, 10),
         &empty_ctx(&env)
     )));
     assert_eq!(
         reason(evaluate(
             &env,
-            &cmp_i128(CompareOp::Gt, 10, 10),
+            &cmp_i128(&env, CompareOp::Gt, 10, 10),
             &empty_ctx(&env)
         )),
         Some(DenyReason::ArgMismatch)
@@ -1150,13 +1141,13 @@ fn op_gte_permits_at_the_bound() {
     let env = Env::default();
     assert!(permit(evaluate(
         &env,
-        &cmp_i128(CompareOp::Gte, 10, 10),
+        &cmp_i128(&env, CompareOp::Gte, 10, 10),
         &empty_ctx(&env)
     )));
     assert_eq!(
         reason(evaluate(
             &env,
-            &cmp_i128(CompareOp::Gte, 9, 10),
+            &cmp_i128(&env, CompareOp::Gte, 9, 10),
             &empty_ctx(&env)
         )),
         Some(DenyReason::ArgMismatch)
@@ -1174,7 +1165,7 @@ fn ordering_op_over_call_contract_is_unsupported() {
         let n = Node::Compare {
             op,
             left: Leaf::CallContract,
-            right: Leaf::LiteralAddress(ctx.contract.clone()),
+            right: lit(&env, ctx.contract.clone()),
         };
         assert_eq!(
             reason(evaluate(&env, &n, &ctx)),
@@ -1202,13 +1193,8 @@ fn scaled(src: Leaf, num: Leaf, den: i128, add: Leaf) -> Leaf {
 }
 
 /// `scaled(call_arg(0), num, den, 0)` - the grammar-6 `call_arg_scaled`.
-fn arg_scaled(num: i128, den: i128) -> Leaf {
-    scaled(
-        call_arg(0),
-        Leaf::LiteralI128(num),
-        den,
-        Leaf::LiteralI128(0),
-    )
+fn arg_scaled(env: &Env, num: i128, den: i128) -> Leaf {
+    scaled(call_arg(0), li(&env, num), den, li(&env, 0))
 }
 
 fn compare(op: CompareOp, left: Leaf, right: Leaf) -> Node {
@@ -1216,8 +1202,8 @@ fn compare(op: CompareOp, left: Leaf, right: Leaf) -> Node {
 }
 
 /// The canonical floor: `call_arg(1) >= scaled(call_arg(0), num, den, 0)`.
-fn floor_node(num: i128, den: i128) -> Node {
-    compare(CompareOp::Gte, call_arg(1), arg_scaled(num, den))
+fn floor_node(env: &Env, num: i128, den: i128) -> Node {
+    compare(CompareOp::Gte, call_arg(1), arg_scaled(&env, num, den))
 }
 
 #[test]
@@ -1225,7 +1211,7 @@ fn scaled_floor_permits_output_above_the_ratio() {
     let env = Env::default();
     // 99% floor: 1000 in -> needs >= 990 out. 995 clears it.
     let ctx = swap_ctx(&env, 1000, 995);
-    assert!(permit(evaluate(&env, &floor_node(99, 100), &ctx)));
+    assert!(permit(evaluate(&env, &floor_node(&env, 99, 100), &ctx)));
 }
 
 #[test]
@@ -1233,7 +1219,7 @@ fn scaled_floor_denies_output_below_the_ratio() {
     let env = Env::default();
     let ctx = swap_ctx(&env, 1000, 989);
     assert_eq!(
-        reason(evaluate(&env, &floor_node(99, 100), &ctx)),
+        reason(evaluate(&env, &floor_node(&env, 99, 100), &ctx)),
         Some(DenyReason::ArgMismatch),
         "a floor miss is an ordinary comparison miss now that scaled is a number"
     );
@@ -1243,7 +1229,7 @@ fn scaled_floor_denies_output_below_the_ratio() {
 fn scaled_floor_permits_exactly_at_the_ratio() {
     let env = Env::default();
     let ctx = swap_ctx(&env, 1000, 990);
-    assert!(permit(evaluate(&env, &floor_node(99, 100), &ctx)));
+    assert!(permit(evaluate(&env, &floor_node(&env, 99, 100), &ctx)));
 }
 
 #[test]
@@ -1252,19 +1238,19 @@ fn scaled_truncates_toward_zero() {
     // 1000 * 1 / 3 = 333.33 -> 333. An output of exactly 333 must clear a
     // >= floor; if the division rounded UP to 334 this would deny.
     let ctx = swap_ctx(&env, 1000, 333);
-    assert!(permit(evaluate(&env, &floor_node(1, 3), &ctx)));
+    assert!(permit(evaluate(&env, &floor_node(&env, 1, 3), &ctx)));
     // and toward zero, not toward minus infinity: -1000 / 3 = -333.
     let ctx = swap_ctx(&env, -1000, -333);
-    assert!(permit(evaluate(&env, &floor_node(1, 3), &ctx)));
+    assert!(permit(evaluate(&env, &floor_node(&env, 1, 3), &ctx)));
     let ctx = swap_ctx(&env, -1000, -334);
-    assert!(!permit(evaluate(&env, &floor_node(1, 3), &ctx)));
+    assert!(!permit(evaluate(&env, &floor_node(&env, 1, 3), &ctx)));
 }
 
 #[test]
 fn scaled_multiplies_before_it_divides() {
     // 7 * 3 / 2 = 10; dividing first would give 3 * 3 = 9.
     let env = Env::default();
-    let n = compare(CompareOp::Eq, arg_scaled(3, 2), call_arg(1));
+    let n = compare(CompareOp::Eq, arg_scaled(&env, 3, 2), call_arg(1));
     assert!(permit(evaluate(&env, &n, &swap_ctx(&env, 7, 10))));
     assert!(!permit(evaluate(&env, &n, &swap_ctx(&env, 7, 9))));
 }
@@ -1273,7 +1259,7 @@ fn scaled_multiplies_before_it_divides() {
 fn scaled_adds_after_the_division() {
     // 7 * 1 / 2 + 5 = 3 + 5 = 8.
     let env = Env::default();
-    let s = scaled(call_arg(0), Leaf::LiteralI128(1), 2, Leaf::LiteralI128(5));
+    let s = scaled(call_arg(0), li(&env, 1), 2, li(&env, 5));
     let n = compare(CompareOp::Eq, s, call_arg(1));
     assert!(permit(evaluate(&env, &n, &swap_ctx(&env, 7, 8))));
 }
@@ -1283,7 +1269,7 @@ fn scaled_on_the_left_compares_in_written_order() {
     // `scaled(...) <= call_arg(1)` is the mirror of the canonical form and
     // must agree with it.
     let env = Env::default();
-    let n = compare(CompareOp::Lte, arg_scaled(99, 100), call_arg(1));
+    let n = compare(CompareOp::Lte, arg_scaled(&env, 99, 100), call_arg(1));
     assert!(permit(evaluate(&env, &n, &swap_ctx(&env, 1000, 995))));
     assert_eq!(
         reason(evaluate(&env, &n, &swap_ctx(&env, 1000, 989))),
@@ -1295,9 +1281,17 @@ fn scaled_on_the_left_compares_in_written_order() {
 fn scaled_versus_scaled_compares_two_numbers() {
     // Grammar 6 refused this. Both sides resolve to a plain number now.
     let env = Env::default();
-    let n = compare(CompareOp::Gte, arg_scaled(1, 1), arg_scaled(1, 2));
+    let n = compare(
+        CompareOp::Gte,
+        arg_scaled(&env, 1, 1),
+        arg_scaled(&env, 1, 2),
+    );
     assert!(permit(evaluate(&env, &n, &swap_ctx(&env, 10, 10))));
-    let n = compare(CompareOp::Lt, arg_scaled(1, 1), arg_scaled(1, 2));
+    let n = compare(
+        CompareOp::Lt,
+        arg_scaled(&env, 1, 1),
+        arg_scaled(&env, 1, 2),
+    );
     assert!(!permit(evaluate(&env, &n, &swap_ctx(&env, 10, 10))));
 }
 
@@ -1309,7 +1303,7 @@ fn scaled_operands_may_all_be_selectors() {
     let mut ctx = swap_ctx(&env, 6, 7);
     ctx.args.push_back(8i128.into_val(&env));
     let s = scaled(call_arg(0), call_arg(1), 1, call_arg(2));
-    let n = compare(CompareOp::Eq, s, Leaf::LiteralI128(50));
+    let n = compare(CompareOp::Eq, s, li(&env, 50));
     assert!(permit(evaluate(&env, &n, &ctx)));
 }
 
@@ -1319,7 +1313,7 @@ fn scaled_overflow_denies_rather_than_panicking() {
     // i128::MAX * 2 cannot fit; checked_mul must deny, not wrap or trap.
     let ctx = swap_ctx(&env, i128::MAX, 1);
     assert_eq!(
-        reason(evaluate(&env, &floor_node(2, 1), &ctx)),
+        reason(evaluate(&env, &floor_node(&env, 2, 1), &ctx)),
         Some(DenyReason::ArithmeticOverflow)
     );
 }
@@ -1327,7 +1321,7 @@ fn scaled_overflow_denies_rather_than_panicking() {
 #[test]
 fn scaled_add_overflow_denies_rather_than_wrapping() {
     let env = Env::default();
-    let s = scaled(call_arg(0), Leaf::LiteralI128(1), 1, Leaf::LiteralI128(1));
+    let s = scaled(call_arg(0), li(&env, 1), 1, li(&env, 1));
     let n = compare(CompareOp::Gte, call_arg(1), s);
     assert_eq!(
         reason(evaluate(&env, &n, &swap_ctx(&env, i128::MAX, 0))),
@@ -1338,8 +1332,8 @@ fn scaled_add_overflow_denies_rather_than_wrapping() {
 #[test]
 fn an_overflow_in_a_nested_scaled_reaches_the_top() {
     let env = Env::default();
-    let inner = scaled(call_arg(0), Leaf::LiteralI128(2), 1, Leaf::LiteralI128(0));
-    let outer = scaled(inner, Leaf::LiteralI128(1), 1, Leaf::LiteralI128(0));
+    let inner = scaled(call_arg(0), li(&env, 2), 1, li(&env, 0));
+    let outer = scaled(inner, li(&env, 1), 1, li(&env, 0));
     let n = compare(CompareOp::Gte, call_arg(1), outer);
     assert_eq!(
         reason(evaluate(&env, &n, &swap_ctx(&env, i128::MAX, 0))),
@@ -1354,7 +1348,7 @@ fn scaled_zero_denominator_denies_at_evaluate() {
     let env = Env::default();
     let ctx = swap_ctx(&env, 1000, 995);
     assert_eq!(
-        reason(evaluate(&env, &floor_node(99, 0), &ctx)),
+        reason(evaluate(&env, &floor_node(&env, 99, 0), &ctx)),
         Some(DenyReason::ArithmeticOverflow)
     );
 }
@@ -1367,7 +1361,7 @@ fn scaled_division_overflow_denies_rather_than_wrapping() {
     let env = Env::default();
     let ctx = swap_ctx(&env, i128::MIN, 0);
     assert_eq!(
-        reason(evaluate(&env, &floor_node(1, -1), &ctx)),
+        reason(evaluate(&env, &floor_node(&env, 1, -1), &ctx)),
         Some(DenyReason::ArithmeticOverflow)
     );
 }
@@ -1375,7 +1369,7 @@ fn scaled_division_overflow_denies_rather_than_wrapping() {
 #[test]
 fn scaled_index_out_of_bounds_is_arg_mismatch() {
     let env = Env::default();
-    let s = scaled(call_arg(9), Leaf::LiteralI128(1), 1, Leaf::LiteralI128(0));
+    let s = scaled(call_arg(9), li(&env, 1), 1, li(&env, 0));
     let n = compare(CompareOp::Gte, call_arg(1), s);
     assert_eq!(
         reason(evaluate(&env, &n, &swap_ctx(&env, 10, 10))),
@@ -1392,7 +1386,7 @@ fn scaled_non_numeric_source_is_arg_mismatch() {
     args.push_back(100i128.into_val(&env));
     ctx.args = args;
     assert_eq!(
-        reason(evaluate(&env, &floor_node(1, 1), &ctx)),
+        reason(evaluate(&env, &floor_node(&env, 1, 1), &ctx)),
         Some(DenyReason::ArgMismatch)
     );
 }
@@ -1406,8 +1400,13 @@ fn scaled_ordering_ops_keep_their_strictness_at_the_bound() {
     // strict policy into a permissive one.
     let env = Env::default();
     let ctx = swap_ctx(&env, 1000, 990);
-    let at_bound =
-        |op: CompareOp| evaluate(&env, &compare(op, call_arg(1), arg_scaled(99, 100)), &ctx);
+    let at_bound = |op: CompareOp| {
+        evaluate(
+            &env,
+            &compare(op, call_arg(1), arg_scaled(&env, 99, 100)),
+            &ctx,
+        )
+    };
     assert!(permit(at_bound(CompareOp::Gte)), "gte permits at the bound");
     assert!(permit(at_bound(CompareOp::Lte)), "lte permits at the bound");
     assert!(permit(at_bound(CompareOp::Eq)), "eq permits at the bound");
@@ -1433,9 +1432,9 @@ fn now_is_the_ledger_timestamp() {
     let ctx = empty_ctx(&env);
     // A clock is meant to be bounded, so these order it; `eq` compares numbers
     // by value too, so the u64 timestamp equals an i128 of the same value.
-    let ge = compare(CompareOp::Gte, Leaf::Now, Leaf::LiteralI128(1_000));
-    let gt = compare(CompareOp::Gt, Leaf::Now, Leaf::LiteralI128(1_000));
-    let eq = compare(CompareOp::Eq, Leaf::Now, Leaf::LiteralI128(1_000));
+    let ge = compare(CompareOp::Gte, Leaf::Now, li(&env, 1_000));
+    let gt = compare(CompareOp::Gt, Leaf::Now, li(&env, 1_000));
+    let eq = compare(CompareOp::Eq, Leaf::Now, li(&env, 1_000));
     assert!(permit(evaluate(&env, &ge, &ctx)));
     assert!(permit(evaluate(&env, &eq, &ctx)));
     assert!(!permit(evaluate(&env, &gt, &ctx)));
@@ -1450,7 +1449,7 @@ fn now_composes_with_scaled() {
     let env = Env::default();
     env.ledger().with_mut(|l| l.timestamp = 1_000);
     // now - 300 <= call_arg(0)
-    let window = scaled(Leaf::Now, Leaf::LiteralI128(1), 1, Leaf::LiteralI128(-300));
+    let window = scaled(Leaf::Now, li(&env, 1), 1, li(&env, -300));
     let n = compare(CompareOp::Lte, window, call_arg(0));
     assert!(permit(evaluate(&env, &n, &swap_ctx(&env, 700, 0))));
     assert!(!permit(evaluate(&env, &n, &swap_ctx(&env, 699, 0))));
@@ -1475,21 +1474,18 @@ fn dummy_read_of(env: &Env, n: u32) -> Leaf {
 #[test]
 fn scaled_over_a_selector_counts_as_a_selector() {
     // It reads the call, so a predicate made only of it is still constrained.
-    assert!(crate::dsl::has_selector_leaf(&floor_node(99, 100)));
+    let env = Env::default();
+    assert!(crate::dsl::has_selector_leaf(&floor_node(&env, 99, 100)));
 }
 
 #[test]
 fn scaled_over_literals_does_not() {
-    let lits = scaled(
-        Leaf::LiteralI128(1),
-        Leaf::LiteralI128(1),
-        1,
-        Leaf::LiteralI128(1),
-    );
+    let env = Env::default();
+    let lits = scaled(li(&env, 1), li(&env, 1), 1, li(&env, 1));
     assert!(!crate::dsl::has_selector_leaf(&compare(
         CompareOp::Gte,
         lits,
-        Leaf::LiteralI128(0)
+        li(&env, 0)
     )));
 }
 
@@ -1501,10 +1497,10 @@ fn read_and_now_do_not_count_as_selectors() {
     let dressed = compare(
         CompareOp::Gte,
         scaled(dummy_read(&env), Leaf::Now, 1, Leaf::Now),
-        Leaf::LiteralI128(0),
+        li(&env, 0),
     );
     assert!(!crate::dsl::has_selector_leaf(&dressed));
-    let both = Node::And(StdVec::from([reads, floor_node(1, 1)]));
+    let both = Node::And(StdVec::from([reads, floor_node(&env, 1, 1)]));
     assert!(crate::dsl::has_selector_leaf(&both));
 }
 
@@ -1514,7 +1510,7 @@ fn read_and_now_do_not_count_as_selectors() {
 fn decode_refuses_a_non_positive_denominator() {
     let env = Env::default();
     for den in [0, -1, i128::MIN] {
-        let err = decode(&env, &bytes_from_node(&env, &floor_node(99, den)))
+        let err = decode(&env, &bytes_from_node(&env, &floor_node(&env, 99, den)))
             .expect_err("den <= 0 must not decode");
         assert_eq!(
             err,
@@ -1524,8 +1520,8 @@ fn decode_refuses_a_non_positive_denominator() {
     }
     // The denominator is refused wherever the leaf sits.
     let hidden = Node::Or(StdVec::from([
-        cmp_i128(CompareOp::Eq, 1, 1),
-        floor_node(1, 0),
+        cmp_i128(&env, CompareOp::Eq, 1, 1),
+        floor_node(&env, 1, 0),
     ]));
     assert!(decode(&env, &bytes_from_node(&env, &hidden)).is_err());
 }
@@ -1534,7 +1530,7 @@ fn decode_refuses_a_non_positive_denominator() {
 fn decode_refuses_a_non_positive_literal_numerator() {
     let env = Env::default();
     for num in [0, -1, i128::MIN] {
-        let err = decode(&env, &bytes_from_node(&env, &floor_node(num, 100)))
+        let err = decode(&env, &bytes_from_node(&env, &floor_node(&env, num, 100)))
             .expect_err("a literal num <= 0 must not decode");
         assert_eq!(
             err,
@@ -1544,11 +1540,11 @@ fn decode_refuses_a_non_positive_literal_numerator() {
     }
     // ... wherever the leaf sits, and as a u32 literal too.
     let hidden = Node::Or(StdVec::from([
-        cmp_i128(CompareOp::Eq, 1, 1),
-        floor_node(-1, 100),
+        cmp_i128(&env, CompareOp::Eq, 1, 1),
+        floor_node(&env, -1, 100),
     ]));
     assert!(decode(&env, &bytes_from_node(&env, &hidden)).is_err());
-    let zero = scaled(call_arg(0), Leaf::LiteralU32(0), 1, Leaf::LiteralI128(0));
+    let zero = scaled(call_arg(0), lu(&env, 0), 1, li(&env, 0));
     let n = compare(CompareOp::Gte, call_arg(1), zero);
     assert!(decode(&env, &bytes_from_node(&env, &n)).is_err());
 }
@@ -1558,13 +1554,13 @@ fn decode_refuses_a_non_positive_literal_source() {
     // `src * num` commutes, so the constant written first is held to the same
     // rule as the one written second.
     let env = Env::default();
-    let zero = Leaf::LiteralI128(0);
+    let zero = li(&env, 0);
     let with_src = |src: Leaf| {
-        let s = scaled(src, call_arg(0), 100, Leaf::LiteralI128(1));
+        let s = scaled(src, call_arg(0), 100, li(&env, 1));
         compare(CompareOp::Gte, call_arg(1), s)
     };
     for src in [0, -1, -99, i128::MIN] {
-        let n = with_src(Leaf::LiteralI128(src));
+        let n = with_src(li(&env, src));
         let err = decode(&env, &bytes_from_node(&env, &n))
             .expect_err("a literal src <= 0 must not decode");
         assert_eq!(
@@ -1573,10 +1569,10 @@ fn decode_refuses_a_non_positive_literal_source() {
             "src = {src}"
         );
     }
-    assert!(decode(&env, &bytes_from_node(&env, &with_src(Leaf::LiteralU32(0)))).is_err());
+    assert!(decode(&env, &bytes_from_node(&env, &with_src(lu(&env, 0)))).is_err());
     let hidden = Node::Or(StdVec::from([
-        cmp_i128(CompareOp::Eq, 1, 1),
-        with_src(Leaf::LiteralI128(-1)),
+        cmp_i128(&env, CompareOp::Eq, 1, 1),
+        with_src(li(&env, -1)),
     ]));
     assert!(decode(&env, &bytes_from_node(&env, &hidden)).is_err());
     // The selector-cancelling form: `scaled(0, arg, 1, 0) >= 0`.
@@ -1587,11 +1583,7 @@ fn decode_refuses_a_non_positive_literal_source() {
     );
     assert!(decode(&env, &bytes_from_node(&env, &vacuous)).is_err());
     // A positive or variable source is fine.
-    assert!(decode(
-        &env,
-        &bytes_from_node(&env, &with_src(Leaf::LiteralI128(1)))
-    )
-    .is_ok());
+    assert!(decode(&env, &bytes_from_node(&env, &with_src(li(&env, 1)))).is_ok());
     assert!(decode(&env, &bytes_from_node(&env, &with_src(call_arg(1)))).is_ok());
 }
 
@@ -1602,10 +1594,15 @@ fn decode_accepts_a_positive_or_a_variable_numerator() {
     // subtraction is written. (A rule using a variable `num` should guard it,
     // see the README.)
     let env = Env::default();
-    assert!(decode(&env, &bytes_from_node(&env, &floor_node(1, 100))).is_ok());
-    let variable = scaled(call_arg(0), call_arg(1), 1, Leaf::LiteralI128(-300));
+    assert!(decode(&env, &bytes_from_node(&env, &floor_node(&env, 1, 100))).is_ok());
+    let variable = scaled(call_arg(0), call_arg(1), 1, li(&env, -300));
     let n = compare(CompareOp::Gte, call_arg(1), variable);
     assert!(decode(&env, &bytes_from_node(&env, &n)).is_ok());
+}
+
+/// A bare literal vec on the wire: no `lit` tag, elements decoded as constants.
+fn bare(items: &[ScVal]) -> ScVal {
+    vec_scval(items)
 }
 
 #[test]
@@ -1613,51 +1610,42 @@ fn decode_refuses_non_constant_entries_in_an_in_haystack() {
     // They would count toward the caps and satisfy the selector gate, and then
     // never be compared.
     let env = Env::default();
+    let sel = |l: &Leaf| leaf_to_scval(&env, l);
+    let in_node = |entries: &[ScVal]| {
+        let n = [sym("in"), sel(&call_arg(0)), vec_scval(entries)];
+        bytes_from_scval(&env, vec_scval(&n))
+    };
     for bad in [
-        call_arg(0),
-        Leaf::CallFn,
-        Leaf::Now,
-        dummy_read(&env),
-        scaled(call_arg(0), Leaf::LiteralI128(1), 1, Leaf::LiteralI128(0)),
-        Leaf::LiteralVec(StdVec::from([Leaf::CallFn])),
+        sel(&call_arg(0)),
+        sel(&Leaf::CallFn),
+        sel(&Leaf::Now),
+        sel(&dummy_read(&env)),
+        sel(&scaled(call_arg(0), li(&env, 1), 1, li(&env, 0))),
+        bare(&[sel(&Leaf::CallFn)]),
     ] {
-        let n = Node::In {
-            needle: call_arg(0),
-            haystack: StdVec::from([Leaf::LiteralI128(1), bad]),
-        };
-        let err = decode(&env, &bytes_from_node(&env, &n)).expect_err("non-constant entry");
+        let err = decode(&env, &in_node(&[i128_scval(1), bad])).expect_err("non-constant entry");
         assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
     }
-    let ok = Node::In {
-        needle: call_arg(0),
-        haystack: StdVec::from([
-            Leaf::LiteralI128(1),
-            Leaf::LiteralVec(StdVec::from([Leaf::LiteralU32(2)])),
-        ]),
-    };
-    assert!(decode(&env, &bytes_from_node(&env, &ok)).is_ok());
+    let ok = in_node(&[i128_scval(1), bare(&[u32_scval(2)])]);
+    assert!(decode(&env, &ok).is_ok());
 }
 
 #[test]
 fn decode_refuses_non_constant_elements_in_a_literal_vec() {
     let env = Env::default();
+    let sel = |l: &Leaf| leaf_to_scval(&env, l);
+    let eq_vec = |v: ScVal| {
+        let n = [sym("eq"), sel(&call_arg(1)), v];
+        bytes_from_scval(&env, vec_scval(&n))
+    };
     for bad in [call_arg(0), Leaf::Now, dummy_read(&env)] {
-        let n = compare(
-            CompareOp::Eq,
-            call_arg(1),
-            Leaf::LiteralVec(StdVec::from([Leaf::LiteralU32(1), bad])),
-        );
-        let err = decode(&env, &bytes_from_node(&env, &n)).expect_err("non-constant element");
+        let n = eq_vec(bare(&[u32_scval(1), sel(&bad)]));
+        let err = decode(&env, &n).expect_err("non-constant element");
         assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
     }
     // nested one level down, too
-    let inner = Leaf::LiteralVec(StdVec::from([Leaf::CallFn]));
-    let n = compare(
-        CompareOp::Eq,
-        call_arg(1),
-        Leaf::LiteralVec(StdVec::from([inner])),
-    );
-    assert!(decode(&env, &bytes_from_node(&env, &n)).is_err());
+    let inner = bare(&[sel(&Leaf::CallFn)]);
+    assert!(decode(&env, &eq_vec(bare(&[inner]))).is_err());
 }
 
 #[test]
@@ -1782,7 +1770,7 @@ fn wire_read_count_is_capped_at_four() {
     let read_node = |n: usize| {
         Node::And(
             (0..n as u32)
-                .map(|i| compare(CompareOp::Gte, dummy_read_of(&env, i), Leaf::LiteralI128(0)))
+                .map(|i| compare(CompareOp::Gte, dummy_read_of(&env, i), li(&env, 0)))
                 .collect(),
         )
     };
@@ -1797,7 +1785,7 @@ fn wire_read_count_is_capped_at_four() {
     let one = dummy_read(&env);
     let same = Node::And(
         (0..2 * MAX_READS)
-            .map(|_| compare(CompareOp::Gte, one.clone(), Leaf::LiteralI128(0)))
+            .map(|_| compare(CompareOp::Gte, one.clone(), li(&env, 0)))
             .collect(),
     );
     assert!(decode(&env, &bytes_from_node(&env, &same)).is_ok());
@@ -1807,9 +1795,9 @@ fn wire_read_count_is_capped_at_four() {
 fn wire_scaled_leaf_nesting_is_capped_at_max_depth() {
     let env = Env::default();
     let nest = |n: u32| {
-        let mut leaf = Leaf::LiteralI128(1);
+        let mut leaf = li(&env, 1);
         for _ in 0..n {
-            leaf = scaled(leaf, Leaf::LiteralI128(1), 1, Leaf::LiteralI128(0));
+            leaf = scaled(leaf, li(&env, 1), 1, li(&env, 0));
         }
         compare(CompareOp::Gte, call_arg(0), leaf)
     };
@@ -1824,14 +1812,7 @@ fn wire_scaled_leaves_count_toward_the_leaf_cap() {
     // operands), so forty are exactly 200 and one more compare tips the
     // predicate over MAX_LEAVES.
     let env = Env::default();
-    let one = || {
-        scaled(
-            Leaf::LiteralI128(1),
-            Leaf::LiteralI128(1),
-            1,
-            Leaf::LiteralI128(1),
-        )
-    };
+    let one = || scaled(li(&env, 1), li(&env, 1), 1, li(&env, 1));
     let n = |count: usize| {
         Node::And(
             (0..count)
@@ -1851,8 +1832,8 @@ fn wire_scaled_leaves_count_toward_the_leaf_cap() {
 fn wire_or_round_trips() {
     let env = Env::default();
     let n = Node::Or(StdVec::from([
-        cmp_i128(CompareOp::Eq, 1, 1),
-        cmp_i128(CompareOp::Gt, 3, 2),
+        cmp_i128(&env, CompareOp::Eq, 1, 1),
+        cmp_i128(&env, CompareOp::Gt, 3, 2),
     ]));
     let decoded = decode(&env, &bytes_from_node(&env, &n)).expect("or must decode");
     assert!(matches!(decoded, Node::Or(ref c) if c.len() == 2));
@@ -1868,7 +1849,7 @@ fn wire_ordering_ops_round_trip() {
         (CompareOp::Gt, 3, 2),
         (CompareOp::Gte, 2, 2),
     ] {
-        let n = cmp_i128(op, l, r);
+        let n = cmp_i128(&env, op, l, r);
         let decoded = decode(&env, &bytes_from_node(&env, &n)).expect("op must decode");
         assert!(
             permit(evaluate(&env, &decoded, &empty_ctx(&env))),
@@ -1881,7 +1862,7 @@ fn wire_ordering_ops_round_trip() {
 #[test]
 fn wire_scaled_round_trips() {
     let env = Env::default();
-    let n = floor_node(99, 100);
+    let n = floor_node(&env, 99, 100);
     let decoded = decode(&env, &bytes_from_node(&env, &n)).expect("scaled leaf must decode");
     assert!(permit(evaluate(&env, &decoded, &swap_ctx(&env, 1000, 995))));
     assert_eq!(
@@ -1950,7 +1931,7 @@ fn wire_grammar_6_call_arg_scaled_is_refused() {
 fn wire_or_counts_toward_the_depth_cap() {
     // `or` nests like `and`, so it must be walked by the same cap logic.
     let env = Env::default();
-    let mut n = cmp_i128(CompareOp::Eq, 1, 1);
+    let mut n = cmp_i128(&env, CompareOp::Eq, 1, 1);
     for _ in 0..MAX_DEPTH {
         n = Node::Or(StdVec::from([n]));
     }

@@ -7,6 +7,8 @@ extern crate alloc;
 
 pub mod dsl;
 #[cfg(test)]
+mod dsl_ext_tests;
+#[cfg(test)]
 mod dsl_tests;
 pub mod storage;
 #[cfg(test)]

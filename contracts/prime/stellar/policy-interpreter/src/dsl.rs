@@ -141,11 +141,9 @@ pub enum Leaf {
     /// constant in `1..=MAX_DEN`. A constant `src` or `num` must fold to a positive
     /// value, and a constant that overflows is refused.
     Scaled(Box<[Leaf; 3]>, i128),
-    LiteralAddress(Address),
-    LiteralI128(i128),
-    LiteralSymbol(Symbol),
-    LiteralU32(u32),
-    LiteralVec(Vec<Leaf>),
+    /// A constant of any type: `lit(x)` on the wire, or a bare address, symbol,
+    /// number or vec of constants. Compared by value (`val_eq`).
+    Lit(Val),
 }
 
 // ---- EvalContext ----
@@ -280,7 +278,7 @@ fn eval(env: &Env, node: &Node, ctx: &EvalContext, memo: &mut Memo) -> Result<()
         // cannot be compared at all.
         Node::In { needle, haystack } => resolve(env, needle, ctx, memo)
             .is_ok_and(|x| {
-                let mut hay = haystack.iter().filter_map(|h| literal_to_val(env, h).ok());
+                let mut hay = haystack.iter().filter_map(|h| literal_to_val(h).ok());
                 hay.any(|h| val_eq(env, &x, &h))
             })
             .then_some(())
@@ -288,19 +286,12 @@ fn eval(env: &Env, node: &Node, ctx: &EvalContext, memo: &mut Memo) -> Result<()
     }
 }
 
-/// Convert a literal leaf to its `Val` form for equality comparisons.
-fn literal_to_val(env: &Env, leaf: &Leaf) -> Res<Val> {
-    Ok(match leaf {
-        Leaf::LiteralAddress(a) => a.into_val(env),
-        Leaf::LiteralI128(v) => (*v).into_val(env),
-        Leaf::LiteralSymbol(s) => s.into_val(env),
-        Leaf::LiteralU32(v) => (*v).into_val(env),
-        Leaf::LiteralVec(elements) => {
-            let vals: Res<Vec<Val>> = elements.iter().map(|e| literal_to_val(env, e)).collect();
-            Vals::from_slice(env, &vals?).into_val(env)
-        }
-        _ => return Err(DecodeError::MalformedPredicate),
-    })
+/// The `Val` of a constant leaf; anything else is MALFORMED.
+fn literal_to_val(leaf: &Leaf) -> Res<Val> {
+    match leaf {
+        Leaf::Lit(v) => Ok(*v),
+        _ => Err(DecodeError::MalformedPredicate),
+    }
 }
 
 /// Compare two `Val`s BY VALUE.
@@ -360,7 +351,7 @@ fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext, memo: &mut Memo) -> Result
             let scaled = scale(n(&k[0])?, n(&k[1])?, *den, n(&k[2])?);
             scaled.ok_or(DenyReason::ArithmeticOverflow)?.into_val(env)
         }
-        _ => literal_to_val(env, leaf).map_err(|_| miss)?,
+        Leaf::Lit(v) => *v,
     })
 }
 
@@ -373,21 +364,20 @@ fn scale(src: i128, num: i128, den: i128, add: i128) -> Option<i128> {
 /// A literal that is not a number: it has no order and cannot be scaled. (An
 /// identity selector is refused as a `scaled` operand too, but an ordering over
 /// one is still decided at `enforce`.)
-fn non_number(leaf: &Leaf) -> bool {
-    matches!(
-        leaf,
-        Leaf::LiteralAddress(_) | Leaf::LiteralSymbol(_) | Leaf::LiteralVec(_)
-    )
+fn non_number(env: &Env, leaf: &Leaf) -> bool {
+    matches!(leaf, Leaf::Lit(v) if val_to_i128(env, v).is_none())
 }
 
 /// The value of a leaf made of literals alone; `None` for anything that
 /// depends on the call, the clock or another contract, and for a fold that
 /// overflows (decode refuses that one, so a nested constant never does).
-fn constant(leaf: &Leaf) -> Option<i128> {
+fn constant(env: &Env, leaf: &Leaf) -> Option<i128> {
     match leaf {
-        Leaf::LiteralI128(v) => Some(*v),
-        Leaf::LiteralU32(v) => Some(i128::from(*v)),
-        Leaf::Scaled(k, den) => scale(constant(&k[0])?, constant(&k[1])?, *den, constant(&k[2])?),
+        Leaf::Lit(v) => val_to_i128(env, v),
+        Leaf::Scaled(k, d) => {
+            let c = |l| constant(env, l);
+            scale(c(&k[0])?, c(&k[1])?, *d, c(&k[2])?)
+        }
         _ => None,
     }
 }
@@ -426,10 +416,8 @@ pub fn has_selector_leaf(root: &Node) -> bool {
 fn leaves(node: &Node) -> Vec<&Leaf> {
     fn nested<'a>(leaf: &'a Leaf, out: &mut Vec<&'a Leaf>) {
         out.push(leaf);
-        match leaf {
-            Leaf::LiteralVec(inner) => inner.iter().for_each(|l| nested(l, out)),
-            Leaf::Scaled(inner, _) => inner.iter().for_each(|l| nested(l, out)),
-            _ => {}
+        if let Leaf::Scaled(inner, _) = leaf {
+            inner.iter().for_each(|l| nested(l, out));
         }
     }
     let top = match node {
@@ -532,13 +520,13 @@ fn decode_node(env: &Env, items: &Vals, depth: u32) -> Res<Node> {
         ensure(!entries.is_empty())?;
         let short = entries.len() <= MAX_IN_OPERAND_COUNT;
         cap(short, DecodeError::InOperandLimit)?;
-        let haystack = each(&entries, |h| literal(env, &h, 1))?;
+        let haystack = each(&entries, |h| literal(env, &h, 1).map(Leaf::Lit))?;
         Ok(Node::In { needle, haystack })
     } else if let Some((_, op)) = ops.find(|(name, _)| is(name)) {
         ensure(items.len() == 3)?;
         let (left, right) = (leaf_at(env, items, 1)?, leaf_at(env, items, 2)?);
         // An ordering over an address, symbol or vector literal could never permit.
-        ensure(op == CompareOp::Eq || !(non_number(&left) || non_number(&right)))?;
+        ensure(op == CompareOp::Eq || !(non_number(env, &left) || non_number(env, &right)))?;
         Ok(Node::Compare { op, left, right })
     } else {
         // Bare selector tuples at a Node position are MALFORMED.
@@ -580,22 +568,17 @@ fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
             return decode_selector_leaf(env, &items, sym, depth);
         }
         // Literal vector: order preserved verbatim.
-        return each(&items, |e| literal(env, &e, depth + 1)).map(Leaf::LiteralVec);
+        return each(&items, |e| literal(env, &e, depth + 1)).map(|_| Leaf::Lit(*val));
     }
-    // Bare literals.
-    to(env, val)
-        .map(Leaf::LiteralAddress)
-        .or_else(|_| to(env, val).map(Leaf::LiteralSymbol))
-        .or_else(|_| to(env, val).map(Leaf::LiteralU32))
-        .or_else(|_| to(env, val).map(Leaf::LiteralI128))
+    // Any other bare value is a constant.
+    Ok(Leaf::Lit(*val))
 }
 
 /// A leaf that must be a constant: an `in` entry or a literal-vec element.
 /// Anything else would decode, count toward the caps and the selector
 /// check, and then never be compared.
-fn literal(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
-    let leaf = decode_leaf(env, val, depth)?;
-    literal_to_val(env, &leaf).map(|_| leaf)
+fn literal(env: &Env, val: &Val, depth: u32) -> Res<Val> {
+    literal_to_val(&decode_leaf(env, val, depth)?)
 }
 fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Res<Leaf> {
     let is = |n: u32, name: &str| items.len() == n && head == Symbol::new(env, name);
@@ -621,7 +604,7 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
         // must be literals: a selector, a `now`, another `read` or a
         // `scaled` has no `Val` form here and is refused.
         ensure(items.len() >= 4)?;
-        let arg = |a| literal_to_val(env, &decode_leaf(env, &a, depth + 1)?);
+        let arg = |a| literal_to_val(&decode_leaf(env, &a, depth + 1)?);
         let target: Address = expect(env, items, 1)?;
         ensure(target.clone().to_xdr(env).get(7) == Some(1))?;
         Ok(Leaf::Read(
@@ -630,6 +613,8 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
             Vals::from_slice(env, &each(&expect(env, items, 3)?, arg)?),
             decode_steps(env, items, 4, 0)?,
         ))
+    } else if is(2, "lit") {
+        Ok(Leaf::Lit(at(items, 1)?))
     } else if is(items.len(), "variant") {
         // (variant, name, payload...): an enum variant literal, which the host
         // holds as the vector `[name, payload...]` (Reflector's
@@ -637,8 +622,8 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
         // a selector, so a variant needs its own tag. Payload entries are
         // constants, like every other literal.
         let parts = each(&items.slice(1..), |p| literal(env, &p, depth + 1))?;
-        ensure(matches!(parts.first(), Some(Leaf::LiteralSymbol(_))))?;
-        Ok(Leaf::LiteralVec(parts))
+        ensure(parts.first().is_some_and(|p| to::<Symbol>(env, p).is_ok()))?;
+        Ok(Leaf::Lit(Vals::from_slice(env, &parts).into_val(env)))
     } else if is(5, "scaled") {
         // (scaled, src, num, den, add). `den` is a constant and must be
         // positive: zero cannot divide, and a negative one would flip the
@@ -651,10 +636,10 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
         ensure((1..=MAX_DEN).contains(&den))?;
         let operand = |i| decode_leaf(env, &at(items, i)?, depth + 1);
         let leaves = [operand(1)?, operand(2)?, operand(4)?];
-        let [s, n, a] = leaves.each_ref().map(constant);
+        let [s, n, a] = leaves.each_ref().map(|l| constant(env, l));
         ensure(![s, n].iter().any(|v| v.is_some_and(|v| v <= 0)))?;
         let identity = |l: &Leaf| matches!(l, Leaf::CallContract | Leaf::CallFn);
-        ensure(!leaves.iter().any(|l| non_number(l) || identity(l)))?;
+        ensure(!leaves.iter().any(|l| non_number(env, l) || identity(l)))?;
         // A constant that overflows would deny every call: refuse it here. The
         // product and quotient do not depend on `add`, so they are folded even
         // when it varies (as `0`; the constant addend is folded too).
