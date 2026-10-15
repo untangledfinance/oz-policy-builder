@@ -1178,3 +1178,25 @@ fn lit_and_variant_inside_a_bare_vec_are_unwrapped() {
     ));
     assert!(denies(&cmp("ne", arg(0), wrapped), &[value]));
 }
+
+// ---- X4: call_arg_field's field is a path step, as in call_path -------------
+
+#[test]
+fn call_arg_field_takes_its_field_as_a_call_path_step_does() {
+    let u = ScVal::U32;
+    let args = [tup(&[map(&[(sym("a"), n(5))])])];
+    let field = |k: ScVal| cmp("eq", tup(&[sym("call_arg_field"), u(0), u(0), k]), n(5));
+    assert!(permits(&field(sym("a")), &args), "a bare symbol, as ever");
+    assert!(permits(&field(lit(sym("a"))), &args), "lit(a) is the key a");
+    assert!(denies(&field(sym("b")), &args));
+    assert!(denies(&field(lit(sym("b"))), &args));
+    // a selector, or a symbol-headed vec, is not a key
+    assert_eq!(refused(&field(tup(&[sym("call_fn")]))), MALFORMED);
+    // a non-symbol key, as in call_path
+    let by_addr = [tup(&[map(&[(account(1), n(5))])])];
+    assert!(permits(&field(lit(account(1))), &by_addr));
+    assert!(denies(&field(lit(account(2))), &by_addr));
+    // `true` is the length here too, never a key
+    let len = tup(&[sym("call_arg_field"), u(0), u(0), ScVal::Bool(true)]);
+    assert!(permits(&cmp("eq", len, n(1)), &[tup(&[tup(&[n(1)])])]));
+}

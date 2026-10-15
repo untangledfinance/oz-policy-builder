@@ -747,8 +747,8 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: SymbolStr, depth: u32) ->
     } else if is(2, "call_arg_len") {
         Ok(Leaf::CallPath(vec![step(1)?, PathStep::Len]))
     } else if is(4, "call_arg_field") {
-        let field = PathStep::Key(at(items, 3)?);
-        Ok(Leaf::CallPath(vec![step(1)?, step(2)?, field]))
+        let field = decode_steps(env, items, 3, 1)?;
+        Ok(Leaf::CallPath([vec![step(1)?, step(2)?], field].concat()))
     } else if is(items.len(), "call_path") {
         Ok(Leaf::CallPath(decode_steps(env, items, 1, 1)?))
     } else if is(items.len(), "read") {
