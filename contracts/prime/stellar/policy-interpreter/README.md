@@ -139,6 +139,12 @@ compared.
   `M(G, id)`. `eq` and `in` stay EXACT: a pinned `M(exchange, 12345)` matches
   that id and no other, and a plain `G` matches no muxed form of itself, so a
   muxed recipient fails an `in` allowlist of plain addresses (fail closed).
+  The de-muxing applies to a value that IS an address: a muxed address inside a
+  vec is not de-muxed, so `nin(arg, [[G_BAD]])` passes `[M(G_BAD, 1)]`; write the
+  whole denylist over the argument the token takes (`to`), not a wrapper of it.
+  And a `read` registry that takes a `MuxedAddress` and keys on it raw is
+  bypassable the same way: pass the registry a plain address (a muxed one is not
+  on a list of plain addresses, which fails closed).
 - **No general `not`.** `ne`/`nin` need both operands to resolve, so they cannot
   turn an unresolvable leaf into a permit; `not` could, which is why it stays out.
 - **Map keys.** A path step is a `u32` (index into a vec), `true` (the length,
@@ -216,15 +222,24 @@ one, without a rule per length.
   could build into the real wasm and asserts `enforce` (and install) stay under
   both limits. The measured worst case without reads is **47M instructions
   (12% of the limit)** for a 31.8 KB bare vec constant of 7,900 elements
-  (each element is checked, about 6k instructions apiece), then 35M for 100
+  (each element is checked, about 6k instructions apiece), then 31M for 100
   compares over 8-step map-key paths and 25M for 198 leaves of 8-step vec paths;
   quantifier bodies over a 31 KB constant cost 4-8M, and six `sum`s over 32
-  elements 10M. The worst memory without reads is **24.8 MB (59% of the limit)**
-  and is caller-sized, as in grammar 6: an `in` over 32 addresses, six times,
-  against a 30 KB `Bytes` argument the agent chose (each comparison of unlike
-  types serialises the needle). Add about 1.2 MB per distinct read (at most
-  four): the worst case with four reads is about 30 MB, so it fits one context
-  and not two. Both fail closed.
+  elements 10M. The worst memory without reads is **1.7 MB (4% of the limit)**.
+  Memory is spent only where a value is serialised to be compared, and the
+  compare is not that for the values an agent can make large: two values of
+  different types are unequal without it, and bytes, strings, vectors and maps
+  are compared by the host in place. So six `in` over 32 addresses cost the same
+  1.4 MB against a 30 KB or a 100 KB `Bytes` argument, a 100 KB string, a
+  12,000-element vec or a 4,000-entry map (all in `worst_case.rs`; the old
+  compare cost 0.8 MB per KB of the argument, 78 MB for 100 KB). What still
+  scales with a caller's own argument is what the host spends holding and
+  decoding it before `enforce` runs, and a value that serialises (an address, a
+  wide number) is small. Add about 1.2 MB per distinct read (at most four): the
+  worst case with four reads is about 6.5 MB (several contexts: see "Memory is
+  the limit that binds"). Both fail closed.
+  `worst_case.rs` also asserts that every shape INSTALLS: a refused install
+  would measure 0 and pass any limit.
 
 Notation below: a bare name is a symbol (a map key), `elem(to)` is
 `[elem, to]` on the wire, and `call_path(0)` is `[call_path, 0]`.
@@ -439,6 +454,12 @@ Read this before writing a rule with a `read`.
   rule). The transaction aborts with `Budget ExceededLimit`, so it fails closed;
   a batch that passes with two calls can fail with six. CPU is not the limit: the
   PayFi rule is about 5.5M of the 400M instruction budget (1.4%).
+- **An agent can trap its own call.** An argument is the agent's to size, and a
+  transaction up to the network's size limit (about 132 KB) can carry one that
+  uses most of the memory budget in the host before `enforce` (or anything else)
+  runs. The transaction then aborts with `Budget ExceededLimit`: it fails closed
+  and costs only the agent's own call, since the memory is its own argument's.
+  No rule makes this worse, and no rule can prevent it.
 - **Limits the host decides, not the contract.** A predicate nested deeper than
   about 47 levels cannot be parsed: the host's XDR reader traps
   (`Error(Context, InvalidAction)`) before `install` sees it, so the failure is

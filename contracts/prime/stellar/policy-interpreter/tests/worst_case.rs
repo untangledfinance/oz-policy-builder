@@ -456,6 +456,8 @@ fn the_largest_rules_stay_inside_the_transaction_limits() {
             "{:<58} install={:?} cpu={:>11} mem={:>10} (install {:>11} / {:>10})",
             case.name, install, cpu, mem, icpu, imem
         );
+        // a refused install measures 0, which would pass every limit below
+        assert_eq!(install, Ok(()), "{}: install refused", case.name);
         assert!(
             icpu < CPU_LIMIT && imem < MEM_LIMIT,
             "{}: install",
