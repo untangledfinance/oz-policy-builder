@@ -221,3 +221,222 @@ describe('readRules, on a live account', () => {
     ])
   })
 })
+
+// ---- the pure parts, exhaustively; the reading, against a stub that has what a live account does not ----
+
+import { Address, type rpc, xdr } from '@stellar/stellar-sdk'
+import { dataKey } from './chain.ts'
+import { encode, toScVal, type Val } from './wire.ts'
+
+describe('implies, against brute force over the integers', () => {
+  const ops = ['lt', 'lte', 'gt', 'gte'] as const
+  const holds = (op: string, t: number, b: number) =>
+    op === 'lt' ? t < b : op === 'lte' ? t <= b : op === 'gt' ? t > b : t >= b
+  it('agrees for every pair of bounds on one side, for every strictness', () => {
+    const L: Expr = ['call_arg', 2]
+    const n = (v: number): Expr => ({ i128: String(v) })
+    for (const no of ops) {
+      for (const oo of ops) {
+        const sameSide =
+          (['lt', 'lte'].includes(no) && ['lt', 'lte'].includes(oo)) ||
+          (['gt', 'gte'].includes(no) && ['gt', 'gte'].includes(oo))
+        for (let x = -3; x <= 3; x++) {
+          for (let y = -3; y <= 3; y++) {
+            const truth = Array.from({ length: 21 }, (_, i) => i - 10).every(
+              (t) => !holds(no, t, x) || holds(oo, t, y)
+            )
+            const got = implies([no, L, n(x)], [oo, L, n(y)])
+            // The scan only claims a bound implies another on its own side; across sides it says no.
+            expect(got).toBe(sameSide ? truth : false)
+          }
+        }
+      }
+    }
+  })
+
+  it('says no for what is not a comparison, and for bounds that are not numbers', () => {
+    const L: Expr = ['call_arg', 2]
+    expect(implies(5, 6)).toBe(false)
+    expect(implies(5, 5)).toBe(true)
+    expect(implies(['lte', L, 5], 7)).toBe(false)
+    expect(implies(7, ['lte', L, 5])).toBe(false)
+    expect(implies(['lte', L, 'x'], ['lte', L, 'y'])).toBe(false)
+    expect(implies(['lte', L, { u64: '3' }], ['lte', L, { i128: '9' }])).toBe(true)
+    expect(implies(['lte', L, null], ['lte', L, 5])).toBe(false)
+    expect(implies(['lte', L, 5], ['lte', L, null])).toBe(false)
+  })
+
+  it('the function a call-derived rule pins is a wildcard unless it is eq or in', () => {
+    expect(selectors(['ne', ['call_fn'], 'x'])).toEqual([{ contract: '*', fn: '*' }])
+    expect(selectors(['nin', ['call_contract'], [TOKEN]])).toEqual([{ contract: '*', fn: '*' }])
+    expect(selectors(['in', ['call_fn'], ['lit']])).toEqual([{ contract: '*', fn: 'lit' }])
+  })
+})
+
+describe('the scan, signers and policies', () => {
+  it('a partly shared signer set is shared; none is not', () => {
+    const [a, b, c] = [account(1), account(2), account(3)]
+    expect(scan({ signers: [a, c], policies: [] }, { signers: [a, b] })).toHaveLength(1)
+    expect(scan({ signers: [c], policies: [] }, { signers: [a, b] })).toEqual([])
+  })
+
+  it('a neighbour with a policy nobody recognises is not assumed to lack a cap', () => {
+    const cap = { amount: '10', periodLedgers: 100 }
+    expect(scan({ policies: [INTERP, contract(9)], expr: rule('100') }, { cap })[0]).toMatchObject({
+      severity: 'review',
+    })
+    expect(scan({ policies: [INTERP, LIMIT], expr: rule('100') }, { cap })[0]).toMatchObject({
+      why: 'uncapped',
+    })
+  })
+})
+
+describe('readRules, against a stub account', () => {
+  const ACC = contract(5)
+  const G = account(9)
+  const ruleVal = (id: number, policies: string[] = []): Val => ({
+    map: [
+      ['context_type', ['Default']],
+      ['id', id],
+      ['name', { string: `r${id}` }],
+      ['policies', policies],
+      ['policy_ids', []],
+      ['signer_ids', []],
+      ['signers', [['Delegated', G]]],
+      ['valid_until', null],
+    ],
+  })
+  const entry = (contractId: string, key: xdr.ScVal, val: Val) =>
+    new xdr.LedgerEntry({
+      lastModifiedLedgerSeq: 1,
+      data: xdr.LedgerEntryData.contractData(
+        new xdr.ContractDataEntry({
+          ext: xdr.ExtensionPoint.fromXDR(Buffer.alloc(4)),
+          contract: new Address(contractId).toScAddress(),
+          key,
+          durability: xdr.ContractDataDurability.persistent(),
+          val: toScVal(val),
+        })
+      ),
+      ext: new xdr.LedgerEntryExt(0),
+    })
+  const stub = (
+    rules: Record<number, Val>,
+    count: number,
+    ledger: Record<string, xdr.LedgerEntry> = {}
+  ) => {
+    const asked: number[] = []
+    const server = {
+      async simulateTransaction(tx: { toEnvelope: () => xdr.TransactionEnvelope }) {
+        const call = tx
+          .toEnvelope()
+          .v1()
+          .tx()
+          .operations()[0]
+          ?.body()
+          .invokeHostFunctionOp()
+          .hostFunction()
+          .invokeContract()
+        const fn = call?.functionName().toString()
+        if (fn === 'get_context_rules_count')
+          return { latestLedger: 1, result: { auth: [], retval: toScVal(count) } }
+        const id = call?.args()[0]?.u32() as number
+        asked.push(id)
+        if (rules[id] === undefined)
+          return { latestLedger: 1, error: 'HostError: Error(Contract, #3000)' }
+        return { latestLedger: 1, result: { auth: [], retval: toScVal(rules[id]) } }
+      },
+      async getLedgerEntries(...keys: xdr.LedgerKey[]) {
+        return {
+          entries: keys.flatMap((k) => {
+            const hit = ledger[k.toXDR('base64')]
+            return hit ? [{ key: k, val: hit.data() }] : []
+          }),
+        }
+      },
+    }
+    return { server: server as unknown as rpc.Server, asked }
+  }
+
+  it('walks ids upward until every live rule is found, across gaps and batches', async () => {
+    const { server, asked } = stub(
+      { 0: ruleVal(0), 3: ruleVal(3), 9: ruleVal(9), 20: ruleVal(20) },
+      4
+    )
+    const r = await readRules(server, 'testnet', ACC, INTERP)
+    expect(r.rules.map((x) => x.id)).toEqual([0, 3, 9, 20])
+    expect(r.complete).toBe(true)
+    expect(Math.max(...asked)).toBe(23) // three batches of eight, and not a fourth
+  })
+
+  it('an account with fewer rules than its count says is incomplete, and the walk stops at the id limit', async () => {
+    const { server, asked } = stub({ 0: ruleVal(0) }, 5)
+    const r = await readRules(server, 'testnet', ACC, INTERP)
+    expect(r.complete).toBe(false)
+    expect(r.rules).toHaveLength(1)
+    expect(Math.max(...asked)).toBe(511)
+  })
+
+  it('a rule that comes back void is skipped, not an error', async () => {
+    const { server } = stub({ 0: null, 1: ruleVal(1) }, 1)
+    expect((await readRules(server, 'testnet', ACC, INTERP)).rules.map((x) => x.id)).toEqual([1])
+  })
+
+  it('reads the stored predicate and the spend cap off the ledger; a record it cannot decode is reported', async () => {
+    const mine = rule('77')
+    const doc = (hex: string): Val => ({
+      map: [
+        ['nonce', 1],
+        ['predicate_bytes', { bytes: hex }],
+      ],
+    })
+    const ledger: Record<string, xdr.LedgerEntry> = {}
+    const acct = new Address(ACC).toScVal()
+    const key = (id: number) => dataKey(INTERP, xdr.ScVal.scvVec([acct, xdr.ScVal.scvU32(id)]))
+    ledger[key(1).toXDR('base64')] = entry(
+      INTERP,
+      xdr.ScVal.scvVec([acct, xdr.ScVal.scvU32(1)]),
+      doc(Buffer.from(encode(mine), 'base64').toString('hex'))
+    )
+    ledger[key(2).toXDR('base64')] = entry(
+      INTERP,
+      xdr.ScVal.scvVec([acct, xdr.ScVal.scvU32(2)]),
+      doc('00')
+    )
+    const capKey = (id: number) =>
+      xdr.ScVal.scvVec([xdr.ScVal.scvSymbol('AccountContext'), acct, xdr.ScVal.scvU32(id)])
+    ledger[dataKey(LIMIT, capKey(1)).toXDR('base64')] = entry(LIMIT, capKey(1), {
+      map: [
+        ['period_ledgers', 100],
+        ['spending_limit', { i128: '5' }],
+      ],
+    })
+    const { server } = stub(
+      { 0: ruleVal(0), 1: ruleVal(1, [INTERP, LIMIT]), 2: ruleVal(2, [INTERP]) },
+      3,
+      ledger
+    )
+    const r = await readRules(server, 'testnet', ACC, INTERP)
+    expect(r.rules[1]?.expr).toEqual(mine)
+    expect(r.rules[1]?.cap).toEqual({ amount: '5', periodLedgers: 100 })
+    expect(r.rules[0]?.expr).toBeUndefined()
+    expect(r.rules[2]?.expr).toBeUndefined()
+    expect(r.unreadable).toEqual([2])
+  })
+
+  it('a spend cap record missing its limit is no cap', async () => {
+    const acct = new Address(ACC).toScVal()
+    const capKey = xdr.ScVal.scvVec([
+      xdr.ScVal.scvSymbol('AccountContext'),
+      acct,
+      xdr.ScVal.scvU32(0),
+    ])
+    const ledger = {
+      [dataKey(LIMIT, capKey).toXDR('base64')]: entry(LIMIT, capKey, {
+        map: [['period_ledgers', 100]],
+      }),
+    }
+    const { server } = stub({ 0: ruleVal(0, [LIMIT]) }, 1, ledger)
+    expect((await readRules(server, 'testnet', ACC, INTERP)).rules[0]?.cap).toBeUndefined()
+  })
+})

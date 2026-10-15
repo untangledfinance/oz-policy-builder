@@ -22,7 +22,6 @@ export const REASONS: Record<number, string> = {
   103: 'UNSUPPORTED_NODE',
   105: 'NOT_IN_ALLOWLIST',
   201: 'MALFORMED_PREDICATE',
-  206: 'MISSING_STATE',
   207: 'PREDICATE_TOO_LARGE',
   216: 'SELECTOR_LEAF_REQUIRED',
 }
@@ -89,11 +88,13 @@ function big(v: Val | undefined): Num | undefined {
 /** An integer written the way `like` was written (a u32 stays a u32 while it fits). */
 function as(like: Val | undefined, n: Num): Val {
   if (typeof like === 'number' && n >= 0n && n <= 0xffffffffn) return Number(n)
-  const tag = isObj(like) ? Object.keys(like as object)[0] : undefined
-  return {
-    [tag && tag !== 'map' && tag !== 'bytes' && tag !== 'string' ? tag : 'i128']: n.toString(),
-  } as Val
+  const tag = isObj(like) ? Object.keys(like)[0] : undefined
+  if (tag === 'i32') return { i32: Number(n) }
+  const wide = tag && BIG_TAGS.has(tag) ? tag : 'i128'
+  return { [wide]: n.toString() } as Val
 }
+
+const BIG_TAGS = new Set(['i128', 'u128', 'i64', 'u64', 'i256', 'u256', 'timepoint', 'duration'])
 
 /** The argument steps a leaf reaches, or undefined for a leaf that is not a path. */
 function stepsOf(sel: Val): Val[] | undefined {
@@ -110,19 +111,12 @@ function target(
   sel: Val
 ): { get: () => Val | undefined; set: (v: Val) => Call } | undefined {
   if (!isSel(sel)) return undefined
-  const [head, ...r] = sel
+  const head = sel[0]
   if (head === 'call_contract')
     return { get: () => call.contract, set: (v) => ({ ...call, contract: String(v) }) }
   if (head === 'call_fn') return { get: () => call.fn, set: (v) => ({ ...call, fn: String(v) }) }
-  const steps: Val[] =
-    head === 'call_arg'
-      ? [r[0] as Val]
-      : head === 'call_path'
-        ? r
-        : head === 'call_arg_len'
-          ? [r[0] as Val, true]
-          : []
-  if (steps.length === 0) return undefined
+  const steps = stepsOf(sel)
+  if (!steps) return undefined
   const get = (): Val | undefined => walk(call.args, steps)
   return { get, set: (v) => ({ ...call, args: put(call.args, steps, v) as Val[] }) }
 }
@@ -270,7 +264,7 @@ function breakConjunct(call: Call, c: Expr): Call | undefined {
     if (!t || set.length === 0) return undefined
     if (op === 'nin') return t.set(set[0] as Val)
     let v = other(set[0] as Val)
-    for (let i = 0; i < 4 && set.some((s) => same(s, v)); i++) v = other(v)
+    for (let i = 0; i < set.length && set.some((s) => same(s, v)); i++) v = other(v)
     return t.set(v)
   }
   if (op === 'all' || op === 'any') {

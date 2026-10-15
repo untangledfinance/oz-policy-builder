@@ -171,7 +171,7 @@ export const hashOf = (b64: string): string =>
 
 // ---- the contract's decode refusals, mirrored ----
 
-/** `dsl.rs`: the caps decode enforces. */
+/** `dsl.rs`: the caps decode enforces. A quantifier body and a `sum` weigh `elems` leaves. */
 export const CAPS = {
   depth: 5,
   leaves: 200,
@@ -180,29 +180,23 @@ export const CAPS = {
   bytes: 32 * 1024,
   steps: 8,
   elems: 32,
-  bodyLeaves: 6,
-  sums: 6,
 } as const
 const MAX_DEN = 10n ** 18n
 
-/** Arity of each selector, head included: [min, max]. */
-const SELECTORS: Record<string, [number, number]> = {
-  call_contract: [1, 1],
-  call_fn: [1, 1],
-  now: [1, 1],
-  call_arg: [2, 2],
-  call_arg_len: [2, 2],
-  call_arg_field: [4, 4],
-  call_path: [2, 1 + CAPS.steps],
-  read: [4, 4 + CAPS.steps],
-  scaled: [5, 5],
-  elem: [1, 1 + CAPS.steps],
-  sum: [2, 2 + CAPS.steps],
-  lit: [2, 2],
+/** Exact arity of a selector, head included; the path selectors take their own minimum. */
+const ARITY: Record<string, number> = {
+  call_contract: 1,
+  call_fn: 1,
+  now: 1,
+  call_arg: 2,
+  call_arg_len: 2,
+  call_arg_field: 4,
+  scaled: 5,
+  lit: 2,
 }
-const ORDERING = new Set(['lt', 'lte', 'gt', 'gte'])
-const COMPARE = new Set(['eq', 'ne', ...ORDERING])
-const CALL_LEAVES = new Set([
+const PATH_MIN: Record<string, number> = { call_path: 2, read: 4, elem: 1, sum: 2 }
+const COMPARE = new Set(['eq', 'ne', 'lt', 'lte', 'gt', 'gte'])
+const CALLS = new Set([
   'call_contract',
   'call_fn',
   'call_arg',
@@ -217,73 +211,30 @@ function numOf(v: Val): bigint | null {
   if (typeof v === 'number') return BigInt(v)
   if (typeof v !== 'object' || v === null || Array.isArray(v)) return null
   const [tag, x] = Object.entries(v)[0] as [string, string | number]
-  return tag in BITS && BITS[tag]?.[0] !== 256 ? BigInt(x) : tag === 'i32' ? BigInt(x) : null
+  return (tag in BITS && BITS[tag]?.[0] !== 256) || tag === 'i32' ? BigInt(x) : null
 }
 
 interface Walk {
   weight: number
   reads: Set<string>
-  sums: number
   selector: boolean
 }
 
-/** Throws `WireError` for what the contract's decoder refuses at install (201),
+/** Throws `WireError` for what the contract's decoder refuses at install (201, 216),
  *  and for an oversized encoding (207). Everything it accepts the contract may
  *  still refuse for a reason this does not model (`check` is the authority). */
 export function validate(expr: Expr): void {
-  const w: Walk = { weight: 0, reads: new Set(), sums: 0, selector: false }
+  const w: Walk = { weight: 0, reads: new Set(), selector: false }
   node(expr, 1, false, w)
-  if (w.weight > CAPS.leaves) throw new WireError(`${w.weight} leaves, at most ${CAPS.leaves}`)
-  if (w.reads.size > CAPS.reads) throw new WireError(`${w.reads.size} distinct reads, at most 4`)
-  if (w.sums > CAPS.sums) throw new WireError(`${w.sums} sums, at most ${CAPS.sums}`)
-  if (!w.selector) throw new WireError('no leaf reads the call: the rule would constrain nothing')
-  if (Buffer.from(encode(expr), 'base64').length > CAPS.bytes) {
-    throw new WireError(`encoding over ${CAPS.bytes} bytes`)
-  }
+  if (w.weight > CAPS.leaves) bad(`${w.weight} leaves, at most ${CAPS.leaves}`)
+  if (w.reads.size > CAPS.reads) bad(`${w.reads.size} distinct reads, at most ${CAPS.reads}`)
+  if (!w.selector) bad('no leaf reads the call: the rule would constrain nothing')
+  if (Buffer.from(encode(expr), 'base64').length > CAPS.bytes)
+    bad(`encoding over ${CAPS.bytes} bytes`)
 }
 
 const bad = (m: string): never => {
   throw new WireError(m)
-}
-
-function node(e: Expr, depth: number, body: boolean, w: Walk): void {
-  if (depth > CAPS.depth) bad(`nested deeper than ${CAPS.depth}`)
-  const [op, ...r] = Array.isArray(e) && typeof e[0] === 'string' ? e : bad('not a node')
-  const [a, b] = r as Val[]
-  const children = (x: Val | undefined): Val[] =>
-    Array.isArray(x) && x.length > 0 ? x : bad(`${op}: needs a non-empty list`)
-  if (op === 'and' || op === 'or') {
-    if (r.length !== 1) bad(`${op}: one list of children`)
-    for (const c of children(a)) node(c, depth + 1, body, w)
-  } else if (COMPARE.has(op as string) && r.length === 2) {
-    leaf(a as Val, 1, body, w)
-    leaf(b as Val, 1, body, w)
-    if (
-      ORDERING.has(op as string) &&
-      [a, b].some((x) => isConstant(x as Val) && numOf(unlit(x as Val)) === null)
-    ) {
-      bad(`${op}: an ordering needs numbers`)
-    }
-  } else if ((op === 'in' || op === 'nin') && r.length === 2) {
-    leaf(a as Val, 1, body, w)
-    const entries = children(b)
-    if (entries.length > CAPS.entries) bad(`${op}: more than ${CAPS.entries} entries`)
-    for (const x of entries) {
-      if (!isConstant(x)) bad(`${op}: entries are constants`)
-      leaf(x, 1, body, w)
-    }
-  } else if ((op === 'all' || op === 'any') && r.length === 2) {
-    if (body) bad('a quantifier inside a quantifier')
-    leaf(a as Val, 1, false, w)
-    const inner: Walk = { weight: 0, reads: w.reads, sums: 0, selector: false }
-    node(b as Val, depth + 1, true, inner)
-    if (inner.sums > 0) bad('a sum inside a quantifier')
-    if (inner.weight > CAPS.bodyLeaves) bad(`quantifier body of ${inner.weight} leaves, at most 6`)
-    w.weight += inner.weight * CAPS.elems
-    w.selector ||= inner.selector
-  } else {
-    bad(`unknown operator or wrong arity: ${String(op)}/${r.length}`)
-  }
 }
 
 /** A constant, by the contract's reading: a `lit`, or anything that is not a selector. */
@@ -294,6 +245,44 @@ export function isSelector(v: Val): v is [string, ...Val[]] {
   return Array.isArray(v) && typeof v[0] === 'string' && !ADDRESS.test(v[0])
 }
 
+function node(e: Expr, depth: number, body: boolean, w: Walk): void {
+  if (depth > CAPS.depth) bad(`nested deeper than ${CAPS.depth}`)
+  if (!isSelector(e)) bad('not a node')
+  const [op, ...r] = e as [string, ...Val[]]
+  const [a, b] = r as Val[]
+  const list = (x: Val | undefined): Val[] =>
+    Array.isArray(x) && x.length > 0 ? x : bad(`${op}: needs a non-empty list`)
+  if (op === 'and' || op === 'or') {
+    if (r.length !== 1) bad(`${op}: one list of children`)
+    for (const c of list(a)) node(c, depth + 1, body, w)
+  } else if (COMPARE.has(op) && r.length === 2) {
+    leaf(a as Val, 1, body, w)
+    leaf(b as Val, 1, body, w)
+    const ordering = op !== 'eq' && op !== 'ne'
+    if (ordering && [a, b].some((x) => isConstant(x as Val) && numOf(unlit(x as Val)) === null)) {
+      bad(`${op}: an ordering needs numbers`)
+    }
+  } else if ((op === 'in' || op === 'nin') && r.length === 2) {
+    leaf(a as Val, 1, body, w)
+    const entries = list(b)
+    if (entries.length > CAPS.entries) bad(`${op}: more than ${CAPS.entries} entries`)
+    for (const x of entries) {
+      if (!isConstant(x)) bad(`${op}: entries are constants`)
+      leaf(x, 1, body, w)
+    }
+  } else if ((op === 'all' || op === 'any') && r.length === 2) {
+    if (body) bad('a quantifier inside a quantifier')
+    leaf(a as Val, 1, false, w)
+    const inner: Walk = { weight: 0, reads: w.reads, selector: false }
+    node(b as Val, depth + 1, true, inner)
+    // Every leaf of the body is walked once per element.
+    w.weight += inner.weight * CAPS.elems
+    w.selector ||= inner.selector
+  } else {
+    bad(`unknown operator or wrong arity: ${op}/${r.length}`)
+  }
+}
+
 function leaf(v: Val, nest: number, body: boolean, w: Walk): void {
   if (nest > CAPS.depth) bad(`leaf nested deeper than ${CAPS.depth}`)
   w.weight += 1
@@ -302,23 +291,21 @@ function leaf(v: Val, nest: number, body: boolean, w: Walk): void {
     return
   }
   const [head, ...r] = v
-  const arity = SELECTORS[head]
-  if (arity === undefined || v.length < arity[0] || v.length > arity[1]) {
+  const exact = ARITY[head]
+  const min = PATH_MIN[head]
+  if (exact !== undefined ? v.length !== exact : min === undefined || v.length < min) {
     bad(`unknown selector or wrong arity: ${head}/${r.length}`)
   }
   const next = (x: Val) => leaf(x, nest + 1, body, w)
-  if (head === 'lit') return
-  if (CALL_LEAVES.has(head)) w.selector = true
+  if (CALLS.has(head)) w.selector = true
   if (head === 'elem' && !body) bad('elem outside a quantifier body')
+  if (head === 'call_path' || head === 'elem') steps(r)
   if (head === 'sum') {
-    w.sums += 1
-    w.weight += CAPS.elems
     if (body) bad('a sum inside a quantifier')
+    w.weight += CAPS.elems
     next(r[0] as Val)
+    steps(r.slice(1))
   }
-  if (head === 'call_path') steps(r, 0)
-  if (head === 'elem') steps(r, 0)
-  if (head === 'sum') steps(r.slice(1), 0)
   if (head === 'scaled') {
     const den = r[2] as Val
     const n =
@@ -339,25 +326,27 @@ function leaf(v: Val, nest: number, body: boolean, w: Walk): void {
     const [target, fn, args] = r as [Val, Val, Val]
     if (typeof target !== 'string' || !target.startsWith('C')) bad('read: target is a contract')
     if (typeof fn !== 'string' || !Array.isArray(args)) bad('read: (contract, fn, [args], path...)')
-    steps(r.slice(3), 0)
+    steps(r.slice(3))
     for (const x of args as Val[]) {
-      const ok =
-        !isSelector(x) || CALL_LEAVES.has(x[0] as string) || x[0] === 'now' || x[0] === 'lit'
-      if (!ok) bad('read: an argument is a constant or a plain leaf')
+      if (isSelector(x) && !CALLS.has(x[0]) && x[0] !== 'now' && x[0] !== 'lit') {
+        bad('read: an argument is a constant or a plain leaf')
+      }
       next(x)
     }
-    const fixed = (args as Val[]).every((x) => !isSelector(x) || x[0] === 'lit')
+    // Reads of one call with constant arguments are one call; a read with an
+    // argument taken from the call is its own, whatever it resembles.
+    const fixed = (args as Val[]).every(isConstant)
     w.reads.add(JSON.stringify([target, fn, fixed ? args : w.reads.size]))
   }
 }
 
+/** A bare constant: a value, or a non-empty vec of them (never a selector or a map). */
 function constant(v: Val, nest: number): void {
+  if (nest > CAPS.depth) bad('a constant is nested too deep')
   if (Array.isArray(v)) {
-    if (nest > CAPS.depth || v.length === 0) bad('a constant vec is non-empty and shallow')
+    if (v.length === 0) bad('an empty vec constant')
     for (const x of v) {
       if (isSelector(x)) bad('a bare vec holds plain values: write lit([...])')
-      if (typeof x === 'object' && x !== null && !Array.isArray(x) && 'map' in x)
-        bad('a bare vec holds no map')
       constant(x, nest + 1)
     }
   } else if (typeof v === 'object' && v !== null && 'map' in v) {
@@ -366,8 +355,8 @@ function constant(v: Val, nest: number): void {
 }
 
 /** A path: u32 indexes, a symbol or `lit` key, and a final `true` (the length). */
-function steps(s: Val[], min: number): void {
-  if (s.length < min || s.length > CAPS.steps) bad(`a path of ${min}..${CAPS.steps} steps`)
+function steps(s: Val[]): void {
+  if (s.length > CAPS.steps) bad(`a path of at most ${CAPS.steps} steps`)
   s.forEach((x, i) => {
     if (x === true && i !== s.length - 1) bad('the length step is last')
     if (isSelector(x) && x[0] !== 'lit') bad('a path step is not a selector')

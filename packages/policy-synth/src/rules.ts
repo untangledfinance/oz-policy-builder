@@ -209,8 +209,10 @@ const key = (v: Val) => JSON.stringify(v)
 /** `nc` (a conjunct of the new rule) allows nothing `oc` (of the old) forbids. */
 export function implies(nc: Expr, oc: Expr): boolean {
   if (key(nc) === key(oc)) return true
-  const [[no, na, nb], [oo, oa, ob]] = [nc, oc] as [[string, Val, Val], [string, Val, Val]]
-  if (!isSelector(nc) || !isSelector(oc) || key(na) !== key(oa)) return false
+  if (!isSelector(nc) || !isSelector(oc)) return false
+  const [no, na, nb] = nc as [string, Val, Val]
+  const [oo, oa, ob] = oc as [string, Val, Val]
+  if (key(na) !== key(oa)) return false
   const [x, y] = [num(nb), num(ob)]
   const strict = (o: string) => o === 'lt' || o === 'gt'
   if (
@@ -219,7 +221,7 @@ export function implies(nc: Expr, oc: Expr): boolean {
     ['lte', 'lt'].includes(no) &&
     ['lte', 'lt'].includes(oo)
   ) {
-    return strict(oo) ? x < y || (no === 'lt' && x <= y) : strict(no) ? x <= y + 1n : x <= y
+    return strict(oo) ? x < y : strict(no) ? x <= y + 1n : x <= y
   }
   if (
     x !== undefined &&
@@ -227,7 +229,7 @@ export function implies(nc: Expr, oc: Expr): boolean {
     ['gte', 'gt'].includes(no) &&
     ['gte', 'gt'].includes(oo)
   ) {
-    return strict(oo) ? x > y || (no === 'gt' && x >= y) : strict(no) ? x >= y - 1n : x >= y
+    return strict(oo) ? x > y : strict(no) ? x >= y - 1n : x >= y
   }
   const inSet = (set: Val[], v: Val) => set.some((s) => key(unlit(s)) === key(unlit(v)))
   if (oo === 'in' && no === 'in') return (nb as Val[]).every((v) => inSet(ob as Val[], v))

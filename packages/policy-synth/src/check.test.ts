@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { StrKey } from '@stellar/stellar-sdk'
 import { account, contract } from '../test/fixtures.ts'
 import { branches, denyCases } from './check.ts'
 import type { Call } from './record.ts'
@@ -173,6 +174,45 @@ describe('check, on the live interpreter', () => {
     expect(noSelector[0]?.reason).toBe('SELECTOR_LEAF_REQUIRED')
   })
 
+  it('names every deny the interpreter returns: overflow, an ordering over the function, an oversized rule', async () => {
+    const fn: Expr = ['eq', ['call_fn'], 'transfer']
+    const overflow: Expr = [
+      'and',
+      [
+        fn,
+        [
+          'gte',
+          [
+            'scaled',
+            ['call_arg', 2],
+            { i128: (2n ** 126n).toString() },
+            { i128: '1' },
+            { i128: '0' },
+          ],
+          { i128: '0' },
+        ],
+      ],
+    ]
+    const unsupported: Expr = ['and', [fn, ['lt', ['call_fn'], ['call_arg', 0]]]]
+    const [[o], [u]] = await Promise.all([ask(overflow, pay), ask(unsupported, pay)])
+    expect(o).toEqual({ permitted: false, code: 102, reason: 'ARITHMETIC_OVERFLOW' })
+    expect(u).toEqual({ permitted: false, code: 103, reason: 'UNSUPPORTED_NODE' })
+    const big: Expr = ['eq', ['call_arg', 0], ['lit', { bytes: '00'.repeat(33 * 1024) }]]
+    expect((await ask(big, pay))[0]).toEqual({
+      permitted: false,
+      code: 207,
+      reason: 'PREDICATE_TOO_LARGE',
+    })
+    const [listed] = await ask(['in', ['call_arg', 1], [A, X]], pay)
+    expect(listed).toEqual({ permitted: false, code: 105, reason: 'NOT_IN_ALLOWLIST' })
+  })
+
+  it('takes exactly the most calls a request may make, and no more', async () => {
+    const all = await ask(rule, ...Array.from({ length: 64 }, () => pay))
+    expect(all).toHaveLength(64)
+    expect(all.every((v) => v.permitted)).toBe(true)
+  })
+
   it('refuses more calls than one request may make, before any is sent', async () => {
     await expect(ask(rule, ...Array.from({ length: 65 }, () => pay))).rejects.toThrow(/at most 64/)
   })
@@ -222,6 +262,42 @@ describe('verify, on the live interpreter', () => {
     expect(v.ok).toBe(false)
   })
 
+  it('only the branches the permitted call takes are turned against it', async () => {
+    const other: Expr = [
+      'and',
+      [
+        ['eq', ['call_fn'], 'burn'],
+        ['lte', ['call_arg', 2], { i128: '5' }],
+      ],
+    ]
+    const mine: Expr = [
+      'and',
+      [
+        ['eq', ['call_fn'], 'transfer'],
+        ['lte', ['call_arg', 2], { i128: '1000' }],
+      ],
+    ]
+    const v = await check(['or', [other, mine]])
+    expect(v.cases).toHaveLength(2)
+    expect(v.cases.map((c) => c.label).join(' ')).toContain('transfer')
+    expect(v.cases.map((c) => c.label).join(' ')).not.toContain('burn')
+    expect(v.checks).toBe(3 + 2 * 2)
+    expect(v.ok).toBe(true)
+  })
+
+  it('a rule permitted by something that is not the call has nothing to verify against: not ok', async () => {
+    const v = await check([
+      'or',
+      [
+        ['lte', ['now'], { u64: '99999999999' }],
+        ['eq', ['call_fn'], 'x'],
+      ],
+    ])
+    expect(v.permit.permitted).toBe(true)
+    expect(v.cases).toEqual([])
+    expect(v.ok).toBe(false)
+  })
+
   it('a duplicated conjunct is not needed: dropping it changes nothing', async () => {
     const twice: Expr = [
       'and',
@@ -237,6 +313,60 @@ describe('verify, on the live interpreter', () => {
     expect(v.ok).toBe(true)
   })
 
+  it("every deny case carries the interpreter's own verdict, in the order the conjuncts are written", async () => {
+    const v = await check(rule)
+    expect(v.cases.map((c) => c.verdict.code)).toEqual([101, 100, 100, 100, 100])
+    expect(v.cases.map((c) => c.verdict.reason)).toEqual([
+      'CONTRACT_SCOPE',
+      'ARG_MISMATCH',
+      'ARG_MISMATCH',
+      'ARG_MISMATCH',
+      'ARG_MISMATCH',
+    ])
+  })
+
+  it('one conjunct is enough to verify, and one case let through is enough to fail', async () => {
+    const lone = await check(['eq', ['call_fn'], 'transfer'])
+    expect(lone.cases).toHaveLength(1)
+    expect(lone.ok).toBe(true)
+    const either: Expr = [
+      'or',
+      [
+        [
+          'and',
+          [
+            ['eq', ['call_fn'], 'transfer'],
+            ['lte', ['call_arg', 2], { i128: '1000' }],
+          ],
+        ],
+        [
+          'and',
+          [
+            ['eq', ['call_fn'], 'transfer'],
+            ['eq', ['call_arg', 1], B],
+          ],
+        ],
+      ],
+    ]
+    const mixed = await check(either)
+    expect(mixed.cases.map((c) => c.denied).sort()).toEqual([false, false, true, true])
+    expect(mixed.ok).toBe(false)
+  })
+
+  it('at most 24 deny cases, however many conjuncts the rule has', async () => {
+    const args = Array.from({ length: 30 }, () => ({ i128: '1' }) as Val)
+    const wide: Expr = [
+      'and',
+      [
+        ['eq', ['call_fn'], 'transfer'],
+        ...args.map((_, i): Expr => ['lte', ['call_arg', i], { i128: '100' }]),
+      ],
+    ]
+    const v = await check(wide, { contract: C, fn: 'transfer', args })
+    expect(v.cases).toHaveLength(24)
+    expect(v.checks).toBe(1 + 2 * 24)
+  })
+
   it('a rule nothing can be derived from verifies nothing', async () => {
     const v = await check([
       'and',
@@ -249,5 +379,202 @@ describe('verify, on the live interpreter', () => {
     const none = await check(['lte', ['now'], { u64: '9999999999' }])
     expect(none.permit.code).toBe(216)
     expect(none.ok).toBe(false)
+  })
+})
+
+describe('deny cases, edge by edge', () => {
+  const call = (args: Val[], more: Partial<Call> = {}): Call => ({
+    contract: C,
+    fn: 'pay',
+    args,
+    ...more,
+  })
+  const one = (c: Expr, p: Call) => denyCases([c], p)[0]?.call
+
+  it('breaks a constant on the left of a comparison as well as on the right', () => {
+    expect(one(['gte', { i128: '5' }, ['call_arg', 0]], call([{ i128: '3' }]))?.args[0]).toEqual({
+      i128: '6',
+    })
+    expect(one(['eq', 7, ['call_arg', 0]], call([7]))?.args[0]).toBe(8)
+  })
+
+  it('takes the bound of a lit, and of a scaled with an addend', () => {
+    expect(one(['eq', ['call_arg', 0], ['lit', ['a', 1]]], call([['a', 1]]))?.args[0]).toEqual([
+      'a',
+      1,
+      1,
+    ])
+    const floor: Expr = [
+      'gte',
+      ['call_arg', 1],
+      ['scaled', ['call_arg', 0], { i128: '2' }, { i128: '1' }, { i128: '10' }],
+    ]
+    expect(one(floor, call([{ i128: '5' }, { i128: '20' }]))?.args[1]).toEqual({ i128: '19' }) // 5 * 2 / 1 + 10 = 20; one below
+  })
+
+  it('moves a length through call_arg_len, and keeps the type of what it moves', () => {
+    const grown = one(['lte', ['call_arg_len', 0], 2], call([[1, 2]]))?.args[0] as Val[]
+    expect(grown).toEqual([1, 2, 2])
+    expect(one(['lte', ['call_arg', 0], { i128: '4' }], call([{ u64: '1' }]))?.args[0]).toEqual({
+      u64: '5',
+    })
+    expect(one(['lte', ['call_arg', 0], { i128: '4' }], call([{ i32: 1 }]))?.args[0]).toEqual({
+      i32: 5,
+    })
+    expect(one(['eq', ['call_arg', 0], 5], call([5]))?.args[0]).toBe(6)
+    expect(one(['lte', ['call_arg', 0], 4294967295], call([4294967295]))?.args[0]).toEqual({
+      i128: '4294967296',
+    })
+    expect(one(['gte', ['call_arg', 0], 1], call([1]))?.args[0]).toBe(0)
+    expect(one(['gte', ['call_arg', 0], 0], call([0]))?.args[0]).toEqual({ i128: '-1' })
+  })
+
+  it('moves a different value of every type', () => {
+    const moved = (v: Val) => one(['eq', ['call_arg', 0], ['lit', v]], call([v]))?.args[0]
+    expect(moved(true)).toBe(false)
+    expect(moved({ bytes: 'ab' })).toEqual({ bytes: 'ab00' })
+    expect(moved({ string: 'x' })).toEqual({ string: 'xx' })
+    expect(moved([1, 2])).toEqual([1, 2, 2])
+    expect(moved(['a'])).toEqual(['a', 'a'])
+    expect(moved('short')).toBe('short_x')
+    const addr = moved(A) as string
+    expect(addr).not.toBe(A)
+    expect(addr).toMatch(/^G[A-Z2-7]{55}$/)
+    const ctr = moved(C) as string
+    expect(ctr).toMatch(/^C[A-Z2-7]{55}$/)
+    expect(ctr).not.toBe(C)
+  })
+
+  it('walks a set until it is out of it, however long the run of consecutive members', () => {
+    const run = [7, 8, 9, 10, 11, 12]
+    const out = one(['in', ['call_arg', 0], run], call([7]))?.args[0]
+    expect(run).not.toContain(out)
+    expect(one(['in', ['call_arg', 0], []], call([7]))).toBeUndefined()
+    expect(one(['nin', ['call_arg', 0], [9, 3]], call([7]))?.args[0]).toBe(9)
+  })
+
+  it('every comparison against a total: below, at, above, either side', () => {
+    const total = (op: string, n: string) =>
+      one(
+        [op, ['sum', ['call_arg', 0], 'amount'], { i128: n }],
+        call([[{ map: [['amount', { i128: '4' }]] }, { map: [['amount', { i128: '6' }]] }]])
+      )
+    const sum = (c: Call | undefined) =>
+      ((c?.args[0] ?? []) as { map: [string, { i128: string }][] }[]).reduce(
+        (t, m) => t + Number(m.map[0]?.[1].i128),
+        0
+      )
+    expect(sum(total('lte', '10'))).toBe(11)
+    expect(sum(total('lt', '10'))).toBe(10)
+    expect(sum(total('gte', '10'))).toBe(9)
+    expect(sum(total('gt', '10'))).toBe(10)
+    expect(total('eq', '10')).toBeUndefined()
+    expect(
+      one(['lte', ['sum', ['call_arg', 0], 'amount'], { i128: '1' }], call([[]]))
+    ).toBeUndefined()
+    expect(
+      one(['lte', ['sum', ['call_arg', 5], 'amount'], { i128: '1' }], call([[]]))
+    ).toBeUndefined()
+  })
+
+  it('a quantifier: the first element is the one broken; a non-and body is one leaf; an empty or missing vec has none', () => {
+    const items: Val = [
+      {
+        map: [
+          ['to', A],
+          ['n', 1],
+        ],
+      },
+      {
+        map: [
+          ['to', A],
+          ['n', 1],
+        ],
+      },
+    ]
+    const first = (c: Call | undefined) =>
+      (c?.args[0] as { map: [string, Val][] }[] | undefined)?.[0]?.map
+    expect(
+      first(one(['all', ['call_arg', 0], ['eq', ['elem', 'n'], 1]], call([items])))
+    ).toContainEqual(['n', 2])
+    expect(
+      first(one(['all', ['call_arg', 0], ['and', [['eq', ['elem', 'n'], 1]]]], call([items])))
+    ).toContainEqual(['n', 2])
+    expect(first(one(['all', ['call_arg', 0], ['eq', 5, 5]], call([items])))).toBeUndefined()
+    expect(one(['all', ['call_arg', 0], ['eq', ['elem', 'n'], 1]], call([[]]))).toBeUndefined()
+    expect(one(['all', ['call_arg', 0], ['eq', ['elem', 'n'], 1]], call([5]))).toBeUndefined()
+    expect(one(['all', ['call_arg', 9], ['eq', ['elem', 'n'], 1]], call([items]))).toBeUndefined()
+    expect(one(['any', ['call_arg', 0], ['eq', ['elem', 'n'], 1]], call([[]]))).toBeUndefined()
+    expect(one(['any', ['call_arg', 9], ['eq', ['elem', 'n'], 1]], call([items]))).toBeUndefined()
+    // elem in the second operand is rewritten too
+    const against = one(
+      ['all', ['call_arg', 0], ['lte', ['elem', 'n'], ['elem', 'm']]],
+      call([
+        [
+          {
+            map: [
+              ['m', 3],
+              ['n', 3],
+            ],
+          },
+        ],
+      ])
+    )
+    expect(first(against)).toContainEqual(['n', 4])
+  })
+
+  it('keeps a u32 a u32 up to its maximum, and writes a number into another kind of value as an i128', () => {
+    expect(one(['lte', ['call_arg', 0], 4294967294], call([4294967294]))?.args[0]).toBe(4294967295)
+    expect(one(['lte', ['call_arg', 0], { i128: '4' }], call([{ string: 'x' }]))?.args[0]).toEqual({
+      i128: '5',
+    })
+  })
+
+  it('a path into something that is not there or not a container derives nothing', () => {
+    expect(one(['eq', ['call_path', 0, 'x'], 1], call([5]))).toBeUndefined()
+    expect(one(['eq', ['call_path', 0, 3], 1], call([{ map: [['a', 1]] }]))).toBeUndefined()
+    expect(one(['eq', ['call_path', 0, 'x'], 1], call([[1]]))).toBeUndefined()
+  })
+
+  it('grows an empty vec with zeros, and breaks an empty one with a zero', () => {
+    expect(one(['lte', ['call_path', 0, true], 0], call([[]]))?.args[0]).toEqual([0])
+    expect(one(['eq', ['call_arg', 0], ['lit', []]], call([[]]))?.args[0]).toEqual([0])
+  })
+
+  it('another address of the same kind differs from the original in its first byte only', () => {
+    const was = StrKey.decodeEd25519PublicKey(A)
+    const now = StrKey.decodeEd25519PublicKey(
+      one(['eq', ['call_arg', 0], A], call([A]))?.args[0] as string
+    )
+    expect(now[0]).toBe((was[0] as number) ^ 1)
+    expect(now.subarray(1)).toEqual(was.subarray(1))
+  })
+
+  it('a scaled bound over an argument the call does not carry derives nothing', () => {
+    const floor: Expr = [
+      'gte',
+      ['call_arg', 1],
+      ['scaled', ['call_arg', 7], { i128: '2' }, { i128: '1' }, { i128: '0' }],
+    ]
+    expect(one(floor, call([{ i128: '1' }, { i128: '2' }]))).toBeUndefined()
+    const floor2: Expr = [
+      'gte',
+      ['call_arg', 1],
+      ['scaled', ['call_arg', 0], { i128: '2' }, { i128: '1' }, ['call_arg', 7]],
+    ]
+    expect(one(floor2, call([{ i128: '1' }, { i128: '2' }]))).toBeUndefined()
+  })
+
+  it('a deny case says what it breaks, in at most 80 characters of the conjunct', () => {
+    const long: Expr = ['in', ['call_arg', 0], Array.from({ length: 20 }, (_, i) => i + 1000)]
+    const [d] = denyCases([long], call([1000]))
+    expect(d?.label.length).toBe('breaks '.length + 80)
+    expect(d?.label.startsWith('breaks ["in"')).toBe(true)
+  })
+
+  it('no more than 24 cases from one rule', () => {
+    const many = Array.from({ length: 30 }, (_, i): Expr => ['lte', ['call_arg', i], { i128: '9' }])
+    const permit = call(Array.from({ length: 30 }, () => ({ i128: '1' }) as Val))
+    expect(denyCases(many, permit)).toHaveLength(30)
   })
 })

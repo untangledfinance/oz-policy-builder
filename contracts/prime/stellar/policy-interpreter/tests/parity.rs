@@ -52,6 +52,15 @@ fn js(v: &ScVal) -> String {
             "i128",
             ((i128::from(p.hi) << 64) | i128::from(p.lo)).to_string(),
         ),
+        // Only the small values the corpus uses: the high limbs must be zero.
+        ScVal::I256(p) if p.hi_hi == 0 && p.hi_lo == 0 => one(
+            "i256",
+            ((u128::from(p.lo_hi) << 64) | u128::from(p.lo_lo)).to_string(),
+        ),
+        ScVal::U256(p) if p.hi_hi == 0 && p.hi_lo == 0 => one(
+            "u256",
+            ((u128::from(p.lo_hi) << 64) | u128::from(p.lo_lo)).to_string(),
+        ),
         ScVal::Bytes(b) => one(
             "bytes",
             b.0.iter().map(|x| alloc::format!("{x:02x}")).collect(),
@@ -674,6 +683,78 @@ fn corpus() -> StdVec<(&'static str, ScVal)> {
     ]
 }
 
+/// The boundaries: one case on each side of every cap, arity and nesting rule the
+/// decoder has, so the TypeScript `validate` is held to the contract on the edges
+/// and not only in the middle. Compact on purpose.
+#[rustfmt::skip]
+fn edges() -> StdVec<(&'static str, ScVal)> {
+    let (a, g) = (contract(1), account(2));
+    let sel = |p: ScVal| and(alloc::vec![fnis(), p]);
+    let eq_arg = |i: u32| cmp("eq", arg(i), n(1));
+    let scaled = |s: ScVal, d: i128| node("scaled", alloc::vec![s, i128v(2), i128v(d), i128v(0)]);
+    let nest_scaled_leaf = |levels: u32| { let mut v = arg(0); for _ in 0..levels { v = scaled(v, 1); } v };
+    let nest_vec_leaf = |levels: u32| { let mut v = n(1); for _ in 0..levels { v = vec(alloc::vec![v]); } v };
+    let nest_scaled = |levels: u32| sel(cmp("gte", arg(1), nest_scaled_leaf(levels)));
+    let nest_vec = |levels: u32| sel(cmp("eq", arg(0), nest_vec_leaf(levels)));
+    // k comparisons of the element: 2k leaves.
+    let body = |k: u32| and((0..k).map(|i| cmp("eq", node("elem", alloc::vec![n(i)]), n(1))).collect());
+    let reads_of = |args: StdVec<ScVal>, k: u8| and(core::iter::once(fnis()).chain((0..k).map(|i| cmp("gte", node("read", alloc::vec![a.clone(), sym("f"), vec(args.clone()), n(i as u32)]), n(0)))).collect());
+    let steps_of = |k: u32| node("read", alloc::vec![a.clone(), sym("f"), vec(alloc::vec![]), n(0), n(1), n(2), n(3), n(4), n(5), n(6), n(7), n(8)][..(3 + k as usize)].to_vec());
+    let weighed = |extra: StdVec<ScVal>| and(core::iter::once(fnis()).chain(core::iter::once(cmp("all", arg(0), body(3)))).chain(extra).collect());
+    let pairs = |k: u32| (0..k).map(|i| eq_arg(i + 1)).collect::<StdVec<_>>();
+    alloc::vec![
+        ("call_contract with an argument", cmp("eq", node("call_contract", alloc::vec![n(1)]), a.clone())),
+        ("now with an argument", sel(cmp("lte", node("now", alloc::vec![n(1)]), ScVal::U64(5)))),
+        ("call_arg_len with two arguments", sel(cmp("eq", node("call_arg_len", alloc::vec![n(0), n(1)]), n(1)))),
+        ("call_arg_field with five", sel(cmp("eq", node("call_arg_field", alloc::vec![n(0), n(0), sym("a"), sym("b")]), n(1)))),
+        ("lit with two operands", sel(cmp("eq", arg(0), node("lit", alloc::vec![n(1), n(2)])))),
+        ("scaled with six elements", sel(cmp("gte", arg(1), node("scaled", alloc::vec![arg(0), i128v(1), i128v(1), i128v(0), i128v(0)])))),
+        ("ordering over i256", sel(cmp("lt", arg(0), lit(ScVal::I256(soroban_sdk::xdr::Int256Parts { hi_hi: 0, hi_lo: 0, lo_hi: 0, lo_lo: 5 }))))),
+        ("ordering over i32", sel(cmp("lt", arg(0), lit(ScVal::I32(5))))),
+        ("ordering over bytes", sel(cmp("lt", arg(0), lit(bytes(&[1]))))),
+        ("scaled nested 4 levels", nest_scaled(4)),
+        ("scaled nested 5 levels", nest_scaled(5)),
+        ("bare vec 4 levels", nest_vec(4)),
+        ("bare vec 5 levels", nest_vec(5)),
+        ("bare vec holding a map", sel(cmp("eq", arg(0), vec(alloc::vec![n(1), map(alloc::vec![(sym("a"), n(1))])])))),
+        ("scaled den at the cap", sel(cmp("gte", arg(1), scaled(arg(0), 1_000_000_000_000_000_000)))),
+        ("scaled over a symbol", sel(cmp("gte", arg(1), node("scaled", alloc::vec![sym("x"), i128v(1), i128v(1), i128v(0)])))),
+        ("scaled zero source", sel(cmp("gte", arg(1), node("scaled", alloc::vec![i128v(0), i128v(1), i128v(1), arg(0)])))),
+        ("scaled zero factor", sel(cmp("gte", arg(1), node("scaled", alloc::vec![arg(0), i128v(0), i128v(1), i128v(0)])))),
+        ("scaled negative addend", sel(cmp("gte", arg(1), node("scaled", alloc::vec![arg(0), i128v(1), i128v(1), i128v(-5)])))),
+        ("read with a numeric function", sel(cmp("gte", node("read", alloc::vec![a.clone(), n(5), vec(alloc::vec![])]), n(0)))),
+        ("read arguments not a vec", sel(cmp("gte", node("read", alloc::vec![a.clone(), sym("f"), n(5)]), n(0)))),
+        ("read path of 8 steps", sel(cmp("gte", steps_of(8), n(0)))),
+        ("read path of 9 steps", sel(cmp("gte", steps_of(9), n(0)))),
+        ("read path step is a selector", sel(cmp("gte", node("read", alloc::vec![a.clone(), sym("f"), vec(alloc::vec![]), arg(0)]), n(0)))),
+        ("five reads of one constant call", reads_of(alloc::vec![n(1)], 5)),
+        ("five reads of one call-derived call", reads_of(alloc::vec![arg(0)], 5)),
+        ("four reads of one call-derived call", reads_of(alloc::vec![arg(0)], 4)),
+        ("all over a constant with an elem-only body", cmp("all", lit(vec(alloc::vec![n(1)])), cmp("eq", node("elem", alloc::vec![]), n(1)))),
+        ("all over elem", sel(cmp("all", node("elem", alloc::vec![]), cmp("eq", node("elem", alloc::vec![]), n(1))))),
+        ("scaled nested 4 levels on the left", sel(cmp("lte", nest_scaled_leaf(4), arg(1)))),
+        ("scaled nested 5 levels on the left", sel(cmp("lte", nest_scaled_leaf(5), arg(1)))),
+        ("in needle scaled nested 4 levels", sel(node("in", alloc::vec![nest_scaled_leaf(4), vec(alloc::vec![n(1)])]))),
+        ("in needle scaled nested 5 levels", sel(node("in", alloc::vec![nest_scaled_leaf(5), vec(alloc::vec![n(1)])]))),
+        ("in entry bare vec 4 levels", sel(node("in", alloc::vec![arg(0), vec(alloc::vec![nest_vec_leaf(4)])]))),
+        ("in entry bare vec 5 levels", sel(node("in", alloc::vec![arg(0), vec(alloc::vec![nest_vec_leaf(5)])]))),
+        ("quantifier vector scaled nested 4 levels", cmp("all", nest_scaled_leaf(4), cmp("eq", node("elem", alloc::vec![]), n(1)))),
+        ("quantifier vector scaled nested 5 levels", cmp("all", nest_scaled_leaf(5), cmp("eq", node("elem", alloc::vec![]), n(1)))),
+        ("scaled over a symbol factor", sel(cmp("gte", arg(1), node("scaled", alloc::vec![arg(0), sym("x"), i128v(1), i128v(0)])))),
+        ("scaled over a symbol addend", sel(cmp("gte", arg(1), node("scaled", alloc::vec![arg(0), i128v(1), i128v(1), sym("x")])))),
+        ("quantifier at depth 3", and(alloc::vec![and(alloc::vec![cmp("all", arg(0), body(1))])])),
+        ("quantifier at depth 4", and(alloc::vec![and(alloc::vec![and(alloc::vec![cmp("all", arg(0), body(1))])])])),
+        ("sum over a bogus source", sel(cmp("lte", node("sum", alloc::vec![node("bogus", alloc::vec![]), sym("a")]), n(1)))),
+        ("sum with a selector step", sel(cmp("lte", node("sum", alloc::vec![arg(0), arg(1)]), n(1)))),
+        ("sum with a length step in the middle", sel(cmp("lte", node("sum", alloc::vec![arg(0), ScVal::Bool(true), n(1)]), n(1)))),
+        ("weighted leaves exactly 200", sel(and(pairs(99)))),
+        ("weighted leaves 202", sel(and(pairs(100)))),
+        ("quantifier weighing exactly 200", weighed(alloc::vec![node("in", alloc::vec![arg(1), vec(alloc::vec![n(1), n(2)])]), eq_arg(2)])),
+        ("quantifier weighing 201", weighed(alloc::vec![node("in", alloc::vec![arg(1), vec(alloc::vec![n(1), n(2), n(3)])]), eq_arg(2)])),
+        ("lit map mixed-type keys", sel(cmp("eq", arg(0), lit(map(alloc::vec![(n(7), n(1)), (ScVal::I64(1), n(2)), (sym("a"), n(3)), (g.clone(), n(4))]))))),
+    ]
+}
+
 fn or(kids: StdVec<ScVal>) -> ScVal {
     node("or", alloc::vec![vec(kids)])
 }
@@ -689,7 +770,7 @@ fn render() -> String {
         args,
     });
     let mut out = String::from("{\"cases\":[\n");
-    let cases = corpus();
+    let cases: StdVec<_> = corpus().into_iter().chain(edges()).collect();
     for (i, (name, v)) in cases.iter().enumerate() {
         let code = client.check(&xdr_bytes(&env, v), &ctx);
         let b64 = v.to_xdr_base64(Limits::none()).unwrap();

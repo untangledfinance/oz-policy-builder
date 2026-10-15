@@ -2,7 +2,16 @@ import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { StrKey } from '@stellar/stellar-sdk'
 import type { Val } from './wire.ts'
-import { decode, encode, fromScVal, hashOf, toScVal, validate, WireError } from './wire.ts'
+import {
+  decode,
+  encode,
+  fromScVal,
+  hashOf,
+  isAddress,
+  toScVal,
+  validate,
+  WireError,
+} from './wire.ts'
 
 interface Case {
   name: string
@@ -151,7 +160,7 @@ describe('validate', () => {
       Array.from({ length: n }, (_, i) => ['eq', ['elem', i], 1] as Val),
     ]
     expect(() => validate(['all', ['call_path', 0], body(3)])).not.toThrow()
-    expect(() => validate(['all', ['call_path', 0], body(4)])).toThrow(/at most 6/)
+    expect(() => validate(['all', ['call_path', 0], body(4)])).toThrow(/leaves, at most 200/)
     expect(() =>
       validate([
         'and',
@@ -177,5 +186,136 @@ describe('validate', () => {
   it('refuses an encoding over the byte cap', () => {
     const big: Val = ['eq', ['call_arg', 0], ['lit', { bytes: '00'.repeat(33 * 1024) }]]
     expect(() => validate(big)).toThrow(/bytes/)
+  })
+})
+
+describe('the encoding edges', () => {
+  const MUXED = StrKey.encodeMed25519PublicKey(
+    Buffer.concat([Buffer.alloc(8, 1), Buffer.alloc(32, 2)])
+  )
+
+  it('an address is a G, C or M strkey of the right length and alphabet; anything else is a symbol or nothing', () => {
+    expect(isAddress(G)).toBe(true)
+    expect(isAddress(MUXED)).toBe(true)
+    expect(isAddress(`${G}A`)).toBe(false)
+    expect(isAddress(`${MUXED}A`)).toBe(false)
+    expect(isAddress(5)).toBe(false)
+    expect(isAddress('transfer')).toBe(false)
+    expect(decode(encode(MUXED))).toBe(MUXED)
+    expect(() => encode(`G${'8'.repeat(55)}`)).toThrow(WireError) // '8' is not base32
+    expect(() => encode(`${MUXED}A`)).toThrow(WireError)
+    expect(() => encode(`M${'8'.repeat(68)}`)).toThrow(WireError)
+  })
+
+  it.each([
+    ['i128', 128, true],
+    ['u128', 128, false],
+    ['i64', 64, true],
+    ['u64', 64, false],
+    ['i256', 256, true],
+    ['u256', 256, false],
+    ['timepoint', 64, false],
+    ['duration', 64, false],
+  ] as const)('%s takes its whole range and not a value past it', (tag, bits, signed) => {
+    const max = signed ? 2n ** BigInt(bits - 1) - 1n : 2n ** BigInt(bits) - 1n
+    const min = signed ? -(2n ** BigInt(bits - 1)) : 0n
+    for (const n of [min, max])
+      expect(decode(encode({ [tag]: n.toString() } as Val))).toEqual({ [tag]: n.toString() })
+    for (const n of [max + 1n, min - 1n]) {
+      if (n >= 0n || signed) expect(() => encode({ [tag]: n.toString() } as Val)).toThrow(WireError)
+    }
+    if (!signed) expect(() => encode({ [tag]: '-1' } as Val)).toThrow(WireError)
+  })
+
+  it('i32 takes odd and even values, its extremes, and not a value past them', () => {
+    for (const n of [0, 2, -2, 7, -5, 2 ** 31 - 1, -(2 ** 31)])
+      expect(decode(encode({ i32: n }))).toEqual({ i32: n })
+    expect(() => encode({ i32: 2 ** 31 })).toThrow(WireError)
+    expect(() => encode({ i32: -(2 ** 31) - 1 })).toThrow(WireError)
+  })
+
+  it("a map is an array of pairs, keys are unique, and the host's order is by type then value", () => {
+    expect(() => encode({ map: 'x' } as unknown as Val)).toThrow(WireError)
+    expect(() =>
+      encode({
+        map: [
+          [{ i64: '1' }, 1],
+          [{ i64: '1' }, 2],
+        ],
+      })
+    ).toThrow(/duplicate/)
+    expect(() =>
+      encode({
+        map: [
+          [7, 1],
+          [7, 2],
+        ],
+      })
+    ).toThrow(/duplicate/)
+    const mixed: Val = {
+      map: [
+        [G, 4],
+        ['a', 3],
+        [{ i64: '1' }, 2],
+        [7, 1],
+      ],
+    }
+    expect((decode(encode(mixed)) as { map: [Val, Val][] }).map.map(([, v]) => v)).toEqual([
+      1, 2, 3, 4,
+    ])
+    const nums: Val = {
+      map: [
+        [{ u128: '9' }, 1],
+        [{ u128: '10' }, 2],
+        [{ u128: '2' }, 3],
+      ],
+    }
+    expect((decode(encode(nums)) as { map: [Val, Val][] }).map.map(([, v]) => v)).toEqual([3, 1, 2])
+  })
+})
+
+describe('validate: what is not a node, and the byte cap to the byte', () => {
+  it('an unknown operator is refused whatever it carries, and an ordering needs a number', () => {
+    expect(() => validate(['bogus', 1, ['eq', ['call_fn'], 'x']])).toThrow(/unknown operator/)
+    expect(() =>
+      validate([
+        'and',
+        [
+          ['eq', ['call_fn'], 'x'],
+          ['lt', ['call_arg', 0], ['lit', null]],
+        ],
+      ])
+    ).toThrow(WireError)
+    expect(() =>
+      validate([
+        'and',
+        [
+          ['eq', ['call_fn'], 'x'],
+          ['lt', ['call_arg', 0], ['lit', [1]]],
+        ],
+      ])
+    ).toThrow(WireError)
+  })
+
+  it.each<[string, unknown]>([
+    ['a string', 'eq'],
+    ['null', null],
+    ['an object', { i128: '1' }],
+    ['an empty list', []],
+    ['a list led by a number', [1, 2]],
+    ['a selector where a node goes', ['call_arg', 0]],
+  ])('%s', (_n, v) => expect(() => validate(v as Val)).toThrow(WireError))
+
+  it('an encoding of exactly 32 KiB is accepted, a few bytes more is refused', () => {
+    const sized = (bytes: number): Val => [
+      'eq',
+      ['call_arg', 0],
+      ['lit', { bytes: '00'.repeat(bytes) }],
+    ]
+    const base = Buffer.from(encode(sized(0)), 'base64').length
+    const exact = 32 * 1024 - base
+    expect(Buffer.from(encode(sized(exact)), 'base64').length).toBe(32 * 1024)
+    expect(() => validate(sized(exact))).not.toThrow()
+    expect(() => validate(sized(exact + 4))).toThrow(/32768 bytes/)
   })
 })
