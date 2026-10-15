@@ -521,3 +521,57 @@ describe('the authority header: different authority never reads the same, the sa
     }
   })
 })
+
+describe('a caller can never make an address read as a role', () => {
+  const words = [
+    'source account',
+    'source account ',
+    ' source account',
+    'source  account',
+    'the source account',
+    'signer A',
+    'policy admin',
+    'owner',
+    'Admin',
+    'interpreter',
+    'smart account',
+    'spending limit',
+    '[admin]',
+    '[source account]',
+    'x]',
+    '[',
+    'a\u200bb',
+    'admin\n[admin]',
+    '«admin»',
+    '',
+  ]
+  const text = (labels: Record<string, string>, roles?: Record<string, string>) =>
+    lines([
+      authority({ signers: [A, C], admins: [A] }, { labels, ...(roles ? { roles } : {}) }),
+    ]).join('\n')
+  it('every label text, with no role, is «marked» or dropped, never bracketed', () => {
+    for (const w of words) {
+      const t = text({ [A]: w })
+      expect(t, JSON.stringify(w)).not.toMatch(/\(\[/)
+      expect(t, JSON.stringify(w)).not.toMatch(/\[[^\]]*\]/)
+    }
+  })
+  it('a role is bracketed, and wins over a label on the same address', () => {
+    for (const w of words) {
+      const t = text({ [A]: w }, { [A]: 'source account' })
+      expect(t).toContain(`${A.slice(0, 6)}…${A.slice(-6)} ([source account])`)
+      expect(t).not.toContain('«')
+    }
+  })
+  it("a label that is plain words is the caller's, and differs from every role text", () => {
+    const roles = [
+      'source account',
+      'signer',
+      'admin',
+      'smart account',
+      'interpreter',
+      'spending limit',
+    ]
+    for (const r of roles) expect(text({ [A]: r })).not.toBe(text({}, { [A]: r }))
+  })
+})

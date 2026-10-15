@@ -493,11 +493,11 @@ describe('labels', () => {
   it('the pins of this package are known by name; the request cannot rename them', () => {
     const sl = SPENDING_LIMIT.testnet
     expect(one(['eq', ['call_arg', 0], sl])).toBe(
-      `argument 0:  must be  ${short(sl)} (spending limit)`
+      `argument 0:  must be  ${short(sl)} ([spending limit])`
     )
     // The package's own name wins: a request cannot call its policy contracts something else.
     expect(one(['eq', ['call_arg', 0], sl], { labels: { [sl]: 'my cap' } })).toContain(
-      '(spending limit)'
+      '([spending limit])'
     )
   })
 
@@ -1630,7 +1630,7 @@ describe('the authority header: who can act, under what rule, until when, up to 
       `├─ admins:  ${G1.slice(0, 6)}…${G1.slice(-6)} (all of them together: alone, may uninstall the predicate, which stops the rule; with the account, may re-install, replace the admins or bind an executor)`,
       '├─ expires:  never expires',
       '├─ total:  no total limit: each call may move up to its own cap',
-      `└─ interpreter:  ${INT.slice(0, 6)}…${INT.slice(-6)} (interpreter)`,
+      `└─ interpreter:  ${INT.slice(0, 6)}…${INT.slice(-6)} ([interpreter])`,
     ])
   })
 

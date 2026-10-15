@@ -772,16 +772,16 @@ describe('install_policy', () => {
     const review = r.data.rule.review as string[]
     expect(review[0]).toBe('Authority')
     const text = review.join('\n')
-    expect(text).toContain('signer:  GAT7JH…CWBCSB («source account»)')
+    expect(text).toContain('signer:  GAT7JH…CWBCSB ([source account])')
     expect(text).toContain('to act:  any 2 of these 2 signers must approve')
     expect(text).toContain(
-      'admins:  GAT7JH…CWBCSB («source account») (all of them together: alone, may uninstall the predicate, which stops the rule; with the account, may re-install, replace the admins or bind an executor)'
+      'admins:  GAT7JH…CWBCSB ([source account]) (all of them together: alone, may uninstall the predicate, which stops the rule; with the account, may re-install, replace the admins or bind an executor)'
     )
     expect(text).toContain('expires:  valid through ledger 99999999')
     expect(text).toContain(
       'total:  at most 0.5 native (5000000) in total per 17280 ledgers (rolling, OZ spending_limit)'
     )
-    expect(text).toMatch(/interpreter: {2}CA5ICI…\w{6} \(interpreter\)/)
+    expect(text).toMatch(/interpreter: {2}CA5ICI…\w{6} \(\[interpreter\]\)/)
     // The predicate's own tree follows the header, and the tree's first node is the authority.
     expect(r.data.rule.reviewTree[0]).toMatchObject({ op: 'authority', raw: null })
     expect(r.data.rule.reviewTree[1]).toMatchObject({ op: 'contract' })
@@ -797,8 +797,8 @@ describe('install_policy', () => {
       anyOne: true,
     })
     const text = r.data.rule.review.join('\n')
-    expect(text).toContain('GAAQCA…AQDZ7H («signer»)')
-    expect(text).toContain('GABAEA…BAEJXA («admin»)')
+    expect(text).toContain('GAAQCA…AQDZ7H ([signer])')
+    expect(text).toContain('GABAEA…BAEJXA ([admin])')
   })
 
   it('the source account is named in the review before the signer it also is', async () => {
@@ -820,7 +820,7 @@ describe('install_policy', () => {
       contract: TOKEN,
       allowOverlap: true,
     })
-    expect(r.data.rule.review.join('\n')).toContain('GAT7JH…CWBCSB («source account»)')
+    expect(r.data.rule.review.join('\n')).toContain('GAT7JH…CWBCSB ([source account])')
   })
 
   it('a signer the account does not share is a clean install', async () => {
@@ -909,24 +909,46 @@ describe('install_policy', () => {
     }
   })
 
-  it("a request label cannot take a role word: it would read as the package's own", async () => {
-    const r = await call('synthesize_policy', {
-      xdr: transferXdr(),
-      limit: '9000000',
-      allow: {
-        'Source Account': [account(2)],
-        'smart-account': [account(2)],
-        ADMINS: [account(2)],
-        interpreter: [account(2)],
-        'spending limit': [account(2)],
-        payee: [account(2)],
-      },
+  it("the package's own roles are [bracketed]; a caller's label is «marked», whatever it says, and can never be bracketed", async () => {
+    const variants = [
+      'source account',
+      'source account ',
+      'source  account',
+      'the source account',
+      'signer A',
+      'policy admin',
+      'owner',
+      'Source Account',
+      'admin',
+      'interpreter',
+      'smart account',
+      '[source account]',
+      '[admin]',
+      'x]',
+    ]
+    for (const word of variants) {
+      const r = await call('synthesize_policy', {
+        xdr: transferXdr(),
+        limit: '9000000',
+        allow: { [word]: [account(2)] },
+      })
+      const text = r.data.rules[0].review.join('\n')
+      // Either shown as the caller's («word») or, when it is not plain words, not shown at all; never bracketed.
+      expect(text).not.toMatch(/GABAEA…BAEJXA \(\[/)
+      if (/^[A-Za-z][\w .-]{0,23}$/.test(word)) expect(text).toContain(`GABAEA…BAEJXA («${word}»)`)
+      else expect(text).not.toContain('GABAEA…BAEJXA (')
+    }
+  })
+
+  it('a role beats a caller label on the same address', async () => {
+    const r = await call('install_policy', {
+      ...base,
+      allowOverlap: true,
+      allow: { payee: [SIGNER] },
     })
-    const text = r.data.rules[0].review.join('\n')
-    expect(text).toContain('GABAEA…BAEJXA («payee»)')
-    expect(text).not.toMatch(
-      /«(source.account|smart.account|admins?|signers?|interpreter|spending.limit)»/i
-    )
+    const text = r.data.rule.review.join('\n')
+    expect(text).toContain('GAT7JH…CWBCSB ([source account])')
+    expect(text).not.toContain('«payee»')
   })
 
   it('the review knows its network: a listed oracle on it is not called movable', async () => {
@@ -1474,7 +1496,7 @@ describe('get_interpreter_info', () => {
     expect(r.data.account).toMatchObject({ complete: true })
     expect(rules[0].review).toBeUndefined()
     expect(rules[2].review.join('\n')).toContain('└─ transfer')
-    expect(rules[2].review.join('\n')).toContain('(«smart account»)')
+    expect(rules[2].review.join('\n')).toContain('([smart account])')
     const raw = await call('get_interpreter_info', { explainAccount: ACCOUNT, raw: true })
     expect(raw.data.account.rules[2].review.join('\n')).toContain(ACCOUNT)
   })

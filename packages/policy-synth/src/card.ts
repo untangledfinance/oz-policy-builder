@@ -28,7 +28,9 @@ export interface View {
   contract?: string | undefined
   /** The network the rule is for: a read of an oracle on its safe list is not marked as a live value. */
   network?: Network | undefined
-  /** Names for addresses, from the request. */
+  /** What the package knows an address to be in this request (source account, signer, ...). */
+  roles?: Record<string, string>
+  /** Names for addresses, from the request (the caller's words). */
   labels?: Record<string, string>
   /** Full addresses and values as written, and the wire index of every name. */
   raw?: boolean | undefined
@@ -54,6 +56,8 @@ const COMPARE: Record<string, string> = {
   nin: 'must not be one of',
   fact: '', // a fact of the authority header reads `label:  value`
 }
+/** The package's own names are [bracketed]; a caller's are «marked» and, being plain words, can
+ *  never hold a bracket: no caller text can read as a role. */
 const KNOWN: Record<string, string> = Object.fromEntries([
   ...Object.values(SPENDING_LIMIT).map((a) => [a, 'spending limit']),
   ...Object.values(INTERPRETER).flatMap((p) => (p ? [[p.address, 'interpreter']] : [])),
@@ -66,10 +70,14 @@ const NUMBER = /^(i32|i64|u64|i128|u128|timepoint|duration)$/
 
 /** An address shortened, or whole under `raw`. */
 const short = (a: string, c: View) => (c.raw ? a : `${a.slice(0, 6)}…${a.slice(-6)}`)
-/** The package's own name for an address, else the request's, marked as the caller's («...»). */
+/** The package's own name for an address ([role]), else the request's, marked as the caller's («...»). */
 const named = (a: string, c: View) => {
-  const given = c.labels?.[a]
-  return KNOWN[a] ?? (given !== undefined && LABEL.test(given) ? `«${given}»` : undefined)
+  const [role, given] = [KNOWN[a] ?? c.roles?.[a], c.labels?.[a]]
+  return role !== undefined
+    ? `[${role}]`
+    : given !== undefined && LABEL.test(given)
+      ? `«${given}»`
+      : undefined
 }
 /** An address with its name in brackets. */
 const addr = (a: string, c: View) => `${short(a, c)}${named(a, c) ? ` (${named(a, c)})` : ''}`

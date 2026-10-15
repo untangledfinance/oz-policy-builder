@@ -296,9 +296,6 @@ const present = (r: ReturnType<typeof propose>[number]) => ({
   predicateHash: r.hash,
 })
 
-const ROLE =
-  /^(smart[ _.-]?account|source[ _.-]?account|admins?|signers?|interpreter|spending[ _.-]?limit|authority)$/i
-
 /** The review of each predicate: its tree and the text of it. Contracts are named from their
  *  interfaces (read once each, within seconds, and never a reason for a tool to fail), and
  *  addresses from the request's own words for them. */
@@ -309,21 +306,22 @@ export async function explain(
   items: { expr: Expr; contract?: string | undefined; authority?: Authority | undefined }[],
   signal?: AbortSignal
 ) {
+  // Roles are the package's ([bracketed] in the review); `allow` names are the caller's («marked»).
+  const roles: Record<string, string> = {}
   const labels: Record<string, string> = {}
-  const who: [string, string | string[] | undefined][] = [
-    ['smart account', i.smartAccount],
-    ['source account', i.sourceAccount],
-    ['admin', i.admins],
-    ['signer', i.signers],
-    // Role words are the package's: a request cannot give an address the same mark.
-    ...Object.entries(i.allow ?? {}).filter(([k]) => !/^\d/.test(k) && !ROLE.test(k)),
-  ]
-  for (const [label, a] of who) for (const x of [a ?? []].flat()) labels[x] ??= label
+  const put = (m: Record<string, string>, label: string, a?: string | string[]) => {
+    for (const x of [a ?? []].flat()) m[x] ??= label
+  }
+  put(roles, 'smart account', i.smartAccount)
+  put(roles, 'source account', i.sourceAccount)
+  put(roles, 'admin', i.admins)
+  put(roles, 'signer', i.signers)
+  for (const [k, a] of Object.entries(i.allow ?? {})) if (!/^\d/.test(k)) put(labels, k, a)
   const named = [...items.flatMap((x) => contractsOf(x.expr)), ...items.map((x) => x.contract)]
   const info = await infoFor(i, named, signal)
   return items.map(({ expr, contract, authority: held }) => {
     try {
-      const view = { info, labels, raw: i.raw, contract, network: i.network }
+      const view = { info, roles, labels, raw: i.raw, contract, network: i.network }
       const reviewTree = [...(held ? [authority(held, view)] : []), ...tree(expr, view)]
       return { review: lines(reviewTree), reviewTree }
     } catch {

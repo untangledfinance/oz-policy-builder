@@ -83,7 +83,7 @@ describe('names from the network', () => {
     ]
     const data = await ask('simulate_policy', { expr })
     expect(data.review).toEqual([
-      `interpreter  ${short(INTERPRETER)}`,
+      `[interpreter]  ${short(INTERPRETER)}`,
       '└─ install(install_params, context_rule, smart_account)',
       '   ├─ install_params › grammar_version:  must be  7',
       '   ├─ install_params › install_nonce:  must be at most  3',
