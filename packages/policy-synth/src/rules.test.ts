@@ -12,8 +12,9 @@ import {
   overlaps,
   readRules,
   selectors,
+  signerKey,
 } from './rules.ts'
-import type { Expr } from './wire.ts'
+import type { Expr, Val } from './wire.ts'
 
 const KEY = account(1)
 const TOKEN = contract(7)
@@ -151,15 +152,15 @@ describe('the overlap scan', () => {
         { cap }
       )[0]
     ).toMatchObject({ severity: 'review' })
-    // A neighbour policed by something unrecognised may well carry one: advisory.
+    // A neighbour policed by something unrecognised is not judged to carry one: refused.
     expect(scan({ policies: [contract(9)], expr: undefined }, { cap })[0]).toMatchObject({
-      severity: 'review',
+      severity: 'refuse',
       why: 'other',
     })
   })
 
-  it('a predicate that cannot be read is for review, never assumed narrow', () => {
-    expect(scan({ expr: undefined })[0]).toMatchObject({ severity: 'review', why: 'unreadable' })
+  it('a predicate that cannot be read is refused, never assumed narrow', () => {
+    expect(scan({ expr: undefined })[0]).toMatchObject({ severity: 'refuse', why: 'unreadable' })
   })
 })
 
@@ -220,7 +221,7 @@ describe('readRules, on a live account', () => {
     )
     expect(found.map((o) => [o.ruleId, o.why])).toEqual([
       [0, 'unpoliced'],
-      [1, 'other'],
+      [1, 'unreadable'], // policed by the first build of the interpreter
       [2, 'other'],
     ])
   })
@@ -466,5 +467,76 @@ describe('readRules, against a stub account', () => {
     }
     const { server } = stub({ 0: ruleVal(0, [LIMIT]) }, 1, ledger)
     expect((await readRules(server, 'testnet', ACC, INTERP)).rules[0]?.cap).toBeUndefined()
+  })
+})
+
+describe('what the scan cannot judge is refused, and what it can judge is judged by meaning', () => {
+  const mainnetG6 = 'CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R'
+  const firstG7 = 'CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB'
+
+  it('a neighbour policed by a known interpreter this build cannot decode (grammar 6, the first grammar-7 build) is refused', () => {
+    for (const policies of [[mainnetG6], [firstG7], [mainnetG6, LIMIT]]) {
+      expect(scan({ policies, expr: undefined })[0]).toMatchObject({
+        severity: 'refuse',
+        why: 'unreadable',
+      })
+    }
+  })
+
+  it('a neighbour with only a spending limit has no predicate: refused, whatever its cap', () => {
+    const cap = { amount: '1', periodLedgers: 10 }
+    expect(scan({ policies: [LIMIT], expr: undefined, cap })[0]).toMatchObject({
+      severity: 'refuse',
+      why: 'other',
+    })
+    expect(scan({ policies: [LIMIT], expr: undefined, cap }, { cap })[0]?.severity).toBe('refuse')
+  })
+
+  it('an ed25519 key enrolled as an External signer is the G key it is', () => {
+    const external = (hex: string): Val => ['External', contract(9), { bytes: hex }]
+    expect(signerKey(external(Buffer.alloc(32, 1).toString('hex')))).toBe(KEY)
+    expect(signerKey(['Delegated', KEY])).toBe(KEY)
+    // Any other key stays what it is: a P-256 key is not an account.
+    expect(signerKey(external('abcd'))).toBe(`External:${contract(9)}:abcd`)
+    expect(
+      scan({
+        policies: [],
+        expr: undefined,
+        signers: [signerKey(external(Buffer.alloc(32, 1).toString('hex')))],
+      })[0]
+    ).toMatchObject({ severity: 'refuse' })
+  })
+
+  it('eq(call_fn, read(...)) serves any function, not the one named "read,..."', () => {
+    const viaRead: Expr = [
+      'and',
+      [
+        ['eq', ['call_contract'], TOKEN],
+        ['eq', ['call_fn'], ['read', contract(9), 'allowed_fn', []]],
+      ],
+    ]
+    expect(selectors(viaRead)).toEqual([{ contract: TOKEN, fn: '*' }])
+    expect(scan({ expr: viaRead })[0]?.ruleId).toBe(3)
+  })
+
+  it('a looser neighbour is found whichever way it spells the same thing', () => {
+    const spelled = (b: Expr): Expr => [
+      'and',
+      [['eq', ['call_contract'], TOKEN], ['eq', ['call_fn'], 'transfer'], b],
+    ]
+    for (const b of [
+      ['lte', ['call_path', 2], { i128: '1000' }], // call_path for call_arg
+      ['lte', ['call_arg', 2], ['lit', { i128: '1000' }]], // lit-wrapped bound
+      ['lte', ['call_arg', 2], { u64: '1000' }], // another integer type
+    ] as Expr[]) {
+      expect(scan({ expr: spelled(b) })[0]).toMatchObject({ severity: 'refuse', why: 'looser' })
+    }
+    // Values compare as numbers across types: u32 5 is i128 5.
+    expect(
+      implies(['eq', ['call_arg', 0], 5], ['in', ['call_arg', 0], [{ i128: '5' }, { i128: '6' }]])
+    ).toBe(true)
+    expect(implies(['eq', ['call_arg', 0], { i128: '5' }], ['eq', ['call_arg', 0], 5])).toBe(true)
+    expect(implies(['lte', ['call_arg_len', 1], 3], ['lte', ['call_path', 1, true], 4])).toBe(true)
+    expect(implies(['eq', ['call_arg', 0], 5], ['eq', ['call_arg', 0], 6])).toBe(false)
   })
 })

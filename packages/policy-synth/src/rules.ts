@@ -8,9 +8,9 @@
 // interpreter's stored predicates and the spending caps as one batch of ledger
 // entries (the interpreter keeps one record per rule, keyed (account, rule id)).
 
-import { Address, type rpc, xdr } from '@stellar/stellar-sdk'
+import { Address, type rpc, StrKey, xdr } from '@stellar/stellar-sdk'
 import { dataKey, entries, pool, read } from './chain.ts'
-import { type Network, SPENDING_LIMIT } from './config.ts'
+import { INTERPRETERS, type Network, SPENDING_LIMIT } from './config.ts'
 import {
   branches,
   decode,
@@ -18,6 +18,7 @@ import {
   fields,
   fromScVal,
   intOf,
+  isConstant,
   isSelector,
   unlit,
   type Val,
@@ -63,9 +64,14 @@ export interface Overlap {
 const MAX_RULE_ID = 512
 const WIDTH = 8
 
-function signerKey(s: Val): string {
+export function signerKey(s: Val): string {
   const [tag, a, key] = s as [string, string, { bytes: string }?]
-  return tag === 'Delegated' ? a : `External:${a}:${key?.bytes ?? ''}`
+  if (tag === 'Delegated') return a
+  // An ed25519 key (32 bytes) enrolled as an External signer is the key of the G account
+  // that holds it: the same signer, whichever way it is enrolled.
+  return key?.bytes.length === 64
+    ? StrKey.encodeEd25519PublicKey(Buffer.from(key.bytes, 'hex'))
+    : `External:${a}:${key?.bytes ?? ''}`
 }
 
 function scopeOf(v: Val): Scope {
@@ -190,7 +196,8 @@ export function selectors(e: Expr): Sel[] {
   if (op === 'and') return (a as Expr[]).reduce<Sel[]>((acc, c) => meet(acc, selectors(c)), [WILD])
   if (op === 'or') return (a as Expr[]).flatMap(selectors)
   const leaf = isSelector(a) ? a[0] : undefined
-  const values = op === 'eq' ? [b] : op === 'in' ? (b as Val[]) : []
+  // Only a constant names a call: `eq(call_fn, read(...))` serves any function.
+  const values = op === 'eq' && isConstant(b) ? [b] : op === 'in' ? (b as Val[]) : []
   if ((leaf === 'call_contract' || leaf === 'call_fn') && values.length > 0) {
     return values.map((v) =>
       leaf === 'call_contract'
@@ -212,14 +219,32 @@ const scopeSel = (s: Scope): Sel[] =>
 
 const key = (v: Val) => JSON.stringify(v)
 
+/** A selector as the contract reads it: `call_arg(i)` and `call_arg_len(i)` are paths. */
+const canon = (v: Val): string => {
+  const [head, ...r] = isSelector(v) ? v : []
+  return key(
+    head === 'call_arg' || head === 'call_arg_field'
+      ? ['call_path', ...r]
+      : head === 'call_arg_len'
+        ? ['call_path', ...r, true]
+        : v
+  )
+}
+
+/** The same constant, as the contract compares: a lit is its value, numbers by value. */
+const same = (x: Val, y: Val): boolean => {
+  const [a, b] = [intOf(unlit(x)), intOf(unlit(y))]
+  return a !== undefined && b !== undefined ? a === b : key(unlit(x)) === key(unlit(y))
+}
+
 /** `nc` (a conjunct of the new rule) allows nothing `oc` (of the old) forbids. */
 export function implies(nc: Expr, oc: Expr): boolean {
   if (key(nc) === key(oc)) return true
   if (!isSelector(nc) || !isSelector(oc)) return false
   const [no, na, nb] = nc as [string, Val, Val]
   const [oo, oa, ob] = oc as [string, Val, Val]
-  if (key(na) !== key(oa)) return false
-  const [x, y] = [intOf(nb), intOf(ob)]
+  if (canon(na) !== canon(oa)) return false
+  const [x, y] = [intOf(unlit(nb)), intOf(unlit(ob))]
   const strict = (o: string) => o === 'lt' || o === 'gt'
   // An upper bound as is, a lower bound negated: `x >= y` is `-x <= -y`.
   const sign = (o: string) =>
@@ -229,9 +254,10 @@ export function implies(nc: Expr, oc: Expr): boolean {
     const [a, b] = [s * x, s * y]
     return strict(oo) ? a < b : strict(no) ? a <= b + 1n : a <= b
   }
-  const inSet = (set: Val[], v: Val) => set.some((s) => key(unlit(s)) === key(unlit(v)))
+  const inSet = (set: Val[], v: Val) => set.some((e) => same(e, v))
   if (oo === 'in' && no === 'in') return (nb as Val[]).every((v) => inSet(ob as Val[], v))
-  return oo === 'in' && no === 'eq' ? inSet(ob as Val[], nb) : false
+  if (oo === 'in' && no === 'eq') return inSet(ob as Val[], nb)
+  return oo === 'eq' && no === 'eq' && same(nb, ob)
 }
 
 /** The old rule permits every call the new one does. */
@@ -277,14 +303,18 @@ export function overlaps(
         'serves some of the same calls with no spend cap, so the new rolling total does not bind a shared signer; a cap is per rule, not per key'
       )
     }
-    if (!old.policies.includes(interpreter) || !old.expr) {
-      const unreadable = old.policies.includes(interpreter)
+    // What the scan cannot read it cannot judge, and a rule it cannot judge may be the one a
+    // shared signer names instead: refused (`allowOverlap` is the override), never "review".
+    if (!old.expr) {
+      const reads = old.policies.some((p) => p === interpreter || INTERPRETERS.has(p))
       return out(
-        'review',
-        unreadable ? 'unreadable' : 'other',
-        unreadable
+        'refuse',
+        reads ? 'unreadable' : 'other',
+        old.policies.includes(interpreter)
           ? 'its stored predicate cannot be read, so what it permits is unknown'
-          : 'is policed by a contract this tool cannot decode, so its authority over these calls is unknown'
+          : reads
+            ? 'is policed by an interpreter this tool cannot decode, so what it permits is unknown'
+            : "has no predicate this tool can read (only other policies), so a shared signer may make these calls under none of the new rule's limits"
       )
     }
     if (covers(old.expr, mine.expr)) {

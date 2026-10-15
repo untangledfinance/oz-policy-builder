@@ -3,7 +3,7 @@ import { account, contract, recording } from '../test/fixtures.ts'
 import { type CallIntent, callExpr, intentExprs, lower, type Rule } from './intent.ts'
 import type { Call } from './record.ts'
 import { identify, TEMPLATES } from './registry.ts'
-import { propose, synthesize } from './synth.ts'
+import { propose, synthesize, unbounded } from './synth.ts'
 import { type Expr, type Val, validate } from './wire.ts'
 
 const A = account(1)
@@ -145,6 +145,51 @@ describe('the registry', () => {
       functions: ['a'],
     })
     expect(() => propose(wide)).toThrow(/leaves/)
+  })
+})
+
+describe('an intent is asked the question a recording is: how much?', () => {
+  const call = (fn: string, where: CallIntent['where']): CallIntent => ({ contract: C, fn, where })
+  const codes = (...calls: CallIntent[]) => unbounded({ calls }).map((a) => a.code)
+
+  it('a known function whose amount nobody capped is a question; a cap, or a total, answers it', () => {
+    expect(codes(call('transfer', undefined))).toEqual(['AMOUNT_BOUND_MISSING'])
+    expect(codes(call('transfer', [{ rule: 'pin', at: [1], to: A }]))).toEqual([
+      'AMOUNT_BOUND_MISSING',
+    ])
+    expect(codes(call('transfer', [{ rule: 'cap', at: [2], max: '5' }]))).toEqual([])
+    // The cap must be on the amount, not on another argument.
+    expect(codes(call('transfer', [{ rule: 'cap', at: [1], max: '5' }]))).toEqual([
+      'AMOUNT_BOUND_MISSING',
+    ])
+    expect(
+      codes(call('swap_tokens_for_exact_tokens', [{ rule: 'cap', at: [0], max: '5' }]))
+    ).toEqual(['AMOUNT_BOUND_MISSING'])
+    expect(
+      codes(call('swap_tokens_for_exact_tokens', [{ rule: 'cap', at: [1], max: '5' }]))
+    ).toEqual([])
+  })
+
+  it('a cap inside each, on the field of a vec of structs, answers it for a Blend submit', () => {
+    expect(codes(call('submit', [{ rule: 'length', at: [3], max: 1 }]))).toEqual([
+      'AMOUNT_BOUND_MISSING',
+    ])
+    const capped: CallIntent['where'] = [
+      { rule: 'each', at: [3], where: [{ rule: 'cap', at: ['amount'], max: '5' }] },
+    ]
+    expect(codes(call('submit', capped))).toEqual([])
+    expect(
+      codes(
+        call('submit', [
+          { rule: 'each', at: [3], where: [{ rule: 'pin', at: ['address'], to: C }] },
+        ])
+      )
+    ).toEqual(['AMOUNT_BOUND_MISSING'])
+  })
+
+  it('a function nobody knows is not guessed at, and each call is asked about once', () => {
+    expect(codes(call('weird', undefined))).toEqual([])
+    expect(codes(call('transfer', undefined), call('mint', undefined))).toHaveLength(2)
   })
 })
 

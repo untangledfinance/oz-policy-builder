@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'bun:test'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { StrKey } from '@stellar/stellar-sdk'
-import { GRAMMAR_VERSION, INTERPRETER, POLICY_CONTRACTS, SPENDING_LIMIT } from './config.ts'
+import {
+  GRAMMAR_VERSION,
+  INTERPRETER,
+  INTERPRETERS,
+  POLICY_CONTRACTS,
+  SPENDING_LIMIT,
+} from './config.ts'
 
 const root = new URL('../../../', import.meta.url)
 const read = (p: string) => readFileSync(new URL(p, root), 'utf8')
@@ -32,5 +38,20 @@ describe('the pins are the contract that was built and deployed', () => {
       expect(StrKey.isValidContract(a as string)).toBe(true)
     }
     expect(POLICY_CONTRACTS.has(INTERPRETER.testnet?.address as string)).toBe(true)
+  })
+})
+
+describe('every interpreter this project deployed is a policy contract no rule may be scoped to', () => {
+  it('the addresses in deployments/*.json (and the one a record replaced) are all known', () => {
+    const files = readdirSync(new URL('deployments/', root)).filter((f) => f.endsWith('.json'))
+    expect(files.length).toBeGreaterThan(3)
+    for (const f of files) {
+      const d = JSON.parse(read(`deployments/${f}`))
+      for (const a of [d.interpreter, d.previous?.interpreter].filter(Boolean)) {
+        expect(INTERPRETERS.has(a)).toBe(true)
+        expect(POLICY_CONTRACTS.has(a)).toBe(true)
+      }
+    }
+    for (const a of Object.values(SPENDING_LIMIT)) expect(POLICY_CONTRACTS.has(a)).toBe(true)
   })
 })

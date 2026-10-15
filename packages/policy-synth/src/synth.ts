@@ -7,7 +7,7 @@ import { Refusal } from './envelope.ts'
 import type { CallIntent, Intent, Path, Rule } from './intent.ts'
 import { callExpr, intentExprs } from './intent.ts'
 import type { Call } from './record.ts'
-import { identify, type Kind } from './registry.ts'
+import { identify, type Kind, PROTOCOLS } from './registry.ts'
 import { type Expr, encode, fields, hashOf, isTagged, type Val, validate } from './wire.ts'
 
 /** What the recording cannot say, supplied by the person who knows. */
@@ -84,6 +84,27 @@ function callIntent(c: Call, a: Answers, out: Synthesis): CallIntent {
   out.ambiguities.length = mark[0]
   out.warnings.length = mark[1]
   return flat
+}
+
+/** The amount questions an intent leaves open: a function the registry knows by name,
+ *  one of whose arguments is an amount (or a vec of structs that carries one), and no
+ *  cap on it. What a recording is asked, an intent or a template is asked too. */
+export function unbounded(intent: Intent): Synthesis['ambiguities'] {
+  const caps = (r: Rule): Path[] =>
+    r.rule === 'cap' || r.rule === 'total'
+      ? [r.at]
+      : r.rule === 'each' || r.rule === 'some'
+        ? r.where.flatMap(caps).map((p) => [...r.at, ...p])
+        : []
+  return intent.calls.flatMap((c) => {
+    const row = Object.values(PROTOCOLS).find((fns) => Object.hasOwn(fns, c.fn))?.[c.fn]
+    const capped = (c.where ?? []).flatMap(caps)
+    return (row ?? []).flatMap(([name, kind], i) =>
+      (kind === 'amount' || kind === 'requests') && !capped.some((p) => p[0] === i)
+        ? [missing({ contract: c.contract, fn: c.fn, args: [] }, name)]
+        : []
+    )
+  })
 }
 
 const kindOf = (v: Val): Kind => (isTagged(v) && ('i128' in v || 'u128' in v) ? 'amount' : 'exact')

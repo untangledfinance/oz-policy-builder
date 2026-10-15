@@ -132,3 +132,223 @@ describe('buildInstall and buildRevoke, on a live account', () => {
     await expect(buildRevoke(args, 99)).rejects.toThrow(/#3000/)
   })
 })
+
+// ---- every refusal an install can meet, with a chain that answers as told ----
+
+import type { Fingerprint } from './chain.ts'
+import { POLICY_CONTRACTS } from './config.ts'
+import { Refusal } from './envelope.ts'
+import { type Chain, type Chosen, type InstallInput, planInstall } from './install.ts'
+import type { ObservedRule } from './rules.ts'
+
+describe('planInstall: the guards', () => {
+  const ours: Fingerprint = {
+    address: INTERP,
+    grammarVersion: 7,
+    wasmSha256: 'a'.repeat(64),
+    matches: true,
+  }
+  const rule: Chosen = { contract: TOKEN, expr, encoded, hash: hashOf(encoded) }
+  const input: InstallInput = {
+    network: 'testnet',
+    smartAccount: ACCOUNT,
+    sourceAccount: SIGNER,
+    signers: [SIGNER],
+  }
+  const built = { unsignedXdr: 'AAAA' } as never
+  const chain = (
+    o: Partial<Chain> & { rules?: ObservedRule[]; complete?: boolean } = {}
+  ): Chain => ({
+    fingerprint: o.fingerprint ?? (async () => ours),
+    readRules:
+      o.readRules ??
+      (async () => ({ rules: o.rules ?? [], complete: o.complete ?? true, unreadable: [] })),
+    build: o.build ?? (async () => built),
+  })
+  const refused = async (p: Promise<unknown>, code: string, text?: RegExp) => {
+    const e = await p.then(
+      () => undefined,
+      (x) => x
+    )
+    expect(e).toBeInstanceOf(Refusal)
+    expect((e as Refusal).code).toBe(code)
+    if (text) expect((e as Refusal).message).toMatch(text)
+  }
+  const neighbour = (o: Partial<ObservedRule>): ObservedRule => ({
+    id: 4,
+    scope: { kind: 'call_contract', contract: TOKEN },
+    signers: [SIGNER],
+    policies: [INTERP],
+    expr: callExpr({ contract: TOKEN, fn: 'transfer' }),
+    ...o,
+  })
+
+  it('a clean install returns the build, the live interpreter and a complete scan', async () => {
+    const r = await planInstall(input, rule, chain())
+    expect(r.unsignedXdr).toBe('AAAA')
+    expect(r.interpreter).toEqual(ours)
+    expect(r.authorityScan).toEqual({ complete: true, overlaps: [] })
+    expect(r.rule).toMatchObject({ contract: TOKEN, predicateHash: rule.hash })
+  })
+
+  it('an interpreter that does not run a trusted build is refused, and so is one of another grammar', async () => {
+    await refused(
+      planInstall(
+        input,
+        rule,
+        chain({
+          fingerprint: async () => ({ ...ours, matches: false, wasmSha256: 'b'.repeat(64) }),
+        })
+      ),
+      'INTERPRETER_MISMATCH',
+      /runs grammar 7 with wasm b+/
+    )
+    await refused(
+      planInstall(
+        input,
+        rule,
+        chain({ fingerprint: async () => ({ ...ours, matches: false, grammarVersion: 6 }) })
+      ),
+      'INTERPRETER_MISMATCH',
+      /grammar 6/
+    )
+  })
+
+  it('and it is the first thing refused, whatever else went wrong at the same time', async () => {
+    const down = async () => {
+      throw new Refusal('INSTALL_BUILD_FAILED', 'the build failed')
+    }
+    await refused(
+      planInstall(
+        input,
+        rule,
+        chain({
+          fingerprint: async () => ({ ...ours, matches: false }),
+          build: down,
+          rules: [neighbour({ policies: [] })],
+        })
+      ),
+      'INTERPRETER_MISMATCH'
+    )
+    // Then the account's rules, then the build.
+    await refused(
+      planInstall(input, rule, chain({ build: down, rules: [neighbour({ policies: [] })] })),
+      'INSTALL_BUILD_FAILED',
+      /refused: rule 4: has no policy/
+    )
+    await refused(
+      planInstall(input, rule, chain({ build: down })),
+      'INSTALL_BUILD_FAILED',
+      /the build failed/
+    )
+  })
+
+  it('a scan that could not read every rule is refused, unless allowOverlap says so', async () => {
+    await refused(
+      planInstall(input, rule, chain({ complete: false })),
+      'INSTALL_BUILD_FAILED',
+      /could not all be read/
+    )
+    const r = await planInstall({ ...input, allowOverlap: true }, rule, chain({ complete: false }))
+    expect(r.authorityScan.complete).toBe(false)
+  })
+
+  it('a failure to read the account is a failure, not an empty account', async () => {
+    const boom = async () => {
+      throw new Refusal('SIMULATION_ERROR', 'get_context_rules_count: Error(WasmVm, MissingValue)')
+    }
+    await refused(
+      planInstall(input, rule, chain({ readRules: boom })),
+      'SIMULATION_ERROR',
+      /MissingValue/
+    )
+  })
+
+  it('a rule scoped to any policy contract, or to the account itself, is refused before anything is asked', async () => {
+    let asked = 0
+    const counting = chain({ fingerprint: async () => (asked++, ours) })
+    for (const contract of [...POLICY_CONTRACTS, ACCOUNT])
+      await refused(
+        planInstall(input, { ...rule, contract }, counting),
+        'INSTALL_BUILD_FAILED',
+        /admin calls/
+      )
+    expect(asked).toBe(0)
+  })
+
+  it('an amount nobody capped is refused, unless allowUnboundedAmount', async () => {
+    const open = { ...rule, unanswered: 'transfer: what is the most `amount` may be?' }
+    await refused(planInstall(input, open, chain()), 'INSTALL_BUILD_FAILED', /most `amount` may be/)
+    expect(
+      (await planInstall({ ...input, allowUnboundedAmount: true }, open, chain())).unsignedXdr
+    ).toBe('AAAA')
+  })
+
+  it('a looser neighbour refuses, an unpoliced one refuses, one the scan cannot judge refuses; allowOverlap lets them through and reports them', async () => {
+    for (const [n, why] of [
+      [neighbour({}), /permits everything the new rule does/],
+      [neighbour({ policies: [] }), /has no policy/],
+      [
+        neighbour({
+          policies: ['CBRRKTVURLAJRPJ3G44AWA5SCGUV47PCYF5CHND5TG3OGTFNXTSLBIJ5'],
+          expr: undefined,
+        }),
+        /cannot decode/,
+      ],
+      [neighbour({ expr: undefined }), /cannot be read/],
+    ] as [ObservedRule, RegExp][]) {
+      await refused(planInstall(input, rule, chain({ rules: [n] })), 'INSTALL_BUILD_FAILED', why)
+      const r = await planInstall({ ...input, allowOverlap: true }, rule, chain({ rules: [n] }))
+      expect(r.authorityScan.overlaps).toHaveLength(1)
+    }
+  })
+
+  it('a rolling total is refused when a neighbour for the same signer has none', async () => {
+    const withCap = { ...input, spendingLimit: { amount: '100', periodLedgers: 10 } }
+    await refused(
+      planInstall(
+        withCap,
+        rule,
+        chain({
+          rules: [
+            neighbour({
+              expr: callExpr({
+                contract: TOKEN,
+                fn: 'transfer',
+                where: [{ rule: 'cap', at: [2], max: '1' }],
+              }),
+            }),
+          ],
+        })
+      ),
+      'INSTALL_BUILD_FAILED',
+      /no spend cap/
+    )
+  })
+
+  it('the draft carries the signers, the admins (the source by default), the nonce and the cap', async () => {
+    let seen: RuleDraft | undefined
+    await planInstall(
+      {
+        ...input,
+        admins: [account(7)],
+        installNonce: 3,
+        name: 'n',
+        validUntilLedger: 9,
+        spendingLimit: { amount: '5', periodLedgers: 2 },
+      },
+      rule,
+      chain({ build: async (d) => ((seen = d), built) })
+    )
+    expect(seen).toMatchObject({
+      signers: [SIGNER],
+      admins: [account(7)],
+      nonce: 3,
+      name: 'n',
+      validUntil: 9,
+    })
+    expect(seen?.cap).toEqual({ address: SPENDING_LIMIT.testnet, amount: '5', periodLedgers: 2 })
+    await planInstall(input, rule, chain({ build: async (d) => ((seen = d), built) }))
+    expect(seen).toMatchObject({ admins: [SIGNER], nonce: 1, validUntil: null })
+  })
+})

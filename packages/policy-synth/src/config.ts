@@ -45,12 +45,20 @@ export const SPENDING_LIMIT: Record<Network, string> = {
   mainnet: 'CA7IBD266HIHFDUIBZLPIAITJUA3DVY4JAG6K3QMGBKLZCXXLP5E2F7A',
 }
 
+/** Every interpreter this project deployed, whatever its grammar. A rule policed by
+ *  one of these can only be judged if it is the grammar-7 build this package reads. */
+export const INTERPRETERS: ReadonlySet<string> = new Set([
+  'CDPR5VTX6R2ZPKREPD7FBW5ANVWXMVJIBIH2GMF36XPOFNMHRDIRUAZQ', // grammar 6, testnet
+  'CBRRKTVURLAJRPJ3G44AWA5SCGUV47PCYF5CHND5TG3OGTFNXTSLBIJ5', // grammar 6, testnet rehearsal
+  'CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R', // grammar 6, mainnet (Prime)
+  'CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52', // grammar 4, mainnet
+  'CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB', // grammar 7, testnet, first build (its check could commit a read)
+  'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV', // grammar 7, testnet
+])
+
 /** Policy contracts a rule must never be scoped to: scoping a rule to one
  *  exposes that contract's own admin calls (the interpreter does not refuse it). */
-export const POLICY_CONTRACTS = new Set([
+export const POLICY_CONTRACTS: ReadonlySet<string> = new Set([
   ...Object.values(SPENDING_LIMIT),
-  'CDPR5VTX6R2ZPKREPD7FBW5ANVWXMVJIBIH2GMF36XPOFNMHRDIRUAZQ', // grammar 6, testnet
-  'CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52', // grammar 4, mainnet
-  'CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB', // grammar 7, testnet, first build (check could commit a read)
-  'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV', // grammar 7, testnet
+  ...INTERPRETERS,
 ])

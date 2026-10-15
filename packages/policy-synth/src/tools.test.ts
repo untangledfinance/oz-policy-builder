@@ -378,7 +378,7 @@ describe('install_policy', () => {
       r.data.authorityScan.overlaps.map((o: { ruleId: number; why: string }) => [o.ruleId, o.why])
     ).toEqual([
       [0, 'unpoliced'],
-      [1, 'other'],
+      [1, 'unreadable'],
       [2, 'other'],
     ])
     expect(r.data.interpreter.matches).toBe(true)
@@ -446,6 +446,52 @@ describe('install_policy', () => {
     await failing('install_policy', { ...base, name: 'x'.repeat(21) }, 'INVALID_INPUT')
     await failing('install_policy', { ...base, smartAccount: SIGNER }, 'INVALID_INPUT')
     await failing('install_policy', { ...base, installNonce: 0 }, 'INVALID_INPUT')
+  })
+
+  it('an intent or a template is asked about the amount too, and an encoding must be the canonical one', async () => {
+    const open = { ...base, xdr: undefined, limit: undefined, allowOverlap: true }
+    await failing(
+      'install_policy',
+      { ...open, intent: { calls: [{ contract: TOKEN, fn: 'transfer' }] } },
+      'INSTALL_BUILD_FAILED',
+      /most `amount` may be/
+    )
+    const capped = {
+      calls: [{ contract: TOKEN, fn: 'transfer', where: [{ rule: 'cap', at: [2], max: '5' }] }],
+    }
+    expect((await call('install_policy', { ...open, intent: capped })).ok).toBe(true)
+    // A map written with its keys the wrong way round is another predicate, not another spelling.
+    const wrongWay = xdr.ScVal.fromXDR(
+      encode([
+        'and',
+        [
+          ['eq', ['call_contract'], TOKEN],
+          [
+            'eq',
+            ['call_arg', 0],
+            [
+              'lit',
+              {
+                map: [
+                  ['a', 1],
+                  ['b', 2],
+                ],
+              },
+            ],
+          ],
+        ],
+      ]),
+      'base64'
+    )
+    const entries = wrongWay.vec()?.[1]?.vec()?.[1]?.vec()?.[2]?.vec()?.[1]?.map()
+    expect(entries).toHaveLength(2)
+    entries?.reverse()
+    await failing(
+      'install_policy',
+      { ...open, encodedPredicate: wrongWay.toXDR('base64'), signers: [account(5)] },
+      'MALFORMED_PREDICATE',
+      /not canonical/
+    )
   })
 
   it('an encoded predicate is installed as given, scoped to the one contract it pins', async () => {

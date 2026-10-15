@@ -27,12 +27,19 @@ import {
   SPENDING_LIMIT,
 } from './config.ts'
 import { type ErrorCode, messageOf, Refusal, type ToolResponse } from './envelope.ts'
-import { buildInstall, buildRevoke, type RuleDraft } from './install.ts'
+import { buildInstall, buildRevoke, type Chain, type Chosen, planInstall } from './install.ts'
 import type { Intent } from './intent.ts'
 import { type Call, decodeEnvelope, type Recording, recordHash } from './record.ts'
 import { TEMPLATES } from './registry.ts'
 import { overlaps, readRules, selectors } from './rules.ts'
-import { type Answers, type ProposedRule, propose, type Synthesis, synthesize } from './synth.ts'
+import {
+  type Answers,
+  type ProposedRule,
+  propose,
+  type Synthesis,
+  synthesize,
+  unbounded,
+} from './synth.ts'
 import { CAPS, decode, type Expr, encode, hashOf, validate, WireError } from './wire.ts'
 
 // ---- input fragments ----
@@ -222,11 +229,15 @@ async function recordOf(
 
 async function sourceOf(i: z.infer<z.ZodObject<typeof from & typeof net>>): Promise<Source> {
   const kind = exactlyOne(i, SOURCES)
-  if (kind === 'intent') return { intent: i.intent as Intent, warnings: [], ambiguities: [] }
+  if (kind === 'intent') {
+    const intent = i.intent as Intent
+    return { intent, warnings: [], ambiguities: unbounded(intent) }
+  }
   if (kind === 'template') {
     const t = i.template as NonNullable<typeof i.template>
     const make = TEMPLATES[t.name] as (p: unknown) => Intent
-    return { intent: make(t.params), warnings: [], ambiguities: [] }
+    const intent = make(t.params)
+    return { intent, warnings: [], ambiguities: unbounded(intent) }
   }
   const rec = kind === 'recording' ? (i.recording as Recording) : await recordOf(i)
   const answers: Answers = { limit: i.limit, limits: i.limits, allow: i.allow as Answers['allow'] }
@@ -399,72 +410,31 @@ const install_policy = tool(
     interpreterAddress: contractId.optional(),
     baseFee: z.number().int().positive().optional(),
   },
-  async (i) => {
-    const network = i.network
-    const fail = (m: string) => new Refusal('INSTALL_BUILD_FAILED', m)
+  async (i, signal) => {
     // The rule: an encoded predicate scoped by `contract`, or one the source yields.
-    let chosen: { contract: string; expr: Expr; encoded: string; hash: string }
-    let ambiguities: Source['ambiguities'] = []
+    let rule: Chosen
     if (i.encodedPredicate !== undefined) {
       const p = given(i)
       const sel = [...new Set(selectors(p.expr).map((s) => s.contract))]
       const contract = i.contract ?? (sel.length === 1 && sel[0] !== '*' ? sel[0] : undefined)
-      if (!contract) throw fail('the predicate does not pin one contract: name it with `contract`')
-      chosen = { contract, expr: p.expr, encoded: p.encoded, hash: hashOf(p.encoded) }
+      if (!contract)
+        throw new Refusal(
+          'INSTALL_BUILD_FAILED',
+          'the predicate does not pin one contract: name it with `contract`'
+        )
+      rule = { contract, expr: p.expr, encoded: p.encoded, hash: hashOf(p.encoded) }
     } else {
       const s = await sourceOf(i)
-      ambiguities = s.ambiguities
-      chosen = pick(propose(s.intent), i.contract)
+      rule = { ...pick(propose(s.intent), i.contract), unanswered: s.ambiguities[0]?.question }
     }
-    if (ambiguities.length > 0 && !i.allowUnboundedAmount) {
-      throw fail(
-        `${ambiguities[0]?.question} Answer with \`limit\` or \`limits\`, or set allowUnboundedAmount to install without it.`
-      )
-    }
-    if (POLICY_CONTRACTS.has(chosen.contract) || chosen.contract === i.smartAccount) {
-      throw fail(
-        'a rule scoped to a policy contract or to the account itself would expose its admin calls; scope it to the contract the calls go to'
-      )
-    }
-    const interpreter = interpreterFor(network, i.interpreterAddress)
     const server = connect(i)
-    const draft: RuleDraft = {
-      scope: { kind: 'call_contract', contract: chosen.contract },
-      name: i.name ?? `policy-${chosen.hash.slice(0, 8)}`,
-      validUntil: i.validUntilLedger ?? null,
-      signers: i.signers,
-      admins: i.admins ?? [i.sourceAccount],
-      predicate: { encoded: chosen.encoded, hash: chosen.hash },
-      nonce: i.installNonce ?? 1,
-      ...(i.spendingLimit ? { cap: { address: SPENDING_LIMIT[network], ...i.spendingLimit } } : {}),
+    const chain: Chain = {
+      fingerprint: (a) => fingerprint(server, i.network, a),
+      readRules: (account, interpreter) =>
+        readRules(server, i.network, account, interpreter, signal),
+      build: (draft, interpreter) => buildInstall({ ...i, server }, draft, interpreter),
     }
-    // The live check of the interpreter, the account's rules and the build do not depend on
-    // each other: ask all three at once, and throw the build away if the scan refuses.
-    const [live, scan, built] = await Promise.all([
-      fingerprint(server, network, interpreter),
-      readRules(server, network, i.smartAccount, interpreter),
-      buildInstall({ ...i, server }, draft, interpreter),
-    ])
-    if (!live.matches) throw mismatch(live)
-    const found = overlaps({ ...draft, expr: chosen.expr }, scan.rules, interpreter, network)
-    const refused = found.filter((o) => o.severity === 'refuse')
-    if (i.allowOverlap !== true) {
-      if (refused.length > 0) {
-        throw fail(
-          `refused: ${refused.map((o) => o.advice).join(' ')} Set allowOverlap to install anyway.`
-        )
-      }
-      if (!scan.complete)
-        throw fail(
-          "the account's rules could not all be read, so whether this rule can bind is not known; set allowOverlap to install anyway"
-        )
-    }
-    return {
-      ...built,
-      rule: { contract: chosen.contract, predicateHash: chosen.hash, review: card(chosen.expr) },
-      interpreter: live,
-      authorityScan: { complete: scan.complete, overlaps: found },
-    }
+    return planInstall(i, rule, chain)
   }
 )
 

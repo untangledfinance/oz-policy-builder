@@ -19,11 +19,18 @@ import {
   type Transaction,
   xdr,
 } from '@stellar/stellar-sdk'
-import { reasonOf, txOf } from './chain.ts'
-import { GRAMMAR_VERSION, type Network, PASSPHRASE } from './config.ts'
+import { card } from './card.ts'
+import { type Fingerprint, interpreterFor, mismatch, reasonOf, txOf } from './chain.ts'
+import {
+  GRAMMAR_VERSION,
+  type Network,
+  PASSPHRASE,
+  POLICY_CONTRACTS,
+  SPENDING_LIMIT,
+} from './config.ts'
 import { type ErrorCode, Refusal } from './envelope.ts'
-import type { Scope } from './rules.ts'
-import { fromScVal, toScVal, type Val } from './wire.ts'
+import { type Overlap, overlaps, type RulesRead, type Scope } from './rules.ts'
+import { type Expr, fromScVal, toScVal, type Val } from './wire.ts'
 
 export interface RuleDraft {
   scope: Scope
@@ -253,3 +260,99 @@ export const buildInstall = (a: BuildArgs, d: RuleDraft, interpreter: string) =>
 
 export const buildRevoke = (a: BuildArgs, ruleId: number) =>
   buildSelfCall(a, 'remove_context_rule', [ruleId], 'REVOKE_BUILD_FAILED')
+
+// ---- the install, with every refusal in one place ----
+
+/** What an install is asked for, past the choice of the rule. */
+export interface InstallInput {
+  network: Network
+  smartAccount: string
+  sourceAccount: string
+  signers: string[]
+  admins?: string[] | undefined
+  name?: string | undefined
+  validUntilLedger?: number | undefined
+  installNonce?: number | undefined
+  spendingLimit?: { amount: string; periodLedgers: number } | undefined
+  allowUnboundedAmount?: boolean | undefined
+  allowOverlap?: boolean | undefined
+  interpreterAddress?: string | undefined
+}
+
+/** The rule to install, and the amount question its source left unanswered. */
+export interface Chosen {
+  contract: string
+  expr: Expr
+  encoded: string
+  hash: string
+  unanswered?: string | undefined
+}
+
+/** What an install asks of the network: the interpreter's live fingerprint, the
+ *  account's rules, and the built transaction. Tests answer these without a network. */
+export interface Chain {
+  fingerprint: (interpreter: string) => Promise<Fingerprint>
+  readRules: (account: string, interpreter: string) => Promise<RulesRead>
+  build: (draft: RuleDraft, interpreter: string) => Promise<Built>
+}
+
+/** Every refusal an install can meet, in the order a reader should hear of them:
+ *  the input, the interpreter, the account's other rules, the build. Anything the
+ *  scan cannot judge is refused too; `allowOverlap` is the one override. */
+export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
+  const no = (m: string) => new Refusal('INSTALL_BUILD_FAILED', m)
+  if (rule.unanswered && !i.allowUnboundedAmount) {
+    throw no(
+      `${rule.unanswered} Answer with \`limit\` or \`limits\`, or set allowUnboundedAmount to install without it.`
+    )
+  }
+  if (POLICY_CONTRACTS.has(rule.contract) || rule.contract === i.smartAccount) {
+    throw no(
+      'a rule scoped to a policy contract or to the account itself would expose its admin calls; scope it to the contract the calls go to'
+    )
+  }
+  const interpreter = interpreterFor(i.network, i.interpreterAddress)
+  const draft: RuleDraft = {
+    scope: { kind: 'call_contract', contract: rule.contract },
+    name: i.name ?? `policy-${rule.hash.slice(0, 8)}`,
+    validUntil: i.validUntilLedger ?? null,
+    signers: i.signers,
+    admins: i.admins ?? [i.sourceAccount],
+    predicate: { encoded: rule.encoded, hash: rule.hash },
+    nonce: i.installNonce ?? 1,
+    ...(i.spendingLimit ? { cap: { address: SPENDING_LIMIT[i.network], ...i.spendingLimit } } : {}),
+  }
+  // The three do not depend on each other, so they run together; what each found is
+  // judged in a fixed order, so the same input is refused for the same reason.
+  const [live, scan, built] = await Promise.allSettled([
+    chain.fingerprint(interpreter),
+    chain.readRules(i.smartAccount, interpreter),
+    chain.build(draft, interpreter),
+  ])
+  const got = <T>(r: PromiseSettledResult<T>): T => {
+    if (r.status === 'rejected') throw r.reason
+    return r.value
+  }
+  const fingerprint = got(live)
+  if (!fingerprint.matches) throw mismatch(fingerprint)
+  const read = got(scan)
+  const found = overlaps({ ...draft, expr: rule.expr }, read.rules, interpreter, i.network)
+  if (i.allowOverlap !== true) {
+    const refused = found.filter((o: Overlap) => o.severity === 'refuse')
+    if (refused.length > 0) {
+      throw no(
+        `refused: ${refused.map((o) => o.advice).join(' ')} Set allowOverlap to install anyway.`
+      )
+    }
+    if (!read.complete)
+      throw no(
+        "the account's rules could not all be read, so whether this rule can bind is not known; set allowOverlap to install anyway"
+      )
+  }
+  return {
+    ...got(built),
+    rule: { contract: rule.contract, predicateHash: rule.hash, review: card(rule.expr) },
+    interpreter: fingerprint,
+    authorityScan: { complete: read.complete, overlaps: found },
+  }
+}

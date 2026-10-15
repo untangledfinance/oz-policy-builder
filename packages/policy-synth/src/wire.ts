@@ -290,7 +290,7 @@ const bad = (m: string): never => {
 }
 
 /** A constant, by the contract's reading: a `lit`, or anything that is not a selector. */
-const isConstant = (v: Val): boolean => !isSelector(v) || v[0] === 'lit'
+export const isConstant = (v: Val): boolean => !isSelector(v) || v[0] === 'lit'
 export const unlit = (v: Val): Val => (isSelector(v) && v[0] === 'lit' ? (v[1] as Val) : v)
 
 export function isSelector(v: Val): v is [string, ...Val[]] {
