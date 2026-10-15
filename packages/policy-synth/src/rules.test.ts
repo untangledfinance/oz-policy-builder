@@ -131,12 +131,75 @@ describe('the overlap scan', () => {
     expect(scan({ scope: { kind: 'create_contract', wasmHash: 'ab' }, policies: [] })).toEqual([])
   })
 
-  it('a rule at least as loose is refused; a tighter or different one is for review', () => {
+  it('a rule at least as loose is refused; a tighter one only listed; any other that permits more is refused', () => {
     expect(scan({ expr: rule('500') })[0]).toMatchObject({ severity: 'refuse', why: 'looser' })
     expect(scan({ expr: rule('900') })[0]).toMatchObject({ severity: 'refuse', why: 'looser' })
+    // Tighter: it adds no authority the new rule does not give, so it is information.
     expect(scan({ expr: rule('100') })[0]).toMatchObject({ severity: 'review', why: 'other' })
+    expect(scan({ expr: rule('100', [['eq', ['call_arg', 1], KEY]]) })[0]).toMatchObject({
+      severity: 'review',
+    })
+    // Neither: it permits calls the new rule forbids (a different extra pin, so some calls only it allows).
     const differs = rule('900', [['eq', ['call_arg', 1], KEY]])
-    expect(scan({ expr: differs })[0]).toMatchObject({ severity: 'review' })
+    expect(scan({ expr: differs })[0]).toMatchObject({ severity: 'refuse', why: 'other' })
+  })
+
+  describe('a neighbour that lets the shared key exceed the new rule is refused, however it is written', () => {
+    const base = (...conj: Expr[]): Expr => ['and', [['eq', ['call_fn'], 'transfer'], ...conj]]
+    const L: Expr = ['call_arg', 2]
+    const i = (n: string) => ({ i128: n })
+    const newer: Intended = {
+      ...mine,
+      expr: base(['eq', ['call_arg', 0], KEY], ['lte', L, i('100')]),
+    }
+    const verdict = (old: Expr, over: Partial<ObservedRule> = {}) =>
+      overlaps(newer, [observed({ expr: old, ...over })], INTERP, 'testnet')[0]
+    it.each<[string, Expr, string, string]>([
+      [
+        'a range far above the cap (amt <= 1e12 and amt >= 1)',
+        base(['lte', L, i('1000000000000')], ['gte', L, i('1')]),
+        'refuse',
+        'other',
+      ],
+      [
+        'a recipient exclusion only (to != X)',
+        base(['ne', ['call_arg', 1], KEY]),
+        'refuse',
+        'other',
+      ],
+      [
+        'a bound written constant-first (1e9 >= amt)',
+        base(['gte', i('1000000000'), L]),
+        'refuse',
+        'looser',
+      ],
+      ['a constant-first lower bound (1 <= amt)', base(['lte', i('1'), L]), 'refuse', 'other'],
+      [
+        'a function named by a read (eq(call_fn, read(...)))',
+        ['and', [['eq', ['call_fn'], ['read', contract(9), 'f', []]]]],
+        'refuse',
+        'other',
+      ],
+      ['the same rule (equal is as loose)', newer.expr, 'refuse', 'looser'],
+      ['a tighter cap', base(['eq', ['call_arg', 0], KEY], ['lte', L, i('10')]), 'review', 'other'],
+    ])('%s', (_n, old, severity, why) => expect(verdict(old)).toMatchObject({ severity, why }))
+
+    it("the neighbour's own scope counts as a pin: a rule scoped to the token need not repeat it", () => {
+      const scoped = base(['eq', ['call_arg', 0], KEY], ['lte', L, i('10')])
+      const pinned: Intended = {
+        ...newer,
+        expr: ['and', [['eq', ['call_contract'], TOKEN], ...(newer.expr as [string, Expr[]])[1]]],
+      }
+      expect(overlaps(pinned, [observed({ expr: scoped })], INTERP, 'testnet')[0]).toMatchObject({
+        severity: 'review',
+      })
+    })
+
+    it('a neighbour with no signer at all is taken to share every signer', () => {
+      expect(verdict(base(['lte', L, i('1000')]), { signers: [] })).toMatchObject({
+        severity: 'refuse',
+      })
+    })
   })
 
   it('a new rolling total is refused where a shared rule serves the calls with none', () => {

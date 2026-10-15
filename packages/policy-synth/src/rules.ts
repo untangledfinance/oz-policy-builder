@@ -192,7 +192,7 @@ function meet(a: Sel[], b: Sel[]): Sel[] {
  *  anything it does not pin on those two leaves is a wildcard. */
 export function selectors(e: Expr): Sel[] {
   if (!isSelector(e)) return [WILD]
-  const [op, a, b] = e as [string, Val, Val]
+  const [op, a, b] = constantLast(e) as [string, Val, Val]
   if (op === 'and') return (a as Expr[]).reduce<Sel[]>((acc, c) => meet(acc, selectors(c)), [WILD])
   if (op === 'or') return (a as Expr[]).flatMap(selectors)
   const leaf = isSelector(a) ? a[0] : undefined
@@ -219,6 +219,22 @@ const scopeSel = (s: Scope): Sel[] =>
 
 const key = (v: Val) => JSON.stringify(v)
 
+const FLIP: Record<string, string> = {
+  lt: 'gt',
+  lte: 'gte',
+  gt: 'lt',
+  gte: 'lte',
+  eq: 'eq',
+  ne: 'ne',
+}
+
+/** A comparison with its constant on the right: `gte(5, x)` is `lte(x, 5)`. */
+export function constantLast(e: Expr): Expr {
+  if (!isSelector(e) || !(e[0] in FLIP) || e.length !== 3) return e
+  const [op, a, b] = e as [string, Val, Val]
+  return isConstant(a) && !isConstant(b) ? [FLIP[op] as string, b, a] : e
+}
+
 /** A selector as the contract reads it: `call_arg(i)` and `call_arg_len(i)` are paths. */
 const canon = (v: Val): string => {
   const [head, ...r] = isSelector(v) ? v : []
@@ -238,7 +254,8 @@ const same = (x: Val, y: Val): boolean => {
 }
 
 /** `nc` (a conjunct of the new rule) allows nothing `oc` (of the old) forbids. */
-export function implies(nc: Expr, oc: Expr): boolean {
+export function implies(a: Expr, b: Expr): boolean {
+  const [nc, oc] = [constantLast(a), constantLast(b)]
   if (key(nc) === key(oc)) return true
   if (!isSelector(nc) || !isSelector(oc)) return false
   const [no, na, nb] = nc as [string, Val, Val]
@@ -260,6 +277,16 @@ export function implies(nc: Expr, oc: Expr): boolean {
   return oo === 'eq' && no === 'eq' && same(nb, ob)
 }
 
+/** The neighbour's predicate with the one thing its scope guarantees written in: a rule
+ *  scoped to a contract only ever sees that contract's calls. */
+const within = (old: ObservedRule): Expr => {
+  const e = old.expr as Expr
+  if (old.scope.kind !== 'call_contract') return e
+  const pin: Expr = ['eq', ['call_contract'], old.scope.contract]
+  const bs = branches(e).map((b) => ['and', [pin, ...b]] as Expr)
+  return bs.length === 1 ? (bs[0] as Expr) : ['or', bs]
+}
+
 /** The old rule permits every call the new one does. */
 export function covers(old: Expr, mine: Expr): boolean {
   return branches(mine).every((nb) =>
@@ -279,7 +306,8 @@ export function overlaps(
 ): Overlap[] {
   const calls = meet(scopeSel(mine.scope), selectors(mine.expr))
   return existing.flatMap((old): Overlap[] => {
-    if (!old.signers.some((s) => mine.signers.includes(s))) return []
+    // A rule with no signer at all may be open to any key (OZ lets a policy stand alone): shared.
+    if (old.signers.length > 0 && !old.signers.some((s) => mine.signers.includes(s))) return []
     const shared = meet(
       calls,
       old.expr ? meet(scopeSel(old.scope), selectors(old.expr)) : scopeSel(old.scope)
@@ -324,10 +352,19 @@ export function overlaps(
         'permits everything the new rule does and more, so a shared signer names it instead; edit that rule to tighten it rather than adding a second'
       )
     }
+    // Anything else that overlaps lets a shared key do something the new rule forbids, unless
+    // the neighbour is provably the tighter of the two (it then adds no authority).
+    if (!covers(mine.expr, within(old))) {
+      return out(
+        'refuse',
+        'other',
+        'permits some calls the new rule forbids (or cannot be shown not to), so a shared signer names it and escapes the new limits; tighten or remove it, or install the new rule on other signers'
+      )
+    }
     return out(
       'review',
       'other',
-      'serves some of the same calls under different conditions; a shared signer may name either'
+      'is tighter than the new rule on the calls they share; it adds no authority, listed for information'
     )
   })
 }
