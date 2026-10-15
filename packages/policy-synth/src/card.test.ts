@@ -1625,6 +1625,7 @@ describe('the authority header: who can act, under what rule, until when, up to 
   it('one signer, never expiring, no total: every fact on its own line, signers in full six and six', () => {
     expect(text(base)).toEqual([
       'Authority',
+      "├─ legend:  […] the package's roles; «…» labels given in the request",
       `├─ signer:  ${G1.slice(0, 6)}…${G1.slice(-6)}`,
       '├─ to act:  the signer acts alone',
       `├─ admins:  ${G1.slice(0, 6)}…${G1.slice(-6)} (all of them together: alone, may uninstall the predicate, which stops the rule; with the account, may re-install, replace the admins or bind an executor)`,
@@ -1647,21 +1648,60 @@ describe('the authority header: who can act, under what rule, until when, up to 
     ).toContain('signers whose weights total at least 3 must approve')
   })
 
-  it('a threshold one signer meets alone reads as 1-of-n, naming who', () => {
+  it('a threshold one signer meets alone: simple n=1 is any ONE; a weighted one keeps its sentence and names who can act alone', () => {
     const rule = (a: Authority) => text(a).find((l) => l.includes('to act')) as string
+    const s6 = (x: string) => `${x.slice(0, 6)}…${x.slice(-6)}`
     expect(rule({ ...base, signers: [G1, G2, G3], threshold: { n: 1 } })).toContain(
       'any ONE of these 3 signers acts alone'
     )
-    const heavy = rule({
+    expect(
+      rule({ ...base, signers: [G1, G2], threshold: { n: 2, weights: { [G1]: 2, [G2]: 1 } } })
+    ).toBe(
+      `├─ to act:  signers whose weights total at least 2 must approve (${s6(G1)} can act alone)`
+    )
+    // {3,2,2}, n 3: A alone, but B + C act too: never "A alone can act".
+    const three = rule({
       ...base,
-      signers: [G1, G2],
-      threshold: { n: 2, weights: { [G1]: 2, [G2]: 1 } },
+      signers: [G1, G2, G3],
+      threshold: { n: 3, weights: { [G1]: 3, [G2]: 2, [G3]: 2 } },
     })
-    expect(heavy).toContain(`${G1.slice(0, 6)}…${G1.slice(-6)} alone can act`)
-    expect(heavy).not.toContain(`${G2.slice(0, 6)}…${G2.slice(-6)} alone`)
+    expect(three).toContain('signers whose weights total at least 3 must approve')
+    expect(three).toContain(`(${s6(G1)} can act alone)`)
+    expect(three).not.toContain(`${s6(G2)} can`)
+    expect(
+      rule({ ...base, signers: [G1, G2], threshold: { n: 2, weights: { [G1]: 2, [G2]: 2 } } })
+    ).toContain(`(each of ${s6(G1)}, ${s6(G2)} can act alone)`)
     expect(
       rule({ ...base, signers: [G1, G2], threshold: { n: 2, weights: { [G1]: 1, [G2]: 1 } } })
     ).not.toContain('alone')
+  })
+
+  it('a threshold without a number is not described: a library caller gets an error, never "any undefined"', () => {
+    expect(() => authority({ ...base, signers: [G1, G2], threshold: {} as never }, {})).toThrow(
+      /threshold/
+    )
+  })
+
+  it('the first line says what the marks mean', () => {
+    expect((authority(base, {}).children ?? [])[0]).toMatchObject({
+      label: 'legend',
+      raw: null,
+      value: "[…] the package's roles; «…» labels given in the request",
+    })
+  })
+
+  it("a caller label that spells a role plus a space or dot is the caller's, next to the real role", () => {
+    const out = lines([
+      authority(
+        { signers: [G1, G2], admins: [G1] },
+        { roles: { [G1]: 'signer' }, labels: { [G2]: 'signer ' } }
+      ),
+    ]).join('\n')
+    expect(out).toContain(`${G1.slice(0, 6)}…${G1.slice(-6)} ([signer])`)
+    expect(out).toContain(`${G2.slice(0, 6)}…${G2.slice(-6)} («signer »)`)
+    const dot = lines([authority({ signers: [G2] }, { labels: { [G2]: 'signer.' } })]).join('\n')
+    expect(dot).toContain('(«signer.»)')
+    expect(dot).not.toContain('[signer]')
   })
 
   it('under raw: to act is the policy entry it came from, and the total is the raw amount', () => {
@@ -1686,8 +1726,8 @@ describe('the authority header: who can act, under what rule, until when, up to 
       { ...base, signers: [G1, KC], threshold: { n: 2, weights: { [G1]: 2, [KC]: 1 } } },
       { labels: { [G1]: 'agent' } }
     )
-    expect(out[1]).toBe(`├─ signer:  ${G1.slice(0, 6)}…${G1.slice(-6)} («agent»)  weight 2`)
-    expect(out[2]).toBe(`├─ signer:  contract ${KC.slice(0, 6)}…${KC.slice(-6)}  weight 1`)
+    expect(out[2]).toBe(`├─ signer:  ${G1.slice(0, 6)}…${G1.slice(-6)} («agent»)  weight 2`)
+    expect(out[3]).toBe(`├─ signer:  contract ${KC.slice(0, 6)}…${KC.slice(-6)}  weight 1`)
   })
 
   it("expiry: the ledger it lapses after (no estimated date); the total in the token's unit, per window; unknown facts are left out", () => {
@@ -1718,8 +1758,9 @@ describe('the authority header: who can act, under what rule, until when, up to 
     )
     expect(n).toMatchObject({ op: 'authority', raw: null })
     const raws = (n.children ?? []).map((x) => x.raw)
-    expect(raws[0]).toEqual([['Delegated', G1], 1])
-    expect(raws[2]).toBe(2)
+    expect(raws[0]).toBeNull() // the legend
+    expect(raws[1]).toEqual([['Delegated', G1], 1])
+    expect(raws[3]).toBe(2)
     expect(raws).toContainEqual([['Delegated', G1]])
     expect(raws).toContain(7)
     expect(raws).toContainEqual({
@@ -1728,10 +1769,10 @@ describe('the authority header: who can act, under what rule, until when, up to 
         ['spending_limit', { i128: '9' }],
       ],
     })
-    expect((authority(base, {}).children ?? [])[1]?.raw).toBeNull()
+    expect((authority(base, {}).children ?? [])[2]?.raw).toBeNull() // no threshold: nothing to point at
   })
 
   it('under raw, addresses are whole', () => {
-    expect(text(base, { raw: true })[1]).toBe(`├─ signer:  ${G1}`)
+    expect(text(base, { raw: true })[2]).toBe(`├─ signer:  ${G1}`)
   })
 })

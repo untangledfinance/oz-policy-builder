@@ -546,9 +546,9 @@ describe('a caller can never make an address read as a role', () => {
     '',
   ]
   const text = (labels: Record<string, string>, roles?: Record<string, string>) =>
-    lines([
-      authority({ signers: [A, C], admins: [A] }, { labels, ...(roles ? { roles } : {}) }),
-    ]).join('\n')
+    lines([authority({ signers: [A, C], admins: [A] }, { labels, ...(roles ? { roles } : {}) })])
+      .slice(2) // past the legend, which names both marks
+      .join('\n')
   it('every label text, with no role, is «marked» or dropped, never bracketed', () => {
     for (const w of words) {
       const t = text({ [A]: w })

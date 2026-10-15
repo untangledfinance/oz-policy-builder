@@ -358,6 +358,7 @@ export interface Authority {
  *  install's review. Names and labels are display; `raw` is the wire value each line came from. */
 export function authority(a: Authority, c: View): Node {
   const [k, t, w] = [a.signers.length, a.threshold, a.threshold?.weights]
+  if (t && !(t.n >= 1)) throw new Error('a threshold without its number cannot be described')
   const who = (x: string) => `${x.startsWith('C') ? 'contract ' : ''}${addr(x, c)}`
   const del = (s: string): Val => ['Delegated', s]
   // A threshold one signer meets alone is 1-of-n: the weight of each signer is what says who.
@@ -365,14 +366,24 @@ export function authority(a: Authority, c: View): Node {
   const act =
     !t || (!w && t.n <= 1)
       ? `${k === 1 ? 'the signer' : `any ONE of these ${k} signers`} acts alone`
-      : alone.length > 0
-        ? `${alone.map(who).join(', ')} alone can act (weight at least ${t.n})`
-        : `${w ? `signers whose weights total at least ${t.n}` : `any ${t.n} of these ${k} signers`} must approve`
-  const facts: [string, string, Val][] = a.signers.map((s) => [
-    'signer',
-    who(s) + (w ? `  weight ${w[s]}` : ''),
-    w ? [del(s), w[s] as number] : del(s),
-  ])
+      : `${w ? `signers whose weights total at least ${t.n}` : `any ${t.n} of these ${k} signers`} must approve${
+          alone.length
+            ? ` (${alone.length > 1 ? 'each of ' : ''}${alone.map(who).join(', ')} can act alone)`
+            : ''
+        }`
+  const legend: [string, string, Val] = [
+    'legend',
+    "[…] the package's roles; «…» labels given in the request",
+    null,
+  ]
+  const facts: [string, string, Val][] = [
+    legend,
+    ...a.signers.map((s): [string, string, Val] => [
+      'signer',
+      who(s) + (w ? `  weight ${w[s]}` : ''),
+      w ? [del(s), w[s] as number] : del(s),
+    ]),
+  ]
   facts.push(['to act', act, t?.raw ?? t?.n ?? null])
   if (a.admins)
     facts.push([

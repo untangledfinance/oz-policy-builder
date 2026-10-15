@@ -687,6 +687,24 @@ describe('planInstall: the guards', () => {
     await policy({ ...two, threshold: { n: 2, weights: { [SIGNER]: 1, [account(2)]: 1 } } })
   })
 
+  it('the refusal names exactly who meets the threshold alone, never claiming any signer can', async () => {
+    const three = { ...input, signers: [SIGNER, account(2), account(3)] }
+    const t = { n: 3, weights: { [SIGNER]: 3, [account(2)]: 2, [account(3)]: 2 } }
+    const e = await planInstall({ ...three, threshold: t }, rule, chain()).then(
+      () => undefined,
+      (x) => x as Refusal
+    )
+    expect(e?.message).toContain(`${SIGNER} alone meets the threshold of 3`)
+    expect(e?.message).not.toMatch(/any ONE of the 3/)
+    expect(e?.message).not.toContain(account(2))
+    expect(e?.message).toContain('anyOne: true')
+    await refused(
+      planInstall({ ...two, threshold: { n: 1 } }, rule, chain()),
+      'INSTALL_BUILD_FAILED',
+      /any ONE of the 2 signers/
+    )
+  })
+
   it('a signer named twice is refused before the network is asked (OZ rejects it as #3007)', async () => {
     let asked = 0
     const quiet = chain({ fingerprint: async () => (asked++, ours) })

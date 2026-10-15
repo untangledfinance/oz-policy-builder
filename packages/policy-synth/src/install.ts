@@ -398,7 +398,11 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   if (t && i.anyOne && !oneOfN) throw no('anyOne and a threshold contradict each other')
   if (oneOfN && !i.anyOne)
     throw no(
-      `${t ? 'this threshold is met by one signer alone' : `${k} signers and no threshold`}: any ONE of the ${k} signers acts alone (1-of-${k}). Give a threshold that needs more, or \`anyOne: true\` to install 1-of-${k} on purpose.`
+      `${
+        w
+          ? `${i.signers.filter((x) => (w[x] as number) >= (t?.n ?? 0)).join(', ')} alone meets the threshold of ${t?.n}`
+          : `${t ? `a threshold of ${t.n}` : `${k} signers and no threshold`}: any ONE of the ${k} signers acts alone (1-of-${k})`
+      }. Give a threshold that needs more, or \`anyOne: true\` to install it on purpose.`
     )
   const draft: RuleDraft = {
     scope: { kind: 'call_contract', contract: rule.contract },
