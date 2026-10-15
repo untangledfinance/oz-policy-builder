@@ -15,7 +15,7 @@ There is currently no bug bounty programme.
 
 | Component | Where it runs |
 | --- | --- |
-| `policy-interpreter` | Soroban contract, deployed on Stellar mainnet and testnet (addresses pinned in `packages/policy-synth/src/run/schemas.ts`) |
+| `policy-interpreter` | Soroban contract, deployed on Stellar mainnet and testnet (addresses pinned in `packages/policy-synth/src/config.ts`) |
 | `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` | Published on npm, run off-chain |
 
 `test-blend-pool` is a testnet-only fixture and is out of scope.
@@ -33,4 +33,4 @@ unenforced.
 ## Supported versions
 
 Only the latest published version of the npm packages and the contract
-builds pinned in `packages/policy-synth/src/run/schemas.ts` are supported.
+builds pinned in `packages/policy-synth/src/config.ts` are supported.

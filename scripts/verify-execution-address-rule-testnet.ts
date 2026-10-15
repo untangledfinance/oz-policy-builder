@@ -26,7 +26,6 @@ import {
   XdrLargeInt,
   xdr,
 } from '@stellar/stellar-sdk'
-import { PINNED_INTERPRETER_TESTNET_ADDRESS } from '../packages/policy-synth/src/run/schemas.ts'
 import {
   ACCOUNT_WASM_HASH,
   addRuleArgs,
@@ -555,7 +554,8 @@ await go('a short memo', pay(xdr.ScVal.scvString('settlement 42')), 'PASSES')
 console.log(C.bold('\n── inside an authorization ──'))
 // Any live contract the gate does not name: the grammar-4 testnet interpreter the
 // packages pin, which no gate lists as a destination.
-const UNLISTED = PINNED_INTERPRETER_TESTNET_ADDRESS
+// A contract that is on no list: the grammar-4 interpreter the 1.x packages pinned on testnet.
+const UNLISTED = 'CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5'
 await go(
   'an auth entry naming an unlisted contract',
   {

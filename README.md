@@ -12,11 +12,12 @@ promise and becomes something the account checks before it signs.
 
 It is built as two halves:
 
-- **Off chain**, `@crediolabs/policy-synth` records a transaction, lowers it to
-  a predicate that pins the contract, method and arguments the recording
-  carried, renders a review card describing every leaf, and returns an unsigned
-  install transaction for the user's wallet to sign. A CLI and an MCP server
-  wrap the same core for shells and agents.
+- **Off chain**, `@crediolabs/policy-synth` records a transaction or takes a
+  declared mandate, turns it into a rule written in the predicate's own wire
+  shape, verifies that rule through the interpreter's read-only `check`, renders
+  a review card, and returns an unsigned install transaction for the user's
+  wallet to sign. A CLI and an MCP server register the same seven tools from one
+  table, for shells and agents.
 - **On chain**, the `policy-interpreter` Soroban contract evaluates the
   predicate on every guarded call, fail-closed: one audit-once engine, and
   every policy is declarative data fed into it, so a new combination of
@@ -24,10 +25,13 @@ It is built as two halves:
 
 ## What is actually running
 
-The grammar-4 policy interpreter, which the npm packages pin, is deployed on
-Stellar mainnet and testnet, and both pinned instances have been exercised end
-to end against real accounts: a policy installed, the call it allows permitted,
-and the call it forbids denied by the contract.
+The 2.x npm packages speak grammar 7 and pin a grammar-7 interpreter on
+**testnet only** (`deployments/grammar7-testnet.json`; no mainnet instance yet,
+so a mainnet install names its interpreter and has it verified live). The
+grammar-4 instances the 1.x packages pinned, and the grammar-6 Prime ones, are
+unchanged. The grammar-4 pair was exercised end to end against real accounts: a
+policy installed, the call it allows permitted, and the call it forbids denied by
+the contract.
 
 On mainnet, smart account
 `CBASTKCV6RZFO6SPEBRFJJMAJ5FRCNYVERWX5I6QSRLE3YZ4X6OEVOAU` carries the
@@ -47,22 +51,25 @@ by the agent through the unpoliced rule, is rejected because the agent is not a
 signer there. The admin key does retain full authority through that rule, by
 design - a policy constrains the keys put under it, not the account's owner.
 
-Reproduce either network with
-`bun packages/policy-synth/scripts/e2e-network.ts --network testnet`; the
-transcript of both runs is in
-[evidence/e2e-network.log](./evidence/e2e-network.log).
-Testnet funds itself through friendbot; mainnet needs a funded `--secret`.
+The transcript of that run is in
+[evidence/e2e-network.log](./evidence/e2e-network.log); the script that made it
+(`e2e-network.ts`) was written for the 1.x package API and is in git history at
+`9c93592`.
 
-The deployment is pinned in `packages/policy-synth/src/run/schemas.ts`:
+The grammar-7 deployment the 2.x packages pin is in
+`packages/policy-synth/src/config.ts`:
 
 | | Address / hash |
 | --- | --- |
-| Interpreter (mainnet) | `CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52` |
-| Interpreter (testnet) | `CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5` |
-| Interpreter wasm sha256 | `b5ba1e35ccf20cd8c13c3a2c3098bf337033a92bcaf475d63c03ddc0cba0fcae` |
-| Grammar version | `4` |
+| Interpreter (testnet, grammar 7) | `CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB` |
+| Interpreter wasm sha256 | `eb1ec6ee8dca82622b9e70a04599b7ceeea9dc89f5917293ca76fb2c51af37b3` |
+| Interpreter (mainnet) | none yet |
+| Grammar version | `7` |
 
-The same wasm hash backs both networks; only the instance address differs.
+The previous pin (1.x, grammar 4): mainnet
+`CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52`, testnet
+`CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5`, wasm sha256
+`b5ba1e35ccf20cd8c13c3a2c3098bf337033a92bcaf475d63c03ddc0cba0fcae`.
 
 The Prime custody contracts went to mainnet on 1 October 2026 and the Prime app
 at app.untangled.finance uses them: the grammar-6 interpreter
@@ -89,15 +96,15 @@ are in [docs/stellar.md](./docs/stellar.md#deployments) and
 | Understand the custody setup Prime uses, on Stellar and EVM | [docs/architecture.md](./docs/architecture.md) |
 | Read the Stellar contracts and the policy builder in detail | [docs/stellar.md](./docs/stellar.md) |
 | Read the EVM design in detail | [docs/evm.md](./docs/evm.md) |
-| Build and install a policy from a shell | `packages/policy-builder-cli` (record + synthesize) |
+| Build and install a policy from a shell | `packages/policy-builder-cli` (`policy-builder <tool>`, all seven tools) |
 | Drive it from an agent | `packages/policy-builder-mcp` (MCP over stdio / Streamable HTTP) |
 
 ## Layout
 
 | Path | What it is |
 | --- | --- |
-| `packages/policy-synth` | The synthesiser and the record, verify, install and revoke flow. Published as `@crediolabs/policy-synth`. |
-| `packages/policy-builder-cli` | CLI wrapper over the synth core (`@crediolabs/policy-builder-cli`). |
+| `packages/policy-synth` | The wire codec, the synthesiser and the record, simulate, verify, install and revoke tools. Published as `@crediolabs/policy-synth`. |
+| `packages/policy-builder-cli` | One command per tool, registered from the synth core's table (`@crediolabs/policy-builder-cli`). |
 | `packages/policy-builder-mcp` | MCP server exposing the seven policy tools (`@crediolabs/policy-builder-mcp`). |
 | `contracts/prime/stellar/policy-interpreter` | The Soroban contract that enforces a predicate on chain. |
 | `contracts/prime/stellar/custody-gate` | The custody account's gate: holds its allowance and releases only to listed addresses. |

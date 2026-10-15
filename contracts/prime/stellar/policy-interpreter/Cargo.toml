@@ -26,11 +26,11 @@ soroban-sdk = { version = "27.0.2", features = ["alloc"] }
 soroban-sdk = { version = "27.0.2", features = ["testutils"] }
 
 [[test]]
-# The TS-Rust conformance harness - directory form so we can keep the
+# The conformance harness (fixed predicate/context cases) - directory form so we can keep the
 # generated per-case tests in their own file alongside the b64 / Val
 # helpers. Without this explicit `[[test]]` entry cargo's auto-discovery
-# in tests/ ignores the subdirectory. Regenerate `_generated.rs` via
-# `packages/policy-synth/scripts/gen-conformance-fixture.ts`.
+# in tests/ ignores the subdirectory. The cases are not regenerated (see
+# tests/conformance/mod.rs).
 name = "conformance"
 path = "tests/conformance/mod.rs"
 

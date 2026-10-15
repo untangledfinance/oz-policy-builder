@@ -86,23 +86,32 @@ jobs:
       - name: Lint (clippy)
         run: cargo clippy --all-targets -- -D warnings
 
+      # tests/worst_case.rs installs the largest rules into the REAL wasm and fails
+      # without one, so the wasm is built first (build-wasm.sh, the reproducible
+      # build). Only the interpreter has that test.
+      - name: Build wasm for the worst-case test
+        if: matrix.crate == 'policy-interpreter'
+        run: |
+          rustup target add wasm32v1-none
+          ./build-wasm.sh
+
       - name: Test
         run: cargo test
 
-      # The conformance suite is the cross-layer gate: the TypeScript
-      # synthesiser's encoded fixtures must evaluate identically on the
-      # Rust interpreter. Run it in release, matching how it is verified
-      # locally.
+      # The conformance suite: fixed predicate and context cases the interpreter
+      # must keep deciding the same way. (The cross-layer gate for the TypeScript
+      # codec is tests/parity.rs, run by `cargo test` above: it fails when
+      # packages/policy-synth/fixtures/parity/grammar7.json is stale.) Run it in
+      # release, matching how it is verified locally.
       - name: Conformance (release)
         if: matrix.crate == 'policy-interpreter'
         run: cargo test --release --test conformance
 
-      # The source here is the grammar-6 line, and the instance that runs it is
-      # recorded in deployments/grammar6-testnet.json. The package's
-      # PINNED_INTERPRETER_WASM_SHA256 names the grammar-4 instances the npm
-      # packages still target, so it is not this source's binary and comparing
-      # the two fails for good. This rebuilds the wasm and compares it with the
-      # record, so a source change that was never deployed turns this red.
+      # The source here is the grammar-7 line, and the instance that runs it is
+      # recorded in deployments/grammar7-testnet.json (testnet only; the npm
+      # packages pin the same hash in packages/policy-synth/src/config.ts). This
+      # rebuilds the wasm and compares it with the record, so a source change that
+      # was never deployed turns this red.
       #
       # It must go through build-wasm.sh. A bare cargo build is NOT reproducible:
       # rustc bakes in the crate root and registry paths, so the hash differs per
@@ -117,7 +126,7 @@ jobs:
         run: |
           rustup target add wasm32v1-none
           built=$(./build-wasm.sh | tail -1)
-          record=../../../../deployments/grammar6-testnet.json
+          record=../../../../deployments/grammar7-testnet.json
           pinned=$(jq -r '.interpreterSource.reproducibleWasmSha256 // .wasmHashes.interpreter // empty' "$record")
           echo "built:  $built"
           echo "pinned: $pinned"
@@ -127,10 +136,10 @@ jobs:
           fi
           if [ "$built" != "$pinned" ]; then
             echo ""
-            echo "The recorded grammar-6 interpreter is not the wasm this tree builds."
+            echo "The recorded grammar-7 interpreter is not the wasm this tree builds."
             echo "Either the contract changed without a redeploy, or a redeploy did"
             echo "not update $record. Deploy the current build with"
-            echo "scripts/deploy-grammar6-testnet.ts and re-pin the app together."
+            echo "a redeploy and re-pin the config and the record together."
             echo "A reflow by rustfmt counts: the wasm embeds every panic's line."
             exit 1
           fi

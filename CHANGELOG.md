@@ -7,6 +7,55 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ## [Unreleased]
 
+### 2.0.0 - policy-synth, policy-builder-cli, policy-builder-mcp (BREAKING)
+
+The three packages are rewritten for the grammar-7 interpreter and get much
+smaller: TypeScript sLOC 8,172 -> 2,667 (policy-synth 7,236 -> 2,487, mcp 405 ->
+106, cli 551 -> 72). They speak grammar 7 only; grammar 6 is not read (the
+authority-overlap scan reads the interpreter's grammar-7 record, so rules from the
+grammar-4/6 deployments are not understood: the 2.x pin is a testnet interpreter,
+and a mainnet install names its own).
+
+- **One pipeline.** recording | declaration | template -> `Intent` (calls and
+  per-argument rules) -> wire expression -> install transaction. `ComposedRule`,
+  `PolicyDocument`, the interpreter adapter, the `lower` layer, the legacy
+  `venue-execution-mandate` and the projection-based `execution-batch` are gone;
+  batch and venue mandates are `adapter_batch` and `blend_venue` templates.
+- **The predicate is its wire shape.** JSON tagged vectors with `lit` for constants;
+  one generic codec (JSON <-> ScVal <-> XDR), no per-operator code, no and/or
+  reordering. Byte-for-byte parity with the contract is tested against a corpus the
+  contract's `tests/parity.rs` writes.
+- **No TypeScript evaluator.** `simulate_policy` and `verify_policy` call the
+  interpreter's `check` through RPC simulation (testnet pin; mainnet needs
+  `interpreterAddress`). The conformance fixture generator is gone with it.
+- **Tools from a table.** Seven tools, each defined once; the MCP server and CLI
+  register from `TOOLS` and hold no logic. **`declare_policy` is removed**: a
+  declaration is `synthesize_policy` with an `intent` (or a `template`).
+- **Install.** One builder for `add_context_rule` / `remove_context_rule` plus the OZ
+  auth; install parameters carry `policy_admins` (`admins`, default
+  `sourceAccount`). The pinned interpreter is verified live (grammar and wasm hash)
+  before a build. **The overlap scan refuses by default**: a rule a shared signer
+  could bypass through an unpoliced or looser rule, a rolling total with no cap on
+  the neighbour, or an account whose rules cannot all be read; `allowOverlap`
+  (was `allowAuthorityOverlap`) overrides. The account is read on grammar 7's
+  one-record key `(account, rule id)`.
+- **Faster.** The install build and the account read use fewer sequential round trips
+  (the 236 KB latest-ledger call is gone); verify runs its checks in one pool.
+
+Breaking changes to callers:
+
+| 1.x | 2.0 |
+| --- | --- |
+| `declare_policy` | `synthesize_policy` with `intent` / `template` |
+| `synthesize_policy` `source: 'recording'`, `recordedTx`, `transactionHash`, `userResponses`, `interpreter`, `explain` | `hash` / `xdr` / `recording`, `limit` / `limits` / `allow`; the response is `{ intent, rules[], ambiguities, warnings }` (a rule has `predicate`, `encodedPredicate`, `predicateHash`, `review`) |
+| `simulate_policy` / `verify_policy` with a `PredicateNode` tree, `permitTx`, `smartAccount` | `expr` or `encodedPredicate` plus `calls` / `call`, or a source; verify returns `{ ok, permit, cases[], minimal, redundant, checks }` |
+| `install_policy` `rule` / `fromPredicate` / `fromHash`, `allowAuthorityOverlap` | `encodedPredicate` or a source, `signers`, `admins`, `allowOverlap`; `authorityScan` is `{ complete, overlaps[] }` |
+| `record_transaction` output (`invocations`, `tokenMovements`, `events`, `parseConfidence`) | `{ network, source, ledger, signers, contexts[] }`; there is no confidence gate: an unrecognised function is pinned argument by argument and its amounts are asked for |
+| Predicate trees `{ op, left, right }` / `{ kind: 'call_arg' }`, `encodePredicate` | Wire values (`["lte", ["call_arg", 2], {"i128": "1"}]`), `encode` / `decode` / `hashOf` |
+| Imports `@crediolabs/policy-synth/run` (`runInstallPolicy`...), `/install` | `import { run, TOOLS } from '@crediolabs/policy-synth/run'`; everything else from the package root |
+| CLI `record` / `synthesize` / `declare` with flags | `policy-builder <tool>` for all seven; JSON, `--file`, stdin or `--field value` |
+| MCP tool shapes | generated from the table; a refusal's `code` set is `INVALID_INPUT`, `RECORDING_FAILED`, `SYNTHESIS_ERROR`, `MALFORMED_PREDICATE`, `SIMULATION_ERROR`, `VERIFICATION_FAILED`, `INSTALL_BUILD_FAILED`, `REVOKE_BUILD_FAILED`, `INTERPRETER_MISMATCH` |
+
 ### Added
 
 - **Interpreter `check(predicate, context) -> u32`** (grammar 7, the ABI gains exactly
@@ -14,7 +63,8 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   checks and evaluates it against a contract call, returning 0 to permit or the
   deny or refusal code. No storage, no authorisation. The off-chain builder
   simulates `simulate_policy` and `verify_policy` through it, so there is one
-  evaluator (the contract) and no TypeScript copy of it.
+  evaluator (the contract) and no TypeScript copy of it. Deployed on TESTNET only
+  (`deployments/grammar7-testnet.json`).
 
 - **Policy interpreter grammar 7 (source only, not deployed).** The interpreter
   at `contracts/prime/stellar/policy-interpreter` speaks grammar 7 and

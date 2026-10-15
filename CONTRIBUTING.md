@@ -71,10 +71,14 @@ live. In particular:
 - The interpreter's predicate grammar is versioned. A grammar change means a
   new `SELF_VERSION`, new conformance fixtures, and a coordinated release of
   `@crediolabs/policy-synth` (see [Releasing](#releasing)).
-- If you change the TypeScript predicate encoder, regenerate the conformance
-  fixtures (`packages/policy-synth/scripts/gen-conformance-fixture.ts`) in
-  the same pull request, and run `cargo fmt` afterwards so the regenerated
-  Rust file passes the format gate.
+- The TypeScript codec (`packages/policy-synth/src/wire.ts`) is held to the
+  contract's own bytes by `fixtures/parity/grammar7.json`, which the contract's
+  `tests/parity.rs` writes. If you change the grammar, regenerate it with
+  `PARITY_WRITE=1 cargo test --test parity` (in the interpreter crate) in the
+  same pull request; the Rust test fails when it is stale and the TypeScript
+  tests fail when the codec disagrees with it. Tests that talk to the network
+  replay `packages/policy-synth/fixtures/rpc/*.json`; `OPB_LIVE=1 bun test`
+  records them again against testnet.
 
 ## Commits and pull requests
 
@@ -125,7 +129,7 @@ The Rust crates are `publish = false`: they are never released to
 crates.io. A contract "release" is a deployment:
 
 - The policy interpreter's live addresses and wasm sha256 are pinned in
-  `packages/policy-synth/src/run/schemas.ts`. Deploying a new interpreter
+  `packages/policy-synth/src/config.ts`. Deploying a new interpreter
   build means a new wasm hash, new instance addresses, updating those pins,
   and releasing the npm packages that carry them.
 - A predicate grammar change additionally bumps `SELF_VERSION`

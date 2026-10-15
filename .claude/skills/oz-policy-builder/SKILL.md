@@ -2,7 +2,7 @@
 name: oz-policy-builder
 description: Drive the policy-builder MCP server to turn an intent into an on-chain policy on an OpenZeppelin smart account on Stellar. Covers the install flow, the read-only checks, and the failure modes that look like success.
 user-invocable: true
-when_to_use: "Invoke when working with the policy-builder MCP server: recording a Soroban transaction, synthesizing or verifying a policy, installing or revoking a context rule on an OZ smart account, or diagnosing an install failure (#100, #202, #209, #3002, #3221)."
+when_to_use: "Invoke when working with the policy-builder MCP server: recording a Soroban transaction, synthesizing or verifying a policy, installing or revoking a context rule on an OZ smart account, or diagnosing an install failure (#100, #202, #209, #218, #3002, #3221)."
 category: other
 keywords: [stellar, soroban, mcp, policy, openzeppelin, smart-account, predicate, interpreter, context-rule, credio, oz]
 argument-hint: "[smart-account-address]"
@@ -31,36 +31,32 @@ you build anything.
 
 ## Intent -> tool
 
+Seven tools: `record_transaction`, `synthesize_policy`, `simulate_policy`,
+`verify_policy`, `install_policy`, `revoke_policy`, `get_interpreter_info`.
+Every verdict from `simulate_policy` and `verify_policy` is the interpreter's own
+read-only `check`, so it is what the contract would do, with its deny code.
+
 | User intent | Call |
 | --- | --- |
-| Cap a key, built from a transaction they point at | `record_transaction` (hash), then `verify_policy`, then `install_policy` with `fromHash: { transactionHash, signers: ["G..."], userResponses: { limitAmount } }` |
-| State a constraint outright, with no transaction to record | `declare_policy` (method to pin, optionally contract, per-call cap, recipient allowlist, minimum-output ratio), then `install_policy` with `fromPredicate: { encodedPredicate, signers }` |
-| Check a policy before installing it | `verify_policy` with `transactionHash` + `smartAccount`, or with `encodedPredicate` for a policy you already hold |
-| Ask what one call would do | `simulate_policy`, same inputs as verify |
-| Remove a rule | `revoke_policy` with `ruleId`. Master-only: the source must be the master signer set |
-| Check the interpreter the rule will point at | `get_interpreter_info` with `verifyLive: true` |
-| "at least N out" - a slippage floor on a swap | `declare_policy` with a minimum-output ratio. It bounds the call's OUTPUT against its own INPUT (`out >= in * num / den`), which is what lets one rule cover every trade size. Never infer the ratio from a recording: a recorded rate is a price at one moment, and freezing it as policy denies ordinary trades later. Ask for the ratio. A grammar-7 interpreter spells it `scaled(call_arg(i), num, den, 0)` and can also bound a price read from an oracle (`read`), against `now` for freshness. Grammar 7 makes `enforce` call the contracts a rule reads, so those must be trusted ones |
+| Cap a key, built from a transaction they point at | `synthesize_policy` with `hash` (or `xdr`). Its `ambiguities` ask for the cap: answer with `limit` (every amount) or `limits` (`{ "amount": "..." }`, by argument name or position). Then `verify_policy` with the same source, then `install_policy` with that source, `signers` and the same answers |
+| State a constraint outright, with no transaction | `synthesize_policy` with an `intent`: `{ calls: [{ contract, fn, where: [rules] }] }`. A rule is `pin`, `not`, `allow`, `deny`, `cap`, `floor`, `length`, `minOut`, `each`, `some`, `total`, `read`, `until` or `from`; `at` is a path into the arguments (`[2]` the third argument, `[3, 0, "amount"]` the `amount` of the first element of the fourth) |
+| A mandate with parameters | `synthesize_policy` with `template: { name: "adapter_batch" \| "blend_venue", params }` |
+| Check a policy before installing it | `verify_policy` with `encodedPredicate` (or `expr`) and the call that must be permitted (`call`, or `hash`/`xdr`) |
+| Ask what one call would do | `simulate_policy`: the predicate and `calls` |
+| Remove a rule | `revoke_policy` with `ruleId` |
+| Check the interpreter the rule will point at | `get_interpreter_info` with `verifyLive: true`. `install_policy` does it for you before building |
+| "at least N out" - a slippage floor on a swap | `minOut` rule: `{ rule: "minOut", at: [1], of: [0], num, den }` bounds the output argument against the call's own input (`out >= in * num / den`), so one rule covers every trade size. Never infer the ratio from a recording: a recorded rate is a price at one moment, and freezing it as policy denies ordinary trades later. Ask for it. A `read` rule can bound a price from an oracle, and `until`/`from` bound the clock; `enforce` calls the contracts a rule reads, so those must be trusted ones |
+| Every element of a batch or payout | `each` (every element satisfies the rules), `some` (at least one does), `total` (a field's sum is at most `max`), `length` (at most `max` elements). One rule covers any length up to 32, instead of a rule per element |
 | "N per day" - a rolling total | `install_policy` with `spendingLimit: { amount, periodLedgers }`. It attaches an OpenZeppelin `spending_limit` beside the predicate on the same rule; both must permit. NOT expressible as a predicate - the interpreter sees one call and keeps no state - so a per-call cap alone lets N through repeatedly. `periodLedgers` counts LEDGERS (~5s each); the rule must be scoped to the token contract whose transfers it meters |
 
-Pass both handle forms rather than retyping structures: `transactionHash` for a
-recording, `encodedPredicate` for a predicate you already hold. Retyping a
-nested payload loses field types, and the call then fails on a payload the
-server had already built correctly.
-
-When you must hand-build a `permitTx` (checking a call that has not happened),
-these are the shapes that get mistyped. Every numeric value is a STRING, and
-every list is a real array:
-
-```jsonc
-{ "type": "i128",   "value": "100000000" }   // NOT 100000000
-{ "type": "u64",    "value": "1735689600" }  // NOT a number
-{ "type": "vec",    "value": [ /* ScVals */ ] }  // NOT { "item": [...] }
-{ "subInvocations": [] }                     // NOT ""
-```
-
-The validation error names the failing path but not the expected shape, so read
-it as "this field is the wrong TYPE" and check it against the list above rather
-than guessing a new nesting.
+Pass handles rather than retyping structures: a `hash` for a recording,
+`encodedPredicate` for a predicate you already hold. Predicates and call
+arguments are JSON in the contract's own shape: a node is a tagged list
+(`["lte", ["call_arg", 2], {"i128": "100"}]`), a symbol or address is a string, a
+`u32` a number, and every other type a one-key object (`{"i128": "5"}`,
+`{"u64": "5"}`, `{"bytes": "ab"}`, `{"string": "x"}`, `{"map": [[k, v]]}`).
+Amounts in a rule are decimal STRINGS. The validation error names the failing
+path: read it as "this field is the wrong type".
 
 ## The failure modes that look like success
 
@@ -74,10 +70,10 @@ user thinks. They are the reason to read a result rather than skim it.
 - **Adding a rule never tightens a key - it widens it.** A key on several rules
   is only as limited as the loosest one that matches. When a user asks to lower
   an existing limit, installing a second rule does the opposite of what they
-  asked. `install_policy` returns an `authorityScan` naming every rule the key
-  could name instead; `severity: not-restricting` means the new rule is dead
-  code. Read it before telling anyone they are protected. `authorityScan: null`
-  means NOT CHECKED, never "nothing found".
+  asked. `install_policy` reads the account and REFUSES when a shared signer could name
+  a looser or unpoliced rule instead; `authorityScan.overlaps` lists every rule
+  the key could name, with `severity: review` for the ones that need a human.
+  Read it before telling anyone they are protected.
 
 - **Attaching a policy makes a rule any-of-N.** Unpoliced, ALL of a rule's
   signers must authorise. Policed, ANY ONE can act alone. So adding a second
@@ -88,14 +84,15 @@ user thinks. They are the reason to read a result rather than skim it.
   construction, so a policy on a rule-0 signer installs cleanly and constrains
   nothing. Put the agent key on a new rule and constrain that.
 
-- **A per-call cap is not a budget.** `limitAmount` lets that amount through
+- **A per-call cap is not a budget.** `limit` lets that amount through
   repeatedly, forever. When the user means a total, pass `spendingLimit` as well
   - and if you install only the per-call bound, say which control they got.
 
-- **`verify_policy: ok` is not "this does what you asked".** It generates deny
-  cases only for the dimensions the predicate actually bounds, so a MISSING
-  constraint produces no test that could fail. It means the predicate is
-  internally consistent, not that it expresses the intent.
+- **`verify_policy: ok` is not "this does what you asked".** Its deny cases are
+  derived from the predicate's own constraints, so a MISSING constraint produces
+  no test that could fail. It means the interpreter agrees the predicate permits
+  the call and refuses each way of breaking each constraint, not that it
+  expresses the intent. `minimal: false` lists conjuncts that were not needed.
 
 - **A call that moves tokens needs a rule for the MOVEMENT too, and that rule is
   where the bypass hides.** When a venue PULLS the asset, the account is asked to
@@ -111,10 +108,10 @@ user thinks. They are the reason to read a result rather than skim it.
   The account resolves a call against the rule the caller NAMES and takes the
   MAXIMUM authority over the rules that key sits on, never the intersection. So
   if the key also sits on a rule with no policy, it names that one and your
-  predicate never runs. `install_policy` refuses this now - it reads the account,
-  proves the bypass and fails with the rule id to fix. Fix it at the source:
-  remove the shared signer from that rule, or attach a policy to it. Do NOT
-  reach for `allowAuthorityOverlap: true` to make the error go away; it installs
+  predicate never runs. `install_policy` refuses this - it reads the account and
+  fails with the rule id to fix. Fix it at the source: remove the shared signer
+  from that rule, or attach a policy to it. Do NOT reach for
+  `allowOverlap: true` to make the error go away; it installs
   a rule that constrains nothing. A neighbour whose policy the tool cannot decode
   is only reported, not refused - read that advice by hand.
 
@@ -160,7 +157,7 @@ user thinks. They are the reason to read a result rather than skim it.
 - **A bare ticker is not a token.** A SAC address derives from the asset code
   AND its issuer, and anyone can issue an asset called USDC. Never produce an
   address you cannot derive; say you cannot.
-- **`limitAmount` is in the smallest unit.** Convert explicitly and say what
+- **`limit` is in the smallest unit.** Convert explicitly and say what
   you converted.
 
 ## What the server refuses, and why
@@ -168,19 +165,24 @@ user thinks. They are the reason to read a result rather than skim it.
 - **A rule that governs no key.** Synthesis leaves the signer set empty - it
   reads a transaction, and which keys a rule binds is a security decision no
   recording answers. Name them in `signers` as plain `G...` addresses. A
-  delegated signer is an account, not a deployed contract; nothing needs
-  deploying to name one.
-- **A rolling total on a rule that is not scoped to one contract.** The
-  primitive meters transfers of a single token; on a wider scope it would
-  install and meter nothing.
-- **A rule that bounds no amount, when the recording showed a spend.** Supply
-  `userResponses.limitAmount`, or `allowUnboundedAmount: true` to do it
-  deliberately. This refusal exists because the failure is silent: such a rule
-  installs and verifies cleanly and caps nothing.
-- **An interpreter that is not the pinned one.** Default-deny; an interpreter
-  the caller controls can permit anything.
-- **A non-pinned RPC URL.** The auth nonce in the response comes from whichever
-  RPC answered.
+  delegated signer is an account, not a deployed contract. `admins` (default:
+  `sourceAccount`) are the Policy Signer role that may later re-install or remove
+  the rule; keep them apart from `signers`, the keys the rule restricts.
+- **A rule that cannot bind a shared signer** (see above): an unpoliced neighbour,
+  a looser or equal interpreter rule, or one without a spend cap when a rolling
+  total is asked for. `allowOverlap: true` overrides, and so does nothing that
+  makes the rule bind. An account whose rules cannot all be read is refused too.
+- **A rolling total on a rule that is not scoped to one contract.**
+- **A rule that bounds no amount, when the call carries one.** Answer the
+  question with `limit` / `limits`, or `allowUnboundedAmount: true` to do it
+  deliberately: such a rule installs and verifies cleanly and caps nothing.
+- **A rule scoped to a policy contract or to the account itself.** It would expose
+  that contract's admin calls.
+- **An interpreter that is not the pinned one**, and one whose live grammar or
+  wasm hash differs from the pin. Mainnet has no grammar-7 interpreter yet: name
+  one with `interpreterAddress` and the build you expect in `interpreterWasmSha256`.
+- **A non-pinned RPC URL** unless `allowUnpinnedRpcUrl` (and plain http only for
+  loopback). The auth nonce in the response comes from whichever RPC answered.
 
 `installNonce` defaults to 1 and you should not ask the user for it. This tool
 builds `add_context_rule`, the account assigns a NEW rule id, and the
@@ -229,9 +231,14 @@ From the interpreter (`contracts/prime/stellar/policy-interpreter/src/storage.rs
 | `#100` | `ArgMismatch` | An argument bound was not satisfied - an over-cap amount lands here. The cap working |
 | `#101` | `ContractScope` | The call went to a contract the predicate does not pin |
 | `#105` | `NotInAllowlist` | The recipient is not on the allowlist |
-| `#107` | `SlippageFloor` | Output fell below `in * num / den`. Grammar 6 only; grammar 7 reports the same miss as `#100` |
-| `#102` | `ArithmeticOverflow` | A `scaled` step overflowed `i128` (grammar 7: the multiply, the divide or the add) |
-| `#200` | `VersionMismatch` | The package pins grammar 4 |
+| `#102` | `ArithmeticOverflow` | A `scaled` step overflowed `i128` (the multiply, the divide or the add) |
+| `#103` | `UnsupportedNode` | An ordering over `call_contract` or `call_fn` |
+| `#200` | `VersionMismatch` | The package speaks grammar 7 |
+| `#201` | `MalformedPredicate` | The decoder refused the predicate (unknown operator, arity, a cap) |
+| `#207` | `PredicateTooLarge` | Over 32 KB |
+| `#216` | `SelectorLeafRequired` | No leaf reads the call: the rule would constrain nothing |
+| `#218` | `DefaultContextNotSupported` | A Default-scoped rule, or one scoped to the account or the interpreter |
+| `#219` | `SignerIsInterpreter` | A signer set holds the interpreter's own address |
 | `#202` | `NonceReplay` | `install_nonce` must equal `stored_nonce + 1` |
 | `#204` | `RuleSignersChanged` | The signer set changed since install. The interpreter stored a hash of it and denies rather than quietly meaning less - the rule stops working, which is the safe direction |
 | `#208` | `PredicateHashMismatch` | The blob does not match the hash installed beside it |

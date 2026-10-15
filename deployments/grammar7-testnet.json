@@ -16,6 +16,14 @@
     "interpreter": "09abcd93bb790608d2a8c1df0b7dea305cd4e97ad4af4b8eb9ce221a1bbac6d9"
   },
   "createTx": "57d7f36aed4d9f18b6b4496941245e8e227e269a05e551e35d70548f8f3ebb90",
-  "sizes": { "interpreter": 59364 },
-  "note": "Grammar 7 interpreter, testnet only. The deployer is a throwaway identity funded by friendbot. The pin in packages/policy-synth/src/config.ts names this address."
+  "sizes": {
+    "interpreter": 59364
+  },
+  "note": "Grammar 7 interpreter, testnet only. The deployer is a throwaway identity funded by friendbot. The pin in packages/policy-synth/src/config.ts names this address.",
+  "liveTests": {
+    "smartAccount": "CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P",
+    "smartAccountDeployTx": "be49607fe418df6b80a88b3b98ebe6e7f126e72c79c0ae45ab64a5d151a8c7b6",
+    "installTx": "7ee0d68b9b1dd58ad0af7752f2f5e673424c57b03dd1f4f071ee2df28b5e4e0b",
+    "note": "An OZ smart account (rule 0: Default, no policy, one delegated signer: the deployer) used by packages/policy-synth's live tests. Rule 1 was installed through buildInstall: an interpreter predicate scoped to a made-up token contract. The recorded RPC fixtures (packages/policy-synth/fixtures/rpc) replay against this account."
+  }
 }
