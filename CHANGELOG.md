@@ -10,8 +10,8 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 ### 2.0.0 - policy-synth, policy-builder-cli, policy-builder-mcp (BREAKING)
 
 The three packages are rewritten for the grammar-7 interpreter and get much
-smaller: TypeScript sLOC 8,172 -> 2,667 (policy-synth 7,236 -> 2,487, mcp 405 ->
-106, cli 551 -> 72). They speak grammar 7 only; grammar 6 is not read (the
+smaller: TypeScript sLOC (source, comments and blanks stripped) 8,192 -> @@TOTAL@@
+(policy-synth 7,236 -> @@SYNTH@@, mcp 405 -> @@MCP@@, cli 551 -> @@CLI@@). They speak grammar 7 only; grammar 6 is not read (the
 authority-overlap scan reads the interpreter's grammar-7 record, so rules from the
 grammar-4/6 deployments are not understood: the 2.x pin is a testnet interpreter,
 and a mainnet install names its own).
@@ -27,17 +27,20 @@ and a mainnet install names its own).
   contract's `tests/parity.rs` writes.
 - **No TypeScript evaluator.** `simulate_policy` and `verify_policy` call the
   interpreter's `check` through RPC simulation (testnet pin; mainnet needs
-  `interpreterAddress`). The conformance fixture generator is gone with it.
+  `interpreterAddress`, and the contract at it must run a trusted build). The conformance fixture generator is gone with it.
 - **Tools from a table.** Seven tools, each defined once; the MCP server and CLI
   register from `TOOLS` and hold no logic. **`declare_policy` is removed**: a
   declaration is `synthesize_policy` with an `intent` (or a `template`).
 - **Install.** One builder for `add_context_rule` / `remove_context_rule` plus the OZ
   auth; install parameters carry `policy_admins` (`admins`, default
-  `sourceAccount`). The pinned interpreter is verified live (grammar and wasm hash)
-  before a build. **The overlap scan refuses by default**: a rule a shared signer
-  could bypass through an unpoliced or looser rule, a rolling total with no cap on
-  the neighbour, or an account whose rules cannot all be read; `allowOverlap`
-  (was `allowAuthorityOverlap`) overrides. The account is read on grammar 7's
+  `sourceAccount`). The interpreter is verified live (grammar and code hash, which
+  must be one of `INTERPRETER_WASM`) before a build, on every network. **The
+  overlap scan refuses by default, and always reads the chain**: a rule a shared
+  signer could bypass through an unpoliced or looser rule, a rolling total with no
+  cap on the neighbour, a neighbour it cannot read or judge (policed by an
+  interpreter of another grammar, such as the mainnet grammar-6 Prime interpreter,
+  or with only a spending limit), or an account whose rules cannot all be read;
+  `allowOverlap` (was `allowAuthorityOverlap`) overrides. The account is read on grammar 7's
   one-record key `(account, rule id)`.
 - **Faster.** The install build and the account read use fewer sequential round trips
   (the 236 KB latest-ledger call is gone); verify runs its checks in one pool.
@@ -48,8 +51,14 @@ Breaking changes to callers:
 | --- | --- |
 | `declare_policy` | `synthesize_policy` with `intent` / `template` |
 | `synthesize_policy` `source: 'recording'`, `recordedTx`, `transactionHash`, `userResponses`, `interpreter`, `explain` | `hash` / `xdr` / `recording`, `limit` / `limits` / `allow`; the response is `{ intent, rules[], ambiguities, warnings }` (a rule has `predicate`, `encodedPredicate`, `predicateHash`, `review`) |
-| `simulate_policy` / `verify_policy` with a `PredicateNode` tree, `permitTx`, `smartAccount` | `expr` or `encodedPredicate` plus `calls` / `call`, or a source; verify returns `{ ok, permit, cases[], minimal, redundant, checks }` |
-| `install_policy` `rule` / `fromPredicate` / `fromHash`, `allowAuthorityOverlap` | `encodedPredicate` or a source, `signers`, `admins`, `allowOverlap`; `authorityScan` is `{ complete, overlaps[] }` |
+| `simulate_policy` / `verify_policy` with a `PredicateNode` tree, `permitTx`, `smartAccount` | `expr` or `encodedPredicate` plus `calls` / `call`, or a source; verify takes the calls that must be permitted (one per branch of an `or`) and returns `{ ok, complete, permit, permits[], cases[], minimal, redundant, unexamined[], untested[], checks }`, at most 64 calls |
+| `install_policy` `rule` / `fromPredicate` / `fromHash`, `allowAuthorityOverlap`, `existingRules` | `encodedPredicate` or a source, `signers`, `admins`, `allowOverlap`; `authorityScan` is `{ complete, overlaps[] }`. **`existingRules` is gone** (it switched the overlap refusal off and reported a clean scan): the account is always read |
+| `install_policy` `interpreterWasmSha256`, `rpcUrl`, `allowUnpinnedRpcUrl`, `outPath` | gone. The interpreter's code hash must be in `INTERPRETER_WASM`; the RPC endpoint is `POLICY_BUILDER_RPC_URL_<NETWORK>` (the operator's); `outPath` is `outFile`, a bare file name written (never over an existing file) into `POLICY_BUILDER_OUT_DIR` |
+| `template.params` of any shape | typed per template (`adapter_batch`, `blend_venue`); an unknown or out-of-range parameter is refused |
+| An intent or template that leaves an amount uncapped installed silently | refused with the amount question unless `allowUnboundedAmount` (recordings already were) |
+| MCP: an unknown input key was dropped | refused, as `run` and the CLI do |
+| CLI `--limit 100` | was refused (parsed as a number); a number stays a string where the tool takes one |
+| `import { ... } from '@crediolabs/policy-synth'` (61 names) | 19 names: `TOOLS`, `run`, the codec, `card`, the pins, `Refusal`; the builders, the scan and the deny-case derivation are internal |
 | `record_transaction` output (`invocations`, `tokenMovements`, `events`, `parseConfidence`) | `{ network, source, ledger, signers, contexts[] }`; there is no confidence gate: an unrecognised function is pinned argument by argument and its amounts are asked for |
 | Predicate trees `{ op, left, right }` / `{ kind: 'call_arg' }`, `encodePredicate` | Wire values (`["lte", ["call_arg", 2], {"i128": "1"}]`), `encode` / `decode` / `hashOf` |
 | Imports `@crediolabs/policy-synth/run` (`runInstallPolicy`...), `/install` | `import { run, TOOLS } from '@crediolabs/policy-synth/run'`; everything else from the package root |
@@ -58,13 +67,19 @@ Breaking changes to callers:
 
 ### Added
 
-- **Interpreter `check(predicate, context) -> u32`** (grammar 7, the ABI gains exactly
-  this function). A read-only dry run: it decodes the predicate with install's
-  checks and evaluates it against a contract call, returning 0 to permit or the
-  deny or refusal code. No storage, no authorisation. The off-chain builder
-  simulates `simulate_policy` and `verify_policy` through it, so there is one
-  evaluator (the contract) and no TypeScript copy of it. Deployed on TESTNET only
-  (`deployments/grammar7-testnet.json`).
+- **Interpreter `check(predicate, context)`** (grammar 7, the ABI gains exactly
+  this function). A dry run that **always fails, with the verdict as the contract
+  error**: `Error(Contract, #0)` permits, any other number is the deny or refusal
+  code `install` or `enforce` would raise. It decodes the predicate with install's
+  checks and evaluates it against a contract call; no storage, no authorisation.
+  Failing is what makes it safe to expose: a `read` in the predicate calls its
+  target as the interpreter (the direct invoker, so even `token.transfer(interpreter,
+  ...)` is authorised), and a call that always fails rolls all of that back (an
+  earlier build returned the code, and a submitted `check` committed the read). The
+  off-chain builder simulates `simulate_policy` and `verify_policy` through it, so
+  there is one evaluator (the contract) and no TypeScript copy of it. Deployed on
+  TESTNET only (`deployments/grammar7-testnet.json`, `CA5ICI2O...`, wasm `a975353d...`;
+  the first build `CDL7KHDK...` is still deployed and is refused).
 
 - **Policy interpreter grammar 7 (source only, not deployed).** The interpreter
   at `contracts/prime/stellar/policy-interpreter` speaks grammar 7 and
@@ -212,9 +227,8 @@ Breaking changes to callers:
   comparisons, refused in grammar 6, now compare two numbers. Literal vectors
   nested deeper than `MAX_DEPTH` are refused. The `#[rustfmt::skip]` marks that
   held the grammar-6 build's line layout are gone, and the source is plain
-  `cargo fmt` output. `packages/policy-synth` and its TypeScript reference
-  evaluator still speak grammar 6; `tests/conformance/_generated_v4.rs` was
-  migrated by hand until they catch up.
+  `cargo fmt` output. `tests/conformance/_generated_v4.rs` was migrated by hand from the grammar-6
+  TypeScript evaluator (since removed); the 2.0.0 packages speak grammar 7.
 - **Interpreter grammar 7 storage, signer hash and audit fixes.** All of this
   is grammar 7 and still source only.
   - **One entry per rule.** A rule is one `(account, rule_id) -> StoredDoc`

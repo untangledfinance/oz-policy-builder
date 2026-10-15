@@ -81,7 +81,7 @@ for (const network of ['testnet', 'mainnet'] as const) {
   } else {
     console.log(`DRIFT ${network} protocol ${known} -> ${live}`)
     drift.push(
-      `${network} moved to protocol ${live}. Run e2e-network.ts against it and, ` +
+      `${network} moved to protocol ${live}. Run the 1.x e2e-network.ts (git show 9c93592:packages/policy-synth/scripts/e2e-network.ts) or OPB_LIVE=1 bun test against it and, ` +
         `if it passes, update BASELINE.protocolVersion.${network}.`
     )
   }

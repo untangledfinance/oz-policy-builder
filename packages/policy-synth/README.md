@@ -31,10 +31,13 @@ template (mandate)    --/    (calls + per-argument rules)   (unsigned XDR)
   ScVal <-> base64 XDR with no per-operator code and no reordering of `and`/`or`
   (order matters with reads). It is held to the contract's own bytes by
   `fixtures/parity/grammar7.json`, which the contract's `tests/parity.rs` writes
-  from the ScVal side: byte equality, JSON round trip, and the same accept/refuse
-  verdicts as `check`, for every case. `validate` mirrors the contract's decode
-  refusals (operators, arity, depth, the 200 weighted leaves, four distinct
-  reads, six sums, path steps, 32 KB).
+  from the ScVal side, and by `fixtures/parity/accuracy.json` (106 shapes at the
+  edges: every value type, map keys in the host's order, string bytes that are
+  not text, the caps): byte equality, JSON round trip, and the same accept/refuse
+  verdicts as `check`, for every case. `validate` accepts and refuses exactly
+  what the contract's decoder does (operators, arity, index types, `scaled`
+  operands and constant folds, depth, the 200 weighted leaves, four distinct
+  reads, six sums, path steps, 32 KB), so a rule that leaves here installs.
 - **An Intent** is `{ calls: [{ contract, fn, where: [rules] }] }`. A rule is one
   of `pin`, `not`, `allow`, `deny`, `cap`, `floor`, `length`, `minOut`, `each`,
   `some`, `total`, `read`, `until`, `from`, lowered by a table (`src/intent.ts`),
@@ -49,7 +52,12 @@ template (mandate)    --/    (calls + per-argument rules)   (unsigned XDR)
   a read does can ever commit.
   Verify turns each leaf of the rule against a permitted call (deny cases are
   derived from the leaf) and drops each conjunct in turn (minimality), at most
-  64 calls, eight at a time.
+  64 calls in all, eight at a time. It says what it did not examine: every
+  branch of an `or` needs a call that takes it (`unexamined` branches make it not
+  `ok`), and `untested` lists conjuncts nothing could be tried against (a read,
+  the clock) or whose need cannot be told because another conjunct is about the
+  same argument. A conjunct is `redundant` only when its case is still refused
+  without it and nothing else could be refusing that case.
 
 ## The seven tools
 
@@ -58,8 +66,8 @@ template (mandate)    --/    (calls + per-argument rules)   (unsigned XDR)
 | `record_transaction` | Decode a transaction (hash over RPC, or base64 XDR) into the calls it authorises, nested ones included. |
 | `synthesize_policy` | Source (hash, xdr, recording, intent, template) -> rules, one per contract: predicate, encoding, hash, plain-language review; `ambiguities` to answer with `limit`/`limits`/`allow`. |
 | `simulate_policy` | A predicate against calls: permit, or the deny code. |
-| `verify_policy` | Permit case, derived deny cases, minimality. |
-| `install_policy` | Unsigned `add_context_rule` (the account authorises it; the interpreter installs the predicate in the same transaction). Verifies the pinned interpreter live, reads the account, **refuses** a rule a shared signer could bypass (`allowOverlap` overrides). |
+| `verify_policy` | Permitted call(s), derived deny cases, minimality; `ok`, `complete`, `unexamined`, `untested`. |
+| `install_policy` | Unsigned `add_context_rule` (the account authorises it; the interpreter installs the predicate in the same transaction). Verifies the interpreter live, always reads the account, **refuses** a rule a shared signer could bypass or a neighbour it cannot judge (`allowOverlap` overrides). |
 | `revoke_policy` | Unsigned `remove_context_rule`. |
 | `get_interpreter_info` | The pin, the caps, and with `verifyLive` what is deployed now. |
 
@@ -79,19 +87,26 @@ await run('verify_policy', { network: 'testnet', encodedPredicate: rule.encodedP
 
 ## Security model
 
-- Enforcement is on chain; this package is the convenience layer. The interpreter
-  address and wasm sha256 are pinned in `src/config.ts` and verified live
-  (`grammar_version()` and the instance's code hash) before an install is built.
-  **Only a testnet interpreter is pinned**; on mainnet name one with
-  `interpreterAddress` and the build you expect in `interpreterWasmSha256`.
-- The RPC endpoint is the network's own unless `allowUnpinnedRpcUrl` (https only,
-  or loopback http for a recorded server).
-- Every input is validated at the boundary; an install that cannot bind its
-  signers is refused by default, and so is an unanswered amount cap, a rule scoped
-  to a policy contract or to the account, and an account whose rules cannot all
-  be read.
-- `check` is a public view: a `read` in a predicate calls its target as the
-  interpreter does, and the interpreter must hold nothing (see its README).
+- Enforcement is on chain; this package is the convenience layer. **The
+  interpreter is a build, not an address**: `INTERPRETER_WASM` in `src/config.ts`
+  lists the reproducible wasm hashes this package trusts, and whatever address is
+  used, its live `grammar_version()` and code hash must match (any contract can
+  answer `grammar_version() = 7`). install, simulate and verify all check it. Only
+  a testnet interpreter is pinned; on mainnet name one with `interpreterAddress`
+  and it is accepted only if it runs a trusted build.
+- The RPC endpoint is the operator's, never a tool's input: the network's own, or
+  `POLICY_BUILDER_RPC_URL_TESTNET` / `POLICY_BUILDER_RPC_URL_MAINNET` (https, or
+  loopback http for a recorded server). Nor does a tool take a path: `outFile` is a
+  bare file name, written (never over an existing file) into the operator's
+  `POLICY_BUILDER_OUT_DIR`.
+- Every input is validated at the boundary, an unknown key included; an install
+  that cannot bind its signers is refused by default, and so is an unanswered amount
+  cap (recordings, intents and templates alike), a rule scoped to a policy contract
+  or to the account, a neighbour the scan cannot read or judge (an interpreter of
+  another grammar, a rule with only a spending limit), and an account whose rules
+  cannot all be read. All refusals live in `planInstall` (`src/install.ts`).
+- `check` always fails with its verdict, so even a `read` that calls a token's
+  `transfer` as the interpreter commits nothing (see the interpreter's README).
 
 ## Tests
 

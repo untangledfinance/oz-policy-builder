@@ -71,8 +71,10 @@ user thinks. They are the reason to read a result rather than skim it.
   is only as limited as the loosest one that matches. When a user asks to lower
   an existing limit, installing a second rule does the opposite of what they
   asked. `install_policy` reads the account and REFUSES when a shared signer could name
-  a looser or unpoliced rule instead; `authorityScan.overlaps` lists every rule
-  the key could name, with `severity: review` for the ones that need a human.
+  a looser or unpoliced rule instead, or one it cannot read or judge (an interpreter of
+  another grammar, a rule with only a spending limit); `authorityScan.overlaps` lists
+  every rule the key could name, with `severity: review` only for readable rules under
+  different conditions, which need a human.
   Read it before telling anyone they are protected.
 
 - **Attaching a policy makes a rule any-of-N.** Unpoliced, ALL of a rule's
@@ -92,7 +94,11 @@ user thinks. They are the reason to read a result rather than skim it.
   derived from the predicate's own constraints, so a MISSING constraint produces
   no test that could fail. It means the interpreter agrees the predicate permits
   the call and refuses each way of breaking each constraint, not that it
-  expresses the intent. `minimal: false` lists conjuncts that were not needed.
+  expresses the intent. `ok` also needs every branch of an `or` to have been taken by a
+  call you gave (`unexamined` lists the ones nothing took: pass a `call`/recording for
+  each). `untested` lists conjuncts nothing was tried against (a read, the clock). 
+  `minimal: false` lists conjuncts that were not needed; a conjunct that is the only
+  guard of its case, or shares its argument with another, is never listed.
 
 - **A call that moves tokens needs a rule for the MOVEMENT too, and that rule is
   where the bypass hides.** When a venue PULLS the asset, the account is asked to
@@ -169,8 +175,8 @@ user thinks. They are the reason to read a result rather than skim it.
   `sourceAccount`) are the Policy Signer role that may later re-install or remove
   the rule; keep them apart from `signers`, the keys the rule restricts.
 - **A rule that cannot bind a shared signer** (see above): an unpoliced neighbour,
-  a looser or equal interpreter rule, or one without a spend cap when a rolling
-  total is asked for. `allowOverlap: true` overrides, and so does nothing that
+  a looser or equal interpreter rule, one without a spend cap when a rolling
+  total is asked for, or one the scan cannot read or judge. `allowOverlap: true` overrides, and so does nothing that
   makes the rule bind. An account whose rules cannot all be read is refused too.
 - **A rolling total on a rule that is not scoped to one contract.**
 - **A rule that bounds no amount, when the call carries one.** Answer the
@@ -178,11 +184,13 @@ user thinks. They are the reason to read a result rather than skim it.
   deliberately: such a rule installs and verifies cleanly and caps nothing.
 - **A rule scoped to a policy contract or to the account itself.** It would expose
   that contract's admin calls.
-- **An interpreter that is not the pinned one**, and one whose live grammar or
-  wasm hash differs from the pin. Mainnet has no grammar-7 interpreter yet: name
-  one with `interpreterAddress` and the build you expect in `interpreterWasmSha256`.
-- **A non-pinned RPC URL** unless `allowUnpinnedRpcUrl` (and plain http only for
-  loopback). The auth nonce in the response comes from whichever RPC answered.
+- **An interpreter that is not a trusted build**: its live grammar and code hash
+  must be one the package lists (`INTERPRETER_WASM`), whatever address you name.
+  Mainnet has no grammar-7 interpreter yet: name one with `interpreterAddress`; it
+  is accepted only if it runs a trusted build.
+- **An endpoint or a directory as input.** Neither is a tool argument: the RPC
+  endpoint (`POLICY_BUILDER_RPC_URL_<NETWORK>`) and the output directory
+  (`POLICY_BUILDER_OUT_DIR`) are the operator's; `outFile` is only a name inside it.
 
 `installNonce` defaults to 1 and you should not ask the user for it. This tool
 builds `add_context_rule`, the account assigns a NEW rule id, and the
@@ -195,10 +203,13 @@ account calls the interpreter's `install` itself while running
 `add_context_rule`. Do not tell the caller a second call is outstanding. The
 rule id the account assigned is in the transaction result.
 
-**Pass `outPath` and let the server write the envelope.** This is the only
-reliable way to get it onto disk. Give `install_policy` an absolute path; it
-writes the file, reads it back to confirm it persisted intact, and returns
-`writtenTo`. Hand that path to the signer.
+**Pass `outFile` and let the server write the envelope.** This is the only
+reliable way to get it onto disk. Give `install_policy` a file NAME (no directory):
+the server writes it into the directory the operator configured
+(`POLICY_BUILDER_OUT_DIR`), creates it fresh (an existing file is never
+overwritten), reads it back to confirm it persisted intact, and returns
+`writtenTo`. Hand that path to the signer. With no directory configured the input
+is refused.
 
 Do NOT carry the envelope yourself. It runs to several thousand characters, and
 moving it through your own output - or through a shell argument - corrupts it.

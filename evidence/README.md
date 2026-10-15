@@ -1,6 +1,24 @@
 # Audit evidence
 
-The logs in this folder were produced against this tree.
+The logs in this folder were produced against the 1.x tree (the grammar-4 and
+grammar-6 interpreters and the 1.x off-chain package), not the grammar-7 tree
+that follows it on `feat/grammar-v7`.
+
+**Reproducing the four `oz-*` and `e2e-network` logs.** Their scripts drove the 1.x
+package API and were deleted with it in 2.0.0. They are in git at `9c93592`
+(`packages/policy-synth/scripts/e2e-network.ts`, `oz-policy-composition.ts`,
+`oz-spending-limit-binding.ts`, `oz-threshold-binding.ts`, `oz-two-rule-blend-cap.ts`).
+Run them from a worktree of that commit, which has the matching package:
+
+```
+git worktree add /tmp/opb-1x 9c93592 && cd /tmp/opb-1x && bun install
+bun packages/policy-synth/scripts/e2e-network.ts --network testnet
+```
+
+Each `scripts/<name>.ts` below that is one of those five means that path under
+`packages/policy-synth/` at `9c93592`. The grammar-7 off-chain evidence is the test
+suite (`bun test`, and `OPB_LIVE=1 bun test` against the testnet interpreter in
+`deployments/grammar7-testnet.json`).
 
 All ten were regenerated on 2026-08-27 against `5bae0a8`, including both
 live-network legs. **`offchain-gate.log` was regenerated on 2026-08-30 against
@@ -8,8 +26,10 @@ the `v1.2.0` release tree (`2b14ec6`)**, because the off-chain source changed
 after `5bae0a8` (three releases, the `spending_limit` composition, the handle
 refactor, `outPath`, and the cross-rule install refusal).
 
-**The other nine still describe this tree, and that is checked rather than
-assumed.** They all exercise the Rust interpreter, and it has not changed:
+**The other nine describe the interpreter as of `5bae0a8`, and that was checked
+rather than assumed.** They all exercise the Rust interpreter, which had not changed
+since then when the logs were made (grammar 7 has since replaced it in source; it is
+not what these logs ran against):
 
 ```
 git diff --stat 5bae0a8..HEAD -- contracts/policy-interpreter/   # empty
