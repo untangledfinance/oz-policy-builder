@@ -348,13 +348,14 @@ fn literal_to_val(leaf: &Leaf) -> Res<Val> {
 /// address-scoped constraint. It failed closed, which is why only a permit
 /// case exposed it: the deny-case tests passed for the wrong reason.
 ///
-/// Falling back to canonical XDR gives structural equality: two values are
-/// equal precisely when they serialise identically. The host does the
-/// serialising, so this works on wasm, and `Bytes` compares by value.
+/// Falling back to the host's own object comparison gives structural equality,
+/// type included: two objects are equal precisely when the host orders them
+/// equal (it compares `Bytes` and vectors by value, as it did when this
+/// serialised both to XDR). The host does the comparing, so this works on wasm.
 ///
 /// Two numbers (u32, u64, i128) compare as numbers, whatever their types, the
 /// same widening ordering uses; `5u32` equals `5i128`. Only at the top level:
-/// numbers inside a vector compare by XDR, type included. Anything else is exact:
+/// numbers inside a vector compare type included. Anything else is exact:
 /// a number never equals a symbol, and an address only its own address.
 fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
     // Two values of one type need no widening. `b` is only converted when `a` is
@@ -365,7 +366,9 @@ fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
         }
     }
     let objects = a.is_object() || b.is_object();
-    a.shallow_eq(b) || (objects && (*a).to_xdr(env) == (*b).to_xdr(env))
+    // The host's structural compare, through a one-element vec each. Serialising
+    // to XDR instead allocates per byte, and a quantifier body repeats it per element.
+    a.shallow_eq(b) || (objects && Vals::from_slice(env, &[*a]) == Vals::from_slice(env, &[*b]))
 }
 
 /// A muxed address as the account it pays. `ne` (so `nin`) must not be passed by

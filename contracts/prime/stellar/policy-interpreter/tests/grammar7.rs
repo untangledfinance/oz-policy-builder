@@ -2840,3 +2840,73 @@ fn a_variant_inside_a_bare_vec_read_argument_reaches_the_target_unwrapped() {
         .expect("installs");
     assert_eq!(w.enforce(&[]), Ok(()));
 }
+
+// ---- the install-time leaf budget bounds what `enforce` costs --------------
+
+/// Memory (bytes) one `enforce` of `rule` uses on `args(world)`, with the budget
+/// unlimited so a trap shows as a number rather than a failure; the
+/// per-transaction limit is 40 MiB.
+fn enforce_memory(rule: &ScVal, args: impl Fn(&Env) -> SorobanVec<Val>) -> u64 {
+    let w = World::new();
+    w.env.cost_estimate().budget().reset_unlimited();
+    w.install(rule).expect("the rule installs");
+    let ctx = Context::Contract(ContractContext {
+        contract: w.target.clone(),
+        fn_name: Symbol::new(&w.env, "advance"),
+        args: args(&w.env),
+    });
+    w.env.cost_estimate().budget().reset_unlimited();
+    assert_eq!(w.enforce_context(&ctx), Ok(()));
+    w.env.cost_estimate().budget().memory_bytes_cost()
+}
+
+#[test]
+fn a_big_constant_in_a_quantifier_body_does_not_multiply_its_cost_by_the_element_count() {
+    // 3,900 u32s is a 31 KB rule. Compared as XDR it was serialised once per
+    // element: 73 MB on every `enforce`, over the 40 MiB limit, so the rule
+    // installed and then always trapped.
+    let big = tuple((0..3900).map(ScVal::U32).collect());
+    let rule = rule_for(quant("all", call_arg(0), cmp("ne", elem(&[]), lit(big))));
+    let items = |e: &Env| {
+        let v: StdVec<Val> = (0..32i128).map(|i| i.into_val(e)).collect();
+        soroban_sdk::vec![e, SorobanVec::<Val>::from_slice(e, &v).into_val(e)]
+    };
+    let mem = enforce_memory(&rule, items);
+    assert!(mem < 8 * 1024 * 1024, "{mem} bytes of the 40 MiB limit");
+}
+
+#[test]
+fn a_big_constant_outside_a_body_stays_cheap_too() {
+    let big = tuple((0..3900).map(ScVal::U32).collect());
+    let rule = rule_for(cmp("ne", call_arg(0), lit(big)));
+    let mem = enforce_memory(&rule, |e| soroban_sdk::vec![e, 1i128.into_val(e)]);
+    assert!(mem < 8 * 1024 * 1024, "{mem} bytes");
+}
+
+#[test]
+fn every_big_constant_shape_stays_far_under_the_memory_limit_in_a_body() {
+    use soroban_sdk::xdr::{ContractId, Hash, ScAddress, ScBytes};
+    let address = |i: u32| {
+        let mut h = [0u8; 32];
+        h[..4].copy_from_slice(&i.to_be_bytes());
+        ScVal::Address(ScAddress::Contract(ContractId(Hash(h))))
+    };
+    let shapes = [
+        tuple((0..700).map(address).collect()),
+        ScVal::Bytes(ScBytes(alloc::vec![7u8; 31_000].try_into().unwrap())),
+        // equal-typed elements, so the compare really walks the constant
+        tuple((0..3900).map(ScVal::U32).collect()),
+    ];
+    for big in shapes {
+        let rule = rule_for(quant("all", call_arg(0), cmp("ne", elem(&[]), lit(big))));
+        let items = |e: &Env| {
+            // the same 3,900 numbers but the last: equal until the end
+            let one: StdVec<Val> = (0..3900u32).map(|i| (i % 3899).into_val(e)).collect();
+            let one: Val = SorobanVec::<Val>::from_slice(e, &one).into_val(e);
+            let v: StdVec<Val> = (0..32).map(|_| one).collect();
+            soroban_sdk::vec![e, SorobanVec::<Val>::from_slice(e, &v).into_val(e)]
+        };
+        let mem = enforce_memory(&rule, items);
+        assert!(mem < 8 * 1024 * 1024, "{mem} bytes of the 40 MiB limit");
+    }
+}
