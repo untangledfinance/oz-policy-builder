@@ -706,16 +706,22 @@ fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
         return Ok(Leaf::Lit(*val));
     }
     // Any other bare value is a constant (but a map: see `plain`).
-    plain(env, val, depth).map(|()| Leaf::Lit(*val))
+    bare(val).map(|()| Leaf::Lit(*val))
 }
 
 /// A leaf that must be a constant: an `in` entry, or a path-step key. A vector
 /// goes through `decode_leaf` (so `lit(x)` works); anything else is itself.
 fn literal(env: &Env, val: &Val) -> Res<Val> {
     match Vals::try_from_val(env, val) {
-        Err(_) => plain(env, val, 1).map(|()| *val),
+        Err(_) => bare(val).map(|()| *val),
         Ok(_) => literal_to_val(&decode_leaf(env, val, 1)?),
     }
+}
+
+/// A bare value that is not a vec: any but a map (see `plain`). Only the tag is
+/// read, so it costs nothing next to a host call.
+fn bare(val: &Val) -> Res<()> {
+    ensure(val.get_tag().get_scval_type() != Some(T::Map))
 }
 
 /// An element of a bare vec constant: a value, or a non-empty vec that does not
@@ -727,7 +733,7 @@ fn literal(env: &Env, val: &Val) -> Res<Val> {
 fn plain(env: &Env, val: &Val, depth: u32) -> Res<()> {
     cap(depth <= MAX_DEPTH, DecodeError::PredicateTooDeep)?;
     let Ok(items) = Vals::try_from_val(env, val) else {
-        return ensure(val.get_tag().get_scval_type() != Some(T::Map));
+        return bare(val);
     };
     ensure(!items.is_empty() && expect::<Symbol>(env, &items, 0).is_err())?;
     each(&items, |e| plain(env, &e, depth + 1)).map(|_| ())
