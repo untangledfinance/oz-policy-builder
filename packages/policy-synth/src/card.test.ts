@@ -1617,7 +1617,7 @@ describe('the authority header: who can act, under what rule, until when, up to 
       'Authority',
       `├─ signer:  ${G1.slice(0, 6)}…${G1.slice(-6)}`,
       '├─ to act:  the signer acts alone',
-      `├─ admins (may re-install or uninstall):  ${G1.slice(0, 6)}…${G1.slice(-6)}`,
+      `├─ admins:  ${G1.slice(0, 6)}…${G1.slice(-6)} (may re-install or uninstall)`,
       '├─ expires:  never expires',
       '├─ total:  no total limit: each call may move up to its own cap',
       `└─ interpreter:  ${INT.slice(0, 6)}…${INT.slice(-6)} (interpreter)`,
@@ -1635,9 +1635,6 @@ describe('the authority header: who can act, under what rule, until when, up to 
     expect(
       rule({ ...base, signers: [G1, G2], threshold: { n: 3, weights: { [G1]: 2, [G2]: 1 } } })
     ).toContain('signers whose weights total at least 3 must approve')
-    expect(rule({ ...base, signers: [G1, G2], threshold: {} })).toContain(
-      'a threshold policy applies (its threshold is not read here)'
-    )
   })
 
   it('a weight follows its signer; a contract signer is said to be one; labels are marked', () => {
@@ -1649,23 +1646,16 @@ describe('the authority header: who can act, under what rule, until when, up to 
     expect(out[2]).toBe(`├─ signer:  contract ${KC.slice(0, 6)}…${KC.slice(-6)}  weight 1`)
   })
 
-  it("expiry: a ledger and about when; the total in the token's unit, per window; unknown facts are left out", () => {
-    const at = Date.UTC(2026, 9, 16, 12, 0)
+  it("expiry: the ledger it lapses after (no estimated date); the total in the token's unit, per window; unknown facts are left out", () => {
     const out = text(
-      {
-        ...base,
-        validUntil: 5_300_000,
-        approxAt: at,
-        total: { amount: '50000000000', periodLedgers: 17280 },
-      },
+      { ...base, validUntil: 5_300_000, total: { amount: '50000000000', periodLedgers: 17280 } },
       { contract: C, ...token }
     )
-    expect(out).toContain('├─ expires:  ledger 5300000 (about 2026-10-16 12:00 UTC)')
+    expect(out).toContain('├─ expires:  until ledger 5300000')
     expect(out).toContain(
       '├─ total:  at most 5,000 USDC (50000000000) in total per 17280 ledgers (rolling, OZ spending_limit)'
     )
     expect(text({ signers: [G1] }).join('\n')).not.toMatch(/expires|total|admins|interpreter/)
-    expect(text({ ...base, validUntil: 9 })).toContain('├─ expires:  ledger 9')
     expect(text({ ...base, total: { amount: '7', periodLedgers: 2 } })).toContain(
       '├─ total:  at most 7 in total per 2 ledgers (rolling, OZ spending_limit)'
     )

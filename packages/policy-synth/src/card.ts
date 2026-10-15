@@ -52,6 +52,7 @@ const COMPARE: Record<string, string> = {
   gte: 'must be at least',
   in: 'must be one of',
   nin: 'must not be one of',
+  fact: '', // a fact of the authority header reads `label:  value`
 }
 const KNOWN: Record<string, string> = Object.fromEntries([
   ...Object.values(SPENDING_LIMIT).map((a) => [a, 'spending limit']),
@@ -335,13 +336,12 @@ export function tree(expr: Expr, view: View = {}): Node[] {
 /** What a rule lets its signers do, as the install builds it (or as an account reports it). */
 export interface Authority {
   signers: string[]
-  /** A threshold policy beside the interpreter; `n` is unknown when only its presence is. */
-  threshold?: { n?: number; weights?: Record<string, number> } | undefined
+  /** A threshold policy beside the interpreter: `n` signers, or (with `weights`) weights totalling `n`. */
+  threshold?: { n: number; weights?: Record<string, number> } | undefined
   admins?: string[] | undefined
-  /** `undefined`: not known; `null`: never; else the ledger, and about when (ms). */
+  /** `null`: never expires; else the ledger it lapses after. */
   validUntil?: number | null | undefined
-  approxAt?: number | undefined
-  /** `undefined`: not known; `null`: no rolling total. */
+  /** `null`: no rolling total. */
   total?: { amount: string; periodLedgers: number } | null | undefined
   interpreter?: string | undefined
 }
@@ -352,14 +352,9 @@ export function authority(a: Authority, c: View): Node {
   const [k, t, w] = [a.signers.length, a.threshold, a.threshold?.weights]
   const who = (x: string) => `${x.startsWith('C') ? 'contract ' : ''}${addr(x, c)}`
   const del = (s: string): Val => ['Delegated', s]
-  const at =
-    a.approxAt &&
-    ` (about ${new Date(a.approxAt).toISOString().slice(0, 16).replace('T', ' ')} UTC)`
   const act = !t
     ? `${k === 1 ? 'the signer' : `any ONE of these ${k} signers`} acts alone`
-    : t.n === undefined
-      ? 'a threshold policy applies (its threshold is not read here)'
-      : `${w ? `signers whose weights total at least ${t.n}` : `any ${t.n} of these ${k} signers`} must approve`
+    : `${w ? `signers whose weights total at least ${t.n}` : `any ${t.n} of these ${k} signers`} must approve`
   const facts: [string, string, Val][] = a.signers.map((s) => [
     'signer',
     who(s) + (w ? `  weight ${w[s]}` : ''),
@@ -368,31 +363,27 @@ export function authority(a: Authority, c: View): Node {
   facts.push(['to act', act, t?.n ?? null])
   if (a.admins)
     facts.push([
-      'admins (may re-install or uninstall)',
-      a.admins.map(who).join(', '),
+      'admins',
+      `${a.admins.map(who).join(', ')} (may re-install or uninstall)`,
       a.admins.map(del),
     ])
-  if (a.validUntil !== undefined)
-    facts.push([
-      'expires',
-      a.validUntil === null ? 'never expires' : `ledger ${a.validUntil}${at ?? ''}`,
-      a.validUntil,
-    ])
+  const v = a.validUntil
+  if (v !== undefined)
+    facts.push(['expires', v === null ? 'never expires' : `until ledger ${v}`, v])
   if (a.total !== undefined) {
     const { amount: x, periodLedgers: p } = a.total ?? { amount: '', periodLedgers: 0 }
-    const limit: Val = a.total && {
+    const unit = known(c)?.token
+    const per = `at most ${unit ? money(x, unit) : x} in total per ${p} ledgers (rolling, OZ spending_limit)`
+    const spent: Val = {
       map: [
         ['period_ledgers', p],
         ['spending_limit', { i128: x }],
       ],
     }
-    const unit = known(c)?.token
     facts.push([
       'total',
-      a.total
-        ? `at most ${unit ? money(x, unit) : x} in total per ${p} ledgers (rolling, OZ spending_limit)`
-        : 'no total limit: each call may move up to its own cap',
-      limit,
+      a.total ? per : 'no total limit: each call may move up to its own cap',
+      a.total && spent,
     ])
   }
   if (a.interpreter) facts.push(['interpreter', addr(a.interpreter, c), a.interpreter])

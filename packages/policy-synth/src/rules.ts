@@ -39,10 +39,6 @@ export interface ObservedRule {
   /** Signers as stable keys: `G...`, or `External:<verifier>:<key>`. */
   signers: string[]
   policies: string[]
-  /** Ledger after which the rule lapses; null: never. */
-  validUntil: number | null
-  /** The policy admins, from the interpreter's own record. */
-  admins?: string[] | undefined
   /** The stored predicate, for a rule our interpreter polices. */
   expr?: Expr
   /** Our interpreter polices it, but its stored predicate could not be read (or decoded). */
@@ -117,7 +113,6 @@ export async function readRule(
     scope: scopeOf(f.context_type as Val),
     signers: (f.signers as Val[]).map(signerKey),
     policies: f.policies as string[],
-    validUntil: f.valid_until as number | null,
   }
   // Its predicate too, when `interpreter` polices it; a rule read only to be described is not
   // refused over it, but says so.
@@ -149,7 +144,6 @@ export async function readPredicates(
     try {
       if (!bytes) throw new Error('no stored predicate')
       r.expr = decode(Buffer.from(bytes, 'hex').toString('base64'))
-      r.admins = (doc.master_set as Val[] | undefined)?.map(signerKey)
     } catch {
       unreadable.push(r.id)
     }

@@ -27,8 +27,6 @@ import {
   INTERPRETER_WASM,
   type Network,
   OZ_ACCOUNT_WASM,
-  OZ_THRESHOLD,
-  SPENDING_LIMIT,
 } from './config.ts'
 import { type ErrorCode, messageOf, Refusal, type ToolResponse } from './envelope.ts'
 import {
@@ -611,7 +609,7 @@ const revoke_policy = tool(
       build: (id) => buildRevoke({ ...i, server }, id),
     })
     const r = plan.removes
-    const [shown] = r.expr ? await describeRules(i, [r], mine, signal) : []
+    const [shown] = r.expr ? await describeRules(i, [r], signal) : []
     const skipped = (await trusted).known
       ? {}
       : { reviewSkipped: notKnown(i.smartAccount, await trusted, UNVERIFIED) }
@@ -623,28 +621,15 @@ const scopedContract = (r: ObservedRule) =>
   r.scope.kind === 'call_contract' ? r.scope.contract : undefined
 
 /** The reviews of rules read off an account (those with a stored predicate), each under the
- *  contract its rule is scoped to and headed by the authority the account reports for it. */
+ *  contract its rule is scoped to. */
 export const describeRules = (
   i: Parameters<typeof explain>[0],
   rules: ObservedRule[],
-  interpreter?: string,
   signal?: AbortSignal
 ) =>
   explain(
     i,
-    rules.map((r) => ({
-      expr: r.expr as Expr,
-      contract: scopedContract(r),
-      authority: {
-        signers: r.signers,
-        validUntil: r.validUntil,
-        admins: r.admins,
-        // A total is known when no spending limit is attached, or when its record was read.
-        total: r.policies.includes(SPENDING_LIMIT[i.network]) ? r.cap : null,
-        interpreter,
-        ...(r.policies.some((p) => OZ_THRESHOLD.includes(p)) ? { threshold: {} } : {}),
-      },
-    })),
+    rules.map((r) => ({ expr: r.expr as Expr, contract: scopedContract(r) })),
     signal
   )
 
@@ -689,7 +674,6 @@ async function explainAccount(
   const shown = await describeRules(
     { ...i, smartAccount: account },
     read.rules.filter((r) => r.expr),
-    interpreter,
     signal
   )
   let n = 0

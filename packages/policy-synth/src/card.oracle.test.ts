@@ -512,7 +512,7 @@ describe('the authority header: different authority never reads the same, the sa
       const expiry = kids.find((x) => x.label === 'expires')
       expect(expiry?.raw).toBe(a.validUntil === undefined ? undefined : a.validUntil)
       if (a.validUntil !== undefined && a.validUntil !== null)
-        expect(expiry?.value).toContain(`ledger ${a.validUntil}`)
+        expect(expiry?.value).toBe(`until ledger ${a.validUntil}`)
       if (a.threshold?.n !== undefined)
         expect(kids.find((x) => x.label === 'to act')?.value).toContain(String(a.threshold.n))
       if (a.total)
