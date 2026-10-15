@@ -697,7 +697,7 @@ describe('planInstall: the guards', () => {
     expect(e?.message).toContain(`${SIGNER} alone meets the threshold of 3`)
     expect(e?.message).not.toMatch(/any ONE of the 3/)
     expect(e?.message).not.toContain(account(2))
-    expect(e?.message).toContain('anyOne: true')
+    expect(e?.message).toContain('`anyOne: true` to install it on purpose')
     await refused(
       planInstall({ ...two, threshold: { n: 1 } }, rule, chain()),
       'INSTALL_BUILD_FAILED',
