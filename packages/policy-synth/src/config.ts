@@ -85,6 +85,25 @@ export const OZ_THRESHOLD = [
 export const thresholdAddress = (net: Network, weighted: boolean): string =>
   OZ_THRESHOLD[(net === 'mainnet' ? 2 : 0) + (weighted ? 1 : 0)] as string
 
+/** `read` targets whose answer cannot be moved within one transaction (an oracle's own price feed),
+ *  by network: contract -> functions. Any other read is a live value an agent can move with a
+ *  call of its own just before the one the rule judges, so an install of it is refused unless the
+ *  operator sets POLICY_BUILDER_ALLOW_SPOT_READS=1. Testnet: the Reflector oracles (their spec was
+ *  read on chain: `lastprice(asset)`, `price(asset, timestamp)`). Mainnet: empty until an address is
+ *  verified the same way. */
+export const SAFE_READS: Record<Network, Record<string, string[]>> = {
+  testnet: Object.fromEntries(
+    [
+      'CCYOZJCOPG34LLQQ7N24YXBM7LL62R7ONMZ3G6WZAAYPB5OYKOMJRN63',
+      'CAVLP5DH2GJPZMVO7IJY4CVOD5MWEFTJFVPD2YY2FQXOQHRGHK4D6HLP',
+      'CCSSOHTBL3LEWUCBBEB5NJFC2OKFRC74OWEIJIZLRJBGAAU4VMU5NV4W',
+    ].map((a) => [a, ['lastprice', 'price']])
+  ),
+  mainnet: {},
+}
+export const safeRead = (net: Network, contract: string, fn: string): boolean =>
+  Object.hasOwn(SAFE_READS[net], contract) && (SAFE_READS[net][contract] as string[]).includes(fn)
+
 /** Policy contracts a rule must never be scoped to: scoping a rule to one
  *  exposes that contract's own admin calls (the interpreter does not refuse it). */
 export const POLICY_CONTRACTS: ReadonlySet<string> = new Set([

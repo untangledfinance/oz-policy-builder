@@ -5,7 +5,7 @@
 // wire leaf or subtree it was read from, and a leaf that cannot be named keeps today's
 // "argument N" wording. Nothing a name says can change what the rule enforces.
 
-import { INTERPRETER, SPENDING_LIMIT } from './config.ts'
+import { INTERPRETER, type Network, SPENDING_LIMIT, safeRead } from './config.ts'
 import { type Info, SAC, type Ty } from './spec.ts'
 import { type Expr, intOf, isAddress, isSelector, isTagged, unlit, type Val } from './wire.ts'
 
@@ -26,6 +26,8 @@ export interface View {
   info?: Record<string, Info>
   /** The contract the rule is scoped to, when its predicate does not say. */
   contract?: string | undefined
+  /** The network the rule is for: a read of an oracle on its safe list is not marked as a live value. */
+  network?: Network | undefined
   /** Names for addresses, from the request. */
   labels?: Record<string, string>
   /** Full addresses and values as written, and the wire index of every name. */
@@ -227,7 +229,11 @@ function operand(v: Val, c: View, kind?: Sub['kind']): Sub {
     case 'read': {
       const [target, fn, args, ...steps] = path as [string, string, Val[], ...Val[]]
       const on = `${fn}(${args.map((x) => operand(x, c).name).join(', ')}) on ${addr(target, c)}`
-      return counted({ name: [on, ...steps.map((s) => step(s, c))].join(' › ') })
+      const live =
+        c.network && safeRead(c.network, target, fn)
+          ? ''
+          : ' (live value, movable within one transaction)'
+      return counted({ name: [on + live, ...steps.map((s) => step(s, c))].join(' › ') })
     }
   }
   return { name: JSON.stringify(v) }

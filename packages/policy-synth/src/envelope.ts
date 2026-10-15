@@ -11,6 +11,7 @@ export type ErrorCode =
   | 'INSTALL_BUILD_FAILED'
   | 'REVOKE_BUILD_FAILED'
   | 'INTERPRETER_MISMATCH'
+  | 'READ_UNSAFE'
 
 export interface ToolError {
   code: ErrorCode

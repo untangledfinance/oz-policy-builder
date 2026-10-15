@@ -319,7 +319,7 @@ export async function explain(
   const info = await infoFor(i, named, signal)
   return items.map(({ expr, contract }) => {
     try {
-      const reviewTree = tree(expr, { info, labels, raw: i.raw, contract })
+      const reviewTree = tree(expr, { info, labels, raw: i.raw, contract, network: i.network })
       return { review: lines(reviewTree), reviewTree }
     } catch {
       return { review: ['(this predicate could not be described)'], reviewTree: [] }

@@ -8,7 +8,9 @@ import {
   INTERPRETERS,
   OZ_ACCOUNT_WASM,
   POLICY_CONTRACTS,
+  SAFE_READS,
   SPENDING_LIMIT,
+  safeRead,
   thresholdAddress,
 } from './config.ts'
 
@@ -109,5 +111,26 @@ describe('the smart-account builds a review will read', () => {
     expect(createHash('sha256').update(wasm).digest('hex')).toBe(
       record.wasmSha256.multisig_account_example
     )
+  })
+})
+
+describe('read targets that cannot be moved within one transaction', () => {
+  it('testnet: the Reflector oracles, lastprice and price (their spec was read on chain); mainnet: an empty slot until one is verified', () => {
+    const t = Object.entries(SAFE_READS.testnet)
+    expect(t.length).toBeGreaterThan(0)
+    for (const [address, fns] of t) {
+      expect(StrKey.isValidContract(address)).toBe(true)
+      expect(fns).toEqual(['lastprice', 'price'])
+    }
+    expect(SAFE_READS.mainnet).toEqual({})
+  })
+  it('a read is safe only for a listed contract and function, on that network', () => {
+    const [address] = Object.keys(SAFE_READS.testnet) as [string]
+    expect(safeRead('testnet', address, 'lastprice')).toBe(true)
+    expect(safeRead('testnet', address, 'price')).toBe(true)
+    expect(safeRead('testnet', address, 'set_price')).toBe(false)
+    expect(safeRead('testnet', address, 'constructor')).toBe(false)
+    expect(safeRead('mainnet', address, 'lastprice')).toBe(false)
+    expect(safeRead('testnet', 'C'.padEnd(56, 'A'), 'lastprice')).toBe(false)
   })
 })

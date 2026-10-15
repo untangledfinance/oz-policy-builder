@@ -828,6 +828,60 @@ describe('install_policy', () => {
     })
   })
 
+  it("a rule that reads a live value is refused READ_UNSAFE by the tool; the operator's environment, not an input, allows it", async () => {
+    const withRead = {
+      ...base,
+      xdr: undefined,
+      limit: undefined,
+      allowOverlap: true,
+      intent: {
+        calls: [
+          {
+            contract: TOKEN,
+            fn: 'transfer',
+            where: [
+              { constraint: 'cap', at: [2], max: '9000000' },
+              {
+                constraint: 'read',
+                contract: contract(9),
+                fn: 'balance',
+                args: [{ arg: [0] }],
+                op: 'gte',
+                to: { i128: '1' },
+              },
+            ],
+          },
+        ],
+      },
+    }
+    const before = process.env.POLICY_BUILDER_ALLOW_SPOT_READS
+    delete process.env.POLICY_BUILDER_ALLOW_SPOT_READS
+    try {
+      await failing('install_policy', withRead, 'READ_UNSAFE', /balance on /)
+      await failing(
+        'install_policy',
+        { ...withRead, allowSpotReads: true },
+        'INVALID_INPUT',
+        /allowSpotReads/
+      )
+    } finally {
+      if (before !== undefined) process.env.POLICY_BUILDER_ALLOW_SPOT_READS = before
+    }
+  })
+
+  it('the review marks a read as a live value', async () => {
+    const r = await call('simulate_policy', {
+      expr: [
+        'and',
+        [
+          ['eq', ['call_fn'], 'f'],
+          ['gte', ['call_arg', 0], ['read', contract(9), 'balance', []]],
+        ],
+      ],
+    })
+    expect(r.data.review.join('\n')).toContain('(live value, movable within one transaction)')
+  })
+
   it('an unanswered cap is refused, unless asked for', async () => {
     const open = { ...base, limit: undefined, allowOverlap: true }
     await failing('install_policy', open, 'INSTALL_BUILD_FAILED', /Answer with `limit`/)

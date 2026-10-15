@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { account, contract } from '../test/fixtures.ts'
 import { card, contractsOf, lines, type Node, tree, type View } from './card.ts'
-import { SPENDING_LIMIT } from './config.ts'
+import { SAFE_READS, SPENDING_LIMIT } from './config.ts'
 import { decodeEnvelope } from './record.ts'
 import { TEMPLATES } from './registry.ts'
 import { SAC } from './spec.ts'
@@ -71,11 +71,11 @@ describe('operators and operands are words', () => {
     ],
     [
       ['gte', ['read', C, 'price', [['call_arg', 1], 'USD'], 'price'], { i128: '5' }],
-      `price(argument 1, 'USD') on ${short(C)} › price:  must be at least  5`,
+      `price(argument 1, 'USD') on ${short(C)} (live value, movable within one transaction) › price:  must be at least  5`,
     ],
     [
       ['gte', ['read', C, 'price', []], { i128: '5' }],
-      `price() on ${short(C)}:  must be at least  5`,
+      `price() on ${short(C)} (live value, movable within one transaction):  must be at least  5`,
     ],
     [
       [
@@ -91,7 +91,7 @@ describe('operators and operands are words', () => {
         ],
         1,
       ],
-      `f(5, "k") on ${short(C)}:  must be  1`,
+      `f(5, "k") on ${short(C)} (live value, movable within one transaction):  must be  1`,
     ],
     [
       [
@@ -477,7 +477,7 @@ describe('labels', () => {
       `argument 1:  must not be one of  [${short(A)} («treasury»), ${short(B)}]`
     )
     expect(one(['gte', ['read', D, 'balance', [A]], { i128: '1' }], v)).toBe(
-      `balance(${short(A)} («treasury»)) on ${short(D)} («vault»):  must be at least  1`
+      `balance(${short(A)} («treasury»)) on ${short(D)} («vault») (live value, movable within one transaction):  must be at least  1`
     )
   })
 
@@ -1192,10 +1192,10 @@ describe('a step of a path says what it is', () => {
     )
     expect(leaf(['elem', true])).toBe('the number of items in the item:  must be at most  3')
     expect(leaf(['read', C, 'list', [], true])).toBe(
-      `the number of items in list() on ${short(C)}:  must be at most  3`
+      `the number of items in list() on ${short(C)} (live value, movable within one transaction):  must be at most  3`
     )
     expect(leaf(['read', C, 'list', [], ['lit', true]])).toBe(
-      `list() on ${short(C)} › true:  must be at most  3`
+      `list() on ${short(C)} (live value, movable within one transaction) › true:  must be at most  3`
     )
     expect(leaf(['call_arg_len', 1])).toBe('the number of items in argument 1:  must be at most  3')
     expect(leaf(['call_path', 1, true])).toBe(
@@ -1561,5 +1561,31 @@ describe('two tokens in one rule: each amount in its own unit', () => {
       '│     └─ amount:  must be at most  0.00005 AAA (500)',
       '      └─ amount:  must be at most  5 BBB (500)',
     ])
+  })
+})
+
+describe('a read says what it is: a live value, unless its source cannot be moved', () => {
+  const LIVE = ' (live value, movable within one transaction)'
+  const REFLECTOR = Object.keys(SAFE_READS.testnet)[0] as string
+  const price = (target: string, fn: string, v?: View) =>
+    one(['gte', ['read', target, fn, []], { i128: '5' }], v)
+  it('an unlisted source is marked, in every view', () => {
+    expect(price(D, 'balance')).toBe(`balance() on ${short(D)}${LIVE}:  must be at least  5`)
+    expect(price(D, 'balance', { raw: true })).toContain(LIVE)
+    expect(price(D, 'balance', { network: 'testnet' })).toContain(LIVE)
+  })
+  it('a listed oracle on its own network is not; on another network, or another function, it is', () => {
+    expect(price(REFLECTOR, 'lastprice', { network: 'testnet' })).not.toContain(LIVE)
+    expect(price(REFLECTOR, 'lastprice', { network: 'mainnet' })).toContain(LIVE)
+    expect(price(REFLECTOR, 'set_price', { network: 'testnet' })).toContain(LIVE)
+    expect(price(REFLECTOR, 'lastprice')).toContain(LIVE)
+  })
+  it('inside scaled and sum it is still marked once per read', () => {
+    const t = one([
+      'gte',
+      ['call_arg', 1],
+      ['scaled', ['read', D, 'p', []], { i128: '1' }, { i128: '2' }, { i128: '0' }],
+    ])
+    expect(t.split(LIVE)).toHaveLength(2)
   })
 })

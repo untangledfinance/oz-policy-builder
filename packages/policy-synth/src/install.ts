@@ -26,6 +26,7 @@ import {
   PASSPHRASE,
   POLICY_CONTRACTS,
   SPENDING_LIMIT,
+  safeRead,
   thresholdAddress,
 } from './config.ts'
 import { type ErrorCode, Refusal } from './envelope.ts'
@@ -403,6 +404,15 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
     ...(i.spendingLimit ? { cap: { address: SPENDING_LIMIT[i.network], ...i.spendingLimit } } : {}),
     ...(t ? { extra: [thresholdPolicy(i.network, t)] } : {}),
   }
+  // A read is a live value: unless its source cannot be moved, an agent can move it just before the call.
+  const reads = [...JSON.stringify(rule.expr).matchAll(/\["read","(C\w{55})","([^"]*)"/g)].filter(
+    (m) => !safeRead(i.network, m[1] as string, m[2] as string)
+  )
+  if (reads.length > 0 && process.env.POLICY_BUILDER_ALLOW_SPOT_READS !== '1')
+    throw new Refusal(
+      'READ_UNSAFE',
+      `the rule reads a live value an agent can move within one transaction (${reads.map((m) => `${m[2]} on ${m[1]}`).join(', ')}): only an oracle on the safe list is trusted. The operator can allow spot reads with POLICY_BUILDER_ALLOW_SPOT_READS=1.`
+    )
   // OZ's spending_limit panics NotAllowed on every context but `transfer(from, to, amount)` of a token.
   if (i.spendingLimit) {
     if (selectors(rule.expr).some((s) => s.fn !== 'transfer'))

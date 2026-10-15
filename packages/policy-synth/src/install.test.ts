@@ -4,7 +4,7 @@ import { TransactionBuilder } from '@stellar/stellar-sdk'
 import { account, contract } from '../test/fixtures.ts'
 import { recorded } from '../test/rpc.ts'
 import { connect, interpreterFor } from './chain.ts'
-import { PASSPHRASE, SPENDING_LIMIT, thresholdAddress } from './config.ts'
+import { PASSPHRASE, SAFE_READS, SPENDING_LIMIT, thresholdAddress } from './config.ts'
 import { buildInstall, buildRevoke, type RuleDraft, ruleArgs } from './install.ts'
 import { callExpr } from './intent.ts'
 import { type Expr, encode, hashOf } from './wire.ts'
@@ -525,6 +525,92 @@ describe('planInstall: the guards', () => {
 
     it('without a total nothing about the function is asked', async () => {
       await planInstall(input, on('approve'), chain())
+    })
+  })
+
+  describe('a read in the predicate: a live value is movable within one transaction', () => {
+    const REFLECTOR = Object.keys(SAFE_READS.testnet)[0] as string
+    const readRule = (target: string, fn: string): Chosen => {
+      const e: Expr = [
+        'and',
+        [
+          ['eq', ['call_fn'], 'transfer'],
+          ['lte', ['call_arg', 2], ['read', target, fn, []]],
+        ],
+      ]
+      return { contract: TOKEN, expr: e, encoded: encode(e), hash: hashOf(encode(e)) }
+    }
+    const spot = () => {
+      const before = process.env.POLICY_BUILDER_ALLOW_SPOT_READS
+      const put = (v: string | undefined) => {
+        if (v === undefined) delete process.env.POLICY_BUILDER_ALLOW_SPOT_READS
+        else process.env.POLICY_BUILDER_ALLOW_SPOT_READS = v
+      }
+      return { set: put, undo: () => put(before) }
+    }
+
+    it('is refused as READ_UNSAFE, naming the target and function, unless the operator allows spot reads', async () => {
+      const env = spot()
+      try {
+        env.set(undefined)
+        await refused(
+          planInstall(input, readRule(contract(9), 'balance'), chain()),
+          'READ_UNSAFE',
+          new RegExp(`${contract(9)}.*balance|balance.*${contract(9)}`)
+        )
+        await refused(
+          planInstall(input, readRule(contract(9), 'balance'), chain()),
+          'READ_UNSAFE',
+          /POLICY_BUILDER_ALLOW_SPOT_READS/
+        )
+        env.set('0')
+        await refused(planInstall(input, readRule(contract(9), 'balance'), chain()), 'READ_UNSAFE')
+        env.set('1')
+        await planInstall(input, readRule(contract(9), 'balance'), chain())
+      } finally {
+        env.undo()
+      }
+    })
+
+    it('an oracle price read on the safe list installs without the operator switch; another function of it does not', async () => {
+      const env = spot()
+      try {
+        env.set(undefined)
+        await planInstall(input, readRule(REFLECTOR, 'lastprice'), chain())
+        await refused(planInstall(input, readRule(REFLECTOR, 'set_price'), chain()), 'READ_UNSAFE')
+        await refused(
+          planInstall(
+            { ...input, network: 'mainnet', interpreterAddress: INTERP },
+            readRule(REFLECTOR, 'lastprice'),
+            chain()
+          ),
+          'READ_UNSAFE'
+        )
+      } finally {
+        env.undo()
+      }
+    })
+
+    it('one unsafe read among safe ones refuses; no read asks nothing', async () => {
+      const env = spot()
+      try {
+        env.set(undefined)
+        const e: Expr = [
+          'and',
+          [
+            ['eq', ['call_fn'], 'transfer'],
+            ['lte', ['call_arg', 2], ['read', REFLECTOR, 'lastprice', []]],
+            ['gte', ['call_arg', 2], ['read', contract(9), 'x', []]],
+          ],
+        ]
+        await refused(
+          planInstall(input, { contract: TOKEN, expr: e, encoded: encode(e), hash: 'x' }, chain()),
+          'READ_UNSAFE'
+        )
+        await planInstall(input, rule, chain())
+      } finally {
+        env.undo()
+      }
     })
   })
 
