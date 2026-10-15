@@ -154,6 +154,39 @@ describe('record_transaction', () => {
   })
 })
 
+describe('synthesize_policy: template parameters are typed', () => {
+  const venue = { pool: TOKEN, token: contract(2), account: account(1), max: '100' }
+  const batch = { adapter: TOKEN, targets: [contract(2)] }
+  const bad = (name: string, params: object, text: RegExp) =>
+    failing('synthesize_policy', { template: { name, params } }, 'INVALID_INPUT', text)
+
+  it('refuses what a template cannot mean, naming the parameter', async () => {
+    await bad('blend_venue', {}, /pool/)
+    await bad('blend_venue', { ...venue, maxType: 4 }, /maxType/) // 4 is borrow
+    await bad('blend_venue', { ...venue, maxType: -1 }, /maxType/)
+    await bad('blend_venue', { ...venue, account: 'me' }, /account/)
+    await bad('blend_venue', { ...venue, token: 'usdc' }, /token/)
+    await bad('blend_venue', { ...venue, max: '0' }, /max/)
+    await bad('blend_venue', { ...venue, extra: 1 }, /extra/)
+    await bad('adapter_batch', {}, /adapter/)
+    await bad('adapter_batch', { ...batch, targets: [] }, /targets/)
+    await bad('adapter_batch', { ...batch, targets: [account(1)] }, /targets/)
+    await bad('adapter_batch', { ...batch, functions: ['a b'] }, /functions/)
+    await bad('adapter_batch', { ...batch, maxCalls: 0 }, /maxCalls/)
+    await bad('adapter_batch', { ...batch, maxCalls: 1.5 }, /maxCalls/)
+    await bad('nothing', {}, /name/)
+  })
+
+  it('and builds from what it can mean', async () => {
+    for (const template of [
+      { name: 'blend_venue', params: { ...venue, maxType: 0 } },
+      { name: 'blend_venue', params: venue },
+      { name: 'adapter_batch', params: { ...batch, functions: ['supply'], maxCalls: 4 } },
+    ])
+      expect((await call('synthesize_policy', { template })).ok).toBe(true)
+  })
+})
+
 describe('synthesize_policy', () => {
   it('a payment: who is pinned, the amount is a question, and the review says so', async () => {
     const r = await call('synthesize_policy', { xdr: transferXdr() }, false)

@@ -23,7 +23,7 @@ import { type ErrorCode, messageOf, Refusal, type ToolResponse } from './envelop
 import { buildInstall, buildRevoke, type Chain, type Chosen, planInstall } from './install.ts'
 import type { Intent } from './intent.ts'
 import { type Call, decodeEnvelope, type Recording, recordHash } from './record.ts'
-import { TEMPLATES } from './registry.ts'
+import { TEMPLATES, TemplateParams } from './registry.ts'
 import { readRules, selectors } from './rules.ts'
 import {
   type Answers,
@@ -117,11 +117,10 @@ const from = {
   recording: recording.optional(),
   intent: intent.optional(),
   template: z
-    .object({
-      name: z.enum(Object.keys(TEMPLATES) as [keyof typeof TEMPLATES]),
-      params: z.record(z.unknown()),
-    })
-    .strict()
+    .discriminatedUnion('name', [
+      z.object({ name: z.literal('adapter_batch'), params: TemplateParams.adapter_batch }).strict(),
+      z.object({ name: z.literal('blend_venue'), params: TemplateParams.blend_venue }).strict(),
+    ])
     .optional(),
   limit: amount.optional(),
   limits: z.record(amount).optional(),
