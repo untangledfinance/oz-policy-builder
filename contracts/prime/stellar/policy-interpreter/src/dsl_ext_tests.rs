@@ -11,8 +11,9 @@ use alloc::vec::Vec as StdVec;
 
 use crate::dsl::{decode, evaluate, DecodeError, DenyReason, EvalContext, EvalDecision};
 use soroban_sdk::xdr::{
-    ContractId, Duration, Hash, Int128Parts, ScAddress, ScBytes, ScMap, ScMapEntry, ScString,
-    ScSymbol, ScVal, ScVec, TimePoint, ToXdr, UInt128Parts, VecM,
+    AccountId, ContractId, Duration, Hash, Int128Parts, MuxedEd25519Account, PublicKey, ScAddress,
+    ScBytes, ScMap, ScMapEntry, ScString, ScSymbol, ScVal, ScVec, TimePoint, ToXdr, UInt128Parts,
+    Uint256, VecM,
 };
 use soroban_sdk::{Address, Env, IntoVal, Symbol, TryFromVal, Val, Vec as SorobanVec};
 
@@ -1074,4 +1075,80 @@ fn a_quantifier_body_counts_toward_node_depth() {
         refused(&all_of(over, and(&[body]))),
         Some(DecodeError::PredicateTooDeep)
     );
+}
+
+// ---- X1: a muxed address is the account it pays -----------------------------
+
+fn g(tag: u8) -> ScVal {
+    ScVal::Address(ScAddress::Account(AccountId(
+        PublicKey::PublicKeyTypeEd25519(Uint256([tag; 32])),
+    )))
+}
+
+fn muxed(tag: u8, id: u64) -> ScVal {
+    ScVal::Address(ScAddress::MuxedAccount(MuxedEd25519Account {
+        id,
+        ed25519: Uint256([tag; 32]),
+    }))
+}
+
+#[test]
+fn a_muxed_form_of_a_denylisted_address_is_still_denied() {
+    // SEP-41 `transfer(from, to: MuxedAddress, amount)`: the token credits M(G, id) to G.
+    let bad = g(0xBB);
+    let rules = [
+        set("nin", arg(1), &[bad.clone()]),
+        cmp("ne", arg(1), bad.clone()),
+        cmp("ne", bad.clone(), arg(1)),
+        all_of(path(&[ScVal::U32(0)]), cmp("ne", elem(&[]), bad.clone())),
+        all_of(
+            path(&[ScVal::U32(0)]),
+            set("nin", elem(&[]), &[bad.clone()]),
+        ),
+    ];
+    for (i, p) in rules.iter().enumerate() {
+        let call = |to: ScVal| {
+            if i < 3 {
+                [n(0), to]
+            } else {
+                [list(&[to]), n(0)]
+            }
+        };
+        assert!(denies(p, &call(bad.clone())), "rule {i}: plain");
+        assert!(denies(p, &call(muxed(0xBB, 7))), "rule {i}: muxed, id 7");
+        assert!(denies(p, &call(muxed(0xBB, 0))), "rule {i}: muxed, id 0");
+        assert!(permits(p, &call(g(0xAA))), "rule {i}: other account");
+        assert!(
+            permits(p, &call(muxed(0xAA, 7))),
+            "rule {i}: other muxed account"
+        );
+    }
+}
+
+#[test]
+fn a_muxed_entry_in_a_denylist_denies_its_account_in_any_form() {
+    let p = set("nin", arg(0), &[muxed(0xBB, 7)]);
+    assert!(denies(&p, &[muxed(0xBB, 7)]));
+    assert!(denies(&p, &[muxed(0xBB, 8)]), "same account, another id");
+    assert!(denies(&p, &[g(0xBB)]));
+    assert!(permits(&p, &[g(0xAA)]));
+}
+
+#[test]
+fn eq_and_in_stay_exact_for_muxed_addresses() {
+    // De-muxing here would let M(exchange, other id) match a pinned deposit.
+    let pinned = cmp("eq", arg(0), muxed(0xBB, 12345));
+    assert!(permits(&pinned, &[muxed(0xBB, 12345)]));
+    assert!(denies(&pinned, &[muxed(0xBB, 1)]));
+    assert!(denies(&pinned, &[g(0xBB)]));
+    assert!(denies(&cmp("eq", arg(0), g(0xBB)), &[muxed(0xBB, 12345)]));
+    let listed = set("in", arg(0), &[g(0xBB)]);
+    assert!(permits(&listed, &[g(0xBB)]) && denies(&listed, &[muxed(0xBB, 1)]));
+}
+
+#[test]
+fn ne_still_permits_what_differs_and_denies_what_cannot_resolve() {
+    assert!(permits(&cmp("ne", arg(0), g(0xBB)), &[n(5)]));
+    assert!(permits(&cmp("ne", arg(0), g(0xBB)), &[text("x")]));
+    assert!(denies(&cmp("ne", arg(3), g(0xBB)), &[g(0xAA)]));
 }

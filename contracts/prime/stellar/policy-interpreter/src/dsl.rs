@@ -11,8 +11,8 @@ use alloc::{boxed::Box, vec, vec::Vec};
 
 use soroban_sdk::xdr::{FromXdr, ToXdr};
 use soroban_sdk::{
-    Address, Bytes, Duration, Env, Error, IntoVal, Map, Symbol, SymbolStr, Timepoint, TryFromVal,
-    Val,
+    Address, Bytes, Duration, Env, Error, IntoVal, Map, MuxedAddress, Symbol, SymbolStr, Timepoint,
+    TryFromVal, Val,
 };
 
 // ---- caps (mirrors TS PREDICATE_CAPS; the Rust side is authoritative) -----
@@ -297,7 +297,9 @@ fn eval(env: &Env, node: &Node, ctx: &Ctx, memo: &mut Memo) -> Result<(), DenyRe
             let n = |v: &Val| val_to_i128(env, v).ok_or(miss);
             let pass = match op {
                 CompareOp::Eq => val_eq(env, &a, &b),
-                CompareOp::Ne => !val_eq(env, &a, &b),
+                CompareOp::Ne => {
+                    !val_eq(env, &a, &b) && !val_eq(env, &demux(env, a), &demux(env, b))
+                }
                 CompareOp::Lt => n(&a)? < n(&b)?,
                 CompareOp::Lte => n(&a)? <= n(&b)?,
                 CompareOp::Gt => n(&a)? > n(&b)?,
@@ -364,6 +366,14 @@ fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
     }
     let objects = a.is_object() || b.is_object();
     a.shallow_eq(b) || (objects && (*a).to_xdr(env) == (*b).to_xdr(env))
+}
+
+/// A muxed address as the account it pays. `ne` (so `nin`) must not be passed by
+/// adding a mux id to a listed account, which a SEP-41 `transfer` accepts for its
+/// recipient; `eq` and `in` stay exact, so a pinned `M(exchange, id)` matches only
+/// that id. Any other value, a plain address included, is returned as it is.
+fn demux(env: &Env, v: Val) -> Val {
+    MuxedAddress::try_from_val(env, &v).map_or(v, |m| m.address().to_val())
 }
 
 /// Resolve a leaf to the `Val` it denotes for the call under evaluation.
