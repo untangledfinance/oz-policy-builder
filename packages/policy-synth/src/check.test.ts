@@ -542,9 +542,12 @@ describe('deny cases, edge by edge', () => {
   })
 
   it('another address of the same kind differs from the original in its first byte only', () => {
-    const was = StrKey.decodeEd25519PublicKey(A)
+    const mixed = StrKey.encodeEd25519PublicKey(
+      Buffer.from(Array.from({ length: 32 }, (_, i) => i + 1))
+    )
+    const was = StrKey.decodeEd25519PublicKey(mixed)
     const now = StrKey.decodeEd25519PublicKey(
-      one(['eq', ['call_arg', 0], A], call([A]))?.args[0] as string
+      one(['eq', ['call_arg', 0], mixed], call([mixed]))?.args[0] as string
     )
     expect(now[0]).toBe((was[0] as number) ^ 1)
     expect(now.subarray(1)).toEqual(was.subarray(1))
@@ -557,6 +560,12 @@ describe('deny cases, edge by edge', () => {
       ['scaled', ['call_arg', 7], { i128: '2' }, { i128: '1' }, { i128: '0' }],
     ]
     expect(one(floor, call([{ i128: '1' }, { i128: '2' }]))).toBeUndefined()
+    const floor3: Expr = [
+      'gte',
+      ['call_arg', 1],
+      ['scaled', ['call_arg', 0], ['call_arg', 7], { i128: '1' }, { i128: '0' }],
+    ]
+    expect(one(floor3, call([{ i128: '1' }, { i128: '2' }]))).toBeUndefined()
     const floor2: Expr = [
       'gte',
       ['call_arg', 1],

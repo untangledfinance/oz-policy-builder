@@ -15,6 +15,7 @@ import {
   TransactionBuilder,
   xdr,
 } from '@stellar/stellar-sdk'
+import { z } from 'zod'
 import { account, contract, recording } from '../test/fixtures.ts'
 import { recorded } from '../test/rpc.ts'
 import { callExpr } from './intent.ts'
@@ -505,6 +506,38 @@ describe('install_policy', () => {
       /name it with `contract`/
     )
   })
+})
+
+describe('install_policy: the input boundary, to the unit', () => {
+  const schema = z
+    .object(TOOLS.find((t) => t.name === 'install_policy')?.shape as z.ZodRawShape)
+    .strict()
+  const base = { smartAccount: ACCOUNT, sourceAccount: SIGNER, signers: [SIGNER], xdr: 'AAAA' }
+  const ok = (o: object) => schema.safeParse({ ...base, ...o }).success
+  const many = (n: number) => Array.from({ length: n }, (_, i) => account(i + 1))
+
+  it.each<[string, object, boolean]>([
+    ['fifteen signers', { signers: many(15) }, true],
+    ['sixteen signers', { signers: many(16) }, false],
+    ['one admin', { admins: many(1) }, true],
+    ['fifteen admins', { admins: many(15) }, true],
+    ['sixteen admins', { admins: many(16) }, false],
+    ['no admin', { admins: [] }, false],
+    ['a one-character name', { name: 'x' }, true],
+    ['a twenty-character name', { name: 'x'.repeat(20) }, true],
+    ['an empty name', { name: '' }, false],
+    [
+      'a wasm hash of 64 hex digits, zeros included',
+      { interpreterWasmSha256: '0'.repeat(64) },
+      true,
+    ],
+    ['a wasm hash of 63', { interpreterWasmSha256: '0'.repeat(63) }, false],
+    ['a wasm hash of 65', { interpreterWasmSha256: '0'.repeat(65) }, false],
+    ['a one-character path', { outPath: '/' }, true],
+    ['an empty path', { outPath: '' }, false],
+    ['a ledger of the maximum', { validUntilLedger: 0xffffffff }, true],
+    ['a ledger past it', { validUntilLedger: 0x100000000 }, false],
+  ])('%s', (_n, o, want) => expect(ok(o)).toBe(want))
 })
 
 describe('revoke_policy', () => {
