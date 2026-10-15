@@ -400,11 +400,8 @@ export function lines(nodes: Node[], prefix = '', child = false): string[] {
   return nodes.flatMap((n, i) => {
     const end = i === nodes.length - 1
     const cond = n.value !== undefined && n.op !== 'contract' && n.op !== 'function'
-    const said =
-      n.op === 'fact'
-        ? n.value
-        : `${Object.hasOwn(COMPARE, n.op) ? COMPARE[n.op] : n.op}  ${n.value}`
-    const text = cond ? `${n.label}:  ${said}` : n.label
+    const phrase = Object.hasOwn(COMPARE, n.op) ? COMPARE[n.op] : n.op
+    const text = cond ? [`${n.label}:`, phrase, n.value].filter(Boolean).join('  ') : n.label
     return [
       `${prefix}${child ? (end ? '└─ ' : '├─ ') : ''}${text}`,
       ...lines(n.children ?? [], prefix + (child ? (end ? '   ' : '│  ') : ''), true),
