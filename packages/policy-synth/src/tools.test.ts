@@ -97,7 +97,11 @@ describe('the table', () => {
   })
 
   it('an unknown tool and an unknown key are refused in the envelope, never thrown', async () => {
-    expect(((await run('nope', {})) as Out).error.code).toBe('INVALID_INPUT')
+    const unknown = (await run('nope', {})) as Out
+    expect(unknown).toMatchObject({
+      ok: false,
+      error: { code: 'INVALID_INPUT', retryable: false, severity: 'error' },
+    })
     await failing(
       'revoke_policy',
       { smartAccount: ACCOUNT, sourceAccount: SIGNER, ruleId: 1, extra: 1 },

@@ -390,6 +390,16 @@ describe('readRules, against a stub account', () => {
     expect(asked).toEqual([])
   })
 
+  it('a count of exactly the id limit is walked, one more is not', async () => {
+    const at = stub({ 0: ruleVal(0) }, 512)
+    const r = await readRules(at.server, 'testnet', ACC, INTERP)
+    expect(r.complete).toBe(false) // one rule of 512 was found
+    expect(Math.max(...at.asked)).toBe(511)
+    const past = stub({ 0: ruleVal(0) }, 513)
+    expect((await readRules(past.server, 'testnet', ACC, INTERP)).complete).toBe(false)
+    expect(past.asked).toEqual([])
+  })
+
   it('stops asking when told to', async () => {
     const stopped = new AbortController()
     stopped.abort()

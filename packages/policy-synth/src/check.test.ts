@@ -229,6 +229,8 @@ describe('verify, on the live interpreter', () => {
     expect(v.cases.every((c) => c.denied)).toBe(true)
     expect(v.minimal).toBe(true)
     expect(v.ok).toBe(true)
+    expect(v.complete).toBe(true) // nothing is left untested
+    expect(v.untested).toEqual([])
     expect(v.checks).toBe(1 + 5 + 5)
   })
 
@@ -242,6 +244,7 @@ describe('verify, on the live interpreter', () => {
     ])
     expect(strict.permit).toMatchObject({ permitted: false, code: 100 })
     expect(strict.ok).toBe(false)
+    expect(strict.complete).toBe(false)
   })
 
   it('a branch that lets a broken call through makes the rule too loose', async () => {
@@ -414,6 +417,8 @@ describe('verify, what it does not know it says', () => {
     ])
     expect(pinned.redundant).toEqual([])
     expect(pinned.untested).toHaveLength(1) // the clock has no case
+    expect(pinned.ok).toBe(true) // what was tried held,
+    expect(pinned.complete).toBe(false) // but not everything was tried
     // `eq` and `in` on one argument: the case that breaks one breaks the other, so neither can be judged.
     const both = await check([
       'and',
@@ -785,6 +790,15 @@ describe('a pinned muxed address', () => {
     expect(broken).not.toBe(m)
     expect(broken[0]).toBe('M')
     expect(StrKey.isValidMed25519PublicKey(broken)).toBe(true)
+  })
+})
+
+describe('a length case at the edges', () => {
+  const call: Call = { contract: C, fn: 'f', args: [[1, 2]] }
+  it('a floor of one item breaks to an empty vec, a floor of zero to none (nothing is below it)', () => {
+    expect(denyCases([['gte', ['call_arg_len', 0], 1]], call)[0]?.call.args[0]).toEqual([])
+    expect(denyCases([['gt', ['call_arg_len', 0], 0]], call)[0]?.call.args[0]).toEqual([])
+    expect(denyCases([['gte', ['call_arg_len', 0], 0]], call)).toEqual([])
   })
 })
 
