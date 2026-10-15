@@ -10,11 +10,12 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 ### 2.0.0 - policy-synth, policy-builder-cli, policy-builder-mcp (BREAKING)
 
 The three packages are rewritten for the grammar-7 interpreter and get much
-smaller: TypeScript sLOC (source, comments and blanks stripped) 8,192 -> @@TOTAL@@
-(policy-synth 7,236 -> @@SYNTH@@, mcp 405 -> @@MCP@@, cli 551 -> @@CLI@@). They speak grammar 7 only; grammar 6 is not read (the
+smaller: TypeScript sLOC (source, comments and blanks stripped) 8,192 -> 2,859
+(policy-synth 7,236 -> 2,664, mcp 405 -> 119, cli 551 -> 76). They speak grammar 7 only; grammar 6 is not read (the
 authority-overlap scan reads the interpreter's grammar-7 record, so rules from the
-grammar-4/6 deployments are not understood: the 2.x pin is a testnet interpreter,
-and a mainnet install names its own).
+grammar-4/6 deployments are not decoded, and a neighbour policed by one of them is
+REFUSED by default, never waved through: the 2.x pin is a testnet interpreter, and
+a mainnet install names its own, which must run a trusted build).
 
 - **One pipeline.** recording | declaration | template -> `Intent` (calls and
   per-argument rules) -> wire expression -> install transaction. `ComposedRule`,
