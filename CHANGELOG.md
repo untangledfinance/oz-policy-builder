@@ -9,6 +9,13 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ### Added
 
+- **Interpreter `check(predicate, context) -> u32`** (grammar 7, the ABI gains exactly
+  this function). A read-only dry run: it decodes the predicate with install's
+  checks and evaluates it against a contract call, returning 0 to permit or the
+  deny or refusal code. No storage, no authorisation. The off-chain builder
+  simulates `simulate_policy` and `verify_policy` through it, so there is one
+  evaluator (the contract) and no TypeScript copy of it.
+
 - **Policy interpreter grammar 7 (source only, not deployed).** The interpreter
   at `contracts/prime/stellar/policy-interpreter` speaks grammar 7 and
   `SELF_VERSION` is 7, so it accepts grammar-7 predicates only; the deployed

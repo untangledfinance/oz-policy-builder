@@ -22,7 +22,9 @@ pub use types::{ContextRule, ContextRuleType, PolicyInstallParams, Signer};
 pub use version::SELF_VERSION;
 
 use soroban_sdk::xdr::ToXdr;
-use soroban_sdk::{auth::Context, contract, contractimpl, Address, BytesN, Env, IntoVal, Vec};
+use soroban_sdk::{
+    auth::Context, contract, contractimpl, Address, Bytes, BytesN, Env, IntoVal, Vec,
+};
 
 use crate::storage::{deny, deny_unless, load, PolicyError as E, TTL_BUMP_THRESHOLD, TTL_BUMP_TO};
 
@@ -186,15 +188,30 @@ impl PolicyInterpreter {
         // Surface the SPECIFIC deny code so a review card can say "not on the
         // allowlist" rather than "predicate false" (see `DenyReason`).
         if let dsl::EvalDecision::Deny(reason) = dsl::evaluate(e, &root, call) {
-            // Exhaustive: a new `DenyReason` does not compile without its code.
-            let code = match reason {
-                DenyReason::ArgMismatch => E::ArgMismatch,
-                DenyReason::ContractScope => E::ContractScope,
-                DenyReason::ArithmeticOverflow => E::ArithmeticOverflow,
-                DenyReason::UnsupportedNode => E::UnsupportedNode,
-                DenyReason::NotInAllowlist => E::NotInAllowlist,
-            };
-            deny(e, code);
+            deny(e, deny_code(reason));
+        }
+    }
+
+    /// Dry run for the off-chain builder: decode `predicate` with install's
+    /// checks and evaluate it against `context`. Returns 0 to permit, else the
+    /// code `install` or `enforce` would have raised. No storage, no auth, no
+    /// state change of its own; a `read` runs as it does in `enforce`.
+    pub fn check(e: &Env, predicate: Bytes, context: Context) -> u32 {
+        let Context::Contract(call) = &context else {
+            return E::MissingState as u32;
+        };
+        if predicate.len() > dsl::MAX_PREDICATE_BYTES {
+            return E::PredicateTooLarge as u32;
+        }
+        let Ok(root) = dsl::decode(e, &predicate) else {
+            return E::MalformedPredicate as u32;
+        };
+        if !dsl::has_selector_leaf(&root) {
+            return E::SelectorLeafRequired as u32;
+        }
+        match dsl::evaluate(e, &root, call) {
+            dsl::EvalDecision::Permit => 0,
+            dsl::EvalDecision::Deny(reason) => deny_code(reason) as u32,
         }
     }
 
@@ -230,6 +247,18 @@ impl PolicyInterpreter {
         // both the account and the admins authorise.
         doc.master_set = new_set;
         e.storage().persistent().set(&key, &doc);
+    }
+}
+
+/// The error code a `DenyReason` is reported as. Exhaustive: a new reason does
+/// not compile without its code.
+fn deny_code(reason: DenyReason) -> E {
+    match reason {
+        DenyReason::ArgMismatch => E::ArgMismatch,
+        DenyReason::ContractScope => E::ContractScope,
+        DenyReason::ArithmeticOverflow => E::ArithmeticOverflow,
+        DenyReason::UnsupportedNode => E::UnsupportedNode,
+        DenyReason::NotInAllowlist => E::NotInAllowlist,
     }
 }
 

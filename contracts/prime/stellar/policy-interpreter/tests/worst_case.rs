@@ -401,8 +401,11 @@ fn wasm() -> Option<StdVec<u8>> {
     std::fs::read(path).ok()
 }
 
-/// (install result, CPU, memory) of one enforce, and (CPU, memory) of the install.
-fn run(code: &[u8], case: &Case) -> (Result<(), u32>, u64, u64, (u64, u64)) {
+/// (install result, CPU, memory) of one enforce, and (CPU, memory) of the install
+/// and of a `check` of the same predicate and call.
+type Cost = (u64, u64);
+
+fn run(code: &[u8], case: &Case) -> (Result<(), u32>, Cost, Cost, Cost) {
     let env = Env::new_with_config(EnvTestConfig {
         capture_snapshot_at_drop: false,
     });
@@ -436,7 +439,7 @@ fn run(code: &[u8], case: &Case) -> (Result<(), u32>, u64, u64, (u64, u64)) {
     let params = PolicyInstallParams {
         grammar_version: 7,
         install_nonce: 1,
-        predicate,
+        predicate: predicate.clone(),
         predicate_hash: hash,
         policy_admins: signers.clone(),
     };
@@ -445,7 +448,7 @@ fn run(code: &[u8], case: &Case) -> (Result<(), u32>, u64, u64, (u64, u64)) {
             Ok(e) => e.get_code(),
             Err(_) => u32::MAX,
         };
-        return (Err(code), 0, 0, (0, 0));
+        return (Err(code), (0, 0), (0, 0), (0, 0));
     }
     let b = env.cost_estimate().budget();
     let install = (b.cpu_instruction_cost(), b.memory_bytes_cost());
@@ -459,11 +462,16 @@ fn run(code: &[u8], case: &Case) -> (Result<(), u32>, u64, u64, (u64, u64)) {
     // The verdict does not matter: a deny is as costly as a permit.
     let _ = client.try_enforce(&context, &signers, &rule, &account);
     let b = env.cost_estimate().budget();
+    let enforce = (b.cpu_instruction_cost(), b.memory_bytes_cost());
+    // `check` decodes as install does and evaluates as enforce does, in one call.
+    env.cost_estimate().budget().reset_unlimited();
+    let _ = client.check(&predicate, &context);
+    let b = env.cost_estimate().budget();
     (
         Ok(()),
-        b.cpu_instruction_cost(),
-        b.memory_bytes_cost(),
+        enforce,
         install,
+        (b.cpu_instruction_cost(), b.memory_bytes_cost()),
     )
 }
 
@@ -482,10 +490,10 @@ fn the_largest_rules_stay_inside_the_transaction_limits() {
     };
     let (mut cpu_max, mut mem_max) = (0, 0);
     for case in cases() {
-        let (install, cpu, mem, (icpu, imem)) = run(&code, &case);
+        let (install, (cpu, mem), (icpu, imem), (ccpu, cmem)) = run(&code, &case);
         eprintln!(
-            "{:<58} install={:?} cpu={:>11} mem={:>10} (install {:>11} / {:>10})",
-            case.name, install, cpu, mem, icpu, imem
+            "{:<58} install={:?} cpu={:>11} mem={:>10} (install {:>11} / {:>10}, check {:>11} / {:>10})",
+            case.name, install, cpu, mem, icpu, imem, ccpu, cmem
         );
         // a refused install measures 0, which would pass every limit below
         assert_eq!(install, Ok(()), "{}: install refused", case.name);
@@ -494,6 +502,7 @@ fn the_largest_rules_stay_inside_the_transaction_limits() {
             "{}: install",
             case.name
         );
+        assert!(ccpu < CPU_LIMIT && cmem < MEM_LIMIT, "{}: check", case.name);
         assert!(cpu < CPU_LIMIT, "{}: {cpu} CPU of {CPU_LIMIT}", case.name);
         assert!(mem < MEM_LIMIT, "{}: {mem} bytes of {MEM_LIMIT}", case.name);
         (cpu_max, mem_max) = (cpu_max.max(cpu), mem_max.max(mem));
