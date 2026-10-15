@@ -22,7 +22,7 @@ import {
 } from '@stellar/stellar-sdk'
 import { reasonOf } from './chain.ts'
 import { GRAMMAR_VERSION, type Network, PASSPHRASE } from './config.ts'
-import { Refusal } from './envelope.ts'
+import { type ErrorCode, Refusal } from './envelope.ts'
 import type { Scope } from './rules.ts'
 import { fromScVal, toScVal, type Val } from './wire.ts'
 
@@ -116,7 +116,7 @@ export interface BuildArgs {
   network: Network
   smartAccount: string
   sourceAccount: string
-  baseFee?: number
+  baseFee?: number | undefined
 }
 
 /** The OZ auth payload, per `stellar-contracts` smart_account: the digest the signer
@@ -148,7 +148,12 @@ const sym = (s: string) => xdr.ScVal.scvSymbol(s)
 
 /** Build `smartAccount.<fn>(args)` as an unsigned transaction with the account's
  *  own auth entries attached, authorised by rule 0 (the deploy-time admin rule). */
-export async function buildSelfCall(a: BuildArgs, fn: string, args: Val[]): Promise<Built> {
+export async function buildSelfCall(
+  a: BuildArgs,
+  fn: string,
+  args: Val[],
+  code: ErrorCode = 'INSTALL_BUILD_FAILED'
+): Promise<Built> {
   const { server, network } = a
   const source = await server.getAccount(a.sourceAccount)
   const op = (auth: xdr.SorobanAuthorizationEntry[] = []) =>
@@ -173,10 +178,7 @@ export async function buildSelfCall(a: BuildArgs, fn: string, args: Val[]): Prom
   const simulate = async (t: Transaction, what: string) => {
     const sim = await server.simulateTransaction(t)
     if (rpc.Api.isSimulationError(sim))
-      throw new Refusal(
-        'INSTALL_BUILD_FAILED',
-        `${fn}: ${what} simulation refused (${reasonOf(sim.error)})`
-      )
+      throw new Refusal(code, `${fn}: ${what} simulation refused (${reasonOf(sim.error)})`)
     return sim
   }
   const recorded = await simulate(tx(op()), 'recording')
@@ -187,7 +189,7 @@ export async function buildSelfCall(a: BuildArgs, fn: string, args: Val[]): Prom
   )
   if (!original)
     throw new Refusal(
-      'INSTALL_BUILD_FAILED',
+      code,
       `${fn}: no auth entry for ${a.smartAccount}; the call does not route through the smart account`
     )
   const until = (await server.getLatestLedger()).sequence + AUTH_LEDGERS
@@ -263,4 +265,4 @@ export const buildInstall = (a: BuildArgs, d: RuleDraft, interpreter: string) =>
   buildSelfCall(a, 'add_context_rule', ruleArgs(d, interpreter))
 
 export const buildRevoke = (a: BuildArgs, ruleId: number) =>
-  buildSelfCall(a, 'remove_context_rule', [ruleId])
+  buildSelfCall(a, 'remove_context_rule', [ruleId], 'REVOKE_BUILD_FAILED')

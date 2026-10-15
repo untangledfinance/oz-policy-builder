@@ -17,9 +17,9 @@ import { Refusal } from './envelope.ts'
 
 export interface Endpoint {
   network: Network
-  rpcUrl?: string
+  rpcUrl?: string | undefined
   /** Use `rpcUrl` although it is not the network's own endpoint. */
-  allowUnpinnedRpcUrl?: boolean
+  allowUnpinnedRpcUrl?: boolean | undefined
 }
 
 /** A server for the network. A different endpoint is refused unless asked for:

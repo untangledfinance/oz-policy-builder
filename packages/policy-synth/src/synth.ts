@@ -13,11 +13,11 @@ import { type Expr, encode, hashOf, type Val, validate } from './wire.ts'
 /** What the recording cannot say, supplied by the person who knows. */
 export interface Answers {
   /** A cap for every argument that is an amount. */
-  limit?: string
+  limit?: string | undefined
   /** Caps by argument name or position (`requests.amount` for a field of a vec of structs). */
-  limits?: Record<string, string>
+  limits?: Record<string, string> | undefined
   /** A list of values an argument may take instead of the one recorded. */
-  allow?: Record<string, Val[]>
+  allow?: Record<string, Val[]> | undefined
 }
 
 export interface Synthesis {

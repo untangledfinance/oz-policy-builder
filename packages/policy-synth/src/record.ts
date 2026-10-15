@@ -100,7 +100,7 @@ export async function recordHash(
   server: rpc.Server,
   network: Network,
   hash: string,
-  other?: rpc.Server
+  other?: rpc.Server | undefined
 ): Promise<Recording> {
   const tx = await server.getTransaction(hash)
   if (tx.status === 'NOT_FOUND') {

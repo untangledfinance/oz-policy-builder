@@ -15,7 +15,12 @@ const key = (b: { method: string; params: unknown }) =>
 const slim = (r: unknown) =>
   r && typeof r === 'object'
     ? Object.fromEntries(
-        Object.entries(r).filter(([k]) => !['metadataXdr', 'headerXdr', 'events'].includes(k))
+        Object.entries(r).filter(
+          ([k]) =>
+            !['metadataXdr', 'headerXdr', 'events', 'stateChanges', 'diagnosticEventsXdr'].includes(
+              k
+            )
+        )
       )
     : r
 

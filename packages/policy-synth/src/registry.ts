@@ -113,7 +113,7 @@ export interface Templates {
   adapter_batch: { adapter: string; targets: string[]; functions?: string[]; maxCalls?: number }
   /** A Blend pool `submit` for one account: the position, spender and receiver are
    *  pinned, exactly one request, on one token, of a type up to `maxType` (0 supply,
-   *  1 withdraw), with an amount from 1 to below `max`. */
+   *  1 withdraw), with an amount from 1 to `max`. */
   blend_venue: {
     pool: string
     token: string
@@ -164,7 +164,7 @@ export const TEMPLATES: { [K in keyof Templates]: (p: Templates[K]) => Intent } 
             { rule: 'pin', at: request('address'), to: p.token },
             { rule: 'cap', at: request('request_type'), max: String(p.maxType ?? 1) },
             { rule: 'floor', at: request('amount'), min: '1' },
-            { rule: 'cap', at: request('amount'), max: (BigInt(p.max) - 1n).toString() },
+            { rule: 'cap', at: request('amount'), max: p.max },
           ],
         },
       ],
