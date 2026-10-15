@@ -179,6 +179,9 @@ user thinks. They are the reason to read a result rather than skim it.
   a looser or equal interpreter rule, one without a spend cap when a rolling
   total is asked for, or one the scan cannot read or judge. `allowOverlap: true` overrides, and so does nothing that
   makes the rule bind. An account whose rules cannot all be read is refused too.
+- **Removing rule 0 or a Default-scoped rule.** `revoke_policy` reads the rule and returns it
+  as `removes`; these two can leave the account unable to administer itself, for good, so
+  they need `allowAdminRule: true`.
 - **A rolling total on a rule that is not scoped to one contract.**
 - **A rule that bounds no amount, when the call carries one.** Answer the
   question with `limit` / `limits`, or `allowUnboundedAmount: true` to do it

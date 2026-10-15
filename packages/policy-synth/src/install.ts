@@ -29,7 +29,7 @@ import {
   SPENDING_LIMIT,
 } from './config.ts'
 import { type ErrorCode, Refusal } from './envelope.ts'
-import { type Overlap, overlaps, type RulesRead, type Scope } from './rules.ts'
+import { type ObservedRule, type Overlap, overlaps, type RulesRead, type Scope } from './rules.ts'
 import { type Expr, fromScVal, toScVal, type Val } from './wire.ts'
 
 export interface RuleDraft {
@@ -257,6 +257,38 @@ export const buildInstall = (a: BuildArgs, d: RuleDraft, interpreter: string) =>
 
 export const buildRevoke = (a: BuildArgs, ruleId: number) =>
   buildSelfCall(a, 'remove_context_rule', [ruleId], 'REVOKE_BUILD_FAILED')
+
+// ---- the removal ----
+
+/** What a removal asks of the network: the rule being removed, and the build. */
+export interface RevokeChain {
+  readRule: (id: number) => Promise<ObservedRule | undefined>
+  build: (id: number) => Promise<Built>
+}
+
+/** The unsigned removal of a rule, with the rule it removes. Removing rule 0 or any
+ *  Default-scoped rule can leave the account with nothing able to authorise its own
+ *  administration, for good: refused unless `allowAdminRule`. */
+export async function planRevoke(
+  i: { ruleId: number; allowAdminRule?: boolean | undefined },
+  chain: RevokeChain
+) {
+  const [rule, built] = await Promise.allSettled([chain.readRule(i.ruleId), chain.build(i.ruleId)])
+  if (rule.status === 'rejected') throw rule.reason
+  const removes = rule.value
+  if (removes === undefined) {
+    if (built.status === 'rejected') throw built.reason
+    throw new Refusal('REVOKE_BUILD_FAILED', `the account has no rule ${i.ruleId}`)
+  }
+  if (!i.allowAdminRule && (i.ruleId === 0 || removes.scope.kind === 'default')) {
+    throw new Refusal(
+      'REVOKE_BUILD_FAILED',
+      `rule ${i.ruleId} is ${removes.scope.kind === 'default' ? 'Default-scoped' : "the account's first rule"}: removing it can lock the account out of its own administration for good. Set allowAdminRule to build it anyway.`
+    )
+  }
+  if (built.status === 'rejected') throw built.reason
+  return { ...built.value, removes }
+}
 
 // ---- the install, with every refusal in one place ----
 

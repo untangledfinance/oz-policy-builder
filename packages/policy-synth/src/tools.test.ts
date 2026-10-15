@@ -705,6 +705,17 @@ describe('revoke_policy', () => {
       ruleId: 1,
     })
     expect(r.data.describes).toEqual({ contract: ACCOUNT, fn: 'remove_context_rule', args: [1] })
+    expect(r.data.removes).toMatchObject({
+      id: 1,
+      scope: { kind: 'call_contract' },
+      signers: [SIGNER],
+    })
+  })
+  it("refuses the account's admin rule 0 unless told to", async () => {
+    const base = { smartAccount: ACCOUNT, sourceAccount: SIGNER, ruleId: 0 }
+    await failing('revoke_policy', base, 'REVOKE_BUILD_FAILED', /lock/)
+    const r = await call('revoke_policy', { ...base, allowAdminRule: true })
+    expect(r.data.removes).toMatchObject({ id: 0, scope: { kind: 'default' } })
   })
   it('the account refuses one it does not have', async () => {
     await failing(

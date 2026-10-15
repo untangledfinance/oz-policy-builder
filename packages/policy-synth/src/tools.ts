@@ -22,11 +22,18 @@ import {
 import { MAX_CHECKS, runChecks, verifyRule } from './check.ts'
 import { GRAMMAR_VERSION, INTERPRETER_WASM, type Network } from './config.ts'
 import { type ErrorCode, messageOf, Refusal, type ToolResponse } from './envelope.ts'
-import { buildInstall, buildRevoke, type Chain, type Chosen, planInstall } from './install.ts'
+import {
+  buildInstall,
+  buildRevoke,
+  type Chain,
+  type Chosen,
+  planInstall,
+  planRevoke,
+} from './install.ts'
 import type { Intent } from './intent.ts'
 import { type Call, decodeEnvelope, type Recording, recordHash } from './record.ts'
 import { TEMPLATES, TemplateParams } from './registry.ts'
-import { readRules, selectors } from './rules.ts'
+import { readRule, readRules, selectors } from './rules.ts'
 import {
   type Answers,
   type ProposedRule,
@@ -482,15 +489,22 @@ async function writeNew(path: string, text: string): Promise<string> {
 
 const revoke_policy = tool(
   'revoke_policy',
-  'Build the UNSIGNED transaction that removes a rule from a smart account (`remove_context_rule`); the account uninstalls each attached policy itself.',
+  'Build the UNSIGNED transaction that removes a rule from a smart account (`remove_context_rule`); the account uninstalls each attached policy itself. The rule is read and returned as `removes`. Rule 0 and any Default-scoped rule are REFUSED (removing them can lock the account out of its own administration for good) unless `allowAdminRule` is set.',
   {
     ...net,
     smartAccount: contractId,
     sourceAccount: account,
     ruleId: z.number().int().nonnegative(),
+    allowAdminRule: z.boolean().optional(),
     baseFee: z.number().int().positive().optional(),
   },
-  async (i) => buildRevoke({ ...i, server: connect(i) }, i.ruleId)
+  async (i) => {
+    const server = connect(i)
+    return planRevoke(i, {
+      readRule: (id) => readRule(server, i.network, i.smartAccount, id),
+      build: (id) => buildRevoke({ ...i, server }, id),
+    })
+  }
 )
 
 const get_interpreter_info = tool(

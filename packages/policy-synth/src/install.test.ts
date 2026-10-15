@@ -138,7 +138,14 @@ describe('buildInstall and buildRevoke, on a live account', () => {
 import type { Fingerprint } from './chain.ts'
 import { POLICY_CONTRACTS } from './config.ts'
 import { Refusal } from './envelope.ts'
-import { type Chain, type Chosen, type InstallInput, planInstall } from './install.ts'
+import {
+  type Chain,
+  type Chosen,
+  type InstallInput,
+  planInstall,
+  planRevoke,
+  type RevokeChain,
+} from './install.ts'
 import type { ObservedRule } from './rules.ts'
 
 describe('planInstall: the guards', () => {
@@ -369,5 +376,67 @@ describe('planInstall: the guards', () => {
       })
     )
     expect(seen).toMatchObject({ admins: [SIGNER], nonce: 1, validUntil: null })
+  })
+})
+
+describe('planRevoke: the only destructive tool reads what it removes', () => {
+  const built = { unsignedXdr: 'AAAA' } as never
+  const rule = (o: Partial<ObservedRule>): ObservedRule => ({
+    id: 3,
+    scope: { kind: 'call_contract', contract: TOKEN },
+    signers: [SIGNER],
+    policies: [INTERP],
+    ...o,
+  })
+  const chain = (r: ObservedRule | undefined, onBuild = () => {}): RevokeChain => ({
+    readRule: async () => r,
+    build: async () => {
+      onBuild()
+      return built
+    },
+  })
+  const input = { smartAccount: ACCOUNT, sourceAccount: SIGNER }
+
+  it('describes the rule it would remove, beside the unsigned transaction', async () => {
+    const r = await planRevoke({ ...input, ruleId: 3 }, chain(rule({})))
+    expect(r.unsignedXdr).toBe('AAAA')
+    expect(r.removes).toMatchObject({
+      id: 3,
+      scope: { kind: 'call_contract' },
+      signers: [SIGNER],
+      policies: [INTERP],
+    })
+  })
+
+  it('refuses rule 0 and any Default-scoped rule (the account may be left with no admin rule), unless told', async () => {
+    let built = 0
+    const count = () => built++
+    await expect(
+      planRevoke(
+        { ...input, ruleId: 0 },
+        chain(rule({ id: 0, scope: { kind: 'call_contract', contract: TOKEN } }), count)
+      )
+    ).rejects.toThrow(/lock/)
+    await expect(
+      planRevoke({ ...input, ruleId: 5 }, chain(rule({ id: 5, scope: { kind: 'default' } }), count))
+    ).rejects.toThrow(/Default/)
+    const ok = await planRevoke(
+      { ...input, ruleId: 0, allowAdminRule: true },
+      chain(rule({ id: 0, scope: { kind: 'default' }, policies: [] }))
+    )
+    expect(ok.removes.id).toBe(0)
+  })
+
+  it("a rule that is not there is the build's own refusal, not an empty description", async () => {
+    const failing: RevokeChain = {
+      readRule: async () => undefined,
+      build: async () => {
+        throw new Refusal('REVOKE_BUILD_FAILED', 'remove_context_rule: Error(Contract, #3000)')
+      },
+    }
+    await expect(planRevoke({ ...input, ruleId: 99 }, failing)).rejects.toThrow(/#3000/)
+    await expect(
+      planRevoke({ ...input, ruleId: 99 }, { ...failing, build: async () => built })
+    ).rejects.toThrow(/no rule 99/)
   })
 })
