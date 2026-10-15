@@ -60,7 +60,8 @@ export function interfaceOf(wasm: Buffer): Fns | null {
     const spec = soroban.Spec.fromWasm(wasm)
     const str = (x: { name(): string | Buffer }) => x.name().toString()
     // Names reach a review as text: only plain identifiers are used.
-    const safe = (xs: { name(): string | Buffer }[]) => xs.every((x) => /^\w{1,30}$/.test(str(x)))
+    const safe = (xs: { name(): string | Buffer }[]) =>
+      xs.every((x) => /^(?!(true|false|null)$)[A-Za-z_]\w{0,29}$/.test(str(x)))
     const memo = new Map<string, Ty>()
     const udt = (n: string): Ty => {
       if (memo.has(n)) return memo.get(n) as Ty

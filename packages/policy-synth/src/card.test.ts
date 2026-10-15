@@ -17,38 +17,41 @@ const one = (e: Expr, v?: View) => card(e, v)[0] as string
 
 describe('operators and operands are words', () => {
   it.each<[Expr, string]>([
-    [['eq', ['call_fn'], 'transfer'], 'function:  must be  transfer'],
-    [['ne', ['call_contract'], C], `contract:  must not be  ${short(C)}`],
+    [['eq', ['call_fn'], 'transfer'], "the function:  must be  'transfer'"],
+    [['ne', ['call_contract'], C], `the contract:  must not be  ${short(C)}`],
     [['lt', ['call_arg', 0], { i128: '5' }], 'argument 0:  must be below  5'],
     [['lte', ['call_arg', 2], { i128: '100' }], 'argument 2:  must be at most  100'],
     [['gt', ['call_arg', 2], 0], 'argument 2:  must be above  0'],
     [['gte', ['call_arg', 2], { u64: '7' }], 'argument 2:  must be at least  7'],
     [['in', ['call_arg', 1], [A, C]], `argument 1:  must be one of  [${short(A)}, ${short(C)}]`],
     [['nin', ['call_arg', 1], [A]], `argument 1:  must not be one of  [${short(A)}]`],
-    [['eq', ['call_path', 3, 0, 'amount'], { i128: '1' }], 'argument 3 > 0 > amount:  must be  1'],
+    [
+      ['eq', ['call_path', 3, 0, 'amount'], { i128: '1' }],
+      'argument 3 › [0] › amount:  must be  1',
+    ],
     [['lte', ['call_path', 3, true], 2], 'the number of items in argument 3:  must be at most  2'],
     [['lte', ['call_arg_len', 3], 2], 'the number of items in argument 3:  must be at most  2'],
-    [['eq', ['call_arg_field', 3, 0, 'amount'], 1], 'argument 3 > 0 > amount:  must be  1'],
+    [['eq', ['call_arg_field', 3, 0, 'amount'], 1], 'argument 3 › [0] › amount:  must be  1'],
     [
       ['eq', ['call_arg_field', 3, 0, true], 1],
-      'the number of items in argument 3 > 0:  must be  1',
+      'the number of items in argument 3 › [0]:  must be  1',
     ],
     [['eq', ['call_arg', 0], ['lit', { string: 'memo' }]], 'argument 0:  must be  "memo"'],
     [['eq', ['call_arg', 0], ['lit', { bytes: 'ab' }]], 'argument 0:  must be  0xab'],
     [
       ['eq', ['call_arg', 0], ['lit', ['Stellar', A]]],
-      `argument 0:  must be  [Stellar, ${short(A)}]`,
+      `argument 0:  must be  ['Stellar', ${short(A)}]`,
     ],
     [['eq', ['call_arg', 0], ['lit', true]], 'argument 0:  must be  true'],
-    [['eq', ['call_arg', 0], null], 'argument 0:  must be  nothing'],
+    [['eq', ['call_arg', 0], null], 'argument 0:  must be  null'],
     [
       ['in', ['call_arg', 0], [['lit', { string: 'a' }], 5]],
       'argument 0:  must be one of  ["a", 5]',
     ],
-    [['eq', ['call_path', 3, ['lit', 'amount']], 1], 'argument 3 > amount:  must be  1'],
+    [['eq', ['call_path', 3, ['lit', 'amount']], 1], 'argument 3 › amount:  must be  1'],
     [
       ['eq', ['call_arg', 0], ['lit', { map: [['k', { i128: '1' }]] }]],
-      'argument 0:  must be  {k: 1}',
+      "argument 0:  must be  {'k': 1 (i128)}",
     ],
     [
       [
@@ -68,7 +71,7 @@ describe('operators and operands are words', () => {
     ],
     [
       ['gte', ['read', C, 'price', [['call_arg', 1], 'USD'], 'price'], { i128: '5' }],
-      `price(argument 1, USD) on ${short(C)} › price:  must be at least  5`,
+      `price(argument 1, 'USD') on ${short(C)} › price:  must be at least  5`,
     ],
     [
       ['gte', ['read', C, 'price', []], { i128: '5' }],
@@ -250,7 +253,7 @@ describe('names from the contract interface', () => {
       ],
     ]
     expect(card(e, { ...tokenOf(['transfer']), raw: true }).at(-1)).toBe(
-      `   └─ amount (argument 2):  must be at most  50000000000`
+      `   └─ amount (argument 2):  must be at most  50000000000 (i128)`
     )
     expect(card(e, tokenOf(['transfer'])).at(-1)).toBe(
       '   └─ amount:  must be at most  5,000 USDC (50000000000)'
@@ -289,7 +292,7 @@ describe('quantifiers say what they range over, and name the fields of the item'
     )
     expect(out.slice(2)).toEqual([
       '   └─ every item of payments',
-      `      └─ to:  must be  ${short(A)}`,
+      `      └─ the item › to:  must be  ${short(A)}`,
     ])
   })
 
@@ -297,7 +300,7 @@ describe('quantifiers say what they range over, and name the fields of the item'
     const out = card(rule(['any', ['call_arg', 0], ['eq', ['elem'], A]]), view('payers', 'address'))
     expect(out.slice(2)).toEqual([
       '   └─ some item of payers',
-      `      └─ item:  must be  ${short(A)}`,
+      `      └─ the item:  must be  ${short(A)}`,
     ])
   })
 
@@ -306,7 +309,7 @@ describe('quantifiers say what they range over, and name the fields of the item'
       rule(['all', ['call_arg', 0], ['eq', ['elem', 'nope'], A]]),
       view('payments', { fields: { to: 'address' } })
     )
-    expect(out.at(-1)).toBe(`      └─ the item's nope:  must be  ${short(A)}`)
+    expect(out.at(-1)).toBe(`      └─ the item › nope:  must be  ${short(A)}`)
   })
 
   it("without an interface it reads as it always did: the item's path", () => {
@@ -323,12 +326,12 @@ describe('quantifiers say what they range over, and name the fields of the item'
     ]
     expect(card(e)).toEqual([
       'every item of argument 0',
-      `├─ the item's to:  must be one of  [${short(A)}]`,
-      "└─ the item's amount:  must be at least  0",
+      `├─ the item › to:  must be one of  [${short(A)}]`,
+      '└─ the item › amount:  must be at least  0',
     ])
     expect(card(['any', ['call_arg', 0], ['eq', ['elem'], 'repay']])).toEqual([
       'some item of argument 0',
-      '└─ the item:  must be  repay',
+      "└─ the item:  must be  'repay'",
     ])
   })
 })
@@ -366,7 +369,7 @@ describe('amounts', () => {
     expect(amount('50000000000', { info: {} }).endsWith('  50000000000')).toBe(true)
   })
 
-  it('only the amount of a token: not another contract, another parameter, another type', () => {
+  it("only the SEP-41 amount of the token's own function: nothing is guessed from a name", () => {
     const fns = {
       transfer: [
         ['from', 'address'],
@@ -376,30 +379,52 @@ describe('amounts', () => {
     }
     const notToken: View = { info: { [C]: { fns: fns as never } } }
     expect(amount('50000000000', notToken).endsWith('  50000000000')).toBe(true)
-    const e = (name: string, ty: string, v: unknown): string =>
+    const e = (fn: string, name: string, ty: string, v: unknown): string =>
       card(
         [
           'and',
           [
-            ['eq', ['call_fn'], 'f'],
+            ['eq', ['call_fn'], fn],
             ['eq', ['call_arg', 0], v as Expr],
           ],
         ],
-        {
-          contract: C,
-          info: { [C]: { fns: { f: [[name, ty]] }, token: USDC } },
-        }
+        { contract: C, info: { [C]: { fns: { [fn]: [[name, ty]] } as never, token: USDC } } }
       ).at(-1) as string
-    expect(e('max_amount', 'i128', { i128: '10000000' })).toContain('1 USDC (10000000)')
-    expect(e('amount_in', 'i128', { i128: '10000000' })).toContain('1 USDC (10000000)')
-    expect(e('price', 'i128', { i128: '10000000' }).endsWith('  10000000')).toBe(true)
-    expect(e('amounts', 'i128', { i128: '10000000' }).endsWith('  10000000')).toBe(true)
-    expect(e('amount', 'u64', { u64: '10000000' }).endsWith('  10000000')).toBe(true)
-    expect(e('amount', 'i128', { u64: '10000000' }).endsWith('  10000000')).toBe(true)
-    expect(e('amountx', 'i128', { i128: '10000000' }).endsWith('  10000000')).toBe(true)
+    const ten = { i128: '10000000' }
+    expect(e('transfer', 'amount', 'i128', ten)).toContain('1 USDC (10000000)')
+    expect(e('approve', 'amount', 'i128', ten)).toContain('1 USDC (10000000)')
+    // Another function of the token, another parameter name or type, another value type.
+    for (const [fn, name, ty, v] of [
+      ['deposit', 'amount', 'i128', ten],
+      ['transfer', 'max_amount', 'i128', ten],
+      ['transfer', 'amount_in', 'i128', ten],
+      ['transfer', 'price', 'i128', ten],
+      ['transfer', 'amounts', 'i128', ten],
+      ['transfer', 'amount', 'u64', { u64: '10000000' }],
+    ] as const)
+      expect(e(fn, name, ty, v)).not.toContain('USDC')
   })
 
-  it('a struct field named amount, in a list, and in an in-list', () => {
+  it('never the unit of one contract on the amount of another', () => {
+    const [x, y] = [contract(11), contract(12)]
+    const info: View['info'] = {
+      [x]: { fns: SAC, token: { decimals: 7, symbol: 'AAA' } },
+      [y]: { fns: SAC },
+    }
+    const rule = (c: string): Expr => [
+      'and',
+      [
+        ['eq', ['call_contract'], c],
+        ['eq', ['call_fn'], 'transfer'],
+        ['lte', ['call_arg', 2], { i128: '50000000000' }],
+      ],
+    ]
+    expect(card(['or', [rule(x), rule(y)]], { info }).join('\n')).toMatch(
+      /5,000 AAA \(50000000000\)(.|\n)*at most {2}50000000000$/
+    )
+  })
+
+  it('a struct field named amount is raw, in a list and in an in-list', () => {
     const v: View = {
       contract: C,
       info: {
@@ -416,9 +441,7 @@ describe('amounts', () => {
       ],
       v
     )
-    expect(out.at(-1)).toContain(
-      'payments › [0] › amount:  must be one of  [1 USDC (10000000), 2 USDC (20000000)]'
-    )
+    expect(out.at(-1)).toContain('payments › [0] › amount:  must be one of  [10000000, 20000000]')
   })
 
   it('--raw shows the number alone', () => {
@@ -431,26 +454,31 @@ describe('amounts', () => {
 describe('labels', () => {
   it('addresses are shortened, with the name the request gave them', () => {
     const v: View = { labels: { [A]: 'treasury', [D]: 'vault' } }
-    expect(one(['eq', ['call_arg', 0], A], v)).toBe(`argument 0:  must be  ${short(A)} (treasury)`)
+    expect(one(['eq', ['call_arg', 0], A], v)).toBe(
+      `argument 0:  must be  ${short(A)} («treasury»)`
+    )
     expect(one(['nin', ['call_arg', 1], [A, B]], v)).toBe(
-      `argument 1:  must not be one of  [${short(A)} (treasury), ${short(B)}]`
+      `argument 1:  must not be one of  [${short(A)} («treasury»), ${short(B)}]`
     )
     expect(one(['gte', ['read', D, 'balance', [A]], { i128: '1' }], v)).toBe(
-      `balance(${short(A)} (treasury)) on vault ${short(D)}:  must be at least  1`
+      `balance(${short(A)} («treasury»)) on ${short(D)} («vault»):  must be at least  1`
     )
   })
 
-  it('the pins of this package are known by name; the request wins', () => {
+  it('the pins of this package are known by name; the request cannot rename them', () => {
     const sl = SPENDING_LIMIT.testnet
     expect(one(['eq', ['call_arg', 0], sl])).toBe(
       `argument 0:  must be  ${short(sl)} (spending limit)`
     )
-    expect(one(['eq', ['call_arg', 0], sl], { labels: { [sl]: 'my cap' } })).toContain('(my cap)')
+    // The package's own name wins: a request cannot call its policy contracts something else.
+    expect(one(['eq', ['call_arg', 0], sl], { labels: { [sl]: 'my cap' } })).toContain(
+      '(spending limit)'
+    )
   })
 
   it('--raw: the whole address, and still its name', () => {
     expect(one(['eq', ['call_arg', 0], A], { labels: { [A]: 'treasury' }, raw: true })).toBe(
-      `argument 0 (argument 0):  must be  ${A} (treasury)`
+      `argument 0:  must be  ${A} («treasury»)`
     )
   })
 
@@ -462,8 +490,8 @@ describe('labels', () => {
         ['eq', ['call_fn'], 'transfer'],
       ],
     ]
-    expect(card(e, { labels: { [C]: 'USDC (test)' }, ...token })[0]).toBe(
-      `USDC (test)  ${short(C)}  (token)`
+    expect(card(e, { labels: { [C]: 'USDC test' }, ...token })[0]).toBe(
+      `«USDC test»  ${short(C)}  (token)`
     )
     expect(card(e)[0]).toBe(short(C))
     expect(card(e, { raw: true })[0]).toBe(C)
@@ -473,28 +501,34 @@ describe('labels', () => {
 describe('time', () => {
   it('a compare against the ledger time is a UTC date', () => {
     expect(one(['gte', ['now'], { u64: '1798761600' }])).toBe(
-      'ledger time:  must be at least  2027-01-01 00:00 UTC'
+      'the ledger time:  must be at least  2027-01-01 00:00:00 UTC (1798761600)'
     )
     expect(one(['lt', ['now'], 1830297600])).toBe(
-      'ledger time:  must be below  2028-01-01 00:00 UTC'
+      'the ledger time:  must be below  2028-01-01 00:00:00 UTC (1830297600)'
     )
-    expect(one(['lt', ['now'], { timepoint: '1830297600' }])).toContain('2028-01-01 00:00 UTC')
-    expect(one(['lte', ['now'], { i128: '1900000000' }])).toContain('2030-03-17 17:46 UTC')
+    expect(one(['lt', ['now'], { timepoint: '1830297600' }])).toContain(
+      '2028-01-01 00:00:00 UTC (1830297600)'
+    )
+    expect(one(['lte', ['now'], { i128: '1900000000' }])).toContain(
+      '2030-03-17 17:46:40 UTC (1900000000)'
+    )
   })
 
   it('the first and the last second of the calendar, and one past it', () => {
-    expect(one(['gte', ['now'], { u64: '0' }])).toContain('1970-01-01 00:00 UTC')
-    expect(one(['lte', ['now'], { u64: '253402300799' }])).toContain('9999-12-31 23:59 UTC')
+    expect(one(['gte', ['now'], { u64: '0' }])).toContain('1970-01-01 00:00:00 UTC (0)')
+    expect(one(['lte', ['now'], { u64: '253402300799' }])).toContain(
+      '9999-12-31 23:59:59 UTC (253402300799)'
+    )
     expect(one(['lte', ['now'], { u64: '253402300800' }])).toContain('  253402300800')
     expect(one(['lte', ['now'], { i128: '-1' }])).toContain('  -1')
   })
 
   it('what is not a plausible time, and --raw, stays a number', () => {
     expect(one(['lte', ['now'], { u64: '99999999999999' }])).toBe(
-      'ledger time:  must be at most  99999999999999'
+      'the ledger time:  must be at most  99999999999999'
     )
     expect(one(['gte', ['now'], { u64: '1798761600' }], { raw: true })).toBe(
-      'ledger time:  must be at least  1798761600'
+      'the ledger time:  must be at least  1798761600 (u64)'
     )
     expect(one(['eq', ['call_arg', 0], { u64: '1798761600' }])).toBe(
       'argument 0:  must be  1798761600'
@@ -532,7 +566,7 @@ describe('the tree', () => {
     expect(card(e, { ...token, labels: { [A]: 'treasury' } })).toEqual([
       `${short(C)}  (token)`,
       '└─ transfer(from, to, amount)',
-      `   ├─ from:  must be  ${short(A)} (treasury)`,
+      `   ├─ from:  must be  ${short(A)} («treasury»)`,
       `   ├─ to:  must not be one of  [${short(B)}]`,
       '   └─ amount:  must be at most  5,000 USDC (50000000000)',
     ])
@@ -646,10 +680,10 @@ describe('the tree', () => {
       '   └─ pay',
       '      ├─ every item of argument 0',
       '      │  └─ any one of',
-      `      │     ├─ the item's to:  must be  ${short(A)}`,
-      `      │     └─ the item's to:  must be  ${short(B)}`,
+      `      │     ├─ the item › to:  must be  ${short(A)}`,
+      `      │     └─ the item › to:  must be  ${short(B)}`,
       '      └─ some item of argument 0',
-      '         └─ the item:  must be  x',
+      "         └─ the item:  must be  'x'",
     ])
   })
 
@@ -660,9 +694,16 @@ describe('the tree', () => {
       '   └─ amount:  must be at most  0.00001 USDC (100)',
     ])
     // One the predicate pins itself is not repeated.
-    const pinned: Expr = ['and', [['eq', ['call_contract'], D], ...(pay[1] as Expr[])]]
-    expect(card(pinned, tokenOf(['transfer']))[0]).toBe(short(D))
-    expect(card(pinned, tokenOf(['transfer']))).toHaveLength(3)
+    const same: Expr = ['and', [['eq', ['call_contract'], C], ...(pay[1] as Expr[])]]
+    expect(card(same, tokenOf(['transfer']))[0]).toBe(`${short(C)}  (token)`)
+    expect(card(same, tokenOf(['transfer']))).toHaveLength(3)
+    // A rule scoped to C whose predicate pins D can never permit: both are said.
+    const other: Expr = ['and', [['eq', ['call_contract'], D], ...(pay[1] as Expr[])]]
+    const out = card(other, tokenOf(['transfer']))
+    expect(out.slice(0, 2)).toEqual([`${short(C)}  (token)`, `└─ ${short(D)}`])
+    // And a pin in only one branch does not hide the scope of the other.
+    const some: Expr = ['or', [other, approve]]
+    expect(card(some, tokenOf(['transfer']))[0]).toBe(`${short(C)}  (token)`)
   })
 
   it('a pin that is not a plain constant is a condition like any other', () => {
@@ -674,7 +715,10 @@ describe('the tree', () => {
           ['ne', ['call_contract'], C],
         ],
       ])
-    ).toEqual(['function:  must be one of  [a, b]', `contract:  must not be  ${short(C)}`])
+    ).toEqual([
+      "the function:  must be one of  ['a', 'b']",
+      `the contract:  must not be  ${short(C)}`,
+    ])
     expect(
       card([
         'and',
@@ -683,7 +727,7 @@ describe('the tree', () => {
           ['eq', ['call_arg', 0], 1],
         ],
       ])[0]
-    ).toContain('function:  must be')
+    ).toContain('the function:  must be')
   })
 
   it('every node carries its raw leaf or group; a scope header has none', () => {
@@ -723,7 +767,7 @@ describe('only a real pin is lifted into a header', () => {
         (n) => n.op === (head === 'call_fn' ? 'function' : 'contract')
       )
       expect(lifted?.raw).not.toEqual(['eq', head, head === 'call_fn' ? 'transfer' : C])
-      expect(card(e, token).join('\n')).toContain(`${head}:  must be`)
+      expect(card(e, token).join('\n')).toContain(`'${head}':  must be`)
     }
   })
   it('eq(call_fn symbol, call_fn symbol) is always true: it is not a function the rule pins', () => {
@@ -737,7 +781,7 @@ describe('only a real pin is lifted into a header', () => {
     ]
     validate(e)
     expect(tree(e, token)[0]?.children?.[0]?.op).not.toBe('function')
-    expect(card(e, token)).toContain('├─ call_fn:  must be  call_fn')
+    expect(card(e, token)).toContain("├─ 'call_fn':  must be  'call_fn'")
   })
 })
 
@@ -766,9 +810,9 @@ describe('a Blend request', () => {
     expect(card((r as { expr: Expr }).expr, { info, labels: { [A]: 'treasury' } })).toEqual([
       short(POOL),
       '└─ submit(from, spender, to, requests)',
-      `   ├─ from:  must be  ${short(A)} (treasury)`,
-      `   ├─ spender:  must be  ${short(A)} (treasury)`,
-      `   ├─ to:  must be  ${short(A)} (treasury)`,
+      `   ├─ from:  must be  ${short(A)} («treasury»)`,
+      `   ├─ spender:  must be  ${short(A)} («treasury»)`,
+      `   ├─ to:  must be  ${short(A)} («treasury»)`,
       '   ├─ the number of items in requests:  must be at most  1',
       `   ├─ requests › [0] › address:  must be  ${short(TOK)}`,
       '   ├─ requests › [0] › request_type:  must be at most  1',
@@ -781,7 +825,7 @@ describe('a Blend request', () => {
     const out = card((r as { expr: Expr }).expr)
     expect(out[1]).toBe('└─ submit')
     expect(out[4]).toBe(`   ├─ argument 2:  must be  ${short(A)}`)
-    expect(out.at(-1)).toBe('   └─ argument 3 > 0 > amount:  must be at most  5000000000')
+    expect(out.at(-1)).toBe('   └─ argument 3 › [0] › amount:  must be at most  5000000000')
   })
 })
 
@@ -1050,4 +1094,158 @@ describe('round trip: every node is one leaf or group of the predicate, every le
       expect(() => roundTrips(q, {}, ns)).toThrow()
     }
   })
+})
+
+describe('a constant never looks like another value, a name or a selector', () => {
+  const eq = (v: Expr, view?: View) => one(['eq', ['call_arg', 0], v], view)
+  it.each<[string, Expr, string]>([
+    ['an i128', { i128: '5000' }, '5000'],
+    ['a u32', 5000, '5000'],
+    ['a u64', { u64: '5000' }, '5000'],
+    ['a symbol that spells a number', '5000', "'5000'"],
+    ['a symbol that spells a bool', 'true', "'true'"],
+    ['a bool', true, 'true'],
+    ['a symbol that spells null', 'null', "'null'"],
+    ['void', null, 'null'],
+    ['a string', { string: '5000' }, '"5000"'],
+    ['bytes', { bytes: 'ab' }, '0xab'],
+    ['a string of other bytes', { stringHex: 'ab' }, 'hex"ab"'],
+    ['a u256', { u256: '5000' }, '5000 (u256)'],
+    ['an i256', { i256: '5000' }, '5000 (i256)'],
+    ['a vec holds typed numbers', [5, { i128: '5' }], '[5 (u32), 5 (i128)]'],
+    ['a map holds typed numbers', { map: [['k', 5]] }, "{'k': 5 (u32)}"],
+    ['a symbol that is a parameter name', 'to', "'to'"],
+    ['a symbol that is a selector', 'function', "'function'"],
+  ])('%s', (_n, v, text) => expect(eq(v)).toBe(`argument 0:  must be  ${text}`))
+
+  it('on the left too: a constant is never a name', () => {
+    expect(one(['nin', 'to', [A]])).toBe(`'to':  must not be one of  [${short(A)}]`)
+    expect(one(['ne', ['call_arg', 2], '0'])).toBe("argument 2:  must not be  '0'")
+    expect(one(['ne', ['call_arg', 2], { u256: '0' }])).toBe('argument 2:  must not be  0 (u256)')
+    expect(one(['eq', 5, ['call_arg', 0]])).toBe('5:  must be  argument 0')
+  })
+
+  it('--raw shows the wire type of every number', () => {
+    expect(eq({ i128: '5' }, { raw: true })).toBe('argument 0:  must be  5 (i128)')
+    expect(eq(5, { raw: true })).toBe('argument 0:  must be  5 (u32)')
+    expect(eq(['lit', { u64: '5' }], { raw: true })).toBe('argument 0:  must be  5 (u64)')
+  })
+
+  it('a string cannot bend a line: controls, bidi and line separators are escaped', () => {
+    const t = eq({ string: 'a\nb\u2028c\u202ed\u2066e\u0085f' })
+    expect(t).toBe('argument 0:  must be  "a\\nb\\u2028c\\u202ed\\u2066e\\u0085f"')
+    expect(t).not.toMatch(/[\n\u2028\u202e\u2066\u0085]/)
+  })
+})
+
+describe('a step of a path says what it is', () => {
+  const path = (...steps: Expr[]) => one(['eq', ['call_path', 0, ...steps], 1])
+  it('an index, a key, a typed key, the length', () => {
+    expect(path(2)).toBe('argument 0 › [2]:  must be  1')
+    expect(path(['lit', 2])).toBe('argument 0 › 2 (u32):  must be  1')
+    expect(path(['lit', { i128: '2' }])).toBe('argument 0 › 2 (i128):  must be  1')
+    expect(path('k')).toBe('argument 0 › k:  must be  1')
+    expect(path(['lit', 'k'])).toBe('argument 0 › k:  must be  1')
+    expect(path(['lit', { string: 'k' }])).toBe('argument 0 › "k":  must be  1')
+    expect(path(true)).toBe('the number of items in argument 0:  must be  1')
+  })
+
+  it('the length step is the length for every selector, never the word "true"', () => {
+    const leaf = (sel: Expr) => one(['lte', sel, 3])
+    expect(leaf(['elem', 'memo', true])).toBe(
+      'the number of items in the item › memo:  must be at most  3'
+    )
+    expect(leaf(['elem', true])).toBe('the number of items in the item:  must be at most  3')
+    expect(leaf(['read', C, 'list', [], true])).toBe(
+      `the number of items in list() on ${short(C)}:  must be at most  3`
+    )
+    expect(leaf(['read', C, 'list', [], ['lit', true]])).toBe(
+      `list() on ${short(C)} › true:  must be at most  3`
+    )
+    expect(leaf(['call_arg_len', 1])).toBe('the number of items in argument 1:  must be at most  3')
+    expect(leaf(['call_path', 1, true])).toBe(
+      'the number of items in argument 1:  must be at most  3'
+    )
+    expect(leaf(['sum', ['call_arg', 0], 'amount'])).toBe(
+      'the total of amount in argument 0:  must be at most  3'
+    )
+  })
+
+  it('with a type: an index only into a vector or tuple, a key only into a map', () => {
+    const v = (ty: unknown): View => ({
+      contract: C,
+      info: { [C]: { fns: { f: [['p', ty as never]] } } },
+    })
+    const at = (ty: unknown, step: Expr) =>
+      card(
+        [
+          'and',
+          [
+            ['eq', ['call_fn'], 'f'],
+            ['eq', ['call_path', 0, step], 1],
+          ],
+        ],
+        v(ty)
+      ).at(-1)
+    expect(at({ vec: 'u32' }, 0)).toContain('p › [0]:')
+    expect(at({ vec: 'u32' }, ['lit', 0])).toContain('argument 0 › 0 (u32):')
+    expect(at({ map: 'u32' }, ['lit', 5])).toContain('p › 5 (u32):')
+    expect(at({ map: 'u32' }, 5)).toContain('argument 0 › [5]:')
+    expect(at({ tuple: ['u32'] }, 0)).toContain('p › [0]:')
+    expect(at({ fields: { to: 'address' } }, 'to')).toContain('p › to:')
+    expect(at({ fields: { to: 'address' } }, ['lit', 'to'])).toContain('p › to:')
+    expect(at({ fields: { to: 'address' } }, 0)).toContain('argument 0 › [0]:')
+    expect(at({ fields: { to: 'address' } }, 'constructor')).toContain('argument 0 › constructor:')
+  })
+})
+
+describe('an item field and a call argument of one name read differently', () => {
+  it('x <= y is not y <= x', () => {
+    const view: View = {
+      contract: C,
+      info: {
+        [C]: {
+          fns: {
+            pay: [
+              ['payments', { vec: { fields: { amount: 'i128', to: 'address' } } }],
+              ['to', 'address'],
+              ['amount', 'i128'],
+            ],
+          },
+        },
+      },
+    }
+    const rule = (l: Expr, r: Expr): string =>
+      card(
+        [
+          'and',
+          [
+            ['eq', ['call_fn'], 'pay'],
+            ['all', ['call_arg', 0], ['lte', l, r]],
+          ],
+        ],
+        view
+      ).at(-1) as string
+    const a = rule(['elem', 'amount'], ['call_arg', 2])
+    const b = rule(['call_arg', 2], ['elem', 'amount'])
+    expect(a).toBe('      └─ the item › amount:  must be at most  amount')
+    expect(b).toBe('      └─ amount:  must be at most  the item › amount')
+  })
+})
+
+describe('labels from a request', () => {
+  const label = (l: string) => one(['eq', ['call_arg', 0], A], { labels: { [A]: l } })
+  it("are plain words, marked as the caller's", () => {
+    expect(label('payroll-1')).toBe(`argument 0:  must be  ${short(A)} («payroll-1»)`)
+  })
+  it.each([
+    ['a line break', 'x)\n   └─ amount:  must be at most  1'],
+    ['a box character', '└─ x'],
+    ['an escape', 'x\u001b[2K'],
+    ['a right-to-left mark', 'x\u202e'],
+    ['brackets', 'x (verified)'],
+    ['more than 24 characters', 'a'.repeat(25)],
+    ['nothing', ''],
+    ['a digit first', '1x'],
+  ])('%s is dropped', (_n, l) => expect(label(l)).toBe(`argument 0:  must be  ${short(A)}`))
 })

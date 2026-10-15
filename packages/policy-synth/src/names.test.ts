@@ -130,7 +130,7 @@ describe('names from the network', () => {
       [...expr[1].slice(0, 1), ['eq', ['call_fn'], 'install'], ['eq', ['call_path', 0, 'nope'], 1]],
     ]
     expect((await call('simulate_policy', { expr: field })).review.at(-1)).toBe(
-      '   └─ argument 0 > nope:  must be  1'
+      '   └─ argument 0 › nope:  must be  1'
     )
   })
 })

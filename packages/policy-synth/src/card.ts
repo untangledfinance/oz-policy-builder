@@ -6,7 +6,7 @@
 // "argument N" wording. Nothing a name says can change what the rule enforces.
 
 import { INTERPRETER, SPENDING_LIMIT } from './config.ts'
-import type { Info, Ty } from './spec.ts'
+import { type Info, SAC, type Ty } from './spec.ts'
 import { type Expr, intOf, isAddress, isSelector, isTagged, unlit, type Val } from './wire.ts'
 
 export interface Node {
@@ -55,29 +55,54 @@ const KNOWN: Record<string, string> = Object.fromEntries([
   ...Object.values(SPENDING_LIMIT).map((a) => [a, 'spending limit']),
   ...Object.values(INTERPRETER).flatMap((p) => (p ? [[p.address, 'interpreter']] : [])),
 ])
+/** What a request may call an address: plain words, so a label cannot carry a line of its own. */
+const LABEL = /^[A-Za-z][\w .-]{0,23}$/
+/** The integer types the contract reads as one kind of number (`5u32` is `5i128`); the 256-bit
+ *  ones are not numbers to it, and inside a vector or a map every type is its own. */
+const NUMBER = /^(i32|i64|u64|i128|u128|timepoint|duration)$/
 
 /** An address shortened, or whole under `raw`. */
 const short = (a: string, c: View) => (c.raw ? a : `${a.slice(0, 4)}…${a.slice(-4)}`)
-const named = (a: string, c: View) => c.labels?.[a] ?? KNOWN[a]
+/** The package's own name for an address, else the request's, marked as the caller's («...»). */
+const named = (a: string, c: View) => {
+  const given = c.labels?.[a]
+  return KNOWN[a] ?? (given !== undefined && LABEL.test(given) ? `«${given}»` : undefined)
+}
 /** An address with its name in brackets. */
 const addr = (a: string, c: View) => `${short(a, c)}${named(a, c) ? ` (${named(a, c)})` : ''}`
 /** What is known of the contract in force. */
 const known = (c: View) => c.info?.[c.contract ?? '']
+/** Text between quotes, with whatever could bend a line (controls, bidi, line separators) escaped. */
+const quoted = (s: string, q: string) =>
+  q +
+  JSON.stringify(s)
+    .slice(1, -1)
+    .replace(
+      /[\u007f-\u009f\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g,
+      (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`
+    ) +
+  q
 
-function constant(v: Val, c: View): string {
-  if (v === null) return 'nothing'
-  if (typeof v === 'string') return isAddress(v) ? addr(v, c) : v
-  if (typeof v !== 'object') return String(v)
-  if (Array.isArray(v)) return `[${v.map((x) => constant(x, c)).join(', ')}]`
-  const [tag, x] = Object.entries(v)[0] as [string, unknown]
-  if (tag === 'bytes' || tag === 'stringHex') return `0x${x}`
-  if (tag === 'string') return JSON.stringify(x)
+/** A constant, so that two constants the contract tells apart never read alike: a symbol is
+ *  'quoted', a string "quoted", bytes 0x.., a string of non-text bytes hex"..", an integer of
+ *  a kind it does not read as a number carries its type, and so does every number nested in a
+ *  vector or map (and every number under `raw`). */
+function constant(v: Val, c: View, typed = c.raw): string {
+  if (v === null) return 'null'
+  if (typeof v === 'string') return isAddress(v) ? addr(v, c) : quoted(v, "'")
+  if (typeof v === 'number') return typed ? `${v} (u32)` : String(v)
+  if (typeof v === 'boolean') return String(v)
+  if (Array.isArray(v)) return `[${v.map((x) => constant(x, c, true)).join(', ')}]`
+  const [tag, x] = Object.entries(v)[0] as [string, string | [Val, Val][]]
+  if (tag === 'bytes') return `0x${x}`
+  if (tag === 'stringHex') return `hex"${x}"`
+  if (tag === 'string') return quoted(x as string, '"')
   if (tag === 'map')
-    return `{${(x as [Val, Val][]).map(([k, e]) => `${constant(k, c)}: ${constant(e, c)}`).join(', ')}}`
-  return String(x)
+    return `{${(x as [Val, Val][]).map(([k, e]) => `${constant(k, c, true)}: ${constant(e, c, true)}`).join(', ')}}`
+  return NUMBER.test(tag) && !typed ? String(x) : `${x} (${tag})`
 }
 
-/** A token amount as `5,000 USDC (50000000000)`; the number alone when the decimals are unknown. */
+/** A token amount as `5,000 USDC (50000000000)`: the unit is the token's, the raw number stays. */
 function money(x: string, { decimals: d, symbol }: NonNullable<Info['token']>): string {
   if (d === undefined) return x
   const n = x.replace('-', '').padStart(d + 1, '0')
@@ -88,90 +113,107 @@ function money(x: string, { decimals: d, symbol }: NonNullable<Info['token']>): 
 
 /** A constant, in the unit its other side is read in. */
 function show(v: Val, kind: Sub['kind'], c: View): string {
-  const [x, n, t] = [unlit(v), intOf(unlit(v)), known(c)?.token]
+  const x = unlit(v)
+  const number = typeof x === 'number' || (isTagged(x) && NUMBER.test(Object.keys(x)[0] ?? ''))
+  const [n, t] = [number ? intOf(x) : undefined, known(c)?.token]
   if (!c.raw && kind === 'time' && n !== undefined && n >= 0n && n <= 253402300799n)
-    return `${new Date(Number(n) * 1000).toISOString().slice(0, 16).replace('T', ' ')} UTC`
+    return `${new Date(Number(n) * 1000).toISOString().slice(0, 19).replace('T', ' ')} UTC (${n})`
   if (!c.raw && kind === 'amount' && t && isTagged(x) && 'i128' in x) return money(x.i128, t)
   return constant(x, c)
 }
 
+/** A step of a path: an index `[0]`, a key (a symbol plain, anything else as a constant). */
+const step = (s: Val, c: View) => {
+  const k = unlit(s)
+  return typeof s === 'number'
+    ? `[${s}]`
+    : typeof k === 'string' && !isAddress(k)
+      ? k
+      : constant(k, c, true)
+}
+
 /** What an operand reached through `steps` from `first` (a parameter, or the item) of type `ty`
- *  is called: struct fields by name, vector and tuple items as `[i]`, map entries by key. Anything
- *  else (no type, a field that is not there, a number walked into) keeps the wire wording `index`. */
+ *  is called: struct fields by name, vector and tuple items by index (a bare number only), map
+ *  entries by key. Anything else (no type, a field that is not there, an index into a map, a key
+ *  into a vector) keeps the wire wording `index`. */
 function resolve(c: View, index: string, steps: Val[], first?: string, ty?: Ty): Sub {
   const names = first ? [first] : []
-  for (const s of steps.map(unlit)) {
-    const t: { vec?: Ty; map?: Ty; tuple?: Ty[]; fields?: Record<string, Ty> } =
-      typeof ty === 'object' ? ty : {}
-    const [name, next] =
-      typeof s === 'string' && t.fields && Object.hasOwn(t.fields, s)
-        ? [s, t.fields[s]]
-        : t.map
-          ? [constant(s, c), t.map]
-          : typeof s === 'number' && !t.fields
-            ? [`[${s}]`, t.vec ?? t.tuple?.[s]]
-            : []
+  for (const s of steps) {
+    const [key, t]: [Val, { vec?: Ty; map?: Ty; tuple?: Ty[]; fields?: Record<string, Ty> }] = [
+      unlit(s),
+      typeof ty === 'object' ? ty : {},
+    ]
+    const field = typeof key === 'string' && t.fields && Object.hasOwn(t.fields, key)
+    const next = field
+      ? t.fields?.[key as string]
+      : typeof s !== 'number'
+        ? t.map
+        : t.fields
+          ? undefined
+          : (t.vec ?? t.tuple?.[s])
     if (!next) return { name: index, index }
-    names.push(name as string)
+    names.push(step(s, c))
     ty = next
   }
-  if (!ty) return { name: index, index }
-  const amountish = /^(amount|.+_amount|amount_.+)$/.test(names.at(-1) as string)
-  const amount = ty === 'i128' && amountish && known(c)?.token
-  return { name: names.join(' › '), index, ty, kind: amount ? 'amount' : undefined }
+  return ty ? { name: names.join(' › '), index, ty } : { name: index, index }
 }
 
 const params = (c: View) => {
   const f = known(c)?.fns
   return c.fn && f && Object.hasOwn(f, c.fn) ? f[c.fn] : undefined
 }
-const step = (s: Val, c: View) => constant(unlit(s), c)
 
 /** What an operand is called: a name where the interface gives one, else the wire wording. */
 function sub(v: Val, c: View, kind?: Sub['kind']): Sub {
   if (!isSelector(v) || v[0] === 'lit') return { name: show(v, kind, c) }
   const [head, ...r] = v
+  // A path ends in `true` for the number of items (`call_arg_len` always does).
+  const count = head === 'call_arg_len' || r.at(-1) === true
+  const path = head === 'call_arg_len' ? r : count ? r.slice(0, -1) : r
+  const counted = (s: Sub): Sub =>
+    count ? { name: `the number of items in ${s.name}`, index: s.index ?? s.name } : s
   switch (head) {
     case 'call_contract':
-      return { name: 'contract' }
+      return { name: 'the contract' }
     case 'call_fn':
-      return { name: 'function' }
+      return { name: 'the function' }
     case 'now':
-      return { name: 'ledger time', kind: 'time' }
+      return { name: 'the ledger time', kind: 'time' }
     case 'call_arg':
     case 'call_arg_len':
     case 'call_arg_field':
     case 'call_path': {
-      const all = head === 'call_arg_len' ? [...r, true] : r
-      const count = all.at(-1) === true
-      const [i, ...rest] = count ? all.slice(0, -1) : all
-      const index = `argument ${i}${rest.map((s) => ` > ${step(s, c)}`).join('')}`
+      const [i, ...rest] = path
+      const index = [`argument ${i}`, ...rest.map((s) => step(s, c))].join(' › ')
       const p = typeof i === 'number' ? params(c)?.[i] : undefined
       const s = resolve(c, index, rest, p?.[0], p?.[1])
-      return count ? { name: `the number of items in ${s.name}`, index } : s
+      // The SEP-41 `amount` of a token's own function is in the token's unit; nothing else is.
+      const own = rest.length === 0 && p?.[0] === 'amount' && p[1] === 'i128'
+      const unit = own && c.fn !== undefined && Object.hasOwn(SAC, c.fn) && known(c)?.token
+      return counted(unit ? { ...s, kind: 'amount' } : s)
     }
     case 'elem': {
-      const index =
-        r.length === 0 ? 'the item' : `the item's ${r.map((s) => step(s, c)).join(' > ')}`
-      return resolve(c, index, r, r.length ? undefined : 'item', c.item)
+      const index = ['the item', ...path.map((s) => step(s, c))].join(' › ')
+      return counted(resolve(c, index, path, 'the item', c.item))
     }
     case 'sum': {
-      const [src, ...steps] = r as Val[]
-      const of = steps.length ? `${steps.map((x) => step(x, c)).join(' > ')} in ` : ''
-      return { name: `the total of ${of}${sub(src as Val, c).name}` }
+      const [src, ...steps] = path as Val[]
+      const of = steps.length ? `${steps.map((x) => step(x, c)).join(' › ')} in ` : ''
+      return counted({ name: `the total of ${of}${sub(src as Val, c).name}` })
     }
     case 'scaled': {
       const [src, num, den, add] = r as Val[]
       const part = (x: Val) =>
-        isSelector(x) && x[0] === 'scaled' ? `(${sub(x, c).name})` : sub(x, c).name
+        isSelector(x) && ['scaled', 'read', 'sum'].includes(x[0] as string)
+          ? `(${sub(x, c).name})`
+          : sub(x, c).name
       const tail = sub(add as Val, c).name === '0' ? '' : ` + ${part(add as Val)}`
       return { name: `${part(src as Val)} × ${part(num as Val)} ÷ ${part(den as Val)}${tail}` }
     }
     case 'read': {
-      const [target, fn, args, ...steps] = r as [string, string, Val[], ...Val[]]
-      const on = `${named(target, c) ? `${named(target, c)} ` : ''}${short(target, c)}`
-      const path = steps.map((s) => ` › ${step(s, c)}`).join('')
-      return { name: `${fn}(${args.map((x) => sub(x, c).name).join(', ')}) on ${on}${path}` }
+      const [target, fn, args, ...steps] = path as [string, string, Val[], ...Val[]]
+      const on = `${fn}(${args.map((x) => sub(x, c).name).join(', ')}) on ${addr(target, c)}`
+      return counted({ name: [on, ...steps.map((s) => step(s, c))].join(' › ') })
     }
   }
   return { name: JSON.stringify(v) }
@@ -180,16 +222,16 @@ function sub(v: Val, c: View, kind?: Sub['kind']): Sub {
 function leaf(e: Expr, c: View): Node {
   if (!isSelector(e)) return { label: constant(e, c), op: 'lit', raw: e }
   const [op, a, b] = e as [string, Val, Val]
-  const l = sub(a, c)
-  const kind = l.kind ?? (isSelector(b) ? sub(b, c).kind : undefined)
-  const side = (x: Val) => sub(x, c, kind).name
+  const [l, r] = [sub(a, c), isSelector(b) ? sub(b, c) : undefined]
+  const side = (x: Val) => sub(x, c, l.kind ?? r?.kind).name
   const list = (op === 'in' || op === 'nin') && Array.isArray(b)
+  const index = l.index ?? r?.index
   return {
     label: side(a),
     op,
     value: list ? `[${b.map(side).join(', ')}]` : side(b),
     raw: e,
-    ...(l.index === undefined ? {} : { index: l.index }),
+    ...(index === undefined ? {} : { index }),
   }
 }
 
@@ -249,12 +291,13 @@ const PINNED = /\["eq",\["call_contract"\],"(C\w{55})"/g
 export const contractsOf = (e: Val) => Array.from(JSON.stringify(e).matchAll(PINNED), (m) => m[1])
 
 /** The tree of a predicate. `view.contract` is the contract its rule is scoped to: a header for it
- *  (with `raw: null`) wraps the tree when the predicate pins no contract itself. */
+ *  (with `raw: null`) wraps the tree unless the predicate itself pins exactly that contract. */
 export function tree(expr: Expr, view: View = {}): Node[] {
   const nodes = top(expr, view)
-  const pinned = (ns: Node[]): boolean =>
-    ns.some((n) => n.op === 'contract' || pinned(n.children ?? []))
-  return view.contract && !pinned(nodes)
+  const [first] = nodes
+  // The scope is always said, unless the predicate's own pin is that very contract.
+  const same = nodes.length === 1 && first?.op === 'contract' && first.value === view.contract
+  return view.contract && !same
     ? [{ label: header(view), op: 'contract', value: view.contract, raw: null, ...kids(nodes) }]
     : nodes
 }
@@ -263,7 +306,7 @@ export function tree(expr: Expr, view: View = {}): Node[] {
 export function lines(nodes: Node[], raw = false, prefix = '', child = false): string[] {
   return nodes.flatMap((n, i) => {
     const end = i === nodes.length - 1
-    const label = `${n.label}${raw && n.index ? ` (${n.index})` : ''}`
+    const label = `${n.label}${raw && n.index && n.index !== n.label ? ` (${n.index})` : ''}`
     const cond = n.value !== undefined && n.op !== 'contract' && n.op !== 'function'
     const text = cond
       ? `${label}:  ${Object.hasOwn(COMPARE, n.op) ? COMPARE[n.op] : n.op}  ${n.value}`

@@ -282,9 +282,9 @@ describe('synthesize_policy', () => {
     expect(r.data.rules[0].review).toEqual([
       TOKEN,
       '└─ transfer',
-      `   ├─ argument 0 (argument 0):  must be  ${account(1)}`,
-      `   ├─ argument 1 (argument 1):  must be  ${account(2)}`,
-      '   └─ argument 2 (argument 2):  must be at most  9000000',
+      `   ├─ argument 0:  must be  ${account(1)}`,
+      `   ├─ argument 1:  must be  ${account(2)}`,
+      '   └─ argument 2:  must be at most  9000000 (i128)',
     ])
   })
 
@@ -294,7 +294,7 @@ describe('synthesize_policy', () => {
       limit: '9000000',
       allow: { to: [account(2)] },
     })
-    expect(r.data.rules[0].review.at(-2)).toContain('GABA…EJXA (to)')
+    expect(r.data.rules[0].review.at(-2)).toContain('GABA…EJXA («to»)')
   })
 
   it('the first name an address is given stays; a numbered list is not a name', async () => {
@@ -304,8 +304,8 @@ describe('synthesize_policy', () => {
       allow: { to: [account(2)], payee: [account(2)], '1': [account(1)] },
     })
     const text = r.data.rules[0].review.join('\n')
-    expect(text).toContain('GABA…EJXA (to)')
-    expect(text).not.toContain('(payee)')
+    expect(text).toContain('GABA…EJXA («to»)')
+    expect(text).not.toContain('«payee»')
     expect(text).not.toContain('(1)')
   })
 
@@ -388,7 +388,7 @@ describe('simulate_policy', () => {
     expect(r.data.review.at(-1)).toBe('   └─ argument 2:  must be at most  9000000')
     expect(r.data.reviewTree[0].raw).toEqual(['eq', ['call_contract'], TOKEN])
     const same = await call('simulate_policy', { encodedPredicate: encodedRule, raw: true })
-    expect(same.data.review.at(-1)).toBe('   └─ argument 2 (argument 2):  must be at most  9000000')
+    expect(same.data.review.at(-1)).toBe('   └─ argument 2:  must be at most  9000000 (i128)')
   })
 
   it('with calls it checks them and explains the rule too', async () => {
@@ -548,8 +548,8 @@ describe('install_policy', () => {
       signers: [SIGNER, account(1)],
     })
     const text = r.data.rule.review.join('\n')
-    expect(text).toContain('GAAQ…DZ7H (signer)')
-    expect(text).toContain('GABA…EJXA (admin)')
+    expect(text).toContain('GAAQ…DZ7H («signer»)')
+    expect(text).toContain('GABA…EJXA («admin»)')
   })
 
   it('the source account is named in the review before the signer it also is', async () => {
@@ -571,7 +571,7 @@ describe('install_policy', () => {
       contract: TOKEN,
       allowOverlap: true,
     })
-    expect(r.data.rule.review.join('\n')).toContain('GAT7…BCSB (source account)')
+    expect(r.data.rule.review.join('\n')).toContain('GAT7…BCSB («source account»)')
   })
 
   it('a signer the account does not share is a clean install', async () => {
@@ -998,7 +998,7 @@ describe('get_interpreter_info', () => {
     expect(r.data.account).toMatchObject({ complete: true })
     expect(rules[0].review).toBeUndefined()
     expect(rules[2].review.join('\n')).toContain('└─ transfer')
-    expect(rules[2].review.join('\n')).toContain('(smart account)')
+    expect(rules[2].review.join('\n')).toContain('(«smart account»)')
     const raw = await call('get_interpreter_info', { explainAccount: ACCOUNT, raw: true })
     expect(raw.data.account.rules[2].review.join('\n')).toContain(ACCOUNT)
   })
