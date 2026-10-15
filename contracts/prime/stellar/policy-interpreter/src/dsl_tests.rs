@@ -145,6 +145,11 @@ fn node_to_scval(env: &Env, n: &Node) -> ScVal {
             leaf_to_scval(env, left),
             leaf_to_scval(env, right),
         ]),
+        Node::Quant(any, over, body) => vec_scval(&[
+            sym(if *any { "any" } else { "all" }),
+            leaf_to_scval(env, over),
+            node_to_scval(env, body),
+        ]),
         Node::In { needle, haystack } => vec_scval(&[
             sym("in"),
             leaf_to_scval(env, needle),
@@ -191,6 +196,16 @@ fn leaf_to_scval(env: &Env, l: &Leaf) -> ScVal {
             leaf_to_scval(env, &k[2]),
         ]),
         Leaf::Lit(v) => vec_scval(&[sym("lit"), scval_of(env, *v)]),
+        Leaf::Elem(steps) => {
+            let mut items = alloc::vec![sym("elem")];
+            items.extend(steps_scval(env, steps));
+            vec_scval(&items)
+        }
+        Leaf::Sum(src, steps) => {
+            let mut items = alloc::vec![sym("sum"), leaf_to_scval(env, src)];
+            items.extend(steps_scval(env, steps));
+            vec_scval(&items)
+        }
     }
 }
 
@@ -328,8 +343,8 @@ fn op_lte_permits_at_bound() {
 fn cmp_i128(env: &Env, op: CompareOp, left: i128, right: i128) -> Node {
     Node::Compare {
         op,
-        left: li(&env, left),
-        right: li(&env, right),
+        left: li(env, left),
+        right: li(env, right),
     }
 }
 
@@ -703,7 +718,7 @@ fn denies_with(env: &Env, ctx: &EvalContext, left: Leaf) -> bool {
         &Node::Compare {
             op: CompareOp::Eq,
             left,
-            right: lu(&env, 1),
+            right: lu(env, 1),
         },
         ctx,
     ))
@@ -929,7 +944,7 @@ fn balanced_depth_n(env: &Env, target_depth: usize) -> Node {
         return Node::Compare {
             op: CompareOp::Eq,
             left: Leaf::CallContract,
-            right: lit(&env, contract(env)),
+            right: lit(env, contract(env)),
         };
     }
     Node::And(StdVec::from([balanced_depth_n(env, target_depth - 1)]))
@@ -941,7 +956,7 @@ fn wide_leaves_n(env: &Env, target_pairs: usize) -> Node {
         children.push(Node::Compare {
             op: CompareOp::Eq,
             left: Leaf::CallContract,
-            right: lit(&env, contract(env)),
+            right: lit(env, contract(env)),
         });
     }
     Node::And(children)
@@ -1202,7 +1217,7 @@ fn scaled(src: Leaf, num: Leaf, den: i128, add: Leaf) -> Leaf {
 
 /// `scaled(call_arg(0), num, den, 0)` - the grammar-6 `call_arg_scaled`.
 fn arg_scaled(env: &Env, num: i128, den: i128) -> Leaf {
-    scaled(call_arg(0), li(&env, num), den, li(&env, 0))
+    scaled(call_arg(0), li(env, num), den, li(env, 0))
 }
 
 fn compare(op: CompareOp, left: Leaf, right: Leaf) -> Node {
@@ -1211,7 +1226,7 @@ fn compare(op: CompareOp, left: Leaf, right: Leaf) -> Node {
 
 /// The canonical floor: `call_arg(1) >= scaled(call_arg(0), num, den, 0)`.
 fn floor_node(env: &Env, num: i128, den: i128) -> Node {
-    compare(CompareOp::Gte, call_arg(1), arg_scaled(&env, num, den))
+    compare(CompareOp::Gte, call_arg(1), arg_scaled(env, num, den))
 }
 
 #[test]

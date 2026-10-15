@@ -24,6 +24,10 @@ pub const MAX_IN_OPERAND_COUNT: u32 = 32;
 /// decode.
 pub const MAX_READS: u32 = 4;
 pub const MAX_PREDICATE_BYTES: u32 = 32 * 1024;
+/// Elements a quantifier or `sum` visits; a longer vector denies. Decode counts
+/// each leaf of a quantifier body this many times toward `MAX_LEAVES`, so the
+/// worst-case work of one `enforce` stays bounded.
+pub const MAX_ELEMS: u32 = 32;
 
 // Tag and selector names come from the encoder verbatim (see
 // `policy-synth/src/predicate/encode.ts`); an unknown one is fail-closed at
@@ -94,6 +98,10 @@ pub enum Node {
         needle: Leaf,
         haystack: Vec<Leaf>,
     },
+    /// `all(over, body)` / `any(over, body)`: `body` holds for every / some
+    /// element of the vector `over` resolves to (`elem` leaves read the current
+    /// one). `all` of nothing permits; `any` of nothing denies.
+    Quant(bool, Leaf, Box<Node>),
 }
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -149,6 +157,12 @@ pub enum Leaf {
     /// A constant of any type: `lit(x)` on the wire, or a bare address, symbol,
     /// number or vec of constants. Compared by value (`val_eq`).
     Lit(Val),
+    /// The current element of the enclosing quantifier, walked by the steps
+    /// (none: the element itself). Only a quantifier body may hold one.
+    Elem(Vec<PathStep>),
+    /// The `i128` sum of what the steps reach in each element of the vector the
+    /// leaf resolves to: checked, and every element must be a number.
+    Sum(Box<Leaf>, Vec<PathStep>),
 }
 
 // ---- EvalContext ----
@@ -191,11 +205,16 @@ impl DenyReason {
 // ---- Pure evaluator ----
 
 /// Pure apart from `Leaf::Read`, which calls out to the contract it names.
-pub fn evaluate(env: &Env, node: &Node, ctx: &EvalContext) -> EvalDecision {
-    eval(env, node, ctx, &mut Memo::new())
+pub fn evaluate(env: &Env, node: &Node, call: &EvalContext) -> EvalDecision {
+    eval(env, node, &Ctx(call, ().into_val(env)), &mut Memo::new())
         .err()
         .map_or(EvalDecision::Permit, EvalDecision::Deny)
 }
+
+/// What a leaf resolves against: the authorised call (`.0`) and, inside a
+/// quantifier body, the element being visited (`.1`, what `elem` reads).
+#[derive(Clone, Copy)]
+struct Ctx<'a>(&'a EvalContext, Val);
 
 /// The calls this evaluation has already made, keyed by `(contract, fn, args)`
 /// and holding the raw result (`None` for a call that failed). A repeated read
@@ -220,7 +239,7 @@ type Memo = Vec<((Address, Symbol, Vals), Option<Val>)>;
 //    MAX_READS distinct reads, at most MAX_PREDICATE_BYTES bytes, and at least
 //    one selector leaf.
 
-fn eval(env: &Env, node: &Node, ctx: &EvalContext, memo: &mut Memo) -> Result<(), DenyReason> {
+fn eval(env: &Env, node: &Node, ctx: &Ctx, memo: &mut Memo) -> Result<(), DenyReason> {
     match node {
         Node::And(children) => children.iter().try_for_each(|c| eval(env, c, ctx, memo)),
         // Permits on the first branch that holds; when none does, reports the
@@ -279,6 +298,16 @@ fn eval(env: &Env, node: &Node, ctx: &EvalContext, memo: &mut Memo) -> Result<()
             };
             pass.then_some(()).ok_or(miss)
         }
+        // Short-circuits: `all` on the first element that fails (or cannot
+        // resolve), `any` on the first that holds. `found` is whether that
+        // element exists, and a permit needs it to be what the quantifier wants.
+        Node::Quant(any, over, body) => {
+            let items = elements(env, resolve(env, over, ctx, memo)?)?;
+            let found = items
+                .iter()
+                .any(|e| eval(env, body, &Ctx(ctx.0, e), memo).is_ok() == *any);
+            (found == *any).then_some(()).ok_or(DenyReason::ArgMismatch)
+        }
         // An opaque or undecodable needle fails closed as a membership miss,
         // not an argument mismatch: it cannot be on the allowlist because it
         // cannot be compared at all.
@@ -332,12 +361,12 @@ fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
 /// this call does not carry - an argument past the end, a shape other than the
 /// leaf assumed, a read that failed or returned a non-number;
 /// `ArithmeticOverflow` is a `scaled` step that did not fit.
-fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext, memo: &mut Memo) -> Result<Val, DenyReason> {
+fn resolve(env: &Env, leaf: &Leaf, ctx: &Ctx, memo: &mut Memo) -> Result<Val, DenyReason> {
     let miss = DenyReason::ArgMismatch;
     Ok(match leaf {
-        Leaf::CallContract => ctx.contract.clone().into_val(env),
-        Leaf::CallFn => ctx.fn_name.clone().into_val(env),
-        Leaf::CallPath(steps) => walk(env, ctx.args.clone().into_val(env), steps).ok_or(miss)?,
+        Leaf::CallContract => ctx.0.contract.clone().into_val(env),
+        Leaf::CallFn => ctx.0.fn_name.clone().into_val(env),
+        Leaf::CallPath(steps) => walk(env, ctx.0.args.clone().into_val(env), steps).ok_or(miss)?,
         Leaf::Now => env.ledger().timestamp().into_val(env),
         Leaf::Read(c, f, a, steps) => {
             let args: Result<Vec<Val>, _> = a.iter().map(|l| resolve(env, l, ctx, memo)).collect();
@@ -354,6 +383,16 @@ fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext, memo: &mut Memo) -> Result
                 .filter(|v| !v.is_void())
                 .ok_or(miss)?
         }
+        Leaf::Elem(steps) => walk(env, ctx.1, steps).ok_or(miss)?,
+        Leaf::Sum(src, steps) => {
+            let items = elements(env, resolve(env, src, ctx, memo)?)?;
+            let add = |t: i128, e: Val| {
+                let x = walk(env, e, steps).and_then(|x| val_to_i128(env, &x));
+                t.checked_add(x.ok_or(miss)?)
+                    .ok_or(DenyReason::ArithmeticOverflow)
+            };
+            items.iter().try_fold(0, add)?.into_val(env)
+        }
         Leaf::Scaled(k, den) => {
             let mut n = |l: &Leaf| val_to_i128(env, &resolve(env, l, ctx, memo)?).ok_or(miss);
             let scaled = scale(n(&k[0])?, n(&k[1])?, *den, n(&k[2])?);
@@ -361,6 +400,12 @@ fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext, memo: &mut Memo) -> Result
         }
         Leaf::Lit(v) => *v,
     })
+}
+
+/// The elements of the vector `leaf` resolves to, at most `MAX_ELEMS` of them.
+fn elements(env: &Env, v: Val) -> Result<Vals, DenyReason> {
+    let items = to::<Vals>(env, &v).ok().filter(|v| v.len() <= MAX_ELEMS);
+    items.ok_or(DenyReason::ArgMismatch)
 }
 
 /// `src * num / den + add`: multiply, divide (truncating toward zero), add, each
@@ -416,27 +461,33 @@ fn walk(env: &Env, cur: Val, steps: &[PathStep]) -> Option<Val> {
 /// decoder refuses anything else); `leaves` visits them, and none can match.
 pub fn has_selector_leaf(root: &Node) -> bool {
     let selects = |l: &&Leaf| matches!(l, Leaf::CallContract | Leaf::CallFn | Leaf::CallPath(_));
-    leaves(root).iter().any(selects)
+    leaves(root).iter().any(|(l, _)| selects(l))
 }
 
-/// Every leaf of the tree, nested `scaled` operands and literal-vec elements
-/// included.
-fn leaves(node: &Node) -> Vec<&Leaf> {
-    fn nested<'a>(leaf: &'a Leaf, out: &mut Vec<&'a Leaf>) {
-        out.push(leaf);
+/// Every leaf of the tree, nested `scaled` operands and `read` arguments
+/// included, each with its weight: how many times evaluation may reach it, which
+/// is `MAX_ELEMS` for every leaf of a quantifier body and 1 elsewhere.
+fn leaves(node: &Node) -> Vec<(&Leaf, u32)> {
+    fn nested<'a>(leaf: &'a Leaf, w: u32, out: &mut Vec<(&'a Leaf, u32)>) {
+        out.push((leaf, w));
         match leaf {
-            Leaf::Scaled(inner, _) => inner.iter().for_each(|l| nested(l, out)),
-            Leaf::Read(_, _, args, _) => args.iter().for_each(|l| nested(l, out)),
+            Leaf::Scaled(inner, _) => inner.iter().for_each(|l| nested(l, w, out)),
+            Leaf::Read(_, _, args, _) => args.iter().for_each(|l| nested(l, w, out)),
+            Leaf::Sum(src, _) => nested(src, w, out),
             _ => {}
         }
     }
+    let mut out = Vec::new();
     let top = match node {
         Node::And(kids) | Node::Or(kids) => return kids.iter().flat_map(leaves).collect(),
         Node::Compare { left, right, .. } => vec![left, right],
         Node::In { needle, haystack } => haystack.iter().chain([needle]).collect(),
+        Node::Quant(_, over, body) => {
+            out.extend(leaves(body).into_iter().map(|(l, w)| (l, w * MAX_ELEMS)));
+            vec![over]
+        }
     };
-    let mut out = Vec::new();
-    top.into_iter().for_each(|l| nested(l, &mut out));
+    top.into_iter().for_each(|l| nested(l, 1, &mut out));
     out
 }
 
@@ -504,7 +555,7 @@ pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
     // A read with a call-derived argument is its own call: its arguments resolve
     // at `enforce`, and are the same for every use of that leaf.
     let mut calls = Vec::new();
-    for l in &all {
+    for (l, _) in &all {
         if let Leaf::Read(c, f, a, _) = l {
             let fixed: Option<Vec<Val>> = a.iter().map(|l| literal_to_val(l).ok()).collect();
             let key = (c, f, fixed.map(|v| Vals::from_slice(env, &v)));
@@ -513,7 +564,16 @@ pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
             }
         }
     }
-    let few = all.len() <= MAX_LEAVES as usize && calls.len() <= MAX_READS as usize;
+    // `elem` only in a quantifier body (weight `MAX_ELEMS`), `sum` and a nested
+    // quantifier (weight above it) never in one.
+    let placed = |(l, w): &(&Leaf, u32)| match l {
+        Leaf::Elem(_) => *w == MAX_ELEMS,
+        Leaf::Sum(..) => *w == 1,
+        _ => *w <= MAX_ELEMS,
+    };
+    ensure(all.iter().all(placed))?;
+    let weight: u32 = all.iter().map(|(_, w)| w).sum();
+    let few = weight <= MAX_LEAVES && calls.len() <= MAX_READS as usize;
     cap(few, DecodeError::TooManyLeaves)?;
     Ok(root_node)
 }
@@ -564,6 +624,14 @@ fn decode_node(env: &Env, items: &Vals, depth: u32) -> Res<Node> {
             true => Node::And(haystack.iter().map(ne).collect()),
             false => Node::In { needle, haystack },
         })
+    } else if is("all") || is("any") {
+        ensure(items.len() == 3)?;
+        let body = decode_node(env, &expect(env, items, 2)?, depth + 1)?;
+        Ok(Node::Quant(
+            is("any"),
+            leaf_at(env, items, 1)?,
+            Box::new(body),
+        ))
     } else if let Some((_, op)) = ops.find(|(name, _)| is(name)) {
         ensure(items.len() == 3)?;
         let (left, right) = (leaf_at(env, items, 1)?, leaf_at(env, items, 2)?);
@@ -660,6 +728,14 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
             each(&expect(env, items, 3)?, arg)?,
             decode_steps(env, items, 4, 0)?,
         ))
+    } else if is(items.len(), "elem") {
+        Ok(Leaf::Elem(decode_steps(env, items, 1, 0)?))
+    } else if is(items.len(), "sum") {
+        // (sum, vec, step...): the vec is any leaf; the steps reach the number
+        // inside each element (none: the element is the number).
+        ensure(items.len() >= 2)?;
+        let src = decode_leaf(env, &at(items, 1)?, depth + 1)?;
+        Ok(Leaf::Sum(Box::new(src), decode_steps(env, items, 2, 0)?))
     } else if is(2, "lit") {
         Ok(Leaf::Lit(at(items, 1)?))
     } else if is(items.len(), "variant") {

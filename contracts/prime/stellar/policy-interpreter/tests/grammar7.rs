@@ -2500,3 +2500,162 @@ fn only_a_call_derived_argument_makes_a_read_constrain_the_call() {
     assert_eq!(w.install(&by(now())), SELECTOR_REQUIRED);
     assert_eq!(w.install(&by(call_arg(1))), Ok(()));
 }
+
+// ---- quantifiers: external calls stay bounded ------------------------------
+
+fn elem(steps: &[Step]) -> ScVal {
+    let mut items = alloc::vec![sym("elem")];
+    items.extend(steps.iter().map(|s| match s {
+        Step::I(i) => ScVal::U32(*i),
+        Step::F(f) => sym(f),
+        Step::Len => ScVal::Bool(true),
+    }));
+    tuple(items)
+}
+
+fn quant(kind: &str, over: ScVal, body: ScVal) -> ScVal {
+    tuple(alloc::vec![sym(kind), over, body])
+}
+
+/// `advance(items: Vec<i128>, who: Address)`.
+fn advance_items(w: &World, items: &[i128], who: &Address) -> Context {
+    let v: SorobanVec<i128> = SorobanVec::from_slice(&w.env, items);
+    let args: SorobanVec<Val> = soroban_sdk::vec![&w.env, v.into_val(&w.env), who.into_val(&w.env)];
+    Context::Contract(ContractContext {
+        contract: w.target.clone(),
+        fn_name: Symbol::new(&w.env, "advance"),
+        args,
+    })
+}
+
+#[test]
+fn a_read_in_a_quantifier_body_is_one_call_however_many_elements() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let who = Address::generate(&w.env);
+    RegistryClient::new(&w.env, &reg).add(&who);
+    // The body's read does not depend on the element: it is made once.
+    let body = tuple(alloc::vec![
+        sym("and"),
+        tuple(alloc::vec![
+            cmp("gte", elem(&[]), num(0)),
+            listed(&w, &reg, 1)
+        ]),
+    ]);
+    w.install(&quant("all", call_path(&[Step::I(0)]), body))
+        .expect("installs");
+    let items: StdVec<i128> = (0..32).collect();
+    assert_eq!(w.enforce_context(&advance_items(&w, &items, &who)), Ok(()));
+    assert_eq!(
+        RegistryClient::new(&w.env, &reg).calls(),
+        1,
+        "32 elements, one call"
+    );
+}
+
+#[test]
+fn quantifier_reads_count_against_the_same_four_calls() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    // three call-derived reads outside, one inside the body: four, so it installs
+    let outside = (0..3).map(|i| listed(&w, &reg, i));
+    let mut checks: StdVec<ScVal> = outside.collect();
+    checks.push(quant("all", call_path(&[Step::I(0)]), listed(&w, &reg, 3)));
+    assert_eq!(w.install(&all(checks.clone())), Ok(()));
+    // a fifth, anywhere, is refused
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let mut five: StdVec<ScVal> = (0..4).map(|i| listed(&w, &reg, i)).collect();
+    five.push(quant("any", call_path(&[Step::I(0)]), listed(&w, &reg, 4)));
+    assert_eq!(w.install(&all(five)), MALFORMED);
+}
+
+#[test]
+fn a_body_read_cannot_take_the_element_as_an_argument() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let by_elem = read(&w.env, &reg, "contains", alloc::vec![elem(&[])], &[]);
+    let body = cmp("eq", by_elem, lit(ScVal::Bool(true)));
+    assert_eq!(
+        w.install(&quant("any", call_path(&[Step::I(0)]), body)),
+        MALFORMED
+    );
+}
+
+#[test]
+fn any_stops_at_the_first_element_that_holds() {
+    // body: elem == 1 OR registry.echo(true) == true. The read is only reached
+    // by an element that is not 1, so the call counter shows how far `any` went.
+    let body = |w: &World, reg: &Address| {
+        let echo = read(
+            &w.env,
+            reg,
+            "echo",
+            alloc::vec![lit(ScVal::Bool(true))],
+            &[],
+        );
+        tuple(alloc::vec![
+            sym("or"),
+            tuple(alloc::vec![
+                cmp("eq", elem(&[]), num(1)),
+                cmp("eq", echo, lit(ScVal::Bool(true)))
+            ]),
+        ])
+    };
+    let run = |items: &[i128]| {
+        let w = World::new();
+        let reg = w.env.register(Registry, ());
+        let who = Address::generate(&w.env);
+        w.install(&quant("any", call_path(&[Step::I(0)]), body(&w, &reg)))
+            .expect("installs");
+        let verdict = w.enforce_context(&advance_items(&w, items, &who));
+        (verdict, RegistryClient::new(&w.env, &reg).calls())
+    };
+    assert_eq!(
+        run(&[1, 2, 3]),
+        (Ok(()), 0),
+        "stopped at the first element, never read"
+    );
+    assert_eq!(
+        run(&[2, 1]),
+        (Ok(()), 1),
+        "the first element reached the read"
+    );
+}
+
+#[test]
+fn a_quantifier_rule_is_enforced_through_install_and_enforce() {
+    // multi-recipient style: every item is within [0, 100], and one is exactly 50.
+    let w = World::new();
+    let items = call_path(&[Step::I(0)]);
+    let rule = rule_for(all(alloc::vec![
+        quant(
+            "all",
+            items.clone(),
+            all(alloc::vec![
+                cmp("gte", elem(&[]), num(0)),
+                cmp("lte", elem(&[]), num(100)),
+            ])
+        ),
+        quant("any", items, cmp("eq", elem(&[]), num(50))),
+    ]));
+    w.install(&rule).expect("installs");
+    let who = Address::generate(&w.env);
+    assert_eq!(
+        w.enforce_context(&advance_items(&w, &[7, 50, 100], &who)),
+        Ok(())
+    );
+    assert_eq!(
+        w.enforce_context(&advance_items(&w, &[7, 51], &who)),
+        denied()
+    );
+    assert_eq!(
+        w.enforce_context(&advance_items(&w, &[50, 101], &who)),
+        denied()
+    );
+    assert_eq!(
+        w.enforce_context(&advance_items(&w, &[], &who)),
+        denied(),
+        "any of nothing"
+    );
+}

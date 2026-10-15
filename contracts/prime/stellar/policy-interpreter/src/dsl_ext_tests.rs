@@ -2,6 +2,9 @@
 //! widening, `lit` map keys, call-derived read arguments and the quantifiers.
 //! Predicates are built as raw ScVals, the wire form a client sends.
 
+// `&[x.clone()]` reads better than `from_ref` in one-line fixtures.
+#![allow(clippy::cloned_ref_to_slice_refs)]
+
 extern crate alloc;
 
 use alloc::vec::Vec as StdVec;
@@ -486,4 +489,430 @@ fn len_is_still_only_the_last_step() {
         n(2),
     );
     assert_eq!(refused(&mid), MALFORMED);
+}
+
+// ---- F: quantifiers --------------------------------------------------------
+
+fn all_of(over: ScVal, body: ScVal) -> ScVal {
+    tup(&[sym("all"), over, body])
+}
+
+fn any_of(over: ScVal, body: ScVal) -> ScVal {
+    tup(&[sym("any"), over, body])
+}
+
+fn elem(steps: &[ScVal]) -> ScVal {
+    let mut v = alloc::vec![sym("elem")];
+    v.extend_from_slice(steps);
+    tup(&v)
+}
+
+fn sum(over: ScVal, steps: &[ScVal]) -> ScVal {
+    let mut v = alloc::vec![sym("sum"), over];
+    v.extend_from_slice(steps);
+    tup(&v)
+}
+
+fn list(items: &[ScVal]) -> ScVal {
+    tup(items)
+}
+
+const CAP: usize = crate::dsl::MAX_ELEMS as usize;
+
+fn payment(to: u8, amount: i128) -> ScVal {
+    map(&[(sym("to"), account(to)), (sym("amount"), n(amount))])
+}
+
+/// Multi-recipient payout: every recipient is approved, none is paid over 500,
+/// and the batch total is at most 1000. The body has 6 leaves (192 of the 200
+/// budget), the vector 1 and the total 3: 196.
+fn payout_rule() -> ScVal {
+    let body = and(&[
+        set(
+            "in",
+            elem(&[sym("to")]),
+            &[account(1), account(2), account(3)],
+        ),
+        cmp("lte", elem(&[sym("amount")]), n(500)),
+    ]);
+    and(&[
+        all_of(path(&[ScVal::U32(0)]), body),
+        cmp(
+            "lte",
+            sum(path(&[ScVal::U32(0)]), &[sym("amount")]),
+            n(1000),
+        ),
+    ])
+}
+
+#[test]
+fn payout_permits_approved_recipients_within_the_caps() {
+    let p = payout_rule();
+    assert!(permits(&p, &[list(&[payment(1, 400), payment(2, 500)])]));
+    assert!(permits(&p, &[list(&[payment(3, 500)])]));
+}
+
+#[test]
+fn payout_refuses_each_way_of_breaking_a_rule() {
+    let p = payout_rule();
+    assert!(
+        denies(&p, &[list(&[payment(1, 100), payment(9, 100)])]),
+        "stranger"
+    );
+    assert!(
+        denies(&p, &[list(&[payment(9, 100), payment(1, 100)])]),
+        "stranger first"
+    );
+    assert!(
+        denies(&p, &[list(&[payment(1, 501)])]),
+        "one payment over its cap"
+    );
+    assert!(
+        denies(
+            &p,
+            &[list(&[payment(1, 400), payment(2, 400), payment(3, 400)])]
+        ),
+        "total"
+    );
+    assert!(
+        denies(&p, &[list(&[map(&[(sym("to"), account(1))])])]),
+        "no amount"
+    );
+    assert!(denies(&p, &[list(&[n(5)])]), "element is not a map");
+    assert!(denies(&p, &[n(5)]), "not a vector");
+    assert!(denies(&p, &[]), "no argument");
+}
+
+#[test]
+fn payout_total_is_checked_at_its_boundary() {
+    let p = payout_rule();
+    assert!(
+        permits(&p, &[list(&[payment(1, 500), payment(2, 500)])]),
+        "exactly 1000"
+    );
+    assert!(
+        denies(&p, &[list(&[payment(1, 500), payment(2, 501)])]),
+        "1001"
+    );
+}
+
+/// Adapter batch of any length: every call targets an approved contract, and at
+/// least one of them is `repay`.
+fn batch_rule() -> ScVal {
+    let calls = path(&[ScVal::U32(0)]);
+    and(&[
+        all_of(
+            calls.clone(),
+            set("in", elem(&[sym("target")]), &[account(1), account(2)]),
+        ),
+        any_of(calls, cmp("eq", elem(&[sym("f")]), sym("repay"))),
+    ])
+}
+
+fn call(target: u8, f: &str) -> ScVal {
+    map(&[(sym("target"), account(target)), (sym("f"), sym(f))])
+}
+
+/// `len` calls, the last of which is `last`.
+fn batch(len: usize, last: ScVal) -> ScVal {
+    let mut calls: StdVec<ScVal> = (1..len).map(|_| call(1, "supply")).collect();
+    if len > 0 {
+        calls.push(last);
+    }
+    list(&calls)
+}
+
+#[test]
+fn a_batch_of_any_length_up_to_the_cap_is_judged_element_by_element() {
+    let p = batch_rule();
+    for len in [1, 2, 8, CAP] {
+        assert!(permits(&p, &[batch(len, call(2, "repay"))]), "len {len}");
+        assert!(
+            denies(&p, &[batch(len, call(2, "supply"))]),
+            "len {len}: no repay"
+        );
+        assert!(
+            denies(&p, &[batch(len, call(9, "repay"))]),
+            "len {len}: target"
+        );
+    }
+}
+
+#[test]
+fn a_batch_over_the_cap_is_refused_even_if_every_element_is_fine() {
+    let p = batch_rule();
+    assert!(denies(&p, &[batch(CAP + 1, call(2, "repay"))]));
+    assert!(denies(&p, &[batch(CAP + 100, call(2, "repay"))]));
+    assert!(permits(&p, &[batch(CAP, call(2, "repay"))]));
+}
+
+#[test]
+fn an_empty_batch_has_nothing_to_repay() {
+    let p = batch_rule();
+    assert!(denies(&p, &[batch(0, call(1, "repay"))]));
+    // `all` of nothing holds; it is `any` that fails.
+    let only_all = all_of(path(&[ScVal::U32(0)]), cmp("eq", elem(&[]), n(1)));
+    assert!(permits(&only_all, &[list(&[])]));
+    let only_any = any_of(path(&[ScVal::U32(0)]), cmp("eq", elem(&[]), n(1)));
+    assert!(denies(&only_any, &[list(&[])]));
+}
+
+#[test]
+fn the_element_cap_applies_to_all_any_and_sum() {
+    let ones = |len: usize| list(&(0..len).map(|_| n(1)).collect::<StdVec<_>>());
+    let over = path(&[ScVal::U32(0)]);
+    let all = all_of(over.clone(), cmp("eq", elem(&[]), n(1)));
+    let any = any_of(over.clone(), cmp("eq", elem(&[]), n(1)));
+    let total = cmp("gte", sum(over, &[]), n(0));
+    for p in [&all, &any, &total] {
+        assert!(permits(p, &[ones(CAP)]));
+        assert!(denies(p, &[ones(CAP + 1)]));
+    }
+}
+
+#[test]
+fn a_swap_route_is_checked_with_a_bare_elem() {
+    let route = path(&[ScVal::U32(1)]);
+    let p = and(&[
+        all_of(
+            route.clone(),
+            set("in", elem(&[]), &[account(1), account(2), account(3)]),
+        ),
+        cmp("eq", path(&[ScVal::U32(1), ScVal::U32(0)]), arg(0)),
+        cmp("lte", path(&[ScVal::U32(1), ScVal::Bool(true)]), n(3)),
+    ]);
+    let hops = |h: &[u8]| list(&h.iter().map(|t| account(*t)).collect::<StdVec<_>>());
+    assert!(permits(&p, &[account(1), hops(&[1, 2, 3])]));
+    assert!(permits(&p, &[account(2), hops(&[2, 1])]));
+    assert!(
+        denies(&p, &[account(1), hops(&[1, 9, 3])]),
+        "a hop off the list"
+    );
+    assert!(
+        denies(&p, &[account(1), hops(&[2, 3])]),
+        "wrong first token"
+    );
+    assert!(denies(&p, &[account(1), hops(&[1, 2, 3, 1])]), "four hops");
+    assert!(
+        denies(&p, &[account(1), account(1)]),
+        "route is not a vector"
+    );
+}
+
+#[test]
+fn an_unresolvable_element_fails_all_and_is_skipped_by_any() {
+    let by_key = |q: fn(ScVal, ScVal) -> ScVal| {
+        q(path(&[ScVal::U32(0)]), cmp("eq", elem(&[sym("k")]), n(7)))
+    };
+    let good = map(&[(sym("k"), n(7))]);
+    let bare = map(&[(sym("other"), n(7))]);
+    // `all`: the element without the key cannot make the body true.
+    assert!(permits(
+        &by_key(all_of),
+        &[list(&[good.clone(), good.clone()])]
+    ));
+    assert!(denies(
+        &by_key(all_of),
+        &[list(&[good.clone(), bare.clone()])]
+    ));
+    // `any`: it does not count, and does not stop a later element counting.
+    assert!(permits(
+        &by_key(any_of),
+        &[list(&[bare.clone(), good.clone()])]
+    ));
+    assert!(denies(&by_key(any_of), &[list(&[bare.clone(), bare])]));
+    assert!(
+        denies(&by_key(any_of), &[list(&[n(1), n(2)])]),
+        "elements that are not maps"
+    );
+}
+
+#[test]
+fn a_quantifier_over_something_that_is_not_a_vec_denies() {
+    for over in [
+        path(&[ScVal::U32(0)]),
+        n(5),
+        lit(text("abc")),
+        lit(map(&[])),
+    ] {
+        for q in [all_of, any_of] {
+            let p = q(over.clone(), cmp("eq", elem(&[]), n(1)));
+            assert!(denies(&p, &[n(5)]) && denies(&p, &[]) && denies(&p, &[text("abc")]));
+        }
+    }
+}
+
+#[test]
+fn sum_adds_numbers_of_every_integer_type() {
+    let total = |want: i128| cmp("eq", sum(path(&[ScVal::U32(0)]), &[]), n(want));
+    let mixed = list(&[
+        ScVal::U32(1),
+        ScVal::I64(-3),
+        ScVal::U64(10),
+        n(100),
+        u128v(5),
+        ScVal::I32(7),
+    ]);
+    assert!(permits(&total(120), &[mixed.clone()]));
+    assert!(denies(&total(121), &[mixed]));
+    assert!(permits(&total(0), &[list(&[])]), "the sum of nothing is 0");
+    // usable anywhere a value is: as a `scaled` operand and on the left of a compare
+    let scaled = tup(&[
+        sym("scaled"),
+        sum(path(&[ScVal::U32(0)]), &[]),
+        n(2),
+        n(1),
+        n(0),
+    ]);
+    assert!(permits(&cmp("eq", scaled, n(12)), &[list(&[n(2), n(4)])]));
+}
+
+#[test]
+fn sum_is_an_error_when_an_element_is_not_a_number_or_the_total_overflows() {
+    let total = cmp("gte", sum(path(&[ScVal::U32(0)]), &[]), n(i128::MIN));
+    assert!(denies(&total, &[list(&[n(1), text("2")])]), "a string");
+    assert!(
+        denies(&total, &[list(&[n(1), u128v(u128::MAX)])]),
+        "a u128 that does not fit"
+    );
+    assert!(denies(&total, &[list(&[n(1), ScVal::Void])]), "void");
+    assert!(
+        permits(&total, &[list(&[n(i128::MAX), n(-1)])]),
+        "no overflow at the edge"
+    );
+    let overflow = [n(i128::MAX), n(1)];
+    assert!(denies(&total, &[list(&overflow)]));
+    assert_eq!(
+        reason(
+            &cmp("eq", sum(path(&[ScVal::U32(0)]), &[]), n(0)),
+            &[list(&overflow)]
+        ),
+        Some(DenyReason::ArithmeticOverflow)
+    );
+    let under = [n(i128::MIN), n(-1)];
+    assert!(denies(&total, &[list(&under)]));
+    // a missing field is not a zero
+    let keyed = cmp("gte", sum(path(&[ScVal::U32(0)]), &[sym("v")]), n(0));
+    assert!(denies(
+        &keyed,
+        &[list(&[map(&[(sym("v"), n(1))]), map(&[])])]
+    ));
+}
+
+#[test]
+fn quantifiers_do_not_nest_and_sum_stays_out_of_a_body() {
+    let over = path(&[ScVal::U32(0)]);
+    let inner = all_of(elem(&[]), cmp("eq", elem(&[]), n(1)));
+    for q in [all_of, any_of] {
+        // inside the body directly, and under `and`
+        assert_eq!(refused(&q(over.clone(), inner.clone())), MALFORMED);
+        assert_eq!(
+            refused(&q(
+                over.clone(),
+                and(&[inner.clone(), cmp("eq", elem(&[]), n(1))])
+            )),
+            MALFORMED
+        );
+        let in_sum = cmp("lte", elem(&[]), sum(over.clone(), &[]));
+        assert_eq!(
+            refused(&q(over.clone(), in_sum)),
+            MALFORMED,
+            "sum in a body"
+        );
+        let nested_sum = cmp(
+            "lte",
+            elem(&[]),
+            tup(&[sym("scaled"), sum(over.clone(), &[]), n(1), n(1), n(0)]),
+        );
+        assert_eq!(
+            refused(&q(over.clone(), nested_sum)),
+            MALFORMED,
+            "sum inside scaled inside a body"
+        );
+    }
+    // the same pieces are fine outside one
+    assert_eq!(
+        refused(&and(&[
+            all_of(over.clone(), cmp("eq", elem(&[]), n(1))),
+            cmp("lte", sum(over, &[]), n(9))
+        ])),
+        None
+    );
+}
+
+#[test]
+fn elem_outside_a_body_is_refused() {
+    let over = path(&[ScVal::U32(0)]);
+    assert_eq!(refused(&cmp("eq", elem(&[]), n(1))), MALFORMED);
+    assert_eq!(refused(&cmp("eq", arg(0), elem(&[sym("k")]))), MALFORMED);
+    // the vector a quantifier walks is outside its own body
+    assert_eq!(
+        refused(&all_of(elem(&[]), cmp("eq", arg(0), n(1)))),
+        MALFORMED
+    );
+    // so is a `sum` over an element, even if a quantifier is elsewhere
+    let outside = and(&[
+        all_of(over.clone(), cmp("eq", elem(&[]), n(1))),
+        cmp("eq", sum(elem(&[]), &[]), n(1)),
+    ]);
+    assert_eq!(refused(&outside), MALFORMED);
+    // a quantifier body cannot hand the element to a read
+    let read = tup(&[sym("read"), account(7), sym("f"), tup(&[elem(&[])])]);
+    assert_eq!(refused(&all_of(over, cmp("eq", read, n(1)))), MALFORMED);
+}
+
+#[test]
+fn a_quantifier_must_still_constrain_the_call() {
+    // over a call path: a selector
+    let ok = all_of(path(&[ScVal::U32(0)]), cmp("eq", elem(&[]), n(1)));
+    let env = Env::default();
+    let node = decode(&env, &raw(&env, &ok)).unwrap();
+    assert!(crate::dsl::has_selector_leaf(&node));
+    // over a clock-only or constant vector: not
+    let none = all_of(lit(list(&[n(1)])), cmp("eq", elem(&[]), n(1)));
+    let node = decode(&env, &raw(&env, &none)).unwrap();
+    assert!(!crate::dsl::has_selector_leaf(&node));
+    // a call-derived leaf inside the body counts as well
+    let body = all_of(lit(list(&[n(1)])), cmp("eq", elem(&[]), arg(0)));
+    assert!(crate::dsl::has_selector_leaf(
+        &decode(&env, &raw(&env, &body)).unwrap()
+    ));
+}
+
+/// `1` for the vector, 32 per body leaf, plus `rest` leaves outside.
+fn budget(body_leaves: usize, rest_compares: usize, rest_in: bool) -> ScVal {
+    let mut body: StdVec<ScVal> = (0..body_leaves / 2)
+        .map(|_| cmp("eq", elem(&[]), n(1)))
+        .collect();
+    if body_leaves % 2 == 1 {
+        body.push(set("in", elem(&[]), &[n(1)]));
+    }
+    let mut rest: StdVec<ScVal> = (0..rest_compares)
+        .map(|_| cmp("eq", arg(0), n(1)))
+        .collect();
+    if rest_in {
+        rest.push(set("in", arg(0), &[n(1), n(2)]));
+    }
+    let mut all = alloc::vec![all_of(path(&[ScVal::U32(0)]), and(&body))];
+    all.extend(rest);
+    and(&all)
+}
+
+#[test]
+fn each_body_leaf_counts_thirty_two_times_toward_the_leaf_cap() {
+    let cap = crate::dsl::MAX_LEAVES as usize;
+    // 6 body leaves: 1 + 6 * 32 = 193; 7 more leaves outside make exactly 200.
+    assert_eq!(refused(&budget(6, 2, true)), None, "200 leaves");
+    assert_eq!(
+        refused(&budget(6, 4, false)),
+        Some(DecodeError::TooManyLeaves),
+        "201"
+    );
+    assert_eq!(refused(&budget(6, 3, false)), None, "199");
+    // 7 body leaves is 225 by itself.
+    assert_eq!(
+        refused(&budget(7, 0, false)),
+        Some(DecodeError::TooManyLeaves)
+    );
+    assert_eq!(cap, 200);
 }
