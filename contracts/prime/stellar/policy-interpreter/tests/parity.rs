@@ -288,6 +288,37 @@ fn corpus() -> StdVec<(&'static str, ScVal)> {
             ))
         ),
         (
+            "lit map keys of three types",
+            sel(cmp(
+                "eq",
+                arg(0),
+                lit(map(alloc::vec![
+                    (sym("a"), n(1)),
+                    (sym("b"), n(2)),
+                    (g.clone(), n(3))
+                ]))
+            ))
+        ),
+        (
+            "lit map signed number keys",
+            sel(cmp(
+                "eq",
+                arg(0),
+                lit(map(alloc::vec![
+                    (ScVal::I64(-2), n(1)),
+                    (ScVal::I64(10), n(2))
+                ]))
+            ))
+        ),
+        (
+            "lit map text keys",
+            sel(cmp(
+                "eq",
+                arg(0),
+                lit(map(alloc::vec![(text("ab"), n(1)), (text("b"), n(2))]))
+            ))
+        ),
+        (
             "lit enum vec",
             sel(cmp(
                 "eq",
