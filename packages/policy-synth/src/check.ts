@@ -50,17 +50,17 @@ export interface Verdict {
 export const MAX_CHECKS = 64
 const WIDTH = 8
 
-const sym = (s: string) => xdr.ScVal.scvSymbol(s)
-
 /** `Context::Contract(ContractContext { args, contract, fn_name })`. */
 const context = (c: Call): xdr.ScVal =>
-  xdr.ScVal.scvVec([
-    sym('Contract'),
-    xdr.ScVal.scvMap([
-      new xdr.ScMapEntry({ key: sym('args'), val: toScVal(c.args) }),
-      new xdr.ScMapEntry({ key: sym('contract'), val: new Address(c.contract).toScVal() }),
-      new xdr.ScMapEntry({ key: sym('fn_name'), val: sym(c.fn) }),
-    ]),
+  toScVal([
+    'Contract',
+    {
+      map: [
+        ['args', c.args],
+        ['contract', c.contract],
+        ['fn_name', c.fn],
+      ],
+    },
   ])
 
 /** What `interpreter.check` says: it always fails, and the contract error is the

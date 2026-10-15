@@ -140,8 +140,6 @@ const digest = (
     ])
   )
 
-const sym = (s: string) => xdr.ScVal.scvSymbol(s)
-
 /** Build `smartAccount.<fn>(args)` as an unsigned transaction with the account's
  *  own auth entries attached, authorised by rule 0 (the deploy-time admin rule). */
 export async function buildSelfCall(
@@ -196,13 +194,12 @@ export async function buildSelfCall(
         nonce: creds.nonce(),
         signatureExpirationLedger: until,
         // OZ AuthPayload { context_rule_ids, signers }: the source account signs, so its signature is empty here.
-        signature: xdr.ScVal.scvMap([
-          new xdr.ScMapEntry({ key: sym('context_rule_ids'), val: toScVal(ids) }),
-          new xdr.ScMapEntry({
-            key: sym('signers'),
-            val: toScVal({ map: [[delegated(a.sourceAccount), { bytes: '' }]] }),
-          }),
-        ]),
+        signature: toScVal({
+          map: [
+            ['context_rule_ids', ids],
+            ['signers', { map: [[delegated(a.sourceAccount), { bytes: '' }]] }],
+          ],
+        }),
       })
     ),
     rootInvocation: original.rootInvocation(),
