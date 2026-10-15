@@ -49,6 +49,8 @@ import { DECODE_LIMITS, decode, type Expr, encode, hashOf, validate, WireError }
 const net = {
   network: z.enum(['mainnet', 'testnet']).default('testnet'),
 }
+/** Stroops per operation: the cap keeps a bad caller from handing a wallet an absurd fee to bid. */
+const baseFee = z.number().int().positive().max(10_000_000).optional()
 const account = z.string().refine(StrKey.isValidEd25519PublicKey, 'a G... account')
 const contractId = z.string().refine(StrKey.isValidContract, 'a C... contract')
 const anyAddress = z.union([account, contractId])
@@ -423,7 +425,7 @@ const install_policy = tool(
     allowUnboundedAmount: z.boolean().optional(),
     allowOverlap: z.boolean().optional(),
     interpreterAddress: contractId.optional(),
-    baseFee: z.number().int().positive().optional(),
+    baseFee,
     outFile: z
       .string()
       .regex(/^[A-Za-z0-9_][A-Za-z0-9._-]{0,99}$/, 'a plain file name')
@@ -496,7 +498,7 @@ const revoke_policy = tool(
     sourceAccount: account,
     ruleId: z.number().int().nonnegative(),
     allowAdminRule: z.boolean().optional(),
-    baseFee: z.number().int().positive().optional(),
+    baseFee,
   },
   async (i) => {
     const server = connect(i)

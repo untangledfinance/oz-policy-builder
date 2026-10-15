@@ -712,6 +712,13 @@ describe('install_policy: the input boundary, to the unit', () => {
     ['a plain file name', { outFile: 'install.xdr' }, true],
     ['a path', { outFile: 'a/b.xdr' }, false],
     ['a ledger of the maximum', { validUntilLedger: 0xffffffff }, true],
+    ['a base fee at the cap', { baseFee: 10_000_000 }, true],
+    [
+      'a base fee past it (a prompt-injected agent bidding hundreds of XLM)',
+      { baseFee: 10_000_001 },
+      false,
+    ],
+    ['a base fee of zero', { baseFee: 0 }, false],
     ['a ledger past it', { validUntilLedger: 0x100000000 }, false],
   ])('%s', (_n, o, want) => expect(ok(o)).toBe(want))
 })
@@ -743,6 +750,10 @@ describe('revoke_policy', () => {
       'INSTALL_BUILD_FAILED'.replace('INSTALL', 'REVOKE'),
       /#3000/
     )
+  })
+  it('revoke_policy caps the base fee too', async () => {
+    const base = { smartAccount: ACCOUNT, sourceAccount: SIGNER, ruleId: 1 }
+    await failing('revoke_policy', { ...base, baseFee: 10_000_001 }, 'INVALID_INPUT', /baseFee/)
   })
   it.each([{ ruleId: -1 }, { ruleId: 1.5 }, { smartAccount: SIGNER }, { sourceAccount: ACCOUNT }])(
     'refuses %j',
