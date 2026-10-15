@@ -133,3 +133,119 @@ describe('structure', () => {
     ])
   })
 })
+
+describe('an `and` under an `or` is a group, never a flat list', () => {
+  const pay: Expr = [
+    'and',
+    [
+      ['eq', ['call_fn'], 'transfer'],
+      ['lte', ['call_arg', 2], { i128: '100' }],
+    ],
+  ]
+  const approve: Expr = [
+    'and',
+    [
+      ['eq', ['call_fn'], 'approve'],
+      ['lte', ['call_arg', 2], { i128: '5' }],
+    ],
+  ]
+
+  it('or(and, and) says each call needs ALL of its own conditions (it used to read as one long "any")', () => {
+    expect(card(['or', [pay, approve]])).toEqual([
+      'Any one of:',
+      '  All of:',
+      '    the function must be transfer',
+      '    argument 2 must be at most 100',
+      '  All of:',
+      '    the function must be approve',
+      '    argument 2 must be at most 5',
+    ])
+  })
+
+  it('and of the same four conditions, flat in an or, is a different rule and reads like one', () => {
+    const flat: Expr = [
+      'or',
+      [
+        ['eq', ['call_fn'], 'transfer'],
+        ['lte', ['call_arg', 2], { i128: '100' }],
+        ['eq', ['call_fn'], 'approve'],
+        ['lte', ['call_arg', 2], { i128: '5' }],
+      ],
+    ]
+    expect(card(flat)).not.toEqual(card(['or', [pay, approve]]))
+    expect(card(flat)).toHaveLength(5)
+  })
+
+  it('a branch of one condition is not a group, and the groups nest', () => {
+    expect(card(['or', [pay, ['eq', ['call_fn'], 'burn']]])).toEqual([
+      'Any one of:',
+      '  All of:',
+      '    the function must be transfer',
+      '    argument 2 must be at most 100',
+      '  the function must be burn',
+    ])
+    const nested = card([
+      'and',
+      [
+        ['eq', ['call_arg', 0], 1],
+        ['or', [pay, approve]],
+      ],
+    ])
+    expect(nested[0]).toBe('argument 0 must be 1')
+    expect(nested.slice(1)).toEqual(card(['or', [pay, approve]]))
+    // An `and` of one is the condition itself.
+    expect(card(['or', [['and', [['eq', ['call_fn'], 'burn']]], approve]])[1]).toBe(
+      '  the function must be burn'
+    )
+  })
+
+  it('inside a quantifier body, and for every kind of leaf (reads, lit, ne, nin, now, sum, scaled)', () => {
+    const leaves: Expr[] = [
+      ['gte', ['read', C, 'price', ['USD']], { i128: '5' }],
+      ['eq', ['call_arg', 0], ['lit', { string: 'memo' }]],
+      ['ne', ['call_arg', 1], A],
+      ['nin', ['call_arg', 1], [A, C]],
+      ['lte', ['now'], { u64: '1900000000' }],
+      ['lte', ['sum', ['call_arg', 3], 'amount'], { i128: '9' }],
+      [
+        'gte',
+        ['call_arg', 1],
+        ['scaled', ['call_arg', 0], { i128: '99' }, { i128: '100' }, { i128: '0' }],
+      ],
+    ]
+    const branch = (l: Expr): Expr => ['and', [l, ['eq', ['call_fn'], 'x']]]
+    const rule: Expr = ['or', leaves.map(branch)]
+    const lines = card(rule)
+    // One group per branch, each with its leaf's own phrase and the function.
+    expect(lines.filter((l) => l === '  All of:')).toHaveLength(leaves.length)
+    leaves.forEach((l, n) => {
+      expect(lines[1 + n * 3]).toBe('  All of:')
+      expect(lines[2 + n * 3]?.trim()).toBe(card(l)[0] as string)
+      expect(lines[3 + n * 3]).toBe('    the function must be x')
+    })
+    const body: Expr = [
+      'all',
+      ['call_arg', 3],
+      ['or', [branch(['eq', ['elem', 'to'], A]), branch(['gte', ['elem', 'amount'], 0])]],
+    ]
+    expect(card(body)).toEqual([
+      'For every item in argument 3:',
+      '  Any one of:',
+      '    All of:',
+      `      the item's to must be ${A}`,
+      '      the function must be x',
+      '    All of:',
+      "      the item's amount must be at least 0",
+      '      the function must be x',
+    ])
+  })
+
+  it('a lit key in a path is its value, not a list', () => {
+    expect(card(['eq', ['call_path', 3, ['lit', 'amount']], 1])).toEqual([
+      'argument 3 > amount must be 1',
+    ])
+    expect(operand(['call_path', 3, ['lit', { string: 'a b' }], true])).toBe(
+      'the number of items in argument 3 > "a b"'
+    )
+  })
+})

@@ -3,7 +3,7 @@
 // shape, so a rule written by hand, synthesised or installed on chain is
 // described the same way, and nothing in it can differ from what is enforced.
 
-import { type Expr, isSelector, type Val } from './wire.ts'
+import { type Expr, isSelector, unlit, type Val } from './wire.ts'
 
 const COMPARE: Record<string, string> = {
   eq: 'must be',
@@ -17,12 +17,13 @@ const COMPARE: Record<string, string> = {
 }
 const GROUP: Record<string, string> = {
   or: 'Any one of:',
+  and: 'All of:',
   all: 'For every item in',
   any: 'For at least one item in',
 }
 
 const path = (steps: Val[]): string =>
-  steps.map((s) => (s === true ? '(count)' : String(constant(s)))).join(' > ')
+  steps.map((s) => (s === true ? '(count)' : constant(unlit(s)))).join(' > ')
 
 /** What an operand is, in words. */
 export function operand(v: Val): string {
@@ -83,7 +84,14 @@ export function card(expr: Expr, depth = 0): string[] {
   if (!isSelector(expr)) return [`${pad}${constant(expr)}`]
   const [op, a, b] = expr as [string, Val, Val]
   if (op === 'and') return (a as Expr[]).flatMap((c) => card(c, depth))
-  if (op === 'or') return [`${pad}${GROUP.or}`, ...(a as Expr[]).flatMap((c) => card(c, depth + 1))]
+  if (op === 'or') {
+    // A branch of several conditions is a group: flat, its conditions would read as alternatives.
+    const branch = (c: Expr) =>
+      isSelector(c) && c[0] === 'and' && (c[1] as Expr[]).length > 1
+        ? [`${pad}  ${GROUP.and}`, ...card(c, depth + 2)]
+        : card(c, depth + 1)
+    return [`${pad}${GROUP.or}`, ...(a as Expr[]).flatMap(branch)]
+  }
   if (op === 'all' || op === 'any')
     return [`${pad}${GROUP[op]} ${operand(a)}:`, ...card(b, depth + 1)]
   const rhs = op === 'in' || op === 'nin' ? `[${(b as Val[]).map(operand).join(', ')}]` : operand(b)

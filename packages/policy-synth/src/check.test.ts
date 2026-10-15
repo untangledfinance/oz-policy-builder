@@ -630,8 +630,8 @@ describe('what counts as a verdict', () => {
 })
 
 describe('a length bound is never allocated', () => {
-  const at = (n: number) => ({ contract: C, fn: 'f', args: [[1]] as Val[] })
-  const big = (op: string, n: number) => denyCases([[op, ['call_arg_len', 0], n]], at(n))
+  const call: Call = { contract: C, fn: 'f', args: [[1]] }
+  const big = (op: string, n: number) => denyCases([[op, ['call_arg_len', 0], n]], call)
 
   it('a bound of ten million (or the u32 maximum) derives no case, at once, in little memory', () => {
     const before = process.memoryUsage().rss
