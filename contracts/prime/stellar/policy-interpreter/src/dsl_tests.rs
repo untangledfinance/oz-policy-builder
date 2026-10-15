@@ -140,7 +140,7 @@ fn node_to_scval(env: &Env, n: &Node) -> ScVal {
                     .collect::<StdVec<_>>(),
             ),
         ]),
-        Node::Compare { op, left, right } => vec_scval(&[
+        Node::Compare(op, left, right) => vec_scval(&[
             sym(op_name(*op)),
             leaf_to_scval(env, left),
             leaf_to_scval(env, right),
@@ -340,11 +340,7 @@ fn op_lte_permits_at_bound() {
 }
 
 fn cmp_i128(env: &Env, op: CompareOp, left: i128, right: i128) -> Node {
-    Node::Compare {
-        op,
-        left: li(env, left),
-        right: li(env, right),
-    }
+    Node::Compare(op, li(env, left), li(env, right))
 }
 
 // ----- Tests: selectors -----------------------------------------------------
@@ -354,22 +350,22 @@ fn sel_call_contract_eq_match_permits() {
     let env = Env::default();
     let mut ctx = empty_ctx(&env);
     ctx.contract = contract(&env);
-    let n = Node::Compare {
-        op: CompareOp::Eq,
-        left: Leaf::CallContract,
-        right: lit(&env, ctx.contract.clone()),
-    };
+    let n = Node::Compare(
+        CompareOp::Eq,
+        Leaf::CallContract,
+        lit(&env, ctx.contract.clone()),
+    );
     assert!(permit(evaluate(&env, &n, &ctx)));
 }
 
 #[test]
 fn sel_call_contract_eq_other_denies_contract_scope() {
     let env = Env::default();
-    let n = Node::Compare {
-        op: CompareOp::Eq,
-        left: Leaf::CallContract,
-        right: lit(&env, Address::generate(&env)),
-    };
+    let n = Node::Compare(
+        CompareOp::Eq,
+        Leaf::CallContract,
+        lit(&env, Address::generate(&env)),
+    );
     assert_eq!(
         reason(evaluate(&env, &n, &empty_ctx(&env))),
         Some(DenyReason::ContractScope)
@@ -379,11 +375,11 @@ fn sel_call_contract_eq_other_denies_contract_scope() {
 #[test]
 fn sel_call_contract_with_non_eq_op_unsupported() {
     let env = Env::default();
-    let n = Node::Compare {
-        op: CompareOp::Lte,
-        left: Leaf::CallContract,
-        right: lit(&env, Address::generate(&env)),
-    };
+    let n = Node::Compare(
+        CompareOp::Lte,
+        Leaf::CallContract,
+        lit(&env, Address::generate(&env)),
+    );
     assert_eq!(
         reason(evaluate(&env, &n, &empty_ctx(&env))),
         Some(DenyReason::UnsupportedNode)
@@ -395,11 +391,11 @@ fn sel_call_fn_eq_match_permits() {
     let env = Env::default();
     let mut ctx = empty_ctx(&env);
     ctx.fn_name = Symbol::new(&env, "submit");
-    let n = Node::Compare {
-        op: CompareOp::Eq,
-        left: Leaf::CallFn,
-        right: lit(&env, Symbol::new(&env, "submit")),
-    };
+    let n = Node::Compare(
+        CompareOp::Eq,
+        Leaf::CallFn,
+        lit(&env, Symbol::new(&env, "submit")),
+    );
     assert!(permit(evaluate(&env, &n, &ctx)));
 }
 
@@ -408,11 +404,11 @@ fn sel_call_fn_eq_mismatch_denies() {
     let env = Env::default();
     let mut ctx = empty_ctx(&env);
     ctx.fn_name = Symbol::new(&env, "withdraw");
-    let n = Node::Compare {
-        op: CompareOp::Eq,
-        left: Leaf::CallFn,
-        right: lit(&env, Symbol::new(&env, "submit")),
-    };
+    let n = Node::Compare(
+        CompareOp::Eq,
+        Leaf::CallFn,
+        lit(&env, Symbol::new(&env, "submit")),
+    );
     assert_eq!(
         reason(evaluate(&env, &n, &ctx)),
         Some(DenyReason::ArgMismatch)
@@ -427,11 +423,7 @@ fn sel_call_arg_eq_address_permits_when_match() {
     args.push_back(arg.clone().into_val(&env));
     let mut ctx = empty_ctx(&env);
     ctx.args = args;
-    let n = Node::Compare {
-        op: CompareOp::Eq,
-        left: call_arg(0),
-        right: lit(&env, arg),
-    };
+    let n = Node::Compare(CompareOp::Eq, call_arg(0), lit(&env, arg));
     assert!(permit(evaluate(&env, &n, &ctx)));
 }
 
@@ -442,11 +434,7 @@ fn sel_call_arg_eq_i128_denies_other_value() {
     args.push_back(10i128.into_val(&env));
     let mut ctx = empty_ctx(&env);
     ctx.args = args;
-    let n = Node::Compare {
-        op: CompareOp::Eq,
-        left: call_arg(0),
-        right: li(&env, 11),
-    };
+    let n = Node::Compare(CompareOp::Eq, call_arg(0), li(&env, 11));
     assert_eq!(
         reason(evaluate(&env, &n, &ctx)),
         Some(DenyReason::ArgMismatch)
@@ -458,11 +446,7 @@ fn sel_call_arg_out_of_bounds_denies() {
     let env = Env::default();
     let mut ctx = empty_ctx(&env);
     ctx.args = SorobanVec::<Val>::new(&env);
-    let n = Node::Compare {
-        op: CompareOp::Eq,
-        left: call_arg(7),
-        right: li(&env, 0),
-    };
+    let n = Node::Compare(CompareOp::Eq, call_arg(7), li(&env, 0));
     assert_eq!(
         reason(evaluate(&env, &n, &empty_ctx(&env))),
         Some(DenyReason::ArgMismatch)
@@ -478,11 +462,7 @@ fn sel_call_arg_len_eq_match_permits() {
     args.push_back(inner.into_val(&env));
     let mut ctx = empty_ctx(&env);
     ctx.args = args;
-    let n = Node::Compare {
-        op: CompareOp::Eq,
-        left: call_arg_len(0),
-        right: lu(&env, 1),
-    };
+    let n = Node::Compare(CompareOp::Eq, call_arg_len(0), lu(&env, 1));
     assert!(permit(evaluate(&env, &n, &ctx)));
 }
 
@@ -495,11 +475,7 @@ fn sel_call_arg_len_eq_mismatch_denies() {
     args.push_back(inner.into_val(&env));
     let mut ctx = empty_ctx(&env);
     ctx.args = args;
-    let n = Node::Compare {
-        op: CompareOp::Eq,
-        left: call_arg_len(0),
-        right: lu(&env, 99),
-    };
+    let n = Node::Compare(CompareOp::Eq, call_arg_len(0), lu(&env, 99));
     assert_eq!(
         reason(evaluate(&env, &n, &ctx)),
         Some(DenyReason::ArgMismatch)
@@ -517,15 +493,15 @@ fn sel_call_arg_field_eq_u32_match_permits() {
     args.push_back(inner_vec.into_val(&env));
     let mut ctx = empty_ctx(&env);
     ctx.args = args;
-    let n = Node::Compare {
-        op: CompareOp::Eq,
-        left: Leaf::CallPath(alloc::vec![
+    let n = Node::Compare(
+        CompareOp::Eq,
+        Leaf::CallPath(alloc::vec![
             PathStep::Index(0),
             PathStep::Index(0),
             key(&env, "request_type"),
         ]),
-        right: lu(&env, 3),
-    };
+        lu(&env, 3),
+    );
     assert!(permit(evaluate(&env, &n, &ctx)));
 }
 
@@ -561,11 +537,7 @@ fn sel_call_path_reaches_one_argument_of_one_call() {
     let env = Env::default();
     let mut ctx = empty_ctx(&env);
     ctx.args = batch_ctx(&env, &[7]);
-    let n = Node::Compare {
-        op: CompareOp::Eq,
-        left: at(&env, 0, 2),
-        right: lu(&env, 7),
-    };
+    let n = Node::Compare(CompareOp::Eq, at(&env, 0, 2), lu(&env, 7));
     assert!(permit(evaluate(&env, &n, &ctx)));
 }
 
@@ -575,11 +547,7 @@ fn sel_call_path_reaches_one_argument_of_one_call() {
 #[test]
 fn sel_call_path_expresses_a_cross_call_equality() {
     let env = Env::default();
-    let equal = Node::Compare {
-        op: CompareOp::Eq,
-        left: at(&env, 0, 2),
-        right: at(&env, 1, 2),
-    };
+    let equal = Node::Compare(CompareOp::Eq, at(&env, 0, 2), at(&env, 1, 2));
 
     let mut same = empty_ctx(&env);
     same.args = batch_ctx(&env, &[7, 7]);
@@ -598,11 +566,7 @@ fn sel_call_path_out_of_range_denies() {
     let env = Env::default();
     let mut ctx = empty_ctx(&env);
     ctx.args = batch_ctx(&env, &[7]);
-    let n = Node::Compare {
-        op: CompareOp::Eq,
-        left: at(&env, 0, 9),
-        right: lu(&env, 7),
-    };
+    let n = Node::Compare(CompareOp::Eq, at(&env, 0, 9), lu(&env, 7));
     assert!(!permit(evaluate(&env, &n, &ctx)));
 }
 
@@ -640,9 +604,9 @@ fn sel_call_path_reaches_a_nested_request_amount() {
     let mut ctx = empty_ctx(&env);
     ctx.args = args;
 
-    let n = Node::Compare {
-        op: CompareOp::Eq,
-        left: Leaf::CallPath(alloc::vec![
+    let n = Node::Compare(
+        CompareOp::Eq,
+        Leaf::CallPath(alloc::vec![
             PathStep::Index(0),
             PathStep::Index(0),
             key(&env, "args"),
@@ -650,8 +614,8 @@ fn sel_call_path_reaches_a_nested_request_amount() {
             PathStep::Index(0),
             key(&env, "amount"),
         ]),
-        right: li(&env, 42),
-    };
+        li(&env, 42),
+    );
     assert!(permit(evaluate(&env, &n, &ctx)));
 }
 
@@ -665,21 +629,13 @@ fn sel_call_path_len_reads_a_nested_vector_length() {
     let len_of_calls = Leaf::CallPath(alloc::vec![PathStep::Index(0), PathStep::Len]);
     assert!(permit(evaluate(
         &env,
-        &Node::Compare {
-            op: CompareOp::Eq,
-            left: len_of_calls.clone(),
-            right: lu(&env, 2),
-        },
+        &Node::Compare(CompareOp::Eq, len_of_calls.clone(), lu(&env, 2)),
         &ctx
     )));
     assert_eq!(
         reason(evaluate(
             &env,
-            &Node::Compare {
-                op: CompareOp::Eq,
-                left: len_of_calls,
-                right: lu(&env, 3),
-            },
+            &Node::Compare(CompareOp::Eq, len_of_calls, lu(&env, 3)),
             &ctx
         )),
         Some(DenyReason::ArgMismatch)
@@ -714,11 +670,7 @@ fn path_leaf(steps: alloc::vec::Vec<PathStep>) -> Leaf {
 fn denies_with(env: &Env, ctx: &EvalContext, left: Leaf) -> bool {
     !permit(evaluate(
         env,
-        &Node::Compare {
-            op: CompareOp::Eq,
-            left,
-            right: lu(env, 1),
-        },
+        &Node::Compare(CompareOp::Eq, left, lu(env, 1)),
         ctx,
     ))
 }
@@ -842,11 +794,7 @@ fn call_path_compared_with_itself_is_vacuously_true() {
         key(&env, "args"),
         PathStep::Index(2),
     ]);
-    let n = Node::Compare {
-        op: CompareOp::Eq,
-        left: same.clone(),
-        right: same,
-    };
+    let n = Node::Compare(CompareOp::Eq, same.clone(), same);
     assert!(permit(evaluate(&env, &n, &ctx)));
     assert!(
         crate::dsl::has_selector_leaf(&n),
@@ -940,11 +888,7 @@ fn fc_undecoded_value_never_matches_by_stringification() {
 
 fn balanced_depth_n(env: &Env, target_depth: usize) -> Node {
     if target_depth == 0 {
-        return Node::Compare {
-            op: CompareOp::Eq,
-            left: Leaf::CallContract,
-            right: lit(env, contract(env)),
-        };
+        return Node::Compare(CompareOp::Eq, Leaf::CallContract, lit(env, contract(env)));
     }
     Node::And(StdVec::from([balanced_depth_n(env, target_depth - 1)]))
 }
@@ -952,11 +896,11 @@ fn balanced_depth_n(env: &Env, target_depth: usize) -> Node {
 fn wide_leaves_n(env: &Env, target_pairs: usize) -> Node {
     let mut children = StdVec::new();
     for _ in 0..target_pairs {
-        children.push(Node::Compare {
-            op: CompareOp::Eq,
-            left: Leaf::CallContract,
-            right: lit(env, contract(env)),
-        });
+        children.push(Node::Compare(
+            CompareOp::Eq,
+            Leaf::CallContract,
+            lit(env, contract(env)),
+        ));
     }
     Node::And(children)
 }
@@ -1045,11 +989,7 @@ fn selector_leaf_gate_refuses_literals_on_both_sides() {
     // The case the gate exists for: nothing about the call is read, so the
     // predicate binds nothing and would be a permanent allow.
     let env = Env::default();
-    let n = Node::Compare {
-        op: CompareOp::Eq,
-        left: lu(&env, 1),
-        right: lu(&env, 1),
-    };
+    let n = Node::Compare(CompareOp::Eq, lu(&env, 1), lu(&env, 1));
     assert!(!crate::dsl::has_selector_leaf(&n));
 }
 
@@ -1169,11 +1109,7 @@ fn ordering_op_over_call_contract_is_unsupported() {
     let env = Env::default();
     let ctx = empty_ctx(&env);
     for op in [CompareOp::Lt, CompareOp::Lte, CompareOp::Gt, CompareOp::Gte] {
-        let n = Node::Compare {
-            op,
-            left: Leaf::CallContract,
-            right: lit(&env, ctx.contract.clone()),
-        };
+        let n = Node::Compare(op, Leaf::CallContract, lit(&env, ctx.contract.clone()));
         assert_eq!(
             reason(evaluate(&env, &n, &ctx)),
             Some(DenyReason::UnsupportedNode),
@@ -1205,7 +1141,7 @@ fn arg_scaled(env: &Env, num: i128, den: i128) -> Leaf {
 }
 
 fn compare(op: CompareOp, left: Leaf, right: Leaf) -> Node {
-    Node::Compare { op, left, right }
+    Node::Compare(op, left, right)
 }
 
 /// The canonical floor: `call_arg(1) >= scaled(call_arg(0), num, den, 0)`.
@@ -1677,7 +1613,7 @@ fn decode_lowers_call_arg_leaves_to_paths() {
         ),
     )
     .unwrap();
-    let Node::Compare { left, .. } = node else {
+    let Node::Compare(_, left, _) = node else {
         panic!("compare")
     };
     let Leaf::CallPath(steps) = left else {
@@ -1699,7 +1635,7 @@ fn read_wire(args: StdVec<ScVal>, path: StdVec<ScVal>) -> ScVal {
 fn wire_read_round_trips_and_may_have_an_empty_path() {
     let env = Env::default();
     let with_path = read_wire(StdVec::from([sym("POT")]), StdVec::from([sym("price")]));
-    let Node::Compare { left, .. } = decode(&env, &bytes_from_scval(&env, with_path)).unwrap()
+    let Node::Compare(_, left, _) = decode(&env, &bytes_from_scval(&env, with_path)).unwrap()
     else {
         panic!("compare")
     };

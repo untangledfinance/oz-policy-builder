@@ -91,11 +91,7 @@ pub const MAX_DEN: i128 = 1_000_000_000_000_000_000;
 pub enum Node {
     And(Vec<Node>),
     Or(Vec<Node>),
-    Compare {
-        op: CompareOp,
-        left: Leaf,
-        right: Leaf,
-    },
+    Compare(CompareOp, Leaf, Leaf),
     /// `in(needle, entries)`, or `nin` when the flag is set: the needle resolves
     /// and equals one entry / none. An unresolved needle denies either way.
     In(Leaf, Vec<Leaf>, bool),
@@ -270,7 +266,7 @@ fn eval(env: &Env, node: &Node, ctx: &Ctx, memo: &mut Memo) -> Result<(), DenyRe
         // `has_selector_leaf` sees a selector. That is a way to write a
         // no-constraint policy and sits in the known-acceptable-risk column
         // rather than being caught at install.
-        Node::Compare { op, left, right } => {
+        Node::Compare(op, left, right) => {
             // `call_contract` and `call_fn` name an identity, not a quantity,
             // so an ordering comparison over either, on either side, is a node
             // the interpreter never supported - distinct from a value that
@@ -528,7 +524,7 @@ fn leaves(node: &Node) -> Vec<(&Leaf, u32)> {
     let mut out = Vec::new();
     let top = match node {
         Node::And(kids) | Node::Or(kids) => return kids.iter().flat_map(leaves).collect(),
-        Node::Compare { left, right, .. } => vec![left, right],
+        Node::Compare(_, left, right) => vec![left, right],
         Node::In(needle, haystack, _) => haystack.iter().chain([needle]).collect(),
         Node::Quant(_, over, body) => {
             out.extend(leaves(body).into_iter().map(|(l, w)| (l, w * MAX_ELEMS)));
@@ -661,7 +657,7 @@ fn decode_node(env: &Env, items: &Vals, depth: u32) -> Res<Node> {
             // An ordering over an address, symbol or vector literal could never permit.
             let order = !matches!(op, C::Eq | C::Ne);
             ensure(!order || !(non_number(env, &left) || non_number(env, &right)))?;
-            Node::Compare { op, left, right }
+            Node::Compare(op, left, right)
         }
         // Bare selector tuples at a Node position are MALFORMED.
         _ => return Err(DecodeError::MalformedPredicate),
