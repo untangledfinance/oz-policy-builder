@@ -43,8 +43,10 @@ template (mandate)    --/    (calls + per-argument rules)   (unsigned XDR)
   `src/registry.ts`): who is pinned, what is capped, what is asked. Templates
   (`adapter_batch`, `blend_venue`) return an Intent from parameters.
 - **There is one evaluator: the contract.** `simulate_policy` and `verify_policy`
-  call the interpreter's read-only `check(predicate, context) -> u32` through RPC
-  simulation, so a verdict is what the contract would do, with its deny code.
+  call the interpreter's `check(predicate, context)` through RPC simulation. `check`
+  always fails, and the contract error is the verdict (`#0` permits, any other
+  number is the deny code), so a verdict is what the contract would do and nothing
+  a read does can ever commit.
   Verify turns each leaf of the rule against a permitted call (deny cases are
   derived from the leaf) and drops each conjunct in turn (minimality), at most
   64 calls, eight at a time.

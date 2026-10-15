@@ -587,3 +587,44 @@ describe('deny cases, edge by edge', () => {
     expect(denyCases(many, permit)).toHaveLength(30)
   })
 })
+
+// ---- the verdict is the contract error: nothing a `check` does can commit ----
+
+describe('what counts as a verdict', () => {
+  const stub = (sim: unknown) =>
+    ({
+      simulateTransaction: async () => sim,
+    }) as unknown as import('@stellar/stellar-sdk').rpc.Server
+  const ask = (sim: unknown) =>
+    runChecks(stub(sim), 'testnet', contract(9), encode(['eq', ['call_fn'], 'pay']), [
+      { contract: C, fn: 'pay', args: [] },
+    ])
+
+  it('reads the code from the contract error, 0 being a permit', async () => {
+    const said = (n: number) =>
+      ask({
+        error: `HostError: Error(Contract, #${n})\n\nEvent log (newest first):\n   0: [Diagnostic Event] topics:[error, Error(Contract, #7)]`,
+      })
+    expect((await said(0))[0]).toEqual({ permitted: true, code: 0, reason: 'PERMIT' })
+    expect((await said(100))[0]).toMatchObject({
+      permitted: false,
+      code: 100,
+      reason: 'ARG_MISMATCH',
+    })
+    // The first line is the verdict: a code the event log mentions later is a callee's.
+    expect((await said(105))[0]?.code).toBe(105)
+  })
+
+  it('a simulation that returns a value is not a verdict: that interpreter can commit what it reads', async () => {
+    await expect(ask({ result: { retval: { u32: () => 0 } } })).rejects.toThrow(/no verdict/)
+  })
+
+  it('an error that is not a contract error is not a verdict', async () => {
+    await expect(ask({ error: 'HostError: Error(Budget, ExceededLimit)' })).rejects.toThrow(
+      /no verdict \(Error\(Budget, ExceededLimit\)\)/
+    )
+    await expect(ask({ error: 'HostError: Error(WasmVm, InvalidAction)' })).rejects.toThrow(
+      /no verdict/
+    )
+  })
+})

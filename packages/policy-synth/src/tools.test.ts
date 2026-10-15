@@ -369,6 +369,7 @@ describe('install_policy', () => {
     ).toEqual([
       [0, 'unpoliced'],
       [1, 'other'],
+      [2, 'other'],
     ])
     expect(r.data.interpreter.matches).toBe(true)
     expect(r.data.rule.review).toContain('argument 2 must be at most 9000000')
@@ -386,7 +387,7 @@ describe('install_policy', () => {
       id: 4,
       scope: { kind: 'call_contract', contract: TOKEN },
       signers: [SIGNER],
-      policies: ['CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB'],
+      policies: ['CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV'],
       expr: rule,
     }
     const r = await failing(
@@ -417,7 +418,7 @@ describe('install_policy', () => {
       id: 2,
       scope: { kind: 'call_contract', contract: TOKEN },
       signers: [SIGNER],
-      policies: ['CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB'],
+      policies: ['CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV'],
       expr: callExpr({
         contract: TOKEN,
         fn: 'transfer',
@@ -575,10 +576,10 @@ describe('get_interpreter_info', () => {
       network: 'testnet',
       pinned: true,
       grammarVersion: 7,
-      address: 'CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB',
+      address: 'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV',
     })
     expect(r.data.wasmSha256).toBe(
-      'eb1ec6ee8dca82622b9e70a04599b7ceeea9dc89f5917293ca76fb2c51af37b3'
+      'a975353d1c3fe5bb096c4c2bf90c7c96932df10b95c9bcfa0adbb1d2146773f1'
     )
     expect(r.data.live).toBeUndefined()
   })

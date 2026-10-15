@@ -14,7 +14,7 @@ It is built as two halves:
 
 - **Off chain**, `@crediolabs/policy-synth` records a transaction or takes a
   declared mandate, turns it into a rule written in the predicate's own wire
-  shape, verifies that rule through the interpreter's read-only `check`, renders
+  shape, verifies that rule through the interpreter's `check` (a dry run that always fails with its verdict), renders
   a review card, and returns an unsigned install transaction for the user's
   wallet to sign. A CLI and an MCP server register the same seven tools from one
   table, for shells and agents.
@@ -61,8 +61,8 @@ The grammar-7 deployment the 2.x packages pin is in
 
 | | Address / hash |
 | --- | --- |
-| Interpreter (testnet, grammar 7) | `CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB` |
-| Interpreter wasm sha256 | `eb1ec6ee8dca82622b9e70a04599b7ceeea9dc89f5917293ca76fb2c51af37b3` |
+| Interpreter (testnet, grammar 7) | `CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV` |
+| Interpreter wasm sha256 | `a975353d1c3fe5bb096c4c2bf90c7c96932df10b95c9bcfa0adbb1d2146773f1` |
 | Interpreter (mainnet) | none yet |
 | Grammar version | `7` |
 

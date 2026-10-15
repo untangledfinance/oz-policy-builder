@@ -7,8 +7,8 @@
 // is derived from the leaf itself) and the rule must deny it. And is each
 // conjunct needed? Drop it, re-run, and the call it was guarding must now pass.
 
-import { Address, type rpc, StrKey, xdr } from '@stellar/stellar-sdk'
-import { pool, read } from './chain.ts'
+import { Address, rpc, StrKey, xdr } from '@stellar/stellar-sdk'
+import { pool, reasonOf, simulate } from './chain.ts'
 import type { Network } from './config.ts'
 import { Refusal } from './envelope.ts'
 import { and } from './intent.ts'
@@ -60,6 +60,27 @@ const context = (c: Call): xdr.ScVal =>
     ]),
   ])
 
+/** What `interpreter.check` says: it always fails, and the contract error is the
+ *  verdict (`Error(Contract, #0)` permits), so a submitted `check` commits nothing. */
+async function verdictOf(
+  server: rpc.Server,
+  network: Network,
+  interpreter: string,
+  predicate: xdr.ScVal,
+  call: xdr.ScVal
+): Promise<number> {
+  const sim = await simulate(server, network, interpreter, 'check', predicate, call)
+  const said = rpc.Api.isSimulationError(sim)
+    ? /^HostError: Error\(Contract, #(\d+)\)/.exec(sim.error)
+    : null
+  if (!said)
+    throw new Refusal(
+      'SIMULATION_ERROR',
+      `check: no verdict (${rpc.Api.isSimulationError(sim) ? reasonOf(sim.error) : 'it returned'}); is ${interpreter} the interpreter?`
+    )
+  return Number(said[1])
+}
+
 /** Ask `interpreter.check(predicate, call)` for each call, a few at a time. */
 export async function runChecks(
   server: rpc.Server,
@@ -72,7 +93,7 @@ export async function runChecks(
     throw new Refusal('SIMULATION_ERROR', `at most ${MAX_CHECKS} calls per request`)
   const bytes = xdr.ScVal.scvBytes(Buffer.from(encoded, 'base64'))
   return pool(calls, WIDTH, async (c) => {
-    const code = (await read(server, network, interpreter, 'check', bytes, context(c))).u32()
+    const code = await verdictOf(server, network, interpreter, bytes, context(c))
     return { permitted: code === 0, code, reason: REASONS[code] ?? `code ${code}` }
   })
 }

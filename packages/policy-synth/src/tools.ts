@@ -263,7 +263,7 @@ function given(i: { expr?: unknown; encodedPredicate?: string | undefined }) {
 
 // ---- the tools ----
 
-const CHECKED = `Every verdict is the interpreter's own \`check\` (a read-only call), so the answer is what the contract would do, with its deny code.`
+const CHECKED = `Every verdict is the interpreter's own \`check\` (a dry run that always fails with its verdict), so the answer is what the contract would do, with its deny code.`
 
 const record_transaction = tool(
   'record_transaction',

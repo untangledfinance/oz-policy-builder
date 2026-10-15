@@ -1,29 +1,36 @@
 {
   "network": "testnet",
-  "recorded": "2026-10-15T09:50:00.000Z",
+  "recorded": "2026-10-15T12:10:00.000Z",
   "deployer": "GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB",
   "grammar": 7,
-  "interpreter": "CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB",
+  "interpreter": "CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV",
   "wasmHashes": {
-    "interpreter": "eb1ec6ee8dca82622b9e70a04599b7ceeea9dc89f5917293ca76fb2c51af37b3"
+    "interpreter": "a975353d1c3fe5bb096c4c2bf90c7c96932df10b95c9bcfa0adbb1d2146773f1"
   },
   "interpreterSource": {
-    "commit": "4e7d382",
-    "reproducibleWasmSha256": "eb1ec6ee8dca82622b9e70a04599b7ceeea9dc89f5917293ca76fb2c51af37b3",
-    "note": "Built with ./build-wasm.sh on Linux x86_64 (rust 1.97.1). Testnet only: this is the grammar-7 interpreter with the read-only `check` entry point, deployed so the off-chain builder's simulate and verify can be exercised live. No mainnet deployment, and nothing else deployed was touched."
+    "commit": "1f64790",
+    "reproducibleWasmSha256": "a975353d1c3fe5bb096c4c2bf90c7c96932df10b95c9bcfa0adbb1d2146773f1",
+    "note": "Built with ./build-wasm.sh on Linux x86_64 (rust 1.97.1). Testnet only: this is the grammar-7 interpreter whose read-only `check` entry point always ends in a contract error carrying the verdict (0 permits), so a submitted `check` commits nothing. It replaces the first build (CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB, wasm eb1ec6ee...), whose `check` returned a value and so could commit a `read`'s side effects; that contract is still deployed and the builder refuses it. No mainnet deployment, and nothing else deployed was touched."
   },
   "uploadTx": {
-    "interpreter": "09abcd93bb790608d2a8c1df0b7dea305cd4e97ad4af4b8eb9ce221a1bbac6d9"
+    "interpreter": "23270d4c74398fead2138372092a4d31c6e2d3a00b182dfadcef1dc8dc45919c"
   },
-  "createTx": "57d7f36aed4d9f18b6b4496941245e8e227e269a05e551e35d70548f8f3ebb90",
+  "createTx": "2544fcf10524035b15c7868cb80294990b11e2a45c31248ea6022574d9f1ba98",
   "sizes": {
-    "interpreter": 59364
+    "interpreter": 59586
   },
   "note": "Grammar 7 interpreter, testnet only. The deployer is a throwaway identity funded by friendbot. The pin in packages/policy-synth/src/config.ts names this address.",
   "liveTests": {
     "smartAccount": "CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P",
     "smartAccountDeployTx": "be49607fe418df6b80a88b3b98ebe6e7f126e72c79c0ae45ab64a5d151a8c7b6",
-    "installTx": "7ee0d68b9b1dd58ad0af7752f2f5e673424c57b03dd1f4f071ee2df28b5e4e0b",
-    "note": "An OZ smart account (rule 0: Default, no policy, one delegated signer: the deployer) used by packages/policy-synth's live tests. Rule 1 was installed through buildInstall: an interpreter predicate scoped to a made-up token contract. The recorded RPC fixtures (packages/policy-synth/fixtures/rpc) replay against this account."
+    "note": "An OZ smart account (rule 0: Default, no policy, one delegated signer: the deployer) used by packages/policy-synth's live tests. Rule 1 was installed on the previous interpreter build (previousInstallTx), so it reads as a rule policed by a known interpreter this build refuses to trust; rule 2 was installed through the builder on the current interpreter (installTx): an interpreter predicate scoped to a made-up token contract. The recorded RPC fixtures (packages/policy-synth/fixtures/rpc) replay against this account.",
+    "previousInstallTx": "7ee0d68b9b1dd58ad0af7752f2f5e673424c57b03dd1f4f071ee2df28b5e4e0b",
+    "installTx": "f5048377761ec99fec9d423a63167feedd1d148f78aca055a28bf0d200e90d8b"
+  },
+  "previous": {
+    "interpreter": "CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB",
+    "wasmSha256": "eb1ec6ee8dca82622b9e70a04599b7ceeea9dc89f5917293ca76fb2c51af37b3",
+    "uploadTx": "09abcd93bb790608d2a8c1df0b7dea305cd4e97ad4af4b8eb9ce221a1bbac6d9",
+    "createTx": "57d7f36aed4d9f18b6b4496941245e8e227e269a05e551e35d70548f8f3ebb90"
   }
 }

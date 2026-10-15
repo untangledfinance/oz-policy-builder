@@ -1,6 +1,6 @@
 ---
 name: oz-policy-builder
-description: Drive the policy-builder MCP server to turn an intent into an on-chain policy on an OpenZeppelin smart account on Stellar. Covers the install flow, the read-only checks, and the failure modes that look like success.
+description: Drive the policy-builder MCP server to turn an intent into an on-chain policy on an OpenZeppelin smart account on Stellar. Covers the install flow, the interpreter checks, and the failure modes that look like success.
 user-invocable: true
 when_to_use: "Invoke when working with the policy-builder MCP server: recording a Soroban transaction, synthesizing or verifying a policy, installing or revoking a context rule on an OZ smart account, or diagnosing an install failure (#100, #202, #209, #218, #3002, #3221)."
 category: other
@@ -34,7 +34,7 @@ you build anything.
 Seven tools: `record_transaction`, `synthesize_policy`, `simulate_policy`,
 `verify_policy`, `install_policy`, `revoke_policy`, `get_interpreter_info`.
 Every verdict from `simulate_policy` and `verify_policy` is the interpreter's own
-read-only `check`, so it is what the contract would do, with its deny code.
+`check` (a dry run that always fails with its verdict), so it is what the contract would do, with its deny code.
 
 | User intent | Call |
 | --- | --- |

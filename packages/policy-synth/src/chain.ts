@@ -66,8 +66,20 @@ export function interpreterFor(network: Network, address?: string): string {
 
 const SOURCE = StrKey.encodeEd25519PublicKey(Buffer.alloc(32))
 
-/** A read-only call by simulation. The source account is made up: a simulation
- *  never looks at it, and asking the network for an unused key is a 404. */
+/** A call by simulation, whatever its outcome. The source account is made up: a
+ *  simulation never looks at it, and asking the network for an unused key is a 404. */
+export const simulate = (
+  server: rpc.Server,
+  network: Network,
+  contract: string,
+  fn: string,
+  ...args: xdr.ScVal[]
+): Promise<rpc.Api.SimulateTransactionResponse> =>
+  server.simulateTransaction(
+    txOf(network, new Account(SOURCE, '0'), new Contract(contract).call(fn, ...args))
+  )
+
+/** A read-only call: its return value. */
 export async function read(
   server: rpc.Server,
   network: Network,
@@ -75,8 +87,7 @@ export async function read(
   fn: string,
   ...args: xdr.ScVal[]
 ): Promise<xdr.ScVal> {
-  const tx = txOf(network, new Account(SOURCE, '0'), new Contract(contract).call(fn, ...args))
-  const sim = await server.simulateTransaction(tx)
+  const sim = await simulate(server, network, contract, fn, ...args)
   if (rpc.Api.isSimulationError(sim))
     throw new Refusal('SIMULATION_ERROR', `${fn}: ${reasonOf(sim.error)}`)
   if (!sim.result) throw new Refusal('SIMULATION_ERROR', `${fn}: no result`)

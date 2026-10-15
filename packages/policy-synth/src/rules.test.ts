@@ -182,9 +182,12 @@ describe('readRules, on a live account', () => {
     expect(rules.map((r) => [r.id, r.scope.kind, r.policies.length])).toEqual([
       [0, 'default', 0],
       [1, 'call_contract', 1],
+      [2, 'call_contract', 1],
     ])
     expect(rules[0]?.signers).toEqual(['GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB'])
-    expect(rules[1]?.expr).toEqual(
+    // Rule 1 is policed by the first build of the interpreter, rule 2 by the current one.
+    expect(rules[1]?.expr).toBeUndefined()
+    expect(rules[2]?.expr).toEqual(
       callExpr({
         contract: TOKEN,
         fn: 'transfer',
@@ -218,6 +221,7 @@ describe('readRules, on a live account', () => {
     expect(found.map((o) => [o.ruleId, o.why])).toEqual([
       [0, 'unpoliced'],
       [1, 'other'],
+      [2, 'other'],
     ])
   })
 })
