@@ -50,7 +50,8 @@ authorized call" no longer holds.
 | `sum(vec, step, ...)` | The sum of what the steps reach in each element of the vec `vec` resolves to: a number (`i128`), checked. It walks up to `MAX_ELEMS` elements, so it weighs that many leaves toward the leaf cap |
 
 Nodes: `and`, `or`, `eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in`, `nin`, `all`,
-`any`. Constants: `lit(x)`, or a bare address, symbol, number or vec. Both
+`any`. Constants: `lit(x)`, or a bare address, symbol, number or vec (a map
+only inside `lit`). Both
 sides of a comparison are resolved, so any value leaf can stand on either side.
 
 **Numbers compare as numbers.** `eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in` and
@@ -111,9 +112,11 @@ compared.
   a selector, and it is not inspected (decoding is one host value, whatever its
   size). A *bare* vec is its own constant too, but it is CHECKED element by
   element: every element must be a plain value or a non-empty plain vec, so a
-  selector, an empty vec or a `lit(..)` inside one is refused (201). Write
-  `lit([...])` around the whole constant when it holds an enum value or
-  anything a bare vec cannot. `lit` takes exactly one operand. There is no
+  selector, an empty vec, a map or a `lit(..)` inside one is refused (201). A
+  bare map is refused too, at any position (a map is stored as written, so a
+  `lit` inside it would stay wrapped). Write `lit([...])` or `lit({...})` around
+  the whole constant when it holds an enum value, a map or anything a bare vec
+  cannot. `lit` takes exactly one operand. There is no
   separate enum-variant leaf: `lit([Name, payload...])` is the value.
 - **`ne(a, b)`** permits only when both sides resolve and differ, by the same
   equality as `eq` (numbers by value). A side that cannot resolve (a missing

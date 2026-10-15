@@ -1272,6 +1272,48 @@ fn a_bare_vec_holds_plain_values_and_lit_goes_around_the_whole() {
 }
 
 #[test]
+fn a_bare_map_is_refused_and_lit_is_the_way() {
+    // A map is no bare constant: one holding `lit(7)` would be stored as written
+    // and `nin` would then pass `{k: 7}`, the value its author meant to list.
+    let bare = map(&[(sym("k"), lit(n(7)))]);
+    let value = map(&[(sym("k"), n(7))]);
+    assert_eq!(refused(&cmp("eq", arg(0), bare.clone())), MALFORMED);
+    assert_eq!(refused(&set("nin", arg(0), &[bare.clone()])), MALFORMED);
+    assert_eq!(
+        refused(&set("nin", arg(0), &[n(5), bare.clone()])),
+        MALFORMED
+    );
+    assert_eq!(refused(&set("in", arg(0), &[bare.clone()])), MALFORMED);
+    assert_eq!(
+        refused(&cmp("eq", arg(0), tup(&[n(5), bare.clone()]))),
+        MALFORMED
+    );
+    assert_eq!(
+        refused(&cmp("eq", arg(0), tup(&[n(5), tup(&[n(6), bare])]))),
+        MALFORMED
+    );
+    assert_eq!(
+        refused(&cmp("eq", path(&[ScVal::U32(0), value.clone()]), n(7))),
+        MALFORMED
+    );
+    let whole = lit(value.clone());
+    assert!(permits(&cmp("eq", arg(0), whole.clone()), &[value.clone()]));
+    assert!(denies(&cmp("ne", arg(0), whole.clone()), &[value.clone()]));
+    assert!(permits(
+        &set("in", arg(0), &[n(5), whole.clone()]),
+        &[value.clone()]
+    ));
+    assert!(denies(
+        &set("nin", arg(0), &[n(5), whole.clone()]),
+        &[value]
+    ));
+    assert!(permits(
+        &set("nin", arg(0), &[whole]),
+        &[map(&[(sym("k"), n(8))])]
+    ));
+}
+
+#[test]
 fn call_arg_field_takes_its_field_as_a_call_path_step_does() {
     let u = ScVal::U32;
     let args = [tup(&[map(&[(sym("a"), n(5))])])];

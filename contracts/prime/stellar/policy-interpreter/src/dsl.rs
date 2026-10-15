@@ -700,15 +700,15 @@ fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
         each(&items, |e| plain(env, &e, depth + 1))?;
         return Ok(Leaf::Lit(*val));
     }
-    // Any other bare value is a constant.
-    Ok(Leaf::Lit(*val))
+    // Any other bare value is a constant (but a map: see `plain`).
+    plain(env, val, depth).map(|()| Leaf::Lit(*val))
 }
 
 /// A leaf that must be a constant: an `in` entry, or a path-step key. A vector
 /// goes through `decode_leaf` (so `lit(x)` works); anything else is itself.
 fn literal(env: &Env, val: &Val) -> Res<Val> {
     match Vals::try_from_val(env, val) {
-        Err(_) => Ok(*val),
+        Err(_) => plain(env, val, 1).map(|()| *val),
         Ok(_) => literal_to_val(&decode_leaf(env, val, 1)?),
     }
 }
@@ -716,11 +716,13 @@ fn literal(env: &Env, val: &Val) -> Res<Val> {
 /// An element of a bare vec constant: a value, or a non-empty vec that does not
 /// start with a symbol (that would read as a selector; write `lit([...])` for a
 /// whole constant that does), all the way down. Decoding each element as a leaf
-/// costs about 35k instructions apiece, so nothing here does.
+/// costs about 35k instructions apiece, so nothing here does. A map is no bare
+/// constant: it is stored as written, so a `lit` inside it would stay wrapped
+/// and `nin` would pass the value it was meant to list. `lit({...})` is the way.
 fn plain(env: &Env, val: &Val, depth: u32) -> Res<()> {
     cap(depth <= MAX_DEPTH, DecodeError::PredicateTooDeep)?;
     let Ok(items) = Vals::try_from_val(env, val) else {
-        return Ok(());
+        return ensure(val.get_tag().get_scval_type() != Some(T::Map));
     };
     ensure(!items.is_empty() && expect::<Symbol>(env, &items, 0).is_err())?;
     each(&items, |e| plain(env, &e, depth + 1)).map(|_| ())
