@@ -187,6 +187,9 @@ user thinks. They are the reason to read a result rather than skim it.
 - **A rule that bounds no amount, when the call carries one.** Answer the
   question with `limit` / `limits`, or `allowUnboundedAmount: true` to do it
   deliberately: such a rule installs and verifies cleanly and caps nothing.
+- **A swap whose least output nothing sets.** `amount_out_min` left open permits a trade at
+  any price. Declare a `minOut` ratio (or a `floor`) on it in an intent, or set
+  `allowOpenSlippage: true` to do it deliberately.
 - **A rule scoped to a policy contract or to the account itself.** It would expose
   that contract's admin calls.
 - **An interpreter that is not a trusted build**: its live grammar and code hash

@@ -64,14 +64,18 @@ describe('Soroswap: the cap lands on what is SPENT', () => {
   it('swap_exact_tokens_for_tokens caps amount_in (arg 0); the minimum out and the deadline stay open', () => {
     const r = roles(swap.exactIn)
     expect(r.leaves).toEqual(['lte:0', 'eq:2', 'eq:3'])
-    expect(r.s.warnings.join(' ')).toContain('amount_out_min')
+    // The least output accepted is open, so the price is unbounded: a question, not a footnote.
+    expect(r.s.ambiguities.map((a) => a.code)).toEqual(['SLIPPAGE_FLOOR_MISSING'])
+    expect(r.s.ambiguities[0]?.question).toContain('amount_out_min')
   })
 
   it('swap_tokens_for_exact_tokens caps amount_in_max (arg 1), NOT amount_out (arg 0): the input is what is spent', () => {
     const r = roles(swap.exactOut)
     expect(r.leaves).toEqual(['lte:1', 'eq:2', 'eq:3'])
     expect(r.leaves).not.toContain('lte:0')
+    // The output is exact, bought by the capped input: nothing to ask, and no "minimum output" to claim.
     expect(r.s.ambiguities).toEqual([])
+    expect(r.s.warnings.join(' ')).not.toContain('minimum')
     // With no answer, the question is about the amount that is spent.
     expect(synthesize([swap.exactOut]).ambiguities[0]?.question).toContain('amount_in_max')
   })

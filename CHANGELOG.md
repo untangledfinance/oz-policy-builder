@@ -56,6 +56,8 @@ Breaking changes to callers:
 | `install_policy` `rule` / `fromPredicate` / `fromHash`, `allowAuthorityOverlap`, `existingRules` | `encodedPredicate` or a source, `signers`, `admins`, `allowOverlap`; `authorityScan` is `{ complete, overlaps[] }`. **`existingRules` is gone** (it switched the overlap refusal off and reported a clean scan): the account is always read |
 | `install_policy` `interpreterWasmSha256`, `rpcUrl`, `allowUnpinnedRpcUrl`, `outPath` | gone. The interpreter's code hash must be in `INTERPRETER_WASM`; the RPC endpoint is `POLICY_BUILDER_RPC_URL_<NETWORK>` (the operator's); `outPath` is `outFile`, a bare file name written (never over an existing file) into `POLICY_BUILDER_OUT_DIR` |
 | `template.params` of any shape | typed per template (`adapter_batch`, `blend_venue`); an unknown or out-of-range parameter is refused |
+| A swap's open `amount_out_min` was a warning | a question (`SLIPPAGE_FLOOR_MISSING`): refused unless a `floor`/`minOut` sets it or `allowOpenSlippage` is set; an exact-out swap's `amount_out` is no longer called a minimum |
+| `install_policy` by `encodedPredicate` never asked the amount question | asks it for the amount arguments of a known function (an upper bound on each) |
 | An intent or template that leaves an amount uncapped installed silently | refused with the amount question unless `allowUnboundedAmount` (recordings already were) |
 | MCP: an unknown input key was dropped | refused, as `run` and the CLI do |
 | CLI `--limit 100` | was refused (parsed as a number); a number stays a string where the tool takes one |

@@ -288,6 +288,23 @@ describe('planInstall: the guards', () => {
     expect(asked).toBe(0)
   })
 
+  it('a least output nobody set is refused, unless allowOpenSlippage (its own flag: the amount one does not waive it)', async () => {
+    const open = { ...rule, openSlippage: 'swap: what is the least `amount_out_min` may be?' }
+    await refused(
+      planInstall(input, open, chain()),
+      'INSTALL_BUILD_FAILED',
+      /least `amount_out_min`/
+    )
+    await refused(
+      planInstall({ ...input, allowUnboundedAmount: true }, open, chain()),
+      'INSTALL_BUILD_FAILED',
+      /least/
+    )
+    expect(
+      (await planInstall({ ...input, allowOpenSlippage: true }, open, chain())).unsignedXdr
+    ).toBe('AAAA')
+  })
+
   it('an amount nobody capped is refused, unless allowUnboundedAmount', async () => {
     const open = { ...rule, unanswered: 'transfer: what is the most `amount` may be?' }
     await refused(planInstall(input, open, chain()), 'INSTALL_BUILD_FAILED', /most `amount` may be/)

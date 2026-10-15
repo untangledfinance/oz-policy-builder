@@ -12,7 +12,7 @@ import { z } from 'zod'
 import type { Intent } from './intent.ts'
 import { isAddress, isTagged, type Val } from './wire.ts'
 
-export type Kind = 'who' | 'amount' | 'min' | 'time' | 'exact' | 'requests'
+export type Kind = 'who' | 'amount' | 'min' | 'free' | 'time' | 'exact' | 'requests'
 
 const isNum = (v: Val, ...tags: string[]) => isTagged(v) && tags.some((t) => t in v)
 
@@ -21,6 +21,7 @@ export const SHAPE: Record<Kind, (v: Val) => boolean> = {
   who: isAddress,
   amount: (v) => isNum(v, 'i128'),
   min: (v) => isNum(v, 'i128'),
+  free: (v) => isNum(v, 'i128'),
   time: (v) => typeof v === 'number' || isNum(v, 'u64'),
   exact: () => true,
   // `'map' in []` holds (Array.prototype.map): an element must be a `{map}` value, not a vec.
@@ -74,7 +75,7 @@ export const PROTOCOLS: Record<string, Record<string, Row>> = {
       ['deadline', 'time'],
     ],
     swap_tokens_for_exact_tokens: [
-      ['amount_out', 'min'],
+      ['amount_out', 'free'], // the exact output: its input is what is capped
       ['amount_in_max', 'amount'],
       ['path', 'exact'],
       ['to', 'who'],

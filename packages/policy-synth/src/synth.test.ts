@@ -204,6 +204,20 @@ describe('an intent is asked the question a recording is: how much?', () => {
     ])
   })
 
+  it('the least output of a swap is a question too, answered by a floor or a minOut on that argument', () => {
+    const swap = (where: CallIntent['where']) => codes(call('swap_exact_tokens_for_tokens', where))
+    const cap: Rule = { rule: 'cap', at: [0], max: '5' }
+    expect(swap([cap])).toEqual(['SLIPPAGE_FLOOR_MISSING'])
+    expect(swap([cap, { rule: 'minOut', at: [1], of: [0], num: '99', den: '100' }])).toEqual([])
+    expect(swap([cap, { rule: 'floor', at: [1], min: '1' }])).toEqual([])
+    // A floor on another argument does not set it.
+    expect(swap([cap, { rule: 'floor', at: [0], min: '1' }])).toEqual(['SLIPPAGE_FLOOR_MISSING'])
+    // An exact-out swap has no least output to ask for: its input is what is capped.
+    expect(
+      codes(call('swap_tokens_for_exact_tokens', [{ rule: 'cap', at: [1], max: '5' }]))
+    ).toEqual([])
+  })
+
   it('a function nobody knows is not guessed at, and each call is asked about once', () => {
     expect(codes(call('weird', undefined))).toEqual([])
     expect(codes(call('transfer', undefined), call('mint', undefined))).toHaveLength(2)
@@ -245,6 +259,33 @@ describe('an encoded predicate is asked the same question', () => {
   })
 })
 
+describe('an encoded predicate is asked about the least output too', () => {
+  const swap = (...rest: Expr[]): Expr => [
+    'and',
+    [
+      ['eq', ['call_contract'], C],
+      ['eq', ['call_fn'], 'swap_exact_tokens_for_tokens'],
+      ['lte', ['call_arg', 0], { i128: '5' }],
+      ...rest,
+    ],
+  ]
+  const codes = (e: Expr) => unboundedExpr(e).map((a) => a.code)
+  it('needs a lower bound on amount_out_min', () => {
+    expect(codes(swap())).toEqual(['SLIPPAGE_FLOOR_MISSING'])
+    expect(codes(swap(['gte', ['call_arg', 1], { i128: '1' }]))).toEqual([])
+    expect(
+      codes(
+        swap([
+          'gt',
+          ['call_arg', 1],
+          ['scaled', ['call_arg', 0], { i128: '99' }, { i128: '100' }, { i128: '0' }],
+        ])
+      )
+    ).toEqual([])
+    expect(codes(swap(['lte', ['call_arg', 1], { i128: '9' }]))).toEqual(['SLIPPAGE_FLOOR_MISSING'])
+  })
+})
+
 describe('synthesis from what was recorded', () => {
   it('a SEP-41 transfer: pin who, cap how much; no cap is a question, not a guess', () => {
     const [call] = recording('sep41').contexts as [Call]
@@ -283,7 +324,7 @@ describe('synthesis from what was recorded', () => {
     expect(rules.map((r) => r.contract)).toEqual(
       recording('soroswap').contexts.map((c) => c.contract)
     )
-    expect(s.warnings.some((w) => w.includes('no minimum output'))).toBe(true)
+    expect(s.ambiguities.map((a) => a.code)).toEqual(['SLIPPAGE_FLOOR_MISSING'])
     expect(s.warnings.some((w) => w.includes('2 contracts'))).toBe(true)
     const router = JSON.stringify(rules[0]?.expr)
     expect(router).toContain('"lit"') // the path is pinned exactly, as a constant

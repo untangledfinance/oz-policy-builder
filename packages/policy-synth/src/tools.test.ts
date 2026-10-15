@@ -668,6 +668,40 @@ describe('install_policy', () => {
     )
   })
 
+  it('an open slippage is refused unless allowOpenSlippage, for a recording and an intent alike', async () => {
+    const swap = {
+      contract: TOKEN,
+      fn: 'swap_exact_tokens_for_tokens',
+      where: [{ rule: 'cap', at: [0], max: '5' }],
+    }
+    const input = {
+      smartAccount: ACCOUNT,
+      sourceAccount: SIGNER,
+      signers: [account(5)],
+      allowOverlap: true,
+    }
+    await failing(
+      'install_policy',
+      { ...input, intent: { calls: [swap] } },
+      'INSTALL_BUILD_FAILED',
+      /amount_out_min/
+    )
+    const floored = {
+      ...swap,
+      where: [...swap.where, { rule: 'minOut', at: [1], of: [0], num: '99', den: '100' }],
+    }
+    expect((await call('install_policy', { ...input, intent: { calls: [floored] } })).ok).toBe(true)
+    expect(
+      (
+        await call('install_policy', {
+          ...input,
+          intent: { calls: [swap] },
+          allowOpenSlippage: true,
+        })
+      ).ok
+    ).toBe(true)
+  })
+
   it('an encoded predicate that caps no amount is asked about it too, unless allowUnboundedAmount', async () => {
     const open = encode(
       callExpr({

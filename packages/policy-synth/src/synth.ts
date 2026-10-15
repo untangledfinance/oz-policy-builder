@@ -33,7 +33,7 @@ export interface Answers {
 export interface Synthesis {
   intent: Intent
   /** Questions whose answers change what the rule permits. */
-  ambiguities: { code: 'AMOUNT_BOUND_MISSING'; question: string }[]
+  ambiguities: { code: 'AMOUNT_BOUND_MISSING' | 'SLIPPAGE_FLOOR_MISSING'; question: string }[]
   warnings: string[]
 }
 
@@ -68,12 +68,8 @@ function callIntent(c: Call, a: Answers, out: Synthesis): CallIntent {
       else if (kind === 'amount') {
         if (bound === undefined) out.ambiguities.push(missing(c, name))
         else where.push({ rule: 'cap', at: [i], max: bound })
-      } else if (kind === 'min') {
-        out.warnings.push(
-          `${c.fn}: \`${name}\` is left open, so no minimum output is enforced; declare a minOut ratio to bound slippage`
-        )
-      } else if (kind === 'requests')
-        where.push(...requests([i], v as Val[], a, c, name, out, flat))
+      } else if (kind === 'min') out.ambiguities.push(slippage(c, name))
+      else if (kind === 'requests') where.push(...requests([i], v as Val[], a, c, name, out, flat))
     })
     return { contract: c.contract, fn: c.fn, where }
   }
@@ -106,23 +102,26 @@ const rowOf = (fn: string) =>
  *  path ends in `amount` (a cap on `request_type` bounds nothing that moves).
  *  What a recording is asked, an intent or a template is asked too. */
 export function unbounded(intent: Intent): Synthesis['ambiguities'] {
-  const caps = (r: Rule): Path[] =>
-    r.rule === 'cap'
-      ? [r.at]
-      : r.rule === 'total'
-        ? [[...r.at, ...(r.of ?? [])]]
-        : r.rule === 'each' || r.rule === 'some'
-          ? r.where.flatMap(caps).map((p) => [...r.at, ...p])
-          : []
+  // The paths the rules named `kinds` reach, `each`/`some` bodies relative to their vec.
+  const reach = (r: Rule, kinds: string[]): Path[] => {
+    if (r.rule === 'each' || r.rule === 'some')
+      return r.where.flatMap((w) => reach(w, kinds)).map((p) => [...r.at, ...p])
+    if (r.rule === 'read' || r.rule === 'until' || r.rule === 'from' || !kinds.includes(r.rule))
+      return []
+    return [r.rule === 'total' ? [...r.at, ...(r.of ?? [])] : r.at]
+  }
   return intent.calls.flatMap((c) => {
-    const capped = (c.where ?? []).flatMap(caps)
+    const [caps, floors] = [
+      ['cap', 'total'],
+      ['floor', 'minOut'],
+    ].map((k) => (c.where ?? []).flatMap((r) => reach(r, k))) as [Path[], Path[]]
+    const [asked, floored] = [{ contract: c.contract, fn: c.fn, args: [] as Val[] }, floors]
     return rowOf(c.fn).flatMap(([name, kind], i) => {
-      const bounded =
-        kind === 'amount'
-          ? capped.some((p) => p.length === 1 && p[0] === i)
-          : capped.some((p) => p[0] === i && p.at(-1) === 'amount')
-      return (kind === 'amount' || kind === 'requests') && !bounded
-        ? [missing({ contract: c.contract, fn: c.fn, args: [] }, name)]
+      const whole = (ps: Path[]) => ps.some((p) => p.length === 1 && p[0] === i)
+      if (kind === 'amount') return whole(caps) ? [] : [missing(asked, name)]
+      if (kind === 'min') return whole(floored) ? [] : [slippage(asked, name)]
+      return kind === 'requests' && !caps.some((p) => p[0] === i && p.at(-1) === 'amount')
+        ? [missing(asked, name)]
         : []
     })
   })
@@ -131,32 +130,38 @@ export function unbounded(intent: Intent): Synthesis['ambiguities'] {
 /** The same question of a finished predicate: for each function it can serve that the
  *  registry knows, an upper bound (`lte`/`lt`) must be on each amount argument. */
 export function unboundedExpr(expr: Expr): Synthesis['ambiguities'] {
-  const bounds: Val[] = []
+  const upper: Val[] = []
+  const lower: Val[] = []
   const walk = (e: Val) => {
     if (!Array.isArray(e)) return
     const [op, a] = constantLast(e as Expr) as [string, Val]
-    if (isSelector(e) && (op === 'lte' || op === 'lt')) bounds.push(a)
+    if (isSelector(e) && (op === 'lte' || op === 'lt')) upper.push(a)
+    if (isSelector(e) && (op === 'gte' || op === 'gt')) lower.push(a)
     for (const x of e) walk(x as Val)
   }
   walk(expr)
   const fns = [...new Set(selectors(expr).map((s) => s.fn))].filter((f) => f !== '*')
   return fns.flatMap((fn) =>
-    rowOf(fn).flatMap(([name, kind], i) => {
+    rowOf(fn).flatMap(([name, kind], i): Synthesis['ambiguities'] => {
+      const ask = { contract: '', fn, args: [] as Val[] }
       const at = canon(['call_arg', i])
-      const bounded = bounds.some((b) =>
-        kind === 'amount'
-          ? canon(b) === at
-          : JSON.stringify(b).includes('"amount"') &&
-            (JSON.stringify(b).includes(`["call_arg",${i}]`) ||
-              canon(b).includes(`["call_path",${i},`) ||
-              (isSelector(b) && b[0] === 'elem'))
-      )
-      return (kind === 'amount' || kind === 'requests') && !bounded
-        ? [missing({ contract: '', fn, args: [] }, name)]
-        : []
+      if (kind === 'amount') return upper.some((b) => canon(b) === at) ? [] : [missing(ask, name)]
+      if (kind === 'min') return lower.some((b) => canon(b) === at) ? [] : [slippage(ask, name)]
+      const field = (b: Val) =>
+        JSON.stringify(b).includes('"amount"') &&
+        (JSON.stringify(b).includes(`["call_arg",${i}]`) ||
+          canon(b).includes(`["call_path",${i},`) ||
+          (isSelector(b) && b[0] === 'elem'))
+      return kind === 'requests' && !upper.some(field) ? [missing(ask, name)] : []
     })
   )
 }
+
+/** The question of a swap's least output: nothing says what the account must get back. */
+const slippage = (c: Call, name: string): Synthesis['ambiguities'][number] => ({
+  code: 'SLIPPAGE_FLOOR_MISSING',
+  question: `${c.fn}: what is the least \`${name}\` may be? Nothing sets it, so a trade at any price is permitted: set a floor or a minOut ratio on it, or allow it deliberately.`,
+})
 
 const kindOf = (v: Val): Kind => (isTagged(v) && ('i128' in v || 'u128' in v) ? 'amount' : 'exact')
 

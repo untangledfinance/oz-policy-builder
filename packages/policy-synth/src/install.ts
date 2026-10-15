@@ -304,6 +304,7 @@ export interface InstallInput {
   installNonce?: number | undefined
   spendingLimit?: { amount: string; periodLedgers: number } | undefined
   allowUnboundedAmount?: boolean | undefined
+  allowOpenSlippage?: boolean | undefined
   allowOverlap?: boolean | undefined
   interpreterAddress?: string | undefined
 }
@@ -315,6 +316,8 @@ export interface Chosen {
   encoded: string
   hash: string
   unanswered?: string | undefined
+  /** The least-output question of a swap whose floor nothing set. */
+  openSlippage?: string | undefined
 }
 
 /** What an install asks of the network: the interpreter's live fingerprint, the
@@ -333,6 +336,11 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   if (rule.unanswered && !i.allowUnboundedAmount) {
     throw no(
       `${rule.unanswered} Answer with \`limit\` or \`limits\`, or set allowUnboundedAmount to install without it.`
+    )
+  }
+  if (rule.openSlippage && !i.allowOpenSlippage) {
+    throw no(
+      `${rule.openSlippage} Set a floor or minOut in an intent, or set allowOpenSlippage to install without one.`
     )
   }
   if (POLICY_CONTRACTS.has(rule.contract) || rule.contract === i.smartAccount) {
