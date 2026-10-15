@@ -325,8 +325,9 @@ export function denyCases(conjuncts: Expr[], permit: Call): DenyCase[] {
 }
 
 export interface Verification {
-  /** The calls were permitted, every case was refused, and every branch of an `or` was
-   *  exercised by a call (a branch nothing took could permit anything). */
+  /** The calls were permitted, every case was refused, every branch of an `or` was
+   *  exercised by a call (a branch nothing took could permit anything), and no conjunct
+   *  holding an `or` went untested (it too could permit anything). */
   ok: boolean
   /** `ok`, and nothing is left untested either. */
   complete: boolean
@@ -349,6 +350,10 @@ export interface Verification {
 }
 
 const MAX_CASES = 24
+
+/** An `or` anywhere inside `e`. */
+const hasOr = (e: Val): boolean =>
+  Array.isArray(e) && ((isSel(e) && e[0] === 'or') || e.some((x) => hasOr(x as Val)))
 
 /** `branch i` of the rule without `dropped`, the other branches as they are; undefined
  *  when that leaves the branch empty (it would permit everything). */
@@ -462,7 +467,8 @@ export async function verifyRule(
     ;(kin && !twin ? untested : redundant).push(phrase(c.conjunct))
   })
   const tried = new Set(cases.map((c) => c.conjunct))
-  untested.push(...live.flatMap(({ b }) => b.filter((c) => !tried.has(c)).map(phrase)))
+  const left = live.flatMap(({ b }) => b.filter((c) => !tried.has(c)))
+  untested.push(...left.map(phrase))
   const unexamined = or
     ? all.filter((_, i) => !live.some((l) => l.i === i)).map((b) => phrase(and(b)))
     : []
@@ -470,7 +476,10 @@ export async function verifyRule(
     permitted.every((v) => v?.permitted) &&
     results.length > 0 &&
     results.every((r) => r.denied) &&
-    unexamined.length === 0
+    unexamined.length === 0 &&
+    // A conjunct nothing was tried against that holds an `or` can permit what none of the
+    // cases reached; a clock or a read can only narrow, so those leave `ok` alone.
+    !left.some(hasOr)
   return {
     ok,
     complete: ok && untested.length === 0,

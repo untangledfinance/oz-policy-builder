@@ -94,7 +94,8 @@ user thinks. They are the reason to read a result rather than skim it.
   derived from the predicate's own constraints, so a MISSING constraint produces
   no test that could fail. It means the interpreter agrees the predicate permits
   the call and refuses each way of breaking each constraint, not that it
-  expresses the intent. `ok` also needs every branch of an `or` to have been taken by a
+  expresses the intent. `ok` also needs every branch of an `or` (nested ones included, which
+  have no case of their own and make it not `ok`) to have been taken by a
   call you gave (`unexamined` lists the ones nothing took: pass a `call`/recording for
   each). `untested` lists conjuncts nothing was tried against (a read, the clock). 
   `minimal: false` lists conjuncts that were not needed; a conjunct that is the only

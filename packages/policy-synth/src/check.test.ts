@@ -486,6 +486,34 @@ describe('verify, what it does not know it says', () => {
     expect(v.cases.length).toBeGreaterThan(0) // the `in` branch took the call, so it was tried
   })
 
+  it('a nested or is not ok: it can permit what the intent never named, and no case can be derived from it', async () => {
+    const nested: Expr = [
+      'and',
+      [
+        ['eq', ['call_contract'], C],
+        [
+          'or',
+          [
+            [
+              'and',
+              [fnIs('transfer'), ['eq', ['call_arg', 0], A], ['lte', ['call_arg', 2], amt('1000')]],
+            ],
+            fnIs('approve'),
+          ],
+        ],
+      ],
+    ]
+    const v = await check(nested)
+    expect(v.permit.permitted).toBe(true)
+    expect(v.untested.some((u) => u.includes('"or"'))).toBe(true)
+    expect(v.ok).toBe(false)
+    expect(v.complete).toBe(false)
+    // An untested clock or read cannot widen a rule: the rest still counts.
+    const clock = await check(['and', [fnIs('transfer'), ['lte', ['now'], { u64: '9999999999' }]]])
+    expect(clock.ok).toBe(true)
+    expect(clock.complete).toBe(false)
+  })
+
   it('one request makes at most 64 calls, an or of a hundred branches included', async () => {
     const hundred: Expr = [
       'or',
