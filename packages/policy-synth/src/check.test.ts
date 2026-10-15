@@ -92,7 +92,7 @@ describe('a deny case is derived from the leaf, not typed in', () => {
   it('pushes a total over its cap through the first element', () => {
     const c = broken(['lte', ['sum', ['call_arg', 3], 'amount'], { i128: '10' }])
     const items = (c?.args[3] ?? []) as { map: [string, Val][] }[]
-    const amounts = items.map((m) => Number((m.map[0]?.[1] as { i128: string }).i128))
+    const amounts = items.map((m) => Number((m.map[0] as [string, { i128: string }])[1].i128))
     expect(amounts.reduce((a, b) => a + b, 0)).toBe(11)
   })
 

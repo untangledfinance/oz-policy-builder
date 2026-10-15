@@ -1,0 +1,256 @@
+{
+ "simulateTransaction:afd2114381d523e7": [
+  {
+   "result": {
+    "transactionData": "AAAAAAAAAAIAAAAGAAAAASSemIItqnE5JyvJuaVHXloaYaFPKAV5MbHpo5F7sUzDAAAAFAAAAAEAAAAHkaLNVroaddeO643cXRhBxdQ5t3JqFAvITIUPczlimKkAAAAAAAo8mgAAAAAAAAAAAAAAAAAAGQk=",
+    "minResourceFee": "6409",
+    "results": [
+     {
+      "auth": [],
+      "xdr": "AAAAAwAAAAI="
+     }
+    ],
+    "latestLedger": 5206901
+   }
+  },
+  {
+   "result": {
+    "transactionData": "AAAAAAAAAAIAAAAGAAAAASSemIItqnE5JyvJuaVHXloaYaFPKAV5MbHpo5F7sUzDAAAAFAAAAAEAAAAHkaLNVroaddeO643cXRhBxdQ5t3JqFAvITIUPczlimKkAAAAAAAo8mgAAAAAAAAAAAAAAAAAAGQk=",
+    "minResourceFee": "6409",
+    "results": [
+     {
+      "auth": [],
+      "xdr": "AAAAAwAAAAI="
+     }
+    ],
+    "latestLedger": 5206901
+   }
+  }
+ ],
+ "simulateTransaction:acc67f0dd1818e89": [
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:3\n",
+    "latestLedger": 5206901
+   }
+  },
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:3\n",
+    "latestLedger": 5206901
+   }
+  }
+ ],
+ "simulateTransaction:417b82345792050e": [
+  {
+   "result": {
+    "transactionData": "AAAAAAAAAAUAAAAGAAAAASSemIItqnE5JyvJuaVHXloaYaFPKAV5MbHpo5F7sUzDAAAAEAAAAAEAAAACAAAADwAAAA9Db250ZXh0UnVsZURhdGEAAAAAAwAAAAEAAAABAAAABgAAAAEknpiCLapxOScrybmlR15aGmGhTygFeTGx6aORe7FMwwAAABAAAAABAAAAAgAAAA8AAAAKUG9saWN5RGF0YQAAAAAAAwAAAAAAAAABAAAABgAAAAEknpiCLapxOScrybmlR15aGmGhTygFeTGx6aORe7FMwwAAABAAAAABAAAAAgAAAA8AAAAKU2lnbmVyRGF0YQAAAAAAAwAAAAAAAAABAAAABgAAAAEknpiCLapxOScrybmlR15aGmGhTygFeTGx6aORe7FMwwAAABQAAAABAAAAB5GizVa6GnXXjuuN3F0YQcXUObdyahQLyEyFD3M5YpipAAAAAAAO9hMAAAAAAAAAAAAAAAAAFJQ2",
+    "minResourceFee": "1348662",
+    "results": [
+     {
+      "auth": [],
+      "xdr": "AAAAEQAAAAEAAAAIAAAADwAAAAxjb250ZXh0X3R5cGUAAAAQAAAAAQAAAAIAAAAPAAAADENhbGxDb250cmFjdAAAABIAAAABBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcAAAAPAAAAAmlkAAAAAAADAAAAAQAAAA8AAAAEbmFtZQAAAA4AAAAJZzctbGl2ZS0xAAAAAAAADwAAAAhwb2xpY2llcwAAABAAAAABAAAAAQAAABIAAAAB1/Ucao/NnVG8fq9U+2mdFtVs3bqETrcKmxSsOa4BFB0AAAAPAAAACnBvbGljeV9pZHMAAAAAABAAAAABAAAAAQAAAAMAAAAAAAAADwAAAApzaWduZXJfaWRzAAAAAAAQAAAAAQAAAAEAAAADAAAAAAAAAA8AAAAHc2lnbmVycwAAAAAQAAAAAQAAAAEAAAAQAAAAAQAAAAIAAAAPAAAACURlbGVnYXRlZAAAAAAAABIAAAAAAAAAACf0nZzIkRRGhKGes4IiUPAxf2puv1AE9unMBJs7/kVgAAAADwAAAAt2YWxpZF91bnRpbAAAAAAB"
+     }
+    ],
+    "latestLedger": 5206901
+   }
+  },
+  {
+   "result": {
+    "transactionData": "AAAAAAAAAAUAAAAGAAAAASSemIItqnE5JyvJuaVHXloaYaFPKAV5MbHpo5F7sUzDAAAAEAAAAAEAAAACAAAADwAAAA9Db250ZXh0UnVsZURhdGEAAAAAAwAAAAEAAAABAAAABgAAAAEknpiCLapxOScrybmlR15aGmGhTygFeTGx6aORe7FMwwAAABAAAAABAAAAAgAAAA8AAAAKUG9saWN5RGF0YQAAAAAAAwAAAAAAAAABAAAABgAAAAEknpiCLapxOScrybmlR15aGmGhTygFeTGx6aORe7FMwwAAABAAAAABAAAAAgAAAA8AAAAKU2lnbmVyRGF0YQAAAAAAAwAAAAAAAAABAAAABgAAAAEknpiCLapxOScrybmlR15aGmGhTygFeTGx6aORe7FMwwAAABQAAAABAAAAB5GizVa6GnXXjuuN3F0YQcXUObdyahQLyEyFD3M5YpipAAAAAAAO9hMAAAAAAAAAAAAAAAAAFJQ2",
+    "minResourceFee": "1348662",
+    "results": [
+     {
+      "auth": [],
+      "xdr": "AAAAEQAAAAEAAAAIAAAADwAAAAxjb250ZXh0X3R5cGUAAAAQAAAAAQAAAAIAAAAPAAAADENhbGxDb250cmFjdAAAABIAAAABBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcAAAAPAAAAAmlkAAAAAAADAAAAAQAAAA8AAAAEbmFtZQAAAA4AAAAJZzctbGl2ZS0xAAAAAAAADwAAAAhwb2xpY2llcwAAABAAAAABAAAAAQAAABIAAAAB1/Ucao/NnVG8fq9U+2mdFtVs3bqETrcKmxSsOa4BFB0AAAAPAAAACnBvbGljeV9pZHMAAAAAABAAAAABAAAAAQAAAAMAAAAAAAAADwAAAApzaWduZXJfaWRzAAAAAAAQAAAAAQAAAAEAAAADAAAAAAAAAA8AAAAHc2lnbmVycwAAAAAQAAAAAQAAAAEAAAAQAAAAAQAAAAIAAAAPAAAACURlbGVnYXRlZAAAAAAAABIAAAAAAAAAACf0nZzIkRRGhKGes4IiUPAxf2puv1AE9unMBJs7/kVgAAAADwAAAAt2YWxpZF91bnRpbAAAAAAB"
+     }
+    ],
+    "latestLedger": 5206901
+   }
+  }
+ ],
+ "simulateTransaction:52f1ffc075957537": [
+  {
+   "result": {
+    "transactionData": "AAAAAAAAAAQAAAAGAAAAASSemIItqnE5JyvJuaVHXloaYaFPKAV5MbHpo5F7sUzDAAAAEAAAAAEAAAACAAAADwAAAA9Db250ZXh0UnVsZURhdGEAAAAAAwAAAAAAAAABAAAABgAAAAEknpiCLapxOScrybmlR15aGmGhTygFeTGx6aORe7FMwwAAABAAAAABAAAAAgAAAA8AAAAKU2lnbmVyRGF0YQAAAAAAAwAAAAAAAAABAAAABgAAAAEknpiCLapxOScrybmlR15aGmGhTygFeTGx6aORe7FMwwAAABQAAAABAAAAB5GizVa6GnXXjuuN3F0YQcXUObdyahQLyEyFD3M5YpipAAAAAAANkm8AAAAAAAAAAAAAAAAAAB5a",
+    "minResourceFee": "7770",
+    "results": [
+     {
+      "auth": [],
+      "xdr": "AAAAEQAAAAEAAAAIAAAADwAAAAxjb250ZXh0X3R5cGUAAAAQAAAAAQAAAAEAAAAPAAAAB0RlZmF1bHQAAAAADwAAAAJpZAAAAAAAAwAAAAAAAAAPAAAABG5hbWUAAAAOAAAACG11bHRpc2lnAAAADwAAAAhwb2xpY2llcwAAABAAAAABAAAAAAAAAA8AAAAKcG9saWN5X2lkcwAAAAAAEAAAAAEAAAAAAAAADwAAAApzaWduZXJfaWRzAAAAAAAQAAAAAQAAAAEAAAADAAAAAAAAAA8AAAAHc2lnbmVycwAAAAAQAAAAAQAAAAEAAAAQAAAAAQAAAAIAAAAPAAAACURlbGVnYXRlZAAAAAAAABIAAAAAAAAAACf0nZzIkRRGhKGes4IiUPAxf2puv1AE9unMBJs7/kVgAAAADwAAAAt2YWxpZF91bnRpbAAAAAAB"
+     }
+    ],
+    "latestLedger": 5206901
+   }
+  },
+  {
+   "result": {
+    "transactionData": "AAAAAAAAAAQAAAAGAAAAASSemIItqnE5JyvJuaVHXloaYaFPKAV5MbHpo5F7sUzDAAAAEAAAAAEAAAACAAAADwAAAA9Db250ZXh0UnVsZURhdGEAAAAAAwAAAAAAAAABAAAABgAAAAEknpiCLapxOScrybmlR15aGmGhTygFeTGx6aORe7FMwwAAABAAAAABAAAAAgAAAA8AAAAKU2lnbmVyRGF0YQAAAAAAAwAAAAAAAAABAAAABgAAAAEknpiCLapxOScrybmlR15aGmGhTygFeTGx6aORe7FMwwAAABQAAAABAAAAB5GizVa6GnXXjuuN3F0YQcXUObdyahQLyEyFD3M5YpipAAAAAAANkm8AAAAAAAAAAAAAAAAAAB5a",
+    "minResourceFee": "7770",
+    "results": [
+     {
+      "auth": [],
+      "xdr": "AAAAEQAAAAEAAAAIAAAADwAAAAxjb250ZXh0X3R5cGUAAAAQAAAAAQAAAAEAAAAPAAAAB0RlZmF1bHQAAAAADwAAAAJpZAAAAAAAAwAAAAAAAAAPAAAABG5hbWUAAAAOAAAACG11bHRpc2lnAAAADwAAAAhwb2xpY2llcwAAABAAAAABAAAAAAAAAA8AAAAKcG9saWN5X2lkcwAAAAAAEAAAAAEAAAAAAAAADwAAAApzaWduZXJfaWRzAAAAAAAQAAAAAQAAAAEAAAADAAAAAAAAAA8AAAAHc2lnbmVycwAAAAAQAAAAAQAAAAEAAAAQAAAAAQAAAAIAAAAPAAAACURlbGVnYXRlZAAAAAAAABIAAAAAAAAAACf0nZzIkRRGhKGes4IiUPAxf2puv1AE9unMBJs7/kVgAAAADwAAAAt2YWxpZF91bnRpbAAAAAAB"
+     }
+    ],
+    "latestLedger": 5206901
+   }
+  }
+ ],
+ "simulateTransaction:a7712fc0c94349af": [
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:2\n",
+    "latestLedger": 5206901
+   }
+  },
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:2\n",
+    "latestLedger": 5206901
+   }
+  }
+ ],
+ "simulateTransaction:153798f634b49cf9": [
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:5\n",
+    "latestLedger": 5206901
+   }
+  },
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:5\n",
+    "latestLedger": 5206901
+   }
+  }
+ ],
+ "simulateTransaction:0d3d9e3616952a67": [
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:4\n",
+    "latestLedger": 5206901
+   }
+  },
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:4\n",
+    "latestLedger": 5206901
+   }
+  }
+ ],
+ "simulateTransaction:3859afa024f58544": [
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:8\n",
+    "latestLedger": 5206901
+   }
+  },
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:8\n",
+    "latestLedger": 5206901
+   }
+  }
+ ],
+ "simulateTransaction:2935c149e4d3b771": [
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:10\n",
+    "latestLedger": 5206901
+   }
+  },
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:10\n",
+    "latestLedger": 5206901
+   }
+  }
+ ],
+ "simulateTransaction:c7f6c87e15554e78": [
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:7\n",
+    "latestLedger": 5206901
+   }
+  },
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:7\n",
+    "latestLedger": 5206901
+   }
+  }
+ ],
+ "simulateTransaction:63ebf55574966315": [
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:6\n",
+    "latestLedger": 5206901
+   }
+  },
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:6\n",
+    "latestLedger": 5206901
+   }
+  }
+ ],
+ "simulateTransaction:7b616be8011f6a9d": [
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:9\n",
+    "latestLedger": 5206901
+   }
+  },
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:9\n",
+    "latestLedger": 5206901
+   }
+  }
+ ],
+ "simulateTransaction:49c15d15aeda47ef": [
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:11\n",
+    "latestLedger": 5206901
+   }
+  },
+  {
+   "result": {
+    "error": "HostError: Error(Contract, #3000)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:\"escalating error to VM trap from failed host function call: fail_with_error\"\n   1: [Diagnostic Event] contract:CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, topics:[error, Error(Contract, #3000)], data:[\"failing with contract error\", 3000]\n   2: [Diagnostic Event] topics:[fn_call, CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P, get_context_rule], data:11\n",
+    "latestLedger": 5206901
+   }
+  }
+ ],
+ "getLedgerEntries:97effc0cd902bf40": [
+  {
+   "result": {
+    "entries": [
+     {
+      "key": "AAAABgAAAAHX9Rxqj82dUbx+r1T7aZ0W1WzduoROtwqbFKw5rgEUHQAAABAAAAABAAAAAgAAABIAAAABJJ6Ygi2qcTknK8m5pUdeWhphoU8oBXkxsemjkXuxTMMAAAADAAAAAQAAAAE=",
+      "xdr": "AAAABgAAAAAAAAAB1/Ucao/NnVG8fq9U+2mdFtVs3bqETrcKmxSsOa4BFB0AAAAQAAAAAQAAAAIAAAASAAAAASSemIItqnE5JyvJuaVHXloaYaFPKAV5MbHpo5F7sUzDAAAAAwAAAAEAAAABAAAAEQAAAAEAAAAFAAAADwAAAAhleGVjdXRvcgAAAAEAAAAPAAAACm1hc3Rlcl9zZXQAAAAAABAAAAABAAAAAQAAABAAAAABAAAAAgAAAA8AAAAJRGVsZWdhdGVkAAAAAAAAEgAAAAAAAAAAJ/SdnMiRFEaEoZ6zgiJQ8DF/am6/UAT26cwEmzv+RWAAAAAPAAAABW5vbmNlAAAAAAAAAwAAAAEAAAAPAAAAD3ByZWRpY2F0ZV9ieXRlcwAAAAANAAABgAAAABAAAAABAAAAAgAAAA8AAAADYW5kAAAAABAAAAABAAAABAAAABAAAAABAAAAAwAAAA8AAAACZXEAAAAAABAAAAABAAAAAQAAAA8AAAANY2FsbF9jb250cmFjdAAAAAAAABIAAAABBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcAAAAQAAAAAQAAAAMAAAAPAAAAAmVxAAAAAAAQAAAAAQAAAAEAAAAPAAAAB2NhbGxfZm4AAAAADwAAAAh0cmFuc2ZlcgAAABAAAAABAAAAAwAAAA8AAAACZXEAAAAAABAAAAABAAAAAgAAAA8AAAAIY2FsbF9hcmcAAAADAAAAAAAAABIAAAABJJ6Ygi2qcTknK8m5pUdeWhphoU8oBXkxsemjkXuxTMMAAAAQAAAAAQAAAAMAAAAPAAAAA2x0ZQAAAAAQAAAAAQAAAAIAAAAPAAAACGNhbGxfYXJnAAAAAwAAAAIAAAAKAAAAAAAAAAAAAAAAAAAD6AAAAA8AAAAMc2lnbmVyc19oYXNoAAAADQAAACBggpQk/TvGxoEdN/rGS6fDbBNfDWjsHzcW6LD/7L/KIA==",
+      "lastModifiedLedgerSeq": 5206876,
+      "liveUntilLedgerSeq": 5327835,
+      "extXdr": "AAAAAA=="
+     }
+    ],
+    "latestLedger": 5206901
+   }
+  },
+  {
+   "result": {
+    "entries": [
+     {
+      "key": "AAAABgAAAAHX9Rxqj82dUbx+r1T7aZ0W1WzduoROtwqbFKw5rgEUHQAAABAAAAABAAAAAgAAABIAAAABJJ6Ygi2qcTknK8m5pUdeWhphoU8oBXkxsemjkXuxTMMAAAADAAAAAQAAAAE=",
+      "xdr": "AAAABgAAAAAAAAAB1/Ucao/NnVG8fq9U+2mdFtVs3bqETrcKmxSsOa4BFB0AAAAQAAAAAQAAAAIAAAASAAAAASSemIItqnE5JyvJuaVHXloaYaFPKAV5MbHpo5F7sUzDAAAAAwAAAAEAAAABAAAAEQAAAAEAAAAFAAAADwAAAAhleGVjdXRvcgAAAAEAAAAPAAAACm1hc3Rlcl9zZXQAAAAAABAAAAABAAAAAQAAABAAAAABAAAAAgAAAA8AAAAJRGVsZWdhdGVkAAAAAAAAEgAAAAAAAAAAJ/SdnMiRFEaEoZ6zgiJQ8DF/am6/UAT26cwEmzv+RWAAAAAPAAAABW5vbmNlAAAAAAAAAwAAAAEAAAAPAAAAD3ByZWRpY2F0ZV9ieXRlcwAAAAANAAABgAAAABAAAAABAAAAAgAAAA8AAAADYW5kAAAAABAAAAABAAAABAAAABAAAAABAAAAAwAAAA8AAAACZXEAAAAAABAAAAABAAAAAQAAAA8AAAANY2FsbF9jb250cmFjdAAAAAAAABIAAAABBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcAAAAQAAAAAQAAAAMAAAAPAAAAAmVxAAAAAAAQAAAAAQAAAAEAAAAPAAAAB2NhbGxfZm4AAAAADwAAAAh0cmFuc2ZlcgAAABAAAAABAAAAAwAAAA8AAAACZXEAAAAAABAAAAABAAAAAgAAAA8AAAAIY2FsbF9hcmcAAAADAAAAAAAAABIAAAABJJ6Ygi2qcTknK8m5pUdeWhphoU8oBXkxsemjkXuxTMMAAAAQAAAAAQAAAAMAAAAPAAAAA2x0ZQAAAAAQAAAAAQAAAAIAAAAPAAAACGNhbGxfYXJnAAAAAwAAAAIAAAAKAAAAAAAAAAAAAAAAAAAD6AAAAA8AAAAMc2lnbmVyc19oYXNoAAAADQAAACBggpQk/TvGxoEdN/rGS6fDbBNfDWjsHzcW6LD/7L/KIA==",
+      "lastModifiedLedgerSeq": 5206876,
+      "liveUntilLedgerSeq": 5327835,
+      "extXdr": "AAAAAA=="
+     }
+    ],
+    "latestLedger": 5206901
+   }
+  }
+ ]
+}
