@@ -52,13 +52,25 @@ export const INTERPRETERS: ReadonlySet<string> = new Set([
   'CBRRKTVURLAJRPJ3G44AWA5SCGUV47PCYF5CHND5TG3OGTFNXTSLBIJ5', // grammar 6, testnet rehearsal
   'CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R', // grammar 6, mainnet (Prime)
   'CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52', // grammar 4, mainnet
+  'CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5', // grammar 4, testnet
   'CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB', // grammar 7, testnet, first build (its check could commit a read)
   'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV', // grammar 7, testnet
 ])
+
+/** OpenZeppelin's `simple_threshold` and `weighted_threshold`, built from v0.7.2 and
+ *  deployed by us (`deployments/oz-policies.json`). Their admin calls (`set_threshold`,
+ *  `install`...) need only the account's own authorisation. */
+const OZ_THRESHOLD = [
+  'CAYTIVQOEZDOQI4GC3XBXEEYHQUANQQJHPJVMXVRBREGSAP6TCN3DID6', // simple_threshold, testnet
+  'CCTNRFZCL45GTJICA3Z2KFQO3VEGBHGCVBLHQ3GLJKAGACQIJMYJS7T2', // weighted_threshold, testnet
+  'CDOGPGUFGGUDG25P3TG6XIXJKRRYOZ3PXUZIEPVH74KXRZIDKZ5HYEOS', // simple_threshold, mainnet
+  'CDWPZ4YZ3YIJ64XSHRMERRF2L2H7XD6SPUZDP3KI56T7QXQCICC25V3J', // weighted_threshold, mainnet
+]
 
 /** Policy contracts a rule must never be scoped to: scoping a rule to one
  *  exposes that contract's own admin calls (the interpreter does not refuse it). */
 export const POLICY_CONTRACTS: ReadonlySet<string> = new Set([
   ...Object.values(SPENDING_LIMIT),
+  ...OZ_THRESHOLD,
   ...INTERPRETERS,
 ])

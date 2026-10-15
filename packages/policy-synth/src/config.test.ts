@@ -55,3 +55,22 @@ describe('every interpreter this project deployed is a policy contract no rule m
     for (const a of Object.values(SPENDING_LIMIT)) expect(POLICY_CONTRACTS.has(a)).toBe(true)
   })
 })
+
+describe('the OZ policies we deployed are policy contracts no rule may be scoped to', () => {
+  const oz = JSON.parse(read('deployments/oz-policies.json'))
+  it('every address in deployments/oz-policies.json is in POLICY_CONTRACTS, mainnet and testnet, all three policies', () => {
+    for (const network of ['mainnet', 'testnet'] as const)
+      for (const name of ['spending_limit', 'simple_threshold', 'weighted_threshold']) {
+        expect(StrKey.isValidContract(oz[network][name])).toBe(true)
+        expect(POLICY_CONTRACTS.has(oz[network][name])).toBe(true)
+      }
+    expect(SPENDING_LIMIT).toEqual({
+      testnet: oz.testnet.spending_limit,
+      mainnet: oz.mainnet.spending_limit,
+    })
+  })
+
+  it('and so is the grammar-4 testnet interpreter the README lists', () => {
+    expect(INTERPRETERS.has('CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5')).toBe(true)
+  })
+})

@@ -567,6 +567,25 @@ describe('install_policy', () => {
       await failing('install_policy', { ...base, ...extra }, 'INVALID_INPUT', /Unrecognized key/)
   })
 
+  it.each([
+    ['testnet simple_threshold', 'CAYTIVQOEZDOQI4GC3XBXEEYHQUANQQJHPJVMXVRBREGSAP6TCN3DID6'],
+    ['mainnet simple_threshold', 'CDOGPGUFGGUDG25P3TG6XIXJKRRYOZ3PXUZIEPVH74KXRZIDKZ5HYEOS'],
+    ['mainnet weighted_threshold', 'CDWPZ4YZ3YIJ64XSHRMERRF2L2H7XD6SPUZDP3KI56T7QXQCICC25V3J'],
+    ['testnet weighted_threshold', 'CCTNRFZCL45GTJICA3Z2KFQO3VEGBHGCVBLHQ3GLJKAGACQIJMYJS7T2'],
+  ])("a rule scoped to OZ's %s (its set_threshold) is refused", async (_n, policy) => {
+    await failing(
+      'install_policy',
+      {
+        ...base,
+        xdr: undefined,
+        limit: undefined,
+        intent: { calls: [{ contract: policy, fn: 'set_threshold' }] },
+      },
+      'INSTALL_BUILD_FAILED',
+      /admin calls/
+    )
+  })
+
   it('refuses a scope that exposes an admin surface, before any build', async () => {
     const toAccount = {
       ...base,
