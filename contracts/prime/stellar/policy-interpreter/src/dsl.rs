@@ -355,9 +355,12 @@ fn literal_to_val(leaf: &Leaf) -> Res<Val> {
 /// numbers inside a vector compare by XDR, type included. Anything else is exact:
 /// a number never equals a symbol, and an address only its own address.
 fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
-    // `b` is only converted when `a` is a number.
-    if let Some(same) = val_to_i128(env, a).and_then(|x| Some(x == val_to_i128(env, b)?)) {
-        return same;
+    // Two values of one type need no widening. `b` is only converted when `a` is
+    // a number.
+    if a.get_tag() != b.get_tag() {
+        if let Some(same) = val_to_i128(env, a).and_then(|x| Some(x == val_to_i128(env, b)?)) {
+            return same;
+        }
     }
     let objects = a.is_object() || b.is_object();
     a.shallow_eq(b) || (objects && (*a).to_xdr(env) == (*b).to_xdr(env))
