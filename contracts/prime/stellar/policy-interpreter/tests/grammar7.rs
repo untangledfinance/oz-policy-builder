@@ -2659,3 +2659,114 @@ fn a_quantifier_rule_is_enforced_through_install_and_enforce() {
         "any of nothing"
     );
 }
+
+// ---- time windows, from `now` and `scaled` alone ----------------------------
+
+/// Start of the current UTC day: `floor(now / 86400) * 86400`.
+fn day_start() -> ScVal {
+    scaled(
+        scaled(now(), num(1), 86_400, num(0)),
+        num(86_400),
+        1,
+        num(0),
+    )
+}
+
+/// `secs` past the start of the current UTC day.
+fn day_at(secs: i128) -> ScVal {
+    scaled(day_start(), num(1), 1, num(secs))
+}
+
+/// 09:00:00 <= time of day < 17:00:00 UTC.
+fn office_hours() -> ScVal {
+    all(alloc::vec![
+        cmp("gte", now(), day_at(9 * 3_600)),
+        cmp("lt", now(), day_at(17 * 3_600)),
+    ])
+}
+
+/// Monday to Friday. The day number is `floor(now / 86400)`; 1970-01-01 was a
+/// Thursday, so `day + 3` counts from Monday. There is no modulo, so the
+/// remainder mod 7 is `x - 7 * floor(x / 7)` and `remainder <= 4` is moved
+/// across the comparison: `x <= 7 * floor(x / 7) + 4`.
+fn weekdays() -> ScVal {
+    let x = scaled(now(), num(1), 86_400, num(3));
+    let weeks = scaled(x.clone(), num(1), 7, num(0));
+    cmp("lte", x, scaled(weeks, num(7), 1, num(4)))
+}
+
+/// 2024-01-01 00:00:00 UTC, a Monday.
+const MONDAY: u64 = 1_704_067_200;
+const DAY: u64 = 86_400;
+
+fn permitted_at(w: &World, ts: u64) -> bool {
+    w.env.ledger().with_mut(|l| l.timestamp = ts);
+    match w.enforce(&[]) {
+        Ok(()) => true,
+        v => {
+            assert_eq!(v, denied());
+            false
+        }
+    }
+}
+
+#[test]
+fn office_hours_are_a_half_open_window_in_utc() {
+    let w = World::new();
+    w.arm(office_hours());
+    // Monday 2024-01-01, and a day another year: the window repeats daily.
+    for day in [MONDAY, MONDAY + 3 * DAY, MONDAY + 400 * DAY] {
+        assert!(permitted_at(&w, day + 9 * 3_600), "09:00:00");
+        assert!(permitted_at(&w, day + 12 * 3_600), "noon");
+        assert!(permitted_at(&w, day + 17 * 3_600 - 1), "16:59:59");
+        assert!(!permitted_at(&w, day + 9 * 3_600 - 1), "08:59:59");
+        assert!(!permitted_at(&w, day + 17 * 3_600), "17:00:00");
+        assert!(!permitted_at(&w, day), "midnight");
+        assert!(!permitted_at(&w, day + DAY - 1), "23:59:59");
+    }
+}
+
+#[test]
+fn weekdays_exclude_the_weekend() {
+    let w = World::new();
+    w.arm(weekdays());
+    let names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    // Two full weeks, at both ends of each day.
+    for d in 0..14u64 {
+        let open = d % 7 < 5;
+        let day = names[(d % 7) as usize];
+        assert_eq!(permitted_at(&w, MONDAY + d * DAY), open, "{day} 00:00:00");
+        assert_eq!(
+            permitted_at(&w, MONDAY + d * DAY + DAY - 1),
+            open,
+            "{day} 23:59:59"
+        );
+    }
+    // the epoch itself (a Thursday) and a far-off Sunday
+    assert!(permitted_at(&w, 0));
+    assert!(!permitted_at(&w, MONDAY + 6 * DAY + 400 * 7 * DAY));
+}
+
+#[test]
+fn weekday_office_hours_combine_with_and() {
+    let w = World::new();
+    w.arm(all(alloc::vec![weekdays(), office_hours()]));
+    assert!(permitted_at(&w, MONDAY + 9 * 3_600));
+    assert!(
+        permitted_at(&w, MONDAY + 4 * DAY + 17 * 3_600 - 1),
+        "Friday 16:59:59"
+    );
+    assert!(
+        !permitted_at(&w, MONDAY + 4 * DAY + 17 * 3_600),
+        "Friday 17:00:00"
+    );
+    assert!(
+        !permitted_at(&w, MONDAY + 5 * DAY + 10 * 3_600),
+        "Saturday 10:00"
+    );
+    assert!(
+        !permitted_at(&w, MONDAY + 6 * DAY + 10 * 3_600),
+        "Sunday 10:00"
+    );
+    assert!(!permitted_at(&w, MONDAY + 9 * 3_600 - 1), "Monday 08:59:59");
+}
