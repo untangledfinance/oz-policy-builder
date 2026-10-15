@@ -543,6 +543,30 @@ describe('verify, what it does not know it says', () => {
     expect(clock.complete).toBe(false)
   })
 
+  it('an or inside a quantifier body is not ok either: the case derived for the quantifier does not reach its wide branch', async () => {
+    const body: Expr = [
+      'and',
+      [
+        fnIs('pay'),
+        [
+          'any',
+          ['call_arg', 0],
+          [
+            'or',
+            [
+              ['eq', ['elem'], 1],
+              ['gte', ['elem'], 0],
+            ],
+          ],
+        ],
+      ],
+    ]
+    const v = await check(body, { contract: C, fn: 'pay', args: [[1]] })
+    expect(v.permit.permitted).toBe(true)
+    expect(v.ok).toBe(false)
+    expect(v.complete).toBe(false)
+  })
+
   it('one request makes at most 64 calls, an or of a hundred branches included', async () => {
     const hundred: Expr = [
       'or',

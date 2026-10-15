@@ -475,9 +475,9 @@ export async function verifyRule(
     results.length > 0 &&
     results.every((r) => r.denied) &&
     unexamined.length === 0 &&
-    // A conjunct nothing was tried against that holds an `or` can permit what none of the
-    // cases reached; a clock or a read can only narrow, so those leave `ok` alone.
-    !left.some(hasOr)
+    // A conjunct holding an `or`, anywhere (a quantifier body included), can permit what none of
+    // the cases reached; a clock or a read can only narrow, so those leave `ok` alone.
+    !live.some(({ b }) => b.some(hasOr))
   return {
     ok,
     complete: ok && untested.length === 0,
