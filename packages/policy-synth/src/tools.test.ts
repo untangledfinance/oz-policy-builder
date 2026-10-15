@@ -744,8 +744,48 @@ describe('install_policy', () => {
     ])
     expect(r.data.interpreter.matches).toBe(true)
     expect(r.data.rule.review.at(-1)).toBe('   └─ argument 2:  must be at most  9000000')
-    expect(r.data.rule.reviewTree[0].raw).toEqual(['eq', ['call_contract'], TOKEN])
+    expect(r.data.rule.reviewTree[1].raw).toEqual(['eq', ['call_contract'], TOKEN])
     expect(r.data.unsignedXdrLength).toBe(r.data.unsignedXdr.length)
+  })
+
+  it('the review opens with the authority: signers, the rule, admins, expiry, total, interpreter; the policy follows', async () => {
+    const r = await call('install_policy', {
+      ...base,
+      allowOverlap: true,
+      signers: [SIGNER, account(1)],
+      threshold: { simple: 2 },
+      validUntilLedger: 99_999_999,
+      spendingLimit: { amount: '5000000', periodLedgers: 17280 },
+      xdr: undefined,
+      limit: undefined,
+      intent: {
+        calls: [
+          {
+            contract: 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC',
+            fn: 'transfer',
+            where: [{ constraint: 'cap', at: [2], max: '5000000' }],
+          },
+        ],
+      },
+    })
+    expect(r.ok).toBe(true)
+    const review = r.data.rule.review as string[]
+    expect(review[0]).toBe('Authority')
+    const text = review.join('\n')
+    expect(text).toContain('signer:  GAT7JH…CWBCSB («source account»)')
+    expect(text).toContain('to act:  any 2 of these 2 signers must approve')
+    expect(text).toContain(
+      'admins (may re-install or uninstall):  GAT7JH…CWBCSB («source account»)'
+    )
+    expect(text).toMatch(/expires: {2}ledger 99999999 \(about \d{4}-\d\d-\d\d \d\d:\d\d UTC\)/)
+    expect(text).toContain(
+      'total:  at most 0.5 native (5000000) in total per 17280 ledgers (rolling, OZ spending_limit)'
+    )
+    expect(text).toMatch(/interpreter: {2}CA5ICI…\w{6} \(interpreter\)/)
+    // The predicate's own tree follows the header, and the tree's first node is the authority.
+    expect(r.data.rule.reviewTree[0]).toMatchObject({ op: 'authority', raw: null })
+    expect(r.data.rule.reviewTree[1]).toMatchObject({ op: 'contract' })
+    expect(review.findIndex((l) => l.includes('transfer(from, to, amount)'))).toBeGreaterThan(6)
   })
 
   it('the review names the accounts the request names', async () => {
@@ -1254,7 +1294,8 @@ describe('revoke_policy', () => {
     })
     expect(r.data.removes.expr).toEqual(['and', expect.any(Array)])
     expect(r.data.removes.review.at(-1)).toBe('   └─ argument 2:  must be at most  1000')
-    expect(r.data.removes.reviewTree[0]).toMatchObject({ op: 'contract', raw: expect.any(Array) })
+    expect(r.data.removes.reviewTree[0]).toMatchObject({ op: 'authority' })
+    expect(r.data.removes.reviewTree[1]).toMatchObject({ op: 'contract', raw: expect.any(Array) })
     // A rule it does not police has none.
     const plain = await call('revoke_policy', {
       smartAccount: ACCOUNT,
@@ -1337,7 +1378,7 @@ describe('revoke_policy', () => {
       sourceAccount: SIGNER,
       ruleId: 2,
     })
-    expect(r.data.removes.scope.contract).toBe(r.data.removes.reviewTree[0].value)
+    expect(r.data.removes.scope.contract).toBe(r.data.removes.reviewTree[1].value)
   })
   it("refuses the account's admin rule 0 unless told to", async () => {
     const base = { smartAccount: ACCOUNT, sourceAccount: SIGNER, ruleId: 0 }
@@ -1392,6 +1433,17 @@ describe('get_interpreter_info', () => {
     })
   })
   it('explainAccount reads the rules and explains the ones this interpreter polices', async () => {
+    const rich = await call('get_interpreter_info', { explainAccount: ACCOUNT })
+    const rule2 = rich.data.account.rules[2]
+    expect(rule2.review[0]).toBe('Authority')
+    expect(rule2.review.join('\n')).toMatch(/signer:/)
+    expect(rule2.review.join('\n')).toMatch(/expires: {2}never expires/)
+    expect(rule2.review.join('\n')).toMatch(/to act: {2}the signer acts alone/)
+    expect(rule2.review.join('\n')).toMatch(/admins \(may re-install or uninstall\):/)
+    expect(rule2.reviewTree[0].op).toBe('authority')
+    // A rule this interpreter does not police has no review, so no authority either.
+    expect(rich.data.account.rules[0].review).toBeUndefined()
+
     const r = await call('get_interpreter_info', { explainAccount: ACCOUNT })
     const rules = r.data.account.rules
     expect(rules.map((x: { id: number }) => x.id)).toEqual([0, 1, 2])
@@ -1429,7 +1481,8 @@ describe('describeRules: a rule read off an account is described under its own s
       expr: pinless,
     } as never
     const [shown] = await describeRules({ network: 'testnet' }, [rule])
-    expect(shown?.reviewTree[0]).toMatchObject({ op: 'contract', raw: null, value: TOKEN })
+    expect(shown?.reviewTree[0]).toMatchObject({ op: 'authority' })
+    expect(shown?.reviewTree[1]).toMatchObject({ op: 'contract', raw: null, value: TOKEN })
     const dflt = {
       id: 0,
       scope: { kind: 'default' },
@@ -1438,6 +1491,6 @@ describe('describeRules: a rule read off an account is described under its own s
       expr: pinless,
     } as never
     const [bare] = await describeRules({ network: 'testnet' }, [dflt])
-    expect(bare?.reviewTree[0]?.op).toBe('function')
+    expect(bare?.reviewTree[1]?.op).toBe('function')
   })
 })

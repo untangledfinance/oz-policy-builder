@@ -614,6 +614,34 @@ describe('planInstall: the guards', () => {
     })
   })
 
+  it('the plan carries the authority it grants: signers, rule, admins, expiry (with about when), total, interpreter', async () => {
+    const r = await planInstall(
+      {
+        ...two,
+        threshold: { n: 2 },
+        validUntilLedger: 5_000_100,
+        spendingLimit: { amount: '9', periodLedgers: 4 },
+      },
+      rule,
+      chain({ build: async () => ({ ...built, authValidUntilLedger: 5_000_300 }) as never })
+    )
+    expect(r.authority).toMatchObject({
+      signers: [SIGNER, account(2)],
+      threshold: { n: 2 },
+      admins: [SIGNER],
+      validUntil: 5_000_100,
+      total: { amount: '9', periodLedgers: 4 },
+      interpreter: INTERP,
+    })
+    // 5,000,300 is the auth expiry, 300 ledgers after the ledger the build ran at (5,000,000): the rule lapses 100 ledgers (about 500 s) from now.
+    expect(Math.abs((r.authority.approxAt as number) - (Date.now() + 100 * 5000))).toBeLessThan(
+      5_000
+    )
+    const open = await planInstall(input, rule, chain())
+    expect(open.authority).toMatchObject({ validUntil: null, total: null, threshold: undefined })
+    expect(open.authority.approxAt).toBeUndefined()
+  })
+
   it('the draft carries the signers, the admins (the source by default), the nonce and the cap', async () => {
     let seen: RuleDraft | undefined
     await planInstall(

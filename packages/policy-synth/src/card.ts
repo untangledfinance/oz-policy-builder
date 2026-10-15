@@ -332,14 +332,88 @@ export function tree(expr: Expr, view: View = {}): Node[] {
     : body
 }
 
+/** What a rule lets its signers do, as the install builds it (or as an account reports it). */
+export interface Authority {
+  signers: string[]
+  /** A threshold policy beside the interpreter; `n` is unknown when only its presence is. */
+  threshold?: { n?: number; weights?: Record<string, number> } | undefined
+  admins?: string[] | undefined
+  /** `undefined`: not known; `null`: never; else the ledger, and about when (ms). */
+  validUntil?: number | null | undefined
+  approxAt?: number | undefined
+  /** `undefined`: not known; `null`: no rolling total. */
+  total?: { amount: string; periodLedgers: number } | null | undefined
+  interpreter?: string | undefined
+}
+
+/** Who can act under a rule, by what rule, until when, up to how much in total: the head of an
+ *  install's review. Names and labels are display; `raw` is the wire value each line came from. */
+export function authority(a: Authority, c: View): Node {
+  const [k, t, w] = [a.signers.length, a.threshold, a.threshold?.weights]
+  const who = (x: string) => `${x.startsWith('C') ? 'contract ' : ''}${addr(x, c)}`
+  const del = (s: string): Val => ['Delegated', s]
+  const at =
+    a.approxAt &&
+    ` (about ${new Date(a.approxAt).toISOString().slice(0, 16).replace('T', ' ')} UTC)`
+  const act = !t
+    ? `${k === 1 ? 'the signer' : `any ONE of these ${k} signers`} acts alone`
+    : t.n === undefined
+      ? 'a threshold policy applies (its threshold is not read here)'
+      : `${w ? `signers whose weights total at least ${t.n}` : `any ${t.n} of these ${k} signers`} must approve`
+  const facts: [string, string, Val][] = a.signers.map((s) => [
+    'signer',
+    who(s) + (w ? `  weight ${w[s]}` : ''),
+    w ? [del(s), w[s] as number] : del(s),
+  ])
+  facts.push(['to act', act, t?.n ?? null])
+  if (a.admins)
+    facts.push([
+      'admins (may re-install or uninstall)',
+      a.admins.map(who).join(', '),
+      a.admins.map(del),
+    ])
+  if (a.validUntil !== undefined)
+    facts.push([
+      'expires',
+      a.validUntil === null ? 'never expires' : `ledger ${a.validUntil}${at ?? ''}`,
+      a.validUntil,
+    ])
+  if (a.total !== undefined) {
+    const { amount: x, periodLedgers: p } = a.total ?? { amount: '', periodLedgers: 0 }
+    const limit: Val = a.total && {
+      map: [
+        ['period_ledgers', p],
+        ['spending_limit', { i128: x }],
+      ],
+    }
+    const unit = known(c)?.token
+    facts.push([
+      'total',
+      a.total
+        ? `at most ${unit ? money(x, unit) : x} in total per ${p} ledgers (rolling, OZ spending_limit)`
+        : 'no total limit: each call may move up to its own cap',
+      limit,
+    ])
+  }
+  if (a.interpreter) facts.push(['interpreter', addr(a.interpreter, c), a.interpreter])
+  return {
+    label: 'Authority',
+    op: 'authority',
+    raw: null,
+    children: facts.map(([label, value, raw]) => ({ label, op: 'fact', value, raw })),
+  }
+}
+
 /** The tree as text, box-drawn: a condition as `name:  phrase  value`. */
 export function lines(nodes: Node[], prefix = '', child = false): string[] {
   return nodes.flatMap((n, i) => {
     const end = i === nodes.length - 1
     const cond = n.value !== undefined && n.op !== 'contract' && n.op !== 'function'
-    const text = cond
-      ? `${n.label}:  ${Object.hasOwn(COMPARE, n.op) ? COMPARE[n.op] : n.op}  ${n.value}`
-      : n.label
+    const said =
+      n.op === 'fact'
+        ? n.value
+        : `${Object.hasOwn(COMPARE, n.op) ? COMPARE[n.op] : n.op}  ${n.value}`
+    const text = cond ? `${n.label}:  ${said}` : n.label
     return [
       `${prefix}${child ? (end ? '└─ ' : '├─ ') : ''}${text}`,
       ...lines(n.children ?? [], prefix + (child ? (end ? '   ' : '│  ') : ''), true),

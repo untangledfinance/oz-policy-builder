@@ -451,8 +451,22 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
         "the account's rules could not all be read, so whether this rule can bind is not known; set allowOverlap to install anyway"
       )
   }
+  const b = got(built)
+  const [validUntil, latest] = [draft.validUntil, b.authValidUntilLedger - AUTH_LEDGERS]
   return {
-    ...got(built),
+    ...b,
+    authority: {
+      signers: i.signers,
+      threshold: i.threshold,
+      admins: draft.admins,
+      validUntil,
+      // About when: five seconds a ledger from the ledger the build ran at.
+      ...(validUntil && Number.isFinite(latest)
+        ? { approxAt: Date.now() + (validUntil - latest) * 5000 }
+        : {}),
+      total: i.spendingLimit ?? null,
+      interpreter,
+    },
     rule: { contract: rule.contract, predicateHash: rule.hash },
     interpreter: fingerprint,
     authorityScan: { complete: read.complete, overlaps: found },

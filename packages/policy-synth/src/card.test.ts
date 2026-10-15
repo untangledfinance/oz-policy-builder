@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { account, contract } from '../test/fixtures.ts'
-import { card, contractsOf, lines, type Node, tree, type View } from './card.ts'
+import {
+  type Authority,
+  authority,
+  card,
+  contractsOf,
+  lines,
+  type Node,
+  tree,
+  type View,
+} from './card.ts'
 import { SAFE_READS, SPENDING_LIMIT } from './config.ts'
 import { decodeEnvelope } from './record.ts'
 import { TEMPLATES } from './registry.ts'
@@ -1587,5 +1596,108 @@ describe('a read says what it is: a live value, unless its source cannot be move
       ['scaled', ['read', D, 'p', []], { i128: '1' }, { i128: '2' }, { i128: '0' }],
     ])
     expect(t.split(LIVE)).toHaveLength(2)
+  })
+})
+
+describe('the authority header: who can act, under what rule, until when, up to how much', () => {
+  const [G1, G2, G3] = [account(1), account(2), account(3)]
+  const KC = contract(4)
+  const text = (a: Authority, v: View = {}) => lines([authority(a, v)])
+  const INT = 'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV'
+  const base: Authority = {
+    signers: [G1],
+    admins: [G1],
+    validUntil: null,
+    total: null,
+    interpreter: INT,
+  }
+
+  it('one signer, never expiring, no total: every fact on its own line, signers in full six and six', () => {
+    expect(text(base)).toEqual([
+      'Authority',
+      `├─ signer:  ${G1.slice(0, 6)}…${G1.slice(-6)}`,
+      '├─ to act:  the signer acts alone',
+      `├─ admins (may re-install or uninstall):  ${G1.slice(0, 6)}…${G1.slice(-6)}`,
+      '├─ expires:  never expires',
+      '├─ total:  no total limit: each call may move up to its own cap',
+      `└─ interpreter:  ${INT.slice(0, 6)}…${INT.slice(-6)} (interpreter)`,
+    ])
+  })
+
+  it('any ONE of n, any m of n, and weighted totals: the rule says which', () => {
+    const rule = (a: Authority) => text(a).find((l) => l.includes('to act')) as string
+    expect(rule({ ...base, signers: [G1, G2, G3] })).toContain(
+      'any ONE of these 3 signers acts alone'
+    )
+    expect(rule({ ...base, signers: [G1, G2, G3], threshold: { n: 2 } })).toContain(
+      'any 2 of these 3 signers must approve'
+    )
+    expect(
+      rule({ ...base, signers: [G1, G2], threshold: { n: 3, weights: { [G1]: 2, [G2]: 1 } } })
+    ).toContain('signers whose weights total at least 3 must approve')
+    expect(rule({ ...base, signers: [G1, G2], threshold: {} })).toContain(
+      'a threshold policy applies (its threshold is not read here)'
+    )
+  })
+
+  it('a weight follows its signer; a contract signer is said to be one; labels are marked', () => {
+    const out = text(
+      { ...base, signers: [G1, KC], threshold: { n: 2, weights: { [G1]: 2, [KC]: 1 } } },
+      { labels: { [G1]: 'agent' } }
+    )
+    expect(out[1]).toBe(`├─ signer:  ${G1.slice(0, 6)}…${G1.slice(-6)} («agent»)  weight 2`)
+    expect(out[2]).toBe(`├─ signer:  contract ${KC.slice(0, 6)}…${KC.slice(-6)}  weight 1`)
+  })
+
+  it("expiry: a ledger and about when; the total in the token's unit, per window; unknown facts are left out", () => {
+    const at = Date.UTC(2026, 9, 16, 12, 0)
+    const out = text(
+      {
+        ...base,
+        validUntil: 5_300_000,
+        approxAt: at,
+        total: { amount: '50000000000', periodLedgers: 17280 },
+      },
+      { contract: C, ...token }
+    )
+    expect(out).toContain('├─ expires:  ledger 5300000 (about 2026-10-16 12:00 UTC)')
+    expect(out).toContain(
+      '├─ total:  at most 5,000 USDC (50000000000) in total per 17280 ledgers (rolling, OZ spending_limit)'
+    )
+    expect(text({ signers: [G1] }).join('\n')).not.toMatch(/expires|total|admins|interpreter/)
+    expect(text({ ...base, validUntil: 9 })).toContain('├─ expires:  ledger 9')
+    expect(text({ ...base, total: { amount: '7', periodLedgers: 2 } })).toContain(
+      '├─ total:  at most 7 in total per 2 ledgers (rolling, OZ spending_limit)'
+    )
+  })
+
+  it('every node carries what it came from: the signer, the weight entry, the policy parameter, the list, the ledger', () => {
+    const n = authority(
+      {
+        ...base,
+        signers: [G1, G2],
+        threshold: { n: 2, weights: { [G1]: 1, [G2]: 1 } },
+        validUntil: 7,
+        total: { amount: '9', periodLedgers: 3 },
+      },
+      {}
+    )
+    expect(n).toMatchObject({ op: 'authority', raw: null })
+    const raws = (n.children ?? []).map((x) => x.raw)
+    expect(raws[0]).toEqual([['Delegated', G1], 1])
+    expect(raws[2]).toBe(2)
+    expect(raws).toContainEqual([['Delegated', G1]])
+    expect(raws).toContain(7)
+    expect(raws).toContainEqual({
+      map: [
+        ['period_ledgers', 3],
+        ['spending_limit', { i128: '9' }],
+      ],
+    })
+    expect((authority(base, {}).children ?? [])[1]?.raw).toBeNull()
+  })
+
+  it('under raw, addresses are whole', () => {
+    expect(text(base, { raw: true })[1]).toBe(`├─ signer:  ${G1}`)
   })
 })

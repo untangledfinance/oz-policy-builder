@@ -9,7 +9,7 @@ import { readFile, rm, writeFile } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
 import { StrKey } from '@stellar/stellar-sdk'
 import { z } from 'zod'
-import { contractsOf, lines, tree } from './card.ts'
+import { type Authority, authority, contractsOf, lines, tree } from './card.ts'
 import {
   codeHash,
   connect,
@@ -27,6 +27,8 @@ import {
   INTERPRETER_WASM,
   type Network,
   OZ_ACCOUNT_WASM,
+  OZ_THRESHOLD,
+  SPENDING_LIMIT,
 } from './config.ts'
 import { type ErrorCode, messageOf, Refusal, type ToolResponse } from './envelope.ts'
 import {
@@ -303,7 +305,7 @@ export async function explain(
   i: Endpoint & { raw?: boolean | undefined; allow?: Record<string, string[]> | undefined } & {
     [k in 'smartAccount' | 'sourceAccount' | 'admins' | 'signers']?: string | string[] | undefined
   },
-  items: { expr: Expr; contract?: string | undefined }[],
+  items: { expr: Expr; contract?: string | undefined; authority?: Authority | undefined }[],
   signal?: AbortSignal
 ) {
   const labels: Record<string, string> = {}
@@ -317,9 +319,10 @@ export async function explain(
   for (const [label, a] of who) for (const x of [a ?? []].flat()) labels[x] ??= label
   const named = [...items.flatMap((x) => contractsOf(x.expr)), ...items.map((x) => x.contract)]
   const info = await infoFor(i, named, signal)
-  return items.map(({ expr, contract }) => {
+  return items.map(({ expr, contract, authority: held }) => {
     try {
-      const reviewTree = tree(expr, { info, labels, raw: i.raw, contract, network: i.network })
+      const view = { info, labels, raw: i.raw, contract, network: i.network }
+      const reviewTree = [...(held ? [authority(held, view)] : []), ...tree(expr, view)]
       return { review: lines(reviewTree), reviewTree }
     } catch {
       return { review: ['(this predicate could not be described)'], reviewTree: [] }
@@ -550,7 +553,7 @@ const install_policy = tool(
     const out = i.outFile === undefined ? undefined : outPathFor(i.outFile)
     const plan = await planInstall(i, rule, chain)
     // Only a rule that passed every refusal is described.
-    const [shown] = await explain(i, [rule], signal)
+    const [shown] = await explain(i, [{ ...rule, authority: plan.authority }], signal)
     const done = { ...plan, rule: { ...plan.rule, ...shown } }
     return out === undefined ? done : { ...done, writtenTo: await writeNew(out, plan.unsignedXdr) }
   }
@@ -608,7 +611,7 @@ const revoke_policy = tool(
       build: (id) => buildRevoke({ ...i, server }, id),
     })
     const r = plan.removes
-    const [shown] = r.expr ? await describeRules(i, [r], signal) : []
+    const [shown] = r.expr ? await describeRules(i, [r], mine, signal) : []
     const skipped = (await trusted).known
       ? {}
       : { reviewSkipped: notKnown(i.smartAccount, await trusted, UNVERIFIED) }
@@ -620,15 +623,28 @@ const scopedContract = (r: ObservedRule) =>
   r.scope.kind === 'call_contract' ? r.scope.contract : undefined
 
 /** The reviews of rules read off an account (those with a stored predicate), each under the
- *  contract its rule is scoped to. */
+ *  contract its rule is scoped to and headed by the authority the account reports for it. */
 export const describeRules = (
   i: Parameters<typeof explain>[0],
   rules: ObservedRule[],
+  interpreter?: string,
   signal?: AbortSignal
 ) =>
   explain(
     i,
-    rules.map((r) => ({ expr: r.expr as Expr, contract: scopedContract(r) })),
+    rules.map((r) => ({
+      expr: r.expr as Expr,
+      contract: scopedContract(r),
+      authority: {
+        signers: r.signers,
+        validUntil: r.validUntil,
+        admins: r.admins,
+        // A total is known when no spending limit is attached, or when its record was read.
+        total: r.policies.includes(SPENDING_LIMIT[i.network]) ? r.cap : null,
+        interpreter,
+        ...(r.policies.some((p) => OZ_THRESHOLD.includes(p)) ? { threshold: {} } : {}),
+      },
+    })),
     signal
   )
 
@@ -673,6 +689,7 @@ async function explainAccount(
   const shown = await describeRules(
     { ...i, smartAccount: account },
     read.rules.filter((r) => r.expr),
+    interpreter,
     signal
   )
   let n = 0

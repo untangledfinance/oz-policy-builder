@@ -9,8 +9,8 @@
 
 import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
-import { contract } from '../test/fixtures.ts'
-import { lines, type Node, tree, type View } from './card.ts'
+import { account, contract } from '../test/fixtures.ts'
+import { type Authority, authority, lines, type Node, tree, type View } from './card.ts'
 import { decodeEnvelope } from './record.ts'
 import { SAC } from './spec.ts'
 import { propose, synthesize } from './synth.ts'
@@ -424,4 +424,101 @@ describe('a generated grid of leaves: one text per meaning', () => {
       }
       expect(bad.slice(0, 5)).toEqual([])
     })
+})
+
+// ---- the authority header: the same discipline ----
+
+describe('the authority header: different authority never reads the same, the same always does', () => {
+  const [G1, G2, G3] = [account(1), account(2), account(3)]
+  const KC = contract(4)
+  const INT = 'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV'
+  const vary = <T>(...xs: T[]) => xs
+  const all: Authority[] = []
+  for (const signers of vary([G1], [G1, G2], [G2, G1], [G1, G2, G3], [G1, KC], [KC, G1]))
+    for (const threshold of vary<Authority['threshold']>(
+      undefined,
+      {},
+      { n: 1 },
+      { n: 2 },
+      { n: 2, weights: Object.fromEntries(signers.map((s) => [s, 1])) },
+      { n: 2, weights: Object.fromEntries(signers.map((s, i) => [s, i + 1])) }
+    ))
+      for (const admins of vary<string[] | undefined>(undefined, [G1], [G2], [G1, G2]))
+        for (const validUntil of vary<number | null | undefined>(undefined, null, 100, 101))
+          for (const total of vary<Authority['total']>(
+            undefined,
+            null,
+            { amount: '5', periodLedgers: 1 },
+            { amount: '6', periodLedgers: 1 },
+            { amount: '5', periodLedgers: 2 }
+          ))
+            for (const interpreter of vary<string | undefined>(undefined, INT, contract(9)))
+              all.push({ signers, threshold, admins, validUntil, total, interpreter })
+
+  // What an authority MEANS, spelled one way, apart from how it is worded.
+  const meaning = (a: Authority) =>
+    JSON.stringify([
+      a.signers,
+      a.threshold
+        ? [
+            a.threshold.n ?? 'policy',
+            a.threshold.weights ? a.signers.map((s) => a.threshold?.weights?.[s]) : 'plain',
+          ]
+        : 'none',
+      a.admins ?? 'unknown',
+      a.validUntil === undefined ? 'unknown' : a.validUntil,
+      a.total === undefined ? 'unknown' : a.total,
+      a.interpreter ?? 'unknown',
+    ])
+  const views: [string, View][] = [
+    ['plain', {}],
+    ['raw', { raw: true }],
+    ['token', { contract: C, info: { [C]: { fns: SAC, token: { decimals: 7, symbol: 'USDC' } } } }],
+  ]
+
+  it('is big enough to mean something', () => expect(all.length).toBeGreaterThan(8_000))
+
+  for (const [vn, v] of views)
+    it(`${vn}: one text per meaning, and one meaning per text`, () => {
+      const seen = new Map<string, string>()
+      const bad: string[] = []
+      for (const a of all) {
+        const t = lines([authority(a, v)]).join('\n')
+        const m = meaning(a)
+        const prior = seen.get(t)
+        if (prior === undefined) seen.set(t, m)
+        else if (prior !== m) bad.push(`${t}\n  ${prior}\n  ${m}`)
+      }
+      expect(bad.slice(0, 3)).toEqual([])
+      // And the other way: two meanings with the same text would be the failure above; one meaning, one text.
+      const byMeaning = new Map<string, Set<string>>()
+      for (const a of all)
+        byMeaning.set(
+          meaning(a),
+          (byMeaning.get(meaning(a)) ?? new Set()).add(lines([authority(a, v)]).join('\n'))
+        )
+      expect([...byMeaning.values()].filter((x) => x.size > 1)).toEqual([])
+    })
+
+  it('every node says what its raw says: the signer, the weight, n, the ledger, the total', () => {
+    for (const a of all.filter((_, i) => i % 7 === 0)) {
+      const n = authority(a, {})
+      const kids = n.children ?? []
+      expect(kids.filter((x) => x.label === 'signer').map((x) => x.raw)).toEqual(
+        a.signers.map((s) =>
+          a.threshold?.weights ? [['Delegated', s], a.threshold.weights[s]] : ['Delegated', s]
+        )
+      )
+      const expiry = kids.find((x) => x.label === 'expires')
+      expect(expiry?.raw).toBe(a.validUntil === undefined ? undefined : a.validUntil)
+      if (a.validUntil !== undefined && a.validUntil !== null)
+        expect(expiry?.value).toContain(`ledger ${a.validUntil}`)
+      if (a.threshold?.n !== undefined)
+        expect(kids.find((x) => x.label === 'to act')?.value).toContain(String(a.threshold.n))
+      if (a.total)
+        expect(kids.find((x) => x.label === 'total')?.value).toContain(
+          `per ${a.total.periodLedgers} ledgers`
+        )
+    }
+  })
 })
