@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, it } from 'bun:test'
+import { request as httpRequest } from 'node:http'
 import { startHttpServer } from '../src/http.ts'
 
 const server = await startHttpServer({ port: 0 })
@@ -59,5 +60,47 @@ describe('Streamable HTTP, stateless', () => {
     await expect(startHttpServer({ port: 0, host: '0.0.0.0' })).rejects.toThrow(/refusing to bind/)
     const open = await startHttpServer({ port: 0, host: '0.0.0.0', allowExternalHost: true })
     await open.close()
+  })
+})
+
+describe('a web page cannot drive the tools (DNS rebinding)', () => {
+  const list = { jsonrpc: '2.0', id: 9, method: 'tools/list' }
+  const withHeaders = (h: Record<string, string>) =>
+    // fetch refuses to set Host, so go through a raw socket request.
+    new Promise<number>((resolve, reject) => {
+      const req = httpRequest(
+        {
+          host: '127.0.0.1',
+          port: server.port,
+          path: server.path,
+          method: 'POST',
+          headers: { ...headers, ...h },
+        },
+        (res) => {
+          res.resume()
+          resolve(res.statusCode ?? 0)
+        }
+      )
+      req.on('error', reject)
+      req.end(JSON.stringify(list))
+    })
+
+  it('refuses a Host that is not this server, and an Origin that is not loopback', async () => {
+    expect(await withHeaders({ host: `rebind.attacker.example:${server.port}` })).toBe(403)
+    expect(
+      await withHeaders({ host: `127.0.0.1:${server.port}`, origin: 'http://evil.example' })
+    ).toBe(403)
+    expect(await withHeaders({ host: `127.0.0.1:${server.port}`, origin: 'null' })).toBe(403)
+  })
+
+  it('serves loopback names and a caller with no Origin (a program, not a page)', async () => {
+    expect(await withHeaders({ host: `127.0.0.1:${server.port}` })).toBe(200)
+    expect(await withHeaders({ host: `localhost:${server.port}` })).toBe(200)
+    expect(
+      await withHeaders({
+        host: `localhost:${server.port}`,
+        origin: `http://localhost:${server.port}`,
+      })
+    ).toBe(200)
   })
 })

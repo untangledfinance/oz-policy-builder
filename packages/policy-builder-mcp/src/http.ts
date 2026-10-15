@@ -11,6 +11,11 @@ import { createMcpServer } from './server.ts'
 const LOOPBACK = new Set(['127.0.0.1', '::1', 'localhost'])
 const MAX_BODY = 1_048_576
 
+/** `Host` and `Origin` values that name this server. A page on another site that rebinds its
+ *  own name to 127.0.0.1 sends its own, so any other is refused (the MCP transport rule). */
+const ours = (port: number) =>
+  new Set([...LOOPBACK].flatMap((h) => [`${h}:${port}`, `[${h}]:${port}`]))
+
 export interface HttpOptions {
   port: number
   host?: string
@@ -41,10 +46,20 @@ export async function startHttpServer(opts: HttpOptions) {
       `refusing to bind ${host}: the MCP surface is unauthenticated; pass allowExternalHost to opt in`
     )
   }
+  // Behind the caller's own front end (allowExternalHost) the names are theirs to check.
+  const guard = LOOPBACK.has(host)
   const http = createServer(async (req, res) => {
     if (new URL(req.url ?? '/', `http://${host}`).pathname !== path)
       return send(res, 404, { error: 'not found' })
     if (req.method !== 'POST') return send(res, 405, { error: 'method not allowed' })
+    const names = ours((http.address() as AddressInfo).port)
+    const origin = req.headers.origin
+    if (
+      guard &&
+      (!names.has(req.headers.host ?? '') ||
+        (origin !== undefined && !names.has(origin.replace(/^https?:\/\//, ''))))
+    )
+      return send(res, 403, { error: 'forbidden host or origin' })
     let body: unknown
     try {
       body = await json(req)
@@ -55,9 +70,13 @@ export async function startHttpServer(opts: HttpOptions) {
     }
     if (Array.isArray(body))
       return send(res, 400, { error: 'JSON-RPC batch requests are not supported' })
-    const server = createMcpServer()
+    const gone = new AbortController()
+    const server = createMcpServer(gone.signal)
     const transport = new StreamableHTTPServerTransport()
-    res.on('close', () => void Promise.allSettled([transport.close(), server.close()]))
+    res.on('close', () => {
+      gone.abort()
+      void Promise.allSettled([transport.close(), server.close()])
+    })
     try {
       await server.connect(transport as unknown as Transport)
       await transport.handleRequest(req as IncomingMessage & { auth?: never }, res, body)

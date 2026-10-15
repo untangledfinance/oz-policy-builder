@@ -40,6 +40,15 @@ describe('the MCP server registers the table as it is', () => {
     )
   })
 
+  it('an input key the tool does not know is refused, as it is by run and the CLI (a typo of admins must not become a default)', async () => {
+    const intent = { calls: [{ contract: CONTRACT, fn: 'pay' }] }
+    const r = await (await client())
+      .callTool({ name: 'synthesize_policy', arguments: { intent, typoKey: 1 } })
+      .catch((e: Error) => ({ isError: true, content: [{ text: e.message }] }))
+    expect(r.isError).toBe(true)
+    expect(JSON.stringify(r.content)).toContain('typoKey')
+  })
+
   it('a refusal is the error envelope: code, message, severity, retryable', async () => {
     const r = await (await client()).callTool({ name: 'synthesize_policy', arguments: {} })
     expect(r.isError).toBe(true)

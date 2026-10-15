@@ -138,6 +138,8 @@ export interface Tool {
   name: string
   description: string
   shape: z.ZodRawShape
+  /** The input as a strict object: an unknown key is refused, wherever the tool is served from. */
+  schema: z.ZodObject<z.ZodRawShape, 'strict'>
   run: (raw: unknown, signal?: AbortSignal) => Promise<ToolResponse<unknown>>
 }
 
@@ -177,6 +179,7 @@ function tool<S extends z.ZodRawShape>(
     name,
     description,
     shape,
+    schema,
     async run(raw, signal) {
       const parsed = schema.safeParse(raw)
       if (!parsed.success) {
