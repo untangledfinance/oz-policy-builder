@@ -472,6 +472,20 @@ describe('verify, what it does not know it says', () => {
     expect(v.unexamined).toHaveLength(1)
   })
 
+  it('every call given must be permitted: one that is not makes the rule not ok', async () => {
+    const wrong: Call = { contract: C, fn: 'burn', args: [A, B, amt('5')] }
+    const v = await check(fnIs('transfer'), pay, wrong)
+    expect(v.permits.map((p) => p.permitted)).toEqual([true, false])
+    expect(v.ok).toBe(false)
+  })
+
+  it('a branch that names several functions is a candidate for a call to any one of them', async () => {
+    const either: Expr = ['or', [['in', ['call_fn'], ['transfer', 'burn']], fnIs('mint')]]
+    const v = await check(either)
+    expect(v.unexamined).toEqual(['["eq",["call_fn"],"mint"]'])
+    expect(v.cases.length).toBeGreaterThan(0) // the `in` branch took the call, so it was tried
+  })
+
   it('one request makes at most 64 calls, an or of a hundred branches included', async () => {
     const hundred: Expr = [
       'or',
@@ -790,6 +804,14 @@ describe('a pinned muxed address', () => {
     expect(broken).not.toBe(m)
     expect(broken[0]).toBe('M')
     expect(StrKey.isValidMed25519PublicKey(broken)).toBe(true)
+  })
+})
+
+describe('an in case is a value the set does not hold', () => {
+  it('skips past the values the set does hold (5 and 6 are in, so 7)', () => {
+    const call: Call = { contract: C, fn: 'f', args: [{ i128: '5' }] }
+    const set: Val[] = [{ i128: '5' }, { i128: '6' }]
+    expect(denyCases([['in', ['call_arg', 0], set]], call)[0]?.call.args[0]).toEqual({ i128: '7' })
   })
 })
 

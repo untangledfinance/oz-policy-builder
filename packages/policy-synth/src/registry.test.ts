@@ -149,6 +149,13 @@ describe('identification is by interface, and fails closed', () => {
     expect(identify('approve', [A, B, i128('1'), 'soon'])).toBeNull()
   })
 
+  it('every element of a requests argument must be a struct, not just one of them', () => {
+    const struct: Val = { map: [['amount', i128('1')]] }
+    expect(identify('submit', [A, A, B, [struct, struct]])?.protocol).toBe('blend')
+    expect(identify('submit', [A, A, B, [struct, 5]])).toBeNull()
+    expect(identify('submit', [A, A, B, [5, struct]])).toBeNull()
+  })
+
   it('a muxed account is an address', () => {
     const muxed = `M${'A'.repeat(68)}`
     expect(identify('transfer', [A, muxed, i128('1')])?.protocol).toBe('sep41')
