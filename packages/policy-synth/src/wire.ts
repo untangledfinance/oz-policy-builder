@@ -288,9 +288,9 @@ function node(e: Expr, depth: number, body: boolean, w: Walk): void {
 
 /** A constant, by the contract's reading: a `lit`, or anything that is not a selector. */
 const isConstant = (v: Val): boolean => !isSelector(v) || v[0] === 'lit'
-const unlit = (v: Val): Val => (isSelector(v) && v[0] === 'lit' ? (v[1] as Val) : v)
+export const unlit = (v: Val): Val => (isSelector(v) && v[0] === 'lit' ? (v[1] as Val) : v)
 
-function isSelector(v: Val): v is [string, ...Val[]] {
+export function isSelector(v: Val): v is [string, ...Val[]] {
   return Array.isArray(v) && typeof v[0] === 'string' && !ADDRESS.test(v[0])
 }
 

@@ -18,6 +18,8 @@
       "!**/test_snapshots",
       // Written by the interpreter's tests/parity.rs: compact on purpose, one case a line.
       "!packages/policy-synth/fixtures/parity",
+      // Recorded JSON-RPC responses (OPB_LIVE=1 rewrites them).
+      "!packages/policy-synth/fixtures/rpc",
       "!agents",
       // Archived evidence of the Prime session refinement: harnesses, logs and testnet records
       // kept byte-for-byte as they ran, so the results they back stay reproducible. Linting or
