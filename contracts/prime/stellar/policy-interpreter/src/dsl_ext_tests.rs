@@ -1413,6 +1413,61 @@ fn bytes_and_strings_equal_only_their_own_kind_and_content() {
     assert!(denies(&cmp("eq", arg(0), lit(b)), &[t]));
 }
 
+/// The host's CPU instructions for ONE evaluation of `pred` (decoding is not
+/// counted). Memory would say the same, but the host's budget does not see the
+/// guest-side copies a serialised compare makes; CPU does see the serialising.
+fn evaluation_cpu(pred: &ScVal, args: &[ScVal]) -> u64 {
+    let env = Env::default();
+    let node = decode(&env, &raw(&env, pred)).expect("decodes");
+    let context = ctx(&env, args);
+    env.cost_estimate().budget().reset_unlimited();
+    let _ = evaluate(&env, &node, &context);
+    env.cost_estimate().budget().cpu_instruction_cost()
+}
+
+#[test]
+fn comparing_a_large_argument_costs_nothing_per_byte() {
+    // The compares of `tests/worst_case.rs`, without the wasm. Serialising a
+    // 100 KB bytes or string value to compare it costs 100 KB of work every time,
+    // the host's own compare none, and the ceiling sits well above the fixed
+    // cost of the walk and well below one serialisation.
+    const CEILING: u64 = 20_000;
+    let hay = |s: u8| {
+        (0..32)
+            .map(|i| account(s.wrapping_add(i)))
+            .collect::<StdVec<_>>()
+    };
+    let sets = |op: &str| {
+        let kids: StdVec<ScVal> = (0..6).map(|i| set(op, arg(0), &hay(i * 40))).collect();
+        tup(&[sym(if op == "in" { "or" } else { "and" }), tup(&kids)])
+    };
+    let long = alloc::vec![7u8; 100_000];
+    let mut used = StdVec::new();
+    // unlike types: the argument against addresses
+    for arg_val in [blob(&long), text(&"a".repeat(100_000))] {
+        for op in ["in", "nin"] {
+            used.push(evaluation_cpu(&sets(op), &[arg_val.clone()]));
+        }
+    }
+    // like types, in a body, 32 times each
+    let numbers = list(&(0..1_150).map(ScVal::U32).collect::<StdVec<_>>());
+    let keyed = map(&(0..1_150)
+        .map(|i| (ScVal::U32(i), n(1)))
+        .collect::<StdVec<_>>());
+    for same in [
+        blob(&long[..31_000]),
+        text(&"a".repeat(31_000)),
+        numbers,
+        keyed,
+    ] {
+        let body = cmp("ne", elem(&[]), lit(same.clone()));
+        let rule = all_of(path(&[ScVal::U32(0)]), body);
+        let args = list(&(0..32).map(|_| same.clone()).collect::<StdVec<_>>());
+        used.push(evaluation_cpu(&rule, &[args]));
+    }
+    assert!(used.iter().all(|c| *c < CEILING), "{used:?}");
+}
+
 #[test]
 fn every_fixed_arity_leaf_refuses_an_extra_operand() {
     let u = ScVal::U32;
