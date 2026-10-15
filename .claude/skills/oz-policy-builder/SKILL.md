@@ -98,8 +98,9 @@ user thinks. They are the reason to read a result rather than skim it.
   have no case of their own and make it not `ok`) to have been taken by a
   call you gave (`unexamined` lists the ones nothing took: pass a `call`/recording for
   each). `untested` lists conjuncts nothing was tried against (a read, the clock). 
-  `minimal: false` lists conjuncts that were not needed; a conjunct that is the only
-  guard of its case, or shares its argument with another, is never listed.
+  `minimal: false` lists conjuncts that were not needed, which means an exact duplicate
+  and nothing else: a conjunct whose case another conjunct also refuses (a spend cap
+  beside a floor derived from the same amount) is `untested`, not redundant.
 
 - **A call that moves tokens needs a rule for the MOVEMENT too, and that rule is
   where the bypass hides.** When a venue PULLS the asset, the account is asked to

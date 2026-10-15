@@ -336,14 +336,16 @@ export interface Verification {
   permits: Verdict[]
   cases: { label: string; denied: boolean; verdict: Verdict }[]
   /** No conjunct was found redundant: each one tried is needed, because without it its
-   *  own case gets through (or the rule would no longer install). */
+   *  own case gets through (or the rule would no longer install). Redundant means an exact
+   *  copy of it is also in the branch; any other conjunct whose case is still refused without
+   *  it is `untested`. */
   minimal: boolean
   redundant: string[]
   /** Branches of an `or` that no call took, so nothing was tried against them. */
   unexamined: string[]
   /** Conjuncts nothing was tried against: no case can be derived (a read, the clock, a
-   *  nested `or`), the case budget ran out, or another conjunct on the same argument
-   *  denies the same case, so whether this one is needed cannot be told. */
+   *  nested `or`), the case budget ran out, or another conjunct also
+   *  denies its case, so whether this one is needed cannot be told. */
   untested: string[]
   /** Calls put to the interpreter. */
   checks: number
@@ -363,10 +365,6 @@ function without(all: Expr[][], i: number, dropped: Expr): Expr | undefined {
   const branch = all.map((b, j) => and(j === i ? kept : b))
   return branch.length === 1 ? (branch[0] as Expr) : ['or', branch]
 }
-
-/** The leaf a comparison is about (its first operand that is a selector). */
-const subject = (c: Expr): string =>
-  JSON.stringify(isSel(c) ? [c[1], c[2]].find((x) => isSel(x as Val)) : c)
 
 /** Verify `expr` against calls it must permit: each is permitted, each conjunct of the
  *  branch a call takes is turned against it and refused, and each conjunct is dropped
@@ -457,14 +455,14 @@ export async function verifyRule(
   const untested: string[] = []
   cases.forEach((c, n) => {
     const v = answers[2 * n + 1]
-    // Dropping a conjunct can leave a rule the contract refuses (2xx): then it is needed.
-    // Still denied (1xx): redundant, unless another conjunct of the branch is about the
-    // same leaf, whose own denial this may be.
+    // Dropping a conjunct can leave a rule the contract refuses (2xx): then it is needed. Still
+    // denied (1xx): the conjunct is redundant only if an exact copy of it stays. Otherwise another
+    // conjunct may be what refuses the case (breaking a spend cap also breaks a floor derived
+    // from it), so this case cannot say, and the conjunct is untested.
     if (v === undefined || v.permitted || v.code >= 200) return
-    const others = (all[c.i] as Expr[]).filter((x) => x !== c.conjunct)
-    const twin = others.some((x) => same(x, c.conjunct))
-    const kin = others.some((x) => subject(x) === subject(c.conjunct))
-    ;(kin && !twin ? untested : redundant).push(phrase(c.conjunct))
+    const twin = (all[c.i] as Expr[]).some((x) => x !== c.conjunct && same(x, c.conjunct))
+    const into = twin ? redundant : untested
+    if (!into.includes(phrase(c.conjunct))) into.push(phrase(c.conjunct))
   })
   const tried = new Set(cases.map((c) => c.conjunct))
   const left = live.flatMap(({ b }) => b.filter((c) => !tried.has(c)))

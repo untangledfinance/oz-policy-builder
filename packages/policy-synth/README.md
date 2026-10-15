@@ -56,8 +56,7 @@ template (mandate)    --/    (calls + per-argument rules)   (unsigned XDR)
   branch of an `or` needs a call that takes it (`unexamined` branches make it not
   `ok`), and `untested` lists conjuncts nothing could be tried against (a read,
   the clock) or whose need cannot be told because another conjunct is about the
-  same argument. A conjunct is `redundant` only when its case is still refused
-  without it and nothing else could be refusing that case.
+  same argument or whose case another conjunct also refuses. A conjunct is `redundant` only when an exact copy of it stays in the branch; whenever something else could be refusing its case, its need is `untested`, never called redundant.
 
 ## The seven tools
 

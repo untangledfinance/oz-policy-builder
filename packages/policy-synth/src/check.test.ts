@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { StrKey } from '@stellar/stellar-sdk'
 import { account, contract } from '../test/fixtures.ts'
 import { denyCases } from './check.ts'
+import { callExpr } from './intent.ts'
 import type { Call } from './record.ts'
 import { branches, type Expr, type Val } from './wire.ts'
 
@@ -320,8 +321,36 @@ describe('verify, on the live interpreter', () => {
     ]
     const v = await check(twice)
     expect(v.minimal).toBe(false)
-    expect(v.redundant).toHaveLength(2)
+    // Listed once: only one of two copies can go.
+    expect(v.redundant).toEqual(['["lte",["call_arg",2],{"i128":"1000"}]'])
     expect(v.ok).toBe(true)
+  })
+
+  it('a spend cap is not called redundant because another conjunct denies its case too (swap: cap 5000 + minOut 99%)', async () => {
+    const amt = (n: string): Val => ({ i128: n })
+    const swap = callExpr({
+      contract: C,
+      fn: 'swap',
+      where: [
+        { rule: 'cap', at: [0], max: '5000' },
+        { rule: 'minOut', at: [1], of: [0], num: '99', den: '100' },
+        { rule: 'pin', at: [2], to: A },
+      ],
+    })
+    const v = await check(swap, { contract: C, fn: 'swap', args: [amt('1000'), amt('990'), A] })
+    expect(v.ok).toBe(true)
+    // The cap's case (5001) also fails the 99% floor, so whether the cap is needed cannot be told
+    // from it: not redundant, and not complete. Dropping it really would permit 10^9 for 990000000.
+    expect(v.redundant).toEqual([])
+    expect(v.untested.some((u) => u.includes('"lte","call_arg"') || u.includes('5000'))).toBe(true)
+    expect(v.complete).toBe(false)
+  })
+
+  it('a rule with no case to derive is not ok, even though its one call is permitted', async () => {
+    const v = await check(['eq', ['lit', 5], ['call_arg', 0]], { contract: C, fn: 'f', args: [5] })
+    expect(v.permit.permitted).toBe(true)
+    expect(v.cases).toEqual([])
+    expect(v.ok).toBe(false)
   })
 
   it("every deny case carries the interpreter's own verdict, in the order the conjuncts are written", async () => {
