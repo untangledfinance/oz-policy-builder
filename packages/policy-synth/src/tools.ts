@@ -292,16 +292,10 @@ const present = (r: ReturnType<typeof propose>[number]) => ({
  *  interfaces (read once each, within seconds, and never a reason for a tool to fail), and
  *  addresses from the request's own words for them. */
 async function explain(
-  i: {
-    network: Network
-    raw?: boolean | undefined
-    smartAccount?: string
-    sourceAccount?: string
-    admins?: string[] | undefined
-    signers?: string[]
-    allow?: Record<string, string[]> | undefined
+  i: Endpoint & { raw?: boolean | undefined; allow?: Record<string, string[]> | undefined } & {
+    [k in 'smartAccount' | 'sourceAccount' | 'admins' | 'signers']?: string | string[] | undefined
   },
-  items: { expr: Expr; scope?: string | undefined }[],
+  items: { expr: Expr; contract?: string | undefined }[],
   signal?: AbortSignal
 ) {
   const labels: Record<string, string> = {}
@@ -313,12 +307,11 @@ async function explain(
     ...Object.entries(i.allow ?? {}).filter(([k]) => !/^\d/.test(k)),
   ]
   for (const [label, a] of who) for (const x of [a ?? []].flat()) labels[x] ??= label
-  const scopes = items.flatMap((x) => (x.scope ? [x.scope] : []))
-  const info = await infoFor(i, [...items.flatMap((x) => contractsOf(x.expr)), ...scopes], signal)
-  return items.map((x) => {
+  const named = [...items.flatMap((x) => contractsOf(x.expr)), ...items.map((x) => x.contract)]
+  const info = await infoFor(i, named, signal)
+  return items.map(({ expr, contract }) => {
     try {
-      const view = { info, labels, raw: i.raw, ...(x.scope ? { contract: x.scope } : {}) }
-      const reviewTree = tree(x.expr, view)
+      const reviewTree = tree(expr, { info, labels, raw: i.raw, contract })
       return { review: lines(reviewTree, i.raw), reviewTree }
     } catch {
       return { review: ['(this predicate could not be described)'], reviewTree: [] }
@@ -383,11 +376,7 @@ const synthesize_policy = tool(
   async (i, signal) => {
     const s = await sourceOf(i)
     const rules = propose(s.intent)
-    const shown = await explain(
-      i,
-      rules.map((r) => ({ expr: r.expr, scope: r.contract })),
-      signal
-    )
+    const shown = await explain(i, rules, signal)
     return {
       intent: s.intent,
       rules: rules.map((r, n) => ({ ...present(r), ...shown[n] })),
@@ -430,7 +419,7 @@ async function subject(i: z.infer<z.ZodObject<typeof predicateInput>>, signal?: 
     calls: calls as Call[],
     /** Only the predicate was given: it is explained, nothing is checked. */
     explainOnly: pred !== undefined && calls.length === 0,
-    review: explain(i, [{ expr, scope: rule?.contract ?? i.contract }], signal),
+    review: explain(i, [{ expr, contract: rule?.contract ?? i.contract }], signal),
   }
 }
 
@@ -443,10 +432,8 @@ const simulate_policy = tool(
     if (s.calls.length === 0 && !s.explainOnly)
       throw new Refusal('INVALID_INPUT', 'no call to check: give `calls` or a recording')
     const [server, interpreter] = [connect(i), interpreterFor(i.network, i.interpreterAddress)]
-    if (!s.explainOnly) await ensureInterpreter(server, i.network, interpreter)
-    const verdicts = s.explainOnly
-      ? []
-      : await runChecks(server, i.network, interpreter, s.encoded, s.calls, signal)
+    if (s.calls.length > 0) await ensureInterpreter(server, i.network, interpreter)
+    const verdicts = await runChecks(server, i.network, interpreter, s.encoded, s.calls, signal)
     return {
       predicateHash: hashOf(s.encoded),
       results: s.calls.map((c, n) => ({ call: c, ...verdicts[n] })),
@@ -538,7 +525,7 @@ const install_policy = tool(
       build: (draft, interpreter) => buildInstall({ ...i, server }, draft, interpreter),
     }
     const out = i.outFile === undefined ? undefined : outPathFor(i.outFile)
-    const shown = explain(i, [{ expr: rule.expr, scope: rule.contract }], signal)
+    const shown = explain(i, [rule], signal)
     const plan = await planInstall(i, rule, chain)
     const done = { ...plan, rule: { ...plan.rule, ...(await shown)[0] } }
     return out === undefined ? done : { ...done, writtenTo: await writeNew(out, plan.unsignedXdr) }
@@ -593,7 +580,7 @@ const revoke_policy = tool(
       build: (id) => buildRevoke({ ...i, server }, id),
     })
     const r = plan.removes
-    const [shown] = r.expr ? await explain(i, [{ expr: r.expr, scope: scopeOf(r) }], signal) : []
+    const [shown] = r.expr ? await explain(i, [{ expr: r.expr, contract: scopeOf(r) }], signal) : []
     return { ...plan, removes: { ...r, ...shown } }
   }
 )
@@ -610,21 +597,11 @@ async function explainAccount(
 ) {
   const server = connect(i)
   await ensureInterpreter(server, i.network, interpreter)
-  const { rules, complete, unreadable } = await readRules(
-    server,
-    i.network,
-    account,
-    interpreter,
-    signal
-  )
-  const mine = rules.flatMap((r) => (r.expr ? [{ expr: r.expr, scope: scopeOf(r) }] : []))
+  const read = await readRules(server, i.network, account, interpreter, signal)
+  const mine = read.rules.flatMap((r) => (r.expr ? [{ expr: r.expr, contract: scopeOf(r) }] : []))
   const shown = await explain({ ...i, smartAccount: account }, mine, signal)
   let n = 0
-  return {
-    complete,
-    unreadable,
-    rules: rules.map((r) => ({ ...r, ...(r.expr ? shown[n++] : {}) })),
-  }
+  return { ...read, rules: read.rules.map((r) => ({ ...r, ...(r.expr ? shown[n++] : {}) })) }
 }
 
 const get_interpreter_info = tool(

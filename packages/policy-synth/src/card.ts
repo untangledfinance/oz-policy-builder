@@ -7,16 +7,7 @@
 
 import { INTERPRETER, SPENDING_LIMIT } from './config.ts'
 import type { Info, Ty } from './spec.ts'
-import {
-  type Expr,
-  intOf,
-  isAddress,
-  isConstant,
-  isSelector,
-  isTagged,
-  unlit,
-  type Val,
-} from './wire.ts'
+import { type Expr, intOf, isAddress, isSelector, isTagged, unlit, type Val } from './wire.ts'
 
 export interface Node {
   label: string
@@ -34,20 +25,20 @@ export interface View {
   /** What is known of each contract (see `infoFor`). */
   info?: Record<string, Info>
   /** The contract the rule is scoped to, when its predicate does not say. */
-  contract?: string
+  contract?: string | undefined
   /** Names for addresses, from the request. */
   labels?: Record<string, string>
   /** Full addresses and values as written, and the wire index of every name. */
   raw?: boolean | undefined
   /** Inside the tree: the function in force, and the type of the item of a quantifier. */
-  fn?: string
-  item?: Ty
+  fn?: string | undefined
+  item?: Ty | undefined
 }
 interface Sub {
   name: string
   index?: string
   kind?: 'amount' | 'time' | undefined
-  ty?: Ty
+  ty?: Ty | undefined
 }
 
 const COMPARE: Record<string, string> = {
@@ -60,19 +51,18 @@ const COMPARE: Record<string, string> = {
   in: 'must be one of',
   nin: 'must not be one of',
 }
-const KNOWN: Record<string, string> = {
-  ...Object.fromEntries(Object.values(SPENDING_LIMIT).map((a) => [a, 'spending limit'])),
-  ...Object.fromEntries(
-    Object.values(INTERPRETER).flatMap((p) => (p ? [[p.address, 'interpreter']] : []))
-  ),
-}
+const KNOWN: Record<string, string> = Object.fromEntries([
+  ...Object.values(SPENDING_LIMIT).map((a) => [a, 'spending limit']),
+  ...Object.values(INTERPRETER).flatMap((p) => (p ? [[p.address, 'interpreter']] : [])),
+])
 
-const short = (a: string) => `${a.slice(0, 4)}…${a.slice(-4)}`
+/** An address shortened, or whole under `raw`. */
+const short = (a: string, c: View) => (c.raw ? a : `${a.slice(0, 4)}…${a.slice(-4)}`)
 const named = (a: string, c: View) => c.labels?.[a] ?? KNOWN[a]
-/** An address as shortened, or whole under `raw`, with its name in brackets. */
-const addr = (a: string, c: View) =>
-  `${c.raw ? a : short(a)}${named(a, c) ? ` (${named(a, c)})` : ''}`
-const tok = (c: View) => (c.contract ? c.info?.[c.contract]?.token : undefined)
+/** An address with its name in brackets. */
+const addr = (a: string, c: View) => `${short(a, c)}${named(a, c) ? ` (${named(a, c)})` : ''}`
+/** What is known of the contract in force. */
+const known = (c: View) => c.info?.[c.contract ?? '']
 
 function constant(v: Val, c: View): string {
   if (v === null) return 'nothing'
@@ -98,63 +88,49 @@ function money(x: string, { decimals: d, symbol }: NonNullable<Info['token']>): 
 
 /** A constant, in the unit its other side is read in. */
 function show(v: Val, kind: Sub['kind'], c: View): string {
-  const [x, n] = [unlit(v), intOf(unlit(v))]
-  const t = tok(c)
+  const [x, n, t] = [unlit(v), intOf(unlit(v)), known(c)?.token]
   if (!c.raw && kind === 'time' && n !== undefined && n >= 0n && n <= 253402300799n)
     return `${new Date(Number(n) * 1000).toISOString().slice(0, 16).replace('T', ' ')} UTC`
   if (!c.raw && kind === 'amount' && t && isTagged(x) && 'i128' in x) return money(x.i128, t)
   return constant(x, c)
 }
 
-/** What `steps` reach inside `ty`: struct fields by name, vector and tuple items as `[i]`, map
- *  entries by key. Anything else (a field that is not there, a number walked into) is undefined,
- *  and the caller keeps the wire wording. */
-function through(ty: Ty, steps: Val[], c: View): { names: string[]; ty: Ty } | undefined {
-  const names: string[] = []
+/** What an operand reached through `steps` from `first` (a parameter, or the item) of type `ty`
+ *  is called: struct fields by name, vector and tuple items as `[i]`, map entries by key. Anything
+ *  else (no type, a field that is not there, a number walked into) keeps the wire wording `index`. */
+function resolve(c: View, index: string, steps: Val[], first?: string, ty?: Ty): Sub {
+  const names = first ? [first] : []
   for (const s of steps.map(unlit)) {
-    const t = typeof ty === 'object' ? ty : undefined
-    const field = t && 'fields' in t && typeof s === 'string' && Object.hasOwn(t.fields, s)
-    const next =
-      t && 'fields' in t
-        ? field && (t.fields[s as string] as Ty)
-        : t && 'map' in t
-          ? t.map
-          : t && typeof s === 'number'
-            ? 'vec' in t
-              ? t.vec
-              : t.tuple[s]
-            : undefined
-    if (!next) return undefined
-    names.push(t && 'map' in t ? constant(s, c) : field ? (s as string) : `[${s}]`)
+    const t: { vec?: Ty; map?: Ty; tuple?: Ty[]; fields?: Record<string, Ty> } =
+      typeof ty === 'object' ? ty : {}
+    const [name, next] =
+      typeof s === 'string' && t.fields && Object.hasOwn(t.fields, s)
+        ? [s, t.fields[s]]
+        : t.map
+          ? [constant(s, c), t.map]
+          : typeof s === 'number' && !t.fields
+            ? [`[${s}]`, t.vec ?? t.tuple?.[s]]
+            : []
+    if (!next) return { name: index, index }
+    names.push(name as string)
     ty = next
   }
-  return { names, ty }
+  if (!ty) return { name: index, index }
+  const amountish = /^(amount|.+_amount|amount_.+)$/.test(names.at(-1) as string)
+  const amount = ty === 'i128' && amountish && known(c)?.token
+  return { name: names.join(' › '), index, ty, kind: amount ? 'amount' : undefined }
 }
 
 const params = (c: View) => {
-  const f = c.contract ? c.info?.[c.contract]?.fns : undefined
+  const f = known(c)?.fns
   return c.fn && f && Object.hasOwn(f, c.fn) ? f[c.fn] : undefined
 }
 const step = (s: Val, c: View) => constant(unlit(s), c)
 
 /** What an operand is called: a name where the interface gives one, else the wire wording. */
-function sub(v: Val, c: View): Sub {
-  if (!isSelector(v) || v[0] === 'lit') return { name: constant(unlit(v), c) }
+function sub(v: Val, c: View, kind?: Sub['kind']): Sub {
+  if (!isSelector(v) || v[0] === 'lit') return { name: show(v, kind, c) }
   const [head, ...r] = v
-  /** `first` (a parameter) and `steps` into its type `ty`, named; or the wire wording `index`. */
-  const resolve = (index: string, first: string | undefined, ty: Ty | undefined, steps: Val[]) => {
-    const hit = ty && through(ty, steps, c)
-    if (!hit) return { name: index, index }
-    const name = [...(first ? [first] : []), ...hit.names]
-    const last = name.at(-1) as string
-    const amount = hit.ty === 'i128' && /^(amount|.+_amount|amount_.+)$/.test(last) && tok(c)
-    return {
-      name: name.join(' › '),
-      index,
-      ty: hit.ty,
-      kind: amount ? ('amount' as const) : undefined,
-    }
-  }
   switch (head) {
     case 'call_contract':
       return { name: 'contract' }
@@ -171,21 +147,18 @@ function sub(v: Val, c: View): Sub {
       const [i, ...rest] = count ? all.slice(0, -1) : all
       const index = `argument ${i}${rest.map((s) => ` > ${step(s, c)}`).join('')}`
       const p = typeof i === 'number' ? params(c)?.[i] : undefined
-      const s = p ? resolve(index, p[0], p[1], rest) : { name: index, index }
+      const s = resolve(c, index, rest, p?.[0], p?.[1])
       return count ? { name: `the number of items in ${s.name}`, index } : s
     }
     case 'elem': {
       const index =
         r.length === 0 ? 'the item' : `the item's ${r.map((s) => step(s, c)).join(' > ')}`
-      return c.item
-        ? resolve(index, r.length ? undefined : 'item', c.item, r)
-        : { name: index, index }
+      return resolve(c, index, r, r.length ? undefined : 'item', c.item)
     }
     case 'sum': {
       const [src, ...steps] = r as Val[]
-      return {
-        name: `the total of ${steps.length ? `${steps.map((x) => step(x, c)).join(' > ')} in ` : ''}${sub(src as Val, c).name}`,
-      }
+      const of = steps.length ? `${steps.map((x) => step(x, c)).join(' > ')} in ` : ''
+      return { name: `the total of ${of}${sub(src as Val, c).name}` }
     }
     case 'scaled': {
       const [src, num, den, add] = r as Val[]
@@ -196,7 +169,7 @@ function sub(v: Val, c: View): Sub {
     }
     case 'read': {
       const [target, fn, args, ...steps] = r as [string, string, Val[], ...Val[]]
-      const on = `${named(target, c) ? `${named(target, c)} ` : ''}${c.raw ? target : short(target)}`
+      const on = `${named(target, c) ? `${named(target, c)} ` : ''}${short(target, c)}`
       const path = steps.map((s) => ` › ${step(s, c)}`).join('')
       return { name: `${fn}(${args.map((x) => sub(x, c).name).join(', ')}) on ${on}${path}` }
     }
@@ -209,7 +182,7 @@ function leaf(e: Expr, c: View): Node {
   const [op, a, b] = e as [string, Val, Val]
   const l = sub(a, c)
   const kind = l.kind ?? (isSelector(b) ? sub(b, c).kind : undefined)
-  const side = (x: Val) => (isConstant(x) ? show(x, kind, c) : sub(x, c).name)
+  const side = (x: Val) => sub(x, c, kind).name
   const list = (op === 'in' || op === 'nin') && Array.isArray(b)
   return {
     label: side(a),
@@ -226,11 +199,8 @@ function leaf(e: Expr, c: View): Node {
 const pin = (list: Expr[], head: string) =>
   list.findIndex(
     (x) =>
-      isSelector(x) &&
-      x[0] === 'eq' &&
-      String(x[1]) === head &&
-      typeof x[2] === 'string' &&
-      isAddress(x[2]) === (head === 'call_contract')
+      JSON.stringify(x).startsWith(`["eq",["${head}"],"`) &&
+      isAddress((x as Val[])[2]) === (head === 'call_contract')
   )
 const kids = (children: Node[]) => (children.length > 0 ? { children } : {})
 
@@ -239,11 +209,7 @@ const kids = (children: Node[]) => (children.length > 0 ? { children } : {})
 function conj(list: Expr[], c: View): Node[] {
   const [ci, fi] = [pin(list, 'call_contract'), pin(list, 'call_fn')]
   const at = (i: number) => (list[i] as [string, Val, string])[2]
-  const inner: View = {
-    ...c,
-    ...(ci >= 0 ? { contract: at(ci) } : {}),
-    ...(fi >= 0 ? { fn: at(fi) } : {}),
-  }
+  const inner: View = { ...c, contract: ci < 0 ? c.contract : at(ci), fn: fi < 0 ? c.fn : at(fi) }
   let out = list.flatMap((x, i) => (i === ci || i === fi ? [] : [one(x, inner)]))
   if (fi >= 0) {
     const p = params(inner)
@@ -255,16 +221,12 @@ function conj(list: Expr[], c: View): Node[] {
     : [{ label: header(inner), op: 'contract', value: at(ci), raw: list[ci] as Expr, ...kids(out) }]
 }
 
-const header = (c: View) => {
-  const a = c.contract as string
-  return `${named(a, c) ? `${named(a, c)}  ` : ''}${c.raw ? a : short(a)}${c.info?.[a]?.token ? '  (token)' : ''}`
-}
+const header = (c: View, a = c.contract as string) =>
+  `${named(a, c) ? `${named(a, c)}  ` : ''}${short(a, c)}${known(c)?.token ? '  (token)' : ''}`
 
 /** One node for a branch: its conditions, as a group when there are several. */
-const one = (e: Expr, c: View): Node => {
-  const ns = top(e, c)
-  return ns.length === 1 ? (ns[0] as Node) : { label: 'all of', op: 'and', raw: e, ...kids(ns) }
-}
+const one = (e: Expr, c: View, ns = top(e, c)): Node =>
+  ns.length === 1 ? (ns[0] as Node) : { label: 'all of', op: 'and', raw: e, ...kids(ns) }
 
 function top(e: Expr, c: View): Node[] {
   if (!isSelector(e)) return [leaf(e, c)]
@@ -274,27 +236,17 @@ function top(e: Expr, c: View): Node[] {
     return [{ label: 'any one of', op, raw: e, ...kids((a as Expr[]).map((x) => one(x, c))) }]
   if (op === 'all' || op === 'any') {
     const s = sub(a, c)
-    const item = s.ty && typeof s.ty === 'object' && 'vec' in s.ty ? s.ty.vec : undefined
+    const item = typeof s.ty === 'object' && 'vec' in s.ty ? s.ty.vec : c.item
     const label = `${op === 'all' ? 'every' : 'some'} item of ${s.name}`
-    return [
-      {
-        label,
-        op,
-        raw: e,
-        ...(s.index ? { index: s.index } : {}),
-        ...kids(top(b, { ...c, ...(item ? { item } : {}) })),
-      },
-    ]
+    const children = kids(top(b, { ...c, item }))
+    return [{ label, op, raw: e, ...(s.index ? { index: s.index } : {}), ...children }]
   }
   return [leaf(e, c)]
 }
 
-/** Every contract a predicate names: its pins and the targets of its reads. */
-export const contractsOf = (e: Val): string[] =>
-  Array.from(
-    JSON.stringify(e).matchAll(/\["call_contract"\],"(C\w{55})"|\["read","(C\w{55})"/g),
-    (m) => (m[1] ?? m[2]) as string
-  )
+/** Every contract a predicate pins: the ones whose interface can name its arguments. */
+const PINNED = /\["eq",\["call_contract"\],"(C\w{55})"/g
+export const contractsOf = (e: Val) => Array.from(JSON.stringify(e).matchAll(PINNED), (m) => m[1])
 
 /** The tree of a predicate. `view.contract` is the contract its rule is scoped to: a header for it
  *  (with `raw: null`) wraps the tree when the predicate pins no contract itself. */

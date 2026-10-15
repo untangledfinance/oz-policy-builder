@@ -19,7 +19,7 @@ export type Fns = Record<string, [name: string, ty: Ty][]>
 export interface Info {
   fns?: Fns | undefined
   /** Present for a token; the decimals and symbol are absent when they could not be read. */
-  token?: { decimals?: number; symbol?: string }
+  token?: { decimals?: number; symbol?: string } | undefined
 }
 
 const WASM_MAX = 262_144 // twice the largest wasm the network accepts
@@ -57,29 +57,19 @@ const keep = <V>(m: Map<string, V>, k: string, v: V): V => {
 export function interfaceOf(wasm: Buffer): Fns | null {
   if (wasm.length > WASM_MAX) return null
   try {
-    const { entries } = soroban.Spec.fromWasm(wasm)
+    const spec = soroban.Spec.fromWasm(wasm)
+    const str = (x: { name(): string | Buffer }) => x.name().toString()
     // Names reach a review as text: only plain identifiers are used.
-    const safe = (n: string) => /^\w{1,30}$/.test(n)
-    const of = (e: xdr.ScSpecEntry, kind: string) => e.switch().name === kind
-    const structs = new Map(
-      entries.flatMap((e) =>
-        of(e, 'scSpecEntryUdtStructV0') &&
-        e
-          .udtStructV0()
-          .fields()
-          .every((f) => safe(f.name().toString()))
-          ? [[e.udtStructV0().name().toString(), e.udtStructV0()] as const]
-          : []
-      )
-    )
+    const safe = (xs: { name(): string | Buffer }[]) => xs.every((x) => /^\w{1,30}$/.test(str(x)))
     const memo = new Map<string, Ty>()
     const udt = (n: string): Ty => {
       if (memo.has(n)) return memo.get(n) as Ty
       memo.set(n, 'deep') // while it is being read, a reference back to it is a cycle
-      const fields = structs
-        .get(n)
-        ?.fields()
-        .map((f) => [f.name().toString(), ty(f.type())])
+      const s = spec.entries
+        .find((e) => e.switch().name === 'scSpecEntryUdtStructV0' && str(e.udtStructV0()) === n)
+        ?.udtStructV0()
+        .fields()
+      const fields = s && safe(s) && s.map((f) => [str(f), ty(f.type())])
       return memo.set(n, fields ? { fields: Object.fromEntries(fields) } : 'udt').get(n) as Ty
     }
     const ty = (t: xdr.ScSpecTypeDef): Ty => {
@@ -88,16 +78,14 @@ export function interfaceOf(wasm: Buffer): Fns | null {
       if (k === 'vec') return { vec: ty(t.vec().elementType()) }
       if (k === 'map') return { map: ty(t.map().valueType()) }
       if (k === 'tuple') return { tuple: t.tuple().valueTypes().map(ty) }
-      return k === 'udt' ? udt(t.udt().name().toString()) : k
+      return k === 'udt' ? udt(str(t.udt())) : k
     }
     return Object.fromEntries(
-      entries.flatMap((e) => {
-        const f = of(e, 'scSpecEntryFunctionV0') ? e.functionV0() : undefined
-        const ps = f?.inputs().map((i) => [i.name().toString(), i.type()] as const) ?? []
-        return f && [f.name().toString(), ...ps.map((p) => p[0])].every(safe)
-          ? [[f.name().toString(), ps.map(([n, t]) => [n, ty(t)])]]
-          : []
-      })
+      spec
+        .funcs()
+        .flatMap((f) =>
+          safe([f, ...f.inputs()]) ? [[str(f), f.inputs().map((i) => [str(i), ty(i.type())])]] : []
+        )
     )
   } catch {
     return null
@@ -123,18 +111,16 @@ async function tokenOf(server: rpc.Server, network: Network, address: string) {
  *  Never throws; what could not be learned in time (or before `signal` aborts) is left out. */
 export async function infoFor(
   e: Endpoint,
-  addresses: Iterable<string>,
+  addresses: Iterable<string | undefined>,
   signal?: AbortSignal
 ): Promise<Record<string, Info>> {
-  const list = [...new Set(addresses)].slice(0, CONTRACTS_MAX)
+  const list = [...new Set(addresses)].filter((a) => a !== undefined).slice(0, CONTRACTS_MAX)
   const out: Record<string, Info> = {}
   const stop = AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(WAIT_MS)])
   const run = async () => {
     const server = connect(e)
-    const instances = await entries(
-      server,
-      list.map((c) => dataKey(c, xdr.ScVal.scvLedgerKeyContractInstance()))
-    )
+    const keys = list.map((c) => dataKey(c, xdr.ScVal.scvLedgerKeyContractInstance()))
+    const instances = await entries(server, keys)
     // Each contract's wasm hash, or '' for a Stellar Asset Contract.
     const code = list.flatMap((c, i) => {
       const x = instances[i]?.instance().executable()
@@ -142,32 +128,20 @@ export async function infoFor(
       return x ? [[c, wasm ? Buffer.from(x.wasmHash()).toString('hex') : ''] as const] : []
     })
     const missing = [...new Set(code.map((c) => c[1]))].filter((h) => h && !specs.has(h))
-    const keys = missing.map((h) => new xdr.LedgerKeyContractCode({ hash: Buffer.from(h, 'hex') }))
-    const wasms = keys.length
-      ? await server.getLedgerEntries(...keys.map((k) => xdr.LedgerKey.contractCode(k)))
-      : { entries: [] }
-    for (const w of wasms.entries) {
-      const c = w.val.contractCode()
-      keep(specs, Buffer.from(c.hash()).toString('hex'), interfaceOf(Buffer.from(c.code())))
-    }
+    await pool(missing, 4, async (h) => {
+      const wasm = await server.getContractWasmByHash(h, 'hex').catch(() => undefined)
+      if (wasm) keep(specs, h, interfaceOf(wasm))
+    })
     await pool(code, 4, async ([c, h]) => {
       const fns = h ? (specs.get(h) ?? undefined) : SAC
       const token = !h || (fns && Object.hasOwn(fns, 'decimals') && Object.hasOwn(fns, 'symbol'))
-      out[c] = {
-        fns,
-        ...(token
-          ? { token: tokens.get(`${e.network}:${c}`) ?? (await tokenOf(server, e.network, c)) }
-          : {}),
-      }
+      const known = token ? tokens.get(`${e.network}:${c}`) : undefined
+      out[c] = { fns, token: token ? (known ?? (await tokenOf(server, e.network, c))) : undefined }
     })
   }
   await Promise.race([
-    run(),
-    new Promise((_, no) =>
-      stop.aborted
-        ? no(stop.reason)
-        : stop.addEventListener('abort', () => no(stop.reason), { once: true })
-    ),
-  ]).catch(() => undefined)
+    run().catch(() => undefined),
+    new Promise((done) => (stop.aborted ? done(0) : stop.addEventListener('abort', done))),
+  ])
   return { ...out }
 }

@@ -705,6 +705,42 @@ describe('the tree', () => {
   })
 })
 
+describe('only a real pin is lifted into a header', () => {
+  it('a constant that spells a selector compares two constants (never true): it stays a condition', () => {
+    for (const head of ['call_contract', 'call_fn']) {
+      const e: Expr = [
+        'and',
+        [
+          ['eq', head === 'call_contract' ? head : ['call_contract'], C],
+          ['eq', head === 'call_fn' ? head : ['call_fn'], 'transfer'],
+          ['lte', ['call_arg', 2], { i128: '5' }],
+        ],
+      ]
+      validate(e)
+      const nodes = tree(e, token)
+      const fake = (ns: Node[]): Node[] => ns.flatMap((n) => [n, ...fake(n.children ?? [])])
+      const lifted = fake(nodes).find(
+        (n) => n.op === (head === 'call_fn' ? 'function' : 'contract')
+      )
+      expect(lifted?.raw).not.toEqual(['eq', head, head === 'call_fn' ? 'transfer' : C])
+      expect(card(e, token).join('\n')).toContain(`${head}:  must be`)
+    }
+  })
+  it('eq(call_fn symbol, call_fn symbol) is always true: it is not a function the rule pins', () => {
+    const e: Expr = [
+      'and',
+      [
+        ['eq', ['call_contract'], C],
+        ['eq', 'call_fn', 'call_fn'],
+        ['lte', ['call_arg', 2], { i128: '5' }],
+      ],
+    ]
+    validate(e)
+    expect(tree(e, token)[0]?.children?.[0]?.op).not.toBe('function')
+    expect(card(e, token)).toContain('├─ call_fn:  must be  call_fn')
+  })
+})
+
 describe('a Blend request', () => {
   const [POOL, TOK] = [contract(5), contract(6)]
   const r = propose(
@@ -750,7 +786,7 @@ describe('a Blend request', () => {
 })
 
 describe('contractsOf', () => {
-  it('the contracts a predicate pins and the ones it reads', () => {
+  it('the contracts a predicate pins (a read target or a ne names no argument)', () => {
     const e: Expr = [
       'or',
       [
@@ -764,7 +800,7 @@ describe('contractsOf', () => {
         ['ne', ['call_contract'], B],
       ],
     ]
-    expect([...contractsOf(e)].sort()).toEqual([C, D].sort())
+    expect([...contractsOf(e)].sort()).toEqual([C])
   })
 })
 

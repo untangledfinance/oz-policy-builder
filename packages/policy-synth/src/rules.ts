@@ -130,11 +130,8 @@ export async function readPredicates(
   )
   const unreadable: number[] = []
   mine.forEach((r, i) => {
-    const bytes = (
-      fields(docs[i] && fromScVal(docs[i] as xdr.ScVal)).predicate_bytes as
-        | { bytes: string }
-        | undefined
-    )?.bytes
+    const doc = fields(docs[i] && fromScVal(docs[i] as xdr.ScVal))
+    const bytes = (doc.predicate_bytes as { bytes?: string } | undefined)?.bytes
     try {
       if (!bytes) throw new Error('no stored predicate')
       r.expr = decode(Buffer.from(bytes, 'hex').toString('base64'))
