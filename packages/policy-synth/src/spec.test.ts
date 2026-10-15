@@ -205,10 +205,12 @@ interface Fake {
   mode?: 'fail' | 'hang' | undefined
   /** Milliseconds each simulation takes. */
   delay?: number
+  /** Milliseconds each read of a wasm takes. */
+  codeDelay?: number
 }
 
 function network(f: Fake) {
-  const calls = { instances: 0, codes: 0, sims: 0, keys: 0, running: 0, peak: 0 }
+  const calls = { instances: 0, codes: 0, sims: 0, keys: 0, running: 0, peak: 0, codeRunning: 0 }
   const server = Bun.serve({
     port: 0,
     async fetch(req) {
@@ -218,6 +220,12 @@ function network(f: Fake) {
       if (f.mode === 'fail')
         return Response.json({ jsonrpc: '2.0', id: body.id, error: { code: -1, message: 'down' } })
       if (body.method === 'getLedgerEntries') {
+        const reads = xdr.LedgerKey.fromXDR((body.params.keys as string[])[0] as string, 'base64')
+        if (f.codeDelay && reads.switch().name === 'contractCode') {
+          calls.peak = Math.max(calls.peak, ++calls.codeRunning)
+          await Bun.sleep(f.codeDelay)
+          calls.codeRunning--
+        }
         const entries = (body.params.keys as string[]).flatMap((k) => {
           const key = xdr.LedgerKey.fromXDR(k, 'base64')
           calls.keys++
@@ -362,6 +370,14 @@ describe('what is known of a contract', () => {
     expect(SAC.mint?.[1]).toEqual(['amount', 'i128'])
   })
 
+  it('a one-character asset code is a code', async () => {
+    const sac = unique(5003)
+    const n = open({ instances: { [sac]: '' }, wasms: {}, names: { [sac]: `A:${ISSUER}` } })
+    expect((await infoFor(n.endpoint, [sac]))[sac]?.token?.symbol).toBe(
+      `A:${ISSUER.slice(0, 4)}…${ISSUER.slice(-4)}`
+    )
+  })
+
   it('the native asset is `native`', async () => {
     const xlm = unique(5002)
     const n = open({ instances: { [xlm]: '' }, wasms: {}, names: { [xlm]: 'native' } })
@@ -374,6 +390,10 @@ describe('what is known of a contract', () => {
   it.each([
     ['a name that is not CODE:ISSUER', 'USDC'],
     ['a code that is too long', `ABCDEFGHIJKLM:${ISSUER}`],
+    [
+      'an issuer with a character that is not base32',
+      `USDC:${ISSUER.slice(0, 10)}8${ISSUER.slice(11)}`,
+    ],
     [
       'an issuer that is not an account',
       'USDC:CBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
@@ -494,6 +514,20 @@ describe('what is known of a contract', () => {
     await infoFor(n.endpoint, ids)
     expect(n.calls.sims).toBe(12)
     expect(n.calls.peak).toBeLessThanOrEqual(4)
+  })
+
+  it('wasm reads go a few at a time too', async () => {
+    const ids = Array.from({ length: 10 }, (_, i) => unique(9000 + i))
+    const n = open({
+      instances: Object.fromEntries(ids.map((c, i) => [c, hashOf(60 + i)])),
+      wasms: Object.fromEntries(ids.map((_, i) => [hashOf(60 + i), wasmWith([fn(`f${i}`, [])])])),
+      codeDelay: 30,
+    })
+    const got = await infoFor(n.endpoint, ids)
+    expect(Object.keys(got)).toHaveLength(10)
+    expect(n.calls.codes).toBe(10)
+    expect(n.calls.peak).toBeLessThanOrEqual(4)
+    expect(n.calls.peak).toBeGreaterThan(1)
   })
 
   it('a network that errors, a url that is not allowed, an abort: the empty answer, in time', async () => {

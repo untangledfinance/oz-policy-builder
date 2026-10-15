@@ -1145,6 +1145,7 @@ describe('a constant never looks like another value, a name or a selector', () =
     ['an i256', { i256: '5000' }, '5000 (i256)'],
     ['a vec holds typed numbers', [5, { i128: '5' }], '[5 (u32), 5 (i128)]'],
     ['a map holds typed numbers', { map: [['k', 5]] }, "{'k': 5 (u32)}"],
+    ['a map keyed by numbers', { map: [[5, 6]] }, '{5 (u32): 6 (u32)}'],
     ['a symbol that is a parameter name', 'to', "'to'"],
     ['a symbol that is a selector', 'function', "'function'"],
   ])('%s', (_n, v, text) => expect(eq(v)).toBe(`argument 0:  must be  ${text}`))
@@ -1325,6 +1326,11 @@ describe('labels from a request', () => {
   const label = (l: string) => one(['eq', ['call_arg', 0], A], { labels: { [A]: l } })
   it("are plain words, marked as the caller's", () => {
     expect(label('payroll-1')).toBe(`argument 0:  must be  ${short(A)} («payroll-1»)`)
+  })
+  it('from one to 24 characters', () => {
+    expect(label('A')).toContain('(«A»)')
+    expect(label('a'.repeat(24))).toContain(`(«${'a'.repeat(24)}»)`)
+    expect(label('a'.repeat(25))).not.toContain('«')
   })
   it.each([
     ['a line break', 'x)\n   └─ amount:  must be at most  1'],
