@@ -1001,3 +1001,77 @@ fn leaf_nesting_is_capped_through_sum_and_read_arguments() {
     assert_eq!(refused(&nested(3)), None);
     assert_eq!(refused(&nested(4)), Some(DecodeError::PredicateTooDeep));
 }
+
+// ---- audit follow-ups: object-form integers, arities, depth ----------------
+
+#[test]
+fn integers_too_big_for_the_inline_form_still_widen() {
+    // Above 2^56 the host holds these as objects, not inline values.
+    let cases = [
+        (ScVal::U64(u64::MAX), n(i128::from(u64::MAX))),
+        (ScVal::I64(i64::MIN), n(i128::from(i64::MIN))),
+        (
+            ScVal::Timepoint(TimePoint(u64::MAX)),
+            n(i128::from(u64::MAX)),
+        ),
+        (ScVal::Duration(Duration(1 << 60)), n(1 << 60)),
+        (u128v(1 << 100), n(1 << 100)),
+    ];
+    for (big, same) in cases {
+        assert!(
+            permits(&cmp("eq", arg(0), same.clone()), &[big.clone()]),
+            "{big:?}"
+        );
+        assert!(
+            permits(&cmp("gte", arg(0), same.clone()), &[big.clone()]),
+            "{big:?}"
+        );
+        assert!(
+            denies(&cmp("ne", arg(0), same.clone()), &[big.clone()]),
+            "{big:?}"
+        );
+        assert!(
+            denies(&set("nin", arg(0), &[same.clone()]), &[big.clone()]),
+            "{big:?}"
+        );
+        assert!(permits(&set("in", arg(0), &[same]), &[big]));
+    }
+}
+
+#[test]
+fn an_in_whose_needle_cannot_resolve_denies() {
+    assert!(denies(&set("in", arg(7), &[n(1)]), &[n(1)]));
+    assert_eq!(
+        reason(&set("in", arg(7), &[n(1)]), &[n(1)]),
+        Some(DenyReason::NotInAllowlist)
+    );
+}
+
+#[test]
+fn an_extra_operand_is_refused() {
+    assert_eq!(refused(&tup(&[sym("eq"), arg(0), n(1), n(2)])), MALFORMED);
+    assert_eq!(
+        refused(&tup(&[sym("in"), arg(0), tup(&[n(1)]), n(2)])),
+        MALFORMED
+    );
+    let extra = tup(&[sym("call_arg"), ScVal::U32(0), ScVal::U32(1)]);
+    assert_eq!(refused(&cmp("eq", extra, n(1))), MALFORMED);
+    let u = ScVal::U32;
+    let field = tup(&[sym("call_arg_field"), u(0), u(0), sym("a"), sym("b")]);
+    assert_eq!(refused(&cmp("eq", field, n(1))), MALFORMED);
+}
+
+#[test]
+fn a_quantifier_body_counts_toward_node_depth() {
+    let over = path(&[ScVal::U32(0)]);
+    let mut body = cmp("eq", elem(&[]), n(1));
+    // all(1) > and(2) > and(3) > and(4) > eq(5) fits; one more `and` is 6 deep.
+    for _ in 0..3 {
+        body = and(&[body]);
+    }
+    assert_eq!(refused(&all_of(over.clone(), body.clone())), None);
+    assert_eq!(
+        refused(&all_of(over, and(&[body]))),
+        Some(DecodeError::PredicateTooDeep)
+    );
+}

@@ -2770,3 +2770,37 @@ fn weekday_office_hours_combine_with_and() {
     );
     assert!(!permitted_at(&w, MONDAY + 9 * 3_600 - 1), "Monday 08:59:59");
 }
+
+#[test]
+fn an_unresolved_read_argument_makes_no_call() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let echo = read(&w.env, &reg, "echo", alloc::vec![call_arg(7)], &[]);
+    // `echo(call_arg(7))` cannot resolve; the `or` then falls to the second branch.
+    let rule = tuple(alloc::vec![
+        sym("or"),
+        tuple(alloc::vec![
+            cmp("eq", echo, lit(ScVal::Bool(true))),
+            cmp("eq", call_arg(0), num(10)),
+        ]),
+    ]);
+    w.install(&rule).expect("installs");
+    let who = Address::generate(&w.env);
+    assert_eq!(w.enforce_context(&advance_to(&w, &who)), Ok(()));
+    assert_eq!(
+        RegistryClient::new(&w.env, &reg).calls(),
+        0,
+        "no call was made"
+    );
+}
+
+#[test]
+fn a_read_argument_that_resolves_to_a_wrong_type_is_a_failed_call_not_void() {
+    // `contains(who: Address)` given a number fails inside the target: the read
+    // denies, and (being a failed call) is remembered like any other.
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    w.install(&listed(&w, &reg, 0)).expect("installs");
+    let who = Address::generate(&w.env);
+    assert_eq!(w.enforce_context(&advance_to(&w, &who)), denied());
+}
