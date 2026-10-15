@@ -369,8 +369,7 @@ fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
     // value (a `U256Object` holding a small number) slip past `ne`.
     let coll = |v: &Val| matches!(v.get_tag().get_scval_type(), Some(T::Vec | T::Map));
     if coll(a) || coll(b) {
-        return a.get_tag() == b.get_tag()
-            && Vals::from_slice(env, &[*a]) == Vals::from_slice(env, &[*b]);
+        return Vals::from_slice(env, &[*a]) == Vals::from_slice(env, &[*b]);
     }
     let objects = a.is_object() || b.is_object();
     a.shallow_eq(b) || (objects && (*a).to_xdr(env) == (*b).to_xdr(env))
@@ -647,7 +646,7 @@ fn decode_node(env: &Env, items: &Vals, depth: u32) -> Res<Node> {
                 entries.len() <= MAX_IN_OPERAND_COUNT,
                 DecodeError::InOperandLimit,
             )?;
-            let haystack = each(&entries, |h| literal(env, &h, 1).map(Leaf::Lit))?;
+            let haystack = each(&entries, |h| literal(env, &h).map(Leaf::Lit))?;
             Node::In(needle, haystack, name == b"nin")
         }
         (b"all" | b"any", 3, _) => {
@@ -707,11 +706,10 @@ fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
 
 /// A leaf that must be a constant: an `in` entry, or a path-step key. A vector
 /// goes through `decode_leaf` (so `lit(x)` works); anything else is itself.
-fn literal(env: &Env, val: &Val, depth: u32) -> Res<Val> {
-    cap(depth <= MAX_DEPTH, DecodeError::PredicateTooDeep)?;
+fn literal(env: &Env, val: &Val) -> Res<Val> {
     match Vals::try_from_val(env, val) {
         Err(_) => Ok(*val),
-        Ok(_) => literal_to_val(&decode_leaf(env, val, depth)?),
+        Ok(_) => literal_to_val(&decode_leaf(env, val, 1)?),
     }
 }
 
@@ -809,7 +807,7 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: &[u8], depth: u32) -> Res
 /// steps: `call_path` needs one; a `read` result may be the value itself.
 fn decode_steps(env: &Env, items: &Vals, from: u32, min: u32) -> Res<Vec<PathStep>> {
     ensure((min..=MAX_PATH_STEPS).contains(&items.len().saturating_sub(from)))?;
-    let key = |n| literal(env, &at(items, n)?, 1).map(PathStep::Key);
+    let key = |n| literal(env, &at(items, n)?).map(PathStep::Key);
     (from..items.len())
         .map(|n| match expect(env, items, n) {
             Ok(i) => Ok(PathStep::Index(i)),

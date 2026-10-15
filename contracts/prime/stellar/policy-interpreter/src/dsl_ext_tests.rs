@@ -1299,3 +1299,43 @@ fn variant_is_not_a_leaf_any_more() {
     let p = cmp("eq", arg(0), lit(tup(&[sym("Tag"), n(1)])));
     assert!(permits(&p, &[tup(&[sym("Tag"), n(1)])]));
 }
+
+#[test]
+fn a_vec_or_a_map_equals_only_its_own_kind_and_content() {
+    let v = tup(&[n(1), n(2)]);
+    let m = map(&[(n(1), n(2))]);
+    let others = [
+        n(1),
+        text("x"),
+        blob(&[1]),
+        account(1),
+        ScVal::Bool(true),
+        ScVal::Void,
+    ];
+    for (c, same, diff) in [
+        (v.clone(), tup(&[n(1), n(2)]), tup(&[n(1), n(3)])),
+        (m.clone(), map(&[(n(1), n(2))]), map(&[(n(1), n(3))])),
+    ] {
+        assert!(permits(&cmp("eq", arg(0), lit(c.clone())), &[same.clone()]));
+        assert!(denies(&cmp("ne", arg(0), lit(c.clone())), &[same]));
+        assert!(denies(&cmp("eq", arg(0), lit(c.clone())), &[diff.clone()]));
+        assert!(permits(&cmp("ne", arg(0), lit(c.clone())), &[diff]));
+        for o in &others {
+            assert!(
+                denies(&cmp("eq", arg(0), lit(c.clone())), &[o.clone()]),
+                "{o:?}"
+            );
+            assert!(
+                permits(&cmp("ne", arg(0), lit(c.clone())), &[o.clone()]),
+                "{o:?}"
+            );
+            assert!(
+                permits(&cmp("ne", arg(0), lit(o.clone())), &[c.clone()]),
+                "{o:?}"
+            );
+        }
+    }
+    // a vec is not the map with the same entries
+    assert!(denies(&cmp("eq", arg(0), lit(v)), &[m.clone()]));
+    assert!(permits(&cmp("ne", arg(0), lit(m)), &[tup(&[n(1), n(2)])]));
+}

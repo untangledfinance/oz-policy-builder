@@ -45,10 +45,9 @@ authorized call" no longer holds.
 | `now` | The ledger timestamp (seconds), a `u64`. A clock is normally bounded, not matched: write `gte`/`lte` |
 | `read(contract, fn, args, path)` | A value read from another contract: call `fn(args)` on `contract`, then walk `path` (zero to eight steps, the same steps as `call_path`) into the result. `contract` and `fn` are fixed fields of the predicate, so its hash pins them. Each of `args` is a constant, a `call_path` (or `call_arg`...), `call_contract`, `call_fn` or `now`. The result is any value but void |
 | `scaled(src, num, den, add)` | `src * num / den + add`. `src`, `num` and `add` are any value leaf, `scaled` included; `den` is an `i128` constant (a `u32` is refused) and must be positive, and a literal `src` or `num` must be too. Multiplies first, divides second (truncating toward zero), adds third, every step checked |
-| `variant(name, payload...)` | An enum value as a constant: the vec `[name, payload...]`, for a `read` argument such as Reflector's `Asset::Stellar(addr)`. Payload entries are constants. Also legal wherever another constant is |
-| `lit(x)` | A constant of ANY type: a string, bytes, bool, `u64`, `i64`, `i32`, `u128`, `Timepoint`, `Duration`, a map, a vec that starts with a symbol, and so on. Taken as data, never as a selector. A bare address, symbol, number or vec of constants is the same constant without the tag |
+| `lit(x)` | A constant of ANY type: a string, bytes, bool, `u64`, `i64`, `i32`, `u128`, `Timepoint`, `Duration`, a map, a vec that starts with a symbol (an enum value: Reflector's `Asset::Stellar(addr)` is `lit([Stellar, addr])`), and so on. Taken as data, never as a selector, and not inspected. A bare address, symbol, number or vec of plain values is the same constant without the tag |
 | `elem(step, ...)` | The current element of the enclosing `all`/`any`, walked by the steps; no steps is the element itself. Only a quantifier body may hold one |
-| `sum(vec, step, ...)` | The sum of what the steps reach in each element of the vec `vec` resolves to: a number (`i128`), checked |
+| `sum(vec, step, ...)` | The sum of what the steps reach in each element of the vec `vec` resolves to: a number (`i128`), checked. It walks up to `MAX_ELEMS` elements, so it weighs that many leaves toward the leaf cap |
 
 Nodes: `and`, `or`, `eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in`, `nin`, `all`,
 `any`. Constants: `lit(x)`, or a bare address, symbol, number or vec. Both
@@ -56,7 +55,10 @@ sides of a comparison are resolved, so any value leaf can stand on either side.
 
 **Numbers compare as numbers.** `eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in` and
 `nin` treat any integer by value, whatever its type: `u32`, `i32`, `u64`,
-`i64`, `i128`, `Timepoint`, `Duration`, and a `u128` that fits in an `i128`.
+`i64`, `i128`, `Timepoint`, `Duration`, and a `u128` that fits in an `i128`
+(an integer of up to 128 bits; `u256` and `i256` are not widened and are not
+numbers here). A `Timepoint` of 300, a `Duration` of 300 and a `u64` 300 are
+equal.
 `eq(call_arg(0), 5)` holds for a 5 of any of them, and a `u32` constant matches
 an `i128` argument. A `u128` above `i128::MAX` is not a number: it fails an
 ordering and a `scaled`, equals nothing numeric, and equals only an identical
@@ -66,8 +68,8 @@ An ordering (`lt`, `lte`, `gt`, `gte`) over a constant that is not a number (an
 address, symbol, string, bytes, bool, vec, map, an oversized `u128`), and such
 a constant as a `scaled` operand, are refused at
 install (201): they could never permit. Use `eq`, `ne` or `in` to match them.
-Widening is top-level only: numbers inside a vector or a `variant` compare
-exactly, type included (`variant(Amt, 5)` never matches a `u32` or `u64`
+Widening is top-level only: numbers inside a vector compare
+exactly, type included (`lit([Amt, 5u32])` never matches an `[Amt, 5i128]`
 payload, and `[u32 5]` never matches `[i128 5]`); pin a nested number with
 `call_path` to the element instead. Everything else compares exactly, by
 canonical XDR: addresses, symbols, strings, bytes, bools, vecs and maps equal
@@ -104,11 +106,15 @@ compared.
 #### Constants, `ne`/`nin`, map keys
 
 - **`lit(x)`** is a constant of any ScVal type, wherever a constant is allowed:
-  an operand, an `in`/`nin` entry, a `read` argument, a `variant` payload. The
+  an operand, an `in`/`nin` entry, a `read` argument, a map-key step. The
   payload is data: a vec that starts with a symbol inside `lit` is that vec, not
-  a selector, and it is not inspected. (A *bare* vec of constants is still
-  checked element by element and counts as one leaf; a selector inside one is
-  refused, 201.) `lit` takes exactly one operand.
+  a selector, and it is not inspected (decoding is one host value, whatever its
+  size). A *bare* vec is its own constant too, but it is CHECKED element by
+  element: every element must be a plain value or a non-empty plain vec, so a
+  selector, an empty vec or a `lit(..)` inside one is refused (201). Write
+  `lit([...])` around the whole constant when it holds an enum value or
+  anything a bare vec cannot. `lit` takes exactly one operand. There is no
+  separate enum-variant leaf: `lit([Name, payload...])` is the value.
 - **`ne(a, b)`** permits only when both sides resolve and differ, by the same
   equality as `eq` (numbers by value). A side that cannot resolve (a missing
   argument, a failed or void read, a bad path, an overflow) DENIES: an
@@ -117,11 +123,19 @@ compared.
   `eq` does (`ne(call_contract, X)` is a one-address denylist); a miss against
   `call_contract` is `CONTRACT_SCOPE` (101), otherwise `ARG_MISMATCH` (100).
 - **`nin(needle, [entries])`** permits only when the needle resolves and equals
-  no entry. It is decoded as `ne` against every entry, so an unresolvable needle
-  denies, the 1-to-32 entry limit is `in`'s, and each entry counts as two leaves
-  (the needle is repeated), so a 32-entry denylist is 64 of the 200 leaves. A
-  miss is `ARG_MISMATCH` (100). A denylist keeps only what you list: prefer an
-  allowlist (`in`) wherever the permitted set is known.
+  no entry (each compared as `ne` compares). The needle is resolved ONCE, so a
+  needle that is a `read` spends one call slot however many entries there are
+  (a registry-backed denylist installs), and each entry is one leaf: a 32-entry
+  denylist is 33 of the 200 leaves, as for `in`. An unresolvable needle denies.
+  Every `nin` miss is `ARG_MISMATCH` (100), whichever leaf the needle is
+  (`in` reports `NOT_IN_ALLOWLIST`, 105). A denylist keeps only what you list:
+  prefer an allowlist (`in`) wherever the permitted set is known.
+- **Muxed addresses.** A SEP-41 / SAC `transfer(from, to: MuxedAddress, amount)`
+  credits `M(G, id)` to `G`. So `ne` and `nin` also differ only after de-muxing
+  both sides: a denylist entry `G`, or `M(G, 7)`, denies `G` and every
+  `M(G, id)`. `eq` and `in` stay EXACT: a pinned `M(exchange, 12345)` matches
+  that id and no other, and a plain `G` matches no muxed form of itself, so a
+  muxed recipient fails an `in` allowlist of plain addresses (fail closed).
 - **No general `not`.** `ne`/`nin` need both operands to resolve, so they cannot
   turn an unresolvable leaf into a permit; `not` could, which is why it stays out.
 - **Map keys.** A path step is a `u32` (index into a vec), `true` (the length,
@@ -162,19 +176,23 @@ one, without a rule per length.
   simply does not count. Both stop at the first deciding element, and `or`
   inside `P` still runs lazily.
 - **`sum(vec, step...)`** adds what the steps reach in each element (no steps:
-  the elements are the numbers). Every element must resolve to a number (any
-  integer type), or the leaf is unresolved and the comparison denies;
-  an overflow denies `ARITHMETIC_OVERFLOW` (102). The sum of nothing is 0. It
+  the elements are the numbers). Every element must resolve to a number (an
+  integer of up to 128 bits), or the leaf is unresolved and the comparison
+  denies; an overflow denies `ARITHMETIC_OVERFLOW` (102), and so does a quantifier
+  over a `sum` that overflows. The sum of nothing is 0. It
   is a number anywhere a value is: a comparison operand, a `scaled` operand (a
   `read` argument takes only a plain leaf, below).
-- **Install-time limits (201 or 207 as for any cap).** Evaluating a body costs up
-  to `MAX_ELEMS` times what one evaluation costs, so decode counts EVERY leaf of
-  a body 32 times toward `MAX_LEAVES` (200): a body may have at most six leaves
-  next to a handful outside it, and an `in` entry counts as a leaf (a body `in`
-  needs an allowlist of 5 or fewer; long lists belong in a registry `read`, below).
-  A quantifier or a `sum` inside a quantifier body is refused (no nesting: the
-  cost would multiply). `elem` outside a body is refused, and so is `elem` as the
-  vec of its own quantifier or as a `read` argument.
+- **Install-time limits (all 201).** Evaluating a body costs up to `MAX_ELEMS`
+  times what one evaluation costs, so decode counts EVERY leaf of a body 32 times
+  toward `MAX_LEAVES` (200), and a `sum` (which walks that many elements) as 32
+  leaves itself, so the leaf budget bounds the work. A body may have at most six
+  leaves, an `in` entry counts as a leaf, and so does the needle (a body `in` or
+  `nin` needs an allowlist of 5 or fewer: needle and 5 entries are 6 leaves; long
+  per-element lists do not fit a body, and a body `read` cannot take the element,
+  below). A rule holds at most five `sum`s (a `sum` with its vec and a constant
+  is 34 leaves). A quantifier or a `sum` inside a quantifier body is refused (no
+  nesting: the cost would multiply). `elem` outside a body is refused, and so is
+  `elem` as the vec of its own quantifier or as a `read` argument.
 - **A rule still has to constrain the call.** A quantifier over a `call_path`
   does (the path is a selector); a leaf of its body that reads the call does too.
   A quantifier over a constant or a read alone does not.
@@ -197,15 +215,19 @@ Notation below: a bare name is a symbol (a map key), `elem(to)` is
 `[elem, to]` on the wire, and `call_path(0)` is `[call_path, 0]`.
 
 ```text
-# every payout goes to an approved recipient, none above 500, and the total is
-# at most 1000 (196 of 200 leaves)
+# every payout goes to an approved recipient, none is negative (so one cannot
+# lower the total of another), and the total is at most 1000: 195 of 200 leaves
+# (the body 5 x 32, the vec 1, the sum 32 + its vec 1 + the constant 1).
+# Without the guard a -600 payment would let +1500 through (the sum is 900).
 and(
-  all(call_path(0), and(in(elem(to), [A, B, C]), lte(elem(amount), 500))),
+  all(call_path(0), and(in(elem(to), [A, B]), gte(elem(amount), 0))),
   lte(sum(call_path(0), amount), 1000))
 
 # an adapter batch of 1 to 32 calls: every target approved, at least one a repay
+# (the execution adapter's Call has target, function_name, args and
+# executor_authorizations; 162 leaves)
 and(all(call_path(0), in(elem(target), [T1, T2])),
-    any(call_path(0), eq(elem(fn), repay)))
+    any(call_path(0), eq(elem(function_name), repay)))
 
 # a swap route: every hop is on the list, it starts at call_arg(0), at most 3 hops
 and(all(call_path(1), in(elem(), [A, B, C])),
@@ -251,8 +273,15 @@ Read this before writing a rule with a `read`.
   rights as any other call. A `read` target must therefore be a contract the
   policy owner trusts, and ideally one that cannot be upgraded, because a
   target that changes behaviour changes what the rule permits and what `enforce`
-  costs. The target and function are fixed in the predicate and cannot be
-  steered by the call being authorized. Whatever state the target changes
+  costs. The target and function are fixed in the predicate; the call being
+  authorized cannot change WHICH function of WHICH contract runs, but it can
+  choose the ARGUMENTS when a rule passes it through (below), so the target must
+  be safe for every value of them: never read a function that calls, or prices
+  from, a contract or path named by a call-derived argument (a token helper that
+  asks `token.unit_value()` of the token passed in, a router's
+  `get_amounts_out(path)`, a vault-of-argument converter), or the agent steers
+  the read into code it chose. Bind such an argument to the exact value the
+  authorised call uses, or take it from a constant. Whatever state the target changes
   while being read is committed if the call is permitted and rolled back if it
   is denied, so name only functions that are read-only in fact.
 - **The interpreter's address must never hold value, allowances or roles.** A
@@ -265,19 +294,20 @@ Read this before writing a rule with a `read`.
   it, do not approve it, do not grant it a role on any contract, and name only
   read-only functions in a `read`.
 - **Arguments: constants, or taken from the call.** Each argument of a `read` is a
-  constant (`lit(x)`, an address, a symbol, a number, a vec of constants that
-  does not begin with a symbol, or an enum variant `variant(name, payload...)`)
-  or a plain leaf resolved at `enforce`: a `call_path` / `call_arg`, `call_contract`,
+  constant (`lit(x)`, an address, a symbol, a number, or a bare vec of plain
+  values) or a plain leaf resolved at `enforce`: a `call_path` / `call_arg`, `call_contract`,
   `call_fn` or `now`. A `scaled`, another `read`, a `sum` or an `elem` as an
   argument is refused at install (201). The contract and function are always
   fixed fields. An argument that cannot be resolved (no such call argument)
   makes the read unresolved, without making the call, and the leaf denies.
   The motivating use is a registry the rule consults, so a list can change
   without reinstalling the rule: `eq(read(REGISTRY, contains, [call_arg(1)]),
-  lit(true))` permits only a receiver that is on the registry's list. A Soroban
-  enum value is the vec `[name, payload...]`, and a bare vec that begins with a
-  symbol is read as a selector, so a variant carries its own tag: Reflector's
-  `lastprice(Asset::Stellar(addr))` takes `variant(Stellar, addr)`. A `read`
+  lit(true))` permits only a receiver that is on the registry's list (a muxed
+  receiver is not a plain address, so it is not on a list of plain addresses:
+  fail closed). A Soroban enum value is the vec `[name, payload...]`, and a bare
+  vec that begins with a symbol is read as a selector, so an enum value is
+  written with `lit`: Reflector's `lastprice(Asset::Stellar(addr))` takes
+  `lit([Stellar, addr])`. A `read`
   whose only link to the call is an argument of its own counts as constraining
   the call; one whose arguments are constants or `now` does not.
 - **A read target must be a contract address, and not one already on the call stack.** A G-account target is refused at install (the host would abort the whole `enforce` on it). The host refuses re-entry, so when the authorized call's own target is the read
@@ -332,7 +362,9 @@ Read this before writing a rule with a `read`.
 - **Failure denies.** A read that panics, hits a missing function or contract,
   returns void, or finds no field at `path` resolves to
   nothing, and the comparison denies (`ARG_MISMATCH`). That includes `eq` and
-  `ne`: two failed reads are never "equal" and never "different". As the needle of an `in`, every failure
+  `ne`: two failed reads are never "equal" and never "different". An argument that
+  gets the wrong type (a number for an address parameter) is a failed call, and a
+  failed call is remembered like any other. As the needle of an `in`, every failure
   (a failed read, a missing argument, an overflow) denies `NOT_IN_ALLOWLIST`
   (105) instead: a needle that cannot be resolved cannot be on the allowlist.
 - **Caps, enforced at decode.** At most four DISTINCT `read` calls per
@@ -354,12 +386,17 @@ Read this before writing a rule with a `read`.
   share that one call. Reads count inside `scaled` and inside quantifiers too; the fifth distinct call is refused at install as
   `MALFORMED_PREDICATE`, every decoder cap surfaces as 201, except the byte cap at install, which is 207),
   `read` paths and `call_path`s of at most eight steps, and leaf nesting
-  (`scaled` operands, literal vecs, `read` arguments, `variant` payloads) of at
+  (`scaled` operands, bare vec elements, `read` arguments, `sum` sources) of at
   most `MAX_DEPTH` (5) levels. The 200-leaf cap counts `scaled` operands,
-  `read` arguments, `sum` sources and `in`/`nin` entries, each leaf of a quantifier body
-  32 times (`MAX_ELEMS`), and a bare vec constant as one (its size is bounded by the 32 KB byte
-  cap, not by the leaf cap, as is a `lit`). With the 200-leaf cap, evaluation work is bounded and each distinct
-  `read` runs at most once per `enforce`.
+  `read` arguments, `sum` sources and `in`/`nin` needles and entries, each leaf of a
+  quantifier body 32 times (`MAX_ELEMS`) and each `sum` as 32. A constant
+  (`lit`, or a bare vec) is ONE leaf whatever its size: its size is bounded by the
+  32 KB byte cap, and the work it costs is made proportional to its bytes, not to
+  how often it is compared (a vec or a map is compared by the host without
+  copying it, so a 31 KB constant in a quantifier body is not re-serialised per
+  element). `tests/worst_case.rs` runs the largest rules every audit found on
+  the real wasm against the 400M-instruction and 41,943,040-byte limits.
+  Each distinct `read` runs at most once per `enforce`.
 - **A rule still has to constrain the call.** `install` refuses a predicate with
   no leaf over the authorized call (`call_contract`, `call_fn`, `call_arg*`,
   `call_path`), seen through `scaled`, `sum`, `read` arguments, quantifier vecs
@@ -448,8 +485,12 @@ Retired deny codes: `107` (`SLIPPAGE_FLOOR`) and `214`
 (`INVALID_SCALED_RATIO`) are not emitted by grammar 7 and are not reused. New in
 grammar 7: `219` (`SIGNER_IS_INTERPRETER`); `218` also covers a rule scoped to
 the account or the interpreter, not only `Default`. The constructs above add no
-code: a quantifier or `nin` that denies is `ARG_MISMATCH` (100) and a `sum`
-overflow is `ARITHMETIC_OVERFLOW` (102); every decode refusal is 201.
+code. A `nin` miss is `ARG_MISMATCH` (100) whatever its needle; a quantifier that
+denies is `ARG_MISMATCH` (100) whatever its body reported (an `in` miss, a
+`call_contract` miss and an overflow inside a body all read 100), except that
+a failure resolving the quantifier's own vector keeps its code (102 for a `sum`
+that overflows); a `sum` overflow is `ARITHMETIC_OVERFLOW` (102); every decode
+refusal is 201.
 
 ## Deployments
 

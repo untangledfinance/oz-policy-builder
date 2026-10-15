@@ -20,8 +20,8 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
     path that uses it). A failed call, a void
     result, or a missing field denies. Arguments and result types: see the
     generic constructs below.
-  - `variant(name, payload...)` writes an enum value (`[name, payload...]`)
-    as a constant, so a `read` can pass Reflector's `Asset::Stellar(addr)`.
+  - An enum value is a constant, `lit([Name, payload...])`, so a `read` can
+    pass Reflector's `Asset::Stellar(addr)` (there is no separate `variant`).
   - A `read` target must be a contract address (a G-account is refused at
     install, since the host aborts `enforce` on it).
   - `now` is the ledger timestamp.
@@ -56,14 +56,21 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   (`SELF_VERSION` 7, no new error codes); the constructs below mean a new use
   case is a new rule, not a redeploy.
   - `lit(x)`: a constant of any ScVal type (string, bytes, bool, `u64`, `i64`,
-    `i32`, `u128`, `Timepoint`, `Duration`, map...) wherever a constant is
-    allowed. The bare address, symbol, number and vec forms still work. Every
-    constant is one leaf.
+    `i32`, `u128`, `Timepoint`, `Duration`, map, an enum value...) wherever a
+    constant is allowed, not inspected. The bare address, symbol, number and vec
+    forms still work; a bare vec is checked element by element (a selector, an
+    empty vec or a `lit` inside one is refused: write `lit([...])` around the
+    whole). Every constant is one leaf, whatever its size.
   - `ne` and `nin`: permit only when every operand resolves and they differ (a
-    denylist). An unresolvable side denies. There is still no general `not`.
+    denylist). An unresolvable side denies. `nin` resolves its needle once and
+    counts each entry as one leaf, so a read-backed denylist installs. Both also
+    differ only after de-muxing: a muxed form `M(G, id)` of a denied account
+    `G` is denied (SEP-41 `transfer` takes its recipient as a muxed address),
+    while `eq` and `in` stay exact. There is still no general `not`.
   - Numeric widening: `i32`, `i64`, `Timepoint`, `Duration` and a `u128` that
     fits in an `i128` are numbers for `eq`/`ne`/`in`/`nin`, the orderings and
-    `scaled`. A `u128` above `i128::MAX` is not a number.
+    `scaled`: any integer of up to 128 bits. A `u128` above `i128::MAX` is not
+    a number.
   - A path step may be a map key of any constant: a bare symbol, or `lit(x)`
     (an address, a number, a string...). A `u32` stays an index into a vec.
   - `read` arguments may be taken from the call (`call_path`, `call_contract`,
@@ -75,12 +82,22 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
     Example: a registry contract's `contains(call_arg(1))` as a KYC list.
   - `all(vec, P)`, `any(vec, P)`, `elem(...)` and `sum(vec, ...)`. `all` of an
     empty vec permits and `any` of one denies; a vec over `MAX_ELEMS` (32) denies;
-    each leaf of a body counts 32 times toward `MAX_LEAVES`; no quantifier or
+    each leaf of a body, and each `sum`, counts 32 times toward `MAX_LEAVES`
+    (so a body `in` holds at most 5 entries and a rule at most 5 sums); no quantifier or
     `sum` in a body; `elem` only in a body; a body `read` cannot take `elem`
     (so a body makes no more external calls than its leaves would: at most four
     per `enforce` in all).
   - Time windows (`09:00-17:00 UTC`, Monday-Friday) are written with `now` and
     `scaled`; see the README.
+  - Cost is bounded by the leaf budget and the byte cap, checked on the real wasm
+    (`tests/worst_case.rs`, against 400M instructions and 41,943,040 bytes): a
+    vec or map constant is compared by the host without copying, so a 31 KB
+    constant in a quantifier body costs what it costs once; a constant's elements
+    are checked, not decoded as leaves.
+  - `call_arg_field`'s field is a `call_path` step (a bare symbol or `lit(x)`;
+    a selector is refused).
+  - README: a call-derived `read` argument lets the agent choose what the
+    (trusted) target is asked, so the target must be safe for every value.
 
 - **Prime contracts on mainnet.** `scripts/deploy-prime-mainnet.ts` uploads the
   gate, adapter and interpreter code, creates the grammar-6 interpreter, and
@@ -164,7 +181,7 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   - **`eq` and `in` compare numbers by value.** A `u32`, `u64` or `i128` equals
     any of the three with the same value, as the orderings already did, so
     `call_arg_scaled(i, n, d)` and `scaled(call_arg(i), n, d, 0)` are equal under
-    `eq` too. Only top-level numbers widen; numbers inside a vector or `variant`
+    `eq` too. Only top-level numbers widen; numbers inside a vector
     compare by exact type, and other values compare exactly.
   - **Rules that could never permit are refused at install (201).** An ordering
     over an address, symbol or vector literal, such a literal, `call_fn` or

@@ -324,13 +324,16 @@ The properties the custody design leans on:
   [interpreter README](../contracts/prime/stellar/policy-interpreter/README.md#cross-contract-reads).
 - **Grammar 7 is generic enough that a new use case is a new rule, not a new
   interpreter.** `lit(x)` is a constant of any type (a string, bytes, a bool, a
-  map...), `ne` and `nin` are a denylist whose unresolvable operand still
-  denies, every integer type compares as a number, and a map key in a path may
+  map, an enum value...), `ne` and `nin` are a denylist whose unresolvable
+  operand still denies (and which also catches the muxed form of a listed
+  account), every integer type of up to 128 bits compares as a number, and a map key in a path may
   be any constant. The quantifiers `all(vec, P)` and `any(vec, P)` state a
   property of every or some element of a vector (a batch, a payout list, a swap
   route; `elem(...)` is the current element), and `sum(vec, ...)` totals one;
-  vectors over 32 elements deny, each body leaf counts 32 times toward the
-  200-leaf cap, and quantifiers do not nest. Time windows (office hours, weekdays)
+  vectors over 32 elements deny, each body leaf and each `sum` counts 32 times
+  toward the 200-leaf cap, and quantifiers do not nest. A read's call-derived
+  argument is chosen by the agent: read only functions that are safe for any value
+  of it. Time windows (office hours, weekdays)
   are `now` and `scaled`; there is no extra leaf. Details and the fail-safe
   rules are in the [interpreter README](../contracts/prime/stellar/policy-interpreter/README.md#quantifiers-all-any-elem-sum).
 - **An executor binding** (`bind_executor`) makes a venue rule demand the
