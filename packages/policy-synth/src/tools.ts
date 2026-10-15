@@ -20,7 +20,7 @@ import {
   POLICY_CONTRACTS,
   SPENDING_LIMIT,
 } from './config.ts'
-import { describe, type ErrorCode, Refusal, type ToolResponse } from './envelope.ts'
+import { type ErrorCode, messageOf, Refusal, type ToolResponse } from './envelope.ts'
 import { buildInstall, buildRevoke, type RuleDraft } from './install.ts'
 import type { Intent } from './intent.ts'
 import { type Call, decodeEnvelope, type Recording, recordHash } from './record.ts'
@@ -48,7 +48,6 @@ const val: z.ZodType<unknown> = z.lazy(() =>
 const path = z.array(z.union([z.number().int().nonnegative(), z.string().min(1)]))
 const arg = z.object({ arg: path.min(1) }).strict()
 const cmp = z.enum(['eq', 'ne', 'lt', 'lte', 'gt', 'gte'])
-const num = z.string().regex(/^\d+$/)
 
 const rule: z.ZodType<unknown> = z.lazy(() =>
   z.discriminatedUnion('rule', [
@@ -183,7 +182,7 @@ function tool<S extends z.ZodRawShape>(
       } catch (e) {
         if (e instanceof Refusal) return fail(e.code, e.message, e.extra)
         if (e instanceof WireError) return fail('MALFORMED_PREDICATE', e.message)
-        return fail(CODE[name] ?? 'INVALID_INPUT', describe(e))
+        return fail(CODE[name] ?? 'INVALID_INPUT', messageOf(e))
       }
     },
   }
@@ -270,7 +269,7 @@ function given(i: { expr?: unknown; encodedPredicate?: string | undefined }): {
   } catch (e) {
     throw new Refusal(
       'MALFORMED_PREDICATE',
-      `the predicate is not a value the contract could read: ${describe(e)}`
+      `the predicate is not a value the contract could read: ${messageOf(e)}`
     )
   }
   validate(expr)

@@ -11,7 +11,7 @@
 //      their example policies built from a pinned tag. The pin records what we
 //      built; it does not notice a new release.
 //
-// The pins in `schemas.ts` are a record, and a record does not raise its hand.
+// The pins in `config.ts` are a record, and a record does not raise its hand.
 // This script is the hand: it reads the live state and compares it against the
 // baseline below, exiting non-zero when they differ so a scheduled run fails
 // loudly rather than printing into a log nobody reads.
@@ -22,7 +22,7 @@
 //
 // Usage: bun packages/policy-synth/scripts/upstream-drift-check.ts
 
-import { PINNED_OZ_STELLAR_CONTRACTS_TAG, RPC_URL_BY_NETWORK } from '../src/run/schemas'
+import { OZ_STELLAR_CONTRACTS_TAG, RPC_URL } from '../src/config.ts'
 
 /** The state we last reviewed. A difference is a prompt to look, not a fault. */
 const BASELINE = {
@@ -30,7 +30,7 @@ const BASELINE = {
    *  and expected, not drift.
    *
    *  Mainnet 28 was accepted on 2026-09-25 on TESTNET evidence, not a mainnet
-   *  run: e2e-network.ts passed every leg on testnet at protocol 28 (deploy,
+   *  run: the old e2e-network.ts passed every leg on testnet at protocol 28 (deploy,
    *  install, permit, deny #100, rule-0 bypass blocked), and contract
    *  behaviour follows the protocol version rather than the network. A
    *  mainnet run needs a funded key and real transactions, and mainnet was
@@ -45,7 +45,7 @@ const BASELINE = {
 type Network = keyof typeof BASELINE.protocolVersion
 
 async function liveProtocolVersion(network: Network): Promise<number> {
-  const res = await fetch(RPC_URL_BY_NETWORK[network], {
+  const res = await fetch(RPC_URL[network], {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getNetwork' }),
@@ -94,7 +94,7 @@ if (ozLive === BASELINE.ozLatestStable) {
   console.log(`DRIFT OpenZeppelin ${BASELINE.ozLatestStable} -> ${ozLive}`)
   drift.push(
     `OpenZeppelin published ${ozLive}. Our deployed policy instances are built ` +
-      `from ${PINNED_OZ_STELLAR_CONTRACTS_TAG}. Decide whether to rebuild and redeploy, ` +
+      `from ${OZ_STELLAR_CONTRACTS_TAG}. Decide whether to rebuild and redeploy, ` +
       `then update BASELINE.ozLatestStable.`
   )
 }

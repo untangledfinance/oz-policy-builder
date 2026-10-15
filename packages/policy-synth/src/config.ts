@@ -26,6 +26,10 @@ export const INTERPRETER: Record<Network, { address: string; wasmSha256: string 
   mainnet: null,
 }
 
+/** The upstream tag the deployed OpenZeppelin policies were built from, so that
+ *  `scripts/upstream-drift-check.ts` can compare it with the latest release. */
+export const OZ_STELLAR_CONTRACTS_TAG = 'v0.7.2'
+
 /** OpenZeppelin's `spending_limit`, built from stellar-contracts v0.7.2 and
  *  deployed by us. An example contract, not audited by us. */
 export const SPENDING_LIMIT: Record<Network, string> = {

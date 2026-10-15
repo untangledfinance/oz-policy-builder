@@ -37,7 +37,7 @@ export class Refusal extends Error {
 const MAX_MESSAGE = 512
 
 /** Any thrown value as a bounded, stack-free message. */
-export function describe(e: unknown): string {
+export function messageOf(e: unknown): string {
   const m = e instanceof Error ? e.message : typeof e === 'string' ? e : JSON.stringify(e)
   return (m ?? String(e)).slice(0, MAX_MESSAGE)
 }
