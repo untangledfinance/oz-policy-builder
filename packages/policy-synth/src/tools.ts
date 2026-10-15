@@ -176,7 +176,13 @@ function tool<S extends z.ZodRawShape>(
     shape,
     schema,
     async run(raw, signal) {
-      const parsed = schema.safeParse(raw)
+      let parsed: ReturnType<typeof schema.safeParse>
+      try {
+        parsed = schema.safeParse(raw)
+      } catch (e) {
+        // Input nested past the parser's stack is still input, not a crash.
+        return fail('INVALID_INPUT', `invalid input: ${messageOf(e)}`)
+      }
       if (!parsed.success) {
         const issues = parsed.error.issues.map(
           (i) => `${i.path.join('.') || '<input>'}: ${i.message}`

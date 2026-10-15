@@ -19,8 +19,8 @@ const find = (name: string): Tool | undefined => {
   return hits.length === 1 ? hits[0] : TOOLS.find((t) => t.name === name)
 }
 
-/** `--key value` pairs as input fields; a value that is JSON (a number, a list, an object) is read as such. */
-function flags(args: string[]): Record<string, unknown> {
+/** `--key value` pairs as input fields; a value that is JSON (a list, an object, a number the tool takes) is read as such. */
+function flags(args: string[], tool: Tool): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (let i = 0; i < args.length; i += 2) {
     const key = args[i]
@@ -29,7 +29,12 @@ function flags(args: string[]): Record<string, unknown> {
     const value = args[i + 1] as string
     out[key.slice(2)] = (() => {
       try {
-        return JSON.parse(value)
+        const parsed: unknown = JSON.parse(value)
+        // An amount or a hash of digits is a string the tool wants as one, not the number it parses to.
+        return typeof parsed === 'number' &&
+          tool.shape[key.slice(2)]?.safeParse(parsed).success !== true
+          ? value
+          : parsed
       } catch {
         return value
       }
@@ -59,7 +64,7 @@ export async function main(argv: string[], io: Io): Promise<number> {
           : first === '--file'
             ? JSON.parse(readFileSync(second as string, 'utf8'))
             : first.startsWith('--')
-              ? flags(rest)
+              ? flags(rest, tool)
               : JSON.parse(first)
     const res = await tool.run(input)
     const text = `${JSON.stringify(res, null, 2)}\n`

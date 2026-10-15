@@ -81,6 +81,18 @@ describe('the table', () => {
     for (const t of TOOLS) expect(t.description.length).toBeGreaterThan(40)
   })
 
+  it('input nested deeper than the parser can follow is an envelope too, not an exception', async () => {
+    let deep: unknown = 1
+    for (let n = 0; n < 50_000; n++) deep = [deep]
+    const r = (await run('synthesize_policy', {
+      intent: {
+        calls: [{ contract: TOKEN, fn: 'f', where: [{ rule: 'pin', at: [0], to: deep }] }],
+      },
+    })) as Out
+    expect(r.ok).toBe(false)
+    expect(r.error.code).toBe('INVALID_INPUT')
+  })
+
   it('an unknown tool and an unknown key are refused in the envelope, never thrown', async () => {
     expect(((await run('nope', {})) as Out).error.code).toBe('INVALID_INPUT')
     await failing(

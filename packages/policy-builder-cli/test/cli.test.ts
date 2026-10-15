@@ -55,6 +55,21 @@ describe('policy-builder', () => {
     }
   })
 
+  it('--field value keeps a number a string where the tool wants one (an amount, a hash of digits)', async () => {
+    const intent = JSON.stringify({ calls: [{ contract: CONTRACT, fn: 'transfer' }] })
+    const r = await cli(['synthesize', '--intent', intent, '--limit', '100'])
+    // `--limit 100` is the string "100", which the tool takes: no input error.
+    expect(r.json.ok).toBe(true)
+    const big = await cli(['synthesize', '--intent', intent, '--limit', '5000000'])
+    expect(big.json.ok).toBe(true)
+    const digits = '1'.repeat(64)
+    const h = await cli(['record', '--hash', digits])
+    expect(h.json.error.message).not.toContain('Expected string, received number')
+    // A number stays a number where the tool takes one.
+    const n = await cli(['install', '--installNonce', '2'])
+    expect(JSON.stringify(n.json.error.message)).not.toContain('installNonce')
+  })
+
   it('prints the refusal envelope and exits 1; exits 2 when the input is not JSON at all', async () => {
     const r = await cli(['synthesize', '{}'])
     expect(r.code).toBe(1)

@@ -767,3 +767,27 @@ describe('a pinned muxed address', () => {
     expect(StrKey.isValidMed25519PublicKey(broken)).toBe(true)
   })
 })
+
+describe('the integer a case is built from', () => {
+  const at = (args: Val[]): Call => ({ contract: C, fn: 'f', args })
+  it('an i32 is an integer of its own type: eq and lte get cases that stay i32', () => {
+    expect(
+      denyCases([['eq', ['call_arg', 0], { i32: 5 }]], at([{ i32: 5 }]))[0]?.call.args[0]
+    ).toEqual({ i32: 6 })
+    expect(
+      denyCases([['lte', ['call_arg', 0], { i32: 5 }]], at([{ i32: 5 }]))[0]?.call.args[0]
+    ).toEqual({ i32: 6 })
+  })
+  it('bytes or text made of digits are not numbers', () => {
+    const bytes = denyCases(
+      [['eq', ['call_arg', 0], ['lit', { bytes: '1234' }]]],
+      at([{ bytes: '1234' }])
+    )
+    expect(bytes[0]?.call.args[0]).toEqual({ bytes: '123400' })
+    const text = denyCases(
+      [['eq', ['call_arg', 0], ['lit', { string: '12' }]]],
+      at([{ string: '12' }])
+    )
+    expect(text[0]?.call.args[0]).toEqual({ string: '12x' })
+  })
+})
