@@ -242,7 +242,8 @@ type Memo = Vec<((Address, Symbol, Vals), Option<Val>)>;
 //  - Install only (not re-checked on enforce): at most MAX_LEAVES leaves, each leaf
 //    of a quantifier body counted MAX_ELEMS times; `elem` only in a quantifier
 //    body, and no `sum` or quantifier in one; at most MAX_READS distinct reads;
-//    at most MAX_PREDICATE_BYTES bytes; and at least one selector leaf.
+//    and at least one selector leaf. `install` also refuses more than
+//    MAX_PREDICATE_BYTES bytes, before decoding.
 
 fn eval(env: &Env, node: &Node, ctx: &Ctx, memo: &mut Memo) -> Result<(), DenyReason> {
     match node {
@@ -578,19 +579,15 @@ pub enum DecodeError {
     TooManyLeaves,
     /// An `in` haystack exceeded MAX_IN_OPERAND_COUNT (32).
     InOperandLimit,
-    /// Predicate payload exceeded MAX_PREDICATE_BYTES (32 KB).
-    PredicateTooLarge,
 }
 
 type Res<T> = Result<T, DecodeError>;
 type Vals = soroban_sdk::Vec<Val>;
 
-/// Decode a predicate root for `install`: the byte-size cap against the raw XDR
-/// (the only place the payload length is still in hand), then the structure
-/// (`decode_stored`), then the count caps (leaves / distinct `read`s).
+/// Decode a predicate root for `install`: the structure (`decode_stored`), then
+/// the count caps (leaves / distinct `read`s). The byte cap is `install`'s, which
+/// refuses an oversized payload (207) before it hashes or decodes it.
 pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
-    let small = bytes.len() <= MAX_PREDICATE_BYTES;
-    cap(small, DecodeError::PredicateTooLarge)?;
     let root_node = decode_stored(env, bytes)?;
     let all = leaves(&root_node);
     // Reads of the same `(contract, fn, constant args)` are one call (see `Memo`).

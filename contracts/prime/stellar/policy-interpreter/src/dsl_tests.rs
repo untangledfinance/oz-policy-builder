@@ -14,7 +14,7 @@
 //!     fail-closed as malformed
 //!   - caps with the exact wire codes: MAX_DEPTH 5 -> PREDICATE_TOO_DEEP,
 //!     MAX_LEAVES 200 -> TooManyLeaves, MAX_IN_OPERAND_COUNT 32 ->
-//!     IN_OPERAND_LIMIT, MAX_PREDICATE_BYTES 32768 -> PREDICATE_TOO_LARGE
+//!     IN_OPERAND_LIMIT (the byte cap is install's: tests/enforce_state.rs)
 //!   - i128 checked semantics at the boundary
 
 extern crate alloc;
@@ -23,7 +23,7 @@ use alloc::vec::Vec as StdVec;
 
 use crate::dsl::{
     decode, evaluate, CompareOp, DenyReason, EvalContext, EvalDecision, Leaf, Node, PathStep,
-    MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_PATH_STEPS, MAX_PREDICATE_BYTES, MAX_READS,
+    MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_PATH_STEPS, MAX_READS,
 };
 use soroban_sdk::testutils::Address as _;
 use soroban_sdk::xdr::{FromXdr, ScVal, ToXdr, VecM};
@@ -1006,19 +1006,6 @@ fn cap_in_operand_count_over_limit_returns_in_operand_limit() {
     let bytes = bytes_from_node(&env, &n);
     let err = decode(&env, &bytes).expect_err("in haystack > MAX_IN_OPERAND_COUNT must deny");
     assert_eq!(err, crate::dsl::DecodeError::InOperandLimit);
-}
-
-#[test]
-fn cap_predicate_bytes_over_limit_returns_predicate_too_large() {
-    let env = Env::default();
-    let mut payload: StdVec<u8> = StdVec::new();
-    payload.extend(core::iter::repeat_n(
-        0u8,
-        (MAX_PREDICATE_BYTES as usize) + 1,
-    ));
-    let bytes = Bytes::from_slice(&env, &payload);
-    let err = decode(&env, &bytes).expect_err("over-byte predicate must deny");
-    assert_eq!(err, crate::dsl::DecodeError::PredicateTooLarge);
 }
 
 // ----- Tests: i128 checked arithmetic ---------------------------------------
