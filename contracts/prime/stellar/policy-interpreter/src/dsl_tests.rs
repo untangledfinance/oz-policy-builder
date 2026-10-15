@@ -219,6 +219,7 @@ fn call_arg_len(i: u32) -> Leaf {
 fn op_name(op: CompareOp) -> &'static str {
     match op {
         CompareOp::Eq => "eq",
+        CompareOp::Ne => "ne",
         CompareOp::Lt => "lt",
         CompareOp::Lte => "lte",
         CompareOp::Gt => "gt",

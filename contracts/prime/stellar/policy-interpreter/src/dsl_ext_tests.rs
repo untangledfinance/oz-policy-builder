@@ -11,7 +11,7 @@ use soroban_sdk::xdr::{
     ContractId, Duration, Hash, Int128Parts, ScAddress, ScBytes, ScMap, ScMapEntry, ScString,
     ScSymbol, ScVal, ScVec, TimePoint, ToXdr, UInt128Parts, VecM,
 };
-use soroban_sdk::{Env, IntoVal, Symbol, Val, Vec as SorobanVec};
+use soroban_sdk::{Address, Env, IntoVal, Symbol, TryFromVal, Val, Vec as SorobanVec};
 
 pub(crate) fn sym(s: &str) -> ScVal {
     ScVal::Symbol(ScSymbol(s.as_bytes().to_vec().try_into().unwrap()))
@@ -94,10 +94,7 @@ fn raw(env: &Env, pred: &ScVal) -> soroban_sdk::Bytes {
 pub(crate) fn ctx(env: &Env, args: &[ScVal]) -> EvalContext {
     let vals: StdVec<Val> = args.iter().map(|a| a.clone().into_val(env)).collect();
     EvalContext {
-        contract: soroban_sdk::Address::from_str(
-            env,
-            "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
-        ),
+        contract: Address::try_from_val(env, &account(0)).unwrap(),
         fn_name: Symbol::new(env, "go"),
         args: SorobanVec::from_slice(env, &vals),
     }
@@ -298,4 +295,118 @@ fn non_integers_are_still_not_numbers() {
         assert!(denies(&cmp("gte", arg(0), n(0)), &[other.clone()]));
         assert!(denies(&cmp("eq", arg(0), n(5)), &[other]));
     }
+}
+
+// ---- B: ne / nin -----------------------------------------------------------
+
+fn reason(pred: &ScVal, args: &[ScVal]) -> Option<DenyReason> {
+    let env = Env::default();
+    match run(&env, pred, args).expect("decodes") {
+        EvalDecision::Permit => None,
+        EvalDecision::Deny(r) => Some(r),
+    }
+}
+
+#[test]
+fn nin_is_a_denylist() {
+    let p = set("nin", arg(0), &[account(1), account(2)]);
+    assert!(permits(&p, &[account(3)]));
+    assert!(denies(&p, &[account(1)]));
+    assert!(
+        denies(&p, &[account(2)]),
+        "every entry counts, not just the first"
+    );
+}
+
+#[test]
+fn nin_denies_when_the_needle_cannot_resolve() {
+    let p = set("nin", arg(3), &[account(1)]);
+    assert!(
+        denies(&p, &[account(3)]),
+        "no argument 3: not 'not in the list'"
+    );
+    assert!(denies(&p, &[]));
+    // A failed read is unresolved too.
+    let read = tup(&[sym("read"), account(7), sym("f"), tup(&[])]);
+    assert!(denies(&set("nin", read, &[n(1)]), &[n(0)]));
+}
+
+#[test]
+fn nin_and_ne_use_the_same_numeric_equality_as_eq_and_in() {
+    let nin = set("nin", arg(0), &[n(5), n(7)]);
+    for five in forms(5) {
+        assert!(denies(&nin, &[five]));
+    }
+    for six in forms(6) {
+        assert!(permits(&nin, &[six]));
+    }
+    let ne = cmp("ne", arg(0), n(5));
+    for five in forms(5) {
+        assert!(denies(&ne, &[five]));
+    }
+    assert!(permits(&ne, &[n(6)]));
+}
+
+#[test]
+fn ne_permits_only_a_resolved_difference() {
+    let p = cmp("ne", arg(1), account(1));
+    assert!(permits(&p, &[n(0), account(2)]), "a different address");
+    assert!(denies(&p, &[n(0), account(1)]), "the same address");
+    assert!(
+        denies(&p, &[n(0)]),
+        "no argument 1: unresolved is not different"
+    );
+    assert!(permits(&p, &[n(0), n(9)]), "a different type is different");
+}
+
+#[test]
+fn ne_on_the_call_selectors() {
+    assert!(permits(
+        &cmp("ne", tup(&[sym("call_fn")]), sym("other")),
+        &[]
+    ));
+    let same = cmp("ne", tup(&[sym("call_fn")]), sym("go"));
+    assert_eq!(reason(&same, &[]), Some(DenyReason::ArgMismatch));
+    let other = cmp("ne", tup(&[sym("call_contract")]), account(9));
+    assert!(permits(&other, &[]));
+    let own = cmp("ne", tup(&[sym("call_contract")]), account(0));
+    assert_eq!(reason(&own, &[]), Some(DenyReason::ContractScope));
+}
+
+#[test]
+fn ne_with_an_unresolvable_side_denies_on_either_side() {
+    assert!(denies(&cmp("ne", arg(4), n(1)), &[n(0)]));
+    assert!(denies(&cmp("ne", n(1), arg(4)), &[n(0)]));
+    assert!(denies(&cmp("ne", arg(4), arg(5)), &[n(0)]));
+}
+
+#[test]
+fn ordering_over_a_selector_identity_is_still_unsupported() {
+    let p = cmp("lt", tup(&[sym("call_fn")]), n(1));
+    assert_eq!(reason(&p, &[]), Some(DenyReason::UnsupportedNode));
+}
+
+#[test]
+fn nin_keeps_the_in_caps() {
+    assert_eq!(refused(&set("nin", arg(0), &[])), MALFORMED);
+    let many: StdVec<ScVal> = (0..33).map(n).collect();
+    assert_eq!(
+        refused(&set("nin", arg(0), &many)),
+        Some(DecodeError::InOperandLimit)
+    );
+    let full: StdVec<ScVal> = (0..32).map(n).collect();
+    assert_eq!(refused(&set("nin", arg(0), &full)), None);
+}
+
+#[test]
+fn nin_counts_the_needle_once_per_entry_toward_the_leaf_cap() {
+    // 32 entries expand to 32 `ne` of two leaves each: 64.
+    let full: StdVec<ScVal> = (0..32).map(n).collect();
+    let nest: StdVec<ScVal> = (0..4).map(|_| set("nin", arg(0), &full)).collect();
+    assert_eq!(refused(&and(&nest[..3])), None, "192 leaves");
+    assert_eq!(
+        refused(&and(&nest)),
+        Some(DecodeError::TooManyLeaves),
+        "256 leaves"
+    );
 }

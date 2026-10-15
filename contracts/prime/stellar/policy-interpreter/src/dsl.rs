@@ -99,6 +99,7 @@ pub enum Node {
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum CompareOp {
     Eq,
+    Ne,
     Lt,
     Lte,
     Gt,
@@ -249,7 +250,7 @@ fn eval(env: &Env, node: &Node, ctx: &EvalContext, memo: &mut Memo) -> Result<()
             // merely failed to match.
             let sides = [left, right];
             let is_id = |l: &&Leaf| matches!(l, Leaf::CallContract | Leaf::CallFn);
-            if *op != CompareOp::Eq && sides.iter().any(is_id) {
+            if !matches!(op, CompareOp::Eq | CompareOp::Ne) && sides.iter().any(is_id) {
                 return Err(DenyReason::UnsupportedNode);
             }
             // A contract-scope miss is reported as its own reason so a review
@@ -268,6 +269,7 @@ fn eval(env: &Env, node: &Node, ctx: &EvalContext, memo: &mut Memo) -> Result<()
             let n = |v: &Val| val_to_i128(env, v).ok_or(miss);
             let pass = match op {
                 CompareOp::Eq => val_eq(env, &a, &b),
+                CompareOp::Ne => !val_eq(env, &a, &b),
                 CompareOp::Lt => n(&a)? < n(&b)?,
                 CompareOp::Lte => n(&a)? <= n(&b)?,
                 CompareOp::Gt => n(&a)? > n(&b)?,
@@ -525,13 +527,14 @@ fn decode_node(env: &Env, items: &Vals, depth: u32) -> Res<Node> {
     // behind a host object).
     let is = |name: &str| head == Symbol::new(env, name);
     use CompareOp as C;
-    let names = ["eq", "lt", "lte", "gt", "gte"];
-    let mut ops = names.iter().zip([C::Eq, C::Lt, C::Lte, C::Gt, C::Gte]);
+    let names = ["eq", "ne", "lt", "lte", "gt", "gte"];
+    let kinds = [C::Eq, C::Ne, C::Lt, C::Lte, C::Gt, C::Gte];
+    let mut ops = names.iter().zip(kinds);
     if is("and") {
         decode_children(env, items, depth).map(Node::And)
     } else if is("or") {
         decode_children(env, items, depth).map(Node::Or)
-    } else if is("in") {
+    } else if is("in") || is("nin") {
         ensure(items.len() == 3)?;
         let needle = leaf_at(env, items, 1)?;
         let entries: Vals = expect(env, items, 2)?;
@@ -539,12 +542,23 @@ fn decode_node(env: &Env, items: &Vals, depth: u32) -> Res<Node> {
         let short = entries.len() <= MAX_IN_OPERAND_COUNT;
         cap(short, DecodeError::InOperandLimit)?;
         let haystack = each(&entries, |h| literal(env, &h, 1).map(Leaf::Lit))?;
-        Ok(Node::In { needle, haystack })
+        // `nin` is `ne` against every entry: the needle must resolve and differ
+        // from each, so an unresolvable needle denies.
+        let ne = |h: &Leaf| Node::Compare {
+            op: C::Ne,
+            left: needle.clone(),
+            right: h.clone(),
+        };
+        Ok(match is("nin") {
+            true => Node::And(haystack.iter().map(ne).collect()),
+            false => Node::In { needle, haystack },
+        })
     } else if let Some((_, op)) = ops.find(|(name, _)| is(name)) {
         ensure(items.len() == 3)?;
         let (left, right) = (leaf_at(env, items, 1)?, leaf_at(env, items, 2)?);
         // An ordering over an address, symbol or vector literal could never permit.
-        ensure(op == CompareOp::Eq || !(non_number(env, &left) || non_number(env, &right)))?;
+        let order = !matches!(op, C::Eq | C::Ne);
+        ensure(!order || !(non_number(env, &left) || non_number(env, &right)))?;
         Ok(Node::Compare { op, left, right })
     } else {
         // Bare selector tuples at a Node position are MALFORMED.
