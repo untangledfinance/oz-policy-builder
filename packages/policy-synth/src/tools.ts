@@ -19,7 +19,7 @@ import { buildInstall, buildRevoke, type RuleDraft } from './install.ts'
 import type { Intent } from './intent.ts'
 import { type Call, decodeEnvelope, type Recording, recordHash } from './record.ts'
 import { TEMPLATES } from './registry.ts'
-import { type ObservedRule, overlaps, readRules, selectors } from './rules.ts'
+import { overlaps, readRules, selectors } from './rules.ts'
 import { type Answers, type ProposedRule, propose, type Synthesis, synthesize } from './synth.ts'
 import { CAPS, decode, type Expr, encode, hashOf, validate, WireError } from './wire.ts'
 
@@ -367,21 +367,6 @@ const verify_policy = tool(
   }
 )
 
-const observed = z
-  .object({
-    id: z.number().int().nonnegative(),
-    scope: z.union([
-      z.object({ kind: z.literal('default') }),
-      z.object({ kind: z.literal('call_contract'), contract: contractId }),
-      z.object({ kind: z.literal('create_contract'), wasmHash: z.string() }),
-    ]),
-    signers: z.array(z.string()),
-    policies: z.array(z.string()),
-    expr: val.optional(),
-    cap: z.object({ amount: z.string(), periodLedgers: z.number() }).optional(),
-  })
-  .strict()
-
 const install_policy = tool(
   'install_policy',
   "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`. `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The pinned interpreter is checked live (grammar and wasm hash) before anything is built. The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind; `allowOverlap: true` installs anyway. An unanswered amount cap is refused unless `allowUnboundedAmount`. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR; `outPath` also writes it to a file.",
@@ -403,7 +388,6 @@ const install_policy = tool(
       .optional(),
     allowUnboundedAmount: z.boolean().optional(),
     allowOverlap: z.boolean().optional(),
-    existingRules: z.array(observed).optional(),
     interpreterAddress: contractId.optional(),
     interpreterWasmSha256: z
       .string()
@@ -460,13 +444,7 @@ const install_policy = tool(
     // each other: ask all three at once, and throw the build away if the scan refuses.
     const [live, scan, built] = await Promise.all([
       fingerprint(server, network, interpreter, expectedWasm),
-      i.existingRules
-        ? Promise.resolve({
-            rules: i.existingRules as ObservedRule[],
-            complete: true,
-            unreadable: [],
-          })
-        : readRules(server, network, i.smartAccount, interpreter),
+      readRules(server, network, i.smartAccount, interpreter),
       buildInstall({ ...i, server }, draft, interpreter),
     ])
     if (!live.matches) {

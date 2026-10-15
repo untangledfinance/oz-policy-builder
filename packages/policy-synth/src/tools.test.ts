@@ -359,6 +359,19 @@ describe('install_policy', () => {
     expect(r.error.message).toContain('allowOverlap')
   })
 
+  it("has no way to supply the account's rules: the scan always reads the chain", async () => {
+    // `existingRules: []` used to skip the overlap refusal and report a complete, clean scan.
+    await failing(
+      'install_policy',
+      { ...base, existingRules: [] },
+      'INVALID_INPUT',
+      /existingRules/
+    )
+    expect(TOOLS.find((t) => t.name === 'install_policy')?.shape).not.toHaveProperty(
+      'existingRules'
+    )
+  })
+
   it('allowOverlap installs anyway and still reports the overlap; the bytes say what they call', async () => {
     const r = await call('install_policy', { ...base, allowOverlap: true, name: 'pay-9m' })
     expect(r.ok).toBe(true)
@@ -382,66 +395,30 @@ describe('install_policy', () => {
     expect(r.data.authorityScan).toEqual({ complete: true, overlaps: [] })
   })
 
-  it('rules the caller supplies stand in for reading the account, and a looser one still refuses', async () => {
-    const looser = {
-      id: 4,
-      scope: { kind: 'call_contract', contract: TOKEN },
-      signers: [SIGNER],
-      policies: ['CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV'],
-      expr: rule,
-    }
-    const r = await failing(
-      'install_policy',
-      { ...base, existingRules: [looser] },
-      'INSTALL_BUILD_FAILED',
-      /permits everything the new rule does/
-    )
-    expect(r.error.message).toContain('rule 4')
-    expect((await call('install_policy', { ...base, existingRules: [] })).ok).toBe(true)
-  })
-
   it('an unanswered cap is refused, unless asked for', async () => {
     const open = { ...base, limit: undefined, allowOverlap: true }
     await failing('install_policy', open, 'INSTALL_BUILD_FAILED', /Answer with `limit`/)
     expect((await call('install_policy', { ...open, allowUnboundedAmount: true })).ok).toBe(true)
   })
 
-  it('a rolling total rides on the same rule; a neighbour without one refuses it', async () => {
-    const withCap = {
+  it('a rolling total rides on the same rule', async () => {
+    const r = await call('install_policy', {
       ...base,
       spendingLimit: { amount: '100000000', periodLedgers: 17280 },
-      existingRules: [],
-    }
-    const r = await call('install_policy', withCap)
+      allowOverlap: true,
+    })
     expect(r.data.describes.args[4].map).toHaveLength(2)
-    const neighbour = {
-      id: 2,
-      scope: { kind: 'call_contract', contract: TOKEN },
-      signers: [SIGNER],
-      policies: ['CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV'],
-      expr: callExpr({
-        contract: TOKEN,
-        fn: 'transfer',
-        where: [{ rule: 'cap', at: [2], max: '1' }],
-      }),
-    }
-    await failing(
-      'install_policy',
-      { ...withCap, existingRules: [neighbour] },
-      'INSTALL_BUILD_FAILED',
-      /no spend cap/
-    )
   })
 
   it('writes the envelope itself, atomically, and says where', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'opb-'))
     const outPath = join(dir, 'install.xdr')
-    const r = await call('install_policy', { ...base, existingRules: [], outPath })
+    const r = await call('install_policy', { ...base, signers: [account(5)], outPath })
     expect(r.data.writtenTo).toBe(outPath)
     expect(readFileSync(outPath, 'utf8')).toBe(r.data.unsignedXdr)
     await failing(
       'install_policy',
-      { ...base, existingRules: [], outPath: 'relative.xdr' },
+      { ...base, signers: [account(5)], outPath: 'relative.xdr' },
       'INVALID_INPUT',
       /absolute/
     )
@@ -450,7 +427,6 @@ describe('install_policy', () => {
   it('refuses a scope that exposes an admin surface, before any build', async () => {
     const toAccount = {
       ...base,
-      existingRules: [],
       intent: { calls: [{ contract: ACCOUNT, fn: 'add_context_rule' }] },
       xdr: undefined,
       limit: undefined,
@@ -463,7 +439,6 @@ describe('install_policy', () => {
       'install_policy',
       {
         ...base,
-        existingRules: [],
         interpreterAddress: 'CDPR5VTX6R2ZPKREPD7FBW5ANVWXMVJIBIH2GMF36XPOFNMHRDIRUAZQ',
       },
       'INTERPRETER_MISMATCH',
@@ -471,7 +446,7 @@ describe('install_policy', () => {
     )
     await failing(
       'install_policy',
-      { ...base, network: 'mainnet', rpcUrl: undefined, existingRules: [] },
+      { ...base, network: 'mainnet', rpcUrl: undefined },
       'INTERPRETER_MISMATCH',
       /no grammar-7 interpreter is pinned for mainnet/
     )
@@ -491,7 +466,6 @@ describe('install_policy', () => {
       sourceAccount: SIGNER,
       signers: [account(5)],
       encodedPredicate: encodedRule,
-      existingRules: [],
     })
     expect(r.ok).toBe(true)
     expect(r.data.rule).toMatchObject({ contract: TOKEN, predicateHash: hashOf(encodedRule) })
