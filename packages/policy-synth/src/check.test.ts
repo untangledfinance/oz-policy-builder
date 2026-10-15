@@ -458,6 +458,15 @@ describe('verify, what it does not know it says', () => {
     expect(both.ok).toBe(true)
   })
 
+  it('a branch that pins another contract than the call is not asked about it', async () => {
+    const elsewhere: Expr = ['and', [['eq', ['call_contract'], contract(9)], fnIs('transfer')]]
+    const here: Expr = ['and', [['eq', ['call_contract'], C], fnIs('transfer')]]
+    const v = await check(['or', [elsewhere, here]])
+    // The whole rule, and the one branch that can take the call; two calls per case.
+    expect(v.checks).toBe(2 + 2 * v.cases.length)
+    expect(v.unexamined).toHaveLength(1)
+  })
+
   it('one request makes at most 64 calls, an or of a hundred branches included', async () => {
     const hundred: Expr = [
       'or',
@@ -716,6 +725,17 @@ describe('what counts as a verdict', () => {
     })
     // The first line is the verdict: a code the event log mentions later is a callee's.
     expect((await said(105))[0]?.code).toBe(105)
+  })
+
+  it('only the contract error of the call itself is the verdict, not one a callee raised or the log mentions', async () => {
+    await expect(
+      ask({
+        error: 'HostError: Error(WasmVm, InvalidAction)\n\nEvent log:\n 0: Error(Contract, #100)',
+      })
+    ).rejects.toThrow(/no verdict/)
+    await expect(
+      ask({ error: 'something wrapped HostError: Error(Contract, #100)' })
+    ).rejects.toThrow(/no verdict/)
   })
 
   it('a simulation that returns a value is not a verdict: that interpreter can commit what it reads', async () => {

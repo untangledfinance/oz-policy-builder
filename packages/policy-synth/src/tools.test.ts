@@ -3,6 +3,9 @@
 // records it again), through the real SDK against a local JSON-RPC server.
 
 import { afterAll, describe, expect, it, setDefaultTimeout } from 'bun:test'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import {
   Account,
   Address,
@@ -14,7 +17,7 @@ import {
 } from '@stellar/stellar-sdk'
 import { z } from 'zod'
 import { account, contract, recording } from '../test/fixtures.ts'
-import { pointAt, recorded } from '../test/rpc.ts'
+import { fakeInterpreter, pointAt, recorded } from '../test/rpc.ts'
 import { callExpr } from './intent.ts'
 import { run, TOOLS } from './tools.ts'
 import { encode, hashOf } from './wire.ts'
@@ -163,6 +166,29 @@ describe('record_transaction', () => {
 
   it('refuses what is not a transaction that calls a contract', async () => {
     await failing('record_transaction', { xdr: 'AAAA' }, 'RECORDING_FAILED')
+  })
+})
+
+describe('record_transaction: the other network is asked only when neither endpoint is configured', () => {
+  it('a hash that is not found does not go looking on a network the operator did not name', async () => {
+    const [a, b] = [
+      fakeInterpreter(contract(1), 'ab'.repeat(32)),
+      fakeInterpreter(contract(2), 'ab'.repeat(32)),
+    ]
+    const undo = [
+      pointAt('testnet', `http://127.0.0.1:${a.port}`),
+      pointAt('mainnet', `http://127.0.0.1:${b.port}`),
+    ]
+    try {
+      const r = (await call('record_transaction', { hash: INSTALL_TX })) as Out
+      expect(r.ok).toBe(false)
+      expect(a.asked.length).toBeGreaterThan(0)
+      expect(b.asked).toEqual([])
+    } finally {
+      for (const u of undo) u()
+      a.stop()
+      b.stop()
+    }
   })
 })
 
@@ -452,7 +478,72 @@ describe('install_policy', () => {
     expect(r.data.describes.args[4].map).toHaveLength(2)
   })
 
-  it('takes no outPath or endpoint: what it builds is returned, and written nowhere', async () => {
+  describe("outFile: a name inside the operator's directory, never a path", () => {
+    const clean = { ...base, signers: [account(5)] }
+    const withDir = async <T>(f: (dir: string) => Promise<T>) => {
+      const dir = mkdtempSync(join(tmpdir(), 'opb-'))
+      const before = process.env.POLICY_BUILDER_OUT_DIR
+      process.env.POLICY_BUILDER_OUT_DIR = dir
+      try {
+        return await f(dir)
+      } finally {
+        if (before === undefined) delete process.env.POLICY_BUILDER_OUT_DIR
+        else process.env.POLICY_BUILDER_OUT_DIR = before
+      }
+    }
+
+    it('writes the envelope into the configured directory, reads it back, and says where', async () => {
+      await withDir(async (dir) => {
+        const r = await call('install_policy', { ...clean, outFile: 'install.xdr' })
+        expect(r.ok).toBe(true)
+        expect(r.data.writtenTo).toBe(join(dir, 'install.xdr'))
+        expect(readFileSync(join(dir, 'install.xdr'), 'utf8')).toBe(r.data.unsignedXdr)
+        expect(readdirSync(dir)).toEqual(['install.xdr']) // no staging file left behind
+      })
+    })
+
+    it('never overwrites a file, and writes nothing for an install that is refused', async () => {
+      await withDir(async (dir) => {
+        writeFileSync(join(dir, 'mine.xdr'), 'important')
+        await failing(
+          'install_policy',
+          { ...clean, outFile: 'mine.xdr' },
+          'INSTALL_BUILD_FAILED',
+          /already exists/
+        )
+        expect(readFileSync(join(dir, 'mine.xdr'), 'utf8')).toBe('important')
+        await failing(
+          'install_policy',
+          { ...base, outFile: 'refused.xdr' },
+          'INSTALL_BUILD_FAILED',
+          /refused: rule 0/
+        )
+        expect(existsSync(join(dir, 'refused.xdr'))).toBe(false)
+      })
+    })
+
+    it('is refused with no directory configured, and for anything but a plain file name', async () => {
+      await failing(
+        'install_policy',
+        { ...clean, outFile: 'a.xdr' },
+        'INSTALL_BUILD_FAILED',
+        /POLICY_BUILDER_OUT_DIR/
+      )
+      for (const outFile of [
+        '../x',
+        '/tmp/x',
+        'a/b',
+        '.hidden',
+        '..',
+        'a\\0b',
+        '',
+        'x'.repeat(101),
+      ])
+        await failing('install_policy', { ...clean, outFile }, 'INVALID_INPUT')
+    })
+  })
+
+  it("takes no endpoint or path of its own: those are the operator's", async () => {
     for (const extra of [{ outPath: '/tmp/x.xdr' }, { rpcUrl: 'https://rpc.example.com' }])
       await failing('install_policy', { ...base, ...extra }, 'INVALID_INPUT', /Unrecognized key/)
   })
@@ -580,6 +671,8 @@ describe('install_policy: the input boundary, to the unit', () => {
     ['a one-character name', { name: 'x' }, true],
     ['a twenty-character name', { name: 'x'.repeat(20) }, true],
     ['an empty name', { name: '' }, false],
+    ['a plain file name', { outFile: 'install.xdr' }, true],
+    ['a path', { outFile: 'a/b.xdr' }, false],
     ['a ledger of the maximum', { validUntilLedger: 0xffffffff }, true],
     ['a ledger past it', { validUntilLedger: 0x100000000 }, false],
   ])('%s', (_n, o, want) => expect(ok(o)).toBe(want))

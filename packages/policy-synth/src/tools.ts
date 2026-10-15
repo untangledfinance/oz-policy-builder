@@ -5,6 +5,8 @@
 //
 // Nothing here holds a key. Install and revoke return an unsigned transaction.
 
+import { readFile, rm, writeFile } from 'node:fs/promises'
+import { isAbsolute, join } from 'node:path'
 import { StrKey } from '@stellar/stellar-sdk'
 import { z } from 'zod'
 import { card } from './card.ts'
@@ -386,7 +388,7 @@ const verify_policy = tool(
 
 const install_policy = tool(
   'install_policy',
-  "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`. `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The interpreter is checked live before anything is built: it must speak the grammar and run a trusted build (a pinned address, or on a network with none, an `interpreterAddress` whose code hash is one this package trusts). The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind; `allowOverlap: true` installs anyway. An unanswered amount cap is refused unless `allowUnboundedAmount`. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR.",
+  "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`. `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The interpreter is checked live before anything is built: it must speak the grammar and run a trusted build (a pinned address, or on a network with none, an `interpreterAddress` whose code hash is one this package trusts). The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind; `allowOverlap: true` installs anyway. An unanswered amount cap is refused unless `allowUnboundedAmount`. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR; `outFile` (a bare file name) also writes it into the operator's `POLICY_BUILDER_OUT_DIR`, without replacing a file.",
   {
     ...net,
     ...from,
@@ -407,6 +409,10 @@ const install_policy = tool(
     allowOverlap: z.boolean().optional(),
     interpreterAddress: contractId.optional(),
     baseFee: z.number().int().positive().optional(),
+    outFile: z
+      .string()
+      .regex(/^[A-Za-z0-9_][A-Za-z0-9._-]{0,99}$/, 'a plain file name')
+      .optional(),
   },
   async (i, signal) => {
     // The rule: an encoded predicate scoped by `contract`, or one the source yields.
@@ -432,9 +438,39 @@ const install_policy = tool(
         readRules(server, i.network, account, interpreter, signal),
       build: (draft, interpreter) => buildInstall({ ...i, server }, draft, interpreter),
     }
-    return planInstall(i, rule, chain)
+    const out = i.outFile === undefined ? undefined : outPathFor(i.outFile)
+    const plan = await planInstall(i, rule, chain)
+    return out === undefined ? plan : { ...plan, writtenTo: await writeNew(out, plan.unsignedXdr) }
   }
 )
+
+/** Where `name` goes: inside the directory the operator configured, and only there. */
+function outPathFor(name: string): string {
+  const dir = process.env.POLICY_BUILDER_OUT_DIR
+  if (!dir || !isAbsolute(dir))
+    throw new Refusal(
+      'INSTALL_BUILD_FAILED',
+      'outFile needs the operator to set POLICY_BUILDER_OUT_DIR to an absolute directory'
+    )
+  return join(dir, name)
+}
+
+/** Create `path` (never replacing a file) and read it back: a half-written file would
+ *  reach a signer as a malformed transaction. */
+async function writeNew(path: string, text: string): Promise<string> {
+  try {
+    await writeFile(path, text, { encoding: 'utf8', flag: 'wx' })
+  } catch (e) {
+    if ((e as { code?: string }).code === 'EEXIST')
+      throw new Refusal('INSTALL_BUILD_FAILED', `${path} already exists; it is not overwritten`)
+    throw e
+  }
+  if ((await readFile(path, 'utf8')) !== text) {
+    await rm(path, { force: true })
+    throw new Error('outFile: the file was not persisted intact')
+  }
+  return path
+}
 
 const revoke_policy = tool(
   'revoke_policy',

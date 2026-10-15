@@ -163,6 +163,7 @@ export function fakeInterpreter(address: string, wasm: string, grammar = 7, verd
     /** Make the tools' mainnet endpoint this one. */
     use: () => pointAt('mainnet', `http://127.0.0.1:${server.port}`),
     asked,
+    port: server.port,
     stop: () => server.stop(true),
   }
 }
