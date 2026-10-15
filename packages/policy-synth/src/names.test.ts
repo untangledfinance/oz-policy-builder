@@ -74,6 +74,45 @@ describe('names from the network', () => {
     ])
   })
 
+  it('a rule scoped to a contract by its context rule is named by that contract, though its predicate never says so', async () => {
+    const expr = [
+      'and',
+      [
+        ['eq', ['call_fn'], 'transfer'],
+        ['lte', ['call_arg', 2], { i128: '10000000' }],
+      ],
+    ]
+    const data = await call('simulate_policy', { expr, contract: XLM })
+    expect(data.review).toEqual([
+      `${short(XLM)}  (token)`,
+      '└─ transfer(from, to, amount)',
+      '   └─ amount:  must be at most  1 native (10000000)',
+    ])
+    expect(data.reviewTree[0]).toMatchObject({ op: 'contract', raw: null, value: XLM })
+  })
+
+  it('an abort of the request leaves the plain wording: the names are not worth waiting for', async () => {
+    const expr = [
+      'and',
+      [
+        ['eq', ['call_contract'], XLM],
+        ['eq', ['call_fn'], 'transfer'],
+        ['eq', ['call_arg', 0], account(1)],
+      ],
+    ]
+    const gone = AbortSignal.abort()
+    const r = (await run('simulate_policy', { network: 'testnet', expr }, gone)) as {
+      ok: boolean
+      data: { review: string[] }
+    }
+    expect(r.ok).toBe(true)
+    expect(r.data.review).toEqual([
+      short(XLM),
+      '└─ transfer',
+      `   └─ argument 0:  must be  ${short(account(1))}`,
+    ])
+  })
+
   it('a function the contract does not have, and a field a struct does not have, are not named', async () => {
     const expr = [
       'and',

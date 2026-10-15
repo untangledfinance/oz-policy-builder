@@ -5,7 +5,7 @@
 
 import { afterAll, describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
-import { Address, xdr } from '@stellar/stellar-sdk'
+import { Address, StrKey, xdr } from '@stellar/stellar-sdk'
 import { contract } from '../test/fixtures.ts'
 import { infoFor, interfaceOf, SAC } from './spec.ts'
 
@@ -118,6 +118,39 @@ describe('the interface of a wasm', () => {
     expect(Object.keys(fns)).not.toContain('__proto__')
   })
 
+  it('a wasm of exactly the size cap is read, one byte more is not', () => {
+    const base = wasmWith(spec)
+    const pad = (total: number) => {
+      // A custom section named `pad`: id 0, a 3-byte length, the name, then filler.
+      const body = total - base.length - 4
+      const data = Buffer.concat([Buffer.from([3, 0x70, 0x61, 0x64]), Buffer.alloc(body - 4)])
+      return Buffer.concat([
+        base,
+        Buffer.from([0, (body & 127) | 128, ((body >> 7) & 127) | 128, body >> 14]),
+        data,
+      ])
+    }
+    expect(pad(262_144)).toHaveLength(262_144)
+    expect(interfaceOf(pad(262_144))).not.toBeNull()
+    expect(interfaceOf(pad(262_145))).toBeNull()
+  })
+
+  it('names are 1 to 30 plain characters, and one bad field spoils the struct', () => {
+    const ok = interfaceOf(wasmWith([fn('a'.repeat(30), [['b'.repeat(30), Z()]])]))
+    expect(Object.keys(ok ?? {})).toEqual(['a'.repeat(30)])
+    expect(interfaceOf(wasmWith([fn('', [])]))).toEqual({})
+    const mixed = interfaceOf(
+      wasmWith([
+        struct('M', [
+          ['good', Z()],
+          ['bad name', Z()],
+        ]),
+        fn('f', [['m', udt('M')]]),
+      ])
+    )
+    expect(mixed?.f).toEqual([['m', 'udt']])
+  })
+
   it('no spec, a spec that is not one, a wasm that is not one, too much of either: nothing', () => {
     expect(interfaceOf(wasmWith(spec, 'other'))).toBeNull()
     expect(interfaceOf(Buffer.from('not wasm'))).toBeNull()
@@ -145,6 +178,9 @@ describe('the interface of a wasm', () => {
 
 // ---- a network that answers like one ----
 
+/** A contract of its own: ids here never repeat one another's, the caches live as long as the process. */
+const unique = (n: number) =>
+  StrKey.encodeContract(Buffer.concat([Buffer.alloc(30), Buffer.from([n >> 8, n & 255])]))
 const hashOf = (n: number) => Buffer.alloc(32, n).toString('hex')
 interface Fake {
   /** contract -> wasm hash, or '' for a Stellar Asset Contract. */
@@ -154,10 +190,12 @@ interface Fake {
   tokens?: Record<string, [unknown, unknown]>
   /** What to do with the next getLedgerEntries: fail, or hang. */
   mode?: 'fail' | 'hang' | undefined
+  /** Milliseconds each simulation takes. */
+  delay?: number
 }
 
 function network(f: Fake) {
-  const calls = { instances: 0, codes: 0, sims: 0, keys: 0 }
+  const calls = { instances: 0, codes: 0, sims: 0, keys: 0, running: 0, peak: 0 }
   const server = Bun.serve({
     port: 0,
     async fetch(req) {
@@ -209,6 +247,9 @@ function network(f: Fake) {
       }
       if (body.method === 'simulateTransaction') {
         calls.sims++
+        calls.peak = Math.max(calls.peak, ++calls.running)
+        if (f.delay) await Bun.sleep(f.delay)
+        calls.running--
         const op = xdr.TransactionEnvelope.fromXDR(body.params.transaction, 'base64')
           .v1()
           .tx()
@@ -339,6 +380,54 @@ describe('what is known of a contract', () => {
     expect(Object.keys(got)).toHaveLength(16)
     expect(n.calls.instances).toBe(16)
     expect(await infoFor(n.endpoint, [])).toEqual({})
+  })
+
+  it('a token is answered once, and the cache is bounded: the oldest goes first', async () => {
+    const ids = Array.from({ length: 300 }, (_, i) => unique(1000 + i))
+    const n = open({
+      instances: Object.fromEntries(ids.map((c) => [c, ''])),
+      wasms: {},
+      tokens: Object.fromEntries(ids.map((c) => [c, [7, 'T']])),
+    })
+    for (let i = 0; i < ids.length; i += 16) await infoFor(n.endpoint, ids.slice(i, i + 16))
+    expect(n.calls.sims).toBe(600)
+    await infoFor(n.endpoint, ids.slice(-1)) // the newest is still known
+    await infoFor(n.endpoint, ids.slice(44, 45)) // so is the 256th from the end
+    expect(n.calls.sims).toBe(600)
+    await infoFor(n.endpoint, ids.slice(43, 44)) // the one before it was dropped
+    expect(n.calls.sims).toBe(602)
+  })
+
+  it('what an answer may be: symbols of 1 to 12 plain characters, decimals up to 38', async () => {
+    const cases: [unknown, unknown, object][] = [
+      [38, 'A', { decimals: 38, symbol: 'A' }],
+      [39, '0123456789ab', { symbol: '0123456789ab' }],
+      [0, '0123456789abc', { decimals: 0 }],
+      [7, '9._-z', { decimals: 7, symbol: '9._-z' }],
+      [7, '', { decimals: 7 }],
+    ]
+    const ids = cases.map((_, i) => unique(2000 + i))
+    const n = open({
+      instances: Object.fromEntries(ids.map((c) => [c, ''])),
+      wasms: {},
+      tokens: Object.fromEntries(ids.map((c, i) => [c, [cases[i]?.[0], cases[i]?.[1]]])),
+    })
+    const got = await infoFor(n.endpoint, ids)
+    for (const [i, c] of cases.entries())
+      expect(got[ids[i] as string]?.token).toEqual(c[2] as never)
+  })
+
+  it('token reads go a few at a time, never all at once', async () => {
+    const ids = Array.from({ length: 12 }, (_, i) => unique(3000 + i))
+    const n = open({
+      instances: Object.fromEntries(ids.map((c) => [c, ''])),
+      wasms: {},
+      tokens: Object.fromEntries(ids.map((c) => [c, [7, 'T']])),
+      delay: 20,
+    })
+    await infoFor(n.endpoint, ids)
+    expect(n.calls.sims).toBe(24)
+    expect(n.calls.peak).toBeLessThanOrEqual(8)
   })
 
   it('a network that errors, a url that is not allowed, an abort: the empty answer, in time', async () => {

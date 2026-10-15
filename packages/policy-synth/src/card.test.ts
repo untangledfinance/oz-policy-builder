@@ -75,6 +75,36 @@ describe('operators and operands are words', () => {
       `price() on ${short(C)}:  must be at least  5`,
     ],
     [
+      [
+        'eq',
+        [
+          'read',
+          C,
+          'f',
+          [
+            ['lit', 5],
+            ['lit', { string: 'k' }],
+          ],
+        ],
+        1,
+      ],
+      `f(5, "k") on ${short(C)}:  must be  1`,
+    ],
+    [
+      [
+        'gte',
+        ['call_arg', 1],
+        [
+          'scaled',
+          ['scaled', ['call_arg', 0], 2, { i128: '3' }, 0],
+          ['lit', 4],
+          { i128: '5' },
+          ['lit', 6],
+        ],
+      ],
+      'argument 1:  must be at least  (argument 0 × 2 ÷ 3) × 4 ÷ 5 + 6',
+    ],
+    [
       ['lte', ['sum', ['call_arg', 0], 'amount'], { i128: '9' }],
       'the total of amount in argument 0:  must be at most  9',
     ],
@@ -324,6 +354,7 @@ describe('amounts', () => {
       '12,345,678,901,234,567,890,123.456789 USDC'
     )
     expect(amount('-5000000')).toContain('-0.5 USDC (-5000000)')
+    expect(amount('0')).toContain('  0 USDC (0)')
   })
 
   it('decimals 0, no symbol, no decimals: the unit it can say, else the number alone', () => {
@@ -449,6 +480,13 @@ describe('time', () => {
     )
     expect(one(['lt', ['now'], { timepoint: '1830297600' }])).toContain('2028-01-01 00:00 UTC')
     expect(one(['lte', ['now'], { i128: '1900000000' }])).toContain('2030-03-17 17:46 UTC')
+  })
+
+  it('the first and the last second of the calendar, and one past it', () => {
+    expect(one(['gte', ['now'], { u64: '0' }])).toContain('1970-01-01 00:00 UTC')
+    expect(one(['lte', ['now'], { u64: '253402300799' }])).toContain('9999-12-31 23:59 UTC')
+    expect(one(['lte', ['now'], { u64: '253402300800' }])).toContain('  253402300800')
+    expect(one(['lte', ['now'], { i128: '-1' }])).toContain('  -1')
   })
 
   it('what is not a plausible time, and --raw, stays a number', () => {
@@ -656,6 +694,11 @@ describe('the tree', () => {
     expect(JSON.parse(JSON.stringify(t)).children[0].raw).toEqual(['eq', ['call_fn'], 'transfer'])
   })
 
+  it('a node with nothing under it has no children, not an empty list', () => {
+    expect(tree(['and', [['eq', ['call_contract'], C]]])[0]).not.toHaveProperty('children')
+    expect(tree(['eq', ['call_arg', 0], 1])[0]).not.toHaveProperty('children')
+  })
+
   it('a non-node is shown as the value it is', () => {
     expect(card(5 as unknown as Expr)).toEqual(['5'])
     expect(lines([])).toEqual([])
@@ -767,8 +810,7 @@ const shownLeaves = (ns: Node[]) =>
   )
 
 /** The tree and the predicate say the same thing: same structure, every leaf exactly once. */
-export function roundTrips(e: Expr, v: View = {}) {
-  const ns = tree(e, v)
+export function roundTrips(e: Expr, v: View = {}, ns: Node[] = tree(e, v)) {
   const rebuilt = ns.length === 1 ? rebuild(ns[0] as Node) : ['and', ns.map(rebuild)]
   expect(canon(rebuilt as Expr)).toEqual(canon(e))
   expect(shownLeaves(ns).sort()).toEqual(leaves(e).sort())
@@ -924,5 +966,52 @@ describe('round trip: every node is one leaf or group of the predicate, every le
         return x
       })
     ).toThrow()
+  })
+
+  it('the whole check refuses a tree that dropped, repeated or invented a leaf, or bent a quantifier', () => {
+    const q: Expr = [
+      'and',
+      [
+        ['eq', ['call_fn'], 'f'],
+        [
+          'all',
+          ['call_arg', 0],
+          [
+            'and',
+            [
+              ['gte', ['elem', 'x'], 0],
+              ['lte', ['elem', 'x'], 9],
+            ],
+          ],
+        ],
+        ['eq', ['call_arg', 1], 2],
+      ],
+    ]
+    const fresh = () => structuredClone(tree(q))
+    expect(() => roundTrips(q, {}, fresh())).not.toThrow()
+    const quant = (ns: Node[]) => ((ns[0] as Node).children as Node[])[0] as Node
+    const mutate: [string, (ns: Node[]) => void][] = [
+      ['a leaf of the quantifier body dropped', (ns) => quant(ns).children?.pop()],
+      ['a leaf repeated', (ns) => quant(ns).children?.push(quant(ns).children?.[0] as Node)],
+      ['the quantifier turned into another', (ns) => (quant(ns).op = 'any')],
+      [
+        'a leaf out of the quantifier',
+        (ns) => (ns[0] as Node).children?.push((quant(ns).children as Node[]).pop() as Node),
+      ],
+      [
+        'a leaf that is not in the rule',
+        (ns) => (((ns[0] as Node).children?.at(-1) as Node).raw = ['eq', ['call_arg', 1], 3]),
+      ],
+      ['a header without its pin', (ns) => ((ns[0] as Node).raw = null)],
+      [
+        'a group with a node of its own',
+        (ns) => (ns[0] as Node).children?.push({ label: 'x', op: 'and', raw: ['and', []] }),
+      ],
+    ]
+    for (const [, f] of mutate) {
+      const ns = fresh()
+      f(ns)
+      expect(() => roundTrips(q, {}, ns)).toThrow()
+    }
   })
 })

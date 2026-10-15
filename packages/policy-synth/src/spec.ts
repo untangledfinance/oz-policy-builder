@@ -59,7 +59,7 @@ export function interfaceOf(wasm: Buffer): Fns | null {
   try {
     const { entries } = soroban.Spec.fromWasm(wasm)
     // Names reach a review as text: only plain identifiers are used.
-    const safe = (n: string) => /^\w{1,32}$/.test(n)
+    const safe = (n: string) => /^\w{1,30}$/.test(n)
     const of = (e: xdr.ScSpecEntry, kind: string) => e.switch().name === kind
     const structs = new Map(
       entries.flatMap((e) =>

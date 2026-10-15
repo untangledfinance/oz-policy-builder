@@ -196,6 +196,24 @@ describe('record_transaction: the other network is asked only when neither endpo
   })
 })
 
+describe('get_interpreter_info explainAccount: only a trusted interpreter is read from', () => {
+  it('an untrusted build named for a network with no pin is refused before any rule is read', async () => {
+    const fake = fakeInterpreter(contract(3), 'cd'.repeat(32))
+    const undo = fake.use()
+    try {
+      await failing(
+        'get_interpreter_info',
+        { network: 'mainnet', interpreterAddress: contract(3), explainAccount: ACCOUNT },
+        'INTERPRETER_MISMATCH'
+      )
+      expect(fake.asked).not.toContain('simulate get_context_rules_count')
+    } finally {
+      undo()
+      fake.stop()
+    }
+  })
+})
+
 describe('synthesize_policy: template parameters are typed', () => {
   const venue = { pool: TOKEN, token: contract(2), account: account(1), max: '100' }
   const batch = { adapter: TOKEN, targets: [contract(2)] }
@@ -277,6 +295,18 @@ describe('synthesize_policy', () => {
       allow: { to: [account(2)] },
     })
     expect(r.data.rules[0].review.at(-2)).toContain('GABA…EJXA (to)')
+  })
+
+  it('the first name an address is given stays; a numbered list is not a name', async () => {
+    const r = await call('synthesize_policy', {
+      xdr: transferXdr(),
+      limit: '9000000',
+      allow: { to: [account(2)], payee: [account(2)], '1': [account(1)] },
+    })
+    const text = r.data.rules[0].review.join('\n')
+    expect(text).toContain('GABA…EJXA (to)')
+    expect(text).not.toContain('(payee)')
+    expect(text).not.toContain('(1)')
   })
 
   it('an intent, a template and a recording are other ways in', async () => {
@@ -520,6 +550,28 @@ describe('install_policy', () => {
     const text = r.data.rule.review.join('\n')
     expect(text).toContain('GAAQ…DZ7H (signer)')
     expect(text).toContain('GABA…EJXA (admin)')
+  })
+
+  it('the source account is named in the review before the signer it also is', async () => {
+    const pinned = encode(
+      callExpr({
+        contract: TOKEN,
+        fn: 'transfer',
+        where: [
+          { constraint: 'pin', at: [0], to: SIGNER },
+          { constraint: 'cap', at: [2], max: '9000000' },
+        ],
+      })
+    )
+    const r = await call('install_policy', {
+      ...base,
+      xdr: undefined,
+      limit: undefined,
+      encodedPredicate: pinned,
+      contract: TOKEN,
+      allowOverlap: true,
+    })
+    expect(r.data.rule.review.join('\n')).toContain('GAT7…BCSB (source account)')
   })
 
   it('a signer the account does not share is a clean install', async () => {
