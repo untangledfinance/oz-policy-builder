@@ -378,7 +378,7 @@ const record_transaction = tool(
 
 const synthesize_policy = tool(
   'synthesize_policy',
-  'Turn a transaction, a recording, an intent (the calls to allow, with per-argument constraints (`{constraint: "cap", at, max}`): pin, allow, deny, cap, floor, length, minOut, each, some, total, read, until, from) or a template (adapter_batch, blend_venue) into rules: one per contract, each with its predicate (a wire expression), its encoding and hash, and a plain-language review. `ambiguities` are questions whose answers change what is permitted (usually the cap on an amount: answer with `limit`, `limits` or `allow`); `warnings` say what is left open.',
+  'Turn a transaction, a recording, an intent (the calls to allow, with per-argument constraints (`{constraint: "cap", at, max}`): pin, allow, deny, cap, floor, length, minOut, each, some, total, read, until, from) or a template (adapter_batch, blend_venue) into rules: one per contract, each with its predicate (a wire expression), its encoding and hash, and its review (`review`, a text tree, and `reviewTree`, nodes each carrying the wire `raw` it was read from; names are read best-effort from the contracts and are display only, so this tool is not offline). `ambiguities` are questions whose answers change what is permitted (usually the cap on an amount: answer with `limit`, `limits` or `allow`); `warnings` say what is left open.',
   { ...net, ...display, ...from },
   async (i, signal) => {
     const s = await sourceOf(i)
@@ -629,7 +629,7 @@ async function explainAccount(
 
 const get_interpreter_info = tool(
   'get_interpreter_info',
-  "The interpreter a network uses: its pinned address, grammar version and wasm sha256, the predicate caps, and with `verifyLive` what is deployed at that address right now (grammar_version() and the code hash) and whether it matches the pin. With `explainAccount` (a smart account) it also reads the account's rules and explains each one this interpreter polices (`review`, `reviewTree`).",
+  "The interpreter a network uses: its pinned address, grammar version and wasm sha256, the predicate caps, and with `verifyLive` what is deployed at that address right now (grammar_version() and the code hash) and whether it matches the pin. With `explainAccount` (a smart account) it also reads the account's rules and explains each one this interpreter polices (`review`, `reviewTree`); only an OpenZeppelin smart account build the package knows is read.",
   {
     ...net,
     ...display,

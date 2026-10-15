@@ -163,7 +163,7 @@ const params = (c: View) => {
 }
 
 /** What an operand is called: a name where the interface gives one, else the wire wording. */
-function sub(v: Val, c: View, kind?: Sub['kind']): Sub {
+function operand(v: Val, c: View, kind?: Sub['kind']): Sub {
   if (!isSelector(v) || v[0] === 'lit') return { name: show(v, kind, c) }
   const [head, ...r] = v
   // A path ends in `true` for the number of items (`call_arg_len` always does).
@@ -198,20 +198,20 @@ function sub(v: Val, c: View, kind?: Sub['kind']): Sub {
     case 'sum': {
       const [src, ...steps] = path as Val[]
       const of = steps.length ? `${steps.map((x) => step(x, c)).join(' › ')} in ` : ''
-      return counted({ name: `the total of ${of}${sub(src as Val, c).name}` })
+      return counted({ name: `the total of ${of}${operand(src as Val, c).name}` })
     }
     case 'scaled': {
       const [src, num, den, add] = r as Val[]
       const part = (x: Val) =>
         isSelector(x) && ['scaled', 'read', 'sum'].includes(x[0] as string)
-          ? `(${sub(x, c).name})`
-          : sub(x, c).name
-      const tail = sub(add as Val, c).name === '0' ? '' : ` + ${part(add as Val)}`
+          ? `(${operand(x, c).name})`
+          : operand(x, c).name
+      const tail = operand(add as Val, c).name === '0' ? '' : ` + ${part(add as Val)}`
       return { name: `${part(src as Val)} × ${part(num as Val)} ÷ ${part(den as Val)}${tail}` }
     }
     case 'read': {
       const [target, fn, args, ...steps] = path as [string, string, Val[], ...Val[]]
-      const on = `${fn}(${args.map((x) => sub(x, c).name).join(', ')}) on ${addr(target, c)}`
+      const on = `${fn}(${args.map((x) => operand(x, c).name).join(', ')}) on ${addr(target, c)}`
       return counted({ name: [on, ...steps.map((s) => step(s, c))].join(' › ') })
     }
   }
@@ -221,8 +221,8 @@ function sub(v: Val, c: View, kind?: Sub['kind']): Sub {
 function leaf(e: Expr, c: View): Node {
   if (!isSelector(e)) return { label: constant(e, c), op: 'lit', raw: e }
   const [op, a, b] = e as [string, Val, Val]
-  const [l, r] = [sub(a, c), isSelector(b) ? sub(b, c) : undefined]
-  const side = (x: Val) => sub(x, c, l.kind ?? r?.kind).name
+  const [l, r] = [operand(a, c), isSelector(b) ? operand(b, c) : undefined]
+  const side = (x: Val) => operand(x, c, l.kind ?? r?.kind).name
   const list = (op === 'in' || op === 'nin') && Array.isArray(b)
   const index = l.index ?? r?.index
   return {
@@ -251,7 +251,7 @@ function conj(list: Expr[], c: View): Node[] {
   const [ci, fi] = [pin(list, 'call_contract'), pin(list, 'call_fn')]
   const at = (i: number) => (list[i] as [string, Val, string])[2]
   const inner: View = { ...c, contract: ci < 0 ? c.contract : at(ci), fn: fi < 0 ? c.fn : at(fi) }
-  let out = list.flatMap((x, i) => (i === ci || i === fi ? [] : [one(x, inner)]))
+  let out = list.flatMap((x, i) => (i === ci || i === fi ? [] : [branch(x, inner)]))
   if (fi >= 0) {
     const p = params(inner)
     const label = p ? `${at(fi)}(${p.map((x) => x[0]).join(', ')})` : at(fi)
@@ -266,20 +266,20 @@ const header = (c: View, a = c.contract as string) =>
   `${named(a, c) ? `${named(a, c)}  ` : ''}${short(a, c)}${known(c)?.token ? '  (token)' : ''}`
 
 /** One node for a branch: its conditions, as a group when there are several. */
-const one = (e: Expr, c: View, ns = top(e, c)): Node =>
+const branch = (e: Expr, c: View, ns = nodes(e, c)): Node =>
   ns.length === 1 ? (ns[0] as Node) : { label: 'all of', op: 'and', raw: e, ...kids(ns) }
 
-function top(e: Expr, c: View): Node[] {
+function nodes(e: Expr, c: View): Node[] {
   if (!isSelector(e)) return [leaf(e, c)]
   const [op, a, b] = e as [string, Val, Val]
   if (op === 'and') return conj(a as Expr[], c)
   if (op === 'or')
-    return [{ label: 'any one of', op, raw: e, ...kids((a as Expr[]).map((x) => one(x, c))) }]
+    return [{ label: 'any one of', op, raw: e, ...kids((a as Expr[]).map((x) => branch(x, c))) }]
   if (op === 'all' || op === 'any') {
-    const s = sub(a, c)
+    const s = operand(a, c)
     const item = typeof s.ty === 'object' && 'vec' in s.ty ? s.ty.vec : c.item
     const label = `${op === 'all' ? 'every' : 'some'} item of ${s.name}`
-    const children = kids(top(b, { ...c, item }))
+    const children = kids(nodes(b, { ...c, item }))
     return [{ label, op, raw: e, ...(s.index ? { index: s.index } : {}), ...children }]
   }
   return [leaf(e, c)]
@@ -292,13 +292,13 @@ export const contractsOf = (e: Val) => Array.from(JSON.stringify(e).matchAll(PIN
 /** The tree of a predicate. `view.contract` is the contract its rule is scoped to: a header for it
  *  (with `raw: null`) wraps the tree unless the predicate itself pins exactly that contract. */
 export function tree(expr: Expr, view: View = {}): Node[] {
-  const nodes = top(expr, view)
-  const [first] = nodes
+  const body = nodes(expr, view)
+  const [first] = body
   // The scope is always said, unless the predicate's own pin is that very contract.
-  const same = nodes.length === 1 && first?.op === 'contract' && first.value === view.contract
+  const same = body.length === 1 && first?.op === 'contract' && first.value === view.contract
   return view.contract && !same
-    ? [{ label: header(view), op: 'contract', value: view.contract, raw: null, ...kids(nodes) }]
-    : nodes
+    ? [{ label: header(view), op: 'contract', value: view.contract, raw: null, ...kids(body) }]
+    : body
 }
 
 /** The tree as text, box-drawn: a condition as `name:  phrase  value`. */

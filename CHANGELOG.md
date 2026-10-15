@@ -21,15 +21,27 @@ a mainnet install names its own, which must run a trusted build).
   `{label, op, value, raw, index?, children?}`, `raw` the exact wire leaf or subtree) come
   back from `synthesize_policy`, `install_policy` (`rule`), `simulate_policy`,
   `verify_policy` and `revoke_policy` (`removes`). Rules group by contract, then
-  function (a pinned `call_contract` / `call_fn` becomes a header); parameter names come
-  from the contract's own `contractspecv0` (read once per wasm, cached; SEP-41 table for
-  a Stellar Asset Contract), through structs, vectors and maps; a token's amounts show
-  in its symbol with the raw number after; addresses are short with the name the request
-  gave them; `now` compares are UTC dates. Names are display only and best effort
-  (bounded, time-limited, never able to change a verdict); anything unresolvable keeps
-  "argument N". `raw: true` shows indices and raw values. `simulate_policy` with a
-  predicate and no calls only explains it; `get_interpreter_info` takes `explainAccount`
-  (a smart account) and explains each rule this interpreter polices.
+  function (a pinned `call_contract` / `call_fn` becomes a header, and a rule's known scope
+  is always said); parameter names come from the contract's own `contractspecv0` (read once
+  per wasm, cached; the SEP-41 table for a Stellar Asset Contract), through structs,
+  vectors and maps. The text is injective: constants carry their type where the contract
+  tells types apart (symbols `'quoted'`, strings `"quoted"`, `5 (u256)`, numbers in a vector
+  typed, bytes `0x..`, other bytes `hex".."`), a path step says index `[0]`, key or length,
+  and an item's field is `the item › x`, so two rules that differ never read alike (held
+  by an oracle and a generated grid in the suite). `now` compares are UTC dates with seconds
+  and the raw number. A token's amounts show in its unit only for the SEP-41 `amount` of its
+  own function, and only when the unit is not the contract's own word: a Stellar Asset
+  Contract is named by its `name()` (`USDC:GATA…V56`, 7 decimals), any other token only if
+  listed in `config.TOKENS`; the raw number always follows in brackets. Addresses are short
+  (full under `raw`); names from the request are plain words marked `«like this»`, and the
+  package's own names (interpreter, spending limit) win. Names are display only and best
+  effort (bounded, 2 s, the request's abort signal, never able to change a verdict); the
+  review is made after the verdicts and after every refusal; anything unresolvable keeps
+  "argument N". `raw: true` shows indices, whole addresses and every wire type.
+  `simulate_policy` with a predicate and no calls only explains it; `get_interpreter_info`
+  takes `explainAccount` (a smart account; only a known OpenZeppelin build is read,
+  `deployments/oz-accounts.json`) and explains each rule this interpreter polices.
+  `synthesize_policy` is no longer offline: it makes one best-effort read per contract it names.
 - **One pipeline.** recording | declaration | template -> `Intent` (calls and
   per-argument rules) -> wire expression -> install transaction. `ComposedRule`,
   `PolicyDocument`, the interpreter adapter, the `lower` layer, the legacy
