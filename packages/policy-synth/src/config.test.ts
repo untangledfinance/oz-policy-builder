@@ -79,6 +79,17 @@ describe('the OZ policies we deployed are policy contracts no rule may be scoped
 
 describe('the smart-account builds a review will read', () => {
   const record = JSON.parse(read('deployments/oz-accounts.json'))
+  it('say plainly how much is known of where the bytes came from, and what was tried', () => {
+    const p = record.provenance.multisig_account_example
+    expect(p.sourceCommitRecorded).toBe(false)
+    expect(p.buildCommandRecorded).toBe(false)
+    expect(p.reproductionAttempts.length).toBeGreaterThan(0)
+    for (const a of p.reproductionAttempts) {
+      expect(a.wasmSha256).toMatch(/^[0-9a-f]{64}$/)
+      expect(a.matches).toBe(a.wasmSha256 === record.wasmSha256.multisig_account_example)
+    }
+  })
+
   it('are the deployment record, and the example account this repo ships', () => {
     expect([...OZ_ACCOUNT_WASM].sort()).toEqual(Object.values(record.wasmSha256).sort())
     const wasm = readFileSync(

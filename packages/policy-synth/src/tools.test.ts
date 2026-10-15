@@ -17,9 +17,9 @@ import {
 } from '@stellar/stellar-sdk'
 import { z } from 'zod'
 import { account, contract, recording } from '../test/fixtures.ts'
-import { fakeInterpreter, pointAt, recorded } from '../test/rpc.ts'
+import { fakeInterpreter, instanceResult, pointAt, recorded } from '../test/rpc.ts'
 import { callExpr } from './intent.ts'
-import { run, TOOLS } from './tools.ts'
+import { describeRules, run, TOOLS } from './tools.ts'
 import { encode, hashOf } from './wire.ts'
 
 const ACCOUNT = 'CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P'
@@ -217,6 +217,93 @@ describe('explainAccount reads only an account that runs a known OpenZeppelin bu
     } finally {
       undo()
       fake.stop()
+    }
+  })
+})
+
+/** The recorded network behind a spy: every request, in order, as `check`, `spec` (the instance of
+ *  TOKEN, which is what the review reads first) or the method name. */
+function spy() {
+  const log: string[] = []
+  const server = Bun.serve({
+    port: 0,
+    async fetch(req) {
+      const text = await req.text()
+      const body = JSON.parse(text) as {
+        method: string
+        params: { keys?: string[]; transaction?: string }
+      }
+      let what = body.method
+      if (body.method === 'getLedgerEntries' && body.params.keys?.length) {
+        const k = xdr.LedgerKey.fromXDR(body.params.keys[0] as string, 'base64')
+        if (
+          k.switch().name === 'contractData' &&
+          Address.fromScAddress(k.contractData().contract()).toString() === TOKEN
+        )
+          what = 'spec'
+      }
+      if (body.method === 'simulateTransaction') {
+        const op = xdr.TransactionEnvelope.fromXDR(body.params.transaction as string, 'base64')
+          .v1()
+          .tx()
+          .operations()[0]
+        const fn = op?.body().invokeHostFunctionOp().hostFunction().invokeContract().functionName()
+        if (fn?.toString() === 'check') what = 'check'
+      }
+      log.push(what)
+      return fetch(net.endpoint.rpcUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: text,
+      })
+    },
+  })
+  const undo = pointAt('testnet', `http://127.0.0.1:${server.port}`)
+  return {
+    log,
+    stop() {
+      undo()
+      server.stop(true)
+    },
+  }
+}
+
+describe('the review is read for after the checks and after the refusals', () => {
+  it('a refused install never reads the contract it would have named', async () => {
+    const s = spy()
+    try {
+      const r = await call('install_policy', {
+        smartAccount: ACCOUNT,
+        sourceAccount: SIGNER,
+        signers: [SIGNER],
+        xdr: transferXdr(),
+        limit: '9000000',
+      })
+      expect(r.ok).toBe(false)
+      expect(s.log).not.toContain('spec')
+    } finally {
+      s.stop()
+    }
+  })
+  it('simulate reads for names only once every verdict is in', async () => {
+    const s = spy()
+    try {
+      const r = await call('simulate_policy', { encodedPredicate: encodedRule, xdr: transferXdr() })
+      expect(r.ok).toBe(true)
+      expect(s.log.filter((m) => m === 'check').length).toBeGreaterThan(0)
+      expect(s.log.lastIndexOf('check')).toBeLessThan(s.log.indexOf('spec'))
+    } finally {
+      s.stop()
+    }
+  })
+  it('verify too', async () => {
+    const s = spy()
+    try {
+      const r = await call('verify_policy', { expr: rule, xdr: transferXdr() })
+      expect(r.ok).toBe(true)
+      expect(s.log.lastIndexOf('check')).toBeLessThan(s.log.indexOf('spec'))
+    } finally {
+      s.stop()
     }
   })
 })
@@ -992,6 +1079,72 @@ describe('revoke_policy', () => {
     })
     expect(plain.data.removes.review).toBeUndefined()
   })
+  it('an account that does not run a known OpenZeppelin build is removed from, but its stored rule is not read or described', async () => {
+    // The recorded network, except that the account's code is another build.
+    const through = Bun.serve({
+      port: 0,
+      async fetch(req) {
+        const text = await req.text()
+        const body = JSON.parse(text) as { id: number; method: string; params: { keys?: string[] } }
+        const asksInstance =
+          body.method === 'getLedgerEntries' &&
+          body.params.keys?.length === 1 &&
+          xdr.LedgerKey.fromXDR(body.params.keys[0] as string, 'base64').switch().name ===
+            'contractData' &&
+          Address.fromScAddress(
+            xdr.LedgerKey.fromXDR(body.params.keys[0] as string, 'base64')
+              .contractData()
+              .contract()
+          ).toString() === ACCOUNT
+        if (asksInstance)
+          return Response.json({
+            jsonrpc: '2.0',
+            id: body.id,
+            result: instanceResult(ACCOUNT, 'ab'.repeat(32)),
+          })
+        return fetch(net.endpoint.rpcUrl, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: text,
+        })
+      },
+    })
+    const undo = pointAt('testnet', `http://127.0.0.1:${through.port}`)
+    try {
+      const r = await call('revoke_policy', {
+        smartAccount: ACCOUNT,
+        sourceAccount: SIGNER,
+        ruleId: 2,
+      })
+      expect(r.ok).toBe(true)
+      expect(r.data.describes).toEqual({ contract: ACCOUNT, fn: 'remove_context_rule', args: [2] })
+      expect(r.data.removes).toMatchObject({ id: 2, scope: { kind: 'call_contract' } })
+      expect(r.data.removes.expr).toBeUndefined()
+      expect(r.data.removes.review).toBeUndefined()
+      expect(r.data.removes.reviewSkipped).toMatch(/known OpenZeppelin smart account build/)
+    } finally {
+      undo()
+      through.stop(true)
+    }
+  })
+  it('a known build is described, and says nothing is skipped', async () => {
+    const r = await call('revoke_policy', {
+      smartAccount: ACCOUNT,
+      sourceAccount: SIGNER,
+      ruleId: 2,
+    })
+    expect(r.data.removes.reviewSkipped).toBeUndefined()
+  })
+  it('a rule whose scope its predicate never names is still named by that scope', async () => {
+    // The scope of the removed rule (read from the account) heads the review: a predicate that
+    // pins nothing is described under it.
+    const r = await call('revoke_policy', {
+      smartAccount: ACCOUNT,
+      sourceAccount: SIGNER,
+      ruleId: 2,
+    })
+    expect(r.data.removes.scope.contract).toBe(r.data.removes.reviewTree[0].value)
+  })
   it("refuses the account's admin rule 0 unless told to", async () => {
     const base = { smartAccount: ACCOUNT, sourceAccount: SIGNER, ruleId: 0 }
     await failing('revoke_policy', base, 'REVOKE_BUILD_FAILED', /lock/)
@@ -1062,5 +1215,35 @@ describe('get_interpreter_info', () => {
       'INTERPRETER_MISMATCH',
       /no grammar-7 interpreter is pinned/
     )
+  })
+})
+
+describe('describeRules: a rule read off an account is described under its own scope', () => {
+  it("a predicate that pins no contract is headed by the rule's scope; one with no stored predicate is skipped by the caller", async () => {
+    const pinless = [
+      'and',
+      [
+        ['eq', ['call_fn'], 'transfer'],
+        ['lte', ['call_arg', 2], { i128: '5' }],
+      ],
+    ] as never
+    const rule = {
+      id: 3,
+      scope: { kind: 'call_contract', contract: TOKEN },
+      signers: [],
+      policies: [],
+      expr: pinless,
+    } as never
+    const [shown] = await describeRules({ network: 'testnet' }, [rule])
+    expect(shown?.reviewTree[0]).toMatchObject({ op: 'contract', raw: null, value: TOKEN })
+    const dflt = {
+      id: 0,
+      scope: { kind: 'default' },
+      signers: [],
+      policies: [],
+      expr: pinless,
+    } as never
+    const [bare] = await describeRules({ network: 'testnet' }, [dflt])
+    expect(bare?.reviewTree[0]?.op).toBe('function')
   })
 })

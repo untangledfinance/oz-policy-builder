@@ -101,37 +101,7 @@ export function fakeInterpreter(address: string, wasm: string, grammar = 7, verd
       let result: unknown
       if (body.method === 'getLedgerEntries') {
         asked.push(body.method)
-        const key = xdr.LedgerKey.contractData(
-          new xdr.LedgerKeyContractData({
-            contract: new Address(address).toScAddress(),
-            key: xdr.ScVal.scvLedgerKeyContractInstance(),
-            durability: xdr.ContractDataDurability.persistent(),
-          })
-        )
-        const data = xdr.LedgerEntryData.contractData(
-          new xdr.ContractDataEntry({
-            ext: xdr.ExtensionPoint.fromXDR(Buffer.alloc(4)),
-            contract: new Address(address).toScAddress(),
-            key: xdr.ScVal.scvLedgerKeyContractInstance(),
-            durability: xdr.ContractDataDurability.persistent(),
-            val: xdr.ScVal.scvContractInstance(
-              new xdr.ScContractInstance({
-                executable: xdr.ContractExecutable.contractExecutableWasm(Buffer.from(wasm, 'hex')),
-                storage: null,
-              })
-            ),
-          })
-        )
-        result = {
-          latestLedger: 1,
-          entries: [
-            {
-              key: key.toXDR('base64'),
-              xdr: data.toXDR('base64'),
-              lastModifiedLedgerSeq: 1,
-            },
-          ],
-        }
+        result = instanceResult(address, wasm)
       } else if (body.method === 'simulateTransaction') {
         const env = xdr.TransactionEnvelope.fromXDR(body.params.transaction, 'base64')
         const op = env.v1().tx().operations()[0]?.body().invokeHostFunctionOp()
@@ -174,5 +144,34 @@ export function fakeInterpreter(address: string, wasm: string, grammar = 7, verd
     asked,
     port: server.port,
     stop: () => server.stop(true),
+  }
+}
+
+/** What `getLedgerEntries` answers for the instance of `address`: a wasm contract running `wasm`. */
+export function instanceResult(address: string, wasm: string) {
+  const key = xdr.LedgerKey.contractData(
+    new xdr.LedgerKeyContractData({
+      contract: new Address(address).toScAddress(),
+      key: xdr.ScVal.scvLedgerKeyContractInstance(),
+      durability: xdr.ContractDataDurability.persistent(),
+    })
+  )
+  const data = xdr.LedgerEntryData.contractData(
+    new xdr.ContractDataEntry({
+      ext: xdr.ExtensionPoint.fromXDR(Buffer.alloc(4)),
+      contract: new Address(address).toScAddress(),
+      key: xdr.ScVal.scvLedgerKeyContractInstance(),
+      durability: xdr.ContractDataDurability.persistent(),
+      val: xdr.ScVal.scvContractInstance(
+        new xdr.ScContractInstance({
+          executable: xdr.ContractExecutable.contractExecutableWasm(Buffer.from(wasm, 'hex')),
+          storage: null,
+        })
+      ),
+    })
+  )
+  return {
+    latestLedger: 1,
+    entries: [{ key: key.toXDR('base64'), xdr: data.toXDR('base64'), lastModifiedLedgerSeq: 1 }],
   }
 }

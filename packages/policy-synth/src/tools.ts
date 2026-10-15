@@ -587,20 +587,46 @@ const revoke_policy = tool(
   async (i, signal) => {
     const server = connect(i)
     const mine = INTERPRETER[i.network]?.address
+    // The account's own rule is described only if the account is a build the package knows,
+    // exactly as `explainAccount` reads only those: any other answers with whatever it likes.
+    const trusted = trustedAccount(server, i.smartAccount)
     const plan = await planRevoke(i, {
-      readRule: (id) => readRule(server, i.network, i.smartAccount, id, mine),
+      readRule: async (id) =>
+        readRule(server, i.network, i.smartAccount, id, (await trusted).known ? mine : undefined),
       build: (id) => buildRevoke({ ...i, server }, id),
     })
     const r = plan.removes
-    const [shown] = r.expr
-      ? await explain(i, [{ expr: r.expr, contract: scopedContract(r) }], signal)
-      : []
-    return { ...plan, removes: { ...r, ...shown } }
+    const [shown] = r.expr ? await describeRules(i, [r], signal) : []
+    const skipped = (await trusted).known
+      ? {}
+      : { reviewSkipped: notKnown(i.smartAccount, (await trusted).code) }
+    return { ...plan, removes: { ...r, ...shown, ...skipped } }
   }
 )
 
 const scopedContract = (r: ObservedRule) =>
   r.scope.kind === 'call_contract' ? r.scope.contract : undefined
+
+/** The reviews of rules read off an account (those with a stored predicate), each under the
+ *  contract its rule is scoped to. */
+export const describeRules = (
+  i: Parameters<typeof explain>[0],
+  rules: ObservedRule[],
+  signal?: AbortSignal
+) =>
+  explain(
+    i,
+    rules.map((r) => ({ expr: r.expr as Expr, contract: scopedContract(r) })),
+    signal
+  )
+
+/** The code an account runs, and whether it is an OpenZeppelin smart account build the package knows. */
+async function trustedAccount(server: ReturnType<typeof connect>, account: string) {
+  const code = await codeHash(server, account).catch(() => undefined)
+  return { code, known: code !== undefined && OZ_ACCOUNT_WASM.has(code) }
+}
+const notKnown = (account: string, code?: string) =>
+  `${account} does not run a known OpenZeppelin smart account build (code ${code ?? 'none'}): its rules are not read`
 
 /** The rules installed on an account, each with its review when this interpreter polices it. */
 async function explainAccount(
@@ -612,17 +638,14 @@ async function explainAccount(
   const server = connect(i)
   await ensureInterpreter(server, i.network, interpreter)
   // An account that runs other code can answer with any rule it likes: only a known build is read.
-  const code = await codeHash(server, account)
-  if (code === undefined || !OZ_ACCOUNT_WASM.has(code))
-    throw new Refusal(
-      'INVALID_INPUT',
-      `${account} does not run a known OpenZeppelin smart account build (code ${code ?? 'none'}): its rules are not read`
-    )
+  const { code, known } = await trustedAccount(server, account)
+  if (!known) throw new Refusal('INVALID_INPUT', notKnown(account, code))
   const read = await readRules(server, i.network, account, interpreter, signal)
-  const mine = read.rules.flatMap((r) =>
-    r.expr ? [{ expr: r.expr, contract: scopedContract(r) }] : []
+  const shown = await describeRules(
+    { ...i, smartAccount: account },
+    read.rules.filter((r) => r.expr),
+    signal
   )
-  const shown = await explain({ ...i, smartAccount: account }, mine, signal)
   let n = 0
   return { ...read, rules: read.rules.map((r) => ({ ...r, ...(r.expr ? shown[n++] : {}) })) }
 }
