@@ -15,7 +15,7 @@ use soroban_sdk::{
     TryFromVal, Val,
 };
 
-// ---- caps (mirrors TS PREDICATE_CAPS; the Rust side is authoritative) -----
+// ---- caps (the Rust side is authoritative; the TS PREDICATE_CAPS lack MAX_ELEMS) --
 
 pub const MAX_DEPTH: u32 = 5;
 pub const MAX_LEAVES: u32 = 200;
@@ -349,8 +349,8 @@ fn literal_to_val(leaf: &Leaf) -> Res<Val> {
 /// serialising, so this works on wasm, and `Bytes` compares by value. Two
 /// vectors or two maps are compared by the host directly instead (below).
 ///
-/// Two numbers (u32, u64, i128) compare as numbers, whatever their types, the
-/// same widening ordering uses; `5u32` equals `5i128`. Only at the top level:
+/// Two numbers (any of `val_to_i128`'s types) compare as numbers, whatever their
+/// types, the same widening ordering uses; `5u32` equals `5i128`. Only at the top level:
 /// numbers inside a vector compare type included. Anything else is exact:
 /// a number never equals a symbol, and an address only its own address.
 fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
@@ -401,7 +401,7 @@ fn demux(env: &Env, v: Val) -> Val {
 ///
 /// An `Err` is always a deny. `ArgMismatch` means the leaf named something
 /// this call does not carry - an argument past the end, a shape other than the
-/// leaf assumed, a read that failed or returned a non-number;
+/// leaf assumed, a read that failed or returned void;
 /// `ArithmeticOverflow` is a `scaled` step that did not fit.
 fn resolve(env: &Env, leaf: &Leaf, ctx: &Ctx, memo: &mut Memo) -> Result<Val, DenyReason> {
     let miss = DenyReason::ArgMismatch;
@@ -495,11 +495,12 @@ fn walk(env: &Env, cur: Val, steps: &[PathStep]) -> Option<Val> {
 /// permits everything or nothing forever. `install` refuses such a predicate
 /// so a no-constraint policy cannot install under any name.
 ///
-/// Only a leaf that reads the authorised call counts. `read` and `now` do not:
-/// a rule made of reads and the clock alone says nothing about the call it
-/// authorises. Looks through `scaled` operands, since a selector inside one is
-/// still a selector. `in` haystacks and literal vectors hold constants only (the
-/// decoder refuses anything else); `leaves` visits them, and none can match.
+/// Only a leaf that reads the authorised call counts. `now` does not, nor does a
+/// `read` of constants: a rule made of those alone says nothing about the call it
+/// authorises. A selector inside a `scaled` operand, a `sum` source, a `read`
+/// argument, a quantifier's vector or its body is still a selector, so `leaves`
+/// looks through them all. `in` haystacks hold constants only (the decoder
+/// refuses anything else), and none can match.
 pub fn has_selector_leaf(root: &Node) -> bool {
     let selects = |l: &&Leaf| matches!(l, Leaf::CallContract | Leaf::CallFn | Leaf::CallPath(_));
     leaves(root).iter().any(|(l, _)| selects(l))
@@ -565,13 +566,14 @@ fn val_to_i128(env: &Env, v: &Val) -> Option<i128> {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum DecodeError {
     /// Empty / wrong-Variant / wrong-arity / unknown op or selector
-    /// symbol / `in []` at decode.
+    /// symbol / `in []` at decode; also a placement refusal (`elem` outside a
+    /// quantifier body, a `sum` or quantifier inside one).
     MalformedPredicate,
     /// Depth exceeded MAX_DEPTH (5), in the node tree or in a leaf's
     /// nesting.
     PredicateTooDeep,
-    /// Leaf count exceeded MAX_LEAVES (200), or DISTINCT `read` calls exceeded
-    /// MAX_READS (4).
+    /// Weighted leaf count exceeded MAX_LEAVES (200; a quantifier body leaf and a
+    /// `sum` weigh MAX_ELEMS), or DISTINCT `read` calls exceeded MAX_READS (4).
     TooManyLeaves,
     /// An `in` haystack exceeded MAX_IN_OPERAND_COUNT (32).
     InOperandLimit,
@@ -681,7 +683,8 @@ fn each<T>(vals: &Vals, f: impl FnMut(Val) -> Res<T>) -> Res<Vec<T>> {
 }
 
 /// Decode one leaf. `depth` is how deeply it is nested inside other
-/// leaves (a literal vector, a `scaled` operand), and is capped at
+/// leaves (a bare vec constant, a `scaled` operand, a `read` argument, a `sum`
+/// source), and is capped at
 /// `MAX_DEPTH` so the decoder and the evaluator both recurse a bounded
 /// number of times.
 fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
@@ -801,7 +804,8 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: &[u8], depth: u32) -> Res
 /// The path steps in `items[from..]`, at most `MAX_PATH_STEPS`. A step is
 /// a u32 index, `true` (the length step, which must be last because a length
 /// has nothing to index into), or a constant map key: a bare symbol or any
-/// `lit(x)`. Anything else is refused here rather than reinterpreted at evaluate. `min` is the fewest
+/// `lit(x)`. Anything else is refused here rather than reinterpreted at evaluate.
+/// `min` is the fewest
 /// steps: `call_path` needs one; a `read` result may be the value itself.
 fn decode_steps(env: &Env, items: &Vals, from: u32, min: u32) -> Res<Vec<PathStep>> {
     ensure((min..=MAX_PATH_STEPS).contains(&items.len().saturating_sub(from)))?;

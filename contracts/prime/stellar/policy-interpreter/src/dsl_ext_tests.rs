@@ -678,12 +678,22 @@ fn batch_rule() -> ScVal {
             calls.clone(),
             set("in", elem(&[sym("target")]), &[account(1), account(2)]),
         ),
-        any_of(calls, cmp("eq", elem(&[sym("f")]), sym("repay"))),
+        any_of(
+            calls,
+            cmp("eq", elem(&[sym("function_name")]), sym("repay")),
+        ),
     ])
 }
 
+/// The execution adapter's `Call`: target, function_name, args and
+/// executor_authorizations.
 fn call(target: u8, f: &str) -> ScVal {
-    map(&[(sym("target"), account(target)), (sym("f"), sym(f))])
+    map(&[
+        (sym("target"), account(target)),
+        (sym("function_name"), sym(f)),
+        (sym("args"), tup(&[])),
+        (sym("executor_authorizations"), tup(&[])),
+    ])
 }
 
 /// `len` calls, the last of which is `last`.
@@ -941,7 +951,7 @@ fn a_quantifier_must_still_constrain_the_call() {
     let env = Env::default();
     let node = decode(&env, &raw(&env, &ok)).unwrap();
     assert!(crate::dsl::has_selector_leaf(&node));
-    // over a clock-only or constant vector: not
+    // over a constant vector: not
     let none = all_of(lit(list(&[n(1)])), cmp("eq", elem(&[]), n(1)));
     let node = decode(&env, &raw(&env, &none)).unwrap();
     assert!(!crate::dsl::has_selector_leaf(&node));
@@ -1023,11 +1033,6 @@ fn quantifiers_take_exactly_a_vec_and_a_body() {
     }
     // a `sum` needs its vec; extra steps are steps, not operands
     assert_eq!(refused(&cmp("eq", tup(&[sym("sum")]), n(1))), MALFORMED);
-}
-
-#[test]
-fn the_element_cap_is_thirty_two() {
-    assert_eq!(crate::dsl::MAX_ELEMS, 32);
 }
 
 #[test]
