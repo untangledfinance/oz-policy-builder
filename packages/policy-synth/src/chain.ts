@@ -12,7 +12,14 @@ import {
   TransactionBuilder,
   xdr,
 } from '@stellar/stellar-sdk'
-import { GRAMMAR_VERSION, INTERPRETER, type Network, PASSPHRASE, RPC_URL } from './config.ts'
+import {
+  GRAMMAR_VERSION,
+  INTERPRETER,
+  INTERPRETER_WASM,
+  type Network,
+  PASSPHRASE,
+  RPC_URL,
+} from './config.ts'
 import { Refusal } from './envelope.ts'
 
 export interface Endpoint {
@@ -42,7 +49,8 @@ export function connect(e: Endpoint): rpc.Server {
 export const pinnedWasm = (network: Network, address: string): string | undefined =>
   INTERPRETER[network]?.address === address ? INTERPRETER[network]?.wasmSha256 : undefined
 
-/** The interpreter a network uses: its pin, or the one the caller names (mainnet has none yet). */
+/** The interpreter a network uses: its pin, or the one the caller names (mainnet has none yet;
+ *  what runs there is checked against the trusted builds). */
 export function interpreterFor(network: Network, address?: string): string {
   const pinned = INTERPRETER[network]?.address
   if (address !== undefined && address !== pinned) {
@@ -146,7 +154,7 @@ export interface Fingerprint {
   address: string
   grammarVersion: number
   wasmSha256: string
-  /** The live contract speaks this grammar and runs the build that was expected. */
+  /** The live contract speaks this grammar and runs a build this package trusts. */
   matches: boolean
 }
 
@@ -155,8 +163,7 @@ export interface Fingerprint {
 export async function fingerprint(
   server: rpc.Server,
   network: Network,
-  address: string,
-  expectedWasmSha256?: string
+  address: string
 ): Promise<Fingerprint> {
   const instance = dataKey(address, xdr.ScVal.scvLedgerKeyContractInstance())
   const [version, got] = await Promise.all([
@@ -169,7 +176,26 @@ export async function fingerprint(
   }
   const grammarVersion = Number(version.u32())
   const wasmSha256 = Buffer.from(exec.wasmHash()).toString('hex')
-  const matches =
-    grammarVersion === GRAMMAR_VERSION && (expectedWasmSha256 ?? wasmSha256) === wasmSha256
+  const matches = grammarVersion === GRAMMAR_VERSION && INTERPRETER_WASM.has(wasmSha256)
   return { address, grammarVersion, wasmSha256, matches }
+}
+
+/** The refusal for an interpreter that is not a trusted build. */
+export const mismatch = (f: Fingerprint): Refusal =>
+  new Refusal(
+    'INTERPRETER_MISMATCH',
+    `${f.address} runs grammar ${f.grammarVersion} with wasm ${f.wasmSha256}; this build trusts grammar ${GRAMMAR_VERSION} with ${[...INTERPRETER_WASM].join(' or ')}`,
+    { details: f }
+  )
+
+const known = new Set<string>()
+
+/** Refuse unless `address` runs a trusted build: the pin is trusted as it stands,
+ *  anything else is read from the ledger once (the interpreter cannot be upgraded). */
+export async function ensureInterpreter(server: rpc.Server, network: Network, address: string) {
+  const id = `${network}:${address}`
+  if (INTERPRETER[network]?.address === address || known.has(id)) return
+  const live = await fingerprint(server, network, address)
+  if (!live.matches) throw mismatch(live)
+  known.add(id)
 }

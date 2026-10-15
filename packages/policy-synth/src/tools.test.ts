@@ -501,13 +501,6 @@ describe('install_policy: the input boundary, to the unit', () => {
     ['a one-character name', { name: 'x' }, true],
     ['a twenty-character name', { name: 'x'.repeat(20) }, true],
     ['an empty name', { name: '' }, false],
-    [
-      'a wasm hash of 64 hex digits, zeros included',
-      { interpreterWasmSha256: '0'.repeat(64) },
-      true,
-    ],
-    ['a wasm hash of 63', { interpreterWasmSha256: '0'.repeat(63) }, false],
-    ['a wasm hash of 65', { interpreterWasmSha256: '0'.repeat(65) }, false],
     ['a one-character path', { outPath: '/' }, true],
     ['an empty path', { outPath: '' }, false],
     ['a ledger of the maximum', { validUntilLedger: 0xffffffff }, true],

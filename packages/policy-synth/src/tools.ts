@@ -11,9 +11,23 @@ import { isAbsolute } from 'node:path'
 import { StrKey } from '@stellar/stellar-sdk'
 import { z } from 'zod'
 import { card } from './card.ts'
-import { connect, type Endpoint, fingerprint, interpreterFor, pinnedWasm } from './chain.ts'
+import {
+  connect,
+  type Endpoint,
+  ensureInterpreter,
+  fingerprint,
+  interpreterFor,
+  mismatch,
+  pinnedWasm,
+} from './chain.ts'
 import { MAX_CHECKS, runChecks, verifyRule } from './check.ts'
-import { GRAMMAR_VERSION, type Network, POLICY_CONTRACTS, SPENDING_LIMIT } from './config.ts'
+import {
+  GRAMMAR_VERSION,
+  INTERPRETER_WASM,
+  type Network,
+  POLICY_CONTRACTS,
+  SPENDING_LIMIT,
+} from './config.ts'
 import { type ErrorCode, messageOf, Refusal, type ToolResponse } from './envelope.ts'
 import { buildInstall, buildRevoke, type RuleDraft } from './install.ts'
 import type { Intent } from './intent.ts'
@@ -328,13 +342,9 @@ const simulate_policy = tool(
     const s = await subject(i)
     if (s.calls.length === 0)
       throw new Refusal('INVALID_INPUT', 'no call to check: give `calls` or a recording')
-    const verdicts = await runChecks(
-      connect(i),
-      i.network,
-      interpreterFor(i.network, i.interpreterAddress),
-      s.encoded,
-      s.calls
-    )
+    const [server, interpreter] = [connect(i), interpreterFor(i.network, i.interpreterAddress)]
+    await ensureInterpreter(server, i.network, interpreter)
+    const verdicts = await runChecks(server, i.network, interpreter, s.encoded, s.calls)
     return {
       predicateHash: hashOf(s.encoded),
       results: s.calls.map((c, n) => ({ call: c, ...verdicts[n] })),
@@ -354,22 +364,18 @@ const verify_policy = tool(
         'INVALID_INPUT',
         'verify needs a call that must be permitted: give `call` or a recording'
       )
+    const [server, interpreter] = [connect(i), interpreterFor(i.network, i.interpreterAddress)]
+    await ensureInterpreter(server, i.network, interpreter)
     return {
       predicateHash: hashOf(s.encoded),
-      ...(await verifyRule(
-        connect(i),
-        i.network,
-        interpreterFor(i.network, i.interpreterAddress),
-        s.expr,
-        permit as Call
-      )),
+      ...(await verifyRule(server, i.network, interpreter, s.expr, permit as Call)),
     }
   }
 )
 
 const install_policy = tool(
   'install_policy',
-  "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`. `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The pinned interpreter is checked live (grammar and wasm hash) before anything is built. The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind; `allowOverlap: true` installs anyway. An unanswered amount cap is refused unless `allowUnboundedAmount`. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR; `outPath` also writes it to a file.",
+  "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`. `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The interpreter is checked live before anything is built: it must speak the grammar and run a trusted build (a pinned address, or on a network with none, an `interpreterAddress` whose code hash is one this package trusts). The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind; `allowOverlap: true` installs anyway. An unanswered amount cap is refused unless `allowUnboundedAmount`. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR; `outPath` also writes it to a file.",
   {
     ...net,
     ...from,
@@ -389,10 +395,6 @@ const install_policy = tool(
     allowUnboundedAmount: z.boolean().optional(),
     allowOverlap: z.boolean().optional(),
     interpreterAddress: contractId.optional(),
-    interpreterWasmSha256: z
-      .string()
-      .regex(/^[0-9a-f]{64}$/)
-      .optional(),
     baseFee: z.number().int().positive().optional(),
     outPath: z.string().min(1).optional(),
   },
@@ -424,11 +426,6 @@ const install_policy = tool(
       )
     }
     const interpreter = interpreterFor(network, i.interpreterAddress)
-    const expectedWasm = pinnedWasm(network, interpreter) ?? i.interpreterWasmSha256
-    if (expectedWasm === undefined)
-      throw fail(
-        'an interpreter that is not the pinned one needs `interpreterWasmSha256`, the build you expect it to run'
-      )
     const server = connect(i)
     const draft: RuleDraft = {
       scope: { kind: 'call_contract', contract: chosen.contract },
@@ -443,17 +440,11 @@ const install_policy = tool(
     // The live check of the interpreter, the account's rules and the build do not depend on
     // each other: ask all three at once, and throw the build away if the scan refuses.
     const [live, scan, built] = await Promise.all([
-      fingerprint(server, network, interpreter, expectedWasm),
+      fingerprint(server, network, interpreter),
       readRules(server, network, i.smartAccount, interpreter),
       buildInstall({ ...i, server }, draft, interpreter),
     ])
-    if (!live.matches) {
-      throw new Refusal(
-        'INTERPRETER_MISMATCH',
-        `${interpreter} runs grammar ${live.grammarVersion} with wasm ${live.wasmSha256}; expected grammar ${GRAMMAR_VERSION} and ${expectedWasm}`,
-        { details: live }
-      )
-    }
+    if (!live.matches) throw mismatch(live)
     const found = overlaps({ ...draft, expr: chosen.expr }, scan.rules, interpreter, network)
     const refused = found.filter((o) => o.severity === 'refuse')
     if (i.allowOverlap !== true) {
@@ -522,8 +513,9 @@ const get_interpreter_info = tool(
       pinned: wasm !== undefined,
       grammarVersion: GRAMMAR_VERSION,
       wasmSha256: wasm ?? null,
+      trustedWasmSha256: [...INTERPRETER_WASM],
       caps: CAPS,
-      ...(i.verifyLive ? { live: await fingerprint(connect(i), i.network, address, wasm) } : {}),
+      ...(i.verifyLive ? { live: await fingerprint(connect(i), i.network, address) } : {}),
     }
   }
 )

@@ -26,6 +26,14 @@ export const INTERPRETER: Record<Network, { address: string; wasmSha256: string 
   mainnet: null,
 }
 
+/** The interpreter builds this package will talk to, by the sha256 of their code
+ *  (the reproducible `build-wasm.sh` output). It is the trust anchor on every
+ *  network: whatever address a caller names, its LIVE code hash must be in this
+ *  set, because any contract can answer `grammar_version() = 7`. */
+export const INTERPRETER_WASM: ReadonlySet<string> = new Set(
+  Object.values(INTERPRETER).flatMap((p) => (p ? [p.wasmSha256] : []))
+)
+
 /** The upstream tag the deployed OpenZeppelin policies were built from, so that
  *  `scripts/upstream-drift-check.ts` can compare it with the latest release. */
 export const OZ_STELLAR_CONTRACTS_TAG = 'v0.7.2'

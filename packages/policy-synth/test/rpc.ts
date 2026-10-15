@@ -70,3 +70,91 @@ export function recorded(name: string) {
     },
   }
 }
+
+// ---- a network that is only an interpreter: no recording, no account ----
+
+import { Address, xdr } from '@stellar/stellar-sdk'
+
+/** A JSON-RPC endpoint where `address` is a contract running `wasm` and speaking
+ *  `grammar`, and every `check` answers `verdict`. `asked` lists the methods the
+ *  server was called with (`check` for a verdict, else the RPC method). */
+export function fakeInterpreter(address: string, wasm: string, grammar = 7, verdict = 0) {
+  const asked: string[] = []
+  const server = Bun.serve({
+    port: 0,
+    async fetch(req) {
+      const body = (await req.json()) as {
+        id: number
+        method: string
+        params: { transaction: string }
+      }
+      let result: unknown
+      if (body.method === 'getLedgerEntries') {
+        asked.push(body.method)
+        const key = xdr.LedgerKey.contractData(
+          new xdr.LedgerKeyContractData({
+            contract: new Address(address).toScAddress(),
+            key: xdr.ScVal.scvLedgerKeyContractInstance(),
+            durability: xdr.ContractDataDurability.persistent(),
+          })
+        )
+        const data = xdr.LedgerEntryData.contractData(
+          new xdr.ContractDataEntry({
+            ext: xdr.ExtensionPoint.fromXDR(Buffer.alloc(4)),
+            contract: new Address(address).toScAddress(),
+            key: xdr.ScVal.scvLedgerKeyContractInstance(),
+            durability: xdr.ContractDataDurability.persistent(),
+            val: xdr.ScVal.scvContractInstance(
+              new xdr.ScContractInstance({
+                executable: xdr.ContractExecutable.contractExecutableWasm(Buffer.from(wasm, 'hex')),
+                storage: null,
+              })
+            ),
+          })
+        )
+        result = {
+          latestLedger: 1,
+          entries: [
+            {
+              key: key.toXDR('base64'),
+              xdr: data.toXDR('base64'),
+              lastModifiedLedgerSeq: 1,
+            },
+          ],
+        }
+      } else if (body.method === 'simulateTransaction') {
+        const env = xdr.TransactionEnvelope.fromXDR(body.params.transaction, 'base64')
+        const op = env.v1().tx().operations()[0]?.body().invokeHostFunctionOp()
+        const fn = op?.hostFunction().invokeContract().functionName().toString()
+        asked.push(fn === 'check' ? 'check' : `simulate ${fn}`)
+        result =
+          fn === 'grammar_version'
+            ? {
+                latestLedger: 1,
+                results: [{ xdr: xdr.ScVal.scvU32(grammar).toXDR('base64'), auth: [] }],
+              }
+            : {
+                latestLedger: 1,
+                error: `HostError: Error(Contract, #${verdict})\n\nEvent log (newest first):`,
+              }
+      } else {
+        asked.push(body.method)
+        return Response.json({
+          jsonrpc: '2.0',
+          id: body.id,
+          error: { code: -32601, message: `no ${body.method}` },
+        })
+      }
+      return Response.json({ jsonrpc: '2.0', id: body.id, result })
+    },
+  })
+  return {
+    endpoint: {
+      network: 'mainnet' as const,
+      rpcUrl: `http://127.0.0.1:${server.port}`,
+      allowUnpinnedRpcUrl: true,
+    },
+    asked,
+    stop: () => server.stop(true),
+  }
+}
