@@ -164,6 +164,13 @@ impl Registry {
         e.storage().instance().get(&who).unwrap_or(false)
     }
 
+    /// Takes no argument, so a read that drops an unresolved argument and calls
+    /// anyway still succeeds, and shows in `calls`.
+    pub fn tick(e: &Env) -> bool {
+        e.storage().instance().set(&0u32, &(Registry::calls(e) + 1));
+        true
+    }
+
     pub fn echo(e: &Env, v: Val) -> Val {
         e.storage().instance().set(&0u32, &(Registry::calls(e) + 1));
         v
@@ -2761,6 +2768,29 @@ fn weekday_office_hours_combine_with_and() {
         "Sunday 10:00"
     );
     assert!(!permitted_at(&w, MONDAY + 9 * 3_600 - 1), "Monday 08:59:59");
+}
+
+#[test]
+fn an_unresolved_read_argument_makes_no_call_whatever_the_target_takes() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    // `tick()` takes nothing: dropping the unresolved argument would still call it.
+    let tick = read(&w.env, &reg, "tick", alloc::vec![call_arg(7)], &[]);
+    let rule = tuple(alloc::vec![
+        sym("or"),
+        tuple(alloc::vec![
+            cmp("eq", tick, lit(ScVal::Bool(true))),
+            cmp("eq", call_arg(0), num(10)),
+        ]),
+    ]);
+    w.install(&rule).expect("installs");
+    let who = Address::generate(&w.env);
+    assert_eq!(w.enforce_context(&advance_to(&w, &who)), Ok(()));
+    assert_eq!(
+        RegistryClient::new(&w.env, &reg).calls(),
+        0,
+        "no call was made"
+    );
 }
 
 #[test]
