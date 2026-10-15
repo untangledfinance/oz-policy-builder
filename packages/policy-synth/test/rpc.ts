@@ -8,6 +8,17 @@ import { RPC_URL } from '../src/config.ts'
 
 export const LIVE = process.env.OPB_LIVE === '1'
 
+/** Point a network's endpoint at `url` for the process; returns the undo. */
+export function pointAt(network: 'testnet' | 'mainnet', url: string): () => void {
+  const name = `POLICY_BUILDER_RPC_URL_${network.toUpperCase()}`
+  const before = process.env[name]
+  process.env[name] = url
+  return () => {
+    if (before === undefined) delete process.env[name]
+    else process.env[name] = before
+  }
+}
+
 const key = (b: { method: string; params: unknown }) =>
   `${b.method}:${createHash('sha256').update(JSON.stringify(b.params)).digest('hex').slice(0, 16)}`
 
@@ -58,13 +69,12 @@ export function recorded(name: string) {
       return Response.json({ jsonrpc: '2.0', id: body.id, ...hit })
     },
   })
+  // The tools read their endpoint from the environment, as an operator configures it.
+  const restore = pointAt('testnet', `http://127.0.0.1:${server.port}`)
   return {
-    endpoint: {
-      network: 'testnet' as const,
-      rpcUrl: `http://127.0.0.1:${server.port}`,
-      allowUnpinnedRpcUrl: true,
-    },
+    endpoint: { network: 'testnet' as const, rpcUrl: `http://127.0.0.1:${server.port}` },
     stop() {
+      restore()
       server.stop(true)
       if (LIVE) writeFileSync(file, `${JSON.stringify(store, null, 1)}\n`)
     },
@@ -149,11 +159,9 @@ export function fakeInterpreter(address: string, wasm: string, grammar = 7, verd
     },
   })
   return {
-    endpoint: {
-      network: 'mainnet' as const,
-      rpcUrl: `http://127.0.0.1:${server.port}`,
-      allowUnpinnedRpcUrl: true,
-    },
+    endpoint: { network: 'mainnet' as const, rpcUrl: `http://127.0.0.1:${server.port}` },
+    /** Make the tools' mainnet endpoint this one. */
+    use: () => pointAt('mainnet', `http://127.0.0.1:${server.port}`),
     asked,
     stop: () => server.stop(true),
   }

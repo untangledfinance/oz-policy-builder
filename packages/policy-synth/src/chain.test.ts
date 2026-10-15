@@ -66,8 +66,9 @@ describe('every tool that asks the interpreter refuses one that is not a trusted
     const bad = contract(16)
     const b = net(bad, OTHER)
     for (const tool of ['simulate_policy', 'verify_policy'] as const) {
+      b.use()
       const r = (await run(tool, {
-        ...b.endpoint,
+        network: 'mainnet',
         interpreterAddress: bad,
         expr,
         calls: call.calls,
@@ -79,8 +80,9 @@ describe('every tool that asks the interpreter refuses one that is not a trusted
     expect(b.asked).not.toContain('check')
     const good = contract(17)
     const g = net(good, OURS)
+    g.use()
     const r = (await run('simulate_policy', {
-      ...g.endpoint,
+      network: 'mainnet',
       interpreterAddress: good,
       expr,
       calls: call.calls,

@@ -5,9 +5,6 @@
 //
 // Nothing here holds a key. Install and revoke return an unsigned transaction.
 
-import { randomBytes } from 'node:crypto'
-import { readFile, rename, rm, writeFile } from 'node:fs/promises'
-import { isAbsolute } from 'node:path'
 import { StrKey } from '@stellar/stellar-sdk'
 import { z } from 'zod'
 import { card } from './card.ts'
@@ -19,6 +16,7 @@ import {
   interpreterFor,
   mismatch,
   pinnedWasm,
+  rpcOverride,
 } from './chain.ts'
 import { MAX_CHECKS, runChecks, verifyRule } from './check.ts'
 import {
@@ -41,8 +39,6 @@ import { CAPS, decode, type Expr, encode, hashOf, validate, WireError } from './
 
 const net = {
   network: z.enum(['mainnet', 'testnet']).default('testnet'),
-  rpcUrl: z.string().url().optional(),
-  allowUnpinnedRpcUrl: z.boolean().optional(),
 }
 const account = z.string().refine(StrKey.isValidEd25519PublicKey, 'a G... account')
 const contractId = z.string().refine(StrKey.isValidContract, 'a C... contract')
@@ -216,8 +212,11 @@ async function recordOf(
 ): Promise<Recording> {
   if (i.xdr !== undefined) return decodeEnvelope(i.xdr, i.network)
   const other: Network = i.network === 'mainnet' ? 'testnet' : 'mainnet'
-  // The wrong-network hint asks the other network's own endpoint, so only when this one is.
-  const probe = i.rpcUrl === undefined ? connect({ network: other }) : undefined
+  // The wrong-network hint asks the other network's own endpoint, so only when neither is configured.
+  const probe =
+    rpcOverride(i.network) === undefined && rpcOverride(other) === undefined
+      ? connect({ network: other })
+      : undefined
   return recordHash(connect(i), i.network, i.hash as string, probe)
 }
 
@@ -378,7 +377,7 @@ const verify_policy = tool(
 
 const install_policy = tool(
   'install_policy',
-  "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`. `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The interpreter is checked live before anything is built: it must speak the grammar and run a trusted build (a pinned address, or on a network with none, an `interpreterAddress` whose code hash is one this package trusts). The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind; `allowOverlap: true` installs anyway. An unanswered amount cap is refused unless `allowUnboundedAmount`. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR; `outPath` also writes it to a file.",
+  "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`. `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The interpreter is checked live before anything is built: it must speak the grammar and run a trusted build (a pinned address, or on a network with none, an `interpreterAddress` whose code hash is one this package trusts). The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind; `allowOverlap: true` installs anyway. An unanswered amount cap is refused unless `allowUnboundedAmount`. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR.",
   {
     ...net,
     ...from,
@@ -399,7 +398,6 @@ const install_policy = tool(
     allowOverlap: z.boolean().optional(),
     interpreterAddress: contractId.optional(),
     baseFee: z.number().int().positive().optional(),
-    outPath: z.string().min(1).optional(),
   },
   async (i) => {
     const network = i.network
@@ -461,34 +459,14 @@ const install_policy = tool(
           "the account's rules could not all be read, so whether this rule can bind is not known; set allowOverlap to install anyway"
         )
     }
-    let writtenTo: string | undefined
-    if (i.outPath !== undefined) writtenTo = await writeAtomic(i.outPath, built.unsignedXdr)
     return {
       ...built,
       rule: { contract: chosen.contract, predicateHash: chosen.hash, review: card(chosen.expr) },
       interpreter: live,
       authorityScan: { complete: scan.complete, overlaps: found },
-      ...(writtenTo ? { writtenTo } : {}),
     }
   }
 )
-
-/** Write beside the target and rename (atomic), reading it back: a half-written
- *  file would reach a signer as a malformed transaction. */
-async function writeAtomic(path: string, text: string): Promise<string> {
-  if (!isAbsolute(path) || path.includes('\0'))
-    throw new Refusal('INVALID_INPUT', 'outPath must be an absolute path')
-  const staging = `${path}.${randomBytes(4).toString('hex')}.partial`
-  try {
-    await writeFile(staging, text, { encoding: 'utf8', flag: 'wx' })
-    if ((await readFile(staging, 'utf8')) !== text)
-      throw new Error('outPath: the file was not persisted intact')
-    await rename(staging, path)
-  } finally {
-    await rm(staging, { force: true })
-  }
-  return path
-}
 
 const revoke_policy = tool(
   'revoke_policy',

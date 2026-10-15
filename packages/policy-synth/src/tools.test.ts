@@ -3,9 +3,6 @@
 // records it again), through the real SDK against a local JSON-RPC server.
 
 import { afterAll, describe, expect, it, setDefaultTimeout } from 'bun:test'
-import { mkdtempSync, readFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import {
   Account,
   Address,
@@ -17,7 +14,7 @@ import {
 } from '@stellar/stellar-sdk'
 import { z } from 'zod'
 import { account, contract, recording } from '../test/fixtures.ts'
-import { recorded } from '../test/rpc.ts'
+import { pointAt, recorded } from '../test/rpc.ts'
 import { callExpr } from './intent.ts'
 import { run, TOOLS } from './tools.ts'
 import { encode, hashOf } from './wire.ts'
@@ -31,8 +28,8 @@ const net = recorded('tools')
 afterAll(() => net.stop())
 
 type Out = { ok: boolean; data?: any; error?: any }
-const call = (name: string, input: object = {}, live = true) =>
-  run(name, { ...(live ? net.endpoint : { network: 'testnet' }), ...input }) as Promise<Out>
+const call = (name: string, input: object = {}, _live = true) =>
+  run(name, { network: 'testnet', ...input }) as Promise<Out>
 const failing = async (name: string, input: object, code: string, text?: RegExp) => {
   const r = await call(name, input)
   expect(r.ok).toBe(false)
@@ -125,10 +122,9 @@ describe('record_transaction', () => {
     ['both', { hash: INSTALL_TX, xdr: 'AAAA' }],
     ['a short hash', { hash: 'abc' }],
     ['an unknown network', { hash: INSTALL_TX, network: 'devnet' }],
-    [
-      'plain http to a remote host',
-      { hash: INSTALL_TX, rpcUrl: 'http://example.com', allowUnpinnedRpcUrl: true },
-    ],
+    // An endpoint is the operator's, never the request's: a tool that took one could be pointed anywhere.
+    ['an endpoint of its own', { hash: INSTALL_TX, rpcUrl: 'https://rpc.example.com' }],
+    ['permission for it', { hash: INSTALL_TX, allowUnpinnedRpcUrl: true }],
   ])('refuses %s', (_n, input) =>
     failing(
       'record_transaction',
@@ -142,14 +138,15 @@ describe('record_transaction', () => {
     )
   )
 
-  it("refuses an endpoint that is not the network's own unless asked", async () => {
-    const r = (await call(
-      'record_transaction',
-      { hash: INSTALL_TX, rpcUrl: 'https://rpc.example.com' },
-      false
-    )) as Out
-    expect(r.error.code).toBe('INVALID_INPUT')
-    expect(r.error.message).toMatch(/allowUnpinnedRpcUrl/)
+  it("the endpoint is the operator's: configured in the environment, https unless it is loopback", async () => {
+    const restore = pointAt('testnet', 'http://example.com')
+    try {
+      const r = (await call('record_transaction', { hash: INSTALL_TX })) as Out
+      expect(r.error.code).toBe('INVALID_INPUT')
+      expect(r.error.message).toMatch(/must be https/)
+    } finally {
+      restore()
+    }
   })
 
   it('refuses what is not a transaction that calls a contract', async () => {
@@ -410,18 +407,9 @@ describe('install_policy', () => {
     expect(r.data.describes.args[4].map).toHaveLength(2)
   })
 
-  it('writes the envelope itself, atomically, and says where', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'opb-'))
-    const outPath = join(dir, 'install.xdr')
-    const r = await call('install_policy', { ...base, signers: [account(5)], outPath })
-    expect(r.data.writtenTo).toBe(outPath)
-    expect(readFileSync(outPath, 'utf8')).toBe(r.data.unsignedXdr)
-    await failing(
-      'install_policy',
-      { ...base, signers: [account(5)], outPath: 'relative.xdr' },
-      'INVALID_INPUT',
-      /absolute/
-    )
+  it('takes no outPath or endpoint: what it builds is returned, and written nowhere', async () => {
+    for (const extra of [{ outPath: '/tmp/x.xdr' }, { rpcUrl: 'https://rpc.example.com' }])
+      await failing('install_policy', { ...base, ...extra }, 'INVALID_INPUT', /Unrecognized key/)
   })
 
   it('refuses a scope that exposes an admin surface, before any build', async () => {
@@ -446,7 +434,7 @@ describe('install_policy', () => {
     )
     await failing(
       'install_policy',
-      { ...base, network: 'mainnet', rpcUrl: undefined },
+      { ...base, network: 'mainnet' },
       'INTERPRETER_MISMATCH',
       /no grammar-7 interpreter is pinned for mainnet/
     )
@@ -501,8 +489,6 @@ describe('install_policy: the input boundary, to the unit', () => {
     ['a one-character name', { name: 'x' }, true],
     ['a twenty-character name', { name: 'x'.repeat(20) }, true],
     ['an empty name', { name: '' }, false],
-    ['a one-character path', { outPath: '/' }, true],
-    ['an empty path', { outPath: '' }, false],
     ['a ledger of the maximum', { validUntilLedger: 0xffffffff }, true],
     ['a ledger past it', { validUntilLedger: 0x100000000 }, false],
   ])('%s', (_n, o, want) => expect(ok(o)).toBe(want))

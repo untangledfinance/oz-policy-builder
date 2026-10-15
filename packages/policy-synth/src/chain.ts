@@ -24,24 +24,23 @@ import { Refusal } from './envelope.ts'
 
 export interface Endpoint {
   network: Network
+  /** A library caller's own endpoint. A tool never takes one: its input is untrusted. */
   rpcUrl?: string | undefined
-  /** Use `rpcUrl` although it is not the network's own endpoint. */
-  allowUnpinnedRpcUrl?: boolean | undefined
 }
 
-/** A server for the network. A different endpoint is refused unless asked for:
- *  every answer binds to whoever served it. Plain http is for a loopback host only. */
+/** The operator's endpoint for a network, from the process environment
+ *  (`POLICY_BUILDER_RPC_URL_TESTNET`, `POLICY_BUILDER_RPC_URL_MAINNET`). */
+export const rpcOverride = (network: Network): string | undefined =>
+  process.env[`POLICY_BUILDER_RPC_URL_${network.toUpperCase()}`]
+
+/** A server for the network: the network's own endpoint, or the one the operator configured
+ *  (an answer binds to whoever served it, and a request goes wherever it is pointed, so
+ *  neither is ever a tool's input). Plain http is for a loopback host only. */
 export function connect(e: Endpoint): rpc.Server {
-  const url = e.rpcUrl ?? RPC_URL[e.network]
-  if (url !== RPC_URL[e.network] && e.allowUnpinnedRpcUrl !== true) {
-    throw new Refusal(
-      'INVALID_INPUT',
-      `rpcUrl is not the ${e.network} endpoint (${RPC_URL[e.network]}); set allowUnpinnedRpcUrl to use it`
-    )
-  }
+  const url = e.rpcUrl ?? rpcOverride(e.network) ?? RPC_URL[e.network]
   const loopback = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?(\/|$)/.test(url)
   if (!url.startsWith('https://') && !loopback)
-    throw new Refusal('INVALID_INPUT', 'rpcUrl must be https')
+    throw new Refusal('INVALID_INPUT', 'the RPC endpoint must be https')
   return new rpc.Server(url, { allowHttp: loopback })
 }
 
