@@ -370,7 +370,31 @@ describe('readRules, against a stub account', () => {
     const r = await readRules(server, 'testnet', ACC, INTERP)
     expect(r.rules.map((x) => x.id)).toEqual([0, 3, 9, 20])
     expect(r.complete).toBe(true)
-    expect(Math.max(...asked)).toBe(23) // three batches of eight, and not a fourth
+    // The count says 4, so the first batch asks 4 ids; then batches of eight until all four are found.
+    expect(asked.slice(0, 4).sort((x, y) => x - y)).toEqual([0, 1, 2, 3])
+    expect(Math.max(...asked)).toBe(27)
+  })
+
+  it('asks the count first and then only as many ids as there are rules: two rules, two simulations', async () => {
+    const { server, asked } = stub({ 0: ruleVal(0), 1: ruleVal(1) }, 2)
+    const r = await readRules(server, 'testnet', ACC, INTERP)
+    expect(r.complete).toBe(true)
+    expect(asked.sort()).toEqual([0, 1])
+  })
+
+  it('a count past the id limit is incomplete at once, without walking the ids (a hostile account)', async () => {
+    const { server, asked } = stub({ 0: ruleVal(0) }, 4_000_000_000)
+    const r = await readRules(server, 'testnet', ACC, INTERP)
+    expect(r).toMatchObject({ complete: false, rules: [] })
+    expect(asked).toEqual([])
+  })
+
+  it('stops asking when told to', async () => {
+    const stopped = new AbortController()
+    stopped.abort()
+    const { server, asked } = stub({ 0: ruleVal(0) }, 3)
+    await expect(readRules(server, 'testnet', ACC, INTERP, stopped.signal)).rejects.toThrow()
+    expect(asked).toEqual([])
   })
 
   it('an account with fewer rules than its count says is incomplete, and the walk stops at the id limit', async () => {
@@ -378,7 +402,7 @@ describe('readRules, against a stub account', () => {
     const r = await readRules(server, 'testnet', ACC, INTERP)
     expect(r.complete).toBe(false)
     expect(r.rules).toHaveLength(1)
-    expect(Math.max(...asked)).toBe(511)
+    expect(Math.max(...asked)).toBe(511) // and not one past it
   })
 
   it('a rule that comes back void is skipped, not an error', async () => {

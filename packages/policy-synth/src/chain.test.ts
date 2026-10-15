@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from 'bun:test'
 import { contract } from '../test/fixtures.ts'
 import { fakeInterpreter } from '../test/rpc.ts'
-import { connect, ensureInterpreter, fingerprint, interpreterFor } from './chain.ts'
+import { connect, ensureInterpreter, fingerprint, interpreterFor, pool } from './chain.ts'
 import { INTERPRETER, INTERPRETER_WASM } from './config.ts'
 import { run } from './tools.ts'
 
@@ -100,5 +100,56 @@ describe('every tool that asks the interpreter refuses one that is not a trusted
     })) as Out
     expect(r.error?.code).toBe('INVALID_INPUT')
     expect(r.error?.message).toMatch(/interpreterWasmSha256/)
+  })
+})
+
+describe('pool', () => {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+  const items = Array.from({ length: 60 }, (_, i) => i)
+
+  it('runs at most `width` at once and keeps the order of the answers', async () => {
+    let now = 0
+    let peak = 0
+    const out = await pool(items, 8, async (i) => {
+      peak = Math.max(peak, ++now)
+      await sleep(2)
+      now--
+      return i * 2
+    })
+    expect(peak).toBe(8)
+    expect(out).toEqual(items.map((i) => i * 2))
+  })
+
+  it('after one fails, no more are started (a 429 must not be followed by 56 more calls)', async () => {
+    let started = 0
+    await expect(
+      pool(items, 8, async (i) => {
+        started++
+        await sleep(3)
+        if (i === 2) throw new Error('429')
+        return i
+      })
+    ).rejects.toThrow('429')
+    await sleep(40)
+    expect(started).toBeLessThan(20)
+  })
+
+  it('when told to stop, starts nothing more and rejects', async () => {
+    const stop = new AbortController()
+    let started = 0
+    const run = pool(
+      items,
+      8,
+      async (i) => {
+        started++
+        await sleep(3)
+        if (i === 10) stop.abort()
+        return i
+      },
+      stop.signal
+    )
+    await expect(run).rejects.toThrow()
+    await sleep(40)
+    expect(started).toBeLessThan(30)
   })
 })

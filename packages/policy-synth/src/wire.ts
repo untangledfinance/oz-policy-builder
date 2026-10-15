@@ -297,6 +297,15 @@ export function isSelector(v: Val): v is [string, ...Val[]] {
   return Array.isArray(v) && typeof v[0] === 'string' && !ADDRESS.test(v[0])
 }
 
+/** The children of an `and`, or the expression alone. */
+export const conjuncts = (e: Expr): Expr[] =>
+  isSelector(e) && e[0] === 'and' ? (e[1] as Expr[]) : [e]
+
+/** The conjuncts of each branch a call can take: the children of a top-level `and`,
+ *  one branch per child of a top-level `or`. */
+export const branches = (expr: Expr): Expr[][] =>
+  isSelector(expr) && expr[0] === 'or' ? (expr[1] as Expr[]).map(conjuncts) : [conjuncts(expr)]
+
 function node(e: Expr, depth: number, body: boolean, w: Walk): void {
   if (depth > CAPS.depth) bad(`nested deeper than ${CAPS.depth}`)
   if (!isSelector(e)) bad('not a node')

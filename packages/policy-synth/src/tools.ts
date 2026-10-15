@@ -138,7 +138,7 @@ export interface Tool {
   name: string
   description: string
   shape: z.ZodRawShape
-  run: (raw: unknown) => Promise<ToolResponse<unknown>>
+  run: (raw: unknown, signal?: AbortSignal) => Promise<ToolResponse<unknown>>
 }
 
 const CODE: Record<string, ErrorCode> = {
@@ -155,7 +155,7 @@ function tool<S extends z.ZodRawShape>(
   name: string,
   description: string,
   shape: S,
-  body: (input: z.infer<z.ZodObject<S>>) => Promise<unknown>
+  body: (input: z.infer<z.ZodObject<S>>, signal?: AbortSignal) => Promise<unknown>
 ): Tool {
   const schema = z.object(shape).strict()
   const fail = (
@@ -177,7 +177,7 @@ function tool<S extends z.ZodRawShape>(
     name,
     description,
     shape,
-    async run(raw) {
+    async run(raw, signal) {
       const parsed = schema.safeParse(raw)
       if (!parsed.success) {
         const issues = parsed.error.issues.map(
@@ -186,7 +186,7 @@ function tool<S extends z.ZodRawShape>(
         return fail('INVALID_INPUT', `invalid input: ${issues.join('; ')}`)
       }
       try {
-        return { ok: true, data: await body(parsed.data) }
+        return { ok: true, data: await body(parsed.data, signal) }
       } catch (e) {
         if (e instanceof Refusal) return fail(e.code, e.message, e.extra)
         if (e instanceof WireError) return fail('MALFORMED_PREDICATE', e.message)
@@ -338,13 +338,13 @@ const simulate_policy = tool(
   'simulate_policy',
   `Say whether a predicate permits each of some calls, and if not with which deny code. Give the predicate (\`expr\` or \`encodedPredicate\`, or a source to build it from) and the calls (\`calls\`, or the recorded ones). ${CHECKED}`,
   check,
-  async (i) => {
+  async (i, signal) => {
     const s = await subject(i)
     if (s.calls.length === 0)
       throw new Refusal('INVALID_INPUT', 'no call to check: give `calls` or a recording')
     const [server, interpreter] = [connect(i), interpreterFor(i.network, i.interpreterAddress)]
     await ensureInterpreter(server, i.network, interpreter)
-    const verdicts = await runChecks(server, i.network, interpreter, s.encoded, s.calls)
+    const verdicts = await runChecks(server, i.network, interpreter, s.encoded, s.calls, signal)
     return {
       predicateHash: hashOf(s.encoded),
       results: s.calls.map((c, n) => ({ call: c, ...verdicts[n] })),
@@ -356,10 +356,10 @@ const verify_policy = tool(
   'verify_policy',
   `Check a predicate against a call it must permit: the call must pass, every constraint is turned against the call and must refuse it, and each conjunct is dropped in turn to see the call it guards get through (minimality). \`ok\` needs the permit and every deny case. ${CHECKED} At most about 2 x the number of constraints + 1 calls are made, a few at a time.`,
   { ...check, call: call.optional() },
-  async (i) => {
+  async (i, signal) => {
     const s = await subject(i)
-    const permit = i.call ?? s.calls[0]
-    if (!permit)
+    const permits = i.call ? [i.call as Call] : s.calls
+    if (permits.length === 0)
       throw new Refusal(
         'INVALID_INPUT',
         'verify needs a call that must be permitted: give `call` or a recording'
@@ -368,7 +368,7 @@ const verify_policy = tool(
     await ensureInterpreter(server, i.network, interpreter)
     return {
       predicateHash: hashOf(s.encoded),
-      ...(await verifyRule(server, i.network, interpreter, s.expr, permit as Call)),
+      ...(await verifyRule(server, i.network, interpreter, s.expr, permits, signal)),
     }
   }
 )
@@ -530,10 +530,14 @@ export const TOOLS: Tool[] = [
   get_interpreter_info,
 ]
 
-export const run = (name: string, input: unknown): Promise<ToolResponse<unknown>> => {
+export const run = (
+  name: string,
+  input: unknown,
+  signal?: AbortSignal
+): Promise<ToolResponse<unknown>> => {
   const t = TOOLS.find((x) => x.name === name)
   return t
-    ? t.run(input)
+    ? t.run(input, signal)
     : Promise.resolve({
         ok: false,
         error: {

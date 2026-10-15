@@ -113,16 +113,27 @@ export const txOf = (network: Network, source: Account, op: xdr.Operation, fee =
 export const reasonOf = (error: string): string =>
   [...new Set(error.match(/Error\([^)]*\)/g) ?? [])].join(', ') || 'refused'
 
-/** `fn` over `items`, at most `width` at a time, in order. */
+/** `fn` over `items`, at most `width` at a time, in order. The first failure (or an
+ *  abort of `signal`) stops the rest from being started. */
 export async function pool<T, R>(
   items: T[],
   width: number,
-  fn: (x: T) => Promise<R>
+  fn: (x: T) => Promise<R>,
+  signal?: AbortSignal
 ): Promise<R[]> {
   const out: R[] = new Array(items.length)
   let next = 0
+  let stopped = false
   const worker = async () => {
-    for (let i = next++; i < items.length; i = next++) out[i] = await fn(items[i] as T)
+    for (let i = next++; i < items.length && !stopped; i = next++) {
+      try {
+        signal?.throwIfAborted()
+        out[i] = await fn(items[i] as T)
+      } catch (e) {
+        stopped = true
+        throw e
+      }
+    }
   }
   await Promise.all(Array.from({ length: Math.min(width, items.length) }, worker))
   return out

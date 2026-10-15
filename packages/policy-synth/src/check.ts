@@ -13,9 +13,12 @@ import type { Network } from './config.ts'
 import { Refusal } from './envelope.ts'
 import { and } from './intent.ts'
 import type { Call } from './record.ts'
+import { selectors } from './rules.ts'
 import {
   BITS,
   intOf as big,
+  branches,
+  conjuncts,
   type Expr,
   encode,
   isTagged as isObj,
@@ -87,15 +90,21 @@ export async function runChecks(
   network: Network,
   interpreter: string,
   encoded: string,
-  calls: Call[]
+  calls: Call[],
+  signal?: AbortSignal
 ): Promise<Verdict[]> {
   if (calls.length > MAX_CHECKS)
     throw new Refusal('SIMULATION_ERROR', `at most ${MAX_CHECKS} calls per request`)
   const bytes = xdr.ScVal.scvBytes(Buffer.from(encoded, 'base64'))
-  return pool(calls, WIDTH, async (c) => {
-    const code = await verdictOf(server, network, interpreter, bytes, context(c))
-    return { permitted: code === 0, code, reason: REASONS[code] ?? `code ${code}` }
-  })
+  return pool(
+    calls,
+    WIDTH,
+    async (c) => {
+      const code = await verdictOf(server, network, interpreter, bytes, context(c))
+      return { permitted: code === 0, code, reason: REASONS[code] ?? `code ${code}` }
+    },
+    signal
+  )
 }
 
 // ---- deny cases: each leaf of the rule, turned against a permitted call ----
@@ -193,12 +202,17 @@ function other(v: Val): Val {
   if (isObj(v) && 'string' in v) return { string: `${v.string}x` }
   return null
 }
-/** An address of the same kind with one byte changed. */
+/** An address of the same kind with one byte of its key changed. */
 function otherAddress(a: string): string {
-  const contract = a.startsWith('C')
-  const raw = Buffer.from(contract ? StrKey.decodeContract(a) : StrKey.decodeEd25519PublicKey(a))
+  const [decode, encode] =
+    a[0] === 'C'
+      ? [StrKey.decodeContract, StrKey.encodeContract]
+      : a[0] === 'M'
+        ? [StrKey.decodeMed25519PublicKey, StrKey.encodeMed25519PublicKey]
+        : [StrKey.decodeEd25519PublicKey, StrKey.encodeEd25519PublicKey]
+  const raw = Buffer.from(decode(a))
   raw[0] = (raw[0] ?? 0) ^ 1
-  return contract ? StrKey.encodeContract(raw) : StrKey.encodeEd25519PublicKey(raw)
+  return encode(raw)
 }
 
 /** The value `leaf` evaluates to against `call`, for what can be known without a
@@ -302,14 +316,6 @@ function breakConjunct(call: Call, c: Expr): Call | undefined {
 
 const phrase = (c: Expr): string => JSON.stringify(c).slice(0, 80)
 
-/** The children of an `and`, or the expression alone. */
-const conjuncts = (e: Expr): Expr[] => (isSel(e) && e[0] === 'and' ? (e[1] as Expr[]) : [e])
-
-/** The conjuncts of each branch the permitted call can take: the children of a
- *  top-level `and`, one branch per child of a top-level `or`. */
-export const branches = (expr: Expr): Expr[][] =>
-  isSel(expr) && expr[0] === 'or' ? (expr[1] as Expr[]).map(conjuncts) : [conjuncts(expr)]
-
 /** One deny case per conjunct, derived from the leaf and the call it must refuse. */
 export function denyCases(conjuncts: Expr[], permit: Call): DenyCase[] {
   return conjuncts.flatMap((conjunct) => {
@@ -319,63 +325,162 @@ export function denyCases(conjuncts: Expr[], permit: Call): DenyCase[] {
 }
 
 export interface Verification {
+  /** The calls were permitted, every case was refused, and every branch of an `or` was
+   *  exercised by a call (a branch nothing took could permit anything). */
   ok: boolean
+  /** `ok`, and nothing is left untested either. */
+  complete: boolean
+  /** The first call's verdict; `permits` has them all. */
   permit: Verdict
+  permits: Verdict[]
   cases: { label: string; denied: boolean; verdict: Verdict }[]
-  /** Every conjunct that was tried is needed: dropping it lets its own case through. */
+  /** No conjunct was found redundant: each one tried is needed, because without it its
+   *  own case gets through (or the rule would no longer install). */
   minimal: boolean
   redundant: string[]
+  /** Branches of an `or` that no call took, so nothing was tried against them. */
+  unexamined: string[]
+  /** Conjuncts nothing was tried against: no case can be derived (a read, the clock, a
+   *  nested `or`), the case budget ran out, or another conjunct on the same argument
+   *  denies the same case, so whether this one is needed cannot be told. */
+  untested: string[]
   /** Calls put to the interpreter. */
   checks: number
 }
 
 const MAX_CASES = 24
-const rebuild = (all: Expr[][], dropped?: Expr): Expr => {
-  const ands = all.map((cs) => and(cs.filter((c) => c !== dropped)))
-  return ands.length === 1 ? (ands[0] as Expr) : ['or', ands]
+
+/** `branch i` of the rule without `dropped`, the other branches as they are; undefined
+ *  when that leaves the branch empty (it would permit everything). */
+function without(all: Expr[][], i: number, dropped: Expr): Expr | undefined {
+  const kept = (all[i] as Expr[]).filter((c) => c !== dropped)
+  if (kept.length === 0) return undefined
+  const branch = all.map((b, j) => and(j === i ? kept : b))
+  return branch.length === 1 ? (branch[0] as Expr) : ['or', branch]
 }
 
+/** The leaf a comparison is about (its first operand that is a selector). */
+const subject = (c: Expr): string =>
+  JSON.stringify(isSel(c) ? [c[1], c[2]].find((x) => isSel(x as Val)) : c)
+
+/** Verify `expr` against calls it must permit: each is permitted, each conjunct of the
+ *  branch a call takes is turned against it and refused, and each conjunct is dropped
+ *  in turn to see that its own case then gets through. At most `MAX_CHECKS` calls in all. */
 export async function verifyRule(
   server: rpc.Server,
   network: Network,
   interpreter: string,
   expr: Expr,
-  permit: Call
+  permits: Call[],
+  signal?: AbortSignal
 ): Promise<Verification> {
-  const one = async (e: Expr, call: Call) =>
-    (await runChecks(server, network, interpreter, encode(e), [call]))[0] as Verdict
   const all = branches(expr)
-  // The calls are asked together, WIDTH at a time. Which branch of an `or` the
-  // permitted call takes has to be known before its conjuncts are turned against it.
-  const first = await pool(
-    [expr, ...(all.length > 1 ? all.map((b) => rebuild([b])) : [])],
-    WIDTH,
-    (e) => one(e, permit)
-  )
-  const permitVerdict = first[0] as Verdict
-  const live = all.length > 1 ? all.filter((_, i) => first[i + 1]?.permitted) : all
-  const cases = live.flatMap((b) => denyCases(b, permit)).slice(0, MAX_CASES)
-  // Each deny case twice: against the whole rule (it must refuse), and against the
-  // rule without the conjunct it breaks (it must now get through: the conjunct is needed).
-  const answers = await pool(
-    cases.flatMap((c) => [() => one(expr, c.call), () => one(rebuild(all, c.conjunct), c.call)]),
-    WIDTH,
-    (job) => job()
-  )
-  const redundant = cases
-    .filter((_, i) => !answers[2 * i + 1]?.permitted)
-    .map((c) => phrase(c.conjunct))
-  const results = cases.map((c, i) => ({
-    label: c.label,
-    denied: !answers[2 * i]?.permitted,
-    verdict: answers[2 * i] as Verdict,
-  }))
+  const or = all.length > 1
+  let asked = 0
+  let refused = false
+  const ask = async (e: Expr, call: Call): Promise<Verdict | undefined> => {
+    if (refused) return undefined
+    asked++
+    return (await runChecks(server, network, interpreter, encode(e), [call], signal))[0] as Verdict
+  }
+  const run = <T>(jobs: (() => Promise<T>)[]) => pool(jobs, WIDTH, (j) => j(), signal)
+  // Each permitted call: the whole rule, and when it is an `or`, each branch it can
+  // take (a branch pins the contract and function of its call, so the rest are not asked).
+  const probes = permits
+    .flatMap((call, k) => [
+      { k, i: -1, e: expr, call },
+      ...(or
+        ? all.flatMap((b, i) =>
+            selectors(and(b)).some(
+              (s) =>
+                (s.contract === '*' || s.contract === call.contract) &&
+                (s.fn === '*' || s.fn === call.fn)
+            )
+              ? [{ k, i, e: and(b), call }]
+              : []
+          )
+        : []),
+    ])
+    .slice(0, MAX_CHECKS)
+  const probe = probes.map((p) => async () => {
+    const v = await ask(p.e, p.call)
+    refused ||= p.i === -1 && v !== undefined && !v.permitted
+    return v
+  })
+  // Which call stands for each branch, once one is permitted by it.
+  const stand = (got: (Verdict | undefined)[]) =>
+    all.flatMap((b, i) => {
+      const at = probes.findIndex((p, n) => (or ? p.i === i : p.i === -1) && got[n]?.permitted)
+      return at < 0 ? [] : [{ i, b, call: probes[at]?.call as Call }]
+    })
+  const plan = (live: ReturnType<typeof stand>, budget: number) =>
+    live
+      .flatMap(({ i, b, call }) => denyCases(b, call).map((c) => ({ ...c, i })))
+      .slice(0, Math.min(MAX_CASES, budget >> 1))
+  const two = (c: ReturnType<typeof plan>[number]) => [
+    () => ask(expr, c.call),
+    async () => {
+      const e = without(all, c.i, c.conjunct)
+      return e === undefined ? undefined : ask(e, c.call)
+    },
+  ]
+  let got: (Verdict | undefined)[]
+  let cases: ReturnType<typeof plan>
+  let answers: (Verdict | undefined)[]
+  if (or) {
+    got = await run(probe)
+    cases = plan(stand(got), MAX_CHECKS - probes.length)
+    answers = refused ? [] : await run(cases.flatMap(two))
+  } else {
+    // Nothing the cases need is learnt from the permit, so all are asked together: a
+    // denied call stops the rest from being sent.
+    cases = plan(
+      [{ i: 0, b: all[0] as Expr[], call: permits[0] as Call }],
+      MAX_CHECKS - probes.length
+    )
+    const both = await run([...probe, ...cases.flatMap(two)])
+    got = both.slice(0, probes.length)
+    answers = both.slice(probes.length)
+  }
+  const permitted = permits.map((_, k) => got[probes.findIndex((p) => p.k === k && p.i === -1)])
+  const live = stand(got)
+  const results = cases.flatMap((c, n) => {
+    const v = answers[2 * n]
+    return v ? [{ label: c.label, denied: !v.permitted, verdict: v }] : []
+  })
+  const redundant: string[] = []
+  const untested: string[] = []
+  cases.forEach((c, n) => {
+    const v = answers[2 * n + 1]
+    // Dropping a conjunct can leave a rule the contract refuses (2xx): then it is needed.
+    // Still denied (1xx): redundant, unless another conjunct of the branch is about the
+    // same leaf, whose own denial this may be.
+    if (v === undefined || v.permitted || v.code >= 200) return
+    const others = (all[c.i] as Expr[]).filter((x) => x !== c.conjunct)
+    const twin = others.some((x) => same(x, c.conjunct))
+    const kin = others.some((x) => subject(x) === subject(c.conjunct))
+    ;(kin && !twin ? untested : redundant).push(phrase(c.conjunct))
+  })
+  const tried = new Set(cases.map((c) => c.conjunct))
+  untested.push(...live.flatMap(({ b }) => b.filter((c) => !tried.has(c)).map(phrase)))
+  const unexamined = or
+    ? all.filter((_, i) => !live.some((l) => l.i === i)).map((b) => phrase(and(b)))
+    : []
+  const ok =
+    permitted.every((v) => v?.permitted) &&
+    results.length > 0 &&
+    results.every((r) => r.denied) &&
+    unexamined.length === 0
   return {
-    ok: permitVerdict.permitted && results.length > 0 && results.every((r) => r.denied),
-    permit: permitVerdict,
+    ok,
+    complete: ok && untested.length === 0,
+    permit: permitted[0] as Verdict,
+    permits: permitted.filter((v) => v !== undefined),
     cases: results,
     minimal: redundant.length === 0,
     redundant,
-    checks: first.length + 2 * cases.length,
+    unexamined,
+    untested,
+    checks: asked,
   }
 }

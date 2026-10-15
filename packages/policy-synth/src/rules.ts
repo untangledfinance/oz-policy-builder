@@ -10,9 +10,18 @@
 
 import { Address, type rpc, xdr } from '@stellar/stellar-sdk'
 import { dataKey, entries, pool, read } from './chain.ts'
-import { branches } from './check.ts'
 import { type Network, SPENDING_LIMIT } from './config.ts'
-import { decode, type Expr, fields, fromScVal, intOf, isSelector, unlit, type Val } from './wire.ts'
+import {
+  branches,
+  decode,
+  type Expr,
+  fields,
+  fromScVal,
+  intOf,
+  isSelector,
+  unlit,
+  type Val,
+} from './wire.ts'
 
 export type Scope =
   | { kind: 'default' }
@@ -34,6 +43,13 @@ export interface ObservedRule {
 }
 /** The rule about to be installed. */
 export type Intended = Pick<ObservedRule, 'scope' | 'signers' | 'cap'> & { expr: Expr }
+export interface RulesRead {
+  rules: ObservedRule[]
+  /** False when ids ran out before every live rule was found: the list is a subset. */
+  complete: boolean
+  /** Rules our interpreter polices whose stored record could not be read. */
+  unreadable: number[]
+}
 export interface Overlap {
   ruleId: number
   /** `refuse`: the new rule cannot bind a shared signer. `review`: it may, read the advice. */
@@ -68,16 +84,22 @@ export async function readRules(
   server: rpc.Server,
   network: Network,
   account: string,
-  interpreter: string
-): Promise<{ rules: ObservedRule[]; complete: boolean; unreadable: number[] }> {
+  interpreter: string,
+  signal?: AbortSignal
+): Promise<RulesRead> {
   const rules: ObservedRule[] = []
-  const batch = async (from: number) => {
-    const ids = Array.from({ length: WIDTH }, (_, i) => from + i)
-    const got = await pool(ids, WIDTH, (id) =>
-      read(server, network, account, 'get_context_rule', xdr.ScVal.scvU32(id)).then(
-        fromScVal,
-        () => undefined
-      )
+  // `n` ids from `from` upward, never past the limit.
+  const batch = async (from: number, n: number) => {
+    const ids = Array.from({ length: Math.min(n, MAX_RULE_ID - from) }, (_, i) => from + i)
+    const got = await pool(
+      ids,
+      WIDTH,
+      (id) =>
+        read(server, network, account, 'get_context_rule', xdr.ScVal.scvU32(id)).then(
+          fromScVal,
+          () => undefined
+        ),
+      signal
     )
     for (const raw of got) {
       const f = fields(raw)
@@ -90,15 +112,15 @@ export async function readRules(
       })
     }
   }
-  // The first ids are asked while the count is: most accounts have few rules. Ids are
+  // The count first: an account that claims more rules than there are ids cannot be
+  // read (and need not be asked about), and one with few rules needs few calls. Ids are
   // not contiguous (a removed id is never reused), so keep walking upward in batches
   // until every live rule has been seen.
-  const [count] = await Promise.all([
-    read(server, network, account, 'get_context_rules_count').then((v) => Number(v.u32())),
-    batch(0),
-  ])
-  for (let from = WIDTH; rules.length < count && from < MAX_RULE_ID; from += WIDTH)
-    await batch(from)
+  const count = Number((await read(server, network, account, 'get_context_rules_count')).u32())
+  if (count > MAX_RULE_ID) return { rules, complete: false, unreadable: [] }
+  await batch(0, Math.min(count, WIDTH))
+  for (let from = Math.min(count, WIDTH); rules.length < count && from < MAX_RULE_ID; from += WIDTH)
+    await batch(from, WIDTH)
   const mine = rules.filter((r) => r.policies.includes(interpreter))
   const capped = rules.filter((r) => r.policies.includes(SPENDING_LIMIT[network]))
   const rid = (r: ObservedRule) => xdr.ScVal.scvU32(r.id)

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import { StrKey } from '@stellar/stellar-sdk'
 import { account, contract } from '../test/fixtures.ts'
-import { branches, denyCases } from './check.ts'
+import { denyCases } from './check.ts'
 import type { Call } from './record.ts'
-import type { Expr, Val } from './wire.ts'
+import { branches, type Expr, type Val } from './wire.ts'
 
 const A = account(1)
 const B = account(2)
@@ -219,7 +219,8 @@ describe('check, on the live interpreter', () => {
 })
 
 describe('verify, on the live interpreter', () => {
-  const check = (e: Expr, call = pay) => verifyRule(server, 'testnet', interpreter, e, call)
+  const check = (e: Expr, ...calls: Call[]) =>
+    verifyRule(server, 'testnet', interpreter, e, calls.length > 0 ? calls : [pay])
 
   it('a tight rule: the permit passes, every leaf turned against the call is refused, each conjunct is needed', async () => {
     const v = await check(rule)
@@ -281,8 +282,15 @@ describe('verify, on the live interpreter', () => {
     expect(v.cases).toHaveLength(2)
     expect(v.cases.map((c) => c.label).join(' ')).toContain('transfer')
     expect(v.cases.map((c) => c.label).join(' ')).not.toContain('burn')
-    expect(v.checks).toBe(3 + 2 * 2)
-    expect(v.ok).toBe(true)
+    // One call for the whole rule, one for the branch it can take (the other pins `burn`), two per case.
+    expect(v.checks).toBe(2 + 2 * 2)
+    expect(v.unexamined).toHaveLength(1)
+    expect(v.ok).toBe(false)
+    // With a call for the other branch too, both are turned against theirs.
+    const burn: Call = { contract: C, fn: 'burn', args: [A, B, { i128: '3' }] }
+    const both = await check(['or', [other, mine]], pay, burn)
+    expect(both.cases).toHaveLength(4)
+    expect(both.ok).toBe(true)
   })
 
   it('a rule permitted by something that is not the call has nothing to verify against: not ok', async () => {
@@ -379,6 +387,101 @@ describe('verify, on the live interpreter', () => {
     const none = await check(['lte', ['now'], { u64: '9999999999' }])
     expect(none.permit.code).toBe(216)
     expect(none.ok).toBe(false)
+  })
+})
+
+describe('verify, what it does not know it says', () => {
+  const check = (e: Expr, ...calls: Call[]) =>
+    verifyRule(server, 'testnet', interpreter, e, calls.length > 0 ? calls : [pay])
+  const fnIs = (f: string): Expr => ['eq', ['call_fn'], f]
+  const amt = (n: string): Val => ({ i128: n })
+
+  it('the only conjunct of a rule is needed, not redundant (dropping it leaves a rule the contract refuses)', async () => {
+    const v = await check(fnIs('transfer'))
+    expect(v.redundant).toEqual([])
+    expect(v.minimal).toBe(true)
+    expect(v.ok).toBe(true)
+  })
+
+  it('a conjunct whose drop makes the rule invalid, or that shares its argument with another, is never called redundant', async () => {
+    // Dropping the pin leaves a rule with no leaf over the call: refused (216), so the pin is needed.
+    const pinned = await check([
+      'and',
+      [
+        ['eq', ['call_arg', 1], B],
+        ['lte', ['now'], { u64: '9999999999' }],
+      ],
+    ])
+    expect(pinned.redundant).toEqual([])
+    expect(pinned.untested).toHaveLength(1) // the clock has no case
+    // `eq` and `in` on one argument: the case that breaks one breaks the other, so neither can be judged.
+    const both = await check([
+      'and',
+      [
+        fnIs('transfer'),
+        ['eq', ['call_arg', 2], amt('500')],
+        ['in', ['call_arg', 2], [amt('500'), amt('700')]],
+      ],
+    ])
+    expect(both.redundant).toEqual([])
+    expect(both.untested).toHaveLength(2)
+    expect(both.minimal).toBe(true)
+  })
+
+  it('a branch of one conjunct is needed too, and a branch no call took is said, and is not ok', async () => {
+    const v = await check(['or', [fnIs('transfer'), fnIs('burn')]])
+    expect(v.redundant).toEqual([])
+    expect(v.minimal).toBe(true)
+    expect(v.unexamined).toEqual(['["eq",["call_fn"],"burn"]'])
+    expect(v.ok).toBe(false)
+  })
+
+  it('every branch must be exercised: a widening branch the permit does not take used to pass', async () => {
+    const wide: Expr = [
+      'or',
+      [
+        [
+          'and',
+          [fnIs('transfer'), ['eq', ['call_arg', 0], A], ['lte', ['call_arg', 2], amt('1000')]],
+        ],
+        fnIs('approve'),
+      ],
+    ]
+    const only = await check(wide)
+    expect(only.ok).toBe(false)
+    expect(only.unexamined).toHaveLength(1)
+    // With a call for each branch, each is turned against its own call.
+    const approve: Call = { contract: C, fn: 'approve', args: [A, B, amt('5'), 100] }
+    const both = await check(wide, pay, approve)
+    expect(both.unexamined).toEqual([])
+    expect(both.permits.map((p) => p.permitted)).toEqual([true, true])
+    expect(both.ok).toBe(true)
+  })
+
+  it('one request makes at most 64 calls, an or of a hundred branches included', async () => {
+    const hundred: Expr = [
+      'or',
+      Array.from({ length: 100 }, (_, i): Expr => ['eq', ['call_arg', 3], i]),
+    ]
+    const v = await check(hundred, { contract: C, fn: 'f', args: [A, B, amt('1'), 7] })
+    expect(v.checks).toBeLessThanOrEqual(64)
+    expect(v.unexamined.length).toBeGreaterThan(0)
+    expect(v.ok).toBe(false)
+  })
+
+  it('a call that is not permitted ends the work: the cases cannot make it ok', async () => {
+    const wide: Expr = [
+      'and',
+      [
+        fnIs('transfer'),
+        ...Array.from({ length: 20 }, (_, i): Expr => ['lte', ['call_arg', 2], amt(String(i + 1))]),
+      ],
+    ]
+    const v = await check(wide)
+    expect(v.permit.permitted).toBe(false)
+    // Calls already on their way (one pool's width, twice over) are all that is spent: 20 conjuncts would be 41.
+    expect(v.checks).toBeLessThanOrEqual(16)
+    expect(v.ok).toBe(false)
   })
 })
 
@@ -648,5 +751,19 @@ describe('a length bound is never allocated', () => {
     const edge = big('lte', 255)[0]
     expect(edge?.call.args[0]).toHaveLength(256)
     expect(big('lte', 256)).toEqual([]) // one past what a case may grow to
+  })
+})
+
+describe('a pinned muxed address', () => {
+  it('is broken as an address of its own kind, not decoded as an ed25519 key', () => {
+    const m = StrKey.encodeMed25519PublicKey(
+      Buffer.concat([Buffer.alloc(32, 7), Buffer.alloc(8, 1)])
+    )
+    const call: Call = { contract: C, fn: 'pay', args: [m] }
+    const [c] = denyCases([['eq', ['call_arg', 0], m]], call)
+    const broken = c?.call.args[0] as string
+    expect(broken).not.toBe(m)
+    expect(broken[0]).toBe('M')
+    expect(StrKey.isValidMed25519PublicKey(broken)).toBe(true)
   })
 })
