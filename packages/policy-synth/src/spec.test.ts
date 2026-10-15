@@ -173,27 +173,29 @@ describe('the interface of a wasm', () => {
     ])
   })
 
-  it('a hostile wasm of thousands of structs parses in about linear time', () => {
-    const chain = (n: number) =>
-      wasmWith([
-        ...Array.from({ length: n }, (_, i) =>
-          struct(`S${i}`, [['next', i + 1 < n ? udt(`S${i + 1}`) : I()]])
-        ),
-        fn('f', [['s', udt('S0')]]),
-      ])
-    const best = (wasm: Buffer) => {
-      let t = Number.POSITIVE_INFINITY
-      for (let k = 0; k < 5; k++) {
-        const t0 = performance.now()
-        expect(interfaceOf(wasm)?.f).toBeDefined()
-        t = Math.min(t, performance.now() - t0)
-      }
-      return t
+  it('a hostile wasm of thousands of structs parses in about linear time: entries are looked at a bounded number of times each', () => {
+    const n = 2_000
+    const wasm = wasmWith([
+      ...Array.from({ length: n }, (_, i) =>
+        struct(`S${i}`, [['next', i + 1 < n ? udt(`S${i + 1}`) : I()]])
+      ),
+      fn('f', [['s', udt('S0')]]),
+    ])
+    // Count how often an entry of the spec is inspected. A scan per type would be n*n/2.
+    const proto = xdr.ScSpecEntry.prototype as unknown as { switch: () => unknown }
+    const original = proto.switch
+    let looks = 0
+    proto.switch = function (this: unknown) {
+      looks++
+      return original.call(this)
     }
-    const [small, big] = [chain(1_000), chain(2_300)]
-    expect(big.length).toBeLessThan(131_072)
-    // 2.3x the structs: about 2.3x the time when linear, 5x when quadratic.
-    expect(best(big) / best(small)).toBeLessThan(3.8)
+    try {
+      expect(interfaceOf(wasm)?.f).toBeDefined()
+    } finally {
+      proto.switch = original
+    }
+    expect(looks).toBeGreaterThan(n) // it does look
+    expect(looks).toBeLessThan(6 * n)
   })
 
   it('a struct that refers to itself is cut, not followed', () => {

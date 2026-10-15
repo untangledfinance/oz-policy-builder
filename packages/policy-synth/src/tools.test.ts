@@ -196,7 +196,57 @@ describe('record_transaction: the other network is asked only when neither endpo
   })
 })
 
+/** The recorded network, except that what `answer` says is what the instance read of ACCOUNT gets. */
+function accountBehind(answer: () => Response) {
+  const server = Bun.serve({
+    port: 0,
+    async fetch(req) {
+      const text = await req.text()
+      const body = JSON.parse(text) as { id: number; method: string; params: { keys?: string[] } }
+      const key =
+        body.params.keys?.length === 1
+          ? xdr.LedgerKey.fromXDR(body.params.keys[0] as string, 'base64')
+          : undefined
+      if (
+        body.method === 'getLedgerEntries' &&
+        key?.switch().name === 'contractData' &&
+        key.contractData().key().switch().name === 'scvLedgerKeyContractInstance' &&
+        Address.fromScAddress(key.contractData().contract()).toString() === ACCOUNT
+      )
+        return answer()
+      return fetch(net.endpoint.rpcUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: text,
+      })
+    },
+  })
+  const undo = pointAt('testnet', `http://127.0.0.1:${server.port}`)
+  return {
+    stop() {
+      undo()
+      server.stop(true)
+    },
+  }
+}
+
 describe('explainAccount reads only an account that runs a known OpenZeppelin build', () => {
+  it('a failure to read the account\'s code is a retryable read error, not "not a known build"', async () => {
+    const through = accountBehind(() => new Response('no available server', { status: 503 }))
+    try {
+      const r = await failing(
+        'get_interpreter_info',
+        { explainAccount: ACCOUNT },
+        'SIMULATION_ERROR',
+        /could not read the account's code/
+      )
+      expect(r.error.retryable).toBe(true)
+      expect(r.error.message).not.toMatch(/does not run/)
+    } finally {
+      through.stop()
+    }
+  })
+
   it('a contract that is not one answers with whatever rules it likes, so none is read', async () => {
     // The pinned interpreter standing in for an account: its code is not a smart account's.
     const pin = 'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV'
@@ -1080,36 +1130,9 @@ describe('revoke_policy', () => {
     expect(plain.data.removes.review).toBeUndefined()
   })
   it('an account that does not run a known OpenZeppelin build is removed from, but its stored rule is not read or described', async () => {
-    // The recorded network, except that the account's code is another build.
-    const through = Bun.serve({
-      port: 0,
-      async fetch(req) {
-        const text = await req.text()
-        const body = JSON.parse(text) as { id: number; method: string; params: { keys?: string[] } }
-        const asksInstance =
-          body.method === 'getLedgerEntries' &&
-          body.params.keys?.length === 1 &&
-          xdr.LedgerKey.fromXDR(body.params.keys[0] as string, 'base64').switch().name ===
-            'contractData' &&
-          Address.fromScAddress(
-            xdr.LedgerKey.fromXDR(body.params.keys[0] as string, 'base64')
-              .contractData()
-              .contract()
-          ).toString() === ACCOUNT
-        if (asksInstance)
-          return Response.json({
-            jsonrpc: '2.0',
-            id: body.id,
-            result: instanceResult(ACCOUNT, 'ab'.repeat(32)),
-          })
-        return fetch(net.endpoint.rpcUrl, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: text,
-        })
-      },
-    })
-    const undo = pointAt('testnet', `http://127.0.0.1:${through.port}`)
+    const through = accountBehind(() =>
+      Response.json({ jsonrpc: '2.0', id: 1, result: instanceResult(ACCOUNT, 'ab'.repeat(32)) })
+    )
     try {
       const r = await call('revoke_policy', {
         smartAccount: ACCOUNT,
@@ -1121,10 +1144,27 @@ describe('revoke_policy', () => {
       expect(r.data.removes).toMatchObject({ id: 2, scope: { kind: 'call_contract' } })
       expect(r.data.removes.expr).toBeUndefined()
       expect(r.data.removes.review).toBeUndefined()
-      expect(r.data.removes.reviewSkipped).toMatch(/known OpenZeppelin smart account build/)
+      expect(r.data.removes.reviewSkipped).toMatch(
+        /does not run a known OpenZeppelin smart account build/
+      )
     } finally {
-      undo()
-      through.stop(true)
+      through.stop()
+    }
+  })
+  it('an account whose code could not be read is not called unknown: the removal is built, the review says it could not look', async () => {
+    const through = accountBehind(() => new Response('no available server', { status: 503 }))
+    try {
+      const r = await call('revoke_policy', {
+        smartAccount: ACCOUNT,
+        sourceAccount: SIGNER,
+        ruleId: 2,
+      })
+      expect(r.ok).toBe(true)
+      expect(r.data.removes.review).toBeUndefined()
+      expect(r.data.removes.reviewSkipped).toMatch(/could not read the account's code/)
+      expect(r.data.removes.reviewSkipped).not.toMatch(/does not run/)
+    } finally {
+      through.stop()
     }
   })
   it('a known build is described, and says nothing is skipped', async () => {

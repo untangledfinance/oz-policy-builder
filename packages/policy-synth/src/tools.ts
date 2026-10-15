@@ -599,7 +599,7 @@ const revoke_policy = tool(
     const [shown] = r.expr ? await describeRules(i, [r], signal) : []
     const skipped = (await trusted).known
       ? {}
-      : { reviewSkipped: notKnown(i.smartAccount, (await trusted).code) }
+      : { reviewSkipped: notKnown(i.smartAccount, await trusted) }
     return { ...plan, removes: { ...r, ...shown, ...skipped } }
   }
 )
@@ -620,13 +620,20 @@ export const describeRules = (
     signal
   )
 
-/** The code an account runs, and whether it is an OpenZeppelin smart account build the package knows. */
+/** The code an account runs, and whether it is an OpenZeppelin smart account build the package
+ *  knows. A failure to read the code is `unread`, never "not a known build": it says nothing of the account. */
 async function trustedAccount(server: ReturnType<typeof connect>, account: string) {
-  const code = await codeHash(server, account).catch(() => undefined)
-  return { code, known: code !== undefined && OZ_ACCOUNT_WASM.has(code) }
+  try {
+    const code = await codeHash(server, account)
+    return { code, known: code !== undefined && OZ_ACCOUNT_WASM.has(code), unread: undefined }
+  } catch (e) {
+    return { code: undefined, known: false, unread: messageOf(e) }
+  }
 }
-const notKnown = (account: string, code?: string) =>
-  `${account} does not run a known OpenZeppelin smart account build (code ${code ?? 'none'}): its rules are not read`
+const notKnown = (account: string, t: Awaited<ReturnType<typeof trustedAccount>>) =>
+  t.unread === undefined
+    ? `${account} does not run a known OpenZeppelin smart account build (code ${t.code ?? 'none'}): its rules are not read`
+    : `could not read the account's code (${t.unread}): its rules are not read`
 
 /** The rules installed on an account, each with its review when this interpreter polices it. */
 async function explainAccount(
@@ -638,8 +645,11 @@ async function explainAccount(
   const server = connect(i)
   await ensureInterpreter(server, i.network, interpreter)
   // An account that runs other code can answer with any rule it likes: only a known build is read.
-  const { code, known } = await trustedAccount(server, account)
-  if (!known) throw new Refusal('INVALID_INPUT', notKnown(account, code))
+  const trust = await trustedAccount(server, account)
+  if (!trust.known)
+    throw trust.unread === undefined
+      ? new Refusal('INVALID_INPUT', notKnown(account, trust))
+      : new Refusal('SIMULATION_ERROR', notKnown(account, trust), { retryable: true })
   const read = await readRules(server, i.network, account, interpreter, signal)
   const shown = await describeRules(
     { ...i, smartAccount: account },
