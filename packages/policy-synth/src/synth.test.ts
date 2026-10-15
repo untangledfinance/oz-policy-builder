@@ -214,12 +214,6 @@ describe('synthesis from what was recorded', () => {
         ['request_type', type],
       ],
     })
-    const pay = (to: string, amount: string): Val => ({
-      map: [
-        ['amount', { i128: amount }],
-        ['to', to],
-      ],
-    })
     const submit = (...requests: Val[]): Call => ({
       contract: contract(5),
       fn: 'submit',

@@ -16,6 +16,8 @@
       "!**/*.tsbuildinfo",
       "!**/worker-configuration.d.ts",
       "!**/test_snapshots",
+      // Written by the interpreter's tests/parity.rs: compact on purpose, one case a line.
+      "!packages/policy-synth/fixtures/parity",
       "!agents",
       // Archived evidence of the Prime session refinement: harnesses, logs and testnet records
       // kept byte-for-byte as they ran, so the results they back stay reproducible. Linting or
