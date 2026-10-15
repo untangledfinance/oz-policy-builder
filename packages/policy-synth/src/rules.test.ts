@@ -208,12 +208,23 @@ describe('the overlap scan', () => {
       severity: 'refuse',
       why: 'uncapped',
     })
-    // The neighbour has its own cap: the scan falls through to the comparison.
+    // A neighbour with a cap of its own is refused too: caps accumulate per rule, so a shared key
+    // spends against the neighbour's window and the new total never sees it.
+    for (const theirs of [
+      { amount: '5', periodLedgers: 100 },
+      { amount: '1000000000000000000000000000000', periodLedgers: 1 },
+      { amount: '10', periodLedgers: 1 },
+    ])
+      expect(
+        scan({ expr: rule('100'), policies: [INTERP, LIMIT], cap: theirs }, { cap })[0]
+      ).toMatchObject({ severity: 'refuse', why: 'rolling' })
+    // Without a new rolling total, a tighter capped neighbour is only information.
     expect(
-      scan(
-        { expr: rule('100'), policies: [INTERP, LIMIT], cap: { amount: '5', periodLedgers: 100 } },
-        { cap }
-      )[0]
+      scan({
+        expr: rule('100'),
+        policies: [INTERP, LIMIT],
+        cap: { amount: '5', periodLedgers: 100 },
+      })[0]
     ).toMatchObject({ severity: 'review' })
     // A neighbour policed by something unrecognised is not judged to carry one: refused.
     expect(scan({ policies: [contract(9)], expr: undefined }, { cap })[0]).toMatchObject({
@@ -352,10 +363,11 @@ describe('the scan, signers and policies', () => {
     expect(scan({ signers: [c], policies: [] }, { signers: [a, b] })).toEqual([])
   })
 
-  it('a neighbour with a policy nobody recognises is not assumed to lack a cap', () => {
+  it('a neighbour with a policy nobody recognises is not assumed to carry the new total either', () => {
     const cap = { amount: '10', periodLedgers: 100 }
     expect(scan({ policies: [INTERP, contract(9)], expr: rule('100') }, { cap })[0]).toMatchObject({
-      severity: 'review',
+      severity: 'refuse',
+      why: 'rolling',
     })
     expect(scan({ policies: [INTERP, LIMIT], expr: rule('100') }, { cap })[0]).toMatchObject({
       why: 'uncapped',

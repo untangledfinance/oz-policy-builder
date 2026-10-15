@@ -56,7 +56,7 @@ export interface Overlap {
   ruleId: number
   /** `refuse`: the new rule cannot bind a shared signer. `review`: it may, read the advice. */
   severity: 'refuse' | 'review'
-  why: 'unpoliced' | 'looser' | 'uncapped' | 'unreadable' | 'other'
+  why: 'unpoliced' | 'looser' | 'uncapped' | 'rolling' | 'unreadable' | 'other'
   advice: string
 }
 
@@ -355,6 +355,15 @@ export function overlaps(
           : reads
             ? 'is policed by an interpreter this tool cannot decode, so what it permits is unknown'
             : "has no predicate this tool can read (only other policies), so a shared signer may make these calls under none of the new rule's limits"
+      )
+    }
+    // Rolling totals accumulate per rule: a shared key that names this neighbour spends against
+    // its window (whatever size), never the new one. Refused however tight its predicate is.
+    if (mine.cap) {
+      return out(
+        'refuse',
+        'rolling',
+        'serves some of the same calls under its own spend window, so the new rolling total does not bind a shared signer; a cap is per rule, not per key'
       )
     }
     if (covers(old.expr, mine.expr)) {
