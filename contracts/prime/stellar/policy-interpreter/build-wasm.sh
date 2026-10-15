@@ -33,5 +33,5 @@ export RUSTFLAGS="--remap-path-prefix=${cargo_home}/registry/src=/cargo --remap-
 
 cargo build --release --target wasm32v1-none "$@"
 
-wasm="target/wasm32v1-none/release/policy_interpreter.wasm"
+wasm="${CARGO_TARGET_DIR:-target}/wasm32v1-none/release/policy_interpreter.wasm"
 sha256sum "$wasm" | cut -d' ' -f1
