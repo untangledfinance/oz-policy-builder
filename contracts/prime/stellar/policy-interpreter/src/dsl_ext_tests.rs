@@ -403,19 +403,86 @@ fn nin_keeps_the_in_caps() {
 }
 
 #[test]
-fn nin_counts_the_needle_once_per_entry_toward_the_leaf_cap() {
-    // 32 entries expand to 32 `ne` of two leaves each: 64.
+fn nin_costs_its_needle_once_and_each_entry_one_leaf() {
+    // needle + 32 entries = 33 leaves, however the needle is written.
     let full: StdVec<ScVal> = (0..32).map(n).collect();
-    let nest: StdVec<ScVal> = (0..4).map(|_| set("nin", arg(0), &full)).collect();
-    assert_eq!(refused(&and(&nest[..3])), None, "192 leaves");
+    let six: StdVec<ScVal> = (0..6).map(|_| set("nin", arg(0), &full)).collect();
+    assert_eq!(refused(&and(&six)), None, "198 leaves");
+    let seven: StdVec<ScVal> = (0..7).map(|_| set("nin", arg(0), &full)).collect();
     assert_eq!(
-        refused(&and(&nest)),
+        refused(&and(&seven)),
         Some(DecodeError::TooManyLeaves),
-        "256 leaves"
+        "231"
+    );
+    // a needle that is itself four leaves is counted once, not per entry
+    let scaled = tup(&[sym("scaled"), arg(0), n(2), n(1), n(0)]);
+    let big = set("nin", scaled, &full);
+    let rest: StdVec<ScVal> = (0..20).map(|_| cmp("eq", arg(1), n(1))).collect();
+    let fits = [alloc::vec![big.clone()], rest.clone()].concat();
+    assert_eq!(refused(&and(&fits)), None, "36 + 40 leaves");
+}
+
+#[test]
+fn nin_in_a_body_holds_five_entries_like_in() {
+    let over = path(&[ScVal::U32(0)]);
+    let body = |k: i128| {
+        all_of(
+            over.clone(),
+            set("nin", elem(&[]), &(0..k).map(n).collect::<StdVec<_>>()),
+        )
+    };
+    assert_eq!(refused(&body(5)), None);
+    assert_eq!(refused(&body(6)), Some(DecodeError::TooManyLeaves));
+}
+
+#[test]
+fn nin_resolves_a_read_needle_once() {
+    // A call-derived read is its own call at decode: `nin` over it must spend
+    // one read slot, not one per entry (a registry-backed denylist).
+    let read = tup(&[sym("read"), account(7), sym("f"), tup(&[arg(0)])]);
+    let entries: StdVec<ScVal> = (0..32).map(n).collect();
+    assert_eq!(refused(&set("nin", read.clone(), &entries)), None);
+    let other = tup(&[sym("read"), account(8), sym("g"), tup(&[arg(0)])]);
+    let three = [
+        set("nin", read.clone(), &entries),
+        cmp("eq", other.clone(), n(1)),
+        cmp("eq", other.clone(), n(1)),
+        cmp("eq", other, n(1)),
+    ];
+    assert_eq!(refused(&and(&three)), None, "4 call-derived reads");
+    let five = [
+        alloc::vec![set("nin", read.clone(), &entries)],
+        (0..4)
+            .map(|i| {
+                tup(&[
+                    sym("eq"),
+                    tup(&[sym("read"), account(9), sym("h"), tup(&[arg(i)])]),
+                    n(1),
+                ])
+            })
+            .collect(),
+    ]
+    .concat();
+    assert_eq!(
+        refused(&and(&five)),
+        Some(DecodeError::TooManyLeaves),
+        "a fifth distinct call"
     );
 }
 
-// ---- D: map keys of any constant -------------------------------------------
+#[test]
+fn nin_denies_with_arg_mismatch_whichever_side_is_a_selector() {
+    let own = set("nin", tup(&[sym("call_contract")]), &[account(0)]);
+    assert_eq!(reason(&own, &[]), Some(DenyReason::ArgMismatch));
+    assert_eq!(
+        reason(&set("nin", arg(0), &[n(1)]), &[n(1)]),
+        Some(DenyReason::ArgMismatch)
+    );
+    assert_eq!(
+        reason(&set("nin", arg(5), &[n(1)]), &[n(1)]),
+        Some(DenyReason::ArgMismatch)
+    );
+}
 
 #[test]
 fn an_address_keyed_map_is_walked_with_a_lit_key() {

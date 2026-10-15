@@ -150,8 +150,8 @@ fn node_to_scval(env: &Env, n: &Node) -> ScVal {
             leaf_to_scval(env, over),
             node_to_scval(env, body),
         ]),
-        Node::In { needle, haystack } => vec_scval(&[
-            sym("in"),
+        Node::In(needle, haystack, nin) => vec_scval(&[
+            sym(if *nin { "nin" } else { "in" }),
             leaf_to_scval(env, needle),
             vec_scval(
                 &haystack
@@ -276,20 +276,22 @@ fn op_and_fail_fast_returns_first_violation() {
 #[test]
 fn op_in_needle_in_haystack_permits() {
     let env = Env::default();
-    let n = Node::In {
-        needle: li(&env, 2),
-        haystack: StdVec::from([li(&env, 1), li(&env, 2), li(&env, 3)]),
-    };
+    let n = Node::In(
+        li(&env, 2),
+        StdVec::from([li(&env, 1), li(&env, 2), li(&env, 3)]),
+        false,
+    );
     assert!(permit(evaluate(&env, &n, &empty_ctx(&env))));
 }
 
 #[test]
 fn op_in_needle_missing_deny() {
     let env = Env::default();
-    let n = Node::In {
-        needle: li(&env, 99),
-        haystack: StdVec::from([li(&env, 1), li(&env, 2), li(&env, 3)]),
-    };
+    let n = Node::In(
+        li(&env, 99),
+        StdVec::from([li(&env, 1), li(&env, 2), li(&env, 3)]),
+        false,
+    );
     assert!(!permit(evaluate(&env, &n, &empty_ctx(&env))));
 }
 
@@ -297,10 +299,7 @@ fn op_in_needle_missing_deny() {
 fn op_in_empty_haystack_deny_fails_closed() {
     // Runtime-built AST (decode-time `in []` is also covered below) - deny.
     let env = Env::default();
-    let n = Node::In {
-        needle: li(&env, 1),
-        haystack: StdVec::new(),
-    };
+    let n = Node::In(li(&env, 1), StdVec::new(), false);
     assert_eq!(
         reason(evaluate(&env, &n, &empty_ctx(&env))),
         Some(DenyReason::NotInAllowlist)
@@ -997,12 +996,13 @@ fn cap_leaves_over_limit_returns_too_many_leaves() {
 #[test]
 fn cap_in_operand_count_over_limit_returns_in_operand_limit() {
     let env = Env::default();
-    let n = Node::In {
-        needle: li(&env, 0),
-        haystack: (0..=(MAX_IN_OPERAND_COUNT as i128))
+    let n = Node::In(
+        li(&env, 0),
+        (0..=(MAX_IN_OPERAND_COUNT as i128))
             .map(|i| li(&env, i))
             .collect::<StdVec<_>>(),
-    };
+        false,
+    );
     let bytes = bytes_from_node(&env, &n);
     let err = decode(&env, &bytes).expect_err("in haystack > MAX_IN_OPERAND_COUNT must deny");
     assert_eq!(err, crate::dsl::DecodeError::InOperandLimit);
@@ -1097,11 +1097,8 @@ fn op_or_all_deny_reports_the_first_childs_reason() {
     // make the review card's reason depend on evaluation accident.
     let env = Env::default();
     let n = Node::Or(StdVec::from([
-        Node::In {
-            needle: li(&env, 9),
-            haystack: StdVec::from([li(&env, 1)]),
-        }, // NotInAllowlist
-        cmp_i128(&env, CompareOp::Lte, 10, 5), // ArgMismatch
+        Node::In(li(&env, 9), StdVec::from([li(&env, 1)]), false), // NotInAllowlist
+        cmp_i128(&env, CompareOp::Lte, 10, 5),                     // ArgMismatch
     ]));
     assert_eq!(
         reason(evaluate(&env, &n, &empty_ctx(&env))),

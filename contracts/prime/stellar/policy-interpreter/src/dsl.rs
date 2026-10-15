@@ -96,10 +96,9 @@ pub enum Node {
         left: Leaf,
         right: Leaf,
     },
-    In {
-        needle: Leaf,
-        haystack: Vec<Leaf>,
-    },
+    /// `in(needle, entries)`, or `nin` when the flag is set: the needle resolves
+    /// and equals one entry / none. An unresolved needle denies either way.
+    In(Leaf, Vec<Leaf>, bool),
     /// `all(over, body)` / `any(over, body)`: `body` holds for every / some
     /// element of the vector `over` resolves to (`elem` leaves read the current
     /// one). `all` of nothing permits; `any` of nothing denies.
@@ -297,9 +296,7 @@ fn eval(env: &Env, node: &Node, ctx: &Ctx, memo: &mut Memo) -> Result<(), DenyRe
             let n = |v: &Val| val_to_i128(env, v).ok_or(miss);
             let pass = match op {
                 CompareOp::Eq => val_eq(env, &a, &b),
-                CompareOp::Ne => {
-                    !val_eq(env, &a, &b) && !val_eq(env, &demux(env, a), &demux(env, b))
-                }
+                CompareOp::Ne => !same(env, &a, &b, true),
                 CompareOp::Lt => n(&a)? < n(&b)?,
                 CompareOp::Lte => n(&a)? <= n(&b)?,
                 CompareOp::Gt => n(&a)? > n(&b)?,
@@ -320,13 +317,17 @@ fn eval(env: &Env, node: &Node, ctx: &Ctx, memo: &mut Memo) -> Result<(), DenyRe
         // An opaque or undecodable needle fails closed as a membership miss,
         // not an argument mismatch: it cannot be on the allowlist because it
         // cannot be compared at all.
-        Node::In { needle, haystack } => resolve(env, needle, ctx, memo)
+        Node::In(needle, haystack, nin) => resolve(env, needle, ctx, memo)
             .is_ok_and(|x| {
+                let hit = |h: &Val| same(env, &x, h, *nin);
                 let mut hay = haystack.iter().filter_map(|h| literal_to_val(h).ok());
-                hay.any(|h| val_eq(env, &x, &h))
+                hay.any(|h| hit(&h)) != *nin
             })
             .then_some(())
-            .ok_or(DenyReason::NotInAllowlist),
+            .ok_or(match nin {
+                true => DenyReason::ArgMismatch,
+                false => DenyReason::NotInAllowlist,
+            }),
     }
 }
 
@@ -377,6 +378,12 @@ fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
     }
     let objects = a.is_object() || b.is_object();
     a.shallow_eq(b) || (objects && (*a).to_xdr(env) == (*b).to_xdr(env))
+}
+
+/// `val_eq`, and with `muxed` also equal once each side is de-muxed: the test
+/// behind `ne` and `nin`.
+fn same(env: &Env, a: &Val, b: &Val, muxed: bool) -> bool {
+    val_eq(env, a, b) || (muxed && val_eq(env, &demux(env, *a), &demux(env, *b)))
 }
 
 /// A muxed address as the account it pays. `ne` (so `nin`) must not be passed by
@@ -513,7 +520,7 @@ fn leaves(node: &Node) -> Vec<(&Leaf, u32)> {
     let top = match node {
         Node::And(kids) | Node::Or(kids) => return kids.iter().flat_map(leaves).collect(),
         Node::Compare { left, right, .. } => vec![left, right],
-        Node::In { needle, haystack } => haystack.iter().chain([needle]).collect(),
+        Node::In(needle, haystack, _) => haystack.iter().chain([needle]).collect(),
         Node::Quant(_, over, body) => {
             out.extend(leaves(body).into_iter().map(|(l, w)| (l, w * MAX_ELEMS)));
             vec![over]
@@ -657,17 +664,7 @@ fn decode_node(env: &Env, items: &Vals, depth: u32) -> Res<Node> {
         let short = entries.len() <= MAX_IN_OPERAND_COUNT;
         cap(short, DecodeError::InOperandLimit)?;
         let haystack = each(&entries, |h| literal(env, &h, 1).map(Leaf::Lit))?;
-        // `nin` is `ne` against every entry: the needle must resolve and differ
-        // from each, so an unresolvable needle denies.
-        let ne = |h: &Leaf| Node::Compare {
-            op: C::Ne,
-            left: needle.clone(),
-            right: h.clone(),
-        };
-        Ok(match is("nin") {
-            true => Node::And(haystack.iter().map(ne).collect()),
-            false => Node::In { needle, haystack },
-        })
+        Ok(Node::In(needle, haystack, is("nin")))
     } else if is("all") || is("any") {
         ensure(items.len() == 3)?;
         let over = leaf_at(env, items, 1)?;
