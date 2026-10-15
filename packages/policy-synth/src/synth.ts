@@ -136,7 +136,7 @@ export function unboundedExpr(expr: Expr): Synthesis['ambiguities'] {
     if (!Array.isArray(e)) return
     const [op, a] = constantLast(e as Expr) as [string, Val]
     if (isSelector(e) && (op === 'lte' || op === 'lt')) bounds.push(a)
-    e.forEach((x) => walk(x as Val))
+    for (const x of e) walk(x as Val)
   }
   walk(expr)
   const fns = [...new Set(selectors(expr).map((s) => s.fn))].filter((f) => f !== '*')
