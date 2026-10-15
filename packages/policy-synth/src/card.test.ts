@@ -393,6 +393,22 @@ describe('amounts', () => {
     const ten = { i128: '10000000' }
     expect(e('transfer', 'amount', 'i128', ten)).toContain('1 USDC (10000000)')
     expect(e('approve', 'amount', 'i128', ten)).toContain('1 USDC (10000000)')
+    // Reached through a step, or typed otherwise than i128: not the SEP-41 amount.
+    const through = card(
+      [
+        'and',
+        [
+          ['eq', ['call_fn'], 'transfer'],
+          ['eq', ['call_path', 0, 'x'], ten],
+        ],
+      ],
+      {
+        contract: C,
+        info: { [C]: { fns: { transfer: [['amount', 'i128']] } as never, token: USDC } },
+      }
+    ).at(-1)
+    expect(through).toBe('   └─ argument 0 › x:  must be  10000000')
+    expect(e('transfer', 'amount', 'u64', ten)).not.toContain('USDC')
     // Another function of the token, another parameter name or type, another value type.
     for (const [fn, name, ty, v] of [
       ['deposit', 'amount', 'i128', ten],

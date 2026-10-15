@@ -109,6 +109,17 @@ describe('the interface of a wasm', () => {
     expect(fns.decimals).toEqual([])
   })
 
+  it('a function or parameter named like a value (true, false, null) is not used', () => {
+    for (const bad of ['true', 'false', 'null']) {
+      expect(interfaceOf(wasmWith([fn(bad, [['a', Z()]])]))).toEqual({})
+      expect(interfaceOf(wasmWith([fn('f', [[bad, Z()]])]))).toEqual({})
+    }
+    expect(Object.keys(interfaceOf(wasmWith([fn('nullable', [['trueish', Z()]])])) ?? {})).toEqual([
+      'nullable',
+    ])
+    expect(interfaceOf(wasmWith([fn('f', [['1a', Z()]])]))).toEqual({})
+  })
+
   it('a struct that refers to itself is cut, not followed', () => {
     expect(fns.walk).toEqual([['root', { fields: { next: { vec: 'deep' }, value: 'i128' } }]])
   })
@@ -375,6 +386,26 @@ describe('what is known of a contract', () => {
     expect((await infoFor(n.endpoint, [c]))[c]).toEqual({ fns: SAC, token: undefined })
   })
 
+  it('a wrong-typed answer is an answer: kept, not asked again', async () => {
+    const c = unique(5150)
+    const n = open({ instances: { [c]: '' }, wasms: {}, names: { [c]: 7 } })
+    await infoFor(n.endpoint, [c])
+    await infoFor(n.endpoint, [c])
+    expect(n.calls.sims).toBe(1)
+  })
+
+  it('a token is known per network: the same address on another network is asked again', async () => {
+    const c = unique(5151)
+    const [test, main] = [
+      open({ instances: { [c]: '' }, wasms: {}, names: { [c]: circle } }),
+      open({ instances: { [c]: '' }, wasms: {}, names: { [c]: 'native' } }),
+    ]
+    const there = { network: 'mainnet' as const, rpcUrl: main.endpoint.rpcUrl }
+    expect((await infoFor(test.endpoint, [c]))[c]?.token?.symbol).toBe(short)
+    expect((await infoFor(there, [c]))[c]?.token?.symbol).toBe('native')
+    expect((await infoFor(test.endpoint, [c]))[c]?.token?.symbol).toBe(short)
+  })
+
   it('one contract that answers wrongly or fails does not take the names of the others', async () => {
     const ids = [unique(5200), unique(5201), unique(5202), unique(5203)]
     const n = open({
@@ -488,13 +519,13 @@ describe('what is known of a contract', () => {
       instances: Object.fromEntries(ids.map((c) => [c, ''])),
       wasms: {},
       names: Object.fromEntries(ids.map((c) => [c, circle])),
-      delay: 60,
+      delay: 150,
     })
     const ctl = new AbortController()
-    setTimeout(() => ctl.abort(), 80)
+    setTimeout(() => ctl.abort(), 60)
     await infoFor(n.endpoint, ids, ctl.signal)
-    await Bun.sleep(300)
-    expect(n.calls.sims).toBeLessThanOrEqual(8) // two batches of four, not sixteen
+    await Bun.sleep(400)
+    expect(n.calls.sims).toBeLessThanOrEqual(4) // the first four were under way; no more start
   })
 
   it('a hung server costs no more than the wait (2 s)', async () => {
