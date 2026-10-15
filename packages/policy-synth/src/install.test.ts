@@ -16,7 +16,7 @@ const INTERP = interpreterFor('testnet')
 const expr = callExpr({
   contract: TOKEN,
   fn: 'transfer',
-  where: [{ rule: 'cap', at: [2], max: '500' }],
+  where: [{ constraint: 'cap', at: [2], max: '500' }],
 })
 const encoded = encode(expr)
 
@@ -344,7 +344,7 @@ describe('planInstall: the guards', () => {
               expr: callExpr({
                 contract: TOKEN,
                 fn: 'transfer',
-                where: [{ rule: 'cap', at: [2], max: '1' }],
+                where: [{ constraint: 'cap', at: [2], max: '1' }],
               }),
             }),
           ],

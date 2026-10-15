@@ -62,7 +62,7 @@ describe('the MCP server registers the table as it is', () => {
 
   it('synthesizes from an intent end to end', async () => {
     const intent = {
-      calls: [{ contract: CONTRACT, fn: 'pay', where: [{ rule: 'cap', at: [0], max: '5' }] }],
+      calls: [{ contract: CONTRACT, fn: 'pay', where: [{ constraint: 'cap', at: [0], max: '5' }] }],
     }
     const r = await (await client()).callTool({ name: 'synthesize_policy', arguments: { intent } })
     const rules = (r.structuredContent as { rules: { review: string[] }[] }).rules

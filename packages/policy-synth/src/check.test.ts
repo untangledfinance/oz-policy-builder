@@ -332,9 +332,9 @@ describe('verify, on the live interpreter', () => {
       contract: C,
       fn: 'swap',
       where: [
-        { rule: 'cap', at: [0], max: '5000' },
-        { rule: 'minOut', at: [1], of: [0], num: '99', den: '100' },
-        { rule: 'pin', at: [2], to: A },
+        { constraint: 'cap', at: [0], max: '5000' },
+        { constraint: 'minOut', at: [1], of: [0], num: '99', den: '100' },
+        { constraint: 'pin', at: [2], to: A },
       ],
     })
     const v = await check(swap, { contract: C, fn: 'swap', args: [amt('1000'), amt('990'), A] })

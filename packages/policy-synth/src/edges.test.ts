@@ -61,26 +61,26 @@ describe('what each template lowers to', () => {
         contract: C,
         fn: 'execute',
         where: [
-          { rule: 'length', at: [0], max: 8 },
+          { constraint: 'length', at: [0], max: 8 },
           {
-            rule: 'each',
+            constraint: 'each',
             at: [0],
             where: [
-              { rule: 'allow', at: ['target'], in: [contract(2)] },
-              { rule: 'allow', at: ['function_name'], in: ['supply'] },
+              { constraint: 'allow', at: ['target'], in: [contract(2)] },
+              { constraint: 'allow', at: ['function_name'], in: ['supply'] },
             ],
           },
-          { rule: 'length', at: [1], max: 0 },
-          { rule: 'pin', at: [2], to: 0 },
+          { constraint: 'length', at: [1], max: 0 },
+          { constraint: 'pin', at: [2], to: 0 },
         ],
       },
     ])
     const plain = TEMPLATES.adapter_batch({ adapter: C, targets: [contract(2)], maxCalls: 3 })
-    expect(plain.calls[0]?.where?.[0]).toEqual({ rule: 'length', at: [0], max: 3 })
+    expect(plain.calls[0]?.where?.[0]).toEqual({ constraint: 'length', at: [0], max: 3 })
     expect(plain.calls[0]?.where?.[1]).toEqual({
-      rule: 'each',
+      constraint: 'each',
       at: [0],
-      where: [{ rule: 'allow', at: ['target'], in: [contract(2)] }],
+      where: [{ constraint: 'allow', at: ['target'], in: [contract(2)] }],
     })
   })
 
@@ -89,22 +89,22 @@ describe('what each template lowers to', () => {
       TEMPLATES.blend_venue({ pool: C, token: contract(2), account: A, max: '500', ...p }).calls[0]
         ?.where
     expect(where({})).toEqual([
-      { rule: 'pin', at: [0], to: A },
-      { rule: 'pin', at: [1], to: A },
-      { rule: 'pin', at: [2], to: A },
-      { rule: 'length', at: [3], max: 1 },
-      { rule: 'pin', at: [3, 0, 'address'], to: contract(2) },
-      { rule: 'cap', at: [3, 0, 'request_type'], max: '1' },
-      { rule: 'floor', at: [3, 0, 'amount'], min: '1' },
-      { rule: 'cap', at: [3, 0, 'amount'], max: '500' },
+      { constraint: 'pin', at: [0], to: A },
+      { constraint: 'pin', at: [1], to: A },
+      { constraint: 'pin', at: [2], to: A },
+      { constraint: 'length', at: [3], max: 1 },
+      { constraint: 'pin', at: [3, 0, 'address'], to: contract(2) },
+      { constraint: 'cap', at: [3, 0, 'request_type'], max: '1' },
+      { constraint: 'floor', at: [3, 0, 'amount'], min: '1' },
+      { constraint: 'cap', at: [3, 0, 'amount'], max: '500' },
     ])
     const other = where({ spender: contract(3), receiver: contract(4), maxType: 0 })
     expect(other?.slice(0, 3)).toEqual([
-      { rule: 'pin', at: [0], to: A },
-      { rule: 'pin', at: [1], to: contract(3) },
-      { rule: 'pin', at: [2], to: contract(4) },
+      { constraint: 'pin', at: [0], to: A },
+      { constraint: 'pin', at: [1], to: contract(3) },
+      { constraint: 'pin', at: [2], to: contract(4) },
     ])
-    expect(other?.[5]).toEqual({ rule: 'cap', at: [3, 0, 'request_type'], max: '0' })
+    expect(other?.[5]).toEqual({ constraint: 'cap', at: [3, 0, 'request_type'], max: '0' })
   })
 })
 

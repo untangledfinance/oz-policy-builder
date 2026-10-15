@@ -156,19 +156,19 @@ export const TEMPLATES: { [K in keyof Templates]: (p: Templates[K]) => Intent } 
         contract: p.adapter,
         fn: 'execute',
         where: [
-          { rule: 'length', at: [0], max: p.maxCalls ?? 8 },
+          { constraint: 'length', at: [0], max: p.maxCalls ?? 8 },
           {
-            rule: 'each',
+            constraint: 'each',
             at: [0],
             where: [
-              { rule: 'allow', at: ['target'], in: p.targets },
+              { constraint: 'allow', at: ['target'], in: p.targets },
               ...(p.functions
-                ? [{ rule: 'allow' as const, at: ['function_name'], in: p.functions }]
+                ? [{ constraint: 'allow' as const, at: ['function_name'], in: p.functions }]
                 : []),
             ],
           },
-          { rule: 'length', at: [1], max: 0 },
-          { rule: 'pin', at: [2], to: 0 },
+          { constraint: 'length', at: [1], max: 0 },
+          { constraint: 'pin', at: [2], to: 0 },
         ],
       },
     ],
@@ -181,14 +181,14 @@ export const TEMPLATES: { [K in keyof Templates]: (p: Templates[K]) => Intent } 
           contract: p.pool,
           fn: 'submit',
           where: [
-            { rule: 'pin', at: [0], to: p.account },
-            { rule: 'pin', at: [1], to: p.spender ?? p.account },
-            { rule: 'pin', at: [2], to: p.receiver ?? p.account },
-            { rule: 'length', at: [3], max: 1 },
-            { rule: 'pin', at: request('address'), to: p.token },
-            { rule: 'cap', at: request('request_type'), max: String(p.maxType ?? 1) },
-            { rule: 'floor', at: request('amount'), min: '1' },
-            { rule: 'cap', at: request('amount'), max: p.max },
+            { constraint: 'pin', at: [0], to: p.account },
+            { constraint: 'pin', at: [1], to: p.spender ?? p.account },
+            { constraint: 'pin', at: [2], to: p.receiver ?? p.account },
+            { constraint: 'length', at: [3], max: 1 },
+            { constraint: 'pin', at: request('address'), to: p.token },
+            { constraint: 'cap', at: request('request_type'), max: String(p.maxType ?? 1) },
+            { constraint: 'floor', at: request('amount'), min: '1' },
+            { constraint: 'cap', at: request('amount'), max: p.max },
           ],
         },
       ],

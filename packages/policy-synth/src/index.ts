@@ -15,7 +15,7 @@ export {
   SPENDING_LIMIT,
 } from './config.ts'
 export { type ErrorCode, Refusal, type ToolError, type ToolResponse } from './envelope.ts'
-export type { CallIntent, Intent, Rule } from './intent.ts'
+export type { CallIntent, Constraint, Intent } from './intent.ts'
 export { run, TOOLS, type Tool } from './tools.ts'
 export {
   decode,

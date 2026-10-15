@@ -120,8 +120,8 @@ describe('structure', () => {
       contract: C,
       fn: 'transfer',
       where: [
-        { rule: 'cap', at: [2], max: '100' },
-        { rule: 'deny', at: [1], nin: [A] },
+        { constraint: 'cap', at: [2], max: '100' },
+        { constraint: 'deny', at: [1], nin: [A] },
       ],
     })
     validate(e)

@@ -256,8 +256,12 @@ describe('readRules, on a live account', () => {
         contract: TOKEN,
         fn: 'transfer',
         where: [
-          { rule: 'pin', at: [0], to: 'CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P' },
-          { rule: 'cap', at: [2], max: '1000' },
+          {
+            constraint: 'pin',
+            at: [0],
+            to: 'CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P',
+          },
+          { constraint: 'cap', at: [2], max: '1000' },
         ],
       })
     )

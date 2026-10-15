@@ -20,7 +20,7 @@ npm install @crediolabs/policy-synth
 ```
 recording (hash | xdr) --\
 declaration (intent)  ----+-> Intent -> wire expression -> install transaction
-template (mandate)    --/    (calls + per-argument rules)   (unsigned XDR)
+template (mandate)    --/    (calls + per-argument constraints)   (unsigned XDR)
 ```
 
 - **The predicate is its wire shape.** An expression is JSON in the contract's own
@@ -38,7 +38,7 @@ template (mandate)    --/    (calls + per-argument rules)   (unsigned XDR)
   what the contract's decoder does (operators, arity, index types, `scaled`
   operands and constant folds, depth, the 200 weighted leaves, four distinct
   reads, six sums, path steps, 32 KB), so a rule that leaves here installs.
-- **An Intent** is `{ calls: [{ contract, fn, where: [rules] }] }`. A rule is one
+- **An Intent** is `{ calls: [{ contract, fn, where: [constraints] }] }`. A constraint is one
   of `pin`, `not`, `allow`, `deny`, `cap`, `floor`, `length`, `minOut`, `each`,
   `some`, `total`, `read`, `until`, `from`, lowered by a table (`src/intent.ts`),
   so batches and vector arguments use `all`/`any`/`sum` instead of a pin per

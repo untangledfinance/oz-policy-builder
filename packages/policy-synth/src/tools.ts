@@ -66,31 +66,41 @@ const arg = z.object({ arg: path.min(1) }).strict()
 const cmp = z.enum(['eq', 'ne', 'lt', 'lte', 'gt', 'gte'])
 
 const rule: z.ZodType<unknown> = z.lazy(() =>
-  z.discriminatedUnion('rule', [
-    z.object({ rule: z.enum(['pin', 'not']), at: path, to: val }).strict(),
+  z.discriminatedUnion('constraint', [
+    z.object({ constraint: z.enum(['pin', 'not']), at: path, to: val }).strict(),
     z
       .object({
-        rule: z.literal('allow'),
+        constraint: z.literal('allow'),
         at: path,
         in: z.array(val).min(1).max(DECODE_LIMITS.entries),
       })
       .strict(),
     z
       .object({
-        rule: z.literal('deny'),
+        constraint: z.literal('deny'),
         at: path,
         nin: z.array(val).min(1).max(DECODE_LIMITS.entries),
       })
       .strict(),
-    z.object({ rule: z.literal('cap'), at: path, max: amount }).strict(),
-    z.object({ rule: z.literal('floor'), at: path, min: z.string().regex(/^-?\d+$/) }).strict(),
-    z.object({ rule: z.literal('length'), at: path, max: z.number().int().nonnegative() }).strict(),
-    z.object({ rule: z.literal('minOut'), at: path, of: path, num: amount, den: amount }).strict(),
-    z.object({ rule: z.enum(['each', 'some']), at: path, where: z.array(rule).min(1) }).strict(),
-    z.object({ rule: z.literal('total'), at: path, of: path.optional(), max: amount }).strict(),
+    z.object({ constraint: z.literal('cap'), at: path, max: amount }).strict(),
+    z
+      .object({ constraint: z.literal('floor'), at: path, min: z.string().regex(/^-?\d+$/) })
+      .strict(),
+    z
+      .object({ constraint: z.literal('length'), at: path, max: z.number().int().nonnegative() })
+      .strict(),
+    z
+      .object({ constraint: z.literal('minOut'), at: path, of: path, num: amount, den: amount })
+      .strict(),
+    z
+      .object({ constraint: z.enum(['each', 'some']), at: path, where: z.array(rule).min(1) })
+      .strict(),
+    z
+      .object({ constraint: z.literal('total'), at: path, of: path.optional(), max: amount })
+      .strict(),
     z
       .object({
-        rule: z.literal('read'),
+        constraint: z.literal('read'),
         contract: contractId,
         fn: z.string().min(1),
         args: z.array(z.union([arg, val])).optional(),
@@ -99,7 +109,7 @@ const rule: z.ZodType<unknown> = z.lazy(() =>
         to: val,
       })
       .strict(),
-    z.object({ rule: z.enum(['until', 'from']), ts: z.number().int().positive() }).strict(),
+    z.object({ constraint: z.enum(['until', 'from']), ts: z.number().int().positive() }).strict(),
   ])
 )
 const intent = z
@@ -328,7 +338,7 @@ const record_transaction = tool(
 
 const synthesize_policy = tool(
   'synthesize_policy',
-  'Turn a transaction, a recording, an intent (the calls to allow, with per-argument rules: pin, allow, deny, cap, floor, length, minOut, each, some, total, read, until, from) or a template (adapter_batch, blend_venue) into rules: one per contract, each with its predicate (a wire expression), its encoding and hash, and a plain-language review. `ambiguities` are questions whose answers change what is permitted (usually the cap on an amount: answer with `limit`, `limits` or `allow`); `warnings` say what is left open.',
+  'Turn a transaction, a recording, an intent (the calls to allow, with per-argument constraints (`{constraint: "cap", at, max}`): pin, allow, deny, cap, floor, length, minOut, each, some, total, read, until, from) or a template (adapter_batch, blend_venue) into rules: one per contract, each with its predicate (a wire expression), its encoding and hash, and a plain-language review. `ambiguities` are questions whose answers change what is permitted (usually the cap on an amount: answer with `limit`, `limits` or `allow`); `warnings` say what is left open.',
   { ...net, ...from },
   async (i) => {
     const s = await sourceOf(i)

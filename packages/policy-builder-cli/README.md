@@ -11,7 +11,7 @@ policy-builder <tool> [json | --file path | - | --field value ...] [--out path]
 ```sh
 policy-builder record --network testnet --hash <tx>
 policy-builder synthesize --network testnet --hash <tx> --limit 5000000
-policy-builder synthesize '{"intent": {"calls": [{"contract": "C...", "fn": "pay", "where": [{"rule": "cap", "at": [0], "max": "100"}]}]}}'
+policy-builder synthesize '{"intent": {"calls": [{"contract": "C...", "fn": "pay", "where": [{"constraint": "cap", "at": [0], "max": "100"}]}]}}'
 policy-builder verify --file verify.json
 policy-builder info --verifyLive true
 ```

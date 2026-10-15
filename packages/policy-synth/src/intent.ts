@@ -15,25 +15,25 @@ export type Path = (number | string)[]
 export type Arg = { arg: Path }
 export type Cmp = 'eq' | 'ne' | 'lt' | 'lte' | 'gt' | 'gte'
 
-export type Rule =
-  | { rule: 'pin'; at: Path; to: Val }
-  | { rule: 'not'; at: Path; to: Val }
-  | { rule: 'allow'; at: Path; in: Val[] }
-  | { rule: 'deny'; at: Path; nin: Val[] }
-  | { rule: 'cap'; at: Path; max: string }
-  | { rule: 'floor'; at: Path; min: string }
+export type Constraint =
+  | { constraint: 'pin'; at: Path; to: Val }
+  | { constraint: 'not'; at: Path; to: Val }
+  | { constraint: 'allow'; at: Path; in: Val[] }
+  | { constraint: 'deny'; at: Path; nin: Val[] }
+  | { constraint: 'cap'; at: Path; max: string }
+  | { constraint: 'floor'; at: Path; min: string }
   /** The vec at `at` has at most `max` elements. */
-  | { rule: 'length'; at: Path; max: number }
+  | { constraint: 'length'; at: Path; max: number }
   /** The value at `at` is at least `of` * num / den, `of` being another argument. */
-  | { rule: 'minOut'; at: Path; of: Path; num: string; den: string }
+  | { constraint: 'minOut'; at: Path; of: Path; num: string; den: string }
   /** Every (`each`) or some (`some`) element of the vec at `at` satisfies `where`. */
-  | { rule: 'each'; at: Path; where: Rule[] }
-  | { rule: 'some'; at: Path; where: Rule[] }
+  | { constraint: 'each'; at: Path; where: Constraint[] }
+  | { constraint: 'some'; at: Path; where: Constraint[] }
   /** What `of` reaches in each element of the vec at `at` adds up to at most `max`. */
-  | { rule: 'total'; at: Path; of?: Path; max: string }
+  | { constraint: 'total'; at: Path; of?: Path; max: string }
   /** A value read from another contract: `contract.fn(args)` at `path`, compared with `to`. */
   | {
-      rule: 'read'
+      constraint: 'read'
       contract: string
       fn: string
       args?: (Val | Arg)[]
@@ -42,13 +42,13 @@ export type Rule =
       to: Val
     }
   /** The ledger clock (unix seconds) is at or before / at or after `ts`. */
-  | { rule: 'until'; ts: number }
-  | { rule: 'from'; ts: number }
+  | { constraint: 'until'; ts: number }
+  | { constraint: 'from'; ts: number }
 
 export interface CallIntent {
   contract: string
   fn: string
-  where?: Rule[]
+  where?: Constraint[]
 }
 export interface Intent {
   calls: CallIntent[]
@@ -75,7 +75,12 @@ export function ref(at: Path, body: boolean, len = false): Expr {
 export const and = (xs: Expr[]): Expr => (xs.length === 1 ? (xs[0] as Expr) : ['and', xs])
 const operand = (a: Val | Arg): Expr => (isArg(a) ? ref(a.arg, false) : konst(a))
 
-const LOWER: { [K in Rule['rule']]: (r: Extract<Rule, { rule: K }>, body: boolean) => Expr } = {
+const LOWER: {
+  [K in Constraint['constraint']]: (
+    r: Extract<Constraint, { constraint: K }>,
+    body: boolean
+  ) => Expr
+} = {
   pin: (r, b) => ['eq', ref(r.at, b), konst(r.to)],
   not: (r, b) => ['ne', ref(r.at, b), konst(r.to)],
   allow: (r, b) => ['in', ref(r.at, b), r.in.map(konst)],
@@ -100,8 +105,8 @@ const LOWER: { [K in Rule['rule']]: (r: Extract<Rule, { rule: K }>, body: boolea
   from: (r) => ['gte', ['now'], { u64: String(r.ts) }],
 }
 
-export function lower(r: Rule, body = false): Expr {
-  const row = LOWER[r.rule] as (r: Rule, body: boolean) => Expr
+export function lower(r: Constraint, body = false): Expr {
+  const row = LOWER[r.constraint] as (r: Constraint, body: boolean) => Expr
   return row(r, body)
 }
 

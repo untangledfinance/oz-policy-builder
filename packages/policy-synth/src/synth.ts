@@ -4,7 +4,7 @@
 // recorded, which is tight rather than loose.
 
 import { Refusal } from './envelope.ts'
-import type { CallIntent, Intent, Path, Rule } from './intent.ts'
+import type { CallIntent, Constraint, Intent, Path } from './intent.ts'
 import { callExpr, intentExprs } from './intent.ts'
 import type { Call } from './record.ts'
 import { identify, type Kind, PROTOCOLS } from './registry.ts'
@@ -58,16 +58,16 @@ function callIntent(c: Call, a: Answers, out: Synthesis): CallIntent {
     )
   }
   const build = (flat: boolean): CallIntent => {
-    const where: Rule[] = []
+    const where: Constraint[] = []
     c.args.forEach((v, i) => {
       const [name, kind]: [string, Kind] = known?.args[i] ?? [String(i), kindOf(v)]
       const listed = a.allow?.[name] ?? a.allow?.[String(i)]
       const bound = a.limits?.[name] ?? a.limits?.[String(i)] ?? a.limit
-      if (listed && kind === 'who') where.push({ rule: 'allow', at: [i], in: listed })
-      else if (kind === 'who' || kind === 'exact') where.push({ rule: 'pin', at: [i], to: v })
+      if (listed && kind === 'who') where.push({ constraint: 'allow', at: [i], in: listed })
+      else if (kind === 'who' || kind === 'exact') where.push({ constraint: 'pin', at: [i], to: v })
       else if (kind === 'amount') {
         if (bound === undefined) out.ambiguities.push(missing(c, name))
-        else where.push({ rule: 'cap', at: [i], max: bound })
+        else where.push({ constraint: 'cap', at: [i], max: bound })
       } else if (kind === 'min') out.ambiguities.push(slippage(c, name))
       else if (kind === 'requests') where.push(...requests([i], v as Val[], a, c, name, out, flat))
     })
@@ -103,12 +103,17 @@ const rowOf = (fn: string) =>
  *  What a recording is asked, an intent or a template is asked too. */
 export function unbounded(intent: Intent): Synthesis['ambiguities'] {
   // The paths the rules named `kinds` reach, `each`/`some` bodies relative to their vec.
-  const reach = (r: Rule, kinds: string[]): Path[] => {
-    if (r.rule === 'each' || r.rule === 'some')
+  const reach = (r: Constraint, kinds: string[]): Path[] => {
+    if (r.constraint === 'each' || r.constraint === 'some')
       return r.where.flatMap((w) => reach(w, kinds)).map((p) => [...r.at, ...p])
-    if (r.rule === 'read' || r.rule === 'until' || r.rule === 'from' || !kinds.includes(r.rule))
+    if (
+      r.constraint === 'read' ||
+      r.constraint === 'until' ||
+      r.constraint === 'from' ||
+      !kinds.includes(r.constraint)
+    )
       return []
-    return [r.rule === 'total' ? [...r.at, ...(r.of ?? [])] : r.at]
+    return [r.constraint === 'total' ? [...r.at, ...(r.of ?? [])] : r.at]
   }
   return intent.calls.flatMap((c) => {
     const [caps, floors] = [
@@ -182,26 +187,32 @@ function requests(
   name: string,
   out: Synthesis,
   flat: boolean
-): Rule[] {
+): Constraint[] {
   // Every element is a map: that is the shape `requests` is recognised by.
   const maps = vec.map(fields)
   const names = [...new Set(maps.flatMap((m) => Object.keys(m)))]
   const bound = a.limits?.[`${name}.amount`] ?? a.limit
   if (names.includes('amount') && bound === undefined)
     out.ambiguities.push(missing(c, `${name}.amount`))
-  const field = (f: string, seen: Val[], path: Path): Rule[] => {
-    if (f === 'amount') return bound === undefined ? [] : [{ rule: 'cap', at: path, max: bound }]
+  const field = (f: string, seen: Val[], path: Path): Constraint[] => {
+    if (f === 'amount')
+      return bound === undefined ? [] : [{ constraint: 'cap', at: path, max: bound }]
     const one = seen.length === 1
     return [
-      one ? { rule: 'pin', at: path, to: seen[0] as Val } : { rule: 'allow', at: path, in: seen },
+      one
+        ? { constraint: 'pin', at: path, to: seen[0] as Val }
+        : { constraint: 'allow', at: path, in: seen },
     ]
   }
-  const rules: Rule[] = [{ rule: 'length', at, max: vec.length }]
+  const rules: Constraint[] = [{ constraint: 'length', at, max: vec.length }]
   if (!flat) {
     const seen = (f: string) => [
       ...new Map(maps.map((m) => [JSON.stringify(m[f]), m[f] as Val])).values(),
     ]
-    return [...rules, { rule: 'each', at, where: names.flatMap((f) => field(f, seen(f), [f])) }]
+    return [
+      ...rules,
+      { constraint: 'each', at, where: names.flatMap((f) => field(f, seen(f), [f])) },
+    ]
   }
   const one = maps.flatMap((m, i) => names.flatMap((f) => field(f, [m[f] as Val], [...at, i, f])))
   return [...rules, ...one]

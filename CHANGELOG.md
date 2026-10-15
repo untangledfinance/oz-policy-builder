@@ -59,6 +59,7 @@ Breaking changes to callers:
 | A swap's open `amount_out_min` was a warning | a question (`SLIPPAGE_FLOOR_MISSING`): refused unless a `floor`/`minOut` sets it or `allowOpenSlippage` is set; an exact-out swap's `amount_out` is no longer called a minimum |
 | `install_policy` by `encodedPredicate` never asked the amount question | asks it for the amount arguments of a known function (an upper bound on each) |
 | An intent or template that leaves an amount uncapped installed silently | refused with the amount question unless `allowUnboundedAmount` (recordings already were) |
+| Intent rules `{ "rule": "cap", ... }`, type `Rule` | Intent constraints `{ "constraint": "cap", ... }`, type `Constraint` ("rule" had four meanings: this, the OZ context rule, the predicate, the install draft) |
 | MCP: an unknown input key was dropped | refused, as `run` and the CLI do |
 | CLI `--limit 100` | was refused (parsed as a number); a number stays a string where the tool takes one |
 | `import { ... } from '@crediolabs/policy-synth'` (61 names) | 19 names: `TOOLS`, `run`, the codec, `card`, the pins, `Refusal`; the builders, the scan and the deny-case derivation are internal |

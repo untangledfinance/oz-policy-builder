@@ -89,7 +89,7 @@ describe('the table', () => {
     for (let n = 0; n < 50_000; n++) deep = [deep]
     const r = (await run('synthesize_policy', {
       intent: {
-        calls: [{ contract: TOKEN, fn: 'f', where: [{ rule: 'pin', at: [0], to: deep }] }],
+        calls: [{ contract: TOKEN, fn: 'f', where: [{ constraint: 'pin', at: [0], to: deep }] }],
       },
     })) as Out
     expect(r.ok).toBe(false)
@@ -256,7 +256,7 @@ describe('synthesize_policy', () => {
 
   it('an intent, a template and a recording are other ways in', async () => {
     const intent = {
-      calls: [{ contract: TOKEN, fn: 'pay', where: [{ rule: 'cap', at: [0], max: '5' }] }],
+      calls: [{ contract: TOKEN, fn: 'pay', where: [{ constraint: 'cap', at: [0], max: '5' }] }],
     }
     expect((await call('synthesize_policy', { intent }, false)).data.rules[0].review.at(-1)).toBe(
       'argument 0 must be at most 5'
@@ -288,7 +288,7 @@ describe('synthesize_policy', () => {
       'synthesize_policy',
       {
         intent: {
-          calls: [{ contract: TOKEN, fn: 'x', where: [{ rule: 'cap', at: [0], max: '0' }] }],
+          calls: [{ contract: TOKEN, fn: 'x', where: [{ constraint: 'cap', at: [0], max: '0' }] }],
         },
       },
       'INVALID_INPUT'
@@ -310,9 +310,9 @@ const rule = callExpr({
   contract: TOKEN,
   fn: 'transfer',
   where: [
-    { rule: 'pin', at: [0], to: account(1) },
-    { rule: 'pin', at: [1], to: account(2) },
-    { rule: 'cap', at: [2], max: '9000000' },
+    { constraint: 'pin', at: [0], to: account(1) },
+    { constraint: 'pin', at: [1], to: account(2) },
+    { constraint: 'cap', at: [2], max: '9000000' },
   ],
 })
 const encodedRule = encode(rule)
@@ -631,7 +631,9 @@ describe('install_policy', () => {
       /most `amount` may be/
     )
     const capped = {
-      calls: [{ contract: TOKEN, fn: 'transfer', where: [{ rule: 'cap', at: [2], max: '5' }] }],
+      calls: [
+        { contract: TOKEN, fn: 'transfer', where: [{ constraint: 'cap', at: [2], max: '5' }] },
+      ],
     }
     expect((await call('install_policy', { ...open, intent: capped })).ok).toBe(true)
     // A map written with its keys the wrong way round is another predicate, not another spelling.
@@ -672,7 +674,7 @@ describe('install_policy', () => {
     const swap = {
       contract: TOKEN,
       fn: 'swap_exact_tokens_for_tokens',
-      where: [{ rule: 'cap', at: [0], max: '5' }],
+      where: [{ constraint: 'cap', at: [0], max: '5' }],
     }
     const input = {
       smartAccount: ACCOUNT,
@@ -688,7 +690,7 @@ describe('install_policy', () => {
     )
     const floored = {
       ...swap,
-      where: [...swap.where, { rule: 'minOut', at: [1], of: [0], num: '99', den: '100' }],
+      where: [...swap.where, { constraint: 'minOut', at: [1], of: [0], num: '99', den: '100' }],
     }
     expect((await call('install_policy', { ...input, intent: { calls: [floored] } })).ok).toBe(true)
     expect(
@@ -707,7 +709,7 @@ describe('install_policy', () => {
       callExpr({
         contract: TOKEN,
         fn: 'transfer',
-        where: [{ rule: 'pin', at: [0], to: account(1) }],
+        where: [{ constraint: 'pin', at: [0], to: account(1) }],
       })
     )
     const input = {

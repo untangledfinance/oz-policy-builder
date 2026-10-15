@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { account, contract, recording } from '../test/fixtures.ts'
-import { type CallIntent, callExpr, intentExprs, lower, type Rule } from './intent.ts'
+import { type CallIntent, type Constraint, callExpr, intentExprs, lower } from './intent.ts'
 import type { Call } from './record.ts'
 import { identify, TEMPLATES } from './registry.ts'
 import { propose, synthesize, unbounded, unboundedExpr } from './synth.ts'
@@ -10,16 +10,19 @@ const A = account(1)
 const C = contract(1)
 
 describe('lowering: one row per rule', () => {
-  const cases: [Rule, Expr][] = [
-    [{ rule: 'pin', at: [0], to: A }, ['eq', ['call_arg', 0], A]],
-    [{ rule: 'not', at: [0], to: 'x' }, ['ne', ['call_arg', 0], 'x']],
-    [{ rule: 'allow', at: [1, 'k'], in: [A, 5] }, ['in', ['call_path', 1, 'k'], [A, 5]]],
-    [{ rule: 'deny', at: [0], nin: [{ i128: '1' }] }, ['nin', ['call_arg', 0], [{ i128: '1' }]]],
-    [{ rule: 'cap', at: [2], max: '100' }, ['lte', ['call_arg', 2], { i128: '100' }]],
-    [{ rule: 'floor', at: [2], min: '1' }, ['gte', ['call_arg', 2], { i128: '1' }]],
-    [{ rule: 'length', at: [3], max: 4 }, ['lte', ['call_path', 3, true], 4]],
+  const cases: [Constraint, Expr][] = [
+    [{ constraint: 'pin', at: [0], to: A }, ['eq', ['call_arg', 0], A]],
+    [{ constraint: 'not', at: [0], to: 'x' }, ['ne', ['call_arg', 0], 'x']],
+    [{ constraint: 'allow', at: [1, 'k'], in: [A, 5] }, ['in', ['call_path', 1, 'k'], [A, 5]]],
     [
-      { rule: 'minOut', at: [1], of: [0], num: '99', den: '100' },
+      { constraint: 'deny', at: [0], nin: [{ i128: '1' }] },
+      ['nin', ['call_arg', 0], [{ i128: '1' }]],
+    ],
+    [{ constraint: 'cap', at: [2], max: '100' }, ['lte', ['call_arg', 2], { i128: '100' }]],
+    [{ constraint: 'floor', at: [2], min: '1' }, ['gte', ['call_arg', 2], { i128: '1' }]],
+    [{ constraint: 'length', at: [3], max: 4 }, ['lte', ['call_path', 3, true], 4]],
+    [
+      { constraint: 'minOut', at: [1], of: [0], num: '99', den: '100' },
       [
         'gte',
         ['call_arg', 1],
@@ -28,11 +31,11 @@ describe('lowering: one row per rule', () => {
     ],
     [
       {
-        rule: 'each',
+        constraint: 'each',
         at: [0],
         where: [
-          { rule: 'allow', at: ['to'], in: [A] },
-          { rule: 'floor', at: ['amount'], min: '0' },
+          { constraint: 'allow', at: ['to'], in: [A] },
+          { constraint: 'floor', at: ['amount'], min: '0' },
         ],
       },
       [
@@ -48,16 +51,16 @@ describe('lowering: one row per rule', () => {
       ],
     ],
     [
-      { rule: 'some', at: [0], where: [{ rule: 'pin', at: [], to: 'repay' }] },
+      { constraint: 'some', at: [0], where: [{ constraint: 'pin', at: [], to: 'repay' }] },
       ['any', ['call_arg', 0], ['eq', ['elem'], 'repay']],
     ],
     [
-      { rule: 'total', at: [0], of: ['amount'], max: '1000' },
+      { constraint: 'total', at: [0], of: ['amount'], max: '1000' },
       ['lte', ['sum', ['call_arg', 0], 'amount'], { i128: '1000' }],
     ],
     [
       {
-        rule: 'read',
+        constraint: 'read',
         contract: C,
         fn: 'price',
         args: [{ arg: [1] }, 'USD'],
@@ -67,23 +70,23 @@ describe('lowering: one row per rule', () => {
       },
       ['gte', ['read', C, 'price', [['call_arg', 1], 'USD'], 'price'], { i128: '5' }],
     ],
-    [{ rule: 'until', ts: 1_900_000_000 }, ['lte', ['now'], { u64: '1900000000' }]],
-    [{ rule: 'from', ts: 5 }, ['gte', ['now'], { u64: '5' }]],
+    [{ constraint: 'until', ts: 1_900_000_000 }, ['lte', ['now'], { u64: '1900000000' }]],
+    [{ constraint: 'from', ts: 5 }, ['gte', ['now'], { u64: '5' }]],
   ]
   it.each(cases)('%j', (rule, expr) => expect(lower(rule)).toEqual(expr))
 
   it('wraps what a bare value cannot carry in lit', () => {
-    expect(lower({ rule: 'pin', at: [0], to: ['a', 1] })).toEqual([
+    expect(lower({ constraint: 'pin', at: [0], to: ['a', 1] })).toEqual([
       'eq',
       ['call_arg', 0],
       ['lit', ['a', 1]],
     ])
-    expect(lower({ rule: 'pin', at: [0], to: { string: 'memo' } })).toEqual([
+    expect(lower({ constraint: 'pin', at: [0], to: { string: 'memo' } })).toEqual([
       'eq',
       ['call_arg', 0],
       ['lit', { string: 'memo' }],
     ])
-    expect(lower({ rule: 'pin', at: [0], to: true })).toEqual([
+    expect(lower({ constraint: 'pin', at: [0], to: true })).toEqual([
       'eq',
       ['call_arg', 0],
       ['lit', true],
@@ -95,8 +98,8 @@ describe('lowering: one row per rule', () => {
       contract: C,
       fn: 'pay',
       where: [
-        { rule: 'pin', at: [1], to: 2 },
-        { rule: 'pin', at: [0], to: 1 },
+        { constraint: 'pin', at: [1], to: 2 },
+        { constraint: 'pin', at: [0], to: 1 },
       ],
     }
     expect(callExpr(one)).toEqual([
@@ -154,67 +157,79 @@ describe('an intent is asked the question a recording is: how much?', () => {
 
   it('a known function whose amount nobody capped is a question; a cap, or a total, answers it', () => {
     expect(codes(call('transfer', undefined))).toEqual(['AMOUNT_BOUND_MISSING'])
-    expect(codes(call('transfer', [{ rule: 'pin', at: [1], to: A }]))).toEqual([
+    expect(codes(call('transfer', [{ constraint: 'pin', at: [1], to: A }]))).toEqual([
       'AMOUNT_BOUND_MISSING',
     ])
-    expect(codes(call('transfer', [{ rule: 'cap', at: [2], max: '5' }]))).toEqual([])
+    expect(codes(call('transfer', [{ constraint: 'cap', at: [2], max: '5' }]))).toEqual([])
     // The cap must be on the amount, not on another argument.
-    expect(codes(call('transfer', [{ rule: 'cap', at: [1], max: '5' }]))).toEqual([
+    expect(codes(call('transfer', [{ constraint: 'cap', at: [1], max: '5' }]))).toEqual([
       'AMOUNT_BOUND_MISSING',
     ])
     expect(
-      codes(call('swap_tokens_for_exact_tokens', [{ rule: 'cap', at: [0], max: '5' }]))
+      codes(call('swap_tokens_for_exact_tokens', [{ constraint: 'cap', at: [0], max: '5' }]))
     ).toEqual(['AMOUNT_BOUND_MISSING'])
     expect(
-      codes(call('swap_tokens_for_exact_tokens', [{ rule: 'cap', at: [1], max: '5' }]))
+      codes(call('swap_tokens_for_exact_tokens', [{ constraint: 'cap', at: [1], max: '5' }]))
     ).toEqual([])
   })
 
   it('a cap inside each, on the field of a vec of structs, answers it for a Blend submit', () => {
-    expect(codes(call('submit', [{ rule: 'length', at: [3], max: 1 }]))).toEqual([
+    expect(codes(call('submit', [{ constraint: 'length', at: [3], max: 1 }]))).toEqual([
       'AMOUNT_BOUND_MISSING',
     ])
     const capped: CallIntent['where'] = [
-      { rule: 'each', at: [3], where: [{ rule: 'cap', at: ['amount'], max: '5' }] },
+      { constraint: 'each', at: [3], where: [{ constraint: 'cap', at: ['amount'], max: '5' }] },
     ]
     expect(codes(call('submit', capped))).toEqual([])
     expect(
       codes(
         call('submit', [
-          { rule: 'each', at: [3], where: [{ rule: 'pin', at: ['address'], to: C }] },
+          { constraint: 'each', at: [3], where: [{ constraint: 'pin', at: ['address'], to: C }] },
         ])
       )
     ).toEqual(['AMOUNT_BOUND_MISSING'])
   })
 
   it('a cap on another field of the requests does not answer for the amount (request_type <= 1 leaves the amount open)', () => {
-    const typeOnly: CallIntent['where'] = [{ rule: 'cap', at: [3, 0, 'request_type'], max: '1' }]
+    const typeOnly: CallIntent['where'] = [
+      { constraint: 'cap', at: [3, 0, 'request_type'], max: '1' },
+    ]
     expect(codes(call('submit', typeOnly))).toEqual(['AMOUNT_BOUND_MISSING'])
     const inEach: CallIntent['where'] = [
-      { rule: 'each', at: [3], where: [{ rule: 'cap', at: ['request_type'], max: '1' }] },
+      {
+        constraint: 'each',
+        at: [3],
+        where: [{ constraint: 'cap', at: ['request_type'], max: '1' }],
+      },
     ]
     expect(codes(call('submit', inEach))).toEqual(['AMOUNT_BOUND_MISSING'])
-    expect(codes(call('submit', [{ rule: 'cap', at: [3, 0, 'amount'], max: '5' }]))).toEqual([])
-    expect(codes(call('submit', [{ rule: 'total', at: [3], of: ['amount'], max: '5' }]))).toEqual(
+    expect(codes(call('submit', [{ constraint: 'cap', at: [3, 0, 'amount'], max: '5' }]))).toEqual(
       []
     )
+    expect(
+      codes(call('submit', [{ constraint: 'total', at: [3], of: ['amount'], max: '5' }]))
+    ).toEqual([])
     // A cap on a field of an amount argument's... own path is not the amount either.
-    expect(codes(call('transfer', [{ rule: 'cap', at: [2, 'x'], max: '5' }]))).toEqual([
+    expect(codes(call('transfer', [{ constraint: 'cap', at: [2, 'x'], max: '5' }]))).toEqual([
       'AMOUNT_BOUND_MISSING',
     ])
   })
 
   it('the least output of a swap is a question too, answered by a floor or a minOut on that argument', () => {
     const swap = (where: CallIntent['where']) => codes(call('swap_exact_tokens_for_tokens', where))
-    const cap: Rule = { rule: 'cap', at: [0], max: '5' }
+    const cap: Constraint = { constraint: 'cap', at: [0], max: '5' }
     expect(swap([cap])).toEqual(['SLIPPAGE_FLOOR_MISSING'])
-    expect(swap([cap, { rule: 'minOut', at: [1], of: [0], num: '99', den: '100' }])).toEqual([])
-    expect(swap([cap, { rule: 'floor', at: [1], min: '1' }])).toEqual([])
+    expect(swap([cap, { constraint: 'minOut', at: [1], of: [0], num: '99', den: '100' }])).toEqual(
+      []
+    )
+    expect(swap([cap, { constraint: 'floor', at: [1], min: '1' }])).toEqual([])
     // A floor on another argument does not set it.
-    expect(swap([cap, { rule: 'floor', at: [0], min: '1' }])).toEqual(['SLIPPAGE_FLOOR_MISSING'])
+    expect(swap([cap, { constraint: 'floor', at: [0], min: '1' }])).toEqual([
+      'SLIPPAGE_FLOOR_MISSING',
+    ])
     // An exact-out swap has no least output to ask for: its input is what is capped.
     expect(
-      codes(call('swap_tokens_for_exact_tokens', [{ rule: 'cap', at: [1], max: '5' }]))
+      codes(call('swap_tokens_for_exact_tokens', [{ constraint: 'cap', at: [1], max: '5' }]))
     ).toEqual([])
   })
 
@@ -380,6 +395,24 @@ describe('synthesis from what was recorded', () => {
       expect(text).not.toContain('"all"')
       expect(text).toContain('["lte",["call_path",3,1,"amount"],{"i128":"50"}]')
       expect(text).toContain('["eq",["call_path",3,0,"request_type"],0]')
+      expect(text).toContain('["eq",["call_path",3,1,"request_type"],1]')
+    })
+
+    it('two fields that each take more than one value are never a quantifier: it would permit their cross-product', () => {
+      const other = contract(9)
+      const mixed = (type: number, address: string, amount: string): Val => ({
+        map: [
+          ['address', address],
+          ['amount', { i128: amount }],
+          ['request_type', type],
+        ],
+      })
+      const s = synthesize([submit(mixed(0, C, '10'), mixed(1, other, '20'))], { limit: '50' })
+      const text = JSON.stringify(propose(s.intent)[0]?.expr)
+      // Flat: each recorded element pinned in turn, so {C, type 1} (a pair nobody recorded) is not allowed.
+      expect(text).not.toContain('"all"')
+      expect(text).toContain(`["eq",["call_path",3,0,"address"],"${C}"]`)
+      expect(text).toContain(`["eq",["call_path",3,1,"address"],"${other}"]`)
       expect(text).toContain('["eq",["call_path",3,1,"request_type"],1]')
     })
 

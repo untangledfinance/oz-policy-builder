@@ -38,7 +38,7 @@ describe('policy-builder', () => {
 
   it('takes the input as a JSON argument, from a file, from stdin, or as --field value', async () => {
     const intent = {
-      calls: [{ contract: CONTRACT, fn: 'pay', where: [{ rule: 'cap', at: [0], max: '5' }] }],
+      calls: [{ contract: CONTRACT, fn: 'pay', where: [{ constraint: 'cap', at: [0], max: '5' }] }],
     }
     const dir = mkdtempSync(join(tmpdir(), 'opb-cli-'))
     const file = join(dir, 'in.json')
