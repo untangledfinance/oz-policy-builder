@@ -216,7 +216,6 @@ pub fn evaluate(env: &Env, node: &Node, call: &EvalContext) -> EvalDecision {
 
 /// What a leaf resolves against: the authorised call (`.0`) and, inside a
 /// quantifier body, the element being visited (`.1`, what `elem` reads).
-#[derive(Clone, Copy)]
 struct Ctx<'a>(&'a EvalContext, Val);
 
 /// The calls this evaluation has already made, keyed by `(contract, fn, args)`
@@ -309,9 +308,8 @@ fn eval(env: &Env, node: &Node, ctx: &Ctx, memo: &mut Memo) -> Result<(), DenyRe
         // element exists, and a permit needs it to be what the quantifier wants.
         Node::Quant(any, over, body) => {
             let items = elements(env, resolve(env, over, ctx, memo)?)?;
-            let found = items
-                .iter()
-                .any(|e| eval(env, body, &Ctx(ctx.0, e), memo).is_ok() == *any);
+            let hit = |e| eval(env, body, &Ctx(ctx.0, e), memo).is_ok() == *any;
+            let found = items.iter().any(hit);
             (found == *any).then_some(()).ok_or(DenyReason::ArgMismatch)
         }
         // An opaque or undecodable needle fails closed as a membership miss,
@@ -426,9 +424,8 @@ fn resolve(env: &Env, leaf: &Leaf, ctx: &Ctx, memo: &mut Memo) -> Result<Val, De
                 memo.push((key, raw));
                 raw
             });
-            raw.and_then(|v| walk(env, v, steps))
-                .filter(|v| !v.is_void())
-                .ok_or(miss)?
+            let v = raw.and_then(|v| walk(env, v, steps));
+            v.filter(|v| !v.is_void()).ok_or(miss)?
         }
         Leaf::Elem(steps) => walk(env, ctx.1, steps).ok_or(miss)?,
         Leaf::Sum(src, steps) => {
@@ -601,12 +598,11 @@ pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
     // at `enforce`, and are the same for every use of that leaf.
     let mut calls = Vec::new();
     for (l, _) in &all {
-        if let Leaf::Read(c, f, a, _) = l {
-            let fixed: Option<Vec<Val>> = a.iter().map(|l| literal_to_val(l).ok()).collect();
-            let key = (c, f, fixed.map(|v| Vals::from_slice(env, &v)));
-            if key.2.is_none() || !calls.contains(&key) {
-                calls.push(key);
-            }
+        let Leaf::Read(c, f, a, _) = l else { continue };
+        let fixed: Option<Vec<Val>> = a.iter().map(|l| literal_to_val(l).ok()).collect();
+        let key = (c, f, fixed.map(|v| Vals::from_slice(env, &v)));
+        if key.2.is_none() || !calls.contains(&key) {
+            calls.push(key);
         }
     }
     // `elem` only in a quantifier body (weight `MAX_ELEMS`); a `sum` only outside
@@ -638,41 +634,41 @@ pub fn decode_stored(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
 fn decode_node(env: &Env, items: &Vals, depth: u32) -> Res<Node> {
     cap(depth <= MAX_DEPTH, DecodeError::PredicateTooDeep)?;
     let head = spelled(env, &expect(env, items, 0)?)?;
-    let spelling: &[u8] = head.as_ref();
-    let is = |name: &str| spelling == name.as_bytes();
+    let leaf = |i| decode_leaf(env, &at(items, i)?, 1);
     use CompareOp as C;
-    let names = ["eq", "ne", "lt", "lte", "gt", "gte"];
-    let kinds = [C::Eq, C::Ne, C::Lt, C::Lte, C::Gt, C::Gte];
-    let mut ops = names.iter().zip(kinds);
-    if is("and") {
-        decode_children(env, items, depth).map(Node::And)
-    } else if is("or") {
-        decode_children(env, items, depth).map(Node::Or)
-    } else if let Some((_, op)) = ops.find(|(name, _)| is(name)) {
-        ensure(items.len() == 3)?;
-        let (left, right) = (leaf_at(env, items, 1)?, leaf_at(env, items, 2)?);
-        // An ordering over an address, symbol or vector literal could never permit.
-        let order = !matches!(op, C::Eq | C::Ne);
-        ensure(!order || !(non_number(env, &left) || non_number(env, &right)))?;
-        Ok(Node::Compare { op, left, right })
-    } else if is("in") || is("nin") {
-        ensure(items.len() == 3)?;
-        let needle = leaf_at(env, items, 1)?;
-        let entries: Vals = expect(env, items, 2)?;
-        ensure(!entries.is_empty())?;
-        let short = entries.len() <= MAX_IN_OPERAND_COUNT;
-        cap(short, DecodeError::InOperandLimit)?;
-        let haystack = each(&entries, |h| literal(env, &h, 1).map(Leaf::Lit))?;
-        Ok(Node::In(needle, haystack, is("nin")))
-    } else if is("all") || is("any") {
-        ensure(items.len() == 3)?;
-        let over = leaf_at(env, items, 1)?;
-        let body = decode_node(env, &expect(env, items, 2)?, depth + 1)?;
-        Ok(Node::Quant(is("any"), over, Box::new(body)))
-    } else {
+    let ops = [("eq", C::Eq), ("ne", C::Ne), ("lt", C::Lt), ("lte", C::Lte)];
+    let ops = ops.into_iter().chain([("gt", C::Gt), ("gte", C::Gte)]);
+    let name: &[u8] = head.as_ref();
+    let op = ops.into_iter().find(|(n, _)| n.as_bytes() == name);
+    // A node is its name and, except for `and` and `or`, two operands.
+    Ok(match (name, items.len(), op) {
+        (b"and", _, _) => Node::And(decode_children(env, items, depth)?),
+        (b"or", _, _) => Node::Or(decode_children(env, items, depth)?),
+        (b"in" | b"nin", 3, _) => {
+            let needle = leaf(1)?;
+            let entries: Vals = expect(env, items, 2)?;
+            ensure(!entries.is_empty())?;
+            cap(
+                entries.len() <= MAX_IN_OPERAND_COUNT,
+                DecodeError::InOperandLimit,
+            )?;
+            let haystack = each(&entries, |h| literal(env, &h, 1).map(Leaf::Lit))?;
+            Node::In(needle, haystack, name == b"nin")
+        }
+        (b"all" | b"any", 3, _) => {
+            let body = decode_node(env, &expect(env, items, 2)?, depth + 1)?;
+            Node::Quant(name == b"any", leaf(1)?, Box::new(body))
+        }
+        (_, 3, Some((_, op))) => {
+            let (left, right) = (leaf(1)?, leaf(2)?);
+            // An ordering over an address, symbol or vector literal could never permit.
+            let order = !matches!(op, C::Eq | C::Ne);
+            ensure(!order || !(non_number(env, &left) || non_number(env, &right)))?;
+            Node::Compare { op, left, right }
+        }
         // Bare selector tuples at a Node position are MALFORMED.
-        Err(DecodeError::MalformedPredicate)
-    }
+        _ => return Err(DecodeError::MalformedPredicate),
+    })
 }
 
 /// Decode the child list shared by `and` and `or`. Both carry exactly one
@@ -691,10 +687,6 @@ fn each<T>(vals: &Vals, f: impl FnMut(Val) -> Res<T>) -> Res<Vec<T>> {
     vals.iter().map(f).collect()
 }
 
-fn leaf_at(env: &Env, items: &Vals, i: u32) -> Res<Leaf> {
-    decode_leaf(env, &at(items, i)?, 1)
-}
-
 /// Decode one leaf. `depth` is how deeply it is nested inside other
 /// leaves (a literal vector, a `scaled` operand), and is capped at
 /// `MAX_DEPTH` so the decoder and the evaluator both recurse a bounded
@@ -706,7 +698,7 @@ fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
     if let Ok(items) = Vals::try_from_val(env, val) {
         ensure(!items.is_empty())?;
         if let Ok(sym) = expect::<Symbol>(env, &items, 0) {
-            return decode_selector_leaf(env, &items, spelled(env, &sym)?, depth);
+            return decode_selector_leaf(env, &items, spelled(env, &sym)?.as_ref(), depth);
         }
         // A bare vec of constants is its own value: checked, not rebuilt (building
         // a host vec one push at a time is quadratic in its length).
@@ -749,81 +741,68 @@ fn spelled(env: &Env, sym: &Symbol) -> Res<SymbolStr> {
 // Not inlined: folded into `decode_leaf` it makes every leaf, a scalar included,
 // pay for the whole frame (about 35k instructions instead of 13k).
 #[inline(never)]
-fn decode_selector_leaf(env: &Env, items: &Vals, head: SymbolStr, depth: u32) -> Res<Leaf> {
-    let spelling: &[u8] = head.as_ref();
-    let is = |n: u32, name: &str| items.len() == n && spelling == name.as_bytes();
+fn decode_selector_leaf(env: &Env, items: &Vals, head: &[u8], depth: u32) -> Res<Leaf> {
     let step = |i| expect(env, items, i).map(PathStep::Index);
-    if is(1, "call_contract") {
-        Ok(Leaf::CallContract)
-    } else if is(1, "call_fn") {
-        Ok(Leaf::CallFn)
-    } else if is(1, "now") {
-        Ok(Leaf::Now)
-    } else if is(2, "call_arg") {
-        Ok(Leaf::CallPath(vec![step(1)?]))
-    } else if is(2, "call_arg_len") {
-        Ok(Leaf::CallPath(vec![step(1)?, PathStep::Len]))
-    } else if is(4, "call_arg_field") {
-        let field = decode_steps(env, items, 3, 1)?;
-        Ok(Leaf::CallPath([vec![step(1)?, step(2)?], field].concat()))
-    } else if is(items.len(), "call_path") {
-        Ok(Leaf::CallPath(decode_steps(env, items, 1, 1)?))
-    } else if is(items.len(), "read") {
-        // (read, contract, fn, [args], step...). The contract and function
-        // are fixed fields, so the predicate hash pins them. An argument is a
-        // constant or a leaf with nothing nested in it that resolves at
-        // `enforce` from the call or the clock; `elem`, `sum`, `scaled` and
-        // another `read` are refused (the call count and the cost would no
-        // longer be bounded by the predicate alone).
-        ensure(items.len() >= 4)?;
-        let arg = |a| {
-            let leaf = decode_leaf(env, &a, depth + 1)?;
-            let ok = matches!(leaf, Leaf::Lit(_) | Leaf::CallPath(_) | Leaf::Now);
-            ensure(ok || matches!(leaf, Leaf::CallContract | Leaf::CallFn)).map(|_| leaf)
-        };
-        let target: Address = expect(env, items, 1)?;
-        ensure(target.clone().to_xdr(env).get(7) == Some(1))?;
-        Ok(Leaf::Read(
-            target,
-            expect(env, items, 2)?,
-            each(&expect(env, items, 3)?, arg)?,
-            decode_steps(env, items, 4, 0)?,
-        ))
-    } else if is(5, "scaled") {
-        // (scaled, src, num, den, add). `den` is a constant and must be
-        // positive: zero cannot divide, and a negative one would flip the
-        // sign of every bound it scales. A literal `src` or `num` is held
-        // to the same rule, for the same reason (`src * num` commutes):
-        // `-99/100` turns a floor into a ceiling that permits a zero
-        // output. An operand that is read from the call or a contract
-        // cannot be judged here; guard it in the rule (see the README).
-        let den = expect::<i128>(env, items, 3)?;
-        ensure((1..=MAX_DEN).contains(&den))?;
-        let operand = |i| decode_leaf(env, &at(items, i)?, depth + 1);
-        let leaves = [operand(1)?, operand(2)?, operand(4)?];
-        let [s, n, a] = leaves.each_ref().map(|l| constant(env, l));
-        ensure(![s, n].iter().any(|v| v.is_some_and(|v| v <= 0)))?;
-        let identity = |l: &Leaf| matches!(l, Leaf::CallContract | Leaf::CallFn);
-        ensure(!leaves.iter().any(|l| non_number(env, l) || identity(l)))?;
-        // A constant that overflows would deny every call: refuse it here. The
-        // product and quotient do not depend on `add`, so they are folded even
-        // when it varies (as `0`; the constant addend is folded too).
-        let fold = s.zip(n).map(|(s, n)| scale(s, n, den, a.unwrap_or(0)));
-        ensure(fold != Some(None))?;
-        Ok(Leaf::Scaled(Box::new(leaves), den))
-    } else if is(items.len(), "elem") {
-        Ok(Leaf::Elem(decode_steps(env, items, 1, 0)?))
-    } else if is(items.len(), "sum") {
+    let steps = |from, min| decode_steps(env, items, from, min);
+    Ok(match (head, items.len()) {
+        (b"call_contract", 1) => Leaf::CallContract,
+        (b"call_fn", 1) => Leaf::CallFn,
+        (b"now", 1) => Leaf::Now,
+        (b"call_arg", 2) => Leaf::CallPath(vec![step(1)?]),
+        (b"call_arg_len", 2) => Leaf::CallPath(vec![step(1)?, PathStep::Len]),
+        (b"call_arg_field", 4) => Leaf::CallPath([vec![step(1)?, step(2)?], steps(3, 1)?].concat()),
+        (b"call_path", _) => Leaf::CallPath(steps(1, 1)?),
+        (b"read", _) => {
+            // (read, contract, fn, [args], step...). The contract and function
+            // are fixed fields, so the predicate hash pins them. An argument is a
+            // constant or a leaf with nothing nested in it that resolves at
+            // `enforce` from the call or the clock; `elem`, `sum`, `scaled` and
+            // another `read` are refused (the call count and the cost would no
+            // longer be bounded by the predicate alone).
+            let arg = |a| {
+                let leaf = decode_leaf(env, &a, depth + 1)?;
+                let ok = matches!(leaf, Leaf::Lit(_) | Leaf::CallPath(_) | Leaf::Now);
+                ensure(ok || matches!(leaf, Leaf::CallContract | Leaf::CallFn)).map(|_| leaf)
+            };
+            let target: Address = expect(env, items, 1)?;
+            ensure(target.clone().to_xdr(env).get(7) == Some(1))?;
+            let (f, args) = (expect(env, items, 2)?, each(&expect(env, items, 3)?, arg)?);
+            Leaf::Read(target, f, args, steps(4, 0)?)
+        }
+        (b"scaled", 5) => {
+            // (scaled, src, num, den, add). `den` is a constant and must be
+            // positive: zero cannot divide, and a negative one would flip the
+            // sign of every bound it scales. A literal `src` or `num` is held
+            // to the same rule, for the same reason (`src * num` commutes):
+            // `-99/100` turns a floor into a ceiling that permits a zero
+            // output. An operand that is read from the call or a contract
+            // cannot be judged here; guard it in the rule (see the README).
+            let den = expect::<i128>(env, items, 3)?;
+            ensure((1..=MAX_DEN).contains(&den))?;
+            let operand = |i| decode_leaf(env, &at(items, i)?, depth + 1);
+            let leaves = [operand(1)?, operand(2)?, operand(4)?];
+            let [s, n, a] = leaves.each_ref().map(|l| constant(env, l));
+            ensure(![s, n].iter().any(|v| v.is_some_and(|v| v <= 0)))?;
+            let identity = |l: &Leaf| matches!(l, Leaf::CallContract | Leaf::CallFn);
+            ensure(!leaves.iter().any(|l| non_number(env, l) || identity(l)))?;
+            // A constant that overflows would deny every call: refuse it here. The
+            // product and quotient do not depend on `add`, so they are folded even
+            // when it varies (as `0`; the constant addend is folded too).
+            let fold = s.zip(n).map(|(s, n)| scale(s, n, den, a.unwrap_or(0)));
+            ensure(fold != Some(None))?;
+            Leaf::Scaled(Box::new(leaves), den)
+        }
+        (b"elem", _) => Leaf::Elem(steps(1, 0)?),
         // (sum, vec, step...): the vec is any leaf; the steps reach the number
         // inside each element (none: the element is the number).
-        let src = decode_leaf(env, &at(items, 1)?, depth + 1)?;
-        Ok(Leaf::Sum(Box::new(src), decode_steps(env, items, 2, 0)?))
-    } else if is(2, "lit") {
-        Ok(Leaf::Lit(at(items, 1)?))
-    } else {
+        (b"sum", _) => {
+            let src = decode_leaf(env, &at(items, 1)?, depth + 1)?;
+            Leaf::Sum(Box::new(src), steps(2, 0)?)
+        }
+        (b"lit", 2) => Leaf::Lit(at(items, 1)?),
         // Unknown symbol at a selector position -> MALFORMED.
-        Err(DecodeError::MalformedPredicate)
-    }
+        _ => return Err(DecodeError::MalformedPredicate),
+    })
 }
 
 /// The path steps in `items[from..]`, at most `MAX_PATH_STEPS`. A step is
@@ -832,19 +811,13 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: SymbolStr, depth: u32) ->
 /// `lit(x)`. Anything else is refused here rather than reinterpreted at evaluate. `min` is the fewest
 /// steps: `call_path` needs one; a `read` result may be the value itself.
 fn decode_steps(env: &Env, items: &Vals, from: u32, min: u32) -> Res<Vec<PathStep>> {
-    ensure((min..=MAX_PATH_STEPS).contains(&(items.len() - from)))?;
+    ensure((min..=MAX_PATH_STEPS).contains(&items.len().saturating_sub(from)))?;
+    let key = |n| literal(env, &at(items, n)?, 1).map(PathStep::Key);
     (from..items.len())
-        .map(|n| {
-            if let Ok(i) = expect(env, items, n) {
-                Ok(PathStep::Index(i))
-            } else if expect(env, items, n) == Ok(true) {
-                ensure(n + 1 == items.len()).map(|_| PathStep::Len)
-            } else {
-                match decode_leaf(env, &at(items, n)?, 1)? {
-                    Leaf::Lit(k) => Ok(PathStep::Key(k)),
-                    _ => Err(DecodeError::MalformedPredicate),
-                }
-            }
+        .map(|n| match expect(env, items, n) {
+            Ok(i) => Ok(PathStep::Index(i)),
+            _ if expect(env, items, n) != Ok(true) => key(n),
+            _ => ensure(n + 1 == items.len()).map(|_| PathStep::Len),
         })
         .collect()
 }
