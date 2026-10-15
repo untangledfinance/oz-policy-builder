@@ -18,7 +18,7 @@ import {
 import { z } from 'zod'
 import { account, contract, recording } from '../test/fixtures.ts'
 import { fakeInterpreter, instanceResult, pointAt, recorded } from '../test/rpc.ts'
-import { thresholdAddress } from './config.ts'
+import { SAFE_READS, thresholdAddress } from './config.ts'
 import { callExpr } from './intent.ts'
 import { describeRules, run, TOOLS } from './tools.ts'
 import { encode, hashOf } from './wire.ts'
@@ -775,9 +775,9 @@ describe('install_policy', () => {
     expect(text).toContain('signer:  GAT7JH…CWBCSB («source account»)')
     expect(text).toContain('to act:  any 2 of these 2 signers must approve')
     expect(text).toContain(
-      'admins:  GAT7JH…CWBCSB («source account») (may re-install or uninstall)'
+      'admins:  GAT7JH…CWBCSB («source account») (all of them together: alone, may uninstall the predicate, which stops the rule; with the account, may re-install, replace the admins or bind an executor)'
     )
-    expect(text).toContain('expires:  until ledger 99999999')
+    expect(text).toContain('expires:  valid through ledger 99999999')
     expect(text).toContain(
       'total:  at most 0.5 native (5000000) in total per 17280 ledgers (rolling, OZ spending_limit)'
     )
@@ -907,6 +907,40 @@ describe('install_policy', () => {
     } finally {
       if (before !== undefined) process.env.POLICY_BUILDER_ALLOW_SPOT_READS = before
     }
+  })
+
+  it("a request label cannot take a role word: it would read as the package's own", async () => {
+    const r = await call('synthesize_policy', {
+      xdr: transferXdr(),
+      limit: '9000000',
+      allow: {
+        'Source Account': [account(2)],
+        'smart-account': [account(2)],
+        ADMINS: [account(2)],
+        interpreter: [account(2)],
+        'spending limit': [account(2)],
+        payee: [account(2)],
+      },
+    })
+    const text = r.data.rules[0].review.join('\n')
+    expect(text).toContain('GABAEA…BAEJXA («payee»)')
+    expect(text).not.toMatch(
+      /«(source.account|smart.account|admins?|signers?|interpreter|spending.limit)»/i
+    )
+  })
+
+  it('the review knows its network: a listed oracle on it is not called movable', async () => {
+    const REFL = Object.keys(SAFE_READS.testnet)[0] as string
+    const r = await call('simulate_policy', {
+      expr: [
+        'and',
+        [
+          ['eq', ['call_fn'], 'f'],
+          ['gte', ['call_arg', 0], ['read', REFL, 'lastprice', [{ i128: '1' }]]],
+        ],
+      ],
+    })
+    expect(r.data.review.join('\n')).not.toContain('live value')
   })
 
   it('the review marks a read as a live value', async () => {

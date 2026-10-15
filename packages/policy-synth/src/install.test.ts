@@ -591,6 +591,60 @@ describe('planInstall: the guards', () => {
       }
     })
 
+    it('an oracle read is safe only with constant arguments: an asset taken from the call is a live value', async () => {
+      const env = spot()
+      try {
+        env.set(undefined)
+        const withArgs = (fn: string, args: unknown[]): Chosen => {
+          const e = [
+            'and',
+            [
+              ['eq', ['call_fn'], 'transfer'],
+              ['lte', ['call_arg', 2], ['read', REFLECTOR, fn, args]],
+            ],
+          ] as Expr
+          return { contract: TOKEN, expr: e, encoded: encode(e), hash: 'x' }
+        }
+        await planInstall(input, withArgs('lastprice', [{ i128: '1' }]), chain())
+        await planInstall(input, withArgs('price', [['lit', 'XLM'], { u64: '5' }]), chain())
+        await refused(
+          planInstall(input, withArgs('lastprice', [['call_arg', 1]]), chain()),
+          'READ_UNSAFE'
+        )
+        await refused(
+          planInstall(input, withArgs('price', [{ i128: '1' }, ['call_arg', 0]]), chain()),
+          'READ_UNSAFE'
+        )
+        await refused(
+          planInstall(input, withArgs('price', [['now'], { u64: '5' }]), chain()),
+          'READ_UNSAFE'
+        )
+      } finally {
+        env.undo()
+      }
+    })
+
+    it('a constant that merely looks like a read is no read: nothing to refuse', async () => {
+      const env = spot()
+      try {
+        env.set(undefined)
+        const e = [
+          'and',
+          [
+            ['eq', ['call_fn'], 'transfer'],
+            ['ne', ['call_arg', 1], ['lit', ['read', contract(9), 'balance', []]]],
+          ],
+        ] as Expr
+        await planInstall(
+          input,
+          { contract: TOKEN, expr: e, encoded: encode(e), hash: 'x' },
+          chain()
+        )
+      } finally {
+        env.undo()
+      }
+    })
+
     it('one unsafe read among safe ones refuses; no read asks nothing', async () => {
       const env = spot()
       try {
@@ -614,6 +668,36 @@ describe('planInstall: the guards', () => {
     })
   })
 
+  it('a threshold that one signer meets alone is 1-of-n too: it needs anyOne, and says so', async () => {
+    const heavy = { n: 2, weights: { [SIGNER]: 2, [account(2)]: 1 } }
+    for (const threshold of [{ n: 1 }, heavy])
+      await refused(
+        planInstall({ ...two, threshold }, rule, chain()),
+        'INSTALL_BUILD_FAILED',
+        /any ONE|alone/
+      )
+    expect(await policy({ ...two, threshold: { n: 1 }, anyOne: true })).toBeDefined()
+    expect(await policy({ ...two, threshold: heavy, anyOne: true })).toBeDefined()
+    // A real threshold beside anyOne is still a contradiction.
+    await refused(
+      planInstall({ ...two, threshold: { n: 2 }, anyOne: true }, rule, chain()),
+      'INSTALL_BUILD_FAILED',
+      /contradict/
+    )
+    await policy({ ...two, threshold: { n: 2, weights: { [SIGNER]: 1, [account(2)]: 1 } } })
+  })
+
+  it('a signer named twice is refused before the network is asked (OZ rejects it as #3007)', async () => {
+    let asked = 0
+    const quiet = chain({ fingerprint: async () => (asked++, ours) })
+    await refused(
+      planInstall({ ...input, signers: [SIGNER, SIGNER], anyOne: true }, rule, quiet),
+      'INSTALL_BUILD_FAILED',
+      /twice|duplicate/
+    )
+    expect(asked).toBe(0)
+  })
+
   it('the plan carries the authority it grants: signers, rule, admins, expiry, total, interpreter', async () => {
     const r = await planInstall(
       {
@@ -627,7 +711,7 @@ describe('planInstall: the guards', () => {
     )
     expect(r.authority).toMatchObject({
       signers: [SIGNER, account(2)],
-      threshold: { n: 2 },
+      threshold: { n: 2, raw: [thresholdAddress('testnet', false), { map: [['threshold', 2]] }] },
       admins: [SIGNER],
       validUntil: 5_000_100,
       total: { amount: '9', periodLedgers: 4 },

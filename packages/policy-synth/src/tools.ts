@@ -296,6 +296,9 @@ const present = (r: ReturnType<typeof propose>[number]) => ({
   predicateHash: r.hash,
 })
 
+const ROLE =
+  /^(smart[ _.-]?account|source[ _.-]?account|admins?|signers?|interpreter|spending[ _.-]?limit|authority)$/i
+
 /** The review of each predicate: its tree and the text of it. Contracts are named from their
  *  interfaces (read once each, within seconds, and never a reason for a tool to fail), and
  *  addresses from the request's own words for them. */
@@ -312,7 +315,8 @@ export async function explain(
     ['source account', i.sourceAccount],
     ['admin', i.admins],
     ['signer', i.signers],
-    ...Object.entries(i.allow ?? {}).filter(([k]) => !/^\d/.test(k)),
+    // Role words are the package's: a request cannot give an address the same mark.
+    ...Object.entries(i.allow ?? {}).filter(([k]) => !/^\d/.test(k) && !ROLE.test(k)),
   ]
   for (const [label, a] of who) for (const x of [a ?? []].flat()) labels[x] ??= label
   const named = [...items.flatMap((x) => contractsOf(x.expr)), ...items.map((x) => x.contract)]

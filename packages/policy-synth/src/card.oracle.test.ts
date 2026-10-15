@@ -437,7 +437,6 @@ describe('the authority header: different authority never reads the same, the sa
   for (const signers of vary([G1], [G1, G2], [G2, G1], [G1, G2, G3], [G1, KC], [KC, G1]))
     for (const threshold of vary<Authority['threshold']>(
       undefined,
-      {},
       { n: 1 },
       { n: 2 },
       { n: 2, weights: Object.fromEntries(signers.map((s) => [s, 1])) },
@@ -459,9 +458,9 @@ describe('the authority header: different authority never reads the same, the sa
   const meaning = (a: Authority) =>
     JSON.stringify([
       a.signers,
-      a.threshold
+      a.threshold && (a.threshold.weights || a.threshold.n > 1)
         ? [
-            a.threshold.n ?? 'policy',
+            a.threshold.n,
             a.threshold.weights ? a.signers.map((s) => a.threshold?.weights?.[s]) : 'plain',
           ]
         : 'none',
@@ -476,7 +475,7 @@ describe('the authority header: different authority never reads the same, the sa
     ['token', { contract: C, info: { [C]: { fns: SAC, token: { decimals: 7, symbol: 'USDC' } } } }],
   ]
 
-  it('is big enough to mean something', () => expect(all.length).toBeGreaterThan(8_000))
+  it('is big enough to mean something', () => expect(all.length).toBeGreaterThan(7_000))
 
   for (const [vn, v] of views)
     it(`${vn}: one text per meaning, and one meaning per text`, () => {
@@ -512,8 +511,8 @@ describe('the authority header: different authority never reads the same, the sa
       const expiry = kids.find((x) => x.label === 'expires')
       expect(expiry?.raw).toBe(a.validUntil === undefined ? undefined : a.validUntil)
       if (a.validUntil !== undefined && a.validUntil !== null)
-        expect(expiry?.value).toBe(`until ledger ${a.validUntil}`)
-      if (a.threshold?.n !== undefined)
+        expect(expiry?.value).toBe(`valid through ledger ${a.validUntil}`)
+      if (a.threshold && (a.threshold.weights || a.threshold.n > 1))
         expect(kids.find((x) => x.label === 'to act')?.value).toContain(String(a.threshold.n))
       if (a.total)
         expect(kids.find((x) => x.label === 'total')?.value).toContain(

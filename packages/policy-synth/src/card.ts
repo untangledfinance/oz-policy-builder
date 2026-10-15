@@ -231,7 +231,7 @@ function operand(v: Val, c: View, kind?: Sub['kind']): Sub {
       const [target, fn, args, ...steps] = path as [string, string, Val[], ...Val[]]
       const on = `${fn}(${args.map((x) => operand(x, c).name).join(', ')}) on ${addr(target, c)}`
       const live =
-        c.network && safeRead(c.network, target, fn)
+        c.network && safeRead(c.network, target, fn, args)
           ? ''
           : ' (live value, movable within one transaction)'
       return counted({ name: [on + live, ...steps.map((s) => step(s, c))].join(' › ') })
@@ -337,7 +337,7 @@ export function tree(expr: Expr, view: View = {}): Node[] {
 export interface Authority {
   signers: string[]
   /** A threshold policy beside the interpreter: `n` signers, or (with `weights`) weights totalling `n`. */
-  threshold?: { n: number; weights?: Record<string, number> } | undefined
+  threshold?: { n: number; weights?: Record<string, number>; raw?: Val } | undefined
   admins?: string[] | undefined
   /** `null`: never expires; else the ledger it lapses after. */
   validUntil?: number | null | undefined
@@ -352,28 +352,33 @@ export function authority(a: Authority, c: View): Node {
   const [k, t, w] = [a.signers.length, a.threshold, a.threshold?.weights]
   const who = (x: string) => `${x.startsWith('C') ? 'contract ' : ''}${addr(x, c)}`
   const del = (s: string): Val => ['Delegated', s]
-  const act = !t
-    ? `${k === 1 ? 'the signer' : `any ONE of these ${k} signers`} acts alone`
-    : `${w ? `signers whose weights total at least ${t.n}` : `any ${t.n} of these ${k} signers`} must approve`
+  // A threshold one signer meets alone is 1-of-n: the weight of each signer is what says who.
+  const alone = t && w && k > 1 ? a.signers.filter((s) => (w[s] as number) >= t.n) : []
+  const act =
+    !t || (!w && t.n <= 1)
+      ? `${k === 1 ? 'the signer' : `any ONE of these ${k} signers`} acts alone`
+      : alone.length > 0
+        ? `${alone.map(who).join(', ')} alone can act (weight at least ${t.n})`
+        : `${w ? `signers whose weights total at least ${t.n}` : `any ${t.n} of these ${k} signers`} must approve`
   const facts: [string, string, Val][] = a.signers.map((s) => [
     'signer',
     who(s) + (w ? `  weight ${w[s]}` : ''),
     w ? [del(s), w[s] as number] : del(s),
   ])
-  facts.push(['to act', act, t?.n ?? null])
+  facts.push(['to act', act, t?.raw ?? t?.n ?? null])
   if (a.admins)
     facts.push([
       'admins',
-      `${a.admins.map(who).join(', ')} (may re-install or uninstall)`,
+      `${a.admins.map(who).join(', ')} (all of them together: alone, may uninstall the predicate, which stops the rule; with the account, may re-install, replace the admins or bind an executor)`,
       a.admins.map(del),
     ])
   const v = a.validUntil
   if (v !== undefined)
-    facts.push(['expires', v === null ? 'never expires' : `until ledger ${v}`, v])
+    facts.push(['expires', v === null ? 'never expires' : `valid through ledger ${v}`, v])
   if (a.total !== undefined) {
     const { amount: x, periodLedgers: p } = a.total ?? { amount: '', periodLedgers: 0 }
     const unit = known(c)?.token
-    const per = `at most ${unit ? money(x, unit) : x} in total per ${p} ledgers (rolling, OZ spending_limit)`
+    const per = `at most ${unit && !c.raw ? money(x, unit) : x} in total per ${p} ledgers (rolling, OZ spending_limit)`
     const spent: Val = {
       map: [
         ['period_ledgers', p],

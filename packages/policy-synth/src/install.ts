@@ -38,7 +38,7 @@ import {
   type Scope,
   selectors,
 } from './rules.ts'
-import { type Expr, fromScVal, toScVal, type Val } from './wire.ts'
+import { type Expr, fromScVal, readsOf, toScVal, type Val } from './wire.ts'
 
 export interface RuleDraft {
   scope: Scope
@@ -383,15 +383,22 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   }
   const interpreter = interpreterFor(i.network, i.interpreterAddress)
   const [t, k] = [i.threshold, i.signers.length]
+  if (new Set(i.signers).size !== k)
+    throw no('a signer is named twice: OpenZeppelin refuses a rule with duplicate signers')
   const total = t?.weights ? Object.values(t.weights).reduce((x, y) => x + y, 0) : k
   const covers =
     !t?.weights || Object.keys(t.weights).sort().join() === [...i.signers].sort().join()
-  if (t && i.anyOne) throw no('anyOne and a threshold contradict each other')
-  if (t ? t.n > total || !covers : k > 1 && !i.anyOne)
+  // 1-of-n is a threshold that one signer meets alone, or none at all.
+  const w = t?.weights
+  const oneOfN = k > 1 && (!t || (w ? Object.values(w).some((x) => x >= t.n) : t.n <= 1))
+  if (t && (t.n > total || !covers))
     throw no(
-      t
-        ? `threshold ${t.n} can never be met (weights must cover exactly the signers and total at least n)`
-        : `${k} signers and no threshold: with a policy on the rule any ONE of the ${k} signers acts alone (1-of-${k}). Give \`threshold\`, or \`anyOne: true\` to install 1-of-${k} on purpose.`
+      `threshold ${t.n} can never be met (weights must cover exactly the signers and total at least n)`
+    )
+  if (t && i.anyOne && !oneOfN) throw no('anyOne and a threshold contradict each other')
+  if (oneOfN && !i.anyOne)
+    throw no(
+      `${t ? 'this threshold is met by one signer alone' : `${k} signers and no threshold`}: any ONE of the ${k} signers acts alone (1-of-${k}). Give a threshold that needs more, or \`anyOne: true\` to install 1-of-${k} on purpose.`
     )
   const draft: RuleDraft = {
     scope: { kind: 'call_contract', contract: rule.contract },
@@ -405,13 +412,11 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
     ...(t ? { extra: [thresholdPolicy(i.network, t)] } : {}),
   }
   // A read is a live value: unless its source cannot be moved, an agent can move it just before the call.
-  const reads = [...JSON.stringify(rule.expr).matchAll(/\["read","(C\w{55})","([^"]*)"/g)].filter(
-    (m) => !safeRead(i.network, m[1] as string, m[2] as string)
-  )
+  const reads = readsOf(rule.expr).filter(([c, f, args]) => !safeRead(i.network, c, f, args))
   if (reads.length > 0 && process.env.POLICY_BUILDER_ALLOW_SPOT_READS !== '1')
     throw new Refusal(
       'READ_UNSAFE',
-      `the rule reads a live value an agent can move within one transaction (${reads.map((m) => `${m[2]} on ${m[1]}`).join(', ')}): only an oracle on the safe list is trusted. The operator can allow spot reads with POLICY_BUILDER_ALLOW_SPOT_READS=1.`
+      `the rule reads a live value an agent can move within one transaction (${reads.map(([c, f]) => `${f} on ${c}`).join(', ')}): only an oracle on the safe list is trusted. The operator can allow spot reads with POLICY_BUILDER_ALLOW_SPOT_READS=1.`
     )
   // OZ's spending_limit panics NotAllowed on every context but `transfer(from, to, amount)` of a token.
   if (i.spendingLimit) {
@@ -455,7 +460,7 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
     ...got(built),
     authority: {
       signers: i.signers,
-      threshold: i.threshold,
+      threshold: t && { ...t, raw: draft.extra?.[0] as Val },
       admins: draft.admins,
       validUntil: draft.validUntil,
       total: i.spendingLimit ?? null,

@@ -126,11 +126,20 @@ describe('read targets that cannot be moved within one transaction', () => {
   })
   it('a read is safe only for a listed contract and function, on that network', () => {
     const [address] = Object.keys(SAFE_READS.testnet) as [string]
-    expect(safeRead('testnet', address, 'lastprice')).toBe(true)
-    expect(safeRead('testnet', address, 'price')).toBe(true)
-    expect(safeRead('testnet', address, 'set_price')).toBe(false)
-    expect(safeRead('testnet', address, 'constructor')).toBe(false)
-    expect(safeRead('mainnet', address, 'lastprice')).toBe(false)
-    expect(safeRead('testnet', 'C'.padEnd(56, 'A'), 'lastprice')).toBe(false)
+    expect(safeRead('testnet', address, 'lastprice', [])).toBe(true)
+    expect(safeRead('testnet', address, 'price', [{ u64: '1' }])).toBe(true)
+    expect(safeRead('testnet', address, 'set_price', [])).toBe(false)
+    // A call-derived argument (an asset or a timestamp the caller picks) makes it a live value.
+    expect(safeRead('testnet', address, 'lastprice', [['call_arg', 1]])).toBe(false)
+    expect(safeRead('testnet', address, 'price', [['lit', 'XLM'], ['now']])).toBe(false)
+    expect(
+      safeRead('testnet', address, 'price', [
+        ['lit', 'XLM'],
+        ['lit', 5],
+      ])
+    ).toBe(true)
+    expect(safeRead('testnet', address, 'constructor', [])).toBe(false)
+    expect(safeRead('mainnet', address, 'lastprice', [])).toBe(false)
+    expect(safeRead('testnet', 'C'.padEnd(56, 'A'), 'lastprice', [])).toBe(false)
   })
 })

@@ -298,6 +298,15 @@ export function isSelector(v: Val): v is [string, ...Val[]] {
   return Array.isArray(v) && typeof v[0] === 'string' && !ADDRESS.test(v[0])
 }
 
+/** Every `read` an expression makes, as (target, function, arguments); a `lit` is a constant, so a
+ *  read-shaped value inside one is not looked into. */
+export function readsOf(e: Val, out: [string, string, Val[]][] = []): [string, string, Val[]][] {
+  if (!Array.isArray(e) || (isSelector(e) && e[0] === 'lit')) return out
+  if (isSelector(e) && e[0] === 'read') out.push([e[1] as string, e[2] as string, e[3] as Val[]])
+  for (const x of e) readsOf(x, out)
+  return out
+}
+
 /** The children of an `and`, or the expression alone. */
 export const conjuncts = (e: Expr): Expr[] =>
   isSelector(e) && e[0] === 'and' ? (e[1] as Expr[]) : [e]

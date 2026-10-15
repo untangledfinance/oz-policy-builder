@@ -1576,8 +1576,8 @@ describe('two tokens in one rule: each amount in its own unit', () => {
 describe('a read says what it is: a live value, unless its source cannot be moved', () => {
   const LIVE = ' (live value, movable within one transaction)'
   const REFLECTOR = Object.keys(SAFE_READS.testnet)[0] as string
-  const price = (target: string, fn: string, v?: View) =>
-    one(['gte', ['read', target, fn, []], { i128: '5' }], v)
+  const price = (target: string, fn: string, v?: View, args: Expr[] = []) =>
+    one(['gte', ['read', target, fn, args], { i128: '5' }], v)
   it('an unlisted source is marked, in every view', () => {
     expect(price(D, 'balance')).toBe(`balance() on ${short(D)}${LIVE}:  must be at least  5`)
     expect(price(D, 'balance', { raw: true })).toContain(LIVE)
@@ -1588,6 +1588,16 @@ describe('a read says what it is: a live value, unless its source cannot be move
     expect(price(REFLECTOR, 'lastprice', { network: 'mainnet' })).toContain(LIVE)
     expect(price(REFLECTOR, 'set_price', { network: 'testnet' })).toContain(LIVE)
     expect(price(REFLECTOR, 'lastprice')).toContain(LIVE)
+  })
+  it('a listed oracle read with an argument taken from the call is marked too; a constant is not', () => {
+    const v = { network: 'testnet' as const }
+    expect(price(REFLECTOR, 'lastprice', v, [['call_arg', 1]])).toContain(LIVE)
+    expect(price(REFLECTOR, 'lastprice', v, [{ i128: '1' }])).not.toContain(LIVE)
+  })
+  it('a lit that spells a read is a constant, never marked', () => {
+    expect(one(['ne', ['call_arg', 1], ['lit', ['read', D, 'balance', []]]])).not.toContain(
+      'live value'
+    )
   })
   it('inside scaled and sum it is still marked once per read', () => {
     const t = one([
@@ -1617,7 +1627,7 @@ describe('the authority header: who can act, under what rule, until when, up to 
       'Authority',
       `├─ signer:  ${G1.slice(0, 6)}…${G1.slice(-6)}`,
       '├─ to act:  the signer acts alone',
-      `├─ admins:  ${G1.slice(0, 6)}…${G1.slice(-6)} (may re-install or uninstall)`,
+      `├─ admins:  ${G1.slice(0, 6)}…${G1.slice(-6)} (all of them together: alone, may uninstall the predicate, which stops the rule; with the account, may re-install, replace the admins or bind an executor)`,
       '├─ expires:  never expires',
       '├─ total:  no total limit: each call may move up to its own cap',
       `└─ interpreter:  ${INT.slice(0, 6)}…${INT.slice(-6)} (interpreter)`,
@@ -1637,6 +1647,40 @@ describe('the authority header: who can act, under what rule, until when, up to 
     ).toContain('signers whose weights total at least 3 must approve')
   })
 
+  it('a threshold one signer meets alone reads as 1-of-n, naming who', () => {
+    const rule = (a: Authority) => text(a).find((l) => l.includes('to act')) as string
+    expect(rule({ ...base, signers: [G1, G2, G3], threshold: { n: 1 } })).toContain(
+      'any ONE of these 3 signers acts alone'
+    )
+    const heavy = rule({
+      ...base,
+      signers: [G1, G2],
+      threshold: { n: 2, weights: { [G1]: 2, [G2]: 1 } },
+    })
+    expect(heavy).toContain(`${G1.slice(0, 6)}…${G1.slice(-6)} alone can act`)
+    expect(heavy).not.toContain(`${G2.slice(0, 6)}…${G2.slice(-6)} alone`)
+    expect(
+      rule({ ...base, signers: [G1, G2], threshold: { n: 2, weights: { [G1]: 1, [G2]: 1 } } })
+    ).not.toContain('alone')
+  })
+
+  it('under raw: to act is the policy entry it came from, and the total is the raw amount', () => {
+    const entry = ['CAYT', { map: [['threshold', 2]] }] as never
+    const n = authority(
+      {
+        ...base,
+        signers: [G1, G2],
+        threshold: { n: 2, raw: entry },
+        total: { amount: '50000000000', periodLedgers: 9 },
+      },
+      { raw: true, contract: C, ...token }
+    )
+    expect((n.children ?? []).find((x) => x.label === 'to act')?.raw).toEqual(entry)
+    expect((n.children ?? []).find((x) => x.label === 'total')?.value).toBe(
+      'at most 50000000000 in total per 9 ledgers (rolling, OZ spending_limit)'
+    )
+  })
+
   it('a weight follows its signer; a contract signer is said to be one; labels are marked', () => {
     const out = text(
       { ...base, signers: [G1, KC], threshold: { n: 2, weights: { [G1]: 2, [KC]: 1 } } },
@@ -1651,7 +1695,7 @@ describe('the authority header: who can act, under what rule, until when, up to 
       { ...base, validUntil: 5_300_000, total: { amount: '50000000000', periodLedgers: 17280 } },
       { contract: C, ...token }
     )
-    expect(out).toContain('├─ expires:  until ledger 5300000')
+    expect(out).toContain('├─ expires:  valid through ledger 5300000')
     expect(out).toContain(
       '├─ total:  at most 5,000 USDC (50000000000) in total per 17280 ledgers (rolling, OZ spending_limit)'
     )

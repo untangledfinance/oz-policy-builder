@@ -1,5 +1,7 @@
 // Networks, RPC endpoints and the pins every install is checked against.
 
+import { isConstant, type Val } from './wire.ts'
+
 export type Network = 'mainnet' | 'testnet'
 
 export const PASSPHRASE: Record<Network, string> = {
@@ -88,7 +90,8 @@ export const thresholdAddress = (net: Network, weighted: boolean): string =>
 /** `read` targets whose answer cannot be moved within one transaction (an oracle's own price feed),
  *  by network: contract -> functions. Any other read is a live value an agent can move with a
  *  call of its own just before the one the rule judges, so an install of it is refused unless the
- *  operator sets POLICY_BUILDER_ALLOW_SPOT_READS=1. Testnet: the Reflector oracles (their spec was
+ *  operator sets POLICY_BUILDER_ALLOW_SPOT_READS=1. A listed oracle is itself upgradable by its admin: the
+ *  list trusts that admin. Testnet: the Reflector oracles (their spec was
  *  read on chain: `lastprice(asset)`, `price(asset, timestamp)`). Mainnet: empty until an address is
  *  verified the same way. */
 export const SAFE_READS: Record<Network, Record<string, string[]>> = {
@@ -101,8 +104,12 @@ export const SAFE_READS: Record<Network, Record<string, string[]>> = {
   ),
   mainnet: {},
 }
-export const safeRead = (net: Network, contract: string, fn: string): boolean =>
-  Object.hasOwn(SAFE_READS[net], contract) && (SAFE_READS[net][contract] as string[]).includes(fn)
+/** Safe only for a listed contract and function, and only with arguments fixed in the rule: an asset or
+ *  a timestamp taken from the call is a choice the caller makes. */
+export const safeRead = (net: Network, contract: string, fn: string, args: Val[]): boolean =>
+  Object.hasOwn(SAFE_READS[net], contract) &&
+  (SAFE_READS[net][contract] as string[]).includes(fn) &&
+  args.every(isConstant)
 
 /** Policy contracts a rule must never be scoped to: scoping a rule to one
  *  exposes that contract's own admin calls (the interpreter does not refuse it). */
