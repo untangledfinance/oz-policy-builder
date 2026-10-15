@@ -1,0 +1,12 @@
+# A rule built by install_policy with threshold { simple: 2 }, on a real OZ smart account (TESTNET, throwaway keys)
+# Generated 2026-10-15T21:02:35Z by packages/policy-synth/scripts/live-threshold.ts (LIVE_FUNDER=<testnet identity> POLICY_BUILDER_RPC_URL_TESTNET=https://soroban-rpc.testnet.stellar.gateway.fm)
+# The deny is attributed by its code: #3202 is simple_threshold's NotAllowed. The account runs the OZ build 91a2cd56.
+
+INFO   network testnet; threshold policy CAYTIVQOEZDOQI4GC3XBXEEYHQUANQQJHPJVMXVRBREGSAP6TCN3DID6; interpreter CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV
+PASS   signer A GDLZ6LXWJFX6XACQVF4FRVK7NWO7XRT4PLTLLVYPVCODM5QP4OEXYIOR, signer B GC3JQVVBZXTCLKZM6K4TNE4SM464FCIIG6OMMNXAOLR56PGI3ISR44FF (throwaway, funded)
+PASS   smart account CD27BCCBSPIXZS6EPNILBNQFCQXPZNH7JI2OKZIKMCU2PFOXAXN7LI7I
+PASS   account funded with 10 XLM
+PASS   rule 1 installed: interpreter + simple_threshold(2), signers A + B
+PASS   signer A alone DENIED #3202 (SimpleThresholdError::NotAllowed)
+PASS   signers A + B together PERMITTED, transfer sent ce96282ea0b2b890bf39e93efb040dc7f78a4225d5776d9f56a5eb4f57169613
+RESULT 2-of-2 holds on a real OZ account: one signer denied #3202, two permitted.
