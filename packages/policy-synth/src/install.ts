@@ -155,7 +155,6 @@ export async function buildSelfCall(
   code: ErrorCode = 'INSTALL_BUILD_FAILED'
 ): Promise<Built> {
   const { server, network } = a
-  const source = await server.getAccount(a.sourceAccount)
   const op = (auth: xdr.SorobanAuthorizationEntry[] = []) =>
     Operation.invokeHostFunction({
       func: xdr.HostFunction.hostFunctionTypeInvokeContract(
@@ -167,8 +166,8 @@ export async function buildSelfCall(
       ),
       auth,
     })
-  const tx = (o: xdr.Operation) =>
-    new TransactionBuilder(new Account(a.sourceAccount, source.sequenceNumber()), {
+  const tx = (o: xdr.Operation, sequence: string) =>
+    new TransactionBuilder(new Account(a.sourceAccount, sequence), {
       fee: String(a.baseFee ?? BASE_FEE),
       networkPassphrase: PASSPHRASE[network],
     })
@@ -181,7 +180,11 @@ export async function buildSelfCall(
       throw new Refusal(code, `${fn}: ${what} simulation refused (${reasonOf(sim.error)})`)
     return sim
   }
-  const recorded = await simulate(tx(op()), 'recording')
+  // The recording pass does not look at the sequence number, so it runs while the real one is fetched.
+  const [source, recorded] = await Promise.all([
+    server.getAccount(a.sourceAccount),
+    simulate(tx(op(), '0'), 'recording'),
+  ])
   const original = (recorded.result?.auth ?? []).find(
     (e) =>
       e.credentials().switch().name === 'sorobanCredentialsAddress' &&
@@ -192,7 +195,8 @@ export async function buildSelfCall(
       code,
       `${fn}: no auth entry for ${a.smartAccount}; the call does not route through the smart account`
     )
-  const until = (await server.getLatestLedger()).sequence + AUTH_LEDGERS
+  // The simulation reports the ledger it ran at: no separate (and heavy) latest-ledger call.
+  const until = recorded.latestLedger + AUTH_LEDGERS
   const creds = original.credentials().address()
   const ids = [0]
   const account = new xdr.SorobanAuthorizationEntry({
@@ -231,7 +235,7 @@ export async function buildSelfCall(
       subInvocations: [],
     }),
   })
-  const withAuth = tx(op([account, checkAuth]))
+  const withAuth = tx(op([account, checkAuth]), source.sequenceNumber())
   const final = rpc.assembleTransaction(withAuth, await simulate(withAuth, 'enforcing')).build()
   const unsignedXdr = final.toEnvelope().toXDR('base64')
   return {

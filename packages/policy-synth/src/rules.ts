@@ -48,7 +48,7 @@ export interface Overlap {
 // ---- reading the account ----
 
 const MAX_RULE_ID = 512
-const WIDTH = 6
+const WIDTH = 8
 type Fields = Record<string, Val>
 const fields = (v: Val | undefined): Fields =>
   Object.fromEntries(
@@ -80,12 +80,9 @@ export async function readRules(
   account: string,
   interpreter: string
 ): Promise<{ rules: ObservedRule[]; complete: boolean; unreadable: number[] }> {
-  const count = Number((await read(server, network, account, 'get_context_rules_count')).u32())
   const rules: ObservedRule[] = []
-  // Ids are not contiguous (a removed id is never reused), so walk upward in
-  // batches until every live rule has been seen.
-  for (let from = 0; rules.length < count && from < MAX_RULE_ID; from += WIDTH * 2) {
-    const ids = Array.from({ length: WIDTH * 2 }, (_, i) => from + i)
+  const batch = async (from: number) => {
+    const ids = Array.from({ length: WIDTH }, (_, i) => from + i)
     const got = await pool(ids, WIDTH, (id) =>
       read(server, network, account, 'get_context_rule', xdr.ScVal.scvU32(id)).then(
         fromScVal,
@@ -103,6 +100,15 @@ export async function readRules(
       })
     }
   }
+  // The first ids are asked while the count is: most accounts have few rules. Ids are
+  // not contiguous (a removed id is never reused), so keep walking upward in batches
+  // until every live rule has been seen.
+  const [count] = await Promise.all([
+    read(server, network, account, 'get_context_rules_count').then((v) => Number(v.u32())),
+    batch(0),
+  ])
+  for (let from = WIDTH; rules.length < count && from < MAX_RULE_ID; from += WIDTH)
+    await batch(from)
   const mine = rules.filter((r) => r.policies.includes(interpreter))
   const capped = rules.filter((r) => r.policies.includes(SPENDING_LIMIT[network]))
   const rid = (r: ObservedRule) => xdr.ScVal.scvU32(r.id)

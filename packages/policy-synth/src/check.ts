@@ -35,7 +35,7 @@ export interface Verdict {
 
 /** Calls one verify may put to the interpreter, and how many run at once. */
 export const MAX_CHECKS = 64
-const WIDTH = 6
+const WIDTH = 8
 
 const sym = (s: string) => xdr.ScVal.scvSymbol(s)
 
@@ -339,43 +339,40 @@ export async function verifyRule(
   encode: (e: Expr) => string,
   permit: Call
 ): Promise<Verification> {
-  const run = (e: Expr, calls: Call[]) => runChecks(server, network, interpreter, encode(e), calls)
+  const one = async (e: Expr, call: Call) =>
+    (await runChecks(server, network, interpreter, encode(e), [call]))[0] as Verdict
   const all = branches(expr)
-  let checks = 1
-  const [permitVerdict] = await run(expr, [permit])
-  if (!permitVerdict) throw new Refusal('SIMULATION_ERROR', 'no verdict')
-  // Which branches does the permitted call take? One check per branch of an `or`.
-  let live = all
-  if (all.length > 1) {
-    const each = await Promise.all(all.map((b) => run(rebuild([b]), [permit])))
-    checks += all.length
-    live = all.filter((_, i) => each[i]?.[0]?.permitted)
-  }
-  const cases = live.flatMap((b) => denyCases(b, permit)).slice(0, MAX_CASES)
-  const verdicts = await run(
-    expr,
-    cases.map((c) => c.call)
-  )
-  // Drop each conjunct and ask again: the call it guarded must now be let through.
-  const dropped = await pool(
-    cases,
+  // The calls are asked together, WIDTH at a time. Which branch of an `or` the
+  // permitted call takes has to be known before its conjuncts are turned against it.
+  const first = await pool(
+    [expr, ...(all.length > 1 ? all.map((b) => rebuild([b])) : [])],
     WIDTH,
-    async (c) =>
-      (await runChecks(server, network, interpreter, encode(rebuild(all, c.conjunct)), [c.call]))[0]
+    (e) => one(e, permit)
   )
-  checks += 2 * cases.length
-  const redundant = cases.filter((_, i) => !dropped[i]?.permitted).map((c) => phrase(c.conjunct))
+  const permitVerdict = first[0] as Verdict
+  const live = all.length > 1 ? all.filter((_, i) => first[i + 1]?.permitted) : all
+  const cases = live.flatMap((b) => denyCases(b, permit)).slice(0, MAX_CASES)
+  // Each deny case twice: against the whole rule (it must refuse), and against the
+  // rule without the conjunct it breaks (it must now get through: the conjunct is needed).
+  const answers = await pool(
+    cases.flatMap((c) => [() => one(expr, c.call), () => one(rebuild(all, c.conjunct), c.call)]),
+    WIDTH,
+    (job) => job()
+  )
+  const redundant = cases
+    .filter((_, i) => !answers[2 * i + 1]?.permitted)
+    .map((c) => phrase(c.conjunct))
   const results = cases.map((c, i) => ({
     label: c.label,
-    denied: !verdicts[i]?.permitted,
-    verdict: verdicts[i] as Verdict,
+    denied: !answers[2 * i]?.permitted,
+    verdict: answers[2 * i] as Verdict,
   }))
   return {
-    ok: permitVerdict.permitted && results.every((r) => r.denied) && results.length > 0,
+    ok: permitVerdict.permitted && results.length > 0 && results.every((r) => r.denied),
     permit: permitVerdict,
     cases: results,
     minimal: redundant.length === 0,
     redundant,
-    checks,
+    checks: first.length + 2 * cases.length,
   }
 }
