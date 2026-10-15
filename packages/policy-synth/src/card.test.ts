@@ -1473,6 +1473,10 @@ describe('what a person cannot see is escaped', () => {
     expect(str('\u{e0041}')).toBe('argument 0:  must be  "\\u{e0041}"')
     expect(str('x\ud800y')).not.toContain('\ud800')
   })
+  it('the last character of the basic plane and the first beyond it', () => {
+    expect(str('\uffff')).toBe('argument 0:  must be  "\\uffff"')
+    expect(str('\u{10000}')).toBe('argument 0:  must be  "\\u{10000}"')
+  })
   it('printable ASCII is as written, quotes and backslashes escaped', () => {
     expect(str('a "b" \\ c')).toBe('argument 0:  must be  "a \\"b\\" \\\\ c"')
   })
