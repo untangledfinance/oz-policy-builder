@@ -1,13 +1,31 @@
-export * from './card.ts'
-export * from './chain.ts'
-export * from './check.ts'
-export * from './config.ts'
-export * from './envelope.ts'
-export * from './install.ts'
-export * from './intent.ts'
-export * from './record.ts'
-export * from './registry.ts'
-export * from './rules.ts'
-export * from './synth.ts'
-export * from './tools.ts'
-export * from './wire.ts'
+// The package's public surface: the tools, the codec, the review card, the pins and the
+// refusal type. Everything else (the builders, the scan, the deny-case derivation) is
+// internal, so a refactor of it is not a breaking change.
+
+export { card } from './card.ts'
+export {
+  GRAMMAR_VERSION,
+  INTERPRETER,
+  INTERPRETER_WASM,
+  INTERPRETERS,
+  type Network,
+  PASSPHRASE,
+  POLICY_CONTRACTS,
+  RPC_URL,
+  SPENDING_LIMIT,
+} from './config.ts'
+export { type ErrorCode, Refusal, type ToolError, type ToolResponse } from './envelope.ts'
+export type { CallIntent, Intent, Rule } from './intent.ts'
+export { run, TOOLS, type Tool } from './tools.ts'
+export {
+  decode,
+  type Expr,
+  encode,
+  fromScVal,
+  hashOf,
+  type Tagged,
+  toScVal,
+  type Val,
+  validate,
+  WireError,
+} from './wire.ts'
