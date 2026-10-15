@@ -139,6 +139,37 @@ impl Pool {
     }
 }
 
+/// An allow list that can change without reinstalling any rule: `contains` is
+/// the call a registry-backed rule reads.
+#[contract]
+pub struct Registry;
+
+#[contractimpl]
+impl Registry {
+    pub fn add(e: &Env, who: Address) {
+        e.storage().instance().set(&who, &true);
+    }
+
+    pub fn remove(e: &Env, who: Address) {
+        e.storage().instance().remove(&who);
+    }
+
+    /// How many times `contains` or `echo` has run (committed on a permit).
+    pub fn calls(e: &Env) -> u32 {
+        e.storage().instance().get(&0u32).unwrap_or(0)
+    }
+
+    pub fn contains(e: &Env, who: Address) -> bool {
+        e.storage().instance().set(&0u32, &(Registry::calls(e) + 1));
+        e.storage().instance().get(&who).unwrap_or(false)
+    }
+
+    pub fn echo(e: &Env, v: Val) -> Val {
+        e.storage().instance().set(&0u32, &(Registry::calls(e) + 1));
+        v
+    }
+}
+
 /// A contract that calls `enforce` from inside its own frame, so it is on the
 /// call stack while the policy runs - the position an authorised call's target
 /// is in when the host asks the account to authorise it.
@@ -229,6 +260,10 @@ fn scaled(src: ScVal, n: ScVal, den: i128, add: ScVal) -> ScVal {
 
 fn cmp(op: &str, a: ScVal, b: ScVal) -> ScVal {
     tuple(alloc::vec![sym(op), a, b])
+}
+
+fn lit(x: ScVal) -> ScVal {
+    tuple(alloc::vec![sym("lit"), x])
 }
 
 fn all(children: StdVec<ScVal>) -> ScVal {
@@ -667,23 +702,31 @@ fn reads_nested_in_scaled_count_toward_the_cap() {
 }
 
 #[test]
-fn read_arguments_must_be_literals() {
-    let w = World::new();
-    let o = oracle(&w, 1, 0);
-    let target = |args: StdVec<ScVal>| {
-        rule_for(cmp(
-            "gte",
-            read(&w.env, &o, "lastprice", args, &[Step::F("price")]),
-            num(0),
-        ))
+fn read_arguments_are_plain_leaves() {
+    // Each install is on a fresh world: the nonce is single-use.
+    let install = |arg: &dyn Fn(&World, &Address) -> ScVal| {
+        let w = World::new();
+        let o = oracle(&w, 1, 0);
+        let read = read(
+            &w.env,
+            &o,
+            "lastprice",
+            alloc::vec![arg(&w, &o)],
+            &[Step::F("price")],
+        );
+        w.install(&rule_for(cmp("gte", read, num(0))))
     };
-    assert_eq!(w.install(&target(alloc::vec![sym("POT")])), Ok(()));
-    // a selector, the clock, a computed value, and a nested read
-    let nested = read(&w.env, &o, "lastprice", alloc::vec![sym("POT")], &[]);
-    let computed = scaled(num(1), num(1), 1, num(0));
-    for bad in [call_arg(0), now(), computed, nested] {
-        assert_eq!(w.install(&target(alloc::vec![bad])), MALFORMED);
+    assert_eq!(install(&|_, _| sym("POT")), Ok(()));
+    // a call argument, the clock, the call's function: derived at enforce
+    for ok in [call_arg(0), now(), call_fn()] {
+        assert_eq!(install(&|_, _| ok.clone()), Ok(()));
     }
+    // a computed value, and a nested read, are refused
+    let computed = |_: &World, _: &Address| scaled(num(1), num(1), 1, num(0));
+    assert_eq!(install(&computed), MALFORMED);
+    let nested =
+        |w: &World, o: &Address| read(&w.env, o, "lastprice", alloc::vec![sym("POT")], &[]);
+    assert_eq!(install(&nested), MALFORMED);
 }
 
 #[test]
@@ -820,11 +863,21 @@ fn a_void_result_denies_even_under_eq() {
 }
 
 #[test]
-fn a_non_numeric_result_denies_even_under_eq() {
+fn a_non_numeric_result_compares_under_eq_but_has_no_order() {
     let w = World::new();
     let o = oracle(&w, 100, 0);
     let rd = || read(&w.env, &o, "name", alloc::vec![], &[]);
-    w.arm(cmp("eq", rd(), rd()));
+    w.arm(cmp("eq", rd(), sym("oracle")));
+    assert_eq!(w.enforce(&[]), Ok(()));
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    let rd = || read(&w.env, &o, "name", alloc::vec![], &[]);
+    w.arm(cmp("eq", rd(), sym("other")));
+    assert_eq!(w.enforce(&[]), denied());
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    let rd = || read(&w.env, &o, "name", alloc::vec![], &[]);
+    w.arm(cmp("gte", rd(), num(0)));
     assert_eq!(w.enforce(&[]), denied());
 }
 
@@ -1615,7 +1668,6 @@ fn a_variant_is_a_constant_and_nothing_else() {
         tuple(alloc::vec![sym("variant"), num(1), sym("Stellar")]),
         tuple(alloc::vec![sym("variant")]),
         tuple(alloc::vec![sym("Stellar"), num(1)]),
-        call_arg(0),
     ];
     for b in bad {
         let w = World::new();
@@ -2230,4 +2282,221 @@ fn call_contract_and_call_fn_are_not_scaled_operands() {
     }
     // An ordering over them is still decided at enforce (103), not refused.
     assert_eq!(installs(|_| cmp("lt", call_fn(), num(5))), Ok(()));
+}
+
+// ---- generic reads: call-derived arguments, any result type ----------------
+
+/// `advance(amount, receiver)`: the shape the registry rules below guard.
+fn advance_to(w: &World, receiver: &Address) -> Context {
+    let args: SorobanVec<Val> =
+        soroban_sdk::vec![&w.env, 10i128.into_val(&w.env), receiver.into_val(&w.env)];
+    Context::Contract(ContractContext {
+        contract: w.target.clone(),
+        fn_name: Symbol::new(&w.env, "advance"),
+        args,
+    })
+}
+
+/// `registry.contains(call_arg(i)) == true`.
+fn listed(w: &World, registry: &Address, i: u32) -> ScVal {
+    let read = read(&w.env, registry, "contains", alloc::vec![call_arg(i)], &[]);
+    cmp("eq", read, lit(ScVal::Bool(true)))
+}
+
+#[test]
+fn a_registry_read_with_a_call_derived_argument_gates_the_receiver() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let (kyc, stranger) = (Address::generate(&w.env), Address::generate(&w.env));
+    RegistryClient::new(&w.env, &reg).add(&kyc);
+    // The only thing tying this rule to the call is the argument of its read.
+    w.install(&listed(&w, &reg, 1)).expect("installs");
+    assert_eq!(w.enforce_context(&advance_to(&w, &kyc)), Ok(()));
+    assert_eq!(w.enforce_context(&advance_to(&w, &stranger)), denied());
+    // The list moves; the installed rule does not.
+    let client = RegistryClient::new(&w.env, &reg);
+    client.add(&stranger);
+    client.remove(&kyc);
+    assert_eq!(w.enforce_context(&advance_to(&w, &stranger)), Ok(()));
+    assert_eq!(w.enforce_context(&advance_to(&w, &kyc)), denied());
+}
+
+#[test]
+fn a_read_argument_that_does_not_resolve_denies() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let kyc = Address::generate(&w.env);
+    RegistryClient::new(&w.env, &reg).add(&kyc);
+    w.install(&listed(&w, &reg, 7)).expect("installs");
+    assert_eq!(w.enforce_context(&advance_to(&w, &kyc)), denied());
+    // A registry that is not there is a failed read: it denies.
+    let w = World::new();
+    w.install(&listed(&w, &Address::generate(&w.env), 1))
+        .expect("installs");
+    let kyc = Address::generate(&w.env);
+    assert_eq!(w.enforce_context(&advance_to(&w, &kyc)), denied());
+}
+
+#[test]
+fn the_clock_and_the_call_are_read_arguments_too() {
+    let w = World::new();
+    w.env.ledger().with_mut(|l| l.timestamp = 2_000);
+    let reg = w.env.register(Registry, ());
+    let echo = |arg: ScVal| read(&w.env, &reg, "echo", alloc::vec![arg], &[]);
+    let rule = all(alloc::vec![
+        cmp("eq", echo(now()), now()),
+        cmp("eq", echo(call_fn()), call_fn()),
+        cmp("eq", echo(call_arg(0)), call_arg(0)),
+    ]);
+    w.install(&rule).expect("installs");
+    assert_eq!(w.enforce(&[5]), Ok(()));
+    // What was passed is what came back, so the result was not a constant:
+    // a mismatch denies.
+    let w = World::new();
+    w.env.ledger().with_mut(|l| l.timestamp = 2_000);
+    let reg = w.env.register(Registry, ());
+    let echoed = read(&w.env, &reg, "echo", alloc::vec![now()], &[]);
+    w.install(&rule_for(cmp("eq", echoed.clone(), num(2_000))))
+        .expect("installs");
+    assert_eq!(w.enforce(&[]), Ok(()));
+    w.env.ledger().with_mut(|l| l.timestamp = 2_001);
+    assert_eq!(w.enforce(&[]), denied());
+}
+
+#[test]
+fn a_read_with_a_call_derived_argument_is_its_own_call_at_decode() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let rule = |n: u32| all((0..n).map(|i| listed(&w, &reg, i)).collect());
+    // Four distinct calls install; the fifth is refused at install.
+    assert_eq!(w.install(&rule(4)), Ok(()));
+    let w2 = World::new();
+    let reg2 = w2.env.register(Registry, ());
+    let five = all((0..5).map(|i| listed(&w2, &reg2, i)).collect());
+    assert_eq!(w2.install(&five), MALFORMED);
+    // Constant arguments still dedupe: twenty identical reads are one call, so
+    // they leave room for three call-derived ones.
+    let w3 = World::new();
+    let reg3 = w3.env.register(Registry, ());
+    let fixed = || {
+        let k = addr(&w3.env, &Address::generate(&w3.env));
+        let read = read(&w3.env, &reg3, "contains", alloc::vec![k], &[]);
+        cmp("eq", read, lit(ScVal::Bool(false)))
+    };
+    let k = fixed();
+    let mut checks: StdVec<ScVal> = (0..20).map(|_| k.clone()).collect();
+    checks.extend((0..3).map(|i| listed(&w3, &reg3, i)));
+    assert_eq!(w3.install(&all(checks.clone())), Ok(()));
+    let w4 = World::new();
+    let reg4 = w4.env.register(Registry, ());
+    let k = addr(&w4.env, &Address::generate(&w4.env));
+    let read = read(&w4.env, &reg4, "contains", alloc::vec![k], &[]);
+    let mut checks: StdVec<ScVal> = (0..20)
+        .map(|_| cmp("eq", read.clone(), lit(ScVal::Bool(false))))
+        .collect();
+    checks.extend((0..4).map(|i| listed(&w4, &reg4, i)));
+    assert_eq!(w4.install(&all(checks)), MALFORMED, "1 + 4 distinct calls");
+}
+
+#[test]
+fn leaves_that_resolve_to_the_same_arguments_are_one_external_call() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let kyc = Address::generate(&w.env);
+    RegistryClient::new(&w.env, &reg).add(&kyc);
+    // Two leaves, both naming argument 1; and a third naming the same value
+    // through a different argument index (the context carries it twice).
+    let rule = all(alloc::vec![
+        listed(&w, &reg, 1),
+        listed(&w, &reg, 1),
+        listed(&w, &reg, 2)
+    ]);
+    w.install(&rule)
+        .expect("three distinct-looking calls install");
+    let twice: SorobanVec<Val> = soroban_sdk::vec![
+        &w.env,
+        10i128.into_val(&w.env),
+        kyc.into_val(&w.env),
+        kyc.into_val(&w.env)
+    ];
+    let ctx = Context::Contract(ContractContext {
+        contract: w.target.clone(),
+        fn_name: Symbol::new(&w.env, "advance"),
+        args: twice,
+    });
+    assert_eq!(w.enforce_context(&ctx), Ok(()));
+    assert_eq!(RegistryClient::new(&w.env, &reg).calls(), 1);
+}
+
+#[test]
+fn four_distinct_call_derived_reads_make_four_calls_and_no_more() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let who: StdVec<Address> = (0..4).map(|_| Address::generate(&w.env)).collect();
+    for a in &who {
+        RegistryClient::new(&w.env, &reg).add(a);
+    }
+    let rule = all((0..4).map(|i| listed(&w, &reg, i)).collect());
+    w.install(&rule).expect("installs");
+    let mut args = SorobanVec::<Val>::new(&w.env);
+    who.iter().for_each(|a| args.push_back(a.into_val(&w.env)));
+    let ctx = Context::Contract(ContractContext {
+        contract: w.target.clone(),
+        fn_name: Symbol::new(&w.env, "advance"),
+        args,
+    });
+    assert_eq!(w.enforce_context(&ctx), Ok(()));
+    assert_eq!(RegistryClient::new(&w.env, &reg).calls(), 4);
+}
+
+#[test]
+fn any_non_void_read_result_compares_under_eq_in_ne_and_nin() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let kyc = Address::generate(&w.env);
+    RegistryClient::new(&w.env, &reg).add(&kyc);
+    let contains = |w: &World| read(&w.env, &reg, "contains", alloc::vec![call_arg(1)], &[]);
+    let echo = |w: &World| read(&w.env, &reg, "echo", alloc::vec![call_arg(1)], &[]);
+    let t = || lit(ScVal::Bool(true));
+    // eq / ne on a bool, in / nin on an address (echo returns the argument).
+    let checks = [
+        cmp("eq", contains(&w), t()),
+        cmp("ne", contains(&w), lit(ScVal::Bool(false))),
+        tuple(alloc::vec![
+            sym("in"),
+            echo(&w),
+            tuple(alloc::vec![addr(&w.env, &kyc)])
+        ]),
+        tuple(alloc::vec![
+            sym("nin"),
+            echo(&w),
+            tuple(alloc::vec![addr(&w.env, &w.account)])
+        ]),
+    ];
+    let rule = all(checks.to_vec());
+    w.install(&rule).expect("installs");
+    assert_eq!(w.enforce_context(&advance_to(&w, &kyc)), Ok(()));
+    // The other receiver fails the first two, which is what denies.
+    let stranger = Address::generate(&w.env);
+    assert_eq!(w.enforce_context(&advance_to(&w, &stranger)), denied());
+    // An address result has no order.
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let ordered = read(&w.env, &reg, "echo", alloc::vec![call_arg(1)], &[]);
+    w.install(&cmp("gte", ordered, num(0))).expect("installs");
+    let kyc = Address::generate(&w.env);
+    assert_eq!(w.enforce_context(&advance_to(&w, &kyc)), denied());
+}
+
+#[test]
+fn only_a_call_derived_argument_makes_a_read_constrain_the_call() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let by = |arg: ScVal| {
+        let r = read(&w.env, &reg, "contains", alloc::vec![arg], &[]);
+        cmp("eq", r, lit(ScVal::Bool(true)))
+    };
+    // The clock says nothing about the call; the call's own argument does.
+    assert_eq!(w.install(&by(now())), SELECTOR_REQUIRED);
+    assert_eq!(w.install(&by(call_arg(1))), Ok(()));
 }

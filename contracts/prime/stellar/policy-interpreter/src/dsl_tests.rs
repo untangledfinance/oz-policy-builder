@@ -173,7 +173,12 @@ fn leaf_to_scval(env: &Env, l: &Leaf) -> ScVal {
                 sym("read"),
                 scval_of(env, contract.clone()),
                 scval_of(env, func.clone()),
-                scval_of(env, args.clone()),
+                vec_scval(
+                    &args
+                        .iter()
+                        .map(|a| leaf_to_scval(env, a))
+                        .collect::<StdVec<_>>()
+                ),
             ];
             items.extend(steps_scval(env, steps));
             vec_scval(&items)
@@ -1469,7 +1474,7 @@ fn dummy_read_of(env: &Env, n: u32) -> Leaf {
     Leaf::Read(
         contract(env),
         Symbol::new(env, "price"),
-        soroban_sdk::vec![env, n.into_val(env)],
+        StdVec::from([lu(env, n)]),
         StdVec::new(),
     )
 }
@@ -1723,17 +1728,26 @@ fn wire_read_with_fewer_than_four_items_is_malformed() {
 }
 
 #[test]
-fn wire_read_refuses_non_literal_arguments() {
+fn wire_read_takes_call_derived_arguments_but_not_computed_ones() {
     let env = Env::default();
-    let inner = vec_scval(&[sym("call_arg"), u32_scval(0)]);
-    for bad in [
-        inner,
-        vec_scval(&[sym("now")]),
-        vec_scval(&[sym("call_contract")]),
-    ] {
-        let wire = read_wire(StdVec::from([bad]), StdVec::new());
-        let err = decode(&env, &bytes_from_scval(&env, wire)).expect_err("literal only");
-        assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
+    let sel = |l: Leaf| leaf_to_scval(&env, &l);
+    let ok = |arg: ScVal| {
+        let wire = read_wire(StdVec::from([arg]), StdVec::new());
+        decode(&env, &bytes_from_scval(&env, wire))
+    };
+    for plain in [call_arg(0), Leaf::Now, Leaf::CallContract, Leaf::CallFn] {
+        assert!(ok(sel(plain)).is_ok());
+    }
+    // A `read` or a `scaled` in an argument would have a call count of its own.
+    let nested = [
+        dummy_read(&env),
+        scaled(call_arg(0), li(&env, 1), 1, li(&env, 0)),
+    ];
+    for bad in nested {
+        assert_eq!(
+            ok(sel(bad)).expect_err("not a plain leaf"),
+            crate::dsl::DecodeError::MalformedPredicate
+        );
     }
 }
 

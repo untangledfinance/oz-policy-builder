@@ -139,7 +139,7 @@ pub enum Leaf {
     /// same steps a `CallPath` takes. Soroban has no read-only call, so the
     /// target must be a contract the policy owner trusts. A failed call or a
     /// result that is not a number resolves to nothing, which denies.
-    Read(Address, Symbol, Vals, Vec<PathStep>),
+    Read(Address, Symbol, Vec<Leaf>, Vec<PathStep>),
     /// `[src, num, add]` and `den`: `src * num / den + add`, multiplying
     /// first, truncating toward zero, every step checked. Each of the three
     /// operands is any value leaf, nested `Scaled` included; `den` is a
@@ -340,16 +340,18 @@ fn resolve(env: &Env, leaf: &Leaf, ctx: &EvalContext, memo: &mut Memo) -> Result
         Leaf::CallPath(steps) => walk(env, ctx.args.clone().into_val(env), steps).ok_or(miss)?,
         Leaf::Now => env.ledger().timestamp().into_val(env),
         Leaf::Read(c, f, a, steps) => {
-            let key = (c.clone(), f.clone(), a.clone());
+            let args: Result<Vec<Val>, _> = a.iter().map(|l| resolve(env, l, ctx, memo)).collect();
+            let args = Vals::from_slice(env, &args?);
+            let key = (c.clone(), f.clone(), args.clone());
             let hit = memo.iter().find(|r| r.0 == key).map(|r| r.1);
             let raw = hit.unwrap_or_else(|| {
-                let call = env.try_invoke_contract::<Val, Error>(c, f, a.clone());
+                let call = env.try_invoke_contract::<Val, Error>(c, f, args);
                 let raw = call.ok().and_then(|r| r.ok());
                 memo.push((key, raw));
                 raw
             });
             raw.and_then(|v| walk(env, v, steps))
-                .filter(|v| val_to_i128(env, v).is_some())
+                .filter(|v| !v.is_void())
                 .ok_or(miss)?
         }
         Leaf::Scaled(k, den) => {
@@ -422,8 +424,10 @@ pub fn has_selector_leaf(root: &Node) -> bool {
 fn leaves(node: &Node) -> Vec<&Leaf> {
     fn nested<'a>(leaf: &'a Leaf, out: &mut Vec<&'a Leaf>) {
         out.push(leaf);
-        if let Leaf::Scaled(inner, _) = leaf {
-            inner.iter().for_each(|l| nested(l, out));
+        match leaf {
+            Leaf::Scaled(inner, _) => inner.iter().for_each(|l| nested(l, out)),
+            Leaf::Read(_, _, args, _) => args.iter().for_each(|l| nested(l, out)),
+            _ => {}
         }
     }
     let top = match node {
@@ -496,12 +500,17 @@ pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
     cap(small, DecodeError::PredicateTooLarge)?;
     let root_node = decode_stored(env, bytes)?;
     let all = leaves(&root_node);
-    // Reads of the same `(contract, fn, args)` are one call (see `Memo`).
+    // Reads of the same `(contract, fn, constant args)` are one call (see `Memo`).
+    // A read with a call-derived argument is its own call: its arguments resolve
+    // at `enforce`, and are the same for every use of that leaf.
     let mut calls = Vec::new();
     for l in &all {
-        match l {
-            Leaf::Read(c, f, a, _) if !calls.contains(&(c, f, a)) => calls.push((c, f, a)),
-            _ => {}
+        if let Leaf::Read(c, f, a, _) = l {
+            let fixed: Option<Vec<Val>> = a.iter().map(|l| literal_to_val(l).ok()).collect();
+            let key = (c, f, fixed.map(|v| Vals::from_slice(env, &v)));
+            if key.2.is_none() || !calls.contains(&key) {
+                calls.push(key);
+            }
         }
     }
     let few = all.len() <= MAX_LEAVES as usize && calls.len() <= MAX_READS as usize;
@@ -638,13 +647,17 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
         // must be literals: a selector, a `now`, another `read` or a
         // `scaled` has no `Val` form here and is refused.
         ensure(items.len() >= 4)?;
-        let arg = |a| literal_to_val(&decode_leaf(env, &a, depth + 1)?);
+        let arg = |a| {
+            let leaf = decode_leaf(env, &a, depth + 1)?;
+            let ok = matches!(leaf, Leaf::Lit(_) | Leaf::CallPath(_) | Leaf::Now);
+            ensure(ok || matches!(leaf, Leaf::CallContract | Leaf::CallFn)).map(|_| leaf)
+        };
         let target: Address = expect(env, items, 1)?;
         ensure(target.clone().to_xdr(env).get(7) == Some(1))?;
         Ok(Leaf::Read(
             target,
             expect(env, items, 2)?,
-            Vals::from_slice(env, &each(&expect(env, items, 3)?, arg)?),
+            each(&expect(env, items, 3)?, arg)?,
             decode_steps(env, items, 4, 0)?,
         ))
     } else if is(2, "lit") {
