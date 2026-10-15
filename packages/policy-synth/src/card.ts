@@ -62,7 +62,7 @@ const LABEL = /^[A-Za-z][\w .-]{0,23}$/
 const NUMBER = /^(i32|i64|u64|i128|u128|timepoint|duration)$/
 
 /** An address shortened, or whole under `raw`. */
-const short = (a: string, c: View) => (c.raw ? a : `${a.slice(0, 4)}…${a.slice(-4)}`)
+const short = (a: string, c: View) => (c.raw ? a : `${a.slice(0, 6)}…${a.slice(-6)}`)
 /** The package's own name for an address, else the request's, marked as the caller's («...»). */
 const named = (a: string, c: View) => {
   const given = c.labels?.[a]
@@ -72,15 +72,16 @@ const named = (a: string, c: View) => {
 const addr = (a: string, c: View) => `${short(a, c)}${named(a, c) ? ` (${named(a, c)})` : ''}`
 /** What is known of the contract in force. */
 const known = (c: View) => c.info?.[c.contract ?? '']
-/** Text between quotes, with whatever could bend a line (controls, bidi, line separators) escaped. */
+/** Text between quotes. Anything but printable ASCII is written as its code point: what a person
+ *  cannot see (zero-width, soft hyphen, marks, bidi, tags, odd spaces) cannot make two texts alike. */
 const quoted = (s: string, q: string) =>
   q +
   JSON.stringify(s)
     .slice(1, -1)
-    .replace(
-      /[\u007f-\u009f\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g,
-      (ch) => `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`
-    ) +
+    .replace(/[^\x20-\x7e]/gu, (ch) => {
+      const n = ch.codePointAt(0) as number
+      return n > 0xffff ? `\\u{${n.toString(16)}}` : `\\u${n.toString(16).padStart(4, '0')}`
+    }) +
   q
 
 /** A constant, so that two constants the contract tells apart never read alike: a symbol is
@@ -103,11 +104,11 @@ function constant(v: Val, c: View, typed = c.raw): string {
 }
 
 /** A token amount as `5,000 USDC:GATA…V56 (50000000000)`: the unit is the token's, the raw number stays. */
-function money(x: string, { decimals: d, symbol }: NonNullable<Info['token']>): string {
+function money(x: string, { decimals: d, symbol }: NonNullable<Info['token']>, type = ''): string {
   const n = x.replace('-', '').padStart(d + 1, '0')
   const frac = n.slice(n.length - d).replace(/0+$/, '')
   const whole = n.slice(0, n.length - d).replace(/\B(?=(\d{3})+$)/g, ',')
-  return `${x < '0' ? '-' : ''}${whole}${frac && `.${frac}`} ${symbol} (${x})`
+  return `${x < '0' ? '-' : ''}${whole}${frac && `.${frac}`} ${symbol} (${x}${type})`
 }
 
 /** A constant, in the unit its other side is read in. */
@@ -117,16 +118,25 @@ function show(v: Val, kind: Sub['kind'], c: View): string {
   const [n, t] = [number ? intOf(x) : undefined, known(c)?.token]
   if (!c.raw && kind === 'time' && n !== undefined && n >= 0n && n <= 253402300799n)
     return `${new Date(Number(n) * 1000).toISOString().slice(0, 19).replace('T', ' ')} UTC (${n})`
-  if (!c.raw && kind === 'amount' && t && isTagged(x) && 'i128' in x) return money(x.i128, t)
+  // Every integer the contract reads as a number is in the unit; one that is not an i128 says so.
+  if (!c.raw && kind === 'amount' && t && n !== undefined)
+    return money(
+      String(n),
+      t,
+      isTagged(x) && 'i128' in x
+        ? ''
+        : ` (${typeof x === 'number' ? 'u32' : Object.keys(x as object)[0]})`
+    )
   return constant(x, c)
 }
 
-/** A step of a path: an index `[0]`, a key (a symbol plain, anything else as a constant). */
+/** A step of a path: an index `[0]`, a key (a symbol as a name when it reads as one, else quoted,
+ *  so `'true'` is not the bool key; anything else as a typed constant). */
 const step = (s: Val, c: View) => {
   const k = unlit(s)
   return typeof s === 'number'
     ? `[${s}]`
-    : typeof k === 'string' && !isAddress(k)
+    : typeof k === 'string' && !isAddress(k) && /^(?!(true|false|null)$)[A-Za-z_]\w*$/.test(k)
       ? k
       : constant(k, c, true)
 }
@@ -246,7 +256,8 @@ const pin = (list: Expr[], head: string) =>
   list.findIndex(
     (x) =>
       JSON.stringify(x).startsWith(`["eq",["${head}"],"`) &&
-      isAddress((x as Val[])[2]) === (head === 'call_contract')
+      isAddress((x as Val[])[2]) === (head === 'call_contract') &&
+      (x as Val[])[2] !== ''
   )
 const kids = (children: Node[]) => (children.length > 0 ? { children } : {})
 
@@ -298,6 +309,15 @@ export const contractsOf = (e: Val) => Array.from(JSON.stringify(e).matchAll(PIN
  *  (with `raw: null`) wraps the tree unless the predicate itself pins exactly that contract. */
 export function tree(expr: Expr, view: View = {}): Node[] {
   const body = nodes(expr, view)
+  // A pin on another contract than the rule's scope can never be met; say so, on every such node.
+  const never = (ns: Node[]) => {
+    for (const n of ns) {
+      if (view.contract && n.op === 'contract' && n.value !== view.contract)
+        n.label += `  (never matches: the rule is scoped to ${short(view.contract, view)})`
+      never(n.children ?? [])
+    }
+  }
+  never(body)
   const [first] = body
   // The scope is always said, unless the predicate's own pin is that very contract.
   const same = body.length === 1 && first?.op === 'contract' && first.value === view.contract

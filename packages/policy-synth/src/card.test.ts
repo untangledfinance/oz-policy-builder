@@ -10,7 +10,7 @@ import { propose, synthesize } from './synth.ts'
 import { decode, type Expr, validate } from './wire.ts'
 
 const [A, B, C, D] = [account(1), account(2), contract(1), contract(2)]
-const short = (a: string) => `${a.slice(0, 4)}…${a.slice(-4)}`
+const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-6)}`
 const USDC = { decimals: 7, symbol: 'USDC' }
 const token: View = { info: { [C]: { fns: SAC, token: USDC } } }
 const one = (e: Expr, v?: View) => card(e, v)[0] as string
@@ -716,7 +716,10 @@ describe('the tree', () => {
     // A rule scoped to C whose predicate pins D can never permit: both are said.
     const other: Expr = ['and', [['eq', ['call_contract'], D], ...(pay[1] as Expr[])]]
     const out = card(other, tokenOf(['transfer']))
-    expect(out.slice(0, 2)).toEqual([`${short(C)}  (token)`, `└─ ${short(D)}`])
+    expect(out.slice(0, 2)).toEqual([
+      `${short(C)}  (token)`,
+      `└─ ${short(D)}  (never matches: the rule is scoped to ${short(C)})`,
+    ])
     // And a pin in only one branch does not hide the scope of the other.
     const some: Expr = ['or', [other, approve]]
     expect(card(some, tokenOf(['transfer']))[0]).toBe(`${short(C)}  (token)`)
@@ -1342,4 +1345,217 @@ describe('labels from a request', () => {
     ['nothing', ''],
     ['a digit first', '1x'],
   ])('%s is dropped', (_n, l) => expect(label(l)).toBe(`argument 0:  must be  ${short(A)}`))
+})
+
+describe("every integer compared to a token amount is in the token's unit", () => {
+  const cap = (op: string, v: Expr) =>
+    card(
+      [
+        'and',
+        [
+          ['eq', ['call_fn'], 'transfer'],
+          [op as 'lte', ['call_arg', 2], v],
+        ],
+      ],
+      { contract: C, ...token }
+    ).at(-1) as string
+  it.each<[string, Expr, string]>([
+    ['i128', { i128: '50000000000' }, '5,000 USDC (50000000000)'],
+    ['u32', 5000, '0.0005 USDC (5000 (u32))'],
+    ['u64', { u64: '5000' }, '0.0005 USDC (5000 (u64))'],
+    ['i64', { i64: '5000' }, '0.0005 USDC (5000 (i64))'],
+    ['u128', { u128: '5000' }, '0.0005 USDC (5000 (u128))'],
+    ['i32', { i32: -5 }, '-0.0000005 USDC (-5 (i32))'],
+    ['a lit u32', ['lit', 5000], '0.0005 USDC (5000 (u32))'],
+  ])('%s', (_n, v, text) => expect(cap('lte', v)).toBe(`   └─ amount:  must be at most  ${text}`))
+
+  it('a list mixes types and says which is which; a 256-bit number is not a number to the contract', () => {
+    expect(
+      card(
+        [
+          'and',
+          [
+            ['eq', ['call_fn'], 'transfer'],
+            ['in', ['call_arg', 2], [{ i128: '10000000' }, 5]],
+          ],
+        ],
+        { contract: C, ...token }
+      ).at(-1)
+    ).toBe(
+      '   └─ amount:  must be in  '.replace('must be in', 'must be one of') +
+        '[1 USDC (10000000), 0.0000005 USDC (5 (u32))]'
+    )
+    expect(cap('lte', { u256: '5000' })).toBe('   └─ amount:  must be at most  5000 (u256)')
+  })
+
+  it('on the left, and with no token, the number is plain', () => {
+    expect(
+      card(
+        [
+          'and',
+          [
+            ['eq', ['call_fn'], 'transfer'],
+            ['gte', 5000, ['call_arg', 2]],
+          ],
+        ],
+        { contract: C, ...token }
+      ).at(-1)
+    ).toBe('   └─ 0.0005 USDC (5000 (u32)):  must be at least  amount')
+    expect(
+      card(
+        [
+          'and',
+          [
+            ['eq', ['call_fn'], 'transfer'],
+            ['lte', ['call_arg', 2], 5000],
+          ],
+        ],
+        { contract: C, info: { [C]: { fns: SAC } } }
+      ).at(-1)
+    ).toBe('   └─ amount:  must be at most  5000')
+  })
+
+  it('raw keeps every number as the wire has it', () => {
+    expect(
+      card(
+        [
+          'and',
+          [
+            ['eq', ['call_fn'], 'transfer'],
+            ['lte', ['call_arg', 2], 5000],
+          ],
+        ],
+        { contract: C, ...token, raw: true }
+      ).at(-1)
+    ).toBe('   └─ amount (argument 2):  must be at most  5000 (u32)')
+  })
+})
+
+describe('a symbol key that looks like a value is quoted', () => {
+  const path = (...steps: Expr[]) => one(['eq', ['call_path', 0, ...steps], 1])
+  it.each(['true', 'false', 'null', '', '5', '9a', 'a b'.replace(' ', '_')])('%j', (k) => {
+    const t = path(k)
+    if (/^(?!(true|false|null)$)[A-Za-z_]\w*$/.test(k))
+      expect(t).toBe(`argument 0 › ${k}:  must be  1`)
+    else expect(t).toBe(`argument 0 › '${k}':  must be  1`)
+  })
+  it('and so differs from the bool and void keys, bare or lit', () => {
+    expect(path(['lit', true])).toBe(
+      'argument 0 › true (bool)'.replace(' (bool)', '') + ':  must be  1'
+    )
+    expect(path('true')).not.toBe(path(['lit', true]))
+    expect(path('false')).not.toBe(path(['lit', false]))
+    expect(path('null')).not.toBe(path(['lit', null]))
+    expect(path(['lit', 'true'])).toBe(path('true'))
+  })
+})
+
+describe('what a person cannot see is escaped', () => {
+  const str = (s: string) => one(['eq', ['call_arg', 0], { string: s }])
+  it('zero-width, soft hyphen, BOM, Arabic letter mark, combining marks, tags, other spaces', () => {
+    const plain = str('abc')
+    for (const ch of [
+      '\u200b',
+      '\u200d',
+      '\u2060',
+      '\u00ad',
+      '\ufeff',
+      '\u061c',
+      '\u0301',
+      '\u00a0',
+      '\u3000',
+      '\u{e0041}',
+      '\u180e',
+    ])
+      expect(str(`ab${ch}c`)).not.toBe(plain)
+    expect(str('ab\u200bc')).toBe('argument 0:  must be  "ab\\u200bc"')
+    expect(str('a\u0301')).not.toBe(str('\u00e1'))
+    expect(str('\u{e0041}')).toBe('argument 0:  must be  "\\u{e0041}"')
+    expect(str('x\ud800y')).not.toContain('\ud800')
+  })
+  it('printable ASCII is as written, quotes and backslashes escaped', () => {
+    expect(str('a "b" \\ c')).toBe('argument 0:  must be  "a \\"b\\" \\\\ c"')
+  })
+  it('symbols too (a symbol is ASCII, but a spec name or key may not be)', () => {
+    expect(one(['eq', ['call_arg', 0], 'a\u200bb'])).toBe("argument 0:  must be  'a\\u200bb'")
+  })
+})
+
+describe('shortened addresses keep six and six', () => {
+  it('in the default view; raw is whole', () => {
+    expect(one(['eq', ['call_arg', 0], A])).toBe(
+      `argument 0:  must be  ${A.slice(0, 6)}…${A.slice(-6)}`
+    )
+    expect(one(['eq', ['call_arg', 0], A], { raw: true })).toContain(A)
+  })
+})
+
+describe('a function pinned to nothing is a condition, not an empty header', () => {
+  it('eq(call_fn, empty symbol)', () => {
+    const out = card([
+      'and',
+      [
+        ['eq', ['call_contract'], C],
+        ['eq', ['call_fn'], ''],
+        ['lte', ['call_arg', 2], 1],
+      ],
+    ])
+    expect(out).toEqual([
+      short(C),
+      "├─ the function:  must be  ''",
+      '└─ argument 2:  must be at most  1',
+    ])
+  })
+})
+
+describe('a pin on another contract than the rule is scoped to says it never matches', () => {
+  const rule = (c: string): Expr => [
+    'and',
+    [
+      ['eq', ['call_contract'], c],
+      ['eq', ['call_fn'], 'transfer'],
+    ],
+  ]
+  it('a root pin of another contract', () => {
+    expect(card(rule(D), { contract: C })).toEqual([
+      short(C),
+      `└─ ${short(D)}  (never matches: the rule is scoped to ${short(C)})`,
+      '   └─ transfer',
+    ])
+  })
+  it('a pin in one branch of an or, the other branch is fine', () => {
+    const out = card(['or', [rule(D), rule(C)]], { contract: C })
+    expect(out.filter((l) => l.includes('never matches'))).toHaveLength(1)
+    expect(out.find((l) => l.includes(short(D)))).toContain(`scoped to ${short(C)}`)
+  })
+  it('the same contract is not flagged; with no scope nothing is', () => {
+    expect(card(rule(C), { contract: C }).join('\n')).not.toContain('never')
+    expect(card(rule(D)).join('\n')).not.toContain('never')
+  })
+  it('raw names it whole', () => {
+    expect(card(rule(D), { contract: C, raw: true })[1]).toContain(`scoped to ${C}`)
+  })
+})
+
+describe('two tokens in one rule: each amount in its own unit', () => {
+  it('the unit of the contract in force, in every branch', () => {
+    const [x, y] = [contract(31), contract(32)]
+    const info: View['info'] = {
+      [x]: { fns: SAC, token: { decimals: 7, symbol: 'AAA' } },
+      [y]: { fns: SAC, token: { decimals: 2, symbol: 'BBB' } },
+    }
+    const rule = (c: string): Expr => [
+      'and',
+      [
+        ['eq', ['call_contract'], c],
+        ['eq', ['call_fn'], 'transfer'],
+        ['lte', ['call_arg', 2], { i128: '500' }],
+      ],
+    ]
+    const out = card(['or', [rule(x), rule(y)]], { info })
+    expect(out.filter((l) => l.includes('must be at most'))).toEqual([
+      '│     └─ amount:  must be at most  0.00005 AAA (500)',
+      '      └─ amount:  must be at most  5 BBB (500)',
+    ])
+  })
 })

@@ -281,7 +281,7 @@ describe('synthesize_policy', () => {
     ])
     const [rule] = r.data.rules
     expect(rule.contract).toBe(TOKEN)
-    const short = (a: string) => `${a.slice(0, 4)}…${a.slice(-4)}`
+    const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-6)}`
     expect(rule.review).toEqual([
       short(TOKEN),
       '└─ transfer',
@@ -319,7 +319,7 @@ describe('synthesize_policy', () => {
       limit: '9000000',
       allow: { to: [account(2)] },
     })
-    expect(r.data.rules[0].review.at(-2)).toContain('GABA…EJXA («to»)')
+    expect(r.data.rules[0].review.at(-2)).toContain('GABAEA…BAEJXA («to»)')
   })
 
   it('the first name an address is given stays; a numbered list is not a name', async () => {
@@ -329,7 +329,7 @@ describe('synthesize_policy', () => {
       allow: { to: [account(2)], payee: [account(2)], '1': [account(1)] },
     })
     const text = r.data.rules[0].review.join('\n')
-    expect(text).toContain('GABA…EJXA («to»)')
+    expect(text).toContain('GABAEA…BAEJXA («to»)')
     expect(text).not.toContain('«payee»')
     expect(text).not.toContain('(1)')
   })
@@ -419,7 +419,7 @@ describe('simulate_policy', () => {
   it('with calls it checks them and explains the rule too', async () => {
     const r = await call('simulate_policy', { encodedPredicate: encodedRule, xdr: transferXdr() })
     expect(r.data.results[0].permitted).toBe(true)
-    expect(r.data.review[0]).toBe(`${TOKEN.slice(0, 4)}…${TOKEN.slice(-4)}`)
+    expect(r.data.review[0]).toBe(`${TOKEN.slice(0, 6)}…${TOKEN.slice(-6)}`)
   })
 
   it('a source with no calls is refused, even beside a predicate (only a bare predicate is explained)', async () => {
@@ -601,8 +601,8 @@ describe('install_policy', () => {
       signers: [SIGNER, account(1)],
     })
     const text = r.data.rule.review.join('\n')
-    expect(text).toContain('GAAQ…DZ7H («signer»)')
-    expect(text).toContain('GABA…EJXA («admin»)')
+    expect(text).toContain('GAAQCA…AQDZ7H («signer»)')
+    expect(text).toContain('GABAEA…BAEJXA («admin»)')
   })
 
   it('the source account is named in the review before the signer it also is', async () => {
@@ -624,7 +624,7 @@ describe('install_policy', () => {
       contract: TOKEN,
       allowOverlap: true,
     })
-    expect(r.data.rule.review.join('\n')).toContain('GAT7…BCSB («source account»)')
+    expect(r.data.rule.review.join('\n')).toContain('GAT7JH…CWBCSB («source account»)')
   })
 
   it('a signer the account does not share is a clean install', async () => {

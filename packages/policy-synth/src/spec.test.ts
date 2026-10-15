@@ -120,6 +120,82 @@ describe('the interface of a wasm', () => {
     expect(interfaceOf(wasmWith([fn('f', [['1a', Z()]])]))).toEqual({})
   })
 
+  it('a name used twice makes two arguments alike, so none of it is used', () => {
+    // pay(amount, amount, to, to): `lte(arg0)` and `lte(arg1)` would read the same.
+    expect(
+      interfaceOf(
+        wasmWith([
+          fn('pay', [
+            ['amount', I()],
+            ['amount', I()],
+            ['to', Z()],
+          ]),
+          fn('ok', [['a', Z()]]),
+        ])
+      )
+    ).toEqual({ ok: [['a', 'address']] })
+    // The same function twice: the last one would silently win.
+    expect(
+      interfaceOf(wasmWith([fn('pay', [['a', Z()]]), fn('pay', [['b', Z()]]), fn('ok', [])]))
+    ).toEqual({ ok: [] })
+    // A struct with a field twice is not walked.
+    expect(
+      interfaceOf(
+        wasmWith([
+          struct('S', [
+            ['x', I()],
+            ['x', Z()],
+          ]),
+          fn('f', [['s', udt('S')]]),
+        ])
+      )?.f
+    ).toEqual([['s', 'udt']])
+  })
+
+  it('two types of one name (another library, another kind) are not told apart, so neither is walked', () => {
+    const lib = (name: string, l: string) =>
+      xdr.ScSpecEntry.scSpecEntryUdtStructV0(
+        new xdr.ScSpecUdtStructV0({
+          doc: '',
+          lib: l,
+          name,
+          fields: [new xdr.ScSpecUdtStructFieldV0({ doc: '', name: 'x', type: I() })],
+        })
+      )
+    expect(
+      interfaceOf(wasmWith([lib('T', 'a'), lib('T', 'b'), fn('f', [['t', udt('T')]])]))?.f
+    ).toEqual([['t', 'udt']])
+    expect(
+      interfaceOf(wasmWith([lib('T', 'a'), enumeration('T'), fn('f', [['t', udt('T')]])]))?.f
+    ).toEqual([['t', 'udt']])
+    expect(interfaceOf(wasmWith([lib('T', 'a'), fn('f', [['t', udt('T')]])]))?.f).toEqual([
+      ['t', { fields: { x: 'i128' } }],
+    ])
+  })
+
+  it('a hostile wasm of thousands of structs parses in about linear time', () => {
+    const chain = (n: number) =>
+      wasmWith([
+        ...Array.from({ length: n }, (_, i) =>
+          struct(`S${i}`, [['next', i + 1 < n ? udt(`S${i + 1}`) : I()]])
+        ),
+        fn('f', [['s', udt('S0')]]),
+      ])
+    const best = (wasm: Buffer) => {
+      let t = Number.POSITIVE_INFINITY
+      for (let k = 0; k < 5; k++) {
+        const t0 = performance.now()
+        expect(interfaceOf(wasm)?.f).toBeDefined()
+        t = Math.min(t, performance.now() - t0)
+      }
+      return t
+    }
+    const [small, big] = [chain(1_000), chain(2_300)]
+    expect(big.length).toBeLessThan(131_072)
+    // 2.3x the structs: about 2.3x the time when linear, 5x when quadratic.
+    expect(best(big) / best(small)).toBeLessThan(3.8)
+  })
+
   it('a struct that refers to itself is cut, not followed', () => {
     expect(fns.walk).toEqual([['root', { fields: { next: { vec: 'deep' }, value: 'i128' } }]])
   })
@@ -307,7 +383,7 @@ const open = (f: Fake) => {
 
 const ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5'
 const circle = `USDC:${ISSUER}`
-const short = `USDC:${ISSUER.slice(0, 4)}…${ISSUER.slice(-4)}`
+const short = `USDC:${ISSUER}`
 
 describe('what is known of a contract', () => {
   // Contracts and wasm hashes are distinct per test: the caches live as long as the process.
@@ -373,17 +449,13 @@ describe('what is known of a contract', () => {
   it('an asset code may hold digits', async () => {
     const sac = unique(5004)
     const n = open({ instances: { [sac]: '' }, wasms: {}, names: { [sac]: `Z9X25:${ISSUER}` } })
-    expect((await infoFor(n.endpoint, [sac]))[sac]?.token?.symbol).toBe(
-      `Z9X25:${ISSUER.slice(0, 4)}…${ISSUER.slice(-4)}`
-    )
+    expect((await infoFor(n.endpoint, [sac]))[sac]?.token?.symbol).toBe(`Z9X25:${ISSUER}`)
   })
 
   it('a one-character asset code is a code', async () => {
     const sac = unique(5003)
     const n = open({ instances: { [sac]: '' }, wasms: {}, names: { [sac]: `A:${ISSUER}` } })
-    expect((await infoFor(n.endpoint, [sac]))[sac]?.token?.symbol).toBe(
-      `A:${ISSUER.slice(0, 4)}…${ISSUER.slice(-4)}`
-    )
+    expect((await infoFor(n.endpoint, [sac]))[sac]?.token?.symbol).toBe(`A:${ISSUER}`)
   })
 
   it('the native asset is `native`', async () => {

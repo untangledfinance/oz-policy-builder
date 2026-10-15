@@ -13,7 +13,7 @@ afterAll(() => net.stop())
 
 const XLM = 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC'
 const INTERPRETER = 'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV'
-const short = (a: string) => `${a.slice(0, 4)}…${a.slice(-4)}`
+const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-6)}`
 // biome-ignore lint/suspicious/noExplicitAny: a tool's data is untyped JSON
 const ask = async (name: string, input: object): Promise<any> => {
   const r = (await run(name, { network: 'testnet', ...input })) as { ok: boolean; data?: unknown }
@@ -64,7 +64,7 @@ describe('names from the network', () => {
     ]
     const data = await ask('simulate_policy', { expr })
     expect(data.review.at(-1)).toMatch(
-      /^ {3}└─ amount: {2}must be at most {2}5,000 USDC:GATA…\w{4} \(50000000000\)$/
+      /^ {3}└─ amount: {2}must be at most {2}5,000 USDC:GATALTGT\w{48} \(50000000000\)$/
     )
     expect(data.review[0]).toBe(`${short(USDC)}  (token)`)
   })

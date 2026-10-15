@@ -63,17 +63,27 @@ export function interfaceOf(wasm: Buffer): Fns | null {
   try {
     const spec = soroban.Spec.fromWasm(wasm)
     const str = (x: { name(): string | Buffer }) => x.name().toString()
-    // Names reach a review as text: only plain identifiers are used.
+    // Names reach a review as text: only plain identifiers are used, each once in its list.
     const safe = (xs: { name(): string | Buffer }[]) =>
-      xs.every((x) => /^(?!(true|false|null)$)[A-Za-z_]\w{0,29}$/.test(str(x)))
+      xs.every((x) => /^(?!(true|false|null)$)[A-Za-z_]\w{0,29}$/.test(str(x))) &&
+      new Set(xs.map(str)).size === xs.length
+    // Every user type by name, once (a reference carries no library, so a name used by two types,
+    // of any kind, is told apart by nobody: neither is walked). Built once: the walk stays linear.
+    const types = new Map<string, xdr.ScSpecUdtStructV0 | null>()
+    const see = (name: string, st?: xdr.ScSpecUdtStructV0) =>
+      types.set(name, types.has(name) ? null : (st ?? null))
+    for (const e of spec.entries) {
+      const k = e.switch().name
+      if (k === 'scSpecEntryUdtStructV0') see(str(e.udtStructV0()), e.udtStructV0())
+      else if (k === 'scSpecEntryUdtUnionV0') see(str(e.udtUnionV0()))
+      else if (k === 'scSpecEntryUdtEnumV0') see(str(e.udtEnumV0()))
+      else if (k === 'scSpecEntryUdtErrorEnumV0') see(str(e.udtErrorEnumV0()))
+    }
     const memo = new Map<string, Ty>()
     const udt = (n: string): Ty => {
       if (memo.has(n)) return memo.get(n) as Ty
       memo.set(n, 'deep') // while it is being read, a reference back to it is a cycle
-      const s = spec.entries
-        .find((e) => e.switch().name === 'scSpecEntryUdtStructV0' && str(e.udtStructV0()) === n)
-        ?.udtStructV0()
-        .fields()
+      const s = types.get(n)?.fields()
       const fields = s && safe(s) && s.map((f) => [str(f), ty(f.type())])
       return memo.set(n, fields ? { fields: Object.fromEntries(fields) } : 'udt').get(n) as Ty
     }
@@ -85,20 +95,23 @@ export function interfaceOf(wasm: Buffer): Fns | null {
       if (k === 'tuple') return { tuple: t.tuple().valueTypes().map(ty) }
       return k === 'udt' ? udt(str(t.udt())) : k
     }
+    const funcs = spec.funcs()
+    const seen = new Map<string, number>()
+    for (const f of funcs) seen.set(str(f), (seen.get(str(f)) ?? 0) + 1)
     return Object.fromEntries(
-      spec
-        .funcs()
-        .flatMap((f) =>
-          safe([f, ...f.inputs()]) ? [[str(f), f.inputs().map((i) => [str(i), ty(i.type())])]] : []
-        )
+      funcs.flatMap((f) =>
+        safe([f]) && seen.get(str(f)) === 1 && safe(f.inputs())
+          ? [[str(f), f.inputs().map((i) => [str(i), ty(i.type())])]]
+          : []
+      )
     )
   } catch {
     return null
   }
 }
 
-/** The unit of a Stellar Asset Contract: 7 decimals, named by its `name()` (`CODE:ISSUER`, or
- *  `native`), the issuer shortened. Read once; a contract that answers anything else is no token,
+/** The unit of a Stellar Asset Contract: 7 decimals, named by its `name()` (`CODE:ISSUER`, the issuer
+ *  in full, or `native`). Read once; a contract that answers anything else is no token,
  *  and a failure to ask (a rate limit, a dropped connection) is not remembered as an answer. */
 async function sacToken(server: rpc.Server, network: Network, address: string) {
   const id = `${network}:${address}`
@@ -107,7 +120,7 @@ async function sacToken(server: rpc.Server, network: Network, address: string) {
     const v = await read(server, network, address, 'name')
     const name = v.switch().name === 'scvString' ? v.str().toString() : ''
     const m = name.match(/^(?:(native)|([A-Za-z0-9]{1,12}):(G[A-Z2-7]{55}))$/)
-    const symbol = m?.[1] ?? (m ? `${m[2]}:${m[3]?.slice(0, 4)}…${m[3]?.slice(-4)}` : '')
+    const symbol = m?.[1] ?? (m ? `${m[2]}:${m[3]}` : '')
     return keep(tokens, id, symbol ? { decimals: 7, symbol } : null) ?? undefined
   } catch (e) {
     return e instanceof Refusal ? (keep(tokens, id, null) ?? undefined) : undefined

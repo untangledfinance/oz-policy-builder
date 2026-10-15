@@ -99,7 +99,7 @@ function checkLeaves(name: string, e: Expr, vn: string, v: View, fails: string[]
           : undefined
     if (num !== undefined && /^-?\d+$/.test(String(num)) && !isSelector(c) && r[0] !== 'in') {
       const val = n.value ?? ''
-      const m = val.match(/\((-?\d+)\)$/)
+      const m = val.match(/\((-?\d+)(?: \(\w+\))?\)$/)
       const typed = val.match(/^(-?\d+) \(\w+\)$/)
       const shown = m ? m[1] : typed ? typed[1] : val.replace(/,/g, '')
       if (BigInt(shown as string) !== BigInt(String(num)))
@@ -204,6 +204,21 @@ function rewrites(leaf: J[]): [string, J][] {
         return c
       }
     }
+  })
+  each('key symbol <-> bool/void', (v) => {
+    if (!Array.isArray(v) || v[0] !== 'call_path') return undefined
+    const swap = (s: J): J =>
+      s === 'true'
+        ? ['lit', true]
+        : s === 'false'
+          ? ['lit', false]
+          : s === 'null'
+            ? ['lit', null]
+            : Array.isArray(s) && s[0] === 'lit' && (typeof s[1] === 'boolean' || s[1] === null)
+              ? String(s[1])
+              : undefined
+    const i = v.findIndex((s: J, k: number) => k >= 2 && swap(s) !== undefined)
+    return i < 0 ? undefined : v.map((s: J, k: number) => (k === i ? swap(s) : s))
   })
   each('lit step u32->i128', (v) => {
     if (!Array.isArray(v) || v[0] !== 'call_path') return undefined
@@ -332,6 +347,15 @@ const OTHER: J[] = [
   A,
 ]
 const STEPS: J[][] = [
+  ['true'],
+  ['false'],
+  ['null'],
+  [['lit', true]],
+  [['lit', false]],
+  [['lit', null]],
+  [''],
+  ['5'],
+  ['_x'],
   [0],
   [5],
   [['lit', 5]],
