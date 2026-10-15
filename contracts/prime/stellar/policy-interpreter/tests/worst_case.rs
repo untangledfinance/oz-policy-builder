@@ -19,8 +19,8 @@ use policy_interpreter::{
 use soroban_sdk::auth::{Context, ContractContext};
 use soroban_sdk::testutils::{Address as _, EnvTestConfig};
 use soroban_sdk::xdr::{
-    ContractId, Hash, Int128Parts, ScAddress, ScBytes, ScMap, ScMapEntry, ScSymbol, ScVal, ScVec,
-    ToXdr, VecM,
+    ContractId, Hash, Int128Parts, ScAddress, ScBytes, ScMap, ScMapEntry, ScString, ScSymbol,
+    ScVal, ScVec, ToXdr, VecM,
 };
 use soroban_sdk::{Address, Bytes, BytesN, Env, IntoVal, Symbol, Val, Vec as SorobanVec};
 
@@ -310,6 +310,51 @@ fn cases() -> StdVec<Case> {
             .map(|i| set("in", arg(0), &hay(i * 100)))
             .collect::<StdVec<_>>()),
         alloc::vec![bytes(30_000)],
+    );
+    // the largest argument a transaction can carry (about 132 KB), against the
+    // same six sets: compared by the host, never serialised
+    add(
+        "6 x in x 32 addresses, 100 KB bytes needle",
+        or(&(0..6)
+            .map(|i| set("in", arg(0), &hay(i * 100)))
+            .collect::<StdVec<_>>()),
+        alloc::vec![bytes(100_000)],
+    );
+    // a vector and a map the same size, against vectors and maps of their own kind
+    let like = |n: u32| {
+        (0..32)
+            .map(|i| list(2, |k| ScVal::U32(n + i * 2 + k as u32)))
+            .collect::<StdVec<_>>()
+    };
+    add(
+        "6 x in x 32 vecs, 12,000-element vec needle (96 KB)",
+        or(&(0..6)
+            .map(|i| set("in", arg(0), &like(i * 100)))
+            .collect::<StdVec<_>>()),
+        alloc::vec![list(12_000, |i| ScVal::U32(i as u32))],
+    );
+    add(
+        "6 x in x 32 maps, 4,000-entry map needle (96 KB)",
+        or(&(0..6)
+            .map(|i| {
+                let hay = (0..32)
+                    .map(|j| lit(map(&[(ScVal::U32(i * 100 + j), ScVal::U32(0))])))
+                    .collect::<StdVec<_>>();
+                set("in", arg(0), &hay)
+            })
+            .collect::<StdVec<_>>()),
+        alloc::vec![map(&(0..4_000)
+            .map(|i| (ScVal::U32(i), ScVal::U32(i)))
+            .collect::<StdVec<_>>())],
+    );
+    add(
+        "6 x nin x 32 addresses, 100 KB string needle",
+        and(&(0..6)
+            .map(|i| set("nin", arg(0), &hay(i * 100)))
+            .collect::<StdVec<_>>()),
+        alloc::vec![ScVal::String(ScString(
+            alloc::vec![b'a'; 100_000].try_into().unwrap()
+        ))],
     );
     add(
         "5 x nin x 32 addresses, 30 KB bytes needle",

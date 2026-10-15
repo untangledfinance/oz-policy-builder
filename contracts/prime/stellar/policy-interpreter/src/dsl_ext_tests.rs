@@ -1383,6 +1383,37 @@ fn a_vec_or_a_map_equals_only_its_own_kind_and_content() {
 }
 
 #[test]
+fn bytes_and_strings_equal_only_their_own_kind_and_content() {
+    // The same characters in another type are another value, and one byte
+    // apart is not equal, in a long value as in a short one.
+    let long = alloc::vec![7u8; 4_000];
+    let mut off = long.clone();
+    off[3_999] = 8;
+    let alike = [blob(b"ab"), text("ab"), sym("ab")];
+    for (i, c) in alike.iter().enumerate() {
+        for (j, v) in alike.iter().enumerate() {
+            let (eq, ne) = (
+                cmp("eq", arg(0), lit(c.clone())),
+                cmp("ne", arg(0), lit(c.clone())),
+            );
+            assert_eq!(permits(&eq, &[v.clone()]), i == j, "{c:?} {v:?}");
+            assert_eq!(permits(&ne, &[v.clone()]), i != j, "{c:?} {v:?}");
+        }
+    }
+    let (b, t) = (blob(&long), text(&"\u{7}".repeat(4_000)));
+    for (c, other) in [
+        (b.clone(), blob(&off)),
+        (t.clone(), text(&"\u{7}".repeat(3_999))),
+    ] {
+        assert!(permits(&cmp("eq", arg(0), lit(c.clone())), &[c.clone()]));
+        assert!(denies(&cmp("ne", arg(0), lit(c.clone())), &[c.clone()]));
+        assert!(denies(&cmp("eq", arg(0), lit(c.clone())), &[other.clone()]));
+        assert!(permits(&set("nin", arg(0), &[lit(c)]), &[other]));
+    }
+    assert!(denies(&cmp("eq", arg(0), lit(b)), &[t]));
+}
+
+#[test]
 fn every_fixed_arity_leaf_refuses_an_extra_operand() {
     let u = ScVal::U32;
     for ok in [

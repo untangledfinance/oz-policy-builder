@@ -346,8 +346,9 @@ fn literal_to_val(leaf: &Leaf) -> Res<Val> {
 ///
 /// Falling back to canonical XDR gives structural equality: two values are
 /// equal precisely when they serialise identically. The host does the
-/// serialising, so this works on wasm, and `Bytes` compares by value. Two
-/// vectors or two maps are compared by the host directly instead (below).
+/// serialising, so this works on wasm. Two values of different types are
+/// unequal, and two bytes, strings, vectors or maps are compared by the host
+/// directly, with no serialising (below).
 ///
 /// Two numbers (any of `val_to_i128`'s types) compare as numbers, whatever their
 /// types, the same widening ordering uses; `5u32` equals `5i128`. Only at the top level:
@@ -361,14 +362,18 @@ fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
             return same;
         }
     }
-    // A vector or a map (the only kinds with no second representation) equals
-    // only its own kind, by the host's structural compare. That allocates
-    // nothing, where serialising allocates 20-70x the size, and a quantifier body
-    // repeats it per element. Other objects keep the XDR compare: a "different
-    // tags, so unequal" shortcut there would let a non-canonical form of one
-    // value (a `U256Object` holding a small number) slip past `ne`.
-    let coll = |v: &Val| matches!(v.get_tag().get_scval_type(), Some(T::Vec | T::Map));
-    if coll(a) || coll(b) {
+    // Two values of different types never serialise alike (the XDR starts with
+    // the type), so they are unequal. Bytes, strings, vectors and maps have one
+    // form each and are compared by the host's structural compare: it allocates
+    // nothing, where serialising allocates per byte of a caller's argument (and
+    // 20-70x a vector's size), and a quantifier body repeats it per element.
+    // Other objects keep the XDR compare: a `U256Object` holding a small number
+    // is the same value as its inline form, and must not slip past `ne`.
+    let ty = |v: &Val| v.get_tag().get_scval_type();
+    if ty(a) != ty(b) {
+        return false;
+    }
+    if matches!(ty(a), Some(T::Vec | T::Map | T::Bytes | T::String)) {
         return Vals::from_slice(env, &[*a]) == Vals::from_slice(env, &[*b]);
     }
     let objects = a.is_object() || b.is_object();
