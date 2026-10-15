@@ -42,7 +42,7 @@ const valid = (e: Expr) => {
     return false
   }
 }
-const text = (e: Expr, v: View) => lines(tree(e, v), v.raw).join('\n')
+const text = (e: Expr, v: View) => lines(tree(e, v)).join('\n')
 const walk = (ns: Node[]): Node[] => ns.flatMap((n) => [n, ...walk(n.children ?? [])])
 // biome-ignore lint/suspicious/noExplicitAny: wire values are untyped JSON here
 type J = any
@@ -87,7 +87,7 @@ function checkLeaves(name: string, e: Expr, vn: string, v: View, fails: string[]
       continue
     }
     if (n.op !== r[0]) fails.push(`${name}/${vn}: op ${n.op} vs raw ${r[0]}`)
-    const line = lines([n], v.raw)[0] as string
+    const line = lines([n])[0] as string
     if (!line.includes(`:  ${PHRASE[r[0]]}  `)) fails.push(`${name}/${vn}: phrase in "${line}"`)
     // A shown number is the wire number: an amount carries it in brackets, a date too.
     const c = r[2]

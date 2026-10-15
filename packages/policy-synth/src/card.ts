@@ -169,8 +169,13 @@ function operand(v: Val, c: View, kind?: Sub['kind']): Sub {
   // A path ends in `true` for the number of items (`call_arg_len` always does).
   const count = head === 'call_arg_len' || r.at(-1) === true
   const path = head === 'call_arg_len' ? r : count ? r.slice(0, -1) : r
-  const counted = (s: Sub): Sub =>
-    count ? { name: `the number of items in ${s.name}`, index: s.index ?? s.name } : s
+  // Under `raw` a name is followed by where it came from on the wire, wherever it stands.
+  const counted = (s: Sub): Sub => {
+    const named = c.raw && s.index && s.name !== s.index ? `${s.name} (${s.index})` : s.name
+    return count
+      ? { ...s, name: `the number of items in ${named}`, index: s.index ?? s.name }
+      : { ...s, name: named }
+  }
   switch (head) {
     case 'call_contract':
       return { name: 'the contract' }
@@ -302,20 +307,19 @@ export function tree(expr: Expr, view: View = {}): Node[] {
 }
 
 /** The tree as text, box-drawn: a condition as `name:  phrase  value`. */
-export function lines(nodes: Node[], raw = false, prefix = '', child = false): string[] {
+export function lines(nodes: Node[], prefix = '', child = false): string[] {
   return nodes.flatMap((n, i) => {
     const end = i === nodes.length - 1
-    const label = `${n.label}${raw && n.index && n.index !== n.label ? ` (${n.index})` : ''}`
     const cond = n.value !== undefined && n.op !== 'contract' && n.op !== 'function'
     const text = cond
-      ? `${label}:  ${Object.hasOwn(COMPARE, n.op) ? COMPARE[n.op] : n.op}  ${n.value}`
-      : label
+      ? `${n.label}:  ${Object.hasOwn(COMPARE, n.op) ? COMPARE[n.op] : n.op}  ${n.value}`
+      : n.label
     return [
       `${prefix}${child ? (end ? '└─ ' : '├─ ') : ''}${text}`,
-      ...lines(n.children ?? [], raw, prefix + (child ? (end ? '   ' : '│  ') : ''), true),
+      ...lines(n.children ?? [], prefix + (child ? (end ? '   ' : '│  ') : ''), true),
     ]
   })
 }
 
 /** The review of a predicate, one line per node. */
-export const card = (expr: Expr, view: View = {}): string[] => lines(tree(expr, view), view.raw)
+export const card = (expr: Expr, view: View = {}): string[] => lines(tree(expr, view))

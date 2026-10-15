@@ -319,7 +319,7 @@ export async function explain(
   return items.map(({ expr, contract }) => {
     try {
       const reviewTree = tree(expr, { info, labels, raw: i.raw, contract })
-      return { review: lines(reviewTree, i.raw), reviewTree }
+      return { review: lines(reviewTree), reviewTree }
     } catch {
       return { review: ['(this predicate could not be described)'], reviewTree: [] }
     }

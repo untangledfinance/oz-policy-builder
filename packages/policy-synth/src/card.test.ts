@@ -785,6 +785,21 @@ describe('only a real pin is lifted into a header', () => {
   })
 })
 
+describe('a pin is lifted only with a value of its own kind', () => {
+  it('a function pinned to an address, and a contract pinned to a symbol, stay conditions', () => {
+    const out = (a: Expr, b: Expr) =>
+      card(['and', [a, b, ['lte', ['call_arg', 2], { i128: '5' }]]]).join('\n')
+    const fnIsAddress = out(['eq', ['call_contract'], C], ['eq', ['call_fn'], D])
+    expect(fnIsAddress).toContain(`the function:  must be  ${short(D)}`)
+    const contractIsSymbol = out(
+      ['eq', ['call_contract'], 'transfer'],
+      ['eq', ['call_fn'], 'transfer']
+    )
+    expect(contractIsSymbol).toContain("the contract:  must be  'transfer'")
+    expect(contractIsSymbol.split('\n')[0]).toBe('transfer')
+  })
+})
+
 describe('a Blend request', () => {
   const [POOL, TOK] = [contract(5), contract(6)]
   const r = propose(
@@ -1196,6 +1211,30 @@ describe('a step of a path says what it is', () => {
     expect(at({ fields: { to: 'address' } }, ['lit', 'to'])).toContain('p › to:')
     expect(at({ fields: { to: 'address' } }, 0)).toContain('argument 0 › [0]:')
     expect(at({ fields: { to: 'address' } }, 'constructor')).toContain('argument 0 › constructor:')
+  })
+})
+
+describe('--raw says where a name came from, on whichever side it stands', () => {
+  const view: View = { raw: true, contract: C, info: { [C]: { fns: SAC } } }
+  const rule = (leaf: Expr): Expr => ['and', [['eq', ['call_fn'], 'transfer'], leaf]]
+  it('a constant on the left leaves the selector on the right its index', () => {
+    expect(card(rule(['lt', { i128: '7' }, ['call_arg', 2]]), view).at(-1)).toBe(
+      '   └─ 7 (i128):  must be below  amount (argument 2)'
+    )
+    const [h] = tree(rule(['lt', { i128: '7' }, ['call_arg', 2]]), view)
+    expect(h?.children?.[0]?.children?.[0]).toMatchObject({
+      index: 'argument 2',
+      label: '7 (i128)',
+    })
+  })
+  it('both sides, a list, a count; an unnamed operand is not said twice', () => {
+    expect(card(rule(['lte', ['call_arg', 2], ['call_arg', 1]]), view).at(-1)).toBe(
+      '   └─ amount (argument 2):  must be at most  to (argument 1)'
+    )
+    expect(card(['eq', ['call_arg', 0], 1]).at(-1)).toBe('argument 0:  must be  1')
+    expect(card(['eq', ['call_arg', 0], 1], { raw: true }).at(-1)).toBe(
+      'argument 0:  must be  1 (u32)'
+    )
   })
 })
 
