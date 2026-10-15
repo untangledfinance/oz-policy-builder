@@ -14,7 +14,7 @@ is [`@crediolabs/policy-synth`](../../../../packages/policy-synth/).
 | --- | --- |
 | `install` | Store a predicate for a `(smart account, context rule)` pair. Refuses a grammar version it does not speak, an oversized predicate (byte cap, `207`, before any parse work), any payload whose sha256 does not match the supplied hash, a rule that reaches the admin surface (`Default`-scoped, or scoped to the smart account or to this interpreter: `218`; **only those two addresses** - a rule scoped to another policy contract, such as a second interpreter instance or OZ's `spending_limit`, still installs and exposes that contract's own admin calls, so never scope a rule to a policy contract), and a signer set (the rule's operators or the master set) that is empty, over 16, holds an `External` signer, or holds this interpreter's own address (`219`: nobody can authorise as it, so an operator set holding it could never authorise a call and a master set holding it could never uninstall or rotate). A contract address in a master set bricks the rule just the same unless that contract itself calls `uninstall`/`rotate_master_signer_set`; only the interpreter's own address is checked, because the others cannot be enumerated. |
 | `enforce` | The policy hook the smart account calls on every guarded operation: decode, evaluate, permit or deny. |
-| `check` | A read-only dry run for the off-chain builder: `check(predicate, context) -> u32` decodes `predicate` with install's checks (byte cap `207`, decode `201`, selector leaf `216`) and evaluates it against `context`, a contract call. It returns `0` to permit and otherwise the code `install` or `enforce` would have raised (`100`-`105`, or `206` for a context that is not a contract call). It touches no storage and asks for no authorisation. It is a public view with the exposure of `enforce`'s reads: a `read` in the predicate calls its target as the interpreter does (which must hold nothing, below), and a transaction that submits `check` commits what that target changes, so the builder runs it in simulation only. A predicate that is not XDR at all traps in the host before the contract runs. |
+| `check` | A dry run for the off-chain builder: `check(predicate, context)` decodes `predicate` with install's checks (byte cap `207`, decode `201`, selector leaf `216`) and evaluates it against `context`, a contract call. **It always fails, and the contract error is the verdict**: `Error(Contract, #0)` permits, and any other number is the code `install` or `enforce` would have raised (`100`-`105`, or `206` for a context that is not a contract call). The builder reads it from the simulation's error. Failing is deliberate: a transaction that submits `check` rolls back everything a `read` did, so the interpreter is never a free, unauthenticated caller of other contracts (a `read` of `token.transfer(interpreter, ...)` is authorised by the interpreter being the direct invoker, and would otherwise commit). It touches no storage and asks for no authorisation. A `read` in the predicate still calls its target as the interpreter does (which must hold nothing, below). A predicate that is not XDR at all traps in the host before the contract runs. |
 | `bind_executor` | Bind a rule to an execution adapter, whose own authorisation of the exact account and context `enforce` then also requires. Needs the smart account's authorisation and the master set's; kept across a re-install. |
 | `uninstall` | Remove the stored predicate for a rule. |
 | `rotate_master_signer_set` | Update the master signer set an installation is bound to. |
@@ -226,7 +226,7 @@ one, without a rule per length.
   (12% of the limit)**: a 31.8 KB bare vec constant of 7,900 elements costs 47M
   (each element is checked, about 6k instructions apiece), an `in` over 32 bare
   vecs of 246 elements 48M, and a 7,800-element bare vec as a map-key step 47M (an `any` over caller vecs against bare-vec entries measured 48.65M);
-  `check` (decode as install does, then evaluate) costs what `enforce` does plus about 1M (worst 48.6M, 1.5 MB), asserted for every shape in `worst_case.rs`;
+  `check` (decode as install does, then evaluate, then fail with the verdict) costs what `enforce` does plus about 1M (worst 48.6M, 1.5 MB), asserted for every shape in `worst_case.rs`;
   then 28M for 100 compares over 8-step map-key paths and 25M for 198 leaves of
   8-step vec paths;
   quantifier bodies over a 31 KB constant cost 4-8M, and six `sum`s over 32
@@ -505,9 +505,8 @@ still denies.
 
 `or` carries no such hazard - an unresolvable leaf still denies its own branch -
 and it is what lets one rule permit either of two token pairs. Its children are
-canonically sorted like `and`'s by the encoder (the contract does not check the
-order, and evaluates in wire order), so authoring order is not preserved; an
-empty `or`, `and` or literal vector is refused at install. When every
+evaluated in wire order, which the encoder keeps as authored (the contract does
+not check the order); an empty `or`, `and` or literal vector is refused at install. When every
 branch denies, the reported reason is the first branch's in wire order.
 
 Deliberately absent, because the interpreter sees one authorized call and no

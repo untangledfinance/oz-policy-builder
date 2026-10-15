@@ -40,3 +40,16 @@ pub fn xdr_bytes(env: &Env, v: &ScVal) -> Bytes {
     let val: Val = v.into_val(env);
     val.to_xdr(env)
 }
+
+/// What `check` says: it always fails, and the contract error is the verdict
+/// (`0` permits, else the deny code `install` or `enforce` would raise).
+pub fn verdict(
+    client: &policy_interpreter::PolicyInterpreterClient,
+    predicate: &Bytes,
+    context: &soroban_sdk::auth::Context,
+) -> u32 {
+    match client.try_check(predicate, context) {
+        Err(Ok(e)) => e.get_code(),
+        other => panic!("check must end in a contract error, got {other:?}"),
+    }
+}

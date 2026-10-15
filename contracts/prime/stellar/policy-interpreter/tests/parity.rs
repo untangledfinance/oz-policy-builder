@@ -772,7 +772,7 @@ fn render() -> String {
     let mut out = String::from("{\"cases\":[\n");
     let cases: StdVec<_> = corpus().into_iter().chain(edges()).collect();
     for (i, (name, v)) in cases.iter().enumerate() {
-        let code = client.check(&xdr_bytes(&env, v), &ctx);
+        let code = verdict(&client, &xdr_bytes(&env, v), &ctx);
         let b64 = v.to_xdr_base64(Limits::none()).unwrap();
         let sep = if i + 1 == cases.len() { "" } else { "," };
         writeln!(

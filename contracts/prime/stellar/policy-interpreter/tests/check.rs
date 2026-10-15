@@ -62,7 +62,7 @@ impl W {
     }
 
     fn check(&self, p: &ScVal, c: &Context) -> u32 {
-        self.client.check(&xdr_bytes(&self.env, p), c)
+        verdict(&self.client, &xdr_bytes(&self.env, p), c)
     }
 }
 
@@ -165,9 +165,9 @@ fn byte_cap_is_inclusive() {
     let base = sized(0).len() as usize;
     let exact = sized(32 * 1024 - base);
     assert_eq!(exact.len(), 32 * 1024);
-    assert_eq!(w.client.check(&exact, &ctx), 0);
+    assert_eq!(verdict(&w.client, &exact, &ctx), 0);
     let over = sized(32 * 1024 - base + 4);
-    assert_eq!(w.client.check(&over, &ctx), E::PredicateTooLarge as u32);
+    assert_eq!(verdict(&w.client, &over, &ctx), E::PredicateTooLarge as u32);
 }
 
 #[test]
@@ -275,4 +275,57 @@ fn agrees_with_install_and_enforce() {
         };
         assert_eq!(w.check(p, &ctx), enforced, "case {i}");
     }
+}
+
+/// `check` fails with every verdict, a permit included, so nothing a `read` did
+/// can commit. The audit's proof of concept: the interpreter holds tokens, and a
+/// predicate with `read(token.transfer(interpreter, attacker, n))` tried to move
+/// them as the interpreter, which is the direct invoker and so authorised itself.
+#[test]
+fn a_read_cannot_move_what_the_interpreter_holds() {
+    use soroban_sdk::token::{StellarAssetClient, TokenClient};
+    let w = W::new();
+    let sac = w
+        .env
+        .register_stellar_asset_contract_v2(Address::generate(&w.env))
+        .address();
+    let attacker = Address::generate(&w.env);
+    w.env.mock_all_auths();
+    StellarAssetClient::new(&w.env, &sac).mint(&w.client.address, &1_000);
+    w.env.set_auths(&[]);
+    let steal = node(
+        "read",
+        alloc::vec![
+            addr(&w.env, &sac),
+            sym("transfer"),
+            vec(alloc::vec![
+                addr(&w.env, &w.client.address),
+                addr(&w.env, &attacker),
+                i128v(1_000)
+            ]),
+        ],
+    );
+    let p = node(
+        "and",
+        alloc::vec![vec(alloc::vec![
+            node("eq", alloc::vec![steal, i128v(0)]),
+            fn_is("x"),
+        ])],
+    );
+    let ctx = w.call("x", &[]);
+    // The read ran (its transfer is the interpreter's own call), and the verdict is a deny.
+    assert_eq!(w.check(&p, &ctx), E::ArgMismatch as u32);
+    let token = TokenClient::new(&w.env, &sac);
+    assert_eq!(token.balance(&attacker), 0);
+    assert_eq!(token.balance(&w.client.address), 1_000);
+}
+
+/// A permit is a contract error too: `0`, which no deny code is.
+#[test]
+fn a_permit_is_an_error_too() {
+    let w = W::new();
+    let r = w
+        .client
+        .try_check(&xdr_bytes(&w.env, &fn_is("pay")), &w.call("pay", &[]));
+    assert!(matches!(r, Err(Ok(e)) if e.get_code() == 0), "{r:?}");
 }

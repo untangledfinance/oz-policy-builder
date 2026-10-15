@@ -191,26 +191,32 @@ impl PolicyInterpreter {
     }
 
     /// Dry run for the off-chain builder: decode `predicate` with install's
-    /// checks and evaluate it against `context`. Returns 0 to permit, else the
-    /// code `install` or `enforce` would have raised. No storage, no auth, no
-    /// state change of its own; a `read` runs as it does in `enforce`.
-    pub fn check(e: &Env, predicate: soroban_sdk::Bytes, context: Context) -> u32 {
+    /// checks and evaluate it against `context`. It ALWAYS fails, with the
+    /// verdict as the contract error: `0` permits, any other number is the
+    /// code `install` or `enforce` would have raised. Failing is the point: a
+    /// transaction that submits `check` rolls every effect of a `read` back, so
+    /// the interpreter is no free, unauthenticated caller of other contracts.
+    /// The builder reads the verdict from the simulation's error. No storage,
+    /// no auth.
+    pub fn check(e: &Env, predicate: soroban_sdk::Bytes, context: Context) {
         let Context::Contract(call) = &context else {
-            return E::MissingState as u32;
+            deny(e, E::MissingState)
         };
-        if predicate.len() > dsl::MAX_PREDICATE_BYTES {
-            return E::PredicateTooLarge as u32;
-        }
-        let Ok(root) = dsl::decode(e, &predicate) else {
-            return E::MalformedPredicate as u32;
+        let code = if predicate.len() > dsl::MAX_PREDICATE_BYTES {
+            E::PredicateTooLarge as u32
+        } else if let Ok(root) = dsl::decode(e, &predicate) {
+            if !dsl::has_selector_leaf(&root) {
+                E::SelectorLeafRequired as u32
+            } else {
+                match dsl::evaluate(e, &root, call) {
+                    dsl::EvalDecision::Permit => 0,
+                    dsl::EvalDecision::Deny(reason) => deny_code(reason) as u32,
+                }
+            }
+        } else {
+            E::MalformedPredicate as u32
         };
-        if !dsl::has_selector_leaf(&root) {
-            return E::SelectorLeafRequired as u32;
-        }
-        match dsl::evaluate(e, &root, call) {
-            dsl::EvalDecision::Permit => 0,
-            dsl::EvalDecision::Deny(reason) => deny_code(reason) as u32,
-        }
+        soroban_sdk::panic_with_error!(e, soroban_sdk::Error::from_contract_error(code))
     }
 
     pub fn uninstall(e: &Env, context_rule: ContextRule, smart_account: Address) {

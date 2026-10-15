@@ -15,7 +15,7 @@ use soroban_sdk::{
     TryFromVal, Val,
 };
 
-// ---- caps (the Rust side is authoritative; the TS PREDICATE_CAPS lack MAX_ELEMS) --
+// ---- caps (the Rust side is authoritative; `wire.ts` in policy-synth mirrors them) --
 
 pub const MAX_DEPTH: u32 = 5;
 pub const MAX_LEAVES: u32 = 200;
@@ -31,9 +31,8 @@ pub const MAX_PREDICATE_BYTES: u32 = 32 * 1024;
 /// worst-case work of one `enforce` stays bounded.
 pub const MAX_ELEMS: u32 = 32;
 
-// Tag and selector names come from the encoder verbatim (see
-// `policy-synth/src/predicate/encode.ts`); an unknown one is fail-closed at
-// decode time.
+// Tag and selector names come from the encoder verbatim (see `wire.ts` in
+// policy-synth); an unknown one is fail-closed at decode time.
 //
 // `call_path` is a walk into the authorised call's arguments: each step is
 // either a u32 index into a vector or a constant key into a map. `call_arg_field`
@@ -245,11 +244,9 @@ fn eval(env: &Env, node: &Node, ctx: &Ctx, memo: &mut Memo) -> Result<(), DenyRe
     match node {
         Node::And(children) => children.iter().try_for_each(|c| eval(env, c, ctx, memo)),
         // Permits on the first branch that holds; when none does, reports the
-        // FIRST branch's deny. "First" is wire order, and the encoder sorts
-        // `or` children canonically, so the reported reason is stable for a
-        // given predicate rather than an artefact of which branch happened to
-        // run last. It is deliberately not tied to authoring order - the
-        // canonical encoding does not preserve that.
+        // FIRST branch's deny. "First" is wire order, which the encoder keeps
+        // as authored, so the reported reason is stable for a given predicate
+        // rather than an artefact of which branch happened to run last.
         Node::Or(children) => {
             let mut results = children.iter().map(|c| eval(env, c, ctx, memo));
             // An empty `or` is refused at decode, so this is unreachable in

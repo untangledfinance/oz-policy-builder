@@ -465,7 +465,7 @@ fn run(code: &[u8], case: &Case) -> (Result<(), u32>, Cost, Cost, Cost) {
     let enforce = (b.cpu_instruction_cost(), b.memory_bytes_cost());
     // `check` decodes as install does and evaluates as enforce does, in one call.
     env.cost_estimate().budget().reset_unlimited();
-    let _ = client.check(&predicate, &context);
+    let _ = client.try_check(&predicate, &context);
     let b = env.cost_estimate().budget();
     (
         Ok(()),
