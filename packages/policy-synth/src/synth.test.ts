@@ -3,7 +3,7 @@ import { account, contract, recording } from '../test/fixtures.ts'
 import { type CallIntent, callExpr, intentExprs, lower, type Rule } from './intent.ts'
 import type { Call } from './record.ts'
 import { identify, TEMPLATES } from './registry.ts'
-import { propose, synthesize, unbounded } from './synth.ts'
+import { propose, synthesize, unbounded, unboundedExpr } from './synth.ts'
 import { type Expr, type Val, validate } from './wire.ts'
 
 const A = account(1)
@@ -187,9 +187,61 @@ describe('an intent is asked the question a recording is: how much?', () => {
     ).toEqual(['AMOUNT_BOUND_MISSING'])
   })
 
+  it('a cap on another field of the requests does not answer for the amount (request_type <= 1 leaves the amount open)', () => {
+    const typeOnly: CallIntent['where'] = [{ rule: 'cap', at: [3, 0, 'request_type'], max: '1' }]
+    expect(codes(call('submit', typeOnly))).toEqual(['AMOUNT_BOUND_MISSING'])
+    const inEach: CallIntent['where'] = [
+      { rule: 'each', at: [3], where: [{ rule: 'cap', at: ['request_type'], max: '1' }] },
+    ]
+    expect(codes(call('submit', inEach))).toEqual(['AMOUNT_BOUND_MISSING'])
+    expect(codes(call('submit', [{ rule: 'cap', at: [3, 0, 'amount'], max: '5' }]))).toEqual([])
+    expect(codes(call('submit', [{ rule: 'total', at: [3], of: ['amount'], max: '5' }]))).toEqual(
+      []
+    )
+    // A cap on a field of an amount argument's... own path is not the amount either.
+    expect(codes(call('transfer', [{ rule: 'cap', at: [2, 'x'], max: '5' }]))).toEqual([
+      'AMOUNT_BOUND_MISSING',
+    ])
+  })
+
   it('a function nobody knows is not guessed at, and each call is asked about once', () => {
     expect(codes(call('weird', undefined))).toEqual([])
     expect(codes(call('transfer', undefined), call('mint', undefined))).toHaveLength(2)
+  })
+})
+
+describe('an encoded predicate is asked the same question', () => {
+  const asks = (e: Val) => unboundedExpr(e as Expr).map((a) => a.code)
+  const pin = (fn: string, ...rest: Expr[]): Expr => [
+    'and',
+    [['eq', ['call_contract'], C], ['eq', ['call_fn'], fn], ...rest],
+  ]
+  const amt = { i128: '9' }
+
+  it('a known function with an amount argument and no upper bound on it is a question', () => {
+    expect(asks(pin('transfer', ['eq', ['call_arg', 0], A]))).toEqual(['AMOUNT_BOUND_MISSING'])
+    expect(asks(pin('transfer', ['lte', ['call_arg', 2], amt]))).toEqual([])
+    expect(asks(pin('transfer', ['lt', ['call_arg', 2], amt]))).toEqual([])
+    expect(asks(pin('transfer', ['gte', amt, ['call_arg', 2]]))).toEqual([]) // constant first
+    // A lower bound is not a cap, and a cap on another argument is not this one.
+    expect(asks(pin('transfer', ['gte', ['call_arg', 2], amt]))).toEqual(['AMOUNT_BOUND_MISSING'])
+    expect(asks(pin('transfer', ['lte', ['call_arg', 1], amt]))).toEqual(['AMOUNT_BOUND_MISSING'])
+  })
+
+  it('a requests argument needs an upper bound on a field called amount; a function nobody knows is not guessed at', () => {
+    expect(asks(pin('submit', ['lte', ['call_path', 3, true], 1]))).toEqual([
+      'AMOUNT_BOUND_MISSING',
+    ])
+    expect(
+      asks(pin('submit', ['all', ['call_arg', 3], ['lte', ['elem', 'request_type'], 1]]))
+    ).toEqual(['AMOUNT_BOUND_MISSING'])
+    expect(asks(pin('submit', ['all', ['call_arg', 3], ['lte', ['elem', 'amount'], amt]]))).toEqual(
+      []
+    )
+    expect(asks(pin('submit', ['lte', ['call_path', 3, 0, 'amount'], amt]))).toEqual([])
+    expect(asks(pin('weird', ['eq', ['call_arg', 0], A]))).toEqual([])
+    // An or of functions asks about each one.
+    expect(asks(['or', [pin('transfer'), pin('burn')]])).toHaveLength(2)
   })
 })
 

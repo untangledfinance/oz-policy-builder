@@ -248,7 +248,7 @@ export function constantLast(e: Expr): Expr {
 }
 
 /** A selector as the contract reads it: `call_arg(i)` and `call_arg_len(i)` are paths. */
-const canon = (v: Val): string => {
+export const canon = (v: Val): string => {
   const [head, ...r] = isSelector(v) ? v : []
   return key(
     head === 'call_arg' || head === 'call_arg_field'

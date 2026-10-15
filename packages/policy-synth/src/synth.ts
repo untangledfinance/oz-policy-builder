@@ -8,7 +8,17 @@ import type { CallIntent, Intent, Path, Rule } from './intent.ts'
 import { callExpr, intentExprs } from './intent.ts'
 import type { Call } from './record.ts'
 import { identify, type Kind, PROTOCOLS } from './registry.ts'
-import { type Expr, encode, fields, hashOf, isTagged, type Val, validate } from './wire.ts'
+import { canon, constantLast, selectors } from './rules.ts'
+import {
+  type Expr,
+  encode,
+  fields,
+  hashOf,
+  isSelector,
+  isTagged,
+  type Val,
+  validate,
+} from './wire.ts'
 
 /** What the recording cannot say, supplied by the person who knows. */
 export interface Answers {
@@ -86,25 +96,66 @@ function callIntent(c: Call, a: Answers, out: Synthesis): CallIntent {
   return flat
 }
 
+/** The registry row for a function name, in whichever protocol has it. */
+const rowOf = (fn: string) =>
+  Object.values(PROTOCOLS).find((fns) => Object.hasOwn(fns, fn))?.[fn] ?? []
+
 /** The amount questions an intent leaves open: a function the registry knows by name,
  *  one of whose arguments is an amount (or a vec of structs that carries one), and no
- *  cap on it. What a recording is asked, an intent or a template is asked too. */
+ *  cap on it: an amount needs a cap on the argument itself, a vec of structs one whose
+ *  path ends in `amount` (a cap on `request_type` bounds nothing that moves).
+ *  What a recording is asked, an intent or a template is asked too. */
 export function unbounded(intent: Intent): Synthesis['ambiguities'] {
   const caps = (r: Rule): Path[] =>
-    r.rule === 'cap' || r.rule === 'total'
+    r.rule === 'cap'
       ? [r.at]
-      : r.rule === 'each' || r.rule === 'some'
-        ? r.where.flatMap(caps).map((p) => [...r.at, ...p])
-        : []
+      : r.rule === 'total'
+        ? [[...r.at, ...(r.of ?? [])]]
+        : r.rule === 'each' || r.rule === 'some'
+          ? r.where.flatMap(caps).map((p) => [...r.at, ...p])
+          : []
   return intent.calls.flatMap((c) => {
-    const row = Object.values(PROTOCOLS).find((fns) => Object.hasOwn(fns, c.fn))?.[c.fn]
     const capped = (c.where ?? []).flatMap(caps)
-    return (row ?? []).flatMap(([name, kind], i) =>
-      (kind === 'amount' || kind === 'requests') && !capped.some((p) => p[0] === i)
+    return rowOf(c.fn).flatMap(([name, kind], i) => {
+      const bounded =
+        kind === 'amount'
+          ? capped.some((p) => p.length === 1 && p[0] === i)
+          : capped.some((p) => p[0] === i && p.at(-1) === 'amount')
+      return (kind === 'amount' || kind === 'requests') && !bounded
         ? [missing({ contract: c.contract, fn: c.fn, args: [] }, name)]
         : []
-    )
+    })
   })
+}
+
+/** The same question of a finished predicate: for each function it can serve that the
+ *  registry knows, an upper bound (`lte`/`lt`) must be on each amount argument. */
+export function unboundedExpr(expr: Expr): Synthesis['ambiguities'] {
+  const bounds: Val[] = []
+  const walk = (e: Val) => {
+    if (!Array.isArray(e)) return
+    const [op, a] = constantLast(e as Expr) as [string, Val]
+    if (isSelector(e) && (op === 'lte' || op === 'lt')) bounds.push(a)
+    e.forEach((x) => walk(x as Val))
+  }
+  walk(expr)
+  const fns = [...new Set(selectors(expr).map((s) => s.fn))].filter((f) => f !== '*')
+  return fns.flatMap((fn) =>
+    rowOf(fn).flatMap(([name, kind], i) => {
+      const at = canon(['call_arg', i])
+      const bounded = bounds.some((b) =>
+        kind === 'amount'
+          ? canon(b) === at
+          : JSON.stringify(b).includes('"amount"') &&
+            (JSON.stringify(b).includes(`["call_arg",${i}]`) ||
+              canon(b).includes(`["call_path",${i},`) ||
+              (isSelector(b) && b[0] === 'elem'))
+      )
+      return (kind === 'amount' || kind === 'requests') && !bounded
+        ? [missing({ contract: '', fn, args: [] }, name)]
+        : []
+    })
+  )
 }
 
 const kindOf = (v: Val): Kind => (isTagged(v) && ('i128' in v || 'u128' in v) ? 'amount' : 'exact')

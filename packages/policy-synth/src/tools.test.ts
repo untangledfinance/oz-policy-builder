@@ -668,6 +668,24 @@ describe('install_policy', () => {
     )
   })
 
+  it('an encoded predicate that caps no amount is asked about it too, unless allowUnboundedAmount', async () => {
+    const open = encode(
+      callExpr({
+        contract: TOKEN,
+        fn: 'transfer',
+        where: [{ rule: 'pin', at: [0], to: account(1) }],
+      })
+    )
+    const input = {
+      smartAccount: ACCOUNT,
+      sourceAccount: SIGNER,
+      signers: [account(5)],
+      encodedPredicate: open,
+    }
+    await failing('install_policy', input, 'INSTALL_BUILD_FAILED', /most `amount` may be/)
+    expect((await call('install_policy', { ...input, allowUnboundedAmount: true })).ok).toBe(true)
+  })
+
   it('an encoded predicate is installed as given, scoped to the one contract it pins', async () => {
     const r = await call('install_policy', {
       smartAccount: ACCOUNT,

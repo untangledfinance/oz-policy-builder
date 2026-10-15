@@ -41,6 +41,7 @@ import {
   type Synthesis,
   synthesize,
   unbounded,
+  unboundedExpr,
 } from './synth.ts'
 import { DECODE_LIMITS, decode, type Expr, encode, hashOf, validate, WireError } from './wire.ts'
 
@@ -443,7 +444,13 @@ const install_policy = tool(
           'INSTALL_BUILD_FAILED',
           'the predicate does not pin one contract: name it with `contract`'
         )
-      rule = { contract, expr: p.expr, encoded: p.encoded, hash: hashOf(p.encoded) }
+      rule = {
+        contract,
+        expr: p.expr,
+        encoded: p.encoded,
+        hash: hashOf(p.encoded),
+        unanswered: unboundedExpr(p.expr)[0]?.question,
+      }
     } else {
       const s = await sourceOf(i)
       rule = { ...pick(propose(s.intent), i.contract), unanswered: s.ambiguities[0]?.question }
