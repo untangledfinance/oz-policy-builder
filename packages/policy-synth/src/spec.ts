@@ -110,6 +110,13 @@ export function interfaceOf(wasm: Buffer): Fns | null {
   }
 }
 
+/** Shown to be a SEP-41 token: a Stellar Asset Contract, or a spec with `transfer(from, to, amount: i128)`. */
+export const isToken = (i?: Info) =>
+  i?.fns === SAC ||
+  ['address,address,i128', 'address,muxedaddress,i128'].includes(
+    i?.fns?.transfer?.map((p) => p[1]).join() ?? ''
+  )
+
 /** The unit of a Stellar Asset Contract: 7 decimals, named by its `name()` (`CODE:ISSUER`, the issuer
  *  in full, or `native`). Read once; a contract that answers anything else is no token,
  *  and a failure to ask (a rate limit, a dropped connection) is not remembered as an answer. */

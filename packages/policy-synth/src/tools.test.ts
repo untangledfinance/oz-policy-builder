@@ -834,13 +834,35 @@ describe('install_policy', () => {
     expect((await call('install_policy', { ...open, allowUnboundedAmount: true })).ok).toBe(true)
   })
 
-  it('a rolling total rides on the same rule', async () => {
+  it('a rolling total rides on the same rule, on a real token (the native asset) with transfer pinned', async () => {
+    const XLM = 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC'
     const r = await call('install_policy', {
       ...base,
+      xdr: undefined,
+      limit: undefined,
+      intent: {
+        calls: [
+          {
+            contract: XLM,
+            fn: 'transfer',
+            where: [{ constraint: 'cap', at: [2], max: '100000000' }],
+          },
+        ],
+      },
       spendingLimit: { amount: '100000000', periodLedgers: 17280 },
       allowOverlap: true,
     })
+    expect(r.ok).toBe(true)
     expect(r.data.describes.args[4].map).toHaveLength(2)
+  })
+
+  it('a rolling total on a contract that is not shown to be a token, or without transfer pinned, is refused with the reason', async () => {
+    await failing(
+      'install_policy',
+      { ...base, spendingLimit: { amount: '100000000', periodLedgers: 17280 }, allowOverlap: true },
+      'INSTALL_BUILD_FAILED',
+      /not shown to be a token/
+    )
   })
 
   describe("outFile: a name inside the operator's directory, never a path", () => {

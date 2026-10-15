@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs'
 import { Address, StrKey, xdr } from '@stellar/stellar-sdk'
 import { contract } from '../test/fixtures.ts'
 import { TOKENS } from './config.ts'
-import { infoFor, interfaceOf, SAC } from './spec.ts'
+import { infoFor, interfaceOf, isToken, SAC } from './spec.ts'
 
 // ---- a wasm with a spec, built by hand ----
 
@@ -386,6 +386,44 @@ const open = (f: Fake) => {
 const ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5'
 const circle = `USDC:${ISSUER}`
 const short = `USDC:${ISSUER}`
+
+describe('isToken: a contract that can be shown to be SEP-41', () => {
+  const sep41 = (to: xdr.ScSpecTypeDef, amount = I()) =>
+    interfaceOf(
+      wasmWith([
+        fn('transfer', [
+          ['from', Z()],
+          ['to', to],
+          ['amount', amount],
+        ]),
+      ])
+    )
+  it('a Stellar Asset Contract is; so is a spec with transfer(from, to, amount i128), the recipient an address or a muxed address', () => {
+    expect(isToken({ fns: SAC })).toBe(true)
+    expect(isToken({ fns: sep41(Z()) ?? undefined })).toBe(true)
+    expect(isToken({ fns: sep41(T.scSpecTypeMuxedAddress()) ?? undefined })).toBe(true)
+  })
+  it('nothing, no transfer, another shape of transfer, another amount type is not', () => {
+    expect(isToken(undefined)).toBe(false)
+    expect(isToken({})).toBe(false)
+    expect(isToken({ fns: interfaceOf(wasmWith([fn('f', [])])) ?? undefined })).toBe(false)
+    expect(isToken({ fns: sep41(Z(), T.scSpecTypeU64()) ?? undefined })).toBe(false)
+    expect(isToken({ fns: sep41(T.scSpecTypeString()) ?? undefined })).toBe(false)
+    expect(
+      isToken({
+        fns:
+          interfaceOf(
+            wasmWith([
+              fn('transfer', [
+                ['from', Z()],
+                ['amount', I()],
+              ]),
+            ])
+          ) ?? undefined,
+      })
+    ).toBe(false)
+  })
+})
 
 describe('what is known of a contract', () => {
   // Contracts and wasm hashes are distinct per test: the caches live as long as the process.

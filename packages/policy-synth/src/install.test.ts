@@ -7,7 +7,7 @@ import { connect, interpreterFor } from './chain.ts'
 import { PASSPHRASE, SPENDING_LIMIT, thresholdAddress } from './config.ts'
 import { buildInstall, buildRevoke, type RuleDraft, ruleArgs } from './install.ts'
 import { callExpr } from './intent.ts'
-import { encode, hashOf } from './wire.ts'
+import { type Expr, encode, hashOf } from './wire.ts'
 
 const ACCOUNT = 'CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P'
 const SIGNER = 'GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB'
@@ -183,6 +183,7 @@ describe('planInstall: the guards', () => {
       o.readRules ??
       (async () => ({ rules: o.rules ?? [], complete: o.complete ?? true, unreadable: [] })),
     build: o.build ?? (async () => built),
+    token: o.token ?? (async () => true),
   })
   const refused = async (p: Promise<unknown>, code: string, text?: RegExp) => {
     const e = await p.then(
@@ -470,6 +471,61 @@ describe('planInstall: the guards', () => {
   it('one signer needs no threshold; a threshold of 1 is fine', async () => {
     await planInstall(input, rule, chain())
     await planInstall({ ...input, threshold: { n: 1 } }, rule, chain())
+  })
+
+  describe('spendingLimit: OZ spending_limit denies every function but transfer, and runs only on a token', () => {
+    const cap = { ...input, spendingLimit: { amount: '100', periodLedgers: 10 } }
+    const on = (fn: string): Chosen => {
+      const e = callExpr({ contract: TOKEN, fn })
+      return { contract: TOKEN, expr: e, encoded: encode(e), hash: hashOf(encode(e)) }
+    }
+    const either = (...fns: string[]): Chosen => {
+      const e: Expr = ['or', fns.map((fn) => callExpr({ contract: TOKEN, fn }))]
+      return { contract: TOKEN, expr: e, encoded: encode(e), hash: hashOf(encode(e)) }
+    }
+
+    it('a predicate that pins transfer (at the top, or in every branch of an or) installs', async () => {
+      await planInstall(cap, on('transfer'), chain())
+      await planInstall(cap, either('transfer', 'transfer'), chain())
+    })
+
+    it.each<[string, Chosen]>([
+      ['another function', on('approve')],
+      ['an or with one branch on another function', either('transfer', 'approve')],
+      [
+        'no function pinned',
+        {
+          contract: TOKEN,
+          expr: ['lte', ['call_arg', 2], { i128: '5' }],
+          encoded: encode(['lte', ['call_arg', 2], { i128: '5' }]),
+          hash: 'x',
+        },
+      ],
+    ])('%s is refused, saying why', async (_n, chosen) => {
+      await refused(
+        planInstall(cap, chosen, chain()),
+        'INSTALL_BUILD_FAILED',
+        /spending_limit.*transfer/s
+      )
+    })
+
+    it('a scope that is not shown to be a token is refused; it is asked only when there is a total', async () => {
+      let asked = 0
+      const c = chain({
+        token: async () => {
+          asked++
+          return false
+        },
+      })
+      await refused(planInstall(cap, rule, c), 'INSTALL_BUILD_FAILED', /not shown to be a token/)
+      expect(asked).toBe(1)
+      await planInstall(input, rule, c)
+      expect(asked).toBe(1)
+    })
+
+    it('without a total nothing about the function is asked', async () => {
+      await planInstall(input, on('approve'), chain())
+    })
   })
 
   it('the draft carries the signers, the admins (the source by default), the nonce and the cap', async () => {

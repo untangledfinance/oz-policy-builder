@@ -29,7 +29,14 @@ import {
   thresholdAddress,
 } from './config.ts'
 import { type ErrorCode, Refusal } from './envelope.ts'
-import { type ObservedRule, type Overlap, overlaps, type RulesRead, type Scope } from './rules.ts'
+import {
+  type ObservedRule,
+  type Overlap,
+  overlaps,
+  type RulesRead,
+  type Scope,
+  selectors,
+} from './rules.ts'
 import { type Expr, fromScVal, toScVal, type Val } from './wire.ts'
 
 export interface RuleDraft {
@@ -134,7 +141,7 @@ export interface BuildArgs {
 
 /** The OZ auth payload, per `stellar-contracts` smart_account: the digest the signer
  *  commits to is sha256(sha256(preimage) || context_rule_ids as XDR). */
-const digest = (
+export const digest = (
   network: Network,
   nonce: xdr.Int64,
   until: number,
@@ -349,6 +356,8 @@ export interface Chain {
   fingerprint: (interpreter: string) => Promise<Fingerprint>
   readRules: (account: string, interpreter: string) => Promise<RulesRead>
   build: (draft: RuleDraft, interpreter: string) => Promise<Built>
+  /** Whether a contract is shown to be a SEP-41 token. */
+  token: (contract: string) => Promise<boolean>
 }
 
 /** Every refusal an install can meet, in the order a reader should hear of them:
@@ -393,6 +402,17 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
     nonce: i.installNonce ?? 1,
     ...(i.spendingLimit ? { cap: { address: SPENDING_LIMIT[i.network], ...i.spendingLimit } } : {}),
     ...(t ? { extra: [thresholdPolicy(i.network, t)] } : {}),
+  }
+  // OZ's spending_limit panics NotAllowed on every context but `transfer(from, to, amount)` of a token.
+  if (i.spendingLimit) {
+    if (selectors(rule.expr).some((s) => s.fn !== 'transfer'))
+      throw no(
+        'spendingLimit: OZ spending_limit denies every function but transfer: pin call_fn = transfer in the rule, or its other functions would always be refused'
+      )
+    if (!(await chain.token(rule.contract)))
+      throw no(
+        `spendingLimit: ${rule.contract} is not shown to be a token (a Stellar Asset Contract, or transfer(from, to, amount: i128) in its spec); retry if the network was slow`
+      )
   }
   // The three do not depend on each other, so they run together; what each found is
   // judged in a fixed order, so the same input is refused for the same reason.

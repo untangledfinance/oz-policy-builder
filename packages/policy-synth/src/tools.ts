@@ -41,7 +41,7 @@ import type { Intent } from './intent.ts'
 import { type Call, decodeEnvelope, type Recording, recordHash } from './record.ts'
 import { TEMPLATES, TemplateParams } from './registry.ts'
 import { type ObservedRule, readRule, readRules, selectors } from './rules.ts'
-import { infoFor } from './spec.ts'
+import { infoFor, isToken } from './spec.ts'
 import {
   type Answers,
   type ProposedRule,
@@ -545,6 +545,7 @@ const install_policy = tool(
       readRules: (account, interpreter) =>
         readRules(server, i.network, account, interpreter, signal),
       build: (draft, interpreter) => buildInstall({ ...i, server }, draft, interpreter),
+      token: async (c) => isToken((await infoFor(i, [c], signal))[c]),
     }
     const out = i.outFile === undefined ? undefined : outPathFor(i.outFile)
     const plan = await planInstall(i, rule, chain)
