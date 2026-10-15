@@ -72,9 +72,10 @@ install (201): they could never permit. Use `eq`, `ne` or `in` to match them.
 Widening is top-level only: numbers inside a vector compare
 exactly, type included (`lit([Amt, 5u32])` never matches an `[Amt, 5i128]`
 payload, and `[u32 5]` never matches `[i128 5]`); pin a nested number with
-`call_path` to the element instead. Everything else compares exactly, by
-canonical XDR: addresses, symbols, strings, bytes, bools, vecs and maps equal
-only their own kind and value, and never equal a number. The type each
+`call_path` to the element instead. Everything else compares exactly: values
+of different types are unequal, and addresses, symbols, strings, bytes, bools,
+vecs and maps equal only their own kind and value (bytes, strings, vecs and maps
+by the host's own compare, the rest by canonical XDR), and never equal a number. The type each
 leaf yields: `call_contract` an address; `call_fn` a symbol; `call_arg`,
 `call_arg_field`, `call_path` and `elem` whatever the call (or element) carries; `now` a `u64`;
 `read` the value found, anything but void (an ordering or `scaled` then needs

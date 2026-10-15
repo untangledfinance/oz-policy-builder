@@ -83,7 +83,7 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   - `all(vec, P)`, `any(vec, P)`, `elem(...)` and `sum(vec, ...)`. `all` of an
     empty vec permits and `any` of one denies; a vec over `MAX_ELEMS` (32) denies;
     each leaf of a body, and each `sum`, counts 32 times toward `MAX_LEAVES`
-    (so a body `in` holds at most 5 entries and a rule at most 5 sums); no quantifier or
+    (so a body `in` holds at most 5 entries and a rule at most 6 sums); no quantifier or
     `sum` in a body; `elem` only in a body; a body `read` cannot take `elem`
     (so a body makes no more external calls than its leaves would: at most four
     per `enforce` in all).
@@ -91,9 +91,11 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
     `scaled`; see the README.
   - Cost is bounded by the leaf budget and the byte cap, checked on the real wasm
     (`tests/worst_case.rs`, against 400M instructions and 41,943,040 bytes): a
-    vec or map constant is compared by the host without copying, so a 31 KB
-    constant in a quantifier body costs what it costs once; a constant's elements
-    are checked, not decoded as leaves.
+    vec, map, bytes or string is compared by the host without copying (values of
+    different types are unequal without comparing), so a 31 KB constant in a
+    quantifier body costs what it costs once and a 100 KB argument costs no memory;
+    a constant's elements are checked, not decoded as leaves. A bare map constant
+    is refused (201): write `lit({...})`.
   - `call_arg_field`'s field is a `call_path` step (a bare symbol or `lit(x)`;
     a selector is refused).
   - README: a call-derived `read` argument lets the agent choose what the

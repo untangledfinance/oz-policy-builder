@@ -223,8 +223,8 @@ type Memo = Vec<((Address, Symbol, Vals), Option<Val>)>;
 // them again; `decode` (install) and `decode_stored` (enforce) establish them,
 // and `install` is the only writer of a stored predicate.
 //
-//  - `and` and `or` have at least one child; an `in` (and `nin`, which decodes to
-//    `ne` against each entry) has 1..=32 entries, each a constant; a compare has
+//  - `and` and `or` have at least one child; an `in` or `nin` has 1..=32
+//    entries, each a constant; a compare has
 //    exactly two leaves; a quantifier has a vec leaf and a body node.
 //  - An ordering compare (`lt`, `lte`, `gt`, `gte`) has no constant that is not a
 //    number on either side, and `scaled` has none as an operand.
