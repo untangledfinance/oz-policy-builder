@@ -1228,30 +1228,43 @@ fn ne_still_permits_what_differs_and_denies_what_cannot_resolve() {
 // ---- X2: a bare vec of constants is the vec of what its elements decode to ---
 
 #[test]
-fn lit_inside_a_bare_vec_is_unwrapped() {
-    let wrapped = tup(&[n(5), lit(n(7)), lit(tup(&[sym("Tag"), n(1)]))]);
-    let value = tup(&[n(5), n(7), tup(&[sym("Tag"), n(1)])]);
+fn a_bare_vec_holds_plain_values_and_lit_goes_around_the_whole() {
+    // `lit` or a selector inside a bare vec is refused, not half-decoded: the
+    // vec is its own value, so what is written is what is compared.
+    let inner = lit(n(7));
+    assert_eq!(refused(&cmp("eq", arg(0), tup(&[n(5), inner]))), MALFORMED);
+    let tagged = tup(&[sym("Tag"), n(1)]);
+    assert_eq!(
+        refused(&cmp("eq", arg(0), tup(&[n(5), tagged.clone()]))),
+        MALFORMED
+    );
+    assert_eq!(
+        refused(&set("nin", arg(0), &[tup(&[n(5), lit(n(7))])])),
+        MALFORMED
+    );
+    // the whole constant through `lit` is the way, and compares as written
+    let whole = lit(tup(&[n(5), tagged.clone()]));
+    let value = tup(&[n(5), tagged]);
+    assert!(permits(&cmp("eq", arg(0), whole.clone()), &[value.clone()]));
     assert!(permits(
-        &cmp("eq", arg(0), wrapped.clone()),
+        &set("in", arg(0), &[whole.clone()]),
         &[value.clone()]
     ));
     assert!(denies(
-        &cmp("eq", arg(0), wrapped.clone()),
-        &[tup(&[n(5), n(8)])]
+        &set("nin", arg(0), &[whole.clone()]),
+        &[value.clone()]
     ));
+    assert!(denies(&cmp("ne", arg(0), whole), &[value]));
+    // plain nested vecs are fine, and empty ones are not
     assert!(permits(
-        &set("in", arg(0), &[wrapped.clone()]),
-        &[value.clone()]
+        &cmp("eq", arg(0), tup(&[n(1), tup(&[n(2)])])),
+        &[tup(&[n(1), tup(&[n(2)])])]
     ));
-    // a denylist entry written this way must match the value it describes
-    assert!(denies(
-        &set("nin", arg(0), &[wrapped.clone()]),
-        &[value.clone()]
-    ));
-    assert!(denies(&cmp("ne", arg(0), wrapped), &[value]));
+    assert_eq!(
+        refused(&cmp("eq", arg(0), tup(&[n(1), tup(&[])]))),
+        MALFORMED
+    );
 }
-
-// ---- X4: call_arg_field's field is a path step, as in call_path -------------
 
 #[test]
 fn call_arg_field_takes_its_field_as_a_call_path_step_does() {

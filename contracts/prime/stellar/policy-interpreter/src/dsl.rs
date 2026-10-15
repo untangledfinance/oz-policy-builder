@@ -9,7 +9,7 @@
 
 use alloc::{boxed::Box, vec, vec::Vec};
 
-use soroban_sdk::xdr::{FromXdr, ToXdr};
+use soroban_sdk::xdr::{FromXdr, ScValType as T, ToXdr};
 use soroban_sdk::{
     Address, Bytes, Duration, Env, Error, IntoVal, Map, MuxedAddress, Symbol, SymbolStr, Timepoint,
     TryFromVal, Val,
@@ -372,19 +372,27 @@ fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
     // repeats it per element. Other objects keep the XDR compare: a "different
     // tags, so unequal" shortcut there would let a non-canonical form of one
     // value (a `U256Object` holding a small number) slip past `ne`.
-    let (ta, tb) = (a.get_tag(), b.get_tag());
-    if matches!(ta as u8, 75 | 76) || matches!(tb as u8, 75 | 76) {
-        return ta == tb && Vals::from_slice(env, &[*a]) == Vals::from_slice(env, &[*b]);
+    let coll = |v: &Val| matches!(v.get_tag().get_scval_type(), Some(T::Vec | T::Map));
+    if coll(a) || coll(b) {
+        return a.get_tag() == b.get_tag()
+            && Vals::from_slice(env, &[*a]) == Vals::from_slice(env, &[*b]);
     }
     let objects = a.is_object() || b.is_object();
     a.shallow_eq(b) || (objects && (*a).to_xdr(env) == (*b).to_xdr(env))
 }
 
 /// `val_eq`, and with `muxed` also equal once each side is de-muxed: the test
-/// behind `ne` and `nin`.
+/// behind `ne` and `nin`. The second compare only runs when a side IS a muxed
+/// address, so an ordinary value is compared (and serialised) once.
 fn same(env: &Env, a: &Val, b: &Val, muxed: bool) -> bool {
-    val_eq(env, a, b) || (muxed && val_eq(env, &demux(env, *a), &demux(env, *b)))
+    let mux = |v: &Val| v.get_tag() as u8 == MUXED_ADDRESS_TAG;
+    val_eq(env, a, b)
+        || (muxed && (mux(a) || mux(b)) && val_eq(env, &demux(env, *a), &demux(env, *b)))
 }
+
+/// The host's tag for a muxed address object (`Tag::MuxedAddressObject`, which
+/// the SDK does not export). Its scalar type is `Address`, as a plain address's is.
+const MUXED_ADDRESS_TAG: u8 = 78;
 
 /// A muxed address as the account it pays. `ne` (so `nin`) must not be passed by
 /// adding a mux id to a listed account, which a SEP-41 `transfer` accepts for its
@@ -537,31 +545,19 @@ fn leaves(node: &Node) -> Vec<(&Leaf, u32)> {
 /// `u64`, `i64`, `Timepoint`, `Duration`, `i128`, and `u128` when it fits. Any
 /// other `Val` (a `u128` above `i128::MAX` included) is not a number here.
 fn val_to_i128(env: &Env, v: &Val) -> Option<i128> {
-    // The host's integer tags: small (4..=11) and object (64..=69) forms of u32,
-    // i32, u64, i64, Timepoint, Duration, u128 and i128. Anything else is not
-    // a number, and trying each conversion on it costs about 300 instructions
-    // apiece.
-    if !matches!(v.get_tag() as u8, 4..=11 | 64..=69) {
-        return None;
+    // One conversion, chosen by the value's type (a failed `to::<T>` costs about
+    // 300 instructions, so trying each in turn is not free).
+    match v.get_tag().get_scval_type()? {
+        T::U32 => to::<u32>(env, v).ok().map(i128::from),
+        T::I32 => to::<i32>(env, v).ok().map(i128::from),
+        T::U64 => to::<u64>(env, v).ok().map(i128::from),
+        T::I64 => to::<i64>(env, v).ok().map(i128::from),
+        T::Timepoint => to::<Timepoint>(env, v).ok().map(|t| t.to_unix().into()),
+        T::Duration => to::<Duration>(env, v).ok().map(|d| d.to_seconds().into()),
+        T::U128 => to::<u128>(env, v).ok().and_then(|x| x.try_into().ok()),
+        T::I128 => to::<i128>(env, v).ok(),
+        _ => None,
     }
-    to::<u32>(env, v)
-        .ok()
-        .map(i128::from)
-        .or_else(|| to::<i32>(env, v).ok().map(i128::from))
-        .or_else(|| to::<u64>(env, v).ok().map(i128::from))
-        .or_else(|| to::<i64>(env, v).ok().map(i128::from))
-        .or_else(|| {
-            Timepoint::try_from_val(env, v)
-                .ok()
-                .map(|t| t.to_unix().into())
-        })
-        .or_else(|| {
-            Duration::try_from_val(env, v)
-                .ok()
-                .map(|d| d.to_seconds().into())
-        })
-        .or_else(|| to::<u128>(env, v).ok().and_then(|x| i128::try_from(x).ok()))
-        .or_else(|| to::<i128>(env, v).ok())
 }
 
 // ============================================================================
@@ -712,26 +708,47 @@ fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
         if let Ok(sym) = expect::<Symbol>(env, &items, 0) {
             return decode_selector_leaf(env, &items, spelled(env, &sym)?, depth);
         }
-        // Literal vector: order preserved verbatim.
-        let parts = each(&items, |e| literal(env, &e, depth + 1))?;
-        return Ok(Leaf::Lit(Vals::from_slice(env, &parts).into_val(env)));
+        // A bare vec of constants is its own value: checked, not rebuilt (building
+        // a host vec one push at a time is quadratic in its length).
+        each(&items, |e| plain(env, &e, depth + 1))?;
+        return Ok(Leaf::Lit(*val));
     }
     // Any other bare value is a constant.
     Ok(Leaf::Lit(*val))
 }
 
-/// A leaf that must be a constant: an `in` entry or a literal-vec element.
-/// Anything else would decode, count toward the caps and the selector
-/// check, and then never be compared.
+/// A leaf that must be a constant: an `in` entry, or a path-step key. A vector
+/// goes through `decode_leaf` (so `lit(x)` works); anything else is itself.
 fn literal(env: &Env, val: &Val, depth: u32) -> Res<Val> {
-    literal_to_val(&decode_leaf(env, val, depth)?)
+    cap(depth <= MAX_DEPTH, DecodeError::PredicateTooDeep)?;
+    match Vals::try_from_val(env, val) {
+        Err(_) => Ok(*val),
+        Ok(_) => literal_to_val(&decode_leaf(env, val, depth)?),
+    }
 }
+
+/// An element of a bare vec constant: a value, or a non-empty vec that does not
+/// start with a symbol (that would read as a selector; write `lit([...])` for a
+/// whole constant that does), all the way down. Decoding each element as a leaf
+/// costs about 35k instructions apiece, so nothing here does.
+fn plain(env: &Env, val: &Val, depth: u32) -> Res<()> {
+    cap(depth <= MAX_DEPTH, DecodeError::PredicateTooDeep)?;
+    let Ok(items) = Vals::try_from_val(env, val) else {
+        return Ok(());
+    };
+    ensure(!items.is_empty() && expect::<Symbol>(env, &items, 0).is_err())?;
+    each(&items, |e| plain(env, &e, depth + 1)).map(|_| ())
+}
+
 /// A symbol's characters, read once. Comparing a symbol with `Symbol::new(name)`
 /// instead costs a host call per name tried, and a leaf tries up to a dozen.
 fn spelled(env: &Env, sym: &Symbol) -> Res<SymbolStr> {
     SymbolStr::try_from_val(env, &sym.to_symbol_val()).map_err(|_| DecodeError::MalformedPredicate)
 }
 
+// Not inlined: folded into `decode_leaf` it makes every leaf, a scalar included,
+// pay for the whole frame (about 35k instructions instead of 13k).
+#[inline(never)]
 fn decode_selector_leaf(env: &Env, items: &Vals, head: SymbolStr, depth: u32) -> Res<Leaf> {
     let spelling: &[u8] = head.as_ref();
     let is = |n: u32, name: &str| items.len() == n && spelling == name.as_bytes();

@@ -2798,15 +2798,15 @@ fn a_read_argument_that_resolves_to_a_wrong_type_is_a_failed_call_not_void() {
 }
 
 #[test]
-fn a_lit_inside_a_bare_vec_read_argument_reaches_the_target_unwrapped() {
-    // echo returns its argument: `[Stellar(addr)]` must come back as written.
+fn a_lit_read_argument_reaches_the_target_as_written() {
+    // echo returns its argument: `[1, Stellar(addr)]` must come back as written.
     let w = World::new();
     let reg = w.env.register(Registry, ());
     let who = Address::generate(&w.env);
-    let arg = tuple(alloc::vec![
+    let arg = lit(tuple(alloc::vec![
         num(1),
-        lit(tuple(alloc::vec![sym("Stellar"), addr(&w.env, &who)]))
-    ]);
+        tuple(alloc::vec![sym("Stellar"), addr(&w.env, &who)])
+    ]));
     let echoed = read(&w.env, &reg, "echo", alloc::vec![arg], &[]);
     let want: SorobanVec<Val> = soroban_sdk::vec![
         &w.env,
