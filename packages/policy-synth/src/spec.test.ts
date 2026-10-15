@@ -370,6 +370,14 @@ describe('what is known of a contract', () => {
     expect(SAC.mint?.[1]).toEqual(['amount', 'i128'])
   })
 
+  it('an asset code may hold digits', async () => {
+    const sac = unique(5004)
+    const n = open({ instances: { [sac]: '' }, wasms: {}, names: { [sac]: `Z9X25:${ISSUER}` } })
+    expect((await infoFor(n.endpoint, [sac]))[sac]?.token?.symbol).toBe(
+      `Z9X25:${ISSUER.slice(0, 4)}…${ISSUER.slice(-4)}`
+    )
+  })
+
   it('a one-character asset code is a code', async () => {
     const sac = unique(5003)
     const n = open({ instances: { [sac]: '' }, wasms: {}, names: { [sac]: `A:${ISSUER}` } })
@@ -387,7 +395,7 @@ describe('what is known of a contract', () => {
     })
   })
 
-  it.each([
+  const odd: [string, string | number][] = [
     ['a name that is not CODE:ISSUER', 'USDC'],
     ['a code that is too long', `ABCDEFGHIJKLM:${ISSUER}`],
     [
@@ -400,11 +408,13 @@ describe('what is known of a contract', () => {
     ],
     ['a line break', `US\nDC:${ISSUER}`],
     ['a wrong type', 7],
-  ])('%s: the amounts stay raw', async (_n, name) => {
-    const c = unique(5100 + Math.floor(Math.random() * 1000))
-    const n = open({ instances: { [c]: '' }, wasms: {}, names: { [c]: name } })
-    expect((await infoFor(n.endpoint, [c]))[c]).toEqual({ fns: SAC, token: undefined })
-  })
+  ]
+  for (const [i, [what, name]] of odd.entries())
+    it(`${what}: the amounts stay raw`, async () => {
+      const c = unique(5100 + i)
+      const n = open({ instances: { [c]: '' }, wasms: {}, names: { [c]: name } })
+      expect((await infoFor(n.endpoint, [c]))[c]).toEqual({ fns: SAC, token: undefined })
+    })
 
   it('a wrong-typed answer is an answer: kept, not asked again', async () => {
     const c = unique(5150)
