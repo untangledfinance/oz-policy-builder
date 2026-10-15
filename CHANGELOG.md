@@ -17,6 +17,19 @@ grammar-4/6 deployments are not decoded, and a neighbour policed by one of them 
 REFUSED by default, never waved through: the 2.x pin is a testnet interpreter, and
 a mainnet install names its own, which must run a trusted build).
 
+- **The review is a policy tree.** `review` (text, box-drawn) and `reviewTree` (nodes
+  `{label, op, value, raw, index?, children?}`, `raw` the exact wire leaf or subtree) come
+  back from `synthesize_policy`, `install_policy` (`rule`), `simulate_policy`,
+  `verify_policy` and `revoke_policy` (`removes`). Rules group by contract, then
+  function (a pinned `call_contract` / `call_fn` becomes a header); parameter names come
+  from the contract's own `contractspecv0` (read once per wasm, cached; SEP-41 table for
+  a Stellar Asset Contract), through structs, vectors and maps; a token's amounts show
+  in its symbol with the raw number after; addresses are short with the name the request
+  gave them; `now` compares are UTC dates. Names are display only and best effort
+  (bounded, time-limited, never able to change a verdict); anything unresolvable keeps
+  "argument N". `raw: true` shows indices and raw values. `simulate_policy` with a
+  predicate and no calls only explains it; `get_interpreter_info` takes `explainAccount`
+  (a smart account) and explains each rule this interpreter polices.
 - **One pipeline.** recording | declaration | template -> `Intent` (calls and
   per-argument rules) -> wire expression -> install transaction. `ComposedRule`,
   `PolicyDocument`, the interpreter adapter, the `lower` layer, the legacy

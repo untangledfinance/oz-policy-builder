@@ -51,7 +51,7 @@ describe('policy-builder', () => {
     ])
     for (const r of results) {
       expect(r.code).toBe(0)
-      expect(r.json.data.rules[0].review.at(-1)).toBe('argument 0 must be at most 5')
+      expect(r.json.data.rules[0].review.at(-1)).toBe('   └─ argument 0:  must be at most  5')
     }
   })
 

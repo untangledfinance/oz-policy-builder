@@ -63,7 +63,7 @@ template (mandate)    --/    (calls + per-argument constraints)   (unsigned XDR)
 | Tool | What it does |
 | --- | --- |
 | `record_transaction` | Decode a transaction (hash over RPC, or base64 XDR) into the calls it authorises, nested ones included. |
-| `synthesize_policy` | Source (hash, xdr, recording, intent, template) -> rules, one per contract: predicate, encoding, hash, plain-language review; `ambiguities` to answer with `limit`/`limits`/`allow`. |
+| `synthesize_policy` | Source (hash, xdr, recording, intent, template) -> rules, one per contract: predicate, encoding, hash, a policy tree (`review` text, `reviewTree` nodes with the wire `raw` each came from); `ambiguities` to answer with `limit`/`limits`/`allow`. |
 | `simulate_policy` | A predicate against calls: permit, or the deny code. |
 | `verify_policy` | Permitted call(s), derived deny cases, minimality; `ok`, `complete`, `unexamined`, `untested`. **`ok` without `complete: true` does not prove every limit** (`untested` conjuncts were not tried): read `complete`. |
 | `install_policy` | Unsigned `add_context_rule` (the account authorises it; the interpreter installs the predicate in the same transaction). Verifies the interpreter live, always reads the account, **refuses** a rule a shared signer could bypass or a neighbour it cannot judge (`allowOverlap` overrides). |

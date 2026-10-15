@@ -4,6 +4,7 @@ import { account, contract } from '../test/fixtures.ts'
 import { card, contractsOf, lines, type Node, tree, type View } from './card.ts'
 import { SPENDING_LIMIT } from './config.ts'
 import { decodeEnvelope } from './record.ts'
+import { TEMPLATES } from './registry.ts'
 import { SAC } from './spec.ts'
 import { propose, synthesize } from './synth.ts'
 import { decode, type Expr, validate } from './wire.ts'
@@ -658,6 +659,50 @@ describe('the tree', () => {
   it('a non-node is shown as the value it is', () => {
     expect(card(5 as unknown as Expr)).toEqual(['5'])
     expect(lines([])).toEqual([])
+  })
+})
+
+describe('a Blend request', () => {
+  const [POOL, TOK] = [contract(5), contract(6)]
+  const r = propose(
+    TEMPLATES.blend_venue({ pool: POOL, token: TOK, account: A, max: '5000000000' })
+  )[0]
+  const info = {
+    [POOL]: {
+      fns: {
+        submit: [
+          ['from', 'address'],
+          ['spender', 'address'],
+          ['to', 'address'],
+          [
+            'requests',
+            { vec: { fields: { address: 'address', amount: 'i128', request_type: 'u32' } } },
+          ],
+        ],
+      },
+    },
+  } as unknown as View['info']
+
+  it('names the request fields; the amount is a pool amount, not a token one, so it stays raw', () => {
+    expect(card((r as { expr: Expr }).expr, { info, labels: { [A]: 'treasury' } })).toEqual([
+      short(POOL),
+      '└─ submit(from, spender, to, requests)',
+      `   ├─ from:  must be  ${short(A)} (treasury)`,
+      `   ├─ spender:  must be  ${short(A)} (treasury)`,
+      `   ├─ to:  must be  ${short(A)} (treasury)`,
+      '   ├─ the number of items in requests:  must be at most  1',
+      `   ├─ requests › [0] › address:  must be  ${short(TOK)}`,
+      '   ├─ requests › [0] › request_type:  must be at most  1',
+      '   ├─ requests › [0] › amount:  must be at least  1',
+      '   └─ requests › [0] › amount:  must be at most  5000000000',
+    ])
+  })
+
+  it('and without the interface, the wire wording', () => {
+    const out = card((r as { expr: Expr }).expr)
+    expect(out[1]).toBe('└─ submit')
+    expect(out[4]).toBe(`   ├─ argument 2:  must be  ${short(A)}`)
+    expect(out.at(-1)).toBe('   └─ argument 3 > 0 > amount:  must be at most  5000000000')
   })
 })
 

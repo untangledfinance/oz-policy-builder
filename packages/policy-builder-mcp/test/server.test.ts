@@ -66,6 +66,6 @@ describe('the MCP server registers the table as it is', () => {
     }
     const r = await (await client()).callTool({ name: 'synthesize_policy', arguments: { intent } })
     const rules = (r.structuredContent as { rules: { review: string[] }[] }).rules
-    expect(rules[0]?.review.at(-1)).toBe('argument 0 must be at most 5')
+    expect(rules[0]?.review.at(-1)).toBe('   └─ argument 0:  must be at most  5')
   })
 })
