@@ -916,3 +916,88 @@ fn each_body_leaf_counts_thirty_two_times_toward_the_leaf_cap() {
     );
     assert_eq!(cap, 200);
 }
+
+#[test]
+fn nesting_is_refused_even_when_the_inner_body_has_no_elem() {
+    // Weight 32 x 32 would also trip the leaf cap, but the refusal does not
+    // depend on the cap: it is the structure that is not allowed.
+    let over = path(&[ScVal::U32(0)]);
+    let inner = all_of(path(&[ScVal::U32(1)]), cmp("eq", arg(2), n(1)));
+    for q in [all_of, any_of] {
+        assert_eq!(refused(&q(over.clone(), inner.clone())), MALFORMED);
+    }
+    // and one made of nothing but `elem` leaves, which no per-leaf count can see
+    let only_elem = all_of(elem(&[]), cmp("eq", elem(&[]), elem(&[])));
+    assert_eq!(refused(&all_of(over, only_elem)), MALFORMED);
+}
+
+#[test]
+fn quantifiers_take_exactly_a_vec_and_a_body() {
+    let over = path(&[ScVal::U32(0)]);
+    let body = cmp("eq", elem(&[]), n(1));
+    for q in ["all", "any"] {
+        assert_eq!(refused(&tup(&[sym(q), over.clone()])), MALFORMED, "no body");
+        assert_eq!(
+            refused(&tup(&[sym(q), over.clone(), body.clone(), body.clone()])),
+            MALFORMED
+        );
+        assert_eq!(
+            refused(&tup(&[sym(q), over.clone(), n(1)])),
+            MALFORMED,
+            "body not a node"
+        );
+        assert_eq!(refused(&tup(&[sym(q), over.clone(), body.clone()])), None);
+    }
+    // a `sum` needs its vec; extra steps are steps, not operands
+    assert_eq!(refused(&cmp("eq", tup(&[sym("sum")]), n(1))), MALFORMED);
+}
+
+#[test]
+fn the_element_cap_is_thirty_two() {
+    assert_eq!(crate::dsl::MAX_ELEMS, 32);
+}
+
+#[test]
+fn a_quantifier_over_a_non_vec_does_not_become_an_empty_one() {
+    // `all` of nothing permits, so a non-vec turned into "nothing" would permit.
+    let p = all_of(path(&[ScVal::U32(0)]), cmp("eq", elem(&[]), n(1)));
+    for not_a_vec in [n(0), text("x"), map(&[]), ScVal::Void, ScVal::Bool(true)] {
+        assert!(denies(&p, &[not_a_vec]));
+    }
+    assert!(permits(&p, &[list(&[])]));
+}
+
+#[test]
+fn a_bare_false_step_is_a_key_and_only_true_is_the_length() {
+    let m = map(&[(ScVal::Bool(false), n(9))]);
+    let by_false = cmp("eq", path(&[ScVal::U32(0), ScVal::Bool(false)]), n(9));
+    assert!(permits(&by_false, &[m]));
+    let by_true = cmp("eq", path(&[ScVal::U32(0), ScVal::Bool(true)]), n(1));
+    assert!(permits(&by_true, &[list(&[n(0)])]));
+}
+
+#[test]
+fn leaf_nesting_is_capped_through_sum_and_read_arguments() {
+    let depth = crate::dsl::MAX_DEPTH as usize;
+    // sum(sum(...sum(path))): each sum's vec is one level deeper
+    let chain = |n_sums: usize| {
+        let mut leaf = path(&[ScVal::U32(0)]);
+        for _ in 0..n_sums {
+            leaf = sum(leaf, &[]);
+        }
+        cmp("gte", leaf, n(0))
+    };
+    assert_eq!(refused(&chain(depth - 1)), None);
+    assert_eq!(refused(&chain(depth)), Some(DecodeError::PredicateTooDeep));
+    // a bare vec of vecs as a read argument is a constant of nested leaves
+    let nested = |levels: usize| {
+        let mut v = n(1);
+        for _ in 0..levels {
+            v = tup(&[v]);
+        }
+        let read = tup(&[sym("read"), account(7), sym("f"), tup(&[v])]);
+        cmp("eq", arg(0), read)
+    };
+    assert_eq!(refused(&nested(3)), None);
+    assert_eq!(refused(&nested(4)), Some(DecodeError::PredicateTooDeep));
+}

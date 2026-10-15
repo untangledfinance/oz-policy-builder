@@ -20,8 +20,9 @@ pub const MAX_DEPTH: u32 = 5;
 pub const MAX_LEAVES: u32 = 200;
 pub const MAX_IN_OPERAND_COUNT: u32 = 32;
 /// Distinct `read` calls per predicate. Each is a cross-contract call made when
-/// `enforce` evaluates it (identical reads share one), so the count is capped at
-/// decode.
+/// `enforce` evaluates it (reads with the same constant arguments share one; a
+/// read with a call-derived argument counts alone), so the count is capped at
+/// decode and `enforce` makes at most this many external calls.
 pub const MAX_READS: u32 = 4;
 pub const MAX_PREDICATE_BYTES: u32 = 32 * 1024;
 /// Elements a quantifier or `sum` visits; a longer vector denies. Decode counts
@@ -143,10 +144,12 @@ pub enum Leaf {
     /// The ledger timestamp.
     Now,
     /// `read(contract, fn, args, path)`: call a fixed function of a fixed
-    /// contract with literal arguments and pick a field of the result with the
-    /// same steps a `CallPath` takes. Soroban has no read-only call, so the
-    /// target must be a contract the policy owner trusts. A failed call or a
-    /// result that is not a number resolves to nothing, which denies.
+    /// contract and pick a field of the result with the same steps a `CallPath`
+    /// takes. Each argument is a constant or a plain leaf resolved at `enforce`
+    /// (a call path, `call_contract`, `call_fn` or `now`). Soroban has no
+    /// read-only call, so the target must be a contract the policy owner
+    /// trusts. A failed call, an argument that does not resolve, or a void
+    /// result resolves to nothing, which denies.
     Read(Address, Symbol, Vec<Leaf>, Vec<PathStep>),
     /// `[src, num, add]` and `den`: `src * num / den + add`, multiplying
     /// first, truncating toward zero, every step checked. Each of the three
@@ -225,19 +228,22 @@ type Memo = Vec<((Address, Symbol, Vals), Option<Val>)>;
 // them again; `decode` (install) and `decode_stored` (enforce) establish them,
 // and `install` is the only writer of a stored predicate.
 //
-//  - `and` and `or` have at least one child; an `in` has 1..=32 entries, each a
-//    constant `literal_to_val` can convert; a compare has exactly two leaves.
-//  - An ordering compare (`lt`, `lte`, `gt`, `gte`) has no address, symbol or
-//    vector literal on either side, and `scaled` has none as an operand.
+//  - `and` and `or` have at least one child; an `in` (and `nin`, which decodes to
+//    `ne` against each entry) has 1..=32 entries, each a constant; a compare has
+//    exactly two leaves; a quantifier has a vec leaf and a body node.
+//  - An ordering compare (`lt`, `lte`, `gt`, `gte`) has no constant that is not a
+//    number on either side, and `scaled` has none as an operand.
 //  - A `scaled` has exactly three operands and `den` in 1..=MAX_DEN; a constant
 //    `src` or `num` is positive, and a constant product or fold never overflows.
-//  - A `read` target is a contract address, its arguments are constants, and its
-//    path has at most MAX_PATH_STEPS steps; a `call_path` has 1..=MAX_PATH_STEPS,
-//    with `Len` only last.
+//  - A `read` target is a contract address, its arguments are constants or plain
+//    leaves (never `elem`, `scaled`, `sum` or another `read`), and its path has at
+//    most MAX_PATH_STEPS steps; a `call_path` has 1..=MAX_PATH_STEPS, with `Len`
+//    only last.
 //  - Node depth and leaf nesting are at most MAX_DEPTH, so recursion is bounded.
-//  - Install only (not re-checked on enforce): at most MAX_LEAVES leaves, at most
-//    MAX_READS distinct reads, at most MAX_PREDICATE_BYTES bytes, and at least
-//    one selector leaf.
+//  - Install only (not re-checked on enforce): at most MAX_LEAVES leaves, each leaf
+//    of a quantifier body counted MAX_ELEMS times; `elem` only in a quantifier
+//    body, and no `sum` or quantifier in one; at most MAX_READS distinct reads;
+//    at most MAX_PREDICATE_BYTES bytes; and at least one selector leaf.
 
 fn eval(env: &Env, node: &Node, ctx: &Ctx, memo: &mut Memo) -> Result<(), DenyReason> {
     match node {
@@ -414,7 +420,7 @@ fn scale(src: i128, num: i128, den: i128, add: i128) -> Option<i128> {
     src.checked_mul(num)?.checked_div(den)?.checked_add(add)
 }
 
-/// A literal that is not a number: it has no order and cannot be scaled. (An
+/// A constant that is not a number: it has no order and cannot be scaled. (An
 /// identity selector is refused as a `scaled` operand too, but an ordering over
 /// one is still decided at `enforce`.)
 fn non_number(env: &Env, leaf: &Leaf) -> bool {
@@ -711,9 +717,11 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
         Ok(Leaf::CallPath(decode_steps(env, items, 1, 1)?))
     } else if is(items.len(), "read") {
         // (read, contract, fn, [args], step...). The contract and function
-        // are fixed fields, so the predicate hash pins them. Arguments
-        // must be literals: a selector, a `now`, another `read` or a
-        // `scaled` has no `Val` form here and is refused.
+        // are fixed fields, so the predicate hash pins them. An argument is a
+        // constant or a leaf with nothing nested in it that resolves at
+        // `enforce` from the call or the clock; `elem`, `sum`, `scaled` and
+        // another `read` are refused (the call count and the cost would no
+        // longer be bounded by the predicate alone).
         ensure(items.len() >= 4)?;
         let arg = |a| {
             let leaf = decode_leaf(env, &a, depth + 1)?;
@@ -733,7 +741,6 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
     } else if is(items.len(), "sum") {
         // (sum, vec, step...): the vec is any leaf; the steps reach the number
         // inside each element (none: the element is the number).
-        ensure(items.len() >= 2)?;
         let src = decode_leaf(env, &at(items, 1)?, depth + 1)?;
         Ok(Leaf::Sum(Box::new(src), decode_steps(env, items, 2, 0)?))
     } else if is(2, "lit") {
