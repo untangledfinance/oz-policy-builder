@@ -211,7 +211,7 @@ export const hashOf = (b64: string): string =>
 // authority, and `check` is the way to ask it.
 
 /** `dsl.rs`: the caps decode enforces. A quantifier body and a `sum` weigh `elems` leaves. */
-export const CAPS = {
+export const DECODE_LIMITS = {
   depth: 5,
   leaves: 200,
   entries: 32,
@@ -278,11 +278,12 @@ interface Walk {
 export function validate(expr: Expr): void {
   const w: Walk = { weight: 0, reads: new Set(), selector: false }
   node(expr, 1, false, w)
-  if (w.weight > CAPS.leaves) bad(`${w.weight} leaves, at most ${CAPS.leaves}`)
-  if (w.reads.size > CAPS.reads) bad(`${w.reads.size} distinct reads, at most ${CAPS.reads}`)
+  if (w.weight > DECODE_LIMITS.leaves) bad(`${w.weight} leaves, at most ${DECODE_LIMITS.leaves}`)
+  if (w.reads.size > DECODE_LIMITS.reads)
+    bad(`${w.reads.size} distinct reads, at most ${DECODE_LIMITS.reads}`)
   if (!w.selector) bad('no leaf reads the call: the rule would constrain nothing')
-  if (Buffer.from(encode(expr), 'base64').length > CAPS.bytes)
-    bad(`encoding over ${CAPS.bytes} bytes`)
+  if (Buffer.from(encode(expr), 'base64').length > DECODE_LIMITS.bytes)
+    bad(`encoding over ${DECODE_LIMITS.bytes} bytes`)
 }
 
 const bad = (m: string): never => {
@@ -307,7 +308,7 @@ export const branches = (expr: Expr): Expr[][] =>
   isSelector(expr) && expr[0] === 'or' ? (expr[1] as Expr[]).map(conjuncts) : [conjuncts(expr)]
 
 function node(e: Expr, depth: number, body: boolean, w: Walk): void {
-  if (depth > CAPS.depth) bad(`nested deeper than ${CAPS.depth}`)
+  if (depth > DECODE_LIMITS.depth) bad(`nested deeper than ${DECODE_LIMITS.depth}`)
   if (!isSelector(e)) bad('not a node')
   const [op, ...r] = e as [string, ...Val[]]
   const [a, b] = r as Val[]
@@ -329,7 +330,8 @@ function node(e: Expr, depth: number, body: boolean, w: Walk): void {
   } else if ((op === 'in' || op === 'nin') && r.length === 2) {
     leaf(a as Val, 1, body, w)
     const entries = list(b)
-    if (entries.length > CAPS.entries) bad(`${op}: more than ${CAPS.entries} entries`)
+    if (entries.length > DECODE_LIMITS.entries)
+      bad(`${op}: more than ${DECODE_LIMITS.entries} entries`)
     for (const x of entries) {
       leaf(x, 1, body, w)
       if (!isConstant(x)) bad(`${op}: entries are constants`)
@@ -340,7 +342,7 @@ function node(e: Expr, depth: number, body: boolean, w: Walk): void {
     const inner: Walk = { weight: 0, reads: w.reads, selector: false }
     node(b as Val, depth + 1, true, inner)
     // Every leaf of the body is walked once per element.
-    w.weight += inner.weight * CAPS.elems
+    w.weight += inner.weight * DECODE_LIMITS.elems
     w.selector ||= inner.selector
   } else {
     bad(`unknown operator or wrong arity: ${op}/${r.length}`)
@@ -353,7 +355,7 @@ const index = (x: Val | undefined): void => {
 }
 
 function leaf(v: Val, nest: number, body: boolean, w: Walk): void {
-  if (nest > CAPS.depth) bad(`leaf nested deeper than ${CAPS.depth}`)
+  if (nest > DECODE_LIMITS.depth) bad(`leaf nested deeper than ${DECODE_LIMITS.depth}`)
   w.weight += 1
   if (!isSelector(v)) {
     constantValue(v, nest)
@@ -378,7 +380,7 @@ function leaf(v: Val, nest: number, body: boolean, w: Walk): void {
   if (head === 'sum') {
     if (body) bad('a sum inside a quantifier')
     // A sum walks up to `elems` elements, so it weighs that many leaves in all.
-    w.weight += CAPS.elems - 1
+    w.weight += DECODE_LIMITS.elems - 1
     next(r[0] as Val)
     steps(r.slice(1))
   }
@@ -426,7 +428,7 @@ function scaledLeaf(r: Val[], next: (x: Val) => void): void {
 
 /** A bare constant: a value, or a non-empty vec of them (never a selector or a map). */
 function constantValue(v: Val, nest: number): void {
-  if (nest > CAPS.depth) bad('a constant is nested too deep')
+  if (nest > DECODE_LIMITS.depth) bad('a constant is nested too deep')
   if (Array.isArray(v)) {
     if (v.length === 0) bad('an empty vec constant')
     for (const x of v) {
@@ -441,7 +443,7 @@ function constantValue(v: Val, nest: number): void {
 /** A path: u32 indexes, constant keys (a symbol, a bare value, or `lit(x)`), and a final
  *  `true` (the length). The last step may be the only one, up to `steps` of them. */
 function steps(s: Val[]): void {
-  if (s.length > CAPS.steps) bad(`a path of at most ${CAPS.steps} steps`)
+  if (s.length > DECODE_LIMITS.steps) bad(`a path of at most ${DECODE_LIMITS.steps} steps`)
   s.forEach((x, i) => {
     if (x === true && i !== s.length - 1) bad('the length step is last')
     if (typeof x === 'number' || x === true) return

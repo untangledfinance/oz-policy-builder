@@ -35,7 +35,7 @@ import {
   synthesize,
   unbounded,
 } from './synth.ts'
-import { CAPS, decode, type Expr, encode, hashOf, validate, WireError } from './wire.ts'
+import { DECODE_LIMITS, decode, type Expr, encode, hashOf, validate, WireError } from './wire.ts'
 
 // ---- input fragments ----
 
@@ -59,10 +59,18 @@ const rule: z.ZodType<unknown> = z.lazy(() =>
   z.discriminatedUnion('rule', [
     z.object({ rule: z.enum(['pin', 'not']), at: path, to: val }).strict(),
     z
-      .object({ rule: z.literal('allow'), at: path, in: z.array(val).min(1).max(CAPS.entries) })
+      .object({
+        rule: z.literal('allow'),
+        at: path,
+        in: z.array(val).min(1).max(DECODE_LIMITS.entries),
+      })
       .strict(),
     z
-      .object({ rule: z.literal('deny'), at: path, nin: z.array(val).min(1).max(CAPS.entries) })
+      .object({
+        rule: z.literal('deny'),
+        at: path,
+        nin: z.array(val).min(1).max(DECODE_LIMITS.entries),
+      })
       .strict(),
     z.object({ rule: z.literal('cap'), at: path, max: amount }).strict(),
     z.object({ rule: z.literal('floor'), at: path, min: z.string().regex(/^-?\d+$/) }).strict(),
@@ -319,7 +327,7 @@ const synthesize_policy = tool(
   }
 )
 
-const check = {
+const predicateInput = {
   ...net,
   ...from,
   interpreterAddress: contractId.optional(),
@@ -331,7 +339,7 @@ const check = {
 }
 
 /** The predicate and the calls a simulate or verify is about. */
-async function subject(i: z.infer<z.ZodObject<typeof check>>) {
+async function subject(i: z.infer<z.ZodObject<typeof predicateInput>>) {
   const hasSource = SOURCES.some((k) => (i as Record<string, unknown>)[k] !== undefined)
   const src = hasSource ? await sourceOf(i) : undefined
   const pred = i.expr !== undefined || i.encodedPredicate !== undefined ? given(i) : undefined
@@ -350,7 +358,7 @@ async function subject(i: z.infer<z.ZodObject<typeof check>>) {
 const simulate_policy = tool(
   'simulate_policy',
   `Say whether a predicate permits each of some calls, and if not with which deny code. Give the predicate (\`expr\` or \`encodedPredicate\`, or a source to build it from) and the calls (\`calls\`, or the recorded ones). ${CHECKED}`,
-  check,
+  predicateInput,
   async (i, signal) => {
     const s = await subject(i)
     if (s.calls.length === 0)
@@ -368,7 +376,7 @@ const simulate_policy = tool(
 const verify_policy = tool(
   'verify_policy',
   `Check a predicate against a call it must permit: the call must pass, every constraint is turned against the call and must refuse it, and each conjunct is dropped in turn to see the call it guards get through (minimality). \`ok\` needs the permit and every deny case. ${CHECKED} At most about 2 x the number of constraints + 1 calls are made, a few at a time.`,
-  { ...check, call: call.optional() },
+  { ...predicateInput, call: call.optional() },
   async (i, signal) => {
     const s = await subject(i)
     const permits = i.call ? [i.call as Call] : s.calls
@@ -388,7 +396,7 @@ const verify_policy = tool(
 
 const install_policy = tool(
   'install_policy',
-  "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`. `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The interpreter is checked live before anything is built: it must speak the grammar and run a trusted build (a pinned address, or on a network with none, an `interpreterAddress` whose code hash is one this package trusts). The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind; `allowOverlap: true` installs anyway. An unanswered amount cap is refused unless `allowUnboundedAmount`. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR; `outFile` (a bare file name) also writes it into the operator's `POLICY_BUILDER_OUT_DIR`, without replacing a file.",
+  "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`. `sourceAccount` must be a signer of the account's rule 0 (that rule authorises the install); `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The interpreter is checked live before anything is built: it must speak the grammar and run a trusted build (a pinned address, or on a network with none, an `interpreterAddress` whose code hash is one this package trusts). The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind; `allowOverlap: true` installs anyway. An unanswered amount cap is refused unless `allowUnboundedAmount`. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR; `outFile` (a bare file name) also writes it into the operator's `POLICY_BUILDER_OUT_DIR`, without replacing a file.",
   {
     ...net,
     ...from,
@@ -499,7 +507,7 @@ const get_interpreter_info = tool(
       grammarVersion: GRAMMAR_VERSION,
       wasmSha256: wasm ?? null,
       trustedWasmSha256: [...INTERPRETER_WASM],
-      caps: CAPS,
+      caps: DECODE_LIMITS,
       ...(i.verifyLive ? { live: await fingerprint(connect(i), i.network, address) } : {}),
     }
   }

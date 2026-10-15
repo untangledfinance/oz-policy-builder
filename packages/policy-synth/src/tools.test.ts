@@ -182,7 +182,7 @@ describe('record_transaction: the other network is asked only when neither endpo
     try {
       const r = (await call('record_transaction', { hash: INSTALL_TX })) as Out
       expect(r.ok).toBe(false)
-      expect(a.asked.length).toBeGreaterThan(0)
+      expect(a.asked).toContain('getTransaction')
       expect(b.asked).toEqual([])
     } finally {
       for (const u of undo) u()
@@ -509,7 +509,7 @@ describe('install_policy', () => {
           'install_policy',
           { ...clean, outFile: 'mine.xdr' },
           'INSTALL_BUILD_FAILED',
-          /already exists/
+          /already exists; it is not overwritten/
         )
         expect(readFileSync(join(dir, 'mine.xdr'), 'utf8')).toBe('important')
         await failing(
@@ -520,6 +520,21 @@ describe('install_policy', () => {
         )
         expect(existsSync(join(dir, 'refused.xdr'))).toBe(false)
       })
+    })
+
+    it('needs an absolute directory', async () => {
+      const before = process.env.POLICY_BUILDER_OUT_DIR
+      process.env.POLICY_BUILDER_OUT_DIR = 'relative/dir'
+      try {
+        await failing(
+          'install_policy',
+          { ...clean, outFile: 'a.xdr' },
+          'INSTALL_BUILD_FAILED',
+          /absolute directory/
+        )
+      } finally {
+        if (before === undefined) delete process.env.POLICY_BUILDER_OUT_DIR
+      }
     })
 
     it('is refused with no directory configured, and for anything but a plain file name', async () => {

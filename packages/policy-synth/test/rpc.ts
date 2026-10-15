@@ -147,6 +147,15 @@ export function fakeInterpreter(address: string, wasm: string, grammar = 7, verd
                 latestLedger: 1,
                 error: `HostError: Error(Contract, #${verdict})\n\nEvent log (newest first):`,
               }
+      } else if (body.method === 'getTransaction') {
+        asked.push(body.method)
+        result = {
+          status: 'NOT_FOUND',
+          latestLedger: 1,
+          oldestLedger: 1,
+          latestLedgerCloseTime: '1',
+          oldestLedgerCloseTime: '1',
+        }
       } else {
         asked.push(body.method)
         return Response.json({

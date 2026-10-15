@@ -28,7 +28,7 @@ export type Scope =
   | { kind: 'default' }
   | { kind: 'call_contract'; contract: string }
   | { kind: 'create_contract'; wasmHash: string }
-export interface Cap {
+export interface RollingTotal {
   amount: string
   periodLedgers: number
 }
@@ -40,7 +40,7 @@ export interface ObservedRule {
   policies: string[]
   /** The stored predicate, for a rule our interpreter polices. */
   expr?: Expr
-  cap?: Cap
+  cap?: RollingTotal
 }
 /** The rule about to be installed. */
 export type Intended = Pick<ObservedRule, 'scope' | 'signers' | 'cap'> & { expr: Expr }
