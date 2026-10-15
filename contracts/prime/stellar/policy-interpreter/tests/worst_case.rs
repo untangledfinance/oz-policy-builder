@@ -4,10 +4,13 @@
 //! whatever the verdict: a rule that installs and then cannot run is a rule that
 //! can never permit, and the leaf budget is what is meant to rule that out.
 //!
-//! The wasm is built, not rebuilt, here: run
-//! `cargo build --release --target wasm32v1-none` first (or set `G7_WASM`). With
-//! no wasm the test skips. `cargo test --release --test worst_case -- --nocapture`
-//! prints the table.
+//! The wasm is built, not rebuilt, here, and the test FAILS without one (a skip
+//! proves nothing). Build it first: `./build-wasm.sh` (or `cargo build --release
+//! --target wasm32v1-none`), then `cargo test --release --test worst_case --
+//! --nocapture` prints the table. It reads
+//! `$CARGO_TARGET_DIR/wasm32v1-none/release/policy_interpreter.wasm`, or `G7_WASM`.
+//! `G7_SKIP_WORST_CASE=1` skips it on purpose (a plain `cargo test` without a
+//! wasm). A wasm older than the source is not detected: build before running.
 
 extern crate alloc;
 
@@ -158,6 +161,27 @@ fn cases() -> StdVec<Case> {
             cmp("eq", arg(0), list(640, |_| nest(3, ScVal::Void))),
         ]),
         alloc::vec![num(1)],
+    );
+
+    add(
+        "in over 32 bare vecs of 246 voids",
+        and(&[
+            advance(),
+            set(
+                "in",
+                arg(0),
+                &(0..32).map(|_| voids(246)).collect::<StdVec<_>>(),
+            ),
+        ]),
+        alloc::vec![num(1)],
+    );
+    add(
+        "bare vec of 7,800 voids as a map-key step",
+        and(&[
+            advance(),
+            cmp("eq", path(&[ScVal::U32(0), voids(7_800)]), num(5)),
+        ]),
+        alloc::vec![tup(&[num(5)])],
     );
 
     // constants compared once per element of a quantifier body
@@ -446,7 +470,14 @@ fn run(code: &[u8], case: &Case) -> (Result<(), u32>, u64, u64, (u64, u64)) {
 #[test]
 fn the_largest_rules_stay_inside_the_transaction_limits() {
     let Some(code) = wasm() else {
-        eprintln!("worst_case: no wasm (cargo build --release --target wasm32v1-none); skipped");
+        // A skipped run is a run that proves nothing, so it is an error unless
+        // the environment says the wasm is deliberately absent.
+        assert!(
+            std::env::var("G7_SKIP_WORST_CASE").is_ok_and(|v| v == "1"),
+            "worst_case: no wasm. Build it (./build-wasm.sh, or cargo build --release \
+             --target wasm32v1-none), point G7_WASM at it, or set G7_SKIP_WORST_CASE=1"
+        );
+        eprintln!("worst_case: skipped (G7_SKIP_WORST_CASE=1)");
         return;
     };
     let (mut cpu_max, mut mem_max) = (0, 0);

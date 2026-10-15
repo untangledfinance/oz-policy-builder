@@ -221,10 +221,12 @@ one, without a rule per length.
   what its bytes cost, not what its length would.
 - **Worst case.** `tests/worst_case.rs` installs the largest rules each audit lens
   could build into the real wasm and asserts `enforce` (and install) stay under
-  both limits. The measured worst case without reads is **47M instructions
-  (12% of the limit)** for a 31.8 KB bare vec constant of 7,900 elements
-  (each element is checked, about 6k instructions apiece), then 31M for 100
-  compares over 8-step map-key paths and 25M for 198 leaves of 8-step vec paths;
+  both limits. The measured worst case without reads is **48M instructions
+  (12% of the limit)**: a 31.8 KB bare vec constant of 7,900 elements costs 47M
+  (each element is checked, about 6k instructions apiece), an `in` over 32 bare
+  vecs of 246 elements 48M, and a 7,800-element bare vec as a map-key step 47M;
+  then 28M for 100 compares over 8-step map-key paths and 25M for 198 leaves of
+  8-step vec paths;
   quantifier bodies over a 31 KB constant cost 4-8M, and six `sum`s over 32
   elements 10M. The worst memory without reads is **1.7 MB (4% of the limit)**.
   Memory is spent only where a value is serialised to be compared, and the
