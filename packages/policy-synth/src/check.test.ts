@@ -628,3 +628,25 @@ describe('what counts as a verdict', () => {
     )
   })
 })
+
+describe('a length bound is never allocated', () => {
+  const at = (n: number) => ({ contract: C, fn: 'f', args: [[1]] as Val[] })
+  const big = (op: string, n: number) => denyCases([[op, ['call_arg_len', 0], n]], at(n))
+
+  it('a bound of ten million (or the u32 maximum) derives no case, at once, in little memory', () => {
+    const before = process.memoryUsage().rss
+    const t = performance.now()
+    for (const op of ['lte', 'lt', 'gte', 'gt', 'eq'])
+      for (const n of [10_000_000, 4_294_967_295]) expect(big(op, n)).toEqual([])
+    expect(performance.now() - t).toBeLessThan(200)
+    expect(process.memoryUsage().rss - before).toBeLessThan(100 * 1024 * 1024)
+  })
+
+  it('a bound within reach still derives a vec just over it, and only that long', () => {
+    const [c] = big('lte', 3)
+    expect(c?.call.args[0]).toHaveLength(4)
+    const edge = big('lte', 255)[0]
+    expect(edge?.call.args[0]).toHaveLength(256)
+    expect(big('lte', 256)).toEqual([]) // one past what a case may grow to
+  })
+})

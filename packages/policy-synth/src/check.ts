@@ -124,7 +124,7 @@ function stepsOf(sel: Val): Val[] | undefined {
 function target(
   call: Call,
   sel: Val
-): { get: () => Val | undefined; set: (v: Val) => Call } | undefined {
+): { get: () => Val | undefined; set: (v: Val) => Call | undefined } | undefined {
   if (!isSel(sel)) return undefined
   const head = sel[0]
   if (head === 'call_contract')
@@ -133,7 +133,13 @@ function target(
   const steps = stepsOf(sel)
   if (!steps) return undefined
   const get = (): Val | undefined => walk(call.args, steps)
-  return { get, set: (v) => ({ ...call, args: put(call.args, steps, v) as Val[] }) }
+  return {
+    get,
+    set: (v) => {
+      const args = put(call.args, steps, v)
+      return args === undefined ? undefined : { ...call, args: args as Val[] }
+    },
+  }
 }
 
 function walk(v: Val | undefined, steps: Val[]): Val | undefined {
@@ -147,23 +153,33 @@ function walk(v: Val | undefined, steps: Val[]): Val | undefined {
   }, v)
 }
 
-function put(v: Val, steps: Val[], x: Val): Val {
+/** The longest vec a deny case grows to: a bound is tool input, so a case is never
+ *  built from it unchecked (a length of ten million is not a request). */
+const MAX_GROW = 256
+
+/** `v` with `x` at `steps`, or undefined when that cannot be built. */
+function put(v: Val, steps: Val[], x: Val): Val | undefined {
   const [s, ...rest] = steps
   if (s === undefined) return x
   if (s === true && Array.isArray(v)) {
     const n = Number(big(x))
-    return Array.from({ length: n }, (_, i) => v[i] ?? v[v.length - 1] ?? 0)
+    return n >= 0 && n <= MAX_GROW
+      ? Array.from({ length: n }, (_, i) => v[i] ?? v[v.length - 1] ?? 0)
+      : undefined
   }
-  if (Array.isArray(v) && typeof s === 'number')
-    return v.map((e, i) => (i === s ? put(e, rest, x) : e))
-  if (isObj(v) && 'map' in v) {
-    return {
-      map: (v.map as [Val, Val][]).map(
-        ([k, e]) => [k, same(k, unlit(s)) ? put(e, rest, x) : e] as [Val, Val]
-      ),
-    }
+  let failed = false
+  const into = (e: Val): Val => {
+    const r = put(e, rest, x)
+    failed ||= r === undefined
+    return r as Val
   }
-  return v
+  const out: Val =
+    Array.isArray(v) && typeof s === 'number'
+      ? v.map((e, i) => (i === s ? into(e) : e))
+      : isObj(v) && 'map' in v
+        ? { map: (v.map as [Val, Val][]).map(([k, e]) => [k, same(k, unlit(s)) ? into(e) : e]) }
+        : v
+  return failed ? undefined : out
 }
 
 /** A value of `v`'s type that is not `v`. */
