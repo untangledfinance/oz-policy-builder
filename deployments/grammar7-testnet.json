@@ -1,0 +1,21 @@
+{
+  "network": "testnet",
+  "recorded": "2026-10-15T09:50:00.000Z",
+  "deployer": "GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB",
+  "grammar": 7,
+  "interpreter": "CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB",
+  "wasmHashes": {
+    "interpreter": "eb1ec6ee8dca82622b9e70a04599b7ceeea9dc89f5917293ca76fb2c51af37b3"
+  },
+  "interpreterSource": {
+    "commit": "4e7d382",
+    "reproducibleWasmSha256": "eb1ec6ee8dca82622b9e70a04599b7ceeea9dc89f5917293ca76fb2c51af37b3",
+    "note": "Built with ./build-wasm.sh on Linux x86_64 (rust 1.97.1). Testnet only: this is the grammar-7 interpreter with the read-only `check` entry point, deployed so the off-chain builder's simulate and verify can be exercised live. No mainnet deployment, and nothing else deployed was touched."
+  },
+  "uploadTx": {
+    "interpreter": "09abcd93bb790608d2a8c1df0b7dea305cd4e97ad4af4b8eb9ce221a1bbac6d9"
+  },
+  "createTx": "57d7f36aed4d9f18b6b4496941245e8e227e269a05e551e35d70548f8f3ebb90",
+  "sizes": { "interpreter": 59364 },
+  "note": "Grammar 7 interpreter, testnet only. The deployer is a throwaway identity funded by friendbot. The pin in packages/policy-synth/src/config.ts names this address."
+}
