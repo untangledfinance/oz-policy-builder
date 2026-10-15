@@ -65,6 +65,8 @@ Breaking changes to callers:
 | Intent rules `{ "rule": "cap", ... }`, type `Rule` | Intent constraints `{ "constraint": "cap", ... }`, type `Constraint` ("rule" had four meanings: this, the OZ context rule, the predicate, the install draft) |
 | MCP: an unknown input key was dropped | refused, as `run` and the CLI do (over MCP as a JSON-RPC `-32602` protocol error, not the tool envelope) |
 | `revoke_policy` removed any rule, described only as `args: [id]` | reads the rule and returns it as `removes`; rule 0 and Default-scoped rules need `allowAdminRule` |
+| `revoke_policy` guarded rule 0 and Default scope only | also a rule scoped to the account itself |
+| A neighbour with its own spend cap and a tighter predicate was `review` beside a new `spendingLimit` | refused (`rolling`): caps accumulate per rule |
 | `baseFee` unbounded | at most 10,000,000 stroops |
 | CLI `--limit 100` | was refused (parsed as a number); a number stays a string where the tool takes one |
 | `import { ... } from '@crediolabs/policy-synth'` (61 names) | 19 names: `TOOLS`, `run`, the codec, `card`, the pins, `Refusal`; the builders, the scan and the deny-case derivation are internal |

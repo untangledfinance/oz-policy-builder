@@ -39,7 +39,7 @@ Every verdict from `simulate_policy` and `verify_policy` is the interpreter's ow
 | User intent | Call |
 | --- | --- |
 | Cap a key, built from a transaction they point at | `synthesize_policy` with `hash` (or `xdr`). Its `ambiguities` ask for the cap: answer with `limit` (every amount) or `limits` (`{ "amount": "..." }`, by argument name or position). Then `verify_policy` with the same source, then `install_policy` with that source, `signers` and the same answers |
-| State a constraint outright, with no transaction | `synthesize_policy` with an `intent`: `{ calls: [{ contract, fn, where: [rules] }] }`. A rule is `pin`, `not`, `allow`, `deny`, `cap`, `floor`, `length`, `minOut`, `each`, `some`, `total`, `read`, `until` or `from`; `at` is a path into the arguments (`[2]` the third argument, `[3, 0, "amount"]` the `amount` of the first element of the fourth) |
+| State a constraint outright, with no transaction | `synthesize_policy` with an `intent`: `{ calls: [{ contract, fn, where: [constraints] }] }`; each constraint is `{ "constraint": "cap", "at": [2], "max": "100" }`, the `constraint` key naming one of `pin`, `not`, `allow`, `deny`, `cap`, `floor`, `length`, `minOut`, `each`, `some`, `total`, `read`, `until` or `from` (not a `rule` key); `at` is a path into the arguments (`[2]` the third argument, `[3, 0, "amount"]` the `amount` of the first element of the fourth) |
 | A mandate with parameters | `synthesize_policy` with `template: { name: "adapter_batch" \| "blend_venue", params }` |
 | Check a policy before installing it | `verify_policy` with `encodedPredicate` (or `expr`) and the call that must be permitted (`call`, or `hash`/`xdr`) |
 | Ask what one call would do | `simulate_policy`: the predicate and `calls` |
@@ -92,7 +92,9 @@ user thinks. They are the reason to read a result rather than skim it.
 
 - **`verify_policy: ok` is not "this does what you asked".** Its deny cases are
   derived from the predicate's own constraints, so a MISSING constraint produces
-  no test that could fail. It means the interpreter agrees the predicate permits
+  no test that could fail. **`ok` without `complete: true` does not prove every limit**: `untested` lists what nothing was
+  tried against (a swap's spend cap can sit there while `ok` is true), so read `complete`, and
+  treat anything `untested` as unchecked. It means the interpreter agrees the predicate permits
   the call and refuses each way of breaking each constraint, not that it
   expresses the intent. `ok` also needs every branch of an `or` (nested ones included, which
   have no case of their own and make it not `ok`) to have been taken by a

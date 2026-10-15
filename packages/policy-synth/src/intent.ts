@@ -1,13 +1,13 @@
 // An Intent says which calls a rule lets through and what each argument must
 // satisfy; `intentExprs` lowers it to wire expressions, one per contract (a rule
 // is scoped to one contract, and the interpreter refuses a Default scope). It is
-// the one place a rule is written down: a recording becomes an Intent
+// the one place a rule's conditions are written down: a recording becomes an Intent
 // (`synth.ts`), a declaration is one, and a template (`registry.ts`) returns one.
 //
-// A rule's `at` is a path into the call's arguments: a number indexes a vec (the
+// A constraint's `at` is a path into the call's arguments: a number indexes a vec (the
 // first is the argument), a string keys a map. Inside `each` and `some` the path
-// is relative to the element. Lowering is a table, one row per rule: a new rule
-// is a new row, not new code.
+// is relative to the element. Lowering is a table, one row per constraint: a new
+// constraint is a new row, not new code.
 
 import { type Expr, intOf, type Val } from './wire.ts'
 
@@ -110,7 +110,7 @@ export function lower(r: Constraint, body = false): Expr {
   return row(r, body)
 }
 
-/** `call_contract` and `call_fn` pinned, then the rules, in the order written. */
+/** `call_contract` and `call_fn` pinned, then the constraints, in the order written. */
 export function callExpr(c: CallIntent): Expr {
   return and([
     ['eq', ['call_contract'], c.contract],

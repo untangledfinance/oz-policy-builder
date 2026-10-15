@@ -444,6 +444,17 @@ describe('planRevoke: the only destructive tool reads what it removes', () => {
     expect(ok.removes.id).toBe(0)
   })
 
+  it('refuses a rule scoped to the account itself too: it authorises add_context_rule, so it is an admin rule', async () => {
+    const own = rule({ id: 4, scope: { kind: 'call_contract', contract: ACCOUNT } })
+    await expect(planRevoke({ ...input, ruleId: 4 }, chain(own))).rejects.toThrow(
+      /scoped to the account/
+    )
+    const ok = await planRevoke({ ...input, ruleId: 4, allowAdminRule: true }, chain(own))
+    expect(ok.removes.id).toBe(4)
+    // Scoped to another contract it is an ordinary rule.
+    expect((await planRevoke({ ...input, ruleId: 4 }, chain(rule({ id: 4 })))).removes.id).toBe(4)
+  })
+
   it("a rule that is not there is the build's own refusal, not an empty description", async () => {
     const failing: RevokeChain = {
       readRule: async () => undefined,

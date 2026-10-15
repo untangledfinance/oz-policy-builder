@@ -270,7 +270,7 @@ export interface RevokeChain {
  *  Default-scoped rule can leave the account with nothing able to authorise its own
  *  administration, for good: refused unless `allowAdminRule`. */
 export async function planRevoke(
-  i: { ruleId: number; allowAdminRule?: boolean | undefined },
+  i: { ruleId: number; smartAccount: string; allowAdminRule?: boolean | undefined },
   chain: RevokeChain
 ) {
   const [rule, built] = await Promise.allSettled([chain.readRule(i.ruleId), chain.build(i.ruleId)])
@@ -280,10 +280,12 @@ export async function planRevoke(
     if (built.status === 'rejected') throw built.reason
     throw new Refusal('REVOKE_BUILD_FAILED', `the account has no rule ${i.ruleId}`)
   }
-  if (!i.allowAdminRule && (i.ruleId === 0 || removes.scope.kind === 'default')) {
+  // Rule 0, a Default scope, and a scope on the account itself (it authorises add_context_rule).
+  const own = removes.scope.kind === 'call_contract' && removes.scope.contract === i.smartAccount
+  if (!i.allowAdminRule && (i.ruleId === 0 || removes.scope.kind === 'default' || own)) {
     throw new Refusal(
       'REVOKE_BUILD_FAILED',
-      `rule ${i.ruleId} is ${removes.scope.kind === 'default' ? 'Default-scoped' : "the account's first rule"}: removing it can lock the account out of its own administration for good. Set allowAdminRule to build it anyway.`
+      `rule ${i.ruleId} is ${removes.scope.kind === 'default' ? 'Default-scoped' : own ? 'scoped to the account itself' : "the account's first rule"}: removing it can lock the account out of its own administration for good. Set allowAdminRule to build it anyway.`
     )
   }
   if (built.status === 'rejected') throw built.reason
