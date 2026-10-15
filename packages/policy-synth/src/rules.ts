@@ -41,6 +41,8 @@ export interface ObservedRule {
   policies: string[]
   /** The stored predicate, for a rule our interpreter polices. */
   expr?: Expr
+  /** Our interpreter polices it, but its stored predicate could not be read (or decoded). */
+  unreadable?: boolean
   cap?: RollingTotal
 }
 /** The rule about to be installed. */
@@ -103,14 +105,21 @@ export async function readRule(
   }
   const f = fields(raw)
   if (f.id === undefined) return undefined
+  // An account that answers for another rule than it was asked for is not read.
+  if (f.id !== id)
+    throw new Refusal('SIMULATION_ERROR', `rule ${id}: the account answered for rule ${f.id}`)
   const rule: ObservedRule = {
     id: f.id as number,
     scope: scopeOf(f.context_type as Val),
     signers: (f.signers as Val[]).map(signerKey),
     policies: f.policies as string[],
   }
-  // Its predicate too, when `interpreter` polices it; a rule read for what it says, so a failure is no answer.
-  if (interpreter) await readPredicates(server, interpreter, account, [rule]).catch(() => [])
+  // Its predicate too, when `interpreter` polices it; a rule read only to be described is not
+  // refused over it, but says so.
+  if (interpreter) {
+    const lost = await readPredicates(server, interpreter, account, [rule]).catch(() => [id])
+    if (lost.length > 0) rule.unreadable = true
+  }
   return rule
 }
 

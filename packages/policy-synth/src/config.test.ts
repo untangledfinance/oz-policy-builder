@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'bun:test'
+import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
 import { StrKey } from '@stellar/stellar-sdk'
 import {
   GRAMMAR_VERSION,
   INTERPRETER,
   INTERPRETERS,
+  OZ_ACCOUNT_WASM,
   POLICY_CONTRACTS,
   SPENDING_LIMIT,
 } from './config.ts'
@@ -72,5 +74,21 @@ describe('the OZ policies we deployed are policy contracts no rule may be scoped
 
   it('and so is the grammar-4 testnet interpreter the README lists', () => {
     expect(INTERPRETERS.has('CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5')).toBe(true)
+  })
+})
+
+describe('the smart-account builds a review will read', () => {
+  const record = JSON.parse(read('deployments/oz-accounts.json'))
+  it('are the deployment record, and the example account this repo ships', () => {
+    expect([...OZ_ACCOUNT_WASM].sort()).toEqual(Object.values(record.wasmSha256).sort())
+    const wasm = readFileSync(
+      new URL(
+        'contracts/prime/stellar/policy-interpreter/tests/fixtures/multisig_account_example.wasm',
+        root
+      )
+    )
+    expect(createHash('sha256').update(wasm).digest('hex')).toBe(
+      record.wasmSha256.multisig_account_example
+    )
   })
 })

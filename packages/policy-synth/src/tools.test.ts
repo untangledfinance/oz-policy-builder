@@ -196,6 +196,31 @@ describe('record_transaction: the other network is asked only when neither endpo
   })
 })
 
+describe('explainAccount reads only an account that runs a known OpenZeppelin build', () => {
+  it('a contract that is not one answers with whatever rules it likes, so none is read', async () => {
+    // The pinned interpreter standing in for an account: its code is not a smart account's.
+    const pin = 'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV'
+    const fake = fakeInterpreter(
+      pin,
+      'a975353d1c3fe5bb096c4c2bf90c7c96932df10b95c9bcfa0adbb1d2146773f1'
+    )
+    const undo = pointAt('testnet', `http://127.0.0.1:${fake.port}`)
+    try {
+      const r = await failing(
+        'get_interpreter_info',
+        { explainAccount: pin },
+        'INVALID_INPUT',
+        /known OpenZeppelin smart account build/
+      )
+      expect(r.error.message).toContain('a975353d')
+      expect(fake.asked.filter((m) => m.startsWith('simulate get_context'))).toEqual([])
+    } finally {
+      undo()
+      fake.stop()
+    }
+  })
+})
+
 describe('get_interpreter_info explainAccount: only a trusted interpreter is read from', () => {
   it('an untrusted build named for a network with no pin is refused before any rule is read', async () => {
     const fake = fakeInterpreter(contract(3), 'cd'.repeat(32))
@@ -395,6 +420,34 @@ describe('simulate_policy', () => {
     const r = await call('simulate_policy', { encodedPredicate: encodedRule, xdr: transferXdr() })
     expect(r.data.results[0].permitted).toBe(true)
     expect(r.data.review[0]).toBe(`${TOKEN.slice(0, 4)}…${TOKEN.slice(-4)}`)
+  })
+
+  it('a source with no calls is refused, even beside a predicate (only a bare predicate is explained)', async () => {
+    const intent = { calls: [{ contract: TOKEN, fn: 'pay' }] }
+    await failing('simulate_policy', { expr: rule, intent }, 'INVALID_INPUT', /no call to check/)
+  })
+
+  it('explaining a predicate needs no interpreter: a network with none pinned is fine', async () => {
+    const undo = pointAt('mainnet', 'http://127.0.0.1:9')
+    try {
+      const r = (await run('simulate_policy', { network: 'mainnet', expr: rule })) as Out
+      expect(r.ok).toBe(true)
+      expect(r.data.review.at(-1)).toBe('   └─ argument 2:  must be at most  9000000')
+    } finally {
+      undo()
+    }
+  })
+
+  it("names come from the predicate's own pins, never from a contract the request merely names", async () => {
+    const bare = [
+      'and',
+      [
+        ['eq', ['call_fn'], 'transfer'],
+        ['lte', ['call_arg', 2], { i128: '5' }],
+      ],
+    ]
+    const r = await call('simulate_policy', { expr: bare, contract: TOKEN })
+    expect(r.data.review).toEqual(['transfer', '└─ argument 2:  must be at most  5'])
   })
 
   it('a call over the cap is denied with 100', async () => {

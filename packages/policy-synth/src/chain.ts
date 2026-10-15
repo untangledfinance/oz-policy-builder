@@ -175,19 +175,25 @@ export async function fingerprint(
   network: Network,
   address: string
 ): Promise<Fingerprint> {
-  const instance = dataKey(address, xdr.ScVal.scvLedgerKeyContractInstance())
-  const [version, got] = await Promise.all([
+  const [version, wasmSha256] = await Promise.all([
     read(server, network, address, 'grammar_version'),
-    server.getLedgerEntries(instance),
+    codeHash(server, address),
   ])
-  const exec = got.entries[0]?.val.contractData().val().instance().executable()
-  if (exec?.switch().name !== 'contractExecutableWasm') {
+  if (wasmSha256 === undefined)
     throw new Refusal('INTERPRETER_MISMATCH', `${address} is not a wasm contract on ${network}`)
-  }
   const grammarVersion = Number(version.u32())
-  const wasmSha256 = Buffer.from(exec.wasmHash()).toString('hex')
   const matches = grammarVersion === GRAMMAR_VERSION && INTERPRETER_WASM.has(wasmSha256)
   return { address, grammarVersion, wasmSha256, matches }
+}
+
+/** The sha256 of the wasm `address` runs (its instance entry's executable), or undefined when
+ *  it is not a wasm contract (a Stellar Asset Contract, or nothing at all). */
+export async function codeHash(server: rpc.Server, address: string): Promise<string | undefined> {
+  const instance = dataKey(address, xdr.ScVal.scvLedgerKeyContractInstance())
+  const exec = (await entries(server, [instance]))[0]?.instance().executable()
+  return exec?.switch().name === 'contractExecutableWasm'
+    ? Buffer.from(exec.wasmHash()).toString('hex')
+    : undefined
 }
 
 /** The refusal for an interpreter that is not a trusted build. */

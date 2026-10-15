@@ -10,6 +10,7 @@ import {
   implies,
   type ObservedRule,
   overlaps,
+  readRule,
   readRules,
   selectors,
   signerKey,
@@ -441,6 +442,22 @@ describe('readRules, against a stub account', () => {
     }
     return { server: server as unknown as rpc.Server, asked }
   }
+
+  it('an account that answers for another rule than it was asked for is not read', async () => {
+    const { server } = stub({ 3: ruleVal(7) }, 1)
+    await expect(readRule(server, 'testnet', ACC, 3)).rejects.toThrow(/answered for rule 7/)
+    await expect(readRules(server, 'testnet', ACC, INTERP)).rejects.toThrow()
+  })
+
+  it('a rule read to be described says so when its predicate cannot be read, and is not refused', async () => {
+    const { server } = stub({ 1: ruleVal(1, [INTERP]) }, 1)
+    // The ledger holds no stored predicate for it.
+    expect(await readRule(server, 'testnet', ACC, 1, INTERP)).toMatchObject({
+      id: 1,
+      unreadable: true,
+    })
+    expect(await readRule(server, 'testnet', ACC, 1)).not.toHaveProperty('unreadable')
+  })
 
   it('walks ids upward until every live rule is found, across gaps and batches', async () => {
     const { server, asked } = stub(

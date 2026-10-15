@@ -5,7 +5,7 @@
 import { afterAll, describe, expect, it, setDefaultTimeout } from 'bun:test'
 import { account } from '../test/fixtures.ts'
 import { recorded } from '../test/rpc.ts'
-import { run } from './tools.ts'
+import { explain, run } from './tools.ts'
 
 setDefaultTimeout(30_000)
 const net = recorded('spec')
@@ -100,13 +100,20 @@ describe('names from the network', () => {
         ['lte', ['call_arg', 2], { i128: '10000000' }],
       ],
     ]
-    const data = await ask('simulate_policy', { expr, contract: XLM })
-    expect(data.review).toEqual([
+    const [shown] = await explain({ network: 'testnet' }, [{ expr: expr as never, contract: XLM }])
+    expect(shown?.review).toEqual([
       `${short(XLM)}  (token)`,
       '└─ transfer(from, to, amount)',
       '   └─ amount:  must be at most  1 native (10000000)',
     ])
-    expect(data.reviewTree[0]).toMatchObject({ op: 'contract', raw: null, value: XLM })
+    expect(shown?.reviewTree[0]).toMatchObject({ op: 'contract', raw: null, value: XLM })
+  })
+
+  it('a review that cannot be made is said so and never fails the tool', async () => {
+    const [shown] = await explain({ network: 'testnet' }, [
+      { expr: ['eq', ['call_arg', 0], undefined] as never },
+    ])
+    expect(shown).toEqual({ review: ['(this predicate could not be described)'], reviewTree: [] })
   })
 
   it('an abort of the request leaves the plain wording: the names are not worth waiting for', async () => {

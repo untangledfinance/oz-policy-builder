@@ -5,6 +5,9 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import pkg from '../package.json' with { type: 'json' }
 import { createMcpServer, VERSION } from '../src/server.ts'
 
+// Hermetic: the review's best-effort name fetch meets a closed loopback port, never the public RPC.
+process.env.POLICY_BUILDER_RPC_URL_TESTNET = 'http://127.0.0.1:9'
+
 async function client() {
   const [a, b] = InMemoryTransport.createLinkedPair()
   await createMcpServer().connect(b)

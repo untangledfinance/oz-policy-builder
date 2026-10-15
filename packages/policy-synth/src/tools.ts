@@ -11,6 +11,7 @@ import { StrKey } from '@stellar/stellar-sdk'
 import { z } from 'zod'
 import { contractsOf, lines, tree } from './card.ts'
 import {
+  codeHash,
   connect,
   type Endpoint,
   ensureInterpreter,
@@ -20,7 +21,13 @@ import {
   rpcOverride,
 } from './chain.ts'
 import { MAX_CHECKS, runChecks, verifyRule } from './check.ts'
-import { GRAMMAR_VERSION, INTERPRETER, INTERPRETER_WASM, type Network } from './config.ts'
+import {
+  GRAMMAR_VERSION,
+  INTERPRETER,
+  INTERPRETER_WASM,
+  type Network,
+  OZ_ACCOUNT_WASM,
+} from './config.ts'
 import { type ErrorCode, messageOf, Refusal, type ToolResponse } from './envelope.ts'
 import {
   buildInstall,
@@ -52,7 +59,7 @@ const net = {
   network: z.enum(['mainnet', 'testnet']).default('testnet'),
 }
 /** `raw`: the review shows full addresses, raw values and where each name came from on the wire. */
-const view = { raw: z.boolean().optional() }
+const display = { raw: z.boolean().optional() }
 /** Stroops per operation: the cap keeps a bad caller from handing a wallet an absurd fee to bid. */
 const baseFee = z.number().int().positive().max(10_000_000).optional()
 const account = z.string().refine(StrKey.isValidEd25519PublicKey, 'a G... account')
@@ -291,7 +298,7 @@ const present = (r: ReturnType<typeof propose>[number]) => ({
 /** The review of each predicate: its tree and the text of it. Contracts are named from their
  *  interfaces (read once each, within seconds, and never a reason for a tool to fail), and
  *  addresses from the request's own words for them. */
-async function explain(
+export async function explain(
   i: Endpoint & { raw?: boolean | undefined; allow?: Record<string, string[]> | undefined } & {
     [k in 'smartAccount' | 'sourceAccount' | 'admins' | 'signers']?: string | string[] | undefined
   },
@@ -372,7 +379,7 @@ const record_transaction = tool(
 const synthesize_policy = tool(
   'synthesize_policy',
   'Turn a transaction, a recording, an intent (the calls to allow, with per-argument constraints (`{constraint: "cap", at, max}`): pin, allow, deny, cap, floor, length, minOut, each, some, total, read, until, from) or a template (adapter_batch, blend_venue) into rules: one per contract, each with its predicate (a wire expression), its encoding and hash, and a plain-language review. `ambiguities` are questions whose answers change what is permitted (usually the cap on an amount: answer with `limit`, `limits` or `allow`); `warnings` say what is left open.',
-  { ...net, ...view, ...from },
+  { ...net, ...display, ...from },
   async (i, signal) => {
     const s = await sourceOf(i)
     const rules = propose(s.intent)
@@ -389,7 +396,7 @@ const synthesize_policy = tool(
 
 const predicateInput = {
   ...net,
-  ...view,
+  ...display,
   ...from,
   interpreterAddress: contractId.optional(),
   /** Which rule, when the source covers more than one contract. */
@@ -400,7 +407,7 @@ const predicateInput = {
 }
 
 /** The predicate and the calls a simulate or verify is about. */
-async function subject(i: z.infer<z.ZodObject<typeof predicateInput>>, signal?: AbortSignal) {
+async function subject(i: z.infer<z.ZodObject<typeof predicateInput>>) {
   const hasSource = SOURCES.some((k) => (i as Record<string, unknown>)[k] !== undefined)
   const src = hasSource ? await sourceOf(i) : undefined
   const pred = i.expr !== undefined || i.encodedPredicate !== undefined ? given(i) : undefined
@@ -417,9 +424,10 @@ async function subject(i: z.infer<z.ZodObject<typeof predicateInput>>, signal?: 
     expr,
     encoded,
     calls: calls as Call[],
-    /** Only the predicate was given: it is explained, nothing is checked. */
-    explainOnly: pred !== undefined && calls.length === 0,
-    review: explain(i, [{ expr, contract: rule?.contract ?? i.contract }], signal),
+    /** Only a predicate was given, no source and no calls: it is explained, nothing is checked. */
+    explainOnly: pred !== undefined && !hasSource && i.calls === undefined,
+    /** What names it: its own pins, and the contract of the rule a source made. */
+    item: { expr, contract: rule?.contract },
   }
 }
 
@@ -428,16 +436,21 @@ const simulate_policy = tool(
   `Say whether a predicate permits each of some calls, and if not with which deny code. Give the predicate (\`expr\` or \`encodedPredicate\`, or a source to build it from) and the calls (\`calls\`, or the recorded ones). With a predicate and no call it only explains the predicate. The answer carries \`review\` (the rule as a text tree) and \`reviewTree\` (the same as nodes, each with the wire \`raw\` it was read from); names and labels are display only. ${CHECKED}`,
   predicateInput,
   async (i, signal) => {
-    const s = await subject(i, signal)
+    const s = await subject(i)
     if (s.calls.length === 0 && !s.explainOnly)
       throw new Refusal('INVALID_INPUT', 'no call to check: give `calls` or a recording')
-    const [server, interpreter] = [connect(i), interpreterFor(i.network, i.interpreterAddress)]
-    if (s.calls.length > 0) await ensureInterpreter(server, i.network, interpreter)
-    const verdicts = await runChecks(server, i.network, interpreter, s.encoded, s.calls, signal)
+    let verdicts: Awaited<ReturnType<typeof runChecks>> = []
+    if (s.calls.length > 0) {
+      const [server, interpreter] = [connect(i), interpreterFor(i.network, i.interpreterAddress)]
+      await ensureInterpreter(server, i.network, interpreter)
+      verdicts = await runChecks(server, i.network, interpreter, s.encoded, s.calls, signal)
+    }
+    // The review comes after the verdicts: it never competes with them for the network.
+    const [shown] = await explain(i, [s.item], signal)
     return {
       predicateHash: hashOf(s.encoded),
       results: s.calls.map((c, n) => ({ call: c, ...verdicts[n] })),
-      ...(await s.review)[0],
+      ...shown,
     }
   }
 )
@@ -447,7 +460,7 @@ const verify_policy = tool(
   `Check a predicate against a call it must permit: the call must pass, every constraint is turned against the call and must refuse it, and each conjunct is dropped in turn to see the call it guards get through (minimality). Give the call that must be permitted as \`call\`, or one per branch of an \`or\` as \`calls\` (or a recording). \`ok\` WITHOUT \`complete: true\` does not prove every limit (a swap's spend cap can be \`untested\` while \`ok\` is true): always read \`complete\`. \`ok\` needs every call permitted, every deny case refused, and every branch of an \`or\` taken by a call; a conjunct holding a nested \`or\` that nothing was tried against makes it not \`ok\`. \`complete\` also needs nothing \`untested\`; \`redundant\` lists exact duplicates only. ${CHECKED} At most 64 calls are made in all (a length bound above 255 derives no case), a few at a time.`,
   { ...predicateInput, call: call.optional() },
   async (i, signal) => {
-    const s = await subject(i, signal)
+    const s = await subject(i)
     const permits = i.call ? [i.call as Call] : s.calls
     if (permits.length === 0)
       throw new Refusal(
@@ -456,11 +469,9 @@ const verify_policy = tool(
       )
     const [server, interpreter] = [connect(i), interpreterFor(i.network, i.interpreterAddress)]
     await ensureInterpreter(server, i.network, interpreter)
-    return {
-      predicateHash: hashOf(s.encoded),
-      ...(await verifyRule(server, i.network, interpreter, s.expr, permits, signal)),
-      ...(await s.review)[0],
-    }
+    const verified = await verifyRule(server, i.network, interpreter, s.expr, permits, signal)
+    const [shown] = await explain(i, [s.item], signal)
+    return { predicateHash: hashOf(s.encoded), ...verified, ...shown }
   }
 )
 
@@ -469,7 +480,7 @@ const install_policy = tool(
   "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`. `sourceAccount` must be a signer of the account's rule 0 (that rule authorises the install); `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The interpreter is checked live before anything is built: it must speak the grammar and run a trusted build (a pinned address, or on a network with none, an `interpreterAddress` whose code hash is one this package trusts). The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind; `allowOverlap: true` installs anyway. An unanswered amount cap is refused unless `allowUnboundedAmount`, and a swap's least output nothing sets unless `allowOpenSlippage`. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR; `outFile` (a bare file name) also writes it into the operator's `POLICY_BUILDER_OUT_DIR`, without replacing a file.",
   {
     ...net,
-    ...view,
+    ...display,
     ...from,
     contract: contractId.optional(),
     encodedPredicate: z.string().optional(),
@@ -525,9 +536,10 @@ const install_policy = tool(
       build: (draft, interpreter) => buildInstall({ ...i, server }, draft, interpreter),
     }
     const out = i.outFile === undefined ? undefined : outPathFor(i.outFile)
-    const shown = explain(i, [rule], signal)
     const plan = await planInstall(i, rule, chain)
-    const done = { ...plan, rule: { ...plan.rule, ...(await shown)[0] } }
+    // Only a rule that passed every refusal is described.
+    const [shown] = await explain(i, [rule], signal)
+    const done = { ...plan, rule: { ...plan.rule, ...shown } }
     return out === undefined ? done : { ...done, writtenTo: await writeNew(out, plan.unsignedXdr) }
   }
 )
@@ -565,7 +577,7 @@ const revoke_policy = tool(
   'Build the UNSIGNED transaction that removes a rule from a smart account (`remove_context_rule`); the account uninstalls each attached policy itself. The rule is read and returned as `removes`. Rule 0 and any Default-scoped rule are REFUSED (removing them can lock the account out of its own administration for good) unless `allowAdminRule` is set.',
   {
     ...net,
-    ...view,
+    ...display,
     smartAccount: contractId,
     sourceAccount: account,
     ruleId: z.number().int().nonnegative(),
@@ -580,12 +592,14 @@ const revoke_policy = tool(
       build: (id) => buildRevoke({ ...i, server }, id),
     })
     const r = plan.removes
-    const [shown] = r.expr ? await explain(i, [{ expr: r.expr, contract: scopeOf(r) }], signal) : []
+    const [shown] = r.expr
+      ? await explain(i, [{ expr: r.expr, contract: scopedContract(r) }], signal)
+      : []
     return { ...plan, removes: { ...r, ...shown } }
   }
 )
 
-const scopeOf = (r: ObservedRule) =>
+const scopedContract = (r: ObservedRule) =>
   r.scope.kind === 'call_contract' ? r.scope.contract : undefined
 
 /** The rules installed on an account, each with its review when this interpreter polices it. */
@@ -597,8 +611,17 @@ async function explainAccount(
 ) {
   const server = connect(i)
   await ensureInterpreter(server, i.network, interpreter)
+  // An account that runs other code can answer with any rule it likes: only a known build is read.
+  const code = await codeHash(server, account)
+  if (code === undefined || !OZ_ACCOUNT_WASM.has(code))
+    throw new Refusal(
+      'INVALID_INPUT',
+      `${account} does not run a known OpenZeppelin smart account build (code ${code ?? 'none'}): its rules are not read`
+    )
   const read = await readRules(server, i.network, account, interpreter, signal)
-  const mine = read.rules.flatMap((r) => (r.expr ? [{ expr: r.expr, contract: scopeOf(r) }] : []))
+  const mine = read.rules.flatMap((r) =>
+    r.expr ? [{ expr: r.expr, contract: scopedContract(r) }] : []
+  )
   const shown = await explain({ ...i, smartAccount: account }, mine, signal)
   let n = 0
   return { ...read, rules: read.rules.map((r) => ({ ...r, ...(r.expr ? shown[n++] : {}) })) }
@@ -609,7 +632,7 @@ const get_interpreter_info = tool(
   "The interpreter a network uses: its pinned address, grammar version and wasm sha256, the predicate caps, and with `verifyLive` what is deployed at that address right now (grammar_version() and the code hash) and whether it matches the pin. With `explainAccount` (a smart account) it also reads the account's rules and explains each one this interpreter polices (`review`, `reviewTree`).",
   {
     ...net,
-    ...view,
+    ...display,
     verifyLive: z.boolean().optional(),
     interpreterAddress: contractId.optional(),
     explainAccount: contractId.optional(),

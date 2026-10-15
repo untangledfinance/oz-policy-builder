@@ -5,6 +5,9 @@ import { join } from 'node:path'
 import { TOOLS } from '@crediolabs/policy-synth/run'
 import { main } from '../src/cli.ts'
 
+// Hermetic: the review's best-effort name fetch meets a closed loopback port, never the public RPC.
+process.env.POLICY_BUILDER_RPC_URL_TESTNET = 'http://127.0.0.1:9'
+
 const CONTRACT = 'CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526'
 async function cli(args: string[], stdin = '') {
   let out = ''
