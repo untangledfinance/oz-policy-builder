@@ -7,6 +7,9 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { RPC_URL } from '../src/config.ts'
 
 export const LIVE = process.env.OPB_LIVE === '1'
+/** Where a live run forwards: the operator's testnet endpoint if one is set when the suite starts
+ *  (read before any test points the tools at its own replay server), else the network's own. */
+const UPSTREAM = process.env.POLICY_BUILDER_RPC_URL_TESTNET ?? RPC_URL.testnet
 
 /** Point a network's endpoint at `url` for the process; returns the undo. */
 export function pointAt(network: 'testnet' | 'mainnet', url: string): () => void {
@@ -49,12 +52,18 @@ export function recorded(name: string) {
       const body = (await req.json()) as { id: number; method: string; params: unknown }
       const k = key(body)
       if (LIVE) {
-        const res = await fetch(RPC_URL.testnet, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(body),
-        })
-        const j = (await res.json()) as { result?: unknown; error?: unknown }
+        // An endpoint under load answers `null` or a non-JSON error now and then: ask again.
+        let j: { result?: unknown; error?: unknown } | null = null
+        for (let attempt = 0; j === null && attempt < 6; attempt++) {
+          if (attempt > 0) await Bun.sleep(250 * attempt)
+          const res = await fetch(UPSTREAM, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          }).catch(() => undefined)
+          j = ((await res?.json().catch(() => null)) ?? null) as typeof j
+        }
+        if (j === null) return new Response('upstream gave no answer', { status: 502 })
         store[k] = [...(store[k] ?? []), { result: slim(j.result), error: j.error }]
       }
       const tape = store[k] ?? []

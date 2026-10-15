@@ -599,7 +599,7 @@ const revoke_policy = tool(
     const [shown] = r.expr ? await describeRules(i, [r], signal) : []
     const skipped = (await trusted).known
       ? {}
-      : { reviewSkipped: notKnown(i.smartAccount, await trusted) }
+      : { reviewSkipped: notKnown(i.smartAccount, await trusted, UNVERIFIED) }
     return { ...plan, removes: { ...r, ...shown, ...skipped } }
   }
 )
@@ -630,10 +630,15 @@ async function trustedAccount(server: ReturnType<typeof connect>, account: strin
     return { code: undefined, known: false, unread: messageOf(e) }
   }
 }
-const notKnown = (account: string, t: Awaited<ReturnType<typeof trustedAccount>>) =>
-  t.unread === undefined
-    ? `${account} does not run a known OpenZeppelin smart account build (code ${t.code ?? 'none'}): its rules are not read`
-    : `could not read the account's code (${t.unread}): its rules are not read`
+const notKnown = (account: string, t: Awaited<ReturnType<typeof trustedAccount>>, tail: string) =>
+  `${
+    t.unread === undefined
+      ? `${account} does not run a known OpenZeppelin smart account build (code ${t.code ?? 'none'})`
+      : `could not read the account's code (${t.unread})`
+  }: ${tail}`
+/** What `revoke_policy` says of a rule it does not describe: what it still shows is the account's word. */
+const UNVERIFIED =
+  'its stored predicate is not described; scope, signers and policies are as the account reports them, unverified'
 
 /** The rules installed on an account, each with its review when this interpreter polices it. */
 async function explainAccount(
@@ -648,8 +653,10 @@ async function explainAccount(
   const trust = await trustedAccount(server, account)
   if (!trust.known)
     throw trust.unread === undefined
-      ? new Refusal('INVALID_INPUT', notKnown(account, trust))
-      : new Refusal('SIMULATION_ERROR', notKnown(account, trust), { retryable: true })
+      ? new Refusal('INVALID_INPUT', notKnown(account, trust, 'its rules are not read'))
+      : new Refusal('SIMULATION_ERROR', notKnown(account, trust, 'its rules are not read'), {
+          retryable: true,
+        })
   const read = await readRules(server, i.network, account, interpreter, signal)
   const shown = await describeRules(
     { ...i, smartAccount: account },

@@ -231,6 +231,23 @@ function accountBehind(answer: () => Response) {
 }
 
 describe('explainAccount reads only an account that runs a known OpenZeppelin build', () => {
+  it('an account with no code entry at all is refused as not a known build (code none), not retryable', async () => {
+    const through = accountBehind(() =>
+      Response.json({ jsonrpc: '2.0', id: 1, result: { latestLedger: 1, entries: [] } })
+    )
+    try {
+      const r = await failing(
+        'get_interpreter_info',
+        { explainAccount: ACCOUNT },
+        'INVALID_INPUT',
+        /code none/
+      )
+      expect(r.error.retryable).toBe(false)
+    } finally {
+      through.stop()
+    }
+  })
+
   it('a failure to read the account\'s code is a retryable read error, not "not a known build"', async () => {
     const through = accountBehind(() => new Response('no available server', { status: 503 }))
     try {
@@ -1163,6 +1180,26 @@ describe('revoke_policy', () => {
       expect(r.data.removes.review).toBeUndefined()
       expect(r.data.removes.reviewSkipped).toMatch(/could not read the account's code/)
       expect(r.data.removes.reviewSkipped).not.toMatch(/does not run/)
+      expect(r.data.removes.reviewSkipped).toMatch(/unverified/)
+    } finally {
+      through.stop()
+    }
+  })
+  it('an account with no code entry at all (nothing to read the hash of) is not a known build: the review is skipped, saying so', async () => {
+    const through = accountBehind(() =>
+      Response.json({ jsonrpc: '2.0', id: 1, result: { latestLedger: 1, entries: [] } })
+    )
+    try {
+      const r = await call('revoke_policy', {
+        smartAccount: ACCOUNT,
+        sourceAccount: SIGNER,
+        ruleId: 2,
+      })
+      expect(r.ok).toBe(true)
+      expect(r.data.removes.review).toBeUndefined()
+      expect(r.data.removes.reviewSkipped).toMatch(
+        /does not run a known OpenZeppelin smart account build \(code none\)/
+      )
     } finally {
       through.stop()
     }
