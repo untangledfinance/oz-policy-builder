@@ -189,8 +189,7 @@ one, without a rule per length.
   leaves, an `in` entry counts as a leaf, and so does the needle (a body `in` or
   `nin` needs an allowlist of 5 or fewer: needle and 5 entries are 6 leaves; long
   per-element lists do not fit a body, and a body `read` cannot take the element,
-  below). A rule holds at most five `sum`s (a `sum` with its vec and a constant
-  is 34 leaves). A quantifier or a `sum` inside a quantifier body is refused (no
+  below). A rule holds at most six `sum`s (a `sum` with its vec is 33 leaves). A quantifier or a `sum` inside a quantifier body is refused (no
   nesting: the cost would multiply). `elem` outside a body is refused, and so is
   `elem` as the vec of its own quantifier or as a `read` argument.
 - **A rule still has to constrain the call.** A quantifier over a `call_path`
@@ -203,13 +202,26 @@ one, without a rule per length.
   included (see "Caps" below for the count).
 
 - **Cost.** Measured in the Soroban host with the real wasm (CPU instructions of
-  one `enforce`; the limit is 400M, and memory is the binding limit for reads,
-  below). The four-check PayFi rule: 5.59M (5.54M before these constructs). A
-  32-element payout (the rule below at 196 leaves): 5.0M. The same shape with a
-  six-leaf body over 32 elements whose fields sit eight steps deep: 8.4M. A body
-  that also makes one `read` (made once, not 32 times): 5.4M and one external
-  call. Install stores the rule bytes (about 0.17 XLM of rent per KB), so a
-  quantifier costs what its bytes cost, not what its length would.
+  one `enforce`; the limits are 400M instructions and 41,943,040 bytes of
+  memory per transaction). The four-check PayFi rule: 4.49M, 6.18 MB (4 reads).
+  A 32-element payout (the rule below, 195 leaves): 4.6M. A six-leaf body over
+  32 elements whose fields sit eight steps deep: 8.3M. A body that also makes
+  one `read` (made once, not 32 times): 5.1M and one external call. Install
+  stores the rule bytes (about 0.17 XLM of rent per KB), so a quantifier costs
+  what its bytes cost, not what its length would.
+- **Worst case.** `tests/worst_case.rs` installs the largest rules each audit lens
+  could build into the real wasm and asserts `enforce` (and install) stay under
+  both limits. The measured worst case without reads is **47M instructions
+  (12% of the limit)** for a 31.8 KB bare vec constant of 7,900 elements
+  (each element is checked, about 6k instructions apiece), then 35M for 100
+  compares over 8-step map-key paths and 25M for 198 leaves of 8-step vec paths;
+  quantifier bodies over a 31 KB constant cost 4-8M, and six `sum`s over 32
+  elements 10M. The worst memory without reads is **24.8 MB (59% of the limit)**
+  and is caller-sized, as in grammar 6: an `in` over 32 addresses, six times,
+  against a 30 KB `Bytes` argument the agent chose (each comparison of unlike
+  types serialises the needle). Add about 1.2 MB per distinct read (at most
+  four): the worst case with four reads is about 30 MB, so it fits one context
+  and not two. Both fail closed.
 
 Notation below: a bare name is a symbol (a map key), `elem(to)` is
 `[elem, to]` on the wire, and `call_path(0)` is `[call_path, 0]`.
