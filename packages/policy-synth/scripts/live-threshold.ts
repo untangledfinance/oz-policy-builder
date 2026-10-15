@@ -3,6 +3,7 @@
 // signer (denied by the policy, #3202) and by BOTH (permitted, and sent).
 //
 //   bun scripts/live-threshold.ts            (POLICY_BUILDER_RPC_URL_TESTNET picks the endpoint)
+//   WEIGHTED=1 bun scripts/live-threshold.ts   weights A:2, B:1, threshold 2: B alone denied (#3213), A alone permitted
 //
 // Nothing here is a secret: the keys are made for the run and funded by friendbot.
 import { execFileSync } from 'node:child_process'
@@ -25,6 +26,7 @@ import { run } from '../src/tools.ts'
 import { toScVal } from '../src/wire.ts'
 
 const NET = 'testnet' as const
+const WEIGHTED = process.env.WEIGHTED === '1'
 const WASM = '91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9'
 const SAC = 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC' // the native asset
 const INTERP = 'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV'
@@ -96,7 +98,7 @@ const call = (
 
 say(
   'INFO',
-  `network ${NET}; threshold policy ${thresholdAddress(NET, false)}; interpreter ${INTERP}`
+  `network ${NET}; threshold policy ${thresholdAddress(NET, WEIGHTED)}; interpreter ${INTERP}`
 )
 await fund([A, B])
 say('PASS', `signer A ${A.publicKey()}, signer B ${B.publicKey()} (throwaway, funded)`)
@@ -138,7 +140,9 @@ const installed = (await run('install_policy', {
   smartAccount: ACCOUNT,
   sourceAccount: A.publicKey(),
   signers: [A.publicKey(), B.publicKey()],
-  threshold: { simple: 2 },
+  threshold: WEIGHTED
+    ? { weighted: { weights: { [A.publicKey()]: 2, [B.publicKey()]: 1 }, n: 2 } }
+    : { simple: 2 },
   allowOverlap: true, // rule 0 has no policy and shares signer A: the test names the rule it wants
   intent: {
     calls: [
@@ -160,9 +164,12 @@ const installed = (await run('install_policy', {
 if (!installed.ok) throw new Error(JSON.stringify(installed.error))
 await send(TransactionBuilder.fromXDR(installed.data.unsignedXdr, Networks.TESTNET) as never, A)
 const { rules } = await readRules(server, NET, ACCOUNT, INTERP)
-const rule = rules.find((r) => r.policies.includes(thresholdAddress(NET, false)))
+const rule = rules.find((r) => r.policies.includes(thresholdAddress(NET, WEIGHTED)))
 if (!rule) throw new Error('the rule is not on the account')
-say('PASS', `rule ${rule.id} installed: interpreter + simple_threshold(2), signers A + B`)
+say(
+  'PASS',
+  `rule ${rule.id} installed: interpreter + ${WEIGHTED ? 'weighted_threshold({A:2,B:1}, 2)' : 'simple_threshold(2)'}, signers A + B`
+)
 
 // 4. the same transfer, authorised by one signer and by both.
 async function attempt(signers: Keypair[]) {
@@ -243,15 +250,24 @@ async function attempt(signers: Keypair[]) {
   return { tx, sim: await server.simulateTransaction(tx) }
 }
 
-const one = await attempt([A])
+const [weak, strong, code, what] = WEIGHTED
+  ? [[B], [A], '#3213', 'weighted_threshold (B weighs 1 of the 2 needed)']
+  : [[A], [A, B], '#3202', 'simple_threshold (1 of 2)']
+const one = await attempt(weak as Keypair[])
 const denied = rpc.Api.isSimulationError(one.sim) ? one.sim.error : ''
-if (!denied.includes('Error(Contract, #3202)'))
-  throw new Error(`one signer was not refused by the threshold: ${denied || 'it passed'}`)
-say('PASS', 'signer A alone DENIED #3202 (SimpleThresholdError::NotAllowed)')
+if (!denied.includes(`Error(Contract, ${code})`))
+  throw new Error(`the weak set was not refused by the threshold: ${denied || 'it passed'}`)
+say('PASS', `${WEIGHTED ? 'signer B' : 'signer A'} alone DENIED ${code} (${what})`)
 
-const both = await attempt([A, B])
+const both = await attempt(strong as Keypair[])
 if (rpc.Api.isSimulationError(both.sim))
-  throw new Error(`both signers were refused: ${both.sim.error}`)
+  throw new Error(`the strong set was refused: ${both.sim.error}`)
 const sent = await send(rpc.assembleTransaction(both.tx, both.sim).build(), A)
-say('PASS', `signers A + B together PERMITTED, transfer sent ${sent.hash}`)
-say('RESULT', '2-of-2 holds on a real OZ account: one signer denied #3202, two permitted.')
+say(
+  'PASS',
+  `${WEIGHTED ? 'signer A (weight 2)' : 'signers A + B together'} PERMITTED, transfer sent ${sent.hash}`
+)
+say(
+  'RESULT',
+  `${WEIGHTED ? 'weighted {A:2, B:1}, threshold 2' : '2-of-2'} holds on a real OZ account.`
+)
