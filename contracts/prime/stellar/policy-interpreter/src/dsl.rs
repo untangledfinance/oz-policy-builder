@@ -649,12 +649,9 @@ fn decode_node(env: &Env, items: &Vals, depth: u32) -> Res<Node> {
         })
     } else if is("all") || is("any") {
         ensure(items.len() == 3)?;
+        let over = leaf_at(env, items, 1)?;
         let body = decode_node(env, &expect(env, items, 2)?, depth + 1)?;
-        Ok(Node::Quant(
-            is("any"),
-            leaf_at(env, items, 1)?,
-            Box::new(body),
-        ))
+        Ok(Node::Quant(is("any"), over, Box::new(body)))
     } else {
         // Bare selector tuples at a Node position are MALFORMED.
         Err(DecodeError::MalformedPredicate)
