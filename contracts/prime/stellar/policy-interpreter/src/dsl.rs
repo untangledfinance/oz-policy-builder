@@ -348,10 +348,10 @@ fn literal_to_val(leaf: &Leaf) -> Res<Val> {
 /// address-scoped constraint. It failed closed, which is why only a permit
 /// case exposed it: the deny-case tests passed for the wrong reason.
 ///
-/// Falling back to the host's own object comparison gives structural equality,
-/// type included: two objects are equal precisely when the host orders them
-/// equal (it compares `Bytes` and vectors by value, as it did when this
-/// serialised both to XDR). The host does the comparing, so this works on wasm.
+/// Falling back to canonical XDR gives structural equality: two values are
+/// equal precisely when they serialise identically. The host does the
+/// serialising, so this works on wasm, and `Bytes` compares by value. Two
+/// vectors or two maps are compared by the host directly instead (below).
 ///
 /// Two numbers (u32, u64, i128) compare as numbers, whatever their types, the
 /// same widening ordering uses; `5u32` equals `5i128`. Only at the top level:
@@ -365,10 +365,18 @@ fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
             return same;
         }
     }
+    // A vector or a map (the only kinds with no second representation) equals
+    // only its own kind, by the host's structural compare. That allocates
+    // nothing, where serialising allocates 20-70x the size, and a quantifier body
+    // repeats it per element. Other objects keep the XDR compare: a "different
+    // tags, so unequal" shortcut there would let a non-canonical form of one
+    // value (a `U256Object` holding a small number) slip past `ne`.
+    let (ta, tb) = (a.get_tag(), b.get_tag());
+    if matches!(ta as u8, 75 | 76) || matches!(tb as u8, 75 | 76) {
+        return ta == tb && Vals::from_slice(env, &[*a]) == Vals::from_slice(env, &[*b]);
+    }
     let objects = a.is_object() || b.is_object();
-    // The host's structural compare, through a one-element vec each. Serialising
-    // to XDR instead allocates per byte, and a quantifier body repeats it per element.
-    a.shallow_eq(b) || (objects && Vals::from_slice(env, &[*a]) == Vals::from_slice(env, &[*b]))
+    a.shallow_eq(b) || (objects && (*a).to_xdr(env) == (*b).to_xdr(env))
 }
 
 /// A muxed address as the account it pays. `ne` (so `nin`) must not be passed by
