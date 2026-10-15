@@ -193,7 +193,7 @@ user thinks. They are the reason to read a result rather than skim it.
   deliberately: such a rule installs and verifies cleanly and caps nothing.
 - **A swap whose least output nothing sets.** `amount_out_min` left open permits a trade at
   any price. Declare a `minOut` ratio (or a `floor`) on it in an intent, or set
-  `allowOpenSlippage: true` to do it deliberately.
+  `allowOpenSlippage: true` to do it deliberately. A tiny floor (1 stroop, or a `minOut` of 1/10^18) counts as answering the question: the tool cannot judge a price, so the author must choose a real one.
 - **A rule scoped to a policy contract or to the account itself.** It would expose
   that contract's admin calls.
 - **An interpreter that is not a trusted build**: its live grammar and code hash

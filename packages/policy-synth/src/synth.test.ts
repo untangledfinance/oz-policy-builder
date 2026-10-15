@@ -304,6 +304,37 @@ describe('an encoded predicate is asked the same question', () => {
     ).toEqual([])
   })
 
+  it('a branch that names no function permits every function and any amount: asked, unless it pins one', () => {
+    const q = (e: Expr) => unboundedExpr(e).map((a) => a.question)
+    const unpinned = q([
+      'and',
+      [
+        ['eq', ['call_contract'], C],
+        ['eq', ['call_arg', 0], A],
+      ],
+    ])
+    expect(unpinned).toHaveLength(1)
+    expect(unpinned[0]).toContain('no function named')
+    // Only a negative on the function names none either.
+    expect(
+      q([
+        'and',
+        [
+          ['eq', ['call_contract'], C],
+          ['ne', ['call_fn'], 'burn'],
+        ],
+      ])[0]
+    ).toContain('no function named')
+    // An or: the unpinned branch asks, the pinned and capped one does not.
+    const mixed = q([
+      'or',
+      [pin('transfer', ['lte', ['call_arg', 2], amt]), ['and', [['eq', ['call_contract'], C]]]],
+    ])
+    expect(mixed).toHaveLength(1)
+    expect(mixed[0]).toContain('no function named')
+    expect(q(pin('transfer', ['lte', ['call_arg', 2], amt]))).toEqual([])
+  })
+
   it('a floor of zero is no floor on the least output', () => {
     const swap = (...r: Expr[]): Expr =>
       pin('swap_exact_tokens_for_tokens', ['lte', ['call_arg', 0], amt], ...r)

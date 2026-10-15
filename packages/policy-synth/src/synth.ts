@@ -179,7 +179,17 @@ export function unboundedExpr(expr: Expr): Synthesis['ambiguities'] {
       const n = intOf(unlit(b.to))
       return n === undefined ? undefined : b.op === 'lt' ? n - 1n : n
     }
-    const fns = [...new Set(selectors(and(branch)).map((s) => s.fn))].filter((f) => f !== '*')
+    const named = [...new Set(selectors(and(branch)).map((s) => s.fn))]
+    const fns = named.filter((f) => f !== '*')
+    // A branch that names no function serves every function, with any amount.
+    if (named.includes('*')) {
+      const q = {
+        code: 'AMOUNT_BOUND_MISSING' as const,
+        question:
+          'no function named: the rule permits every function of the contract with any amount. Pin one with call_fn, or allow it deliberately.',
+      }
+      asked.set(q.question, q)
+    }
     for (const fn of fns)
       rowOf(fn).forEach(([name, kind], i) => {
         const at = canon(['call_arg', i])
