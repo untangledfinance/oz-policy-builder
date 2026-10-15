@@ -1339,3 +1339,30 @@ fn a_vec_or_a_map_equals_only_its_own_kind_and_content() {
     assert!(denies(&cmp("eq", arg(0), lit(v)), &[m.clone()]));
     assert!(permits(&cmp("ne", arg(0), lit(m)), &[tup(&[n(1), n(2)])]));
 }
+
+#[test]
+fn every_fixed_arity_leaf_refuses_an_extra_operand() {
+    let u = ScVal::U32;
+    for ok in [
+        tup(&[sym("call_contract")]),
+        tup(&[sym("call_fn")]),
+        tup(&[sym("now")]),
+        tup(&[sym("call_arg"), u(0)]),
+        tup(&[sym("call_arg_len"), u(0)]),
+        tup(&[sym("call_arg_field"), u(0), u(0), sym("a")]),
+        tup(&[sym("lit"), n(1)]),
+        tup(&[sym("scaled"), arg(0), n(1), n(1), n(0)]),
+    ] {
+        assert_eq!(refused(&cmp("eq", arg(0), ok.clone())), None, "{ok:?}");
+        let ScVal::Vec(Some(ScVec(items))) = &ok else {
+            unreachable!()
+        };
+        let mut longer = items.to_vec();
+        longer.push(u(9));
+        let longer = ScVal::Vec(Some(ScVec(longer.try_into().unwrap())));
+        assert_eq!(refused(&cmp("eq", arg(0), longer)), MALFORMED, "{ok:?}");
+    }
+    // quantifiers and sets take their operands and no more
+    let all3 = tup(&[sym("all"), path(&[u(0)]), cmp("eq", elem(&[]), n(1)), n(1)]);
+    assert_eq!(refused(&all3), MALFORMED);
+}

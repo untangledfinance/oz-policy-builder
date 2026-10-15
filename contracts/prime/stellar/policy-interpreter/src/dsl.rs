@@ -599,11 +599,11 @@ pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
             calls.push(key);
         }
     }
-    // `elem` only in a quantifier body (weight `MAX_ELEMS`); a `sum` only outside
-    // one (its own weight is `MAX_ELEMS`), and a nested quantifier never.
+    // `elem` only in a quantifier body (weight `MAX_ELEMS`). Nothing weighs more:
+    // a nested quantifier is 32 x 32, and so is a `sum` inside a body (its own
+    // weight is `MAX_ELEMS`), so neither is allowed.
     let placed = |(l, w): &(&Leaf, u32)| match l {
         Leaf::Elem(_) => *w == MAX_ELEMS,
-        Leaf::Sum(..) => *w == MAX_ELEMS,
         _ => *w <= MAX_ELEMS,
     };
     ensure(all.iter().all(placed))?;
