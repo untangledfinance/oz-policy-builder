@@ -11,7 +11,8 @@ use alloc::{boxed::Box, vec, vec::Vec};
 
 use soroban_sdk::xdr::{FromXdr, ToXdr};
 use soroban_sdk::{
-    Address, Bytes, Duration, Env, Error, IntoVal, Map, Symbol, Timepoint, TryFromVal, Val,
+    Address, Bytes, Duration, Env, Error, IntoVal, Map, Symbol, SymbolStr, Timepoint, TryFromVal,
+    Val,
 };
 
 // ---- caps (mirrors TS PREDICATE_CAPS; the Rust side is authoritative) -----
@@ -354,8 +355,9 @@ fn literal_to_val(leaf: &Leaf) -> Res<Val> {
 /// numbers inside a vector compare by XDR, type included. Anything else is exact:
 /// a number never equals a symbol, and an address only its own address.
 fn val_eq(env: &Env, a: &Val, b: &Val) -> bool {
-    if let (Some(x), Some(y)) = (val_to_i128(env, a), val_to_i128(env, b)) {
-        return x == y;
+    // `b` is only converted when `a` is a number.
+    if let Some(same) = val_to_i128(env, a).and_then(|x| Some(x == val_to_i128(env, b)?)) {
+        return same;
     }
     let objects = a.is_object() || b.is_object();
     a.shallow_eq(b) || (objects && (*a).to_xdr(env) == (*b).to_xdr(env))
@@ -501,6 +503,13 @@ fn leaves(node: &Node) -> Vec<(&Leaf, u32)> {
 /// `u64`, `i64`, `Timepoint`, `Duration`, `i128`, and `u128` when it fits. Any
 /// other `Val` (a `u128` above `i128::MAX` included) is not a number here.
 fn val_to_i128(env: &Env, v: &Val) -> Option<i128> {
+    // The host's integer tags: small (4..=11) and object (64..=69) forms of u32,
+    // i32, u64, i64, Timepoint, Duration, u128 and i128. Anything else is not
+    // a number, and trying each conversion on it costs about 300 instructions
+    // apiece.
+    if !matches!(v.get_tag() as u8, 4..=11 | 64..=69) {
+        return None;
+    }
     to::<u32>(env, v)
         .ok()
         .map(i128::from)
@@ -598,11 +607,9 @@ pub fn decode_stored(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
 /// deeper than `MAX_DEPTH` is refused before its children are decoded.
 fn decode_node(env: &Env, items: &Vals, depth: u32) -> Res<Node> {
     cap(depth <= MAX_DEPTH, DecodeError::PredicateTooDeep)?;
-    let head = expect::<Symbol>(env, items, 0)?;
-    // Compare via PartialEq (works on wasm; Symbol has no ToString on the wasm
-    // target because the SDK hides the underlying string representation
-    // behind a host object).
-    let is = |name: &str| head == Symbol::new(env, name);
+    let head = spelled(env, &expect(env, items, 0)?)?;
+    let spelling: &[u8] = head.as_ref();
+    let is = |name: &str| spelling == name.as_bytes();
     use CompareOp as C;
     let names = ["eq", "ne", "lt", "lte", "gt", "gte"];
     let kinds = [C::Eq, C::Ne, C::Lt, C::Lte, C::Gt, C::Gte];
@@ -611,6 +618,13 @@ fn decode_node(env: &Env, items: &Vals, depth: u32) -> Res<Node> {
         decode_children(env, items, depth).map(Node::And)
     } else if is("or") {
         decode_children(env, items, depth).map(Node::Or)
+    } else if let Some((_, op)) = ops.find(|(name, _)| is(name)) {
+        ensure(items.len() == 3)?;
+        let (left, right) = (leaf_at(env, items, 1)?, leaf_at(env, items, 2)?);
+        // An ordering over an address, symbol or vector literal could never permit.
+        let order = !matches!(op, C::Eq | C::Ne);
+        ensure(!order || !(non_number(env, &left) || non_number(env, &right)))?;
+        Ok(Node::Compare { op, left, right })
     } else if is("in") || is("nin") {
         ensure(items.len() == 3)?;
         let needle = leaf_at(env, items, 1)?;
@@ -638,13 +652,6 @@ fn decode_node(env: &Env, items: &Vals, depth: u32) -> Res<Node> {
             leaf_at(env, items, 1)?,
             Box::new(body),
         ))
-    } else if let Some((_, op)) = ops.find(|(name, _)| is(name)) {
-        ensure(items.len() == 3)?;
-        let (left, right) = (leaf_at(env, items, 1)?, leaf_at(env, items, 2)?);
-        // An ordering over an address, symbol or vector literal could never permit.
-        let order = !matches!(op, C::Eq | C::Ne);
-        ensure(!order || !(non_number(env, &left) || non_number(env, &right)))?;
-        Ok(Node::Compare { op, left, right })
     } else {
         // Bare selector tuples at a Node position are MALFORMED.
         Err(DecodeError::MalformedPredicate)
@@ -682,7 +689,7 @@ fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
     if let Ok(items) = Vals::try_from_val(env, val) {
         ensure(!items.is_empty())?;
         if let Ok(sym) = expect::<Symbol>(env, &items, 0) {
-            return decode_selector_leaf(env, &items, sym, depth);
+            return decode_selector_leaf(env, &items, spelled(env, &sym)?, depth);
         }
         // Literal vector: order preserved verbatim.
         return each(&items, |e| literal(env, &e, depth + 1)).map(|_| Leaf::Lit(*val));
@@ -697,8 +704,15 @@ fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
 fn literal(env: &Env, val: &Val, depth: u32) -> Res<Val> {
     literal_to_val(&decode_leaf(env, val, depth)?)
 }
-fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Res<Leaf> {
-    let is = |n: u32, name: &str| items.len() == n && head == Symbol::new(env, name);
+/// A symbol's characters, read once. Comparing a symbol with `Symbol::new(name)`
+/// instead costs a host call per name tried, and a leaf tries up to a dozen.
+fn spelled(env: &Env, sym: &Symbol) -> Res<SymbolStr> {
+    SymbolStr::try_from_val(env, &sym.to_symbol_val()).map_err(|_| DecodeError::MalformedPredicate)
+}
+
+fn decode_selector_leaf(env: &Env, items: &Vals, head: SymbolStr, depth: u32) -> Res<Leaf> {
+    let spelling: &[u8] = head.as_ref();
+    let is = |n: u32, name: &str| items.len() == n && spelling == name.as_bytes();
     let step = |i| expect(env, items, i).map(PathStep::Index);
     if is(1, "call_contract") {
         Ok(Leaf::CallContract)
@@ -736,15 +750,6 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
             each(&expect(env, items, 3)?, arg)?,
             decode_steps(env, items, 4, 0)?,
         ))
-    } else if is(items.len(), "elem") {
-        Ok(Leaf::Elem(decode_steps(env, items, 1, 0)?))
-    } else if is(items.len(), "sum") {
-        // (sum, vec, step...): the vec is any leaf; the steps reach the number
-        // inside each element (none: the element is the number).
-        let src = decode_leaf(env, &at(items, 1)?, depth + 1)?;
-        Ok(Leaf::Sum(Box::new(src), decode_steps(env, items, 2, 0)?))
-    } else if is(2, "lit") {
-        Ok(Leaf::Lit(at(items, 1)?))
     } else if is(items.len(), "variant") {
         // (variant, name, payload...): an enum variant literal, which the host
         // holds as the vector `[name, payload...]` (Reflector's
@@ -776,6 +781,15 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
         let fold = s.zip(n).map(|(s, n)| scale(s, n, den, a.unwrap_or(0)));
         ensure(fold != Some(None))?;
         Ok(Leaf::Scaled(Box::new(leaves), den))
+    } else if is(items.len(), "elem") {
+        Ok(Leaf::Elem(decode_steps(env, items, 1, 0)?))
+    } else if is(items.len(), "sum") {
+        // (sum, vec, step...): the vec is any leaf; the steps reach the number
+        // inside each element (none: the element is the number).
+        let src = decode_leaf(env, &at(items, 1)?, depth + 1)?;
+        Ok(Leaf::Sum(Box::new(src), decode_steps(env, items, 2, 0)?))
+    } else if is(2, "lit") {
+        Ok(Leaf::Lit(at(items, 1)?))
     } else {
         // Unknown symbol at a selector position -> MALFORMED.
         Err(DecodeError::MalformedPredicate)
@@ -790,16 +804,18 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: Symbol, depth: u32) -> Re
 fn decode_steps(env: &Env, items: &Vals, from: u32, min: u32) -> Res<Vec<PathStep>> {
     ensure((min..=MAX_PATH_STEPS).contains(&(items.len() - from)))?;
     (from..items.len())
-        .map(
-            |n| match (expect::<u32>(env, items, n), expect::<bool>(env, items, n)) {
-                (Ok(i), _) => Ok(PathStep::Index(i)),
-                (_, Ok(true)) => ensure(n + 1 == items.len()).map(|_| PathStep::Len),
-                _ => match decode_leaf(env, &at(items, n)?, 1)? {
+        .map(|n| {
+            if let Ok(i) = expect(env, items, n) {
+                Ok(PathStep::Index(i))
+            } else if expect(env, items, n) == Ok(true) {
+                ensure(n + 1 == items.len()).map(|_| PathStep::Len)
+            } else {
+                match decode_leaf(env, &at(items, n)?, 1)? {
                     Leaf::Lit(k) => Ok(PathStep::Key(k)),
                     _ => Err(DecodeError::MalformedPredicate),
-                },
-            },
-        )
+                }
+            }
+        })
         .collect()
 }
 
