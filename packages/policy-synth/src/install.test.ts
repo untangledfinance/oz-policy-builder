@@ -4,7 +4,7 @@ import { TransactionBuilder } from '@stellar/stellar-sdk'
 import { account, contract } from '../test/fixtures.ts'
 import { recorded } from '../test/rpc.ts'
 import { connect, interpreterFor } from './chain.ts'
-import { PASSPHRASE, SPENDING_LIMIT } from './config.ts'
+import { PASSPHRASE, SPENDING_LIMIT, thresholdAddress } from './config.ts'
 import { buildInstall, buildRevoke, type RuleDraft, ruleArgs } from './install.ts'
 import { callExpr } from './intent.ts'
 import { encode, hashOf } from './wire.ts'
@@ -72,6 +72,18 @@ describe('ruleArgs: add_context_rule, as wire values', () => {
         ['period_ledgers', 17280],
         ['spending_limit', { i128: '900' }],
       ],
+    })
+  })
+
+  it('another policy is another entry of the policies map, as given', () => {
+    const extra = [[thresholdAddress('testnet', false), { map: [['threshold', 2]] }]]
+    const [, , , , policies] = ruleArgs(
+      draft({ signers: [SIGNER, account(2)], extra: extra as never }),
+      INTERP
+    ) as [unknown, unknown, unknown, unknown, { map: [string, unknown][] }]
+    expect(policies.map).toHaveLength(2)
+    expect(policies.map.find(([a]) => a === extra[0]?.[0])?.[1]).toEqual({
+      map: [['threshold', 2]],
     })
   })
 
@@ -353,6 +365,111 @@ describe('planInstall: the guards', () => {
       'INSTALL_BUILD_FAILED',
       /no spend cap/
     )
+  })
+
+  it('more than one signer and no threshold is refused: with a policy on the rule, any ONE of them acts alone', async () => {
+    const two = { ...input, signers: [SIGNER, account(2)] }
+    await refused(
+      planInstall(two, rule, chain()),
+      'INSTALL_BUILD_FAILED',
+      /any ONE of the 2 signers/
+    )
+    await refused(planInstall(two, rule, chain()), 'INSTALL_BUILD_FAILED', /threshold|anyOne/)
+    // Said on purpose: it installs, and the draft says no threshold.
+    let seen: RuleDraft | undefined
+    await planInstall(
+      { ...two, anyOne: true },
+      rule,
+      chain({
+        build: async (d) => {
+          seen = d
+          return built
+        },
+      })
+    )
+    expect(seen?.threshold).toBeUndefined()
+  })
+
+  const policy = async (i: InstallInput) => {
+    let seen: RuleDraft | undefined
+    await planInstall(
+      i,
+      rule,
+      chain({
+        build: async (d) => {
+          seen = d
+          return built
+        },
+      })
+    )
+    return seen?.extra?.[0]
+  }
+  const two = { ...input, signers: [SIGNER, account(2)] }
+
+  it('a simple threshold attaches OZ simple_threshold with { threshold }; anyOne beside it is a contradiction', async () => {
+    expect(await policy({ ...two, threshold: { n: 2 } })).toEqual([
+      thresholdAddress('testnet', false),
+      { map: [['threshold', 2]] },
+    ])
+    await refused(
+      planInstall({ ...two, threshold: { n: 2 }, anyOne: true }, rule, chain()),
+      'INSTALL_BUILD_FAILED',
+      /anyOne and a threshold/
+    )
+  })
+
+  it("a weighted threshold attaches OZ weighted_threshold with signer_weights keyed by the signer enum, at its network's address", async () => {
+    const t = { n: 3, weights: { [SIGNER]: 2, [account(2)]: 1 } }
+    expect(await policy({ ...two, threshold: t })).toEqual([
+      thresholdAddress('testnet', true),
+      {
+        map: [
+          [
+            'signer_weights',
+            {
+              map: [
+                [['Delegated', SIGNER], 2],
+                [['Delegated', account(2)], 1],
+              ],
+            },
+          ],
+          ['threshold', 3],
+        ],
+      },
+    ])
+    const main = await policy({
+      ...two,
+      network: 'mainnet',
+      interpreterAddress: INTERP,
+      threshold: t,
+    })
+    expect(main?.[0]).toBe(thresholdAddress('mainnet', true))
+  })
+
+  it.each<[string, InstallInput['threshold']]>([
+    ['a threshold above the signers', { n: 3 }],
+    ['weights for a key that is not a signer', { n: 1, weights: { [SIGNER]: 1, [account(9)]: 1 } }],
+    ['a signer with no weight', { n: 1, weights: { [SIGNER]: 1 } }],
+    ['weights below the threshold', { n: 3, weights: { [SIGNER]: 1, [account(2)]: 1 } }],
+  ])('%s is refused before the network is asked anything', async (_n, threshold) => {
+    let asked = 0
+    const quiet = chain({
+      fingerprint: async () => {
+        asked++
+        return ours
+      },
+    })
+    await refused(
+      planInstall({ ...two, threshold }, rule, quiet),
+      'INSTALL_BUILD_FAILED',
+      /can never be met/
+    )
+    expect(asked).toBe(0)
+  })
+
+  it('one signer needs no threshold; a threshold of 1 is fine', async () => {
+    await planInstall(input, rule, chain())
+    await planInstall({ ...input, threshold: { n: 1 } }, rule, chain())
   })
 
   it('the draft carries the signers, the admins (the source by default), the nonce and the cap', async () => {

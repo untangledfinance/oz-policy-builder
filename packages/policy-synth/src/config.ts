@@ -71,15 +71,19 @@ export const INTERPRETERS: ReadonlySet<string> = new Set([
   'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV', // grammar 7, testnet
 ])
 
-/** OpenZeppelin's `simple_threshold` and `weighted_threshold`, built from v0.7.2 and
- *  deployed by us (`deployments/oz-policies.json`). Their admin calls (`set_threshold`,
- *  `install`...) need only the account's own authorisation. */
-const OZ_THRESHOLD = [
-  'CAYTIVQOEZDOQI4GC3XBXEEYHQUANQQJHPJVMXVRBREGSAP6TCN3DID6', // simple_threshold, testnet
-  'CCTNRFZCL45GTJICA3Z2KFQO3VEGBHGCVBLHQ3GLJKAGACQIJMYJS7T2', // weighted_threshold, testnet
-  'CDOGPGUFGGUDG25P3TG6XIXJKRRYOZ3PXUZIEPVH74KXRZIDKZ5HYEOS', // simple_threshold, mainnet
-  'CDWPZ4YZ3YIJ64XSHRMERRF2L2H7XD6SPUZDP3KI56T7QXQCICC25V3J', // weighted_threshold, mainnet
+/** OpenZeppelin's `simple_threshold` and `weighted_threshold`, built from v0.7.2 and deployed by us
+ *  (`deployments/oz-policies.json`): testnet simple, testnet weighted, mainnet simple, mainnet
+ *  weighted. Their admin calls (`set_threshold`, `install`...) need only the account's own
+ *  authorisation, so no rule may be scoped to them; a rule that asks for a threshold gets one. */
+export const OZ_THRESHOLD = [
+  'CAYTIVQOEZDOQI4GC3XBXEEYHQUANQQJHPJVMXVRBREGSAP6TCN3DID6',
+  'CCTNRFZCL45GTJICA3Z2KFQO3VEGBHGCVBLHQ3GLJKAGACQIJMYJS7T2',
+  'CDOGPGUFGGUDG25P3TG6XIXJKRRYOZ3PXUZIEPVH74KXRZIDKZ5HYEOS',
+  'CDWPZ4YZ3YIJ64XSHRMERRF2L2H7XD6SPUZDP3KI56T7QXQCICC25V3J',
 ]
+/** The threshold policy of a network: simple, or weighted. */
+export const thresholdAddress = (net: Network, weighted: boolean): string =>
+  OZ_THRESHOLD[(net === 'mainnet' ? 2 : 0) + (weighted ? 1 : 0)] as string
 
 /** Policy contracts a rule must never be scoped to: scoping a rule to one
  *  exposes that contract's own admin calls (the interpreter does not refuse it). */

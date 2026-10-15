@@ -26,6 +26,7 @@ import {
   PASSPHRASE,
   POLICY_CONTRACTS,
   SPENDING_LIMIT,
+  thresholdAddress,
 } from './config.ts'
 import { type ErrorCode, Refusal } from './envelope.ts'
 import { type ObservedRule, type Overlap, overlaps, type RulesRead, type Scope } from './rules.ts'
@@ -44,12 +45,28 @@ export interface RuleDraft {
   nonce: number
   /** A rolling total beside the predicate, as OZ's `spending_limit` on the same rule. */
   cap?: { address: string; amount: string; periodLedgers: number }
+  /** Other policies beside the interpreter, as (address, install params): a threshold. */
+  extra?: [string, Val][]
 }
 
 const MAX_SIGNERS = 15
 const AUTH_LEDGERS = 300 // about 25 minutes
 
 const delegated = (a: string): Val => ['Delegated', a]
+
+/** OZ's threshold policy and its install params (`signer_weights`, a signer -> u32 map, if weighted). */
+const thresholdPolicy = (net: Network, { n, weights: w }: NonNullable<InstallInput['threshold']>) =>
+  [
+    thresholdAddress(net, !!w),
+    {
+      map: [
+        ...(w
+          ? [['signer_weights', { map: Object.entries(w).map(([a, x]) => [delegated(a), x]) }]]
+          : []),
+        ['threshold', n],
+      ],
+    },
+  ] as [string, Val]
 
 /** The five arguments of OZ's `add_context_rule`, as wire values. */
 export function ruleArgs(d: RuleDraft, interpreter: string): Val[] {
@@ -90,6 +107,7 @@ export function ruleArgs(d: RuleDraft, interpreter: string): Val[] {
       },
     ])
   }
+  policies.push(...(d.extra ?? []))
   return [scope, { string: d.name }, d.validUntil, d.signers.map(delegated), { map: policies }]
 }
 
@@ -304,6 +322,10 @@ export interface InstallInput {
   validUntilLedger?: number | undefined
   installNonce?: number | undefined
   spendingLimit?: { amount: string; periodLedgers: number } | undefined
+  /** `n` of the signers must approve, or (with `weights`) signers whose weights total `n`. */
+  threshold?: { n: number; weights?: Record<string, number> } | undefined
+  /** Say it on purpose: with several signers and no threshold, any ONE of them acts alone. */
+  anyOne?: boolean | undefined
   allowUnboundedAmount?: boolean | undefined
   allowOpenSlippage?: boolean | undefined
   allowOverlap?: boolean | undefined
@@ -350,6 +372,17 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
     )
   }
   const interpreter = interpreterFor(i.network, i.interpreterAddress)
+  const [t, k] = [i.threshold, i.signers.length]
+  const total = t?.weights ? Object.values(t.weights).reduce((x, y) => x + y, 0) : k
+  const covers =
+    !t?.weights || Object.keys(t.weights).sort().join() === [...i.signers].sort().join()
+  if (t && i.anyOne) throw no('anyOne and a threshold contradict each other')
+  if (t ? t.n > total || !covers : k > 1 && !i.anyOne)
+    throw no(
+      t
+        ? `threshold ${t.n} can never be met (weights must cover exactly the signers and total at least n)`
+        : `${k} signers and no threshold: with a policy on the rule any ONE of the ${k} signers acts alone (1-of-${k}). Give \`threshold\`, or \`anyOne: true\` to install 1-of-${k} on purpose.`
+    )
   const draft: RuleDraft = {
     scope: { kind: 'call_contract', contract: rule.contract },
     name: i.name ?? `policy-${rule.hash.slice(0, 8)}`,
@@ -359,6 +392,7 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
     predicate: { encoded: rule.encoded, hash: rule.hash },
     nonce: i.installNonce ?? 1,
     ...(i.spendingLimit ? { cap: { address: SPENDING_LIMIT[i.network], ...i.spendingLimit } } : {}),
+    ...(t ? { extra: [thresholdPolicy(i.network, t)] } : {}),
   }
   // The three do not depend on each other, so they run together; what each found is
   // judged in a fixed order, so the same input is refused for the same reason.

@@ -9,6 +9,7 @@ import {
   OZ_ACCOUNT_WASM,
   POLICY_CONTRACTS,
   SPENDING_LIMIT,
+  thresholdAddress,
 } from './config.ts'
 
 const root = new URL('../../../', import.meta.url)
@@ -70,6 +71,13 @@ describe('the OZ policies we deployed are policy contracts no rule may be scoped
       testnet: oz.testnet.spending_limit,
       mainnet: oz.mainnet.spending_limit,
     })
+  })
+
+  it('the threshold policies the builder attaches are the ones in the record, per network', () => {
+    for (const network of ['mainnet', 'testnet'] as const) {
+      expect(thresholdAddress(network, false)).toBe(oz[network].simple_threshold)
+      expect(thresholdAddress(network, true)).toBe(oz[network].weighted_threshold)
+    }
   })
 
   it('and so is the grammar-4 testnet interpreter the README lists', () => {

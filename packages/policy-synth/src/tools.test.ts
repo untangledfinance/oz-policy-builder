@@ -18,6 +18,7 @@ import {
 import { z } from 'zod'
 import { account, contract, recording } from '../test/fixtures.ts'
 import { fakeInterpreter, instanceResult, pointAt, recorded } from '../test/rpc.ts'
+import { thresholdAddress } from './config.ts'
 import { callExpr } from './intent.ts'
 import { describeRules, run, TOOLS } from './tools.ts'
 import { encode, hashOf } from './wire.ts'
@@ -753,6 +754,7 @@ describe('install_policy', () => {
       allowOverlap: true,
       admins: [account(2)],
       signers: [SIGNER, account(1)],
+      anyOne: true,
     })
     const text = r.data.rule.review.join('\n')
     expect(text).toContain('GAAQCA…AQDZ7H («signer»)')
@@ -785,6 +787,45 @@ describe('install_policy', () => {
     const r = await call('install_policy', { ...base, signers: [account(5)] })
     expect(r.ok).toBe(true)
     expect(r.data.authorityScan).toEqual({ complete: true, overlaps: [] })
+  })
+
+  it('threshold: one of simple or weighted, with nothing else beside it', async () => {
+    const two = { ...base, signers: [SIGNER, account(1)], allowOverlap: true }
+    await failing('install_policy', { ...two, threshold: {} }, 'INVALID_INPUT')
+    await failing(
+      'install_policy',
+      { ...two, threshold: { simple: 1, weighted: { weights: {}, n: 1 } } },
+      'INVALID_INPUT'
+    )
+    await failing('install_policy', { ...two, threshold: { simple: 0 } }, 'INVALID_INPUT')
+    await failing('install_policy', { ...two, threshold: { simple: 1, extra: 1 } }, 'INVALID_INPUT')
+    await failing(
+      'install_policy',
+      { ...two, threshold: { weighted: { weights: { notanaddress: 1 }, n: 1 } } },
+      'INVALID_INPUT'
+    )
+    await failing('install_policy', { ...two, anyOne: 'yes' }, 'INVALID_INPUT')
+  })
+
+  it('more than one signer and no threshold is refused by the tool, with the reason; anyOne installs', async () => {
+    const two = { ...base, signers: [SIGNER, account(1)], allowOverlap: true }
+    await failing('install_policy', two, 'INSTALL_BUILD_FAILED', /any ONE of the 2 signers/)
+    expect((await call('install_policy', { ...two, anyOne: true })).ok).toBe(true)
+  })
+
+  it('threshold { simple }: the built bytes carry OZ simple_threshold beside the interpreter, and say so in describes', async () => {
+    const r = await call('install_policy', {
+      ...base,
+      signers: [SIGNER, account(1)],
+      allowOverlap: true,
+      threshold: { simple: 2 },
+    })
+    expect(r.ok).toBe(true)
+    const policies = r.data.describes.args[4].map as [string, unknown][]
+    expect(policies.map(([a]) => a)).toContain(thresholdAddress('testnet', false))
+    expect(policies.find(([a]) => a === thresholdAddress('testnet', false))?.[1]).toEqual({
+      map: [['threshold', 2]],
+    })
   })
 
   it('an unanswered cap is refused, unless asked for', async () => {

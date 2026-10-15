@@ -65,6 +65,7 @@ const baseFee = z.number().int().positive().max(10_000_000).optional()
 const account = z.string().refine(StrKey.isValidEd25519PublicKey, 'a G... account')
 const contractId = z.string().refine(StrKey.isValidContract, 'a C... contract')
 const anyAddress = z.union([account, contractId])
+const u32 = z.number().int().positive().max(0xffffffff)
 const amount = z
   .string()
   .regex(/^[1-9]\d*$/, 'a positive integer in the smallest unit, as a string')
@@ -477,7 +478,7 @@ const verify_policy = tool(
 
 const install_policy = tool(
   'install_policy',
-  "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`. `sourceAccount` must be a signer of the account's rule 0 (that rule authorises the install); `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The interpreter is checked live before anything is built: it must speak the grammar and run a trusted build (a pinned address, or on a network with none, an `interpreterAddress` whose code hash is one this package trusts). The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind; `allowOverlap: true` installs anyway. An unanswered amount cap is refused unless `allowUnboundedAmount`, and a swap's least output nothing sets unless `allowOpenSlippage`. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR; `outFile` (a bare file name) also writes it into the operator's `POLICY_BUILDER_OUT_DIR`, without replacing a file.",
+  "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`. `sourceAccount` must be a signer of the account's rule 0 (that rule authorises the install); `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The interpreter is checked live before anything is built: it must speak the grammar and run a trusted build (a pinned address, or on a network with none, an `interpreterAddress` whose code hash is one this package trusts). The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind; `allowOverlap: true` installs anyway. An unanswered amount cap is refused unless `allowUnboundedAmount`, and a swap's least output nothing sets unless `allowOpenSlippage`. `threshold` ({ simple: n }: n of the signers; { weighted: { weights, n } }: signers whose weights total n) attaches OpenZeppelin's threshold policy beside the predicate; with several signers and no threshold the install is REFUSED unless `anyOne: true`, because a rule with a policy is satisfied by any ONE of its signers acting alone. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR; `outFile` (a bare file name) also writes it into the operator's `POLICY_BUILDER_OUT_DIR`, without replacing a file.",
   {
     ...net,
     ...display,
@@ -495,6 +496,16 @@ const install_policy = tool(
       .object({ amount: amount, periodLedgers: z.number().int().positive() })
       .strict()
       .optional(),
+    threshold: z
+      .union([
+        z.object({ simple: u32 }).strict(),
+        z
+          .object({ weighted: z.object({ weights: z.record(anyAddress, u32), n: u32 }).strict() })
+          .strict(),
+      ])
+      .transform((t) => ('simple' in t ? { n: t.simple } : t.weighted))
+      .optional(),
+    anyOne: z.boolean().optional(),
     allowUnboundedAmount: z.boolean().optional(),
     allowOpenSlippage: z.boolean().optional(),
     allowOverlap: z.boolean().optional(),
