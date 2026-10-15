@@ -175,12 +175,9 @@ fn lit_matches_a_whole_map_and_works_in_in() {
 }
 
 #[test]
-fn lit_is_a_constant_in_a_variant_payload_and_a_read_argument() {
-    let p = cmp(
-        "eq",
-        arg(0),
-        tup(&[sym("variant"), sym("Tag"), lit(ScVal::Bool(true))]),
-    );
+fn lit_is_a_constant_in_a_read_argument_and_an_enum_payload() {
+    // an enum value is `lit([Tag, true])`: data, never a selector
+    let p = cmp("eq", arg(0), lit(tup(&[sym("Tag"), ScVal::Bool(true)])));
     assert!(permits(&p, &[tup(&[sym("Tag"), ScVal::Bool(true)])]));
     assert!(denies(&p, &[tup(&[sym("Tag"), ScVal::Bool(false)])]));
     let read = tup(&[sym("read"), account(7), sym("f"), tup(&[lit(text("x"))])]);
@@ -1231,8 +1228,8 @@ fn ne_still_permits_what_differs_and_denies_what_cannot_resolve() {
 // ---- X2: a bare vec of constants is the vec of what its elements decode to ---
 
 #[test]
-fn lit_and_variant_inside_a_bare_vec_are_unwrapped() {
-    let wrapped = tup(&[n(5), lit(n(7)), tup(&[sym("variant"), sym("Tag"), n(1)])]);
+fn lit_inside_a_bare_vec_is_unwrapped() {
+    let wrapped = tup(&[n(5), lit(n(7)), lit(tup(&[sym("Tag"), n(1)]))]);
     let value = tup(&[n(5), n(7), tup(&[sym("Tag"), n(1)])]);
     assert!(permits(
         &cmp("eq", arg(0), wrapped.clone()),
@@ -1274,4 +1271,13 @@ fn call_arg_field_takes_its_field_as_a_call_path_step_does() {
     // `true` is the length here too, never a key
     let len = tup(&[sym("call_arg_field"), u(0), u(0), ScVal::Bool(true)]);
     assert!(permits(&cmp("eq", len, n(1)), &[tup(&[tup(&[n(1)])])]));
+}
+
+#[test]
+fn variant_is_not_a_leaf_any_more() {
+    // `lit([Name, payload...])` is the same value.
+    let old = tup(&[sym("variant"), sym("Tag"), n(1)]);
+    assert_eq!(refused(&cmp("eq", arg(0), old)), MALFORMED);
+    let p = cmp("eq", arg(0), lit(tup(&[sym("Tag"), n(1)])));
+    assert!(permits(&p, &[tup(&[sym("Tag"), n(1)])]));
 }

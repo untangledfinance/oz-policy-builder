@@ -1475,11 +1475,12 @@ fn a_read_of_state_the_submitter_can_move_is_defeated_inside_one_transaction() {
 
 // ---- a Reflector-style oracle: enum argument, Option result ----------------
 
-/// `variant(name, payload...)`.
+/// An enum value is the vec `[name, payload...]`; `lit` keeps it as data, which a
+/// bare symbol-headed vec would not (that reads as a selector).
 fn variant(name: &str, payload: StdVec<ScVal>) -> ScVal {
-    let mut items = alloc::vec![sym("variant"), sym(name)];
+    let mut items = alloc::vec![sym(name)];
     items.extend(payload);
-    tuple(items)
+    lit(tuple(items))
 }
 
 /// `lastprice(Asset::Stellar(pot))` and a field of the `PriceData` it returns.
@@ -1628,24 +1629,16 @@ fn a_none_result_denies_and_a_some_result_is_walked_by_its_path() {
 }
 
 #[test]
-fn a_variant_is_a_constant_and_nothing_else() {
+fn an_enum_value_is_written_with_lit() {
     let w = World::new();
     let o = oracle(&w, 1, 0);
-    let rd = |arg: ScVal| {
-        let r = read(
-            &w.env,
-            &o,
-            "lastprice",
-            alloc::vec![arg],
-            &[Step::F("price")],
-        );
+    let rd = |args: StdVec<ScVal>| {
+        let r = read(&w.env, &o, "lastprice", args, &[Step::F("price")]);
         rule_for(cmp("gte", r, num(0)))
     };
-    // A well-formed variant installs, with and without a payload.
-    assert_eq!(
-        w.install(&rd(variant("Other", alloc::vec![sym("POT")]))),
-        Ok(())
-    );
+    // With and without a payload.
+    let other = variant("Other", alloc::vec![sym("POT")]);
+    assert_eq!(w.install(&rd(alloc::vec![other])), Ok(()));
     let w = World::new();
     let o = oracle(&w, 1, 0);
     let unit = read(
@@ -1656,33 +1649,32 @@ fn a_variant_is_a_constant_and_nothing_else() {
         &[],
     );
     assert_eq!(w.install(&rule_for(cmp("gte", unit, num(0)))), Ok(()));
-    // Anything that is not a constant inside one is refused, as is a variant
-    // with a non-symbol name, a bare symbol-headed vec, and a selector.
-    let bad = [
-        variant("Stellar", alloc::vec![call_arg(0)]),
-        variant("Stellar", alloc::vec![now()]),
-        variant(
-            "Stellar",
-            alloc::vec![variant("Inner", alloc::vec![call_fn()])],
-        ),
-        tuple(alloc::vec![sym("variant"), num(1), sym("Stellar")]),
-        tuple(alloc::vec![sym("variant")]),
-        tuple(alloc::vec![sym("Stellar"), num(1)]),
-    ];
-    for b in bad {
-        let w = World::new();
-        let o = oracle(&w, 1, 0);
-        let r = read(&w.env, &o, "lastprice", alloc::vec![b], &[Step::F("price")]);
-        assert_eq!(w.install(&rule_for(cmp("gte", r, num(0)))), MALFORMED);
-    }
-    // The same holds where a variant is an operand rather than a read
-    // argument: a selector in its payload is refused, not left to deny at
-    // enforce (where it would still satisfy the selector-leaf install check).
+    // `lit` is data, whatever it holds: a selector-shaped payload is a constant
+    // that equals only itself, so nothing hides in it.
     let w = World::new();
     let hidden = variant("Stellar", alloc::vec![call_fn()]);
-    assert_eq!(w.install(&cmp("eq", hidden.clone(), hidden)), MALFORMED);
-    // A variant does not count as a selector: a rule of reads and the clock
-    // alone is still refused.
+    assert_eq!(
+        w.install(&rule_for(cmp("eq", hidden.clone(), hidden))),
+        Ok(())
+    );
+    // A bare symbol-headed vec is a selector, and an unknown one is refused.
+    for bad in [
+        tuple(alloc::vec![sym("Stellar"), num(1)]),
+        tuple(alloc::vec![sym("variant"), sym("Stellar")]),
+    ] {
+        let w = World::new();
+        let o = oracle(&w, 1, 0);
+        let r = read(
+            &w.env,
+            &o,
+            "lastprice",
+            alloc::vec![bad],
+            &[Step::F("price")],
+        );
+        assert_eq!(w.install(&rule_for(cmp("gte", r, num(0)))), MALFORMED);
+    }
+    // An enum value does not count as a selector: reads and the clock alone
+    // are still refused.
     let w = World::new();
     let o = oracle(&w, 1, 0);
     let r = read(
@@ -2806,18 +2798,14 @@ fn a_read_argument_that_resolves_to_a_wrong_type_is_a_failed_call_not_void() {
 }
 
 #[test]
-fn a_variant_inside_a_bare_vec_read_argument_reaches_the_target_unwrapped() {
+fn a_lit_inside_a_bare_vec_read_argument_reaches_the_target_unwrapped() {
     // echo returns its argument: `[Stellar(addr)]` must come back as written.
     let w = World::new();
     let reg = w.env.register(Registry, ());
     let who = Address::generate(&w.env);
     let arg = tuple(alloc::vec![
         num(1),
-        tuple(alloc::vec![
-            sym("variant"),
-            sym("Stellar"),
-            addr(&w.env, &who)
-        ])
+        lit(tuple(alloc::vec![sym("Stellar"), addr(&w.env, &who)]))
     ]);
     let echoed = read(&w.env, &reg, "echo", alloc::vec![arg], &[]);
     let want: SorobanVec<Val> = soroban_sdk::vec![
