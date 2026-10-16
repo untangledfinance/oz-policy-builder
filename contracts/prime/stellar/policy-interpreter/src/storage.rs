@@ -8,9 +8,7 @@
 //! together when a permit bumps them), and any one archiving would have bricked the rule,
 //! so they now live and expire together.
 
-use soroban_sdk::{
-    contracterror, contracttype, panic_with_error, symbol_short, Address, Bytes, BytesN, Env,
-};
+use soroban_sdk::{contracterror, contracttype, panic_with_error, Address, Bytes, BytesN, Env};
 
 use crate::types::{Limits, Signer};
 
@@ -120,13 +118,12 @@ pub fn deny_unless(e: &Env, ok: bool, error: PolicyError) {
     }
 }
 
-pub const LIMITS: soroban_sdk::Symbol = symbol_short!("limits");
+pub const LIMITS: soroban_sdk::Symbol = soroban_sdk::symbol_short!("limits");
 
 /// The deploy-time limits, kept once in instance storage (the constructor is the
 /// only writer, and the contract has no upgrade path).
-pub fn limits(e: &Env) -> Limits {
-    let stored = e.storage().instance().get(&LIMITS);
-    stored.unwrap_or_else(|| deny(e, PolicyError::MissingState))
+pub fn load_limits(e: &Env) -> Limits {
+    (e.storage().instance().get(&LIMITS)).unwrap_or_else(|| deny(e, PolicyError::MissingState))
 }
 
 /// The rule's stored entry; a missing one is `MISSING_STATE`.

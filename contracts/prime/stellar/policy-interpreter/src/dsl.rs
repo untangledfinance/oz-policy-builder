@@ -11,11 +11,12 @@ use alloc::{boxed::Box, vec, vec::Vec};
 
 use soroban_sdk::xdr::{FromXdr, ScValType as T, ToXdr};
 
-use crate::types::Limits;
 use soroban_sdk::{
     Address, Bytes, Duration, Env, Error, IntoVal, Map, MuxedAddress, Symbol, SymbolStr, Timepoint,
     TryFromVal, Val,
 };
+
+use crate::types::Limits;
 
 // ---- caps ----
 //
@@ -499,6 +500,7 @@ fn walk(env: &Env, cur: Val, steps: &[PathStep]) -> Option<Val> {
 /// refuses anything else), and none can match.
 pub fn has_selector_leaf(root: &Node) -> bool {
     let selects = |l: &&Leaf| matches!(l, Leaf::CallContract | Leaf::CallFn | Leaf::CallPath(_));
+    // Which leaves exist is all that matters here, not their weights: any `elems` will do.
     leaves(root, 1).iter().any(|(l, _)| selects(l))
 }
 
@@ -639,8 +641,8 @@ fn decode_node(env: &Env, lim: &Limits, items: &Vals, depth: u32) -> Res<Node> {
     let op = ops.into_iter().find(|(n, _)| n.as_bytes() == name);
     // A node is its name and, except for `and` and `or`, two operands.
     Ok(match (name, items.len(), op) {
-        (b"and", _, _) => Node::And(decode_children(env, lim, items, depth)?),
-        (b"or", _, _) => Node::Or(decode_children(env, lim, items, depth)?),
+        (b"and", _, _) => Node::And(decode_children(env, lim, items, depth + 1)?),
+        (b"or", _, _) => Node::Or(decode_children(env, lim, items, depth + 1)?),
         (b"in" | b"nin", 3, _) => {
             let needle = leaf(1)?;
             let entries: Vals = expect(env, items, 2)?;
@@ -671,14 +673,12 @@ fn decode_node(env: &Env, lim: &Limits, items: &Vals, depth: u32) -> Res<Node> {
 /// Decode the child list shared by `and` and `or`. Both carry exactly one
 /// operand, a non-empty vector of child tuples; an empty list is refused
 /// so neither can degenerate into a node that permits (empty `and`) or
-/// denies (empty `or`) regardless of the call.
+/// denies (empty `or`) regardless of the call. `depth` is the children's.
 fn decode_children(env: &Env, lim: &Limits, items: &Vals, depth: u32) -> Res<Vec<Node>> {
     ensure(items.len() == 2)?;
     let children: Vals = expect(env, items, 1)?;
     ensure(!children.is_empty())?;
-    each(&children, |c| {
-        decode_node(env, lim, &to(env, &c)?, depth + 1)
-    })
+    each(&children, |c| decode_node(env, lim, &to(env, &c)?, depth))
 }
 
 /// Decode every element of `vals`, failing on the first that does not.

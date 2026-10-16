@@ -24,9 +24,7 @@ pub use version::SELF_VERSION;
 use soroban_sdk::xdr::ToXdr;
 use soroban_sdk::{auth::Context, contract, contractimpl, Address, BytesN, Env, IntoVal, Vec};
 
-use crate::storage::{
-    deny, deny_unless, limits, load, PolicyError as E, LIMITS, TTL_BUMP_THRESHOLD, TTL_BUMP_TO,
-};
+use crate::storage::{deny, deny_unless, load, PolicyError as E, TTL_BUMP_THRESHOLD, TTL_BUMP_TO};
 
 #[contract]
 pub struct PolicyInterpreter;
@@ -36,12 +34,12 @@ impl PolicyInterpreter {
     /// Fix the hard limits for the life of this instance (see `Limits`).
     pub fn __constructor(e: &Env, limits: Limits) {
         deny_unless(e, limits.in_range(), E::LimitsOutOfRange);
-        e.storage().instance().set(&LIMITS, &limits);
+        e.storage().instance().set(&storage::LIMITS, &limits);
     }
 
     /// The limits this instance was deployed with.
     pub fn limits(e: &Env) -> Limits {
-        limits(e)
+        storage::load_limits(e)
     }
 
     pub fn grammar_version(_e: &Env) -> u32 {
@@ -59,7 +57,7 @@ impl PolicyInterpreter {
 
         // (a) Byte cap - reject before any parse work so the host never
         //     sees an oversized payload.
-        let lim = limits(e);
+        let lim = storage::load_limits(e);
         let small = p.predicate.len() <= lim.max_predicate_bytes;
         deny_unless(e, small, E::PredicateTooLarge);
 
@@ -183,7 +181,7 @@ impl PolicyInterpreter {
         let unchanged = signers_hash(e, &context_rule.signers) == doc.signers_hash;
         deny_unless(e, unchanged, E::RuleSignersChanged);
 
-        let lim = limits(e);
+        let lim = storage::load_limits(e);
         let root = dsl::decode_stored(e, &doc.predicate_bytes, &lim)
             .unwrap_or_else(|_| deny(e, E::MalformedPredicate));
 
@@ -218,7 +216,7 @@ impl PolicyInterpreter {
         let Context::Contract(call) = &context else {
             deny(e, E::MissingState)
         };
-        let lim = limits(e);
+        let lim = storage::load_limits(e);
         let code = if predicate.len() > lim.max_predicate_bytes {
             E::PredicateTooLarge as u32
         } else if let Ok(root) = dsl::decode(e, &predicate, &lim) {
