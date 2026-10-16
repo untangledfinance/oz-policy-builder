@@ -82,15 +82,17 @@ fn the_constructor_fails_with(l: Limits) -> bool {
 /// Every field, one at a time: (name, how to set it, its floor, its ceiling).
 /// `max_elems` starts at 2: at 1 a quantifier body leaf (weight `max_elems`) weighs
 /// what any other leaf does, and the placement rules, which read the weights, stop
-/// telling a body from the top level (see `placement_holds_at_every_elems`).
+/// telling a body from the top level (see `placement_holds_at_every_elems`). The
+/// others start where the smallest rule of any use still installs (see
+/// `the_smallest_useful_rule_installs_at_every_floor`).
 type Setter = fn(&mut Limits, u32);
 const FIELDS: [(&str, Setter, u32, u32); 6] = [
     ("max_reads", |l, v| l.max_reads = v, 1, CEILING.max_reads),
-    ("max_leaves", |l, v| l.max_leaves = v, 1, CEILING.max_leaves),
+    ("max_leaves", |l, v| l.max_leaves = v, 4, CEILING.max_leaves),
     (
         "max_predicate_bytes",
         |l, v| l.max_predicate_bytes = v,
-        1,
+        256,
         CEILING.max_predicate_bytes,
     ),
     ("max_elems", |l, v| l.max_elems = v, 2, CEILING.max_elems),
@@ -100,7 +102,7 @@ const FIELDS: [(&str, Setter, u32, u32); 6] = [
         1,
         CEILING.max_in_operands,
     ),
-    ("max_depth", |l, v| l.max_depth = v, 1, CEILING.max_depth),
+    ("max_depth", |l, v| l.max_depth = v, 2, CEILING.max_depth),
 ];
 
 #[test]
@@ -253,18 +255,24 @@ fn depth_is_the_stored_one() {
         ..SMALL
     };
     assert!(!refused(says(&env, &deploy(&env, deep), &nested(3), &[])));
-    let one = Limits {
-        max_depth: 1,
+    let two = Limits {
+        max_depth: 2,
         ..SMALL
     };
-    assert!(!refused(says(&env, &deploy(&env, one), &nested(0), &[])));
-    assert!(refused(says(&env, &deploy(&env, one), &nested(1), &[])));
+    assert!(!refused(says(&env, &deploy(&env, two), &nested(1), &[])));
+    assert!(refused(says(&env, &deploy(&env, two), &nested(2), &[])));
 }
 
 #[test]
 fn leaf_nesting_depth_is_the_stored_one() {
     let env = Env::default();
-    let c = deploy(&env, SMALL);
+    // Everything but the depth is loose, so only the depth can refuse.
+    let loose = Limits {
+        max_leaves: 400,
+        max_reads: 8,
+        ..SMALL
+    };
+    let c = deploy(&env, loose);
     let scaled = |inner: ScVal| node("scaled", alloc::vec![inner, i128v(1), i128v(1), i128v(0)]);
     let ge = |leaf| node("gte", alloc::vec![arg(0), leaf]);
     // `scaled(scaled(1))` is leaf depth 3, `scaled(scaled(scaled(1)))` is 4.
@@ -611,4 +619,198 @@ fn placement_holds_at_every_elems() {
             assert_eq!(refused(got), *is_refused, "elems {elems}: {what}: {got}");
         }
     }
+}
+
+/// Loose everywhere (the ceilings) but the one field a test sets, so only that field can refuse.
+fn only(set: impl Fn(&mut Limits)) -> Limits {
+    let mut l = CEILING;
+    set(&mut l);
+    l
+}
+
+/// Install `predicate` (it must install) on a rule scoped to `target`, then `enforce` a `pay`
+/// call carrying `args`: `Ok` for a permit, else the contract error.
+fn installed_then_enforced(l: Limits, predicate: &ScVal, args: &[ScVal]) -> Result<(), u32> {
+    let env = Env::default();
+    env.mock_all_auths();
+    let c = deploy(&env, l);
+    let account = Address::generate(&env);
+    let target = Address::generate(&env);
+    let signers = soroban_sdk::vec![&env, Signer::Delegated(account.clone())];
+    let rule = ContextRule {
+        id: 1,
+        context_type: ContextRuleType::CallContract(target.clone()),
+        name: soroban_sdk::String::from_str(&env, "rule"),
+        signers: signers.clone(),
+        signer_ids: Vec::new(&env),
+        policies: Vec::new(&env),
+        policy_ids: Vec::new(&env),
+        valid_until: None,
+    };
+    let bytes = xdr_bytes(&env, predicate);
+    let p = PolicyInstallParams {
+        grammar_version: 7,
+        install_nonce: 1,
+        predicate_hash: env.crypto().sha256(&bytes).into(),
+        predicate: bytes,
+        policy_admins: signers.clone(),
+    };
+    if let Err(e) = c.try_install(&p, &rule, &account) {
+        panic!("the rule must install: {e:?}");
+    }
+    let ctx = Context::Contract(ContractContext {
+        contract: target,
+        fn_name: Symbol::new(&env, "pay"),
+        args: Vec::from_slice(
+            &env,
+            &args
+                .iter()
+                .map(|a| a.into_val(&env))
+                .collect::<StdVec<Val>>(),
+        ),
+    });
+    match c.try_enforce(&ctx, &signers, &rule, &account) {
+        Ok(_) => Ok(()),
+        Err(Ok(e)) => Err(e.get_code()),
+        other => panic!("{other:?}"),
+    }
+}
+
+/// A vector of `n` ones, as an argument.
+fn ones(n: usize) -> ScVal {
+    vec(alloc::vec![i128v(1); n])
+}
+
+#[test]
+fn enforce_decodes_with_the_stored_depth() {
+    // A rule nested deeper than the default (5) that its instance allows: install
+    // accepted it, and `enforce` decodes it again under the same stored depth.
+    let nested = |k: usize| {
+        (0..k).fold(pin(), |inner, _| {
+            node("and", alloc::vec![vec(alloc::vec![inner])])
+        })
+    };
+    let deep = only(|l| l.max_depth = 7);
+    assert_eq!(installed_then_enforced(deep, &nested(6), &[]), Ok(()));
+    // And at less than the default it is `install` that holds the line, `enforce`
+    // the same: a depth-2 instance runs a two-level rule.
+    let shallow = only(|l| l.max_depth = 2);
+    assert_eq!(installed_then_enforced(shallow, &nested(1), &[]), Ok(()));
+}
+
+#[test]
+fn enforce_visits_the_stored_element_count() {
+    let every = |kind: &str| {
+        node(
+            "and",
+            alloc::vec![vec(alloc::vec![
+                pin(),
+                node(
+                    kind,
+                    alloc::vec![arg(0), node("eq", alloc::vec![elem(), i128v(1)])]
+                )
+            ])],
+        )
+    };
+    let denied = Err(E::ArgMismatch as u32);
+    // above the default (32) and below it
+    for (elems, n) in [(40usize, 33usize), (40, 40), (3, 3)] {
+        let l = only(|l| l.max_elems = elems as u32);
+        assert_eq!(
+            installed_then_enforced(l, &every("all"), &[ones(n)]),
+            Ok(()),
+            "all, {n} of {elems}"
+        );
+        assert_eq!(
+            installed_then_enforced(l, &every("any"), &[ones(n)]),
+            Ok(()),
+            "any, {n} of {elems}"
+        );
+        // one more element than the instance visits denies
+        assert_eq!(
+            installed_then_enforced(l, &every("all"), &[ones(elems + 1)]),
+            denied,
+            "all, {} of {elems}",
+            elems + 1
+        );
+        assert_eq!(
+            installed_then_enforced(l, &every("any"), &[ones(elems + 1)]),
+            denied,
+            "any, {} of {elems}",
+            elems + 1
+        );
+    }
+}
+
+#[test]
+fn a_sum_walks_the_stored_element_count_when_the_rule_runs() {
+    let total = node(
+        "and",
+        alloc::vec![vec(alloc::vec![
+            pin(),
+            node(
+                "gte",
+                alloc::vec![node("sum", alloc::vec![arg(0)]), i128v(1)]
+            )
+        ])],
+    );
+    for elems in [3usize, 40] {
+        let env = Env::default();
+        let l = only(|l| l.max_elems = elems as u32);
+        // `enforce` ...
+        assert_eq!(installed_then_enforced(l, &total, &[ones(elems)]), Ok(()));
+        assert_eq!(
+            installed_then_enforced(l, &total, &[ones(elems + 1)]),
+            Err(E::ArgMismatch as u32),
+            "{elems}"
+        );
+        // ... and `check`, which evaluates the same way.
+        let c = deploy(&env, l);
+        assert_eq!(says(&env, &c, &total, &[ones(elems).into_val(&env)]), 0);
+        assert_ne!(says(&env, &c, &total, &[ones(elems + 1).into_val(&env)]), 0);
+    }
+}
+
+#[test]
+fn a_bare_vec_nests_to_the_stored_depth() {
+    // eq(arg0, [[1]]) is depth 3, eq(arg0, [[[1]]]) is 4: the constant's own nesting is
+    // held to `max_depth` with every other limit loose.
+    let env = Env::default();
+    let held = |k: usize| {
+        let constant = (0..k).fold(i128v(1), |x, _| vec(alloc::vec![x]));
+        node(
+            "and",
+            alloc::vec![vec(alloc::vec![
+                pin(),
+                node("eq", alloc::vec![arg(0), constant])
+            ])],
+        )
+    };
+    let c = deploy(&env, only(|l| l.max_depth = 3));
+    assert!(!refused(says(&env, &c, &held(2), &[])));
+    assert!(refused(says(&env, &c, &held(3), &[])));
+    let deeper = deploy(&env, only(|l| l.max_depth = 4));
+    assert!(!refused(says(&env, &deeper, &held(3), &[])));
+}
+
+#[test]
+fn the_smallest_useful_rule_installs_at_every_floor() {
+    // A function pin and one constraint on an argument, every limit at its floor at
+    // once: if the floors refused this, an instance deployed at them could hold no rule.
+    let mut l = CEILING;
+    for (_, set, floor, _) in FIELDS {
+        set(&mut l, floor);
+    }
+    let rule = node(
+        "and",
+        alloc::vec![vec(alloc::vec![
+            pin(),
+            node("eq", alloc::vec![arg(0), i128v(1)])
+        ])],
+    );
+    assert_eq!(installed_then_enforced(l, &rule, &[i128v(1)]), Ok(()));
+    assert_eq!(
+        installed_then_enforced(l, &rule, &[i128v(2)]),
+        Err(E::ArgMismatch as u32)
+    );
 }

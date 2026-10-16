@@ -76,7 +76,7 @@
                               "symbol": "max_predicate_bytes"
                             },
                             "val": {
-                              "u32": 1
+                              "u32": 256
                             }
                           },
                           {

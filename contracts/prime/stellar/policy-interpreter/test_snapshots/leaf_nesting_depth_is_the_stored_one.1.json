@@ -69,7 +69,7 @@
                               "symbol": "max_leaves"
                             },
                             "val": {
-                              "u32": 9
+                              "u32": 400
                             }
                           },
                           {
@@ -85,7 +85,7 @@
                               "symbol": "max_reads"
                             },
                             "val": {
-                              "u32": 2
+                              "u32": 8
                             }
                           }
                         ]

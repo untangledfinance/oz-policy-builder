@@ -68,7 +68,7 @@
                               "symbol": "max_leaves"
                             },
                             "val": {
-                              "u32": 1
+                              "u32": 4
                             }
                           },
                           {
