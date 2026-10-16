@@ -5,6 +5,7 @@
 import { afterAll, describe, expect, it, setDefaultTimeout } from 'bun:test'
 import { account } from '../test/fixtures.ts'
 import { recorded } from '../test/rpc.ts'
+import { INTERPRETER as PINNED } from './config.ts'
 import { explain, run } from './tools.ts'
 
 setDefaultTimeout(30_000)
@@ -12,7 +13,7 @@ const net = recorded('spec')
 afterAll(() => net.stop())
 
 const XLM = 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC'
-const INTERPRETER = 'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV'
+const INTERPRETER = PINNED.testnet?.address as string
 const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-6)}`
 // biome-ignore lint/suspicious/noExplicitAny: a tool's data is untyped JSON
 const ask = async (name: string, input: object): Promise<any> => {

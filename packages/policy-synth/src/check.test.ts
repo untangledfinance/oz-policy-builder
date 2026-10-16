@@ -198,7 +198,7 @@ describe('check, on the live interpreter', () => {
     const [[o], [u]] = await Promise.all([ask(overflow, pay), ask(unsupported, pay)])
     expect(o).toEqual({ permitted: false, code: 102, reason: 'ARITHMETIC_OVERFLOW' })
     expect(u).toEqual({ permitted: false, code: 103, reason: 'UNSUPPORTED_NODE' })
-    const big: Expr = ['eq', ['call_arg', 0], ['lit', { bytes: '00'.repeat(33 * 1024) }]]
+    const big: Expr = ['eq', ['call_arg', 0], ['lit', { bytes: '00'.repeat(49 * 1024) }]]
     expect((await ask(big, pay))[0]).toEqual({
       permitted: false,
       code: 207,

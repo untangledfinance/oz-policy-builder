@@ -4,6 +4,8 @@ import * as api from './index.ts'
 it('the public surface is the tools, the codec, the card, the pins and Refusal, and nothing else', () => {
   expect(Object.keys(api).sort()).toEqual(
     [
+      'CEILINGS',
+      'DECODE_LIMITS',
       'GRAMMAR_VERSION',
       'INTERPRETER',
       'INTERPRETERS',

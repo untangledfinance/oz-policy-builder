@@ -210,8 +210,15 @@ export const hashOf = (b64: string): string =>
 // and the grammar corpus hold it to that, case by case; the contract stays the
 // authority, and `check` is the way to ask it.
 
-/** `dsl.rs`: the caps decode enforces. A quantifier body and a `sum` weigh `elems` leaves. */
-export const DECODE_LIMITS = {
+/** The caps decode enforces. A quantifier body and a `sum` weigh `elems` leaves. `steps` is fixed
+ *  in the contract; the rest are the deployment's `Limits` (`max_depth`, `max_leaves`,
+ *  `max_in_operands`, `max_reads`, `max_predicate_bytes`, `max_elems`). */
+export type Caps = Record<
+  'depth' | 'leaves' | 'entries' | 'reads' | 'bytes' | 'steps' | 'elems',
+  number
+>
+/** What grammar 7 shipped with, and so the caps of a rule checked without an interpreter at hand. */
+export const DECODE_LIMITS: Caps = {
   depth: 5,
   leaves: 200,
   entries: 32,
@@ -219,7 +226,17 @@ export const DECODE_LIMITS = {
   bytes: 32 * 1024,
   steps: 8,
   elems: 32,
-} as const
+}
+/** The most any deployment may choose (`Limits::in_range` in the contract): an instance reporting more is refused. */
+export const CEILINGS: Caps = {
+  depth: 8,
+  leaves: 400,
+  entries: 64,
+  reads: 8,
+  bytes: 48 * 1024,
+  steps: 8,
+  elems: 64,
+}
 const MAX_DEN = 10n ** 18n
 const I128 = 2n ** 127n
 const fits = (x: bigint) => x >= -I128 && x < I128
@@ -268,6 +285,7 @@ function constant(v: Val): bigint | undefined {
 }
 
 interface Walk {
+  caps: Caps
   weight: number
   reads: Set<string>
   selector: boolean
@@ -275,15 +293,14 @@ interface Walk {
 
 /** Throws `WireError` for what the contract's decoder refuses at install (201, 216),
  *  and for an oversized encoding (207). */
-export function validate(expr: Expr): void {
-  const w: Walk = { weight: 0, reads: new Set(), selector: false }
+export function validate(expr: Expr, caps: Caps = DECODE_LIMITS): void {
+  const w: Walk = { caps, weight: 0, reads: new Set(), selector: false }
   node(expr, 1, false, w)
-  if (w.weight > DECODE_LIMITS.leaves) bad(`${w.weight} leaves, at most ${DECODE_LIMITS.leaves}`)
-  if (w.reads.size > DECODE_LIMITS.reads)
-    bad(`${w.reads.size} distinct reads, at most ${DECODE_LIMITS.reads}`)
+  if (w.weight > caps.leaves) bad(`${w.weight} leaves, at most ${caps.leaves}`)
+  if (w.reads.size > caps.reads) bad(`${w.reads.size} distinct reads, at most ${caps.reads}`)
   if (!w.selector) bad('no leaf reads the call: the rule would constrain nothing')
-  if (Buffer.from(encode(expr), 'base64').length > DECODE_LIMITS.bytes)
-    bad(`encoding over ${DECODE_LIMITS.bytes} bytes`)
+  if (Buffer.from(encode(expr), 'base64').length > caps.bytes)
+    bad(`encoding over ${caps.bytes} bytes`)
 }
 
 const bad = (m: string): never => {
@@ -317,7 +334,7 @@ export const branches = (expr: Expr): Expr[][] =>
   isSelector(expr) && expr[0] === 'or' ? (expr[1] as Expr[]).map(conjuncts) : [conjuncts(expr)]
 
 function node(e: Expr, depth: number, body: boolean, w: Walk): void {
-  if (depth > DECODE_LIMITS.depth) bad(`nested deeper than ${DECODE_LIMITS.depth}`)
+  if (depth > w.caps.depth) bad(`nested deeper than ${w.caps.depth}`)
   if (!isSelector(e)) bad('not a node')
   const [op, ...r] = e as [string, ...Val[]]
   const [a, b] = r as Val[]
@@ -339,8 +356,7 @@ function node(e: Expr, depth: number, body: boolean, w: Walk): void {
   } else if ((op === 'in' || op === 'nin') && r.length === 2) {
     leaf(a as Val, 1, body, w)
     const entries = list(b)
-    if (entries.length > DECODE_LIMITS.entries)
-      bad(`${op}: more than ${DECODE_LIMITS.entries} entries`)
+    if (entries.length > w.caps.entries) bad(`${op}: more than ${w.caps.entries} entries`)
     for (const x of entries) {
       leaf(x, 1, body, w)
       if (!isConstant(x)) bad(`${op}: entries are constants`)
@@ -348,10 +364,10 @@ function node(e: Expr, depth: number, body: boolean, w: Walk): void {
   } else if ((op === 'all' || op === 'any') && r.length === 2) {
     if (body) bad('a quantifier inside a quantifier')
     leaf(a as Val, 1, false, w)
-    const inner: Walk = { weight: 0, reads: w.reads, selector: false }
+    const inner: Walk = { caps: w.caps, weight: 0, reads: w.reads, selector: false }
     node(b as Val, depth + 1, true, inner)
     // Every leaf of the body is walked once per element.
-    w.weight += inner.weight * DECODE_LIMITS.elems
+    w.weight += inner.weight * w.caps.elems
     w.selector ||= inner.selector
   } else {
     bad(`unknown operator or wrong arity: ${op}/${r.length}`)
@@ -364,10 +380,10 @@ const index = (x: Val | undefined): void => {
 }
 
 function leaf(v: Val, nest: number, body: boolean, w: Walk): void {
-  if (nest > DECODE_LIMITS.depth) bad(`leaf nested deeper than ${DECODE_LIMITS.depth}`)
+  if (nest > w.caps.depth) bad(`leaf nested deeper than ${w.caps.depth}`)
   w.weight += 1
   if (!isSelector(v)) {
-    constantValue(v, nest)
+    constantValue(v, nest, w.caps.depth)
     return
   }
   const [head, ...r] = v
@@ -383,15 +399,15 @@ function leaf(v: Val, nest: number, body: boolean, w: Walk): void {
   if (head === 'call_arg_field') {
     index(r[0])
     index(r[1])
-    steps(r.slice(2))
+    steps(r.slice(2), w.caps.depth)
   }
-  if (head === 'call_path' || head === 'elem') steps(r)
+  if (head === 'call_path' || head === 'elem') steps(r, w.caps.depth)
   if (head === 'sum') {
     if (body) bad('a sum inside a quantifier')
     // A sum walks up to `elems` elements, so it weighs that many leaves in all.
-    w.weight += DECODE_LIMITS.elems - 1
+    w.weight += w.caps.elems - 1
     next(r[0] as Val)
-    steps(r.slice(1))
+    steps(r.slice(1), w.caps.depth)
   }
   if (head === 'scaled') scaledLeaf(r, next)
   if (head === 'read') {
@@ -400,7 +416,7 @@ function leaf(v: Val, nest: number, body: boolean, w: Walk): void {
       bad('read: target is a contract')
     if (typeof fn !== 'string' || isAddress(fn) || !Array.isArray(args))
       bad('read: (contract, fn, [args], path...)')
-    steps(r.slice(3))
+    steps(r.slice(3), w.caps.depth)
     for (const x of args as Val[]) {
       if (isSelector(x) && !isCall(x[0]) && x[0] !== 'now' && x[0] !== 'lit') {
         bad('read: an argument is a constant or a plain leaf')
@@ -436,13 +452,13 @@ function scaledLeaf(r: Val[], next: (x: Val) => void): void {
 }
 
 /** A bare constant: a value, or a non-empty vec of them (never a selector or a map). */
-function constantValue(v: Val, nest: number): void {
-  if (nest > DECODE_LIMITS.depth) bad('a constant is nested too deep')
+function constantValue(v: Val, nest: number, depth: number): void {
+  if (nest > depth) bad('a constant is nested too deep')
   if (Array.isArray(v)) {
     if (v.length === 0) bad('an empty vec constant')
     for (const x of v) {
       if (isSelector(x)) bad('a bare vec holds plain values: write lit([...])')
-      constantValue(x, nest + 1)
+      constantValue(x, nest + 1, depth)
     }
   } else if (isTagged(v) && 'map' in v) {
     bad('a bare map: write lit({...})')
@@ -451,13 +467,13 @@ function constantValue(v: Val, nest: number): void {
 
 /** A path: u32 indexes, constant keys (a symbol, a bare value, or `lit(x)`), and a final
  *  `true` (the length). The last step may be the only one, up to `steps` of them. */
-function steps(s: Val[]): void {
+function steps(s: Val[], depth: number): void {
   if (s.length > DECODE_LIMITS.steps) bad(`a path of at most ${DECODE_LIMITS.steps} steps`)
   s.forEach((x, i) => {
     if (x === true && i !== s.length - 1) bad('the length step is last')
     if (typeof x === 'number' || x === true) return
     if (isSelector(x) && x[0] !== 'lit') bad('a path step is not a selector')
     // The contract reads a key as it reads a constant leaf, at depth 1.
-    if (!isSelector(x)) constantValue(x, 1)
+    if (!isSelector(x)) constantValue(x, 1, depth)
   })
 }

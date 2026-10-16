@@ -9,6 +9,7 @@ import {
   Contract,
   rpc,
   StrKey,
+  scValToNative,
   TransactionBuilder,
   xdr,
 } from '@stellar/stellar-sdk'
@@ -21,6 +22,7 @@ import {
   RPC_URL,
 } from './config.ts'
 import { Refusal } from './envelope.ts'
+import { type Caps, CEILINGS, DECODE_LIMITS } from './wire.ts'
 
 export interface Endpoint {
   network: Network
@@ -160,12 +162,68 @@ export const dataKey = (contract: string, key: xdr.ScVal): xdr.LedgerKey =>
     })
   )
 
+/** The contract's name for each limit, and ours. */
+const LIMIT_FIELDS = {
+  max_reads: 'reads',
+  max_leaves: 'leaves',
+  max_predicate_bytes: 'bytes',
+  max_elems: 'elems',
+  max_in_operands: 'entries',
+  max_depth: 'depth',
+} as const
+
+const limitsSeen = new Map<string, Caps>()
+
+/** The limits `address` was deployed with (`limits()`), read once per address: an instance cannot
+ *  change them. Each is a whole number from 1 to its ceiling; a contract that answers anything
+ *  else (or does not answer) is refused, so no predicate is ever judged against a number the
+ *  contract itself would not have accepted. Call it only for a trusted interpreter. */
+export async function limitsOf(
+  server: rpc.Server,
+  network: Network,
+  address: string
+): Promise<Caps> {
+  const id = `${network}:${address}`
+  const seen = limitsSeen.get(id)
+  if (seen) return seen
+  const got = scValToNative(await read(server, network, address, 'limits')) as Record<
+    string,
+    unknown
+  >
+  const caps: Caps = { ...DECODE_LIMITS }
+  for (const [field, key] of Object.entries(LIMIT_FIELDS)) {
+    const v = got?.[field]
+    if (!Number.isInteger(v) || (v as number) < 1 || (v as number) > CEILINGS[key])
+      throw new Refusal(
+        'INTERPRETER_MISMATCH',
+        `${address} reports ${field} = ${String(v)}; every limit is a whole number from 1 to its ceiling (${CEILINGS[key]})`
+      )
+    caps[key] = v as number
+  }
+  limitsSeen.set(id, caps)
+  return caps
+}
+
+/** The limits of the interpreter a tool is about, after its code is trusted: the pin, or the
+ *  address the caller named. */
+export async function capsFor(
+  server: rpc.Server,
+  network: Network,
+  address?: string
+): Promise<Caps> {
+  const interpreter = interpreterFor(network, address)
+  await ensureInterpreter(server, network, interpreter)
+  return limitsOf(server, network, interpreter)
+}
+
 export interface Fingerprint {
   address: string
   grammarVersion: number
   wasmSha256: string
-  /** The live contract speaks this grammar and runs a build this package trusts. */
+  /** The live contract speaks this grammar and runs a build this package trusts... */
   matches: boolean
+  /** ...and then it is asked what it was deployed with (a build it does not trust is not asked). */
+  limits?: Caps | undefined
 }
 
 /** What is deployed at `address` right now: its `grammar_version()` and the sha256
@@ -183,7 +241,8 @@ export async function fingerprint(
     throw new Refusal('INTERPRETER_MISMATCH', `${address} is not a wasm contract on ${network}`)
   const grammarVersion = Number(version.u32())
   const matches = grammarVersion === GRAMMAR_VERSION && INTERPRETER_WASM.has(wasmSha256)
-  return { address, grammarVersion, wasmSha256, matches }
+  const limits = matches ? await limitsOf(server, network, address) : undefined
+  return { address, grammarVersion, wasmSha256, matches, limits }
 }
 
 /** The sha256 of the wasm `address` runs (its instance entry's executable), or undefined when

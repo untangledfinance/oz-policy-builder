@@ -11,7 +11,7 @@ import {
   tree,
   type View,
 } from './card.ts'
-import { SAFE_READS, SPENDING_LIMIT } from './config.ts'
+import { INTERPRETER, SAFE_READS, SPENDING_LIMIT } from './config.ts'
 import { decodeEnvelope } from './record.ts'
 import { TEMPLATES } from './registry.ts'
 import { SAC } from './spec.ts'
@@ -1623,7 +1623,7 @@ describe('the authority header: who can act, under what rule, until when, up to 
   const [G1, G2, G3] = [account(1), account(2), account(3)]
   const KC = contract(4)
   const text = (a: Authority, v: View = {}) => lines([authority(a, v)])
-  const INT = 'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV'
+  const INT = INTERPRETER.testnet?.address as string
   const base: Authority = {
     signers: [G1],
     admins: [G1],

@@ -18,6 +18,9 @@ export { type ErrorCode, Refusal, type ToolError, type ToolResponse } from './en
 export type { CallIntent, Constraint, Intent } from './intent.ts'
 export { run, TOOLS, type Tool } from './tools.ts'
 export {
+  type Caps,
+  CEILINGS,
+  DECODE_LIMITS,
   decode,
   type Expr,
   encode,

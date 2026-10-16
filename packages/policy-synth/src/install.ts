@@ -469,6 +469,7 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
       validUntil: draft.validUntil,
       total: i.spendingLimit ?? null,
       interpreter,
+      limits: fingerprint.limits,
     },
     rule: { contract: rule.contract, predicateHash: rule.hash },
     interpreter: fingerprint,

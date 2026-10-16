@@ -94,10 +94,40 @@ export function recorded(name: string) {
 
 import { Address, xdr } from '@stellar/stellar-sdk'
 
+/** `limits()` as the contract answers it: a map of u32 fields. */
+export const limitsScVal = (l: Record<string, number | string>) =>
+  xdr.ScVal.scvMap(
+    Object.entries(l)
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(
+        ([k, v]) =>
+          new xdr.ScMapEntry({
+            key: xdr.ScVal.scvSymbol(k),
+            val: typeof v === 'number' ? xdr.ScVal.scvU32(v) : xdr.ScVal.scvSymbol(v),
+          })
+      )
+  )
+
+/** What grammar 7 shipped with, in the contract's own field names. */
+export const LIMITS_DEFAULT: Record<string, number> = {
+  max_reads: 4,
+  max_leaves: 200,
+  max_predicate_bytes: 32 * 1024,
+  max_elems: 32,
+  max_in_operands: 32,
+  max_depth: 5,
+}
+
 /** A JSON-RPC endpoint where `address` is a contract running `wasm` and speaking
  *  `grammar`, and every `check` answers `verdict`. `asked` lists the methods the
  *  server was called with (`check` for a verdict, else the RPC method). */
-export function fakeInterpreter(address: string, wasm: string, grammar = 7, verdict = 0) {
+export function fakeInterpreter(
+  address: string,
+  wasm: string,
+  grammar = 7,
+  verdict = 0,
+  limits: Record<string, number | string> | null = LIMITS_DEFAULT
+) {
   const asked: string[] = []
   const server = Bun.serve({
     port: 0,
@@ -117,10 +147,18 @@ export function fakeInterpreter(address: string, wasm: string, grammar = 7, verd
         const fn = op?.hostFunction().invokeContract().functionName().toString()
         asked.push(fn === 'check' ? 'check' : `simulate ${fn}`)
         result =
-          fn === 'grammar_version'
+          fn === 'grammar_version' || (fn === 'limits' && limits !== null)
             ? {
                 latestLedger: 1,
-                results: [{ xdr: xdr.ScVal.scvU32(grammar).toXDR('base64'), auth: [] }],
+                results: [
+                  {
+                    xdr: (fn === 'limits' && limits
+                      ? limitsScVal(limits)
+                      : xdr.ScVal.scvU32(grammar)
+                    ).toXDR('base64'),
+                    auth: [],
+                  },
+                ],
               }
             : {
                 latestLedger: 1,

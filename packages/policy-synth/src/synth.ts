@@ -11,6 +11,7 @@ import { identify, type Kind, PROTOCOLS } from './registry.ts'
 import { canon, constantLast, FLIP, selectors } from './rules.ts'
 import {
   branches,
+  type Caps,
   conjuncts,
   DECODE_LIMITS,
   type Expr,
@@ -298,12 +299,12 @@ export interface ProposedRule {
   hash: string
 }
 
-/** One rule per contract the intent covers, each checked against the contract's
- *  decode refusals so nothing leaves here that install would refuse. */
-export function propose(intent: Intent): ProposedRule[] {
+/** One rule per contract the intent covers, each checked against the decode refusals of the
+ *  interpreter whose `caps` they are, so nothing leaves here that install would refuse. */
+export function propose(intent: Intent, caps: Caps = DECODE_LIMITS): ProposedRule[] {
   return [...intentExprs(intent)].map(([contract, expr]) => {
     try {
-      validate(expr)
+      validate(expr, caps)
     } catch (e) {
       throw new Refusal('MALFORMED_PREDICATE', `${contract}: ${(e as Error).message}`)
     }

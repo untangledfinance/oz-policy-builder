@@ -19,7 +19,7 @@ import {
   xdr,
 } from '@stellar/stellar-sdk'
 import { connect } from '../src/chain.ts'
-import { OZ_ACCOUNT_WASM, thresholdAddress } from '../src/config.ts'
+import { INTERPRETER, OZ_ACCOUNT_WASM, thresholdAddress } from '../src/config.ts'
 import { digest } from '../src/install.ts'
 import { readRules } from '../src/rules.ts'
 import { run } from '../src/tools.ts'
@@ -29,7 +29,7 @@ const NET = 'testnet' as const
 const WEIGHTED = process.env.WEIGHTED === '1'
 const WASM = '91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9'
 const SAC = 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC' // the native asset
-const INTERP = 'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV'
+const INTERP = INTERPRETER[NET]?.address as string
 if (!OZ_ACCOUNT_WASM.has(WASM)) throw new Error('the account build is not one the package knows')
 
 const server = connect({ network: NET })

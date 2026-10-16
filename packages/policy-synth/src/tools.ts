@@ -11,6 +11,7 @@ import { StrKey } from '@stellar/stellar-sdk'
 import { z } from 'zod'
 import { type Authority, authority, contractsOf, lines, tree } from './card.ts'
 import {
+  capsFor,
   codeHash,
   connect,
   type Endpoint,
@@ -51,7 +52,17 @@ import {
   unbounded,
   unboundedExpr,
 } from './synth.ts'
-import { DECODE_LIMITS, decode, type Expr, encode, hashOf, validate, WireError } from './wire.ts'
+import {
+  type Caps,
+  CEILINGS,
+  DECODE_LIMITS,
+  decode,
+  type Expr,
+  encode,
+  hashOf,
+  validate,
+  WireError,
+} from './wire.ts'
 
 // ---- input fragments ----
 
@@ -83,14 +94,14 @@ const rule: z.ZodType<unknown> = z.lazy(() =>
       .object({
         constraint: z.literal('allow'),
         at: path,
-        in: z.array(val).min(1).max(DECODE_LIMITS.entries),
+        in: z.array(val).min(1).max(CEILINGS.entries),
       })
       .strict(),
     z
       .object({
         constraint: z.literal('deny'),
         at: path,
-        nin: z.array(val).min(1).max(DECODE_LIMITS.entries),
+        nin: z.array(val).min(1).max(CEILINGS.entries),
       })
       .strict(),
     z.object({ constraint: z.literal('cap'), at: path, max: amount }).strict(),
@@ -343,8 +354,8 @@ function pick(rules: ReturnType<typeof propose>, contract?: string) {
   return hit
 }
 
-/** A predicate given as an expression or as its encoding, validated. */
-function given(i: { expr?: unknown; encodedPredicate?: string | undefined }) {
+/** A predicate given as an expression or as its encoding, validated against the interpreter's `caps`. */
+function given(i: { expr?: unknown; encodedPredicate?: string | undefined }, caps: Caps) {
   const kind = exactlyOne(i, ['expr', 'encodedPredicate'])
   let expr: Expr
   try {
@@ -355,7 +366,7 @@ function given(i: { expr?: unknown; encodedPredicate?: string | undefined }) {
       `the predicate is not a value the contract could read: ${messageOf(e)}`
     )
   }
-  validate(expr)
+  validate(expr, caps)
   const encoded = encode(expr)
   if (kind === 'encodedPredicate' && encoded !== i.encodedPredicate) {
     throw new Refusal(
@@ -386,7 +397,9 @@ const synthesize_policy = tool(
   { ...net, ...display, ...from },
   async (i, signal) => {
     const s = await sourceOf(i)
-    const rules = propose(s.intent)
+    // The pinned interpreter's limits; a network that pins none has nothing to ask.
+    const caps = INTERPRETER[i.network] ? await capsFor(connect(i), i.network) : DECODE_LIMITS
+    const rules = propose(s.intent, caps)
     const shown = await explain(i, rules, signal)
     return {
       intent: s.intent,
@@ -413,14 +426,21 @@ const predicateInput = {
 /** The predicate and the calls a simulate or verify is about. */
 async function subject(i: z.infer<z.ZodObject<typeof predicateInput>>) {
   const hasSource = SOURCES.some((k) => (i as Record<string, unknown>)[k] !== undefined)
-  const src = hasSource ? await sourceOf(i) : undefined
-  const pred = i.expr !== undefined || i.encodedPredicate !== undefined ? given(i) : undefined
-  if (!pred && !src)
+  const hasPred = i.expr !== undefined || i.encodedPredicate !== undefined
+  if (!hasPred && !hasSource)
     throw new Refusal(
       'INVALID_INPUT',
       'give a predicate (expr or encodedPredicate) or a source to build one from'
     )
-  const rule = pred ? undefined : pick(propose((src as Source).intent), i.contract)
+  // A predicate that is only explained never reaches an interpreter: it is held to what grammar 7
+  // shipped with. Anything that will be checked is held to the limits of the one it is checked by.
+  const explainOnly = hasPred && !hasSource && i.calls === undefined
+  const caps = explainOnly
+    ? DECODE_LIMITS
+    : await capsFor(connect(i), i.network, i.interpreterAddress)
+  const src = hasSource ? await sourceOf(i) : undefined
+  const pred = hasPred ? given(i, caps) : undefined
+  const rule = pred ? undefined : pick(propose((src as Source).intent, caps), i.contract)
   const contexts = src?.recording?.contexts ?? []
   const calls = i.calls ?? contexts.filter((c) => !rule || c.contract === rule.contract)
   const { expr, encoded } = pred ?? (rule as ProposedRule)
@@ -429,7 +449,7 @@ async function subject(i: z.infer<z.ZodObject<typeof predicateInput>>) {
     encoded,
     calls: calls as Call[],
     /** Only a predicate was given, no source and no calls: it is explained, nothing is checked. */
-    explainOnly: pred !== undefined && !hasSource && i.calls === undefined,
+    explainOnly,
     /** What names it: its own pins, and the contract of the rule a source made. */
     item: { expr, contract: rule?.contract },
   }
@@ -522,8 +542,9 @@ const install_policy = tool(
   async (i, signal) => {
     // The rule: an encoded predicate scoped by `contract`, or one the source yields.
     let rule: Chosen
+    const caps = await capsFor(connect(i), i.network, i.interpreterAddress)
     if (i.encodedPredicate !== undefined) {
-      const p = given(i)
+      const p = given(i, caps)
       const sel = [...new Set(selectors(p.expr).map((s) => s.contract))]
       const contract = i.contract ?? (sel.length === 1 && sel[0] !== '*' ? sel[0] : undefined)
       if (!contract)
@@ -540,7 +561,7 @@ const install_policy = tool(
       }
     } else {
       const s = await sourceOf(i)
-      rule = { ...pick(propose(s.intent), i.contract), ...questions(s.ambiguities) }
+      rule = { ...pick(propose(s.intent, caps), i.contract), ...questions(s.ambiguities) }
     }
     const server = connect(i)
     const chain: Chain = {
@@ -684,7 +705,7 @@ async function explainAccount(
 
 const get_interpreter_info = tool(
   'get_interpreter_info',
-  "The interpreter a network uses: its pinned address, grammar version and wasm sha256, the predicate caps, and with `verifyLive` what is deployed at that address right now (grammar_version() and the code hash) and whether it matches the pin. With `explainAccount` (a smart account) it also reads the account's rules and explains each one this interpreter polices (`review`, `reviewTree`); only an OpenZeppelin smart account build the package knows is read.",
+  "The interpreter a network uses: its pinned address, grammar version and wasm sha256, `limits` (the caps the instance was deployed with, read from it with `limits()`; a contract that does not answer, or answers more than the `ceilings`, is refused) and, with `verifyLive`, what is deployed at that address right now (grammar_version(), the code hash and limits) and whether it matches the pin. With `explainAccount` (a smart account) it also reads the account's rules and explains each one this interpreter polices (`review`, `reviewTree`); only an OpenZeppelin smart account build the package knows is read.",
   {
     ...net,
     ...display,
@@ -695,6 +716,10 @@ const get_interpreter_info = tool(
   async (i, signal) => {
     const address = interpreterFor(i.network, i.interpreterAddress)
     const wasm = pinnedWasm(i.network, address)
+    const server = connect(i)
+    // What a build this package does not trust says of itself is shown by `verifyLive`, never believed.
+    const live = i.verifyLive ? await fingerprint(server, i.network, address) : undefined
+    const limits = live ? (live.limits ?? null) : await capsFor(server, i.network, address)
     return {
       network: i.network,
       address,
@@ -702,8 +727,9 @@ const get_interpreter_info = tool(
       grammarVersion: GRAMMAR_VERSION,
       wasmSha256: wasm ?? null,
       trustedWasmSha256: [...INTERPRETER_WASM],
-      caps: DECODE_LIMITS,
-      ...(i.verifyLive ? { live: await fingerprint(connect(i), i.network, address) } : {}),
+      limits,
+      ceilings: CEILINGS,
+      ...(live ? { live } : {}),
       ...(i.explainAccount
         ? { account: await explainAccount(i, i.explainAccount, address, signal) }
         : {}),

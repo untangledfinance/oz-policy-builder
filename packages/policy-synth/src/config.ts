@@ -19,13 +19,14 @@ export const RPC_URL: Record<Network, string> = {
 /** The grammar this package speaks: `SELF_VERSION` in the interpreter. */
 export const GRAMMAR_VERSION = 7
 
-/** The grammar-7 interpreter, per network. Mainnet has none yet: until one is
+/** The grammar-7 interpreter, per network (the wasm is the build with deploy-time `Limits`; the
+ *  limits themselves are read from the instance). Mainnet has none yet: until one is
  *  deployed and pinned here, mainnet installs and checks name their own
  *  interpreter, and it is verified live like the pinned one. */
 export const INTERPRETER: Record<Network, { address: string; wasmSha256: string } | null> = {
   testnet: {
-    address: 'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV',
-    wasmSha256: 'a975353d1c3fe5bb096c4c2bf90c7c96932df10b95c9bcfa0adbb1d2146773f1',
+    address: 'CAECFZWHHHKJRJHYR3EQHAMYHBQPW7G6BGKYSNJS4KLZAUNLQP7H5L2H',
+    wasmSha256: '42d53616cafe85361b9675df5919fa7df81d10d9ac77698458205673cb390f77',
   },
   mainnet: null,
 }
@@ -72,7 +73,8 @@ export const INTERPRETERS: ReadonlySet<string> = new Set([
   'CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52', // grammar 4, mainnet
   'CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5', // grammar 4, testnet
   'CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB', // grammar 7, testnet, first build (its check could commit a read)
-  'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV', // grammar 7, testnet
+  'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV', // grammar 7, testnet, limits hard-coded (superseded: no limits())
+  'CAECFZWHHHKJRJHYR3EQHAMYHBQPW7G6BGKYSNJS4KLZAUNLQP7H5L2H', // grammar 7, testnet, deploy-time limits
 ])
 
 /** OpenZeppelin's `simple_threshold` and `weighted_threshold`, built from v0.7.2 and deployed by us

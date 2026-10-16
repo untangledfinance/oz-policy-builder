@@ -267,10 +267,10 @@ describe('explainAccount reads only an account that runs a known OpenZeppelin bu
 
   it('a contract that is not one answers with whatever rules it likes, so none is read', async () => {
     // The pinned interpreter standing in for an account: its code is not a smart account's.
-    const pin = 'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV'
+    const pin = 'CAECFZWHHHKJRJHYR3EQHAMYHBQPW7G6BGKYSNJS4KLZAUNLQP7H5L2H'
     const fake = fakeInterpreter(
       pin,
-      'a975353d1c3fe5bb096c4c2bf90c7c96932df10b95c9bcfa0adbb1d2146773f1'
+      '42d53616cafe85361b9675df5919fa7df81d10d9ac77698458205673cb390f77'
     )
     const undo = pointAt('testnet', `http://127.0.0.1:${fake.port}`)
     try {
@@ -280,7 +280,7 @@ describe('explainAccount reads only an account that runs a known OpenZeppelin bu
         'INVALID_INPUT',
         /known OpenZeppelin smart account build/
       )
-      expect(r.error.message).toContain('a975353d')
+      expect(r.error.message).toContain('42d53616')
       expect(fake.asked.filter((m) => m.startsWith('simulate get_context'))).toEqual([])
     } finally {
       undo()
@@ -535,7 +535,11 @@ describe('synthesize_policy', () => {
     )
     const wide = {
       name: 'adapter_batch',
-      params: { adapter: TOKEN, targets: [1, 2, 3, 4, 5, 6].map(contract), functions: ['a'] },
+      params: {
+        adapter: TOKEN,
+        targets: Array.from({ length: 20 }, (_, i) => contract(i + 1)),
+        functions: ['a'],
+      },
     }
     await failing('synthesize_policy', { template: wide }, 'MALFORMED_PREDICATE', /leaves/)
   })
@@ -740,7 +744,8 @@ describe('install_policy', () => {
     ).toEqual([
       [0, 'unpoliced'],
       [1, 'unreadable'],
-      [2, 'other'],
+      [2, 'unreadable'],
+      [3, 'other'],
     ])
     expect(r.data.interpreter.matches).toBe(true)
     expect(r.data.rule.review.at(-1)).toBe('   └─ argument 2:  must be at most  9000000')
@@ -781,7 +786,9 @@ describe('install_policy', () => {
     expect(text).toContain(
       'total:  at most 0.5 native (5000000) in total per 17280 ledgers (rolling, OZ spending_limit)'
     )
-    expect(text).toMatch(/interpreter: {2}CA5ICI…\w{6} \(\[interpreter\]\)/)
+    expect(text).toMatch(
+      /interpreter: {2}CAECFZ…\w{6} \(\[interpreter\]\) \(reads ≤ 8, leaves ≤ 400, bytes ≤ 49152, elems ≤ 32, in ≤ 32, depth ≤ 5\)/
+    )
     // The predicate's own tree follows the header, and the tree's first node is the authority.
     expect(r.data.rule.reviewTree[0]).toMatchObject({ op: 'authority', raw: null })
     expect(r.data.rule.reviewTree[1]).toMatchObject({ op: 'contract' })
@@ -1346,7 +1353,7 @@ describe('revoke_policy', () => {
     const r = await call('revoke_policy', {
       smartAccount: ACCOUNT,
       sourceAccount: SIGNER,
-      ruleId: 2,
+      ruleId: 3,
     })
     expect(r.data.removes.expr).toEqual(['and', expect.any(Array)])
     expect(r.data.removes.review.at(-1)).toBe('   └─ argument 2:  must be at most  1000')
@@ -1367,11 +1374,11 @@ describe('revoke_policy', () => {
       const r = await call('revoke_policy', {
         smartAccount: ACCOUNT,
         sourceAccount: SIGNER,
-        ruleId: 2,
+        ruleId: 3,
       })
       expect(r.ok).toBe(true)
-      expect(r.data.describes).toEqual({ contract: ACCOUNT, fn: 'remove_context_rule', args: [2] })
-      expect(r.data.removes).toMatchObject({ id: 2, scope: { kind: 'call_contract' } })
+      expect(r.data.describes).toEqual({ contract: ACCOUNT, fn: 'remove_context_rule', args: [3] })
+      expect(r.data.removes).toMatchObject({ id: 3, scope: { kind: 'call_contract' } })
       expect(r.data.removes.expr).toBeUndefined()
       expect(r.data.removes.review).toBeUndefined()
       expect(r.data.removes.reviewSkipped).toMatch(
@@ -1387,7 +1394,7 @@ describe('revoke_policy', () => {
       const r = await call('revoke_policy', {
         smartAccount: ACCOUNT,
         sourceAccount: SIGNER,
-        ruleId: 2,
+        ruleId: 3,
       })
       expect(r.ok).toBe(true)
       expect(r.data.removes.review).toBeUndefined()
@@ -1406,7 +1413,7 @@ describe('revoke_policy', () => {
       const r = await call('revoke_policy', {
         smartAccount: ACCOUNT,
         sourceAccount: SIGNER,
-        ruleId: 2,
+        ruleId: 3,
       })
       expect(r.ok).toBe(true)
       expect(r.data.removes.review).toBeUndefined()
@@ -1421,7 +1428,7 @@ describe('revoke_policy', () => {
     const r = await call('revoke_policy', {
       smartAccount: ACCOUNT,
       sourceAccount: SIGNER,
-      ruleId: 2,
+      ruleId: 3,
     })
     expect(r.data.removes.reviewSkipped).toBeUndefined()
   })
@@ -1431,7 +1438,7 @@ describe('revoke_policy', () => {
     const r = await call('revoke_policy', {
       smartAccount: ACCOUNT,
       sourceAccount: SIGNER,
-      ruleId: 2,
+      ruleId: 3,
     })
     expect(r.data.removes.scope.contract).toBe(r.data.removes.reviewTree[0].value)
   })
@@ -1464,17 +1471,59 @@ describe('revoke_policy', () => {
   )
 })
 
+describe('the limits of the pinned instance', () => {
+  const reads = (k: number) =>
+    Array.from({ length: k }, (_, i) => ({
+      constraint: 'read',
+      contract: contract(80 + i),
+      fn: 'price',
+      op: 'gte',
+      to: { i128: '1' },
+    }))
+
+  it('synthesize_policy holds a rule to them: eight reads fit reads 8, nine do not', async () => {
+    const some = (k: number) => ({
+      intent: { calls: [{ contract: TOKEN, fn: 'pay', where: reads(k) }] },
+    })
+    // The grammar-7 defaults allow four: five distinct reads would be refused without the instance's.
+    const ok = await call('synthesize_policy', some(8))
+    expect(ok.ok).toBe(true)
+    expect(ok.data.rules).toHaveLength(1)
+    await failing(
+      'synthesize_policy',
+      some(9),
+      'MALFORMED_PREDICATE',
+      /9 distinct reads, at most 8/
+    )
+  })
+
+  it('simulate_policy holds a predicate to them when it checks calls', async () => {
+    const five = [
+      'and',
+      [
+        ['eq', ['call_fn'], 'transfer'],
+        ...reads(5).map((r) => ['gte', ['read', r.contract, r.fn, []], r.to]),
+      ],
+    ]
+    const r = await call('simulate_policy', { expr: five, xdr: transferXdr() })
+    expect(r.ok).toBe(true)
+  })
+})
+
 describe('get_interpreter_info', () => {
-  it('the pin, without a network call', async () => {
-    const r = await call('get_interpreter_info', {}, false)
+  it('the pin, and the limits the instance says it was deployed with', async () => {
+    const r = await call('get_interpreter_info', {})
     expect(r.data).toMatchObject({
       network: 'testnet',
       pinned: true,
       grammarVersion: 7,
-      address: 'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV',
+      address: 'CAECFZWHHHKJRJHYR3EQHAMYHBQPW7G6BGKYSNJS4KLZAUNLQP7H5L2H',
+      // read from limits() on the instance (deployments/grammar7-testnet.json records the same)
+      limits: { reads: 8, leaves: 400, bytes: 49152, elems: 32, entries: 32, depth: 5, steps: 8 },
+      ceilings: { reads: 8, leaves: 400, bytes: 49152, elems: 64, entries: 64, depth: 8, steps: 8 },
     })
     expect(r.data.wasmSha256).toBe(
-      'a975353d1c3fe5bb096c4c2bf90c7c96932df10b95c9bcfa0adbb1d2146773f1'
+      '42d53616cafe85361b9675df5919fa7df81d10d9ac77698458205673cb390f77'
     )
     expect(r.data.live).toBeUndefined()
   })
@@ -1485,6 +1534,7 @@ describe('get_interpreter_info', () => {
       grammarVersion: 7,
       wasmSha256: r.data.wasmSha256,
       matches: true,
+      limits: r.data.limits,
     })
   })
   it('explainAccount reads the rules and explains the ones this interpreter polices', async () => {
@@ -1492,13 +1542,13 @@ describe('get_interpreter_info', () => {
 
     const r = await call('get_interpreter_info', { explainAccount: ACCOUNT })
     const rules = r.data.account.rules
-    expect(rules.map((x: { id: number }) => x.id)).toEqual([0, 1, 2])
+    expect(rules.map((x: { id: number }) => x.id)).toEqual([0, 1, 2, 3])
     expect(r.data.account).toMatchObject({ complete: true })
     expect(rules[0].review).toBeUndefined()
-    expect(rules[2].review.join('\n')).toContain('└─ transfer')
-    expect(rules[2].review.join('\n')).toContain('([smart account])')
+    expect(rules[3].review.join('\n')).toContain('└─ transfer')
+    expect(rules[3].review.join('\n')).toContain('([smart account])')
     const raw = await call('get_interpreter_info', { explainAccount: ACCOUNT, raw: true })
-    expect(raw.data.account.rules[2].review.join('\n')).toContain(ACCOUNT)
+    expect(raw.data.account.rules[3].review.join('\n')).toContain(ACCOUNT)
   })
   it('mainnet has no pin yet, and says so rather than guess', async () => {
     await failing(

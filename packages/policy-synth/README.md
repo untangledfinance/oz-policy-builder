@@ -36,8 +36,16 @@ template (mandate)    --/    (calls + per-argument constraints)   (unsigned XDR)
   not text, the caps): byte equality, JSON round trip, and the same accept/refuse
   verdicts as `check`, for every case. `validate` accepts and refuses exactly
   what the contract's decoder does (operators, arity, index types, `scaled`
-  operands and constant folds, depth, the 200 weighted leaves, four distinct
-  reads, six sums, path steps, 32 KB), so a rule that leaves here installs.
+  operands and constant folds, depth, the weighted leaves, the distinct
+  reads, `in` entries, path steps, the byte size), so a rule that leaves here installs.
+  The caps are the **instance's**: an interpreter is deployed with its own `Limits`
+  (reads, leaves, bytes, elems, `in` entries, depth, each from 1 to a hard ceiling),
+  `limits()` returns them, and the tools that check a rule against an interpreter read
+  them from it (once per address) and hold the rule to those. A tool that only
+  explains a predicate, and a network with no interpreter pinned, use the grammar-7
+  defaults (`DECODE_LIMITS`: reads 4, leaves 200, bytes 32 KiB, elems 32, in 32,
+  depth 5). An instance whose `limits()` fails or exceeds the ceilings (`CEILINGS`:
+  8, 400, 48 KiB, 64, 64, 8) is refused.
 - **An Intent** is `{ calls: [{ contract, fn, where: [constraints] }] }`. A constraint is one
   of `pin`, `not`, `allow`, `deny`, `cap`, `floor`, `length`, `minOut`, `each`,
   `some`, `total`, `read`, `until`, `from`, lowered by a table (`src/intent.ts`),
@@ -68,7 +76,7 @@ template (mandate)    --/    (calls + per-argument constraints)   (unsigned XDR)
 | `verify_policy` | Permitted call(s), derived deny cases, minimality; `ok`, `complete`, `unexamined`, `untested`. **`ok` without `complete: true` does not prove every limit** (`untested` conjuncts were not tried): read `complete`. |
 | `install_policy` | Unsigned `add_context_rule` (the account authorises it; the interpreter installs the predicate in the same transaction). Verifies the interpreter live, always reads the account, **refuses** a rule a shared signer could bypass or a neighbour it cannot judge (`allowOverlap` overrides). |
 | `revoke_policy` | Unsigned `remove_context_rule`. |
-| `get_interpreter_info` | The pin, the caps, and with `verifyLive` what is deployed now. |
+| `get_interpreter_info` | The pin, its `limits` (read from the instance) and the `ceilings`, and with `verifyLive` what is deployed now. |
 
 `TOOLS` (also `@crediolabs/policy-synth/run`) is the table the MCP server and the
 CLI register from. Each tool validates its input strictly, never throws, and
