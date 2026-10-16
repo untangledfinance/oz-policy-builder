@@ -18,3 +18,9 @@ ConfigSettingEntryContractBandwidthV0 {"ledgerMaxTxsSizeBytes":266240,"txMaxSize
 ConfigSettingEntryContractDataKeySizeBytes 250
 ConfigSettingEntryContractDataEntrySizeBytes 65536
 ConfigSettingEntryContractLedgerCostExtV0 {"txMaxFootprintEntries":400,"feeWrite1Kb":"875"}
+
+# Note (audit, 2026-10-16): the per-transaction limits above are identical on testnet and mainnet, but the COSTS are not:
+# mainnet's fee rates are about twice testnet's for CPU (7 vs 3), write bytes (875 vs 437), transaction size (406 vs 203 per KB)
+# and events (5,000 vs 2,500), and its per-ledger transaction-size budget (ledgerMaxTxsSizeBytes) is 266,240 against testnet's
+# 864,000, so one 92 KB install is about 35% of a mainnet ledger's Soroban transaction bandwidth. Every XLM figure in the
+# interpreter README is a testnet figure; read mainnet's rent rate before choosing a mainnet byte limit.

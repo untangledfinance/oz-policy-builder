@@ -2,6 +2,7 @@
 // address, and what every predicate is validated against. Hermetic: a fake interpreter answers.
 
 import { afterAll, describe, expect, it } from 'bun:test'
+import { readFileSync } from 'node:fs'
 import { account, contract } from '../test/fixtures.ts'
 import { fakeInterpreter, LIMITS_DEFAULT } from '../test/rpc.ts'
 import { authority, lines } from './card.ts'
@@ -598,4 +599,35 @@ describe('the pins', () => {
     )
     expect(INTERPRETERS.has(INTERPRETER.testnet?.address as string)).toBe(true)
   })
+})
+
+// The same predicate family under six instances, as the real contract's `check` judged it
+// (fixtures/parity/limits.json, written by `PARITY_WRITE=1 cargo test --test parity`): validate
+// must accept and refuse exactly as the instance does, in both directions.
+const REFUSED = new Set([201, 207, 216])
+const parity: { name: string; limits: Caps; json: never; code: number }[] = JSON.parse(
+  readFileSync(new URL('../fixtures/parity/limits.json', import.meta.url), 'utf8')
+).cases
+
+describe('validate agrees with the contract under every set of limits (fixtures/parity/limits.json)', () => {
+  it('has the corpus, with cases on both sides of every limit', () => {
+    expect(parity.length).toBeGreaterThan(150)
+    expect(parity.some((c) => REFUSED.has(c.code))).toBe(true)
+    expect(parity.some((c) => !REFUSED.has(c.code))).toBe(true)
+    // every limit set is in the corpus, and is one limitsOf would believe
+    const sets = new Set(parity.map((c) => JSON.stringify(c.limits)))
+    expect(sets.size).toBe(6)
+    for (const l of sets) {
+      for (const [k, v] of Object.entries(JSON.parse(l) as Caps)) {
+        expect(v).toBeGreaterThanOrEqual(FLOORS[k as keyof Caps])
+        expect(v).toBeLessThanOrEqual(CEILINGS[k as keyof Caps])
+      }
+    }
+  })
+  for (const c of parity) {
+    it(`${c.name}: ${REFUSED.has(c.code) ? 'refused' : 'accepted'} (${c.code})`, () => {
+      if (REFUSED.has(c.code)) expect(() => validate(c.json, c.limits)).toThrow(WireError)
+      else expect(() => validate(c.json, c.limits)).not.toThrow()
+    })
+  }
 })

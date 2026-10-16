@@ -800,3 +800,225 @@ fn the_checked_in_corpus_is_current() {
         "stale parity corpus: run with PARITY_WRITE=1"
     );
 }
+
+// ---- the limits corpus: one predicate family, many instances ----
+//
+// `validate(expr, caps)` in policy-synth must accept and refuse exactly what an instance
+// deployed with those limits does. Every shape below is sized from the limits it is run
+// under (at the cap, and one over it), so each limit is held in isolation and in
+// combination; `code` is what the real contract's `check` says under those limits.
+
+const LIMITS_FILE: &str = "../../../../packages/policy-synth/fixtures/parity/limits.json";
+
+fn limit_sets() -> StdVec<(&'static str, policy_interpreter::Limits)> {
+    let l = |max_reads, max_leaves, max_predicate_bytes, max_elems, max_in_operands, max_depth| {
+        policy_interpreter::Limits {
+            max_reads,
+            max_leaves,
+            max_predicate_bytes,
+            max_elems,
+            max_in_operands,
+            max_depth,
+        }
+    };
+    alloc::vec![
+        ("default", common::DEFAULT),
+        ("ceiling", common::CEILING),
+        ("deployed", l(8, 400, 24 * 1024, 32, 32, 5)),
+        ("small", l(2, 9, 700, 3, 4, 3)),
+        ("mixed", l(3, 50, 2000, 5, 7, 6)),
+        ("floor", l(1, 4, 256, 2, 1, 2)),
+    ]
+}
+
+fn xdr_len(v: &ScVal) -> usize {
+    v.to_xdr(Limits::none()).unwrap().len()
+}
+
+/// Shapes at and one over every limit of `l`; the name says which.
+fn shapes(l: &policy_interpreter::Limits) -> StdVec<(String, ScVal)> {
+    let (d, e) = (l.max_depth as usize, l.max_elems as usize);
+    let (leaves, ins, reads) = (
+        l.max_leaves as usize,
+        l.max_in_operands as usize,
+        l.max_reads as usize,
+    );
+    let mut v: StdVec<(String, ScVal)> = StdVec::new();
+    let one = || cmp("eq", arg(0), n(1));
+    let mut add = |name: String, p: ScVal| v.push((name, p));
+    let pinned = |kids: StdVec<ScVal>| and([alloc::vec![fnis()], kids].concat());
+    let elem = || node("elem", alloc::vec![]);
+    let body = || cmp("eq", elem(), n(1));
+    let scaled = |k: usize| {
+        (0..k).fold(n(1), |x, _| {
+            node(
+                "scaled",
+                alloc::vec![
+                    x,
+                    n(1),
+                    ScVal::I128(soroban_sdk::xdr::Int128Parts { hi: 0, lo: 1 }),
+                    n(0)
+                ],
+            )
+        })
+    };
+    let vec_in = |k: usize| (0..k).fold(n(1), |x, _| vec(alloc::vec![x]));
+
+    // node depth, leaf nesting (scaled, bare vec), around the depth cap
+    for k in d.saturating_sub(2)..=d + 1 {
+        add(
+            alloc::format!("and nested {k} deep"),
+            (0..k).fold(fnis(), |x, _| and(alloc::vec![x])),
+        );
+        add(
+            alloc::format!("scaled nested {k}"),
+            pinned(alloc::vec![cmp("gte", arg(0), scaled(k))]),
+        );
+        add(
+            alloc::format!("bare vec nested {k}"),
+            pinned(alloc::vec![cmp("eq", arg(0), vec_in(k))]),
+        );
+    }
+    // weighted leaves: a pin (2) plus 2 per compare
+    let fit = leaves.saturating_sub(2) / 2;
+    for k in [fit, fit + 1] {
+        add(
+            alloc::format!("{k} compares"),
+            pinned((0..k).map(|_| one()).collect()),
+        );
+    }
+    // `in` / `nin` entries
+    for k in [ins, ins + 1] {
+        for op in ["in", "nin"] {
+            add(
+                alloc::format!("{op} of {k}"),
+                pinned(alloc::vec![node(
+                    op,
+                    alloc::vec![arg(0), vec((0..k as u32).map(n).collect())]
+                )]),
+            );
+        }
+    }
+    // distinct reads (each a compare of its own)
+    for k in [reads, reads + 1] {
+        let read = |i: usize| {
+            cmp(
+                "gte",
+                node(
+                    "read",
+                    alloc::vec![contract(40 + i as u8), sym("price"), vec(StdVec::new())],
+                ),
+                n(0),
+            )
+        };
+        add(
+            alloc::format!("{k} distinct reads"),
+            pinned((0..k).map(read).collect()),
+        );
+    }
+    // a quantifier body weighs `elems` per leaf; a sum weighs `elems`
+    let quant = |m: usize| {
+        node(
+            "all",
+            alloc::vec![arg(0), and((0..m).map(|_| body()).collect())],
+        )
+    };
+    let fit_body = leaves.saturating_sub(3) / (2 * e);
+    for m in [1, 2, fit_body.max(1), fit_body + 1] {
+        add(
+            alloc::format!("a body of {m} compares"),
+            pinned(alloc::vec![quant(m)]),
+        );
+    }
+    let total = || cmp("gte", node("sum", alloc::vec![arg(0)]), n(1));
+    let fit_sums = leaves.saturating_sub(2) / (e + 2);
+    for m in [1, fit_sums.max(1), fit_sums + 1] {
+        add(
+            alloc::format!("{m} sums"),
+            pinned((0..m).map(|_| total()).collect()),
+        );
+    }
+    // where `elem`, a quantifier and a `sum` may stand
+    add(
+        "elem at the top level".into(),
+        pinned(alloc::vec![cmp("ne", elem(), n(1))]),
+    );
+    add(
+        "a quantifier in a body".into(),
+        pinned(alloc::vec![node(
+            "all",
+            alloc::vec![arg(0), node("all", alloc::vec![arg(1), body()])]
+        )]),
+    );
+    add(
+        "a sum in a body".into(),
+        pinned(alloc::vec![node(
+            "all",
+            alloc::vec![arg(0), cmp("gte", node("sum", alloc::vec![arg(1)]), n(0))]
+        )]),
+    );
+    // the byte cap, for the small instances (a constant of that many bytes, and one more word)
+    if l.max_predicate_bytes <= 2_000 {
+        let blob = |k: usize| {
+            and(alloc::vec![
+                fnis(),
+                cmp("eq", arg(0), bytes(&alloc::vec![7u8; k]))
+            ])
+        };
+        let fits = (0..l.max_predicate_bytes as usize)
+            .rev()
+            .find(|&k| xdr_len(&blob(k)) <= l.max_predicate_bytes as usize)
+            .unwrap_or(0);
+        for k in [fits, fits + 4] {
+            add(alloc::format!("a {k}-byte constant"), blob(k));
+        }
+    }
+    v
+}
+
+fn render_limits() -> String {
+    let mut out = String::from("{\"cases\":[\n");
+    let mut first = true;
+    for (set, l) in limit_sets() {
+        let env = Env::default();
+        let client = PolicyInterpreterClient::new(&env, &env.register(PolicyInterpreter, (l,)));
+        let ctx = Context::Contract(ContractContext {
+            contract: soroban_sdk::Address::generate(&env),
+            fn_name: Symbol::new(&env, "pay"),
+            args: Vec::from_slice(&env, &[]),
+        });
+        for (what, p) in shapes(&l) {
+            let code = verdict(&client, &xdr_bytes(&env, &p), &ctx);
+            writeln!(
+                out,
+                "{}{{\"name\":\"{set}: {what}\",\"limits\":{{\"max_reads\":{},\"max_leaves\":{},\"max_predicate_bytes\":{},\"max_elems\":{},\"max_in_operands\":{},\"max_depth\":{}}},\"json\":{},\"code\":{code}}}",
+                if first { "" } else { "," },
+                l.max_reads,
+                l.max_leaves,
+                l.max_predicate_bytes,
+                l.max_elems,
+                l.max_in_operands,
+                l.max_depth,
+                js(&p)
+            )
+            .unwrap();
+            first = false;
+        }
+    }
+    out.push_str("]}\n");
+    out
+}
+
+#[test]
+fn the_checked_in_limits_corpus_is_current() {
+    let fresh = render_limits();
+    if std::env::var("PARITY_WRITE").is_ok() {
+        std::fs::write(LIMITS_FILE, &fresh).unwrap();
+    }
+    let stored = std::fs::read_to_string(LIMITS_FILE)
+        .expect("fixture missing: run with PARITY_WRITE=1 cargo test --test parity");
+    assert_eq!(
+        stored, fresh,
+        "stale limits corpus: run with PARITY_WRITE=1"
+    );
+}

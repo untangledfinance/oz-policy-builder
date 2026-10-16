@@ -44,9 +44,9 @@ the real wasm: the largest rule at every ceiling at once, for `install`, `enforc
 and `check`, must stay at or under 80% of every network limit (a 20% margin, so a fee
 or limit change does not turn a deployed rule into one that can never run). The
 network values are in `evidence/soroban-network-limits-2026-10-16.txt`: identical on
-testnet and mainnet for every per-transaction limit used (the costs differ: fee rates
-are about twice as high on testnet; mainnet's per-ledger transaction-size budget is
-266,240 bytes, testnet's 864,000). Measured at the ceilings
+testnet and mainnet for every per-transaction limit used (the costs differ: mainnet's
+fee rates are about twice testnet's, and its per-ledger transaction-size budget is
+266,240 bytes against testnet's 864,000, so a 92 KB install is about 35% of one mainnet ledger's). Measured at the ceilings
 (`evidence/worst-case-ceilings-2026-10-16.txt`, 24 rule shapes, plus the real callees):
 
 | What | Measured | Of the limit |

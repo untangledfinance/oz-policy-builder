@@ -425,7 +425,7 @@ const predicateInput = {
 }
 
 /** The predicate and the calls a simulate or verify is about. */
-async function subject(i: z.infer<z.ZodObject<typeof predicateInput>>, checked = false) {
+async function subject(i: z.infer<z.ZodObject<typeof predicateInput>>) {
   const hasSource = SOURCES.some((k) => (i as Record<string, unknown>)[k] !== undefined)
   const hasPred = i.expr !== undefined || i.encodedPredicate !== undefined
   if (!hasPred && !hasSource)
@@ -433,11 +433,11 @@ async function subject(i: z.infer<z.ZodObject<typeof predicateInput>>, checked =
       'INVALID_INPUT',
       'give a predicate (expr or encodedPredicate) or a source to build one from'
     )
-  // Whatever is checked (given calls, a source, or `checked`: verify) is held to the limits of the
-  // interpreter that checks it. A predicate that is only explained never reaches one, so it is held
-  // to the limits of the interpreter this network pins (or the caller names) when there is one, and
-  // otherwise to the ceilings, the most any instance allows. `heldTo` says which.
-  const explainOnly = hasPred && !hasSource && i.calls === undefined && !checked
+  // Whatever is checked is held to the limits of the interpreter that checks it: the one named, else
+  // the pin. A predicate that is only explained never reaches one, but is held to the same limits when
+  // the network names or pins one (so what explains is what installs), and otherwise to the ceilings,
+  // the most any instance allows. `heldTo` says which.
+  const explainOnly = hasPred && !hasSource && i.calls === undefined
   const named = i.interpreterAddress ?? INTERPRETER[i.network]?.address
   const caps =
     explainOnly && !named
@@ -491,7 +491,7 @@ const verify_policy = tool(
   `Check a predicate against a call it must permit: the call must pass, every constraint is turned against the call and must refuse it, and each conjunct is dropped in turn to see the call it guards get through (minimality). Give the call that must be permitted as \`call\`, or one per branch of an \`or\` as \`calls\` (or a recording). \`ok\` WITHOUT \`complete: true\` does not prove every limit (a swap's spend cap can be \`untested\` while \`ok\` is true): always read \`complete\`. \`ok\` needs every call permitted, every deny case refused, and every branch of an \`or\` taken by a call; a conjunct holding a nested \`or\` that nothing was tried against makes it not \`ok\`. \`complete\` also needs nothing \`untested\`; \`redundant\` lists exact duplicates only. ${CHECKED} At most 64 calls are made in all (a length bound above 255 derives no case), a few at a time.`,
   { ...predicateInput, call: call.optional() },
   async (i, signal) => {
-    const s = await subject(i, true)
+    const s = await subject(i)
     const permits = i.call ? [i.call as Call] : s.calls
     if (permits.length === 0)
       throw new Refusal(

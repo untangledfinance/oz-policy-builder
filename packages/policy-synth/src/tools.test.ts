@@ -1509,6 +1509,24 @@ describe('the limits of the pinned instance', () => {
     const r = await call('simulate_policy', { expr: five, xdr: transferXdr() })
     expect(r.ok).toBe(true)
   })
+
+  it('an explain-only simulate is held to them too (not to the defaults, not to the ceilings)', async () => {
+    const five = [
+      'and',
+      [
+        ['eq', ['call_fn'], 'transfer'],
+        ...reads(5).map((r) => ['gte', ['read', r.contract, r.fn, []], r.to]),
+      ],
+    ]
+    const ok = await call('simulate_policy', { expr: five })
+    expect(ok.ok).toBe(true)
+    expect(ok.data.heldTo).toBe(
+      'the limits of CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT'
+    )
+    // 30,000 bytes: inside the ceiling (40 KiB), over what the pinned instance was deployed with (24 KiB)
+    const blob = ['eq', ['call_arg', 0], { bytes: 'ab'.repeat(30_000) }]
+    await failing('simulate_policy', { expr: blob }, 'MALFORMED_PREDICATE', /over 24576 bytes/)
+  })
 })
 
 describe('get_interpreter_info', () => {
