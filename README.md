@@ -61,13 +61,13 @@ The grammar-7 deployment the 2.x packages pin is in
 
 | | Address / hash |
 | --- | --- |
-| Interpreter (testnet, grammar 7) | `CAECFZWHHHKJRJHYR3EQHAMYHBQPW7G6BGKYSNJS4KLZAUNLQP7H5L2H` |
-| Interpreter wasm sha256 | `42d53616cafe85361b9675df5919fa7df81d10d9ac77698458205673cb390f77` |
-| Its deploy-time limits | reads 8, leaves 400, bytes 49,152, elems 32, in 32, depth 5 (read from the instance with `limits()`; immutable) |
+| Interpreter (testnet, grammar 7) | `CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT` |
+| Interpreter wasm sha256 | `69cad1d5ce9aeaa0dad6980fd030e528935a0ebdd290111f393e9fd0564a68b0` |
+| Its deploy-time limits | reads 8, leaves 400, bytes 24,576, elems 32, in 32, depth 5 (read from the instance with `limits()`; immutable) |
 | Interpreter (mainnet) | none yet |
 | Grammar version | `7` |
 
-The first grammar-7 testnet interpreter, `CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV` (wasm `a975353d...`, limits compiled in, no `limits()`), is superseded and no longer trusted by the package (`deployments/grammar7-testnet.json`).
+The first grammar-7 testnet interpreter, `CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV` (wasm `a975353d...`, limits compiled in, no `limits()`), is superseded and no longer trusted by the package, and so is the second, `CAECFZWHHHKJRJHYR3EQHAMYHBQPW7G6BGKYSNJS4KLZAUNLQP7H5L2H` (wasm `42d53616...`: `max_elems` could be 1 and the byte ceiling was 48 KiB); both are refused by hash (`deployments/grammar7-testnet.json`).
 
 The previous pin (1.x, grammar 4): mainnet
 `CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52`, testnet

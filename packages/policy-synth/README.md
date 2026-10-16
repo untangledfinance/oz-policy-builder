@@ -38,14 +38,16 @@ template (mandate)    --/    (calls + per-argument constraints)   (unsigned XDR)
   what the contract's decoder does (operators, arity, index types, `scaled`
   operands and constant folds, depth, the weighted leaves, the distinct
   reads, `in` entries, path steps, the byte size), so a rule that leaves here installs.
-  The caps are the **instance's**: an interpreter is deployed with its own `Limits`
-  (reads, leaves, bytes, elems, `in` entries, depth, each from 1 to a hard ceiling),
+  The caps are the **instance's**: an interpreter is deployed with its own `Limits` (the
+  contract's field names, `max_reads` ... `max_depth`, each between a floor and a ceiling:
+  see the interpreter README, "Limits", which holds the numbers and why),
   `limits()` returns them, and the tools that check a rule against an interpreter read
-  them from it (once per address) and hold the rule to those. A tool that only
-  explains a predicate, and a network with no interpreter pinned, use the grammar-7
-  defaults (`DECODE_LIMITS`: reads 4, leaves 200, bytes 32 KiB, elems 32, in 32,
-  depth 5). An instance whose `limits()` fails or exceeds the ceilings (`CEILINGS`:
-  8, 400, 48 KiB, 64, 64, 8) is refused.
+  them from it (once per address) and hold the rule to those. An instance whose
+  `limits()` fails, is out of range (`FLOORS`, `CEILINGS`) or has a field this package does
+  not know is refused. A tool that only explains a predicate is held to the interpreter
+  named or pinned, else to the ceilings, and says which (`heldTo`); `synthesize_policy` on a
+  network with no pin uses the grammar-7 defaults (`DECODE_LIMITS`). A network with no pin
+  trusts any instance of a trusted build with any in-range limits: pin it.
 - **An Intent** is `{ calls: [{ contract, fn, where: [constraints] }] }`. A constraint is one
   of `pin`, `not`, `allow`, `deny`, `cap`, `floor`, `length`, `minOut`, `each`,
   `some`, `total`, `read`, `until`, `from`, lowered by a table (`src/intent.ts`),

@@ -10,31 +10,41 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 ### Grammar 7: the interpreter's hard limits are chosen at deploy time
 
 Still grammar 7 (`SELF_VERSION` 7); a new interpreter at a new address, because a limit that
-was a constant is now a constructor argument and the contract cannot be upgraded.
+was a constant is now a constructor argument and the contract cannot be upgraded. The ceilings,
+their measurements and the per-transaction budgets are in the interpreter README ("Limits"); this
+entry does not repeat them.
 
 - **Interpreter.** `__constructor(Limits { max_reads, max_leaves, max_predicate_bytes,
-  max_elems, max_in_operands, max_depth })`: each from 1 to a hard ceiling (reads 8, leaves
-  400, bytes 49,152, elems 64, `in` 64, depth 8), else error 220. Stored once in instance
-  storage, never changed (no setter, no upgrade), returned by `limits()`. `install`, `check`
-  and `enforce` use them in place of the constants. `MAX_DEN` and `MAX_PATH_STEPS` stay fixed.
-  The defaults (4, 200, 32 KiB, 32, 32, 5) are what grammar 7 shipped with. A quantifier's
-  weights saturate (at depth 8 and 64 elements a chain of quantifiers would wrap a `u32`).
-  Source sLOC 713 -> 764.
-- **The byte ceiling is 48 KiB, not 64.** A 64 KiB rule cannot be stored (a contract-data
-  entry is at most 65,536 bytes, and the rule's entry is the predicate plus up to 1.3 KB),
-  and its install transaction is 104% of the 132,096-byte limit because the predicate
-  travels twice (the host function's argument and the account's authorisation entry).
-  48 KiB is 75% of the entry and 79% of the transaction. `tests/worst_case.rs` proves every
-  ceiling at once on the real wasm against the live network limits (identical on testnet and
-  mainnet for these fields: `evidence/soroban-network-limits-2026-10-16.txt`), with a 20% margin,
-  for install, enforce and check; CPU and memory never come near (19% / 5%).
+  max_elems, max_in_operands, max_depth })`: each between a floor and a hard ceiling, else error
+  220. Stored once in instance storage, never changed (no setter, no upgrade), returned by
+  `limits()`. `install`, `check` and `enforce` use them in place of the constants. `MAX_DEN`
+  and `MAX_PATH_STEPS` stay fixed. A quantifier's weights saturate. Source sLOC 713 -> 757.
+- **Floors and the byte ceiling.** `max_elems` is at least 2 (at 1 a body leaf weighs what a
+  top-level one does, so a top-level `elem`, a nested quantifier and a `sum` in a body decoded);
+  leaves at least 4, bytes at least 256, depth at least 2 (an instance below them could hold no
+  rule). The byte ceiling is 40 KiB: the install transaction carries the predicate twice, and
+  policy-synth's real 15-operator / 16-admin install is 69% of the 132,096-byte limit at 40 KiB
+  and 82% at the 48 KiB first proposed (64 KiB would be 105%).
 - **policy-synth.** Rules are validated against the target instance's limits (read from
-  `limits()` once per address; an instance that cannot answer, or answers outside 1..ceiling, is
-  refused). `get_interpreter_info` shows `limits` and `ceilings`; the install review's interpreter
-  line names them. `DECODE_LIMITS` (the defaults) and `CEILINGS` are exported, `validate` takes the
-  caps. The trusted wasm is the new build only: the first grammar-7 interpreter
-  (`CA5ICI2O...`) has no `limits()` and is refused. New pin: `CAECFZWHHHKJRJHYR3EQHAMYHBQPW7G6BGKYSNJS4KLZAUNLQP7H5L2H`,
-  wasm `42d53616...`, deployed with reads 8, leaves 400, bytes 49,152, elems 32, in 32, depth 5.
+  `limits()` once per address; an instance that cannot answer, answers outside its floors and
+  ceilings, or reports a limit this package does not know is refused). `Caps` uses the
+  contract's field names (`max_reads`, ...), so `get_interpreter_info.limits` is `limits()`
+  verbatim. `get_interpreter_info` shows `limits` and `ceilings`; the install review's interpreter
+  line names the limits. `DECODE_LIMITS`, `CEILINGS` and `FLOORS` are exported and frozen;
+  `validate` takes the caps. An explain-only `simulate_policy` is held to the limits of the
+  interpreter named or pinned (else the ceilings) and says which in `heldTo`;
+  `verify_policy` with `call` is held to the instance's limits like `calls`.
+  **Breaking:** `get_interpreter_info` no longer returns `caps` (it returns `limits`, `ceilings`);
+  `Caps` keys were renamed (`reads` -> `max_reads`, `entries` -> `max_in_operands`, `bytes` ->
+  `max_predicate_bytes`, `depth`, `leaves`, `elems` likewise; `steps` is gone: paths are 8 steps
+  in every deployment). The install transaction's fee is the base fee plus the resource fee once
+  (it was twice the resource fee: `assembleTransaction` and `build` both added it).
+- **Trust.** The trusted wasm is the new build only. The first two grammar-7 interpreters
+  (`CA5ICI2O...`, no `limits()`; `CAECFZWH...`, `max_elems` could be 1) are refused by hash. New pin:
+  `CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT`, wasm `69cad1d5...`, deployed with
+  reads 8, leaves 400, bytes 24,576, elems 32, in 32, depth 5 (PayFi's largest rule is 8.8 KB). A
+  network with no pin (mainnet today) trusts any instance of a trusted build with any in-range
+  limits, so the instance a caller names fixes its own limits: pin mainnet when it is deployed.
 
 ### 2.0.0 - policy-synth, policy-builder-cli, policy-builder-mcp (BREAKING)
 
