@@ -6,6 +6,7 @@
 //! the second.
 
 extern crate alloc;
+mod common;
 
 use policy_interpreter::{
     ContextRule, ContextRuleType, PolicyInstallParams, PolicyInterpreter, PolicyInterpreterClient,
@@ -106,7 +107,7 @@ fn f3_allow_path_extends_ttl_of_every_rule_key() {
     env.mock_all_auths();
     env.ledger()
         .with_mut(|li| li.max_entry_ttl = MAINNET_MAX_ENTRY_TTL);
-    let contract_id = env.register(PolicyInterpreter, ());
+    let contract_id = env.register(PolicyInterpreter, (common::DEFAULT,));
     let client = PolicyInterpreterClient::new(&env, &contract_id);
     let smart_account = Address::generate(&env);
     let target = Address::generate(&env);
@@ -146,7 +147,7 @@ fn denied_enforcement_does_not_extend_ttl() {
     env.mock_all_auths();
     env.ledger()
         .with_mut(|li| li.max_entry_ttl = MAINNET_MAX_ENTRY_TTL);
-    let contract_id = env.register(PolicyInterpreter, ());
+    let contract_id = env.register(PolicyInterpreter, (common::DEFAULT,));
     let client = PolicyInterpreterClient::new(&env, &contract_id);
     let smart_account = Address::generate(&env);
     let target = Address::generate(&env);
@@ -192,7 +193,7 @@ fn denied_enforcement_does_not_extend_ttl() {
 fn predicate_with_unsourceable_leaf_is_refused_at_install() {
     let env = Env::default();
     env.mock_all_auths();
-    let contract_id = env.register(PolicyInterpreter, ());
+    let contract_id = env.register(PolicyInterpreter, (common::DEFAULT,));
     let client = PolicyInterpreterClient::new(&env, &contract_id);
     let smart_account = Address::generate(&env);
 
@@ -256,7 +257,7 @@ fn make_rule(env: &Env, id: u32, signers: soroban_sdk::Vec<Signer>) -> ContextRu
 #[test]
 fn enforce_requires_the_smart_accounts_authorization() {
     let env = Env::default();
-    let contract_id = env.register(PolicyInterpreter, ());
+    let contract_id = env.register(PolicyInterpreter, (common::DEFAULT,));
     let client = PolicyInterpreterClient::new(&env, &contract_id);
     let smart_account = Address::generate(&env);
     let target = Address::generate(&env);
@@ -287,7 +288,7 @@ fn enforce_requires_the_smart_accounts_authorization() {
 fn rotating_the_master_set_leaves_the_installed_rule_enforcing() {
     let env = Env::default();
     env.mock_all_auths();
-    let contract_id = env.register(PolicyInterpreter, ());
+    let contract_id = env.register(PolicyInterpreter, (common::DEFAULT,));
     let client = PolicyInterpreterClient::new(&env, &contract_id);
     let smart_account = Address::generate(&env);
     let target = Address::generate(&env);
@@ -357,7 +358,7 @@ fn f8_enforce_deny_reaches_chain_as_contract_error_code() {
 
     let env = Env::default();
     env.mock_all_auths();
-    let contract_id = env.register(PolicyInterpreter, ());
+    let contract_id = env.register(PolicyInterpreter, (common::DEFAULT,));
     let client = PolicyInterpreterClient::new(&env, &contract_id);
     let smart_account = Address::generate(&env);
     let target = Address::generate(&env);
@@ -410,7 +411,7 @@ fn f8_enforce_deny_reaches_chain_as_contract_error_code() {
 fn enforce_refuses_an_operator_set_other_than_the_installed_one() {
     let env = Env::default();
     env.mock_all_auths();
-    let contract_id = env.register(PolicyInterpreter, ());
+    let contract_id = env.register(PolicyInterpreter, (common::DEFAULT,));
     let client = PolicyInterpreterClient::new(&env, &contract_id);
     let smart_account = Address::generate(&env);
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
@@ -443,7 +444,7 @@ fn enforce_refuses_an_operator_set_other_than_the_installed_one() {
 fn enforce_refuses_an_empty_authenticated_signer_list() {
     let env = Env::default();
     env.mock_all_auths();
-    let contract_id = env.register(PolicyInterpreter, ());
+    let contract_id = env.register(PolicyInterpreter, (common::DEFAULT,));
     let client = PolicyInterpreterClient::new(&env, &contract_id);
     let smart_account = Address::generate(&env);
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
@@ -464,7 +465,7 @@ fn enforce_refuses_an_empty_authenticated_signer_list() {
 fn a_bound_rule_enforces_only_with_the_executors_authorisation() {
     let env = Env::default();
     env.mock_all_auths();
-    let contract_id = env.register(PolicyInterpreter, ());
+    let contract_id = env.register(PolicyInterpreter, (common::DEFAULT,));
     let client = PolicyInterpreterClient::new(&env, &contract_id);
     let smart_account = Address::generate(&env);
     let executor = Address::generate(&env);
@@ -518,13 +519,13 @@ fn a_bound_rule_enforces_only_with_the_executors_authorisation() {
 fn install_refuses_an_oversized_predicate_as_207() {
     let env = Env::default();
     env.mock_all_auths();
-    let contract_id = env.register(PolicyInterpreter, ());
+    let contract_id = env.register(PolicyInterpreter, (common::DEFAULT,));
     let client = PolicyInterpreterClient::new(&env, &contract_id);
     let smart_account = Address::generate(&env);
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
     let rule = make_rule(&env, 1, signers.clone());
 
-    let big = policy_interpreter::dsl::MAX_PREDICATE_BYTES as usize + 1;
+    let big = common::DEFAULT.max_predicate_bytes as usize + 1;
     let predicate = Bytes::from_slice(&env, &alloc::vec![0u8; big]);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
     let params = PolicyInstallParams {
@@ -547,7 +548,7 @@ fn bind_executor_extends_the_rules_ttl() {
     env.mock_all_auths();
     env.ledger()
         .with_mut(|li| li.max_entry_ttl = MAINNET_MAX_ENTRY_TTL);
-    let contract_id = env.register(PolicyInterpreter, ());
+    let contract_id = env.register(PolicyInterpreter, (common::DEFAULT,));
     let client = PolicyInterpreterClient::new(&env, &contract_id);
     let smart_account = Address::generate(&env);
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
@@ -572,7 +573,7 @@ fn bind_executor_extends_the_rules_ttl() {
 #[test]
 fn require_master_asks_an_external_admin_to_authorise() {
     let env = Env::default();
-    let contract_id = env.register(PolicyInterpreter, ());
+    let contract_id = env.register(PolicyInterpreter, (common::DEFAULT,));
     let client = PolicyInterpreterClient::new(&env, &contract_id);
     let smart_account = Address::generate(&env);
     let rule = make_rule(&env, 1, soroban_sdk::vec![&env]);
@@ -598,12 +599,12 @@ fn require_master_asks_an_external_admin_to_authorise() {
 fn the_byte_cap_is_inclusive() {
     let env = Env::default();
     env.mock_all_auths();
-    let contract_id = env.register(PolicyInterpreter, ());
+    let contract_id = env.register(PolicyInterpreter, (common::DEFAULT,));
     let client = PolicyInterpreterClient::new(&env, &contract_id);
     let smart_account = Address::generate(&env);
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
     let rule = make_rule(&env, 1, signers.clone());
-    let at_cap = policy_interpreter::dsl::MAX_PREDICATE_BYTES as usize;
+    let at_cap = common::DEFAULT.max_predicate_bytes as usize;
     let predicate = Bytes::from_slice(&env, &alloc::vec![0u8; at_cap]);
     let predicate_hash: BytesN<32> = env.crypto().sha256(&predicate).into();
     let params = PolicyInstallParams {
@@ -629,7 +630,7 @@ fn the_byte_cap_is_inclusive() {
 fn enforce_trusts_the_caps_install_already_applied() {
     let env = Env::default();
     env.mock_all_auths();
-    let contract_id = env.register(PolicyInterpreter, ());
+    let contract_id = env.register(PolicyInterpreter, (common::DEFAULT,));
     let client = PolicyInterpreterClient::new(&env, &contract_id);
     let smart_account = Address::generate(&env);
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];

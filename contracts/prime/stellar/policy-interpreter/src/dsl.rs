@@ -10,26 +10,19 @@
 use alloc::{boxed::Box, vec, vec::Vec};
 
 use soroban_sdk::xdr::{FromXdr, ScValType as T, ToXdr};
+
+use crate::types::Limits;
 use soroban_sdk::{
     Address, Bytes, Duration, Env, Error, IntoVal, Map, MuxedAddress, Symbol, SymbolStr, Timepoint,
     TryFromVal, Val,
 };
 
-// ---- caps (the Rust side is authoritative; `wire.ts` in policy-synth mirrors them) --
-
-pub const MAX_DEPTH: u32 = 5;
-pub const MAX_LEAVES: u32 = 200;
-pub const MAX_IN_OPERAND_COUNT: u32 = 32;
-/// Distinct `read` calls per predicate. Each is a cross-contract call made when
-/// `enforce` evaluates it (reads with the same constant arguments share one; a
-/// read with a call-derived argument counts alone), so the count is capped at
-/// decode and `enforce` makes at most this many external calls.
-pub const MAX_READS: u32 = 4;
-pub const MAX_PREDICATE_BYTES: u32 = 32 * 1024;
-/// Elements a quantifier or `sum` visits; a longer vector denies. Decode counts
-/// each leaf of a quantifier body this many times toward `MAX_LEAVES`, so the
-/// worst-case work of one `enforce` stays bounded.
-pub const MAX_ELEMS: u32 = 32;
+// ---- caps ----
+//
+// The count caps (depth, leaves, reads, `in` entries, elements, bytes) are the
+// deploy-time `Limits`, passed to every function below that enforces one; the
+// two here are fixed. The Rust side is authoritative; `wire.ts` in policy-synth
+// mirrors them (it reads the stored limits from the instance it targets).
 
 // Tag and selector names come from the encoder verbatim (see `wire.ts` in
 // policy-synth); an unknown one is fail-closed at decode time.
@@ -53,7 +46,7 @@ pub const MAX_ELEMS: u32 = 32;
 ///       .context.args[i]                              8
 ///
 /// Eight covers all of them with nothing to spare, and the cap matters because
-/// a path is walked per leaf: with `MAX_LEAVES` at 200 the worst case is 1600
+/// a path is walked per leaf: with `max_leaves` at 200 (the default) the worst case is 1600
 /// walk steps in one evaluation.
 ///
 /// What eight does NOT reach is the inside of a NESTED sub-invocation, which
@@ -80,8 +73,8 @@ pub const MAX_DEN: i128 = 1_000_000_000_000_000_000;
 // ---- AST ----
 
 /// One predicate node. Owned (children inside `Vec`) so the AST can be moved
-/// without lifetime entanglement. Size is bounded by `MAX_DEPTH` and
-/// `MAX_LEAVES`.
+/// without lifetime entanglement. Size is bounded by `max_depth` and
+/// `max_leaves`.
 // Only the native test build is large: there `Env` carries the whole host, and a
 // `Read` leaf holds an `Address`, a `Symbol` and a `Vec` of it. On wasm it is a
 // zero-sized handle, so boxing would add code for no saving.
@@ -203,15 +196,17 @@ impl DenyReason {
 // ---- Pure evaluator ----
 
 /// Pure apart from `Leaf::Read`, which calls out to the contract it names.
-pub fn evaluate(env: &Env, node: &Node, call: &EvalContext) -> EvalDecision {
-    eval(env, node, &Ctx(call, ().into_val(env)), &mut Memo::new())
+pub fn evaluate(env: &Env, node: &Node, call: &EvalContext, lim: &Limits) -> EvalDecision {
+    let ctx = Ctx(call, ().into_val(env), lim.max_elems);
+    eval(env, node, &ctx, &mut Memo::new())
         .err()
         .map_or(EvalDecision::Permit, EvalDecision::Deny)
 }
 
 /// What a leaf resolves against: the authorised call (`.0`) and, inside a
-/// quantifier body, the element being visited (`.1`, what `elem` reads).
-struct Ctx<'a>(&'a EvalContext, Val);
+/// quantifier body, the element being visited (`.1`, what `elem` reads); `.2` is
+/// the most elements a quantifier or `sum` visits.
+struct Ctx<'a>(&'a EvalContext, Val, u32);
 
 /// The calls this evaluation has already made, keyed by `(contract, fn, args)`
 /// and holding the raw result (`None` for a call that failed). A repeated read
@@ -233,12 +228,12 @@ type Memo = Vec<((Address, Symbol, Vals), Option<Val>)>;
 //    leaves (never `elem`, `scaled`, `sum` or another `read`), and its path has at
 //    most MAX_PATH_STEPS steps; a `call_path` has 1..=MAX_PATH_STEPS, with `Len`
 //    only last.
-//  - Node depth and leaf nesting are at most MAX_DEPTH, so recursion is bounded.
-//  - Install only (not re-checked on enforce): at most MAX_LEAVES leaves, each leaf
-//    of a quantifier body counted MAX_ELEMS times; `elem` only in a quantifier
-//    body, and no `sum` or quantifier in one; at most MAX_READS distinct reads;
+//  - Node depth and leaf nesting are at most `max_depth`, so recursion is bounded.
+//  - Install only (not re-checked on enforce): at most `max_leaves` leaves, each leaf
+//    of a quantifier body counted `max_elems` times; `elem` only in a quantifier
+//    body, and no `sum` or quantifier in one; at most `max_reads` distinct reads;
 //    and at least one selector leaf. `install` also refuses more than
-//    MAX_PREDICATE_BYTES bytes, before decoding.
+//    `max_predicate_bytes` bytes, before decoding.
 
 fn eval(env: &Env, node: &Node, ctx: &Ctx, memo: &mut Memo) -> Result<(), DenyReason> {
     match node {
@@ -301,8 +296,8 @@ fn eval(env: &Env, node: &Node, ctx: &Ctx, memo: &mut Memo) -> Result<(), DenyRe
         // resolve), `any` on the first that holds. `found` is whether that
         // element exists, and a permit needs it to be what the quantifier wants.
         Node::Quant(any, over, body) => {
-            let items = elements(env, resolve(env, over, ctx, memo)?)?;
-            let hit = |e| eval(env, body, &Ctx(ctx.0, e), memo).is_ok() == *any;
+            let items = elements(env, resolve(env, over, ctx, memo)?, ctx.2)?;
+            let hit = |e| eval(env, body, &Ctx(ctx.0, e, ctx.2), memo).is_ok() == *any;
             let found = items.iter().any(hit);
             (found == *any).then_some(()).ok_or(DenyReason::ArgMismatch)
         }
@@ -427,7 +422,7 @@ fn resolve(env: &Env, leaf: &Leaf, ctx: &Ctx, memo: &mut Memo) -> Result<Val, De
         }
         Leaf::Elem(steps) => walk(env, ctx.1, steps).ok_or(miss)?,
         Leaf::Sum(src, steps) => {
-            let items = elements(env, resolve(env, src, ctx, memo)?)?;
+            let items = elements(env, resolve(env, src, ctx, memo)?, ctx.2)?;
             let add = |t: i128, e: Val| {
                 let x = walk(env, e, steps).and_then(|x| val_to_i128(env, &x));
                 t.checked_add(x.ok_or(miss)?)
@@ -444,9 +439,9 @@ fn resolve(env: &Env, leaf: &Leaf, ctx: &Ctx, memo: &mut Memo) -> Result<Val, De
     })
 }
 
-/// The elements of the vector `leaf` resolves to, at most `MAX_ELEMS` of them.
-fn elements(env: &Env, v: Val) -> Result<Vals, DenyReason> {
-    let items = to::<Vals>(env, &v).ok().filter(|v| v.len() <= MAX_ELEMS);
+/// The elements of the vector `leaf` resolves to, at most `max` of them.
+fn elements(env: &Env, v: Val, max: u32) -> Result<Vals, DenyReason> {
+    let items = to::<Vals>(env, &v).ok().filter(|v| v.len() <= max);
     items.ok_or(DenyReason::ArgMismatch)
 }
 
@@ -504,36 +499,40 @@ fn walk(env: &Env, cur: Val, steps: &[PathStep]) -> Option<Val> {
 /// refuses anything else), and none can match.
 pub fn has_selector_leaf(root: &Node) -> bool {
     let selects = |l: &&Leaf| matches!(l, Leaf::CallContract | Leaf::CallFn | Leaf::CallPath(_));
-    leaves(root).iter().any(|(l, _)| selects(l))
+    leaves(root, 1).iter().any(|(l, _)| selects(l))
 }
 
 /// Every leaf of the tree, nested `scaled` operands and `read` arguments
 /// included, each with its weight: how many times evaluation may reach it, which
-/// is `MAX_ELEMS` for every leaf of a quantifier body, `MAX_ELEMS` for a `sum`
-/// (it walks that many elements), and 1 elsewhere.
-fn leaves(node: &Node) -> Vec<(&Leaf, u32)> {
-    fn nested<'a>(leaf: &'a Leaf, w: u32, out: &mut Vec<(&'a Leaf, u32)>) {
-        // A `sum` walks up to MAX_ELEMS elements, so it weighs that much itself.
+/// is `elems` for every leaf of a quantifier body, `elems` for a `sum` (it walks
+/// that many elements), and 1 elsewhere. Saturating: nested quantifiers multiply,
+/// and a wrapped weight would pass the cap (or trap) instead of being refused.
+fn leaves(node: &Node, elems: u32) -> Vec<(&Leaf, u32)> {
+    fn nested<'a>(leaf: &'a Leaf, w: u32, k: u32, out: &mut Vec<(&'a Leaf, u32)>) {
+        // A `sum` walks up to `k` elements, so it weighs that much itself.
         let sum = matches!(leaf, Leaf::Sum(..));
-        out.push((leaf, if sum { w * MAX_ELEMS } else { w }));
+        out.push((leaf, if sum { w.saturating_mul(k) } else { w }));
         match leaf {
-            Leaf::Scaled(inner, _) => inner.iter().for_each(|l| nested(l, w, out)),
-            Leaf::Read(_, _, args, _) => args.iter().for_each(|l| nested(l, w, out)),
-            Leaf::Sum(src, _) => nested(src, w, out),
+            Leaf::Scaled(inner, _) => inner.iter().for_each(|l| nested(l, w, k, out)),
+            Leaf::Read(_, _, args, _) => args.iter().for_each(|l| nested(l, w, k, out)),
+            Leaf::Sum(src, _) => nested(src, w, k, out),
             _ => {}
         }
     }
     let mut out = Vec::new();
     let top = match node {
-        Node::And(kids) | Node::Or(kids) => return kids.iter().flat_map(leaves).collect(),
+        Node::And(kids) | Node::Or(kids) => {
+            return kids.iter().flat_map(|n| leaves(n, elems)).collect()
+        }
         Node::Compare(_, left, right) => vec![left, right],
         Node::In(needle, haystack, _) => haystack.iter().chain([needle]).collect(),
         Node::Quant(_, over, body) => {
-            out.extend(leaves(body).into_iter().map(|(l, w)| (l, w * MAX_ELEMS)));
+            let inner = leaves(body, elems).into_iter();
+            out.extend(inner.map(|(l, w)| (l, w.saturating_mul(elems))));
             vec![over]
         }
     };
-    top.into_iter().for_each(|l| nested(l, 1, &mut out));
+    top.into_iter().for_each(|l| nested(l, 1, elems, &mut out));
     out
 }
 
@@ -570,13 +569,13 @@ pub enum DecodeError {
     /// symbol / `in []` at decode; also a placement refusal (`elem` outside a
     /// quantifier body, a `sum` or quantifier inside one).
     MalformedPredicate,
-    /// Depth exceeded MAX_DEPTH (5), in the node tree or in a leaf's
+    /// Depth exceeded `max_depth`, in the node tree or in a leaf's
     /// nesting.
     PredicateTooDeep,
-    /// Weighted leaf count exceeded MAX_LEAVES (200; a quantifier body leaf and a
-    /// `sum` weigh MAX_ELEMS), or DISTINCT `read` calls exceeded MAX_READS (4).
+    /// Weighted leaf count exceeded `max_leaves` (a quantifier body leaf and a
+    /// `sum` weigh `max_elems`), or DISTINCT `read` calls exceeded `max_reads`.
     TooManyLeaves,
-    /// An `in` haystack exceeded MAX_IN_OPERAND_COUNT (32).
+    /// An `in` haystack exceeded `max_in_operands`.
     InOperandLimit,
 }
 
@@ -586,9 +585,9 @@ type Vals = soroban_sdk::Vec<Val>;
 /// Decode a predicate root for `install`: the structure (`decode_stored`), then
 /// the count caps (leaves / distinct `read`s). The byte cap is `install`'s, which
 /// refuses an oversized payload (207) before it hashes or decodes it.
-pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
-    let root_node = decode_stored(env, bytes)?;
-    let all = leaves(&root_node);
+pub fn decode(env: &Env, bytes: &Bytes, lim: &Limits) -> Result<Node, DecodeError> {
+    let root_node = decode_stored(env, bytes, lim)?;
+    let all = leaves(&root_node, lim.max_elems);
     // Reads of the same `(contract, fn, constant args)` are one call (see `Memo`).
     // A read with a call-derived argument is its own call: its arguments resolve
     // at `enforce`, and are the same for every use of that leaf.
@@ -601,16 +600,16 @@ pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
             calls.push(key);
         }
     }
-    // `elem` only in a quantifier body (weight `MAX_ELEMS`). Nothing weighs more:
-    // a nested quantifier is 32 x 32, and so is a `sum` inside a body (its own
-    // weight is `MAX_ELEMS`), so neither is allowed.
+    // `elem` only in a quantifier body (weight `max_elems`). Nothing weighs more:
+    // a nested quantifier is elems x elems, and so is a `sum` inside a body (its own
+    // weight is `max_elems`), so neither is allowed.
     let placed = |(l, w): &(&Leaf, u32)| match l {
-        Leaf::Elem(_) => *w == MAX_ELEMS,
-        _ => *w <= MAX_ELEMS,
+        Leaf::Elem(_) => *w == lim.max_elems,
+        _ => *w <= lim.max_elems,
     };
     ensure(all.iter().all(placed))?;
-    let weight: u32 = all.iter().map(|(_, w)| w).sum();
-    let few = weight <= MAX_LEAVES && calls.len() <= MAX_READS as usize;
+    let weight: u32 = all.iter().fold(0, |t, (_, w)| t.saturating_add(*w));
+    let few = weight <= lim.max_leaves && calls.len() <= lim.max_reads as usize;
     cap(few, DecodeError::TooManyLeaves)?;
     Ok(root_node)
 }
@@ -618,19 +617,19 @@ pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
 /// Decode bytes `install` already accepted, for `enforce`: the structure and its
 /// depth caps, without the byte and count caps (`install` is the only writer of
 /// a stored predicate, and re-counting is most of what `enforce` would spend).
-pub fn decode_stored(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
+pub fn decode_stored(env: &Env, bytes: &Bytes, lim: &Limits) -> Result<Node, DecodeError> {
     let v = Val::from_xdr(env, bytes).map_err(|_| DecodeError::MalformedPredicate)?;
-    decode_node(env, &to(env, &v)?, 1)
+    decode_node(env, lim, &to(env, &v)?, 1)
 }
 
 // ---- structural decoder ----
 
 /// Decode one node `depth` levels down from the root (the root is 1); a node
-/// deeper than `MAX_DEPTH` is refused before its children are decoded.
-fn decode_node(env: &Env, items: &Vals, depth: u32) -> Res<Node> {
-    cap(depth <= MAX_DEPTH, DecodeError::PredicateTooDeep)?;
+/// deeper than `max_depth` is refused before its children are decoded.
+fn decode_node(env: &Env, lim: &Limits, items: &Vals, depth: u32) -> Res<Node> {
+    cap(depth <= lim.max_depth, DecodeError::PredicateTooDeep)?;
     let head = spelled(env, &expect(env, items, 0)?)?;
-    let leaf = |i| decode_leaf(env, &at(items, i)?, 1);
+    let leaf = |i| decode_leaf(env, lim, &at(items, i)?, 1);
     use CompareOp as C;
     let ops = [("eq", C::Eq), ("ne", C::Ne), ("lt", C::Lt), ("lte", C::Lte)];
     let ops = ops.into_iter().chain([("gt", C::Gt), ("gte", C::Gte)]);
@@ -638,21 +637,21 @@ fn decode_node(env: &Env, items: &Vals, depth: u32) -> Res<Node> {
     let op = ops.into_iter().find(|(n, _)| n.as_bytes() == name);
     // A node is its name and, except for `and` and `or`, two operands.
     Ok(match (name, items.len(), op) {
-        (b"and", _, _) => Node::And(decode_children(env, items, depth)?),
-        (b"or", _, _) => Node::Or(decode_children(env, items, depth)?),
+        (b"and", _, _) => Node::And(decode_children(env, lim, items, depth)?),
+        (b"or", _, _) => Node::Or(decode_children(env, lim, items, depth)?),
         (b"in" | b"nin", 3, _) => {
             let needle = leaf(1)?;
             let entries: Vals = expect(env, items, 2)?;
             ensure(!entries.is_empty())?;
             cap(
-                entries.len() <= MAX_IN_OPERAND_COUNT,
+                entries.len() <= lim.max_in_operands,
                 DecodeError::InOperandLimit,
             )?;
-            let haystack = each(&entries, |h| literal(env, &h).map(Leaf::Lit))?;
+            let haystack = each(&entries, |h| literal(env, lim, &h).map(Leaf::Lit))?;
             Node::In(needle, haystack, name == b"nin")
         }
         (b"all" | b"any", 3, _) => {
-            let body = decode_node(env, &expect(env, items, 2)?, depth + 1)?;
+            let body = decode_node(env, lim, &expect(env, items, 2)?, depth + 1)?;
             Node::Quant(name == b"any", leaf(1)?, Box::new(body))
         }
         (_, 3, Some((_, op))) => {
@@ -671,11 +670,13 @@ fn decode_node(env: &Env, items: &Vals, depth: u32) -> Res<Node> {
 /// operand, a non-empty vector of child tuples; an empty list is refused
 /// so neither can degenerate into a node that permits (empty `and`) or
 /// denies (empty `or`) regardless of the call.
-fn decode_children(env: &Env, items: &Vals, depth: u32) -> Res<Vec<Node>> {
+fn decode_children(env: &Env, lim: &Limits, items: &Vals, depth: u32) -> Res<Vec<Node>> {
     ensure(items.len() == 2)?;
     let children: Vals = expect(env, items, 1)?;
     ensure(!children.is_empty())?;
-    each(&children, |c| decode_node(env, &to(env, &c)?, depth + 1))
+    each(&children, |c| {
+        decode_node(env, lim, &to(env, &c)?, depth + 1)
+    })
 }
 
 /// Decode every element of `vals`, failing on the first that does not.
@@ -686,20 +687,20 @@ fn each<T>(vals: &Vals, f: impl FnMut(Val) -> Res<T>) -> Res<Vec<T>> {
 /// Decode one leaf. `depth` is how deeply it is nested inside other
 /// leaves (a bare vec constant, a `scaled` operand, a `read` argument, a `sum`
 /// source), and is capped at
-/// `MAX_DEPTH` so the decoder and the evaluator both recurse a bounded
+/// `max_depth` so the decoder and the evaluator both recurse a bounded
 /// number of times.
-fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
-    cap(depth <= MAX_DEPTH, DecodeError::PredicateTooDeep)?;
+fn decode_leaf(env: &Env, lim: &Limits, val: &Val, depth: u32) -> Res<Leaf> {
+    cap(depth <= lim.max_depth, DecodeError::PredicateTooDeep)?;
     // Selector tuples are `Vec<Val>` whose head is a `Symbol` (an unknown one is
     // refused). Literal vectors are `Vec<Val>` whose head is anything else.
     if let Ok(items) = Vals::try_from_val(env, val) {
         ensure(!items.is_empty())?;
         if let Ok(sym) = expect::<Symbol>(env, &items, 0) {
-            return decode_selector_leaf(env, &items, spelled(env, &sym)?.as_ref(), depth);
+            return decode_selector_leaf(env, lim, &items, spelled(env, &sym)?.as_ref(), depth);
         }
         // A bare vec of constants is its own value: checked, not rebuilt (building
         // a host vec one push at a time is quadratic in its length).
-        each(&items, |e| plain(env, &e, depth + 1))?;
+        each(&items, |e| plain(env, lim, &e, depth + 1))?;
         return Ok(Leaf::Lit(*val));
     }
     // Any other bare value is a constant (but a map: see `plain`).
@@ -708,10 +709,10 @@ fn decode_leaf(env: &Env, val: &Val, depth: u32) -> Res<Leaf> {
 
 /// A leaf that must be a constant: an `in` entry, or a path-step key. A vector
 /// goes through `decode_leaf` (so `lit(x)` works); anything else is itself.
-fn literal(env: &Env, val: &Val) -> Res<Val> {
+fn literal(env: &Env, lim: &Limits, val: &Val) -> Res<Val> {
     match Vals::try_from_val(env, val) {
         Err(_) => bare(val).map(|()| *val),
-        Ok(_) => literal_to_val(&decode_leaf(env, val, 1)?),
+        Ok(_) => literal_to_val(&decode_leaf(env, lim, val, 1)?),
     }
 }
 
@@ -727,13 +728,13 @@ fn bare(val: &Val) -> Res<()> {
 /// costs about 35k instructions apiece, so nothing here does. A map is no bare
 /// constant: it is stored as written, so a `lit` inside it would stay wrapped
 /// and `nin` would pass the value it was meant to list. `lit({...})` is the way.
-fn plain(env: &Env, val: &Val, depth: u32) -> Res<()> {
-    cap(depth <= MAX_DEPTH, DecodeError::PredicateTooDeep)?;
+fn plain(env: &Env, lim: &Limits, val: &Val, depth: u32) -> Res<()> {
+    cap(depth <= lim.max_depth, DecodeError::PredicateTooDeep)?;
     let Ok(items) = Vals::try_from_val(env, val) else {
         return bare(val);
     };
     ensure(!items.is_empty() && expect::<Symbol>(env, &items, 0).is_err())?;
-    each(&items, |e| plain(env, &e, depth + 1)).map(|_| ())
+    each(&items, |e| plain(env, lim, &e, depth + 1)).map(|_| ())
 }
 
 /// A symbol's characters, read once. Comparing a symbol with `Symbol::new(name)`
@@ -745,9 +746,15 @@ fn spelled(env: &Env, sym: &Symbol) -> Res<SymbolStr> {
 // Not inlined: folded into `decode_leaf` it makes every leaf, a scalar included,
 // pay for the whole frame (about 35k instructions instead of 13k).
 #[inline(never)]
-fn decode_selector_leaf(env: &Env, items: &Vals, head: &[u8], depth: u32) -> Res<Leaf> {
+fn decode_selector_leaf(
+    env: &Env,
+    lim: &Limits,
+    items: &Vals,
+    head: &[u8],
+    depth: u32,
+) -> Res<Leaf> {
     let step = |i| expect(env, items, i).map(PathStep::Index);
-    let steps = |from, min| decode_steps(env, items, from, min);
+    let steps = |from, min| decode_steps(env, lim, items, from, min);
     Ok(match (head, items.len()) {
         (b"call_contract", 1) => Leaf::CallContract,
         (b"call_fn", 1) => Leaf::CallFn,
@@ -764,7 +771,7 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: &[u8], depth: u32) -> Res
             // another `read` are refused (the call count and the cost would no
             // longer be bounded by the predicate alone).
             let arg = |a| {
-                let leaf = decode_leaf(env, &a, depth + 1)?;
+                let leaf = decode_leaf(env, lim, &a, depth + 1)?;
                 let ok = matches!(leaf, Leaf::Lit(_) | Leaf::CallPath(_) | Leaf::Now);
                 ensure(ok || matches!(leaf, Leaf::CallContract | Leaf::CallFn)).map(|_| leaf)
             };
@@ -783,7 +790,7 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: &[u8], depth: u32) -> Res
             // cannot be judged here; guard it in the rule (see the README).
             let den = expect::<i128>(env, items, 3)?;
             ensure((1..=MAX_DEN).contains(&den))?;
-            let operand = |i| decode_leaf(env, &at(items, i)?, depth + 1);
+            let operand = |i| decode_leaf(env, lim, &at(items, i)?, depth + 1);
             let leaves = [operand(1)?, operand(2)?, operand(4)?];
             let [s, n, a] = leaves.each_ref().map(|l| constant(env, l));
             ensure(![s, n].iter().any(|v| v.is_some_and(|v| v <= 0)))?;
@@ -800,7 +807,7 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: &[u8], depth: u32) -> Res
         // (sum, vec, step...): the vec is any leaf; the steps reach the number
         // inside each element (none: the element is the number).
         (b"sum", _) => {
-            let src = decode_leaf(env, &at(items, 1)?, depth + 1)?;
+            let src = decode_leaf(env, lim, &at(items, 1)?, depth + 1)?;
             Leaf::Sum(Box::new(src), steps(2, 0)?)
         }
         (b"lit", 2) => Leaf::Lit(at(items, 1)?),
@@ -815,9 +822,9 @@ fn decode_selector_leaf(env: &Env, items: &Vals, head: &[u8], depth: u32) -> Res
 /// `lit(x)`. Anything else is refused here rather than reinterpreted at evaluate.
 /// `min` is the fewest
 /// steps: `call_path` needs one; a `read` result may be the value itself.
-fn decode_steps(env: &Env, items: &Vals, from: u32, min: u32) -> Res<Vec<PathStep>> {
+fn decode_steps(env: &Env, lim: &Limits, items: &Vals, from: u32, min: u32) -> Res<Vec<PathStep>> {
     ensure((min..=MAX_PATH_STEPS).contains(&items.len().saturating_sub(from)))?;
-    let key = |n| literal(env, &at(items, n)?).map(PathStep::Key);
+    let key = |n| literal(env, lim, &at(items, n)?).map(PathStep::Key);
     (from..items.len())
         .map(|n| match expect(env, items, n) {
             Ok(i) => Ok(PathStep::Index(i)),

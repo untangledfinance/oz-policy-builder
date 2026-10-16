@@ -18,19 +18,32 @@ mod version;
 
 pub use dsl::{CompareOp, DenyReason, EvalContext, EvalDecision, Leaf, Node};
 pub use storage::{PolicyError, StoredDoc};
-pub use types::{ContextRule, ContextRuleType, PolicyInstallParams, Signer};
+pub use types::{ContextRule, ContextRuleType, Limits, PolicyInstallParams, Signer};
 pub use version::SELF_VERSION;
 
 use soroban_sdk::xdr::ToXdr;
 use soroban_sdk::{auth::Context, contract, contractimpl, Address, BytesN, Env, IntoVal, Vec};
 
-use crate::storage::{deny, deny_unless, load, PolicyError as E, TTL_BUMP_THRESHOLD, TTL_BUMP_TO};
+use crate::storage::{
+    deny, deny_unless, limits, load, PolicyError as E, LIMITS, TTL_BUMP_THRESHOLD, TTL_BUMP_TO,
+};
 
 #[contract]
 pub struct PolicyInterpreter;
 
 #[contractimpl]
 impl PolicyInterpreter {
+    /// Fix the hard limits for the life of this instance (see `Limits`).
+    pub fn __constructor(e: &Env, limits: Limits) {
+        deny_unless(e, limits.in_range(), E::LimitsOutOfRange);
+        e.storage().instance().set(&LIMITS, &limits);
+    }
+
+    /// The limits this instance was deployed with.
+    pub fn limits(e: &Env) -> Limits {
+        limits(e)
+    }
+
     pub fn grammar_version(_e: &Env) -> u32 {
         SELF_VERSION
     }
@@ -46,7 +59,8 @@ impl PolicyInterpreter {
 
         // (a) Byte cap - reject before any parse work so the host never
         //     sees an oversized payload.
-        let small = p.predicate.len() <= dsl::MAX_PREDICATE_BYTES;
+        let lim = limits(e);
+        let small = p.predicate.len() <= lim.max_predicate_bytes;
         deny_unless(e, small, E::PredicateTooLarge);
 
         // (b) Hash check - mandatory invariant #11. The caller supplies
@@ -60,7 +74,8 @@ impl PolicyInterpreter {
         // (c) Parse + decode - the host does the XDR work; we walk the
         //     resulting native `Vec<Val>`. The AST is rebuilt on enforce from
         //     the stored bytes; here decoding is the validation.
-        let root = dsl::decode(e, &p.predicate).unwrap_or_else(|_| deny(e, E::MalformedPredicate));
+        let root =
+            dsl::decode(e, &p.predicate, &lim).unwrap_or_else(|_| deny(e, E::MalformedPredicate));
 
         // (c2) The rule's signers (the operators) stay bounded: `enforce`
         //      re-hashes the set on every permit, so the same size and shape
@@ -168,7 +183,8 @@ impl PolicyInterpreter {
         let unchanged = signers_hash(e, &context_rule.signers) == doc.signers_hash;
         deny_unless(e, unchanged, E::RuleSignersChanged);
 
-        let root = dsl::decode_stored(e, &doc.predicate_bytes)
+        let lim = limits(e);
+        let root = dsl::decode_stored(e, &doc.predicate_bytes, &lim)
             .unwrap_or_else(|_| deny(e, E::MalformedPredicate));
 
         // Before the predicate check. A deny panics and the host rolls this
@@ -185,7 +201,7 @@ impl PolicyInterpreter {
         };
         // Surface the SPECIFIC deny code so a review card can say "not on the
         // allowlist" rather than "predicate false" (see `DenyReason`).
-        if let dsl::EvalDecision::Deny(reason) = dsl::evaluate(e, &root, call) {
+        if let dsl::EvalDecision::Deny(reason) = dsl::evaluate(e, &root, call, &lim) {
             deny(e, deny_code(reason));
         }
     }
@@ -202,13 +218,14 @@ impl PolicyInterpreter {
         let Context::Contract(call) = &context else {
             deny(e, E::MissingState)
         };
-        let code = if predicate.len() > dsl::MAX_PREDICATE_BYTES {
+        let lim = limits(e);
+        let code = if predicate.len() > lim.max_predicate_bytes {
             E::PredicateTooLarge as u32
-        } else if let Ok(root) = dsl::decode(e, &predicate) {
+        } else if let Ok(root) = dsl::decode(e, &predicate, &lim) {
             if !dsl::has_selector_leaf(&root) {
                 E::SelectorLeafRequired as u32
             } else {
-                match dsl::evaluate(e, &root, call) {
+                match dsl::evaluate(e, &root, call, &lim) {
                     dsl::EvalDecision::Permit => 0,
                     dsl::EvalDecision::Deny(reason) => deny_code(reason) as u32,
                 }

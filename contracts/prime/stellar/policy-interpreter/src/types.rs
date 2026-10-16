@@ -34,6 +34,41 @@ pub enum ContextRuleType {
 /// signer stay well inside the CPU budget.
 pub const MAX_SIGNERS: u32 = 16;
 
+/// The interpreter's hard limits, chosen once at deploy time (`__constructor`) and
+/// immutable after: no setter exists and the contract cannot be upgraded. `install`
+/// and `check` hold a predicate to them (byte size, depth, weighted leaves, distinct
+/// reads, `in` entries); `enforce` uses `max_elems` (a longer vector denies) and the
+/// depth and entry caps while it decodes. A quantifier body leaf and a `sum` weigh
+/// `max_elems` leaves. `MAX_PATH_STEPS` and `MAX_DEN` stay fixed constants.
+#[contracttype]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Limits {
+    pub max_reads: u32,
+    pub max_leaves: u32,
+    pub max_predicate_bytes: u32,
+    pub max_elems: u32,
+    pub max_in_operands: u32,
+    pub max_depth: u32,
+}
+
+impl Limits {
+    /// Every field is at least 1 and at most its HARD CEILING (reads 8, leaves 400,
+    /// bytes 65,536, elems 64, `in` entries 64, depth 8). The ceilings are sized so
+    /// the worst predicate at every one of them at once still fits a Soroban
+    /// transaction with a margin (`tests/worst_case.rs` runs it on the real wasm).
+    pub fn in_range(&self) -> bool {
+        let pairs = [
+            (self.max_reads, 8),
+            (self.max_leaves, 400),
+            (self.max_predicate_bytes, 64 * 1024),
+            (self.max_elems, 64),
+            (self.max_in_operands, 64),
+            (self.max_depth, 8),
+        ];
+        pairs.iter().all(|&(v, max)| (1..=max).contains(&v))
+    }
+}
+
 /// OZ's `ContextRule`, in full.
 ///
 /// Every field is declared even though the interpreter only reads `id`,

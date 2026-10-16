@@ -19,6 +19,7 @@
 //!   would hand the operators the admin surface.
 
 extern crate alloc;
+mod common;
 
 use policy_interpreter::{
     ContextRule, ContextRuleType, PolicyInstallParams, PolicyInterpreter, PolicyInterpreterClient,
@@ -102,7 +103,7 @@ struct Setup {
 
 fn setup() -> Setup {
     let env = Env::default();
-    let contract_id = env.register(PolicyInterpreter, ());
+    let contract_id = env.register(PolicyInterpreter, (common::DEFAULT,));
     Setup {
         smart_account: Address::generate(&env),
         venue: Address::generate(&env),

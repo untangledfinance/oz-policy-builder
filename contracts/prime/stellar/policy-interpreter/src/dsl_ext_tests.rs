@@ -9,7 +9,8 @@ extern crate alloc;
 
 use alloc::vec::Vec as StdVec;
 
-use crate::dsl::{decode, evaluate, DecodeError, DenyReason, EvalContext, EvalDecision};
+use crate::dsl::{DecodeError, DenyReason, EvalContext, EvalDecision};
+use crate::test::{decode, evaluate};
 use soroban_sdk::xdr::{
     AccountId, ContractId, Duration, Hash, Int128Parts, MuxedEd25519Account, PublicKey, ScAddress,
     ScBytes, ScMap, ScMapEntry, ScString, ScSymbol, ScVal, ScVec, TimePoint, ToXdr, UInt128Parts,
@@ -582,7 +583,7 @@ fn list(items: &[ScVal]) -> ScVal {
     tup(items)
 }
 
-const CAP: usize = crate::dsl::MAX_ELEMS as usize;
+const CAP: usize = crate::test::DEFAULT.max_elems as usize;
 
 fn payment(to: u8, amount: i128) -> ScVal {
     map(&[(sym("to"), account(to)), (sym("amount"), n(amount))])
@@ -983,7 +984,7 @@ fn budget(body_leaves: usize, rest_compares: usize, rest_in: bool) -> ScVal {
 
 #[test]
 fn each_body_leaf_counts_thirty_two_times_toward_the_leaf_cap() {
-    let cap = crate::dsl::MAX_LEAVES as usize;
+    let cap = crate::test::DEFAULT.max_leaves as usize;
     // 6 body leaves: 1 + 6 * 32 = 193; 7 more leaves outside make exactly 200.
     assert_eq!(refused(&budget(6, 2, true)), None, "200 leaves");
     assert_eq!(
@@ -1056,7 +1057,7 @@ fn a_bare_false_step_is_a_key_and_only_true_is_the_length() {
 
 #[test]
 fn leaf_nesting_is_capped_through_sum_and_read_arguments() {
-    let depth = crate::dsl::MAX_DEPTH as usize;
+    let depth = crate::test::DEFAULT.max_depth as usize;
     // sum(sum(...sum(path))): each sum's vec is one level deeper
     let chain = |n_sums: usize| {
         let mut leaf = path(&[ScVal::U32(0)]);

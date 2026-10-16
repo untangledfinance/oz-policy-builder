@@ -12,6 +12,7 @@
 //!   - `Signer`          - accounts/src/smart_account/mod.rs
 
 extern crate alloc;
+mod common;
 
 use policy_interpreter::{ContextRule, PolicyInterpreter, PolicyInterpreterClient, Signer};
 use soroban_sdk::testutils::Address as _;
@@ -156,7 +157,7 @@ fn enforce_accepts_a_rule_built_the_way_the_smart_account_builds_it() {
     // than assumed.
     let env = Env::default();
     env.mock_all_auths();
-    let contract_id = env.register(PolicyInterpreter, ());
+    let contract_id = env.register(PolicyInterpreter, (common::DEFAULT,));
     let client = PolicyInterpreterClient::new(&env, &contract_id);
     let smart_account = Address::generate(&env);
     let signers: Vec<Signer> = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];

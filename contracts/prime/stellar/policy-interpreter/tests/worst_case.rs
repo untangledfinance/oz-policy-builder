@@ -13,6 +13,7 @@
 //! wasm). A wasm older than the source is not detected: build before running.
 
 extern crate alloc;
+mod common;
 
 use alloc::vec::Vec as StdVec;
 
@@ -412,7 +413,7 @@ fn run(code: &[u8], case: &Case) -> (Result<(), u32>, Cost, Cost, Cost) {
     env.mock_all_auths_allowing_non_root_auth();
     env.cost_estimate().disable_resource_limits();
     env.cost_estimate().budget().reset_unlimited();
-    let policy = env.register(code, ());
+    let policy = env.register(code, (common::DEFAULT,));
     let client = PolicyInterpreterClient::new(&env, &policy);
     let account = Address::generate(&env);
     let target = Address::generate(&env);

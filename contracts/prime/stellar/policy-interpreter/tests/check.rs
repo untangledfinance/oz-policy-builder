@@ -43,7 +43,7 @@ impl W {
     fn new() -> Self {
         // No `mock_all_auths`: `check` must not ask for any authorisation.
         let env = Env::default();
-        let id = env.register(PolicyInterpreter, ());
+        let id = env.register(PolicyInterpreter, (common::DEFAULT,));
         let client = PolicyInterpreterClient::new(&env, &id);
         let target = Address::generate(&env);
         W {

@@ -7,6 +7,10 @@ extern crate alloc;
 
 use alloc::vec::Vec as StdVec;
 
+use policy_interpreter::dsl::{self, DecodeError, EvalContext, EvalDecision, Node};
+#[path = "../common/mod.rs"]
+mod common;
+use common::DEFAULT;
 use soroban_sdk::xdr::FromXdr;
 use soroban_sdk::{Bytes, Env, Val, Vec as SorobanVec};
 
@@ -53,4 +57,13 @@ pub fn build_args(env: &Env, args_hex: &[&str]) -> SorobanVec<Val> {
         out.push_back(v);
     }
     out
+}
+
+/// `decode` and `evaluate` at the default limits, which the conformance cases ran under.
+pub fn decode(env: &Env, bytes: &Bytes) -> Result<Node, DecodeError> {
+    dsl::decode(env, bytes, &DEFAULT)
+}
+
+pub fn evaluate(env: &Env, node: &Node, call: &EvalContext) -> EvalDecision {
+    dsl::evaluate(env, node, call, &DEFAULT)
 }

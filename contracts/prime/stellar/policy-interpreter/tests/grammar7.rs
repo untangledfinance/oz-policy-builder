@@ -6,6 +6,7 @@
 //! literal-only arguments, the fail-closed paths, and re-entry.
 
 extern crate alloc;
+mod common;
 
 use alloc::vec::Vec as StdVec;
 
@@ -304,7 +305,7 @@ impl World {
         // `enforce` is called from inside another contract in the re-entry
         // tests, so its `require_auth` is not a root-level one.
         env.mock_all_auths_allowing_non_root_auth();
-        let policy = env.register(PolicyInterpreter, ());
+        let policy = env.register(PolicyInterpreter, (common::DEFAULT,));
         let account = Address::generate(&env);
         let signers = soroban_sdk::vec![&env, Signer::Delegated(account.clone())];
         let target = Address::generate(&env);

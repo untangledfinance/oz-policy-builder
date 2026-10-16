@@ -777,7 +777,7 @@ const FILE: &str = concat!(
 fn render() -> (String, usize) {
     let env = Env::default();
     env.mock_all_auths_allowing_non_root_auth();
-    let id = env.register(PolicyInterpreter, ());
+    let id = env.register(PolicyInterpreter, (common::DEFAULT,));
     let client = PolicyInterpreterClient::new(&env, &id);
     let oracle_addr = env.register(Oracle, ());
     let oracle = addr(&env, &oracle_addr);

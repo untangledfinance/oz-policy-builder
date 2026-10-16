@@ -10,6 +10,7 @@
 //! rather than a Cargo dependency so the suite pins the exact deployed bytes.
 
 extern crate alloc;
+mod common;
 
 use policy_interpreter::{PolicyInstallParams, PolicyInterpreter};
 use soroban_sdk::testutils::{Address as _, Ledger as _};
@@ -113,7 +114,7 @@ fn call_contract_context(env: &Env, addr: &Address) -> Val {
 /// shape: the constructor's rule 0 is `Default`-scoped and predicates refuse
 /// that scope, so policies arrive later on scoped rules.
 fn deploy(env: &Env) -> (Address, Address, Address) {
-    let interpreter = env.register(PolicyInterpreter, ());
+    let interpreter = env.register(PolicyInterpreter, (common::DEFAULT,));
 
     let signer_addr = Address::generate(env);
     let signers: Vec<Val> = soroban_sdk::vec![env, delegated(env, &signer_addr)];
@@ -162,7 +163,7 @@ fn the_account_cannot_install_a_policy_on_its_default_rule() {
     // account is the caller, not only on the direct path.
     let env = Env::default();
     env.mock_all_auths();
-    let interpreter = env.register(PolicyInterpreter, ());
+    let interpreter = env.register(PolicyInterpreter, (common::DEFAULT,));
     let signer_addr = Address::generate(&env);
     let signers: Vec<Val> = soroban_sdk::vec![&env, delegated(&env, &signer_addr)];
     let admins: Vec<policy_interpreter::Signer> = soroban_sdk::vec![
@@ -273,7 +274,7 @@ fn the_account_rejects_a_policy_whose_predicate_is_malformed() {
     // on the direct path.
     let env = Env::default();
     env.mock_all_auths();
-    let interpreter = env.register(PolicyInterpreter, ());
+    let interpreter = env.register(PolicyInterpreter, (common::DEFAULT,));
     let signer_addr = Address::generate(&env);
     let signers: Vec<Val> = soroban_sdk::vec![&env, delegated(&env, &signer_addr)];
 

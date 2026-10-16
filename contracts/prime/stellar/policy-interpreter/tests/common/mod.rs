@@ -5,6 +5,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec as StdVec;
+use policy_interpreter::Limits;
 use soroban_sdk::xdr::{FromXdr as _, ScSymbol, ScVal, ScVec, ToXdr, VecM};
 use soroban_sdk::{Address, Bytes, Env, IntoVal, Val};
 
@@ -53,3 +54,23 @@ pub fn verdict(
         other => panic!("check must end in a contract error, got {other:?}"),
     }
 }
+
+/// What grammar 7 shipped with: every suite that is not about limits runs under it.
+pub const DEFAULT: Limits = Limits {
+    max_reads: 4,
+    max_leaves: 200,
+    max_predicate_bytes: 32 * 1024,
+    max_elems: 32,
+    max_in_operands: 32,
+    max_depth: 5,
+};
+
+/// The hard ceilings `__constructor` enforces.
+pub const CEILING: Limits = Limits {
+    max_reads: 8,
+    max_leaves: 400,
+    max_predicate_bytes: 64 * 1024,
+    max_elems: 64,
+    max_in_operands: 64,
+    max_depth: 8,
+};

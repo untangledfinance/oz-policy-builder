@@ -1,15 +1,18 @@
 //! Per-(smart_account, rule_id) state and the contract error ABI.
 //!
-//! Storage layout (`persistent()`, never `instance()`): ONE entry per rule,
+//! Storage layout: the deploy-time `Limits` are the one `instance()` entry, written by
+//! the constructor. Everything else is `persistent()`: ONE entry per rule,
 //! `(account, rule_id) -> StoredDoc`. Grammar 6 kept four entries per rule (the
 //! predicate and executor in one doc, plus the nonce, the operator-set hash and
 //! the master set); they share a lifecycle (written together at install, bumped
 //! together when a permit bumps them), and any one archiving would have bricked the rule,
 //! so they now live and expire together.
 
-use soroban_sdk::{contracterror, contracttype, panic_with_error, Address, Bytes, BytesN, Env};
+use soroban_sdk::{
+    contracterror, contracttype, panic_with_error, symbol_short, Address, Bytes, BytesN, Env,
+};
 
-use crate::types::Signer;
+use crate::types::{Limits, Signer};
 
 // ---- contract error ABI ----
 //
@@ -95,6 +98,9 @@ pub enum PolicyError {
     /// holding it could never authorise a call, and a master set holding it could
     /// never uninstall or rotate (the rule would be bricked).
     SignerIsInterpreter = 219,
+    /// The deploy-time `Limits` had a field of 0 or above its ceiling; the
+    /// constructor refuses, so no such instance exists.
+    LimitsOutOfRange = 220,
 }
 
 // ---- deny -----
@@ -112,6 +118,15 @@ pub fn deny_unless(e: &Env, ok: bool, error: PolicyError) {
     if !ok {
         deny(e, error);
     }
+}
+
+pub const LIMITS: soroban_sdk::Symbol = symbol_short!("limits");
+
+/// The deploy-time limits, kept once in instance storage (the constructor is the
+/// only writer, and the contract has no upgrade path).
+pub fn limits(e: &Env) -> Limits {
+    let stored = e.storage().instance().get(&LIMITS);
+    stored.unwrap_or_else(|| deny(e, PolicyError::MissingState))
 }
 
 /// The rule's stored entry; a missing one is `MISSING_STATE`.

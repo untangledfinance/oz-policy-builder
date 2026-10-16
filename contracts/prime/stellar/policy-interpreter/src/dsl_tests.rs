@@ -22,9 +22,14 @@ extern crate alloc;
 use alloc::vec::Vec as StdVec;
 
 use crate::dsl::{
-    decode, evaluate, CompareOp, DenyReason, EvalContext, EvalDecision, Leaf, Node, PathStep,
-    MAX_DEPTH, MAX_IN_OPERAND_COUNT, MAX_LEAVES, MAX_PATH_STEPS, MAX_READS,
+    CompareOp, DenyReason, EvalContext, EvalDecision, Leaf, Node, PathStep, MAX_PATH_STEPS,
 };
+use crate::test::{decode, evaluate};
+
+const MAX_DEPTH: u32 = crate::test::DEFAULT.max_depth;
+const MAX_LEAVES: u32 = crate::test::DEFAULT.max_leaves;
+const MAX_IN_OPERAND_COUNT: u32 = crate::test::DEFAULT.max_in_operands;
+const MAX_READS: u32 = crate::test::DEFAULT.max_reads;
 use soroban_sdk::testutils::Address as _;
 use soroban_sdk::xdr::{FromXdr, ScVal, ToXdr, VecM};
 use soroban_sdk::{Address, Bytes, Env, IntoVal, Symbol, Val, Vec as SorobanVec};

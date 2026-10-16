@@ -761,7 +761,8 @@ fn or(kids: StdVec<ScVal>) -> ScVal {
 
 fn render() -> String {
     let env = Env::default();
-    let client = PolicyInterpreterClient::new(&env, &env.register(PolicyInterpreter, ()));
+    let client =
+        PolicyInterpreterClient::new(&env, &env.register(PolicyInterpreter, (common::DEFAULT,)));
     let c = soroban_sdk::Address::generate(&env);
     let args: Vec<Val> = Vec::from_slice(&env, &[5i128.into_val(&env), 7u32.into_val(&env)]);
     let ctx = Context::Contract(ContractContext {
