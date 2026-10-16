@@ -69,7 +69,7 @@ pub const DEFAULT: Limits = Limits {
 pub const CEILING: Limits = Limits {
     max_reads: 8,
     max_leaves: 400,
-    max_predicate_bytes: 64 * 1024,
+    max_predicate_bytes: 48 * 1024,
     max_elems: 64,
     max_in_operands: 64,
     max_depth: 8,

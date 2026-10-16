@@ -8,6 +8,36 @@ can delegate its per-call authorization decision to it.
 The off-chain half - which synthesises, verifies and packages the predicate -
 is [`@crediolabs/policy-synth`](../../../../packages/policy-synth/).
 
+## Limits
+
+The hard limits are chosen when an instance is deployed, not compiled in.
+`__constructor(limits)` takes a `Limits { max_reads, max_leaves,
+max_predicate_bytes, max_elems, max_in_operands, max_depth }`, stores it once in
+instance storage, and the `limits()` view returns it. There is no setter and the
+contract has no upgrade path, so an instance's limits never change; a different
+limit is a new instance at a new address (the grammar is still 7). Every field
+must be at least 1 and at most its ceiling, or the constructor fails with
+`LimitsOutOfRange` (220), so no such instance exists.
+
+| Field | Default (grammar 7 as first shipped) | Ceiling | What it bounds |
+| --- | --- | --- | --- |
+| `max_reads` | 4 | 8 | distinct `read` calls per predicate (and so external calls per `enforce`) |
+| `max_leaves` | 200 | 400 | weighted leaves (a quantifier body leaf and a `sum` weigh `max_elems`) |
+| `max_predicate_bytes` | 32,768 | 49,152 | the predicate's XDR size, checked before any parse |
+| `max_elems` | 32 | 64 | elements a quantifier or `sum` visits; a longer vector denies |
+| `max_in_operands` | 32 | 64 | entries in an `in` / `nin` list |
+| `max_depth` | 5 | 8 | node depth and leaf nesting |
+
+`MAX_PATH_STEPS` (8) and `MAX_DEN` (10^18) stay fixed. Elsewhere in this file a
+number written as a cap ("four reads", "200 leaves", "32 elements", "32 KB",
+"5 levels") is the default; `install`, `check` and `enforce` use the instance's
+own. The ceilings are sized by `tests/worst_case.rs`, which runs the largest rule at
+every ceiling at once on the real wasm and requires a 20% margin under the network
+limits for CPU, memory, ledger entries, write bytes and the entry size, plus the size of
+a real install transaction (the predicate travels twice in it, so the byte ceiling is
+49,152, not 65,536). The network values it uses are in
+`evidence/soroban-network-limits-2026-10-16.txt`.
+
 ## Entry points
 
 | Function | Purpose |
@@ -19,6 +49,7 @@ is [`@crediolabs/policy-synth`](../../../../packages/policy-synth/).
 | `uninstall` | Remove the stored predicate for a rule. |
 | `rotate_master_signer_set` | Update the master signer set an installation is bound to. |
 | `grammar_version` | The predicate grammar version this build speaks (`SELF_VERSION`). |
+| `limits` | The `Limits` this instance was deployed with (see above). |
 
 Evaluation fails closed: an undecodable predicate, an unsupported node, or a
 selector the call cannot answer all deny. Which reason is reported does not

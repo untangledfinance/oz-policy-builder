@@ -52,15 +52,24 @@ pub struct Limits {
 }
 
 impl Limits {
-    /// Every field is at least 1 and at most its HARD CEILING (reads 8, leaves 400,
-    /// bytes 65,536, elems 64, `in` entries 64, depth 8). The ceilings are sized so
-    /// the worst predicate at every one of them at once still fits a Soroban
-    /// transaction with a margin (`tests/worst_case.rs` runs it on the real wasm).
+    /// Every field is at least 1 and at most its HARD CEILING: reads 8, leaves 400,
+    /// bytes 49,152, elems 64, `in` entries 64, depth 8. `tests/worst_case.rs` runs
+    /// the largest rule at every ceiling at once on the real wasm against the
+    /// network limits (testnet and mainnet are identical for these) and requires a
+    /// 20% margin everywhere. CPU and memory never come close (the worst rule uses
+    /// about 19% of the CPU and 5% of the memory), so the ceilings that bind are
+    /// sizes: the stored rule is one contract-data entry, capped at 65,536 bytes
+    /// (a 65,536-byte predicate cannot even be stored, and with 16 admins the entry
+    /// is the predicate plus about 1.3 KB), and an install transaction carries the
+    /// predicate TWICE, once as the host function's argument and once inside the
+    /// account's authorisation entry: 2 x 49,152 plus about 7 KB of signers,
+    /// footprint and signature is 105,436 of the 132,096-byte limit (79%). 64 KiB
+    /// would be 104%.
     pub fn in_range(&self) -> bool {
         let pairs = [
             (self.max_reads, 8),
             (self.max_leaves, 400),
-            (self.max_predicate_bytes, 64 * 1024),
+            (self.max_predicate_bytes, 48 * 1024),
             (self.max_elems, 64),
             (self.max_in_operands, 64),
             (self.max_depth, 8),
