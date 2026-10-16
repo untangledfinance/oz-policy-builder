@@ -24,10 +24,14 @@ import {
 } from '@stellar/stellar-sdk'
 import { toScVal } from '../packages/policy-synth/src/wire.ts'
 
+// Sized to PayFi's rules (the largest drafted rule is 8,840 B with 5 reads; a 3-asset basket takes 7
+// reads): reads 8 and leaves 400 are the ceilings, the byte limit is 24 KiB (2.8x the largest rule, so
+// a rule that outgrows it is a deliberate new instance, and an install stays far under the transaction
+// limit), and elems / in / depth stay at what grammar 7 shipped with (PayFi's rules validate under them).
 const LIMITS = {
   max_reads: 8,
   max_leaves: 400,
-  max_predicate_bytes: 48 * 1024,
+  max_predicate_bytes: 24 * 1024,
   max_elems: 32,
   max_in_operands: 32,
   max_depth: 5,
@@ -74,7 +78,11 @@ const wasm = readFileSync(wasmFile)
 const wasmSha = hash(wasm).toString('hex')
 console.log(`wasm ${wasm.length} B sha256 ${wasmSha}`)
 
-const salt = hash(Buffer.from('untangled.policy-interpreter.grammar7.limits'))
+// One address per (wasm, limits): the deployer and the salt make the address, so a new build or new limits
+// cannot collide with an instance already deployed.
+const salt = hash(
+  Buffer.from(`untangled.policy-interpreter.grammar7.limits.${wasmSha}.${JSON.stringify(LIMITS)}`)
+)
 const create = (l: Record<string, number>) =>
   Operation.createCustomContract({
     address: Address.fromString(kp.publicKey()),
@@ -90,11 +98,13 @@ if (dry) {
 const uploaded = await send(Operation.uploadContractWasm({ wasm }), 'upload')
 console.log(`uploaded ${uploaded.txHash}`)
 
-// The constructor refuses a limit of 0 and one above its ceiling, before anything is deployed.
+// The constructor refuses a limit below its floor and one above its ceiling, before anything is deployed.
 for (const bad of [
   { ...LIMITS, max_reads: 0 },
   { ...LIMITS, max_reads: 9 },
-  { ...LIMITS, max_predicate_bytes: 48 * 1024 + 1 },
+  { ...LIMITS, max_elems: 1 },
+  { ...LIMITS, max_leaves: 3 },
+  { ...LIMITS, max_predicate_bytes: 40 * 1024 + 1 },
 ]) {
   const tx = new TransactionBuilder(await server.getAccount(kp.publicKey()), {
     fee: FEE,
@@ -156,6 +166,8 @@ const old = {
   interpreter: rec.interpreter,
   wasmSha256: rec.wasmHashes.interpreter,
   status: 'superseded',
+  why:
+    'its wasm (42d53616...) lets max_elems be 1 (placement rules lose their meaning) and a 48 KiB byte ceiling that fails the 20% install-size margin; policy-synth refuses it by hash',
   uploadTx: rec.uploadTx.interpreter,
   createTx: rec.createTx,
   commit: rec.interpreterSource.commit,

@@ -16,27 +16,93 @@ max_predicate_bytes, max_elems, max_in_operands, max_depth }`, stores it once in
 instance storage, and the `limits()` view returns it. There is no setter and the
 contract has no upgrade path, so an instance's limits never change; a different
 limit is a new instance at a new address (the grammar is still 7). Every field
-must be at least 1 and at most its ceiling, or the constructor fails with
-`LimitsOutOfRange` (220), so no such instance exists.
+must lie between its floor and its ceiling, or the constructor fails with
+`LimitsOutOfRange` (220) and no such instance exists. The rest of this file
+names the fields (`max_reads`, `max_elems`, ...), never a number: `install`,
+`check` and `enforce` use the instance's own.
 
-| Field | Default (grammar 7 as first shipped) | Ceiling | What it bounds |
-| --- | --- | --- | --- |
-| `max_reads` | 4 | 8 | distinct `read` calls per predicate (and so external calls per `enforce`) |
-| `max_leaves` | 200 | 400 | weighted leaves (a quantifier body leaf and a `sum` weigh `max_elems`) |
-| `max_predicate_bytes` | 32,768 | 49,152 | the predicate's XDR size, checked before any parse |
-| `max_elems` | 32 | 64 | elements a quantifier or `sum` visits; a longer vector denies |
-| `max_in_operands` | 32 | 64 | entries in an `in` / `nin` list |
-| `max_depth` | 5 | 8 | node depth and leaf nesting |
+| Field | Floor | Ceiling | Grammar 7 as first shipped (policy-synth `DECODE_LIMITS`) | What it bounds |
+| --- | --- | --- | --- | --- |
+| `max_reads` | 1 | 8 | 4 | distinct `read` calls per predicate, and so external calls per `enforce` |
+| `max_leaves` | 4 | 400 | 200 | weighted leaves (a quantifier body leaf and a `sum` weigh `max_elems`) |
+| `max_predicate_bytes` | 256 | 40,960 | 32,768 | the predicate's XDR size, checked before any parse |
+| `max_elems` | 2 | 64 | 32 | elements a quantifier or `sum` visits; a longer vector denies |
+| `max_in_operands` | 1 | 64 | 32 | entries in an `in` / `nin` list |
+| `max_depth` | 2 | 8 | 5 | node depth and leaf nesting |
 
-`MAX_PATH_STEPS` (8) and `MAX_DEN` (10^18) stay fixed. Elsewhere in this file a
-number written as a cap ("four reads", "200 leaves", "32 elements", "32 KB",
-"5 levels") is the default; `install`, `check` and `enforce` use the instance's
-own. The ceilings are sized by `tests/worst_case.rs`, which runs the largest rule at
-every ceiling at once on the real wasm and requires a 20% margin under the network
-limits for CPU, memory, ledger entries, write bytes and the entry size, plus the size of
-a real install transaction (the predicate travels twice in it, so the byte ceiling is
-49,152, not 65,536). The network values it uses are in
-`evidence/soroban-network-limits-2026-10-16.txt`.
+`MAX_PATH_STEPS` (8) and `MAX_DEN` (10^18) stay fixed.
+
+**The floors** keep an instance from being deployed that can hold no rule: the
+smallest rule of any use, a function pin and one argument constraint under an `and`,
+is 4 leaves, 2 levels deep and under 256 bytes. `max_elems` starts at 2 for a
+structural reason: placement (`elem` only in a quantifier body, no quantifier or `sum`
+inside a body) is decided by leaf weights, and with one element a body leaf weighs
+what a top-level leaf does.
+
+**The ceilings** are what a transaction can carry, proven by `tests/worst_case.rs` on
+the real wasm: the largest rule at every ceiling at once, for `install`, `enforce`
+and `check`, must stay at or under 80% of every network limit (a 20% margin, so a fee
+or limit change does not turn a deployed rule into one that can never run). The
+network values are in `evidence/soroban-network-limits-2026-10-16.txt`: identical on
+testnet and mainnet for every per-transaction limit used (the costs differ: fee rates
+are about twice as high on testnet; mainnet's per-ledger transaction-size budget is
+266,240 bytes, testnet's 864,000). Measured at the ceilings
+(`evidence/worst-case-ceilings-2026-10-16.txt`, 24 rule shapes, plus the real callees):
+
+| What | Measured | Of the limit |
+| --- | --- | --- |
+| `install`, worst CPU | 64.7M | 16% of 400M |
+| `enforce`, worst CPU / memory | 62.3M / 1.58 MB | 16% / 4% of 41,943,040 |
+| `install` through OZ's real account, 15 operators and 16 admins | 69.0M CPU, 3.19 MB, 36 write entries, 48,856 write bytes | 17% / 8% / 18% / 37% |
+| the stored rule (one contract-data entry) | 41,272 B at the byte ceiling | 63% of 65,536 |
+| the install transaction, as `policy-synth` builds it (its real footprint of 6 read-only and 35 read-write keys, the account's authorisation entry and `__check_auth` entry, one signature) | 91,548 B | 69% of 132,096 |
+| the same with 3 passkey signers on the admin rule and a fee bump | 93,468 B | 71% |
+
+**Why the byte ceiling is 40 KiB.** CPU and memory never bind; two sizes do.
+The stored rule is one contract-data entry capped at 65,536 B (a 65,536-byte
+predicate cannot even be stored). And an install transaction carries the predicate
+TWICE, once as `add_context_rule`'s host-function argument and once inside the account's
+own authorisation entry. Built as `policy-synth` builds it, an install with 15 operators
+and 16 admins is 91,548 B at 40 KiB (69% of the 132,096-byte limit); at 48 KiB it was
+108,112 B (82%, over the margin), and 64 KiB would be 105%. Each extra signer or admin
+adds about 250 B, a passkey 400-600 B, a fee bump 128 B: 40 KiB leaves room for three
+passkeys, a fee bump and an extra policy beside the interpreter, and still under 80%.
+
+**Reads and the per-transaction context budget.** CPU is not what limits reads.
+Each distinct `read` of a wasm contract instantiates the target in its own VM, about
+1.4 MB of the transaction's memory whatever the target's size (a Stellar asset
+contract is built in and costs none), and the memo is per `enforce`, so the same read
+in a second context runs again. Measured through OZ's real account with `max_reads`
+(8) reads of real wasm contracts in the rule and one `__check_auth` authorising several
+contexts: **12.7 MB for one context and 11.4 MB for each further one**. So at the
+ceiling a transaction holds **at most 2 such contexts inside the 80% margin (57%), 3 at
+all (84%, no margin) and 4 breaks the limit (111%)**; the transaction aborts with
+`Budget ExceededLimit`, so it fails closed. A rule with fewer reads costs
+proportionally less: budget about 1.4 MB per distinct wasm read per context, plus
+about 1.3 MB for the call itself, against 33.5 MB (80% of the memory limit). CPU per
+context is small (8 wasm reads: 7.7M; the callee's own CPU is on top: the 8 reads
+together may spend about 258M beyond the interpreter's worst case: real callees measured
+on testnet are 0.14M for a SAC `balance`, 0.76M for a Reflector `lastprice` and
+0.80M for a Blend `get_positions`).
+
+**Read targets must be kept alive.** A transaction that reads an archived contract (its
+instance, its code, or an entry the view touches) restores it, and the restore counts
+toward the transaction's read and write limits: on testnet, three views of two archived
+OctoLend contracts needed 151 KB of write against the 132 KB limit, so the enforce could
+not be submitted at all. Put every read target (and what its view reads) under the same
+keep-alive as the rule. `worst_case.rs` assumes live targets and says so.
+
+**Rent.** A stored rule pays rent for its bytes, and the permit that finds a rule's
+entry under 100 ledgers from expiry bumps it to 518,400 ledgers inside the AGENT's own
+`enforce` transaction. Measured on testnet at the rates then (mainnet's differ: read its
+rent rate before choosing a mainnet byte limit): installing costs about 0.07 XLM per KB
+of rule, a full bump about 0.35 XLM per KB (17.6 XLM for a 49 KB rule). A keep-alive
+that extends the rule entries ahead of that bump is the normal payer; without it an
+agent's transaction suddenly needs the extra fee, and fails closed if it does not have it. So
+deploy an instance with `max_predicate_bytes` sized to the real rules, not to the ceiling.
+
+The live testnet instance is in `deployments/grammar7-testnet.json` with the limits it was
+deployed with.
 
 ## Entry points
 
@@ -79,7 +145,7 @@ authorized call" no longer holds.
 | `scaled(src, num, den, add)` | `src * num / den + add`. `src`, `num` and `add` are any value leaf, `scaled` included; `den` is an `i128` constant (a `u32` is refused) and must be positive, and a literal `src` or `num` must be too. Multiplies first, divides second (truncating toward zero), adds third, every step checked |
 | `lit(x)` | A constant of ANY type: a string, bytes, bool, `u64`, `i64`, `i32`, `u128`, `Timepoint`, `Duration`, a map, a vec that starts with a symbol (an enum value: Reflector's `Asset::Stellar(addr)` is `lit([Stellar, addr])`), and so on. Taken as data, never as a selector, and not inspected. A bare address, symbol, number or vec of plain values is the same constant without the tag |
 | `elem(step, ...)` | The current element of the enclosing `all`/`any`, walked by the steps; no steps is the element itself. Only a quantifier body may hold one |
-| `sum(vec, step, ...)` | The sum of what the steps reach in each element of the vec `vec` resolves to: a number (`i128`), checked. It walks up to `MAX_ELEMS` elements, so it weighs that many leaves toward the leaf cap |
+| `sum(vec, step, ...)` | The sum of what the steps reach in each element of the vec `vec` resolves to: a number (`i128`), checked. It walks up to `max_elems` elements, so it weighs that many leaves toward `max_leaves` |
 
 Nodes: `and`, `or`, `eq`, `ne`, `lt`, `lte`, `gt`, `gte`, `in`, `nin`, `all`,
 `any`. Constants: `lit(x)`, or a bare address, symbol, number or vec (a map
@@ -162,7 +228,7 @@ compared.
   no entry (each compared as `ne` compares). The needle is resolved ONCE, so a
   needle that is a `read` spends one call slot however many entries there are
   (a registry-backed denylist installs), and each entry is one leaf: a 32-entry
-  denylist is 33 of the 200 leaves, as for `in`. An unresolvable needle denies.
+  denylist is 33 leaves of `max_leaves`, as for `in`. An unresolvable needle denies.
   Every `nin` miss is `ARG_MISMATCH` (100), whichever leaf the needle is
   (`in` reports `NOT_IN_ALLOWLIST`, 105). A denylist keeps only what you list:
   prefer an allowlist (`in`) wherever the permitted set is known.
@@ -211,7 +277,7 @@ one, without a rule per length.
   nothing DENIES. Pair an `all` with `call_arg_len` or an `any` where the batch
   must be non-empty.
 - **Fail-safe per element.** `vec` must resolve to a vec, or the quantifier
-  denies. A vec of more than `MAX_ELEMS` (32) elements denies, `all`, `any` and
+  denies. A vec of more than `max_elems` elements denies, `all`, `any` and
   `sum` alike, so a batch cannot be padded past what was priced. In `all`, an
   element where `P` cannot resolve (a missing field, a failed read) makes `P`
   false, and the rule denies. In `any`, an element where `P` cannot resolve
@@ -224,29 +290,30 @@ one, without a rule per length.
   over a `sum` that overflows. The sum of nothing is 0. It
   is a number anywhere a value is: a comparison operand, a `scaled` operand (a
   `read` argument takes only a plain leaf, below).
-- **Install-time limits (all 201).** Evaluating a body costs up to `MAX_ELEMS`
-  times what one evaluation costs, so decode counts EVERY leaf of a body 32 times
-  toward `MAX_LEAVES` (200), and a `sum` (which walks that many elements) as 32
-  leaves itself, so the leaf budget bounds the work. A body may have at most six
-  leaves, an `in` entry counts as a leaf, and so does the needle (a body `in` or
-  `nin` needs an allowlist of 5 or fewer: needle and 5 entries are 6 leaves; long
-  per-element lists do not fit a body, and a body `read` cannot take the element,
-  below). A rule holds at most six `sum`s (a `sum` with its vec is 33 leaves). A quantifier or a `sum` inside a quantifier body is refused (no
+- **Install-time limits (all 201).** Evaluating a body costs up to `max_elems`
+  times what one evaluation costs, so decode counts EVERY leaf of a body `max_elems`
+  times toward `max_leaves`, and a `sum` (which walks that many elements) as
+  `max_elems` leaves itself, so the leaf budget bounds the work. A body may have at
+  most `max_leaves / max_elems` leaves (six at the grammar-7 values 200 and 32), an `in`
+  entry counts as a leaf, and so does the needle (a body `in` or `nin` needs a short
+  allowlist: at six leaves, needle and 5 entries; long per-element lists do not fit a
+  body, and a body `read` cannot take the element, below). A rule holds at most
+  `max_leaves / (max_elems + 1)` `sum`s (a `sum` with its vec is `max_elems + 1` leaves). A quantifier or a `sum` inside a quantifier body is refused (no
   nesting: the cost would multiply). `elem` outside a body is refused, and so is
   `elem` as the vec of its own quantifier or as a `read` argument.
 - **A rule still has to constrain the call.** A quantifier over a `call_path`
   does (the path is a selector); a leaf of its body that reads the call does too.
   A quantifier over a constant or a read alone does not.
-- **External calls stay at four.** A `read` in a body must not take `elem` as an
+- **External calls stay at `max_reads`.** A `read` in a body must not take `elem` as an
   argument, so its resolved arguments are the same for every element and the
-  memo makes it once, however many elements. The cap of four distinct calls per
+  memo makes it once, however many elements. The cap of `max_reads` distinct calls per
   rule therefore bounds the external calls per `enforce`, quantifiers
   included (see "Caps" below for the count).
 
 - **Cost.** Measured in the Soroban host with the real wasm (CPU instructions of
   one `enforce`; the limits are 400M instructions and 41,943,040 bytes of
   memory per transaction). The four-check PayFi rule: 4.49M, 6.18 MB (4 reads).
-  A 32-element payout (the rule below, 195 leaves): 4.6M. A six-leaf body over
+  A 32-element payout (the rule below, 195 leaves, at the grammar-7 values): 4.6M. A six-leaf body over
   32 elements whose fields sit eight steps deep: 8.3M. A body that also makes
   one `read` (made once, not 32 times): 5.1M and one external call. Install
   stores the rule bytes (about 0.17 XLM of rent per KB), so a quantifier costs
@@ -271,9 +338,9 @@ one, without a rule per length.
   compare cost 0.8 MB per KB of the argument, 78 MB for 100 KB). What still
   scales with a caller's own argument is what the host spends holding and
   decoding it before `enforce` runs, and a value that serialises (an address, a
-  wide number) is small. Add about 1.2 MB per distinct read (at most four): the
-  worst case with four reads is about 6.5 MB (several contexts: see "Memory is
-  the limit that binds"). Both fail closed.
+  wide number) is small. Add about 1.4 MB per distinct wasm read (up to `max_reads`;
+  the Limits section has the totals and the per-transaction context budget; see also
+  "Memory is the limit that binds"). Both fail closed.
   `worst_case.rs` also asserts that every shape INSTALLS: a refused install
   would measure 0 and pass any limit.
 
@@ -283,6 +350,7 @@ Notation below: a bare name is a symbol (a map key), `elem(to)` is
 ```text
 # every payout goes to an approved recipient, none is negative (so one cannot
 # lower the total of another), and the total is at most 1000: 195 of 200 leaves
+# (the grammar-7 values: max_leaves 200, max_elems 32)
 # (the body 5 x 32, the vec 1, the sum 32 + its vec 1 + the constant 1).
 # Without the guard a -600 payment would let +1500 through (the sum is 900).
 and(
@@ -433,35 +501,35 @@ Read this before writing a rule with a `read`.
   failed call is remembered like any other. As the needle of an `in`, every failure
   (a failed read, a missing argument, an overflow) denies `NOT_IN_ALLOWLIST`
   (105) instead: a needle that cannot be resolved cannot be on the allowlist.
-- **Caps, enforced at decode.** At most four DISTINCT `read` calls per
-  predicate. With constant arguments a call is `(contract, fn, args)`: reads that
+- **Caps, enforced at decode.** At most `max_reads` DISTINCT `read` calls per
+  predicate (the grammar-7 value is four). With constant arguments a call is `(contract, fn, args)`: reads that
   differ only in `path` are one call, and `enforce` makes it once and reuses the
   result for every leaf (a failed call is remembered too, so each leaf that
   uses it denies). So one price feed read for a floor, an LTV and a freshness
   bound is one call, and the full PayFi set (feed, debt, collateral, custody
-  balance) is exactly four. A read with ANY call-derived argument (a call path,
+  balance) is four. A read with ANY call-derived argument (a call path,
   `call_contract`, `call_fn`, `now`) counts as its own call at decode, even if
   two such leaves would resolve to the same arguments: decode cannot know
   that. At `enforce` the memo is keyed by the RESOLVED
   `(contract, fn, args)`, so two such leaves that do resolve alike make one
-  call. **At most four external calls per `enforce`**: a leaf's arguments
+  call. **At most `max_reads` external calls per `enforce`**: a leaf's arguments
   depend only on the call and the clock, which do not change during an
   `enforce`, so each counted call has one resolved key and is made at most
   once; and a read in a quantifier body cannot take the element as an argument
-  (it is refused), so the 32 iterations of a body resolve it identically and
-  share that one call. Reads count inside `scaled` and inside quantifiers too; the fifth distinct call is refused at install as
+  (it is refused), so the iterations of a body resolve it identically and
+  share that one call. Reads count inside `scaled` and inside quantifiers too; the call over `max_reads` is refused at install as
   `MALFORMED_PREDICATE`, every decoder cap surfaces as 201, except the byte cap at install, which is 207),
   `read` paths and `call_path`s of at most eight steps, and leaf nesting
   (`scaled` operands, bare vec elements, `read` arguments, `sum` sources) of at
-  most `MAX_DEPTH` (5) levels. The 200-leaf cap counts `scaled` operands,
+  most `max_depth` levels. The `max_leaves` cap counts `scaled` operands,
   `read` arguments, `sum` sources and `in`/`nin` needles and entries, each leaf of a
-  quantifier body 32 times (`MAX_ELEMS`) and each `sum` as 32. A constant
+  quantifier body `max_elems` times and each `sum` as `max_elems`. A constant
   (`lit`, or a bare vec) is ONE leaf whatever its size: its size is bounded by the
-  32 KB byte cap, and the work it costs is made proportional to its bytes, not to
+  `max_predicate_bytes` cap, and the work it costs is made proportional to its bytes, not to
   how often it is compared (a vec or a map is compared by the host without
   copying it, so a 31 KB constant in a quantifier body is not re-serialised per
   element). `tests/worst_case.rs` runs the largest rules every audit found on
-  the real wasm against the 400M-instruction and 41,943,040-byte limits.
+  the real wasm against the 400M-instruction and 41,943,040-byte limits, at the ceilings.
   Each distinct `read` runs at most once per `enforce`.
 - **A rule still has to constrain the call.** `install` refuses a predicate with
   no leaf over the authorized call (`call_contract`, `call_fn`, `call_arg*`,
@@ -478,18 +546,22 @@ Read this before writing a rule with a `read`.
 - **Cost.** Each read is a contract call inside the account's authorization
   check and spends the transaction's budget; a slow or heavy target makes every
   call it guards slow or heavy.
-- **Memory is the limit that binds.** Each distinct read instantiates the target
-  in its own VM, about 1.2 MB of the transaction's 40 MiB memory whatever the
-  target's size, and the memo is per `enforce`, so the same read in two contexts
-  runs twice. Measured through the OpenZeppelin account: the four-read PayFi
-  rule costs about 6.2 MB, a `__check_auth` that authorises N such contexts
-  costs about 7.5 MB for one and 6.2 MB more for each further one, and the
-  seventh breaks the limit (44.7 MB). Plan for at most about five read-rule
-  contexts in one transaction, fewer when the authorised calls themselves run in
-  the same budget (an adapter `execute` batch whose inner calls each hit a read
-  rule). The transaction aborts with `Budget ExceededLimit`, so it fails closed;
-  a batch that passes with two calls can fail with six. CPU is not the limit: the
-  PayFi rule is about 5.5M of the 400M instruction budget (1.4%).
+- **Memory is the limit that binds.** Each distinct read of a wasm contract
+  instantiates the target in its own VM, about 1.4 MB of the transaction's 40 MiB
+  memory whatever the target's size, and the memo is per `enforce`, so the same read in
+  two contexts runs twice. The Limits section has the measured per-transaction budget
+  for `max_reads` reads: at the ceiling (8) a `__check_auth` holds **2 contexts inside the
+  80% margin, 3 at all, and breaks at 4**. The four-read PayFi rule is smaller: about
+  6.2 MB per context in an earlier measurement through the OpenZeppelin account (7.5 MB
+  for one context, 6.2 MB for each further one). Plan the contexts of one transaction
+  from the rule's reads: roughly `33 MB / (1.4 MB x reads + 1.3 MB)` contexts, fewer when the
+  authorised calls themselves run in the same budget (an adapter `execute` batch whose
+  inner calls each hit a read rule). The transaction aborts with
+  `Budget ExceededLimit`, so it fails closed; a batch that passes with two calls can fail
+  with six. CPU is not the limit: the PayFi rule is about 5.5M of the 400M instruction
+  budget (1.4%).
+- **Read targets must stay live.** See the Limits section: an archived target is restored
+  inside the transaction and can push it past the write limit.
 - **An agent can trap its own call.** An argument is the agent's to size, and a
   transaction up to the network's size limit (about 132 KB) can carry one that
   uses most of the memory budget in the host before `enforce` (or anything else)
