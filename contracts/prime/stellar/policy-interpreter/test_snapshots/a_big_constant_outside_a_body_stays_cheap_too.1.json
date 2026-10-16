@@ -422,7 +422,65 @@
                   "executable": {
                     "wasm": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
                   },
-                  "storage": null
+                  "storage": [
+                    {
+                      "key": {
+                        "symbol": "limits"
+                      },
+                      "val": {
+                        "map": [
+                          {
+                            "key": {
+                              "symbol": "max_depth"
+                            },
+                            "val": {
+                              "u32": 5
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_elems"
+                            },
+                            "val": {
+                              "u32": 32
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_in_operands"
+                            },
+                            "val": {
+                              "u32": 32
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_leaves"
+                            },
+                            "val": {
+                              "u32": 200
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_predicate_bytes"
+                            },
+                            "val": {
+                              "u32": 32768
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_reads"
+                            },
+                            "val": {
+                              "u32": 4
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
                 }
               }
             }
