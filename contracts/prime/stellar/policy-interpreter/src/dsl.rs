@@ -505,17 +505,19 @@ pub fn has_selector_leaf(root: &Node) -> bool {
 /// Every leaf of the tree, nested `scaled` operands and `read` arguments
 /// included, each with its weight: how many times evaluation may reach it, which
 /// is `elems` for every leaf of a quantifier body, `elems` for a `sum` (it walks
-/// that many elements), and 1 elsewhere. Saturating: nested quantifiers multiply,
-/// and a wrapped weight would pass the cap (or trap) instead of being refused.
+/// that many elements), and 1 elsewhere. A quantifier's weights saturate: nested
+/// quantifiers multiply, and a wrapped weight would pass the cap (or trap) instead
+/// of being refused. (Once `decode` has refused a leaf over `elems`, the rest add up
+/// to far less than `u32::MAX`.)
 fn leaves(node: &Node, elems: u32) -> Vec<(&Leaf, u32)> {
-    fn nested<'a>(leaf: &'a Leaf, w: u32, k: u32, out: &mut Vec<(&'a Leaf, u32)>) {
-        // A `sum` walks up to `k` elements, so it weighs that much itself.
+    fn nested<'a>(leaf: &'a Leaf, elems: u32, out: &mut Vec<(&'a Leaf, u32)>) {
+        // A `sum` walks up to `elems` elements, so it weighs that much itself.
         let sum = matches!(leaf, Leaf::Sum(..));
-        out.push((leaf, if sum { w.saturating_mul(k) } else { w }));
+        out.push((leaf, if sum { elems } else { 1 }));
         match leaf {
-            Leaf::Scaled(inner, _) => inner.iter().for_each(|l| nested(l, w, k, out)),
-            Leaf::Read(_, _, args, _) => args.iter().for_each(|l| nested(l, w, k, out)),
-            Leaf::Sum(src, _) => nested(src, w, k, out),
+            Leaf::Scaled(inner, _) => inner.iter().for_each(|l| nested(l, elems, out)),
+            Leaf::Read(_, _, args, _) => args.iter().for_each(|l| nested(l, elems, out)),
+            Leaf::Sum(src, _) => nested(src, elems, out),
             _ => {}
         }
     }
@@ -532,7 +534,7 @@ fn leaves(node: &Node, elems: u32) -> Vec<(&Leaf, u32)> {
             vec![over]
         }
     };
-    top.into_iter().for_each(|l| nested(l, 1, elems, &mut out));
+    top.into_iter().for_each(|l| nested(l, elems, &mut out));
     out
 }
 
@@ -608,7 +610,7 @@ pub fn decode(env: &Env, bytes: &Bytes, lim: &Limits) -> Result<Node, DecodeErro
         _ => *w <= lim.max_elems,
     };
     ensure(all.iter().all(placed))?;
-    let weight: u32 = all.iter().fold(0, |t, (_, w)| t.saturating_add(*w));
+    let weight: u32 = all.iter().map(|(_, w)| w).sum();
     let few = weight <= lim.max_leaves && calls.len() <= lim.max_reads as usize;
     cap(few, DecodeError::TooManyLeaves)?;
     Ok(root_node)

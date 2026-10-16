@@ -1,10 +1,14 @@
 {
   "generators": {
-    "address": 8,
+    "address": 12,
     "nonce": 0,
     "mux_id": 0
   },
   "auth": [
+    [],
+    [],
+    [],
+    [],
     [],
     [],
     [],
@@ -318,6 +322,168 @@
                             },
                             "val": {
                               "u32": 8
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_predicate_bytes"
+                            },
+                            "val": {
+                              "u32": 700
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_reads"
+                            },
+                            "val": {
+                              "u32": 2
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 4095
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATYON",
+              "key": "ledger_key_contract_instance",
+              "durability": "persistent",
+              "val": {
+                "contract_instance": {
+                  "executable": {
+                    "wasm": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  "storage": [
+                    {
+                      "key": {
+                        "symbol": "limits"
+                      },
+                      "val": {
+                        "map": [
+                          {
+                            "key": {
+                              "symbol": "max_depth"
+                            },
+                            "val": {
+                              "u32": 3
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_elems"
+                            },
+                            "val": {
+                              "u32": 40
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_in_operands"
+                            },
+                            "val": {
+                              "u32": 4
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_leaves"
+                            },
+                            "val": {
+                              "u32": 44
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_predicate_bytes"
+                            },
+                            "val": {
+                              "u32": 700
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_reads"
+                            },
+                            "val": {
+                              "u32": 2
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 4095
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAXI7N",
+              "key": "ledger_key_contract_instance",
+              "durability": "persistent",
+              "val": {
+                "contract_instance": {
+                  "executable": {
+                    "wasm": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  "storage": [
+                    {
+                      "key": {
+                        "symbol": "limits"
+                      },
+                      "val": {
+                        "map": [
+                          {
+                            "key": {
+                              "symbol": "max_depth"
+                            },
+                            "val": {
+                              "u32": 3
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_elems"
+                            },
+                            "val": {
+                              "u32": 40
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_in_operands"
+                            },
+                            "val": {
+                              "u32": 4
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_leaves"
+                            },
+                            "val": {
+                              "u32": 43
                             }
                           },
                           {

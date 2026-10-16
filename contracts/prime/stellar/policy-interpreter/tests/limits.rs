@@ -296,7 +296,14 @@ fn a_quantifier_body_leaf_weighs_the_stored_element_count() {
             )
         ])],
     );
-    for (elems, leaves, fits) in [(3, 9, true), (3, 8, false), (2, 7, true), (2, 6, false)] {
+    for (elems, leaves, fits) in [
+        (3, 9, true),
+        (3, 8, false),
+        (2, 7, true),
+        (2, 6, false),
+        (40, 83, true),
+        (40, 82, false),
+    ] {
         let l = Limits {
             max_elems: elems,
             max_leaves: leaves,
@@ -321,7 +328,14 @@ fn a_sum_weighs_the_stored_element_count() {
             )
         ])],
     );
-    for (elems, leaves, fits) in [(3, 7, true), (3, 6, false), (5, 9, true), (5, 8, false)] {
+    for (elems, leaves, fits) in [
+        (3, 7, true),
+        (3, 6, false),
+        (5, 9, true),
+        (5, 8, false),
+        (40, 44, true),
+        (40, 43, false),
+    ] {
         let l = Limits {
             max_elems: elems,
             max_leaves: leaves,
@@ -423,4 +437,34 @@ fn nested_quantifier_weights_cannot_overflow() {
     // Seven `all`s around one compare: depth 8, the most the ceiling allows.
     let p = (0..7).fold(leaf, |body, _| node("all", alloc::vec![arg(0), body]));
     assert!(refused(says(&env, &c, &p, &[])));
+}
+
+#[test]
+fn a_read_argument_counts_toward_the_leaf_cap() {
+    let env = Env::default();
+    // gte(read(C, price, [call_arg(0)]), 0): the read, its argument and the constant,
+    // beside the pin's two.
+    let target = addr(&env, &Address::generate(&env));
+    let read = node(
+        "read",
+        alloc::vec![target, sym("price"), vec(alloc::vec![arg(0)])],
+    );
+    let p = node(
+        "and",
+        alloc::vec![vec(alloc::vec![
+            pin(),
+            node("gte", alloc::vec![read, i128v(0)])
+        ])],
+    );
+    for (leaves, fits) in [(5, true), (4, false)] {
+        let l = Limits {
+            max_leaves: leaves,
+            ..SMALL
+        };
+        assert_eq!(
+            !refused(says(&env, &deploy(&env, l), &p, &[])),
+            fits,
+            "{leaves} leaves"
+        );
+    }
 }
