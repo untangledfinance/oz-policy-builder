@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
 import { StrKey } from '@stellar/stellar-sdk'
+import { contract } from '../test/fixtures.ts'
 import {
   GRAMMAR_VERSION,
   INTERPRETER,
@@ -141,5 +142,83 @@ describe('read targets that cannot be moved within one transaction', () => {
     expect(safeRead('testnet', address, 'constructor', [])).toBe(false)
     expect(safeRead('mainnet', address, 'lastprice', [])).toBe(false)
     expect(safeRead('testnet', 'C'.padEnd(56, 'A'), 'lastprice', [])).toBe(false)
+  })
+})
+
+describe('the operator extends the safe list: POLICY_BUILDER_SAFE_READS_<NET>', () => {
+  const [A, B] = [contract(1), contract(2)]
+  const withEnv = (
+    v: string | undefined,
+    f: () => void,
+    key = 'POLICY_BUILDER_SAFE_READS_TESTNET'
+  ) => {
+    const before = process.env[key]
+    if (v === undefined) delete process.env[key]
+    else process.env[key] = v
+    try {
+      f()
+    } finally {
+      if (before === undefined) delete process.env[key]
+      else process.env[key] = before
+    }
+  }
+  it('a listed contract and function is safe with constant arguments, on that network only', () => {
+    withEnv(`${A}:position,${B}:balance`, () => {
+      expect(safeRead('testnet', A, 'position', [{ i128: '1' }])).toBe(true)
+      expect(safeRead('testnet', B, 'balance', [])).toBe(true)
+      expect(safeRead('mainnet', A, 'position', [])).toBe(false)
+    })
+    expect(safeRead('testnet', A, 'position', [])).toBe(false)
+  })
+  it('the same contract with another function, or a call-derived argument, is a live value', () => {
+    withEnv(`${A}:position`, () => {
+      expect(safeRead('testnet', A, 'balance', [])).toBe(false)
+      expect(safeRead('testnet', A, 'position', [['call_arg', 1]])).toBe(false)
+      expect(safeRead('testnet', A, 'position', [['now']])).toBe(false)
+    })
+  })
+  it('the mainnet variable lists mainnet reads, not testnet ones', () => {
+    withEnv(
+      `${A}:position`,
+      () => {
+        expect(safeRead('mainnet', A, 'position', [])).toBe(true)
+        expect(safeRead('testnet', A, 'position', [])).toBe(false)
+      },
+      'POLICY_BUILDER_SAFE_READS_MAINNET'
+    )
+  })
+  it('a malformed value refuses the whole of it, naming the variable, never part', () => {
+    for (const bad of [
+      `${A}`,
+      `${A}:`,
+      `${A}:position,`,
+      `${A}:position,${B}`,
+      `${A}:po sition`,
+      `${A}:1position`,
+      `${A}:${'a'.repeat(33)}`,
+      `${A}:position:x`,
+      ` ${A}:position`,
+      `G${A.slice(1)}:position`,
+      `${A.slice(0, -1)}A:position`,
+      'junk',
+    ])
+      withEnv(bad, () => {
+        expect(() => safeRead('testnet', A, 'position', [])).toThrow(
+          /POLICY_BUILDER_SAFE_READS_TESTNET/
+        )
+        // a built-in read is refused with it too: the value is wrong, not one entry
+        expect(() =>
+          safeRead('testnet', Object.keys(SAFE_READS.testnet)[0] as string, 'lastprice', [])
+        ).toThrow()
+      })
+  })
+  it('a one-letter and a 32-letter function name are valid entries', () => {
+    withEnv(`${A}:a,${A}:${'b'.repeat(32)}`, () => {
+      expect(safeRead('testnet', A, 'a', [])).toBe(true)
+      expect(safeRead('testnet', A, 'b'.repeat(32), [])).toBe(true)
+    })
+  })
+  it('an empty value is no list', () => {
+    withEnv('', () => expect(safeRead('testnet', A, 'position', [])).toBe(false))
   })
 })

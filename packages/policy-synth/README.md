@@ -100,6 +100,12 @@ await run('verify_policy', { network: 'testnet', encodedPredicate: rule.encodedP
   loopback http for a recorded server). Nor does a tool take a path: `outFile` is a
   bare file name, written (never over an existing file) into the operator's
   `POLICY_BUILDER_OUT_DIR`.
+- A `read` is a live value an agent can move within one transaction, so an install of
+  one is refused (`READ_UNSAFE`) unless it is on the safe list: the testnet Reflector
+  oracles, plus the operator's own `POLICY_BUILDER_SAFE_READS_TESTNET` /
+  `POLICY_BUILDER_SAFE_READS_MAINNET` (`C…:function,C…:function`, environment only; one
+  malformed entry refuses the whole value). Any listed read needs constant arguments
+  and is not marked "movable" in the review; `POLICY_BUILDER_ALLOW_SPOT_READS=1` allows all.
 - Every input is validated at the boundary, an unknown key included; an install
   that cannot bind its signers is refused by default, and so is an unanswered amount
   cap (recordings, intents and templates alike), a rule scoped to a policy contract

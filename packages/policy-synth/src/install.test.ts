@@ -624,6 +624,33 @@ describe('planInstall: the guards', () => {
       }
     })
 
+    it('an operator-listed read installs without the switch: that function, on that network, constants only', async () => {
+      const env = spot()
+      process.env.POLICY_BUILDER_SAFE_READS_TESTNET = `${contract(9)}:balance`
+      try {
+        env.set(undefined)
+        await planInstall(input, readRule(contract(9), 'balance'), chain())
+        await refused(planInstall(input, readRule(contract(9), 'position'), chain()), 'READ_UNSAFE')
+        await refused(
+          planInstall(
+            { ...input, network: 'mainnet', interpreterAddress: INTERP },
+            readRule(contract(9), 'balance'),
+            chain()
+          ),
+          'READ_UNSAFE'
+        )
+        process.env.POLICY_BUILDER_SAFE_READS_TESTNET = 'junk'
+        await refused(
+          planInstall(input, readRule(contract(9), 'balance'), chain()),
+          'INVALID_INPUT',
+          /POLICY_BUILDER_SAFE_READS_TESTNET/
+        )
+      } finally {
+        delete process.env.POLICY_BUILDER_SAFE_READS_TESTNET
+        env.undo()
+      }
+    })
+
     it('a constant that merely looks like a read is no read: nothing to refuse', async () => {
       const env = spot()
       try {

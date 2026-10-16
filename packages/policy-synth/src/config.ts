@@ -1,5 +1,7 @@
 // Networks, RPC endpoints and the pins every install is checked against.
 
+import { StrKey } from '@stellar/stellar-sdk'
+import { Refusal } from './envelope.ts'
 import { isConstant, type Val } from './wire.ts'
 
 export type Network = 'mainnet' | 'testnet'
@@ -104,11 +106,23 @@ export const SAFE_READS: Record<Network, Record<string, string[]>> = {
   ),
   mainnet: {},
 }
-/** Safe only for a listed contract and function, and only with arguments fixed in the rule: an asset or
- *  a timestamp taken from the call is a choice the caller makes. */
+/** The operator's own entries, from POLICY_BUILDER_SAFE_READS_<NET>: `C…:fn,C…:fn`. Read from the
+ *  environment only, never from an input. One bad entry refuses the whole value. */
+const operatorReads = (net: Network): string[] => {
+  const key = `POLICY_BUILDER_SAFE_READS_${net.toUpperCase()}`
+  return (process.env[key] ? (process.env[key] as string).split(',') : []).map((e) => {
+    const [c = '', fn = '', ...x] = e.split(':')
+    if (x.length || !StrKey.isValidContract(c) || !/^[A-Za-z_]\w{0,31}$/.test(fn))
+      throw new Refusal('INVALID_INPUT', `${key}: bad entry "${e}", want C…:function,C…:function`)
+    return e
+  })
+}
+/** Safe only for a listed contract and function (built in, or the operator's), and only with arguments
+ *  fixed in the rule: an asset or a timestamp taken from the call is a choice the caller makes. */
 export const safeRead = (net: Network, contract: string, fn: string, args: Val[]): boolean =>
-  Object.hasOwn(SAFE_READS[net], contract) &&
-  (SAFE_READS[net][contract] as string[]).includes(fn) &&
+  (operatorReads(net).includes(`${contract}:${fn}`) ||
+    (Object.hasOwn(SAFE_READS[net], contract) &&
+      (SAFE_READS[net][contract] as string[]).includes(fn))) &&
   args.every(isConstant)
 
 /** Policy contracts a rule must never be scoped to: scoping a rule to one

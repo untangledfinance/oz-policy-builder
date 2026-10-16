@@ -1594,6 +1594,16 @@ describe('a read says what it is: a live value, unless its source cannot be move
     expect(price(REFLECTOR, 'lastprice', v, [['call_arg', 1]])).toContain(LIVE)
     expect(price(REFLECTOR, 'lastprice', v, [{ i128: '1' }])).not.toContain(LIVE)
   })
+  it('an operator-listed read (POLICY_BUILDER_SAFE_READS_<NET>) is not marked, on its network only', () => {
+    process.env.POLICY_BUILDER_SAFE_READS_TESTNET = `${D}:position`
+    try {
+      expect(price(D, 'position', { network: 'testnet' })).not.toContain(LIVE)
+      expect(price(D, 'balance', { network: 'testnet' })).toContain(LIVE)
+      expect(price(D, 'position', { network: 'mainnet' })).toContain(LIVE)
+    } finally {
+      delete process.env.POLICY_BUILDER_SAFE_READS_TESTNET
+    }
+  })
   it('a lit that spells a read is a constant, never marked', () => {
     expect(one(['ne', ['call_arg', 1], ['lit', ['read', D, 'balance', []]]])).not.toContain(
       'live value'

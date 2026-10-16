@@ -103,6 +103,13 @@ Breaking changes to callers:
 
 ### Added
 
+- **Operator safe reads.** `POLICY_BUILDER_SAFE_READS_TESTNET` / `_MAINNET`
+  (`C…:function,C…:function`, operator environment only, never a tool input) extend the
+  read-safety list per network: a listed read (constant arguments only, as the built-in
+  Reflector oracles) installs without `POLICY_BUILDER_ALLOW_SPOT_READS=1` and is not
+  marked "live value, movable within one transaction". A malformed value is refused
+  whole (`INVALID_INPUT` naming the variable). policy-synth sLOC 3,574 -> 3,586 (+12).
+
 - **Interpreter `check(predicate, context)`** (grammar 7, the ABI gains exactly
   this function). A dry run that **always fails, with the verdict as the contract
   error**: `Error(Contract, #0)` permits, any other number is the deny or refusal
