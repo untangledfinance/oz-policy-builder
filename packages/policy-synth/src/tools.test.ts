@@ -23,6 +23,8 @@ import { callExpr } from './intent.ts'
 import { describeRules, run, TOOLS } from './tools.ts'
 import { encode, hashOf } from './wire.ts'
 
+// PayFi's settlement account on testnet: 38 rule ids handed out, 21+ removed.
+const SETTLEMENT = 'CAF4HZO4DARULJGBJCNDEXLR5ZXEKLVI4TMX7VDGTESTJ222U4SXVQXS'
 const ACCOUNT = 'CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P'
 const SIGNER = 'GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB'
 const INSTALL_TX = '7ee0d68b9b1dd58ad0af7752f2f5e673424c57b03dd1f4f071ee2df28b5e4e0b'
@@ -1582,6 +1584,15 @@ describe('get_interpreter_info', () => {
     expect(rules[4].review.join('\n')).toContain('└─ transfer')
     const raw = await call('get_interpreter_info', { explainAccount: ACCOUNT, raw: true })
     expect(raw.data.account.rules[4].review.join('\n')).toContain(TOKEN)
+  })
+  it('explainAccount lists every rule of an account that has removed many (PayFi settlement: 15 or more live, past 21 removed ids)', async () => {
+    const r = await call('get_interpreter_info', { explainAccount: SETTLEMENT })
+    const ids: number[] = r.data.account.rules.map((x: { id: number }) => x.id)
+    expect(r.data.account.complete).toBe(true)
+    expect(ids.length).toBeGreaterThanOrEqual(15)
+    expect(ids).toEqual([...ids].sort((x, y) => x - y))
+    // The rules past the removed run (ids 1..21 on the recording) are read, not only rule 0.
+    expect(ids.filter((id) => id > 21).length).toBeGreaterThanOrEqual(14)
   })
   it('mainnet has no pin yet, and says so rather than guess', async () => {
     await failing(

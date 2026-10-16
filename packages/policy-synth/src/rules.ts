@@ -66,6 +66,7 @@ export interface Overlap {
 
 const MAX_RULE_ID = 512
 const WIDTH = 8
+const ENTRY_BATCH = 200
 
 export function signerKey(s: Val): string {
   const [tag, a, key] = s as [string, string, { bytes: string }?]
@@ -151,9 +152,45 @@ export async function readPredicates(
   return unreadable
 }
 
+const NEXT_ID = xdr.ScVal.scvVec([xdr.ScVal.scvSymbol('NextId')]).toXDR('base64')
+
+/** The id the account will give its next rule (`NextId`, in its instance storage): no rule
+ *  has an id at or past it. Past the bound when the account's own data does not say. */
+async function nextId(server: rpc.Server, account: string): Promise<number> {
+  const [i] = await entries(server, [dataKey(account, xdr.ScVal.scvLedgerKeyContractInstance())])
+  if (i?.switch().name !== 'scvContractInstance') return MAX_RULE_ID + 1
+  // No NextId means no rule was ever added (the account counts from 0).
+  const v = i
+    .instance()
+    .storage()
+    ?.find((e) => e.key().toXDR('base64') === NEXT_ID)
+    ?.val()
+  return !v ? 0 : v.switch().name === 'scvU32' ? v.u32() : MAX_RULE_ID + 1
+}
+
+/** Which of the ids below `next` still have a context rule: one ledger-entry batch per
+ *  `ENTRY_BATCH` ids (the RPC's limit on keys per call). */
+async function liveIds(server: rpc.Server, account: string, next: number): Promise<number[]> {
+  const found: number[] = []
+  for (let from = 0; from < next; from += ENTRY_BATCH) {
+    const ids = Array.from({ length: Math.min(ENTRY_BATCH, next - from) }, (_, i) => from + i)
+    const keys = ids.map((id) =>
+      xdr.ScVal.scvVec([xdr.ScVal.scvSymbol('ContextRuleData'), xdr.ScVal.scvU32(id)])
+    )
+    const got = await entries(
+      server,
+      keys.map((k) => dataKey(account, k))
+    )
+    found.push(...ids.filter((_, j) => got[j]))
+  }
+  return found
+}
+
 /** Every context rule on `account`, with the stored predicate filled in for those
- *  our interpreter polices. `complete` is false when ids ran out before every live
- *  rule was found: the list is then a subset and must not be read as safety. */
+ *  our interpreter polices. `complete` is false when the rules found are not all the
+ *  account counts (or it has more ids than the bound): the list is then a subset and
+ *  must not be read as safety. At most 1 + 1 + ceil(NextId / 200) calls to find them
+ *  and one simulation per live rule. */
 export async function readRules(
   server: rpc.Server,
   network: Network,
@@ -161,25 +198,20 @@ export async function readRules(
   interpreter: string,
   signal?: AbortSignal
 ): Promise<RulesRead> {
-  const rules: ObservedRule[] = []
-  // `n` ids from `from` upward, never past the limit; how many it found.
-  const batch = async (from: number, n: number) => {
-    const ids = Array.from({ length: Math.min(n, MAX_RULE_ID - from) }, (_, i) => from + i)
-    const got = await pool(ids, WIDTH, (id) => readRule(server, network, account, id), signal)
-    rules.push(...got.filter((r) => r !== undefined))
-    return got.filter((r) => r !== undefined).length
-  }
-  // The count first: an account that claims more rules than there are ids cannot be
-  // read (and need not be asked about), and one with few rules needs few calls. Ids are
-  // not contiguous (a removed id is never reused), so keep walking upward in batches
-  // until every live rule has been seen.
-  const count = Number((await read(server, network, account, 'get_context_rules_count')).u32())
-  if (count > MAX_RULE_ID) return { rules, complete: false, unreadable: [] }
-  await batch(0, Math.min(count, WIDTH))
-  // A whole batch with no rule in it ends the walk (incomplete, which is refused): a sparse or
-  // hostile account must not cost the public RPC hundreds of simulations.
-  for (let from = Math.min(count, WIDTH); rules.length < count && from < MAX_RULE_ID; from += WIDTH)
-    if ((await batch(from, WIDTH)) === 0) break
+  // The account counts its rules and keeps the next id it will hand out (a removed id is never
+  // reused, so every rule that ever existed has an id below it). Ask which of those ids still
+  // have a rule in one batch of ledger entries, then read only those: a gap of removed ids costs
+  // nothing, and an account that claims more ids than the bound is not read at all.
+  const [count, next] = await Promise.all([
+    read(server, network, account, 'get_context_rules_count').then((v) => Number(v.u32())),
+    nextId(server, account),
+  ])
+  const ids = next > MAX_RULE_ID || count > MAX_RULE_ID ? [] : await liveIds(server, account, next)
+  const got = await pool(ids, WIDTH, (id) => readRule(server, network, account, id), signal)
+  const rules = got.filter((r) => r !== undefined)
+  // Complete only when what was found is exactly what the account counts: a rule whose entry
+  // is archived or unreadable would otherwise vanish from the list unreported.
+  const complete = next <= MAX_RULE_ID && rules.length === count && ids.length === count
   const capped = rules.filter((r) => r.policies.includes(SPENDING_LIMIT[network]))
   const acct = new Address(account).toScVal()
   const [unreadable, caps] = await Promise.all([
@@ -200,7 +232,7 @@ export async function readRules(
     if (limit && typeof f.period_ledgers === 'number')
       r.cap = { amount: limit.i128, periodLedgers: f.period_ledgers }
   })
-  return { rules, complete: rules.length >= count, unreadable }
+  return { rules, complete, unreadable }
 }
 
 // ---- which calls a rule can serve ----

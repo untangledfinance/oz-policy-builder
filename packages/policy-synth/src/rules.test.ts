@@ -404,15 +404,47 @@ describe('readRules, against a stub account', () => {
       ),
       ext: new xdr.LedgerEntryExt(0),
     })
+  const instanceKey = dataKey(ACC, xdr.ScVal.scvLedgerKeyContractInstance()).toXDR('base64')
+  const ruleDataKey = (id: number) =>
+    dataKey(ACC, xdr.ScVal.scvVec([xdr.ScVal.scvSymbol('ContextRuleData'), xdr.ScVal.scvU32(id)]))
+  const instanceEntry = (storage: [string, xdr.ScVal][]) =>
+    new xdr.LedgerEntry({
+      lastModifiedLedgerSeq: 1,
+      data: xdr.LedgerEntryData.contractData(
+        new xdr.ContractDataEntry({
+          ext: xdr.ExtensionPoint.fromXDR(Buffer.alloc(4)),
+          contract: new Address(ACC).toScAddress(),
+          key: xdr.ScVal.scvLedgerKeyContractInstance(),
+          durability: xdr.ContractDataDurability.persistent(),
+          val: xdr.ScVal.scvContractInstance(
+            new xdr.ScContractInstance({
+              executable: xdr.ContractExecutable.contractExecutableWasm(Buffer.alloc(32)),
+              storage: storage.map(
+                ([k, v]) =>
+                  new xdr.ScMapEntry({ key: xdr.ScVal.scvVec([xdr.ScVal.scvSymbol(k)]), val: v })
+              ),
+            })
+          ),
+        })
+      ),
+      ext: new xdr.LedgerEntryExt(0),
+    })
+  /** An account whose rules are `rules` (null = a void answer), claiming `count` rules and (unless
+   *  `next` says otherwise) one id past the highest rule. `ledger` adds entries; `batches` is the
+   *  size of each getLedgerEntries call. */
   const stub = (
     rules: Record<number, Val>,
     count: number,
     ledger: Record<string, xdr.LedgerEntry> = {},
-    absent = 'HostError: Error(Contract, #3000)'
+    absent = 'HostError: Error(Contract, #3000)',
+    next: xdr.ScVal | null = xdr.ScVal.scvU32(Math.max(-1, ...Object.keys(rules).map(Number)) + 1)
   ) => {
     const asked: number[] = []
+    const batches: number[] = []
+    let simulations = 0
     const server = {
       async simulateTransaction(tx: { toEnvelope: () => xdr.TransactionEnvelope }) {
+        simulations++
         const call = tx
           .toEnvelope()
           .v1()
@@ -431,15 +463,28 @@ describe('readRules, against a stub account', () => {
         return { latestLedger: 1, result: { auth: [], retval: toScVal(rules[id]) } }
       },
       async getLedgerEntries(...keys: xdr.LedgerKey[]) {
+        batches.push(keys.length)
+        const mine = Object.fromEntries(
+          Object.keys(rules).map((id) => [
+            ruleDataKey(Number(id)).toXDR('base64'),
+            entry(ACC, ruleDataKey(Number(id)).contractData().key(), null),
+          ])
+        )
+        mine[instanceKey] = instanceEntry(next ? [['NextId', next]] : [])
         return {
           entries: keys.flatMap((k) => {
-            const hit = ledger[k.toXDR('base64')]
+            const hit = ledger[k.toXDR('base64')] ?? mine[k.toXDR('base64')]
             return hit ? [{ key: k, val: hit.data() }] : []
           }),
         }
       },
     }
-    return { server: server as unknown as rpc.Server, asked }
+    return {
+      server: server as unknown as rpc.Server,
+      asked,
+      batches,
+      calls: () => simulations + batches.length,
+    }
   }
 
   it('an account that answers for another rule than it was asked for is not read', async () => {
@@ -458,25 +503,161 @@ describe('readRules, against a stub account', () => {
     expect(await readRule(server, 'testnet', ACC, 1)).not.toHaveProperty('unreadable')
   })
 
-  it('walks ids upward until every live rule is found, across gaps and batches', async () => {
-    const { server, asked } = stub(
-      { 0: ruleVal(0), 3: ruleVal(3), 9: ruleVal(9), 17: ruleVal(17) },
-      4
+  const rulesAt = (ids: number[]) => Object.fromEntries(ids.map((id) => [id, ruleVal(id)]))
+
+  it('an account with 21 removed ids reads every live rule (PayFi settlement: 15 live of 38 ever made)', async () => {
+    const live = [0, ...Array.from({ length: 12 }, (_, i) => 22 + i), 36, 37]
+    const { server, asked, batches, calls } = stub(
+      rulesAt(live),
+      15,
+      {},
+      undefined,
+      xdr.ScVal.scvU32(38)
     )
     const r = await readRules(server, 'testnet', ACC, INTERP)
-    expect(r.rules.map((x) => x.id)).toEqual([0, 3, 9, 17])
+    expect(r.rules.map((x) => x.id)).toEqual(live)
     expect(r.complete).toBe(true)
-    // The count says 4, so the first batch asks 4 ids; then batches of eight until all four are found.
-    expect(asked.slice(0, 4).sort((x, y) => x - y)).toEqual([0, 1, 2, 3])
-    expect(Math.max(...asked)).toBe(19)
+    // One simulation per live rule (and the count); the removed ids are never asked about.
+    expect(asked.sort((x, y) => x - y)).toEqual(live)
+    // The instance, then every id's entry in one batch.
+    expect(batches).toEqual([1, 38])
+    expect(calls()).toBe(1 + 15 + 2)
   })
 
-  it('a whole batch of ids with no rule ends the walk: incomplete, not 500 more simulations', async () => {
-    const { server, asked } = stub({ 0: ruleVal(0), 30: ruleVal(30) }, 2)
+  it('a gap of any width is crossed: 300 removed ids between two live rules', async () => {
+    const { server, asked } = stub(rulesAt([0, 301]), 2)
     const r = await readRules(server, 'testnet', ACC, INTERP)
-    expect(r).toMatchObject({ complete: false })
+    expect(r.rules.map((x) => x.id)).toEqual([0, 301])
+    expect(r.complete).toBe(true)
+    expect(asked.sort((x, y) => x - y)).toEqual([0, 301])
+  })
+
+  it('an account with no removed ids and none live: complete and empty, no simulation of an id', async () => {
+    const { server, asked } = stub({}, 0, {}, undefined, null)
+    expect(await readRules(server, 'testnet', ACC, INTERP)).toMatchObject({
+      rules: [],
+      complete: true,
+    })
+    expect(asked).toEqual([])
+  })
+
+  it('fewer rules found than the account counts is incomplete, and says so', async () => {
+    const { server, asked } = stub({ 0: ruleVal(0) }, 5)
+    const r = await readRules(server, 'testnet', ACC, INTERP)
+    expect(r.complete).toBe(false)
+    expect(r.rules).toHaveLength(1)
+    expect(asked).toEqual([0])
+  })
+
+  it('more rules found than the account counts is incomplete too (a count that is not the data)', async () => {
+    const { server } = stub(rulesAt([0, 1, 2]), 2)
+    const r = await readRules(server, 'testnet', ACC, INTERP)
+    expect(r.complete).toBe(false)
+    expect(r.rules).toHaveLength(3)
+  })
+
+  it('an account that counts rules but keeps no next id cannot be scanned: incomplete, nothing asked', async () => {
+    const { server, asked } = stub({ 0: ruleVal(0) }, 1, {}, undefined, null)
+    expect(await readRules(server, 'testnet', ACC, INTERP)).toMatchObject({
+      complete: false,
+      rules: [],
+    })
+    expect(asked).toEqual([])
+  })
+
+  it('a next id that is not a u32 is not trusted: incomplete, no ids asked', async () => {
+    for (const next of [
+      xdr.ScVal.scvI32(3),
+      xdr.ScVal.scvSymbol('x'),
+      xdr.ScVal.scvU32(4_000_000_000),
+    ]) {
+      const { server, asked, batches } = stub({ 0: ruleVal(0) }, 1, {}, undefined, next)
+      expect(await readRules(server, 'testnet', ACC, INTERP)).toMatchObject({
+        complete: false,
+        rules: [],
+      })
+      expect(asked).toEqual([])
+      expect(batches).toEqual([1])
+    }
+  })
+
+  it('instance storage with keys of other shapes is not read as a next id, and does not throw', async () => {
+    const { server, asked } = stub({ 0: ruleVal(0) }, 1)
+    const real = server.getLedgerEntries.bind(server)
+    const odd = [
+      new xdr.ScMapEntry({ key: xdr.ScVal.scvU32(1), val: xdr.ScVal.scvU32(1) }),
+      new xdr.ScMapEntry({ key: xdr.ScVal.scvSymbol('NextId'), val: xdr.ScVal.scvU32(9) }),
+      new xdr.ScMapEntry({
+        key: xdr.ScVal.scvVec([xdr.ScVal.scvU32(0)]),
+        val: xdr.ScVal.scvU32(9),
+      }),
+    ]
+    server.getLedgerEntries = (async (...keys: xdr.LedgerKey[]) => {
+      const r = await real(...keys)
+      const e = r.entries[0]?.val
+      if (e?.contractData().val().switch().name === 'scvContractInstance')
+        e.contractData().val().instance().storage(odd)
+      return r
+    }) as typeof server.getLedgerEntries
+    expect(await readRules(server, 'testnet', ACC, INTERP)).toMatchObject({
+      complete: false,
+      rules: [],
+    })
+    expect(asked).toEqual([])
+  })
+
+  it('an account whose instance entry the ledger does not return is not read as empty', async () => {
+    const { server, asked } = stub({}, 0)
+    server.getLedgerEntries = (async () => ({ entries: [] })) as never
+    expect(await readRules(server, 'testnet', ACC, INTERP)).toMatchObject({
+      complete: false,
+      rules: [],
+    })
+    expect(asked).toEqual([])
+  })
+
+  it('a count past the id limit is incomplete at once, without reading the ids (a hostile account)', async () => {
+    const { server, asked, batches } = stub({ 0: ruleVal(0) }, 4_000_000_000)
+    const r = await readRules(server, 'testnet', ACC, INTERP)
+    expect(r).toMatchObject({ complete: false, rules: [] })
+    expect(asked).toEqual([])
+    expect(batches).toEqual([1])
+  })
+
+  it('a next id of exactly the id limit is read, in batches of 200; one more is not', async () => {
+    const at = stub({ 0: ruleVal(0), 511: ruleVal(511) }, 2, {}, undefined, xdr.ScVal.scvU32(512))
+    const r = await readRules(at.server, 'testnet', ACC, INTERP)
+    expect(r.complete).toBe(true)
+    expect(at.batches).toEqual([1, 200, 200, 112])
+    expect(at.asked.sort((x, y) => x - y)).toEqual([0, 511])
+    // The count may sit at the limit too; one more is refused before any id is read.
+    const counted = stub({ 0: ruleVal(0) }, 512, {}, undefined, xdr.ScVal.scvU32(512))
+    expect((await readRules(counted.server, 'testnet', ACC, INTERP)).complete).toBe(false)
+    expect(counted.asked).toEqual([0])
+    const past = stub({ 0: ruleVal(0) }, 1, {}, undefined, xdr.ScVal.scvU32(513))
+    expect((await readRules(past.server, 'testnet', ACC, INTERP)).complete).toBe(false)
+    expect(past.asked).toEqual([])
+    expect(past.batches).toEqual([1])
+  })
+
+  it('a count of 513 is refused before any id is read, whatever the next id', async () => {
+    const { server, asked } = stub({ 0: ruleVal(0) }, 513, {}, undefined, xdr.ScVal.scvU32(10))
+    expect((await readRules(server, 'testnet', ACC, INTERP)).complete).toBe(false)
+    expect(asked).toEqual([])
+  })
+
+  it('a rule whose entry is there but which the account then calls absent is skipped, and incomplete', async () => {
+    const { server } = stub(
+      { 0: ruleVal(0), 1: undefined as unknown as Val },
+      2,
+      {},
+      undefined,
+      xdr.ScVal.scvU32(2)
+    )
+    // Id 1 has an entry (the stub lists the key) but no answer: gone between the two reads.
+    const r = await readRules(server, 'testnet', ACC, INTERP)
     expect(r.rules.map((x) => x.id)).toEqual([0])
-    expect(Math.max(...asked)).toBe(9) // the first two ids, then one batch of eight, then stop
+    expect(r.complete).toBe(false)
   })
 
   it('only "no such rule" (#3000) is an absent id: a rate limit or any other failure is an error, at once', async () => {
@@ -485,40 +666,20 @@ describe('readRules, against a stub account', () => {
       'HostError: Error(WasmVm, MissingValue)',
       'rate limited (429)',
     ]) {
-      const { server, asked } = stub({ 0: ruleVal(0) }, 2, {}, failure)
-      await expect(readRules(server, 'testnet', ACC, INTERP)).rejects.toThrow()
-      expect(asked.length).toBeLessThanOrEqual(8)
+      const { server, asked } = stub({ 0: ruleVal(0) }, 1, {}, failure)
+      // Rule 0 answers, so make the failing id one the ledger lists but the account will not read.
+      const gone = stub(
+        { 0: ruleVal(0), 1: undefined as unknown as Val },
+        2,
+        {},
+        failure,
+        xdr.ScVal.scvU32(2)
+      )
+      await expect(readRules(gone.server, 'testnet', ACC, INTERP)).rejects.toThrow()
+      expect(gone.asked.length).toBeLessThanOrEqual(8)
+      expect((await readRules(server, 'testnet', ACC, INTERP)).complete).toBe(true)
+      expect(asked).toEqual([0])
     }
-  })
-
-  it('every id failing for another reason costs one batch, however high the count it claims', async () => {
-    const { server, asked } = stub({}, 500, {}, 'rate limited (429)')
-    await expect(readRules(server, 'testnet', ACC, INTERP)).rejects.toThrow()
-    expect(asked.length).toBeLessThanOrEqual(8)
-  })
-
-  it('asks the count first and then only as many ids as there are rules: two rules, two simulations', async () => {
-    const { server, asked } = stub({ 0: ruleVal(0), 1: ruleVal(1) }, 2)
-    const r = await readRules(server, 'testnet', ACC, INTERP)
-    expect(r.complete).toBe(true)
-    expect(asked.sort()).toEqual([0, 1])
-  })
-
-  it('a count past the id limit is incomplete at once, without walking the ids (a hostile account)', async () => {
-    const { server, asked } = stub({ 0: ruleVal(0) }, 4_000_000_000)
-    const r = await readRules(server, 'testnet', ACC, INTERP)
-    expect(r).toMatchObject({ complete: false, rules: [] })
-    expect(asked).toEqual([])
-  })
-
-  it('a count of exactly the id limit is walked, one more is not', async () => {
-    const at = stub({ 0: ruleVal(0) }, 512)
-    const r = await readRules(at.server, 'testnet', ACC, INTERP)
-    expect(r.complete).toBe(false) // one rule of 512 was found
-    expect(Math.max(...at.asked)).toBeLessThan(16)
-    const past = stub({ 0: ruleVal(0) }, 513)
-    expect((await readRules(past.server, 'testnet', ACC, INTERP)).complete).toBe(false)
-    expect(past.asked).toEqual([])
   })
 
   it('stops asking when told to', async () => {
@@ -527,14 +688,6 @@ describe('readRules, against a stub account', () => {
     const { server, asked } = stub({ 0: ruleVal(0) }, 3)
     await expect(readRules(server, 'testnet', ACC, INTERP, stopped.signal)).rejects.toThrow()
     expect(asked).toEqual([])
-  })
-
-  it('an account with fewer rules than its count says is incomplete, and the walk stops at the id limit', async () => {
-    const { server, asked } = stub({ 0: ruleVal(0) }, 5)
-    const r = await readRules(server, 'testnet', ACC, INTERP)
-    expect(r.complete).toBe(false)
-    expect(r.rules).toHaveLength(1)
-    expect(Math.max(...asked)).toBeLessThan(16) // and not the 500 more the count would walk
   })
 
   it('a rule that comes back void is skipped, not an error', async () => {

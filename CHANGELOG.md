@@ -7,6 +7,21 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ## [Unreleased]
 
+### policy-synth: the rule scan reads every live rule
+
+- `readRules` (the overlap scan, install lint, `get_interpreter_info` `explainAccount`) no longer
+  walks ids upward and gives up after a batch of eight with no rule, which stopped short of the
+  live rules on an account that had removed many (PayFi's testnet settlement account: 38 ids
+  handed out, 15 live, 21+ removed, so installs needed `allowOverlap`). It reads the account's own
+  `NextId` (instance storage) and asks which of the ids below it still have a `ContextRuleData`
+  entry in one batched `getLedgerEntries` (200 keys a call), then simulates `get_context_rule`
+  for those ids only. Bounded: one count simulation, one instance read, ceil(NextId / 200) entry
+  batches and one simulation per live rule (then one batch each for predicates and spending caps);
+  nothing past 512 ids. `complete` is true only when the rules read are exactly the account's
+  `get_context_rules_count`; an archived or missing entry, a count that disagrees, or a `NextId`
+  that is absent or not a `u32` reports `complete: false`. Same exports, no new option.
+  policy-synth sLOC 3,684 -> 3,707 (+23).
+
 ### Grammar 7: the interpreter's hard limits are chosen at deploy time
 
 Still grammar 7 (`SELF_VERSION` 7); a new interpreter at a new address, because a limit that
