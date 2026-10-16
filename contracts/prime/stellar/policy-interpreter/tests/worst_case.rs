@@ -752,7 +752,12 @@ fn within(case: &str, call: &str, u: Used) {
 
 fn check_all(code: &[u8], l: &Limits, label: &str) -> (Used, Used) {
     // Every entry an enforce reads, were they all archived and so read from disk:
-    // the stored rule, the interpreter's code and a generous 2 KB for the rest.
+    // the stored rule, the interpreter's code and a generous 2 KB for the rest. This
+    // does NOT cover what the rule's `read` targets cost if THEY are archived: each
+    // archived instance, code or entry a read touches is restored by the transaction
+    // and counts toward both the read and the write limit (on testnet, three views of
+    // two archived OctoLend contracts needed 151 KB of the 132 KB write limit). The
+    // assumption here is that read targets are live; the README says they must be kept so.
     let disk = |entry: u64| entry + code.len() as u64 + 2_048;
     let (mut worst_enforce, mut worst_install) = (Used::default(), Used::default());
     for case in cases(l) {
@@ -847,37 +852,108 @@ fn the_largest_rules_stay_inside_the_transaction_limits_at_the_ceilings() {
 /// OZ's reference multisig smart account, as deployed (committed bytes).
 const OZ_ACCOUNT_WASM: &[u8] = include_bytes!("fixtures/multisig_account_example.wasm");
 
-/// A real install transaction's size: the account's `add_context_rule` (with the
-/// predicate inside the interpreter's install params) as the host function, AND the
-/// same call again inside the account's own authorisation entry - the predicate
-/// travels twice - with a footprint of every entry an install touches and a
-/// generous signature.
-fn install_tx_size(args: StdVec<ScVal>, account: ScAddress) -> usize {
+/// The footprint a real simulation of policy-synth's `buildInstall` returned (see the
+/// header of the file): read-only keys, read-write keys and the unsigned envelope's size.
+const FOOTPRINT: &str = include_str!("fixtures/install-footprint.txt");
+
+fn recorded_footprint() -> (StdVec<x::LedgerKey>, StdVec<x::LedgerKey>, usize) {
+    let key =
+        |l: &str| <x::LedgerKey as x::ReadXdr>::from_xdr_base64(l, XdrLimits::none()).unwrap();
+    let with = |tag: &str| {
+        FOOTPRINT
+            .lines()
+            .filter_map(|l| l.strip_prefix(tag))
+            .map(key)
+            .collect::<StdVec<_>>()
+    };
+    let size = FOOTPRINT
+        .lines()
+        .find_map(|l| l.strip_prefix("size "))
+        .unwrap()
+        .parse()
+        .unwrap();
+    (with("ro "), with("rw "), size)
+}
+
+/// What a wallet adds around the install: passkey signers on the admin rule (each is a
+/// signer key and a WebAuthn signature in the account's authorisation payload, and a
+/// verifier contract in the footprint) and a fee bump over the whole transaction.
+#[derive(Clone, Copy)]
+struct Wallet {
+    passkeys: u32,
+    fee_bump: bool,
+}
+
+/// A real install transaction, built as `policy-synth`'s `buildSelfCall` builds it: the
+/// account's `add_context_rule` (with the predicate inside the interpreter's install
+/// params) as the host function, the account's own authorisation entry, which repeats the
+/// same call - the predicate travels twice - with OZ's `AuthPayload` as its signature, the
+/// `__check_auth` entry of the delegated signer, the footprint a real simulation returned
+/// and the source account's signature; then the wallet's additions. Its size in bytes.
+fn install_envelope(args: StdVec<ScVal>, account: ScAddress, wallet: Wallet) -> usize {
     let call = x::InvokeContractArgs {
         contract_address: account.clone(),
         function_name: "add_context_rule".try_into().unwrap(),
         args: args.try_into().unwrap(),
     };
-    let auth = x::SorobanAuthorizationEntry {
-        credentials: x::SorobanCredentials::Address(x::SorobanAddressCredentials {
-            address: account,
-            nonce: i64::MAX,
-            signature_expiration_ledger: u32::MAX,
-            signature: ScVal::Bytes(ScBytes(alloc::vec![9u8; 600].try_into().unwrap())),
-        }),
+    let g_account = |b: u8| {
+        ScAddress::Account(x::AccountId(x::PublicKey::PublicKeyTypeEd25519(
+            x::Uint256([b; 32]),
+        )))
+    };
+    let signer = |kind: &str, who: ScAddress, key: Option<ScVal>| {
+        let mut v = alloc::vec![sym(kind), ScVal::Address(who)];
+        v.extend(key);
+        tup(&v)
+    };
+    // `AuthPayload { context_rule_ids, signers }`: the source account's delegated signer
+    // (empty signature: the transaction's own covers it) and each passkey's WebAuthn
+    // signature (authenticator data, client data JSON and the ECDSA signature: ~400 B).
+    let mut signers = alloc::vec![(
+        signer("Delegated", g_account(1), None),
+        ScVal::Bytes(ScBytes(StdVec::new().try_into().unwrap()))
+    )];
+    for i in 0..wallet.passkeys {
+        let verifier = ScAddress::Contract(ContractId(Hash([0x70 + i as u8; 32])));
+        let key = ScVal::Bytes(ScBytes(alloc::vec![4u8 + i as u8; 65].try_into().unwrap()));
+        signers.push((
+            signer("External", verifier, Some(key)),
+            ScVal::Bytes(ScBytes(alloc::vec![9u8; 400].try_into().unwrap())),
+        ));
+    }
+    let payload = map(&[
+        (sym("context_rule_ids"), tup(&[ScVal::U32(0)])),
+        (sym("signers"), map(&signers)),
+    ]);
+    let entry = |credentials, function| x::SorobanAuthorizationEntry {
+        credentials,
         root_invocation: x::SorobanAuthorizedInvocation {
-            function: x::SorobanAuthorizedFunction::ContractFn(call.clone()),
+            function,
             sub_invocations: StdVec::new().try_into().unwrap(),
         },
     };
-    let key = |i: u8| {
-        x::LedgerKey::ContractData(x::LedgerKeyContractData {
-            contract: ScAddress::Contract(ContractId(Hash([i; 32]))),
-            key: ScVal::LedgerKeyContractInstance,
-            durability: x::ContractDataDurability::Persistent,
-        })
-    };
-    let keys = |r: core::ops::Range<u8>| r.map(key).collect::<StdVec<_>>().try_into().unwrap();
+    let account_entry = entry(
+        x::SorobanCredentials::Address(x::SorobanAddressCredentials {
+            address: account.clone(),
+            nonce: i64::MAX,
+            signature_expiration_ledger: u32::MAX,
+            signature: payload,
+        }),
+        x::SorobanAuthorizedFunction::ContractFn(call.clone()),
+    );
+    let check_auth = entry(
+        x::SorobanCredentials::SourceAccount,
+        x::SorobanAuthorizedFunction::ContractFn(x::InvokeContractArgs {
+            contract_address: account,
+            function_name: "__check_auth".try_into().unwrap(),
+            args: alloc::vec![bytes(32)].try_into().unwrap(),
+        }),
+    );
+    let (mut read_only, read_write, _) = recorded_footprint();
+    // each distinct verifier contract is read: its instance and its code
+    for i in 0..2 * wallet.passkeys.min(1) {
+        read_only.push(read_only[i as usize].clone());
+    }
     let tx = x::Transaction {
         source_account: x::MuxedAccount::Ed25519(x::Uint256([1; 32])),
         fee: u32::MAX,
@@ -888,7 +964,7 @@ fn install_tx_size(args: StdVec<ScVal>, account: ScAddress) -> usize {
             source_account: None,
             body: x::OperationBody::InvokeHostFunction(x::InvokeHostFunctionOp {
                 host_function: x::HostFunction::InvokeContract(call),
-                auth: alloc::vec![auth].try_into().unwrap(),
+                auth: alloc::vec![account_entry, check_auth].try_into().unwrap(),
             }),
         }]
         .try_into()
@@ -897,8 +973,8 @@ fn install_tx_size(args: StdVec<ScVal>, account: ScAddress) -> usize {
             ext: x::SorobanTransactionDataExt::V0,
             resources: x::SorobanResources {
                 footprint: x::LedgerFootprint {
-                    read_only: keys(0..10),
-                    read_write: keys(10..20),
+                    read_only: read_only.try_into().unwrap(),
+                    read_write: read_write.try_into().unwrap(),
                 },
                 instructions: u32::MAX,
                 disk_read_bytes: u32::MAX,
@@ -907,22 +983,41 @@ fn install_tx_size(args: StdVec<ScVal>, account: ScAddress) -> usize {
             resource_fee: i64::MAX,
         }),
     };
-    let env = x::TransactionEnvelope::Tx(x::TransactionV1Envelope {
-        tx,
-        signatures: alloc::vec![x::DecoratedSignature {
+    let signature = || {
+        alloc::vec![x::DecoratedSignature {
             hint: x::SignatureHint([0; 4]),
             signature: x::Signature(alloc::vec![0u8; 64].try_into().unwrap()),
         }]
         .try_into()
-        .unwrap(),
-    });
-    WriteXdr::to_xdr(&env, XdrLimits::none()).unwrap().len()
+        .unwrap()
+    };
+    let inner = x::TransactionV1Envelope {
+        tx,
+        signatures: signature(),
+    };
+    let envelope = if wallet.fee_bump {
+        x::TransactionEnvelope::TxFeeBump(x::FeeBumpTransactionEnvelope {
+            tx: x::FeeBumpTransaction {
+                fee_source: x::MuxedAccount::Ed25519(x::Uint256([2; 32])),
+                fee: i64::MAX,
+                inner_tx: x::FeeBumpTransactionInnerTx::Tx(inner),
+                ext: x::FeeBumpTransactionExt::V0,
+            },
+            signatures: signature(),
+        })
+    } else {
+        x::TransactionEnvelope::Tx(inner)
+    };
+    WriteXdr::to_xdr(&envelope, XdrLimits::none())
+        .unwrap()
+        .len()
 }
 
 /// The path a deployment takes: OpenZeppelin's real account adds the rule, with 15
 /// operators and 16 policy admins (the most each allows), the interpreter's real
 /// wasm installs the largest predicate the byte ceiling allows. The call, the stored
-/// entry and the transaction around it must fit the network with the margin.
+/// entry and the transaction around it, as a real wallet sends it, must fit the
+/// network with the margin.
 #[test]
 fn the_largest_install_through_the_account_fits_a_transaction() {
     let Some(code) = the_wasm() else { return };
@@ -1002,22 +1097,200 @@ fn the_largest_install_through_the_account_fits_a_transaction() {
     let ScVal::Address(account_sc) = to_sc(&account) else {
         panic!()
     };
-    let size = install_tx_size(scvals, account_sc) as u64;
-    eprintln!(
-        "install through the account: predicate {} B, {} CPU ({}%), {} bytes memory, write {} entries / {} B, tx {} B ({}% of {})",
-        predicate.len(),
-        u.cpu,
-        pct(u.cpu, NET.cpu),
-        u.mem,
-        u.write_entries,
-        u.write_bytes,
-        size,
-        pct(size, NET.tx_bytes),
-        NET.tx_bytes
-    );
+    // The model must be the real thing: the plain wallet's envelope (the recorded one
+    // is unsigned: one 76-byte signature apart) within 1% of what a real simulation built.
+    let (_, _, recorded) = recorded_footprint();
+    let plain = Wallet {
+        passkeys: 0,
+        fee_bump: false,
+    };
+    let modelled = install_envelope(scvals.clone(), account_sc.clone(), plain) - 76;
     assert!(
-        size * 100 <= NET.tx_bytes * MARGIN,
-        "the install transaction is {size} bytes of {} (at most {MARGIN}%)",
-        NET.tx_bytes
+        modelled.abs_diff(recorded) * 100 <= recorded,
+        "the modelled envelope is {modelled} B, a real one was {recorded} B"
+    );
+    // The worst a wallet adds: three passkeys on the admin rule and a fee bump.
+    let wallets = [
+        ("plain wallet", plain),
+        (
+            "fee bump",
+            Wallet {
+                passkeys: 0,
+                fee_bump: true,
+            },
+        ),
+        (
+            "1 passkey",
+            Wallet {
+                passkeys: 1,
+                fee_bump: false,
+            },
+        ),
+        (
+            "3 passkeys + fee bump",
+            Wallet {
+                passkeys: 3,
+                fee_bump: true,
+            },
+        ),
+    ];
+    for (what, w) in wallets {
+        let size = install_envelope(scvals.clone(), account_sc.clone(), w) as u64;
+        eprintln!(
+            "install through the account ({what}): predicate {} B, {} CPU ({}%), {} bytes memory, write {} entries / {} B, tx {} B ({}% of {})",
+            predicate.len(),
+            u.cpu,
+            pct(u.cpu, NET.cpu),
+            u.mem,
+            u.write_entries,
+            u.write_bytes,
+            size,
+            pct(size, NET.tx_bytes),
+            NET.tx_bytes
+        );
+        assert!(
+            size * 100 <= NET.tx_bytes * MARGIN,
+            "{what}: the install transaction is {size} bytes of {} (at most {MARGIN}%)",
+            NET.tx_bytes
+        );
+    }
+}
+
+/// `Signer::Delegated(addr)` in the account's own encoding.
+fn delegated(env: &Env, addr: &Address) -> Val {
+    let mut v: SorobanVec<Val> = SorobanVec::new(env);
+    v.push_back(Symbol::new(env, "Delegated").into_val(env));
+    v.push_back(addr.to_val());
+    v.into_val(env)
+}
+
+/// The `max_reads` contracts a rule reads are REAL wasm contracts, each its own instance
+/// with its own VM when read (a Stellar asset contract, as in `check_all`, is built in
+/// and has none), and `contexts` of them are authorised by ONE `__check_auth` of the
+/// real OZ account, so they share one transaction's budget. What that call used.
+fn authorise_contexts(code: &[u8], contexts: u32) -> Used {
+    let l = common::CEILING;
+    let env = Env::new_with_config(EnvTestConfig {
+        capture_snapshot_at_drop: false,
+    });
+    env.mock_all_auths_allowing_non_root_auth();
+    env.cost_estimate().disable_resource_limits();
+    env.cost_estimate().budget().reset_unlimited();
+    let interpreter = env.register(code, (l,));
+    let owner = Address::generate(&env);
+    let signers: SorobanVec<Val> = soroban_sdk::vec![&env, delegated(&env, &owner)];
+    let account = env.register(
+        OZ_ACCOUNT_WASM,
+        (signers.clone(), soroban_sdk::Map::<Address, Val>::new(&env)),
+    );
+    let as_scval = |a: &Address| {
+        let v: Val = a.into_val(&env);
+        ScVal::from_xdr(&env, &v.to_xdr(&env)).unwrap()
+    };
+    // gte(read(target n, grammar_version), 1) for each of max_reads interpreters (62 KB
+    // of wasm each), beside the pin.
+    let mut rule = alloc::vec![advance()];
+    let mut targets = StdVec::new();
+    for n in 0..l.max_reads {
+        let target = env.register(code, (common::DEFAULT,));
+        targets.push((placeholder(1_000 + n), as_scval(&target)));
+        rule.push(cmp(
+            "gte",
+            tup(&[
+                sym("read"),
+                placeholder(1_000 + n),
+                sym("grammar_version"),
+                tup(&[]),
+            ]),
+            num(1),
+        ));
+    }
+    let mut rule = and(&rule);
+    for (from, to) in &targets {
+        rule = swap(&rule, from, to);
+    }
+    let predicate: Bytes = {
+        let v: Val = rule.into_val(&env);
+        v.to_xdr(&env)
+    };
+    let params = PolicyInstallParams {
+        grammar_version: 7,
+        install_nonce: 1,
+        predicate_hash: env.crypto().sha256(&predicate).into(),
+        predicate,
+        policy_admins: soroban_sdk::vec![&env, Signer::Delegated(owner.clone())],
+    };
+    let mut policies = soroban_sdk::Map::<Address, Val>::new(&env);
+    policies.set(interpreter, params.into_val(&env));
+    let venue = Address::generate(&env);
+    let scope = policy_interpreter::ContextRuleType::CallContract(venue.clone());
+    let args: SorobanVec<Val> = soroban_sdk::vec![
+        &env,
+        scope.into_val(&env),
+        soroban_sdk::String::from_str(&env, "reads").into_val(&env),
+        Option::<u32>::None.into_val(&env),
+        signers.into_val(&env),
+        policies.into_val(&env),
+    ];
+    let _: Val = env.invoke_contract(&account, &Symbol::new(&env, "add_context_rule"), args);
+    // `AuthPayload { context_rule_ids: [1; contexts], signers: {Delegated(owner): ""} }`
+    let mut who: soroban_sdk::Map<Val, Bytes> = soroban_sdk::Map::new(&env);
+    who.set(delegated(&env, &owner), Bytes::new(&env));
+    let mut payload: soroban_sdk::Map<Symbol, Val> = soroban_sdk::Map::new(&env);
+    payload.set(
+        Symbol::new(&env, "context_rule_ids"),
+        SorobanVec::from_slice(&env, &alloc::vec![1u32; contexts as usize]).into_val(&env),
+    );
+    payload.set(Symbol::new(&env, "signers"), who.into_val(&env));
+    let one = Context::Contract(ContractContext {
+        contract: venue,
+        fn_name: Symbol::new(&env, "advance"),
+        args: SorobanVec::new(&env),
+    });
+    let all = SorobanVec::from_slice(&env, &alloc::vec![one; contexts as usize]);
+    env.cost_estimate().budget().reset_unlimited();
+    env.try_invoke_contract_check_auth::<soroban_sdk::Error>(
+        &account,
+        &BytesN::from_array(&env, &[7u8; 32]),
+        payload.into_val(&env),
+        &all,
+    )
+    .expect("every context is permitted");
+    used(&env)
+}
+
+/// How many of these contexts one transaction can hold WITH the 20% margin, and how many
+/// at all: the numbers the README states.
+const CONTEXTS_WITH_MARGIN: u32 = 2;
+const CONTEXTS_AT_ALL: u32 = 3;
+
+/// `max_reads` reads of real wasm contracts in one rule, authorised in several contexts of
+/// one transaction: each context's reads run again (the memo is per `enforce`) and each
+/// read of a wasm contract holds its VM, so memory, not CPU, bounds how many contexts fit.
+#[test]
+fn eight_reads_of_wasm_contracts_fit_a_budgeted_number_of_contexts_per_transaction() {
+    let Some(code) = the_wasm() else { return };
+    let (mut with_margin, mut at_all) = (0, 0);
+    for n in 1..=CONTEXTS_AT_ALL + 1 {
+        let u = authorise_contexts(&code, n);
+        eprintln!(
+            "{n} context(s) x {} wasm reads: {} CPU ({}%), {} bytes memory ({}%)",
+            common::CEILING.max_reads,
+            u.cpu,
+            pct(u.cpu, NET.cpu),
+            u.mem,
+            pct(u.mem, NET.mem)
+        );
+        if u.cpu <= NET.cpu && u.mem <= NET.mem {
+            at_all = n;
+        }
+        if u.cpu * 100 <= NET.cpu * MARGIN && u.mem * 100 <= NET.mem * MARGIN {
+            with_margin = n;
+        }
+    }
+    assert_eq!(
+        (with_margin, at_all),
+        (CONTEXTS_WITH_MARGIN, CONTEXTS_AT_ALL),
+        "the README's context budget is out of date"
     );
 }

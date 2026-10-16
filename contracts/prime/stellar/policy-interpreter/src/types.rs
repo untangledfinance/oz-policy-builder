@@ -57,14 +57,14 @@ impl Limits {
     /// function pin and one argument constraint under an `and`) is 4 leaves, 2 levels deep and
     /// under 256 bytes. `max_elems` starts at 2: with one element a body leaf weighs what a
     /// top-level leaf does, and the placement rules, which compare weights, stop holding.
-    /// The ceilings (reads 8, leaves 400, bytes 48 KiB, elems 64, `in` entries 64, depth 8)
+    /// The ceilings (reads 8, leaves 400, bytes 40 KiB, elems 64, `in` entries 64, depth 8)
     /// are set by what a transaction can carry: the README's Limits section has the
     /// measurements, and `tests/worst_case.rs` proves them on the real wasm.
     pub fn in_range(&self) -> bool {
         let ranges = [
             (self.max_reads, 1, 8),
             (self.max_leaves, 4, 400),
-            (self.max_predicate_bytes, 256, 48 * 1024),
+            (self.max_predicate_bytes, 256, 40 * 1024),
             (self.max_elems, 2, 64),
             (self.max_in_operands, 1, 64),
             (self.max_depth, 2, 8),
