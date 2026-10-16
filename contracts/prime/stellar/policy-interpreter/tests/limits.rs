@@ -79,23 +79,28 @@ fn the_constructor_fails_with(l: Limits) -> bool {
     }
 }
 
-/// Every field, one at a time: (name, how to set it).
+/// Every field, one at a time: (name, how to set it, its floor, its ceiling).
+/// `max_elems` starts at 2: at 1 a quantifier body leaf (weight `max_elems`) weighs
+/// what any other leaf does, and the placement rules, which read the weights, stop
+/// telling a body from the top level (see `placement_holds_at_every_elems`).
 type Setter = fn(&mut Limits, u32);
-const FIELDS: [(&str, Setter, u32); 6] = [
-    ("max_reads", |l, v| l.max_reads = v, CEILING.max_reads),
-    ("max_leaves", |l, v| l.max_leaves = v, CEILING.max_leaves),
+const FIELDS: [(&str, Setter, u32, u32); 6] = [
+    ("max_reads", |l, v| l.max_reads = v, 1, CEILING.max_reads),
+    ("max_leaves", |l, v| l.max_leaves = v, 1, CEILING.max_leaves),
     (
         "max_predicate_bytes",
         |l, v| l.max_predicate_bytes = v,
+        1,
         CEILING.max_predicate_bytes,
     ),
-    ("max_elems", |l, v| l.max_elems = v, CEILING.max_elems),
+    ("max_elems", |l, v| l.max_elems = v, 2, CEILING.max_elems),
     (
         "max_in_operands",
         |l, v| l.max_in_operands = v,
+        1,
         CEILING.max_in_operands,
     ),
-    ("max_depth", |l, v| l.max_depth = v, CEILING.max_depth),
+    ("max_depth", |l, v| l.max_depth = v, 1, CEILING.max_depth),
 ];
 
 #[test]
@@ -117,20 +122,34 @@ fn limits_are_stored_and_shown() {
 }
 
 #[test]
-fn every_field_must_be_at_least_one() {
-    for (name, set, _) in FIELDS {
+fn every_field_must_be_at_least_its_floor() {
+    for (name, set, floor, _) in FIELDS {
         let mut l = DEFAULT;
-        set(&mut l, 0);
-        assert!(the_constructor_fails_with(l), "{name} = 0 was accepted");
-        set(&mut l, 1);
+        set(&mut l, floor - 1);
+        assert!(
+            the_constructor_fails_with(l),
+            "{name} = {} was accepted",
+            floor - 1
+        );
+        set(&mut l, floor);
         let env = Env::default();
-        assert_eq!(deploy(&env, l).limits(), l, "{name} = 1 must be accepted");
+        assert_eq!(
+            deploy(&env, l).limits(),
+            l,
+            "{name} = {floor} must be accepted"
+        );
     }
+    // The case the floor exists for: one element per quantifier is refused outright.
+    let one = Limits {
+        max_elems: 1,
+        ..DEFAULT
+    };
+    assert!(the_constructor_fails_with(one));
 }
 
 #[test]
 fn every_field_must_be_at_most_its_ceiling() {
-    for (name, set, ceiling) in FIELDS {
+    for (name, set, _, ceiling) in FIELDS {
         let mut l = DEFAULT;
         set(&mut l, ceiling + 1);
         assert!(
@@ -466,5 +485,130 @@ fn a_read_argument_counts_toward_the_leaf_cap() {
             fits,
             "{leaves} leaves"
         );
+    }
+}
+
+/// `all(arg0, body)` / `any(arg0, body)` beside the pin, as one rule.
+fn quantified(kind: &str, body: ScVal) -> ScVal {
+    node(
+        "and",
+        alloc::vec![vec(alloc::vec![
+            pin(),
+            node(kind, alloc::vec![arg(0), body])
+        ])],
+    )
+}
+
+fn elem() -> ScVal {
+    node("elem", alloc::vec![])
+}
+
+/// Every placement rule (where `elem`, a quantifier and a `sum` may stand), at the
+/// smallest, a typical and the largest `max_elems`: the rules read leaf weights, and
+/// a weight is only worth reading when a body leaf (`max_elems`) differs from a
+/// top-level one (1).
+#[test]
+fn placement_holds_at_every_elems() {
+    let env = Env::default();
+    let scaled = |inner| node("scaled", alloc::vec![inner, i128v(1), i128v(1), i128v(0)]);
+    let body = || node("eq", alloc::vec![elem(), i128v(1)]);
+    let at_top = |leaf| node("and", alloc::vec![vec(alloc::vec![pin(), leaf])]);
+    // (what, rule, is refused)
+    let cases: StdVec<(&str, ScVal, bool)> = alloc::vec![
+        (
+            "elem at the top level",
+            at_top(node("ne", alloc::vec![elem(), i128v(1)])),
+            true
+        ),
+        (
+            "elem against null at the top level",
+            at_top(node("eq", alloc::vec![elem(), sym("x")])),
+            true
+        ),
+        (
+            "elem as the vector of its own quantifier",
+            at_top(node("all", alloc::vec![elem(), body()])),
+            true
+        ),
+        (
+            "elem as a read argument at the top level",
+            at_top(node(
+                "gte",
+                alloc::vec![
+                    node(
+                        "read",
+                        alloc::vec![
+                            addr(&env, &Address::generate(&env)),
+                            sym("p"),
+                            vec(alloc::vec![elem()])
+                        ]
+                    ),
+                    i128v(0)
+                ]
+            )),
+            true,
+        ),
+        (
+            "elem as a sum source at the top level",
+            at_top(node(
+                "gte",
+                alloc::vec![node("sum", alloc::vec![elem()]), i128v(0)]
+            )),
+            true
+        ),
+        (
+            "elem as an in needle at the top level",
+            at_top(node("in", alloc::vec![elem(), vec(alloc::vec![i128v(1)])])),
+            true
+        ),
+        (
+            "a quantifier inside a body",
+            quantified("all", node("all", alloc::vec![arg(1), body()])),
+            true
+        ),
+        (
+            "a sum inside a body",
+            quantified(
+                "all",
+                node(
+                    "gte",
+                    alloc::vec![node("sum", alloc::vec![arg(1)]), i128v(0)]
+                )
+            ),
+            true
+        ),
+        (
+            "a quantifier inside an any body",
+            quantified("any", node("any", alloc::vec![arg(1), body()])),
+            true
+        ),
+        ("elem in a body", quantified("all", body()), false),
+        ("elem in an any body", quantified("any", body()), false),
+        (
+            "elem inside scaled in a body",
+            quantified("all", node("gte", alloc::vec![scaled(elem()), i128v(1)])),
+            false
+        ),
+        (
+            "a sum at the top level",
+            at_top(node(
+                "gte",
+                alloc::vec![node("sum", alloc::vec![arg(0)]), i128v(0)]
+            )),
+            false
+        ),
+    ];
+    for elems in [2, 32, 64] {
+        let c = deploy(
+            &env,
+            Limits {
+                max_elems: elems,
+                ..CEILING
+            },
+        );
+        for (what, rule, is_refused) in &cases {
+            let got = says(&env, &c, rule, &[]);
+            assert_eq!(refused(got), *is_refused, "elems {elems}: {what}: {got}");
+        }
     }
 }

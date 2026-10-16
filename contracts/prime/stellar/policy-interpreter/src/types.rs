@@ -52,7 +52,9 @@ pub struct Limits {
 }
 
 impl Limits {
-    /// Every field is at least 1 and at most its HARD CEILING: reads 8, leaves 400,
+    /// Every field is at least 1 (`max_elems` at least 2: with one element a body leaf weighs
+    /// what a top-level leaf does, and the placement rules, which compare weights, stop holding)
+    /// and at most its HARD CEILING: reads 8, leaves 400,
     /// bytes 49,152, elems 64, `in` entries 64, depth 8. `tests/worst_case.rs` runs
     /// the largest rule at every ceiling at once on the real wasm against the
     /// network limits (testnet and mainnet are identical for these) and requires a
@@ -66,15 +68,15 @@ impl Limits {
     /// footprint and signature is 105,436 of the 132,096-byte limit (79%). 64 KiB
     /// would be 104%.
     pub fn in_range(&self) -> bool {
-        let pairs = [
-            (self.max_reads, 8),
-            (self.max_leaves, 400),
-            (self.max_predicate_bytes, 48 * 1024),
-            (self.max_elems, 64),
-            (self.max_in_operands, 64),
-            (self.max_depth, 8),
+        let ranges = [
+            (self.max_reads, 1, 8),
+            (self.max_leaves, 1, 400),
+            (self.max_predicate_bytes, 1, 48 * 1024),
+            (self.max_elems, 2, 64),
+            (self.max_in_operands, 1, 64),
+            (self.max_depth, 1, 8),
         ];
-        pairs.iter().all(|&(v, max)| (1..=max).contains(&v))
+        ranges.iter().all(|&(v, min, max)| (min..=max).contains(&v))
     }
 }
 
