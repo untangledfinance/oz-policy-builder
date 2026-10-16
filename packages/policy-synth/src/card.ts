@@ -353,7 +353,7 @@ export interface Authority {
   total?: { amount: string; periodLedgers: number } | null | undefined
   interpreter?: string | undefined
   /** What that interpreter was deployed with: the caps every predicate under it is held to. */
-  limits?: Record<string, number> | undefined
+  limits?: Readonly<Record<string, number>> | undefined
 }
 
 /** Who can act under a rule, by what rule, until when, up to how much in total: the head of an
@@ -412,13 +412,12 @@ export function authority(a: Authority, c: View): Node {
       a.total && spent,
     ])
   }
-  if (a.interpreter) {
-    const l = a.limits
-    const caps =
-      l &&
-      ` (reads ≤ ${l.reads}, leaves ≤ ${l.leaves}, bytes ≤ ${l.bytes}, elems ≤ ${l.elems}, in ≤ ${l.entries}, depth ≤ ${l.depth})`
-    facts.push(['interpreter', addr(a.interpreter, c) + (caps || ''), a.interpreter])
-  }
+  const caps = a.limits
+    ? ` (${Object.entries(a.limits)
+        .map(([k, v]) => `${k.replace('max_', '')} ≤ ${v}`)
+        .join(', ')})`
+    : ''
+  if (a.interpreter) facts.push(['interpreter', addr(a.interpreter, c) + caps, a.interpreter])
   return {
     label: 'Authority',
     op: 'authority',

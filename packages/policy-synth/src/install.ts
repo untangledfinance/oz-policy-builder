@@ -17,6 +17,7 @@ import {
   Operation,
   rpc,
   type Transaction,
+  TransactionBuilder,
   xdr,
 } from '@stellar/stellar-sdk'
 import { type Fingerprint, interpreterFor, mismatch, reasonOf, txOf } from './chain.ts'
@@ -248,7 +249,14 @@ export async function buildSelfCall(
     }),
   })
   const withAuth = tx(op([account, checkAuth]), source.sequenceNumber())
-  const final = rpc.assembleTransaction(withAuth, await simulate(withAuth, 'enforcing')).build()
+  // `assembleTransaction` sets the fee to the base fee plus the resource fee, and `build` adds the
+  // resource fee from the Soroban data again: bid the base fee once and let `build` add the resources.
+  const assembled = rpc.assembleTransaction(withAuth, await simulate(withAuth, 'enforcing')).build()
+  const final = TransactionBuilder.cloneFrom(assembled, {
+    fee: String(a.baseFee ?? BASE_FEE),
+    sorobanData: assembled.toEnvelope().v1().tx().ext().sorobanData(),
+    networkPassphrase: PASSPHRASE[network],
+  }).build()
   const unsignedXdr = final.toEnvelope().toXDR('base64')
   return {
     unsignedXdr,

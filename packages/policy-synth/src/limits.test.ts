@@ -5,10 +5,10 @@ import { afterAll, describe, expect, it } from 'bun:test'
 import { account, contract } from '../test/fixtures.ts'
 import { fakeInterpreter, LIMITS_DEFAULT } from '../test/rpc.ts'
 import { authority, lines } from './card.ts'
-import { capsFor, connect, fingerprint, limitsOf } from './chain.ts'
+import { connect, ensureInterpreter, fingerprint, limitsOf } from './chain.ts'
 import { INTERPRETER, INTERPRETER_WASM, INTERPRETERS } from './config.ts'
 import { run } from './tools.ts'
-import { type Caps, CEILINGS, DECODE_LIMITS, encode, validate, WireError } from './wire.ts'
+import { type Caps, CEILINGS, DECODE_LIMITS, encode, FLOORS, validate, WireError } from './wire.ts'
 
 const OURS = INTERPRETER.testnet?.wasmSha256 as string
 const stops: (() => void)[] = []
@@ -33,38 +33,51 @@ const CUSTOM = {
   max_in_operands: 40,
   max_depth: 7,
 }
-const CUSTOM_CAPS: Caps = {
-  reads: 6,
-  leaves: 300,
-  bytes: 40_000,
-  elems: 50,
-  entries: 40,
-  depth: 7,
-  steps: 8,
-}
+const CUSTOM_CAPS: Caps = CUSTOM
 
-describe('the ceilings are the contract’s', () => {
+describe('the ceilings and floors are the contract’s', () => {
   it('say what Limits::in_range says', () => {
     expect(CEILINGS).toEqual({
-      reads: 8,
-      leaves: 400,
-      bytes: 49_152,
-      elems: 64,
-      entries: 64,
-      depth: 8,
-      steps: 8,
+      max_reads: 8,
+      max_leaves: 400,
+      max_predicate_bytes: 40_960,
+      max_elems: 64,
+      max_in_operands: 64,
+      max_depth: 8,
+    })
+    expect(FLOORS).toEqual({
+      max_reads: 1,
+      max_leaves: 4,
+      max_predicate_bytes: 256,
+      max_elems: 2,
+      max_in_operands: 1,
+      max_depth: 2,
     })
   })
   it('and the defaults are what grammar 7 first shipped with', () => {
     expect(DECODE_LIMITS).toEqual({
-      reads: 4,
-      leaves: 200,
-      bytes: 32_768,
-      elems: 32,
-      entries: 32,
-      depth: 5,
-      steps: 8,
+      max_reads: 4,
+      max_leaves: 200,
+      max_predicate_bytes: 32_768,
+      max_elems: 32,
+      max_in_operands: 32,
+      max_depth: 5,
     })
+    expect(LIMITS_DEFAULT).toEqual(DECODE_LIMITS)
+  })
+  it('are frozen: a consumer cannot raise what the refusal is judged against', () => {
+    for (const c of [CEILINGS, FLOORS, DECODE_LIMITS]) {
+      expect(Object.isFrozen(c)).toBe(true)
+      expect(() => {
+        ;(c as Record<string, number>).max_leaves = 1e9
+      }).toThrow()
+    }
+  })
+  it('keep every default between its floor and its ceiling', () => {
+    for (const k of Object.keys(CEILINGS) as (keyof Caps)[]) {
+      expect(DECODE_LIMITS[k]).toBeGreaterThanOrEqual(FLOORS[k])
+      expect(DECODE_LIMITS[k]).toBeLessThanOrEqual(CEILINGS[k])
+    }
   })
 })
 
@@ -74,31 +87,15 @@ describe('limitsOf: what the instance says, and nothing it should not', () => {
     expect(await limitsOf(f.server, 'mainnet', f.address)).toEqual(CUSTOM_CAPS)
   })
 
-  it('accepts exactly the ceilings and exactly 1', async () => {
-    const top = net({
-      max_reads: 8,
-      max_leaves: 400,
-      max_predicate_bytes: 49_152,
-      max_elems: 64,
-      max_in_operands: 64,
-      max_depth: 8,
-    })
+  it('accepts exactly the ceilings and exactly the floors', async () => {
+    const top = net(CEILINGS)
     expect(await limitsOf(top.server, 'mainnet', top.address)).toEqual(CEILINGS)
-    const low = net(Object.fromEntries(Object.keys(LIMITS_DEFAULT).map((k) => [k, 1])))
-    expect(await limitsOf(low.server, 'mainnet', low.address)).toMatchObject({
-      reads: 1,
-      leaves: 1,
-      bytes: 1,
-      elems: 1,
-      entries: 1,
-      depth: 1,
-    })
+    const low = net(FLOORS)
+    expect(await limitsOf(low.server, 'mainnet', low.address)).toEqual(FLOORS)
   })
 
-  const bad: [string, number | string][] = Object.keys(LIMITS_DEFAULT).flatMap((k) => [
-    [k, 0],
-    [k, 'x'],
-  ])
+  const fields = Object.keys(LIMITS_DEFAULT)
+  const bad: [string, number | string][] = fields.flatMap((k) => [[k, 'x']])
   it.each(bad)('refuses %s = %p', async (field, value) => {
     const f = net({ ...LIMITS_DEFAULT, [field]: value })
     await expect(limitsOf(f.server, 'mainnet', f.address)).rejects.toThrow(
@@ -106,19 +103,21 @@ describe('limitsOf: what the instance says, and nothing it should not', () => {
     )
   })
 
-  const ceilingOf: Record<string, number> = {
-    max_reads: 8,
-    max_leaves: 400,
-    max_predicate_bytes: 49_152,
-    max_elems: 64,
-    max_in_operands: 64,
-    max_depth: 8,
-  }
-  it.each(Object.entries(ceilingOf))('refuses %s above its ceiling (%d)', async (field, top) => {
-    const f = net({ ...LIMITS_DEFAULT, [field]: top + 1 })
+  // each field one under its floor and one over its ceiling; max_elems = 1 is the placement hole
+  const outside = fields.flatMap((k) => [
+    [k, FLOORS[k as keyof Caps] - 1],
+    [k, CEILINGS[k as keyof Caps] + 1],
+  ]) as [string, number][]
+  it.each(outside)('refuses %s = %d', async (field, value) => {
+    const f = net({ ...LIMITS_DEFAULT, [field]: value })
     await expect(limitsOf(f.server, 'mainnet', f.address)).rejects.toThrow(
-      new RegExp(`${field} = ${top + 1}`)
+      new RegExp(`${field} = ${value}`)
     )
+  })
+
+  it('refuses a field it does not know: an instance that says more is not the build it trusts', async () => {
+    const f = net({ ...LIMITS_DEFAULT, max_everything: 1 })
+    await expect(limitsOf(f.server, 'mainnet', f.address)).rejects.toThrow(/max_everything/)
   })
 
   it('refuses an instance that leaves a field out, or does not answer', async () => {
@@ -136,6 +135,9 @@ describe('limitsOf: what the instance says, and nothing it should not', () => {
     await limitsOf(f.server, 'mainnet', f.address)
     await limitsOf(f.server, 'mainnet', f.address)
     expect(f.asked.filter((m) => m === 'simulate limits')).toHaveLength(1)
+    // what it hands out is frozen, so no caller can change what the next one is held to
+    const caps = await limitsOf(f.server, 'mainnet', f.address)
+    expect(Object.isFrozen(caps)).toBe(true)
     const g = net(CUSTOM)
     await limitsOf(g.server, 'mainnet', g.address)
     expect(g.asked.filter((m) => m === 'simulate limits')).toHaveLength(1)
@@ -148,9 +150,11 @@ describe('limitsOf: what the instance says, and nothing it should not', () => {
     expect(f.asked.filter((m) => m === 'simulate limits')).toHaveLength(2)
   })
 
-  it('capsFor trusts the code first: an untrusted build is not asked what its limits are', async () => {
+  it('ensureInterpreter gives the limits, and trusts the code first: an untrusted build is not asked what its limits are', async () => {
+    const ok = net(CUSTOM)
+    expect(await ensureInterpreter(ok.server, 'mainnet', ok.address)).toEqual(CUSTOM_CAPS)
     const f = net(CUSTOM, 'ab'.repeat(32))
-    await expect(capsFor(f.server, 'mainnet', f.address)).rejects.toThrow(
+    await expect(ensureInterpreter(f.server, 'mainnet', f.address)).rejects.toThrow(
       /runs grammar 7 with wasm ab/
     )
     expect(f.asked).not.toContain('simulate limits')
@@ -179,9 +183,9 @@ describe('validate holds a predicate to the caps it is given', () => {
   it('reads', () => {
     expect(() => validate(reads(4))).not.toThrow()
     expect(() => validate(reads(5))).toThrow(/5 distinct reads, at most 4/)
-    expect(() => validate(reads(5), caps({ reads: 5 }))).not.toThrow()
-    expect(() => validate(reads(6), caps({ reads: 5 }))).toThrow(/at most 5/)
-    expect(() => validate(reads(3), caps({ reads: 2 }))).toThrow(/at most 2/)
+    expect(() => validate(reads(5), caps({ max_reads: 5 }))).not.toThrow()
+    expect(() => validate(reads(6), caps({ max_reads: 5 }))).toThrow(/at most 5/)
+    expect(() => validate(reads(3), caps({ max_reads: 2 }))).toThrow(/at most 2/)
   })
 
   it('leaves', () => {
@@ -189,8 +193,8 @@ describe('validate holds a predicate to the caps it is given', () => {
     // 2 leaves a compare
     expect(() => validate(many(99))).not.toThrow()
     expect(() => validate(many(100))).toThrow(/202 leaves, at most 200/)
-    expect(() => validate(many(100), caps({ leaves: 202 }))).not.toThrow()
-    expect(() => validate(many(100), caps({ leaves: 201 }))).toThrow(/at most 201/)
+    expect(() => validate(many(100), caps({ max_leaves: 202 }))).not.toThrow()
+    expect(() => validate(many(100), caps({ max_leaves: 201 }))).toThrow(/at most 201/)
   })
 
   it('a quantifier body and a sum weigh the caps’ elems', () => {
@@ -200,14 +204,14 @@ describe('validate holds a predicate to the caps it is given', () => {
       ['and', Array.from({ length: k }, () => ['gte', ['elem'], { i128: '0' }])],
     ]
     // one compare is 2 leaves a body leaf, plus the vector: 2 * elems + 1
-    expect(() => validate(body(1), caps({ elems: 10, leaves: 21 }))).not.toThrow()
-    expect(() => validate(body(1), caps({ elems: 10, leaves: 20 }))).toThrow(/21 leaves/)
-    expect(() => validate(body(1), caps({ elems: 64, leaves: 129 }))).not.toThrow()
-    expect(() => validate(body(1), caps({ elems: 64, leaves: 128 }))).toThrow(/129 leaves/)
+    expect(() => validate(body(1), caps({ max_elems: 10, max_leaves: 21 }))).not.toThrow()
+    expect(() => validate(body(1), caps({ max_elems: 10, max_leaves: 20 }))).toThrow(/21 leaves/)
+    expect(() => validate(body(1), caps({ max_elems: 64, max_leaves: 129 }))).not.toThrow()
+    expect(() => validate(body(1), caps({ max_elems: 64, max_leaves: 128 }))).toThrow(/129 leaves/)
     // gte(sum(call_path 0), 0): elems + the source + the constant + the call_path
     const total = ['gte', ['sum', ['call_path', 0]], { i128: '0' }]
-    expect(() => validate(total, caps({ elems: 20, leaves: 22 }))).not.toThrow()
-    expect(() => validate(total, caps({ elems: 20, leaves: 21 }))).toThrow(/22 leaves/)
+    expect(() => validate(total, caps({ max_elems: 20, max_leaves: 22 }))).not.toThrow()
+    expect(() => validate(total, caps({ max_elems: 20, max_leaves: 21 }))).toThrow(/22 leaves/)
   })
 
   it('in and nin entries', () => {
@@ -219,10 +223,12 @@ describe('validate holds a predicate to the caps it is given', () => {
     for (const op of ['in', 'nin']) {
       expect(() => validate(inList(op, 32))).not.toThrow()
       expect(() => validate(inList(op, 33))).toThrow(/more than 32 entries/)
-      expect(() => validate(inList(op, 33), caps({ entries: 33, leaves: 400 }))).not.toThrow()
-      expect(() => validate(inList(op, 34), caps({ entries: 33, leaves: 400 }))).toThrow(
-        /more than 33/
-      )
+      expect(() =>
+        validate(inList(op, 33), caps({ max_in_operands: 33, max_leaves: 400 }))
+      ).not.toThrow()
+      expect(() =>
+        validate(inList(op, 34), caps({ max_in_operands: 33, max_leaves: 400 }))
+      ).toThrow(/more than 33/)
     }
   })
 
@@ -231,8 +237,8 @@ describe('validate holds a predicate to the caps it is given', () => {
     // k `and`s around a compare: k + 1 levels
     expect(() => validate(chain(4))).not.toThrow()
     expect(() => validate(chain(5))).toThrow(/nested deeper than 5/)
-    expect(() => validate(chain(5), caps({ depth: 6 }))).not.toThrow()
-    expect(() => validate(chain(6), caps({ depth: 6 }))).toThrow(/deeper than 6/)
+    expect(() => validate(chain(5), caps({ max_depth: 6 }))).not.toThrow()
+    expect(() => validate(chain(6), caps({ max_depth: 6 }))).toThrow(/deeper than 6/)
     const scaled = (k: number): unknown =>
       k === 0
         ? { i128: '1' }
@@ -240,26 +246,52 @@ describe('validate holds a predicate to the caps it is given', () => {
     const nested = (k: number) => ['gte', ['call_arg', 0], scaled(k)]
     expect(() => validate(nested(4))).not.toThrow()
     expect(() => validate(nested(5))).toThrow(/leaf nested deeper than 5/)
-    expect(() => validate(nested(5), caps({ depth: 6 }))).not.toThrow()
-    expect(() => validate(nested(6), caps({ depth: 6 }))).toThrow(/deeper than 6/)
+    expect(() => validate(nested(5), caps({ max_depth: 6 }))).not.toThrow()
+    expect(() => validate(nested(6), caps({ max_depth: 6 }))).toThrow(/deeper than 6/)
     // a bare constant nests as deep
     const vec = (k: number): unknown => (k === 0 ? 1 : [vec(k - 1)])
     expect(() => validate(['eq', ['call_arg', 0], vec(3)])).not.toThrow()
     expect(() => validate(['eq', ['call_arg', 0], vec(5)])).toThrow(/too deep/)
-    expect(() => validate(['eq', ['call_arg', 0], vec(5)], caps({ depth: 6 }))).not.toThrow()
+    expect(() => validate(['eq', ['call_arg', 0], vec(5)], caps({ max_depth: 6 }))).not.toThrow()
     // and so does a path step's constant key
     expect(() => validate(['eq', ['call_path', 0, vec(5)], 1])).toThrow(/too deep/)
-    expect(() => validate(['eq', ['call_path', 0, vec(5)], 1], caps({ depth: 6 }))).not.toThrow()
+    expect(() =>
+      validate(['eq', ['call_path', 0, vec(5)], 1], caps({ max_depth: 6 }))
+    ).not.toThrow()
   })
 
   it('bytes', () => {
     const blob = (k: number) => ['eq', ['call_arg', 0], { bytes: 'ab'.repeat(k) }]
     expect(() => validate(blob(100))).not.toThrow()
-    expect(() => validate(blob(100), caps({ bytes: 100 }))).toThrow(/over 100 bytes/)
-    expect(() => validate(blob(100), caps({ bytes: 200 }))).not.toThrow()
+    expect(() => validate(blob(100), caps({ max_predicate_bytes: 100 }))).toThrow(/over 100 bytes/)
+    expect(() => validate(blob(100), caps({ max_predicate_bytes: 200 }))).not.toThrow()
     expect(() => validate(blob(33_000))).toThrow(/over 32768 bytes/)
     expect(() => validate(blob(33_000), CEILINGS)).not.toThrow()
-    expect(() => validate(blob(50_000), CEILINGS)).toThrow(WireError)
+    expect(() => validate(blob(42_000), CEILINGS)).toThrow(WireError)
+  })
+
+  it('placement is structural at every elems (the contract’s weights need elems >= 2)', () => {
+    const body = ['eq', ['elem'], { i128: '1' }]
+    const rules: [string, unknown][] = [
+      ['elem at the top level', ['and', [sel, ['ne', ['elem'], { i128: '1' }]]]],
+      [
+        'a quantifier inside a body',
+        ['and', [sel, ['all', ['call_arg', 0], ['all', ['call_arg', 1], body]]]],
+      ],
+      [
+        'a sum inside a body',
+        ['and', [sel, ['all', ['call_arg', 0], ['gte', ['sum', ['call_arg', 1]], { i128: '0' }]]]],
+      ],
+    ]
+    for (const elems of [2, 32, 64])
+      for (const [what, rule] of rules)
+        expect(
+          () => validate(rule as never, caps({ max_elems: elems, max_leaves: 400 })),
+          `${what} @${elems}`
+        ).toThrow(WireError)
+    expect(() =>
+      validate(['and', [sel, ['all', ['call_arg', 0], body]]] as never, caps({ max_elems: 2 }))
+    ).not.toThrow()
   })
 
   it('the steps of a path stay 8 whatever the instance', () => {
@@ -325,6 +357,74 @@ describe('the tools use the instance’s limits', () => {
       calls,
     })) as Out
     expect(ok.ok).toBe(true)
+  })
+
+  it('verify_policy with `call` (singular) is held to the instance’s limits, as with `calls`', async () => {
+    const wide = net({ ...LIMITS_DEFAULT, max_reads: 8 })
+    wide.use()
+    for (const given of [{ call: calls[0] }, { calls }]) {
+      const r = (await run('verify_policy', {
+        network: 'mainnet',
+        interpreterAddress: wide.address,
+        expr: six,
+        ...given,
+      })) as Out
+      // It goes on to check (the fake permits every call): a verdict, not a refusal of the rule.
+      expect(r.error?.code, JSON.stringify(given)).not.toBe('MALFORMED_PREDICATE')
+      expect(wide.asked).toContain('check')
+    }
+    const small = net()
+    small.use()
+    const no = (await run('verify_policy', {
+      network: 'mainnet',
+      interpreterAddress: small.address,
+      expr: six,
+      call: calls[0],
+    })) as Out
+    expect(no.error?.message).toMatch(/6 distinct reads, at most 4/)
+  })
+
+  it('an explain-only simulate is held to the interpreter named (or pinned), and says which', async () => {
+    const small = net()
+    small.use()
+    const no = (await run('simulate_policy', {
+      network: 'mainnet',
+      interpreterAddress: small.address,
+      expr: six,
+    })) as Out
+    expect(no.error?.message).toMatch(/6 distinct reads, at most 4/)
+    const wide = net({ ...LIMITS_DEFAULT, max_reads: 8 })
+    wide.use()
+    const yes = (await run('simulate_policy', {
+      network: 'mainnet',
+      interpreterAddress: wide.address,
+      expr: six,
+    })) as Out
+    expect(yes.ok).toBe(true)
+    expect(yes.data?.heldTo).toBe(`the limits of ${wide.address}`)
+    expect(wide.asked).not.toContain('check')
+  })
+
+  it('an explain-only simulate that names no interpreter is held to the ceilings, the most any allows', async () => {
+    const f = net()
+    f.use()
+    const r = (await run('simulate_policy', { network: 'mainnet', expr: six })) as Out
+    expect(r.ok).toBe(true)
+    expect(r.data?.heldTo).toBe('the ceilings (no interpreter named)')
+    expect(f.asked).not.toContain('simulate limits')
+    const nine = [
+      'and',
+      [
+        sel,
+        ...Array.from({ length: 9 }, (_, i) => [
+          'gte',
+          ['read', contract(70 + i), 'price', []],
+          { i128: '0' },
+        ]),
+      ],
+    ]
+    const over = (await run('simulate_policy', { network: 'mainnet', expr: nine })) as Out
+    expect(over.error?.message).toMatch(/9 distinct reads, at most 8/)
   })
 
   it('an instance whose limits() is out of range is refused, and no verdict is asked of it', async () => {
@@ -449,7 +549,7 @@ describe('the install review says what the interpreter allows', () => {
 
   it('names each limit beside the interpreter', () => {
     expect(line(text(CUSTOM_CAPS))).toBe(
-      `└─ interpreter:  ${INT.slice(0, 6)}…${INT.slice(-6)} (reads ≤ 6, leaves ≤ 300, bytes ≤ 40000, elems ≤ 50, in ≤ 40, depth ≤ 7)`
+      `└─ interpreter:  ${INT.slice(0, 6)}…${INT.slice(-6)} (reads ≤ 6, leaves ≤ 300, predicate_bytes ≤ 40000, elems ≤ 50, in_operands ≤ 40, depth ≤ 7)`
     )
   })
 
@@ -477,7 +577,7 @@ describe('the pins', () => {
     expect(rec.limits).toEqual({
       max_reads: 8,
       max_leaves: 400,
-      max_predicate_bytes: 49_152,
+      max_predicate_bytes: 24_576,
       max_elems: 32,
       max_in_operands: 32,
       max_depth: 5,

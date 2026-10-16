@@ -25,8 +25,8 @@ export const GRAMMAR_VERSION = 7
  *  interpreter, and it is verified live like the pinned one. */
 export const INTERPRETER: Record<Network, { address: string; wasmSha256: string } | null> = {
   testnet: {
-    address: 'CAECFZWHHHKJRJHYR3EQHAMYHBQPW7G6BGKYSNJS4KLZAUNLQP7H5L2H',
-    wasmSha256: '42d53616cafe85361b9675df5919fa7df81d10d9ac77698458205673cb390f77',
+    address: 'CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT',
+    wasmSha256: '69cad1d5ce9aeaa0dad6980fd030e528935a0ebdd290111f393e9fd0564a68b0',
   },
   mainnet: null,
 }
@@ -74,7 +74,8 @@ export const INTERPRETERS: ReadonlySet<string> = new Set([
   'CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5', // grammar 4, testnet
   'CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB', // grammar 7, testnet, first build (its check could commit a read)
   'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV', // grammar 7, testnet, limits hard-coded (superseded: no limits())
-  'CAECFZWHHHKJRJHYR3EQHAMYHBQPW7G6BGKYSNJS4KLZAUNLQP7H5L2H', // grammar 7, testnet, deploy-time limits
+  'CAECFZWHHHKJRJHYR3EQHAMYHBQPW7G6BGKYSNJS4KLZAUNLQP7H5L2H', // grammar 7, testnet, deploy-time limits (superseded: max_elems could be 1, 48 KiB ceiling)
+  'CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT', // grammar 7, testnet, deploy-time limits, floors, 40 KiB ceiling
 ])
 
 /** OpenZeppelin's `simple_threshold` and `weighted_threshold`, built from v0.7.2 and deployed by us

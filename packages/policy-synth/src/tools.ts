@@ -11,7 +11,6 @@ import { StrKey } from '@stellar/stellar-sdk'
 import { z } from 'zod'
 import { type Authority, authority, contractsOf, lines, tree } from './card.ts'
 import {
-  capsFor,
   codeHash,
   connect,
   type Endpoint,
@@ -94,14 +93,14 @@ const rule: z.ZodType<unknown> = z.lazy(() =>
       .object({
         constraint: z.literal('allow'),
         at: path,
-        in: z.array(val).min(1).max(CEILINGS.entries),
+        in: z.array(val).min(1).max(CEILINGS.max_in_operands),
       })
       .strict(),
     z
       .object({
         constraint: z.literal('deny'),
         at: path,
-        nin: z.array(val).min(1).max(CEILINGS.entries),
+        nin: z.array(val).min(1).max(CEILINGS.max_in_operands),
       })
       .strict(),
     z.object({ constraint: z.literal('cap'), at: path, max: amount }).strict(),
@@ -398,7 +397,9 @@ const synthesize_policy = tool(
   async (i, signal) => {
     const s = await sourceOf(i)
     // The pinned interpreter's limits; a network that pins none has nothing to ask.
-    const caps = INTERPRETER[i.network] ? await capsFor(connect(i), i.network) : DECODE_LIMITS
+    const caps = INTERPRETER[i.network]
+      ? await ensureInterpreter(connect(i), i.network)
+      : DECODE_LIMITS
     const rules = propose(s.intent, caps)
     const shown = await explain(i, rules, signal)
     return {
@@ -424,7 +425,7 @@ const predicateInput = {
 }
 
 /** The predicate and the calls a simulate or verify is about. */
-async function subject(i: z.infer<z.ZodObject<typeof predicateInput>>) {
+async function subject(i: z.infer<z.ZodObject<typeof predicateInput>>, checked = false) {
   const hasSource = SOURCES.some((k) => (i as Record<string, unknown>)[k] !== undefined)
   const hasPred = i.expr !== undefined || i.encodedPredicate !== undefined
   if (!hasPred && !hasSource)
@@ -432,12 +433,16 @@ async function subject(i: z.infer<z.ZodObject<typeof predicateInput>>) {
       'INVALID_INPUT',
       'give a predicate (expr or encodedPredicate) or a source to build one from'
     )
-  // A predicate that is only explained never reaches an interpreter: it is held to what grammar 7
-  // shipped with. Anything that will be checked is held to the limits of the one it is checked by.
-  const explainOnly = hasPred && !hasSource && i.calls === undefined
-  const caps = explainOnly
-    ? DECODE_LIMITS
-    : await capsFor(connect(i), i.network, i.interpreterAddress)
+  // Whatever is checked (given calls, a source, or `checked`: verify) is held to the limits of the
+  // interpreter that checks it. A predicate that is only explained never reaches one, so it is held
+  // to the limits of the interpreter this network pins (or the caller names) when there is one, and
+  // otherwise to the ceilings, the most any instance allows. `heldTo` says which.
+  const explainOnly = hasPred && !hasSource && i.calls === undefined && !checked
+  const named = i.interpreterAddress ?? INTERPRETER[i.network]?.address
+  const caps =
+    explainOnly && !named
+      ? CEILINGS
+      : await ensureInterpreter(connect(i), i.network, i.interpreterAddress)
   const src = hasSource ? await sourceOf(i) : undefined
   const pred = hasPred ? given(i, caps) : undefined
   const rule = pred ? undefined : pick(propose((src as Source).intent, caps), i.contract)
@@ -450,6 +455,7 @@ async function subject(i: z.infer<z.ZodObject<typeof predicateInput>>) {
     calls: calls as Call[],
     /** Only a predicate was given, no source and no calls: it is explained, nothing is checked. */
     explainOnly,
+    heldTo: named ? `the limits of ${named}` : 'the ceilings (no interpreter named)',
     /** What names it: its own pins, and the contract of the rule a source made. */
     item: { expr, contract: rule?.contract },
   }
@@ -474,6 +480,7 @@ const simulate_policy = tool(
     return {
       predicateHash: hashOf(s.encoded),
       results: s.calls.map((c, n) => ({ call: c, ...verdicts[n] })),
+      ...(s.explainOnly ? { heldTo: s.heldTo } : {}),
       ...shown,
     }
   }
@@ -484,7 +491,7 @@ const verify_policy = tool(
   `Check a predicate against a call it must permit: the call must pass, every constraint is turned against the call and must refuse it, and each conjunct is dropped in turn to see the call it guards get through (minimality). Give the call that must be permitted as \`call\`, or one per branch of an \`or\` as \`calls\` (or a recording). \`ok\` WITHOUT \`complete: true\` does not prove every limit (a swap's spend cap can be \`untested\` while \`ok\` is true): always read \`complete\`. \`ok\` needs every call permitted, every deny case refused, and every branch of an \`or\` taken by a call; a conjunct holding a nested \`or\` that nothing was tried against makes it not \`ok\`. \`complete\` also needs nothing \`untested\`; \`redundant\` lists exact duplicates only. ${CHECKED} At most 64 calls are made in all (a length bound above 255 derives no case), a few at a time.`,
   { ...predicateInput, call: call.optional() },
   async (i, signal) => {
-    const s = await subject(i)
+    const s = await subject(i, true)
     const permits = i.call ? [i.call as Call] : s.calls
     if (permits.length === 0)
       throw new Refusal(
@@ -542,7 +549,7 @@ const install_policy = tool(
   async (i, signal) => {
     // The rule: an encoded predicate scoped by `contract`, or one the source yields.
     let rule: Chosen
-    const caps = await capsFor(connect(i), i.network, i.interpreterAddress)
+    const caps = await ensureInterpreter(connect(i), i.network, i.interpreterAddress)
     if (i.encodedPredicate !== undefined) {
       const p = given(i, caps)
       const sel = [...new Set(selectors(p.expr).map((s) => s.contract))]
@@ -716,10 +723,11 @@ const get_interpreter_info = tool(
   async (i, signal) => {
     const address = interpreterFor(i.network, i.interpreterAddress)
     const wasm = pinnedWasm(i.network, address)
-    const server = connect(i)
     // What a build this package does not trust says of itself is shown by `verifyLive`, never believed.
-    const live = i.verifyLive ? await fingerprint(server, i.network, address) : undefined
-    const limits = live ? (live.limits ?? null) : await capsFor(server, i.network, address)
+    const live = i.verifyLive ? await fingerprint(connect(i), i.network, address) : undefined
+    const limits = live
+      ? (live.limits ?? null)
+      : await ensureInterpreter(connect(i), i.network, address)
     return {
       network: i.network,
       address,

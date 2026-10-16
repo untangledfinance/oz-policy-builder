@@ -11,7 +11,6 @@ import { identify, type Kind, PROTOCOLS } from './registry.ts'
 import { canon, constantLast, FLIP, selectors } from './rules.ts'
 import {
   branches,
-  type Caps,
   conjuncts,
   DECODE_LIMITS,
   type Expr,
@@ -224,7 +223,7 @@ export function unboundedExpr(expr: Expr): Synthesis['ambiguities'] {
           )
           const flat =
             n !== undefined &&
-            n <= BigInt(DECODE_LIMITS.elems) &&
+            n <= BigInt(DECODE_LIMITS.max_elems) &&
             Array.from({ length: Number(n) }, (_, k) => k).every((k) =>
               upper.some((b) => canon(b.at) === canon(['call_path', i, k, 'amount']))
             )
@@ -301,7 +300,7 @@ export interface ProposedRule {
 
 /** One rule per contract the intent covers, each checked against the decode refusals of the
  *  interpreter whose `caps` they are, so nothing leaves here that install would refuse. */
-export function propose(intent: Intent, caps: Caps = DECODE_LIMITS): ProposedRule[] {
+export function propose(intent: Intent, caps = DECODE_LIMITS): ProposedRule[] {
   return [...intentExprs(intent)].map(([contract, expr]) => {
     try {
       validate(expr, caps)

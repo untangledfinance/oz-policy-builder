@@ -131,6 +131,24 @@ describe('buildInstall and buildRevoke, on a live account', () => {
     expect(built.authValidUntilLedger).toBeGreaterThan(0)
   })
 
+  it('bids the base fee once beside the resource fee (not twice: assembling adds it and so does build)', async () => {
+    const feeOf = async (baseFee?: number) => {
+      const built = await buildInstall(
+        { ...args, baseFee },
+        draft({ name: 'cap-500', nonce: 1 }),
+        INTERP
+      )
+      const tx = TransactionBuilder.fromXDR(built.unsignedXdr, PASSPHRASE.testnet)
+      const data = tx.toEnvelope().v1().tx().ext().sorobanData()
+      return { fee: Number(tx.fee), resource: Number(data.resourceFee()) }
+    }
+    const plain = await feeOf()
+    expect(plain.resource).toBeGreaterThan(0)
+    expect(plain.fee).toBe(100 + plain.resource)
+    const high = await feeOf(5000)
+    expect(high.fee).toBe(5000 + high.resource)
+  })
+
   it('the interpreter refuses what it refuses, and the code comes back', async () => {
     const def = buildInstall(args, draft({ scope: { kind: 'default' } }), INTERP)
     await expect(def).rejects.toThrow(/#218/)

@@ -210,33 +210,33 @@ export const hashOf = (b64: string): string =>
 // and the grammar corpus hold it to that, case by case; the contract stays the
 // authority, and `check` is the way to ask it.
 
-/** The caps decode enforces. A quantifier body and a `sum` weigh `elems` leaves. `steps` is fixed
- *  in the contract; the rest are the deployment's `Limits` (`max_depth`, `max_leaves`,
- *  `max_in_operands`, `max_reads`, `max_predicate_bytes`, `max_elems`). */
-export type Caps = Record<
-  'depth' | 'leaves' | 'entries' | 'reads' | 'bytes' | 'steps' | 'elems',
-  number
->
-/** What grammar 7 shipped with, and so the caps of a rule checked without an interpreter at hand. */
-export const DECODE_LIMITS: Caps = {
-  depth: 5,
-  leaves: 200,
-  entries: 32,
-  reads: 4,
-  bytes: 32 * 1024,
-  steps: 8,
-  elems: 32,
-}
+/** The caps decode enforces: the deployment's `Limits`, under the contract's own field names and
+ *  in its order. A quantifier body and a `sum` weigh `max_elems` leaves. */
+const limits = (
+  max_reads: number,
+  max_leaves: number,
+  max_predicate_bytes: number,
+  max_elems: number,
+  max_in_operands: number,
+  max_depth: number
+) =>
+  Object.freeze({
+    max_reads,
+    max_leaves,
+    max_predicate_bytes,
+    max_elems,
+    max_in_operands,
+    max_depth,
+  })
+export type Caps = ReturnType<typeof limits>
+/** What grammar 7 first shipped with, and so the caps of a rule checked without an interpreter at hand. */
+export const DECODE_LIMITS = limits(4, 200, 32 * 1024, 32, 32, 5)
 /** The most any deployment may choose (`Limits::in_range` in the contract): an instance reporting more is refused. */
-export const CEILINGS: Caps = {
-  depth: 8,
-  leaves: 400,
-  entries: 64,
-  reads: 8,
-  bytes: 48 * 1024,
-  steps: 8,
-  elems: 64,
-}
+export const CEILINGS = limits(8, 400, 40 * 1024, 64, 64, 8)
+/** The least (`in_range` again): an instance reporting less could hold no rule, and is refused. */
+export const FLOORS = limits(1, 4, 256, 2, 1, 2)
+/** A path is at most this many steps, in every deployment. */
+const MAX_STEPS = 8
 const MAX_DEN = 10n ** 18n
 const I128 = 2n ** 127n
 const fits = (x: bigint) => x >= -I128 && x < I128
@@ -296,11 +296,12 @@ interface Walk {
 export function validate(expr: Expr, caps: Caps = DECODE_LIMITS): void {
   const w: Walk = { caps, weight: 0, reads: new Set(), selector: false }
   node(expr, 1, false, w)
-  if (w.weight > caps.leaves) bad(`${w.weight} leaves, at most ${caps.leaves}`)
-  if (w.reads.size > caps.reads) bad(`${w.reads.size} distinct reads, at most ${caps.reads}`)
+  if (w.weight > caps.max_leaves) bad(`${w.weight} leaves, at most ${caps.max_leaves}`)
+  if (w.reads.size > caps.max_reads)
+    bad(`${w.reads.size} distinct reads, at most ${caps.max_reads}`)
   if (!w.selector) bad('no leaf reads the call: the rule would constrain nothing')
-  if (Buffer.from(encode(expr), 'base64').length > caps.bytes)
-    bad(`encoding over ${caps.bytes} bytes`)
+  if (Buffer.from(encode(expr), 'base64').length > caps.max_predicate_bytes)
+    bad(`encoding over ${caps.max_predicate_bytes} bytes`)
 }
 
 const bad = (m: string): never => {
@@ -334,7 +335,7 @@ export const branches = (expr: Expr): Expr[][] =>
   isSelector(expr) && expr[0] === 'or' ? (expr[1] as Expr[]).map(conjuncts) : [conjuncts(expr)]
 
 function node(e: Expr, depth: number, body: boolean, w: Walk): void {
-  if (depth > w.caps.depth) bad(`nested deeper than ${w.caps.depth}`)
+  if (depth > w.caps.max_depth) bad(`nested deeper than ${w.caps.max_depth}`)
   if (!isSelector(e)) bad('not a node')
   const [op, ...r] = e as [string, ...Val[]]
   const [a, b] = r as Val[]
@@ -356,7 +357,8 @@ function node(e: Expr, depth: number, body: boolean, w: Walk): void {
   } else if ((op === 'in' || op === 'nin') && r.length === 2) {
     leaf(a as Val, 1, body, w)
     const entries = list(b)
-    if (entries.length > w.caps.entries) bad(`${op}: more than ${w.caps.entries} entries`)
+    if (entries.length > w.caps.max_in_operands)
+      bad(`${op}: more than ${w.caps.max_in_operands} entries`)
     for (const x of entries) {
       leaf(x, 1, body, w)
       if (!isConstant(x)) bad(`${op}: entries are constants`)
@@ -367,7 +369,7 @@ function node(e: Expr, depth: number, body: boolean, w: Walk): void {
     const inner: Walk = { caps: w.caps, weight: 0, reads: w.reads, selector: false }
     node(b as Val, depth + 1, true, inner)
     // Every leaf of the body is walked once per element.
-    w.weight += inner.weight * w.caps.elems
+    w.weight += inner.weight * w.caps.max_elems
     w.selector ||= inner.selector
   } else {
     bad(`unknown operator or wrong arity: ${op}/${r.length}`)
@@ -380,10 +382,10 @@ const index = (x: Val | undefined): void => {
 }
 
 function leaf(v: Val, nest: number, body: boolean, w: Walk): void {
-  if (nest > w.caps.depth) bad(`leaf nested deeper than ${w.caps.depth}`)
+  if (nest > w.caps.max_depth) bad(`leaf nested deeper than ${w.caps.max_depth}`)
   w.weight += 1
   if (!isSelector(v)) {
-    constantValue(v, nest, w.caps.depth)
+    constantValue(v, nest, w.caps.max_depth)
     return
   }
   const [head, ...r] = v
@@ -399,15 +401,15 @@ function leaf(v: Val, nest: number, body: boolean, w: Walk): void {
   if (head === 'call_arg_field') {
     index(r[0])
     index(r[1])
-    steps(r.slice(2), w.caps.depth)
+    steps(r.slice(2), w.caps.max_depth)
   }
-  if (head === 'call_path' || head === 'elem') steps(r, w.caps.depth)
+  if (head === 'call_path' || head === 'elem') steps(r, w.caps.max_depth)
   if (head === 'sum') {
     if (body) bad('a sum inside a quantifier')
     // A sum walks up to `elems` elements, so it weighs that many leaves in all.
-    w.weight += w.caps.elems - 1
+    w.weight += w.caps.max_elems - 1
     next(r[0] as Val)
-    steps(r.slice(1), w.caps.depth)
+    steps(r.slice(1), w.caps.max_depth)
   }
   if (head === 'scaled') scaledLeaf(r, next)
   if (head === 'read') {
@@ -416,7 +418,7 @@ function leaf(v: Val, nest: number, body: boolean, w: Walk): void {
       bad('read: target is a contract')
     if (typeof fn !== 'string' || isAddress(fn) || !Array.isArray(args))
       bad('read: (contract, fn, [args], path...)')
-    steps(r.slice(3), w.caps.depth)
+    steps(r.slice(3), w.caps.max_depth)
     for (const x of args as Val[]) {
       if (isSelector(x) && !isCall(x[0]) && x[0] !== 'now' && x[0] !== 'lit') {
         bad('read: an argument is a constant or a plain leaf')
@@ -452,13 +454,13 @@ function scaledLeaf(r: Val[], next: (x: Val) => void): void {
 }
 
 /** A bare constant: a value, or a non-empty vec of them (never a selector or a map). */
-function constantValue(v: Val, nest: number, depth: number): void {
-  if (nest > depth) bad('a constant is nested too deep')
+function constantValue(v: Val, nest: number, maxDepth: number): void {
+  if (nest > maxDepth) bad('a constant is nested too deep')
   if (Array.isArray(v)) {
     if (v.length === 0) bad('an empty vec constant')
     for (const x of v) {
       if (isSelector(x)) bad('a bare vec holds plain values: write lit([...])')
-      constantValue(x, nest + 1, depth)
+      constantValue(x, nest + 1, maxDepth)
     }
   } else if (isTagged(v) && 'map' in v) {
     bad('a bare map: write lit({...})')
@@ -466,14 +468,15 @@ function constantValue(v: Val, nest: number, depth: number): void {
 }
 
 /** A path: u32 indexes, constant keys (a symbol, a bare value, or `lit(x)`), and a final
- *  `true` (the length). The last step may be the only one, up to `steps` of them. */
-function steps(s: Val[], depth: number): void {
-  if (s.length > DECODE_LIMITS.steps) bad(`a path of at most ${DECODE_LIMITS.steps} steps`)
+ *  `true` (the length). The last step may be the only one, up to `MAX_STEPS` of them; a
+ *  key is a constant nested at most `maxDepth` deep. */
+function steps(s: Val[], maxDepth: number): void {
+  if (s.length > MAX_STEPS) bad(`a path of at most ${MAX_STEPS} steps`)
   s.forEach((x, i) => {
     if (x === true && i !== s.length - 1) bad('the length step is last')
     if (typeof x === 'number' || x === true) return
     if (isSelector(x) && x[0] !== 'lit') bad('a path step is not a selector')
     // The contract reads a key as it reads a constant leaf, at depth 1.
-    if (!isSelector(x)) constantValue(x, 1, depth)
+    if (!isSelector(x)) constantValue(x, 1, maxDepth)
   })
 }

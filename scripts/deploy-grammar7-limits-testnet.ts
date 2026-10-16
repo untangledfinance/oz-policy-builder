@@ -83,11 +83,11 @@ console.log(`wasm ${wasm.length} B sha256 ${wasmSha}`)
 const salt = hash(
   Buffer.from(`untangled.policy-interpreter.grammar7.limits.${wasmSha}.${JSON.stringify(LIMITS)}`)
 )
-const create = (l: Record<string, number>) =>
+const create = (l: Record<string, number>, salted = salt) =>
   Operation.createCustomContract({
     address: Address.fromString(kp.publicKey()),
     wasmHash: Buffer.from(wasmSha, 'hex'),
-    salt,
+    salt: salted,
     constructorArgs: [limitsVal(l)],
   })
 
@@ -95,7 +95,13 @@ if (dry) {
   console.log('dry run: nothing is sent')
   process.exit(0)
 }
-const uploaded = await send(Operation.uploadContractWasm({ wasm }), 'upload')
+// `--resume <uploadTx> <createTx>`: a run that was cut off after it created the instance (the address is
+// the same every time, so a second `create` is refused as existing) goes on from reading it back.
+const resume = process.argv.indexOf('--resume')
+const [resumedUpload, resumedCreate] = resume > 0 ? process.argv.slice(resume + 1, resume + 3) : []
+const uploaded = resumedUpload
+  ? { txHash: resumedUpload }
+  : await send(Operation.uploadContractWasm({ wasm }), 'upload')
 console.log(`uploaded ${uploaded.txHash}`)
 
 // The constructor refuses a limit below its floor and one above its ceiling, before anything is deployed.
@@ -110,18 +116,20 @@ for (const bad of [
     fee: FEE,
     networkPassphrase: Networks.TESTNET,
   })
-    .addOperation(create(bad))
+    .addOperation(create(bad, hash(Buffer.from(`refused.${JSON.stringify(bad)}`))))
     .setTimeout(60)
     .build()
   const sim = await server.simulateTransaction(tx)
   if (!rpc.Api.isSimulationError(sim) || !sim.error.includes('Error(Contract, #220)'))
     throw new Error(
-      `a constructor with ${JSON.stringify(bad)} was not refused with #220: ${JSON.stringify(sim).slice(0, 300)}`
+      `a constructor with ${JSON.stringify(bad)} was not refused with #220: ${String((sim as { error?: string }).error).slice(0, 400)}`
     )
   console.log(`refused as it must be: ${JSON.stringify(bad)}`)
 }
 
-const created = await send(create(LIMITS), 'create')
+const created = resumedCreate
+  ? { txHash: resumedCreate, returnValue: (await server.getTransaction(resumedCreate)).returnValue }
+  : await send(create(LIMITS), 'create')
 if (!created.returnValue) throw new Error('create: no contract address returned')
 const interpreter = Address.fromScVal(created.returnValue).toString()
 console.log(`created ${interpreter}`)
@@ -166,8 +174,7 @@ const old = {
   interpreter: rec.interpreter,
   wasmSha256: rec.wasmHashes.interpreter,
   status: 'superseded',
-  why:
-    'its wasm (42d53616...) lets max_elems be 1 (placement rules lose their meaning) and a 48 KiB byte ceiling that fails the 20% install-size margin; policy-synth refuses it by hash',
+  why: 'its wasm (42d53616...) lets max_elems be 1 (placement rules lose their meaning) and a 48 KiB byte ceiling that fails the 20% install-size margin; policy-synth refuses it by hash',
   uploadTx: rec.uploadTx.interpreter,
   createTx: rec.createTx,
   commit: rec.interpreterSource.commit,

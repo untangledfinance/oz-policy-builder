@@ -260,23 +260,18 @@ describe('readRules, on a live account', () => {
       [1, 'call_contract', 1],
       [2, 'call_contract', 1],
       [3, 'call_contract', 1],
+      [4, 'call_contract', 1],
     ])
     expect(rules[0]?.signers).toEqual(['GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB'])
-    // Rules 1 and 2 are policed by the first two builds of the interpreter, rule 3 by the current one.
+    // Rules 1 to 3 are policed by the first three builds of the interpreter, rule 4 by the current one.
     expect(rules[1]?.expr).toBeUndefined()
     expect(rules[2]?.expr).toBeUndefined()
-    expect(rules[3]?.expr).toEqual(
+    expect(rules[3]?.expr).toBeUndefined()
+    expect(rules[4]?.expr).toEqual(
       callExpr({
         contract: TOKEN,
         fn: 'transfer',
-        where: [
-          {
-            constraint: 'pin',
-            at: [0],
-            to: 'CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P',
-          },
-          { constraint: 'cap', at: [2], max: '1000' },
-        ],
+        where: [{ constraint: 'cap', at: [2], max: '500' }],
       })
     )
   })
@@ -304,7 +299,8 @@ describe('readRules, on a live account', () => {
       [0, 'unpoliced'],
       [1, 'unreadable'], // policed by the first build of the interpreter
       [2, 'unreadable'], // policed by the second
-      [3, 'other'],
+      [3, 'unreadable'], // policed by the third (limits, 48 KiB: superseded)
+      [4, 'other'],
     ])
   })
 })
