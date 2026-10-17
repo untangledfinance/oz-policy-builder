@@ -12,8 +12,12 @@ The on-chain half is the `policy-interpreter` contract in
 ## Install
 
 ```sh
-npm install @crediolabs/policy-synth
+npm install @crediolabs/policy-synth@next @stellar/stellar-sdk
 ```
+
+`next` is 2.0.0, for grammar 7. `latest` is still 1.3.0, for the grammar-4
+interpreters. `@stellar/stellar-sdk` (^14.4.0) is a peer dependency; npm 7 and
+later install it on their own.
 
 ## The pipeline
 
@@ -23,90 +27,127 @@ declaration (intent)  ----+-> Intent -> wire expression -> install transaction
 template (mandate)    --/    (calls + per-argument constraints)   (unsigned XDR)
 ```
 
-- **The predicate is its wire shape.** An expression is JSON in the contract's own
-  form: a node is a tagged list (`["lte", ["call_arg", 2], {"i128": "100"}]`), a
+- **The predicate is its wire shape:** an expression is JSON in the contract's own
+  form. A node is a tagged list (`["lte", ["call_arg", 2], {"i128": "100"}]`), a
   symbol or address is a string, a `u32` a number, and every other ScVal type a
   one-key object (`{"i128": "5"}`, `{"bytes": "ab"}`, `{"map": [[k, v]]}`). One
   structural codec (`encode`, `decode`, `hashOf` in `src/wire.ts`) goes JSON <->
-  ScVal <-> base64 XDR with no per-operator code and no reordering of `and`/`or`
-  (order matters with reads). It is held to the contract's own bytes by
-  `fixtures/parity/grammar7.json`, which the contract's `tests/parity.rs` writes
-  from the ScVal side, and by `fixtures/parity/accuracy.json` (106 shapes at the
-  edges: every value type, map keys in the host's order, string bytes that are
-  not text, the caps): byte equality, JSON round trip, and the same accept/refuse
-  verdicts as `check`, for every case. `validate` accepts and refuses exactly
-  what the contract's decoder does (operators, arity, index types, `scaled`
-  operands and constant folds, depth, the weighted leaves, the distinct
-  reads, `in` entries, path steps, the byte size), so a rule that leaves here installs.
-  The caps are the **instance's**: an interpreter is deployed with its own `Limits` (the
-  contract's field names, `max_reads` ... `max_depth`, each between a floor and a ceiling:
-  see the interpreter README, "Limits", which holds the numbers and why),
-  `limits()` returns them, and the tools that check a rule against an interpreter read
-  them from it (once per address) and hold the rule to those. An instance whose
-  `limits()` fails, is out of range (`FLOORS`, `CEILINGS`) or has a field this package does
-  not know is refused. A tool that only explains a predicate is held to the interpreter
-  named or pinned, else to the ceilings, and says which (`heldTo`). `synthesize_policy` and
-  `get_interpreter_info` work offline: the pinned instance's limits are recorded in `INTERPRETER`
-  (they cannot change, and a test holds them equal to `deployments/grammar7-testnet.json`), the
-  instance's own answer is used when the RPC gives one (and must equal them), and `heldTo` /
-  `limitsFrom` say which. On a network with no pin, `synthesize_policy` uses the grammar-7
-  defaults (`DECODE_LIMITS`, the stricter choice) and says so. Install, verify and simulate
-  always need the live interpreter. A network with no pin
-  trusts any instance of a trusted build with any in-range limits: pin it.
+  ScVal <-> base64 XDR. It has no per-operator code and keeps the order of
+  `and`/`or` as written, because order matters with reads. Two corpora hold it to
+  the contract's own bytes: `fixtures/parity/grammar7.json`, which the contract's
+  `tests/parity.rs` writes from the ScVal side, and `fixtures/parity/accuracy.json`
+  (106 cases at the edges: every value type, map keys in the host's order, string
+  bytes that are no valid text, the caps). Every case checks byte equality, the
+  JSON round trip, and the same accept or refuse verdict as `check`. `validate`
+  accepts and refuses exactly what the contract's decoder does (operators, arity,
+  index types, `scaled` operands and constant folds, depth, the weighted leaves,
+  the distinct reads, `in` entries, path steps, the byte size), so a rule that
+  passes here installs.
 - **An Intent** is `{ calls: [{ contract, fn, where: [constraints] }] }`. A constraint is one
   of `pin`, `not`, `allow`, `deny`, `cap`, `floor`, `length`, `minOut`, `each`,
   `some`, `total`, `read`, `until`, `from`, lowered by a table (`src/intent.ts`),
-  so batches and vector arguments use `all`/`any`/`sum` instead of a pin per
+  so batches and vector arguments use `all`/`any`/`sum` in place of a pin per
   element. A recording becomes an Intent through the registry (protocols as data,
   `src/registry.ts`): who is pinned, what is capped, what is asked. Templates
   (`adapter_batch`, `blend_venue`) return an Intent from parameters.
-- **There is one evaluator: the contract.** `simulate_policy` and `verify_policy`
+- **There is one evaluator, the contract:** `simulate_policy` and `verify_policy`
   call the interpreter's `check(predicate, context)` through RPC simulation. `check`
   always fails, and the contract error is the verdict (`#0` permits, any other
-  number is the deny code), so a verdict is what the contract would do and nothing
-  a read does can ever commit.
+  number is the deny code). So a verdict is what the contract would do, and a read
+  can never commit anything.
   Verify turns each leaf of the rule against a permitted call (deny cases are
   derived from the leaf) and drops each conjunct in turn (minimality), at most
-  64 calls in all, eight at a time. It says what it did not examine: every
-  branch of an `or` needs a call that takes it (`unexamined` branches make it not
-  `ok`), and `untested` lists conjuncts nothing could be tried against (a read,
-  the clock) or whose need cannot be told because another conjunct is about the
-  same argument or whose case another conjunct also refuses. A conjunct is `redundant` only when an exact copy of it stays in the branch; whenever something else could be refusing its case, its need is `untested`, never called redundant.
+  64 calls in all, eight at a time. It also lists what it could not examine.
+  Every branch of an `or` needs a call that takes it, and `unexamined` branches
+  keep the result from `ok`. `untested` lists the conjuncts nothing could be tried
+  against (a read, the clock), and those whose need is unclear because another
+  conjunct is about the same argument or also refuses the case. A conjunct is
+  `redundant` only when an exact copy of it stays in the branch.
+
+## Limits
+
+Each grammar-7 interpreter is deployed with its own `Limits`, under the
+contract's field names (`max_reads`, `max_leaves`, `max_predicate_bytes`,
+`max_elems`, `max_in_operands`, `max_depth`). The constructor stores them once.
+There is no setter and the contract cannot be upgraded, so a different limit
+means a new instance at a new address. `limits()` returns them.
+
+| Field | Floor | Ceiling | Testnet pin |
+| --- | --- | --- | --- |
+| `max_reads` | 1 | 8 | 8 |
+| `max_leaves` | 4 | 400 | 400 |
+| `max_predicate_bytes` | 256 | 40,960 | 24,576 |
+| `max_elems` | 2 | 64 | 32 |
+| `max_in_operands` | 1 | 64 | 32 |
+| `max_depth` | 2 | 8 | 5 |
+
+The constructor refuses a value outside its floor and ceiling with error 220.
+This package exports the same bounds as `FLOORS` and `CEILINGS`, and refuses an
+instance whose `limits()` fails, falls outside them, or has a field it does not
+know. The interpreter README ("Limits") has the measurements. In short:
+
+- **40 KiB byte ceiling:** an install transaction carries the predicate twice.
+  This package's install with 15 operators and 16 admins is 91,548 bytes at
+  40 KiB, 69% of the 132,096-byte transaction limit. At 48 KiB it was 108,112
+  bytes (82%), over the 80% margin.
+- **Memory per transaction:** each distinct read of a wasm contract costs about
+  1.4 MB, in every authorised context. With 8 such reads the first context costs
+  about 12.7 MB and each further one about 11.4 MB. A transaction of 41,943,040
+  bytes holds 2 such contexts inside the 80% margin (57%) and 3 with no margin
+  (84%). A fourth breaks the limit (111%) and the transaction fails closed.
+- **Read targets must be kept alive:** a read of an archived contract restores it
+  inside the transaction and can push it past the write limit.
+- **Rent:** a permit that finds the rule's entry within 100 ledgers of expiry
+  extends it to 518,400 ledgers (about 30 days) inside the agent's own
+  transaction. At testnet rates that is about 0.35 XLM per KB of rule. A
+  keep-alive should extend the entry first, and an instance's
+  `max_predicate_bytes` should fit the real rules.
+
+The tools that check a rule against an interpreter read its limits once per
+address and hold the rule to them. Where they come from:
+
+| Tool | Limits used | Field |
+| --- | --- | --- |
+| `synthesize_policy` | the pin's, read live; the pin's recorded limits when the RPC does not answer within 5 s; `DECODE_LIMITS` on a network with no pin | `heldTo` |
+| `simulate_policy` or `verify_policy` with calls, `install_policy` | the live limits of the interpreter that checks the rule | |
+| `simulate_policy` with a predicate only (explain) | the given or pinned interpreter's, else `CEILINGS` | `heldTo` |
+| `get_interpreter_info` | the instance's, read live, or the recorded ones when the RPC does not answer | `limitsFrom` (`live` or `recorded`) |
+
+`INTERPRETER.testnet` records the limits of the pin. A test holds them equal to
+`deployments/grammar7-testnet.json`, and a live answer that differs is refused
+(`INTERPRETER_MISMATCH`). `DECODE_LIMITS` (4, 200, 32,768, 32, 32, 5) are the
+limits compiled into the first grammar-7 build, the stricter choice.
+
+## Offline and live
+
+`synthesize_policy` from an intent or a template works with no RPC. It uses the
+pin's recorded limits, and the review falls back to "argument N" where a name
+could not be read. A `hash` source reads the transaction, so it needs the RPC.
+`get_interpreter_info` without `verifyLive` also answers offline, from the
+recorded limits. `install_policy`, `verify_policy`, `simulate_policy` and
+`verifyLive` always need the live interpreter.
+
+The RPC endpoint is the operator's: `POLICY_BUILDER_RPC_URL_TESTNET` /
+`POLICY_BUILDER_RPC_URL_MAINNET`, else the network default. It must be https, or
+http on loopback. No tool input takes an endpoint.
 
 ## The seven tools
 
 | Tool | What it does |
 | --- | --- |
 | `record_transaction` | Decode a transaction (hash over RPC, or base64 XDR) into the calls it authorises, nested ones included. |
-| `synthesize_policy` | Source (hash, xdr, recording, intent, template) -> rules, one per contract: predicate, encoding, hash, a policy tree (`review` text, `reviewTree` nodes with the wire `raw` each came from; names come from a best-effort read of each contract, so it is no longer offline, and a name never changes what a rule does); `ambiguities` to answer with `limit`/`limits`/`allow`. |
-| `simulate_policy` | A predicate against calls: permit, or the deny code. |
+| `synthesize_policy` | Source (hash, xdr, recording, intent, template) -> rules, one per contract: predicate, encoding, hash and review. `ambiguities` are questions to answer with `limit`/`limits`/`allow`. Names come from a best-effort read of each contract (2 s, display only): a name never changes what a rule does. |
+| `simulate_policy` | A predicate against calls: permit, or the deny code. With a predicate and no calls it only explains it. |
 | `verify_policy` | Permitted call(s), derived deny cases, minimality; `ok`, `complete`, `unexamined`, `untested`. **`ok` without `complete: true` does not prove every limit** (`untested` conjuncts were not tried): read `complete`. |
-| `install_policy` | Unsigned `add_context_rule` (the account authorises it; the interpreter installs the predicate in the same transaction). Verifies the interpreter live, always reads the account, **refuses** a rule a shared signer could bypass or a neighbour it cannot judge (`allowOverlap` overrides). With multiple `signers`, requires a threshold policy (OpenZeppelin `simple_threshold` or `weighted_threshold` beside the interpreter) or explicit `anyOne: true`. `spendingLimit` attaches OZ's spending_limit policy. Returns `authority` object showing signers, admins, expiry and cap with [role]/«label» legend. |
-| `revoke_policy` | Unsigned `remove_context_rule`. |
-| `get_interpreter_info` | The pin, its `limits` (read from the instance) and the `ceilings`, and with `verifyLive` what is deployed now. |
+| `install_policy` | Unsigned `add_context_rule`: the account authorises it, and the interpreter installs the predicate in the same transaction. Verifies the interpreter live, reads every rule on the account, and applies the guardrails below. |
+| `revoke_policy` | Unsigned `remove_context_rule`. The rule is read and returned as `removes`, with its review when the account runs a known OpenZeppelin build. |
+| `get_interpreter_info` | The pin, its `limits` and the `ceilings`. `verifyLive` adds what is deployed now. `explainAccount` (a smart account) reads its rules and explains each one this interpreter polices; only a known OpenZeppelin account build is read. |
 
 `TOOLS` (also `@crediolabs/policy-synth/run`) is the table the MCP server and the
 CLI register from. Each tool validates its input strictly, never throws, and
 returns `{ ok: true, data }` or `{ ok: false, error: { code, message, severity,
 retryable } }`. Nothing here holds key material: install and revoke return
 *unsigned* XDR and the wallet's signature is the confirmation.
-
-### Install Options
-
-`install_policy` accepts:
-- `threshold`: `{ simple: n }` (n-of-n signers) or `{ weighted: { weights: {address: n}, threshold: n } }` attaches OZ's threshold policy.
-- `anyOne: true`: explicit permit for any one signer to act alone (without threshold).
-- `spendingLimit: { amount: string, periodLedgers: number }`: attaches OZ's spending_limit policy; rule scope must be a token.
-- `explainAccount: address` (in `get_interpreter_info`): decode and explain all rules on an OZ smart account this interpreter polices.
-
-### Response Fields
-
-`synthesize_policy`, `simulate_policy`, `verify_policy`, `install_policy` and `revoke_policy` all return:
-- `review`: text tree of the rule, box-drawn, indented.
-- `reviewTree`: same rule as nodes `{ label, op, value, raw, index?, children? }`, wire `raw` from each leaf; for rendering custom UIs.
-- `heldTo` (synthesize): which limits were used (the pinned instance's, read live, recorded, or defaults).
-- `limitsFrom` (get_interpreter_info): which limits were reported (pinned address, live read, or defaults).
-- `authority` (install only): `{ signers: [{ address, role, label }], admins, expiry, cap, interpreter }` with [role]/«label» legend.
 
 ```ts
 import { run } from '@crediolabs/policy-synth/run'
@@ -116,36 +157,105 @@ const rule = s.ok && s.data.rules[0]
 await run('verify_policy', { network: 'testnet', encodedPredicate: rule.encodedPredicate, hash: '<tx hash>' })
 ```
 
+## Install guardrails
+
+`install_policy` refuses with `INSTALL_BUILD_FAILED` unless stated otherwise.
+
+| Guardrail | What is refused | Override |
+| --- | --- | --- |
+| Threshold | Several `signers` with no `threshold`, or a threshold one signer meets alone (n of 1, or a weight of at least n): that rule is satisfied by any ONE signer. `anyOne` beside a threshold that needs more is a contradiction. A threshold that can never be met (n above the signers, or weights that do not cover exactly the signers or total less than n) is refused too. | `anyOne: true` installs 1-of-n on purpose |
+| Spending-limit guard | A `spendingLimit` unless every branch of the predicate pins `call_fn` to `transfer` (OpenZeppelin's `spending_limit` refuses every other function, so those calls would always fail). It is also refused on a scope that is not shown to be a token (a Stellar Asset Contract, or `transfer(from, to, amount: i128)` in its spec) | none |
+| Read safety (`READ_UNSAFE`) | A `read` of a target and function outside the safe list. The list holds the three testnet Reflector oracles (`lastprice`, `price`) and the operator's `POLICY_BUILDER_SAFE_READS_TESTNET` / `_MAINNET` (`C…:function,C…:function`; one malformed entry refuses the whole value). A listed read needs constant arguments. The review marks any other read "(live value, movable within one transaction)". | `POLICY_BUILDER_ALLOW_SPOT_READS=1`, environment only |
+| Authority overlap | A rule a shared signer could bypass through a looser or unpoliced neighbour, a rolling total that would not bind, a neighbour it cannot read or judge, or an account whose rules could not all be read | `allowOverlap: true` |
+| Amounts | An amount with no cap; a swap's least output with no floor | `allowUnboundedAmount`, `allowOpenSlippage` |
+| Scope | A rule scoped to a policy contract (`POLICY_CONTRACTS`) or to the account itself | none |
+
+The overlap scan reads every live rule on the account. It reads the account's
+`NextId`, asks which ids below it still hold a rule (200 keys per
+`getLedgerEntries` call), and simulates `get_context_rule` for each live one.
+`authorityScan.complete` is true only when the rules read match the account's
+own count. An absent or malformed `NextId`, an archived entry, a count that
+disagrees, or more than 512 ids handed out makes it `false`, and the install is
+refused.
+
+The overrides `allowOverlap`, `allowUnboundedAmount`, `allowOpenSlippage` and
+`revoke_policy`'s `allowAdminRule` are tool inputs. The response does not repeat
+them, so a reviewer of the response alone cannot tell one was set. Keep the
+request with the response.
+
+## What the tools return
+
+The review is a policy tree: `review` (box-drawn text) and `reviewTree` (nodes
+`{ label, op, value, raw, index?, children? }`, `raw` the wire value each came
+from). It sits in `rules[n]` for `synthesize_policy`, at the top level for
+`simulate_policy` and `verify_policy`, in `rule` for `install_policy`, in
+`removes` for `revoke_policy`, and in `account.rules[n]` for `explainAccount`.
+Addresses are shortened to 6 + 6 characters. `raw: true` shows full addresses,
+raw values and the wire index of each name.
+
+The install review opens with an **Authority** node. Its lines:
+
+| Line | Says |
+| --- | --- |
+| `legend` | `[…] the package's roles; «…» labels given in the request` |
+| `signer` | one per signer, `contract` before a C-address, with its weight under a weighted threshold |
+| `to act` | "the signer acts alone", "any ONE of these n signers acts alone", "any m of these n signers must approve", or "signers whose weights total at least n must approve" |
+| `admins` | the policy admins and what they can do |
+| `expires` | "never expires" or "valid through ledger N" |
+| `total` | the rolling `spendingLimit`, or "no total limit: each call may move up to its own cap" |
+| `interpreter` | the interpreter and the limits it was deployed with |
+
+`[role]` marks are the package's own names: `[smart account]`, `[source account]`,
+`[admin]` and `[signer]` from the request's roles, and `[interpreter]` and
+`[spending limit]` for the pinned addresses. `«label»` marks are names from the
+request's `allow` keys. A label is plain words (a letter, then up to 23 letters,
+digits, spaces, `_`, `.` or `-`), so it can never hold a bracket and read as a
+role. A role wins over a label on the same address. Only `install_policy` has the
+header: `revoke_policy` and `explainAccount` cannot read the threshold or the
+total from the account.
+
+`install_policy` also returns:
+
+- `authority`: `{ signers, threshold, admins, validUntil, total, interpreter, limits }`,
+  the facts the header renders. `signers` and `admins` are address lists,
+  `threshold` is `{ n, weights?, raw }` or absent, `validUntil` a ledger or `null`,
+  `total` the `spendingLimit` or `null`, `limits` the interpreter's.
+- `authorityScan`: `{ complete, overlaps[] }`.
+- `interpreter`: the live fingerprint (grammar, code hash, limits).
+- `unsignedXdr` with its length and sha256, and `writtenTo` when `outFile` is set.
+
+Install inputs for authority:
+
+- `threshold`: `{ simple: n }` (any n of the signers) or
+  `{ weighted: { weights: { <address>: <weight> }, n } }` (signers whose weights
+  total at least n). It attaches OpenZeppelin's `simple_threshold` or
+  `weighted_threshold` beside the interpreter.
+- `anyOne: true`: install a rule any one signer can use alone.
+- `spendingLimit: { amount, periodLedgers }`: attach OpenZeppelin's
+  `spending_limit`, a rolling total over `periodLedgers` ledgers (about five
+  seconds each).
+
 ## Security model
 
-- Enforcement is on chain; this package is the convenience layer. **The
-  interpreter is a build, not an address**: `INTERPRETER_WASM` in `src/config.ts`
-  lists the reproducible wasm hashes this package trusts, and whatever address is
-  used, its live `grammar_version()` and code hash must match (any contract can
-  answer `grammar_version() = 7`). The pinned address is trusted as it stands (an
-  immutable contract); `install_policy` fingerprints it live too, and simulate and
-  verify check any other address live before asking it anything. Only
-  a testnet interpreter is pinned; on mainnet name one with `interpreterAddress`
-  and it is accepted only if it runs a trusted build.
-- The RPC endpoint is the operator's, never a tool's input: the network's own, or
-  `POLICY_BUILDER_RPC_URL_TESTNET` / `POLICY_BUILDER_RPC_URL_MAINNET` (https, or
-  loopback http for a recorded server). Nor does a tool take a path: `outFile` is a
-  bare file name, written (never over an existing file) into the operator's
+- Enforcement is on chain; this package is the convenience layer.
+- **The interpreter is trusted by its build:** `INTERPRETER_WASM` in
+  `src/config.ts` lists the reproducible wasm hashes this package trusts. Any
+  contract can answer `grammar_version() = 7`, so every address used must also
+  run one of those code hashes. On testnet only the pin is accepted
+  (`INTERPRETER_MISMATCH` for any other address). `install_policy` fingerprints
+  it live; simulate and verify trust it as it stands, since it cannot change.
+  Mainnet has no grammar-7 pin: pass `interpreterAddress`, and it is accepted
+  only if it runs a trusted build. Any in-range limits are then accepted, so the
+  instance passed sets its own limits. Pin mainnet once an instance is deployed.
+- The RPC endpoint and the output directory are the operator's. `outFile` is a
+  bare file name, written (never over an existing file) into
   `POLICY_BUILDER_OUT_DIR`.
-- A `read` is a live value an agent can move within one transaction, so an install of
-  one is refused (`READ_UNSAFE`) unless it is on the safe list: the testnet Reflector
-  oracles, plus the operator's own `POLICY_BUILDER_SAFE_READS_TESTNET` /
-  `POLICY_BUILDER_SAFE_READS_MAINNET` (`C…:function,C…:function`, environment only; one
-  malformed entry refuses the whole value). Any listed read needs constant arguments
-  and is not marked "movable" in the review; `POLICY_BUILDER_ALLOW_SPOT_READS=1` allows all.
-- Every input is validated at the boundary, an unknown key included; an install
-  that cannot bind its signers is refused by default, and so is an unanswered amount
-  cap (recordings, intents and templates alike), a rule scoped to a policy contract
-  or to the account, a neighbour the scan cannot read or judge (an interpreter of
-  another grammar, a rule with only a spending limit), and an account whose rules
-  cannot all be read. All refusals live in `planInstall` (`src/install.ts`).
+- Every input is validated at the boundary, an unknown key included. The install
+  refusals all live in `planInstall` (`src/install.ts`); see "Install guardrails".
 - `check` always fails with its verdict, so even a `read` that calls a token's
   `transfer` as the interpreter commits nothing (see the interpreter's README).
+- The grammar-7 STRIDE threat model, with what is done and open at 2.0.0, is
+  `evidence/stride-threat-model-g7.md` in the repository.
 
 ## Tests
 
