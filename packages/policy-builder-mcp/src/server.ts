@@ -5,7 +5,7 @@ import { TOOLS } from '@crediolabs/policy-synth/run'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 /** Kept in step with package.json by server.test.ts (a literal, because the CJS build cannot import JSON). */
-export const VERSION = '2.0.0'
+export const VERSION = '2.0.1'
 
 /** `stop` aborts what a tool is doing (the HTTP client went away), beside the
  *  client's own cancellation. */

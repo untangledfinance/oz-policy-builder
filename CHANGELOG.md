@@ -7,7 +7,24 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ## [Unreleased]
 
-Documentation only, since 2.0.0 (`209e791` onwards): no package change. The READMEs,
+## [2.0.1] - 2026-10-17
+
+Published to npm under the `next` dist-tag (`@crediolabs/policy-synth`,
+`@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp`, all 2.0.1). `latest` stays
+1.3.0.
+
+### policy-synth: `readsOf`, `ruleArgs` and `RuleDraft` are exported
+
+- PayFi deep-imported `readsOf` from `src/wire.ts` (the reads an expression makes, used to
+  check the interpreter's read limit before install) and `ruleArgs` from `src/install.ts` (the five
+  `add_context_rule` arguments of a rule draft, used to build its own install batch). Both, and the
+  `RuleDraft` type, are now part of the package root, so a consumer no longer reaches into
+  `node_modules/.../src`. No behaviour change; `index.test.ts` pins the new surface.
+- The CLI and the MCP server move to 2.0.1 with it and depend on policy-synth 2.0.1 exactly.
+
+### Documentation since 2.0.0
+
+Documentation only, from `209e791` onwards. The READMEs,
 `docs/`, `CONTRIBUTING.md` and the agent skill are checked against the 2.0.0 code; the
 grammar-7 STRIDE threat model is `evidence/stride-threat-model-g7.md` (every P0 item still
 has open work, so grammar 7 stays on testnet); `docs/stellar.md` splits grammar 6 (mainnet,

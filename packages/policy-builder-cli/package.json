@@ -1,6 +1,6 @@
 {
   "name": "@crediolabs/policy-builder-cli",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "license": "MIT",
   "description": "Command line for the OZ Policy Builder (grammar 7): `policy-builder <tool>` runs any of the seven policy-synth tools and prints its JSON envelope.",
   "type": "module",
@@ -63,7 +63,7 @@
     "prepack": "bun run build"
   },
   "dependencies": {
-    "@crediolabs/policy-synth": "2.0.0",
+    "@crediolabs/policy-synth": "2.0.1",
     "@stellar/stellar-sdk": "14.4.0",
     "zod": "3.25.76"
   },
