@@ -230,7 +230,7 @@ Checked on 2026-10-17 against the 2.0.0 source. Five items are done; every P0 st
 | P2-15 housekeeping | Open | `evidence/bun-audit.log` is dated 2026-08-27; `POLICY_CONTRACTS` (`config.ts:146`) is an address list |
 | Role-label spoof (E5) | Done | `9ad5683`. `card.ts:58-81`: the package's roles print as `[role]` and labels from the request as `«label»`, plain words only (`LABEL`, `card.ts:66`), with a legend as the header's first line (`card.ts:376-380`). Roles come from `tools.ts:319-329`. Addresses the request gives as `signers` or `admins` still read `[signer]` or `[admin]` inside the predicate; the header lists the same addresses in full |
 
-The CHANGELOG's 2.0.0 section gives no separate entries for the threshold option, the authority header, the spending-limit guard or `READ_UNSAFE`; the operator safe reads are there.
+The CHANGELOG's 2.0.0 section has an entry for each: the threshold option, the authority header, the spending-limit guard, and `READ_UNSAFE` with the operator safe reads.
 
 ## Configurable limits, shipped after the model
 

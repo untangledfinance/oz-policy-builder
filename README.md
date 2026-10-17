@@ -137,8 +137,9 @@ measurements behind the limits.
   to 8, leaves 4 to 400, bytes 256 to 40,960, elements 2 to 64, `in` entries 1 to
   64, depth 2 to 8), else the deploy fails with error 220.
 - **Why 40 KiB:** an install transaction carries the predicate twice. At 40 KiB
-  this package's install with 15 operators and 16 admins is 69% of the
-  132,096-byte transaction limit; 48 KiB was 82%.
+  the install transaction as policy-synth builds it, with 15 operators and 16
+  admins (the interpreter's maximum, one more admin than the tool accepts), is
+  69% of the 132,096-byte transaction limit; 48 KiB was 82%.
 - **Memory per transaction:** with 8 reads of wasm contracts, the first
   authorised context costs about 12.7 MB and each further one about 11.4 MB, so
   about 2 such contexts fit in one transaction inside an 80% margin.
@@ -159,7 +160,9 @@ measurements behind the limits.
   `[…]` marks the package's roles and `«…»` the labels given in the request.
 - **Offline and live:** `synthesize_policy` from an intent works with no RPC,
   using the pin's recorded limits. `install_policy`, `verify_policy` and
-  `simulate_policy` always need the live interpreter.
+  `simulate_policy` with calls always need the live interpreter; an
+  explain-only `simulate_policy` needs it only when the network has a pin or
+  the call gives `interpreterAddress`.
 
 The STRIDE threat model for grammar 7, with what is done and what is open at
 2.0.0, is [evidence/stride-threat-model-g7.md](./evidence/stride-threat-model-g7.md).

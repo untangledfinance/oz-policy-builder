@@ -14,7 +14,7 @@ did not agree to.
 
 The setup below gives you two guarantees:
 
-1. **Your MPC wallet always controls the funds:** The money stays in your
+1. **Your MPC wallet always controls the funds:** the money stays in your
    wallet. Nothing moves unless your wallet's own signers approved the limit it
    moves under, and your signers can stop it at any time.
 2. **Only the destinations on your custody gate's list can receive funds.**

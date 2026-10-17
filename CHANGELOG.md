@@ -69,8 +69,9 @@ entry does not repeat them.
   top-level one does, so a top-level `elem`, a nested quantifier and a `sum` in a body decoded);
   leaves at least 4, bytes at least 256, depth at least 2 (an instance below them could hold no
   rule). The byte ceiling is 40 KiB: the install transaction carries the predicate twice, and
-  policy-synth's real 15-operator / 16-admin install is 69% of the 132,096-byte limit at 40 KiB
-  and 82% at the 48 KiB first proposed (64 KiB would be 105%).
+  the install transaction as policy-synth builds it, with 15 operators and 16 admins (the
+  interpreter's maximum, one more admin than the tool accepts), is 69% of the 132,096-byte limit
+  at 40 KiB and 82% at the 48 KiB first proposed (64 KiB would be 105%).
 - **policy-synth:** rules are validated against the target instance's limits (read from
   `limits()` once per address; an instance that cannot answer, answers outside its floors and
   ceilings, or reports a limit this package does not know is refused). `Caps` uses the
@@ -147,9 +148,9 @@ entry does not repeat them.
 - `install_policy` takes `threshold`: `{ simple: n }` (n of the signers) or
   `{ weighted: { weights, n } }` (signers whose weights total at least n). It attaches
   OpenZeppelin's `simple_threshold` or `weighted_threshold` beside the interpreter on the same
-  rule, and both must permit. Refused before any RPC: a threshold that can never be met (n
-  above the signers, or weights that do not cover exactly the signers or total less than n)
-  and a signer listed twice.
+  rule, and both must permit. Refused before the account is read or anything is built: a
+  threshold that can never be met (n above the signers, or weights that do not cover exactly
+  the signers or total less than n) and a signer listed twice.
 - With any policy attached, OpenZeppelin lets ANY ONE signer of a rule act alone. A rule with
   several signers and no threshold, or a threshold one signer meets alone, is therefore refused
   unless `anyOne: true`, and the refusal names who acts alone. `anyOne` beside a threshold

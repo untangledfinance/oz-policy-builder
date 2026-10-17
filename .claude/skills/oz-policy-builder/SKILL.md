@@ -71,7 +71,9 @@ returns the instance's `limits` and the `ceilings`.
 | `synthesize_policy` from an `intent`, `template` or `recording` | Works. It holds the rules to the pin's live limits, or to the limits recorded for the pin if the RPC does not answer within 5 s (on a network with no pin, to the package defaults). `heldTo` says which. Contract and argument names are read best-effort (within 2 s, display only); unread, the review says "argument N" |
 | `synthesize_policy` or `record_transaction` from a `hash` | Needs RPC to fetch the transaction. An `xdr` source decodes locally |
 | `get_interpreter_info` on testnet, without `verifyLive` | Works. `limitsFrom` is `live` or `recorded` |
-| `install_policy`, `verify_policy`, `simulate_policy` with calls, `revoke_policy`, `verifyLive`, `explainAccount` | Need the live interpreter and RPC. They read the instance's `limits()` and refuse a build the package does not trust |
+| `install_policy`, `verify_policy`, `simulate_policy` with calls, `explainAccount` | Need RPC and the live interpreter: they read its `limits()` and refuse a build the package does not trust |
+| `revoke_policy` | Needs RPC (it reads the rule and the account's code); no interpreter check |
+| `verifyLive` | Needs RPC; reports `live.matches` and does not refuse |
 | `simulate_policy` with only a predicate (explain) | Held to the limits of the given or pinned interpreter, read live, so testnet needs RPC. With no interpreter (mainnet without `interpreterAddress`) it is held to the ceilings and works offline. `heldTo` says which |
 
 ## Intent -> tool
@@ -280,11 +282,13 @@ user thinks. Read every result in full.
   that shares a signer and some of the same calls. It refuses when that rule has
   no policy, permits calls the new rule forbids (the shared signer names it
   instead and the new rule never runs), lacks the rolling total the new rule
-  adds, or cannot be judged (its predicate is unreadable, its interpreter speaks
-  another grammar, or it carries only other policies). It also refuses when the
-  account's rules could not all be read (`authorityScan.complete: false`: an
-  absent or malformed `NextId`, a count that disagrees, or more than 512 ids
-  handed out). `authorityScan.overlaps` lists every rule the key could pick;
+  adds (with `spendingLimit`, any overlapping neighbour is refused, capped or
+  not, since a cap is per rule), or cannot be judged (its predicate is
+  unreadable, it is policed by an interpreter other than the one the new rule
+  uses, of any grammar, or it carries only other policies). It also refuses
+  when the account's rules could not all be read (`authorityScan.complete:
+  false`: an absent or malformed `NextId`, a count that disagrees, or more than
+  512 ids handed out). `authorityScan.overlaps` lists every rule the key could pick;
   `severity: review` marks one that is provably tighter on the shared calls,
   listed for information. Fix the cause: remove the shared signer from that
   rule, or attach a policy to it.

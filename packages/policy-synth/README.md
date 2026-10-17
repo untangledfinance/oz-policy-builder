@@ -87,9 +87,10 @@ instance whose `limits()` fails, falls outside them, or has a field it does not
 know. The interpreter README ("Limits") has the measurements. In short:
 
 - **40 KiB byte ceiling:** an install transaction carries the predicate twice.
-  This package's install with 15 operators and 16 admins is 91,548 bytes at
-  40 KiB, 69% of the 132,096-byte transaction limit. At 48 KiB it was 108,112
-  bytes (82%), over the 80% margin.
+  The install transaction as this package builds it, with 15 operators and 16
+  admins (the interpreter's maximum, one more admin than the tool accepts), is
+  91,548 bytes at 40 KiB, 69% of the 132,096-byte transaction limit. At 48 KiB
+  it was 108,112 bytes (82%), over the 80% margin.
 - **Memory per transaction:** each distinct read of a wasm contract costs about
   1.4 MB, in every authorised context. With 8 such reads the first context costs
   about 12.7 MB and each further one about 11.4 MB. A transaction of 41,943,040
@@ -124,8 +125,10 @@ limits compiled into the first grammar-7 build, the stricter choice.
 pin's recorded limits, and the review falls back to "argument N" where a name
 could not be read. A `hash` source reads the transaction, so it needs the RPC.
 `get_interpreter_info` without `verifyLive` also answers offline, from the
-recorded limits. `install_policy`, `verify_policy`, `simulate_policy` and
-`verifyLive` always need the live interpreter.
+recorded limits. `install_policy`, `verify_policy`, `simulate_policy` with
+calls and `verifyLive` always need the live interpreter; an explain-only
+`simulate_policy` needs it only when the network has a pin or the call gives
+`interpreterAddress`.
 
 The RPC endpoint is the operator's: `POLICY_BUILDER_RPC_URL_TESTNET` /
 `POLICY_BUILDER_RPC_URL_MAINNET`, else the network default. It must be https, or
@@ -179,9 +182,12 @@ disagrees, or more than 512 ids handed out makes it `false`, and the install is
 refused.
 
 The overrides `allowOverlap`, `allowUnboundedAmount`, `allowOpenSlippage` and
-`revoke_policy`'s `allowAdminRule` are tool inputs. The response does not repeat
-them, so a reviewer of the response alone cannot tell one was set. Keep the
-request with the response.
+`revoke_policy`'s `allowAdminRule` are tool inputs, and no field names them.
+`allowOverlap` shows only indirectly: a successful install whose
+`authorityScan` lists a `refuse` overlap or has `complete: false`.
+`allowAdminRule` shows in `removes` (rule 0, a Default scope, or a scope on the
+account itself). `allowUnboundedAmount` and `allowOpenSlippage` leave no trace.
+Keep the request with the response.
 
 ## What the tools return
 

@@ -561,9 +561,12 @@ Enforcement happens on chain. The builder checks a rule before it is signed:
 
 Four overrides are tool inputs: `allowOverlap`, `allowUnboundedAmount` and
 `allowOpenSlippage` on `install_policy`, and `allowAdminRule` on `revoke_policy`.
-The response does not echo them, so a reviewer who sees only the response cannot
-tell that a refusal was overridden. Echoing them, and gating them behind the
-operator on mainnet, is open item P0-4 in the
+No field names them. `allowOverlap` shows only indirectly (a `refuse` overlap or
+`complete: false` in a successful response's `authorityScan`), `allowAdminRule`
+shows in `removes` (rule 0, a Default scope, or a scope on the account itself),
+and `allowUnboundedAmount` and `allowOpenSlippage` leave no trace. Keep the
+request with the response. Echoing them, and gating them behind the operator on
+mainnet, is open item P0-4 in the
 [grammar-7 STRIDE model](../evidence/stride-threat-model-g7.md).
 
 `install_policy` returns the facts it installs as an `authority` object:

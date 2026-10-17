@@ -123,6 +123,7 @@ core to an exact version (no `^` range).
    ( cd packages/policy-synth       && npm publish --access public )
    ( cd packages/policy-builder-cli     && npm publish --access public )
    ( cd packages/policy-builder-mcp     && npm publish --access public )
+   # 2.0.0: npm publish --access public --tag next
    ```
 
 5. Verify: `npm view @crediolabs/policy-synth dist-tags` shows the new
