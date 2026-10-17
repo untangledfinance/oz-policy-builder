@@ -81,7 +81,7 @@ template (mandate)    --/    (calls + per-argument constraints)   (unsigned XDR)
 | `synthesize_policy` | Source (hash, xdr, recording, intent, template) -> rules, one per contract: predicate, encoding, hash, a policy tree (`review` text, `reviewTree` nodes with the wire `raw` each came from; names come from a best-effort read of each contract, so it is no longer offline, and a name never changes what a rule does); `ambiguities` to answer with `limit`/`limits`/`allow`. |
 | `simulate_policy` | A predicate against calls: permit, or the deny code. |
 | `verify_policy` | Permitted call(s), derived deny cases, minimality; `ok`, `complete`, `unexamined`, `untested`. **`ok` without `complete: true` does not prove every limit** (`untested` conjuncts were not tried): read `complete`. |
-| `install_policy` | Unsigned `add_context_rule` (the account authorises it; the interpreter installs the predicate in the same transaction). Verifies the interpreter live, always reads the account, **refuses** a rule a shared signer could bypass or a neighbour it cannot judge (`allowOverlap` overrides). |
+| `install_policy` | Unsigned `add_context_rule` (the account authorises it; the interpreter installs the predicate in the same transaction). Verifies the interpreter live, always reads the account, **refuses** a rule a shared signer could bypass or a neighbour it cannot judge (`allowOverlap` overrides). With multiple `signers`, requires a threshold policy (OpenZeppelin `simple_threshold` or `weighted_threshold` beside the interpreter) or explicit `anyOne: true`. `spendingLimit` attaches OZ's spending_limit policy. Returns `authority` object showing signers, admins, expiry and cap with [role]/«label» legend. |
 | `revoke_policy` | Unsigned `remove_context_rule`. |
 | `get_interpreter_info` | The pin, its `limits` (read from the instance) and the `ceilings`, and with `verifyLive` what is deployed now. |
 
@@ -90,6 +90,23 @@ CLI register from. Each tool validates its input strictly, never throws, and
 returns `{ ok: true, data }` or `{ ok: false, error: { code, message, severity,
 retryable } }`. Nothing here holds key material: install and revoke return
 *unsigned* XDR and the wallet's signature is the confirmation.
+
+### Install Options
+
+`install_policy` accepts:
+- `threshold`: `{ simple: n }` (n-of-n signers) or `{ weighted: { weights: {address: n}, threshold: n } }` attaches OZ's threshold policy.
+- `anyOne: true`: explicit permit for any one signer to act alone (without threshold).
+- `spendingLimit: { amount: string, periodLedgers: number }`: attaches OZ's spending_limit policy; rule scope must be a token.
+- `explainAccount: address` (in `get_interpreter_info`): decode and explain all rules on an OZ smart account this interpreter polices.
+
+### Response Fields
+
+`synthesize_policy`, `simulate_policy`, `verify_policy`, `install_policy` and `revoke_policy` all return:
+- `review`: text tree of the rule, box-drawn, indented.
+- `reviewTree`: same rule as nodes `{ label, op, value, raw, index?, children? }`, wire `raw` from each leaf; for rendering custom UIs.
+- `heldTo` (synthesize): which limits were used (the pinned instance's, read live, recorded, or defaults).
+- `limitsFrom` (get_interpreter_info): which limits were reported (pinned address, live read, or defaults).
+- `authority` (install only): `{ signers: [{ address, role, label }], admins, expiry, cap, interpreter }` with [role]/«label» legend.
 
 ```ts
 import { run } from '@crediolabs/policy-synth/run'
