@@ -12,9 +12,12 @@ and so does every answer. A result is the tool's data as JSON text and as
 
 ## Run
 
+`@next` is 2.0.0, for grammar 7. Without it npm resolves `latest`, still 1.3.0
+(grammar 4).
+
 ```json
 { "mcpServers": { "policy-builder": {
-  "command": "npx", "args": ["-y", "@crediolabs/policy-builder-mcp"] } } }
+  "command": "npx", "args": ["-y", "@crediolabs/policy-builder-mcp@next"] } } }
 ```
 
 `policy-builder-mcp` serves stdio. `policy-builder-mcp --http [--http-port N]`
@@ -24,7 +27,8 @@ authentication, so a non-loopback host is refused unless the embedding code pass
 
 The server holds no key material: install and revoke return unsigned XDR for a
 wallet to sign. See the [agent manual](../../.claude/skills/oz-policy-builder/SKILL.md)
-for which tool to call for which intent.
+for which tool to call for which intent, and the policy-synth README for the
+limits, the install guardrails and the operator's environment variables.
 
 ## License
 
