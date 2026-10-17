@@ -17,38 +17,48 @@ Two toolchains, both pinned:
 bun install
 ```
 
-The [Stellar CLI](https://developers.stellar.org/docs/tools/cli) is only
-needed for deploying or exercising contracts on a live network, not for the
-test suites.
+The [Stellar CLI](https://developers.stellar.org/docs/tools/cli) is needed
+only to deploy or exercise contracts on a live network. The test suites run
+without it.
 
 ## Gates
 
 Every pull request must pass the same gates CI runs. Run them locally first:
 
 ```sh
-# TypeScript
+# TypeScript, in the order CI runs it
 bun run check       # biome lint + format
-bun run typecheck   # tsc --noEmit across the three TS packages
-bun test            # unit + integration suites
-
-# Per-package builds are stricter than the root typecheck; publishing runs
-# them, so CI gates on them too.
+# Build before the typecheck: the CLI and MCP packages read policy-synth's
+# types from its built dist/. The builds are also what publishing runs.
 bun run --cwd packages/policy-synth build
 bun run --cwd packages/policy-builder-cli build
 bun run --cwd packages/policy-builder-mcp build
+bun run typecheck   # tsc --noEmit across the three TS packages
+bun test            # every package's suites in one process
+bun run test:isolated   # each package's tests alone, as prepublishOnly runs them
+bun audit           # dependency advisories
 
 # Contracts (each crate is standalone; no workspace manifest)
-for crate in policy-interpreter test-blend-pool; do
-  ( cd "contracts/$crate" &&
+for crate in policy-interpreter custody-gate execution-adapter test-blend-pool prime-session; do
+  ( cd "contracts/prime/stellar/$crate" &&
     cargo fmt --check &&
     cargo clippy --all-targets -- -D warnings &&
     cargo test )
 done
+```
 
-# Cross-layer conformance: TS-encoded fixtures must evaluate identically
-# on the Rust interpreter.
+In the interpreter crate, run `./build-wasm.sh` before `cargo test`.
+`tests/worst_case.rs` installs the largest rules into the real wasm and fails
+without one. Point `G7_WASM` at another build, or set `G7_SKIP_WORST_CASE=1`
+to skip it locally. CI also runs the conformance suite in release mode:
+
+```sh
 ( cd contracts/prime/stellar/policy-interpreter && cargo test --release --test conformance )
 ```
+
+CI then compares the `build-wasm.sh` hash of the interpreter with
+`deployments/grammar7-testnet.json`, and those of the gate and the adapter with
+`deployments/execution-testnet.json`. Compare hashes from a Linux build.
 
 ## Style
 
@@ -106,7 +116,8 @@ core to an exact version (no `^` range).
    the new version heading.
 3. Commit as `chore(release): vX.Y.Z` and make sure CI is green.
 4. Publish in dependency order; `prepublishOnly` builds and tests each
-   package as part of the publish:
+   package as part of the publish. A release that should stay off `latest`
+   adds `--tag next`, as 2.0.0 did (grammar 7, testnet only):
 
    ```sh
    ( cd packages/policy-synth       && npm publish --access public )
@@ -114,8 +125,8 @@ core to an exact version (no `^` range).
    ( cd packages/policy-builder-mcp     && npm publish --access public )
    ```
 
-5. Verify: `npm view @crediolabs/policy-synth version` returns the new
-   version, and the package page renders the README.
+5. Verify: `npm view @crediolabs/policy-synth dist-tags` shows the new
+   version under the intended tag, and the package page renders the README.
 6. Tag the release commit: `git tag vX.Y.Z && git push origin vX.Y.Z`.
 7. Bump the pin in downstream consumers (internal applications pin
    `@crediolabs/policy-synth` to an exact version).
