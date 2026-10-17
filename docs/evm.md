@@ -12,12 +12,12 @@ An institution keeps its treasury at a Fordefi MPC address, **F**, and wants an
 agent to swap and lend part of it without moving custody. The two guarantees,
 and what keeps each on EVM:
 
-- **The MPC wallet always controls the funds.** Every asset, including a
+- **The MPC wallet always controls the funds:** Every asset, including a
   lending position, stays at F. F approves one contract, the custody gate, for
   a fixed budget. Only F can change the gate or stop it. EVM cannot put signing
   weights on an address, so the rule that F's signers must all approve lives in
   F's Fordefi policy.
-- **Only the custody gate's listed destinations can receive funds.** The gate's
+- **Only the custody gate's listed destinations can receive funds:** The gate's
   rules let a move reach the Aave pool, the Uniswap router or F itself, and
   recovery reach one trustee address. The chain refuses every other
   destination.
@@ -219,39 +219,39 @@ gate `0xAC00d5cAE9206367C4500a70d48BD0090876e4DB`, timelock
 
 Not used, and why:
 
-- **Roles v2.1.0.** Its signature check accepts EIP-1271 revert data that
+- **Roles v2.1.0:** Its signature check accepts EIP-1271 revert data that
   carries the valid-signature code. A Safe member's own signature check can
   call into an attacker's contract, so this looks exploitable with our setup.
-  That reading comes from the Safe code and has not been tested. v2.1.1 is the patch.
-- **Zodiac Delay.** Every deployed version contains code changed after its 2021
+  That reading comes from the Safe code; no test exercises it. v2.1.1 is the patch.
+- **Zodiac Delay:** Every deployed version contains code changed after its 2021
   audit. The OpenZeppelin timelock replaces it.
-- **Zodiac ModuleProxyFactory 1.2.0.** It differs from the audited v1.0.0, so
+- **Zodiac ModuleProxyFactory 1.2.0:** It differs from the audited v1.0.0, so
   modules are deployed through CreateCall instead.
-- **The newer MultiSend unwrapper (`0xB4Cd…`).** Changed after its audit.
-- **Permit2.** It added two signature routes out of F.
-- **Any custom or oracle condition.** None exists as audited code.
+- **The newer MultiSend unwrapper (`0xB4Cd…`):** Changed after its audit.
+- **Permit2:** It added two signature routes out of F.
+- **Any custom or oracle condition:** None exists as audited code.
 
 ## Limits
 
-- **F's own key is limited only by Fordefi.** No chain can restrict a plain
+- **F's own key is limited only by Fordefi:** No chain can restrict a plain
   address: EIP-7702 delegation leaves the key in control, and Base's native
   account abstraction launched without key revocation. The chain guarantees
   that no other party (the Prime, the agent or a stranger) can move F's funds
   except as above.
-- **Swap prices have a floor but no price check.** A swap must name a minimum output
+- **Swap prices have a floor but no price check:** A swap must name a minimum output
   above zero, but no audited Roles condition can compare it with a price. The
   band, the agent's daily cap, the gate's daily cap and the admin's co-signature
   on large moves limit what a bad price can cost.
-- **A pull on its own parks funds in the gate.** The gate belongs to F, the only
+- **A pull on its own parks funds in the gate:** The gate belongs to F, the only
   exits lead to F or the trustee, and the recovery rules include what sits
   there.
-- **Front-running T1 only delays it.** If someone deploys one of the plain
+- **Front-running T1 only delays it:** If someone deploys one of the plain
   Safes first, T1 reverts and is sent again with a new salt.
-- **Base's sequencer could delay F's kill switch.** F is a plain address, so it
+- **Base's sequencer could delay F's kill switch:** F is a plain address, so it
   can force the transaction through Base's L1 portal on Ethereum, up to about
   12 hours later. Not tested.
-- **The venues are trusted.** Aave, Uniswap and USDC can be upgraded by their
+- **The venues are trusted:** Aave, Uniswap and USDC can be upgraded by their
   own governance, and Circle can freeze USDC.
-- **Safe 1.4.1 or 1.5.0.** 1.4.1 carries one post-audit fix the auditors
+- **Safe 1.4.1 or 1.5.0:** 1.4.1 carries one post-audit fix the auditors
   waived. Safe 1.5.0 is fully audited (Ackee and Certora) if that is not
   acceptable, at the cost of re-testing everything on it.
