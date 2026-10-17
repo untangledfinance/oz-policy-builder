@@ -508,3 +508,19 @@ two things by default: an interpreter address other than the pinned one for the
 network, and an RPC URL other than the pinned endpoint. The auth nonce the
 wallet signs comes from whichever RPC answered, so an unpinned host could bind
 the caller. Both refusals take an explicit opt-out.
+
+### Off-chain policy guardrails (2.0.0)
+
+The policy-synth toolchain enforces several off-chain rules that translate on-chain semantics:
+
+- **Threshold enforcement:** When a rule has multiple signers, the install is refused unless an OpenZeppelin threshold policy (`simple_threshold(n)` or `weighted_threshold`) is attached beside the interpreter, or `anyOne: true` is explicit. This is necessary because a rule with any policy lets ANY ONE signer act alone (OZ's default signer validation defers to policies; the interpreter alone cannot count). Attaching a threshold policy enforces M-of-N: the policy denies unless N signers are present.
+
+- **Spending limit guardrails:** When `spendingLimit` is requested, the builder verifies the rule scope is a token and the predicate pins `transfer` only. OZ's `spending_limit` policy fails if the rule allows other functions (`approve`, `transfer_from`, etc.), so a predicate permitting both `transfer` and `approve` with a cap appears to cap all spending but actually caps only transfers.
+
+- **Authority header:** The `install_policy` response includes an `authority` object showing the signers, admins (Policy Signer role), expiry and cap, each annotated with `[role]/«label»` format. The owner can see who signed, with what threshold, and what expiry they granted. The review also marks reads as "movable" (the operator can manipulate their result within a transaction) versus immutable (admin-gated oracles, compiled constants).
+
+- **Read-safety lint:** Reads are subject to a per-network safe list (`POLICY_BUILDER_SAFE_READS_TESTNET`, mainnet empty by default). Reads not on the list are refused unless the operator sets `POLICY_BUILDER_ALLOW_SPOT_READS=1`. This surfaces the risk of same-transaction moves: a wrapper contract can move a pool's state between price read and check, bypassing a floor unless paired with a static cap.
+
+- **Review tree:** Every tool returns a `review` (text tree, box-drawn) and `reviewTree` (nodes as data: `{ label, op, value, raw, index?, children? }`). The review is injective: two rules that differ never read alike. Constants carry their type where the contract specifies types; a path step says `[0]` for an index; a field is `the item › x`. Addresses are short (full under `raw`); caller-supplied names are marked `«like this»`; parameter names come from each contract's own spec.
+
+All these guardrails are express defaults; the operator can override with explicit opt-in, which surfaces in the response and review so the owner sees it.
