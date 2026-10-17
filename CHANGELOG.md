@@ -248,12 +248,12 @@ Breaking changes to callers:
 | A neighbour with its own spend cap and a tighter predicate was `review` beside a new `spendingLimit` | refused (`rolling`): caps accumulate per rule |
 | `baseFee` unbounded | at most 10,000,000 stroops |
 | CLI `--limit 100` | was refused (parsed as a number); a number stays a string where the tool takes one |
-| `import { ... } from '@crediolabs/policy-synth'` (61 names) | 19 names: `TOOLS`, `run`, the codec, `card`, the pins, `Refusal`; the builders, the scan and the deny-case derivation are internal |
+| `import { ... } from '@crediolabs/policy-synth'` (61 names) | 21 names: `TOOLS`, `run`, the codec, `card`, the pins, `Refusal`; the builders, the scan and the deny-case derivation are internal |
 | `record_transaction` output (`invocations`, `tokenMovements`, `events`, `parseConfidence`) | `{ network, source, ledger, signers, contexts[] }`; there is no confidence gate: an unrecognised function is pinned argument by argument and its amounts are asked for |
 | Predicate trees `{ op, left, right }` / `{ kind: 'call_arg' }`, `encodePredicate` | Wire values (`["lte", ["call_arg", 2], {"i128": "1"}]`), `encode` / `decode` / `hashOf` |
 | Imports `@crediolabs/policy-synth/run` (`runInstallPolicy`...), `/install` | `import { run, TOOLS } from '@crediolabs/policy-synth/run'`; everything else from the package root |
 | CLI `record` / `synthesize` / `declare` with flags | `policy-builder <tool>` for all seven; JSON, `--file`, stdin or `--field value` |
-| MCP tool shapes | generated from the table; a refusal's `code` set is `INVALID_INPUT`, `RECORDING_FAILED`, `SYNTHESIS_ERROR`, `MALFORMED_PREDICATE`, `SIMULATION_ERROR`, `VERIFICATION_FAILED`, `INSTALL_BUILD_FAILED`, `REVOKE_BUILD_FAILED`, `INTERPRETER_MISMATCH` |
+| MCP tool shapes | generated from the table; a refusal's `code` set is `INVALID_INPUT`, `RECORDING_FAILED`, `SYNTHESIS_ERROR`, `MALFORMED_PREDICATE`, `SIMULATION_ERROR`, `VERIFICATION_FAILED`, `INSTALL_BUILD_FAILED`, `REVOKE_BUILD_FAILED`, `INTERPRETER_MISMATCH`, `READ_UNSAFE` |
 
 ### Added
 

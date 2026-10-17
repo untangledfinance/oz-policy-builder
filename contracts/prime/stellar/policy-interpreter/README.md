@@ -54,9 +54,9 @@ fee rates are about twice testnet's, and its per-ledger transaction-size budget 
 | `install`, worst CPU | 64.7M | 16% of 400M |
 | `enforce`, worst CPU / memory | 62.3M / 1.58 MB | 16% / 4% of 41,943,040 |
 | `install` through OZ's real account, 15 operators and 16 admins | 69.0M CPU, 3.19 MB, 36 write entries, 48,856 write bytes | 17% / 8% / 18% / 37% |
-| the stored rule (one contract-data entry) | 41,272 B at the byte ceiling | 63% of 65,536 |
+| the stored rule (one contract-data entry) | 41,272 B at the byte ceiling | 62% of 65,536 |
 | the install transaction, as `policy-synth` builds it (its real footprint of 6 read-only and 35 read-write keys, the account's authorisation entry and `__check_auth` entry, one signature) | 91,548 B | 69% of 132,096 |
-| the same with 3 passkey signers on the admin rule and a fee bump | 93,468 B | 71% |
+| the same with 3 passkey signers on the admin rule and a fee bump | 93,468 B | 70% |
 
 **Why the byte ceiling is 40 KiB:** CPU and memory never bind; two sizes do.
 The stored rule is one contract-data entry capped at 65,536 B (a 65,536-byte
