@@ -43,6 +43,11 @@ jobs:
       - name: Test
         run: bun test
 
+      # What each package's prepublish runs: its own tests, alone, in its own directory.
+      # A test that only passes after another file warmed a process-wide cache fails here.
+      - name: Test each package alone
+        run: bun run test:isolated
+
       # Dependency advisories. Fails the build on a known-vulnerable package so
       # a fresh advisory is caught here rather than by the auditor.
       - name: Audit dependencies

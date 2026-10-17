@@ -30,6 +30,7 @@ describe('the pins are the contract that was built and deployed', () => {
     expect(INTERPRETER.testnet).toEqual({
       address: record.interpreter,
       wasmSha256: record.wasmHashes.interpreter,
+      limits: record.limits, // immutable per instance: what synthesize holds a rule to with no RPC
     })
     expect(record.interpreterSource.reproducibleWasmSha256).toBe(record.wasmHashes.interpreter)
   })

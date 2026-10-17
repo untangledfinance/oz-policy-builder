@@ -16,6 +16,7 @@ import {
   type Endpoint,
   ensureInterpreter,
   fingerprint,
+  heldLimits,
   interpreterFor,
   pinnedWasm,
   rpcOverride,
@@ -54,7 +55,6 @@ import {
 import {
   type Caps,
   CEILINGS,
-  DECODE_LIMITS,
   decode,
   type Expr,
   encode,
@@ -392,19 +392,23 @@ const record_transaction = tool(
 
 const synthesize_policy = tool(
   'synthesize_policy',
-  'Turn a transaction, a recording, an intent (the calls to allow, with per-argument constraints (`{constraint: "cap", at, max}`): pin, allow, deny, cap, floor, length, minOut, each, some, total, read, until, from) or a template (adapter_batch, blend_venue) into rules: one per contract, each with its predicate (a wire expression), its encoding and hash, and its review (`review`, a text tree, and `reviewTree`, nodes each carrying the wire `raw` it was read from; names are read best-effort from the contracts and are display only, so this tool is not offline). `ambiguities` are questions whose answers change what is permitted (usually the cap on an amount: answer with `limit`, `limits` or `allow`); `warnings` say what is left open.',
+  'Turn a transaction, a recording, an intent (the calls to allow, with per-argument constraints (`{constraint: "cap", at, max}`): pin, allow, deny, cap, floor, length, minOut, each, some, total, read, until, from) or a template (adapter_batch, blend_venue) into rules: one per contract, each with its predicate (a wire expression), its encoding and hash, and its review (`review`, a text tree, and `reviewTree`, nodes each carrying the wire `raw` it was read from; names are read best-effort from the contracts and are display only, so this tool is not offline). `ambiguities` are questions whose answers change what is permitted (usually the cap on an amount: answer with `limit`, `limits` or `allow`); `warnings` say what is left open. `heldTo` says which limits the rules were held to: the pinned interpreter\'s, read live or (with no RPC) as recorded for the pin, else the defaults.',
   { ...net, ...display, ...from },
   async (i, signal) => {
     const s = await sourceOf(i)
-    // The pinned interpreter's limits; a network that pins none has nothing to ask.
-    const caps = INTERPRETER[i.network]
-      ? await ensureInterpreter(connect(i), i.network)
-      : DECODE_LIMITS
+    // Proposing needs no live interpreter: the pin's recorded limits stand in when the RPC is down.
+    const { caps, from } = await heldLimits(i)
+    const at = INTERPRETER[i.network]?.address
     const rules = propose(s.intent, caps)
     const shown = await explain(i, rules, signal)
     return {
       intent: s.intent,
       rules: rules.map((r, n) => ({ ...present(r), ...shown[n] })),
+      heldTo: {
+        live: `the limits of ${at} (read live)`,
+        recorded: `the limits recorded for ${at} (the RPC did not answer)`,
+        default: `the default limits (no interpreter is pinned for ${i.network})`,
+      }[from],
       ambiguities: s.ambiguities,
       warnings: s.warnings,
       ...(s.recording ? { recording: s.recording } : {}),
@@ -725,9 +729,8 @@ const get_interpreter_info = tool(
     const wasm = pinnedWasm(i.network, address)
     // What a build this package does not trust says of itself is shown by `verifyLive`, never believed.
     const live = i.verifyLive ? await fingerprint(connect(i), i.network, address) : undefined
-    const limits = live
-      ? (live.limits ?? null)
-      : await ensureInterpreter(connect(i), i.network, address)
+    const held = live ? undefined : await heldLimits(i, address)
+    const limits = live ? (live.limits ?? null) : (held?.caps ?? null)
     return {
       network: i.network,
       address,
@@ -736,6 +739,7 @@ const get_interpreter_info = tool(
       wasmSha256: wasm ?? null,
       trustedWasmSha256: [...INTERPRETER_WASM],
       limits,
+      ...(held ? { limitsFrom: held.from } : {}),
       ceilings: CEILINGS,
       ...(live ? { live } : {}),
       ...(i.explainAccount

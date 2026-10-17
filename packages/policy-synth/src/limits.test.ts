@@ -572,6 +572,7 @@ describe('the pins', () => {
     expect(INTERPRETER.testnet).toEqual({
       address: rec.interpreter,
       wasmSha256: rec.wasmHashes.interpreter,
+      limits: rec.limits, // recorded in config: synthesize uses them with no RPC
     })
     expect(rec.interpreterSource.reproducibleWasmSha256).toBe(rec.wasmHashes.interpreter)
     // limits() as the instance answered when it was deployed: what get_interpreter_info shows

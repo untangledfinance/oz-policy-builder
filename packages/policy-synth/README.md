@@ -45,8 +45,13 @@ template (mandate)    --/    (calls + per-argument constraints)   (unsigned XDR)
   them from it (once per address) and hold the rule to those. An instance whose
   `limits()` fails, is out of range (`FLOORS`, `CEILINGS`) or has a field this package does
   not know is refused. A tool that only explains a predicate is held to the interpreter
-  named or pinned, else to the ceilings, and says which (`heldTo`); `synthesize_policy` on a
-  network with no pin uses the grammar-7 defaults (`DECODE_LIMITS`). A network with no pin
+  named or pinned, else to the ceilings, and says which (`heldTo`). `synthesize_policy` and
+  `get_interpreter_info` work offline: the pinned instance's limits are recorded in `INTERPRETER`
+  (they cannot change, and a test holds them equal to `deployments/grammar7-testnet.json`), the
+  instance's own answer is used when the RPC gives one (and must equal them), and `heldTo` /
+  `limitsFrom` say which. On a network with no pin, `synthesize_policy` uses the grammar-7
+  defaults (`DECODE_LIMITS`, the stricter choice) and says so. Install, verify and simulate
+  always need the live interpreter. A network with no pin
   trusts any instance of a trusted build with any in-range limits: pin it.
 - **An Intent** is `{ calls: [{ contract, fn, where: [constraints] }] }`. A constraint is one
   of `pin`, `not`, `allow`, `deny`, `cap`, `floor`, `length`, `minOut`, `each`,

@@ -7,6 +7,20 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ## [Unreleased]
 
+### policy-synth: `synthesize_policy` and `get_interpreter_info` work offline
+
+- Since the configurable limits, both read `limits()` from the pinned interpreter, so with no
+  RPC (or the hermetic `127.0.0.1:9`) `synthesize` failed with `SYNTHESIS_ERROR: connect
+  ECONNREFUSED` and 3 of the CLI's 6 tests failed when run alone (each package's `prepublishOnly`
+  runs `bun test` in its own directory); they passed only in the full suite, where another file had
+  warmed the process-wide limits cache. `INTERPRETER.testnet` now records the limits the instance was
+  deployed with (immutable; `config.test` holds them equal to `deployments/grammar7-testnet.json`).
+  Synthesis is held to the live limits when the RPC answers (a live answer that is not the recorded
+  one is refused), else to the recorded ones, else on a network with no pin to the defaults; the
+  result's new `heldTo` says which, and `get_interpreter_info` adds `limitsFrom`. Install, verify,
+  simulate and `verifyLive` still need the live interpreter. New root script `test:isolated` (CI runs
+  it) runs each package's tests alone. policy-synth sLOC 3,707 -> 3,753 (+46).
+
 ### policy-synth: the rule scan reads every live rule
 
 - `readRules` (the overlap scan, install lint, `get_interpreter_info` `explainAccount`) no longer

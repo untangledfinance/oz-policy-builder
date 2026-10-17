@@ -2,7 +2,7 @@
 
 import { StrKey } from '@stellar/stellar-sdk'
 import { Refusal } from './envelope.ts'
-import { isConstant, type Val } from './wire.ts'
+import { type Caps, isConstant, type Val } from './wire.ts'
 
 export type Network = 'mainnet' | 'testnet'
 
@@ -19,14 +19,27 @@ export const RPC_URL: Record<Network, string> = {
 /** The grammar this package speaks: `SELF_VERSION` in the interpreter. */
 export const GRAMMAR_VERSION = 7
 
-/** The grammar-7 interpreter, per network (the wasm is the build with deploy-time `Limits`; the
- *  limits themselves are read from the instance). Mainnet has none yet: until one is
- *  deployed and pinned here, mainnet installs and checks name their own
+/** The grammar-7 interpreter, per network (the wasm is the build with deploy-time `Limits`), with
+ *  the limits that instance was deployed with: immutable (no setter, no upgrade), so recorded here
+ *  and held equal to `deployments/grammar7-testnet.json`. Only synthesis and the info tool trust
+ *  them with no RPC; install, verify and simulate read `limits()` live. Mainnet has none yet:
+ *  until one is deployed and pinned here, mainnet installs and checks name their own
  *  interpreter, and it is verified live like the pinned one. */
-export const INTERPRETER: Record<Network, { address: string; wasmSha256: string } | null> = {
+export const INTERPRETER: Record<
+  Network,
+  { address: string; wasmSha256: string; limits: Caps } | null
+> = {
   testnet: {
     address: 'CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT',
     wasmSha256: '69cad1d5ce9aeaa0dad6980fd030e528935a0ebdd290111f393e9fd0564a68b0',
+    limits: Object.freeze({
+      max_reads: 8,
+      max_leaves: 400,
+      max_predicate_bytes: 24576,
+      max_elems: 32,
+      max_in_operands: 32,
+      max_depth: 5,
+    }),
   },
   mainnet: null,
 }
