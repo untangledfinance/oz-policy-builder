@@ -1,10 +1,12 @@
 # Audit evidence
 
-The logs in this folder were produced against the 1.x tree (the grammar-4 and
-grammar-6 interpreters and the 1.x off-chain package), not the grammar-7 tree
-that follows it on `feat/grammar-v7`.
+Most logs in this folder were produced against the 1.x tree (the grammar-4 and
+grammar-6 interpreters and the 1.x off-chain package). Four files come from the
+grammar-7 tree on `feat/grammar-v7`: `oz-threshold-g7-live.log`,
+`worst-case-ceilings-2026-10-16.txt`, `soroban-network-limits-2026-10-16.txt` and
+`stride-threat-model-g7.md`.
 
-**Reproducing the four `oz-*` and `e2e-network` logs.** Their scripts drove the 1.x
+**Reproducing the four 1.x `oz-*` logs and the `e2e-network` log:** their scripts drove the 1.x
 package API and were deleted with it in 2.0.0. They are in git at `9c93592`
 (`packages/policy-synth/scripts/e2e-network.ts`, `oz-policy-composition.ts`,
 `oz-spending-limit-binding.ts`, `oz-threshold-binding.ts`, `oz-two-rule-blend-cap.ts`).
@@ -26,8 +28,8 @@ the `v1.2.0` release tree (`2b14ec6`)**, because the off-chain source changed
 after `5bae0a8` (three releases, the `spending_limit` composition, the handle
 refactor, `outPath`, and the cross-rule install refusal).
 
-**The other nine describe the interpreter as of `5bae0a8`, and that was checked
-rather than assumed.** They all exercise the Rust interpreter, which had not changed
+**The other nine describe the interpreter as of `5bae0a8`, and we checked
+that:** they all exercise the Rust interpreter, which had not changed
 since then when the logs were made (grammar 7 has since replaced it in source; it is
 not what these logs ran against):
 
@@ -40,7 +42,7 @@ in those logs runs. `contract-gate-recheck-e2d2a95.log` corroborates it: `cargo
 fmt --check`, `clippy -D warnings` and `cargo test` re-run at `e2d2a95` give the
 same **125 tests, 0 failed**. That re-check is narrower than `contract-gate.log`
 - it omits the conformance regeneration, the wasm rebuild and the hash-pin
-parity - so it supplements that log rather than replacing it, and the wasm and
+parity - so it supplements that log and leaves it standing, and the wasm and
 pin results hold because the source producing them is byte-identical.
 
 The three live-network legs were deliberately NOT re-run. They prove properties
@@ -55,7 +57,7 @@ That distinction used to matter and was hiding a defect. The export was
 originally adopted as a workaround: `biome check .` reads untracked files, and
 the tree carried 21 untracked scripts whose lint errors were not the repo's. But
 four of those scripts were the ones this report's own reproduction commands tell
-you to run, so the artefact best placed to notice they were missing was the one
+you to run, so the artefact best placed to notice they were absent was the one
 built to look past them. They are committed as of `370734d`; the working tree
 now holds no untracked scripts, `bun run check` passes in place, and the export
 and the working tree agree.
@@ -77,8 +79,8 @@ gitignored `dist/`.
 | `oz-spending-limit-binding.log` | `scripts/oz-spending-limit-binding.ts --network testnet` and `--network mainnet` | OZ's own `spending_limit` beside the interpreter denies an over-cap transfer `#3221` on both networks; control rule without the cap permits the same transfer |
 | `oz-threshold-binding.log` | `scripts/oz-threshold-binding.ts --network testnet` and `--network mainnet` | OZ's own `simple_threshold(2)` beside the interpreter denies a lone signer `#3202` and permits the two-signer call on both networks; control rule without the threshold permits that same lone signer |
 | `e2e-network.log` | `scripts/e2e-network.ts --network testnet` and `--network mainnet` | policy installed against the pinned interpreter on both networks; permitted call succeeds, forbidden call denied `#100`, and the agent's attempt to route the forbidden call through the unpoliced rule is refused on membership. Both networks re-run for this generation |
-| `stride-threat-model.md` | STRIDE re-run, 2026-09-29 | grammar-6 threat model for the interpreter, the gate, the v4 adapter and the toolchain, with the app's stored-move flow as one adjacent data flow. Supersedes the 2026-09-25 report (at `d89e17b:docs/stride-threat-model.md`). For grammar-7 (2.0.0) threat model, see `stride-threat-model-g7.md` |
-| `stride-threat-model-g7.md` | Grammar-7 validation, 2026-10-15 | grammar-7 (2.0.0) threat model: read operands, authority header, threshold and spending-limit policies. P0/P1 mainnet readiness. |
+| `stride-threat-model.md` | STRIDE re-run, 2026-09-29 | grammar-6 threat model for the interpreter, the gate, the v4 adapter and the toolchain, with the app's stored-move flow as one adjacent data flow. Supersedes the 2026-09-25 report (at `d89e17b:docs/stride-threat-model.md`). |
+| `stride-threat-model-g7.md` | STRIDE run on grammar 7 at `9ff281a`, 2026-10-15 and 16, validated | grammar-7 threat model for the interpreter, policy-synth, the cli and the MCP server: findings with validated severities, the P0/P1/P2 list, and a status table at 2.0.0 (5 items done; every P0 still has open work, so mainnet stays blocked) |
 | `execution-wait-testnet.log` | `scripts/verify-execution-wait-testnet.ts` | 44 of 44 against the Linux builds: waits, stored moves, run, cancel, the run rule's refusals, revocation, pause and a stored move's measured lifetime |
 | `execution-address-rule-testnet.log` | `scripts/verify-execution-address-rule-testnet.ts` | 35 of 35 against the Linux builds: the adapter's address rule, run with no wait |
 
@@ -86,8 +88,8 @@ gitignored `dist/`.
 
 ### 1. `paste` 1.0.15 unmaintained - RUSTSEC-2024-0436 (ACCEPTED)
 
-Transitive through `soroban-sdk`. The advisory is "no longer maintained", not a
-vulnerability. Not actionable without an SDK change; `cargo audit` reports 0
+Transitive through `soroban-sdk`. The advisory is in the "no longer maintained"
+class and carries no vulnerability rating. Not actionable without an SDK change; `cargo audit` reports 0
 vulnerabilities across 202 crate dependencies.
 
 ### 2. Scout MEDIUMs - reviewed, no change
@@ -111,15 +113,15 @@ vulnerabilities across 202 crate dependencies.
 - *unsafe Map access* x1: reported at `dsl.rs:431`, which is `map.get(field)`.
   Soroban's `Map::get` returns `Option`; the panicking variant is
   `get_unchecked`, which this line does not use. That `Option` is `resolve`'s
-  return value, so a missing field resolves to "no value" rather than trapping.
+  return value, so an absent field resolves to "no value" and the call does not trap.
 
 ### 3. Stellar Security Portal corpus cross-checked
 
 Pulled from the portal's open API on 2026-08-04: 832 findings, 150 critical or
 high. Those counts are carried forward from that pull and were NOT re-verified
 for grammar 4 - the portal's API still did not resolve when this tree was
-re-audited, retried again on 2026-08-27, so they are dated rather than restated as
-current.
+re-audited, retried again on 2026-08-27, so they are given with their date and
+are not restated as current.
 
 The cross-check itself is unaffected: it is a claim about this contract's entry
 points against the access-control class that dominates the corpus, and grammar 4
@@ -133,8 +135,8 @@ added no entry point. There are still five, with the same controls.
 | `rotate_master_signer_set` | `require_master` on the *old* set |
 | `grammar_version` | read-only, touches no state |
 
-`require_master` refuses an empty set rather than treating zero `require_auth`
-calls as satisfied - the corpus's "authorization that silently no-ops" class.
+`require_master` refuses an empty set, so zero `require_auth` calls never count
+as satisfied - the corpus's "authorization that silently no-ops" class.
 The nonce covers its double-spend/replay class.
 
 ### 4. End-to-end enforcement on both networks
@@ -145,18 +147,18 @@ anything. `scripts/e2e-network.ts` deploys a fresh OZ smart account, installs
 verdicts through submitted transactions. Mainnet and testnet both pass; five
 independent mainnet runs produced the same outcome against different accounts.
 
-Three conditions make the result a claim about the KEY rather than about one
+Three conditions make the result a claim about the KEY, beyond the one
 call:
 
-- **The deny is attributed.** The harness fails unless the refusal names the
+- **The deny is attributed:** the harness fails unless the refusal names the
   interpreter contract and carries `#100 ArgMismatch`. A test asserting only
   that a call failed passes for any reason.
-- **The forbidden call is otherwise valid.** `approve` is given an expiration
+- **The forbidden call is otherwise valid:** `approve` is given an expiration
   ledger ahead of the current one, so the token has no reason of its own to
   reject it and the predicate is the only thing that can.
-- **The deny is unroutable.** An account resolves a call against the rule the
-  caller NAMES, taking the maximum authority over the named rules rather than
-  the intersection, so a predicate constrains a key only when the policed rule
+- **The deny is unroutable:** an account resolves a call against the rule the
+  caller NAMES, taking the maximum authority over the rules it lists (the union
+  of their authority), so a predicate constrains a key only when the policed rule
   is the only rule that key is on. The constrained agent is a signer on the
   policed rule and nowhere else, and the harness asserts that its forbidden
   call routed through the unpoliced admin rule is rejected on membership.
@@ -166,7 +168,7 @@ the same account, rule and policy, so an unbound policy would have let the
 `approve` through.
 
 The admin key retains full authority through the unpoliced rule by design. A
-policy constrains the keys placed under it, not the account's owner, and any
+policy constrains the keys placed under it and leaves the account's owner alone, and any
 deployment putting a constrained key on a second unpoliced rule has no
 constraint at all.
 
@@ -186,7 +188,7 @@ Exposed as `findAuthorityOverlaps` from `@crediolabs/policy-synth/install`;
 `install_policy` returns it as `authorityScan`.
 
 `install_policy` READS the account to build it, so the scan describes what is
-actually installed rather than what the caller happened to mention. Rule ids are
+actually installed on chain, whatever the caller happened to mention. Rule ids are
 not contiguous - OZ never reuses an id after a removal - so the walk climbs ids
 until it has accounted for `Count` live rules; iterating `0..Count-1` would skip
 live rules at higher ids, and a skipped rule is a missed overlap. (1.x let a caller pass
@@ -194,8 +196,8 @@ live rules at higher ids, and a skipped rule is a missed overlap. (1.x let a cal
 switched the refusal off and reported a clean scan.)
 
 **Limit:** `authorityScan: null` means NOT CHECKED, and covers a read that
-failed as well as one that could not account for every live rule. It is never an
-empty list in those cases, because reporting `[]` would turn "could not check"
+failed as well as one that could not account for every live rule. In those cases
+the scan returns `null`, because reporting `[]` would turn "could not check"
 into "nothing found".
 
 ### 6. On-chain spec resolution widens the RPC trust boundary
@@ -206,15 +208,15 @@ on compiled-in data now depends on a network response.
 
 An attacker controlling the RPC endpoint can serve a fabricated spec whose types
 match the recorded call, turning a refusal into a `parseConfidence` of 1.0 for a
-contract nobody understands. The synthesised predicate still pins only the
+contract that no reviewer understands. The synthesised predicate still pins only the
 contract address and method observed, so what the attacker gains is the removal
-of a warning, not a wider policy.
+of a warning. The policy stays as narrow as before.
 
 Bounds:
 
 - The spec is read from the same endpoint the transaction was fetched from, so
   no new trusted party is added; the blast radius of an existing one widens.
-- Recognition is all-or-nothing per contract and only ever adds. A missing spec,
+- Recognition is all-or-nothing per contract and only ever adds. An absent spec,
   an unreachable endpoint or a call the interface does not describe leaves the
   recording unchanged, so the failure direction is refusal.
 - `resolveContractSpecs: false` restores registry-only behaviour.
@@ -236,16 +238,16 @@ policy, on testnet and mainnet. Three calls, each load-bearing:
 | 20000000 stroops | interpreter + cap 5000000 | deny `#3221` | denied `#3221` |
 
 The control is what attributes the deny: the identical transfer passes when the
-cap is absent, so the refusal is not the interpreter's, not the amount's and not
-an empty balance. The under-cap permit rules out a rule that simply denies
+cap is absent, so the refusal comes from the cap. The interpreter, the amount and
+an empty balance are ruled out. The under-cap permit rules out a rule that simply denies
 everything. Raising the cap to 50000000 flips the third row to permitted, so the
-verdict tracks the cap VALUE rather than the presence of a second policy.
+verdict tracks the cap VALUE. The mere presence of a second policy does not decide it.
 
 The rules are `ContextRuleType::CallContract(SAC)` because `spending_limit`'s
 install refuses any other rule type, pinning the cap to one token so every
 metered transfer is denominated the same way.
 
-**Provenance of the deployed policy contracts.** These are OZ *example* contracts
+**Provenance of the deployed policy contracts:** these are OZ *example* contracts
 that we built and deployed ourselves; they are not ours and we did not audit them.
 
 - Built from `OpenZeppelin/stellar-contracts` at tag `v0.7.2` (`a9c4216`,
@@ -273,7 +275,7 @@ The same provenance covers `simple_threshold`
 time. All six addresses and all three wasm hashes were read back from chain and
 are pinned in `PINNED_OZ_POLICY_ADDRESS_BY_NETWORK` /
 `PINNED_OZ_POLICY_WASM_SHA256`, exported from `@crediolabs/policy-synth/run` so
-consumers import the pin rather than copying a literal.
+consumers import the pin and do not copy a literal.
 
 ### 8. `simple_threshold` restores m-of-n, which a policy otherwise removes
 
@@ -294,11 +296,11 @@ Two signers on both rules; only the extra policy varies. On testnet and mainnet:
 | signers A + B | interpreter + threshold(2) | permit | permitted |
 
 The control does double duty: it attributes the deny to the threshold, and it
-demonstrates the any-of-N inversion rather than asserting it. Dropping the
+demonstrates the any-of-N inversion by running it. Dropping the
 threshold to 1 flips the lone-signer call to permitted, so the verdict tracks
 the threshold value.
 
-**Carried hazard, from OZ's own module header.** `simple_threshold` validates
+**Carried hazard, from OZ's own module header:** `simple_threshold` validates
 the threshold against the rule's signer count AT INSTALL and is not notified
 when signers change afterwards. Removing signers can put the threshold out of
 reach and permanently block the rule; adding them silently weakens a strict

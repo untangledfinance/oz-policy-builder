@@ -1,6 +1,6 @@
 # OZ Policy Builder - STRIDE Threat Model: Grammar-6 (Production)
 
-> **For Grammar-7 (2.0.0):** See [stride-threat-model-g7.md](stride-threat-model-g7.md). This model describes grammar-6 (deployed on mainnet and testnet). Grammar-7 features (authority header, read lint, threshold and spending-limit policies) are modeled separately with their P0/P1 mainnet readiness status.
+> This is the grammar-6 model; the grammar-7 model is [stride-threat-model-g7.md](stride-threat-model-g7.md).
 >
 > **Historical (1.x).** The rows below that name `existingRules`, `rpcUrl`/`allowUnpinnedRpcUrl` or `outPath` describe the 1.x package. In 2.0.0 those inputs are gone (the endpoint is the operator's, the scan always reads the chain, `outFile` is a name inside the operator's directory); see `CHANGELOG.md`.
 
