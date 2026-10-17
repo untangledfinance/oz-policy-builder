@@ -49,6 +49,10 @@ Every verdict from `simulate_policy` and `verify_policy` is the interpreter's ow
 | Every element of a batch or payout | `each` (every element satisfies the rules), `some` (at least one does), `total` (a field's sum is at most `max`), `length` (at most `max` elements). One rule covers any length up to 32, instead of a rule per element |
 | "N per day" - a rolling total | `install_policy` with `spendingLimit: { amount, periodLedgers }`. It attaches an OpenZeppelin `spending_limit` beside the predicate on the same rule; both must permit. NOT expressible as a predicate - the interpreter sees one call and keeps no state - so a per-call cap alone lets N through repeatedly. `periodLedgers` counts LEDGERS (~5s each); the rule must be scoped to the token contract whose transfers it meters |
 
+## Review structure
+
+Every tool that returns a rule or rules includes a `review` (text, box-drawn) and a `reviewTree` (nodes with `label`, `op`, `value`, `raw`, `index`, `children`). The text is injective: two rules that differ never read alike. Constants carry their type where needed (symbols `'quoted'`, strings `"quoted"`, `5 (u256)`, numbers in a vector typed, bytes `0x..`). A path step says `[0]` for an index, and a field is `the item › x`. Addresses are short (full under `raw`); names from a request are marked `«like this»` and parameter names come from each contract's own spec. Raw values are under `raw: true`. Authority names use `[role]/«label»` format: the role is the signer's function (a threshold policy type), and the label is the policy name if known. Names are display only and best effort (bounded, 2 s, the request's abort signal).
+
 Pass handles rather than retyping structures: a `hash` for a recording,
 `encodedPredicate` for a predicate you already hold. Predicates and call
 arguments are JSON in the contract's own shape: a node is a tagged list

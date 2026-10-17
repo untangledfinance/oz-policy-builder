@@ -67,6 +67,25 @@ The grammar-7 deployment the 2.x packages pin is in
 | Interpreter (mainnet) | none yet |
 | Grammar version | `7` |
 
+**Install 2.0.0:**
+
+```sh
+npm install @crediolabs/policy-synth@next
+npm install @crediolabs/policy-builder-cli@next    # for the shell command
+npm install @crediolabs/policy-builder-mcp@next    # for the MCP server
+```
+
+Or use unpublished versions from a checkout of this repo:
+
+```sh
+cd packages/policy-synth && npm link
+cd ../policy-builder-cli && npm link @crediolabs/policy-synth && npm link  # repeat for policy-builder-mcp
+```
+
+The `latest` tag on npm is still 1.3.0 (grammar 4); `next` is 2.0.0 (grammar 7).
+
+**Superseded testnet interpreters:**
+
 The first grammar-7 testnet interpreter, `CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV` (wasm `a975353d...`, limits compiled in, no `limits()`), is superseded and no longer trusted by the package, and so is the second, `CAECFZWHHHKJRJHYR3EQHAMYHBQPW7G6BGKYSNJS4KLZAUNLQP7H5L2H` (wasm `42d53616...`: `max_elems` could be 1 and the byte ceiling was 48 KiB); both are refused by hash (`deployments/grammar7-testnet.json`).
 
 The previous pin (1.x, grammar 4): mainnet

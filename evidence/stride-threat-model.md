@@ -1,5 +1,7 @@
 # OZ Policy Builder - STRIDE Threat Model
 
+> **Scope: Grammar 6.** This model describes the policy-interpreter's grammar-6 build deployed on mainnet and testnet. Grammar-7 features shipped in 2.0.0 (the authority header, read lint, threshold and spending-limit policies) introduce new threat surfaces not yet modeled here. See [CHANGELOG.md](../CHANGELOG.md) for 2.0.0 features and the [interpreter README](../contracts/prime/stellar/policy-interpreter/README.md) for grammar-7 details.
+>
 > **Historical (1.x).** The rows below that name `existingRules`, `rpcUrl`/`allowUnpinnedRpcUrl` or `outPath` describe the 1.x package. In 2.0.0 those inputs are gone (the endpoint is the operator's, the scan always reads the chain, `outFile` is a name inside the operator's directory); see `CHANGELOG.md`.
 
 

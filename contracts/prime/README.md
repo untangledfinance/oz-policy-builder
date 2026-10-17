@@ -15,7 +15,7 @@ contracts/prime/
     prime-session/              session signer on an OZ smart account (new code)
     custody-gate/               OctoGate: the custody account's gate
     execution-adapter/          OctoGate: per-Prime batcher, bound to one gate
-    policy-interpreter/         OctoGate: grammar 6, evaluates the mandate on every call
+    policy-interpreter/         OctoGate: grammar-6 on mainnet, grammar-7 source on this branch
     test-blend-pool/            Blend-shaped stub, testnet only
   evm/prime-session/            PrimeSession.sol, a Roles member of Safe 1.4.1 and Zodiac Roles v2
   solana/README-architecture.md Solana design: Squads, prime-session and the custody gate

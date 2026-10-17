@@ -224,11 +224,9 @@ On testnet, where entries last a week, OctoPos `apps/web/scripts/keep-alive.ts`
 runs daily for the accounts listed in
 `apps/web/scripts/keep-alive.testnet.json`. It collects everything a Prime
 depends on (its instance and wasm, its rules and policies, the interpreter's
-per-rule entries (grammar-6 keys only; see below), its gates, adapters and stored moves, and the shared code),
+per-rule entries, its gates, adapters and stored moves, and the shared code),
 restores what has archived and extends anything with fewer than 21 days left to
-30. That script and `read-account-rules.ts` only know the grammar-6 keys, so
-they do not yet cover a grammar-7 rule record; that is an off-chain fix on the
-M3 deployment gate.
+30. Currently the script uses grammar-6 keys only; support for grammar-7 rule records (keyed `(account, rule_id)`) is a planned addition.
 
 On mainnet we do not run it. Since protocol 23, a transaction that touches an
 archived entry can restore it as part of the same transaction, and the account
@@ -271,14 +269,14 @@ the custody account. Swap proceeds go straight to the custody account.
 
 ### Policy interpreter
 
-`contracts/prime/stellar/policy-interpreter`. The source on the
-`feat/grammar-v7` branch is grammar 7 (`SELF_VERSION` in `src/version.rs`) and
-is not deployed; the instances recorded below run grammar 6, and the bullets
-below describe grammar 6 unless they say otherwise. The smart account calls `enforce` on every call a policed
-rule authorises. The predicate grammar, its structural caps and the install
-checks are documented in
+`contracts/prime/stellar/policy-interpreter`. This repository holds both grammars:
+- **Grammar 6** (production): deployed on mainnet at `CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R` and on testnet. The Prime app uses it for custody.
+- **Grammar 7** (development): source on the `feat/grammar-v7` branch (`SELF_VERSION` in `src/version.rs`), deployed to testnet at `CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT`. The 2.x npm packages pin and speak grammar 7 only.
+
+The smart account calls `enforce` on every call a policed rule authorises. The predicate grammar, its structural caps and the install checks are documented in
 [contracts/prime/stellar/policy-interpreter/README.md](../contracts/prime/stellar/policy-interpreter/README.md).
-The properties the custody design leans on:
+
+**Grammar 6 properties (mainnet custody, policed accounts):**
 
 - **`enforce` changes no value.** It reads the predicate document and the
   signer-set hash that install wrote, and nothing else. A permit bumps the
@@ -296,10 +294,9 @@ The properties the custody design leans on:
   asks a registry contract whether the receiver is on its list, and the list
   can change without reinstalling the rule. `now` is the ledger timestamp, and
   `scaled(src, num, den, add)` computes `src * num / den + add` over any of
-  those, with every step checked. `scaled` replaces `call_arg_scaled`. A predicate may make at most four
-  distinct reads; identical reads (same contract, function, constant arguments)
+  those, with every step checked. `scaled` replaces `call_arg_scaled`. Each interpreter instance has a hard limit on distinct `read` calls (the testnet instance allows 8, with a ceiling of 8 and a floor of 1); identical reads (same contract, function, constant arguments)
   are one call, made once per `enforce`, and a read with a call-derived argument
-  counts as its own call, so `enforce` never makes more than four external
+  counts as its own call, so `enforce` never makes more than that limit of external
   calls, quantifiers included. **This
   ends the grammar-6 property that `enforce` reads nothing but the authorised
   call:** it now calls the contracts its predicate names. Soroban has no
