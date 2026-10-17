@@ -15,7 +15,7 @@ contracts/prime/
     prime-session/              session signer on an OZ smart account (new code)
     custody-gate/               OctoGate: the custody account's gate
     execution-adapter/          OctoGate: per-Prime batcher, bound to one gate
-    policy-interpreter/         OctoGate: grammar-6 on mainnet, grammar-7 source on this branch
+    policy-interpreter/         OctoGate: grammar-7 source (testnet only); grammar 6 runs on mainnet
     test-blend-pool/            Blend-shaped stub, testnet only
   evm/prime-session/            PrimeSession.sol, a Roles member of Safe 1.4.1 and Zodiac Roles v2
   solana/README-architecture.md Solana design: Squads, prime-session and the custody gate
@@ -38,14 +38,14 @@ sLOC counts the non-blank, non-comment lines of the contract source after the fo
 | Stellar | `stellar/prime-session` | 41 | new code |
 | Stellar | `stellar/custody-gate` | 55 | OctoGate, on mainnet, outside the new-code budget |
 | Stellar | `stellar/execution-adapter` | 221 | OctoGate, on mainnet, outside the new-code budget |
-| Stellar | `stellar/policy-interpreter` | 1,082 | OctoGate, on mainnet, outside the new-code budget |
+| Stellar | `stellar/policy-interpreter` | 757 | OctoGate, outside the new-code budget; this grammar-7 source is on testnet only, and mainnet runs the grammar-6 build |
 | Stellar | `stellar/test-blend-pool` | 22 | test double, testnet only |
 
 Per chain, the new code is 53 on EVM, 42 on NEAR, 126 + 64 = 190 on Solana and 41 on Stellar, 326 in all. The earlier formatted counts were 65, 50, 343 and 50 (508 in all), and the as-written counts were 32, 20, 117 and 37 (206 in all). The OctoGate contracts have their own external audit.
 
 ## Build and test
 
-Every result below was measured on 9 October 2026 after the move into this folder. Commands run from the contract's own folder.
+Every result below was measured on 9 October 2026 after the move into this folder, except the policy interpreter's two rows, measured on 17 October 2026 on the grammar-7 source. Commands run from the contract's own folder.
 
 | Contract | Command | Result |
 |---|---|---|
@@ -56,8 +56,8 @@ Every result below was measured on 9 October 2026 after the move into this folde
 | | `cargo test` | 3 passed |
 | `stellar/execution-adapter` | `./build-wasm.sh` | `68d012e79fd4f9b88584447cfb32e0b0dbb55fb8bcd084b7212bad3e63b6dfdd` |
 | | `cargo test` | 33 passed |
-| `stellar/policy-interpreter` | `./build-wasm.sh` | `5143e64159378c9aac27e8cf1c9cb1f14364672885c151ccc5d887109f776126` |
-| | `cargo test`, then `cargo test --release --test conformance` | 151 passed (82 unit, 69 in the integration suites, 18 of them conformance); the release conformance run passes 18 |
+| `stellar/policy-interpreter` | `./build-wasm.sh` | grammar 7: `69cad1d5ce9aeaa0dad6980fd030e528935a0ebdd290111f393e9fd0564a68b0`, the testnet pin (rebuilt on 17 October 2026). The grammar-6 build on mainnet is `5143e64159378c9aac27e8cf1c9cb1f14364672885c151ccc5d887109f776126` |
+| | `cargo test` (after `./build-wasm.sh`, which `tests/worst_case.rs` loads) | 397 passed on 17 October 2026: 173 unit and 224 in 12 integration suites, 18 of them conformance |
 | `stellar/test-blend-pool` | `cargo test` | builds, no tests |
 | `evm/prime-session` | `~/.foundry/bin/forge fmt --check src`, `forge build`, then `forge test` | formatter clean, build clean, 16 passed (6 behaviour tests and 10 binding tests); 3,860 bytes of runtime code without the metadata hash, 82 fewer than before the 9 October 2026 cuts |
 | `solana/prime-session` | `PRIME_CLUSTER=localnet cargo-build-sbf` | `.so` sha256 `181013d2d2338f30614fe548661de0753c23e5a78605df49d1b114b7817a3f11` (53,720 bytes); the round 9 build was `be6ade02a14b495d528d69d4f4632a0ffb9c9c83a9165ac8d2e0b1dbac102e13` (54,024 bytes) |
@@ -130,7 +130,7 @@ The records are `deployments/grammar6-testnet.json`, `deployments/execution-test
 
 | Job | What it runs |
 |---|---|
-| `Contracts (<stellar crate>)` | `cargo fmt --check` (every crate, `prime-session` included), `cargo clippy -D warnings`, `cargo test`, and for `prime-session` the `build-wasm.sh` hash against `build-hashes.json` |
+| `Contracts (<stellar crate>)` | `cargo fmt --check` (every crate, `prime-session` included), `cargo clippy -D warnings`, `cargo test`; for `policy-interpreter` also the release conformance run and the `build-wasm.sh` hash against `deployments/grammar7-testnet.json`; for `custody-gate` and `execution-adapter` the hash against `deployments/execution-testnet.json`; for `prime-session` the hash against `build-hashes.json` |
 | `Contracts (evm/prime-session)` | Foundry 1.8.4, the OpenZeppelin fetch from the EVM section, `forge fmt --check src`, `forge build`, `forge test` |
 | `Contracts (solana/<crate>)` | Solana CLI v4.3.0 installed from `release.anza.xyz` and cached, `cargo fmt --check`, `PRIME_CLUSTER=localnet cargo-build-sbf`, the `.so` hash against `build-hashes.json` |
 | `Contracts (near/prime-near-signer)` | Rust 1.98.1, `cargo-near` 0.22.0, the build described under NEAR, the wasm hash against `build-hashes.json` |
