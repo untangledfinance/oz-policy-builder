@@ -73,7 +73,7 @@ returns the instance's `limits` and the `ceilings`.
 | `get_interpreter_info` on testnet, without `verifyLive` | Works. `limitsFrom` is `live` or `recorded` |
 | `install_policy`, `verify_policy`, `simulate_policy` with calls, `explainAccount` | Need RPC and the live interpreter: they read its `limits()` and refuse a build the package does not trust |
 | `revoke_policy` | Needs RPC (it reads the rule and the account's code); no interpreter check |
-| `verifyLive` | Needs RPC; reports `live.matches` and does not refuse |
+| `verifyLive` | Needs RPC; reports `live.matches` (false for an untrusted build or another grammar) instead of refusing. It still refuses an address other than the pin on a pinned network (`INTERPRETER_MISMATCH`) and an address that is not a wasm contract |
 | `simulate_policy` with only a predicate (explain) | Held to the limits of the given or pinned interpreter, read live, so testnet needs RPC. With no interpreter (mainnet without `interpreterAddress`) it is held to the ceilings and works offline. `heldTo` says which |
 
 ## Intent -> tool
