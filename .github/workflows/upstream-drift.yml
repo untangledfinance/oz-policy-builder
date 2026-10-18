@@ -12,6 +12,11 @@ on:
     - cron: "0 7 * * 1"
   workflow_dispatch:
 
+# The check reads public endpoints without a token and reports by failing, so the
+# job needs nothing beyond reading the repository.
+permissions:
+  contents: read
+
 jobs:
   drift:
     name: Protocol and OpenZeppelin versions
