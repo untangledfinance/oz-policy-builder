@@ -60,6 +60,37 @@ CI then compares the `build-wasm.sh` hash of the interpreter with
 `deployments/grammar7-testnet.json`, and those of the gate and the adapter with
 `deployments/execution-testnet.json`. Compare hashes from a Linux build.
 
+The other contracts have a CI job each. From the repository root:
+
+```sh
+# EVM seat (Foundry 1.8.4). Fetch OpenZeppelin into lib/ first, as contracts/README.md shows.
+( cd contracts/evm/prime-seat && forge fmt --check src && forge build && forge test )
+
+# Solana programs (Solana CLI 4.3.0)
+for crate in prime-session custody-gate prime-seat; do
+  ( cd "contracts/solana/$crate" &&
+    RUSTUP_TOOLCHAIN=stable cargo fmt --check &&
+    RUSTUP_TOOLCHAIN=stable PRIME_CLUSTER=localnet cargo-build-sbf -- --locked )
+done
+
+# NEAR signer v2 and its shared vectors (the generator needs Bun 1.4)
+( cd contracts/near/prime-near-signer-v2 &&
+  cargo fmt --check &&
+  cargo clippy --all-targets --locked -- -D warnings &&
+  cargo test --locked )
+( cd contracts/near/vectors/generator &&
+  bun install --frozen-lockfile &&
+  bun gen.ts /tmp/requests.json && cmp /tmp/requests.json ../requests.json )
+
+# The Solana app checks
+( cd contracts/solana/custody-gate/app-checks &&
+  bun install --frozen-lockfile && bun run typecheck && bun test )
+```
+
+The EVM, Solana and NEAR v2 jobs, and a job for the first NEAR signer, also
+build each contract and compare it with `contracts/build-hashes.json`. The
+build commands and their path remaps are in `.github/workflows/ci.yml`.
+
 ## Style
 
 - TypeScript is formatted and linted by [Biome](https://biomejs.dev)
