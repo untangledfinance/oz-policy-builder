@@ -2,7 +2,9 @@
   "name": "prime-near-signer-vectors",
   "private": true,
   "type": "module",
-  "scripts": { "generate": "bun gen.ts ../requests.json" },
+  "scripts": {
+    "generate": "bun gen.ts ../requests.json"
+  },
   "dependencies": {
     "@noble/curves": "2.4.0",
     "@noble/hashes": "2.4.0",
