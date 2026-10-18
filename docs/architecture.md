@@ -162,7 +162,7 @@ flowchart TB
 | Custody wallet and its signers | each | holding the funds and approving the limit | the institution (Fordefi or another MPC) |
 | Custody gate | Stellar, Solana | paying only listed destinations within the limit | us |
 | Custody gate | EVM | the same, as a Safe owned by custody with Roles rules | Safe, Zodiac (audited code, unmodified) |
-| Execution adapter | Stellar | running a batch atomically, naming only addresses the gate lists | us |
+| Execution adapter | Stellar | running a batch atomically; bound to a gate, naming only addresses the gate lists; with no gate (v5 build), refusing a call to the Prime, any grant and any wait | us |
 | Policy interpreter | Stellar | evaluating a rule's predicate on every call the rule authorises | us |
 | Prime account | each | counting owners' approvals and selecting rules | OpenZeppelin, Safe, Squads |
 | Seat | each | letting a session key stand in for one NEAR-routed owner on one account | us |
@@ -294,7 +294,12 @@ commits only to the deployer and salt.
 transaction, so a batch needs a contract that makes several calls atomically
 (the execution adapter). The OpenZeppelin account checks each authorised call
 against a rule, and the policy interpreter turns a rule into data: a new
-mandate is a new predicate, with no new contract and no new audit.
+mandate is a new predicate, with no new contract and no new audit. The same
+adapter, created with no gate, lets a Prime bundle its own calls, such as a
+check followed by transfers that happen only if the check passes. It then
+checks no address, so the Prime's own rules are the only limit, and it runs
+every batch at once
+([stellar.md](stellar.md#no-gate)).
 
 **EVM uses only audited code for custody:** Safe, Zodiac Roles and
 OpenZeppelin's TimelockController express the gate, the bands and the recovery
@@ -352,6 +357,13 @@ rule is the safe way to change who signs it.
   `External` signers (error 212, every version) and `Default` scope (error 218,
   grammar 6 and 7); grammar 7 also refuses rules scoped to the account or to
   the interpreter.
+- **A Stellar adapter with no gate checks no address:** a batch through it can
+  do what the Prime's rules allow for each call that asks the Prime, and move
+  anything the adapter holds. It must never hold funds or an allowance, and no
+  rule on the Prime should list it as a signer: such a rule would let an agent
+  move funds past its own caps, and only the tooling can refuse it. A bundle
+  that failed can be submitted again by whoever holds its signed
+  address-credential entry, until that entry's expiry ledger.
 - **A seat cannot be a policy admin:** admins authorise by `require_auth`,
   which a seat satisfies only inside its own account's check.
 - **Owner counts per chain:** Safe and Roles have no cap (12 owners measured in

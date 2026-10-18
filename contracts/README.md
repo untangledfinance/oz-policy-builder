@@ -13,7 +13,7 @@ contracts/
   check-build-hash.sh           the comparison CI runs
   stellar/
     custody-gate/               OctoGate: the custody account's gate
-    execution-adapter/          OctoGate: per-Prime batcher, bound to one gate
+    execution-adapter/          OctoGate: per-Prime batcher, bound to one gate or to none
     policy-interpreter/         OctoGate: grammar-7 source (testnet only); grammar 6 runs on mainnet
     test-blend-pool/            Blend-shaped stub, testnet only
   solana/README-architecture.md Solana design: Squads, the seat and the custody gate
@@ -40,7 +40,7 @@ sLOC counts the non-blank, non-comment lines of the contract source after the fo
 | Solana | `solana/prime-seat` | 75 | new code |
 | Stellar | `stellar/prime-seat` | 99 | new code |
 | Stellar | `stellar/custody-gate` | 55 | OctoGate, on mainnet, outside the new-code budget |
-| Stellar | `stellar/execution-adapter` | 238 | OctoGate, outside the new-code budget; on mainnet too (see below) |
+| Stellar | `stellar/execution-adapter` | 226 | OctoGate, outside the new-code budget; the v4 build (238) is on mainnet too (see below), and this v5 source with an optional gate is on testnet only |
 | Stellar | `stellar/policy-interpreter` | 757 | OctoGate, outside the new-code budget; this grammar-7 source is on testnet only, and mainnet runs the grammar-6 build |
 | Stellar | `stellar/test-blend-pool` | 22 | test double, testnet only |
 
@@ -54,8 +54,8 @@ Every hash and test count below was measured again on 18 October 2026 at the pat
 |---|---|---|
 | `stellar/custody-gate` | `./build-wasm.sh` | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` |
 | | `cargo test` | 3 passed |
-| `stellar/execution-adapter` | `./build-wasm.sh` | `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3`, the testnet record. Its code is on mainnet too (read back on 18 October 2026), and new setups use it there. Gates set up on mainnet before 11 October 2026 run the earlier build `68d012e79fd4f9b88584447cfb32e0b0dbb55fb8bcd084b7212bad3e63b6dfdd`, recorded in `deployments/prime-mainnet.json` |
-| | `cargo test` | 45 passed |
+| `stellar/execution-adapter` | `./build-wasm.sh` | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b`, the v5 build with an optional gate, pinned in `build-hashes.json` and uploaded on testnet only. The v4 build `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3` (`deployments/execution-testnet.json`, source at `a86a496`) is on mainnet too, and new setups use it there. Gates set up on mainnet before 11 October 2026 run the earlier build `68d012e79fd4f9b88584447cfb32e0b0dbb55fb8bcd084b7212bad3e63b6dfdd`, recorded in `deployments/prime-mainnet.json` |
+| | `cargo test` | 62 passed |
 | `stellar/policy-interpreter` | `./build-wasm.sh` | grammar 7: `69cad1d5ce9aeaa0dad6980fd030e528935a0ebdd290111f393e9fd0564a68b0`, the testnet pin. The grammar-6 build on mainnet is `5143e64159378c9aac27e8cf1c9cb1f14364672885c151ccc5d887109f776126` |
 | | `cargo test` (after `./build-wasm.sh`, which `tests/worst_case.rs` loads) | 397 passed: 173 unit and 224 in 12 integration suites, 18 of them conformance |
 | `stellar/test-blend-pool` | `cargo build --release --target wasm32v1-none` with the remaps of `build-wasm.sh` | `7ba261ed4d1320ceabc47abcbe6819824c27529d0ae7e55ce2fc363555418e76`, the hash this README records |
@@ -138,7 +138,7 @@ On 18 October 2026 every contract moved from `contracts/prime/<chain>/<name>` to
 
 No build embeds the crate's own path. The Stellar scripts remap it to `/src`, and cargo, `cargo-build-sbf` and Foundry pass sources to the compiler relative to the crate.
 
-The records are `build-hashes.json`, `deployments/grammar7-testnet.json` and `deployments/execution-testnet.json`. CI reads the last two from `../../../deployments/`.
+The records are `build-hashes.json`, `deployments/grammar7-testnet.json` and `deployments/execution-testnet.json`. CI reads the last two from `../../../deployments/`. Since the optional gate (v5), CI compares the adapter with `build-hashes.json`; `deployments/execution-testnet.json` keeps the v4 build the Prime app pins.
 
 ## CI
 
@@ -146,7 +146,7 @@ The records are `build-hashes.json`, `deployments/grammar7-testnet.json` and `de
 
 | Job | What it runs |
 |---|---|
-| `Contracts (<stellar crate>)` | `cargo fmt --check` (every crate), `cargo clippy -D warnings`, `cargo test`; for `policy-interpreter` also the release conformance run, `cargo audit` and the `build-wasm.sh` hash against `deployments/grammar7-testnet.json`; for `custody-gate` and `execution-adapter` the hash against `deployments/execution-testnet.json` |
+| `Contracts (<stellar crate>)` | `cargo fmt --check` (every crate), `cargo clippy -D warnings`, `cargo test`; for `policy-interpreter` also the release conformance run, `cargo audit` and the `build-wasm.sh` hash against `deployments/grammar7-testnet.json`; for `custody-gate` the hash against `deployments/execution-testnet.json`; for `execution-adapter` and `prime-seat` the hash against `build-hashes.json` |
 | `Contracts (solana/<crate>)` | Solana CLI v4.3.0 installed from `release.anza.xyz` and cached, `cargo fmt --check`, `PRIME_CLUSTER=localnet cargo-build-sbf`, the `.so` hash against `build-hashes.json` |
 | `Contracts (prime-seat)`, in the Stellar matrix | as the other Stellar crates, and the `build-wasm.sh` hash against `build-hashes.json` |
 | `Contracts (evm/prime-seat)` | Foundry 1.8.4, the OpenZeppelin fetch from the EVM section, `forge fmt --check src`, `forge build`, `forge test`, then the runtime and creation hashes against `build-hashes.json` |

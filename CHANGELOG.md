@@ -35,6 +35,27 @@ mainnet refusal is the intended security change of P0-4.
   the operator's RPC (`contracts` for `reviewUnsigned`); then an execution
   adapter bound to no gate, or a contract that is not deployed, is a problem.
 
+- **Stellar execution adapter, an optional gate (v5 build `4985cd12…`):** the
+  Prime can create its adapter with no gate and bundle its own calls, which all
+  happen or none does. With no gate the adapter checks no address; it still
+  refuses a call to the Prime itself, refuses any grant it would hand out as
+  itself (`Uncheckable`, 3), refuses any wait and any `min_wait` above 0
+  (`NoWait`, 10), can never be bound to a gate (`NoGate`, 9), and only the
+  Prime may cancel. With a gate it behaves as before. The address now derives
+  from `sha256("prime.execution.adapter.v5" + XDR((gate, min_wait,
+  run_window)))`, so no v5 adapter sits at a v4 address. The build is recorded
+  in `contracts/build-hashes.json`, which CI now compares the adapter with, and
+  is uploaded on testnet only; the v4 build
+  `3dd675c0…` stays in `deployments/execution-testnet.json` as the one the
+  Prime app pins and mainnet runs. `scripts/verify-execution-null-gate-testnet.ts`
+  checks the null mode on testnet; the address-rule and wait scripts use the v5
+  derivation. The 32-byte case of the address walk now compares against the
+  last 32 bytes of each listed address's XDR, the same refusals for about
+  7,000 fewer instructions a call. `lib.rs` goes from 240 to 228 lines of code.
+  A rule on the Prime signed by a null adapter would let an agent pass its own
+  token caps; `policy-synth` and the Prime app must refuse one before any
+  null-mode flow ships.
+
 ### Fixed
 
 - **policy-synth, a rule signed by an execution adapter with no gate:** the
