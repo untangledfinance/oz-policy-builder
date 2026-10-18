@@ -20,10 +20,11 @@ policy-builder synthesize --network testnet --hash <tx> --limit 5000000
 policy-builder synthesize '{"intent": {"calls": [{"contract": "C...", "fn": "pay", "where": [{"constraint": "cap", "at": [0], "max": "100"}]}]}}'
 policy-builder verify --file verify.json
 policy-builder info --verifyLive true
+policy-builder review --network testnet --xdr <unsigned XDR>
 ```
 
 Call a tool by its full name or by a unique start or end of it (`record`,
-`synthesize`, `simulate`, `verify`, `install`, `revoke`, `info`). Input is a JSON
+`synthesize`, `simulate`, `verify`, `install`, `revoke`, `info`, `review`). Input is a JSON
 argument, `--file`, `-` (stdin) or `--field value` pairs (a value that is JSON is
 read as JSON). One JSON envelope goes to stdout, the same one the MCP server
 returns: `{ ok: true, data }` or `{ ok: false, error: { code, message, severity,
@@ -40,6 +41,10 @@ honours an `allow*` override only with it set to 1), and the bounds on what a wa
 (default 10 XLM). The tools, their limits and the install
 guardrails (threshold or `anyOne`, the spending-limit guard, the read-safety lint,
 the overlap scan) are described in the policy-synth README.
+
+`policy-builder review` is for the account owner: it reads an unsigned install or
+removal from its bytes alone, with no RPC, and lists every reason not to sign it
+(`problems`, `signable`) above the same review the agent was shown.
 
 ## License
 

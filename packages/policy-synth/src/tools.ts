@@ -1,4 +1,4 @@
-// The seven tools, one definition each: a name, a description, an input shape and
+// The eight tools, one definition each: a name, a description, an input shape and
 // a body. `tool()` is the only place input is validated, errors become the
 // response envelope, and a thrown refusal gets its code; the MCP server and the
 // CLI both register straight from `TOOLS`, so neither holds any logic.
@@ -44,6 +44,7 @@ import {
 import type { Intent } from './intent.ts'
 import { type Call, decodeEnvelope, type Recording, recordHash } from './record.ts'
 import { TEMPLATES, TemplateParams } from './registry.ts'
+import { reviewUnsigned } from './review.ts'
 import { type ObservedRule, readRule, readRules, selectors } from './rules.ts'
 import { infoFor, isToken } from './spec.ts'
 import {
@@ -200,6 +201,7 @@ const CODE: Record<string, ErrorCode> = {
   install_policy: 'INSTALL_BUILD_FAILED',
   revoke_policy: 'REVOKE_BUILD_FAILED',
   get_interpreter_info: 'INTERPRETER_MISMATCH',
+  review_unsigned: 'INVALID_INPUT',
 }
 
 function tool<S extends z.ZodRawShape>(
@@ -781,6 +783,18 @@ const get_interpreter_info = tool(
   }
 )
 
+const review_unsigned = tool(
+  'review_unsigned',
+  "Review an UNSIGNED transaction from `install_policy` or `revoke_policy` from its bytes alone, with no RPC: for the account owner's side (a wallet or the Prime app) to run on the XDR it is about to sign, so nothing the agent said is needed. It returns `problems` (each a reason not to sign: an authorisation for anything but the call, a `__check_auth` digest that does not match on this network, an interpreter other than the pin, a predicate whose hash does not match its bytes, a policy the package does not know, a fee above the ceiling, no time bound or a longer one), `signable` (no problem), and `review`/`reviewTree`: the problems first, then the transaction (call, source, fee, time bound, authorisation expiry), then for an install the Authority node and the predicate, read back out of the bytes. `smartAccount` names the account the owner means to change.",
+  {
+    ...net,
+    ...display,
+    xdr: z.string().min(1).max(400_000),
+    smartAccount: contractId.optional(),
+  },
+  async (i) => reviewUnsigned(i)
+)
+
 export const TOOLS: Tool[] = [
   record_transaction,
   synthesize_policy,
@@ -789,6 +803,7 @@ export const TOOLS: Tool[] = [
   install_policy,
   revoke_policy,
   get_interpreter_info,
+  review_unsigned,
 ]
 
 export const run = (

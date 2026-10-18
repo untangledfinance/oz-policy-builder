@@ -134,7 +134,7 @@ The RPC endpoint is the operator's: `POLICY_BUILDER_RPC_URL_TESTNET` /
 `POLICY_BUILDER_RPC_URL_MAINNET`, else the network default. It must be https, or
 http on loopback. No tool input takes an endpoint.
 
-## The seven tools
+## The eight tools
 
 | Tool | What it does |
 | --- | --- |
@@ -145,6 +145,7 @@ http on loopback. No tool input takes an endpoint.
 | `install_policy` | Unsigned `add_context_rule`: the account authorises it, and the interpreter installs the predicate in the same transaction. Verifies the interpreter live, reads every rule on the account, and applies the guardrails below. |
 | `revoke_policy` | Unsigned `remove_context_rule`. The rule is read and returned as `removes`, with its review when the account runs a known OpenZeppelin build. The account asks each attached policy to uninstall; the interpreter's `uninstall` needs the policy admins' own authorisation, so unless they sign too, the interpreter keeps its entry for the removed rule until it archives. Nothing reads that entry again. |
 | `get_interpreter_info` | The pin, its `limits` and the `ceilings`. `verifyLive` adds what is deployed now. `explainAccount` (a smart account) reads its rules and explains each one this interpreter polices; only a known OpenZeppelin account build is read. |
+| `review_unsigned` | The owner's side: an unsigned install or removal read from its bytes alone, with no RPC. `problems` lists every reason not to sign; the review follows (see "The owner's review"). Also `reviewUnsigned` from the package root. |
 
 `TOOLS` (also `@crediolabs/policy-synth/run`) is the table the MCP server and the
 CLI register from. Each tool validates its input strictly, never throws, and
@@ -226,9 +227,9 @@ The install review opens with an **Authority** node. Its lines:
 `[spending limit]` for the pinned addresses. `«label»` marks are names from the
 request's `allow` keys. A label is plain words (a letter, then up to 23 letters,
 digits, spaces, `_`, `.` or `-`), so it can never hold a bracket and read as a
-role. A role wins over a label on the same address. Only `install_policy` has the
-header: `revoke_policy` and `explainAccount` cannot read the threshold or the
-total from the account.
+role. A role wins over a label on the same address. Only `install_policy` and
+`review_unsigned` have the header: `revoke_policy` and `explainAccount` cannot
+read the threshold or the total from the account.
 
 `install_policy` also returns:
 
@@ -255,6 +256,41 @@ Install inputs for authority:
 - `spendingLimit: { amount, periodLedgers }`: attach OpenZeppelin's
   `spending_limit`, a rolling total over `periodLedgers` ledgers (about five
   seconds each).
+
+## The owner's review
+
+`install_policy` returns its review beside the XDR, and both reach the owner
+through the agent. `review_unsigned` (or `reviewUnsigned({ network, xdr,
+smartAccount? })` from the package root) closes that gap: a wallet or the Prime
+app runs it on the bytes it is about to sign. It asks no RPC and reads nothing
+but the XDR, the network and the package's own pins.
+
+It refuses (`INVALID_INPUT`) what the builder never makes: bytes that are not a
+transaction, a fee bump, or anything but one contract call. Anything else it
+describes, and lists in `problems` each check the builder makes that the bytes
+fail:
+
+- an authorisation entry for anything but the call, a call under it, or more
+  entries than the account's and the source account's;
+- a `__check_auth` digest that does not match the account's entry on the given
+  network (another network, or an entry changed after the build);
+- a signer in the authorisation other than the transaction's source;
+- a call other than `add_context_rule` or `remove_context_rule`, another
+  account than `smartAccount`, a memo, or preconditions beside the time bound;
+- no time bound, one already passed, or one longer than the window; a resource
+  fee above the ceiling, or a base fee above 1 XLM;
+- for an install: a scope other than one contract, or a policy contract or the
+  account itself; an External signer; no interpreter, two, or one other than
+  the pin (mainnet has no pin, so a mainnet install is always flagged); a
+  grammar other than 7; a predicate whose hash does not match its bytes, or that
+  the interpreter would not read; a policy the package does not know.
+
+`signable` is true when `problems` is empty. The review opens with
+`Do not sign: n problem(s)` when there are any, then a `Transaction` node
+(call, source and sequence, fee, time bound, authorisation expiry), then for an
+install the Authority node and the predicate, and for a removal the rule it
+removes (rule 0 with its warning). Roles come from the bytes: the account
+called, the source, the admins and signers the rule names.
 
 ## Security model
 

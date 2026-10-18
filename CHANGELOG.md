@@ -7,6 +7,15 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ## [Unreleased]
 
+### Added
+
+- **policy-synth, the owner's review of an unsigned transaction (P0-3):** the
+  review and the XDR reached the owner only through the agent. `review_unsigned`
+  (a tool, a CLI command, and `reviewUnsigned` from the package root) reads an
+  unsigned install or removal from its bytes alone, with no RPC, and lists each
+  reason not to sign it (`problems`, `signable`) above the transaction, the
+  Authority node and the predicate read back out of the bytes.
+
 ### Fixed
 
 - **policy-synth, overrides taken from the agent (P0-4):** a refusal gave the

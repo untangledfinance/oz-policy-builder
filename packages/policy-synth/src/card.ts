@@ -81,6 +81,7 @@ const named = (a: string, c: View) => {
 }
 /** An address with its name in brackets. */
 const addr = (a: string, c: View) => `${short(a, c)}${named(a, c) ? ` (${named(a, c)})` : ''}`
+export const addressText = addr
 /** What is known of the contract in force. */
 const known = (c: View) => c.info?.[c.contract ?? '']
 /** Text between quotes. Anything but printable ASCII is written as its code point: what a person

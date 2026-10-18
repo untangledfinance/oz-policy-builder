@@ -74,7 +74,7 @@ const transferXdr = (amount = 5_000_000n) =>
     .toXDR('base64')
 
 describe('the table', () => {
-  it('has the seven tools, each with a name, a description and a shape', () => {
+  it('has the eight tools, each with a name, a description and a shape', () => {
     expect(TOOLS.map((t) => t.name)).toEqual([
       'record_transaction',
       'synthesize_policy',
@@ -83,6 +83,7 @@ describe('the table', () => {
       'install_policy',
       'revoke_policy',
       'get_interpreter_info',
+      'review_unsigned',
     ])
     for (const t of TOOLS) expect(t.description.length).toBeGreaterThan(40)
   })
@@ -843,7 +844,7 @@ describe('install_policy', () => {
     // allowOverlap is set (rule 0 of the test account has no policy), so its line comes first.
     expect(review.slice(0, 3)).toEqual([
       'Overrides set in the request',
-      expect.stringMatching(/^└─ allowOverlap:  waived: refused: rule 0/),
+      expect.stringMatching(/^└─ allowOverlap: {2}waived: refused: rule 0/),
       'Authority',
     ])
     const text = review.join('\n')
