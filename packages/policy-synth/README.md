@@ -312,9 +312,10 @@ the owner meant. These come back signable:
   Transaction node.
 - **An override:** the bytes cannot carry one, so an install built with
   `allowOverlap` or `anyOne` looks like any other.
-- **What the builder checks online:** the overlap scan of the account's other
-  rules, read safety (`READ_UNSAFE`), a spending limit on a predicate not pinned
-  to `transfer`, and which rule a removal's id names.
+- **Refusals it does not check from the bytes:** the overlap scan (which reads
+  the account's other rules over the RPC), read safety (`READ_UNSAFE`), a
+  spending limit on a predicate not pinned to `transfer` or on a scope that is
+  not a token, and which rule a removal's id names.
 - **1-of-n:** a rule several signers can each use alone is shown in the
   Authority node ("any ONE of these n signers acts alone") and left unflagged.
 

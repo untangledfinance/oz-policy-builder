@@ -733,7 +733,7 @@ problem; it does not mean safe. Nothing is signed yet, so an agent can rewrite
 the unsigned bytes consistently, recomputing the digest: itself as admin or
 signer, a threshold dropped, a cap raised with a matching hash. Those read
 signable, as do installs built with an override and rules the builder refuses
-for reasons it checks online (overlap, read safety, 1-of-n). The rewrite shows
+for reasons it does not check from the bytes (overlap, read safety, 1-of-n). The rewrite shows
 in the Authority header and the predicate, so the owner reads them against
 what they meant before signing.
 

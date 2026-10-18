@@ -26,8 +26,8 @@ mainnet refusal is the intended security change of P0-4.
   back out of the bytes. `signable` does not mean safe: an agent can rewrite the
   unsigned bytes consistently (itself as admin or signer, a threshold dropped, a
   cap raised with a matching hash), and that comes back signable, as do installs
-  that used an override and rules the builder refuses for reasons it checks
-  online (overlap, read safety, 1-of-n). The owner must read the Authority node
+  that used an override and rules the builder refuses for reasons it does not
+  check from the bytes (overlap, read safety, 1-of-n). The owner must read the Authority node
   against what they meant. An owner clock up to 120 s behind the builder's is
   allowed for, and without `smartAccount` the review is never signable.
 
