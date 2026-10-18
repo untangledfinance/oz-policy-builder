@@ -5,7 +5,7 @@ This folder holds every contract behind a Prime account, one folder per chain. T
 ## Layout
 
 ```
-contracts/prime/
+contracts/
   README.md
   ARCHITECTURE.md
   build-hashes.json             build hashes that CI compares against
@@ -144,7 +144,7 @@ The five Stellar crates moved from `contracts/<name>` and `contracts/prime-sessi
 | `prime-session` (`stellar contract build`) | `e36d155f0381a466fb6c2c29b788a9d52e4a6f3e568f30da981609075bb7a0b3` | same, and the same after the reformat | Stellar testnet instances |
 | `test-blend-pool` (remapped paths) | `7ba261ed4d1320ceabc47abcbe6819824c27529d0ae7e55ce2fc363555418e76` | same | none |
 
-The records are `deployments/grammar6-testnet.json`, `deployments/execution-testnet.json` and `deployments/prime-mainnet.json`. They stay where they were, and CI reads them from `../../../../deployments/`.
+The records are `deployments/grammar6-testnet.json`, `deployments/execution-testnet.json` and `deployments/prime-mainnet.json`. They stay where they were, and CI reads them from `../../../deployments/`.
 
 ## CI
 

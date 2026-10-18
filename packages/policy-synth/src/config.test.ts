@@ -20,7 +20,7 @@ const read = (p: string) => readFileSync(new URL(p, root), 'utf8')
 
 describe('the pins are the contract that was built and deployed', () => {
   it("the grammar is the interpreter source's SELF_VERSION", () => {
-    const v = read('contracts/prime/stellar/policy-interpreter/src/version.rs')
+    const v = read('contracts/stellar/policy-interpreter/src/version.rs')
     expect(v).toMatch(new RegExp(`SELF_VERSION: u32 = ${GRAMMAR_VERSION};`))
   })
 
@@ -106,7 +106,7 @@ describe('the smart-account builds a review will read', () => {
     expect([...OZ_ACCOUNT_WASM].sort()).toEqual(Object.values(record.wasmSha256).sort())
     const wasm = readFileSync(
       new URL(
-        'contracts/prime/stellar/policy-interpreter/tests/fixtures/multisig_account_example.wasm',
+        'contracts/stellar/policy-interpreter/tests/fixtures/multisig_account_example.wasm',
         root
       )
     )

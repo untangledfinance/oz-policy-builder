@@ -771,7 +771,7 @@ fn cases(env: &Env, oracle: &ScVal) -> StdVec<(String, ScVal)> {
 
 const FILE: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../../../packages/policy-synth/fixtures/parity/accuracy.json"
+    "/../../../packages/policy-synth/fixtures/parity/accuracy.json"
 );
 
 fn render() -> (String, usize) {

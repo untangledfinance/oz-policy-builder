@@ -40,7 +40,7 @@ bun audit           # dependency advisories
 
 # Contracts (each crate is standalone; no workspace manifest)
 for crate in policy-interpreter custody-gate execution-adapter test-blend-pool prime-session; do
-  ( cd "contracts/prime/stellar/$crate" &&
+  ( cd "contracts/stellar/$crate" &&
     cargo fmt --check &&
     cargo clippy --all-targets -- -D warnings &&
     cargo test )
@@ -53,7 +53,7 @@ without one. Point `G7_WASM` at another build, or set `G7_SKIP_WORST_CASE=1`
 to skip it locally. CI also runs the conformance suite in release mode:
 
 ```sh
-( cd contracts/prime/stellar/policy-interpreter && cargo test --release --test conformance )
+( cd contracts/stellar/policy-interpreter && cargo test --release --test conformance )
 ```
 
 CI then compares the `build-wasm.sh` hash of the interpreter with
@@ -68,7 +68,7 @@ CI then compares the `build-wasm.sh` hash of the interpreter with
 - Comments earn their place by stating an invariant, a constraint, or a
   deliberate decision the code cannot show on its own. Several files carry
   invariant blocks in their file-level comments (for example
-  `contracts/prime/stellar/policy-interpreter/src/dsl.rs`); read them before touching
+  `contracts/stellar/policy-interpreter/src/dsl.rs`); read them before touching
   the code they guard, and do not remove them.
 
 ## Changes to the contracts
@@ -145,7 +145,7 @@ crates.io. A contract "release" is a deployment:
   build means a new wasm hash, new instance addresses, updating those pins,
   and releasing the npm packages that carry them.
 - A predicate grammar change additionally bumps `SELF_VERSION`
-  (`contracts/prime/stellar/policy-interpreter/src/version.rs`) and regenerates the
+  (`contracts/stellar/policy-interpreter/src/version.rs`) and regenerates the
   conformance fixtures; `install` refuses a grammar version it does not
   speak, so old synthesisers cannot install onto a new interpreter.
 

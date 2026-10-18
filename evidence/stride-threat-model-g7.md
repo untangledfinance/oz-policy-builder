@@ -1,6 +1,6 @@
 # OZ Policy Builder: STRIDE threat model, grammar 7
 
-**Subject:** the grammar-7 policy interpreter (`contracts/prime/stellar/policy-interpreter`) and the off-chain toolchain that builds rules for it: `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and `@crediolabs/policy-builder-mcp` 2.0.0. Other systems (wallets, RPC providers, OpenZeppelin's contracts, the Prime app) appear here only as actors.
+**Subject:** the grammar-7 policy interpreter (`contracts/stellar/policy-interpreter`) and the off-chain toolchain that builds rules for it: `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and `@crediolabs/policy-builder-mcp` 2.0.0. Other systems (wallets, RPC providers, OpenZeppelin's contracts, the Prime app) appear here only as actors.
 **Modelled at:** `feat/grammar-v7` at `9ff281a`, on 2026-10-15 and 16. The fixes recorded below were written on the same branch, up to `b21a7c7`.
 **Status checked at:** 2.0.0 (npm tag `next`, published 2026-10-17). Its `src/` is byte-identical to `feat/grammar-v7` at `e29fb94` for every policy-synth file cited here (`install.ts`, `card.ts`, `config.ts`, `tools.ts`, `record.ts`, `chain.ts`), and the line numbers are from that source.
 **Network:** testnet only. The model made no mainnet calls, and grammar 7 has no mainnet deployment.
@@ -288,7 +288,7 @@ Corrections to the final report, found while checking it against the code:
 | --- | --- | --- |
 | Threshold beside the interpreter, live on testnet | `evidence/oz-threshold-g7-live.log`, from `packages/policy-synth/scripts/live-threshold.ts` (`WEIGHTED=1` for the weighted run) | 2-of-2: A alone denied `#3202`, A+B permitted. Weighted {A:2, B:1}, threshold 2: B alone denied `#3213`, A permitted |
 | Read budget at the ceiling | `evidence/worst-case-ceilings-2026-10-16.txt`, from `tests/worst_case.rs` on wasm `69cad1d5` | 8 wasm reads in one context: 7,735,068 CPU, 12.7 MB memory |
-| Read manipulation through a wrapper (repo version) | `contracts/prime/stellar/policy-interpreter/tests/grammar7.rs` | A wrapper defeats a spot read |
+| Read manipulation through a wrapper (repo version) | `contracts/stellar/policy-interpreter/tests/grammar7.rs` | A wrapper defeats a spot read |
 | On-chain P1 to P5 | Kept off-repo: `tests/stride_poc.rs` written against `9ff281a` | 5 of 5 pass (mocked, see Method) |
 | Off-chain | Kept off-repo: `zz_stride.test.ts` (forged sub-invocation, unbound `recordHash`), `http.ts` (12-case Host and Origin matrix), `inject.ts`, `leak.ts`, `ssrf.ts`, `deep.ts` | 2 of 2 tests pass; each script reproduces |
 | `spending_limit` denies non-transfer | Kept off-repo: the validator's test on OZ account `91a2cd56` with the testnet `spending_limit` bytes `9ce30ea1` | Without the cap, `transfer 500`, `transfer 5000` and `approve` pass; with a cap of 500, only `transfer 500` passes |

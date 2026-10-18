@@ -329,7 +329,7 @@ Breaking changes to callers:
     must still constrain the authorised call:
     reads and `now` alone are refused at install. The grammar-6 property that
     `enforce` reads only the authorised call no longer holds. See the
-    [interpreter README](contracts/prime/stellar/policy-interpreter/README.md#cross-contract-reads).
+    [interpreter README](contracts/stellar/policy-interpreter/README.md#cross-contract-reads).
 
 - **Policy interpreter grammar 7 is generic:** still grammar 7
   (`SELF_VERSION` 7, no new error codes); with the constructs below, a new use

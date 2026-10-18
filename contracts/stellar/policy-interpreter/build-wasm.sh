@@ -14,7 +14,7 @@
 # The output depends on the host OS: the same commit builds one hash on Linux
 # (x86_64 CI and an aarch64 rust:1.97.1 container agree) and another on macOS.
 # CI builds on Linux, so a hash meant to be compared there must come from a
-# Linux build, e.g. `docker run --rm -v "$PWD":/w -w /w/contracts/prime/stellar/policy-interpreter
+# Linux build, e.g. `docker run --rm -v "$PWD":/w -w /w/contracts/stellar/policy-interpreter
 # rust:1.97.1 sh -c 'rustup target add wasm32v1-none && ./build-wasm.sh'`.
 #
 # `trim-paths = "all"` in [profile.release] would be tidier, but it is still

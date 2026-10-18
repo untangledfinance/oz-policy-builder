@@ -70,13 +70,13 @@ jobs:
           - execution-adapter
           - test-blend-pool
           # The session signer on an OZ smart account. Its wasm is pinned in
-          # contracts/prime/build-hashes.json.
+          # contracts/build-hashes.json.
           - prime-session
           # The NEAR-routed owner's seat on an OZ smart account.
           - prime-seat
     defaults:
       run:
-        working-directory: contracts/prime/stellar/${{ matrix.crate }}
+        working-directory: contracts/stellar/${{ matrix.crate }}
     steps:
       - uses: actions/checkout@v4
 
@@ -85,7 +85,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: contracts/prime/stellar/${{ matrix.crate }}
+          workspaces: contracts/stellar/${{ matrix.crate }}
 
       - name: Format check
         run: cargo fmt --check
@@ -133,7 +133,7 @@ jobs:
         run: |
           rustup target add wasm32v1-none
           built=$(./build-wasm.sh | tail -1)
-          record=../../../../deployments/grammar7-testnet.json
+          record=../../../deployments/grammar7-testnet.json
           pinned=$(jq -r '.interpreterSource.reproducibleWasmSha256 // .wasmHashes.interpreter // empty' "$record")
           echo "built:  $built"
           echo "pinned: $pinned"
@@ -161,7 +161,7 @@ jobs:
         run: |
           rustup target add wasm32v1-none
           built=$(./build-wasm.sh | tail -1)
-          record=../../../../deployments/execution-testnet.json
+          record=../../../deployments/execution-testnet.json
           pinned=$(jq -r --arg c "${{ matrix.crate }}" '.wasmSha256[$c] // empty' "$record")
           echo "built:  $built"
           echo "pinned: $pinned"
@@ -175,7 +175,7 @@ jobs:
 
       # The session signer and the seat are not deployed as shared instances, so there is no
       # deployments/ record. Its reproducible build (build-wasm.sh, which remaps
-      # the crate and registry paths) is pinned in contracts/prime/build-hashes.json.
+      # the crate and registry paths) is pinned in contracts/build-hashes.json.
       # The testnet instances run the stellar contract build wasm, whose hash
       # depends on the build machine's paths and cannot be compared here.
       - name: Wasm build and pin parity
@@ -197,14 +197,14 @@ jobs:
 
   # The EVM session contract. It imports three OpenZeppelin Contracts 5.4.0 files,
   # mapped by foundry.toml to lib/oz/, and lib/ stays out of git. The fetch below
-  # is the one contracts/prime/README.md documents.
+  # is the one contracts/README.md documents.
   evm-prime-session:
     name: Contracts (evm/prime-session)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: contracts/prime/evm/prime-session
+        working-directory: contracts/evm/prime-session
     steps:
       - uses: actions/checkout@v4
 
@@ -230,7 +230,7 @@ jobs:
 
   # The EVM seat for a NEAR-routed owner. Same OpenZeppelin fetch as the session
   # contract. The runtime and creation code are pinned in
-  # contracts/prime/build-hashes.json, so a source change that is not re-recorded
+  # contracts/build-hashes.json, so a source change that is not re-recorded
   # turns this red. The real-Safe tests run only with FORK_URL set (a Base Sepolia
   # fork, see the contract's README), which this job does not set.
   evm-prime-seat:
@@ -239,7 +239,7 @@ jobs:
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: contracts/prime/evm/prime-seat
+        working-directory: contracts/evm/prime-seat
     steps:
       - uses: actions/checkout@v4
 
@@ -277,7 +277,7 @@ jobs:
               print(kind, "pinned:", pinned)
               if built != pinned:
                   print("The recorded evm/prime-seat:" + kind + " build is not what this tree builds.")
-                  print("Update contracts/prime/build-hashes.json together with the source and the README build table.")
+                  print("Update contracts/build-hashes.json together with the source and the README build table.")
                   bad = True
           sys.exit(1 if bad else 0)
           PY
@@ -311,7 +311,7 @@ jobs:
       RUSTUP_TOOLCHAIN: stable
     defaults:
       run:
-        working-directory: contracts/prime/solana/${{ matrix.crate }}
+        working-directory: contracts/solana/${{ matrix.crate }}
     steps:
       - uses: actions/checkout@v4
 
@@ -334,7 +334,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: contracts/prime/solana/${{ matrix.crate }}
+          workspaces: contracts/solana/${{ matrix.crate }}
 
       - name: Format check
         run: cargo fmt --check
@@ -365,7 +365,7 @@ jobs:
       RUSTUP_TOOLCHAIN: 1.98.1
     defaults:
       run:
-        working-directory: contracts/prime/near/prime-near-signer
+        working-directory: contracts/near/prime-near-signer
     steps:
       - uses: actions/checkout@v4
 
@@ -379,7 +379,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: contracts/prime/near/prime-near-signer
+          workspaces: contracts/near/prime-near-signer
 
       - name: Build (cargo-near)
         run: |
@@ -404,7 +404,7 @@ jobs:
     timeout-minutes: 30
     defaults:
       run:
-        working-directory: contracts/prime/near/prime-near-signer-v2
+        working-directory: contracts/near/prime-near-signer-v2
     steps:
       - uses: actions/checkout@v4
 
@@ -415,7 +415,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: contracts/prime/near/prime-near-signer-v2
+          workspaces: contracts/near/prime-near-signer-v2
 
       - name: Format check
         run: cargo fmt --check
@@ -446,7 +446,7 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: contracts/prime/near/vectors/generator
+        working-directory: contracts/near/vectors/generator
     steps:
       - uses: actions/checkout@v4
 
@@ -470,7 +470,7 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: contracts/prime/solana/custody-gate/app-checks
+        working-directory: contracts/solana/custody-gate/app-checks
     steps:
       - uses: actions/checkout@v4
 

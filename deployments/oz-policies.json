@@ -16,7 +16,7 @@
     "weighted_threshold": "CDWPZ4YZ3YIJ64XSHRMERRF2L2H7XD6SPUZDP3KI56T7QXQCICC25V3J"
   },
   "sources": {
-    "simple_threshold": "evidence/README.md (mainnet), evidence/oz-threshold-binding.log (both), contracts/prime/spike/setup1.ts:12 (testnet)",
+    "simple_threshold": "evidence/README.md (mainnet), evidence/oz-threshold-binding.log (both), contracts/spike/setup1.ts:12 (testnet)",
     "weighted_threshold": "git show 9c93592:packages/policy-synth/src/run/schemas.ts (PINNED_OZ_POLICY_ADDRESS_BY_NETWORK)",
     "spending_limit": "packages/policy-synth/src/config.ts, evidence/oz-spending-limit-binding.log"
   }

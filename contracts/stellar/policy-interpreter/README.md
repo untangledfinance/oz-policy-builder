@@ -6,7 +6,7 @@ a predicate supplied at install time, so an
 can delegate its per-call authorization decision to it.
 
 The off-chain half - which synthesises, verifies and packages the predicate -
-is [`@crediolabs/policy-synth`](../../../../packages/policy-synth/).
+is [`@crediolabs/policy-synth`](../../../packages/policy-synth/).
 
 ## Limits
 
@@ -638,8 +638,8 @@ refusal is 201.
 ## Deployments
 
 The live addresses and wasm sha256 are pinned in
-[`packages/policy-synth/src/config.ts`](../../../../packages/policy-synth/src/config.ts)
-and shown in the [repository README](../../../../README.md).
+[`packages/policy-synth/src/config.ts`](../../../packages/policy-synth/src/config.ts)
+and shown in the [repository README](../../../README.md).
 
 ## Build and test
 

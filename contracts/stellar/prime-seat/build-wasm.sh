@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Reproducible release build of this contract's wasm, printing its sha256.
 #
-# The same build as contracts/prime/stellar/policy-interpreter/build-wasm.sh, which says why:
+# The same build as contracts/stellar/policy-interpreter/build-wasm.sh, which says why:
 # a bare cargo build bakes the crate root and registry paths into the wasm, so
 # its hash differs per machine. Remapping both makes the output depend on the
 # source alone - on Linux. macOS builds a different hash from the same source,

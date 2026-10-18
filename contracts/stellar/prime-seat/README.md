@@ -13,7 +13,7 @@ One seat serves one account. The constructor takes `(account, owner)` and stores
 | `__check_auth(payload, (key, sig, preimage), contexts)` | The `Delegated` signer interface, for rules other than rule 0. A live key signs `sha256(seat ‖ payload)`. The first context must be the pinned account's `__check_auth` frame. |
 | `batch_canonicalize_key(keys)` | One constant per seat, so the account refuses a second `External` entry for the same seat. |
 
-Grant hash: `sha256("prime-seat-grant" ‖ network id ‖ account ‖ seat ‖ key ‖ be64 start ‖ be64 end)`, with the account, seat and key as raw 32 bytes and times in unix seconds. An end is the same hash with start and end at 0. The hashes equal the shared vectors in `contracts/prime/near/vectors/requests.json`, and a unit test checks the four Stellar vectors.
+Grant hash: `sha256("prime-seat-grant" ‖ network id ‖ account ‖ seat ‖ key ‖ be64 start ‖ be64 end)`, with the account, seat and key as raw 32 bytes and times in unix seconds. An end is the same hash with start and end at 0. The hashes equal the shared vectors in `contracts/near/vectors/requests.json`, and a unit test checks the four Stellar vectors.
 
 Rules the contract enforces on a grant: `start <= now <= end`, `end - start <= 604,800`, a revoked key is never granted again, and a new end must be later than the stored one. Every grant entry lives for the maximum TTL, and an end stores 0. Every use compares the stored end with `ledger().timestamp()`, because TTL counts ledgers and the window counts seconds. The seat does not extend its own instance or code; the relayer extends them with an `ExtendFootprintTTL` operation.
 

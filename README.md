@@ -193,12 +193,12 @@ The STRIDE threat model for grammar 7, with what is done and what is open at
 | `packages/policy-synth` | The wire codec, the synthesiser and the record, simulate, verify, install and revoke tools. Published as `@crediolabs/policy-synth`. |
 | `packages/policy-builder-cli` | One command per tool, registered from the synth core's table (`@crediolabs/policy-builder-cli`). |
 | `packages/policy-builder-mcp` | MCP server exposing the seven policy tools (`@crediolabs/policy-builder-mcp`). |
-| `contracts/prime/stellar/policy-interpreter` | The Soroban contract that enforces a predicate on chain. |
-| `contracts/prime/stellar/custody-gate` | The custody account's gate: holds its allowance and releases only to listed addresses. |
-| `contracts/prime/stellar/execution-adapter` | The per-Prime batcher, bound to one gate. A batch can wait a number of ledgers before it runs. |
-| `contracts/prime/stellar/test-blend-pool` | A Blend-`submit`-shaped stub, for testnet verification only. |
-| `contracts/prime/stellar/prime-session` | The Stellar session signer for a Prime account. New code, in the audit scope. |
-| `contracts/prime/{evm,solana,near}` | The PrimeX session contracts and the Solana custody gate. See [contracts/prime/README.md](contracts/prime/README.md). |
+| `contracts/stellar/policy-interpreter` | The Soroban contract that enforces a predicate on chain. |
+| `contracts/stellar/custody-gate` | The custody account's gate: holds its allowance and releases only to listed addresses. |
+| `contracts/stellar/execution-adapter` | The per-Prime batcher, bound to one gate. A batch can wait a number of ledgers before it runs. |
+| `contracts/stellar/test-blend-pool` | A Blend-`submit`-shaped stub, for testnet verification only. |
+| `contracts/stellar/prime-session` | The Stellar session signer for a Prime account. New code, in the audit scope. |
+| `contracts/{evm,solana,near}` | The PrimeX session contracts and the Solana custody gate. See [contracts/README.md](contracts/README.md). |
 | `deployments/` | Deployment records that CI and the scripts read. |
 | `evidence/` | Logs and receipts behind the claims in the docs. |
 
@@ -220,11 +220,11 @@ The Soroban contracts are standalone Cargo crates (soroban-sdk 27, built for
 own directory:
 
 ```sh
-( cd contracts/prime/stellar/policy-interpreter && ./build-wasm.sh && cargo test )
-( cd contracts/prime/stellar/custody-gate       && cargo test )
-( cd contracts/prime/stellar/execution-adapter  && cargo test )
-( cd contracts/prime/stellar/prime-session      && cargo test )
-( cd contracts/prime/stellar/test-blend-pool    && cargo test )
+( cd contracts/stellar/policy-interpreter && ./build-wasm.sh && cargo test )
+( cd contracts/stellar/custody-gate       && cargo test )
+( cd contracts/stellar/execution-adapter  && cargo test )
+( cd contracts/stellar/prime-session      && cargo test )
+( cd contracts/stellar/test-blend-pool    && cargo test )
 ```
 
 The interpreter's `tests/worst_case.rs` loads the wasm that `build-wasm.sh`

@@ -6,7 +6,7 @@
 //! no longer decodes. Do not regenerate until they are updated. Regenerate with:
 //!   bun run packages/policy-synth/scripts/gen-conformance-fixture.ts \
 //!     --scenario packages/policy-synth/fixtures/conformance/grammar-v4-scenario.json \
-//!     --out contracts/prime/stellar/policy-interpreter/tests/conformance/_generated_v4.rs
+//!     --out contracts/stellar/policy-interpreter/tests/conformance/_generated_v4.rs
 //!
 //! Conformance harness - same predicate, same contexts, asserted-equal
 //! verdicts between the Rust interpreter and the TypeScript reference

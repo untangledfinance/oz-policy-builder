@@ -250,7 +250,7 @@ describe('the interface of a wasm', () => {
   it('a real contract: the policy interpreter that ships in this repo', () => {
     const wasm = readFileSync(
       new URL(
-        '../../../contracts/prime/stellar/policy-interpreter/tests/fixtures/multisig_account_example.wasm',
+        '../../../contracts/stellar/policy-interpreter/tests/fixtures/multisig_account_example.wasm',
         import.meta.url
       )
     )

@@ -26,7 +26,7 @@ use soroban_sdk::xdr::{
 use soroban_sdk::{Env, IntoVal, Symbol, Val, Vec};
 use std::fmt::Write as _;
 
-const FILE: &str = "../../../../packages/policy-synth/fixtures/parity/grammar7.json";
+const FILE: &str = "../../../packages/policy-synth/fixtures/parity/grammar7.json";
 
 /// The compact JSON form of a value: a symbol or an address is a string, a `u32`
 /// a number, a bool a bool, a vec an array, and every other type a one-key
@@ -808,7 +808,7 @@ fn the_checked_in_corpus_is_current() {
 // under (at the cap, and one over it), so each limit is held in isolation and in
 // combination; `code` is what the real contract's `check` says under those limits.
 
-const LIMITS_FILE: &str = "../../../../packages/policy-synth/fixtures/parity/limits.json";
+const LIMITS_FILE: &str = "../../../packages/policy-synth/fixtures/parity/limits.json";
 
 fn limit_sets() -> StdVec<(&'static str, policy_interpreter::Limits)> {
     let l = |max_reads, max_leaves, max_predicate_bytes, max_elems, max_in_operands, max_depth| {
