@@ -2,7 +2,7 @@
   "name": "@crediolabs/policy-builder-mcp",
   "version": "2.0.1",
   "license": "MIT",
-  "description": "MCP server for the OZ Policy Builder (grammar 7): the seven policy-synth tools over stdio and loopback Streamable HTTP.",
+  "description": "MCP server for the OZ Policy Builder (grammar 7): the eight policy-synth tools over stdio and loopback Streamable HTTP.",
   "type": "module",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",

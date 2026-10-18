@@ -1,4 +1,4 @@
-// The seven tools, one definition each: a name, a description, an input shape and
+// The eight tools, one definition each: a name, a description, an input shape and
 // a body. `tool()` is the only place input is validated, errors become the
 // response envelope, and a thrown refusal gets its code; the MCP server and the
 // CLI both register straight from `TOOLS`, so neither holds any logic.
@@ -9,7 +9,7 @@ import { readFile, rm, writeFile } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
 import { StrKey } from '@stellar/stellar-sdk'
 import { z } from 'zod'
-import { type Authority, authority, contractsOf, lines, tree } from './card.ts'
+import { type Authority, authority, contractsOf, lines, overridden, tree } from './card.ts'
 import {
   codeHash,
   connect,
@@ -35,12 +35,16 @@ import {
   buildRevoke,
   type Chain,
   type Chosen,
+  gate,
+  INSTALL_OVERRIDES,
+  type Override,
   planInstall,
   planRevoke,
 } from './install.ts'
 import type { Intent } from './intent.ts'
 import { type Call, decodeEnvelope, type Recording, recordHash } from './record.ts'
 import { TEMPLATES, TemplateParams } from './registry.ts'
+import { reviewUnsigned } from './review.ts'
 import { type ObservedRule, readRule, readRules, selectors } from './rules.ts'
 import { infoFor, isToken } from './spec.ts'
 import {
@@ -197,6 +201,7 @@ const CODE: Record<string, ErrorCode> = {
   install_policy: 'INSTALL_BUILD_FAILED',
   revoke_policy: 'REVOKE_BUILD_FAILED',
   get_interpreter_info: 'INTERPRETER_MISMATCH',
+  review_unsigned: 'INVALID_INPUT',
 }
 
 function tool<S extends z.ZodRawShape>(
@@ -313,7 +318,12 @@ export async function explain(
   i: Endpoint & { raw?: boolean | undefined; allow?: Record<string, string[]> | undefined } & {
     [k in 'smartAccount' | 'sourceAccount' | 'admins' | 'signers']?: string | string[] | undefined
   },
-  items: { expr: Expr; contract?: string | undefined; authority?: Authority | undefined }[],
+  items: {
+    expr: Expr
+    contract?: string | undefined
+    authority?: Authority | undefined
+    overrides?: Override[] | undefined
+  }[],
   signal?: AbortSignal
 ) {
   // Roles are the package's ([bracketed] in the review); `allow` names are the caller's («marked»).
@@ -329,13 +339,18 @@ export async function explain(
   for (const [k, a] of Object.entries(i.allow ?? {})) if (!/^\d/.test(k)) put(labels, k, a)
   const named = [...items.flatMap((x) => contractsOf(x.expr)), ...items.map((x) => x.contract)]
   const info = await infoFor(i, named, signal)
-  return items.map(({ expr, contract, authority: held }) => {
+  return items.map(({ expr, contract, authority: held, overrides }) => {
+    // What the request waived comes first, whatever else can be described.
+    const head = overrides?.length ? [overridden(overrides)] : []
     try {
       const view = { info, roles, labels, raw: i.raw, contract, network: i.network }
-      const reviewTree = [...(held ? [authority(held, view)] : []), ...tree(expr, view)]
+      const reviewTree = [...head, ...(held ? [authority(held, view)] : []), ...tree(expr, view)]
       return { review: lines(reviewTree), reviewTree }
     } catch {
-      return { review: ['(this predicate could not be described)'], reviewTree: [] }
+      return {
+        review: [...lines(head), '(this predicate could not be described)'],
+        reviewTree: head,
+      }
     }
   })
 }
@@ -512,7 +527,7 @@ const verify_policy = tool(
 
 const install_policy = tool(
   'install_policy',
-  "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`. `sourceAccount` must be a signer of the account's rule 0 (that rule authorises the install); `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The interpreter is checked live before anything is built: it must speak the grammar and run a trusted build (a pinned address, or on a network with none, an `interpreterAddress` whose code hash is one this package trusts). The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind; `allowOverlap: true` installs anyway. An unanswered amount cap is refused unless `allowUnboundedAmount`, and a swap's least output nothing sets unless `allowOpenSlippage`. `threshold` ({ simple: n }: n of the signers; { weighted: { weights, n } }: signers whose weights total n) attaches OpenZeppelin's threshold policy beside the predicate; with several signers and no threshold the install is REFUSED unless `anyOne: true`, because a rule with a policy is satisfied by any ONE of its signers acting alone. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR; `outFile` (a bare file name) also writes it into the operator's `POLICY_BUILDER_OUT_DIR`, without replacing a file.",
+  "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`. `sourceAccount` must be a signer of the account's rule 0 (that rule authorises the install); `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The interpreter is checked live before anything is built: it must speak the grammar and run a trusted build (a pinned address, or on a network with none, an `interpreterAddress` whose code hash is one this package trusts). The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind. An unanswered amount cap is refused, and so is a swap's least output that nothing sets. Answer the question a refusal asks; the overrides (`allowOverlap`, `allowUnboundedAmount`, `allowOpenSlippage`, `anyOne`) are the account owners' decision, never a way past a refusal: each one set comes back in `overrides` with the refusal it waived and opens the review, and on mainnet they are refused unless the operator sets POLICY_BUILDER_ALLOW_OVERRIDES=1. `threshold` ({ simple: n }: n of the signers; { weighted: { weights, n } }: signers whose weights total n) attaches OpenZeppelin's threshold policy beside the predicate; with several signers and no threshold (or one a single signer meets) the install is REFUSED, because a rule with a policy is satisfied by any ONE of its signers acting alone; `anyOne` is the owners' override for that, echoed and gated like the others. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR; `outFile` (a bare file name) also writes it into the operator's `POLICY_BUILDER_OUT_DIR`, without replacing a file.",
   {
     ...net,
     ...display,
@@ -551,6 +566,12 @@ const install_policy = tool(
       .optional(),
   },
   async (i, signal) => {
+    // A mainnet override without the operator's switch is refused before the network is asked.
+    gate(
+      i.network,
+      INSTALL_OVERRIDES.filter((f) => i[f] === true),
+      'INSTALL_BUILD_FAILED'
+    )
     // The rule: an encoded predicate scoped by `contract`, or one the source yields.
     let rule: Chosen
     const caps = await ensureInterpreter(connect(i), i.network, i.interpreterAddress)
@@ -585,7 +606,11 @@ const install_policy = tool(
     const out = i.outFile === undefined ? undefined : outPathFor(i.outFile)
     const plan = await planInstall(i, rule, chain)
     // Only a rule that passed every refusal is described.
-    const [shown] = await explain(i, [{ ...rule, authority: plan.authority }], signal)
+    const [shown] = await explain(
+      i,
+      [{ ...rule, authority: plan.authority, overrides: plan.overrides }],
+      signal
+    )
     const done = { ...plan, rule: { ...plan.rule, ...shown } }
     return out === undefined ? done : { ...done, writtenTo: await writeNew(out, plan.unsignedXdr) }
   }
@@ -621,7 +646,7 @@ async function writeNew(path: string, text: string): Promise<string> {
 
 const revoke_policy = tool(
   'revoke_policy',
-  'Build the UNSIGNED transaction that removes a rule from a smart account (`remove_context_rule`); the account uninstalls each attached policy itself. The rule is read and returned as `removes`. Rule 0 and any Default-scoped rule are REFUSED (removing them can lock the account out of its own administration for good) unless `allowAdminRule` is set.',
+  'Build the UNSIGNED transaction that removes a rule from a smart account (`remove_context_rule`); the account uninstalls each attached policy itself. The rule is read and returned as `removes`. Rule 0, any Default-scoped rule and a rule scoped to the account itself are REFUSED: removing them can lock the account out of its own administration for good. `allowAdminRule` waives it, as the owners decide: it comes back in `overrides` and opens the review of `removes`, and on mainnet it is refused unless the operator sets POLICY_BUILDER_ALLOW_OVERRIDES=1.',
   {
     ...net,
     ...display,
@@ -632,6 +657,7 @@ const revoke_policy = tool(
     baseFee,
   },
   async (i, signal) => {
+    gate(i.network, i.allowAdminRule === true ? ['allowAdminRule'] : [], 'REVOKE_BUILD_FAILED')
     const server = connect(i)
     const mine = INTERPRETER[i.network]?.address
     // The account's own rule is described only if the account is a build the package knows,
@@ -647,7 +673,15 @@ const revoke_policy = tool(
     const skipped = (await trusted).known
       ? {}
       : { reviewSkipped: notKnown(i.smartAccount, await trusted, UNVERIFIED) }
-    return { ...plan, removes: { ...r, ...shown, ...skipped } }
+    // An override opens the review of what is removed, described or not.
+    const head = plan.overrides.length ? [overridden(plan.overrides)] : []
+    const review = head.length
+      ? {
+          review: [...lines(head), ...(shown?.review ?? [])],
+          reviewTree: [...head, ...(shown?.reviewTree ?? [])],
+        }
+      : {}
+    return { ...plan, removes: { ...r, ...shown, ...skipped, ...review } }
   }
 )
 
@@ -749,6 +783,18 @@ const get_interpreter_info = tool(
   }
 )
 
+const review_unsigned = tool(
+  'review_unsigned',
+  "Review an UNSIGNED transaction from `install_policy` or `revoke_policy` from its bytes alone, with no RPC: for the account owner's side (a wallet or the Prime app) to run on the XDR it is about to sign, with `smartAccount` naming the account the owner means to change. `problems` lists what is wrong in the bytes themselves: a shape the builder never makes (an authorisation for anything but the call, a rule other than 0, a `__check_auth` digest that does not match on this network, a signer other than the source, no time bound or a longer one, a fee above the ceiling, a precondition or memo, an External signer or admin) or a value it can check offline (an interpreter other than the pin, a predicate whose hash does not match its bytes, a policy the package does not know). `signable` means no problem was found; it does NOT mean safe to sign. An agent can rewrite the unsigned bytes consistently (itself as admin or signer, a threshold dropped, a cap raised with a matching hash) and they come back signable; so do installs that used an override and rules the builder would refuse for reasons it checks online (overlap, read safety, 1-of-n). The owner must read `review`/`reviewTree`: the problems first, then the transaction (call, source, fee, time bound, authorisation expiry), then for an install the Authority node (signers, who can act alone, admins, expiry, total, interpreter) and the predicate, all read from the bytes.",
+  {
+    ...net,
+    ...display,
+    xdr: z.string().min(1).max(400_000),
+    smartAccount: contractId.optional(),
+  },
+  async (i) => reviewUnsigned(i)
+)
+
 export const TOOLS: Tool[] = [
   record_transaction,
   synthesize_policy,
@@ -757,6 +803,7 @@ export const TOOLS: Tool[] = [
   install_policy,
   revoke_policy,
   get_interpreter_info,
+  review_unsigned,
 ]
 
 export const run = (

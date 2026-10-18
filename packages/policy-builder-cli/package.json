@@ -2,7 +2,7 @@
   "name": "@crediolabs/policy-builder-cli",
   "version": "2.0.1",
   "license": "MIT",
-  "description": "Command line for the OZ Policy Builder (grammar 7): `policy-builder <tool>` runs any of the seven policy-synth tools and prints its JSON envelope.",
+  "description": "Command line for the OZ Policy Builder (grammar 7): `policy-builder <tool>` runs any of the eight policy-synth tools and prints its JSON envelope.",
   "type": "module",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",

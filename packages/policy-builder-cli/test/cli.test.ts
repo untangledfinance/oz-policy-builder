@@ -36,7 +36,7 @@ describe('policy-builder', () => {
       expect(r.code).toBe(0)
       expect(r.json).toMatchObject({ ok: true, data: { grammarVersion: 7, network: 'testnet' } })
     }
-    expect((await cli(['policy'])).code).toBe(2) // ends seven tools: not unique
+    expect((await cli(['policy'])).code).toBe(2) // ends eight tools: not unique
   })
 
   it('takes the input as a JSON argument, from a file, from stdin, or as --field value', async () => {

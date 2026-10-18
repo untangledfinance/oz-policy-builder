@@ -74,7 +74,7 @@ const transferXdr = (amount = 5_000_000n) =>
     .toXDR('base64')
 
 describe('the table', () => {
-  it('has the seven tools, each with a name, a description and a shape', () => {
+  it('has the eight tools, each with a name, a description and a shape', () => {
     expect(TOOLS.map((t) => t.name)).toEqual([
       'record_transaction',
       'synthesize_policy',
@@ -83,6 +83,7 @@ describe('the table', () => {
       'install_policy',
       'revoke_policy',
       'get_interpreter_info',
+      'review_unsigned',
     ])
     for (const t of TOOLS) expect(t.description.length).toBeGreaterThan(40)
   })
@@ -720,7 +721,8 @@ describe('install_policy', () => {
       'INSTALL_BUILD_FAILED',
       /refused: rule 0: has no policy/
     )
-    expect(r.error.message).toContain('allowOverlap')
+    // The refusal does not teach the agent the flag that waives it (P0-4).
+    expect(r.error.message).not.toMatch(/allow[A-Z]|override/i)
   })
 
   it("has no way to supply the account's rules: the scan always reads the chain", async () => {
@@ -752,11 +754,78 @@ describe('install_policy', () => {
     ])
     expect(r.data.interpreter.matches).toBe(true)
     expect(r.data.rule.review.at(-1)).toBe('   └─ argument 2:  must be at most  9000000')
-    expect(r.data.rule.reviewTree[1].raw).toEqual(['eq', ['call_contract'], TOKEN])
+    // The override opens the review, and is a field of its own, with the refusal it waived.
+    expect(r.data.overrides).toEqual([
+      { flag: 'allowOverlap', waived: expect.stringMatching(/^refused: rule 0: has no policy/) },
+    ])
+    expect(r.data.rule.review[0]).toBe('Overrides set in the request')
+    expect(r.data.rule.review[1]).toMatch(
+      /^└─ allowOverlap: {2}waived: refused: rule 0: has no policy/
+    )
+    expect(r.data.rule.reviewTree[0]).toMatchObject({
+      label: 'Overrides set in the request',
+      op: 'overrides',
+    })
+    expect(r.data.rule.reviewTree[1].label).toBe('Authority')
+    expect(r.data.rule.reviewTree[2].raw).toEqual(['eq', ['call_contract'], TOKEN])
     expect(r.data.unsignedXdrLength).toBe(r.data.unsignedXdr.length)
   })
 
-  it('the review opens with the authority: signers, the rule, admins, expiry, total, interpreter; the policy follows', async () => {
+  it('on mainnet an override is refused before the network is asked, install and revoke alike', async () => {
+    // An endpoint that counts what it is asked: nothing, for either tool.
+    let asked = 0
+    const rpc = Bun.serve({
+      port: 0,
+      fetch: () => {
+        asked++
+        return new Response('no', { status: 503 })
+      },
+    })
+    const before = process.env.POLICY_BUILDER_RPC_URL_MAINNET
+    process.env.POLICY_BUILDER_RPC_URL_MAINNET = `http://127.0.0.1:${rpc.port}`
+    try {
+      const main = { ...base, network: 'mainnet', interpreterAddress: contract(3) }
+      await failing(
+        'install_policy',
+        { ...main, allowOpenSlippage: true },
+        'INSTALL_BUILD_FAILED',
+        /allowOpenSlippage is set, and on mainnet .*POLICY_BUILDER_ALLOW_OVERRIDES=1/
+      )
+      await failing(
+        'install_policy',
+        { ...main, signers: [SIGNER, account(1)], anyOne: true },
+        'INSTALL_BUILD_FAILED',
+        /anyOne is set, and on mainnet .*POLICY_BUILDER_ALLOW_OVERRIDES=1/
+      )
+      await failing(
+        'revoke_policy',
+        {
+          network: 'mainnet',
+          smartAccount: ACCOUNT,
+          sourceAccount: SIGNER,
+          ruleId: 0,
+          allowAdminRule: true,
+        },
+        'REVOKE_BUILD_FAILED',
+        /allowAdminRule is set, and on mainnet .*POLICY_BUILDER_ALLOW_OVERRIDES=1/
+      )
+      await Bun.sleep(50)
+      expect(asked).toBe(0)
+    } finally {
+      rpc.stop(true)
+      if (before === undefined) delete process.env.POLICY_BUILDER_RPC_URL_MAINNET
+      else process.env.POLICY_BUILDER_RPC_URL_MAINNET = before
+    }
+  })
+
+  it('the description says the overrides are echoed and gated, and never offers one as the way past a refusal', () => {
+    const d = TOOLS.find((t) => t.name === 'install_policy')?.description ?? ''
+    expect(d).toMatch(/overrides/)
+    expect(d).toMatch(/POLICY_BUILDER_ALLOW_OVERRIDES/)
+    expect(d).not.toMatch(/installs anyway|refused unless `allow/)
+  })
+
+  it('the review opens with the authority (after any override): signers, the rule, admins, expiry, total, interpreter; the policy follows', async () => {
     const r = await call('install_policy', {
       ...base,
       allowOverlap: true,
@@ -778,7 +847,12 @@ describe('install_policy', () => {
     })
     expect(r.ok).toBe(true)
     const review = r.data.rule.review as string[]
-    expect(review[0]).toBe('Authority')
+    // allowOverlap is set (rule 0 of the test account has no policy), so its line comes first.
+    expect(review.slice(0, 3)).toEqual([
+      'Overrides set in the request',
+      expect.stringMatching(/^└─ allowOverlap: {2}waived: refused: rule 0/),
+      'Authority',
+    ])
     const text = review.join('\n')
     expect(text).toContain('signer:  GAT7JH…CWBCSB ([source account])')
     expect(text).toContain('to act:  any 2 of these 2 signers must approve')
@@ -792,9 +866,10 @@ describe('install_policy', () => {
     expect(text).toMatch(
       /interpreter: {2}CDZV4A…\w{6} \(\[interpreter\]\) \(reads ≤ 8, leaves ≤ 400, predicate_bytes ≤ 24576, elems ≤ 32, in_operands ≤ 32, depth ≤ 5\)/
     )
-    // The predicate's own tree follows the header, and the tree's first node is the authority.
-    expect(r.data.rule.reviewTree[0]).toMatchObject({ op: 'authority', raw: null })
-    expect(r.data.rule.reviewTree[1]).toMatchObject({ op: 'contract' })
+    // The predicate's own tree follows the header; the authority comes after the overrides.
+    expect(r.data.rule.reviewTree[0]).toMatchObject({ op: 'overrides', raw: null })
+    expect(r.data.rule.reviewTree[1]).toMatchObject({ op: 'authority', raw: null })
+    expect(r.data.rule.reviewTree[2]).toMatchObject({ op: 'contract' })
     expect(review.findIndex((l) => l.includes('transfer(from, to, amount)'))).toBeGreaterThan(6)
   })
 
@@ -1450,6 +1525,13 @@ describe('revoke_policy', () => {
     await failing('revoke_policy', base, 'REVOKE_BUILD_FAILED', /lock/)
     const r = await call('revoke_policy', { ...base, allowAdminRule: true })
     expect(r.data.removes).toMatchObject({ id: 0, scope: { kind: 'default' } })
+    expect(r.data.overrides).toEqual([
+      { flag: 'allowAdminRule', waived: expect.stringMatching(/lock the account out/) },
+    ])
+    expect(r.data.removes.review[0]).toBe('Overrides set in the request')
+    expect(r.data.removes.review[1]).toMatch(
+      /^└─ allowAdminRule: {2}waived: rule 0 is Default-scoped/
+    )
   })
   it('the account refuses one it does not have', async () => {
     await failing(

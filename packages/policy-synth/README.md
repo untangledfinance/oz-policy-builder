@@ -134,7 +134,7 @@ The RPC endpoint is the operator's: `POLICY_BUILDER_RPC_URL_TESTNET` /
 `POLICY_BUILDER_RPC_URL_MAINNET`, else the network default. It must be https, or
 http on loopback. No tool input takes an endpoint.
 
-## The seven tools
+## The eight tools
 
 | Tool | What it does |
 | --- | --- |
@@ -145,6 +145,7 @@ http on loopback. No tool input takes an endpoint.
 | `install_policy` | Unsigned `add_context_rule`: the account authorises it, and the interpreter installs the predicate in the same transaction. Verifies the interpreter live, reads every rule on the account, and applies the guardrails below. |
 | `revoke_policy` | Unsigned `remove_context_rule`. The rule is read and returned as `removes`, with its review when the account runs a known OpenZeppelin build. The account asks each attached policy to uninstall; the interpreter's `uninstall` needs the policy admins' own authorisation, so unless they sign too, the interpreter keeps its entry for the removed rule until it archives. Nothing reads that entry again. |
 | `get_interpreter_info` | The pin, its `limits` and the `ceilings`. `verifyLive` adds what is deployed now. `explainAccount` (a smart account) reads its rules and explains each one this interpreter polices; only a known OpenZeppelin account build is read. |
+| `review_unsigned` | The owner's side: an unsigned install or removal read from its bytes alone, with no RPC. `problems` lists what is wrong in the bytes; the review follows, and the owner must read it (see "The owner's review"). Also `reviewUnsigned` from the package root. |
 
 `TOOLS` (also `@crediolabs/policy-synth/run`) is the table the MCP server and the
 CLI register from. Each tool validates its input strictly, never throws, and
@@ -166,11 +167,11 @@ await run('verify_policy', { network: 'testnet', encodedPredicate: rule.encodedP
 
 | Guardrail | What is refused | Override |
 | --- | --- | --- |
-| Threshold | Several `signers` with no `threshold`, or a threshold one signer meets alone (n of 1, or a weight of at least n): that rule is satisfied by any ONE signer. `anyOne` beside a threshold that needs more is a contradiction. A threshold that can never be met (n above the signers, or weights that do not cover exactly the signers or total less than n) is refused too. | `anyOne: true` installs 1-of-n on purpose |
+| Threshold | Several `signers` with no `threshold`, or a threshold one signer meets alone (n of 1, or a weight of at least n): that rule is satisfied by any ONE signer. `anyOne` beside a threshold that needs more is a contradiction. A threshold that can never be met (n above the signers, or weights that do not cover exactly the signers or total less than n) is refused too. | `anyOne: true` (see "Overrides") |
 | Spending-limit guard | A `spendingLimit` unless every branch of the predicate pins `call_fn` to `transfer` (OpenZeppelin's `spending_limit` refuses every other function, so those calls would always fail). It is also refused on a scope that is not shown to be a token (a Stellar Asset Contract, or `transfer(from, to, amount: i128)` in its spec) | none |
 | Read safety (`READ_UNSAFE`) | A `read` of a target and function outside the safe list. The list holds the three testnet Reflector oracles (`lastprice`, `price`) and the operator's `POLICY_BUILDER_SAFE_READS_TESTNET` / `_MAINNET` (`C…:function,C…:function`; one malformed entry refuses the whole value). A listed read needs constant arguments. The review marks any other read "(live value, movable within one transaction)". | `POLICY_BUILDER_ALLOW_SPOT_READS=1`, environment only |
-| Authority overlap | A rule a shared signer could bypass through a looser or unpoliced neighbour, a rolling total that would not bind, a neighbour it cannot read or judge, or an account whose rules could not all be read | `allowOverlap: true` |
-| Amounts | An amount with no cap; a swap's least output with no floor | `allowUnboundedAmount`, `allowOpenSlippage` |
+| Authority overlap | A rule a shared signer could bypass through a looser or unpoliced neighbour, a rolling total that would not bind, a neighbour it cannot read or judge, or an account whose rules could not all be read | `allowOverlap: true` (see "Overrides") |
+| Amounts | An amount with no cap; a swap's least output with no floor | `allowUnboundedAmount`, `allowOpenSlippage` (see "Overrides") |
 | Scope | A rule scoped to a policy contract (`POLICY_CONTRACTS`) or to the account itself | none |
 
 The overlap scan reads every live rule on the account. It reads the account's
@@ -181,13 +182,23 @@ own count. An absent or malformed `NextId`, an archived entry, a count that
 disagrees, or more than 512 ids handed out makes it `false`, and the install is
 refused.
 
-The overrides `allowOverlap`, `allowUnboundedAmount`, `allowOpenSlippage` and
-`revoke_policy`'s `allowAdminRule` are tool inputs, and no field names them.
-`allowOverlap` shows only indirectly: a successful install whose
-`authorityScan` lists a `refuse` overlap or has `complete: false`.
-`allowAdminRule` shows in `removes` (rule 0, a Default scope, or a scope on the
-account itself). `allowUnboundedAmount` and `allowOpenSlippage` leave no trace.
-Keep the request with the response.
+### Overrides
+
+`allowOverlap`, `allowUnboundedAmount`, `allowOpenSlippage`, `anyOne` and
+`revoke_policy`'s `allowAdminRule` each waive one refusal. They are the account owners' decision,
+and the agent that calls the tool should not take them on its own, so:
+
+- **Refusals:** a refusal says what is wrong and, where there is one, the
+  answer that clears it (`limit`, a floor); it never offers the flag.
+- **Echo:** the response carries `overrides`, one `{ flag, waived }` per flag
+  set to `true`, `waived` being the refusal it waived or `null` when nothing
+  needed it. The review opens with them, before the Authority node:
+  `Overrides set in the request`, then one line per flag (`allowOverlap:
+  waived: refused: rule 0: has no policy, …`). For a revoke they open the review
+  in `removes`.
+- **Mainnet:** a flag set to `true` on mainnet is refused before the network is
+  asked unless the operator sets `POLICY_BUILDER_ALLOW_OVERRIDES=1` in the
+  server's environment. Testnet honours them without it, echoed all the same.
 
 ## What the tools return
 
@@ -216,9 +227,9 @@ The install review opens with an **Authority** node. Its lines:
 `[spending limit]` for the pinned addresses. `«label»` marks are names from the
 request's `allow` keys. A label is plain words (a letter, then up to 23 letters,
 digits, spaces, `_`, `.` or `-`), so it can never hold a bracket and read as a
-role. A role wins over a label on the same address. Only `install_policy` has the
-header: `revoke_policy` and `explainAccount` cannot read the threshold or the
-total from the account.
+role. A role wins over a label on the same address. Only `install_policy` and
+`review_unsigned` have the header: `revoke_policy` and `explainAccount` cannot
+read the threshold or the total from the account.
 
 `install_policy` also returns:
 
@@ -227,8 +238,13 @@ total from the account.
   `threshold` is `{ n, weights?, raw }` or absent, `validUntil` a ledger or `null`,
   `total` the `spendingLimit` or `null`, `limits` the interpreter's.
 - `authorityScan`: `{ complete, overlaps[] }`.
+- `overrides`: `[{ flag, waived }]`, empty when no override is set (see
+  "Overrides").
 - `interpreter`: the live fingerprint (grammar, code hash, limits).
 - `unsignedXdr` with its length and sha256, and `writtenTo` when `outFile` is set.
+- `authValidUntilLedger`, `validBefore` (unix seconds) and `fee`
+  (`{ base, resource, total }` in stroops): see "Security model". `revoke_policy`
+  returns the same three.
 
 Install inputs for authority:
 
@@ -236,10 +252,75 @@ Install inputs for authority:
   `{ weighted: { weights: { <address>: <weight> }, n } }` (signers whose weights
   total at least n). It attaches OpenZeppelin's `simple_threshold` or
   `weighted_threshold` beside the interpreter.
-- `anyOne: true`: install a rule any one signer can use alone.
+- `anyOne: true`: install a rule any one signer can use alone (an override:
+  echoed, and gated on mainnet).
 - `spendingLimit: { amount, periodLedgers }`: attach OpenZeppelin's
   `spending_limit`, a rolling total over `periodLedgers` ledgers (about five
   seconds each).
+
+## The owner's review
+
+`install_policy` returns its review beside the XDR, and both reach the owner
+through the agent. `review_unsigned` (or `reviewUnsigned({ network, xdr,
+smartAccount })` from the package root) lets a wallet or the Prime app review
+the bytes it is about to sign without the agent. It asks no RPC and reads
+nothing but the XDR, the network, the package's own pins, the two bounds from
+the environment and the clock.
+
+It refuses (`INVALID_INPUT`) bytes that are not a transaction, a fee bump, or
+anything but one contract call. Anything else it describes, and lists in
+`problems` what it finds wrong in the bytes:
+
+- an authorisation entry for anything but the call, a call under it, or more
+  entries than the account's and the source account's;
+- a `__check_auth` digest that does not match the account's entry on the given
+  network (another network, or an entry changed after the build);
+- a signer in the authorisation other than the transaction's source, or a
+  rule other than rule 0;
+- a call other than `add_context_rule` or `remove_context_rule`, another
+  account than `smartAccount` (or no `smartAccount` at all), a memo, or
+  preconditions beside the time bound;
+- no time bound, one already passed, one out of range, or one longer than the
+  window plus 120 s for the owner's clock; a negative resource fee, one above
+  the ceiling, or a base fee above 1 XLM;
+- a value the builder never writes;
+- for an install: a scope other than one contract, or a policy contract or the
+  account itself; an External signer or admin, or a threshold weight on one; a
+  threshold policy with no threshold; no interpreter, two, or one other than
+  the pin (mainnet has no pin, so a mainnet install is always flagged); a
+  grammar other than 7; a predicate whose hash does not match its bytes, or that
+  the interpreter would not read; a policy the package does not know.
+
+`signable` is true when `problems` is empty. The review opens with
+`Do not sign: n problem(s)` when there are any, then a `Transaction` node
+(call, source and sequence, fee, time bound, authorisation expiry), then for an
+install the Authority node and the predicate, and for a removal the rule it
+removes (rule 0 with its warning). Roles come from the bytes: the account
+called (`[smart account]` only when it is the `smartAccount` given), the
+source, the admins and signers the rule names.
+
+**What `signable` covers:** it means the bytes are shaped as this
+builder shapes them and agree with themselves. It does not mean they grant what
+the owner meant. These come back signable:
+
+- **A consistent rewrite:** nothing is signed yet, so an agent holding the
+  unsigned bytes can change the rule and recompute the account entry and the
+  `__check_auth` digest to match. Itself as admin or signer, a threshold
+  dropped, a spending limit or `valid_until` raised, a cap raised in the
+  predicate with a matching hash, a later authorisation expiry: each reads
+  signable, and each shows in the Authority node, the predicate or the
+  Transaction node.
+- **An override:** the bytes cannot carry one, so an install built with
+  `allowOverlap` or `anyOne` looks like any other.
+- **What the builder checks online:** the overlap scan of the account's other
+  rules, read safety (`READ_UNSAFE`), a spending limit on a predicate not pinned
+  to `transfer`, and which rule a removal's id names.
+- **1-of-n:** a rule several signers can each use alone is shown in the
+  Authority node ("any ONE of these n signers acts alone") and left unflagged.
+
+So the owner reads the Authority node (signers, who can act alone, admins,
+expiry, total) and the predicate against what they meant, and signs only
+then.
 
 ## Security model
 
@@ -256,6 +337,26 @@ Install inputs for authority:
 - The RPC endpoint and the output directory are the operator's. `outFile` is a
   bare file name, written (never over an existing file) into
   `POLICY_BUILDER_OUT_DIR`.
+- **Expiry and fee bounds:** install and revoke set the authorisation's expiry
+  ledger to the ledger the recording simulation ran at plus a window, and refuse
+  the build when the two simulations report
+  ledgers more than 20 apart. The transaction also gets a time bound from the
+  builder's own clock (`validBefore`, the window at 6 s a ledger), so an RPC
+  that moves both ledgers still cannot keep a signed transaction alive past the
+  window. The resource fee must be at most a ceiling, else the build is refused
+  ("the network asks a resource fee of … XLM, above this builder's ceiling").
+  Both are the operator's, from the environment only, and read when a build
+  starts, before its simulations (an install's interpreter check and a
+  revoke's rule read may reach the RPC first):
+
+  | Variable | Default | Range |
+  | --- | --- | --- |
+  | `POLICY_BUILDER_AUTH_LEDGERS` | 300 ledgers (about 25 minutes; time bound 30 minutes) | 1 to 17,280 (about a day) |
+  | `POLICY_BUILDER_MAX_RESOURCE_FEE` | 100,000,000 stroops (10 XLM) | any whole number of stroops |
+
+  A 12 KiB predicate asks about 1.3 XLM of resource fee on testnet; at the same
+  rate 40 KiB, the most any interpreter accepts, asks about 4 XLM. A malformed value refuses every
+  build with `INVALID_INPUT`.
 - Every input is validated at the boundary, an unknown key included. The install
   refusals all live in `planInstall` (`src/install.ts`); see "Install guardrails".
 - `check` always fails with its verdict, so even a `read` that calls a token's

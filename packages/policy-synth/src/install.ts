@@ -22,7 +22,10 @@ import {
 } from '@stellar/stellar-sdk'
 import { type Fingerprint, interpreterFor, mismatch, reasonOf, txOf } from './chain.ts'
 import {
+  authLedgers,
   GRAMMAR_VERSION,
+  LEDGER_SECONDS,
+  maxResourceFee,
   type Network,
   PASSPHRASE,
   POLICY_CONTRACTS,
@@ -59,7 +62,9 @@ export interface RuleDraft {
 }
 
 const MAX_SIGNERS = 15
-const AUTH_LEDGERS = 300 // about 25 minutes
+/** How far apart the two simulations of one build may report the ledger: seconds pass between them,
+ *  and nodes behind one endpoint can lag each other, but not by hours. */
+const LEDGER_DRIFT = 20
 
 const delegated = (a: string): Val => ['Delegated', a]
 
@@ -131,6 +136,10 @@ export interface Built {
   describes: { contract: string; fn: string; args: Val[] }
   authNonce: string
   authValidUntilLedger: number
+  /** The transaction's time bound (unix seconds, the builder's clock): it cannot run after it. */
+  validBefore: number
+  /** In stroops: the bid per operation, the resource fee (at most the operator's ceiling), their sum. */
+  fee: { base: number; resource: number; total: number }
 }
 
 export interface BuildArgs {
@@ -175,6 +184,8 @@ export async function buildSelfCall(
   code: ErrorCode = 'INSTALL_BUILD_FAILED'
 ): Promise<Built> {
   const { server, network } = a
+  // The operator's bounds, read before the network is asked: a bad value refuses every build.
+  const [window, ceiling] = [authLedgers(), maxResourceFee()]
   const op = (auth: xdr.SorobanAuthorizationEntry[] = []) =>
     Operation.invokeHostFunction({
       func: xdr.HostFunction.hostFunctionTypeInvokeContract(
@@ -224,8 +235,10 @@ export async function buildSelfCall(
         same ? `${root.subInvocations().length} sub-invocation(s) under it` : 'another call'
       }); the RPC answer is not trusted`
     )
-  // The simulation reports the ledger it ran at: no separate (and heavy) latest-ledger call.
-  const until = recorded.latestLedger + AUTH_LEDGERS
+  // The simulation reports the ledger it ran at: no separate (and heavy) latest-ledger call. The
+  // enforcing pass must report about the same ledger, and the transaction's time bound, from this
+  // clock, ends it within the window even if an RPC moved both.
+  const until = recorded.latestLedger + window
   const creds = original.credentials().address()
   const ids = [0]
   const account = new xdr.SorobanAuthorizationEntry({
@@ -264,13 +277,37 @@ export async function buildSelfCall(
     }),
   })
   const withAuth = tx(op([account, checkAuth]), source.sequenceNumber())
+  const enforced = await simulate(withAuth, 'enforcing')
+  const drift = Math.abs(enforced.latestLedger - recorded.latestLedger)
+  if (drift > LEDGER_DRIFT)
+    throw new Refusal(
+      code,
+      `${fn}: the two simulations ran at ledgers ${recorded.latestLedger} and ${enforced.latestLedger}, ${drift} apart; the RPC answer is not trusted`
+    )
   // `assembleTransaction` sets the fee to the base fee plus the resource fee, and `build` adds the
   // resource fee from the Soroban data again: bid the base fee once and let `build` add the resources.
-  const assembled = rpc.assembleTransaction(withAuth, await simulate(withAuth, 'enforcing')).build()
+  // The fee is judged as the RPC gave it, before any arithmetic on it.
+  const asked = enforced.transactionData.build().resourceFee().toBigInt()
+  if (asked < 0n)
+    throw new Refusal(
+      code,
+      `${fn}: the network asks a negative resource fee (${asked} stroops); not built`
+    )
+  if (asked > BigInt(ceiling))
+    throw new Refusal(
+      code,
+      `${fn}: the network asks a resource fee of ${xlm(asked)} XLM, above this builder's ceiling of ${xlm(ceiling)} XLM (POLICY_BUILDER_MAX_RESOURCE_FEE, in stroops); not built`
+    )
+  const assembled = rpc.assembleTransaction(withAuth, enforced).build()
+  const sorobanData = assembled.toEnvelope().v1().tx().ext().sorobanData()
+  const resource = Number(sorobanData.resourceFee().toBigInt())
+  const base = a.baseFee ?? Number(BASE_FEE)
+  const validBefore = Math.floor(Date.now() / 1000) + window * LEDGER_SECONDS
   const final = TransactionBuilder.cloneFrom(assembled, {
-    fee: String(a.baseFee ?? BASE_FEE),
-    sorobanData: assembled.toEnvelope().v1().tx().ext().sorobanData(),
+    fee: String(base),
+    sorobanData,
     networkPassphrase: PASSPHRASE[network],
+    timebounds: { minTime: 0, maxTime: validBefore },
   }).build()
   const unsignedXdr = final.toEnvelope().toXDR('base64')
   return {
@@ -282,7 +319,16 @@ export async function buildSelfCall(
     describes: describe(final),
     authNonce: creds.nonce().toString(),
     authValidUntilLedger: until,
+    validBefore,
+    fee: { base, resource, total: Number(final.fee) },
   }
+}
+
+/** Stroops as XLM, exactly: 2000000000 -> 200, 1711054 -> 0.1711054. */
+export const xlm = (stroops: number | bigint): string => {
+  const t = String(stroops).padStart(8, '0')
+  const frac = t.slice(-7).replace(/0+$/, '')
+  return frac ? `${t.slice(0, -7)}.${frac}` : t.slice(0, -7)
 }
 
 /** What the transaction calls, read back out of the bytes the wallet will sign. */
@@ -306,6 +352,42 @@ export const buildInstall = (a: BuildArgs, d: RuleDraft, interpreter: string) =>
 export const buildRevoke = (a: BuildArgs, ruleId: number) =>
   buildSelfCall(a, 'remove_context_rule', [ruleId], 'REVOKE_BUILD_FAILED')
 
+// ---- the overrides ----
+
+/** The inputs that waive a refusal. An agent could read one off a refusal and set it, so no refusal
+ *  names them, every one set is echoed, and on mainnet they need the operator's switch. */
+export type OverrideFlag =
+  | 'allowUnboundedAmount'
+  | 'allowOpenSlippage'
+  | 'allowOverlap'
+  | 'allowAdminRule'
+  | 'anyOne'
+
+/** The overrides an install takes, in the order its refusals come. */
+export const INSTALL_OVERRIDES = [
+  'allowUnboundedAmount',
+  'allowOpenSlippage',
+  'anyOne',
+  'allowOverlap',
+] as const
+
+/** An override the request set, with the refusal it waived (`null`: nothing needed it). */
+export interface Override {
+  flag: OverrideFlag
+  waived: string | null
+}
+
+/** On mainnet an override is honoured only when the operator sets POLICY_BUILDER_ALLOW_OVERRIDES=1:
+ *  refused before the network is asked. Testnet honours them, echoed all the same. */
+export function gate(network: Network, set: OverrideFlag[], code: ErrorCode): void {
+  if (network !== 'mainnet' || set.length === 0) return
+  if (process.env.POLICY_BUILDER_ALLOW_OVERRIDES === '1') return
+  throw new Refusal(
+    code,
+    `${set.join(', ')} ${set.length > 1 ? 'are' : 'is'} set, and on mainnet an override is honoured only when the operator sets POLICY_BUILDER_ALLOW_OVERRIDES=1; build without it, or take the refusal to the account's owners`
+  )
+}
+
 // ---- the removal ----
 
 /** What a removal asks of the network: the rule being removed, and the build. */
@@ -318,9 +400,16 @@ export interface RevokeChain {
  *  Default-scoped rule can leave the account with nothing able to authorise its own
  *  administration, for good: refused unless `allowAdminRule`. */
 export async function planRevoke(
-  i: { ruleId: number; smartAccount: string; allowAdminRule?: boolean | undefined },
+  i: {
+    network: Network
+    ruleId: number
+    smartAccount: string
+    allowAdminRule?: boolean | undefined
+  },
   chain: RevokeChain
 ) {
+  const set: OverrideFlag[] = i.allowAdminRule === true ? ['allowAdminRule'] : []
+  gate(i.network, set, 'REVOKE_BUILD_FAILED')
   const [rule, built] = await Promise.allSettled([chain.readRule(i.ruleId), chain.build(i.ruleId)])
   if (rule.status === 'rejected') throw rule.reason
   const removes = rule.value
@@ -330,14 +419,14 @@ export async function planRevoke(
   }
   // Rule 0, a Default scope, and a scope on the account itself (it authorises add_context_rule).
   const own = removes.scope.kind === 'call_contract' && removes.scope.contract === i.smartAccount
-  if (!i.allowAdminRule && (i.ruleId === 0 || removes.scope.kind === 'default' || own)) {
-    throw new Refusal(
-      'REVOKE_BUILD_FAILED',
-      `rule ${i.ruleId} is ${removes.scope.kind === 'default' ? 'Default-scoped' : own ? 'scoped to the account itself' : "the account's first rule"}: removing it can lock the account out of its own administration for good. Set allowAdminRule to build it anyway.`
-    )
+  let waived: string | null = null
+  if (i.ruleId === 0 || removes.scope.kind === 'default' || own) {
+    waived = `rule ${i.ruleId} is ${removes.scope.kind === 'default' ? 'Default-scoped' : own ? 'scoped to the account itself' : "the account's first rule"}: removing it can lock the account out of its own administration for good`
+    if (i.allowAdminRule !== true) throw new Refusal('REVOKE_BUILD_FAILED', waived)
   }
   if (built.status === 'rejected') throw built.reason
-  return { ...built.value, removes }
+  const overrides: Override[] = set.map((flag) => ({ flag, waived }))
+  return { ...built.value, removes, overrides }
 }
 
 // ---- the install, with every refusal in one place ----
@@ -386,19 +475,30 @@ export interface Chain {
 
 /** Every refusal an install can meet, in the order a reader should hear of them:
  *  the input, the interpreter, the account's other rules, the build. Anything the
- *  scan cannot judge is refused too; `allowOverlap` is the one override. */
+ *  scan cannot judge is refused too. Three refusals can be waived by an override, and
+ *  each override set comes back in `overrides` with what it waived. */
 export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   const no = (m: string) => new Refusal('INSTALL_BUILD_FAILED', m)
-  if (rule.unanswered && !i.allowUnboundedAmount) {
-    throw no(
-      `${rule.unanswered} Answer with \`limit\` or \`limits\`, or set allowUnboundedAmount to install without it.`
-    )
+  const set = INSTALL_OVERRIDES.filter((f) => i[f] === true)
+  gate(i.network, set, 'INSTALL_BUILD_FAILED')
+  const waived: Partial<Record<OverrideFlag, string>> = {}
+  /** Refuse with `message`, unless `flag` is set: then record what it waived (`what`). */
+  const unless = (flag: OverrideFlag, what: string, message = what) => {
+    if (i[flag as keyof InstallInput] !== true) throw no(message)
+    waived[flag] = waived[flag] === undefined ? what : `${waived[flag]} ${what}`
   }
-  if (rule.openSlippage && !i.allowOpenSlippage) {
-    throw no(
-      `${rule.openSlippage} Set a floor or minOut in an intent, or set allowOpenSlippage to install without one.`
+  if (rule.unanswered)
+    unless(
+      'allowUnboundedAmount',
+      rule.unanswered,
+      `${rule.unanswered} Answer with \`limit\` or \`limits\`.`
     )
-  }
+  if (rule.openSlippage)
+    unless(
+      'allowOpenSlippage',
+      rule.openSlippage,
+      `${rule.openSlippage} Set a floor or minOut in an intent.`
+    )
   if (POLICY_CONTRACTS.has(rule.contract) || rule.contract === i.smartAccount) {
     throw no(
       'a rule scoped to a policy contract or to the account itself would expose its admin calls; scope it to the contract the calls go to'
@@ -419,14 +519,12 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
       `threshold ${t.n} can never be met (weights must cover exactly the signers and total at least n)`
     )
   if (t && i.anyOne && !oneOfN) throw no('anyOne and a threshold contradict each other')
-  if (oneOfN && !i.anyOne)
-    throw no(
-      `${
-        w
-          ? `${i.signers.filter((x) => (w[x] as number) >= (t?.n ?? 0)).join(', ')} alone meets the threshold of ${t?.n}`
-          : `${t ? `a threshold of ${t.n}` : `${k} signers and no threshold`}: any ONE of the ${k} signers acts alone (1-of-${k})`
-      }. Give a threshold that needs more, or \`anyOne: true\` to install it on purpose.`
-    )
+  if (oneOfN) {
+    const alone = w
+      ? `${i.signers.filter((x) => (w[x] as number) >= (t?.n ?? 0)).join(', ')} alone meets the threshold of ${t?.n}`
+      : `${t ? `a threshold of ${t.n}` : `${k} signers and no threshold`}: any ONE of the ${k} signers acts alone (1-of-${k})`
+    unless('anyOne', alone, `${alone}. Give a threshold that needs more.`)
+  }
   const draft: RuleDraft = {
     scope: { kind: 'call_contract', contract: rule.contract },
     name: i.name ?? `policy-${rule.hash.slice(0, 8)}`,
@@ -471,18 +569,15 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   if (!fingerprint.matches) throw mismatch(fingerprint)
   const read = got(scan)
   const found = overlaps({ ...draft, expr: rule.expr }, read.rules, interpreter, i.network)
-  if (i.allowOverlap !== true) {
-    const refused = found.filter((o: Overlap) => o.severity === 'refuse')
-    if (refused.length > 0) {
-      throw no(
-        `refused: ${refused.map((o) => o.advice).join(' ')} Set allowOverlap to install anyway.`
-      )
-    }
-    if (!read.complete)
-      throw no(
-        "the account's rules could not all be read, so whether this rule can bind is not known; set allowOverlap to install anyway"
-      )
-  }
+  const refused = found.filter((o: Overlap) => o.severity === 'refuse')
+  if (refused.length > 0)
+    unless('allowOverlap', `refused: ${refused.map((o) => o.advice).join(' ')}`)
+  if (!read.complete)
+    unless(
+      'allowOverlap',
+      "the account's rules could not all be read, so whether this rule can bind is not known"
+    )
+  const overrides: Override[] = set.map((flag) => ({ flag, waived: waived[flag] ?? null }))
   return {
     ...got(built),
     authority: {
@@ -497,5 +592,6 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
     rule: { contract: rule.contract, predicateHash: rule.hash },
     interpreter: fingerprint,
     authorityScan: { complete: read.complete, overlaps: found },
+    overrides,
   }
 }

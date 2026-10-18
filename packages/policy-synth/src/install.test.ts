@@ -1,6 +1,12 @@
 import { afterAll, describe, expect, it } from 'bun:test'
 import { createHash } from 'node:crypto'
-import { Address, nativeToScVal, TransactionBuilder, xdr } from '@stellar/stellar-sdk'
+import {
+  Address,
+  nativeToScVal,
+  SorobanDataBuilder,
+  TransactionBuilder,
+  xdr,
+} from '@stellar/stellar-sdk'
 import { account, contract } from '../test/fixtures.ts'
 import { recorded } from '../test/rpc.ts'
 import { connect, interpreterFor } from './chain.ts'
@@ -235,6 +241,204 @@ describe('buildInstall and buildRevoke, on a live account', () => {
         buildInstall({ ...args, server: lying }, draft({ name: 'cap-500', nonce: 1 }), INTERP)
       ).rejects.toThrow(/authorise.*other than/)
     })
+
+    it('refuses the same function and arguments on another contract', async () => {
+      const lying = tampered((root) => {
+        const f = root.function().contractFn()
+        const other = new xdr.InvokeContractArgs({
+          contractAddress: new Address(TOKEN).toScAddress(),
+          functionName: f.functionName(),
+          args: f.args(),
+        })
+        return new xdr.SorobanAuthorizedInvocation({
+          function: xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(other),
+          subInvocations: [],
+        })
+      })
+      await expect(
+        buildInstall({ ...args, server: lying }, draft({ name: 'cap-500', nonce: 1 }), INTERP)
+      ).rejects.toThrow(/authorise.*other than.*another call/)
+    })
+  })
+
+  // Two more values the wallet signs came from the RPC: the auth expiry (the ledger a simulation
+  // reports, plus the window) and the resource fee. The builder bounds both itself.
+  describe("the expiry and the fee are the builder's, not the RPC's", () => {
+    type Sim = Awaited<ReturnType<typeof server.simulateTransaction>>
+    /** The RPC edits its answer to one simulation: 1 the recording pass, 2 the enforcing pass. */
+    const lyingPass = (pass: 1 | 2, edit: (sim: Sim & { latestLedger: number }) => void) => {
+      let k = 0
+      return new Proxy(server, {
+        get(target, prop, receiver) {
+          if (prop !== 'simulateTransaction') return Reflect.get(target, prop, receiver)
+          return async (t: Parameters<typeof server.simulateTransaction>[0]) => {
+            const sim = await target.simulateTransaction(t)
+            if (++k === pass) edit(sim)
+            return sim
+          }
+        },
+      })
+    }
+    const withEnv = async <T>(env: Record<string, string>, f: () => Promise<T>): Promise<T> => {
+      const before = Object.fromEntries(Object.keys(env).map((k) => [k, process.env[k]]))
+      Object.assign(process.env, env)
+      try {
+        return await f()
+      } finally {
+        for (const [k, v] of Object.entries(before)) {
+          if (v === undefined) delete process.env[k]
+          else process.env[k] = v
+        }
+      }
+    }
+    const shape = (b: Awaited<ReturnType<typeof buildInstall>>) => {
+      const tx = TransactionBuilder.fromXDR(b.unsignedXdr, PASSPHRASE.testnet)
+      const data = tx.toEnvelope().v1().tx().ext().sorobanData()
+      return { tx, resource: Number(data.resourceFee()) }
+    }
+    const now = () => Math.floor(Date.now() / 1000)
+
+    it("the signed transaction lapses with its authorisation, by the builder's own clock", async () => {
+      const t0 = now()
+      const built = await buildInstall(args, draft(), INTERP)
+      const { tx, resource } = shape(built)
+      const latest = (await server.getLatestLedger()).sequence
+      // 300 ledgers past the ledger the simulation ran at, and the time bound at 6 s a ledger.
+      expect(built.authValidUntilLedger - latest).toBeGreaterThan(290)
+      expect(built.authValidUntilLedger - latest).toBeLessThanOrEqual(300)
+      expect(tx.timeBounds?.minTime).toBe('0')
+      const max = Number(tx.timeBounds?.maxTime)
+      expect(max).toBeGreaterThanOrEqual(t0 + 1800)
+      expect(max).toBeLessThanOrEqual(now() + 1800)
+      expect(built.validBefore).toBe(max)
+      expect(built.fee).toEqual({ base: 100, resource, total: 100 + resource })
+    })
+
+    it('the operator sets the window with POLICY_BUILDER_AUTH_LEDGERS; a bad value refuses before the network is asked', async () => {
+      const t0 = now()
+      const built = await withEnv({ POLICY_BUILDER_AUTH_LEDGERS: '100' }, () =>
+        buildInstall(args, draft(), INTERP)
+      )
+      const latest = (await server.getLatestLedger()).sequence
+      expect(built.authValidUntilLedger - latest).toBeGreaterThan(90)
+      expect(built.authValidUntilLedger - latest).toBeLessThanOrEqual(100)
+      expect(built.validBefore).toBeGreaterThanOrEqual(t0 + 600)
+      expect(built.validBefore).toBeLessThanOrEqual(now() + 600)
+      const asked = { n: 0 }
+      const counting = new Proxy(server, {
+        get(target, prop, receiver) {
+          asked.n++
+          return Reflect.get(target, prop, receiver)
+        },
+      })
+      for (const bad of ['0', '-5', 'abc', '17281', '1e3']) {
+        await expect(
+          withEnv({ POLICY_BUILDER_AUTH_LEDGERS: bad }, () =>
+            buildInstall({ ...args, server: counting }, draft(), INTERP)
+          )
+        ).rejects.toThrow(/POLICY_BUILDER_AUTH_LEDGERS/)
+      }
+      expect(asked.n).toBe(0)
+    })
+
+    it.each([
+      ['the recording pass reports a ledger 2,000,000 ahead', 1, 2_000_000],
+      ['the enforcing pass reports a ledger 2,000,000 ahead', 2, 2_000_000],
+      ['the enforcing pass reports a ledger 2,000,000 behind', 2, -2_000_000],
+    ] as const)(
+      'refuses an RPC whose two simulations disagree on the ledger: %s',
+      async (_n, pass, by) => {
+        const lying = lyingPass(pass, (sim) => {
+          sim.latestLedger += by
+        })
+        await expect(buildInstall({ ...args, server: lying }, draft(), INTERP)).rejects.toThrow(
+          /ledger.*apart.*not trusted/
+        )
+      }
+    )
+
+    it('the limit is 20 ledgers: an enforcing pass 20 off builds, 21 off is refused, either way', async () => {
+      const shifted = (by: number) =>
+        lyingPass(2, (sim) => {
+          sim.latestLedger += by
+        })
+      for (const by of [20, -20]) {
+        const b = await buildInstall({ ...args, server: shifted(by) }, draft(), INTERP)
+        expect(b.unsignedXdr.length).toBeGreaterThan(0)
+      }
+      for (const by of [21, -21])
+        await expect(
+          buildInstall({ ...args, server: shifted(by) }, draft(), INTERP)
+        ).rejects.toThrow(/21 apart; the RPC answer is not trusted/)
+    })
+
+    it('an empty value is the default, as if unset', async () => {
+      const b = await withEnv(
+        { POLICY_BUILDER_AUTH_LEDGERS: '', POLICY_BUILDER_MAX_RESOURCE_FEE: '' },
+        () => buildInstall(args, draft(), INTERP)
+      )
+      expect(b.validBefore).toBeGreaterThan(Math.floor(Date.now() / 1000) + 1790)
+    })
+
+    it.each([
+      ['a negative resource fee', -1n, /negative resource fee \(-1 stroops\)/],
+      ['the largest int64 resource fee', 2n ** 63n - 1n, /above this builder's ceiling of 10 XLM/],
+    ] as const)('refuses %s with its own message', async (_n, fee, why) => {
+      const lying = lyingPass(2, (sim) => {
+        if (!('transactionData' in sim)) return
+        const d = sim.transactionData.build()
+        d.resourceFee(new xdr.Int64(fee))
+        sim.transactionData = new SorobanDataBuilder(d)
+      })
+      await expect(buildInstall({ ...args, server: lying }, draft(), INTERP)).rejects.toThrow(why)
+    })
+
+    it('refuses a resource fee above the ceiling, whatever the RPC asks (an enforcing pass that asks 200 XLM)', async () => {
+      const lying = lyingPass(2, (sim) => {
+        if (!('transactionData' in sim)) return
+        const d = sim.transactionData.build()
+        d.resourceFee(new xdr.Int64(2_000_000_000n))
+        sim.transactionData = new SorobanDataBuilder(d)
+        sim.minResourceFee = '2000000000'
+      })
+      const r = buildInstall({ ...args, server: lying }, draft(), INTERP)
+      await expect(r).rejects.toThrow(
+        /resource fee of 200 XLM.*ceiling of 10 XLM.*POLICY_BUILDER_MAX_RESOURCE_FEE/
+      )
+      await expect(r).rejects.toMatchObject({ code: 'INSTALL_BUILD_FAILED' })
+      const revoke = buildRevoke(
+        {
+          ...args,
+          server: lyingPass(2, (sim) => {
+            if (!('transactionData' in sim)) return
+            const d = sim.transactionData.build()
+            d.resourceFee(new xdr.Int64(2_000_000_000n))
+            sim.transactionData = new SorobanDataBuilder(d)
+          }),
+        },
+        1
+      )
+      await expect(revoke).rejects.toMatchObject({ code: 'REVOKE_BUILD_FAILED' })
+    })
+
+    it('the operator sets the ceiling with POLICY_BUILDER_MAX_RESOURCE_FEE, in stroops', async () => {
+      const honest = shape(await buildInstall(args, draft(), INTERP)).resource
+      await expect(
+        withEnv({ POLICY_BUILDER_MAX_RESOURCE_FEE: String(honest - 1) }, () =>
+          buildInstall(args, draft(), INTERP)
+        )
+      ).rejects.toThrow(/above this builder's ceiling/)
+      const at = await withEnv({ POLICY_BUILDER_MAX_RESOURCE_FEE: String(honest + 1000) }, () =>
+        buildInstall(args, draft(), INTERP)
+      )
+      expect(at.fee.resource).toBeLessThanOrEqual(honest + 1000)
+      for (const bad of ['0', 'ten', '1.5', '-1'])
+        await expect(
+          withEnv({ POLICY_BUILDER_MAX_RESOURCE_FEE: bad }, () =>
+            buildInstall(args, draft(), INTERP)
+          )
+        ).rejects.toThrow(/POLICY_BUILDER_MAX_RESOURCE_FEE/)
+    })
   })
 })
 
@@ -468,7 +672,13 @@ describe('planInstall: the guards', () => {
       'INSTALL_BUILD_FAILED',
       /any ONE of the 2 signers/
     )
-    await refused(planInstall(two, rule, chain()), 'INSTALL_BUILD_FAILED', /threshold|anyOne/)
+    // Like every override, the refusal does not name `anyOne`: it asks for a threshold.
+    const e = await planInstall(two, rule, chain()).then(
+      () => undefined,
+      (x) => x as Refusal
+    )
+    expect(e?.message).toMatch(/Give a threshold that needs more/)
+    expect(e?.message).not.toMatch(/anyOne|override/i)
     // Said on purpose: it installs, and the draft says no threshold.
     let seen: RuleDraft | undefined
     await planInstall(
@@ -817,7 +1027,7 @@ describe('planInstall: the guards', () => {
     expect(e?.message).toContain(`${SIGNER} alone meets the threshold of 3`)
     expect(e?.message).not.toMatch(/any ONE of the 3/)
     expect(e?.message).not.toContain(account(2))
-    expect(e?.message).toContain('`anyOne: true` to install it on purpose')
+    expect(e?.message).not.toContain('anyOne')
     await refused(
       planInstall({ ...two, threshold: { n: 1 } }, rule, chain()),
       'INSTALL_BUILD_FAILED',
@@ -898,6 +1108,126 @@ describe('planInstall: the guards', () => {
     )
     expect(seen).toMatchObject({ admins: [SIGNER], nonce: 1, validUntil: null })
   })
+
+  // P0-4: an agent read the flag off the refusal, set it, and the answer did not say so.
+  describe('overrides: never hinted, always echoed, on mainnet only with the operator switch', () => {
+    const unanswered = { ...rule, unanswered: 'transfer: what is the most `amount` may be?' }
+    const slippage = { ...rule, openSlippage: 'swap: what is the least `amount_out_min` may be?' }
+    const MAIN = 'CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT'
+    const mainnet: InstallInput = { ...input, network: 'mainnet', interpreterAddress: MAIN }
+    const onMainnet = { ...ours, address: MAIN }
+    const withSwitch = async <T>(v: string | undefined, f: () => Promise<T>) => {
+      const before = process.env.POLICY_BUILDER_ALLOW_OVERRIDES
+      if (v === undefined) delete process.env.POLICY_BUILDER_ALLOW_OVERRIDES
+      else process.env.POLICY_BUILDER_ALLOW_OVERRIDES = v
+      try {
+        return await f()
+      } finally {
+        if (before === undefined) delete process.env.POLICY_BUILDER_ALLOW_OVERRIDES
+        else process.env.POLICY_BUILDER_ALLOW_OVERRIDES = before
+      }
+    }
+
+    it('a refusal an override would waive does not name the override', async () => {
+      const cases: [Promise<unknown>, RegExp][] = [
+        [planInstall(input, unanswered, chain()), /most `amount`/],
+        [planInstall(input, slippage, chain()), /least `amount_out_min`/],
+        [planInstall(input, rule, chain({ rules: [neighbour({})] })), /refused: rule 4/],
+        [planInstall(input, rule, chain({ complete: false })), /could not all be read/],
+      ]
+      for (const [p, why] of cases) {
+        const e = (await p.then(
+          () => undefined,
+          (x) => x
+        )) as Refusal
+        expect(e.message).toMatch(why)
+        expect(e.message).not.toMatch(/allow[A-Z]|override/i)
+      }
+    })
+
+    it('every override set is echoed with the refusal it waived, or with null when nothing needed it', async () => {
+      expect((await planInstall(input, rule, chain())).overrides).toEqual([])
+      const none = { allowOverlap: false, allowUnboundedAmount: false, allowOpenSlippage: false }
+      expect((await planInstall({ ...input, ...none }, rule, chain())).overrides).toEqual([])
+      const all = { allowOverlap: true, allowUnboundedAmount: true, allowOpenSlippage: true }
+      const open = { ...unanswered, openSlippage: slippage.openSlippage }
+      const r = await planInstall(
+        { ...input, ...all },
+        open,
+        chain({ rules: [neighbour({})], complete: false })
+      )
+      expect(r.overrides.map((o) => o.flag)).toEqual([
+        'allowUnboundedAmount',
+        'allowOpenSlippage',
+        'allowOverlap',
+      ])
+      expect(r.overrides[0]?.waived).toBe(unanswered.unanswered)
+      expect(r.overrides[1]?.waived).toBe(slippage.openSlippage)
+      expect(r.overrides[2]?.waived).toMatch(/refused: rule 4.*could not all be read/)
+      const idle = await planInstall({ ...input, ...all }, rule, chain())
+      expect(idle.overrides).toEqual([
+        { flag: 'allowUnboundedAmount', waived: null },
+        { flag: 'allowOpenSlippage', waived: null },
+        { flag: 'allowOverlap', waived: null },
+      ])
+    })
+
+    it('anyOne is an override like the others: echoed with the 1-of-n refusal it waived, gated on mainnet', async () => {
+      const two = { ...input, signers: [SIGNER, account(2)], anyOne: true }
+      const r = await planInstall(two, rule, chain())
+      expect(r.overrides).toEqual([
+        { flag: 'anyOne', waived: expect.stringMatching(/any ONE of the 2 signers acts alone/) },
+      ])
+      const one = await planInstall({ ...input, anyOne: true }, rule, chain())
+      expect(one.overrides).toEqual([{ flag: 'anyOne', waived: null }])
+      await withSwitch(undefined, () =>
+        refused(
+          planInstall({ ...mainnet, signers: [SIGNER, account(2)], anyOne: true }, rule, chain()),
+          'INSTALL_BUILD_FAILED',
+          /anyOne is set, and on mainnet .*POLICY_BUILDER_ALLOW_OVERRIDES=1/
+        )
+      )
+    })
+
+    it('on mainnet an override is refused before anything is asked, unless the operator sets POLICY_BUILDER_ALLOW_OVERRIDES=1', async () => {
+      let asked = 0
+      const counted = chain({
+        fingerprint: async () => {
+          asked++
+          return onMainnet
+        },
+        build: async () => {
+          asked++
+          return built
+        },
+      })
+      for (const flag of ['allowOverlap', 'allowUnboundedAmount', 'allowOpenSlippage'])
+        for (const v of [undefined, '0', 'true', 'yes'])
+          await withSwitch(v, () =>
+            refused(
+              planInstall({ ...mainnet, [flag]: true }, rule, counted),
+              'INSTALL_BUILD_FAILED',
+              new RegExp(`${flag}.*mainnet.*POLICY_BUILDER_ALLOW_OVERRIDES=1`)
+            )
+          )
+      expect(asked).toBe(0)
+      // No override, or an override set to false, needs no switch; the switch lets it through, echoed.
+      const clean = chain({ fingerprint: async () => onMainnet })
+      expect((await planInstall(mainnet, rule, clean)).overrides).toEqual([])
+      expect(
+        (await planInstall({ ...mainnet, allowOverlap: false }, rule, clean)).overrides
+      ).toEqual([])
+      const on = await withSwitch('1', () =>
+        planInstall({ ...mainnet, allowUnboundedAmount: true }, unanswered, clean)
+      )
+      expect(on.overrides).toEqual([
+        { flag: 'allowUnboundedAmount', waived: unanswered.unanswered },
+      ])
+      // Testnet honours an override without the switch, and echoes it all the same.
+      const t = await planInstall({ ...input, allowUnboundedAmount: true }, unanswered, chain())
+      expect(t.overrides).toEqual([{ flag: 'allowUnboundedAmount', waived: unanswered.unanswered }])
+    })
+  })
 })
 
 describe('planRevoke: the only destructive tool reads what it removes', () => {
@@ -916,7 +1246,7 @@ describe('planRevoke: the only destructive tool reads what it removes', () => {
       return built
     },
   })
-  const input = { smartAccount: ACCOUNT, sourceAccount: SIGNER }
+  const input = { network: 'testnet' as const, smartAccount: ACCOUNT, sourceAccount: SIGNER }
 
   it('describes the rule it would remove, beside the unsigned transaction', async () => {
     const r = await planRevoke({ ...input, ruleId: 3 }, chain(rule({})))
@@ -957,6 +1287,36 @@ describe('planRevoke: the only destructive tool reads what it removes', () => {
     expect(ok.removes.id).toBe(4)
     // Scoped to another contract it is an ordinary rule.
     expect((await planRevoke({ ...input, ruleId: 4 }, chain(rule({ id: 4 })))).removes.id).toBe(4)
+  })
+
+  it('allowAdminRule is never hinted, always echoed, and on mainnet needs the operator switch', async () => {
+    const zero = rule({ id: 0, scope: { kind: 'default' }, policies: [] })
+    const e = await planRevoke({ ...input, ruleId: 0 }, chain(zero)).then(
+      () => undefined,
+      (x) => x as Refusal
+    )
+    expect(e?.message).toMatch(/lock the account out/)
+    expect(e?.message).not.toMatch(/allow[A-Z]|override/i)
+    expect((await planRevoke({ ...input, ruleId: 3 }, chain(rule({})))).overrides).toEqual([])
+    const ok = await planRevoke({ ...input, ruleId: 0, allowAdminRule: true }, chain(zero))
+    expect(ok.overrides).toEqual([{ flag: 'allowAdminRule', waived: e?.message }])
+    const idle = await planRevoke({ ...input, ruleId: 3, allowAdminRule: true }, chain(rule({})))
+    expect(idle.overrides).toEqual([{ flag: 'allowAdminRule', waived: null }])
+    let built = 0
+    const main = { ...input, network: 'mainnet' as const, ruleId: 0, allowAdminRule: true }
+    await expect(
+      planRevoke(
+        main,
+        chain(zero, () => built++)
+      )
+    ).rejects.toThrow(/allowAdminRule.*mainnet.*POLICY_BUILDER_ALLOW_OVERRIDES=1/)
+    expect(built).toBe(0)
+    process.env.POLICY_BUILDER_ALLOW_OVERRIDES = '1'
+    try {
+      expect((await planRevoke(main, chain(zero))).overrides[0]?.flag).toBe('allowAdminRule')
+    } finally {
+      delete process.env.POLICY_BUILDER_ALLOW_OVERRIDES
+    }
   })
 
   it("a rule that is not there is the build's own refusal, not an empty description", async () => {
