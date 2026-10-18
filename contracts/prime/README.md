@@ -23,7 +23,14 @@ contracts/prime/
   solana/prime-session/         session PDA that acts inside a Squads Smart Account
   solana/custody-gate/          gate-owned custody gate (line-cut build with the multisig length check), plus app-checks/
   near/prime-near-signer/       pass-through signer that checks a wallet signature, then asks NEAR MPC to sign
+  stellar/prime-seat/           seat of a NEAR-routed owner on an OZ smart account
+  evm/prime-seat/               PrimeSeat.sol, a Safe owner for a NEAR-routed owner (ERC-1271)
+  solana/prime-seat/            seat PDA of a NEAR-routed owner in a Squads Smart Account
+  near/prime-near-signer-v2/    signer of the NEAR-routed owners' session grants (grants and ends only)
+  near/vectors/                 shared vectors of v2 and the generator that writes them
 ```
+
+The seats and v2 came from `feat/near-seats` (`a9531b9`) and `feat/near-seats-signer` (`cc6da45`) unchanged. Each one's README has its build, tests and the reviews behind it; the [seats section](#seats-of-near-routed-owners) below has the hashes.
 
 ## Contract size
 
@@ -109,6 +116,21 @@ The 9 October 2026 size pass changed sources on all four chains. Behaviour staye
 
 The size pass is documented in [`spike/matrix/near-minimal/round9/sloc2/`](spike/matrix/near-minimal/round9/sloc2/): the mutation scripts, the differential harnesses and the logs.
 
+## Seats of NEAR-routed owners
+
+A seat is the on-chain owner entry of a wallet that signs through NEAR. The owner signs one readable grant through `prime-near-signer` v2, and the seat lets the session key in that grant act until its end. The hashes below are the builds in `build-hashes.json`, measured again on 18 October 2026 on top of the grammar-7 tree; none changed.
+
+| Contract | sLOC | Build | Hash | Tests |
+|---|---|---|---|---|
+| `stellar/prime-seat` | 99 | `./build-wasm.sh` | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` (17,599 bytes) | `cargo test`: 21 |
+| `evm/prime-seat` | 72 | `forge build` (Foundry 1.8.4, OpenZeppelin 5.4.0) | runtime `3b4402d5…38d6` (4,434 bytes), creation `4d355864…0de7` (4,703 bytes) | `forge test`: 51, and 7 more with `FORK_URL` set to a Base Sepolia fork |
+| `solana/prime-seat` | 75 | `PRIME_CLUSTER=localnet cargo-build-sbf -- --locked` (Solana CLI 4.3.0) | localnet `4428191f…7e3e`, devnet `a389f4a1…9bb2` (35,248 bytes each) | `PRIME_CLUSTER=devnet cargo test`: 36 |
+| `near/prime-near-signer-v2` | 323 | `RUSTFLAGS="-C link-arg=-s --cfg near" cargo build --release --target wasm32-unknown-unknown` (Rust 1.97.1) | `4b98d6d3c6a6ae15b11daa6e0a28b19f5764f028fd64440572e58904a17df7de` (157,934 bytes) | `cargo test`: 4, over 12 accepted vectors and 42 refusals |
+
+The deployed copies are the devnet program `7ygNrKpK3GYoNLMCkAa4e3mznGPF2KVGbKZsJcq8wSCb` (final, its bytes equal the devnet build) and `seats.prime-spike-muwguc60.testnet` (code hash `666kSs8zNUkMMfJ39hDne3UqV9AqE5Dw2deTTZPsnJjF`, the v2 build). A Stellar seat and an EVM `PrimeSeat` are deployed per account by the Prime apps, which pin the wasm and the masked runtime code.
+
+Grammar 7 and the Stellar seat: the interpreter refuses an `External` signer in its rules (212), so a seat enters a grammar-7 rule as `Delegated`, the form it serves outside rule 0. The interpreter keeps a hash of the rule's signers, so `remove_signer` on a grammar-7 rule leaves that rule refusing every signer (204). To take a seat out of such a rule, remove the rule and add it again without the seat. A seat cannot be a policy admin: it authorises only through its account's `__check_auth`.
+
 ## Stellar hashes before and after the move
 
 The five Stellar crates moved from `contracts/<name>` and `contracts/prime-session` to `contracts/prime/stellar/<name>`. Each wasm was built the way the repo builds it before the move and again after.
@@ -134,6 +156,11 @@ The records are `deployments/grammar6-testnet.json`, `deployments/execution-test
 | `Contracts (evm/prime-session)` | Foundry 1.8.4, the OpenZeppelin fetch from the EVM section, `forge fmt --check src`, `forge build`, `forge test` |
 | `Contracts (solana/<crate>)` | Solana CLI v4.3.0 installed from `release.anza.xyz` and cached, `cargo fmt --check`, `PRIME_CLUSTER=localnet cargo-build-sbf`, the `.so` hash against `build-hashes.json` |
 | `Contracts (near/prime-near-signer)` | Rust 1.98.1, `cargo-near` 0.22.0, the build described under NEAR, the wasm hash against `build-hashes.json` |
+| `Contracts (prime-seat)`, in the Stellar matrix | as the other Stellar crates, and the `build-wasm.sh` hash against `build-hashes.json` |
+| `Contracts (evm/prime-seat)` | as `evm/prime-session`, then the runtime and creation hashes against `build-hashes.json` |
+| `Contracts (solana/prime-seat)`, in the Solana matrix | as the other Solana programs |
+| `Contracts (near/prime-near-signer-v2)` | the repo's Rust, `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test`, the wasm build with the registry path remapped to the deployed build's form, the hash against `build-hashes.json` |
+| `TypeScript (near/vectors)` | Bun 1.4.2 (the generator's lockfile needs it), `bun gen.ts`, and the output against `requests.json` byte for byte |
 | `TypeScript (solana/custody-gate/app-checks)` | `bun install --frozen-lockfile`, `tsc --strict`, `bun test` |
 
-`build-hashes.json` holds the four hashes. Change an entry in the same commit as the source it covers. The NEAR signer has no format check: its source packs several statements per line, and the sections above state its size after `rustfmt` (42 lines, 22 as written). The `spike/` folder is archived evidence and sits outside the repo's biome run (`biome.jsonc` says why).
+`build-hashes.json` holds the hashes CI compares. Change an entry in the same commit as the source it covers. The NEAR signer has no format check: its source packs several statements per line, and the sections above state its size after `rustfmt` (42 lines, 22 as written). The `spike/` folder is archived evidence and sits outside the repo's biome run (`biome.jsonc` says why).
