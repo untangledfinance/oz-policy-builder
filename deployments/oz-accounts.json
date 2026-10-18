@@ -11,7 +11,7 @@
       "upstream": "https://github.com/OpenZeppelin/stellar-contracts, examples/multisig-smart-account/account (package multisig-account-example)",
       "sourceCommitRecorded": false,
       "buildCommandRecorded": false,
-      "whatIsKnown": "The bytes are the blob above and the same hash runs on testnet and mainnet. The upstream commit and the build command that produced the blob are NOT recorded anywhere in this repository. contracts/ARCHITECTURE.md cites OpenZeppelin stellar-contracts at ce5c568 for how account calls are authorised; that is a documentation reference, not a build record (ce5c568 is v0.8.0-rc.3 plus 76 commits, dated 2026-10-07, after the account code was deployed).",
+      "whatIsKnown": "The bytes are the blob above and the same hash runs on testnet and mainnet. The upstream commit and the build command that produced the blob are NOT recorded anywhere in this repository. The round-9 design record (contracts/prime/ARCHITECTURE.md, kept at tag archive/spike-final) cites OpenZeppelin stellar-contracts at ce5c568 for how account calls are authorised; that is a documentation reference, not a build record (ce5c568 is v0.8.0-rc.3 plus 76 commits, dated 2026-10-07, after the account code was deployed).",
       "reproductionAttempts": [
         {
           "date": "2026-10-15",

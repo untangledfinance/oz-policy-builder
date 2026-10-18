@@ -1,13 +1,12 @@
 # Prime contracts
 
-This folder holds every contract behind a Prime account, one folder per chain. The Stellar folder has the OctoGate contracts (custody gate, execution adapter, policy interpreter) and the Stellar session signer. The EVM, Solana and NEAR folders hold the session contracts that let a wallet start a session key on each chain. [ARCHITECTURE.md](ARCHITECTURE.md) explains the design, and [spike/](spike/) is the evidence bundle with the harnesses, logs and testnet records behind it.
+This folder holds every contract behind a Prime account, one folder per chain. The Stellar folder has the OctoGate contracts (custody gate, execution adapter, policy interpreter) and the Stellar session signer. The EVM, Solana and NEAR folders hold the session contracts that let a wallet start a session key on each chain. The round-9 design record ([ARCHITECTURE.md](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/ARCHITECTURE.md)) is kept at tag `archive/spike-final`, and [spike/](spike/) is the evidence bundle with the harnesses, logs and testnet records behind it.
 
 ## Layout
 
 ```
 contracts/
   README.md
-  ARCHITECTURE.md
   build-hashes.json             build hashes that CI compares against
   check-build-hash.sh           the comparison CI runs
   spike/                        evidence bundle: harnesses, logs, testnet records
