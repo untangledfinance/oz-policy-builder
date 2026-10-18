@@ -22,8 +22,7 @@
       "!packages/policy-synth/fixtures/rpc",
       // Written by contracts/near/vectors/generator (one-space indent, as JSON.stringify
       // writes it). Regenerating must give the same bytes, so the formatter keeps out.
-      "!contracts/near/vectors/requests.json",
-      "!agents"
+      "!contracts/near/vectors/requests.json"
     ]
   },
   "formatter": {
