@@ -1,0 +1,401 @@
+# STRIDE rerun, grammar 7, 2026-10-18: live rows
+
+One line per check: result, label, error codes, transaction id. Throwaway keys only; no secrets. Produced by the rerun of evidence/stride-threat-model-g7.md.
+
+## Stellar testnet, prime-seat and grammar-7 interpreter (account wasm 91a2cd56, interpreter CDZV4AG4, seat 393f0e5d)
+
+### suite-setup.log: 14/14
+PASS A2-seat0. deployed at the predicted id CABLLHIVFGC6ETPF6GJRWI2M2FHDIO4M6XOIFCLCYUWRROLAS7DQWB27 fee 168919 |  | 
+PASS A2-readback0. stored account and owner equal the offline values, wasm equals the build {"account":"CCGU4LJBRDM |  | ec2df35016a1fb957c7aad1df35d287be76ff6da445f878df91c2a29418bfdcf
+PASS A2-seat1. deployed at the predicted id CDG65YNVECENLUED6HGHW47U6KYH2XFY7Q4ZEYGDLF7CWRUGYAFRO6GD fee 168919 |  | 
+PASS A2-readback1. stored account and owner equal the offline values, wasm equals the build {"account":"CCGU4LJBRDM |  | 8f44f9eaf8584180ea704a5c4894821224a13ceee399522ecd00386105e102a4
+PASS A2-create. account created with simple_threshold 2 and weighted_threshold 3 CCGU4LJBRDMARCVFIQ7QB4XGPPH5YAHOIB |  | 67e1b991b02e1bbcb8f292be5d539b71af8e5d5268bf6bf4ef7d1caaff6aa092
+PASS A2-rule0. read-back: 1 natives at weight 3, 2 seats (External only), seat weights 2 < 3, no Delegated contract |  | 
+PASS A3-seat0. deployed at the predicted id CAA2W7ZQAO33XYAMOAGFM3H42UISOYZDSFN7FWLU6QIWBXSYYDPKX76I fee 168919 |  | 
+PASS A3-readback0. stored account and owner equal the offline values, wasm equals the build {"account":"CDXDONVF6CD |  | 0b97b72c633b1889ff2954b8e7e20e83675238d675cbb51fea8f0d09ef98bd25
+PASS A3-seat1. deployed at the predicted id CAC5ZTN4PXDWYJROOOUJ5HDRDMOC2KKOTWGT47S5AZNN7EACUWKMJUWA fee 168919 |  | 
+PASS A3-readback1. stored account and owner equal the offline values, wasm equals the build {"account":"CDXDONVF6CD |  | ae398ada1c542d6b19c789f5686fe5db113d9e418654b45a4545579730389dc9
+PASS A3-seat2. deployed at the predicted id CATJZCEFH4FHZ5PX45TBZDNVYPGJIFFAAJMHDN6JXHEZRWUDHSGMBD6Y fee 168919 |  | 
+PASS A3-readback2. stored account and owner equal the offline values, wasm equals the build {"account":"CDXDONVF6CD |  | 2457cd36ea21718773253f81c8a6ba89b4ded878584f8f39e1a244fba4f0873c
+PASS A3-create. account created with simple_threshold 3 and weighted_threshold 4 CDXDONVF6CD57ZF74ZP3GSZLLWZOXDX3ND |  | c6c3fb07bea62e6b0b6bca587cb535aea47bed3b16813b53875558e1fbf075fd
+PASS A3-rule0. read-back: 2 natives at weight 4, 3 seats (External only), seat weights 3 < 4, no Delegated contract |  | 
+### suite-probe.log: 12/12
+PASS A2-probe. the natives plus one session add the probe rule |  | 602983cf7b6344b56fd77431734a0252fa3ac6083aed9a1082bf4e1e5e042c3a
+PASS P1-0. the account accepts the layout Delegated(G), Delegated(S1), External(S1), External(S2) (OZ checks the ki |  | e2c1fc404c17754afd293e0b42034b8adadbcb8d215ae60eaa30fa4154c44eb9
+PASS P1-1. the read-back refuses the layout (a Delegated contract entry in rule 0; seat weights 5 are not below K 3 |  | 
+PASS P1-2. session started on seat 0 |  | aad815a1d9474b811a37a6bf09bededa2a5a717ab783a8fb938c1452769ca9dc
+PASS P1-3. one session as External(S1) and Delegated(S1) is | Error(Auth, InvalidAction) Error(Contract, #1) | 
+PASS P1-4. one session as Delegated(S1) alone in rule 0 is | Error(Auth, InvalidAction) Error(Contract, #1) | 
+PASS P2-0. session started on seat 1 of the 2-of-3 |  | 16e097614a7775df0af9f00d2fc229e63a3a004b1b44caece4f3083d568cb195
+PASS P2-1. native plus a session install a Default rule that lists External(S2, account id) with no policy (OZ allo |  | 48d79485f9099e20ebaad0df55ae90708be0d6ef000c8d0e1a1c071445a9ab91
+PASS P2-2. the S2 session alone through that rule is | Error(Auth, InvalidAction) Error(Contract, #3003) | 
+PASS P2-3. native plus a session remove the rule again |  | 40080352090f5cbcf3a4acb3fadb536c448777f16e68020839d8e1a089370aab
+PASS P3-0. account whose rule 0 lists only Delegated(seat) |  | b2011a96182121bbd3f2156e3d38eb849355d4e223a40450e114dd53a47b795a
+PASS P3-1. a live session as Delegated(seat) in rule 0 is | Error(Auth, InvalidAction) Error(Contract, #1) | 
+### suite-a3.log: 18/18
+PASS A3-g1. session 1 started |  | ba4cc17c937f0b1611f062ef1aa426d83a9f4b2b4cab727f3610edf3495d3937
+PASS A3-g2. session 2 started |  | 272405f978051b0ca1cc440567a97c95a982059d32e48bb004107acaa83305ed
+PASS A3-1. 2-of-3: two sessions alone are | Error(Auth, InvalidAction) Error(Contract, #3213) | 
+PASS A3-2. 2-of-3: the native wallet alone is | Error(Auth, InvalidAction) Error(Contract, #3202) | 
+PASS A3-3. 2-of-3: one session alone is | Error(Auth, InvalidAction) Error(Contract, #3202) | 
+PASS A3-4. 2-of-3: one session plus the native wallet passes |  | 81ab0d7dd96aadd787372f5ff3351c11be8756cea6dc75acfdfc2dc552c4d3e5
+PASS A3-5. 2-of-3: two sessions plus the native wallet passes |  | 300e59278914d5bd27cb2e68ba7423b10a8514ecdb260ec5e6343d0df29b4903
+PASS A3-6. account upgrade by two sessions alone is | Error(Auth, InvalidAction) Error(Contract, #3213) | 
+PASS A3-7. account upgrade by the native wallet plus one session passes |  | ce979d231dc67788ff7d63d6f0d0527a37238fcaec369f7d6a0ef69da8a3f010
+PASS A3-probe. the natives plus one session add the probe rule |  | 01170f36ae84ae565ccd1c424c173dcace678989fb3a0e6135d9fc6c32d49edd
+PASS A3-g3. 3-of-5 session 0 started |  | 64307f74fc06df5ac8ea15e76b2d6a20c5c6df22696b4e12291b6f4ef98c2510
+PASS A3-g4. 3-of-5 session 1 started |  | e5453df2e22686e53fd58b67103293eae02fd025e3fe4e1eca4ef6e3985a4fdc
+PASS A3-g5. 3-of-5 session 2 started |  | 14266c415c6010d23beb238cc19cf556790555771991cd12c1ae18c49076b654
+PASS A3-8. 3-of-5: three sessions alone are | Error(Auth, InvalidAction) Error(Contract, #3213) | 
+PASS A3-9. 3-of-5: two sessions plus one native pass |  | ec355c09ec284f6967c9d174e36fdbd243a5441860dfa00cf5f5b7ebb03cd9ef
+PASS A3-10. 3-of-5: one session plus two natives pass |  | 1e7c4128bbe64a1a3acc6960f854974e0f314b0c098f35db732412ae8966a359
+PASS A3-11. 3-of-5: two sessions alone are | Error(Auth, InvalidAction) Error(Contract, #3202) | 
+PASS A3-12. 3-of-5: two natives alone are | Error(Auth, InvalidAction) Error(Contract, #3202) | 
+### suite-neg.log: 20/20
+PASS N0. session started on seat 0 and seat 1 for one key |  | 6aa2d7d8f0ea188840bb37fac7eb3f810e45112d804c7676dc12b3f8b5aafa51
+PASS N0b. the same key started on seat 1 |  | 4e416bbddf6c7d90adb19170377b3e771f8e8c7eb55b2219ba23fa7a2c31b29e
+PASS N1. a signature made for seat 0 filed under seat 1 is | Error(Auth, InvalidAction) Error(Crypto, InvalidInput) | 
+PASS N1c. control: the signature made for seat 1 filed under seat 1 passes |  | e5fd8b7628aa4805725dc6bf241cd44f630b4ae3b99a08f206708287940a6496
+PASS N2a. seat 0 can be listed in a second account (no check at listing time) CBKJG6OWRWGOE7OSN3CUMXWSGLS4NC4ZPNE75 |  | 
+PASS N2. the second account cannot use the seat: verify refuses a key_data that is not the seat's account refused:  | Error(Auth, InvalidAction) Error(Contract, #3003) | 
+PASS N3. an account with two entries for one seat is | Error(Context, InvalidAction) Error(Contract, #3007) | 
+PASS N3b. adding a second entry for a seat already in rule 0 is | Error(Contract, #3007) | 
+PASS N4a. a 40 second grant |  | 1adafc69c0032d104ffff2789197feb458ac5503b0a262486ad886c40e632040
+PASS N4b. control: the key passes inside its window |  | 524d3bb58a2ba22f7d39e7ab0b0327b61c68ae08efc105bd67541eeceb08bf28
+PASS N4c. the entry still lives after the end {"end":"1792349237","live":8375522} |  | 
+PASS N4. after its end, with the entry alive, the key is | Error(Auth, InvalidAction) Error(Contract, #3003) | 
+PASS N5. a grant starting in the future is | Error(Contract, #1) | 
+PASS N6. a window over 604,800 seconds is | Error(Contract, #1) | 
+PASS N7a. grant |  | 196be2cd54ed7cbed18d42902fbc69bdc7243fca09436350aeb565618883f598
+PASS N7b. the key ends its own session |  | b1e88124c11c486dc261cfae917598acf88f400a162f6cb130de8079daa1f1c8
+PASS N7. the key is | Error(Auth, InvalidAction) Error(Contract, #3003) | 
+PASS N8. the earlier grant replayed is | Error(Contract, #1) | 
+PASS N9. the end stored 0 with an entry that lives to the maximum {"end":"0","live":8375532} |  | 
+PASS N10. a seat squatted at a deployer address with the attacker key is caught by the read-back (stored owner diff |  | 19fb0eaff3c2d6ac7b71ff795337c2628e29c739926377db3ecb4f5fa8c7b6f2
+### suite-bounded.log: 11/11
+PASS B0. session started |  | 75bd46225b27cb92f49505b89e18c5f6595ac964196ded7b7fa03e6c8d29941d
+PASS B1. native plus a session install a CallContract(XLM) rule: Delegated(seat), interpreter predicate (transfer t |  | 6362b5c0759de6cd4221e9033543cca157601191e67260375ff64ff7c7287de3
+PASS B2. one session alone moves 1 XLM to the venue inside the predicate |  | 43bd0be057fbd3ae5ef60afd19945288c2115d7f7d6d3351972941ae8491ab87
+PASS B3. the same session is | Error(Auth, InvalidAction) Error(Contract, #100) | 
+PASS B4. the same session cannot use the rule on an account admin call (rename a rule) refused: Error(Auth, Invalid | Error(Auth, InvalidAction) Error(Contract, #3002) | 
+PASS B5. (g7) a Default-scope interpreter rule listing Delegated(seat) is | Error(Contract, #218) | 
+PASS B6. (g7) an interpreter rule scoped to the account itself is | Error(Contract, #218) | 
+PASS B7. (g7) an interpreter rule listing External(seat) is | Error(Contract, #212) | 
+PASS B8. (R7) native plus a session install a Default rule that lists Delegated(seat) with no policy |  | 5e7d82d1cd132ae63f6be77424d9802f54134d1f0a0b998ae94be06ebb8b258b
+PASS B9. (R7) the session alone then renames a rule: the chain does not stop it, the app must refuse the rule |  | b7484bc7e3e6f0a1fab6679bda899893b59a962b917a824ce9b9031a8a446961
+PASS B10. native plus a session remove the bare rule again |  | cbe55915559907c9d19e155817ec15ecfecaa70af46f5c2ef56588b21a72b455
+### suite-g7.log: 52/52
+PASS G-seat0. deployed at the predicted id CD7H76EOZTHJUCCAI6IJU3AXASXRFYLY553CGDPFU6BR5O3PLIFWB3JT fee 168940 |  | 
+PASS G-readback0. stored account and owner equal the offline values, wasm equals the build {"account":"CDBJ5Q4CI4MO |  | d3df7203f4a44ffb9d633b4c7c5cba53c79cfc0c3d4caa0a93739c23cd02bfe6
+PASS G-seat1. deployed at the predicted id CCX4UO43U5L5VXXUVFOMVLMFFVIWR6NIN2JXXO5V7F3D7K3DM3JFSFZE fee 168940 |  | 
+PASS G-readback1. stored account and owner equal the offline values, wasm equals the build {"account":"CDBJ5Q4CI4MO |  | 05afdff0b58df3febfdf99a22125f21f4c3176c9fbae4ddcdbdf314da3de17b0
+PASS G-seat2. deployed at the predicted id CDKVWCY67DDYBMXBVBOKY2QMV3OHOH7JDZ5HJPUCKITDEZCHMYBTWECM fee 168940 |  | 
+PASS G-readback2. stored account and owner equal the offline values, wasm equals the build {"account":"CDBJ5Q4CI4MO |  | 3734b2162aedd61edba121df80a79f8e38982c617e92d0e586d325fd9f84e81a
+PASS G-create. account created with simple_threshold 2 and weighted_threshold 4 CDBJ5Q4CI4MOO7QZKRIFTN2K6ADACGC6PJA |  | f08d11665f4235b0c7e499bcdd5a781ccdae8ee280b9722047c617881be2f96a
+PASS G-rule0. read-back: 1 natives at weight 4, 3 seats (External only), seat weights 3 < 4, no Delegated contract  |  | 
+PASS G-start0. session started on seat 0 (owner grant) |  | a3b339c9f1e9635ff34abaa3b5911319e2c9a887fb3f05f5e252eec33a8ef889
+PASS G-start1. session started on seat 1 (owner grant) |  | a662c0be17e7b75cc3309eb9ea96f45ac0a5c88f03ca6509d471fefe52032f7e
+PASS G-start2. session started on seat 2 (owner grant) |  | d0781f64a055717882509fd182603732bb5d509dd3ddf31dcf11f2f4f8da9ddf
+PASS G1. native plus a session install a grammar-7 rule (CallContract XLM): Delegated(G), Delegated(seat 0), interp |  | 523068e3f792c93303dacf60261f1042e197fd1d7ff8b692a026823fe5b26c12
+PASS G2. read back: the rule lists the native and seat 0 and runs the grammar-7 interpreter and simple_threshold {" |  | 
+PASS G3. seat 0 session alone, inside the predicate: | Error(Auth, InvalidAction) Error(Contract, #3202) | 
+PASS G4. the native alone, inside the predicate: | Error(Auth, InvalidAction) Error(Contract, #3202) | 
+PASS G5. native plus seat 0 session, inside the predicate: 1 XLM to the venue passes |  | 8c0e70eaf31e64d7c4f59ea85d1e8f96700cd7dba49072bf6d4a9eb2bbb843d1
+PASS G6. native plus seat 0 session to another recipient: | Error(Auth, InvalidAction) Error(Contract, #100) | 
+PASS G7. native plus seat 0 session, 3 XLM over the 2 XLM cap: | Error(Auth, InvalidAction) Error(Contract, #100) | 
+PASS G8. native plus seat 0 session in its rule-0 form (External) on this rule: | Error(Auth, InvalidAction) Error(Contract, #3016) | 
+PASS G9. native plus seat 1 session (not listed in the rule): | Error(Auth, InvalidAction) Error(Contract, #3016) | 
+PASS G10. native plus a session install a grammar-7 rule listing only Delegated(seat 1) |  | 448268719899a297056574deca2c4759ed23981659241883a7e23883579d3f29
+PASS G11. seat 1 session alone moves 1 XLM to the venue inside the predicate |  | bf232639a99a65f0d52e3378d7de6bfdc432fbc6192effa2123d0ccd3a4f765d
+PASS G12. seat 1 session alone to another recipient: | Error(Auth, InvalidAction) Error(Contract, #100) | 
+PASS G13. seat 1 session alone with rule id 0 on the same move: | Error(Auth, InvalidAction) Error(Contract, #3016) | 
+PASS G14. seat 2 session (not listed) on rule R2: | Error(Auth, InvalidAction) Error(Contract, #3016) | 
+PASS G15. seat 1 session alone renames a rule through R2 (an account admin call): | Error(Auth, InvalidAction) Error(Contract, #3002) | 
+PASS G16. the owner of seat 1 ends the session |  | 6446412ea404dfca8909660ad0379cee8a4bdeaa974ba0fac0da7cc609413d52
+PASS G17. the ended seat 1 key on R2: | Error(Auth, InvalidAction) Error(Contract, #1) | 
+PASS G18. a new session on seat 1 |  | a28d61801f5357166fcd7ff9a3ace144ae3257a50c585ebb21088efa7be7a9f9
+PASS G19. the new seat 1 key moves inside R2 |  | 7e3291e912a996cb6001958e9aac30b1e1b4dd1997da469d795faf22f0884eda
+PASS G20. the new seat 1 key ends its own session |  | dd3aabdcf59fd396e11630de36331d164fa8285551ce6590d64fdb550e7538d9
+PASS G21. the self-ended key on R2: | Error(Auth, InvalidAction) Error(Contract, #1) | 
+PASS G22. a grammar-7 rule listing only Delegated(seat 2) |  | 256831fb3b9c5c7ec2995e0d271f85ab48b41b29d05b8b926c10fab1c90cd65d
+PASS G23. a grammar-7 rule listing the native, seat 0 and seat 2, simple_threshold 2 |  | 59feb7b350324f926d8ebf9fff26ee33aae5296f059678e892c55a3a233f54b1
+PASS G24. control: seat 2 session alone moves inside R3 |  | 34025fa3a44f30c3b7f0d4b202a4b093139fc94e2dbefc4e28671cab7f5572ec
+PASS G25. control: native plus seat 2 session move inside R4 |  | dfcd55bcf58fdfe628c609c0511b5e42bb4ad0cceb35794755d21a9fe5055b21
+PASS G26. the #168 plan for seat 2: switch off R3 (its only signer), take it out of R4, rule 0 last ["3:remove_cont | #168 | 
+PASS G27. step 1 decided through rule 0 alone: R3 removed (OZ calls the interpreter uninstall, which refuses withou |  | 851b3f945a6cf8136077125285b5aa2871fec12aacbe8d681e0a351d373b5e97
+PASS G28. (g7) the interpreter still holds the entry of the removed R3 (an orphan no rule points at) entry present: |  | 
+PASS G29. step 2: seat 2 taken out of R4 |  | 633bc3bd0cc87952a7008f232088c386b4fdbbf9948c8cddf3786d585ef1a2e7
+PASS G30. step 3: seat 2 removed from rule 0 |  | 62caf4d8a14d4880f94c6e10fc5db79f5ac4e05b2e7c75121747b42e50d284ea
+PASS G31. read back: no rule lists seat 2, R3 is gone [[0,3],[1,2],[2,1],[4,2]] |  | 
+PASS G32. seat 2 session alone on R3 after the removal: | Error(Auth, InvalidAction) Error(Contract, #3000) | 
+PASS G33. native plus seat 2 session on R4 after the removal: | Error(Auth, InvalidAction) Error(Contract, #3016) | 
+PASS G34. seat 2 session in its rule-0 form beside the native after the removal: | Error(Auth, InvalidAction) Error(Contract, #3016) | 
+PASS G35. (g7) native plus seat 0 session on R4 after the remove_signer step: refused, the interpreter sees the sig | Error(Auth, InvalidAction) Error(Contract, #204) | 
+PASS G36. the removed seat still takes a grant from its owner (the seat contract lives on) |  | 2ff280e0d911e356feb0ecf6c1d6ec3c2b9c776f6b27e5f3393039e946ee088f
+PASS G37. that new session acts nowhere: seat 2 plus the native in rule 0 | Error(Auth, InvalidAction) Error(Contract, #3016) | 
+PASS G38. that new session on R4: | Error(Auth, InvalidAction) Error(Contract, #3016) | 
+PASS G39. control: R1 (native plus seat 0) still moves after the removal |  | 9c22d8f249ebffdbc2ec3c47bea29d7a4aaf45bfc1b6f1f3b43397b6ab19ddb9 9c22d8f249ebffdbc2ec3c47bea29d7a4aaf45bfc1b6f1f3b43397b6ab19ddb9
+PASS G40. a new grammar-7 rule after the removal |  | 0dbeb15c185543014363c1f49dc5af731090c9e6351561db7ba935ab4a8a487a
+PASS G41. the new rule gets a fresh id, so the orphan entry of R3 is never read again new id 5, R3 3, R4 4 |  | 
+### suite-stride.log: 26/26
+PASS X1. the native installs a grammar-7 rule R: Delegated(agent), interpreter, admin ownerB |  | 61c0f96edbeba8bd606f32d484268d1434e901885703a09fd276849703e9255f
+PASS X2. control: the agent alone moves 1 XLM to the venue through R |  | 0d559e1d28d93129f5cae86f782796edf8fd5fca8dc6cfe9f4b7ddcf1ab4b774
+PASS X3. the agent to another recipient: | #100 Error(Auth, InvalidAction) Error(Contract, #100) | 
+PASS X4. a stranger re-installs (X, R) directly, nonce 2, same admins, no signatures: |  | cc3dd3d03d21a0abf39da202585fc9ad2a0bbcac8236981ed59b38534c92408a
+PASS X5. a stranger squats a fresh rule id (X, 9999): refused, no account auth refused: FAILED tx 39fbb1cb68cb19fb3 |  | 39fbb1cb68cb19fb3b456225da158445df490e8af4d264d81f772475b7c2373a
+PASS X6. a stranger calls enforce for X directly (drive reads, bump TTL): refused, no account auth refused: FAILED  |  | 32e44c35219937b17f000501a194045e813c90c3f63bc6cf12c45a3a832cb6cc
+PASS X7. check never succeeds: a permitted context fails with #0, a denied one with #100 Error(Contract, #0) | #100 Error(Contract, #0) Error(Contract, #100) | 
+PASS X8. install with a predicate hash that is not sha256(predicate): #208 refused: Error(Contract, #208) | #208 Error(Contract, #208) | 
+PASS X9. install with an empty admin set: #209 refused: Error(Contract, #209) | #209 Error(Contract, #209) | 
+PASS X10. install naming the interpreter as an admin: #219 refused: Error(Contract, #219) | #219 Error(Contract, #219) | 
+PASS X11. install for a rule scoped to the interpreter itself: #218 refused: Error(Contract, #218) | #218 Error(Contract, #218) | 
+PASS X12. install with 17 operators: #217 refused: Error(Contract, #217) | #217 Error(Contract, #217) | 
+PASS X13. install with grammar_version 6: #200 refused: Error(Contract, #200) | #200 Error(Contract, #200) | 
+PASS X14. re-install with the account and the admin, nonce replayed (1): #202 refused: Error(Contract, #202) | #202 Error(Contract, #202) | 
+PASS X15. re-install with the account and the admin, nonce 2, admin set changed: #203 refused: Error(Contract, #203 | #203 Error(Contract, #203) | 
+PASS X16. rotation by the admin without the account: | Error(Auth, InvalidAction) Error(Contract, #3202) | 
+PASS X17. rotation by the account without the admin: | Error(Auth, InvalidAction) Error(Value, UnexpectedType) | 
+PASS X18. rotation into an empty set, both signing: #209 refused: Error(Contract, #209) | #209 Error(Contract, #209) | 
+PASS X19. rotation to adm2 with the account and the admin |  | efc2ec71230a758e42db5ee9749fbd8c99c42e249fab7a891087cb5387683b4b
+PASS X20. bind_executor by the new admin without the account: | Error(Auth, InvalidAction) Error(Contract, #3202) | 
+PASS X21. bind_executor by the account and the OLD admin: | Error(Auth, InvalidAction) Error(Value, UnexpectedType) | 
+PASS X22. control: the agent still moves inside R after the rotation (operators unchanged) |  | e0e7bf145ec832f459af7168d0769619c6188d4ac519a54ced5a09aeb5be1a15
+PASS X23. uninstall by the old admin: | Error(Auth, InvalidAction) Error(Value, UnexpectedType) | 
+PASS X24. (D2) uninstall by the current admin alone, no account signature: |  | e5ed23624b5a1d5415f5a2680516148af4b783d39a9edd39f462e38361ed2b6f
+PASS X25. (D2) the agent through R after the uninstall: every call | #206 Error(Auth, InvalidAction) Error(Contract, #206) | 
+PASS X26. (D2) OZ still lists R with the interpreter as its policy: the rule is dead until the owners remove it {"i |  | 
+
+## EVM, anvil fork of Base Sepolia: forge with FORK_URL
+
+### forge-fork-test.log: 58/58
+(local chain: rows kept with the off-repo evidence, no transaction ids)
+
+## Solana devnet, prime-seat 7ygNrK (stand-in owners)
+
+### matrix-devnet-stub.log: 129/129
+PASS P0. the settings signers are the native key (mask 7) and the two seat PDAs (mask 6), threshold 2 |  | 
+PASS P0b. no seat is on the ed25519 curve (it holds no key) |  | 
+PASS F1. Phantom (native) creates a vault transaction (0.01 SOL to DEST), nothing else |  | 3aZm3YoFdf8ULVB6TmSJevPSmVEThpxqb7wmU7Lks4VA2iSpUHUmSnnRZupekw3fFtZtVoqYLqzL5w5U5bA3MBFQ
+PASS F2a. the MetaMask session creates the proposal |  | 2VYtJw54kuoTEsTyWqtAKwyYniKqf3KwmhN7sNuGXnVgAL7nn44dLv16NEbD9CGNYQ9LjguaiRAcXCmRxmJXSk1E
+PASS F2b. the MetaMask session approves |  | 5iFbkKj6XpituR9XsKz6sXqz3pKxcg9eUw7CxqC911KAYUBVeegTFKtRNRNvJsduzUcpXueJazRzcxdLHfTMaefM
+PASS F2c. execute with one approval is |  | 
+PASS F2d. the Freighter session approves |  | 2AjTquTSqnUNefDEj284Qfkg18vQ5GxaggGPmCavHEWaBwDTvi1BxP7sXpRRYwvDoddghKxbRj9espcwemxiassP
+PASS F2e. the Freighter session executes |  | 7UTfYgoGjj29zcAqevx8pq5guWGnXkK4BsprNLrmP4ihQ53hKwRh4Sf6ZhywUSn79LNH9V32nuS9WGCvsuni12N
+PASS F2f. DEST received 0.01 SOL: two sessions and one native signature on the content |  | 
+PASS F3a. Phantom creates, proposes and approves (0.01 SOL to DEST) |  | 5wFfJQkUtatzatc6WfcUJoqUWBqgFiNVV29HnYSjcHueAU19jny8niuYxbdLUvjFrrJZfqbxEXLyAvtUpgaHjsep
+PASS F3b. the Freighter session approves |  | 5ukueUY87fHmtrq7hkujJZgqK784aRZJRdX6anLALBcHYcTrTEWtyB7TABXtnwt9dsjFm776rQJo2Mu4nRyz3YQM
+PASS F3c. the MetaMask session executes |  | 5Y6PCuw34UWnBpH5qfrPGoPKUmzpoAPsyqgbWK8zgVB6ZXVw8DTe3Hb52nwsUD5ieYWzxo6sWdDQK38uyicZYNU
+PASS F4. a session creates a vault transaction (not allowed) | custom program error: 0x8 | 
+PASS F4b. a session creates a settings transaction (not allowed) | custom program error: 0x8 | 
+PASS F5a. a session creates a proposal for a transaction nobody made |  | 
+PASS F5b. a session approves a proposal nobody made |  | 
+PASS F5c. nothing moved to OTHER |  | 
+PASS F6a. a session cancels a proposal | custom program error: 0x8 | 
+PASS F6b. a session closes a transaction | custom program error: 0x8 | 
+PASS F6c. a session uses a spending limit | custom program error: 0x8 | 
+PASS F6d. a session runs the legacy synchronous vault call on settings | custom program error: 0x8 | 
+PASS F7a. Phantom creates a vault transaction and its proposal (no approval) |  | 2i2QAdy1RHH5MwG2daWVLRhtfsgbcLMCWcx1Hs9wbwN5JN5UA6CBZkAab7QwHhBySdaP9SUCYLYf9btZRaiNhsaV
+PASS F7b. the MetaMask session rejects it |  | 43FoV1HzKomBZs2wx8VM84urH81ZWdkLGhS7HUXyyafd95zmHTom5rpQb5HWKUoYp3rd4pZUFjQobN3LXKi6sLh9
+PASS F7c. one rejection leaves the proposal Active |  | 
+PASS F7d. the Freighter session rejects it |  | 2mQCeUJ6pJRHh2RwtYKnF7xaxLdsmt6gz96VLaH9HRNgH18q6xkANaxsqHJ4433ZVEM34H8zJ1DVSuVrV3k4eXa5
+PASS F7e. two rejections end it |  | 
+PASS F8a. Phantom creates a vault transaction and a draft proposal |  | 3ysT7e4H4jJfBqGawxBX31cjfoQPCE6dAgRdykLSfHoout1nmihna2J81aMbp2u6bktevbPF5fEBEuHQJPmd2aGK
+PASS F8b. a session without the Initiate bit activates the draft (Squads refuses) |  | 
+PASS T0. Phantom creates, proposes and approves a vault transaction for the time checks |  | nEh2XDV6RpLPeqcudPN6Q6NsAizztTaRStMBFPX7e4ULVzbsjvTZEG4bDrzSWyCkx6HgihonrFsBGsRHmBWwyf9
+PASS T1. a session whose start is 150 s ahead is | custom program error: 0x4 | 
+PASS T2a. a session inside its window approves |  | 4hGg4WF45ed2JyvNwboHSEWrV3oLKQTSkr9uo6PXvDcQ4QWAhpfgDSZX3ox6rLNpeq9AZHCCKmPed2vnA65jRU84
+PASS T2b. the same session after its end is | custom program error: 0x4 | 
+PASS T3. an 8-day window is | custom program error: 0x4 | 
+PASS T4. exactly 7 days is |  | 5EK9zvbSwm6Mf2dQNh8xAhpkhWEkvrB2cJmywX3yGUeWgndBqsGZ9iU2D1X6aC5zTSBfFJKviYWTb1QKPzQbgY4f
+PASS T5. an end before the start is | custom program error: 0x4 | 
+PASS T6. a grant for account A used on account B (the call names B) | custom program error: 0x7 | 
+PASS T8a. a grant made for another key used by this key | custom program error: 0x7 | 
+PASS T8b. the grant of one owner presented while the call names another owner | custom program error: 0x7 | 
+PASS T8c. the call states a later end than the grant | custom program error: 0x7 | 
+PASS T8d. the call states an earlier start than the grant | custom program error: 0x7 | 
+PASS M0. Phantom creates, proposes and approves a vault transaction |  | 5bKKKoxB8NjV9y1uetXeMghASGUoXe6rsab78iJg4wnwEQwnRu85AuWPfm8bPT6XiRk1CaovpBujHUpm2jatshHn
+PASS M1. mode 1 (the old wallet path) is |  | 
+PASS M2. mode 3 is |  | 
+PASS M3. data cut after the header |  | 
+PASS M4. data cut inside the times |  | 
+PASS M5. the session key does not sign the transaction |  | 
+PASS M6. the grant instruction index points at the prime-seat instruction itself | custom program error: 0x7 | 
+PASS M7. the grant instruction index points past the transaction |  | 
+PASS M8. a corrupted owner signature | custom program error: 0x2 | 
+PASS M9. the grant hash signed by another key | custom program error: 0x7 | 
+PASS M10. a message that is the hash of another grant | custom program error: 0x2 | 
+PASS M11. an ed25519 instruction over a longer message | custom program error: 0x2 | 
+PASS M12. an owner that is not a signer of the account (its seat is not listed) |  | 
+PASS M13. the control: the same call, unmodified, passes |  | 4V1xtUeHQjoTJYMBKvazJeCrHAvELdVg3WbxaXZDt4F58Ln1RGCd3BZvH8xfajykxMTBMukg9pN4cwKQJdT2Ht3U
+PASS R0. Phantom creates, proposes and approves a vault transaction |  | 2p9ajQo8aEvyw3M7c845QNpJpzcfKLkaR3AgmuvKThTceZVLRPJxHas1nDrrMDTdFyb8qJqyezotoumLYCXVXn6h
+PASS R1.1a. a session approves while live |  | 4AKRM6GQCR4Afb6u8huq2epdNtjo8sheZtKc2vPb5hn7zwZcR8bbBmpe5hbRgZ5pMpKBhpJUHn5dR6nXeSazrkQp
+PASS R1.1b. the owner's End (the relayer pays and funds the marker) |  | 45jhzDWYJfXMj2maPXcF1nVevzha8ZBfujG59HQ9ZpFimKGuDoHEtSCASeG6rH6B2naTicSaSEXxcGMcQ4UinmAW
+PASS R1.1c. the ended key is | custom program error: 0x2 | 
+PASS R1.1d. the marker is an empty account owned by prime-seat with the rent-exempt minimum |  | 
+PASS R2. a second End for the same key | custom program error: 0x2 | 
+PASS R1.2a. a session approves while live |  | 
+PASS R1.2b. the owner's End (the relayer pays and funds the marker) |  | 5EydkD4qPxpoLtVnoTHRDLGKS6z3QocEad56UcP8gQmR9AjwxfMBc3Sj6S2p8Y2u8ZnyMsXWRedxs5AEu55JC1pQ
+PASS R1.2c. the ended key is | custom program error: 0x2 | 
+PASS R1.3a. a session approves while live |  | 
+PASS R1.3b. the owner's End (the relayer pays and funds the marker) |  | 4xCPBBmdwXrTJTLqSccmCfaQDYu4WxKGShe6cnxiEnoBNaNikvRB32uvreM4fJacmdetDzeupXqJSXD7DYqkvB4z
+PASS R1.3c. the ended key is | custom program error: 0x2 | 
+PASS R1.4a. a session approves while live |  | 
+PASS R1.4b. the owner's End (the relayer pays and funds the marker) |  | 3WFWEDHLwG6xZH3vFZ2eiKshV6V8HC47gtJvnHWjAaQrPX5jhnyd9VCarLNHm2LUTaCLNdhFTTJQVvXzmE7K5q3T
+PASS R1.4c. the ended key is | custom program error: 0x2 | 
+PASS R1.5a. a session approves while live |  | 
+PASS R1.5b. the owner's End (the relayer pays and funds the marker) |  | 3UzswvQ6FdBMhtr3vtpdb6XJxtP5GwmxMiEhUpUxdLPPu75s8FPjEki91kXFfMsSBxm9dfAKKgDKp6TFUEAQ37zh
+PASS R1.5c. the ended key is | custom program error: 0x2 | 
+PASS R3. the key ends its own session (no owner signature) |  | 2HLaJdjpBfzfUa63VuZEofupJpNZ3Ly7jaeDVpywPHMVDm5Bko4r9kBw1U698ggY1gFEXJZymsPBhMNbKdTH7h24
+PASS R3b. the self-ended key is | custom program error: 0x2 | 
+PASS R4. a stranger ends the key with no signature at all | custom program error: 0x7 | 
+PASS R5. the grant signature replayed as an End | custom program error: 0x7 | 
+PASS R6. an End with no marker funding is |  | 
+PASS R7a. a stranger funds the marker address first |  | 2Nx1qtbJvcvpy6DaX6AykNk8iKsMyZMxWahue6ET3tvSB3XcrZAADQLdbnST4nypnCxfV9yj68UZp4FjxUnMrGCa
+PASS R7b. the End still works |  | 4idTcBhmsErLhRqss6uuYPBsSSQi8TDdghBpN2E1Rw1gbK5egJFzDscDqK6vbjAxzZEbMLdTrndQ9GkQWFJK8aRN
+PASS R7c. the ended key is | custom program error: 0x2 | 
+PASS R7d. a stranger funds the marker address with 1 lamport (refused by the runtime) |  | 
+PASS R8. an End that names the owner key as the session key | custom program error: 0x9 | 
+PASS R9. the Freighter owner's End signature used for a MetaMask session key | custom program error: 0x7 | 
+PASS P1a. Phantom creates, proposes and approves the policy install |  | 575MTVT6zBSnh3FQu4y1RxYhhhrGgc3QySyDYqWcNisJaNp5EGbc7kgeRkV4DeZkqxpUHBb1J4CqjWKu5kazTpsQ
+PASS P1b. the MetaMask session approves it |  | 2pxdxZJFsTbatyJXAT39CTfA5SWtVHiMpFiZLugV1mkGjBD9YQ26WvkjEGXyh9P7GXEhhmfmYEQBqTNxSDtwbwnj
+PASS P1c. the Freighter session executes the settings transaction |  | 4DxgftZiLh9UvHc7pJQzz4Qx6JDZ4i8NHn3TuXrTESdJwQwy8Ufu32gcpASaGTWt6utHuEmSMXyhxSM19zCesZFb
+PASS P2.1. a session runs a policy move within its bounds (0.01 SOL to the venue) |  | 3RjhVUYvhDeb32FG7kDt39TcfcCRaNcsFaAU5BsoYebeGgEbgFCXQw2QP5Fczh9XVfEfBztdYn9AuU52BAYfNeC8
+PASS P2.2. a session runs a policy move within its bounds (0.01 SOL to the venue) |  | 5gfRHH2t7y28p5c7mFFd2EYjfrC18W7YhsHvrNDwfLFKoFfZLy1dE1Euzupq3ff1WrFyRdPpxkTErNH6xR9jnT24
+PASS P2.3. a session runs a policy move within its bounds (0.01 SOL to the venue) |  | 53o7ZtQREpGop4R1jH4svKzmhGymaXTv4h1j7BtfRD11qAoXvQQ22DaugiCdVpNz6o3BYn3Z6vkBkUtQ4zKcE84d
+PASS P2.4. a session runs a policy move within its bounds (0.01 SOL to the venue) |  | Kmt6znzZyGjwcvYaRHKStc3xLFYSu4X6QT2vaUXH2y3zcFC4MsPnYKwxxy4wsuHhp3CRd7kN6TL55cZgQYRNagh
+PASS P2.5. a session runs a policy move within its bounds (0.01 SOL to the venue) |  | 5Tm54NkCVz5whYFyqE5EoAxfmAqi7pEHJdKiy87fDzUsyL7S9dUvS8hD7jfh6kdDXkYtS7wigU2QVq4qxRsuJfEP
+PASS P2b. the venue received 0.05 SOL |  | 
+PASS P3. a policy move above its bound (0.06 SOL) is |  | 
+PASS P4. a policy move to another destination is |  | 
+PASS P6a. Phantom creates, proposes and approves the policy install |  | 26EtzWYhnoPdafQVGpFFyNvYHM75hnvEQeUVECZSGGFt9mEGuyZBvP3LajUNzkFtbrQZRoFd1BC7onKdHJrFzki4
+PASS P6b. the MetaMask session approves it |  | 57wB6KACHeaktY922vAKNAMyUjSfWdHkhe5HtGh5wdAUbJNndhj3PrYymHxnPt9GeVDn2pFgQp9S1YkK2kAQxnND
+PASS P6c. the Freighter session executes the settings transaction |  | 4DNSVDMzY36t8W7pnSaBkUdbX1HhvaMVXV8AmS7QJCaKV9pFfCpbZb5tLuhdC5NW8SuWVcp2wAUWce6xXpoWFEfV
+PASS P7. a session runs the settings-change policy listing its seat (adds a signer) | custom program error: 0x8 | 
+PASS P8. a session runs a move payload on the settings-change policy (kind mismatch) |  | 
+PASS P8b. a session runs a policy payload of kind 4 (not a kind Squads has today) | custom program error: 0x8 | 
+PASS P9. control: the native signer runs the same settings-change policy call directly (the policy is live) |  | 4qkUX6tU8hDeyU9s6rfQtWR6XjEWVhSXe66CPwrjfmXyzQdr3VQvPtxvvZp8FSkazY8YnspgtQNqKjmT92buh2Sz
+PASS P9b. note: the deployed Squads accepts the settings-change payload on the sync path but leaves the signer list |  | 
+PASS S0a. a session whose seat holds Initiate still cannot create a vault transaction | custom program error: 0x8 | 
+PASS S0b. Phantom creates a vault transaction and a draft proposal on C |  | 3dU8AqR7co4k3MQoYcuLzkb7jsgP7i9XuDeoLuirWuVRo1uAon8QgBc98KXcDzKHQrMNX4NVPvLuavnrWBkhtHG5
+PASS S0c. a session whose seat holds Initiate activates the draft |  | 2PXFqUxg78wNoRaXjyJRETgdgsr2C3p1dEYQkSUXErQqdbfmRabQBWkJ8kNqD3b5Xxz5cjuaAC7ZTK945ow1Zy9J
+PASS S0d. the proposal is Active |  | 
+PASS S1. a session runs a synchronous vault transaction on the settings of a 1-of-2 account | custom program error: 0x8 | 
+PASS S2. control: the native signer runs the same call alone on the 1-of-2 (so the refusal above is what stops a se |  | 3DsbpvuyeC4tJdtZNcpZHQo3i9UCTHbbC7gDXbuQWKdKtEE9hCtuPgvwNNJEe27P9zhCxwChoKUxxx7wR8u84prf
+PASS S2b. the control moved 0.01 SOL |  | 
+PASS S3. a policy payload sent to the settings consensus is |  | 
+PASS S4. the non-canonical PDA differs from the canonical seat and is not on the curve |  | E58XAF3ssbN6V3DVt13Az11iQU8fuxYujYKb1RGvXi9R
+PASS S5a. Phantom creates a vault transaction and its proposal on E |  | 3Kj1kV7UnvHf2ahEPDugxHGXVa28YXdd7y5YrBuTqxqz4isTX978egYZXpADY4Q6bYV9rjJbLydBhCSBV1ycQnXT
+PASS S5b. a session approves as its canonical seat in an account that lists only a non-canonical PDA |  | 
+PASS S6. creating an account that lists one seat twice is |  | 
+PASS S6b. control: the same creation with two different seats succeeds |  | 4hqXhaXAon3BrLqcXh615RjaaV8vYGaXRZxkELHifA1PhyirCfLSpnpQ5P117DkjbYm9u35MiTDqxdgYqLuBXSXi
+PASS W. A: the native owner authors the sweep |  | 4VE91W5gqquVDXrTD6RHm9MhZsBbKv27huqkuMZdEdCHCz9qzP5J9QMuNq4VcFrZedwRVkGpcUwqycb2LPkMpFaa
+PASS W. A: a session approves |  | 5bip5TnNkAyJmt11p69ncsw6E972pntQbs3GErzh561ArUfc7emgBea3tpsU5fHw3xFnz1QC3yZ1teoDVodBx8bU
+PASS W. A: a session approves and the other executes |  | 3S1AUpKejKEN5M4T9dQC2rtstJXfXSayqXTUWSiGkXm2cEGkwsrZKCkxwKLLX45YkvCapQANPjaAbsPudTN1yxq6
+PASS W. A: executes |  | 3RsZn4scZw3M5pmzDtBPW2buU3rh1BYecPnK52TWFu7ed4eVUfBgTenSpBybvLhoZLTyBunrxZagh5wzvEhBHWqq
+PASS W. A: the vault is empty |  | 
+PASS W. B: the native owner authors the sweep |  | 5LHCwbHeGoBu8nrZEAuTGTxgJkLSkzp2VX38g2juVwBgjKmivSYvmtqmBLhZdpvHNV3DtY7AZTLm8UygP1sw4oir
+PASS W. B: a session approves |  | 5LuCXkAuCCZkKkuWuWtp9qgPL4PmsJQnf5dPPAj4QYK2Si5XqWe9pKSVHf8Dk97innVAJaF8fYf7abBSovYUtWy3
+PASS W. B: a session approves and the other executes |  | 4cCp77UgWXPcDA1D2KqtTHFNBshfGyPzwL8pbSU4jBrtxN25FgFCKmbgmwBjHeP8jWeLqkkgKasFADDu54qQ5h7u
+PASS W. B: executes |  | 4vftm1cUyAE7qxhJkkK4ZpMkM8WyGA76pynqKHcvAzkAb62zqMXVMmfhjEeTEK8djjSPfAkMhw1aETmPLPuoWzqu
+PASS W. B: the vault is empty |  | 
+PASS W. C: the native owner sweeps the vault (1-of-2 synchronous) |  | 5EkxMWyDzu9sRHCCEfsA34bdghs39Lx62qRRLkh1VZP9jFbr6m3kpBH5orvWVEUsP5sgBT1KUmzMXJTjm4W7sqYv
+PASS W. C: the vault is empty |  | 
+PASS W. E: the native owner sweeps the vault (1-of-2 synchronous) |  | 5mgbBQXLiuskJ3HxFHidCx12RboPHYks3cJhS1WQMePFgpNg9GwDvw5vYK9joDHLf6gHLBu9iWDqrK4SKnCdTEHf
+PASS W. E: the vault is empty |  | 
+
+## Solana local validator, custody-gate a5d19edb (mainnet feature set, mainnet Squads and Token-2022)
+
+### gate-a4.log: 345/345
+(local chain: rows kept with the off-repo evidence, no transaction ids)
+
+## NEAR testnet, prime-near-signer v2 and v1
+
+### run-proofs.out: 88/88
+PASS [code] v2 on-chain code hash equals the cc6da45 build |  | 
+PASS [control-accepted] grant-evm-votes Eip191 domain 0 7.6s 11.0Tgas tx F4MEJ3ZVkUGiBEqv9ovn6x32dFfLTE6LXuiQkr2Bqq |  | F4MEJ3ZVkUGiBEqv9ovn6x32dFfLTE6LXuiQkr2Bqqro
+PASS [control-accepted] grant-solana-votes Sep53 domain 1 7.0s 11.0Tgas tx 3gpEjFF4YeYwDLfWPRjWGnn49tPxu9jFriaY1oAj |  | 3gpEjFF4YeYwDLfWPRjWGnn49tPxu9jFriaY1oAjrTJN
+PASS [control-accepted] grant-stellar-votes Raw domain 1 6.6s 11.0Tgas tx BdP1AQMTbU3w8CUpGpNqytu95Li71thHg2GEDCicG |  | BdP1AQMTbU3w8CUpGpNqytu95Li71thHg2GEDCicG9nY
+PASS [control-accepted] cross-scheme-phantom-digest-as-sep53 Sep53 domain 0 7.3s 11.0Tgas tx GJrARv4ohSTndP4MafpfJZ |  | GJrARv4ohSTndP4MafpfJZ6b1pw6HdGsnNfHc8zMUwqv
+PASS [control-accepted] end-evm Raw domain 0 7.3s 10.9Tgas tx F37QyAKem5kk817PNpSWTMv6xfJu54WGGRvFLp9367xJ |  | F37QyAKem5kk817PNpSWTMv6xfJu54WGGRvFLp9367xJ
+PASS [control-accepted] end-solana Eip191 domain 1 7.0s 11.1Tgas tx EkGo5a7cbjq5YkW7GQNihLBT2j2FxxQAoHydAZVpaoC7 |  | EkGo5a7cbjq5YkW7GQNihLBT2j2FxxQAoHydAZVpaoC7
+PASS [control-accepted] end-stellar Sep53 domain 1 7.3s 11.0Tgas tx 7Pg651BGr1txKQ3xQVLZ9Ma3cv7w1iVaxKSScecxcXtK |  | 7Pg651BGr1txKQ3xQVLZ9Ma3cv7w1iVaxKSScecxcXtK
+PASS [time-vectors] grant-start-301s-ahead expect start got start tx 6Vffspv692vACPAogLUG4Zd5DpktWtRSSVg4nb5KjjbW |  | 6Vffspv692vACPAogLUG4Zd5DpktWtRSSVg4nb5KjjbW
+PASS [time-vectors] grant-window-604801s expect window got window tx 5yPqy38bzYTwoU6ExT58qjb8UaAocuABE8BBXeuU7Ppo |  | 5yPqy38bzYTwoU6ExT58qjb8UaAocuABE8BBXeuU7Ppo
+PASS [time-vectors] grant-end-equals-start expect window got window tx 5x6ZxMyKb5CKBM2ArZgyjPMhvhd9q64mRVyEMcsMNkFr |  | 5x6ZxMyKb5CKBM2ArZgyjPMhvhd9q64mRVyEMcsMNkFr
+PASS [time-vectors] grant-end-before-start expect window got window tx D7vg2tbJMU9nzjXP3ZEw3teoDd3Z1xgMY9LYcn51VqcZ |  | D7vg2tbJMU9nzjXP3ZEw3teoDd3Z1xgMY9LYcn51VqcZ
+PASS [canonical-form-negatives] grant-evm-checksummed-account expect address got address tx AgBqW8E7Zxg94aDBrAVSx1z |  | AgBqW8E7Zxg94aDBrAVSx1z3MbkE41eXgbAADietTR9p
+PASS [canonical-form-negatives] grant-evm-uppercase-0X expect address got address tx 5QZMoqwEeUWKP4hNnfqmZdx6svHxj4 |  | 5QZMoqwEeUWKP4hNnfqmZdx6svHxj4LKafEyZY3mhY5i
+PASS [canonical-form-negatives] grant-evm-short-key expect address got address tx 5tKvRNVZjjZE4bQz9AcZau1D926AP2XXy |  | 5tKvRNVZjjZE4bQz9AcZau1D926AP2XXy5wLvN2XxBqt
+PASS [canonical-form-negatives] grant-solana-bad-base58 expect address got address tx CBkZaSmxpaTRBKQBaBLMgEkfKLru8 |  | CBkZaSmxpaTRBKQBaBLMgEkfKLru84p6NpHXGiAHBfYZ
+PASS [canonical-form-negatives] grant-solana-31-byte-key expect address got address tx 6hACGmDag4oRYQhDrde9HA141Mf1 |  | 6hACGmDag4oRYQhDrde9HA141Mf1LoU6fjHhrnwkkaMn
+PASS [canonical-form-negatives] grant-solana-33-byte-key expect address got address tx 39meHzuyMttdavH1Nvhx8WCSnjdB |  | 39meHzuyMttdavH1Nvhx8WCSnjdBwz8of7qBuT2bURiC
+PASS [canonical-form-negatives] grant-stellar-lowercase-strkey expect address got address tx 58Z4aFb3V8Uu1qMAbERzyG |  | 58Z4aFb3V8Uu1qMAbERzyGG4nPHFmJ6ez2iW8xJgG7Hj
+PASS [canonical-form-negatives] grant-stellar-account-as-g expect address got address tx FurZqrHGPcHCUn2oNA7Cb57C3M |  | FurZqrHGPcHCUn2oNA7Cb57C3MBn1RpYMTTiksDgKpqx
+PASS [canonical-form-negatives] grant-stellar-key-as-c expect address got address tx 5T6zTkjrprZSn32dyqoauEJZCCpYio |  | 5T6zTkjrprZSn32dyqoauEJZCCpYio4EtGK2oQQpMGBE
+PASS [canonical-form-negatives] grant-stellar-bad-checksum expect address got address tx 4TPqAwFgcADcF7nWqjUAW73Un2 |  | 4TPqAwFgcADcF7nWqjUAW73Un2iDbPA3Z6C9RtheZRni
+PASS [canonical-form-negatives] grant-wrong-chain-address-form expect address got address tx 2RvNUa9HVomtVQ65emSr3J |  | 2RvNUa9HVomtVQ65emSr3JPFhshwNa9CoUoeEgTGx2J6
+PASS [canonical-form-negatives] grant-unknown-chain expect chain got Failed tx EywnsXxX5V1WCKo94mw2uAWDviMLYVaN8vjw |  | EywnsXxX5V1WCKo94mw2uAWDviMLYVaN8vjwpfaAs5VR
+PASS [canonical-form-negatives] wallet-uppercase-hex expect wallet got wallet tx 3EEHVd6EVL34qjhK1bAuyc3fs29CtsY6ZX |  | 3EEHVd6EVL34qjhK1bAuyc3fs29CtsY6ZXJpB4uNxo2E
+PASS [canonical-form-negatives] wallet-checksummed-evm expect wallet got wallet tx 8HHqCgRusGEQJAD8XtAZQ4XL3DsygGTe |  | 8HHqCgRusGEQJAD8XtAZQ4XL3DsygGTeVxw3RWQgWJnm
+PASS [canonical-form-negatives] wallet-ed25519-under-eip191 expect wallet got wallet tx HGp1CsoXKPoh6HvhGJePJeVarow |  | HGp1CsoXKPoh6HvhGJePJeVarowuKywQ19YG3H5r99yC
+PASS [signature-negatives] sig-ed25519-last-byte-flipped expect signature got signature tx ExejaVVQvj2Bgjv2J1WKin1S |  | ExejaVVQvj2Bgjv2J1WKin1StoK6NxUnh9dwZAQNEtCU
+PASS [signature-negatives] sig-raw-first-byte-flipped expect signature got start (dated vector, |  | 3cJgtK6hY2U2Lxuy88h1uk4UiVy9yAwNJMibPArKxvAc
+PASS [signature-negatives] sig-eip191-flipped expect signature got signature tx H7yEHFU5UQKrot27M5Qa8RxLwJQWr5zgknv |  | H7yEHFU5UQKrot27M5Qa8RxLwJQWr5zgknv3QJEMptoj
+PASS [signature-negatives] sig-eip191-high-s expect signature got signature tx CfgLiUy8iXbpr1nm6EmPAVRoqfZv9U1uAqND |  | CfgLiUy8iXbpr1nm6EmPAVRoqfZv9U1uAqNDxPYfZcZq
+PASS [signature-negatives] sig-eip191-v-is-0 expect signature got signature tx 5UPqD8LRmTD6qrTqW2TiHTrNrdHWjjmfcc6W |  | 5UPqD8LRmTD6qrTqW2TiHTrNrdHWjjmfcc6WZNfY1xum
+PASS [signature-negatives] sig-eip191-64-bytes expect signature got signature tx 9Uri8Fr7NfCqPS6GiQMe3egmLrnxHn2cLW |  | 9Uri8Fr7NfCqPS6GiQMe3egmLrnxHn2cLWsnQdxESQtv
+PASS [signature-negatives] sig-ed25519-65-bytes expect signature got signature tx 9mUgSrHEfjXpvtun1MHgSj4iMK7g4p7NG |  | 9mUgSrHEfjXpvtun1MHgSj4iMK7g4p7NGnHbxFngUs7y
+PASS [signature-negatives] sig-not-hex expect signature got signature tx 5AhKoQAHN8FF1hGMsPR8VMoE6Pb8P6zBWcphDZ7r9u |  | 5AhKoQAHN8FF1hGMsPR8VMoE6Pb8P6zBWcphDZ7r9uxx
+PASS [signature-negatives] sig-by-another-wallet expect signature got signature tx 3z8PW2xf2kEiNKDPxfQs7a2R8ky1KGDN |  | 3z8PW2xf2kEiNKDPxfQs7a2R8ky1KGDNWRN5uML59yUW
+PASS [signature-negatives] sig-wrong-scheme-sep53-as-raw expect signature got signature tx F7zJK5jeZzFJG97gTS5ivLy9 |  | F7zJK5jeZzFJG97gTS5ivLy9C8b6qa5479pMPTkU6tuu
+PASS [signature-negatives] sig-wrong-scheme-raw-as-sep53 expect signature got start (dated vector, |  | GNVhZfctcvwwvt2zA5sMghH7HyTxmLQfX8HhLqs1RW1y
+PASS [signature-negatives] sig-raw-over-sep53-text-as-raw expect signature got signature tx H3R9CvEBmXUtYhQVnrb7hfj |  | H3R9CvEBmXUtYhQVnrb7hfjvfCWqRiAtDfxzkzAuMjNS
+PASS [signature-negatives] sig-field-changed-grant-end expect signature got signature tx jPjG9yjNUdDR2icR9qo38AXGgm |  | jPjG9yjNUdDR2icR9qo38AXGgma2ujg9xuMW4rAcgpR
+PASS [signature-negatives] sig-v1-text-freighter expect signature got signature tx 9aZxpN9iRCAbc8Yy2QYCqXcTXy9v3VmA |  | 9aZxpN9iRCAbc8Yy2QYCqXcTXy9v3VmAtjoo5JeNz6t5
+PASS [signature-negatives] sig-v1-text-phantom expect signature got start (dated vector, |  | 4KR2fkKZKLEm6dDgfKmg6uXoYYzrLYndCDLmAnADxvB4
+PASS [signature-negatives] sig-v1-text-metamask expect signature got signature tx KBYZEEdXgXp3vqrWoKLHHgCywTUEMbrjJ |  | KBYZEEdXgXp3vqrWoKLHHgCywTUEMbrjJ7XuPhsgriq
+PASS [canonical-form-negatives] grant-with-scope-field expect field got Failed tx 5x2UDoCuTSk3BSwHYTTSfjKtsw8N8bE1R |  | 5x2UDoCuTSk3BSwHYTTSfjKtsw8N8bE1R6PLe4GK29Lc
+PASS [canonical-form-negatives] request-unknown-shape expect variant got Failed tx C85XenJ2ZQHswpWyrPz42sbXCz7PszXQ |  | C85XenJ2ZQHswpWyrPz42sbXCz7PszXQK6ThyaHrbwzi
+PASS [former-votes-refused] vote-safe-eth-transfer expect vote got vote tx CQTG1eJztNUCvQGvkCGxYe3BvURZYDGCb4DPy5nS |  | CQTG1eJztNUCvQGvkCGxYe3BvURZYDGCb4DPy5nSPiZe
+PASS [former-votes-refused] vote-safe-delegatecall expect vote got vote tx 6dG5a6UDzLs6cz4TLLj9e9k8PSJDSBiJ3jio6poh |  | 6dG5a6UDzLs6cz4TLLj9e9k8PSJDSBiJ3jio6pohKX4t
+PASS [former-votes-refused] vote-squads-approve expect vote got vote tx GL5PgLje1Suf96wc9HsBWkBTpGCxipVmgqsaPbacvsj |  | GL5PgLje1Suf96wc9HsBWkBTpGCxipVmgqsaPbacvsjJ
+PASS [former-votes-refused] vote-squads-create-vault-transaction expect vote got vote tx AuEtL392g3JdyVN8Nt6N3aX1QC |  | AuEtL392g3JdyVN8Nt6N3aX1QC9Sji6jvdvGcaThCLva
+PASS [former-votes-refused] vote-stellar-authorization expect vote got vote tx CAtibnh1RuFFzXcPttxHx2jF9H1vqarUXHAR |  | CAtibnh1RuFFzXcPttxHx2jF9H1vqarUXHARSaYRbmmG
+PASS [former-votes-refused] SafeVote-empty-object |  | 7NvzSdkv1MNoPXz3pzkBjfcVCsfjyXW2V51AsCDDQv5n
+PASS [former-votes-refused] SolanaVote-empty-object |  | 2wCBWzvQ9vfsKuULP4amCGfLmAKpbTgs62xHTnqLRACD
+PASS [former-votes-refused] StellarVote-empty-object |  | 9GnAdPJ69thvNKP1onPcm7RjRKGkQk5mVahW7Rv4kxic
+PASS [former-votes-refused] SafeVote-with-a-grant-body |  | BXkdvxneT1hJeGxmNi7PaGDkS3B19ff2npBdkJ719xz3
+PASS [former-votes-refused] Vote-lowercase-variant |  | GuftZ48gzRT3RKRoZkwXozmiUvy7k2cLAe9cRQqHejba
+PASS [former-votes-refused] Grant-and-SafeVote-together |  | EVt26pAMcD28YrdA9eVL7W8ZzWy8SrucvM23H1mZNtF7
+PASS [former-votes-refused] v1-shaped arguments |  | FF4zVyBq1XX9iD1jT1T5VfsQ2JeMSNZMeF7mpyGmL8q
+PASS [v1-v2-keys-differ] v1 MPC signature recovers the key derived offline from signer.prime-spike-muwguc60.testnet |  | 4iu99Lph37d3zH4CtQpf6m4ociL7PdsVzgFbQxDpvbva
+PASS [v1-v2-keys-differ] domain 0 (secp256k1): v1 key 0xb1E8a433fEb55175DCE8377C3156895C3EFC9589 != v2 key 0x7cDe6d |  | 
+PASS [v1-v2-keys-differ] v1 Eddsa signature verifies under the key derived from signer.prime-spike-muwguc60.testnet |  | 4d9u986Waj8r8CCuLM9CZegPQZ1Vw2cQZPrj61TqaSkv
+PASS [v1-v2-keys-differ] domain 1 (ed25519): v1 key fe0b8d35e31fc112... != v2 key b785369f09bd9f47... |  | 
+PASS [v1-v2-keys-differ] a v1 signature does not verify under the v2 key |  | 
+PASS [canonical-form-negatives] account-with-leading-space |  | 7c7KFPPHrNfS9LLq94MM3kFXzUmfrMi5tS45BrX7CxjK
+PASS [canonical-form-negatives] account-with-trailing-newline |  | CNHmSswHovpLgByMqgCWb3jxfxCQhqXgt88wSWAPUGJe
+PASS [canonical-form-negatives] seat-without-0x |  | 9wswD8nbUjCEGPxY5gh8W56sVSPdVs4BP4hpUKnifC4p
+PASS [canonical-form-negatives] key-uppercase-hex |  | HWQrMqE9GzrdZmPCYgW9WAh7nS9VUxtyvKyUPJkUfv1A
+PASS [canonical-form-negatives] account-41-hex-chars |  | HEPwrsT14R76Z6DXDMqXyDmtBMJvv2NK58RNjAerd4gn
+PASS [canonical-form-negatives] account-all-zero-padded-to-32-bytes |  | CFkVaSDS5X4xp1LcyHk5WHDFGz9jW1TXVyC4qozygSx9
+PASS [canonical-form-negatives] start-as-string |  | 3SzauinV3XSvAMtEk6UiWKk6JiTqmsHCydU3L2aMSPuG
+PASS [canonical-form-negatives] start-negative |  | 3Vzn14SYUrpfaNQGkD89siRQ47XkJkDvmL5RtSHp3rfu
+PASS [canonical-form-negatives] end-float |  | 5hdFU9fH9w7JNUjDRQqWJ6WaE5BAvhKtzPAMrxMCVCN9
+PASS [time-rule-boundaries] start offset 296s from the executing block -> signed; rule (<= 300) says signed tx 8REN |  | 8RENJtbPrRcHjHNSRu1CWFhq6AHXLMJxqKJFL8bKczRG
+PASS [time-rule-boundaries] start offset 297s from the executing block -> signed; rule (<= 300) says signed tx 53Cy |  | 53CyEH7569KoxdkT4Qi6u2FC9ehpvhFnHTQoC6TbDaQM
+PASS [time-rule-boundaries] start offset 298s from the executing block -> signed; rule (<= 300) says signed tx 9VZS |  | 9VZStvANZFWCKR1jd11eRiRJE43ahG58LWoXKr56xGrR
+PASS [time-rule-boundaries] start offset 298s from the executing block -> signed; rule (<= 300) says signed tx pMmm |  | pMmm4AzZaEo5UyXfqJszxiXfj7NWqFJRnMiumywQyvS
+PASS [time-rule-boundaries] start offset 293s from the executing block -> signed; rule (<= 300) says signed tx 4djU |  | 4djUPykKABr5JrL9WdFH2bEXkr8BSgbx5ibojmPJN2Uq
+PASS [time-rule-boundaries] start offset 297s from the executing block -> signed; rule (<= 300) says signed tx AnrP |  | AnrPXipYCKF1Ap7r3P7Zf98GV7hJstk3sdWwMycrLTZV
+PASS [time-rule-boundaries] start offset 297s from the executing block -> signed; rule (<= 300) says signed tx 8zWH |  | 8zWHzRB9UpQm6oNuBpvK9jmsq2TSNjFz5MMoVSkTroFj
+PASS [time-rule-boundaries] start offset 299s from the executing block -> signed; rule (<= 300) says signed tx FfVN |  | FfVNSjbhhB4E3jU82QDqkjB2g6hgqD79vwgchK6Tsbpr
+PASS [time-rule-boundaries] start offset 297s from the executing block -> signed; rule (<= 300) says signed tx cft6 |  | cft69WZwJD4JjKFertiwsTSwkts4Ms8zajBxAVS7tDt
+PASS [time-rule-boundaries] start offset 297s from the executing block -> signed; rule (<= 300) says signed tx 5ts8 |  | 5ts8bnrWA5XBt88Lh8V5ABNUiZcz2a3LPWvKoWyJk5ng
+PASS [time-rule-boundaries] window-604800s-signed: start-block -124s, window 604800s -> signed, rule says signed tx |  | 9QsmKRin3vUkoDHdcjCDLphAHiHiNuQM7o6FDYzpcWvJ
+PASS [time-rule-boundaries] window-604801s-refused: start-block -131s, window 604801s -> |  | Hbe4exPzgDJivCTQPD2XrzyzBRKbfma4CprMer6MAwcj
+PASS [time-rule-boundaries] window-1s-signed: start-block -135s, window 1s -> signed, rule says signed tx 9AAmeG8mV |  | 9AAmeG8mVBhKAz3vhNKDcQZiuVumyD2YdAsrqdqXkNaY
+PASS [time-rule-boundaries] window-0s-refused: start-block -143s, window 0s -> |  | FGxZ5aTEgNhVNN25dGiWTqNiKGtcdUCz7KtKTWaDcEwN
+PASS [time-rule-boundaries] end-before-start-refused: start-block -146s, window -1s -> |  | pCXzxyF5uXxHM72EE45faFya6b79XHtkt2P6fTg3fGd
+PASS [time-rule-boundaries] start-in-the-past-by-a-day-signed: start-block -86550s, window 3600s -> signed, rule sa |  | 7Rhk9wLQoJGhNJVgEXxTho3xAjfy5qdAzLBVgGSJtEhc
+PASS [time-rule-boundaries] End (start and end 0) signed with the grant hash at zero tx AWmkQVsWqKwvJCNTAbzRg1phUz6 |  | AWmkQVsWqKwvJCNTAbzRg1phUz6UjNM1FrzHFtDiomkj
