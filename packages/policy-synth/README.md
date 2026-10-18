@@ -173,6 +173,7 @@ await run('verify_policy', { network: 'testnet', encodedPredicate: rule.encodedP
 | Authority overlap | A rule a shared signer could bypass through a looser or unpoliced neighbour, a rolling total that would not bind, a neighbour it cannot read or judge, or an account whose rules could not all be read | `allowOverlap: true` (see "Overrides") |
 | Amounts | An amount with no cap; a swap's least output with no floor | `allowUnboundedAmount`, `allowOpenSlippage` (see "Overrides") |
 | Scope | A rule scoped to a policy contract (`POLICY_CONTRACTS`) or to the account itself | none |
+| Contract signers | A signer that is an execution adapter bound to no gate (its instance holds `prime` and a void `gate`, read off the ledger whatever its code hash): an agent allowed to call its `execute` could cite the rule and move funds past its own caps. A contract signer that is not deployed is refused too, since what it will run cannot be checked | none |
 
 The overlap scan reads every live rule on the account. It reads the account's
 `NextId`, asks which ids below it still hold a rule (200 keys per
@@ -265,7 +266,9 @@ through the agent. `review_unsigned` (or `reviewUnsigned({ network, xdr,
 smartAccount })` from the package root) lets a wallet or the Prime app review
 the bytes it is about to sign without the agent. It asks no RPC and reads
 nothing but the XDR, the network, the package's own pins, the two bounds from
-the environment and the clock.
+the environment and the clock. The one exception is `readContracts: true` (or
+`contracts` for `reviewUnsigned`, filled with `contractKinds`): what each
+contract signer runs, read off the ledger through the operator's RPC.
 
 It refuses (`INVALID_INPUT`) bytes that are not a transaction, a fee bump, or
 anything but one contract call. Anything else it describes, and lists in
@@ -283,7 +286,10 @@ anything but one contract call. Anything else it describes, and lists in
 - no time bound, one already passed, one out of range, or one longer than the
   window plus 120 s for the owner's clock; a negative resource fee, one above
   the ceiling, or a base fee above 1 XLM;
-- a value the builder never writes;
+- a value the builder never writes, or an envelope that already carries a
+  signature (the review is of unsigned bytes);
+- a contract signer, unless its instance was read: then an execution adapter
+  bound to no gate, or a contract that is not deployed;
 - for an install: a scope other than one contract, or a policy contract or the
   account itself; an External signer or admin, or a threshold weight on one; a
   threshold policy with no threshold; no interpreter, two, or one other than

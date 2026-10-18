@@ -98,7 +98,7 @@ contract would do, with its deny code.
 | Explain a predicate | `simulate_policy` with only `expr` or `encodedPredicate` |
 | Show what an account already allows | `get_interpreter_info` with `explainAccount: "<C… smart account>"`. It reads every rule and reviews each one this interpreter polices. Only a known OpenZeppelin account build (`91a2cd56…`) is read; any other account is refused |
 | Remove a rule | `revoke_policy` with `ruleId` |
-| Let the owner check an unsigned transaction | Tell the owner to run `review_unsigned` (or `policy-builder review`) on the XDR themselves, before signing. It reads the bytes alone, with `smartAccount` set, and lists the `problems` it finds in them. `signable` does not mean safe: tell the owner to read its Authority node (signers, who acts alone, admins, expiry, total) against what they asked for. Running it yourself and relaying the answer adds nothing the owner can check |
+| Let the owner check an unsigned transaction | Tell the owner to run `review_unsigned` (or `policy-builder review`) on the XDR themselves, before signing. It reads the bytes alone, with `smartAccount` set, and lists the `problems` it finds in them. A rule with a contract signer needs `readContracts: true`, which reads the signer off the ledger. `signable` does not mean safe: tell the owner to read its Authority node (signers, who acts alone, admins, expiry, total) against what they asked for. Running it yourself and relaying the answer adds nothing the owner can check |
 | Check the interpreter | `get_interpreter_info` with `verifyLive: true`: `live.matches` says whether the deployed code is a trusted grammar-7 build. `install_policy` checks it again before building |
 | "at least N out": a slippage floor on a swap | `minOut`: `{ constraint: "minOut", at: [1], of: [0], num, den }` bounds the output argument against the call's own input (`out >= in * num / den`), so one rule covers every trade size. Ask the user for the ratio. A recorded rate is a price at one moment, and freezing it as policy denies ordinary trades later |
 | A price or balance check | `read` calls a fixed function of a fixed contract at enforce time. The install refuses it with `READ_UNSAFE` unless the target is on the safe list (below) |
@@ -270,6 +270,10 @@ user thinks. Read every result in full.
   that can never be met (n above the signers, or weights that do not cover
   exactly the signers or total less than n), and `anyOne` beside a threshold
   that needs more than one.
+- **Contract signers:** each contract signer is read off the ledger. An
+  execution adapter bound to no gate is refused as a signer (an agent that may
+  call its `execute` could cite the rule and pass its own caps), and so is a
+  contract that is not deployed. No override waives either.
 - **Spending-limit guard:** `spendingLimit` is refused unless every branch of the
   predicate pins `call_fn` to `transfer` (OpenZeppelin's `spending_limit` fails
   every other function, so those calls would always be refused), and unless the

@@ -27,12 +27,30 @@ mainnet refusal is the intended security change of P0-4.
   unsigned bytes consistently (itself as admin or signer, a threshold dropped, a
   cap raised with a matching hash), and that comes back signable, as do installs
   that used an override and rules the builder refuses for reasons it does not
-  check from the bytes (overlap, read safety, 1-of-n). The owner must read the Authority node
-  against what they meant. An owner clock up to 120 s behind the builder's is
-  allowed for, and without `smartAccount` the review is never signable.
+  check from the bytes (overlap, read safety, 1-of-n). The owner must read the
+  Authority node against what they meant. An owner clock up to 120 s behind the
+  builder's is allowed for, and without `smartAccount` the review is never
+  signable. An envelope that already carries a signature is a problem, and so is
+  a contract signer unless `readContracts: true` reads it off the ledger through
+  the operator's RPC (`contracts` for `reviewUnsigned`); then an execution
+  adapter bound to no gate, or a contract that is not deployed, is a problem.
 
 ### Fixed
 
+- **policy-synth, a rule signed by an execution adapter with no gate:** the
+  review of the v5 adapter had the owners install a USDC rule the null-gate
+  adapter signs, and an agent allowed to call that adapter's `execute` moved
+  five times its own cap through it (testnet tx `e90fe2a3…`). `install_policy`
+  now reads each contract signer's instance off the ledger and refuses an
+  adapter whose instance holds `prime` and a void `gate`, whatever its code
+  hash, and a contract signer that is not deployed. No override waives it.
+  - **Breaking:** an install whose signers include a contract that is not
+    deployed, which was built before, is refused.
+- **policy-builder-mcp, a test that reached the network:** the Streamable HTTP
+  test's tool call asked the public testnet RPC for the pin's limits and waited
+  up to 5 s for an answer, which met bun's 5 s test timeout whenever the RPC
+  was slow (three CI failures). The test now points the endpoint at a closed
+  loopback port, as the other suites do.
 - **policy-synth, overrides taken from the agent (P0-4):** a refusal gave the
   flag that waived it (`allowOverlap`, `allowUnboundedAmount`,
   `allowOpenSlippage`, `allowAdminRule`, and `anyOne` for 1-of-n) and the answer

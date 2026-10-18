@@ -174,6 +174,9 @@ measurements behind the limits.
   not mean safe. An agent can rewrite the bytes consistently, for example to
   make itself an admin, and they read signable, so the owner reads the Authority
   node against what they meant.
+- **Contract signers:** the install reads each contract signer off the ledger
+  and refuses an execution adapter bound to no gate, or a contract that is not
+  deployed.
 - **The authority header:** the install review opens with who may act, under
   which threshold, until when, up to what total, and under which interpreter.
   `[…]` marks the package's roles and `«…»` the labels given in the request.
