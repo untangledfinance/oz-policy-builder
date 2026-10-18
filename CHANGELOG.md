@@ -12,8 +12,10 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 - **policy-builder-mcp, a body over 1 MiB:** it gets 413 under Bun 1.3 too. The
   HTTP transport left a `for await` over the request early, which destroys it, and
   Bun 1.3.14 then answered 200 with an empty body before the 413 was written.
-  The body is now read with `data` and `end` listeners, and the 413 closes the
-  connection. Node and Bun 1.4 behaved correctly already.
+  The body is now read with `data` and `end` listeners, and the 413 asks the
+  client to close the connection (`connection: close`). Node and Bun 1.4 close
+  the socket themselves; Bun 1.3.14 keeps it open, with the request paused,
+  until the client hangs up. Node and Bun 1.4 answered 413 before this fix too.
 
 ### Changed
 
@@ -96,7 +98,7 @@ limits are chosen at deploy time") and the rule scan reads every live rule.
 - `readRules` (the overlap scan, install lint, `get_interpreter_info` `explainAccount`) no longer
   walks ids upward and gives up after a batch of eight with no rule, which stopped short of the
   live rules on an account that had removed many (PayFi's testnet settlement account: 38 ids
-  handed out, 15 live, 21+ removed, so installs needed `allowOverlap`). It reads the account's own
+  handed out, 15 live, 21+ removed, so installs needed `allowOverlap`). The scan now reads the account's own
   `NextId` (instance storage) and asks which of the ids below it still have a `ContextRuleData`
   entry in one batched `getLedgerEntries` (200 keys a call), then simulates `get_context_rule`
   for those ids only. Bounded: one count simulation, one instance read, ceil(NextId / 200) entry
@@ -347,7 +349,7 @@ Breaking changes to callers:
     is a constant and must be positive, and so must any constant `src` or `num`, checked at decode (a negative
     one would turn a floor into a ceiling); write a subtraction by moving the
     term across the comparison. It replaces `call_arg_scaled(i, num,
-    den)`, which is now `scaled(call_arg(i), num, den, 0)`. Together they
+    den)`; that is now `scaled(call_arg(i), num, den, 0)`. Together they
     express live-price LTV, a first-loss balance floor and an oracle freshness
     bound. Constant factors must fold to > 0 and `den` is at most 10^18. Leaf nesting is capped at `MAX_DEPTH`, and `in` haystacks and literal
     vectors hold constants only.
@@ -777,7 +779,7 @@ saying *which* thing is wrong as well as *that* something is.
   `describes.policies` reports the window and the total.
 
 - `serverInfo.version` was hardcoded again after 1.0.0 and would have reported
-  `1.0.0` from a 1.1.0 package. It is now pinned to `package.json` by a test, so
+  `1.0.0` from a 1.1.0 package. A test now pins it to `package.json`, so
   a bump that forgets it fails before it can ship a plausible-looking lie.
 
 ## [1.0.0] - 2026-08-28
@@ -796,7 +798,7 @@ the version marks the surface Tranche #3 delivers, and adds no new work.
 
 The award makes Critical and High audit findings blocking for the 1.0 release.
 This version was cut on instruction while the independent audit is in progress.
-If findings land that require changes, they ship as 1.0.x and the finding set is
+If findings require changes, they ship as 1.0.x and the finding set is
 published in the repository.
 
 ## [0.5.6] - 2026-08-27
@@ -840,7 +842,7 @@ published in the repository.
   withheld. `describePredicate` then returned an empty list for a restrictive
   policy, and an empty list reads as "no constraints" - inverting the guard it
   was protecting. The withhold exists so a disjunction never reads STRICTER than
-  reality; withholding the only line reads as UNRESTRICTED, which is the worse
+  reality; withholding the only line reads as UNRESTRICTED, the worse
   direction. The branch is composed instead, and the withhold is kept for
   genuinely unrenderable children.
 
@@ -856,7 +858,7 @@ published in the repository.
 - An unrecognised protocol no longer leaves every recipient unconstrained. It
   emitted zero address constraints, because with no ABI no argument can be
   singled out by role. To avoid guessing which address is the recipient, every
-  address argument the call actually carried is pinned.
+  address argument the call carried is pinned.
 
 ## [0.5.2] - 2026-08-23
 
@@ -870,7 +872,7 @@ published in the repository.
   asked for. A dropped policy is a dropped restriction, so this fails loudly.
 
   `PolicyRef` has a single shape today, so no typed caller can reach the new
-  branch; the guard is for the built JavaScript, which is reachable untyped,
+  branch; the guard is for the built JavaScript, reachable untyped,
   and for the next kind added to the union without a case in the encoder.
 
 ## [0.5.1] - 2026-08-23
@@ -902,7 +904,7 @@ published in the repository.
   not be said at all.
 - Slippage floors. `call_arg_scaled` evaluates to `args[i] * num / den`
   truncating toward zero, and is the only selector permitted on the right of a
-  comparison, which is what lets a swap bound its output against its own input:
+  comparison; that lets a swap bound its output against its own input:
   `call_arg(out) >= call_arg_scaled(in, 99, 100)`. A constant cannot express
   this - it would pin the policy to a single trade size. Reachable through
   `declare_policy` / `policy-builder declare --min-out-ratio 99/100 --in-arg 0
@@ -928,11 +930,11 @@ published in the repository.
   A version-3 document still decodes under 4 - the grammar only widened - so
   the version gate is the only thing refusing it, and it does.
 - Deny code 102 (`ARITHMETIC_OVERFLOW`) returns to its original meaning, which
-  `call_arg_scaled` needs again. It is a restoration with no recycled meaning: a consumer
+  `call_arg_scaled` needs again. The code is restored with no recycled meaning: a consumer
   that remembers `102 = ARITHMETIC_OVERFLOW` stays right. New in this version:
   107 `SLIPPAGE_FLOOR` and 214 `INVALID_SCALED_RATIO`.
 - The review card renders a disjunction as ONE line. A line per branch would
-  read as "all of these are required", which is both wrong and the dangerous
+  read as "all of these are required": wrong, and the dangerous
   direction - it makes a policy look tighter than it is.
 
 ### Verified
@@ -954,7 +956,7 @@ published in the repository.
   comparison, so a floor would permit exactly the trades it was written to
   refuse, and at evaluate that is indistinguishable from a policy working
   normally. The same shapes are refused by `encodePredicate` off chain and by
-  `declare_policy` at the point the ratio is stated.
+  `declare_policy` where the ratio is stated.
 - `call_arg_scaled` arithmetic is `checked_mul`/`checked_div` throughout;
   overflow and a zero denominator deny; nothing wraps or panics the
   frame. The TypeScript reference evaluator applies the same i128 bounds so the
@@ -970,7 +972,7 @@ published in the repository.
   recognise had no path at all. `declare` takes the constraint stated outright
   - the method to pin, and optionally the contract, a per-call amount cap and a
   recipient allowlist - with no RPC and no parseConfidence, so a registry miss
-  cannot refuse it. It is the surviving half of the removed `MandateSpec` and
+  cannot refuse it. `declare` is the surviving half of the removed `MandateSpec` and
   deliberately not the rest: the input schema is strict, so naming
   `spendingLimit` or `approvalThreshold` is an error, so it can never be a silent
   no-op. A defaulted argument index emits a warning naming the index assumed.
@@ -1049,7 +1051,7 @@ so it is never reused.
 Capabilities present in the published 0.2.0 and absent from this release. They were
 never part of this repository: 0.2.0 came from a different repository, which
 carries its own copy of these packages, so moving the npm lineage here drops them. Anyone
-upgrading 0.2.0 -> 0.3.0 loses them, which is why they are listed as removals
+upgrading 0.2.0 -> 0.3.0 loses them, so they are listed as removals
 here as well as implied by the lineage note above.
 
 - `install/authority-overlap`, and the `authorityScan` report `install_policy`
