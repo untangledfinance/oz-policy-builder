@@ -78,7 +78,27 @@ async function send(kp: Keypair, op: xdr.Operation, label: string) {
   return settle(await server.sendTransaction(prepared), label)
 }
 
+/** The grammar the interpreter source in this tree implements: `SELF_VERSION`, which the wasm
+ *  reports as `grammar_version()`. */
+function sourceGrammar(): number {
+  const file = 'contracts/stellar/policy-interpreter/src/version.rs'
+  const m = /pub const SELF_VERSION: u32 = (\d+);/.exec(readFileSync(file, 'utf8'))
+  if (!m) throw new Error(`no SELF_VERSION in ${file}`)
+  return Number(m[1])
+}
+
 async function main() {
+  // The interpreter is built from this tree, so the tree must hold grammar 6. Refuse before
+  // anything is funded, uploaded or created under the grammar-6 salt.
+  if (!process.env.PRIME_WASM_DIR) {
+    const grammar = sourceGrammar()
+    if (grammar !== 6)
+      throw new Error(
+        `the interpreter source here is grammar ${grammar}, and this script deploys grammar 6. ` +
+          'Run it from main or from a tag that holds the grammar-6 interpreter, or set ' +
+          'PRIME_WASM_DIR to a directory with grammar-6 builds.'
+      )
+  }
   const secret = arg('secret') ?? process.env.DEPLOY_SECRET
   const kp = secret ? Keypair.fromSecret(secret) : Keypair.random()
   if (!secret) {
