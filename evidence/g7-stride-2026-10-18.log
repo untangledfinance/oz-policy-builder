@@ -399,3 +399,20 @@ PASS [time-rule-boundaries] window-0s-refused: start-block -143s, window 0s -> |
 PASS [time-rule-boundaries] end-before-start-refused: start-block -146s, window -1s -> |  | pCXzxyF5uXxHM72EE45faFya6b79XHtkt2P6fTg3fGd
 PASS [time-rule-boundaries] start-in-the-past-by-a-day-signed: start-block -86550s, window 3600s -> signed, rule sa |  | 7Rhk9wLQoJGhNJVgEXxTho3xAjfy5qdAzLBVgGSJtEhc
 PASS [time-rule-boundaries] End (start and end 0) signed with the grant hash at zero tx AWmkQVsWqKwvJCNTAbzRg1phUz6 |  | AWmkQVsWqKwvJCNTAbzRg1phUz6UjNM1FrzHFtDiomkj
+
+## Stellar testnet, an adapter bound to an owner-made gate (G7S-12): Prime CD7HMDQJLMVTSCQOUOPQ7G32OKN54ZL7OQVLED6SFYWKROCKH7O5JVQC
+
+PASS F1. the owner deploys its own gate F from the custody-gate code b01024f3, listing a stranger | tx 2dbc4936cea6e8f1b31ebabbe474aa2fcaef9b2b515ea154d3c631508798da6b gate CD7XJDID7IO2FDZU3WM4RASASRXECJOVUDGTLKK6MRO4V6RDWBD2TQXG
+PASS F2. the Prime (rule 0) deploys an adapter AF bound to F; the constructor accepts any gate address | tx 3180a5fd285b1b5f2205e03276587d8ecf5cdbc319b9176bb60561dab4ea3c5b adapter CBWSOK4STD7ZHUWGXYBPOJNVGEP4BVOHCBKHJPG4W3IZZZDYWXXXURUR
+PASS F3. the owner installs the agent rule on AF (grammar-7 interpreter: call_fn = execute) | rule 1 tx 4060450115644a133a863ba4e2ee9c0493fac92b69e36f88169acddc0cb90bce
+PASS F4. the owner installs a band rule on the XLM SAC whose signer is AF (no policy) | rule 2 tx 79a4dc75b99749a4cb2e3df683da856e87710bb8ab573cff8018eb9faea9dc3d
+PASS F5. the agent moves 5 XLM of the PRIME to the stranger through AF (the owners' own list allows it) | tx 7b703ed0e19c280ae98018510d94a357c5fb4341a82314569bc727dbbe1646aa; stranger +50000000, prime -50000000
+PASS F6. an account off F's list is still refused by AF (#2) | refused #2
+PASS F7. AF calls custody's real gate R.pull: refused, R pins its caller address (and code) | refused Error(Auth, InvalidAction) Error(Auth, InvalidAction) Error(Auth, InvalidAction)
+PASS F8. custody balance unchanged | 99999654276 -> 99999654276
+PASS F9. the Prime deploys an adapter bound to an address with no contract: the constructor does not ask the gate | tx 5e90390b6b8f0cda42fabf037dc7de69d80572849451bad8ccec42bbf7567aab adapter CCFZ53QFU4BRLUHL53IY34ACGQ4BDKE37KO2SBYAPLQ6WYGBAVBCQ63R
+PASS F10. every execute on it fails: gate.allowed() cannot be called on an address with no contract | refused Error(Storage, MissingValue) Error(Storage, MissingValue) Error(Storage, MissingValue)
+PASS F9. the Prime deploys an adapter bound to the XLM SAC: the constructor does not ask the gate | tx 56c73bcb7545d9f3df69146c2f1cda3fd8425b26a3b84da61c37332b0ee684e8 adapter CCOAQYOORBPM7PCQWP3BSVXMWCCOHGEV6QSMTEFR5SYK2OMVBQVQIVQT
+PASS F10. every execute on it fails: gate.allowed() cannot be called on the XLM SAC | refused Error(Value, InvalidInput) Error(Value, InvalidInput) Error(Value, InvalidInput)
+
+### the execution-contract scripts: verify-execution-wait-testnet.ts 45/45 (Prime CBK3NDXCZXPCH7DCZ4S4QBAOZSAHSEL6IWO3MSTH6RL33ZG4OOVT5GCS), verify-execution-address-rule-testnet.ts 35/35 (Prime CDGRJRAD7BEBCE4WXYPXIBL6DNG43Z3LAUVESXKKNUIYU77KI7UBHRMD)

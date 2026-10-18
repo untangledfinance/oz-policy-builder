@@ -8,7 +8,7 @@
 
 ## Summary
 
-The rerun covered every component in the final tree. Every artifact rebuilt here equals its pin, and every deployed copy read here equals its build (NEAR v1 by its on-chain code hash, since `cargo-near` is absent on this machine). 1,417 checks on chains passed and none failed: 153 on Stellar testnet, 80 through the execution contracts on testnet, 129 on Solana devnet, 88 on NEAR testnet, 622 on a local fork of Base Sepolia (58 Foundry tests and 564 matrix rows) and 345 on a local Solana validator loading the deployed gate bytes.
+The rerun covered every component in the final tree. Every artifact rebuilt here equals its pin, and every deployed copy read here equals its build (NEAR v1 by its on-chain code hash, since `cargo-near` is absent on this machine). 1,429 checks on chains passed and none failed: 153 on Stellar testnet, 92 through the execution contracts on testnet, 129 on Solana devnet, 88 on NEAR testnet, 622 on a local fork of Base Sepolia (58 Foundry tests and 564 matrix rows) and 345 on a local Solana validator loading the deployed gate bytes.
 
 This pull request closes two open items in the toolchain, test first: P0-2 (the account signs exactly the call that was built) and the first half of P1-7 (a recording is bound to the hash asked for). It also ports two records from `main`: the protocol-29 drift baseline and the mainnet upload of adapter `3dd675c0`.
 
@@ -18,7 +18,7 @@ New in this run, by severity:
 | --- | --- | --- |
 | High | 1 | G7S-1 |
 | Medium | 1 | G7S-3 |
-| Low | 6 | G7S-2, G7S-4, G7S-7, G7S-8, G7S-9 (fixed here), G7S-10 |
+| Low | 7 | G7S-2, G7S-4, G7S-7, G7S-8, G7S-9 (fixed here), G7S-10, G7S-12 |
 | Info | 3 | G7S-5, G7S-6, G7S-11 |
 
 Open from earlier reviews and still at High: P0-3's owner-side decoder (E10-T.1), P0-4 override echo (E4), and C2 (`remove_signer` bricks an interpreter rule, an octopos fix in progress). Mainnet grammar-7 installs stay blocked on every open P0.
@@ -30,8 +30,8 @@ Decisions for Tuan are in "Decisions needed" at the end of the rerun sections. N
 | Component | Build | Deployed copy checked | Verification in this run |
 | --- | --- | --- | --- |
 | Stellar `policy-interpreter`, grammar 7 | `69cad1d5` (`build-wasm.sh`) | testnet `CDZV4AG4…` runs `69cad1d5`, live to ledger 8,229,508, limits as recorded | 397 tests and 18 in release; testnet rows X1 to X26, B5 to B7, G1 to G41 |
-| Stellar `custody-gate` | `b01024f3` | code entry on testnet and mainnet | 3 tests; testnet `verify-execution-*` 80 of 80 |
-| Stellar `execution-adapter` | `3dd675c0` | code entry on testnet and mainnet (uploaded 11 October 2026) | 45 tests; same 80 testnet rows |
+| Stellar `custody-gate` | `b01024f3` | code entry on testnet and mainnet | 3 tests; testnet `verify-execution-*` 80 of 80; owner-made gate rows F1 to F10 |
+| Stellar `execution-adapter` | `3dd675c0` | code entry on testnet and mainnet (uploaded 11 October 2026) | 45 tests; same 80 testnet rows and F1 to F10 |
 | Stellar `test-blend-pool` | `7ba261ed` | none: testnet test double | code read |
 | Stellar `prime-seat` | `393f0e5d` | testnet code entry; every seat deployed in this run reads back that hash | 21 tests; testnet setup, probe, a3, neg, bounded, g7 parts |
 | EVM `PrimeSeat` | runtime `3b4402d5`, creation `4d355864` | octopos pins (template `bf34aaa2`) | 51 tests; 7 real-Safe tests and 564 matrix rows on a fork with real Safe 1.4.1, 1.5.0 and Zodiac Roles |
@@ -257,6 +257,8 @@ Each row names the threat, where it enters, the control with its file and line, 
 | E | The run rule approves an immediate `execute` or a cancel | the Prime's run rule | the rule's predicate permits `run` only | "a stranger executes at once through the run rule" `#100` |
 | E | The Prime rebinds the adapter to its own gate | `rebind` | the current gate's custody signs (`:168-175`) | "the Prime admin tries to rebind" refused; custody rebinds |
 | E | Mainnet gates made before 11 October pin a muxed-passing adapter (G7S-3) | old adapter builds | octopos flags them (`EXECUTOR_PASSES_MUXED_WASM_HASHES`) | code read; Medium |
+| E | An adapter bound to no gate, or to a contract that has no `allowed` | adapter `__constructor`, `check` | the constructor never calls the gate; every `execute` and `run` calls `gate.allowed()` first (`:291`) | F9: adapters bound to an empty address (tx `5e90390b…`) and to the XLM SAC (tx `56c73bcb…`) deploy; F10: every `execute` on them fails (`Storage, MissingValue`; `Value, InvalidInput`) |
+| E | The owners bind an adapter to a gate of their own and give an agent a rule on it (G7S-12) | owner-made gate, agent rule | custody's real gate pins its caller's address and code (`custody-gate/src/lib.rs:74-77`); the owners' own list still binds the adapter | F1 to F8: the agent moves Prime-held XLM to the owner-listed stranger (tx `7b703ed0…`), an unlisted account is refused `#2`, a pull through custody's real gate is refused (`Auth, InvalidAction`), custody's balance is unchanged |
 
 ### NEAR signers (`contracts/near/prime-near-signer`, `prime-near-signer-v2`)
 
@@ -343,6 +345,12 @@ The drift check failed live on this branch. `65f4e91` accepts 29 on the evidence
 
 This branch pins `@modelcontextprotocol/sdk` 1.31.0 and `main` 1.32.1. 1.31.0 is the first release patched for GHSA-6qxp-vccf-f47h, `proxy-addr` is pinned at 2.0.8 on both, and `bun audit` reports nothing here. Aligning to 1.32.1 is optional.
 
+### G7S-12, Low: an adapter bound to a gate the owners made moves Prime-held funds to the owners' list, and nothing checks the binding
+
+Tuan's question, proved on testnet with throwaway keys (`exec/fakegate.log`, Prime `CD7HMDQJ…`). The owner deployed a gate `F` from the real custody-gate code `b01024f3` (tx `2dbc4936…`), with itself as custody and a stranger on the list. Through rule 0 the Prime deployed an adapter bound to `F` (tx `3180a5fd…`); its constructor checks only that its address derives from the Prime, the gate and the two numbers. The owner then installed an agent rule on that adapter with the grammar-7 interpreter (`call_fn = execute`, tx `40604501…`) and a band rule on the XLM SAC signed by the adapter (tx `79a4dc75…`). The agent alone then paid 5 XLM of the Prime's own funds to the stranger (tx `7b703ed0…`). An account off `F`'s list was refused `#2`, and a pull through custody's real gate was refused at the gate's caller check, with custody's balance unchanged.
+
+So custody's funds stay behind custody's own gate: `pull` requires the caller's auth and its code (`custody-gate/src/lib.rs:74-77`), and only the adapter at the address custody chose, bound to custody's gate, can pass it. The exposure is the Prime's own funds, and it needs the owners to deploy the adapter and install both rules through rule 0. A code-hash check of the gate cannot tell `F` apart, because `F` runs the gate code. octopos reads an adapter's code and binding (`execution-adapter-v3.ts:324`, `:358`) and a gate's code (`gate-confirm-stellar.ts:381`); the owners' gate Confirm compares the typed trustee with the gate's list (DECISIONS 2026-10-12, Q5). `policy-synth` accepts any contract as a rule's scope and reads nothing about an adapter's gate. Proposed, with P0-5: when a rule's scope runs a known adapter build, read its gate and show the gate's custody and list in the review, and refuse a gate whose custody is one of the account's own signers.
+
 ## Proposed fixes for open Medium and High items
 
 | Item | Fix | Where | Changes a pinned contract? |
@@ -370,7 +378,7 @@ This branch pins `@modelcontextprotocol/sdk` 1.31.0 and `main` 1.32.1. 1.31.0 is
 | --- | --- | --- |
 | Live rows with transaction ids | [g7-stride-2026-10-18.log](g7-stride-2026-10-18.log) | every row passed |
 | Stellar testnet accounts | `X` `CBGUC6FI…D2LK` (interpreter rows), `G` and the setup and probe accounts in the log | |
-| Stellar execution contracts | Prime `CBK3NDXC…`, gate `CDKPBWAZ…`, adapter `CDKLFIJP…` (wait); Prime `CDGRJRAD…`, gate `CDNBNHL5…`, adapter `CDJS3PHB…` (address rule) | 45 and 35 checks |
+| Stellar execution contracts | Prime `CBK3NDXC…`, gate `CDKPBWAZ…`, adapter `CDKLFIJP…` (wait); Prime `CDGRJRAD…`, gate `CDNBNHL5…`, adapter `CDJS3PHB…` (address rule); Prime `CD7HMDQJ…`, owner-made gate `CD7XJDID…`, adapter `CBWSOK4S…` (G7S-12) | 45, 35 and 12 checks |
 | Solana devnet | seat program `7ygNrK…`, 129 rows, payer `9AHQV6Wu…` spent 0.160 SOL | 129 of 129 |
 | Solana gate | local validator, gate bytes `a5d19edb`, the harness of the gate review run on the in-tree build and the in-tree `setup-checks.ts` | 345 of 345 |
 | EVM | anvil fork of Base Sepolia, octopos `bb040c0a` onboarding code, real Safe 1.4.1, 1.5.0 and Zodiac Roles, stand-in NEAR owners | Foundry 58 of 58; matrix 380 and 184 |
