@@ -72,6 +72,8 @@ jobs:
           # The session signer on an OZ smart account. Its wasm is pinned in
           # contracts/prime/build-hashes.json.
           - prime-session
+          # The NEAR-routed owner's seat on an OZ smart account.
+          - prime-seat
     defaults:
       run:
         working-directory: contracts/prime/stellar/${{ matrix.crate }}
@@ -171,17 +173,18 @@ jobs:
             exit 1
           fi
 
-      # The session signer is not deployed as a shared instance, so there is no
+      # The session signer and the seat are not deployed as shared instances, so there is no
       # deployments/ record. Its reproducible build (build-wasm.sh, which remaps
       # the crate and registry paths) is pinned in contracts/prime/build-hashes.json.
       # The testnet instances run the stellar contract build wasm, whose hash
       # depends on the build machine's paths and cannot be compared here.
       - name: Wasm build and pin parity
-        if: matrix.crate == 'prime-session'
+        if: matrix.crate == 'prime-session' || matrix.crate == 'prime-seat'
         run: |
           rustup target add wasm32v1-none
           ./build-wasm.sh
-          ../../check-build-hash.sh stellar/prime-session target/wasm32v1-none/release/prime_session.wasm
+          wasm="${{ matrix.crate }}"
+          ../../check-build-hash.sh "stellar/${wasm}" "target/wasm32v1-none/release/${wasm//-/_}.wasm"
 
       # RustSec advisories against the locked dependency set. Needs 0.22 or
       # later: the advisory database now carries CVSS 4.0 entries, and 0.21
@@ -225,13 +228,67 @@ jobs:
       - name: Test
         run: forge test
 
-  # The two Solana programs build with the Solana CLI's cargo-build-sbf, pinned
+  # The EVM seat for a NEAR-routed owner. Same OpenZeppelin fetch as the session
+  # contract. The runtime and creation code are pinned in
+  # contracts/prime/build-hashes.json, so a source change that is not re-recorded
+  # turns this red. The real-Safe tests run only with FORK_URL set (a Base Sepolia
+  # fork, see the contract's README), which this job does not set.
+  evm-prime-seat:
+    name: Contracts (evm/prime-seat)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: contracts/prime/evm/prime-seat
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.8.4
+
+      - name: Fetch OpenZeppelin Contracts 5.4.0
+        run: |
+          npm pack @openzeppelin/contracts@5.4.0
+          tar xzf openzeppelin-contracts-5.4.0.tgz
+          mkdir -p lib/oz && cp -r package/utils package/interfaces lib/oz/
+
+      # The test files are not formatted, so the check covers the contract.
+      - name: Format check
+        run: forge fmt --check src
+
+      - name: Build
+        run: forge build
+
+      - name: Test
+        run: forge test
+
+      - name: Build hash parity
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, sys
+          art = json.load(open("out/PrimeSeat.sol/PrimeSeat.json"))
+          pins = json.load(open("../../build-hashes.json"))["sha256"]
+          bad = False
+          for kind, field in (("runtime", "deployedBytecode"), ("creation", "bytecode")):
+              built = hashlib.sha256(bytes.fromhex(art[field]["object"][2:])).hexdigest()
+              pinned = pins.get("evm/prime-seat:" + kind, "")
+              print(kind, "built: ", built)
+              print(kind, "pinned:", pinned)
+              if built != pinned:
+                  print("The recorded evm/prime-seat:" + kind + " build is not what this tree builds.")
+                  print("Update contracts/prime/build-hashes.json together with the source and the README build table.")
+                  bad = True
+          sys.exit(1 if bad else 0)
+          PY
+
+  # The three Solana programs build with the Solana CLI's cargo-build-sbf, pinned
   # to the release the hashes were recorded with. PRIME_CLUSTER is a compile-time
   # string that goes into the grant text a wallet signs, so each cluster has its
   # own .so; localnet is the one recorded here.
   #
   # The sources are rustfmt output, and the docs state their formatted size
-  # (126 and 64 lines).
+  # (126, 64 and 75 lines).
   solana:
     name: Contracts (solana/${{ matrix.crate }})
     runs-on: ubuntu-latest
@@ -244,6 +301,8 @@ jobs:
             artifact: prime_session.so
           - crate: custody-gate
             artifact: gate.so
+          - crate: prime-seat
+            artifact: prime_seat.so
     env:
       SOLANA_VERSION: v4.3.0
       # cargo-build-sbf builds with its own platform tools but asks cargo for
@@ -331,6 +390,77 @@ jobs:
 
       - name: Build parity
         run: ../../check-build-hash.sh near/prime-near-signer target/near/prime_near_signer.wasm
+
+  # prime-near-signer v2, the signer behind every NEAR-routed seat key. Its code is
+  # deployed at seats.prime-spike-muwguc60.testnet and the recorded hash is that
+  # code. It builds with the repo's Rust (rust-toolchain.toml) and plain cargo:
+  # --cfg near makes near-sdk use the host's hash functions, and -s strips the
+  # symbols. The standard library paths in the wasm are /rustc/<commit> and do not
+  # vary, but the registry path does, so the remap writes it in the form the
+  # deployed build had. The tests read the shared vectors in ../vectors.
+  near-v2:
+    name: Contracts (near/prime-near-signer-v2)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: contracts/prime/near/prime-near-signer-v2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (pinned in rust-toolchain.toml)
+        run: |
+          rustup toolchain install
+          rustup target add wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contracts/prime/near/prime-near-signer-v2
+
+      - name: Format check
+        run: cargo fmt --check
+
+      - name: Lint (clippy)
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build (wasm)
+        run: |
+          registry="${CARGO_HOME:-$HOME/.cargo}/registry/src"
+          RUSTFLAGS="-C link-arg=-s --cfg near --remap-path-prefix=${registry}=/home/ubuntu/.cargo/registry/src" \
+            cargo build --release --locked --target wasm32-unknown-unknown
+
+      - name: Build parity
+        run: ../../check-build-hash.sh near/prime-near-signer-v2 target/wasm32-unknown-unknown/release/prime_near_signer_v2.wasm
+
+  # The shared vectors of prime-near-signer v2. The generator computes every text,
+  # key path and hash with viem, @stellar/stellar-sdk, @solana/web3.js and @noble,
+  # not with the contract's code; this regenerates requests.json and requires the
+  # committed file byte for byte. Its lockfile was written by Bun 1.4, which 1.3
+  # cannot read as frozen, so this job runs 1.4.2.
+  near-vectors:
+    name: TypeScript (near/vectors)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: contracts/prime/near/vectors/generator
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Regenerate and compare
+        run: |
+          bun gen.ts "$RUNNER_TEMP/requests.json"
+          cmp "$RUNNER_TEMP/requests.json" ../requests.json
 
   # The Prime app's checks around a gate-owned token account. They carry their own
   # dependencies and lockfile: the root bunfig.toml limits bun test to packages/.

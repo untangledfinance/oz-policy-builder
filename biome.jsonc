@@ -20,6 +20,9 @@
       "!packages/policy-synth/fixtures/parity",
       // Recorded JSON-RPC responses (OPB_LIVE=1 rewrites them).
       "!packages/policy-synth/fixtures/rpc",
+      // Written by contracts/prime/near/vectors/generator (one-space indent, as JSON.stringify
+      // writes it). Regenerating must give the same bytes, so the formatter keeps out.
+      "!contracts/prime/near/vectors/requests.json",
       "!agents",
       // Archived evidence of the Prime session refinement: harnesses, logs and testnet records
       // kept byte-for-byte as they ran, so the results they back stay reproducible. Linting or

@@ -1,0 +1,15 @@
+{
+  "name": "prime-near-signer-vectors",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "bun gen.ts ../requests.json"
+  },
+  "dependencies": {
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
+    "@solana/web3.js": "1.99.0",
+    "@stellar/stellar-sdk": "14.6.1",
+    "viem": "2.57.3"
+  }
+}
