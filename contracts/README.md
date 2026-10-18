@@ -1,6 +1,6 @@
 # Prime contracts
 
-This folder holds every contract behind a Prime account, one folder per chain. The Stellar folder has the OctoGate contracts (custody gate, execution adapter, policy interpreter) and the Stellar session signer. The EVM, Solana and NEAR folders hold the session contracts that let a wallet start a session key on each chain. The round-9 design record ([ARCHITECTURE.md](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/ARCHITECTURE.md)) is kept at tag `archive/spike-final`, and [spike/](spike/) is the evidence bundle with the harnesses, logs and testnet records behind it.
+This folder holds every contract behind a Prime account, one folder per chain. The Stellar folder has the OctoGate contracts (custody gate, execution adapter, policy interpreter) and the Stellar session signer. The EVM, Solana and NEAR folders hold the session contracts that let a wallet start a session key on each chain. The round-9 design record ([ARCHITECTURE.md](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/ARCHITECTURE.md)) and the evidence bundle behind it ([spike/](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike), with the harnesses, logs and testnet records) are kept at tag `archive/spike-final`.
 
 ## Layout
 
@@ -9,7 +9,6 @@ contracts/
   README.md
   build-hashes.json             build hashes that CI compares against
   check-build-hash.sh           the comparison CI runs
-  spike/                        evidence bundle: harnesses, logs, testnet records
   stellar/
     prime-session/              session signer on an OZ smart account (new code)
     custody-gate/               OctoGate: the custody account's gate
@@ -80,7 +79,7 @@ Every result below was measured on 9 October 2026 after the move into this folde
 
 ### EVM
 
-Foundry 1.8.4, Solidity 0.8.28 with the optimizer at 200 runs. The contract imports three OpenZeppelin Contracts 5.4.0 files (`ECDSA`, `MessageHashUtils`, `Strings`), mapped by `foundry.toml` to `lib/oz/`. `lib/` stays out of git, as in the spike bundle. Unpack the package once:
+Foundry 1.8.4, Solidity 0.8.28 with the optimizer at 200 runs. The contract imports three OpenZeppelin Contracts 5.4.0 files (`ECDSA`, `MessageHashUtils`, `Strings`), mapped by `foundry.toml` to `lib/oz/`. `lib/` stays out of git. Unpack the package once:
 
 ```sh
 npm pack @openzeppelin/contracts@5.4.0
@@ -92,7 +91,7 @@ mkdir -p lib/oz && cp -r package/utils package/interfaces lib/oz/
 
 Both programs build with the Solana CLI on `PATH` (4.3.0, `cargo-build-sbf` with platform tools v1.57 and rustc 1.95.0). `PRIME_CLUSTER` is a compile-time string that goes into the grant text a wallet signs, so each cluster gets its own `.so`. `custody-gate` is the gate-owned custody gate in its line-cut form (126 sLOC formatted, standard `solana_program`, Pinocchio not adopted) with the multisig length check, which refuses a token account posing as custody's multisig. The design and the setup guide are in [README-architecture.md](solana/README-architecture.md) and [SETUP-AND-RECOVERY.md](solana/SETUP-AND-RECOVERY.md).
 
-The gate harnesses live in the spike bundle, in [`spike/matrix/near-minimal/opt/gate/`](spike/matrix/near-minimal/opt/gate/). `run-validator.sh` there starts a local validator with its own ledger, the mainnet feature set, the mainnet Squads and Token-2022 builds and every gate build in `so/`. The mainnet dumps and fixture programs it loads stay out of git. The logs of the length-check run are in [`spike/matrix/near-minimal/round9/opt/gate/msfix/`](spike/matrix/near-minimal/round9/opt/gate/msfix/), and the independent review is [`gate-linecut-review.md`](spike/matrix/near-minimal/round9/opt/gate-linecut-review.md).
+The gate harnesses are in the spike bundle at tag `archive/spike-final`, in [`spike/matrix/near-minimal/opt/gate/`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike/matrix/near-minimal/opt/gate). `run-validator.sh` there starts a local validator with its own ledger, the mainnet feature set, the mainnet Squads and Token-2022 builds and every gate build in `so/`. The mainnet dumps and fixture programs it loads stay out of git. The logs of the length-check run are in [`spike/matrix/near-minimal/round9/opt/gate/msfix/`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/opt/gate/msfix), and the independent review of the line-cut build of 9 October 2026 is [`gate-linecut-review.md`](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/opt/gate-linecut-review.md) (archived).
 
 `app-checks/` holds the checks an app runs before funds move: mint extensions, the gate read-back and the setup transactions. It has its own `package.json` and lockfile (`@solana/web3.js` 1.99.0, `@solana/spl-token` 0.4.15). The root `bunfig.toml` limits `bun test` to `packages/`, so run `bun install --frozen-lockfile`, `bun run typecheck` and `bun test` from `app-checks/`.
 
@@ -110,10 +109,10 @@ The 9 October 2026 size pass changed sources on all four chains. Behaviour staye
 |---|---|---|
 | Stellar testnet | wasm `e36d155f…` | the new source builds the same wasm with `stellar contract build`, so the deployed instances run the new code |
 | NEAR testnet | `signer.prime-spike-muwguc60.testnet`, code hash `E6986kfXDAec5nZvuYiBiC3fmonHCrynwRCtd33s1U5u` | redeployed with the new build; the derived MPC keys are unchanged, `signer-neg.ts` passes 12/12 and the Solana session matrix passes 133/133 with real NEAR |
-| Solana devnet | gate [`6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz`](https://explorer.solana.com/address/6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz?cluster=devnet), session [`6JyReewxbo6D6UQNHEWWTXnC1CdBU8CqcQjoQbGNj9Ba`](https://explorer.solana.com/address/6JyReewxbo6D6UQNHEWWTXnC1CdBU8CqcQjoQbGNj9Ba?cluster=devnet) | both run the 9 October 2026 builds (`a5d19edb…` and `c8836361…`), each deployed with `--final` and `--max-len` equal to its size, and the on-chain code equals the `.so`. The session matrix passes 145/145 and the gate flow 84/84 on devnet, with a second session program id `GLabPwsshHoaXMrHM6nHsHEkf51MFkKP86WCdRpXg3SD` for the two-program checks ([`round9/solana-devnet-sloc2/`](spike/matrix/near-minimal/round9/solana-devnet-sloc2/)). The first devnet builds are previous builds, and both are final too: gate `58L4q3DgvPdvRh7kX4v148EwEwd29WHh4RfaZJR69iYx` (`6d196cab…`, 84/84) and session `4tXCkZW255iZNT4gPHDuAbqR3eG8Zs3tRsgLRc1BoPRa` (`8db245ab…`, 136/136) |
+| Solana devnet | gate [`6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz`](https://explorer.solana.com/address/6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz?cluster=devnet), session [`6JyReewxbo6D6UQNHEWWTXnC1CdBU8CqcQjoQbGNj9Ba`](https://explorer.solana.com/address/6JyReewxbo6D6UQNHEWWTXnC1CdBU8CqcQjoQbGNj9Ba?cluster=devnet) | both run the 9 October 2026 builds (`a5d19edb…` and `c8836361…`), each deployed with `--final` and `--max-len` equal to its size, and the on-chain code equals the `.so`. The session matrix passes 145/145 and the gate flow 84/84 on devnet, with a second session program id `GLabPwsshHoaXMrHM6nHsHEkf51MFkKP86WCdRpXg3SD` for the two-program checks ([`round9/solana-devnet-sloc2/`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/solana-devnet-sloc2)). The first devnet builds are previous builds, and both are final too: gate `58L4q3DgvPdvRh7kX4v148EwEwd29WHh4RfaZJR69iYx` (`6d196cab…`, 84/84) and session `4tXCkZW255iZNT4gPHDuAbqR3eG8Zs3tRsgLRc1BoPRa` (`8db245ab…`, 136/136) |
 | EVM | Base Sepolia fork | the new `PrimeSession` passes the 134-check matrix on a fork; the live run waits for relayer funds |
 
-The size pass is documented in [`spike/matrix/near-minimal/round9/sloc2/`](spike/matrix/near-minimal/round9/sloc2/): the mutation scripts, the differential harnesses and the logs.
+The size pass is documented in [`spike/matrix/near-minimal/round9/sloc2/`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/sloc2): the mutation scripts, the differential harnesses and the logs.
 
 ## Seats of NEAR-routed owners
 
@@ -162,4 +161,4 @@ The records are `deployments/grammar6-testnet.json`, `deployments/execution-test
 | `TypeScript (near/vectors)` | Bun 1.4.2 (the generator's lockfile needs it), `bun gen.ts`, and the output against `requests.json` byte for byte |
 | `TypeScript (solana/custody-gate/app-checks)` | `bun install --frozen-lockfile`, `tsc --strict`, `bun test` |
 
-`build-hashes.json` holds the hashes CI compares. Change an entry in the same commit as the source it covers. The NEAR signer has no format check: its source packs several statements per line, and the sections above state its size after `rustfmt` (42 lines, 22 as written). The `spike/` folder is archived evidence and sits outside the repo's biome run (`biome.jsonc` says why).
+`build-hashes.json` holds the hashes CI compares. Change an entry in the same commit as the source it covers. The NEAR signer has no format check: its source packs several statements per line, and the sections above state its size after `rustfmt` (42 lines, 22 as written).

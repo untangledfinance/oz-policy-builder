@@ -1,1 +1,0 @@
-{api:'hana', url:'http://localhost:8801/stellar.html', labels:[/^Authorize/,/^Enable$/,/^Approve/,/^Sign/,/^Confirm/,/^Allow/,/^Continue/,/^Accept/], skip:/main\.html/, openPopup:'popup.html', timeout:90000, steps:['connect','near','grant','vote','tx']}
