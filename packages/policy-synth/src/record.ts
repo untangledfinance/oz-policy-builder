@@ -2,8 +2,15 @@
 // as XDR) decoded into the calls it authorises. Nothing is inferred here; what a
 // call MEANS is `synth.ts` and the registry's business.
 
-import { Address, encodeMuxedAccountToAddress, type rpc, xdr } from '@stellar/stellar-sdk'
-import type { Network } from './config.ts'
+import {
+  Address,
+  encodeMuxedAccountToAddress,
+  FeeBumpTransaction,
+  type rpc,
+  TransactionBuilder,
+  xdr,
+} from '@stellar/stellar-sdk'
+import { type Network, PASSPHRASE } from './config.ts'
 import { Refusal } from './envelope.ts'
 import { fromScVal, type Val } from './wire.ts'
 
@@ -115,5 +122,17 @@ export async function recordHash(
       `transaction ${hash} failed on chain: it is not a flow that happened`
     )
   }
-  return decodeEnvelope(tx.envelopeXdr.toXDR('base64'), network, tx.ledger)
+  const b64 = tx.envelopeXdr.toXDR('base64')
+  // The RPC chooses the envelope it returns. Hash it under this network and require the hash asked
+  // for (a fee bump also answers to its inner transaction's hash), so a recording is of that flow.
+  const t = TransactionBuilder.fromXDR(b64, PASSPHRASE[network])
+  const hashes = [t.hash().toString('hex')]
+  if (t instanceof FeeBumpTransaction) hashes.push(t.innerTransaction.hash().toString('hex'))
+  if (!hashes.includes(hash.toLowerCase())) {
+    throw new Refusal(
+      'RECORDING_FAILED',
+      `the RPC answered transaction ${hash} with an envelope whose hash on ${network} is ${hashes[0]}: the answer is not trusted`
+    )
+  }
+  return decodeEnvelope(b64, network, tx.ledger)
 }

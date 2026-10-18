@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from 'bun:test'
 import { createHash } from 'node:crypto'
-import { TransactionBuilder } from '@stellar/stellar-sdk'
+import { Address, nativeToScVal, TransactionBuilder, xdr } from '@stellar/stellar-sdk'
 import { account, contract } from '../test/fixtures.ts'
 import { recorded } from '../test/rpc.ts'
 import { connect, interpreterFor } from './chain.ts'
@@ -160,6 +160,81 @@ describe('buildInstall and buildRevoke, on a live account', () => {
     const ok = await buildRevoke(args, 1)
     expect(ok.describes).toEqual({ contract: ACCOUNT, fn: 'remove_context_rule', args: [1] })
     await expect(buildRevoke(args, 99)).rejects.toThrow(/#3000/)
+  })
+
+  // The account signs `rootInvocation` as the simulation reported it, so an RPC that adds a call
+  // (a token transfer under the install) or swaps the call would have it signed under the review
+  // of `add_context_rule`. The build compares the reported tree with the call it built.
+  describe('the authorised call is the call that was built', () => {
+    const tampered = (
+      edit: (root: xdr.SorobanAuthorizedInvocation) => xdr.SorobanAuthorizedInvocation
+    ) =>
+      new Proxy(server, {
+        get(target, prop, receiver) {
+          if (prop !== 'simulateTransaction') return Reflect.get(target, prop, receiver)
+          return async (t: Parameters<typeof server.simulateTransaction>[0]) => {
+            const sim = await target.simulateTransaction(t)
+            const auth = 'result' in sim ? sim.result?.auth : undefined
+            const e = auth?.find(
+              (x) => x.credentials().switch().name === 'sorobanCredentialsAddress'
+            )
+            if (e) e.rootInvocation(edit(e.rootInvocation()))
+            return sim
+          }
+        },
+      })
+    const transfer = new xdr.SorobanAuthorizedInvocation({
+      function: xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
+        new xdr.InvokeContractArgs({
+          contractAddress: new Address(TOKEN).toScAddress(),
+          functionName: 'transfer',
+          args: [
+            new Address(ACCOUNT).toScVal(),
+            new Address(SIGNER).toScVal(),
+            nativeToScVal(10n ** 12n, { type: 'i128' }),
+          ],
+        })
+      ),
+      subInvocations: [],
+    })
+
+    it('refuses a sub-invocation the simulation adds under the call', async () => {
+      const lying = tampered(
+        (root) =>
+          new xdr.SorobanAuthorizedInvocation({
+            function: root.function(),
+            subInvocations: [transfer],
+          })
+      )
+      await expect(
+        buildInstall({ ...args, server: lying }, draft({ name: 'cap-500', nonce: 1 }), INTERP)
+      ).rejects.toThrow(/authorise.*other than|sub-invocation/)
+    })
+
+    it('refuses a root invocation that is another call', async () => {
+      const lying = tampered(() => transfer)
+      await expect(
+        buildInstall({ ...args, server: lying }, draft({ name: 'cap-500', nonce: 1 }), INTERP)
+      ).rejects.toThrow(/authorise.*other than/)
+    })
+
+    it('refuses the same function with other arguments (a different rule)', async () => {
+      const lying = tampered((root) => {
+        const f = root.function().contractFn()
+        const other = new xdr.InvokeContractArgs({
+          contractAddress: f.contractAddress(),
+          functionName: f.functionName(),
+          args: [...f.args().slice(0, 1), xdr.ScVal.scvString('other'), ...f.args().slice(2)],
+        })
+        return new xdr.SorobanAuthorizedInvocation({
+          function: xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(other),
+          subInvocations: [],
+        })
+      })
+      await expect(
+        buildInstall({ ...args, server: lying }, draft({ name: 'cap-500', nonce: 1 }), INTERP)
+      ).rejects.toThrow(/authorise.*other than/)
+    })
   })
 })
 

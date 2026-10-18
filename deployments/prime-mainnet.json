@@ -25,5 +25,23 @@
     "extend interpreter instance to ~3109400 ledgers ahead": "0975749caf2f42a4fb4ebcd0837f8da021afd1a3909cb84fef19cc439c358abc"
   },
   "feesChargedXlm": "158.3607754",
-  "note": "Linux builds through each build-wasm.sh, rebuilt by CI. The Prime app pins the gate and adapter hashes and this interpreter instance for mainnet. The OZ account code (91a2cd56) was not extended in this run. No job keeps mainnet entries live; the next transaction that needs an archived entry should restore it, and its submitter pays (measured only for creating a setup, on testnet)."
+  "note": "Linux builds through each build-wasm.sh, rebuilt by CI. The Prime app pins the gate and adapter hashes and this interpreter instance for mainnet. The OZ account code (91a2cd56) was not extended in this run. No job keeps mainnet entries live; the next transaction that needs an archived entry should restore it, and its submitter pays (measured only for creating a setup, on testnet). The execution-adapter code in this record, 68d012e7\u2026, is the build that gates created before 11 October 2026 pin; the current build is in updates.",
+  "updates": [
+    {
+      "recorded": "2026-10-11T17:12:12Z",
+      "wasmSha256": {
+        "execution-adapter": "3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3"
+      },
+      "sizes": {
+        "execution-adapter": 24118
+      },
+      "transactions": {
+        "upload execution-adapter": "23c83e44e7a18f7b414afa8e57b26d3af3868514f589cca6f4bcd4383585c59e",
+        "extend execution-adapter code to ~3109400 ledgers ahead": "b2b0e26f845313075118606adf794a2d387ac0f7a3d73799fa24b9ddcd9aba48"
+      },
+      "feesChargedXlm": "47.7635090",
+      "codeLiveUntilLedger": 67999990,
+      "note": "Code only. Linux build through contracts/execution-adapter/build-wasm.sh, rebuilt by CI. Each Prime creates its own adapter instance from this code."
+    }
+  ]
 }

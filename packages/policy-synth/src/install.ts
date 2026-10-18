@@ -209,6 +209,21 @@ export async function buildSelfCall(
       code,
       `${fn}: no auth entry for ${a.smartAccount}; the call does not route through the smart account`
     )
+  // The account signs this tree as the RPC reported it, and the review describes only the built
+  // call. So the tree must be that call alone: the same contract, function and arguments, with
+  // nothing under it. An RPC that adds a sub-invocation (a transfer out) or swaps the call is refused.
+  const root = original.rootInvocation()
+  const built = op().body().invokeHostFunctionOp().hostFunction().invokeContract()
+  const same =
+    root.function().switch().name === 'sorobanAuthorizedFunctionTypeContractFn' &&
+    root.function().contractFn().toXDR('base64') === built.toXDR('base64')
+  if (!same || root.subInvocations().length > 0)
+    throw new Refusal(
+      code,
+      `${fn}: the simulation asked ${a.smartAccount} to authorise something other than this call (${
+        same ? `${root.subInvocations().length} sub-invocation(s) under it` : 'another call'
+      }); the RPC answer is not trusted`
+    )
   // The simulation reports the ledger it ran at: no separate (and heavy) latest-ledger call.
   const until = recorded.latestLedger + AUTH_LEDGERS
   const creds = original.credentials().address()
