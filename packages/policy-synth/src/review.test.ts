@@ -56,10 +56,13 @@ const server = connect(net.endpoint)
 const args = { server, network: 'testnet' as const, smartAccount: ACCOUNT, sourceAccount: SIGNER }
 
 let built: Built | undefined
-const install = async () => {
-  built ??= await buildInstall(args, draft(), INTERP)
-  return built
-}
+const install = Object.assign(
+  async () => {
+    built ??= await buildInstall(args, draft(), INTERP)
+    return built
+  },
+  { done: undefined as string | undefined }
+)
 
 /** The same envelope with one edit. */
 const edit = (b64: string, f: (env: xdr.TransactionEnvelope) => void): string => {
@@ -252,6 +255,75 @@ describe('reviewUnsigned: an honest build, read back from its bytes', () => {
       setSystemTime()
       at(1_900)
       expect(review(b.unsignedXdr).problems.join('\n')).toMatch(/time bound has passed/)
+    })
+  })
+
+  it('an envelope that already carries a signature is a problem: the review is of unsigned bytes', async () => {
+    const b = await install()
+    const tx = TransactionBuilder.fromXDR(b.unsignedXdr, PASSPHRASE.testnet)
+    tx.sign(Keypair.random())
+    const r = review(tx.toEnvelope().toXDR('base64'))
+    expect(r.signable).toBe(false)
+    expect(r.problems.join('\n')).toMatch(/already carries 1 signature/)
+    const sealed = edit(b.unsignedXdr, (env) => {
+      accountEntry(env)
+        .credentials()
+        .address()
+        .signature(
+          toScVal({
+            map: [
+              ['context_rule_ids', [0]],
+              ['signers', { map: [[['Delegated', SIGNER], { bytes: 'ab'.repeat(64) }]] }],
+            ],
+          })
+        )
+      resign(env)
+    })
+    expect(review(sealed).problems.join('\n')).toMatch(/already carries a signature for/)
+  })
+
+  describe('a contract signer: what it runs is not in the bytes', () => {
+    const NULL_ADAPTER = contract(21)
+    const asSigner = (who: string) =>
+      edit(install.done as string, (env) => {
+        callArgs(env).args()[3] = toScVal([['Delegated', who]])
+        resign(env)
+      })
+
+    it('without what the chain says of it, a contract signer is a problem', async () => {
+      install.done = (await install()).unsignedXdr
+      const r = review(asSigner(NULL_ADAPTER))
+      expect(r.signable).toBe(false)
+      expect(r.problems.join('\n')).toMatch(
+        new RegExp(`signer ${NULL_ADAPTER} is a contract, and what it runs is not in the bytes`)
+      )
+    })
+
+    it.each([
+      ['null-gate adapter', /execution adapter bound to no gate/],
+      ['absent', /is not deployed/],
+    ] as const)('a contract the chain shows as %s is a problem', async (kind, why) => {
+      install.done = (await install()).unsignedXdr
+      const r = reviewUnsigned({
+        network: 'testnet',
+        xdr: asSigner(NULL_ADAPTER),
+        smartAccount: ACCOUNT,
+        contracts: { [NULL_ADAPTER]: kind },
+      })
+      expect(r.signable).toBe(false)
+      expect(r.problems.join('\n')).toMatch(why)
+    })
+
+    it('a contract the chain shows as anything else is no problem; a G signer needs no facts', async () => {
+      install.done = (await install()).unsignedXdr
+      const r = reviewUnsigned({
+        network: 'testnet',
+        xdr: asSigner(NULL_ADAPTER),
+        smartAccount: ACCOUNT,
+        contracts: { [NULL_ADAPTER]: 'contract' },
+      })
+      expect(r.problems).toEqual([])
+      expect(review(asSigner(OTHER)).problems).toEqual([])
     })
   })
 

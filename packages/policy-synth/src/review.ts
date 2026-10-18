@@ -20,6 +20,7 @@ import {
   tree,
   type View,
 } from './card.ts'
+import type { ContractKind } from './chain.ts'
 import {
   authLedgers,
   CLOCK_SKEW,
@@ -35,7 +36,7 @@ import {
   thresholdAddress,
 } from './config.ts'
 import { messageOf, Refusal } from './envelope.ts'
-import { digest, xlm } from './install.ts'
+import { digest, NULL_ADAPTER_SIGNER, xlm } from './install.ts'
 import {
   CEILINGS,
   decode,
@@ -87,6 +88,9 @@ export function reviewUnsigned(i: {
   /** The account the owner means to change: any other is a problem. */
   smartAccount?: string | undefined
   raw?: boolean | undefined
+  /** What each contract signer is, as the caller read it off the ledger (`contractKinds`). Without
+   *  it, what a contract signer runs is not in the bytes, so each one is a problem. */
+  contracts?: Record<string, ContractKind> | undefined
 }): UnsignedReview {
   const { network } = i
   let env: Transaction | FeeBumpTransaction
@@ -133,6 +137,10 @@ export function reviewUnsigned(i: {
   else if (i.smartAccount !== account)
     flag(`it changes ${account}, not the account under review ${i.smartAccount}`)
   if (op.sourceAccount()) flag('the operation names a source account of its own')
+  if (tx.signatures.length > 0)
+    flag(
+      `it already carries ${tx.signatures.length} signature(s): this is a review of unsigned bytes, and a signed envelope can be submitted by whoever holds it`
+    )
   if (tx.memo.type !== 'none') flag('it carries a memo, which the builder never sets')
   const cond = body.cond().switch().name
   if ((cond !== 'precondTime' && cond !== 'precondNone') || Number(tx.timeBounds?.minTime ?? 0) > 0)
@@ -181,9 +189,16 @@ export function reviewUnsigned(i: {
       validUntilLedger: c.signatureExpirationLedger(),
       contextRuleIds,
     }
-    const named = (isMap(payload.signers) ? payload.signers.map : []).map(([k]) => delegatedOf(k))
+    const pairs = isMap(payload.signers) ? payload.signers.map : []
+    const named = pairs.map(([k]) => delegatedOf(k))
     if (named.length !== 1 || named[0] !== tx.source)
       flag('the authorisation names a signer other than the transaction source alone')
+    // The source signs through its own entry, so the account's payload carries no signature bytes.
+    const sealed = pairs.filter(([, v]) => (v as { bytes?: string })?.bytes !== '')
+    if (sealed.length > 0)
+      flag(
+        `the account's authorisation already carries a signature for ${sealed.map(([k]) => delegatedOf(k) ?? 'a signer').join(', ')}`
+      )
     const check = source[0]
     const fn = check && fnOf(check.rootInvocation())
     const sent = fn?.args()[0]
@@ -268,6 +283,16 @@ export function reviewUnsigned(i: {
   if (call.fn === 'add_context_rule') {
     const r = ruleOf(call.args, network, account, flag)
     if (r) {
+      for (const s of r.authority.signers.filter((x) => x.startsWith('C'))) {
+        const kind = i.contracts?.[s]
+        if (kind === undefined)
+          flag(
+            `signer ${s} is a contract, and what it runs is not in the bytes (an execution adapter bound to no gate would let an agent spend past its caps); review with readContracts`
+          )
+        else if (kind === 'null-gate adapter') flag(NULL_ADAPTER_SIGNER(s))
+        else if (kind === 'absent')
+          flag(`signer ${s} is not deployed, so what it will run cannot be checked`)
+      }
       for (const a of r.authority.admins ?? []) roles[a] ??= 'admin'
       for (const s of r.authority.signers) roles[s] ??= 'signer'
       out.authority = r.authority

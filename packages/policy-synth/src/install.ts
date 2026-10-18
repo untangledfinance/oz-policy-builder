@@ -20,7 +20,14 @@ import {
   TransactionBuilder,
   xdr,
 } from '@stellar/stellar-sdk'
-import { type Fingerprint, interpreterFor, mismatch, reasonOf, txOf } from './chain.ts'
+import {
+  type ContractKind,
+  type Fingerprint,
+  interpreterFor,
+  mismatch,
+  reasonOf,
+  txOf,
+} from './chain.ts'
 import {
   authLedgers,
   GRAMMAR_VERSION,
@@ -352,6 +359,10 @@ export const buildInstall = (a: BuildArgs, d: RuleDraft, interpreter: string) =>
 export const buildRevoke = (a: BuildArgs, ruleId: number) =>
   buildSelfCall(a, 'remove_context_rule', [ruleId], 'REVOKE_BUILD_FAILED')
 
+/** Why a rule an execution adapter with no gate signs is refused (the review of #26, P4). */
+export const NULL_ADAPTER_SIGNER = (signer: string) =>
+  `signer ${signer} is an execution adapter bound to no gate: whoever the account lets call its execute (an agent) could cite this rule for a call the adapter makes, and move the account's funds past that agent's own capped rules`
+
 // ---- the overrides ----
 
 /** The inputs that waive a refusal. An agent could read one off a refusal and set it, so no refusal
@@ -471,6 +482,8 @@ export interface Chain {
   build: (draft: RuleDraft, interpreter: string) => Promise<Built>
   /** Whether a contract is shown to be a SEP-41 token. */
   token: (contract: string) => Promise<boolean>
+  /** What each contract signer is, read off the ledger. */
+  contracts: (addresses: string[]) => Promise<Record<string, ContractKind>>
 }
 
 /** Every refusal an install can meet, in the order a reader should hear of them:
@@ -554,10 +567,11 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
         `spendingLimit: ${rule.contract} is not shown to be a token (a Stellar Asset Contract, or transfer(from, to, amount: i128) in its spec); retry if the network was slow`
       )
   }
-  // The three do not depend on each other, so they run together; what each found is
+  // The four do not depend on each other, so they run together; what each found is
   // judged in a fixed order, so the same input is refused for the same reason.
-  const [live, scan, built] = await Promise.allSettled([
+  const [live, kinds, scan, built] = await Promise.allSettled([
     chain.fingerprint(interpreter),
+    chain.contracts(i.signers.filter((s) => s.startsWith('C'))),
     chain.readRules(i.smartAccount, interpreter),
     chain.build(draft, interpreter),
   ])
@@ -567,6 +581,14 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   }
   const fingerprint = got(live)
   if (!fingerprint.matches) throw mismatch(fingerprint)
+  // No override waives these: the owners cannot see from the rule what a contract signer will do.
+  for (const [signer, kind] of Object.entries(got(kinds))) {
+    if (kind === 'null-gate adapter') throw no(NULL_ADAPTER_SIGNER(signer))
+    if (kind === 'absent')
+      throw no(
+        `signer ${signer} is not deployed, so what it will run cannot be checked; deploy it before a rule names it`
+      )
+  }
   const read = got(scan)
   const found = overlaps({ ...draft, expr: rule.expr }, read.rules, interpreter, i.network)
   const refused = found.filter((o: Overlap) => o.severity === 'refuse')
