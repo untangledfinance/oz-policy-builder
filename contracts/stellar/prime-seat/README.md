@@ -44,7 +44,7 @@ Invariants the app checks on read-back:
 - The weighted threshold equals K, and the simple threshold equals M.
 - Every seat reads back with the stored account and owner equal to the offline values, and runs the pinned wasm.
 
-Seats alone sum to less than K, so every M-of-N decision carries a signature from a native Stellar wallet. When a seat is added, raise the native weights and the threshold first, then set the new seat's weight. Each step is a native-signed decision.
+Seats alone sum to less than K, so every M-of-N decision carries a signature from a native Stellar wallet. A seat added after creation sits at weight 0, because the account cannot change its rule-0 weights or thresholds (contract re-entry). Changing M or K, or adding a native owner, needs a new account.
 
 ## Rules that list a seat
 
@@ -63,7 +63,7 @@ A rule with the interpreter predicate bounds the session on chain. A `CallContra
 
 ## Notes for the relayer
 
-- A grant needs no authorization entry, and when an identical copy is submitted twice, the first to land sets the state. The second submitter gets contract error #1. Read the stored end before reporting a failure.
+- A grant needs no authorization entry, and when an identical copy is submitted twice, the first to be applied sets the state. The second submitter gets contract error #1. Read the stored end before reporting a failure.
 - Extend the seat's instance and code TTL with `ExtendFootprintTTL`. A grant does not.
 
 ## Build and checks

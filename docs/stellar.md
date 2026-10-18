@@ -1,11 +1,17 @@
 # Prime on Stellar: technical detail
 
 On Stellar, Prime runs on our own Soroban contracts: the custody gate, the
-execution adapter and the policy interpreter. They live in `contracts/stellar/` in
-this repository, with the tooling in `packages/` and `scripts/`; the Prime app
-drives them.
-[architecture.md](architecture.md) covers the use case and the three-step setup
-in plain terms.
+execution adapter and the policy interpreter (together called OctoGate), and
+`prime-seat`, the seat of an owner whose wallet lives on another chain. They
+live in `contracts/stellar/` in this repository, with the tooling in
+`packages/` and `scripts/`; the Prime app drives them. The Prime account itself
+is an OpenZeppelin smart account.
+[architecture.md](architecture.md) covers the use case and how Stellar fits with
+the other chains.
+
+Mainnet runs the grammar-6 interpreter, built from the `main` branch. This
+branch holds the grammar-7 source, which runs on testnet only. Where the two
+differ, this page says which one it describes.
 
 ## The use case and the setup
 
@@ -28,7 +34,7 @@ The setup we tested, and the one the app builds:
 | Custody gate | `contracts/stellar/custody-gate`, deployed by the custody account itself. Holds the allowance, answers to one caller running one build, releases only to listed addresses. |
 | Prime account | An OpenZeppelin smart account with **3 signers, any 2 of which approve**. Holds no funds. |
 | Execution adapter | `contracts/stellar/execution-adapter`, one per Prime, bound to one gate. Runs a batch of calls in one transaction, at once or after a wait. |
-| Policy interpreter | `contracts/stellar/policy-interpreter`, grammar 6. Evaluates the mandate on every call a band rule authorises. |
+| Policy interpreter | `contracts/stellar/policy-interpreter`. The custody setups on mainnet and in the Prime app use grammar 6. Evaluates the mandate on every call a band rule authorises. |
 | Agent | A signer on the band rules only; rule 0 holds the three Prime signers. Under a band's top it acts alone; a larger move uses a high-band rule that also needs a second approver. |
 
 ## Components
@@ -117,8 +123,10 @@ calls atomically. It has one rule: **a batch may not mention an address the
 gate does not name.** Before any call runs, it checks:
 
 - every call target;
-- every argument, however deeply nested, including 32-byte and 56-byte values
-  that could be read back as an address;
+- every argument, however deeply nested, including data that could be read
+  back as an address: 32 bytes (a raw key or contract id), 56 (a strkey), 40, 44
+  and 48 (the XDR of a contract, account or muxed address) and 69 (a muxed `M`
+  strkey);
 - every authorisation it is about to hand out as itself.
 
 It also refuses:
@@ -137,7 +145,7 @@ that cannot answer `custody()`.
 
 ### The wait
 
-A batch can wait a number of ledgers before it runs. The Prime app sets new
+A batch can wait before it runs, counted in ledgers. The Prime app sets new
 gates up for this adapter; pairs made with the v3 adapter keep working, and its
 source is at tag `archive/execution-adapter-v3`.
 
@@ -341,7 +349,7 @@ first, which `read` ends, and adds the following.
   read-only call, so those contracts must be ones the owner trusts, ideally
   immutable; a read cannot target a contract already on the call stack (the
   host refuses re-entry and the read denies); a simulation must carry real
-  signatures so the reads' ledger entries land in the footprint. A read
+  signatures so the reads' ledger entries end up in the footprint. A read
   sees the state at the moment the account's authorisation is checked, after
   anything the submitter ran earlier in the same transaction and before the
   calls the authorisation covers. Read only values the submitter cannot move
@@ -378,6 +386,87 @@ does not see what a transaction moved, keep rolling totals or count calls
 (grammar 7 can read the ledger clock and the contracts its predicate lists, as
 above). Amount
 limits over time come from the allowance and its expiry.
+
+## Owners and seats
+
+The Prime account's owners are the signers of its rule 0. An owner whose wallet
+is a Stellar wallet (Freighter or Hana, which sign Soroban authorization
+entries) is a native `G…` account and signs
+each decision in its wallet. An owner whose wallet lives on another chain
+(MetaMask, Phantom) has no Stellar account. It gets a seat: a `prime-seat`
+contract deployed for that owner and that account, whose owner key is an
+ed25519 key the NEAR MPC holds. Since the move-only session was withdrawn on
+12 October 2026, a seat is the only place a session key exists on Stellar.
+
+`contracts/stellar/prime-seat/src/lib.rs`, 99 formatted sLOC. The constructor
+stores the account's 32-byte contract id and the owner key, and nothing changes
+them.
+
+| Function | What it does |
+|---|---|
+| `grant(key, start, end, by, sig)` | Starts, extends or ends a session. The owner signs `sha256("prime-seat-grant" ‖ network id ‖ account ‖ seat ‖ key ‖ be64 start ‖ be64 end)`; with `end` 0 the owner or the key itself signs an end, and an ended key never returns. A grant needs `start <= now <= end`, at most 604,800 seconds, and an end later than the stored one. Anyone may submit it |
+| `verify(hash, key_data, proof)` | The `External` signer interface, used in rule 0 only. `key_data` must be the account's id, and the proof is a live session key's signature over `sha256(seat ‖ hash)` with the digest's preimage |
+| `__check_auth(payload, (key, sig, preimage), contexts)` | The `Delegated` signer interface, used in rules other than rule 0. The first context must be a call on the stored account whose first argument is the account's digest, with only non-zero rule ids |
+| `batch_canonicalize_key(keys)` | One constant per seat, so the account refuses a second `External` entry for the same seat |
+
+The deployed account (`91a2cd56…`) signs `sha256(payload ‖ XDR(rule ids))`.
+The seat checks the preimage against the digest and reads the rule ids from it:
+`External(seat, account id)` passes only when every id is 0, and
+`Delegated(seat)` only when no id is 0. A rule 0 holding `Delegated(seat)`
+beside `External(seat)` therefore cannot let one session pass rule 0 alone.
+Grants live in temporary storage at the maximum TTL; every use compares the
+stored end with the ledger timestamp.
+
+**Rule 0 layout:** each native account sits in rule 0 as `Delegated(G)` and
+each seat as `External(seat, account id)`, under two policies installed
+together: `simple_threshold` M (the approvals the owners agreed) and
+`weighted_threshold` with every native account at weight K, every seat at
+weight 1, and threshold K, where K is the number of seats plus one. K is fixed
+when the account is created. A seat added later sits at weight 0: it counts
+toward M and never toward K. Seats alone sum below K, so every decision carries a signature from a native Stellar
+wallet, and the NEAR-routed owners supply the other approvals through their
+sessions. The app checks this layout on read-back
+([contracts/stellar/prime-seat/README.md](../contracts/stellar/prime-seat/README.md)
+lists every invariant).
+
+**Rules that list a seat:** besides rule 0, a seat may sit in a
+`CallContract(X)` rule as `Delegated(seat)` with the policy-interpreter
+predicate, where X is a contract other than the account, its policy contracts
+and the seats. There the session acts alone inside what the predicate allows. A
+seat counts as one signer, so a rule with `simple_threshold` 2 over a native
+account and a seat needs both.
+
+### Changing who signs a policed rule
+
+The first three hold for every interpreter version deployed so far (grammars 3
+to 7): the signer hash, the admin check on `uninstall` and the `External`
+refusal were in the interpreter's first commit (`da568de`) and are still in
+`contracts/stellar/policy-interpreter/src/lib.rs`.
+
+- **The interpreter pins a rule's signers:** `install` stores a hash of the
+  rule's signer set, and `enforce` refuses with error 204
+  (`RuleSignersChanged`) once the set differs. `remove_signer` or `add_signer`
+  on a policed rule leaves that rule refusing every signer. To take a signer, a
+  seat included, out of a policed rule, add a new rule without it and then
+  remove the old one, or remove the policy, change the signers and add the
+  policy again with the policy admins' authorisation. The refusal fails safe: a removed signer gains nothing.
+- **`remove_context_rule` can leave an orphan interpreter entry:** the account
+  asks each policy to uninstall, and the interpreter's `uninstall` needs the
+  policy admins' own authorisation. When the transaction carries only the
+  rule-0 signatures, `uninstall` fails, the account removes the rule anyway,
+  and the interpreter's entry for `(account, rule id)` stays until it archives
+  (seen on testnet on 18 October 2026). The account gives every new rule a fresh
+  id, so the entry is never read again; it costs rent, and an admin can still call
+  `uninstall` directly.
+- **`External` signers are refused** in a policed rule and in its admin set
+  (error 212), so a seat joins a policed rule as `Delegated(seat)`.
+- **`Default` scope is refused** (error 218) by grammar 6 and 7. Grammar 7 also refuses a rule scoped to the account
+  itself or to the interpreter, with the same error.
+- **A seat cannot be a policy admin:** the admins authorise reinstall,
+  rotation and `uninstall` by `require_auth`, and a seat authorises only inside
+  its own account's `__check_auth`. A policy whose admins were seats could never
+  be changed or uninstalled. The rule itself can still be removed through
+  rule 0.
 
 ## Setting it up
 
@@ -464,20 +553,50 @@ The custody account can also cancel any stored move before it runs, with
 | The address rule against a real Prime and live Blend and Aquarius | `scripts/verify-execution-address-rule-testnet.ts`, testnet | All 35 checks passed against the adapter with no wait on 29 September 2026, on the Linux builds recorded in `deployments/execution-testnet.json` - the same results the v3 adapter gave. The log is `evidence/execution-address-rule-testnet.log`. A Blend supply, a withdrawal to custody and an Aquarius swap succeed. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put. |
 | The adapter's wait against a real Prime, the unchanged gate and live Blend | `scripts/verify-execution-wait-testnet.ts`, testnet | All 45 checks passed on 29 September 2026 on the Linux builds; the log is `evidence/execution-wait-testnet.log`. Succeeded:<br>• a Blend supply at once;<br>• a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role and no Prime signature;<br>• an agent's batch after the minimum wait its own rule demands.<br>Refused:<br>• the agent below that minimum, and the agent cancelling;<br>• the run rule used for an immediate `execute`, a stored batch or a `cancel`;<br>• a stranger cancelling;<br>• running early, twice, after a cancel, or after the run window;<br>• a wait below the adapter's floor;<br>• the Prime creating the adapter at custody's address with a lower floor or a longer window.<br>The Prime and custody both cancel. An agent's stored move still runs after its rule is removed; removing the run rule pauses a ready move; a move stored with a wait past the network minimum lives until its window closes, and using the adapter extends its own instance to ~30 days. |
 | The full scenario in the Prime app | the Prime app's Fordefi scenario guide, on beta against testnet | 10 XLM under the low band succeeds with the agent alone; 150 XLM under the low band is refused; 150 XLM under the high band succeeds after the admin approves. Custody's XLM fell by exactly 315, the sum of the moves less the withdrawal. |
-| Contract unit tests | `cargo test` in each crate | interpreter 151 (the conformance suite included), adapter 33, gate 3, run on 1 October 2026 |
+| Contract unit tests, grammar-6 source | `cargo test` in each crate on `main` | interpreter 151 (the conformance suite included), adapter 33, gate 3, run on 1 October 2026 |
+| Contract unit tests, this tree | `cargo test` in each crate (see [Build and test](#build-and-test)) | interpreter 397 and the release conformance run 18, adapter 45, gate 3, `prime-seat` 21, measured on 18 October 2026 |
+
+## Build and test
+
+Each crate is standalone (soroban-sdk 27, `wasm32v1-none`, Rust 1.97.1 from
+`rust-toolchain.toml`, stellar CLI 27.1.0). `build-wasm.sh` remaps the crate and
+registry paths, so its Linux build is the one behind every deployed and pinned
+hash; `stellar contract build` and macOS give other bytes.
+
+```sh
+( cd contracts/stellar/policy-interpreter && ./build-wasm.sh && cargo test )   # tests/worst_case.rs loads the wasm
+( cd contracts/stellar/policy-interpreter && cargo test --release --test conformance )
+( cd contracts/stellar/execution-adapter && ./build-wasm.sh && cargo test )
+( cd contracts/stellar/custody-gate && ./build-wasm.sh && cargo test )
+( cd contracts/stellar/prime-seat && ./build-wasm.sh && cargo test )
+```
+
+| Crate | `build-wasm.sh` sha256 | Recorded in | Tests (18 October 2026) |
+|---|---|---|---|
+| `policy-interpreter` (grammar 7) | `69cad1d5ce9aeaa0dad6980fd030e528935a0ebdd290111f393e9fd0564a68b0` | `deployments/grammar7-testnet.json` | 397, and 18 in the release conformance run |
+| `execution-adapter` | `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3` | `deployments/execution-testnet.json` | 45 |
+| `custody-gate` | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` | `deployments/execution-testnet.json` | 3 |
+| `prime-seat` | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | `contracts/build-hashes.json` | 21 |
+
+CI compares each hash with its record. The grammar-6 interpreter on mainnet
+(`5143e641…`) builds from `main`, and this branch's
+`scripts/deploy-grammar6-testnet.ts` refuses to run on the grammar-7 source.
 
 ## Deployments
 
 | | Network | Address or hash |
 |---|---|---|
 | Policy interpreter, grammar 6 (custody design) | testnet | `CDPR5VTX6R2ZPKREPD7FBW5ANVWXMVJIBIH2GMF36XPOFNMHRDIRUAZQ`, recorded in [`deployments/grammar6-testnet.json`](../deployments/grammar6-testnet.json) |
-| Execution adapter build | testnet | `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3`, the Linux build of `contracts/stellar/execution-adapter`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json) and rebuilt by CI. The Prime app pins it. It still recognises `32a8658a…` and `23a7b289…`, earlier builds of the same design that do not extend themselves, for gates set up with them. |
+| Execution adapter build | testnet and mainnet | `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3`, the Linux build of `contracts/stellar/execution-adapter`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json) and rebuilt by CI. Its code is uploaded on both networks (read back from mainnet on 18 October 2026; the mainnet upload is not in `deployments/prime-mainnet.json`), and the Prime app makes new gates for it on both. It refuses a recipient written as a muxed address. The app still recognises `eefcfdd7…`, `68d012e7…`, `32a8658a…` and `23a7b289…` for gates set up with them. |
 | Execution adapter v3 builds (earlier pairs) | - | `5be8b08eefe704970fbb51612ef4f6222df3d4b0f2ab6704544e761e3576e708` and `0e088421…`, still recognised by the app |
 | Custody gate build | testnet | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab`, the Linux build of `contracts/stellar/custody-gate`, recorded in the same file. Gates set up earlier run `2788f05b…`, the same design. |
 | Policy interpreter, grammar 7 (the 2.x packages' pin) | testnet | `CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT`, wasm `69cad1d5…`, deployed with reads 8, leaves 400, bytes 24,576, elems 32, `in` entries 32, depth 5. Recorded in [`deployments/grammar7-testnet.json`](../deployments/grammar7-testnet.json) and pinned in `packages/policy-synth/src/config.ts`. Three earlier grammar-7 instances are superseded, and 2.x refuses them |
 | Policy interpreter, grammar 4 (the 1.x packages' pin, npm `latest` 1.3.0) | mainnet and testnet | mainnet `CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52`, testnet `CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5` |
-| Policy interpreter, grammar 6 | mainnet | `CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R`, the Linux build `5143e641…` that CI rebuilds, created by `scripts/deploy-prime-mainnet.ts` and recorded in [`deployments/prime-mainnet.json`](../deployments/prime-mainnet.json) |
-| Execution adapter and custody gate builds | mainnet | `68d012e7…` and `b01024f3…`, the Linux builds recorded in [`deployments/prime-mainnet.json`](../deployments/prime-mainnet.json) (the gate is the testnet build; the adapter hash differs from the testnet record), uploaded by `scripts/deploy-prime-mainnet.ts` |
+| Policy interpreter, grammar 6 | mainnet | `CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R`, the Linux build `5143e641…` that the CI of `main` rebuilds, created by `scripts/deploy-prime-mainnet.ts` and recorded in [`deployments/prime-mainnet.json`](../deployments/prime-mainnet.json) |
+| Execution adapter and custody gate builds, 1 October 2026 | mainnet | `68d012e7…` and `b01024f3…`, the Linux builds recorded in [`deployments/prime-mainnet.json`](../deployments/prime-mainnet.json) and uploaded by `scripts/deploy-prime-mainnet.ts`. The gate is the testnet build. Setups made with `68d012e7` keep it, because a gate pins its adapter's build |
+| `prime-seat` build | testnet | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87`, recorded in [`contracts/build-hashes.json`](../contracts/build-hashes.json). The code is uploaded on testnet; the Prime app deploys one seat per NEAR-routed owner and account and pins this hash. No seat runs on mainnet |
+| OpenZeppelin smart account code | testnet and mainnet | `91a2cd56…`, the account code the Prime app deploys and the seat's digest check is tied to ([`deployments/oz-accounts.json`](../deployments/oz-accounts.json)) |
+| OpenZeppelin `simple_threshold`, `weighted_threshold`, `spending_limit` | testnet and mainnet | addresses in [`deployments/oz-policies.json`](../deployments/oz-policies.json) |
 
 The v3 pair is not on mainnet. A gate pins its adapter's build and has no
 setter, so adopting a new adapter build means a new
@@ -487,13 +606,42 @@ deployed and still reachable by accounts that use them; their source is at tag
 
 ## Limits
 
-- **External audit in progress:** an external audit of the contracts is
-  under way. They have also been through internal adversarial review and a
+- **External audit in progress:** an external audit of `main` is under way,
+  covering the interpreter, the custody gate, the execution adapter and the
+  three npm packages (the scope Untangled gave the auditor on 10 October 2026); `prime-seat` is outside it. They have also been through internal adversarial review and a
   STRIDE threat model of grammar 6, last run on 1 October 2026
   ([report](../evidence/stride-threat-model.md)). Grammar 7 and the 2.x
   packages have their own STRIDE model, with its status checked at 2.0.0 on
   17 October 2026 ([report](../evidence/stride-threat-model-g7.md)). Every P0
   item in it still has open work, so grammar 7 stays on testnet.
+- **Adapter builds before `3dd675c0` can let a batch name an unlisted
+  recipient:** `68d012e7` and earlier pass a recipient written as a muxed
+  address, which a token's `transfer` credits to the account behind it;
+  `eefcfdd7` refuses a muxed address but passes the XDR of an address given as
+  bytes. A rule that pins every recipient with `eq` or `in` is unaffected,
+  because the interpreter compares by XDR. A gate pins its adapter's
+  build, so a setup on an earlier build moves by creating a new gate and
+  adapter.
+- **The seat is tied to the account's digest format:** it reads the rule ids
+  out of `sha256(payload ‖ XDR(rule ids))`, the form of the pinned OpenZeppelin
+  account `91a2cd56…`. An account build that hashes something else makes every
+  seat signature fail until new seats are deployed. It fails closed.
+- **A seat in a rule with no policy is unbounded:** the seat sees only its
+  account's `__check_auth` frame, never the call being authorised, so it cannot
+  limit what such a rule reaches. The chain allows the rule; installing it takes
+  a decision with a native signature, and the app refuses to build it.
+- **A rule scoped to the threshold policies must not list a seat:** those
+  policies change a threshold or a weight on the account's own authorisation, so
+  a session in such a rule could lower rule 0's threshold.
+- **Rule 0 holds at most 15 signers:** an OpenZeppelin account created with 16 is
+  refused (error 3010, measured on testnet in the October spike), so more than
+  15 owners need another layout.
+- **The account cannot change its own rule 0 thresholds:** a call to
+  `set_threshold` or `set_signer_weight` on its rule 0 policies fails with
+  "Contract re-entry is not allowed" (seen on testnet on 13 October 2026), so
+  changing M or K, or adding a native owner, means a new account.
+- **Seats do not keep themselves alive:** a grant does not extend the seat's
+  instance or code. The relayer extends them with `ExtendFootprintTTL`.
 - **Nothing alerts custody when a move is stored:** the adapter emits no
   events, by design. A stored move is public on the ledger and the Prime app
   lists it, but custody has to look.
@@ -542,7 +690,7 @@ rules. `@crediolabs/policy-synth` records a transaction or takes a mandate state
 as data, lowers it to a predicate, checks it against the interpreter, renders a
 review, and returns an unsigned install transaction for the user's wallet. The
 CLI (`packages/policy-builder-cli`) and the MCP server
-(`packages/policy-builder-mcp`) wrap the same core. Version 2.0.0 of all three
+(`packages/policy-builder-mcp`) wrap the same core. Version 2.0.1 of all three
 is on npm under the `next` tag; `latest` is still 1.3.0, for grammar 4.
 [`packages/policy-synth/README.md`](../packages/policy-synth/README.md) is the
 full reference.

@@ -37,7 +37,7 @@ GRANT_TYPEHASH = keccak256("PrimeSeatGrant(uint256 chainId,address safe,address 
 - A session uses one storage slot: `uint64 start`, `uint64 end`, `uint128 nonce`. An ended key stores `end = type(uint64).max`.
 - Use checks the stored values again: `start <= now <= end` and `end - start <= 7 days`. An ended key fails the second test.
 
-The shared vectors in `contracts/near/vectors/requests.json` (on branch `feat/near-seats-signer`) carry the hash for `grant-evm-votes` and `end-evm`. `PrimeSeat.t.sol` checks both.
+The shared vectors in `contracts/near/vectors/requests.json` carry the hash for `grant-evm-votes` and `end-evm`. `PrimeSeat.t.sol` checks both.
 
 ### exec
 
@@ -68,6 +68,7 @@ A malformed signature (wrong length, bad `v`, high `s`) reverts as OpenZeppelin 
 npm pack @openzeppelin/contracts@5.4.0
 tar xzf openzeppelin-contracts-5.4.0.tgz
 mkdir -p lib/oz && cp -r package/utils package/interfaces lib/oz/   # lib/ stays out of git
+rm -r package openzeppelin-contracts-5.4.0.tgz
 
 forge fmt --check src
 forge test                                  # unit suite, no network

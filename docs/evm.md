@@ -1,10 +1,13 @@
 # Prime on EVM: technical detail
 
-On EVM, Prime runs only unmodified deployments of audited code: Safe, Zodiac
-Roles and OpenZeppelin's TimelockController. This repository holds no EVM
-source. The design below is the one tested on Base Sepolia on 29 September
-2026; [architecture.md](architecture.md) covers the use case and the three-step
-setup in plain terms.
+On EVM, the custody design runs only unmodified deployments of audited code:
+Safe, Zodiac Roles and OpenZeppelin's TimelockController. The one contract of
+ours is `PrimeSeat` (`contracts/evm/prime-seat`), the Safe owner that stands in
+for an owner whose wallet lives on another chain. The custody design below is
+the one tested on Base Sepolia on 29 September 2026; the seat was tested on
+Base Sepolia forks with real Safe 1.4.1 and 1.5.0 contracts.
+[architecture.md](architecture.md) covers the use case and how EVM fits with
+the other chains.
 
 ## The use case and the setup
 
@@ -30,6 +33,7 @@ and what keeps each on EVM:
 | Recovery rules | A second Roles v2.1.1 module on the gate. Its one member is the recovery timelock. |
 | Recovery timelock | OpenZeppelin TimelockController 5.6.0. The Prime proposes; the Prime and the gate can cancel, so F cancels through its gate; anyone executes after the delay. |
 | Prime account | A Safe with 3 owners, 2 of whom approve, and a Roles module holding the agent's bands. Holds nothing. |
+| Seat | For an owner whose wallet is on another chain: a `PrimeSeat` contract that is the Safe owner in that owner's place (see [Owners and seats](#owners-and-seats)). |
 | Shared account | A Safe with 2 owners (the agent and an admin), both of whom approve. The member of the high bands. |
 | Agent | A member of the Prime's low bands. |
 
@@ -117,6 +121,46 @@ admin co-signs). A band pins every gate call it may make, the amounts, the
 trading role key and `shouldRevert = true`, so a failing step reverts the whole
 batch. The Prime can use only the trading rules. It cannot reach the recovery
 rules except through the timelock.
+
+## Owners and seats
+
+The Prime account is a Safe, so its owners are Safe owners and every decision
+is a Safe transaction signed by M of them. An owner whose wallet is an EVM
+wallet (MetaMask and other EOAs) is a plain Safe owner and signs each decision
+in its wallet. An owner whose wallet is on another chain (Freighter, Phantom)
+gets a `PrimeSeat`, deployed for that owner and that Safe, and the seat is the
+Safe owner. Since the move-only session was withdrawn on 12 October 2026, a
+seat is the only place a session key exists on EVM.
+
+`contracts/evm/prime-seat/src/PrimeSeat.sol`, 72 formatted sLOC. Its
+constructor fixes three immutables: `owner` (the address of the owner's NEAR
+MPC key, path `<scheme>:<wallet>/prime:evm:<safe>`), `safe` and `roles`.
+
+| Function | What it does |
+|---|---|
+| `grant(key, start, end, sig)` | `owner` signs a grant: `start <= now <= end`, at most 7 days, and an `end` later than the stored one. With `end` 0, the owner or the key itself ends the key for good |
+| `isValidSignature(bytes32, bytes)` and `isValidSignature(bytes, bytes)` | the Safe's EIP-1271 check (Safe 1.5.0 and 1.4.1 forms). Passes only when the 130-byte signature holds a live session key's signature over `keccak256(abi.encode(seat, hash))` and a Safe owner's own signature over the same hash. Only a call from the Safe or from address 0 (an off-chain `eth_call`) can pass |
+| `exec(to, value, data, op, role, key, sig)` | one call through `roles.execTransactionWithRole`, signed by a live session key over a digest that carries the session's nonce and end. Refused unless the Safe still lists the seat as an owner, and refused for `to` equal to the Safe, the seat or any enabled module, and for any `op` but 0 |
+
+So every Safe decision that counts a seat also carries a signature from a native
+owner over the same transaction, and a session acts alone only through a Roles
+rule that lists the seat. The NEAR MPC key behind `owner` signs only grants and
+ends, through `prime-near-signer-v2` ([near.md](near.md)), and never votes.
+Until the signer accounts' full-access keys are deleted, their holder can get a
+grant signed for any seat without the owner's wallet
+([near.md](near.md#limits)).
+
+The Safe needs at least one native owner, so two NEAR-routed owners cannot move
+the account alone. The setup starts the Safe with the native owner as its only
+owner; nonce 0, signed by that owner alone, deploys the seats from the Safe with
+CreateCall (so each seat's address follows from the Safe's), adds them as owners
+with the final threshold, and enables Roles.
+[contracts/evm/prime-seat/README.md](../contracts/evm/prime-seat/README.md) has
+the rule targets an app must refuse, gas figures and the tests.
+
+**Removing a seat:** the app removes the seat as a Safe owner and from every
+Roles role in the same Safe transaction, and `exec` checks `isOwner(seat)`, so a
+seat that is no longer an owner cannot move funds through a role it kept.
 
 ## Setting it up
 
@@ -231,8 +275,58 @@ Not used, and why:
 - **Permit2:** it added two signature routes out of F.
 - **Any custom or oracle condition:** none exists as audited code.
 
+## Build and test
+
+Foundry 1.8.4, Solidity 0.8.28, optimizer 200 runs. The seat imports one
+OpenZeppelin Contracts 5.4.0 file (`ECDSA`), which `foundry.toml` maps to
+`lib/oz/`:
+
+```sh
+cd contracts/evm/prime-seat
+npm pack @openzeppelin/contracts@5.4.0 && tar xzf openzeppelin-contracts-5.4.0.tgz
+mkdir -p lib/oz && cp -r package/utils package/interfaces lib/oz/
+rm -r package openzeppelin-contracts-5.4.0.tgz
+forge fmt --check src && forge build
+forge test                                  # 51 unit tests; the fork suite skips without FORK_URL
+FORK_URL=<Base Sepolia RPC> forge test      # adds 7 tests on real Safe 1.4.1 and 1.5.0
+```
+
+| Artifact | Bytes | sha256 |
+|---|---|---|
+| runtime code | 4,434 | `3b4402d54f28ef3eb23bc14e9ac1e44c4aa946da42c4c3cea46cd76970c438d6` |
+| creation code | 4,703 | `4d3558643131eebbbb8087fc65ed8c52581e0c48619adcf60cdc756cb83a0de7` |
+
+The runtime differs per seat in its immutables. With the 11 immutable slots
+zeroed, it hashes (keccak-256) to `bf34aaa2…`, the template the octopos apps and
+relayer compare a deployed seat against.
+
+## Deployed
+
+There is no shared seat contract: the Prime app deploys one `PrimeSeat` per
+NEAR-routed owner and Safe, on Base Sepolia only, because `prime-near-signer-v2`
+signs EVM grants for chain 84532 alone, so a seat on an EVM mainnet could never
+receive a grant. The addresses of the custody run of 29 September 2026 are under
+[What was tested](#what-was-tested).
+
 ## Limits
 
+- **A seat vote needs a native EOA signature:** the second half of a seat's
+  signature is checked with `ecrecover`, so an `eth_sign` signature, an approved
+  hash or a contract wallet cannot co-sign a seat vote; the seat reverts on
+  them.
+- **An `exec` signature has no deadline of its own:** the session's end and the
+  nonce bound it, and a new grant or an extension retires every signature made
+  before it.
+- **Roles rules that list a seat must not reach the account's own controls:**
+  `exec` refuses the Safe, the seat and every enabled module, and cannot see the
+  rest. The app has to refuse rule targets such as the guard, the fallback
+  handler, other seats, a Safe this account owns, and any contract whose
+  `owner()`, `avatar()` or `target()` is this Safe.
+- **Extra calldata after the last checked argument passes Roles:** a venue that
+  reads `msg.data.length` or the last 20 bytes of calldata (an ERC-2771 trusted
+  forwarder does) sees a different call, so rules should target venues that
+  decode arguments with the Solidity ABI decoder (section 4.2 of the
+  [round-9 design record](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/ARCHITECTURE.md)).
 - **F's own key is limited only by Fordefi:** no chain can restrict a plain
   address: EIP-7702 delegation leaves the key in control, and Base's native
   account abstraction launched without key revocation. The chain guarantees
