@@ -22,7 +22,10 @@ import {
 } from '@stellar/stellar-sdk'
 import { type Fingerprint, interpreterFor, mismatch, reasonOf, txOf } from './chain.ts'
 import {
+  authLedgers,
   GRAMMAR_VERSION,
+  LEDGER_SECONDS,
+  maxResourceFee,
   type Network,
   PASSPHRASE,
   POLICY_CONTRACTS,
@@ -59,7 +62,9 @@ export interface RuleDraft {
 }
 
 const MAX_SIGNERS = 15
-const AUTH_LEDGERS = 300 // about 25 minutes
+/** How far apart the two simulations of one build may report the ledger: seconds pass between them,
+ *  and nodes behind one endpoint can lag each other, but not by hours. */
+const LEDGER_DRIFT = 20
 
 const delegated = (a: string): Val => ['Delegated', a]
 
@@ -131,6 +136,10 @@ export interface Built {
   describes: { contract: string; fn: string; args: Val[] }
   authNonce: string
   authValidUntilLedger: number
+  /** The transaction's time bound (unix seconds, the builder's clock): it cannot run after it. */
+  validBefore: number
+  /** In stroops: the bid per operation, the resource fee (at most the operator's ceiling), their sum. */
+  fee: { base: number; resource: number; total: number }
 }
 
 export interface BuildArgs {
@@ -175,6 +184,8 @@ export async function buildSelfCall(
   code: ErrorCode = 'INSTALL_BUILD_FAILED'
 ): Promise<Built> {
   const { server, network } = a
+  // The operator's bounds, read before the network is asked: a bad value refuses every build.
+  const [window, ceiling] = [authLedgers(), maxResourceFee()]
   const op = (auth: xdr.SorobanAuthorizationEntry[] = []) =>
     Operation.invokeHostFunction({
       func: xdr.HostFunction.hostFunctionTypeInvokeContract(
@@ -224,8 +235,10 @@ export async function buildSelfCall(
         same ? `${root.subInvocations().length} sub-invocation(s) under it` : 'another call'
       }); the RPC answer is not trusted`
     )
-  // The simulation reports the ledger it ran at: no separate (and heavy) latest-ledger call.
-  const until = recorded.latestLedger + AUTH_LEDGERS
+  // The simulation reports the ledger it ran at: no separate (and heavy) latest-ledger call. The
+  // enforcing pass must report about the same ledger, and the transaction's time bound, from this
+  // clock, ends it within the window even if an RPC moved both.
+  const until = recorded.latestLedger + window
   const creds = original.credentials().address()
   const ids = [0]
   const account = new xdr.SorobanAuthorizationEntry({
@@ -264,13 +277,30 @@ export async function buildSelfCall(
     }),
   })
   const withAuth = tx(op([account, checkAuth]), source.sequenceNumber())
+  const enforced = await simulate(withAuth, 'enforcing')
+  const drift = Math.abs(enforced.latestLedger - recorded.latestLedger)
+  if (drift > LEDGER_DRIFT)
+    throw new Refusal(
+      code,
+      `${fn}: the two simulations ran at ledgers ${recorded.latestLedger} and ${enforced.latestLedger}, ${drift} apart; the RPC answer is not trusted`
+    )
   // `assembleTransaction` sets the fee to the base fee plus the resource fee, and `build` adds the
   // resource fee from the Soroban data again: bid the base fee once and let `build` add the resources.
-  const assembled = rpc.assembleTransaction(withAuth, await simulate(withAuth, 'enforcing')).build()
+  const assembled = rpc.assembleTransaction(withAuth, enforced).build()
+  const sorobanData = assembled.toEnvelope().v1().tx().ext().sorobanData()
+  const resource = Number(sorobanData.resourceFee().toBigInt())
+  if (resource > ceiling)
+    throw new Refusal(
+      code,
+      `${fn}: the network asks a resource fee of ${xlm(resource)} XLM, above this builder's ceiling of ${xlm(ceiling)} XLM (POLICY_BUILDER_MAX_RESOURCE_FEE, in stroops); not built`
+    )
+  const base = a.baseFee ?? Number(BASE_FEE)
+  const validBefore = Math.floor(Date.now() / 1000) + window * LEDGER_SECONDS
   const final = TransactionBuilder.cloneFrom(assembled, {
-    fee: String(a.baseFee ?? BASE_FEE),
-    sorobanData: assembled.toEnvelope().v1().tx().ext().sorobanData(),
+    fee: String(base),
+    sorobanData,
     networkPassphrase: PASSPHRASE[network],
+    timebounds: { minTime: 0, maxTime: validBefore },
   }).build()
   const unsignedXdr = final.toEnvelope().toXDR('base64')
   return {
@@ -282,7 +312,16 @@ export async function buildSelfCall(
     describes: describe(final),
     authNonce: creds.nonce().toString(),
     authValidUntilLedger: until,
+    validBefore,
+    fee: { base, resource, total: Number(final.fee) },
   }
+}
+
+/** Stroops as XLM, exactly: 2000000000 -> 200, 1711054 -> 0.1711054. */
+export const xlm = (stroops: number): string => {
+  const t = String(stroops).padStart(8, '0')
+  const frac = t.slice(-7).replace(/0+$/, '')
+  return frac ? `${t.slice(0, -7)}.${frac}` : t.slice(0, -7)
 }
 
 /** What the transaction calls, read back out of the bytes the wallet will sign. */

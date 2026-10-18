@@ -9,6 +9,16 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ### Fixed
 
+- **policy-synth, the RPC chose the signed expiry and the fee:** install and
+  revoke took the authorisation's expiry from the ledger a simulation reported
+  (a lying RPC moved it about four months out) and any resource fee it asked
+  (200 XLM was built). The expiry is now that ledger plus
+  `POLICY_BUILDER_AUTH_LEDGERS` (default 300), the two simulations must agree on
+  the ledger within 20, and the transaction carries a time bound from the
+  builder's clock (`validBefore`). A resource fee above
+  `POLICY_BUILDER_MAX_RESOURCE_FEE` (default 10 XLM) is refused. Builds return
+  `fee` and `validBefore`.
+
 - **policy-builder-mcp, a body over 1 MiB:** it gets 413 under Bun 1.3 too. The
   HTTP transport left a `for await` over the request early, which destroys it, and
   Bun 1.3.14 then answered 200 with an empty body before the 413 was written.

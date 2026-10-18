@@ -16,6 +16,37 @@ export const RPC_URL: Record<Network, string> = {
   mainnet: 'https://mainnet.sorobanrpc.com',
 }
 
+// ---- the operator's bounds on what a wallet signs ----
+//
+// An install or a removal carries two values the RPC used to choose: how long the signed
+// authorisation stays valid and the resource fee. Both are bounded here, from the environment
+// only (never from a tool input, so an agent cannot widen them).
+
+/** The authorisation window by default, in ledgers: 300, about 25 to 30 minutes. */
+export const AUTH_LEDGERS = 300
+/** The most POLICY_BUILDER_AUTH_LEDGERS may ask for: 17,280 ledgers, about one day. */
+export const MAX_AUTH_LEDGERS = 17_280
+/** Seconds per ledger the transaction's time bound allows for: above the close time, so the
+ *  ledger expiry is reached first while ledgers close on time. */
+export const LEDGER_SECONDS = 6
+/** The resource fee ceiling by default, in stroops: 10 XLM. An install of a 12 KiB predicate asks
+ *  about 1.3 XLM on testnet, and the 40 KiB ceiling of any interpreter about 4 XLM. */
+export const MAX_RESOURCE_FEE = 100_000_000
+
+const fromEnv = (key: string, fallback: number, max: number): number => {
+  const v = process.env[key]
+  if (v === undefined || v === '') return fallback
+  if (!/^[1-9]\d*$/.test(v) || Number(v) > max)
+    throw new Refusal('INVALID_INPUT', `${key}: "${v}" is not a whole number from 1 to ${max}`)
+  return Number(v)
+}
+/** The window the signed authorisation is valid for, in ledgers (POLICY_BUILDER_AUTH_LEDGERS). */
+export const authLedgers = (): number =>
+  fromEnv('POLICY_BUILDER_AUTH_LEDGERS', AUTH_LEDGERS, MAX_AUTH_LEDGERS)
+/** The highest resource fee a build may carry, in stroops (POLICY_BUILDER_MAX_RESOURCE_FEE). */
+export const maxResourceFee = (): number =>
+  fromEnv('POLICY_BUILDER_MAX_RESOURCE_FEE', MAX_RESOURCE_FEE, Number.MAX_SAFE_INTEGER)
+
 /** The grammar this package speaks: `SELF_VERSION` in the interpreter. */
 export const GRAMMAR_VERSION = 7
 

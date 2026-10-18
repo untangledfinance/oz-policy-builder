@@ -33,8 +33,10 @@ also writes the envelope to a file.
 The CLI holds no key material and signs nothing: `install` and `revoke` return
 unsigned XDR. The operator's settings are environment variables:
 `POLICY_BUILDER_RPC_URL_TESTNET` / `_MAINNET`, `POLICY_BUILDER_OUT_DIR`,
-`POLICY_BUILDER_SAFE_READS_TESTNET` / `_MAINNET` and
-`POLICY_BUILDER_ALLOW_SPOT_READS`. The tools, their limits and the install
+`POLICY_BUILDER_SAFE_READS_TESTNET` / `_MAINNET`,
+`POLICY_BUILDER_ALLOW_SPOT_READS`, and the bounds on what a wallet signs,
+`POLICY_BUILDER_AUTH_LEDGERS` (default 300) and `POLICY_BUILDER_MAX_RESOURCE_FEE`
+(default 10 XLM). The tools, their limits and the install
 guardrails (threshold or `anyOne`, the spending-limit guard, the read-safety lint,
 the overlap scan) are described in the policy-synth README.
 

@@ -1,6 +1,12 @@
 import { afterAll, describe, expect, it } from 'bun:test'
 import { createHash } from 'node:crypto'
-import { Address, nativeToScVal, TransactionBuilder, xdr } from '@stellar/stellar-sdk'
+import {
+  Address,
+  nativeToScVal,
+  SorobanDataBuilder,
+  TransactionBuilder,
+  xdr,
+} from '@stellar/stellar-sdk'
 import { account, contract } from '../test/fixtures.ts'
 import { recorded } from '../test/rpc.ts'
 import { connect, interpreterFor } from './chain.ts'
@@ -252,6 +258,150 @@ describe('buildInstall and buildRevoke, on a live account', () => {
       await expect(
         buildInstall({ ...args, server: lying }, draft({ name: 'cap-500', nonce: 1 }), INTERP)
       ).rejects.toThrow(/authorise.*other than.*another call/)
+    })
+  })
+
+  // Two more values the wallet signs came from the RPC: the auth expiry (the ledger a simulation
+  // reports, plus the window) and the resource fee. The builder bounds both itself.
+  describe("the expiry and the fee are the builder's, not the RPC's", () => {
+    type Sim = Awaited<ReturnType<typeof server.simulateTransaction>>
+    /** The RPC edits its answer to one simulation: 1 the recording pass, 2 the enforcing pass. */
+    const lyingPass = (pass: 1 | 2, edit: (sim: Sim & { latestLedger: number }) => void) => {
+      let k = 0
+      return new Proxy(server, {
+        get(target, prop, receiver) {
+          if (prop !== 'simulateTransaction') return Reflect.get(target, prop, receiver)
+          return async (t: Parameters<typeof server.simulateTransaction>[0]) => {
+            const sim = await target.simulateTransaction(t)
+            if (++k === pass) edit(sim)
+            return sim
+          }
+        },
+      })
+    }
+    const withEnv = async <T>(env: Record<string, string>, f: () => Promise<T>): Promise<T> => {
+      const before = Object.fromEntries(Object.keys(env).map((k) => [k, process.env[k]]))
+      Object.assign(process.env, env)
+      try {
+        return await f()
+      } finally {
+        for (const [k, v] of Object.entries(before)) {
+          if (v === undefined) delete process.env[k]
+          else process.env[k] = v
+        }
+      }
+    }
+    const shape = (b: Awaited<ReturnType<typeof buildInstall>>) => {
+      const tx = TransactionBuilder.fromXDR(b.unsignedXdr, PASSPHRASE.testnet)
+      const data = tx.toEnvelope().v1().tx().ext().sorobanData()
+      return { tx, resource: Number(data.resourceFee()) }
+    }
+    const now = () => Math.floor(Date.now() / 1000)
+
+    it("the signed transaction lapses with its authorisation, by the builder's own clock", async () => {
+      const t0 = now()
+      const built = await buildInstall(args, draft(), INTERP)
+      const { tx, resource } = shape(built)
+      const latest = (await server.getLatestLedger()).sequence
+      // 300 ledgers past the ledger the simulation ran at, and the time bound at 6 s a ledger.
+      expect(built.authValidUntilLedger - latest).toBeGreaterThan(290)
+      expect(built.authValidUntilLedger - latest).toBeLessThanOrEqual(300)
+      expect(tx.timeBounds?.minTime).toBe('0')
+      const max = Number(tx.timeBounds?.maxTime)
+      expect(max).toBeGreaterThanOrEqual(t0 + 1800)
+      expect(max).toBeLessThanOrEqual(now() + 1800)
+      expect(built.validBefore).toBe(max)
+      expect(built.fee).toEqual({ base: 100, resource, total: 100 + resource })
+    })
+
+    it('the operator sets the window with POLICY_BUILDER_AUTH_LEDGERS; a bad value refuses before the network is asked', async () => {
+      const t0 = now()
+      const built = await withEnv({ POLICY_BUILDER_AUTH_LEDGERS: '100' }, () =>
+        buildInstall(args, draft(), INTERP)
+      )
+      const latest = (await server.getLatestLedger()).sequence
+      expect(built.authValidUntilLedger - latest).toBeGreaterThan(90)
+      expect(built.authValidUntilLedger - latest).toBeLessThanOrEqual(100)
+      expect(built.validBefore).toBeGreaterThanOrEqual(t0 + 600)
+      expect(built.validBefore).toBeLessThanOrEqual(now() + 600)
+      const asked = { n: 0 }
+      const counting = new Proxy(server, {
+        get(target, prop, receiver) {
+          asked.n++
+          return Reflect.get(target, prop, receiver)
+        },
+      })
+      for (const bad of ['0', '-5', 'abc', '17281', '1e3']) {
+        await expect(
+          withEnv({ POLICY_BUILDER_AUTH_LEDGERS: bad }, () =>
+            buildInstall({ ...args, server: counting }, draft(), INTERP)
+          )
+        ).rejects.toThrow(/POLICY_BUILDER_AUTH_LEDGERS/)
+      }
+      expect(asked.n).toBe(0)
+    })
+
+    it.each([
+      ['the recording pass reports a ledger 2,000,000 ahead', 1, 2_000_000],
+      ['the enforcing pass reports a ledger 2,000,000 ahead', 2, 2_000_000],
+      ['the enforcing pass reports a ledger 2,000,000 behind', 2, -2_000_000],
+    ] as const)(
+      'refuses an RPC whose two simulations disagree on the ledger: %s',
+      async (_n, pass, by) => {
+        const lying = lyingPass(pass, (sim) => {
+          sim.latestLedger += by
+        })
+        await expect(buildInstall({ ...args, server: lying }, draft(), INTERP)).rejects.toThrow(
+          /ledger.*apart.*not trusted/
+        )
+      }
+    )
+
+    it('refuses a resource fee above the ceiling, whatever the RPC asks (an enforcing pass that asks 200 XLM)', async () => {
+      const lying = lyingPass(2, (sim) => {
+        if (!('transactionData' in sim)) return
+        const d = sim.transactionData.build()
+        d.resourceFee(new xdr.Int64(2_000_000_000n))
+        sim.transactionData = new SorobanDataBuilder(d)
+        sim.minResourceFee = '2000000000'
+      })
+      const r = buildInstall({ ...args, server: lying }, draft(), INTERP)
+      await expect(r).rejects.toThrow(
+        /resource fee of 200 XLM.*ceiling of 10 XLM.*POLICY_BUILDER_MAX_RESOURCE_FEE/
+      )
+      await expect(r).rejects.toMatchObject({ code: 'INSTALL_BUILD_FAILED' })
+      const revoke = buildRevoke(
+        {
+          ...args,
+          server: lyingPass(2, (sim) => {
+            if (!('transactionData' in sim)) return
+            const d = sim.transactionData.build()
+            d.resourceFee(new xdr.Int64(2_000_000_000n))
+            sim.transactionData = new SorobanDataBuilder(d)
+          }),
+        },
+        1
+      )
+      await expect(revoke).rejects.toMatchObject({ code: 'REVOKE_BUILD_FAILED' })
+    })
+
+    it('the operator sets the ceiling with POLICY_BUILDER_MAX_RESOURCE_FEE, in stroops', async () => {
+      const honest = shape(await buildInstall(args, draft(), INTERP)).resource
+      await expect(
+        withEnv({ POLICY_BUILDER_MAX_RESOURCE_FEE: String(honest - 1) }, () =>
+          buildInstall(args, draft(), INTERP)
+        )
+      ).rejects.toThrow(/above this builder's ceiling/)
+      const at = await withEnv({ POLICY_BUILDER_MAX_RESOURCE_FEE: String(honest + 1000) }, () =>
+        buildInstall(args, draft(), INTERP)
+      )
+      expect(at.fee.resource).toBeLessThanOrEqual(honest + 1000)
+      for (const bad of ['0', 'ten', '1.5', '-1'])
+        await expect(
+          withEnv({ POLICY_BUILDER_MAX_RESOURCE_FEE: bad }, () =>
+            buildInstall(args, draft(), INTERP)
+          )
+        ).rejects.toThrow(/POLICY_BUILDER_MAX_RESOURCE_FEE/)
     })
   })
 })

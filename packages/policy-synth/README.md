@@ -229,6 +229,9 @@ total from the account.
 - `authorityScan`: `{ complete, overlaps[] }`.
 - `interpreter`: the live fingerprint (grammar, code hash, limits).
 - `unsignedXdr` with its length and sha256, and `writtenTo` when `outFile` is set.
+- `authValidUntilLedger`, `validBefore` (unix seconds) and `fee`
+  (`{ base, resource, total }` in stroops): see "Security model". `revoke_policy`
+  returns the same three.
 
 Install inputs for authority:
 
@@ -256,6 +259,24 @@ Install inputs for authority:
 - The RPC endpoint and the output directory are the operator's. `outFile` is a
   bare file name, written (never over an existing file) into
   `POLICY_BUILDER_OUT_DIR`.
+- **Expiry and fee bounds:** install and revoke set the authorisation's expiry
+  ledger to the ledger the recording simulation ran at plus a window, and refuse
+  the build when the two simulations report
+  ledgers more than 20 apart. The transaction also gets a time bound from the
+  builder's own clock (`validBefore`, the window at 6 s a ledger), so an RPC
+  that moves both ledgers still cannot keep a signed transaction alive past the
+  window. The resource fee must be at most a ceiling, else the build is refused
+  ("the network asks a resource fee of … XLM, above this builder's ceiling").
+  Both are the operator's, from the environment only:
+
+  | Variable | Default | Range |
+  | --- | --- | --- |
+  | `POLICY_BUILDER_AUTH_LEDGERS` | 300 ledgers (about 25 minutes; time bound 30 minutes) | 1 to 17,280 (about a day) |
+  | `POLICY_BUILDER_MAX_RESOURCE_FEE` | 100,000,000 stroops (10 XLM) | any whole number of stroops |
+
+  A 12 KiB predicate asks about 1.3 XLM of resource fee on testnet; at the same
+  rate 40 KiB, the most any interpreter accepts, asks about 4 XLM. A malformed value refuses every
+  build with `INVALID_INPUT`.
 - Every input is validated at the boundary, an unknown key included. The install
   refusals all live in `planInstall` (`src/install.ts`); see "Install guardrails".
 - `check` always fails with its verdict, so even a `read` that calls a token's
