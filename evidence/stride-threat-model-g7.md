@@ -18,8 +18,10 @@ New in this run, by severity:
 | --- | --- | --- |
 | High | 1 | G7S-1 |
 | Medium | 1 | G7S-3 |
-| Low | 8 | G7S-2, G7S-4, G7S-7, G7S-8, G7S-9 (fixed here), G7S-10, G7S-12, G7S-13 (added after review-opb23, fixed by #25) |
+| Low | 9 | G7S-2, G7S-4, G7S-7, G7S-8, G7S-9 (fixed here), G7S-10, G7S-12, G7S-13 (added after review-opb23, fixed by #25), G7S-14 (added with the v5 adapter) |
 | Info | 3 | G7S-5, G7S-6, G7S-11 |
+
+Added after the rerun, on 18 October 2026, with the adapter's optional gate (v5 build `4985cd12…`): G7S-14, Low, the adapter created with no gate. Its rows are at the end of the Stellar execution table and its finding after G7S-13. That pull request changes the adapter's source and pin; the v4 build `3dd675c0…` the rest of this model ran against is unchanged and still the one deployed.
 
 Open from earlier reviews and still at High: C2 (`remove_signer` bricks an interpreter rule, an octopos fix in progress). P0-3's owner-side decoder (E10-T.1) and P0-4's override echo and gate (E4) were fixed in the packages by #25 (`63768d67`, 18 October 2026); P0-3 protects an owner only once the Prime app runs the decoder on the owner's side. Mainnet grammar-7 installs stay blocked on every open P0.
 
@@ -260,6 +262,19 @@ Each row names the threat, where it enters, the control with its file and line, 
 | E | An adapter bound to no gate, or to a contract that has no `allowed` | adapter `__constructor`, `check` | the constructor never calls the gate; every `execute` and `run` calls `gate.allowed()` first (`:291`) | F9: adapters bound to an empty address (tx `5e90390b…`) and to the XLM SAC (tx `56c73bcb…`) deploy; F10: every `execute` on them fails (`Storage, MissingValue`; `Value, InvalidInput`) |
 | E | The owners bind an adapter to a gate of their own and give an agent a rule on it (G7S-12) | owner-made gate, agent rule | custody's real gate pins its caller's address and code (`custody-gate/src/lib.rs:74-77`); the owners' own list still binds the adapter | F1 to F8: the agent moves Prime-held XLM to the owner-listed stranger (tx `7b703ed0…`), an unlisted account is refused `#2`, a pull through custody's real gate is refused (`Auth, InvalidAction`), custody's balance is unchanged |
 
+The rows above cite the v4 source at `46e4c6a5`. The rows below were added with the v5 build `4985cd12…` and cite its source; their checks are in [execution-null-gate-testnet.log](execution-null-gate-testnet.log).
+
+| STRIDE | Threat | Entry point | Control | Verified on testnet |
+| --- | --- | --- | --- | --- |
+| T | A batch through an adapter with no gate names any address (G7S-14) | `check` with no gate (`execution-adapter/src/lib.rs:322-346`) | none on addresses, by design. The Prime approves every batch, and an OpenZeppelin Prime checks each context that asks it against a rule of its own | G1, C2: the bundle with one authorisation by X; C4: the agent at its cap; C5, C6: over the cap, or with its adapter rule cited for a token context, refused (`#100`, `#3002`) |
+| T | A null batch drives the Prime's own `execute` | `check` | `PrimeTarget` kept with no gate (`:334-336`) | G5, C7: `#1` |
+| E | The null adapter's own authority reaches past its direct callees | grants and `executor_authorizations` | refused with no gate (`Uncheckable`, `:479-482`) | G6: `#3` |
+| E | Token rules signed by the adapter answer an agent's immediate `execute` | a token rule on the Prime whose signer is the null adapter | none in the contract, which cannot see the Prime's rules. `NoWait` (`:178-180`, `:246`) removes the only reason to install such a rule. `policy-synth` refuses one since #27 (the `policy-synth` row below); the Prime app must too (hazard in G7S-14) | with no such rule: C5b, the adapter as a co-signer, `#3016`; C6, the adapter rule cited for a token context, `#3002`. With one installed by the owners: review-opb26 P4, the agent moved 100 USDC against a cap of 20 (tx `e90fe2a3…`) |
+| E | A stored batch needs adapter-signed token rules | `execute` with a wait | `NoWait` at `execute` and at creation | G8, C8a, C8b: `#10`; C8f: creation refused `#10` |
+| E | A null adapter is bound to a gate of the owners', or a gated one is freed | `rebind` | `NoGate` (`:211-212`); `rebind` takes an address, never a void | G7, C9: `#9`; B3: void refused (`WasmVm, InvalidAction`), the binding stays |
+| S | A null adapter draws on custody | gate `pull` | caller address and code pin (`custody-gate/src/lib.rs:74-77`) | B2: refused (`Auth, InvalidAction`), custody's balance unchanged; B1: the gated adapter on the same build pulls (control) |
+| R | A bundle that failed runs later from the same signed entry | Soroban authorisation, address credentials | the entry's expiry ledger; the nonce is spent only by a successful run. A signer that authenticates as the transaction source cannot be resubmitted by anyone else | G2: failed on chain, nothing moved; G3: the same entry ran once `hello` answered; G4: refused after its expiry (`Auth, InvalidInput`) |
+
 ### NEAR signers (`contracts/near/prime-near-signer-v2`, and v1 at tag `archive/near-signer-v1`)
 
 | STRIDE | Threat | Entry point | Control | Verified on NEAR testnet |
@@ -376,6 +391,16 @@ Both bounds come from the operator's environment, read when a build starts: afte
 
 **Residual:** an RPC that lies the same way in both passes still moves the expiry ledger (review-opb25 B13: built with the expiry 2,000,300 ledgers out). The time bound ends that transaction 1,800 s after the build whatever the ledger (B13 held past the bound: `txTooLate`), and its entries cannot be lifted into another source's transaction (`Error(Auth, InvalidAction)`). A builder clock running ahead lengthens the bound; `review_unsigned`, on the owner's clock, flags a bound longer than the window plus 120 s.
 
+### G7S-14, Low: an adapter created with no gate checks no address
+
+Added with the v5 adapter build `4985cd12…` (testnet only), following Tuan's decision of 18 October 2026. The Prime may create its adapter with no gate to bundle its own calls atomically, for example `[Y.hello, USDC.transfer(X, M, A), XLM.transfer(X, N, B)]`, where the transfers happen only if `hello` does not fail. Whether an adapter has a gate is fixed at creation.
+
+What it protects. Custody's funds: a custody gate pins its one caller's address and build, custody derives that address from the gate, and a null adapter's `pull` through it was refused (B2). The Prime itself: a batch may not call it (`PrimeTarget`). The binding: a null adapter cannot be bound (`NoGate`) and a gated one cannot be freed. The adapter's own authority: with no list it hands out no grant, so it acts as itself only towards the contracts it calls directly. The agent's caps, as long as no rule on the Prime lists the null adapter as a signer: nothing waits on a null adapter (`NoWait`), so no such rule is ever needed, and an OpenZeppelin Prime's agent stays bound by its own per-token rules (C4 to C6).
+
+What it does not protect. Every address a batch names is the Prime's choice, bounded only by the Prime's rules for each call that asks it; calls that need no authorisation from the Prime go through unchecked. Anything sent to the adapter, or any allowance granted to it, can be moved by anyone the Prime's rules allow to call `execute`. A rule on the Prime that lists the null adapter as a signer is bounded by its predicate alone, and the adapter signs whenever it is the one asking: `NoWait` removes the reason to install one but does not stop the owners from doing so. With such a USDC rule installed, review-opb26 moved five times the agent's cap (P4, tx `e90fe2a3c56747f046edd4820cb18449e8b6df31512163a859cc629ede003df7`). This residual is the owners' to avoid and the tooling's to refuse. A bundle that fails on chain leaves its signed entry valid until the expiry ledger; when the Prime's entry carries address credentials, anyone holding it can submit it again once the failing call would pass (G3). When the signer authenticates as the transaction source (a G account submitting its own bundle, or an OpenZeppelin Prime with `Delegated(source)`), only that signer can; a short `signatureExpirationLedger` is the bound, and a contract-level deadline would only repeat it. These are documented in `docs/stellar.md` under "No gate" and in the module comment.
+
+Required before any flow that uses a null adapter ships: the tooling refuses to send funds to, approve, or add as a rule signer any address that runs a v5 adapter with no gate, and signs bundles with an expiry of a few ledgers. The `policy-synth` half is done in #27: `install_policy` refuses a rule signer that is an execution adapter bound to no gate, or a contract that is not deployed, and `review_unsigned` flags a contract signer unless `readContracts` reads it (the `policy-synth` row above). Still open: the Prime app's half, including the `add_signer` calls the app builds itself, and the short bundle expiry. The v5 build is not pinned by the app.
+
 ## Proposed fixes for open Medium and High items
 
 | Item | Fix | Where | Changes a pinned contract? |
@@ -403,6 +428,7 @@ Both bounds come from the operator's environment, read when a build starts: afte
 | --- | --- | --- |
 | Live rows with transaction ids | [g7-stride-2026-10-18.log](g7-stride-2026-10-18.log) | every row passed |
 | Stellar testnet accounts | `X` `CBGUC6FI…D2LK` (interpreter rows), `G` and the setup and probe accounts in the log | |
+| Stellar adapter with no gate (added with v5) | X `GB52NLQW…`, its null adapter `CB7URNGS…`; X_C `CA33FTN3…`, its null adapter `CCGNPZQ2…` and gated adapter `CDU2QZ2V…`, custody's gate `CAYVQ247…`; [execution-null-gate-testnet.log](execution-null-gate-testnet.log) | 69 of 69 |
 | Stellar execution contracts | Prime `CBK3NDXC…`, gate `CDKPBWAZ…`, adapter `CDKLFIJP…` (wait); Prime `CDGRJRAD…`, gate `CDNBNHL5…`, adapter `CDJS3PHB…` (address rule); Prime `CD7HMDQJ…`, owner-made gate `CD7XJDID…`, adapter `CBWSOK4S…` (G7S-12) | 45, 35 and 12 checks |
 | Solana devnet | seat program `7ygNrK…`, 129 rows, payer `9AHQV6Wu…` spent 0.160 SOL | 129 of 129 |
 | Solana gate | local validator, gate bytes `a5d19edb`, the harness of the gate review run on the in-tree build and the in-tree `setup-checks.ts` | 345 of 345 |
