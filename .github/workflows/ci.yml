@@ -391,6 +391,77 @@ jobs:
       - name: Build parity
         run: ../../check-build-hash.sh near/prime-near-signer target/near/prime_near_signer.wasm
 
+  # prime-near-signer v2, the signer behind every NEAR-routed seat key. Its code is
+  # deployed at seats.prime-spike-muwguc60.testnet and the recorded hash is that
+  # code. It builds with the repo's Rust (rust-toolchain.toml) and plain cargo:
+  # --cfg near makes near-sdk use the host's hash functions, and -s strips the
+  # symbols. The standard library paths in the wasm are /rustc/<commit> and do not
+  # vary, but the registry path does, so the remap writes it in the form the
+  # deployed build had. The tests read the shared vectors in ../vectors.
+  near-v2:
+    name: Contracts (near/prime-near-signer-v2)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: contracts/prime/near/prime-near-signer-v2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (pinned in rust-toolchain.toml)
+        run: |
+          rustup toolchain install
+          rustup target add wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contracts/prime/near/prime-near-signer-v2
+
+      - name: Format check
+        run: cargo fmt --check
+
+      - name: Lint (clippy)
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build (wasm)
+        run: |
+          registry="${CARGO_HOME:-$HOME/.cargo}/registry/src"
+          RUSTFLAGS="-C link-arg=-s --cfg near --remap-path-prefix=${registry}=/home/ubuntu/.cargo/registry/src" \
+            cargo build --release --locked --target wasm32-unknown-unknown
+
+      - name: Build parity
+        run: ../../check-build-hash.sh near/prime-near-signer-v2 target/wasm32-unknown-unknown/release/prime_near_signer_v2.wasm
+
+  # The shared vectors of prime-near-signer v2. The generator computes every text,
+  # key path and hash with viem, @stellar/stellar-sdk, @solana/web3.js and @noble,
+  # not with the contract's code; this regenerates requests.json and requires the
+  # committed file byte for byte. Its lockfile was written by Bun 1.4, which 1.3
+  # cannot read as frozen, so this job runs 1.4.2.
+  near-vectors:
+    name: TypeScript (near/vectors)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: contracts/prime/near/vectors/generator
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Regenerate and compare
+        run: |
+          bun gen.ts "$RUNNER_TEMP/requests.json"
+          cmp "$RUNNER_TEMP/requests.json" ../requests.json
+
   # The Prime app's checks around a gate-owned token account. They carry their own
   # dependencies and lockfile: the root bunfig.toml limits bun test to packages/.
   app-checks:
