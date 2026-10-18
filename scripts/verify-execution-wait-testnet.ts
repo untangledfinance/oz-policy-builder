@@ -64,8 +64,10 @@ import {
   wasmPath,
 } from './lib/chain.ts'
 
-/** The salt domain custody uses to find the adapter before it is deployed. */
-const DOMAIN = 'prime.execution.adapter.v4'
+/** The salt domain custody uses to find the adapter before it is deployed.
+ *  `v5`, the build with an optional gate, hashes it with the XDR of the tuple
+ *  (gate, min_wait, run_window); `v4` hashed the XDR of each part in turn. */
+const DOMAIN = 'prime.execution.adapter.v5'
 const NAMES: Record<string, string> = {
   '1': 'PrimeTarget',
   '2': 'AddressNotAllowed',
@@ -103,14 +105,7 @@ const contractId = (deployer: string, salt: Buffer) =>
 /** Where custody expects the adapter: the salt commits to the gate and to
  *  both numbers, and the adapter's constructor refuses any other address. */
 const adapterSalt = (gate: string, minWait: number, window: number) =>
-  hash(
-    Buffer.concat([
-      Buffer.from(DOMAIN),
-      addr(gate).toXDR(),
-      u32v(minWait).toXDR(),
-      u32v(window).toXDR(),
-    ])
-  )
+  hash(Buffer.concat([Buffer.from(DOMAIN), vec([addr(gate), u32v(minWait), u32v(window)]).toXDR()]))
 
 let fails = 0
 const report = (ok: boolean, label: string, got: string) => {
