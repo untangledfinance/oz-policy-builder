@@ -235,6 +235,24 @@ describe('buildInstall and buildRevoke, on a live account', () => {
         buildInstall({ ...args, server: lying }, draft({ name: 'cap-500', nonce: 1 }), INTERP)
       ).rejects.toThrow(/authorise.*other than/)
     })
+
+    it('refuses the same function and arguments on another contract', async () => {
+      const lying = tampered((root) => {
+        const f = root.function().contractFn()
+        const other = new xdr.InvokeContractArgs({
+          contractAddress: new Address(TOKEN).toScAddress(),
+          functionName: f.functionName(),
+          args: f.args(),
+        })
+        return new xdr.SorobanAuthorizedInvocation({
+          function: xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(other),
+          subInvocations: [],
+        })
+      })
+      await expect(
+        buildInstall({ ...args, server: lying }, draft({ name: 'cap-500', nonce: 1 }), INTERP)
+      ).rejects.toThrow(/authorise.*other than.*another call/)
+    })
   })
 })
 
