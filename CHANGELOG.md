@@ -16,6 +16,19 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   client to close the connection (`connection: close`). Node and Bun 1.4 close
   the socket themselves; Bun 1.3.14 keeps it open, with the request paused,
   until the client hangs up. Node and Bun 1.4 answered 413 before this fix too.
+- **policy-synth, install and revoke sign only the built call (P0-2):** the
+  smart account's auth tree used to come from the RPC's simulation as reported,
+  so a lying RPC could add a sub-invocation (a transfer out) that the review
+  never showed. `install_policy` and `revoke_policy` now refuse
+  (`INSTALL_BUILD_FAILED`, `REVOKE_BUILD_FAILED`) unless the simulated root
+  invocation is the built contract call, with the same contract, function and
+  arguments, and nothing under it.
+- **policy-synth, a recording is of the transaction asked for (P1-7, first
+  half):** `record_transaction` used to record whatever envelope the RPC
+  returned for a hash. It now hashes that envelope under the network's
+  passphrase and refuses (`RECORDING_FAILED`) unless the hash is the one asked
+  for; a fee bump also answers to its inner transaction's hash. Specs are still
+  cached by wasm hash without hashing the fetched bytes (the second half).
 
 ### Changed
 
@@ -38,6 +51,14 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   localnet, and its source is at tag `archive/spike-final`. The Solana docs
   describe the seat as the only session and keep `prime-session` as dated
   history.
+- **NEAR signer v1 (`contracts/near/prime-near-signer`):** its source, its CI
+  job and its `build-hashes.json` entry left the tree on 18 October 2026 (G7S-2
+  in `evidence/stride-threat-model-g7.md`); v2 serves every seat. Its last
+  build is `c27904a329814b6ee92e8b37cc99490c8edbc9bbd3fd86a926b38e7d05b793c8`,
+  deployed at `signer.prime-spike-muwguc60.testnet`, and its source is at tag
+  `archive/near-signer-v1`. The account still signs any payload a wallet
+  approves until it is removed, a step that waits for Tuan. Nothing in octopos
+  calls it.
 - **The spike bundle and its design record** (`contracts/prime/spike/` and
   `contracts/prime/ARCHITECTURE.md`). Both stay readable at tag
   `archive/spike-final`, and the docs link there.

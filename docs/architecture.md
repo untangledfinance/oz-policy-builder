@@ -12,7 +12,7 @@ for the contracts and the numbers.
 | Stellar | OpenZeppelin smart account | custody gate, execution adapter, policy interpreter, `prime-seat` | mainnet since 1 October 2026 (custody contracts with the grammar-6 interpreter; older grammar-4 and grammar-5 interpreters the Prime app still uses; no seats), and testnet |
 | EVM | Safe with Zodiac Roles | `PrimeSeat` | Base Sepolia |
 | Solana | Squads Smart Account | custody gate, `prime-seat` | devnet |
-| NEAR | none | `prime-near-signer` v1 and v2 | NEAR testnet |
+| NEAR | none | `prime-near-signer-v2`. v1 is retired: its source left this tree and nothing in octopos calls it, but its testnet account still signs any payload until it is removed ([near.md](near.md#prime-near-signer-v1-retired)) | NEAR testnet |
 
 Detail: [stellar.md](stellar.md), [evm.md](evm.md), [solana.md](solana.md),
 [near.md](near.md). The list of what is where is in [README.md](README.md).
@@ -216,10 +216,12 @@ with no further NEAR prompt. A native owner has no session key.
 MetaMask's own Solana account and Phantom's own EVM account can also sign there
 as native owners (section 5.6 of the round-9 record).
 
-Some checks that keep one key from counting twice live only in onboarding: the
+Some checks that keep one key from counting twice live in onboarding: the
 owner keys must differ, no seat may sit in two accounts, no plain key may sit
 beside its own seat, and on Solana only the canonical seat PDA is accepted
-(section 14.6 of the round-9 record). No contract enforces the first three.
+(section 14.6 of the round-9 record). No contract enforces the first and the
+third; the second holds on chain on Stellar and EVM, and only through
+onboarding on Solana.
 
 Every decision needs one native wallet, on every chain:
 

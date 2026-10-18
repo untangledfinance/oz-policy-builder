@@ -314,52 +314,6 @@ jobs:
       - name: Build parity
         run: ../../check-build-hash.sh solana/${{ matrix.crate }} target/deploy/${{ matrix.artifact }}
 
-  # The NEAR signer. Its source packs several statements per line, so it has no
-  # format check; the docs state its size after rustfmt (42 lines, 22 as written).
-  #
-  # cargo-near's non-reproducible-wasm build embeds the registry and the Rust
-  # standard library paths, so the same source gives other bytes on another
-  # machine. The recorded hash is the wasm deployed at
-  # signer.prime-spike-muwguc60.testnet, built under a toolchain directory named
-  # stable. The remaps below write those two paths in their original form, so a
-  # runner reproduces the deployed bytes. The toolchain is pinned to the stable
-  # release the hash was recorded with (1.98.1) and keeps rust-src, which is
-  # where the standard library path text comes from. cargo-near replaces its
-  # default RUSTFLAGS when --env sets them, so -C link-arg=-s is restated.
-  near:
-    name: Contracts (near/prime-near-signer)
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      RUSTUP_TOOLCHAIN: 1.98.1
-    defaults:
-      run:
-        working-directory: contracts/near/prime-near-signer
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        run: rustup toolchain install 1.98.1 --profile minimal --target wasm32-unknown-unknown --component rust-src
-
-      - name: Install cargo-near
-        run: |
-          curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/download/cargo-near-v0.22.0/cargo-near-installer.sh | sh
-          cargo-near --version
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: contracts/near/prime-near-signer
-
-      - name: Build (cargo-near)
-        run: |
-          sysroot="$(rustc --print sysroot)"
-          registry="${CARGO_HOME:-$HOME/.cargo}/registry/src"
-          cargo-near near build non-reproducible-wasm --no-abi --locked \
-            --env "RUSTFLAGS=-C link-arg=-s --remap-path-prefix=${sysroot}=/home/ubuntu/.rustup/toolchains/stable-x86_64-unknown-linux-gnu --remap-path-prefix=${registry}=/home/ubuntu/.cargo/registry/src"
-
-      - name: Build parity
-        run: ../../check-build-hash.sh near/prime-near-signer target/near/prime_near_signer.wasm
-
   # prime-near-signer v2, the signer behind every NEAR-routed seat key. Its code is
   # deployed at seats.prime-spike-muwguc60.testnet and the recorded hash is that
   # code. It builds with the repo's Rust (rust-toolchain.toml) and plain cargo:

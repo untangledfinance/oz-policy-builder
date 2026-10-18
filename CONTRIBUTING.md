@@ -87,8 +87,8 @@ done
   bun install --frozen-lockfile && bun run typecheck && bun test )
 ```
 
-The EVM, Solana and NEAR v2 jobs, and a job for the first NEAR signer, also
-build each contract and compare it with `contracts/build-hashes.json`. The
+The EVM, Solana and NEAR v2 jobs also build each contract and compare it with
+`contracts/build-hashes.json`. The
 build commands and their path remaps are in `.github/workflows/ci.yml`.
 
 ## Style

@@ -1,10 +1,10 @@
 # Audit evidence
 
 Most logs in this folder were produced against the 1.x tree (the grammar-4 and
-grammar-6 interpreters and the 1.x off-chain package). Four files come from the
+grammar-6 interpreters and the 1.x off-chain package). Five files come from the
 grammar-7 tree on `feat/grammar-v7`: `oz-threshold-g7-live.log`,
-`worst-case-ceilings-2026-10-16.txt`, `soroban-network-limits-2026-10-16.txt` and
-`stride-threat-model-g7.md`.
+`worst-case-ceilings-2026-10-16.txt`, `soroban-network-limits-2026-10-16.txt`,
+`stride-threat-model-g7.md` and `g7-stride-2026-10-18.log`.
 
 **Reproducing the four 1.x `oz-*` logs and the `e2e-network` log:** their scripts drove the 1.x
 package API and were deleted with it in 2.0.0. They are in git at `9c93592`
@@ -80,7 +80,8 @@ gitignored `dist/`.
 | `oz-threshold-binding.log` | `scripts/oz-threshold-binding.ts --network testnet` and `--network mainnet` | OZ's own `simple_threshold(2)` beside the interpreter denies a lone signer `#3202` and permits the two-signer call on both networks; control rule without the threshold permits that same lone signer |
 | `e2e-network.log` | `scripts/e2e-network.ts --network testnet` and `--network mainnet` | policy installed against the pinned interpreter on both networks; permitted call succeeds, forbidden call denied `#100`, and the agent's attempt to route the forbidden call through the unpoliced rule is refused on membership. Both networks re-run for this generation |
 | `stride-threat-model.md` | STRIDE re-run, 2026-10-01 (mainnet deployment) | grammar-6 threat model for the interpreter, the gate, the v4 adapter and the toolchain, with the app's stored-move flow as one adjacent data flow. Supersedes the 2026-09-25 report (at `d89e17b:docs/stride-threat-model.md`). |
-| `stride-threat-model-g7.md` | STRIDE run on grammar 7 at `9ff281a`, 2026-10-15 and 16, validated | grammar-7 threat model for the interpreter, policy-synth, the cli and the MCP server: findings with validated severities, the P0/P1/P2 list, and a status table at 2.0.0 (5 items done; every P0 still has open work, so mainnet stays blocked) |
+| `stride-threat-model-g7.md` | STRIDE run on grammar 7 at `9ff281a`, 2026-10-15 and 16, validated; rerun on the final `feat/grammar-v7` tree at `46e4c6a5`, 2026-10-18 | grammar-7 threat model. The first run covers the interpreter, policy-synth, the cli and the MCP server, with validated severities and the P0/P1/P2 list. The rerun adds every contract in the final tree (seats, gates, adapter, NEAR signers), a status for every earlier item and the G7S findings. Mainnet grammar-7 installs stay blocked on every open P0 |
+| `g7-stride-2026-10-18.log` | the live harnesses of the 2026-10-18 rerun, run from the agents' VM with throwaway keys (the harnesses and keys stay off-repo) | one line per on-chain check with its transaction id, 382 PASS lines and no failure: Stellar testnet (seat, interpreter, execution contracts, the G7S-12 owner-made gate), Solana devnet, NEAR testnet; the EVM fork (58/58) and the local Solana validator (345/345) appear as suite totals |
 | `execution-wait-testnet.log` | `scripts/verify-execution-wait-testnet.ts` | 44 of 44 against the Linux builds: waits, stored moves, run, cancel, the run rule's refusals, revocation, pause and a stored move's measured lifetime |
 | `execution-address-rule-testnet.log` | `scripts/verify-execution-address-rule-testnet.ts` | 35 of 35 against the Linux builds: the adapter's address rule, run with no wait |
 

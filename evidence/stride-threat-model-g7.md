@@ -18,7 +18,7 @@ New in this run, by severity:
 | --- | --- | --- |
 | High | 1 | G7S-1 |
 | Medium | 1 | G7S-3 |
-| Low | 7 | G7S-2, G7S-4, G7S-7, G7S-8, G7S-9 (fixed here), G7S-10, G7S-12 |
+| Low | 8 | G7S-2, G7S-4, G7S-7, G7S-8, G7S-9 (fixed here), G7S-10, G7S-12, G7S-13 (added after review-opb23) |
 | Info | 3 | G7S-5, G7S-6, G7S-11 |
 
 Open from earlier reviews and still at High: P0-3's owner-side decoder (E10-T.1), P0-4 override echo (E4), and C2 (`remove_signer` bricks an interpreter rule, an octopos fix in progress). Mainnet grammar-7 installs stay blocked on every open P0.
@@ -69,8 +69,8 @@ The first run's tables below still hold for the interpreter and the toolchain. T
 | --- | --- | --- |
 | NEAR-routed owner (wallet on another chain) | Trusted for its seat | Signs readable grant and End texts through v2 |
 | Session key | Untrusted after its grant | Votes and moves as the seat until the grant ends |
-| Holder of a NEAR signer account key | Fully trusted (G7S-1) | Can deploy other code on the signer account |
-| octopos relayer (Cloudflare Worker) | Semi-trusted | Pays NEAR calls, sponsors Stellar and Solana steps, holds the relayer account key |
+| Holder of a NEAR signer account key | Fully trusted (G7S-1) | Can deploy other code on the signer account. Both keys sit in `~/.near-credentials` on the agents' VM, and the octopos relayer Worker holds v1's key too |
+| octopos relayer (Cloudflare Worker) | Semi-trusted | Pays NEAR calls, sponsors Stellar and Solana steps, holds the relayer account key, which is also v1's FullAccess key (G7S-1) |
 | Custody and its trustee | Trusted for their funds | Gate creation, cap, release, rebind, cancel |
 | CI runner and the third-party actions and installers | Semi-trusted | Every artifact built in CI |
 
@@ -269,7 +269,7 @@ Each row names the threat, where it enters, the control with its file and line, 
 | T | A start far ahead, or a long window | v2 `plan` | `start <= now + 300`, `0 < end - start <= 604,800` (`:101-102`) | 4 time vectors; 17 boundary rows against the block time |
 | S | v1 and v2 keys collide | MPC derivation | the predecessor differs | 5 rows; v1 signs an arbitrary payload for a wallet signature (tx `4iu99Lph…`) |
 | E | The holder of a signer account key deploys other code (G7S-1) | NEAR account keys | none on chain | `view_access_key_list`: one FullAccess key on each signer account |
-| E | v1 signs any payload the wallet approves (G7S-2) | v1 `sign` (`prime-near-signer/src/lib.rs:20-31`) | the wallet text shows the payload hex | live tx above; Low |
+| E | v1 signs any payload the wallet approves (G7S-2) | v1 `sign` (`prime-near-signer/src/lib.rs:20-31`, at tag `archive/near-signer-v1`) | the wallet text shows the payload hex | live tx above; Low |
 
 ### `policy-synth`, CLI, MCP server
 
@@ -277,6 +277,7 @@ Each row names the threat, where it enters, the control with its file and line, 
 | --- | --- | --- | --- | --- |
 | T | A lying RPC changes what the account signs | `buildSelfCall` | Fixed here: the tree must be the built call (`install.ts:212-226`) | 3 tests; 4 live builds |
 | T | A lying RPC records another flow | `recordHash` | Fixed here: envelope hash check (`record.ts:125-136`) | 4 tests; live |
+| T | A lying RPC sets the signed auth expiry and the resource fee (G7S-13) | `buildSelfCall` | expiry = the simulation's ledger + 300 (`install.ts:228`); the host refuses an expiry past the network's maximum entry lifetime; no cap on the resource fee (`install.ts:269-274`); no time bounds (`chain.ts:110`) | review-opb23 B9 to B11 on testnet; Low |
 | S | A web page drives the HTTP tools | `http.ts` | loopback bind, Host and Origin guard (`http.ts:55-73`) | MCP suite, 16 of 16 |
 | D | A large body | `http.ts` | 1 MiB limit, 413 (`http.ts:12`, `:81-83`) | MCP suite on Bun 1.3.14; review-opb21 L1 for the socket |
 | I | Secrets in errors | `messageOf` | URL credentials stay out of errors (first run) | unchanged |
@@ -299,15 +300,19 @@ Each row names the threat, where it enters, the control with its file and line, 
 
 ### G7S-1, High: both NEAR signer accounts hold a FullAccess key
 
-- **What:** `seats.prime-spike-muwguc60.testnet` (v2) holds one FullAccess key (`ed25519:9hEsUKUV…`), kept in `~/.near-credentials` on the agents' VM. `signer.prime-spike-muwguc60.testnet` (v1) holds `ed25519:K7JPXNYz…`, the same key as the relayer account `prime-spike-muwguc60.testnet`, which the octopos relayer Worker uses to pay NEAR calls.
+- **What:** `seats.prime-spike-muwguc60.testnet` (v2) holds one FullAccess key (`ed25519:9hEsUKUV…`). `signer.prime-spike-muwguc60.testnet` (v1) holds `ed25519:K7JPXNYz…`, the same key as the relayer account `prime-spike-muwguc60.testnet`, which the octopos relayer Worker uses to pay NEAR calls.
+- **Where the keys are:** both FullAccess keys sit on the agents' VM, in `~/.near-credentials/testnet/` (mode 600): v2's `9hEsUKUV…` in `seats.prime-spike-muwguc60.testnet.json`, and v1's `K7JPXNYz…` in `prime-spike-muwguc60.testnet.json`, under the relayer account's name. The relayer Worker holds `K7JPXNYz…` as well, so that key also controls the account that pays every NEAR call. Added on 18 October 2026 after review-opb23 (L4); the earlier text gave only the Worker as the holder of v1's key.
 - **Impact:** the holder can deploy other code at either account and get MPC signatures under every key derived there, for any wallet path, with no wallet signature. For v2 that is every NEAR-routed seat owner on Stellar, Solana and EVM: grants for any session key, so votes beside a native signature on rule 0 and moves alone in rules that list the seat. Beta accepts this as R4 (Q10). For production it is a blocker.
 - **Controls today:** none on chain. The relayer calls `seats.*` with no code-hash check (`apps/prime-relayer/src/near-sign-live.ts`); the client checks the MPC signature against the offline-derived key, which a redeployed contract still passes.
 - **Fix:** after a last code-hash check, delete the key on `seats.prime-spike-muwguc60.testnet` (a `DeleteKey` signed by itself); the code becomes permanent and no hash changes. Retire or lock v1 the same way (G7S-2). A relayer check of the code hash before each call would detect a redeploy only for calls that go through the relayer; a direct caller bypasses it, so it adds detection without prevention.
 - **Decision:** Tuan, before any account holds value. I removed no key.
+- **Decided on 18 October 2026 (Tuan):** v2's key stays for the testnet beta only, because deleting it ends upgrades and a new account would change every NEAR-routed owner's derived key and seat. The v2 account must be locked (the key deleted, or held by a multisig) before any mainnet use or value. Open item. v1 follows G7S-2.
 
 ### G7S-2, Low: NEAR signer v1 signs any payload its wallet approves, and stays deployed
 
 v1 asks the MPC to sign `payload` for any wallet that signs the v1 text, and the text shows the payload only as hex. Live row: the MPC returned a signature for an arbitrary payload under the v1 key (tx `4iu99Lph…`). octopos `main` calls only `seats.*` (relayer `NEAR_SIGNER_ACCOUNT`, `apps/web/ui/octopos/near/request.ts:30`), and mainnet builds refuse the NEAR client (`apps/web/scripts/assert-mainnet-build.ts`). Keys derived under v1 are owners of spike-era testnet accounts only (round 9, EVM Safes on Base Sepolia). v1 is redundant in this tree: v2 serves every seat. Proposed: move `contracts/near/prime-near-signer` and its CI job out of the tree (it stays at a tag), and lock or delete the deployed account under G7S-1. Decision for Tuan; I changed nothing.
+
+**Decided on 18 October 2026 (Tuan):** the source, its CI job and its `build-hashes.json` entry left the tree in the next pull request into `feat/grammar-v7`; the source stays at tag `archive/near-signer-v1` (last build `c27904a3`). The account `signer.prime-spike-muwguc60.testnet` still exists and still signs any payload a wallet approves until it is removed. Deleting it cannot be undone, so it waits for Tuan's explicit yes. Nothing in octopos calls it.
 
 ### G7S-3, Medium: mainnet gates made before 11 October 2026 pin an adapter build that passes a muxed recipient
 
@@ -353,6 +358,17 @@ An adapter with no working gate fails closed: one bound to an empty address or t
 
 So custody's funds stay behind custody's own gate: `pull` requires the caller's auth and its code (`custody-gate/src/lib.rs:74-77`), and only the adapter at the address custody chose, bound to custody's gate, can pass it. The exposure is the Prime's own funds, and it needs the owners to deploy the adapter and install both rules through rule 0. A code-hash check of the gate cannot tell `F` apart, because `F` runs the gate code. octopos reads an adapter's code and binding (`execution-adapter-v3.ts:324`, `:358`) and a gate's code (`gate-confirm-stellar.ts:381`); the owners' gate Confirm compares the typed trustee with the gate's list (DECISIONS 2026-10-12, Q5). `policy-synth` accepts any contract as a rule's scope and reads nothing about an adapter's gate. Proposed, with P0-5: when a rule's scope runs a known adapter build, read its gate and show the gate's custody and list in the review, and refuse a gate whose custody is one of the account's own signers.
 
+### G7S-13, Low: the RPC chooses the signed auth expiry and the resource fee
+
+Added on 18 October 2026 from review-opb23 (L2), which found it on this pull request's code with a lying RPC in front of testnet. P0-2 binds what the account signs to the built call, and two values the wallet signs still come from the RPC:
+
+- **Auth expiry:** `buildSelfCall` sets the account entry's expiry to the ledger the recording simulation reports plus 300 (`install.ts:228`), about 25 minutes. An RPC that reports a ledger 2,000,000 ahead moves the expiry to about four months (B10: expiry ledger 7,266,114 against 5,266,114 for the unaltered build). The host caps it: it refuses an expiry past the network's maximum entry lifetime, and +4,000,000 failed with `Error(Auth, InvalidInput)` (B11). The transaction itself has no time bounds (`chain.ts:110`, `setTimeout(0)`). So a signed install that the owner never submitted stays valid for months, and anyone holding the signed entry can submit it, once, in a transaction of their own. It is still exactly the built call.
+- **Resource fee:** the enforcing simulation's resource fee goes into the transaction uncapped (`install.ts:269-274`). An inflated answer built a transaction with a fee of 2,000,000,100 stroops, about 200 XLM (B9). `baseFee` has a cap of 1 XLM (`tools.ts:73-74`); the resource fee has none. The wallet shows the fee before signing, and the source account pays it.
+
+**Severity:** Low. The RPC comes from the operator's environment, the signed call cannot change, the nonce allows one use, and the wallet shows the fee. The exposure is a long-lived signed install and a fee an owner may not read.
+
+**Fix in progress:** the package pull request after this one (branch `fix/g7-p0-3-p0-4`, into `feat/grammar-v7`) caps the resource fee and bounds the expiry. Until it merges, this item is open.
+
 ## Proposed fixes for open Medium and High items
 
 | Item | Fix | Where | Changes a pinned contract? |
@@ -368,8 +384,8 @@ So custody's funds stay behind custody's own gate: `pull` requires the caller's 
 
 ## Decisions needed
 
-1. **G7S-1:** delete the FullAccess key on `seats.prime-spike-muwguc60.testnet` now, or before the first account with value; and whether v1's account is locked the same way.
-2. **G7S-2:** take NEAR signer v1 and its CI job out of the tree (it stays at a tag).
+1. **G7S-1:** delete the FullAccess key on `seats.prime-spike-muwguc60.testnet` now, or before the first account with value; and whether v1's account is locked the same way. Decided on 18 October 2026: the key stays for the testnet beta and goes before any mainnet use or value (see G7S-1).
+2. **G7S-2:** take NEAR signer v1 and its CI job out of the tree (it stays at a tag). Decided on 18 October 2026 and done; deleting the deployed account waits for a separate yes.
 3. **G7S-3:** who lists the mainnet gates that pin `68d012e7` and tells their owners.
 4. **P0-4 and P0-3:** whether the toolchain drops the override hints and adds the owner-side decoder before the next release.
 5. **Optional on-chain hardening at the next audited interpreter build:** account auth on `uninstall` when OZ calls it (D2, C3), events (R1), refusal of scopes on policy contracts (T3); and a deadline in the EVM seat's `exec` digest (G7S-4) at the next seat build.

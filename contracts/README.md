@@ -1,6 +1,6 @@
 # Prime contracts
 
-This folder holds every contract behind a Prime account, one folder per chain. The Stellar folder has the OctoGate contracts (custody gate, execution adapter, policy interpreter) and the Stellar seat. The EVM folder has the EVM seat. The Solana folder has the seat program and the custody gate. The NEAR folder has the two signers that turn a wallet's signature into a NEAR MPC signature.
+This folder holds every contract behind a Prime account, one folder per chain. The Stellar folder has the OctoGate contracts (custody gate, execution adapter, policy interpreter) and the Stellar seat. The EVM folder has the EVM seat. The Solana folder has the seat program and the custody gate. The NEAR folder has the signer that turns a wallet's signature into a NEAR MPC signature, and its shared vectors. The first signer, v1, left this folder on 18 October 2026 ([NEAR signer v1, retired](#near-signer-v1-retired)).
 
 On every chain, an owner's session key exists only through a seat (on Stellar and EVM since 12 October 2026, on Solana since Tuan's decision of 18 October 2026). An owner whose wallet signs through NEAR has a seat contract instead of a key. That owner grants a session key for at most 7 days, and the seat lets the key vote for the owner, always beside a native owner's signature, and act inside the rules that list the seat. On Solana the seat votes as a settings signer, and a native owner writes every transaction. An owner whose wallet signs on the chain itself holds its seat as a plain key and has no session. The round-9 design record ([ARCHITECTURE.md](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/ARCHITECTURE.md)) and the evidence bundle behind it ([spike/](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike), with the harnesses, logs and testnet records) are kept at tag `archive/spike-final`.
 
@@ -19,7 +19,6 @@ contracts/
   solana/README-architecture.md Solana design: Squads, the seat and the custody gate
   solana/SETUP-AND-RECOVERY.md  step-by-step guide: set up the custody gate and recover custody funds
   solana/custody-gate/          gate-owned custody gate (line-cut build with the multisig length check), plus app-checks/
-  near/prime-near-signer/       pass-through signer that checks a wallet signature, then asks NEAR MPC to sign
   stellar/prime-seat/           seat of a NEAR-routed owner on an OZ smart account
   evm/prime-seat/               PrimeSeat.sol, a Safe owner for a NEAR-routed owner (ERC-1271)
   solana/prime-seat/            seat PDA of a NEAR-routed owner in a Squads Smart Account
@@ -31,12 +30,11 @@ The seats and v2 came from `feat/near-seats` (`a9531b9`) and `feat/near-seats-si
 
 ## Contract size
 
-sLOC counts the non-blank, non-comment lines of the contract source after the formatter (`rustfmt` for Rust, `forge fmt` for Solidity), test files excluded. Formatted sLOC is the official metric from 9 October 2026; the figures before that date counted the files as written. The Stellar, Solana and NEAR v2 sources are formatter output, and CI checks them. The EVM contract is `forge fmt` clean and checked in CI. The first NEAR signer packs several statements per line (22 as written), so its count is the figure after `rustfmt`.
+sLOC counts the non-blank, non-comment lines of the contract source after the formatter (`rustfmt` for Rust, `forge fmt` for Solidity), test files excluded. Formatted sLOC is the official metric from 9 October 2026; the figures before that date counted the files as written. The Stellar, Solana and NEAR v2 sources are formatter output, and CI checks them. The EVM contract is `forge fmt` clean and checked in CI.
 
 | Chain | Contract | sLOC | Scope |
 |---|---|---|---|
 | EVM | `evm/prime-seat` | 72 | new code |
-| NEAR | `near/prime-near-signer` | 42 | new code |
 | NEAR | `near/prime-near-signer-v2` | 323 | new code |
 | Solana | `solana/custody-gate` | 126 | new code |
 | Solana | `solana/prime-seat` | 75 | new code |
@@ -46,7 +44,7 @@ sLOC counts the non-blank, non-comment lines of the contract source after the fo
 | Stellar | `stellar/policy-interpreter` | 757 | OctoGate, outside the new-code budget; this grammar-7 source is on testnet only, and mainnet runs the grammar-6 build |
 | Stellar | `stellar/test-blend-pool` | 22 | test double, testnet only |
 
-Per chain, the new code is 72 on EVM, 42 + 323 = 365 on NEAR, 126 + 75 = 201 on Solana and 99 on Stellar, 737 in all. The OctoGate contracts have their own external audit.
+Per chain, the new code is 72 on EVM, 323 on NEAR, 126 + 75 = 201 on Solana and 99 on Stellar, 695 in all. The OctoGate contracts have their own external audit.
 
 ## Build and test
 
@@ -66,7 +64,6 @@ Every hash and test count below was measured again on 18 October 2026 at the pat
 | | harnesses on a local validator (mainnet feature set, mainnet Squads and Token-2022 builds): `gate-a4.ts`, `venues-a4.ts`, `trustee-a4.ts`, `probe-fakems.ts`, run against the new build | 345/345 mock venue, 53/53 real Orca and Kamino, 9/9 trustee, 4/4 forged multisig refused |
 | | `mutants3.py` (the 63 checks of the earlier pass plus 15 on the new helpers) | 78/78 gate mutants killed, including the one that removes the multisig length check |
 | `solana/custody-gate/app-checks` | `tsc --strict --noEmit setup-checks.ts`, then `bun test setup-checks.test.ts` | clean, 43 passed |
-| `near/prime-near-signer` | `RUSTUP_TOOLCHAIN=stable cargo-near near build non-reproducible-wasm --no-abi` | wasm sha256 `c27904a329814b6ee92e8b37cc99490c8edbc9bbd3fd86a926b38e7d05b793c8`, code hash `E6986kfXDAec5nZvuYiBiC3fmonHCrynwRCtd33s1U5u` (110,145 bytes), the code hash deployed at `signer.prime-spike-muwguc60.testnet` since 9 October 2026 (transaction `82Cj53AxZjzodX4DKba2eyhgcDVBHb6USAKcHtytLdwf`; the previous build was `8f90ea67…`, code hash `AfRTxyBpBmUDYi88xxytL5z4yfPn3tBa1SYawt4Jzh3b`) |
 
 ### Stellar
 
@@ -91,11 +88,9 @@ The gate harnesses are in the spike bundle at tag `archive/spike-final`, in [`sp
 
 `app-checks/` holds the checks an app runs before funds move: mint extensions, the gate read-back and the setup transactions. It has its own `package.json` and lockfile (`@solana/web3.js` 1.99.0, `@solana/spl-token` 0.4.15). The root `bunfig.toml` limits `bun test` to `packages/`, so run `bun install --frozen-lockfile`, `bun run typecheck` and `bun test` from `app-checks/`.
 
-### NEAR
+### NEAR signer v1, retired
 
-`non-reproducible-wasm` embeds the path of the Rust standard library, so the hash depends on the toolchain directory name. It matches under the `stable` toolchain (rustc 1.98.1), which the `RUSTUP_TOOLCHAIN=stable` prefix selects. The repository's `rust-toolchain.toml` pins 1.97.1 and gives another hash. The build used `cargo-near` 0.22.0.
-
-CI builds the same wasm on any runner. It pins Rust 1.98.1 (what `stable` was on 9 October 2026) with `rust-src`, and passes two `--remap-path-prefix` flags through `cargo-near --env RUSTFLAGS` that write the registry and toolchain paths in the form the deployed build had. The result is the hash recorded in `build-hashes.json` (`c27904a3…`).
+`near/prime-near-signer`, the pass-through signer of the October spike, left this folder on 18 October 2026 with its CI job and its `build-hashes.json` entry. v2 serves every seat, and nothing else in the tree builds on v1: the vectors, v2, the scripts, the packages and the deployment records never refer to its source. Nothing in octopos calls it. Its source and the CI job that rebuilt it are kept at tag [`archive/near-signer-v1`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/near-signer-v1/contracts/near/prime-near-signer). Its last build is `c27904a329814b6ee92e8b37cc99490c8edbc9bbd3fd86a926b38e7d05b793c8` (110,145 bytes, `cargo-near` 0.22.0 under Rust 1.98.1), code hash `E6986kfXDAec5nZvuYiBiC3fmonHCrynwRCtd33s1U5u`, deployed at `signer.prime-spike-muwguc60.testnet` since 9 October 2026 (transaction `82Cj53AxZjzodX4DKba2eyhgcDVBHb6USAKcHtytLdwf`). That account still exists, and until it is removed it signs any payload a wallet approves. Removing it waits for a decision from Tuan ([docs/near.md](../docs/near.md#prime-near-signer-v1-retired)).
 
 ## Deployed builds
 
@@ -103,7 +98,7 @@ These are the shared instances on test networks, each running a build above. The
 
 | Chain | Deployed build | State |
 |---|---|---|
-| NEAR testnet | `signer.prime-spike-muwguc60.testnet`, code hash `E6986kfXDAec5nZvuYiBiC3fmonHCrynwRCtd33s1U5u` | redeployed with the new build; the derived MPC keys are unchanged, `signer-neg.ts` passed 12/12 and the Solana session matrix 133/133 with real NEAR |
+| NEAR testnet | `signer.prime-spike-muwguc60.testnet` (v1, retired from this tree), code hash `E6986kfXDAec5nZvuYiBiC3fmonHCrynwRCtd33s1U5u` | runs v1's last build since 9 October 2026, when `signer-neg.ts` passed 12/12 and the Solana session matrix 133/133 with real NEAR. It still signs any payload a wallet approves until the account is removed; see [NEAR signer v1, retired](#near-signer-v1-retired) |
 | Solana devnet | gate [`6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz`](https://explorer.solana.com/address/6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz?cluster=devnet), and the removed `prime-session` at [`6JyReewxbo6D6UQNHEWWTXnC1CdBU8CqcQjoQbGNj9Ba`](https://explorer.solana.com/address/6JyReewxbo6D6UQNHEWWTXnC1CdBU8CqcQjoQbGNj9Ba?cluster=devnet) | both run the 9 October 2026 builds (`a5d19edb…` and `c8836361…`), each deployed with `--final` and `--max-len` equal to its size, and the on-chain code equals the `.so`. The session matrix passed 145/145 and the gate flow 84/84 on devnet, with a second session program id `GLabPwsshHoaXMrHM6nHsHEkf51MFkKP86WCdRpXg3SD` for the two-program checks ([`round9/solana-devnet-sloc2/`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/solana-devnet-sloc2)). The first devnet builds are previous builds, and both are final too: gate `58L4q3DgvPdvRh7kX4v148EwEwd29WHh4RfaZJR69iYx` (`6d196cab…`, 84/84) and session `4tXCkZW255iZNT4gPHDuAbqR3eG8Zs3tRsgLRc1BoPRa` (`8db245ab…`, 136/136) |
 
 The 9 October 2026 size pass, which changed sources on every chain and kept their behaviour, is documented in [`spike/matrix/near-minimal/round9/sloc2/`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/sloc2): the mutation scripts, the differential harnesses and the logs.
@@ -137,12 +132,11 @@ On 18 October 2026 every contract moved from `contracts/prime/<chain>/<name>` to
 | `evm/prime-seat` | `forge build` | runtime `3b4402d5…`, creation `4d355864…` (`build-hashes.json`) | same; the creation code equals the Prime app's copy byte for byte, and the runtime with its immutables zeroed hashes (keccak-256) to the app's template `bf34aaa2…` |
 | `solana/custody-gate` | `cargo-build-sbf` | `a5d19edb…` (`build-hashes.json`, deployed) | same |
 | `solana/prime-seat` | `cargo-build-sbf` | localnet `4428191f…`, devnet `a389f4a1…` (`build-hashes.json`, deployed) | same |
-| `near/prime-near-signer` | `cargo-near` with the CI remaps | `c27904a3…` (`build-hashes.json`, deployed) | same |
 | `near/prime-near-signer-v2` | `cargo build --cfg near` with the CI remap | `4b98d6d3…` (`build-hashes.json`, deployed) | same |
 
-`solana/prime-session` matched as well at the new path (localnet `181013d2…`, devnet `c8836361…`) before it was removed the same day.
+`solana/prime-session` matched as well at the new path (localnet `181013d2…`, devnet `c8836361…`) before it was removed the same day, and so did NEAR signer v1 (`c27904a3…`, `cargo-near` with the CI remaps) before it was retired.
 
-No build embeds the crate's own path. The Stellar scripts remap it to `/src`, and cargo, `cargo-build-sbf`, `cargo-near` and Foundry pass sources to the compiler relative to the crate.
+No build embeds the crate's own path. The Stellar scripts remap it to `/src`, and cargo, `cargo-build-sbf` and Foundry pass sources to the compiler relative to the crate.
 
 The records are `build-hashes.json`, `deployments/grammar7-testnet.json` and `deployments/execution-testnet.json`. CI reads the last two from `../../../deployments/`.
 
@@ -154,7 +148,6 @@ The records are `build-hashes.json`, `deployments/grammar7-testnet.json` and `de
 |---|---|
 | `Contracts (<stellar crate>)` | `cargo fmt --check` (every crate), `cargo clippy -D warnings`, `cargo test`; for `policy-interpreter` also the release conformance run, `cargo audit` and the `build-wasm.sh` hash against `deployments/grammar7-testnet.json`; for `custody-gate` and `execution-adapter` the hash against `deployments/execution-testnet.json` |
 | `Contracts (solana/<crate>)` | Solana CLI v4.3.0 installed from `release.anza.xyz` and cached, `cargo fmt --check`, `PRIME_CLUSTER=localnet cargo-build-sbf`, the `.so` hash against `build-hashes.json` |
-| `Contracts (near/prime-near-signer)` | Rust 1.98.1, `cargo-near` 0.22.0, the build described under NEAR, the wasm hash against `build-hashes.json` |
 | `Contracts (prime-seat)`, in the Stellar matrix | as the other Stellar crates, and the `build-wasm.sh` hash against `build-hashes.json` |
 | `Contracts (evm/prime-seat)` | Foundry 1.8.4, the OpenZeppelin fetch from the EVM section, `forge fmt --check src`, `forge build`, `forge test`, then the runtime and creation hashes against `build-hashes.json` |
 | `Contracts (solana/prime-seat)`, in the Solana matrix | as the custody gate |
@@ -162,4 +155,4 @@ The records are `build-hashes.json`, `deployments/grammar7-testnet.json` and `de
 | `TypeScript (near/vectors)` | Bun 1.4.2 (the generator's lockfile needs it), `bun gen.ts`, and the output against `requests.json` byte for byte |
 | `TypeScript (solana/custody-gate/app-checks)` | `bun install --frozen-lockfile`, `tsc --strict`, `bun test` |
 
-`build-hashes.json` holds the hashes CI compares. Change an entry in the same commit as the source it covers. The NEAR signer has no format check: its source packs several statements per line, and the sections above state its size after `rustfmt` (42 lines, 22 as written).
+`build-hashes.json` holds the hashes CI compares. Change an entry in the same commit as the source it covers.
