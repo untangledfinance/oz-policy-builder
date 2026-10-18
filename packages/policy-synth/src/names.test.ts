@@ -2,14 +2,18 @@
 // wasm contract's own `contractspecv0` (this package's interpreter). Replays a live testnet run;
 // OPB_LIVE=1 bun test src/names.test.ts records it again.
 
-import { afterAll, describe, expect, it, setDefaultTimeout } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, it, setDefaultTimeout } from 'bun:test'
 import { account } from '../test/fixtures.ts'
 import { recorded } from '../test/rpc.ts'
+import { forgetLimits } from './chain.ts'
 import { INTERPRETER as PINNED } from './config.ts'
 import { explain, run } from './tools.ts'
 
 setDefaultTimeout(30_000)
 const net = recorded('spec')
+// The interpreter's limits are cached for the whole process. Forget them, so this file reads
+// them through its own recording whether it runs alone or after a file that read them first.
+beforeAll(forgetLimits)
 afterAll(() => net.stop())
 
 const XLM = 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC'
