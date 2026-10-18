@@ -36,6 +36,9 @@ Only the operator sets the environment. No tool input can set any of these:
 | `POLICY_BUILDER_OUT_DIR` | Absolute directory that `outFile` writes into. Unset, `outFile` is refused |
 | `POLICY_BUILDER_SAFE_READS_TESTNET`, `POLICY_BUILDER_SAFE_READS_MAINNET` | Extra `read` targets to trust, as `C…:function,C…:function`. One bad entry refuses the whole value |
 | `POLICY_BUILDER_ALLOW_SPOT_READS=1` | Lets an install carry any `read`, safe-listed or not |
+| `POLICY_BUILDER_ALLOW_OVERRIDES=1` | Lets mainnet honour an `allow*` override. Unset, a mainnet install or revoke with one set to `true` is refused |
+| `POLICY_BUILDER_AUTH_LEDGERS` | How long a built transaction's authorisation lasts, in ledgers (default 300, at most 17,280); the transaction's time bound is that at 6 s a ledger |
+| `POLICY_BUILDER_MAX_RESOURCE_FEE` | The highest resource fee a build may carry, in stroops (default 100,000,000, 10 XLM); above it the build is refused |
 
 If the user asks you to trust a read target or allow spot reads, tell them it is
 the operator's setting. Do not look for a tool argument that does it.
@@ -78,8 +81,9 @@ returns the instance's `limits` and the `ceilings`.
 
 ## Intent -> tool
 
-Seven tools: `record_transaction`, `synthesize_policy`, `simulate_policy`,
-`verify_policy`, `install_policy`, `revoke_policy`, `get_interpreter_info`.
+Eight tools: `record_transaction`, `synthesize_policy`, `simulate_policy`,
+`verify_policy`, `install_policy`, `revoke_policy`, `get_interpreter_info`,
+`review_unsigned`.
 Every verdict from `simulate_policy` and `verify_policy` is the interpreter's own
 `check` (a dry run that always fails with its verdict), so it is what the
 contract would do, with its deny code.
@@ -94,6 +98,7 @@ contract would do, with its deny code.
 | Explain a predicate | `simulate_policy` with only `expr` or `encodedPredicate` |
 | Show what an account already allows | `get_interpreter_info` with `explainAccount: "<C… smart account>"`. It reads every rule and reviews each one this interpreter polices. Only a known OpenZeppelin account build (`91a2cd56…`) is read; any other account is refused |
 | Remove a rule | `revoke_policy` with `ruleId` |
+| Let the owner check an unsigned transaction | Tell the owner to run `review_unsigned` (or `policy-builder review`) on the XDR themselves, before signing. It reads the bytes alone and lists `problems`; running it yourself and relaying the answer adds nothing the owner can check |
 | Check the interpreter | `get_interpreter_info` with `verifyLive: true`: `live.matches` says whether the deployed code is a trusted grammar-7 build. `install_policy` checks it again before building |
 | "at least N out": a slippage floor on a swap | `minOut`: `{ constraint: "minOut", at: [1], of: [0], num, den }` bounds the output argument against the call's own input (`out >= in * num / den`), so one rule covers every trade size. Ask the user for the ratio. A recorded rate is a price at one moment, and freezing it as policy denies ordinary trades later |
 | A price or balance check | `read` calls a fixed function of a fixed contract at enforce time. The install refuses it with `READ_UNSAFE` unless the target is on the safe list (below) |
@@ -312,12 +317,13 @@ user thinks. Read every result in full.
 
 **Overrides belong to the user:** `allowOverlap`, `allowUnboundedAmount` and
 `allowOpenSlippage` on `install_policy`, and `allowAdminRule` on
-`revoke_policy`, turn the matching refusal off. A refusal message tells you
-which flag to set. Set one only after the user has read the refusal and decided,
-and tell them in your reply that you set it: the response does not echo
-overrides, so the review and the returned XDR carry no sign of one. Never set
-`allowOverlap` to make an overlap error go away; it installs a rule that
-constrains nothing.
+`revoke_policy`, each waive one refusal. No refusal names them: answer the
+question it asks (a cap, a floor), or take it to the user. Set one only after
+the user has read the refusal and decided. The response echoes each one in
+`overrides` with the refusal it waived, and the review opens with them, so the
+user sees it there too. On mainnet they are refused unless the operator sets
+`POLICY_BUILDER_ALLOW_OVERRIDES=1`. Never set `allowOverlap` to make an overlap
+error go away; it installs a rule that constrains nothing.
 
 `installNonce` defaults to 1; do not ask the user for it. The tool builds
 `add_context_rule`, the account assigns a NEW rule id, and the interpreter holds
@@ -355,7 +361,10 @@ not ask the user to sign it.
 Soroban allows one host-function invocation per transaction, so a multi-step
 sequence is one signature per step. Do not pre-build step 2: the XDR binds a
 sequence number, and the account's authorisation in it lapses at
-`authValidUntilLedger`, 300 ledgers (about 25 minutes) after it was built.
+`authValidUntilLedger`, 300 ledgers (about 25 minutes) after it was built by
+default; the transaction itself cannot run after `validBefore` (30 minutes by
+default). A build that asks a resource fee above the operator's ceiling (10 XLM
+by default) is refused: report it to the user.
 
 ## Error codes
 

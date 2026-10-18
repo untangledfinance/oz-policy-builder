@@ -706,16 +706,27 @@ Enforcement happens on chain. The builder checks a rule before it is signed:
 | Read safety | A `read` outside the safe list is refused with `READ_UNSAFE`. The list holds the three testnet Reflector oracles (`lastprice`, `price`) and the operator's `POLICY_BUILDER_SAFE_READS_TESTNET` or `_MAINNET`; a listed read needs constant arguments. `POLICY_BUILDER_ALLOW_SPOT_READS=1` lets other reads through. All three switches are operator environment only, and no tool input can set them. |
 | Authority overlap | The builder reads every rule on the account and refuses a rule a shared signer could bypass through a looser or unpoliced neighbour, or an account whose rules it could not all read. |
 | Amounts | An amount with no cap, and a swap whose least output has no floor, are refused. |
+| Signed expiry and fee | The builder sets the authorisation's expiry: the ledger the recording simulation ran at plus `POLICY_BUILDER_AUTH_LEDGERS` (default 300, at most 17,280), and the two simulations must report ledgers within 20 of each other. The transaction carries a time bound from the builder's clock, the window at 6 s a ledger (30 minutes by default). A resource fee above `POLICY_BUILDER_MAX_RESOURCE_FEE` (default 100,000,000 stroops, 10 XLM) is refused. Both are operator environment only. |
 
 Four overrides are tool inputs: `allowOverlap`, `allowUnboundedAmount` and
 `allowOpenSlippage` on `install_policy`, and `allowAdminRule` on `revoke_policy`.
-No field names them. `allowOverlap` shows only indirectly (a `refuse` overlap or
-`complete: false` in a successful response's `authorityScan`), `allowAdminRule`
-shows in `removes` (rule 0, a Default scope, or a scope on the account itself),
-and `allowUnboundedAmount` and `allowOpenSlippage` leave no trace. Keep the
-request with the response. Echoing them, and gating them behind the operator on
-mainnet, is open item P0-4 in the
-[grammar-7 STRIDE model](../evidence/stride-threat-model-g7.md).
+Each waives one refusal and is the account owners' decision. No refusal names
+them. Each one set comes back in `overrides`, as `{ flag, waived }` with the
+refusal it waived (or `null` when nothing needed it), and the review opens with
+an `Overrides set in the request` node before the Authority header (in
+`removes` for a revoke). On mainnet a flag set to `true` is refused before the
+network is asked unless the operator sets `POLICY_BUILDER_ALLOW_OVERRIDES=1`;
+testnet honours them, echoed all the same.
+
+`review_unsigned` is the owner's side of the review. A wallet or the Prime app
+runs it on the unsigned XDR it is about to sign (also `reviewUnsigned` from
+`@crediolabs/policy-synth`): it reads the bytes alone, with no RPC, lists in
+`problems` every check of the builder the bytes fail (an authorisation for
+anything but the call, a `__check_auth` digest that does not match on the
+network, an interpreter other than the pin, a predicate whose hash does not
+match its bytes, an unknown policy, a fee above the ceiling, no time bound or a
+longer one), and renders the transaction, the Authority header and the
+predicate from the bytes.
 
 `install_policy` returns the facts it installs as an `authority` object:
 `{ signers, threshold, admins, validUntil, total, interpreter, limits }`.

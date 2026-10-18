@@ -16,7 +16,7 @@ It is built as two halves:
   declared mandate, turns it into a rule written in the predicate's own wire
   shape, verifies that rule through the interpreter's `check` (a dry run that always fails with its verdict), renders
   a review tree, and returns an unsigned install transaction for the user's
-  wallet to sign. A CLI and an MCP server register the same seven tools from one
+  wallet to sign. A CLI and an MCP server register the same eight tools from one
   table, for shells and agents.
 - **On chain**, the `policy-interpreter` Soroban contract evaluates the
   predicate on every guarded call, fail-closed: one audit-once engine, and
@@ -155,7 +155,19 @@ measurements behind the limits.
   oracles and the operator's own list) is refused as `READ_UNSAFE`, unless the
   operator sets `POLICY_BUILDER_ALLOW_SPOT_READS=1`.
 - **The full rule scan:** the install reads every live rule on the account and
-  refuses a rule a shared signer could bypass, unless `allowOverlap` is set.
+  refuses a rule a shared signer could bypass.
+- **Overrides belong to the owners:** `allowOverlap`, `allowUnboundedAmount`,
+  `allowOpenSlippage` and `allowAdminRule` each waive one refusal. No refusal
+  names them, each one set comes back in `overrides` and opens the review, and
+  on mainnet they are refused unless the operator sets
+  `POLICY_BUILDER_ALLOW_OVERRIDES=1`.
+- **Expiry and fee bounds:** the builder itself sets how long the signed
+  transaction stays valid (`POLICY_BUILDER_AUTH_LEDGERS`, default 300 ledgers,
+  with a time bound from the builder's clock) and refuses a resource fee above
+  `POLICY_BUILDER_MAX_RESOURCE_FEE` (default 10 XLM).
+- **The owner's review:** `review_unsigned` reads an unsigned install or
+  removal from its bytes alone, with no RPC, and lists every reason not to sign
+  it, so the owner need not trust what the agent relayed.
 - **The authority header:** the install review opens with who may act, under
   which threshold, until when, up to what total, and under which interpreter.
   `[…]` marks the package's roles and `«…»` the labels given in the request.
@@ -187,7 +199,7 @@ The STRIDE threat model for grammar 7, with what is done and what is open at
 | Read the EVM design in detail | [docs/evm.md](./docs/evm.md) |
 | Read the Solana programs in detail | [docs/solana.md](./docs/solana.md) |
 | Read the NEAR signer in detail, and the status of the retired v1 | [docs/near.md](./docs/near.md) |
-| Build and install a policy from a shell | `packages/policy-builder-cli` (`policy-builder <tool>`, all seven tools) |
+| Build and install a policy from a shell | `packages/policy-builder-cli` (`policy-builder <tool>`, all eight tools) |
 | Drive it from an agent | `packages/policy-builder-mcp` (MCP over stdio / Streamable HTTP) |
 
 ## Layout
