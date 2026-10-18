@@ -15,7 +15,7 @@
         {
           "function": {
             "contract_fn": {
-              "contract_address": "CAT4VUXCKPPUCG3WDMEDQVWPHV5FGV263CD2PLWZEHHWJXPL7M2WYROQ",
+              "contract_address": "CASGWTYUO7DHGFA4FKSSQ6NU3SOQMC2VOJUNXV53256TPC7S2WIQ6ABJ",
               "function_name": "execute",
               "args": [
                 {
@@ -235,7 +235,7 @@
           "data": {
             "contract_data": {
               "ext": "v0",
-              "contract": "CAT4VUXCKPPUCG3WDMEDQVWPHV5FGV263CD2PLWZEHHWJXPL7M2WYROQ",
+              "contract": "CASGWTYUO7DHGFA4FKSSQ6NU3SOQMC2VOJUNXV53256TPC7S2WIQ6ABJ",
               "key": "ledger_key_contract_instance",
               "durability": "persistent",
               "val": {

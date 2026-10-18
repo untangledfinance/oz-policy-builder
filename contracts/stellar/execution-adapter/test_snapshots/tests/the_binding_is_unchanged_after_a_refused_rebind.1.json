@@ -97,7 +97,7 @@
           "data": {
             "contract_data": {
               "ext": "v0",
-              "contract": "CCOSD32LA4Q6QNORN53TJ43YNCE7GL7IKPUAQRRN6W2FN66DWP3WQAEQ",
+              "contract": "CCUQPUBXSDUMCD4MQLSRGQ4GCR54TM72GVRPIU4ZNKEDM2X7CEJBQVCO",
               "key": "ledger_key_contract_instance",
               "durability": "persistent",
               "val": {

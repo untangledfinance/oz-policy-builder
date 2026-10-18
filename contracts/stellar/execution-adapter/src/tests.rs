@@ -1,6 +1,7 @@
 extern crate std;
 use super::*;
 use soroban_sdk::{
+    address_payload::AddressPayload,
     testutils::{
         storage::{Instance as _, Persistent as _},
         Address as _, Ledger as _,
@@ -315,10 +316,29 @@ fn a_muxed_strkey_is_not_an_address_this_host_can_build() {
 /// Where custody expects the adapter: the Prime deploys it, and the salt
 /// commits to the gate and both numbers.
 fn agreed_address(e: &Env, prime: &Address, gate: &Address, min_wait: u32, window: u32) -> Address {
-    let mut b = Bytes::from_slice(e, b"prime.execution.adapter.v4");
-    b.append(&gate.clone().to_xdr(e));
-    b.append(&min_wait.to_xdr(e));
-    b.append(&window.to_xdr(e));
+    derived(e, prime, Some(gate.clone()), min_wait, window, "v5")
+}
+
+/// The derivation of either adapter version. `v5`, this one, hashes the XDR
+/// of the tuple `(gate, min_wait, window)`, "no gate" being a void; `v4`, the
+/// deployed build, hashed the XDR of each part in turn.
+fn derived(
+    e: &Env,
+    prime: &Address,
+    gate: Option<Address>,
+    min_wait: u32,
+    window: u32,
+    version: &str,
+) -> Address {
+    let mut b = Bytes::from_slice(e, b"prime.execution.adapter.");
+    b.append(&Bytes::from_slice(e, version.as_bytes()));
+    if version == "v5" {
+        b.append(&(gate, min_wait, window).to_xdr(e));
+    } else {
+        b.append(&gate.to_xdr(e));
+        b.append(&min_wait.to_xdr(e));
+        b.append(&window.to_xdr(e));
+    }
     e.deployer()
         .with_address(prime.clone(), e.crypto().sha256(&b))
         .deployed_address()
@@ -637,11 +657,11 @@ fn using_the_adapter_keeps_its_instance_alive() {
     let w = world();
     let before =
         w.e.as_contract(&w.adapter, || w.e.storage().instance().get_ttl());
-    assert!(before < INSTANCE_BELOW);
+    assert!(before < KEEP_BELOW);
     client(&w).execute(&bump_batch(&w), &no_grants(&w), &0);
     let after =
         w.e.as_contract(&w.adapter, || w.e.storage().instance().get_ttl());
-    assert_eq!(after, INSTANCE_TO);
+    assert_eq!(after, KEEP_TO);
 }
 
 /// The Stellar Asset Contract's protocol-23 `transfer`: `to` is a
@@ -951,5 +971,542 @@ mod xdr_bytes {
         advance(&w, 720);
         contract_error(client(&w).try_run(&1), E::Uncheckable);
         assert_eq!(MuxTokenClient::new(e, &token).balance(&muxed.address()), 0);
+    }
+}
+
+/// An adapter created with no gate: no address is checked, so the Prime can
+/// bundle its own calls, and the binding can never change.
+mod null_gate {
+    use super::*;
+    use soroban_sdk::{testutils::AuthorizedFunction, MuxedAddress};
+
+    /// Stands in for any contract a bundle calls first: `hello(true)` fails.
+    #[contract]
+    pub struct Hello;
+
+    #[contractimpl]
+    impl Hello {
+        pub fn hello(_e: Env, fail: bool) -> u32 {
+            assert!(!fail, "hello failed");
+            7
+        }
+    }
+
+    struct Null {
+        e: Env,
+        adapter: Address,
+        prime: Address,
+        stranger: Address,
+        token: Address,
+        hello: Address,
+    }
+
+    fn null_world() -> Null {
+        let e = Env::default();
+        e.ledger().set_sequence_number(1_000);
+        e.mock_all_auths();
+        let prime = Address::generate(&e);
+        let stranger = Address::generate(&e);
+        let token = e.register(MuxToken, ());
+        let hello = e.register(Hello, ());
+        let at = derived(&e, &prime, None, 0, 100, "v5");
+        let adapter = e.register_at(
+            &at,
+            ExecutionAdapter,
+            (prime.clone(), None::<Address>, 0u32, 100u32),
+        );
+        Null {
+            e,
+            adapter,
+            prime,
+            stranger,
+            token,
+            hello,
+        }
+    }
+
+    fn c(n: &Null) -> ExecutionAdapterClient<'_> {
+        ExecutionAdapterClient::new(&n.e, &n.adapter)
+    }
+
+    fn hello(n: &Null, fail: bool) -> Call {
+        call_to(
+            &n.e,
+            &n.hello,
+            "hello",
+            Vec::from_array(&n.e, [fail.into_val(&n.e)]),
+        )
+    }
+
+    /// `token.transfer(prime, to, 100)`: the Prime's own funds.
+    fn pay(n: &Null, to: Val) -> Call {
+        let args = Vec::from_array(&n.e, [n.prime.to_val(), to, 100i128.into_val(&n.e)]);
+        call_to(&n.e, &n.token, "transfer", args)
+    }
+
+    fn paid(n: &Null, who: &Address) -> i128 {
+        MuxTokenClient::new(&n.e, &n.token).balance(who)
+    }
+
+    fn none(n: &Null) -> Vec<InvokerContractAuthEntry> {
+        Vec::new(&n.e)
+    }
+
+    fn gate_of(n: &Null) -> Option<Address> {
+        n.e.as_contract(&n.adapter, || {
+            n.e.storage()
+                .instance()
+                .get::<_, Option<Address>>(&symbol_short!("gate"))
+                .flatten()
+        })
+    }
+
+    #[test]
+    fn the_batch_runs_with_no_address_checked() {
+        let n = null_world();
+        let muxed = MuxedAddress::from_str(
+            &n.e,
+            "MBSRYJ7BNJNEOCMQ5EBAJOTSLHWAOQXSSUUYECRU7KWZVXGAZ5PXGAIBAEAQCAIBAGQ7A",
+        );
+        let calls = Vec::from_array(
+            &n.e,
+            [
+                hello(&n, false),
+                pay(&n, n.stranger.to_val()),
+                pay(&n, muxed.to_val()),
+            ],
+        );
+        assert_eq!(c(&n).execute(&calls, &none(&n), &0), None);
+        assert_eq!(paid(&n, &n.stranger), 100);
+        assert_eq!(paid(&n, &muxed.address()), 100);
+        assert_eq!(gate_of(&n), None);
+    }
+
+    #[test]
+    fn nothing_moves_when_a_call_fails() {
+        let n = null_world();
+        for calls in [
+            [hello(&n, true), pay(&n, n.stranger.to_val())],
+            [pay(&n, n.stranger.to_val()), hello(&n, true)],
+        ] {
+            let calls = Vec::from_array(&n.e, calls);
+            assert!(c(&n).try_execute(&calls, &none(&n), &0).is_err());
+            assert_eq!(paid(&n, &n.stranger), 0);
+        }
+    }
+
+    #[test]
+    fn one_approval_by_the_prime_covers_its_own_calls() {
+        let n = null_world();
+        let calls = Vec::from_array(
+            &n.e,
+            [
+                hello(&n, false),
+                pay(&n, n.stranger.to_val()),
+                pay(&n, n.stranger.to_val()),
+            ],
+        );
+        c(&n).execute(&calls, &none(&n), &0);
+        let auths = n.e.auths();
+        assert_eq!(auths.len(), 1, "one approval, by the Prime");
+        let (who, inv) = &auths[0];
+        assert_eq!(*who, n.prime);
+        let AuthorizedFunction::Contract((contract, f, _)) = &inv.function else {
+            panic!("expected a contract call")
+        };
+        assert_eq!((contract, f), (&n.adapter, &Symbol::new(&n.e, "execute")));
+        assert_eq!(inv.sub_invocations.len(), 2, "both transfers sit under it");
+        assert_eq!(paid(&n, &n.stranger), 200);
+    }
+
+    #[test]
+    fn the_prime_is_still_refused_as_a_target() {
+        let n = null_world();
+        let calls = Vec::from_array(&n.e, [call_to(&n.e, &n.prime, "ping", Vec::new(&n.e))]);
+        contract_error(c(&n).try_execute(&calls, &none(&n), &0), E::PrimeTarget);
+    }
+
+    /// A null adapter holds nothing and acts as itself only towards the
+    /// contracts it calls directly: with no list there is nothing to check an
+    /// authorization against, so it hands none out.
+    #[test]
+    fn it_hands_out_no_authorization_as_itself() {
+        let n = null_world();
+        let entry = InvokerContractAuthEntry::Contract(soroban_sdk::auth::SubContractInvocation {
+            context: soroban_sdk::auth::ContractContext {
+                contract: n.token.clone(),
+                fn_name: Symbol::new(&n.e, "transfer"),
+                args: Vec::new(&n.e),
+            },
+            sub_invocations: Vec::new(&n.e),
+        });
+        let entries = Vec::from_array(&n.e, [entry]);
+        let batch = Vec::from_array(&n.e, [hello(&n, false)]);
+        contract_error(c(&n).try_execute(&batch, &entries, &0), E::Uncheckable);
+        let mut call = hello(&n, false);
+        call.executor_authorizations = entries;
+        let batch = Vec::from_array(&n.e, [call]);
+        contract_error(c(&n).try_execute(&batch, &none(&n), &0), E::Uncheckable);
+    }
+
+    /// A stored batch of the Prime's own funds would run under rules this
+    /// adapter signs, which nothing else bounds without a list.
+    #[test]
+    fn nothing_waits() {
+        let n = null_world();
+        let calls = Vec::from_array(&n.e, [pay(&n, n.stranger.to_val())]);
+        contract_error(c(&n).try_execute(&calls, &none(&n), &1), E::NoWait);
+        let stored =
+            n.e.as_contract(&n.adapter, || n.e.storage().persistent().has(&1u32));
+        assert!(!stored);
+        n.e.ledger()
+            .set_sequence_number(n.e.ledger().sequence() + 1);
+        contract_error(c(&n).try_run(&1), E::NotScheduled);
+        assert_eq!(paid(&n, &n.stranger), 0);
+    }
+
+    #[test]
+    fn a_null_adapter_with_a_minimum_wait_is_never_created() {
+        let e = Env::default();
+        let prime = Address::generate(&e);
+        let at = derived(&e, &prime, None, 10, 100, "v5");
+        let attempt = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            e.register_at(
+                &at,
+                ExecutionAdapter,
+                (prime.clone(), None::<Address>, 10u32, 100u32),
+            );
+        }));
+        assert!(attempt.is_err());
+    }
+
+    #[test]
+    fn only_the_prime_cancels() {
+        let n = null_world();
+        contract_error(c(&n).try_cancel(&1, &n.stranger), E::NotACanceller);
+        c(&n).cancel(&1, &n.prime);
+        let (who, _) =
+            n.e.auths()
+                .first()
+                .cloned()
+                .expect("cancelling needs approval");
+        assert_eq!(who, n.prime);
+    }
+
+    #[test]
+    fn a_null_adapter_can_never_be_bound() {
+        let n = null_world();
+        let gate =
+            n.e.register(FixtureGate, (Vec::<Address>::new(&n.e), n.prime.clone()));
+        contract_error(c(&n).try_rebind(&gate), E::NoGate);
+        assert_eq!(gate_of(&n), None);
+    }
+
+    #[test]
+    fn a_gated_adapter_can_never_become_null() {
+        let w = world();
+        let attempt = w.e.try_invoke_contract::<(), soroban_sdk::Error>(
+            &w.adapter,
+            &Symbol::new(&w.e, "rebind"),
+            vec![&w.e, ().into_val(&w.e)],
+        );
+        assert!(attempt.is_err());
+        let bound: Address = w.e.as_contract(&w.adapter, || {
+            w.e.storage()
+                .instance()
+                .get(&symbol_short!("gate"))
+                .unwrap()
+        });
+        assert_eq!(bound, w.gate);
+    }
+
+    /// No gate, a gate, and the v4 derivation all give different addresses,
+    /// so the constructor refuses to run where another binding was agreed.
+    #[test]
+    fn each_binding_has_its_own_address() {
+        let e = Env::default();
+        let prime = Address::generate(&e);
+        let gate = e.register(FixtureGate, (Vec::<Address>::new(&e), prime.clone()));
+        let null = derived(&e, &prime, None, 0, 100, "v5");
+        let gated = derived(&e, &prime, Some(gate.clone()), 0, 100, "v5");
+        let v4 = derived(&e, &prime, Some(gate.clone()), 0, 100, "v4");
+        assert!(null != gated && gated != v4 && null != v4);
+        assert_eq!(None::<Address>.to_xdr(&e).len(), 4, "a void value");
+        for (at, binding) in [
+            (&gated, None),
+            (&null, Some(gate.clone())),
+            (&v4, Some(gate)),
+        ] {
+            let attempt = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                e.register_at(at, ExecutionAdapter, (prime.clone(), binding, 0u32, 100u32));
+            }));
+            assert!(attempt.is_err(), "created where another binding was agreed");
+        }
+    }
+}
+
+/// The fifth spelling `scan_data` compares: the raw 32 bytes of an account key
+/// or contract id, which `Address::from_payload` takes.
+mod raw_keys {
+    use super::*;
+
+    fn raw(a: &Address) -> Bytes {
+        match a.to_payload() {
+            Some(AddressPayload::ContractIdHash(p))
+            | Some(AddressPayload::AccountIdPublicKeyEd25519(p)) => Bytes::from(p),
+            None => panic!("no payload"),
+        }
+    }
+
+    fn one(w: &World, data: Bytes) -> Vec<Call> {
+        let args = Vec::from_array(&w.e, [data.to_val()]);
+        Vec::from_array(&w.e, [call_to(&w.e, &w.gate, "one", args)])
+    }
+
+    #[test]
+    fn the_raw_key_of_a_stranger_is_refused() {
+        let w = world();
+        let data = raw(&w.stranger);
+        assert_eq!(data.len(), 32);
+        refused(&w, one(&w, data), E::AddressNotAllowed);
+    }
+
+    #[test]
+    fn the_raw_key_of_a_listed_address_passes() {
+        let w = world();
+        assert!(run(&w, one(&w, raw(&w.custody))).is_ok());
+    }
+}
+
+/// The grant walk steps into sub-invocations (review-opb26 L1): with a gate,
+/// that step is all that stops a grant whose second level names a stranger.
+mod grant_depth {
+    use super::*;
+    use soroban_sdk::auth::{ContractContext, SubContractInvocation};
+
+    fn entry(
+        e: &Env,
+        to: &Address,
+        subs: Vec<InvokerContractAuthEntry>,
+    ) -> InvokerContractAuthEntry {
+        InvokerContractAuthEntry::Contract(SubContractInvocation {
+            context: ContractContext {
+                contract: to.clone(),
+                fn_name: Symbol::new(e, "ping"),
+                args: Vec::new(e),
+            },
+            sub_invocations: subs,
+        })
+    }
+
+    #[test]
+    fn a_stranger_in_a_grant_sub_invocation_is_refused() {
+        let w = world();
+        let inner = Vec::from_array(&w.e, [entry(&w.e, &w.stranger, Vec::new(&w.e))]);
+        let grants = Vec::from_array(&w.e, [entry(&w.e, &w.gate, inner)]);
+        let calls = Vec::from_array(&w.e, [call_to(&w.e, &w.gate, "ping", Vec::new(&w.e))]);
+        contract_error(
+            client(&w).try_execute(&calls, &grants, &0),
+            E::AddressNotAllowed,
+        );
+        let mut c = call_to(&w.e, &w.gate, "ping", Vec::new(&w.e));
+        let inner = Vec::from_array(&w.e, [entry(&w.e, &w.stranger, Vec::new(&w.e))]);
+        c.executor_authorizations = Vec::from_array(&w.e, [entry(&w.e, &w.gate, inner)]);
+        refused(&w, Vec::from_array(&w.e, [c]), E::AddressNotAllowed);
+    }
+
+    #[test]
+    fn a_listed_grant_sub_invocation_passes() {
+        let w = world();
+        let inner = Vec::from_array(&w.e, [entry(&w.e, &w.custody, Vec::new(&w.e))]);
+        let grants = Vec::from_array(&w.e, [entry(&w.e, &w.gate, inner)]);
+        let calls = Vec::from_array(&w.e, [call_to(&w.e, &w.gate, "ping", Vec::new(&w.e))]);
+        assert!(client(&w).try_execute(&calls, &grants, &0).is_ok());
+    }
+}
+
+/// A callee two levels down that asks this adapter for its authorization.
+#[contract]
+pub struct Needy;
+
+#[contractimpl]
+impl Needy {
+    pub fn need(e: Env, who: Address) {
+        who.require_auth();
+        let n: u32 = e.storage().instance().get(&symbol_short!("n")).unwrap_or(0);
+        e.storage().instance().set(&symbol_short!("n"), &(n + 1));
+    }
+    pub fn count(e: Env) -> u32 {
+        e.storage().instance().get(&symbol_short!("n")).unwrap_or(0)
+    }
+}
+
+/// Calls `Needy.need(who)`, so the adapter is not `Needy`'s direct caller.
+#[contract]
+pub struct Relay;
+
+#[contractimpl]
+impl Relay {
+    pub fn go(e: Env, needy: Address, who: Address) {
+        NeedyClient::new(&e, &needy).need(&who);
+    }
+}
+
+/// A Prime whose own check asks the adapter for its authorization, the way
+/// an OpenZeppelin account's rule signed by the adapter does: it calls
+/// `Needy.need(adapter)` from `__check_auth` when it was created with `needy`.
+#[contract]
+pub struct AskingPrime;
+
+#[contractimpl]
+impl AskingPrime {
+    pub fn __constructor(e: Env, needy: Option<Address>) {
+        e.storage().instance().set(&symbol_short!("needy"), &needy);
+    }
+}
+
+#[contractimpl]
+impl soroban_sdk::auth::CustomAccountInterface for AskingPrime {
+    type Signature = ();
+    type Error = soroban_sdk::Error;
+
+    #[allow(non_snake_case)]
+    fn __check_auth(
+        e: Env,
+        _payload: soroban_sdk::crypto::Hash<32>,
+        _signature: (),
+        contexts: Vec<soroban_sdk::auth::Context>,
+    ) -> Result<(), soroban_sdk::Error> {
+        let needy: Option<Address> = e.storage().instance().get(&symbol_short!("needy")).unwrap();
+        if let (Some(needy), Some(soroban_sdk::auth::Context::Contract(c))) =
+            (needy, contexts.get(0))
+        {
+            NeedyClient::new(&e, &needy).need(&c.contract);
+        }
+        Ok(())
+    }
+}
+
+/// Grants and `executor_authorizations` reach the code that asks for them
+/// (review-opb26 L2). Nothing is mocked: the Prime signs a real entry, and
+/// the adapter's authorization holds only if the adapter handed it out.
+///
+/// A batch's grants live for the adapter's next sub-call, which is the
+/// Prime's `__check_auth` for the batch: that is where a rule signed by the
+/// adapter asks for it. A call's `executor_authorizations` live for that
+/// call.
+mod handed_out {
+    use super::*;
+    use soroban_sdk::{
+        auth::{ContractContext, SubContractInvocation},
+        xdr::{
+            InvokeContractArgs, ScAddress, ScSymbol, ScVal, SorobanAddressCredentials,
+            SorobanAuthorizationEntry, SorobanAuthorizedFunction, SorobanAuthorizedInvocation,
+            SorobanCredentials, VecM,
+        },
+        TryFromVal,
+    };
+
+    struct H {
+        e: Env,
+        adapter: Address,
+        prime: Address,
+        relay: Address,
+        needy: Address,
+    }
+
+    /// `asks`: whether the Prime's own check asks the adapter.
+    fn setup(asks: bool) -> H {
+        let e = Env::default();
+        e.ledger().set_sequence_number(1_000);
+        let custody = Address::generate(&e);
+        let relay = e.register(Relay, ());
+        let needy = e.register(Needy, ());
+        let prime = e.register(AskingPrime, (asks.then(|| needy.clone()),));
+        // The adapter's address derives from the gate, and the gate must list
+        // that address because `need` names it: create the gate, then write
+        // its list.
+        let gate = e.register(FixtureGate, (Vec::<Address>::new(&e), custody));
+        let at = agreed_address(&e, &prime, &gate, 0, 100);
+        let allowed = Vec::from_array(&e, [relay.clone(), needy.clone(), at.clone()]);
+        e.as_contract(&gate, || {
+            e.storage().instance().set(&symbol_short!("a"), &allowed)
+        });
+        let adapter = e.register_at(&at, ExecutionAdapter, (prime.clone(), gate, 0u32, 100u32));
+        H {
+            e,
+            adapter,
+            prime,
+            relay,
+            needy,
+        }
+    }
+
+    fn need(h: &H) -> InvokerContractAuthEntry {
+        InvokerContractAuthEntry::Contract(SubContractInvocation {
+            context: ContractContext {
+                contract: h.needy.clone(),
+                fn_name: Symbol::new(&h.e, "need"),
+                args: Vec::from_array(&h.e, [h.adapter.to_val()]),
+            },
+            sub_invocations: Vec::new(&h.e),
+        })
+    }
+
+    fn go(h: &H) -> Call {
+        let args = Vec::from_array(&h.e, [h.needy.to_val(), h.adapter.to_val()]);
+        call_to(&h.e, &h.relay, "go", args)
+    }
+
+    /// `execute(calls, grants, 0)` with the Prime's own signed entry.
+    fn try_run(h: &H, calls: &Vec<Call>, grants: &Vec<InvokerContractAuthEntry>) -> bool {
+        let args: Vec<Val> = (calls.clone(), grants.clone(), 0u32).into_val(&h.e);
+        let args: std::vec::Vec<ScVal> = args
+            .iter()
+            .map(|v| ScVal::try_from_val(&h.e, &v).unwrap())
+            .collect();
+        h.e.set_auths(&[SorobanAuthorizationEntry {
+            credentials: SorobanCredentials::Address(SorobanAddressCredentials {
+                address: ScAddress::from(&h.prime),
+                nonce: 7,
+                signature_expiration_ledger: 2_000,
+                signature: ScVal::Void,
+            }),
+            root_invocation: SorobanAuthorizedInvocation {
+                function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+                    contract_address: ScAddress::from(&h.adapter),
+                    function_name: ScSymbol("execute".try_into().unwrap()),
+                    args: args.try_into().unwrap(),
+                }),
+                sub_invocations: VecM::default(),
+            },
+        }]);
+        ExecutionAdapterClient::new(&h.e, &h.adapter)
+            .try_execute(calls, grants, &0)
+            .is_ok()
+    }
+
+    fn served(h: &H) -> u32 {
+        NeedyClient::new(&h.e, &h.needy).count()
+    }
+
+    #[test]
+    fn a_call_s_executor_authorizations_reach_its_callee() {
+        let h = setup(false);
+        let none = Vec::new(&h.e);
+        assert!(!try_run(&h, &Vec::from_array(&h.e, [go(&h)]), &none));
+        let mut c = go(&h);
+        c.executor_authorizations = Vec::from_array(&h.e, [need(&h)]);
+        assert!(try_run(&h, &Vec::from_array(&h.e, [c]), &none));
+        assert_eq!(served(&h), 1);
+    }
+
+    #[test]
+    fn the_batch_grants_reach_the_prime_s_check() {
+        let h = setup(true);
+        let calls = Vec::new(&h.e);
+        assert!(!try_run(&h, &calls, &Vec::new(&h.e)));
+        assert!(try_run(&h, &calls, &Vec::from_array(&h.e, [need(&h)])));
+        assert_eq!(served(&h), 1);
     }
 }

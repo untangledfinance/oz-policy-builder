@@ -1,12 +1,13 @@
 #![no_std]
-//! Per-Prime batching, bound to one gate for life, with an optional wait.
+//! Per-Prime batching, bound to one gate or to none, with an optional wait.
 //!
-//! A BATCH CAN WAIT. `execute` takes how many ledgers to wait. Zero runs the
-//! batch now, exactly as the previous adapter did. More than zero stores it,
-//! and anyone may `run` it once that many ledgers have closed - until its run
-//! window closes too. The Prime approves the wait along with the batch, so
-//! nobody can shorten it afterwards, and each of the Prime's rules can demand
-//! a longer one: the wait is argument 2, a plain number a predicate compares.
+//! A BATCH CAN WAIT, IF THERE IS A GATE. `execute` takes how many ledgers to
+//! wait. Zero runs the batch now, exactly as the previous adapter did. More
+//! than zero stores it, and anyone may `run` it once that many ledgers have
+//! closed - until its run window closes too. The Prime approves the wait
+//! along with the batch, so nobody can shorten it afterwards, and each of the
+//! Prime's rules can demand a longer one: the wait is argument 2, a plain
+//! number a predicate compares.
 //!
 //! THE ADAPTER HAS ITS OWN FLOOR. `min_wait`, fixed at deployment, applies to
 //! every caller. The owners' rule carries no predicate, so without it they -
@@ -16,7 +17,8 @@
 //! CANCELLING IS THE PRIME'S OR CUSTODY'S. The Prime cancels through its own
 //! rules, so at its own quorum; an agent's rule that permits only `execute`
 //! cannot cancel anything. Custody - whoever the gate answers to - can stop a
-//! move from its own funds that it did not expect.
+//! move from its own funds that it did not expect. With no gate there is no
+//! custody, and only the Prime cancels.
 //!
 //! A STORED BATCH RUNS UNDER THE PRIME'S "RUN" RULE. `run` asks the Prime to
 //! approve `run(id)`, and the Prime answers through a rule scoped to this
@@ -39,16 +41,44 @@
 //! THE GATE IS NOT AN ARGUMENT. It is fixed at deployment, so there is nothing
 //! to pass, nothing to omit and nothing to substitute.
 //!
-//! THE ADDRESS COMMITS TO THE WAIT. Custody finds this contract before it
-//! exists by deriving
-//! `deployer(prime, sha256("prime.execution.adapter.v4" + gate + min_wait +
-//! run_window))` - each part in its XDR encoding - and naming that address on
-//! the gate. The constructor refuses to run anywhere else. The numbers are
-//! custody's protection against the Prime's own owners, and the gate pins its
-//! caller's address and code but not its arguments: without this check the
-//! Prime could create the adapter at the named address with a `min_wait` of
-//! zero. `rebind` later moves the binding to another gate on purpose; the
-//! check is about what custody agreed to at creation.
+//! WITHOUT A GATE THERE IS NO LIST. An adapter created with no gate checks no
+//! address, so the Prime can bundle its own calls - a call that must not fail,
+//! then transfers of its own funds - and they all happen or none does. The
+//! Prime approves every batch, and the Prime's rules see every call that asks
+//! for its authorization, each against a rule of its own. A batch may not call
+//! the Prime itself, which is a check on the target and not on a list.
+//!
+//! NOTHING HANDS THE ADAPTER'S OWN AUTHORITY FURTHER. With no list there is
+//! nothing to check a grant against, so a null adapter hands out no
+//! authorization as itself and acts as itself only towards the contracts it
+//! calls directly. It holds nothing, and anyone the Prime's rules let call
+//! `execute` can run any batch through it: it must never be sent funds or
+//! given an allowance, and a rule on the Prime that this adapter signs is
+//! bounded by its predicate alone.
+//!
+//! NOTHING WAITS. A stored batch runs under `run`, where the adapter is the
+//! one asking the Prime, so the Prime's token rules would have to be signed by
+//! this adapter. Those rules would answer an immediate `execute` too, where the
+//! adapter is also the one asking, and an agent allowed to call `execute`
+//! could move the Prime's funds through them instead of through its own capped
+//! rules; for a G account a stored batch would need its signature again
+//! anyway. So a null adapter takes no `min_wait` and runs every batch at once.
+//!
+//! Custody's funds stay out of reach: a custody gate pins the address and code
+//! of its one caller, which custody derives from that same gate.
+//!
+//! THE ADDRESS COMMITS TO THE WAIT AND THE BINDING. Custody finds this
+//! contract before it exists by deriving
+//! `deployer(prime, sha256("prime.execution.adapter.v5" + XDR((gate, min_wait,
+//! run_window))))` - "no gate" being a void in that tuple - and naming that
+//! address on the gate. The constructor refuses to run anywhere else. The XDR
+//! of a tuple spells one binding only, and `v5` keeps this build off every
+//! address a `v4` adapter was derived at. The numbers are custody's
+//! protection against the Prime's own owners, and the gate pins its caller's
+//! address and code but not its arguments: without this check the Prime could
+//! create the adapter at the named address with a `min_wait` of zero.
+//! `rebind` later moves the binding to another gate on purpose; the check is
+//! about what custody agreed to at creation.
 //!
 //! THE BINDING MOVES ONLY WITH CUSTODY'S SIGNATURE. Custody eventually
 //! rotates - a new custodian, a different venue set - and its gate has no
@@ -57,6 +87,8 @@
 //! costs a signing ceremony to reinstall. `rebind` moves the binding instead,
 //! and only the current gate's custody may call it. The Prime cannot: it can
 //! neither widen the perimeter nor point this contract at a gate of its own.
+//! Whether there is a gate at all is fixed at creation: a null adapter has no
+//! custody to sign a `rebind`, and `rebind` takes an address, never "none".
 //!
 //! THERE IS NO DEPTH LIMIT EITHER. The host stops long before the walk needs
 //! to: a value nested a couple of hundred deep cannot be preflighted and one
@@ -74,9 +106,9 @@
 //! Prime and which gate this contract is bound to straight off the ledger, so
 //! an accessor would only be a second way to say the same thing.
 use soroban_sdk::{
-    address_payload::AddressPayload, auth::InvokerContractAuthEntry, contract, contracterror,
-    contractimpl, contracttype, panic_with_error, symbol_short, vec, xdr::ToXdr, Address, Bytes,
-    Duration, Env, IntoVal, Map, String, Symbol, Timepoint, TryFromVal, Val, Vec, I256, U256,
+    auth::InvokerContractAuthEntry, contract, contracterror, contractimpl, contracttype,
+    panic_with_error, symbol_short, vec, xdr::ToXdr, Address, Bytes, Duration, Env, IntoVal, Map,
+    String, Symbol, Timepoint, TryFromVal, Val, Vec, I256, U256,
 };
 
 #[contracttype]
@@ -101,6 +133,8 @@ pub enum E {
     NotRunnable = 6,
     NotACanceller = 7,
     NotWhereAgreed = 8,
+    NoGate = 9,
+    NoWait = 10,
 }
 
 /// A batch waiting to run, stored under its number: the calls, the grants,
@@ -119,26 +153,35 @@ const NEXT: Symbol = symbol_short!("next");
 /// not extend it, so an adapter nobody extended archived that long after it
 /// was created however busy it was. `execute` and `run` push it back out to
 /// ~30 days once fewer than ~7 remain.
-const INSTANCE_BELOW: u32 = 120_960;
-const INSTANCE_TO: u32 = 518_400;
+const KEEP_BELOW: u32 = 120_960;
+const KEEP_TO: u32 = 518_400;
 
 #[contract]
 pub struct ExecutionAdapter;
 
 #[contractimpl]
 impl ExecutionAdapter {
+    /// `gate` is the custody gate this adapter answers to, or none for an
+    /// adapter that only bundles the Prime's own calls, which takes no
+    /// `min_wait` (`NoWait`).
     /// `min_wait` is the fewest ledgers any batch waits, zero allowing none.
     /// `run_window` is how many ledgers after its wait a batch may still run:
     /// a move that sat unrun for longer was approved against a market that
     /// has since moved, and perhaps by an agent since revoked, so it lapses.
-    pub fn __constructor(e: Env, prime: Address, gate: Address, min_wait: u32, run_window: u32) {
-        let mut salt = Bytes::from_slice(&e, b"prime.execution.adapter.v4");
-        salt.append(&gate.clone().to_xdr(&e));
-        salt.append(&min_wait.to_xdr(&e));
-        salt.append(&run_window.to_xdr(&e));
-        let agreed = e
-            .deployer()
-            .with_address(prime.clone(), e.crypto().sha256(&salt));
+    pub fn __constructor(
+        e: Env,
+        prime: Address,
+        gate: Option<Address>,
+        min_wait: u32,
+        run_window: u32,
+    ) {
+        if gate.is_none() && min_wait > 0 {
+            panic_with_error!(&e, E::NoWait);
+        }
+        let mut salt = Bytes::from_slice(&e, b"prime.execution.adapter.v5");
+        salt.append(&(gate.clone(), min_wait, run_window).to_xdr(&e));
+        let hash = e.crypto().sha256(&salt);
+        let agreed = e.deployer().with_address(prime.clone(), hash);
         if agreed.deployed_address() != e.current_contract_address() {
             panic_with_error!(&e, E::NotWhereAgreed);
         }
@@ -166,11 +209,10 @@ impl ExecutionAdapter {
     /// nothing: a successor missing THAT is merely unusable, and custody can
     /// still rebind away from it.
     pub fn rebind(e: Env, gate: Address) {
-        let old: Address = e.storage().instance().get(&GATE).unwrap();
-        let custody: Symbol = Symbol::new(&e, "custody");
-        let who: Address = e.invoke_contract(&old, &custody, vec![&e]);
-        who.require_auth();
-        let _: Address = e.invoke_contract(&gate, &custody, vec![&e]);
+        let old = bound(&e).unwrap_or_else(|| panic_with_error!(&e, E::NoGate));
+        custody(&e, &old).require_auth();
+        // The successor must answer too, or the binding could never move again.
+        custody(&e, &gate);
         e.storage().instance().set(&GATE, &gate);
     }
 
@@ -186,35 +228,29 @@ impl ExecutionAdapter {
         grants: Vec<InvokerContractAuthEntry>,
         wait: u32,
     ) -> Option<u32> {
-        e.storage()
-            .instance()
-            .extend_ttl(INSTANCE_BELOW, INSTANCE_TO);
+        e.storage().instance().extend_ttl(KEEP_BELOW, KEEP_TO);
         let prime: Address = e.storage().instance().get(&PRIME).unwrap();
         check(&e, &prime, &calls, &grants);
         let min_wait: u32 = e.storage().instance().get(&MIN_WAIT).unwrap();
         if wait < min_wait {
             panic_with_error!(&e, E::WaitTooShort);
         }
-        let args: Vec<Val> = vec![
-            &e,
-            calls.clone().into_val(&e),
-            grants.clone().into_val(&e),
-            wait.into_val(&e),
-        ];
+        let args: Vec<Val> = (calls.clone(), grants.clone(), wait).into_val(&e);
         if wait == 0 {
             e.authorize_as_current_contract(grants.clone());
             prime.require_auth_for_args(args);
             invoke(&e, calls);
             return None;
         }
+        // WITHOUT A GATE, NOTHING WAITS: see the module comment.
+        bound(&e).unwrap_or_else(|| panic_with_error!(&e, E::NoWait));
         prime.require_auth_for_args(args);
         // Overflow traps (`overflow-checks` is on in release): a wrapped
         // `run_at` would be in the past, and the batch runnable at once.
         let run_at = e.ledger().sequence() + wait;
         let id: u32 = e.storage().instance().get(&NEXT).unwrap_or(0) + 1;
         e.storage().instance().set(&NEXT, &id);
-        let stored: Stored = (calls, grants, run_at);
-        e.storage().persistent().set(&id, &stored);
+        e.storage().persistent().set(&id, &(calls, grants, run_at));
         // LIVE UNTIL ITS WINDOW CLOSES. A new entry gets the network minimum
         // (~7 days on testnet), so a longer wait would archive the move before
         // it could run. Past the network's maximum (~180 days) it still
@@ -244,14 +280,10 @@ impl ExecutionAdapter {
     /// can build the entry. The predicate is what keeps that rule from
     /// approving an immediate `execute` or a `cancel` the same way.
     pub fn run(e: Env, id: u32) {
-        e.storage()
-            .instance()
-            .extend_ttl(INSTANCE_BELOW, INSTANCE_TO);
-        let (calls, grants, run_at): Stored = e
-            .storage()
-            .persistent()
-            .get(&id)
-            .unwrap_or_else(|| panic_with_error!(&e, E::NotScheduled));
+        e.storage().instance().extend_ttl(KEEP_BELOW, KEEP_TO);
+        let stored: Option<Stored> = e.storage().persistent().get(&id);
+        let (calls, grants, run_at) =
+            stored.unwrap_or_else(|| panic_with_error!(&e, E::NotScheduled));
         let window: u32 = e.storage().instance().get(&WINDOW).unwrap();
         let now = e.ledger().sequence();
         if now < run_at || now > run_at.saturating_add(window) {
@@ -269,13 +301,13 @@ impl ExecutionAdapter {
 
     /// Drop a stored batch, waiting or ready, before it runs. `by` is the
     /// Prime or the custody the current gate answers to, and must approve.
+    /// With no gate, `by` is the Prime.
     /// A lapsed batch can be dropped the same way, to tidy it away; a number
     /// with nothing stored under it is left as it was.
     pub fn cancel(e: Env, id: u32, by: Address) {
         let prime: Address = e.storage().instance().get(&PRIME).unwrap();
-        let gate: Address = e.storage().instance().get(&GATE).unwrap();
-        let custody: Address = e.invoke_contract(&gate, &Symbol::new(&e, "custody"), vec![&e]);
-        if by != prime && by != custody {
+        let custody = bound(&e).map(|gate| custody(&e, &gate));
+        if by != prime && Some(&by) != custody.as_ref() {
             panic_with_error!(&e, E::NotACanceller);
         }
         by.require_auth();
@@ -285,11 +317,14 @@ impl ExecutionAdapter {
 
 /// The one rule, applied to a whole batch before any of it runs. Validating
 /// and invoking in one pass would let an early call move value while a later
-/// one in the same batch was still unexamined.
+/// one in the same batch was still unexamined. With no gate, only the Prime
+/// as a target and any authorization handed out are refused.
 fn check(e: &Env, prime: &Address, calls: &Vec<Call>, grants: &Vec<InvokerContractAuthEntry>) {
-    let gate: Address = e.storage().instance().get(&GATE).unwrap();
-    let mut ok: Vec<Address> = e.invoke_contract(&gate, &Symbol::new(e, "allowed"), vec![e]);
-    ok.push_back(gate);
+    let list = bound(e).map(|gate| {
+        let mut ok: Vec<Address> = e.invoke_contract(&gate, &Symbol::new(e, "allowed"), vec![e]);
+        ok.push_back(gate);
+        ok
+    });
     for call in calls.iter() {
         // The smart account's own `execute` would let a batch move the
         // Prime's funds with only this list to stop it, and the mandate
@@ -299,17 +334,25 @@ fn check(e: &Env, prime: &Address, calls: &Vec<Call>, grants: &Vec<InvokerContra
         if call.target == *prime {
             panic_with_error!(e, E::PrimeTarget);
         }
-        want(e, &ok, &call.target);
-        for v in call.args.iter() {
-            scan(e, &ok, &v);
+        if let Some(ok) = &list {
+            want(e, ok, &call.target);
+            call.args.iter().for_each(|v| scan(e, ok, &v));
         }
-        for entry in call.executor_authorizations.iter() {
-            scan_entry(e, &ok, &entry);
-        }
+        call.executor_authorizations
+            .iter()
+            .for_each(|a| scan_entry(e, list.as_ref(), &a));
     }
-    for entry in grants.iter() {
-        scan_entry(e, &ok, &entry);
-    }
+    grants.iter().for_each(|a| scan_entry(e, list.as_ref(), &a));
+}
+
+/// The gate this adapter is bound to, if it was created with one.
+fn bound(e: &Env) -> Option<Address> {
+    e.storage().instance().get(&GATE).unwrap()
+}
+
+/// Whose money a gate guards.
+fn custody(e: &Env, gate: &Address) -> Address {
+    e.invoke_contract(gate, &Symbol::new(e, "custody"), vec![e])
 }
 
 fn invoke(e: &Env, calls: Vec<Call>) {
@@ -342,9 +385,7 @@ fn scan(e: &Env, ok: &Vec<Address>, v: &Val) {
     if let Ok(a) = Address::try_from_val(e, v) {
         want(e, ok, &a);
     } else if let Ok(list) = Vec::<Val>::try_from_val(e, v) {
-        for x in list.iter() {
-            scan(e, ok, &x);
-        }
+        list.iter().for_each(|x| scan(e, ok, &x));
     } else if let Ok(m) = Map::<Val, Val>::try_from_val(e, v) {
         for (k, val) in m.iter() {
             scan(e, ok, &k);
@@ -404,33 +445,27 @@ fn is_plain_object(e: &Env, v: &Val) -> bool {
 fn scan_data(e: &Env, ok: &Vec<Address>, b: &Bytes) {
     // 32 bytes is the raw account key or contract id `Address::from_payload`
     // takes; 56 is the same thing spelled as the strkey `from_string` takes;
-    // 40 and 44 are the XDR of a contract and an account address.
-    if b.len() == 69 {
+    // 40 and 44 are the XDR of a contract and an account address. The raw 32
+    // bytes `from_payload` takes are the last 32 bytes of that XDR, so one
+    // encoding serves both cases.
+    let (strkey, xdr) = match b.len() {
+        69 => panic_with_error!(e, E::AddressNotAllowed),
+        56 => (true, false),
+        40 | 44 | 48 => (false, true),
+        32 => (false, false),
+        _ => return,
+    };
+    let spelled = |a: Address| {
+        if strkey {
+            a.to_string().to_bytes() == *b
+        } else {
+            let x = a.to_xdr(e);
+            x.slice(if xdr { 0 } else { x.len() - 32 }..) == *b
+        }
+    };
+    if !ok.iter().any(spelled) {
         panic_with_error!(e, E::AddressNotAllowed);
     }
-    let strkey = b.len() == 56;
-    let xdr = matches!(b.len(), 40 | 44 | 48);
-    if !strkey && !xdr && b.len() != 32 {
-        return;
-    }
-    for a in ok.iter() {
-        let hit = if strkey {
-            a.to_string().to_bytes() == *b
-        } else if xdr {
-            a.to_xdr(e) == *b
-        } else if let Some(
-            AddressPayload::AccountIdPublicKeyEd25519(p) | AddressPayload::ContractIdHash(p),
-        ) = a.to_payload()
-        {
-            Bytes::from(p) == *b
-        } else {
-            false
-        };
-        if hit {
-            return;
-        }
-    }
-    panic_with_error!(e, E::AddressNotAllowed);
 }
 
 /// An authorization this contract is about to hand out as itself.
@@ -439,18 +474,17 @@ fn scan_data(e: &Env, ok: &Vec<Address>, b: &Bytes) {
 /// deploying a contract as this one, and carry constructor arguments this walk
 /// would never look at - which is exactly the hole the address rule exists to
 /// close. This contract has no reason to deploy anything, so they are refused
-/// outright rather than waved through unscanned.
-fn scan_entry(e: &Env, ok: &Vec<Address>, entry: &InvokerContractAuthEntry) {
-    let InvokerContractAuthEntry::Contract(c) = entry else {
+/// outright rather than waved through unscanned. With no gate there is no list
+/// to check any of them against, so every one is refused.
+fn scan_entry(e: &Env, list: Option<&Vec<Address>>, entry: &InvokerContractAuthEntry) {
+    let (Some(ok), InvokerContractAuthEntry::Contract(c)) = (list, entry) else {
         panic_with_error!(e, E::Uncheckable);
     };
     want(e, ok, &c.context.contract);
-    for v in c.context.args.iter() {
-        scan(e, ok, &v);
-    }
-    for sub in c.sub_invocations.iter() {
-        scan_entry(e, ok, &sub);
-    }
+    c.context.args.iter().for_each(|v| scan(e, ok, &v));
+    c.sub_invocations
+        .iter()
+        .for_each(|sub| scan_entry(e, list, &sub));
 }
 
 #[cfg(test)]

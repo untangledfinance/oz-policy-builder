@@ -153,13 +153,13 @@ jobs:
             exit 1
           fi
 
-      # The gate and the adapter are not shared instances - each custody account
-      # deploys its own gate, each Prime its own adapter - so what is recorded is
-      # the uploaded code, in deployments/execution-testnet.json, and the Prime
-      # app pins those hashes. Same rule as the interpreter: a source change that
-      # was never uploaded and re-pinned turns this red.
+      # The gate is not a shared instance - each custody account deploys its
+      # own - so what is recorded is the uploaded code, in
+      # deployments/execution-testnet.json, and the Prime app pins that hash.
+      # Same rule as the interpreter: a source change that was never uploaded
+      # and re-pinned turns this red.
       - name: Wasm build and record parity
-        if: matrix.crate == 'custody-gate' || matrix.crate == 'execution-adapter'
+        if: matrix.crate == 'custody-gate'
         run: |
           rustup target add wasm32v1-none
           built=$(./build-wasm.sh | tail -1)
@@ -179,9 +179,11 @@ jobs:
       # per owner and account, so there is no deployments/ record. Its
       # reproducible build (build-wasm.sh, which remaps the crate and registry
       # paths) is pinned in contracts/build-hashes.json, and the app pins the
-      # same hash.
+      # same hash. So is the adapter's: the source here is the v5 build (an
+      # optional gate), while deployments/execution-testnet.json keeps the v4
+      # build 3dd675c0 that the Prime app pins and mainnet runs.
       - name: Wasm build and pin parity
-        if: matrix.crate == 'prime-seat'
+        if: matrix.crate == 'prime-seat' || matrix.crate == 'execution-adapter'
         run: |
           rustup target add wasm32v1-none
           ./build-wasm.sh

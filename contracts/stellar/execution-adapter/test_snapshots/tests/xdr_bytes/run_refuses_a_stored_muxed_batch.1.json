@@ -128,7 +128,7 @@
           "data": {
             "contract_data": {
               "ext": "v0",
-              "contract": "CA4LSVS5YZ4S2IQLY6CK7PPM3TYQI7UMD7QTJ3ICE7DVNCXOGIX5I4EB",
+              "contract": "CAMMHTZERKQL7CIFKGO6LTG2GVGTMMHSL5JVANJWKMM6O5ICZKZITG24",
               "key": {
                 "u32": 1
               },
@@ -205,7 +205,7 @@
           "data": {
             "contract_data": {
               "ext": "v0",
-              "contract": "CA4LSVS5YZ4S2IQLY6CK7PPM3TYQI7UMD7QTJ3ICE7DVNCXOGIX5I4EB",
+              "contract": "CAMMHTZERKQL7CIFKGO6LTG2GVGTMMHSL5JVANJWKMM6O5ICZKZITG24",
               "key": "ledger_key_contract_instance",
               "durability": "persistent",
               "val": {
