@@ -5,7 +5,6 @@
     "stellar/prime-seat": "393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87",
     "evm/prime-seat:runtime": "3b4402d54f28ef3eb23bc14e9ac1e44c4aa946da42c4c3cea46cd76970c438d6",
     "evm/prime-seat:creation": "4d3558643131eebbbb8087fc65ed8c52581e0c48619adcf60cdc756cb83a0de7",
-    "solana/prime-session": "181013d2d2338f30614fe548661de0753c23e5a78605df49d1b114b7817a3f11",
     "solana/custody-gate": "a5d19edb879e75d054f1025d710753ce5150726130c3dd74887236fbdbdc94e2",
     "solana/prime-seat": "4428191fcb70aeb9230ff1706edaa0cdee853c75ee99aae0fa1c347d25177e3e",
     "solana/prime-seat:devnet": "a389f4a1cbf67bee9be5170e2199e3fc4c02e596fe4fbab0406ecdeb8f5e9bb2",

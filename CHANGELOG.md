@@ -27,8 +27,15 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 - **The Stellar and EVM `prime-session` contracts:** the move-only session
   design was withdrawn for those chains on 12 October 2026, and on both an
-  owner's session key now lives in the seat (`prime-seat`). The Solana
-  `prime-session` stays.
+  owner's session key now lives in the seat (`prime-seat`).
+- **The Solana `prime-session` program:** on 18 October 2026 Tuan made
+  sessions seat-only on every chain. The program stays deployed and final on
+  devnet at `6JyReewxbo6D6UQNHEWWTXnC1CdBU8CqcQjoQbGNj9Ba`; its last build is
+  `c883636111dfda411ef0dc80e7e73646cb6ee4d1fa9e924f645c0b6c33e68263` for devnet
+  and `181013d2d2338f30614fe548661de0753c23e5a78605df49d1b114b7817a3f11` for
+  localnet, and its source is at tag `archive/spike-final`. The Solana docs
+  describe the seat as the only session and keep `prime-session` as dated
+  history.
 - **The spike bundle and its design record** (`contracts/prime/spike/` and
   `contracts/prime/ARCHITECTURE.md`). Both stay readable at tag
   `archive/spike-final`, and the docs link there.

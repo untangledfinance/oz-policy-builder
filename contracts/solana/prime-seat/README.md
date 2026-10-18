@@ -2,7 +2,7 @@
 
 The seat of a NEAR-routed owner in a Squads Smart Account on Solana. A NEAR-routed owner is a person whose wallet lives on another chain (MetaMask or Freighter). Its owner key is an ed25519 key held by the NEAR MPC, so it never signs a Solana transaction. The owner signs one grant through NEAR and a session key then acts as the owner's seat for up to 7 days, with no further NEAR prompt.
 
-A native owner (Phantom) needs no seat: its own key is a plain Squads signer, and its move-only sessions stay on `prime-session`.
+A native owner (Phantom) needs no seat: its own key is a plain Squads signer. From 18 October 2026 sessions are seat-only, so a native owner has no session key.
 
 ## The seat
 

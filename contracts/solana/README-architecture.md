@@ -1,10 +1,12 @@
 # Prime on Solana
 
-Date: 8 October 2026, updated 9 October 2026 for the line-cut gate and for the size pass (formatted sLOC is the official count), 10 October 2026 for the app as shipped on beta (sessions, Confirm the gate, hosts) and 11 October 2026 for the app as merged that day (Confirm with the gate and trustee addresses, the account time lock, Add funds, Add a token, Move to a new gate, Reclaim rent, Store again, Propose again, the Prime Assistant). The gate program and `prime-session` are unchanged. Status: testnet and local-validator results only. `prime-session` and the custody gate run on Solana devnet as the 9 October 2026 builds, deployed with `--final`, and pass 145 of 145 and 84 of 84 checks there; the first devnet builds stay on the cluster as previous builds. The custody gate also runs on a local validator with the mainnet feature set, and its independent security reviews are done, with the verdicts adopt with fixes and, for the line cut, adopt (section 17). Sources: the [Prime session architecture document](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/ARCHITECTURE.md) (kept at tag `archive/spike-final`), the 64-line `prime-session` program, the line-cut custody gate (126 lines formatted, built from the gate-owned design of [`contracts/prime/spike/matrix/near-minimal/round9/gate-a4/gate-a4-min.md`](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/gate-a4/gate-a4-min.md)), the devnet runs of the new builds ([`contracts/prime/spike/matrix/near-minimal/round9/solana-devnet-sloc2/`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/solana-devnet-sloc2); the first builds' runs are in [`round9/solana-devnet/`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/solana-devnet) and [`round9/solana-devnet-gate/`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/solana-devnet-gate)), the real-wallet run and the refinement reports of 8 October 2026. Every number below comes from those.
+Date: 8 October 2026, updated 9 October 2026 for the line-cut gate and for the size pass (formatted sLOC is the official count), 10 October 2026 for the app as shipped on beta (sessions, Confirm the gate, hosts) and 11 October 2026 for the app as merged that day (Confirm with the gate and trustee addresses, the account time lock, Add funds, Add a token, Move to a new gate, Reclaim rent, Store again, Propose again, the Prime Assistant). The gate program is unchanged. Status: testnet and local-validator results only. The custody gate runs on Solana devnet as the 9 October 2026 build, deployed with `--final`, and passes 84 of 84 checks there; the first devnet build stays on the cluster as a previous build. The custody gate also runs on a local validator with the mainnet feature set, and its independent security reviews are done, with the verdicts adopt with fixes and, for the line cut, adopt (section 17). Sources: the [Prime session architecture document](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/ARCHITECTURE.md) (kept at tag `archive/spike-final`), the line-cut custody gate (126 lines formatted, built from the gate-owned design of [`contracts/prime/spike/matrix/near-minimal/round9/gate-a4/gate-a4-min.md`](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/gate-a4/gate-a4-min.md)), the devnet runs of the new builds ([`contracts/prime/spike/matrix/near-minimal/round9/solana-devnet-sloc2/`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/solana-devnet-sloc2); the first builds' runs are in [`round9/solana-devnet/`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/solana-devnet) and [`round9/solana-devnet-gate/`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/solana-devnet-gate)), the real-wallet run and the refinement reports of 8 October 2026. Every number below comes from those.
 
-**Where it runs today:** Solana devnet only. Both programs are deployed with `--final` on devnet (no upgrade authority; read from their program-data accounts on 10 October 2026). Neither program id exists on mainnet: a read of `6ieR7WU...` (gate) and `6JyReew...` (prime-session) on mainnet-beta on 10 October 2026 returned no account. The mainnet build of the app carries null program ids and is read-only (section 14.4).
+**Seat-only from 18 October 2026:** Tuan decided that every session on every chain belongs to a seat. On Solana that is `prime-seat` (section 10). The move-only session program `prime-session` is removed from this repository; its source stays at tag `archive/spike-final`, and its devnet program `6JyReewxbo6D6UQNHEWWTXnC1CdBU8CqcQjoQbGNj9Ba` (build `c883636111dfda411ef0dc80e7e73646cb6ee4d1fa9e924f645c0b6c33e68263`, final) stays deployed. The Solana app on octopos main still starts move-only sessions on that program until it moves to seats. This document keeps `prime-session` only as dated history: the verification runs that had it in the path, the wallet runs of 8 October 2026 and its devnet record.
 
-**Contents:** [1 One minute](#1-prime-on-solana-in-one-minute) - [2 Building blocks](#2-the-building-blocks) - [3 Seats vs sessions](#3-seats-vs-sessions) - [4 Funds stay in custody](#4-funds-stay-in-custody) - [5 Gate-owned custody](#5-gate-owned-custody) - [6 Setting up](#6-setting-up) ([6.1 Adding funds and tokens, moving to a new gate](#61-adding-funds-adding-a-token-and-moving-to-a-new-gate)) - [7 The agent's rules](#7-the-agents-rules) - [8 Time lock](#8-time-lock) - [9 Recovery](#9-recovery) - [10 Starting a session](#10-starting-a-session) ([10.1 Sessions in the app](#101-sessions-in-the-app-start-move-end)) - [11 Making a move](#11-making-a-move) - [12 What a session can do](#12-what-a-session-can-do) - [13 Ending a session](#13-ending-a-session) - [14 Wallets](#14-wallets) ([14.1 Confirming the gate](#141-confirming-the-gate), [14.2 Orca swaps](#142-orca-swaps-through-the-gate), [14.3 Destination token accounts](#143-opening-a-destination-token-account-on-first-use), [14.4 Mainnet build](#144-mainnet-build-with-no-session-code), [14.5 Prime Assistant](#145-the-prime-assistant-on-beta-solana)) - [15 Safety](#15-safety-in-plain-words) ([15.1 Scope](#151-scope-what-custody-keeps-and-gives-up), [15.2 Hosts](#152-beta-and-mainnet-hosts)) - [16 Costs and limits](#16-costs-and-limits) - [17 Choices and open items](#17-choices-we-made-and-whats-open) - [References](#references)
+**Where it runs today:** Solana devnet only. The gate and the seat program are deployed with `--final` on devnet (no upgrade authority). Neither the gate program id nor `prime-session`'s exists on mainnet: a read of `6ieR7WU...` (gate) and `6JyReew...` (prime-session) on mainnet-beta on 10 October 2026 returned no account. The mainnet build of the app carries null program ids and is read-only (section 14.4).
+
+**Contents:** [1 One minute](#1-prime-on-solana-in-one-minute) - [2 Building blocks](#2-the-building-blocks) - [3 Seats vs sessions](#3-seats-vs-sessions) - [4 Funds stay in custody](#4-funds-stay-in-custody) - [5 Gate-owned custody](#5-gate-owned-custody) - [6 Setting up](#6-setting-up) ([6.1 Adding funds and tokens, moving to a new gate](#61-adding-funds-adding-a-token-and-moving-to-a-new-gate)) - [7 The agent's rules](#7-the-agents-rules) - [8 Time lock](#8-time-lock) - [9 Recovery](#9-recovery) - [10 Starting a session](#10-starting-a-session) - [11 Making a move](#11-making-a-move) - [12 What a session can do](#12-what-a-session-can-do) - [13 Ending a session](#13-ending-a-session) - [14 Wallets](#14-wallets) ([14.1 Confirming the gate](#141-confirming-the-gate), [14.2 Orca swaps](#142-orca-swaps-through-the-gate), [14.3 Destination token accounts](#143-opening-a-destination-token-account-on-first-use), [14.4 Mainnet build](#144-mainnet-build-with-no-session-code), [14.5 Prime Assistant](#145-the-prime-assistant-on-beta-solana)) - [15 Safety](#15-safety-in-plain-words) ([15.1 Scope](#151-scope-what-custody-keeps-and-gives-up), [15.2 Hosts](#152-beta-and-mainnet-hosts)) - [16 Costs and limits](#16-costs-and-limits) - [17 Choices and open items](#17-choices-we-made-and-whats-open) - [References](#references)
 
 **How to read the status tags:** each claim about the custody gate carries one of three tags:
 
@@ -24,7 +26,7 @@ A Prime Account on Solana is a **Squads Smart Account**: a shared account made b
 - **Time lock:** the owners' rule asks for a wait. The whole batch (draw, venue call and proceeds back) is stored, waits, then runs as one transaction.
 - **Recovery:** if custody loses its keys, the owners at their normal approval count can send custody's funds to the recovery address fixed in the gate. It has no cap and stays open at any time. The recovery address is the trustee's wallet by default, or a custody-controlled wallet. The owners' recovery from the gate card waits the Prime Account's own time lock.
 - **Account time lock:** the Prime Account has a time lock of its own, and the app creates accounts with it at 0. When the owners confirm the gate, the app asks them for a time lock of 15 minutes (900 seconds), or an opt-out they tick. Each settings change and the owners' recovery from the gate card then wait that long, so custody and the trustee have 15 minutes to release the account first (section 8).
-- **Session:** an owner signs one readable text in their wallet. That text lets a short-lived **session key** make the moves the account's rules allow, for at most 7 days.
+- **Session:** an owner whose wallet signs through NEAR has a **seat** of its own, a small program address, in place of a key. The owner signs one grant, and a short-lived **session key** then acts as that seat for at most 7 days: it votes, and it acts alone inside the rules that list the seat. An owner with a Solana wallet votes with its own key and has no session.
 - **Fees:** in the app, every transaction is paid by its signer's own wallet: the owners, custody, the agent key and the session key each pay their own fee. The relayer (a server of ours that can pay fees) is off; the contract harness runs used it, and its figures in section 16 say so (DECISIONS.md line 112).
 
 Prime on Stellar and on EVM work the same way: funds stay in custody, a gate limits what Prime can draw, and the owners hold the recovery path. Section 4 to section 9 show how each part works on Solana and how far each has been proven.
@@ -49,49 +51,48 @@ Terms used from here on:
 |---|---|---|
 | Squads Smart Account | Squads | Holds the Prime Account's vaults. Its settings signers are the seats. Its policies are the rules. |
 | Custody gate | Us, 126 lines formatted (47,472 bytes) | A PDA of the gate program owns custody's dedicated token account. It pays only listed destinations within a cap, only for one Prime Account, and pays the recovery address on the owners' say. |
-| prime-session | Us, 64 lines formatted (53,720 bytes) | Checks an owner's grant on each move, then signs the Squads call for the owner's session PDA. |
-| Session PDA | Derived, one per owner per account | The address that carries a session's authority. It sits in the policy only. |
-| ed25519 program | Built into Solana | Verifies the owner's signature on the grant text inside the move transaction. |
+| prime-seat | Us, 75 lines formatted (35,248 bytes) | Checks the owner's grant on each call by a session key, then signs one Squads call as the owner's seat. |
+| Seat PDA | Derived, one per NEAR-routed owner per account | The seat: a settings signer, and a signer of any policy that lets it act alone. Only `prime-seat` signs for it. |
+| ed25519 program | Built into Solana | Verifies the owner's signature on the grant inside each session transaction. |
 | Relayer | Us | Paid the fees in the harness runs. The app does not use it: its code stays in the worker behind a switch that no environment sets (worker/relay.ts, wrangler.jsonc). |
 | NEAR MPC | NEAR | A signing service that holds an ed25519 key for wallets that cannot sign Solana text. Tested in the harness for MetaMask and Freighter (section 14). Deferred: the app has no NEAR route (DECISIONS.md line 157). |
 
 ```mermaid
 flowchart LR
-  W[Owner wallet]
+  W[NEAR-routed owner's wallet]
   N[NEAR MPC]
   K[Session key]
   E[ed25519 program]
-  P[prime-session]
+  P[prime-seat]
   S[Squads Smart Account]
-  W -- "signs grant text once" --> K
-  W -. "wallets that cannot sign Solana (deferred)" .-> N
-  N -.-> K
-  K -- "signed move" --> E
-  K -- "signed move" --> P
-  P -- "signs as session PDA" --> S
+  W -- "signs the grant once (deferred in the app)" --> N
+  N -- "grant signature" --> K
+  K -- "signed call" --> E
+  K -- "signed call" --> P
+  P -- "signs as the seat" --> S
 ```
 
 ## 3. Seats vs sessions
 
-A seat is a vote. A session is permission to make allowed moves. On Solana they sit in different lists of the Squads account. The owner's key is a settings signer. The owner's session PDA is a signer of the policy only. Squads lets only settings signers vote, so a session key cannot vote, change the rules, add owners or move funds outside the policy.
+A seat is a vote, and every seat is a settings signer of the Squads account. An owner with a Solana wallet holds its seat as its own key. An owner whose wallet signs through NEAR holds a seat PDA of `prime-seat`, and its session key acts as that seat. A session may create, activate, approve and reject proposals, execute approved transactions, and use a policy that lists the seat. It cannot create a transaction, so the content of every change comes from an owner with a native key (`contracts/solana/prime-seat/README.md`).
 
 ```mermaid
 flowchart TB
-  O[Owner keys]
-  SS["Settings signers<br/>M-of-N vote"]
-  PDA[Owner session PDA]
+  NO[Native owner key]
   SK[Session key]
-  POL["Policy<br/>allowed moves only"]
+  SP[Seat PDA of a NEAR-routed owner]
+  SS["Settings signers<br/>M-of-N vote"]
+  POL["Policy that lists the seat<br/>allowed moves only"]
   V[Vault]
-  O -- "vote" --> SS
+  NO -- "writes and votes" --> SS
+  SK -- "acts through prime-seat" --> SP
+  SP -- "votes, never writes" --> SS
+  SP -- "policy signer" --> POL
   SS -- "can change anything" --> V
-  SK -- "signs moves" --> PDA
-  PDA -- "policy signer" --> POL
   POL -- "allowed moves" --> V
-  PDA -. "never listed" .- SS
 ```
 
-A stolen session key can make allowed moves until it expires or the owner revokes it. The Solana tests tried to make a session vote, and every attempt was refused.
+A stolen session key can vote as its owner's seat and act inside the policies that list the seat until the session ends. It can only approve a transaction that a native owner wrote.
 
 ## 4. Funds stay in custody
 
@@ -169,7 +170,7 @@ The app shows each warning before any funds move. The gate cannot lift a freeze,
 | The app reads the gate back and refuses any field that differs from the plan, before the hand-over and again when the owners confirm | Verified | `checkGate`: unit tests, SX8 to SX16b |
 | Native SOL moves as [wrapped SOL](https://solana.com/docs/tokens/basics/sync-native) | Verified | N1 to N7c, 16 of 16 |
 | One custody multisig can run two gates for the same Prime Account | Verified | seed in the gate address; lanes 2 and 4 in a second gate (G20). Each gate needs its own token account |
-| Moves with real venue programs: Kamino deposit and redeem, Orca swap, with the whole-batch time lock on Orca and `prime-session` in the path | Verified | `venues-a4`, 53 of 53, call depth 3 of 5 (4 with `prime-session`). Real venues take the caller's signature, so the listed destination is the Prime Account's vault. A venue's proceeds land in a gate-owned account of custody. The Kamino deposit leaves custody holding collateral tokens |
+| Moves with real venue programs: Kamino deposit and redeem, Orca swap, with the whole-batch time lock on Orca and `prime-session` (the move-only session program of the time) in the path | Verified | `venues-a4`, 53 of 53, call depth 3 of 5 (4 with `prime-session`). Real venues take the caller's signature, so the listed destination is the Prime Account's vault. A venue's proceeds land in a gate-owned account of custody. The Kamino deposit leaves custody holding collateral tokens |
 | Custody's MPC provider signs the gate's instructions | Design only | custody signs the hand-over (two `SetAuthority` calls), `allow` and `release` as a multisig signer. Fordefi can be that signer, as an untested design from Fordefi's documentation |
 | The gate deploys non-upgradeable | Verified on devnet | the gate at `6ieR7WU...` has no upgrade authority (program-data account read on 10 October 2026). The app's Confirm the gate refuses a gate program that still has one (section 14.1). A published verifiable build is still to do, and no gate exists on mainnet |
 | An independent security review of the gate-owned build | Verified: adopt with fixes | [the review of the gate-owned build of 8 October 2026](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/gate-a4/gate-owned-review.md) (archived); the fixes are in section 17 |
@@ -311,7 +312,7 @@ sequenceDiagram
 
 ## 6.1 Adding funds, adding a token and moving to a new gate
 
-Three actions change a live gate with no change to the gate program or to `prime-session`. Each sits on a card of the Custody gate: custody's actions on its Your gates list, the owners' on Policies.
+Three actions change a live gate with no change to the gate program. Each sits on a card of the Custody gate: custody's actions on its Your gates list, the owners' on Policies.
 
 **Add funds** (custody's card) moves tokens from the connected wallet into a dedicated account the gate owns, so they sit under the cap. The dialog offers only accounts the gate still owns with its cap address as the delegate (`components/add-funds-dialog.tsx` `addableSources`). Three kinds of account are left out. A receives-only account has no cap, so the agent could not draw what is added. A released account belongs to custody's multisig again. An account whose cap the agent used up has no delegate, because the token program clears it at 0; that cap has to be raised first. The dialog cannot send while the gate program can still be upgraded. Tokens sent to the gate's own address by another route open a second, uncapped associated account that the agent cannot draw from. The built-in Solana Wallet's Send refuses a gate address with a message that points to Add funds, and stays disabled while a send is in flight (`ui/octopos/solana-wallet/logic.ts` `walletProblem`, `panel-view.ts`). Other wallets send there with no refusal.
 
@@ -351,13 +352,13 @@ What a rule fixes:
 
 A rule at vault number k signs as that vault only, so an agent's rule reaches the agent's lane and nothing else. The agent cannot vote, change a rule or sign as the owners.
 
-The agent needs no `prime-session` grant. The agent's key is a policy signer from the day the owners install the rule, and the rule limits what it can do. A session key is for an owner's own wallet that wants a short-lived key. The gate sees the same vault in both cases.
+The agent needs no grant. The agent's key is a policy signer from the day the owners install the rule, and the rule limits what it can do. A session key stands in for an owner who signs through NEAR (section 10).
 
 | Claim | Status | Evidence |
 |---|---|---|
 | An agent draws from custody and the venue pays back in one transaction: 51,630 compute units, 666 bytes, relayer pays (a draw alone: 43,226 and 583) | Verified | gate-owned build, P1 to P10b and the cost runs |
 | The rule holds the band, the pinned accounts and the atomic draw and payback, and a failed leg rolls the batch back | Verified | P1 to P10b, 14 of 14 |
-| The agent cannot change rules, vote or sign as the owners. A rule at vault 0 (the session rules) reaches nothing of the gate | Verified | P1 to P10b; gate spike, 10 of 10 |
+| The agent cannot change rules, vote or sign as the owners. A rule at vault 0 (where the app's session rules sign) reaches nothing of the gate | Verified | P1 to P10b; gate spike, 10 of 10 |
 | A stolen agent key moves only what a rule allows and the gate permits | Verified | T1 to T11, the cap and the rule checks above, plus the earlier independent review's attack list |
 | The same rules work with a real venue program | Verified | `venues-a4`, 53 of 53: an Orca swap (83,328 compute units), a Kamino deposit (119,676) and a redeem (111,049) |
 
@@ -432,7 +433,7 @@ The Prime Account's own time lock is the owners' floor. With it at 0, M owners r
 
 ### Reclaiming rent and storing a move again
 
-These Queue actions are in the app on beta-solana. They add no gate or `prime-session` code.
+These Queue actions are in the app on beta-solana. They add no gate code.
 
 **Reclaim rent:** a stored move holds two accounts the agent paid for, the proposal and the stored transaction. The Queue lists the moves that ended under "Rent to reclaim", with the rent they hold, and one press of **Reclaim rent** closes them with `closeTransaction` (`core/flows.ts` `buildReclaimRent`, `core/squads.ts` `closeStoredMoveIx`). The list holds moves that were executed, cancelled or rejected, and moves that a rule change voided while they still needed approvals, because Squads closes those. A voided move that had all its approvals stays out, since Squads closes and cancels neither. Only the fee payer signs. Each account's rent goes to the payer recorded at store time, whoever sends the request, and the requests are packed by size. The search reads the newest 50 stored moves of each rule (`core/load.ts` `loadReclaimable`). The Execution review of a stored move tells the agent that the rent can be reclaimed in the Queue.
 
@@ -508,111 +509,49 @@ The agent lane cannot reach the recovery address unless custody lists it as a de
 
 ## 10. Starting a session
 
-The app makes a fresh session key, and the owner's wallet signs this text once. The text is plain, so the wallet shows it in full:
+Only an owner whose wallet signs through NEAR (section 14) has a session. Its seat is the PDA `["seat", owner, settings]` of `prime-seat`, and its owner key is an ed25519 key that NEAR MPC holds, so the owner key never signs a Solana transaction. The owner signs one grant through `prime-near-signer` v2, which shows the wallet a readable text. What the key signs is a 32-byte hash:
 
 ```
-Prime session
-signer: <session PDA of this owner and this account>
-session key: <public key of the new session key>
-valid until (unix time): <end time>
-cluster: <devnet or mainnet>
+sha256("prime-seat-grant" | cluster | settings | seat | session key | start (8 bytes BE) | end (8 bytes BE))
 ```
 
-An example, with shortened addresses:
-
-```
-Prime session
-signer: 7mQ2...xK9p
-session key: 3Fd8...vR1c
-valid until (unix time): 1792065600
-cluster: devnet
-```
-
-The end time above is 15 October 2026, 12:00 UTC. The text leaves out the program id, because the PDA already commits to it. Nothing goes on chain at this step. The signature stays with the session key, and every move carries it (core/session.ts `sessionGrantText`).
+`cluster` is fixed when the program is built (`devnet` on beta). Nothing goes on chain at this step. Every call by the session key carries the owner's signature in an ed25519 instruction of the same transaction, and `prime-seat` computes the hash from the call, so a grant serves one account, one seat, one cluster and one key. The window must hold `start <= now <= end` and last at most 7 days.
 
 ```mermaid
 sequenceDiagram
   participant W as Owner wallet
-  participant A as App
+  participant N as NEAR MPC
   participant K as Session key
-  A->>K: make a fresh key
-  A->>W: show the grant text
-  W->>W: owner reads and signs once
-  W-->>A: signature
-  A->>K: keep key + signature for each move
+  K->>K: a fresh ed25519 key
+  W->>N: signs the readable grant (prime-near-signer v2)
+  N-->>K: the owner key's signature over the grant hash
+  K->>K: keeps the signature for each call
 ```
 
-The contract checks an ed25519 signature over this text, so any wallet that signs Solana text with its own key can start a session (section 14 lists the wallets we ran). The app's start also sends the float to the key (section 10.1).
+The app has no NEAR route yet (section 14), so it starts no seat session.
 
-## 10.1 Sessions in the app: start, move, end
+### History: move-only sessions, 8 to 18 October 2026
 
-A session is a short-lived key, tied to one owner and one account, that makes only the moves the account's **Session moves** rule allows, for at most 7 days. The app ships it on devnet through the shared sessions UI in `apps/web/ui/octopos/sessions` (DECISIONS.md lines 151 to 156). Stellar and EVM are not wired to that UI yet. The relayer is off in the app, so the owner's wallet, the session key and the agent key each pay their own fees.
-
-### Start: 2 wallet prompts
-
-1. **Grant text:** the owner's wallet signs the text above. The owner picks the length: 1 hour, 8 hours (the default), 24 hours or 7 days (`SESSION_LENGTHS` in `apps/web/ui/octopos/sessions/session-types.ts`). 7 days is the maximum the program accepts. A 7-day session is set 120 seconds short of 7 days, so a chain clock a little behind ours still accepts it (core/session.ts `SESSION_CLOCK_MARGIN_SECONDS`).
-2. **Float:** the owner's wallet sends 1,900,880 lamports (0.00190088 SOL) to the **session key itself**, to pay its own fees. The app's text says this is enough for about 100 moves (core/session.ts `SESSION_FLOAT_LAMPORTS`, `floatFor`).
-
-The app stores the session record before the float leaves the wallet, so a reload cannot orphan a funded key. The key is made in the browser and stays in it, non-extractable.
-
-```mermaid
-sequenceDiagram
-  participant W as Owner wallet
-  participant A as App
-  participant K as Session key
-  A->>K: make a fresh key
-  A->>W: prompt 1, the grant text
-  W-->>A: signature
-  A->>W: prompt 2, send the float
-  W->>K: 0.00190088 SOL to the key's address
-```
-
-### Moves: 0 prompts
-
-The session key signs each move and pays the fee itself (10,000 lamports in the beta check B6 of sess-ui-3.md; one 5,000-lamport signature for the key and one for the ed25519 program, core/session.ts `SESSION_TX_LAMPORTS`). A move above the rule's band is refused in words before anything is sent.
-
-### End: 1 or 2 prompts
-
-The owner signs the grant text again with end time 0, and prime-session creates the **end marker** (section 13). Who pays decides the number of prompts:
-
-- **The key pays (1 prompt):** the owner signs the end text. The key signs and pays the transaction: the marker's rent (650,240 lamports on devnet, read from the cluster) plus the fee (10,000 lamports). The rest of the float goes back to the owner in the same transaction. The key can pay when it holds at least the rent plus the fee.
-- **The owner pays (2 prompts):** when this browser does not hold the key, or the key holds less than the rent plus the fee, the owner's wallet signs the end text and then a transaction that pays the marker's rent and the fee. The app refuses before any prompt when the wallet holds too little. In the beta check the refusal read: "Your wallet holds 0.000999992 SOL, and ending this session needs at least 0.00131048 SOL: the end marker, the fee and the smallest balance a wallet keeps." (sess-ui-3.md, round 4, fix-8 on beta.)
-- **Without the key:** the owner can find sessions on chain (the keys that moved through the session signer in its last 20 transactions) or type the key's address, and end it with 2 prompts. The float stays on that key. A browser that still holds the key offers **Return float**, which sends the rest back with no prompt (sess-ui-3.md).
-- **After expiry:** the chain refuses the key's moves. **Return float** sends what is left back, signed by the key.
-
-```mermaid
-flowchart LR
-  A["Start<br/>2 prompts: grant text, float"] --> B["Session live<br/>0 prompts per move"]
-  B --> C["End, key pays<br/>1 prompt"]
-  B --> D["End, owner pays<br/>2 prompts"]
-  B --> E["Expiry<br/>at the chosen length, 7 days at most"]
-  C --> F["End marker on chain<br/>the chain refuses the key"]
-  D --> F
-  E --> G["Chain refuses moves after the end time"]
-  F --> H["Return float<br/>no prompt"]
-  G --> H
-```
-
-**What was verified (Status: Verified on devnet with the Solana Wallet):** sess-ui-3.md runs the whole flow in a real browser on devnet with the built-in wallet (the report calls it the agent wallet; the app now names it Solana Wallet) and its approval card on: start with two wallet cards and 1,900,880 lamports on the key, a move in the band with no wallet card, a move over the band refused, an end with one card, an owner-paid end with two cards, a keyless end from a second browser profile, and the first beta checks in its round 4. rev-sess-uxperf.md measured the prompts through the agent-web-wallets bridge: start 2, move 0, end 1, return 0. **To verify in the app:** sessions through Phantom, Solflare, Backpack and Glow. The app offers any Wallet Standard wallet that signs messages and transactions on the cluster (src/app/solana-wallets.ts `isEligible`), and the 8 October runs (section 14) signed the grant text with those four extensions against the contract on a local validator. Next step: run start, move and end with each extension on beta. NEAR-routed wallets (MetaMask, Freighter) are not in the app: NEAR is deferred (DECISIONS.md line 157).
+Until 18 October 2026 any owner could start a move-only session with `prime-session`. The wallet signed a plain grant text, the owner's session PDA was a signer of the account's Session moves policy only, and the key could make allowed moves and never vote. The Solana app on beta shipped it through the shared sessions UI: two prompts to start (the grant text and a float of 0.0019 SOL to the key), none per move, one or two to end, verified in a real browser on devnet (sess-ui-3.md). Its devnet program is in section 16, and its source is at tag `archive/spike-final` (`contracts/prime/solana/prime-session`).
 
 ## 11. Making a move
 
-A move is one transaction. The signer (the session key for a session move, the agent key for an agent move) signs it and pays its fee. A session move carries two instructions that the Solana runtime runs together; an agent move carries the Squads call.
+A move is one transaction. Its signer pays its fee: the agent key for an agent move, a seat's session key for a seat move. A seat move carries two instructions that the Solana runtime runs together, the ed25519 check of the grant and the `prime-seat` call; an agent move carries the Squads call.
 
-**A session move**, with the draw from custody that the Session moves rule allows:
+**A seat move**, with the draw from custody that a policy listing the seat allows:
 
 ```mermaid
 sequenceDiagram
   participant K as Session key
   participant E as ed25519 program
-  participant P as prime-session
+  participant P as prime-seat
   participant S as Squads policy
   participant G as Custody gate
   participant T as SPL Token
-  K->>E: 1. check the owner's signature on the grant text
-  K->>P: 2. the move, with the Squads call inside
+  K->>E: 1. check the owner's signature on the grant
+  K->>P: 2. the call, with the Squads call inside
   P->>P: grant checks
-  P->>S: the call, signed by the session PDA
+  P->>S: the call, signed as the seat
   S->>S: policy checks
   S->>G: gate transfer, signed by the agent lane vault
   G->>T: transfer, signed by the cap PDA as delegate
@@ -634,73 +573,70 @@ sequenceDiagram
   T->>T: refuses above the cap
 ```
 
-**What prime-session checks:**
+**What prime-seat checks:**
 
-1. The session key signed this transaction.
-2. The ed25519 instruction in the same transaction verified the owner's signature over the grant text. prime-session rebuilds the text itself from the key that signed, the PDA and the cluster it was built for.
-3. The end time has not passed, and it lies at most 7 days ahead.
-4. The PDA in the move matches the owner and the account in the grant.
-5. The session key has no revoke marker (section 13).
+1. The session key signed this transaction, and it is not the owner key.
+2. The ed25519 instruction at the given index verified the owner's signature over the grant hash, which `prime-seat` computes from the call.
+3. The window holds `start <= now <= end` and lasts at most 7 days.
+4. The key has no end marker (section 13).
+5. The Squads call is one a session may make (section 12).
 
-**What Squads checks:** the signer is a policy signer of the rule and has signed (the session PDA for a session move, the agent key for an agent move), and the call fits the policy: program, data, accounts and number of instructions (core/squads.ts `policyMoveIx`).
+**What Squads checks:** the signer is a policy signer of the rule and has signed (the seat for a seat move, the agent key for an agent move), and the call fits the policy: program, data, accounts and number of instructions (core/squads.ts `policyMoveIx`).
 
 **What the gate checks:** the caller is the Prime Account's agent lane vault and signed, the destination is on the list fixed at creation, and the batch's not-after lies in the run window. For the agent lane only, the gate's end time must not have passed. The owners lane pays the recovery address before and after the end time (custody-gate/src/lib.rs `transfer`, lines 67 to 87). **What the token program checks:** the transfer is signed by the cap PDA, the account's delegate, so it refuses an amount above the delegated cap.
 
 If any check fails, none of the transaction's instructions run.
 
-**Who pays:** the signer pays its own fee. The relayer is off in the app (DECISIONS.md line 112). The harness runs in section 16 had the relayer pay 15,000 lamports (0.000015 SOL) per move, and also ran the case where the session key pays itself.
+**Who pays:** the signer pays its own fee. The relayer is off in the app (DECISIONS.md line 112).
 
-An agent's move has the same shape as a session move without the ed25519 check: the agent key signs as the policy signer, and the gate's draw sits inside the Squads call.
+An agent's move has the same shape as a seat move without the ed25519 check and without `prime-seat`: the agent key signs as the policy signer, and the gate's draw sits inside the Squads call.
 
 ## 12. What a session can do
 
-A session can make any call the policy allows. prime-session adds no permission of its own, and its inner call always goes to the Squads program (an address fixed in its code). The policy can pin the program, the call data at fixed positions (equal, different, greater or less than), the accounts, the data stored in an account and the number of instructions.
+A session key forwards exactly one Squads call as the seat (`contracts/solana/prime-seat/README.md`):
 
-We tested two calls that move no token, on a local validator cloned from devnet, with a small venue program that keeps a ledger of deposits:
+| Squads call | Allowed |
+|---|---|
+| `createProposal`, `activateProposal`, `approveProposal`, `rejectProposal` | yes |
+| `executeTransaction`, `executeSettingsTransaction` | yes |
+| `executeTransactionSyncV2` with a policy payload (`InternalFundTransfer`, `ProgramInteraction`, `SpendingLimit`) | yes |
+| `createTransaction`, `createSettingsTransaction`, `cancelProposal`, the settings consensus through `executeTransactionSyncV2`, every other call | no |
 
-- **Deposit with a cap:** the policy allows a `deposit` of at most 1,000 on one ledger, and only with the vault as beneficiary. A deposit of 100 and of exactly 1,000 went through. A deposit of 1,001, a stranger as beneficiary, the session key as beneficiary, a `withdraw` and a second ledger were refused.
-- **Memo prefix:** the policy allows a Solana Memo whose text starts with `prime:`. The memo `prime:rebalance 2026-10-08` went through. `hello world` and `Prime:x` were refused.
+So a session acts alone only inside a policy that lists the seat, and the policy decides what it may do. The policy can pin the program, the call data at fixed positions (equal, different, greater or less than), the accounts, the data stored in an account and the number of instructions. `prime-seat` adds one call level above Squads: a venue called through a policy can nest 3 calls below itself for a native signer and 2 for a seat session.
 
-A third constraint allowed a deposit to a second ledger only while that ledger's own total stood at 50 or less. One move can hold a deposit and a memo together. If either one fails, nothing runs.
-
-**Result:** 89 of 89 checks passed. The session made 7 allowed calls and the policy refused 30. For 6 of the refusals we also had the owners' seats make the same call, and it succeeded, which shows that the policy did the refusing and the venue accepted the call. A deposit move used 58,380 compute units in a 1,005-byte transaction.
-
-Limits to know when writing a policy: extra bytes after the last checked field pass, so a policy should pin the program. Data is read at fixed positions, so a field after a variable-length field cannot be checked. One policy covers every live session of a wallet.
-
-**In the app:** the account's one **Session moves** rule pays one asset from custody to one listed destination within a per-move band. Each owner's session PDA is a signer of the rule (core/templates/session-moves.ts). The app refuses a move whose transfers add up above the band, and the chain checks each transfer on its own.
+The policy language was tested on 8 October 2026 on a local validator cloned from devnet, with a `prime-session` PDA as the policy signer: a capped deposit, a memo prefix and a constraint on another account's data, 89 of 89 checks. Squads did the refusing, so the limits it showed hold for any signer: extra bytes after the last checked field pass, so a policy should pin the program; data is read at fixed positions, so a field after a variable-length field cannot be checked; and one policy covers every live session of a seat.
 
 ## 13. Ending a session
 
 ```mermaid
 flowchart LR
   A["Time runs out<br/>at most 7 days"] --> X[Session over]
-  B["Owner revokes one key<br/>signs the same text with end time 0"] --> X
-  C["M-of-N removes the owner's PDA<br/>from the policy"] --> X
+  B["The owner or the key ends it<br/>an End with start and end at 0"] --> X
+  C["M-of-N removes the seat<br/>from the settings and the policies"] --> X
 ```
 
-- **Expiry:** prime-session reads the Solana clock and refuses a move after the end time.
-- **Revoke one session:** the owner signs the grant text again with the end time set to 0. prime-session then creates an empty account, the **marker**, at an address made from the owner, the account and the session key. Every move checks that address and is refused once the program owns it. Only the owner's signature can start a revoke, so only the owner can end one session. A revoke is final for that key: a new session needs a new key. A revoke for a key that was never granted blocks it too. The app's costs and prompts are in section 10.1.
-- **Remove the owner:** M owners vote through the account's settings to remove the owner. The app proposes `RemoveSigner` and one `PolicyUpdate` for each Session moves rule that lists the removed owner's session PDA. The updated rule lists the session PDAs of the owners who stay or join, and keeps the rule's other signers, in one proposal (core/session-rules.ts `sessionReplaceActions`; devnet proof in sess-fix-7.md, "Devnet proof of both parts"). Every session of that owner stops at once. A revoke made earlier stays in force if the PDA returns.
-- **Remove a rule:** removing a rule (`PolicyRemove`) runs only from the wallet that paid the rule's rent at its install, because Squads returns the rent to that wallet. If that wallet is gone, the owners use **Switch off**: a `PolicyUpdate` that sets the rule's end time to the chain time, through a normal settings proposal at the owners' approval count. The rule then refuses every move. Switch off is built and on main (octopos PR #20, commit c0c8d5f5), with an 11 of 11 devnet proof (sess-fix-7.md, "Switch off"). A mistaken switch-off needs a new rule. Switch off is the end state of a rule whose payer is gone: the rule stays on the account, and the open-moves note in the dialog says which stored moves keep their rent locked and which Reclaim rent can close (section 8). The prime-session program is unchanged.
+- **Expiry:** `prime-seat` reads the Solana clock and refuses a call outside the window.
+- **End one session:** an End is the grant hash with start and end at 0. The owner signs it through NEAR, or the session key signs the transaction itself. The transaction pays 890,880 lamports to the **marker**, the PDA `[owner, settings, key]` of `prime-seat`, and the program takes it over. Every later call by that key is refused, and the marker is never closed, so the key stays ended.
+- **Remove the owner:** M owners vote through the account's settings to remove the seat as a settings signer and from every policy that lists it. Every session of that owner stops at once.
+- **Remove a rule:** removing a rule (`PolicyRemove`) runs only from the wallet that paid the rule's rent at its install, because Squads returns the rent to that wallet. If that wallet is gone, the owners use **Switch off**: a `PolicyUpdate` that sets the rule's end time to the chain time, through a normal settings proposal at the owners' approval count. The rule then refuses every move. Switch off is built and on main (octopos PR #20, commit c0c8d5f5), with an 11 of 11 devnet proof (sess-fix-7.md, "Switch off"). A mistaken switch-off needs a new rule. Switch off is the end state of a rule whose payer is gone: the rule stays on the account, and the open-moves note in the dialog says which stored moves keep their rent locked and which Reclaim rent can close (section 8).
 
 The agent's key follows a separate path. The owners removing the rule, or any one custody signer lowering the cap to 0, ends its reach (sections 5 and 7).
 
 ## 14. Wallets
 
-Each wallet follows one of two routes. The app ships route 1. Route 2 (NEAR) was tested in the harness and is deferred: the app has no NEAR signing and no NEAR-routed owners (DECISIONS.md line 157).
+Each wallet follows one of two routes. A route-1 wallet signs for itself: it votes with its own key and, from 18 October 2026, starts no session. A route-2 owner signs through NEAR, holds a seat and starts sessions. The app ships route 1. Route 2 was tested in the harness and is deferred: the app has no NEAR signing and no NEAR-routed owners (DECISIONS.md line 157).
 
 ```mermaid
 flowchart LR
   subgraph NAT["Route 1: wallet signs itself"]
-    W1[Wallet] -- "signs grant text" --> T1[ed25519 check]
+    W1[Wallet] -- "signs votes" --> T1[Squads]
   end
   subgraph NEAR["Route 2: through NEAR (harness only, deferred)"]
     W2[Wallet] --> R2[Relayer]
-    R2 --> S2[prime-near-signer]
-    S2 --> M2[NEAR MPC signs the same text]
+    R2 --> S2[prime-near-signer v2]
+    S2 --> M2[NEAR MPC signs the grant]
   end
-  T1 --> P[prime-session]
-  M2 --> P
+  M2 --> P[prime-seat]
 ```
 
 | Wallet | Route | What we ran |
@@ -712,9 +648,11 @@ flowchart LR
 | MetaMask | Native or NEAR (NEAR deferred) | Native: MetaMask 13.50.0 signed 12 grant and revoke requests with its own Solana account (145 of 145 checks). Seat-vote transactions used a stand-in with the same key, because MetaMask's simulation refuses the local validator's accounts. NEAR route: stock NEAR code only. |
 | Freighter | NEAR (deferred, absent from the app) | Freighter adds a Stellar prefix to every message, so it cannot sign the Solana text. In the harness it goes through our 42-line NEAR contract, `prime-near-signer`. |
 
-**What the app supports:** any Wallet Standard wallet that offers `signMessage` and `signTransaction` on the build's cluster (src/app/solana-wallets.ts `isEligible`). The Connect grid names Phantom, Solflare and Backpack, and the built-in wallet is offered too, shown as Solana Wallet (`SOLANA_WALLET_LABEL`). Sessions in the app were verified with the built-in Solana Wallet (section 10.1). The table above is the 8 October harness evidence of what each extension signs.
+The runs in the table are of 8 October 2026. The native wallets signed `prime-session`'s grant and revoke texts, which no longer apply, and seat votes, which still do.
 
-On the NEAR route (harness only) the MPC key signs the same grant text, and prime-session checks that key as the owner. A NEAR-routed wallet uses one MPC key for seat votes and another for sessions, so a session signature can never count as a vote. The NEAR route adds about 8 seconds per signature. The native route took 4.8 seconds for MetaMask's `signMessage` in our runs, browser automation included. Moves never use NEAR.
+**What the app supports:** any Wallet Standard wallet that offers `signMessage` and `signTransaction` on the build's cluster (src/app/solana-wallets.ts `isEligible`). The Connect grid names Phantom, Solflare and Backpack, and the built-in wallet is offered too, shown as Solana Wallet (`SOLANA_WALLET_LABEL`). Move-only sessions in the app were verified with the built-in Solana Wallet (section 10, history). The table above is the 8 October harness evidence of what each extension signs.
+
+On the NEAR route the MPC key signs the seat's grant through `prime-near-signer` v2, and `prime-seat` checks that key as the owner. The owner key signs only grants and ends, and every vote and move of the seat comes from the session key. A NEAR signature took about 8 seconds in the harness runs. Moves never use NEAR.
 
 MetaMask changes a transaction that lacks compute-budget instructions. The harness client therefore built MetaMask transactions with both instructions in place, and the relayer checked the returned message before it co-signed. The app has no relayer.
 
@@ -724,7 +662,7 @@ Tuan asked for names on 10 October 2026 at about 15:00 UTC (DECISIONS.md line 17
 
 ### Real-wallet results
 
-The real Phantom, Solflare, Backpack and Glow extensions signed the exact grant and revoke texts that prime-session rebuilds. Each signature then ran on a local validator: relayed moves, self-paid moves, a revoke, and the refusal of the revoked key. The wallet runs are **Verified** against the contract on a local validator (the real-wallet run, 8 October 2026). They did not go through the app.
+On 8 October 2026 the real Phantom, Solflare, Backpack and Glow extensions signed the exact grant and revoke texts that `prime-session` rebuilt. Each signature then ran on a local validator: relayed moves, self-paid moves, a revoke, and the refusal of the revoked key. The wallet runs are **Verified** against the contract on a local validator (the real-wallet run, 8 October 2026). They did not go through the app.
 
 | Run | Result |
 |---|---|
@@ -744,7 +682,7 @@ What each wallet did with a seat vote (a transaction the wallet signs with [`sig
 
 **Phantom's fee:** Phantom returns a transaction with two added compute-budget instructions: a price of 375,000 micro-lamports and a limit of 200,000 units. That is a priority fee of 75,000 lamports, 15 times the base fee of one signature. The relayer's cap in the harness is 25,000 lamports, so the relayer refuses Phantom's vote at that cap. The votes ran with a cap of 100,000 lamports. Grants and revokes use `signMessage` and add nothing. The cap is a decision for the relayer's rules (section 17).
 
-**Prompts:** all four prompts show the session PDA, the session key, the end time and the cluster. Glow flattens the five lines into one paragraph and is the hardest to read. A revoke prompt differs from a grant prompt in one number: the end time reads 0.
+**Prompts (`prime-session`'s texts):** all four prompts show the session PDA, the session key, the end time and the cluster. Glow flattens the five lines into one paragraph and is the hardest to read. A revoke prompt differs from a grant prompt in one number: the end time reads 0.
 
 What the real-wallet run does not cover, and we still need to run: seat votes through Solflare and Glow on devnet, the grant text with `cluster: devnet`, the NEAR-routed owners, a hardware wallet and a mobile wallet, and a production origin. The agent's own key never goes through a wallet, so these runs concern the owners.
 
@@ -795,7 +733,7 @@ A move that pays a destination needs the destination's token account for that mi
 
 **Agent moves:** the app adds `createAssociatedTokenAccountIdempotent` as a top-level instruction in the same transaction, outside the vault transaction, and the signer pays its rent. The review says so before the wallet is asked: "Fee and rent together: about X SOL from this wallet" (pages/prime-execution-page.tsx, `OpensHint`; octopos commit f6bd2043). A stored move runs later, so it opens the accounts when it runs. The account then stays open for every later move to that destination.
 
-**Session moves:** the session key holds a float of 0.0019 SOL that is sized for fees, so the app does not use it to open an account. It refuses the move before signing and offers "Open it with my wallet". The owner's wallet opens the account with one prompt, and the session move then runs with no prompt. Devnet proof: sess-fix-9 live check, steps M0 to M6 of `measure/live/live2.ts` (results in `measure/live/live2-results.json`, referenced from sess-fix-9.md "Live check"). M0 shows the destination account absent, M1 the refusal with the button and the rent, M2 one wallet card ("Open the Token ... account", 0.00148844 SOL, all of it rent for a new account), M3 the account on chain, M5 the move running with no wallet prompt and M6 the 5,000,000 base units arriving in the new account. The rent of an account depends on its size and on the cluster's rent setting. The figure in M2 is the one that run measured.
+**Session moves (`prime-session`, in the app until it moves to seats):** the session key holds a float of 0.0019 SOL that is sized for fees, so the app does not use it to open an account. It refuses the move before signing and offers "Open it with my wallet". The owner's wallet opens the account with one prompt, and the session move then runs with no prompt. Devnet proof: sess-fix-9 live check, steps M0 to M6 of `measure/live/live2.ts` (results in `measure/live/live2-results.json`, referenced from sess-fix-9.md "Live check"). M0 shows the destination account absent, M1 the refusal with the button and the rent, M2 one wallet card ("Open the Token ... account", 0.00148844 SOL, all of it rent for a new account), M3 the account on chain, M5 the move running with no wallet prompt and M6 the 5,000,000 base units arriving in the new account. The rent of an account depends on its size and on the cluster's rent setting. The figure in M2 is the one that run measured.
 
 **Status:** Verified on devnet for session moves (M0 to M6). The agent path is in code and tests (octopos commit f6bd2043). A devnet run of it is to verify. Next step: run an agent move to a destination with no account on beta and record the signature.
 
@@ -822,13 +760,13 @@ The Prime Assistant runs on beta-solana and is absent from the mainnet build (se
 
 | Attack | What stops it |
 |---|---|
-| Replay of a grant or a move | The session key must sign every transaction, and Solana refuses a transaction it has already processed. The grant also expires within 7 days. |
-| Use in another account | The grant text names the session PDA, which comes from the owner key and this account's address. prime-session works the PDA out again and refuses a mismatch. A second account with the same three owners is refused too. |
+| Replay of a grant or a call | The session key must sign every transaction, and Solana refuses a transaction it has already processed. The grant also expires within 7 days. |
+| Use in another account | The grant hash names the settings address and the seat, and `prime-seat` computes it from the call, so a grant for one account fails in another. |
 | Use on another cluster | The cluster is fixed when the program is built, and a build without it fails to compile. A devnet grant is refused on mainnet. |
-| Stolen session key | It can make allowed moves until expiry or revoke, within the policy's limits. It cannot vote, change rules or add owners. |
-| Another owner's signature | The signature must be the owner's, over this exact text. Anything else is refused. |
-| Compromised relayer (applies when a relayer is on; the app has none) | The relayer cannot forge a grant, because that needs the owner's signature, and it cannot make a move without the session key's signature. It can refuse to send. The session key then pays its own fee. The relayer also pays rent for revokes, so it must rate-limit them per owner and per account. |
-| Upgraded program | prime-session is planned to deploy on mainnet with `--final`, which locks the code for good. |
+| Stolen session key | It can vote as its owner's seat and act inside the policies that list the seat until the session ends. It cannot create a transaction, so it can only approve what a native owner wrote. |
+| Another owner's signature | The ed25519 instruction must hold the owner key's signature over this exact grant hash. Anything else is refused. |
+| Compromised relayer (applies when a relayer is on; the app has none) | The relayer cannot forge a grant, because that needs the owner's signature, and it cannot act without the session key's signature. It can refuse to send, and the session key then pays its own fee. If it pays the rent of end markers, it must rate-limit them per owner and per account. |
+| Upgraded program | `prime-seat` is deployed with `--final` on devnet (`7ygNrKpK3GYoNLMCkAa4e3mznGPF2KVGbKZsJcq8wSCb`), which locks the code for good, and deploys the same way on mainnet. |
 
 Attacks on the custody gate:
 
@@ -858,7 +796,7 @@ Attacks on the custody gate:
 - **The Squads program:** it can be upgraded by a 3-of-5 multisig ([on-chain read, 8 October 2026](#references)) with no time lock. It was last deployed on 31 August 2026, and no verified build is published. An upgrade of it reaches the account itself. With the custody gate, an upgrade that signs as the owners lane reaches the recovery address only, with no cap, and an upgrade that signs as the agent lane reaches the listed destinations within the cap. Both stop at addresses custody chose. We re-run the gate harness after each Squads upgrade.
 - **Token-2022:** the program is upgradeable on mainnet, with upgrade authority `AeLmXCbPaQHGWRLr2saFsEVfmMNuKnxRAbWCT9P5twgz` (read on chain on 8 October 2026). Holding assets there adds that authority as a trusted party. The classic Token program is immutable, so prefer it where the asset allows.
 - **The gate program:** it owns the dedicated token accounts, so its code can pay out as far as its lanes allow. It deploys with `--final`, so a latent bug cannot be patched, and the way out is a release to a fresh gate (custody, the trustee and an unfrozen account).
-- **The relayer's rules (for when a relayer is on; the app has none):** the relayer signs only as fee payer, as rent payer for a revoke and as rent payer for a stored move. prime-session and Squads forward a transaction's outer signers into the inner call, so the relayer must refuse any transaction that lists its key anywhere else.
+- **The relayer's rules (for when a relayer is on; the app has none):** the relayer signs only as fee payer, as rent payer for an end marker and as rent payer for a stored move. `prime-seat` and Squads forward a transaction's outer signers into the inner call, so the relayer must refuse any transaction that lists its key anywhere else.
 
 ## 15.1 Scope: what custody keeps and gives up
 
@@ -934,13 +872,13 @@ Custody gate, gate-owned build, on a local validator (compute units vary run to 
 | Recovery by the owners (sync) | 23,090 to 36,590 compute units, 671 bytes (the gate's own share: 3,662) |
 | A stored recovery runs | 65,464 compute units, 645 bytes |
 | Agent rule, install | 0.0060 to 0.0104 SOL of rent, three transactions |
-| The gate program, once | 47,472 bytes. Deploy rent is 0.333 SOL on the local validator (6,960 lamports per byte), and 0.709 SOL with prime-session. On devnet (5,080 per byte) the previous gate (47,160 bytes) cost 0.241 SOL net and peaked at 0.482 SOL; the new one cost 0.2429 SOL net and peaked at 0.4849 SOL |
+| The gate program, once | 47,472 bytes. Deploy rent is 0.333 SOL on the local validator (6,960 lamports per byte), and 0.709 SOL together with `prime-session` on 9 October 2026. On devnet (5,080 per byte) the previous gate (47,160 bytes) cost 0.241 SOL net and peaked at 0.482 SOL; the new one cost 0.2429 SOL net and peaked at 0.4849 SOL |
 
-Real venue runs: a Kamino deposit 119,676 compute units, a Kamino redeem 111,049, an Orca swap through a rule 83,328, the same through `prime-session` as a version 0 transaction 107,462 (897 bytes, depth 4; the legacy form is 1,512 bytes and refused as too large).
+Real venue runs: a Kamino deposit 119,676 compute units, a Kamino redeem 111,049, an Orca swap through a rule 83,328, the same through `prime-session` (9 October 2026) as a version 0 transaction 107,462 (897 bytes, depth 4; the legacy form is 1,512 bytes and refused as too large).
 
-### prime-session on devnet
+### prime-session on devnet (history)
 
-`prime-session` of 9 October 2026 (64 lines formatted, 53,720 bytes) is deployed on Solana devnet with `--final` and runs the full matrix with the 2-of-3 Squads Smart Account, all three wallet routes (Phantom's own key, MetaMask and Freighter through NEAR), the refusals and the two-program checks. The first devnet build (`8db245ab…`, 54,024 bytes) stays at [`4tXCkZW2...BRoPRa`](https://explorer.solana.com/address/4tXCkZW255iZNT4gPHDuAbqR3eG8Zs3tRsgLRc1BoPRa?cluster=devnet) as a previous build; it is final too and passed 136 of 136 on 8 October 2026.
+Removed from this repository on 18 October 2026; the programs stay deployed and final. `prime-session` of 9 October 2026 (64 lines formatted, 53,720 bytes) is deployed on Solana devnet with `--final` and runs the full matrix with the 2-of-3 Squads Smart Account, all three wallet routes (Phantom's own key, MetaMask and Freighter through NEAR), the refusals and the two-program checks. The first devnet build (`8db245ab…`, 54,024 bytes) stays at [`4tXCkZW2...BRoPRa`](https://explorer.solana.com/address/4tXCkZW255iZNT4gPHDuAbqR3eG8Zs3tRsgLRc1BoPRa?cluster=devnet) as a previous build; it is final too and passed 136 of 136 on 8 October 2026.
 
 | Item | Value |
 |---|---|
@@ -1013,7 +951,7 @@ The round spent 0.9724 SOL net. The payer held 10.2296 SOL before the first depl
 - **Independent review of the line cut: done, adopt** ([the review of the line-cut build of 9 October 2026, 84 lines as written](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/opt/gate-linecut-review.md), archived). The line cut is a refactor of the gate-owned build. A host differential test on 3 million random inputs per seed found no difference except one signer flag on a System `Transfer` that the System program ignores, and the harnesses pass unchanged. Finding L1, the one issue the review added, is fixed in the gate (table above); the fixed build is the one this document describes.
 - **Fordefi:** Fordefi can be a multisig signer for custody's key or the trustee's key, as an untested design from Fordefi's raw Solana transaction API. The harness signs with raw keys.
 - **Gate deploy:** a published verifiable build and a `--final` deploy. The app refuses a gate program that still has an upgrade authority.
-- **Gate on devnet:** the 9 October 2026 gate (`a5d19edb…`, 47,472 bytes) is deployed with `--final` on devnet at `6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz` and passes 84 of 84 checks there, and prime-session (`c8836361…`) runs at `6JyReewxbo6D6UQNHEWWTXnC1CdBU8CqcQjoQbGNj9Ba` with 145 of 145. The first builds (`6d196cab…` at `58L4q3DgvPdvRh7kX4v148EwEwd29WHh4RfaZJR69iYx` and `8db245ab…` at `4tXCkZW255iZNT4gPHDuAbqR3eG8Zs3tRsgLRc1BoPRa`) stay on devnet as previous builds (section 16).
+- **Gate on devnet:** the 9 October 2026 gate (`a5d19edb…`, 47,472 bytes) is deployed with `--final` on devnet at `6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz` and passes 84 of 84 checks there, and `prime-session` (`c8836361…`) runs at `6JyReewxbo6D6UQNHEWWTXnC1CdBU8CqcQjoQbGNj9Ba` with 145 of 145; its source left this repository on 18 October 2026. The first builds (`6d196cab…` at `58L4q3DgvPdvRh7kX4v148EwEwd29WHh4RfaZJR69iYx` and `8db245ab…` at `4tXCkZW255iZNT4gPHDuAbqR3eG8Zs3tRsgLRc1BoPRa`) stay on devnet as previous builds (section 16).
 - **Squads upgrades:** the program upgrades on mainnet with no time lock, so the gate harness re-runs after each upgrade.
 - **Devnet seat votes:** Solflare's and Glow's seat votes through the real extensions and the grant text with `cluster: devnet` signed by the real extensions can run now that the devnet payer holds SOL. The devnet runs of `prime-session` used keys and the NEAR MPC.
 - **Relayer cap (applies only if a relayer is turned on; the app has none):** Phantom adds a 75,000-lamport priority fee, and the harness cap is 25,000. Tuan decides whether the cap rises for Phantom votes or the app sets the fee before Phantom signs.
@@ -1021,9 +959,9 @@ The round spent 0.9724 SOL net. The payer held 10.2296 SOL before the first depl
 - **Add a token and Move to a new gate on beta:** both ran on a local build against devnet and the move on `tests/devnet-gate-move.test.ts`. The beta runs are to verify (section 6.1).
 - **In review on 11 October:** octopos #88 (gate move follow-ups), which is not described above as shipped. Until it merges, the move plan reads an account whose cap the agent used up as receives-only and blocks its draw rule with a wrong reason; the move fails closed and no funds are at risk (review-pr81.md, N1).
 
-**Swig set aside:** we tested Swig, a third-party Solana wallet program with session keys, in place of prime-session. It works for all four owner routes (256 of 256 checks) and would save bytes, compute units, fee and revoke rent. We kept prime-session because Swig counts the 7-day cap in slots, which last 4.3 to 6.9 days as slot time changes. Swig also allows one live session per role, needs an admin-role design, shows weaker prompts and adds upgradeable third-party code. The decision flips if we accept a slot-based cap, the real extensions accept its prompts, a time lock bounds its upgrades, or Squads ships session keys for policy signers.
+**Swig set aside:** we tested Swig, a third-party Solana wallet program with session keys, in place of prime-session. It works for all four owner routes (256 of 256 checks) and would save bytes, compute units, fee and revoke rent. We kept prime-session because Swig counts the 7-day cap in slots, which last 4.3 to 6.9 days as slot time changes. Swig also allows one live session per role, needs an admin-role design, shows weaker prompts and adds upgradeable third-party code. The decision flips if we accept a slot-based cap, the real extensions accept its prompts, a time lock bounds its upgrades, or Squads ships session keys for policy signers. Superseded on 18 October 2026: sessions are seat-only, and `prime-session` is removed.
 
-**Seat voting, spiked and advised against:** in a spike, each owner's PDA also became a settings signer, so a session key with a vote flag could vote for its owner. It works on Solana for 7 more lines (292 of 292 checks). The independent review recommends keeping plain-key seats, with wider policies for routine actions, because the full design puts every seat behind one program and a bug or upgrade there would reach the account's governance. The production contracts are unchanged. Decision for Tuan.
+**Seat voting, spiked and advised against:** in a spike, each owner's PDA also became a settings signer, so a session key with a vote flag could vote for its owner. It works on Solana for 7 more lines (292 of 292 checks). The independent review recommends keeping plain-key seats, with wider policies for routine actions, because the full design puts every seat behind one program and a bug or upgrade there would reach the account's governance. The production contracts were unchanged at the time. Superseded on 18 October 2026: Tuan chose seats for every session, and `prime-seat` lets a session vote for a NEAR-routed owner while a native owner writes every transaction. Decision for Tuan.
 
 **Post-demo brainstorm (Tuan, 10 October 2026):** seven open questions were settled on 11 October 2026 (DECISIONS.md line 195, "Solana open decisions, settled", with the options and trade-offs in `prime-solana-open-decisions-2026-10-10.md`):
 
@@ -1037,7 +975,7 @@ The round spent 0.9724 SOL net. The payer held 10.2296 SOL before the first depl
 | Root lint: 1,749 errors in files outside this work (CI runs lint only in apps/solana-web) | Known, unchanged |
 | A rule whose payer wallet is lost: Switch off is built (PolicyUpdate, settings proposal); "or another path" remains open | Decided and shipped: Switch off is the end state, with the fold and the open-moves note (F1, octopos #78 and #82), section 8 |
 
-**Gate account model, decided 11 October 2026 (C1):** the gate keeps owning the dedicated token account. The reason Tuan gave on 8 October holds: a recovery that reaches the whole balance with no cap, and custody's one-signature stop. The Stellar-style model (an SPL Token multisig owns the account and approves the gate as a delegate with the cap) was spiked as `gate-a3-multisig` with 162 of 162 checks. Its recovery stops at the remaining allowance, an SPL account has one delegate, and a switch needs a new program, a new harness port and a new independent review. **We revisit the choice if a custodian refuses to hand the owner and close authority of a token account to a program, or if a review finds a defect in `release`.** The gate and `prime-session` are unchanged in this round.
+**Gate account model, decided 11 October 2026 (C1):** the gate keeps owning the dedicated token account. The reason Tuan gave on 8 October holds: a recovery that reaches the whole balance with no cap, and custody's one-signature stop. The Stellar-style model (an SPL Token multisig owns the account and approves the gate as a delegate with the cap) was spiked as `gate-a3-multisig` with 162 of 162 checks. Its recovery stops at the remaining allowance, an SPL account has one delegate, and a switch needs a new program, a new harness port and a new independent review. **We revisit the choice if a custodian refuses to hand the owner and close authority of a token account to a program, or if a review finds a defect in `release`.** The gate was unchanged in this round.
 
 **Decided on 11 October 2026** (Tuan, about 09:10 UTC, "Go with your recommendations", DECISIONS.md line 195), each merged to octopos main:
 

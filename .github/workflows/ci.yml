@@ -253,13 +253,13 @@ jobs:
           sys.exit(1 if bad else 0)
           PY
 
-  # The three Solana programs build with the Solana CLI's cargo-build-sbf, pinned
+  # The two Solana programs build with the Solana CLI's cargo-build-sbf, pinned
   # to the release the hashes were recorded with. PRIME_CLUSTER is a compile-time
-  # string that goes into the grant text a wallet signs, so each cluster has its
-  # own .so; localnet is the one recorded here.
+  # string that goes into the seat's grant hash, so each cluster has its own
+  # prime_seat.so; localnet is the one recorded here.
   #
   # The sources are rustfmt output, and the docs state their formatted size
-  # (126, 64 and 75 lines).
+  # (126 and 75 lines).
   solana:
     name: Contracts (solana/${{ matrix.crate }})
     runs-on: ubuntu-latest
@@ -268,8 +268,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - crate: prime-session
-            artifact: prime_session.so
           - crate: custody-gate
             artifact: gate.so
           - crate: prime-seat

@@ -236,7 +236,7 @@ The cap address is `["cap", gate]`. The gate approves it as the delegate of the 
 
 ### The program
 
-The gate program is 126 lines after `rustfmt` (the source is formatter output), a 47,472-byte binary. It calls only the Token and Token-2022 programs. Deploy rent is about 0.333 SOL on the local validator (6,960 lamports per byte), and with prime-session about 0.709 SOL.
+The gate program is 126 lines after `rustfmt` (the source is formatter output), a 47,472-byte binary. It calls only the Token and Token-2022 programs. Deploy rent is about 0.333 SOL on the local validator (6,960 lamports per byte), and about 0.709 SOL together with the move-only session program of 9 October 2026.
 
 Devnet charges 5,080 lamports per byte of account size plus 128 bytes of overhead. The `--final` deploy of the current gate cost 0.2429 SOL net there: the program data account 242,036,600 lamports and the program account 833,120. The deploy peaked at 0.4849 SOL, because the buffer (241,995,960 lamports) and the program data coexist until the loader returns the buffer. One run of the custody flow on devnet cost 0.0266 SOL gross and 0.0135 SOL after the clean-up, which closes the token accounts and the agent rule and sweeps the float of custody and the trustee back to the payer.
 
@@ -449,7 +449,7 @@ Custody does not control the minimum wait. Custody's own protection is the cap, 
 
 - **Verified:** the whole batch is stored, an early run is refused, the batch runs atomically after the wait and a second run is refused. The owners cancel, custody lowers the cap and the run fails, the not-after lapses, a not-after beyond the window is refused, and so are a run after the gate's end time and a run after the rule's expiry (TL1 to TL11b, 24 of 24). The same whole batch ran on real Orca state under a 6-second time lock: 50 USDC became about 50 USDT in one run (119,159 compute units to run). A rule that pins the band, the accounts, the atomic draw and payback, rolls back on a failed leg and leaves vault 0 session rules with no reach (P1 to P10b, 14 of 14).
 - **Verified:** the owners' read-back of the gate is the same `checkGate` call as custody's, and it refuses every tampered gate of section 4 (SX8 to SX16b).
-- **Verified on beta:** the Solana rule templates and the Policies screens (Add rule, Replace rule, Switch off; architecture doc, sections 14.2 and 10.1).
+- **Verified on beta:** the Solana rule templates and the Policies screens (Add rule, Replace rule, Switch off; architecture doc, section 14.2).
 - **Verified on devnet and beta:** the Squads `closeTransaction` call returns a stored batch's rent after the batch ran, was cancelled or was rejected. The app's **Reclaim rent** makes it (section 8).
 
 ## 8. Day to day
@@ -706,7 +706,7 @@ The app keeps `checkGate` and `checkMultisig` as hard steps before any hand-over
 - **Squads Smart Account** (`SMRTzfY6...`) is upgradeable on mainnet. Its upgrade authority is `HT3JknwuufXdtVJggz5Z9JcnYtanPpLzTCqLWsVX1Vu2`, with no time lock. The gate's two lanes are Squads vaults, so whoever holds that authority can change how the vaults sign. The reach stays inside the gate's fixed recovery address, cap and destination list, which bounds that party the same way an owner majority is bounded (section 11). Re-check the gate after each Squads upgrade.
 - **Token-2022** (`TokenzQd...`) is upgradeable on mainnet. Its upgrade authority is `AeLmXCbPaQHGWRLr2saFsEVfmMNuKnxRAbWCT9P5twgz`. Holding assets there adds that authority as a trusted party. The classic Token program (`Tokenkeg...`) is immutable, so prefer it where the asset allows. The app says so for each Token-2022 mint.
 - **The gate deploys with `--final`:** a latent bug in the gate then cannot be patched, and the way out is a release to a fresh gate, which needs custody, the trustee and an unfrozen account. The small surface (126 formatted lines) carries that risk. The app refuses a gate program that still has an upgrade authority, and the harness loads the gate as non-upgradeable.
-- **The gate-owned model:** Tuan kept it on 11 October 2026 (decision C1). A recovery reaches the whole balance with no cap, and custody keeps its one-signature stop. The alternative, an SPL multisig that owns the account and approves the gate as a delegate, limits a recovery to the remaining allowance and needs a new program and a new review. We revisit the choice if a custodian refuses to hand the owner and close authority of a token account to a program, or if a review finds a defect in `release`. The gate and `prime-session` are unchanged.
+- **The gate-owned model:** Tuan kept it on 11 October 2026 (decision C1). A recovery reaches the whole balance with no cap, and custody keeps its one-signature stop. The alternative, an SPL multisig that owns the account and approves the gate as a delegate, limits a recovery to the remaining allowance and needs a new program and a new review. We revisit the choice if a custodian refuses to hand the owner and close authority of a token account to a program, or if a review finds a defect in `release`. The gate is unchanged.
 
 Upgrade authorities read on chain on 8 October 2026 (read-only, through the public RPC).
 

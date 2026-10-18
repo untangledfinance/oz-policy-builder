@@ -67,7 +67,7 @@ The other contracts have a CI job each. From the repository root:
 ( cd contracts/evm/prime-seat && forge fmt --check src && forge build && forge test )
 
 # Solana programs (Solana CLI 4.3.0)
-for crate in prime-session custody-gate prime-seat; do
+for crate in custody-gate prime-seat; do
   ( cd "contracts/solana/$crate" &&
     RUSTUP_TOOLCHAIN=stable cargo fmt --check &&
     RUSTUP_TOOLCHAIN=stable PRIME_CLUSTER=localnet cargo-build-sbf -- --locked )

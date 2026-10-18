@@ -198,7 +198,7 @@ The STRIDE threat model for grammar 7, with what is done and what is open at
 | `contracts/stellar/execution-adapter` | The per-Prime batcher, bound to one gate. A batch can wait a number of ledgers before it runs. |
 | `contracts/stellar/test-blend-pool` | A Blend-`submit`-shaped stub, for testnet verification only. |
 | `contracts/stellar/prime-seat` | The seat of an owner who signs through NEAR, on a Prime account. It also serves the session keys that owner grants. |
-| `contracts/{evm,solana,near}` | The EVM and Solana seats, the Solana session program and custody gate, and the NEAR signers. See [contracts/README.md](contracts/README.md). |
+| `contracts/{evm,solana,near}` | The EVM and Solana seats, the Solana custody gate and the NEAR signers. See [contracts/README.md](contracts/README.md). |
 | `deployments/` | Deployment records that CI and the scripts read. |
 | `evidence/` | Logs and receipts behind the claims in the docs. |
 
