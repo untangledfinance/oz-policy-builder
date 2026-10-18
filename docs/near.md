@@ -208,11 +208,12 @@ then held one full-access key.
   call the MPC as that account with any path and payload, so it can sign a grant
   for any NEAR-routed owner without the wallet, and it can replace the code. A
   session started from a forged grant still needs a native signature for every
-  decision, and acts alone in every rule that lists the seat. v2's key
-  (`ed25519:9hEsUKUV…`) is kept only in the agents' host's NEAR credentials;
-  v1's key (`ed25519:K7JPXNYz…`) is also the key of the relayer account
-  `prime-spike-muwguc60.testnet`, which the octopos relayer uses to pay NEAR
-  calls. Locking an account means deleting its full-access key after the last
+  decision, and acts alone in every rule that lists the seat. Both keys sit
+  on the agents' VM, in `~/.near-credentials/testnet/`: v2's key
+  (`ed25519:9hEsUKUV…`) and v1's key (`ed25519:K7JPXNYz…`). v1's key is also
+  the key of the relayer account `prime-spike-muwguc60.testnet`, so the octopos
+  relayer Worker, which pays NEAR calls from that account, holds it too.
+  Locking an account means deleting its full-access key after the last
   code-hash check, which also ends upgrades; the deletion cannot be undone. This
   is a testnet limitation of today's deployment.
 - **NEAR availability:** when NEAR or its MPC is down, a NEAR-routed owner

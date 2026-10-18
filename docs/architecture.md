@@ -216,10 +216,12 @@ with no further NEAR prompt. A native owner has no session key.
 MetaMask's own Solana account and Phantom's own EVM account can also sign there
 as native owners (section 5.6 of the round-9 record).
 
-Some checks that keep one key from counting twice live only in onboarding: the
+Some checks that keep one key from counting twice live in onboarding: the
 owner keys must differ, no seat may sit in two accounts, no plain key may sit
 beside its own seat, and on Solana only the canonical seat PDA is accepted
-(section 14.6 of the round-9 record). No contract enforces the first three.
+(section 14.6 of the round-9 record). No contract enforces the first and the
+third; the second holds on chain on Stellar and EVM, and only through
+onboarding on Solana.
 
 Every decision needs one native wallet, on every chain:
 
