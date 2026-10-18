@@ -197,8 +197,8 @@ The STRIDE threat model for grammar 7, with what is done and what is open at
 | `contracts/stellar/custody-gate` | The custody account's gate: holds its allowance and releases only to listed addresses. |
 | `contracts/stellar/execution-adapter` | The per-Prime batcher, bound to one gate. A batch can wait a number of ledgers before it runs. |
 | `contracts/stellar/test-blend-pool` | A Blend-`submit`-shaped stub, for testnet verification only. |
-| `contracts/stellar/prime-session` | The Stellar session signer for a Prime account. New code, in the audit scope. |
-| `contracts/{evm,solana,near}` | The PrimeX session contracts and the Solana custody gate. See [contracts/README.md](contracts/README.md). |
+| `contracts/stellar/prime-seat` | The seat of an owner who signs through NEAR, on a Prime account. It also serves the session keys that owner grants. |
+| `contracts/{evm,solana,near}` | The EVM and Solana seats, the Solana session program and custody gate, and the NEAR signers. See [contracts/README.md](contracts/README.md). |
 | `deployments/` | Deployment records that CI and the scripts read. |
 | `evidence/` | Logs and receipts behind the claims in the docs. |
 
@@ -223,7 +223,7 @@ own directory:
 ( cd contracts/stellar/policy-interpreter && ./build-wasm.sh && cargo test )
 ( cd contracts/stellar/custody-gate       && cargo test )
 ( cd contracts/stellar/execution-adapter  && cargo test )
-( cd contracts/stellar/prime-session      && cargo test )
+( cd contracts/stellar/prime-seat         && cargo test )
 ( cd contracts/stellar/test-blend-pool    && cargo test )
 ```
 

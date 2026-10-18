@@ -69,10 +69,9 @@ jobs:
           - custody-gate
           - execution-adapter
           - test-blend-pool
-          # The session signer on an OZ smart account. Its wasm is pinned in
+          # The NEAR-routed owner's seat on an OZ smart account, which also
+          # serves that owner's session keys. Its wasm is pinned in
           # contracts/build-hashes.json.
-          - prime-session
-          # The NEAR-routed owner's seat on an OZ smart account.
           - prime-seat
     defaults:
       run:
@@ -173,13 +172,13 @@ jobs:
             exit 1
           fi
 
-      # The session signer and the seat are not deployed as shared instances, so there is no
-      # deployments/ record. Its reproducible build (build-wasm.sh, which remaps
-      # the crate and registry paths) is pinned in contracts/build-hashes.json.
-      # The testnet instances run the stellar contract build wasm, whose hash
-      # depends on the build machine's paths and cannot be compared here.
+      # The seat is not deployed as a shared instance: the Prime app deploys one
+      # per owner and account, so there is no deployments/ record. Its
+      # reproducible build (build-wasm.sh, which remaps the crate and registry
+      # paths) is pinned in contracts/build-hashes.json, and the app pins the
+      # same hash.
       - name: Wasm build and pin parity
-        if: matrix.crate == 'prime-session' || matrix.crate == 'prime-seat'
+        if: matrix.crate == 'prime-seat'
         run: |
           rustup target add wasm32v1-none
           ./build-wasm.sh
@@ -195,41 +194,10 @@ jobs:
           cargo install cargo-audit --locked --version ^0.22
           cargo audit
 
-  # The EVM session contract. It imports three OpenZeppelin Contracts 5.4.0 files,
-  # mapped by foundry.toml to lib/oz/, and lib/ stays out of git. The fetch below
-  # is the one contracts/README.md documents.
-  evm-prime-session:
-    name: Contracts (evm/prime-session)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: contracts/evm/prime-session
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: v1.8.4
-
-      - name: Fetch OpenZeppelin Contracts 5.4.0
-        run: |
-          npm pack @openzeppelin/contracts@5.4.0
-          tar xzf openzeppelin-contracts-5.4.0.tgz
-          mkdir -p lib/oz && cp -r package/utils package/interfaces lib/oz/
-
-      # The test files are not formatted, so the check covers the contract.
-      - name: Format check
-        run: forge fmt --check src
-
-      - name: Build
-        run: forge build
-
-      - name: Test
-        run: forge test
-
-  # The EVM seat for a NEAR-routed owner. Same OpenZeppelin fetch as the session
-  # contract. The runtime and creation code are pinned in
+  # The EVM seat for a NEAR-routed owner. It imports one OpenZeppelin Contracts
+  # 5.4.0 file, mapped by foundry.toml to lib/oz/, and lib/ stays out of git. The
+  # fetch below is the one contracts/README.md documents. The runtime and
+  # creation code are pinned in
   # contracts/build-hashes.json, so a source change that is not re-recorded
   # turns this red. The real-Safe tests run only with FORK_URL set (a Base Sepolia
   # fork, see the contract's README), which this job does not set.

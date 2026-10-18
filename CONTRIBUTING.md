@@ -39,7 +39,7 @@ bun run test:isolated   # each package's tests alone, as prepublishOnly runs the
 bun audit           # dependency advisories
 
 # Contracts (each crate is standalone; no workspace manifest)
-for crate in policy-interpreter custody-gate execution-adapter test-blend-pool prime-session; do
+for crate in policy-interpreter custody-gate execution-adapter test-blend-pool prime-seat; do
   ( cd "contracts/stellar/$crate" &&
     cargo fmt --check &&
     cargo clippy --all-targets -- -D warnings &&
