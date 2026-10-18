@@ -124,11 +124,37 @@ describe('recordHash', () => {
       }),
     }) as unknown as rpc.Server
   const good = envelope(swap).toEnvelope().toXDR('base64')
+  const goodHash = envelope(swap).hash().toString('hex')
 
   it('fetches and decodes', async () => {
-    const rec = await recordHash(server('SUCCESS', good), 'testnet', 'ab'.repeat(32))
+    const rec = await recordHash(server('SUCCESS', good), 'testnet', goodHash)
     expect(rec.ledger).toBe(9)
     expect(rec.contexts[0]?.fn).toBe('swap')
+  })
+  it('refuses an envelope whose hash is not the hash asked for: the RPC answer is not trusted', async () => {
+    const err = await recordHash(server('SUCCESS', good), 'testnet', 'ab'.repeat(32)).catch(
+      (e) => e
+    )
+    expect(err).toBeInstanceOf(Refusal)
+    expect(err.message).toContain(goodHash)
+  })
+  it('hashes under the network asked: a testnet envelope does not answer a mainnet hash', async () => {
+    await expect(recordHash(server('SUCCESS', good), 'mainnet', goodHash)).rejects.toThrow(
+      /not trusted/
+    )
+  })
+  it('a fee bump answers to its own hash and to its inner transaction hash', async () => {
+    const bump = TransactionBuilder.buildFeeBumpTransaction(
+      account(9),
+      '200',
+      envelope(swap),
+      Networks.TESTNET
+    )
+    const b64 = bump.toEnvelope().toXDR('base64')
+    for (const h of [bump.hash().toString('hex'), goodHash, goodHash.toUpperCase()]) {
+      const rec = await recordHash(server('SUCCESS', b64), 'testnet', h)
+      expect(rec.contexts[0]?.fn).toBe('swap')
+    }
   })
   it('says when the hash is on the other network', async () => {
     const err = await recordHash(
@@ -150,7 +176,7 @@ describe('recordHash', () => {
     expect(err.extra.retryable).toBe(true)
   })
   it('refuses a transaction that failed: it is not a flow that happened', async () => {
-    await expect(recordHash(server('FAILED', good), 'testnet', 'ab'.repeat(32))).rejects.toThrow(
+    await expect(recordHash(server('FAILED', good), 'testnet', goodHash)).rejects.toThrow(
       /failed on chain/
     )
   })
