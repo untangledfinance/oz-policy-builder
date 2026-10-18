@@ -72,6 +72,8 @@ jobs:
           # The session signer on an OZ smart account. Its wasm is pinned in
           # contracts/prime/build-hashes.json.
           - prime-session
+          # The NEAR-routed owner's seat on an OZ smart account.
+          - prime-seat
     defaults:
       run:
         working-directory: contracts/prime/stellar/${{ matrix.crate }}
@@ -171,17 +173,18 @@ jobs:
             exit 1
           fi
 
-      # The session signer is not deployed as a shared instance, so there is no
+      # The session signer and the seat are not deployed as shared instances, so there is no
       # deployments/ record. Its reproducible build (build-wasm.sh, which remaps
       # the crate and registry paths) is pinned in contracts/prime/build-hashes.json.
       # The testnet instances run the stellar contract build wasm, whose hash
       # depends on the build machine's paths and cannot be compared here.
       - name: Wasm build and pin parity
-        if: matrix.crate == 'prime-session'
+        if: matrix.crate == 'prime-session' || matrix.crate == 'prime-seat'
         run: |
           rustup target add wasm32v1-none
           ./build-wasm.sh
-          ../../check-build-hash.sh stellar/prime-session target/wasm32v1-none/release/prime_session.wasm
+          wasm="${{ matrix.crate }}"
+          ../../check-build-hash.sh "stellar/${wasm}" "target/wasm32v1-none/release/${wasm//-/_}.wasm"
 
       # RustSec advisories against the locked dependency set. Needs 0.22 or
       # later: the advisory database now carries CVSS 4.0 entries, and 0.21
