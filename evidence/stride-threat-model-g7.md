@@ -1,6 +1,6 @@
 # OZ Policy Builder: STRIDE threat model, grammar 7
 
-**Subject:** the grammar-7 policy interpreter (`contracts/prime/stellar/policy-interpreter`) and the off-chain toolchain that builds rules for it: `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and `@crediolabs/policy-builder-mcp` 2.0.0. Other systems (wallets, RPC providers, OpenZeppelin's contracts, the Prime app) appear here only as actors.
+**Subject:** the grammar-7 policy interpreter (`contracts/stellar/policy-interpreter`) and the off-chain toolchain that builds rules for it: `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and `@crediolabs/policy-builder-mcp` 2.0.0. Other systems (wallets, RPC providers, OpenZeppelin's contracts, the Prime app) appear here only as actors.
 **Modelled at:** `feat/grammar-v7` at `9ff281a`, on 2026-10-15 and 16. The fixes recorded below were written on the same branch, up to `b21a7c7`.
 **Status checked at:** 2.0.0 (npm tag `next`, published 2026-10-17). Its `src/` is byte-identical to `feat/grammar-v7` at `e29fb94` for every policy-synth file cited here (`install.ts`, `card.ts`, `config.ts`, `tools.ts`, `record.ts`, `chain.ts`), and the line numbers are from that source.
 **Network:** testnet only. The model made no mainnet calls, and grammar 7 has no mainnet deployment.
@@ -188,16 +188,16 @@ The numbering is the final report's. The validator's merged list numbers the sam
 2. **P0-2, bind the auth tree to the operation:** refuse unless the simulated `rootInvocation().function()` equals the built call and has no sub-invocations, and show the auth tree in the review.
 3. **P0-3, put the authority grant in the review and render it on the owner's side:** first, an authority header (signers in full, who can act alone, admins and their powers, expiry, rolling total or "no total limit", interpreter); second, a `review_unsigned(xdr)` decoder that a wallet or the Prime app can run without the agent.
 4. **P0-4, take overrides away from the agent:** echo every `allow*` used as the first review line and as `overrides[]`, drop the "set allowX" hint from refusals, and on mainnet honour `allow*` only when the operator sets an environment switch.
-5. **P0-5, vet contract signers:** refuse a contract in `signers` or `admins` unless its live code hash is a pinned `prime-session` or OZ account build, and show the hash in the header.
+5. **P0-5, vet contract signers:** refuse a contract in `signers` or `admins` unless its live code hash is a pinned `prime-seat` or OZ account build, and show the hash in the header.
 6. **P0-6, read safety, if any mainnet rule uses `read`:** refuse reads of targets and functions outside an operator-controlled safe list, mark movable reads in the review, refuse `scaled` over a read without `gt(read, 0)`, and mark read verdicts as snapshots. If no mainnet rule reads, this is P1.
 
 **P1, soon:**
 
 7. **P1-7, RPC answer binding:** check the envelope's hash in `recordHash`; hash fetched wasm before caching it.
 8. **P1-8, treat tool output as data:** reduce non-simulation RPC errors to a code and status; mark recorded strings and rule names as untrusted in the tool descriptions.
-9. **P1-9, provenance of custody code:** document the source build or reproduction of the OZ account and `prime-session` builds in `deployments/*.json`, with CI parity for mainnet records.
+9. **P1-9, provenance of custody code:** document the source build or reproduction of the OZ account and `prime-seat` builds in `deployments/*.json`, with CI parity for mainnet records.
 10. **P1-10, 1-of-n and thresholds:** a threshold option that attaches OZ's `simple_threshold` or `weighted_threshold`, and refuse several signers without one unless `anyOne` is explicit.
-11. **P1-11, default expiry for agent rules:** require `validUntilLedger` or a `prime-session` signer for mainnet installs.
+11. **P1-11, default expiry for agent rules:** require `validUntilLedger` or a `prime-seat` signer for mainnet installs.
 
 **P2, later:**
 
@@ -288,7 +288,7 @@ Corrections to the final report, found while checking it against the code:
 | --- | --- | --- |
 | Threshold beside the interpreter, live on testnet | `evidence/oz-threshold-g7-live.log`, from `packages/policy-synth/scripts/live-threshold.ts` (`WEIGHTED=1` for the weighted run) | 2-of-2: A alone denied `#3202`, A+B permitted. Weighted {A:2, B:1}, threshold 2: B alone denied `#3213`, A permitted |
 | Read budget at the ceiling | `evidence/worst-case-ceilings-2026-10-16.txt`, from `tests/worst_case.rs` on wasm `69cad1d5` | 8 wasm reads in one context: 7,735,068 CPU, 12.7 MB memory |
-| Read manipulation through a wrapper (repo version) | `contracts/prime/stellar/policy-interpreter/tests/grammar7.rs` | A wrapper defeats a spot read |
+| Read manipulation through a wrapper (repo version) | `contracts/stellar/policy-interpreter/tests/grammar7.rs` | A wrapper defeats a spot read |
 | On-chain P1 to P5 | Kept off-repo: `tests/stride_poc.rs` written against `9ff281a` | 5 of 5 pass (mocked, see Method) |
 | Off-chain | Kept off-repo: `zz_stride.test.ts` (forged sub-invocation, unbound `recordHash`), `http.ts` (12-case Host and Origin matrix), `inject.ts`, `leak.ts`, `ssrf.ts`, `deep.ts` | 2 of 2 tests pass; each script reproduces |
 | `spending_limit` denies non-transfer | Kept off-repo: the validator's test on OZ account `91a2cd56` with the testnet `spending_limit` bytes `9ce30ea1` | Without the cap, `transfer 500`, `transfer 5000` and `approve` pass; with a cap of 500, only `transfer 500` passes |

@@ -23,7 +23,7 @@ import {
 } from '@stellar/stellar-sdk'
 
 // Artifacts come from each crate's own build output, so a fresh clone can run
-// this after `cargo build --release --target wasm32v1-none` in contracts/prime/stellar/*.
+// this after `cargo build --release --target wasm32v1-none` in contracts/stellar/*.
 // The interpreter is the exception: it is rebuilt here through build-wasm.sh,
 // because a bare cargo build bakes machine paths into the wasm and CI could not
 // check the deployed hash against the source. Deploy from Linux: macOS builds
@@ -33,11 +33,11 @@ function wasmPath(crate: string, file: string): string {
   const override = process.env.PRIME_WASM_DIR
   const candidate = override
     ? `${override}/${file}.wasm`
-    : `contracts/prime/stellar/${crate}/target/wasm32v1-none/release/${file}.wasm`
+    : `contracts/stellar/${crate}/target/wasm32v1-none/release/${file}.wasm`
   if (!existsSync(candidate)) {
     throw new Error(
       `missing ${file}.wasm at ${candidate}\n` +
-        `Build it:  cargo build --release --target wasm32v1-none --manifest-path contracts/prime/stellar/${crate}/Cargo.toml\n` +
+        `Build it:  cargo build --release --target wasm32v1-none --manifest-path contracts/stellar/${crate}/Cargo.toml\n` +
         'or set PRIME_WASM_DIR to a directory holding the built artifacts.'
     )
   }
@@ -78,7 +78,27 @@ async function send(kp: Keypair, op: xdr.Operation, label: string) {
   return settle(await server.sendTransaction(prepared), label)
 }
 
+/** The grammar the interpreter source in this tree implements: `SELF_VERSION`, which the wasm
+ *  reports as `grammar_version()`. */
+function sourceGrammar(): number {
+  const file = 'contracts/stellar/policy-interpreter/src/version.rs'
+  const m = /pub const SELF_VERSION: u32 = (\d+);/.exec(readFileSync(file, 'utf8'))
+  if (!m) throw new Error(`no SELF_VERSION in ${file}`)
+  return Number(m[1])
+}
+
 async function main() {
+  // The interpreter is built from this tree, so the tree must hold grammar 6. Refuse before
+  // anything is funded, uploaded or created under the grammar-6 salt.
+  if (!process.env.PRIME_WASM_DIR) {
+    const grammar = sourceGrammar()
+    if (grammar !== 6)
+      throw new Error(
+        `the interpreter source here is grammar ${grammar}, and this script deploys grammar 6. ` +
+          'Run it from main or from a tag that holds the grammar-6 interpreter, or set ' +
+          'PRIME_WASM_DIR to a directory with grammar-6 builds.'
+      )
+  }
   const secret = arg('secret') ?? process.env.DEPLOY_SECRET
   const kp = secret ? Keypair.fromSecret(secret) : Keypair.random()
   if (!secret) {
@@ -88,7 +108,7 @@ async function main() {
   log('DEPLOY', `deployer ${kp.publicKey()}`)
 
   if (!process.env.PRIME_WASM_DIR) {
-    execFileSync('contracts/prime/stellar/policy-interpreter/build-wasm.sh', { stdio: 'inherit' })
+    execFileSync('contracts/stellar/policy-interpreter/build-wasm.sh', { stdio: 'inherit' })
   }
   const artifacts = {
     interpreter: readFileSync(wasmPath('policy-interpreter', 'policy_interpreter')),

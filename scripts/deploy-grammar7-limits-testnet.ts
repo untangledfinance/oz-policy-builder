@@ -48,7 +48,7 @@ const server = new rpc.Server(
 const FEE = '6000000'
 
 const limitsVal = (l: Record<string, number>) => toScVal({ map: Object.entries(l) })
-const wasmFile = `${process.env.CARGO_TARGET_DIR ?? 'contracts/prime/stellar/policy-interpreter/target'}/wasm32v1-none/release/policy_interpreter.wasm`
+const wasmFile = `${process.env.CARGO_TARGET_DIR ?? 'contracts/stellar/policy-interpreter/target'}/wasm32v1-none/release/policy_interpreter.wasm`
 
 async function settle(hashHex: string, label: string) {
   for (let i = 0; i < 60; i++) {
@@ -73,7 +73,7 @@ async function send(op: xdr.Operation, label: string) {
   return settle(sent.hash, label)
 }
 
-execFileSync('contracts/prime/stellar/policy-interpreter/build-wasm.sh', { stdio: 'inherit' })
+execFileSync('contracts/stellar/policy-interpreter/build-wasm.sh', { stdio: 'inherit' })
 const wasm = readFileSync(wasmFile)
 const wasmSha = hash(wasm).toString('hex')
 console.log(`wasm ${wasm.length} B sha256 ${wasmSha}`)
@@ -191,10 +191,10 @@ const next = {
       '-1',
       '--format=%h',
       '--',
-      'contracts/prime/stellar/policy-interpreter/src',
-      'contracts/prime/stellar/policy-interpreter/Cargo.toml',
-      'contracts/prime/stellar/policy-interpreter/Cargo.lock',
-      'contracts/prime/stellar/policy-interpreter/build-wasm.sh',
+      'contracts/stellar/policy-interpreter/src',
+      'contracts/stellar/policy-interpreter/Cargo.toml',
+      'contracts/stellar/policy-interpreter/Cargo.lock',
+      'contracts/stellar/policy-interpreter/build-wasm.sh',
     ])
       .toString()
       .trim(),

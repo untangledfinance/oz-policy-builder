@@ -27,15 +27,28 @@ const send = (res: ServerResponse, status: number, body: unknown) => {
   res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(body))
 }
 
-async function json(req: IncomingMessage): Promise<unknown> {
-  const chunks: Buffer[] = []
-  let total = 0
-  for await (const c of req) {
-    total += (c as Buffer).length
-    if (total > MAX_BODY) throw new RangeError('too large')
-    chunks.push(c as Buffer)
-  }
-  return total === 0 ? {} : JSON.parse(Buffer.concat(chunks).toString('utf8'))
+/** The body as JSON, or a RangeError past MAX_BODY. It stops reading without destroying the
+ *  request: leaving a `for await` over it early destroys it, and Bun 1.3 then answers 200 with an
+ *  empty body before the 413 can be written. */
+function json(req: IncomingMessage): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = []
+    let total = 0
+    const onData = (c: Buffer) => {
+      total += c.length
+      if (total <= MAX_BODY) return void chunks.push(c)
+      req.off('data', onData).off('end', onEnd).pause()
+      reject(new RangeError('too large'))
+    }
+    const onEnd = () => {
+      try {
+        resolve(total === 0 ? {} : JSON.parse(Buffer.concat(chunks).toString('utf8')))
+      } catch (e) {
+        reject(e)
+      }
+    }
+    req.on('data', onData).on('end', onEnd).on('error', reject)
+  })
 }
 
 export async function startHttpServer(opts: HttpOptions) {
@@ -64,9 +77,10 @@ export async function startHttpServer(opts: HttpOptions) {
     try {
       body = await json(req)
     } catch (e) {
-      return send(res, e instanceof RangeError ? 413 : 400, {
-        error: e instanceof RangeError ? 'request body too large' : 'invalid JSON body',
-      })
+      if (!(e instanceof RangeError)) return send(res, 400, { error: 'invalid JSON body' })
+      // The rest of the body is never read, so the connection cannot carry another request.
+      res.setHeader('connection', 'close')
+      return send(res, 413, { error: 'request body too large' })
     }
     if (Array.isArray(body))
       return send(res, 400, { error: 'JSON-RPC batch requests are not supported' })

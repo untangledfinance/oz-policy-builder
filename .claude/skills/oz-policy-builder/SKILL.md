@@ -359,7 +359,7 @@ sequence number, and the account's authorisation in it lapses at
 
 ## Error codes
 
-From the interpreter (`contracts/prime/stellar/policy-interpreter/src/storage.rs`):
+From the interpreter (`contracts/stellar/policy-interpreter/src/storage.rs`):
 
 | Code | Name | Means |
 | --- | --- | --- |

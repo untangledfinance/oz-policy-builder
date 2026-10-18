@@ -4,14 +4,14 @@
     "multisig_account_example": "91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9"
   },
   "sources": {
-    "multisig_account_example": "contracts/prime/stellar/policy-interpreter/tests/fixtures/multisig_account_example.wasm (sha256 as listed, committed as a blob so the suite pins the deployed bytes); the live testnet account CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P runs it; deployments/prime-mainnet.json and evidence/stateless/mainnet-verification.json name it as the Prime account code (91a2cd56)"
+    "multisig_account_example": "contracts/stellar/policy-interpreter/tests/fixtures/multisig_account_example.wasm (sha256 as listed, committed as a blob so the suite pins the deployed bytes); the live testnet account CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P runs it; deployments/prime-mainnet.json and evidence/stateless/mainnet-verification.json name it as the Prime account code (91a2cd56)"
   },
   "provenance": {
     "multisig_account_example": {
       "upstream": "https://github.com/OpenZeppelin/stellar-contracts, examples/multisig-smart-account/account (package multisig-account-example)",
       "sourceCommitRecorded": false,
       "buildCommandRecorded": false,
-      "whatIsKnown": "The bytes are the blob above and the same hash runs on testnet and mainnet. The upstream commit and the build command that produced the blob are NOT recorded anywhere in this repository. contracts/prime/ARCHITECTURE.md cites OpenZeppelin stellar-contracts at ce5c568 for how account calls are authorised; that is a documentation reference, not a build record (ce5c568 is v0.8.0-rc.3 plus 76 commits, dated 2026-10-07, after the account code was deployed).",
+      "whatIsKnown": "The bytes are the blob above and the same hash runs on testnet and mainnet. The upstream commit and the build command that produced the blob are NOT recorded anywhere in this repository. The round-9 design record (contracts/prime/ARCHITECTURE.md, kept at tag archive/spike-final) cites OpenZeppelin stellar-contracts at ce5c568 for how account calls are authorised; that is a documentation reference, not a build record (ce5c568 is v0.8.0-rc.3 plus 76 commits, dated 2026-10-07, after the account code was deployed).",
       "reproductionAttempts": [
         {
           "date": "2026-10-15",

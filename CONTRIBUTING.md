@@ -39,8 +39,8 @@ bun run test:isolated   # each package's tests alone, as prepublishOnly runs the
 bun audit           # dependency advisories
 
 # Contracts (each crate is standalone; no workspace manifest)
-for crate in policy-interpreter custody-gate execution-adapter test-blend-pool prime-session; do
-  ( cd "contracts/prime/stellar/$crate" &&
+for crate in policy-interpreter custody-gate execution-adapter test-blend-pool prime-seat; do
+  ( cd "contracts/stellar/$crate" &&
     cargo fmt --check &&
     cargo clippy --all-targets -- -D warnings &&
     cargo test )
@@ -53,12 +53,43 @@ without one. Point `G7_WASM` at another build, or set `G7_SKIP_WORST_CASE=1`
 to skip it locally. CI also runs the conformance suite in release mode:
 
 ```sh
-( cd contracts/prime/stellar/policy-interpreter && cargo test --release --test conformance )
+( cd contracts/stellar/policy-interpreter && cargo test --release --test conformance )
 ```
 
 CI then compares the `build-wasm.sh` hash of the interpreter with
 `deployments/grammar7-testnet.json`, and those of the gate and the adapter with
 `deployments/execution-testnet.json`. Compare hashes from a Linux build.
+
+The other contracts have a CI job each. From the repository root:
+
+```sh
+# EVM seat (Foundry 1.8.4). Fetch OpenZeppelin into lib/ first, as contracts/README.md shows.
+( cd contracts/evm/prime-seat && forge fmt --check src && forge build && forge test )
+
+# Solana programs (Solana CLI 4.3.0)
+for crate in custody-gate prime-seat; do
+  ( cd "contracts/solana/$crate" &&
+    RUSTUP_TOOLCHAIN=stable cargo fmt --check &&
+    RUSTUP_TOOLCHAIN=stable PRIME_CLUSTER=localnet cargo-build-sbf -- --locked )
+done
+
+# NEAR signer v2 and its shared vectors (the generator needs Bun 1.4)
+( cd contracts/near/prime-near-signer-v2 &&
+  cargo fmt --check &&
+  cargo clippy --all-targets --locked -- -D warnings &&
+  cargo test --locked )
+( cd contracts/near/vectors/generator &&
+  bun install --frozen-lockfile &&
+  bun gen.ts /tmp/requests.json && cmp /tmp/requests.json ../requests.json )
+
+# The Solana app checks
+( cd contracts/solana/custody-gate/app-checks &&
+  bun install --frozen-lockfile && bun run typecheck && bun test )
+```
+
+The EVM, Solana and NEAR v2 jobs, and a job for the first NEAR signer, also
+build each contract and compare it with `contracts/build-hashes.json`. The
+build commands and their path remaps are in `.github/workflows/ci.yml`.
 
 ## Style
 
@@ -68,7 +99,7 @@ CI then compares the `build-wasm.sh` hash of the interpreter with
 - Comments earn their place by stating an invariant, a constraint, or a
   deliberate decision the code cannot show on its own. Several files carry
   invariant blocks in their file-level comments (for example
-  `contracts/prime/stellar/policy-interpreter/src/dsl.rs`); read them before touching
+  `contracts/stellar/policy-interpreter/src/dsl.rs`); read them before touching
   the code they guard, and do not remove them.
 
 ## Changes to the contracts
@@ -145,7 +176,7 @@ crates.io. A contract "release" is a deployment:
   build means a new wasm hash, new instance addresses, updating those pins,
   and releasing the npm packages that carry them.
 - A predicate grammar change additionally bumps `SELF_VERSION`
-  (`contracts/prime/stellar/policy-interpreter/src/version.rs`) and regenerates the
+  (`contracts/stellar/policy-interpreter/src/version.rs`) and regenerates the
   conformance fixtures; `install` refuses a grammar version it does not
   speak, so old synthesisers cannot install onto a new interpreter.
 

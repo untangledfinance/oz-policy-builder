@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -69,14 +72,13 @@ jobs:
           - custody-gate
           - execution-adapter
           - test-blend-pool
-          # The session signer on an OZ smart account. Its wasm is pinned in
-          # contracts/prime/build-hashes.json.
-          - prime-session
-          # The NEAR-routed owner's seat on an OZ smart account.
+          # The NEAR-routed owner's seat on an OZ smart account, which also
+          # serves that owner's session keys. Its wasm is pinned in
+          # contracts/build-hashes.json.
           - prime-seat
     defaults:
       run:
-        working-directory: contracts/prime/stellar/${{ matrix.crate }}
+        working-directory: contracts/stellar/${{ matrix.crate }}
     steps:
       - uses: actions/checkout@v4
 
@@ -85,7 +87,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: contracts/prime/stellar/${{ matrix.crate }}
+          workspaces: contracts/stellar/${{ matrix.crate }}
 
       - name: Format check
         run: cargo fmt --check
@@ -133,7 +135,7 @@ jobs:
         run: |
           rustup target add wasm32v1-none
           built=$(./build-wasm.sh | tail -1)
-          record=../../../../deployments/grammar7-testnet.json
+          record=../../../deployments/grammar7-testnet.json
           pinned=$(jq -r '.interpreterSource.reproducibleWasmSha256 // .wasmHashes.interpreter // empty' "$record")
           echo "built:  $built"
           echo "pinned: $pinned"
@@ -161,7 +163,7 @@ jobs:
         run: |
           rustup target add wasm32v1-none
           built=$(./build-wasm.sh | tail -1)
-          record=../../../../deployments/execution-testnet.json
+          record=../../../deployments/execution-testnet.json
           pinned=$(jq -r --arg c "${{ matrix.crate }}" '.wasmSha256[$c] // empty' "$record")
           echo "built:  $built"
           echo "pinned: $pinned"
@@ -173,13 +175,13 @@ jobs:
             exit 1
           fi
 
-      # The session signer and the seat are not deployed as shared instances, so there is no
-      # deployments/ record. Its reproducible build (build-wasm.sh, which remaps
-      # the crate and registry paths) is pinned in contracts/prime/build-hashes.json.
-      # The testnet instances run the stellar contract build wasm, whose hash
-      # depends on the build machine's paths and cannot be compared here.
+      # The seat is not deployed as a shared instance: the Prime app deploys one
+      # per owner and account, so there is no deployments/ record. Its
+      # reproducible build (build-wasm.sh, which remaps the crate and registry
+      # paths) is pinned in contracts/build-hashes.json, and the app pins the
+      # same hash.
       - name: Wasm build and pin parity
-        if: matrix.crate == 'prime-session' || matrix.crate == 'prime-seat'
+        if: matrix.crate == 'prime-seat'
         run: |
           rustup target add wasm32v1-none
           ./build-wasm.sh
@@ -195,42 +197,11 @@ jobs:
           cargo install cargo-audit --locked --version ^0.22
           cargo audit
 
-  # The EVM session contract. It imports three OpenZeppelin Contracts 5.4.0 files,
-  # mapped by foundry.toml to lib/oz/, and lib/ stays out of git. The fetch below
-  # is the one contracts/prime/README.md documents.
-  evm-prime-session:
-    name: Contracts (evm/prime-session)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: contracts/prime/evm/prime-session
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: v1.8.4
-
-      - name: Fetch OpenZeppelin Contracts 5.4.0
-        run: |
-          npm pack @openzeppelin/contracts@5.4.0
-          tar xzf openzeppelin-contracts-5.4.0.tgz
-          mkdir -p lib/oz && cp -r package/utils package/interfaces lib/oz/
-
-      # The test files are not formatted, so the check covers the contract.
-      - name: Format check
-        run: forge fmt --check src
-
-      - name: Build
-        run: forge build
-
-      - name: Test
-        run: forge test
-
-  # The EVM seat for a NEAR-routed owner. Same OpenZeppelin fetch as the session
-  # contract. The runtime and creation code are pinned in
-  # contracts/prime/build-hashes.json, so a source change that is not re-recorded
+  # The EVM seat for a NEAR-routed owner. It imports one OpenZeppelin Contracts
+  # 5.4.0 file, mapped by foundry.toml to lib/oz/, and lib/ stays out of git. The
+  # fetch below is the one contracts/README.md documents. The runtime and
+  # creation code are pinned in
+  # contracts/build-hashes.json, so a source change that is not re-recorded
   # turns this red. The real-Safe tests run only with FORK_URL set (a Base Sepolia
   # fork, see the contract's README), which this job does not set.
   evm-prime-seat:
@@ -239,7 +210,7 @@ jobs:
     timeout-minutes: 15
     defaults:
       run:
-        working-directory: contracts/prime/evm/prime-seat
+        working-directory: contracts/evm/prime-seat
     steps:
       - uses: actions/checkout@v4
 
@@ -277,18 +248,18 @@ jobs:
               print(kind, "pinned:", pinned)
               if built != pinned:
                   print("The recorded evm/prime-seat:" + kind + " build is not what this tree builds.")
-                  print("Update contracts/prime/build-hashes.json together with the source and the README build table.")
+                  print("Update contracts/build-hashes.json together with the source and the README build table.")
                   bad = True
           sys.exit(1 if bad else 0)
           PY
 
-  # The three Solana programs build with the Solana CLI's cargo-build-sbf, pinned
+  # The two Solana programs build with the Solana CLI's cargo-build-sbf, pinned
   # to the release the hashes were recorded with. PRIME_CLUSTER is a compile-time
-  # string that goes into the grant text a wallet signs, so each cluster has its
-  # own .so; localnet is the one recorded here.
+  # string that goes into the seat's grant hash, so each cluster has its own
+  # prime_seat.so; localnet is the one recorded here.
   #
   # The sources are rustfmt output, and the docs state their formatted size
-  # (126, 64 and 75 lines).
+  # (126 and 75 lines).
   solana:
     name: Contracts (solana/${{ matrix.crate }})
     runs-on: ubuntu-latest
@@ -297,8 +268,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - crate: prime-session
-            artifact: prime_session.so
           - crate: custody-gate
             artifact: gate.so
           - crate: prime-seat
@@ -311,7 +280,7 @@ jobs:
       RUSTUP_TOOLCHAIN: stable
     defaults:
       run:
-        working-directory: contracts/prime/solana/${{ matrix.crate }}
+        working-directory: contracts/solana/${{ matrix.crate }}
     steps:
       - uses: actions/checkout@v4
 
@@ -334,7 +303,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: contracts/prime/solana/${{ matrix.crate }}
+          workspaces: contracts/solana/${{ matrix.crate }}
 
       - name: Format check
         run: cargo fmt --check
@@ -365,7 +334,7 @@ jobs:
       RUSTUP_TOOLCHAIN: 1.98.1
     defaults:
       run:
-        working-directory: contracts/prime/near/prime-near-signer
+        working-directory: contracts/near/prime-near-signer
     steps:
       - uses: actions/checkout@v4
 
@@ -379,7 +348,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: contracts/prime/near/prime-near-signer
+          workspaces: contracts/near/prime-near-signer
 
       - name: Build (cargo-near)
         run: |
@@ -404,7 +373,7 @@ jobs:
     timeout-minutes: 30
     defaults:
       run:
-        working-directory: contracts/prime/near/prime-near-signer-v2
+        working-directory: contracts/near/prime-near-signer-v2
     steps:
       - uses: actions/checkout@v4
 
@@ -415,7 +384,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: contracts/prime/near/prime-near-signer-v2
+          workspaces: contracts/near/prime-near-signer-v2
 
       - name: Format check
         run: cargo fmt --check
@@ -446,7 +415,7 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: contracts/prime/near/vectors/generator
+        working-directory: contracts/near/vectors/generator
     steps:
       - uses: actions/checkout@v4
 
@@ -470,7 +439,7 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: contracts/prime/solana/custody-gate/app-checks
+        working-directory: contracts/solana/custody-gate/app-checks
     steps:
       - uses: actions/checkout@v4
 

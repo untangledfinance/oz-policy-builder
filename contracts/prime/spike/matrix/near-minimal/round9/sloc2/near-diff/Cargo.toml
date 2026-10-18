@@ -1,3 +1,0 @@
-[workspace]
-members = ["orig", "new", "diff"]
-resolver = "2"

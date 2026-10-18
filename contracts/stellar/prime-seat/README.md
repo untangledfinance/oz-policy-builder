@@ -1,0 +1,77 @@
+# prime-seat
+
+The seat of a NEAR-routed owner on one Prime Account on Stellar, and that owner's session keys. A wallet on another chain (MetaMask, Phantom) has no Stellar account. Its owner key is an ed25519 key that the NEAR MPC signs with, and the owner signs only grants and ends. Each seat votes and acts through a session key that the owner granted, for at most 7 days.
+
+One seat serves one account. The constructor takes `(account, owner)` and stores the account's 32-byte contract id and the owner key. The app deploys every seat first, reads back the stored account and owner against the key it derived offline, and only then creates the account.
+
+## Interface
+
+| Function | Use |
+|---|---|
+| `grant(key, start, end, by, sig)` | Starts, extends or ends a session. `by` is the owner, or the session key itself when `end` is 0. `sig` is `by`'s ed25519 signature over the grant hash. Anyone may submit it; the signature carries the authority. |
+| `verify(hash, key_data, proof)` | The `External` signer interface, for rule 0 only. `key_data` must be the account's 32-byte contract id. `proof` is a live session key (32 bytes), its signature (64 bytes) over `sha256(seat ‖ hash)`, then the preimage of `hash`. |
+| `__check_auth(payload, (key, sig, preimage), contexts)` | The `Delegated` signer interface, for rules other than rule 0. A live key signs `sha256(seat ‖ payload)`. The first context must be the pinned account's `__check_auth` frame. |
+| `batch_canonicalize_key(keys)` | One constant per seat, so the account refuses a second `External` entry for the same seat. |
+
+Grant hash: `sha256("prime-seat-grant" ‖ network id ‖ account ‖ seat ‖ key ‖ be64 start ‖ be64 end)`, with the account, seat and key as raw 32 bytes and times in unix seconds. An end is the same hash with start and end at 0. The hashes equal the shared vectors in `contracts/near/vectors/requests.json`, and a unit test checks the four Stellar vectors.
+
+Rules the contract enforces on a grant: `start <= now <= end`, `end - start <= 604,800`, a revoked key is never granted again, and a new end must be later than the stored one. Every grant entry lives for the maximum TTL, and an end stores 0. Every use compares the stored end with `ledger().timestamp()`, because TTL counts ledgers and the window counts seconds. The seat does not extend its own instance or code; the relayer extends them with an `ExtendFootprintTTL` operation.
+
+## Which rule a seat may serve
+
+The deployed account's digest is `sha256(payload ‖ XDR(rule ids))`. The seat cannot see the rule ids, so each proof carries that preimage and the seat checks that it hashes to the digest it was given. Then it reads the ids:
+
+- `External(seat, account id)` serves rule 0 only. `verify` returns false when any id is not 0.
+- `Delegated(seat)` serves rules other than rule 0 only. `__check_auth` refuses when any id is 0.
+- `__check_auth` also needs the first context to be a call of the stored account's `__check_auth`, and the digest in its arguments to be the one the preimage hashes to. A seat bound to one account refuses the frames of every other account.
+
+This ties the seat to the digest form of the pinned account wasm (`91a2cd56…`). A newer OZ account that adds the account address to the preimage makes the seat's signatures fail until new seats are deployed. It fails closed.
+
+## Rule 0 layout
+
+Rule 0 holds each native G account as `Delegated(G)` and each seat as `External(seat, account id)`. Two policies go into the account constructor together (assumption A10, settled on testnet):
+
+| Policy | Install parameter |
+|---|---|
+| `simple_threshold` | `threshold` = M, the approvals the app shows |
+| `weighted_threshold` | native weight K, seat weight 1, `threshold` K, where K is the number of seats plus one |
+
+Invariants the app checks on read-back:
+
+- Every `Delegated` entry in rule 0 is a G account address. Rule 0 holds no `Delegated` contract address. OpenZeppelin checks duplicates for `Delegated` and `External` apart, so `Delegated(seat)` can sit beside `External(seat)`. The seat refuses the `Delegated` copy in rule 0, and the read-back refuses the layout too.
+- Every seat appears once, as `External(seat, account id)`.
+- Each native weight equals K, and the weights of every entry that names a seat contract, in either form, sum below K.
+- The weighted threshold equals K, and the simple threshold equals M.
+- Every seat reads back with the stored account and owner equal to the offline values, and runs the pinned wasm.
+
+Seats alone sum to less than K, so every M-of-N decision carries a signature from a native Stellar wallet. When a seat is added, raise the native weights and the threshold first, then set the new seat's weight. Each step is a native-signed decision.
+
+## Rules that list a seat
+
+Allowed shapes:
+
+- `External(seat, account id)` in rule 0.
+- `Delegated(seat)` in a `CallContract(X)` rule that carries the pinned policy-interpreter predicate, where X is a contract other than the account, the account's policy contracts and the seats.
+
+Refuse and flag everything else on install and on read-back. In particular:
+
+- Bounded rules are `CallContract`-scoped only. The interpreter refuses `Default` scope at install in current builds.
+- A rule scoped to `CallContract(SIMPLE)` or `CallContract(WEIGHTED)` that lists a seat is dangerous. The threshold policies need only the account's authorization to change a threshold or a weight, so a session could lower rule 0's threshold and then hold rule 0.
+- The chain still allows `Delegated(seat)` in a rule with no policy. The seat sees only the account's own `__check_auth` frame, never the call being authorized, so it cannot limit what such a rule reaches (residual R7). Installing the rule takes a decision that carries a native signature, and the app must refuse to build it.
+
+A rule with the interpreter predicate bounds the session on chain. A `CallContract(XLM)` rule with a transfer-only predicate refused an account admin call in the testnet runs.
+
+## Notes for the relayer
+
+- A grant needs no authorization entry, and when an identical copy is submitted twice, the first to land sets the state. The second submitter gets contract error #1. Read the stored end before reporting a failure.
+- Extend the seat's instance and code TTL with `ExtendFootprintTTL`. A grant does not.
+
+## Build and checks
+
+```
+./build-wasm.sh                          # reproducible wasm, prints its sha256
+cargo test                               # unit tests
+cargo mutants -j1 --timeout 180          # every viable mutant caught
+```
+
+Sizes and the testnet record are in the phase 04 report.
