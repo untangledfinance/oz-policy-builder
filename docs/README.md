@@ -31,14 +31,18 @@ and [contracts/solana/SETUP-AND-RECOVERY.md](../contracts/solana/SETUP-AND-RECOV
 
 ## What runs where
 
-Mainnet runs only the Stellar custody contracts, with the grammar-6 interpreter
-built from `main`. Everything else is on test networks.
+Mainnet runs only Stellar contracts of ours: the custody contracts with the
+grammar-6 interpreter built from `main`, and two older interpreters the Prime
+app still uses (grammar 4 `CDN755T…` for rules it installs, the 1.x packages'
+pin; grammar 5 `CDIMIQDB…` with the stateless adapter `57bf132b…`, recorded in
+`evidence/stateless/`). Everything else is on test networks.
 
 | Chain | Contract | Mainnet | Test network |
 |---|---|---|---|
 | Stellar | policy interpreter | grammar 6, `CAOBQ4ZX…` (wasm `5143e641…`) | grammar 6 `CDPR5VTX…` for the Prime app; grammar 7 `CDZV4AG4…` (wasm `69cad1d5…`) for the 2.x packages |
+| Stellar | policy interpreter, grammars 4 and 5 | grammar 4 `CDN755T…`; grammar 5 `CDIMIQDB…` (wasm `cc05ac55…`) with the stateless adapter `57bf132b…` | grammar 4 `CCBHVZ6H…`; grammar 5 `CBIQGAHI…` |
 | Stellar | custody gate | code `b01024f3…` | code `b01024f3…` |
-| Stellar | execution adapter | code `3dd675c0…` for new setups, `68d012e7…` for setups of 1 October 2026 | code `3dd675c0…` |
+| Stellar | execution adapter | code `3dd675c0…` for new setups, `68d012e7…` for gates set up before 11 October 2026 | code `3dd675c0…` |
 | Stellar | `prime-seat` | none | code `393f0e5d…`, one instance per NEAR-routed owner and account |
 | EVM | `PrimeSeat` | none | Base Sepolia, one instance per NEAR-routed owner and Safe |
 | Solana | custody gate | none | devnet `6ieR7WUs…` (`a5d19edb…`) |
@@ -66,13 +70,13 @@ Some files look unused on this branch. Each is kept on purpose.
 
 | File | Why it stays |
 |---|---|
-| `contracts/near/prime-near-signer` (v1) | deployed and pinned in CI; octopos tests derive NEAR MPC keys under its account. v2 replaced it for the seats |
+| `contracts/near/prime-near-signer` (v1) | deployed and pinned in CI; octopos main does not call it (one offline test uses its account name to show that v1 and v2 keys differ). v2 replaced it for the seats |
 | `scripts/deploy-prime-mainnet.ts` | the record of how the mainnet custody contracts were deployed on 1 October 2026. It pins the grammar-6 interpreter `5143e641…` and the adapter `68d012e7…`, which this tree does not build, and it checks every hash before it reads a secret or calls the network, so on this branch it stops at the hash check |
 | `scripts/deploy-grammar6-testnet.ts`, `deployments/grammar6-testnet.json` | the grammar-6 testnet record the Prime app's testnet setups use. The script reads `SELF_VERSION` and refuses this branch's grammar-7 source before any network call |
 | `scripts/upload-execution-testnet.ts` | uploads the gate and adapter builds and writes `deployments/execution-testnet.json`, which CI compares |
 | `scripts/verify-stateless-testnet.ts`, `evidence/stateless/` | evidence for the stateless execution receipts in the audit pack |
 | `evidence/*.log`, `evidence/stride-threat-model.md` | the 1.x and grammar-6 evidence the audit of `main` reads; `evidence/README.md` says how to reproduce each |
-| `packages/policy-synth/scripts/deploy-test-account.ts` | deploys the testnet smart account the live tests use (`CASJ5GEC…`) |
+| `packages/policy-synth/scripts/deploy-test-account.ts` | deploys a testnet smart account for the live tests; the one they use, `CASJ5GEC…`, is recorded in `deployments/grammar7-testnet.json` |
 | `packages/policy-synth/scripts/mutate.ts` | a mutation runner for the TypeScript tests, run by hand |
 | `contracts/stellar/policy-interpreter/tests/conformance/_generated_v4.rs` | grammar-4 cases compiled into the grammar-7 conformance suite |
 | `contracts/solana/README-architecture.md`, `contracts/solana/SETUP-AND-RECOVERY.md` | the Solana design record and walkthrough, with the runs behind each claim; [solana.md](solana.md) is the current summary |

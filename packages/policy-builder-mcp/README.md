@@ -12,7 +12,7 @@ and so does every answer. A result is the tool's data as JSON text and as
 
 ## Run
 
-`@next` is 2.0.0, for grammar 7. Without it npm resolves `latest`, still 1.3.0
+`@next` is 2.0.1, for grammar 7. Without it npm resolves `latest`, still 1.3.0
 (grammar 4).
 
 ```json

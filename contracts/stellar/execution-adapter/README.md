@@ -42,5 +42,5 @@ cargo test        # 45 tests
 
 On Linux, `build-wasm.sh` gives `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3`,
 the hash in `deployments/execution-testnet.json`. Its code is on mainnet too;
-the mainnet setups of 1 October 2026 run `68d012e7…` (`deployments/prime-mainnet.json`).
+gates set up before 11 October 2026 run `68d012e7…` (`deployments/prime-mainnet.json`).
 CI rebuilds it and compares.

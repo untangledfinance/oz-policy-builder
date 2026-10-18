@@ -25,7 +25,7 @@ The contract parses every field into fixed bytes, refuses any spelling that diff
 - Callers attach exactly 1 yoctoNEAR. v2 forwards the whole attached deposit to the MPC. The MPC call comes from the v2 account, so a refund of any extra deposit returns to the v2 account.
 - Every vote request is refused with the reason `vote`. Any other request shape, and any unknown field, fails to deserialize.
 
-Hash formats are in `hash_notes` of `../vectors/requests.json`. Refusal reasons are one word each (`address`, `wallet`, `start`, `window`, `vote`, `signature`), and the vectors name the reason each refusal case expects.
+Hash formats are in `hash_notes` of `../vectors/requests.json`. Refusal reasons are one word each (`address`, `wallet`, `start`, `window`, `vote`, `signature`, and the parse refusals `chain`, `field`, `variant`), and the vectors name the reason each refusal case expects.
 
 ## Build and test
 

@@ -67,7 +67,7 @@ The grammar-7 deployment the 2.x packages pin is in
 | Interpreter (mainnet) | none yet |
 | Grammar version | `7` |
 
-**Install 2.0.0:**
+**Install 2.0.1:**
 
 ```sh
 npm install @crediolabs/policy-synth@next @stellar/stellar-sdk
@@ -75,7 +75,7 @@ npm install -g @crediolabs/policy-builder-cli@next   # the policy-builder comman
 npx -y @crediolabs/policy-builder-mcp@next           # the MCP server
 ```
 
-The `latest` tag on npm is still 1.3.0 (grammar 4); `next` is 2.0.0 (grammar 7).
+The `latest` tag on npm is still 1.3.0 (grammar 4); `next` is 2.0.1 (grammar 7).
 
 To run a checkout of this repo, build the packages in dependency order. The
 package exports serve `src/` to Bun and `dist/` to Node, and `dist/` is not in
@@ -170,8 +170,8 @@ The STRIDE threat model for grammar 7, with what is done and what is open at
 
 > [!IMPORTANT]
 > **Audit status:** an external audit of the interpreter, custody gate
-> and execution adapter contracts is in progress, and its report is still
-> to be published. The contracts have also been through internal adversarial
+> and execution adapter contracts and the three npm packages is in progress,
+> and its report is still to be published. The contracts have also been through internal adversarial
 > review and STRIDE threat models.
 > [docs/stellar.md](./docs/stellar.md) states what each contract enforces.
 > Treat anything it does not claim as unenforced. Report vulnerabilities per

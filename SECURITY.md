@@ -25,7 +25,8 @@ There is currently no bug bounty programme.
 ## Audit status
 
 **An external audit is in progress:** it covers the policy interpreter, the
-custody gate, the execution adapter and the three npm packages on `main`. Its
+custody gate, the execution adapter and the three npm packages on `main`
+(the scope Untangled gave the auditor on 10 October 2026). Its
 report is still to come. The seats, the Solana programs and the NEAR signers
 are outside it; they have had internal reviews and mutation testing, listed in
 [contracts/README.md](./contracts/README.md) and their own READMEs.

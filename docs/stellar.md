@@ -123,8 +123,10 @@ calls atomically. It has one rule: **a batch may not mention an address the
 gate does not name.** Before any call runs, it checks:
 
 - every call target;
-- every argument, however deeply nested, including 32-byte and 56-byte values
-  that could be read back as an address;
+- every argument, however deeply nested, including data that could be read
+  back as an address: 32 bytes (a raw key or contract id), 56 (a strkey), 40, 44
+  and 48 (the XDR of a contract, account or muxed address) and 69 (a muxed `M`
+  strkey);
 - every authorisation it is about to hand out as itself.
 
 It also refuses:
@@ -388,7 +390,8 @@ limits over time come from the allowance and its expiry.
 ## Owners and seats
 
 The Prime account's owners are the signers of its rule 0. An owner whose wallet
-is a Stellar wallet (Freighter and others) is a native `G…` account and signs
+is a Stellar wallet (Freighter or Hana, which sign Soroban authorization
+entries) is a native `G…` account and signs
 each decision in its wallet. An owner whose wallet lives on another chain
 (MetaMask, Phantom) has no Stellar account. It gets a seat: a `prime-seat`
 contract deployed for that owner and that account, whose owner key is an
@@ -403,7 +406,7 @@ them.
 |---|---|
 | `grant(key, start, end, by, sig)` | Starts, extends or ends a session. The owner signs `sha256("prime-seat-grant" ‖ network id ‖ account ‖ seat ‖ key ‖ be64 start ‖ be64 end)`; with `end` 0 the owner or the key itself signs an end, and an ended key never returns. A grant needs `start <= now <= end`, at most 604,800 seconds, and an end later than the stored one. Anyone may submit it |
 | `verify(hash, key_data, proof)` | The `External` signer interface, used in rule 0 only. `key_data` must be the account's id, and the proof is a live session key's signature over `sha256(seat ‖ hash)` with the digest's preimage |
-| `__check_auth(payload, (key, sig, preimage), contexts)` | The `Delegated` signer interface, used in rules other than rule 0. The first context must be the stored account's own `__check_auth` frame |
+| `__check_auth(payload, (key, sig, preimage), contexts)` | The `Delegated` signer interface, used in rules other than rule 0. The first context must be a call on the stored account whose first argument is the account's digest, with only non-zero rule ids |
 | `batch_canonicalize_key(keys)` | One constant per seat, so the account refuses a second `External` entry for the same seat |
 
 The deployed account (`91a2cd56…`) signs `sha256(payload ‖ XDR(rule ids))`.
@@ -418,8 +421,9 @@ stored end with the ledger timestamp.
 each seat as `External(seat, account id)`, under two policies installed
 together: `simple_threshold` M (the approvals the owners agreed) and
 `weighted_threshold` with every native account at weight K, every seat at
-weight 1, and threshold K, where K is the number of seats plus one. Seats alone
-sum below K, so every decision carries a signature from a native Stellar
+weight 1, and threshold K, where K is the number of seats plus one. K is fixed
+when the account is created. A seat added later sits at weight 0: it counts
+toward M and never toward K. Seats alone sum below K, so every decision carries a signature from a native Stellar
 wallet, and the NEAR-routed owners supply the other approvals through their
 sessions. The app checks this layout on read-back
 ([contracts/stellar/prime-seat/README.md](../contracts/stellar/prime-seat/README.md)
@@ -434,8 +438,8 @@ account and a seat needs both.
 
 ### Changing who signs a policed rule
 
-The first three hold for every interpreter version deployed so far (grammar 4,
-6 and 7): the signer hash, the admin check on `uninstall` and the `External`
+The first three hold for every interpreter version deployed so far (grammars 3
+to 7): the signer hash, the admin check on `uninstall` and the `External`
 refusal were in the interpreter's first commit (`da568de`) and are still in
 `contracts/stellar/policy-interpreter/src/lib.rs`.
 
@@ -602,19 +606,20 @@ deployed and still reachable by accounts that use them; their source is at tag
 
 ## Limits
 
-- **External audit in progress:** an external audit of the interpreter, the
-  custody gate and the execution adapter on `main` is under way; `prime-seat` is
-  outside it. They have also been through internal adversarial review and a
+- **External audit in progress:** an external audit of `main` is under way,
+  covering the interpreter, the custody gate, the execution adapter and the
+  three npm packages (the scope Untangled gave the auditor on 10 October 2026); `prime-seat` is outside it. They have also been through internal adversarial review and a
   STRIDE threat model of grammar 6, last run on 1 October 2026
   ([report](../evidence/stride-threat-model.md)). Grammar 7 and the 2.x
   packages have their own STRIDE model, with its status checked at 2.0.0 on
   17 October 2026 ([report](../evidence/stride-threat-model-g7.md)). Every P0
   item in it still has open work, so grammar 7 stays on testnet.
-- **Adapter builds before `3dd675c0` let a batch pay a muxed recipient:** a
-  token's `transfer` takes its recipient as a muxed address and credits the
-  account behind it, and the address rule of `68d012e7` and earlier builds did
-  not look at that value. A rule that pins every recipient with `eq` or `in` is
-  unaffected, because the interpreter compares by XDR. A gate pins its adapter's
+- **Adapter builds before `3dd675c0` can let a batch name an unlisted
+  recipient:** `68d012e7` and earlier pass a recipient written as a muxed
+  address, which a token's `transfer` credits to the account behind it;
+  `eefcfdd7` refuses a muxed address but passes the XDR of an address given as
+  bytes. A rule that pins every recipient with `eq` or `in` is unaffected,
+  because the interpreter compares by XDR. A gate pins its adapter's
   build, so a setup on an earlier build moves by creating a new gate and
   adapter.
 - **The seat is tied to the account's digest format:** it reads the rule ids
@@ -685,7 +690,7 @@ rules. `@crediolabs/policy-synth` records a transaction or takes a mandate state
 as data, lowers it to a predicate, checks it against the interpreter, renders a
 review, and returns an unsigned install transaction for the user's wallet. The
 CLI (`packages/policy-builder-cli`) and the MCP server
-(`packages/policy-builder-mcp`) wrap the same core. Version 2.0.0 of all three
+(`packages/policy-builder-mcp`) wrap the same core. Version 2.0.1 of all three
 is on npm under the `next` tag; `latest` is still 1.3.0, for grammar 4.
 [`packages/policy-synth/README.md`](../packages/policy-synth/README.md) is the
 full reference.

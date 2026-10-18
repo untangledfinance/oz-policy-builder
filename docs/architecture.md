@@ -9,7 +9,7 @@ for the contracts and the numbers.
 
 | Chain | Prime account | Our contracts | Where it runs |
 |---|---|---|---|
-| Stellar | OpenZeppelin smart account | custody gate, execution adapter, policy interpreter, `prime-seat` | mainnet since 1 October 2026 (grammar-6 interpreter, no seats), and testnet |
+| Stellar | OpenZeppelin smart account | custody gate, execution adapter, policy interpreter, `prime-seat` | mainnet since 1 October 2026 (custody contracts with the grammar-6 interpreter; older grammar-4 and grammar-5 interpreters the Prime app still uses; no seats), and testnet |
 | EVM | Safe with Zodiac Roles | `PrimeSeat` | Base Sepolia |
 | Solana | Squads Smart Account | custody gate, `prime-seat` | devnet |
 | NEAR | none | `prime-near-signer` v1 and v2 | NEAR testnet |
@@ -167,7 +167,7 @@ flowchart TB
 | Prime account | each | counting owners' approvals and selecting rules | OpenZeppelin, Safe, Squads |
 | Seat | each | letting a session key stand in for one NEAR-routed owner on one account | us |
 | `prime-near-signer-v2` | NEAR | asking the MPC to sign only a grant or an End the wallet signed as readable text | us |
-| NEAR MPC | NEAR | holding the keys of NEAR-routed owners and signing what v2 asks | NEAR |
+| NEAR MPC | NEAR | holding the keys of NEAR-routed owners and signing what the signer account asks | NEAR |
 | Relayer and apps | off chain | building transactions and paying fees; they hold no authority over funds | us, in the octopos repository |
 
 ## Trust boundaries
@@ -178,10 +178,10 @@ flowchart TB
 | One custody signer | lower the cap to 0 on Solana | raise a limit or move funds |
 | The Prime owners at their threshold | install and remove rules, add and remove owners, recover to the recovery address; on Stellar and Solana, also draw within the limit to any address on the gate's list | pay an address the gate does not list; exceed custody's limit (except Solana recovery, which has no cap) |
 | The agent | move funds inside the rules that list it | act outside a rule, recover, cancel (Stellar), change a rule |
-| A session key | vote for its NEAR-routed owner beside a native owner's signature, and act alone inside rules that list its seat, until its end or the owner's End | act on another account, or alone on a decision; on Solana, create a transaction |
-| `prime-near-signer-v2` and the NEAR MPC | sign a grant or an End that the owner's wallet signed as text | sign a vote or any other payload |
-| The relayer and the apps | submit and pay for transactions, hold session keys in the browser | forge an owner's grant, a native signature or a custody signature |
-| Us, the builders | run the tooling, the agent and the apps; deploy new code | change a deployed gate, adapter, interpreter, seat or Solana program: none has an admin or an upgrade path. The two NEAR signer accounts still hold their deploy keys ([near.md](near.md#limits)) |
+| A session key | vote for its NEAR-routed owner beside a native owner's signature, and act alone inside rules that list its seat, until its end or the owner's End | act on an account whose owners never listed its seat (on Stellar and EVM the seat is bound to one account on chain; on Solana another account can list the seat, and onboarding refuses that), or decide alone; on Solana, create a transaction |
+| `prime-near-signer-v2` and the NEAR MPC | sign a grant or an End that the owner's wallet signed as text | sign a vote or any other payload through v2's code. Until the full-access keys are deleted, their holder can call the MPC directly ([near.md](near.md#limits)) |
+| The relayer and the apps | submit and pay for transactions, hold session keys in the browser | forge an owner's grant, a native signature or a custody signature. On Solana `prime-seat` passes the transaction's outer signers into the Squads call, so the relayer refuses any transaction that lists its own key except as fee payer or, for an End, rent payer |
+| Us, the builders | run the tooling, the agent and the apps; deploy new code | change a deployed gate, adapter, interpreter, seat or Solana program: none has an admin or an upgrade path. Until the NEAR deploy keys are deleted, their holder can sign a grant for any NEAR-routed owner and replace the signers' code ([near.md](near.md#limits)) |
 
 The most money at risk at any moment is the limit custody granted, plus anything
 supplied to a venue. On Solana the Prime owners at their threshold also reach
@@ -202,10 +202,10 @@ whether the owner's wallet signs on the account's chain.
   wallet, chain and account.
 
 A session key exists only to stand in for a NEAR-routed owner: on Stellar and
-EVM since 12 October 2026, and on Solana since 18 October 2026. The owner signs one readable grant through
-`prime-near-signer-v2`, and for up to 7 days the session key votes for the owner
-and acts inside the rules that list the seat, with no further NEAR prompt. A
-native owner has no session key.
+EVM since 12 October 2026, and on Solana since 18 October 2026. The owner signs
+one readable grant through `prime-near-signer-v2`, and for up to 7 days the
+session key votes for the owner and acts inside the rules that list the seat,
+with no further NEAR prompt. A native owner has no session key.
 
 | Wallet family | EVM | Solana | Stellar |
 |---|---|---|---|
@@ -213,20 +213,28 @@ native owner has no session key.
 | Freighter (Stellar) | seat, grant through v2 (SEP-53) | seat, grant through v2 (SEP-53) | own key |
 | Phantom (Solana) | seat, grant through v2 (raw text) | own key | seat, grant through v2 (raw text) |
 
-**Every decision needs one native wallet:** a seat never decides alone, on any
-chain.
+MetaMask's own Solana account and Phantom's own EVM account can also sign there
+as native owners (section 5.6 of the round-9 record).
+
+Some checks that keep one key from counting twice live only in onboarding: the
+owner keys must differ, no seat may sit in two accounts, no plain key may sit
+beside its own seat, and on Solana only the canonical seat PDA is accepted
+(section 14.6 of the round-9 record). No contract enforces the first three.
+
+Every decision needs one native wallet, on every chain:
 
 | Chain | How the seat is held back |
 |---|---|
-| Stellar | Rule 0 carries a weighted threshold: each native account weighs K, each seat 1, and K is the number of seats plus one, so seats alone stay below the threshold. The seat serves rule 0 only through `External` and other rules only through `Delegated`, so one session cannot pass rule 0 alone through a duplicate entry |
+| Stellar | Rule 0 carries a weighted threshold: each native account weighs K, each seat 1, and K is the number of seats at creation plus one, so seats alone stay below the threshold (a seat added later sits at weight 0). The seat serves rule 0 only through `External` and other rules only through `Delegated`, so one session cannot pass rule 0 alone through a duplicate entry |
 | EVM | A seat's signature for the Safe holds two parts: the session key's and a Safe owner's own signature over the same transaction hash. A seat vote passes only with the native owner's approval of exactly that transaction |
 | Solana | A seat cannot create a transaction (no Initiate, and `prime-seat` refuses the call), so a native owner writes every change and the seats approve |
 
-**NEAR signs only grants:** `prime-near-signer-v2` renders a grant or an End as
-text, checks the wallet's signature over that text, and asks the MPC to sign the
-grant hash it computed. It refuses every vote. So a NEAR-routed owner's key
-never casts a vote, and a phishing page that gets a wallet signature can at most
-start or end a session it describes in plain words.
+`prime-near-signer-v2` renders a grant or an End as text, checks the wallet's
+signature over that text, and asks the MPC to sign the grant hash it computed;
+it refuses every vote. Through v2, a phishing page that gets a wallet signature
+can at most start or end a session it describes in plain words. Until the
+signer accounts' full-access keys are deleted, their holder can bypass v2 and
+get a grant signed for any NEAR-routed owner ([near.md](near.md#limits)).
 
 ### Starting a session
 
@@ -309,13 +317,15 @@ The cost is about 8 seconds per NEAR signature, paid at grants and ends only;
 votes and moves never wait on NEAR.
 
 **Seats only, and NEAR for grants only:** a session that holds an owner's vote
-can do anything that owner's vote can. The October spikes showed that a vote session plus one other
-owner could change owners and thresholds, that two vote sessions could take a
+can do anything that owner's vote can. The October spikes showed that a vote
+session plus one other owner could change owners and thresholds, that two vote sessions could take a
 2-of-3 account with no wallet prompt, and that NEAR-routed owners signing a hex
 payload could not see what they granted
 ([section 14.6 of the round-9 record](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/ARCHITECTURE.md)).
 The built seats answer each of these: a native wallet signs every decision, the
-grant is readable text, the MPC key never votes, and a seat serves one account.
+grant is readable text, v2 never asks the MPC for a vote (a guarantee that holds
+fully once the signer accounts' deploy keys are deleted), and a seat is bound to
+its account on Stellar and EVM, and by onboarding checks on Solana.
 Merging the seat with a move-only session for native owners was considered and
 rejected: a Phantom owner would sign a bare 32-byte hash, and a native owner's
 seat could count as a second approval.

@@ -15,7 +15,7 @@ The on-chain half is the `policy-interpreter` contract in
 npm install @crediolabs/policy-synth@next @stellar/stellar-sdk
 ```
 
-`next` is 2.0.0, for grammar 7. `latest` is still 1.3.0, for the grammar-4
+`next` is 2.0.1, for grammar 7. `latest` is still 1.3.0, for the grammar-4
 interpreters. `@stellar/stellar-sdk` (^14.4.0) is a peer dependency; npm 7 and
 later install it on their own.
 

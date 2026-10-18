@@ -139,13 +139,16 @@ MPC key, path `<scheme>:<wallet>/prime:evm:<safe>`), `safe` and `roles`.
 | Function | What it does |
 |---|---|
 | `grant(key, start, end, sig)` | `owner` signs a grant: `start <= now <= end`, at most 7 days, and an `end` later than the stored one. With `end` 0, the owner or the key itself ends the key for good |
-| `isValidSignature(bytes32, bytes)` and `isValidSignature(bytes, bytes)` | the Safe's EIP-1271 check (Safe 1.5.0 and 1.4.1 forms). Passes only when the 130-byte signature holds a live session key's signature over `keccak256(abi.encode(seat, hash))` and a Safe owner's own signature over the same hash. Only the Safe and address 0 (an off-chain `eth_call`) get an answer |
+| `isValidSignature(bytes32, bytes)` and `isValidSignature(bytes, bytes)` | the Safe's EIP-1271 check (Safe 1.5.0 and 1.4.1 forms). Passes only when the 130-byte signature holds a live session key's signature over `keccak256(abi.encode(seat, hash))` and a Safe owner's own signature over the same hash. Only a call from the Safe or from address 0 (an off-chain `eth_call`) can pass |
 | `exec(to, value, data, op, role, key, sig)` | one call through `roles.execTransactionWithRole`, signed by a live session key over a digest that carries the session's nonce and end. Refused unless the Safe still lists the seat as an owner, and refused for `to` equal to the Safe, the seat or any enabled module, and for any `op` but 0 |
 
 So every Safe decision that counts a seat also carries a signature from a native
 owner over the same transaction, and a session acts alone only through a Roles
 rule that lists the seat. The NEAR MPC key behind `owner` signs only grants and
 ends, through `prime-near-signer-v2` ([near.md](near.md)), and never votes.
+Until the signer accounts' full-access keys are deleted, their holder can get a
+grant signed for any seat without the owner's wallet
+([near.md](near.md#limits)).
 
 The Safe needs at least one native owner, so two NEAR-routed owners cannot move
 the account alone. The setup starts the Safe with the native owner as its only

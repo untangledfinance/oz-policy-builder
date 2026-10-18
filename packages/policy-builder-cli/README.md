@@ -8,7 +8,7 @@ is a command, registered from its table.
 npm install -g @crediolabs/policy-builder-cli@next
 ```
 
-`next` is 2.0.0, for grammar 7; `latest` is still 1.3.0 (grammar 4).
+`next` is 2.0.1, for grammar 7; `latest` is still 1.3.0 (grammar 4).
 
 ```sh
 policy-builder <tool> [json | --file path | - | --field value ...] [--out path]

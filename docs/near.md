@@ -4,13 +4,15 @@ NEAR holds no Prime account and no funds. It gives an owner whose wallet lives o
 another chain a key on each chain the wallet cannot sign for: the NEAR MPC
 service holds that key, and a contract of ours asks the MPC to sign only after
 it has checked the wallet's own signature. Two such contracts are deployed, both
-on NEAR testnet. Both live in `contracts/near/`.
+on NEAR testnet. Both live in `contracts/near/`. Each signer account still holds
+a full-access key that can call the MPC without the contract, so the checks
+below bind every caller only once those keys are deleted ([Limits](#limits)).
 [architecture.md](architecture.md) shows where they sit in the whole system.
 
 | Contract | Account | Signs | Used by |
 |---|---|---|---|
 | `prime-near-signer-v2` | `seats.prime-spike-muwguc60.testnet` | the grant and the End of a seat session, nothing else | the seats on Stellar, EVM and Solana |
-| `prime-near-signer` (v1) | `signer.prime-spike-muwguc60.testnet` | any 32-byte payload the wallet approved | the spike harnesses of 7 to 9 October 2026; octopos tests derive MPC keys under this account |
+| `prime-near-signer` (v1) | `signer.prime-spike-muwguc60.testnet` | any payload the wallet approved | the spike harnesses of 7 to 9 October 2026; octopos main does not call it |
 
 ## Why a signer on NEAR
 
@@ -102,7 +104,8 @@ grant signed for one chain, account, seat or key fails everywhere else.
 
 `contracts/near/vectors/requests.json` holds the shared vectors: accepted
 requests with their texts, paths and hashes, and refusals with their one-word
-reason (`address`, `wallet`, `start`, `window`, `vote`, `signature`). The
+reason (`address`, `wallet`, `start`, `window`, `vote`, `signature`, and the
+parse refusals `chain`, `field`, `variant`). The
 generator in `contracts/near/vectors/generator` writes them with viem,
 `@stellar/stellar-sdk`, `@solana/web3.js` and `@noble`, code the Rust contract
 does not share. The EVM, Solana and Stellar seats test the same vectors.
@@ -113,7 +116,8 @@ whole attached deposit to the MPC with all remaining gas.
 ## prime-near-signer v1
 
 `contracts/near/prime-near-signer/src/lib.rs`, 42 sLOC after `rustfmt` (22 as
-written). Deployed since 9 October 2026 at `signer.prime-spike-muwguc60.testnet`.
+written). This build runs at `signer.prime-spike-muwguc60.testnet` since 9
+October 2026; an earlier build ran there from 7 October.
 
 ```
 sign(key, sep53, path, domain_id, payload, signature) -> Promise    (payable)
@@ -136,17 +140,20 @@ payload as hex, so the wallet cannot show what it approves; v2 replaced this
 with readable grant texts for the seats. v1 serves ed25519 wallets only: in the
 spike, MetaMask reached the MPC through its stock NEAR account instead.
 
-v1 is kept because it is deployed and pinned in CI, and the octopos tests derive
-NEAR MPC keys under its account.
+v1 is kept because it is deployed and pinned in CI. octopos main does not call
+it; one offline test there uses its account name to show that v1 and v2 derive
+different keys.
 
 ## How a key is derived
 
-The MPC derives a key from the calling contract and the path:
+The MPC derives a key from the calling account and the path:
 `sha3_256("near-mpc-recovery v0.1.0 epsilon derivation:" + caller + "," + path)`
 added to the MPC root key (section 12.5 of the old record, checked against live
-MPC signatures for both key types). The caller is always the signer contract,
-and the path starts with the wallet, so wallet A can never obtain wallet B's
-key. v1 and v2 are separate accounts, so they derive different keys for the
+MPC signatures for both key types). The caller is the signer account: its
+contract, or anyone holding the account's full-access key (see
+[Limits](#limits)). Through the contract the path starts with the wallet that
+signed, so wallet A cannot obtain wallet B's key; the key holder can name any
+path. v1 and v2 are separate accounts, so they derive different keys for the
 same path.
 
 ## Build and test
@@ -193,9 +200,18 @@ then held one full-access key.
 - **Testnet only:** v2's `Chain` type lists Base Sepolia, Solana devnet and
   Stellar testnet and no mainnet. A mainnet signer needs new chain entries,
   a build with `PRIME_MPC` set to the mainnet MPC, and a new account.
-- **The deploy key can still change the code:** each signer account holds a
-  full-access key. Deleting it makes the code final; it has to go after the last
-  code-hash check, because the deletion cannot be undone.
+- **The deploy keys can sign anything until they are deleted:** each signer
+  account holds one full-access key (read on 18 October 2026). Its holder can
+  call the MPC as that account with any path and payload, so it can sign a grant
+  for any NEAR-routed owner without the wallet, and it can replace the code. A
+  session started from a forged grant still needs a native signature for every
+  decision, and acts alone in every rule that lists the seat. v2's key
+  (`ed25519:9hEsUKUV…`) is kept only in the agents' host's NEAR credentials;
+  v1's key (`ed25519:K7JPXNYz…`) is also the key of the relayer account
+  `prime-spike-muwguc60.testnet`, which the octopos relayer uses to pay NEAR
+  calls. Locking an account means deleting its full-access key after the last
+  code-hash check, which also ends upgrades; the deletion cannot be undone. This
+  is a testnet limitation of today's deployment.
 - **NEAR availability:** when NEAR or its MPC is down, a NEAR-routed owner
   cannot start or end a session. Live sessions keep working, because votes and
   moves never touch NEAR.

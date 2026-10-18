@@ -75,8 +75,8 @@ the deployed program). Nothing goes on chain at the grant. Every call by the
 session key carries the grant signature in an ed25519 instruction of the same
 transaction, and `prime-seat` checks:
 
-1. the session key signed the transaction and is not the owner key
-   (`Custom(9)`);
+1. the session key is not the owner key (`Custom(9)`) and signed the
+   transaction (`MissingRequiredSignature`);
 2. the ed25519 instruction at the given index verified the owner's signature
    over the grant hash the program computes from the call (`Custom(7)`);
 3. `start <= now <= end` and `end - start <= 7 days` (`Custom(4)`);
@@ -175,7 +175,7 @@ ids on mainnet-beta on 18 October 2026 returned no account.
   that lists the seat. Only that account's owners can list it, so onboarding
   checks that a seat appears only in its own account and its policies.
 - **Call depth:** `prime-seat` adds one call level above Squads. Devnet and
-  mainnet run the 4-level limit (SIMD-0268 inactive), so a venue called through
+  mainnet run the 4-level limit (SIMD-0268 inactive, read on 12 October 2026), so a venue called through
   a policy can nest 3 calls below itself for a native signer and 2 for a seat
   session.
 - **Squads and Token-2022 can be upgraded:** both programs have upgrade
