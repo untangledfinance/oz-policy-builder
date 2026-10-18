@@ -2,6 +2,12 @@ import { afterAll, describe, expect, it } from 'bun:test'
 import { request as httpRequest } from 'node:http'
 import { startHttpServer } from '../src/http.ts'
 
+// Hermetic: the tool call below (get_interpreter_info) asks the RPC for the pin's limits and waits up
+// to 5 s before it falls back to the recorded ones. Against the public testnet RPC that wait met bun's
+// 5 s test timeout whenever the RPC was slow (CI, three times). A closed loopback port refuses at once,
+// so the call answers from the recorded limits without the network.
+process.env.POLICY_BUILDER_RPC_URL_TESTNET = 'http://127.0.0.1:9'
+
 const server = await startHttpServer({ port: 0 })
 afterAll(() => server.close())
 const url = `http://127.0.0.1:${server.port}${server.path}`

@@ -481,6 +481,7 @@ describe('planInstall: the guards', () => {
       (async () => ({ rules: o.rules ?? [], complete: o.complete ?? true, unreadable: [] })),
     build: o.build ?? (async () => built),
     token: o.token ?? (async () => true),
+    contracts: o.contracts ?? (async (a) => Object.fromEntries(a.map((x) => [x, 'contract']))),
   })
   const refused = async (p: Promise<unknown>, code: string, text?: RegExp) => {
     const e = await p.then(
@@ -1033,6 +1034,90 @@ describe('planInstall: the guards', () => {
       'INSTALL_BUILD_FAILED',
       /any ONE of the 2 signers/
     )
+  })
+
+  describe('a contract signer is read off the chain (review of #26: a null-gate adapter signing a rule)', () => {
+    const ADAPTER = contract(21)
+    const kinds =
+      (k: Record<string, 'null-gate adapter' | 'absent' | 'contract'>, seen: string[][] = []) =>
+      async (a: string[]) => {
+        seen.push(a)
+        return Object.fromEntries(a.map((x) => [x, k[x] ?? 'contract']))
+      }
+
+    it('an execution adapter bound to no gate is refused as a signer, with or without other signers', async () => {
+      for (const signers of [[ADAPTER], [SIGNER, ADAPTER]])
+        await refused(
+          planInstall(
+            { ...input, signers, anyOne: true },
+            rule,
+            chain({ contracts: kinds({ [ADAPTER]: 'null-gate adapter' }) })
+          ),
+          'INSTALL_BUILD_FAILED',
+          new RegExp(`${ADAPTER} is an execution adapter bound to no gate`)
+        )
+    })
+
+    it('no override waives it: not allowOverlap, not anyOne, not POLICY_BUILDER_ALLOW_OVERRIDES', async () => {
+      process.env.POLICY_BUILDER_ALLOW_OVERRIDES = '1'
+      try {
+        await refused(
+          planInstall(
+            {
+              ...input,
+              signers: [ADAPTER],
+              allowOverlap: true,
+              allowUnboundedAmount: true,
+              allowOpenSlippage: true,
+            },
+            rule,
+            chain({ contracts: kinds({ [ADAPTER]: 'null-gate adapter' }) })
+          ),
+          'INSTALL_BUILD_FAILED',
+          /bound to no gate/
+        )
+      } finally {
+        delete process.env.POLICY_BUILDER_ALLOW_OVERRIDES
+      }
+    })
+
+    it('a contract signer that is not deployed is refused: what it will run cannot be checked', async () => {
+      await refused(
+        planInstall(
+          { ...input, signers: [ADAPTER] },
+          rule,
+          chain({ contracts: kinds({ [ADAPTER]: 'absent' }) })
+        ),
+        'INSTALL_BUILD_FAILED',
+        new RegExp(`${ADAPTER} is not deployed`)
+      )
+    })
+
+    it('only contract signers are asked about; any other contract, a gated adapter among them, installs', async () => {
+      const seen: string[][] = []
+      const r = await planInstall(
+        { ...input, signers: [SIGNER, ADAPTER], anyOne: true },
+        rule,
+        chain({ contracts: kinds({}, seen) })
+      )
+      expect(r.unsignedXdr).toBe('AAAA')
+      expect(seen).toEqual([[ADAPTER]])
+      await planInstall(input, rule, chain({ contracts: kinds({}, seen) }))
+      expect(seen).toEqual([[ADAPTER], []])
+    })
+
+    it('a failure to read the signer is a failure, never a pass', async () => {
+      const failing = chain({
+        contracts: async () => {
+          throw new Refusal('SIMULATION_ERROR', 'getLedgerEntries: 503', { retryable: true })
+        },
+      })
+      await refused(
+        planInstall({ ...input, signers: [ADAPTER] }, rule, failing),
+        'SIMULATION_ERROR',
+        /503/
+      )
+    })
   })
 
   it('a signer named twice is refused before the network is asked (OZ rejects it as #3007)', async () => {

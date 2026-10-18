@@ -706,6 +706,7 @@ Enforcement happens on chain. The builder checks a rule before it is signed:
 | Read safety | A `read` outside the safe list is refused with `READ_UNSAFE`. The list holds the three testnet Reflector oracles (`lastprice`, `price`) and the operator's `POLICY_BUILDER_SAFE_READS_TESTNET` or `_MAINNET`; a listed read needs constant arguments. `POLICY_BUILDER_ALLOW_SPOT_READS=1` lets other reads through. All three switches are operator environment only, and no tool input can set them. |
 | Authority overlap | The builder reads every rule on the account and refuses a rule a shared signer could bypass through a looser or unpoliced neighbour, or an account whose rules it could not all read. |
 | Amounts | An amount with no cap, and a swap whose least output has no floor, are refused. |
+| Contract signers | Each contract signer's instance is read off the ledger. An execution adapter bound to no gate (`prime` stored, `gate` void) is refused as a signer, whatever its code hash: an agent allowed to call its `execute` could cite the rule for the adapter's calls and move funds past its own caps. A contract signer that is not deployed is refused too. No override waives either. |
 | Signed expiry and fee | The builder sets the authorisation's expiry: the ledger the recording simulation ran at plus `POLICY_BUILDER_AUTH_LEDGERS` (default 300, at most 17,280), and the two simulations must report ledgers within 20 of each other. The transaction carries a time bound from the builder's clock, the window at 6 s a ledger (30 minutes by default). A resource fee above `POLICY_BUILDER_MAX_RESOURCE_FEE` (default 100,000,000 stroops, 10 XLM) is refused. Both are operator environment only. |
 
 Five overrides are tool inputs: `allowOverlap`, `allowUnboundedAmount`,
@@ -727,14 +728,17 @@ for anything but the call or by a rule other than 0, a `__check_auth` digest
 that does not match on the network, an interpreter other than the pin, a
 predicate whose hash does not match its bytes, an unknown policy, an External
 signer or admin, a fee above the ceiling, no time bound or one longer than the
-window plus 120 s for the owner's clock), and renders the transaction, the
+window plus 120 s for the owner's clock, a signature already on the envelope,
+and a contract signer unless `readContracts` reads it through the operator's
+RPC, after which only an adapter bound to no gate or an undeployed contract is
+flagged), and renders the transaction, the
 Authority header and the predicate from the bytes. `signable` means no such
 problem; it does not mean safe. Nothing is signed yet, so an agent can rewrite
 the unsigned bytes consistently, recomputing the digest: itself as admin or
 signer, a threshold dropped, a cap raised with a matching hash. Those read
 signable, as do installs built with an override and rules the builder refuses
-for reasons it checks online (overlap, read safety, 1-of-n). The rewrite shows
-in the Authority header and the predicate, so the owner reads them against
+for reasons it does not check from the bytes (overlap, read safety, 1-of-n).
+The rewrite shows in the Authority header and the predicate, so the owner reads them against
 what they meant before signing.
 
 `install_policy` returns the facts it installs as an `authority` object:

@@ -18,10 +18,10 @@ New in this run, by severity:
 | --- | --- | --- |
 | High | 1 | G7S-1 |
 | Medium | 1 | G7S-3 |
-| Low | 8 | G7S-2, G7S-4, G7S-7, G7S-8, G7S-9 (fixed here), G7S-10, G7S-12, G7S-13 (added after review-opb23) |
+| Low | 8 | G7S-2, G7S-4, G7S-7, G7S-8, G7S-9 (fixed here), G7S-10, G7S-12, G7S-13 (added after review-opb23, fixed by #25) |
 | Info | 3 | G7S-5, G7S-6, G7S-11 |
 
-Open from earlier reviews and still at High: P0-3's owner-side decoder (E10-T.1), P0-4 override echo (E4), and C2 (`remove_signer` bricks an interpreter rule, an octopos fix in progress). Mainnet grammar-7 installs stay blocked on every open P0.
+Open from earlier reviews and still at High: C2 (`remove_signer` bricks an interpreter rule, an octopos fix in progress). P0-3's owner-side decoder (E10-T.1) and P0-4's override echo and gate (E4) were fixed in the packages by #25 (`63768d67`, 18 October 2026); P0-3 protects an owner only once the Prime app runs the decoder on the owner's side. Mainnet grammar-7 installs stay blocked on every open P0.
 
 Decisions for Tuan are in "Decisions needed" at the end of the rerun sections. None of the fixes in this pull request changes a contract or a pinned hash.
 
@@ -91,9 +91,9 @@ The first run's tables below still hold for the interpreter and the toolchain. T
 | P0-1 mainnet pin and deploy pipeline | Open | `packages/policy-synth/src/config.ts:44` `mainnet: null`; `INTERPRETER_WASM` (`config.ts:51`) holds testnet builds only; no grammar-7 mainnet deploy script. `scripts/deploy-prime-mainnet.ts` deploys grammar 6 and refuses this tree on the interpreter hash, before reading a secret or calling a network (run with networking off) |
 | P0-2 auth-tree binding | Fixed here (`bc0d20d`) | `install.ts:212-226` refuses unless the simulated `rootInvocation` is the built call with no sub-invocation. Tests: a forged sub-invocation, another call, and the same function with another argument are refused (`install.test.ts`, three cases). Live: real testnet simulations of an install with the interpreter alone, with `simple_threshold` and with `spending_limit`, and a revoke, all pass the check (`synth/live-p02.log`) |
 | P0-3, first half: authority header | Done | unchanged since 2.0.0: `card.ts:361` `authority()` |
-| P0-3, second half: owner-side decoder | Open, High | no XDR-to-review decoder in `packages/*/src` |
-| P0-4 override echo and operator gating | Open, High | refusals still name the flag (`install.ts:336`, `394`, `399`, `478`, `483`); no `overrides` field; no environment switch on mainnet |
-| P0-5 contract signer vetting | Open | `tools.ts:77` `anyAddress`, used for `signers` and `admins` (`tools.ts:524`) |
+| P0-3, second half: owner-side decoder | Fixed in the packages by #25 (`63768d67`); the Prime app still has to run it | `review_unsigned` and `reviewUnsigned` (`review.ts:85`) read an unsigned install or removal from its bytes with no RPC and list the problems in them; `signable` means only that none was found: a consistent rewrite reads signable, and its authority shows in the review for the owner to judge. Tests: `review.test.ts`, real testnet builds edited byte by byte; 90 of 90 mutants killed in the review of #25. Live: every edit an agent can make to a built install without recomputing the digest is flagged, and a consistent rewrite shows the attacker as admin (review-opb25). A contract signer is a problem unless `readContracts` reads it (this pull request) |
+| P0-4 override echo and operator gating | Fixed by #25 (`63768d67`) | no refusal names a flag; `allowOverlap`, `allowUnboundedAmount`, `allowOpenSlippage`, `anyOne` and `allowAdminRule` come back in `overrides` (`{ flag, waived }`) and open the review (`card.ts:432`); on mainnet a flag set to `true` is refused before any request unless the operator sets `POLICY_BUILDER_ALLOW_OVERRIDES=1` (`install.ts:393`). Tests in `install.test.ts` and `tools.test.ts`; review-opb25 counted 0 requests on the package, the CLI and the MCP server |
+| P0-5 contract signer vetting | Open; one case closed by this pull request | `tools.ts:77` `anyAddress`, used for `signers` and `admins`. `install_policy` now reads each contract signer's instance and refuses an execution adapter bound to no gate, or a contract that is not deployed (`install.ts:585`); see G7S-14 |
 | P0-6 read safety | Lint done; two parts open | `install.ts:443` refuses `READ_UNSAFE` unless `POLICY_BUILDER_ALLOW_SPOT_READS=1`. The `gt(read, 0)` guard under `scaled` and a snapshot mark on read verdicts are still to build |
 | P1-7 RPC answer binding | First half fixed here (`6185846`) | `record.ts:125-136` hashes the returned envelope under the network passphrase and refuses another hash (fee bumps answer to the outer and inner hash). Tests: 4 new cases. Live: two testnet transactions record, and the same envelope offered for another hash is refused (`synth/live-p17.log`). Second half open: `spec.ts` caches specs by wasm hash without hashing the fetched bytes |
 | P1-8 tool output as data | Open | `envelope.ts:41-43` `messageOf` passes RPC text through, cut at 512 characters |
@@ -115,7 +115,7 @@ The first run's tables below still hold for the interpreter and the toolchain. T
 | E2-S.3 unauthenticated local HTTP | Open with P2-13 | the MCP suite serves `tools/list` to a plain local POST |
 | E9-S.1 to S.3 | Open, Low | display only |
 | T1 forged sub-invocation | Fixed here with P0-2 | |
-| E10-T.1, N2 | Open, High, with P0-3 | |
+| E10-T.1, N2 | Fixed in the packages by #25, with P0-3 | the Prime app has to run `reviewUnsigned` on the owner's side, with `smartAccount` set |
 | T4 read manipulation | Mitigated by the lint | `grammar7.rs` still shows a wrapper defeating a spot read, as the model expects |
 | T5 zero read price | Open, Low, with P0-6 | |
 | E4-T.2 | Open with P0-6 | |
@@ -129,7 +129,7 @@ The first run's tables below still hold for the interpreter and the toolchain. T
 | E4-T.1 | Low, no change | |
 | T2 re-install smuggles admins or a stale predicate | Control holds | X14 nonce replay `#202`, X15 changed admin set `#203`, both with the account and the admin signing |
 | R1 no interpreter events | Open, Low | |
-| E1-R.1 | Open with P0-4 | |
+| E1-R.1 | Fixed by #25, with P0-4 | `overrides` records each flag set and the refusal it waived |
 | E4-R.1, R2 | No change | |
 | I1 to I3 | No change | RPC endpoints come from the operator's environment only (`chain.ts:34-42`); no tool input names a URL |
 | D2 admins uninstall alone | Confirmed live, Low | X24: the admin alone uninstalls (tx `e5ed2362…`), then X25: every call through the rule is refused `#206`, and X26: OZ still lists the rule. `lib.rs:237-241` |
@@ -138,7 +138,7 @@ The first run's tables below still hold for the interpreter and the toolchain. T
 | D4 CPU | Low, no change | |
 | E1-D.1 and the other DoS rows | Open with P2-14 | |
 | N7 orphan entry after `remove_context_rule` | Confirmed live, Low | G27 removes a rule through rule 0 (tx `851b3f94…`); G28 reads the interpreter entry still present; G41 shows OZ never reuses the id |
-| E4 overrides | Open, High, with P0-4 | |
+| E4 overrides | Fixed by #25, with P0-4 | `anyOne` is one of the gated, echoed flags (review-opb25 L7) |
 | E5 | Done | |
 | N1 per-call cap | Mitigated | the header states "no total limit" and P2-12's `spendingLimit` binds a total |
 | N3 contract signers | Open with P0-5 | |
@@ -146,7 +146,7 @@ The first run's tables below still hold for the interpreter and the toolchain. T
 | N4 | Open with P1-11 | |
 | E3 confused deputy | Low, no change | |
 | E2 `remove_policy` | Low, no change | |
-| 3.4 E | Low, with P0-4 | |
+| 3.4 E | Fixed off chain by #25, with P0-4 | `allowOverlap` is echoed, and refused on mainnet without the operator's switch |
 | N8 | Done with P2-12 | |
 
 ### Findings of the reviews that fed this run
@@ -260,7 +260,7 @@ Each row names the threat, where it enters, the control with its file and line, 
 | E | An adapter bound to no gate, or to a contract that has no `allowed` | adapter `__constructor`, `check` | the constructor never calls the gate; every `execute` and `run` calls `gate.allowed()` first (`:291`) | F9: adapters bound to an empty address (tx `5e90390b…`) and to the XLM SAC (tx `56c73bcb…`) deploy; F10: every `execute` on them fails (`Storage, MissingValue`; `Value, InvalidInput`) |
 | E | The owners bind an adapter to a gate of their own and give an agent a rule on it (G7S-12) | owner-made gate, agent rule | custody's real gate pins its caller's address and code (`custody-gate/src/lib.rs:74-77`); the owners' own list still binds the adapter | F1 to F8: the agent moves Prime-held XLM to the owner-listed stranger (tx `7b703ed0…`), an unlisted account is refused `#2`, a pull through custody's real gate is refused (`Auth, InvalidAction`), custody's balance is unchanged |
 
-### NEAR signers (`contracts/near/prime-near-signer`, `prime-near-signer-v2`)
+### NEAR signers (`contracts/near/prime-near-signer-v2`, and v1 at tag `archive/near-signer-v1`)
 
 | STRIDE | Threat | Entry point | Control | Verified on NEAR testnet |
 | --- | --- | --- | --- | --- |
@@ -277,7 +277,8 @@ Each row names the threat, where it enters, the control with its file and line, 
 | --- | --- | --- | --- | --- |
 | T | A lying RPC changes what the account signs | `buildSelfCall` | Fixed here: the tree must be the built call (`install.ts:212-226`) | 3 tests; 4 live builds |
 | T | A lying RPC records another flow | `recordHash` | Fixed here: envelope hash check (`record.ts:125-136`) | 4 tests; live |
-| T | A lying RPC sets the signed auth expiry and the resource fee (G7S-13) | `buildSelfCall` | expiry = the simulation's ledger + 300 (`install.ts:228`); the host refuses an expiry past the network's maximum entry lifetime; no cap on the resource fee (`install.ts:269-274`); no time bounds (`chain.ts:110`) | review-opb23 B9 to B11 on testnet; Low |
+| T | A lying RPC sets the signed auth expiry and the resource fee (G7S-13) | `buildSelfCall` | Fixed by #25: expiry = the recording pass's ledger + `POLICY_BUILDER_AUTH_LEDGERS` (`install.ts:248`); the two passes within 20 ledgers (`:289`); a time bound from the builder's clock (`:317`); a resource fee below 0 or above `POLICY_BUILDER_MAX_RESOURCE_FEE` refused (`:298-303`) | review-opb23 B9 to B11 now refused; review-opb25 live; residual in G7S-13 |
+| E | A rule an execution adapter with no gate signs lets an agent pass its caps (review-opb26 P4, tx `e90fe2a3…`: five times the cap) | `install_policy` | Fixed by the follow-up to #25: each contract signer's instance is read off the ledger, and an instance holding `prime` and a void `gate` is refused as a signer whatever its code hash, as is an undeployed contract (`install.ts:585`, `chain.ts:250`); `review_unsigned` flags a contract signer unless `readContracts` reads it | testnet: the null adapter `CD5Y3SNP…` refused alone and beside a key; the gated `CCXFDHD7…` installs (tx `3dcefe6f…`) and is revoked (tx `0044d23e…`) |
 | S | A web page drives the HTTP tools | `http.ts` | loopback bind, Host and Origin guard (`http.ts:55-73`) | MCP suite, 16 of 16 |
 | D | A large body | `http.ts` | 1 MiB limit, 413 (`http.ts:12`, `:81-83`) | MCP suite on Bun 1.3.14; review-opb21 L1 for the socket |
 | I | Secrets in errors | `messageOf` | URL credentials stay out of errors (first run) | unchanged |
@@ -292,7 +293,7 @@ Each row names the threat, where it enters, the control with its file and line, 
 | T | A grammar-6 deploy from grammar-7 source | `deploy-grammar6-testnet.ts:93` | `SELF_VERSION` guard (skipped with `PRIME_WASM_DIR`) | review-opb21 |
 | I | A deploy secret on the command line (G7S-10) | `deploy-grammar6-testnet.ts:102` | `--secret` or `DEPLOY_SECRET` | code read; Low |
 | T | A build that drifts from its pin | CI | hash parity on every contract (`ci.yml`) | all parity steps green locally |
-| T | A third-party action or installer changes under a tag (G7S-8) | `ci.yml` | tags only; `curl \| sh` for Solana and cargo-near | code read; Low |
+| T | A third-party action or installer changes under a tag (G7S-8) | `ci.yml` | tags only; `curl \| sh` for Solana | code read; Low |
 | E | A workflow token writes to the repository | workflows | `permissions: contents: read` in both; `pull_request`, never `pull_request_target` | code read |
 | D | Upstream moves unseen | `upstream-drift.yml` | weekly check from `main` | run live: protocol 29 on both networks against a baseline of 28 here (G7S-9) |
 
@@ -336,7 +337,7 @@ The gate address derives from the multisig, the settings and the seed, and the r
 
 ### G7S-8, Low: CI trusts mutable tags and unverified installers
 
-Actions are pinned by tag (`actions/checkout@v4`, `oven-sh/setup-bun@v2`, `Swatinem/rust-cache@v2`, `actions/cache@v4`, `foundry-rs/foundry-toolchain@v1`). Solana CLI and cargo-near install through `curl | sh` with no checksum, and `cargo install cargo-audit --version ^0.22` floats. The workflow token is read-only and the jobs hold no secret, and every contract artifact is held to its recorded hash, so a tampered tool can turn CI red or hide a test failure, while a changed artifact still fails parity. Proposed: pin actions by commit, download the two installers by version with a checksum, pin cargo-audit exactly.
+Actions are pinned by tag (`actions/checkout@v4`, `oven-sh/setup-bun@v2`, `Swatinem/rust-cache@v2`, `actions/cache@v4`, `foundry-rs/foundry-toolchain@v1`). The Solana CLI installs through `curl | sh` with no checksum (the cargo-near installer left `ci.yml` with NEAR signer v1, #24), and `cargo install cargo-audit --version ^0.22` floats. The workflow token is read-only and the jobs hold no secret, and every contract artifact is held to its recorded hash, so a tampered tool can turn CI red or hide a test failure, while a changed artifact still fails parity. Proposed: pin actions by commit, download the Solana installer by version with a checksum, pin cargo-audit exactly.
 
 ### G7S-9, Low, fixed here: the drift baseline was protocol 28 while both networks run 29
 
@@ -358,16 +359,22 @@ An adapter with no working gate fails closed: one bound to an empty address or t
 
 So custody's funds stay behind custody's own gate: `pull` requires the caller's auth and its code (`custody-gate/src/lib.rs:74-77`), and only the adapter at the address custody chose, bound to custody's gate, can pass it. The exposure is the Prime's own funds, and it needs the owners to deploy the adapter and install both rules through rule 0. A code-hash check of the gate cannot tell `F` apart, because `F` runs the gate code. octopos reads an adapter's code and binding (`execution-adapter-v3.ts:324`, `:358`) and a gate's code (`gate-confirm-stellar.ts:381`); the owners' gate Confirm compares the typed trustee with the gate's list (DECISIONS 2026-10-12, Q5). `policy-synth` accepts any contract as a rule's scope and reads nothing about an adapter's gate. Proposed, with P0-5: when a rule's scope runs a known adapter build, read its gate and show the gate's custody and list in the review, and refuse a gate whose custody is one of the account's own signers.
 
-### G7S-13, Low: the RPC chooses the signed auth expiry and the resource fee
+### G7S-13, Low, fixed by #25: the RPC chose the signed auth expiry and the resource fee
 
-Added on 18 October 2026 from review-opb23 (L2), which found it on this pull request's code with a lying RPC in front of testnet. P0-2 binds what the account signs to the built call, and two values the wallet signs still come from the RPC:
+Added on 18 October 2026 from review-opb23 (L2), which found it with a lying RPC in front of testnet. P0-2 binds what the account signs to the built call, and two values the wallet signs still came from the RPC:
 
-- **Auth expiry:** `buildSelfCall` sets the account entry's expiry to the ledger the recording simulation reports plus 300 (`install.ts:228`), about 25 minutes. An RPC that reports a ledger 2,000,000 ahead moves the expiry to about four months (B10: expiry ledger 7,266,114 against 5,266,114 for the unaltered build). The host caps it: it refuses an expiry past the network's maximum entry lifetime, and +4,000,000 failed with `Error(Auth, InvalidInput)` (B11). The transaction itself has no time bounds (`chain.ts:110`, `setTimeout(0)`). So a signed install that the owner never submitted stays valid for months, and anyone holding the signed entry can submit it, once, in a transaction of their own. It is still exactly the built call.
-- **Resource fee:** the enforcing simulation's resource fee goes into the transaction uncapped (`install.ts:269-274`). An inflated answer built a transaction with a fee of 2,000,000,100 stroops, about 200 XLM (B9). `baseFee` has a cap of 1 XLM (`tools.ts:73-74`); the resource fee has none. The wallet shows the fee before signing, and the source account pays it.
+- **Auth expiry:** `buildSelfCall` set the account entry's expiry to the ledger the recording simulation reported plus 300, about 25 minutes. An RPC that reported a ledger 2,000,000 ahead moved the expiry to about four months (B10: expiry ledger 7,266,114 against 5,266,114 for the unaltered build). The host caps it: it refuses an expiry past the network's maximum entry lifetime, and +4,000,000 failed with `Error(Auth, InvalidInput)` (B11). The transaction had no time bounds. So a signed install that was never submitted stayed valid until the expiry, unless the source account sent another transaction first. Only the signed envelope is reusable: the account's entry carries an empty signature for `Delegated(source)`, and the `__check_auth` entry uses source-account credentials, so the entries hold only inside a transaction whose source is that account and which that account signed. Anyone holding the signed transaction could submit it once, and it is still exactly the built call.
+- **Resource fee:** the enforcing simulation's resource fee went into the transaction uncapped. An inflated answer built a transaction with a fee of 2,000,000,100 stroops, about 200 XLM (B9).
 
-**Severity:** Low. The RPC comes from the operator's environment, the signed call cannot change, the nonce allows one use, and the wallet shows the fee. The exposure is a long-lived signed install and a fee an owner may not read.
+**Fixed by #25** (`63768d67`), in `buildSelfCall` (lines as of the follow-up pull request):
 
-**Fix in progress:** the package pull request after this one (branch `fix/g7-p0-3-p0-4`, into `feat/grammar-v7`) caps the resource fee and bounds the expiry. Until it merges, this item is open.
+- the expiry is the recording pass's ledger plus `POLICY_BUILDER_AUTH_LEDGERS` (default 300, at most 17,280), and the enforcing pass must report a ledger within 20 of it (`install.ts:248`, `:289`);
+- the transaction carries a time bound from the builder's own clock, the window at 6 s a ledger, 1,800 s by default (`:317`);
+- a resource fee below 0 or above `POLICY_BUILDER_MAX_RESOURCE_FEE` (default 10 XLM) is refused, judged as the RPC gave it before any arithmetic (`:298-303`).
+
+Both bounds come from the operator's environment, read when a build starts: after an install's interpreter check and a revoke's rule read, which may reach the RPC first, and before the build's own simulations. A malformed value refuses the build. `review_unsigned` checks the same bounds on the owner's side, allowing the owner's clock to run 120 s behind the builder's.
+
+**Residual:** an RPC that lies the same way in both passes still moves the expiry ledger (review-opb25 B13: built with the expiry 2,000,300 ledgers out). The time bound ends that transaction 1,800 s after the build whatever the ledger (B13 held past the bound: `txTooLate`), and its entries cannot be lifted into another source's transaction (`Error(Auth, InvalidAction)`). A builder clock running ahead lengthens the bound; `review_unsigned`, on the owner's clock, flags a bound longer than the window plus 120 s.
 
 ## Proposed fixes for open Medium and High items
 
@@ -375,8 +382,8 @@ Added on 18 October 2026 from review-opb23 (L2), which found it on this pull req
 | --- | --- | --- | --- |
 | G7S-1 | delete the FullAccess key on the v2 account after a code-hash check; lock or retire v1 | NEAR accounts | no |
 | C2 | plan `remove_context_rule` and `add_context_rule` without the owner for a rule with an interpreter policy, and say so in the dialog | octopos `seat-stellar-owners.ts` | no |
-| P0-4 | echo every `allow*` as the first review line and as `overrides[]`; drop the hint from refusals; on mainnet honour `allow*` only with an operator switch | `policy-synth` | no |
-| P0-3 second half | a `review_unsigned(xdr)` decoder the Prime app runs on the owner's side | `policy-synth`, octopos | no |
+| P0-4 | done in #25 | `policy-synth` | no |
+| P0-3 second half | the decoder is done in #25; the Prime app runs `reviewUnsigned` on the owner's side, with `smartAccount` and the contract signers read | octopos | no |
 | P0-5, N3 | refuse a contract signer or admin unless its code is a pinned seat or OZ account build; refuse a seat as admin (C4) | `policy-synth` | no |
 | G7S-3 | list affected mainnet gates; move each account to a new gate and adapter | ops, octopos | no |
 | P0-1, N5, N6 | grammar-7 mainnet deploy script, record with CI parity, then the pin | `scripts`, `deployments`, `config.ts` | a new mainnet deployment, no change to testnet pins |
@@ -387,7 +394,7 @@ Added on 18 October 2026 from review-opb23 (L2), which found it on this pull req
 1. **G7S-1:** delete the FullAccess key on `seats.prime-spike-muwguc60.testnet` now, or before the first account with value; and whether v1's account is locked the same way. Decided on 18 October 2026: the key stays for the testnet beta and goes before any mainnet use or value (see G7S-1).
 2. **G7S-2:** take NEAR signer v1 and its CI job out of the tree (it stays at a tag). Decided on 18 October 2026 and done; deleting the deployed account waits for a separate yes.
 3. **G7S-3:** who lists the mainnet gates that pin `68d012e7` and tells their owners.
-4. **P0-4 and P0-3:** whether the toolchain drops the override hints and adds the owner-side decoder before the next release.
+4. **P0-4 and P0-3:** whether the toolchain drops the override hints and adds the owner-side decoder before the next release. Decided on 18 October 2026 and done in #25; the next release is 3.0.0.
 5. **Optional on-chain hardening at the next audited interpreter build:** account auth on `uninstall` when OZ calls it (D2, C3), events (R1), refusal of scopes on policy contracts (T3); and a deadline in the EVM seat's `exec` digest (G7S-4) at the next seat build.
 
 ## Evidence of the rerun

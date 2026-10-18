@@ -21,7 +21,7 @@ import {
   PASSPHRASE,
   RPC_URL,
 } from './config.ts'
-import { Refusal } from './envelope.ts'
+import { messageOf, Refusal } from './envelope.ts'
 import { type Caps, CEILINGS, DECODE_LIMITS, FLOORS } from './wire.ts'
 
 export interface Endpoint {
@@ -236,6 +236,40 @@ export async function codeHash(server: rpc.Server, address: string): Promise<str
   return exec?.switch().name === 'contractExecutableWasm'
     ? Buffer.from(exec.wasmHash()).toString('hex')
     : undefined
+}
+
+/** What a contract signer is, from its instance on the ledger: an execution adapter created with no
+ *  gate (its instance holds `prime`, and `gate` as void), a contract that is not deployed, or any
+ *  other contract. Read from storage, not from a code hash: every adapter build that binds an
+ *  optional gate keeps these keys, whatever its hash. */
+export type ContractKind = 'null-gate adapter' | 'absent' | 'contract'
+
+const PRIME_KEY = xdr.ScVal.scvSymbol('prime').toXDR('base64')
+const GATE_KEY = xdr.ScVal.scvSymbol('gate').toXDR('base64')
+
+export function kindOf(instance: xdr.ScVal | undefined): ContractKind {
+  if (instance === undefined) return 'absent'
+  const storage = instance.instance().storage() ?? []
+  const at = (k: string) => storage.find((e) => e.key().toXDR('base64') === k)
+  const gate = at(GATE_KEY)
+  return at(PRIME_KEY) && gate?.val().switch().name === 'scvVoid' ? 'null-gate adapter' : 'contract'
+}
+
+/** The kind of each contract address, in one ledger read. A failed read throws: it never passes. */
+export async function contractKinds(
+  server: rpc.Server,
+  addresses: string[]
+): Promise<Record<string, ContractKind>> {
+  const keys = addresses.map((a) => dataKey(a, xdr.ScVal.scvLedgerKeyContractInstance()))
+  let got: (xdr.ScVal | undefined)[]
+  try {
+    got = await entries(server, keys)
+  } catch (e) {
+    throw new Refusal('SIMULATION_ERROR', `reading the contract signers: ${messageOf(e)}`, {
+      retryable: true,
+    })
+  }
+  return Object.fromEntries(addresses.map((a, n) => [a, kindOf(got[n])]))
 }
 
 /** The refusal for an interpreter that is not a trusted build. */

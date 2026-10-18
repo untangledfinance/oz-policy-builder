@@ -13,6 +13,7 @@ import { type Authority, authority, contractsOf, lines, overridden, tree } from 
 import {
   codeHash,
   connect,
+  contractKinds,
   type Endpoint,
   ensureInterpreter,
   fingerprint,
@@ -602,6 +603,7 @@ const install_policy = tool(
         readRules(server, i.network, account, interpreter, signal),
       build: (draft, interpreter) => buildInstall({ ...i, server }, draft, interpreter),
       token: async (c) => isToken((await infoFor(i, [c], signal))[c]),
+      contracts: (a) => contractKinds(server, a),
     }
     const out = i.outFile === undefined ? undefined : outPathFor(i.outFile)
     const plan = await planInstall(i, rule, chain)
@@ -785,14 +787,21 @@ const get_interpreter_info = tool(
 
 const review_unsigned = tool(
   'review_unsigned',
-  "Review an UNSIGNED transaction from `install_policy` or `revoke_policy` from its bytes alone, with no RPC: for the account owner's side (a wallet or the Prime app) to run on the XDR it is about to sign, with `smartAccount` naming the account the owner means to change. `problems` lists what is wrong in the bytes themselves: a shape the builder never makes (an authorisation for anything but the call, a rule other than 0, a `__check_auth` digest that does not match on this network, a signer other than the source, no time bound or a longer one, a fee above the ceiling, a precondition or memo, an External signer or admin) or a value it can check offline (an interpreter other than the pin, a predicate whose hash does not match its bytes, a policy the package does not know). `signable` means no problem was found; it does NOT mean safe to sign. An agent can rewrite the unsigned bytes consistently (itself as admin or signer, a threshold dropped, a cap raised with a matching hash) and they come back signable; so do installs that used an override and rules the builder would refuse for reasons it checks online (overlap, read safety, 1-of-n). The owner must read `review`/`reviewTree`: the problems first, then the transaction (call, source, fee, time bound, authorisation expiry), then for an install the Authority node (signers, who can act alone, admins, expiry, total, interpreter) and the predicate, all read from the bytes.",
+  "Review an UNSIGNED transaction from `install_policy` or `revoke_policy` from its bytes alone, with no RPC: for the account owner's side (a wallet or the Prime app) to run on the XDR it is about to sign, with `smartAccount` naming the account the owner means to change. `problems` lists what is wrong in the bytes themselves: a shape the builder never makes (an authorisation for anything but the call, a rule other than 0, a `__check_auth` digest that does not match on this network, a signer other than the source, no time bound or a longer one, a fee above the ceiling, a precondition or memo, an External signer or admin) or a value it can check offline (an interpreter other than the pin, a predicate whose hash does not match its bytes, a policy the package does not know), and an envelope that already carries a signature. A contract signer is a problem unless `readContracts: true` reads it off the ledger through the operator's RPC (the one exception to no RPC): then only an execution adapter bound to no gate, or a contract that is not deployed, is a problem. `signable` means no problem was found; it does NOT mean safe to sign. An agent can rewrite the unsigned bytes consistently (itself as admin or signer, a threshold dropped, a cap raised with a matching hash) and they come back signable; so do installs that used an override and rules the builder would refuse for reasons it does not check from the bytes (overlap, read safety, 1-of-n). The owner must read `review`/`reviewTree`: the problems first, then the transaction (call, source, fee, time bound, authorisation expiry), then for an install the Authority node (signers, who can act alone, admins, expiry, total, interpreter) and the predicate, all read from the bytes.",
   {
     ...net,
     ...display,
     xdr: z.string().min(1).max(400_000),
     smartAccount: contractId.optional(),
+    readContracts: z.boolean().optional(),
   },
-  async (i) => reviewUnsigned(i)
+  async (i) => {
+    // Bytes the decoder refuses are refused before any read.
+    const offline = reviewUnsigned(i)
+    const signers = offline.authority?.signers.filter((s) => s.startsWith('C')) ?? []
+    if (i.readContracts !== true || signers.length === 0) return offline
+    return reviewUnsigned({ ...i, contracts: await contractKinds(connect(i), signers) })
+  }
 )
 
 export const TOOLS: Tool[] = [
