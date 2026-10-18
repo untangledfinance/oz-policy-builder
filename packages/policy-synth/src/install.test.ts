@@ -357,6 +357,42 @@ describe('buildInstall and buildRevoke, on a live account', () => {
       }
     )
 
+    it('the limit is 20 ledgers: an enforcing pass 20 off builds, 21 off is refused, either way', async () => {
+      const shifted = (by: number) =>
+        lyingPass(2, (sim) => {
+          sim.latestLedger += by
+        })
+      for (const by of [20, -20]) {
+        const b = await buildInstall({ ...args, server: shifted(by) }, draft(), INTERP)
+        expect(b.unsignedXdr.length).toBeGreaterThan(0)
+      }
+      for (const by of [21, -21])
+        await expect(
+          buildInstall({ ...args, server: shifted(by) }, draft(), INTERP)
+        ).rejects.toThrow(/21 apart; the RPC answer is not trusted/)
+    })
+
+    it('an empty value is the default, as if unset', async () => {
+      const b = await withEnv(
+        { POLICY_BUILDER_AUTH_LEDGERS: '', POLICY_BUILDER_MAX_RESOURCE_FEE: '' },
+        () => buildInstall(args, draft(), INTERP)
+      )
+      expect(b.validBefore).toBeGreaterThan(Math.floor(Date.now() / 1000) + 1790)
+    })
+
+    it.each([
+      ['a negative resource fee', -1n, /negative resource fee \(-1 stroops\)/],
+      ['the largest int64 resource fee', 2n ** 63n - 1n, /above this builder's ceiling of 10 XLM/],
+    ] as const)('refuses %s with its own message', async (_n, fee, why) => {
+      const lying = lyingPass(2, (sim) => {
+        if (!('transactionData' in sim)) return
+        const d = sim.transactionData.build()
+        d.resourceFee(new xdr.Int64(fee))
+        sim.transactionData = new SorobanDataBuilder(d)
+      })
+      await expect(buildInstall({ ...args, server: lying }, draft(), INTERP)).rejects.toThrow(why)
+    })
+
     it('refuses a resource fee above the ceiling, whatever the RPC asks (an enforcing pass that asks 200 XLM)', async () => {
       const lying = lyingPass(2, (sim) => {
         if (!('transactionData' in sim)) return
@@ -636,7 +672,13 @@ describe('planInstall: the guards', () => {
       'INSTALL_BUILD_FAILED',
       /any ONE of the 2 signers/
     )
-    await refused(planInstall(two, rule, chain()), 'INSTALL_BUILD_FAILED', /threshold|anyOne/)
+    // Like every override, the refusal does not name `anyOne`: it asks for a threshold.
+    const e = await planInstall(two, rule, chain()).then(
+      () => undefined,
+      (x) => x as Refusal
+    )
+    expect(e?.message).toMatch(/Give a threshold that needs more/)
+    expect(e?.message).not.toMatch(/anyOne|override/i)
     // Said on purpose: it installs, and the draft says no threshold.
     let seen: RuleDraft | undefined
     await planInstall(
@@ -985,7 +1027,7 @@ describe('planInstall: the guards', () => {
     expect(e?.message).toContain(`${SIGNER} alone meets the threshold of 3`)
     expect(e?.message).not.toMatch(/any ONE of the 3/)
     expect(e?.message).not.toContain(account(2))
-    expect(e?.message).toContain('`anyOne: true` to install it on purpose')
+    expect(e?.message).not.toContain('anyOne')
     await refused(
       planInstall({ ...two, threshold: { n: 1 } }, rule, chain()),
       'INSTALL_BUILD_FAILED',
@@ -1128,6 +1170,23 @@ describe('planInstall: the guards', () => {
         { flag: 'allowOpenSlippage', waived: null },
         { flag: 'allowOverlap', waived: null },
       ])
+    })
+
+    it('anyOne is an override like the others: echoed with the 1-of-n refusal it waived, gated on mainnet', async () => {
+      const two = { ...input, signers: [SIGNER, account(2)], anyOne: true }
+      const r = await planInstall(two, rule, chain())
+      expect(r.overrides).toEqual([
+        { flag: 'anyOne', waived: expect.stringMatching(/any ONE of the 2 signers acts alone/) },
+      ])
+      const one = await planInstall({ ...input, anyOne: true }, rule, chain())
+      expect(one.overrides).toEqual([{ flag: 'anyOne', waived: null }])
+      await withSwitch(undefined, () =>
+        refused(
+          planInstall({ ...mainnet, signers: [SIGNER, account(2)], anyOne: true }, rule, chain()),
+          'INSTALL_BUILD_FAILED',
+          /anyOne is set, and on mainnet .*POLICY_BUILDER_ALLOW_OVERRIDES=1/
+        )
+      )
     })
 
     it('on mainnet an override is refused before anything is asked, unless the operator sets POLICY_BUILDER_ALLOW_OVERRIDES=1', async () => {

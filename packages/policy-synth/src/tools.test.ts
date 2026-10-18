@@ -792,6 +792,12 @@ describe('install_policy', () => {
         /allowOpenSlippage is set, and on mainnet .*POLICY_BUILDER_ALLOW_OVERRIDES=1/
       )
       await failing(
+        'install_policy',
+        { ...main, signers: [SIGNER, account(1)], anyOne: true },
+        'INSTALL_BUILD_FAILED',
+        /anyOne is set, and on mainnet .*POLICY_BUILDER_ALLOW_OVERRIDES=1/
+      )
+      await failing(
         'revoke_policy',
         {
           network: 'mainnet',

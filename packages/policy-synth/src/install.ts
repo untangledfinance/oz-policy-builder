@@ -286,14 +286,21 @@ export async function buildSelfCall(
     )
   // `assembleTransaction` sets the fee to the base fee plus the resource fee, and `build` adds the
   // resource fee from the Soroban data again: bid the base fee once and let `build` add the resources.
+  // The fee is judged as the RPC gave it, before any arithmetic on it.
+  const asked = enforced.transactionData.build().resourceFee().toBigInt()
+  if (asked < 0n)
+    throw new Refusal(
+      code,
+      `${fn}: the network asks a negative resource fee (${asked} stroops); not built`
+    )
+  if (asked > BigInt(ceiling))
+    throw new Refusal(
+      code,
+      `${fn}: the network asks a resource fee of ${xlm(asked)} XLM, above this builder's ceiling of ${xlm(ceiling)} XLM (POLICY_BUILDER_MAX_RESOURCE_FEE, in stroops); not built`
+    )
   const assembled = rpc.assembleTransaction(withAuth, enforced).build()
   const sorobanData = assembled.toEnvelope().v1().tx().ext().sorobanData()
   const resource = Number(sorobanData.resourceFee().toBigInt())
-  if (resource > ceiling)
-    throw new Refusal(
-      code,
-      `${fn}: the network asks a resource fee of ${xlm(resource)} XLM, above this builder's ceiling of ${xlm(ceiling)} XLM (POLICY_BUILDER_MAX_RESOURCE_FEE, in stroops); not built`
-    )
   const base = a.baseFee ?? Number(BASE_FEE)
   const validBefore = Math.floor(Date.now() / 1000) + window * LEDGER_SECONDS
   const final = TransactionBuilder.cloneFrom(assembled, {
@@ -318,7 +325,7 @@ export async function buildSelfCall(
 }
 
 /** Stroops as XLM, exactly: 2000000000 -> 200, 1711054 -> 0.1711054. */
-export const xlm = (stroops: number): string => {
+export const xlm = (stroops: number | bigint): string => {
   const t = String(stroops).padStart(8, '0')
   const frac = t.slice(-7).replace(/0+$/, '')
   return frac ? `${t.slice(0, -7)}.${frac}` : t.slice(0, -7)
@@ -354,11 +361,13 @@ export type OverrideFlag =
   | 'allowOpenSlippage'
   | 'allowOverlap'
   | 'allowAdminRule'
+  | 'anyOne'
 
 /** The overrides an install takes, in the order its refusals come. */
 export const INSTALL_OVERRIDES = [
   'allowUnboundedAmount',
   'allowOpenSlippage',
+  'anyOne',
   'allowOverlap',
 ] as const
 
@@ -510,14 +519,12 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
       `threshold ${t.n} can never be met (weights must cover exactly the signers and total at least n)`
     )
   if (t && i.anyOne && !oneOfN) throw no('anyOne and a threshold contradict each other')
-  if (oneOfN && !i.anyOne)
-    throw no(
-      `${
-        w
-          ? `${i.signers.filter((x) => (w[x] as number) >= (t?.n ?? 0)).join(', ')} alone meets the threshold of ${t?.n}`
-          : `${t ? `a threshold of ${t.n}` : `${k} signers and no threshold`}: any ONE of the ${k} signers acts alone (1-of-${k})`
-      }. Give a threshold that needs more, or \`anyOne: true\` to install it on purpose.`
-    )
+  if (oneOfN) {
+    const alone = w
+      ? `${i.signers.filter((x) => (w[x] as number) >= (t?.n ?? 0)).join(', ')} alone meets the threshold of ${t?.n}`
+      : `${t ? `a threshold of ${t.n}` : `${k} signers and no threshold`}: any ONE of the ${k} signers acts alone (1-of-${k})`
+    unless('anyOne', alone, `${alone}. Give a threshold that needs more.`)
+  }
   const draft: RuleDraft = {
     scope: { kind: 'call_contract', contract: rule.contract },
     name: i.name ?? `policy-${rule.hash.slice(0, 8)}`,

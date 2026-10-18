@@ -1,7 +1,8 @@
 // The owner's side of the review (P0-3): what an unsigned install or removal does, read out of
 // the bytes alone. It asks no RPC and takes nothing from the agent but the XDR, so a wallet or the
-// Prime app can run it on the transaction it is about to sign. Every check here is a check the
-// builder already made; a transaction it did not build, or one changed since, shows as a problem.
+// Prime app can run it on the transaction it is about to sign. It checks that the bytes are shaped
+// as the builder shapes them and are internally consistent; it cannot tell a consistent rewrite
+// from the owner's intent, so the review shows the authority the bytes grant for the owner to read.
 
 import {
   Address,
@@ -21,6 +22,7 @@ import {
 } from './card.ts'
 import {
   authLedgers,
+  CLOCK_SKEW,
   GRAMMAR_VERSION,
   INTERPRETER,
   INTERPRETERS,
@@ -104,31 +106,38 @@ export function reviewUnsigned(i: {
   if (host.hostFunction().switch().name !== 'hostFunctionTypeInvokeContract')
     throw notOurs('the operation is not a contract call')
   const ic = host.hostFunction().invokeContract()
+  const problems: string[] = []
+  const flag = (p: string) => problems.push(p)
+  /** A value the builder never writes (an error, a contract instance) has no wire form: a problem. */
+  const read = (x: xdr.ScVal): Val => {
+    try {
+      return fromScVal(x)
+    } catch (e) {
+      flag(`it carries an argument the builder never writes (${messageOf(e)})`)
+      return null
+    }
+  }
   const call = {
     contract: Address.fromScAddress(ic.contractAddress()).toString(),
     fn: ic.functionName().toString(),
-    args: ic.args().map((x) => fromScVal(x)),
+    args: ic.args().map(read),
   }
-  const problems: string[] = []
-  const flag = (p: string) => problems.push(p)
   const account = call.contract
 
   if (call.fn !== 'add_context_rule' && call.fn !== 'remove_context_rule')
     flag(`it calls ${call.fn}; the builder makes only add_context_rule and remove_context_rule`)
-  if (i.smartAccount !== undefined && i.smartAccount !== account)
+  if (i.smartAccount === undefined)
+    flag(
+      `no smartAccount was given, so whether ${account} is the account the owner means cannot be checked`
+    )
+  else if (i.smartAccount !== account)
     flag(`it changes ${account}, not the account under review ${i.smartAccount}`)
   if (op.sourceAccount()) flag('the operation names a source account of its own')
   if (tx.memo.type !== 'none') flag('it carries a memo, which the builder never sets')
-  if (
-    Number(tx.timeBounds?.minTime ?? 0) > 0 ||
-    tx.ledgerBounds ||
-    tx.minAccountSequence ||
-    tx.minAccountSequenceAge ||
-    tx.minAccountSequenceLedgerGap ||
-    (tx.extraSigners?.length ?? 0) > 0
-  )
+  const cond = body.cond().switch().name
+  if ((cond !== 'precondTime' && cond !== 'precondNone') || Number(tx.timeBounds?.minTime ?? 0) > 0)
     flag(
-      'it carries preconditions the builder never sets (a start time, ledger bounds, sequence or extra signers)'
+      'it carries preconditions the builder never sets (a start time, ledger bounds, a minimum sequence or extra signers)'
     )
 
   // The authorisation: the account's own entry for exactly this call, and the source account's
@@ -158,11 +167,15 @@ export function reviewUnsigned(i: {
       flag('the account authorises another call than the one the transaction makes')
     if (root.subInvocations().length > 0)
       flag(`the account authorises ${root.subInvocations().length} more call(s) under this one`)
-    const payload = fields(fromScVal(c.signature()))
+    const payload = fields(read(c.signature()))
     const ids = Array.isArray(payload.context_rule_ids) ? payload.context_rule_ids : []
     const contextRuleIds = ids.filter((x): x is number => typeof x === 'number')
     if (contextRuleIds.length !== ids.length || ids.length === 0)
       flag('the authorisation names no context rule, or one that is not a rule id')
+    else if (contextRuleIds.length !== 1 || contextRuleIds[0] !== 0)
+      flag(
+        `the authorisation is by rule ${contextRuleIds.join(', ')}, not rule 0: the builder always names the account's admin rule`
+      )
     auth = {
       nonce: c.nonce().toString(),
       validUntilLedger: c.signatureExpirationLedger(),
@@ -194,6 +207,7 @@ export function reviewUnsigned(i: {
   const resource = ext.switch() === 1 ? Number(ext.sorobanData().resourceFee().toBigInt()) : 0
   if (ext.switch() !== 1) flag('it carries no Soroban resources')
   const total = Number(tx.fee)
+  if (resource < 0) flag(`it carries a negative resource fee (${resource} stroops)`)
   if (resource > maxResourceFee())
     flag(
       `it asks a resource fee of ${xlm(resource)} XLM, above the ceiling of ${xlm(maxResourceFee())} XLM`
@@ -207,15 +221,17 @@ export function reviewUnsigned(i: {
     flag(
       `it has no time bound: once signed, it stays valid until its authorisation lapses${auth ? ` (ledger ${auth.validUntilLedger})` : ''}`
     )
+  else if (validBefore > MAX_DATE) flag(`its time bound is out of range (${validBefore})`)
   else if (validBefore <= now) flag('its time bound has passed: build it again')
-  else if (validBefore - now > authLedgers() * LEDGER_SECONDS)
+  else if (validBefore - now > authLedgers() * LEDGER_SECONDS + CLOCK_SKEW)
     flag(
-      `it stays valid for ${validBefore - now} s, longer than the ${authLedgers() * LEDGER_SECONDS} s window`
+      `it stays valid for ${validBefore - now} s, longer than the ${authLedgers() * LEDGER_SECONDS} s window and the ${CLOCK_SKEW} s allowed for clocks`
     )
 
   // What it does to the account.
+  // Only the account the owner named is called the smart account.
   const roles: Record<string, string> = {
-    [account]: 'smart account',
+    [account]: i.smartAccount === account ? 'smart account' : 'called account',
     [tx.source]: 'source account',
   }
   const view: View = { roles, raw: i.raw, network }
@@ -232,7 +248,9 @@ export function reviewUnsigned(i: {
           'valid before',
           validBefore === null
             ? 'no time bound'
-            : `${new Date(validBefore * 1000).toISOString().slice(0, 19).replace('T', ' ')} UTC`
+            : validBefore > MAX_DATE
+              ? `${validBefore} (out of range)`
+              : `${new Date(validBefore * 1000).toISOString().slice(0, 19).replace('T', ' ')} UTC`
         ),
         ...(auth
           ? [
@@ -256,10 +274,19 @@ export function reviewUnsigned(i: {
       out.rule = r.rule
       const scoped = Array.isArray(r.rule.scope) && r.rule.scope[0] === 'CallContract'
       const v = { ...view, contract: scoped ? (r.rule.scope as string[])[1] : undefined }
-      body2 = [
-        authority(r.authority, v),
-        ...(r.rule.predicate === null ? [] : tree(r.rule.predicate, v)),
-      ]
+      let held: Node
+      try {
+        held = authority(r.authority, v)
+      } catch (e) {
+        // Flagged in `ruleOf` (a threshold with no number): shown as unreadable, never guessed.
+        held = {
+          label: 'Authority',
+          op: 'authority',
+          raw: null,
+          children: [fact('unreadable', messageOf(e))],
+        }
+      }
+      body2 = [held, ...(r.rule.predicate === null ? [] : tree(r.rule.predicate, v))]
     }
   } else if (call.fn === 'remove_context_rule') {
     const id = call.args.length === 1 ? call.args[0] : undefined
@@ -314,6 +341,9 @@ export function reviewUnsigned(i: {
   }
 }
 
+/** The last second a JavaScript date can show: 8.64e15 ms, in the year 275,760. */
+const MAX_DATE = 8_640_000_000_000
+
 const isMap = (v: Val | undefined): v is { map: [Val, Val][] } =>
   !!v && typeof v === 'object' && !Array.isArray(v) && 'map' in v
 const delegatedOf = (v: Val): string | undefined =>
@@ -362,6 +392,10 @@ function ruleOf(args: Val[], network: Network, account: string, flag: (p: string
             p.signer_weights.map.map(([k, w]) => [delegatedOf(k) ?? JSON.stringify(k), Number(w)])
           )
         : undefined
+      if (isMap(p.signer_weights) && p.signer_weights.map.some(([k]) => !delegatedOf(k)))
+        flag('a threshold weight is given to a key that is not a Delegated address')
+      if (typeof p.threshold !== 'number' || p.threshold < 1)
+        flag('the threshold policy carries no threshold, so what it requires cannot be read')
       a.threshold = { n: Number(p.threshold), ...(weights ? { weights } : {}), raw: params }
     } else if ('grammar_version' in p) {
       interpreters++
@@ -380,9 +414,10 @@ function ruleOf(args: Val[], network: Network, account: string, flag: (p: string
         flag(
           `the interpreter is asked for grammar ${String(p.grammar_version)}, not ${GRAMMAR_VERSION}`
         )
-      a.admins = (Array.isArray(p.policy_admins) ? p.policy_admins : []).map(
-        (x) => delegatedOf(x) ?? JSON.stringify(x)
-      )
+      const admins = Array.isArray(p.policy_admins) ? p.policy_admins : []
+      if (admins.some((x) => !delegatedOf(x)))
+        flag('an admin is not a Delegated address (an External admin)')
+      a.admins = admins.map((x) => delegatedOf(x) ?? JSON.stringify(x))
       const bytes = (p.predicate as { bytes?: string })?.bytes
       const said = (p.predicate_hash as { bytes?: string })?.bytes ?? null
       rule.predicateHash = said

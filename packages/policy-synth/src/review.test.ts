@@ -1,7 +1,7 @@
 // The owner-side review (P0-3): real unsigned builds from testnet (recorded), read back from their
 // bytes, then the same bytes changed the ways an agent or an RPC could change them.
 
-import { afterAll, describe, expect, it } from 'bun:test'
+import { afterAll, afterEach, describe, expect, it, setSystemTime } from 'bun:test'
 import {
   Address,
   Asset,
@@ -15,7 +15,14 @@ import { account, contract } from '../test/fixtures.ts'
 import { recorded } from '../test/rpc.ts'
 import { connect, interpreterFor } from './chain.ts'
 import { PASSPHRASE, SPENDING_LIMIT, thresholdAddress } from './config.ts'
-import { type Built, buildInstall, buildRevoke, type RuleDraft, ruleArgs } from './install.ts'
+import {
+  type Built,
+  buildInstall,
+  buildRevoke,
+  digest,
+  type RuleDraft,
+  ruleArgs,
+} from './install.ts'
 import { callExpr } from './intent.ts'
 import { reviewUnsigned } from './review.ts'
 import { run } from './tools.ts'
@@ -69,8 +76,44 @@ const accountEntry = (env: xdr.TransactionEnvelope) =>
     .find(
       (e) => e.credentials().switch().name === 'sorobanCredentialsAddress'
     ) as xdr.SorobanAuthorizationEntry
-const review = (x: string, o: { smartAccount?: string; network?: 'testnet' | 'mainnet' } = {}) =>
-  reviewUnsigned({ network: 'testnet', xdr: x, ...o })
+/** The owner names the account they mean to change, as the Prime app does. */
+const review = (
+  x: string,
+  o: { smartAccount?: string | undefined; network?: 'testnet' | 'mainnet' } = {}
+) => reviewUnsigned({ network: 'testnet', xdr: x, smartAccount: ACCOUNT, ...o })
+/** The interpreter's install parameters inside the call's policies map. */
+const interpreterParams = (env: xdr.TransactionEnvelope) =>
+  callArgs(env).args()[4]?.map()?.[0]?.val().map() ?? []
+const param = (env: xdr.TransactionEnvelope, key: string) =>
+  interpreterParams(env).find((e) => e.key().sym().toString() === key)
+/** An agent's consistent edit: the account's entry follows the call, and the digest is recomputed. */
+const resign = (env: xdr.TransactionEnvelope, ids = [0]) => {
+  const [acct, check] = opOf(env).auth()
+  if (!acct || !check) throw new Error('no entries')
+  acct.rootInvocation().function().contractFn().args(callArgs(env).args())
+  const c = acct.credentials().address()
+  check
+    .rootInvocation()
+    .function()
+    .contractFn()
+    .args([
+      xdr.ScVal.scvBytes(
+        digest('testnet', c.nonce(), c.signatureExpirationLedger(), acct.rootInvocation(), ids)
+      ),
+    ])
+}
+const withTime = (env: xdr.TransactionEnvelope, max: bigint | number, min = 0) =>
+  env
+    .v1()
+    .tx()
+    .cond(
+      xdr.Preconditions.precondTime(
+        new xdr.TimeBounds({
+          minTime: xdr.Uint64.fromString(String(min)),
+          maxTime: xdr.Uint64.fromString(String(max)),
+        })
+      )
+    )
 const transfer = new xdr.SorobanAuthorizedInvocation({
   function: xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
     new xdr.InvokeContractArgs({
@@ -178,6 +221,47 @@ describe('reviewUnsigned: an honest build, read back from its bytes', () => {
       callArgs(env).args([nativeToScVal(0, { type: 'u32' })])
     })
     expect(review(zero).review.join('\n')).toContain("rule 0 is the account's first rule")
+    const two = edit(b.unsignedXdr, (env) => {
+      callArgs(env).args([nativeToScVal(1, { type: 'u32' }), nativeToScVal(2, { type: 'u32' })])
+    })
+    expect(review(two).problems.join('\n')).toMatch(/takes one rule id/)
+  })
+
+  describe("the owner's clock is not the builder's", () => {
+    afterEach(() => setSystemTime())
+    const at = (shift: number) => setSystemTime(new Date(Date.now() + shift * 1000))
+
+    it('an owner clock up to 120 s behind the builder still reads an untouched build as signable', async () => {
+      const b = await install()
+      at(-115)
+      expect(review(b.unsignedXdr).problems).toEqual([])
+    })
+
+    it('an owner clock more than 120 s behind reads the bound as longer than the window', async () => {
+      const b = await install()
+      at(-130)
+      expect(review(b.unsignedXdr).problems.join('\n')).toMatch(
+        /stays valid for 19\d\d s, longer than the 1800 s window and the 120 s allowed for clocks/
+      )
+    })
+
+    it('an owner clock ahead reads the build as signable until the bound passes, then as passed', async () => {
+      const b = await install()
+      at(1_700)
+      expect(review(b.unsignedXdr).signable).toBe(true)
+      setSystemTime()
+      at(1_900)
+      expect(review(b.unsignedXdr).problems.join('\n')).toMatch(/time bound has passed/)
+    })
+  })
+
+  it('with no account named, nothing is called the smart account and the review is not signable', async () => {
+    const b = await install()
+    const r = review(b.unsignedXdr, { smartAccount: undefined })
+    expect(r.signable).toBe(false)
+    expect(r.problems.join('\n')).toMatch(/no smartAccount was given/)
+    expect(r.review.join('\n')).not.toContain('[smart account]')
+    expect(r.review.join('\n')).toContain('[called account]')
   })
 
   it('needs no RPC: the tool answers with every endpoint pointing nowhere', async () => {
@@ -185,7 +269,11 @@ describe('reviewUnsigned: an honest build, read back from its bytes', () => {
     const before = process.env.POLICY_BUILDER_RPC_URL_TESTNET
     process.env.POLICY_BUILDER_RPC_URL_TESTNET = 'http://127.0.0.1:9'
     try {
-      const r = await run('review_unsigned', { network: 'testnet', xdr: b.unsignedXdr })
+      const r = await run('review_unsigned', {
+        network: 'testnet',
+        xdr: b.unsignedXdr,
+        smartAccount: ACCOUNT,
+      })
       expect(r.ok).toBe(true)
       expect(r.ok && (r.data as { signable: boolean }).signable).toBe(true)
     } finally {
@@ -429,6 +517,202 @@ describe('reviewUnsigned: the same bytes, changed', () => {
         callArgs(env).args()[0] = toScVal(['CallContract', SPENDING_LIMIT.testnet])
       },
       /scoped to a policy contract or to the account itself/,
+    ],
+    [
+      'a time bound already passed',
+      (env: xdr.TransactionEnvelope) => withTime(env, Math.floor(Date.now() / 1000) - 10),
+      /time bound has passed/,
+    ],
+    [
+      'ledger bounds',
+      (env: xdr.TransactionEnvelope) => {
+        const t = env.v1().tx().cond().timeBounds()
+        env
+          .v1()
+          .tx()
+          .cond(
+            xdr.Preconditions.precondV2(
+              new xdr.PreconditionsV2({
+                timeBounds: t,
+                ledgerBounds: new xdr.LedgerBounds({ minLedger: 0, maxLedger: 99_999_999 }),
+                minSeqNum: null,
+                minSeqAge: xdr.Uint64.fromString('0'),
+                minSeqLedgerGap: 0,
+                extraSigners: [],
+              })
+            )
+          )
+      },
+      /preconditions the builder never sets/,
+    ],
+    [
+      'a negative resource fee',
+      (env: xdr.TransactionEnvelope) => {
+        env.v1().tx().ext().sorobanData().resourceFee(new xdr.Int64(-1n))
+      },
+      /negative resource fee/,
+    ],
+    [
+      'no Soroban resources',
+      (env: xdr.TransactionEnvelope) => {
+        env.v1().tx().ext(new xdr.TransactionExt(0))
+      },
+      /no Soroban resources/,
+    ],
+    [
+      'a rule id list that names no rule',
+      (env: xdr.TransactionEnvelope) => {
+        accountEntry(env)
+          .credentials()
+          .address()
+          .signature(
+            toScVal({
+              map: [
+                ['context_rule_ids', []],
+                ['signers', { map: [[['Delegated', SIGNER], { bytes: '' }]] }],
+              ],
+            })
+          )
+      },
+      /names no context rule/,
+    ],
+    [
+      'the authorisation by rule 1, made consistent',
+      (env: xdr.TransactionEnvelope) => {
+        accountEntry(env)
+          .credentials()
+          .address()
+          .signature(
+            toScVal({
+              map: [
+                ['context_rule_ids', [1]],
+                ['signers', { map: [[['Delegated', SIGNER], { bytes: '' }]] }],
+              ],
+            })
+          )
+        resign(env, [1])
+      },
+      /by rule 1, not rule 0/,
+    ],
+    [
+      '__check_auth on another contract',
+      (env: xdr.TransactionEnvelope) => {
+        opOf(env)
+          .auth()[1]
+          ?.rootInvocation()
+          .function()
+          .contractFn()
+          .contractAddress(new Address(contract(8)).toScAddress())
+      },
+      /__check_auth does not match/,
+    ],
+    [
+      'another function in place of __check_auth',
+      (env: xdr.TransactionEnvelope) => {
+        opOf(env).auth()[1]?.rootInvocation().function().contractFn().functionName('upgrade')
+      },
+      /__check_auth does not match/,
+    ],
+    [
+      'a call under __check_auth',
+      (env: xdr.TransactionEnvelope) => {
+        const e = opOf(env).auth()[1] as xdr.SorobanAuthorizationEntry
+        e.rootInvocation(
+          new xdr.SorobanAuthorizedInvocation({
+            function: e.rootInvocation().function(),
+            subInvocations: [transfer],
+          })
+        )
+      },
+      /__check_auth does not match/,
+    ],
+    [
+      'a predicate the interpreter would not read, with its hash',
+      (env: xdr.TransactionEnvelope) => {
+        const bad = encode(['bogus', 1])
+        param(env, 'predicate')?.val(xdr.ScVal.scvBytes(Buffer.from(bad, 'base64')))
+        param(env, 'predicate_hash')?.val(xdr.ScVal.scvBytes(Buffer.from(hashOf(bad), 'hex')))
+        resign(env)
+      },
+      /not one the interpreter reads/,
+    ],
+    [
+      'no predicate',
+      (env: xdr.TransactionEnvelope) => {
+        const p = interpreterParams(env)
+        p.splice(
+          p.findIndex((e) => e.key().sym().toString() === 'predicate'),
+          1
+        )
+        resign(env)
+      },
+      /given no predicate/,
+    ],
+    [
+      'a sixth argument',
+      (env: xdr.TransactionEnvelope) => {
+        callArgs(env).args([...callArgs(env).args(), xdr.ScVal.scvU32(1)])
+        resign(env)
+      },
+      /five arguments of a rule/,
+    ],
+    [
+      'an External admin, made consistent',
+      (env: xdr.TransactionEnvelope) => {
+        param(env, 'policy_admins')?.val(toScVal([['External', contract(6), { bytes: 'ab' }]]))
+        resign(env)
+      },
+      /admin is not a Delegated address/,
+    ],
+    [
+      'a threshold policy with no threshold',
+      (env: xdr.TransactionEnvelope) => {
+        callArgs(env)
+          .args()[4]
+          ?.map()
+          ?.push(
+            new xdr.ScMapEntry({
+              key: new Address(thresholdAddress('testnet', false)).toScVal(),
+              val: toScVal({ map: [] }),
+            })
+          )
+        resign(env)
+      },
+      /threshold policy carries no threshold/,
+    ],
+    [
+      'a threshold weight on an External key',
+      (env: xdr.TransactionEnvelope) => {
+        callArgs(env)
+          .args()[4]
+          ?.map()
+          ?.push(
+            new xdr.ScMapEntry({
+              key: new Address(thresholdAddress('testnet', true)).toScVal(),
+              val: toScVal({
+                map: [
+                  ['signer_weights', { map: [[['External', contract(6), { bytes: 'ab' }], 1]] }],
+                  ['threshold', 1],
+                ],
+              }),
+            })
+          )
+        resign(env)
+      },
+      /threshold weight is given to a key that is not a Delegated address/,
+    ],
+    [
+      'a time bound past the year 275,760',
+      (env: xdr.TransactionEnvelope) => withTime(env, 10n ** 15n),
+      /time bound is out of range/,
+    ],
+    [
+      'an argument of a kind the builder never writes',
+      (env: xdr.TransactionEnvelope) => {
+        callArgs(env).args()[1] = xdr.ScVal.scvError(xdr.ScError.sceContract(1))
+        resign(env)
+      },
+      /argument the builder never writes/,
     ],
     [
       'a start time',

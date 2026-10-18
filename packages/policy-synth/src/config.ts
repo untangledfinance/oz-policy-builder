@@ -29,6 +29,10 @@ export const MAX_AUTH_LEDGERS = 17_280
 /** Seconds per ledger the transaction's time bound allows for: above the close time, so the
  *  ledger expiry is reached first while ledgers close on time. */
 export const LEDGER_SECONDS = 6
+/** How far the owner's clock may run behind the builder's before `review_unsigned` reads a fresh
+ *  build's time bound as longer than the window: 120 s. Phone and browser clocks drift by seconds to
+ *  a minute or two; an owner clock this far off still reads a bound at most 2 minutes too long. */
+export const CLOCK_SKEW = 120
 /** The resource fee ceiling by default, in stroops: 10 XLM. An install of a 12 KiB predicate asks
  *  about 1.3 XLM on testnet, and the 40 KiB ceiling of any interpreter about 4 XLM. */
 export const MAX_RESOURCE_FEE = 100_000_000
