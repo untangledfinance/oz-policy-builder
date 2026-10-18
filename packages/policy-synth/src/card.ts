@@ -426,6 +426,22 @@ export function authority(a: Authority, c: View): Node {
   }
 }
 
+/** The overrides a request set, each with the refusal it waived: the first node of a review, so the
+ *  owner reads what was waived before anything else. */
+export function overridden(o: { flag: string; waived: string | null }[]): Node {
+  return {
+    label: 'Overrides set in the request',
+    op: 'overrides',
+    raw: null,
+    children: o.map((x) => ({
+      label: x.flag,
+      op: 'fact',
+      value: x.waived === null ? 'set, though nothing was refused' : `waived: ${x.waived}`,
+      raw: null,
+    })),
+  }
+}
+
 /** The tree as text, box-drawn: a condition as `name:  phrase  value`. */
 export function lines(nodes: Node[], prefix = '', child = false): string[] {
   return nodes.flatMap((n, i) => {

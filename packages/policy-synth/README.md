@@ -169,8 +169,8 @@ await run('verify_policy', { network: 'testnet', encodedPredicate: rule.encodedP
 | Threshold | Several `signers` with no `threshold`, or a threshold one signer meets alone (n of 1, or a weight of at least n): that rule is satisfied by any ONE signer. `anyOne` beside a threshold that needs more is a contradiction. A threshold that can never be met (n above the signers, or weights that do not cover exactly the signers or total less than n) is refused too. | `anyOne: true` installs 1-of-n on purpose |
 | Spending-limit guard | A `spendingLimit` unless every branch of the predicate pins `call_fn` to `transfer` (OpenZeppelin's `spending_limit` refuses every other function, so those calls would always fail). It is also refused on a scope that is not shown to be a token (a Stellar Asset Contract, or `transfer(from, to, amount: i128)` in its spec) | none |
 | Read safety (`READ_UNSAFE`) | A `read` of a target and function outside the safe list. The list holds the three testnet Reflector oracles (`lastprice`, `price`) and the operator's `POLICY_BUILDER_SAFE_READS_TESTNET` / `_MAINNET` (`C…:function,C…:function`; one malformed entry refuses the whole value). A listed read needs constant arguments. The review marks any other read "(live value, movable within one transaction)". | `POLICY_BUILDER_ALLOW_SPOT_READS=1`, environment only |
-| Authority overlap | A rule a shared signer could bypass through a looser or unpoliced neighbour, a rolling total that would not bind, a neighbour it cannot read or judge, or an account whose rules could not all be read | `allowOverlap: true` |
-| Amounts | An amount with no cap; a swap's least output with no floor | `allowUnboundedAmount`, `allowOpenSlippage` |
+| Authority overlap | A rule a shared signer could bypass through a looser or unpoliced neighbour, a rolling total that would not bind, a neighbour it cannot read or judge, or an account whose rules could not all be read | `allowOverlap: true` (see "Overrides") |
+| Amounts | An amount with no cap; a swap's least output with no floor | `allowUnboundedAmount`, `allowOpenSlippage` (see "Overrides") |
 | Scope | A rule scoped to a policy contract (`POLICY_CONTRACTS`) or to the account itself | none |
 
 The overlap scan reads every live rule on the account. It reads the account's
@@ -181,13 +181,23 @@ own count. An absent or malformed `NextId`, an archived entry, a count that
 disagrees, or more than 512 ids handed out makes it `false`, and the install is
 refused.
 
-The overrides `allowOverlap`, `allowUnboundedAmount`, `allowOpenSlippage` and
-`revoke_policy`'s `allowAdminRule` are tool inputs, and no field names them.
-`allowOverlap` shows only indirectly: a successful install whose
-`authorityScan` lists a `refuse` overlap or has `complete: false`.
-`allowAdminRule` shows in `removes` (rule 0, a Default scope, or a scope on the
-account itself). `allowUnboundedAmount` and `allowOpenSlippage` leave no trace.
-Keep the request with the response.
+### Overrides
+
+`allowOverlap`, `allowUnboundedAmount`, `allowOpenSlippage` and `revoke_policy`'s
+`allowAdminRule` each waive one refusal. They are the account owners' decision,
+and the agent that calls the tool should not take them on its own, so:
+
+- **Refusals:** a refusal says what is wrong and, where there is one, the
+  answer that clears it (`limit`, a floor); it never offers the flag.
+- **Echo:** the response carries `overrides`, one `{ flag, waived }` per flag
+  set to `true`, `waived` being the refusal it waived or `null` when nothing
+  needed it. The review opens with them, before the Authority node:
+  `Overrides set in the request`, then one line per flag (`allowOverlap:
+  waived: refused: rule 0: has no policy, …`). For a revoke they open the review
+  in `removes`.
+- **Mainnet:** a flag set to `true` on mainnet is refused before the network is
+  asked unless the operator sets `POLICY_BUILDER_ALLOW_OVERRIDES=1` in the
+  server's environment. Testnet honours them without it, echoed all the same.
 
 ## What the tools return
 
@@ -227,6 +237,8 @@ total from the account.
   `threshold` is `{ n, weights?, raw }` or absent, `validUntil` a ledger or `null`,
   `total` the `spendingLimit` or `null`, `limits` the interpreter's.
 - `authorityScan`: `{ complete, overlaps[] }`.
+- `overrides`: `[{ flag, waived }]`, empty when no override is set (see
+  "Overrides").
 - `interpreter`: the live fingerprint (grammar, code hash, limits).
 - `unsignedXdr` with its length and sha256, and `writtenTo` when `outFile` is set.
 - `authValidUntilLedger`, `validBefore` (unix seconds) and `fee`

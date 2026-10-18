@@ -1066,6 +1066,109 @@ describe('planInstall: the guards', () => {
     )
     expect(seen).toMatchObject({ admins: [SIGNER], nonce: 1, validUntil: null })
   })
+
+  // P0-4: an agent read the flag off the refusal, set it, and the answer did not say so.
+  describe('overrides: never hinted, always echoed, on mainnet only with the operator switch', () => {
+    const unanswered = { ...rule, unanswered: 'transfer: what is the most `amount` may be?' }
+    const slippage = { ...rule, openSlippage: 'swap: what is the least `amount_out_min` may be?' }
+    const MAIN = 'CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT'
+    const mainnet: InstallInput = { ...input, network: 'mainnet', interpreterAddress: MAIN }
+    const onMainnet = { ...ours, address: MAIN }
+    const withSwitch = async <T>(v: string | undefined, f: () => Promise<T>) => {
+      const before = process.env.POLICY_BUILDER_ALLOW_OVERRIDES
+      if (v === undefined) delete process.env.POLICY_BUILDER_ALLOW_OVERRIDES
+      else process.env.POLICY_BUILDER_ALLOW_OVERRIDES = v
+      try {
+        return await f()
+      } finally {
+        if (before === undefined) delete process.env.POLICY_BUILDER_ALLOW_OVERRIDES
+        else process.env.POLICY_BUILDER_ALLOW_OVERRIDES = before
+      }
+    }
+
+    it('a refusal an override would waive does not name the override', async () => {
+      const cases: [Promise<unknown>, RegExp][] = [
+        [planInstall(input, unanswered, chain()), /most `amount`/],
+        [planInstall(input, slippage, chain()), /least `amount_out_min`/],
+        [planInstall(input, rule, chain({ rules: [neighbour({})] })), /refused: rule 4/],
+        [planInstall(input, rule, chain({ complete: false })), /could not all be read/],
+      ]
+      for (const [p, why] of cases) {
+        const e = (await p.then(
+          () => undefined,
+          (x) => x
+        )) as Refusal
+        expect(e.message).toMatch(why)
+        expect(e.message).not.toMatch(/allow[A-Z]|override/i)
+      }
+    })
+
+    it('every override set is echoed with the refusal it waived, or with null when nothing needed it', async () => {
+      expect((await planInstall(input, rule, chain())).overrides).toEqual([])
+      const none = { allowOverlap: false, allowUnboundedAmount: false, allowOpenSlippage: false }
+      expect((await planInstall({ ...input, ...none }, rule, chain())).overrides).toEqual([])
+      const all = { allowOverlap: true, allowUnboundedAmount: true, allowOpenSlippage: true }
+      const open = { ...unanswered, openSlippage: slippage.openSlippage }
+      const r = await planInstall(
+        { ...input, ...all },
+        open,
+        chain({ rules: [neighbour({})], complete: false })
+      )
+      expect(r.overrides.map((o) => o.flag)).toEqual([
+        'allowUnboundedAmount',
+        'allowOpenSlippage',
+        'allowOverlap',
+      ])
+      expect(r.overrides[0]?.waived).toBe(unanswered.unanswered)
+      expect(r.overrides[1]?.waived).toBe(slippage.openSlippage)
+      expect(r.overrides[2]?.waived).toMatch(/refused: rule 4.*could not all be read/)
+      const idle = await planInstall({ ...input, ...all }, rule, chain())
+      expect(idle.overrides).toEqual([
+        { flag: 'allowUnboundedAmount', waived: null },
+        { flag: 'allowOpenSlippage', waived: null },
+        { flag: 'allowOverlap', waived: null },
+      ])
+    })
+
+    it('on mainnet an override is refused before anything is asked, unless the operator sets POLICY_BUILDER_ALLOW_OVERRIDES=1', async () => {
+      let asked = 0
+      const counted = chain({
+        fingerprint: async () => {
+          asked++
+          return onMainnet
+        },
+        build: async () => {
+          asked++
+          return built
+        },
+      })
+      for (const flag of ['allowOverlap', 'allowUnboundedAmount', 'allowOpenSlippage'])
+        for (const v of [undefined, '0', 'true', 'yes'])
+          await withSwitch(v, () =>
+            refused(
+              planInstall({ ...mainnet, [flag]: true }, rule, counted),
+              'INSTALL_BUILD_FAILED',
+              new RegExp(`${flag}.*mainnet.*POLICY_BUILDER_ALLOW_OVERRIDES=1`)
+            )
+          )
+      expect(asked).toBe(0)
+      // No override, or an override set to false, needs no switch; the switch lets it through, echoed.
+      const clean = chain({ fingerprint: async () => onMainnet })
+      expect((await planInstall(mainnet, rule, clean)).overrides).toEqual([])
+      expect(
+        (await planInstall({ ...mainnet, allowOverlap: false }, rule, clean)).overrides
+      ).toEqual([])
+      const on = await withSwitch('1', () =>
+        planInstall({ ...mainnet, allowUnboundedAmount: true }, unanswered, clean)
+      )
+      expect(on.overrides).toEqual([
+        { flag: 'allowUnboundedAmount', waived: unanswered.unanswered },
+      ])
+      // Testnet honours an override without the switch, and echoes it all the same.
+      const t = await planInstall({ ...input, allowUnboundedAmount: true }, unanswered, chain())
+      expect(t.overrides).toEqual([{ flag: 'allowUnboundedAmount', waived: unanswered.unanswered }])
+    })
+  })
 })
 
 describe('planRevoke: the only destructive tool reads what it removes', () => {
@@ -1084,7 +1187,7 @@ describe('planRevoke: the only destructive tool reads what it removes', () => {
       return built
     },
   })
-  const input = { smartAccount: ACCOUNT, sourceAccount: SIGNER }
+  const input = { network: 'testnet' as const, smartAccount: ACCOUNT, sourceAccount: SIGNER }
 
   it('describes the rule it would remove, beside the unsigned transaction', async () => {
     const r = await planRevoke({ ...input, ruleId: 3 }, chain(rule({})))
@@ -1125,6 +1228,36 @@ describe('planRevoke: the only destructive tool reads what it removes', () => {
     expect(ok.removes.id).toBe(4)
     // Scoped to another contract it is an ordinary rule.
     expect((await planRevoke({ ...input, ruleId: 4 }, chain(rule({ id: 4 })))).removes.id).toBe(4)
+  })
+
+  it('allowAdminRule is never hinted, always echoed, and on mainnet needs the operator switch', async () => {
+    const zero = rule({ id: 0, scope: { kind: 'default' }, policies: [] })
+    const e = await planRevoke({ ...input, ruleId: 0 }, chain(zero)).then(
+      () => undefined,
+      (x) => x as Refusal
+    )
+    expect(e?.message).toMatch(/lock the account out/)
+    expect(e?.message).not.toMatch(/allow[A-Z]|override/i)
+    expect((await planRevoke({ ...input, ruleId: 3 }, chain(rule({})))).overrides).toEqual([])
+    const ok = await planRevoke({ ...input, ruleId: 0, allowAdminRule: true }, chain(zero))
+    expect(ok.overrides).toEqual([{ flag: 'allowAdminRule', waived: e?.message }])
+    const idle = await planRevoke({ ...input, ruleId: 3, allowAdminRule: true }, chain(rule({})))
+    expect(idle.overrides).toEqual([{ flag: 'allowAdminRule', waived: null }])
+    let built = 0
+    const main = { ...input, network: 'mainnet' as const, ruleId: 0, allowAdminRule: true }
+    await expect(
+      planRevoke(
+        main,
+        chain(zero, () => built++)
+      )
+    ).rejects.toThrow(/allowAdminRule.*mainnet.*POLICY_BUILDER_ALLOW_OVERRIDES=1/)
+    expect(built).toBe(0)
+    process.env.POLICY_BUILDER_ALLOW_OVERRIDES = '1'
+    try {
+      expect((await planRevoke(main, chain(zero))).overrides[0]?.flag).toBe('allowAdminRule')
+    } finally {
+      delete process.env.POLICY_BUILDER_ALLOW_OVERRIDES
+    }
   })
 
   it("a rule that is not there is the build's own refusal, not an empty description", async () => {

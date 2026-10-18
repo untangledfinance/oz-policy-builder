@@ -9,6 +9,13 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ### Fixed
 
+- **policy-synth, overrides taken from the agent (P0-4):** a refusal gave the
+  flag that waived it (`allowOverlap`, `allowUnboundedAmount`,
+  `allowOpenSlippage`, `allowAdminRule`) and the answer did not say one was set.
+  Refusals no longer name a flag; install and revoke return `overrides`
+  (`{ flag, waived }` for each flag set) and the review opens with them; on
+  mainnet a flag set to `true` is refused unless the operator sets
+  `POLICY_BUILDER_ALLOW_OVERRIDES=1`.
 - **policy-synth, the RPC chose the signed expiry and the fee:** install and
   revoke took the authorisation's expiry from the ledger a simulation reported
   (a lying RPC moved it about four months out) and any resource fee it asked

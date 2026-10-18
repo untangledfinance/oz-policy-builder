@@ -345,6 +345,40 @@ export const buildInstall = (a: BuildArgs, d: RuleDraft, interpreter: string) =>
 export const buildRevoke = (a: BuildArgs, ruleId: number) =>
   buildSelfCall(a, 'remove_context_rule', [ruleId], 'REVOKE_BUILD_FAILED')
 
+// ---- the overrides ----
+
+/** The inputs that waive a refusal. An agent could read one off a refusal and set it, so no refusal
+ *  names them, every one set is echoed, and on mainnet they need the operator's switch. */
+export type OverrideFlag =
+  | 'allowUnboundedAmount'
+  | 'allowOpenSlippage'
+  | 'allowOverlap'
+  | 'allowAdminRule'
+
+/** The overrides an install takes, in the order its refusals come. */
+export const INSTALL_OVERRIDES = [
+  'allowUnboundedAmount',
+  'allowOpenSlippage',
+  'allowOverlap',
+] as const
+
+/** An override the request set, with the refusal it waived (`null`: nothing needed it). */
+export interface Override {
+  flag: OverrideFlag
+  waived: string | null
+}
+
+/** On mainnet an override is honoured only when the operator sets POLICY_BUILDER_ALLOW_OVERRIDES=1:
+ *  refused before the network is asked. Testnet honours them, echoed all the same. */
+export function gate(network: Network, set: OverrideFlag[], code: ErrorCode): void {
+  if (network !== 'mainnet' || set.length === 0) return
+  if (process.env.POLICY_BUILDER_ALLOW_OVERRIDES === '1') return
+  throw new Refusal(
+    code,
+    `${set.join(', ')} ${set.length > 1 ? 'are' : 'is'} set, and on mainnet an override is honoured only when the operator sets POLICY_BUILDER_ALLOW_OVERRIDES=1; build without it, or take the refusal to the account's owners`
+  )
+}
+
 // ---- the removal ----
 
 /** What a removal asks of the network: the rule being removed, and the build. */
@@ -357,9 +391,16 @@ export interface RevokeChain {
  *  Default-scoped rule can leave the account with nothing able to authorise its own
  *  administration, for good: refused unless `allowAdminRule`. */
 export async function planRevoke(
-  i: { ruleId: number; smartAccount: string; allowAdminRule?: boolean | undefined },
+  i: {
+    network: Network
+    ruleId: number
+    smartAccount: string
+    allowAdminRule?: boolean | undefined
+  },
   chain: RevokeChain
 ) {
+  const set: OverrideFlag[] = i.allowAdminRule === true ? ['allowAdminRule'] : []
+  gate(i.network, set, 'REVOKE_BUILD_FAILED')
   const [rule, built] = await Promise.allSettled([chain.readRule(i.ruleId), chain.build(i.ruleId)])
   if (rule.status === 'rejected') throw rule.reason
   const removes = rule.value
@@ -369,14 +410,14 @@ export async function planRevoke(
   }
   // Rule 0, a Default scope, and a scope on the account itself (it authorises add_context_rule).
   const own = removes.scope.kind === 'call_contract' && removes.scope.contract === i.smartAccount
-  if (!i.allowAdminRule && (i.ruleId === 0 || removes.scope.kind === 'default' || own)) {
-    throw new Refusal(
-      'REVOKE_BUILD_FAILED',
-      `rule ${i.ruleId} is ${removes.scope.kind === 'default' ? 'Default-scoped' : own ? 'scoped to the account itself' : "the account's first rule"}: removing it can lock the account out of its own administration for good. Set allowAdminRule to build it anyway.`
-    )
+  let waived: string | null = null
+  if (i.ruleId === 0 || removes.scope.kind === 'default' || own) {
+    waived = `rule ${i.ruleId} is ${removes.scope.kind === 'default' ? 'Default-scoped' : own ? 'scoped to the account itself' : "the account's first rule"}: removing it can lock the account out of its own administration for good`
+    if (i.allowAdminRule !== true) throw new Refusal('REVOKE_BUILD_FAILED', waived)
   }
   if (built.status === 'rejected') throw built.reason
-  return { ...built.value, removes }
+  const overrides: Override[] = set.map((flag) => ({ flag, waived }))
+  return { ...built.value, removes, overrides }
 }
 
 // ---- the install, with every refusal in one place ----
@@ -425,19 +466,30 @@ export interface Chain {
 
 /** Every refusal an install can meet, in the order a reader should hear of them:
  *  the input, the interpreter, the account's other rules, the build. Anything the
- *  scan cannot judge is refused too; `allowOverlap` is the one override. */
+ *  scan cannot judge is refused too. Three refusals can be waived by an override, and
+ *  each override set comes back in `overrides` with what it waived. */
 export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   const no = (m: string) => new Refusal('INSTALL_BUILD_FAILED', m)
-  if (rule.unanswered && !i.allowUnboundedAmount) {
-    throw no(
-      `${rule.unanswered} Answer with \`limit\` or \`limits\`, or set allowUnboundedAmount to install without it.`
-    )
+  const set = INSTALL_OVERRIDES.filter((f) => i[f] === true)
+  gate(i.network, set, 'INSTALL_BUILD_FAILED')
+  const waived: Partial<Record<OverrideFlag, string>> = {}
+  /** Refuse with `message`, unless `flag` is set: then record what it waived (`what`). */
+  const unless = (flag: OverrideFlag, what: string, message = what) => {
+    if (i[flag as keyof InstallInput] !== true) throw no(message)
+    waived[flag] = waived[flag] === undefined ? what : `${waived[flag]} ${what}`
   }
-  if (rule.openSlippage && !i.allowOpenSlippage) {
-    throw no(
-      `${rule.openSlippage} Set a floor or minOut in an intent, or set allowOpenSlippage to install without one.`
+  if (rule.unanswered)
+    unless(
+      'allowUnboundedAmount',
+      rule.unanswered,
+      `${rule.unanswered} Answer with \`limit\` or \`limits\`.`
     )
-  }
+  if (rule.openSlippage)
+    unless(
+      'allowOpenSlippage',
+      rule.openSlippage,
+      `${rule.openSlippage} Set a floor or minOut in an intent.`
+    )
   if (POLICY_CONTRACTS.has(rule.contract) || rule.contract === i.smartAccount) {
     throw no(
       'a rule scoped to a policy contract or to the account itself would expose its admin calls; scope it to the contract the calls go to'
@@ -510,18 +562,15 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   if (!fingerprint.matches) throw mismatch(fingerprint)
   const read = got(scan)
   const found = overlaps({ ...draft, expr: rule.expr }, read.rules, interpreter, i.network)
-  if (i.allowOverlap !== true) {
-    const refused = found.filter((o: Overlap) => o.severity === 'refuse')
-    if (refused.length > 0) {
-      throw no(
-        `refused: ${refused.map((o) => o.advice).join(' ')} Set allowOverlap to install anyway.`
-      )
-    }
-    if (!read.complete)
-      throw no(
-        "the account's rules could not all be read, so whether this rule can bind is not known; set allowOverlap to install anyway"
-      )
-  }
+  const refused = found.filter((o: Overlap) => o.severity === 'refuse')
+  if (refused.length > 0)
+    unless('allowOverlap', `refused: ${refused.map((o) => o.advice).join(' ')}`)
+  if (!read.complete)
+    unless(
+      'allowOverlap',
+      "the account's rules could not all be read, so whether this rule can bind is not known"
+    )
+  const overrides: Override[] = set.map((flag) => ({ flag, waived: waived[flag] ?? null }))
   return {
     ...got(built),
     authority: {
@@ -536,5 +585,6 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
     rule: { contract: rule.contract, predicateHash: rule.hash },
     interpreter: fingerprint,
     authorityScan: { complete: read.complete, overlaps: found },
+    overrides,
   }
 }
