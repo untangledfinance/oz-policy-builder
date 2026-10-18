@@ -7,6 +7,35 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ## [Unreleased]
 
+### Fixed
+
+- **policy-builder-mcp, a body over 1 MiB:** it gets 413 under Bun 1.3 too. The
+  HTTP transport left a `for await` over the request early, which destroys it, and
+  Bun 1.3.14 then answered 200 with an empty body before the 413 was written.
+  The body is now read with `data` and `end` listeners, and the 413 closes the
+  connection. Node and Bun 1.4 behaved correctly already.
+
+### Changed
+
+- **Contracts sit under `contracts/<chain>/`:** `contracts/prime/*` moved up one
+  level (`contracts/stellar`, `contracts/evm`, `contracts/solana`,
+  `contracts/near`, with `README.md`, `build-hashes.json` and
+  `check-build-hash.sh`). Every build hash is unchanged at the new paths;
+  `contracts/README.md` has the table.
+
+### Removed
+
+- **The Stellar and EVM `prime-session` contracts:** the move-only session
+  design was withdrawn for those chains on 12 October 2026, and on both an
+  owner's session key now lives in the seat (`prime-seat`). The Solana
+  `prime-session` stays.
+- **The spike bundle and its design record** (`contracts/prime/spike/` and
+  `contracts/prime/ARCHITECTURE.md`). Both stay readable at tag
+  `archive/spike-final`, and the docs link there.
+- **Files nothing used:** 37 test snapshots that no test writes,
+  `scripts/execution-oz-auth.ts` (its only importer went in 2.0.0) and
+  `scripts/check-classic-reject-reason.ts` (a one-off probe).
+
 ## [2.0.1] - 2026-10-17
 
 Published to npm under the `next` dist-tag (`@crediolabs/policy-synth`,
