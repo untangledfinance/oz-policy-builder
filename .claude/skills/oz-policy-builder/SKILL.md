@@ -98,7 +98,7 @@ contract would do, with its deny code.
 | Explain a predicate | `simulate_policy` with only `expr` or `encodedPredicate` |
 | Show what an account already allows | `get_interpreter_info` with `explainAccount: "<C… smart account>"`. It reads every rule and reviews each one this interpreter polices. Only a known OpenZeppelin account build (`91a2cd56…`) is read; any other account is refused |
 | Remove a rule | `revoke_policy` with `ruleId` |
-| Let the owner check an unsigned transaction | Tell the owner to run `review_unsigned` (or `policy-builder review`) on the XDR themselves, before signing. It reads the bytes alone and lists `problems`; running it yourself and relaying the answer adds nothing the owner can check |
+| Let the owner check an unsigned transaction | Tell the owner to run `review_unsigned` (or `policy-builder review`) on the XDR themselves, before signing. It reads the bytes alone, with `smartAccount` set, and lists the `problems` it finds in them. `signable` does not mean safe: tell the owner to read its Authority node (signers, who acts alone, admins, expiry, total) against what they asked for. Running it yourself and relaying the answer adds nothing the owner can check |
 | Check the interpreter | `get_interpreter_info` with `verifyLive: true`: `live.matches` says whether the deployed code is a trusted grammar-7 build. `install_policy` checks it again before building |
 | "at least N out": a slippage floor on a swap | `minOut`: `{ constraint: "minOut", at: [1], of: [0], num, den }` bounds the output argument against the call's own input (`out >= in * num / den`), so one rule covers every trade size. Ask the user for the ratio. A recorded rate is a price at one moment, and freezing it as policy denies ordinary trades later |
 | A price or balance check | `read` calls a fixed function of a fixed contract at enforce time. The install refuses it with `READ_UNSAFE` unless the target is on the safe list (below) |
@@ -178,7 +178,8 @@ user thinks. Read every result in full.
   ANY ONE can act alone. `install_policy` refuses several `signers` with no
   `threshold` for this reason. Ask the user how many must approve and pass
   `threshold`; pass `anyOne: true` only when they say one signer alone is
-  intended.
+  intended. `anyOne` is an override: it is echoed in `overrides`, and on mainnet
+  it needs the operator's `POLICY_BUILDER_ALLOW_OVERRIDES=1`.
 
 - **The constrained key must not sit on rule 0:** rule 0 is unpoliced by
   construction, so a policy on a rule-0 signer installs with no error and constrains
@@ -265,7 +266,7 @@ user thinks. Read every result in full.
   signer of the account's rule 0.
 - **Threshold:** several `signers` and no `threshold`, or a threshold one signer
   meets alone (`{ simple: 1 }`, or one weight of at least n), make the rule 1-of-n and are
-  refused unless `anyOne: true`. Also refused: a signer listed twice, a threshold
+  refused; `anyOne: true` is the override. Also refused: a signer listed twice, a threshold
   that can never be met (n above the signers, or weights that do not cover
   exactly the signers or total less than n), and `anyOne` beside a threshold
   that needs more than one.
@@ -315,8 +316,8 @@ user thinks. Read every result in full.
 - **An endpoint or a directory as input:** neither is a tool argument.
   `outFile` is only a file name inside `POLICY_BUILDER_OUT_DIR`.
 
-**Overrides belong to the user:** `allowOverlap`, `allowUnboundedAmount` and
-`allowOpenSlippage` on `install_policy`, and `allowAdminRule` on
+**Overrides belong to the user:** `allowOverlap`, `allowUnboundedAmount`,
+`allowOpenSlippage` and `anyOne` on `install_policy`, and `allowAdminRule` on
 `revoke_policy`, each waive one refusal. No refusal names them: answer the
 question it asks (a cap, a floor), or take it to the user. Set one only after
 the user has read the refusal and decided. The response echoes each one in

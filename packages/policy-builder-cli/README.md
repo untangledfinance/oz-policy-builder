@@ -43,8 +43,12 @@ guardrails (threshold or `anyOne`, the spending-limit guard, the read-safety lin
 the overlap scan) are described in the policy-synth README.
 
 `policy-builder review` is for the account owner: it reads an unsigned install or
-removal from its bytes alone, with no RPC, and lists every reason not to sign it
-(`problems`, `signable`) above the same review the agent was shown.
+removal from its bytes alone, with no RPC. It lists the problems it finds in the
+bytes (`problems`, `signable`), then a review rebuilt from those bytes: the
+transaction, the Authority node and the predicate. `signable` does not mean safe:
+an agent can rewrite the bytes consistently, so the owner reads the Authority
+node against what they meant (see "The owner's review" in the policy-synth
+README).
 
 ## License
 

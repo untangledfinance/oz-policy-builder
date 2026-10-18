@@ -701,15 +701,16 @@ Enforcement happens on chain. The builder checks a rule before it is signed:
 |---|---|
 | Interpreter | On testnet only the pinned instance is accepted (`INTERPRETER_MISMATCH` for any other address), and no input turns that off. Mainnet has no grammar-7 pin: a call names `interpreterAddress`, and it is accepted only if its live code hash is a build the package trusts. |
 | RPC endpoint | The operator's: `POLICY_BUILDER_RPC_URL_TESTNET` or `_MAINNET` in the environment, else the network default. It must be https, or http on loopback. No tool input takes an endpoint. |
-| Threshold | Several `signers` with no `threshold`, or with a threshold one signer meets alone, are refused, because a rule with any policy attached is satisfied by any one of its signers. `threshold` attaches OpenZeppelin's `simple_threshold` (`{ simple: n }`) or `weighted_threshold` (`{ weighted: { weights, n } }`) beside the interpreter. `anyOne: true` installs a rule any one signer can use alone, on purpose. |
+| Threshold | Several `signers` with no `threshold`, or with a threshold one signer meets alone, are refused, because a rule with any policy attached is satisfied by any one of its signers. `threshold` attaches OpenZeppelin's `simple_threshold` (`{ simple: n }`) or `weighted_threshold` (`{ weighted: { weights, n } }`) beside the interpreter. `anyOne: true` installs a rule any one signer can use alone; it is an override like those below. |
 | Spending limit | `spendingLimit` attaches OpenZeppelin's `spending_limit`. It is refused unless every branch of the predicate pins `call_fn` to `transfer` and the rule's scope is shown to be a token, because that policy fails every other function. |
 | Read safety | A `read` outside the safe list is refused with `READ_UNSAFE`. The list holds the three testnet Reflector oracles (`lastprice`, `price`) and the operator's `POLICY_BUILDER_SAFE_READS_TESTNET` or `_MAINNET`; a listed read needs constant arguments. `POLICY_BUILDER_ALLOW_SPOT_READS=1` lets other reads through. All three switches are operator environment only, and no tool input can set them. |
 | Authority overlap | The builder reads every rule on the account and refuses a rule a shared signer could bypass through a looser or unpoliced neighbour, or an account whose rules it could not all read. |
 | Amounts | An amount with no cap, and a swap whose least output has no floor, are refused. |
 | Signed expiry and fee | The builder sets the authorisation's expiry: the ledger the recording simulation ran at plus `POLICY_BUILDER_AUTH_LEDGERS` (default 300, at most 17,280), and the two simulations must report ledgers within 20 of each other. The transaction carries a time bound from the builder's clock, the window at 6 s a ledger (30 minutes by default). A resource fee above `POLICY_BUILDER_MAX_RESOURCE_FEE` (default 100,000,000 stroops, 10 XLM) is refused. Both are operator environment only. |
 
-Four overrides are tool inputs: `allowOverlap`, `allowUnboundedAmount` and
-`allowOpenSlippage` on `install_policy`, and `allowAdminRule` on `revoke_policy`.
+Five overrides are tool inputs: `allowOverlap`, `allowUnboundedAmount`,
+`allowOpenSlippage` and `anyOne` on `install_policy`, and `allowAdminRule` on
+`revoke_policy`.
 Each waives one refusal and is the account owners' decision. No refusal names
 them. Each one set comes back in `overrides`, as `{ flag, waived }` with the
 refusal it waived (or `null` when nothing needed it), and the review opens with
@@ -720,13 +721,21 @@ testnet honours them, echoed all the same.
 
 `review_unsigned` is the owner's side of the review. A wallet or the Prime app
 runs it on the unsigned XDR it is about to sign (also `reviewUnsigned` from
-`@crediolabs/policy-synth`): it reads the bytes alone, with no RPC, lists in
-`problems` every check of the builder the bytes fail (an authorisation for
-anything but the call, a `__check_auth` digest that does not match on the
-network, an interpreter other than the pin, a predicate whose hash does not
-match its bytes, an unknown policy, a fee above the ceiling, no time bound or a
-longer one), and renders the transaction, the Authority header and the
-predicate from the bytes.
+`@crediolabs/policy-synth`, with `smartAccount` set): it reads the bytes alone,
+with no RPC, lists in `problems` what it finds wrong in them (an authorisation
+for anything but the call or by a rule other than 0, a `__check_auth` digest
+that does not match on the network, an interpreter other than the pin, a
+predicate whose hash does not match its bytes, an unknown policy, an External
+signer or admin, a fee above the ceiling, no time bound or one longer than the
+window plus 120 s for the owner's clock), and renders the transaction, the
+Authority header and the predicate from the bytes. `signable` means no such
+problem; it does not mean safe. Nothing is signed yet, so an agent can rewrite
+the unsigned bytes consistently, recomputing the digest: itself as admin or
+signer, a threshold dropped, a cap raised with a matching hash. Those read
+signable, as do installs built with an override and rules the builder refuses
+for reasons it checks online (overlap, read safety, 1-of-n). The rewrite shows
+in the Authority header and the predicate, so the owner reads them against
+what they meant before signing.
 
 `install_policy` returns the facts it installs as an `authority` object:
 `{ signers, threshold, admins, validUntil, total, interpreter, limits }`.

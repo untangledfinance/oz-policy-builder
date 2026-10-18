@@ -146,9 +146,10 @@ measurements behind the limits.
   about 2 such contexts fit in one transaction inside an 80% margin.
 - **Read targets must be kept alive,** and rent is paid per KB of rule: a permit
   near expiry extends the rule's entry inside the agent's own transaction.
-- **Threshold or `anyOne`:** an install with several signers needs a `threshold`
-  (OpenZeppelin `simple_threshold` or `weighted_threshold`) or `anyOne: true`.
-  Without one, any single signer could act alone.
+- **Threshold:** an install with several signers needs a `threshold`
+  (OpenZeppelin `simple_threshold` or `weighted_threshold`) that one signer
+  cannot meet alone. Without one, any single signer could act alone; `anyOne`
+  is the owners' override for that (see the next items but one).
 - **Spending-limit guard:** a `spendingLimit` needs a rule that pins `transfer`
   on a token, because OpenZeppelin's `spending_limit` refuses every other call.
 - **Read-safety lint:** a `read` outside the safe list (the testnet Reflector
@@ -157,7 +158,7 @@ measurements behind the limits.
 - **The full rule scan:** the install reads every live rule on the account and
   refuses a rule a shared signer could bypass.
 - **Overrides belong to the owners:** `allowOverlap`, `allowUnboundedAmount`,
-  `allowOpenSlippage` and `allowAdminRule` each waive one refusal. No refusal
+  `allowOpenSlippage`, `anyOne` and `allowAdminRule` each waive one refusal. No refusal
   names them, each one set comes back in `overrides` and opens the review, and
   on mainnet they are refused unless the operator sets
   `POLICY_BUILDER_ALLOW_OVERRIDES=1`.
@@ -166,8 +167,13 @@ measurements behind the limits.
   with a time bound from the builder's clock) and refuses a resource fee above
   `POLICY_BUILDER_MAX_RESOURCE_FEE` (default 10 XLM).
 - **The owner's review:** `review_unsigned` reads an unsigned install or
-  removal from its bytes alone, with no RPC, and lists every reason not to sign
-  it, so the owner need not trust what the agent relayed.
+  removal from its bytes alone, with no RPC. It lists the problems it finds in
+  the bytes (a shape the builder never makes, a digest that does not match, an
+  interpreter other than the pin, a predicate whose hash does not match) and
+  shows the authority the bytes grant. `signable` means no such problem; it does
+  not mean safe. An agent can rewrite the bytes consistently, for example to
+  make itself an admin, and they read signable, so the owner reads the Authority
+  node against what they meant.
 - **The authority header:** the install review opens with who may act, under
   which threshold, until when, up to what total, and under which interpreter.
   `[…]` marks the package's roles and `«…»` the labels given in the request.
@@ -208,7 +214,7 @@ The STRIDE threat model for grammar 7, with what is done and what is open at
 | --- | --- |
 | `packages/policy-synth` | The wire codec, the synthesiser and the record, simulate, verify, install and revoke tools. Published as `@crediolabs/policy-synth`. |
 | `packages/policy-builder-cli` | One command per tool, registered from the synth core's table (`@crediolabs/policy-builder-cli`). |
-| `packages/policy-builder-mcp` | MCP server exposing the seven policy tools (`@crediolabs/policy-builder-mcp`). |
+| `packages/policy-builder-mcp` | MCP server exposing the eight policy tools (`@crediolabs/policy-builder-mcp`). |
 | `contracts/stellar/policy-interpreter` | The Soroban contract that enforces a predicate on chain. |
 | `contracts/stellar/custody-gate` | The custody account's gate: holds its allowance and releases only to listed addresses. |
 | `contracts/stellar/execution-adapter` | The per-Prime batcher, bound to one gate. A batch can wait a number of ledgers before it runs. |

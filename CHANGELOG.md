@@ -7,24 +7,43 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
 
 ## [Unreleased]
 
+**Version:** the next release of the three packages is 3.0.0, a major bump.
+Under semver the marked changes below are breaking: mainnet now refuses
+override inputs it used to honour, refusal texts that callers may match on have
+changed, and environment values that were ignored now refuse every build. The
+mainnet refusal is the intended security change of P0-4.
+
 ### Added
 
-- **policy-synth, the owner's review of an unsigned transaction (P0-3):** the
+- **policy-synth, an owner-side review of an unsigned transaction (P0-3):** the
   review and the XDR reached the owner only through the agent. `review_unsigned`
   (a tool, a CLI command, and `reviewUnsigned` from the package root) reads an
-  unsigned install or removal from its bytes alone, with no RPC, and lists each
-  reason not to sign it (`problems`, `signable`) above the transaction, the
-  Authority node and the predicate read back out of the bytes.
+  unsigned install or removal from its bytes alone, with no RPC, and lists the
+  problems it finds in them (`problems`, `signable`): a shape the builder never
+  makes, a digest that does not match, an interpreter other than the pin, a
+  predicate whose hash does not match its bytes, a fee or time bound out of
+  bounds. Then come the transaction, the Authority node and the predicate, read
+  back out of the bytes. `signable` does not mean safe: an agent can rewrite the
+  unsigned bytes consistently (itself as admin or signer, a threshold dropped, a
+  cap raised with a matching hash), and that comes back signable, as do installs
+  that used an override and rules the builder refuses for reasons it checks
+  online (overlap, read safety, 1-of-n). The owner must read the Authority node
+  against what they meant. An owner clock up to 120 s behind the builder's is
+  allowed for, and without `smartAccount` the review is never signable.
 
 ### Fixed
 
 - **policy-synth, overrides taken from the agent (P0-4):** a refusal gave the
   flag that waived it (`allowOverlap`, `allowUnboundedAmount`,
-  `allowOpenSlippage`, `allowAdminRule`) and the answer did not say one was set.
-  Refusals no longer name a flag; install and revoke return `overrides`
-  (`{ flag, waived }` for each flag set) and the review opens with them; on
-  mainnet a flag set to `true` is refused unless the operator sets
-  `POLICY_BUILDER_ALLOW_OVERRIDES=1`.
+  `allowOpenSlippage`, `allowAdminRule`, and `anyOne` for 1-of-n) and the answer
+  did not say one was set. Install and revoke now return `overrides`
+  (`{ flag, waived }` for each flag set), and the review opens with them.
+  - **Breaking:** on mainnet a flag set to `true` is refused unless the operator
+    sets `POLICY_BUILDER_ALLOW_OVERRIDES=1`; `anyOne` is one of these flags.
+  - **Breaking:** refusal texts changed. No refusal names a flag (the overlap,
+    amount, slippage, scan, 1-of-n and admin-rule refusals all lost their last
+    sentence), so a caller matching on "Set allowOverlap" or "`anyOne: true`"
+    no longer matches.
 - **policy-synth, the RPC chose the signed expiry and the fee:** install and
   revoke took the authorisation's expiry from the ledger a simulation reported
   (a lying RPC moved it about four months out) and any resource fee it asked
@@ -32,9 +51,13 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   `POLICY_BUILDER_AUTH_LEDGERS` (default 300), the two simulations must agree on
   the ledger within 20, and the transaction carries a time bound from the
   builder's clock (`validBefore`). A resource fee above
-  `POLICY_BUILDER_MAX_RESOURCE_FEE` (default 10 XLM) is refused. Builds return
-  `fee` and `validBefore`.
-
+  `POLICY_BUILDER_MAX_RESOURCE_FEE` (default 10 XLM), or below zero, is
+  refused. Builds return `fee` and `validBefore`.
+  - **Breaking:** a malformed `POLICY_BUILDER_AUTH_LEDGERS` or
+    `POLICY_BUILDER_MAX_RESOURCE_FEE` (anything but a whole number in range) refuses every
+    install and revoke with `INVALID_INPUT`; an empty value is the default.
+  - **Breaking:** a build whose resource fee is above 10 XLM, which was built
+    before, is refused unless the operator raises the ceiling.
 - **policy-builder-mcp, a body over 1 MiB:** it gets 413 under Bun 1.3 too. The
   HTTP transport left a `for await` over the request early, which destroys it, and
   Bun 1.3.14 then answered 200 with an empty body before the 413 was written.
