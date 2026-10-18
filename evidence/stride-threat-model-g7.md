@@ -269,7 +269,7 @@ Each row names the threat, where it enters, the control with its file and line, 
 | T | A start far ahead, or a long window | v2 `plan` | `start <= now + 300`, `0 < end - start <= 604,800` (`:101-102`) | 4 time vectors; 17 boundary rows against the block time |
 | S | v1 and v2 keys collide | MPC derivation | the predecessor differs | 5 rows; v1 signs an arbitrary payload for a wallet signature (tx `4iu99Lph…`) |
 | E | The holder of a signer account key deploys other code (G7S-1) | NEAR account keys | none on chain | `view_access_key_list`: one FullAccess key on each signer account |
-| E | v1 signs any payload the wallet approves (G7S-2) | v1 `sign` (`prime-near-signer/src/lib.rs:20-31`) | the wallet text shows the payload hex | live tx above; Low |
+| E | v1 signs any payload the wallet approves (G7S-2) | v1 `sign` (`prime-near-signer/src/lib.rs:20-31`, at tag `archive/near-signer-v1`) | the wallet text shows the payload hex | live tx above; Low |
 
 ### `policy-synth`, CLI, MCP server
 
@@ -308,6 +308,8 @@ Each row names the threat, where it enters, the control with its file and line, 
 ### G7S-2, Low: NEAR signer v1 signs any payload its wallet approves, and stays deployed
 
 v1 asks the MPC to sign `payload` for any wallet that signs the v1 text, and the text shows the payload only as hex. Live row: the MPC returned a signature for an arbitrary payload under the v1 key (tx `4iu99Lph…`). octopos `main` calls only `seats.*` (relayer `NEAR_SIGNER_ACCOUNT`, `apps/web/ui/octopos/near/request.ts:30`), and mainnet builds refuse the NEAR client (`apps/web/scripts/assert-mainnet-build.ts`). Keys derived under v1 are owners of spike-era testnet accounts only (round 9, EVM Safes on Base Sepolia). v1 is redundant in this tree: v2 serves every seat. Proposed: move `contracts/near/prime-near-signer` and its CI job out of the tree (it stays at a tag), and lock or delete the deployed account under G7S-1. Decision for Tuan; I changed nothing.
+
+**Decided on 18 October 2026 (Tuan):** the source, its CI job and its `build-hashes.json` entry left the tree in the next pull request into `feat/grammar-v7`; the source stays at tag `archive/near-signer-v1` (last build `c27904a3`). The account `signer.prime-spike-muwguc60.testnet` still exists and still signs any payload a wallet approves until it is removed. Deleting it cannot be undone, so it waits for Tuan's explicit yes. Nothing in octopos calls it.
 
 ### G7S-3, Medium: mainnet gates made before 11 October 2026 pin an adapter build that passes a muxed recipient
 
@@ -369,7 +371,7 @@ So custody's funds stay behind custody's own gate: `pull` requires the caller's 
 ## Decisions needed
 
 1. **G7S-1:** delete the FullAccess key on `seats.prime-spike-muwguc60.testnet` now, or before the first account with value; and whether v1's account is locked the same way.
-2. **G7S-2:** take NEAR signer v1 and its CI job out of the tree (it stays at a tag).
+2. **G7S-2:** take NEAR signer v1 and its CI job out of the tree (it stays at a tag). Decided on 18 October 2026 and done; deleting the deployed account waits for a separate yes.
 3. **G7S-3:** who lists the mainnet gates that pin `68d012e7` and tells their owners.
 4. **P0-4 and P0-3:** whether the toolchain drops the override hints and adds the owner-side decoder before the next release.
 5. **Optional on-chain hardening at the next audited interpreter build:** account auth on `uninstall` when OZ calls it (D2, C3), events (R1), refusal of scopes on policy contracts (T3); and a deadline in the EVM seat's `exec` digest (G7S-4) at the next seat build.

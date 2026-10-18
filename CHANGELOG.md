@@ -38,6 +38,14 @@ packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
   localnet, and its source is at tag `archive/spike-final`. The Solana docs
   describe the seat as the only session and keep `prime-session` as dated
   history.
+- **NEAR signer v1 (`contracts/near/prime-near-signer`):** its source, its CI
+  job and its `build-hashes.json` entry left the tree on 18 October 2026 (G7S-2
+  in `evidence/stride-threat-model-g7.md`); v2 serves every seat. Its last
+  build is `c27904a329814b6ee92e8b37cc99490c8edbc9bbd3fd86a926b38e7d05b793c8`,
+  deployed at `signer.prime-spike-muwguc60.testnet`, and its source is at tag
+  `archive/near-signer-v1`. The account still signs any payload a wallet
+  approves until it is removed, a step that waits for Tuan. Nothing in octopos
+  calls it.
 - **The spike bundle and its design record** (`contracts/prime/spike/` and
   `contracts/prime/ARCHITECTURE.md`). Both stay readable at tag
   `archive/spike-final`, and the docs link there.

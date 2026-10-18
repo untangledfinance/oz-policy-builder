@@ -14,7 +14,7 @@ Builder that writes Stellar rules.
 | [stellar.md](stellar.md) | the custody gate, execution adapter, policy interpreter and `prime-seat` on an OpenZeppelin smart account; the policy builder's checks |
 | [evm.md](evm.md) | Safe, Zodiac Roles and OpenZeppelin's timelock as custody gate and recovery; `PrimeSeat` |
 | [solana.md](solana.md) | the Squads Smart Account, the custody gate program and `prime-seat` |
-| [near.md](near.md) | `prime-near-signer` v1 and v2, which turn a wallet signature into a NEAR MPC signature |
+| [near.md](near.md) | `prime-near-signer-v2`, which turns a wallet signature into a NEAR MPC signature, and the retired v1 |
 
 The contracts' own READMEs hold the interfaces and test detail:
 [contracts/README.md](../contracts/README.md) (sizes, hashes, CI),
@@ -48,7 +48,7 @@ pin; grammar 5 `CDIMIQDB…` with the stateless adapter `57bf132b…`, recorded 
 | Solana | custody gate | none | devnet `6ieR7WUs…` (`a5d19edb…`) |
 | Solana | `prime-seat` | none | devnet `7ygNrKpK…` (`a389f4a1…`) |
 | NEAR | `prime-near-signer-v2` | none | `seats.prime-spike-muwguc60.testnet` (`4b98d6d3…`) |
-| NEAR | `prime-near-signer` v1 | none | `signer.prime-spike-muwguc60.testnet` (`c27904a3…`) |
+| NEAR | `prime-near-signer` v1, retired from this tree | none | `signer.prime-spike-muwguc60.testnet` (`c27904a3…`), still signing any payload until the account is removed; nothing in octopos calls it |
 
 The records are in [`deployments/`](../deployments) (Stellar) and
 [`contracts/build-hashes.json`](../contracts/build-hashes.json) (seats, Solana,
@@ -70,7 +70,6 @@ Some files look unused on this branch. Each is kept on purpose.
 
 | File | Why it stays |
 |---|---|
-| `contracts/near/prime-near-signer` (v1) | deployed and pinned in CI; octopos main does not call it (one offline test uses its account name to show that v1 and v2 keys differ). v2 replaced it for the seats |
 | `scripts/deploy-prime-mainnet.ts` | the record of how the mainnet custody contracts were deployed on 1 October 2026. It pins the grammar-6 interpreter `5143e641…` and the adapter `68d012e7…`, which this tree does not build, and it checks every hash before it reads a secret or calls the network, so on this branch it stops at the hash check |
 | `scripts/deploy-grammar6-testnet.ts`, `deployments/grammar6-testnet.json` | the grammar-6 testnet record the Prime app's testnet setups use. The script reads `SELF_VERSION` and refuses this branch's grammar-7 source before any network call |
 | `scripts/upload-execution-testnet.ts` | uploads the gate and adapter builds and writes `deployments/execution-testnet.json`, which CI compares |

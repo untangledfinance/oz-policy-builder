@@ -12,7 +12,7 @@ for the contracts and the numbers.
 | Stellar | OpenZeppelin smart account | custody gate, execution adapter, policy interpreter, `prime-seat` | mainnet since 1 October 2026 (custody contracts with the grammar-6 interpreter; older grammar-4 and grammar-5 interpreters the Prime app still uses; no seats), and testnet |
 | EVM | Safe with Zodiac Roles | `PrimeSeat` | Base Sepolia |
 | Solana | Squads Smart Account | custody gate, `prime-seat` | devnet |
-| NEAR | none | `prime-near-signer` v1 and v2 | NEAR testnet |
+| NEAR | none | `prime-near-signer-v2`. v1 is retired: its source left this tree and nothing in octopos calls it, but its testnet account still signs any payload until it is removed ([near.md](near.md#prime-near-signer-v1-retired)) | NEAR testnet |
 
 Detail: [stellar.md](stellar.md), [evm.md](evm.md), [solana.md](solana.md),
 [near.md](near.md). The list of what is where is in [README.md](README.md).

@@ -1,18 +1,21 @@
-# Prime on NEAR: the signers
+# Prime on NEAR: the signer
 
 NEAR holds no Prime account and no funds. It gives an owner whose wallet lives on
 another chain a key on each chain the wallet cannot sign for: the NEAR MPC
 service holds that key, and a contract of ours asks the MPC to sign only after
-it has checked the wallet's own signature. Two such contracts are deployed, both
-on NEAR testnet. Both live in `contracts/near/`. Each signer account still holds
-a full-access key that can call the MPC without the contract, so the checks
-below bind every caller only once those keys are deleted ([Limits](#limits)).
-[architecture.md](architecture.md) shows where they sit in the whole system.
+it has checked the wallet's own signature. That contract is
+`prime-near-signer-v2`, in `contracts/near/`, deployed on NEAR testnet. The
+first signer, v1, left this tree on 18 October 2026, and its account on NEAR
+testnet is still live ([v1, retired](#prime-near-signer-v1-retired)). Each
+signer account still holds a full-access key that can call the MPC without the
+contract, so the checks below bind every caller only once those keys are
+deleted ([Limits](#limits)). [architecture.md](architecture.md) shows where the
+signer sits in the whole system.
 
 | Contract | Account | Signs | Used by |
 |---|---|---|---|
 | `prime-near-signer-v2` | `seats.prime-spike-muwguc60.testnet` | the grant and the End of a seat session, nothing else | the seats on Stellar, EVM and Solana |
-| `prime-near-signer` (v1) | `signer.prime-spike-muwguc60.testnet` | any payload the wallet approved | the spike harnesses of 7 to 9 October 2026; octopos main does not call it |
+| `prime-near-signer` (v1), retired | `signer.prime-spike-muwguc60.testnet` | any payload the wallet approved, until the account is removed | nothing: it served the spike harnesses of 7 to 9 October 2026, and nothing in octopos calls it |
 
 ## Why a signer on NEAR
 
@@ -113,17 +116,26 @@ does not share. The EVM, Solana and Stellar seats test the same vectors.
 **Fees:** the caller attaches the MPC fee (1 yoctoNEAR), and v2 forwards the
 whole attached deposit to the MPC with all remaining gas.
 
-## prime-near-signer v1
+## prime-near-signer v1 (retired)
 
-`contracts/near/prime-near-signer/src/lib.rs`, 42 sLOC after `rustfmt` (22 as
-written). This build runs at `signer.prime-spike-muwguc60.testnet` since 9
-October 2026; an earlier build ran there from 7 October.
+v1 was the first signer, written for the spike harnesses of 7 to 9 October
+2026. On 18 October 2026 its source, its CI job and its build pin left this
+tree (G7S-2 in [stride-threat-model-g7.md](../evidence/stride-threat-model-g7.md)):
+v2 serves every seat, and nothing in octopos calls v1. The source is kept at
+tag
+[`archive/near-signer-v1`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/near-signer-v1/contracts/near/prime-near-signer),
+with the CI job that rebuilt it. Its last build is
+`c27904a329814b6ee92e8b37cc99490c8edbc9bbd3fd86a926b38e7d05b793c8` (110,145
+bytes, `cargo-near` 0.22.0 under Rust 1.98.1 with two path remaps), 42 sLOC
+after `rustfmt`.
+
+The account `signer.prime-spike-muwguc60.testnet` still exists and still runs
+that build. Until the account is removed, it signs any payload for any ed25519
+wallet that signs its text:
 
 ```
 sign(key, sep53, path, domain_id, payload, signature) -> Promise    (payable)
 ```
-
-The wallet signs a short text with the contract, path, domain and payload:
 
 ```
 Prime NEAR signer
@@ -135,14 +147,10 @@ payload: <hex>
 
 v1 checks the ed25519 signature (SEP-53 for Freighter when `sep53` is true, raw
 text for Phantom) and asks the MPC to sign `payload` under the path
-`<wallet key hex>/<path>`. It passes any payload through. The text shows the
-payload as hex, so the wallet cannot show what it approves; v2 replaced this
-with readable grant texts for the seats. v1 serves ed25519 wallets only: in the
-spike, MetaMask reached the MPC through its stock NEAR account instead.
-
-v1 is kept because it is deployed and pinned in CI. octopos main does not call
-it; one offline test there uses its account name to show that v1 and v2 derive
-different keys.
+`<wallet key hex>/<path>`. The text shows the payload as hex, so the wallet
+cannot show what it approves. Keys derived under v1 own spike-era testnet
+accounts only. Removing the account cannot be undone, and it waits for a
+decision from Tuan. Its full-access key is under [Limits](#limits).
 
 ## How a key is derived
 
@@ -171,11 +179,6 @@ the registry path to the deployed build's form, and the result is
 `4b98d6d3c6a6ae15b11daa6e0a28b19f5764f028fd64440572e58904a17df7de` (157,934
 bytes).
 
-v1 builds with `cargo-near` 0.22.0 under Rust 1.98.1 with two path remaps
-([contracts/README.md](../contracts/README.md#near) has the command). Its hash
-is `c27904a329814b6ee92e8b37cc99490c8edbc9bbd3fd86a926b38e7d05b793c8` (110,145
-bytes).
-
 The vectors regenerate with Bun 1.4.2:
 
 ```sh
@@ -188,7 +191,7 @@ The vectors regenerate with Bun 1.4.2:
 | Contract | Network | Account | Code hash (base58) | Wasm sha256 |
 |---|---|---|---|---|
 | v2 | NEAR testnet | `seats.prime-spike-muwguc60.testnet` | `666kSs8zNUkMMfJ39hDne3UqV9AqE5Dw2deTTZPsnJjF` | `4b98d6d3…` |
-| v1 | NEAR testnet | `signer.prime-spike-muwguc60.testnet` | `E6986kfXDAec5nZvuYiBiC3fmonHCrynwRCtd33s1U5u` | `c27904a3…` |
+| v1, retired | NEAR testnet | `signer.prime-spike-muwguc60.testnet` | `E6986kfXDAec5nZvuYiBiC3fmonHCrynwRCtd33s1U5u` | `c27904a3…` |
 
 Both call the testnet MPC, `v1.signer-prod.testnet`, the default of the
 compile-time setting `PRIME_MPC`. Nothing is deployed on NEAR mainnet. The code
@@ -219,4 +222,6 @@ then held one full-access key.
   spike runs one call burned about 0.0012 NEAR at the minimum gas price, and at
   ten times that price the prepay reached 0.3009 NEAR, so whoever pays for the
   calls needs a floor of about 0.31 NEAR (section 4.1 of the old record).
-- **v1 signs blind:** the wallet sees a hex payload. Use v2 for anything new.
+- **v1 is retired and still signs:** its source left this tree, but until its
+  account is removed it signs any payload a wallet approves as hex. Nothing in
+  octopos calls it.

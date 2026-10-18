@@ -648,7 +648,7 @@ flowchart LR
 | Backpack | Native | The real extension (0.10.216) signed the grant and revoke texts, 16 of 16 checks, and two seat votes that executed. |
 | Glow | Native for text | The real extension (0.61.0) signed the grant and revoke texts, 16 of 16 checks. Its transaction prompt shows no Approve button in our runs. |
 | MetaMask | Native or NEAR | Native: MetaMask 13.50.0 signed 12 grant and revoke requests with its own Solana account (145 of 145 checks). Seat-vote transactions used a stand-in with the same key, because MetaMask's simulation refuses the local validator's accounts. NEAR route: stock NEAR code only. |
-| Freighter | NEAR | Freighter adds a Stellar prefix to every message, so it cannot sign the Solana text. In the harness it went through our 42-line NEAR contract, `prime-near-signer` (v1); seats use v2. |
+| Freighter | NEAR | Freighter adds a Stellar prefix to every message, so it cannot sign the Solana text. In the harness it went through our 42-line NEAR contract, `prime-near-signer` (v1, retired from the tree on 18 October 2026); seats use v2. |
 
 The runs in the table are of 8 October 2026. The native wallets signed `prime-session`'s grant and revoke texts, which no longer apply, and seat votes, which still do.
 
