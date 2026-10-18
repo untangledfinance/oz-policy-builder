@@ -23,7 +23,7 @@ It is built as two halves:
   every policy is declarative data fed into it, so a new combination of
   constraints needs no new contract and no re-audit.
 
-## What is actually running
+## What is running
 
 The 2.x npm packages speak grammar 7 and pin a grammar-7 interpreter on
 **testnet only** (`deployments/grammar7-testnet.json`; no mainnet instance yet,
@@ -119,9 +119,10 @@ The previous pin (1.x, grammar 4): mainnet
 The Prime custody contracts went to mainnet on 1 October 2026 and the Prime app
 at app.untangled.finance uses them: the grammar-6 interpreter
 `CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R` and the custody gate
-and execution adapter code (`b01024f3…`, `68d012e7…`). They are the Linux builds
-that CI rebuilds and checks. Current testnet setups use the same gate and
-adapter code. Testnet's grammar-6 interpreter was built from the same source
+and execution adapter code (`b01024f3…`, `68d012e7…`), Linux builds recorded in
+`deployments/prime-mainnet.json`. The adapter build `3dd675c0…`, which CI
+rebuilds on `main` and on this branch, is uploaded on mainnet and testnet as
+well, and new setups on both networks use it. Testnet's grammar-6 interpreter was built from the same source
 without `build-wasm.sh`, so its hash differs. Addresses, hashes and transactions
 are in [docs/stellar.md](./docs/stellar.md#deployments) and
 [deployments/prime-mainnet.json](./deployments/prime-mainnet.json).
@@ -180,9 +181,12 @@ The STRIDE threat model for grammar 7, with what is done and what is open at
 
 | You want to | Read |
 | --- | --- |
-| Understand the custody setup Prime uses, on Stellar and EVM | [docs/architecture.md](./docs/architecture.md) |
+| See what runs where, on every chain | [docs/README.md](./docs/README.md) |
+| Understand the custody setup, the seats and how the chains fit together | [docs/architecture.md](./docs/architecture.md) |
 | Read the Stellar contracts and the policy builder in detail | [docs/stellar.md](./docs/stellar.md) |
 | Read the EVM design in detail | [docs/evm.md](./docs/evm.md) |
+| Read the Solana programs in detail | [docs/solana.md](./docs/solana.md) |
+| Read the NEAR signers in detail | [docs/near.md](./docs/near.md) |
 | Build and install a policy from a shell | `packages/policy-builder-cli` (`policy-builder <tool>`, all seven tools) |
 | Drive it from an agent | `packages/policy-builder-mcp` (MCP over stdio / Streamable HTTP) |
 

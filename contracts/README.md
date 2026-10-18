@@ -2,7 +2,7 @@
 
 This folder holds every contract behind a Prime account, one folder per chain. The Stellar folder has the OctoGate contracts (custody gate, execution adapter, policy interpreter) and the Stellar seat. The EVM folder has the EVM seat. The Solana folder has the seat program and the custody gate. The NEAR folder has the two signers that turn a wallet's signature into a NEAR MPC signature.
 
-On every chain, an owner's session key exists only through a seat (Tuan's decision of 18 October 2026). An owner whose wallet signs through NEAR has a seat contract instead of a key. That owner grants a session key for at most 7 days, and the seat lets the key vote for the owner, always beside a native owner's signature, and act inside the rules that list the seat. On Solana the seat votes as a settings signer, and a native owner writes every transaction. An owner whose wallet signs on the chain itself holds its seat as a plain key and has no session. The round-9 design record ([ARCHITECTURE.md](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/ARCHITECTURE.md)) and the evidence bundle behind it ([spike/](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike), with the harnesses, logs and testnet records) are kept at tag `archive/spike-final`.
+On every chain, an owner's session key exists only through a seat (on Stellar and EVM since 12 October 2026, on Solana since Tuan's decision of 18 October 2026). An owner whose wallet signs through NEAR has a seat contract instead of a key. That owner grants a session key for at most 7 days, and the seat lets the key vote for the owner, always beside a native owner's signature, and act inside the rules that list the seat. On Solana the seat votes as a settings signer, and a native owner writes every transaction. An owner whose wallet signs on the chain itself holds its seat as a plain key and has no session. The round-9 design record ([ARCHITECTURE.md](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/ARCHITECTURE.md)) and the evidence bundle behind it ([spike/](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike), with the harnesses, logs and testnet records) are kept at tag `archive/spike-final`.
 
 ## Layout
 
@@ -42,7 +42,7 @@ sLOC counts the non-blank, non-comment lines of the contract source after the fo
 | Solana | `solana/prime-seat` | 75 | new code |
 | Stellar | `stellar/prime-seat` | 99 | new code |
 | Stellar | `stellar/custody-gate` | 55 | OctoGate, on mainnet, outside the new-code budget |
-| Stellar | `stellar/execution-adapter` | 238 | OctoGate, outside the new-code budget; mainnet runs an earlier build (see below) |
+| Stellar | `stellar/execution-adapter` | 238 | OctoGate, outside the new-code budget; on mainnet too (see below) |
 | Stellar | `stellar/policy-interpreter` | 757 | OctoGate, outside the new-code budget; this grammar-7 source is on testnet only, and mainnet runs the grammar-6 build |
 | Stellar | `stellar/test-blend-pool` | 22 | test double, testnet only |
 
@@ -56,7 +56,7 @@ Every hash and test count below was measured again on 18 October 2026 at the pat
 |---|---|---|
 | `stellar/custody-gate` | `./build-wasm.sh` | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` |
 | | `cargo test` | 3 passed |
-| `stellar/execution-adapter` | `./build-wasm.sh` | `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3`, the testnet record. Mainnet runs the earlier build `68d012e79fd4f9b88584447cfb32e0b0dbb55fb8bcd084b7212bad3e63b6dfdd` |
+| `stellar/execution-adapter` | `./build-wasm.sh` | `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3`, the testnet record. Its code is on mainnet too (read back on 18 October 2026), and new setups use it there. The mainnet setups of 1 October 2026 run the earlier build `68d012e79fd4f9b88584447cfb32e0b0dbb55fb8bcd084b7212bad3e63b6dfdd`, recorded in `deployments/prime-mainnet.json` |
 | | `cargo test` | 45 passed |
 | `stellar/policy-interpreter` | `./build-wasm.sh` | grammar 7: `69cad1d5ce9aeaa0dad6980fd030e528935a0ebdd290111f393e9fd0564a68b0`, the testnet pin. The grammar-6 build on mainnet is `5143e64159378c9aac27e8cf1c9cb1f14364672885c151ccc5d887109f776126` |
 | | `cargo test` (after `./build-wasm.sh`, which `tests/worst_case.rs` loads) | 397 passed: 173 unit and 224 in 12 integration suites, 18 of them conformance |
@@ -80,6 +80,7 @@ Foundry 1.8.4, Solidity 0.8.28 with the optimizer at 200 runs. `PrimeSeat` impor
 npm pack @openzeppelin/contracts@5.4.0
 tar xzf openzeppelin-contracts-5.4.0.tgz
 mkdir -p lib/oz && cp -r package/utils package/interfaces lib/oz/
+rm -r package openzeppelin-contracts-5.4.0.tgz
 ```
 
 ### Solana
@@ -120,7 +121,7 @@ A seat is the on-chain owner entry of a wallet that signs through NEAR. The owne
 
 The deployed copies are the devnet program `7ygNrKpK3GYoNLMCkAa4e3mznGPF2KVGbKZsJcq8wSCb` (final, its bytes equal the devnet build) and `seats.prime-spike-muwguc60.testnet` (code hash `666kSs8zNUkMMfJ39hDne3UqV9AqE5Dw2deTTZPsnJjF`, the v2 build). A Stellar seat and an EVM `PrimeSeat` are deployed per account by the Prime apps, which pin the wasm and the masked runtime code.
 
-Grammar 7 and the Stellar seat: the interpreter refuses an `External` signer in its rules (212), so a seat enters a grammar-7 rule as `Delegated`, the form it serves outside rule 0. The interpreter keeps a hash of the rule's signers, so `remove_signer` on a grammar-7 rule leaves that rule refusing every signer (204). To take a seat out of such a rule, remove the rule and add it again without the seat. A seat cannot be a policy admin: it authorises only through its account's `__check_auth`.
+The Stellar seat and the policy interpreter: the interpreter refuses an `External` signer in its rules (212), so a seat enters a policed rule as `Delegated`, the form it serves outside rule 0. The interpreter keeps a hash of the rule's signers, so `remove_signer` on a policed rule leaves that rule refusing every signer (204). To take a seat out of such a rule, add the rule again without the seat and remove the old one. `remove_context_rule` can leave the interpreter's entry for the removed rule behind, because `uninstall` needs the policy admins' own authorisation. All three hold for every interpreter version, grammar 4, 6 and 7. A seat cannot be a policy admin: it authorises only through its account's `__check_auth`. [docs/stellar.md](../docs/stellar.md#changing-who-signs-a-policed-rule) has the detail.
 
 ## Hashes before and after the move to `contracts/`
 

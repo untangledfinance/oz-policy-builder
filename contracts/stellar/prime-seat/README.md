@@ -63,7 +63,7 @@ A rule with the interpreter predicate bounds the session on chain. A `CallContra
 
 ## Notes for the relayer
 
-- A grant needs no authorization entry, and when an identical copy is submitted twice, the first to land sets the state. The second submitter gets contract error #1. Read the stored end before reporting a failure.
+- A grant needs no authorization entry, and when an identical copy is submitted twice, the first to be applied sets the state. The second submitter gets contract error #1. Read the stored end before reporting a failure.
 - Extend the seat's instance and code TTL with `ExtendFootprintTTL`. A grant does not.
 
 ## Build and checks

@@ -109,10 +109,10 @@ deployed with.
 | Function | Purpose |
 | --- | --- |
 | `install` | Store a predicate for a `(smart account, context rule)` pair. Refuses a grammar version it does not speak, an oversized predicate (byte cap, `207`, before any parse work), any payload whose sha256 does not match the supplied hash, a rule that reaches the admin surface (`Default`-scoped, or scoped to the smart account or to this interpreter: `218`; **only those two addresses** - a rule scoped to another policy contract, such as a second interpreter instance or OZ's `spending_limit`, still installs and exposes that contract's own admin calls, so never scope a rule to a policy contract), and a signer set (the rule's operators or the master set) that is empty, over 16, holds an `External` signer, or holds this interpreter's own address (`219`: no signature can authorise as it, so an operator set holding it could never authorise a call and a master set holding it could never uninstall or rotate). A contract address in a master set bricks the rule just the same unless that contract itself calls `uninstall`/`rotate_master_signer_set`; only the interpreter's own address is checked, because the others cannot be enumerated. |
-| `enforce` | The policy hook the smart account calls on every guarded operation: decode, evaluate, permit or deny. |
+| `enforce` | The policy hook the smart account calls on every guarded operation: decode, evaluate, permit or deny. It first compares the rule's signer set with the hash `install` stored and refuses with `204` once they differ, so `add_signer` or `remove_signer` on a policed rule stops it for every signer until the policy is installed again (true of every interpreter version). |
 | `check` | A dry run for the off-chain builder: `check(predicate, context)` decodes `predicate` with install's checks (byte cap `207`, decode `201`, selector leaf `216`) and evaluates it against `context`, a contract call. **It always fails, and the contract error is the verdict**: `Error(Contract, #0)` permits, and any other number is the code `install` or `enforce` would have raised (`100`-`105`, or `206` for a context that is not a contract call). The builder reads it from the simulation's error. Failing is deliberate: a transaction that submits `check` rolls back everything a `read` did, so the interpreter is never a free, unauthenticated caller of other contracts (a `read` of `token.transfer(interpreter, ...)` is authorised by the interpreter being the direct invoker, and would otherwise commit). It touches no storage and asks for no authorisation. A `read` in the predicate still calls its target as the interpreter does (which must hold nothing, below). A predicate that is not XDR at all traps in the host before the contract runs. |
 | `bind_executor` | Bind a rule to an execution adapter, whose own authorisation of the exact account and context `enforce` then also requires. Needs the smart account's authorisation and the master set's; kept across a re-install. |
-| `uninstall` | Remove the stored predicate for a rule. |
+| `uninstall` | Remove the stored predicate for a rule. Needs the master set's own authorisation, so when the smart account's `remove_context_rule` calls it without that, `uninstall` fails, the account removes the rule anyway, and the entry stays until it archives (true of every interpreter version). |
 | `rotate_master_signer_set` | Update the master signer set an installation is bound to. |
 | `grammar_version` | The predicate grammar version this build speaks (`SELF_VERSION`). |
 | `limits` | The `Limits` this instance was deployed with (see above). |
@@ -197,7 +197,7 @@ own arguments still denies at `enforce`). Division truncates toward zero, which 
 than one unit (`gte(out, scaled(in, 99, 100, 0))` permits `out = 99` for
 `in = 101`, a floor of 99.99) and a negative bound the other way; write an exact
 bound cross-multiplied, `gte(scaled(out, 100, 1, 0), scaled(in, 99, 1, 0))`. Write a subtraction by moving the term
-across the comparison (`ts >= now - 300` is `ts + 300 >= now`, which is
+across the comparison (`ts >= now - 300` is `ts + 300 >= now`, written
 `gte(scaled(ts, 1, 1, 300), now)`); `add` is any value and may be a negative
 literal. A negative factor can still be built from a variable (`num = scaled(call_arg(1), 1, 1, -100)`), the same class as comparing a selector with itself: install cannot tell a deliberate rule from a bad one. `in` haystacks and literal vectors hold constants only: a selector,
 `read`, `scaled` or `now` in one is refused at decode, as it could never be
@@ -207,7 +207,7 @@ compared.
 
 - **`lit(x)`** is a constant of any ScVal type, wherever a constant is allowed:
   an operand, an `in`/`nin` entry, a `read` argument, a map-key step. The
-  payload is data: a vec that starts with a symbol inside `lit` is that vec. It is
+  payload is data: a vec that starts with a symbol inside `lit` is that vec, and is
   never read as a selector or inspected (decoding is one host value, whatever its
   size). A *bare* vec is its own constant too, but it is CHECKED element by
   element: every element must be a plain value or a non-empty plain vec, so a
@@ -245,7 +245,7 @@ compared.
   bypassable the same way: pass the registry a plain address (a muxed one is not
   on a list of plain addresses, which fails closed).
 - **No general `not`:** `ne`/`nin` need both operands to resolve, so they cannot
-  turn an unresolvable leaf into a permit; `not` could, which is why it stays out.
+  turn an unresolvable leaf into a permit; `not` could, so it stays out.
 - **Map keys:** A path step is a `u32` (index into a vec), `true` (the length,
   last only) or a constant key into a map: a bare symbol (the common case,
   and what `call_arg_field` uses) or `lit(x)` for any other key - an address, a
@@ -253,7 +253,7 @@ compared.
   and would never match a map; a key's type is part of it (`lit(u32 7)` and
   `lit(i128 7)` are different keys). A step that is a selector is refused (201).
 
-`scaled` replaces grammar 6's `call_arg_scaled(i, num, den)`, which is now
+`scaled` replaces grammar 6's `call_arg_scaled(i, num, den)`; that is now
 `scaled(call_arg(i), num, den, 0)` (equal under every comparison, `eq` included,
 since numbers compare by value). Because it resolves to a plain number, a
 comparison against it is an ordinary comparison: a miss denies `ARG_MISMATCH`
@@ -281,7 +281,7 @@ one, without a rule per length.
   `sum` alike, so a batch cannot be padded past what was priced. In `all`, an
   element where `P` cannot resolve (an absent field, a failed read) makes `P`
   false, and the rule denies. In `any`, an element where `P` cannot resolve
-  simply does not count. Both stop at the first deciding element, and `or`
+  does not count. Both stop at the first deciding element, and `or`
   inside `P` still runs lazily.
 - **`sum(vec, step...)`** adds what the steps reach in each element (no steps:
   the elements are the numbers). Every element must resolve to a number (an
@@ -518,7 +518,7 @@ Read this before writing a rule with a `read`.
   once; and a read in a quantifier body cannot take the element as an argument
   (it is refused), so the iterations of a body resolve it identically and
   share that one call. Reads count inside `scaled` and inside quantifiers too; the call over `max_reads` is refused at install as
-  `MALFORMED_PREDICATE`, every decoder cap surfaces as 201, except the byte cap at install, which is 207),
+  `MALFORMED_PREDICATE`, every decoder cap surfaces as 201, except the byte cap at install, 207),
   `read` paths and `call_path`s of at most eight steps, and leaf nesting
   (`scaled` operands, bare vec elements, `read` arguments, `sum` sources) of at
   most `max_depth` levels. The `max_leaves` cap counts `scaled` operands,
@@ -614,7 +614,7 @@ branch denies, the reported reason is the first branch's in wire order.
 
 Deliberately absent, because the interpreter sees one authorized call and no
 history (`read` shows it a contract's state; the transaction's moves stay unseen): what a
-transaction actually moved (`amount`), rolling per-window spend totals and
+transaction moved (`amount`), rolling per-window spend totals and
 call-frequency caps. Rolling spend caps and approval thresholds belong to the
 OpenZeppelin account layer. A cap on value is expressed instead
 against the call's own amount argument (`call_arg(i) <= limit`). Expiry IS

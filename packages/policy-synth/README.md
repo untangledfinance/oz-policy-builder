@@ -143,7 +143,7 @@ http on loopback. No tool input takes an endpoint.
 | `simulate_policy` | A predicate against calls: permit, or the deny code. With a predicate and no calls it only explains it. |
 | `verify_policy` | Permitted call(s), derived deny cases, minimality; `ok`, `complete`, `unexamined`, `untested`. **`ok` without `complete: true` does not prove every limit** (`untested` conjuncts were not tried): read `complete`. |
 | `install_policy` | Unsigned `add_context_rule`: the account authorises it, and the interpreter installs the predicate in the same transaction. Verifies the interpreter live, reads every rule on the account, and applies the guardrails below. |
-| `revoke_policy` | Unsigned `remove_context_rule`. The rule is read and returned as `removes`, with its review when the account runs a known OpenZeppelin build. |
+| `revoke_policy` | Unsigned `remove_context_rule`. The rule is read and returned as `removes`, with its review when the account runs a known OpenZeppelin build. The account asks each attached policy to uninstall; the interpreter's `uninstall` needs the policy admins' own authorisation, so unless they sign too, the interpreter keeps its entry for the removed rule until it archives. Nothing reads that entry again. |
 | `get_interpreter_info` | The pin, its `limits` and the `ceilings`. `verifyLive` adds what is deployed now. `explainAccount` (a smart account) reads its rules and explains each one this interpreter polices; only a known OpenZeppelin account build is read. |
 
 `TOOLS` (also `@crediolabs/policy-synth/run`) is the table the MCP server and the

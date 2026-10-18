@@ -156,7 +156,7 @@ path: read it as "this field is the wrong type". An unknown key is refused.
 
 ## The failure modes that look like success
 
-Each of these installs cleanly, verifies cleanly, and enforces less than the
+Each of these installs and verifies with no error, and enforces less than the
 user thinks. Read every result in full.
 
 - **A rule with no policy constrains nothing:** the caller picks which rule
@@ -176,7 +176,7 @@ user thinks. Read every result in full.
   intended.
 
 - **The constrained key must not sit on rule 0:** rule 0 is unpoliced by
-  construction, so a policy on a rule-0 signer installs cleanly and constrains
+  construction, so a policy on a rule-0 signer installs with no error and constrains
   nothing. Put the agent key on a new rule and constrain that.
 
 - **A per-call cap is no budget:** `limit` lets that amount through again and
@@ -293,7 +293,7 @@ user thinks. Read every result in full.
   listed for information. Fix the cause: remove the shared signer from that
   rule, or attach a policy to it.
 - **An amount with no cap:** answer the question with `limit` / `limits`. Such a
-  rule would install, verify cleanly and cap nothing.
+  rule would install, verify with no error and cap nothing.
 - **A swap whose least output nothing sets:** `amount_out_min` left open permits
   a trade at any price. Declare a `minOut` ratio (or a `floor`) on it in an
   intent. A tiny floor (1 stroop, or a `minOut` of 1/10^18) counts as an answer:
@@ -371,11 +371,16 @@ From the interpreter (`contracts/stellar/policy-interpreter/src/storage.rs`):
 | `#200` | `VersionMismatch` | The install parameters carry a grammar other than the interpreter's |
 | `#201` | `MalformedPredicate` | The decoder refused the predicate: an unknown operator, the arity, or one of the instance's limits (leaves, depth, reads, elements, `in` entries) |
 | `#202` | `NonceReplay` | `install_nonce` must equal `stored_nonce + 1` |
-| `#204` | `RuleSignersChanged` | The signer set changed since install. The interpreter stored a hash of it and denies: the rule stops working, the safe direction |
+| `#203` | `MasterAuthRequired` | A re-install presented a different admin set from the one stored. Changing it is `rotate_master_signer_set`'s job |
+| `#204` | `RuleSignersChanged` | The signer set changed since install. The interpreter stored a hash of it and denies: the rule stops working, the safe direction. Every interpreter version does this, so change a policed rule's signers by adding a new rule and revoking the old one |
+| `#206` | `MissingState` | Nothing is installed for this rule, or the instance has no limits, or the context is not a contract call |
 | `#207` | `PredicateTooLarge` | The predicate is over the instance's `max_predicate_bytes` (24,576 bytes on the testnet pin), checked before any parse |
 | `#208` | `PredicateHashMismatch` | The blob does not match the hash installed beside it |
 | `#209` | `EmptySignerSet` | The rule governs no key |
+| `#210` | `NoAuthenticatedSigners` | `enforce` was handed no authenticated signer |
+| `#212` | `ExternalSignerNotSupported` | A signer set holds an `External` signer; a contract signer, such as a Prime seat, joins as `Delegated` |
 | `#216` | `SelectorLeafRequired` | No leaf reads the call: the rule would constrain nothing |
+| `#217` | `TooManySigners` | A signer set has more than 16 signers (`MAX_SIGNERS`) |
 | `#218` | `DefaultContextNotSupported` | A Default-scoped rule, or one scoped to the account or the interpreter |
 | `#219` | `SignerIsInterpreter` | A signer set holds the interpreter's own address |
 

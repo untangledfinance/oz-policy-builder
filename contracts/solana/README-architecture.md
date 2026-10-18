@@ -1,8 +1,10 @@
 # Prime on Solana
 
-Date: 8 October 2026, updated 9 October 2026 for the line-cut gate and for the size pass (formatted sLOC is the official count), 10 October 2026 for the app as shipped on beta (sessions, Confirm the gate, hosts) and 11 October 2026 for the app as merged that day (Confirm with the gate and trustee addresses, the account time lock, Add funds, Add a token, Move to a new gate, Reclaim rent, Store again, Propose again, the Prime Assistant). The gate program is unchanged. Status: testnet and local-validator results only. The custody gate runs on Solana devnet as the 9 October 2026 build, deployed with `--final`, and passes 84 of 84 checks there; the first devnet build stays on the cluster as a previous build. The custody gate also runs on a local validator with the mainnet feature set, and its independent security reviews are done, with the verdicts adopt with fixes and, for the line cut, adopt (section 17). Sources: the [Prime session architecture document](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/ARCHITECTURE.md) (kept at tag `archive/spike-final`), the line-cut custody gate (126 lines formatted, built from the gate-owned design of [`contracts/prime/spike/matrix/near-minimal/round9/gate-a4/gate-a4-min.md`](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/gate-a4/gate-a4-min.md)), the devnet runs of the new builds ([`contracts/prime/spike/matrix/near-minimal/round9/solana-devnet-sloc2/`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/solana-devnet-sloc2); the first builds' runs are in [`round9/solana-devnet/`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/solana-devnet) and [`round9/solana-devnet-gate/`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/solana-devnet-gate)), the real-wallet run and the refinement reports of 8 October 2026. Every number below comes from those.
+Date: 8 October 2026, updated 9 October 2026 for the line-cut gate and for the size pass (formatted sLOC is the official count), 10 October 2026 for the app as shipped on beta (sessions, Confirm the gate, hosts) 11 October 2026 for the app as merged that day (Confirm with the gate and trustee addresses, the account time lock, Add funds, Add a token, Move to a new gate, Reclaim rent, Store again, Propose again, the Prime Assistant), and 18 October 2026 for seat-only sessions. The gate program is unchanged. Status: testnet and local-validator results only. The custody gate runs on Solana devnet as the 9 October 2026 build, deployed with `--final`, and passes 84 of 84 checks there; the first devnet build stays on the cluster as a previous build. The custody gate also runs on a local validator with the mainnet feature set, and its independent security reviews are done, with the verdicts adopt with fixes and, for the line cut, adopt (section 17). Sources: the [Prime session architecture document](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/ARCHITECTURE.md) (kept at tag `archive/spike-final`), the line-cut custody gate (126 lines formatted, built from the gate-owned design of [`contracts/prime/spike/matrix/near-minimal/round9/gate-a4/gate-a4-min.md`](https://github.com/untangledfinance/oz-policy-builder/blob/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/gate-a4/gate-a4-min.md)), the devnet runs of the new builds ([`contracts/prime/spike/matrix/near-minimal/round9/solana-devnet-sloc2/`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/solana-devnet-sloc2); the first builds' runs are in [`round9/solana-devnet/`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/solana-devnet) and [`round9/solana-devnet-gate/`](https://github.com/untangledfinance/oz-policy-builder/tree/archive/spike-final/contracts/prime/spike/matrix/near-minimal/round9/solana-devnet-gate)), the real-wallet run and the refinement reports of 8 October 2026. Every number below comes from those.
 
 **Seat-only from 18 October 2026:** Tuan decided that every session on every chain belongs to a seat. On Solana that is `prime-seat` (section 10). The move-only session program `prime-session` is removed from this repository; its source stays at tag `archive/spike-final`, and its devnet program `6JyReewxbo6D6UQNHEWWTXnC1CdBU8CqcQjoQbGNj9Ba` (build `c883636111dfda411ef0dc80e7e73646cb6ee4d1fa9e924f645c0b6c33e68263`, final) stays deployed. The Solana app on octopos main still starts move-only sessions on that program until it moves to seats. This document keeps `prime-session` only as dated history: the verification runs that had it in the path, the wallet runs of 8 October 2026 and its devnet record.
+
+**The short version:** [docs/solana.md](../../docs/solana.md) states the Solana contracts as they are in this tree, and [docs/architecture.md](../../docs/architecture.md) shows how they fit with Stellar, EVM and NEAR. Sections on the app below describe it as merged on 11 October 2026 unless they say otherwise.
 
 **Where it runs today:** Solana devnet only. The gate and the seat program are deployed with `--final` on devnet (no upgrade authority). Neither the gate program id nor `prime-session`'s exists on mainnet: a read of `6ieR7WU...` (gate) and `6JyReew...` (prime-session) on mainnet-beta on 10 October 2026 returned no account. The mainnet build of the app carries null program ids and is read-only (section 14.4).
 
@@ -27,7 +29,7 @@ A Prime Account on Solana is a **Squads Smart Account**: a shared account made b
 - **Recovery:** if custody loses its keys, the owners at their normal approval count can send custody's funds to the recovery address fixed in the gate. It has no cap and stays open at any time. The recovery address is the trustee's wallet by default, or a custody-controlled wallet. The owners' recovery from the gate card waits the Prime Account's own time lock.
 - **Account time lock:** the Prime Account has a time lock of its own, and the app creates accounts with it at 0. When the owners confirm the gate, the app asks them for a time lock of 15 minutes (900 seconds), or an opt-out they tick. Each settings change and the owners' recovery from the gate card then wait that long, so custody and the trustee have 15 minutes to release the account first (section 8).
 - **Session:** an owner whose wallet signs through NEAR has a **seat** of its own, a small program address, in place of a key. The owner signs one grant, and a short-lived **session key** then acts as that seat for at most 7 days: it votes, and it acts alone inside the rules that list the seat. An owner with a Solana wallet votes with its own key and has no session.
-- **Fees:** in the app, every transaction is paid by its signer's own wallet: the owners, custody, the agent key and the session key each pay their own fee. The relayer (a server of ours that can pay fees) is off; the contract harness runs used it, and its figures in section 16 say so (DECISIONS.md line 112).
+- **Fees:** in the app, every transaction is paid by its signer's own wallet: the owners, custody, the agent key and the session key each pay their own fee. The relayer (a server of ours that can pay fees) was off on 11 October; the contract harness runs used it, and its figures in section 16 say so (DECISIONS.md line 112). The seat sessions of NEAR-routed owners, added later, have it pay their fees (section 14).
 
 Prime on Stellar and on EVM work the same way: funds stay in custody, a gate limits what Prime can draw, and the owners hold the recovery path. Section 4 to section 9 show how each part works on Solana and how far each has been proven.
 
@@ -54,8 +56,8 @@ Terms used from here on:
 | prime-seat | Us, 75 lines formatted (35,248 bytes) | Checks the owner's grant on each call by a session key, then signs one Squads call as the owner's seat. |
 | Seat PDA | Derived, one per NEAR-routed owner per account | The seat: a settings signer, and a signer of any policy that lets it act alone. Only `prime-seat` signs for it. |
 | ed25519 program | Built into Solana | Verifies the owner's signature on the grant inside each session transaction. |
-| Relayer | Us | Paid the fees in the harness runs. The app does not use it: its code stays in the worker behind a switch that no environment sets (worker/relay.ts, wrangler.jsonc). |
-| NEAR MPC | NEAR | A signing service that holds an ed25519 key for wallets that cannot sign Solana text. Tested in the harness for MetaMask and Freighter (section 14). Deferred: the app has no NEAR route (DECISIONS.md line 157). |
+| Relayer | Us | Paid the fees in the harness runs. On 11 October the app did not use it; the seat sessions of NEAR-routed owners, added later, have it pay their fees (section 14). |
+| NEAR MPC | NEAR | A signing service that holds an ed25519 key for wallets that cannot sign Solana text. Tested in the harness for MetaMask and Freighter (section 14). The app of 11 October had no NEAR route (DECISIONS.md line 157); section 14 says what changed. |
 
 ```mermaid
 flowchart LR
@@ -65,7 +67,7 @@ flowchart LR
   E[ed25519 program]
   P[prime-seat]
   S[Squads Smart Account]
-  W -- "signs the grant once (deferred in the app)" --> N
+  W -- "signs the grant once" --> N
   N -- "grant signature" --> K
   K -- "signed call" --> E
   K -- "signed call" --> P
@@ -528,7 +530,7 @@ sequenceDiagram
   K->>K: keeps the signature for each call
 ```
 
-The app has no NEAR route yet (section 14), so it starts no seat session.
+The app of 11 October had no NEAR route. octopos main (`bb040c0a`, 18 October 2026) has since added it behind the app's NEAR switch: beta-solana onboards NEAR-routed owners with seats and starts their sessions through `prime-near-signer` v2, and the Prime relayer pays those sessions' fees and End markers (`apps/solana-web/src/core/seat-session.ts` in octopos).
 
 ### History: move-only sessions, 8 to 18 October 2026
 
@@ -587,7 +589,7 @@ sequenceDiagram
 
 If any check fails, none of the transaction's instructions run.
 
-**Who pays:** the signer pays its own fee. The relayer is off in the app (DECISIONS.md line 112).
+**Who pays:** the signer pays its own fee (DECISIONS.md line 112); for a NEAR-routed owner's seat session the relayer pays (section 14).
 
 An agent's move has the same shape as a seat move without the ed25519 check and without `prime-seat`: the agent key signs as the policy signer, and the gate's draw sits inside the Squads call.
 
@@ -624,14 +626,14 @@ The agent's key follows a separate path. The owners removing the rule, or any on
 
 ## 14. Wallets
 
-Each wallet follows one of two routes. A route-1 wallet signs for itself: it votes with its own key and, from 18 October 2026, starts no session. A route-2 owner signs through NEAR, holds a seat and starts sessions. The app ships route 1. Route 2 was tested in the harness and is deferred: the app has no NEAR signing and no NEAR-routed owners (DECISIONS.md line 157).
+Each wallet follows one of two routes. A route-1 wallet signs for itself: it votes with its own key and, from 18 October 2026, starts no session. A route-2 owner signs through NEAR, holds a seat and starts sessions. On 11 October the app shipped route 1 only, and route 2 had run in the harness (DECISIONS.md line 157). octopos main (`bb040c0a`, 18 October 2026) has since added it behind the app's NEAR switch: beta-solana onboards NEAR-routed owners with seats and starts their sessions through `prime-near-signer` v2, and the Prime relayer pays those sessions' fees and End markers (`apps/solana-web/src/core/seat-session.ts` in octopos).
 
 ```mermaid
 flowchart LR
   subgraph NAT["Route 1: wallet signs itself"]
     W1[Wallet] -- "signs votes" --> T1[Squads]
   end
-  subgraph NEAR["Route 2: through NEAR (harness only, deferred)"]
+  subgraph NEAR["Route 2: through NEAR"]
     W2[Wallet] --> R2[Relayer]
     R2 --> S2[prime-near-signer v2]
     S2 --> M2[NEAR MPC signs the grant]
@@ -645,8 +647,8 @@ flowchart LR
 | Solflare | Native | The real extension (2.40.0) signed the grant and revoke texts, 16 of 16 checks, including a relayer-paid move. Its seat votes need a devnet account. |
 | Backpack | Native | The real extension (0.10.216) signed the grant and revoke texts, 16 of 16 checks, and two seat votes that executed. |
 | Glow | Native for text | The real extension (0.61.0) signed the grant and revoke texts, 16 of 16 checks. Its transaction prompt shows no Approve button in our runs. |
-| MetaMask | Native or NEAR (NEAR deferred) | Native: MetaMask 13.50.0 signed 12 grant and revoke requests with its own Solana account (145 of 145 checks). Seat-vote transactions used a stand-in with the same key, because MetaMask's simulation refuses the local validator's accounts. NEAR route: stock NEAR code only. |
-| Freighter | NEAR (deferred, absent from the app) | Freighter adds a Stellar prefix to every message, so it cannot sign the Solana text. In the harness it goes through our 42-line NEAR contract, `prime-near-signer`. |
+| MetaMask | Native or NEAR | Native: MetaMask 13.50.0 signed 12 grant and revoke requests with its own Solana account (145 of 145 checks). Seat-vote transactions used a stand-in with the same key, because MetaMask's simulation refuses the local validator's accounts. NEAR route: stock NEAR code only. |
+| Freighter | NEAR | Freighter adds a Stellar prefix to every message, so it cannot sign the Solana text. In the harness it went through our 42-line NEAR contract, `prime-near-signer` (v1); seats use v2. |
 
 The runs in the table are of 8 October 2026. The native wallets signed `prime-session`'s grant and revoke texts, which no longer apply, and seat votes, which still do.
 
@@ -654,7 +656,7 @@ The runs in the table are of 8 October 2026. The native wallets signed `prime-se
 
 On the NEAR route the MPC key signs the seat's grant through `prime-near-signer` v2, and `prime-seat` checks that key as the owner. The owner key signs only grants and ends, and every vote and move of the seat comes from the session key. A NEAR signature took about 8 seconds in the harness runs. Moves never use NEAR.
 
-MetaMask changes a transaction that lacks compute-budget instructions. The harness client therefore built MetaMask transactions with both instructions in place, and the relayer checked the returned message before it co-signed. The app has no relayer.
+MetaMask changes a transaction that lacks compute-budget instructions. The harness client therefore built MetaMask transactions with both instructions in place, and the relayer checked the returned message before it co-signed.
 
 ### Solana Wallet names
 
@@ -961,7 +963,7 @@ The round spent 0.9724 SOL net. The payer held 10.2296 SOL before the first depl
 
 **Swig set aside:** we tested Swig, a third-party Solana wallet program with session keys, in place of prime-session. It works for all four owner routes (256 of 256 checks) and would save bytes, compute units, fee and revoke rent. We kept prime-session because Swig counts the 7-day cap in slots, which last 4.3 to 6.9 days as slot time changes. Swig also allows one live session per role, needs an admin-role design, shows weaker prompts and adds upgradeable third-party code. The decision flips if we accept a slot-based cap, the real extensions accept its prompts, a time lock bounds its upgrades, or Squads ships session keys for policy signers. Superseded on 18 October 2026: sessions are seat-only, and `prime-session` is removed.
 
-**Seat voting, spiked and advised against:** in a spike, each owner's PDA also became a settings signer, so a session key with a vote flag could vote for its owner. It works on Solana for 7 more lines (292 of 292 checks). The independent review recommends keeping plain-key seats, with wider policies for routine actions, because the full design puts every seat behind one program and a bug or upgrade there would reach the account's governance. The production contracts were unchanged at the time. Superseded on 18 October 2026: Tuan chose seats for every session, and `prime-seat` lets a session vote for a NEAR-routed owner while a native owner writes every transaction. Decision for Tuan.
+**Seat voting, spiked and advised against:** in a spike, each owner's PDA also became a settings signer, so a session key with a vote flag could vote for its owner. It works on Solana for 7 more lines (292 of 292 checks). The independent review recommends keeping plain-key seats, with wider policies for routine actions, because the full design puts every seat behind one program and a bug or upgrade there would reach the account's governance. The production contracts were unchanged at the time. Superseded on 18 October 2026: Tuan chose seats for every session, and `prime-seat` lets a session vote for a NEAR-routed owner while a native owner writes every transaction.
 
 **Post-demo brainstorm (Tuan, 10 October 2026):** seven open questions were settled on 11 October 2026 (DECISIONS.md line 195, "Solana open decisions, settled", with the options and trade-offs in `prime-solana-open-decisions-2026-10-10.md`):
 
