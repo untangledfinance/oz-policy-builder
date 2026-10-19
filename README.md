@@ -176,7 +176,8 @@ measurements behind the limits.
   node against what they meant.
 - **Contract signers:** the install reads each contract signer off the ledger
   and refuses an execution adapter bound to no gate, or a contract that is not
-  deployed.
+  deployed. Every other contract passes unvetted, so the owner checks who
+  controls it.
 - **The authority header:** the install review opens with who may act, under
   which threshold, until when, up to what total, and under which interpreter.
   `[…]` marks the package's roles and `«…»` the labels given in the request.

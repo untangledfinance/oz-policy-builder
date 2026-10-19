@@ -289,7 +289,9 @@ anything but one contract call. Anything else it describes, and lists in
 - a value the builder never writes, or an envelope that already carries a
   signature (the review is of unsigned bytes);
 - a contract signer, unless its instance was read: then an execution adapter
-  bound to no gate, or a contract that is not deployed;
+  bound to no gate, or a contract that is not deployed. Every other contract
+  then reads signable unvetted: a seat, a smart account, an adapter with a gate,
+  or any contract an agent deployed. The owner checks who controls it;
 - for an install: a scope other than one contract, or a policy contract or the
   account itself; an External signer or admin, or a threshold weight on one; a
   threshold policy with no threshold; no interpreter, two, or one other than
@@ -368,8 +370,9 @@ then.
   refusals all live in `planInstall` (`src/install.ts`); see "Install guardrails".
 - `check` always fails with its verdict, so even a `read` that calls a token's
   `transfer` as the interpreter commits nothing (see the interpreter's README).
-- The grammar-7 STRIDE threat model, with what is done and open at 2.0.0, is
-  `evidence/stride-threat-model-g7.md` in the repository.
+- The grammar-7 STRIDE threat model, with what is done and open as of its
+  final rerun on 19 October 2026, is `evidence/stride-threat-model-g7.md` in
+  the repository.
 
 ## Tests
 
