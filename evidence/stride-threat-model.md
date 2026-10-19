@@ -214,7 +214,7 @@ Carried forward, re-verified by this run's test evidence where marked:
 New in the 2026-09-29 run, all measured on testnet (`evidence/execution-wait-testnet.log`,
 `evidence/execution-address-rule-testnet.log`) or in the adapter's unit tests:
 
-- **A stored move can be run by anyone, and needs no Prime key:** from an account with no role, a Blend supply, a recovery pull to the trustee and an agent's move all succeeded.
+- **A stored move can be run by anyone, and needs no Prime key:** run from an account with no role, a Blend supply, a recovery pull to the trustee and an agent's move all succeeded.
 - **The run rule approves `run` and nothing else:** used for an immediate `execute`, a stored `execute` or a `cancel`, it was refused `#100` each time.
 - **Revoking an agent does not reach its stored moves:** with the agent's rule removed, its stored move still ran.
 - **Removing the run rule pauses every stored move at once**, and they stay stored.
@@ -463,7 +463,7 @@ and again when run, against the gate the adapter is bound to THEN.
 | D1-R.1 | Repudiation | No record of what was deployed, by whom, at what cost | | Low | Low | `deployments/prime-mainnet.json` records the deployer, every transaction hash, the code hashes and the fees; all of it can be checked on the ledger. | None. |
 | **D1-I.1** | Info disclosure | **The deployer secret leaks** | The script reads it from an env file on the VM | Medium | Low | It is read from `DEPLOY_SECRET` or `MAINNET_DEPLOYER_SECRET` in an env file that is not in any repository, and never printed. The key holds no power over what it created (D1-E.1). A leak would expose only the XLM left on the account. | The account's balance. |
 | **D1-E.1** | Elevation of privilege | **The deployer can change the contracts after the fact** | | Low | Critical | None of the three contracts has an admin, a setter or `update_current_contract_wasm`; the interpreter has no constructor at all. A gate or adapter is created by the user's own accounts; the deployer creates neither. | None. |
-| **D1-D.1** | DoS | **Mainnet entries archive unless someone extends them** | Every entry starts with the network minimum, ~120 days; writes do not extend it. Measured on 2026-10-01: the OpenZeppelin smart account code `91a2cd56…` archives around 7 December 2026, the `simple_threshold` policy code around 23 December 2026, and the code and interpreter this deployment extended around 30 March 2027. A user's Prime, gate, adapter and policies archive ~120 days after they are created or last extended | High | Low | Auto-restore applies (A-5). The smart account code matters most: the deployment's simulation quoted 80.8 XLM to extend it to the network maximum, over the script's fee cap, so it was not extended. | **A-5:** every Prime runs the smart account code, so the first transaction that uses or creates a Prime after 7 December 2026 pays for its restore, a cost not yet measured on mainnet. |
+| **D1-D.1** | DoS | **Mainnet entries archive, and no job extends them** | Every entry starts with the network minimum, ~120 days; writes do not extend it. Measured on 2026-10-01: the OpenZeppelin smart account code `91a2cd56…` archives around 7 December 2026, the `simple_threshold` policy code around 23 December 2026, and the code and interpreter this deployment extended around 30 March 2027. A user's Prime, gate, adapter and policies archive ~120 days after they are created or last extended | High | Low | Auto-restore applies (A-5). The smart account code matters most: the deployment's simulation quoted 80.8 XLM to extend it to the network maximum, over the script's fee cap, so it was not extended. | **A-5:** every Prime runs the smart account code, so the first transaction that uses or creates a Prime after 7 December 2026 pays for its restore, a cost not yet measured on mainnet. |
 
 ### Data flow F6 - venue pool picker and venue names (adjacent, new)
 
@@ -492,13 +492,13 @@ Aquarius and 4 Blend pools on mainnet.
 
 | ID | Cat | Threat | Attack scenario | Likelihood | Impact | Mitigation | Residual |
 |---|---|---|---|---|---|---|---|
-| C3-S.1 | Spoofing | Compromised RPC returns forged auth nonces and root invocations | The auth digest binds the caller | Medium | High | Pin enforcement is default-deny; the wallet signature covers the same auth digest. | Trust assumption: pinned RPCs are uncompromised. |
+| C3-S.1 | Spoofing | Compromised RPC returns forged auth nonces and root invocations | The auth digest binds the caller | Medium | High | Pin enforcement is default-deny; the wallet signature covers the same auth digest. | Trust assumption: the pinned RPCs report the chain truthfully, whoever runs them. |
 
 ### Element C4 - Wallet (out of scope, listed with trust assumption)
 
 | ID | Cat | Threat | Attack scenario | Likelihood | Impact | Mitigation | Residual |
 |---|---|---|---|---|---|---|---|
-| C4-S.1 | Spoofing | Compromised wallet | | Low | Critical | Out of scope. | Trust assumption: the user's wallet is uncompromised. |
+| C4-S.1 | Spoofing | Compromised wallet | | Low | Critical | Out of scope. | Trust assumption: the user's wallet works as its user expects and signs only what it shows. |
 
 ---
 
@@ -510,7 +510,7 @@ What this model assumes and does NOT verify:
 2. **OpenZeppelin smart-account contracts:** `__check_auth`, rule selection and signer semantics are correct - including that a `Delegated` contract signer is satisfied only when that contract asked; that is what makes the run rule safe to sign with no key (measured in both directions: the adapter's signature failed when a venue asked first, and passed when `run` asked).
 3. **User's own key custody.**
 4. **Soroban SDK 27 cross-contract execution semantics**, including the refusal to re-enter a contract already on the stack.
-5. **Pinned RPC URLs** point at uncompromised endpoints.
+5. **Pinned RPC URLs** point at endpoints that report the chain truthfully.
 6. **Custody's own key custody and its choice of successor gate.**
 7. **TS encoder / Rust decoder parity**, pinned by the conformance suite.
 8. **Someone watches (new):** a wait protects custody only if a stored move is SEEN inside it. Nothing in this stack alerts anyone; the app lists moves to whoever opens it.

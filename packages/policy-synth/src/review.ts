@@ -391,7 +391,7 @@ function ruleOf(args: Val[], network: Network, account: string, flag: (p: string
   }
   if (!Array.isArray(scope) || scope[0] !== 'CallContract')
     flag(
-      `the rule is scoped ${Array.isArray(scope) ? `${scope[0]}` : 'oddly'}, wider than one contract: it would cover every such call of the account`
+      `the rule is scoped ${Array.isArray(scope) ? `${scope[0]}` : 'oddly'} instead of to one contract: it would cover every such call of the account`
     )
   else if (POLICY_CONTRACTS.has(scope[1] as string) || scope[1] === account)
     flag(
