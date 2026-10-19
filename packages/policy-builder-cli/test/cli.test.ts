@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { TOOLS } from '@crediolabs/policy-synth/run'
@@ -44,17 +44,21 @@ describe('policy-builder', () => {
       calls: [{ contract: CONTRACT, fn: 'pay', where: [{ constraint: 'cap', at: [0], max: '5' }] }],
     }
     const dir = mkdtempSync(join(tmpdir(), 'opb-cli-'))
-    const file = join(dir, 'in.json')
-    writeFileSync(file, JSON.stringify({ intent }))
-    const results = await Promise.all([
-      cli(['synthesize', JSON.stringify({ intent })]),
-      cli(['synthesize', '--file', file]),
-      cli(['synthesize', '-'], JSON.stringify({ intent })),
-      cli(['synthesize', '--intent', JSON.stringify(intent)]),
-    ])
-    for (const r of results) {
-      expect(r.code).toBe(0)
-      expect(r.json.data.rules[0].review.at(-1)).toBe('   └─ argument 0:  must be at most  5')
+    try {
+      const file = join(dir, 'in.json')
+      writeFileSync(file, JSON.stringify({ intent }))
+      const results = await Promise.all([
+        cli(['synthesize', JSON.stringify({ intent })]),
+        cli(['synthesize', '--file', file]),
+        cli(['synthesize', '-'], JSON.stringify({ intent })),
+        cli(['synthesize', '--intent', JSON.stringify(intent)]),
+      ])
+      for (const r of results) {
+        expect(r.code).toBe(0)
+        expect(r.json.data.rules[0].review.at(-1)).toBe('   └─ argument 0:  must be at most  5')
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
     }
   })
 
@@ -90,8 +94,13 @@ describe('policy-builder', () => {
   })
 
   it('--out also writes the envelope to a file', async () => {
-    const out = join(mkdtempSync(join(tmpdir(), 'opb-cli-')), 'result.json')
-    const r = await cli(['info', '--out', out])
-    expect(readFileSync(out, 'utf8')).toBe(r.out)
+    const dir = mkdtempSync(join(tmpdir(), 'opb-cli-'))
+    try {
+      const out = join(dir, 'result.json')
+      const r = await cli(['info', '--out', out])
+      expect(readFileSync(out, 'utf8')).toBe(r.out)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
