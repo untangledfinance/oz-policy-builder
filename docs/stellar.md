@@ -119,8 +119,10 @@ names its token.
 
 `contracts/stellar/execution-adapter/src/lib.rs`. It exists because Soroban allows
 one host-function invocation per transaction, so a contract has to make several
-calls atomically. It has one rule: **a batch may not mention an address the
-gate does not name.** Before any call runs, it checks:
+calls atomically. The Prime creates it bound to one gate or, from the v5 build,
+with no gate (see [No gate](#no-gate)). Bound to a gate, it has one rule: **a
+batch may not mention an address the gate does not name.** Before any call
+runs, it checks:
 
 - every call target;
 - every argument, however deeply nested, including data that could be read
@@ -197,18 +199,97 @@ ready ledger or after the window), `NotACanceller` 7. A stored batch sits in
 persistent storage under its number as `(calls, grants, run_at)`, readable by
 anyone; there are no events.
 
-**The address commits to both numbers:** it derives from
-`sha256("prime.execution.adapter.v4" + gate + min_wait + run_window)`, each
-part in its XDR encoding. The constructor refuses to run at any other address
-(`NotWhereAgreed`, 8).
+**The address commits to both numbers:** the v5 build derives it from
+`sha256("prime.execution.adapter.v5" + XDR((gate, min_wait, run_window)))`, the
+XDR of that tuple, with a void for "no gate". The v4 build hashed
+`"prime.execution.adapter.v4"` and the XDR of each part in turn, so no v5
+adapter can sit at an address derived for v4. The constructor refuses to run
+at any other address (`NotWhereAgreed`, 8).
 
 The gate pins its caller's address and build but not the arguments it was
 created with. Without the address check, the Prime could create the
 adapter at the address custody put on the gate, with a `min_wait` of 0. Custody derives
 the address from the numbers it agrees to and names it on the gate.
 
-The gate is the unchanged v3 contract; it only has to name the v4 adapter and
+The gate is the unchanged v3 contract; it only has to name the adapter and
 its build.
+
+### No gate
+
+From the v5 build (`4985cd12…`), the Prime can create its adapter with no gate.
+Such a null adapter checks no address, so the Prime can bundle its own calls:
+for example `[Y.hello(…), USDC.transfer(X, M, A), XLM.transfer(X, N, B)]`, where
+the transfers happen only if `hello` does not fail. The Prime `X` can be a G
+account or an OpenZeppelin account. Whether an adapter has a gate is fixed when
+it is created.
+
+| | Gate set | No gate |
+|---|---|---|
+| Addresses checked | every target, argument, nested value and grant against the gate's list | none |
+| A call to the Prime itself | refused (`PrimeTarget`, 1) | refused (`PrimeTarget`, 1) |
+| Grants and `executor_authorizations` | checked against the list | refused (`Uncheckable`, 3): the adapter acts as itself only towards the contracts it calls directly |
+| `wait` above 0, `min_wait` above 0 | allowed | refused (`NoWait`, 10), at `execute` and at creation |
+| `cancel` | the Prime or the gate's custody | the Prime (nothing is ever stored) |
+| `rebind` | custody of the current gate, to another gate | refused (`NoGate`, 9); a gated adapter cannot be rebound to none either, because `rebind` takes an address |
+
+**One approval covers the bundle:** `execute` asks the Prime to approve
+`(calls, grants, wait)`, and each nested `X.require_auth`, such as the token's
+`transfer(X, …)`, is filed under that approval. A G account signs one
+authorisation entry, or none when it submits the transaction itself. An
+OpenZeppelin account checks every context in one `__check_auth`, and each
+context needs its own rule: an agent needs a rule for `execute` on the adapter
+and one for each token it moves, and its caps on those token rules hold.
+
+**Nothing waits:** a stored batch runs under `run`, where the adapter is the one
+asking the Prime, so the Prime's token rules would have to be signed by the
+adapter. Such rules would also answer an immediate `execute`, where the adapter
+asks too, so an agent allowed to call `execute` could move the Prime's funds
+through them instead of through its own capped rules. A G account would also
+have to sign a stored batch again at `run`. A null adapter therefore runs every
+batch at once.
+
+**Custody's funds stay out of reach:** a custody gate pins the address and
+build of its one caller, and custody derives that address from the gate
+itself, so a null adapter's address is never the one on the gate. Measured on
+testnet: a null adapter's `pull` through custody's gate is refused with
+`Error(Auth, InvalidAction)`. A gate whose custody put a null adapter's
+address on it on purpose would still pay only the addresses on its own list.
+
+Two hazards follow from having no list:
+
+- **Never send funds to a null adapter or give it an allowance:** it holds
+  nothing, and anyone the Prime's rules allow to call `execute` can run any
+  batch through it, so whatever it holds is theirs to move.
+- **A rule on the Prime that the null adapter signs is bounded by its predicate
+  alone:** nothing else checks the addresses in the adapter's batches, and the
+  adapter signs whenever it is the one asking, so an agent allowed to call
+  `execute` can cite such a rule in place of its own capped token rules. Refusing
+  waits removes the reason to install one; it does not stop the owners from
+  installing one, and the contract cannot see the Prime's rules. Measured on
+  testnet by review-opb26: with a USDC rule signed by the null adapter, the
+  agent moved five times its cap. `policy-synth` and the Prime app must refuse
+  such a rule before any flow that uses a null adapter ships.
+
+**Cost:** in one testnet run, k USDC transfers from a G account through a
+gated v5 adapter cost 3,745, 3,820 and 4,082 fewer instructions than through
+v4 for k = 1, 3 and 10, and 1 stroop less, although the module is 541 bytes
+larger. The 32-byte comparison reads the address's XDR instead of its payload,
+which saves about 7,000 instructions a call. The same batches through a null
+adapter cost 935,464, 1,267,575 and 2,475,164 instructions, about a third
+fewer than gated for one call. Transaction ids are in
+`evidence/execution-null-gate-testnet.log`.
+
+**A signed bundle is valid until its expiry ledger:** a bundle that fails on
+chain does not use up its authorisation's nonce. When the Prime's entry carries
+address credentials, whoever holds it can submit it again until
+`signatureExpirationLedger`, and it runs if the failing call would now succeed
+(rows G2 to G4 of `evidence/execution-null-gate-testnet.log`). The expiry
+ledger is the bound, so tools should sign bundles of the Prime's own funds with
+a short one. Where the signer authenticates as the transaction source instead,
+only that signer can resubmit: a G account that submits its own bundle uses up its
+sequence number when the transaction fails, and an OpenZeppelin Prime whose
+signer is the source (`Delegated(source)` with an empty signature, as
+`policy-synth`'s install path builds it) needs that source's own envelope.
 
 ### Keeping contracts live
 
@@ -550,11 +631,12 @@ The custody account can also cancel any stored move before it runs, with
 | Check | Where | Result |
 |---|---|---|
 | Every route out of a threshold-20 account with one key | `scripts/verify-mpc-threshold-testnet.ts`, testnet | 7 of 7 |
-| The address rule against a real Prime and live Blend and Aquarius | `scripts/verify-execution-address-rule-testnet.ts`, testnet | All 35 checks passed against the adapter with no wait on 29 September 2026, on the Linux builds recorded in `deployments/execution-testnet.json` - the same results the v3 adapter gave. The log is `evidence/execution-address-rule-testnet.log`. A Blend supply, a withdrawal to custody and an Aquarius swap succeed. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put. |
-| The adapter's wait against a real Prime, the unchanged gate and live Blend | `scripts/verify-execution-wait-testnet.ts`, testnet | All 45 checks passed on 29 September 2026 on the Linux builds; the log is `evidence/execution-wait-testnet.log`. Succeeded:<br>• a Blend supply at once;<br>• a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role and no Prime signature;<br>• an agent's batch after the minimum wait its own rule demands.<br>Refused:<br>• the agent below that minimum, and the agent cancelling;<br>• the run rule used for an immediate `execute`, a stored batch or a `cancel`;<br>• a stranger cancelling;<br>• running early, twice, after a cancel, or after the run window;<br>• a wait below the adapter's floor;<br>• the Prime creating the adapter at custody's address with a lower floor or a longer window.<br>The Prime and custody both cancel. An agent's stored move still runs after its rule is removed; removing the run rule pauses a ready move; a move stored with a wait past the network minimum lives until its window closes, and using the adapter extends its own instance to ~30 days. |
+| The address rule against a real Prime and live Blend and Aquarius | `scripts/verify-execution-address-rule-testnet.ts`, testnet | All 35 checks passed against the adapter with no wait on 29 September 2026, on the Linux builds recorded in `deployments/execution-testnet.json` - the same results the v3 adapter gave. The log is `evidence/execution-address-rule-testnet.log`. A Blend supply, a withdrawal to custody and an Aquarius swap succeed. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put. Run again on 18 October 2026 against the v5 build `4985cd12…` with a gate: 35 of 35, the same rows (`evidence/execution-address-rule-testnet-v5.log`). |
+| The adapter's wait against a real Prime, the unchanged gate and live Blend | `scripts/verify-execution-wait-testnet.ts`, testnet | All 45 checks passed on 29 September 2026 on the Linux builds; the log is `evidence/execution-wait-testnet.log`. Succeeded:<br>• a Blend supply at once;<br>• a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role and no Prime signature;<br>• an agent's batch after the minimum wait its own rule demands.<br>Refused:<br>• the agent below that minimum, and the agent cancelling;<br>• the run rule used for an immediate `execute`, a stored batch or a `cancel`;<br>• a stranger cancelling;<br>• running early, twice, after a cancel, or after the run window;<br>• a wait below the adapter's floor;<br>• the Prime creating the adapter at custody's address with a lower floor or a longer window.<br>The Prime and custody both cancel. An agent's stored move still runs after its rule is removed; removing the run rule pauses a ready move; a move stored with a wait past the network minimum lives until its window closes, and using the adapter extends its own instance to ~30 days. Run again on 18 October 2026 against the v5 build with a gate: 45 of 45, the same rows (`evidence/execution-wait-testnet-v5.log`). |
 | The full scenario in the Prime app | the Prime app's Fordefi scenario guide, on beta against testnet | 10 XLM under the low band succeeds with the agent alone; 150 XLM under the low band is refused; 150 XLM under the high band succeeds after the admin approves. Custody's XLM fell by exactly 315, the sum of the moves less the withdrawal. |
 | Contract unit tests, grammar-6 source | `cargo test` in each crate on `main` | interpreter 151 (the conformance suite included), adapter 33, gate 3, run on 1 October 2026 |
-| Contract unit tests, this tree | `cargo test` in each crate (see [Build and test](#build-and-test)) | interpreter 397 and the release conformance run 18, adapter 45, gate 3, `prime-seat` 21, measured on 18 October 2026 |
+| The adapter with no gate, for a G and an OpenZeppelin Prime | `scripts/verify-execution-null-gate-testnet.ts`, testnet, v5 build `4985cd12…` | All 69 checks passed on 18 October 2026; the log is `evidence/execution-null-gate-testnet.log`. Succeeded: `[hello, USDC.transfer, XLM.transfer]` with one authorisation by X (a G account, and an OpenZeppelin account through rule 0); an agent's bundle at its cap under grammar-7 rules, one rule per context. Refused: the bundle on chain once `hello` failed, with no balance moved; its signed entry after its expiry ledger; a call to the Prime; a grant; any wait, and a null adapter with a minimum wait; `rebind`; a stranger's `cancel`; the agent over its cap, with the adapter added as a co-signer, or citing its adapter rule for a token context; a null adapter's pull through custody's gate; a gated adapter rebound to "no gate". Before its expiry, the failed bundle's entry ran once `hello` answered again. |
+| Contract unit tests, this tree | `cargo test` in each crate (see [Build and test](#build-and-test)) | interpreter 397 and the release conformance run 18, adapter 62, gate 3, `prime-seat` 21, measured on 18 October 2026 |
 
 ## Build and test
 
@@ -574,11 +656,14 @@ hash; `stellar contract build` and macOS give other bytes.
 | Crate | `build-wasm.sh` sha256 | Recorded in | Tests (18 October 2026) |
 |---|---|---|---|
 | `policy-interpreter` (grammar 7) | `69cad1d5ce9aeaa0dad6980fd030e528935a0ebdd290111f393e9fd0564a68b0` | `deployments/grammar7-testnet.json` | 397, and 18 in the release conformance run |
-| `execution-adapter` | `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3` | `deployments/execution-testnet.json` | 45 |
+| `execution-adapter` (v5, optional gate) | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b` | `contracts/build-hashes.json` | 62 |
 | `custody-gate` | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` | `deployments/execution-testnet.json` | 3 |
 | `prime-seat` | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | `contracts/build-hashes.json` | 21 |
 
-CI compares each hash with its record. The grammar-6 interpreter on mainnet
+CI compares each hash with its record. The v4 adapter `3dd675c0…`, which the
+Prime app pins and mainnet runs, stays recorded in
+`deployments/execution-testnet.json`; it builds from the tree before the
+optional gate (`a86a496`). The grammar-6 interpreter on mainnet
 (`5143e641…`) builds from `main`, and this branch's
 `scripts/deploy-grammar6-testnet.ts` refuses to run on the grammar-7 source.
 
@@ -587,7 +672,8 @@ CI compares each hash with its record. The grammar-6 interpreter on mainnet
 | | Network | Address or hash |
 |---|---|---|
 | Policy interpreter, grammar 6 (custody design) | testnet | `CDPR5VTX6R2ZPKREPD7FBW5ANVWXMVJIBIH2GMF36XPOFNMHRDIRUAZQ`, recorded in [`deployments/grammar6-testnet.json`](../deployments/grammar6-testnet.json) |
-| Execution adapter build | testnet and mainnet | `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3`, the Linux build of `contracts/stellar/execution-adapter`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json) and rebuilt by CI. Its code is uploaded on both networks (read back from mainnet on 18 October 2026; the mainnet upload of 11 October 2026 is recorded under `updates` in [`deployments/prime-mainnet.json`](../deployments/prime-mainnet.json), transaction `23c83e44…`), and the Prime app makes new gates for it on both. It refuses a recipient written as a muxed address. The app still recognises `eefcfdd7…`, `68d012e7…`, `32a8658a…` and `23a7b289…` for gates set up with them. |
+| Execution adapter build | testnet and mainnet | `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3`, the Linux build of `contracts/stellar/execution-adapter`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json); it builds from `contracts/stellar/execution-adapter` at `a86a496`, before the optional gate. Its code is uploaded on both networks (read back from mainnet on 18 October 2026; the mainnet upload of 11 October 2026 is recorded under `updates` in [`deployments/prime-mainnet.json`](../deployments/prime-mainnet.json), transaction `23c83e44…`), and the Prime app makes new gates for it on both. It refuses a recipient written as a muxed address. The app still recognises `eefcfdd7…`, `68d012e7…`, `32a8658a…` and `23a7b289…` for gates set up with them. |
+| Execution adapter v5 build (optional gate) | testnet | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b`, 24,659 bytes, uploaded in `9d9753a434302e6ba62001a5d8d69963f3a24eae8e60bae0df957ae7e568751f` and recorded in [`contracts/build-hashes.json`](../contracts/build-hashes.json). Not on mainnet, and the Prime app does not pin it yet |
 | Execution adapter v3 builds (earlier pairs) | - | `5be8b08eefe704970fbb51612ef4f6222df3d4b0f2ab6704544e761e3576e708` and `0e088421…`, still recognised by the app |
 | Custody gate build | testnet | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab`, the Linux build of `contracts/stellar/custody-gate`, recorded in the same file. Gates set up earlier run `2788f05b…`, the same design. |
 | Policy interpreter, grammar 7 (the 2.x packages' pin) | testnet | `CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT`, wasm `69cad1d5…`, deployed with reads 8, leaves 400, bytes 24,576, elems 32, `in` entries 32, depth 5. Recorded in [`deployments/grammar7-testnet.json`](../deployments/grammar7-testnet.json) and pinned in `packages/policy-synth/src/config.ts`. Three earlier grammar-7 instances are superseded, and 2.x refuses them |
@@ -622,6 +708,12 @@ deployed and still reachable by accounts that use them; their source is at tag
   because the interpreter compares by XDR. A gate pins its adapter's
   build, so a setup on an earlier build moves by creating a new gate and
   adapter.
+- **An adapter with no gate guards only the Prime's own rules:** it checks no
+  address, so what a batch through it can do is what the Prime's rules allow
+  for each call that asks the Prime, and anything the adapter itself holds or
+  is allowed to spend. Send it nothing, give it no allowance, and install no
+  rule it signs. A bundle's signed authorisation stays valid until its expiry
+  ledger even after it failed, so sign bundles with a short one.
 - **The seat is tied to the account's digest format:** it reads the rule ids
   out of `sha256(payload ‖ XDR(rule ids))`, the form of the pinned OpenZeppelin
   account `91a2cd56…`. An account build that hashes something else makes every

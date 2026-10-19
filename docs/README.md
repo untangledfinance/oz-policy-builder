@@ -42,7 +42,7 @@ pin; grammar 5 `CDIMIQDB…` with the stateless adapter `57bf132b…`, recorded 
 | Stellar | policy interpreter | grammar 6, `CAOBQ4ZX…` (wasm `5143e641…`) | grammar 6 `CDPR5VTX…` for the Prime app; grammar 7 `CDZV4AG4…` (wasm `69cad1d5…`) for the 2.x packages |
 | Stellar | policy interpreter, grammars 4 and 5 | grammar 4 `CDN755T…`; grammar 5 `CDIMIQDB…` (wasm `cc05ac55…`) with the stateless adapter `57bf132b…` | grammar 4 `CCBHVZ6H…`; grammar 5 `CBIQGAHI…` |
 | Stellar | custody gate | code `b01024f3…` | code `b01024f3…` |
-| Stellar | execution adapter | code `3dd675c0…` for new setups, `68d012e7…` for gates set up before 11 October 2026 | code `3dd675c0…` |
+| Stellar | execution adapter | code `3dd675c0…` for new setups, `68d012e7…` for gates set up before 11 October 2026 | code `3dd675c0…`; the v5 build with an optional gate, `4985cd12…`, is uploaded but not pinned |
 | Stellar | `prime-seat` | none | code `393f0e5d…`, one instance per NEAR-routed owner and account |
 | EVM | `PrimeSeat` | none | Base Sepolia, one instance per NEAR-routed owner and Safe |
 | Solana | custody gate | none | devnet `6ieR7WUs…` (`a5d19edb…`) |

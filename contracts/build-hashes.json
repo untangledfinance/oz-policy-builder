@@ -2,6 +2,7 @@
   "note": "Reproducible build hashes that CI compares against: Stellar from build-wasm.sh, Solana from cargo-build-sbf with PRIME_CLUSTER=localnet, NEAR v2 from cargo build with --cfg near, each with the path remaps in ci.yml. Update an entry together with the source it covers.",
   "recorded": "2026-10-18",
   "sha256": {
+    "stellar/execution-adapter": "4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b",
     "stellar/prime-seat": "393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87",
     "evm/prime-seat:runtime": "3b4402d54f28ef3eb23bc14e9ac1e44c4aa946da42c4c3cea46cd76970c438d6",
     "evm/prime-seat:creation": "4d3558643131eebbbb8087fc65ed8c52581e0c48619adcf60cdc756cb83a0de7",

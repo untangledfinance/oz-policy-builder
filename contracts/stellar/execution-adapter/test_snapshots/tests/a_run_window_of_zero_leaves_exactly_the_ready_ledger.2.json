@@ -13,7 +13,7 @@
         {
           "function": {
             "contract_fn": {
-              "contract_address": "CARGUZ7K3DX3OIYMKBX2MHMB5BSPUWQD6RTPJM56PQWSIFQEN6LHMLJY",
+              "contract_address": "CD5AJZ5CFDKUY57WXENQBUO4BCSEF4HWGQJ6WBEVWKIQLITNT32SN4HX",
               "function_name": "execute",
               "args": [
                 {
@@ -75,7 +75,7 @@
         {
           "function": {
             "contract_fn": {
-              "contract_address": "CARGUZ7K3DX3OIYMKBX2MHMB5BSPUWQD6RTPJM56PQWSIFQEN6LHMLJY",
+              "contract_address": "CD5AJZ5CFDKUY57WXENQBUO4BCSEF4HWGQJ6WBEVWKIQLITNT32SN4HX",
               "function_name": "run",
               "args": [
                 {
@@ -201,7 +201,7 @@
           "data": {
             "contract_data": {
               "ext": "v0",
-              "contract": "CARGUZ7K3DX3OIYMKBX2MHMB5BSPUWQD6RTPJM56PQWSIFQEN6LHMLJY",
+              "contract": "CD5AJZ5CFDKUY57WXENQBUO4BCSEF4HWGQJ6WBEVWKIQLITNT32SN4HX",
               "key": "ledger_key_contract_instance",
               "durability": "persistent",
               "val": {

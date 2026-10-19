@@ -61,8 +61,10 @@ import {
 /** Live Aquarius XLM/USDT pool, and the token it pays out in. */
 const AQUA = 'CCMNSENXDBNJSY72BDIPH5CCXLLHBKZ4LXTRKDLKZN4UI2NJFQLWTLD6'
 const OUT = 'CDPXNHHVSLX3HFAHV7XOISM23MZH36WSXTO45RNDOBIDFZBGTSOVD4OY'
-/** The salt domain custody uses to find the adapter before it is deployed. */
-const DOMAIN = 'prime.execution.adapter.v4'
+/** The salt domain custody uses to find the adapter before it is deployed.
+ *  `v5`, the build with an optional gate, hashes it with the XDR of the tuple
+ *  (gate, min_wait, run_window); `v4` hashed the XDR of each part in turn. */
+const DOMAIN = 'prime.execution.adapter.v5'
 /** No wait, and a window that never matters: this script is about the address
  *  rule. `verify-execution-wait-testnet.ts` covers waiting. The adapter's address
  *  commits to both, so they are part of its salt. */
@@ -70,12 +72,7 @@ const MIN_WAIT = 0
 const WINDOW = 100
 const adapterSalt = (gate: string) =>
   hash(
-    Buffer.concat([
-      Buffer.from(DOMAIN),
-      addr(gate).toXDR(),
-      u32v(MIN_WAIT).toXDR(),
-      u32v(WINDOW).toXDR(),
-    ])
+    Buffer.concat([Buffer.from(DOMAIN), vec([addr(gate), u32v(MIN_WAIT), u32v(WINDOW)]).toXDR()])
   )
 const NAMES: Record<string, string> = {
   '1': 'PrimeTarget',

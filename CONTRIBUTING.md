@@ -57,8 +57,9 @@ to skip it locally. CI also runs the conformance suite in release mode:
 ```
 
 CI then compares the `build-wasm.sh` hash of the interpreter with
-`deployments/grammar7-testnet.json`, and those of the gate and the adapter with
-`deployments/execution-testnet.json`. Compare hashes from a Linux build.
+`deployments/grammar7-testnet.json`, that of the gate with
+`deployments/execution-testnet.json`, and those of the adapter and the seat with
+`contracts/build-hashes.json`. Compare hashes from a Linux build.
 
 The other contracts have a CI job each. From the repository root:
 
