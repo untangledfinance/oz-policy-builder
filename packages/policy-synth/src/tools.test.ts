@@ -3,7 +3,7 @@
 // records it again), through the real SDK against a local JSON-RPC server.
 
 import { afterAll, describe, expect, it, setDefaultTimeout } from 'bun:test'
-import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -1111,6 +1111,7 @@ describe('install_policy', () => {
       } finally {
         if (before === undefined) delete process.env.POLICY_BUILDER_OUT_DIR
         else process.env.POLICY_BUILDER_OUT_DIR = before
+        rmSync(dir, { recursive: true, force: true })
       }
     }
 

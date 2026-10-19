@@ -167,6 +167,16 @@ mainnet refusal is the intended security change of P0-4.
   `evidence/stride-threat-model.md` is reworded with its meaning, IDs,
   numbers and the 2026-10-01 record unchanged.
 
+- **Temporary folders, line references and unlisted records:** the tests that
+  make a temporary folder (`tools.test.ts`, `cli.test.ts`) now remove it, so a
+  test run leaves nothing in the system temp folder.
+  `evidence/stride-threat-model-g7.md` cites the code at `fa3580bb` in the
+  sections of 18 October and the first run, and says which tree each section's
+  references are to. `evidence/README.md` lists the four `evidence/stateless/`
+  records, the two `-reproducible-interpreter` logs and
+  `oz-two-rule-blend-cap.log`, and `docs/README.md` and `docs/stellar.md` name
+  `scripts/deploy-grammar7-limits-testnet.ts`.
+
 ### Removed
 
 - **The Stellar and EVM `prime-session` contracts:** the move-only session
