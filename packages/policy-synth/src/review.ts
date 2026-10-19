@@ -135,7 +135,7 @@ export function reviewUnsigned(i: {
       `no smartAccount was given, so whether ${account} is the account the owner means cannot be checked`
     )
   else if (i.smartAccount !== account)
-    flag(`it changes ${account}, not the account under review ${i.smartAccount}`)
+    flag(`it changes ${account}; the account under review is ${i.smartAccount}`)
   if (op.sourceAccount()) flag('the operation names a source account of its own')
   if (tx.signatures.length > 0)
     flag(
@@ -182,7 +182,7 @@ export function reviewUnsigned(i: {
       flag('the authorisation names no context rule, or one that is not a rule id')
     else if (contextRuleIds.length !== 1 || contextRuleIds[0] !== 0)
       flag(
-        `the authorisation is by rule ${contextRuleIds.join(', ')}, not rule 0: the builder always names the account's admin rule`
+        `the authorisation is by rule ${contextRuleIds.join(', ')}; the builder always names the account's admin rule, rule 0`
       )
     auth = {
       nonce: c.nonce().toString(),
@@ -391,7 +391,7 @@ function ruleOf(args: Val[], network: Network, account: string, flag: (p: string
   }
   if (!Array.isArray(scope) || scope[0] !== 'CallContract')
     flag(
-      `the rule is scoped ${Array.isArray(scope) ? `${scope[0]}` : 'oddly'}, not to one contract: it would cover every such call of the account`
+      `the rule is scoped ${Array.isArray(scope) ? `${scope[0]}` : 'oddly'}, wider than one contract: it would cover every such call of the account`
     )
   else if (POLICY_CONTRACTS.has(scope[1] as string) || scope[1] === account)
     flag(
@@ -437,7 +437,7 @@ function ruleOf(args: Val[], network: Network, account: string, flag: (p: string
       if (pin?.address !== at)
         flag(
           INTERPRETERS.has(at)
-            ? `${at} is an interpreter this project superseded or of another grammar, not the ${network} pin`
+            ? `${at} is an interpreter this project superseded or of another grammar, other than the ${network} pin`
             : pin
               ? `${at} is not the pinned ${network} interpreter ${pin.address}`
               : `no interpreter is pinned for ${network}, so ${at} cannot be checked from the bytes`
@@ -445,7 +445,7 @@ function ruleOf(args: Val[], network: Network, account: string, flag: (p: string
       else a.limits = pin.limits
       if (p.grammar_version !== GRAMMAR_VERSION)
         flag(
-          `the interpreter is asked for grammar ${String(p.grammar_version)}, not ${GRAMMAR_VERSION}`
+          `the interpreter is asked for grammar ${String(p.grammar_version)}; this builder speaks grammar ${GRAMMAR_VERSION}`
         )
       const admins = Array.isArray(p.policy_admins) ? p.policy_admins : []
       if (admins.some((x) => !delegatedOf(x)))

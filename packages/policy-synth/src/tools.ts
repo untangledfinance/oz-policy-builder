@@ -475,7 +475,7 @@ async function subject(i: z.infer<z.ZodObject<typeof predicateInput>>) {
     calls: calls as Call[],
     /** Only a predicate was given, no source and no calls: it is explained, nothing is checked. */
     explainOnly,
-    heldTo: named ? `the limits of ${named}` : 'the ceilings (no interpreter named)',
+    heldTo: named ? `the limits of ${named}` : 'the ceilings (no interpreter given)',
     /** What names it: its own pins, and the contract of the rule a source made. */
     item: { expr, contract: rule?.contract },
   }

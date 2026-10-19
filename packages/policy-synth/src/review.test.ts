@@ -647,7 +647,7 @@ describe('reviewUnsigned: the same bytes, changed', () => {
         const p = callArgs(env).args()[4]?.map()?.[0]?.val().map() ?? []
         p.find((e) => e.key().sym().toString() === 'grammar_version')?.val(xdr.ScVal.scvU32(6))
       },
-      /asked for grammar 6, not 7/,
+      /asked for grammar 6; this builder speaks grammar 7/,
     ],
     [
       'a signer in the authorisation other than the source',
@@ -765,7 +765,7 @@ describe('reviewUnsigned: the same bytes, changed', () => {
           )
         resign(env, [1])
       },
-      /by rule 1, not rule 0/,
+      /by rule 1; the builder always names the account's admin rule, rule 0/,
     ],
     [
       '__check_auth on another contract',
@@ -919,7 +919,7 @@ describe('reviewUnsigned: the same bytes, changed', () => {
 
   it('another account than the owner means', async () => {
     const r = review((await install()).unsignedXdr, { smartAccount: contract(5) })
-    expect(r.problems.join('\n')).toMatch(/not the account under review/)
+    expect(r.problems.join('\n')).toMatch(/; the account under review is /)
   })
 
   it('what the builder never makes is refused outright: garbage, a fee bump, two operations, a payment', async () => {

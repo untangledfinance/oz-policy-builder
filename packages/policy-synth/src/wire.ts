@@ -444,7 +444,7 @@ function scaledLeaf(r: Val[], next: (x: Val) => void): void {
     next(x)
     if (isConstant(x) && numOf(unlit(x)) === undefined) bad('scaled: operands are numbers')
     if (isSelector(x) && (x[0] === 'call_contract' || x[0] === 'call_fn'))
-      bad('scaled: an operand is a number, not an identity')
+      bad('scaled: operands are numbers; call_contract and call_fn are identities')
   }
   const [s, f, a] = [src, num, add].map((x) => constant(x))
   if ([s, f].some((c) => c !== undefined && c <= 0n))

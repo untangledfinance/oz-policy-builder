@@ -1192,7 +1192,7 @@ describe('planInstall: the guards', () => {
     })
   })
 
-  it('a signer named twice is refused before the network is asked (OZ rejects it as #3007)', async () => {
+  it('a signer listed twice is refused before the network is asked (OZ rejects it as #3007)', async () => {
     let asked = 0
     const quiet = chain({ fingerprint: async () => (asked++, ours) })
     await refused(

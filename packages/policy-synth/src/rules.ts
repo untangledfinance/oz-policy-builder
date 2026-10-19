@@ -394,7 +394,7 @@ export function overlaps(
       return out(
         'refuse',
         'uncapped',
-        'serves some of the same calls with no spend cap, so the new rolling total does not bind a shared signer; a cap is per rule, not per key'
+        'serves some of the same calls with no spend cap, so the new rolling total does not bind a shared signer; caps accumulate per rule'
       )
     }
     // What the scan cannot read it cannot judge, and a rule it cannot judge may be the one a
@@ -417,14 +417,14 @@ export function overlaps(
       return out(
         'refuse',
         'rolling',
-        'serves some of the same calls under its own spend window, so the new rolling total does not bind a shared signer; a cap is per rule, not per key'
+        'serves some of the same calls under its own spend window, so the new rolling total does not bind a shared signer; caps accumulate per rule'
       )
     }
     if (covers(old.expr, mine.expr)) {
       return out(
         'refuse',
         'looser',
-        'permits everything the new rule does and more, so a shared signer names it instead; edit that rule to tighten it rather than adding a second'
+        'permits everything the new rule does and more, so a shared signer names it instead; tighten that rule itself'
       )
     }
     // Anything else that overlaps lets a shared key do something the new rule forbids, unless

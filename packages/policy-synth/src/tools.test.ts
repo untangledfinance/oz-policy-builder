@@ -1354,7 +1354,7 @@ describe('install_policy', () => {
       signers: [account(5)],
       encodedPredicate: open,
     }
-    await failing('install_policy', input, 'INSTALL_BUILD_FAILED', /no function named/)
+    await failing('install_policy', input, 'INSTALL_BUILD_FAILED', /no function pinned/)
     expect((await call('install_policy', { ...input, allowUnboundedAmount: true })).ok).toBe(true)
   })
 
