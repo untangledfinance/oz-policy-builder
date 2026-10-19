@@ -173,7 +173,7 @@ await run('verify_policy', { network: 'testnet', encodedPredicate: rule.encodedP
 | Authority overlap | A rule a shared signer could bypass through a looser or unpoliced neighbour, a rolling total that would not bind, a neighbour it cannot read or judge, or an account whose rules could not all be read | `allowOverlap: true` (see "Overrides") |
 | Amounts | An amount with no cap; a swap's least output with no floor | `allowUnboundedAmount`, `allowOpenSlippage` (see "Overrides") |
 | Scope | A rule scoped to a policy contract (`POLICY_CONTRACTS`) or to the account itself | none |
-| Contract signers | A signer that is an execution adapter bound to no gate (its instance holds `prime` and a void `gate`, read off the ledger whatever its code hash): an agent allowed to call its `execute` could cite the rule and move funds past its own caps. A contract signer that is not deployed is refused too, since what it will run cannot be checked | none |
+| Contract signers | A signer that is an execution adapter bound to no gate (its instance holds `prime` and a void `gate`, read off the ledger whatever its code hash): an agent allowed to call its `execute` could cite the rule and move funds past its own caps. An execution adapter with a gate (`prime` and an address `gate`, v3 to v5) signing a rule scoped to itself is refused unless every branch of the predicate pins `call_fn = run`: it signs whenever it asks the account, so anyone could have it approve an immediate `execute` or a `cancel`. A contract signer that is not deployed is refused too, since what it will run cannot be checked | none |
 
 The overlap scan reads every live rule on the account. It reads the account's
 `NextId`, asks which ids below it still hold a rule (200 keys per
@@ -289,7 +289,12 @@ anything but one contract call. Anything else it describes, and lists in
 - a value the builder never writes, or an envelope that already carries a
   signature (the review is of unsigned bytes);
 - a contract signer, unless its instance was read: then an execution adapter
-  bound to no gate, or a contract that is not deployed;
+  bound to no gate, an execution adapter signing a rule scoped to itself that
+  does not pin `call_fn = run`, or a contract that is not deployed. Offline,
+  every contract signer is a problem, these included. Every other contract then
+  reads signable unvetted: a seat, a smart account, an adapter with a gate
+  signing any other rule, or any contract an agent deployed. The owner checks
+  who controls it;
 - for an install: a scope other than one contract, or a policy contract or the
   account itself; an External signer or admin, or a threshold weight on one; a
   threshold policy with no threshold; no interpreter, two, or one other than
@@ -368,8 +373,9 @@ then.
   refusals all live in `planInstall` (`src/install.ts`); see "Install guardrails".
 - `check` always fails with its verdict, so even a `read` that calls a token's
   `transfer` as the interpreter commits nothing (see the interpreter's README).
-- The grammar-7 STRIDE threat model, with what is done and open at 2.0.0, is
-  `evidence/stride-threat-model-g7.md` in the repository.
+- The grammar-7 STRIDE threat model, with what is done and open as of its
+  final rerun on 19 October 2026, is `evidence/stride-threat-model-g7.md` in
+  the repository.
 
 ## Tests
 

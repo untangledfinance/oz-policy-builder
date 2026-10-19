@@ -33,7 +33,10 @@ mainnet refusal is the intended security change of P0-4.
   signable. An envelope that already carries a signature is a problem, and so is
   a contract signer unless `readContracts: true` reads it off the ledger through
   the operator's RPC (`contracts` for `reviewUnsigned`); then an execution
-  adapter bound to no gate, or a contract that is not deployed, is a problem.
+  adapter bound to no gate, an execution adapter signing a rule scoped to itself
+  that does not pin `call_fn = run`, or a contract that is not deployed, is a
+  problem. Every other contract then reads signable unvetted (P0-5 is open):
+  the owner checks who controls it.
 
 - **Stellar execution adapter, an optional gate (v5 build `4985cd12…`):** the
   Prime can create its adapter with no gate and bundle its own calls, which all
@@ -67,6 +70,22 @@ mainnet refusal is the intended security change of P0-4.
   hash, and a contract signer that is not deployed. No override waives it.
   - **Breaking:** an install whose signers include a contract that is not
     deployed, which was built before, is refused.
+- **policy-synth, a rule an execution adapter signs, scoped to that adapter
+  (G7S-16, review-opb28):** the adapter's signature holds whenever it asks the
+  account, which it does in its own `execute`, `run` and `cancel`, so such a
+  rule answers anyone unless its predicate permits `run` alone. On testnet a
+  rule with `call_fn = execute` let a stranger with no key run a batch and move
+  7 USDC. `contractKinds` now reads an instance holding `prime` and an address
+  `gate` as a `gated adapter` (v3 to v5, from storage). `install_policy`
+  refuses a rule whose signers include a gated adapter when the rule is scoped
+  to that adapter and some branch of its predicate permits a function other
+  than `run`, and no override waives it. `review_unsigned` flags the same shape
+  with `readContracts` or `contracts`; offline, a contract signer is already a
+  problem.
+  - **Breaking:** an install of that shape, which was built before, is
+    refused, and `ContractKind` gains the value `gated adapter`, which
+    `contractKinds` returns where it returned `contract` for an adapter with a
+    gate.
 - **policy-builder-mcp, a test that reached the network:** the Streamable HTTP
   test's tool call asked the public testnet RPC for the pin's limits and waited
   up to 5 s for an answer, which met bun's 5 s test timeout whenever the RPC
@@ -125,6 +144,14 @@ mainnet refusal is the intended security change of P0-4.
   `contracts/near`, with `README.md`, `build-hashes.json` and
   `check-build-hash.sh`). Every build hash is unchanged at the new paths;
   `contracts/README.md` has the table.
+
+- **The grammar-7 threat model, final rerun on `3624e930`:**
+  `evidence/stride-threat-model-g7.md` derives the v5 adapter's threats again,
+  gated and with no gate, with its custody gate and the packages after #25 and
+  #27, and gives every earlier item a status. Testnet rows on fresh v5
+  instances are in `evidence/g7-stride-final-2026-10-19.log`. No new finding
+  at Medium or above; one Low, G7S-16, is fixed in `policy-synth` (under
+  Fixed). C2 is fixed by octopos #225, so G7S-1 is the one open High. Two tests cover a rule with two contract signers.
 
 ### Removed
 

@@ -363,6 +363,18 @@ export const buildRevoke = (a: BuildArgs, ruleId: number) =>
 export const NULL_ADAPTER_SIGNER = (signer: string) =>
   `signer ${signer} is an execution adapter bound to no gate: whoever the account lets call its execute (an agent) could cite this rule for a call the adapter makes, and move the account's funds past that agent's own capped rules`
 
+/** Why a rule an execution adapter signs, scoped to that same adapter, is refused unless every
+ *  branch pins `call_fn = run` (review-opb28 L1). The adapter's signature holds whenever it is the
+ *  one asking the account, which it is for its own `execute`, `run` and `cancel`: such a rule
+ *  answers whoever calls them, with no key. */
+export const ADAPTER_SELF_RULE = (signer: string) =>
+  `signer ${signer} is an execution adapter, and this rule is scoped to it without pinning call_fn = run in every branch: the adapter signs whenever it asks the account, so anyone, with no key, could have it approve an immediate execute (or a cancel) of the account's batches`
+
+/** Whether every branch of a predicate pins `call_fn = run` (an unsatisfiable one pins nothing it
+ *  could permit). A predicate the package cannot read pins nothing. */
+export const pinsRun = (e: Expr | null | undefined): boolean =>
+  e !== null && e !== undefined && selectors(e).every((s) => s.fn === 'run')
+
 // ---- the overrides ----
 
 /** The inputs that waive a refusal. An agent could read one off a refusal and set it, so no refusal
@@ -584,6 +596,8 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   // No override waives these: the owners cannot see from the rule what a contract signer will do.
   for (const [signer, kind] of Object.entries(got(kinds))) {
     if (kind === 'null-gate adapter') throw no(NULL_ADAPTER_SIGNER(signer))
+    if (kind === 'gated adapter' && signer === rule.contract && !pinsRun(rule.expr))
+      throw no(ADAPTER_SELF_RULE(signer))
     if (kind === 'absent')
       throw no(
         `signer ${signer} is not deployed, so what it will run cannot be checked; deploy it before a rule names it`

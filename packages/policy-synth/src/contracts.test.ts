@@ -27,19 +27,19 @@ afterAll(() => net.stop())
 const server = connect(net.endpoint)
 
 describe('contractKinds: read off the instance, never off a code hash', () => {
-  it('names the adapter with no gate, and only it', async () => {
+  it('names the adapter with no gate and the one with a gate, and nothing else', async () => {
     expect(
       await contractKinds(server, [NULL_ADAPTER, GATED_ADAPTER, ACCOUNT, XLM, NOWHERE])
     ).toEqual({
       [NULL_ADAPTER]: 'null-gate adapter',
-      [GATED_ADAPTER]: 'contract',
+      [GATED_ADAPTER]: 'gated adapter',
       [ACCOUNT]: 'contract',
       [XLM]: 'contract',
       [NOWHERE]: 'absent',
     })
   })
 
-  it('the kind is the instance storage: a void gate beside a prime, nothing else', () => {
+  it('the kind is the instance storage: a gate beside a prime, void or an address', () => {
     const instance = (pairs: [string, xdr.ScVal][]) =>
       xdr.ScVal.scvContractInstance(
         new xdr.ScContractInstance({
@@ -66,8 +66,16 @@ describe('contractKinds: read off the instance, never off a code hash', () => {
           ['gate', gate],
         ])
       )
-    ).toBe('contract')
+    ).toBe('gated adapter')
     expect(kindOf(instance([['gate', xdr.ScVal.scvVoid()]]))).toBe('contract')
+    expect(
+      kindOf(
+        instance([
+          ['prime', prime],
+          ['gate', xdr.ScVal.scvU32(1)],
+        ])
+      )
+    ).toBe('contract')
     expect(kindOf(instance([['prime', prime]]))).toBe('contract')
     expect(kindOf(instance([]))).toBe('contract')
     expect(kindOf(undefined)).toBe('absent')
