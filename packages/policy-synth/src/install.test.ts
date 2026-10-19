@@ -1156,6 +1156,15 @@ describe('planInstall: the guards', () => {
         }
       })
 
+      it('only the exact name run counts: Run, RUN, runs and run_now are refused (review-opb28b R2-I2)', async () => {
+        for (const fn of ['Run', 'RUN', 'runs', 'run_now'])
+          await refused(
+            planInstall({ ...input, signers: [GATED] }, on(fn), adapter),
+            'INSTALL_BUILD_FAILED',
+            new RegExp(`${GATED} is an execution adapter, and this rule is scoped to it`)
+          )
+      })
+
       it('the run rule installs, and so do its band rules and an agent rule on it', async () => {
         for (const [r, signers] of [
           [on('run'), [GATED]],
