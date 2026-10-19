@@ -51,7 +51,8 @@ node against what they meant (see "The owner's review" in the policy-synth
 README).
 A rule with a contract signer reads as a problem offline; `--readContracts
 true` reads each one off the ledger through the operator's RPC. Then only an
-adapter bound to no gate or an undeployed contract is flagged, and every other
+adapter bound to no gate, an adapter signing a rule scoped to itself that does
+not pin `call_fn = run`, or an undeployed contract is flagged, and every other
 contract reads signable unvetted: the owner checks who controls it.
 
 ## License

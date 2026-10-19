@@ -17,8 +17,9 @@
 # This is the third run of the harness. Runs 1 and 2 used other fresh instances and are superseded:
 # run 1 stopped at G2 with two rows the harness expected wrongly (B5 is refused, where I had expected it to
 # run; G2 needed its account funded first); run 2 passed every row but G2d.
-# Row G2d below fails on the harness's own criterion: the RPC answers a resent envelope with TRY_AGAIN_LATER,
-# and the harness wanted ERROR or DUPLICATE. Nothing moved (the row says so). The second part of this log
+# Row G2d below fails on the harness's own criterion: sent again at once, the RPC answers an applied envelope
+# with TRY_AGAIN_LATER for a short while (about 45 s later it answers ERROR txBadSeq, review-opb28), and the
+# harness wanted ERROR or DUPLICATE within 30 s. Nothing moved (the row says so). The second part of this log
 # (G2d-0 to G2d-3, another fresh account) sends the same envelope again through the RPC and through Horizon:
 # Horizon answers with the original transaction, the balance and the sequence number stay, and the hash
 # appears once in the account's history.
@@ -177,3 +178,56 @@ accounts: X_G GDT6LQ5AMRIXXPMVEWBUL2NBMUTWTMQGDX7725A2MNIQ6DA6QSL3OGSJ, null of 
 
 all rows as expected (7 rows)
 rc=0
+
+# ------------------------------------- G7S-16 after the fix, a third harness ---
+# review-opb28 L1: a rule an execution adapter signs, scoped to that adapter, without call_fn = run, answers
+# anyone (its testnet tx 25ef231e). These rows run policy-synth at this pull request's head against fresh
+# instances: a v5 gated adapter on custody's gate R and a v4 adapter (3dd675c0) on gate R4, both created by
+# the OpenZeppelin Prime X_C through rule 0. L: what contractKinds reads. M: install_policy refuses the shape.
+# N: review_unsigned flags it (with readContracts; offline as an unread contract signer) and reads the run rule
+# signable. O: the run rules and USDC band rules of both builds install, and a stranger citing the installed
+# run rule for an immediate execute is refused #100. The setup rows (S1 to S13) repeat the harness above on
+# new keys. A first attempt stopped at O because the harness gave the band rules no cap, which install_policy
+# refuses for its own reason; this is the second.
+PASS setup: adapter v5 code entry 4985cd12 is on testnet and hashes to its name | 24659 B, live until ledger 5786218
+PASS setup: custody gate code entry b01024f3 is on testnet and hashes to its name | 9026 B, live until ledger 5777223
+PASS setup: USDC trustlines for X_G, M, stranger | tx 351cce3d1d159d6bd12ab6518a085645615d08417f4e047433bd846c1c000623 fee 300
+PASS setup: USDC asset contract | tx 8b7ca4b8de35db220895cd564b911f079e401b8453c44662302bc01f7d11a38b fee 382981
+PASS S1. X_C CB3WD4D5BRJNTB4SEN3G2CKAGU2WSARZIEAO5GDT3DOQM7ZNE5XHTFOW (OZ 91a2cd56, rule 0 = owner) | tx dc79217040e491a509c4a42ee080b0e62d30872854394cea34a44d13080c412e fee undefined
+PASS S2. issue 1000 USDC to X_C | tx 46732685dbd61d8748a746b891ba93d2b7aa2ff549dd6fa64db7db091ca82d0a fee 769919
+PASS S3. fund X_C with 50 XLM | tx cd639a28cb2a1dbd39ff8f4a0af37657d9a8a96df03c37887e28736ec39234ce fee 771417
+PASS S4. X_C creates its null adapter CAOIE3ONPC7VELFHT6OXTJFAJ4QIMSCRRTNDAFRUKVCOP3PZGKKL7DFC through rule 0 | tx 624295672b93c2844dc6b796a89b25bd62460158745887359e8d1e388aa5a7af fee 1526133
+PASS S5. X_C creates a second null adapter CA4JVNS5DCQV5PZFNVXUYINPRGV6KR2JIZLY334JMZUULGQYWQELPDE5 (window + 1) | tx ca26cb052667de4224192f7c432bc109761603767fd6df881e580f5dac5adbb3 fee 195496
+PASS S6. custody's gate R CAYI5J6BOHF6BHMJBQHGEN6NGPVMD377GWYWMQMMQSGQXGXBQKGAUJBD names the gated adapter CA5LPHZMVM3BNG33ZQBQ3326OYVG3E4CCJG5GHJ53QL5DP4Z4FUWGJWA and 4985cd12; list [XLM, USDC, X_C, M, custody] | tx acaaf3de9446ea7f8dc45bbea6c1829050cf1efb1b6e4bfafa006accab4d23cd fee 439681
+PASS S7. custody approves R for 10 XLM | tx e93a0561e29e98536f92d27322353ca180a9578694a3e8afb5a239fcb8c5a5df fee 15403
+PASS S8. X_C creates the gated adapter through rule 0 | tx 9eb98c1caa02521232152c0a03c99f26848f815024b7d57cc70e1f105de667d8 fee 224315
+PASS S9. custody2's successor gate R2 for the same adapter, list [USDC, X_C, M] CCW5XUEJXFNLWJHYJTWPW2VYFG2WCVN5VSBGU62FQYNOZDOYCHYHUXEF | tx eaf1ec06187c314bdb473e44e5c4543514a3886f20450db4c9dabd670664f550 fee 372441
+PASS S10. a gate R0 whose custody named the NULL adapter by mistake, list [M] CDIB5BEEVGIW3H4UZIHGNN6QBXAWTXTA7AAAYO6HB7SUEMPEA6HMMP4A | tx 9c8dbead87c3ac731b72e4c23663aa76529b605ad10c618685dbc1ea02bcbfd0 fee 308402
+PASS S11. custody approves R0 for 5 XLM | tx b4f3329a335db2a83b7c5bae1003a0b3872d11a5c9a6758c4547d490f6ed815f fee 15402
+PASS S12. rules on X_C (grammar-7 interpreter) | agent execute on null 1 (b4fde24c71075c466e53e9def67ff7719f5a7bb5e85cc5cf468a1e5194f1f937); agent USDC cap 20 2 (e4a74faa3e9f62ff1fc1d40f8df687843b003c77fa041f98a1dbca0d4dc78bfe); agent USDC cap 20 + spending_limit 50 3 (5908e2dad38c293e68c02622e353555ba785044309c665972ae4a487b76a2256); agent execute on gated 4 (4f3b54e3369bc5d6e5d6d24cec49beed38bd9407a65936b49bb854e4bb4b348a); USDC band signed by the gated adapter 5 (0b55e9d735bb52d3334f16a38f53f8f22ada6af168b6a996063787f116ed003a)
+PASS S13. W: an OZ account the agent owns (a hostile callee) | CBWZA57EVWNBUAULWJVM6V3INYFMAJ5FMUZIUKJLYXW6AKGDX4B6THY6
+PASS L0a. custody's gate R4 CDPGJ4AHH5A3KBXKX34DTQTGRGFS2YBEXMOHJOO5OLTHDFPV7QQNOWXT names the v4 adapter CA23REUTK64CGZTZT4UGIBE2PY33HU6VNFXXKY2HUTXXPY2Q34FGFHED and 3dd675c0 | tx c88d5e408739c2f228dffee8d302c1ff099f04bb1d36697b8c389dad34a9883c fee 372396
+PASS L0b. X_C creates the v4 adapter through rule 0 | tx 7f2c21fa2ff2f2f32662bb2b6b20d95e9cc161a53a558e31a5f35f1c1dabb976 fee 224295
+PASS L0c. contractKinds reads v5 gated and v4 as gated adapters, the null one as null-gate, W as a contract | {"CA5LPHZMVM3BNG33ZQBQ3326OYVG3E4CCJG5GHJ53QL5DP4Z4FUWGJWA":"gated adapter","CA23REUTK64CGZTZT4UGIBE2PY33HU6VNFXXKY2HUTXXPY2Q34FGFHED":"gated adapter","CAOIE3ONPC7VELFHT6OXTJFAJ4QIMSCRRTNDAFRUKVCOP3PZGKKL7DFC":"null-gate adapter","CBWZA57EVWNBUAULWJVM6V3INYFMAJ5FMUZIUKJLYXW6AKGDX4B6THY6":"contract"}
+PASS M. v5 gated: a rule scoped to the adapter, call_fn = execute, signed by it alone: install_policy refuses | INSTALL_BUILD_FAILED: install_policy: signer CA5LPHZMVM3BNG33ZQBQ3326OYVG3E4CCJG5GHJ53QL5DP4Z4FUWGJWA is an execution adapter, and this rule is scoped to it without pinning call_fn = run in every branch: the adapter sign
+PASS M. v5 gated: a rule scoped to the adapter, call_fn = execute, signed by it beside the agent key, anyOne: install_policy refuses | INSTALL_BUILD_FAILED: install_policy: signer CA5LPHZMVM3BNG33ZQBQ3326OYVG3E4CCJG5GHJ53QL5DP4Z4FUWGJWA is an execution adapter, and this rule is scoped to it without pinning call_fn = run in every branch: the adapter sign
+PASS M. v5 gated: a rule scoped to the adapter, call_fn = cancel, signed by it alone: install_policy refuses | INSTALL_BUILD_FAILED: install_policy: signer CA5LPHZMVM3BNG33ZQBQ3326OYVG3E4CCJG5GHJ53QL5DP4Z4FUWGJWA is an execution adapter, and this rule is scoped to it without pinning call_fn = run in every branch: the adapter sign
+PASS M. v5 gated: a rule scoped to the adapter, call_fn = cancel, signed by it beside the agent key, anyOne: install_policy refuses | INSTALL_BUILD_FAILED: install_policy: signer CA5LPHZMVM3BNG33ZQBQ3326OYVG3E4CCJG5GHJ53QL5DP4Z4FUWGJWA is an execution adapter, and this rule is scoped to it without pinning call_fn = run in every branch: the adapter sign
+PASS M. v4: a rule scoped to the adapter, call_fn = execute, signed by it alone: install_policy refuses | INSTALL_BUILD_FAILED: install_policy: signer CA23REUTK64CGZTZT4UGIBE2PY33HU6VNFXXKY2HUTXXPY2Q34FGFHED is an execution adapter, and this rule is scoped to it without pinning call_fn = run in every branch: the adapter sign
+PASS M. v4: a rule scoped to the adapter, call_fn = execute, signed by it beside the agent key, anyOne: install_policy refuses | INSTALL_BUILD_FAILED: install_policy: signer CA23REUTK64CGZTZT4UGIBE2PY33HU6VNFXXKY2HUTXXPY2Q34FGFHED is an execution adapter, and this rule is scoped to it without pinning call_fn = run in every branch: the adapter sign
+PASS M. v4: a rule scoped to the adapter, call_fn = cancel, signed by it alone: install_policy refuses | INSTALL_BUILD_FAILED: install_policy: signer CA23REUTK64CGZTZT4UGIBE2PY33HU6VNFXXKY2HUTXXPY2Q34FGFHED is an execution adapter, and this rule is scoped to it without pinning call_fn = run in every branch: the adapter sign
+PASS M. v4: a rule scoped to the adapter, call_fn = cancel, signed by it beside the agent key, anyOne: install_policy refuses | INSTALL_BUILD_FAILED: install_policy: signer CA23REUTK64CGZTZT4UGIBE2PY33HU6VNFXXKY2HUTXXPY2Q34FGFHED is an execution adapter, and this rule is scoped to it without pinning call_fn = run in every branch: the adapter sign
+PASS N. v5 gated: review_unsigned with readContracts flags the execute rule the adapter signs on itself | ["signer CA5LPHZMVM3BNG33ZQBQ3326OYVG3E4CCJG5GHJ53QL5DP4Z4FUWGJWA is an execution adapter, and this rule is scoped to it without pinning call_fn = run in every branch: the adapter signs whenever it as
+PASS N. v5 gated: offline, the same bytes are flagged as an unread contract signer | ["signer CA5LPHZMVM3BNG33ZQBQ3326OYVG3E4CCJG5GHJ53QL5DP4Z4FUWGJWA is a contract, and what it runs is not in the bytes (an execution adapter bound to no gate would let an agent spend past its caps, and
+PASS N. v5 gated: the run rule reads signable with readContracts | []
+PASS N. v4: review_unsigned with readContracts flags the execute rule the adapter signs on itself | ["signer CA23REUTK64CGZTZT4UGIBE2PY33HU6VNFXXKY2HUTXXPY2Q34FGFHED is an execution adapter, and this rule is scoped to it without pinning call_fn = run in every branch: the adapter signs whenever it as
+PASS N. v4: offline, the same bytes are flagged as an unread contract signer | ["signer CA23REUTK64CGZTZT4UGIBE2PY33HU6VNFXXKY2HUTXXPY2Q34FGFHED is a contract, and what it runs is not in the bytes (an execution adapter bound to no gate would let an agent spend past its caps, and
+PASS N. v4: the run rule reads signable with readContracts | []
+PASS O. v5 run rule: install_policy builds it and it installs | tx 11ccfbdaa222ec2e68ee70c667972bc765d568ef2ddd2cc48ce3a1a3dc2f3fc5, rule 6
+PASS O. v5 USDC band: install_policy builds it and it installs | tx 4ae7f8893e6ddd736bd1bf4f53d35ce9c6147aab4ac0f7f98bd92563f42a6281, rule 7
+PASS O. v4 run rule: install_policy builds it and it installs | tx 60b76b41cda2ebf0f598ebe72de9bfe05abb4ecd0993a1450afb003e094d8e53, rule 8
+PASS O. v4 USDC band: install_policy builds it and it installs | tx be31704a16ff2d46b28e1a2ef5a5122b83e23adf46d6bd8dbb3ef8e0da0828d9, rule 9
+PASS O5. a stranger cites the installed v5 run rule for an immediate execute: the predicate refuses | refused #100
+PASS O5b. nothing moved | 0
+accounts: X_C CB3WD4D5BRJNTB4SEN3G2CKAGU2WSARZIEAO5GDT3DOQM7ZNE5XHTFOW, v5 gated CA5LPHZMVM3BNG33ZQBQ3326OYVG3E4CCJG5GHJ53QL5DP4Z4FUWGJWA, gate R CAYI5J6BOHF6BHMJBQHGEN6NGPVMD377GWYWMQMMQSGQXGXBQKGAUJBD, v4 CA23REUTK64CGZTZT4UGIBE2PY33HU6VNFXXKY2HUTXXPY2Q34FGFHED, gate R4 CDPGJ4AHH5A3KBXKX34DTQTGRGFS2YBEXMOHJOO5OLTHDFPV7QQNOWXT, null CAOIE3ONPC7VELFHT6OXTJFAJ4QIMSCRRTNDAFRUKVCOP3PZGKKL7DFC, M GBEWMKNVOTQOBJ3BPZ6MTXGZVDJ7AODW6G6VI3VKZLHALSJDWRJ37VP5, USDC CBDGTULK5OF6YQ73SN7KAZNCEQ2QI4YD7YREZ4KK4DVIG6WXY2R6BMIL
+all rows as expected (40 rows)

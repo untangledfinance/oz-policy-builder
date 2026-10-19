@@ -192,7 +192,11 @@ account can run a stored batch.
 
 **The run rule needs its predicate:** without it, the rule would let anyone
 have the adapter approve an immediate `execute` or a `cancel` for the Prime. Agent rules
-permit `execute` only, so an agent cannot cancel.
+permit `execute` only, so an agent cannot cancel. Measured on testnet by
+review-opb28: with `call_fn = execute` in place of `run`, a stranger with no key
+ran a batch and moved 7 USDC to a listed address. `policy-synth` refuses a rule
+an execution adapter signs, scoped to that adapter, unless every branch of its
+predicate pins `call_fn = run` (G7S-16).
 
 New errors: `WaitTooShort` 4, `NotScheduled` 5, `NotRunnable` 6 (before the
 ready ledger or after the window), `NotACanceller` 7. A stored batch sits in
@@ -710,7 +714,8 @@ deployed and still reachable by accounts that use them; their source is at tag
   packages have their own STRIDE model, last rerun on 19 October 2026 at
   `3624e930` ([report](../evidence/stride-threat-model-g7.md)). P0-2 and P0-4
   are fixed and P0-3 is fixed in the packages; P0-1, P0-5 and P0-6 still have
-  open work, so grammar 7 stays on testnet.
+  open work and the Prime app does not yet run P0-3's decoder, so grammar 7
+  stays on testnet.
 - **Adapter builds before `3dd675c0` can let a batch name an unlisted
   recipient:** `68d012e7` and earlier pass a recipient written as a muxed
   address, which a token's `transfer` credits to the account behind it;
@@ -809,7 +814,7 @@ Enforcement happens on chain. The builder checks a rule before it is signed:
 | Read safety | A `read` outside the safe list is refused with `READ_UNSAFE`. The list holds the three testnet Reflector oracles (`lastprice`, `price`) and the operator's `POLICY_BUILDER_SAFE_READS_TESTNET` or `_MAINNET`; a listed read needs constant arguments. `POLICY_BUILDER_ALLOW_SPOT_READS=1` lets other reads through. All three switches are operator environment only, and no tool input can set them. |
 | Authority overlap | The builder reads every rule on the account and refuses a rule a shared signer could bypass through a looser or unpoliced neighbour, or an account whose rules it could not all read. |
 | Amounts | An amount with no cap, and a swap whose least output has no floor, are refused. |
-| Contract signers | Each contract signer's instance is read off the ledger. An execution adapter bound to no gate (`prime` stored, `gate` void) is refused as a signer, whatever its code hash: an agent allowed to call its `execute` could cite the rule for the adapter's calls and move funds past its own caps. A contract signer that is not deployed is refused too. No override waives either. |
+| Contract signers | Each contract signer's instance is read off the ledger. An execution adapter bound to no gate (`prime` stored, `gate` void) is refused as a signer, whatever its code hash: an agent allowed to call its `execute` could cite the rule for the adapter's calls and move funds past its own caps. An execution adapter with a gate (`prime` stored, `gate` an address, v3 to v5) signing a rule scoped to itself is refused unless every branch of the predicate pins `call_fn = run` (G7S-16). A contract signer that is not deployed is refused too. No override waives any of these. |
 | Signed expiry and fee | The builder sets the authorisation's expiry: the ledger the recording simulation ran at plus `POLICY_BUILDER_AUTH_LEDGERS` (default 300, at most 17,280), and the two simulations must report ledgers within 20 of each other. The transaction carries a time bound from the builder's clock, the window at 6 s a ledger (30 minutes by default). A resource fee above `POLICY_BUILDER_MAX_RESOURCE_FEE` (default 100,000,000 stroops, 10 XLM) is refused. Both are operator environment only. |
 
 Five overrides are tool inputs: `allowOverlap`, `allowUnboundedAmount`,
@@ -833,7 +838,8 @@ predicate whose hash does not match its bytes, an unknown policy, an External
 signer or admin, a fee above the ceiling, no time bound or one longer than the
 window plus 120 s for the owner's clock, a signature already on the envelope,
 and a contract signer unless `readContracts` reads it through the operator's
-RPC, after which only an adapter bound to no gate or an undeployed contract is
+RPC, after which only an adapter bound to no gate, an adapter signing a rule
+scoped to itself that does not pin `call_fn = run`, or an undeployed contract is
 flagged; every other contract then reads signable unvetted, and the owner checks
 who controls it), and renders the transaction, the
 Authority header and the predicate from the bytes. `signable` means no such
