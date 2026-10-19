@@ -239,10 +239,10 @@ export async function codeHash(server: rpc.Server, address: string): Promise<str
 }
 
 /** What a contract signer is, from its instance on the ledger: an execution adapter created with no
- *  gate (its instance holds `prime`, and `gate` as void), a contract that is not deployed, or any
- *  other contract. Read from storage, not from a code hash: every adapter build that binds an
- *  optional gate keeps these keys, whatever its hash. */
-export type ContractKind = 'null-gate adapter' | 'absent' | 'contract'
+ *  gate (its instance holds `prime`, and `gate` as void), one bound to a gate (`prime`, and `gate`
+ *  an address), a contract that is not deployed, or any other contract. Read from storage, not
+ *  from a code hash: every adapter build from v3 to v5 keeps these keys, whatever its hash. */
+export type ContractKind = 'null-gate adapter' | 'gated adapter' | 'absent' | 'contract'
 
 const PRIME_KEY = xdr.ScVal.scvSymbol('prime').toXDR('base64')
 const GATE_KEY = xdr.ScVal.scvSymbol('gate').toXDR('base64')
@@ -251,8 +251,13 @@ export function kindOf(instance: xdr.ScVal | undefined): ContractKind {
   if (instance === undefined) return 'absent'
   const storage = instance.instance().storage() ?? []
   const at = (k: string) => storage.find((e) => e.key().toXDR('base64') === k)
-  const gate = at(GATE_KEY)
-  return at(PRIME_KEY) && gate?.val().switch().name === 'scvVoid' ? 'null-gate adapter' : 'contract'
+  const gate = at(GATE_KEY)?.val().switch().name
+  if (!at(PRIME_KEY) || gate === undefined) return 'contract'
+  return gate === 'scvVoid'
+    ? 'null-gate adapter'
+    : gate === 'scvAddress'
+      ? 'gated adapter'
+      : 'contract'
 }
 
 /** The kind of each contract address, in one ledger read. A failed read throws: it never passes. */

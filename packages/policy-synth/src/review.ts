@@ -36,7 +36,7 @@ import {
   thresholdAddress,
 } from './config.ts'
 import { messageOf, Refusal } from './envelope.ts'
-import { digest, NULL_ADAPTER_SIGNER, xlm } from './install.ts'
+import { ADAPTER_SELF_RULE, digest, NULL_ADAPTER_SIGNER, pinsRun, xlm } from './install.ts'
 import {
   CEILINGS,
   decode,
@@ -287,9 +287,17 @@ export function reviewUnsigned(i: {
         const kind = i.contracts?.[s]
         if (kind === undefined)
           flag(
-            `signer ${s} is a contract, and what it runs is not in the bytes (an execution adapter bound to no gate would let an agent spend past its caps); review with readContracts`
+            `signer ${s} is a contract, and what it runs is not in the bytes (an execution adapter bound to no gate would let an agent spend past its caps, and one signing a rule scoped to itself that does not pin run would answer anyone); review with readContracts`
           )
         else if (kind === 'null-gate adapter') flag(NULL_ADAPTER_SIGNER(s))
+        else if (
+          kind === 'gated adapter' &&
+          Array.isArray(r.rule.scope) &&
+          r.rule.scope[0] === 'CallContract' &&
+          r.rule.scope[1] === s &&
+          !pinsRun(r.rule.predicate)
+        )
+          flag(ADAPTER_SELF_RULE(s))
         else if (kind === 'absent')
           flag(`signer ${s} is not deployed, so what it will run cannot be checked`)
       }

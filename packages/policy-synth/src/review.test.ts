@@ -26,7 +26,7 @@ import {
 import { callExpr } from './intent.ts'
 import { reviewUnsigned } from './review.ts'
 import { run } from './tools.ts'
-import { encode, hashOf, toScVal } from './wire.ts'
+import { encode, fromScVal, hashOf, toScVal, type Val } from './wire.ts'
 
 const ACCOUNT = 'CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P'
 const SIGNER = 'GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB'
@@ -344,6 +344,75 @@ describe('reviewUnsigned: an honest build, read back from its bytes', () => {
           new RegExp(`signer ${NULL_ADAPTER} is a contract, and what it runs is not in the bytes`)
         )
       }
+    })
+
+    it('an execution adapter signing a rule scoped to itself is a problem unless every branch pins run (review-opb28 L1)', async () => {
+      install.done = (await install()).unsignedXdr
+      const GATED = contract(23)
+      const selfRule = (fn: string) =>
+        edit(install.done as string, (env) => {
+          const args = callArgs(env).args()
+          args[0] = toScVal(['CallContract', GATED])
+          args[3] = toScVal([['Delegated', GATED]])
+          const enc = encode(callExpr({ contract: GATED, fn }))
+          const policies = fromScVal(args[4]) as { map: [Val, { map: [string, Val][] }][] }
+          for (const [, p] of policies.map)
+            for (const kv of p.map ?? []) {
+              if (kv[0] === 'predicate')
+                kv[1] = { bytes: Buffer.from(enc, 'base64').toString('hex') }
+              if (kv[0] === 'predicate_hash') kv[1] = { bytes: hashOf(enc) }
+            }
+          args[4] = toScVal(policies)
+          resign(env)
+        })
+      const facts = { [GATED]: 'gated adapter' as const }
+      const execute = reviewUnsigned({
+        network: 'testnet',
+        xdr: selfRule('execute'),
+        smartAccount: ACCOUNT,
+        contracts: facts,
+      })
+      expect(execute.signable).toBe(false)
+      expect(execute.problems.join('\n')).toMatch(
+        new RegExp(`${GATED} is an execution adapter, and this rule is scoped to it`)
+      )
+      const runOnly = reviewUnsigned({
+        network: 'testnet',
+        xdr: selfRule('run'),
+        smartAccount: ACCOUNT,
+        contracts: facts,
+      })
+      expect(runOnly.problems).toEqual([])
+      // With no interpreter there is no predicate, so nothing pins run.
+      const bare = edit(selfRule('run'), (env) => {
+        callArgs(env).args()[4] = toScVal({ map: [] })
+        resign(env)
+      })
+      expect(
+        reviewUnsigned({
+          network: 'testnet',
+          xdr: bare,
+          smartAccount: ACCOUNT,
+          contracts: facts,
+        }).problems.join('\n')
+      ).toMatch(new RegExp(`${GATED} is an execution adapter, and this rule is scoped to it`))
+      // A band rule the adapter signs, scoped to a token, is its ordinary job.
+      const band = edit(install.done as string, (env) => {
+        callArgs(env).args()[3] = toScVal([['Delegated', GATED]])
+        resign(env)
+      })
+      expect(
+        reviewUnsigned({ network: 'testnet', xdr: band, smartAccount: ACCOUNT, contracts: facts })
+          .problems
+      ).toEqual([])
+      // Offline, the contract signer is already a problem: what it runs is not in the bytes.
+      expect(
+        reviewUnsigned({
+          network: 'testnet',
+          xdr: selfRule('execute'),
+          smartAccount: ACCOUNT,
+        }).problems.join('\n')
+      ).toMatch(new RegExp(`signer ${GATED} is a contract, and what it runs is not in the bytes`))
     })
 
     it('a contract the chain shows as anything else is no problem; a G signer needs no facts', async () => {

@@ -444,7 +444,7 @@ describe('buildInstall and buildRevoke, on a live account', () => {
 
 // ---- every refusal an install can meet, with a chain that answers as told ----
 
-import type { Fingerprint } from './chain.ts'
+import type { ContractKind, Fingerprint } from './chain.ts'
 import { POLICY_CONTRACTS } from './config.ts'
 import { Refusal } from './envelope.ts'
 import {
@@ -1039,7 +1039,7 @@ describe('planInstall: the guards', () => {
   describe('a contract signer is read off the chain (review of #26: a null-gate adapter signing a rule)', () => {
     const ADAPTER = contract(21)
     const kinds =
-      (k: Record<string, 'null-gate adapter' | 'absent' | 'contract'>, seen: string[][] = []) =>
+      (k: Record<string, ContractKind>, seen: string[][] = []) =>
       async (a: string[]) => {
         seen.push(a)
         return Object.fromEntries(a.map((x) => [x, k[x] ?? 'contract']))
@@ -1121,6 +1121,61 @@ describe('planInstall: the guards', () => {
       expect(seen).toEqual([[ADAPTER]])
       await planInstall(input, rule, chain({ contracts: kinds({}, seen) }))
       expect(seen).toEqual([[ADAPTER], []])
+    })
+
+    describe('an execution adapter signing a rule scoped to itself (review-opb28 L1, testnet 25ef231e)', () => {
+      const GATED = contract(23)
+      const on = (fn: string, more: Expr[] = []): Chosen => {
+        const e = (
+          more.length
+            ? ['or', [callExpr({ contract: GATED, fn }), ...more]]
+            : callExpr({ contract: GATED, fn })
+        ) as Expr
+        const enc = encode(e)
+        return { contract: GATED, expr: e, encoded: enc, hash: hashOf(enc) }
+      }
+      const adapter = chain({ contracts: kinds({ [GATED]: 'gated adapter' }) })
+
+      it('a rule that does not pin call_fn = run is refused, alone and beside a key, and no override waives it', async () => {
+        process.env.POLICY_BUILDER_ALLOW_OVERRIDES = '1'
+        try {
+          for (const r of [
+            on('execute'),
+            on('cancel'),
+            on('run', [callExpr({ contract: GATED, fn: 'execute' })]),
+            { ...on('run'), expr: ['eq', ['call_contract'], GATED] as Expr },
+          ])
+            for (const signers of [[GATED], [SIGNER, GATED]])
+              await refused(
+                planInstall({ ...input, signers, anyOne: true, allowOverlap: true }, r, adapter),
+                'INSTALL_BUILD_FAILED',
+                new RegExp(`${GATED} is an execution adapter, and this rule is scoped to it`)
+              )
+        } finally {
+          delete process.env.POLICY_BUILDER_ALLOW_OVERRIDES
+        }
+      })
+
+      it('the run rule installs, and so do its band rules and an agent rule on it', async () => {
+        for (const [r, signers] of [
+          [on('run'), [GATED]],
+          [rule, [GATED]],
+          [on('execute'), [SIGNER]],
+        ] as const)
+          expect(
+            (await planInstall({ ...input, signers: [...signers] }, r, adapter)).unsignedXdr
+          ).toBe('AAAA')
+      })
+
+      it('only the adapter the rule is scoped to counts: another adapter as signer is P0-5', async () => {
+        const OTHER = contract(24)
+        const r = await planInstall(
+          { ...input, signers: [OTHER] },
+          on('execute'),
+          chain({ contracts: kinds({ [GATED]: 'gated adapter', [OTHER]: 'gated adapter' }) })
+        )
+        expect(r.unsignedXdr).toBe('AAAA')
+      })
     })
 
     it('a failure to read the signer is a failure, never a pass', async () => {
