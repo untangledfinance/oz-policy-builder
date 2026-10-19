@@ -153,6 +153,20 @@ mainnet refusal is the intended security change of P0-4.
   at Medium or above; one Low, G7S-16, is fixed in `policy-synth` (under
   Fixed). C2 is fixed by octopos #225, so G7S-1 is the one open High. Two tests cover a rule with two contract signers.
 
+- **policy-synth, plainer wording in twelve diagnostics:** the review,
+  install, synth, rules, wire and simulate messages that read as a contrast
+  or used "named" now state the fact directly. Codes, severities and
+  behaviour are unchanged.
+  - **Breaking:** callers matching these texts must update. The changed
+    phrases include `no function pinned` (was `no function named`),
+    `a signer is listed twice`, `the ceilings (no interpreter given)` in
+    `heldTo`, and the `review_unsigned` problems about the account under
+    review, rule 0, the rule's scope and the grammar.
+
+- **The grammar-6 threat model in house style:**
+  `evidence/stride-threat-model.md` is reworded with its meaning, IDs,
+  numbers and the 2026-10-01 record unchanged.
+
 ### Removed
 
 - **The Stellar and EVM `prime-session` contracts:** the move-only session
