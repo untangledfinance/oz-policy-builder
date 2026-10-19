@@ -98,7 +98,7 @@ Found by review-opb28 (L1) on testnet. A gated adapter's signature holds wheneve
 
 ### Reconciliation with every earlier item
 
-"Holds" means the control was re-read at this head and the earlier evidence stands. Current line references are given where an item is open; the sections of 18 October cite `46e4c6a5`.
+"Holds" means the control was re-read at this head and the earlier evidence stands. Current line references are given where an item is open. Every package and script line reference in this file points at `fa3580bb`, the sections of 18 October included; those sections first cited the head of #23 (`66b8f8cf`), and their package references were moved to `fa3580bb` afterwards. Their contract references cite `46e4c6a5`, where every contract but the execution adapter has the same lines as at `fa3580bb`; the v4 adapter rows say so.
 
 | Item | Status on 18 October | Status on 19 October | Evidence |
 | --- | --- | --- | --- |
@@ -229,22 +229,22 @@ The first run's tables below still hold for the interpreter and the toolchain. T
 
 | Item | Status on 2026-10-18 | Evidence |
 | --- | --- | --- |
-| P0-1 mainnet pin and deploy pipeline | Open | `packages/policy-synth/src/config.ts:44` `mainnet: null`; `INTERPRETER_WASM` (`config.ts:51`) holds testnet builds only; no grammar-7 mainnet deploy script. `scripts/deploy-prime-mainnet.ts` deploys grammar 6 and refuses this tree on the interpreter hash, before reading a secret or calling a network (run with networking off) |
-| P0-2 auth-tree binding | Fixed here (`bc0d20d`) | `install.ts:212-226` refuses unless the simulated `rootInvocation` is the built call with no sub-invocation. Tests: a forged sub-invocation, another call, and the same function with another argument are refused (`install.test.ts`, three cases). Live: real testnet simulations of an install with the interpreter alone, with `simple_threshold` and with `spending_limit`, and a revoke, all pass the check (`synth/live-p02.log`) |
-| P0-3, first half: authority header | Done | unchanged since 2.0.0: `card.ts:361` `authority()` |
+| P0-1 mainnet pin and deploy pipeline | Open | `packages/policy-synth/src/config.ts:79` `mainnet: null`; `INTERPRETER_WASM` (`config.ts:86`) holds testnet builds only; no grammar-7 mainnet deploy script. `scripts/deploy-prime-mainnet.ts` deploys grammar 6 and refuses this tree on the interpreter hash, before reading a secret or calling a network (run with networking off) |
+| P0-2 auth-tree binding | Fixed here (`bc0d20d`) | `install.ts:233-242` refuses unless the simulated `rootInvocation` is the built call with no sub-invocation. Tests: a forged sub-invocation, another call, and the same function with another argument are refused (`install.test.ts`, three cases). Live: real testnet simulations of an install with the interpreter alone, with `simple_threshold` and with `spending_limit`, and a revoke, all pass the check (`synth/live-p02.log`) |
+| P0-3, first half: authority header | Done | unchanged since 2.0.0: `card.ts:362` `authority()` |
 | P0-3, second half: owner-side decoder | Fixed in the packages by #25 (`63768d67`); the Prime app still has to run it | `review_unsigned` and `reviewUnsigned` (`review.ts:85`) read an unsigned install or removal from its bytes with no RPC and list the problems in them; `signable` means only that none was found: a consistent rewrite reads signable, and its authority shows in the review for the owner to judge. Tests: `review.test.ts`, real testnet builds edited byte by byte; 90 of 90 mutants killed in the review of #25. Live: every edit an agent can make to a built install without recomputing the digest is flagged, and a consistent rewrite shows the attacker as admin (review-opb25). A contract signer is a problem unless `readContracts` reads it (this pull request) |
 | P0-4 override echo and operator gating | Fixed by #25 (`63768d67`) | no refusal names a flag; `allowOverlap`, `allowUnboundedAmount`, `allowOpenSlippage`, `anyOne` and `allowAdminRule` come back in `overrides` (`{ flag, waived }`) and open the review (`card.ts:432`); on mainnet a flag set to `true` is refused before any request unless the operator sets `POLICY_BUILDER_ALLOW_OVERRIDES=1` (`install.ts:405`). Tests in `install.test.ts` and `tools.test.ts`; review-opb25 counted 0 requests on the package, the CLI and the MCP server |
 | P0-5 contract signer vetting | Open; one case closed by #27, a second by #28 (G7S-16) | `tools.ts:82` `anyAddress`, used for `signers` and `admins` (`:540-541`). `install_policy` now reads each contract signer's instance and refuses an execution adapter bound to no gate, or a contract that is not deployed (`install.ts:598-603`); see G7S-14. Every other contract passes unvetted: a seat, a smart account, an adapter with a gate, or a contract an agent deployed (final rerun, J5 and J6) |
-| P0-6 read safety | Lint done; two parts open | `install.ts:443` refuses `READ_UNSAFE` unless `POLICY_BUILDER_ALLOW_SPOT_READS=1`. The `gt(read, 0)` guard under `scaled` and a snapshot mark on read verdicts are still to build |
+| P0-6 read safety | Lint done; two parts open | `install.ts:566` refuses `READ_UNSAFE` unless `POLICY_BUILDER_ALLOW_SPOT_READS=1`. The `gt(read, 0)` guard under `scaled` and a snapshot mark on read verdicts are still to build |
 | P1-7 RPC answer binding | First half fixed here (`6185846`) | `record.ts:125-136` hashes the returned envelope under the network passphrase and refuses another hash (fee bumps answer to the outer and inner hash). Tests: 4 new cases. Live: two testnet transactions record, and the same envelope offered for another hash is refused (`synth/live-p17.log`). Second half open: `spec.ts` caches specs by wasm hash without hashing the fetched bytes |
 | P1-8 tool output as data | Open | `envelope.ts:41-43` `messageOf` passes RPC text through, cut at 512 characters |
 | P1-9 custody code provenance | Half done | seats: reproducible builds pinned in `contracts/build-hashes.json` with CI parity on every seat. OZ account `91a2cd56`: `deployments/oz-accounts.json` still records no source commit or build command |
 | P1-10 threshold and `anyOne` | Done | unchanged; on chain re-confirmed by G3, G4 (seat alone and native alone refused `#3202` under `simple_threshold` 2) and G5 (both pass) |
-| P1-11 default expiry | Open | `install.ts:433` defaults `validUntil` to `null`; the header says "never expires" |
-| P2-12 spending-limit guard | Done | `install.ts:449-459` |
+| P1-11 default expiry | Open | `install.ts:556` defaults `validUntil` to `null`; the header says "never expires" |
+| P2-12 spending-limit guard | Done | `install.ts:572-580` |
 | P2-13 HTTP transport | Open | no token; the Host and Origin guard holds on loopback only (`http.ts:57-73`); with `allowExternalHost` both go |
 | P2-14 DoS hygiene | Open | timeouts on the limits read and name reads only |
-| P2-15 housekeeping | Open | `evidence/bun-audit.log` here is dated 2026-08-27 (this run's `bun audit`: no vulnerabilities); `POLICY_CONTRACTS` (`config.ts:146`) is an address list |
+| P2-15 housekeeping | Open | `evidence/bun-audit.log` here is dated 2026-08-27 (this run's `bun audit`: no vulnerabilities); `POLICY_CONTRACTS` (`config.ts:181`) is an address list |
 | Role-label spoof (E5) | Done | unchanged since 2.0.0 |
 
 ### The findings of the first run
@@ -429,14 +429,14 @@ The rows above cite the v4 source at `46e4c6a5`. The rows below were added with 
 
 | STRIDE | Threat | Entry point | Control | Verified |
 | --- | --- | --- | --- | --- |
-| T | A lying RPC changes what the account signs | `buildSelfCall` | Fixed here: the tree must be the built call (`install.ts:212-226`) | 3 tests; 4 live builds |
+| T | A lying RPC changes what the account signs | `buildSelfCall` | Fixed here: the tree must be the built call (`install.ts:233-242`) | 3 tests; 4 live builds |
 | T | A lying RPC records another flow | `recordHash` | Fixed here: envelope hash check (`record.ts:125-136`) | 4 tests; live |
-| T | A lying RPC sets the signed auth expiry and the resource fee (G7S-13) | `buildSelfCall` | Fixed by #25: expiry = the recording pass's ledger + `POLICY_BUILDER_AUTH_LEDGERS` (`install.ts:248`); the two passes within 20 ledgers (`:289`); a time bound from the builder's clock (`:317`); a resource fee below 0 or above `POLICY_BUILDER_MAX_RESOURCE_FEE` refused (`:298-303`) | review-opb23 B9 to B11 now refused; review-opb25 live; residual in G7S-13 |
+| T | A lying RPC sets the signed auth expiry and the resource fee (G7S-13) | `buildSelfCall` | Fixed by #25: expiry = the recording pass's ledger + `POLICY_BUILDER_AUTH_LEDGERS` (`install.ts:248`); the two passes within 20 ledgers (`:289`); a time bound from the builder's clock (`:317`); a resource fee below 0 or above `POLICY_BUILDER_MAX_RESOURCE_FEE` refused (`:298-307`) | review-opb23 B9 to B11 now refused; review-opb25 live; residual in G7S-13 |
 | E | A rule an execution adapter with no gate signs lets an agent pass its caps (review-opb26 P4, tx `e90fe2a3…`: five times the cap; again on fresh instances in the final rerun, J7) | `install_policy`, and the Prime app's own builders | Fixed in `policy-synth` (`install_policy`, `review_unsigned`) by #27: each contract signer's instance is read off the ledger, and an instance holding `prime` and a void `gate` is refused as a signer whatever its code hash, as is an undeployed contract (`install.ts:598-603`, `chain.ts:250`); `review_unsigned` flags a contract signer unless `readContracts` reads it. Open in the Prime app (G7S-14): rules it builds with `buildAddContextRuleArgs` and signers it adds with `add_signer` are not checked | testnet: the null adapter `CD5Y3SNP…` refused alone and beside a key; the gated `CCXFDHD7…` installs (tx `3dcefe6f…`) and is revoked (tx `0044d23e…`); final rerun J1 to J4 refused, and two tests with two contract signers |
 | S | A web page drives the HTTP tools | `http.ts` | loopback bind, Host and Origin guard (`http.ts:55-73`) | MCP suite, 16 of 16 |
 | D | A large body | `http.ts` | 1 MiB limit, 413 (`http.ts:12`, `:81-83`) | MCP suite on Bun 1.3.14; review-opb21 L1 for the socket |
 | I | Secrets in errors | `messageOf` | URL credentials stay out of errors (first run) | unchanged |
-| E | The agent writes outside the out directory | `outFile` | bare name, `wx` flag (`tools.ts:585-609`) | unchanged; tests |
+| E | The agent writes outside the out directory | `outFile` | bare name, `wx` flag (`tools.ts:566`, `:622-647`) | unchanged; tests |
 | I | Key handling | packages | the packages hold no key: they return unsigned XDR | grep: no secret key use in `packages/*/src` |
 
 ### Scripts and CI
@@ -579,7 +579,7 @@ Required before any flow that uses a null adapter ships: the tooling refuses to 
 
 ## The model of 15 and 16 October 2026
 
-The sections below are the first run on `9ff281a`, as validated then. Their file and line references are to that tree; the status of each item on 18 October is in the tables above.
+The sections below are the first run on `9ff281a`, as validated then. Their four package line references (`config.ts`, `tools.ts`, `install.ts`) point at `fa3580bb`; they were first written against the 2.0.0 tree (`f32cfd9`), not `9ff281a`; the status of each item on 18 October is in the tables above.
 
 ### Method of the first run
 
@@ -686,7 +686,7 @@ IDs are the final report's (S1, T1, ...), the off-chain pass's (E...), the on-ch
 
 | ID | Threat | Validated severity | Evidence | Fix |
 | --- | --- | --- | --- | --- |
-| S1 (E8-S.1, 3.6 S) | Mainnet has no pinned interpreter, so `interpreterAddress` is agent input. A lying RPC can report a trusted code hash for another contract, which then polices the rule | Medium | Theoretical; `config.ts:44` | P0-1 |
+| S1 (E8-S.1, 3.6 S) | Mainnet has no pinned interpreter, so `interpreterAddress` is agent input. A lying RPC can report a trusted code hash for another contract, which then polices the rule | Medium | Theoretical; `config.ts:79` | P0-1 |
 | S2 (3.1 S) | A signer squats `(victim, rule_id)` before the owner installs | Info | `install` always calls `smart_account.require_auth()` | None |
 | E2-S.3 | Any local process can call the MCP HTTP tools: there is no authentication | Medium on a shared host, Low otherwise | Confirmed: an unauthenticated local POST gets 200 | P2-13 |
 | E9-S.1 to S.3 | A contract's parameter names mislead, a fake token claims a known symbol, a short address is ground to look alike | Low | Theoretical | None |
@@ -706,7 +706,7 @@ IDs are the final report's (S1, T1, ...), the off-chain pass's (E...), the on-ch
 | E8-S.2, 3.6 T | The OZ account build `91a2cd56`, the custody contract, does not reproduce from any known source | Medium (raised from Low) | `deployments/oz-accounts.json` records two failed reproductions | P1-9 |
 | N5 | There is no grammar-7 mainnet deploy pipeline, and CI had never run on this branch | Medium (blocks P0-1) | `scripts/deploy-prime-mainnet.ts` deploys grammar 6 | P0-1 |
 | N6 | `deployments/*.json` is held to source only on testnet; no CI parity covers a mainnet record | Medium (mainnet) | `ci.yml` | P1-9 |
-| T3 (3.1 T) | A rule scoped to another policy contract exposes its admin calls; only the builder's address list refuses it | Low | `config.ts:146` | P2-15 |
+| T3 (3.1 T) | A rule scoped to another policy contract exposes its admin calls; only the builder's address list refuses it | Low | `config.ts:181` | P2-15 |
 | E4-T.1 | `install_policy` is not bound to an earlier `verify_policy` | Low (lowered from Medium): the install response carries its own review, built from the bytes it installs | Theoretical | None |
 | T2 (3.1 T) | A re-install smuggles a new admin set or a stale predicate | Info | `signers_hash` re-checked, nonce must be prior plus one | None |
 
@@ -745,9 +745,9 @@ IDs are the final report's (S1, T1, ...), the off-chain pass's (E...), the on-ch
 | E4 (E5-E.1, E6-E.1) | The refusal text names the override flag (`allowOverlap`, `allowUnboundedAmount`, `allowOpenSlippage`, `allowAdminRule`), the agent sets it, and the success response does not say a refusal was overridden | High | Confirmed | P0-4 |
 | E5 (E10-S.1) | The review showed only the predicate: an agent could name its own key as signer, leave expiry unset and pass an attacker address as `admins`, and the attacker address read as a role inside the predicate | High | Confirmed at `9ff281a`: the attacker recipient read «admin» in the review, and the governed signers appeared only as wire values | P0-3, role-label fix |
 | N1 | A cap inside the predicate is per call. An agent can repeat the call and move the whole balance of the scoped token, while the review reads "must be at most 500" | High | Review output at `9ff281a` | P0-3, P2-12 |
-| N3 | `signers` and `admins` accept any contract address. A signer contract whose `__check_auth` returns `Ok` lets anyone use the mandate | Medium-High | `tools.ts:77` | P0-5 |
+| N3 | `signers` and `admins` accept any contract address. A signer contract whose `__check_auth` returns `Ok` lets anyone use the mandate | Medium-High | `tools.ts:82` | P0-5 |
 | E1 (P4, 3.2 E) | A rule with any policy is satisfied by any ONE of its signers, and the review did not say so | Medium | Confirmed on the deployed account bytes; re-confirmed by the signed tests: `simple_threshold(2)` denies A alone `#3202` and permits A+B; weighted {A:2, B:1}, threshold 2 permits A and denies B `#3213` | P1-10 |
-| N4 | `validUntilLedger` is optional and defaults to never, so an agent key stays authorised until someone revokes it | Medium | `install.ts:418` | P1-11 |
+| N4 | `validUntilLedger` is optional and defaults to never, so an agent key stays authorised until someone revokes it | Medium | `install.ts:556` | P1-11 |
 | E3 (P1) | The interpreter acts as a confused deputy through a read's side effects | Low: needs value or a role granted to the interpreter's address | Confirmed | Open question |
 | E2 (P5) | `remove_policy` on an agent rule leaves an unconstrained signer | Low for Prime (lowered from Medium): needs rule-0 auth | Confirmed | Open question |
 | 3.4 E | The agent names a looser rule it also holds | Low on chain; off chain the guard is the overridable `allowOverlap` | Theoretical | P0-4 |
