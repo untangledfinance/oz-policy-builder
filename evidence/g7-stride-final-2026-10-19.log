@@ -1,0 +1,179 @@
+# Final STRIDE rerun of the grammar-7 tree, Stellar testnet, 19 October 2026
+#
+# Tree: feat/grammar-v7 at 3624e930 (after #25, #27 and #26). Adapter v5 4985cd12..., gate b01024f3...,
+# both rebuilt here with build-wasm.sh to the same hashes and read on testnet as the code entries #26
+# uploaded (not uploaded again). Grammar-7 interpreter CDZV4AG4... (69cad1d5...), OZ account 91a2cd56...,
+# OZ spending_limit CDH4KOBR... from deployments/oz-policies.json.
+# Harness: kept off-repo on the agents' VM (prime-refine/reports/g7-stride-final-evidence/stride-final-probes.ts
+# and g2d-probe.ts). Every key is Keypair.random() made in memory for the run; none was written or printed.
+#
+# Rows: setup and S rows build the accounts; A caps; B rules cited across adapters; C rebind; D grants and
+# executor_authorizations; E waits; F cancel; G resubmission; H the Prime binding; I what a null adapter
+# holds and custody's gate; J policy-synth's contract-signer refusal and the hazard it guards.
+# Error codes: adapter #1 PrimeTarget, #2 AddressNotAllowed, #3 Uncheckable, #5 NotScheduled, #7 NotACanceller,
+# #8 NotWhereAgreed, #9 NoGate, #10 NoWait; interpreter #100 deny; OZ account #3002 and #3016 (no rule fits the
+# context or its signers), #3221 spending_limit exceeded. In row I2b, #1 is the gate's DestinationNotAllowed.
+#
+# This is the third run of the harness. Runs 1 and 2 used other fresh instances and are superseded:
+# run 1 stopped at G2 with two rows the harness expected wrongly (B5 is refused, where I had expected it to
+# run; G2 needed its account funded first); run 2 passed every row but G2d.
+# Row G2d below fails on the harness's own criterion: the RPC answers a resent envelope with TRY_AGAIN_LATER,
+# and the harness wanted ERROR or DUPLICATE. Nothing moved (the row says so). The second part of this log
+# (G2d-0 to G2d-3, another fresh account) sends the same envelope again through the RPC and through Horizon:
+# Horizon answers with the original transaction, the balance and the sequence number stay, and the hash
+# appears once in the account's history.
+#
+# ---------------------------------------------------------------- run 3 ---
+
+-- setup
+PASS setup: adapter v5 code entry 4985cd12 is on testnet and hashes to its name | 24659 B, live until ledger 5786218
+PASS setup: custody gate code entry b01024f3 is on testnet and hashes to its name | 9026 B, live until ledger 5777223
+PASS setup: build-wasm.sh at this head gives the same two hashes | 4985cd12 b01024f3
+PASS setup: USDC trustlines for X_G, M, stranger | tx 6bce5688443f544a778f58240b351d49f34db9bda75d88dc023e9044b89fa88a fee 300
+PASS setup: USDC asset contract | tx 9af260587edee31c82089ef534c0312d590e02cf997466eadc225d90ebacbacf fee 383073
+PASS S1. X_C CCSRL4VYU2E3LOSDEHNG5QZRAQMMEXKNC3V7WDZQSYUFX4WETJYWXPQ2 (OZ 91a2cd56, rule 0 = owner) | tx 8db322bbf31841d5ef6c08a18fded5a3cf79c13c5d2e8ad0db9418a9d326731a fee undefined
+PASS S2. issue 1000 USDC to X_C | tx 77fdc0ba3b1601dd75ea91f98ec10a4b62db4032d3f8b0df48fa71ea42c8ce21 fee 770106
+PASS S3. fund X_C with 50 XLM | tx 67ed39ad80156b9dae1915d0a7b9e07d1f60372336b24e99f1b4a30e7b9f5477 fee 771604
+PASS S4. X_C creates its null adapter CDRINZYEPINZDHC2ZXIRODN2U4THPN7EKB3YYMF6OPAG55L3PRB4OICK through rule 0 | tx d88461e2ee9023160184561654aca5ceca50610244c2378b3216fe99af832fd3 fee 1526325
+PASS S5. X_C creates a second null adapter CBKDTPCJZRVRPHZVDG2N7MDX7IM7KI32YQBSAHWQV24NVWKNJ5TO23H4 (window + 1) | tx 144f8e8da40fe76c85f33149b1df6c7d810e15843805f5ea0124e07663ffc9e6 fee 195519
+PASS S6. custody's gate R CB5TNTW6XL3FWO653EVZSPQ3M2RBWW4I6DHIQXFOOFOZWJWY4O5DJPAU names the gated adapter CDCC6L3AKCPN4L5SWRDP6N3CYKOYTPVVH6TG2XN6AAHKTSSVY432TBWT and 4985cd12; list [XLM, USDC, X_C, M, custody] | tx 033a3877be7c4fee1399ae3fbbfc985daa00c9ff8d1d9f55a0ff62696fa71b2d fee 439734
+PASS S7. custody approves R for 10 XLM | tx cba82d0cf6853b9b73815bb7614551658775e90f692186164e48878f796d1cb2 fee 15404
+PASS S8. X_C creates the gated adapter through rule 0 | tx 9ace9b0280e0a6b1b8884606fd6db54c715f414e1235f826ecb832d100b50769 fee 224341
+PASS S9. custody2's successor gate R2 for the same adapter, list [USDC, X_C, M] CDFBUKFSHJF4M7HIFI5MGTCC6ML5X3IGE7IB7GPN6OLVHSEFT4EVBJO3 | tx 6350604872d15f3f569de3b0baee9179c2dfb99173d61f6e9e5173cfd962aa47 fee 372486
+PASS S10. a gate R0 whose custody named the NULL adapter by mistake, list [M] CCANDPVHVM4GY4YAS7PTTLYTDITPCKQXNPBRVVVYXGQABGZ63VZOAHEJ | tx 3d07e71643033bd5eedcf888e6be9b6053c0b8114a9b76993be088f3c9e8bc1f fee 308439
+PASS S11. custody approves R0 for 5 XLM | tx 505608069bd8eccc55e6a0a133bf700dc5462df65e0d6636b9005278838f1506 fee 15404
+PASS S12. rules on X_C (grammar-7 interpreter) | agent execute on null 1 (e4c82c9029afc2e8623d5049675c31a89f1f6ceea5c80c3885f4c0af32f8b80b); agent USDC cap 20 2 (c4b662e7e407afffd412a7b15128126d67cb1d7e55239dac50713479f36e6aa1); agent USDC cap 20 + spending_limit 50 3 (0e856bfdfc4df3d3d7e2e9ac5bd67bad9d6d0adf2b69853d0f99762968a8e0fa); agent execute on gated 4 (f9d5880cbff32ca41288d4c04d1d8abfa4dd74517e0912598e31578a8de19b2f); USDC band signed by the gated adapter 5 (193f6a0f11e15d5bb5eba14e7e22cb5f636efcae6576f96c56e22b41b898eb47)
+PASS S13. W: an OZ account the agent owns (a hostile callee) | CBWZJTOFKFL4TZMD32DESNC5NOKNJN7KVI7RXPLIP42JVWDWZN4WBGVV
+
+-- A. caps: per call, per batch, nested and re-entrant (null adapter)
+PASS A0. control: agent [USDC.transfer(X_C, M, 20)] via null, rules [execute, cap] | tx 66ec1caa571aa54531ac35f21b59761ba666255186c66821fca991332a6b7f05 fee 3497754
+PASS A1. agent one stroop over its cap (20 + 1 stroop) | refused #100
+PASS A2. agent [20, 20, 20] in one batch under the per-call cap rule: each context meets its cap (N1, per call, no total) | tx a65a59e6a0af349e7a3645278c9d106232847e951abe3f4133251c0d45150031 fee 24511
+PASS A2b. 60 moved in one approval | 600000000
+PASS A3. the same [20, 20, 20] under the rule with spending_limit 50: the total binds across one batch | refused #3221
+PASS A4. [20, 20] under spending_limit 50 | tx 9df2124677834aa6f0d9fba0725a398da90278f2b96298de5e8c836b00d79e0a fee 2804154
+PASS A5. then [20] again: 60 would pass 50 in the period | refused #3221
+PASS A5b. only A4 moved under the total | 400000000
+PASS A6. nested: null batch [W.execute(USDC.transfer(X_C, M, 21))] | refused #100
+PASS A7. nested control at 20: the nested context is checked, not skipped | tx 079def30aec3460ea027ee65c59bff47b22a3d977b5bcd387177188dd60456ef fee 1358721
+PASS A8. re-entrant into the Prime: [W.execute(X_C.execute(USDC.transfer(X_C, M, 100)))], its adapter rule cited for X_C.execute | refused #3002
+PASS A8. re-entrant into the Prime: [W.execute(X_C.execute(USDC.transfer(X_C, M, 100)))], its cap rule cited for X_C.execute | refused #3002
+PASS A9. re-entrant into the adapter: [null.execute([])] | refused Error(Context, InvalidAction)
+PASS A10. re-entrant through a callee: [W.execute(null.execute([USDC.transfer(X_C, M, 100)]))] | refused Error(Context, InvalidAction)
+PASS A11. the second null adapter: [null2.execute([USDC.transfer(X_C, M, 100)])] | refused #3002
+PASS A12. of A6 to A11 only A7 moved (20) | 200000000
+
+-- B. rules cited across adapters
+PASS B1. agent cites the gated adapter's USDC band rule through the null adapter, gated adapter as signer | refused Error(Auth, InvalidAction)
+PASS B2. agent cites its gated-adapter execute rule for the null adapter execute | refused #3002
+PASS B3. agent cites its null-adapter execute rule for the gated adapter execute | refused #3002
+PASS B4. nothing moved in B1 to B3 | 1400000000
+PASS B5. null batch calls the gated adapter's execute, the agent citing its gated execute rule and the band rule: the band rule's signer fails, the null adapter asked X_C first | refused Error(Auth, InvalidAction)
+PASS B5b. the same route to the stranger, off the list | refused #2 AddressNotAllowed
+PASS B5c. nothing moved in B5 and B5b | 0
+PASS B6. by design, gated: agent [USDC.transfer(X_C, M, 100)] via the gated adapter citing the band rule it signs (bounded by the list, not the agent cap) | tx e20c5575712a5753da288f7f5bf548670066c866fb4ce954d57508f63758ef0c fee 3099756
+PASS B6b. M got 100 | 1000000000
+PASS B7. the same to the stranger, off the list | refused #2 AddressNotAllowed
+
+-- C. rebind
+PASS C1. null: the owners call rebind(R) | refused #9 NoGate
+PASS C2. gated: rebind(void) | refused Error(WasmVm, InvalidAction)
+PASS C3. gated: the Prime's owners rebind to R2 without custody's signature | refused Error(Auth, InvalidAction) Error(Value, UnexpectedType)
+PASS C4. gated: custody rebinds to the USDC SAC, which cannot answer custody() | refused Error(Value, InvalidInput)
+PASS C5. gated: custody2 (custody of R2, not of the bound gate) rebinds to R2 | refused FAILED on chain FAILED tx bdaf170180b268a8c9c268acc9330cef3456356f790b26bbaeabba3d8b67d1b1
+PASS C6. gated: custody rebinds to R2 (control) | tx 81b8837d544298f6d98f821d86f347623e66add3ee3aac294da2b8a7f004e9e8 fee 3878
+PASS C7. after C6, XLM (off R2) is refused | refused #2 AddressNotAllowed
+PASS C8. after C6, the old custody cannot rebind back | refused FAILED on chain FAILED tx ce7fd814d190abc0b4ae6e7420fb95020c069a3b3530d18412715dfe6f42d540
+PASS C9. custody2 rebinds back to R | tx d2b12ec42a4304d8100cf2a24164dd721d84338952603e871084f571fb4fdf7c fee 3878
+
+-- D. grants and executor_authorizations
+PASS D1. null: a grant (USDC.transfer as the adapter) | refused #3 Uncheckable
+PASS D2. null: executor_authorizations on a call | refused #3 Uncheckable
+PASS D3. gated: a grant to an unlisted contract (null2) | refused #2 AddressNotAllowed
+PASS D4. gated: a listed grant whose sub-invocation names an unlisted contract | refused #2 AddressNotAllowed
+
+-- E. wait and min_wait with no gate
+PASS E1. owners: execute with wait 1 | refused #10 NoWait
+PASS E2. agent: execute with wait 5 | refused #10 NoWait
+PASS E3. a null adapter with min_wait 1 cannot be created | refused #10 NoWait
+PASS E4. run(1) on the null adapter: nothing stored | refused #5 NotScheduled
+
+-- F. cancel authority
+PASS F1. null: the stranger cancels as itself | refused #7 NotACanceller
+PASS F2. null: R0's custody cancels as itself (a null adapter has no custody) | refused #7 NotACanceller
+PASS F3. null: the agent cancels as the Prime (its rule permits execute only) | refused #100
+PASS F4. null: the stranger cancels as the Prime with no rule | refused #3002
+PASS F5. null: the owners cancel (nothing stored) | tx 08019c6e8b05d08e5797752ffaf79a631199ebd08249f5598d33a868629de7c3 fee 12242
+PASS F6. gated: the owners store a batch (wait 100) as 1 | tx 0433a870312866c081b1112853d3773283859603ea0f50416423236bb67270f0 fee 393574
+PASS F7. gated: the stranger cancels as itself | refused #7 NotACanceller
+PASS F8. gated: custody2 (not the bound gate) cancels as itself | refused #7 NotACanceller
+PASS F9. gated: the agent cancels as the Prime (execute-only rule) | refused #100
+PASS F10. gated: the bound gate's custody cancels | tx 9f85dba858ad2a49303ea5031fa9a185f34ee5223e20cf58ef7fa8c18e3100ce fee 3701
+PASS F11. the cancelled batch is gone | refused #5 NotScheduled
+PASS F12. gated: a second stored batch 2, cancelled by the owners as the Prime | tx 63c4151a8acc7c7dd02d4d7defadfc1001a51c60dd6de4224a6ca9008ef60e99 fee 12564
+
+-- G. resubmitting a signed bundle
+PASS G0. X_G (a G account) creates its null adapter CDYHZN7FYOWRVVXMUK6GDWZ7FPZXCA2CZYZHK4Z25UXG5U3KGN5YOMQ7 | tx cfcfe4ac779bb0c77aadb377db6cfc37e08793de35f8bbd2d30f3dd6e6080300 fee 189846
+PASS G0b. issue 50 USDC to X_G | tx a1aec97278bad173de55e9e5f00fd1ead6637f93bb8e79fd805c669db8d17cdd fee 4617
+PASS G1. X_G signs [USDC.transfer(X_G, M, 50)] with address credentials; simulated while X_G holds 50 | 
+PASS G1b. X_G then pays its 50 USDC away | tx 80f5447504a5dd289d82e670c2e142ccf9c0ee976d1692987e159d09a1654b31 fee 4830
+PASS G1c. the prepared bundle fails on chain (balance) | refused FAILED on chain FAILED tx ab02c6551ea1993bd58e0dd49a7e9181f7fb9fbf4c62c2de992835c75a5bc729
+PASS G1d. X_G gets 50 USDC again | tx e03998320aba6404c98c7e34b5e5bd3e2bd9249e4c0c61c5fda29bec17aa535e fee 4617
+PASS G1e. the stranger resubmits the SAME signed entry before its expiry: it runs | tx 8dc18ebc425cf640db5f05bf3bee1e52330bea071490928e29fce7b5993500fe fee 621218
+PASS G1f. resubmitted once more after it ran: the nonce is spent | refused Error(Auth, ExistingValue)
+PASS G2-. issue 1 USDC to X_G | tx 1f48719e5a02b17f0fb503f7090edb46f4e42a69ecba6277399c7a6d6cb8ceff fee 4617
+PASS G2. X_G as source: its entry carries source-account credentials | sorobanCredentialsSourceAccount
+PASS G2b. the stranger lifts X_G's entries into its own transaction | refused Error(Auth, InvalidAction)
+PASS G2c. X_G submits its envelope | tx 41133afd86acb1c68723cc66fd0302ddd96be80b2bf8fb280c03fba55128c433 fee 8910
+FAIL G2d. the same envelope sent again is refused and moves nothing (sequence spent) | TRY_AGAIN_LATER / TRY_AGAIN_LATER / TRY_AGAIN_LATER / TRY_AGAIN_LATER / TRY_AGAIN_LATER; M unchanged true
+PASS G3a. the stranger lifts X_C's entry and the owner's source-credential entry into its own transaction | refused Error(Auth, InvalidAction)
+PASS G3b. the owner submits the same entries as source | tx 15d971082622961d1c5c8f430da3e1249740cb049445d3c94295076308fb8cbb fee 12791
+PASS G3c. the owner resubmits them after they ran: the nonce is spent | refused Error(Auth, ExistingValue)
+
+-- H. the Prime binding
+PASS H1. null: the Prime itself as a call target | refused #1 PrimeTarget
+PASS H2. gated: the Prime as a call target, although X_C is on R | refused #1 PrimeTarget
+PASS H3. the stranger creates X_C's null adapter from its own address (same salt) | refused #8 NotWhereAgreed
+PASS H4. the stranger signs X_C's null-adapter bundle as a signer of X_C with no rule | refused #3016
+PASS H5. X_G's null adapter moves X_C's USDC, X_G signing | refused Error(Auth, InvalidAction) Error(WasmVm, InvalidAction)
+PASS H6. the null adapter stores prime = X_C and gate = void; no function writes prime | prime CCSRL4VYU2E3LOSDEHNG5QZRAQMMEXKNC3V7WDZQSYUFX4WETJYWXPQ2, gate scvVoid
+
+-- I. what a null adapter holds, and a gate that names one
+PASS I1. the payer sends 1 XLM to the null adapter | tx a46a21c80b49a250b33e4e2abbcfbcd2bdbc7e4c02daabf89bd61aded00a20ff fee 771510
+PASS I1b. the agent moves the adapter's XLM to itself with only its execute rule | tx ddf39c976fec6412da27e87837cf25e2ddf18cd978f2ba97c97df15a5c6f1d33 fee 16561
+PASS I1c. the adapter's XLM is gone | agent delta 9983439 (net of fees)
+PASS I2. R0 names the null adapter: a null batch pulls 1 XLM to M, on R0's list | tx c011a850598c5f179241a56235832c97af451dfd5883ef8e1fd6fe16a085b10b fee 19277
+PASS I2b. the same pull to the stranger, off R0's list | refused #1 (the gate's DestinationNotAllowed)
+PASS I2c. custody lost exactly the 1 XLM of I2 | 10000000
+PASS I3. the null adapter pulls through custody's real gate R | refused Error(Auth, InvalidAction) Error(WasmVm, MissingValue)
+PASS I3b. the gated adapter pulls 1 XLM through R (control) | tx ba651097a40d0ecb04bf264002a8c5798056697267355e4758470e452388d767 fee 18788
+
+-- J. policy-synth on these fresh instances, and the hazard it guards
+PASS J1. the null adapter alone: install_policy refuses | INSTALL_BUILD_FAILED: install_policy: signer CDRINZYEPINZDHC2ZXIRODN2U4THPN7EKB3YYMF6OPAG55L3PRB4OICK is an execution adapter bound to no gate: whoever the account lets call its execute (an agent) cou
+PASS J2. the null adapter beside the agent key, anyOne: install_policy refuses | INSTALL_BUILD_FAILED: install_policy: signer CDRINZYEPINZDHC2ZXIRODN2U4THPN7EKB3YYMF6OPAG55L3PRB4OICK is an execution adapter bound to no gate: whoever the account lets call its execute (an agent) cou
+PASS J3. X_G's null adapter (another account's): install_policy refuses | INSTALL_BUILD_FAILED: install_policy: signer CDYHZN7FYOWRVVXMUK6GDWZ7FPZXCA2CZYZHK4Z25UXG5U3KGN5YOMQ7 is an execution adapter bound to no gate: whoever the account lets call its execute (an agent) cou
+PASS J4. the second null adapter beside the gated one, anyOne: install_policy refuses | INSTALL_BUILD_FAILED: install_policy: signer CBKDTPCJZRVRPHZVDG2N7MDX7IM7KI32YQBSAHWQV24NVWKNJ5TO23H4 is an execution adapter bound to no gate: whoever the account lets call its execute (an agent) cou
+PASS J5. the gated adapter: builds, and review_unsigned with readContracts reads it signable (not vetted, P0-5) | []
+PASS J6. W, the agent's own OZ account: builds, and review_unsigned with readContracts reads it signable (not vetted, P0-5) | []
+PASS J7. hazard on 4985cd12: with a USDC rule 6 signed by the null adapter (tx 595bc046f076870b1babebf3cfb38c414d5373249a31111e7de4202068e0060f), the agent moves 100 against its cap of 20 | tx 4e3b6aa377b9448031efa8c6c2504d9166952798a7b7b06a70ad43dd88886dc3
+PASS J7b. M got 100 | 1000000000
+PASS J8. the stranger cannot use that rule: the execute context still needs one | refused #3016
+
+accounts: X_G GAMFXQVX6QQWB6CLZ26STS5KTC77YQARZ43EQMEHV5WLW6KREJ4ETOMT, X_C CCSRL4VYU2E3LOSDEHNG5QZRAQMMEXKNC3V7WDZQSYUFX4WETJYWXPQ2, W CBWZJTOFKFL4TZMD32DESNC5NOKNJN7KVI7RXPLIP42JVWDWZN4WBGVV, null CDRINZYEPINZDHC2ZXIRODN2U4THPN7EKB3YYMF6OPAG55L3PRB4OICK, null2 CBKDTPCJZRVRPHZVDG2N7MDX7IM7KI32YQBSAHWQV24NVWKNJ5TO23H4, gated CDCC6L3AKCPN4L5SWRDP6N3CYKOYTPVVH6TG2XN6AAHKTSSVY432TBWT, gate R CB5TNTW6XL3FWO653EVZSPQ3M2RBWW4I6DHIQXFOOFOZWJWY4O5DJPAU, R2 CDFBUKFSHJF4M7HIFI5MGTCC6ML5X3IGE7IB7GPN6OLVHSEFT4EVBJO3, R0 CCANDPVHVM4GY4YAS7PTTLYTDITPCKQXNPBRVVVYXGQABGZ63VZOAHEJ, null of X_G CDYHZN7FYOWRVVXMUK6GDWZ7FPZXCA2CZYZHK4Z25UXG5U3KGN5YOMQ7, M GDQHO5NKYB7FAL6NSVPLNGZGO4KKDRAQOAFUSJT7HD2PR7Q3GGAQUO4I, stranger GBOJXXRAGUQAFSJKZ3L6PKFMPTVCTSO3PRRH6TQE7BSZZZ6EU7SE6GKY, custody GBE34SLJO4SKG23JYOJZLVLT5PQRYH2JJBI3EPC4XNTM4P7DQSOAOJL2, custody2 GC5ASCUTTTDN36S2UIV7SYWNCUUUJ3SQLLBVQIBTTRG4UGOBBNHZ2QMU, USDC CBN4QWVNLVCIKLU3HTPAWMOTG6Q6CIMKBHQ2JIMRR4DKXXONK2HZOLMS
+
+1 UNEXPECTED (112 rows)
+rc=1
+
+# ------------------------------------------------- G2d, a separate run ---
+PASS setup: USDC trustlines for X_G and M | tx e9ebedc7bd0f64cc2f9cf1055c24c4b75efef21439d26c12fd73deb8932e23b5 fee 200
+PASS setup: USDC asset contract | tx 2c8ddc625e5542f12654949671b07aa1e8b773fc5a8346fbd86336107cfa267d fee 383027
+PASS setup: issue 5 USDC to X_G | tx ba3a52dd5b965f1a7764473faaa9079218231b6bc7832e6f095dee4b9fc7f19c fee 4617
+PASS G2d-0. X_G creates its null adapter CB5JAWHIPIWHGGSUL477HECT74XJAHGUAJDO5ERBXVFQCFNM7VPYUQ75 | tx b3becddf064546ef03526de6c14062dc0b5dd8d1c72cce570e24b6f7fb64705d fee 189846
+PASS G2d-1. X_G as source: its entry carries source-account credentials | sorobanCredentialsSourceAccount
+PASS G2d-2. X_G submits its envelope: M gets 1 USDC | tx bb81706bb3d3db0e9ea4eeef85aadaa4ad3c830269f6c4ec02622591ac2574db fee 616784
+PASS G2d-3. the same envelope sent again through the RPC and through Horizon: nothing moves, X_G's sequence stays, and the hash appears once in X_G's history | RPC TRY_AGAIN_LATER; Horizon answered hash bb81706bb3d3db0e9ea4eeef85aadaa4ad3c830269f6c4ec02622591ac2574db ledger 5269446 successful true; M 10000000 -> 10000000; seq 22632059583332354 -> 22632059583332354; operations with hash bb81706b: 1
+
+accounts: X_G GDT6LQ5AMRIXXPMVEWBUL2NBMUTWTMQGDX7725A2MNIQ6DA6QSL3OGSJ, null of X_G CB5JAWHIPIWHGGSUL477HECT74XJAHGUAJDO5ERBXVFQCFNM7VPYUQ75, M GBHQB5KLP7MDS4AVSSAP542TKWFFU7PRSUVWM2HW47AIYGETF5RWGSHO, USDC CDIPQO7E3EWRQK5F3ZYQY7VNWFFAV2K7SUCGKIHAA6UQZJ5OSL2LW3GF
+
+all rows as expected (7 rows)
+rc=0

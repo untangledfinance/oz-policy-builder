@@ -1,10 +1,133 @@
 # OZ Policy Builder: STRIDE threat model, grammar 7
 
+**Final rerun:** 19 October 2026, on `feat/grammar-v7` at `3624e930`, after #25 (`63768d67`), #27 (`f4472f8b`) and #26 (the v5 adapter `4985cd12…` with an optional gate). Its section comes first. The rerun of 18 October follows; where an item's status moved, the final rerun's reconciliation table says so and the item's row is updated.
 **Rerun:** 18 October 2026, on the final tree of `feat/grammar-v7` at `46e4c6a5` (after #20, seats and NEAR signer v2, and #21, the `contracts/` layout with the spike and every `prime-session` removed), plus the four commits of the pull request that carries this file. Sessions are seat-only on every chain from that date.
 **First run:** 15 and 16 October 2026 on `9ff281a`, validated, kept below as "The model of 15 and 16 October" with its findings, priorities and reproducers. Its status table at 2.0.0 is replaced by the item-by-item status in this file.
 **Grammar 6:** the grammar-6 model, still in production on mainnet, is [stride-threat-model.md](stride-threat-model.md).
 **Networks:** Stellar testnet, Solana devnet, NEAR testnet and a local anvil fork of Base Sepolia, each with throwaway keys made for this run. Mainnet was read only.
-**Live rows:** [g7-stride-2026-10-18.log](g7-stride-2026-10-18.log) lists every on-chain check with its transaction id.
+**Live rows:** [g7-stride-final-2026-10-19.log](g7-stride-final-2026-10-19.log) for the final rerun and [g7-stride-2026-10-18.log](g7-stride-2026-10-18.log) for the rerun of 18 October list every on-chain check with its transaction id.
+
+## Final rerun, 19 October 2026
+
+### What changed, and what this run checked
+
+Three pull requests merged after the rerun of 18 October. #25 and #27 change the packages only. #26 changes the Stellar execution adapter, its scripts and its docs. Every other contract source is the source at `46e4c6a5`: `git diff 46e4c6a5 3624e930` over the interpreter, the Stellar seat and gate, the blend-pool test double, the EVM seat, both Solana programs and NEAR v2 shows no change, and NEAR v1 left the tree (G7S-2). Their pins in `contracts/build-hashes.json` and `deployments/` are unchanged; the only pin that moved is the adapter's own, in `contracts/build-hashes.json`, while `deployments/execution-testnet.json` keeps the v4 build `3dd675c0…` the Prime app pins.
+
+| Component | Changed since `46e4c6a5` | This run |
+| --- | --- | --- |
+| Stellar `execution-adapter` | v5: optional gate, 228 lines of code, `4985cd12…` | threats derived again from `lib.rs` in both modes; `build-wasm.sh` gives `4985cd12…`; 62 unit tests; 119 testnet rows on fresh instances |
+| Stellar `custody-gate` | none | `build-wasm.sh` gives `b01024f3…`; its interplay with v5 run on testnet (rows C3 to C9, I2, I3) |
+| `policy-synth`, CLI, MCP server | #25: `review_unsigned`, overrides refused on mainnet, auth expiry and fee bounds. #27: contract signer kinds, signed envelopes | threats derived again from `install.ts`, `review.ts`, `chain.ts` and `tools.ts`; the TypeScript gate; rows J1 to J8; two tests added here |
+| Interpreter, seats, Solana gate, EVM seat | none | controls re-read at the lines the rows cite; the live rows of 18 October stand |
+| NEAR v2 signer | none | access keys and code hashes of both signer accounts read on NEAR testnet on 19 October |
+| octopos, for C2 | #225 merged as `35fe7fd2` | the beta and production bundles read on 19 October |
+
+**Testnet:** one harness, run on fresh accounts and fresh instances of the v5 and gate code entries that #26 uploaded. It reads those entries and does not upload them again. Every key was a throwaway made in memory for the run and never written to disk. The harness ran three times, each on new instances. Run 1 stopped at row G2 with two rows the harness expected wrongly: B5 is refused where I had expected it to run, and G2 needed its account funded first. Runs 2 and 3 passed every row but G2d, whose criterion was mine and wrong: the RPC answers a resent envelope with `TRY_AGAIN_LATER`. Run 3 is in the log with 111 of 112 rows as expected, followed by a separate run of G2d: the same envelope sent again through the RPC and through Horizon moves nothing, the account's sequence stays, and the hash appears once in its history.
+
+**Mainnet**, read only at ledger 65,016,730: the v5 code entry is absent; `3dd675c0` and `b01024f3` are present.
+
+### Result
+
+No new finding at Medium or above, and one new Info item, G7S-15. C2 is fixed by octopos #225, so G7S-1 (the NEAR signer accounts' FullAccess keys) is the one open High. Mainnet grammar-7 installs stay blocked on the open P0 items: P0-1, P0-5, the two open parts of P0-6, and the Prime app running P0-3's decoder.
+
+| Severity | Open after the final rerun |
+| --- | --- |
+| High | G7S-1 |
+| Medium | G7S-3 |
+| Low | G7S-2, G7S-4, G7S-7, G7S-8, G7S-10, G7S-12, G7S-14 (the Prime app's half), the residual of C2 |
+| Info | G7S-5, G7S-6, G7S-11, G7S-15 |
+
+The open items of the first run (P0-1, P0-5, P0-6, P1-7 to P1-9, P1-11, P2-13 to P2-15 and the rows that go with them) keep their severities; the reconciliation table below gives each its status.
+
+The four Low items of review-opb27 are folded in: L1 as two tests, L2 as the residual of the `policy-synth` row and of G7S-14, L3 as wording in the tool description and the docs, L4 in this summary.
+
+### The adapter, derived again from the v5 code
+
+Lines are in `contracts/stellar/execution-adapter/src/lib.rs` at `3624e930`. Rows are in [g7-stride-final-2026-10-19.log](g7-stride-final-2026-10-19.log). X_C is an OpenZeppelin Prime with an agent whose USDC rule caps a transfer at 20; W is an OpenZeppelin account the agent owns; R is custody's gate for the gated adapter.
+
+| STRIDE | Threat | Mode | Control | Verified on testnet, 19 October |
+| --- | --- | --- | --- | --- |
+| S | A stranger creates a Prime's adapter | both | the constructor's address must derive from the Prime and `sha256("prime.execution.adapter.v5" ‖ XDR((gate, min_wait, run_window)))` (`:181-187`) | H3 `#8`; S4, S5, S8 created through rule 0 |
+| S | A stranger, or another Prime, runs a batch through a Prime's adapter | both | `prime.require_auth_for_args((calls, grants, wait))` (`:241`, `:247`) | H4 `#3016`; H5: X_G's null adapter cannot move X_C's USDC (`Error(Auth, InvalidAction)`) |
+| T | A batch drives the Prime's own `execute` or admin calls | both | `PrimeTarget` (`:334-336`), checked whether or not the gate lists the Prime | H1, H2 `#1` (R lists X_C in H2); A8: `X_C.execute` called by a callee is refused `#3002` by the Prime's rules |
+| T | A batch re-enters the adapter, directly or through a callee | both | the host refuses re-entry | A9, A10 `Error(Context, InvalidAction)` |
+| T | A batch names an address off the gate's list | gated | `check`, `scan`, `scan_data`, `scan_entry` (`:322-346`, `:384-488`) | B5b, B7 `#2`; C7 against the successor's list after a rebind |
+| E | An agent passes its cap on a token | null | each context the Prime authorises needs its own rule, which the interpreter checks | A1 `#100`; A6 `#100` for the transfer called by a callee; A7 the same at the cap runs |
+| E | Per-call caps add up inside one approval (N1) | null | none per batch; OpenZeppelin `spending_limit` on the rule binds a total | A2: three transfers of 20 under a cap of 20 move 60 on one signature; A3 `#3221` for the same under a total of 50; A4 moves 40; A5 `#3221` |
+| E | A rule scoped to one adapter is cited for another | both | the account matches each context to the cited rule's scope | A11, B2, B3 `#3002` |
+| E | A rule a gated adapter signs (a band) answers a batch the null adapter asked for | both | the adapter's signature holds only while it is the one asking the Prime | B1, B5 `Error(Auth, InvalidAction)`, nothing moved; B6: through the gated adapter itself the same rule moves 100 past the agent's cap, to listed addresses only (B7 `#2`) |
+| E | A rule the null adapter signs answers the agent's `execute` (G7S-14) | null | none in the contract; `policy-synth` refuses such a rule since #27 | J7: with the rule installed by a raw `add_context_rule`, the agent moves 100 against a cap of 20 (tx `4e3b6aa3…`); J8: a stranger with no rule is refused `#3016` |
+| E | Grants or `executor_authorizations` carry the adapter's authority further | null refuses; gated checks | `scan_entry` (`:479-488`) | D1, D2 `#3`; D3, D4 `#2`, D4 through a sub-invocation |
+| E | A null adapter stores a batch, or is created with a floor | null | `NoWait` (`:178-180`, `:246`) | E1, E2, E3 `#10`; E4 `#5` |
+| E | The binding moves without custody, a null adapter gains a gate, or a gated one loses it | both | `rebind`: `NoGate`, the bound gate's custody signs, the successor must answer `custody()`, the argument is an `Address` (`:211-217`) | C1 `#9`; C2 `Error(WasmVm, InvalidAction)`; C3 (the Prime's owners) and C5 (another custody) refused; C4 a token as successor refused; C6 and C9 custody rebinds and back; C8 the old custody can no longer |
+| E | Someone other than the Prime or the bound gate's custody cancels | both | `cancel` (`:307-315`) | F1, F2, F7, F8 `#7`; F3, F9 an agent's execute rule `#100`; F4 a stranger as the Prime `#3002`; F5, F10, F12 the Prime and custody cancel; F11 the batch is gone `#5` |
+| S | A null adapter draws on custody | null | the gate pins its caller's address and code (`custody-gate/src/lib.rs:74-77`) | I3 refused at the gate's caller check, and I3b the gated adapter pulls; I2: a gate whose custody put a null adapter on it still pays only its own list (`#1` off it) |
+| I | Funds held by a null adapter | null | none: the adapter acts as itself towards its direct callees | I1: the agent moves 1 XLM sent to the adapter, with its `execute` rule alone |
+| R | A signed bundle runs twice, or after it failed | both | a run spends the nonce; the expiry ledger bounds a failed entry; source credentials tie an entry to its source | G1: a failed address-credential bundle runs once a stranger resubmits it before expiry (tx `8dc18ebc…`), then `Error(Auth, ExistingValue)`; G2: a G Prime's source-credential entry fails in another source's transaction, and its envelope cannot run twice (G2d-3: Horizon answers with the original transaction); G3: the same for an OpenZeppelin Prime whose signer is the source |
+
+### The packages, derived again
+
+| STRIDE | Threat | Control | Verified |
+| --- | --- | --- | --- |
+| E | A rule whose signer is a null adapter, alone, beside a key, or another account's | `install_policy` reads each contract signer's instance and refuses `prime` with a void `gate` (`chain.ts:250`, `install.ts:586`) | J1 to J4 on testnet; the two tests added here put the null adapter first and second among contract signers |
+| E | A signer that is not deployed yet, created later as a null adapter | refused as not deployed (`install.ts:589`) | `install.test.ts`; review-opb27 1a |
+| E | Any other contract as signer: a seat, a smart account, a gated adapter, a contract the agent deployed | none: it reads signable, unvetted (P0-5) | J5 the gated adapter, J6 the agent's own OpenZeppelin account, both signable with `readContracts` |
+| E | A signer added with `add_signer`, or a rule the Prime app builds itself | `review_unsigned` flags `add_signer`; the app's own builders are unchecked | review-opb27 rows 5a, 5b; G7S-14 |
+| T | The operator's RPC answers the instance read falsely | the read trusts the operator's RPC, as every RPC read does (P1-7) | code read |
+| T | The owner signs bytes the agent changed | `review_unsigned` from the bytes alone (#25) | `review.test.ts` passes at this head |
+| E | An override set on mainnet | refused before any request unless `POLICY_BUILDER_ALLOW_OVERRIDES=1` (`install.ts:391-398`) | `install.test.ts`, `tools.test.ts` |
+| T | The RPC sets the signed expiry or fee (G7S-13) | bounds in `buildSelfCall` (#25) | tests pass at this head |
+
+### G7S-15, Info: on a gated adapter, cancel and every batch wait on the bound gate
+
+`cancel` asks the bound gate for its custody before it compares `by` with the Prime (`lib.rs:309`), and `execute` and `run` ask the gate for its list (`:323-327`). While the gate's instance is archived, or after custody rebinds to a successor that answers `custody()` at the rebind and fails later, the Prime cannot cancel a stored batch. In the archived case nothing runs either, because `run` fails at the same call, and anyone can restore the instance. A successor that fails later is custody's own choice. Code read; no change proposed.
+
+### Reconciliation with every earlier item
+
+"Holds" means the control was re-read at this head and the earlier evidence stands. Current line references are given where an item is open; the sections of 18 October cite `46e4c6a5`.
+
+| Item | Status on 18 October | Status on 19 October | Evidence |
+| --- | --- | --- | --- |
+| P0-1 mainnet pin and deploy | Open | Open | `config.ts:79` `mainnet: null`; no grammar-7 mainnet deploy script |
+| P0-2, T1 auth-tree binding | Fixed (`bc0d20d`) | Holds | `install.ts:233-242`; its tests pass at `3624e930` |
+| P0-3 first half, authority header | Done | Holds | |
+| P0-3 second half, E10-T.1, N2 | Fixed in the packages by #25 | Holds in the packages; the Prime app does not run it yet | octopos `35fe7fd2` pins `policy-synth` 0.5.6 (web) and 1.3.0 (relayer) and never calls `reviewUnsigned` |
+| P0-4, E4, E1-R.1, 3.4 E | Fixed by #25 | Holds | `install.ts:391-398` |
+| P0-5, N3 contract signers | Open; one case closed | Open; the closed case keeps its app residual (G7S-14), and the docs say every other contract passes unvetted (review-opb27 L3) | `tools.ts:82`, used for signers and admins at `:540-541`; J5, J6. A cheap hardening (review-opb27): refuse an instance whose `prime` names another account |
+| P0-6 read safety | Lint done; two parts open | Open | `install.ts:554` |
+| P1-7, E9-T.1 | First half fixed | Second half open; the contract-kind read of #27 also trusts the operator's RPC | `spec.ts:50` |
+| P1-8, E15-T.1 | Open | Open | `envelope.ts:38-41` |
+| P1-9, E8-S.2, 3.6 T | Half done | Half done | the deployed v4 adapter `3dd675c0` rebuilds from `a86a496`; CI now holds the v5 source to its pin (review-opb26 I4) |
+| P1-10, E1 | Done | Holds | |
+| P1-11, N4 default expiry | Open | Open | `install.ts:544` `validUntil: i.validUntilLedger ?? null` |
+| P2-12, N8 | Done | Holds; A3 to A5 show the OpenZeppelin total binding across one batch | |
+| P2-13, E2-S.3 | Open | Open | `http.ts:57` |
+| P2-14, E1-D.1 | Open | Open | |
+| P2-15 | Open | Open | |
+| E5 role labels | Done | Holds | |
+| N1 per-call cap | Mitigated | Mitigated | A2 to A5 |
+| G7S-13 | Fixed by #25 | Holds | |
+| C2 `remove_signer` breaks a policed rule | Open, High | Fixed in octopos #225 (`35fe7fd2`, merged 18 October 23:56 UTC), deployed to beta (Stellar). Residual, Low: the contract still refuses every signer after a change (`#204`, by design), so any builder outside the fixed dialog can still break a rule, failing safe; C3 entries remain | review-pr225, round 2 MERGE: on testnet the replacement rules answer as the originals, and a rule already broken or expired is switched off. On 19 October the beta bundle's `seat-stellar-owners-CnkbodPH-h1.js` carries the new dialog text; production (entry `index-mWvjAzsM`, 297 chunks read) holds no owners dialog, and the mainnet build refuses `VITE_NEAR_SEATS` |
+| C1, C3, C4 | Holds, Low | Holds | interpreter source unchanged |
+| H1 a removed seat | Mitigated in the apps | Holds; the C2 fix replaces a policed rule that lists a removed owner | review-pr225 |
+| G7S-1 NEAR FullAccess keys | High, open (decided to stay for the testnet beta) | High, open | read on 19 October: `seats.prime-spike-muwguc60.testnet` holds one FullAccess key `ed25519:9hEsUKUV…`, code `4b98d6d3…`; `signer.prime-spike-muwguc60.testnet` holds `ed25519:K7JPXNYz…`, code `c27904a3…` |
+| G7S-2 | Low | Low | as G7S-1 for the v1 account |
+| G7S-3 | Medium | Medium, open | a read-only mainnet scan on 18 October listed the gates involved; its detail stays off this public repository. Moving each account is for Tuan and the owners |
+| G7S-4 to G7S-11 | as listed | unchanged | sources and `ci.yml` actions unchanged in what these items cite |
+| G7S-12 | Low | Holds on v5 | v5 with a gate runs v4's checks in v4's order (review-opb26, section 1); B6 shows the shape on custody's gate |
+| G7S-14 | Low | Low: fixed in `policy-synth`; open in the Prime app | J1 to J4 and the two new tests. Open: rules the app builds with `buildAddContextRuleArgs`, signers it adds with `add_signer` (`smart-account-account-ops.ts:74`, a picker that takes any `C…`), and a short bundle expiry. octopos `35fe7fd2` has no v5 adapter yet |
+| The rows added with v5 (G1 to G9, C2 to C9, B1 to B3) | verified by `verify-execution-null-gate-testnet.ts`, 69 rows | Hold on fresh instances | G5, C7 as H1; G6 as D1, D2; C5 as A1; C6 as A11, B2; G8, C8 as E1 to E3; G7, C9, B3 as C1, C2; B2 as I3; G2 to G4 as G1 to G3. C5b, G0 and the cost rows rest on #26's run |
+| The rows of the v4 adapter and the gate | verified on `3dd675c0` | Hold; `3dd675c0` stays the deployed build | v5 with a gate re-run here as B7, C3 to C9, D3, D4, F6 to F12 |
+| The `policy-synth` row for a null-gate signer | Fixed | Fixed in `policy-synth`; open in the Prime app (review-opb27 L2) | row updated below |
+| review-opb27 L1 | Low | Fixed here | `install.test.ts` "a null-gate adapter is refused wherever it stands among contract signers"; `review.test.ts` "every contract signer is judged, and one missing from the facts is a problem"; with them the mutants H5, H6 and H7 of review-opb27 fail |
+| review-opb27 L2, L3, L4 | Low | Fixed here | the rows above, the tool description and the docs, this summary |
+| The first run's other rows: S1, S2, T2 to T5, E4-T.1, E4-T.2, E9-S, E11-T.1, N5 to N7, T3, R1, E4-R.1, R2, I1 to I3, D1 to D4, E2, E3 | as in the tables below | Hold | the interpreter source is unchanged; the package code these rows cite is unchanged or was re-read here (RPC endpoints still come from the operator's environment only, `chain.ts:34-46`) |
+| The per-component rows for the seats, the Solana gate, NEAR, the interpreter's entry points, scripts and CI | verified on 18 October | Hold | sources unchanged |
+| review-opb21 L1, N2, N4 | Low | unchanged | |
+
+## The rerun of 18 October 2026
+
+The sections from here to "The model of 15 and 16 October" are the rerun of 18 October on `46e4c6a5`, with the rows whose status moved updated.
 
 ## Summary
 
@@ -23,7 +146,7 @@ New in this run, by severity:
 
 Added after the rerun, on 18 October 2026, with the adapter's optional gate (v5 build `4985cd12…`): G7S-14, Low, the adapter created with no gate. Its rows are at the end of the Stellar execution table and its finding after G7S-13. That pull request changes the adapter's source and pin; the v4 build `3dd675c0…` the rest of this model ran against is unchanged and still the one deployed.
 
-Open from earlier reviews and still at High: C2 (`remove_signer` bricks an interpreter rule, an octopos fix in progress). P0-3's owner-side decoder (E10-T.1) and P0-4's override echo and gate (E4) were fixed in the packages by #25 (`63768d67`, 18 October 2026); P0-3 protects an owner only once the Prime app runs the decoder on the owner's side. Mainnet grammar-7 installs stay blocked on every open P0.
+Open from earlier reviews at High on 18 October: C2 (`remove_signer` bricks an interpreter rule). octopos #225 fixed it the same night (final rerun), so G7S-1 is the one open High. P0-3's owner-side decoder (E10-T.1) and P0-4's override echo and gate (E4) were fixed in the packages by #25 (`63768d67`, 18 October 2026); P0-3 protects an owner only once the Prime app runs the decoder on the owner's side. Mainnet grammar-7 installs stay blocked on every open P0.
 
 Decisions for Tuan are in "Decisions needed" at the end of the rerun sections. None of the fixes in this pull request changes a contract or a pinned hash.
 
@@ -95,7 +218,7 @@ The first run's tables below still hold for the interpreter and the toolchain. T
 | P0-3, first half: authority header | Done | unchanged since 2.0.0: `card.ts:361` `authority()` |
 | P0-3, second half: owner-side decoder | Fixed in the packages by #25 (`63768d67`); the Prime app still has to run it | `review_unsigned` and `reviewUnsigned` (`review.ts:85`) read an unsigned install or removal from its bytes with no RPC and list the problems in them; `signable` means only that none was found: a consistent rewrite reads signable, and its authority shows in the review for the owner to judge. Tests: `review.test.ts`, real testnet builds edited byte by byte; 90 of 90 mutants killed in the review of #25. Live: every edit an agent can make to a built install without recomputing the digest is flagged, and a consistent rewrite shows the attacker as admin (review-opb25). A contract signer is a problem unless `readContracts` reads it (this pull request) |
 | P0-4 override echo and operator gating | Fixed by #25 (`63768d67`) | no refusal names a flag; `allowOverlap`, `allowUnboundedAmount`, `allowOpenSlippage`, `anyOne` and `allowAdminRule` come back in `overrides` (`{ flag, waived }`) and open the review (`card.ts:432`); on mainnet a flag set to `true` is refused before any request unless the operator sets `POLICY_BUILDER_ALLOW_OVERRIDES=1` (`install.ts:393`). Tests in `install.test.ts` and `tools.test.ts`; review-opb25 counted 0 requests on the package, the CLI and the MCP server |
-| P0-5 contract signer vetting | Open; one case closed by this pull request | `tools.ts:77` `anyAddress`, used for `signers` and `admins`. `install_policy` now reads each contract signer's instance and refuses an execution adapter bound to no gate, or a contract that is not deployed (`install.ts:585`); see G7S-14 |
+| P0-5 contract signer vetting | Open; one case closed by #27 | `tools.ts:82` `anyAddress`, used for `signers` and `admins` (`:540-541`). `install_policy` now reads each contract signer's instance and refuses an execution adapter bound to no gate, or a contract that is not deployed (`install.ts:586-589`); see G7S-14. Every other contract passes unvetted: a seat, a smart account, an adapter with a gate, or a contract an agent deployed (final rerun, J5 and J6) |
 | P0-6 read safety | Lint done; two parts open | `install.ts:443` refuses `READ_UNSAFE` unless `POLICY_BUILDER_ALLOW_SPOT_READS=1`. The `gt(read, 0)` guard under `scaled` and a snapshot mark on read verdicts are still to build |
 | P1-7 RPC answer binding | First half fixed here (`6185846`) | `record.ts:125-136` hashes the returned envelope under the network passphrase and refuses another hash (fee bumps answer to the outer and inner hash). Tests: 4 new cases. Live: two testnet transactions record, and the same envelope offered for another hash is refused (`synth/live-p17.log`). Second half open: `spec.ts` caches specs by wasm hash without hashing the fetched bytes |
 | P1-8 tool output as data | Open | `envelope.ts:41-43` `messageOf` passes RPC text through, cut at 512 characters |
@@ -156,7 +279,7 @@ The first run's tables below still hold for the interpreter and the toolchain. T
 | ID | Source | Status on 2026-10-18 | Evidence |
 | --- | --- | --- | --- |
 | C1 `External` refused `#212`, Default and self scope `#218` | review-opb20 | Holds, Low | B5, B6 `#218`; B7 `#212`. Grammar 6 refused `External` and Default too; grammar 7 adds the account and the interpreter as refused scopes |
-| C2 `remove_signer` leaves an interpreter rule refusing every remaining signer | review-opb20 | Open, High, octopos | G26 to G35 with octopos `main`'s `removalPlan` (`seat-stellar-owners.ts`, byte-equal to `bb040c0a`): after the plan's `remove_signer` step (tx `633bc3bd…`) the native plus seat 0 are refused `#204`. Holds for every interpreter version. The octopos fix is in progress (`web-rule-removal`) |
+| C2 `remove_signer` leaves an interpreter rule refusing every remaining signer | review-opb20 | Fixed in octopos #225 (`35fe7fd2`, final rerun); residual Low | G26 to G35 with octopos `main`'s `removalPlan` (`seat-stellar-owners.ts`, byte-equal to `bb040c0a`): after the plan's `remove_signer` step (tx `633bc3bd…`) the native plus seat 0 are refused `#204`. Holds for every interpreter version. The octopos fix is in progress (`web-rule-removal`) |
 | C3 orphan entry | review-opb20 | Holds, Low | as N7 |
 | C4 a seat as policy admin can never authorise | review-opb20 | Holds, Low | `require_master` (`lib.rs:328-333`) against the seat's `__check_auth` (`prime-seat/src/lib.rs:116-123`); policy-synth could refuse an admin running the seat wasm (with P0-5) |
 | F1 `permissions: contents: read` | review-opb20 | Fixed in #21 | `ci.yml:8-9`, `upstream-drift.yml` |
@@ -293,7 +416,7 @@ The rows above cite the v4 source at `46e4c6a5`. The rows below were added with 
 | T | A lying RPC changes what the account signs | `buildSelfCall` | Fixed here: the tree must be the built call (`install.ts:212-226`) | 3 tests; 4 live builds |
 | T | A lying RPC records another flow | `recordHash` | Fixed here: envelope hash check (`record.ts:125-136`) | 4 tests; live |
 | T | A lying RPC sets the signed auth expiry and the resource fee (G7S-13) | `buildSelfCall` | Fixed by #25: expiry = the recording pass's ledger + `POLICY_BUILDER_AUTH_LEDGERS` (`install.ts:248`); the two passes within 20 ledgers (`:289`); a time bound from the builder's clock (`:317`); a resource fee below 0 or above `POLICY_BUILDER_MAX_RESOURCE_FEE` refused (`:298-303`) | review-opb23 B9 to B11 now refused; review-opb25 live; residual in G7S-13 |
-| E | A rule an execution adapter with no gate signs lets an agent pass its caps (review-opb26 P4, tx `e90fe2a3…`: five times the cap) | `install_policy` | Fixed by the follow-up to #25: each contract signer's instance is read off the ledger, and an instance holding `prime` and a void `gate` is refused as a signer whatever its code hash, as is an undeployed contract (`install.ts:585`, `chain.ts:250`); `review_unsigned` flags a contract signer unless `readContracts` reads it | testnet: the null adapter `CD5Y3SNP…` refused alone and beside a key; the gated `CCXFDHD7…` installs (tx `3dcefe6f…`) and is revoked (tx `0044d23e…`) |
+| E | A rule an execution adapter with no gate signs lets an agent pass its caps (review-opb26 P4, tx `e90fe2a3…`: five times the cap; again on fresh instances in the final rerun, J7) | `install_policy`, and the Prime app's own builders | Fixed in `policy-synth` (`install_policy`, `review_unsigned`) by #27: each contract signer's instance is read off the ledger, and an instance holding `prime` and a void `gate` is refused as a signer whatever its code hash, as is an undeployed contract (`install.ts:586-589`, `chain.ts:250`); `review_unsigned` flags a contract signer unless `readContracts` reads it. Open in the Prime app (G7S-14): rules it builds with `buildAddContextRuleArgs` and signers it adds with `add_signer` are not checked | testnet: the null adapter `CD5Y3SNP…` refused alone and beside a key; the gated `CCXFDHD7…` installs (tx `3dcefe6f…`) and is revoked (tx `0044d23e…`); final rerun J1 to J4 refused, and two tests with two contract signers |
 | S | A web page drives the HTTP tools | `http.ts` | loopback bind, Host and Origin guard (`http.ts:55-73`) | MCP suite, 16 of 16 |
 | D | A large body | `http.ts` | 1 MiB limit, 413 (`http.ts:12`, `:81-83`) | MCP suite on Bun 1.3.14; review-opb21 L1 for the socket |
 | I | Secrets in errors | `messageOf` | URL credentials stay out of errors (first run) | unchanged |
@@ -406,7 +529,7 @@ Required before any flow that uses a null adapter ships: the tooling refuses to 
 | Item | Fix | Where | Changes a pinned contract? |
 | --- | --- | --- | --- |
 | G7S-1 | delete the FullAccess key on the v2 account after a code-hash check; lock or retire v1 | NEAR accounts | no |
-| C2 | plan `remove_context_rule` and `add_context_rule` without the owner for a rule with an interpreter policy, and say so in the dialog | octopos `seat-stellar-owners.ts` | no |
+| C2 | done in octopos #225 (`35fe7fd2`): the dialog replaces a policed rule with a new one without the owner, and switches off a rule it cannot replace | octopos `seat-stellar-owners.ts` | no |
 | P0-4 | done in #25 | `policy-synth` | no |
 | P0-3 second half | the decoder is done in #25; the Prime app runs `reviewUnsigned` on the owner's side, with `smartAccount` and the contract signers read | octopos | no |
 | P0-5, N3 | refuse a contract signer or admin unless its code is a pinned seat or OZ account build; refuse a seat as admin (C4) | `policy-synth` | no |

@@ -34,6 +34,8 @@ mainnet refusal is the intended security change of P0-4.
   a contract signer unless `readContracts: true` reads it off the ledger through
   the operator's RPC (`contracts` for `reviewUnsigned`); then an execution
   adapter bound to no gate, or a contract that is not deployed, is a problem.
+  Every other contract then reads signable unvetted (P0-5 is open): the owner
+  checks who controls it.
 
 - **Stellar execution adapter, an optional gate (v5 build `4985cd12…`):** the
   Prime can create its adapter with no gate and bundle its own calls, which all
@@ -125,6 +127,14 @@ mainnet refusal is the intended security change of P0-4.
   `contracts/near`, with `README.md`, `build-hashes.json` and
   `check-build-hash.sh`). Every build hash is unchanged at the new paths;
   `contracts/README.md` has the table.
+
+- **The grammar-7 threat model, final rerun on `3624e930`:**
+  `evidence/stride-threat-model-g7.md` derives the v5 adapter's threats again,
+  gated and with no gate, with its custody gate and the packages after #25 and
+  #27, and gives every earlier item a status. Testnet rows on fresh v5
+  instances are in `evidence/g7-stride-final-2026-10-19.log`. No new finding
+  at Medium or above; C2 is fixed by octopos #225, so G7S-1 is the one open
+  High. Two tests cover a rule with two contract signers.
 
 ### Removed
 
