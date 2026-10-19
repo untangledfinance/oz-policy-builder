@@ -1058,6 +1058,23 @@ describe('planInstall: the guards', () => {
         )
     })
 
+    it('a null-gate adapter is refused wherever it stands among contract signers', async () => {
+      const OK = contract(22)
+      for (const signers of [
+        [OK, ADAPTER],
+        [ADAPTER, OK],
+      ])
+        await refused(
+          planInstall(
+            { ...input, signers, anyOne: true },
+            rule,
+            chain({ contracts: kinds({ [ADAPTER]: 'null-gate adapter' }) })
+          ),
+          'INSTALL_BUILD_FAILED',
+          /bound to no gate/
+        )
+    })
+
     it('no override waives it: not allowOverlap, not anyOne, not POLICY_BUILDER_ALLOW_OVERRIDES', async () => {
       process.env.POLICY_BUILDER_ALLOW_OVERRIDES = '1'
       try {

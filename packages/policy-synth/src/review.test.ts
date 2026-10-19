@@ -314,6 +314,38 @@ describe('reviewUnsigned: an honest build, read back from its bytes', () => {
       expect(r.problems.join('\n')).toMatch(why)
     })
 
+    it('every contract signer is judged, and one missing from the facts is a problem', async () => {
+      install.done = (await install()).unsignedXdr
+      const OK = contract(22)
+      const both = (list: string[]) =>
+        edit(install.done as string, (env) => {
+          callArgs(env).args()[3] = toScVal(list.map((w) => ['Delegated', w]))
+          resign(env)
+        })
+      for (const list of [
+        [OK, NULL_ADAPTER],
+        [NULL_ADAPTER, OK],
+      ]) {
+        const xdr = both(list)
+        const r = reviewUnsigned({
+          network: 'testnet',
+          xdr,
+          smartAccount: ACCOUNT,
+          contracts: { [OK]: 'contract', [NULL_ADAPTER]: 'null-gate adapter' },
+        })
+        expect(r.problems.join('\n')).toMatch(/bound to no gate/)
+        const partial = reviewUnsigned({
+          network: 'testnet',
+          xdr,
+          smartAccount: ACCOUNT,
+          contracts: { [OK]: 'contract' },
+        })
+        expect(partial.problems.join('\n')).toMatch(
+          new RegExp(`signer ${NULL_ADAPTER} is a contract, and what it runs is not in the bytes`)
+        )
+      }
+    })
+
     it('a contract the chain shows as anything else is no problem; a G signer needs no facts', async () => {
       install.done = (await install()).unsignedXdr
       const r = reviewUnsigned({
