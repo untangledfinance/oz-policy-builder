@@ -532,7 +532,7 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   const interpreter = interpreterFor(i.network, i.interpreterAddress)
   const [t, k] = [i.threshold, i.signers.length]
   if (new Set(i.signers).size !== k)
-    throw no('a signer is named twice: OpenZeppelin refuses a rule with duplicate signers')
+    throw no('a signer is listed twice: OpenZeppelin refuses a rule with duplicate signers')
   const total = t?.weights ? Object.values(t.weights).reduce((x, y) => x + y, 0) : k
   const covers =
     !t?.weights || Object.keys(t.weights).sort().join() === [...i.signers].sort().join()

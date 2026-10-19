@@ -314,7 +314,7 @@ describe('an encoded predicate is asked the same question', () => {
       ],
     ])
     expect(unpinned).toHaveLength(1)
-    expect(unpinned[0]).toContain('no function named')
+    expect(unpinned[0]).toContain('no function pinned')
     // Only a negative on the function names none either.
     expect(
       q([
@@ -324,14 +324,14 @@ describe('an encoded predicate is asked the same question', () => {
           ['ne', ['call_fn'], 'burn'],
         ],
       ])[0]
-    ).toContain('no function named')
+    ).toContain('no function pinned')
     // An or: the unpinned branch asks, the pinned and capped one does not.
     const mixed = q([
       'or',
       [pin('transfer', ['lte', ['call_arg', 2], amt]), ['and', [['eq', ['call_contract'], C]]]],
     ])
     expect(mixed).toHaveLength(1)
-    expect(mixed[0]).toContain('no function named')
+    expect(mixed[0]).toContain('no function pinned')
     expect(q(pin('transfer', ['lte', ['call_arg', 2], amt]))).toEqual([])
   })
 

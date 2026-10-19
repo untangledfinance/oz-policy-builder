@@ -186,7 +186,7 @@ export function unboundedExpr(expr: Expr): Synthesis['ambiguities'] {
       const q = {
         code: 'AMOUNT_BOUND_MISSING' as const,
         question:
-          'no function named: the rule permits every function of the contract with any amount. Pin one with call_fn, or allow it deliberately.',
+          'no function pinned: the rule permits every function of the contract with any amount. Pin one with call_fn, or allow it deliberately.',
       }
       asked.set(q.question, q)
     }

@@ -411,7 +411,7 @@ describe('the tools use the instance’s limits', () => {
     f.use()
     const r = (await run('simulate_policy', { network: 'mainnet', expr: six })) as Out
     expect(r.ok).toBe(true)
-    expect(r.data?.heldTo).toBe('the ceilings (no interpreter named)')
+    expect(r.data?.heldTo).toBe('the ceilings (no interpreter given)')
     expect(f.asked).not.toContain('simulate limits')
     const nine = [
       'and',
