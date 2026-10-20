@@ -88,7 +88,7 @@ The records are `build-hashes.json`, `deployments/grammar7-testnet.json` and `de
 
 | Job | What it runs |
 |---|---|
-| `Contracts (<stellar crate>)` | `cargo fmt --check` (every crate), `cargo clippy -D warnings`, `cargo test`; for `policy-interpreter` also the release conformance run, `cargo audit` and the `build-wasm.sh` hash against `build-hashes.json`; for `custody-gate` the hash against `deployments/execution-testnet.json`; for `execution-adapter` and `prime-seat` the hash against `build-hashes.json` |
+| `Contracts (<stellar crate>)` | `cargo fmt --check` (every crate), `cargo clippy -D warnings`, `cargo test`; for `policy-interpreter` also the release conformance run, `cargo audit`, the `build-wasm.sh` hash against `build-hashes.json` and the `oz08/` suite of that wasm against OpenZeppelin's 0.8.0 account; for `custody-gate` the hash against `deployments/execution-testnet.json`; for `execution-adapter` and `prime-seat` the hash against `build-hashes.json` |
 | `Contracts (prime-seat)`, in the Stellar matrix | as the other Stellar crates, and the `build-wasm.sh` hash against `build-hashes.json` |
 
 `build-hashes.json` holds the hashes CI compares. Change an entry in the same commit as the source it covers.

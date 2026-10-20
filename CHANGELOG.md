@@ -155,7 +155,20 @@ mainnet refusal is the intended security change of P0-4.
   `contracts/build-hashes.json`; CI now compares the source with that pin, and
   the testnet instance (`deployments/grammar7-testnet.json`) and the
   policy-synth pin stay on `69cad1d5…` until the redeploy. Tests in
-  `tests/keyless.rs`.
+  `tests/keyless.rs`, and in the `oz08/` crate against OpenZeppelin's 0.8.0
+  account (the `multisig-account-example` built from `8e25220`, `8286422f…`,
+  committed as a second fixture beside the 0.7 one, `91a2cd56…`). That account
+  needs a soroban-sdk 28 test host, so `oz08/` loads the pinned interpreter
+  wasm instead of linking the crate; CI runs it after the hash check.
+- **policy-interpreter, a self-scoped keyed executor rule now gets `221`:** the
+  check that a rule scoped to its bound executor pins `call_fn == run` does not
+  look at the signers, so a rule with `Delegated(agent)` and an `execute`
+  predicate, scoped to the executor and bound to it, is refused at
+  `bind_executor` and at `enforce`. That is the grammar-5 stateless-executor
+  pattern in octopos (`execution-install.ts`, `execution-mandate.ts`). Nothing
+  live breaks: that flow pins the grammar-5 interpreter `cc05ac55…`, and the
+  app's batch rules use grammar 6. Moving that flow to grammar 7 is an app
+  follow-up, and it must bind the agent's rule to nothing or scope it elsewhere.
 
 - **Contracts sit under `contracts/<chain>/`:** `contracts/prime/*` moved up one
   level (`contracts/stellar`, `contracts/evm`, `contracts/solana`,
