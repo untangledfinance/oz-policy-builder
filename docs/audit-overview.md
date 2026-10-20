@@ -15,7 +15,7 @@ it. Every size below was measured on this tree.
 
 | Component | Path | Language | sLOC | Tests | Audit scope |
 |---|---|---|---|---|---|
-| Policy interpreter | `contracts/stellar/policy-interpreter/src` | Rust, soroban-sdk 27.0.2 | 800 | 416 (173 unit, 243 in 13 suites), 18 release conformance, 12 against OpenZeppelin's 0.8.0 account | in |
+| Policy interpreter | `contracts/stellar/policy-interpreter/src` | Rust, soroban-sdk 27.0.2 | 800 | 416 (173 unit, 243 in 13 suites, of which the 18 conformance cases also run in release), 12 against OpenZeppelin's 0.8.0 account | in |
 | Execution adapter | `contracts/stellar/execution-adapter/src` | Rust | 226 | 62 | in |
 | Custody gate | `contracts/stellar/custody-gate/src` | Rust | 53 | 3 | in |
 | `prime-seat` | `contracts/stellar/prime-seat/src` | Rust | 97 | 21 | outside the scope set on 10 October 2026 |
@@ -29,17 +29,25 @@ sLOC counts the non-blank, non-comment lines of the formatted source (`rustfmt`,
 declarations left out. To reproduce:
 
 ```sh
-cd contracts/stellar/policy-interpreter   # or any crate
-ls src/*.rs | grep -v -E '/(tests?|dsl_tests|dsl_ext_tests)\.rs$' | xargs cat \
-  | grep -v -E '^\s*(//|$)|^\s*#\[cfg\(test\)\]$|^\s*mod (tests?|dsl_tests|dsl_ext_tests);$' | wc -l
-cd packages/policy-synth                  # or a wrapper's src and bin
-find src -name '*.ts' ! -name '*.test.ts' | xargs cat | grep -v -E '^\s*(//|/\*|\*|$)' | wc -l
+# from the repository root; a contract (here the interpreter):
+( cd contracts/stellar/policy-interpreter &&
+  ls src/*.rs | grep -v -E '/(tests?|dsl_tests|dsl_ext_tests)\.rs$' | xargs cat \
+  | grep -v -E '^\s*(//|$)|^\s*#\[cfg\(test\)\]$|^\s*mod (tests?|dsl_tests|dsl_ext_tests);$' | wc -l )
+# the synthesiser:
+( cd packages/policy-synth &&
+  find src -name '*.ts' ! -name '*.test.ts' | xargs cat | grep -v -E '^\s*(//|/\*|\*|$)' | wc -l )
+# a wrapper (here the CLI; the MCP server the same way):
+( cd packages/policy-builder-cli &&
+  find src bin -name '*.ts' ! -name '*.test.ts' | xargs cat | grep -v -E '^\s*(//|/\*|\*|$)' | wc -l )
 ```
 
 ## In scope and out of scope
 
-**In scope:** the `src/` of the interpreter, the adapter and the gate (test
-modules excluded), and the `src/` and `bin/` of the three packages.
+**In scope:** this repository at the audit commit: the `src/` of the
+interpreter, the adapter and the gate (test modules excluded), the `src/` of
+`policy-synth`, and the `src/` and `bin/` of the CLI and the MCP server. The
+packages are audited as this tree; their builds on npm are older. `npm pack`
+from the repository gives the audited code as packages.
 
 **Out of scope, each with what Prime assumes of it:**
 
@@ -99,8 +107,9 @@ bundle its own calls atomically. The flow is narrow:
   (`NoWait`), nothing is stored, and `run` finds nothing (`NotScheduled`);
 - the adapter hands out no grant (`Uncheckable`), so no rule bound to it can
   pass the binding, and no keyless rule works through it;
-- every call is therefore approved by a keyed rule of the agent: one rule for
-  `execute` and one for each token it moves, each with its own cap;
+- every call is therefore approved by a keyed rule (the agent's, or the
+  owners' rule 0): the agent needs one rule for `execute` and one for each
+  token it moves, each with its own cap;
 - with no address list, those predicates are the whole constraint. Pin each
   recipient (`eq` or `in` on the destination argument) and bound each amount
   from both sides. Send the adapter no funds and no allowance.
@@ -111,7 +120,9 @@ address and build, and custody derives that address from the gate itself.
 ## Known behaviours
 
 - `uninstall` needs only the policy admins and deletes the rule's document
-  with its binding. A keyless rule then refuses every call (210); a keyed
+  with its binding. A keyless rule then refuses every call (206 with no
+  document, 210 once one is installed again, since the new install stores no
+  binding); a keyed
   bound rule runs without the adapter's check once a document is installed
   again.
 - The keyless shape is verified against an OpenZeppelin 0.8.0 account (built

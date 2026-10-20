@@ -182,9 +182,8 @@ refuses a rule scoped to its bound adapter unless the predicate pins
 `call_fn == run` on every path (221), at `bind_executor`, at a re-install and at
 `enforce`. Under a rule bound to the adapter, any context other than the
 adapter's own `run` still needs a grant from the adapter, and a batch cannot
-carry a grant for its own `execute`.
-
-Agent rules permit `execute` only, so an agent cannot cancel.
+carry a grant for its own `execute`. Agent rules permit `execute` only, so an
+agent cannot cancel.
 
 **A venue rule:** a rule scoped to the venue (a Blend pool's `submit`) and bound
 to the adapter answers the venue's request inside a batch. The binding means
@@ -437,7 +436,8 @@ Three properties of the OpenZeppelin account complete the design:
   interpreter refuses a keyless rule with a second policy, so every keyless rule
   it permits keeps its predicate.
 - **A keyed rule stripped of its signer stays refused:** after `remove_signer`
-  the rule lists no signer and passes the gate in step 1, and the stored signer
+  a bound rule lists no signer and passes the gate in step 1 (an unbound one
+  stops there with 210), and the stored signer
   hash refuses it at step 5 (204), or step 4 refuses it first when the adapter
   does not grant its context.
 - **Delegated adapter signers fail on the 0.8.0 account:** OpenZeppelin's 0.8.0
@@ -448,7 +448,8 @@ Three properties of the OpenZeppelin account complete the design:
 
 **Two routes detach a binding:** `uninstall` needs only the policy admins and
 deletes the document with its binding; a later `install` stores none. A keyless
-rule then refuses every call (210). A keyed rule runs without the adapter's
+rule then refuses every call: 206 while no document exists, 210 once one is
+installed again. A keyed rule runs without the adapter's
 check once the owners install a document again. OpenZeppelin's `remove_policy`
 goes on when the policy's `uninstall` fails, so the account alone can take the
 interpreter off a keyed rule, which then runs with no adapter approval. On a
@@ -610,11 +611,14 @@ The custody account can also cancel any stored move before it runs, with
 | The address rule against a real Prime and live Blend and Aquarius | `scripts/verify-execution-address-rule-testnet.ts`, testnet, adapter `4985cd12…` with a gate | 35 of 35 on 18 October 2026. A Blend supply, a withdrawal to custody and an Aquarius swap succeed. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put |
 | The adapter's wait against a real Prime, the gate and live Blend | `scripts/verify-execution-wait-testnet.ts`, testnet, adapter `4985cd12…` with a gate | 45 of 45 on 18 October 2026. Succeeded: a Blend supply at once; a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role; an agent's batch after the minimum wait its own rule demands. Refused: the agent below that minimum, and the agent cancelling; a stranger cancelling; running early, twice, after a cancel, or after the run window; a wait below the adapter's floor; the Prime creating the adapter at custody's address with a lower floor or a longer window |
 | The adapter with no gate, for a G and an OpenZeppelin Prime | `scripts/verify-execution-null-gate-testnet.ts`, testnet, adapter `4985cd12…` | 69 of 69 on 18 October 2026, log `evidence/execution-null-gate-testnet.log`. Succeeded: `[hello, USDC.transfer, XLM.transfer]` with one authorisation by X (a G account, and an OpenZeppelin account through rule 0); an agent's bundle at its cap, one rule per context. Refused: the bundle once `hello` failed, with no balance moved; its signed entry after its expiry ledger; a call to the Prime; a grant; any wait, and a no-gate adapter with a minimum wait; `rebind`; a stranger's `cancel`; the agent over its cap or citing its adapter rule for a token context; a no-gate adapter's pull through custody's gate |
-| Contract unit tests, this tree | `cargo test` in each crate (see [Build and test](#build-and-test)) | interpreter 416 and the release conformance run 18, `oz08/` 12, adapter 62, gate 3, `prime-seat` 21 |
+| Contract unit tests, this tree | `cargo test` in each crate (see [Build and test](#build-and-test)) | interpreter 416 (its 18 conformance cases also run in release), `oz08/` 12, adapter 62, gate 3, `prime-seat` 21 |
 
 The address-rule and wait scripts install their band and run rules on an
 interpreter instance deployed earlier from other source, recorded in
-`deployments/`; they test the gate and the adapter. The no-gate script uses the
+`deployments/`; they test the gate and the adapter. Their run rule lists the
+adapter as its signer, which the 0.7.2-line account accepts; the keyless run
+rule described above is exercised in `tests/keyless.rs` and `oz08/`, both in
+the test host. The no-gate script uses the
 testnet instance `CDZV4AG4…`. Logs are indexed in
 [evidence/README.md](../evidence/README.md).
 
@@ -636,7 +640,7 @@ hash; `stellar contract build` and macOS give other bytes.
 
 | Crate | `build-wasm.sh` sha256 | Recorded in | Tests |
 |---|---|---|---|
-| `policy-interpreter` | `810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c` | `contracts/build-hashes.json` | 416, 18 in the release conformance run, 12 in `oz08/` |
+| `policy-interpreter` | `810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c` | `contracts/build-hashes.json` | 416 (the 18 conformance cases among them also run in release), 12 in `oz08/` |
 | `execution-adapter` | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b` | `contracts/build-hashes.json` | 62 |
 | `custody-gate` | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` | `deployments/` | 3 |
 | `prime-seat` | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | `contracts/build-hashes.json` | 21 |
@@ -656,17 +660,12 @@ All on Stellar testnet.
 | OpenZeppelin smart account code | `91a2cd56…`, the account code the Prime app deploys and the seat's digest check is tied to ([`deployments/oz-accounts.json`](../deployments/oz-accounts.json)) |
 | OpenZeppelin `simple_threshold`, `weighted_threshold`, `spending_limit` | addresses in [`deployments/oz-policies.json`](../deployments/oz-policies.json) |
 
-A gate pins its adapter's build and has no setter, so adopting a new adapter
-build means a new gate and adapter for that custody account.
-
 ## Limits
 
 - **An adapter with no gate guards only the Prime's own rules:** it checks no
   address, so what a batch through it can do is what the Prime's rules allow
   for each call that asks the Prime, and anything the adapter itself holds or
-  is allowed to spend. Send it nothing and give it no allowance. A bundle's
-  signed authorisation stays valid until its expiry ledger even after it
-  failed, so sign bundles with a short one.
+  is allowed to spend. Send it nothing and give it no allowance.
 - **The keyless shape on the older account build:** the keyless rules are
   verified against an OpenZeppelin 0.8.0 account (built from upstream commit
   `8e25220`) in the interpreter's `oz08/` test crate. `91a2cd56…` is the older

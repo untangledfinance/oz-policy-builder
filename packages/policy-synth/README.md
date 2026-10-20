@@ -11,8 +11,13 @@ The on-chain half is the `policy-interpreter` contract in
 
 ## Install
 
+Install it from a checkout of the repository: `npm pack` in this folder builds
+the package and writes the tarball, which a project installs beside
+`@stellar/stellar-sdk`. The builds on npm are older than this tree.
+
 ```sh
-npm install @crediolabs/policy-synth@2.0.1 @stellar/stellar-sdk
+npm pack --pack-destination /tmp/opb
+cd /path/to/project && npm install /tmp/opb/crediolabs-policy-synth-*.tgz @stellar/stellar-sdk
 ```
 
 `@stellar/stellar-sdk` (^14.4.0) is a peer dependency; npm 7 and

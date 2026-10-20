@@ -51,13 +51,10 @@ The interpreter source in this tree builds to `810f53f1…`
 (`contracts/build-hashes.json`): the pinned build plus the keyless executor
 rules. A new testnet instance from it replaces the pin.
 
-**Install the published packages:**
-
-```sh
-npm install @crediolabs/policy-synth@2.0.1 @stellar/stellar-sdk
-npm install -g @crediolabs/policy-builder-cli@2.0.1   # the policy-builder command
-npx -y @crediolabs/policy-builder-mcp@2.0.1           # the MCP server
-```
+The audited code is this repository at the audit commit. The three
+packages carry version 2.0.1 in their manifests, and the builds on npm are older
+than this tree, so take the packages from the repository: run a checkout as
+below, or `npm pack` it.
 
 To run a checkout of this repo, build the packages in dependency order. The
 package exports serve `src/` to Bun and `dist/` to Node, and `dist/` is not in
@@ -72,8 +69,8 @@ node packages/policy-builder-cli/dist/bin/policy-builder.js info
 node packages/policy-builder-mcp/dist/bin/server.js            # stdio
 ```
 
-To use the checkout from another project, pack each package (`npm pack` builds
-it first) and install the three tarballs together:
+To use the audited packages from another project, pack each one from the
+checkout (`npm pack` builds it first) and install the three tarballs together:
 
 ```sh
 mkdir -p /tmp/opb
@@ -146,7 +143,8 @@ measurements behind the limits.
 
 > [!IMPORTANT]
 > **Audit status:** an external audit of the interpreter, the custody gate, the
-> execution adapter and the three npm packages is in progress; its scope is in
+> execution adapter and the three TypeScript packages in this repository is in
+> progress; its scope is in
 > [docs/audit-overview.md](./docs/audit-overview.md). The contracts have also
 > been through internal adversarial review and STRIDE threat models, indexed in
 > [evidence/README.md](./evidence/README.md).
@@ -169,7 +167,7 @@ measurements behind the limits.
 
 | Path | What it is |
 | --- | --- |
-| `packages/policy-synth` | The wire codec, the synthesiser and the record, simulate, verify, install and revoke tools. Published as `@crediolabs/policy-synth`. |
+| `packages/policy-synth` | The wire codec, the synthesiser and the record, simulate, verify, install and revoke tools. Packaged as `@crediolabs/policy-synth`. |
 | `packages/policy-builder-cli` | One command per tool, registered from the synth core's table (`@crediolabs/policy-builder-cli`). |
 | `packages/policy-builder-mcp` | MCP server exposing the eight policy tools (`@crediolabs/policy-builder-mcp`). |
 | `contracts/stellar/policy-interpreter` | The Soroban contract that enforces a predicate on chain. |

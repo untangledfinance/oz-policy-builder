@@ -26,7 +26,7 @@ Every contract runs on Stellar testnet.
 
 | Contract | Testnet |
 |---|---|
-| Policy interpreter | instance `CDZV4AG4…` (wasm `69cad1d5…`), the pin of the npm packages; this tree builds `810f53f1…`, which a new instance replaces it with |
+| Policy interpreter | instance `CDZV4AG4…` (wasm `69cad1d5…`), the pin of the TypeScript packages; this tree builds `810f53f1…`, which a new instance replaces it with |
 | Custody gate | code `b01024f3…`; each custody account deploys its own gate |
 | Execution adapter | code `4985cd12…`; each Prime deploys its own adapter, bound to a gate or to none |
 | `prime-seat` | code `393f0e5d…`, one instance per seat owner and account |

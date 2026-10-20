@@ -4,8 +4,12 @@ Command line for the OZ Policy Builder. Every tool of
 [`@crediolabs/policy-synth`](https://www.npmjs.com/package/@crediolabs/policy-synth)
 is a command, registered from its table.
 
+Install it from a checkout of the repository: pack `policy-synth` and this
+package with `npm pack` and install both tarballs (the repository README has the
+loop). The builds on npm are older than this tree.
+
 ```sh
-npm install -g @crediolabs/policy-builder-cli@2.0.1
+npm install -g /tmp/opb/crediolabs-policy-synth-*.tgz /tmp/opb/crediolabs-policy-builder-cli-*.tgz
 ```
 
 ```sh

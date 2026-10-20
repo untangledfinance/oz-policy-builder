@@ -275,8 +275,9 @@ so replacing a rule is the safe way to change who signs it.
   fails, the account removes the rule anyway, and the entry stays until it
   archives. Nothing reads it again.
 - **`uninstall` drops an executor binding:** it needs only the policy admins. A
-  rule with no signer then refuses every call (error 210); a keyed rule
-  installed again has no binding until the owners bind it again.
+  rule with no signer then refuses every call (error 206 with no document, 210
+  once one is installed again); a keyed rule installed again has no binding
+  until the owners bind it again.
 - **Seats join policed rules as `Delegated`:** the interpreter refuses
   `External` signers (error 212), `Default` scope and rules scoped to the
   account or to the interpreter (error 218).
