@@ -1,16 +1,16 @@
 # Prime docs
 
 Prime keeps an institution's funds in its own custody and lets an agent move
-part of them under rules the institution's owners set, on Stellar. Owners
-whose wallets do not sign on Stellar take part through seats. This repository
-holds the contracts of ours behind it, and the OZ Policy Builder that writes
+part of them under rules the institution's owners set, on Stellar. This
+repository holds the contracts behind it and the OZ Policy Builder that writes
 the rules.
 
 ## Pages
 
 | Page | What it covers |
 |---|---|
-| [architecture.md](architecture.md) | the use case, the components, trust boundaries, the seat model, the main flows and why each part is built the way it is |
+| [audit-overview.md](audit-overview.md) | the three components with their size, what is in and out of audit scope, and what each contract enforces |
+| [architecture.md](architecture.md) | the use case, the components, trust boundaries, owners and seats, the main flows and why each part is built the way it is |
 | [stellar.md](stellar.md) | the custody gate, execution adapter, policy interpreter and `prime-seat` on an OpenZeppelin smart account; the policy builder's checks |
 
 The contracts' own READMEs hold the interfaces and test detail:
@@ -22,48 +22,17 @@ The contracts' own READMEs hold the interfaces and test detail:
 
 ## What runs where
 
-Mainnet runs only Stellar contracts of ours: the custody contracts with the
-grammar-6 interpreter built from `main`, and two older interpreters the Prime
-app still uses (grammar 4 `CDN755T…` for rules it installs, the 1.x packages'
-pin; grammar 5 `CDIMIQDB…` with the stateless adapter `57bf132b…`, recorded in
-`evidence/stateless/`). Everything else is on test networks.
+Every contract runs on Stellar testnet.
 
-| Chain | Contract | Mainnet | Test network |
-|---|---|---|---|
-| Stellar | policy interpreter | grammar 6, `CAOBQ4ZX…` (wasm `5143e641…`) | grammar 6 `CDPR5VTX…` for the Prime app; grammar 7 `CDZV4AG4…` (wasm `69cad1d5…`) for the 2.x packages |
-| Stellar | policy interpreter, grammars 4 and 5 | grammar 4 `CDN755T…`; grammar 5 `CDIMIQDB…` (wasm `cc05ac55…`) with the stateless adapter `57bf132b…` | grammar 4 `CCBHVZ6H…`; grammar 5 `CBIQGAHI…` |
-| Stellar | custody gate | code `b01024f3…` | code `b01024f3…` |
-| Stellar | execution adapter | code `3dd675c0…` for new setups, `68d012e7…` for gates set up before 11 October 2026 | code `3dd675c0…`; the v5 build with an optional gate, `4985cd12…`, is uploaded but not pinned |
-| Stellar | `prime-seat` | none | code `393f0e5d…`, one instance per NEAR-routed owner and account |
+| Contract | Testnet |
+|---|---|
+| Policy interpreter | instance `CDZV4AG4…` (wasm `69cad1d5…`), the pin of the npm packages; this tree builds `810f53f1…`, which a new instance replaces it with |
+| Custody gate | code `b01024f3…`; each custody account deploys its own gate |
+| Execution adapter | code `4985cd12…`; each Prime deploys its own adapter, bound to a gate or to none |
+| `prime-seat` | code `393f0e5d…`, one instance per seat owner and account |
+| OpenZeppelin smart account | code `91a2cd56…`, the Prime account |
 
 The records are in [`deployments/`](../deployments) and
-[`contracts/build-hashes.json`](../contracts/build-hashes.json) (the adapter
-and the seat). [stellar.md](stellar.md) has the full addresses and how each was
+[`contracts/build-hashes.json`](../contracts/build-hashes.json).
+[stellar.md](stellar.md#deployments) has the full addresses and how each was
 checked.
-
-## Grammar 6 and grammar 7
-
-The policy interpreter is versioned by its predicate grammar, and each version
-is a new instance. Mainnet Prime runs grammar 6 from the `main` branch: the
-Prime app pins `CAOBQ4ZX…` on mainnet and `CDPR5VTX…` on testnet for every
-custody setup. This branch, `feat/grammar-v7`, holds the grammar-7 source; its
-instance `CDZV4AG4…` runs on testnet only and is the pin of the 2.x npm
-packages. Where the two grammars differ,
-[stellar.md](stellar.md#policy-interpreter) says which one it describes.
-
-## Files kept for the record
-
-Some files look unused on this branch. Each is kept on purpose.
-
-| File | Why it stays |
-|---|---|
-| `scripts/deploy-prime-mainnet.ts` | the record of how the mainnet custody contracts were deployed on 1 October 2026. It pins the grammar-6 interpreter `5143e641…` and the adapter `68d012e7…`, which this tree does not build, and it checks every hash before it reads a secret or calls the network, so on this branch it stops at the hash check |
-| `scripts/deploy-grammar6-testnet.ts`, `deployments/grammar6-testnet.json` | the grammar-6 testnet record the Prime app's testnet setups use. The script reads `SELF_VERSION` and refuses this branch's grammar-7 source before any network call |
-| `scripts/deploy-grammar7-limits-testnet.ts` | made the grammar-7 testnet instance `CDZV4AG4…` on 16 October 2026 and wrote `deployments/grammar7-testnet.json`. It runs on testnet only: the network passphrase is fixed in the script. It builds the interpreter with `build-wasm.sh`, checks in simulation that five out-of-range limit sets are refused `#220`, creates the instance with the limits it pins, and reads back `grammar_version()`, `limits()` and the code hash. The address follows from the deployer, the build and the limits, so a rerun with the same three fails at the create step; `--dry` still runs `stellar keys show <identity>`, so it needs an identity and loads its key; it builds, prints the hash and sends nothing |
-| `scripts/upload-execution-testnet.ts` | uploads the gate and adapter builds and writes `deployments/execution-testnet.json`, which CI compares |
-| `scripts/verify-stateless-testnet.ts`, `evidence/stateless/` | evidence for the stateless execution receipts in the audit pack |
-| `evidence/*.log`, `evidence/stride-threat-model.md` | the 1.x and grammar-6 evidence the audit of `main` reads; `evidence/README.md` says how to reproduce each |
-| `packages/policy-synth/scripts/deploy-test-account.ts` | deploys a testnet smart account for the live tests; the one they use, `CASJ5GEC…`, is recorded in `deployments/grammar7-testnet.json` |
-| `packages/policy-synth/scripts/mutate.ts` | a mutation runner for the TypeScript tests, run by hand |
-| `contracts/stellar/policy-interpreter/tests/conformance/_generated_v4.rs` | grammar-4 cases compiled into the grammar-7 conformance suite |
-| tag `archive/spike-final` | the spike bundle, the round-9 design record and the removed `prime-session` contracts |

@@ -1,6 +1,6 @@
 # @crediolabs/policy-synth
 
-Off-chain core of the OZ Policy Builder, for the **grammar-7** policy interpreter
+Off-chain core of the OZ Policy Builder, for the policy interpreter
 on Stellar. It turns a transaction you recorded, or a mandate you can state as
 data, into the rule that permits exactly that, checks the rule against the
 interpreter itself, and returns an unsigned transaction that installs it on an
@@ -12,11 +12,10 @@ The on-chain half is the `policy-interpreter` contract in
 ## Install
 
 ```sh
-npm install @crediolabs/policy-synth@next @stellar/stellar-sdk
+npm install @crediolabs/policy-synth@2.0.1 @stellar/stellar-sdk
 ```
 
-`next` is 2.0.1, for grammar 7. `latest` is still 1.3.0, for the grammar-4
-interpreters. `@stellar/stellar-sdk` (^14.4.0) is a peer dependency; npm 7 and
+`@stellar/stellar-sdk` (^14.4.0) is a peer dependency; npm 7 and
 later install it on their own.
 
 ## The pipeline
@@ -34,7 +33,7 @@ template (mandate)    --/    (calls + per-argument constraints)   (unsigned XDR)
   structural codec (`encode`, `decode`, `hashOf` in `src/wire.ts`) goes JSON <->
   ScVal <-> base64 XDR. It has no per-operator code and keeps the order of
   `and`/`or` as written, because order matters with reads. Two corpora hold it to
-  the contract's own bytes: `fixtures/parity/grammar7.json`, which the contract's
+  the contract's own bytes: `fixtures/parity/grammar.json`, which the contract's
   `tests/parity.rs` writes from the ScVal side, and `fixtures/parity/accuracy.json`
   (106 cases at the edges: every value type, map keys in the host's order, string
   bytes that are no valid text, the caps). Every case checks byte equality, the
@@ -66,7 +65,7 @@ template (mandate)    --/    (calls + per-argument constraints)   (unsigned XDR)
 
 ## Limits
 
-Each grammar-7 interpreter is deployed with its own `Limits`, under the
+Each interpreter instance is deployed with its own `Limits`, under the
 contract's field names (`max_reads`, `max_leaves`, `max_predicate_bytes`,
 `max_elems`, `max_in_operands`, `max_depth`). The constructor stores them once.
 There is no setter and the contract cannot be upgraded, so a different limit
@@ -115,9 +114,9 @@ address and hold the rule to them. Where they come from:
 | `get_interpreter_info` | the instance's, read live, or the recorded ones when the RPC does not answer | `limitsFrom` (`live` or `recorded`) |
 
 `INTERPRETER.testnet` records the limits of the pin. A test holds them equal to
-`deployments/grammar7-testnet.json`, and a live answer that differs is refused
+`deployments/interpreter-testnet.json`, and a live answer that differs is refused
 (`INTERPRETER_MISMATCH`). `DECODE_LIMITS` (4, 200, 32,768, 32, 32, 5) are the
-limits compiled into the first grammar-7 build, the stricter choice.
+caps a rule is checked against with no interpreter at hand, the stricter choice.
 
 ## Offline and live
 
@@ -130,8 +129,8 @@ calls and `verifyLive` always need the live interpreter; an explain-only
 `simulate_policy` needs it only when the network has a pin or the call gives
 `interpreterAddress`.
 
-The RPC endpoint is the operator's: `POLICY_BUILDER_RPC_URL_TESTNET` /
-`POLICY_BUILDER_RPC_URL_MAINNET`, else the network default. It must be https, or
+The RPC endpoint is the operator's: `POLICY_BUILDER_RPC_URL_<NETWORK>` (for
+example `POLICY_BUILDER_RPC_URL_TESTNET`), else the network default. It must be https, or
 http on loopback. No tool input takes an endpoint.
 
 ## The eight tools
@@ -169,11 +168,11 @@ await run('verify_policy', { network: 'testnet', encodedPredicate: rule.encodedP
 | --- | --- | --- |
 | Threshold | Several `signers` with no `threshold`, or a threshold one signer meets alone (n of 1, or a weight of at least n): that rule is satisfied by any ONE signer. `anyOne` beside a threshold that needs more is a contradiction. A threshold that can never be met (n above the signers, or weights that do not cover exactly the signers or total less than n) is refused too. | `anyOne: true` (see "Overrides") |
 | Spending-limit guard | A `spendingLimit` unless every branch of the predicate pins `call_fn` to `transfer` (OpenZeppelin's `spending_limit` refuses every other function, so those calls would always fail). It is also refused on a scope that is not shown to be a token (a Stellar Asset Contract, or `transfer(from, to, amount: i128)` in its spec) | none |
-| Read safety (`READ_UNSAFE`) | A `read` of a target and function outside the safe list. The list holds the three testnet Reflector oracles (`lastprice`, `price`) and the operator's `POLICY_BUILDER_SAFE_READS_TESTNET` / `_MAINNET` (`C…:function,C…:function`; one malformed entry refuses the whole value). A listed read needs constant arguments. The review marks any other read "(live value, movable within one transaction)". | `POLICY_BUILDER_ALLOW_SPOT_READS=1`, environment only |
+| Read safety (`READ_UNSAFE`) | A `read` of a target and function outside the safe list. The list holds the three testnet Reflector oracles (`lastprice`, `price`) and the operator's `POLICY_BUILDER_SAFE_READS_<NETWORK>` (`C…:function,C…:function`; one malformed entry refuses the whole value). A listed read needs constant arguments. The review marks any other read "(live value, movable within one transaction)". | `POLICY_BUILDER_ALLOW_SPOT_READS=1`, environment only |
 | Authority overlap | A rule a shared signer could bypass through a looser or unpoliced neighbour, a rolling total that would not bind, a neighbour it cannot read or judge, or an account whose rules could not all be read | `allowOverlap: true` (see "Overrides") |
 | Amounts | An amount with no cap; a swap's least output with no floor | `allowUnboundedAmount`, `allowOpenSlippage` (see "Overrides") |
 | Scope | A rule scoped to a policy contract (`POLICY_CONTRACTS`) or to the account itself | none |
-| Contract signers | A signer that is an execution adapter bound to no gate (its instance holds `prime` and a void `gate`, read off the ledger whatever its code hash): an agent allowed to call its `execute` could cite the rule and move funds past its own caps. An execution adapter with a gate (`prime` and an address `gate`, v3 to v5) signing a rule scoped to itself is refused unless every branch of the predicate pins `call_fn = run`: it signs whenever it asks the account, so anyone could have it approve an immediate `execute` or a `cancel`. A contract signer that is not deployed is refused too, since what it will run cannot be checked | none |
+| Contract signers | A signer that is an execution adapter bound to no gate (its instance holds `prime` and a void `gate`, read off the ledger whatever its code hash): an agent allowed to call its `execute` could cite the rule and move funds past its own caps. An execution adapter with a gate (`prime` and an address `gate`) signing a rule scoped to itself is refused unless every branch of the predicate pins `call_fn = run`: it signs whenever it asks the account, so anyone could have it approve an immediate `execute` or a `cancel`. A contract signer that is not deployed is refused too, since what it will run cannot be checked | none |
 
 The overlap scan reads every live rule on the account. It reads the account's
 `NextId`, asks which ids below it still hold a rule (200 keys per
@@ -197,9 +196,10 @@ and the agent that calls the tool should not take them on its own, so:
   `Overrides set in the request`, then one line per flag (`allowOverlap:
   waived: refused: rule 0: has no policy, …`). For a revoke they open the review
   in `removes`.
-- **Mainnet:** a flag set to `true` on mainnet is refused before the network is
-  asked unless the operator sets `POLICY_BUILDER_ALLOW_OVERRIDES=1` in the
-  server's environment. Testnet honours them without it, echoed all the same.
+- **Outside testnet:** a flag set to `true` on any other network is refused
+  before the network is asked unless the operator sets
+  `POLICY_BUILDER_ALLOW_OVERRIDES=1` in the server's environment. Testnet
+  honours them without it, echoed all the same.
 
 ## What the tools return
 
@@ -254,7 +254,7 @@ Install inputs for authority:
   total at least n). It attaches OpenZeppelin's `simple_threshold` or
   `weighted_threshold` beside the interpreter.
 - `anyOne: true`: install a rule any one signer can use alone (an override:
-  echoed, and gated on mainnet).
+  echoed, and gated outside testnet).
 - `spendingLimit: { amount, periodLedgers }`: attach OpenZeppelin's
   `spending_limit`, a rolling total over `periodLedgers` ledgers (about five
   seconds each).
@@ -298,8 +298,8 @@ anything but one contract call. Anything else it describes, and lists in
 - for an install: a scope other than one contract, or a policy contract or the
   account itself; an External signer or admin, or a threshold weight on one; a
   threshold policy with no threshold; no interpreter, two, or one other than
-  the pin (mainnet has no pin, so a mainnet install is always flagged); a
-  grammar other than 7; a predicate whose hash does not match its bytes, or that
+  the pin (on a network with no pin, every install is flagged); a
+  `grammar_version` other than the one this builder writes; a predicate whose hash does not match its bytes, or that
   the interpreter would not read; a policy the package does not know.
 
 `signable` is true when `problems` is empty. The review opens with
@@ -339,13 +339,13 @@ then.
 - Enforcement is on chain; this package is the convenience layer.
 - **The interpreter is trusted by its build:** `INTERPRETER_WASM` in
   `src/config.ts` lists the reproducible wasm hashes this package trusts. Any
-  contract can answer `grammar_version() = 7`, so every address used must also
+  contract can answer `grammar_version()` with the right number, so every address used must also
   run one of those code hashes. On testnet only the pin is accepted
   (`INTERPRETER_MISMATCH` for any other address). `install_policy` fingerprints
   it live; simulate and verify trust it as it stands, since it cannot change.
-  Mainnet has no grammar-7 pin: pass `interpreterAddress`, and it is accepted
-  only if it runs a trusted build. Any in-range limits are then accepted, so the
-  instance passed sets its own limits. Pin mainnet once an instance is deployed.
+  On a network with no pin, pass `interpreterAddress`, and it is accepted only
+  if it runs a trusted build. Any in-range limits are then accepted, so the
+  instance passed sets its own limits.
 - The RPC endpoint and the output directory are the operator's. `outFile` is a
   bare file name, written (never over an existing file) into
   `POLICY_BUILDER_OUT_DIR`.
@@ -373,16 +373,15 @@ then.
   refusals all live in `planInstall` (`src/install.ts`); see "Install guardrails".
 - `check` always fails with its verdict, so even a `read` that calls a token's
   `transfer` as the interpreter commits nothing (see the interpreter's README).
-- The grammar-7 STRIDE threat model, with what is done and open as of its
-  final rerun on 19 October 2026, is `evidence/stride-threat-model-g7.md` in
-  the repository.
+- The STRIDE threat model is indexed in `evidence/README.md` in the
+  repository.
 
 ## Tests
 
 `bun test` runs offline. Tests that talk to the network replay recorded JSON-RPC
 (`fixtures/rpc`) through the real SDK against a local server; `OPB_LIVE=1 bun
 test` runs them against testnet and records them again. The testnet interpreter
-and the test account are in `deployments/grammar7-testnet.json`.
+and the test account are in `deployments/interpreter-testnet.json`.
 
 ## License
 

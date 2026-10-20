@@ -1,14 +1,12 @@
 # @crediolabs/policy-builder-cli
 
-Command line for the OZ Policy Builder (grammar 7). Every tool of
+Command line for the OZ Policy Builder. Every tool of
 [`@crediolabs/policy-synth`](https://www.npmjs.com/package/@crediolabs/policy-synth)
 is a command, registered from its table.
 
 ```sh
-npm install -g @crediolabs/policy-builder-cli@next
+npm install -g @crediolabs/policy-builder-cli@2.0.1
 ```
-
-`next` is 2.0.1, for grammar 7; `latest` is still 1.3.0 (grammar 4).
 
 ```sh
 policy-builder <tool> [json | --file path | - | --field value ...] [--out path]
@@ -33,10 +31,10 @@ also writes the envelope to a file.
 
 The CLI holds no key material and signs nothing: `install` and `revoke` return
 unsigned XDR. The operator's settings are environment variables:
-`POLICY_BUILDER_RPC_URL_TESTNET` / `_MAINNET`, `POLICY_BUILDER_OUT_DIR`,
-`POLICY_BUILDER_SAFE_READS_TESTNET` / `_MAINNET`,
-`POLICY_BUILDER_ALLOW_SPOT_READS`, `POLICY_BUILDER_ALLOW_OVERRIDES` (mainnet
-honours an `allow*` override only with it set to 1), and the bounds on what a wallet signs,
+`POLICY_BUILDER_RPC_URL_<NETWORK>`, `POLICY_BUILDER_OUT_DIR`,
+`POLICY_BUILDER_SAFE_READS_<NETWORK>`,
+`POLICY_BUILDER_ALLOW_SPOT_READS`, `POLICY_BUILDER_ALLOW_OVERRIDES` (outside
+testnet an `allow*` override is honoured only with it set to 1), and the bounds on what a wallet signs,
 `POLICY_BUILDER_AUTH_LEDGERS` (default 300) and `POLICY_BUILDER_MAX_RESOURCE_FEE`
 (default 10 XLM). The tools, their limits and the install
 guardrails (threshold or `anyOne`, the spending-limit guard, the read-safety lint,

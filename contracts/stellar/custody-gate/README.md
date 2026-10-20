@@ -31,5 +31,5 @@ cargo test        # 3 tests
 ```
 
 On Linux, `build-wasm.sh` gives `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab`,
-the hash in `deployments/execution-testnet.json` and `deployments/prime-mainnet.json`.
-CI rebuilds it and compares.
+the hash recorded in `deployments/execution-testnet.json`. CI rebuilds it and
+compares.

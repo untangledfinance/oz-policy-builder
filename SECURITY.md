@@ -15,7 +15,7 @@ There is currently no bug bounty programme.
 
 | Component | Where it runs |
 | --- | --- |
-| `policy-interpreter`, `custody-gate`, `execution-adapter` (Stellar) | Soroban contracts on Stellar mainnet and testnet; the grammar-7 interpreter source on this branch runs on testnet only (addresses in `packages/policy-synth/src/config.ts` and `deployments/`) |
+| `policy-interpreter`, `custody-gate`, `execution-adapter` (Stellar) | Soroban contracts on Stellar testnet (addresses in `packages/policy-synth/src/config.ts` and `deployments/`) |
 | `prime-seat` (Stellar) | Stellar testnet |
 | `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` | Published on npm, run off-chain |
 
@@ -24,16 +24,15 @@ There is currently no bug bounty programme.
 ## Audit status
 
 **An external audit is in progress:** it covers the policy interpreter, the
-custody gate, the execution adapter and the three npm packages on `main`
-(the scope Untangled gave the auditor on 10 October 2026). Its
-report is still to come. `prime-seat` is outside it; it has had internal
-reviews and mutation testing, listed in
-[contracts/README.md](./contracts/README.md) and its own README.
-The contracts have also been through internal adversarial review and STRIDE
-threat models, and the findings that came out of them were either fixed or
-documented as accepted trust assumptions. The pages in [docs/](./docs/README.md)
-are specific about what each piece does and does not enforce; treat anything
-they do not claim as unenforced.
+custody gate, the execution adapter and the three npm packages (the scope
+Untangled gave the auditor on 10 October 2026).
+[docs/audit-overview.md](./docs/audit-overview.md) lists the code in scope, its
+size and the assumptions about everything outside it. `prime-seat` is outside
+the audit; it has had internal reviews and mutation testing, listed in its own
+README. The contracts have also been through internal adversarial review and
+STRIDE threat models, and each finding was either fixed or documented as an
+accepted trust assumption. The pages in [docs/](./docs/README.md) state what
+each piece enforces; treat anything they do not claim as unenforced.
 
 ## Supported versions
 

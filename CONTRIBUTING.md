@@ -49,7 +49,7 @@ done
 
 In the interpreter crate, run `./build-wasm.sh` before `cargo test`.
 `tests/worst_case.rs` installs the largest rules into the real wasm and fails
-without one. Point `G7_WASM` at another build, or set `G7_SKIP_WORST_CASE=1`
+without one. Point `INTERPRETER_WASM` at another build, or set `SKIP_WORST_CASE=1`
 to skip it locally. CI also runs the conformance suite in release mode:
 
 ```sh
@@ -59,7 +59,7 @@ to skip it locally. CI also runs the conformance suite in release mode:
 CI then runs `check-build-hash.sh`, which compares the `build-wasm.sh` hashes of
 the interpreter, the adapter and the seat with `contracts/build-hashes.json`.
 The gate's hash is compared with `deployments/execution-testnet.json`. The
-interpreter's testnet instance in `deployments/grammar7-testnet.json` can lag
+interpreter's testnet instance in `deployments/interpreter-testnet.json` can lag
 the source until a redeploy, so CI does not compare the build with it. Compare
 hashes from a Linux build.
 
@@ -96,7 +96,7 @@ live. In particular:
   new `SELF_VERSION`, new conformance fixtures, and a coordinated release of
   `@crediolabs/policy-synth` (see [Releasing](#releasing)).
 - The TypeScript codec (`packages/policy-synth/src/wire.ts`) is held to the
-  contract's own bytes by `fixtures/parity/grammar7.json`, which the contract's
+  contract's own bytes by `fixtures/parity/grammar.json`, which the contract's
   `tests/parity.rs` writes. If you change the grammar, regenerate it with
   `PARITY_WRITE=1 cargo test --test parity` (in the interpreter crate) in the
   same pull request; the Rust test fails when it is stale and the TypeScript
@@ -131,13 +131,13 @@ core to an exact version (no `^` range).
 3. Commit as `chore(release): vX.Y.Z` and make sure CI is green.
 4. Publish in dependency order; `prepublishOnly` builds and tests each
    package as part of the publish. A release that should stay off `latest`
-   adds `--tag next`, as 2.0.0 did (grammar 7, testnet only):
+   adds `--tag next`:
 
    ```sh
    ( cd packages/policy-synth       && npm publish --access public )
    ( cd packages/policy-builder-cli     && npm publish --access public )
    ( cd packages/policy-builder-mcp     && npm publish --access public )
-   # 2.0.0: npm publish --access public --tag next
+   # off latest: npm publish --access public --tag next
    ```
 
 5. Verify: `npm view @crediolabs/policy-synth dist-tags` shows the new

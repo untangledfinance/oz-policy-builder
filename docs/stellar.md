@@ -1,23 +1,18 @@
 # Prime on Stellar: technical detail
 
-On Stellar, Prime runs on our own Soroban contracts: the custody gate, the
-execution adapter and the policy interpreter (together called OctoGate), and
-`prime-seat`, the seat of an owner whose wallet lives on another chain. They
-live in `contracts/stellar/` in this repository, with the tooling in
-`packages/` and `scripts/`; the Prime app drives them. The Prime account itself
-is an OpenZeppelin smart account.
-[architecture.md](architecture.md) covers the use case and how Stellar fits with
-the other chains.
-
-Mainnet runs the grammar-6 interpreter, built from the `main` branch. This
-branch holds the grammar-7 source, which runs on testnet only. Where the two
-differ, this page says which one it describes.
+Prime runs on our own Soroban contracts: the policy interpreter, the custody
+gate, the execution adapter and `prime-seat`, the seat of an owner who signs
+with an ed25519 owner key. They live in `contracts/stellar/` in this
+repository, with the policy builder in `packages/`. The Prime account itself is
+an OpenZeppelin smart account. [architecture.md](architecture.md) covers the
+use case and the trust boundaries, and [audit-overview.md](audit-overview.md)
+the audit scope.
 
 ## The use case and the setup
 
 An institution keeps its treasury in an MPC wallet and wants an agent to swap
 and lend part of it without moving custody. Two guarantees make that safe, and
-on Stellar each rests on something the network or our contracts enforce:
+each rests on something the network or our contracts enforce:
 
 - **The MPC wallet always controls the funds:** the custody account is a
   classic Stellar account whose signing thresholds need every custody signer,
@@ -26,15 +21,15 @@ on Stellar each rests on something the network or our contracts enforce:
   is granted to a gate the custody account deploys itself, and the gate
   releases only to addresses on a list fixed when it was deployed.
 
-The setup we tested, and the one the app builds:
+The setup we tested, and the one the Prime app builds:
 
 | | |
 |---|---|
-| Custody account | Classic `G…` account. Signers weighted **10** (the MPC key), **5** and **5** (a second signer and a trusted third party). Medium and high thresholds **20**, so every value-moving operation needs all three. The low threshold stays low (1 in our test setup) so the account can still start a transaction. |
+| Custody account | Classic `G…` account. Signers weighted **10** (the MPC key), **5** and **5** (a second signer and a trusted third party). Medium and high thresholds **20**, so every value-moving operation needs all three. The low threshold stays low (1 in our test setup) so the account can still start a transaction. CAP-46-11 requires the medium threshold when a classic account authorises a contract call, so a fresh allowance needs the same 20 as a payment. |
 | Custody gate | `contracts/stellar/custody-gate`, deployed by the custody account itself. Holds the allowance, answers to one caller running one build, releases only to listed addresses. |
 | Prime account | An OpenZeppelin smart account with **3 signers, any 2 of which approve**. Holds no funds. |
 | Execution adapter | `contracts/stellar/execution-adapter`, one per Prime, bound to one gate. Runs a batch of calls in one transaction, at once or after a wait. |
-| Policy interpreter | `contracts/stellar/policy-interpreter`. The custody setups on mainnet and in the Prime app use grammar 6. Evaluates the mandate on every call a band rule authorises. |
+| Policy interpreter | `contracts/stellar/policy-interpreter`. Evaluates the mandate on every call a band rule authorises. |
 | Agent | A signer on the band rules only; rule 0 holds the three Prime signers. Under a band's top it acts alone; a larger move uses a high-band rule that also needs a second approver. |
 
 ## Components
@@ -47,14 +42,14 @@ flowchart TB
     end
     subgraph PRIMESIDE["Prime"]
         PRIME["Prime account<br/>OZ smart account, 2 of 3<br/>holds no funds"]
-        INTERP["Policy interpreter<br/>grammar 6"]
+        INTERP["Policy interpreter"]
         ADAPTER["Execution adapter<br/>one per Prime, bound to one gate"]
         AGENT["Agent key"]
     end
     VENUE["Venues<br/>Blend, Aquarius"]
 
     MPC -->|"approve: amount and expiry<br/>needs all three signers"| GATE
-    AGENT -->|"execute(calls, grants)"| ADAPTER
+    AGENT -->|"execute(calls, grants, wait)"| ADAPTER
     ADAPTER -->|"require_auth_for_args"| PRIME
     PRIME -->|"context rules"| INTERP
     GATE -->|"pull: transfer_from custody<br/>only to a listed address"| ADAPTER
@@ -62,25 +57,10 @@ flowchart TB
     VENUE -->|"withdrawals and swap proceeds"| MPC
 ```
 
-### Custody account
-
-`scripts/scenario/fordefi-custody.ts` builds the test version.
-
-Soroban calls face the same threshold as payments. CAP-46-11, the Soroban
-Authorization Framework, requires the medium threshold when a classic account
-authorises a contract call, so granting a fresh allowance through a contract
-needs the same 20 as a payment. `scripts/verify-mpc-threshold-testnet.ts` checks every route
-out of the account on testnet, submitted to the network and not only
-simulated. With one key, `payment`, Soroban `approve`, `setOptions` and
-`accountMerge` are all refused; with enough weight, the same `payment` and
-`approve` succeed. That script uses weights of 10 and 10 against the same
-thresholds. We ran the 10 / 5 / 5 account through the app, where two of the
-three signers reach 15 of 20 and are still refused.
-
 ### Custody gate
 
-`contracts/stellar/custody-gate/src/lib.rs`, 91 lines including comments. Its
-configuration is written once by the constructor:
+`contracts/stellar/custody-gate/src/lib.rs`, 53 sLOC. Its configuration is
+written once by the constructor:
 
 | Field | Meaning |
 |---|---|
@@ -99,27 +79,19 @@ custody account's full threshold again.
 The gate keeps no list of assets. A SAC allowance is granted per token, so a
 token the custody account never approved has nothing to spend.
 
-The Prime app's gate wizard (`apps/web/ui/octopos/onboard-gate-page.tsx`)
-fills `allowed` with:
-
-- the execution adapter;
-- the Prime account;
-- the custody account;
-- the grammar-6 policy interpreter;
-- the asset contracts;
-- the venues the institution adds;
-- the recovery address, if one is set.
-
-The Prime account, the interpreter and the asset contracts are on the list
-because the adapter refuses any batch that names an address the gate does not.
-A Blend `submit` names the Prime, a grant names the interpreter, and a pull
+The Prime app fills `allowed` with the execution adapter, the
+Prime account, the custody account, the policy interpreter, the asset
+contracts, the venues the institution adds, and the recovery address if one is
+set. The Prime account, the interpreter and the asset contracts are on the list
+because the adapter refuses any batch that names an address the gate does not:
+a Blend `submit` names the Prime, a grant names the interpreter, and a pull
 names its token.
 
 ### Execution adapter
 
-`contracts/stellar/execution-adapter/src/lib.rs`. It exists because Soroban allows
-one host-function invocation per transaction, so a contract has to make several
-calls atomically. The Prime creates it bound to one gate or, from the v5 build,
+`contracts/stellar/execution-adapter/src/lib.rs`, 226 sLOC. It exists because
+Soroban allows one host-function invocation per transaction, so a contract has
+to make several calls atomically. The Prime creates it bound to one gate or
 with no gate (see [No gate](#no-gate)). Bound to a gate, it has one rule: **a
 batch may not mention an address the gate does not name.** Before any call
 runs, it checks:
@@ -135,41 +107,37 @@ It also refuses:
 
 - a batch that targets the Prime account itself (`PrimeTarget`, 1);
 - any address outside the list (`AddressNotAllowed`, 2);
-- an authorisation to deploy a contract (`Uncheckable`, 3).
+- an authorisation to deploy a contract, or a host object the walk cannot read
+  (`Uncheckable`, 3).
 
 Only then does it ask the Prime to authorise the whole batch and run the calls.
 
 The adapter is deployed by the Prime at an address derived from the gate and
 its two wait numbers (see below), so the custody account can name it on the
-gate before it exists. `rebind` moves it to a successor gate. Only
-the current gate's custody account can call it, and it refuses a successor
-that cannot answer `custody()`.
+gate before it exists. `rebind` moves it to a successor gate. Only the current
+gate's custody account can call it, and it refuses a successor that cannot
+answer `custody()`.
 
 ### The wait
 
-A batch can wait before it runs, counted in ledgers. The Prime app sets new
-gates up for this adapter; pairs made with the v3 adapter keep working, and its
-source is at tag `archive/execution-adapter-v3`.
+A batch can wait before it runs, counted in ledgers. `execute(calls, grants,
+wait)` takes the wait as a third argument.
 
-`execute(calls, grants, wait)` takes the wait as a third argument.
-
-- **`wait` 0** runs the batch at once, exactly as v3.
+- **`wait` 0** runs the batch at once.
 - **`wait` above 0** checks the batch, stores it whole on the ledger and
   returns its number. It can run from `wait` ledgers later until its run
   window closes.
 
 The Prime approves `(calls, grants, wait)` together, so no party can shorten the
-wait afterwards. The batch keeps argument positions 0 and 1, so every existing
-predicate path into it still fits. A rule can demand a longer wait of its own
-with `call_arg(2) >= N`, because the grammar compares a `u32`.
+wait afterwards. A rule can demand a longer wait of its own with
+`call_arg(2) >= N`, because the grammar compares a `u32`.
 
 | Function | Who | What |
 |---|---|---|
 | `run(id)` | Anyone, from the ready ledger to the end of the run window | Checks the stored batch again against the gate bound now, then runs it. It runs once. |
 | `cancel(id, by)` | The Prime, at the quorum of whichever rule approves it, or the custody account the gate answers to | Drops a stored batch, waiting, ready or lapsed. |
 
-Two numbers are fixed when the adapter is created, and custody agrees to both
-(see below):
+Two numbers are fixed when the adapter is created, and custody agrees to both:
 
 - **`min_wait`** binds every caller, including the Prime's own rule 0, which
   carries no predicate. Above 0, everything waits, recovery included, and the
@@ -179,53 +147,57 @@ Two numbers are fixed when the adapter is created, and custody agrees to both
   moved, and perhaps by an agent since revoked. With a window of 0 it can run
   only on its ready ledger.
 
-**A stored batch runs under a "run" rule on the Prime:** this rule is scoped to
-the adapter, its signer is the adapter, and its predicate is
-`call_fn == "run"`. `run` asks the Prime to approve `run(id)`, and a venue that
-asks the Prime mid-batch, such as Blend's `submit`, sits inside that approval.
-
-Without the rule the venue's request would come first. The smart account checks
-a contract signer with `require_auth_for_args`, which the adapter passes only
-when it is the one asking, so the pool rule's adapter signature failed with
-`Error(Auth, InvalidAction)` on testnet. No key signs the run rule, so any
-account can run a stored batch.
-
-**The run rule needs its predicate:** without it, the rule would let anyone
-have the adapter approve an immediate `execute` or a `cancel` for the Prime. Agent rules
-permit `execute` only, so an agent cannot cancel. Measured on testnet by
-review-opb28: with `call_fn = execute` in place of `run`, a stranger with no key
-ran a batch and moved 7 USDC to a listed address. `policy-synth` refuses a rule
-an execution adapter signs, scoped to that adapter, unless every branch of its
-predicate pins `call_fn = run` (G7S-16). The Prime app refuses it too, unless
-it is exactly the app's run rule (see
-[Adapters in the Prime app](#adapters-in-the-prime-app)).
-
-New errors: `WaitTooShort` 4, `NotScheduled` 5, `NotRunnable` 6 (before the
-ready ledger or after the window), `NotACanceller` 7. A stored batch sits in
+Errors: `WaitTooShort` 4, `NotScheduled` 5, `NotRunnable` 6 (before the ready
+ledger or after the window), `NotACanceller` 7. A stored batch sits in
 persistent storage under its number as `(calls, grants, run_at)`, readable by
 anyone; there are no events.
 
-**The address commits to both numbers:** the v5 build derives it from
-`sha256("prime.execution.adapter.v5" + XDR((gate, min_wait, run_window)))`, the
-XDR of that tuple, with a void for "no gate". The v4 build hashed
-`"prime.execution.adapter.v4"` and the XDR of each part in turn, so no v5
-adapter can sit at an address derived for v4. The constructor refuses to run
-at any other address (`NotWhereAgreed`, 8).
+**The address commits to both numbers:** the adapter's address is
+`deployer(prime, sha256("prime.execution.adapter.v5" + XDR((gate, min_wait,
+run_window))))`, with a void for "no gate". The salt text is a fixed domain
+constant. The constructor refuses to run at any other address
+(`NotWhereAgreed`, 8). The gate pins its caller's address and build but not the
+arguments it was created with. Without the address check, the Prime could
+create the adapter at the address custody put on the gate with a `min_wait` of
+0. Custody derives the address from the numbers it agrees to and names it on
+the gate.
 
-The gate pins its caller's address and build but not the arguments it was
-created with. Without the address check, the Prime could create the
-adapter at the address custody put on the gate, with a `min_wait` of 0. Custody derives
-the address from the numbers it agrees to and names it on the gate.
+### The run rule
 
-The gate is the unchanged v3 contract; it only has to name the adapter and
-its build.
+A stored batch runs under a rule on the Prime scoped to the adapter. `run(id)`
+asks the Prime to approve `run(id)`, and a venue that asks the Prime mid-batch,
+such as Blend's `submit`, sits inside that approval.
+
+The run rule lists no signer. It carries the policy interpreter as its only
+policy, with the predicate `call_fn == "run"`, and the owners bind it to the
+adapter with `bind_executor`. The interpreter then accepts a call under it that
+authenticated no signer, and takes the adapter's own `run` context as the
+adapter's consent (see [Keyless rules](#keyless-rules-and-the-executor-binding)).
+No key signs, so any account can run a stored batch once it is ready, and
+only the batch the Prime approved runs.
+
+**The run rule needs its predicate:** without it, the rule would approve an
+immediate `execute` or a `cancel` for the Prime with no key. The interpreter
+refuses a rule scoped to its bound adapter unless the predicate pins
+`call_fn == run` on every path (221), at `bind_executor`, at a re-install and at
+`enforce`. Under a rule bound to the adapter, any context other than the
+adapter's own `run` still needs a grant from the adapter, and a batch cannot
+carry a grant for its own `execute`.
+
+Agent rules permit `execute` only, so an agent cannot cancel.
+
+**A venue rule:** a rule scoped to the venue (a Blend pool's `submit`) and bound
+to the adapter answers the venue's request inside a batch. The binding means
+the venue call must come through the adapter: the interpreter asks the adapter
+to authorise the exact account and context, and the adapter grants it only for
+a call in a batch it checked. A keeper that calls the pool directly is refused.
 
 ### No gate
 
-From the v5 build (`4985cd12…`), the Prime can create its adapter with no gate.
-Such a null adapter checks no address, so the Prime can bundle its own calls:
-for example `[Y.hello(…), USDC.transfer(X, M, A), XLM.transfer(X, N, B)]`, where
-the transfers happen only if `hello` does not fail. The Prime `X` can be a G
+The Prime can create its adapter with no gate. Such an adapter checks no
+address, so the Prime can bundle its own calls: for example
+`[Y.hello(…), USDC.transfer(X, M, A), XLM.transfer(X, N, B)]`, where the
+transfers happen only if `hello` does not fail. The Prime `X` can be a G
 account or an OpenZeppelin account. Whether an adapter has a gate is fixed when
 it is created.
 
@@ -235,206 +207,110 @@ it is created.
 | A call to the Prime itself | refused (`PrimeTarget`, 1) | refused (`PrimeTarget`, 1) |
 | Grants and `executor_authorizations` | checked against the list | refused (`Uncheckable`, 3): the adapter acts as itself only towards the contracts it calls directly |
 | `wait` above 0, `min_wait` above 0 | allowed | refused (`NoWait`, 10), at `execute` and at creation |
+| `run` | runs a stored batch | finds nothing (`NotScheduled`, 5) |
 | `cancel` | the Prime or the gate's custody | the Prime (nothing is ever stored) |
 | `rebind` | custody of the current gate, to another gate | refused (`NoGate`, 9); a gated adapter cannot be rebound to none either, because `rebind` takes an address |
 
-**One approval covers the bundle:** `execute` asks the Prime to approve
-`(calls, grants, wait)`, and each nested `X.require_auth`, such as the token's
-`transfer(X, …)`, is filed under that approval. A G account signs one
-authorisation entry, or none when it submits the transaction itself. An
-OpenZeppelin account checks every context in one `__check_auth`, and each
-context needs its own rule: an agent needs a rule for `execute` on the adapter
-and one for each token it moves, and its caps on those token rules hold. A cap
-holds per call: three transfers of 20 under a cap of 20 move 60 on one
-approval. An OpenZeppelin `spending_limit` on the rule binds a total, across
-the calls of one batch too (rows A2 to A5 of
-`evidence/g7-stride-final-2026-10-19.log`).
+**The no-gate flow:** every batch runs at once, signed by the agent's own keys.
+
+1. The agent calls `execute(calls, [], 0)`. The adapter asks the Prime to
+   approve `(calls, grants, wait)`.
+2. A G account signs one authorisation entry, or none when it submits the
+   transaction itself. An OpenZeppelin account checks every context in one
+   `__check_auth`, and each context needs its own rule: the agent needs a rule
+   for `execute` on the adapter and one for each token it moves, each listing
+   the agent's key.
+3. Each nested `X.require_auth`, such as the token's `transfer(X, …)`, is filed
+   under that approval and checked against its own rule.
+
+No keyless rule works through a no-gate adapter. It hands out no grant, so a
+rule bound to it never passes the binding, and it stores no batch, so its `run`
+stops before it asks the Prime.
+
+**What bounds a no-gate batch:** with no address list, the agent's token rules
+are the whole constraint. Pin every recipient (`eq` or `in` on the destination
+argument) and bound every amount from both sides. A cap holds per call: three
+transfers of 20 under a cap of 20 move 60 on one approval. An OpenZeppelin
+`spending_limit` on the rule binds a total, across the calls of one batch too.
 
 **Nothing waits:** a stored batch runs under `run`, where the adapter is the one
-asking the Prime, so the Prime's token rules would have to be signed by the
-adapter. Such rules would also answer an immediate `execute`, where the adapter
+asking the Prime, so the Prime's token rules would have to accept the adapter's
+request. Such rules would also answer an immediate `execute`, where the adapter
 asks too, so an agent allowed to call `execute` could move the Prime's funds
-through them instead of through its own capped rules. A G account would also
-have to sign a stored batch again at `run`. A null adapter therefore runs every
-batch at once.
+through them instead of through its own capped rules. A no-gate adapter
+therefore runs every batch at once.
 
 **Custody's funds stay out of reach:** a custody gate pins the address and
 build of its one caller, and custody derives that address from the gate
-itself, so a null adapter's address is never the one on the gate. Measured on
-testnet: a null adapter's `pull` through custody's gate is refused with
-`Error(Auth, InvalidAction)`. A gate whose custody put a null adapter's
-address on it pays only the addresses on its own list (row I2 of
-`evidence/g7-stride-final-2026-10-19.log`).
+itself, so a no-gate adapter's address is never the one on the gate. Measured
+on testnet: a no-gate adapter's `pull` through custody's gate is refused with
+`Error(Auth, InvalidAction)`.
 
-**A gated adapter's rules stay with it:** a rule the gated adapter signs
-answers only while that adapter is the one asking the Prime. A null batch that
-calls the gated adapter's `execute` is refused at the gated adapter's token rule
-(row B5 of the same log).
-
-Two hazards follow from having no list:
-
-- **Never send funds to a null adapter or give it an allowance:** it holds
-  nothing, and anyone the Prime's rules allow to call `execute` can run any
-  batch through it, so whatever it holds is theirs to move. The Prime app
-  refuses a transfer, an allowance or a venue payout to one.
-- **A rule on the Prime that the null adapter signs is bounded by its predicate
-  alone:** nothing else checks the addresses in the adapter's batches, and the
-  adapter signs whenever it is the one asking, so an agent allowed to call
-  `execute` can cite such a rule in place of its own capped token rules. Refusing
-  waits removes the reason to install one; it does not stop the owners from
-  installing one, and the contract cannot see the Prime's rules. Measured on
-  testnet by review-opb26: with a USDC rule signed by the null adapter, the
-  agent moved five times its cap. `policy-synth` refuses such a rule (#27), and
-  so does the Prime app (octopos #228).
-
-**Cost:** in one testnet run, k USDC transfers from a G account through a
-gated v5 adapter cost 3,745, 3,820 and 4,082 fewer instructions than through
-v4 for k = 1, 3 and 10, and 1 stroop less, although the module is 541 bytes
-larger. The 32-byte comparison reads the address's XDR instead of its payload,
-which saves about 7,000 instructions a call. The same batches through a null
-adapter cost 935,464, 1,267,575 and 2,475,164 instructions, about a third
-fewer than gated for one call. Transaction ids are in
-`evidence/execution-null-gate-testnet.log`.
+**Never send funds to a no-gate adapter or give it an allowance:** anyone the
+Prime's rules allow to call `execute` can run any batch through it, so
+whatever it holds is theirs to move.
 
 **A signed bundle is valid until its expiry ledger:** a bundle that fails on
 chain does not use up its authorisation's nonce. When the Prime's entry carries
 address credentials, whoever holds it can submit it again until
-`signatureExpirationLedger`, and it runs if the failing call would now succeed
-(rows G2 to G4 of `evidence/execution-null-gate-testnet.log`). The expiry
-ledger is the bound, so tools should sign bundles of the Prime's own funds with
-a short one. Where the signer authenticates as the transaction source instead,
-only that signer can resubmit: a G account that submits its own bundle uses up its
-sequence number when the transaction fails, and an OpenZeppelin Prime whose
-signer is the source (`Delegated(source)` with an empty signature, as
-`policy-synth`'s install path builds it) needs that source's own envelope.
+`signatureExpirationLedger`, and it runs if the failing call would now succeed.
+Tools should therefore sign bundles of the Prime's own funds with a short
+expiry. Where the signer authenticates as the transaction source instead, only
+that signer can resubmit: a G account that submits its own bundle uses up its
+sequence number when the transaction fails.
 
-### Adapters in the Prime app
+### The Prime app
 
-The Prime app's code is in the octopos repository (`apps/web`). As of octopos
-`main` on 20 October 2026:
+The Prime app (a separate repository, out of audit scope) drives these
+contracts. Before any wallet signs, on its own signing paths and for every call
+the Prime account would authorise there, nested calls included, it refuses:
 
-| | Beta (testnet) | app.untangled.finance (mainnet) |
-|---|---|---|
-| Adapter a new gate names | v5 bound to that gate, `4985cd12…`, at the v5 address (octopos #231) | v4 `3dd675c0…` |
-| Adapter with no gate | the app can derive its address and read it; no screen creates one yet | none: a mainnet build holds no v5 code or text |
-| Gates made earlier | keep their adapter build and keep working | the same |
-
-A gate pins its caller's build and has no setter, so moving an account from v4
-to v5 means a new gate. The v5 hash and salt text appear in the app only
-inside testnet-only comparisons, and `scripts/assert-mainnet-build.ts`
-(octopos #227) refuses a mainnet build that holds the v5 hash, in full or
-short, the salt text or the no-gate test-id prefix `octo-no-gate-`.
-`deploy:mainnet` and the wrangler mainnet environment both run it, and CI
-scans its own build.
-
-**How the app tells adapters apart:** by code hash and instance storage.
-
-- **A gate's adapter:** the gate's `caller_code` gives the build. For a v4 or
-  v5 build, the contract at the gate's caller address must run that code, be
-  a build the app lists, and store `prime` equal to the Prime. Since octopos
-  #232 its stored `gate` must also equal the gate. Otherwise the app reads it
-  as not bound to this gate, and Manage execution and the console send
-  nothing through it, which keeps a gate whose caller has no gate, or another
-  gate, from passing for a working setup. A v3 gate's adapter is checked by
-  its derived address and its code only, so one its gate's custody has
-  rebound still reads usable and can be bound to a rule. The co-sign path
-  runs no stored-gate check either; both are listed as residuals under G7S-16.
-- **Any contract a request names:** a listed build that stores `prime` and a
-  void `gate` is an adapter with no gate, and with an address `gate` a gated
-  one. Other code that stores `prime`, or a listed build without both keys, is
-  an unverified adapter, treated like one with no gate. The stateless executor
-  `57bf132b…` keeps no storage and is known by its code. A mainnet build lists
-  no v5 code, so it reads any v5 adapter as unverified.
-
-**What the app refuses:** before any wallet is asked, on the app's own
-signing paths, for every call the Prime account would authorise there, nested
-calls included (octopos #228 and #229). The built-in Stellar Wallet's SEP-43
-`signTransaction` and `signAuthEntry` run no hold of their own:
-
-- a rule signed by an adapter with no gate or an unverified adapter;
-- a rule an adapter signs that covers its own calls, the Prime itself, every
-  call or contract creation, except the app's run rule (the adapter as sole
-  signer, the grammar-6 interpreter holding exactly `call_fn == run`);
-- an adapter added as a signer, with `add_signer` or `batch_add_signer`;
+- a rule signed by an execution adapter, or an adapter added as a signer;
 - a transfer, an allowance or a venue payout to an adapter with no gate or an
-  unverified adapter;
-- `bind_executor` to anything but the account's own stateless executor, or the
-  adapter of a custody gate an owner confirmed in that browser;
-- `remove_policy` on any rule, and a policy document installed on a rule whose
-  interpreter holds none for it (see [Policy interpreter](#policy-interpreter));
-- a request the app cannot read in full, nested past 64 levels, or naming a
-  contract it cannot read just now.
+  adapter it cannot verify;
+- `bind_executor` to anything but the adapter of a custody gate an owner
+  confirmed;
+- `remove_policy` on any rule, and an install on a rule whose interpreter holds
+  no document for it;
+- a request it cannot read in full.
 
-Policies lists rules already installed in the first two shapes, and rules
-whose interpreter no longer holds their document, and asks the owners to
-revoke them. A rule already detached through `remove_policy` no longer names
-the interpreter, so it reads as an ordinary rule and is not listed. The full
-list, the evidence and what stays open are under G7S-14 and G7S-16 in the
-[grammar-7 threat model](../evidence/stride-threat-model-g7.md).
+These refusals are an extra layer. The contracts do not rely on them.
 
 ### Keeping contracts live
 
 Every contract instance, persistent entry and uploaded wasm on Soroban starts
-with the network's minimum lifetime: about 7 days on testnet and 120 on mainnet.
-Using an entry does not extend it unless the contract does so itself. When the
-lifetime runs out, the entry archives and has to be restored before anything can
-use it. Anyone can restore or extend an entry by paying the fee.
+with the network's minimum lifetime, about 7 days on testnet. Using an entry
+does not extend it unless the contract does so itself. When the lifetime runs
+out, the entry archives and has to be restored before anything can use it.
+Anyone can restore or extend an entry by paying the fee, and a transaction that
+touches an archived entry can restore it as part of the same transaction.
 
 The adapter extends itself. `execute` and `run` extend its instance to about
-30 days once fewer than about 7 remain. A stored move is extended to last
-until its run window closes, up to the network maximum of about 180 days; a
-move whose window ends later archives first and has to be restored before it
-runs. Adapter builds before `68d012e7…` do neither.
+30 days once fewer than about 7 remain. A stored move is extended to last until
+its run window closes, up to the network maximum of about 180 days; a move
+whose window ends later archives first and has to be restored before it runs.
 
-The interpreter extends a rule's entries back to about 30 days, but only when
-an allowed call uses them with fewer than 100 ledgers (about 8 minutes) left, so
-in practice they archive like everything else. Nothing else is extended on its own.
-
-For testnet, where entries last a week, OctoPos has a keep-alive script,
-`apps/web/scripts/keep-alive.ts` in the OctoPos repository (this repository has
-none). For each account listed in `apps/web/scripts/keep-alive.testnet.json` it
-collects everything a Prime depends on (its instance and wasm, its rules and
-policies, the interpreter's per-rule entries, its gates, adapters and stored
-moves, and the shared code), restores what has archived and extends anything
-with fewer than 21 days left to 30. The script still keys the interpreter's
-entries the grammar-6 way: four per rule, `(account, rule_id, tag)` with tags 1
-to 4. A grammar-7 rule record is one entry keyed `(account, rule_id)`, which the
-script never collects, so a grammar-7 rule archives on its own schedule. The fix
-is off-chain work on the M3 gate.
-
-On mainnet we do not run it. Since protocol 23, a transaction that touches an
-archived entry can restore it as part of the same transaction, and the account
-that submits the transaction pays for the restore. On testnet we created a setup
-whose uploaded code had archived; it went through, and the submitter paid 3.82
-XLM for the restore. On 1 October 2026 we read when each mainnet entry the app
-relies on will archive, unless someone extends it first:
-
-| Entry | Archives around |
-|---|---|
-| OpenZeppelin smart account code `91a2cd56…` | 7 December 2026 |
-| OpenZeppelin `simple_threshold` policy code | 23 December 2026 |
-| Gate and adapter code, the grammar-6 interpreter's code and instance | 30 March 2027 |
-| A Prime, gate, adapter or policy created by a user | about 120 days after it is created or last extended |
-
-Restoring an archived entry is a one-off fee, paid by the transaction that
-needs it.
+The interpreter keeps each rule as one persistent entry, keyed
+`(account, rule_id)`, and extends it back to about 30 days only when an allowed
+call uses it with fewer than 100 ledgers (about 8 minutes) left. Nothing else
+is extended on its own, so a deployment keeps its entries alive with a
+keep-alive job.
 
 ### Prime account and the mandate
 
 The Prime account is an OpenZeppelin smart account. Its rule 0 holds the three
 signers and a threshold of two. The mandate is a set of further context rules,
-each scoped to the adapter and carrying a policy-interpreter predicate. The
-predicate pins the shape of the batch: which calls, which venue, which
-direction, amounts within the band. The venue call also carries an
-authorisation naming the exact token transfer, and Soroban matches an
-authorisation to its context exactly, so the amount the venue takes is fixed
-too.
+each carrying a policy-interpreter predicate. The predicate pins the shape of
+the batch: which calls, which venue, which direction, amounts within the band.
+The venue call also carries an authorisation naming the exact token transfer,
+and Soroban matches an authorisation to its context exactly, so the amount the
+venue takes is fixed too.
 
 A band is one such rule. In the test setup, swaps and Blend supply and
 withdrawal each have a low band (the agent alone, 1 approval) and a high band
 (agent and admin, 2 approvals, enforced by OpenZeppelin's threshold policy).
-The predicate refuses an over-band amount under the low rule outright,
-before any second signature is sought.
+The predicate refuses an over-band amount under the low rule outright, before
+any second signature is sought.
 
 Blend credits a supply to whoever authorises it, so a supplied position is held
 in the Prime account's name. Blend's `submit` takes `(from, spender, to, …)`,
@@ -443,53 +319,29 @@ the custody account. Swap proceeds go straight to the custody account.
 
 ### Policy interpreter
 
-`contracts/stellar/policy-interpreter`. The interpreter has two grammars
-in service, and they run in different places:
-
-| | Grammar 6 | Grammar 7 |
-|---|---|---|
-| Where it runs | Mainnet, under Prime custody: `CAOBQ4ZX…`. Also testnet: `CDPR5VTX…` | Testnet only: `CDZV4AG4…` |
-| Source | The `main` branch (`contracts/policy-interpreter`, `SELF_VERSION` 6) | This branch, `feat/grammar-v7` (`SELF_VERSION` 7 in `src/version.rs`) |
-| Who uses it | The Prime app, for every custody setup in this document | The 2.x npm packages (`@next`), which pin it and speak no other grammar |
-| Limits | Compiled in | Chosen per instance at deploy time (see below) |
-
-The custody design in this document and the Prime app run on grammar 6. The smart
-account calls `enforce` on every call a policed rule authorises. The predicate
-grammar, its limits and the install checks are documented in
+`contracts/stellar/policy-interpreter`, 800 sLOC. The smart account calls
+`enforce` on every call a policed rule authorises. The predicate grammar, its
+limits and the install checks are documented in
 [contracts/stellar/policy-interpreter/README.md](../contracts/stellar/policy-interpreter/README.md).
 
-**Grammar 6 properties (mainnet custody, policed accounts):**
-
-- **`enforce` changes no value:** it reads the predicate document and the
-  signer-set hash that install wrote, and nothing else. A permit bumps the
-  rule's storage TTL; a deny rolls that back.
 - **It fails closed:** an undecodable predicate, an unknown node or a selector
   the call cannot answer all deny, with a specific deny code.
-- **Grammar 6 adds `call_path`**, which walks into the batch the adapter
-  submits (`calls[n].args[i]`, map keys, lengths). That is what lets one
-  predicate bound a whole batch and relate two of its calls.
-- **An executor binding** (`bind_executor`) makes a venue rule demand the
-  adapter's own authorisation as well, so a venue call that did not come
-  through the adapter is refused. The binding lives in the rule's document,
-  and two routes detach it with one party alone. `uninstall`, which needs only
-  the document's admins, deletes it with the document, and a later `install`
-  stores none. OpenZeppelin's `remove_policy` goes on when the policy's
-  `uninstall` fails, so the account alone can take the interpreter off the
-  rule. Either way the rule can then run with no adapter approval: after
-  the `uninstall` once the owners install a document again (the rule refuses
-  every call until then), after `remove_policy` at once. On testnet an agent
-  then paid itself from the Prime directly. The Prime app refuses
-  `remove_policy` and a reinstall on a rule with no document. Grammar 7 has the
-  same layout (G7S-16 in the
-  [grammar-7 threat model](../evidence/stride-threat-model-g7.md)).
-
-**Grammar 7 (testnet, the 2.x packages)** keeps those properties except the
-first, which `read` ends, and adds the following.
-
-- **Limits per instance:** each grammar-7 instance takes its `Limits` in its
-  constructor, stores them once and returns them from `limits()`. There is no
-  setter and no upgrade path, so a different limit means a new instance at a new
-  address. Every limit is per instance:
+- **`enforce` writes only a TTL bump:** it reads the rule's stored document and
+  a permit extends that entry; a deny rolls the bump back with the frame. A
+  `read` calls other contracts (below).
+- **`install` guards the rule:** it checks the grammar version, the byte cap,
+  the predicate's hash, the scope (no `Default` rule, none scoped to the
+  account or the interpreter, 218), the operator and admin sets (at most 16,
+  free of `External` signers, 212, and of the interpreter's own address, 219), a fresh
+  nonce, and that the predicate holds at least one selector leaf (216). It
+  stores a hash of the rule's signers, which `enforce` compares on every call
+  (204).
+- **`call_path`** walks into the batch the adapter submits (`calls[n].args[i]`,
+  map keys, lengths). That is what lets one predicate bound a whole batch and
+  relate two of its calls.
+- **Limits per instance:** each instance takes its `Limits` in its constructor,
+  stores them once and returns them from `limits()`. There is no setter and no
+  upgrade path, so a different limit means a new instance at a new address.
 
   | Field | Floor | Ceiling | Testnet instance `CDZV4AG4…` |
   |---|---|---|---|
@@ -503,77 +355,125 @@ first, which `read` ends, and adds the following.
   A value outside its floor and ceiling fails the constructor with error 220.
   An install that breaks the instance's limits fails with error 201, and a
   predicate over `max_predicate_bytes` fails with error 207.
-- **Grammar 7 adds `read`, `now` and `scaled`:** `read(contract, fn, args,
-  path)` calls a fixed function of a fixed contract and picks a value out of the
-  result, so a rule can check a live price, a pool's debt or a custody balance.
-  Its arguments may be constants or taken from the call, and the result may be
-  any value but void, so `eq(read(REGISTRY, contains, [call_arg(1)]), lit(true))`
-  asks a registry contract whether the receiver is on its list, and the list
-  can change without reinstalling the rule. `now` is the ledger timestamp, and
-  `scaled(src, num, den, add)` computes `src * num / den + add` over any of
-  those, with every step checked. `scaled` replaces `call_arg_scaled`. A
-  predicate may make at most the instance's `max_reads` distinct reads (8 on the
-  testnet instance, which is also the ceiling). Identical reads (same contract,
-  function, constant arguments) are one call, made once per `enforce`, and a
-  read with a call-derived argument counts as its own call, so `enforce` never
-  makes more than `max_reads` external calls, quantifiers included. **This
-  ends the grammar-6 property that `enforce` reads nothing but the authorised
-  call:** it now calls the contracts its predicate names. Soroban has no
-  read-only call, so those contracts must be ones the owner trusts, ideally
+- **`read`, `now` and `scaled`:** `read(contract, fn, args, path)` calls a
+  fixed function of a fixed contract and picks a value out of the result, so a
+  rule can check a live price, a pool's debt or a custody balance. Its
+  arguments may be constants or taken from the call, and the result may be any
+  value but void, so `eq(read(REGISTRY, contains, [call_arg(1)]), lit(true))`
+  asks a registry contract whether the receiver is on its list. `now` is the
+  ledger timestamp, and `scaled(src, num, den, add)` computes
+  `src * num / den + add`, with every step checked. A predicate may make at
+  most the instance's `max_reads` distinct reads, so `enforce` never makes more
+  than `max_reads` external calls, quantifiers included. Soroban has no
+  read-only call, so read targets must be contracts the owner trusts, ideally
   immutable; a read cannot target a contract already on the call stack (the
-  host refuses re-entry and the read denies); a simulation must carry real
-  signatures so the reads' ledger entries end up in the footprint. A read
-  sees the state at the moment the account's authorisation is checked, after
-  anything the submitter ran earlier in the same transaction and before the
-  calls the authorisation covers. Read only values the submitter cannot move
-  and restore within one transaction (an oracle-signed or admin-set price, a
-  balance the agent cannot debit), never a spot AMM price or an
-  agent-debitable balance. A rule that reads over a batch must pin the batch's
-  length, every element and its `executor_authorizations`, and `grants`; and
-  because a rule on `execute` with `wait > 0` is evaluated once, when the batch
-  is stored, it must pin `wait` to 0 (put read checks on the venue rules
-  instead). The interpreter's
-  address must never hold value, allowances or roles, because a read target
-  sees it as its caller. A rule must
-  still constrain the call itself: reads and the clock alone do not satisfy
-  the install check. The full list of limits and failure modes is in the
+  host refuses re-entry and the read denies). A read sees the state at the
+  moment the account's authorisation is checked, after anything the submitter
+  ran earlier in the same transaction. Read only values the submitter cannot
+  move and restore within one transaction (an oracle-signed or admin-set price,
+  a balance the agent cannot debit). A rule that reads over a batch must pin
+  the batch's length, every element, its `executor_authorizations` and
+  `grants`, and must pin `wait` to 0, because a rule on `execute` with a wait is
+  evaluated once, when the batch is stored. The interpreter's address must
+  never hold value, allowances or roles, because a read target sees it as its
+  caller. The full list is in the
   [interpreter README](../contracts/stellar/policy-interpreter/README.md#cross-contract-reads).
-- **Grammar 7 is generic enough that a new use case needs only a new rule:**
-  `lit(x)` is a constant of any type (a string, bytes, a bool, a
-  map, an enum value...), `ne` and `nin` are a denylist whose unresolvable
-  operand still denies (and which also catches the muxed form of a listed
-  account), every integer type of up to 128 bits compares as a number, and a map key in a path may
-  be any constant. The quantifiers `all(vec, P)` and `any(vec, P)` state a
-  property of every or some element of a vector (a batch, a payout list, a swap
-  route; `elem(...)` is the current element), and `sum(vec, ...)` totals one;
-  a vector longer than the instance's `max_elems` denies, each body leaf and
-  each `sum` counts `max_elems` times toward `max_leaves` (32 and 400 on the
-  testnet instance), and quantifiers do not nest. A read's call-derived
-  argument is chosen by the agent: read only functions that are safe for any value
-  of it. Time windows (office hours, weekdays)
-  are `now` and `scaled`; there is no extra leaf. Details and the fail-safe
-  rules are in the [interpreter README](../contracts/stellar/policy-interpreter/README.md#quantifiers-all-any-elem-sum).
+- **Generic values:** `lit(x)` is a constant of any type, `ne` and `nin` are a
+  denylist whose unresolvable operand still denies, every integer type of up to
+  128 bits compares as a number, and the quantifiers `all(vec, P)`,
+  `any(vec, P)` and `sum(vec, …)` state a property of every or some element of
+  a vector, or total one. A vector longer than the instance's `max_elems`
+  denies, and quantifiers do not nest. Details are in the
+  [interpreter README](../contracts/stellar/policy-interpreter/README.md#quantifiers-all-any-elem-sum).
 
 The interpreter answers one question: is this call one the policy permits? It
-does not see what a transaction moved, keep rolling totals or count calls
-(grammar 7 can read the ledger clock and the contracts its predicate lists, as
-above). Amount
-limits over time come from the allowance and its expiry.
+does not see what a transaction moved, keep rolling totals or count calls.
+Amount limits over time come from the allowance and its expiry, or from
+OpenZeppelin's `spending_limit` beside the interpreter.
+
+#### Keyless rules and the executor binding
+
+`bind_executor(rule, executor)` binds a rule to an execution adapter. It needs
+the smart account's authorisation and the policy admins'. A re-install keeps
+the binding. Under a bound rule, `enforce` also requires the adapter's own
+authorisation of the exact account and context.
+
+A rule may list no signer. `install` accepts an empty operator set, and
+`enforce` accepts a call that authenticated no signer only when all three hold
+(else 210):
+
+- the rule, as OpenZeppelin passes it, lists no signer;
+- the interpreter is the rule's only policy;
+- the rule is bound to an executor.
+
+The checks inside `enforce` run in this order, and any refusal rolls back the
+whole call:
+
+1. the empty-signer gate above (210);
+2. the stored predicate is decoded;
+3. a bound rule whose scope, as OpenZeppelin passes it, is the bound executor
+   must pin `call_fn == run` on every path (221);
+4. a bound rule needs the executor's authorisation of the exact account and
+   context, except the executor's own `run` context under a rule scoped to it;
+5. the rule's signer set must match the hash `install` stored (204);
+6. the TTL is extended and the predicate decides.
+
+The exception in step 4 rests on a host property: a context that names the
+adapter exists only because the adapter's code asked the account for it. Only
+`run` is taken that way. An `execute` or a `cancel` under the same rule still
+needs a grant from the adapter. **Bind a rule to the contract it is scoped to
+only when that contract is an execution adapter:** under the exception, the
+binding stands in for that contract's consent to its own `run`, so the rule
+approves whatever that `run` does.
+
+`pins_call_fn` decides step 3: an `and` pins when any child does, an `or` only
+when every child does, and a compare pins only as `eq` between `call_fn` and
+the symbol `run`, either side. `in`, `ne`, quantifiers and every other shape
+pin nothing. The same check runs at `bind_executor`, against the scope `install`
+recorded, and at a re-install under a kept binding. The `enforce` check reads
+OpenZeppelin's own record of the rule, so an install that misstated the scope
+cannot get round it.
+
+Three properties of the OpenZeppelin account complete the design:
+
+- **`remove_policy` cannot strip a keyless rule:** the account refuses to
+  leave a rule with no signer and no policy (`NoSignersAndPolicies`, 3004). The
+  interpreter refuses a keyless rule with a second policy, so every keyless rule
+  it permits keeps its predicate.
+- **A keyed rule stripped of its signer stays refused:** after `remove_signer`
+  the rule lists no signer and passes the gate in step 1, and the stored signer
+  hash refuses it at step 5 (204), or step 4 refuses it first when the adapter
+  does not grant its context.
+- **Delegated adapter signers fail on the 0.8.0 account:** OpenZeppelin's 0.8.0
+  account refuses a `Delegated(X)` signer when X is a contract called in the
+  operation (`DelegatedSignerIsContextContract`, 3017). A run rule signed by the
+  adapter fails there at first use. The keyless run rule lists no signer, so
+  the check never applies to it.
+
+**Two routes detach a binding:** `uninstall` needs only the policy admins and
+deletes the document with its binding; a later `install` stores none. A keyless
+rule then refuses every call (210). A keyed rule runs without the adapter's
+check once the owners install a document again. OpenZeppelin's `remove_policy`
+goes on when the policy's `uninstall` fails, so the account alone can take the
+interpreter off a keyed rule, which then runs with no adapter approval. On a
+keyless rule with one policy, 3004 refuses the removal.
+
+Tests: `tests/keyless.rs` drives these checks in the interpreter's test host,
+and the `oz08/` crate runs the interpreter wasm against OpenZeppelin's 0.8.0
+account (built from upstream commit `8e25220`; the release is not tagged yet)
+with real authorisation entries.
 
 ## Owners and seats
 
-The Prime account's owners are the signers of its rule 0. An owner whose wallet
-is a Stellar wallet (Freighter or Hana, which sign Soroban authorization
-entries) is a native `G…` account and signs
-each decision in its wallet. An owner whose wallet lives on another chain
-(MetaMask, Phantom) has no Stellar account. It gets a seat: a `prime-seat`
-contract deployed for that owner and that account, whose owner key is an
-ed25519 key the NEAR MPC holds. Since the move-only session was withdrawn on
-12 October 2026, a seat is the only place a session key exists on Stellar.
+The Prime account's owners are the signers of its rule 0. A native owner is a
+Stellar `G…` account and signs each decision itself. A seat owner holds an
+ed25519 owner key, held by a NEAR-routed MPC or by any Stellar wallet or
+custodian (Freighter, Ledger, Fordefi, a plain keypair) that signs the raw
+32-byte grant hash. It gets a seat: a `prime-seat` contract deployed for that
+owner and that account. The seat verifies only ed25519 signatures.
 
-`contracts/stellar/prime-seat/src/lib.rs`, 99 formatted sLOC. The constructor
-stores the account's 32-byte contract id and the owner key, and nothing changes
-them.
+`contracts/stellar/prime-seat/src/lib.rs`, 97 sLOC. The constructor stores the
+account's 32-byte contract id and the owner key, and nothing changes them.
 
 | Function | What it does |
 |---|---|
@@ -582,13 +482,13 @@ them.
 | `__check_auth(payload, (key, sig, preimage), contexts)` | The `Delegated` signer interface, used in rules other than rule 0. The first context must be a call on the stored account whose first argument is the account's digest, with only non-zero rule ids |
 | `batch_canonicalize_key(keys)` | One constant per seat, so the account refuses a second `External` entry for the same seat |
 
-The deployed account (`91a2cd56…`) signs `sha256(payload ‖ XDR(rule ids))`.
-The seat checks the preimage against the digest and reads the rule ids from it:
-`External(seat, account id)` passes only when every id is 0, and
-`Delegated(seat)` only when no id is 0. A rule 0 holding `Delegated(seat)`
-beside `External(seat)` therefore cannot let one session pass rule 0 alone.
-Grants live in temporary storage at the maximum TTL; every use compares the
-stored end with the ledger timestamp.
+The account build the Prime app deploys (`91a2cd56…`) signs
+`sha256(payload ‖ XDR(rule ids))`. The seat checks the preimage against the
+digest and reads the rule ids from it: `External(seat, account id)` passes only
+when every id is 0, and `Delegated(seat)` only when no id is 0. A rule 0 holding
+`Delegated(seat)` beside `External(seat)` therefore cannot let one session pass
+rule 0 alone. Grants live in temporary storage at the maximum TTL; every use
+compares the stored end with the ledger timestamp.
 
 **Rule 0 layout:** each native account sits in rule 0 as `Delegated(G)` and
 each seat as `External(seat, account id)`, under two policies installed
@@ -596,9 +496,9 @@ together: `simple_threshold` M (the approvals the owners agreed) and
 `weighted_threshold` with every native account at weight K, every seat at
 weight 1, and threshold K, where K is the number of seats plus one. K is fixed
 when the account is created. A seat added later sits at weight 0: it counts
-toward M and never toward K. Seats alone sum below K, so every decision carries a signature from a native Stellar
-wallet, and the NEAR-routed owners supply the other approvals through their
-sessions. The app checks this layout on read-back
+toward M and never toward K. Seats alone sum below K, so every decision carries
+a native owner's signature, and seat owners supply the other approvals through
+their sessions. The app checks this layout on read-back
 ([contracts/stellar/prime-seat/README.md](../contracts/stellar/prime-seat/README.md)
 lists every invariant).
 
@@ -611,30 +511,25 @@ account and a seat needs both.
 
 ### Changing who signs a policed rule
 
-The first three hold for every interpreter version deployed so far (grammars 3
-to 7): the signer hash, the admin check on `uninstall` and the `External`
-refusal were in the interpreter's first commit (`da568de`) and are still in
-`contracts/stellar/policy-interpreter/src/lib.rs`.
-
 - **The interpreter pins a rule's signers:** `install` stores a hash of the
   rule's signer set, and `enforce` refuses with error 204
   (`RuleSignersChanged`) once the set differs. `remove_signer` or `add_signer`
   on a policed rule leaves that rule refusing every signer. To take a signer, a
   seat included, out of a policed rule, add a new rule without it and then
   remove the old one, or remove the policy, change the signers and add the
-  policy again with the policy admins' authorisation. The refusal fails safe: a removed signer gains nothing.
+  policy again with the policy admins' authorisation. A removed signer gains
+  nothing from the refusal.
 - **`remove_context_rule` can leave an orphan interpreter entry:** the account
   asks each policy to uninstall, and the interpreter's `uninstall` needs the
   policy admins' own authorisation. When the transaction carries only the
   rule-0 signatures, `uninstall` fails, the account removes the rule anyway,
-  and the interpreter's entry for `(account, rule id)` stays until it archives
-  (seen on testnet on 18 October 2026). The account gives every new rule a fresh
-  id, so the entry is never read again; it costs rent, and an admin can still call
-  `uninstall` directly.
+  and the interpreter's entry for `(account, rule id)` stays until it archives.
+  The account gives every new rule a fresh id, so the entry is never read
+  again; it costs rent, and an admin can still call `uninstall` directly.
 - **`External` signers are refused** in a policed rule and in its admin set
   (error 212), so a seat joins a policed rule as `Delegated(seat)`.
-- **`Default` scope is refused** (error 218) by grammar 6 and 7. Grammar 7 also refuses a rule scoped to the account
-  itself or to the interpreter, with the same error.
+- **`Default` scope is refused** (error 218), and so is a rule scoped to the
+  account itself or to the interpreter.
 - **A seat cannot be a policy admin:** the admins authorise reinstall,
   rotation and `uninstall` by `require_auth`, and a seat authorises only inside
   its own account's `__check_auth`. A policy whose admins were seats could never
@@ -643,16 +538,10 @@ refusal were in the interpreter's first commit (`da568de`) and are still in
 
 ## Setting it up
 
-In the Prime app (shown here on testnet; app.untangled.finance takes the same
-steps on mainnet):
-
-| Step | Where | Signatures |
-|---|---|---|
-| 1. Create the Prime account | `#/onboard/stellar` | one |
-| 2. Deploy the gate and grant the limit | `#/onboard/stellar/gate`, signed by the custody account | all three custody signers, for the deploy and again for each asset's allowance |
-| 3. Create the execution adapter | Accounts, then Manage execution | 2 of the Prime's 3 |
-| 4. Install the bands | Policies, then Custody-funded action | 2 of 3, per band. A Blend pool is first allowed and bound to the adapter. |
-| 5. Run a batch | Apps, then Prime Execution | what the chosen band requires |
+The custody account deploys the gate and grants one allowance per asset, each
+at its full threshold. The Prime's owners create the execution adapter and
+install the bands at their own threshold; a venue rule is bound to the adapter
+before an agent uses it.
 
 The custody account picks the gate's salt, which fixes the gate's address, and
 the gate's address fixes the adapter's. Either side can deploy first. The
@@ -674,9 +563,9 @@ sequenceDiagram
     participant GA as Custody gate
     participant TK as Token
     participant PO as Blend pool
-    AG->>AD: execute(calls, grants)
+    AG->>AD: execute(calls, grants, 0)
     Note over AD: every address in the batch<br/>must be on the gate's list
-    AD->>PR: require_auth_for_args(calls, grants)
+    AD->>PR: require_auth_for_args(calls, grants, 0)
     PR->>IN: enforce, band rule
     IN-->>PR: permit
     AD->>GA: pull(token, adapter, N)
@@ -689,7 +578,8 @@ sequenceDiagram
     PO->>TK: transfer(adapter to pool, N)
 ```
 
-If any step fails, the whole transaction reverts.
+If any step fails, the whole transaction reverts. A stored batch takes the same
+path from `run(id)`, with the run rule in place of the band rule.
 
 ## Recovery
 
@@ -698,17 +588,11 @@ to the gate's list when the gate is set up. The Prime account's own authority,
 2 of 3, can then run one call, `pull(asset, recoveryAddress, amount)`, through
 the adapter. It moves the custody account's funds to that address and nowhere
 else. A band pins every destination, so an agent's rules cannot reach it.
-Recovery uses the gate's existing list and needed no contract change.
+Recovery uses the gate's existing list.
 
-Through a v4 adapter, or a v5 adapter with a gate, the recovery is a stored
-batch like any other: it waits at least the adapter's `min_wait`, and the
-custody account or the Prime can cancel it until it runs. With `min_wait` at 0
-it runs at once, as on v3.
-
-Run on testnet through the Prime app (commit `f39950f5`): with a fresh
-10 / 5 / 5 custody account, 1,000 XLM and then 500 XLM were recovered to the
-trustee wallet, each signed by two Prime signers and none of the custody
-signers.
+The recovery is a stored batch like any other: it waits at least the adapter's
+`min_wait`, and the custody account or the Prime can cancel it until it runs.
+With `min_wait` at 0 it can run at once.
 
 ## Stopping it
 
@@ -723,13 +607,17 @@ The custody account can also cancel any stored move before it runs, with
 
 | Check | Where | Result |
 |---|---|---|
-| Every route out of a threshold-20 account with one key | `scripts/verify-mpc-threshold-testnet.ts`, testnet | 7 of 7 |
-| The address rule against a real Prime and live Blend and Aquarius | `scripts/verify-execution-address-rule-testnet.ts`, testnet | All 35 checks passed against the adapter with no wait on 29 September 2026, on the Linux builds recorded in `deployments/execution-testnet.json` - the same results the v3 adapter gave. The log is `evidence/execution-address-rule-testnet.log`. A Blend supply, a withdrawal to custody and an Aquarius swap succeed. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put. Run again on 18 October 2026 against the v5 build `4985cd12…` with a gate: 35 of 35, the same rows (`evidence/execution-address-rule-testnet-v5.log`). |
-| The adapter's wait against a real Prime, the unchanged gate and live Blend | `scripts/verify-execution-wait-testnet.ts`, testnet | All 45 checks passed on 29 September 2026 on the Linux builds; the log is `evidence/execution-wait-testnet.log`. Succeeded:<br>• a Blend supply at once;<br>• a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role and no Prime signature;<br>• an agent's batch after the minimum wait its own rule demands.<br>Refused:<br>• the agent below that minimum, and the agent cancelling;<br>• the run rule used for an immediate `execute`, a stored batch or a `cancel`;<br>• a stranger cancelling;<br>• running early, twice, after a cancel, or after the run window;<br>• a wait below the adapter's floor;<br>• the Prime creating the adapter at custody's address with a lower floor or a longer window.<br>The Prime and custody both cancel. An agent's stored move still runs after its rule is removed; removing the run rule pauses a ready move; a move stored with a wait past the network minimum lives until its window closes, and using the adapter extends its own instance to ~30 days. Run again on 18 October 2026 against the v5 build with a gate: 45 of 45, the same rows (`evidence/execution-wait-testnet-v5.log`). |
-| The full scenario in the Prime app | the Prime app's Fordefi scenario guide, on beta against testnet | 10 XLM under the low band succeeds with the agent alone; 150 XLM under the low band is refused; 150 XLM under the high band succeeds after the admin approves. Custody's XLM fell by exactly 315, the sum of the moves less the withdrawal. |
-| Contract unit tests, grammar-6 source | `cargo test` in each crate on `main` | interpreter 151 (the conformance suite included), adapter 33, gate 3, run on 1 October 2026 |
-| The adapter with no gate, for a G and an OpenZeppelin Prime | `scripts/verify-execution-null-gate-testnet.ts`, testnet, v5 build `4985cd12…` | All 69 checks passed on 18 October 2026; the log is `evidence/execution-null-gate-testnet.log`. Succeeded: `[hello, USDC.transfer, XLM.transfer]` with one authorisation by X (a G account, and an OpenZeppelin account through rule 0); an agent's bundle at its cap under grammar-7 rules, one rule per context. Refused: the bundle on chain once `hello` failed, with no balance moved; its signed entry after its expiry ledger; a call to the Prime; a grant; any wait, and a null adapter with a minimum wait; `rebind`; a stranger's `cancel`; the agent over its cap, with the adapter added as a co-signer, or citing its adapter rule for a token context; a null adapter's pull through custody's gate; a gated adapter rebound to "no gate". Before its expiry, the failed bundle's entry ran once `hello` answered again. |
-| Contract unit tests, this tree | `cargo test` in each crate (see [Build and test](#build-and-test)) | interpreter 397 and the release conformance run 18, adapter 62, gate 3, `prime-seat` 21, measured on 18 October 2026 |
+| Keyless rules and the executor binding | `tests/keyless.rs` (19 tests) and the `oz08/` suite (12 tests, OpenZeppelin's 0.8.0 account) | keyless `run` with the run and venue rules permits; an unbound keyless rule, a second policy, a stripped keyed rule, an unpinned self-scoped rule and an `execute` or `cancel` without the adapter's grant are refused; `remove_policy` on a keyless rule fails with 3004 |
+| The address rule against a real Prime and live Blend and Aquarius | `scripts/verify-execution-address-rule-testnet.ts`, testnet, adapter `4985cd12…` with a gate | 35 of 35 on 18 October 2026. A Blend supply, a withdrawal to custody and an Aquarius swap succeed. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put |
+| The adapter's wait against a real Prime, the gate and live Blend | `scripts/verify-execution-wait-testnet.ts`, testnet, adapter `4985cd12…` with a gate | 45 of 45 on 18 October 2026. Succeeded: a Blend supply at once; a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role; an agent's batch after the minimum wait its own rule demands. Refused: the agent below that minimum, and the agent cancelling; a stranger cancelling; running early, twice, after a cancel, or after the run window; a wait below the adapter's floor; the Prime creating the adapter at custody's address with a lower floor or a longer window |
+| The adapter with no gate, for a G and an OpenZeppelin Prime | `scripts/verify-execution-null-gate-testnet.ts`, testnet, adapter `4985cd12…` | 69 of 69 on 18 October 2026, log `evidence/execution-null-gate-testnet.log`. Succeeded: `[hello, USDC.transfer, XLM.transfer]` with one authorisation by X (a G account, and an OpenZeppelin account through rule 0); an agent's bundle at its cap, one rule per context. Refused: the bundle once `hello` failed, with no balance moved; its signed entry after its expiry ledger; a call to the Prime; a grant; any wait, and a no-gate adapter with a minimum wait; `rebind`; a stranger's `cancel`; the agent over its cap or citing its adapter rule for a token context; a no-gate adapter's pull through custody's gate |
+| Contract unit tests, this tree | `cargo test` in each crate (see [Build and test](#build-and-test)) | interpreter 416 and the release conformance run 18, `oz08/` 12, adapter 62, gate 3, `prime-seat` 21 |
+
+The address-rule and wait scripts install their band and run rules on an
+interpreter instance deployed earlier from other source, recorded in
+`deployments/`; they test the gate and the adapter. The no-gate script uses the
+testnet instance `CDZV4AG4…`. Logs are indexed in
+[evidence/README.md](../evidence/README.md).
 
 ## Build and test
 
@@ -741,78 +629,53 @@ hash; `stellar contract build` and macOS give other bytes.
 ```sh
 ( cd contracts/stellar/policy-interpreter && ./build-wasm.sh && cargo test )   # tests/worst_case.rs loads the wasm
 ( cd contracts/stellar/policy-interpreter && cargo test --release --test conformance )
+( cd contracts/stellar/policy-interpreter/oz08 && cargo test --locked )          # loads the same wasm
 ( cd contracts/stellar/execution-adapter && ./build-wasm.sh && cargo test )
 ( cd contracts/stellar/custody-gate && ./build-wasm.sh && cargo test )
 ( cd contracts/stellar/prime-seat && ./build-wasm.sh && cargo test )
 ```
 
-| Crate | `build-wasm.sh` sha256 | Recorded in | Tests (18 October 2026) |
+| Crate | `build-wasm.sh` sha256 | Recorded in | Tests |
 |---|---|---|---|
-| `policy-interpreter` (grammar 7) | `69cad1d5ce9aeaa0dad6980fd030e528935a0ebdd290111f393e9fd0564a68b0` | `deployments/grammar7-testnet.json` | 397, and 18 in the release conformance run |
-| `execution-adapter` (v5, optional gate) | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b` | `contracts/build-hashes.json` | 62 |
-| `custody-gate` | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` | `deployments/execution-testnet.json` | 3 |
+| `policy-interpreter` | `810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c` | `contracts/build-hashes.json` | 416, 18 in the release conformance run, 12 in `oz08/` |
+| `execution-adapter` | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b` | `contracts/build-hashes.json` | 62 |
+| `custody-gate` | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` | `deployments/` | 3 |
 | `prime-seat` | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | `contracts/build-hashes.json` | 21 |
 
-CI compares each hash with its record. The v4 adapter `3dd675c0…`, which the
-Prime app pins on mainnet, stays recorded in
-`deployments/execution-testnet.json`; it builds from the tree before the
-optional gate (`a86a496`). The grammar-6 interpreter on mainnet
-(`5143e641…`) builds from `main`, and this branch's
-`scripts/deploy-grammar6-testnet.ts` refuses to run on the grammar-7 source.
+CI compares each hash with its record.
 
 ## Deployments
 
-| | Network | Address or hash |
-|---|---|---|
-| Policy interpreter, grammar 6 (custody design) | testnet | `CDPR5VTX6R2ZPKREPD7FBW5ANVWXMVJIBIH2GMF36XPOFNMHRDIRUAZQ`, recorded in [`deployments/grammar6-testnet.json`](../deployments/grammar6-testnet.json) |
-| Execution adapter build | testnet and mainnet | `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3`, the Linux build of `contracts/stellar/execution-adapter`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json); it builds from `contracts/stellar/execution-adapter` at `a86a496`, before the optional gate. Its code is uploaded on both networks (read back from mainnet on 18 October 2026; the mainnet upload of 11 October 2026 is recorded under `updates` in [`deployments/prime-mainnet.json`](../deployments/prime-mainnet.json), transaction `23c83e44…`), and the Prime app makes new mainnet gates for it; testnet gates made for it keep it. It refuses a recipient written as a muxed address. The app still recognises `eefcfdd7…`, `68d012e7…`, `32a8658a…` and `23a7b289…` for gates set up with them. |
-| Execution adapter v5 build (optional gate) | testnet | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b`, 24,659 bytes, uploaded in `9d9753a434302e6ba62001a5d8d69963f3a24eae8e60bae0df957ae7e568751f` and recorded in [`contracts/build-hashes.json`](../contracts/build-hashes.json). Not on mainnet (its code entry was absent at ledger 65,035,731 on 20 October 2026). The beta app names it, with a gate, for new gates on testnet (octopos #231) |
-| Execution adapter v3 builds (earlier pairs) | - | `5be8b08eefe704970fbb51612ef4f6222df3d4b0f2ab6704544e761e3576e708` and `0e088421…`, still recognised by the app |
-| Custody gate build | testnet | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab`, the Linux build of `contracts/stellar/custody-gate`, recorded in the same file. Gates set up earlier run `2788f05b…`, the same design. |
-| Policy interpreter, grammar 7 (the 2.x packages' pin) | testnet | `CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT`, wasm `69cad1d5…`, deployed with reads 8, leaves 400, bytes 24,576, elems 32, `in` entries 32, depth 5. Created by `scripts/deploy-grammar7-limits-testnet.ts`, which runs on testnet only, recorded in [`deployments/grammar7-testnet.json`](../deployments/grammar7-testnet.json) and pinned in `packages/policy-synth/src/config.ts`. Three earlier grammar-7 instances are superseded, and 2.x refuses them |
-| Policy interpreter, grammar 4 (the 1.x packages' pin, npm `latest` 1.3.0) | mainnet and testnet | mainnet `CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52`, testnet `CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5` |
-| Policy interpreter, grammar 6 | mainnet | `CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R`, the Linux build `5143e641…` that the CI of `main` rebuilds, created by `scripts/deploy-prime-mainnet.ts` and recorded in [`deployments/prime-mainnet.json`](../deployments/prime-mainnet.json) |
-| Execution adapter and custody gate builds, 1 October 2026 | mainnet | `68d012e7…` and `b01024f3…`, the Linux builds recorded in [`deployments/prime-mainnet.json`](../deployments/prime-mainnet.json) and uploaded by `scripts/deploy-prime-mainnet.ts`. The gate is the testnet build. Setups made with `68d012e7` keep it, because a gate pins its adapter's build |
-| `prime-seat` build | testnet | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87`, recorded in [`contracts/build-hashes.json`](../contracts/build-hashes.json). The code is uploaded on testnet; the Prime app deploys one seat per NEAR-routed owner and account and pins this hash. No seat runs on mainnet |
-| OpenZeppelin smart account code | testnet and mainnet | `91a2cd56…`, the account code the Prime app deploys and the seat's digest check is tied to ([`deployments/oz-accounts.json`](../deployments/oz-accounts.json)) |
-| OpenZeppelin `simple_threshold`, `weighted_threshold`, `spending_limit` | testnet and mainnet | addresses in [`deployments/oz-policies.json`](../deployments/oz-policies.json) |
+All on Stellar testnet.
 
-The v3 pair is not on mainnet. A gate pins its adapter's build and has no
-setter, so adopting a new adapter build means a new
-gate and adapter for that custody account. Earlier generations are still
-deployed and still reachable by accounts that use them; their source is at tag
-`archive/contracts-before-v3-only`.
+| | Address or hash |
+|---|---|
+| Policy interpreter instance | `CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT`, wasm `69cad1d5…`, deployed with reads 8, leaves 400, bytes 24,576, elems 32, `in` entries 32, depth 5. Created by `scripts/deploy-interpreter-testnet.ts`, recorded in [`deployments/interpreter-testnet.json`](../deployments/interpreter-testnet.json) and pinned in `packages/policy-synth/src/config.ts`. It runs this source before the keyless executor rules; a new instance from `810f53f1…` replaces it |
+| Execution adapter code | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b`, 24,659 bytes, uploaded in `9d9753a434302e6ba62001a5d8d69963f3a24eae8e60bae0df957ae7e568751f`, pinned in [`contracts/build-hashes.json`](../contracts/build-hashes.json) |
+| Custody gate code | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json) |
+| `prime-seat` code | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87`, pinned in [`contracts/build-hashes.json`](../contracts/build-hashes.json); the Prime app deploys one seat per seat owner and account |
+| OpenZeppelin smart account code | `91a2cd56…`, the account code the Prime app deploys and the seat's digest check is tied to ([`deployments/oz-accounts.json`](../deployments/oz-accounts.json)) |
+| OpenZeppelin `simple_threshold`, `weighted_threshold`, `spending_limit` | addresses in [`deployments/oz-policies.json`](../deployments/oz-policies.json) |
+
+A gate pins its adapter's build and has no setter, so adopting a new adapter
+build means a new gate and adapter for that custody account.
 
 ## Limits
 
-- **External audit in progress:** an external audit of `main` is under way,
-  covering the interpreter, the custody gate, the execution adapter and the
-  three npm packages (the scope Untangled gave the auditor on 10 October 2026); `prime-seat` is outside it. They have also been through internal adversarial review and a
-  STRIDE threat model of grammar 6, last run on 1 October 2026
-  ([report](../evidence/stride-threat-model.md)). Grammar 7 and the 2.x
-  packages have their own STRIDE model, last rerun on 19 October 2026 at
-  `3624e930` ([report](../evidence/stride-threat-model-g7.md)). P0-2 and P0-4
-  are fixed and P0-3 is fixed in the packages; P0-1, P0-5 and P0-6 still have
-  open work and the Prime app does not yet run P0-3's decoder, so grammar 7
-  stays on testnet.
-- **Adapter builds before `3dd675c0` can let a batch name an unlisted
-  recipient:** `68d012e7` and earlier pass a recipient written as a muxed
-  address, which a token's `transfer` credits to the account behind it;
-  `eefcfdd7` refuses a muxed address but passes the XDR of an address given as
-  bytes. A rule that pins every recipient with `eq` or `in` is unaffected,
-  because the interpreter compares by XDR. A gate pins its adapter's
-  build, so a setup on an earlier build moves by creating a new gate and
-  adapter.
 - **An adapter with no gate guards only the Prime's own rules:** it checks no
   address, so what a batch through it can do is what the Prime's rules allow
   for each call that asks the Prime, and anything the adapter itself holds or
-  is allowed to spend. Send it nothing, give it no allowance, and install no
-  rule it signs. A bundle's signed authorisation stays valid until its expiry
-  ledger even after it failed, so sign bundles with a short one.
+  is allowed to spend. Send it nothing and give it no allowance. A bundle's
+  signed authorisation stays valid until its expiry ledger even after it
+  failed, so sign bundles with a short one.
+- **The keyless shape on the deployed account build:** the keyless rules were
+  run against OpenZeppelin's 0.8.0 account. We still need to check that the
+  `91a2cd56…` build accepts a rule with no signer and one policy.
 - **The seat is tied to the account's digest format:** it reads the rule ids
-  out of `sha256(payload ‖ XDR(rule ids))`, the form of the pinned OpenZeppelin
-  account `91a2cd56…`. An account build that hashes something else makes every
-  seat signature fail until new seats are deployed. It fails closed.
+  out of `sha256(payload ‖ XDR(rule ids))`, the form of the account build
+  `91a2cd56…`. An account build that hashes something else, such as OpenZeppelin's
+  0.8.0 digest, makes every seat signature fail until new seats are deployed.
+  It fails closed.
 - **A seat in a rule with no policy is unbounded:** the seat sees only its
   account's `__check_auth` frame, never the call being authorised, so it cannot
   limit what such a rule reaches. The chain allows the rule; installing it takes
@@ -821,30 +684,26 @@ deployed and still reachable by accounts that use them; their source is at tag
   policies change a threshold or a weight on the account's own authorisation, so
   a session in such a rule could lower rule 0's threshold.
 - **Rule 0 holds at most 15 signers:** an OpenZeppelin account created with 16 is
-  refused (error 3010, measured on testnet in the October spike), so more than
-  15 owners need another layout.
+  refused (error 3010), so more than 15 owners need another layout.
 - **The account cannot change its own rule 0 thresholds:** a call to
   `set_threshold` or `set_signer_weight` on its rule 0 policies fails with
-  "Contract re-entry is not allowed" (seen on testnet on 13 October 2026), so
-  changing M or K, or adding a native owner, means a new account.
+  "Contract re-entry is not allowed", so changing M or K, or adding a native
+  owner, means a new account.
 - **Seats do not keep themselves alive:** a grant does not extend the seat's
   instance or code. The relayer extends them with `ExtendFootprintTTL`.
 - **Nothing alerts custody when a move is stored:** the adapter emits no
   events, by design. A stored move is public on the ledger and the Prime app
   lists it, but custody has to look.
 - **Revoking an agent's rule does not stop the moves it already stored:** a
-  stored move runs under the run rule. To stop one, cancel it,
-  or remove the run rule, which pauses every ready move until the rule is
-  reinstalled.
+  stored move runs under the run rule. To stop one, cancel it, or remove the
+  run rule, which pauses every ready move until the rule is reinstalled.
 - **The Prime account is on the gate's list, so the gate will pay it:** the
   adapter needs the Prime on the list because venue calls name it, and `pull`
   releases to any listed address. A batch run under the Prime's own authority
   (rule 0, 2 of 3 in the app's setup) can therefore draw custody funds into the
-  Prime account, within the allowance. Run on testnet on 29 September 2026: the
-  gate paid 2,000,000 stroops of custody's XLM to the Prime under rule 0. An
-  agent's bands cannot do this. Closing it needs a contract change: the gate
-  would keep the addresses it may pay separate from the addresses a batch may
-  name.
+  Prime account, within the allowance. An agent's bands cannot do this. Closing
+  it needs a contract change: the gate would keep the addresses it may pay
+  separate from the addresses a batch may name.
 - **Rule 0 stands behind an open position:** a Blend position sits in the
   Prime's name, and rule 0's signers can install any rule, so while a position
   is open the Prime's own 2 of 3 signers are the control that protects it.
@@ -861,51 +720,52 @@ deployed and still reachable by accounts that use them; their source is at tag
   responsibility, and any extra call still has to pass the adapter's address
   rule.
 - **A venue that decodes an address out of a longer blob** is outside the
-  adapter's comparison, which covers the two encodings the host can turn back
-  into an address. It would still have to be a listed venue.
-- **Swap prices have a floor from the mandate and no market check:** a
-  band pins a minimum output, and the grammar can express a floor relative to
-  the input (`call_arg_scaled` in grammar 6, `scaled` in grammar 7). Grammar 6
-  reads no price feed. Grammar 7 can `read` one, but only through an oracle
-  whose lookup takes plain arguments, and the rule is then as trustworthy as
-  that oracle.
+  adapter's comparison, which covers the encodings the host can turn back into
+  an address. It would still have to be a listed venue.
+- **Swap prices have a floor from the mandate and no market check of their
+  own:** a band pins a minimum output, and `scaled` can express a floor relative
+  to the input. A rule can `read` a price feed only through an oracle whose
+  lookup takes plain arguments, and the rule is then as trustworthy as that
+  oracle.
 
 ## The policy builder
 
-The rest of this repository is the OZ Policy Builder, which builds grammar-7
-rules. `@crediolabs/policy-synth` records a transaction or takes a mandate stated
-as data, lowers it to a predicate, checks it against the interpreter, renders a
-review, and returns an unsigned install transaction for the user's wallet. The
-CLI (`packages/policy-builder-cli`) and the MCP server
-(`packages/policy-builder-mcp`) wrap the same core. Version 2.0.1 of all three
-is on npm under the `next` tag; `latest` is still 1.3.0, for grammar 4.
+The rest of this repository is the OZ Policy Builder, which builds rules for
+the policy interpreter. `@crediolabs/policy-synth` records a transaction or
+takes a mandate stated as data, lowers it to a predicate, checks it against the
+interpreter, renders a review, and returns an unsigned install transaction for
+the user's wallet. The CLI (`packages/policy-builder-cli`) and the MCP server
+(`packages/policy-builder-mcp`) wrap the same core.
 [`packages/policy-synth/README.md`](../packages/policy-synth/README.md) is the
 full reference.
+
+The builder writes keyed rules. It refuses a rule with no signer and builds no
+`bind_executor` call, so a keyless rule and its binding are installed through
+the contract calls directly.
 
 Enforcement happens on chain. The builder checks a rule before it is signed:
 
 | Check | What it does |
 |---|---|
-| Interpreter | On testnet only the pinned instance is accepted (`INTERPRETER_MISMATCH` for any other address), and no input turns that off. Mainnet has no grammar-7 pin: a call names `interpreterAddress`, and it is accepted only if its live code hash is a build the package trusts. |
-| RPC endpoint | The operator's: `POLICY_BUILDER_RPC_URL_TESTNET` or `_MAINNET` in the environment, else the network default. It must be https, or http on loopback. No tool input takes an endpoint. |
+| Interpreter | On testnet only the pinned instance is accepted (`INTERPRETER_MISMATCH` for any other address), and no input turns that off. On a network with no pin, a call names `interpreterAddress`, and it is accepted only if its live code hash is a build the package trusts. |
+| RPC endpoint | The operator's: `POLICY_BUILDER_RPC_URL_TESTNET` (one variable per network) in the environment, else the network default. It must be https, or http on loopback. No tool input takes an endpoint. |
 | Threshold | Several `signers` with no `threshold`, or with a threshold one signer meets alone, are refused, because a rule with any policy attached is satisfied by any one of its signers. `threshold` attaches OpenZeppelin's `simple_threshold` (`{ simple: n }`) or `weighted_threshold` (`{ weighted: { weights, n } }`) beside the interpreter. `anyOne: true` installs a rule any one signer can use alone; it is an override like those below. |
 | Spending limit | `spendingLimit` attaches OpenZeppelin's `spending_limit`. It is refused unless every branch of the predicate pins `call_fn` to `transfer` and the rule's scope is shown to be a token, because that policy fails every other function. |
-| Read safety | A `read` outside the safe list is refused with `READ_UNSAFE`. The list holds the three testnet Reflector oracles (`lastprice`, `price`) and the operator's `POLICY_BUILDER_SAFE_READS_TESTNET` or `_MAINNET`; a listed read needs constant arguments. `POLICY_BUILDER_ALLOW_SPOT_READS=1` lets other reads through. All three switches are operator environment only, and no tool input can set them. |
+| Read safety | A `read` outside the safe list is refused with `READ_UNSAFE`. The list holds the three testnet Reflector oracles (`lastprice`, `price`) and the operator's `POLICY_BUILDER_SAFE_READS_TESTNET`; a listed read needs constant arguments. `POLICY_BUILDER_ALLOW_SPOT_READS=1` lets other reads through. All three switches are operator environment only, and no tool input can set them. |
 | Authority overlap | The builder reads every rule on the account and refuses a rule a shared signer could bypass through a looser or unpoliced neighbour, or an account whose rules it could not all read. |
 | Amounts | An amount with no cap, and a swap whose least output has no floor, are refused. |
-| Contract signers | Each contract signer's instance is read off the ledger. An execution adapter bound to no gate (`prime` stored, `gate` void) is refused as a signer, whatever its code hash: an agent allowed to call its `execute` could cite the rule for the adapter's calls and move funds past its own caps. An execution adapter with a gate (`prime` stored, `gate` an address, v3 to v5) signing a rule scoped to itself is refused unless every branch of the predicate pins `call_fn = run` (G7S-16). A contract signer that is not deployed is refused too. No override waives any of these. |
+| Contract signers | Each contract signer's instance is read off the ledger. An execution adapter bound to no gate (`prime` stored, `gate` void) is refused as a signer, whatever its code hash: an agent allowed to call its `execute` could cite the rule for the adapter's calls and move funds past its own caps. An execution adapter with a gate (`prime` stored, `gate` an address) signing a rule scoped to itself is refused unless every branch of the predicate pins `call_fn = run`. A contract signer that is not deployed is refused too. No override waives any of these. |
 | Signed expiry and fee | The builder sets the authorisation's expiry: the ledger the recording simulation ran at plus `POLICY_BUILDER_AUTH_LEDGERS` (default 300, at most 17,280), and the two simulations must report ledgers within 20 of each other. The transaction carries a time bound from the builder's clock, the window at 6 s a ledger (30 minutes by default). A resource fee above `POLICY_BUILDER_MAX_RESOURCE_FEE` (default 100,000,000 stroops, 10 XLM) is refused. Both are operator environment only. |
 
 Five overrides are tool inputs: `allowOverlap`, `allowUnboundedAmount`,
 `allowOpenSlippage` and `anyOne` on `install_policy`, and `allowAdminRule` on
-`revoke_policy`.
-Each waives one refusal and is the account owners' decision. No refusal names
-them. Each one set comes back in `overrides`, as `{ flag, waived }` with the
-refusal it waived (or `null` when nothing needed it), and the review opens with
-an `Overrides set in the request` node before the Authority header (in
-`removes` for a revoke). On mainnet a flag set to `true` is refused before the
-network is asked unless the operator sets `POLICY_BUILDER_ALLOW_OVERRIDES=1`;
-testnet honours them, echoed all the same.
+`revoke_policy`. Each waives one refusal and is the account owners' decision.
+No refusal names them. Each one set comes back in `overrides`, as
+`{ flag, waived }` with the refusal it waived (or `null` when nothing needed
+it), and the review opens with an `Overrides set in the request` node before
+the Authority header (in `removes` for a revoke). Testnet honours them, echoed
+all the same; on any other network a flag set to `true` is refused before the
+network is asked unless the operator sets `POLICY_BUILDER_ALLOW_OVERRIDES=1`.
 
 `review_unsigned` is the owner's side of the review. A wallet or the Prime app
 runs it on the unsigned XDR it is about to sign (also `reviewUnsigned` from
@@ -918,28 +778,21 @@ signer or admin, a fee above the ceiling, no time bound or one longer than the
 window plus 120 s for the owner's clock, a signature already on the envelope,
 and a contract signer unless `readContracts` reads it through the operator's
 RPC, after which only an adapter bound to no gate, an adapter signing a rule
-scoped to itself that does not pin `call_fn = run`, or an undeployed contract is
-flagged; every other contract then reads signable unvetted, and the owner checks
-who controls it), and renders the transaction, the
-Authority header and the predicate from the bytes. `signable` means no such
-problem; it does not mean safe. Nothing is signed yet, so an agent can rewrite
-the unsigned bytes consistently, recomputing the digest: itself as admin or
-signer, a threshold dropped, a cap raised with a matching hash. Those read
-signable, as do installs built with an override and rules the builder refuses
-for reasons it does not check from the bytes (overlap, read safety, 1-of-n).
-The rewrite shows in the Authority header and the predicate, so the owner reads them against
-what they meant before signing.
+scoped to itself that does not pin `call_fn = run`, or an undeployed contract
+is flagged; every other contract then reads signable unvetted, and the owner
+checks who controls it), and renders the transaction, the Authority header and
+the predicate from the bytes. `signable` means no such problem was found.
+Nothing is signed yet, so an agent can rewrite the unsigned bytes
+consistently, recomputing the digest: itself as admin or signer, a threshold
+dropped, a cap raised with a matching hash. Those read signable, as do
+installs built with an override and rules the builder refuses for reasons it
+does not check from the bytes (overlap, read safety, 1-of-n). The rewrite shows
+in the Authority header and the predicate, so the owner reads them against what
+they meant before signing.
 
-`install_policy` returns the facts it installs as an `authority` object:
-`{ signers, threshold, admins, validUntil, total, interpreter, limits }`.
-`threshold` is `{ n, weights?, raw }` or absent, `validUntil` a ledger or
-`null` (never expires), and `total` the `spendingLimit` or `null`. The rendered
-review opens with an Authority header built from the same facts: who signs, how
-many must approve, the admins, the expiry, the rolling total and the interpreter
-with its limits. In the review, the package's own names for an address are
-marked `[role]` (such as `[smart account]`, `[signer]`, `[admin]` or
-`[interpreter]`) and
-names from the request are marked `«label»`. A label is plain words, so it cannot
-pass for a role, and the header's first line is the legend for the two marks. A
-read outside the safe list shows as "(live value, movable within one
-transaction)".
+`install_policy` returns the facts it installs as an `authority` object
+(`{ signers, threshold, admins, validUntil, total, interpreter, limits }`), and
+the rendered review opens with an Authority header built from the same facts.
+The review marks the package's own names for an address as `[role]` and names
+from the request as `«label»`. A read outside the safe list shows as "(live
+value, movable within one transaction)".

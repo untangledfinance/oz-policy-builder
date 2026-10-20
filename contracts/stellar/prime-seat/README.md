@@ -1,6 +1,6 @@
 # prime-seat
 
-The seat of a NEAR-routed owner on one Prime Account on Stellar, and that owner's session keys. A wallet on another chain (MetaMask, Phantom) has no Stellar account. Its owner key is an ed25519 key that the NEAR MPC signs with, and the owner signs only grants and ends. Each seat votes and acts through a session key that the owner granted, for at most 7 days.
+An owner's seat on one Prime Account on Stellar, and that owner's session keys. The owner is an ed25519 key held by a NEAR-routed MPC or by any Stellar wallet or custodian (Freighter, Ledger, Fordefi, a plain keypair) that signs the raw 32-byte grant hash. The seat verifies only ed25519 signatures. The owner key signs only grants and ends, and the seat votes and acts through a session key that the owner granted, for at most 7 days.
 
 One seat serves one account. The constructor takes `(account, owner)` and stores the account's 32-byte contract id and the owner key. The app deploys every seat first, reads back the stored account and owner against the key it derived offline, and only then creates the account.
 
@@ -55,7 +55,7 @@ Allowed shapes:
 
 Refuse and flag everything else on install and on read-back. In particular:
 
-- Bounded rules are `CallContract`-scoped only. The interpreter refuses `Default` scope at install in current builds.
+- Bounded rules are `CallContract`-scoped only. The interpreter refuses `Default` scope at install.
 - A rule scoped to `CallContract(SIMPLE)` or `CallContract(WEIGHTED)` that lists a seat is dangerous. The threshold policies need only the account's authorization to change a threshold or a weight, so a session could lower rule 0's threshold and then hold rule 0.
 - The chain still allows `Delegated(seat)` in a rule with no policy. The seat sees only the account's own `__check_auth` frame, never the call being authorized, so it cannot limit what such a rule reaches (residual R7). Installing the rule takes a decision that carries a native signature, and the app must refuse to build it.
 
@@ -74,4 +74,4 @@ cargo test                               # unit tests
 cargo mutants -j1 --timeout 180          # every viable mutant caught
 ```
 
-Sizes and the testnet record are in the phase 04 report.
+The size, the build hash and the test count are in [contracts/README.md](../../README.md).
