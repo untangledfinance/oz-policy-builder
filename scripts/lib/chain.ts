@@ -16,6 +16,7 @@ import {
   TransactionBuilder,
   xdr,
 } from '@stellar/stellar-sdk'
+import { GRAMMAR_VERSION } from '../../packages/policy-synth/src/config.ts'
 
 export const PASSPHRASE = Networks.TESTNET
 export const FEE = '6000000'
@@ -284,11 +285,12 @@ export const selector = (s: string) => vec([sym(s)])
 export const callArg = (i: number) => vec([sym('call_arg'), u32v(i)])
 
 /** `PolicyInstallParams` from contracts/stellar/policy-interpreter/src/types.rs.
- *  ScMap keys must be sorted, and every field must be present. */
+ *  ScMap keys must be sorted, and every field must be present. The grammar
+ *  version is the one policy-synth pins, the interpreter's `SELF_VERSION`. */
 export function installParams(predicate: xdr.ScVal, adminPk: string) {
   const bytes = predicate.toXDR()
   return xdr.ScVal.scvMap([
-    kv('grammar_version', u32v(6)),
+    kv('grammar_version', u32v(GRAMMAR_VERSION)),
     kv('install_nonce', u32v(1)),
     kv('policy_admins', vec([delegatedSigner(adminPk)])),
     kv('predicate', xdr.ScVal.scvBytes(bytes)),

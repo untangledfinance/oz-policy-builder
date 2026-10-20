@@ -1,9 +1,9 @@
-// End-to-end check of the v4 execution adapter - batching with an optional
-// wait - against a REAL Prime smart account, the unchanged v3 custody gate and
-// the live Blend pool on testnet.
+// End-to-end check of the execution adapter - batching with an optional
+// wait - against a REAL Prime smart account, the custody gate and the live
+// Blend pool on testnet.
 //
 // What it proves, beyond what the unit tests can:
-//   - a batch run at once (wait 0) still works exactly as v3 did;
+//   - a batch run at once (wait 0) works as an immediate batch;
 //   - a stored batch runs later with NO signature from the Prime: `run` asks
 //     the Prime through the rule the adapter signs to run stored batches, and
 //     Blend's own request mid-batch sits inside that approval;
@@ -20,7 +20,7 @@
 //
 //   bun scripts/verify-execution-wait-testnet.ts
 //
-// Reads the shared grammar-6 interpreter from deployments/grammar6-testnet.json;
+// Reads the shared policy interpreter from deployments/interpreter-testnet.json;
 // every account it uses is created and funded fresh.
 
 import { readFileSync } from 'node:fs'
@@ -65,8 +65,8 @@ import {
 } from './lib/chain.ts'
 
 /** The salt domain custody uses to find the adapter before it is deployed.
- *  `v5`, the build with an optional gate, hashes it with the XDR of the tuple
- *  (gate, min_wait, run_window); `v4` hashed the XDR of each part in turn. */
+ *  The adapter hashes it with the XDR of the tuple (gate, min_wait,
+ *  run_window). The string is data: it must match the adapter source. */
 const DOMAIN = 'prime.execution.adapter.v5'
 const NAMES: Record<string, string> = {
   '1': 'PrimeTarget',
@@ -113,7 +113,7 @@ const report = (ok: boolean, label: string, got: string) => {
   console.log(`${ok ? C.dim('ok  ') : '\x1b[31mMISMATCH\x1b[0m'} ${label.padEnd(56)} ${got}`)
 }
 const interpreter: string = JSON.parse(
-  readFileSync(new URL('../deployments/grammar6-testnet.json', import.meta.url), 'utf8')
+  readFileSync(new URL('../deployments/interpreter-testnet.json', import.meta.url), 'utf8')
 ).interpreter
 const sac = Asset.native().contractId(PASSPHRASE)
 
@@ -146,9 +146,8 @@ const prime = Address.fromScVal(
   ).returnValue!
 ).toString()
 
-// THE GATE IS THE v3 CONTRACT, UNCHANGED. It pins its caller's address and
-// code, so it takes the v4 adapter as it took v3 - only its configuration
-// names the new code.
+// The gate pins its caller's address and code: its configuration names the
+// adapter's code hash, and the gate itself needs nothing else from the adapter.
 const gateWasm = readFileSync(wasmPath('custody-gate', 'custody_gate'))
 const adapWasm = readFileSync(wasmPath('execution-adapter', 'execution_adapter'))
 const GW = hash(gateWasm)
@@ -170,7 +169,7 @@ const must = (r: any, what: string) => {
  *  With `tamper`, the Prime first tries to create the adapter at the address
  *  custody named but with a minimum wait of 0, which must be refused. */
 async function pair(tag: string, minWait: number, tamper = false) {
-  const gateSalt = hash(Buffer.from(`v4.${tag}.${Date.now()}`))
+  const gateSalt = hash(Buffer.from(`gate.${tag}.${Date.now()}`))
   const gate = contractId(CUSTODY, gateSalt)
   const adapter = contractId(prime, adapterSalt(gate, minWait, WINDOW))
   await send(
@@ -245,7 +244,7 @@ async function pair(tag: string, minWait: number, tamper = false) {
 
 const { gate, adapter } = await pair('main', 0)
 
-/** Install a rule on the Prime, retrying the interpreter's install as v3 does. */
+/** Install a rule on the Prime, retrying the interpreter's install a few times. */
 async function addRule(o: { scope: string; signer: string; name: string; predicate: xdr.ScVal }) {
   for (let i = 0; i < 5; i++) {
     const r = await asPrime({
@@ -280,7 +279,7 @@ async function addRule(o: { scope: string; signer: string; name: string; predica
 const poolRule = await addRule({
   scope: POOL,
   signer: adapter,
-  name: 'v4-pool',
+  name: 'pool',
   predicate: and([
     eq(selector('call_fn'), sym('submit')),
     eq(callArg(0), addr(prime)),
@@ -310,19 +309,19 @@ must(
 const runRule = await addRule({
   scope: adapter,
   signer: adapter,
-  name: 'v4-run',
+  name: 'run',
   predicate: eq(selector('call_fn'), sym('run')),
 })
 // The agent's rule: only `execute`, and never with less than AGENT_MIN.
 const agentRule = await addRule({
   scope: adapter,
   signer: K.agent.publicKey(),
-  name: 'v4-agent',
+  name: 'agent',
   predicate: and([eq(selector('call_fn'), sym('execute')), gte(callArg(2), u32v(AGENT_MIN))]),
 })
 
 console.log(C.bold('\nprime   ') + prime)
-console.log(C.bold('gate    ') + gate + C.dim('  (custody-gate, unchanged)'))
+console.log(C.bold('gate    ') + gate + C.dim('  (custody-gate)'))
 console.log(C.bold('adapter ') + adapter + C.dim(`  ${adapWasm.length}B, window ${WINDOW} ledgers`))
 console.log(C.bold('rules   ') + `pool ${poolRule}, run ${runRule}, agent ${agentRule}`)
 
@@ -477,7 +476,7 @@ const balance = async (a: string) =>
     (await horizon.loadAccount(a)).balances.find((b: any) => b.asset_type === 'native')?.balance
   )
 
-console.log(C.bold('\n── a zero wait runs at once, as v3 did ──'))
+console.log(C.bold('\n── a zero wait runs at once ──'))
 await execute('Blend supply, wait 0', supply, 0, 'PERMIT', {
   rules: [0, poolRule],
   signers: [K.admin.publicKey(), adapter],
