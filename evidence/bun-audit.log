@@ -1,5 +1,20 @@
-# bun audit - 2026-08-27T18:15:23Z
+# bun audit at the repository root, 20 October 2026 (exit 1: advisories found)
 
-$ bun audit
-[0m[1mbun audit [0m[2mv1.3.14 (0d9b296a)[0m
-No vulnerabilities found
+bun audit v1.3.14 (0d9b296a)
+follow-redirects  >=1.16.0 <1.16.1
+  workspace:@crediolabs/policy-builder-cli › @stellar/stellar-sdk
+  high: follow-redirects array-form headers bypass cross-origin credential stripping - https://github.com/advisories/GHSA-q3jh-wrc6-jgq8
+  high: follow-redirects sensitiveHeaders regex escaping can expose credential headers - https://github.com/advisories/GHSA-8r9p-f939-6h3c
+
+hono  >=4.12.4 <4.13.11
+  workspace:@crediolabs/policy-builder-mcp › @modelcontextprotocol/sdk
+  moderate: Hono: `serveStatic` decodes the request path a second time, leading to bypass of middleware on static paths - https://github.com/advisories/GHSA-5r4p-p66f-jhc7
+
+3 vulnerabilities (2 high, 1 moderate)
+
+To update all dependencies to the latest compatible versions:
+  bun update
+
+To update all dependencies to the latest versions (including breaking changes):
+  bun update --latest
+

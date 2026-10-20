@@ -1,50 +1,50 @@
-# bun scripts/verify-execution-null-gate-testnet.ts   (2026-10-18, Linux build, adapter v5 4985cd123baddd9f..., gate b01024f31a24108f..., interpreter CDZV4AG4..., OZ account 91a2cd56...)
+# bun scripts/verify-execution-null-gate-testnet.ts   (2026-10-20T19:34:41Z, Linux builds: adapter 4985cd123baddd9f..., gate b01024f31a24108f..., interpreter instance CDZV4AG4... from deployments/interpreter-testnet.json, throwaway friendbot keys)
 
-PASS setup: USDC trustlines for X and M | tx 587c14b7cf624719a780f53ca844bdcb75e0d82fac991563f4779f04becf1ca7 fee 200
-PASS setup: issue 1000 USDC to X | tx 79437a55cee5d1bc18fcd9c903d4f147ec02d8515de87d4f77eb984d8912afd3 fee 100
-PASS setup: USDC asset contract | tx 5cf771f380b510fe10a5df737e58a4b140c82b4a3ab1dac1b48e77f17d1b3d44 fee 380389
-upload adapter 4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b tx 9d9753a434302e6ba62001a5d8d69963f3a24eae8e60bae0df957ae7e568751f
-upload gate b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab tx 2db31f10c6c03e743f350be3de0f9ece6cd3defe59a5145ca5911824389d2090
+PASS setup: USDC trustlines for X and M | tx 71cbfc36796604fe94e5e4ae102911537ba50e5f4b49134f1112acf0121efbdc fee 200
+PASS setup: issue 1000 USDC to X | tx d8cf2074f74c5c694a830a1cc3c7d8badc3dad7485cce96bcfd3e7bfd7aeba45 fee 100
+PASS setup: USDC asset contract | tx ebe1a528a4d463ee80fcbd58b4dce91bd205bcd84651b6b203c5249cd2589ec2 fee 391403
+upload adapter 4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b tx 30740640abc5aa3f8ddaf165934a209b2a6047c9f5de415b0e348290b1a391b3
+upload gate b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab tx 2f1d402fd25c4bf7157463e714dab181de936afc592c35126ca9573ce7e06029
 adapter build 4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b (24659 B), interpreter CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT
-PASS setup: Z CABUJMTD lists H, so hello answers | tx 58816815c91852e463915391c77ea1a29836466fd8ef4f8e1b6247d44eac9b87 fee 1653259
+PASS setup: Z CD5GFJ7W lists H, so hello answers | tx d5e5105f740f5fa96518d183451015f929e72005b23a5531622876a88f839dbb fee 1701025
 
 -- X is a G account
 PASS G0a. a third party creates X's null adapter from its own address | refused #8 NotWhereAgreed
-PASS G0b. X creates its null adapter as transaction source CB7URNGS63PGSUHEQDCWBOIXEU7QDFRWUGLM6IOEHM3CUKXM7CSTUBR3 | tx 1530d5445ba23df4f06440fe34dc60a290bbeb3671ee8ec9283b4d6419b3f691 fee 188560
-PASS G0c. at the address derived with "no gate" = void | CB7URNGS63PGSUHEQDCWBOIXEU7QDFRWUGLM6IOEHM3CUKXM7CSTUBR3
+PASS G0b. X creates its null adapter as transaction source CDO4QBLCIY7KMWBZAOVOIZ5PFJFKNRPRGUMAN7LFS5KRK2N6TENADEYV | tx caccdd923406c8fdf5bdd2f76f82611faa58081fd9beeb7656248cc810a0aa97 fee 194131
+PASS G0c. at the address derived with "no gate" = void | CDO4QBLCIY7KMWBZAOVOIZ5PFJFKNRPRGUMAN7LFS5KRK2N6TENADEYV
 G1 authorizations:
-  entry GB52NLQW
-    CB7URNGS.execute
-      CAHENTRS.transfer
+  entry GCZQQPF3
+    CDO4QBLC.execute
+      CBJDTIPZ.transfer
       CDLZFC3S.transfer
 
-PASS G1. hello answers: [hello, USDC.transfer(X,M,10), XLM.transfer(X,N,1)], one entry signed by X | tx 1ec2d26ae35cf3e0394545cde17fa86de5c2b13ae0758c2c6d872832ec30d228 fee 505530102
+PASS G1. hello answers: [hello, USDC.transfer(X,M,10), XLM.transfer(X,N,1)], one entry signed by X | tx ad2f37b56777cfcdcc47261c5b83109184c5dd3518c6a76c0aed64fccdec6104 fee 1008021
 PASS G1b. one authorization covered both nested transfers, and both landed | entries 1, M +100000000, N +10000000
 PASS G2a. a second bundle is signed and simulated while hello answers | 
-PASS G2b. Z's owners remove H, so hello now fails | tx 721352f795b33574b481470258146bdf68b5d37d830658ae13a2e55fae3e4d53 fee 20411
+PASS G2b. Z's owners remove H, so hello now fails | tx 9ddb8974b9756e568636b6f1442f0ca68131357b24290b3312cf7ba9fc719a40 fee 20428
 PASS G2c. hello alone now fails | refused #3006
-PASS G2d. the bundle fails on chain at hello | refused FAILED on chain FAILED tx 9e739e971edb406265d45b66e73601cb3174c862583f793a27811fac8c36b82d
-PASS G2e. nothing moved | usdcX 9900000000, xlmX 99989811440, usdcM 100000000, xlmN 100010000000
-PASS G3a. H is added back, hello answers again | tx 0733ef684f056e1ae5c5d6272ac4dbe280490c5b928a7b6fcf5b5f25c66743f4 fee 331716
-PASS G3b. the SAME signed entry, resubmitted before its expiry ledger, now runs (it is a bearer instrument until then) | tx de702abb2e03c2ae93029563df2edded9fc00a0e0df11f5f8d7c4a8cfcee99e1 fee 375319
+PASS G2d. the bundle fails on chain at hello | refused FAILED on chain FAILED tx 1cb48df1364b563350008419a01df06e023ba4f7fc9eedd4ae141dbb0b77dbf9
+PASS G2e. nothing moved | usdcX 9900000000, xlmX 99989805869, usdcM 100000000, xlmN 100010000000
+PASS G3a. H is added back, hello answers again | tx f0232903340b33108819bfc34791be4ebaa4bd2171bd059363ce3bf71f6e61d0 fee 341196
+PASS G3b. the SAME signed entry, resubmitted before its expiry ledger, now runs (it is a bearer instrument until then) | tx e36aa6deeb609ca07c410569604475e8990ad9b16515b220063d72569373287d fee 386055
 PASS G4. an entry signed with a short expiry is refused once that ledger has passed | refused Error(Auth, InvalidInput)
 PASS G5. the Prime itself as a call target | refused #1 PrimeTarget
 PASS G6. a grant the adapter would hand out as itself | refused #3 Uncheckable
 PASS G7. rebind on a null adapter, even by the Prime | refused #9 NoGate
 PASS G8. X asks the null adapter to store a batch (wait 2) | refused #10 NoWait
 PASS G9a. a stranger cancels on the null adapter | refused #7 NotACanceller
-PASS G9b. X cancels (there is nothing stored to drop) | tx c5ce24136f70813345909d00c7960d2d4a6fb791cdd99813e346ae2ed39ccfe0 fee 3384
+PASS G9b. X cancels (there is nothing stored to drop) | tx ba5375a1bf3d117219e09ea306c9167d30fa8c0369fdfa22205e578957f28942 fee 3384
 PASS G9c. there is nothing to run | refused #5 NotScheduled
 
 -- X is an OZ smart account (wasm 91a2cd56)
-PASS C0a. X_C CA33FTN3NNWHCSA2SAZCJURKBCCJRKBTHMRZYT6YPKC5TBIAUNQ67I2R, rule 0: Delegated(owner) | tx 86c7093e3b20aae004c093fdc4045f2cf994bb1a6f098ccb16f6ae61fe0ae663 fee undefined
-PASS C0b. fund X_C with 20 XLM | tx 4d4ce8345b212cb5cf68749dbdf8cd95ed343249d3159049413c02f79d254952 fee 766190
-PASS C0c. fund X_C with 500 USDC | tx b146499ea0e0ece23b561bedf870b33c666ddadc0e1c99afdb2e1722d43e704e fee 764904
-PASS C1. X_C creates its null adapter through rule 0 CCGNPZQ2GZGDXLMMTLQ2E2HSDFQMV7GBBDFOFEW72GJLMY6J55EIS4LR | tx b7597ef60d78de621327c8732890590ff4d4d6a98a38a02befa032594d92f55c fee 1515812
-PASS C2. owners: [hello, USDC.transfer, XLM.transfer], one owner signature, rule 0 for each of the 3 contexts | tx 614462770b6e9246b281c2538a8b277332f85887c6d34f4ae88878e459129c7d fee 618365
+PASS C0a. X_C CDSERSZBQQ5C4YKKUO4SMW3IHEXD73JRLQATCRQE3ZVL4XTCLPBHPMOC, rule 0: Delegated(owner) | tx 6d7987c22b0a1d531fde177f5e9661515441d5a735468ba3372d36dec3f07b35 fee undefined
+PASS C0b. fund X_C with 20 XLM | tx 7dc4391b1d99138be7366c7d22fbb1084bae7b6c21885dc8e3983bbe7ea26d9b fee 789244
+PASS C0c. fund X_C with 500 USDC | tx b1e0367331449cdea482bc59e57bc49dcf3278f8cf81927d6b5dd0d5499f25ce fee 787958
+PASS C1. X_C creates its null adapter through rule 0 CCYOYWPQX3QY5BC4JVCICL4MHKF7NDDO3HF3QCL67ZNFZSOGTZQLZCWV | tx 71770fa6806a581eaeb012d26180cddb150b06439b8d28956c1d5588caa35e84 fee 1561371
+PASS C2. owners: [hello, USDC.transfer, XLM.transfer], one owner signature, rule 0 for each of the 3 contexts | tx 408cf5dda7dbe3b0b8467d077e4bd5f49614ab04fbd2eaa134241dea87a3ec48 fee 636370
 PASS C2b. both transfers landed | M +100000000, N +10000000
-PASS C3. agent rules on the grammar-7 interpreter: execute on the adapter, transfer <= 20 USDC, transfer <= 2 XLM | rules 1 2 3, txs a69284801a5322cea2948e3d1174d00a85d2fc8ca9856337bf1ac83a935c715e 20e4ac43b0fd3794e702e82bcfc8e7653cdfe01546ab804c93529ff2ca9bb465 aed5221604941423130441317074498a88c6a4013c46d5f520523bd181f41814
-PASS C4. the agent alone: the bundle at its USDC cap, one rule per context | tx 4dc485b43c040eb0ae295777f66420c902e48b33309f1920942a6ec4d9af7a96 fee 3764479
+PASS C3. agent rules on the policy interpreter: execute on the adapter, transfer <= 20 USDC, transfer <= 2 XLM | rules 1 2 3, txs baa0846d10d7f9b293204de7558626ce2ac5933a75bed85e25389d717e54ea25 2792b17589bc2e525e738ff73557454ac39b8199738c41e1522d9f851fba7660 3882bd2b59a96c973edbad41ab6523d4d03d1a153cbc382da8054397d049392d
+PASS C4. the agent alone: the bundle at its USDC cap, one rule per context | tx 28e7cd965d36749364b02c0b3ac3129d8e9e43747a5f13df79377d1ba18e4c62 fee 3875957
 PASS C4b. both transfers landed | M +200000000, N +10000000
 PASS C5. the agent one stroop over its USDC cap | refused #100
 PASS C5b. the same, with the adapter named as a co-signer: no rule lists it | refused #3016
@@ -54,59 +54,59 @@ PASS C8a. the owners ask the null adapter to store a batch (wait 5) | refused #1
 PASS C8b. the agent asks the same (wait 5) | refused #10 NoWait
 PASS C8c. a stranger cancels on the null adapter | refused #7 NotACanceller
 PASS C8d. the agent cancels as the Prime: its rule permits execute only | refused #100
-PASS C8e. the owners cancel (nothing is stored to drop) | tx a14728bd67825ad39e23e883b7172a8de743636d170b3bd526705c1b1822ee09 fee 12240
+PASS C8e. the owners cancel (nothing is stored to drop) | tx 53f5842a7fd00189401eecd80ef74dec64c085e2623e0abe05adc207383221b2 fee 12251
 PASS C8f. a null adapter with a minimum wait cannot be created | refused #10 NoWait
 PASS C9. rebind on a null adapter | refused #9 NoGate
 
 -- a gated adapter on this build, and custody's gate
-PASS B0a. custody's gate R CAYVQ247 names the gated adapter CDU2QZ2V and this build | tx 312b306ebd54317e2b0e646e92c280c6f09473b2e98f0283395289d427d749f3 fee 471930
-PASS B0b. custody approves R for 5 XLM | tx ce23431d294db0ca0b1119f02e9b821e45d39d66e3d1fdee883214427d88e2cd fee 10504
-PASS B0c. X_C creates the gated adapter through rule 0 | tx d700bb6a1e47c032dd304292ea99e5136d62ac73e9aa596277fed1e9c48bf248 fee 222979
-PASS B1. the gated adapter pulls 1 XLM from custody to X_C (control) | tx 2e9cfdbadb36c8e69f418d60f07fd48930a4886317f241c5f29e9302de821cb0 fee 705859
+PASS B0a. custody's gate R CADS42UZ names the gated adapter CA2OECP5 and this build | tx 3587ce50b9379a04c9f1c062843c448f78414aebbd9749eddd390bbf354d1c7a fee 485821
+PASS B0b. custody approves R for 5 XLM | tx a8458f0216119a0556a662b05380a38843681e194866be507a373559fb810c97 fee 10647
+PASS B0c. X_C creates the gated adapter through rule 0 | tx 4c80d2ac407a46bd43ef59708508006357e873f5343a2e67c09e9aa70b814f52 fee 229227
+PASS B1. the gated adapter pulls 1 XLM from custody to X_C (control) | tx 082196def63787876448161a3ec3c32e1e04d7abd7126c5839b50aa0c5a6f200 fee 726367
 PASS B2. the null adapter pulls through custody's gate R | refused Error(Auth, InvalidAction)
-PASS B2b. custody's balance is unchanged | 99989517566
+PASS B2b. custody's balance is unchanged | 99989503532
 PASS B3. custody rebinds the gated adapter to "no gate" | refused Error(WasmVm, InvalidAction)
-PASS B3b. it is still bound to R | CAYVQ2474X7JQ7EPZ7N7D3CNGOHNGNA2OWIV7W2IFNKWM2HNNC4QFPKE
+PASS B3b. it is still bound to R | CADS42UZ4SWIUYQPYXNG3G5QXQWM3V2PSQYSZ73U6INA6ZFZ7JTEOHOZ
 
 -- cost: k USDC transfers of 1 stroop from X (G, source) to M
-PASS cost setup: v5 gated adapter CAUIRS3D on an allow-list gate | tx 9adee33108bd7f223ca5dc9424b3c443ef1783c79505619af433a0a426b7ba19 fee 217285
-PASS cost setup: v4 gated adapter CCHBBNXP on an allow-list gate | tx a03a6e96bff9ed73206b2b3730739a5f99527d76528cc7df63f53e4dae3a2ac6 fee 217289
-PASS cost v5 null, 1 calls | tx 170b1f2aecde073159e4021389edfcf98415b55741f2027d549686b27e590b76 fee 8910
-PASS cost v5 null, 3 calls | tx 89d4e12bbf7a93fe31544908ad0b39020448bbd7ac218fb6ae1b62e82229eccf fee 13429
-PASS cost v5 null, 10 calls | tx 36dad287353f42300961c4ebf762497cfc46e87d30712b51290a034e4633d665 fee 29259
-PASS cost v5 gated, 1 calls | tx 8f8d921d5f48257dbd53ada3d6e047721c98f8bc813b9e10793359e0230a31b9 fee 9238
-PASS cost v5 gated, 3 calls | tx 9c5d7be77b9bef63b8ad51e6b9391443a2ae5c7fe4cebc5067527ddcac0dbeb2 fee 13787
-PASS cost v5 gated, 10 calls | tx 38ab2897345e3237bcb667ab05eaa699cd4124a11c5284edf140b941c0806325 fee 29709
-PASS cost v4 gated, 1 calls | tx e78e4c5bb3002f5b946ed355ece25d421fb68610192ea050f7e456340f3d6b99 fee 9239
-PASS cost v4 gated, 3 calls | tx cd2dab74251771bc5101d9500b380f987759b0171adb3e3c2eaa245a96b1ff64 fee 13788
-PASS cost v4 gated, 10 calls | tx 0bd4c7f72439433016d66c337aaa0f73a827ba7e6c31f3713a97d2b3241617e2 fee 29710
+PASS cost setup: gated adapter CAVXM522 on an allow-list gate | tx 75cbec9b9ecdb412fc35ebfea9bea2f7ba8af6a8cd9bd73ecc65a25b993b5aa9 fee 223617
+PASS cost setup: deployed build, gated adapter CBKEF4HX on an allow-list gate | tx 54c89ae70ca8e51b140fedaaa89d7a775e4268022a978485b14e973f55432a2d fee 223621
+PASS cost null, 1 calls | tx 4083cfb699dfc6a1d94a3f404f6275dd4b806ae59ae8795c172bd1a9cf695699 fee 8910
+PASS cost null, 3 calls | tx 16352c5f03a53f56ec9063d0f5a4fafb7861b20f4a121f62b52609576f6b97ba fee 13429
+PASS cost null, 10 calls | tx 9028f48b14d53ff68c67d0e1dfc26247416d50e1998a392b46d2bf67b4fa7052 fee 29259
+PASS cost gated, 1 calls | tx 38be19be5569271641d7162025c69cc1043492f2e255c6bbda3ba76d6d258a36 fee 9237
+PASS cost gated, 3 calls | tx 4a2232089e603cd017594440eab22aff909580d7b195c0bca492caedd517a32b fee 13787
+PASS cost gated, 10 calls | tx 6a65c874251ebdaccfb970c4acc6a7d1015377fbc964ec55d2c6e5be5a73aa56 fee 29707
+PASS cost deployed build, gated, 1 calls | tx 1dc33952130d770d9baa086defdef23ca28dbf9410ad07b9ef881f843f144e3e fee 9239
+PASS cost deployed build, gated, 3 calls | tx 10c85b41bc7f1a29c8ff74a85c8401033ec16faed3013662d0eb381836886e18 fee 13788
+PASS cost deployed build, gated, 10 calls | tx 270dcecb569fb022f66051d59ea9a7932062350fbc1e02452e15a611af37dd60 fee 29710
 
 -- cost: k USDC transfers of 1 stroop from X_C (OZ account, rule 0) to M
-PASS cost OZ v5 null, 1 calls | tx 4e1c6cffdcc92448984f6f47e7da23e3d43be23d09f773c042c1a5acb16ab4f9 fee 17204
-PASS cost OZ v5 null, 3 calls | tx 526bb2c4134dc5c4720b1acc5627fd8939ac9b112cb2c6056ccd489da469a4b3 fee 21950
-PASS cost OZ v5 null, 10 calls | tx ed5c07b24e5ff9f2ff4693fe837b4ca0364890c8eb6cb3a1f5389879c468733d fee 38573
-PASS cost OZ v5 gated, 1 calls | tx 619f405b2b56ce527afc1f8c79dfb233ebbe3fa77f2d99d6ca0e985bfae53e86 fee 17543
-PASS cost OZ v5 gated, 3 calls | tx 2ad50f81de08e351233ae27b75b7c9f3b38c739aa6a66bfa04f63cc5f831eed1 fee 22316
-PASS cost OZ v5 gated, 10 calls | tx 0a5c4446deee25e75271dc250ef48ea0fa041afbf2d554a31eab438df6f5267e fee 39030
+PASS cost OZ null, 1 calls | tx 3e9d71983f34b0ae0c1625cc7ca1e5a2777918d2c591233a3093e89e4124e302 fee 17216
+PASS cost OZ null, 3 calls | tx 37127179623881dcbb8882f171658ec446f17964e11c936cd3fb2ab347fc528a fee 21962
+PASS cost OZ null, 10 calls | tx 2f81fb36f3ba343a38dd78d87e23389c1875937ec3e7e1eff18e67da0a97f5df fee 38585
+PASS cost OZ gated, 1 calls | tx 9ce7cf6a8390aa66e3d61649da5bd5d26301ac002dfe825eb8fb2c716e7b8638 fee 17555
+PASS cost OZ gated, 3 calls | tx fe78d2f2b2f41000aed3e4b85d92c2b9767080f1355d5de404be1c2bff8cdb7c fee 22329
+PASS cost OZ gated, 10 calls | tx acb7d272fbb3c3d45d8c6f83f212a3d72ea16a45e2a6564199f23a5e7f0af665 fee 39048
 
 | Adapter | Calls | CPU instructions | Min resource fee | Charged | Transaction |
 |---|---|---|---|---|---|
-| v5 null | 1 | 935,464 | 13,706 | 8,910 | `170b1f2aecde073159e4021389edfcf98415b55741f2027d549686b27e590b76` |
-| v5 null | 3 | 1,267,575 | 18,407 | 13,429 | `89d4e12bbf7a93fe31544908ad0b39020448bbd7ac218fb6ae1b62e82229eccf` |
-| v5 null | 10 | 2,475,164 | 35,907 | 29,259 | `36dad287353f42300961c4ebf762497cfc46e87d30712b51290a034e4633d665` |
-| v5 gated | 1 | 1,420,481 | 14,034 | 9,238 | `8f8d921d5f48257dbd53ada3d6e047721c98f8bc813b9e10793359e0230a31b9` |
-| v5 gated | 3 | 1,852,617 | 18,765 | 13,787 | `9c5d7be77b9bef63b8ad51e6b9391443a2ae5c7fe4cebc5067527ddcac0dbeb2` |
-| v5 gated | 10 | 3,365,094 | 36,374 | 29,709 | `38ab2897345e3237bcb667ab05eaa699cd4124a11c5284edf140b941c0806325` |
-| v4 gated | 1 | 1,424,226 | 14,035 | 9,239 | `e78e4c5bb3002f5b946ed355ece25d421fb68610192ea050f7e456340f3d6b99` |
-| v4 gated | 3 | 1,856,437 | 18,766 | 13,788 | `cd2dab74251771bc5101d9500b380f987759b0171adb3e3c2eaa245a96b1ff64` |
-| v4 gated | 10 | 3,369,176 | 36,375 | 29,710 | `0bd4c7f72439433016d66c337aaa0f73a827ba7e6c31f3713a97d2b3241617e2` |
-| OZ v5 null | 1 | 3,089,916 | 22,432 | 17,204 | `4e1c6cffdcc92448984f6f47e7da23e3d43be23d09f773c042c1a5acb16ab4f9` |
-| OZ v5 null | 3 | 4,302,752 | 27,483 | 21,950 | `526bb2c4134dc5c4720b1acc5627fd8939ac9b112cb2c6056ccd489da469a4b3` |
-| OZ v5 null | 10 | 8,582,860 | 45,847 | 38,573 | `ed5c07b24e5ff9f2ff4693fe837b4ca0364890c8eb6cb3a1f5389879c468733d` |
-| OZ v5 gated | 1 | 3,609,054 | 22,771 | 17,543 | `619f405b2b56ce527afc1f8c79dfb233ebbe3fa77f2d99d6ca0e985bfae53e86` |
-| OZ v5 gated | 3 | 4,910,315 | 27,867 | 22,316 | `2ad50f81de08e351233ae27b75b7c9f3b38c739aa6a66bfa04f63cc5f831eed1` |
-| OZ v5 gated | 10 | 9,499,910 | 46,323 | 39,030 | `0a5c4446deee25e75271dc250ef48ea0fa041afbf2d554a31eab438df6f5267e` |
+| null | 1 | 935,464 | 13,706 | 8,910 | `4083cfb699dfc6a1d94a3f404f6275dd4b806ae59ae8795c172bd1a9cf695699` |
+| null | 3 | 1,267,575 | 18,407 | 13,429 | `16352c5f03a53f56ec9063d0f5a4fafb7861b20f4a121f62b52609576f6b97ba` |
+| null | 10 | 2,475,164 | 35,907 | 29,259 | `9028f48b14d53ff68c67d0e1dfc26247416d50e1998a392b46d2bf67b4fa7052` |
+| gated | 1 | 1,419,753 | 14,033 | 9,237 | `38be19be5569271641d7162025c69cc1043492f2e255c6bbda3ba76d6d258a36` |
+| gated | 3 | 1,850,225 | 18,765 | 13,787 | `4a2232089e603cd017594440eab22aff909580d7b195c0bca492caedd517a32b` |
+| gated | 10 | 3,356,878 | 36,372 | 29,707 | `6a65c874251ebdaccfb970c4acc6a7d1015377fbc964ec55d2c6e5be5a73aa56` |
+| deployed build, gated | 1 | 1,424,226 | 14,035 | 9,239 | `1dc33952130d770d9baa086defdef23ca28dbf9410ad07b9ef881f843f144e3e` |
+| deployed build, gated | 3 | 1,856,437 | 18,766 | 13,788 | `10c85b41bc7f1a29c8ff74a85c8401033ec16faed3013662d0eb381836886e18` |
+| deployed build, gated | 10 | 3,369,176 | 36,375 | 29,710 | `270dcecb569fb022f66051d59ea9a7932062350fbc1e02452e15a611af37dd60` |
+| OZ null | 1 | 3,090,522 | 22,446 | 17,216 | `3e9d71983f34b0ae0c1625cc7ca1e5a2777918d2c591233a3093e89e4124e302` |
+| OZ null | 3 | 4,303,357 | 27,496 | 21,962 | `37127179623881dcbb8882f171658ec446f17964e11c936cd3fb2ab347fc528a` |
+| OZ null | 10 | 8,583,465 | 45,861 | 38,585 | `2f81fb36f3ba343a38dd78d87e23389c1875937ec3e7e1eff18e67da0a97f5df` |
+| OZ gated | 1 | 3,611,428 | 22,785 | 17,555 | `9ce7cf6a8390aa66e3d61649da5bd5d26301ac002dfe825eb8fb2c716e7b8638` |
+| OZ gated | 3 | 4,916,744 | 27,881 | 22,329 | `fe78d2f2b2f41000aed3e4b85d92c2b9767080f1355d5de404be1c2bff8cdb7c` |
+| OZ gated | 10 | 9,520,535 | 46,343 | 39,048 | `acb7d272fbb3c3d45d8c6f83f212a3d72ea16a45e2a6564199f23a5e7f0af665` |
 
-accounts: X GB52NLQWJICOSRGCPUE3YCW6REVL7SUMKA7MJQX4FCWKXOURNBPSQ5JP, X_C CA33FTN3NNWHCSA2SAZCJURKBCCJRKBTHMRZYT6YPKC5TBIAUNQ67I2R, Z CABUJMTDYNBKIUSHN6QKXIAK3ZEPEVHX6TYN5NAI6LXAPYZA4Z6C4R6C, M GDOO3XFID6F4YURHWWXKFHQUJYFJX5TBMQHB6MKTZ4IQO4JBAWNB4VAB, N GA7DD4N2YQA5UYTWKFVW63E3J7L7S2JV5YYESSQHX7RTAPH2SYSGQXGW, custody GAWSSA4N6CR36UUSZ3V2WQVDLSZUI7CGLX5UUCSH2ZDG6XPEGGEHO5MJ, USDC CAHENTRS6HVKG2B7S54FI6ZRZWPVYBXKJ5M3OCGXCBELH4DIKPYF4N6M
+accounts: X GCZQQPF33VYWR5XRXBH62Y6I5IIXDVYELBN4PNHRDDBYUU4S6VD52WPI, X_C CDSERSZBQQ5C4YKKUO4SMW3IHEXD73JRLQATCRQE3ZVL4XTCLPBHPMOC, Z CD5GFJ7WWX35LZ7O5IUTGRHFDKIEJTKJ5UQOH57KXGTY54TABZ6R6QHL, M GDU2JLFGDZBSILAAT5KGQQOTH2YPZNXABACRFUQ6NEFVTFWQXSDJ54JQ, N GBWG5KZIDISZAS3ZATNBZ6TGKE66MO4QYLWZQXEA5TLOETTKKKS7SXNQ, custody GABMVU3ONVJPEFF22TSBZD3UK327BBVPVDI337UF75KYYCMQ6ON4OS7Q, USDC CBJDTIPZ3KN7M7EC2YVK56EY4DWVYJNMIO2W6OKTCVORJ5FE7IMRR36B
 
 all checks passed (69 rows)

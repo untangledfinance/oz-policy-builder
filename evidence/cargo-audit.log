@@ -1,7 +1,6 @@
-# cargo audit - 2026-08-27T18:15:21Z
+# cargo audit in contracts/stellar/policy-interpreter, 20 October 2026
 
-$ cargo audit
-      Loaded 1226 security advisories (from /home/ubuntu/.cargo/advisory-db)
+      Loaded 1348 security advisories (from /home/ubuntu/.cargo/advisory-db)
     Updating crates.io index
     Scanning Cargo.lock for vulnerabilities (202 crate dependencies)
 Crate:     paste

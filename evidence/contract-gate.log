@@ -1,24 +1,140 @@
-# Contract gate - 2026-08-27T18:13:52Z
-# fmt, clippy -D warnings, tests, conformance, wasm rebuild, hash pin parity
+# Contract gate, 20 October 2026, Linux, rust 1.97.1 (rust-toolchain.toml)
+# Tree: 107f83f4 plus this change, which changes no contract source, Cargo file, package, script or workflow (git diff of those paths against 107f83f4 is empty).
+# Each crate: cargo fmt --check, cargo clippy --all-targets -- -D warnings, build-wasm.sh (where the crate has one), cargo test.
+# Then: test-blend-pool built with the same path remaps, interpreter conformance and worst case in release, check-build-hash.sh, oz08/.
 
-$ cargo fmt --check
-(no output = clean)
-
-$ cargo clippy --all-targets -- -D warnings
-    Checking policy-interpreter v0.1.0 (/home/ubuntu/git/github.com/untangledfinance/oz-policy-builder/contracts/policy-interpreter)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.63s
-
-$ cargo test
-test result: ok. 67 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
-test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
-test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+### STEP contract and package source unchanged vs base 19:28:42 load 2.67 2.73 4.05
+### OK contract and package source unchanged vs base
+### STEP policy-interpreter fmt 19:28:42 load 2.67 2.73 4.05
+### OK policy-interpreter fmt
+### STEP policy-interpreter clippy 19:28:43 load 2.67 2.73 4.05
+    Checking soroban-ledger-snapshot v27.0.2
+    Checking policy-interpreter v0.1.0 (/tmp/stride-final/contracts/stellar/policy-interpreter)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 40s
+### OK policy-interpreter clippy
+### STEP policy-interpreter wasm 19:30:33 load 5.34 3.89 4.33
+810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c
+### OK policy-interpreter wasm
+### STEP policy-interpreter test 19:30:40 load 5.23 3.89 4.32
+test result: ok. 173 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.12s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
 test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
-test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
-test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+test result: ok. 104 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 29.07s
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.18s
+### OK policy-interpreter test
+### STEP custody-gate fmt 19:32:36 load 4.85 4.29 4.43
+### OK custody-gate fmt
+### STEP custody-gate clippy 19:32:36 load 4.85 4.29 4.43
+    Checking soroban-ledger-snapshot v27.0.6
+    Checking custody-gate v0.0.1 (/tmp/stride-final/contracts/stellar/custody-gate)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 00s
+### OK custody-gate clippy
+### STEP custody-gate wasm 19:33:36 load 5.86 4.72 4.57
+b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab
+### OK custody-gate wasm
+### STEP custody-gate test 19:33:39 load 5.63 4.69 4.56
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+### OK custody-gate test
+### STEP execution-adapter fmt 19:34:50 load 4.15 4.57 4.54
+### OK execution-adapter fmt
+### STEP execution-adapter clippy 19:34:50 load 4.15 4.57 4.54
+    Checking soroban-ledger-snapshot v27.0.6
+    Checking execution-adapter v0.0.1 (/tmp/stride-final/contracts/stellar/execution-adapter)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 08s
+### OK execution-adapter clippy
+### STEP execution-adapter wasm 19:35:59 load 5.68 5.08 4.73
+4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b
+### OK execution-adapter wasm
+### STEP execution-adapter test 19:36:00 load 5.68 5.08 4.73
+test result: ok. 62 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+### OK execution-adapter test
+### STEP prime-seat fmt 19:37:22 load 5.16 4.86 4.67
+### OK prime-seat fmt
+### STEP prime-seat clippy 19:37:22 load 5.16 4.86 4.67
+    Checking soroban-ledger-snapshot v27.0.6
+    Checking prime-seat v0.0.1 (/tmp/stride-final/contracts/stellar/prime-seat)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 51.58s
+### OK prime-seat clippy
+### STEP prime-seat wasm 19:38:14 load 4.70 4.83 4.67
+393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87
+### OK prime-seat wasm
+### STEP prime-seat test 19:38:15 load 4.70 4.83 4.67
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.65s
+### OK prime-seat test
+### STEP test-blend-pool fmt 19:39:10 load 4.46 4.80 4.68
+### OK test-blend-pool fmt
+### STEP test-blend-pool clippy 19:39:10 load 4.46 4.80 4.68
+    Checking soroban-ledger-snapshot v27.0.2
+    Checking test-blend-pool v0.1.0 (/tmp/stride-final/contracts/stellar/test-blend-pool)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 48.48s
+### OK test-blend-pool clippy
+### STEP test-blend-pool test 19:39:59 load 4.10 4.68 4.65
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+### OK test-blend-pool test
+### STEP test-blend-pool wasm, remapped paths 19:41:25 load 4.77 4.82 4.70
+    Finished `release` profile [optimized] target(s) in 32.96s
+7ba261ed4d1320ceabc47abcbe6819824c27529d0ae7e55ce2fc363555418e76
+### OK test-blend-pool wasm, remapped paths
+### STEP interpreter conformance, release 19:41:58 load 5.31 4.98 4.76
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+### OK interpreter conformance, release
+### STEP interpreter worst case, release 19:44:33 load 3.20 4.35 4.57
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+### OK interpreter worst case, release
+### STEP interpreter hash pin 19:45:24 load 2.72 4.02 4.44
+built:  810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c
+pinned: 810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c
+### OK interpreter hash pin
+### STEP adapter hash pin 19:45:25 load 2.72 4.02 4.44
+built:  4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b
+pinned: 4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b
+### OK adapter hash pin
+### STEP seat hash pin 19:45:25 load 2.72 4.02 4.44
+built:  393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87
+pinned: 393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87
+### OK seat hash pin
+### STEP gate hash = deployments/execution-testnet.json 19:45:25 load 2.72 4.02 4.44
+### OK gate hash = deployments/execution-testnet.json
+### STEP hash policy-interpreter = brief 19:45:25 load 2.72 4.02 4.44
+### OK hash policy-interpreter = brief
+### STEP hash custody-gate = brief 19:45:25 load 2.72 4.02 4.44
+### OK hash custody-gate = brief
+### STEP hash execution-adapter = brief 19:45:25 load 2.72 4.02 4.44
+### OK hash execution-adapter = brief
+### STEP hash prime-seat = brief 19:45:25 load 2.72 4.02 4.44
+### OK hash prime-seat = brief
+### STEP oz08 fmt 19:45:25 load 2.72 4.02 4.44
+### OK oz08 fmt
+### STEP oz08 clippy 19:45:25 load 2.72 4.02 4.44
+    Checking soroban-ledger-snapshot v28.0.0
+    Checking policy-interpreter-oz08 v0.1.0 (/tmp/stride-final/contracts/stellar/policy-interpreter/oz08)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 55.67s
+### OK oz08 clippy
+### STEP oz08 test 19:46:21 load 5.13 4.45 4.56
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.29s
+### OK oz08 test
 
-$ cargo test --release --test conformance
-test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+## test results
+policy-interpreter: 416 passed, 0 failed, in 14 test binaries
+custody-gate: 3 passed, 0 failed, in 1 test binaries
+execution-adapter: 62 passed, 0 failed, in 1 test binaries
+prime-seat: 21 passed, 0 failed, in 1 test binaries
+test-blend-pool: 0 passed, 0 failed, in 1 test binaries
+oz08: 12 passed, 0 failed, in 2 test binaries
 
-$ ./build-wasm.sh
-b5ba1e35ccf20cd8c13c3a2c3098bf337033a92bcaf475d63c03ddc0cba0fcae
-(matches PINNED_INTERPRETER_WASM_SHA256)
+## build hashes (sha256)
+policy-interpreter   810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c
+custody-gate         b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab
+execution-adapter    4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b
+prime-seat           393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87
+test-blend-pool      7ba261ed4d1320ceabc47abcbe6819824c27529d0ae7e55ce2fc363555418e76
