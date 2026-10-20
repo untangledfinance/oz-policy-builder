@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Compares a built artifact's sha256 with the value recorded in build-hashes.json.
-# Usage: check-build-hash.sh <contract, e.g. solana/custody-gate> <built artifact>
+# Usage: check-build-hash.sh <contract, e.g. stellar/prime-seat> <built artifact>
 set -euo pipefail
 
 contract="$1"

@@ -315,8 +315,13 @@ fn a_grant_signed_for_another_account_seat_or_key_is_refused() {
     }
 }
 
+// Fixed testnet grant vectors: account, seat, session key, start, end and the grant hash, kept here as
+// static test data so the test needs nothing outside this crate. Rows 1, 3 and 4 equal the cases
+// `grant-stellar-votes`, `grant-stellar-year-end-max-window` and `end-stellar` (an End: start and end 0)
+// of the cross-wallet grant vectors this repository used to carry; row 2, a one-day grant, came with the
+// seat when it was imported. The test recomputes each hash and has the seat accept a grant signed over it.
 #[test]
-fn the_grant_hash_equals_the_shared_vectors() {
+fn the_grant_hash_equals_the_recorded_vectors() {
     let vectors = [
         (
             "CAR5IKJTBWVHIVVS6KR5HNNTMDRXI6GRIIMFFDY7HXF3XERGLVS7DRMH",

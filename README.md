@@ -204,12 +204,9 @@ The STRIDE threat model for grammar 7, with what is done and what is open at
 
 | You want to | Read |
 | --- | --- |
-| See what runs where, on every chain | [docs/README.md](./docs/README.md) |
-| Understand the custody setup, the seats and how the chains fit together | [docs/architecture.md](./docs/architecture.md) |
+| See what runs where | [docs/README.md](./docs/README.md) |
+| Understand the custody setup and the seats | [docs/architecture.md](./docs/architecture.md) |
 | Read the Stellar contracts and the policy builder in detail | [docs/stellar.md](./docs/stellar.md) |
-| Read the EVM design in detail | [docs/evm.md](./docs/evm.md) |
-| Read the Solana programs in detail | [docs/solana.md](./docs/solana.md) |
-| Read the NEAR signer in detail, and the status of the retired v1 | [docs/near.md](./docs/near.md) |
 | Build and install a policy from a shell | `packages/policy-builder-cli` (`policy-builder <tool>`, all eight tools) |
 | Drive it from an agent | `packages/policy-builder-mcp` (MCP over stdio / Streamable HTTP) |
 
@@ -225,7 +222,6 @@ The STRIDE threat model for grammar 7, with what is done and what is open at
 | `contracts/stellar/execution-adapter` | The per-Prime batcher, bound to one gate. A batch can wait a number of ledgers before it runs. |
 | `contracts/stellar/test-blend-pool` | A Blend-`submit`-shaped stub, for testnet verification only. |
 | `contracts/stellar/prime-seat` | The seat of an owner who signs through NEAR, on a Prime account. It also serves the session keys that owner grants. |
-| `contracts/{evm,solana,near}` | The EVM and Solana seats, the Solana custody gate and the NEAR signer v2 with its shared vectors. NEAR signer v1 left the tree on 18 October 2026; its testnet account still signs any payload until it is removed, and nothing in octopos calls it ([docs/near.md](./docs/near.md#prime-near-signer-v1-retired)). See [contracts/README.md](contracts/README.md). |
 | `deployments/` | Deployment records that CI and the scripts read. |
 | `evidence/` | Logs and receipts behind the claims in the docs. |
 

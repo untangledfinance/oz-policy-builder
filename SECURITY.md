@@ -16,9 +16,7 @@ There is currently no bug bounty programme.
 | Component | Where it runs |
 | --- | --- |
 | `policy-interpreter`, `custody-gate`, `execution-adapter` (Stellar) | Soroban contracts on Stellar mainnet and testnet; the grammar-7 interpreter source on this branch runs on testnet only (addresses in `packages/policy-synth/src/config.ts` and `deployments/`) |
-| `prime-seat` (Stellar), `PrimeSeat` (EVM), `prime-seat` and `custody-gate` (Solana) | Stellar testnet, Base Sepolia and Solana devnet |
-| `prime-near-signer-v2` | NEAR testnet |
-| `prime-near-signer` v1, retired: its source left this tree on 18 October 2026 and is kept at tag `archive/near-signer-v1` | NEAR testnet, `signer.prime-spike-muwguc60.testnet`. The account still signs any payload a wallet approves until it is removed, and nothing in octopos calls it |
+| `prime-seat` (Stellar) | Stellar testnet |
 | `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` | Published on npm, run off-chain |
 
 `test-blend-pool` is a testnet-only fixture and is out of scope.
@@ -28,9 +26,9 @@ There is currently no bug bounty programme.
 **An external audit is in progress:** it covers the policy interpreter, the
 custody gate, the execution adapter and the three npm packages on `main`
 (the scope Untangled gave the auditor on 10 October 2026). Its
-report is still to come. The seats, the Solana programs and the NEAR signers
-are outside it; they have had internal reviews and mutation testing, listed in
-[contracts/README.md](./contracts/README.md) and their own READMEs.
+report is still to come. `prime-seat` is outside it; it has had internal
+reviews and mutation testing, listed in
+[contracts/README.md](./contracts/README.md) and its own README.
 The contracts have also been through internal adversarial review and STRIDE
 threat models, and the findings that came out of them were either fixed or
 documented as accepted trust assumptions. The pages in [docs/](./docs/README.md)

@@ -1,3 +1,3 @@
 [test]
-# The Solana app checks carry tests with their own dependencies; CI runs the workspace packages.
+# Tests live in the workspace packages; CI runs those.
 root = "packages"
