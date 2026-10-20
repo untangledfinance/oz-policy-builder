@@ -68,6 +68,6 @@ gate, for new gates (octopos #231). CI rebuilds this source and compares it
 with that record.
 
 The v4 build `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3`,
-recorded in `deployments/execution-testnet.json`, is the one the Prime app pins
-on mainnet and mainnet runs; its source is this folder at `a86a496`. Gates set up on
+recorded in `deployments/execution-testnet.json`, is the build mainnet runs and
+the one the Prime app pins there; its source is this folder at `a86a496`. Gates set up on
 mainnet before 11 October 2026 run `68d012e7…` (`deployments/prime-mainnet.json`).

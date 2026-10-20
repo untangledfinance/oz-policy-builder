@@ -159,7 +159,8 @@ mainnet refusal is the intended security change of P0-4.
   adapter signs for its own calls, adapters added as signers, funds to an
   adapter with no gate, bindings outside the account's own adapters,
   `remove_policy`), with the tests, the testnet transactions and what stays
-  open. Under G7S-16 it adds two ways to detach a rule's executor binding: the
+  open; `evidence/g7-app-2026-10-20.log` lists the cited testnet transactions
+  in full. Under G7S-16 it adds two ways to detach a rule's executor binding: the
   interpreter's `uninstall` needs only the document's admins, and OpenZeppelin's
   `remove_policy` goes on when that `uninstall` fails. The next interpreter
   build should keep a rule's executor outside its document entry.

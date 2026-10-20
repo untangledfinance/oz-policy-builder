@@ -323,17 +323,21 @@ A gate pins its caller's build and has no setter, so moving an account from
 v4 to v5 means a new gate. The v5 hash and salt text appear in the app only
 inside testnet-only comparisons, and `scripts/assert-mainnet-build.ts`
 (octopos #227) refuses a mainnet build that holds the v5 hash, in full or
-short, or the salt text. `deploy:mainnet` and the wrangler mainnet
+short, the salt text or the no-gate test-id prefix `octo-no-gate-`. `deploy:mainnet` and the wrangler mainnet
 environment both run it, and CI scans its own build.
 
 **How the app tells adapters apart:** by code hash and instance storage.
 
-- **A gate's adapter:** the gate's `caller_code` gives the build. The contract
-  at the gate's caller address must run that code, be a build the app lists,
-  and store `prime` equal to the Prime. Since octopos #232 its stored `gate`
-  must also equal the gate. Otherwise the app reads it as not bound to this
-  gate and sends nothing through it, which keeps a gate whose caller has no
-  gate, or another gate, from passing for a working setup.
+- **A gate's adapter:** the gate's `caller_code` gives the build. For a v4 or
+  v5 build, the contract at the gate's caller address must run that code, be
+  a build the app lists, and store `prime` equal to the Prime. Since octopos
+  #232 its stored `gate` must also equal the gate. Otherwise the app reads it
+  as not bound to this gate, and Manage execution and the console send
+  nothing through it, which keeps a gate whose caller has no gate, or another
+  gate, from passing for a working setup. A v3 gate's adapter is checked by
+  its derived address and its code only, so one its gate's custody has
+  rebound still reads usable and can be bound to a rule. The co-sign path
+  runs no stored-gate check either; both are listed as residuals under G7S-16.
 - **Any contract a request names:** a listed build that stores `prime` and a
   void `gate` is an adapter with no gate, and with an address `gate` a gated
   one. Other code that stores `prime`, or a listed build without both keys, is
@@ -341,8 +345,10 @@ environment both run it, and CI scans its own build.
   `57bf132b…` keeps no storage and is known by its code. A mainnet build lists
   no v5 code, so it reads any v5 adapter as unverified.
 
-**What the app refuses:** before any wallet is asked, on every call the Prime
-account would authorise, nested calls included (octopos #228 and #229):
+**What the app refuses:** before any wallet is asked, on the app's own
+signing paths, for every call the Prime account would authorise there, nested
+calls included (octopos #228 and #229). The built-in Stellar Wallet's SEP-43
+`signTransaction` and `signAuthEntry` run no hold of their own:
 
 - a rule signed by an adapter with no gate or an unverified adapter;
 - a rule an adapter signs that covers its own calls, the Prime itself, every
@@ -360,7 +366,8 @@ account would authorise, nested calls included (octopos #228 and #229):
 
 Policies lists rules already installed in the first two shapes, and rules
 whose interpreter no longer holds their document, and asks the owners to
-revoke them. The full list, the evidence and what stays open are under G7S-14
+revoke them. A rule already detached through `remove_policy` no longer names
+the interpreter, so it reads as an ordinary rule and is not listed. The full list, the evidence and what stays open are under G7S-14
 and G7S-16 in the [grammar-7 threat model](../evidence/stride-threat-model-g7.md).
 
 ### Keeping contracts live
@@ -466,8 +473,10 @@ grammar, its limits and the install checks are documented in
   the document's admins, deletes it with the document, and a later `install`
   stores none. OpenZeppelin's `remove_policy` goes on when the policy's
   `uninstall` fails, so the account alone can take the interpreter off the
-  rule. Either way the rule then runs with no adapter approval; on testnet an
-  agent then paid itself from the Prime directly. The Prime app refuses
+  rule. Either way the rule can then run with no adapter approval: after
+  the `uninstall` once the owners install a document again (the rule refuses
+  every call until then), after `remove_policy` at once. On testnet an agent
+  then paid itself from the Prime directly. The Prime app refuses
   `remove_policy` and a reinstall on a rule with no document. Grammar 7 has the
   same layout (G7S-16 in the
   [grammar-7 threat model](../evidence/stride-threat-model-g7.md)).
@@ -689,9 +698,9 @@ the adapter. It moves the custody account's funds to that address and nowhere
 else. A band pins every destination, so an agent's rules cannot reach it.
 Recovery uses the gate's existing list and needed no contract change.
 
-Through a v4 adapter, or a v5 adapter with a gate, the recovery is a stored batch like any other: it waits at
-least the adapter's `min_wait`, and the custody account or the Prime can cancel
-it until it runs. With `min_wait` at 0 it runs at once, as on v3.
+Through a v4 adapter, or a v5 adapter with a gate, the recovery is a stored
+batch like any other: it waits at least the adapter's `min_wait`, and the
+custody account or the Prime can cancel it until it runs. With `min_wait` at 0 it runs at once, as on v3.
 
 Run on testnet through the Prime app (commit `f39950f5`): with a fresh
 10 / 5 / 5 custody account, 1,000 XLM and then 500 XLM were recovered to the

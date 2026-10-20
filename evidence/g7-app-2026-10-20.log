@@ -1,0 +1,17 @@
+# Testnet transactions cited by the Prime app section of stride-threat-model-g7.md (20 October 2026).
+# Each was read back from Horizon testnet on 20 October 2026; ledger, close time and result are as Horizon returned them.
+# Rows H1 to H7 went through on chain against an earlier octopos head; octopos #228 and #229 refuse each shape before the wallet is asked.
+BX ledger 5284785 2026-10-19T22:05:12Z successful=true tx 3b2cd23cb667ca8bc4b82775d7225387dfbbacda0bd71f1e1259a956df182968 | review-pr228f J1 setup: bind_executor of the agent's XLM rule to the Prime's gated v5 adapter (grammar-6 interpreter CDPR5VTX...)
+U1 ledger 5284787 2026-10-19T22:05:22Z successful=true tx c5f3dcb96739bf55f41da733e36499e6576aab5ffc46479a2d5a89a818990a50 | route 1: uninstall by the document's admin key alone; no authorisation entry for the Prime
+U2 ledger 5284791 2026-10-19T22:05:42Z successful=true tx be8c24c78c22c373c6e37365e298e8689ec26203466bba3fba69b706a5780007 | route 1: the owners reinstall the same document; the stored executor is now null
+U3 ledger 5284792 2026-10-19T22:05:47Z successful=true tx dee3d8ba45a53b3abb00862295f6b35655565fd7eb2daa78a15def326182253e | route 1: the agent pays itself 0.1 XLM from the Prime under the unbound rule
+P1 ledger 5286874 2026-10-20T00:59:17Z successful=true tx ab693327f7ce502cd5d70670d7665d92443fd66eda19ef46de2cd96e6a2726cc | route 2: remove_policy on a bound rule; the interpreter's uninstall errors (Auth, InvalidAction) and the account emits policy_removed in the same successful transaction
+P2 ledger 5286878 2026-10-20T00:59:37Z successful=true tx 987c6f065966399c8971a4d8314c974063a42bdaf3ec628dd54034080321ec61 | route 2: the agent pays itself 0.1 XLM from the Prime
+R1 ledger 5287900 2026-10-20T02:24:47Z successful=true tx ade8ae08c0f893a8a86bc7eded39fdf73010baaf31f728fba76fc99806f468b0 | review-pr228h KD5: remove_context_rule removes a rule left with no document
+H1 ledger 5277678 2026-10-19T12:12:57Z successful=true tx 5e069293c8f3167d15aa17840bf7573f3f859502cc8752c875f70c346877d2f2 | passed an earlier head, refused since: a rule signed by the no-gate adapter, through a relay
+H2 ledger 5277640 2026-10-19T12:09:47Z successful=true tx 866c109bb8f0462a9df7a652d55a94bfc33ff60d28e12167b1f180efe8149bab | passed an earlier head, refused since: the batch interpreter told to hold call_fn = execute on the run rule
+H3 ledger 5280571 2026-10-19T16:14:02Z successful=true tx 081f2f5ff8f4bea3d981a69c92b1f237b6b751a955d18688e0a11af7e02d5aed | passed an earlier head, refused since: batch_add_signer of an adapter
+H4 ledger 5280585 2026-10-19T16:15:12Z successful=true tx abe1a63e56aaedc1c1afe71435842fecb5f4891eec11a60b867721a966c69536 | passed an earlier head, refused since: the Prime's execute paying the no-gate adapter
+H5 ledger 5282573 2026-10-19T19:00:52Z successful=true tx cb6fa6c5c266402b0c5bc068d977b32f31bd196f2cf3baa6de5d68c82cc7e592 | passed an earlier head, refused since: an interpreter install judged on a forged rule struct
+H6 ledger 5284513 2026-10-19T21:42:32Z successful=true tx e7a43aeb55ee5b20dfd8ab0c46f822cc14db4383679a667d1f1414371603e003 | passed an earlier head, refused since: a binding to a contract that only stores prime and gate
+H7 ledger 5286873 2026-10-20T00:59:12Z successful=true tx b9bc60baa7eb34e824d03453f76c03b5f35a3603afa08d4b248172eb6e1b1e90 | passed an earlier head, refused since: a binding to the adapter of a gate remembered and never confirmed
