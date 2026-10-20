@@ -176,7 +176,7 @@ jobs:
       # paths) is pinned in contracts/build-hashes.json, and the app pins the
       # same hash. So is the adapter's: the source here is the build with an
       # optional gate, while deployments/execution-testnet.json keeps the earlier
-      # build 3dd675c0 that the Prime app pins and mainnet runs.
+      # build 3dd675c0 that the Prime app pins.
       - name: Wasm build and pin parity
         if: matrix.crate == 'prime-seat' || matrix.crate == 'execution-adapter'
         run: |
