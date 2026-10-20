@@ -74,7 +74,9 @@ running any other build (`WrongCallerCode`, 2), refuses a destination not on
 the list (`DestinationNotAllowed`, 1), and then spends the allowance with
 `transfer_from`. There is no admin, no setter and no upgrade path. Changing the
 list means deploying another gate and granting a new allowance, which needs the
-custody account's full threshold again.
+custody account's full threshold again. The same holds for a new adapter build:
+the gate fixes `caller_code` at creation, so a new adapter build means a new
+gate and adapter.
 
 The gate keeps no list of assets. A SAC allowance is granted per token, so a
 token the custody account never approved has nothing to spend.
