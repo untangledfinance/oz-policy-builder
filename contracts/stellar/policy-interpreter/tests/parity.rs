@@ -26,7 +26,7 @@ use soroban_sdk::xdr::{
 use soroban_sdk::{Env, IntoVal, Symbol, Val, Vec};
 use std::fmt::Write as _;
 
-const FILE: &str = "../../../packages/policy-synth/fixtures/parity/grammar7.json";
+const FILE: &str = "../../../packages/policy-synth/fixtures/parity/grammar.json";
 
 /// The compact JSON form of a value: a symbol or an address is a string, a `u32`
 /// a number, a bool a bool, a vec an array, and every other type a one-key

@@ -30,10 +30,11 @@ fn delegated(env: &Env, addr: &Address) -> Val {
     v.into_val(env)
 }
 
-/// A grammar-7 rule: `eq(call_fn, <name>)` scopes the policy to one function by
-/// name, which avoids needing the account's address before it exists, and
-/// `read(oracle, "updated") >= scaled(now, 1, 1, -300)` - the oracle's last
-/// update is under five minutes old - exercises the three new leaves.
+/// A rule that uses `read`, `now` and `scaled`. `eq(call_fn, <name>)` scopes
+/// the policy to one function by name, which avoids needing the account's
+/// address before it exists, and `read(oracle, "updated") >=
+/// scaled(now, 1, 1, -300)` - the oracle's last update is under five minutes
+/// old - exercises all three leaves.
 fn predicate_on_fn(env: &Env, fn_name: &str, oracle: &Address) -> Bytes {
     let sym = |s: &str| {
         ScVal::Symbol(soroban_sdk::xdr::ScSymbol(

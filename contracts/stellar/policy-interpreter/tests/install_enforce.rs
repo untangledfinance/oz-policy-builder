@@ -9,7 +9,7 @@ mod common;
 
 use policy_interpreter::{
     ContextRule, ContextRuleType, PolicyInstallParams, PolicyInterpreter, PolicyInterpreterClient,
-    Signer,
+    Signer, SELF_VERSION,
 };
 use soroban_sdk::testutils::Address as _;
 use soroban_sdk::xdr::{ScVal, ToXdr, VecM};
@@ -114,15 +114,15 @@ fn install_rejects_version_mismatch() {
 
     let signers = soroban_sdk::vec![&env, Signer::Delegated(smart_account.clone())];
     let ctx_rule = make_ctx_rule(&env, &signers, 1);
-    // The IMMEDIATELY previous version, which is the skew that actually
-    // happens in the field. It matters because a v6 document's PREDICATE
-    // still decodes under v6 - grammar 6 only ADDED a leaf - so the version
-    // gate is the only thing refusing a builder that cannot address a batch.
-    let params = make_params(&env, 6, 1, &dummy_address(), &signers);
+    // The adjacent number, which is the skew that actually happens in the
+    // field. It matters because a document for a grammar that differs only by
+    // an ADDED leaf still decodes, so the version gate is the only thing
+    // refusing a builder that does not speak this grammar.
+    let params = make_params(&env, SELF_VERSION - 1, 1, &dummy_address(), &signers);
     let res = client.try_install(&params, &ctx_rule, &smart_account);
     assert!(
         res.is_err(),
-        "expected install with a v5 grammar_version to deny under v6"
+        "expected install with a mismatched grammar_version to deny"
     );
 }
 
@@ -429,11 +429,12 @@ fn f2_first_install_requires_smart_account_authorization() {
     );
 }
 
-// ---- F4: a retired selector is refused ----
+// ---- F4: an unknown selector is refused ----
 //
-// `invocation_count` was a grammar-3 selector and is no longer in the grammar,
-// so a predicate naming it is refused at install as MALFORMED_PREDICATE (201)
-// however many windows it carries. The helper builds one clause per window.
+// `invocation_count` is not a selector of the grammar (the interpreter keeps
+// no call counter), so a predicate naming it is refused at install as
+// MALFORMED_PREDICATE (201) however many windows it carries. The helper
+// builds one clause per window.
 
 /// Build `and([ lte(invocation_count(ws_i), 0) for each i ])`. Each clause is
 /// a single distinct invocation-count window, so N clauses -> N distinct

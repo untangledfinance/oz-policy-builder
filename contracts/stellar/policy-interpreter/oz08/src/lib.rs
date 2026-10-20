@@ -85,7 +85,7 @@ pub struct Limits {
     pub max_depth: u32,
 }
 
-/// What grammar 7 shipped with (`tests/common/mod.rs` in the interpreter).
+/// The default limits (`tests/common/mod.rs` in the interpreter).
 pub const DEFAULT: Limits = Limits {
     max_reads: 4,
     max_leaves: 200,
@@ -104,7 +104,7 @@ enum Slot {
     Grants,
 }
 
-/// The authorisation calls of execution adapter v5 (`4985cd12`), without its
+/// The authorisation calls of the execution adapter (`4985cd12`), without its
 /// batch store, its gate or its argument checks. `run(id)` hands out the grants
 /// a stored batch carries, asks the Prime for `(id)` and calls the venue, as
 /// the adapter's `run` does. `execute(wait)` is the adapter's immediate path

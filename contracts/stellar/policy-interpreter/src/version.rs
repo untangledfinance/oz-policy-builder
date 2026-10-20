@@ -6,39 +6,39 @@
 /// new grammar version, which means a new interpreter at a new address - never
 /// an upgrade of this one.
 ///
-/// Bumped to 2 when the `oracle_price` / `oracle_threshold` leaves were
-/// retired, then to 3 when the grammar was reduced to what the synthesiser
-/// actually emits. Removing a leaf variant changes the predicate wire format,
-/// so any previously-installed doc carrying a retired variant is refused at
-/// install by the version mismatch gate. See `dsl.rs` for the current grammar.
+/// `install` compares the `grammar_version` of the install document with this
+/// number before it reads anything else, and refuses a mismatch with
+/// `VersionMismatch` (200). The check covers three kinds of change:
 ///
-/// Bumped to 4 when `or`, `lt`, `gt`, `gte` and the `call_arg_scaled` leaf
-/// were added. Widening the grammar rather than narrowing it means a v3
-/// document would still decode here, but the version gate refuses it anyway:
-/// a v3 builder cannot know whether the interpreter it is addressing speaks
-/// the wider grammar, and letting it guess is how a policy silently means
-/// something other than what its author reviewed.
+/// - A leaf variant is removed. The predicate wire format changes, and a
+///   document that still carries the removed variant is refused here, before
+///   any decoding. See `dsl.rs` for the grammar this number stands for.
 ///
-/// Bumped to 5 when the Policy Signer role was separated from the operators.
-/// The predicate grammar is unchanged, but the install ABI is not:
-/// `PolicyInstallParams` gained `policy_admins`, so a v4 builder's install
-/// document no longer describes what this contract stores. The version gate
-/// refuses the skew before a half-understood install can appoint an admin
-/// set the author never reviewed.
+/// - The grammar is widened. A document written for the narrower grammar
+///   would still decode, but the gate refuses it anyway: its builder cannot
+///   know whether the interpreter it is addressing speaks the wider grammar,
+///   and letting it guess is how a policy silently means something other
+///   than what its author reviewed.
 ///
-/// Bumped to 6 when the predicate learned to address a BATCH. Grammar 5 is
-/// handed a flattened projection of one call and pins amounts by slot index;
-/// `call_path` reaches into the request itself, so a rule names the call, the
-/// argument and the field it means - and can therefore tie two arguments of a
-/// batch to each other, which a projection cannot express. The wire format of
-/// a predicate changes with it, so a v5 document does not decode here and the
-/// version gate refuses it.
+/// - The install ABI changes while the grammar does not, e.g. a field added
+///   to `PolicyInstallParams`. An install document written for another number
+///   no longer describes what this contract stores, and the gate refuses the
+///   skew before a half-understood install can appoint an admin set the
+///   author never reviewed.
 ///
-/// Bumped to 7 when the predicate learned to read other contracts and the
-/// clock. `read(contract, fn, args, path)` calls a fixed function of a fixed
-/// contract with literal arguments; `now` is the ledger timestamp; and
-/// `scaled(src, num, den, add)` replaces `call_arg_scaled(index, num, den)`
-/// with a computed value over any value leaf. `call_arg_scaled` no longer
-/// decodes, so a v6 document is refused by the version gate. `enforce` now
-/// performs cross-contract calls, which v6 never did.
+/// The number is a wire-compatibility check. The grammar it stands for
+/// addresses a batch through `call_path` (a rule names the call,
+/// the argument and the field it means, so it can tie two arguments of a batch
+/// to each other), reads other contracts and the clock (`read` calls a fixed
+/// function of a fixed contract with literal arguments; `now` is the ledger
+/// timestamp), and computes values with `scaled(src, num, den, add)` over any
+/// value leaf. Because of `read`, `enforce` performs cross-contract calls.
+///
+/// Builders read the number with `grammar_version()` and write it into every
+/// install. `policy-synth` mirrors it as `GRAMMAR_VERSION`, and its parity
+/// test holds the two equal, so changing one without the other fails CI.
+///
+/// The value carries no meaning beyond that match. It moves only together
+/// with a new interpreter at a new address, never through an upgrade of a
+/// deployed instance.
 pub const SELF_VERSION: u32 = 7;

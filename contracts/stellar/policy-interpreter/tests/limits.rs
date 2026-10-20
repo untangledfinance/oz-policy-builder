@@ -106,7 +106,7 @@ const FIELDS: [(&str, Setter, u32, u32); 6] = [
 ];
 
 #[test]
-fn the_defaults_are_the_values_grammar_7_shipped_with() {
+fn the_defaults_are_the_documented_values() {
     let d = DEFAULT;
     assert_eq!(
         (d.max_reads, d.max_leaves, d.max_predicate_bytes),

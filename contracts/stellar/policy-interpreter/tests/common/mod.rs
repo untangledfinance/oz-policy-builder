@@ -55,7 +55,7 @@ pub fn verdict(
     }
 }
 
-/// What grammar 7 shipped with: every suite that is not about limits runs under it.
+/// The default limits: every suite that is not about limits runs under them.
 pub const DEFAULT: Limits = Limits {
     max_reads: 4,
     max_leaves: 200,

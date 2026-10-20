@@ -1,4 +1,4 @@
-//! Tests for the generic constructs of grammar 7: `lit`, `ne`/`nin`, numeric
+//! Tests for the generic constructs of the grammar: `lit`, `ne`/`nin`, numeric
 //! widening, `lit` map keys, call-derived read arguments and the quantifiers.
 //! Predicates are built as raw ScVals, the wire form a client sends.
 

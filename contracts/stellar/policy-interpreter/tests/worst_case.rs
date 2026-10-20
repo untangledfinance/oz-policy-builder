@@ -2,7 +2,7 @@
 //! and run against the Soroban network limits. `install`, `enforce` and `check`
 //! must each stay inside them whatever the verdict - with a 20% margin, so a fee
 //! or limit change does not turn a deployed rule into one that can never run -
-//! under two sets of limits: the grammar-7 defaults, and the CEILINGS the
+//! under two sets of limits: the defaults, and the CEILINGS the
 //! constructor allows (8 reads, 400 weighted leaves, the byte ceiling, 64
 //! elements, 64 `in` entries, depth 8), each case sized to its limits so the
 //! rule is as large as the deployment permits.
@@ -18,8 +18,9 @@
 //! proves nothing). Build it first: `./build-wasm.sh` (or `cargo build --release
 //! --target wasm32v1-none`), then `cargo test --release --test worst_case --
 //! --nocapture` prints the table. It reads
-//! `$CARGO_TARGET_DIR/wasm32v1-none/release/policy_interpreter.wasm`, or `G7_WASM`.
-//! `G7_SKIP_WORST_CASE=1` skips it on purpose (a plain `cargo test` without a
+//! `$CARGO_TARGET_DIR/wasm32v1-none/release/policy_interpreter.wasm`, or
+//! `INTERPRETER_WASM`.
+//! `SKIP_WORST_CASE=1` skips it on purpose (a plain `cargo test` without a
 //! wasm). A wasm older than the source is not detected: build before running.
 
 extern crate alloc;
@@ -424,7 +425,7 @@ fn cases(l: &Limits) -> StdVec<Case> {
         true,
     );
 
-    // caller-sized needles (pre-existing in grammar 6): as many `in` sets of
+    // caller-sized needles: as many `in` sets of
     // max_in_operands entries as the leaf cap allows
     let sets = leaves / (ins + 1);
     let hay = |s: usize| {
@@ -568,7 +569,7 @@ fn fit_count(cap: u32, f: impl Fn(usize) -> ScVal) -> usize {
 }
 
 fn wasm() -> Option<StdVec<u8>> {
-    let path = std::env::var("G7_WASM").ok().or_else(|| {
+    let path = std::env::var("INTERPRETER_WASM").ok().or_else(|| {
         let dir = std::env::var("CARGO_TARGET_DIR")
             .unwrap_or_else(|_| concat!(env!("CARGO_MANIFEST_DIR"), "/target").into());
         Some(alloc::format!(
@@ -811,11 +812,11 @@ fn the_wasm() -> Option<StdVec<u8>> {
         // A skipped run is a run that proves nothing, so it is an error unless
         // the environment says the wasm is deliberately absent.
         assert!(
-            std::env::var("G7_SKIP_WORST_CASE").is_ok_and(|v| v == "1"),
+            std::env::var("SKIP_WORST_CASE").is_ok_and(|v| v == "1"),
             "worst_case: no wasm. Build it (./build-wasm.sh, or cargo build --release \
-             --target wasm32v1-none), point G7_WASM at it, or set G7_SKIP_WORST_CASE=1"
+             --target wasm32v1-none), point INTERPRETER_WASM at it, or set SKIP_WORST_CASE=1"
         );
-        eprintln!("worst_case: skipped (G7_SKIP_WORST_CASE=1)");
+        eprintln!("worst_case: skipped (SKIP_WORST_CASE=1)");
     }
     code
 }
