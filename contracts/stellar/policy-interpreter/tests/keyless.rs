@@ -283,6 +283,36 @@ fn a_bound_rule_that_lists_a_signer_is_refused_without_it() {
     assert_eq!(w.enforce(&ctx, &authed, &rule, true), Outcome::Permit);
 }
 
+/// U10: OZ's `remove_signer` turns a keyed bound rule into one that lists no
+/// signer and has one policy, so it passes the keyless gate. The signer hash
+/// `install` stored still names the agent, and that check (204) is the one
+/// left between the stripped rule and a keyless permit, with the executor's
+/// grant or without it on the executor's own `run`.
+#[test]
+fn a_keyed_bound_rule_stripped_of_its_signer_is_refused_204() {
+    let w = World::new();
+    let agent = Signer::Delegated(Address::generate(&w.env));
+    let keyed = w.rule(5, &w.venue, soroban_sdk::vec![&w.env, agent.clone()]);
+    w.install(1, &fn_is("submit"), &keyed);
+    assert_eq!(w.bind(&keyed, &w.executor), None);
+    let stripped = w.rule(5, &w.venue, w.none());
+    let ctx = w.ctx(&w.venue, "submit", w.env_args());
+    assert_eq!(
+        w.enforce(&ctx, &w.none(), &stripped, true),
+        Outcome::Code(204)
+    );
+
+    // The run rule the same way: A1 skips the grant, the hash still refuses.
+    let run = w.rule(6, &w.executor, soroban_sdk::vec![&w.env, agent]);
+    w.install(1, &fn_is("run"), &run);
+    assert_eq!(w.bind(&run, &w.executor), None);
+    let stripped = w.rule(6, &w.executor, w.none());
+    assert_eq!(
+        w.enforce(&w.run_ctx(7), &w.none(), &stripped, false),
+        Outcome::Code(204)
+    );
+}
+
 /// A keyless rule must have this interpreter as its only policy, so OZ's
 /// `remove_policy` can never leave it with no predicate (OZ refuses a rule
 /// with no signer and no policy).
