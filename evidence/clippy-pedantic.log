@@ -1,40 +1,108 @@
-# clippy pedantic + nursery - 2026-08-27T18:15:23Z
-#
-# 191 lint warnings (198 'warning:' lines less 7 per-target summaries).
-# All style; 0 security. All 8 cast warnings are in test files
-# (src/dsl_tests.rs x4, tests/install_enforce.rs x2, tests/oz_abi.rs x2),
-# and the only panic-related lints are in tests/conformance/_helpers.rs.
-#
-# Counted with 'grep -cE "^warning: .*cast"', which does not depend on
-# output ordering; a multi-line regex mis-paired these before.
+# cargo clippy --all-targets -- -W clippy::pedantic -W clippy::nursery, in contracts/stellar/policy-interpreter, 20 October 2026
+# Report only. Counted from the raw output: one entry per distinct message and location (the per-target summaries count duplicates).
 
-$ cargo clippy --all-targets -- -W clippy::pedantic -W clippy::nursery
-warning: `policy-interpreter` (lib) generated 96 warnings (run `cargo clippy --fix --lib -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 62 suggestions)
-warning: `policy-interpreter` (lib test) generated 119 warnings (95 duplicates) (run `cargo clippy --fix --lib -p policy-interpreter --tests -- -W clippy::pedantic -W clippy::nursery` to apply 18 suggestions)
-warning: `policy-interpreter` (test "oz_abi") generated 7 warnings (run `cargo clippy --fix --test "oz_abi" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 4 suggestions)
-warning: `policy-interpreter` (test "oz_integration") generated 2 warnings (run `cargo clippy --fix --test "oz_integration" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 2 suggestions)
-warning: `policy-interpreter` (test "enforce_state") generated 8 warnings (run `cargo clippy --fix --test "enforce_state" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)
-warning: `policy-interpreter` (test "conformance") generated 44 warnings (run `cargo clippy --fix --test "conformance" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 31 suggestions)
-warning: `policy-interpreter` (test "install_enforce") generated 10 warnings (run `cargo clippy --fix --test "install_enforce" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 8 suggestions)
+352 distinct warnings (by message and location): 68 in contract source, 284 in test code.
+cast, panic, unwrap, indexing or overflow lints: 61, of which in contract source: 0
 
-# Cast warnings by file:
-      4 src/dsl_tests.rs
-      2 tests/install_enforce.rs
-      2 tests/oz_abi.rs
+# contract source (src/ less its test modules), by lint message:
+  11  unnecessary structure name repetition
+  10  item in documentation is missing backticks
+   9  this argument is passed by value, but not consumed in the function body
+   8  this argument (8 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
+   8  first doc comment paragraph is too long
+   4  this function could have a `_` attribute
+   4  this could be a `_`
+   4  this method could have a `_` attribute
+   2  docs for function returning `_` missing `_` section
+   2  matching over `_` is more explicit
+   1  all fields have the same prefix: `_`
+   1  unnecessary boolean `_` operation
+   1  needless use of `_`
+   1  redundant closure
+   1  adding items after statements is confusing, since items exist from the start of the scope
+   1  `_` on a boolean expression
 
-# Lint warnings by source file:
-     38 src/dsl.rs
-     24 src/lib.rs
-     23 src/dsl_tests.rs
-     19 tests/conformance/_generated.rs
-     17 tests/conformance/_generated_v4.rs
-     17 src/storage.rs
-     10 tests/install_enforce.rs
-      9 src/types.rs
-      8 tests/enforce_state.rs
-      7 tests/oz_abi.rs
-      6 tests/conformance/_helpers.rs
-      6 src/state.rs
-      3 src/auth.rs
-      2 tests/oz_integration.rs
-      2 tests/conformance/mod.rs
+# test code, by file:
+  37  src/dsl_ext_tests.rs
+  19  src/dsl_tests.rs
+  22  tests/accuracy.rs
+   5  tests/check.rs
+   3  tests/common/mod.rs
+   3  tests/conformance/../common/mod.rs
+  19  tests/conformance/_generated.rs
+  17  tests/conformance/_generated_operators.rs
+   6  tests/conformance/_helpers.rs
+   1  tests/conformance/mod.rs
+   8  tests/enforce_state.rs
+  14  tests/install_enforce.rs
+   6  tests/keyless.rs
+   5  tests/limits.rs
+   8  tests/oz_abi.rs
+  10  tests/oz_integration.rs
+  13  tests/parity.rs
+  50  tests/reads_and_clock.rs
+   9  tests/role_separation.rs
+  29  tests/worst_case.rs
+
+# cast, panic, unwrap, indexing or overflow lints, by location:
+  src/dsl_ext_tests.rs:33  casting `i128` to `u64` may truncate the value
+  src/dsl_ext_tests.rs:33  casting `i128` to `u64` may lose the sign of the value
+  src/dsl_ext_tests.rs:40  casting `u128` to `u64` may truncate the value
+  src/dsl_ext_tests.rs:224  casting `i64` to `i32` may truncate the value
+  src/dsl_ext_tests.rs:227  casting `i64` to `u64` may lose the sign of the value
+  src/dsl_ext_tests.rs:228  casting `i64` to `u64` may lose the sign of the value
+  src/dsl_ext_tests.rs:229  casting `i64` to `u128` may lose the sign of the value
+  src/dsl_ext_tests.rs:230  casting `i64` to `u64` may lose the sign of the value
+  src/dsl_ext_tests.rs:231  casting `i64` to `u32` may lose the sign of the value
+  src/dsl_ext_tests.rs:231  casting `i64` to `u32` may truncate the value
+  src/dsl_tests.rs:101  casting `i128` to `u64` may truncate the value
+  src/dsl_tests.rs:101  casting `u128` to `i128` may wrap around the value
+  src/dsl_tests.rs:101  casting `i128` to `u64` may lose the sign of the value
+  src/dsl_tests.rs:950  casts from `u32` to `i128` can be expressed infallibly using `From`
+  src/dsl_tests.rs:1725  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/accuracy.rs:83  casting `u128` to `u64` may truncate the value
+  tests/accuracy.rs:764  casts from `u32` to `i128` can be expressed infallibly using `From`
+  tests/accuracy.rs:821  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/check.rs:250  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/common/mod.rs:30  casting `i128` to `u128` may lose the sign of the value
+  tests/common/mod.rs:30  casting `u128` to `u64` may truncate the value
+  tests/conformance/../common/mod.rs:30  casting `i128` to `u128` may lose the sign of the value
+  tests/conformance/../common/mod.rs:30  casting `u128` to `u64` may truncate the value
+  tests/conformance/_helpers.rs:21  only a `panic!` in `if`-then statement
+  tests/conformance/_helpers.rs:29  only a `panic!` in `if`-then statement
+  tests/install_enforce.rs:777  casting `i128` to `u128` may lose the sign of the value
+  tests/install_enforce.rs:777  casting `u128` to `u64` may truncate the value
+  tests/keyless.rs:432  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/limits.rs:718  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/limits.rs:759  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/oz_abi.rs:256  casting `u32` to `u8` may truncate the value
+  tests/oz_abi.rs:257  casting `u32` to `u8` may truncate the value
+  tests/oz_integration.rs:51  casting `i128` to `u64` may truncate the value
+  tests/oz_integration.rs:51  casting `i128` to `u64` may lose the sign of the value
+  tests/oz_integration.rs:330  docs for function which may panic missing `# Panics` section
+  tests/parity.rs:701  casts from `u8` to `u32` can be expressed infallibly using `From`
+  tests/parity.rs:897  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/parity.rs:909  casting `usize` to `u8` may truncate the value
+  tests/reads_and_clock.rs:60  docs for function which may panic missing `# Panics` section
+  tests/reads_and_clock.rs:95  docs for function which may panic missing `# Panics` section
+  tests/reads_and_clock.rs:134  docs for function which may panic missing `# Panics` section
+  tests/reads_and_clock.rs:138  docs for function which may panic missing `# Panics` section
+  tests/reads_and_clock.rs:215  casting `i128` to `u128` may lose the sign of the value
+  tests/reads_and_clock.rs:215  casting `u128` to `u64` may truncate the value
+  tests/worst_case.rs:81  casting `i128` to `u64` may truncate the value
+  tests/worst_case.rs:81  casting `i128` to `u64` may lose the sign of the value
+  tests/worst_case.rs:190  manual implementation of `midpoint` which can overflow
+  tests/worst_case.rs:301  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/worst_case.rs:317  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/worst_case.rs:362  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/worst_case.rs:366  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/worst_case.rs:433  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/worst_case.rs:457  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/worst_case.rs:465  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/worst_case.rs:473  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/worst_case.rs:565  manual implementation of `midpoint` which can overflow
+  tests/worst_case.rs:595  casting `i64` to `u64` may lose the sign of the value
+  tests/worst_case.rs:596  casting `i64` to `u64` may lose the sign of the value
+  tests/worst_case.rs:685  casts from `u32` to `u64` can be expressed infallibly using `From`
+  tests/worst_case.rs:918  casting `u32` to `u8` may truncate the value
+  tests/worst_case.rs:919  casting `u32` to `u8` may truncate the value

@@ -1,0 +1,21 @@
+# A rule built by install_policy with a threshold, on a real OZ smart account (TESTNET, throwaway keys funded by friendbot)
+# Generated 2026-10-20 by packages/policy-synth/scripts/live-threshold.ts against the pinned testnet interpreter. The account runs the OZ build 91a2cd56.
+# The deny is attributed by its code: #3202 is simple_threshold's NotAllowed.
+
+$ bun packages/policy-synth/scripts/live-threshold.ts
+INFO   network testnet; threshold policy CAYTIVQOEZDOQI4GC3XBXEEYHQUANQQJHPJVMXVRBREGSAP6TCN3DID6; interpreter CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT
+PASS   signer A GCCXFK2VGZHFUUWYIYKGS2PVD5YAIVKDQTN2DWX67JB5F7UFTRF4LSGL, signer B GCCORCHXAOW4L6BYEBCR3NQYGFX62EF6M7Y5GZ7AP3TCWIJFP2ZUWYHP (throwaway, funded)
+PASS   smart account CCEKDYRPU5P7LSBCDZUVJLA3D2V7ATUM6FEHPTSY35WEUEBNJYLLBRG4
+PASS   account funded with 10 XLM
+PASS   rule 1 installed: interpreter + simple_threshold(2), signers A + B
+PASS   signer A alone DENIED #3202 (simple_threshold (1 of 2))
+PASS   signers A + B together PERMITTED, transfer sent 5a362975a51d765fc5ffbcdab58cf7a2c022028f0a39b14893be10c3f0e9dcd0
+RESULT 2-of-2 holds on a real OZ account.
+
+$ WEIGHTED=1 bun packages/policy-synth/scripts/live-threshold.ts
+# weights A:2, B:1, threshold 2. A meets the threshold alone, and install_policy refuses that shape before any transaction (exit 1):
+INFO   network testnet; threshold policy CCTNRFZCL45GTJICA3Z2KFQO3VEGBHGCVBLHQ3GLJKAGACQIJMYJS7T2; interpreter CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT
+PASS   signer A GAJO7V5IW6LYS4MKOG6QF6FAVEU3KNF55PJQDQ4ZQ335LM6APX2JSMHX, signer B GDFS4NSUOWSKINQQWR2QT43VD7BEI2QTXBYDUMQHJ2NWH2VR6PGHLENY (throwaway, funded)
+PASS   smart account CABDYE3KQTSIGH532TWZQ4GNKLMY3QGDNQDYDS62FVIF7WOTYTDNGZNE
+PASS   account funded with 10 XLM
+error: {"code":"INSTALL_BUILD_FAILED","message":"install_policy: GAJO7V5IW6LYS4MKOG6QF6FAVEU3KNF55PJQDQ4ZQ335LM6APX2JSMHX alone meets the threshold of 2. Give a threshold that needs more.","severity":"error","retryable":false,"remediation":{"toolCall":{"name":"install_policy","args":{}}}}

@@ -43,18 +43,17 @@ what a top-level leaf does.
 the real wasm: the largest rule at every ceiling at once, for `install`, `enforce`
 and `check`, must stay at or under 80% of every network limit (a 20% margin, so a fee
 or limit change does not turn a deployed rule into one that can never run). The
-network values are in `evidence/soroban-network-limits-2026-10-16.txt`: identical on
-Stellar's networks for every per-transaction limit used; fee rates and the
+testnet values are in `evidence/soroban-network-limits-2026-10-16.txt`; fee rates and the
 per-ledger transaction-size budget differ per network, so read them before
 choosing an instance's byte limit. Measured at the ceilings
-(`evidence/worst-case-ceilings-2026-10-16.txt`: 23 rule shapes at each of two limit sets, plus the real callees):
+(`evidence/worst-case-ceilings.txt`: 23 rule shapes at each of two limit sets, plus the real callees):
 
 | What | Measured | Of the limit |
 | --- | --- | --- |
 | `install`, worst CPU | 64.7M | 16% of 400M |
 | `enforce`, worst CPU / memory | 62.3M / 1.58 MB | 16% / 4% of 41,943,040 |
-| `install` through OZ's real account, 15 operators and 16 admins | 69.0M CPU, 3.19 MB, 36 write entries, 48,856 write bytes | 17% / 8% / 18% / 37% |
-| the stored rule (one contract-data entry) | 41,272 B at the byte ceiling | 62% of 65,536 |
+| `install` through OZ's real account, 15 operators and 16 admins | 69.0M CPU, 3.19 MB, 36 write entries, 48,912 write bytes | 17% / 8% / 18% / 37% |
+| the stored rule (one contract-data entry) | 41,328 B at the byte ceiling | 63% of 65,536 |
 | the install transaction, as `policy-synth` builds it (its real footprint of 6 read-only and 35 read-write keys, the account's authorisation entry and `__check_auth` entry, one signature) | 91,548 B | 69% of 132,096 |
 | the same with 3 passkey signers on the admin rule and a fee bump | 93,468 B | 70% |
 
