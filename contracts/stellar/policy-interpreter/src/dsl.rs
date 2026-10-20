@@ -504,6 +504,25 @@ pub fn has_selector_leaf(root: &Node) -> bool {
     leaves(root, 1).iter().any(|(l, _)| selects(l))
 }
 
+/// Whether the predicate permits only calls to the function `name`: every path
+/// to a permit passes an `eq(call_fn, name)`. An `and` pins when any child
+/// does, an `or` only when every child does, and a compare only as `eq` between
+/// `call_fn` and the symbol `name`, either side. Everything else pins nothing,
+/// `in`, `ne` and a quantifier included: a quantifier over an empty vector
+/// permits whatever its body says, and reading meaning into the rest would
+/// widen what this function vouches for.
+pub fn pins_call_fn(env: &Env, node: &Node, name: &Symbol) -> bool {
+    let named = |l: &Leaf| matches!(l, Leaf::Lit(v) if val_eq(env, v, &name.to_val()));
+    match node {
+        Node::And(kids) => kids.iter().any(|k| pins_call_fn(env, k, name)),
+        // The decoder refuses an empty `or`; one would pin nothing.
+        Node::Or(kids) => !kids.is_empty() && kids.iter().all(|k| pins_call_fn(env, k, name)),
+        Node::Compare(CompareOp::Eq, Leaf::CallFn, other)
+        | Node::Compare(CompareOp::Eq, other, Leaf::CallFn) => named(other),
+        _ => false,
+    }
+}
+
 /// Every leaf of the tree, nested `scaled` operands and `read` arguments
 /// included, each with its weight: how many times evaluation may reach it, which
 /// is `elems` for every leaf of a quantifier body, `elems` for a `sum` (it walks

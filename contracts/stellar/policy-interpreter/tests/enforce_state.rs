@@ -587,6 +587,7 @@ fn require_master_asks_an_external_admin_to_authorise() {
                 nonce: 1,
                 signers_hash: BytesN::from_array(&env, &[0; 32]),
                 master_set: soroban_sdk::vec![&env, external],
+                scope: None,
             },
         );
     });
@@ -658,6 +659,7 @@ fn enforce_trusts_the_caps_install_already_applied() {
                 nonce: 1,
                 signers_hash: hash,
                 master_set: signers.clone(),
+                scope: None,
             },
         );
     });

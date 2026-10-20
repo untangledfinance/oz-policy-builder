@@ -116,42 +116,38 @@ jobs:
         if: matrix.crate == 'policy-interpreter'
         run: cargo test --release --test conformance
 
-      # The source here is the grammar-7 line, and the instance that runs it is
-      # recorded in deployments/grammar7-testnet.json (testnet only; the npm
-      # packages pin the same hash in packages/policy-synth/src/config.ts). This
-      # rebuilds the wasm and compares it with the record, so a source change that
-      # was never deployed turns this red.
+      # The source here is the grammar-7 line. Its reproducible build is pinned in
+      # contracts/build-hashes.json, the same way as the adapter's below. The
+      # instance that runs on testnet is recorded separately in
+      # deployments/grammar7-testnet.json (and pinned by
+      # packages/policy-synth/src/config.ts), and it lags this source until the
+      # next redeploy: the source carries the keyless executor rules for
+      # OpenZeppelin 0.8.0 (Option A), and the recorded instance predates them.
       #
       # It must go through build-wasm.sh. A bare cargo build is NOT reproducible:
       # rustc bakes in the crate root and registry paths, so the hash differs per
       # machine. The script remaps both, which was verified to give a
       # byte-identical wasm across differing source paths and CARGO_HOMEs - that
-      # is what makes comparing hashes in CI meaningful rather than flaky. The
-      # current testnet instance predates that rule, so its record also carries
-      # the reproducible hash of the commit it was built from, and that is what
-      # this compares when present.
+      # is what makes comparing hashes in CI meaningful rather than flaky.
+      # A reflow by rustfmt counts: the wasm embeds every panic's line.
       - name: Wasm build and pin parity
         if: matrix.crate == 'policy-interpreter'
         run: |
           rustup target add wasm32v1-none
-          built=$(./build-wasm.sh | tail -1)
-          record=../../../deployments/grammar7-testnet.json
-          pinned=$(jq -r '.interpreterSource.reproducibleWasmSha256 // .wasmHashes.interpreter // empty' "$record")
-          echo "built:  $built"
-          echo "pinned: $pinned"
-          if [ -z "$pinned" ]; then
-            echo "could not read the interpreter hash from $record"
-            exit 1
-          fi
-          if [ "$built" != "$pinned" ]; then
-            echo ""
-            echo "The recorded grammar-7 interpreter is not the wasm this tree builds."
-            echo "Either the contract changed without a redeploy, or a redeploy did"
-            echo "not update $record. Deploy the current build with"
-            echo "a redeploy and re-pin the config and the record together."
-            echo "A reflow by rustfmt counts: the wasm embeds every panic's line."
-            exit 1
-          fi
+          ./build-wasm.sh
+          ../../check-build-hash.sh stellar/policy-interpreter target/wasm32v1-none/release/policy_interpreter.wasm
+
+      # The pinned wasm against OpenZeppelin's smart account 0.8.0. That account
+      # is built against soroban-sdk 28, whose wasm the soroban-sdk 27 test host
+      # above refuses, so oz08/ is a crate of its own with a protocol-28 host
+      # that loads the build the step above checked.
+      - name: OpenZeppelin 0.8.0 suite (oz08)
+        if: matrix.crate == 'policy-interpreter'
+        working-directory: contracts/stellar/policy-interpreter/oz08
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets --locked -- -D warnings
+          cargo test --locked
 
       # The gate is not a shared instance - each custody account deploys its
       # own - so what is recorded is the uploaded code, in

@@ -56,10 +56,23 @@ to skip it locally. CI also runs the conformance suite in release mode:
 ( cd contracts/stellar/policy-interpreter && cargo test --release --test conformance )
 ```
 
-CI then compares the `build-wasm.sh` hash of the interpreter with
-`deployments/grammar7-testnet.json`, that of the gate with
-`deployments/execution-testnet.json`, and those of the adapter and the seat with
-`contracts/build-hashes.json`. Compare hashes from a Linux build.
+CI then runs `check-build-hash.sh`, which compares the `build-wasm.sh` hashes of
+the interpreter, the adapter and the seat with `contracts/build-hashes.json`.
+The gate's hash is compared with `deployments/execution-testnet.json`. The
+interpreter's testnet instance in `deployments/grammar7-testnet.json` can lag
+the source until a redeploy, so CI does not compare the build with it. Compare
+hashes from a Linux build.
+
+The interpreter's suite against OpenZeppelin's smart account 0.8.0 is a crate
+of its own, because that account needs a newer test host than the
+interpreter's. It loads the wasm `build-wasm.sh` wrote, so build first:
+
+```sh
+( cd contracts/stellar/policy-interpreter/oz08 &&
+  cargo fmt --check &&
+  cargo clippy --all-targets --locked -- -D warnings &&
+  cargo test --locked )
+```
 
 ## Style
 

@@ -139,6 +139,37 @@ mainnet refusal is the intended security change of P0-4.
 
 ### Changed
 
+- **policy-interpreter, keyless executor rules for OpenZeppelin 0.8.0 (Option
+  A):** OpenZeppelin's fix for GHSA-jpg9-m7w4-c7wc (#3017) refuses a
+  `Delegated(adapter)` signer whenever the adapter is a context, which stops the
+  adapter-signed run and venue rules. A rule may now list no signer: `install`
+  accepts an empty operator set, and `enforce` accepts an empty authenticated
+  set only for a rule that lists no signer, has the interpreter as its only
+  policy and is bound to an executor (else `210`). Under such a rule scoped to
+  its executor, the executor's own `run` context needs no grant; every other
+  context still needs the executor's authorisation. A rule scoped to the
+  executor it is bound to must pin `call_fn == run` on every path, checked by
+  `bind_executor`, by a re-install under the binding and by `enforce` against
+  the rule the account passes (new code `221`, `RunNotPinned`). The stored
+  document gains `scope`. New build `810f53f1…`, pinned in
+  `contracts/build-hashes.json`; CI now compares the source with that pin, and
+  the testnet instance (`deployments/grammar7-testnet.json`) and the
+  policy-synth pin stay on `69cad1d5…` until the redeploy. Tests in
+  `tests/keyless.rs`, and in the `oz08/` crate against OpenZeppelin's 0.8.0
+  account (the `multisig-account-example` built from `8e25220`, `8286422f…`,
+  committed as a second fixture beside the 0.7 one, `91a2cd56…`). That account
+  needs a soroban-sdk 28 test host, so `oz08/` loads the pinned interpreter
+  wasm instead of linking the crate; CI runs it after the hash check.
+- **policy-interpreter, a self-scoped keyed executor rule now gets `221`:** the
+  check that a rule scoped to its bound executor pins `call_fn == run` does not
+  look at the signers, so a rule with `Delegated(agent)` and an `execute`
+  predicate, scoped to the executor and bound to it, is refused at
+  `bind_executor` and at `enforce`. That is the grammar-5 stateless-executor
+  pattern in octopos (`execution-install.ts`, `execution-mandate.ts`). Nothing
+  live breaks: that flow pins the grammar-5 interpreter `cc05ac55…`, and the
+  app's batch rules use grammar 6. Moving that flow to grammar 7 is an app
+  follow-up, and it must bind the agent's rule to nothing or scope it elsewhere.
+
 - **Contracts sit under `contracts/<chain>/`:** `contracts/prime/*` moved up one
   level (`contracts/stellar`, `contracts/evm`, `contracts/solana`,
   `contracts/near`, with `README.md`, `build-hashes.json` and

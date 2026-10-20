@@ -99,6 +99,14 @@ pub enum PolicyError {
     /// The deploy-time `Limits` had a field of 0 or above its ceiling; the
     /// constructor refuses, so no such instance exists.
     LimitsOutOfRange = 220,
+    /// A rule bound to an executor and scoped to that executor whose predicate
+    /// does not pin `call_fn == run` on every path (`dsl::pins_call_fn`). Such
+    /// a rule answers the executor's own requests, and `run` is the only one
+    /// that needs no grant from it, so anything wider would approve an
+    /// `execute` or `cancel` nobody signed. Refused by `bind_executor`, by a
+    /// re-install under a binding, and by `enforce` against the rule the
+    /// account itself passes.
+    RunNotPinned = 221,
 }
 
 // ---- deny -----
@@ -166,4 +174,10 @@ pub struct StoredDoc {
     pub signers_hash: BytesN<32>,
     /// The Policy Signer role: authorises re-install, uninstall and rotation.
     pub master_set: soroban_sdk::Vec<Signer>,
+    /// The contract a `CallContract` rule is scoped to, as the last install
+    /// was told; none for any other scope. Only `bind_executor` reads it, to
+    /// refuse binding a self-scoped rule whose predicate leaves `run` open. A
+    /// direct install can misstate it, so `enforce` checks the scope of the
+    /// rule the account passes, not this.
+    pub scope: Option<Address>,
 }

@@ -1,7 +1,8 @@
 {
   "note": "Reproducible build hashes that CI compares against, each from the crate's build-wasm.sh with its path remaps. Update an entry together with the source it covers.",
-  "recorded": "2026-10-18",
+  "recorded": "2026-10-20",
   "sha256": {
+    "stellar/policy-interpreter": "810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c",
     "stellar/execution-adapter": "4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b",
     "stellar/prime-seat": "393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87"
   }

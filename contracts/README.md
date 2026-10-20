@@ -30,7 +30,7 @@ sLOC counts the non-blank, non-comment lines of the contract source after `rustf
 | `stellar/prime-seat` | 99 | new code |
 | `stellar/custody-gate` | 55 | OctoGate, on mainnet, outside the new-code budget |
 | `stellar/execution-adapter` | 226 | OctoGate, outside the new-code budget; the v4 build (238) is on mainnet too (see below), and this v5 source with an optional gate is on testnet only |
-| `stellar/policy-interpreter` | 757 | OctoGate, outside the new-code budget; this grammar-7 source is on testnet only, and mainnet runs the grammar-6 build |
+| `stellar/policy-interpreter` | 806 | OctoGate, outside the new-code budget; this grammar-7 source is on testnet only, and mainnet runs the grammar-6 build. 757 before the keyless executor rules for OpenZeppelin 0.8.0 (Option A, 20 October 2026) |
 | `stellar/test-blend-pool` | 22 | test double, testnet only |
 
 The OctoGate contracts have their own external audit.
@@ -45,8 +45,8 @@ Every hash and test count below was measured again on 18 October 2026 at the pat
 | | `cargo test` | 3 passed |
 | `stellar/execution-adapter` | `./build-wasm.sh` | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b`, the v5 build with an optional gate, pinned in `build-hashes.json` and uploaded on testnet only. The v4 build `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3` (`deployments/execution-testnet.json`, source at `a86a496`) is on mainnet too, and new setups use it there. Gates set up on mainnet before 11 October 2026 run the earlier build `68d012e79fd4f9b88584447cfb32e0b0dbb55fb8bcd084b7212bad3e63b6dfdd`, recorded in `deployments/prime-mainnet.json` |
 | | `cargo test` | 62 passed |
-| `stellar/policy-interpreter` | `./build-wasm.sh` | grammar 7: `69cad1d5ce9aeaa0dad6980fd030e528935a0ebdd290111f393e9fd0564a68b0`, the testnet pin. The grammar-6 build on mainnet is `5143e64159378c9aac27e8cf1c9cb1f14364672885c151ccc5d887109f776126` |
-| | `cargo test` (after `./build-wasm.sh`, which `tests/worst_case.rs` loads) | 397 passed: 173 unit and 224 in 12 integration suites, 18 of them conformance |
+| `stellar/policy-interpreter` | `./build-wasm.sh` | grammar 7: `810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c` (20 October 2026, with the keyless executor rules for OpenZeppelin 0.8.0), pinned in `build-hashes.json`. The testnet instance in `deployments/grammar7-testnet.json` and the policy-synth pin still run the earlier build `69cad1d5ce9aeaa0dad6980fd030e528935a0ebdd290111f393e9fd0564a68b0` until the next redeploy. The grammar-6 build on mainnet is `5143e64159378c9aac27e8cf1c9cb1f14364672885c151ccc5d887109f776126` |
+| | `cargo test` (after `./build-wasm.sh`, which `tests/worst_case.rs` loads) | 415 passed: 173 unit and 242 in 13 integration suites, 18 of them conformance (measured 20 October 2026) |
 | `stellar/test-blend-pool` | `cargo build --release --target wasm32v1-none` with the remaps of `build-wasm.sh` | `7ba261ed4d1320ceabc47abcbe6819824c27529d0ae7e55ce2fc363555418e76`, the hash this README records |
 | | `cargo test` | builds, no tests |
 
@@ -88,7 +88,7 @@ The records are `build-hashes.json`, `deployments/grammar7-testnet.json` and `de
 
 | Job | What it runs |
 |---|---|
-| `Contracts (<stellar crate>)` | `cargo fmt --check` (every crate), `cargo clippy -D warnings`, `cargo test`; for `policy-interpreter` also the release conformance run, `cargo audit` and the `build-wasm.sh` hash against `deployments/grammar7-testnet.json`; for `custody-gate` the hash against `deployments/execution-testnet.json`; for `execution-adapter` and `prime-seat` the hash against `build-hashes.json` |
+| `Contracts (<stellar crate>)` | `cargo fmt --check` (every crate), `cargo clippy -D warnings`, `cargo test`; for `policy-interpreter` also the release conformance run, `cargo audit`, the `build-wasm.sh` hash against `build-hashes.json` and the `oz08/` suite of that wasm against OpenZeppelin's 0.8.0 account; for `custody-gate` the hash against `deployments/execution-testnet.json`; for `execution-adapter` and `prime-seat` the hash against `build-hashes.json` |
 | `Contracts (prime-seat)`, in the Stellar matrix | as the other Stellar crates, and the `build-wasm.sh` hash against `build-hashes.json` |
 
 `build-hashes.json` holds the hashes CI compares. Change an entry in the same commit as the source it covers.

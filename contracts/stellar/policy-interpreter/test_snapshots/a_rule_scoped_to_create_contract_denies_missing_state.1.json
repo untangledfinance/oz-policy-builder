@@ -239,6 +239,12 @@
                   },
                   {
                     "key": {
+                      "symbol": "scope"
+                    },
+                    "val": "void"
+                  },
+                  {
+                    "key": {
                       "symbol": "signers_hash"
                     },
                     "val": {

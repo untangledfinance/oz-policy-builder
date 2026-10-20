@@ -22,7 +22,9 @@ pub use types::{ContextRule, ContextRuleType, Limits, PolicyInstallParams, Signe
 pub use version::SELF_VERSION;
 
 use soroban_sdk::xdr::ToXdr;
-use soroban_sdk::{auth::Context, contract, contractimpl, Address, BytesN, Env, IntoVal, Vec};
+use soroban_sdk::{
+    auth::Context, contract, contractimpl, symbol_short, Address, BytesN, Env, IntoVal, Symbol, Vec,
+};
 
 use crate::storage::{deny, deny_unless, load, PolicyError as E, TTL_BUMP_THRESHOLD, TTL_BUMP_TO};
 
@@ -78,7 +80,11 @@ impl PolicyInterpreter {
         // (c2) The rule's signers (the operators) stay bounded: `enforce`
         //      re-hashes the set on every permit, so the same size and shape
         //      limits apply even though they no longer become the master set.
-        require_usable_signer_set(e, &context_rule.signers);
+        //      An empty set is a keyless rule: `enforce` permits one only while
+        //      it is bound to an executor (see there), so it installs.
+        if !context_rule.signers.is_empty() {
+            require_usable_signer_set(e, &context_rule.signers);
+        }
 
         // (c2b) The Policy Signer role: the master set is APPOINTED via
         //      `policy_admins`, not captured from the rule's signers. It must
@@ -130,21 +136,39 @@ impl PolicyInterpreter {
         let fresh = p.install_nonce == prior.as_ref().map_or(0, |p| p.nonce).saturating_add(1);
         deny_unless(e, fresh, E::NonceReplay);
 
+        // A re-install keeps the binding, so it must not weaken a self-scoped
+        // rule's predicate under it (see `bind_executor`).
+        let executor = prior.and_then(|p| p.executor);
+        let called = called_contract(scope);
+        let open = executor.is_some() && executor == called && !pins_run(e, &root);
+        deny_unless(e, !open, E::RunNotPinned);
+
         let doc = StoredDoc {
             predicate_bytes: install_params.predicate,
-            executor: prior.and_then(|p| p.executor),
+            executor,
             nonce: install_params.install_nonce,
             signers_hash: signers_hash(e, &context_rule.signers),
             master_set: install_params.policy_admins,
+            scope: called,
         };
         e.storage().persistent().set(&key, &doc);
     }
 
     /// Bind every execution child rule before enabling its agent; preserve on reinstall.
+    ///
+    /// A rule scoped to the executor it is bound to answers that executor's own
+    /// requests, so its predicate must pin `call_fn == run` (221). The scope is
+    /// the one install recorded; `enforce` checks the account's own rule again.
     pub fn bind_executor(e: &Env, rule: (Address, u32), executor: Address) {
         rule.0.require_auth();
         let mut doc = load(e, &rule);
         require_master(e, &doc.master_set);
+        if doc.scope.as_ref() == Some(&executor) {
+            let lim = storage::load_limits(e);
+            let root = dsl::decode_stored(e, &doc.predicate_bytes, &lim)
+                .unwrap_or_else(|_| deny(e, E::MalformedPredicate));
+            deny_unless(e, pins_run(e, &root), E::RunNotPinned);
+        }
         doc.executor = Some(executor);
         let store = e.storage().persistent();
         store.set(&rule, &doc);
@@ -166,24 +190,48 @@ impl PolicyInterpreter {
         // requirement (accounts/src/policies/spending_limit.rs).
         smart_account.require_auth();
 
-        // An enforcement that authenticated nobody is not an authorisation.
-        // OZ rejects this too; the interpreter previously ignored the
-        // argument entirely.
-        let signed = !authenticated_signers.is_empty();
-        deny_unless(e, signed, E::NoAuthenticatedSigners);
-
         let key = (smart_account.clone(), context_rule.id);
         let doc = load(e, &key);
-        // Require bound-adapter approval of this exact account/context.
-        if let Some(executor) = &doc.executor {
-            executor.require_auth_for_args((smart_account, context.clone()).into_val(e));
+
+        // An enforcement that authenticated nobody is an authorisation only
+        // for a KEYLESS rule: one that lists no signer, is bound to an
+        // executor, and has this interpreter as its only policy. Its authority
+        // is the binding and the predicate. A rule that lists a signer reaches
+        // here with nobody authenticated when the payload leaves the signer
+        // out (OZ leaves the count to the policy), and stays refused. With one
+        // policy, OZ's `remove_policy` cannot strip the predicate: a rule with
+        // no signer and no policy is refused there (NoSignersAndPolicies).
+        if authenticated_signers.is_empty() {
+            let keyless = doc.executor.is_some()
+                && context_rule.signers.is_empty()
+                && context_rule.policies.len() == 1;
+            deny_unless(e, keyless, E::NoAuthenticatedSigners);
         }
-        let unchanged = signers_hash(e, &context_rule.signers) == doc.signers_hash;
-        deny_unless(e, unchanged, E::RuleSignersChanged);
 
         let lim = storage::load_limits(e);
         let root = dsl::decode_stored(e, &doc.predicate_bytes, &lim)
             .unwrap_or_else(|_| deny(e, E::MalformedPredicate));
+
+        if let Some(executor) = &doc.executor {
+            // The scope here is the account's own record of the rule, which
+            // no install argument can misstate: a rule scoped to its executor
+            // must pin `run`, whatever `bind_executor` and `install` were told.
+            let own = called_contract(&context_rule.context_type).as_ref() == Some(executor);
+            deny_unless(e, !own || pins_run(e, &root), E::RunNotPinned);
+            // Require bound-adapter approval of this exact account/context,
+            // except for the executor's own `run`: a context naming the
+            // executor exists only because its code asked the account, so that
+            // request is its approval. Only `run` is taken that way; an
+            // `execute` or a `cancel` still needs a grant the executor hands
+            // out, and a no-gate adapter hands out none and stores no batch.
+            let run = matches!(&context, Context::Contract(c)
+                if own && c.contract == *executor && c.fn_name == run_fn());
+            if !run {
+                executor.require_auth_for_args((smart_account, context.clone()).into_val(e));
+            }
+        }
+        let unchanged = signers_hash(e, &context_rule.signers) == doc.signers_hash;
+        deny_unless(e, unchanged, E::RuleSignersChanged);
 
         // Before the predicate check. A deny panics and the host rolls this
         // back with the rest of the frame, so only a permit keeps the bump.
@@ -278,6 +326,24 @@ fn deny_code(reason: DenyReason) -> E {
         DenyReason::ArithmeticOverflow => E::ArithmeticOverflow,
         DenyReason::UnsupportedNode => E::UnsupportedNode,
         DenyReason::NotInAllowlist => E::NotInAllowlist,
+    }
+}
+
+/// The function a self-scoped executor rule may approve: the executor's `run`.
+fn run_fn() -> Symbol {
+    symbol_short!("run")
+}
+
+/// Whether `root` permits only calls to `run` (see `dsl::pins_call_fn`).
+fn pins_run(e: &Env, root: &dsl::Node) -> bool {
+    dsl::pins_call_fn(e, root, &run_fn())
+}
+
+/// The contract a `CallContract` scope names; none for any other scope.
+fn called_contract(scope: &ContextRuleType) -> Option<Address> {
+    match scope {
+        ContextRuleType::CallContract(a) => Some(a.clone()),
+        _ => None,
     }
 }
 
