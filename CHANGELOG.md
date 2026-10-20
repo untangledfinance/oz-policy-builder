@@ -153,6 +153,21 @@ mainnet refusal is the intended security change of P0-4.
   at Medium or above; one Low, G7S-16, is fixed in `policy-synth` (under
   Fixed). C2 is fixed by octopos #225, so G7S-1 is the one open High. Two tests cover a rule with two contract signers.
 
+- **The Prime app's half of G7S-14 and G7S-16, and the executor binding:**
+  `evidence/stride-threat-model-g7.md` records what the Prime app refuses
+  since octopos #228 and #229 (rules an adapter with no gate signs, rules an
+  adapter signs for its own calls, adapters added as signers, funds to an
+  adapter with no gate, bindings outside the account's own adapters,
+  `remove_policy`), with the tests, the testnet transactions and what stays
+  open; `evidence/g7-app-2026-10-20.log` lists the cited testnet transactions
+  in full. Under G7S-16 it adds two ways to detach a rule's executor binding: the
+  interpreter's `uninstall` needs only the document's admins, and OpenZeppelin's
+  `remove_policy` goes on when that `uninstall` fails. The next interpreter
+  build should keep a rule's executor outside its document entry.
+  `docs/stellar.md` describes which adapter the Prime app uses on each network
+  (v5 with a gate on beta, v4 on mainnet) and how it tells adapters apart. No
+  contract or pin changes.
+
 - **policy-synth, plainer wording in twelve diagnostics:** the review,
   install, synth, rules, wire and simulate messages that read as a contrast
   or used "named" now state the fact directly. Codes, severities and

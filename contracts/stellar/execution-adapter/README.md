@@ -63,10 +63,11 @@ cargo test        # 62 tests
 On Linux, `build-wasm.sh` gives
 `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b` (24,659
 bytes), the hash in `contracts/build-hashes.json` (`stellar/execution-adapter`).
-It is uploaded on testnet only. CI rebuilds this source and compares it with
-that record.
+It is uploaded on testnet only, where the Prime app's beta names it, with a
+gate, for new gates (octopos #231). CI rebuilds this source and compares it
+with that record.
 
 The v4 build `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3`,
-recorded in `deployments/execution-testnet.json`, is the one the Prime app pins
-and mainnet runs; its source is this folder at `a86a496`. Gates set up on
+recorded in `deployments/execution-testnet.json`, is the build mainnet runs and
+the one the Prime app pins there; its source is this folder at `a86a496`. Gates set up on
 mainnet before 11 October 2026 run `68d012e7…` (`deployments/prime-mainnet.json`).
