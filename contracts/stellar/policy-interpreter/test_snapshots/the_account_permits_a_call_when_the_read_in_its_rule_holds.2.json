@@ -248,6 +248,14 @@
                   },
                   {
                     "key": {
+                      "symbol": "scope"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM"
+                    }
+                  },
+                  {
+                    "key": {
                       "symbol": "signers_hash"
                     },
                     "val": {
