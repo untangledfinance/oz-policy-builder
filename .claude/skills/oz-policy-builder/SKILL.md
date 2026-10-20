@@ -1,23 +1,29 @@
 ---
 name: oz-policy-builder
-description: Drive the policy-builder MCP server (2.x, grammar 7) to turn an intent into an on-chain policy on an OpenZeppelin smart account on Stellar. Covers the install flow, the interpreter checks, the install guardrails, and the failure modes that look like success.
+description: Drive the policy-builder MCP server and CLI to turn an intent into an on-chain policy on an OpenZeppelin smart account on Stellar. Covers the install flow, the interpreter checks, the install guardrails, execution-adapter signers, reviewing an unsigned envelope, and the failure modes that look like success.
 user-invocable: true
-when_to_use: "Invoke when working with the policy-builder MCP server: recording a Soroban transaction, synthesizing or verifying a policy, installing or revoking a context rule on an OZ smart account, explaining an account's rules, or diagnosing an install failure (READ_UNSAFE, INSTALL_BUILD_FAILED, #100, #201, #202, #207, #209, #218, #3002, #3014, #3221)."
+when_to_use: "Invoke when working with the policy-builder MCP server: recording a Soroban transaction, synthesizing or verifying a policy, installing or revoking a context rule on an OZ smart account, explaining an account's rules, or reviewing an unsigned install or revoke transaction, or diagnosing an install failure (READ_UNSAFE, INSTALL_BUILD_FAILED, #100, #201, #202, #207, #209, #218, #3002, #3014, #3221)."
 category: other
 keywords: [stellar, soroban, mcp, policy, openzeppelin, smart-account, predicate, interpreter, context-rule, credio, oz]
 argument-hint: "[smart-account-address]"
 ---
 
-# policy-builder MCP: operating manual
+# policy-builder MCP and CLI: operating manual
 
-Which tool to call for which intent, and how to read what it returns. The server
-holds no key material: everything it produces is an unsigned transaction for a
-wallet to sign.
+Which tool to call for which intent, and how to read what it returns. Three
+parts make up the builder: the policy interpreter, a Stellar contract that
+enforces a rule's predicate on chain (`contracts/stellar/policy-interpreter`);
+`@crediolabs/policy-synth`, the off-chain core that records, synthesises,
+checks, reviews and builds; and two thin wrappers over the same eight tools,
+the MCP server (`@crediolabs/policy-builder-mcp`) and the CLI
+(`@crediolabs/policy-builder-cli`). Neither wrapper holds key material:
+everything they produce is an unsigned transaction for a wallet to sign.
 
 ## Setup
 
-Register version 2 (`@next`, grammar 7). Plain `@crediolabs/policy-builder-mcp`
-resolves npm's `latest`, which is still 1.3.0 and speaks grammar 4.
+Register the `next` tag (2.0.1). Plain `@crediolabs/policy-builder-mcp`
+resolves npm's `latest`, which is still 1.3.0 and targets an older interpreter
+that this one replaced.
 
 ```json
 { "mcpServers": { "policy-builder": {
@@ -27,6 +33,11 @@ resolves npm's `latest`, which is still 1.3.0 and speaks grammar 4.
 
 From a checkout of this repository, build the packages and run
 `node packages/policy-builder-mcp/dist/bin/server.js`.
+
+The CLI runs the same tools and returns the same JSON envelope:
+`policy-builder <tool> [json | --file path | - | --field value ...] [--out path]`.
+A unique prefix or suffix of a tool name is enough (`install`, `review`,
+`info`); the exit code is 1 on a refusal and 2 when the command line cannot be parsed.
 
 Only the operator sets the environment. No tool input can set any of these:
 
@@ -45,9 +56,9 @@ the operator's setting. Do not look for a tool argument that does it.
 
 ## The interpreter and its limits
 
-Testnet has one pinned grammar-7 interpreter, `CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT`.
+Testnet has one pinned policy interpreter, `CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT`.
 Any other `interpreterAddress` on testnet is refused (`INTERPRETER_MISMATCH`).
-Mainnet has no grammar-7 pin: every mainnet call that reaches an interpreter
+Mainnet has no pin: every mainnet call that reaches an interpreter
 must pass `interpreterAddress`, and it is accepted only if its live code hash is
 a build the package trusts (`trustedWasmSha256` in `get_interpreter_info`).
 
@@ -76,7 +87,7 @@ returns the instance's `limits` and the `ceilings`.
 | `get_interpreter_info` on testnet, without `verifyLive` | Works. `limitsFrom` is `live` or `recorded` |
 | `install_policy`, `verify_policy`, `simulate_policy` with calls, `explainAccount` | Need RPC and the live interpreter: they read its `limits()` and refuse a build the package does not trust |
 | `revoke_policy` | Needs RPC (it reads the rule and the account's code); no interpreter check |
-| `verifyLive` | Needs RPC; reports `live.matches` (false for an untrusted build or another grammar) instead of refusing. It still refuses an address other than the pin on a pinned network (`INTERPRETER_MISMATCH`) and an address that is not a wasm contract |
+| `verifyLive` | Needs RPC; reports `live.matches` (false for an untrusted build or another grammar version) instead of refusing. It still refuses an address other than the pin on a pinned network (`INTERPRETER_MISMATCH`) and an address that is not a wasm contract |
 | `simulate_policy` with only a predicate (explain) | Held to the limits of the given or pinned interpreter, read live, so testnet needs RPC. With no interpreter (mainnet without `interpreterAddress`) it is held to the ceilings and works offline. `heldTo` says which |
 
 ## Intent -> tool
@@ -99,7 +110,7 @@ contract would do, with its deny code.
 | Show what an account already allows | `get_interpreter_info` with `explainAccount: "<C… smart account>"`. It reads every rule and reviews each one this interpreter polices. Only a known OpenZeppelin account build (`91a2cd56…`) is read; any other account is refused |
 | Remove a rule | `revoke_policy` with `ruleId` |
 | Let the owner check an unsigned transaction | Tell the owner to run `review_unsigned` (or `policy-builder review`) on the XDR themselves, before signing. It reads the bytes alone, with `smartAccount` set, and lists the `problems` it finds in them. A rule with a contract signer needs `readContracts: true`, which reads the signer off the ledger. It then flags only an adapter bound to no gate, an adapter signing a rule scoped to itself that does not pin `call_fn = run`, or an undeployed contract; every other contract passes unvetted, so tell the owner to check who controls it. `signable` does not mean safe: tell the owner to read its Authority node (signers, who acts alone, admins, expiry, total) against what they asked for. Running it yourself and relaying the answer adds nothing the owner can check |
-| Check the interpreter | `get_interpreter_info` with `verifyLive: true`: `live.matches` says whether the deployed code is a trusted grammar-7 build. `install_policy` checks it again before building |
+| Check the interpreter | `get_interpreter_info` with `verifyLive: true`: `live.matches` says whether the deployed code is a trusted build. `install_policy` checks it again before building |
 | "at least N out": a slippage floor on a swap | `minOut`: `{ constraint: "minOut", at: [1], of: [0], num, den }` bounds the output argument against the call's own input (`out >= in * num / den`), so one rule covers every trade size. Ask the user for the ratio. A recorded rate is a price at one moment, and freezing it as policy denies ordinary trades later |
 | A price or balance check | `read` calls a fixed function of a fixed contract at enforce time. The install refuses it with `READ_UNSAFE` unless the target is on the safe list (below) |
 | Every element of a batch or payout | `each` (every element satisfies the rules), `some` (at least one does), `total` (a field's sum is at most `max`), `length` (at most `max` elements). One rule covers any length up to the instance's `max_elems` (32 on the testnet pin); a longer vector denies |
@@ -185,6 +196,12 @@ user thinks. Read every result in full.
   construction, so a policy on a rule-0 signer installs with no error and constrains
   nothing. Put the agent key on a new rule and constrain that.
 
+- **Changing a policed rule's signers breaks it:** the interpreter stored a
+  hash of the signer set at install, so `add_signer` or `remove_signer` on that
+  rule leaves it refusing every signer (`#204`). To change who signs, install a
+  new rule with `install_policy` (it builds `add_context_rule`), confirm it, then
+  remove the old one with `revoke_policy`.
+
 - **A per-call cap is no budget:** `limit` lets that amount through again and
   again, forever. When the user means a total, pass `spendingLimit` as well. If
   you install only the per-call bound, say which control they got.
@@ -240,6 +257,30 @@ user thinks. Read every result in full.
   you the address, say so and stop. Install no rule pinned to an address you
   cannot show is deployed.
 
+## Execution adapters as signers
+
+The execution adapter (`contracts/stellar/execution-adapter`) runs a batch of
+calls for a Prime account in one transaction. It is created in one of two
+modes, fixed for its life:
+
+| Mode | What it checks | What the builder does with it as a rule signer |
+| --- | --- | --- |
+| Gated (bound to a custody gate) | Every target, argument, nested value and grant against the gate's list | Allowed, except on a rule scoped to the adapter itself whose predicate leaves any branch without `call_fn = run`. The adapter signs whenever it asks the account, so such a rule lets anyone, with no key, have it approve an immediate `execute` or a `cancel` |
+| No gate (null) | No address at all | Refused on every rule: whoever may call its `execute` (an agent) could cite the rule for a call the adapter makes and move funds past that agent's own capped rules |
+
+The builder tells them apart by instance storage, never by code hash: `prime`
+stored with `gate` an address is gated, with `gate` void is null. A contract
+without both keys is treated as any other contract and passes unvetted.
+`install_policy` refuses these shapes with `INSTALL_BUILD_FAILED`, and
+`review_unsigned` with `readContracts: true` flags the same three problems.
+
+The Prime app holds the same line on its own signing paths, before any wallet
+is asked: it refuses a rule signed by a null or unverified adapter, a rule an
+adapter signs that covers its own calls, the Prime itself, every call or
+contract creation (except the app's own run rule), and an adapter added as a
+signer with `add_signer` or `batch_add_signer`. Expect those refusals if the
+owner signs through the app, and do not build around them.
+
 ## Amounts
 
 - **SAC assets are 7 decimals on Stellar, including USDC:** USDC is 6
@@ -259,8 +300,8 @@ user thinks. Read every result in full.
 - **A rule that governs no key:** synthesis leaves the signer set empty. It
   reads a transaction, and which keys a rule binds is a security decision for the
   user. Pass them in `signers` (G… or C…, up to 15, each installed as a delegated
-  signer). The package does not check a C… signer's code, so use one only
-  when the user vouches for it. `admins` (default: `sourceAccount`) are the
+  signer). Beyond the execution-adapter checks below, the package does not vet
+  a C… signer, so use one only when the user vouches for it. `admins` (default: `sourceAccount`) are the
   Policy Signer role that may later re-install or remove the rule; keep them
   apart from `signers`, the keys the rule restricts. `sourceAccount` must be a
   signer of the account's rule 0.
@@ -270,10 +311,11 @@ user thinks. Read every result in full.
   that can never be met (n above the signers, or weights that do not cover
   exactly the signers or total less than n), and `anyOne` beside a threshold
   that needs more than one.
-- **Contract signers:** each contract signer is read off the ledger. An
-  execution adapter bound to no gate is refused as a signer (an agent that may
-  call its `execute` could cite the rule and pass its own caps), and so is a
-  contract that is not deployed. No override waives either.
+- **Contract signers:** each contract signer's instance is read off the
+  ledger. Refused, with no override: an execution adapter bound to no gate, an
+  execution adapter with a gate signing a rule scoped to itself unless every
+  branch of the predicate pins `call_fn = run`, and a contract that is not
+  deployed. See "Execution adapters as signers" below.
 - **Spending-limit guard:** `spendingLimit` is refused unless every branch of the
   predicate pins `call_fn` to `transfer` (OpenZeppelin's `spending_limit` fails
   every other function, so those calls would always be refused), and unless the
@@ -295,7 +337,7 @@ user thinks. Read every result in full.
   adds (with `spendingLimit`, any overlapping neighbour is refused, capped or
   not, since a cap is per rule), or cannot be judged (its predicate is
   unreadable, it is policed by an interpreter other than the one the new rule
-  uses, of any grammar, or it carries only other policies). It also refuses
+  uses, whatever its build, or it carries only other policies). It also refuses
   when the account's rules could not all be read (`authorityScan.complete:
   false`: an absent or malformed `NextId`, a count that disagrees, or more than
   512 ids handed out). `authorityScan.overlaps` lists every rule the key could pick;
@@ -315,7 +357,7 @@ user thinks. Read every result in full.
 - **A rule scoped to a policy contract or to the account itself:** it would
   expose that contract's admin calls. No override.
 - **An interpreter outside the trusted builds** (`INTERPRETER_MISMATCH`): its
-  live grammar and code hash must be ones the package lists, whatever address
+  live `grammar_version()` and code hash must be ones the package lists, whatever address
   you pass.
 - **An endpoint or a directory as input:** neither is a tool argument.
   `outFile` is only a file name inside `POLICY_BUILDER_OUT_DIR`.
@@ -382,11 +424,11 @@ From the interpreter (`contracts/stellar/policy-interpreter/src/storage.rs`):
 | `#102` | `ArithmeticOverflow` | A `scaled` step overflowed `i128` (the multiply, the divide or the add) |
 | `#103` | `UnsupportedNode` | An ordering over `call_contract` or `call_fn` |
 | `#105` | `NotInAllowlist` | The value is not on the allowlist |
-| `#200` | `VersionMismatch` | The install parameters carry a grammar other than the interpreter's |
+| `#200` | `VersionMismatch` | The install parameters carry a grammar version other than the interpreter's `grammar_version()` |
 | `#201` | `MalformedPredicate` | The decoder refused the predicate: an unknown operator, the arity, or one of the instance's limits (leaves, depth, reads, elements, `in` entries) |
 | `#202` | `NonceReplay` | `install_nonce` must equal `stored_nonce + 1` |
 | `#203` | `MasterAuthRequired` | A re-install presented a different admin set from the one stored. Changing it is `rotate_master_signer_set`'s job |
-| `#204` | `RuleSignersChanged` | The signer set changed since install. The interpreter stored a hash of it and denies: the rule stops working, the safe direction. Every interpreter version does this, so change a policed rule's signers by adding a new rule and revoking the old one |
+| `#204` | `RuleSignersChanged` | The signer set changed since install. The interpreter stored a hash of it and denies: the rule stops working, the safe direction. Every interpreter build since the first does this, so change a policed rule's signers by adding a new rule and revoking the old one |
 | `#206` | `MissingState` | Nothing is installed for this rule, or the instance has no limits, or the context is not a contract call |
 | `#207` | `PredicateTooLarge` | The predicate is over the instance's `max_predicate_bytes` (24,576 bytes on the testnet pin), checked before any parse |
 | `#208` | `PredicateHashMismatch` | The blob does not match the hash installed beside it |
@@ -397,6 +439,7 @@ From the interpreter (`contracts/stellar/policy-interpreter/src/storage.rs`):
 | `#217` | `TooManySigners` | A signer set has more than 16 signers (`MAX_SIGNERS`) |
 | `#218` | `DefaultContextNotSupported` | A Default-scoped rule, or one scoped to the account or the interpreter |
 | `#219` | `SignerIsInterpreter` | A signer set holds the interpreter's own address |
+| `#220` | `LimitsOutOfRange` | A deploy-time limit was 0 or above its ceiling. The constructor refuses, so no live instance carries it |
 
 From the OpenZeppelin account layer (outside this interpreter):
 
