@@ -20,11 +20,11 @@ interface Case {
   code: number
 }
 const corpus: Case[] = JSON.parse(
-  readFileSync(new URL('../fixtures/parity/grammar7.json', import.meta.url), 'utf8')
+  readFileSync(new URL('../fixtures/parity/grammar.json', import.meta.url), 'utf8')
 ).cases
 const REFUSED = new Set([201, 207, 216])
 
-describe('parity with the contract (fixtures/parity/grammar7.json)', () => {
+describe('parity with the contract (fixtures/parity/grammar.json)', () => {
   it('has the corpus', () => expect(corpus.length).toBeGreaterThan(70))
   for (const c of corpus) {
     it(`${c.name}: same bytes, same JSON`, () => {

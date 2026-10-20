@@ -24,7 +24,7 @@
 // "hello" is the OZ account Z's `get_signer_id(Delegated(H))`: it answers while
 // H is one of Z's signers and fails once Z's owner removes H, so the test can
 // make it fail between signing and submitting. Every account is created and
-// funded fresh; the grammar-7 interpreter comes from deployments/grammar7-testnet.json.
+// funded fresh; the policy interpreter comes from deployments/interpreter-testnet.json.
 
 import { randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
@@ -63,7 +63,7 @@ const V4_ADAPTER = '3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db
 const WINDOW = 60
 const U = 10_000_000n // one unit of a 7-decimal asset
 const INTERP: string = JSON.parse(
-  readFileSync(new URL('../deployments/grammar7-testnet.json', import.meta.url), 'utf8')
+  readFileSync(new URL('../deployments/interpreter-testnet.json', import.meta.url), 'utf8')
 ).interpreter
 const XLM = Asset.native().contractId(PASSPHRASE)
 const NAMES: Record<string, string> = {

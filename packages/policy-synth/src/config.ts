@@ -54,9 +54,9 @@ export const maxResourceFee = (): number =>
 /** The grammar this package speaks: `SELF_VERSION` in the interpreter. */
 export const GRAMMAR_VERSION = 7
 
-/** The grammar-7 interpreter, per network (the wasm is the build with deploy-time `Limits`), with
+/** The pinned interpreter, per network (the wasm is the build with deploy-time `Limits`), with
  *  the limits that instance was deployed with: immutable (no setter, no upgrade), so recorded here
- *  and held equal to `deployments/grammar7-testnet.json`. Only synthesis and the info tool trust
+ *  and held equal to `deployments/interpreter-testnet.json`. Only synthesis and the info tool trust
  *  them with no RPC; install, verify and simulate read `limits()` live. Mainnet has none yet:
  *  until one is deployed and pinned here, mainnet installs and checks name their own
  *  interpreter, and it is verified live like the pinned one. */
@@ -113,17 +113,18 @@ export const SPENDING_LIMIT: Record<Network, string> = {
 }
 
 /** Every interpreter this project deployed, whatever its grammar. A rule policed by
- *  one of these can only be judged if it is the grammar-7 build this package reads. */
+ *  one of these can only be judged if it is the pinned build this package reads; the
+ *  rest are listed so that such a rule is recognised and refused. */
 export const INTERPRETERS: ReadonlySet<string> = new Set([
-  'CDPR5VTX6R2ZPKREPD7FBW5ANVWXMVJIBIH2GMF36XPOFNMHRDIRUAZQ', // grammar 6, testnet
-  'CBRRKTVURLAJRPJ3G44AWA5SCGUV47PCYF5CHND5TG3OGTFNXTSLBIJ5', // grammar 6, testnet rehearsal
-  'CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R', // grammar 6, mainnet (Prime)
-  'CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52', // grammar 4, mainnet
-  'CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5', // grammar 4, testnet
-  'CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB', // grammar 7, testnet, first build (its check could commit a read)
-  'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV', // grammar 7, testnet, limits hard-coded (superseded: no limits())
-  'CAECFZWHHHKJRJHYR3EQHAMYHBQPW7G6BGKYSNJS4KLZAUNLQP7H5L2H', // grammar 7, testnet, deploy-time limits (superseded: max_elems could be 1, 48 KiB ceiling)
-  'CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT', // grammar 7, testnet, deploy-time limits, floors, 40 KiB ceiling
+  'CDPR5VTX6R2ZPKREPD7FBW5ANVWXMVJIBIH2GMF36XPOFNMHRDIRUAZQ', // deployed by this project; this build does not trust it
+  'CBRRKTVURLAJRPJ3G44AWA5SCGUV47PCYF5CHND5TG3OGTFNXTSLBIJ5', // deployed by this project; this build does not trust it
+  'CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R', // deployed by this project; this build does not trust it
+  'CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52', // deployed by this project; this build does not trust it
+  'CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5', // deployed by this project; this build does not trust it
+  'CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB', // deployed by this project; this build does not trust it
+  'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV', // deployed by this project; this build does not trust it
+  'CAECFZWHHHKJRJHYR3EQHAMYHBQPW7G6BGKYSNJS4KLZAUNLQP7H5L2H', // deployed by this project; this build does not trust it
+  'CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT', // testnet, the pinned instance (INTERPRETER.testnet)
 ])
 
 /** OpenZeppelin's `simple_threshold` and `weighted_threshold`, built from v0.7.2 and deployed by us

@@ -108,7 +108,7 @@ export const limitsScVal = (l: Record<string, number | string>) =>
       )
   )
 
-/** What grammar 7 shipped with, in the contract's own field names. */
+/** The contract's default limits, in its own field names. */
 export const LIMITS_DEFAULT: Record<string, number> = {
   max_reads: 4,
   max_leaves: 200,

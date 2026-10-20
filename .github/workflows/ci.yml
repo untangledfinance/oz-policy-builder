@@ -64,10 +64,9 @@ jobs:
       fail-fast: false
       matrix:
         crate:
-          # Every contract that holds or gates value. The v3 pair was added
-          # after this matrix and ran outside it: their unit tests existed and
-          # never ran on a push, on the two contracts that stand between an
-          # agent and custody's money.
+          # Every contract that holds or gates value, including the gate and
+          # the adapter: the two contracts that stand between an agent and
+          # custody's money run their unit tests on every push.
           - policy-interpreter
           - custody-gate
           - execution-adapter
@@ -110,19 +109,19 @@ jobs:
       # The conformance suite: fixed predicate and context cases the interpreter
       # must keep deciding the same way. (The cross-layer gate for the TypeScript
       # codec is tests/parity.rs, run by `cargo test` above: it fails when
-      # packages/policy-synth/fixtures/parity/grammar7.json is stale.) Run it in
+      # packages/policy-synth/fixtures/parity/grammar.json is stale.) Run it in
       # release, matching how it is verified locally.
       - name: Conformance (release)
         if: matrix.crate == 'policy-interpreter'
         run: cargo test --release --test conformance
 
-      # The source here is the grammar-7 line. Its reproducible build is pinned in
+      # The interpreter's reproducible build is pinned in
       # contracts/build-hashes.json, the same way as the adapter's below. The
       # instance that runs on testnet is recorded separately in
-      # deployments/grammar7-testnet.json (and pinned by
+      # deployments/interpreter-testnet.json (and pinned by
       # packages/policy-synth/src/config.ts), and it lags this source until the
       # next redeploy: the source carries the keyless executor rules for
-      # OpenZeppelin 0.8.0 (Option A), and the recorded instance predates them.
+      # OpenZeppelin 0.8.0, and the recorded instance predates them.
       #
       # It must go through build-wasm.sh. A bare cargo build is NOT reproducible:
       # rustc bakes in the crate root and registry paths, so the hash differs per
@@ -175,8 +174,8 @@ jobs:
       # per owner and account, so there is no deployments/ record. Its
       # reproducible build (build-wasm.sh, which remaps the crate and registry
       # paths) is pinned in contracts/build-hashes.json, and the app pins the
-      # same hash. So is the adapter's: the source here is the v5 build (an
-      # optional gate), while deployments/execution-testnet.json keeps the v4
+      # same hash. So is the adapter's: the source here is the build with an
+      # optional gate, while deployments/execution-testnet.json keeps the earlier
       # build 3dd675c0 that the Prime app pins and mainnet runs.
       - name: Wasm build and pin parity
         if: matrix.crate == 'prime-seat' || matrix.crate == 'execution-adapter'

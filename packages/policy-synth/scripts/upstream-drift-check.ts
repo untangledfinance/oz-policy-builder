@@ -31,8 +31,8 @@ const BASELINE = {
    *
    *  Both networks moved to 29 by 2026-10-05 (main accepted it in 2d4098a on
    *  2026-10-10). On this line, 29 is accepted on 2026-10-18 on TESTNET
-   *  evidence: the grammar-7 interpreter, seats and execution contracts ran
-   *  their testnet suites at protocol 29 (evidence/stride-threat-model-g7.md),
+   *  evidence: the interpreter, seat and execution contracts ran their
+   *  testnet suites at protocol 29 (the threat model's runs in evidence/),
    *  and contract behaviour follows the protocol version rather than the
    *  network. A mainnet run needs a funded key and real transactions. Run it
    *  against mainnet before relying on a mainnet deployment. */
@@ -81,7 +81,7 @@ for (const network of ['testnet', 'mainnet'] as const) {
   } else {
     console.log(`DRIFT ${network} protocol ${known} -> ${live}`)
     drift.push(
-      `${network} moved to protocol ${live}. Run the 1.x e2e-network.ts (git show 9c93592:packages/policy-synth/scripts/e2e-network.ts) or OPB_LIVE=1 bun test against it and, ` +
+      `${network} moved to protocol ${live}. Run OPB_LIVE=1 bun test against it and, ` +
         `if it passes, update BASELINE.protocolVersion.${network}.`
     )
   }

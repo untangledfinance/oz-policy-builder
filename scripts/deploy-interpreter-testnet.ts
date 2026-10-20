@@ -1,8 +1,8 @@
-// Deploy a fresh grammar-7 interpreter on TESTNET with its deploy-time limits, read them back,
-// and record it in deployments/grammar7-testnet.json. TESTNET only: the passphrase and the RPC
+// Deploy a fresh policy interpreter on TESTNET with its deploy-time limits, read them back,
+// and record it in deployments/interpreter-testnet.json. TESTNET only: the passphrase and the RPC
 // are fixed here, and nothing else is deployed or touched.
 //
-//   bun scripts/deploy-grammar7-limits-testnet.ts <stellar identity> [--dry]
+//   bun scripts/deploy-interpreter-testnet.ts <stellar identity> [--dry]
 //
 // The secret is read from the stellar CLI and never printed. The wasm is the reproducible
 // `build-wasm.sh` output (build it on Linux: CI compares a Linux build). Before the real
@@ -27,7 +27,7 @@ import { toScVal } from '../packages/policy-synth/src/wire.ts'
 // Sized to PayFi's rules (the largest drafted rule is 8,840 B with 5 reads; a 3-asset basket takes 7
 // reads): reads 8 and leaves 400 are the ceilings, the byte limit is 24 KiB (2.8x the largest rule, so
 // a rule that outgrows it is a deliberate new instance, and an install stays far under the transaction
-// limit), and elems / in / depth stay at what grammar 7 shipped with (PayFi's rules validate under them).
+// limit), and elems / in / depth stay at the defaults (PayFi's rules validate under them).
 const LIMITS = {
   max_reads: 8,
   max_leaves: 400,
@@ -36,10 +36,9 @@ const LIMITS = {
   max_in_operands: 32,
   max_depth: 5,
 }
-const RECORD = 'deployments/grammar7-testnet.json'
+const RECORD = 'deployments/interpreter-testnet.json'
 const identity = process.argv[2]
-if (!identity)
-  throw new Error('usage: deploy-grammar7-limits-testnet.ts <stellar identity> [--dry]')
+if (!identity) throw new Error('usage: deploy-interpreter-testnet.ts <stellar identity> [--dry]')
 const dry = process.argv.includes('--dry')
 const kp = Keypair.fromSecret(execFileSync('stellar', ['keys', 'show', identity]).toString().trim())
 const server = new rpc.Server(
@@ -80,6 +79,8 @@ console.log(`wasm ${wasm.length} B sha256 ${wasmSha}`)
 
 // One address per (wasm, limits): the deployer and the salt make the address, so a new build or new limits
 // cannot collide with an instance already deployed.
+// The salt text is a fixed identifier: changing it moves every future address and stops the recorded
+// instance re-deriving from this script.
 const salt = hash(
   Buffer.from(`untangled.policy-interpreter.grammar7.limits.${wasmSha}.${JSON.stringify(LIMITS)}`)
 )

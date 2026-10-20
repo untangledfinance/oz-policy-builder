@@ -25,7 +25,7 @@ describe('the pins are the contract that was built and deployed', () => {
   })
 
   it('the testnet pin is the deployment record: address and wasm hash', () => {
-    const record = JSON.parse(read('deployments/grammar7-testnet.json'))
+    const record = JSON.parse(read('deployments/interpreter-testnet.json'))
     expect(record.grammar).toBe(GRAMMAR_VERSION)
     expect(INTERPRETER.testnet).toEqual({
       address: record.interpreter,
@@ -84,7 +84,7 @@ describe('the OZ policies we deployed are policy contracts no rule may be scoped
     }
   })
 
-  it('and so is the grammar-4 testnet interpreter the README lists', () => {
+  it('and a deployed interpreter this build does not trust is still recognised', () => {
     expect(INTERPRETERS.has('CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5')).toBe(true)
   })
 })

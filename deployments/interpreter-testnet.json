@@ -10,7 +10,7 @@
   "interpreterSource": {
     "commit": "5728d23",
     "reproducibleWasmSha256": "69cad1d5ce9aeaa0dad6980fd030e528935a0ebdd290111f393e9fd0564a68b0",
-    "note": "Built with ./build-wasm.sh on Linux x86_64 (rust 1.97.1; the same bytes from a second path and target dir). Testnet only. Grammar 7 with DEPLOY-TIME LIMITS: __constructor(Limits) stores reads / leaves / bytes / elems / in entries / depth once in instance storage (each between a floor and a hard ceiling: reads 1..8, leaves 4..400, bytes 256..40,960, elems 2..64, in 1..64, depth 2..8, else error 220) and limits() returns them; install, check and enforce hold a predicate to them. This instance was deployed with reads 8, leaves 400, bytes 24,576 (PayFi's largest rule is 8.8 KB), elems 32, in 32, depth 5 (see `limits`). It replaces CAECFZWH... (wasm 42d53616...): see `superseded`. No mainnet deployment, and nothing else deployed was touched."
+    "note": "Built with ./build-wasm.sh on Linux x86_64 (rust 1.97.1; the same bytes from a second path and target dir). Testnet only. The interpreter with DEPLOY-TIME LIMITS: __constructor(Limits) stores reads / leaves / bytes / elems / in entries / depth once in instance storage (each between a floor and a hard ceiling: reads 1..8, leaves 4..400, bytes 256..40,960, elems 2..64, in 1..64, depth 2..8, else error 220) and limits() returns them; install, check and enforce hold a predicate to them. This instance was deployed with reads 8, leaves 400, bytes 24,576 (PayFi's largest rule is 8.8 KB), elems 32, in 32, depth 5 (see `limits`). It replaces CAECFZWH... (wasm 42d53616...): see `superseded`. No mainnet deployment, and nothing else deployed was touched."
   },
   "uploadTx": {
     "interpreter": "ffd606887bf0f35837af154a85fe7c7d4ab3549eff254df19604e75f650cb779"
@@ -19,7 +19,7 @@
   "sizes": {
     "interpreter": 62371
   },
-  "note": "Grammar 7 interpreter with deploy-time limits, testnet only. The deployer is a throwaway identity funded by friendbot. The pin in packages/policy-synth/src/config.ts names this address. The instance's limits are immutable: no setter, no upgrade path.",
+  "note": "Interpreter with deploy-time limits, testnet only. The deployer is a throwaway identity funded by friendbot. The pin in packages/policy-synth/src/config.ts names this address. The instance's limits are immutable: no setter, no upgrade path.",
   "liveTests": {
     "smartAccount": "CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P",
     "smartAccountDeployTx": "be49607fe418df6b80a88b3b98ebe6e7f126e72c79c0ae45ab64a5d151a8c7b6",

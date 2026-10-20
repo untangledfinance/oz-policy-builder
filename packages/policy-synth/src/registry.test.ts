@@ -1,5 +1,5 @@
 // What each argument of each known call IS, one row at a time: which argument a
-// rule pins, which it caps, which it leaves open. These are the 1.x per-protocol
+// rule pins, which it caps, which it leaves open. These are the per-protocol
 // argument-role tests, asserted from outside the registry (a role that is wrong
 // here is a rule that bounds the wrong argument, and an unbounded spend).
 

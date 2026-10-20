@@ -647,7 +647,7 @@ describe('reviewUnsigned: the same bytes, changed', () => {
         const p = callArgs(env).args()[4]?.map()?.[0]?.val().map() ?? []
         p.find((e) => e.key().sym().toString() === 'grammar_version')?.val(xdr.ScVal.scvU32(6))
       },
-      /asked for grammar 6; this builder speaks grammar 7/,
+      /asks for grammar_version 6; this builder writes grammar_version 7/,
     ],
     [
       'a signer in the authorisation other than the source',
