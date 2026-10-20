@@ -137,6 +137,18 @@ jobs:
           ./build-wasm.sh
           ../../check-build-hash.sh stellar/policy-interpreter target/wasm32v1-none/release/policy_interpreter.wasm
 
+      # The pinned wasm against OpenZeppelin's smart account 0.8.0. That account
+      # is built against soroban-sdk 28, whose wasm the soroban-sdk 27 test host
+      # above refuses, so oz08/ is a crate of its own with a protocol-28 host
+      # that loads the build the step above checked.
+      - name: OpenZeppelin 0.8.0 suite (oz08)
+        if: matrix.crate == 'policy-interpreter'
+        working-directory: contracts/stellar/policy-interpreter/oz08
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets --locked -- -D warnings
+          cargo test --locked
+
       # The gate is not a shared instance - each custody account deploys its
       # own - so what is recorded is the uploaded code, in
       # deployments/execution-testnet.json, and the Prime app pins that hash.

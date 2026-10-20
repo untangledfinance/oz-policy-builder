@@ -1,0 +1,20 @@
+[package]
+name = "policy-interpreter-oz08"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Tests of the interpreter wasm against OpenZeppelin's smart account 0.8.0"
+
+# A crate of its own, never built into the interpreter. OpenZeppelin's 0.8.0
+# account is built against soroban-sdk 28, and the soroban-sdk 27 test host the
+# interpreter crate runs refuses its wasm ("contract protocol number is newer
+# than host"). So this crate runs a protocol-28 host and loads the interpreter
+# as the wasm build-wasm.sh writes, the bytes CI pins. The interpreter's own
+# dependency stays on soroban-sdk 27 and its build hash is unchanged.
+
+[lib]
+crate-type = ["rlib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { version = "=28.0.0", features = ["testutils"] }
