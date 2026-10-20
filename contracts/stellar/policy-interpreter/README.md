@@ -15,13 +15,13 @@ The hard limits are chosen when an instance is deployed. No number is compiled i
 max_predicate_bytes, max_elems, max_in_operands, max_depth }`, stores it once in
 instance storage, and the `limits()` view returns it. There is no setter and the
 contract has no upgrade path, so an instance's limits never change; a different
-limit is a new instance at a new address (the grammar is still 7). Every field
+limit is a new instance at a new address with the same grammar. Every field
 must lie between its floor and its ceiling, or the constructor fails with
 `LimitsOutOfRange` (220) and no such instance exists. The rest of this file
 names the fields (`max_reads`, `max_elems`, ...), never a number: `install`,
 `check` and `enforce` use the instance's own.
 
-| Field | Floor | Ceiling | Testnet pin `CDZV4AG4…` | policy-synth `DECODE_LIMITS` (the limits compiled into the first grammar-7 build) | What it bounds |
+| Field | Floor | Ceiling | Testnet pin `CDZV4AG4…` | policy-synth `DECODE_LIMITS` (the caps the builder checks a rule against with no interpreter at hand) | What it bounds |
 | --- | --- | --- | --- | --- | --- |
 | `max_reads` | 1 | 8 | 8 | 4 | distinct `read` calls per predicate, and so external calls per `enforce` |
 | `max_leaves` | 4 | 400 | 400 | 200 | weighted leaves (a quantifier body leaf and a `sum` weigh `max_elems`) |
@@ -44,9 +44,9 @@ the real wasm: the largest rule at every ceiling at once, for `install`, `enforc
 and `check`, must stay at or under 80% of every network limit (a 20% margin, so a fee
 or limit change does not turn a deployed rule into one that can never run). The
 network values are in `evidence/soroban-network-limits-2026-10-16.txt`: identical on
-testnet and mainnet for every per-transaction limit used (the costs differ: mainnet's
-fee rates are about twice testnet's, and its per-ledger transaction-size budget is
-266,240 bytes against testnet's 864,000, so a 92 KB install is about 35% of one mainnet ledger's). Measured at the ceilings
+Stellar's networks for every per-transaction limit used; fee rates and the
+per-ledger transaction-size budget differ per network, so read them before
+choosing an instance's byte limit. Measured at the ceilings
 (`evidence/worst-case-ceilings-2026-10-16.txt`: 23 rule shapes at each of two limit sets, plus the real callees):
 
 | What | Measured | Of the limit |
@@ -94,14 +94,14 @@ keep-alive as the rule. `worst_case.rs` assumes live targets and says so.
 
 **Rent:** A stored rule pays rent for its bytes, and the permit that finds a rule's
 entry under 100 ledgers from expiry bumps it to 518,400 ledgers inside the AGENT's own
-`enforce` transaction. Measured on testnet at the rates then (mainnet's differ: read its
-rent rate before choosing a mainnet byte limit): installing costs about 0.07 XLM per KB
+`enforce` transaction. Measured on testnet at the rates then (read a network's
+rent rate before choosing its byte limit): installing costs about 0.07 XLM per KB
 of rule, a full bump about 0.35 XLM per KB (17.6 XLM for a 49 KB rule). A keep-alive
 that extends the rule entries ahead of that bump is the normal payer; without it an
 agent's transaction suddenly needs the extra fee, and fails closed if it does not have it. So
 deploy an instance with `max_predicate_bytes` sized to the real rules. The testnet pin uses 24,576 bytes.
 
-The live testnet instance is in `deployments/grammar7-testnet.json` with the limits it was
+The live testnet instance is in `deployments/interpreter-testnet.json` with the limits it was
 deployed with.
 
 ## Entry points
@@ -109,10 +109,10 @@ deployed with.
 | Function | Purpose |
 | --- | --- |
 | `install` | Store a predicate for a `(smart account, context rule)` pair. Refuses a grammar version it does not speak, an oversized predicate (byte cap, `207`, before any parse work), any payload whose sha256 does not match the supplied hash, a rule that reaches the admin surface (`Default`-scoped, or scoped to the smart account or to this interpreter: `218`; **only those two addresses** - a rule scoped to another policy contract, such as a second interpreter instance or OZ's `spending_limit`, still installs and exposes that contract's own admin calls, so never scope a rule to a policy contract), a master set that is empty, and a signer set (the rule's operators or the master set) that is over 16, holds an `External` signer, or holds this interpreter's own address (`219`: no signature can authorise as it, so an operator set holding it could never authorise a call and a master set holding it could never uninstall or rotate). A contract address in a master set bricks the rule just the same unless that contract itself calls `uninstall`/`rotate_master_signer_set`; only the interpreter's own address is checked, because the others cannot be enumerated. An empty operator set installs: it is a keyless rule, which `enforce` permits only while it is bound (below). A re-install under a binding refuses a predicate that leaves `run` open on a rule scoped to its executor (`221`). |
-| `enforce` | The policy hook the smart account calls on every guarded operation: decode, evaluate, permit or deny. Its checks run in this order, and each refusal rolls back the whole call. (1) An empty authenticated signer set is refused (`210`) unless the rule is keyless: it lists no signer, has this interpreter as its only policy, and is bound to an executor. (2) The stored predicate is decoded. (3) A bound rule scoped to its executor must pin `call_fn == run` on every path (`221`), checked against the rule the account passes. (4) A bound rule needs the executor's authorisation of the exact account and context, except for the executor's own `run` under a rule scoped to it (see `bind_executor`). (5) The rule's signer set is compared with the hash `install` stored, and `204` refuses once they differ, so `add_signer` or `remove_signer` on a policed rule stops it for every signer until the policy is installed again (true of every interpreter version). A keyed rule stripped of its last signer passes (1) and is refused here, or at (4) when the executor does not grant its context. (6) The TTL is extended and the predicate decides. |
+| `enforce` | The policy hook the smart account calls on every guarded operation: decode, evaluate, permit or deny. Its checks run in this order, and each refusal rolls back the whole call. (1) An empty authenticated signer set is refused (`210`) unless the rule is keyless: it lists no signer, has this interpreter as its only policy, and is bound to an executor. (2) The stored predicate is decoded. (3) A bound rule scoped to its executor must pin `call_fn == run` on every path (`221`), checked against the rule the account passes. (4) A bound rule needs the executor's authorisation of the exact account and context, except for the executor's own `run` under a rule scoped to it (see `bind_executor`). (5) The rule's signer set is compared with the hash `install` stored, and `204` refuses once they differ, so `add_signer` or `remove_signer` on a policed rule stops it for every signer until the policy is installed again. A keyed rule stripped of its last signer passes (1) and is refused here, or at (4) when the executor does not grant its context. (6) The TTL is extended and the predicate decides. |
 | `check` | A dry run for the off-chain builder: `check(predicate, context)` decodes `predicate` with install's checks (byte cap `207`, decode `201`, selector leaf `216`) and evaluates it against `context`, a contract call. **It always fails, and the contract error is the verdict**: `Error(Contract, #0)` permits, and any other number is the code `install` or `enforce` would have raised (`100`-`105`, or `206` for a context that is not a contract call). The builder reads it from the simulation's error. Failing is deliberate: a transaction that submits `check` rolls back everything a `read` did, so the interpreter is never a free, unauthenticated caller of other contracts (a `read` of `token.transfer(interpreter, ...)` is authorised by the interpreter being the direct invoker, and would otherwise commit). It touches no storage and asks for no authorisation. A `read` in the predicate still calls its target as the interpreter does (which must hold nothing, below). A predicate that is not XDR at all traps in the host before the contract runs. |
-| `bind_executor` | Bind a rule to an execution adapter, whose own authorisation of the exact account and context `enforce` then also requires, with one exception: under a rule scoped to the adapter, the adapter's own `run` context needs none, because only the adapter's code can ask the account for it. Needs the smart account's authorisation and the master set's; kept across a re-install. Refuses (`221`) a rule scoped to the adapter it binds, as the last install recorded it, unless the predicate pins `call_fn == run` on every path: an `and` with such a conjunct, an `or` whose every branch has one. **Bind a rule to the contract it is scoped to only when that contract is an execution adapter**: under the exception above, the binding stands in for that contract's consent to its own `run`, so the rule approves whatever that `run` does. That is safe for adapter v5, whose `run` asks the account only for a batch an agent stored and the gate scanned; for any other contract with a `run`, it is not. |
-| `uninstall` | Remove the stored predicate for a rule. Needs the master set's own authorisation, so when the smart account's `remove_context_rule` calls it without that, `uninstall` fails, the account removes the rule anyway, and the entry stays until it archives (true of every interpreter version). |
+| `bind_executor` | Bind a rule to an execution adapter, whose own authorisation of the exact account and context `enforce` then also requires, with one exception: under a rule scoped to the adapter, the adapter's own `run` context needs none, because only the adapter's code can ask the account for it. Needs the smart account's authorisation and the master set's; kept across a re-install. Refuses (`221`) a rule scoped to the adapter it binds, as the last install recorded it, unless the predicate pins `call_fn == run` on every path: an `and` with such a conjunct, an `or` whose every branch has one. **Bind a rule to the contract it is scoped to only when that contract is an execution adapter**: under the exception above, the binding stands in for that contract's consent to its own `run`, so the rule approves whatever that `run` does. That is safe for the execution adapter in this repository, whose `run` asks the account only for a batch an agent stored and the gate scanned; for any other contract with a `run`, it is not. |
+| `uninstall` | Remove the stored predicate for a rule. Needs the master set's own authorisation, so when the smart account's `remove_context_rule` calls it without that, `uninstall` fails, the account removes the rule anyway, and the entry stays until it archives. |
 | `rotate_master_signer_set` | Update the master signer set an installation is bound to. |
 | `grammar_version` | The predicate grammar version this build speaks (`SELF_VERSION`). |
 | `limits` | The `Limits` this instance was deployed with (see above). |
@@ -125,13 +125,13 @@ is `CONTRACT_SCOPE` (101), whichever side they are on.
 
 ## What the predicate can say
 
-The grammar is version 7 (`SELF_VERSION`); this contract accepts grammar-7
-predicates only. Most leaves are answered from the authorized call itself, and
+The grammar version is `SELF_VERSION` (`src/version.rs`); `install` accepts a
+document of that grammar version only (200). Most leaves are answered from the authorized call itself, and
 `enforce` writes no value. A permit bumps the rule's stored entry's TTL when
 fewer than 100 ledgers remain on it; it creates nothing and alters no value, and
-a deny is rolled back with the frame. The exception is `read`, below: **in grammar 7 `enforce`
-calls other contracts**, so the grammar-6 property "`enforce` reads only the
-authorized call" no longer holds.
+a deny is rolled back with the frame. The exception is `read`, below: **`enforce`
+calls the contracts a predicate reads**, so a rule with a `read` sees more than
+the authorized call.
 
 | Leaf | Resolves to |
 | --- | --- |
@@ -184,9 +184,8 @@ was written as.
 anything made of literals alone (a literal, or a `scaled` of literals, checked at
 decode; the tree keeps the `scaled` and recomputes it on every `enforce`) must
 come out above zero. `-99/100` would turn a floor into a ceiling
-that permits a zero output, and `0` cancels the selector. Grammar 6 had one
-literal factor, `num`, so the same rule is stricter here (it also covers `src`
-and nested constants); a factor that comes from the call, the clock or a read
+that permits a zero output, and `0` cancels the selector. The rule covers
+`src`, `num` and nested constants; a factor that comes from the call, the clock or a read
 cannot be judged at install and stays the rule author's to guard. `den` is
 positive and at most `MAX_DEN` (10^18). The cap stops an `i128::MAX`-style `den`
 only; it does not stop a tiny `num / den` ratio (`99 / 10^18` still floors at
@@ -253,9 +252,7 @@ compared.
   and would never match a map; a key's type is part of it (`lit(u32 7)` and
   `lit(i128 7)` are different keys). A step that is a selector is refused (201).
 
-`scaled` replaces grammar 6's `call_arg_scaled(i, num, den)`; that is now
-`scaled(call_arg(i), num, den, 0)` (equal under every comparison, `eq` included,
-since numbers compare by value). Because it resolves to a plain number, a
+A floor relative to an argument is `scaled(call_arg(i), num, den, 0)`. Because it resolves to a plain number, a
 comparison against it is an ordinary comparison: a miss denies `ARG_MISMATCH`
 (there is no separate slippage reason), and two `scaled` leaves compare with
 each other. Nesting gives sums, differences, products and small integer powers:
@@ -294,7 +291,7 @@ one, without a rule per length.
   times what one evaluation costs, so decode counts EVERY leaf of a body `max_elems`
   times toward `max_leaves`, and a `sum` (which walks that many elements) as
   `max_elems` leaves itself, so the leaf budget bounds the work. A body may have at
-  most `max_leaves / max_elems` leaves (six at the grammar-7 values 200 and 32), an `in`
+  most `max_leaves / max_elems` leaves (six at the `DECODE_LIMITS` values 200 and 32), an `in`
   entry counts as a leaf, and so does the needle (a body `in` or `nin` needs a short
   allowlist: at six leaves, needle and 5 entries; long per-element lists do not fit a
   body, and a body `read` cannot take the element, below). A rule holds at most
@@ -313,7 +310,7 @@ one, without a rule per length.
 - **Cost:** Measured in the Soroban host with the real wasm (CPU instructions of
   one `enforce`; the limits are 400M instructions and 41,943,040 bytes of
   memory per transaction). The four-check PayFi rule: 4.49M, 6.18 MB (4 reads).
-  A 32-element payout (the rule below, 195 leaves, at the grammar-7 values): 4.6M. A six-leaf body over
+  A 32-element payout (the rule below, 195 leaves, at the `DECODE_LIMITS` values): 4.6M. A six-leaf body over
   32 elements whose fields sit eight steps deep: 8.3M. A body that also makes
   one `read` (made once for all 32): 5.1M and one external call. Install
   stores the rule bytes and pays rent per KB (see Rent above), so a quantifier's
@@ -389,7 +386,7 @@ lte(x, scaled(scaled(x, 1, 7, 0), 7, 1, 4))
 ```
 
 The windows hold at 09:00:00 and 16:59:59 and refuse at 08:59:59 and 17:00:00;
-`tests/grammar7.rs` checks those four instants (and midnight and 23:59:59) on
+`tests/reads_and_clock.rs` checks those four instants (and midnight and 23:59:59) on
 several days, and each weekday boundary across two weeks.
 The window is on the ledger clock, which validators set to within seconds of
 real time, so do not rely on it to the second; a window with no selector leaf
@@ -458,7 +455,7 @@ Read this before writing a rule with a `read`.
   admin-set price feed. A spot AMM price, a pool's utilisation or a
   balance the agent can debit and restore are all movable. A balance floor on an address the
   agent cannot debit (a custody account) is safe against the agent and still
-  rises with any donation. `tests/grammar7.rs` shows the wrapper defeating a
+  rises with any donation. `tests/reads_and_clock.rs` shows the wrapper defeating a
   spot read.
   Three timings follow from this, and a rule author has to pick the one the
   rule is evaluated at:
@@ -480,8 +477,8 @@ Read this before writing a rule with a `read`.
     (so a venue read sees the state the batch's earlier calls left). Keep the
     shape pin on `execute` (wait, length, every target, function, arguments and
     `executor_authorizations`, and `grants`) even when the reads move to venue
-    rules; `tests/grammar7.rs` pins all of them.
-  `tests/grammar7.rs` shows the unpinned batch and the waiting batch that are
+    rules; `tests/reads_and_clock.rs` pins all of them.
+  `tests/reads_and_clock.rs` shows the unpinned batch and the waiting batch that are
   let through and the pinned rule that refuses both. Called directly (outside
   the adapter), a pool the authorised call itself targets is on the call
   stack, so reading it is refused as re-entry. A rule on a direct pool call
@@ -502,7 +499,7 @@ Read this before writing a rule with a `read`.
   (a failed read, an absent argument, an overflow) denies `NOT_IN_ALLOWLIST`
   (105) instead: a needle that cannot be resolved cannot be on the allowlist.
 - **Caps, enforced at decode:** At most `max_reads` DISTINCT `read` calls per
-  predicate (the grammar-7 value is four). With constant arguments a call is `(contract, fn, args)`: reads that
+  predicate (four in `DECODE_LIMITS`). With constant arguments a call is `(contract, fn, args)`: reads that
   differ only in `path` are one call, and `enforce` makes it once and reuses the
   result for every leaf (a failed call is remembered too, so each leaf that
   uses it denies). So one price feed read for a floor, an LTV and a freshness
@@ -576,8 +573,8 @@ Read this before writing a rule with a `read`.
   storage `ExceededLimit` that no rule can catch, even inside an `or`, which
   is why you simulate the signed transaction. The builder that emits predicates
   must warn about both, and about the memory figure above. It must also refuse
-  as a rule's scope any known policy contract address (the pinned grammar-6 and
-  grammar-7 interpreters, OZ policies), which the contract does not. Those checks
+  as a rule's scope any known policy contract address (every interpreter this
+  project deployed, OZ policies), which the contract does not. Those checks
   are off-chain and belong to the TypeScript side (the M3 gate). A claimable-balance
   or liquidity-pool address anywhere in a predicate also traps in the host's XDR
   reader (`Error(Context, InvalidAction)`) before any 201 could be returned.
@@ -589,7 +586,7 @@ Read this before writing a rule with a `read`.
   a price used as a multiplier (zero or negative makes an upper bound trivial)
   and `gte(call_path(amount), 0)` beside every amount taken from the call (a
   negative advance lowers the debt side and passes the bound). With the guards
-  the negative case is refused; `tests/grammar7.rs` shows both.
+  the negative case is refused; `tests/reads_and_clock.rs` shows both.
 - **Arithmetic fails closed:** Overflow in any step of a `scaled` (the multiply,
   the divide, the add) denies `ARITHMETIC_OVERFLOW` (`NOT_IN_ALLOWLIST` inside an
   `in` needle); it never wraps. A `den`
@@ -624,11 +621,11 @@ own `valid_until` is the account-level alternative. The synthesiser reports each
 of the absent ones as uncovered. It emits no constraint that would
 never bind.
 
-Retired deny codes: `107` (`SLIPPAGE_FLOOR`) and `214`
-(`INVALID_SCALED_RATIO`) are not emitted by grammar 7 and are not reused. New in
-grammar 7: `219` (`SIGNER_IS_INTERPRETER`); `218` also covers a rule scoped to
-the account or the interpreter, not only `Default`. The constructs above add no
-code. A `nin` miss is `ARG_MISMATCH` (100) whatever its needle; a quantifier that
+Reserved codes: `104`, `107` and `214` are never emitted and never reused.
+`218` covers a `Default` rule and a rule scoped to the account or the
+interpreter; `219` (`SIGNER_IS_INTERPRETER`) a signer set holding the
+interpreter's own address; `221` (`RunNotPinned`) a self-scoped executor rule
+that leaves `run` open. The constructs above add no code. A `nin` miss is `ARG_MISMATCH` (100) whatever its needle; a quantifier that
 denies is `ARG_MISMATCH` (100) whatever its body reported (an `in` miss, a
 `call_contract` miss and an overflow inside a body all read 100), except that
 a failure resolving the quantifier's own vector keeps its code (102 for a `sum`
@@ -653,12 +650,12 @@ PARITY_WRITE=1 cargo test --test parity  # rewrite the TypeScript codec's corpus
 `tests/parity.rs` writes the cross-layer fixture: each predicate in the corpus as
 the JSON the TypeScript codec speaks, its canonical XDR, and what `check` says
 about it. The checked-in file
-(`packages/policy-synth/fixtures/parity/grammar7.json`) must be current, or the
+(`packages/policy-synth/fixtures/parity/grammar.json`) must be current, or the
 Rust test fails; the TypeScript tests fail when the codec's bytes or its
 accept/refuse verdicts differ. The conformance cases are fixed: they came from
-the grammar-4 and grammar-6 TypeScript evaluator, which no longer exists
-(`tests/conformance/_generated_v4.rs` was migrated by hand to the grammar-7 form
-of its one `scaled` leaf). If you change the grammar, bump `SELF_VERSION`
+an earlier TypeScript evaluator, which no longer exists
+(`tests/conformance/_generated_operators.rs`; its one `scaled` leaf was written
+by hand in the current form). If you change the grammar, bump `SELF_VERSION`
 (`src/version.rs`) and regenerate the parity corpus.
 
 Built for `wasm32v1-none` on soroban-sdk 27.

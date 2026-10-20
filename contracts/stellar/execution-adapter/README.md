@@ -25,7 +25,7 @@ mode under [No gate](../../../docs/stellar.md#no-gate).
 | --- | --- |
 | `__constructor` | Bind the adapter to its Prime account and to a gate or to none, with `min_wait` (the fewest ledgers any batch waits) and `run_window` (how long a ready batch stays runnable). Refuses an address other than the one derived from those three values, so custody can name the adapter on the gate before it exists. With no gate, refuses a `min_wait` above 0. |
 | `execute` | Check a batch of calls and grants. With `wait` 0 it runs at once; above 0 it is stored and its number returned, if there is a gate. The Prime approves `(calls, grants, wait)` together. |
-| `run` | Run a stored batch from its ready ledger to the end of its run window. Anyone may submit it; the Prime approves through a rule this adapter signs, whose predicate permits `run` only. The batch is checked again against the gate bound now, and runs once. |
+| `run` | Run a stored batch from its ready ledger to the end of its run window. Anyone may submit it. The Prime approves through its run rule: scoped to this adapter, listing no signer, bound to this adapter with the interpreter's `bind_executor`, and pinned to `call_fn == run` (see [The run rule](../../../docs/stellar.md#the-run-rule)). The batch is checked again against the gate bound now, and runs once. |
 | `cancel` | Drop a stored batch, waiting, ready or lapsed. `by` must be the Prime or the custody account the gate answers to, and must approve. With no gate, `by` must be the Prime. |
 | `rebind` | Move the adapter to a successor gate. Only the current gate's custody account may call it, and the successor must answer `custody()`. An adapter with no gate cannot be bound, and an adapter with a gate cannot be moved to none. |
 
@@ -47,9 +47,8 @@ mode under [No gate](../../../docs/stellar.md#no-gate).
 ## The address
 
 `deployer(prime, sha256("prime.execution.adapter.v5" + XDR((gate, min_wait,
-run_window))))`, where "no gate" is a void in the tuple. The deployed v4 build
-hashed `"prime.execution.adapter.v4"` and the XDR of each part in turn, so no
-v5 adapter can sit at a v4 address. The Prime deploys its own adapter: a G
+run_window))))`, where "no gate" is a void in the tuple and the salt text is a
+fixed domain constant. The Prime deploys its own adapter: a G
 account signs the deployment as the transaction source or by an
 address-credential entry; an OpenZeppelin account approves it through a rule.
 
@@ -63,11 +62,5 @@ cargo test        # 62 tests
 On Linux, `build-wasm.sh` gives
 `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b` (24,659
 bytes), the hash in `contracts/build-hashes.json` (`stellar/execution-adapter`).
-It is uploaded on testnet only, where the Prime app's beta names it, with a
-gate, for new gates (octopos #231). CI rebuilds this source and compares it
-with that record.
-
-The v4 build `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3`,
-recorded in `deployments/execution-testnet.json`, is the build mainnet runs and
-the one the Prime app pins there; its source is this folder at `a86a496`. Gates set up on
-mainnet before 11 October 2026 run `68d012e7…` (`deployments/prime-mainnet.json`).
+Its code is uploaded on testnet. CI rebuilds this source and compares it with
+that record.

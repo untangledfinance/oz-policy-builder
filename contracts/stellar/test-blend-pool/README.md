@@ -13,6 +13,6 @@ interpreter's integration tests - identical `submit` shape, different
 contract address - so the policy's `eq(call_contract, ...)` constraint is
 what separates PERMIT from DENY.
 
-It is **not** a production pool and is never deployed to mainnet. See the
+It is a test double and is deployed on testnet only. See the
 rationale in [`Cargo.toml`](./Cargo.toml) and the file-level comment of
 [`src/lib.rs`](./src/lib.rs).

@@ -1,7 +1,7 @@
 # @crediolabs/policy-builder-mcp
 
-An [MCP](https://modelcontextprotocol.io) server for the OZ Policy Builder
-(grammar 7). It registers the eight tools of
+An [MCP](https://modelcontextprotocol.io) server for the OZ Policy Builder.
+It registers the eight tools of
 [`@crediolabs/policy-synth`](https://www.npmjs.com/package/@crediolabs/policy-synth)
 exactly as that package defines them (`record_transaction`, `synthesize_policy`,
 `simulate_policy`, `verify_policy`, `install_policy`, `revoke_policy`,
@@ -12,12 +12,13 @@ and so does every answer. A result is the tool's data as JSON text and as
 
 ## Run
 
-`@next` is 2.0.1, for grammar 7. Without it npm resolves `latest`, still 1.3.0
-(grammar 4).
+Run it from a checkout of the repository: build `policy-synth` and this package
+(`bun run --cwd packages/<name> build`), then point the client at the built
+server. The builds on npm are older than this tree.
 
 ```json
 { "mcpServers": { "policy-builder": {
-  "command": "npx", "args": ["-y", "@crediolabs/policy-builder-mcp@next"] } } }
+  "command": "node", "args": ["/path/to/oz-policy-builder/packages/policy-builder-mcp/dist/bin/server.js"] } } }
 ```
 
 `policy-builder-mcp` serves stdio. `policy-builder-mcp --http [--http-port N]`
