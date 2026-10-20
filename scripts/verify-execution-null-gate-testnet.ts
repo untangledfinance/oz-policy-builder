@@ -8,7 +8,7 @@
 //     stays usable until its expiry ledger, and is refused after it;
 //   - the Prime is still refused as a call target, the adapter hands out no
 //     authorization as itself, and it can never be bound to a gate;
-//   - an agent on an OZ Prime is checked per call context by grammar-7
+//   - an agent on an OZ Prime is checked per call context by policy
 //     interpreter rules and refused over its cap, even with the adapter named
 //     as a co-signer;
 //   - a null adapter stores nothing (any wait is refused, and so is a null
@@ -16,7 +16,7 @@
 //   - a gated adapter cannot be rebound to "no gate", and custody's gate
 //     refuses a pull from a null adapter;
 //   - the cost of 1, 3 and 10 calls: null and gated on this build, and gated
-//     on the deployed v4 build.
+//     on the deployed build (deployments/execution-testnet.json).
 //
 //   contracts/stellar/execution-adapter/build-wasm.sh && contracts/stellar/custody-gate/build-wasm.sh
 //   bun scripts/verify-execution-null-gate-testnet.ts
@@ -59,7 +59,8 @@ import {
   wasmPath,
 } from './lib/chain.ts'
 
-const V4_ADAPTER = '3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3'
+/** The adapter build recorded in deployments/execution-testnet.json, costed beside this one. */
+const DEPLOYED_ADAPTER = '3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3'
 const WINDOW = 60
 const U = 10_000_000n // one unit of a 7-decimal asset
 const INTERP: string = JSON.parse(
@@ -196,14 +197,26 @@ const contractId = (deployer: string, salt: Buffer) =>
     )
   )
 const gateArg = (gate: string | null) => (gate ? addr(gate) : xdr.ScVal.scvVoid())
-/** Where an adapter for `prime` lives: v5 hashes the XDR of the tuple
- *  (gate, min_wait, run_window), "no gate" being a void; v4 hashed the XDR of
- *  each part in turn. */
-const adapterSalt = (gate: string | null, minWait: number, window: number, version = 'v5') =>
+type Build = 'current' | 'deployed'
+/** The salt domain each adapter build hashes. These strings are data: each
+ *  must match its build's source byte for byte. */
+const SALT_DOMAIN: Record<Build, string> = {
+  current: 'prime.execution.adapter.v5',
+  deployed: 'prime.execution.adapter.v4',
+}
+/** Where an adapter for `prime` lives: this build hashes the XDR of the tuple
+ *  (gate, min_wait, run_window), "no gate" being a void; the deployed build
+ *  hashes the XDR of each part in turn. */
+const adapterSalt = (
+  gate: string | null,
+  minWait: number,
+  window: number,
+  build: Build = 'current'
+) =>
   hash(
     Buffer.concat([
-      Buffer.from(`prime.execution.adapter.${version}`),
-      ...(version === 'v5'
+      Buffer.from(SALT_DOMAIN[build]),
+      ...(build === 'current'
         ? [vec([gateArg(gate), u32v(minWait), u32v(window)]).toXDR()]
         : [gateArg(gate).toXDR(), u32v(minWait).toXDR(), u32v(window).toXDR()]),
     ])
@@ -370,7 +383,7 @@ async function view(contract: string, fn: string, args: xdr.ScVal[]) {
 const balance = async (token: string, who: string): Promise<bigint> =>
   BigInt(await view(token, 'balance', [addr(who)]))
 
-/** A grammar-7 interpreter rule on the OZ account `prime`, installed through rule 0. */
+/** A policy interpreter rule on the OZ account `prime`, installed through rule 0. */
 async function addRule(
   prime: string,
   owner: Keypair,
@@ -692,7 +705,7 @@ const agentL = await addRule(
 )
 report(
   true,
-  'C3. agent rules on the grammar-7 interpreter: execute on the adapter, transfer <= 20 USDC, transfer <= 2 XLM',
+  'C3. agent rules on the policy interpreter: execute on the adapter, transfer <= 20 USDC, transfer <= 2 XLM',
   `rules ${agentA.id} ${agentU.id} ${agentL.id}, txs ${agentA.tx} ${agentU.tx} ${agentL.tx}`
 )
 function asAgent(ids: number[]): Sign {
@@ -846,19 +859,19 @@ landed(
 // -------------------------------------------------------------- cost ---
 
 console.log('\n-- cost: k USDC transfers of 1 stroop from X (G, source) to M')
-const adapters: [string, string][] = [['v5 null', nullG]]
-for (const version of ['v5', 'v4'] as const) {
-  const code = version === 'v5' ? AW : Buffer.from(V4_ADAPTER, 'hex')
+const adapters: [string, string][] = [['null', nullG]]
+for (const build of ['current', 'deployed'] as const) {
+  const code = build === 'current' ? AW : Buffer.from(DEPLOYED_ADAPTER, 'hex')
   const salt = Buffer.from(Keypair.random().rawPublicKey())
   const gate = contractId(K.payer.publicKey(), salt)
-  const adapter = contractId(X, adapterSalt(gate, 0, WINDOW, version))
+  const adapter = contractId(X, adapterSalt(gate, 0, WINDOW, build))
   const r = await send(
     create(K.payer.publicKey(), GW, salt, [gateCfg(X, adapter, code, [USDC, M, X])]),
     K.payer
   )
   if (!r.ok) throw new Error(`allow-list gate: ${short(r.error)}`)
   const d = await send(
-    create(X, code, adapterSalt(gate, 0, WINDOW, version), [
+    create(X, code, adapterSalt(gate, 0, WINDOW, build), [
       addr(X),
       addr(gate),
       u32v(0),
@@ -866,8 +879,9 @@ for (const version of ['v5', 'v4'] as const) {
     ]),
     K.xg
   )
-  landed(`cost setup: ${version} gated adapter ${adapter.slice(0, 8)} on an allow-list gate`, d)
-  adapters.push([`${version} gated`, adapter])
+  const label = build === 'current' ? 'gated' : 'deployed build, gated'
+  landed(`cost setup: ${label} adapter ${adapter.slice(0, 8)} on an allow-list gate`, d)
+  adapters.push([label, adapter])
 }
 const table: string[] = [
   '| Adapter | Calls | CPU instructions | Min resource fee | Charged | Transaction |',
@@ -891,8 +905,8 @@ for (const [label, adapter] of adapters) {
 }
 console.log('\n-- cost: k USDC transfers of 1 stroop from X_C (OZ account, rule 0) to M')
 for (const [label, adapter] of [
-  ['v5 null', nullC],
-  ['v5 gated', gatedC],
+  ['null', nullC],
+  ['gated', gatedC],
 ] as const) {
   for (const k of [1, 3, 10]) {
     const r = await sendSigned(

@@ -6,6 +6,9 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 
 ## [2.0.1]
 
+This entry describes the source in this repository at version 2.0.1. The
+builds published to npm under that number are older.
+
 ### Packages
 
 - **policy-synth:** turns a recorded Soroban transaction, or a mandate stated as

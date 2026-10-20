@@ -10,7 +10,7 @@
   "interpreterSource": {
     "commit": "5728d23",
     "reproducibleWasmSha256": "69cad1d5ce9aeaa0dad6980fd030e528935a0ebdd290111f393e9fd0564a68b0",
-    "note": "Built with ./build-wasm.sh on Linux x86_64 (rust 1.97.1; the same bytes from a second path and target dir). Testnet only. The interpreter with DEPLOY-TIME LIMITS: __constructor(Limits) stores reads / leaves / bytes / elems / in entries / depth once in instance storage (each between a floor and a hard ceiling: reads 1..8, leaves 4..400, bytes 256..40,960, elems 2..64, in 1..64, depth 2..8, else error 220) and limits() returns them; install, check and enforce hold a predicate to them. This instance was deployed with reads 8, leaves 400, bytes 24,576 (PayFi's largest rule is 8.8 KB), elems 32, in 32, depth 5 (see `limits`). It replaces CAECFZWH... (wasm 42d53616...): see `superseded`. No mainnet deployment, and nothing else deployed was touched."
+    "note": "Built with ./build-wasm.sh on Linux x86_64 (rust 1.97.1; the same bytes from a second path and target dir). Testnet only. The interpreter with DEPLOY-TIME LIMITS: __constructor(Limits) stores reads / leaves / bytes / elems / in entries / depth once in instance storage (each between a floor and a hard ceiling: reads 1..8, leaves 4..400, bytes 256..40,960, elems 2..64, in 1..64, depth 2..8, else error 220) and limits() returns them; install, check and enforce hold a predicate to them. This instance was deployed with reads 8, leaves 400, bytes 24,576 (PayFi's largest rule is 8.8 KB), elems 32, in 32, depth 5 (see `limits`). Nothing else deployed was touched."
   },
   "uploadTx": {
     "interpreter": "ffd606887bf0f35837af154a85fe7c7d4ab3549eff254df19604e75f650cb779"
@@ -23,17 +23,11 @@
   "liveTests": {
     "smartAccount": "CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P",
     "smartAccountDeployTx": "be49607fe418df6b80a88b3b98ebe6e7f126e72c79c0ae45ab64a5d151a8c7b6",
-    "note": "An OZ smart account (rule 0: Default, no policy, one delegated signer: the deployer) used by packages/policy-synth's live tests. Rule 1 was installed on the previous interpreter build (previousInstallTx), so it reads as a rule policed by a known interpreter this build refuses to trust; rule 2 was installed through the builder on the current interpreter (installTx): an interpreter predicate scoped to a made-up token contract. The recorded RPC fixtures (packages/policy-synth/fixtures/rpc) replay against this account. Rule 3 was installed on the first interpreter with deploy-time limits (limitsInstallTx, CAECFZWH..., superseded) and so reads as a rule policed by an interpreter this build refuses to trust; rule 4 was installed through the builder on the current interpreter (currentInstallTx): the same predicate as rule 2. The recorded RPC fixtures (packages/policy-synth/fixtures/rpc) replay against this account. Rule 4 (currentInstallTx) is `cap-500` on a made-up token: a cap of 500 on argument 2 of `transfer`, no pin.",
+    "note": "An OZ smart account (rule 0: Default, no policy, one delegated signer: the deployer) used by packages/policy-synth's live tests. Rule 1 was installed on an earlier interpreter build (previousInstallTx, CDL7KHDK...), so it reads as a rule policed by a known interpreter this build refuses to trust; rule 2 was installed through the builder on the current interpreter (installTx): an interpreter predicate scoped to a made-up token contract. The recorded RPC fixtures (packages/policy-synth/fixtures/rpc) replay against this account. Rule 3 was installed on the first interpreter with deploy-time limits (limitsInstallTx, CAECFZWH...) and so reads as a rule policed by an interpreter this build refuses to trust; rule 4 was installed through the builder on the current interpreter (currentInstallTx): the same predicate as rule 2. The recorded RPC fixtures (packages/policy-synth/fixtures/rpc) replay against this account. Rule 4 (currentInstallTx) is `cap-500` on a made-up token: a cap of 500 on argument 2 of `transfer`, no pin.",
     "previousInstallTx": "7ee0d68b9b1dd58ad0af7752f2f5e673424c57b03dd1f4f071ee2df28b5e4e0b",
     "installTx": "f5048377761ec99fec9d423a63167feedd1d148f78aca055a28bf0d200e90d8b",
     "limitsInstallTx": "1abeb0bc73203679c4a47ace012e9394711e28e24b7036e90d4a9f99cff7d892",
     "currentInstallTx": "eb0d2e0936efc9be169ca140029024fd3f7e10cec4513d86f5b7f81a0a193268"
-  },
-  "previous": {
-    "interpreter": "CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB",
-    "wasmSha256": "eb1ec6ee8dca82622b9e70a04599b7ceeea9dc89f5917293ca76fb2c51af37b3",
-    "uploadTx": "09abcd93bb790608d2a8c1df0b7dea305cd4e97ad4af4b8eb9ce221a1bbac6d9",
-    "createTx": "57d7f36aed4d9f18b6b4496941245e8e227e269a05e551e35d70548f8f3ebb90"
   },
   "limits": {
     "max_depth": 5,
@@ -43,26 +37,6 @@
     "max_predicate_bytes": 24576,
     "max_reads": 8
   },
-  "superseded": [
-    {
-      "interpreter": "CAECFZWHHHKJRJHYR3EQHAMYHBQPW7G6BGKYSNJS4KLZAUNLQP7H5L2H",
-      "wasmSha256": "42d53616cafe85361b9675df5919fa7df81d10d9ac77698458205673cb390f77",
-      "status": "superseded",
-      "why": "its wasm (42d53616...) lets max_elems be 1 (placement rules lose their meaning) and a 48 KiB byte ceiling that fails the 20% install-size margin; policy-synth refuses it by hash",
-      "uploadTx": "01f98a9cb359079640a7eea88cf653926f1550ae64d99c1bfb20f1403707b286",
-      "createTx": "7a09b4abb37d367d06b0e53de060f35a86ddc05a1b21ec5e84f76afd6a58e1b0",
-      "commit": "1db9f03"
-    },
-    {
-      "interpreter": "CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV",
-      "wasmSha256": "a975353d1c3fe5bb096c4c2bf90c7c96932df10b95c9bcfa0adbb1d2146773f1",
-      "status": "superseded",
-      "uploadTx": "23270d4c74398fead2138372092a4d31c6e2d3a00b182dfadcef1dc8dc45919c",
-      "createTx": "2544fcf10524035b15c7868cb80294990b11e2a45c31248ea6022574d9f1ba98",
-      "commit": "1f64790",
-      "why": "Superseded by the interpreter above. Its limits are compile-time constants (reads 4, leaves 200, bytes 32 KiB, elems 32, in 32, depth 5) and it has no limits(), so policy-synth refuses it: a build whose limits cannot be read is not one whose predicates can be judged. It stays deployed, and nothing on it is touched."
-    }
-  ],
   "extendTx": {
     "instance": "704552b446901cc232d8554b9e039eccc0e738b6496d0f3b213124f772db66c0",
     "code": "f03e254a9dfe5b61714bbc523711af2d7dcddb6fa5318ccbc8e1a7b956e83e15"

@@ -2,7 +2,7 @@
 
 An [MCP](https://modelcontextprotocol.io) server for the OZ Policy Builder.
 It registers the eight tools of
-[`@crediolabs/policy-synth`](https://www.npmjs.com/package/@crediolabs/policy-synth)
+[`@crediolabs/policy-synth`](../policy-synth/README.md)
 exactly as that package defines them (`record_transaction`, `synthesize_policy`,
 `simulate_policy`, `verify_policy`, `install_policy`, `revoke_policy`,
 `get_interpreter_info`, `review_unsigned`): name, description and input schema come from its table,
