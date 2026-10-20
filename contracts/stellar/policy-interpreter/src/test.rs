@@ -3,7 +3,7 @@ use soroban_sdk::{Bytes, Env};
 use crate::dsl::{self, DecodeError, EvalContext, EvalDecision, Node};
 use crate::{Limits, PolicyInterpreter, PolicyInterpreterClient, SELF_VERSION};
 
-/// What grammar 7 shipped with (`tests/common` holds the same for the integration suites).
+/// The default limits (`tests/common` holds the same for the integration suites).
 pub const DEFAULT: Limits = Limits {
     max_reads: 4,
     max_leaves: 200,
@@ -34,10 +34,10 @@ fn reports_its_grammar_version() {
     assert_eq!(client.grammar_version(), SELF_VERSION);
 }
 
-/// The literal, not the constant: grammar 7 adds `read` and `now` and replaces
-/// `call_arg_scaled`, which changes what a predicate can say. A v6 builder must
-/// not read this build's answer as an invitation to install.
+/// Pins the literal number. `grammar_version()` is wire ABI that every
+/// builder matches exactly, so a change to it has to be made here as well,
+/// on purpose.
 #[test]
-fn grammar_version_is_seven() {
+fn grammar_version_is_pinned() {
     assert_eq!(SELF_VERSION, 7);
 }

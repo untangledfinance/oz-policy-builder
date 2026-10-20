@@ -2,7 +2,7 @@
 //! Per-Prime batching, bound to one gate or to none, with an optional wait.
 //!
 //! A BATCH CAN WAIT, IF THERE IS A GATE. `execute` takes how many ledgers to
-//! wait. Zero runs the batch now, exactly as the previous adapter did. More
+//! wait. Zero runs the batch now, inside the same call. More
 //! than zero stores it, and anyone may `run` it once that many ledgers have
 //! closed - until its run window closes too. The Prime approves the wait
 //! along with the batch, so nobody can shorten it afterwards, and each of the
@@ -72,8 +72,8 @@
 //! `deployer(prime, sha256("prime.execution.adapter.v5" + XDR((gate, min_wait,
 //! run_window))))` - "no gate" being a void in that tuple - and naming that
 //! address on the gate. The constructor refuses to run anywhere else. The XDR
-//! of a tuple spells one binding only, and `v5` keeps this build off every
-//! address a `v4` adapter was derived at. The numbers are custody's
+//! of a tuple spells one binding only, and the fixed salt text keeps this build
+//! off every address derived under any other text. The numbers are custody's
 //! protection against the Prime's own owners, and the gate pins its caller's
 //! address and code but not its arguments: without this check the Prime could
 //! create the adapter at the named address with a `min_wait` of zero.

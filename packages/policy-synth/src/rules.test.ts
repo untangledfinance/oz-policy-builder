@@ -297,9 +297,9 @@ describe('readRules, on a live account', () => {
     )
     expect(found.map((o) => [o.ruleId, o.why])).toEqual([
       [0, 'unpoliced'],
-      [1, 'unreadable'], // policed by the first build of the interpreter
-      [2, 'unreadable'], // policed by the second
-      [3, 'unreadable'], // policed by the third (limits, 48 KiB: superseded)
+      [1, 'unreadable'], // policed by an interpreter build this package does not trust
+      [2, 'unreadable'], // the same
+      [3, 'unreadable'], // the same
       [4, 'other'],
     ])
   })
@@ -755,11 +755,11 @@ describe('readRules, against a stub account', () => {
 })
 
 describe('what the scan cannot judge is refused, and what it can judge is judged by meaning', () => {
-  const mainnetG6 = 'CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R'
-  const firstG7 = 'CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB'
+  const otherGrammar = 'CAOBQ4ZXANKXAGEJWJLIGQJDFCTHMEZVUPLPX277KSDMEU4MEWVVXO2R'
+  const untrustedBuild = 'CDL7KHDKR7GZ2UN4P2XVJ63JTULNK3G5XKCE5NYKTMKKYONOAEKB3ZTB'
 
-  it('a neighbour policed by a known interpreter this build cannot decode (grammar 6, the first grammar-7 build) is refused', () => {
-    for (const policies of [[mainnetG6], [firstG7], [mainnetG6, LIMIT]]) {
+  it('a neighbour policed by a known interpreter this build cannot decode (another grammar, or a build this package does not trust) is refused', () => {
+    for (const policies of [[otherGrammar], [untrustedBuild], [otherGrammar, LIMIT]]) {
       expect(scan({ policies, expr: undefined })[0]).toMatchObject({
         severity: 'refuse',
         why: 'unreadable',

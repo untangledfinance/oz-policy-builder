@@ -2,7 +2,7 @@
   "name": "@crediolabs/policy-synth",
   "version": "2.0.1",
   "license": "MIT",
-  "description": "Off-chain TypeScript core for the OZ Accounts Policy Builder, grammar 7: record a Soroban transaction or state a mandate, get the rule that permits exactly that, verify it through the interpreter's own `check`, and return an unsigned install transaction.",
+  "description": "Off-chain TypeScript core for the OZ Accounts Policy Builder: record a Soroban transaction or state a mandate, get the rule that permits exactly that, verify it through the interpreter's own `check`, and return an unsigned install transaction.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

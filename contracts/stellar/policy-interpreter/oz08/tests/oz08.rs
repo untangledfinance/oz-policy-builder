@@ -20,10 +20,11 @@
 //!   `set_auths`, so the host builds the contexts from the entry's tree and
 //!   runs the account's `__check_auth` on them), and the interpreter.
 //!   The interpreter runs as the wasm `build-wasm.sh` writes
-//!   (`../target/wasm32v1-none/release/policy_interpreter.wasm`, or `G7_WASM`),
+//!   (`../target/wasm32v1-none/release/policy_interpreter.wasm`, or
+//!   `INTERPRETER_WASM`),
 //!   the bytes CI pins in `contracts/build-hashes.json`. Build it first.
 //! - **Modelled** (`src/lib.rs`): the execution adapter and the venue.
-//!   `Executor` makes the same authorisation calls as adapter v5
+//!   `Executor` makes the same authorisation calls as the execution adapter
 //!   (`4985cd12`): `run(id)` hands out the stored grants with
 //!   `authorize_as_current_contract`, then asks the Prime with
 //!   `require_auth_for_args((id,))`, then calls the venue; `execute(wait)` does
@@ -65,9 +66,9 @@ const OZ08_SHA256: &str = "8286422f205951f37f4249401b403471fc432340dde6925432d31
 
 const EXPIRES_IN: u32 = 100;
 
-/// The interpreter wasm: `G7_WASM`, else the `build-wasm.sh` output.
+/// The interpreter wasm: `INTERPRETER_WASM`, else the `build-wasm.sh` output.
 fn interpreter_wasm() -> std::vec::Vec<u8> {
-    let path = std::env::var("G7_WASM").unwrap_or_else(|_| {
+    let path = std::env::var("INTERPRETER_WASM").unwrap_or_else(|_| {
         concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../target/wasm32v1-none/release/policy_interpreter.wasm"
@@ -75,7 +76,7 @@ fn interpreter_wasm() -> std::vec::Vec<u8> {
         .into()
     });
     std::fs::read(&path).unwrap_or_else(|e| {
-        panic!("no interpreter wasm at {path} ({e}): run ../build-wasm.sh or set G7_WASM")
+        panic!("no interpreter wasm at {path} ({e}): run ../build-wasm.sh or set INTERPRETER_WASM")
     })
 }
 
@@ -276,7 +277,7 @@ impl World {
         self.ctx(&self.venue, "submit", self.submit_args())
     }
 
-    /// The executor's grant of `enforce(account, context)`: what adapter v5
+    /// The executor's grant of `enforce(account, context)`: what the adapter
     /// hands out for a venue call in a batch.
     fn grant(&self, ctx: &Context) -> InvokerContractAuthEntry {
         InvokerContractAuthEntry::Contract(SubContractInvocation {
@@ -521,7 +522,7 @@ impl World {
         VenueClient::new(&self.env, &self.venue).total()
     }
 
-    // ---- the Option A rules ----
+    // ---- the keyless executor rules ----
 
     /// Rule `venue`: no signer, `submit` on the venue, bound to the executor.
     fn venue_rule(&self) -> ContextRule {

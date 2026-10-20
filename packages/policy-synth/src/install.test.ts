@@ -519,7 +519,7 @@ describe('planInstall: the guards', () => {
         })
       ),
       'INTERPRETER_MISMATCH',
-      /runs grammar 7 with wasm b+/
+      /answers grammar_version\(\) = 7 with wasm b+/
     )
     await refused(
       planInstall(
@@ -528,7 +528,7 @@ describe('planInstall: the guards', () => {
         chain({ fingerprint: async () => ({ ...ours, matches: false, grammarVersion: 6 }) })
       ),
       'INTERPRETER_MISMATCH',
-      /grammar 6/
+      /grammar_version\(\) = 6/
     )
   })
 

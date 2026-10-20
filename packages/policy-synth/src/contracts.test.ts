@@ -13,7 +13,7 @@ import { reviewUnsigned } from './review.ts'
 import { run } from './tools.ts'
 import { encode, hashOf } from './wire.ts'
 
-/** Testnet, from the review of #26 (`review-opb26-evidence/probes-testnet.log`): a v5 adapter
+/** Testnet, from the review of #26 (`review-opb26-evidence/probes-testnet.log`): an execution adapter
  *  created with no gate, and one bound to a custody gate. */
 const NULL_ADAPTER = 'CD5Y3SNPN3HX5S6XXYCZRQIP7U6FCQIMJJDZ7QKKSYYJG4343SYJ5SA2'
 const GATED_ADAPTER = 'CCXFDHD7I7NWV37GQ6JTNSGP67EXYLG3QV4GJWUQUBEUEH3IANEI2QTG'

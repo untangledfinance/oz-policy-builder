@@ -959,7 +959,7 @@ describe('round trip: every node is one leaf or group of the predicate, every le
     labels: { [A]: 'a' },
     info: { [C]: { fns: SAC, token: USDC } },
   }
-  for (const f of ['grammar7', 'accuracy'])
+  for (const f of ['grammar', 'accuracy'])
     for (const c of corpus(f)) {
       const e = c.json ?? decode(c.xdr as string)
       let valid = true

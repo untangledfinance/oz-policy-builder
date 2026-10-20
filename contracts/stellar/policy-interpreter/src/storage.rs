@@ -2,11 +2,11 @@
 //!
 //! Storage layout: the deploy-time `Limits` are the one `instance()` entry, written by
 //! the constructor. Everything else is `persistent()`: ONE entry per rule,
-//! `(account, rule_id) -> StoredDoc`. Grammar 6 kept four entries per rule (the
-//! predicate and executor in one doc, plus the nonce, the operator-set hash and
-//! the master set); they share a lifecycle (written together at install, bumped
-//! together when a permit bumps them), and any one archiving would have bricked the rule,
-//! so they now live and expire together.
+//! `(account, rule_id) -> StoredDoc`. The predicate, the executor, the nonce,
+//! the operator-set hash and the master set all sit in that one doc: they share
+//! a lifecycle (written together at install, bumped together when a permit
+//! bumps them), and as separate entries any one archiving would brick the rule,
+//! so they live and expire together.
 
 use soroban_sdk::{contracterror, contracttype, panic_with_error, Address, Bytes, BytesN, Env};
 
@@ -25,19 +25,19 @@ use crate::types::{Limits, Signer};
 //   2xx  install / auth / state denies
 //
 // Retired numbers must stay retired - a new code lives in the next free slot
-// in its group, never at a recycled value. Retired so far: the whole 3xx group
-// (oracle support, grammar v2), 104 (the rolling-window deny, grammar v3 -
-// the evaluator compares but never accumulates), and, in grammar 7, 107
-// (slippage floor) and 214 (invalid scaled ratio): `scaled` resolves to a plain
+// in its group, never at a recycled value. Reserved and never reused: the whole
+// 3xx group (oracle support), 104 (a rolling-window deny; the evaluator
+// compares but never accumulates), 107 (a slippage floor) and 214 (an invalid
+// scaled ratio). The last two are unused because `scaled` resolves to a plain
 // number, so a failed comparison against it is an ordinary ARG_MISMATCH, and a
 // non-positive denominator is refused as MALFORMED_PREDICATE at decode.
 //
-// 102 was retired in v3 and RESTORED in v4 to its original meaning, arithmetic
-// overflow, when `call_arg_scaled` (now `scaled`) brought back a computed
-// operand. Restoring a number to the meaning it always had is safe; the rule
-// against recycling exists so a consumer that remembers
-// `102 = ARITHMETIC_OVERFLOW` is never wrong, and here it stays right. 107 and
-// 214 were added in v4 and retired in v7, as above.
+// 102 has one meaning only, arithmetic overflow: a `scaled` step that
+// overflows `i128` denies with it (see `ArithmeticOverflow` below). Keeping
+// each number to one meaning is what the rule against recycling protects:
+// a consumer that remembers `102 = ARITHMETIC_OVERFLOW` is never wrong, and
+// a consumer that meets a reserved number knows it means nothing here.
+// The codes the interpreter emits are exactly the variants of `PolicyError`.
 //
 // The numeric codes mirror the TS-side enum in
 // `packages/policy-synth/src/errors.ts` so a review card can name the failure

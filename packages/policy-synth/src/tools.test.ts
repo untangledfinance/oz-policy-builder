@@ -1229,7 +1229,7 @@ describe('install_policy', () => {
       'install_policy',
       { ...base, network: 'mainnet' },
       'INTERPRETER_MISMATCH',
-      /no grammar-7 interpreter is pinned for mainnet/
+      /no interpreter is pinned for mainnet/
     )
   })
 
@@ -1571,7 +1571,7 @@ describe('the limits of the pinned instance', () => {
     const some = (k: number) => ({
       intent: { calls: [{ contract: TOKEN, fn: 'pay', where: reads(k) }] },
     })
-    // The grammar-7 defaults allow four: five distinct reads would be refused without the instance's.
+    // The default limits allow four: five distinct reads would be refused without the instance's.
     const ok = await call('synthesize_policy', some(8))
     expect(ok.ok).toBe(true)
     expect(ok.data.rules).toHaveLength(1)
@@ -1622,7 +1622,7 @@ describe('get_interpreter_info', () => {
       pinned: true,
       grammarVersion: 7,
       address: 'CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT',
-      // read from limits() on the instance (deployments/grammar7-testnet.json records the same)
+      // read from limits() on the instance (deployments/interpreter-testnet.json records the same)
       limits: {
         max_reads: 8,
         max_leaves: 400,
@@ -1682,7 +1682,7 @@ describe('get_interpreter_info', () => {
       'get_interpreter_info',
       { network: 'mainnet' },
       'INTERPRETER_MISMATCH',
-      /no grammar-7 interpreter is pinned/
+      /no interpreter is pinned/
     )
   })
 })

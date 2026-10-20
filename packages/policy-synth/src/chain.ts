@@ -67,7 +67,7 @@ export function interpreterFor(network: Network, address?: string): string {
   if (pinned === undefined) {
     throw new Refusal(
       'INTERPRETER_MISMATCH',
-      `no grammar-${GRAMMAR_VERSION} interpreter is pinned for ${network}; pass interpreterAddress (it is verified live)`
+      `no interpreter is pinned for ${network}; pass interpreterAddress (it is verified live)`
     )
   }
   return pinned
@@ -241,7 +241,7 @@ export async function codeHash(server: rpc.Server, address: string): Promise<str
 /** What a contract signer is, from its instance on the ledger: an execution adapter created with no
  *  gate (its instance holds `prime`, and `gate` as void), one bound to a gate (`prime`, and `gate`
  *  an address), a contract that is not deployed, or any other contract. Read from storage, not
- *  from a code hash: every adapter build from v3 to v5 keeps these keys, whatever its hash. */
+ *  from a code hash: every adapter build this project deployed keeps these keys, whatever its hash. */
 export type ContractKind = 'null-gate adapter' | 'gated adapter' | 'absent' | 'contract'
 
 const PRIME_KEY = xdr.ScVal.scvSymbol('prime').toXDR('base64')
@@ -281,7 +281,7 @@ export async function contractKinds(
 export const mismatch = (f: Fingerprint): Refusal =>
   new Refusal(
     'INTERPRETER_MISMATCH',
-    `${f.address} runs grammar ${f.grammarVersion} with wasm ${f.wasmSha256}; this build trusts grammar ${GRAMMAR_VERSION} with ${[...INTERPRETER_WASM].join(' or ')}`,
+    `${f.address} answers grammar_version() = ${f.grammarVersion} with wasm ${f.wasmSha256}; this build trusts grammar_version() = ${GRAMMAR_VERSION} with ${[...INTERPRETER_WASM].join(' or ')}`,
     { details: f }
   )
 

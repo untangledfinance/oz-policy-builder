@@ -1,4 +1,4 @@
-// The grammar-7 wire shape, as JSON.
+// The predicate wire shape, as JSON.
 //
 // A predicate is an ScVal, and this file speaks that ScVal as JSON, one way, for
 // everything: an expression, a constant, a call argument. A node is a tagged
@@ -21,7 +21,7 @@
 //                   is not UTF-8), map ([[k, v], ...])
 //
 // Parity with the contract is checked against the corpus the contract's own test
-// writes (`fixtures/parity/grammar7.json`).
+// writes (`fixtures/parity/grammar.json`).
 
 import { createHash } from 'node:crypto'
 import { Address, nativeToScVal, scValToBigInt, xdr } from '@stellar/stellar-sdk'
@@ -229,7 +229,7 @@ const limits = (
     max_depth,
   })
 export type Caps = ReturnType<typeof limits>
-/** What grammar 7 first shipped with, and so the caps of a rule checked without an interpreter at hand. */
+/** The contract's default limits, and so the caps of a rule checked without an interpreter at hand. */
 export const DECODE_LIMITS = limits(4, 200, 32 * 1024, 32, 32, 5)
 /** The most any deployment may choose (`Limits::in_range` in the contract): an instance reporting more is refused. */
 export const CEILINGS = limits(8, 400, 40 * 1024, 64, 64, 8)

@@ -55,7 +55,7 @@ describe('the ceilings and floors are the contract’s', () => {
       max_depth: 2,
     })
   })
-  it('and the defaults are what grammar 7 first shipped with', () => {
+  it('and the defaults are the contract defaults', () => {
     expect(DECODE_LIMITS).toEqual({
       max_reads: 4,
       max_leaves: 200,
@@ -156,7 +156,7 @@ describe('limitsOf: what the instance says, and nothing it should not', () => {
     expect(await ensureInterpreter(ok.server, 'mainnet', ok.address)).toEqual(CUSTOM_CAPS)
     const f = net(CUSTOM, 'ab'.repeat(32))
     await expect(ensureInterpreter(f.server, 'mainnet', f.address)).rejects.toThrow(
-      /runs grammar 7 with wasm ab/
+      /answers grammar_version\(\) = 7 with wasm ab/
     )
     expect(f.asked).not.toContain('simulate limits')
   })
@@ -562,7 +562,7 @@ describe('the install review says what the interpreter allows', () => {
 describe('the pins', () => {
   it('are the deployment record', async () => {
     const rec = (await Bun.file(
-      new URL('../../../deployments/grammar7-testnet.json', import.meta.url)
+      new URL('../../../deployments/interpreter-testnet.json', import.meta.url)
     ).json()) as {
       interpreter: string
       wasmHashes: { interpreter: string }

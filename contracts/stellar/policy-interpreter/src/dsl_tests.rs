@@ -6,7 +6,7 @@
 //! Axes:
 //!   - each operator (and / in / eq / lte) with a permit case plus the deny
 //!     case that operator uniquely owns
-//!   - each v2 selector: call_contract, call_fn, call_arg, call_arg_len,
+//!   - each call selector: call_contract, call_fn, call_arg, call_arg_len,
 //!     call_arg_field
 //!   - fail-closed at every entry boundary: unknown node symbol, unknown
 //!     selector symbol, wrong arity, wrong ScVal type as a literal, in []
@@ -998,7 +998,7 @@ fn selector_leaf_gate_refuses_literals_on_both_sides() {
     assert!(!crate::dsl::has_selector_leaf(&n));
 }
 
-// ----- Tests: v4 operators (or / lt / gt / gte) ------------------------------
+// ----- Tests: operators or / lt / gt / gte -----------------------------------
 
 #[test]
 fn op_or_first_child_permit_short_circuits() {
@@ -1140,7 +1140,7 @@ fn scaled(src: Leaf, num: Leaf, den: i128, add: Leaf) -> Leaf {
     Leaf::Scaled(alloc::boxed::Box::new([src, num, add]), den)
 }
 
-/// `scaled(call_arg(0), num, den, 0)` - the grammar-6 `call_arg_scaled`.
+/// `scaled(call_arg(0), num, den, 0)`: a scaled call argument.
 fn arg_scaled(env: &Env, num: i128, den: i128) -> Leaf {
     scaled(call_arg(0), li(env, num), den, li(env, 0))
 }
@@ -1227,7 +1227,7 @@ fn scaled_on_the_left_compares_in_written_order() {
 
 #[test]
 fn scaled_versus_scaled_compares_two_numbers() {
-    // Grammar 6 refused this. Both sides resolve to a plain number now.
+    // Both sides resolve to a plain number, so they compare like any two.
     let env = Env::default();
     let n = compare(
         CompareOp::Gte,
@@ -1403,7 +1403,7 @@ fn now_composes_with_scaled() {
     assert!(!permit(evaluate(&env, &n, &swap_ctx(&env, 699, 0))));
 }
 
-// ----- Tests: the selector gate under grammar 7 -------------------------------
+// ----- Tests: the selector gate ----------------------------------------------
 
 fn dummy_read(env: &Env) -> Leaf {
     dummy_read_of(env, 0)
@@ -1452,7 +1452,7 @@ fn read_and_now_do_not_count_as_selectors() {
     assert!(crate::dsl::has_selector_leaf(&both));
 }
 
-// ----- Tests: decode of the grammar-7 leaves -----------------------------------
+// ----- Tests: decode of the read, now and scaled leaves ----------------------
 
 #[test]
 fn decode_refuses_a_non_positive_denominator() {
@@ -1779,7 +1779,7 @@ fn wire_scaled_leaves_count_toward_the_leaf_cap() {
     assert_eq!(err, crate::dsl::DecodeError::TooManyLeaves);
 }
 
-// ----- Tests: v4 wire round-trips --------------------------------------------
+// ----- Tests: wire round-trips of or / lt / gt / gte -------------------------
 
 #[test]
 fn wire_or_round_trips() {
@@ -1867,7 +1867,7 @@ fn wire_scaled_rejects_u32_in_the_denominator_slot() {
 }
 
 #[test]
-fn wire_grammar_6_call_arg_scaled_is_refused() {
+fn wire_call_arg_scaled_is_refused() {
     let env = Env::default();
     let leaf = vec_scval(&[
         sym("call_arg_scaled"),
@@ -1876,7 +1876,7 @@ fn wire_grammar_6_call_arg_scaled_is_refused() {
         i128_scval(100),
     ]);
     let node = vec_scval(&[sym("gte"), leaf_to_scval(&env, &call_arg(1)), leaf]);
-    let err = decode(&env, &bytes_from_scval(&env, node)).expect_err("retired leaf");
+    let err = decode(&env, &bytes_from_scval(&env, node)).expect_err("unknown leaf");
     assert_eq!(err, crate::dsl::DecodeError::MalformedPredicate);
 }
 

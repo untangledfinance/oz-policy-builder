@@ -1,4 +1,4 @@
-//! Grammar 7 end to end: `read`, `now` and `scaled`, through the real `install`
+//! `read`, `now` and `scaled` end to end, through the real `install`
 //! and `enforce` entry points, against mock oracle / token / pool contracts.
 //!
 //! The four PayFi checks each get a permitting and a refusing case, then the
@@ -12,7 +12,7 @@ use alloc::vec::Vec as StdVec;
 
 use policy_interpreter::{
     ContextRule, ContextRuleType, PolicyError, PolicyInstallParams, PolicyInterpreter,
-    PolicyInterpreterClient, Signer,
+    PolicyInterpreterClient, Signer, SELF_VERSION,
 };
 use soroban_sdk::auth::{Context, ContractContext};
 use soroban_sdk::testutils::{Address as _, Ledger as _};
@@ -827,15 +827,15 @@ fn a_selector_inside_scaled_still_counts_as_one() {
 }
 
 #[test]
-fn a_grammar_6_scaled_leaf_no_longer_decodes() {
+fn a_call_arg_scaled_leaf_does_not_decode() {
     let w = World::new();
-    let old = tuple(alloc::vec![
+    let leaf = tuple(alloc::vec![
         sym("call_arg_scaled"),
         ScVal::U32(0),
         num(99),
         num(100)
     ]);
-    assert_eq!(w.install(&cmp("gte", call_arg(1), old)), MALFORMED);
+    assert_eq!(w.install(&cmp("gte", call_arg(1), leaf)), MALFORMED);
 }
 
 // ---- safety: reads that cannot produce a number ----------------------------
@@ -1011,13 +1011,13 @@ fn the_same_rule_permits_when_the_read_target_is_not_on_the_stack() {
 // ---- the version gate ------------------------------------------------------
 
 #[test]
-fn a_grammar_6_document_is_refused_by_the_version_gate() {
+fn a_document_for_another_grammar_is_refused_by_the_version_gate() {
     let w = World::new();
     let val: Val = rule_for(cmp("gte", call_arg(0), num(0))).into_val(&w.env);
     let bytes: Bytes = val.to_xdr(&w.env);
     let hash: BytesN<32> = w.env.crypto().sha256(&bytes).into();
     let params = PolicyInstallParams {
-        grammar_version: 6,
+        grammar_version: SELF_VERSION - 1,
         install_nonce: 1,
         predicate: bytes,
         predicate_hash: hash,

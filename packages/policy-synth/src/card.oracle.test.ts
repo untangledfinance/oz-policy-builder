@@ -50,7 +50,7 @@ type J = any
 // ---- the corpora ----
 
 const corpus: [string, Expr][] = []
-for (const f of ['grammar7', 'accuracy']) {
+for (const f of ['grammar', 'accuracy']) {
   const cases = JSON.parse(
     readFileSync(new URL(`../fixtures/parity/${f}.json`, import.meta.url), 'utf8')
   ).cases

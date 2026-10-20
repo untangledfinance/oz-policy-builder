@@ -47,7 +47,7 @@ describe('the interpreter is a build, not an address', () => {
     expect(g.asked.filter((m) => m === 'getLedgerEntries')).toHaveLength(1)
     const b = net(bad, OTHER)
     await expect(ensureInterpreter(connect(b.endpoint), 'mainnet', bad)).rejects.toThrow(
-      /runs grammar 7 with wasm ab/
+      /answers grammar_version\(\) = 7 with wasm ab/
     )
     await expect(ensureInterpreter(connect(b.endpoint), 'mainnet', bad)).rejects.toThrow()
     // The pin is trusted without a call.

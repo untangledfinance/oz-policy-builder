@@ -79,7 +79,7 @@ impl PolicyInterpreter {
 
         // (c2) The rule's signers (the operators) stay bounded: `enforce`
         //      re-hashes the set on every permit, so the same size and shape
-        //      limits apply even though they no longer become the master set.
+        //      limits apply even though they are not the master set.
         //      An empty set is a keyless rule: `enforce` permits one only while
         //      it is bound to an executor (see there), so it installs.
         if !context_rule.signers.is_empty() {

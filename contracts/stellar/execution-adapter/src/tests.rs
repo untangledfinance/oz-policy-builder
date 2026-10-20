@@ -316,29 +316,36 @@ fn a_muxed_strkey_is_not_an_address_this_host_can_build() {
 /// Where custody expects the adapter: the Prime deploys it, and the salt
 /// commits to the gate and both numbers.
 fn agreed_address(e: &Env, prime: &Address, gate: &Address, min_wait: u32, window: u32) -> Address {
-    derived(e, prime, Some(gate.clone()), min_wait, window, "v5")
+    derived(e, prime, Some(gate.clone()), min_wait, window)
 }
 
-/// The derivation of either adapter version. `v5`, this one, hashes the XDR
-/// of the tuple `(gate, min_wait, window)`, "no gate" being a void; `v4`, the
-/// deployed build, hashed the XDR of each part in turn.
-fn derived(
+/// The salt text the constructor checks against (`lib.rs`).
+const SALT_TEXT: &[u8] = b"prime.execution.adapter.v5";
+
+/// The derivation this build checks: the salt text, then the XDR of the tuple
+/// `(gate, min_wait, window)`, "no gate" being a void.
+fn derived(e: &Env, prime: &Address, gate: Option<Address>, min_wait: u32, window: u32) -> Address {
+    let mut b = Bytes::from_slice(e, SALT_TEXT);
+    b.append(&(gate, min_wait, window).to_xdr(e));
+    e.deployer()
+        .with_address(prime.clone(), e.crypto().sha256(&b))
+        .deployed_address()
+}
+
+/// The other derivation custody has used: its own salt text, then the XDR of
+/// each part in turn. This build must never be constructible at an address it
+/// gives.
+fn derived_by_parts(
     e: &Env,
     prime: &Address,
     gate: Option<Address>,
     min_wait: u32,
     window: u32,
-    version: &str,
 ) -> Address {
-    let mut b = Bytes::from_slice(e, b"prime.execution.adapter.");
-    b.append(&Bytes::from_slice(e, version.as_bytes()));
-    if version == "v5" {
-        b.append(&(gate, min_wait, window).to_xdr(e));
-    } else {
-        b.append(&gate.to_xdr(e));
-        b.append(&min_wait.to_xdr(e));
-        b.append(&window.to_xdr(e));
-    }
+    let mut b = Bytes::from_slice(e, b"prime.execution.adapter.v4");
+    b.append(&gate.to_xdr(e));
+    b.append(&min_wait.to_xdr(e));
+    b.append(&window.to_xdr(e));
     e.deployer()
         .with_address(prime.clone(), e.crypto().sha256(&b))
         .deployed_address()
@@ -1009,7 +1016,7 @@ mod null_gate {
         let stranger = Address::generate(&e);
         let token = e.register(MuxToken, ());
         let hello = e.register(Hello, ());
-        let at = derived(&e, &prime, None, 0, 100, "v5");
+        let at = derived(&e, &prime, None, 0, 100);
         let adapter = e.register_at(
             &at,
             ExecutionAdapter,
@@ -1169,7 +1176,7 @@ mod null_gate {
     fn a_null_adapter_with_a_minimum_wait_is_never_created() {
         let e = Env::default();
         let prime = Address::generate(&e);
-        let at = derived(&e, &prime, None, 10, 100, "v5");
+        let at = derived(&e, &prime, None, 10, 100);
         let attempt = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             e.register_at(
                 &at,
@@ -1220,22 +1227,22 @@ mod null_gate {
         assert_eq!(bound, w.gate);
     }
 
-    /// No gate, a gate, and the v4 derivation all give different addresses,
+    /// No gate, a gate, and the other derivation all give different addresses,
     /// so the constructor refuses to run where another binding was agreed.
     #[test]
     fn each_binding_has_its_own_address() {
         let e = Env::default();
         let prime = Address::generate(&e);
         let gate = e.register(FixtureGate, (Vec::<Address>::new(&e), prime.clone()));
-        let null = derived(&e, &prime, None, 0, 100, "v5");
-        let gated = derived(&e, &prime, Some(gate.clone()), 0, 100, "v5");
-        let v4 = derived(&e, &prime, Some(gate.clone()), 0, 100, "v4");
-        assert!(null != gated && gated != v4 && null != v4);
+        let null = derived(&e, &prime, None, 0, 100);
+        let gated = derived(&e, &prime, Some(gate.clone()), 0, 100);
+        let by_parts = derived_by_parts(&e, &prime, Some(gate.clone()), 0, 100);
+        assert!(null != gated && gated != by_parts && null != by_parts);
         assert_eq!(None::<Address>.to_xdr(&e).len(), 4, "a void value");
         for (at, binding) in [
             (&gated, None),
             (&null, Some(gate.clone())),
-            (&v4, Some(gate)),
+            (&by_parts, Some(gate)),
         ] {
             let attempt = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 e.register_at(at, ExecutionAdapter, (prime.clone(), binding, 0u32, 100u32));

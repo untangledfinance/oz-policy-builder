@@ -437,7 +437,7 @@ function ruleOf(args: Val[], network: Network, account: string, flag: (p: string
       if (pin?.address !== at)
         flag(
           INTERPRETERS.has(at)
-            ? `${at} is an interpreter this project superseded or of another grammar, other than the ${network} pin`
+            ? `${at} is an interpreter this project deployed that this build does not trust, not the ${network} pin`
             : pin
               ? `${at} is not the pinned ${network} interpreter ${pin.address}`
               : `no interpreter is pinned for ${network}, so ${at} cannot be checked from the bytes`
@@ -445,7 +445,7 @@ function ruleOf(args: Val[], network: Network, account: string, flag: (p: string
       else a.limits = pin.limits
       if (p.grammar_version !== GRAMMAR_VERSION)
         flag(
-          `the interpreter is asked for grammar ${String(p.grammar_version)}; this builder speaks grammar ${GRAMMAR_VERSION}`
+          `the install asks for grammar_version ${String(p.grammar_version)}; this builder writes grammar_version ${GRAMMAR_VERSION}`
         )
       const admins = Array.isArray(p.policy_admins) ? p.policy_admins : []
       if (admins.some((x) => !delegatedOf(x)))

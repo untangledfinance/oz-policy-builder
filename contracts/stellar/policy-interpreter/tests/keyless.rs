@@ -1,4 +1,4 @@
-//! Keyless rules bound to an executor (Option A for OpenZeppelin 0.8.0).
+//! Keyless rules bound to an executor, for OpenZeppelin 0.8.0.
 //!
 //! A rule with no signer, bound to an execution adapter, answers in two ways:
 //! a context the adapter grants through `authorize_as_current_contract` (the
