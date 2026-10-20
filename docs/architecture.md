@@ -135,7 +135,7 @@ flowchart TB
 | Policy interpreter | evaluating a rule's predicate on every call the rule authorises, and holding a rule with no signer to its executor binding | us |
 | Prime account | counting owners' approvals and selecting rules | OpenZeppelin |
 | Seat | letting a session key stand in for one owner on one account | us |
-| A seat's owner key | signing only the grants and ends its holder means | the holder: a NEAR-routed MPC or any Stellar wallet or custodian |
+| A seat's owner key | signing only the grants and ends its holder means | the holder: a NEAR-routed MPC in the reference integration, or any signer that raw-signs the grant hash |
 | Policy builder | writing rules and returning them unsigned for the owners' wallets | us, in this repository |
 | Prime app and relayer | building transactions and paying fees; they hold no authority over funds | us, in a separate repository |
 
@@ -161,11 +161,14 @@ Each owner of a Prime account holds one vote, and casts it in one of two ways.
 
 - **A native owner** is a Stellar account. It is a plain signer of rule 0 and
   signs every decision itself.
-- **A seat owner** holds an ed25519 owner key. The key can sit in a NEAR-routed
-  MPC or in any Stellar wallet or custodian (Freighter, Ledger, Fordefi, a plain
-  keypair), as long as it signs the raw 32-byte grant hash. On the account the
-  owner has a seat: a `prime-seat` contract that is the signer in its place. The
-  seat checks only ed25519 signatures.
+- **A seat owner** is an ed25519 key. Its holder must produce a raw ed25519
+  signature over the 32-byte grant hash. In the reference integration a
+  NEAR-routed MPC holds the key; any signer that can raw-sign that hash, such
+  as a server-held keypair or a custody service configured for raw ed25519
+  signing, can serve. Interactive wallets that sign only transactions or prefixed
+  messages produce signatures the seat refuses. On the account the owner has a
+  seat: a `prime-seat` contract that is the signer in its place. The seat checks
+  only ed25519 signatures.
 
 The owner key signs one grant that names the account, the seat, a session key
 and a start and end at most 7 days apart. Until the end, the session key votes

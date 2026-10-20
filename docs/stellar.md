@@ -246,10 +246,6 @@ itself, so a no-gate adapter's address is never the one on the gate. Measured
 on testnet: a no-gate adapter's `pull` through custody's gate is refused with
 `Error(Auth, InvalidAction)`.
 
-**Never send funds to a no-gate adapter or give it an allowance:** anyone the
-Prime's rules allow to call `execute` can run any batch through it, so
-whatever it holds is theirs to move.
-
 **A signed bundle is valid until its expiry ledger:** a bundle that fails on
 chain does not use up its authorisation's nonce. When the Prime's entry carries
 address credentials, whoever holds it can submit it again until
@@ -466,11 +462,14 @@ with real authorisation entries.
 ## Owners and seats
 
 The Prime account's owners are the signers of its rule 0. A native owner is a
-Stellar `G…` account and signs each decision itself. A seat owner holds an
-ed25519 owner key, held by a NEAR-routed MPC or by any Stellar wallet or
-custodian (Freighter, Ledger, Fordefi, a plain keypair) that signs the raw
-32-byte grant hash. It gets a seat: a `prime-seat` contract deployed for that
-owner and that account. The seat verifies only ed25519 signatures.
+Stellar `G…` account and signs each decision itself. The seat owner is an
+ed25519 key. Its holder must produce a raw ed25519 signature over the 32-byte
+grant hash. In the reference integration a NEAR-routed MPC holds the key; any
+signer that can raw-sign that hash, such as a server-held keypair or a custody
+service configured for raw ed25519 signing, can serve. Interactive wallets that
+sign only transactions or prefixed messages produce signatures the seat refuses.
+The owner gets a seat: a `prime-seat` contract deployed for that owner and that
+account. The seat verifies only ed25519 signatures.
 
 `contracts/stellar/prime-seat/src/lib.rs`, 97 sLOC. The constructor stores the
 account's 32-byte contract id and the owner key, and nothing changes them.
@@ -668,9 +667,11 @@ build means a new gate and adapter for that custody account.
   is allowed to spend. Send it nothing and give it no allowance. A bundle's
   signed authorisation stays valid until its expiry ledger even after it
   failed, so sign bundles with a short one.
-- **The keyless shape on the deployed account build:** the keyless rules were
-  run against OpenZeppelin's 0.8.0 account. We still need to check that the
-  `91a2cd56…` build accepts a rule with no signer and one policy.
+- **The keyless shape on the older account build:** the keyless rules are
+  verified against an OpenZeppelin 0.8.0 account (built from upstream commit
+  `8e25220`) in the interpreter's `oz08/` test crate. `91a2cd56…` is the older
+  0.7.2-line account; we still need to re-check that it accepts a rule with no
+  signer and one policy.
 - **The seat is tied to the account's digest format:** it reads the rule ids
   out of `sha256(payload ‖ XDR(rule ids))`, the form of the account build
   `91a2cd56…`. An account build that hashes something else, such as OpenZeppelin's

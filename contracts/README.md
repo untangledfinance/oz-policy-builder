@@ -4,9 +4,13 @@ This folder holds every contract behind a Prime account, all on Stellar: the
 policy interpreter, the custody gate, the execution adapter and the seat.
 
 A seat is an owner's entry on a Prime account for an owner who signs with an
-ed25519 owner key in place of a Stellar account of its own. The key can be held
-by a NEAR-routed MPC or by any Stellar wallet (Freighter, Ledger, Fordefi, a
-plain keypair); the seat verifies only ed25519 signatures. The owner grants a
+ed25519 owner key in place of a Stellar account of its own. Its holder must
+produce a raw ed25519 signature over the 32-byte grant hash. In the reference
+integration a NEAR-routed MPC holds the key; any signer that can raw-sign that
+hash, such as a server-held keypair or a custody service configured for raw
+ed25519 signing, can serve. Interactive wallets that sign only transactions or
+prefixed messages produce signatures the seat refuses. The seat verifies only
+ed25519 signatures. The owner grants a
 session key for at most 7 days, and the seat lets that key vote for the owner
 in rule 0 and act inside the rules that list the seat.
 

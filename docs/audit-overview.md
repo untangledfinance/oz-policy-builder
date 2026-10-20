@@ -48,7 +48,7 @@ modules excluded), and the `src/` and `bin/` of the three packages.
 | OpenZeppelin smart account and its `simple_threshold`, `weighted_threshold` and `spending_limit` policies | third-party code. It selects the rule a call cites, authenticates the rule's signers, calls each policy's `enforce`, and refuses to leave a rule with no signer and no policy |
 | Soroban host and RPC | the host builds each authorisation context from what was really called, and refuses re-entry into a contract already on the stack |
 | Custody account | a classic Stellar account whose own signers and thresholds decide what it approves |
-| Owners' wallets and the owner key of a seat | sign only what their holder means to sign |
+| Owners' wallets and the owner key of a seat | sign only what their holder means to sign. A seat's owner key raw-signs the 32-byte grant hash; a NEAR-routed MPC holds it in the reference integration |
 | The Prime app (separate repository) | builds transactions and refuses dangerous rule shapes before any wallet signs; an extra control, never one the contracts rely on |
 | `scripts/`, `deployments/`, `evidence/`, fixtures | deployment and test tooling |
 
@@ -114,9 +114,11 @@ address and build, and custody derives that address from the gate itself.
   with its binding. A keyless rule then refuses every call (210); a keyed
   bound rule runs without the adapter's check once a document is installed
   again.
-- The keyless shape was run against OpenZeppelin's 0.8.0 account (built from
-  upstream commit `8e25220`; the release is not tagged yet). The Prime accounts
-  on testnet run the account build `91a2cd56…`.
+- The keyless shape is verified against an OpenZeppelin 0.8.0 account (built
+  from upstream commit `8e25220`; the release is not tagged yet) in the
+  interpreter's `oz08/` test crate. The Prime accounts on testnet run
+  `91a2cd56…`, the older 0.7.2-line account; re-checking the keyless shape on
+  that build is open.
 - The synthesiser builds keyed rules only. It refuses a rule with no signer
   and builds no `bind_executor` call, so a keyless rule and its binding are
   installed through the contract calls directly.
