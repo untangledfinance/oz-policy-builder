@@ -11,7 +11,6 @@
 - [ ] `bun run typecheck`
 - [ ] `bun test`
 - [ ] `cargo fmt --check` + `cargo test` in each touched crate
-- [ ] `forge fmt --check src` + `forge test`, if the EVM seat changed
 - [ ] The build hash in `contracts/build-hashes.json` or `deployments/`, if a contract's bytes changed
 - [ ] Conformance suite, if the predicate encoder or grammar changed
       (`cargo test --release --test conformance` + regenerated fixtures)
