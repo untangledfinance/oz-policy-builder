@@ -196,7 +196,9 @@ permit `execute` only, so an agent cannot cancel. Measured on testnet by
 review-opb28: with `call_fn = execute` in place of `run`, a stranger with no key
 ran a batch and moved 7 USDC to a listed address. `policy-synth` refuses a rule
 an execution adapter signs, scoped to that adapter, unless every branch of its
-predicate pins `call_fn = run` (G7S-16).
+predicate pins `call_fn = run` (G7S-16). The Prime app refuses it too, unless
+it is exactly the app's run rule (see
+[Adapters in the Prime app](#adapters-in-the-prime-app)).
 
 New errors: `WaitTooShort` 4, `NotScheduled` 5, `NotRunnable` 6 (before the
 ready ledger or after the window), `NotACanceller` 7. A stored batch sits in
@@ -273,7 +275,8 @@ Two hazards follow from having no list:
 
 - **Never send funds to a null adapter or give it an allowance:** it holds
   nothing, and anyone the Prime's rules allow to call `execute` can run any
-  batch through it, so whatever it holds is theirs to move.
+  batch through it, so whatever it holds is theirs to move. The Prime app
+  refuses a transfer, an allowance or a venue payout to one.
 - **A rule on the Prime that the null adapter signs is bounded by its predicate
   alone:** nothing else checks the addresses in the adapter's batches, and the
   adapter signs whenever it is the one asking, so an agent allowed to call
@@ -281,8 +284,8 @@ Two hazards follow from having no list:
   waits removes the reason to install one; it does not stop the owners from
   installing one, and the contract cannot see the Prime's rules. Measured on
   testnet by review-opb26: with a USDC rule signed by the null adapter, the
-  agent moved five times its cap. `policy-synth` and the Prime app must refuse
-  such a rule before any flow that uses a null adapter ships.
+  agent moved five times its cap. `policy-synth` refuses such a rule (#27), and
+  so does the Prime app (octopos #228).
 
 **Cost:** in one testnet run, k USDC transfers from a G account through a
 gated v5 adapter cost 3,745, 3,820 and 4,082 fewer instructions than through
@@ -304,6 +307,61 @@ only that signer can resubmit: a G account that submits its own bundle uses up i
 sequence number when the transaction fails, and an OpenZeppelin Prime whose
 signer is the source (`Delegated(source)` with an empty signature, as
 `policy-synth`'s install path builds it) needs that source's own envelope.
+
+### Adapters in the Prime app
+
+The Prime app's code is in the octopos repository (`apps/web`). As of octopos
+`main` on 20 October 2026:
+
+| | Beta (testnet) | app.untangled.finance (mainnet) |
+|---|---|---|
+| Adapter a new gate names | v5 bound to that gate, `4985cd12…`, at the v5 address (octopos #231) | v4 `3dd675c0…` |
+| Adapter with no gate | the app can derive its address and read it; no screen creates one yet | none: a mainnet build holds no v5 code or text |
+| Gates made earlier | keep their adapter build and keep working | the same |
+
+A gate pins its caller's build and has no setter, so moving an account from
+v4 to v5 means a new gate. The v5 hash and salt text appear in the app only
+inside testnet-only comparisons, and `scripts/assert-mainnet-build.ts`
+(octopos #227) refuses a mainnet build that holds the v5 hash, in full or
+short, or the salt text. `deploy:mainnet` and the wrangler mainnet
+environment both run it, and CI scans its own build.
+
+**How the app tells adapters apart:** by code hash and instance storage.
+
+- **A gate's adapter:** the gate's `caller_code` gives the build. The contract
+  at the gate's caller address must run that code, be a build the app lists,
+  and store `prime` equal to the Prime. Since octopos #232 its stored `gate`
+  must also equal the gate. Otherwise the app reads it as not bound to this
+  gate and sends nothing through it, which keeps a gate whose caller has no
+  gate, or another gate, from passing for a working setup.
+- **Any contract a request names:** a listed build that stores `prime` and a
+  void `gate` is an adapter with no gate, and with an address `gate` a gated
+  one. Other code that stores `prime`, or a listed build without both keys, is
+  an unverified adapter, treated like one with no gate. The stateless executor
+  `57bf132b…` keeps no storage and is known by its code. A mainnet build lists
+  no v5 code, so it reads any v5 adapter as unverified.
+
+**What the app refuses:** before any wallet is asked, on every call the Prime
+account would authorise, nested calls included (octopos #228 and #229):
+
+- a rule signed by an adapter with no gate or an unverified adapter;
+- a rule an adapter signs that covers its own calls, the Prime itself, every
+  call or contract creation, except the app's run rule (the adapter as sole
+  signer, the grammar-6 interpreter holding exactly `call_fn == run`);
+- an adapter added as a signer, with `add_signer` or `batch_add_signer`;
+- a transfer, an allowance or a venue payout to an adapter with no gate or an
+  unverified adapter;
+- `bind_executor` to anything but the account's own stateless executor, or the
+  adapter of a custody gate an owner confirmed in that browser;
+- `remove_policy` on any rule, and a policy document installed on a rule whose
+  interpreter holds none for it (see [Policy interpreter](#policy-interpreter));
+- a request the app cannot read in full, nested past 64 levels, or naming a
+  contract it cannot read just now.
+
+Policies lists rules already installed in the first two shapes, and rules
+whose interpreter no longer holds their document, and asks the owners to
+revoke them. The full list, the evidence and what stays open are under G7S-14
+and G7S-16 in the [grammar-7 threat model](../evidence/stride-threat-model-g7.md).
 
 ### Keeping contracts live
 
@@ -403,7 +461,16 @@ grammar, its limits and the install checks are documented in
   predicate bound a whole batch and relate two of its calls.
 - **An executor binding** (`bind_executor`) makes a venue rule demand the
   adapter's own authorisation as well, so a venue call that did not come
-  through the adapter is refused.
+  through the adapter is refused. The binding lives in the rule's document,
+  and two routes detach it with one party alone. `uninstall`, which needs only
+  the document's admins, deletes it with the document, and a later `install`
+  stores none. OpenZeppelin's `remove_policy` goes on when the policy's
+  `uninstall` fails, so the account alone can take the interpreter off the
+  rule. Either way the rule then runs with no adapter approval; on testnet an
+  agent then paid itself from the Prime directly. The Prime app refuses
+  `remove_policy` and a reinstall on a rule with no document. Grammar 7 has the
+  same layout (G7S-16 in the
+  [grammar-7 threat model](../evidence/stride-threat-model-g7.md)).
 
 **Grammar 7 (testnet, the 2.x packages)** keeps those properties except the
 first, which `read` ends, and adds the following.
@@ -622,7 +689,7 @@ the adapter. It moves the custody account's funds to that address and nowhere
 else. A band pins every destination, so an agent's rules cannot reach it.
 Recovery uses the gate's existing list and needed no contract change.
 
-Through a v4 adapter the recovery is a stored batch like any other: it waits at
+Through a v4 adapter, or a v5 adapter with a gate, the recovery is a stored batch like any other: it waits at
 least the adapter's `min_wait`, and the custody account or the Prime can cancel
 it until it runs. With `min_wait` at 0 it runs at once, as on v3.
 
@@ -675,7 +742,7 @@ hash; `stellar contract build` and macOS give other bytes.
 | `prime-seat` | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | `contracts/build-hashes.json` | 21 |
 
 CI compares each hash with its record. The v4 adapter `3dd675c0…`, which the
-Prime app pins and mainnet runs, stays recorded in
+Prime app pins on mainnet, stays recorded in
 `deployments/execution-testnet.json`; it builds from the tree before the
 optional gate (`a86a496`). The grammar-6 interpreter on mainnet
 (`5143e641…`) builds from `main`, and this branch's
@@ -686,8 +753,8 @@ optional gate (`a86a496`). The grammar-6 interpreter on mainnet
 | | Network | Address or hash |
 |---|---|---|
 | Policy interpreter, grammar 6 (custody design) | testnet | `CDPR5VTX6R2ZPKREPD7FBW5ANVWXMVJIBIH2GMF36XPOFNMHRDIRUAZQ`, recorded in [`deployments/grammar6-testnet.json`](../deployments/grammar6-testnet.json) |
-| Execution adapter build | testnet and mainnet | `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3`, the Linux build of `contracts/stellar/execution-adapter`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json); it builds from `contracts/stellar/execution-adapter` at `a86a496`, before the optional gate. Its code is uploaded on both networks (read back from mainnet on 18 October 2026; the mainnet upload of 11 October 2026 is recorded under `updates` in [`deployments/prime-mainnet.json`](../deployments/prime-mainnet.json), transaction `23c83e44…`), and the Prime app makes new gates for it on both. It refuses a recipient written as a muxed address. The app still recognises `eefcfdd7…`, `68d012e7…`, `32a8658a…` and `23a7b289…` for gates set up with them. |
-| Execution adapter v5 build (optional gate) | testnet | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b`, 24,659 bytes, uploaded in `9d9753a434302e6ba62001a5d8d69963f3a24eae8e60bae0df957ae7e568751f` and recorded in [`contracts/build-hashes.json`](../contracts/build-hashes.json). Not on mainnet, and the Prime app does not pin it yet |
+| Execution adapter build | testnet and mainnet | `3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3`, the Linux build of `contracts/stellar/execution-adapter`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json); it builds from `contracts/stellar/execution-adapter` at `a86a496`, before the optional gate. Its code is uploaded on both networks (read back from mainnet on 18 October 2026; the mainnet upload of 11 October 2026 is recorded under `updates` in [`deployments/prime-mainnet.json`](../deployments/prime-mainnet.json), transaction `23c83e44…`), and the Prime app makes new mainnet gates for it; testnet gates made for it keep it. It refuses a recipient written as a muxed address. The app still recognises `eefcfdd7…`, `68d012e7…`, `32a8658a…` and `23a7b289…` for gates set up with them. |
+| Execution adapter v5 build (optional gate) | testnet | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b`, 24,659 bytes, uploaded in `9d9753a434302e6ba62001a5d8d69963f3a24eae8e60bae0df957ae7e568751f` and recorded in [`contracts/build-hashes.json`](../contracts/build-hashes.json). Not on mainnet (its code entry was absent at ledger 65,035,731 on 20 October 2026). The beta app names it, with a gate, for new gates on testnet (octopos #231) |
 | Execution adapter v3 builds (earlier pairs) | - | `5be8b08eefe704970fbb51612ef4f6222df3d4b0f2ab6704544e761e3576e708` and `0e088421…`, still recognised by the app |
 | Custody gate build | testnet | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab`, the Linux build of `contracts/stellar/custody-gate`, recorded in the same file. Gates set up earlier run `2788f05b…`, the same design. |
 | Policy interpreter, grammar 7 (the 2.x packages' pin) | testnet | `CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT`, wasm `69cad1d5…`, deployed with reads 8, leaves 400, bytes 24,576, elems 32, `in` entries 32, depth 5. Created by `scripts/deploy-grammar7-limits-testnet.ts`, which runs on testnet only, recorded in [`deployments/grammar7-testnet.json`](../deployments/grammar7-testnet.json) and pinned in `packages/policy-synth/src/config.ts`. Three earlier grammar-7 instances are superseded, and 2.x refuses them |
