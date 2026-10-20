@@ -319,12 +319,13 @@ The Prime app's code is in the octopos repository (`apps/web`). As of octopos
 | Adapter with no gate | the app can derive its address and read it; no screen creates one yet | none: a mainnet build holds no v5 code or text |
 | Gates made earlier | keep their adapter build and keep working | the same |
 
-A gate pins its caller's build and has no setter, so moving an account from
-v4 to v5 means a new gate. The v5 hash and salt text appear in the app only
+A gate pins its caller's build and has no setter, so moving an account from v4
+to v5 means a new gate. The v5 hash and salt text appear in the app only
 inside testnet-only comparisons, and `scripts/assert-mainnet-build.ts`
 (octopos #227) refuses a mainnet build that holds the v5 hash, in full or
-short, the salt text or the no-gate test-id prefix `octo-no-gate-`. `deploy:mainnet` and the wrangler mainnet
-environment both run it, and CI scans its own build.
+short, the salt text or the no-gate test-id prefix `octo-no-gate-`.
+`deploy:mainnet` and the wrangler mainnet environment both run it, and CI
+scans its own build.
 
 **How the app tells adapters apart:** by code hash and instance storage.
 
@@ -367,8 +368,9 @@ calls included (octopos #228 and #229). The built-in Stellar Wallet's SEP-43
 Policies lists rules already installed in the first two shapes, and rules
 whose interpreter no longer holds their document, and asks the owners to
 revoke them. A rule already detached through `remove_policy` no longer names
-the interpreter, so it reads as an ordinary rule and is not listed. The full list, the evidence and what stays open are under G7S-14
-and G7S-16 in the [grammar-7 threat model](../evidence/stride-threat-model-g7.md).
+the interpreter, so it reads as an ordinary rule and is not listed. The full
+list, the evidence and what stays open are under G7S-14 and G7S-16 in the
+[grammar-7 threat model](../evidence/stride-threat-model-g7.md).
 
 ### Keeping contracts live
 
@@ -700,7 +702,8 @@ Recovery uses the gate's existing list and needed no contract change.
 
 Through a v4 adapter, or a v5 adapter with a gate, the recovery is a stored
 batch like any other: it waits at least the adapter's `min_wait`, and the
-custody account or the Prime can cancel it until it runs. With `min_wait` at 0 it runs at once, as on v3.
+custody account or the Prime can cancel it until it runs. With `min_wait` at 0
+it runs at once, as on v3.
 
 Run on testnet through the Prime app (commit `f39950f5`): with a fresh
 10 / 5 / 5 custody account, 1,000 XLM and then 500 XLM were recovered to the
