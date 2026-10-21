@@ -10,7 +10,7 @@
 import { StrKey } from '@stellar/stellar-sdk'
 import { z } from 'zod'
 import type { Intent } from './intent.ts'
-import { isAddress, isTagged, type Val } from './wire.ts'
+import { isAddress, isMap, isTagged, type Val } from './wire.ts'
 
 export type Kind = 'who' | 'amount' | 'min' | 'free' | 'time' | 'exact' | 'requests'
 
@@ -25,7 +25,7 @@ export const SHAPE: Record<Kind, (v: Val) => boolean> = {
   time: (v) => typeof v === 'number' || isNum(v, 'u64'),
   exact: () => true,
   // `'map' in []` holds (Array.prototype.map): an element must be a `{map}` value, not a vec.
-  requests: (v) => Array.isArray(v) && v.every((e) => isTagged(e) && 'map' in e),
+  requests: (v) => Array.isArray(v) && v.every(isMap),
 }
 
 type Row = [name: string, kind: Kind][]

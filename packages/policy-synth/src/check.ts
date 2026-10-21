@@ -13,7 +13,7 @@ import type { Network } from './config.ts'
 import { Refusal } from './envelope.ts'
 import { and } from './intent.ts'
 import type { Call } from './record.ts'
-import { selectors } from './rules.ts'
+import { FLIP, selectors } from './rules.ts'
 import {
   BITS,
   intOf as big,
@@ -21,6 +21,7 @@ import {
   conjuncts,
   type Expr,
   encode,
+  isMap,
   isTagged as isObj,
   isSelector as isSel,
   toScVal,
@@ -156,8 +157,7 @@ function walk(v: Val | undefined, steps: Val[]): Val | undefined {
     if (cur === undefined) return undefined
     if (s === true) return Array.isArray(cur) ? cur.length : undefined
     if (Array.isArray(cur)) return typeof s === 'number' ? cur[s] : undefined
-    if (isObj(cur) && 'map' in cur)
-      return (cur.map as [Val, Val][]).find(([k]) => same(k, unlit(s)))?.[1]
+    if (isMap(cur)) return cur.map.find(([k]) => same(k, unlit(s)))?.[1]
     return undefined
   }, v)
 }
@@ -185,8 +185,8 @@ function put(v: Val, steps: Val[], x: Val): Val | undefined {
   const out: Val =
     Array.isArray(v) && typeof s === 'number'
       ? v.map((e, i) => (i === s ? into(e) : e))
-      : isObj(v) && 'map' in v
-        ? { map: (v.map as [Val, Val][]).map(([k, e]) => [k, same(k, unlit(s)) ? into(e) : e]) }
+      : isMap(v)
+        ? { map: v.map.map(([k, e]) => [k, same(k, unlit(s)) ? into(e) : e]) }
         : v
   return failed ? undefined : out
 }
@@ -240,14 +240,6 @@ export interface DenyCase {
 
 /** How far past an ordering's bound a value must move to break it. */
 const SHIFT: Record<string, Num> = { lte: 1n, lt: 0n, gte: -1n, gt: 0n }
-const FLIP: Record<string, string> = {
-  lt: 'gt',
-  lte: 'gte',
-  gt: 'lt',
-  gte: 'lte',
-  eq: 'eq',
-  ne: 'ne',
-}
 
 /** A copy of `call` that breaks the comparison `[op, a, b]`, or undefined when a
  *  value to break it cannot be derived (a read, the clock, a quantifier). */

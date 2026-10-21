@@ -73,7 +73,7 @@ const MAX_SIGNERS = 15
  *  and nodes behind one endpoint can lag each other, but not by hours. */
 const LEDGER_DRIFT = 20
 
-const delegated = (a: string): Val => ['Delegated', a]
+export const delegated = (a: string): Val => ['Delegated', a]
 
 /** OZ's threshold policy and its install params (`signer_weights`, a signer -> u32 map, if weighted). */
 const thresholdPolicy = (net: Network, { n, weights: w }: NonNullable<InstallInput['threshold']>) =>
@@ -217,11 +217,7 @@ export async function buildSelfCall(
     server.getAccount(a.sourceAccount),
     simulate(tx(op(), '0'), 'recording'),
   ])
-  const original = (recorded.result?.auth ?? []).find(
-    (e) =>
-      e.credentials().switch().name === 'sorobanCredentialsAddress' &&
-      Address.fromScAddress(e.credentials().address().address()).toString() === a.smartAccount
-  )
+  const original = (recorded.result?.auth ?? []).find((e) => isAddressEntry(e, a.smartAccount))
   if (!original)
     throw new Refusal(
       code,
@@ -331,6 +327,11 @@ export async function buildSelfCall(
   }
 }
 
+/** Whether an auth entry carries the address credentials of `account`. */
+export const isAddressEntry = (e: xdr.SorobanAuthorizationEntry, account: string) =>
+  e.credentials().switch().name === 'sorobanCredentialsAddress' &&
+  Address.fromScAddress(e.credentials().address().address()).toString() === account
+
 /** Stroops as XLM, exactly: 2000000000 -> 200, 1711054 -> 0.1711054. */
 export const xlm = (stroops: number | bigint): string => {
   const t = String(stroops).padStart(8, '0')
@@ -374,6 +375,27 @@ export const ADAPTER_SELF_RULE = (signer: string) =>
  *  could permit). A predicate the package cannot read pins nothing. */
 export const pinsRun = (e: Expr | null | undefined): boolean =>
   e !== null && e !== undefined && selectors(e).every((s) => s.fn === 'run')
+
+/** Why a contract signer may not sign a rule scoped to `scopedTo` with predicate `expr`, from what
+ *  it is on the ledger: an adapter bound to no gate, an adapter signing a rule scoped to itself that
+ *  does not pin `run`, or nothing deployed. No override waives these: the owners cannot see from the
+ *  rule what a contract signer will do. */
+export function signerProblem(
+  signer: string,
+  kind: ContractKind,
+  scopedTo: string | undefined,
+  expr: Expr | null
+): string | undefined {
+  if (kind === 'null-gate adapter') return NULL_ADAPTER_SIGNER(signer)
+  if (kind === 'gated adapter' && signer === scopedTo && !pinsRun(expr))
+    return ADAPTER_SELF_RULE(signer)
+  if (kind === 'absent')
+    return `signer ${signer} is not deployed, so what it will run cannot be checked; deploy it before a rule names it`
+}
+
+/** The signers that meet threshold `n` alone, by their weights. */
+export const meetsAlone = (signers: string[], weights: Record<string, number>, n: number) =>
+  signers.filter((s) => (weights[s] as number) >= n)
 
 // ---- the overrides ----
 
@@ -546,7 +568,7 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   if (t && i.anyOne && !oneOfN) throw no('anyOne and a threshold contradict each other')
   if (oneOfN) {
     const alone = w
-      ? `${i.signers.filter((x) => (w[x] as number) >= (t?.n ?? 0)).join(', ')} alone meets the threshold of ${t?.n}`
+      ? `${meetsAlone(i.signers, w, t?.n ?? 0).join(', ')} alone meets the threshold of ${t?.n}`
       : `${t ? `a threshold of ${t.n}` : `${k} signers and no threshold`}: any ONE of the ${k} signers acts alone (1-of-${k})`
     unless('anyOne', alone, `${alone}. Give a threshold that needs more.`)
   }
@@ -593,15 +615,9 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   }
   const fingerprint = got(live)
   if (!fingerprint.matches) throw mismatch(fingerprint)
-  // No override waives these: the owners cannot see from the rule what a contract signer will do.
   for (const [signer, kind] of Object.entries(got(kinds))) {
-    if (kind === 'null-gate adapter') throw no(NULL_ADAPTER_SIGNER(signer))
-    if (kind === 'gated adapter' && signer === rule.contract && !pinsRun(rule.expr))
-      throw no(ADAPTER_SELF_RULE(signer))
-    if (kind === 'absent')
-      throw no(
-        `signer ${signer} is not deployed, so what it will run cannot be checked; deploy it before a rule names it`
-      )
+    const problem = signerProblem(signer, kind, rule.contract, rule.expr)
+    if (problem) throw no(problem)
   }
   const read = got(scan)
   const found = overlaps({ ...draft, expr: rule.expr }, read.rules, interpreter, i.network)

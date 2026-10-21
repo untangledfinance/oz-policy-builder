@@ -16,7 +16,7 @@ import {
   authority,
   lines,
   type Node,
-  addressText as show,
+  addr as show,
   tree,
   type View,
 } from './card.ts'
@@ -36,7 +36,7 @@ import {
   thresholdAddress,
 } from './config.ts'
 import { messageOf, Refusal } from './envelope.ts'
-import { ADAPTER_SELF_RULE, digest, NULL_ADAPTER_SIGNER, pinsRun, xlm } from './install.ts'
+import { digest, isAddressEntry, signerProblem, xlm } from './install.ts'
 import {
   CEILINGS,
   decode,
@@ -44,6 +44,7 @@ import {
   fields,
   fromScVal,
   hashOf,
+  isMap,
   type Val,
   validate,
 } from './wire.ts'
@@ -151,10 +152,7 @@ export function reviewUnsigned(i: {
   // The authorisation: the account's own entry for exactly this call, and the source account's
   // `__check_auth` over that entry's digest. Anything else would be signed too.
   const entries = host.auth()
-  const isAccount = (e: xdr.SorobanAuthorizationEntry) =>
-    e.credentials().switch().name === 'sorobanCredentialsAddress' &&
-    Address.fromScAddress(e.credentials().address().address()).toString() === account
-  const own = entries.filter(isAccount)
+  const own = entries.filter((e) => isAddressEntry(e, account))
   const source = entries.filter(
     (e) => e.credentials().switch().name === 'sorobanCredentialsSourceAccount'
   )
@@ -283,30 +281,22 @@ export function reviewUnsigned(i: {
   if (call.fn === 'add_context_rule') {
     const r = ruleOf(call.args, network, account, flag)
     if (r) {
+      const scope = r.rule.scope
+      const scopedTo =
+        Array.isArray(scope) && scope[0] === 'CallContract' ? String(scope[1]) : undefined
       for (const s of r.authority.signers.filter((x) => x.startsWith('C'))) {
         const kind = i.contracts?.[s]
-        if (kind === undefined)
-          flag(
-            `signer ${s} is a contract, and what it runs is not in the bytes (an execution adapter bound to no gate would let an agent spend past its caps, and one signing a rule scoped to itself that does not pin run would answer anyone); review with readContracts`
-          )
-        else if (kind === 'null-gate adapter') flag(NULL_ADAPTER_SIGNER(s))
-        else if (
-          kind === 'gated adapter' &&
-          Array.isArray(r.rule.scope) &&
-          r.rule.scope[0] === 'CallContract' &&
-          r.rule.scope[1] === s &&
-          !pinsRun(r.rule.predicate)
-        )
-          flag(ADAPTER_SELF_RULE(s))
-        else if (kind === 'absent')
-          flag(`signer ${s} is not deployed, so what it will run cannot be checked`)
+        const problem =
+          kind === undefined
+            ? `signer ${s} is a contract, and what it runs is not in the bytes (an execution adapter bound to no gate would let an agent spend past its caps, and one signing a rule scoped to itself that does not pin run would answer anyone); review with readContracts`
+            : signerProblem(s, kind, scopedTo, r.rule.predicate)
+        if (problem) flag(problem)
       }
       for (const a of r.authority.admins ?? []) roles[a] ??= 'admin'
       for (const s of r.authority.signers) roles[s] ??= 'signer'
       out.authority = r.authority
       out.rule = r.rule
-      const scoped = Array.isArray(r.rule.scope) && r.rule.scope[0] === 'CallContract'
-      const v = { ...view, contract: scoped ? (r.rule.scope as string[])[1] : undefined }
+      const v = { ...view, contract: scopedTo }
       let held: Node
       try {
         held = authority(r.authority, v)
@@ -377,15 +367,13 @@ export function reviewUnsigned(i: {
 /** The last second a JavaScript date can show: 8.64e15 ms, in the year 275,760. */
 const MAX_DATE = 8_640_000_000_000
 
-const isMap = (v: Val | undefined): v is { map: [Val, Val][] } =>
-  !!v && typeof v === 'object' && !Array.isArray(v) && 'map' in v
 const delegatedOf = (v: Val): string | undefined =>
   Array.isArray(v) && v[0] === 'Delegated' && typeof v[1] === 'string' ? v[1] : undefined
 
 /** The five arguments of `add_context_rule`, read back into the authority they grant. */
 function ruleOf(args: Val[], network: Network, account: string, flag: (p: string) => void) {
   const [scope, name, until, signers, policies] = args
-  if (args.length !== 5 || !Array.isArray(signers) || !isMap(policies ?? null)) {
+  if (args.length !== 5 || !Array.isArray(signers) || !isMap(policies)) {
     flag('add_context_rule does not carry the five arguments of a rule')
     return undefined
   }

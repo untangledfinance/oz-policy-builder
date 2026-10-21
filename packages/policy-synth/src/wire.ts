@@ -64,9 +64,10 @@ export class WireError extends Error {}
 export const isAddress = (v: unknown): v is string => typeof v === 'string' && ADDRESS.test(v)
 export const isTagged = (v: unknown): v is Tagged =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
+export const isMap = (v: unknown): v is { map: [Val, Val][] } => isTagged(v) && 'map' in v
 /** A `{map}` as a record keyed by the keys' text; anything else as an empty one. */
 export const fields = (v: Val | undefined): Record<string, Val> =>
-  Object.fromEntries(isTagged(v) && 'map' in v ? v.map.map(([k, x]) => [String(k), x]) : [])
+  Object.fromEntries(isMap(v) ? v.map.map(([k, x]) => [String(k), x]) : [])
 
 /** The integer a value carries (a u32, or a tagged integer, timepoint or duration), else undefined. */
 export function intOf(v: Val | undefined): bigint | undefined {
@@ -462,7 +463,7 @@ function constantValue(v: Val, nest: number, maxDepth: number): void {
       if (isSelector(x)) bad('a bare vec holds plain values: write lit([...])')
       constantValue(x, nest + 1, maxDepth)
     }
-  } else if (isTagged(v) && 'map' in v) {
+  } else if (isMap(v)) {
     bad('a bare map: write lit({...})')
   }
 }

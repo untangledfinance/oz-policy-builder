@@ -6,6 +6,7 @@
 // "argument N" wording. Nothing a name says can change what the rule enforces.
 
 import { INTERPRETER, type Network, SPENDING_LIMIT, safeRead } from './config.ts'
+import { delegated, meetsAlone } from './install.ts'
 import { type Info, SAC, type Ty } from './spec.ts'
 import { type Expr, intOf, isAddress, isSelector, isTagged, unlit, type Val } from './wire.ts'
 
@@ -80,8 +81,8 @@ const named = (a: string, c: View) => {
       : undefined
 }
 /** An address with its name in brackets. */
-const addr = (a: string, c: View) => `${short(a, c)}${named(a, c) ? ` (${named(a, c)})` : ''}`
-export const addressText = addr
+export const addr = (a: string, c: View) =>
+  `${short(a, c)}${named(a, c) ? ` (${named(a, c)})` : ''}`
 /** What is known of the contract in force. */
 const known = (c: View) => c.info?.[c.contract ?? '']
 /** Text between quotes. Anything but printable ASCII is written as its code point: what a person
@@ -363,9 +364,8 @@ export function authority(a: Authority, c: View): Node {
   const [k, t, w] = [a.signers.length, a.threshold, a.threshold?.weights]
   if (t && !(t.n >= 1)) throw new Error('a threshold without its number cannot be described')
   const who = (x: string) => `${x.startsWith('C') ? 'contract ' : ''}${addr(x, c)}`
-  const del = (s: string): Val => ['Delegated', s]
   // A threshold one signer meets alone is 1-of-n: the weight of each signer is what says who.
-  const alone = t && w && k > 1 ? a.signers.filter((s) => (w[s] as number) >= t.n) : []
+  const alone = t && w && k > 1 ? meetsAlone(a.signers, w, t.n) : []
   const act =
     !t || (!w && t.n <= 1)
       ? `${k === 1 ? 'the signer' : `any ONE of these ${k} signers`} acts alone`
@@ -384,7 +384,7 @@ export function authority(a: Authority, c: View): Node {
     ...a.signers.map((s): [string, string, Val] => [
       'signer',
       who(s) + (w ? `  weight ${w[s]}` : ''),
-      w ? [del(s), w[s] as number] : del(s),
+      w ? [delegated(s), w[s] as number] : delegated(s),
     ]),
   ]
   facts.push(['to act', act, t?.raw ?? t?.n ?? null])
@@ -392,7 +392,7 @@ export function authority(a: Authority, c: View): Node {
     facts.push([
       'admins',
       `${a.admins.map(who).join(', ')} (all of them together: alone, may uninstall the predicate, which stops the rule; with the account, may re-install, replace the admins or bind an executor)`,
-      a.admins.map(del),
+      a.admins.map(delegated),
     ])
   const v = a.validUntil
   if (v !== undefined)
