@@ -19,9 +19,9 @@ it. Every size below was measured on this tree.
 | Execution adapter | `contracts/stellar/execution-adapter/src` | Rust | 226 | 62 | in |
 | Custody gate | `contracts/stellar/custody-gate/src` | Rust | 53 | 3 | in |
 | `prime-seat` | `contracts/stellar/prime-seat/src` | Rust | 97 | 21 | outside the scope set on 10 October 2026 |
-| Policy synthesiser, `@crediolabs/policy-synth` | `packages/policy-synth/src` | TypeScript | 4,433 | 21 test files | in |
+| Policy synthesiser, `@crediolabs/policy-synth` | `packages/policy-synth/src` | TypeScript | 3,876 | 21 test files | in |
 | CLI, `@crediolabs/policy-builder-cli` | `packages/policy-builder-cli/src`, `bin` | TypeScript | 76 | 1 test file | in |
-| MCP server, `@crediolabs/policy-builder-mcp` | `packages/policy-builder-mcp/src`, `bin` | TypeScript | 129 | 3 test files | in |
+| MCP server, `@crediolabs/policy-builder-mcp` | `packages/policy-builder-mcp/src`, `bin` | TypeScript | 133 | 3 test files | in |
 | `test-blend-pool` | `contracts/stellar/test-blend-pool/src` | Rust | 22 | none | out: a Blend-shaped stub for tests |
 
 sLOC counts the non-blank, non-comment lines of the formatted source (`rustfmt`,
@@ -43,10 +43,10 @@ declarations left out. To reproduce:
 
 ## In scope and out of scope
 
-**In scope:** this repository at tag `v3.0.0`: the `src/` of the
+**In scope:** this repository at tag `v4.0.0`: the `src/` of the
 interpreter, the adapter and the gate (test modules excluded), the `src/` of
 `policy-synth`, and the `src/` and `bin/` of the CLI and the MCP server. The
-same package code is published to npm at version 3.0.0 as
+same package code is published to npm at version 4.0.0 as
 `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and
 `@crediolabs/policy-builder-mcp`.
 

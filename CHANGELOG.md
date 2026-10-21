@@ -4,39 +4,74 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 `@crediolabs/policy-builder-mcp`) share one version number. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [4.0.0] - 2026-10-21
 
-A slimmer `policy-synth` (4,433 to about 3,870 source lines). Every refusal
-the package makes for a library caller stays. The changes below break callers
-that send the removed inputs or read the removed outputs.
+The three packages at 4.0.0 are this repository at tag `v4.0.0`, the tree the
+external audit covers; it replaces 3.0.0 as the audit target. `policy-synth`
+is slimmer: 4,433 to 3,876 source lines, counted as in
+`docs/audit-overview.md`. Three refusals the chain already makes (in the
+build's own simulation or at submission) are left to it, and the
+spending-limit token check no longer filters on parameter names (see
+"Changed"). Every other refusal stays in the package. The version is a major bump: the
+changes below break callers that send the removed inputs, read the removed
+outputs, call the removed exports or match on the review text. The CLI and the
+MCP server pin `@crediolabs/policy-synth` at exactly 4.0.0. As in 3.0.0, the
+packages pin testnet interpreter instance `CDZV4AG4…` on wasm `69cad1d5…`. The
+contract sources and their five build hashes are those of 3.0.0; one
+interpreter test now pins the error codes it expects.
 
 ### Removed (breaking)
 
 - **Inputs:** the `template` source of `synthesize_policy` and the other tools
   (`adapter_batch`, `blend_venue`; send the `intent` they lowered to),
-  `install_policy`'s `outFile`, and `get_interpreter_info`'s `explainAccount`
-  (with the `raw` flag that went with it).
+  `install_policy`'s `outFile` together with the operator's
+  `POLICY_BUILDER_OUT_DIR`, and `get_interpreter_info`'s `explainAccount`
+  (with the `raw` flag that went with it on that tool).
 - **Outputs:** `describes`, `unsignedXdrLength`, `unsignedXdrSha256` and
   `writtenTo` from `install_policy` and `revoke_policy` (`review_unsigned`
   reads the same bytes), and `severity` and `remediation` from the error
   envelope.
-- **Review text:** the review no longer reads a contract's interface or a
-  token's name and decimals. An operand reads as where it is on the wire
-  (`argument 2 › amount`), an amount as its integer, a time as unix seconds,
-  and a header as the address with its role or label. Escaping, the role and
-  label marks, the live-value mark and the Authority and Overrides nodes stay.
+- **Library:** `describeRules` is gone from `@crediolabs/policy-synth/run`, and
+  `explain` there is now synchronous and takes one item in place of a list.
+- **Review text:** the review no longer prints contract names or token units:
+  it reads neither a contract's interface nor a token's name and decimals. An
+  operand reads as where it is on the wire (`argument 2 › amount`), an amount
+  as its integer, a time as unix seconds, and a header as the address with its
+  role or label. Escaping, the role and label marks, the live-value mark, the
+  never-matches note and the Authority and Overrides nodes stay.
 - `record_transaction` no longer says when a hash exists on the other network.
 
 ### Changed
 
-- `synthesize_policy` and `get_interpreter_info` hold a rule to the limits
-  recorded for the pin and ask no RPC for them (`limitsFrom: "recorded"`).
-  Install, simulate and verify still read `limits()` live.
-- Over 15 signers, a signer listed twice, an empty admin set and a negative
-  resource fee are left to the chain, which refuses each in the build's own
-  simulation or at submission: OpenZeppelin `add_context_rule` (#3010, #3007),
-  the interpreter's `install` (#209), and stellar-core (`txMALFORMED`).
-  `review_unsigned` still flags a negative resource fee.
+- **Three refusals moved to the chain:** more than 15 signers (OpenZeppelin's
+  `add_context_rule`, #3010), an empty admin set (the interpreter's `install`,
+  #209) and a negative resource fee (stellar-core refuses the transaction as
+  `txMALFORMED`). The first two come back from the build's own simulation as
+  `INSTALL_BUILD_FAILED` before any bytes are handed out. `review_unsigned`
+  still flags a negative resource fee. A tool caller never reaches the first
+  two: the `install_policy` schema still takes 1 to 15 `signers` and, when
+  `admins` is given, 1 to 15 admins, and refuses anything else with
+  `INVALID_INPUT`. Only a library caller of `ruleArgs` meets #3010 and #209.
+  A rule with no signer and a signer listed twice are still refused by the
+  package, before the network is asked.
+- **`ruleArgs`** (exported from the package root) no longer throws for more
+  than 15 signers or an empty admin set. It still throws for a rule with no
+  signer. A caller that submits what it builds meets the two chain refusals
+  above.
+- **Limits:** `synthesize_policy` and `get_interpreter_info` hold a rule to
+  the limits recorded for the pin and ask no RPC for them (`limitsFrom:
+  "recorded"`). Install, simulate and verify still read `limits()` live.
+- **Spending-limit token check:** a rule's contract counts as a token when it
+  is a Stellar Asset Contract, or a wasm whose spec has exactly one
+  `transfer(address, address or muxed address, i128)`. An `Option`-wrapped
+  parameter no longer counts. The parameter names and the 128 KiB wasm size
+  cap no longer count either: a contract that passes still exposes that
+  `transfer`, and OpenZeppelin's `spending_limit` caps its third argument.
+  So one refusal is gone: 3.0.0 refused as "not a token" a contract whose
+  `transfer` has those types but parameter names that are not distinct plain
+  identifiers (a filter that kept names safe to print in the review), and
+  4.0.0 builds the rule. OpenZeppelin's `spending_limit` works on such a
+  contract as on any other.
 
 ## [3.0.0] - 2026-10-21
 

@@ -17,12 +17,12 @@
     },
     "packages/policy-builder-cli": {
       "name": "@crediolabs/policy-builder-cli",
-      "version": "3.0.0",
+      "version": "4.0.0",
       "bin": {
         "policy-builder": "dist/bin/policy-builder.js",
       },
       "dependencies": {
-        "@crediolabs/policy-synth": "3.0.0",
+        "@crediolabs/policy-synth": "4.0.0",
         "@stellar/stellar-sdk": "14.4.0",
         "zod": "3.25.76",
       },
@@ -35,12 +35,12 @@
     },
     "packages/policy-builder-mcp": {
       "name": "@crediolabs/policy-builder-mcp",
-      "version": "3.0.0",
+      "version": "4.0.0",
       "bin": {
         "policy-builder-mcp": "dist/bin/server.js",
       },
       "dependencies": {
-        "@crediolabs/policy-synth": "3.0.0",
+        "@crediolabs/policy-synth": "4.0.0",
         "@modelcontextprotocol/sdk": "1.32.1",
         "@stellar/stellar-sdk": "14.4.0",
         "zod": "3.25.76",
@@ -54,7 +54,7 @@
     },
     "packages/policy-synth": {
       "name": "@crediolabs/policy-synth",
-      "version": "3.0.0",
+      "version": "4.0.0",
       "dependencies": {
         "zod": "3.25.76",
       },

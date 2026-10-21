@@ -31,9 +31,9 @@ It is built as two halves:
 | Execution adapter | `contracts/stellar/execution-adapter` | 226 |
 | Custody gate | `contracts/stellar/custody-gate` | 53 |
 | `prime-seat` | `contracts/stellar/prime-seat` | 97 |
-| Policy synthesiser | `packages/policy-synth` | 4,433 |
+| Policy synthesiser | `packages/policy-synth` | 3,876 |
 | CLI | `packages/policy-builder-cli` | 76 |
-| MCP server | `packages/policy-builder-mcp` | 129 |
+| MCP server | `packages/policy-builder-mcp` | 133 |
 
 [docs/audit-overview.md](./docs/audit-overview.md) gives the audit scope, the
 counting method with a command to reproduce it, and the properties each
@@ -51,14 +51,14 @@ The interpreter source in this tree builds to `810f53f1…`
 (`contracts/build-hashes.json`): the pinned build plus the keyless executor
 rules. A new testnet instance from it replaces the pin.
 
-The audited code is this repository at tag `v3.0.0`. The same code is published
-to npm at version 3.0.0 as `@crediolabs/policy-synth`,
+The audited code is this repository at tag `v4.0.0`. The same code is published
+to npm at version 4.0.0 as `@crediolabs/policy-synth`,
 `@crediolabs/policy-builder-cli` and `@crediolabs/policy-builder-mcp`:
 
 ```sh
-npm install @crediolabs/policy-synth@3.0.0 @stellar/stellar-sdk
-npm install -g @crediolabs/policy-builder-cli@3.0.0     # the policy-builder command
-npx -y @crediolabs/policy-builder-mcp@3.0.0             # the MCP server over stdio
+npm install @crediolabs/policy-synth@4.0.0 @stellar/stellar-sdk
+npm install -g @crediolabs/policy-builder-cli@4.0.0     # the policy-builder command
+npx -y @crediolabs/policy-builder-mcp@4.0.0             # the MCP server over stdio
 ```
 
 To run a checkout of this repo, build the packages in dependency order. The
