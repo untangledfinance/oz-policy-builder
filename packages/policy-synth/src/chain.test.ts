@@ -195,6 +195,8 @@ const wasmWith = (fns: [string, xdr.ScSpecTypeDef[]][], name = 'contractspecv0')
 describe('hasTransfer: a SEP-41 transfer in the spec, once', () => {
   const T = xdr.ScSpecTypeDef
   const [Z, M, I] = [T.scSpecTypeAddress(), T.scSpecTypeMuxedAddress(), T.scSpecTypeI128()]
+  const opt = (valueType: xdr.ScSpecTypeDef) =>
+    T.scSpecTypeOption(new xdr.ScSpecTypeOption({ valueType }))
   it.each<[string, [string, xdr.ScSpecTypeDef[]][], boolean]>([
     ['transfer(address, address, i128)', [['transfer', [Z, Z, I]]], true],
     ['transfer(address, muxed address, i128)', [['transfer', [Z, M, I]]], true],
@@ -209,6 +211,9 @@ describe('hasTransfer: a SEP-41 transfer in the spec, once', () => {
       false,
     ],
     ['no transfer', [['pay', [Z, Z, I]]], false],
+    // spec.ts read through an Option and passed these; the spending limit's token check no longer does.
+    ['an Option-wrapped from', [['transfer', [opt(Z), Z, I]]], false],
+    ['an Option-wrapped amount', [['transfer', [Z, Z, opt(I)]]], false],
   ])('%s', (_n, fns, want) => expect(hasTransfer(wasmWith(fns))).toBe(want))
   it('no spec, or not a wasm: no token', () => {
     expect(hasTransfer(wasmWith([['transfer', [Z, Z, I]]], 'other'))).toBe(false)
