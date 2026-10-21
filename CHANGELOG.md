@@ -7,8 +7,8 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 ## [3.0.0] - 2026-10-21
 
 The three packages at 3.0.0 are this repository at tag `v3.0.0`, the tree the
-external audit covers. The version is a major bump because of the four changes
-under "Changed (breaking for callers that rely on the old behaviour)".
+external audit covers. The version is a major bump because of the changes under
+"Changed (breaking for callers that rely on the old behaviour)".
 
 ### Packages
 
@@ -40,11 +40,31 @@ under "Changed (breaking for callers that rely on the old behaviour)".
   diagnostic messages were also reworded.
 - **Environment values:** a malformed `POLICY_BUILDER_AUTH_LEDGERS` or
   `POLICY_BUILDER_MAX_RESOURCE_FEE` (anything but a whole number in range)
-  refuses every install and revoke with `INVALID_INPUT`. An empty value means
-  the default.
+  refuses every install and revoke with `INVALID_INPUT` (and the new
+  `review_unsigned`, which reads both). An empty value means the default.
 - **Resource fee ceiling:** a build whose resource fee is above 10 XLM is
   refused unless the operator raises `POLICY_BUILDER_MAX_RESOURCE_FEE`. 2.0.1
   built it.
+- **New refusals under "Fixed":** some fixes below also refuse requests that
+  2.0.1 built. These are a contract signer that is not deployed, an execution
+  adapter with no gate as a signer, an adapter with a gate signing a rule scoped
+  to itself whose predicate does not pin `run`, an RPC auth tree that is not
+  the built call, and a recording whose envelope hashes to another transaction.
+  The MCP server also answers a `tools/call` with more than 10,000 input
+  elements with `isError`. Those are all the refusals of requests 2.0.1 served
+  that we found in the changes since 2.0.1, beyond the four above.
+
+### Coming from 1.x
+
+npm's `latest` moves from 1.3.0 to 3.0.0. 2.0.0 and 2.0.1 went out under the
+`next` tag only, and 2.0.1 is older than this release, so move straight to
+3.0.0. The 1.x packages build rules in an older predicate format for an older
+interpreter. The interpreter 3.0.0 pins refuses an install in a format version
+it does not speak, and 3.0.0 refuses any testnet interpreter but its pin, so
+record or declare each rule again and synthesise, verify and install it with
+3.0.0. Rules already installed through 1.x stay with the interpreter instance
+they were installed on. The package API also changed in 2.0.0: the eight tools
+above and the exports of the package root are the surface.
 
 ### Added
 
@@ -73,13 +93,15 @@ under "Changed (breaking for callers that rely on the old behaviour)".
   `REVOKE_BUILD_FAILED`) unless the simulated root invocation is the built
   contract call, with the same contract, function and arguments, and nothing
   under it.
-- **policy-synth, signed expiry and resource fee:** both came from the RPC (a
+- **policy-synth, signed expiry and resource fee:** both rested on the RPC (a
   lying RPC moved the expiry about four months out, and had a 200 XLM fee
-  built). The expiry is now the recording pass's ledger plus
-  `POLICY_BUILDER_AUTH_LEDGERS` (default 300, at most 17,280), the two
-  simulations must agree on the ledger within 20, and the transaction carries a
-  time bound from the builder's clock. A resource fee above
-  `POLICY_BUILDER_MAX_RESOURCE_FEE` (default 10 XLM), or below zero, is refused.
+  built). The expiry is still the recording pass's ledger plus a window, which
+  the operator now sets with `POLICY_BUILDER_AUTH_LEDGERS` (default 300, at
+  most 17,280). New: the two simulations must agree on that ledger within 20,
+  and the transaction carries a time bound from the builder's clock, so an RPC
+  that moves both ledgers still cannot stretch how long the signed transaction
+  is valid. A resource fee above `POLICY_BUILDER_MAX_RESOURCE_FEE` (default
+  10 XLM), or below zero, is refused.
 - **policy-synth, contract signers:** `install_policy` refuses a rule that an
   execution adapter with no gate signs: an agent allowed to call that adapter's
   `execute` could cite the rule and move funds past its own caps. The check
@@ -103,7 +125,12 @@ under "Changed (breaking for callers that rely on the old behaviour)".
   overrides `follow-redirects` `^1.16.1` and `hono` `^4.13.11`. `bun audit`
   reports no vulnerability. GHSA-46jr-4wx8-v453 needs the SDK version and the
   tool input cap above. GHSA-rvq5-wwqv-78pq concerns bearer authentication,
-  which the server does not use.
+  which the server does not use. The repository's root `overrides` (which
+  also pin `toml` `^4.2.0`) apply to this workspace only. A consumer's
+  `npm audit` still reports `toml` up to 4.1.2 (GHSA-82x6-q7mm-w9cf,
+  GHSA-v5mp-jgw5-2x6j) through `@stellar/stellar-sdk` 14.x, as it did for
+  2.0.1. The packages never parse TOML, so that code path is unreachable from
+  them; see `SECURITY.md`.
 
 ### Contracts
 
