@@ -100,17 +100,17 @@ describe('ruleArgs: add_context_rule, as wire values', () => {
     ).toEqual(['CreateContract', { bytes: 'ab'.repeat(32) }])
   })
 
-  it.each<[string, Partial<RuleDraft>, RegExp]>([
-    ['no signer', { signers: [] }, /no signer/],
-    [
-      'sixteen signers',
-      { signers: Array.from({ length: 16 }, (_, i) => account(i + 1)) },
-      /allows 15/,
-    ],
-    ['no admin', { admins: [] }, /no policy admin/],
-  ])('refuses %s before any round trip', (_n, o, msg) =>
-    expect(() => ruleArgs(draft(o), INTERP)).toThrow(msg)
+  it.each<[string, Partial<RuleDraft>, RegExp]>([['no signer', { signers: [] }, /no signer/]])(
+    'refuses %s before any round trip',
+    (_n, o, msg) => expect(() => ruleArgs(draft(o), INTERP)).toThrow(msg)
   )
+
+  it("leaves to the build's simulation what the chain refuses there: over 15 signers (OZ #3010), a signer twice (OZ #3007), no admin (the interpreter, #209)", () => {
+    const many = Array.from({ length: 16 }, (_, i) => account(i + 1))
+    expect(ruleArgs(draft({ signers: many }), INTERP)[3]).toHaveLength(16)
+    expect(ruleArgs(draft({ signers: [SIGNER, SIGNER] }), INTERP)[3]).toHaveLength(2)
+    expect(() => ruleArgs(draft({ admins: [] }), INTERP)).not.toThrow()
+  })
 })
 
 // ---- built against a live testnet account, recorded ----
@@ -382,17 +382,24 @@ describe('buildInstall and buildRevoke, on a live account', () => {
       expect(b.validBefore).toBeGreaterThan(Math.floor(Date.now() / 1000) + 1790)
     })
 
-    it.each([
-      ['a negative resource fee', -1n, /negative resource fee \(-1 stroops\)/],
-      ['the largest int64 resource fee', 2n ** 63n - 1n, /above this builder's ceiling of 10 XLM/],
-    ] as const)('refuses %s with its own message', async (_n, fee, why) => {
-      const lying = lyingPass(2, (sim) => {
+    const feeOf = (fee: bigint) =>
+      lyingPass(2, (sim) => {
         if (!('transactionData' in sim)) return
         const d = sim.transactionData.build()
         d.resourceFee(new xdr.Int64(fee))
         sim.transactionData = new SorobanDataBuilder(d)
       })
-      await expect(buildInstall({ ...args, server: lying }, draft(), INTERP)).rejects.toThrow(why)
+    it('refuses the largest int64 resource fee with its own message', async () => {
+      await expect(
+        buildInstall({ ...args, server: feeOf(2n ** 63n - 1n) }, draft(), INTERP)
+      ).rejects.toThrow(/above this builder's ceiling of 10 XLM/)
+    })
+
+    it("a negative resource fee is the network's to refuse (txMALFORMED), and review_unsigned flags it", async () => {
+      const b = await buildInstall({ ...args, server: feeOf(-1n) }, draft(), INTERP)
+      const r = reviewUnsigned({ network: 'testnet', xdr: b.unsignedXdr, smartAccount: ACCOUNT })
+      expect(r.signable).toBe(false)
+      expect(r.problems.join('\n')).toMatch(/negative resource fee \(-1 stroops\)/)
     })
 
     it('refuses a resource fee above the ceiling, whatever the RPC asks (an enforcing pass that asks 200 XLM)', async () => {
@@ -1203,15 +1210,21 @@ describe('planInstall: the guards', () => {
     })
   })
 
-  it('a signer listed twice is refused before the network is asked (OZ rejects it as #3007)', async () => {
-    let asked = 0
-    const quiet = chain({ fingerprint: async () => (asked++, ours) })
-    await refused(
-      planInstall({ ...input, signers: [SIGNER, SIGNER], anyOne: true }, rule, quiet),
+  it('a signer listed twice is refused by the build, where OZ rejects it as #3007', async () => {
+    const dup = new Refusal(
       'INSTALL_BUILD_FAILED',
-      /twice|duplicate/
+      'add_context_rule: recording simulation refused (Error(Contract, #3007))'
     )
-    expect(asked).toBe(0)
+    const twice = chain({
+      build: async () => {
+        throw dup
+      },
+    })
+    await refused(
+      planInstall({ ...input, signers: [SIGNER, SIGNER], anyOne: true }, rule, twice),
+      'INSTALL_BUILD_FAILED',
+      /#3007/
+    )
   })
 
   it('the plan carries the authority it grants: signers, rule, admins, expiry, total, interpreter', async () => {

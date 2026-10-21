@@ -67,7 +67,6 @@ export interface RuleDraft {
   extra?: [string, Val][]
 }
 
-const MAX_SIGNERS = 15
 /** How far apart the two simulations of one build may report the ledger: seconds pass between them,
  *  and nodes behind one endpoint can lag each other, but not by hours. */
 const LEDGER_DRIFT = 20
@@ -96,12 +95,11 @@ export function ruleArgs(d: RuleDraft, interpreter: string): Val[] {
       : d.scope.kind === 'create_contract'
         ? ['CreateContract', { bytes: d.scope.wasmHash }]
         : ['Default']
-  const no = (m: string) => new Refusal('INSTALL_BUILD_FAILED', m)
-  if (d.signers.length === 0) throw no('the rule names no signer, so it would govern no key')
-  if (d.signers.length > MAX_SIGNERS)
-    throw no(`${d.signers.length} signers; OpenZeppelin allows ${MAX_SIGNERS}`)
-  if (d.admins.length === 0)
-    throw no('the rule names no policy admin: the interpreter refuses an empty admin set')
+  // More than 15 signers, a signer twice and an empty admin set are the chain's to refuse: OZ's
+  // add_context_rule (#3010, #3007) and the interpreter's install (#209), in the build's simulation.
+  // A rule with no signer installs on chain (a keyless rule), so it is refused here.
+  if (d.signers.length === 0)
+    throw new Refusal('INSTALL_BUILD_FAILED', 'the rule names no signer, so it would govern no key')
   const policies: [Val, Val][] = [
     [
       interpreter,
@@ -284,12 +282,8 @@ export async function buildSelfCall(
   // `assembleTransaction` sets the fee to the base fee plus the resource fee, and `build` adds the
   // resource fee from the Soroban data again: bid the base fee once and let `build` add the resources.
   // The fee is judged as the RPC gave it, before any arithmetic on it.
+  // A negative one is the network's to refuse (txMALFORMED), and review_unsigned flags it.
   const asked = enforced.transactionData.build().resourceFee().toBigInt()
-  if (asked < 0n)
-    throw new Refusal(
-      code,
-      `${fn}: the network asks a negative resource fee (${asked} stroops); not built`
-    )
   if (asked > BigInt(ceiling))
     throw new Refusal(
       code,
@@ -528,8 +522,6 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   }
   const interpreter = interpreterFor(i.network, i.interpreterAddress)
   const [t, k] = [i.threshold, i.signers.length]
-  if (new Set(i.signers).size !== k)
-    throw no('a signer is listed twice: OpenZeppelin refuses a rule with duplicate signers')
   const total = t?.weights ? Object.values(t.weights).reduce((x, y) => x + y, 0) : k
   const covers =
     !t?.weights || Object.keys(t.weights).sort().join() === [...i.signers].sort().join()
