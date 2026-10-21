@@ -12,11 +12,11 @@ and so does every answer. A result is the tool's data as JSON text and as
 
 ## Run
 
-Register the published package at version 3.0.0:
+Register the published package at version 4.0.0:
 
 ```json
 { "mcpServers": { "policy-builder": {
-  "command": "npx", "args": ["-y", "@crediolabs/policy-builder-mcp@3.0.0"] } } }
+  "command": "npx", "args": ["-y", "@crediolabs/policy-builder-mcp@4.0.0"] } } }
 ```
 
 From a checkout of the repository, build `policy-synth` and this package

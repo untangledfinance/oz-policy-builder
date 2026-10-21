@@ -2,7 +2,7 @@
 name: oz-policy-builder
 description: Drive the policy-builder MCP server and CLI to turn an intent into an on-chain policy on an OpenZeppelin smart account on Stellar. Covers the install flow, the interpreter checks, the install guardrails, execution-adapter signers, reviewing an unsigned envelope, and the failure modes that look like success.
 user-invocable: true
-when_to_use: "Invoke when working with the policy-builder MCP server: recording a Soroban transaction, synthesizing or verifying a policy, installing or revoking a context rule on an OZ smart account, explaining an account's rules, or reviewing an unsigned install or revoke transaction, or diagnosing an install failure (READ_UNSAFE, INSTALL_BUILD_FAILED, #100, #201, #202, #207, #209, #218, #3002, #3014, #3221)."
+when_to_use: "Invoke when working with the policy-builder MCP server: recording a Soroban transaction, synthesizing or verifying a policy, installing or revoking a context rule on an OZ smart account, explaining a predicate, or reviewing an unsigned install or revoke transaction, or diagnosing an install failure (READ_UNSAFE, INSTALL_BUILD_FAILED, #100, #201, #202, #207, #209, #218, #3002, #3014, #3221)."
 category: other
 keywords: [stellar, soroban, mcp, policy, openzeppelin, smart-account, predicate, interpreter, context-rule, credio, oz]
 argument-hint: "[smart-account-address]"
@@ -21,14 +21,14 @@ everything they produce is an unsigned transaction for a wallet to sign.
 
 ## Setup
 
-Register version 3.0.0, the release that matches this repository at tag
-`v3.0.0`. Versions before 3.0.0 target an older interpreter or lack
-`review_unsigned`.
+Register version 4.0.0, the release that matches this repository at tag
+`v4.0.0`. Versions before 3.0.0 target an older interpreter or lack
+`review_unsigned`; 3.0.0 still takes the inputs 4.0.0 removed (templates,
+`outFile`, `explainAccount`), which this manual no longer describes.
 
 ```json
 { "mcpServers": { "policy-builder": {
-  "command": "npx", "args": ["-y", "@crediolabs/policy-builder-mcp@3.0.0"],
-  "env": { "POLICY_BUILDER_OUT_DIR": "/absolute/dir/for/envelopes" } } } }
+  "command": "npx", "args": ["-y", "@crediolabs/policy-builder-mcp@4.0.0"] } } }
 ```
 
 From a checkout of this repository, build the packages and run
@@ -44,7 +44,6 @@ Only the operator sets the environment. No tool input can set any of these:
 | Variable | Effect |
 | --- | --- |
 | `POLICY_BUILDER_RPC_URL_TESTNET`, `POLICY_BUILDER_RPC_URL_MAINNET` | The RPC endpoint (https, or http on loopback). Default: the network's public endpoint |
-| `POLICY_BUILDER_OUT_DIR` | Absolute directory that `outFile` writes into. Unset, `outFile` is refused |
 | `POLICY_BUILDER_SAFE_READS_TESTNET`, `POLICY_BUILDER_SAFE_READS_MAINNET` | Extra `read` targets to trust, as `C…:function,C…:function`. One bad entry refuses the whole value |
 | `POLICY_BUILDER_ALLOW_SPOT_READS=1` | Lets an install carry any `read`, safe-listed or not |
 | `POLICY_BUILDER_ALLOW_OVERRIDES=1` | Lets mainnet honour an `allow*` override. Unset, a mainnet install or revoke with one set to `true` is refused |
@@ -82,10 +81,10 @@ returns the instance's `limits` and the `ceilings`.
 
 | Call | Without RPC |
 | --- | --- |
-| `synthesize_policy` from an `intent`, `template` or `recording` | Works. It holds the rules to the pin's live limits, or to the limits recorded for the pin if the RPC does not answer within 5 s (on a network with no pin, to the package defaults). `heldTo` says which. Contract and argument names are read best-effort (within 2 s, display only); unread, the review says "argument N" |
+| `synthesize_policy` from an `intent` or `recording` | Works, and asks no RPC. It holds the rules to the limits recorded for the pin (on a network with no pin, to the package defaults); `heldTo` says which |
 | `synthesize_policy` or `record_transaction` from a `hash` | Needs RPC to fetch the transaction. An `xdr` source decodes locally |
-| `get_interpreter_info` on testnet, without `verifyLive` | Works. `limitsFrom` is `live` or `recorded` |
-| `install_policy`, `verify_policy`, `simulate_policy` with calls, `explainAccount` | Need RPC and the live interpreter: they read its `limits()` and refuse a build the package does not trust |
+| `get_interpreter_info` on testnet, without `verifyLive` | Works. `limitsFrom` is `recorded` |
+| `install_policy`, `verify_policy`, `simulate_policy` with calls | Need RPC and the live interpreter: they read its `limits()` and refuse a build the package does not trust |
 | `revoke_policy` | Needs RPC (it reads the rule and the account's code); no interpreter check |
 | `verifyLive` | Needs RPC; reports `live.matches` (false for an untrusted build or another grammar version) instead of refusing. It still refuses an address other than the pin on a pinned network (`INTERPRETER_MISMATCH`) and an address that is not a wasm contract |
 | `simulate_policy` with only a predicate (explain) | Held to the limits of the given or pinned interpreter, read live, so testnet needs RPC. With no interpreter (mainnet without `interpreterAddress`) it is held to the ceilings and works offline. `heldTo` says which |
@@ -103,11 +102,11 @@ contract would do, with its deny code.
 | --- | --- |
 | Cap a key, built from a transaction they point at | `synthesize_policy` with `hash` (or `xdr`). Its `ambiguities` ask for the cap: answer with `limit` (every amount) or `limits` (`{ "amount": "..." }`, by argument name or position), and `allow` (`{ "to": ["G…"] }`) for an allowlist. Then `verify_policy` with the same source, then `install_policy` with that source, `signers` and the same answers |
 | State a constraint outright, with no transaction | `synthesize_policy` with an `intent`: `{ calls: [{ contract, fn, where: [constraints] }] }`. A constraint is `{ "constraint": "cap", "at": [2], "max": "100" }`; the `constraint` key takes one of `pin`, `not`, `allow`, `deny`, `cap`, `floor`, `length`, `minOut`, `each`, `some`, `total`, `read`, `until`, `from`. `at` is a path into the arguments (`[2]` the third argument, `[3, 0, "amount"]` the `amount` of the first element of the fourth) |
-| A mandate with parameters | `synthesize_policy` with `template: { name: "adapter_batch" \| "blend_venue", params }` |
+| A mandate with parameters (a batch for an execution adapter, a venue) | `synthesize_policy` with an `intent` that states it: one call per contract and function, each with its constraints. 4.0.0 has no templates |
 | Check a policy before installing it | `verify_policy` with `encodedPredicate` (or `expr`) and the call that must be permitted (`call`, or `calls` one per `or` branch, or `hash`/`xdr`) |
 | Ask what one call would do | `simulate_policy`: the predicate and `calls` |
 | Explain a predicate | `simulate_policy` with only `expr` or `encodedPredicate` |
-| Show what an account already allows | `get_interpreter_info` with `explainAccount: "<C… smart account>"`. It reads every rule and reviews each one this interpreter polices. Only a known OpenZeppelin account build (`91a2cd56…`) is read; any other account is refused |
+| Show what an account already allows | No tool lists an account's rules in 4.0.0. `install_policy` reads every live rule when it builds, and lists in `authorityScan.overlaps` each one the new rule's key could pick. `revoke_policy` with a `ruleId` returns that rule as `removes`, with its review when the account runs a known OpenZeppelin build (`91a2cd56…`); its transaction changes nothing until the owner signs it |
 | Remove a rule | `revoke_policy` with `ruleId` |
 | Let the owner check an unsigned transaction | Tell the owner to run `review_unsigned` (or `policy-builder review`) on the XDR themselves, before signing. It reads the bytes alone, with `smartAccount` set, and lists the `problems` it finds in them. A rule with a contract signer needs `readContracts: true`, which reads the signer off the ledger. It then flags only an adapter bound to no gate, an adapter signing a rule scoped to itself that does not pin `call_fn = run`, or an undeployed contract; every other contract passes unvetted, so tell the owner to check who controls it. `signable` does not mean safe: tell the owner to read its Authority node (signers, who acts alone, admins, expiry, total) against what they asked for. Running it yourself and relaying the answer adds nothing the owner can check |
 | Check the interpreter | `get_interpreter_info` with `verifyLive: true`: `live.matches` says whether the deployed code is a trusted build. `install_policy` checks it again before building |
@@ -123,17 +122,20 @@ Every tool that returns a rule includes `review` (box-drawn text) and
 `reviewTree` (nodes `{ label, op, value, raw, index?, children? }`, `raw` the
 wire value each came from). It sits in `rules[n]` for `synthesize_policy`, at the
 top level for `simulate_policy` and `verify_policy`, in `rule` for
-`install_policy`, in `removes` for `revoke_policy` (on an account build the package does not
-know, `reviewSkipped` says why there is none), and in `account.rules[n]`
-for `explainAccount`.
+`install_policy`, and in `removes` for `revoke_policy` (on an account build the
+package does not know, `reviewSkipped` says why there is none).
 
 - **The text is injective:** two rules that differ never read alike. Constants
   carry their type where needed (symbols `'quoted'`, strings `"quoted"`,
-  `5 (u256)`, numbers in a vector typed, bytes `0x..`). A path step says `[0]` for
+  numbers in a vector typed, bytes `0x..`). A path step says `[0]` for
   an index, and a field is `the item › x`.
+- **An operand reads as where it is on the wire:** `argument 2 › amount`. The
+  review prints no contract name and no token unit: an amount is its integer in
+  the token's smallest unit and a time is unix seconds. Name the contract and
+  convert the amount for the user yourself (see "Amounts"), and say that you did.
 - **Addresses are shortened** to 6 + 6 characters. Pass `raw: true` for full
-  addresses, raw values and the wire index of each name. Quote the full address
-  to the user before they sign.
+  addresses and every number with its type. Quote the full address to the user
+  before they sign.
 - **`[role]` marks are the package's own names:** `[smart account]`,
   `[source account]`, `[admin]` and `[signer]` from the request, `[interpreter]`
   and `[spending limit]` for the pinned addresses.
@@ -151,15 +153,16 @@ under a weighted threshold), `to act` (who acts alone, or how many must
 approve), `admins`, `expires` ("never expires" or "valid through ledger N"),
 `total` (the rolling limit, or "no total limit: each call may move up to its own
 cap") and `interpreter` with its limits. Read the header back to the user
-before they sign. Only `install_policy`'s review has it; the reviews from
-`revoke_policy` and `explainAccount` show the predicate alone.
+before they sign. Only `install_policy`'s and `review_unsigned`'s reviews have
+it; the review in `revoke_policy`'s `removes` shows the predicate alone.
 
 `install_policy` also returns `authority`
 (`{ signers, threshold, admins, validUntil, total, interpreter, limits }`, the
 facts the header renders), `authorityScan` (`{ complete, overlaps[] }`),
-`interpreter` (the live fingerprint), `unsignedXdr` with `unsignedXdrLength` and
-`unsignedXdrSha256`, `authValidUntilLedger`, and `writtenTo` when `outFile` was
-set.
+`interpreter` (the live fingerprint), `unsignedXdr` (base64), `contract` and
+`predicateHash` in `rule` beside its review, `authValidUntilLedger`,
+`validBefore` (unix seconds) and `fee` (`{ base, resource, total }` in
+stroops).
 
 Pass handles in place of retyped structures: a `hash` for a recording,
 `encodedPredicate` for a predicate you already hold. Predicates and call
@@ -319,9 +322,9 @@ owner signs through the app, and do not build around them.
 - **Spending-limit guard:** `spendingLimit` is refused unless every branch of the
   predicate pins `call_fn` to `transfer` (OpenZeppelin's `spending_limit` fails
   every other function, so those calls would always be refused), and unless the
-  rule's contract is shown to be a token (a Stellar Asset Contract, or
-  `transfer(from, to, amount: i128)` in its spec). The token check reads the
-  spec; on a slow network, retry.
+  rule's contract is shown to be a token (a Stellar Asset Contract, or a wasm
+  whose spec has exactly one `transfer(address, address or muxed address,
+  i128)`). The token check reads the contract's code; on a slow network, retry.
 - **Read safety (`READ_UNSAFE`):** a `read` of a target and function outside the
   safe list. The list holds the three testnet Reflector oracles (`lastprice`,
   `price`) and the operator's `POLICY_BUILDER_SAFE_READS_<NETWORK>` entries;
@@ -359,8 +362,8 @@ owner signs through the app, and do not build around them.
 - **An interpreter outside the trusted builds** (`INTERPRETER_MISMATCH`): its
   live `grammar_version()` and code hash must be ones the package lists, whatever address
   you pass.
-- **An endpoint or a directory as input:** neither is a tool argument.
-  `outFile` is only a file name inside `POLICY_BUILDER_OUT_DIR`.
+- **An endpoint as input:** the RPC endpoint is the operator's setting, never a
+  tool argument. No tool writes a file.
 
 **Overrides belong to the user:** `allowOverlap`, `allowUnboundedAmount`,
 `allowOpenSlippage` and `anyOne` on `install_policy`, and `allowAdminRule` on
@@ -383,27 +386,43 @@ account calls the interpreter's `install` itself while running
 `add_context_rule`. No second call is outstanding. The rule id the account
 assigned is in the transaction result.
 
-**Pass `outFile` and let the server write the envelope:** this is the one
-reliable way to get it onto disk. Give `install_policy` a file NAME (no
-directory): the server writes it into `POLICY_BUILDER_OUT_DIR`, creates it fresh
-(an existing file is never overwritten), reads it back to confirm it persisted
-intact, and returns `writtenTo`. Hand that path to the signer.
+**Keep the envelope out of your own output:** `unsignedXdr` runs to several
+thousand characters, and moving it through your own output or a shell argument
+corrupts it. Observed repeatedly: silent truncation, and files of exactly the
+right length whose bytes no longer parse (`xdr padding contains non-zero
+bytes`). Both look like a malformed TRANSACTION at the signer, which sends you
+debugging the wrong thing. No tool writes a file, so let a program move the
+bytes. With the CLI, `--out` writes the whole answer to a file, and a JSON tool
+takes the envelope out of it:
 
-Do NOT carry the envelope yourself. It runs to several thousand characters, and
-moving it through your own output or a shell argument corrupts it. Observed
-repeatedly: silent truncation, and files of exactly the right length whose bytes
-no longer parse (`xdr padding contains non-zero bytes`). Both look like a
-malformed TRANSACTION at the signer, which sends you debugging the wrong thing.
-Hashing what you wrote helps only if you compare it with `unsignedXdrSha256`
-from the same response.
+```
+policy-builder install --file request.json --out answer.json
+jq -r .data.unsignedXdr answer.json > install.xdr
+```
 
-**If you must write it, write it exactly as returned:** base64 text, one line,
-nothing else. Wallets and `stellar tx sign` read base64. Decoding it to binary,
-wrapping it in JSON or line-wrapping it each produce a file that looks written
-and fails at the signer as `failed to decode XDR: xdr value invalid`. Then check
-it before handing it over: its length must equal `unsignedXdrLength` and its
-SHA-256 must equal `unsignedXdrSha256`. If either differs, write it again; do
-not ask the user to sign it.
+`install.xdr` is then base64 text on one line, the form wallets and
+`stellar tx sign` read. Decoding it to binary, wrapping it in JSON or
+line-wrapping it each produce a file that looks written and fails at the signer
+as `failed to decode XDR: xdr value invalid`.
+
+**Check the file with `review_unsigned` before you hand it over:** feed it the
+file, never a retyped copy, with `smartAccount` set (and `readContracts: true`
+when a signer is a contract):
+
+```
+jq -n --rawfile x install.xdr --arg a <C… smart account> \
+  '{network: "testnet", smartAccount: $a, xdr: ($x | rtrimstr("\n"))}' \
+  | policy-builder review -
+```
+
+A truncated or altered file usually fails to decode, and the call is refused
+(`INVALID_INPUT`). If the bytes decode, `problems` must be
+empty, and `rule.predicateHash`, `fee.total`, `fee.resource`, `validBefore` and
+`auth.validUntilLedger` must equal the same fields of the install answer
+(`authValidUntilLedger` there). If any differs, build the file again; do not
+ask the user to sign it. This check is
+yours. The owner still runs `review_unsigned` on what they are about to sign
+and reads its Authority node (see "Intent -> tool").
 
 Soroban allows one host-function invocation per transaction, so a multi-step
 sequence is one signature per step. Do not pre-build step 2: the XDR binds a
