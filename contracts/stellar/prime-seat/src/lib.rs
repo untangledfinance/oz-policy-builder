@@ -1,4 +1,4 @@
-//! prime-seat: one NEAR-routed owner's seat on one Prime Account, and that owner's session keys.
+//! Prime seat: one NEAR-routed owner's seat on one Prime Account, and that owner's session keys.
 //!
 //! The owner is an ed25519 key the NEAR MPC signs with. It never signs a vote. It signs a grant that names this
 //! seat, the account and a session key, and the seat then votes and acts through that key while the grant is live.

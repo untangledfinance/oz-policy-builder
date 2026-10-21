@@ -30,7 +30,7 @@ It is built as two halves:
 | Policy interpreter | `contracts/stellar/policy-interpreter` | 800 |
 | Execution adapter | `contracts/stellar/execution-adapter` | 226 |
 | Custody gate | `contracts/stellar/custody-gate` | 53 |
-| `prime-seat` | `contracts/stellar/prime-seat` | 97 |
+| Prime seat | `contracts/stellar/prime-seat` | 97 |
 | Policy synthesiser | `packages/policy-synth` | 3,876 |
 | CLI | `packages/policy-builder-cli` | 76 |
 | MCP server | `packages/policy-builder-mcp` | 133 |
@@ -51,14 +51,14 @@ The interpreter source in this tree builds to `810f53f1…`
 (`contracts/build-hashes.json`): the pinned build plus the keyless executor
 rules. A new testnet instance from it replaces the pin.
 
-The audited code is this repository at tag `v4.0.0`. The same code is published
-to npm at version 4.0.0 as `@crediolabs/policy-synth`,
+The audited code is this repository at tag `v4.0.1`. The same code is published
+to npm at version 4.0.1 as `@crediolabs/policy-synth`,
 `@crediolabs/policy-builder-cli` and `@crediolabs/policy-builder-mcp`:
 
 ```sh
-npm install @crediolabs/policy-synth@4.0.0 @stellar/stellar-sdk
-npm install -g @crediolabs/policy-builder-cli@4.0.0     # the policy-builder command
-npx -y @crediolabs/policy-builder-mcp@4.0.0             # the MCP server over stdio
+npm install @crediolabs/policy-synth@4.0.1 @stellar/stellar-sdk
+npm install -g @crediolabs/policy-builder-cli@4.0.1     # the policy-builder command
+npx -y @crediolabs/policy-builder-mcp@4.0.1             # the MCP server over stdio
 ```
 
 To run a checkout of this repo, build the packages in dependency order. The
@@ -152,7 +152,7 @@ measurements behind the limits.
 | --- | --- |
 | Audit the code | [docs/audit-overview.md](./docs/audit-overview.md) |
 | See what runs where | [docs/README.md](./docs/README.md) |
-| Understand the custody setup and the seats | [docs/architecture.md](./docs/architecture.md) |
+| Understand the custody setup and the Prime seats | [docs/architecture.md](./docs/architecture.md) |
 | Read the Stellar contracts and the policy builder in detail | [docs/stellar.md](./docs/stellar.md) |
 | Build and install a policy from a shell | `packages/policy-builder-cli` (`policy-builder <tool>`, all eight tools) |
 | Drive it from an agent | `packages/policy-builder-mcp` (MCP over stdio / Streamable HTTP) |
@@ -168,7 +168,7 @@ measurements behind the limits.
 | `contracts/stellar/custody-gate` | The custody account's gate: holds its allowance and releases only to listed addresses. |
 | `contracts/stellar/execution-adapter` | The per-Prime batcher, bound to one gate or to none. With a gate, a batch can wait a number of ledgers before it runs. |
 | `contracts/stellar/test-blend-pool` | A Blend-`submit`-shaped stub, for testnet verification only. |
-| `contracts/stellar/prime-seat` | An owner's seat on a Prime account, held by an ed25519 owner key, and the session keys that owner grants. |
+| `contracts/stellar/prime-seat` | The Prime seat: an owner's seat on a Prime account, held by an ed25519 owner key, and the session keys that owner grants. |
 | `deployments/` | Deployment records that CI and the scripts read. |
 | `evidence/` | Logs and receipts behind the claims in the docs. |
 

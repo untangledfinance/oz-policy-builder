@@ -1,18 +1,18 @@
 # Prime contracts
 
 This folder holds every contract behind a Prime account, all on Stellar: the
-policy interpreter, the custody gate, the execution adapter and the seat.
+policy interpreter, the custody gate, the execution adapter and the Prime seat.
 
-A seat is an owner's entry on a Prime account for an owner who signs with an
-ed25519 owner key in place of a Stellar account of its own. Its holder must
+A Prime seat is an owner's entry on a Prime account for an owner who signs with
+an ed25519 owner key in place of a Stellar account of its own. Its holder must
 produce a raw ed25519 signature over the 32-byte grant hash. In the reference
 integration a NEAR-routed MPC holds the key; any signer that can raw-sign that
 hash, such as a server-held keypair or a custody service configured for raw
 ed25519 signing, can serve. Interactive wallets that sign only transactions or
 prefixed messages produce signatures the seat refuses. The seat verifies only
-ed25519 signatures. The owner grants a
-session key for at most 7 days, and the seat lets that key vote for the owner
-in rule 0 and act inside the rules that list the seat.
+ed25519 signatures. The owner grants a session key for at most 7 days, and the
+seat lets that key vote for the owner in rule 0 and act inside the rules that
+list the seat.
 
 ## Layout
 
@@ -26,7 +26,7 @@ contracts/
       oz08/                     the interpreter wasm against OpenZeppelin's 0.8.0 account
     custody-gate/               the custody account's gate
     execution-adapter/          per-Prime batcher, bound to one gate or to none
-    prime-seat/                 an owner's seat on an OZ smart account
+    prime-seat/                 the Prime seat: an owner's seat on an OZ smart account
     test-blend-pool/            Blend-shaped stub, testnet only
 ```
 
@@ -43,7 +43,7 @@ command.
 | `stellar/policy-interpreter` | 800 | in |
 | `stellar/execution-adapter` | 226 | in |
 | `stellar/custody-gate` | 53 | in |
-| `stellar/prime-seat` | 97 | outside |
+| `stellar/prime-seat` | 97 | in |
 | `stellar/test-blend-pool` | 22 | test double, testnet only |
 
 ## Build and test
@@ -78,7 +78,7 @@ deployed hashes and the hashes CI pins. Compare hashes from a Linux build:
 macOS gives other bytes from the same source. No build embeds the crate's own
 path. Tools: stellar 27.1.0, Rust 1.97.1 from the repo's `rust-toolchain.toml`.
 
-## The seat and the policy interpreter
+## The Prime seat and the policy interpreter
 
 The interpreter refuses an `External` signer in its rules (212), so a seat
 enters a policed rule as `Delegated`, the form it serves outside rule 0. The
@@ -90,7 +90,7 @@ behind, because `uninstall` needs the policy admins' own authorisation. A seat
 cannot be a policy admin: it authorises only through its account's
 `__check_auth`. [docs/stellar.md](../docs/stellar.md#changing-who-signs-a-policed-rule)
 has the detail, and [prime-seat/README.md](stellar/prime-seat/README.md) the
-seat's interface.
+Prime seat's interface.
 
 ## CI
 

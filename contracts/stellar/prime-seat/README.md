@@ -1,6 +1,6 @@
-# prime-seat
+# Prime seat
 
-An owner's seat on one Prime Account on Stellar, and that owner's session keys. The seat owner is an ed25519 key. Its holder must produce a raw ed25519 signature over the 32-byte grant hash. In the reference integration a NEAR-routed MPC holds the key; any signer that can raw-sign that hash, such as a server-held keypair or a custody service configured for raw ed25519 signing, can serve. Interactive wallets that sign only transactions or prefixed messages produce signatures the seat refuses. The seat verifies only ed25519 signatures. The owner key signs only grants and ends, and the seat votes and acts through a session key that the owner granted, for at most 7 days.
+The Prime seat (crate `prime-seat`) is an owner's seat on one Prime Account on Stellar, and that owner's session keys. The seat owner is an ed25519 key. Its holder must produce a raw ed25519 signature over the 32-byte grant hash. In the reference integration a NEAR-routed MPC holds the key; any signer that can raw-sign that hash, such as a server-held keypair or a custody service configured for raw ed25519 signing, can serve. Interactive wallets that sign only transactions or prefixed messages produce signatures the seat refuses. The seat verifies only ed25519 signatures. The owner key signs only grants and ends, and the seat votes and acts through a session key that the owner granted, for at most 7 days.
 
 One seat serves one account. The constructor takes `(account, owner)` and stores the account's 32-byte contract id and the owner key. The app deploys every seat first, reads back the stored account and owner against the key it derived offline, and only then creates the account.
 
@@ -10,12 +10,12 @@ One seat serves one account. The constructor takes `(account, owner)` and stores
 |---|---|
 | `grant(key, start, end, by, sig)` | Starts, extends or ends a session. `by` is the owner, or the session key itself when `end` is 0. `sig` is `by`'s ed25519 signature over the grant hash. Anyone may submit it; the signature carries the authority. |
 | `verify(hash, key_data, proof)` | The `External` signer interface, for rule 0 only. `key_data` must be the account's 32-byte contract id. `proof` is a live session key (32 bytes), its signature (64 bytes) over `sha256(seat ‖ hash)`, then the preimage of `hash`. |
-| `__check_auth(payload, (key, sig, preimage), contexts)` | The `Delegated` signer interface, for rules other than rule 0. A live key signs `sha256(seat ‖ payload)`. The first context must be the pinned account's `__check_auth` frame. |
+| `__check_auth(payload, (key, sig, preimage), contexts)` | The `Delegated` signer interface, for rules other than rule 0. A live key signs `sha256(seat ‖ payload)`. The first context must be a call on the pinned account whose first argument is the account's digest. |
 | `batch_canonicalize_key(keys)` | One constant per seat, so the account refuses a second `External` entry for the same seat. |
 
 Grant hash: `sha256("prime-seat-grant" ‖ network id ‖ account ‖ seat ‖ key ‖ be64 start ‖ be64 end)`, with the account, seat and key as raw 32 bytes and times in unix seconds. An end is the same hash with start and end at 0. A unit test checks the hash, and a grant signed over it, against four fixed testnet vectors kept in `src/test.rs`.
 
-Rules the contract enforces on a grant: `start <= now <= end`, `end - start <= 604,800`, a revoked key is never granted again, and a new end must be later than the stored one. Every grant entry lives for the maximum TTL, and an end stores 0. Every use compares the stored end with `ledger().timestamp()`, because TTL counts ledgers and the window counts seconds. The seat does not extend its own instance or code; the relayer extends them with an `ExtendFootprintTTL` operation.
+Rules the contract enforces on a grant: `start <= now <= end`, `end - start <= 604,800`, a new end must be later than the stored one, and an ended key gets no new grant while its end entry lives. Every grant entry lives for the maximum TTL (about 180 days), and an end stores 0. Once an end entry expires, a grant the owner signed for that key can be valid again; only the owner signs grants. Every use compares the stored end with `ledger().timestamp()`, because TTL counts ledgers and the window counts seconds. The seat does not extend its own instance or code; the relayer extends them with an `ExtendFootprintTTL` operation.
 
 ## Which rule a seat may serve
 
@@ -23,7 +23,7 @@ The deployed account's digest is `sha256(payload ‖ XDR(rule ids))`. The seat c
 
 - `External(seat, account id)` serves rule 0 only. `verify` returns false when any id is not 0.
 - `Delegated(seat)` serves rules other than rule 0 only. `__check_auth` refuses when any id is 0.
-- `__check_auth` also needs the first context to be a call of the stored account's `__check_auth`, and the digest in its arguments to be the one the preimage hashes to. A seat bound to one account refuses the frames of every other account.
+- `__check_auth` also needs the first context to be a call on the stored account, and its first argument to be the digest the preimage hashes to. The seat checks the contract address and that argument; it reads no function name. A seat bound to one account refuses the frames of every other account.
 
 This ties the seat to the digest form of the pinned account wasm (`91a2cd56…`). A newer OZ account that adds the account address to the preimage makes the seat's signatures fail until new seats are deployed. It fails closed.
 

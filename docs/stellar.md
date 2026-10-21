@@ -1,7 +1,7 @@
 # Prime on Stellar: technical detail
 
 Prime runs on our own Soroban contracts: the policy interpreter, the custody
-gate, the execution adapter and `prime-seat`, the seat of an owner who signs
+gate, the execution adapter and the Prime seat, the seat of an owner who signs
 with an ed25519 owner key. They live in `contracts/stellar/` in this
 repository, with the policy builder in `packages/`. The Prime account itself is
 an OpenZeppelin smart account. [architecture.md](architecture.md) covers the
@@ -462,7 +462,7 @@ and the `oz08/` crate runs the interpreter wasm against OpenZeppelin's 0.8.0
 account (built from upstream commit `8e25220`; the release is not tagged yet)
 with real authorisation entries.
 
-## Owners and seats
+## Owners and Prime seats
 
 The Prime account's owners are the signers of its rule 0. A native owner is a
 Stellar `G…` account and signs each decision itself. The seat owner is an
@@ -471,15 +471,15 @@ grant hash. In the reference integration a NEAR-routed MPC holds the key; any
 signer that can raw-sign that hash, such as a server-held keypair or a custody
 service configured for raw ed25519 signing, can serve. Interactive wallets that
 sign only transactions or prefixed messages produce signatures the seat refuses.
-The owner gets a seat: a `prime-seat` contract deployed for that owner and that
-account. The seat verifies only ed25519 signatures.
+The owner gets a Prime seat: a contract (`prime-seat`) deployed for that owner
+and that account. The seat verifies only ed25519 signatures.
 
 `contracts/stellar/prime-seat/src/lib.rs`, 97 sLOC. The constructor stores the
 account's 32-byte contract id and the owner key, and nothing changes them.
 
 | Function | What it does |
 |---|---|
-| `grant(key, start, end, by, sig)` | Starts, extends or ends a session. The owner signs `sha256("prime-seat-grant" ‖ network id ‖ account ‖ seat ‖ key ‖ be64 start ‖ be64 end)`; with `end` 0 the owner or the key itself signs an end, and an ended key never returns. A grant needs `start <= now <= end`, at most 604,800 seconds, and an end later than the stored one. Anyone may submit it |
+| `grant(key, start, end, by, sig)` | Starts, extends or ends a session. The owner signs `sha256("prime-seat-grant" ‖ network id ‖ account ‖ seat ‖ key ‖ be64 start ‖ be64 end)`; with `end` 0 the owner or the key itself signs an end, which stores 0 and refuses every later grant for that key while the entry lives (temporary storage at the maximum TTL, about 180 days; after it expires, a grant the owner signed for that key can be valid again). A grant needs `start <= now <= end`, at most 604,800 seconds, and an end later than the stored one. Anyone may submit it |
 | `verify(hash, key_data, proof)` | The `External` signer interface, used in rule 0 only. `key_data` must be the account's id, and the proof is a live session key's signature over `sha256(seat ‖ hash)` with the digest's preimage |
 | `__check_auth(payload, (key, sig, preimage), contexts)` | The `Delegated` signer interface, used in rules other than rule 0. The first context must be a call on the stored account whose first argument is the account's digest, with only non-zero rule ids |
 | `batch_canonicalize_key(keys)` | One constant per seat, so the account refuses a second `External` entry for the same seat |
@@ -613,7 +613,7 @@ The custody account can also cancel any stored move before it runs, with
 | The address rule against a real Prime and live Blend and Aquarius | `scripts/verify-execution-address-rule-testnet.ts`, testnet, adapter `4985cd12…` with a gate | 35 of 35 on 20 October 2026. A Blend supply, a withdrawal to custody and an Aquarius swap succeed. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put |
 | The adapter's wait against a real Prime, the gate and live Blend | `scripts/verify-execution-wait-testnet.ts`, testnet, adapter `4985cd12…` with a gate | 45 of 45 on 20 October 2026. Succeeded: a Blend supply at once; a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role; an agent's batch after the minimum wait its own rule demands. Refused: the agent below that minimum, and the agent cancelling; a stranger cancelling; running early, twice, after a cancel, or after the run window; a wait below the adapter's floor; the Prime creating the adapter at custody's address with a lower floor or a longer window |
 | The adapter with no gate, for a G and an OpenZeppelin Prime | `scripts/verify-execution-null-gate-testnet.ts`, testnet, adapter `4985cd12…` | 69 of 69 on 20 October 2026, log `evidence/execution-null-gate-testnet.log`. Succeeded: `[hello, USDC.transfer, XLM.transfer]` with one authorisation by X (a G account, and an OpenZeppelin account through rule 0); an agent's bundle at its cap, one rule per context. Refused: the bundle once `hello` failed, with no balance moved; its signed entry after its expiry ledger; a call to the Prime; a grant; any wait, and a no-gate adapter with a minimum wait; `rebind`; a stranger's `cancel`; the agent over its cap or citing its adapter rule for a token context; a no-gate adapter's pull through custody's gate |
-| Contract unit tests, this tree | `cargo test` in each crate (see [Build and test](#build-and-test)) | interpreter 416 (its 18 conformance cases also run in release), `oz08/` 12, adapter 62, gate 3, `prime-seat` 21 |
+| Contract unit tests, this tree | `cargo test` in each crate (see [Build and test](#build-and-test)) | interpreter 416 (its 18 conformance cases also run in release), `oz08/` 12, adapter 62, gate 3, Prime seat 21 |
 
 The address-rule and wait scripts install their band and run rules on an
 interpreter instance deployed earlier from other source, recorded in
@@ -645,7 +645,7 @@ hash; `stellar contract build` and macOS give other bytes.
 | `policy-interpreter` | `810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c` | `contracts/build-hashes.json` | 416 (the 18 conformance cases among them also run in release), 12 in `oz08/` |
 | `execution-adapter` | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b` | `contracts/build-hashes.json` | 62 |
 | `custody-gate` | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` | `deployments/` | 3 |
-| `prime-seat` | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | `contracts/build-hashes.json` | 21 |
+| Prime seat | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | `contracts/build-hashes.json` | 21 |
 
 CI compares each hash with its record.
 
@@ -658,7 +658,7 @@ All on Stellar testnet.
 | Policy interpreter instance | `CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT`, wasm `69cad1d5…`, deployed with reads 8, leaves 400, bytes 24,576, elems 32, `in` entries 32, depth 5. Created by `scripts/deploy-interpreter-testnet.ts`, recorded in [`deployments/interpreter-testnet.json`](../deployments/interpreter-testnet.json) and pinned in `packages/policy-synth/src/config.ts`. It runs this source before the keyless executor rules; a new instance from `810f53f1…` replaces it |
 | Execution adapter code | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b`, 24,659 bytes, uploaded in `9d9753a434302e6ba62001a5d8d69963f3a24eae8e60bae0df957ae7e568751f`, pinned in [`contracts/build-hashes.json`](../contracts/build-hashes.json) |
 | Custody gate code | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json) |
-| `prime-seat` code | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87`, pinned in [`contracts/build-hashes.json`](../contracts/build-hashes.json); the Prime app deploys one seat per seat owner and account |
+| Prime seat code | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87`, pinned in [`contracts/build-hashes.json`](../contracts/build-hashes.json); the Prime app deploys one seat per seat owner and account |
 | OpenZeppelin smart account code | `91a2cd56…`, the account code the Prime app deploys and the seat's digest check is tied to ([`deployments/oz-accounts.json`](../deployments/oz-accounts.json)) |
 | OpenZeppelin `simple_threshold`, `weighted_threshold`, `spending_limit` | addresses in [`deployments/oz-policies.json`](../deployments/oz-policies.json) |
 
