@@ -19,7 +19,7 @@ and funded by friendbot; the keys never leave the run.
 | `execution-null-gate-testnet.log` | `bun scripts/verify-execution-null-gate-testnet.ts` | 69 of 69, for a G account and an OpenZeppelin Prime: a bundle of three calls with one authorisation; an agent's bundle at its cap; refusals for a failed call (nothing moves), an expired entry, a call to the Prime, a grant, any wait, `rebind`, a stranger's `cancel`, an agent over its cap or citing its adapter rule for a token, and a pull through custody's gate; then the cost of 1, 3 and 10 calls with and without a gate |
 | `oz-threshold-live.log` | `bun packages/policy-synth/scripts/live-threshold.ts`, then with `WEIGHTED=1` | `simple_threshold(2)` beside the interpreter: signer A alone refused 3202, A and B together permitted (transfer sent). With `WEIGHTED=1` (A:2, B:1, threshold 2) `install_policy` refuses the rule before any transaction, because A alone meets the threshold |
 | `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test` per crate and in `oz08/`, conformance in release, each `build-wasm.sh` and its hash check | every step passed: interpreter 416 tests (its 18 conformance cases again in release), `oz08/` 12, adapter 62, gate 3, `prime-seat` 21; each rebuilt wasm equals its pin, and `test-blend-pool` built with the same path remaps gives `7ba261ed…` |
-| `offchain-gate.log` | `bun run check`, the three package builds, `bun run typecheck`, `bun test`, `bun run test:isolated`, 21 October 2026, after the lockfile update | every step passed: biome 0 errors (36 warnings), typecheck clean, `bun test` 1,780 pass and 0 fail, isolated 1,758 + 6 + 16 |
+| `offchain-gate.log` | `bun run check`, the three package builds, `bun run typecheck`, `bun test`, `bun run test:isolated`, 21 October 2026, after the lockfile update and the MCP input cap | every step passed: biome 0 errors (36 warnings), typecheck clean, `bun test` 1,782 pass and 0 fail, isolated 1,758 + 6 + 18 |
 | `worst-case-ceilings.txt` | `cargo test --release --test worst_case -- --nocapture` on the interpreter wasm | every rule shape at each limit set stays at or under 80% of the testnet limits; worst case at the ceilings: `install` 64.7M CPU, `enforce` 62.3M CPU and 1.58 MB; 8 wasm reads cost 12.7 MB of memory for one context and about 11.4 MB for each further one |
 | `soroban-network-limits-2026-10-16.txt` | `getLedgerEntries` on every `CONFIG_SETTING` key, testnet, 16 October 2026 | the per-transaction limits `tests/worst_case.rs` holds every rule shape to, at 80% |
 | `cargo-audit.log` | `cargo audit` in the interpreter crate | no vulnerability across 202 crates; one unmaintained-crate warning (finding 1) |
@@ -58,8 +58,24 @@ GHSA-46jr-4wx8-v453, GHSA-6prh-2h8m-c8cw, GHSA-rvq5-wwqv-78pq), two in
 GHSA-8r9p-f939-6h3c) and one in `hono` 4.13.9 through the MCP SDK
 (GHSA-5r4p-p66f-jhc7). The lockfile now holds the MCP SDK at 1.32.1, and the
 root `overrides` in `package.json` hold `follow-redirects` at 1.16.1 or later
-and `hono` at 4.13.11 or later (locked 4.13.13). `bun audit` finds no
-vulnerability, and CI runs it on every pull request. Threat model row T-27.
+and `hono` at 4.13.11 or later (locked 4.13.13).
+
+The new versions alone fix five of the seven: GHSA-22jm-h49p-29qw,
+GHSA-6prh-2h8m-c8cw, the two in `follow-redirects` and the one in `hono`.
+GHSA-46jr-4wx8-v453, one large `tools/call` that exhausts the server's memory
+during validation, is fixed by the new version together with its opt-in
+`maxToolInputElements`, which the server sets to 10,000
+(`policy-builder-mcp/src/server.ts`). Without the option, one 1 MiB call
+raised the HTTP server's memory by about 480 MB and drew a 26 MB error; with
+it the call is refused before validation, peak memory stays near 111 MB and the
+error is 230 bytes. `policy-builder-mcp/test/http.test.ts` checks the refusal.
+GHSA-rvq5-wwqv-78pq concerns bearer authentication (`expectedResource`), and
+the server has none, so it does not apply; a bearer token added later (S-11)
+must set it.
+
+`bun audit` finds no vulnerability, and CI runs it on every pull request. It
+matches by version range only; the test above is what checks the option.
+Threat model row T-27.
 
 ### 3. Scout and clippy
 

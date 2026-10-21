@@ -1,5 +1,6 @@
 # Contract gate, 20 October 2026, Linux, rust 1.97.1 (rust-toolchain.toml)
 # Tree: 107f83f4 plus this change, which changes no contract source, Cargo file, package, script or workflow (git diff of those paths against 107f83f4 is empty).
+# Contracts unchanged since: on 21 October 2026 the gate on 24a20ef3 plus the lockfile update reproduced these test counts and all five hashes.
 # Each crate: cargo fmt --check, cargo clippy --all-targets -- -D warnings, build-wasm.sh (where the crate has one), cargo test.
 # Then: test-blend-pool built with the same path remaps, interpreter conformance and worst case in release, check-build-hash.sh, oz08/.
 
