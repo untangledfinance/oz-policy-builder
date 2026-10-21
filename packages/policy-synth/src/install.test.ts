@@ -1,5 +1,4 @@
 import { afterAll, describe, expect, it } from 'bun:test'
-import { createHash } from 'node:crypto'
 import {
   Address,
   nativeToScVal,
@@ -13,6 +12,7 @@ import { connect, interpreterFor } from './chain.ts'
 import { PASSPHRASE, SAFE_READS, SPENDING_LIMIT, thresholdAddress } from './config.ts'
 import { buildInstall, buildRevoke, type RuleDraft, ruleArgs } from './install.ts'
 import { callExpr } from './intent.ts'
+import { reviewUnsigned } from './review.ts'
 import { type Expr, encode, hashOf } from './wire.ts'
 
 const ACCOUNT = 'CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P'
@@ -100,22 +100,24 @@ describe('ruleArgs: add_context_rule, as wire values', () => {
     ).toEqual(['CreateContract', { bytes: 'ab'.repeat(32) }])
   })
 
-  it.each<[string, Partial<RuleDraft>, RegExp]>([
-    ['no signer', { signers: [] }, /no signer/],
-    [
-      'sixteen signers',
-      { signers: Array.from({ length: 16 }, (_, i) => account(i + 1)) },
-      /allows 15/,
-    ],
-    ['no admin', { admins: [] }, /no policy admin/],
-  ])('refuses %s before any round trip', (_n, o, msg) =>
-    expect(() => ruleArgs(draft(o), INTERP)).toThrow(msg)
+  it.each<[string, Partial<RuleDraft>, RegExp]>([['no signer', { signers: [] }, /no signer/]])(
+    'refuses %s before any round trip',
+    (_n, o, msg) => expect(() => ruleArgs(draft(o), INTERP)).toThrow(msg)
   )
+
+  it("leaves to the build's simulation what the chain refuses there: over 15 signers (OZ #3010), a signer twice (OZ #3007), no admin (the interpreter, #209)", () => {
+    const many = Array.from({ length: 16 }, (_, i) => account(i + 1))
+    expect(ruleArgs(draft({ signers: many }), INTERP)[3]).toHaveLength(16)
+    expect(ruleArgs(draft({ signers: [SIGNER, SIGNER] }), INTERP)[3]).toHaveLength(2)
+    expect(() => ruleArgs(draft({ admins: [] }), INTERP)).not.toThrow()
+  })
 })
 
 // ---- built against a live testnet account, recorded ----
 
 const net = recorded('install')
+/** What the built bytes call, decoded back out of them. */
+const callOf = (b64: string) => reviewUnsigned({ network: 'testnet', xdr: b64 }).call
 afterAll(() => net.stop())
 const server = connect(net.endpoint)
 const args = { server, network: 'testnet' as const, smartAccount: ACCOUNT, sourceAccount: SIGNER }
@@ -123,15 +125,11 @@ const args = { server, network: 'testnet' as const, smartAccount: ACCOUNT, sourc
 describe('buildInstall and buildRevoke, on a live account', () => {
   it('the interpreter and the account accept the rule; the unsigned bytes say what they call', async () => {
     const built = await buildInstall(args, draft({ name: 'cap-500', nonce: 1 }), INTERP)
-    expect(built.describes).toEqual({
+    expect(callOf(built.unsignedXdr)).toEqual({
       contract: ACCOUNT,
       fn: 'add_context_rule',
       args: ruleArgs(draft(), INTERP),
     })
-    expect(built.unsignedXdrLength).toBe(built.unsignedXdr.length)
-    expect(built.unsignedXdrSha256).toBe(
-      createHash('sha256').update(built.unsignedXdr).digest('hex')
-    )
     const tx = TransactionBuilder.fromXDR(built.unsignedXdr, PASSPHRASE.testnet)
     expect(tx.signatures).toHaveLength(0)
     expect(built.authValidUntilLedger).toBeGreaterThan(0)
@@ -164,7 +162,11 @@ describe('buildInstall and buildRevoke, on a live account', () => {
 
   it('a revoke is the account removing a rule it has; one it does not have is refused', async () => {
     const ok = await buildRevoke(args, 1)
-    expect(ok.describes).toEqual({ contract: ACCOUNT, fn: 'remove_context_rule', args: [1] })
+    expect(callOf(ok.unsignedXdr)).toEqual({
+      contract: ACCOUNT,
+      fn: 'remove_context_rule',
+      args: [1],
+    })
     await expect(buildRevoke(args, 99)).rejects.toThrow(/#3000/)
   })
 
@@ -380,17 +382,24 @@ describe('buildInstall and buildRevoke, on a live account', () => {
       expect(b.validBefore).toBeGreaterThan(Math.floor(Date.now() / 1000) + 1790)
     })
 
-    it.each([
-      ['a negative resource fee', -1n, /negative resource fee \(-1 stroops\)/],
-      ['the largest int64 resource fee', 2n ** 63n - 1n, /above this builder's ceiling of 10 XLM/],
-    ] as const)('refuses %s with its own message', async (_n, fee, why) => {
-      const lying = lyingPass(2, (sim) => {
+    const feeOf = (fee: bigint) =>
+      lyingPass(2, (sim) => {
         if (!('transactionData' in sim)) return
         const d = sim.transactionData.build()
         d.resourceFee(new xdr.Int64(fee))
         sim.transactionData = new SorobanDataBuilder(d)
       })
-      await expect(buildInstall({ ...args, server: lying }, draft(), INTERP)).rejects.toThrow(why)
+    it('refuses the largest int64 resource fee with its own message', async () => {
+      await expect(
+        buildInstall({ ...args, server: feeOf(2n ** 63n - 1n) }, draft(), INTERP)
+      ).rejects.toThrow(/above this builder's ceiling of 10 XLM/)
+    })
+
+    it("a negative resource fee is the network's to refuse (txMALFORMED), and review_unsigned flags it", async () => {
+      const b = await buildInstall({ ...args, server: feeOf(-1n) }, draft(), INTERP)
+      const r = reviewUnsigned({ network: 'testnet', xdr: b.unsignedXdr, smartAccount: ACCOUNT })
+      expect(r.signable).toBe(false)
+      expect(r.problems.join('\n')).toMatch(/negative resource fee \(-1 stroops\)/)
     })
 
     it('refuses a resource fee above the ceiling, whatever the RPC asks (an enforcing pass that asks 200 XLM)', async () => {
@@ -1201,13 +1210,29 @@ describe('planInstall: the guards', () => {
     })
   })
 
-  it('a signer listed twice is refused before the network is asked (OZ rejects it as #3007)', async () => {
+  it('a signer listed twice is refused before the network is asked (OZ rejects it as #3007 too)', async () => {
     let asked = 0
     const quiet = chain({ fingerprint: async () => (asked++, ours) })
     await refused(
       planInstall({ ...input, signers: [SIGNER, SIGNER], anyOne: true }, rule, quiet),
       'INSTALL_BUILD_FAILED',
       /twice|duplicate/
+    )
+    expect(asked).toBe(0)
+  })
+
+  it('[A, A] with { simple: 2 } is refused here, so A can never meet the threshold alone on any account', async () => {
+    let asked = 0
+    const quiet = chain({
+      fingerprint: async () => {
+        asked++
+        return ours
+      },
+    })
+    await refused(
+      planInstall({ ...input, signers: [SIGNER, SIGNER], threshold: { n: 2 } }, rule, quiet),
+      'INSTALL_BUILD_FAILED',
+      /listed twice/
     )
     expect(asked).toBe(0)
   })

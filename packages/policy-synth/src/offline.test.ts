@@ -1,6 +1,6 @@
 // synthesize_policy and get_interpreter_info work with no RPC: the pinned instance's deployed
-// limits are recorded in config (immutable per instance), the live ones are used when the RPC
-// answers. Install, verify and simulate stay strict. Every test starts with a cold limits cache.
+// limits are recorded in config (immutable per instance) and are what they use. Install, verify
+// and simulate stay strict: they read limits() live. Every test starts with a cold limits cache.
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { contract } from '../test/fixtures.ts'
@@ -39,7 +39,7 @@ describe('with no RPC', () => {
   it('synthesize_policy holds the rule to the limits recorded for the pin and says so', async () => {
     const ok = await tool('synthesize_policy', { intent: intent(8) })
     expect(ok.ok).toBe(true) // eight reads: the pinned instance allows 8, the defaults 4
-    expect(ok.data.heldTo).toBe(`the limits recorded for ${pin.address} (the RPC did not answer)`)
+    expect(ok.data.heldTo).toBe(`the limits recorded for ${pin.address}`)
     const nine = await tool('synthesize_policy', { intent: intent(9) })
     expect(nine.ok).toBe(false)
     expect(nine.error.code).toBe('MALFORMED_PREDICATE')
@@ -86,46 +86,28 @@ describe('with an RPC that answers', () => {
     return fake
   }
 
-  it('synthesize_policy holds the rule to the live limits, which equal the recorded ones', async () => {
-    const fake = serve({ ...pin.limits })
-    try {
-      const r = await tool('synthesize_policy', { intent: intent(8) })
-      expect(r.ok).toBe(true)
-      expect(r.data.heldTo).toBe(`the limits of ${pin.address} (read live)`)
-      expect((await tool('get_interpreter_info', {})).data.limitsFrom).toBe('live')
-    } finally {
-      fake.stop()
+  it('synthesize_policy and get_interpreter_info do not ask it: the recorded limits hold, whatever it says', async () => {
+    for (const limits of [{ ...LIMITS_DEFAULT }, { ...pin.limits, max_reads: 99 }, null]) {
+      const fake = serve(limits)
+      try {
+        const r = await tool('synthesize_policy', { intent: intent(8) })
+        expect(r.ok).toBe(true)
+        expect(r.data.heldTo).toBe(`the limits recorded for ${pin.address}`)
+        const info = await tool('get_interpreter_info', {})
+        expect(info.data).toMatchObject({ limits: pin.limits, limitsFrom: 'recorded' })
+        expect(fake.asked).toEqual([])
+      } finally {
+        fake.stop()
+      }
     }
   })
 
-  it('a live answer that is not the recorded limits is refused, never averaged or believed', async () => {
-    const fake = serve({ ...LIMITS_DEFAULT })
-    try {
-      const r = await tool('synthesize_policy', { intent: intent(2) })
-      expect(r.ok).toBe(false)
-      expect(r.error.code).toBe('INTERPRETER_MISMATCH')
-    } finally {
-      fake.stop()
-    }
-  })
-
-  it('a live answer that is nonsense is refused, not replaced by the recorded limits', async () => {
+  it('a live answer out of range is refused where limits are read live', async () => {
     const fake = serve({ ...pin.limits, max_reads: 99 })
     try {
-      const r = await tool('synthesize_policy', { intent: intent(2) })
+      const r = await tool('simulate_policy', { expr: ['eq', ['call_fn'], 'transfer'] })
       expect(r.ok).toBe(false)
       expect(r.error.code).toBe('INTERPRETER_MISMATCH')
-    } finally {
-      fake.stop()
-    }
-  })
-
-  it('an RPC that answers an error (no limits()) is the same as none: the recorded limits hold', async () => {
-    const fake = serve(null)
-    try {
-      const r = await tool('synthesize_policy', { intent: intent(8) })
-      expect(r.ok).toBe(true)
-      expect(r.data.heldTo).toContain('recorded')
     } finally {
       fake.stop()
     }

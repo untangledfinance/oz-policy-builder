@@ -252,37 +252,37 @@ fn install_refuses_unusable_admin_sets() {
     let operators = soroban_sdk::vec![&s.env, delegated(&s.operator)];
     let rule = make_rule(&s.env, 1, &s.venue, operators);
 
-    // Empty: nobody could ever authorise a later admin-gated call.
+    // Empty: nobody could ever authorise a later admin-gated call (EmptySignerSet).
     let empty: SorobanVec<Signer> = SorobanVec::new(&s.env);
+    let res = client.try_install(&make_params(&s.env, 1, empty), &rule, &s.smart_account);
+    let expected = soroban_sdk::Error::from_contract_error(209);
     assert!(
-        client
-            .try_install(&make_params(&s.env, 1, empty), &rule, &s.smart_account)
-            .is_err(),
-        "an empty admin set must be refused"
+        matches!(res, Err(Ok(e)) if e == expected),
+        "an empty admin set must be refused with Error(Contract, #209), got {res:?}"
     );
 
-    // External: require_auth on a verifier address can never be satisfied.
+    // External: require_auth on a verifier address can never be satisfied (ExternalSignerNotSupported).
     let external = soroban_sdk::vec![
         &s.env,
         Signer::External(Address::generate(&s.env), Bytes::new(&s.env))
     ];
+    let res = client.try_install(&make_params(&s.env, 1, external), &rule, &s.smart_account);
+    let expected = soroban_sdk::Error::from_contract_error(212);
     assert!(
-        client
-            .try_install(&make_params(&s.env, 1, external), &rule, &s.smart_account)
-            .is_err(),
-        "an External admin must be refused"
+        matches!(res, Err(Ok(e)) if e == expected),
+        "an External admin must be refused with Error(Contract, #212), got {res:?}"
     );
 
-    // Oversized: one require_auth per admin; an unbounded set bricks the rule.
+    // Oversized: one require_auth per admin; an unbounded set bricks the rule (TooManySigners).
     let mut oversized: SorobanVec<Signer> = SorobanVec::new(&s.env);
     for _ in 0..17 {
         oversized.push_back(delegated(&Address::generate(&s.env)));
     }
+    let res = client.try_install(&make_params(&s.env, 1, oversized), &rule, &s.smart_account);
+    let expected = soroban_sdk::Error::from_contract_error(217);
     assert!(
-        client
-            .try_install(&make_params(&s.env, 1, oversized), &rule, &s.smart_account)
-            .is_err(),
-        "an oversized admin set must be refused"
+        matches!(res, Err(Ok(e)) if e == expected),
+        "an oversized admin set must be refused with Error(Contract, #217), got {res:?}"
     );
 }
 

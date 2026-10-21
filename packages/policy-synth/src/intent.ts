@@ -2,7 +2,7 @@
 // satisfy; `intentExprs` lowers it to wire expressions, one per contract (a rule
 // is scoped to one contract, and the interpreter refuses a Default scope). It is
 // the one place a rule's conditions are written down: a recording becomes an Intent
-// (`synth.ts`), a declaration is one, and a template (`registry.ts`) returns one.
+// (`synth.ts`) and a declaration is one.
 //
 // A constraint's `at` is a path into the call's arguments: a number indexes a vec (the
 // first is the argument), a string keys a map. Inside `each` and `some` the path

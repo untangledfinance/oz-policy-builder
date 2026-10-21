@@ -64,9 +64,10 @@ export class WireError extends Error {}
 export const isAddress = (v: unknown): v is string => typeof v === 'string' && ADDRESS.test(v)
 export const isTagged = (v: unknown): v is Tagged =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
+export const isMap = (v: unknown): v is { map: [Val, Val][] } => isTagged(v) && 'map' in v
 /** A `{map}` as a record keyed by the keys' text; anything else as an empty one. */
 export const fields = (v: Val | undefined): Record<string, Val> =>
-  Object.fromEntries(isTagged(v) && 'map' in v ? v.map.map(([k, x]) => [String(k), x]) : [])
+  Object.fromEntries(isMap(v) ? v.map.map(([k, x]) => [String(k), x]) : [])
 
 /** The integer a value carries (a u32, or a tagged integer, timepoint or duration), else undefined. */
 export function intOf(v: Val | undefined): bigint | undefined {
@@ -212,23 +213,17 @@ export const hashOf = (b64: string): string =>
 
 /** The caps decode enforces: the deployment's `Limits`, under the contract's own field names and
  *  in its order. A quantifier body and a `sum` weigh `max_elems` leaves. */
-const limits = (
-  max_reads: number,
-  max_leaves: number,
-  max_predicate_bytes: number,
-  max_elems: number,
-  max_in_operands: number,
-  max_depth: number
-) =>
-  Object.freeze({
-    max_reads,
-    max_leaves,
-    max_predicate_bytes,
-    max_elems,
-    max_in_operands,
-    max_depth,
-  })
-export type Caps = ReturnType<typeof limits>
+const LIMITS = [
+  'max_reads',
+  'max_leaves',
+  'max_predicate_bytes',
+  'max_elems',
+  'max_in_operands',
+  'max_depth',
+] as const
+export type Caps = Readonly<Record<(typeof LIMITS)[number], number>>
+const limits = (...v: number[]): Caps =>
+  Object.freeze(Object.fromEntries(LIMITS.map((k, i) => [k, v[i]]))) as Caps
 /** The contract's default limits, and so the caps of a rule checked without an interpreter at hand. */
 export const DECODE_LIMITS = limits(4, 200, 32 * 1024, 32, 32, 5)
 /** The most any deployment may choose (`Limits::in_range` in the contract): an instance reporting more is refused. */
@@ -462,7 +457,7 @@ function constantValue(v: Val, nest: number, maxDepth: number): void {
       if (isSelector(x)) bad('a bare vec holds plain values: write lit([...])')
       constantValue(x, nest + 1, maxDepth)
     }
-  } else if (isTagged(v) && 'map' in v) {
+  } else if (isMap(v)) {
     bad('a bare map: write lit({...})')
   }
 }

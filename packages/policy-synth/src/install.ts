@@ -8,7 +8,6 @@
 // the account's own auth entries, simulate again for the footprint and fee, and
 // assemble. The arguments are wire values (`toScVal`), the same codec as a predicate.
 
-import { createHash } from 'node:crypto'
 import {
   Account,
   Address,
@@ -49,7 +48,7 @@ import {
   type Scope,
   selectors,
 } from './rules.ts'
-import { type Expr, fromScVal, readsOf, toScVal, type Val } from './wire.ts'
+import { type Expr, readsOf, toScVal, type Val } from './wire.ts'
 
 export interface RuleDraft {
   scope: Scope
@@ -68,12 +67,18 @@ export interface RuleDraft {
   extra?: [string, Val][]
 }
 
-const MAX_SIGNERS = 15
 /** How far apart the two simulations of one build may report the ledger: seconds pass between them,
  *  and nodes behind one endpoint can lag each other, but not by hours. */
 const LEDGER_DRIFT = 20
 
-const delegated = (a: string): Val => ['Delegated', a]
+export const delegated = (a: string): Val => ['Delegated', a]
+/** OZ `spending_limit`'s install params: a rolling total over a window of ledgers. */
+export const spendingParams = (t: { amount: string; periodLedgers: number }): Val => ({
+  map: [
+    ['period_ledgers', t.periodLedgers],
+    ['spending_limit', { i128: t.amount }],
+  ],
+})
 
 /** OZ's threshold policy and its install params (`signer_weights`, a signer -> u32 map, if weighted). */
 const thresholdPolicy = (net: Network, { n, weights: w }: NonNullable<InstallInput['threshold']>) =>
@@ -97,12 +102,12 @@ export function ruleArgs(d: RuleDraft, interpreter: string): Val[] {
       : d.scope.kind === 'create_contract'
         ? ['CreateContract', { bytes: d.scope.wasmHash }]
         : ['Default']
-  const no = (m: string) => new Refusal('INSTALL_BUILD_FAILED', m)
-  if (d.signers.length === 0) throw no('the rule names no signer, so it would govern no key')
-  if (d.signers.length > MAX_SIGNERS)
-    throw no(`${d.signers.length} signers; OpenZeppelin allows ${MAX_SIGNERS}`)
-  if (d.admins.length === 0)
-    throw no('the rule names no policy admin: the interpreter refuses an empty admin set')
+  // More than 15 signers, a signer twice and an empty admin set are the chain's to refuse: OZ's
+  // add_context_rule (#3010, #3007) and the interpreter's install (#209), in the build's simulation.
+  // A rule with no signer installs on chain (a keyless rule), so it is refused here.
+  if (d.signers.length === 0)
+    throw new Refusal('INSTALL_BUILD_FAILED', 'the rule names no signer, so it would govern no key')
+  const predicate = { bytes: Buffer.from(d.predicate.encoded, 'base64').toString('hex') }
   const policies: [Val, Val][] = [
     [
       interpreter,
@@ -111,36 +116,21 @@ export function ruleArgs(d: RuleDraft, interpreter: string): Val[] {
           ['grammar_version', GRAMMAR_VERSION],
           ['install_nonce', d.nonce],
           ['policy_admins', d.admins.map(delegated)],
-          ['predicate', { bytes: Buffer.from(d.predicate.encoded, 'base64').toString('hex') }],
+          ['predicate', predicate],
           ['predicate_hash', { bytes: d.predicate.hash }],
         ],
       },
     ],
+    ...(d.cap ? [[d.cap.address, spendingParams(d.cap)] as [Val, Val]] : []),
+    ...(d.extra ?? []),
   ]
-  if (d.cap) {
-    policies.push([
-      d.cap.address,
-      {
-        map: [
-          ['period_ledgers', d.cap.periodLedgers],
-          ['spending_limit', { i128: d.cap.amount }],
-        ],
-      },
-    ])
-  }
-  policies.push(...(d.extra ?? []))
   return [scope, { string: d.name }, d.validUntil, d.signers.map(delegated), { map: policies }]
 }
 
 export interface Built {
   unsignedXdr: string
-  /** Length and sha256 of `unsignedXdr`: a truncated copy fails later as a malformed transaction. */
-  unsignedXdrLength: number
-  unsignedXdrSha256: string
   smartAccount: string
   sourceAccount: string
-  /** What the built bytes call, decoded back out of them. */
-  describes: { contract: string; fn: string; args: Val[] }
   authNonce: string
   authValidUntilLedger: number
   /** The transaction's time bound (unix seconds, the builder's clock): it cannot run after it. */
@@ -217,11 +207,7 @@ export async function buildSelfCall(
     server.getAccount(a.sourceAccount),
     simulate(tx(op(), '0'), 'recording'),
   ])
-  const original = (recorded.result?.auth ?? []).find(
-    (e) =>
-      e.credentials().switch().name === 'sorobanCredentialsAddress' &&
-      Address.fromScAddress(e.credentials().address().address()).toString() === a.smartAccount
-  )
+  const original = (recorded.result?.auth ?? []).find((e) => isAddressEntry(e, a.smartAccount))
   if (!original)
     throw new Refusal(
       code,
@@ -294,12 +280,8 @@ export async function buildSelfCall(
   // `assembleTransaction` sets the fee to the base fee plus the resource fee, and `build` adds the
   // resource fee from the Soroban data again: bid the base fee once and let `build` add the resources.
   // The fee is judged as the RPC gave it, before any arithmetic on it.
+  // A negative one is the network's to refuse (txMALFORMED), and review_unsigned flags it.
   const asked = enforced.transactionData.build().resourceFee().toBigInt()
-  if (asked < 0n)
-    throw new Refusal(
-      code,
-      `${fn}: the network asks a negative resource fee (${asked} stroops); not built`
-    )
   if (asked > BigInt(ceiling))
     throw new Refusal(
       code,
@@ -316,14 +298,10 @@ export async function buildSelfCall(
     networkPassphrase: PASSPHRASE[network],
     timebounds: { minTime: 0, maxTime: validBefore },
   }).build()
-  const unsignedXdr = final.toEnvelope().toXDR('base64')
   return {
-    unsignedXdr,
-    unsignedXdrLength: unsignedXdr.length,
-    unsignedXdrSha256: createHash('sha256').update(unsignedXdr).digest('hex'),
+    unsignedXdr: final.toEnvelope().toXDR('base64'),
     smartAccount: a.smartAccount,
     sourceAccount: a.sourceAccount,
-    describes: describe(final),
     authNonce: creds.nonce().toString(),
     authValidUntilLedger: until,
     validBefore,
@@ -331,26 +309,16 @@ export async function buildSelfCall(
   }
 }
 
+/** Whether an auth entry carries the address credentials of `account`. */
+export const isAddressEntry = (e: xdr.SorobanAuthorizationEntry, account: string) =>
+  e.credentials().switch().name === 'sorobanCredentialsAddress' &&
+  Address.fromScAddress(e.credentials().address().address()).toString() === account
+
 /** Stroops as XLM, exactly: 2000000000 -> 200, 1711054 -> 0.1711054. */
 export const xlm = (stroops: number | bigint): string => {
   const t = String(stroops).padStart(8, '0')
   const frac = t.slice(-7).replace(/0+$/, '')
   return frac ? `${t.slice(0, -7)}.${frac}` : t.slice(0, -7)
-}
-
-/** What the transaction calls, read back out of the bytes the wallet will sign. */
-export function describe(tx: Transaction): Built['describes'] {
-  const ops = tx.toEnvelope().v1().tx().operations()
-  const host = ops.length === 1 ? ops[0]?.body().invokeHostFunctionOp().hostFunction() : undefined
-  if (host?.switch().name !== 'hostFunctionTypeInvokeContract') {
-    throw new Refusal('INSTALL_BUILD_FAILED', 'the built transaction is not a single contract call')
-  }
-  const c = host.invokeContract()
-  return {
-    contract: Address.fromScAddress(c.contractAddress()).toString(),
-    fn: c.functionName().toString(),
-    args: c.args().map((x) => fromScVal(x)),
-  }
 }
 
 export const buildInstall = (a: BuildArgs, d: RuleDraft, interpreter: string) =>
@@ -374,6 +342,27 @@ export const ADAPTER_SELF_RULE = (signer: string) =>
  *  could permit). A predicate the package cannot read pins nothing. */
 export const pinsRun = (e: Expr | null | undefined): boolean =>
   e !== null && e !== undefined && selectors(e).every((s) => s.fn === 'run')
+
+/** Why a contract signer may not sign a rule scoped to `scopedTo` with predicate `expr`, from what
+ *  it is on the ledger: an adapter bound to no gate, an adapter signing a rule scoped to itself that
+ *  does not pin `run`, or nothing deployed. No override waives these: the owners cannot see from the
+ *  rule what a contract signer will do. */
+export function signerProblem(
+  signer: string,
+  kind: ContractKind,
+  scopedTo: string | undefined,
+  expr: Expr | null
+): string | undefined {
+  if (kind === 'null-gate adapter') return NULL_ADAPTER_SIGNER(signer)
+  if (kind === 'gated adapter' && signer === scopedTo && !pinsRun(expr))
+    return ADAPTER_SELF_RULE(signer)
+  if (kind === 'absent')
+    return `signer ${signer} is not deployed, so what it will run cannot be checked; deploy it before a rule names it`
+}
+
+/** The signers that meet threshold `n` alone, by their weights. */
+export const meetsAlone = (signers: string[], weights: Record<string, number>, n: number) =>
+  signers.filter((s) => (weights[s] as number) >= n)
 
 // ---- the overrides ----
 
@@ -531,6 +520,7 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   }
   const interpreter = interpreterFor(i.network, i.interpreterAddress)
   const [t, k] = [i.threshold, i.signers.length]
+  // OZ refuses it too (#3007), but 1-of-n is judged here on distinct signers, whatever the account.
   if (new Set(i.signers).size !== k)
     throw no('a signer is listed twice: OpenZeppelin refuses a rule with duplicate signers')
   const total = t?.weights ? Object.values(t.weights).reduce((x, y) => x + y, 0) : k
@@ -546,7 +536,7 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   if (t && i.anyOne && !oneOfN) throw no('anyOne and a threshold contradict each other')
   if (oneOfN) {
     const alone = w
-      ? `${i.signers.filter((x) => (w[x] as number) >= (t?.n ?? 0)).join(', ')} alone meets the threshold of ${t?.n}`
+      ? `${meetsAlone(i.signers, w, t?.n ?? 0).join(', ')} alone meets the threshold of ${t?.n}`
       : `${t ? `a threshold of ${t.n}` : `${k} signers and no threshold`}: any ONE of the ${k} signers acts alone (1-of-${k})`
     unless('anyOne', alone, `${alone}. Give a threshold that needs more.`)
   }
@@ -593,15 +583,9 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   }
   const fingerprint = got(live)
   if (!fingerprint.matches) throw mismatch(fingerprint)
-  // No override waives these: the owners cannot see from the rule what a contract signer will do.
   for (const [signer, kind] of Object.entries(got(kinds))) {
-    if (kind === 'null-gate adapter') throw no(NULL_ADAPTER_SIGNER(signer))
-    if (kind === 'gated adapter' && signer === rule.contract && !pinsRun(rule.expr))
-      throw no(ADAPTER_SELF_RULE(signer))
-    if (kind === 'absent')
-      throw no(
-        `signer ${signer} is not deployed, so what it will run cannot be checked; deploy it before a rule names it`
-      )
+    const problem = signerProblem(signer, kind, rule.contract, rule.expr)
+    if (problem) throw no(problem)
   }
   const read = got(scan)
   const found = overlaps({ ...draft, expr: rule.expr }, read.rules, interpreter, i.network)

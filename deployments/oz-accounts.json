@@ -1,5 +1,5 @@
 {
-  "note": "OpenZeppelin smart-account builds whose rules a review will read. `get_interpreter_info` with `explainAccount`, and the review `revoke_policy` returns for the rule it removes, read an account's rules only when it runs one of these builds: an account that runs other code could answer with any rule. packages/policy-synth/src/config.ts lists the same hashes; config.test.ts holds the two together.",
+  "note": "OpenZeppelin smart-account builds whose rules a review will read. The review `revoke_policy` returns for the rule it removes reads an account's rules only when it runs one of these builds: an account that runs other code could answer with any rule. packages/policy-synth/src/config.ts lists the same hashes; config.test.ts holds the two together.",
   "wasmSha256": {
     "multisig_account_example": "91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9"
   },

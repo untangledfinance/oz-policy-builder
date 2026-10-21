@@ -1,13 +1,12 @@
-// The review: a rule as a tree a person can read. It is built from the expression alone
-// (the wire shape, so a rule written by hand, synthesised or read off the chain is described
-// the same way), plus display help that is never evidence: the names of a contract's
-// parameters, a token's decimals, labels for addresses. Every node carries `raw`, the exact
-// wire leaf or subtree it was read from, and a leaf that cannot be named keeps today's
-// "argument N" wording. Nothing a name says can change what the rule enforces.
+// The review: a rule as a tree a person can read. It is built from the expression alone (the
+// wire shape, so a rule written by hand, synthesised or read off the chain is described the same
+// way), plus labels for addresses that are never evidence. Every node carries `raw`, the exact
+// wire leaf or subtree it was read from, and an operand reads as where it is on the wire
+// (`argument 2 › amount`). Nothing a label says can change what the rule enforces.
 
 import { INTERPRETER, type Network, SPENDING_LIMIT, safeRead } from './config.ts'
-import { type Info, SAC, type Ty } from './spec.ts'
-import { type Expr, intOf, isAddress, isSelector, isTagged, unlit, type Val } from './wire.ts'
+import { delegated, meetsAlone, spendingParams } from './install.ts'
+import { type Expr, isAddress, isSelector, unlit, type Val } from './wire.ts'
 
 export interface Node {
   label: string
@@ -21,9 +20,16 @@ export interface Node {
   index?: string
   children?: Node[]
 }
+/** A node that groups others, and a fact (`label:  value`). */
+export const group = (label: string, op: string, children: Node[], raw: Expr | null = null) =>
+  ({ label, op, raw, children }) as Node
+export const fact = (label: string, value: string, raw: Val = null): Node => ({
+  label,
+  op: 'fact',
+  value,
+  raw,
+})
 export interface View {
-  /** What is known of each contract (see `infoFor`). */
-  info?: Record<string, Info>
   /** The contract the rule is scoped to, when its predicate does not say. */
   contract?: string | undefined
   /** The network the rule is for: a read of an oracle on its safe list is not marked as a live value. */
@@ -32,17 +38,12 @@ export interface View {
   roles?: Record<string, string>
   /** Names for addresses, from the request (the caller's words). */
   labels?: Record<string, string>
-  /** Full addresses and values as written, and the wire index of every name. */
+  /** Full addresses, and values as written. */
   raw?: boolean | undefined
-  /** Inside the tree: the function in force, and the type of the item of a quantifier. */
-  fn?: string | undefined
-  item?: Ty | undefined
 }
 interface Sub {
   name: string
   index?: string
-  kind?: 'amount' | 'time' | undefined
-  ty?: Ty | undefined
 }
 
 const COMPARE: Record<string, string> = {
@@ -80,10 +81,8 @@ const named = (a: string, c: View) => {
       : undefined
 }
 /** An address with its name in brackets. */
-const addr = (a: string, c: View) => `${short(a, c)}${named(a, c) ? ` (${named(a, c)})` : ''}`
-export const addressText = addr
-/** What is known of the contract in force. */
-const known = (c: View) => c.info?.[c.contract ?? '']
+export const addr = (a: string, c: View) =>
+  `${short(a, c)}${named(a, c) ? ` (${named(a, c)})` : ''}`
 /** Text between quotes. Anything but printable ASCII is written as its code point: what a person
  *  cannot see (zero-width, soft hyphen, marks, bidi, tags, odd spaces) cannot make two texts alike. */
 const quoted = (s: string, q: string) =>
@@ -115,33 +114,6 @@ function constant(v: Val, c: View, typed = c.raw): string {
   return NUMBER.test(tag) && !typed ? String(x) : `${x} (${tag})`
 }
 
-/** A token amount as `5,000 USDC:GATA…V56 (50000000000)`: the unit is the token's, the raw number stays. */
-function money(x: string, { decimals: d, symbol }: NonNullable<Info['token']>, type = ''): string {
-  const n = x.replace('-', '').padStart(d + 1, '0')
-  const frac = n.slice(n.length - d).replace(/0+$/, '')
-  const whole = n.slice(0, n.length - d).replace(/\B(?=(\d{3})+$)/g, ',')
-  return `${x < '0' ? '-' : ''}${whole}${frac && `.${frac}`} ${symbol} (${x}${type})`
-}
-
-/** A constant, in the unit its other side is read in. */
-function show(v: Val, kind: Sub['kind'], c: View): string {
-  const x = unlit(v)
-  const number = typeof x === 'number' || (isTagged(x) && NUMBER.test(Object.keys(x)[0] ?? ''))
-  const [n, t] = [number ? intOf(x) : undefined, known(c)?.token]
-  if (!c.raw && kind === 'time' && n !== undefined && n >= 0n && n <= 253402300799n)
-    return `${new Date(Number(n) * 1000).toISOString().slice(0, 19).replace('T', ' ')} UTC (${n})`
-  // Every integer the contract reads as a number is in the unit; one that is not an i128 says so.
-  if (!c.raw && kind === 'amount' && t && n !== undefined)
-    return money(
-      String(n),
-      t,
-      isTagged(x) && 'i128' in x
-        ? ''
-        : ` (${typeof x === 'number' ? 'u32' : Object.keys(x as object)[0]})`
-    )
-  return constant(x, c)
-}
-
 /** A step of a path: an index `[0]`, a key (a symbol as a name when it reads as one, else quoted,
  *  so `'true'` is not the bool key; anything else as a typed constant). */
 const step = (s: Val, c: View) => {
@@ -153,74 +125,30 @@ const step = (s: Val, c: View) => {
       : constant(k, c, true)
 }
 
-/** What an operand reached through `steps` from `first` (a parameter, or the item) of type `ty`
- *  is called: struct fields by name, vector and tuple items by index (a bare number only), map
- *  entries by key. Anything else (no type, a field that is not there, an index into a map, a key
- *  into a vector) keeps the wire wording `index`. */
-function resolve(c: View, index: string, steps: Val[], first?: string, ty?: Ty): Sub {
-  const names = first ? [first] : []
-  for (const s of steps) {
-    const [key, t]: [Val, { vec?: Ty; map?: Ty; tuple?: Ty[]; fields?: Record<string, Ty> }] = [
-      unlit(s),
-      typeof ty === 'object' ? ty : {},
-    ]
-    const field = typeof key === 'string' && t.fields && Object.hasOwn(t.fields, key)
-    const next = field
-      ? t.fields?.[key as string]
-      : typeof s !== 'number'
-        ? t.map
-        : t.fields
-          ? undefined
-          : (t.vec ?? t.tuple?.[s])
-    if (!next) return { name: index, index }
-    names.push(step(s, c))
-    ty = next
-  }
-  return ty ? { name: names.join(' › '), index, ty } : { name: index, index }
-}
-
-const params = (c: View) => {
-  const f = known(c)?.fns
-  return c.fn && f && Object.hasOwn(f, c.fn) ? f[c.fn] : undefined
-}
-
-/** What an operand is called: a name where the interface gives one, else the wire wording. */
-function operand(v: Val, c: View, kind?: Sub['kind']): Sub {
-  if (!isSelector(v) || v[0] === 'lit') return { name: show(v, kind, c) }
+/** What an operand is called: where it is on the wire. */
+function operand(v: Val, c: View): Sub {
+  if (!isSelector(v) || v[0] === 'lit') return { name: constant(unlit(v), c) }
   const [head, ...r] = v
   // A path ends in `true` for the number of items (`call_arg_len` always does).
   const count = head === 'call_arg_len' || r.at(-1) === true
   const path = head === 'call_arg_len' ? r : count ? r.slice(0, -1) : r
-  // Under `raw` a name is followed by where it came from on the wire, wherever it stands.
-  const counted = (s: Sub): Sub => {
-    const named = c.raw && s.index && s.name !== s.index ? `${s.name} (${s.index})` : s.name
-    return count
-      ? { ...s, name: `the number of items in ${named}`, index: s.index ?? s.name }
-      : { ...s, name: named }
-  }
+  const counted = (s: Sub): Sub =>
+    count ? { name: `the number of items in ${s.name}`, index: s.index ?? s.name } : s
   switch (head) {
     case 'call_contract':
       return { name: 'the contract' }
     case 'call_fn':
       return { name: 'the function' }
     case 'now':
-      return { name: 'the ledger time', kind: 'time' }
+      return { name: 'the ledger time' }
     case 'call_arg':
     case 'call_arg_len':
     case 'call_arg_field':
-    case 'call_path': {
-      const [i, ...rest] = path
-      const index = [`argument ${i}`, ...rest.map((s) => step(s, c))].join(' › ')
-      const p = typeof i === 'number' ? params(c)?.[i] : undefined
-      const s = resolve(c, index, rest, p?.[0], p?.[1])
-      // The SEP-41 `amount` of a token's own function is in the token's unit; nothing else is.
-      const own = rest.length === 0 && p?.[0] === 'amount' && p[1] === 'i128'
-      const unit = own && c.fn !== undefined && Object.hasOwn(SAC, c.fn) && known(c)?.token
-      return counted(unit ? { ...s, kind: 'amount' } : s)
-    }
+    case 'call_path':
     case 'elem': {
-      const index = ['the item', ...path.map((s) => step(s, c))].join(' › ')
-      return counted(resolve(c, index, path, 'the item', c.item))
+      const [first, ...rest] = head === 'elem' ? ['the item', ...path] : path
+      const index = [head === 'elem' ? first : `argument ${first}`, ...rest.map((s) => step(s, c))]
+      return counted({ name: index.join(' › '), index: index.join(' › ') })
     }
     case 'sum': {
       const [src, ...steps] = path as Val[]
@@ -253,7 +181,7 @@ function leaf(e: Expr, c: View): Node {
   if (!isSelector(e)) return { label: constant(e, c), op: 'lit', raw: e }
   const [op, a, b] = e as [string, Val, Val]
   const [l, r] = [operand(a, c), isSelector(b) ? operand(b, c) : undefined]
-  const side = (x: Val) => operand(x, c, l.kind ?? r?.kind).name
+  const side = (x: Val) => operand(x, c).name
   const list = (op === 'in' || op === 'nin') && Array.isArray(b)
   const index = l.index ?? r?.index
   return {
@@ -282,20 +210,17 @@ const kids = (children: Node[]) => (children.length > 0 ? { children } : {})
 function conj(list: Expr[], c: View): Node[] {
   const [ci, fi] = [pin(list, 'call_contract'), pin(list, 'call_fn')]
   const at = (i: number) => (list[i] as [string, Val, string])[2]
-  const inner: View = { ...c, contract: ci < 0 ? c.contract : at(ci), fn: fi < 0 ? c.fn : at(fi) }
+  const inner: View = { ...c, contract: ci < 0 ? c.contract : at(ci) }
   let out = list.flatMap((x, i) => (i === ci || i === fi ? [] : [branch(x, inner)]))
-  if (fi >= 0) {
-    const p = params(inner)
-    const label = p ? `${at(fi)}(${p.map((x) => x[0]).join(', ')})` : at(fi)
-    out = [{ label, op: 'function', value: at(fi), raw: list[fi] as Expr, ...kids(out) }]
-  }
+  if (fi >= 0)
+    out = [{ label: at(fi), op: 'function', value: at(fi), raw: list[fi] as Expr, ...kids(out) }]
   return ci < 0
     ? out
     : [{ label: header(inner), op: 'contract', value: at(ci), raw: list[ci] as Expr, ...kids(out) }]
 }
 
 const header = (c: View, a = c.contract as string) =>
-  `${named(a, c) ? `${named(a, c)}  ` : ''}${short(a, c)}${known(c)?.token ? '  (token)' : ''}`
+  `${named(a, c) ? `${named(a, c)}  ` : ''}${short(a, c)}`
 
 /** One node for a branch: its conditions, as a group when there are several. */
 const branch = (e: Expr, c: View, ns = nodes(e, c)): Node =>
@@ -309,17 +234,11 @@ function nodes(e: Expr, c: View): Node[] {
     return [{ label: 'any one of', op, raw: e, ...kids((a as Expr[]).map((x) => branch(x, c))) }]
   if (op === 'all' || op === 'any') {
     const s = operand(a, c)
-    const item = typeof s.ty === 'object' && 'vec' in s.ty ? s.ty.vec : c.item
     const label = `${op === 'all' ? 'every' : 'some'} item of ${s.name}`
-    const children = kids(nodes(b, { ...c, item }))
-    return [{ label, op, raw: e, ...(s.index ? { index: s.index } : {}), ...children }]
+    return [{ label, op, raw: e, ...(s.index ? { index: s.index } : {}), ...kids(nodes(b, c)) }]
   }
   return [leaf(e, c)]
 }
-
-/** Every contract a predicate pins: the ones whose interface can name its arguments. */
-const PINNED = /\["eq",\["call_contract"\],"(C\w{55})"/g
-export const contractsOf = (e: Val) => Array.from(JSON.stringify(e).matchAll(PINNED), (m) => m[1])
 
 /** The tree of a predicate. `view.contract` is the contract its rule is scoped to: a header for it
  *  (with `raw: null`) wraps the tree unless the predicate itself pins exactly that contract. */
@@ -363,9 +282,8 @@ export function authority(a: Authority, c: View): Node {
   const [k, t, w] = [a.signers.length, a.threshold, a.threshold?.weights]
   if (t && !(t.n >= 1)) throw new Error('a threshold without its number cannot be described')
   const who = (x: string) => `${x.startsWith('C') ? 'contract ' : ''}${addr(x, c)}`
-  const del = (s: string): Val => ['Delegated', s]
   // A threshold one signer meets alone is 1-of-n: the weight of each signer is what says who.
-  const alone = t && w && k > 1 ? a.signers.filter((s) => (w[s] as number) >= t.n) : []
+  const alone = t && w && k > 1 ? meetsAlone(a.signers, w, t.n) : []
   const act =
     !t || (!w && t.n <= 1)
       ? `${k === 1 ? 'the signer' : `any ONE of these ${k} signers`} acts alone`
@@ -384,7 +302,7 @@ export function authority(a: Authority, c: View): Node {
     ...a.signers.map((s): [string, string, Val] => [
       'signer',
       who(s) + (w ? `  weight ${w[s]}` : ''),
-      w ? [del(s), w[s] as number] : del(s),
+      w ? [delegated(s), w[s] as number] : delegated(s),
     ]),
   ]
   facts.push(['to act', act, t?.raw ?? t?.n ?? null])
@@ -392,25 +310,18 @@ export function authority(a: Authority, c: View): Node {
     facts.push([
       'admins',
       `${a.admins.map(who).join(', ')} (all of them together: alone, may uninstall the predicate, which stops the rule; with the account, may re-install, replace the admins or bind an executor)`,
-      a.admins.map(del),
+      a.admins.map(delegated),
     ])
   const v = a.validUntil
   if (v !== undefined)
     facts.push(['expires', v === null ? 'never expires' : `valid through ledger ${v}`, v])
   if (a.total !== undefined) {
     const { amount: x, periodLedgers: p } = a.total ?? { amount: '', periodLedgers: 0 }
-    const unit = known(c)?.token
-    const per = `at most ${unit && !c.raw ? money(x, unit) : x} in total per ${p} ledgers (rolling, OZ spending_limit)`
-    const spent: Val = {
-      map: [
-        ['period_ledgers', p],
-        ['spending_limit', { i128: x }],
-      ],
-    }
+    const per = `at most ${x} in total per ${p} ledgers (rolling, OZ spending_limit)`
     facts.push([
       'total',
       a.total ? per : 'no total limit: each call may move up to its own cap',
-      a.total && spent,
+      a.total && spendingParams(a.total),
     ])
   }
   const caps = a.limits
@@ -419,29 +330,23 @@ export function authority(a: Authority, c: View): Node {
         .join(', ')})`
     : ''
   if (a.interpreter) facts.push(['interpreter', addr(a.interpreter, c) + caps, a.interpreter])
-  return {
-    label: 'Authority',
-    op: 'authority',
-    raw: null,
-    children: facts.map(([label, value, raw]) => ({ label, op: 'fact', value, raw })),
-  }
+  return group(
+    'Authority',
+    'authority',
+    facts.map(([label, value, raw]) => fact(label, value, raw))
+  )
 }
 
 /** The overrides a request set, each with the refusal it waived: the first node of a review, so the
  *  owner reads what was waived before anything else. */
-export function overridden(o: { flag: string; waived: string | null }[]): Node {
-  return {
-    label: 'Overrides set in the request',
-    op: 'overrides',
-    raw: null,
-    children: o.map((x) => ({
-      label: x.flag,
-      op: 'fact',
-      value: x.waived === null ? 'set, though nothing was refused' : `waived: ${x.waived}`,
-      raw: null,
-    })),
-  }
-}
+export const overridden = (o: { flag: string; waived: string | null }[]): Node =>
+  group(
+    'Overrides set in the request',
+    'overrides',
+    o.map((x) =>
+      fact(x.flag, x.waived === null ? 'set, though nothing was refused' : `waived: ${x.waived}`)
+    )
+  )
 
 /** The tree as text, box-drawn: a condition as `name:  phrase  value`. */
 export function lines(nodes: Node[], prefix = '', child = false): string[] {

@@ -158,7 +158,7 @@ const installed = (await run('install_policy', {
   },
 })) as {
   ok: boolean
-  data: { unsignedXdr: string; describes: { args: unknown[] } }
+  data: { unsignedXdr: string }
   error?: unknown
 }
 if (!installed.ok) throw new Error(JSON.stringify(installed.error))

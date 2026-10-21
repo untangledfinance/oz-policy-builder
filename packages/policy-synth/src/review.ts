@@ -14,9 +14,11 @@ import {
 import {
   type Authority,
   authority,
+  fact,
+  group,
   lines,
   type Node,
-  addressText as show,
+  addr as show,
   tree,
   type View,
 } from './card.ts'
@@ -36,7 +38,8 @@ import {
   thresholdAddress,
 } from './config.ts'
 import { messageOf, Refusal } from './envelope.ts'
-import { ADAPTER_SELF_RULE, digest, NULL_ADAPTER_SIGNER, pinsRun, xlm } from './install.ts'
+import { digest, isAddressEntry, signerProblem, xlm } from './install.ts'
+import { callOf } from './record.ts'
 import {
   CEILINGS,
   decode,
@@ -44,6 +47,7 @@ import {
   fields,
   fromScVal,
   hashOf,
+  isMap,
   type Val,
   validate,
 } from './wire.ts'
@@ -78,8 +82,6 @@ export interface UnsignedReview {
 
 const notOurs = (why: string) =>
   new Refusal('INVALID_INPUT', `not a transaction this package builds: ${why}`)
-
-const fact = (label: string, value: string): Node => ({ label, op: 'fact', value, raw: null })
 
 /** The review of an unsigned transaction from `install_policy` or `revoke_policy`, from its bytes. */
 export function reviewUnsigned(i: {
@@ -121,11 +123,7 @@ export function reviewUnsigned(i: {
       return null
     }
   }
-  const call = {
-    contract: Address.fromScAddress(ic.contractAddress()).toString(),
-    fn: ic.functionName().toString(),
-    args: ic.args().map(read),
-  }
+  const call = callOf(ic, read)
   const account = call.contract
 
   if (call.fn !== 'add_context_rule' && call.fn !== 'remove_context_rule')
@@ -151,10 +149,7 @@ export function reviewUnsigned(i: {
   // The authorisation: the account's own entry for exactly this call, and the source account's
   // `__check_auth` over that entry's digest. Anything else would be signed too.
   const entries = host.auth()
-  const isAccount = (e: xdr.SorobanAuthorizationEntry) =>
-    e.credentials().switch().name === 'sorobanCredentialsAddress' &&
-    Address.fromScAddress(e.credentials().address().address()).toString() === account
-  const own = entries.filter(isAccount)
+  const own = entries.filter((e) => isAddressEntry(e, account))
   const source = entries.filter(
     (e) => e.credentials().switch().name === 'sorobanCredentialsSourceAccount'
   )
@@ -250,74 +245,50 @@ export function reviewUnsigned(i: {
     [tx.source]: 'source account',
   }
   const view: View = { roles, raw: i.raw, network }
-  const head: Node[] = [
-    {
-      label: 'Transaction',
-      op: 'transaction',
-      raw: null,
-      children: [
-        fact('calls', `${show(account, view)}  ${call.fn}`),
-        fact('source', `${show(tx.source, view)}, sequence ${tx.sequence}`),
-        fact('fee', `${xlm(total)} XLM in all, of which ${xlm(resource)} XLM for resources`),
-        fact(
-          'valid before',
-          validBefore === null
-            ? 'no time bound'
-            : validBefore > MAX_DATE
-              ? `${validBefore} (out of range)`
-              : `${new Date(validBefore * 1000).toISOString().slice(0, 19).replace('T', ' ')} UTC`
-        ),
-        ...(auth
-          ? [
-              fact(
-                'authorisation',
-                `by rule ${auth.contextRuleIds.join(', ')}, valid through ledger ${auth.validUntilLedger}`
-              ),
-            ]
-          : []),
-      ],
-    },
-  ]
+  const until =
+    auth &&
+    `by rule ${auth.contextRuleIds.join(', ')}, valid through ledger ${auth.validUntilLedger}`
+  const head = group('Transaction', 'transaction', [
+    fact('calls', `${show(account, view)}  ${call.fn}`),
+    fact('source', `${show(tx.source, view)}, sequence ${tx.sequence}`),
+    fact('fee', `${xlm(total)} XLM in all, of which ${xlm(resource)} XLM for resources`),
+    fact(
+      'valid before',
+      validBefore === null
+        ? 'no time bound'
+        : validBefore > MAX_DATE
+          ? `${validBefore} (out of range)`
+          : `${new Date(validBefore * 1000).toISOString().slice(0, 19).replace('T', ' ')} UTC`
+    ),
+    ...(until ? [fact('authorisation', until)] : []),
+  ])
   const out: Pick<UnsignedReview, 'authority' | 'rule' | 'removes'> = {}
   let body2: Node[] = []
   if (call.fn === 'add_context_rule') {
     const r = ruleOf(call.args, network, account, flag)
     if (r) {
+      const scope = r.rule.scope
+      const scopedTo =
+        Array.isArray(scope) && scope[0] === 'CallContract' ? String(scope[1]) : undefined
       for (const s of r.authority.signers.filter((x) => x.startsWith('C'))) {
         const kind = i.contracts?.[s]
-        if (kind === undefined)
-          flag(
-            `signer ${s} is a contract, and what it runs is not in the bytes (an execution adapter bound to no gate would let an agent spend past its caps, and one signing a rule scoped to itself that does not pin run would answer anyone); review with readContracts`
-          )
-        else if (kind === 'null-gate adapter') flag(NULL_ADAPTER_SIGNER(s))
-        else if (
-          kind === 'gated adapter' &&
-          Array.isArray(r.rule.scope) &&
-          r.rule.scope[0] === 'CallContract' &&
-          r.rule.scope[1] === s &&
-          !pinsRun(r.rule.predicate)
-        )
-          flag(ADAPTER_SELF_RULE(s))
-        else if (kind === 'absent')
-          flag(`signer ${s} is not deployed, so what it will run cannot be checked`)
+        const problem =
+          kind === undefined
+            ? `signer ${s} is a contract, and what it runs is not in the bytes (an execution adapter bound to no gate would let an agent spend past its caps, and one signing a rule scoped to itself that does not pin run would answer anyone); review with readContracts`
+            : signerProblem(s, kind, scopedTo, r.rule.predicate)
+        if (problem) flag(problem)
       }
       for (const a of r.authority.admins ?? []) roles[a] ??= 'admin'
       for (const s of r.authority.signers) roles[s] ??= 'signer'
       out.authority = r.authority
       out.rule = r.rule
-      const scoped = Array.isArray(r.rule.scope) && r.rule.scope[0] === 'CallContract'
-      const v = { ...view, contract: scoped ? (r.rule.scope as string[])[1] : undefined }
+      const v = { ...view, contract: scopedTo }
       let held: Node
       try {
         held = authority(r.authority, v)
       } catch (e) {
         // Flagged in `ruleOf` (a threshold with no number): shown as unreadable, never guessed.
-        held = {
-          label: 'Authority',
-          op: 'authority',
-          raw: null,
-          children: [fact('unreadable', messageOf(e))],
-        }
+        held = group('Authority', 'authority', [fact('unreadable', messageOf(e))])
       }
       body2 = [held, ...(r.rule.predicate === null ? [] : tree(r.rule.predicate, v))]
     }
@@ -326,37 +297,18 @@ export function reviewUnsigned(i: {
     if (typeof id !== 'number') flag('remove_context_rule takes one rule id')
     else {
       out.removes = { ruleId: id }
-      body2 = [
-        {
-          label: 'Removes',
-          op: 'removes',
-          raw: id,
-          children: [
-            fact('rule', `${id} of ${show(account, view)}`),
-            ...(id === 0
-              ? [
-                  fact(
-                    'note',
-                    "rule 0 is the account's first rule: removing it can lock the account out of its own administration for good"
-                  ),
-                ]
-              : []),
-          ],
-        },
-      ]
+      const note =
+        "rule 0 is the account's first rule: removing it can lock the account out of its own administration for good"
+      const facts = [fact('rule', `${id} of ${show(account, view)}`)]
+      body2 = [group('Removes', 'removes', id === 0 ? [...facts, fact('note', note)] : facts, id)]
     }
   }
-  const warn: Node[] = problems.length
-    ? [
-        {
-          label: `Do not sign: ${problems.length} problem(s)`,
-          op: 'problems',
-          raw: null,
-          children: problems.map((p) => fact('problem', p)),
-        },
-      ]
-    : []
-  const reviewTree = [...warn, ...head, ...body2]
+  const warn = group(
+    `Do not sign: ${problems.length} problem(s)`,
+    'problems',
+    problems.map((p) => fact('problem', p))
+  )
+  const reviewTree = [...(problems.length ? [warn] : []), head, ...body2]
   return {
     network,
     smartAccount: account,
@@ -377,15 +329,13 @@ export function reviewUnsigned(i: {
 /** The last second a JavaScript date can show: 8.64e15 ms, in the year 275,760. */
 const MAX_DATE = 8_640_000_000_000
 
-const isMap = (v: Val | undefined): v is { map: [Val, Val][] } =>
-  !!v && typeof v === 'object' && !Array.isArray(v) && 'map' in v
 const delegatedOf = (v: Val): string | undefined =>
   Array.isArray(v) && v[0] === 'Delegated' && typeof v[1] === 'string' ? v[1] : undefined
 
 /** The five arguments of `add_context_rule`, read back into the authority they grant. */
 function ruleOf(args: Val[], network: Network, account: string, flag: (p: string) => void) {
   const [scope, name, until, signers, policies] = args
-  if (args.length !== 5 || !Array.isArray(signers) || !isMap(policies ?? null)) {
+  if (args.length !== 5 || !Array.isArray(signers) || !isMap(policies)) {
     flag('add_context_rule does not carry the five arguments of a rule')
     return undefined
   }

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test'
-import { account, contract, recording } from '../test/fixtures.ts'
+import { account, batchIntent, contract, recording, venueIntent } from '../test/fixtures.ts'
 import { type CallIntent, type Constraint, callExpr, intentExprs, lower } from './intent.ts'
 import type { Call } from './record.ts'
-import { identify, TEMPLATES } from './registry.ts'
+import { identify } from './registry.ts'
 import { propose, synthesize, unbounded, unboundedExpr } from './synth.ts'
 import { type Expr, type Val, validate } from './wire.ts'
 
@@ -127,13 +127,13 @@ describe('the registry', () => {
     expect(identify('nothing', [])).toBeNull()
   })
 
-  it('templates lower to rules the contract would decode', () => {
-    const batch = TEMPLATES.adapter_batch({
+  it('mandates (a batch, a venue) lower to rules the contract would decode', () => {
+    const batch = batchIntent({
       adapter: C,
       targets: [contract(2), contract(3)],
       functions: ['supply'],
     })
-    const venue = TEMPLATES.blend_venue({ pool: C, token: contract(2), account: A, max: '1000' })
+    const venue = venueIntent({ pool: C, token: contract(2), account: A, max: '1000' })
     for (const intent of [batch, venue])
       for (const r of propose(intent)) expect(r.hash).toMatch(/^[0-9a-f]{64}$/)
     const [rule] = propose(batch)
@@ -141,8 +141,8 @@ describe('the registry', () => {
     expect(JSON.stringify(rule?.expr)).toContain('["lte",["call_path",1,true],0]')
   })
 
-  it('a batch template that cannot fit the contract body cap is refused, not truncated', () => {
-    const wide = TEMPLATES.adapter_batch({
+  it('a batch mandate that cannot fit the contract body cap is refused, not truncated', () => {
+    const wide = batchIntent({
       adapter: C,
       targets: [1, 2, 3, 4, 5, 6].map(contract),
       functions: ['a'],

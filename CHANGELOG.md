@@ -4,6 +4,40 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 `@crediolabs/policy-builder-mcp`) share one version number. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+A slimmer `policy-synth` (4,433 to about 3,870 source lines). Every refusal
+the package makes for a library caller stays. The changes below break callers
+that send the removed inputs or read the removed outputs.
+
+### Removed (breaking)
+
+- **Inputs:** the `template` source of `synthesize_policy` and the other tools
+  (`adapter_batch`, `blend_venue`; send the `intent` they lowered to),
+  `install_policy`'s `outFile`, and `get_interpreter_info`'s `explainAccount`
+  (with the `raw` flag that went with it).
+- **Outputs:** `describes`, `unsignedXdrLength`, `unsignedXdrSha256` and
+  `writtenTo` from `install_policy` and `revoke_policy` (`review_unsigned`
+  reads the same bytes), and `severity` and `remediation` from the error
+  envelope.
+- **Review text:** the review no longer reads a contract's interface or a
+  token's name and decimals. An operand reads as where it is on the wire
+  (`argument 2 › amount`), an amount as its integer, a time as unix seconds,
+  and a header as the address with its role or label. Escaping, the role and
+  label marks, the live-value mark and the Authority and Overrides nodes stay.
+- `record_transaction` no longer says when a hash exists on the other network.
+
+### Changed
+
+- `synthesize_policy` and `get_interpreter_info` hold a rule to the limits
+  recorded for the pin and ask no RPC for them (`limitsFrom: "recorded"`).
+  Install, simulate and verify still read `limits()` live.
+- Over 15 signers, a signer listed twice, an empty admin set and a negative
+  resource fee are left to the chain, which refuses each in the build's own
+  simulation or at submission: OpenZeppelin `add_context_rule` (#3010, #3007),
+  the interpreter's `install` (#209), and stellar-core (`txMALFORMED`).
+  `review_unsigned` still flags a negative resource fee.
+
 ## [3.0.0] - 2026-10-21
 
 The three packages at 3.0.0 are this repository at tag `v3.0.0`, the tree the

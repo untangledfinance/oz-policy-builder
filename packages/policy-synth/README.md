@@ -22,8 +22,8 @@ later install it on their own.
 
 ```
 recording (hash | xdr) --\
-declaration (intent)  ----+-> Intent -> wire expression -> install transaction
-template (mandate)    --/    (calls + per-argument constraints)   (unsigned XDR)
+                          +-> Intent -> wire expression -> install transaction
+declaration (intent)  ---/   (calls + per-argument constraints)   (unsigned XDR)
 ```
 
 - **The predicate is its wire shape:** an expression is JSON in the contract's own
@@ -47,8 +47,7 @@ template (mandate)    --/    (calls + per-argument constraints)   (unsigned XDR)
   `some`, `total`, `read`, `until`, `from`, lowered by a table (`src/intent.ts`),
   so batches and vector arguments use `all`/`any`/`sum` in place of a pin per
   element. A recording becomes an Intent through the registry (protocols as data,
-  `src/registry.ts`): who is pinned, what is capped, what is asked. Templates
-  (`adapter_batch`, `blend_venue`) return an Intent from parameters.
+  `src/registry.ts`): who is pinned, what is capped, what is asked.
 - **There is one evaluator, the contract:** `simulate_policy` and `verify_policy`
   call the interpreter's `check(predicate, context)` through RPC simulation. `check`
   always fails, and the contract error is the verdict (`#0` permits, any other
@@ -108,21 +107,20 @@ address and hold the rule to them. Where they come from:
 
 | Tool | Limits used | Field |
 | --- | --- | --- |
-| `synthesize_policy` | the pin's, read live; the pin's recorded limits when the RPC does not answer within 5 s; `DECODE_LIMITS` on a network with no pin | `heldTo` |
+| `synthesize_policy` | the pin's recorded limits; `DECODE_LIMITS` on a network with no pin | `heldTo` |
 | `simulate_policy` or `verify_policy` with calls, `install_policy` | the live limits of the interpreter that checks the rule | |
 | `simulate_policy` with a predicate only (explain) | the given or pinned interpreter's, else `CEILINGS` | `heldTo` |
-| `get_interpreter_info` | the instance's, read live, or the recorded ones when the RPC does not answer | `limitsFrom` (`live` or `recorded`) |
+| `get_interpreter_info` | the pin's recorded limits, or on a network with no pin the given `interpreterAddress`'s, read live | `limitsFrom` (`recorded` or `live`) |
 
 `INTERPRETER.testnet` records the limits of the pin. A test holds them equal to
-`deployments/interpreter-testnet.json`, and a live answer that differs is refused
+`deployments/interpreter-testnet.json`, and a live answer out of range is refused
 (`INTERPRETER_MISMATCH`). `DECODE_LIMITS` (4, 200, 32,768, 32, 32, 5) are the
 caps a rule is checked against with no interpreter at hand, the stricter choice.
 
 ## Offline and live
 
-`synthesize_policy` from an intent or a template works with no RPC. It uses the
-pin's recorded limits, and the review falls back to "argument N" where a name
-could not be read. A `hash` source reads the transaction, so it needs the RPC.
+`synthesize_policy` from an intent works with no RPC. It uses the pin's recorded
+limits. A `hash` source reads the transaction, so it needs the RPC.
 `get_interpreter_info` without `verifyLive` also answers offline, from the
 recorded limits. `install_policy`, `verify_policy`, `simulate_policy` with
 calls and `verifyLive` always need the live interpreter; an explain-only
@@ -138,18 +136,17 @@ http on loopback. No tool input takes an endpoint.
 | Tool | What it does |
 | --- | --- |
 | `record_transaction` | Decode a transaction (hash over RPC, or base64 XDR) into the calls it authorises, nested ones included. |
-| `synthesize_policy` | Source (hash, xdr, recording, intent, template) -> rules, one per contract: predicate, encoding, hash and review. `ambiguities` are questions to answer with `limit`/`limits`/`allow`. Names come from a best-effort read of each contract (2 s, display only): a name never changes what a rule does. |
+| `synthesize_policy` | Source (hash, xdr, recording, intent) -> rules, one per contract: predicate, encoding, hash and review. `ambiguities` are questions to answer with `limit`/`limits`/`allow`. |
 | `simulate_policy` | A predicate against calls: permit, or the deny code. With a predicate and no calls it only explains it. |
 | `verify_policy` | Permitted call(s), derived deny cases, minimality; `ok`, `complete`, `unexamined`, `untested`. **`ok` without `complete: true` does not prove every limit** (`untested` conjuncts were not tried): read `complete`. |
 | `install_policy` | Unsigned `add_context_rule`: the account authorises it, and the interpreter installs the predicate in the same transaction. Verifies the interpreter live, reads every rule on the account, and applies the guardrails below. |
 | `revoke_policy` | Unsigned `remove_context_rule`. The rule is read and returned as `removes`, with its review when the account runs a known OpenZeppelin build. The account asks each attached policy to uninstall; the interpreter's `uninstall` needs the policy admins' own authorisation, so unless they sign too, the interpreter keeps its entry for the removed rule until it archives. Nothing reads that entry again. |
-| `get_interpreter_info` | The pin, its `limits` and the `ceilings`. `verifyLive` adds what is deployed now. `explainAccount` (a smart account) reads its rules and explains each one this interpreter polices; only a known OpenZeppelin account build is read. |
+| `get_interpreter_info` | The pin, its `limits` and the `ceilings`. `verifyLive` adds what is deployed now. |
 | `review_unsigned` | The owner's side: an unsigned install or removal read from its bytes alone, with no RPC. `problems` lists what is wrong in the bytes; the review follows, and the owner must read it (see "The owner's review"). Also `reviewUnsigned` from the package root. |
 
 `TOOLS` (also `@crediolabs/policy-synth/run`) is the table the MCP server and the
 CLI register from. Each tool validates its input strictly, never throws, and
-returns `{ ok: true, data }` or `{ ok: false, error: { code, message, severity,
-retryable } }`. Nothing here holds key material: install and revoke return
+returns `{ ok: true, data }` or `{ ok: false, error: { code, message, retryable } }`. Nothing here holds key material: install and revoke return
 *unsigned* XDR and the wallet's signature is the confirmation.
 
 ```ts
@@ -207,9 +204,9 @@ The review is a policy tree: `review` (box-drawn text) and `reviewTree` (nodes
 `{ label, op, value, raw, index?, children? }`, `raw` the wire value each came
 from). It sits in `rules[n]` for `synthesize_policy`, at the top level for
 `simulate_policy` and `verify_policy`, in `rule` for `install_policy`, in
-`removes` for `revoke_policy`, and in `account.rules[n]` for `explainAccount`.
-Addresses are shortened to 6 + 6 characters. `raw: true` shows full addresses,
-raw values and the wire index of each name.
+`removes` for `revoke_policy`. An operand reads as where it is on the wire
+(`argument 2 › amount`), and a constant as written. Addresses are shortened to
+6 + 6 characters; `raw: true` shows them in full and every number with its type.
 
 The install review opens with an **Authority** node. Its lines:
 
@@ -229,8 +226,8 @@ The install review opens with an **Authority** node. Its lines:
 request's `allow` keys. A label is plain words (a letter, then up to 23 letters,
 digits, spaces, `_`, `.` or `-`), so it can never hold a bracket and read as a
 role. A role wins over a label on the same address. Only `install_policy` and
-`review_unsigned` have the header: `revoke_policy` and `explainAccount` cannot
-read the threshold or the total from the account.
+`review_unsigned` have the header: `revoke_policy` cannot read the threshold or
+the total from the account.
 
 `install_policy` also returns:
 
@@ -242,7 +239,7 @@ read the threshold or the total from the account.
 - `overrides`: `[{ flag, waived }]`, empty when no override is set (see
   "Overrides").
 - `interpreter`: the live fingerprint (grammar, code hash, limits).
-- `unsignedXdr` with its length and sha256, and `writtenTo` when `outFile` is set.
+- `unsignedXdr`.
 - `authValidUntilLedger`, `validBefore` (unix seconds) and `fee`
   (`{ base, resource, total }` in stroops): see "Security model". `revoke_policy`
   returns the same three.
@@ -346,9 +343,7 @@ then.
   On a network with no pin, pass `interpreterAddress`, and it is accepted only
   if it runs a trusted build. Any in-range limits are then accepted, so the
   instance passed sets its own limits.
-- The RPC endpoint and the output directory are the operator's. `outFile` is a
-  bare file name, written (never over an existing file) into
-  `POLICY_BUILDER_OUT_DIR`.
+- The RPC endpoint is the operator's.
 - **Expiry and fee bounds:** install and revoke set the authorisation's expiry
   ledger to the ledger the recording simulation ran at plus a window, and refuse
   the build when the two simulations report

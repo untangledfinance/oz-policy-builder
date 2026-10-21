@@ -12,7 +12,6 @@ import { readFileSync } from 'node:fs'
 import { account, contract } from '../test/fixtures.ts'
 import { type Authority, authority, lines, type Node, tree, type View } from './card.ts'
 import { decodeEnvelope } from './record.ts'
-import { SAC } from './spec.ts'
 import { propose, synthesize } from './synth.ts'
 import { decode, type Expr, isSelector, validate } from './wire.ts'
 
@@ -20,7 +19,7 @@ const C = contract(1)
 const A = 'GAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQDZ7H'
 const VIEWS: [string, View][] = [
   ['plain', {}],
-  ['rich', { contract: C, info: { [C]: { fns: SAC, token: { decimals: 7, symbol: 'USDC' } } } }],
+  ['scoped', { contract: C }],
   ['raw', { raw: true }],
 ]
 const PHRASE: Record<string, string> = {
@@ -472,7 +471,7 @@ describe('the authority header: different authority never reads the same, the sa
   const views: [string, View][] = [
     ['plain', {}],
     ['raw', { raw: true }],
-    ['token', { contract: C, info: { [C]: { fns: SAC, token: { decimals: 7, symbol: 'USDC' } } } }],
+    ['scoped', { contract: C }],
   ]
 
   it('is big enough to mean something', () => expect(all.length).toBeGreaterThan(7_000))

@@ -25,13 +25,12 @@ Call a tool by its full name or by a unique start or end of it (`record`,
 `synthesize`, `simulate`, `verify`, `install`, `revoke`, `info`, `review`). Input is a JSON
 argument, `--file`, `-` (stdin) or `--field value` pairs (a value that is JSON is
 read as JSON). One JSON envelope goes to stdout, the same one the MCP server
-returns: `{ ok: true, data }` or `{ ok: false, error: { code, message, severity,
-retryable } }`. The exit code is 0, 1 for a refusal and 2 for bad usage; `--out`
+returns: `{ ok: true, data }` or `{ ok: false, error: { code, message, retryable } }`. The exit code is 0, 1 for a refusal and 2 for bad usage; `--out`
 also writes the envelope to a file.
 
 The CLI holds no key material and signs nothing: `install` and `revoke` return
 unsigned XDR. The operator's settings are environment variables:
-`POLICY_BUILDER_RPC_URL_<NETWORK>`, `POLICY_BUILDER_OUT_DIR`,
+`POLICY_BUILDER_RPC_URL_<NETWORK>`,
 `POLICY_BUILDER_SAFE_READS_<NETWORK>`,
 `POLICY_BUILDER_ALLOW_SPOT_READS`, `POLICY_BUILDER_ALLOW_OVERRIDES` (outside
 testnet an `allow*` override is honoured only with it set to 1), and the bounds on what a wallet signs,

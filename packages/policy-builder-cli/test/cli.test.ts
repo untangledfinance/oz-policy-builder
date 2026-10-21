@@ -84,7 +84,6 @@ describe('policy-builder', () => {
       ok: false,
       error: expect.objectContaining({
         code: 'INVALID_INPUT',
-        severity: 'error',
         retryable: false,
       }),
     })

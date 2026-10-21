@@ -87,19 +87,11 @@ export const INTERPRETER_WASM: ReadonlySet<string> = new Set(
   Object.values(INTERPRETER).flatMap((p) => (p ? [p.wasmSha256] : []))
 )
 
-/** The smart-account builds (OpenZeppelin) whose rules `explainAccount` will read, by wasm sha256
+/** The smart-account builds (OpenZeppelin) whose rules `revoke_policy` will describe, by wasm sha256
  *  (`deployments/oz-accounts.json`): any other contract could answer with whatever rules it likes. */
 export const OZ_ACCOUNT_WASM: ReadonlySet<string> = new Set([
   '91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9',
 ])
-
-/** Tokens that are not Stellar Asset Contracts, whose amounts a review may show in their own
- *  unit: by address, per network. A wasm token chooses its own `decimals()` and `symbol()`, so
- *  none is believed until it is listed here (a Stellar Asset Contract is named by its `name()`). */
-export const TOKENS: Record<Network, Record<string, { decimals: number; symbol: string }>> = {
-  testnet: {},
-  mainnet: {},
-}
 
 /** The upstream tag the deployed OpenZeppelin policies were built from, so that
  *  `scripts/upstream-drift-check.ts` can compare it with the latest release. */
