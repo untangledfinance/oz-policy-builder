@@ -219,9 +219,11 @@ sequenceDiagram
 ### Ending a session
 
 The session ends at its end time, when the owner key or the session key itself
-signs an end, or when the owners remove the seat. An ended key never returns:
-the seat stores an end of 0. Removing an owner of any kind must always be
-possible; the app rewrites or switches off rules that would block it.
+signs an end, or when the owners remove the seat. An end stores 0 for the key,
+which refuses every later grant for it until that entry expires from temporary
+storage, about 180 days on; after that only a grant the owner signs can bring
+the key back. Removing an owner of any kind must always be possible; the app
+rewrites or switches off rules that would block it.
 
 ## Why it is built this way
 

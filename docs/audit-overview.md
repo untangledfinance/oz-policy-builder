@@ -122,12 +122,19 @@ address and build, and custody derives that address from the gate itself.
 **Prime seat:** one seat serves one account and one owner key, both fixed at
 construction. No admin, no setter, no upgrade. The owner key signs only grants
 and ends. A grant needs `start <= now <= end`, at most 604,800 seconds, and an
-end later than the stored one; an ended key never returns. A live session key
-signs `sha256(seat ‖ digest)`, and each proof carries the digest's preimage,
-from which the seat reads the rule ids. `External(seat, account id)` passes in
-`verify` only when every id is 0. `Delegated(seat)` passes in `__check_auth`
-only when no id is 0 and the first context is the stored account's
-`__check_auth` frame.
+end later than the stored one. An end stores 0 for the key, which refuses every
+later grant for it while the entry lives. The entry sits in temporary storage
+at the maximum TTL, about 180 days; once it expires, a grant the owner signed
+for that key can be valid again (STRIDE D-11). Each proof carries the
+preimage of the account's digest, from which the seat reads the rule ids:
+
+- `verify`, the `External` signer interface, used in rule 0 only: `key_data`
+  must be the account's id, every rule id must be 0, and the proof is a live
+  session key's signature over `sha256(seat ‖ hash)`.
+- `__check_auth`, the `Delegated` signer interface, used in rules other than
+  rule 0: the first context must be a call on the stored account whose first
+  argument is the account's digest, with only non-zero rule ids, and a live
+  session key signs `sha256(seat ‖ payload)`.
 
 ## Known behaviours
 
@@ -147,13 +154,16 @@ only when no id is 0 and the first context is the stored account's
   installed through the contract calls directly.
 - A batch that names the Prime as a target is refused in both modes
   (`PrimeTarget`).
-- A seat sees only its account's `__check_auth` frame, so it cannot limit
-  the calls of a rule that lists it as `Delegated` with no policy. Installing
-  such a rule takes a decision that carries a native owner's signature, and
-  the Prime app must refuse to build one (residual R7 in the seat's README).
+- A seat sees only its account's frame, so it cannot limit the calls of a
+  rule that lists it as `Delegated` with no policy. Installing such a rule
+  takes a decision that carries a native owner's signature, and the Prime
+  app must refuse to build one (residual R7 in the seat's README).
 - A seat checks the digest form of the account build the Prime app deploys
   (`91a2cd56…`, `sha256(payload ‖ XDR(rule ids))`). On an account build that
   hashes differently, every seat signature fails.
+- A Prime seat removed from rule 0 keeps acting in the `Delegated` rules that
+  still list it: the seat reads nothing about the owner list, and the Prime
+  app rewrites the rules that list a removed seat (STRIDE E-23, open, Low).
 
 ## Builds and testnet
 
