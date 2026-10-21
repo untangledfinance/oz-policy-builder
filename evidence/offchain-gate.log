@@ -1,41 +1,41 @@
-# Off-chain gate, 20 October 2026, Bun 1.3.14 (packageManager), Linux
-# Tree: 107f83f4 plus this change; the packages are unchanged. Order as in CONTRIBUTING: install, biome check, the three builds, typecheck, bun test, the isolated per-package run.
+# Off-chain gate, 21 October 2026, Bun 1.3.14 (packageManager), Linux
+# Tree: 24a20ef3 plus the lockfile update (@modelcontextprotocol/sdk 1.32.1, follow-redirects 1.16.1, hono 4.13.13); package source unchanged. Order as in CONTRIBUTING: install, biome check, the three builds, typecheck, bun test, the isolated per-package run.
 
-### STEP bun install 19:48:01 load 8.00 5.64 4.98
+### STEP bun install 04:15:27 load 2.72 3.24 2.66
 
-Checked 149 installs across 154 packages (no changes) [193.00ms]
+Checked 149 installs across 154 packages (no changes) [1198.00ms]
 ### OK bun install
-### STEP bun check 19:48:01 load 8.00 5.64 4.98
+### STEP bun check 04:15:28 load 2.59 3.21 2.65
 Diagnostics not shown: 19.
-Checked 91 files in 8s. No fixes applied.
+Checked 91 files in 6s. No fixes applied.
 Found 36 warnings.
 Found 3 infos.
 ### OK bun check
-### STEP build policy-synth 19:48:16 load 8.88 5.94 5.09
+### STEP build policy-synth 04:15:35 load 2.70 3.22 2.66
 $ rm -rf dist dist-cjs && tsc -p tsconfig.build.json && tsc -p tsconfig.build.cjs.json && node scripts/write-cjs-package-json.cjs
-wrote /tmp/stride-final/packages/policy-synth/dist-cjs/package.json
+wrote /tmp/followup-dep/packages/policy-synth/dist-cjs/package.json
 ### OK build policy-synth
-### STEP build cli 19:48:25 load 8.91 6.04 5.13
+### STEP build cli 04:15:45 load 2.68 3.20 2.66
 $ rm -rf dist dist-cjs && tsc -p tsconfig.build.json && tsc -p tsconfig.build.cjs.json && node scripts/write-cjs-package-json.cjs
-wrote /tmp/stride-final/packages/policy-builder-cli/dist-cjs/package.json
+wrote /tmp/followup-dep/packages/policy-builder-cli/dist-cjs/package.json
 ### OK build cli
-### STEP build mcp 19:48:30 load 8.84 6.07 5.15
+### STEP build mcp 04:15:49 load 2.46 3.14 2.65
 $ rm -rf dist dist-cjs && tsc -p tsconfig.build.json && tsc -p tsconfig.build.cjs.json && node scripts/write-cjs-package-json.cjs
-wrote /tmp/stride-final/packages/policy-builder-mcp/dist-cjs/package.json
+wrote /tmp/followup-dep/packages/policy-builder-mcp/dist-cjs/package.json
 ### OK build mcp
-### STEP typecheck 19:48:35 load 9.09 6.17 5.19
+### STEP typecheck 04:15:54 load 2.35 3.11 2.64
 $ bunx tsc --noEmit -p packages/policy-synth/tsconfig.json && bunx tsc --noEmit -p packages/policy-builder-cli/tsconfig.json && bunx tsc --noEmit -p packages/policy-builder-mcp/tsconfig.json
 ### OK typecheck
-### STEP bun test 19:48:41 load 8.76 6.15 5.18
-(pass) policy-builder > --out also writes the envelope to a file [1.81ms]
+### STEP bun test 04:16:04 load 2.37 3.09 2.63
+(pass) policy-builder > --out also writes the envelope to a file [7.55ms]
 
  1780 pass
  0 fail
  13199 expect() calls
-Ran 1780 tests across 25 files. [15.73s]
+Ran 1780 tests across 25 files. [18.67s]
 ### OK bun test
-### STEP bun test:isolated 19:48:57 load 7.65 6.03 5.16
-@crediolabs/policy-synth test: Ran 1758 tests across 21 files. [12.95s]
-@crediolabs/policy-builder-cli test: Ran 6 tests across 1 file. [533.00ms]
-@crediolabs/policy-builder-mcp test: Ran 16 tests across 3 files. [1288.00ms]
+### STEP bun test:isolated 04:16:23 load 2.20 3.02 2.62
+@crediolabs/policy-synth test: Ran 1758 tests across 21 files. [13.13s]
+@crediolabs/policy-builder-cli test: Ran 6 tests across 1 file. [538.00ms]
+@crediolabs/policy-builder-mcp test: Ran 16 tests across 3 files. [1266.00ms]
 ### OK bun test:isolated

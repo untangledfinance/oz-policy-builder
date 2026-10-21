@@ -13,19 +13,19 @@ and funded by friendbot; the keys never leave the run.
 | File | Command | Result |
 | --- | --- | --- |
 | `stride-threat-model.md` | STRIDE pass over every component in the tree | threats by component with an ID per threat, the control at file and line, how each was checked, the open items by severity and the residual risks |
-| `executor-binding-testnet.log` | the executor-binding probe, run from the agents' VM (the probe stays off-repo; `contracts/stellar/policy-interpreter/oz08/` runs the same cases in the test host) | 27 of 27 rows as expected on an OpenZeppelin 0.8.0 account and a fresh interpreter instance: keyless `run` works; a keyless `execute`, `cancel` or direct venue call is refused; adapter-signed rules fail 3017; `remove_policy` on a keyless rule fails 3004; unpinned self-scoped rules fail 221 at `bind_executor`, at an install under a binding and in `enforce`; the venue rule works through the binding; an adapter with no gate satisfies no binding. Every refusal also failed on chain, with its transaction id |
+| `executor-binding-testnet.log` | the executor-binding probe, run from our build host. The probe is not in this repository, so the log cannot be regenerated from the tree; its transaction ids can be read back on testnet. `contracts/stellar/policy-interpreter/oz08/` runs most of the same cases on the 0.8.0 account in the test host: the keyless `run`, the binding, 3017, 3004, 210 and 204. It has neither the no-gate adapter rows (n8a to n8e) nor the misstated scope (n5b, n5c): the adapter's unit tests and `execution-null-gate-testnet.log` cover the adapter with no gate, and `policy-interpreter/tests/keyless.rs` covers the 221 pin at each checkpoint, a misstated scope included | 27 of 27 rows as expected on an OpenZeppelin 0.8.0 account and a fresh interpreter instance: keyless `run` works; a keyless `execute`, `cancel` or direct venue call is refused; adapter-signed rules fail 3017; `remove_policy` on a keyless rule fails 3004; unpinned self-scoped rules fail 221 at `bind_executor`, at an install under a binding and in `enforce`; the venue rule works through the binding; an adapter with no gate satisfies no binding. Every refusal also failed on chain, with its transaction id |
 | `execution-wait-testnet.log` | `bun scripts/verify-execution-wait-testnet.ts` | 45 of 45: a Blend supply at once and stored; stored batches run later by an account with no role; the run rule's refusals; an agent's rule demanding its own minimum wait; cancels by the Prime and custody and refusals for anyone else; runs early, twice, after a cancel or after the window refused; the adapter's floor; the Prime creating the adapter at custody's address with other numbers refused |
 | `execution-address-rule-testnet.log` | `bun scripts/verify-execution-address-rule-testnet.ts` | 35 of 35: a Blend supply, a withdrawal to custody and an Aquarius swap succeed; a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation, a pull to the gate itself, a token custody never approved, a batch calling the Prime, a deploy authorisation and a Prime-signed rebind are refused; custody rebinding to a non-gate is refused |
 | `execution-null-gate-testnet.log` | `bun scripts/verify-execution-null-gate-testnet.ts` | 69 of 69, for a G account and an OpenZeppelin Prime: a bundle of three calls with one authorisation; an agent's bundle at its cap; refusals for a failed call (nothing moves), an expired entry, a call to the Prime, a grant, any wait, `rebind`, a stranger's `cancel`, an agent over its cap or citing its adapter rule for a token, and a pull through custody's gate; then the cost of 1, 3 and 10 calls with and without a gate |
 | `oz-threshold-live.log` | `bun packages/policy-synth/scripts/live-threshold.ts`, then with `WEIGHTED=1` | `simple_threshold(2)` beside the interpreter: signer A alone refused 3202, A and B together permitted (transfer sent). With `WEIGHTED=1` (A:2, B:1, threshold 2) `install_policy` refuses the rule before any transaction, because A alone meets the threshold |
 | `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test` per crate and in `oz08/`, conformance in release, each `build-wasm.sh` and its hash check | every step passed: interpreter 416 tests (its 18 conformance cases again in release), `oz08/` 12, adapter 62, gate 3, `prime-seat` 21; each rebuilt wasm equals its pin, and `test-blend-pool` built with the same path remaps gives `7ba261ed…` |
-| `offchain-gate.log` | `bun run check`, the three package builds, `bun run typecheck`, `bun test`, `bun run test:isolated` | every step passed: biome 0 errors (36 warnings), typecheck clean, `bun test` 1,780 pass and 0 fail, isolated 1,758 + 6 + 16 |
+| `offchain-gate.log` | `bun run check`, the three package builds, `bun run typecheck`, `bun test`, `bun run test:isolated`, 21 October 2026, after the lockfile update | every step passed: biome 0 errors (36 warnings), typecheck clean, `bun test` 1,780 pass and 0 fail, isolated 1,758 + 6 + 16 |
 | `worst-case-ceilings.txt` | `cargo test --release --test worst_case -- --nocapture` on the interpreter wasm | every rule shape at each limit set stays at or under 80% of the testnet limits; worst case at the ceilings: `install` 64.7M CPU, `enforce` 62.3M CPU and 1.58 MB; 8 wasm reads cost 12.7 MB of memory for one context and about 11.4 MB for each further one |
 | `soroban-network-limits-2026-10-16.txt` | `getLedgerEntries` on every `CONFIG_SETTING` key, testnet, 16 October 2026 | the per-transaction limits `tests/worst_case.rs` holds every rule shape to, at 80% |
 | `cargo-audit.log` | `cargo audit` in the interpreter crate | no vulnerability across 202 crates; one unmaintained-crate warning (finding 1) |
-| `bun-audit.log` | `bun audit` | three advisories in transitive dependencies (finding 2) |
+| `bun-audit.log` | `bun audit`, 21 October 2026, after the lockfile update | no vulnerability (finding 2) |
 | `clippy-pedantic.log` | `cargo clippy --all-targets -- -W clippy::pedantic -W clippy::nursery` in the interpreter crate | 352 distinct style warnings, 68 in contract source and 284 in tests; every cast, panic, unwrap, indexing or overflow lint is in test code |
-| `scout-audit.log` | `cargo scout-audit` in the interpreter crate (see below) | run on 27 August 2026 at commit `5bae0a8`: 0 critical, 9 medium, 0 minor, 1 enhancement; triage in finding 3. On this tree Scout 0.3.16 stopped while building its own detector helper on the agents' VM, so the August log stays |
+| `scout-audit.log` | `cargo scout-audit` in the interpreter crate (see below) | run on 27 August 2026 at commit `5bae0a8`: 0 critical, 9 medium, 0 minor, 1 enhancement; triage in finding 3. On this tree Scout 0.3.16 stopped while building its own detector helper on our build host, so the August log stays |
 | `stateless/execution-testnet.json` | `scripts/stateless-execution-testnet.ts` at `a40ed75` (since removed), 16 September 2026 | a testnet run of an earlier stateless execution design, built from `47df478`: its interpreter `CBIQGAHI…`, a per-Prime adapter and a test Prime, their wasm hashes and rules, and 30 transactions |
 | `stateless/execution-testnet-verification.json` | `bun scripts/verify-stateless-testnet.ts`, read only and keyless | each of those 30 transactions read back with its status and ledger, the instances, and balances, allowances and the Blend position at zero. The script asks `soroban-testnet.stellar.org`, which keeps about seven days of transactions, so a rerun now needs an RPC with full history; Horizon still has them (`537b95ee…` succeeded at ledger 4,706,459, read on 19 October 2026) |
 
@@ -49,16 +49,17 @@ Transitive through `soroban-sdk`. The advisory is in the "no longer
 maintained" class and carries no vulnerability rating. It needs an SDK change
 to go away; `cargo audit` reports no vulnerability.
 
-### 2. `bun audit`: three advisories in transitive dependencies (open, Low)
+### 2. `bun audit`: no vulnerability (resolved)
 
-`follow-redirects` 1.16.0, through `@stellar/stellar-sdk` in the CLI, has two
-high advisories (GHSA-q3jh-wrc6-jgq8, GHSA-8r9p-f939-6h3c): credential headers
-can survive a cross-origin redirect. `hono` 4.13.9, through the MCP SDK, has a
-moderate one (GHSA-5r4p-p66f-jhc7) in `serveStatic`. The packages call neither
-directly. The first matters only where an operator's RPC URL carries
-credentials and the endpoint redirects; the MCP server serves no static files.
-Moving the lockfile to `follow-redirects` 1.16.1 and `hono` 4.13.11 or later
-clears them. Threat model row T-27.
+The earlier lock had seven advisories: four in `@modelcontextprotocol/sdk`
+1.31.0, a direct dependency of the MCP server (GHSA-22jm-h49p-29qw,
+GHSA-46jr-4wx8-v453, GHSA-6prh-2h8m-c8cw, GHSA-rvq5-wwqv-78pq), two in
+`follow-redirects` 1.16.0 through `@stellar/stellar-sdk` (GHSA-q3jh-wrc6-jgq8,
+GHSA-8r9p-f939-6h3c) and one in `hono` 4.13.9 through the MCP SDK
+(GHSA-5r4p-p66f-jhc7). The lockfile now holds the MCP SDK at 1.32.1, and the
+root `overrides` in `package.json` hold `follow-redirects` at 1.16.1 or later
+and `hono` at 4.13.11 or later (locked 4.13.13). `bun audit` finds no
+vulnerability, and CI runs it on every pull request. Threat model row T-27.
 
 ### 3. Scout and clippy
 
@@ -88,7 +89,7 @@ change:
 
 On this tree, `cargo scout-audit` 0.3.16 with the command below stopped while
 building its detector helper (`scout-driver`, `cargo +nightly-2025-08-07 build`)
-on the agents' VM; running it again is a follow-up.
+on our build host; running it again is a follow-up.
 
 ### 4. Entry points against the Stellar Security Portal corpus
 

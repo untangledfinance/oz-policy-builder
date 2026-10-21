@@ -164,7 +164,7 @@ Lines are in `contracts/stellar/policy-interpreter/src/lib.rs`.
 | D-03 | D | One call uses more CPU or memory than the network allows | deploy-time limits; `tests/worst_case.rs` keeps the largest rule at every ceiling at or under 80% of every network limit | [worst-case-ceilings.txt](worst-case-ceilings.txt) | Holds |
 | D-04 | D | A document stays behind after `remove_context_rule` | rent only; OpenZeppelin never reuses a rule id | code read | Accepted, Info |
 | D-05 | D | `remove_signer` on a policed rule leaves it refusing every remaining signer | fails safe (204); the rule is replaced, never edited in place | `oz08` X9 | By design, Low |
-| D-06 | D | A seat set as a policy admin can never authorise, so the document's administration is stuck | `policy-synth` could refuse a seat as admin; with P0 of section 8 | code read | Open, Low |
+| D-06 | D | A seat set as a policy admin can never authorise, so the document's administration is stuck | `policy-synth` could refuse a seat as admin; with E-27 in section 8 | code read | Open, Low |
 | D-07 | D | A rule scope OpenZeppelin 0.8.0 adds (`CreateContractExternalRef`) fails to decode | `install` fails, so the rule never installs; the interpreter denies every non-contract context anyway | code read | By design, Info |
 
 ### 6.2 Execution adapter
@@ -260,7 +260,7 @@ Lines are in `contracts/stellar/prime-seat/src/lib.rs`.
 | T-24 | T | A third-party action or tool changes under a tag | actions are pinned by tag; `cargo-audit` installs at `^0.22`; the workflow token is read-only and the jobs hold no secret, so a changed artifact still fails parity | code read | Open, Low |
 | T-25 | T | The deploy script uploads an unreviewed build | `scripts/deploy-interpreter-testnet.ts` hashes the wasm and checks the code read back from chain; testnet only | code read | Holds |
 | T-26 | T | The account code the Prime runs does not reproduce from a recorded source | `deployments/oz-accounts.json` records `91a2cd56…` with no source build; the 0.8.0 build `8286422f…` comes from an untagged upstream commit | code read | Open, Medium |
-| T-27 | T | A vulnerable third-party package is shipped with the CLI or the MCP server | `bun audit` on the locked tree reports three advisories: `follow-redirects` 1.16.0 under `@stellar/stellar-sdk` (two high: credential headers kept on a cross-origin redirect) and `hono` 4.13.9 under the MCP SDK (moderate, `serveStatic` path decoding). The packages call neither directly; the first matters only where an RPC URL carries credentials and the endpoint redirects | [bun-audit.log](bun-audit.log) | Open, Low |
+| T-27 | T | A vulnerable third-party package is shipped with the CLI or the MCP server | the lockfile holds `@modelcontextprotocol/sdk` 1.32.1, a direct dependency of the MCP server, and the root `overrides` hold `follow-redirects` at 1.16.1 or later under `@stellar/stellar-sdk` and `hono` at 4.13.11 or later under the MCP SDK (locked 4.13.13). Those versions fix the seven advisories `bun audit` reported against the earlier lock: four in the MCP SDK (GHSA-22jm-h49p-29qw, GHSA-46jr-4wx8-v453, GHSA-6prh-2h8m-c8cw, GHSA-rvq5-wwqv-78pq), two in `follow-redirects` (GHSA-q3jh-wrc6-jgq8, GHSA-8r9p-f939-6h3c) and one in `hono` (GHSA-5r4p-p66f-jhc7) | [bun-audit.log](bun-audit.log): no vulnerability on the locked tree | Holds |
 | E-33 | E | A workflow writes to the repository | `permissions: contents: read` in both workflows; `pull_request` only | code read | Holds |
 | D-13 | D | An upstream protocol change goes unseen | weekly drift check (`upstream-drift.yml`) | code read | Holds |
 
@@ -294,7 +294,7 @@ Also in the run: n6, a keyless rule never bound, and n7, a bound rule that lists
 | T-26 | Medium | Account code provenance | record the source commit and build of each account build, or pin a tagged 0.8.0 release |
 | E-27 | Medium | Contract signers pass unvetted, beyond the three refused kinds | refuse a contract signer or admin unless its code is a pinned seat or account build; refuse a seat as admin (D-06) |
 | E-28 | Medium | Agent rules default to no expiry | require `validUntilLedger` or a seat signer |
-| S-12, T-04, T-15, T-20, T-24, T-27, D-01, D-02, D-06, D-08, D-12, E-05 (0.7.2-line account), E-08, E-09, E-10, E-16, E-23, R-01 | Low | as in the tables above | |
+| S-12, T-04, T-15, T-20, T-24, D-01, D-02, D-06, D-08, D-12, E-05 (0.7.2-line account), E-08, E-09, E-10, E-16, E-23, R-01 | Low | as in the tables above | |
 
 Three more open points concern the account builds and the deployment:
 
@@ -335,4 +335,4 @@ Three more open points concern the account builds and the deployment:
 | Thresholds beside the interpreter | [oz-threshold-live.log](oz-threshold-live.log) | 2-of-2 holds: one signer refused 3202, two permitted; a weighted threshold one signer meets alone is refused by the builder |
 | Worst case per call | [worst-case-ceilings.txt](worst-case-ceilings.txt) | every shape at or under 80% of the testnet limits |
 | Contract and package gates | [contract-gate.log](contract-gate.log), [offchain-gate.log](offchain-gate.log) | every step passed; cargo 514 tests, `bun test` 1,780 pass and 0 fail; the five builds equal their pins |
-| Dependency audits | [cargo-audit.log](cargo-audit.log), [bun-audit.log](bun-audit.log) | `cargo audit`: no vulnerability, one unmaintained crate; `bun audit`: three advisories in transitive dependencies (T-27) |
+| Dependency audits | [cargo-audit.log](cargo-audit.log), [bun-audit.log](bun-audit.log) | `cargo audit`: no vulnerability, one unmaintained crate; `bun audit`: no vulnerability (T-27) |
