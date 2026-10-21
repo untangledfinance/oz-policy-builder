@@ -20,7 +20,7 @@ import { INTERPRETER, SAFE_READS, thresholdAddress } from './config.ts'
 import { callExpr } from './intent.ts'
 import { reviewUnsigned } from './review.ts'
 import { readRules } from './rules.ts'
-import { describeRules, run, TOOLS } from './tools.ts'
+import { explain, run, TOOLS } from './tools.ts'
 import { encode, hashOf } from './wire.ts'
 
 // PayFi's settlement account on testnet: 38 rule ids handed out, 21+ removed.
@@ -261,7 +261,7 @@ function spy() {
   }
 }
 
-describe('the review is read for after the checks and after the refusals', () => {
+describe('the review reads nothing off the network', () => {
   it('a refused install never reads the contract it would have named', async () => {
     const s = spy()
     try {
@@ -278,13 +278,13 @@ describe('the review is read for after the checks and after the refusals', () =>
       s.stop()
     }
   })
-  it('simulate reads for names only once every verdict is in', async () => {
+  it('simulate asks only for its verdicts', async () => {
     const s = spy()
     try {
       const r = await call('simulate_policy', { encodedPredicate: encodedRule, xdr: transferXdr() })
       expect(r.ok).toBe(true)
       expect(s.log.filter((m) => m === 'check').length).toBeGreaterThan(0)
-      expect(s.log.lastIndexOf('check')).toBeLessThan(s.log.indexOf('spec'))
+      expect(s.log).not.toContain('spec')
     } finally {
       s.stop()
     }
@@ -294,7 +294,7 @@ describe('the review is read for after the checks and after the refusals', () =>
     try {
       const r = await call('verify_policy', { expr: rule, xdr: transferXdr() })
       expect(r.ok).toBe(true)
-      expect(s.log.lastIndexOf('check')).toBeLessThan(s.log.indexOf('spec'))
+      expect(s.log).not.toContain('spec')
     } finally {
       s.stop()
     }
@@ -771,7 +771,7 @@ describe('install_policy', () => {
     )
     expect(text).toContain('expires:  valid through ledger 99999999')
     expect(text).toContain(
-      'total:  at most 0.5 native (5000000) in total per 17280 ledgers (rolling, OZ spending_limit)'
+      'total:  at most 5000000 in total per 17280 ledgers (rolling, OZ spending_limit)'
     )
     expect(text).toMatch(
       /interpreter: {2}CDZV4A…\w{6} \(\[interpreter\]\) \(reads ≤ 8, leaves ≤ 400, predicate_bytes ≤ 24576, elems ≤ 32, in_operands ≤ 32, depth ≤ 5\)/
@@ -780,7 +780,7 @@ describe('install_policy', () => {
     expect(r.data.rule.reviewTree[0]).toMatchObject({ op: 'overrides', raw: null })
     expect(r.data.rule.reviewTree[1]).toMatchObject({ op: 'authority', raw: null })
     expect(r.data.rule.reviewTree[2]).toMatchObject({ op: 'contract' })
-    expect(review.findIndex((l) => l.includes('transfer(from, to, amount)'))).toBeGreaterThan(6)
+    expect(review.findIndex((l) => l.endsWith('└─ transfer'))).toBeGreaterThan(6)
   })
 
   it('the review names the accounts the request names', async () => {
@@ -1518,7 +1518,7 @@ describe('get_interpreter_info', () => {
   })
 })
 
-describe('describeRules: a rule read off an account is described under its own scope', () => {
+describe('explain: a rule read off an account is described under its own scope', () => {
   it("a predicate that pins no contract is headed by the rule's scope; one with no stored predicate is skipped by the caller", async () => {
     const pinless = [
       'and',
@@ -1527,23 +1527,9 @@ describe('describeRules: a rule read off an account is described under its own s
         ['lte', ['call_arg', 2], { i128: '5' }],
       ],
     ] as never
-    const rule = {
-      id: 3,
-      scope: { kind: 'call_contract', contract: TOKEN },
-      signers: [],
-      policies: [],
-      expr: pinless,
-    } as never
-    const [shown] = await describeRules({ network: 'testnet' }, [rule])
-    expect(shown?.reviewTree[0]).toMatchObject({ op: 'contract', raw: null, value: TOKEN })
-    const dflt = {
-      id: 0,
-      scope: { kind: 'default' },
-      signers: [],
-      policies: [],
-      expr: pinless,
-    } as never
-    const [bare] = await describeRules({ network: 'testnet' }, [dflt])
-    expect(bare?.reviewTree[0]?.op).toBe('function')
+    const shown = explain({ network: 'testnet' }, { expr: pinless, contract: TOKEN })
+    expect(shown.reviewTree[0]).toMatchObject({ op: 'contract', raw: null, value: TOKEN })
+    const bare = explain({ network: 'testnet' }, { expr: pinless })
+    expect(bare.reviewTree[0]?.op).toBe('function')
   })
 })

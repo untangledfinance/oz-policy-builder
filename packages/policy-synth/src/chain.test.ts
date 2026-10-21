@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, it } from 'bun:test'
+import { xdr } from '@stellar/stellar-sdk'
 import { contract } from '../test/fixtures.ts'
 import { fakeInterpreter } from '../test/rpc.ts'
 import {
@@ -6,6 +7,7 @@ import {
   ensureInterpreter,
   fingerprint,
   forgetLimits,
+  hasTransfer,
   interpreterFor,
   pool,
 } from './chain.ts'
@@ -161,5 +163,55 @@ describe('pool', () => {
     await expect(run).rejects.toThrow()
     await sleep(40)
     expect(started).toBeLessThan(30)
+  })
+})
+
+// ---- a token, by its spec: a wasm whose only content is a `contractspecv0` section ----
+
+const leb = (n: number): number[] => (n < 128 ? [n] : [(n & 127) | 128, ...leb(n >>> 7)])
+const wasmWith = (fns: [string, xdr.ScSpecTypeDef[]][], name = 'contractspecv0'): Buffer => {
+  const entries = fns.map(([fn, types]) =>
+    xdr.ScSpecEntry.scSpecEntryFunctionV0(
+      new xdr.ScSpecFunctionV0({
+        doc: '',
+        name: fn,
+        inputs: types.map(
+          (type, i) => new xdr.ScSpecFunctionInputV0({ doc: '', name: `a${i}`, type })
+        ),
+        outputs: [],
+      })
+    )
+  )
+  const body = Buffer.concat([
+    Buffer.from([name.length, ...Buffer.from(name)]),
+    ...entries.map((e) => e.toXDR()),
+  ])
+  return Buffer.concat([
+    Buffer.from([0, 0x61, 0x73, 0x6d, 1, 0, 0, 0, 0, ...leb(body.length)]),
+    body,
+  ])
+}
+
+describe('hasTransfer: a SEP-41 transfer in the spec, once', () => {
+  const T = xdr.ScSpecTypeDef
+  const [Z, M, I] = [T.scSpecTypeAddress(), T.scSpecTypeMuxedAddress(), T.scSpecTypeI128()]
+  it.each<[string, [string, xdr.ScSpecTypeDef[]][], boolean]>([
+    ['transfer(address, address, i128)', [['transfer', [Z, Z, I]]], true],
+    ['transfer(address, muxed address, i128)', [['transfer', [Z, M, I]]], true],
+    ['an amount of another type', [['transfer', [Z, Z, T.scSpecTypeU64()]]], false],
+    ['two arguments', [['transfer', [Z, I]]], false],
+    [
+      'a transfer twice',
+      [
+        ['transfer', [Z, Z, I]],
+        ['transfer', [Z, Z, I]],
+      ],
+      false,
+    ],
+    ['no transfer', [['pay', [Z, Z, I]]], false],
+  ])('%s', (_n, fns, want) => expect(hasTransfer(wasmWith(fns))).toBe(want))
+  it('no spec, or not a wasm: no token', () => {
+    expect(hasTransfer(wasmWith([['transfer', [Z, Z, I]]], 'other'))).toBe(false)
+    expect(hasTransfer(Buffer.from('not wasm'))).toBe(false)
   })
 })

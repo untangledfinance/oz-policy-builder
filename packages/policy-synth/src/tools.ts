@@ -7,7 +7,7 @@
 
 import { StrKey } from '@stellar/stellar-sdk'
 import { z } from 'zod'
-import { type Authority, authority, contractsOf, lines, overridden, tree } from './card.ts'
+import { type Authority, authority, lines, overridden, tree } from './card.ts'
 import {
   codeHash,
   connect,
@@ -16,6 +16,7 @@ import {
   ensureInterpreter,
   fingerprint,
   interpreterFor,
+  isToken,
   pinnedWasm,
 } from './chain.ts'
 import { MAX_CHECKS, runChecks, verifyRule } from './check.ts'
@@ -35,8 +36,7 @@ import {
 import type { Intent } from './intent.ts'
 import { type Call, decodeEnvelope, type Recording, recordHash } from './record.ts'
 import { reviewUnsigned } from './review.ts'
-import { type ObservedRule, readRule, readRules, selectors } from './rules.ts'
-import { infoFor, isToken } from './spec.ts'
+import { readRule, readRules, selectors } from './rules.ts'
 import {
   type Answers,
   type ProposedRule,
@@ -279,22 +279,20 @@ const present = (r: ReturnType<typeof propose>[number]) => ({
   predicateHash: r.hash,
 })
 
-/** The review of each predicate: its tree and the text of it. Contracts are named from their
- *  interfaces (read once each, within seconds, and never a reason for a tool to fail), and
- *  addresses from the request's own words for them. */
-export async function explain(
+/** The review of a predicate: what the request waived first, then the authority, then the tree,
+ *  and the text of it. Roles are the package's ([bracketed] in the review); `allow` names are the
+ *  caller's («marked»). */
+export function explain(
   i: Endpoint & { raw?: boolean | undefined; allow?: Record<string, string[]> | undefined } & {
     [k in 'smartAccount' | 'sourceAccount' | 'admins' | 'signers']?: string | string[] | undefined
   },
-  items: {
-    expr: Expr
+  item: {
+    expr?: Expr | undefined
     contract?: string | undefined
     authority?: Authority | undefined
     overrides?: Override[] | undefined
-  }[],
-  signal?: AbortSignal
+  }
 ) {
-  // Roles are the package's ([bracketed] in the review); `allow` names are the caller's («marked»).
   const roles: Record<string, string> = {}
   const labels: Record<string, string> = {}
   const put = (m: Record<string, string>, label: string, a?: string | string[]) => {
@@ -305,22 +303,15 @@ export async function explain(
   put(roles, 'admin', i.admins)
   put(roles, 'signer', i.signers)
   for (const [k, a] of Object.entries(i.allow ?? {})) if (!/^\d/.test(k)) put(labels, k, a)
-  const named = [...items.flatMap((x) => contractsOf(x.expr)), ...items.map((x) => x.contract)]
-  const info = await infoFor(i, named, signal)
-  return items.map(({ expr, contract, authority: held, overrides }) => {
-    // What the request waived comes first, whatever else can be described.
-    const head = overrides?.length ? [overridden(overrides)] : []
-    try {
-      const view = { info, roles, labels, raw: i.raw, contract, network: i.network }
-      const reviewTree = [...head, ...(held ? [authority(held, view)] : []), ...tree(expr, view)]
-      return { review: lines(reviewTree), reviewTree }
-    } catch {
-      return {
-        review: [...lines(head), '(this predicate could not be described)'],
-        reviewTree: head,
-      }
-    }
-  })
+  const head = item.overrides?.length ? [overridden(item.overrides)] : []
+  try {
+    const view = { roles, labels, raw: i.raw, contract: item.contract, network: i.network }
+    const held = item.authority ? [authority(item.authority, view)] : []
+    const reviewTree = [...head, ...held, ...(item.expr === undefined ? [] : tree(item.expr, view))]
+    return { review: lines(reviewTree), reviewTree }
+  } catch {
+    return { review: [...lines(head), '(this predicate could not be described)'], reviewTree: head }
+  }
 }
 
 /** The rule a request is about: the one for `contract`, or the only one. */
@@ -375,17 +366,16 @@ const record_transaction = tool(
 
 const synthesize_policy = tool(
   'synthesize_policy',
-  'Turn a transaction, a recording, an intent (the calls to allow, with per-argument constraints (`{constraint: "cap", at, max}`): pin, allow, deny, cap, floor, length, minOut, each, some, total, read, until, from) into rules: one per contract, each with its predicate (a wire expression), its encoding and hash, and its review (`review`, a text tree, and `reviewTree`, nodes each carrying the wire `raw` it was read from; names are read best-effort from the contracts and are display only, so this tool is not offline). `ambiguities` are questions whose answers change what is permitted (usually the cap on an amount: answer with `limit`, `limits` or `allow`); `warnings` say what is left open. `heldTo` says which limits the rules were held to: those recorded for the pinned interpreter, else the defaults.',
+  'Turn a transaction, a recording, an intent (the calls to allow, with per-argument constraints (`{constraint: "cap", at, max}`): pin, allow, deny, cap, floor, length, minOut, each, some, total, read, until, from) into rules: one per contract, each with its predicate (a wire expression), its encoding and hash, and its review (`review`, a text tree, and `reviewTree`, nodes each carrying the wire `raw` it was read from; labels are display only; with no hash to fetch, this tool asks no RPC). `ambiguities` are questions whose answers change what is permitted (usually the cap on an amount: answer with `limit`, `limits` or `allow`); `warnings` say what is left open. `heldTo` says which limits the rules were held to: those recorded for the pinned interpreter, else the defaults.',
   { ...net, ...display, ...from },
-  async (i, signal) => {
+  async (i) => {
     const s = await sourceOf(i)
     // Proposing needs no live interpreter: the pin's recorded limits are its limits.
     const pin = INTERPRETER[i.network]
     const rules = propose(s.intent, pin?.limits)
-    const shown = await explain(i, rules, signal)
     return {
       intent: s.intent,
-      rules: rules.map((r, n) => ({ ...present(r), ...shown[n] })),
+      rules: rules.map((r) => ({ ...present(r), ...explain(i, r) })),
       heldTo: pin
         ? `the limits recorded for ${pin.address}`
         : `the default limits (no interpreter is pinned for ${i.network})`,
@@ -447,7 +437,7 @@ async function subject(i: z.infer<z.ZodObject<typeof predicateInput>>) {
 
 const simulate_policy = tool(
   'simulate_policy',
-  `Say whether a predicate permits each of some calls, and if not with which deny code. Give the predicate (\`expr\` or \`encodedPredicate\`, or a source to build it from) and the calls (\`calls\`, or the recorded ones). With a predicate and no call it only explains the predicate. The answer carries \`review\` (the rule as a text tree) and \`reviewTree\` (the same as nodes, each with the wire \`raw\` it was read from); names and labels are display only. ${CHECKED}`,
+  `Say whether a predicate permits each of some calls, and if not with which deny code. Give the predicate (\`expr\` or \`encodedPredicate\`, or a source to build it from) and the calls (\`calls\`, or the recorded ones). With a predicate and no call it only explains the predicate. The answer carries \`review\` (the rule as a text tree) and \`reviewTree\` (the same as nodes, each with the wire \`raw\` it was read from); labels are display only. ${CHECKED}`,
   predicateInput,
   async (i, signal) => {
     const s = await subject(i)
@@ -460,12 +450,11 @@ const simulate_policy = tool(
       verdicts = await runChecks(server, i.network, interpreter, s.encoded, s.calls, signal)
     }
     // The review comes after the verdicts: it never competes with them for the network.
-    const [shown] = await explain(i, [s.item], signal)
     return {
       predicateHash: hashOf(s.encoded),
       results: s.calls.map((c, n) => ({ call: c, ...verdicts[n] })),
       ...(s.explainOnly ? { heldTo: s.heldTo } : {}),
-      ...shown,
+      ...explain(i, s.item),
     }
   }
 )
@@ -485,8 +474,7 @@ const verify_policy = tool(
     const [server, interpreter] = [connect(i), interpreterFor(i.network, i.interpreterAddress)]
     await ensureInterpreter(server, i.network, interpreter)
     const verified = await verifyRule(server, i.network, interpreter, s.expr, permits, signal)
-    const [shown] = await explain(i, [s.item], signal)
-    return { predicateHash: hashOf(s.encoded), ...verified, ...shown }
+    return { predicateHash: hashOf(s.encoded), ...verified, ...explain(i, s.item) }
   }
 )
 
@@ -562,16 +550,12 @@ const install_policy = tool(
       readRules: (account, interpreter) =>
         readRules(server, i.network, account, interpreter, signal),
       build: (draft, interpreter) => buildInstall({ ...i, server }, draft, interpreter),
-      token: async (c) => isToken((await infoFor(i, [c], signal))[c]),
+      token: (c) => isToken(server, c),
       contracts: (a) => contractKinds(server, a),
     }
     const plan = await planInstall(i, rule, chain)
     // Only a rule that passed every refusal is described.
-    const [shown] = await explain(
-      i,
-      [{ ...rule, authority: plan.authority, overrides: plan.overrides }],
-      signal
-    )
+    const shown = explain(i, { ...rule, authority: plan.authority, overrides: plan.overrides })
     return { ...plan, rule: { ...plan.rule, ...shown } }
   }
 )
@@ -588,7 +572,7 @@ const revoke_policy = tool(
     allowAdminRule: z.boolean().optional(),
     baseFee,
   },
-  async (i, signal) => {
+  async (i) => {
     gate(i.network, i.allowAdminRule === true ? ['allowAdminRule'] : [], 'REVOKE_BUILD_FAILED')
     const server = connect(i)
     const mine = INTERPRETER[i.network]?.address
@@ -601,37 +585,18 @@ const revoke_policy = tool(
       build: (id) => buildRevoke({ ...i, server }, id),
     })
     const r = plan.removes
-    const [shown] = r.expr ? await describeRules(i, [r], signal) : []
+    // An override opens the review of what is removed, described or not.
+    const contract = r.scope.kind === 'call_contract' ? r.scope.contract : undefined
+    const shown =
+      r.expr || plan.overrides.length
+        ? explain(i, { expr: r.expr, contract, overrides: plan.overrides })
+        : {}
     const skipped = (await trusted).known
       ? {}
       : { reviewSkipped: notKnown(i.smartAccount, await trusted) }
-    // An override opens the review of what is removed, described or not.
-    const head = plan.overrides.length ? [overridden(plan.overrides)] : []
-    const review = head.length
-      ? {
-          review: [...lines(head), ...(shown?.review ?? [])],
-          reviewTree: [...head, ...(shown?.reviewTree ?? [])],
-        }
-      : {}
-    return { ...plan, removes: { ...r, ...shown, ...skipped, ...review } }
+    return { ...plan, removes: { ...r, ...shown, ...skipped } }
   }
 )
-
-const scopedContract = (r: ObservedRule) =>
-  r.scope.kind === 'call_contract' ? r.scope.contract : undefined
-
-/** The reviews of rules read off an account (those with a stored predicate), each under the
- *  contract its rule is scoped to. */
-export const describeRules = (
-  i: Parameters<typeof explain>[0],
-  rules: ObservedRule[],
-  signal?: AbortSignal
-) =>
-  explain(
-    i,
-    rules.map((r) => ({ expr: r.expr as Expr, contract: scopedContract(r) })),
-    signal
-  )
 
 /** The code an account runs, and whether it is an OpenZeppelin smart account build the package
  *  knows. A failure to read the code is `unread`, never "not a known build": it says nothing of the account. */

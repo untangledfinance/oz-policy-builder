@@ -95,7 +95,7 @@ describe('with an RPC that answers', () => {
         expect(r.data.heldTo).toBe(`the limits recorded for ${pin.address}`)
         const info = await tool('get_interpreter_info', {})
         expect(info.data).toMatchObject({ limits: pin.limits, limitsFrom: 'recorded' })
-        expect(fake.asked.filter((m) => m.includes('limits'))).toEqual([])
+        expect(fake.asked).toEqual([])
       } finally {
         fake.stop()
       }

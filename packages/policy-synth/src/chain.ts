@@ -10,6 +10,7 @@ import {
   rpc,
   StrKey,
   scValToNative,
+  contract as soroban,
   TransactionBuilder,
   xdr,
 } from '@stellar/stellar-sdk'
@@ -302,4 +303,33 @@ export async function ensureInterpreter(
     known.add(id)
   }
   return limitsOf(server, network, address)
+}
+
+/** Whether a wasm's spec has one `transfer(from: address, to: address or muxed address, amount: i128)`. */
+export function hasTransfer(wasm: Buffer): boolean {
+  try {
+    const fns = soroban.Spec.fromWasm(wasm)
+      .funcs()
+      .filter((f) => f.name().toString() === 'transfer')
+    const types = fns[0]?.inputs().map((x) => x.type().switch().name.slice(10).toLowerCase())
+    return (
+      fns.length === 1 &&
+      ['address,address,i128', 'address,muxedaddress,i128'].includes(types?.join() ?? '')
+    )
+  } catch {
+    return false
+  }
+}
+
+/** Whether `address` is shown to be a SEP-41 token: a Stellar Asset Contract, or a wasm with such a
+ *  `transfer`. A failure to read is no token: the install is refused, and can be retried. */
+export async function isToken(server: rpc.Server, address: string): Promise<boolean> {
+  try {
+    const instance = dataKey(address, xdr.ScVal.scvLedgerKeyContractInstance())
+    const exec = (await entries(server, [instance]))[0]?.instance().executable()
+    if (exec?.switch().name !== 'contractExecutableWasm') return exec !== undefined
+    return hasTransfer(await server.getContractWasmByHash(Buffer.from(exec.wasmHash())))
+  } catch {
+    return false
+  }
 }
