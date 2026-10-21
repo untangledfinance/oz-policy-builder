@@ -1,8 +1,9 @@
-// The refusals 4.0.0 leaves to the chain, as the chain makes them: OpenZeppelin's add_context_rule
-// (#3007 a signer twice, #3010 over 15 signers) and the interpreter's install (#209 no admin),
-// each in the build's own simulation, reaching the caller as INSTALL_BUILD_FAILED. Simulation only:
-// nothing is signed or sent. Replays a live testnet run; OPB_LIVE=1 bun test src/handover.test.ts
-// records it again.
+// What the chain refuses in the build's own simulation, reaching the caller as
+// INSTALL_BUILD_FAILED: OpenZeppelin's add_context_rule (#3010 over 15 signers, #3007 a signer
+// twice) and the interpreter's install (#209 no admin). 4.0.0 leaves #3010 and #209 to the chain.
+// The package refuses a signer twice first, in planInstall, so #3007 is the chain's second line,
+// shown here through buildInstall. Simulation only: nothing is signed or sent. Replays a live
+// testnet run; OPB_LIVE=1 bun test src/handover.test.ts records it again.
 
 import { afterAll, describe, expect, it, setDefaultTimeout } from 'bun:test'
 import { account, contract } from '../test/fixtures.ts'

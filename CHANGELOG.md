@@ -9,9 +9,10 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 The three packages at 4.0.0 are this repository at tag `v4.0.0`, the tree the
 external audit covers; it replaces 3.0.0 as the audit target. `policy-synth`
 is slimmer: 4,433 to 3,876 source lines, counted as in
-`docs/audit-overview.md`. Every refusal stays, in the package or on chain.
-Three that the chain already makes, in the build's own simulation or at
-submission, are left to it (see "Changed"). The version is a major bump: the
+`docs/audit-overview.md`. Three refusals the chain already makes (in the
+build's own simulation or at submission) are left to it, and the
+spending-limit token check no longer filters on parameter names (see
+"Changed"). Every other refusal stays in the package. The version is a major bump: the
 changes below break callers that send the removed inputs, read the removed
 outputs, call the removed exports or match on the review text. The CLI and the
 MCP server pin `@crediolabs/policy-synth` at exactly 4.0.0. As in 3.0.0, the
@@ -47,9 +48,12 @@ interpreter test now pins the error codes it expects.
   #209) and a negative resource fee (stellar-core refuses the transaction as
   `txMALFORMED`). The first two come back from the build's own simulation as
   `INSTALL_BUILD_FAILED` before any bytes are handed out. `review_unsigned`
-  still flags a negative resource fee, and the tool schema still caps
-  `signers` at 15. A rule with no signer and a signer listed twice are still
-  refused by the package, before the network is asked.
+  still flags a negative resource fee. A tool caller never reaches the first
+  two: the `install_policy` schema still takes 1 to 15 `signers` and, when
+  `admins` is given, 1 to 15 admins, and refuses anything else with
+  `INVALID_INPUT`. Only a library caller of `ruleArgs` meets #3010 and #209.
+  A rule with no signer and a signer listed twice are still refused by the
+  package, before the network is asked.
 - **`ruleArgs`** (exported from the package root) no longer throws for more
   than 15 signers or an empty admin set. It still throws for a rule with no
   signer. A caller that submits what it builds meets the two chain refusals
@@ -63,6 +67,10 @@ interpreter test now pins the error codes it expects.
   parameter no longer counts. The parameter names and the 128 KiB wasm size
   cap no longer count either: a contract that passes still exposes that
   `transfer`, and OpenZeppelin's `spending_limit` caps its third argument.
+  So one refusal is gone: 3.0.0 refused as "not a token" a contract whose
+  `transfer` has those types under other parameter names, and 4.0.0 builds
+  the rule. The chain accepts that contract as a token, so the old refusal
+  was a false one.
 
 ## [3.0.0] - 2026-10-21
 

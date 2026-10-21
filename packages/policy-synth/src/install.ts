@@ -102,8 +102,8 @@ export function ruleArgs(d: RuleDraft, interpreter: string): Val[] {
       : d.scope.kind === 'create_contract'
         ? ['CreateContract', { bytes: d.scope.wasmHash }]
         : ['Default']
-  // More than 15 signers, a signer twice and an empty admin set are the chain's to refuse: OZ's
-  // add_context_rule (#3010, #3007) and the interpreter's install (#209), in the build's simulation.
+  // Over 15 signers and an empty admin set are left to the chain: OZ's add_context_rule (#3010) and
+  // the interpreter's install (#209). planInstall refuses a signer twice (OZ would too, #3007).
   // A rule with no signer installs on chain (a keyless rule), so it is refused here.
   if (d.signers.length === 0)
     throw new Refusal('INSTALL_BUILD_FAILED', 'the rule names no signer, so it would govern no key')
