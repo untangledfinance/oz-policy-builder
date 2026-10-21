@@ -64,7 +64,7 @@
   },
   "dependencies": {
     "@crediolabs/policy-synth": "2.0.1",
-    "@modelcontextprotocol/sdk": "1.31.0",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@stellar/stellar-sdk": "14.4.0",
     "zod": "3.25.76"
   },

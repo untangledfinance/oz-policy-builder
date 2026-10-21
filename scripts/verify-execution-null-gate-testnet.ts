@@ -519,7 +519,7 @@ const same = (a: Record<string, bigint>, b: Record<string, bigint>) =>
 console.log('\n-- X is a G account')
 const nullG = contractId(X, adapterSalt(null, 0, WINDOW))
 refused(
-  "G0a. a third party creates X's null adapter from its own address",
+  "G-0a. a third party creates X's null adapter from its own address",
   await send(
     create(K.payer.publicKey(), AW, adapterSalt(null, 0, WINDOW), [
       addr(X),
@@ -535,10 +535,10 @@ const g0 = await send(
   create(X, AW, adapterSalt(null, 0, WINDOW), [addr(X), gateArg(null), u32v(0), u32v(WINDOW)]),
   K.xg
 )
-landed(`G0b. X creates its null adapter as transaction source ${nullG}`, g0)
+landed(`G-0b. X creates its null adapter as transaction source ${nullG}`, g0)
 report(
   g0.ok && Address.fromScVal(g0.ret!).toString() === nullG,
-  'G0c. at the address derived with "no gate" = void',
+  'G-0c. at the address derived with "no gate" = void',
   nullG
 )
 
@@ -551,43 +551,43 @@ const bundleG = (usdc = 10n * U, xlm = U) =>
   const r = s.op ? await send(s.op, K.payer) : { ok: false, error: s.error }
   const b1 = await bal(X)
   landed(
-    'G1. hello answers: [hello, USDC.transfer(X,M,10), XLM.transfer(X,N,1)], one entry signed by X',
+    'G-1. hello answers: [hello, USDC.transfer(X,M,10), XLM.transfer(X,N,1)], one entry signed by X',
     r
   )
   report(
     (s.entries ?? []).length === 1 && b1.usdcM - b0.usdcM === 10n * U && b1.xlmN - b0.xlmN === U,
-    'G1b. one authorization covered both nested transfers, and both landed',
+    'G-1b. one authorization covered both nested transfers, and both landed',
     `entries ${(s.entries ?? []).length}, M +${b1.usdcM - b0.usdcM}, N +${b1.xlmN - b0.xlmN}`
   )
 }
 {
   const s = await signAuth(bundleG(), { src: K.payer, gs: [K.xg], ttl: 120 })
   const p = s.op ? await prepare(s.op, K.payer) : { ok: false, error: s.error }
-  report(p.ok, 'G2a. a second bundle is signed and simulated while hello answers', short(p.error))
-  landed("G2b. Z's owners remove H, so hello now fails", await helloOff())
+  report(p.ok, 'G-2a. a second bundle is signed and simulated while hello answers', short(p.error))
+  landed("G-2b. Z's owners remove H, so hello now fails", await helloOff())
   const alone = await prepare(execute(nullG, [hello]), K.xg)
-  refused('G2c. hello alone now fails', alone)
+  refused('G-2c. hello alone now fails', alone)
   const b0 = await bal(X)
   const r = await submitTx(p.tx)
   const b1 = await bal(X)
-  refused('G2d. the bundle fails on chain at hello', r)
-  report(same(b0, b1), 'G2e. nothing moved', show(b1))
-  landed('G3a. H is added back, hello answers again', await helloOn())
+  refused('G-2d. the bundle fails on chain at hello', r)
+  report(same(b0, b1), 'G-2e. nothing moved', show(b1))
+  landed('G-3a. H is added back, hello answers again', await helloOn())
   const again = await send(s.op!, K.payer)
   landed(
-    'G3b. the SAME signed entry, resubmitted before its expiry ledger, now runs (it is a bearer instrument until then)',
+    'G-3b. the SAME signed entry, resubmitted before its expiry ledger, now runs (it is a bearer instrument until then)',
     again
   )
   const s2 = await signAuth(bundleG(1n, 1n), { src: K.payer, gs: [K.xg], ttl: 1 })
   const exp = (await latest()) + 2
   await untilLedger(exp + 1)
   refused(
-    'G4. an entry signed with a short expiry is refused once that ledger has passed',
+    'G-4. an entry signed with a short expiry is refused once that ledger has passed',
     await send(s2.op!, K.payer)
   )
 }
 refused(
-  'G5. the Prime itself as a call target',
+  'G-5. the Prime itself as a call target',
   await prepare(execute(nullG, [call(X, 'hello', [])]), K.xg),
   '1'
 )
@@ -606,28 +606,32 @@ const authAsAdapter = vec([
   ]),
 ])
 refused(
-  'G6. a grant the adapter would hand out as itself',
+  'G-6. a grant the adapter would hand out as itself',
   await prepare(execute(nullG, [hello], 0, [authAsAdapter]), K.xg),
   '3'
 )
 refused(
-  'G7. rebind on a null adapter, even by the Prime',
+  'G-7. rebind on a null adapter, even by the Prime',
   await prepare(invoke(nullG, 'rebind', [addr(Z)]), K.xg),
   '9'
 )
 {
   const s = await prepare(execute(nullG, [xfer(USDC, X, M, 2n * U)], 2), K.xg)
-  refused('G8. X asks the null adapter to store a batch (wait 2)', s, '10')
+  refused('G-8. X asks the null adapter to store a batch (wait 2)', s, '10')
   refused(
-    'G9a. a stranger cancels on the null adapter',
+    'G-9a. a stranger cancels on the null adapter',
     await prepare(invoke(nullG, 'cancel', [u32v(1), addr(K.stranger.publicKey())]), K.stranger),
     '7'
   )
   landed(
-    'G9b. X cancels (there is nothing stored to drop)',
+    'G-9b. X cancels (there is nothing stored to drop)',
     await send(invoke(nullG, 'cancel', [u32v(1), addr(X)]), K.xg)
   )
-  refused('G9c. there is nothing to run', await prepare(invoke(nullG, 'run', [u32v(1)]), K.xg), '5')
+  refused(
+    'G-9c. there is nothing to run',
+    await prepare(invoke(nullG, 'run', [u32v(1)]), K.xg),
+    '5'
+  )
 }
 
 // -------------------------------------------------- OZ account as Prime ---
@@ -635,16 +639,16 @@ refused(
 console.log('\n-- X is an OZ smart account (wasm 91a2cd56)')
 const xc = await ozAccount(K.owner, 'X_C')
 const XC = xc.id
-landed(`C0a. X_C ${XC}, rule 0: Delegated(owner)`, { ok: true, hash: xc.tx })
+landed(`C-0a. X_C ${XC}, rule 0: Delegated(owner)`, { ok: true, hash: xc.tx })
 landed(
-  'C0b. fund X_C with 20 XLM',
+  'C-0b. fund X_C with 20 XLM',
   await send(
     invoke(XLM, 'transfer', [addr(K.payer.publicKey()), addr(XC), i128v(20n * U)]),
     K.payer
   )
 )
 landed(
-  'C0c. fund X_C with 500 USDC',
+  'C-0c. fund X_C with 500 USDC',
   await send(
     invoke(USDC, 'transfer', [addr(K.issuer.publicKey()), addr(XC), i128v(500n * U)]),
     K.issuer
@@ -652,7 +656,7 @@ landed(
 )
 const nullC = contractId(XC, adapterSalt(null, 0, WINDOW))
 landed(
-  `C1. X_C creates its null adapter through rule 0 ${nullC}`,
+  `C-1. X_C creates its null adapter through rule 0 ${nullC}`,
   await sendSigned(
     create(XC, AW, adapterSalt(null, 0, WINDOW), [addr(XC), gateArg(null), u32v(0), u32v(WINDOW)]),
     {
@@ -674,12 +678,12 @@ const bundleC = (usdc: bigint, xlm: bigint) =>
   })
   const b1 = await bal(XC)
   landed(
-    'C2. owners: [hello, USDC.transfer, XLM.transfer], one owner signature, rule 0 for each of the 3 contexts',
+    'C-2. owners: [hello, USDC.transfer, XLM.transfer], one owner signature, rule 0 for each of the 3 contexts',
     r
   )
   report(
     b1.usdcM - b0.usdcM === 10n * U && b1.xlmN - b0.xlmN === U,
-    'C2b. both transfers landed',
+    'C-2b. both transfers landed',
     `M +${b1.usdcM - b0.usdcM}, N +${b1.xlmN - b0.xlmN}`
   )
 }
@@ -705,7 +709,7 @@ const agentL = await addRule(
 )
 report(
   true,
-  'C3. agent rules on the policy interpreter: execute on the adapter, transfer <= 20 USDC, transfer <= 2 XLM',
+  'C-3. agent rules on the policy interpreter: execute on the adapter, transfer <= 20 USDC, transfer <= 2 XLM',
   `rules ${agentA.id} ${agentU.id} ${agentL.id}, txs ${agentA.tx} ${agentU.tx} ${agentL.tx}`
 )
 function asAgent(ids: number[]): Sign {
@@ -715,35 +719,35 @@ function asAgent(ids: number[]): Sign {
   const b0 = await bal(XC)
   const r = await sendSigned(bundleC(CAP, U), asAgent([agentA.id, agentU.id, agentL.id]))
   const b1 = await bal(XC)
-  landed('C4. the agent alone: the bundle at its USDC cap, one rule per context', r)
+  landed('C-4. the agent alone: the bundle at its USDC cap, one rule per context', r)
   report(
     b1.usdcM - b0.usdcM === CAP && b1.xlmN - b0.xlmN === U,
-    'C4b. both transfers landed',
+    'C-4b. both transfers landed',
     `M +${b1.usdcM - b0.usdcM}, N +${b1.xlmN - b0.xlmN}`
   )
 }
 refused(
-  'C5. the agent one stroop over its USDC cap',
+  'C-5. the agent one stroop over its USDC cap',
   await sendSigned(bundleC(CAP + 1n, U), asAgent([agentA.id, agentU.id, agentL.id]))
 )
 refused(
-  'C5b. the same, with the adapter named as a co-signer: no rule lists it',
+  'C-5b. the same, with the adapter named as a co-signer: no rule lists it',
   await sendSigned(bundleC(CAP + 1n, U), {
     ...asAgent([agentA.id, agentU.id, agentL.id]),
     contractSigners: [nullC],
   })
 )
 refused(
-  'C6. the agent names its adapter rule for the transfer contexts',
+  'C-6. the agent names its adapter rule for the transfer contexts',
   await sendSigned(bundleC(U, U), asAgent([agentA.id, agentA.id, agentA.id]))
 )
 refused(
-  'C7. the Prime itself as a call target',
+  'C-7. the Prime itself as a call target',
   await prepare(execute(nullC, [call(XC, 'get_context_rules_count', [])]), K.owner),
   '1'
 )
 refused(
-  'C8a. the owners ask the null adapter to store a batch (wait 5)',
+  'C-8a. the owners ask the null adapter to store a batch (wait 5)',
   await sendSigned(execute(nullC, [xfer(USDC, XC, M, U)], 5), {
     src: K.owner,
     account: XC,
@@ -752,21 +756,21 @@ refused(
   '10'
 )
 refused(
-  'C8b. the agent asks the same (wait 5)',
+  'C-8b. the agent asks the same (wait 5)',
   await sendSigned(execute(nullC, [xfer(USDC, XC, M, U)], 5), asAgent([agentA.id])),
   '10'
 )
 refused(
-  'C8c. a stranger cancels on the null adapter',
+  'C-8c. a stranger cancels on the null adapter',
   await prepare(invoke(nullC, 'cancel', [u32v(1), addr(K.stranger.publicKey())]), K.stranger),
   '7'
 )
 refused(
-  'C8d. the agent cancels as the Prime: its rule permits execute only',
+  'C-8d. the agent cancels as the Prime: its rule permits execute only',
   await sendSigned(invoke(nullC, 'cancel', [u32v(1), addr(XC)]), asAgent([agentA.id]))
 )
 landed(
-  'C8e. the owners cancel (nothing is stored to drop)',
+  'C-8e. the owners cancel (nothing is stored to drop)',
   await sendSigned(invoke(nullC, 'cancel', [u32v(1), addr(XC)]), {
     src: K.owner,
     account: XC,
@@ -774,7 +778,7 @@ landed(
   })
 )
 refused(
-  'C8f. a null adapter with a minimum wait cannot be created',
+  'C-8f. a null adapter with a minimum wait cannot be created',
   await sendSigned(
     create(XC, AW, adapterSalt(null, 5, WINDOW), [addr(XC), gateArg(null), u32v(5), u32v(WINDOW)]),
     { src: K.owner, account: XC, signers: [K.owner] }
@@ -782,7 +786,7 @@ refused(
   '10'
 )
 refused(
-  'C9. rebind on a null adapter',
+  'C-9. rebind on a null adapter',
   await prepare(invoke(nullC, 'rebind', [addr(Z)]), K.owner),
   '9'
 )
@@ -801,7 +805,7 @@ const gateCfg = (custody: string, caller: string, code: Buffer, allowed: string[
     kv('custody', addr(custody)),
   ])
 landed(
-  `B0a. custody's gate R ${R.slice(0, 8)} names the gated adapter ${gatedC.slice(0, 8)} and this build`,
+  `B-0a. custody's gate R ${R.slice(0, 8)} names the gated adapter ${gatedC.slice(0, 8)} and this build`,
   await send(
     create(K.custody.publicKey(), GW, gSalt, [
       gateCfg(K.custody.publicKey(), gatedC, AW, [XLM, USDC, XC, M, N, K.custody.publicKey()]),
@@ -810,7 +814,7 @@ landed(
   )
 )
 landed(
-  'B0b. custody approves R for 5 XLM',
+  'B-0b. custody approves R for 5 XLM',
   await send(
     invoke(XLM, 'approve', [
       addr(K.custody.publicKey()),
@@ -822,7 +826,7 @@ landed(
   )
 )
 landed(
-  'B0c. X_C creates the gated adapter through rule 0',
+  'B-0c. X_C creates the gated adapter through rule 0',
   await sendSigned(
     create(XC, AW, adapterSalt(R, 0, WINDOW), [addr(XC), gateArg(R), u32v(0), u32v(WINDOW)]),
     { src: K.owner, account: XC, signers: [K.owner] }
@@ -830,30 +834,30 @@ landed(
 )
 const pull = (amount: bigint) => call(R, 'pull', [addr(XLM), addr(XC), i128v(amount)])
 landed(
-  'B1. the gated adapter pulls 1 XLM from custody to X_C (control)',
+  'B-1. the gated adapter pulls 1 XLM from custody to X_C (control)',
   await sendSigned(execute(gatedC, [pull(U)]), { src: K.owner, account: XC, signers: [K.owner] })
 )
 {
   const c0 = await balance(XLM, K.custody.publicKey())
   refused(
-    "B2. the null adapter pulls through custody's gate R",
+    "B-2. the null adapter pulls through custody's gate R",
     await sendSigned(execute(nullC, [pull(U)]), { src: K.owner, account: XC, signers: [K.owner] })
   )
   report(
     (await balance(XLM, K.custody.publicKey())) === c0,
-    "B2b. custody's balance is unchanged",
+    "B-2b. custody's balance is unchanged",
     String(c0)
   )
 }
 {
   const r = await prepare(invoke(gatedC, 'rebind', [xdr.ScVal.scvVoid()]), K.custody)
-  refused('B3. custody rebinds the gated adapter to "no gate"', r)
+  refused('B-3. custody rebinds the gated adapter to "no gate"', r)
   const st = await server.getContractData(gatedC, xdr.ScVal.scvLedgerKeyContractInstance())
   const storage = st.val.contractData().val().instance().storage() ?? []
   const g = storage.find(
     (e) => e.key().switch().name === 'scvSymbol' && e.key().sym().toString() === 'gate'
   )
-  report(!!g && Address.fromScVal(g.val()).toString() === R, 'B3b. it is still bound to R', R)
+  report(!!g && Address.fromScVal(g.val()).toString() === R, 'B-3b. it is still bound to R', R)
 }
 
 // -------------------------------------------------------------- cost ---
