@@ -12,14 +12,16 @@ and so does every answer. A result is the tool's data as JSON text and as
 
 ## Run
 
-Run it from a checkout of the repository: build `policy-synth` and this package
-(`bun run --cwd packages/<name> build`), then point the client at the built
-server. The builds on npm are older than this tree.
+Register the published package at version 3.0.0:
 
 ```json
 { "mcpServers": { "policy-builder": {
-  "command": "node", "args": ["/path/to/oz-policy-builder/packages/policy-builder-mcp/dist/bin/server.js"] } } }
+  "command": "npx", "args": ["-y", "@crediolabs/policy-builder-mcp@3.0.0"] } } }
 ```
+
+From a checkout of the repository, build `policy-synth` and this package
+(`bun run --cwd packages/<name> build`) and point the client at
+`packages/policy-builder-mcp/dist/bin/server.js` with `node`.
 
 `policy-builder-mcp` serves stdio. `policy-builder-mcp --http [--http-port N]`
 serves stateless Streamable HTTP at `POST /mcp` on loopback; the surface has no

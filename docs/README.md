@@ -20,6 +20,13 @@ The contracts' own READMEs hold the interfaces and test detail:
 [execution adapter](../contracts/stellar/execution-adapter/README.md),
 [seat](../contracts/stellar/prime-seat/README.md).
 
+## Packages
+
+The three TypeScript packages are published to npm at version 3.0.0 as
+`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and
+`@crediolabs/policy-builder-mcp`, the same code as this repository at tag
+`v3.0.0`. The [repository README](../README.md) has the install lines.
+
 ## What runs where
 
 Every contract runs on Stellar testnet.

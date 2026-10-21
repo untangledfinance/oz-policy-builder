@@ -21,13 +21,13 @@ everything they produce is an unsigned transaction for a wallet to sign.
 
 ## Setup
 
-Register the `next` tag (2.0.1). Plain `@crediolabs/policy-builder-mcp`
-resolves npm's `latest`, which is still 1.3.0 and targets an older interpreter
-that this one replaced.
+Register version 3.0.0, the release that matches this repository at tag
+`v3.0.0`. Versions before 3.0.0 target an older interpreter or lack
+`review_unsigned`.
 
 ```json
 { "mcpServers": { "policy-builder": {
-  "command": "npx", "args": ["-y", "@crediolabs/policy-builder-mcp@next"],
+  "command": "npx", "args": ["-y", "@crediolabs/policy-builder-mcp@3.0.0"],
   "env": { "POLICY_BUILDER_OUT_DIR": "/absolute/dir/for/envelopes" } } } }
 ```
 
