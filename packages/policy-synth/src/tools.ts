@@ -62,7 +62,7 @@ import {
 const net = {
   network: z.enum(['mainnet', 'testnet']).default('testnet'),
 }
-/** `raw`: the review shows full addresses, raw values and where each name came from on the wire. */
+/** `raw`: the review shows full addresses and every value as written. */
 const display = { raw: z.boolean().optional() }
 /** Stroops per operation: the cap keeps a bad caller from handing a wallet an absurd fee to bid. */
 const baseFee = z.number().int().positive().max(10_000_000).optional()

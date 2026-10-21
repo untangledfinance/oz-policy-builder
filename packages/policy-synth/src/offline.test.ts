@@ -102,7 +102,7 @@ describe('with an RPC that answers', () => {
     }
   })
 
-  it('a live answer that is not the recorded limits is refused where limits are read live', async () => {
+  it('a live answer out of range is refused where limits are read live', async () => {
     const fake = serve({ ...pin.limits, max_reads: 99 })
     try {
       const r = await tool('simulate_policy', { expr: ['eq', ['call_fn'], 'transfer'] })

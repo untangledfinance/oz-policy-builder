@@ -106,7 +106,7 @@ const rowOf = (fn: string) =>
  *  one of whose arguments is an amount (or a vec of structs that carries one), and no
  *  cap on it: an amount needs a cap on the argument itself, a vec of structs one whose
  *  path ends in `amount` (a cap on `request_type` bounds nothing that moves).
- *  What a recording is asked, an intent or a template is asked too. */
+ *  What a recording is asked, an intent is asked too. */
 export function unbounded(intent: Intent): Synthesis['ambiguities'] {
   // The paths the rules named `kinds` reach, `each`/`some` bodies relative to their vec.
   const reach = (r: Constraint, kinds: string[]): Path[] => {
