@@ -68,9 +68,10 @@ interpreter test now pins the error codes it expects.
   cap no longer count either: a contract that passes still exposes that
   `transfer`, and OpenZeppelin's `spending_limit` caps its third argument.
   So one refusal is gone: 3.0.0 refused as "not a token" a contract whose
-  `transfer` has those types under other parameter names, and 4.0.0 builds
-  the rule. The chain accepts that contract as a token, so the old refusal
-  was a false one.
+  `transfer` has those types but parameter names that are not distinct plain
+  identifiers (a filter that kept names safe to print in the review), and
+  4.0.0 builds the rule. OpenZeppelin's `spending_limit` works on such a
+  contract as on any other.
 
 ## [3.0.0] - 2026-10-21
 
