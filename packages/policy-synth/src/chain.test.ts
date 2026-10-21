@@ -1,7 +1,14 @@
 import { afterAll, describe, expect, it } from 'bun:test'
 import { contract } from '../test/fixtures.ts'
 import { fakeInterpreter } from '../test/rpc.ts'
-import { connect, ensureInterpreter, fingerprint, interpreterFor, pool } from './chain.ts'
+import {
+  connect,
+  ensureInterpreter,
+  fingerprint,
+  forgetLimits,
+  interpreterFor,
+  pool,
+} from './chain.ts'
 import { INTERPRETER, INTERPRETER_WASM } from './config.ts'
 import { run } from './tools.ts'
 
@@ -11,6 +18,7 @@ const OTHER = 'ab'.repeat(32)
 const stops: (() => void)[] = []
 afterAll(() => {
   for (const s of stops) s()
+  forgetLimits()
 })
 const net = (address: string, wasm: string, grammar = 7) => {
   const f = fakeInterpreter(address, wasm, grammar)
