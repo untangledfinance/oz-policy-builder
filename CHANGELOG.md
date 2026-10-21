@@ -4,10 +4,11 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 `@crediolabs/policy-builder-mcp`) share one version number. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [2.0.1]
+## [3.0.0] - 2026-10-21
 
-This entry describes the source in this repository at version 2.0.1. The
-builds published to npm under that number are older.
+The three packages at 3.0.0 are this repository at tag `v3.0.0`, the tree the
+external audit covers. The version is a major bump because of the four changes
+under "Changed (breaking for callers that rely on the old behaviour)".
 
 ### Packages
 
@@ -21,22 +22,119 @@ builds published to npm under that number are older.
   (`record_transaction`, `synthesize_policy`, `simulate_policy`,
   `verify_policy`, `install_policy`, `revoke_policy`, `get_interpreter_info`,
   `review_unsigned`) from a command line, and from an MCP server over stdio and
-  loopback HTTP.
+  loopback HTTP. Both pin `@crediolabs/policy-synth` at exactly 3.0.0.
+- The packages pin one interpreter instance on Stellar testnet, `CDZV4AG4…`,
+  which runs wasm `69cad1d5…`. The keyless rules below are in the interpreter
+  source of this tree (`810f53f1…`); a new testnet instance from it will replace
+  the pin.
+
+### Changed (breaking for callers that rely on the old behaviour)
+
+- **Overrides outside testnet:** a request that sets `allowOverlap`,
+  `allowUnboundedAmount`, `allowOpenSlippage`, `anyOne` or `allowAdminRule` to
+  `true` is refused before the network is asked, unless the operator sets
+  `POLICY_BUILDER_ALLOW_OVERRIDES=1`. 2.0.1 honoured these flags on every
+  network. Testnet still honours them.
+- **Refusal texts:** no refusal names the flag that would waive it, so a caller
+  matching on "Set allowOverlap" or "`anyOne: true`" no longer matches. Twelve
+  diagnostic messages were also reworded.
+- **Environment values:** a malformed `POLICY_BUILDER_AUTH_LEDGERS` or
+  `POLICY_BUILDER_MAX_RESOURCE_FEE` (anything but a whole number in range)
+  refuses every install and revoke with `INVALID_INPUT`. An empty value means
+  the default.
+- **Resource fee ceiling:** a build whose resource fee is above 10 XLM is
+  refused unless the operator raises `POLICY_BUILDER_MAX_RESOURCE_FEE`. 2.0.1
+  built it.
+
+### Added
+
+- **policy-synth, `review_unsigned`:** a tool, a CLI command (`review`), an MCP
+  tool and `reviewUnsigned` from the package root, which reads an unsigned
+  install or removal from its bytes alone, with no RPC, and lists the problems it finds
+  in them (`problems`, `signable`): a shape the builder never makes, a digest
+  that does not match, an interpreter other than the pin, a predicate whose
+  hash does not match its bytes, a fee or time bound out of range, an
+  authorisation from an execution adapter with no gate, a signed envelope. The
+  transaction, the Authority node and the predicate follow, read back from the
+  bytes. `signable` does not mean safe: a consistent rewrite of the unsigned
+  bytes comes back signable, so the owner reads the Authority node against what
+  they meant.
+- **policy-synth, `overrides` in install and revoke answers:** one
+  `{ flag, waived }` per flag set to `true`, `waived` being the refusal it
+  waived or `null`. The review opens with them, before the Authority node.
+- **policy-synth, `fee` and `validBefore` in build answers.**
+
+### Fixed
+
+- **policy-synth, install and revoke sign only the built call:** the smart
+  account's auth tree came from the RPC's simulation as reported, so a lying RPC
+  could add a sub-invocation (a transfer out) that the review never showed.
+  `install_policy` and `revoke_policy` now refuse (`INSTALL_BUILD_FAILED`,
+  `REVOKE_BUILD_FAILED`) unless the simulated root invocation is the built
+  contract call, with the same contract, function and arguments, and nothing
+  under it.
+- **policy-synth, signed expiry and resource fee:** both came from the RPC (a
+  lying RPC moved the expiry about four months out, and had a 200 XLM fee
+  built). The expiry is now the recording pass's ledger plus
+  `POLICY_BUILDER_AUTH_LEDGERS` (default 300, at most 17,280), the two
+  simulations must agree on the ledger within 20, and the transaction carries a
+  time bound from the builder's clock. A resource fee above
+  `POLICY_BUILDER_MAX_RESOURCE_FEE` (default 10 XLM), or below zero, is refused.
+- **policy-synth, contract signers:** `install_policy` refuses a rule that an
+  execution adapter with no gate signs: an agent allowed to call that adapter's
+  `execute` could cite the rule and move funds past its own caps. The check
+  reads each contract signer's instance off the ledger, whatever its code hash. It also
+  refuses an adapter with a gate signing a rule scoped to itself unless every
+  branch of the predicate pins `call_fn = run`, and a contract signer that is
+  not deployed. No override waives these refusals.
+- **policy-synth, recordings:** `record_transaction` hashes the envelope the
+  RPC returns under the network's passphrase and refuses (`RECORDING_FAILED`)
+  unless it is the hash asked for; a fee bump also answers to its inner
+  transaction's hash.
+- **policy-builder-mcp, tool input cap:** the server passes
+  `maxToolInputElements: 10_000` to the MCP SDK, so a `tools/call` whose input
+  holds more array elements and object members than that gets a short
+  `isError` answer before schema validation. A 1 MiB call cost about 480 MB of
+  memory and drew a 26 MB error before; with the cap, 111 MB and 230 bytes.
+- **policy-builder-mcp, a body over 1 MiB** gets 413 under Bun 1.3 too. The
+  HTTP transport read the body with `for await`, and leaving that loop early
+  made Bun 1.3.14 answer 200 with an empty body.
+- **Dependencies:** `@modelcontextprotocol/sdk` 1.31.0 to 1.32.1, with
+  overrides `follow-redirects` `^1.16.1` and `hono` `^4.13.11`. `bun audit`
+  reports no vulnerability. GHSA-46jr-4wx8-v453 needs the SDK version and the
+  tool input cap above. GHSA-rvq5-wwqv-78pq concerns bearer authentication,
+  which the server does not use.
 
 ### Contracts
 
-- **policy-interpreter:** decides each call an OpenZeppelin smart account
-  delegates to it against the rule's predicate. Each instance fixes its limits
-  at deploy time. A rule with no signer runs only while it is bound to an
-  executor.
-- **execution-adapter:** the per-Prime batcher, created bound to one custody
-  gate or with no gate, with an optional wait before a batch runs.
-- **custody-gate:** holds an allowance from the custody account and pays only
-  to the addresses on its list.
-- **prime-seat:** an owner's seat on one Prime account, with that owner's
-  session keys.
-- **test-blend-pool:** a stub with Blend's `submit` shape, for testnet checks
-  only.
+The contracts are never published to npm; their reproducible build hashes are
+in `contracts/build-hashes.json`.
 
-The reproducible build hashes are in `contracts/build-hashes.json`. The testnet
-interpreter instance is recorded in `deployments/interpreter-testnet.json`.
+- **policy-interpreter, keyless rules bound to an executor:** a rule may list
+  no signer and be bound to an execution adapter with `bind_executor`. `enforce`
+  accepts a call with no authenticated signer only when the rule lists no
+  signer, the interpreter is its only policy and a binding exists (else 210). A
+  bound rule needs the adapter's own authorisation of the exact account and
+  context, except for the adapter's `run` under a rule scoped to it, and such a
+  rule must pin `call_fn == run` on every path (221). OpenZeppelin's 0.8.0
+  smart account (upstream commit `8e25220`) refuses a delegated signer that is
+  also a contract called in the operation (3017), so a run rule signed by the
+  adapter fails at first use. A keyless rule lists no signer and keeps working.
+  The interpreter's `oz08/` test crate runs these cases against that account.
+  The synthesiser builds keyed rules only.
+- **execution-adapter:** created bound to one custody gate or with no gate. A
+  no-gate adapter runs every batch at once, stores nothing and hands out no
+  grant, so no keyless rule works through it.
+- **The tree holds the Stellar contracts only:** `policy-interpreter`,
+  `custody-gate`, `execution-adapter`, `prime-seat` and the testnet fixture
+  `test-blend-pool`.
+
+## [2.0.1] - 2026-10-17
+
+Published to npm under the `next` dist-tag. `latest` stayed 1.3.0.
+
+- **policy-synth:** `readsOf`, `ruleArgs` and the `RuleDraft` type are exported
+  from the package root, so a consumer no longer imports them from
+  `node_modules/.../src`. No behaviour change.
+- **policy-builder-cli** and **policy-builder-mcp:** seven tools, the eight
+  above without `review_unsigned`. Both depend on policy-synth 2.0.1 exactly.
