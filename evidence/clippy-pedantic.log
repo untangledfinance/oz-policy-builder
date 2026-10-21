@@ -1,87 +1,108 @@
-# clippy pedantic + nursery - 2026-10-11T16:26:04Z to 16:41Z
-# The interpreter and gate sections ran at c520ac1; the adapter section ran on 45b73ae (c520ac1 plus a comment in tests.rs).
-# Per crate. Counts are 'warning:' lines less the per-target summary lines.
+# cargo clippy --all-targets -- -W clippy::pedantic -W clippy::nursery, in contracts/stellar/policy-interpreter, 20 October 2026
+# Report only. Counted from the raw output: one entry per distinct message and location (the per-target summaries count duplicates).
 
+352 distinct warnings (by message and location): 68 in contract source, 284 in test code.
+cast, panic, unwrap, indexing or overflow lints: 61, of which in contract source: 0
 
-## contracts/policy-interpreter
-$ cargo clippy --all-targets -- -W clippy::pedantic -W clippy::nursery
-warning: `policy-interpreter` (lib) generated 97 warnings (5 duplicates) (run `cargo clippy --fix --lib -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 61 suggestions)
-warning: `policy-interpreter` (lib test) generated 120 warnings (91 duplicates) (run `cargo clippy --fix --lib -p policy-interpreter --tests -- -W clippy::pedantic -W clippy::nursery` to apply 20 suggestions)
-warning: `policy-interpreter` (test "oz_integration") generated 5 warnings (run `cargo clippy --fix --test "oz_integration" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 5 suggestions)
-warning: `policy-interpreter` (test "conformance") generated 44 warnings (run `cargo clippy --fix --test "conformance" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 31 suggestions)
-warning: `policy-interpreter` (test "oz_abi") generated 7 warnings (run `cargo clippy --fix --test "oz_abi" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 4 suggestions)
-warning: `policy-interpreter` (test "role_separation") generated 9 warnings (run `cargo clippy --fix --test "role_separation" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 9 suggestions)
-warning: `policy-interpreter` (test "enforce_state") generated 6 warnings (run `cargo clippy --fix --test "enforce_state" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 6 suggestions)
-warning: `policy-interpreter` (test "install_enforce") generated 14 warnings (run `cargo clippy --fix --test "install_enforce" -p policy-interpreter -- -W clippy::pedantic -W clippy::nursery` to apply 12 suggestions)
-lint warnings: 206
-# By lint:
-     61 warning: item in documentation is missing backticks
-     25 warning: redundant clone
-     22 warning: unnecessary structure name repetition
-     18 warning: unnecessary semicolon
-     14 warning: wildcard matches only a single variant and will also match any future added variants
-     13 warning: this argument is passed by value, but not consumed in the function body
-      8 warning: this method could have a `#[must_use]` attribute
-      6 warning: use Option::map_or_else instead of an if let/else
-      6 warning: this could be a `const fn`
-      6 warning: this argument (8 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
-      4 warning: this function could have a `#[must_use]` attribute
-      4 warning: first doc comment paragraph is too long
-      3 warning: docs for function returning `Result` missing `# Errors` section
-      2 warning: this could be rewritten as `let...else`
-      2 warning: only a `panic!` in `if`-then statement
-      2 warning: casting `u32` to `u8` may truncate the value
-      1 warning: this `continue` expression is redundant
-      1 warning: these match arms have identical bodies
-      1 warning: it is more concise to loop over references to containers instead of using explicit iteration methods
-      1 warning: docs for function which may panic missing `# Panics` section
-      1 warning: casts from `u32` to `i128` can be expressed infallibly using `From`
-      1 warning: casting `u128` to `u64` may truncate the value
-      1 warning: casting `u128` to `i128` may wrap around the value
-      1 warning: casting `i128` to `u64` may truncate the value
-      1 warning: casting `i128` to `u64` may lose the sign of the value
-      1 warning: casting `i128` to `u128` may lose the sign of the value
-# Cast warnings by file:
-      4 src/dsl_tests.rs
-      2 tests/oz_abi.rs
-      2 tests/install_enforce.rs
-# Panic-related warnings by file:
-      2 tests/conformance/_helpers.rs
-      1 src/lib.rs
-(clippy exit 0)
+# contract source (src/ less its test modules), by lint message:
+  11  unnecessary structure name repetition
+  10  item in documentation is missing backticks
+   9  this argument is passed by value, but not consumed in the function body
+   8  this argument (8 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
+   8  first doc comment paragraph is too long
+   4  this function could have a `_` attribute
+   4  this could be a `_`
+   4  this method could have a `_` attribute
+   2  docs for function returning `_` missing `_` section
+   2  matching over `_` is more explicit
+   1  all fields have the same prefix: `_`
+   1  unnecessary boolean `_` operation
+   1  needless use of `_`
+   1  redundant closure
+   1  adding items after statements is confusing, since items exist from the start of the scope
+   1  `_` on a boolean expression
 
-## contracts/custody-gate
-$ cargo clippy --all-targets -- -W clippy::pedantic -W clippy::nursery
-warning: `custody-gate` (lib) generated 12 warnings (run `cargo clippy --fix --lib -p custody-gate -- -W clippy::pedantic -W clippy::nursery` to apply 2 suggestions)
-warning: `custody-gate` (lib test) generated 16 warnings (12 duplicates)
-lint warnings: 16
-# By lint:
-     11 warning: this argument is passed by value, but not consumed in the function body
-      3 warning: docs for function which may panic missing `# Panics` section
-      2 warning: this method could have a `#[must_use]` attribute
-# Cast warnings by file:
-# Panic-related warnings by file:
-      3 src/lib.rs
-(clippy exit 0)
+# test code, by file:
+  37  src/dsl_ext_tests.rs
+  19  src/dsl_tests.rs
+  22  tests/accuracy.rs
+   5  tests/check.rs
+   3  tests/common/mod.rs
+   3  tests/conformance/../common/mod.rs
+  19  tests/conformance/_generated.rs
+  17  tests/conformance/_generated_operators.rs
+   6  tests/conformance/_helpers.rs
+   1  tests/conformance/mod.rs
+   8  tests/enforce_state.rs
+  14  tests/install_enforce.rs
+   6  tests/keyless.rs
+   5  tests/limits.rs
+   8  tests/oz_abi.rs
+  10  tests/oz_integration.rs
+  13  tests/parity.rs
+  50  tests/reads_and_clock.rs
+   9  tests/role_separation.rs
+  29  tests/worst_case.rs
 
-
-## contracts/execution-adapter
-$ cargo clippy --all-targets -- -W clippy::pedantic -W clippy::nursery
-warning: `execution-adapter` (lib) generated 20 warnings (run `cargo clippy --fix --lib -p execution-adapter -- -W clippy::pedantic -W clippy::nursery` to apply 4 suggestions)
-warning: `execution-adapter` (lib test) generated 52 warnings (25 duplicates) (run `cargo clippy --fix --lib -p execution-adapter --tests -- -W clippy::pedantic -W clippy::nursery` to apply 3 suggestions)
-lint warnings: 47
-# By lint:
-     28 warning: this argument is passed by value, but not consumed in the function body
-      4 warning: used underscore-prefixed binding
-      4 warning: docs for function which may panic missing `# Panics` section
-      3 warning: redundant clone
-      2 warning: this argument (8 byte) is passed by reference, but would be more efficient if passed by value (limit: 8 byte)
-      2 warning: item in documentation is missing backticks
-      2 warning: #[should_panic] attribute without a reason
-      1 warning: variables can be used directly in the `format!` string
-      1 warning: this method could have a `#[must_use]` attribute
-# Cast warnings by file:
-# Panic-related warnings by file:
-      4 src/lib.rs
-      2 src/tests.rs
-(clippy exit 0)
+# cast, panic, unwrap, indexing or overflow lints, by location:
+  src/dsl_ext_tests.rs:33  casting `i128` to `u64` may truncate the value
+  src/dsl_ext_tests.rs:33  casting `i128` to `u64` may lose the sign of the value
+  src/dsl_ext_tests.rs:40  casting `u128` to `u64` may truncate the value
+  src/dsl_ext_tests.rs:224  casting `i64` to `i32` may truncate the value
+  src/dsl_ext_tests.rs:227  casting `i64` to `u64` may lose the sign of the value
+  src/dsl_ext_tests.rs:228  casting `i64` to `u64` may lose the sign of the value
+  src/dsl_ext_tests.rs:229  casting `i64` to `u128` may lose the sign of the value
+  src/dsl_ext_tests.rs:230  casting `i64` to `u64` may lose the sign of the value
+  src/dsl_ext_tests.rs:231  casting `i64` to `u32` may lose the sign of the value
+  src/dsl_ext_tests.rs:231  casting `i64` to `u32` may truncate the value
+  src/dsl_tests.rs:101  casting `i128` to `u64` may truncate the value
+  src/dsl_tests.rs:101  casting `u128` to `i128` may wrap around the value
+  src/dsl_tests.rs:101  casting `i128` to `u64` may lose the sign of the value
+  src/dsl_tests.rs:950  casts from `u32` to `i128` can be expressed infallibly using `From`
+  src/dsl_tests.rs:1725  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/accuracy.rs:83  casting `u128` to `u64` may truncate the value
+  tests/accuracy.rs:764  casts from `u32` to `i128` can be expressed infallibly using `From`
+  tests/accuracy.rs:821  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/check.rs:250  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/common/mod.rs:30  casting `i128` to `u128` may lose the sign of the value
+  tests/common/mod.rs:30  casting `u128` to `u64` may truncate the value
+  tests/conformance/../common/mod.rs:30  casting `i128` to `u128` may lose the sign of the value
+  tests/conformance/../common/mod.rs:30  casting `u128` to `u64` may truncate the value
+  tests/conformance/_helpers.rs:21  only a `panic!` in `if`-then statement
+  tests/conformance/_helpers.rs:29  only a `panic!` in `if`-then statement
+  tests/install_enforce.rs:777  casting `i128` to `u128` may lose the sign of the value
+  tests/install_enforce.rs:777  casting `u128` to `u64` may truncate the value
+  tests/keyless.rs:432  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/limits.rs:718  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/limits.rs:759  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/oz_abi.rs:256  casting `u32` to `u8` may truncate the value
+  tests/oz_abi.rs:257  casting `u32` to `u8` may truncate the value
+  tests/oz_integration.rs:51  casting `i128` to `u64` may truncate the value
+  tests/oz_integration.rs:51  casting `i128` to `u64` may lose the sign of the value
+  tests/oz_integration.rs:330  docs for function which may panic missing `# Panics` section
+  tests/parity.rs:701  casts from `u8` to `u32` can be expressed infallibly using `From`
+  tests/parity.rs:897  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/parity.rs:909  casting `usize` to `u8` may truncate the value
+  tests/reads_and_clock.rs:60  docs for function which may panic missing `# Panics` section
+  tests/reads_and_clock.rs:95  docs for function which may panic missing `# Panics` section
+  tests/reads_and_clock.rs:134  docs for function which may panic missing `# Panics` section
+  tests/reads_and_clock.rs:138  docs for function which may panic missing `# Panics` section
+  tests/reads_and_clock.rs:215  casting `i128` to `u128` may lose the sign of the value
+  tests/reads_and_clock.rs:215  casting `u128` to `u64` may truncate the value
+  tests/worst_case.rs:81  casting `i128` to `u64` may truncate the value
+  tests/worst_case.rs:81  casting `i128` to `u64` may lose the sign of the value
+  tests/worst_case.rs:190  manual implementation of `midpoint` which can overflow
+  tests/worst_case.rs:301  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/worst_case.rs:317  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/worst_case.rs:362  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/worst_case.rs:366  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/worst_case.rs:433  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/worst_case.rs:457  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/worst_case.rs:465  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/worst_case.rs:473  casting `usize` to `u32` may truncate the value on targets with 64-bit wide pointers
+  tests/worst_case.rs:565  manual implementation of `midpoint` which can overflow
+  tests/worst_case.rs:595  casting `i64` to `u64` may lose the sign of the value
+  tests/worst_case.rs:596  casting `i64` to `u64` may lose the sign of the value
+  tests/worst_case.rs:685  casts from `u32` to `u64` can be expressed infallibly using `From`
+  tests/worst_case.rs:918  casting `u32` to `u8` may truncate the value
+  tests/worst_case.rs:919  casting `u32` to `u8` may truncate the value

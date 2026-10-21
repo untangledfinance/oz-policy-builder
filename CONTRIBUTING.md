@@ -17,48 +17,72 @@ Two toolchains, both pinned:
 bun install
 ```
 
-The [Stellar CLI](https://developers.stellar.org/docs/tools/cli) is only
-needed for deploying or exercising contracts on a live network, not for the
-test suites.
+The [Stellar CLI](https://developers.stellar.org/docs/tools/cli) is needed
+only to deploy or exercise contracts on a live network. The test suites run
+without it.
 
 ## Gates
 
 Every pull request must pass the same gates CI runs. Run them locally first:
 
 ```sh
-# TypeScript
+# TypeScript, in the order CI runs it
 bun run check       # biome lint + format
-bun run typecheck   # tsc --noEmit across the three TS packages
-bun test            # unit + integration suites
-
-# Per-package builds are stricter than the root typecheck; publishing runs
-# them, so CI gates on them too.
+# Build before the typecheck: the CLI and MCP packages read policy-synth's
+# types from its built dist/. The builds are also what publishing runs.
 bun run --cwd packages/policy-synth build
 bun run --cwd packages/policy-builder-cli build
 bun run --cwd packages/policy-builder-mcp build
+bun run typecheck   # tsc --noEmit across the three TS packages
+bun test            # every package's suites in one process
+bun run test:isolated   # each package's tests alone, as prepublishOnly runs them
+bun audit           # dependency advisories
 
 # Contracts (each crate is standalone; no workspace manifest)
-for crate in policy-interpreter test-blend-pool; do
-  ( cd "contracts/$crate" &&
+for crate in policy-interpreter custody-gate execution-adapter test-blend-pool prime-seat; do
+  ( cd "contracts/stellar/$crate" &&
     cargo fmt --check &&
     cargo clippy --all-targets -- -D warnings &&
     cargo test )
 done
+```
 
-# Cross-layer conformance: TS-encoded fixtures must evaluate identically
-# on the Rust interpreter.
-( cd contracts/policy-interpreter && cargo test --release --test conformance )
+In the interpreter crate, run `./build-wasm.sh` before `cargo test`.
+`tests/worst_case.rs` installs the largest rules into the real wasm and fails
+without one. Point `INTERPRETER_WASM` at another build, or set `SKIP_WORST_CASE=1`
+to skip it locally. CI also runs the conformance suite in release mode:
+
+```sh
+( cd contracts/stellar/policy-interpreter && cargo test --release --test conformance )
+```
+
+CI then runs `check-build-hash.sh`, which compares the `build-wasm.sh` hashes of
+the interpreter, the adapter and the seat with `contracts/build-hashes.json`.
+The gate's hash is compared with `deployments/execution-testnet.json`. The
+interpreter's testnet instance in `deployments/interpreter-testnet.json` can lag
+the source until a redeploy, so CI does not compare the build with it. Compare
+hashes from a Linux build.
+
+The interpreter's suite against OpenZeppelin's smart account 0.8.0 is a crate
+of its own, because that account needs a newer test host than the
+interpreter's. It loads the wasm `build-wasm.sh` wrote, so build first:
+
+```sh
+( cd contracts/stellar/policy-interpreter/oz08 &&
+  cargo fmt --check &&
+  cargo clippy --all-targets --locked -- -D warnings &&
+  cargo test --locked )
 ```
 
 ## Style
 
 - TypeScript is formatted and linted by [Biome](https://biomejs.dev)
-  (`biome.json` at the root). Do not hand-format around it.
+  (`biome.jsonc` at the root). Do not hand-format around it.
 - Rust is formatted by `rustfmt` with default settings.
 - Comments earn their place by stating an invariant, a constraint, or a
   deliberate decision the code cannot show on its own. Several files carry
   invariant blocks in their file-level comments (for example
-  `contracts/policy-interpreter/src/dsl.rs`); read them before touching
+  `contracts/stellar/policy-interpreter/src/dsl.rs`); read them before touching
   the code they guard, and do not remove them.
 
 ## Changes to the contracts
@@ -71,10 +95,14 @@ live. In particular:
 - The interpreter's predicate grammar is versioned. A grammar change means a
   new `SELF_VERSION`, new conformance fixtures, and a coordinated release of
   `@crediolabs/policy-synth` (see [Releasing](#releasing)).
-- If you change the TypeScript predicate encoder, regenerate the conformance
-  fixtures (`packages/policy-synth/scripts/gen-conformance-fixture.ts`) in
-  the same pull request, and run `cargo fmt` afterwards so the regenerated
-  Rust file passes the format gate.
+- The TypeScript codec (`packages/policy-synth/src/wire.ts`) is held to the
+  contract's own bytes by `fixtures/parity/grammar.json`, which the contract's
+  `tests/parity.rs` writes. If you change the grammar, regenerate it with
+  `PARITY_WRITE=1 cargo test --test parity` (in the interpreter crate) in the
+  same pull request; the Rust test fails when it is stale and the TypeScript
+  tests fail when the codec disagrees with it. Tests that talk to the network
+  replay `packages/policy-synth/fixtures/rpc/*.json`; `OPB_LIVE=1 bun test`
+  records them again against testnet.
 
 ## Commits and pull requests
 
@@ -102,16 +130,18 @@ core to an exact version (no `^` range).
    the new version heading.
 3. Commit as `chore(release): vX.Y.Z` and make sure CI is green.
 4. Publish in dependency order; `prepublishOnly` builds and tests each
-   package as part of the publish:
+   package as part of the publish. A release that should stay off `latest`
+   adds `--tag next`:
 
    ```sh
    ( cd packages/policy-synth       && npm publish --access public )
    ( cd packages/policy-builder-cli     && npm publish --access public )
    ( cd packages/policy-builder-mcp     && npm publish --access public )
+   # off latest: npm publish --access public --tag next
    ```
 
-5. Verify: `npm view @crediolabs/policy-synth version` returns the new
-   version, and the package page renders the README.
+5. Verify: `npm view @crediolabs/policy-synth dist-tags` shows the new
+   version under the intended tag, and the package page renders the README.
 6. Tag the release commit: `git tag vX.Y.Z && git push origin vX.Y.Z`.
 7. Bump the pin in downstream consumers (internal applications pin
    `@crediolabs/policy-synth` to an exact version).
@@ -125,11 +155,11 @@ The Rust crates are `publish = false`: they are never released to
 crates.io. A contract "release" is a deployment:
 
 - The policy interpreter's live addresses and wasm sha256 are pinned in
-  `packages/policy-synth/src/run/schemas.ts`. Deploying a new interpreter
+  `packages/policy-synth/src/config.ts`. Deploying a new interpreter
   build means a new wasm hash, new instance addresses, updating those pins,
   and releasing the npm packages that carry them.
 - A predicate grammar change additionally bumps `SELF_VERSION`
-  (`contracts/policy-interpreter/src/version.rs`) and regenerates the
+  (`contracts/stellar/policy-interpreter/src/version.rs`) and regenerates the
   conformance fixtures; `install` refuses a grammar version it does not
   speak, so old synthesisers cannot install onto a new interpreter.
 

@@ -1,0 +1,100 @@
+# Keyless rules and the executor binding, Stellar testnet, 20 October 2026
+# Throwaway keys funded by friendbot. Builds checked by sha256 before upload:
+#   policy interpreter                             810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c
+#   custody gate                                   b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab
+#   execution adapter                              4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b
+#   OpenZeppelin 0.8.0 account (upstream 8e25220)  8286422f205951f37f4249401b403471fc432340dde6925432d31bb8a90cce27
+# A refusal is refused in simulation, then submitted with the footprints of earlier simulations, and must fail on chain with the error shown.
+# "binding" = the interpreter's require_auth_for_args for the adapter failed: Error(Auth, InvalidAction), raised by the interpreter
+# (diagnostic events: "Unauthorized function call for address" naming the adapter).
+
+## world
+interpreter      CDSHDZ2PJN34WIFVJG2B3AEXZBXSQAPHOT7RIKVVN6AT76IKM4Y2WFGV  tx bdc71049b6f85c7769fc8056710b4bc876955cf84b2690b50af501ac0755a85f
+prime (account)  CAAQIDVKDVXAQMI5LR2GPSYSPXKI34KCZFRZT7EBYQRVJST3ASCW2P74  tx 445930eb4044f1b26f77d2de594a1a33c8b49b2b008a875335f86d9639a79d10
+custody gate     CAECVTBIRBH5RUUOF7P2CVMQQDV4J3MFZQS62VO6V3HCVXMYI22UGNAN  tx 1de04ece40b55cfddf4ed8e869e2803a2e8dde4f75d2853ad5acf60fec0c7ff3
+adapter (gated)  CAPJ3BPKVBVD72SQRZI3IVIX6XKMP45XKEE7I6UB4SIY725JSOLSJVJA  tx 8f06538a09df0b310a08b163ad07e3e34ee8ab3a43f163800f020c3eeb100627  min_wait 0, window 200
+adapter (none)   CAZZXJUFKMUCSMH63SQ4COORVDB36XLDMVLXEFL4VNOOGMH6AOQTJ6D3  tx 840360bac7de2e55753b2f7435ae63614823ae233a1ed7e41c02e98c6c323d04
+pool             CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF  (test-blend-pool)
+rule  1 venue, no signer, submit with arg0 == Prime and arg1 == adapter    tx e3ef184a1c3c6157d56cadbe05a28d475777c6eede9aa9420d2dc060437d0114
+bind rule  1 -> CAPJ3BPKVBVD72SQRZI3IVIX6XKMP45XKEE7I6UB4SIY725JSOLSJVJA  tx 55c6e8b970406c28e23de8bd1f69c0e83b44ff74fd303010e661d412752c1488
+rule  2 run, no signer, call_fn == run                                     tx d2af17374ef2de2d2e39796fa63d818d53c1f9be2102e765568f866d78b2e4ff
+bind rule  2 -> CAPJ3BPKVBVD72SQRZI3IVIX6XKMP45XKEE7I6UB4SIY725JSOLSJVJA  tx 2e6a6263b026ca7b6f23b2c7509dbcab4e097b6a351d08e1901aced39d48db8d
+rule  3 agent, agent key, execute with wait >= 5                           tx 74e35f8fc8b4813ceab2dda6935b6e7fed32f5649a52cc7a23e9b4ed86e942e2
+rule  4 agent, agent key, execute                                          tx 645e27a496ed1d648673fa07c1bd38f604d8eeb6e4627f41020c999c74758ab7
+rule  5 run shape, no signer, never bound                                  tx b34521a028cee26df83532f592a5c92b0724243ea70e170945fe3f6b1e2548d7
+rule  6 run shape, agent key, bound                                        tx 50e829a00e45ed0c59b29e4c6149895ee8ff6eb519a07317a1bf7e01c54177db
+bind rule  6 -> CAPJ3BPKVBVD72SQRZI3IVIX6XKMP45XKEE7I6UB4SIY725JSOLSJVJA  tx 25a312a7760fce79634c0882d86eb84ac2cf26c6ead08c6216a333f6cf631cab
+rule  7 scoped to the adapter, no signer, call_fn == execute               tx af726dc6390635cace5f0100a72aa29627f8646bbd1f7014aa57d73eed120739
+rule  8 scoped to the adapter, signer = adapter, no policy                 tx 67d2793e004b1c04d3bc07f9392e6da3d5e1cc14e43999851cf76ba373957376
+rule  9 scoped to the adapter, signer = adapter, call_fn == run            tx 23d21085de14875f0229c19060d9c1a951c1277f3ee1ffe8223b3398337cca4f
+rule 10 scoped to the no-gate adapter, no signer, call_fn == run           tx 3b20439991729f79cccfa1bc79fe202c9b5bd6d7fa399c6c364e390137d1f31f
+bind rule 10 -> CAZZXJUFKMUCSMH63SQ4COORVDB36XLDMVLXEFL4VNOOGMH6AOQTJ6D3  tx d5ace70b0953cc07845b11815beb978e12c0d14805e63a12981f4e4465a30eb8
+rule 11 scoped to the no-gate adapter, agent key, execute                  tx fc7e25b9a111b5016718b99b88e011e705a184a476fff4017082f02a977efb2a
+rule 12 scoped to the native token, no signer, transfer from the Prime     tx 60c7461b347b81d604ff97c3fcf580f84331961611cfd3e648ec9788407a10b1
+bind rule 12 -> CAZZXJUFKMUCSMH63SQ4COORVDB36XLDMVLXEFL4VNOOGMH6AOQTJ6D3  tx f7c81c456640a8ae21819c83fd5fa2833bac15098b973c6716512fd26fb8d722
+rule 13 scoped to the no-gate adapter, no signer, call_fn == execute       tx 32cf34befb9a18b8e132b6eb19b1e94a037913d4445e8886010f1b78a41061f9
+
+## rows
+row   case  expect  result  error                            on chain tx
+a1    -     PERMIT  PERMIT  -                                SUCCESS  dde35fa2d762bce50bee0e5fe2e555f5304225d5fa2136be21899e17d2915a5e
+      agent stores a Blend supply batch through the gated adapter, wait 5, with its key
+a2    -     PERMIT  PERMIT  -                                SUCCESS  253926fb89aa76511d8280f3f267f94d9a5745e5a9ca5c4178812661dbc2686c
+      agent stores a recovery pull to the trustee, wait 5, with its key
+n1    1, 7  PERMIT  PERMIT  -                                SUCCESS  91d26840b54c44cabbba391ed9d996a91d9320aceec3d630803c888a040d1c6a
+      keeper runs the stored supply with no key: run rule and venue rule, empty signer map
+      pool balance change: +2000000 stroops
+b1    2     REFUSE  REFUSE  binding                          FAILED   f21d99ae3a75798069b5bc01084c876419d85b83ea38d5fbea5b2328a4c711d2
+      keeper calls execute(recovery, wait 0) with no key, citing the run rule
+b2    2     REFUSE  REFUSE  binding                          FAILED   58db697887c7ae544ef26f0d59fd9c97105de30cb0e457a2ec8641058e0250fc
+      keeper calls execute(supply, wait 0) with no key, citing the run rule and the venue rule
+b3    2     REFUSE  REFUSE  binding                          FAILED   04caff6a0606f635bfe3c88527a260381dbaee0cfc86051df924cdc102ff258b
+      keeper calls execute(recovery, wait 5) with no key, citing the run rule
+b4    3     REFUSE  REFUSE  binding                          FAILED   cbd559ead2ecb37fad5f4b97dac99b1f12c8f69e76652b280f71ddae81cfa9f3
+      keeper calls cancel(2, Prime) with no key, citing the run rule
+b5    2     REFUSE  REFUSE  Error(Contract, #3002)           FAILED   2172caa8a09fb3025d5bedc0068b3183a0611a4e98348482fd7ba194b4ab345e
+      keeper calls execute with no key, citing the venue rule for the adapter context
+b6    2     REFUSE  REFUSE  Error(Contract, #210)            FAILED   4152480c6b87332675208b9ed699d7c35f862f35c882c99e95e174bef24d24a8
+      keeper calls execute with no key, citing the agent rule
+b7    2     REFUSE  REFUSE  Error(Contract, #3002)           FAILED   f12ccea9ec4224ce1e50c2a5fab98e032de2c9d85501fc44f4b0c5fd45ce8541
+      keeper calls execute with no key, citing rule 0
+n2    3     REFUSE  REFUSE  binding                          FAILED   1db8dd4811d3f8ea254bf8b48214d8b56e7e83a049b3d780ad344f6f54614e60
+      keeper calls pool.submit directly, citing the keyless venue rule
+n6    -     REFUSE  REFUSE  Error(Contract, #210)            FAILED   37a04492c6cea0e3edc9c832ef6a511ecee285dbd204b395724980e19a66f9fe
+      keeper runs batch 2 under a keyless rule that was never bound
+n7    -     REFUSE  REFUSE  Error(Contract, #210)            FAILED   67d7423e35469073261158b19d8e23969b24452df39fc6c7d6b963ea41bd310d
+      keeper runs batch 2 under a bound run rule that lists the agent, the agent left out
+n4    6     REFUSE  REFUSE  Error(Contract, #221)            FAILED   0b27f1d507101959f7c6e08a8b89485e13e6f35e871653ae9cc8dcb0a7df0ead
+      owners and admin call bind_executor on a rule scoped to the adapter with call_fn == execute
+n4b   6     REFUSE  REFUSE  Error(Contract, #210)            FAILED   ef06b3c002a5bf664879925c00467a3396b4eeda12ebe113577ce83f546d1d0e
+      keeper calls execute under that rule, which stays unbound
+n5    6     REFUSE  REFUSE  Error(Contract, #221)            FAILED   17cfaba717a618c194dfa1194245c429cf60eb6a14299b8c01d9d7e72bbe80d7
+      owners and admin install the bound run rule again with call_fn == execute
+n3    5     REFUSE  REFUSE  Error(Contract, #3004)           FAILED   f13870a590a0591c375d6a8905646d00de4d0e5da01170e02d8327d6ad2fab49
+      owners call remove_policy on the keyless run rule
+c1    4     REFUSE  REFUSE  Error(Contract, #3017)           FAILED   019dd3402a77c57c359ed022f47d5e480500769f3a1ce628d5e1d65764311a66
+      keeper calls execute under an owner-built rule whose signer is the adapter, no policy
+c1b   4     REFUSE  REFUSE  Error(Contract, #3017)           FAILED   0b574a7e86a037013d4674b05f8faa517133aade5f5402e4a50a8178ae12ae70
+      keeper runs batch 2 under a run rule whose signer is the adapter, predicate call_fn == run
+      trustee balance change across b1 to c1b: 0
+n9    7     PERMIT  PERMIT  -                                SUCCESS  c423b8bd5fd1380fb6a5932956e22002b0834b50932a75aeedf02bfee48f03dd
+      agent calls execute(supply, wait 0) with its key; the venue context under the keyless bound venue rule
+      pool balance change: +2000000 stroops
+n8a   8     REFUSE  REFUSE  binding                          FAILED   b7d784cfd6b3be28ab98f89def82bbd2cf074e6686089d39ddaeb6becb1b8752
+      keeper calls execute([], [], 0) on the no-gate adapter, under a keyless run rule bound to it
+n8b   8     REFUSE  REFUSE  Error(Contract, #5)              FAILED   0d93a8491a080a8881ddd65d494e2ea108e4c5e01c8008e96de0b61b2555eb97
+      keeper calls run(1) on the no-gate adapter
+n8c   8, 6  REFUSE  REFUSE  Error(Contract, #221)            FAILED   03396e315173d06d377218521eba528bd15a889f9dd3bc647ff01e34bea0045a
+      owners and admin call bind_executor on a rule scoped to the no-gate adapter with call_fn == execute
+n8d   8     REFUSE  REFUSE  binding                          FAILED   c24504725fec664931f010a38396c21b52acbdd5d93912bba33e1805de8ebf8e
+      agent calls execute on the no-gate adapter paying the trustee from the Prime: agent rule plus a keyless token rule bound to that adapter
+n8e   8     REFUSE  REFUSE  Error(Contract, #3)              FAILED   55b9cb6d8400e1825618f0d982f05ccc3e40cade70ce1770f8631428fba3cbb0
+      the same with the token grant in the batch
+      balances across n8a to n8e: Prime 0, trustee 0
+      setup for n5b: owners and admin install the run rule again with call_fn == execute and the scope misstated as the pool; install accepts it  tx da6bf34484d4acd7cbe4bf08a34104763fcc503cc800429b2bd6655d12081ba3
+n5b   6     REFUSE  REFUSE  Error(Contract, #221)            FAILED   77f5c3b3fccb80136b71a6cc4816f432733222fc1b4e50961ffc0cdbc7974a73
+      keeper calls execute under the run rule after the owners and admin installed it again with call_fn == execute and the scope misstated as the pool
+n5c   6     REFUSE  REFUSE  Error(Contract, #221)            FAILED   40f09f56942d0b6239fc64b83a640f36d95b465afae367496ba073a078df302c
+      keeper runs batch 2 under that rule
+      trustee balance change across every row from b1: 0
+
+RESULT 27 of 27 rows as expected. The trustee gained nothing across the refused rows, and the Prime's balance held across n8a to n8e.

@@ -1,7 +1,5 @@
-// End-to-end check of the execution adapter's address rule - the v4 adapter,
-// run with no wait, which is exactly the rule and the batch the v3 adapter had -
-// against a REAL Prime smart account
-// and live venues on testnet.
+// End-to-end check of the execution adapter's address rule, with a batch run at
+// once (no wait), against a REAL Prime smart account and live venues on testnet.
 //
 // It stands up a fresh Prime, a custody gate and the adapter bound to it, then
 // runs the legitimate flows and every refusal the pair is supposed to produce.
@@ -9,7 +7,7 @@
 //
 //   bun scripts/verify-execution-address-rule-testnet.ts
 //
-// Reads the shared grammar-6 interpreter from deployments/grammar6-testnet.json;
+// Reads the shared policy interpreter from deployments/interpreter-testnet.json;
 // every account it uses is created and funded fresh.
 
 import { readFileSync } from 'node:fs'
@@ -26,7 +24,6 @@ import {
   XdrLargeInt,
   xdr,
 } from '@stellar/stellar-sdk'
-import { PINNED_INTERPRETER_TESTNET_ADDRESS } from '../packages/policy-synth/src/run/schemas.ts'
 import {
   ACCOUNT_WASM_HASH,
   addRuleArgs,
@@ -62,8 +59,10 @@ import {
 /** Live Aquarius XLM/USDT pool, and the token it pays out in. */
 const AQUA = 'CCMNSENXDBNJSY72BDIPH5CCXLLHBKZ4LXTRKDLKZN4UI2NJFQLWTLD6'
 const OUT = 'CDPXNHHVSLX3HFAHV7XOISM23MZH36WSXTO45RNDOBIDFZBGTSOVD4OY'
-/** The salt domain custody uses to find the adapter before it is deployed. */
-const DOMAIN = 'prime.execution.adapter.v4'
+/** The salt domain custody uses to find the adapter before it is deployed.
+ *  The adapter hashes it with the XDR of the tuple (gate, min_wait,
+ *  run_window). The string is data: it must match the adapter source. */
+const DOMAIN = 'prime.execution.adapter.v5'
 /** No wait, and a window that never matters: this script is about the address
  *  rule. `verify-execution-wait-testnet.ts` covers waiting. The adapter's address
  *  commits to both, so they are part of its salt. */
@@ -71,12 +70,7 @@ const MIN_WAIT = 0
 const WINDOW = 100
 const adapterSalt = (gate: string) =>
   hash(
-    Buffer.concat([
-      Buffer.from(DOMAIN),
-      addr(gate).toXDR(),
-      u32v(MIN_WAIT).toXDR(),
-      u32v(WINDOW).toXDR(),
-    ])
+    Buffer.concat([Buffer.from(DOMAIN), vec([addr(gate), u32v(MIN_WAIT), u32v(WINDOW)]).toXDR()])
   )
 const NAMES: Record<string, string> = {
   '1': 'PrimeTarget',
@@ -104,7 +98,7 @@ const contractId = (deployer: string, salt: Buffer) =>
 
 let fails = 0
 const interpreter: string = JSON.parse(
-  readFileSync(new URL('../deployments/grammar6-testnet.json', import.meta.url), 'utf8')
+  readFileSync(new URL('../deployments/interpreter-testnet.json', import.meta.url), 'utf8')
 ).interpreter
 const sac = Asset.native().contractId(PASSPHRASE)
 
@@ -149,8 +143,8 @@ for (const w of [gateWasm, adapWasm]) {
 
 // Custody picks its salt first, which fixes both addresses before either
 // contract exists - so the two parties can deploy in any order.
-const gateSalt = hash(Buffer.from(`v3.gate.${Date.now()}`))
-const secondSalt = hash(Buffer.from(`v3.gate2.${Date.now()}`))
+const gateSalt = hash(Buffer.from(`gate.${Date.now()}`))
+const secondSalt = hash(Buffer.from(`gate2.${Date.now()}`))
 const gate = contractId(CUSTODY, gateSalt)
 const gate2 = contractId(CUSTODY, secondSalt)
 const adapter = contractId(prime, adapterSalt(gate))
@@ -238,7 +232,7 @@ for (let i = 0; i < 5 && poolRule === 0; i++) {
         'add_context_rule',
         addRuleArgs({
           scope: POOL,
-          name: `v3-pool-${i}`,
+          name: `pool-${i}`,
           signer: adapter,
           interpreter,
           adminPk: K.admin.publicKey(),
@@ -553,9 +547,9 @@ await go('a 64-byte signature', pay(xdr.ScVal.scvBytes(Buffer.alloc(64, 7))), 'P
 await go('a short memo', pay(xdr.ScVal.scvString('settlement 42')), 'PASSES')
 
 console.log(C.bold('\n── inside an authorization ──'))
-// Any live contract the gate does not name: the grammar-4 testnet interpreter the
-// packages pin, which no gate lists as a destination.
-const UNLISTED = PINNED_INTERPRETER_TESTNET_ADDRESS
+// Any live contract the gate does not name: an earlier testnet interpreter this
+// project deployed, which no gate lists as a destination.
+const UNLISTED = 'CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5'
 await go(
   'an auth entry naming an unlisted contract',
   {

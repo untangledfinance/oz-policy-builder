@@ -1,0 +1,23 @@
+{
+  "note": "OpenZeppelin stellar-contracts v0.7.2 policies deployed by us (OZ example code, third-party, not audited by us). A rule scoped to one of these would hand its signers the account-auth half of that contract's admin calls (set_threshold, install, uninstall), so the builder refuses it. packages/policy-synth/src/config.ts lists the same addresses; config.test.ts holds the two together.",
+  "wasmSha256": {
+    "spending_limit": "9ce30ea1fe5c2dc5c9c49cf3462adb32e2c11d7dfadb15ef43a51ba56568de2b",
+    "simple_threshold": "01c0be09eb6fb288cab2e878b4e890f7a38f75afab99aeb197861f44e2e2dfe6",
+    "weighted_threshold": "78030272b06afb09d2949ab8877c9a8ae1ab9025b48f4edafd5816cc44f76eaa"
+  },
+  "testnet": {
+    "spending_limit": "CDH4KOBRUEZI6TTZ72YXR5YUIODB6RH3AF75KX56Z73DELRCA5TWFISP",
+    "simple_threshold": "CAYTIVQOEZDOQI4GC3XBXEEYHQUANQQJHPJVMXVRBREGSAP6TCN3DID6",
+    "weighted_threshold": "CCTNRFZCL45GTJICA3Z2KFQO3VEGBHGCVBLHQ3GLJKAGACQIJMYJS7T2"
+  },
+  "mainnet": {
+    "spending_limit": "CA7IBD266HIHFDUIBZLPIAITJUA3DVY4JAG6K3QMGBKLZCXXLP5E2F7A",
+    "simple_threshold": "CDOGPGUFGGUDG25P3TG6XIXJKRRYOZ3PXUZIEPVH74KXRZIDKZ5HYEOS",
+    "weighted_threshold": "CDWPZ4YZ3YIJ64XSHRMERRF2L2H7XD6SPUZDP3KI56T7QXQCICC25V3J"
+  },
+  "sources": {
+    "simple_threshold": "packages/policy-synth/src/config.ts; testnet: evidence/oz-threshold-live.log, git show archive/spike-final:contracts/prime/spike/setup1.ts, line 12",
+    "weighted_threshold": "git show 9c93592:packages/policy-synth/src/run/schemas.ts (PINNED_OZ_POLICY_ADDRESS_BY_NETWORK)",
+    "spending_limit": "packages/policy-synth/src/config.ts"
+  }
+}

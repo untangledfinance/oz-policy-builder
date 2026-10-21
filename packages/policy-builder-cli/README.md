@@ -1,80 +1,57 @@
 # @crediolabs/policy-builder-cli
 
-Command-line wrapper around
-[`@crediolabs/policy-synth`](https://www.npmjs.com/package/@crediolabs/policy-synth):
-record a Soroban transaction and synthesise the minimal policy that permits
-exactly that flow, from a shell or a CI job.
-
-## Install
+Command line for the OZ Policy Builder. Every tool of
+[`@crediolabs/policy-synth`](../policy-synth/README.md)
+is a command, registered from its table.
 
 ```sh
-npm install -g @crediolabs/policy-builder-cli
-# or run without installing
-bunx @crediolabs/policy-builder-cli record --network testnet --hash <tx>
+npm install -g @crediolabs/policy-builder-cli@3.0.0
 ```
-
-The binary is `policy-builder`.
-
-## Commands
-
-### `record`
-
-Decode a transaction into a `RecordedTransaction`:
 
 ```sh
-policy-builder record --network mainnet --hash <transaction hash>
-policy-builder record --network testnet --xdr  <base64 envelope XDR>
+policy-builder <tool> [json | --file path | - | --field value ...] [--out path]
 ```
-
-Exactly one of `--hash` (fetched over RPC) or `--xdr` (decoded locally) is
-required.
-
-### `declare`
-
-Build a predicate from a stated constraint, with no transaction to record:
 
 ```sh
-policy-builder declare --network mainnet --fn transfer --token native --max-amount 1000000 --to <G...>
+policy-builder record --network testnet --hash <tx>
+policy-builder synthesize --network testnet --hash <tx> --limit 5000000
+policy-builder synthesize '{"intent": {"calls": [{"contract": "C...", "fn": "pay", "where": [{"constraint": "cap", "at": [0], "max": "100"}]}]}}'
+policy-builder verify --file verify.json
+policy-builder info --verifyLive true
+policy-builder review --network testnet --xdr <unsigned XDR>
 ```
 
-Required: `--network <mainnet|testnet>` and `--fn <method>`.
+Call a tool by its full name or by a unique start or end of it (`record`,
+`synthesize`, `simulate`, `verify`, `install`, `revoke`, `info`, `review`). Input is a JSON
+argument, `--file`, `-` (stdin) or `--field value` pairs (a value that is JSON is
+read as JSON). One JSON envelope goes to stdout, the same one the MCP server
+returns: `{ ok: true, data }` or `{ ok: false, error: { code, message, severity,
+retryable } }`. The exit code is 0, 1 for a refusal and 2 for bad usage; `--out`
+also writes the envelope to a file.
 
-Optional flags: `--token <native|C...>` (contract address), `--max-amount <value>` (smallest unit),
-`--to <G...,G...>` (comma-separated recipient allowlist), `--amount-arg <n>` (argument index for amount),
-`--to-arg <n>` (argument index for recipient), `--allow-zero-cap` (allow zero-valued caps).
+The CLI holds no key material and signs nothing: `install` and `revoke` return
+unsigned XDR. The operator's settings are environment variables:
+`POLICY_BUILDER_RPC_URL_<NETWORK>`, `POLICY_BUILDER_OUT_DIR`,
+`POLICY_BUILDER_SAFE_READS_<NETWORK>`,
+`POLICY_BUILDER_ALLOW_SPOT_READS`, `POLICY_BUILDER_ALLOW_OVERRIDES` (outside
+testnet an `allow*` override is honoured only with it set to 1), and the bounds on what a wallet signs,
+`POLICY_BUILDER_AUTH_LEDGERS` (default 300) and `POLICY_BUILDER_MAX_RESOURCE_FEE`
+(default 10 XLM). The tools, their limits and the install
+guardrails (threshold or `anyOne`, the spending-limit guard, the read-safety lint,
+the overlap scan) are described in the policy-synth README.
 
-### `synthesize`
-
-Produce a `ProposedPolicy` from a recorded transaction:
-
-```sh
-policy-builder synthesize --network mainnet --recorded-tx recorded.json
-```
-
-`--recorded-tx` accepts either a bare `RecordedTransaction` or the
-artifact `record --out` writes, so `record --out tx.json` followed by
-`synthesize --recorded-tx tx.json` works end to end. Add `--explain` to
-include the human-readable review card and predicate tree in the output.
-
-Every command prints a single JSON envelope to stdout: the result on success,
-a machine-readable error object (stable `code`, `severity`, `retryable`) on
-failure. That makes the output safe to pipe and to assert on in CI.
-
-## Beyond the three commands
-
-Verification, simulation, install and revoke are part of the same core; drive
-them from
-[`@crediolabs/policy-builder-mcp`](https://www.npmjs.com/package/@crediolabs/policy-builder-mcp)
-or call `@crediolabs/policy-synth/run` directly. The CLI stays deliberately
-small: the three commands that fit a pipe.
-
-## Security model
-
-The CLI holds no key material and signs nothing. See the
-[Stellar technical document](https://github.com/untangledfinance/oz-policy-builder/blob/main/docs/stellar.md)
-for what the on-chain interpreter does and does not enforce, and the
-[repository README](https://github.com/untangledfinance/oz-policy-builder#readme) for
-the contracts' audit status.
+`policy-builder review` is for the account owner: it reads an unsigned install or
+removal from its bytes alone, with no RPC. It lists the problems it finds in the
+bytes (`problems`, `signable`), then a review rebuilt from those bytes: the
+transaction, the Authority node and the predicate. `signable` does not mean safe:
+an agent can rewrite the bytes consistently, so the owner reads the Authority
+node against what they meant (see "The owner's review" in the policy-synth
+README).
+A rule with a contract signer reads as a problem offline; `--readContracts
+true` reads each one off the ledger through the operator's RPC. Then only an
+adapter bound to no gate, an adapter signing a rule scoped to itself that does
+not pin `call_fn = run`, or an undeployed contract is flagged, and every other
+contract reads signable unvetted: the owner checks who controls it.
 
 ## License
 

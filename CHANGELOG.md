@@ -1,717 +1,167 @@
 # Changelog
 
-Notable changes to the published packages. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the three npm
-packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
-`@crediolabs/policy-builder-mcp`) version together.
+The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`,
+`@crediolabs/policy-builder-mcp`) share one version number. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [3.0.0] - 2026-10-21
 
-### Added
+The three packages at 3.0.0 are this repository at tag `v3.0.0`, the tree the
+external audit covers. The version is a major bump because of the changes under
+"Changed (breaking for callers that rely on the old behaviour)".
 
-- **Prime contracts on mainnet:** `scripts/deploy-prime-mainnet.ts` uploads the
-  gate, adapter and interpreter code, creates the grammar-6 interpreter, and
-  extends the three uploaded code entries and the interpreter instance. It
-  runs as a dry run unless given `--execute` and a fee cap, refuses code whose
-  hash differs from the pinned builds, and rehearses on testnet with
-  `--network testnet`. Run on 1 October 2026: the interpreter is
-  `CAOBQ4ZX…XO2R`, fees came to 158.36 XLM, and every transaction is in
-  `deployments/prime-mainnet.json`. No job keeps mainnet entries live; see
-  "Keeping contracts live" in `docs/stellar.md`. On 11 October 2026 the
-  adapter build `3dd675c0…` was uploaded and its code entry extended (47.76 XLM);
-  the transactions are in the same file.
+### Packages
 
-- **`execution-adapter` (v4): a batch can wait:** `execute(calls, grants, wait)`
-  runs at once when `wait` is 0, as v3 does. With a wait it stores the batch,
-  and anyone can `run(id)` it from the ready ledger until the run window closes.
-  The Prime or the custody account can `cancel(id, by)` it first.
-  - `min_wait` binds every caller, including rule 0. `run_window` is set when
-    the adapter is created.
-  - The adapter's address commits to both numbers, and its constructor refuses
-    any other address, so the Prime cannot create it at the address custody
-    derived for a higher `min_wait`.
-  - A rule can demand its own minimum wait with `call_arg(2) >= N`.
-  - A stored batch runs under a Prime rule scoped to the adapter, signed by the
-    adapter, whose predicate permits `run` alone.
-  - The gate is the unchanged v3 contract.
-  - Verified end to end on testnet by `scripts/verify-execution-wait-testnet.ts`.
+- **policy-synth:** turns a recorded Soroban transaction, or a mandate stated as
+  data, into a policy-interpreter rule that permits exactly that. It checks the
+  rule with the interpreter's own `check`, simulates it against a set of deny
+  cases, and builds the unsigned transaction that installs or removes it on an
+  OpenZeppelin smart account. `review_unsigned` reads an unsigned install back
+  from its bytes alone, so the owner can see what they are about to sign.
+- **policy-builder-cli** and **policy-builder-mcp:** the same eight tools
+  (`record_transaction`, `synthesize_policy`, `simulate_policy`,
+  `verify_policy`, `install_policy`, `revoke_policy`, `get_interpreter_info`,
+  `review_unsigned`) from a command line, and from an MCP server over stdio and
+  loopback HTTP. Both pin `@crediolabs/policy-synth` at exactly 3.0.0.
+- The packages pin one interpreter instance on Stellar testnet, `CDZV4AG4…`,
+  which runs wasm `69cad1d5…`. The keyless rules below are in the interpreter
+  source of this tree (`810f53f1…`); a new testnet instance from it will replace
+  the pin.
 
-- **Reproducible builds for the gate and the adapter:** each crate has a
-  `build-wasm.sh`, like the interpreter's; the Linux builds are uploaded to
-  testnet and recorded in `deployments/execution-testnet.json` by
-  `scripts/upload-execution-testnet.ts`, and CI rebuilds both and compares them
-  with the record. The Prime app pins these hashes.
+### Changed (breaking for callers that rely on the old behaviour)
 
-- **`scripts/verify-gate-list-testnet.ts`:** stands up a Prime, a gate that lists
-  the Prime account (as the app's wizard does) and an adapter, then runs the
-  owners' rule 0: a pull to an unlisted stranger is refused, a pull to the Prime
-  is paid, and the Prime pays the stranger from it with no wait. 3 of 3 on
-  `3dd675c0…`; the log is `evidence/execution-gate-list-testnet.log`.
+- **Overrides outside testnet:** a request that sets `allowOverlap`,
+  `allowUnboundedAmount`, `allowOpenSlippage`, `anyOne` or `allowAdminRule` to
+  `true` is refused before the network is asked, unless the operator sets
+  `POLICY_BUILDER_ALLOW_OVERRIDES=1`. 2.0.1 honoured these flags on every
+  network. Testnet still honours them.
+- **Refusal texts:** no refusal names the flag that would waive it, so a caller
+  matching on "Set allowOverlap" or "`anyOne: true`" no longer matches. Twelve
+  diagnostic messages were also reworded.
+- **Environment values:** a malformed `POLICY_BUILDER_AUTH_LEDGERS` or
+  `POLICY_BUILDER_MAX_RESOURCE_FEE` (anything but a whole number in range)
+  refuses every install and revoke with `INVALID_INPUT` (and the new
+  `review_unsigned`, which reads both). An empty value means the default.
+- **Resource fee ceiling:** a build whose resource fee is above 10 XLM is
+  refused unless the operator raises `POLICY_BUILDER_MAX_RESOURCE_FEE`. 2.0.1
+  built it.
+- **New refusals under "Fixed":** some fixes below also refuse requests that
+  2.0.1 built. These are a contract signer that is not deployed, an execution
+  adapter with no gate as a signer, an adapter with a gate signing a rule scoped
+  to itself whose predicate does not pin `run`, an RPC auth tree that is not
+  the built call, and a recording whose envelope hashes to another transaction.
+  The MCP server also answers a `tools/call` with more than 10,000 input
+  elements with `isError`. Those are all the refusals of requests 2.0.1 served
+  that we found in the changes since 2.0.1, beyond the four above.
 
-- **The wait and address-rule verifiers on `3dd675c0…`.** 45 of 45 and 35 of 35 on
-  testnet, in `evidence/execution-wait-testnet-3dd675c0.log` and
-  `evidence/execution-address-rule-testnet-3dd675c0.log`. The 2026-09-29 logs
-  stay as the record of the earlier build they ran against.
+### Coming from 1.x
 
-### Fixed
-
-- **The adapter keeps itself and its stored moves live:** soroban creates every
-  entry with the network's minimum lifetime - about 7 days on testnet, 120 on
-  mainnet - and a write does not extend it. `execute` and `run` now extend the
-  adapter's instance to about 30 days once fewer than about 7 remain, and a
-  stored move is extended to last until its run window closes, capped at the
-  network maximum. Build `68d012e7…`; the two earlier v4 builds are still
-  recognised. On testnet the rest of what a Prime depends on is kept live from
-  outside, by OctoPos's `apps/web/scripts/keep-alive.ts`.
-
-### Security
-
-- **`execution-adapter` refuses a muxed address (#4):** the address walk passed
-  any host object it could not read, and a muxed address is one: a token's
-  `transfer` takes its recipient as a `MuxedAddress` and credits the account
-  behind it. A batch could therefore pay an account the gate never listed, now
-  or as a stored move, wherever a rule left the recipient to the gate's list.
-  The walk now refuses every host object outside numbers, times, symbols,
-  addresses, vectors, maps, bytes and strings (`Uncheckable`), and refuses
-  69-byte data (`AddressNotAllowed`), the length of an `M` strkey a venue could
-  decode. The first build with this fix, `eefcfdd7…` (24,027 bytes), is on
-  testnet and no gate uses it. Verified on testnet by
-  `scripts/verify-execution-muxed-testnet.ts`: the earlier build pays a stranger
-  written as a muxed address and accepts the same batch as a stored move, and the
-  fixed build refuses both (`evidence/execution-muxed-testnet-before.log` and
-  `-after.log`). A stored batch was accepted on chain and never run there; a
-  unit probe shows it paying on `run`.
-
-- **`execution-adapter` refuses an address passed as XDR bytes (#6):** data of
-  40, 44 and 48 bytes must equal the XDR of an allowed address: those are the
-  lengths of a contract address, an account address and a muxed address as a
-  venue's `from_xdr` reads them. A test now covers `run` refusing a stored
-  muxed batch. This is build `3dd675c0…` (24,118 bytes), recorded in
-  `deployments/execution-testnet.json` and the build `main` produces. A gate
-  pins its caller's code hash, so a gate set up for an earlier build keeps that
-  build until custody makes a new gate. Two limits of an address walk that cannot read a venue's ABI stay open and are
-  documented: a `U256` can carry 32 key bytes, and a listed venue that decodes
-  a `Vec<Address>` or an `(Address, u32)` out of bytes passes the walk.
-
-- **`@modelcontextprotocol/sdk` 1.32.1 and `proxy-addr` 2.0.8:** clears
-  GHSA-6qxp-vccf-f47h (the SDK's OAuth client) and GHSA-jqcg-44mw-7w3h
-  (`proxy-addr`, through the SDK's `express`), which turned `bun audit` red.
-  `@crediolabs/policy-builder-mcp` uses the SDK's server transports only, so
-  neither code path served its requests. `proxy-addr` is pinned through the
-  root `overrides`.
-
-### Changed
-
-- **Threat model re-run (11 October 2026), and the evidence regenerated against
-  `c520ac1`.** `evidence/stride-threat-model.md` re-examines the adapter's
-  deny-by-default walk, adds the difference between the build on `main` and the
-  builds deployed on each network as a threat in its own right, and records each
-  finding's status. The six local logs were regenerated, and `evidence/README.md`
-  says which build each log covers. `deployments/execution-testnet.json` says
-  which build it holds and records the interim testnet build `eefcfdd7…`.
-  `docs/architecture.md` no longer says the Prime's signers can pay only the
-  recovery address: the gate pays any address on its list. The README,
-  `SECURITY.md`, `docs/stellar.md` and the adapter README say that a deployed
-  build can lag `main` and state the two limits of the address walk.
-
-- **Contract folders carry no version:** `contracts/custody-gate-v3` is now
-  `contracts/custody-gate` and `contracts/execution-adapter-v4` is
-  `contracts/execution-adapter`, with the crate names to match. The on-chain
-  conventions are unchanged: the adapter's salt domain is still
-  `prime.execution.adapter.v4`. `scripts/verify-execution-v4-testnet.ts` is now
-  `scripts/verify-execution-wait-testnet.ts`.
-
-### Removed
-
-- **`execution-adapter-v3`:** the Prime app now sets new gates up for v4, and
-  v4 with no wait is v3's rule and batch. Its source is kept at tag
-  `archive/execution-adapter-v3`; deployed v3 pairs are unaffected. The
-  address-rule verifier moved to v4 as
-  `scripts/verify-execution-address-rule-testnet.ts` (35 of 35 on testnet), and
-  `deploy-grammar6-testnet.ts` uploads the v4 adapter.
-
-### Removed
-
-- **Every contract generation but the latest:** `contracts/` now holds the
-  grammar-6 `policy-interpreter`, the v3 pair `custody-gate-v3` and
-  `execution-adapter-v3`, and the `test-blend-pool` test double. The v1 and v2
-  gate and adapter (`custody-gate`, `execution-adapter`), `execution-policy`,
-  and the probes `execution-test-venue` and `invoker-auth-probe` are gone from
-  `main`, together with the scripts that only drove them
-  (`e2e-grammar6-testnet`, `stateless-execution-testnet`,
-  `verify-atomic-cosign-testnet`, `verify-amount-bands-testnet`,
-  `verify-invoker-auth-testnet`, `deploy-stateless-mainnet`). Their source is
-  kept at tag `archive/contracts-before-v3-only`; the deployed instances are
-  unaffected, and the evidence docs that ran against them say where to find it.
-- **The `prime` demo CLI** (`scripts/prime.ts`, `scripts/prime/`, the `prime`
-  and `prime:build` package scripts and `scripts/.env.example`). The helpers the
-  v3 verifier shares moved to `scripts/lib/chain.ts`, and the verifier now reads
-  the grammar-6 interpreter from `docs/grammar6-testnet-deployment.json` instead
-  of the CLI's state file.
-
-### Changed
-
-- **`docs/` holds three documents:** `docs/architecture.md` describes the
-  custody setup on Stellar and EVM for an institutional reader, and
-  `docs/stellar.md` and `docs/evm.md` carry the technical detail. The
-  superseded proposals, the evidence write-ups for retired contract
-  generations, the devlog, the audit handover and the STRIDE report were
-  removed; they stay readable at tag `archive/contracts-before-v3-only` and at
-  `d89e17b`. Files that code reads moved out of `docs/`: the grammar-6 record
-  to `deployments/grammar6-testnet.json`, the audit logs and their provenance
-  note to `evidence/`, and the stateless-execution receipts to
-  `evidence/stateless/`. The release procedure moved into `CONTRIBUTING.md`.
-- `scripts/deploy-grammar6-testnet.ts` uploads the v3 gate and adapter.
-- The pre-v3 adapter's projection fixtures moved into policy-synth, which still
-  checks its encoder against them.
-
-### Fixed
-
-- **The interpreter's wasm-parity CI step checks the grammar-6 instance it
-  builds.** It compared the source against `PINNED_INTERPRETER_WASM_SHA256`,
-  which names the grammar-4 instances the packages still target, so it had
-  been red since grammar 6 arrived. It now compares against
-  `docs/grammar6-testnet-deployment.json`. That instance
-  (`CDPR5VTX…`, wasm `a7ef48e3…`) was uploaded from a bare cargo build; a
-  bare build of `931514b` on the deploying machine reproduces `a7ef48e3…`
-  exactly, and `build-wasm.sh` on the same source under Linux gives
-  `5143e641…`, now recorded beside it. `build-wasm.sh` is reproducible across
-  Linux machines only: macOS builds different bytes from the same source, so a
-  hash to compare with CI must come from a Linux build. A later rustfmt reflow of `dsl.rs` had moved the build
-  off that hash with no change in behaviour; three `#[rustfmt::skip]` marks
-  hold the deployed layout until the next redeploy.
-  `deploy-grammar6-testnet.ts` now builds the interpreter through
-  `build-wasm.sh`, so the next record's hash is checkable as it stands.
-- **`execution-adapter-v3.rebind` refuses a successor that cannot answer
-  `custody()`.** It used to store whatever address it was given. `execute`
-  reads `allowed` from the binding and `rebind` reads `custody` from it, so an
-  address answering neither left the adapter unusable AND unrebindable - and
-  the Prime cannot deploy a replacement, because an OZ smart account deploys
-  exactly one contract through rule 0. One custody signature on a mistyped
-  argument was final. Reproduced on testnet before the check: rebound to a SAC,
-  both the next `execute` and the next `rebind` failed
-  `Error(Value, InvalidInput)` for good. Found by the STRIDE re-run
-  (`docs/stride-threat-model.md`, C9-D.2). Adapter wasm sha256 is now
-  `5be8b08eefe704970fbb51612ef4f6222df3d4b0f2ab6704544e761e3576e708`
-  (was `0e088421f568a9d8667cfcbd7ecb5fe93b71268c4463b2605df11059deb67714`);
-  the gate is unchanged at
-  `2788f05bfef003d04cc189192e31c2f7469b21b7990c0edebad91ed3fa34824f`. A gate
-  pins its caller's code hash, so an existing gate keeps releasing only to the
-  OLD adapter: adopting this build means a new gate and adapter generation for
-  an account already on v3. Note the hash moves on a comment-only edit -
-  `panic_with_error!` embeds source locations - so a wording change in
-  `lib.rs` is a new build with a cost.
-- **`custody-gate-v3` and `execution-adapter-v3` are in the CI matrix:** their
-  unit tests existed and had never run on a push, on the two contracts that
-  stand between an agent and custody's money. Adding them surfaced two gate
-  failures already red on `main`: `cargo fmt --check` on the interpreter and
-  `cargo clippy -D warnings` on the adapter, both fixed.
+npm's `latest` moves from 1.3.0 to 3.0.0. 2.0.0 and 2.0.1 went out under the
+`next` tag only, and 2.0.1 is older than this release, so move straight to
+3.0.0. The 1.x packages build rules in an older predicate format for an older
+interpreter. The interpreter 3.0.0 pins refuses an install in a format version
+it does not speak, and 3.0.0 refuses any testnet interpreter but its pin, so
+record or declare each rule again and synthesise, verify and install it with
+3.0.0. Rules already installed through 1.x stay with the interpreter instance
+they were installed on. The package API also changed in 2.0.0: the eight tools
+above and the exports of the package root are the surface.
 
 ### Added
 
-- The grammar-version-5 interpreter (Policy Signer role separation) is
-  deployed on both networks from one reproducible build:
-  mainnet `CCGFE6MRWC3D6IVGBK642HX3ZGKTGCNRZ7V2QGIFH3EL7EHUAMYNOLMP`,
-  testnet `CAZ2PZD5356ZWK2FXQMNHV355JH2TGBR74KLO2U76DMMSHWVC657MD2H`,
-  wasm sha256 `9b2080f10706bf8b55f049854494493d91021fbc758c2f182ef09e3b3eef97de`.
-  The package pins still point at the grammar-4 instances: the synthesiser
-  does not yet encode `policy_admins`, and a v4 document is refused by the
-  v5 version gate in both directions. Pins move when the encoder does.
-- **Prime execution layer (batch-only venue policies):** new generic executor
-  contract (`execute(prime, calls)`, immutable per-Prime binding) and
-  `ExecutionPolicy` that closes the direct-call bypass by in-transaction
-  ARMING: the `execute` context validates the whole batch and arms single-use
-  records; each nested context consumes one or is denied `#900`. Records key on
-  the executor (one mandate = one policy on N separately-scoped rules).
-  `buildBlendExecutionMandate` (install/venue-execution-mandate) compiles a
-  Blend supply/withdraw action into the ExecutionPolicy config. Verified on
-  testnet, real multi-rule OZ account, 13/13 (supply/withdraw + the standalone
-  direct pull denied `#900`). Executor wasm
-  `8e99693479f7132345d1dc09eecd71e93650d32e0e88a1e5a4ed9c97a01e2028`, policy
-  `8ad3ef0594b47a4d301f0af807491fe7c7983acd336af27ce883c95203366a42`. Not yet
-  on mainnet; publish + mainnet activation pending review.
-
-## [1.3.0] - 2026-09-01
-
-### Changed
-
-- **BREAKING (behaviour): the cross-rule scan now understands SPEND CAPS, and
-  `install_policy` refuses an install whose rolling total a neighbouring rule
-  voids.** An OZ `spending_limit` is stored per `(account, rule id)`, so it
-  bounds one RULE and never a key. Installing a capped rule beside a rule that
-  serves the same calls for the same signer WITHOUT a cap therefore buys
-  nothing: the signer names the uncapped rule and spends freely. Verified on
-  testnet in `docs/audit/evidence/oz-two-rule-blend-cap.log`, where an uncapped
-  sibling permitted the exact supply the capped rule refused with `#3221`.
-
-  The refusal is narrow by design. It fires only when a `spendingLimit` is being
-  installed AND every policy on the neighbour is one this tool recognises by
-  address AND none of them is the spend cap. A neighbour carrying any
-  unrecognised policy stays advisory, because that policy could itself be a cap.
-  `allowAuthorityOverlap: true` installs anyway.
-
-- `authorityScan` entries now carry `spendCap` (a neighbour's own cap, read from
-  the policy's own storage) and `capBypass`. Where both rules are capped the
-  advice states the COMBINED figure, because separate budgets add up and never
-  cancel; where the periods differ it says so instead of adding them.
-
-- `findAuthorityOverlaps` takes an optional `knownPolicies`. Omit it and the
-  scan behaves exactly as before, so an offline caller keeps its old results
-  until it opts in. `AccountRuleReader` gains an optional `getSpendCapData`.
-
-## [1.2.0] - 2026-08-30
-
-This is a minor release, because an install that used to succeed can now
-fail. Both changes came out of a red-team pass over the tree: the tool already
-knew the rule it was about to build could not bind, and said so in a field
-that went unread.
-
-### Changed
-
-- **BREAKING (behaviour): `install_policy` now REFUSES a rule the cross-rule
-  scan proves cannot bind.** An OZ account resolves a call against the rule the
-  caller NAMES and takes the maximum authority over the rules a key sits on, so
-  a key that also sits on a rule with **no policy** is unconstrained: it names
-  that rule and the new predicate never runs. The scan already detected this and
-  the install still returned `ok`, leaving the whole protection to a caller
-  reading `data.authorityScan` - and that caller is usually an agent which
-  checks only whether the call succeeded. Such an install now fails with
-  `INSTALL_BUILD_FAILED`, naming the rule to fix. Set `allowAuthorityOverlap:
-  true` to install anyway.
-
-  Only the **provable** class refuses. A neighbour policed by a contract this
-  tool cannot decode stays advisory: "cannot decode" is not "unsafe", and
-  refusing there would block installs on a guess. A scan that could not complete
-  (`null`) does not refuse either - absence of evidence is not evidence of a
-  bypass.
+- **policy-synth, `review_unsigned`:** a tool, a CLI command (`review`), an MCP
+  tool and `reviewUnsigned` from the package root, which reads an unsigned
+  install or removal from its bytes alone, with no RPC, and lists the problems it finds
+  in them (`problems`, `signable`): a shape the builder never makes, a digest
+  that does not match, an interpreter other than the pin, a predicate whose
+  hash does not match its bytes, a fee or time bound out of range, an
+  authorisation from an execution adapter with no gate, a signed envelope. The
+  transaction, the Authority node and the predicate follow, read back from the
+  bytes. `signable` does not mean safe: a consistent rewrite of the unsigned
+  bytes comes back signable, so the owner reads the Authority node against what
+  they meant.
+- **policy-synth, `overrides` in install and revoke answers:** one
+  `{ flag, waived }` per flag set to `true`, `waived` being the refusal it
+  waived or `null`. The review opens with them, before the Authority node.
+- **policy-synth, `fee` and `validBefore` in build answers.**
 
 ### Fixed
 
-- `install_policy`'s `outPath` now writes a staging file and renames it into
-  place. A plain write truncates first, so anything watching the directory - a
-  signer picking up envelopes is the obvious case - could read a half-written
-  file and report a malformed *transaction* when the real fault was a half-written *file*. The
-  path now either does not exist or holds the complete envelope. A refused
-  install writes nothing at all.
-
-## [1.1.1] - 2026-08-30
-
-Diagnostics. Every change here came from watching an agent fail to install a
-policy and be sent in the wrong direction by our own error, so the theme is
-saying *which* thing is wrong as well as *that* something is.
-
-### Fixed
-
-- `install_policy` and `revoke_policy` now reject a malformed `smartAccount` or
-  `sourceAccount` at the boundary, **naming the field**. Both were validated by
-  a shape regex only, so an address with the right prefix and length but a bad
-  checksum passed and failed much later inside the build, surfacing as a bare
-  `invalid checksum` that identified nothing. A caller holding six addresses could
-  not tell which one was wrong. (`signers` was already checksum-validated; this
-  brings the other fields up to it.)
-
-### Added
-
-- `install_policy` and `revoke_policy` return `unsignedXdrLength` and
-  `unsignedXdrSha256`. The envelope runs to several thousand characters and the
-  only route from a tool result onto disk is the caller re-emitting it, so a
-  truncated copy is easy to produce and hard to spot: it fails later as
-  `failed to decode XDR: xdr value invalid`, which reads like a malformed
-  transaction and hides the transport problem. Check both before signing.
-
-  This mitigates the problem and falls short of a cure. A multi-kilobyte value cannot reach disk
-  without passing through the caller; making truncation *detectable* turns a
-  silent, fatal failure into a retry.
-
-- The bundled `oz-policy-builder` skill gained operational knowledge that was
-  previously only tribal: a venue that PULLS an asset makes the account
-  authorise **two** contexts (the venue call and the token `transfer` funding
-  it), so cover both or the account refuses everything with `#3014`; pin the
-  transfer arm's **destination**, because bounding only its amount lets the key
-  send funds anywhere; read a pool address from the venue's factory and never
-  derive it; and write the unsigned XDR exactly as returned - base64, one
-  line - because a decoded or re-wrapped file fails at the signer.
-
-## [1.1.0] - 2026-08-29
-
-### Added
-
-- `install_policy` can attach an OpenZeppelin `spending_limit` beside the
-  interpreter predicate, giving a rule a **rolling total** as well as a per-call
-  bound. Pass `spendingLimit: { amount, periodLedgers }`; it composes with all
-  three ways of naming the rule (`rule`, `fromHash`, `fromPredicate`).
-
-  This is the only way to express "at most N per day". A predicate cannot: the
-  interpreter is handed one call and keeps no state, so a per-call cap of N
-  authorises N again on the very next call. Policies on one rule compose as
-  all-of, so the predicate bounds each call and the built-in bounds the sum.
-
-  The `oz_builtin` policy-ref kind was removed in 0.3.0 and the builder kept
-  applying one set of install params across the whole policies map, so nothing
-  but the interpreter could be expressed - a builder limitation with no protocol cause (threat model R-6). `PolicyRef` is a union again and each policy
-  carries its own params.
-
-  Verified on testnet: a rule with a 10 XLM per-call predicate and a 15 XLM
-  rolling total permitted a 10 XLM transfer
-  (`6aff32415f58b8d20c67c99271ee9126946c2ae7ab9215b826dc23d63ccd92ac`) and
-  refused the **identical** call that followed with `#3221
-  SpendingLimitExceeded`. Only accumulated spend can explain two different
-  verdicts for the same call.
-
-- `install_policy` refuses a rolling total on a rule that is not scoped to a
-  single contract. The primitive meters the third argument of a call to a function called
-  exactly `transfer`; on a default-scoped rule it would install and meter
-  nothing, which reads as a working cap.
-
-### Fixed
-
-- The post-build self-check that re-decodes the install XDR knew only the
-  interpreter's field set, so a rule carrying a built-in failed with "unknown
-  field set; the encoder may have drifted". It now describes both, and
-  `describes.policies` reports the window and the total.
-
-- `serverInfo.version` was hardcoded again after 1.0.0 and would have reported
-  `1.0.0` from a 1.1.0 package. A test now pins it to `package.json`, so
-  a bump that forgets it fails and no plausible-looking lie ships.
-
-## [1.0.0] - 2026-08-28
-
-The 1.0 release. No behaviour changes from 0.5.6 beyond the one noted below;
-the version reflects that the surface is what Tranche #3 delivers and adds no new work.
-
-### Fixed
-
-- The MCP server reported `serverInfo.version` as `0.0.0` to every client
-  (`src/server.ts`), because the value was hardcoded and never taken from the
-  package. A client asking the server what it was got `0.0.0` regardless of what
-  was installed. It now reports `1.0.0`.
-
-### Note on the audit gate
-
-The award makes Critical and High audit findings blocking for the 1.0 release.
-This version was cut on instruction while the independent audit is in progress.
-If findings land that require changes, they ship as 1.0.x and the finding set is
-published in the repository.
-
-## [0.5.6] - 2026-08-27
-
-### Added
-
-- `PolicyDeclaration.amountPath` bounds an amount that is NESTED inside a
-  struct argument. A declared cap lowered only to `lte(call_arg(i),
-  literal_i128)`, which addresses a positional argument; a Blend `submit`
-  carries no top-level amount - it is `requests[i].amount` inside a vec of
-  maps - so no index pointed at it and `maxAmount` had nothing to bind to, even
-  though the grammar has reached nested fields since `call_arg_field` shipped.
-
-  `amountPath` holds a COUNT and never an index, and that is the whole safety
-  property: `call_arg_field` binds ONE element and says nothing about the
-  others, so a bound on a single entry leaves the rest of the vec
-  unconstrained and the caller puts the spend in an unbounded one. Every entry
-  is capped, and `eq(call_arg_len(i), elements)` pins the count so nothing can
-  be appended past the bounds. The two leaves are only safe together.
-
-  THE CAP IS PER ENTRY. With `elements: 3` and `maxAmount` 100, one call may
-  carry three requests of 100 and move 300 in total; the returned warning
-  states the multiplication so the caller does not have to notice it. A
-  single-entry cap denies a call carrying more than one entry, and says so.
-
-  Reachable from the run schema, the MCP tool shape, and the CLI as
-  `--amount-path argIndex.field[.entries]`.
-
-## [0.5.4] - 2026-08-26
-
-### Fixed
-
-- `renderConstraint` no longer withholds an `or` of `and` branches. It returned
-  null for a bare `and` on the basis that `and` is structural and never a
-  constraint leaf - true on the walk path, where `walkPredicate` descends into a
-  top-level `and` and never passes one in, and false on the `or` path, which
-  recurses into arbitrary children.
-
-  `or(and, and)` is the natural shape of a rule permitting alternative forms of
-  the same action, so every branch came back null and the whole disjunction was
-  withheld. `describePredicate` then returned an empty list for a restrictive
-  policy, and an empty list reads as "no constraints" - inverting the guard it
-  was protecting. The withhold exists so a disjunction never reads STRICTER than
-  reality; withholding the only line reads as UNRESTRICTED, the worse
-  direction. The branch is composed instead, and the withhold is kept for
-  genuinely unrenderable children.
-
-## [0.5.3] - 2026-08-25
-
-### Fixed
-
-- A recorded SELF-CALL now warns. Composing a rule from a recording of the
-  account acting on itself (`batch_add_signer` against its own address, say)
-  scoped the account to its own address and said nothing about it. The check
-  reports through `composeFromRecording`'s existing warning channel whenever a
-  smart-account address is supplied.
-- An unrecognised protocol no longer leaves every recipient unconstrained. It
-  emitted zero address constraints, because with no ABI no argument can be
-  singled out by role. Without guessing which address is the recipient, every
-  address argument the call actually carried is pinned.
-
-## [0.5.2] - 2026-08-23
-
-### Fixed
-
-- `buildAddContextRuleArgs` now REFUSES a policy whose `kind` is not
-  `interpreter`, with `INSTALL_BUILD_FAILED`. It previously skipped one in
-  silence, so a caller attaching an OpenZeppelin built-in beside the
-  interpreter - a spending cap, say - received a rule WITHOUT it and nothing
-  reported the loss. The user signed an install that lacked the restriction they
-  asked for. A dropped policy is a lost restriction, so this fails loudly.
-
-  `PolicyRef` has a single shape today, so no typed caller can reach the new
-  branch; the guard is for the built JavaScript, reachable untyped,
-  and for the next kind added to the union without a case in the encoder.
-
-## [0.5.1] - 2026-08-23
-
-### Added
-
-- `PINNED_OZ_POLICY_ADDRESS_BY_NETWORK` and `PINNED_OZ_POLICY_WASM_SHA256`,
-  exported from `@crediolabs/policy-synth/run` along with the `OzBuiltinPolicy`
-  type. These carry the deployed instances of OpenZeppelin's three built-in
-  policies (`spending_limit`, `simple_threshold`, `weighted_threshold`) on both
-  networks. Previously those addresses lived outside the repo, so a consumer had
-  to copy a literal - and a copied address is how a testnet id ends up being
-  queried against mainnet, which answers `Error(Storage, MissingValue)` and
-  reads exactly like nothing is deployed there. Every address and hash in the
-  pin was read back from chain.
-
-  These are OpenZeppelin EXAMPLE contracts that we built from tag v0.7.2 and
-  deployed ourselves. We still need to audit them, and upstream disclaims them as
-  experimental software; anything surfacing one to a user should say so.
-
-## [0.5.0] - 2026-08-22
-
-### Added
-
-- Grammar version 4: the boolean combinator `or`, the ordering operators `lt`,
-  `gt` and `gte`, and the `call_arg_scaled(i, num, den)` leaf. Version 3 could
-  express a ceiling but not a floor, a strict bound or a disjunction, so a rule
-  permitting either of two token pairs needed two rules, and "at least" could
-  not be said at all.
-- Slippage floors. `call_arg_scaled` evaluates to `args[i] * num / den`
-  truncating toward zero, and is the only selector permitted on the right of a
-  comparison, and that lets a swap bound its output against its own input:
-  `call_arg(out) >= call_arg_scaled(in, 99, 100)`. A constant cannot express
-  this - it would pin the policy to a single trade size. Reachable through
-  `declare_policy` / `policy-builder declare --min-out-ratio 99/100 --in-arg 0
-  --out-arg 1`; it is never inferred from a recording, because a recorded rate
-  is a price at one moment and freezing it as policy would deny ordinary trades
-  later.
-- `read-account-rules.ts`: `install_policy` now READS the smart account's
-  context rules to build its `authorityScan`, instead of only reporting on rules
-  the caller passed in. Rule ids are not contiguous - OpenZeppelin never reuses
-  an id after a removal - so the scan walks ids upward until it has accounted
-  for `Count` live rules; iterating `0..Count-1` would skip live rules at higher
-  ids, and a skipped rule is a missed overlap. `authorityScan: null` still means
-  NOT CHECKED, and now also covers a failed or incomplete read: reporting `[]`
-  there would turn "could not check" into "nothing to worry about".
-
-### Changed
-
-- The pinned interpreter moves to grammar version 4. New instances on both
-  networks from one reproducible build:
-  mainnet `CDN755TDYZM3ZQ5OXTJ6TIBUBWZV2KRI2BYJPBXD2MVWED4STT3VBN52`,
-  testnet `CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5`,
-  wasm sha256 `b5ba1e35ccf20cd8c13c3a2c3098bf337033a92bcaf475d63c03ddc0cba0fcae`.
-  A version-3 document still decodes under 4 - the grammar only widened - so
-  the version gate is the only thing refusing it, and it does.
-- Deny code 102 (`ARITHMETIC_OVERFLOW`) returns to its original meaning, which
-  `call_arg_scaled` needs again. It restores the old meaning: a consumer
-  that remembers `102 = ARITHMETIC_OVERFLOW` stays right. New in this version:
-  107 `SLIPPAGE_FLOOR` and 214 `INVALID_SCALED_RATIO`.
-- The review card renders a disjunction as ONE line. A line per branch would
-  read as "all of these are required", a reading that is wrong and runs in the dangerous
-  direction - it makes a policy look tighter than it is.
-
-### Verified
-
-- **Multiple policies on one OZ context rule compose as ALL-OF**, established by
-  experiment and no documentation
-  (`scripts/oz-policy-composition.ts`, evidence in
-  `docs/audit/evidence/oz-policy-composition.log`). Two interpreter instances
-  were attached to one rule with predicates that disagreed about the same call,
-  and the refusing one decided it; a control rule carrying only the permitting
-  policy allowed the identical call. It matters because the opposite result
-  would have made an OZ `spending_limit` attached beside the interpreter
-  bypassable by satisfying the interpreter alone.
-
-### Security
-
-- Install refuses a `call_arg_scaled` whose ratio is zero or non-positive
-  (`INVALID_SCALED_RATIO`, 214). A negative ratio silently INVERTS the
-  comparison, so a floor would permit exactly the trades it was written to
-  refuse, and at evaluate that is indistinguishable from a policy working
-  normally. The same shapes are refused by `encodePredicate` off chain and by
-  `declare_policy` where the ratio is stated.
-- `call_arg_scaled` arithmetic is `checked_mul`/`checked_div` throughout;
-  overflow and a zero denominator deny, and the frame never wraps or panics. The TypeScript reference evaluator applies the same i128 bounds so the
-  two layers agree at the boundary.
-
-## [0.4.0] - 2026-08-22
-
-### Added
-
-- A DECLARATIVE front-end: `policy-builder declare` and the `declare_policy`
-  MCP tool. `synthesize` infers a predicate from a transaction that happened
-  and hard-required `--recorded-tx`, so a contract the registry did not
-  recognise had no path at all. `declare` takes the constraint stated outright
-  - the method to pin, and optionally the contract, a per-call amount cap and a
-  recipient allowlist - with no RPC and no parseConfidence, so a registry miss
-  cannot refuse it; it is the surviving half of the removed `MandateSpec` and
-  deliberately not the rest: the input schema is strict, so naming
-  `spendingLimit` or `approvalThreshold` is an error and never a silent
-  no-op. A defaulted argument index emits a warning naming the index assumed.
-- The cross-rule authority check is back, adapted to grammar 3:
-  `findAuthorityOverlaps` from `@crediolabs/policy-synth/install`, and
-  `authorityScan` on the `install_policy` result. It reports every rule already
-  on the account that a signer of this install could name INSTEAD - including an
-  unpoliced one, against which the installed predicate never runs. A predicate
-  only constrains a key when the policed rule is the only rule that key is on,
-  and that mistake was made in this project's own end-to-end harness. Pass
-  `existingRules` to turn it on; omitting them returns `null`, meaning NOT
-  CHECKED, which differs from nothing found. The scan was published in 0.2.0 and lost when the
-  npm lineage moved to this repository from its previous source repo.
-- The recorder now reads a contract's own interface OFF CHAIN when the
-  compiled-in registry does not recognise it, and verifies every recorded call
-  against it. A Soroban contract embeds a typed spec in its wasm, so the
-  recorder had been refusing calls whose interface was one RPC round-trip
-  away. Recognition is all-or-nothing per contract and only ever ADDS: an
-  absent spec, an unreachable endpoint or a call the interface does not
-  describe leaves the recording exactly as it was. Set
-  `resolveContractSpecs: false` for registry-only behaviour.
-
-## [0.3.1] - 2026-08-22
-
-### Fixed
-
-- `install_policy` and `revoke_policy` were testnet-ONLY over MCP. Their tool
-  shape omitted `network`, and a field absent from a tool shape is stripped
-  before the tool body runs, so the input schema's `testnet` default always
-  won and no MCP client could reach the mainnet interpreter pin. It presented
-  as a deliberate testnet pin and hid the absent parameter, so integrators
-  built the install by hand instead of reporting it. Shipped 0.3.0 with this
-  defect, alongside the mainnet pins it makes unreachable.
-- The build no longer ships compiled files for deleted source. `tsc` writes
-  into `dist/` without clearing it, so a module removed from `src/` left its
-  old output behind and every later release packed it. 0.3.0 shipped a
-  `dist/mandate/` built from source deleted in 50a2aa4 - unreachable, since
-  nothing exports it, but present in the tarball and readable as a feature
-  that exists. All three builds now clear `dist/` and `dist-cjs/` first.
-- The remediation for an unrecognised contract no longer tells the caller to
-  supply an ABI. There is no input that accepts one, and the reason code
-  `no-abi` names a miss against this package's compiled-in registry and leaves open whether
-  the contract has an interface - most Soroban contracts publish a
-  typed spec on chain, which this package does not read. The text now says
-  what happened and points at `confidenceOverride` and re-capture. The reason
-  code itself is unchanged: it is a published enum value, so renaming it
-  would break callers matching on it.
-
-## [0.3.0] - 2026-08-22
-
-Version 0.2.0 was published from a different repository, which carries its own
-copy of these packages pinned to the grammar-1 interpreter. This release
-takes the packages back to `oz-policy-builder` and jumps past that version
-and never reuses it.
-
-### Changed - BREAKING
-
-- The pinned interpreter moves to grammar version 3. New instances on both
-  networks, both created from one uploaded wasm:
-  mainnet `CBZXLSTQUITBFZHQH6XRXF3XIVRQR4RHRI64Q5WELS5KGY3ZKJPFWDPF`,
-  testnet `CCL336TCK2Y5OFNRCMN2M3HVPBCEX4PW5H6EQ5VW5NPMXOCP4ESB5XR4`,
-  wasm sha256 `a2b36e8ac5a61caf3757af26aa79e83f2995b451099f44772383806a55fe3414`.
-  The grammar-1 instances this package used to pin are still on chain, so
-  policies already installed against them keep working; anything installed
-  through this release goes to the new interpreter.
-- The predicate grammar is reduced to what the synthesiser emits: node kinds
-  `and`, `eq`, `lte`, `in`, five selector leaves and five literal leaves. The
-  `or`, `not`, `lt`, `gt`, `gte` and `now` variants are gone, as is the
-  `oz_builtin` policy-ref kind.
-- The `time-window` deny dimension is removed. A rolling per-window total needs
-  state the interpreter does not keep, and supplying a window produced a
-  byte-identical predicate with no warning, so the guarantee was never enforced.
-
-### Removed
-
-Capabilities present in the published 0.2.0 and absent from this release. They were
-never part of this repository: 0.2.0 came from a different repository, which
-carries its own copy of these packages, so moving the npm lineage here drops them. Anyone
-upgrading 0.2.0 -> 0.3.0 loses them, so they are listed as removals
-in place of a mention buried in the lineage note above.
-
-- `install/authority-overlap`, and the `authorityScan` report `install_policy`
-  returned with it. It compared the rule being installed against every other
-  rule on the account and flagged the ones a signer could name instead,
-  classifying each as `bypass` (the neighbour constrains nothing), `unknown`
-  (policed by a contract whose semantics we cannot read) or `not-restricting`.
-  **Nothing in this release warns an integrator that the key they just policed
-  also sits on an unpoliced rule**, which leaves that key unconstrained. See
-  `docs/audit/README.md` finding 5.
-- `install/read-account-rules` and `install/build-install-predicate`.
-- `install/build-merge-policy`, `install/plan-merge-policy`, and with them the
-  `merge_policy` MCP tool - 7 tools here against 0.2.0's 8. There is no tighten
-  path on this version: adding a second rule WIDENS authority and never
-  narrows it, because a caller may name whichever rule is more permissive.
-
-### Fixed
-
-- `PolicyDocument.grammarVersion` was pinned to the literal `2` while the
-  contract had moved to `3`, so every proposed policy advertised a version the
-  contract refuses at install. One `GRAMMAR_VERSION` constant now feeds the
-  document, the XDR builder and the pin, and a parity test ties it to the
-  contract's `SELF_VERSION`.
-
-### Added
-
-- `contracts/policy-interpreter/build-wasm.sh` produces a reproducible wasm.
-  A bare `cargo build` bakes in the crate and registry paths, so the same source
-  hashed differently on every machine and the deployed bytecode could not be
-  checked against it. Builds through this script are byte-identical across
-  machines, and CI compares the result against the pinned hash.
-
-## [0.1.18] - 2026-08-13
-
-### Security
-
-Hardening from internal adversarial review:
-
-- The Streamable HTTP transport refuses to bind a non-loopback host unless
-  the embedding caller explicitly opts out.
-- RPC pinning on `get_interpreter_info` live reads, matching the install
-  path.
-- Stricter schema validation at tool boundaries: strkey format checks on
-  account inputs, leaf value validation in the predicate encoder, and the
-  removal of a test-only field from the published options type.
-- Deny-reason parity with the on-chain interpreter, asserted by the
-  conformance harness.
-
-### Added
-
-- Per-package READMEs (rendered on the npm package pages from this release
-  on), contributing guide, security policy, and release process
-  documentation.
-
-### Changed
-
-- Repository restructured: Soroban crates now live under `contracts/`, the
-  npm packages under `packages/`; `repository.directory` in each manifest
-  updated accordingly. Package contents and APIs are unchanged.
-- Zero-warning lint baseline (biome and clippy) enforced in CI.
-
-## [0.1.17] - 2026-08-06
-
-Current published release of the three npm packages:
-
-- Off-chain policy synthesis from a recorded transaction or a mandate spec,
-  static minimality verification, simulation with a deny-case battery, and
-  unsigned install/revoke transaction building.
-- MCP server exposing the seven policy tools over stdio and Streamable HTTP.
-- CLI with `record` and `synthesize` commands.
-
-Releases before 0.1.17 predate this changelog.
+- **policy-synth, install and revoke sign only the built call:** the smart
+  account's auth tree came from the RPC's simulation as reported, so a lying RPC
+  could add a sub-invocation (a transfer out) that the review never showed.
+  `install_policy` and `revoke_policy` now refuse (`INSTALL_BUILD_FAILED`,
+  `REVOKE_BUILD_FAILED`) unless the simulated root invocation is the built
+  contract call, with the same contract, function and arguments, and nothing
+  under it.
+- **policy-synth, signed expiry and resource fee:** both rested on the RPC (a
+  lying RPC moved the expiry about four months out, and had a 200 XLM fee
+  built). The expiry is still the recording pass's ledger plus a window, which
+  the operator now sets with `POLICY_BUILDER_AUTH_LEDGERS` (default 300, at
+  most 17,280). New: the two simulations must agree on that ledger within 20,
+  and the transaction carries a time bound from the builder's clock, so an RPC
+  that moves both ledgers still cannot stretch how long the signed transaction
+  is valid. A resource fee above `POLICY_BUILDER_MAX_RESOURCE_FEE` (default
+  10 XLM), or below zero, is refused.
+- **policy-synth, contract signers:** `install_policy` refuses a rule that an
+  execution adapter with no gate signs: an agent allowed to call that adapter's
+  `execute` could cite the rule and move funds past its own caps. The check
+  reads each contract signer's instance off the ledger, whatever its code hash. It also
+  refuses an adapter with a gate signing a rule scoped to itself unless every
+  branch of the predicate pins `call_fn = run`, and a contract signer that is
+  not deployed. No override waives these refusals.
+- **policy-synth, recordings:** `record_transaction` hashes the envelope the
+  RPC returns under the network's passphrase and refuses (`RECORDING_FAILED`)
+  unless it is the hash asked for; a fee bump also answers to its inner
+  transaction's hash.
+- **policy-builder-mcp, tool input cap:** the server passes
+  `maxToolInputElements: 10_000` to the MCP SDK, so a `tools/call` whose input
+  holds more array elements and object members than that gets a short
+  `isError` answer before schema validation. A 1 MiB call cost about 480 MB of
+  memory and drew a 26 MB error before; with the cap, 111 MB and 230 bytes.
+- **policy-builder-mcp, a body over 1 MiB** gets 413 under Bun 1.3 too. The
+  HTTP transport read the body with `for await`, and leaving that loop early
+  made Bun 1.3.14 answer 200 with an empty body.
+- **Dependencies:** `@modelcontextprotocol/sdk` 1.31.0 to 1.32.1, with
+  overrides `follow-redirects` `^1.16.1` and `hono` `^4.13.11`. `bun audit`
+  reports no vulnerability. GHSA-46jr-4wx8-v453 needs the SDK version and the
+  tool input cap above. GHSA-rvq5-wwqv-78pq concerns bearer authentication,
+  which the server does not use. The repository's root `overrides` (which
+  also pin `toml` `^4.2.0`) apply to this workspace only. A consumer's
+  `npm audit` still reports `toml` up to 4.1.2 (GHSA-82x6-q7mm-w9cf,
+  GHSA-v5mp-jgw5-2x6j) through `@stellar/stellar-sdk` 14.x, as it did for
+  2.0.1. The packages never parse TOML, so that code path is unreachable from
+  them; see `SECURITY.md`.
+
+### Contracts
+
+The contracts are never published to npm; their reproducible build hashes are
+in `contracts/build-hashes.json`.
+
+- **policy-interpreter, keyless rules bound to an executor:** a rule may list
+  no signer and be bound to an execution adapter with `bind_executor`. `enforce`
+  accepts a call with no authenticated signer only when the rule lists no
+  signer, the interpreter is its only policy and a binding exists (else 210). A
+  bound rule needs the adapter's own authorisation of the exact account and
+  context, except for the adapter's `run` under a rule scoped to it, and such a
+  rule must pin `call_fn == run` on every path (221). OpenZeppelin's 0.8.0
+  smart account (upstream commit `8e25220`) refuses a delegated signer that is
+  also a contract called in the operation (3017), so a run rule signed by the
+  adapter fails at first use. A keyless rule lists no signer and keeps working.
+  The interpreter's `oz08/` test crate runs these cases against that account.
+  The synthesiser builds keyed rules only.
+- **execution-adapter:** created bound to one custody gate or with no gate. A
+  no-gate adapter runs every batch at once, stores nothing and hands out no
+  grant, so no keyless rule works through it.
+- **The tree holds the Stellar contracts only:** `policy-interpreter`,
+  `custody-gate`, `execution-adapter`, `prime-seat` and the testnet fixture
+  `test-blend-pool`.
+
+## [2.0.1] - 2026-10-17
+
+Published to npm under the `next` dist-tag. `latest` stayed 1.3.0.
+
+- **policy-synth:** `readsOf`, `ruleArgs` and the `RuleDraft` type are exported
+  from the package root, so a consumer no longer imports them from
+  `node_modules/.../src`. No behaviour change.
+- **policy-builder-cli** and **policy-builder-mcp:** seven tools, the eight
+  above without `review_unsigned`. Both depend on policy-synth 2.0.1 exactly.

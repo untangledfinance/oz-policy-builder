@@ -1,9 +1,7 @@
-# cargo audit - 2026-10-11T16:40:38Z at c520ac1, advisory database 7eebec69 (2026-10-09), fetched at run time
-# Each crate has its own Cargo.lock, so each is audited.
+# cargo audit in contracts/stellar/policy-interpreter, 20 October 2026
 
-## contracts/policy-interpreter
-$ cargo audit
-      Loaded 1296 security advisories (from /home/ubuntu/.cargo/advisory-db)
+      Loaded 1348 security advisories (from /home/ubuntu/.cargo/advisory-db)
+    Updating crates.io index
     Scanning Cargo.lock for vulnerabilities (202 crate dependencies)
 Crate:     paste
 Version:   1.0.15
@@ -12,33 +10,5 @@ Title:     paste - no longer maintained
 Date:      2024-10-07
 ID:        RUSTSEC-2024-0436
 URL:       https://rustsec.org/advisories/RUSTSEC-2024-0436
-warning: 1 allowed warning found
-exit 0
 
-## contracts/custody-gate
-$ cargo audit
-      Loaded 1296 security advisories (from /home/ubuntu/.cargo/advisory-db)
-    Scanning Cargo.lock for vulnerabilities (215 crate dependencies)
-Crate:     paste
-Version:   1.0.15
-Warning:   unmaintained
-Title:     paste - no longer maintained
-Date:      2024-10-07
-ID:        RUSTSEC-2024-0436
-URL:       https://rustsec.org/advisories/RUSTSEC-2024-0436
 warning: 1 allowed warning found
-exit 0
-
-## contracts/execution-adapter
-$ cargo audit
-      Loaded 1296 security advisories (from /home/ubuntu/.cargo/advisory-db)
-    Scanning Cargo.lock for vulnerabilities (215 crate dependencies)
-Crate:     paste
-Version:   1.0.15
-Warning:   unmaintained
-Title:     paste - no longer maintained
-Date:      2024-10-07
-ID:        RUSTSEC-2024-0436
-URL:       https://rustsec.org/advisories/RUSTSEC-2024-0436
-warning: 1 allowed warning found
-exit 0
