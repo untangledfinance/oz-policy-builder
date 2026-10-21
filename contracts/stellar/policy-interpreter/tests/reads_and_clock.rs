@@ -1,0 +1,2931 @@
+//! `read`, `now` and `scaled` end to end, through the real `install`
+//! and `enforce` entry points, against mock oracle / token / pool contracts.
+//!
+//! The four PayFi checks each get a permitting and a refusing case, then the
+//! safety properties that make a cross-contract read tolerable: the caps, the
+//! literal-only arguments, the fail-closed paths, and re-entry.
+
+extern crate alloc;
+mod common;
+
+use alloc::vec::Vec as StdVec;
+
+use policy_interpreter::{
+    ContextRule, ContextRuleType, PolicyError, PolicyInstallParams, PolicyInterpreter,
+    PolicyInterpreterClient, Signer, SELF_VERSION,
+};
+use soroban_sdk::auth::{Context, ContractContext};
+use soroban_sdk::testutils::{Address as _, Ledger as _};
+use soroban_sdk::xdr::{FromXdr as _, ScVal, ToXdr, VecM};
+use soroban_sdk::{
+    contract, contractimpl, contracttype, Address, Bytes, BytesN, Env, IntoVal, Symbol, Val,
+    Vec as SorobanVec,
+};
+
+// ---- mock contracts --------------------------------------------------------
+
+#[contracttype]
+#[derive(Clone)]
+pub struct PriceData {
+    pub price: i128,
+    pub timestamp: u64,
+}
+
+/// A price oracle shaped like Reflector's `lastprice`: a struct, or void for an
+/// asset it does not know.
+#[contract]
+pub struct Oracle;
+
+#[contractimpl]
+impl Oracle {
+    pub fn __constructor(e: &Env, price: i128, timestamp: u64) {
+        e.storage()
+            .instance()
+            .set(&0u32, &PriceData { price, timestamp });
+    }
+
+    pub fn lastprice(e: &Env, asset: Symbol) -> Option<PriceData> {
+        if asset == Symbol::new(e, "POT") {
+            e.storage().instance().get(&0u32)
+        } else {
+            None
+        }
+    }
+
+    /// Not a number.
+    pub fn name(e: &Env) -> Symbol {
+        Symbol::new(e, "oracle")
+    }
+
+    pub fn boom(_e: &Env) -> i128 {
+        panic!("oracle is down")
+    }
+}
+
+/// Reflector's asset key: `Stellar(contract)` or `Other(symbol)`. A Soroban enum
+/// is the vec `[name, payload...]` on the wire.
+#[contracttype]
+#[derive(Clone, PartialEq)]
+pub enum Asset {
+    Stellar(Address),
+    Other(Symbol),
+}
+
+/// The exact Reflector price-feed signature: `lastprice(asset: Asset) ->
+/// Option<PriceData>`. It answers for the one asset it was built with and
+/// returns `None` (void on the wire) for any other.
+#[contract]
+pub struct Reflector;
+
+#[contractimpl]
+impl Reflector {
+    pub fn __constructor(e: &Env, asset: Asset, price: i128, timestamp: u64) {
+        e.storage().instance().set(&0u32, &asset);
+        e.storage()
+            .instance()
+            .set(&1u32, &PriceData { price, timestamp });
+    }
+
+    /// How many times `lastprice` has run (a committed counter, so it is only
+    /// visible after a permit).
+    pub fn calls(e: &Env) -> u32 {
+        e.storage().instance().get(&2u32).unwrap_or(0)
+    }
+
+    pub fn lastprice(e: &Env, asset: Asset) -> Option<PriceData> {
+        e.storage()
+            .instance()
+            .set(&2u32, &(Reflector::calls(e) + 1));
+        let known: Asset = e.storage().instance().get(&0u32).unwrap();
+        if asset == known {
+            e.storage().instance().get(&1u32)
+        } else {
+            None
+        }
+    }
+}
+
+/// A token with one balance, enough for the first-loss check.
+#[contract]
+pub struct Token;
+
+#[contractimpl]
+impl Token {
+    pub fn __constructor(e: &Env, holder: Address, balance: i128) {
+        e.storage().instance().set(&holder, &balance);
+    }
+
+    pub fn balance(e: &Env, id: Address) -> i128 {
+        e.storage().instance().get(&id).unwrap_or(0)
+    }
+}
+
+/// The lending pool the policy guards: it reports its own debt and collateral.
+#[contract]
+pub struct Pool;
+
+#[contractimpl]
+impl Pool {
+    pub fn __constructor(e: &Env, debt: i128, collateral: i128) {
+        e.storage().instance().set(&0u32, &debt);
+        e.storage().instance().set(&1u32, &collateral);
+    }
+
+    pub fn debt(e: &Env) -> i128 {
+        e.storage().instance().get(&0u32).unwrap()
+    }
+
+    pub fn collateral(e: &Env) -> i128 {
+        e.storage().instance().get(&1u32).unwrap()
+    }
+}
+
+/// An allow list that can change without reinstalling any rule: `contains` is
+/// the call a registry-backed rule reads.
+#[contract]
+pub struct Registry;
+
+#[contractimpl]
+impl Registry {
+    pub fn add(e: &Env, who: Address) {
+        e.storage().instance().set(&who, &true);
+    }
+
+    pub fn remove(e: &Env, who: Address) {
+        e.storage().instance().remove(&who);
+    }
+
+    /// How many times `contains` or `echo` has run (committed on a permit).
+    pub fn calls(e: &Env) -> u32 {
+        e.storage().instance().get(&0u32).unwrap_or(0)
+    }
+
+    pub fn contains(e: &Env, who: Address) -> bool {
+        e.storage().instance().set(&0u32, &(Registry::calls(e) + 1));
+        e.storage().instance().get(&who).unwrap_or(false)
+    }
+
+    /// Takes no argument, so a read that drops an unresolved argument and calls
+    /// anyway still succeeds, and shows in `calls`.
+    pub fn tick(e: &Env) -> bool {
+        e.storage().instance().set(&0u32, &(Registry::calls(e) + 1));
+        true
+    }
+
+    pub fn echo(e: &Env, v: Val) -> Val {
+        e.storage().instance().set(&0u32, &(Registry::calls(e) + 1));
+        v
+    }
+}
+
+/// A contract that calls `enforce` from inside its own frame, so it is on the
+/// call stack while the policy runs - the position an authorised call's target
+/// is in when the host asks the account to authorise it.
+#[contract]
+pub struct Caller;
+
+#[contractimpl]
+impl Caller {
+    pub fn go(e: &Env, policy: Address, context: Context, rule: ContextRule, account: Address) {
+        let signers = rule.signers.clone();
+        PolicyInterpreterClient::new(e, &policy).enforce(&context, &signers, &rule, &account);
+    }
+
+    pub fn peek(_e: &Env) -> i128 {
+        1
+    }
+}
+
+// ---- predicate builders ----------------------------------------------------
+
+fn sym(s: &str) -> ScVal {
+    ScVal::Symbol(soroban_sdk::xdr::ScSymbol(
+        s.as_bytes().to_vec().try_into().unwrap(),
+    ))
+}
+
+fn tuple(items: StdVec<ScVal>) -> ScVal {
+    let v: VecM<ScVal> = items.try_into().expect("vec");
+    ScVal::Vec(Some(soroban_sdk::xdr::ScVec(v)))
+}
+
+fn num(v: i128) -> ScVal {
+    ScVal::I128(soroban_sdk::xdr::Int128Parts {
+        hi: (v >> 64) as i64,
+        lo: (v as u128 & u128::from(u64::MAX)) as u64,
+    })
+}
+
+fn addr(env: &Env, a: &Address) -> ScVal {
+    let v: Val = a.into_val(env);
+    ScVal::from_xdr(env, &v.to_xdr(env)).unwrap()
+}
+
+/// A path step: an index, a field, or the length.
+enum Step {
+    I(u32),
+    F(&'static str),
+    Len,
+}
+
+fn steps(path: &[Step]) -> StdVec<ScVal> {
+    path.iter()
+        .map(|s| match s {
+            Step::I(i) => ScVal::U32(*i),
+            Step::F(f) => sym(f),
+            Step::Len => ScVal::Bool(true),
+        })
+        .collect()
+}
+
+fn call_arg(i: u32) -> ScVal {
+    tuple(alloc::vec![sym("call_arg"), ScVal::U32(i)])
+}
+
+fn call_path(path: &[Step]) -> ScVal {
+    let mut items = alloc::vec![sym("call_path")];
+    items.extend(steps(path));
+    tuple(items)
+}
+
+fn call_fn() -> ScVal {
+    tuple(alloc::vec![sym("call_fn")])
+}
+
+fn now() -> ScVal {
+    tuple(alloc::vec![sym("now")])
+}
+
+fn read(env: &Env, target: &Address, func: &str, args: StdVec<ScVal>, path: &[Step]) -> ScVal {
+    let mut items = alloc::vec![sym("read"), addr(env, target), sym(func), tuple(args)];
+    items.extend(steps(path));
+    tuple(items)
+}
+
+fn scaled(src: ScVal, n: ScVal, den: i128, add: ScVal) -> ScVal {
+    tuple(alloc::vec![sym("scaled"), src, n, num(den), add])
+}
+
+fn cmp(op: &str, a: ScVal, b: ScVal) -> ScVal {
+    tuple(alloc::vec![sym(op), a, b])
+}
+
+fn lit(x: ScVal) -> ScVal {
+    tuple(alloc::vec![sym("lit"), x])
+}
+
+fn all(children: StdVec<ScVal>) -> ScVal {
+    tuple(alloc::vec![sym("and"), tuple(children)])
+}
+
+/// `eq(call_fn, "advance")` - the selector leaf every rule here needs, since a
+/// rule made of reads alone is refused at install.
+fn is_advance() -> ScVal {
+    cmp("eq", call_fn(), sym("advance"))
+}
+
+/// The one rule: `advance` AND the check under test.
+fn rule_for(check: ScVal) -> ScVal {
+    all(alloc::vec![is_advance(), check])
+}
+
+// ---- harness ---------------------------------------------------------------
+
+struct World {
+    env: Env,
+    policy: Address,
+    account: Address,
+    rule: ContextRule,
+    target: Address,
+}
+
+impl World {
+    fn new() -> Self {
+        let env = Env::default();
+        // `enforce` is called from inside another contract in the re-entry
+        // tests, so its `require_auth` is not a root-level one.
+        env.mock_all_auths_allowing_non_root_auth();
+        let policy = env.register(PolicyInterpreter, (common::DEFAULT,));
+        let account = Address::generate(&env);
+        let signers = soroban_sdk::vec![&env, Signer::Delegated(account.clone())];
+        let target = Address::generate(&env);
+        let rule = ContextRule {
+            id: 1,
+            context_type: ContextRuleType::CallContract(target.clone()),
+            name: soroban_sdk::String::from_str(&env, "rule"),
+            signers,
+            signer_ids: SorobanVec::new(&env),
+            policies: SorobanVec::new(&env),
+            policy_ids: SorobanVec::new(&env),
+            valid_until: None,
+        };
+        World {
+            env,
+            policy,
+            account,
+            rule,
+            target,
+        }
+    }
+
+    fn client(&self) -> PolicyInterpreterClient<'_> {
+        PolicyInterpreterClient::new(&self.env, &self.policy)
+    }
+
+    /// Install `predicate`, returning the contract error code if refused.
+    fn install(&self, predicate: &ScVal) -> Result<(), u32> {
+        let val: Val = predicate.into_val(&self.env);
+        let bytes: Bytes = val.to_xdr(&self.env);
+        let hash: BytesN<32> = self.env.crypto().sha256(&bytes).into();
+        let params = PolicyInstallParams {
+            grammar_version: 7,
+            install_nonce: 1,
+            predicate: bytes,
+            predicate_hash: hash,
+            policy_admins: self.rule.signers.clone(),
+        };
+        match self
+            .client()
+            .try_install(&params, &self.rule, &self.account)
+        {
+            Ok(_) => Ok(()),
+            Err(Ok(e)) => Err(e.get_code()),
+            Err(Err(e)) => panic!("install trapped: {e:?}"),
+        }
+    }
+
+    fn context(&self, args: &[i128]) -> Context {
+        let mut v = SorobanVec::<Val>::new(&self.env);
+        for a in args {
+            v.push_back((*a).into_val(&self.env));
+        }
+        Context::Contract(ContractContext {
+            contract: self.target.clone(),
+            fn_name: Symbol::new(&self.env, "advance"),
+            args: v,
+        })
+    }
+
+    /// Run `enforce` on an authorised `advance(args)`.
+    fn enforce(&self, args: &[i128]) -> Verdict {
+        self.enforce_context(&self.context(args))
+    }
+
+    fn enforce_context(&self, context: &Context) -> Verdict {
+        match self
+            .client()
+            .try_enforce(context, &self.rule.signers, &self.rule, &self.account)
+        {
+            Ok(_) => Ok(()),
+            Err(Ok(e)) => Err(Some(e)),
+            Err(Err(_)) => Err(None),
+        }
+    }
+
+    /// Install a rule that must be accepted.
+    fn arm(&self, check: ScVal) {
+        self.install(&rule_for(check)).expect("rule installs");
+    }
+}
+
+fn oracle(w: &World, price: i128, timestamp: u64) -> Address {
+    w.env.register(Oracle, (price, timestamp))
+}
+
+fn pot() -> StdVec<ScVal> {
+    alloc::vec![sym("POT")]
+}
+
+/// What `enforce` did: `Ok(())` permit, `Err(Some(e))` a contract error,
+/// `Err(None)` a host trap.
+type Verdict = Result<(), Option<soroban_sdk::Error>>;
+
+fn refused(e: PolicyError) -> Verdict {
+    Err(Some(soroban_sdk::Error::from_contract_error(e as u32)))
+}
+
+fn denied() -> Verdict {
+    refused(PolicyError::ArgMismatch)
+}
+
+// ---- PayFi 1: price floor --------------------------------------------------
+
+fn price_floor(w: &World, oracle: &Address, p_min: i128) -> ScVal {
+    cmp(
+        "gte",
+        read(&w.env, oracle, "lastprice", pot(), &[Step::F("price")]),
+        num(p_min),
+    )
+}
+
+#[test]
+fn price_floor_permits_at_or_above_the_floor() {
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    w.arm(price_floor(&w, &o, 100));
+    assert_eq!(w.enforce(&[]), Ok(()));
+}
+
+#[test]
+fn price_floor_refuses_below_the_floor() {
+    let w = World::new();
+    let o = oracle(&w, 99, 0);
+    w.arm(price_floor(&w, &o, 100));
+    assert_eq!(w.enforce(&[]), denied());
+}
+
+// ---- PayFi 2: exact live-price LTV after the advance -----------------------
+
+/// `debt + B <= 92% * price * (coll + P)`, with debt, coll and price read and
+/// B, P taken from the call: `advance(B, P, T)`.
+fn ltv(w: &World, pool: &Address, oracle: &Address) -> ScVal {
+    let debt = read(&w.env, pool, "debt", alloc::vec![], &[]);
+    let coll = read(&w.env, pool, "collateral", alloc::vec![], &[]);
+    let price = read(&w.env, oracle, "lastprice", pot(), &[Step::F("price")]);
+    let after_advance = scaled(debt, num(1), 1, call_arg(0)); // debt + B
+    let pledged = scaled(coll, num(1), 1, call_arg(1)); // coll + P
+    let ninety_two = scaled(pledged, num(92), 1, num(0)); // 92 * (coll + P)
+    cmp(
+        "lte",
+        after_advance,
+        scaled(price, ninety_two, 100, num(0)), // price * 92 * (coll + P) / 100
+    )
+}
+
+fn ltv_world(price: i128) -> (World, Address, Address) {
+    let w = World::new();
+    let pool = w.env.register(Pool, (900i128, 600i128));
+    let o = oracle(&w, price, 0);
+    (w, pool, o)
+}
+
+#[test]
+fn ltv_permits_when_the_advance_stays_within_92_percent() {
+    // price 2: capacity 0.92 * 2 * 600 = 1104; debt 900 + B 100 = 1000.
+    let (w, pool, o) = ltv_world(2);
+    w.arm(ltv(&w, &pool, &o));
+    assert_eq!(w.enforce(&[100, 0, 0]), Ok(()));
+    // exactly at the bound: 900 + 204 = 1104.
+    assert_eq!(w.enforce(&[204, 0, 0]), Ok(()));
+}
+
+#[test]
+fn ltv_counts_collateral_pledged_in_the_same_call() {
+    // B = 300 breaks the bound on its own (1200 > 1104) but pledging P = 100
+    // lifts capacity to 0.92 * 2 * 700 = 1288.
+    let (w, pool, o) = ltv_world(2);
+    w.arm(ltv(&w, &pool, &o));
+    assert_eq!(w.enforce(&[300, 0, 0]), denied());
+    assert_eq!(w.enforce(&[300, 100, 0]), Ok(()));
+}
+
+#[test]
+fn ltv_refuses_one_over_the_bound() {
+    let (w, pool, o) = ltv_world(2);
+    w.arm(ltv(&w, &pool, &o));
+    assert_eq!(w.enforce(&[205, 0, 0]), denied());
+}
+
+#[test]
+fn ltv_follows_the_live_price() {
+    // The same advance that passed at price 2 is refused once the oracle says 1:
+    // capacity 0.92 * 1 * 600 = 552 < 1000.
+    let (w, pool, o) = ltv_world(1);
+    w.arm(ltv(&w, &pool, &o));
+    assert_eq!(w.enforce(&[100, 0, 0]), denied());
+}
+
+// ---- PayFi 3: first-loss floor ---------------------------------------------
+
+fn first_loss(w: &World, tusd: &Address, custody: &Address, float: i128) -> ScVal {
+    cmp(
+        "gte",
+        read(
+            &w.env,
+            tusd,
+            "balance",
+            alloc::vec![addr(&w.env, custody)],
+            &[],
+        ),
+        scaled(call_arg(2), num(1), 1, num(float)), // FLOAT + T
+    )
+}
+
+fn first_loss_world(balance: i128) -> (World, Address, Address) {
+    let w = World::new();
+    let custody = Address::generate(&w.env);
+    let tusd = w.env.register(Token, (custody.clone(), balance));
+    (w, tusd, custody)
+}
+
+#[test]
+fn first_loss_permits_when_custody_holds_the_float_plus_the_top_up() {
+    let (w, tusd, custody) = first_loss_world(1_050);
+    w.arm(first_loss(&w, &tusd, &custody, 1_000));
+    assert_eq!(w.enforce(&[0, 0, 50]), Ok(()));
+}
+
+#[test]
+fn first_loss_refuses_when_the_top_up_would_dip_into_the_float() {
+    let (w, tusd, custody) = first_loss_world(1_050);
+    w.arm(first_loss(&w, &tusd, &custody, 1_000));
+    assert_eq!(w.enforce(&[0, 0, 51]), denied());
+}
+
+#[test]
+fn first_loss_reads_the_balance_of_the_address_named_in_the_predicate() {
+    // A different holder has nothing, so the same rule refuses.
+    let (w, tusd, _) = first_loss_world(1_050);
+    let stranger = Address::generate(&w.env);
+    w.arm(first_loss(&w, &tusd, &stranger, 0));
+    assert_eq!(w.enforce(&[0, 0, 1]), denied());
+}
+
+// ---- PayFi 4: freshness ----------------------------------------------------
+
+fn fresh(w: &World, oracle: &Address) -> ScVal {
+    cmp(
+        "gte",
+        read(&w.env, oracle, "lastprice", pot(), &[Step::F("timestamp")]),
+        scaled(now(), num(1), 1, num(-300)), // now - 300
+    )
+}
+
+#[test]
+fn freshness_permits_a_price_inside_the_window() {
+    let w = World::new();
+    w.env.ledger().with_mut(|l| l.timestamp = 10_000);
+    let o = oracle(&w, 1, 9_700); // exactly 300 old
+    w.arm(fresh(&w, &o));
+    assert_eq!(w.enforce(&[]), Ok(()));
+}
+
+#[test]
+fn freshness_refuses_a_stale_price() {
+    let w = World::new();
+    w.env.ledger().with_mut(|l| l.timestamp = 10_000);
+    let o = oracle(&w, 1, 9_699); // 301 old
+    w.arm(fresh(&w, &o));
+    assert_eq!(w.enforce(&[]), denied());
+}
+
+#[test]
+fn freshness_tracks_the_ledger_clock() {
+    let w = World::new();
+    let o = oracle(&w, 1, 9_700);
+    w.env.ledger().with_mut(|l| l.timestamp = 10_000);
+    w.arm(fresh(&w, &o));
+    assert_eq!(w.enforce(&[]), Ok(()));
+    w.env.ledger().with_mut(|l| l.timestamp = 10_001);
+    assert_eq!(w.enforce(&[]), denied());
+}
+
+// ---- safety: arithmetic ----------------------------------------------------
+
+#[test]
+fn overflow_denies_with_its_own_reason() {
+    let w = World::new();
+    // args[0] * args[1] / 1 + 0 >= 0
+    w.arm(cmp(
+        "gte",
+        scaled(call_arg(0), call_arg(1), 1, num(0)),
+        num(0),
+    ));
+    assert_eq!(w.enforce(&[2, 3]), Ok(()));
+    let overflow = || refused(PolicyError::ArithmeticOverflow);
+    assert_eq!(w.enforce(&[i128::MAX, 2]), overflow(), "mul overflows");
+    assert_eq!(w.enforce(&[i128::MIN, -1]), overflow(), "mul overflows");
+}
+
+#[test]
+fn an_overflowing_add_denies_rather_than_wrapping() {
+    let w = World::new();
+    w.arm(cmp(
+        "gte",
+        scaled(call_arg(0), num(1), 1, call_arg(1)),
+        num(0),
+    ));
+    assert_eq!(
+        w.enforce(&[i128::MAX, 1]),
+        refused(PolicyError::ArithmeticOverflow)
+    );
+    assert_eq!(
+        w.enforce(&[i128::MIN, -1]),
+        refused(PolicyError::ArithmeticOverflow)
+    );
+}
+
+#[test]
+fn scaled_multiplies_first_then_truncates_toward_zero_then_adds() {
+    // (7 * 3 / 2) + 10 = 10 + 10 = 20; dividing first would give 9 + 10 = 19.
+    let w = World::new();
+    w.arm(cmp(
+        "eq",
+        scaled(call_arg(0), num(3), 2, num(10)),
+        call_arg(1),
+    ));
+    assert_eq!(w.enforce(&[7, 20]), Ok(()));
+    assert_eq!(w.enforce(&[7, 19]), denied());
+    // toward zero: -7 * 3 / 2 = -10 (floor would be -11), plus 10 is 0.
+    assert_eq!(w.enforce(&[-7, 0]), Ok(()));
+    assert_eq!(w.enforce(&[-7, -1]), denied());
+}
+
+#[test]
+fn nesting_gives_products_and_powers() {
+    // x^3 = scaled(x, scaled(x, x, 1, 0), 1, 0)
+    let w = World::new();
+    let cube = scaled(
+        call_arg(0),
+        scaled(call_arg(0), call_arg(0), 1, num(0)),
+        1,
+        num(0),
+    );
+    w.arm(cmp("eq", cube, call_arg(1)));
+    assert_eq!(w.enforce(&[5, 125]), Ok(()));
+    assert_eq!(w.enforce(&[5, 124]), denied());
+}
+
+#[test]
+fn a_non_numeric_operand_denies() {
+    let w = World::new();
+    // The argument is a symbol, not a number (a literal one is refused at
+    // install, and so is `call_fn`).
+    w.arm(cmp("gte", scaled(call_arg(0), num(1), 1, num(0)), num(0)));
+    let symbol = Symbol::new(&w.env, "x").to_val();
+    assert_eq!(call_with(&w, alloc::vec![symbol]), denied());
+}
+
+// ---- safety: install-time refusals -----------------------------------------
+
+const MALFORMED: Result<(), u32> = Err(PolicyError::MalformedPredicate as u32);
+const SELECTOR_REQUIRED: Result<(), u32> = Err(PolicyError::SelectorLeafRequired as u32);
+
+#[test]
+fn a_non_positive_denominator_is_refused_at_install() {
+    let w = World::new();
+    for den in [0, -1] {
+        let r = rule_for(cmp("gte", scaled(call_arg(0), num(1), den, num(0)), num(0)));
+        assert_eq!(w.install(&r), MALFORMED, "den = {den}");
+    }
+}
+
+#[test]
+fn up_to_four_reads_install_and_a_fifth_is_refused() {
+    let w = World::new();
+    let o = oracle(&w, 1, 0);
+    let r = |n: usize| {
+        let reads = (0..n)
+            .map(|i| {
+                let asset = alloc::vec![sym(&alloc::format!("A{i}"))];
+                let r = read(&w.env, &o, "lastprice", asset, &[Step::F("price")]);
+                cmp("gte", r, num(0))
+            })
+            .collect();
+        rule_for(all(reads))
+    };
+    assert_eq!(w.install(&r(4)), Ok(()));
+    assert_eq!(w.install(&r(5)), MALFORMED);
+}
+
+#[test]
+fn reads_nested_in_scaled_count_toward_the_cap() {
+    // Reads folded into one expression are still reads: four install, five do not.
+    let w = World::new();
+    let o = oracle(&w, 1, 0);
+    let rd = |i: u32| {
+        let asset = alloc::vec![sym(&alloc::format!("A{i}"))];
+        read(&w.env, &o, "lastprice", asset, &[Step::F("price")])
+    };
+    let four = scaled(rd(0), scaled(rd(1), rd(2), 1, num(0)), 1, rd(3));
+    assert_eq!(w.install(&rule_for(cmp("gte", four, num(0)))), Ok(()));
+    let w = World::new();
+    let o = oracle(&w, 1, 0);
+    let rd = |i: u32| {
+        let asset = alloc::vec![sym(&alloc::format!("A{i}"))];
+        read(&w.env, &o, "lastprice", asset, &[Step::F("price")])
+    };
+    let five = scaled(rd(0), scaled(rd(1), rd(2), 1, rd(3)), 1, rd(4));
+    assert_eq!(w.install(&rule_for(cmp("gte", five, num(0)))), MALFORMED);
+}
+
+#[test]
+fn read_arguments_are_plain_leaves() {
+    // Each install is on a fresh world: the nonce is single-use.
+    let install = |arg: &dyn Fn(&World, &Address) -> ScVal| {
+        let w = World::new();
+        let o = oracle(&w, 1, 0);
+        let read = read(
+            &w.env,
+            &o,
+            "lastprice",
+            alloc::vec![arg(&w, &o)],
+            &[Step::F("price")],
+        );
+        w.install(&rule_for(cmp("gte", read, num(0))))
+    };
+    assert_eq!(install(&|_, _| sym("POT")), Ok(()));
+    // a call argument, the clock, the call's function: derived at enforce
+    for ok in [call_arg(0), now(), call_fn()] {
+        assert_eq!(install(&|_, _| ok.clone()), Ok(()));
+    }
+    // a computed value, and a nested read, are refused
+    let computed = |_: &World, _: &Address| scaled(num(1), num(1), 1, num(0));
+    assert_eq!(install(&computed), MALFORMED);
+    let nested =
+        |w: &World, o: &Address| read(&w.env, o, "lastprice", alloc::vec![sym("POT")], &[]);
+    assert_eq!(install(&nested), MALFORMED);
+}
+
+#[test]
+fn the_read_target_and_function_must_be_literals() {
+    let w = World::new();
+    // contract position holds a selector, not an address
+    let r = tuple(alloc::vec![
+        sym("read"),
+        call_arg(0),
+        sym("lastprice"),
+        tuple(alloc::vec![])
+    ]);
+    assert_eq!(w.install(&rule_for(cmp("gte", r, num(0)))), MALFORMED);
+    // function position holds a selector, not a symbol
+    let o = oracle(&w, 1, 0);
+    let r = tuple(alloc::vec![
+        sym("read"),
+        addr(&w.env, &o),
+        call_arg(0),
+        tuple(alloc::vec![])
+    ]);
+    assert_eq!(w.install(&rule_for(cmp("gte", r, num(0)))), MALFORMED);
+}
+
+#[test]
+fn a_read_path_is_capped_at_eight_steps() {
+    let w = World::new();
+    let o = oracle(&w, 1, 0);
+    let path = |n: usize| (0..n).map(|_| Step::I(0)).collect::<StdVec<_>>();
+    let rd = |n| {
+        rule_for(cmp(
+            "gte",
+            read(&w.env, &o, "lastprice", pot(), &path(n)),
+            num(0),
+        ))
+    };
+    assert_eq!(w.install(&rd(8)), Ok(()));
+    let w = World::new();
+    let o = oracle(&w, 1, 0);
+    let rd = rule_for(cmp(
+        "gte",
+        read(&w.env, &o, "lastprice", pot(), &path(9)),
+        num(0),
+    ));
+    assert_eq!(w.install(&rd), MALFORMED);
+}
+
+#[test]
+fn scaled_nesting_is_capped() {
+    // `n` scaled leaves nested inside each other put the innermost literals at
+    // depth n + 1, and a leaf deeper than 5 is refused.
+    let nest = |n: usize| {
+        let mut leaf = num(1);
+        for _ in 0..n {
+            leaf = scaled(leaf, num(1), 1, num(0));
+        }
+        rule_for(cmp("gte", call_arg(0), leaf))
+    };
+    assert_eq!(World::new().install(&nest(4)), Ok(()));
+    assert_eq!(World::new().install(&nest(5)), MALFORMED);
+}
+
+#[test]
+fn a_rule_of_reads_and_the_clock_alone_is_refused() {
+    // It would say nothing about the call it authorises.
+    let w = World::new();
+    let o = oracle(&w, 1, 0);
+    let reads_only = cmp(
+        "gte",
+        read(&w.env, &o, "lastprice", pot(), &[Step::F("price")]),
+        num(0),
+    );
+    assert_eq!(w.install(&reads_only), SELECTOR_REQUIRED);
+    let clock_only = cmp("gte", now(), num(0));
+    assert_eq!(w.install(&clock_only), SELECTOR_REQUIRED);
+    // ... including when dressed up in `scaled`.
+    let dressed = cmp("gte", scaled(now(), num(1), 1, num(0)), num(0));
+    assert_eq!(w.install(&dressed), SELECTOR_REQUIRED);
+    // The same read beside a real selector installs.
+    assert_eq!(w.install(&rule_for(reads_only)), Ok(()));
+}
+
+#[test]
+fn a_selector_inside_scaled_still_counts_as_one() {
+    let w = World::new();
+    assert_eq!(
+        w.install(&cmp("gte", scaled(call_arg(0), num(1), 1, num(0)), num(0))),
+        Ok(())
+    );
+}
+
+#[test]
+fn a_call_arg_scaled_leaf_does_not_decode() {
+    let w = World::new();
+    let leaf = tuple(alloc::vec![
+        sym("call_arg_scaled"),
+        ScVal::U32(0),
+        num(99),
+        num(100)
+    ]);
+    assert_eq!(w.install(&cmp("gte", call_arg(1), leaf)), MALFORMED);
+}
+
+// ---- safety: reads that cannot produce a number ----------------------------
+
+#[test]
+fn a_void_result_denies() {
+    // The oracle answers void for an asset it does not know.
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    let unknown = cmp(
+        "gte",
+        read(
+            &w.env,
+            &o,
+            "lastprice",
+            alloc::vec![sym("NOPE")],
+            &[Step::F("price")],
+        ),
+        num(0),
+    );
+    w.arm(unknown);
+    assert_eq!(w.enforce(&[]), denied());
+}
+
+#[test]
+fn a_void_result_denies_even_under_eq() {
+    // Two voids are "equal"; the read must not resolve at all.
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    let rd = || read(&w.env, &o, "lastprice", alloc::vec![sym("NOPE")], &[]);
+    w.arm(cmp("eq", rd(), rd()));
+    assert_eq!(w.enforce(&[]), denied());
+}
+
+#[test]
+fn a_non_numeric_result_compares_under_eq_but_has_no_order() {
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    let rd = || read(&w.env, &o, "name", alloc::vec![], &[]);
+    w.arm(cmp("eq", rd(), sym("oracle")));
+    assert_eq!(w.enforce(&[]), Ok(()));
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    let rd = || read(&w.env, &o, "name", alloc::vec![], &[]);
+    w.arm(cmp("eq", rd(), sym("other")));
+    assert_eq!(w.enforce(&[]), denied());
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    let rd = || read(&w.env, &o, "name", alloc::vec![], &[]);
+    w.arm(cmp("gte", rd(), num(0)));
+    assert_eq!(w.enforce(&[]), denied());
+}
+
+#[test]
+fn a_missing_field_denies() {
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    w.arm(cmp(
+        "gte",
+        read(&w.env, &o, "lastprice", pot(), &[Step::F("volume")]),
+        num(0),
+    ));
+    assert_eq!(w.enforce(&[]), denied());
+}
+
+#[test]
+fn a_read_that_panics_denies() {
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    w.arm(cmp(
+        "gte",
+        read(&w.env, &o, "boom", alloc::vec![], &[]),
+        num(0),
+    ));
+    assert_eq!(
+        w.enforce(&[]),
+        denied(),
+        "a panicking read denies as an unresolved operand, it does not trap"
+    );
+}
+
+#[test]
+fn a_read_of_a_missing_function_denies() {
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    w.arm(cmp(
+        "gte",
+        read(&w.env, &o, "nope", alloc::vec![], &[]),
+        num(0),
+    ));
+    assert_eq!(w.enforce(&[]), denied());
+}
+
+#[test]
+fn a_read_of_an_address_with_no_contract_denies() {
+    let w = World::new();
+    let nobody = Address::generate(&w.env);
+    w.arm(cmp(
+        "gte",
+        read(&w.env, &nobody, "balance", alloc::vec![], &[]),
+        num(0),
+    ));
+    assert_eq!(w.enforce(&[]), denied());
+}
+
+#[test]
+fn an_or_permits_through_a_branch_that_cannot_resolve() {
+    // `or` falls through a branch that cannot resolve to the next one.
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    let dead = cmp("gte", read(&w.env, &o, "boom", alloc::vec![], &[]), num(0));
+    let live = price_floor(&w, &o, 100);
+    w.arm(tuple(alloc::vec![
+        sym("or"),
+        tuple(alloc::vec![dead, live])
+    ]));
+    assert_eq!(w.enforce(&[]), Ok(()));
+}
+
+// ---- safety: re-entry ------------------------------------------------------
+
+/// Run `enforce` from inside `caller`'s frame, so `caller` is on the stack.
+fn enforce_from(w: &World, caller: &Address) -> Verdict {
+    let go = soroban_sdk::vec![
+        &w.env,
+        w.policy.to_val(),
+        w.context(&[]).into_val(&w.env),
+        w.rule.clone().into_val(&w.env),
+        w.account.to_val(),
+    ];
+    match w.env.try_invoke_contract::<(), soroban_sdk::Error>(
+        caller,
+        &Symbol::new(&w.env, "go"),
+        go,
+    ) {
+        Ok(_) => Ok(()),
+        Err(Ok(e)) => Err(Some(e)),
+        Err(Err(_)) => Err(None),
+    }
+}
+
+#[test]
+fn a_read_of_a_contract_on_the_call_stack_denies() {
+    let w = World::new();
+    let caller = w.env.register(Caller, ());
+    w.arm(cmp(
+        "gte",
+        read(&w.env, &caller, "peek", alloc::vec![], &[]),
+        num(0),
+    ));
+    assert_eq!(
+        enforce_from(&w, &caller),
+        denied(),
+        "the host refuses re-entry, so the read cannot resolve and the call is denied"
+    );
+}
+
+#[test]
+fn the_same_rule_permits_when_the_read_target_is_not_on_the_stack() {
+    // The control: identical shape, but the read goes to a contract that is not
+    // an ancestor, so it is the re-entry that denies above and nothing else.
+    let w = World::new();
+    let caller = w.env.register(Caller, ());
+    let other = w.env.register(Pool, (5i128, 5i128));
+    w.arm(cmp(
+        "gte",
+        read(&w.env, &other, "debt", alloc::vec![], &[]),
+        num(0),
+    ));
+    assert_eq!(enforce_from(&w, &caller), Ok(()));
+}
+
+// ---- the version gate ------------------------------------------------------
+
+#[test]
+fn a_document_for_another_grammar_is_refused_by_the_version_gate() {
+    let w = World::new();
+    let val: Val = rule_for(cmp("gte", call_arg(0), num(0))).into_val(&w.env);
+    let bytes: Bytes = val.to_xdr(&w.env);
+    let hash: BytesN<32> = w.env.crypto().sha256(&bytes).into();
+    let params = PolicyInstallParams {
+        grammar_version: SELF_VERSION - 1,
+        install_nonce: 1,
+        predicate: bytes,
+        predicate_hash: hash,
+        policy_admins: w.rule.signers.clone(),
+    };
+    let res = w.client().try_install(&params, &w.rule, &w.account);
+    assert_eq!(
+        res.err().map(|e| e.unwrap().get_code()),
+        Some(PolicyError::VersionMismatch as u32)
+    );
+}
+
+// ---- authoring guards ------------------------------------------------------
+
+/// The LTV rule with the guards the README recommends beside variable
+/// operands: the price must be positive (a zero or negative multiplier makes an
+/// upper bound trivial) and the advance and the pledge must not be negative.
+fn guarded_ltv(w: &World, pool: &Address, oracle: &Address) -> ScVal {
+    let price = || read(&w.env, oracle, "lastprice", pot(), &[Step::F("price")]);
+    all(alloc::vec![
+        cmp("gt", price(), num(0)),
+        cmp("gte", call_path(&[Step::I(0)]), num(0)),
+        cmp("gte", call_path(&[Step::I(1)]), num(0)),
+        ltv(w, pool, oracle),
+    ])
+}
+
+#[test]
+fn a_negative_amount_slips_through_an_unguarded_ltv_rule() {
+    // The hazard the guard exists for: B = -500 "advances" a negative amount,
+    // which lowers the debt side and passes the bound.
+    let (w, pool, o) = ltv_world(2);
+    w.arm(ltv(&w, &pool, &o));
+    assert_eq!(w.enforce(&[-500, 0, 0]), Ok(()));
+}
+
+#[test]
+fn a_negative_amount_is_refused_when_the_guard_is_present() {
+    let (w, pool, o) = ltv_world(2);
+    w.arm(guarded_ltv(&w, &pool, &o));
+    assert_eq!(w.enforce(&[-500, 0, 0]), denied());
+    assert_eq!(w.enforce(&[100, -1, 0]), denied(), "a negative pledge too");
+    assert_eq!(w.enforce(&[100, 0, 0]), Ok(()), "the guard costs nothing");
+}
+
+#[test]
+fn a_non_positive_price_is_refused_when_the_guard_is_present() {
+    let (w, pool, o) = ltv_world(0);
+    w.arm(guarded_ltv(&w, &pool, &o));
+    assert_eq!(w.enforce(&[100, 0, 0]), denied());
+}
+
+#[test]
+fn a_subtraction_is_written_by_moving_the_term_across_the_comparison() {
+    // `ts >= now - 300` is `ts + 300 >= now`: `num` cannot be negative, but
+    // `add` is any value.
+    let w = World::new();
+    w.env.ledger().with_mut(|l| l.timestamp = 10_000);
+    let o = oracle(&w, 1, 9_700);
+    let ts = read(&w.env, &o, "lastprice", pot(), &[Step::F("timestamp")]);
+    w.arm(cmp("gte", scaled(ts, num(1), 1, num(300)), now()));
+    assert_eq!(w.enforce(&[]), Ok(()));
+    w.env.ledger().with_mut(|l| l.timestamp = 10_001);
+    assert_eq!(w.enforce(&[]), denied());
+}
+
+#[test]
+fn a_variable_numerator_is_accepted_and_a_literal_one_is_not() {
+    let w = World::new();
+    let variable = scaled(call_arg(0), call_arg(1), 1, num(0));
+    assert_eq!(w.install(&rule_for(cmp("gte", variable, num(0)))), Ok(()));
+    for n in [0, -1] {
+        let literal = scaled(call_arg(0), num(n), 1, num(0));
+        let w = World::new();
+        assert_eq!(w.install(&rule_for(cmp("gte", literal, num(0)))), MALFORMED);
+    }
+}
+
+#[test]
+fn a_literal_source_is_held_to_the_same_rule_as_a_literal_numerator() {
+    // `src * num` commutes: `scaled(-99, arg, 100, 0)` is the zero-output swap
+    // with the multiplicands written the other way round, and
+    // `scaled(0, arg, 1, 0) >= 0` cancels the selector.
+    for s in [0, -1, -99] {
+        let w = World::new();
+        let swap = cmp("gte", call_arg(1), scaled(num(s), call_arg(0), 100, num(0)));
+        assert_eq!(w.install(&rule_for(swap)), MALFORMED, "src = {s}");
+    }
+    let w = World::new();
+    let vacuous = cmp("gte", scaled(num(0), call_arg(0), 1, num(0)), num(0));
+    assert_eq!(w.install(&rule_for(vacuous)), MALFORMED);
+    let w = World::new();
+    let ok = cmp(
+        "gte",
+        call_arg(1),
+        scaled(num(99), call_arg(0), 100, num(0)),
+    );
+    assert_eq!(w.install(&rule_for(ok)), Ok(()));
+}
+
+#[test]
+fn a_constant_multiplicand_is_refused_when_it_folds_to_zero_or_less() {
+    // `scaled(1, 1, 1, -100)` is the constant -99 however it is spelled, in
+    // either multiplicand slot; so is a nested zero.
+    let neg = || scaled(num(1), num(1), 1, num(-100));
+    let zero = || scaled(num(1), num(1), 1, num(-1));
+    for bad in [neg(), zero()] {
+        let a = scaled(call_arg(0), bad.clone(), 100, num(0));
+        let b = scaled(bad, call_arg(0), 100, num(0));
+        for s in [a, b] {
+            let w = World::new();
+            assert_eq!(w.install(&rule_for(cmp("gte", call_arg(1), s))), MALFORMED);
+        }
+    }
+    // A constant that folds positive is fine; one that overflows would deny
+    // every call, so it is refused instead of installing.
+    let w = World::new();
+    let pos = scaled(num(2), num(3), 1, num(0));
+    w.arm(cmp(
+        "gte",
+        call_arg(1),
+        scaled(call_arg(0), pos, 100, num(0)),
+    ));
+    let w = World::new();
+    let big = scaled(num(i128::MAX), num(2), 1, num(0));
+    let r = cmp(
+        "gte",
+        call_arg(1),
+        scaled(call_arg(0), big.clone(), 100, num(0)),
+    );
+    assert_eq!(w.install(&rule_for(r)), MALFORMED);
+    assert_eq!(
+        w.install(&rule_for(cmp("gte", call_arg(1), big))),
+        MALFORMED
+    );
+}
+
+#[test]
+fn den_is_capped_at_max_den_which_stops_i128_max_but_not_a_tiny_ratio() {
+    let rule = |den| {
+        rule_for(cmp(
+            "gte",
+            call_arg(1),
+            scaled(call_arg(0), num(99), den, num(0)),
+        ))
+    };
+    let w = World::new();
+    assert_eq!(w.install(&rule(policy_interpreter::dsl::MAX_DEN)), Ok(()));
+    // What the cap does not stop: 99 / 10^18 floors at zero for ordinary
+    // amounts, so a zero output passes. Avoiding that ratio is the author's.
+    assert_eq!(w.enforce(&[1_000_000, 0]), Ok(()));
+    for den in [policy_interpreter::dsl::MAX_DEN + 1, i128::MAX] {
+        assert_eq!(World::new().install(&rule(den)), MALFORMED, "den = {den}");
+    }
+}
+
+#[test]
+fn a_read_target_must_be_a_contract_address() {
+    // A G-account makes the host abort the whole enforce instead of failing the
+    // call, even inside an `or`; refuse it at install so it denies cleanly.
+    let w = World::new();
+    let g = Address::from_str(
+        &w.env,
+        "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7",
+    );
+    let r = read(&w.env, &g, "balance", alloc::vec![], &[]);
+    assert_eq!(
+        w.install(&rule_for(cmp("gte", r.clone(), num(0)))),
+        MALFORMED
+    );
+    let or = tuple(alloc::vec![
+        sym("or"),
+        tuple(alloc::vec![cmp("gte", r, num(0)), is_advance()])
+    ]);
+    assert_eq!(w.install(&or), MALFORMED);
+}
+
+#[test]
+fn a_muxed_account_is_not_a_read_target_either() {
+    use soroban_sdk::xdr::{MuxedEd25519Account, ScAddress, Uint256};
+    let w = World::new();
+    let muxed = ScAddress::MuxedAccount(MuxedEd25519Account {
+        id: 1,
+        ed25519: Uint256([7; 32]),
+    });
+    let target = tuple(alloc::vec![
+        sym("read"),
+        ScVal::Address(muxed),
+        sym("balance"),
+        tuple(alloc::vec![])
+    ]);
+    assert_eq!(w.install(&rule_for(cmp("gte", target, num(0)))), MALFORMED);
+}
+
+#[test]
+fn floors_truncate_toward_zero_so_they_are_lenient_by_under_one_unit() {
+    // 101 * 99 / 100 = 99.99 truncates to 99, so an output of 99 passes a
+    // floor of 99.99; an exact floor is written cross-multiplied.
+    let w = World::new();
+    w.arm(cmp(
+        "gte",
+        call_arg(1),
+        scaled(call_arg(0), num(99), 100, num(0)),
+    ));
+    assert_eq!(w.enforce(&[101, 99]), Ok(()));
+    let w = World::new();
+    let exact = cmp(
+        "gte",
+        scaled(call_arg(1), num(100), 1, num(0)),
+        scaled(call_arg(0), num(99), 1, num(0)),
+    );
+    w.arm(exact);
+    assert_eq!(w.enforce(&[101, 99]), denied());
+    assert_eq!(w.enforce(&[101, 100]), Ok(()));
+}
+
+#[test]
+fn in_haystacks_and_literal_vecs_hold_constants_only() {
+    let w = World::new();
+    let o = oracle(&w, 1, 0);
+    let rd = read(&w.env, &o, "lastprice", pot(), &[]);
+    let hay = |entry: ScVal| {
+        tuple(alloc::vec![
+            sym("in"),
+            call_arg(0),
+            tuple(alloc::vec![num(1), entry])
+        ])
+    };
+    assert_eq!(w.install(&rule_for(hay(num(2)))), Ok(()));
+    for bad in [call_arg(0), call_fn(), now(), rd] {
+        assert_eq!(w.install(&rule_for(hay(bad))), MALFORMED);
+    }
+}
+
+// ---- a batch: reads are taken before the batch runs ------------------------
+
+/// What the adapter hands the policy: `execute(calls, grants, wait)`, each call
+/// a map with `target`, `function_name` and `args`.
+fn batch_context(w: &World, functions: &[&str]) -> Context {
+    batch_context_waiting(w, functions, 0)
+}
+
+/// The same, with `wait` ledgers before the batch may run.
+fn batch_context_waiting(w: &World, functions: &[&str], wait: u32) -> Context {
+    batch_context_with(w, functions, wait, &w.target, 0, 0)
+}
+
+/// The full shape: each call goes to `target` with `nargs` arguments and
+/// `nauth` executor authorisations.
+fn batch_context_with(
+    w: &World,
+    functions: &[&str],
+    wait: u32,
+    target: &Address,
+    nargs: u32,
+    nauth: u32,
+) -> Context {
+    let list = |n: u32| {
+        let mut v = SorobanVec::<Val>::new(&w.env);
+        (0..n).for_each(|i| v.push_back(i.into_val(&w.env)));
+        v.into_val(&w.env)
+    };
+    let mut calls = SorobanVec::<Val>::new(&w.env);
+    for f in functions {
+        let mut c = soroban_sdk::Map::<Symbol, Val>::new(&w.env);
+        c.set(Symbol::new(&w.env, "target"), target.to_val());
+        c.set(
+            Symbol::new(&w.env, "function_name"),
+            Symbol::new(&w.env, f).into_val(&w.env),
+        );
+        c.set(Symbol::new(&w.env, "args"), list(nargs));
+        c.set(Symbol::new(&w.env, "executor_authorizations"), list(nauth));
+        calls.push_back(c.into_val(&w.env));
+    }
+    let mut args = SorobanVec::<Val>::new(&w.env);
+    args.push_back(calls.into_val(&w.env));
+    args.push_back(SorobanVec::<Val>::new(&w.env).into_val(&w.env));
+    args.push_back(wait.into_val(&w.env));
+    Context::Contract(ContractContext {
+        contract: w.target.clone(),
+        fn_name: Symbol::new(&w.env, "execute"),
+        args,
+    })
+}
+
+fn batch_rule(w: &World, oracle: &Address, pin_shape: bool) -> ScVal {
+    let mut checks = alloc::vec![
+        cmp("eq", call_fn(), sym("execute")),
+        price_floor(w, oracle, 100),
+    ];
+    if pin_shape {
+        // No waiting and no grants: with `wait > 0` the rule is answered when
+        // the batch is STORED, and the read would be stale when it runs.
+        checks.push(cmp("eq", call_arg(2), ScVal::U32(0)));
+        checks.push(cmp(
+            "eq",
+            call_path(&[Step::I(1), Step::Len]),
+            ScVal::U32(0),
+        ));
+        // the whole batch: exactly one call, and it is `advance` on the target
+        // with no arguments and no executor authorisations
+        let first = |f: &'static str| [Step::I(0), Step::I(0), Step::F(f)];
+        let len = |f: &'static str| [Step::I(0), Step::I(0), Step::F(f), Step::Len];
+        checks.push(cmp(
+            "eq",
+            call_path(&first("target")),
+            addr(&w.env, &w.target),
+        ));
+        checks.push(cmp("eq", call_path(&len("args")), ScVal::U32(0)));
+        checks.push(cmp(
+            "eq",
+            call_path(&len("executor_authorizations")),
+            ScVal::U32(0),
+        ));
+        checks.push(cmp(
+            "eq",
+            call_path(&[Step::I(0), Step::Len]),
+            ScVal::U32(1),
+        ));
+        checks.push(cmp(
+            "eq",
+            call_path(&[Step::I(0), Step::I(0), Step::F("function_name")]),
+            sym("advance"),
+        ));
+    }
+    all(checks)
+}
+
+#[test]
+fn an_unpinned_batch_lets_a_later_call_break_what_the_read_checked() {
+    // The read is taken at authorisation, before ANY call of the batch runs, so
+    // the price check holds for [advance] and for [advance, withdraw] alike: the
+    // second call can undo the condition and the rule has already permitted.
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    w.install(&batch_rule(&w, &o, false)).unwrap();
+    assert_eq!(w.enforce_context(&batch_context(&w, &["advance"])), Ok(()));
+    assert_eq!(
+        w.enforce_context(&batch_context(&w, &["advance", "withdraw"])),
+        Ok(())
+    );
+}
+
+#[test]
+fn a_pinned_batch_refuses_an_appended_call_and_a_swapped_one() {
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    w.install(&batch_rule(&w, &o, true)).unwrap();
+    assert_eq!(w.enforce_context(&batch_context(&w, &["advance"])), Ok(()));
+    assert_eq!(
+        w.enforce_context(&batch_context(&w, &["advance", "withdraw"])),
+        denied()
+    );
+    assert_eq!(
+        w.enforce_context(&batch_context(&w, &["withdraw", "advance"])),
+        denied()
+    );
+    assert_eq!(
+        w.enforce_context(&batch_context(&w, &["withdraw"])),
+        denied()
+    );
+}
+
+#[test]
+fn a_pinned_batch_also_pins_the_target_its_args_and_executor_authorisations() {
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    w.install(&batch_rule(&w, &o, true)).unwrap();
+    let ok = |t: &Address, a, n| batch_context_with(&w, &["advance"], 0, t, a, n);
+    assert_eq!(w.enforce_context(&ok(&w.target, 0, 0)), Ok(()));
+    let elsewhere = Address::generate(&w.env);
+    assert_eq!(w.enforce_context(&ok(&elsewhere, 0, 0)), denied());
+    assert_eq!(w.enforce_context(&ok(&w.target, 1, 0)), denied());
+    assert_eq!(w.enforce_context(&ok(&w.target, 0, 1)), denied());
+}
+
+#[test]
+fn a_rule_on_execute_is_answered_when_a_waiting_batch_is_stored() {
+    // `wait` is the adapter's third argument. An unpinned rule permits a batch
+    // that will run a million ledgers later, on the strength of a read taken now;
+    // pinning `wait == 0` refuses it, and `wait == 0` still permits.
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    w.install(&batch_rule(&w, &o, false)).unwrap();
+    let waiting = batch_context_waiting(&w, &["advance"], 1_000_000);
+    assert_eq!(w.enforce_context(&waiting), Ok(()));
+    let w = World::new();
+    let o = oracle(&w, 100, 0);
+    w.install(&batch_rule(&w, &o, true)).unwrap();
+    assert_eq!(w.enforce_context(&batch_context(&w, &["advance"])), Ok(()));
+    assert_eq!(
+        w.enforce_context(&batch_context_waiting(&w, &["advance"], 1)),
+        denied()
+    );
+}
+
+// ---- reads see the state at authorisation time -----------------------------
+
+/// A value anyone can set: a spot price, an agent-debitable balance.
+#[contract]
+pub struct Spot;
+
+#[contractimpl]
+impl Spot {
+    pub fn set(e: &Env, p: i128) {
+        e.storage().instance().set(&0u32, &p);
+    }
+
+    pub fn price(e: &Env) -> i128 {
+        e.storage().instance().get(&0u32).unwrap_or(0)
+    }
+}
+
+/// The submitter's wrapper: move the spot price, have the account's
+/// authorisation checked (here: `enforce`), move it back - one invocation.
+#[contract]
+pub struct Sandwich;
+
+#[contractimpl]
+impl Sandwich {
+    pub fn go(
+        e: &Env,
+        spot: Address,
+        policy: Address,
+        context: Context,
+        rule: ContextRule,
+        account: Address,
+    ) {
+        let s = SpotClient::new(e, &spot);
+        let before = s.price();
+        s.set(&1_000_000);
+        PolicyInterpreterClient::new(e, &policy).enforce(&context, &rule.signers, &rule, &account);
+        s.set(&before);
+    }
+}
+
+#[test]
+fn a_read_of_state_the_submitter_can_move_is_defeated_inside_one_transaction() {
+    // Reads see the state at the moment the account's authorisation is checked,
+    // which a submitter can arrange to follow its own earlier calls. A spot
+    // value is therefore not a safe thing to read: the rule denies at the real
+    // price and permits inside the wrapper, and the price is back afterwards.
+    let w = World::new();
+    let spot = w.env.register(Spot, ());
+    let sandwich = w.env.register(Sandwich, ());
+    SpotClient::new(&w.env, &spot).set(&10);
+    w.arm(cmp(
+        "gte",
+        read(&w.env, &spot, "price", alloc::vec![], &[]),
+        num(1_000),
+    ));
+    assert_eq!(w.enforce(&[]), denied());
+    let go = SandwichClient::new(&w.env, &sandwich).try_go(
+        &spot,
+        &w.policy,
+        &w.context(&[]),
+        &w.rule,
+        &w.account,
+    );
+    assert!(go.is_ok());
+    assert_eq!(SpotClient::new(&w.env, &spot).price(), 10);
+}
+
+// ---- a Reflector-style oracle: enum argument, Option result ----------------
+
+/// An enum value is the vec `[name, payload...]`; `lit` keeps it as data, which a
+/// bare symbol-headed vec would not (that reads as a selector).
+fn variant(name: &str, payload: StdVec<ScVal>) -> ScVal {
+    let mut items = alloc::vec![sym(name)];
+    items.extend(payload);
+    lit(tuple(items))
+}
+
+/// `lastprice(Asset::Stellar(pot))` and a field of the `PriceData` it returns.
+fn reflector_read(w: &World, feed: &Address, pot: &Address, field: &'static str) -> ScVal {
+    let asset = variant("Stellar", alloc::vec![addr(&w.env, pot)]);
+    read(
+        &w.env,
+        feed,
+        "lastprice",
+        alloc::vec![asset],
+        &[Step::F(field)],
+    )
+}
+
+/// The LTV check of `ltv`, with the price leaf supplied.
+fn ltv_over(w: &World, pool: &Address, price: ScVal) -> ScVal {
+    let debt = read(&w.env, pool, "debt", alloc::vec![], &[]);
+    let coll = read(&w.env, pool, "collateral", alloc::vec![], &[]);
+    let pledged = scaled(coll, num(1), 1, call_arg(1)); // coll + P
+    cmp(
+        "lte",
+        scaled(debt, num(1), 1, call_arg(0)), // debt + B
+        scaled(price, scaled(pledged, num(92), 1, num(0)), 100, num(0)),
+    )
+}
+
+/// A world with a Reflector-style feed that knows `Asset::Stellar(pot)`.
+fn reflector_world(price: i128, timestamp: u64) -> (World, Address, Address) {
+    let w = World::new();
+    w.env.ledger().with_mut(|l| l.timestamp = 10_000);
+    let pot = Address::generate(&w.env);
+    let feed = w
+        .env
+        .register(Reflector, (Asset::Stellar(pot.clone()), price, timestamp));
+    (w, feed, pot)
+}
+
+#[test]
+fn a_reflector_style_feed_serves_the_price_floor() {
+    let check = |price| {
+        let (w, feed, pot) = reflector_world(price, 0);
+        let floor = cmp("gte", reflector_read(&w, &feed, &pot, "price"), num(100));
+        w.arm(floor);
+        w.enforce(&[])
+    };
+    assert_eq!(check(100), Ok(()));
+    assert_eq!(check(99), denied());
+}
+
+/// The LTV rule of `ltv_over` with the price read from the Reflector feed:
+/// `debt + B <= 92% * price * (coll + P)` over a pool at debt 900, coll 600.
+#[test]
+fn a_reflector_style_feed_serves_the_ltv_check() {
+    let (w, feed, pot) = reflector_world(2, 0);
+    let pool = w.env.register(Pool, (900i128, 600i128));
+    w.arm(ltv_over(
+        &w,
+        &pool,
+        reflector_read(&w, &feed, &pot, "price"),
+    ));
+    // capacity 0.92 * 2 * 600 = 1,104: B = 204 sits exactly on it.
+    assert_eq!(w.enforce(&[204, 0, 0]), Ok(()));
+    assert_eq!(w.enforce(&[205, 0, 0]), denied());
+    // ... and pledging P = 100 lifts it to 0.92 * 2 * 700 = 1,288.
+    assert_eq!(w.enforce(&[300, 100, 0]), Ok(()));
+    // The live price decides: at 1 the same advance is refused.
+    let (w, feed, pot) = reflector_world(1, 0);
+    let pool = w.env.register(Pool, (900i128, 600i128));
+    w.arm(ltv_over(
+        &w,
+        &pool,
+        reflector_read(&w, &feed, &pot, "price"),
+    ));
+    assert_eq!(w.enforce(&[100, 0, 0]), denied());
+}
+
+#[test]
+fn a_reflector_style_feed_serves_the_freshness_check() {
+    let check = |timestamp| {
+        let (w, feed, pot) = reflector_world(1, timestamp);
+        let stamp = reflector_read(&w, &feed, &pot, "timestamp");
+        w.arm(cmp("gte", stamp, scaled(now(), num(1), 1, num(-300))));
+        w.enforce(&[])
+    };
+    assert_eq!(check(9_700), Ok(())); // exactly 300 s old
+    assert_eq!(check(9_699), denied()); // 301 s old
+}
+
+#[test]
+fn the_first_loss_check_does_not_involve_the_feed() {
+    // It reads a token balance, so the enum argument is not in play; kept here
+    // so the four checks sit side by side.
+    let (w, tusd, custody) = first_loss_world(1_050);
+    w.arm(first_loss(&w, &tusd, &custody, 1_000));
+    assert_eq!(w.enforce(&[0, 0, 50]), Ok(()));
+    assert_eq!(w.enforce(&[0, 0, 51]), denied());
+}
+
+#[test]
+fn a_none_result_denies_and_a_some_result_is_walked_by_its_path() {
+    // `Some(PriceData)` arrives as the struct itself, so `price` is found.
+    let w = World::new();
+    let pot = Address::generate(&w.env);
+    let feed = w
+        .env
+        .register(Reflector, (Asset::Stellar(pot.clone()), 150i128, 0u64));
+    w.arm(cmp(
+        "gte",
+        reflector_read(&w, &feed, &pot, "price"),
+        num(150),
+    ));
+    assert_eq!(w.enforce(&[]), Ok(()));
+
+    // The same rule against an asset the feed does not know: `None` is void,
+    // which has no `price` and denies - under `gte` and under `lte` alike.
+    for op in ["gte", "lte"] {
+        let w = World::new();
+        let known = Address::generate(&w.env);
+        let unknown = Address::generate(&w.env);
+        let feed = w
+            .env
+            .register(Reflector, (Asset::Stellar(known), 150i128, 0u64));
+        w.arm(cmp(
+            op,
+            reflector_read(&w, &feed, &unknown, "price"),
+            num(0),
+        ));
+        assert_eq!(w.enforce(&[]), denied(), "{op}");
+    }
+    // Another variant of the same enum is `None` too (`Other` is not `Stellar`).
+    let w = World::new();
+    let pot = Address::generate(&w.env);
+    let feed = w
+        .env
+        .register(Reflector, (Asset::Stellar(pot), 150i128, 0u64));
+    let other = variant("Other", alloc::vec![sym("POT")]);
+    let read_other = read(
+        &w.env,
+        &feed,
+        "lastprice",
+        alloc::vec![other],
+        &[Step::F("price")],
+    );
+    w.arm(cmp("gte", read_other, num(0)));
+    assert_eq!(w.enforce(&[]), denied());
+}
+
+#[test]
+fn an_enum_value_is_written_with_lit() {
+    let w = World::new();
+    let o = oracle(&w, 1, 0);
+    let rd = |args: StdVec<ScVal>| {
+        let r = read(&w.env, &o, "lastprice", args, &[Step::F("price")]);
+        rule_for(cmp("gte", r, num(0)))
+    };
+    // With and without a payload.
+    let other = variant("Other", alloc::vec![sym("POT")]);
+    assert_eq!(w.install(&rd(alloc::vec![other])), Ok(()));
+    let w = World::new();
+    let o = oracle(&w, 1, 0);
+    let unit = read(
+        &w.env,
+        &o,
+        "lastprice",
+        alloc::vec![variant("Unit", alloc::vec![])],
+        &[],
+    );
+    assert_eq!(w.install(&rule_for(cmp("gte", unit, num(0)))), Ok(()));
+    // `lit` is data, whatever it holds: a selector-shaped payload is a constant
+    // that equals only itself, so nothing hides in it.
+    let w = World::new();
+    let hidden = variant("Stellar", alloc::vec![call_fn()]);
+    assert_eq!(
+        w.install(&rule_for(cmp("eq", hidden.clone(), hidden))),
+        Ok(())
+    );
+    // A bare symbol-headed vec is a selector, and an unknown one is refused.
+    for bad in [
+        tuple(alloc::vec![sym("Stellar"), num(1)]),
+        tuple(alloc::vec![sym("variant"), sym("Stellar")]),
+    ] {
+        let w = World::new();
+        let o = oracle(&w, 1, 0);
+        let r = read(
+            &w.env,
+            &o,
+            "lastprice",
+            alloc::vec![bad],
+            &[Step::F("price")],
+        );
+        assert_eq!(w.install(&rule_for(cmp("gte", r, num(0)))), MALFORMED);
+    }
+    // An enum value does not count as a selector: reads and the clock alone
+    // are still refused.
+    let w = World::new();
+    let o = oracle(&w, 1, 0);
+    let r = read(
+        &w.env,
+        &o,
+        "lastprice",
+        alloc::vec![variant("A", alloc::vec![])],
+        &[],
+    );
+    assert_eq!(
+        w.install(&cmp("gte", r, num(0))),
+        Err(PolicyError::SelectorLeafRequired as u32)
+    );
+}
+
+#[test]
+fn a_variant_literal_pins_an_enum_argument_of_the_call() {
+    // `eq(call_arg(0), variant(Stellar, [pot]))`: the authorised call must
+    // pass exactly that asset.
+    let w = World::new();
+    let pot = Address::generate(&w.env);
+    w.arm(cmp(
+        "eq",
+        call_arg(0),
+        variant("Stellar", alloc::vec![addr(&w.env, &pot)]),
+    ));
+    let ctx = |asset: Asset| {
+        let args: SorobanVec<Val> = soroban_sdk::vec![&w.env, asset.into_val(&w.env)];
+        Context::Contract(ContractContext {
+            contract: w.target.clone(),
+            fn_name: Symbol::new(&w.env, "advance"),
+            args,
+        })
+    };
+    assert_eq!(w.enforce_context(&ctx(Asset::Stellar(pot.clone()))), Ok(()));
+    let other = Asset::Stellar(Address::generate(&w.env));
+    assert_eq!(w.enforce_context(&ctx(other)), denied());
+    assert_eq!(
+        w.enforce_context(&ctx(Asset::Other(Symbol::new(&w.env, "POT")))),
+        denied()
+    );
+}
+
+// ---- identical reads are one call; the cap counts distinct calls -----------
+
+/// All four PayFi checks as ONE predicate on the payout rule: price floor,
+/// exact LTV, first-loss float and freshness. The feed is read three times
+/// (price twice, timestamp once) and is one call; with debt, collateral and
+/// the custody balance that is four distinct calls.
+fn payfi_rule(w: &World, feed: &Address, pot: &Address) -> ScVal {
+    let pool = w.env.register(Pool, (900i128, 600i128));
+    let custody = Address::generate(&w.env);
+    let tusd = w.env.register(Token, (custody.clone(), 1_050i128));
+    let price = || reflector_read(w, feed, pot, "price");
+    let fresh = cmp(
+        "gte",
+        reflector_read(w, feed, pot, "timestamp"),
+        scaled(now(), num(1), 1, num(-300)),
+    );
+    all(alloc::vec![
+        is_advance(),
+        cmp("gte", price(), num(2)),
+        ltv_over(w, &pool, price()),
+        first_loss(w, &tusd, &custody, 1_000),
+        fresh,
+    ])
+}
+
+#[test]
+fn the_four_payfi_checks_are_one_rule_and_the_feed_is_called_once() {
+    // price 2, 300 s old: B <= 204 passes LTV (capacity 1,104 - 900), T <= 50.
+    let (w, feed, pot) = reflector_world(2, 9_700);
+    let rule = payfi_rule(&w, &feed, &pot);
+    w.install(&rule)
+        .expect("one predicate carries all four checks");
+    assert_eq!(w.enforce(&[204, 0, 50]), Ok(()));
+    let feed_calls = ReflectorClient::new(&w.env, &feed).calls();
+    assert_eq!(
+        feed_calls, 1,
+        "price floor, LTV price and freshness share one call"
+    );
+}
+
+#[test]
+fn each_payfi_check_refuses_inside_the_one_rule() {
+    let permit = |price, stamp, args: [i128; 3]| {
+        let (w, feed, pot) = reflector_world(price, stamp);
+        let rule = payfi_rule(&w, &feed, &pot);
+        w.install(&rule).unwrap();
+        w.enforce(&args)
+    };
+    assert_eq!(permit(2, 9_700, [204, 0, 50]), Ok(()));
+    assert_eq!(permit(1, 9_700, [0, 0, 0]), denied(), "price floor (2)");
+    assert_eq!(permit(2, 9_700, [205, 0, 0]), denied(), "LTV one over");
+    assert_eq!(permit(2, 9_700, [0, 0, 51]), denied(), "first-loss float");
+    assert_eq!(permit(2, 9_699, [0, 0, 0]), denied(), "stale price");
+}
+
+#[test]
+fn a_fifth_distinct_read_is_refused_and_repeats_are_free() {
+    let (w, feed, pot) = reflector_world(2, 9_700);
+    let rule = payfi_rule(&w, &feed, &pot);
+    // A fifth DISTINCT call (the feed asked about another asset) is refused.
+    let other = Address::generate(&w.env);
+    let fifth = reflector_read(&w, &feed, &other, "price");
+    let over = all(alloc::vec![rule.clone(), cmp("gte", fifth, num(0))]);
+    assert_eq!(w.install(&over), MALFORMED);
+    // The same call again, any path, any number of times, installs.
+    let again = |field| cmp("gte", reflector_read(&w, &feed, &pot, field), num(0));
+    let repeats: StdVec<ScVal> = ["price", "timestamp", "price", "price", "timestamp"]
+        .into_iter()
+        .map(again)
+        .collect();
+    let mut checks = alloc::vec![rule];
+    checks.extend(repeats);
+    assert_eq!(w.install(&all(checks)), Ok(()));
+    assert_eq!(w.enforce(&[204, 0, 50]), Ok(()));
+    assert_eq!(ReflectorClient::new(&w.env, &feed).calls(), 1);
+}
+
+#[test]
+fn a_void_shared_read_denies_every_leaf_that_uses_it() {
+    // The feed does not know this asset: void for both the price and the
+    // timestamp leaf, and the one memoised result denies each. (A call that
+    // FAILS is `a_failed_read_is_made_once`.)
+    let (w, feed, _) = reflector_world(2, 9_700);
+    let unknown = Address::generate(&w.env);
+    let both = all(alloc::vec![
+        is_advance(),
+        cmp("gte", reflector_read(&w, &feed, &unknown, "price"), num(0)),
+        cmp(
+            "lte",
+            reflector_read(&w, &feed, &unknown, "timestamp"),
+            num(i128::MAX)
+        ),
+    ]);
+    w.install(&both).unwrap();
+    assert_eq!(w.enforce(&[]), denied());
+    // ... also inside an `or`, where the sibling branch still permits.
+    let w = World::new();
+    let unknown = Address::generate(&w.env);
+    let feed = w.env.register(
+        Reflector,
+        (Asset::Stellar(Address::generate(&w.env)), 2i128, 0u64),
+    );
+    let dead = cmp("gte", reflector_read(&w, &feed, &unknown, "price"), num(0));
+    let or = tuple(alloc::vec![
+        sym("or"),
+        tuple(alloc::vec![dead.clone(), dead, is_advance()])
+    ]);
+    w.install(&or).unwrap();
+    assert_eq!(w.enforce(&[]), Ok(()));
+}
+
+// ---- the memo, the leaf cap and `or`: what a regression must not change ----
+
+fn or(children: StdVec<ScVal>) -> ScVal {
+    tuple(alloc::vec![sym("or"), tuple(children)])
+}
+
+/// A holder's `balance` as a floor: `balance(holder) >= floor`.
+fn holds(w: &World, token: &Address, holder: &Address, floor: i128) -> ScVal {
+    let balance = read(
+        &w.env,
+        token,
+        "balance",
+        alloc::vec![addr(&w.env, holder)],
+        &[],
+    );
+    cmp("gte", balance, num(floor))
+}
+
+/// `balance(rich) >= 1000` and `balance(poor) <= 0`, or the two holders swapped.
+fn two_holders(swapped: bool) -> Verdict {
+    let w = World::new();
+    let (rich, poor) = (Address::generate(&w.env), Address::generate(&w.env));
+    let token = w.env.register(Token, (rich.clone(), 1_050i128));
+    let (a, b) = if swapped {
+        (&poor, &rich)
+    } else {
+        (&rich, &poor)
+    };
+    w.install(&both_with(&w, &token, a, b)).unwrap();
+    w.enforce(&[])
+}
+
+#[test]
+fn reads_of_one_function_with_different_arguments_are_different_calls() {
+    // The memo key is (contract, fn, args). If it ignored the arguments the
+    // second read would be answered with the first one's balance.
+    assert_eq!(two_holders(false), Ok(()));
+    assert_eq!(two_holders(true), denied());
+}
+
+fn both_with(w: &World, token: &Address, a: &Address, b: &Address) -> ScVal {
+    let owes_nothing = cmp(
+        "lte",
+        read(&w.env, token, "balance", alloc::vec![addr(&w.env, b)], &[]),
+        num(0),
+    );
+    all(alloc::vec![
+        is_advance(),
+        holds(w, token, a, 1_000),
+        owes_nothing
+    ])
+}
+
+/// CPU spent by one `enforce` of `or(dead reads.., advance)`, where `dead`
+/// panics. `distinct` registers a fresh target per read, so none can share.
+fn cost_of_dead_reads(distinct: bool) -> u64 {
+    let w = World::new();
+    let first = oracle(&w, 1, 0);
+    let dead = |o: &Address| cmp("gte", read(&w.env, o, "boom", alloc::vec![], &[]), num(0));
+    let mut branches = alloc::vec![dead(&first)];
+    for _ in 1..4 {
+        let o = if distinct {
+            oracle(&w, 1, 0)
+        } else {
+            first.clone()
+        };
+        branches.push(dead(&o));
+    }
+    branches.push(is_advance());
+    w.install(&or(branches)).unwrap();
+    w.env.cost_estimate().budget().reset_unlimited();
+    assert_eq!(w.enforce(&[]), Ok(()));
+    w.env.cost_estimate().budget().cpu_instruction_cost()
+}
+
+#[test]
+fn a_failed_read_is_made_once() {
+    // A call that panics is remembered like any other: four identical dead
+    // reads are one failed call, four distinct ones are four.
+    let (same, distinct) = (cost_of_dead_reads(false), cost_of_dead_reads(true));
+    assert!(
+        same * 100 < distinct * 90,
+        "identical dead reads cost {same}, distinct ones {distinct}: failures are not memoised"
+    );
+}
+
+#[test]
+fn an_or_stops_at_the_first_branch_that_permits() {
+    // `or(advance, read)`: the read branch never runs, so the feed is never
+    // called. With the branches the other way round it is.
+    let (w, feed, pot) = reflector_world(2, 9_700);
+    let live = cmp("gte", reflector_read(&w, &feed, &pot, "price"), num(0));
+    w.install(&or(alloc::vec![is_advance(), live.clone()]))
+        .unwrap();
+    assert_eq!(w.enforce(&[]), Ok(()));
+    assert_eq!(ReflectorClient::new(&w.env, &feed).calls(), 0);
+
+    let (w, feed, pot) = reflector_world(2, 9_700);
+    let live = cmp("gte", reflector_read(&w, &feed, &pot, "price"), num(0));
+    w.install(&or(alloc::vec![cmp("eq", call_fn(), sym("other")), live]))
+        .unwrap();
+    assert_eq!(w.enforce(&[]), Ok(()));
+    assert_eq!(ReflectorClient::new(&w.env, &feed).calls(), 1);
+}
+
+#[test]
+fn an_or_reports_its_first_deny() {
+    // Both branches deny: the reason is the first branch's, CONTRACT_SCOPE or
+    // ARG_MISMATCH depending on which is written first.
+    let w = World::new();
+    let elsewhere = addr(&w.env, &Address::generate(&w.env));
+    let scope = cmp("eq", tuple(alloc::vec![sym("call_contract")]), elsewhere);
+    let mismatch = cmp("eq", call_fn(), sym("other"));
+    w.install(&or(alloc::vec![scope.clone(), mismatch.clone()]))
+        .unwrap();
+    assert_eq!(w.enforce(&[]), refused(PolicyError::ContractScope));
+    let w = World::new();
+    w.install(&or(alloc::vec![mismatch, scope])).unwrap();
+    assert_eq!(w.enforce(&[]), denied());
+}
+
+/// `in(call_fn, [x0.. x(n-1)])`: `1 + n` leaves.
+fn member(n: usize) -> ScVal {
+    let entries = (0..n).map(|i| sym(&alloc::format!("f{i}"))).collect();
+    tuple(alloc::vec![sym("in"), call_fn(), tuple(entries)])
+}
+
+#[test]
+fn the_leaf_cap_is_exactly_200_and_counts_in_entries() {
+    // Six `in` of 32 entries are 6 * 33 = 198 leaves. A two-leaf `in` makes
+    // 200 (installs); a three-leaf one makes 201 (refused). The entries must
+    // count: without them the 201 would be 12.
+    let w = World::new();
+    let mut rule = alloc::vec![member(32); 6];
+    rule.push(member(1));
+    w.install(&all(rule.clone())).expect("exactly 200 leaves");
+    rule.pop();
+    rule.push(member(2));
+    assert_eq!(w.install(&all(rule)), MALFORMED, "201 leaves");
+}
+
+#[test]
+fn a_rule_scoped_to_create_contract_denies_missing_state() {
+    // The interpreter only evaluates a contract call. A rule scoped to
+    // `CreateContract` can carry this policy, and its context is not one.
+    use soroban_sdk::auth::{ContractExecutable, CreateContractHostFnContext};
+    let mut w = World::new();
+    w.rule.context_type = ContextRuleType::CreateContract(BytesN::from_array(&w.env, &[1; 32]));
+    w.install(&rule_for(cmp("eq", call_fn(), sym("advance"))))
+        .unwrap();
+    let create = Context::CreateContractHostFn(CreateContractHostFnContext {
+        executable: ContractExecutable::Wasm(BytesN::from_array(&w.env, &[1; 32])),
+        salt: BytesN::from_array(&w.env, &[2; 32]),
+    });
+    assert_eq!(
+        w.enforce_context(&create),
+        refused(PolicyError::MissingState)
+    );
+}
+
+#[test]
+fn the_interpreters_own_address_cannot_be_a_signer() {
+    // `require_auth` on the interpreter is satisfied only by a call the
+    // interpreter itself makes, so a master set holding it can never authorise
+    // an uninstall or a rotation and the rule is bricked. Refused as 219 at
+    // install (operators and admins both) and at rotation.
+    let w = World::new();
+    let ok = soroban_sdk::vec![&w.env, Signer::Delegated(w.account.clone())];
+    let own = soroban_sdk::vec![&w.env, Signer::Delegated(w.policy.clone())];
+    let predicate: Bytes = {
+        let val: Val = rule_for(is_advance()).into_val(&w.env);
+        val.to_xdr(&w.env)
+    };
+    let try_install = |operators: &SorobanVec<Signer>, admins: &SorobanVec<Signer>| {
+        let params = PolicyInstallParams {
+            grammar_version: 7,
+            install_nonce: 1,
+            predicate: predicate.clone(),
+            predicate_hash: w.env.crypto().sha256(&predicate).into(),
+            policy_admins: admins.clone(),
+        };
+        let rule = ContextRule {
+            signers: operators.clone(),
+            ..w.rule.clone()
+        };
+        w.client().try_install(&params, &rule, &w.account)
+    };
+    let code = |r: Result<_, Result<soroban_sdk::Error, _>>| match r {
+        Ok(_) => None,
+        Err(e) => e.ok().map(|e: soroban_sdk::Error| e.get_code()),
+    };
+    assert_eq!(code(try_install(&ok, &own)), Some(219), "as admin");
+    assert_eq!(code(try_install(&own, &ok)), Some(219), "as operator");
+    assert_eq!(code(try_install(&ok, &ok)), None);
+    assert_eq!(
+        code(
+            w.client()
+                .try_rotate_master_signer_set(&w.account, &1, &own)
+        ),
+        Some(219),
+        "at rotation"
+    );
+}
+
+#[test]
+fn a_constant_product_that_overflows_is_refused_even_when_the_addend_varies() {
+    // src * num does not depend on `add`, so 1e20 * 1e20 would deny every call
+    // with ARITHMETIC_OVERFLOW whatever the call carries. Refuse it at install.
+    let big = 100_000_000_000_000_000_000i128;
+    let w = World::new();
+    let floor = |src, n| cmp("gte", call_arg(1), scaled(num(src), num(n), 1, call_arg(0)));
+    assert_eq!(w.install(&rule_for(floor(big, big))), MALFORMED);
+    // Nested: the overflow is in the numerator's own constant fold.
+    let nested = scaled(num(big), num(big), 1, num(0));
+    assert_eq!(
+        w.install(&rule_for(cmp(
+            "gte",
+            call_arg(1),
+            scaled(nested, num(1), 1, call_arg(0))
+        ))),
+        MALFORMED
+    );
+    // A product that fits installs, with a variable addend, at the edge.
+    assert_eq!(w.install(&rule_for(floor(i128::MAX, 1))), Ok(()));
+    // And the addend still decides the answer: i128::MAX + 1 overflows.
+    assert_eq!(w.enforce(&[1, 0]), refused(PolicyError::ArithmeticOverflow));
+}
+
+// ---- eq and in compare numbers as numbers ----------------------------------
+
+/// `enforce` of `advance(args)` with arguments of any type.
+fn call_with(w: &World, args: StdVec<Val>) -> Verdict {
+    let mut v = SorobanVec::<Val>::new(&w.env);
+    args.into_iter().for_each(|a| v.push_back(a));
+    w.enforce_context(&Context::Contract(ContractContext {
+        contract: w.target.clone(),
+        fn_name: Symbol::new(&w.env, "advance"),
+        args: v,
+    }))
+}
+
+#[test]
+fn eq_compares_u32_u64_and_i128_by_value() {
+    // Ordering already widened; eq now does too, so `eq(x, 5)` holds for a 5 of
+    // any integer type, and a literal of one type matches an argument of another.
+    let w = World::new();
+    w.arm(cmp("eq", call_arg(0), num(5)));
+    let e = &w.env;
+    assert_eq!(call_with(&w, alloc::vec![5i128.into_val(e)]), Ok(()));
+    assert_eq!(call_with(&w, alloc::vec![5u32.into_val(e)]), Ok(()));
+    assert_eq!(call_with(&w, alloc::vec![5u64.into_val(e)]), Ok(()));
+    assert_eq!(call_with(&w, alloc::vec![6u32.into_val(e)]), denied());
+    assert_eq!(call_with(&w, alloc::vec![6u64.into_val(e)]), denied());
+
+    let w = World::new();
+    w.arm(cmp("eq", call_arg(0), ScVal::U32(5)));
+    let e = &w.env;
+    assert_eq!(call_with(&w, alloc::vec![5i128.into_val(e)]), Ok(()));
+    assert_eq!(call_with(&w, alloc::vec![5u64.into_val(e)]), Ok(()));
+    assert_eq!(call_with(&w, alloc::vec![6i128.into_val(e)]), denied());
+    // A value outside u32 range is a different number, not a truncation.
+    assert_eq!(
+        call_with(&w, alloc::vec![(5i128 + (1 << 32)).into_val(e)]),
+        denied()
+    );
+}
+
+#[test]
+fn eq_on_values_that_are_not_numbers_is_unchanged() {
+    // Symbols, addresses and vectors still compare exactly, and never against a
+    // number; a number and a symbol are different values.
+    let w = World::new();
+    let other = Address::generate(&w.env);
+    w.arm(all(alloc::vec![
+        cmp("eq", call_arg(0), sym("x")),
+        cmp("eq", call_arg(1), addr(&w.env, &w.target)),
+    ]));
+    let e = &w.env;
+    let (x, y) = (Symbol::new(e, "x"), Symbol::new(e, "y"));
+    let ok = |a: Val, b: Val| call_with(&w, alloc::vec![a, b]);
+    assert_eq!(ok(x.to_val(), w.target.to_val()), Ok(()));
+    assert_eq!(ok(y.to_val(), w.target.to_val()), denied());
+    assert_eq!(ok(x.to_val(), other.to_val()), denied());
+    assert_eq!(ok(5u32.into_val(e), w.target.to_val()), denied());
+    assert_eq!(ok(x.to_val(), 5u32.into_val(e)), denied());
+}
+
+#[test]
+fn in_compares_numbers_by_value_across_types() {
+    let w = World::new();
+    w.arm(tuple(alloc::vec![
+        sym("in"),
+        call_arg(0),
+        tuple(alloc::vec![num(5), ScVal::U32(7), sym("s")])
+    ]));
+    let e = &w.env;
+    for permitted in [
+        5u32.into_val(e),
+        7i128.into_val(e),
+        7u64.into_val(e),
+        5i128.into_val(e),
+    ] {
+        assert_eq!(call_with(&w, alloc::vec![permitted]), Ok(()));
+    }
+    let not_in = refused(PolicyError::NotInAllowlist);
+    assert_eq!(call_with(&w, alloc::vec![6u32.into_val(e)]), not_in);
+    assert_eq!(call_with(&w, alloc::vec![8i128.into_val(e)]), not_in);
+    assert_eq!(
+        call_with(&w, alloc::vec![Symbol::new(e, "s").to_val()]),
+        Ok(())
+    );
+}
+
+// ---- a literal that is not a number has no place in arithmetic or ordering --
+
+/// Install the rule `check(world)` on a fresh world.
+fn installs(check: impl Fn(&World) -> ScVal) -> Result<(), u32> {
+    let w = World::new();
+    w.install(&rule_for(check(&w)))
+}
+
+#[test]
+fn an_ordering_over_a_non_numeric_literal_is_refused_at_install() {
+    // It would deny every call (an address, symbol or vector has no order), so
+    // it is refused (201) instead of installing a rule that never permits.
+    type Lit = fn(&World) -> ScVal;
+    let literals: [Lit; 4] = [
+        |_| sym("x"),
+        |w| addr(&w.env, &w.target),
+        |_| tuple(alloc::vec![num(1), num(2)]),
+        |w| variant("Stellar", alloc::vec![addr(&w.env, &w.target)]),
+    ];
+    for lit in literals {
+        for op in ["lt", "lte", "gt", "gte"] {
+            assert_eq!(installs(|w| cmp(op, call_arg(0), lit(w))), MALFORMED);
+            assert_eq!(installs(|w| cmp(op, lit(w), call_arg(0))), MALFORMED);
+        }
+        // `eq` is the way to match them.
+        assert_eq!(installs(|w| cmp("eq", call_arg(0), lit(w))), Ok(()));
+    }
+    // Numeric literals of either type order fine.
+    assert_eq!(installs(|_| cmp("gte", call_arg(0), ScVal::U32(1))), Ok(()));
+    assert_eq!(installs(|_| cmp("lt", num(1), call_arg(0))), Ok(()));
+}
+
+#[test]
+fn a_non_numeric_literal_in_scaled_is_refused_at_install() {
+    let bad = |src: ScVal, n: ScVal, add: ScVal| {
+        installs(|_| {
+            cmp(
+                "gte",
+                call_arg(0),
+                scaled(src.clone(), n.clone(), 1, add.clone()),
+            )
+        })
+    };
+    let target = installs_addr();
+    assert_eq!(bad(sym("x"), call_arg(1), num(0)), MALFORMED);
+    assert_eq!(bad(call_arg(1), target, num(0)), MALFORMED);
+    assert_eq!(bad(call_arg(1), num(1), sym("x")), MALFORMED);
+    assert_eq!(
+        bad(call_arg(1), num(1), tuple(alloc::vec![num(1)])),
+        MALFORMED
+    );
+    assert_eq!(bad(call_arg(1), num(1), num(0)), Ok(()));
+    assert_eq!(bad(call_arg(1), ScVal::U32(2), ScVal::U32(0)), Ok(()));
+}
+
+/// Some address as a literal (any: the rule is refused or accepted on its type).
+fn installs_addr() -> ScVal {
+    let env = Env::default();
+    addr(&env, &Address::generate(&env))
+}
+
+// ---- the deny reason does not depend on which side a selector is on --------
+
+#[test]
+fn the_deny_reason_is_the_same_whichever_side_the_selector_is_on() {
+    let unsupported = refused(PolicyError::UnsupportedNode);
+    let scope = refused(PolicyError::ContractScope);
+    let contract = || tuple(alloc::vec![sym("call_contract")]);
+    let verdict = |check: ScVal| {
+        let w = World::new();
+        w.arm(check);
+        w.enforce(&[])
+    };
+    // An ordering over an identity is unsupported on either side ...
+    for op in ["lt", "lte", "gt", "gte"] {
+        assert_eq!(
+            verdict(cmp(op, call_fn(), num(5))),
+            unsupported,
+            "{op} left"
+        );
+        assert_eq!(
+            verdict(cmp(op, num(5), call_fn())),
+            unsupported,
+            "{op} right"
+        );
+        assert_eq!(verdict(cmp(op, contract(), num(5))), unsupported);
+        assert_eq!(verdict(cmp(op, num(5), contract())), unsupported);
+    }
+    // ... and a missed `eq` on the contract is CONTRACT_SCOPE on either side.
+    let elsewhere = || {
+        let env = Env::default();
+        addr(&env, &Address::generate(&env))
+    };
+    assert_eq!(verdict(cmp("eq", contract(), elsewhere())), scope);
+    assert_eq!(verdict(cmp("eq", elsewhere(), contract())), scope);
+    // The other side not resolving at all is the same miss, not ARG_MISMATCH.
+    assert_eq!(verdict(cmp("eq", contract(), call_arg(9))), scope);
+    assert_eq!(verdict(cmp("eq", call_arg(9), contract())), scope);
+    // An overflow keeps its own reason.
+    let w = World::new();
+    w.arm(cmp(
+        "eq",
+        contract(),
+        scaled(call_arg(0), num(2), 1, num(0)),
+    ));
+    assert_eq!(
+        w.enforce(&[i128::MAX]),
+        refused(PolicyError::ArithmeticOverflow)
+    );
+    assert_eq!(verdict(cmp("eq", call_fn(), sym("other"))), denied());
+    assert_eq!(verdict(cmp("eq", sym("other"), call_fn())), denied());
+}
+
+#[test]
+fn call_contract_and_call_fn_are_not_scaled_operands() {
+    // An address or a symbol has no value to scale: every call would deny 100.
+    let id = |name: &str| tuple(alloc::vec![sym(name)]);
+    for name in ["call_fn", "call_contract"] {
+        for slot in 0..3 {
+            let mut ops = [call_arg(1), num(2), num(0)];
+            ops[slot] = id(name);
+            let [s, n, a] = ops;
+            let check = cmp("gte", call_arg(0), scaled(s, n, 1, a));
+            assert_eq!(
+                installs(|_| check.clone()),
+                MALFORMED,
+                "{name} in slot {slot}"
+            );
+        }
+    }
+    // An ordering over them is still decided at enforce (103), not refused.
+    assert_eq!(installs(|_| cmp("lt", call_fn(), num(5))), Ok(()));
+}
+
+// ---- generic reads: call-derived arguments, any result type ----------------
+
+/// `advance(amount, receiver)`: the shape the registry rules below guard.
+fn advance_to(w: &World, receiver: &Address) -> Context {
+    let args: SorobanVec<Val> =
+        soroban_sdk::vec![&w.env, 10i128.into_val(&w.env), receiver.into_val(&w.env)];
+    Context::Contract(ContractContext {
+        contract: w.target.clone(),
+        fn_name: Symbol::new(&w.env, "advance"),
+        args,
+    })
+}
+
+/// `registry.contains(call_arg(i)) == true`.
+fn listed(w: &World, registry: &Address, i: u32) -> ScVal {
+    let read = read(&w.env, registry, "contains", alloc::vec![call_arg(i)], &[]);
+    cmp("eq", read, lit(ScVal::Bool(true)))
+}
+
+#[test]
+fn a_registry_read_with_a_call_derived_argument_gates_the_receiver() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let (kyc, stranger) = (Address::generate(&w.env), Address::generate(&w.env));
+    RegistryClient::new(&w.env, &reg).add(&kyc);
+    // The only thing tying this rule to the call is the argument of its read.
+    w.install(&listed(&w, &reg, 1)).expect("installs");
+    assert_eq!(w.enforce_context(&advance_to(&w, &kyc)), Ok(()));
+    assert_eq!(w.enforce_context(&advance_to(&w, &stranger)), denied());
+    // The list moves; the installed rule does not.
+    let client = RegistryClient::new(&w.env, &reg);
+    client.add(&stranger);
+    client.remove(&kyc);
+    assert_eq!(w.enforce_context(&advance_to(&w, &stranger)), Ok(()));
+    assert_eq!(w.enforce_context(&advance_to(&w, &kyc)), denied());
+}
+
+#[test]
+fn a_read_argument_that_does_not_resolve_denies() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let kyc = Address::generate(&w.env);
+    RegistryClient::new(&w.env, &reg).add(&kyc);
+    w.install(&listed(&w, &reg, 7)).expect("installs");
+    assert_eq!(w.enforce_context(&advance_to(&w, &kyc)), denied());
+    // A registry that is not there is a failed read: it denies.
+    let w = World::new();
+    w.install(&listed(&w, &Address::generate(&w.env), 1))
+        .expect("installs");
+    let kyc = Address::generate(&w.env);
+    assert_eq!(w.enforce_context(&advance_to(&w, &kyc)), denied());
+}
+
+#[test]
+fn the_clock_and_the_call_are_read_arguments_too() {
+    let w = World::new();
+    w.env.ledger().with_mut(|l| l.timestamp = 2_000);
+    let reg = w.env.register(Registry, ());
+    let echo = |arg: ScVal| read(&w.env, &reg, "echo", alloc::vec![arg], &[]);
+    let rule = all(alloc::vec![
+        cmp("eq", echo(now()), now()),
+        cmp("eq", echo(call_fn()), call_fn()),
+        cmp("eq", echo(call_arg(0)), call_arg(0)),
+    ]);
+    w.install(&rule).expect("installs");
+    assert_eq!(w.enforce(&[5]), Ok(()));
+    // What was passed is what came back, so the result was not a constant:
+    // a mismatch denies.
+    let w = World::new();
+    w.env.ledger().with_mut(|l| l.timestamp = 2_000);
+    let reg = w.env.register(Registry, ());
+    let echoed = read(&w.env, &reg, "echo", alloc::vec![now()], &[]);
+    w.install(&rule_for(cmp("eq", echoed.clone(), num(2_000))))
+        .expect("installs");
+    assert_eq!(w.enforce(&[]), Ok(()));
+    w.env.ledger().with_mut(|l| l.timestamp = 2_001);
+    assert_eq!(w.enforce(&[]), denied());
+}
+
+#[test]
+fn a_read_with_a_call_derived_argument_is_its_own_call_at_decode() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let rule = |n: u32| all((0..n).map(|i| listed(&w, &reg, i)).collect());
+    // Four distinct calls install; the fifth is refused at install.
+    assert_eq!(w.install(&rule(4)), Ok(()));
+    let w2 = World::new();
+    let reg2 = w2.env.register(Registry, ());
+    let five = all((0..5).map(|i| listed(&w2, &reg2, i)).collect());
+    assert_eq!(w2.install(&five), MALFORMED);
+    // Constant arguments still dedupe: twenty identical reads are one call, so
+    // they leave room for three call-derived ones.
+    let w3 = World::new();
+    let reg3 = w3.env.register(Registry, ());
+    let fixed = || {
+        let k = addr(&w3.env, &Address::generate(&w3.env));
+        let read = read(&w3.env, &reg3, "contains", alloc::vec![k], &[]);
+        cmp("eq", read, lit(ScVal::Bool(false)))
+    };
+    let k = fixed();
+    let mut checks: StdVec<ScVal> = (0..20).map(|_| k.clone()).collect();
+    checks.extend((0..3).map(|i| listed(&w3, &reg3, i)));
+    assert_eq!(w3.install(&all(checks.clone())), Ok(()));
+    let w4 = World::new();
+    let reg4 = w4.env.register(Registry, ());
+    let k = addr(&w4.env, &Address::generate(&w4.env));
+    let read = read(&w4.env, &reg4, "contains", alloc::vec![k], &[]);
+    let mut checks: StdVec<ScVal> = (0..20)
+        .map(|_| cmp("eq", read.clone(), lit(ScVal::Bool(false))))
+        .collect();
+    checks.extend((0..4).map(|i| listed(&w4, &reg4, i)));
+    assert_eq!(w4.install(&all(checks)), MALFORMED, "1 + 4 distinct calls");
+}
+
+#[test]
+fn leaves_that_resolve_to_the_same_arguments_are_one_external_call() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let kyc = Address::generate(&w.env);
+    RegistryClient::new(&w.env, &reg).add(&kyc);
+    // Two leaves, both naming argument 1; and a third naming the same value
+    // through a different argument index (the context carries it twice).
+    let rule = all(alloc::vec![
+        listed(&w, &reg, 1),
+        listed(&w, &reg, 1),
+        listed(&w, &reg, 2)
+    ]);
+    w.install(&rule)
+        .expect("three distinct-looking calls install");
+    let twice: SorobanVec<Val> = soroban_sdk::vec![
+        &w.env,
+        10i128.into_val(&w.env),
+        kyc.into_val(&w.env),
+        kyc.into_val(&w.env)
+    ];
+    let ctx = Context::Contract(ContractContext {
+        contract: w.target.clone(),
+        fn_name: Symbol::new(&w.env, "advance"),
+        args: twice,
+    });
+    assert_eq!(w.enforce_context(&ctx), Ok(()));
+    assert_eq!(RegistryClient::new(&w.env, &reg).calls(), 1);
+}
+
+#[test]
+fn four_distinct_call_derived_reads_make_four_calls_and_no_more() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let who: StdVec<Address> = (0..4).map(|_| Address::generate(&w.env)).collect();
+    for a in &who {
+        RegistryClient::new(&w.env, &reg).add(a);
+    }
+    let rule = all((0..4).map(|i| listed(&w, &reg, i)).collect());
+    w.install(&rule).expect("installs");
+    let mut args = SorobanVec::<Val>::new(&w.env);
+    who.iter().for_each(|a| args.push_back(a.into_val(&w.env)));
+    let ctx = Context::Contract(ContractContext {
+        contract: w.target.clone(),
+        fn_name: Symbol::new(&w.env, "advance"),
+        args,
+    });
+    assert_eq!(w.enforce_context(&ctx), Ok(()));
+    assert_eq!(RegistryClient::new(&w.env, &reg).calls(), 4);
+}
+
+#[test]
+fn any_non_void_read_result_compares_under_eq_in_ne_and_nin() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let kyc = Address::generate(&w.env);
+    RegistryClient::new(&w.env, &reg).add(&kyc);
+    let contains = |w: &World| read(&w.env, &reg, "contains", alloc::vec![call_arg(1)], &[]);
+    let echo = |w: &World| read(&w.env, &reg, "echo", alloc::vec![call_arg(1)], &[]);
+    let t = || lit(ScVal::Bool(true));
+    // eq / ne on a bool, in / nin on an address (echo returns the argument).
+    let checks = [
+        cmp("eq", contains(&w), t()),
+        cmp("ne", contains(&w), lit(ScVal::Bool(false))),
+        tuple(alloc::vec![
+            sym("in"),
+            echo(&w),
+            tuple(alloc::vec![addr(&w.env, &kyc)])
+        ]),
+        tuple(alloc::vec![
+            sym("nin"),
+            echo(&w),
+            tuple(alloc::vec![addr(&w.env, &w.account)])
+        ]),
+    ];
+    let rule = all(checks.to_vec());
+    w.install(&rule).expect("installs");
+    assert_eq!(w.enforce_context(&advance_to(&w, &kyc)), Ok(()));
+    // The other receiver fails the first two, which is what denies.
+    let stranger = Address::generate(&w.env);
+    assert_eq!(w.enforce_context(&advance_to(&w, &stranger)), denied());
+    // An address result has no order.
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let ordered = read(&w.env, &reg, "echo", alloc::vec![call_arg(1)], &[]);
+    w.install(&cmp("gte", ordered, num(0))).expect("installs");
+    let kyc = Address::generate(&w.env);
+    assert_eq!(w.enforce_context(&advance_to(&w, &kyc)), denied());
+}
+
+#[test]
+fn only_a_call_derived_argument_makes_a_read_constrain_the_call() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let by = |arg: ScVal| {
+        let r = read(&w.env, &reg, "contains", alloc::vec![arg], &[]);
+        cmp("eq", r, lit(ScVal::Bool(true)))
+    };
+    // The clock says nothing about the call; the call's own argument does.
+    assert_eq!(w.install(&by(now())), SELECTOR_REQUIRED);
+    assert_eq!(w.install(&by(call_arg(1))), Ok(()));
+}
+
+// ---- quantifiers: external calls stay bounded ------------------------------
+
+fn elem(steps: &[Step]) -> ScVal {
+    let mut items = alloc::vec![sym("elem")];
+    items.extend(steps.iter().map(|s| match s {
+        Step::I(i) => ScVal::U32(*i),
+        Step::F(f) => sym(f),
+        Step::Len => ScVal::Bool(true),
+    }));
+    tuple(items)
+}
+
+fn quant(kind: &str, over: ScVal, body: ScVal) -> ScVal {
+    tuple(alloc::vec![sym(kind), over, body])
+}
+
+/// `advance(items: Vec<i128>, who: Address)`.
+fn advance_items(w: &World, items: &[i128], who: &Address) -> Context {
+    let v: SorobanVec<i128> = SorobanVec::from_slice(&w.env, items);
+    let args: SorobanVec<Val> = soroban_sdk::vec![&w.env, v.into_val(&w.env), who.into_val(&w.env)];
+    Context::Contract(ContractContext {
+        contract: w.target.clone(),
+        fn_name: Symbol::new(&w.env, "advance"),
+        args,
+    })
+}
+
+#[test]
+fn a_read_in_a_quantifier_body_is_one_call_however_many_elements() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let who = Address::generate(&w.env);
+    RegistryClient::new(&w.env, &reg).add(&who);
+    // The body's read does not depend on the element: it is made once.
+    let body = tuple(alloc::vec![
+        sym("and"),
+        tuple(alloc::vec![
+            cmp("gte", elem(&[]), num(0)),
+            listed(&w, &reg, 1)
+        ]),
+    ]);
+    w.install(&quant("all", call_path(&[Step::I(0)]), body))
+        .expect("installs");
+    let items: StdVec<i128> = (0..32).collect();
+    assert_eq!(w.enforce_context(&advance_items(&w, &items, &who)), Ok(()));
+    assert_eq!(
+        RegistryClient::new(&w.env, &reg).calls(),
+        1,
+        "32 elements, one call"
+    );
+}
+
+#[test]
+fn quantifier_reads_count_against_the_same_four_calls() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    // three call-derived reads outside, one inside the body: four, so it installs
+    let outside = (0..3).map(|i| listed(&w, &reg, i));
+    let mut checks: StdVec<ScVal> = outside.collect();
+    checks.push(quant("all", call_path(&[Step::I(0)]), listed(&w, &reg, 3)));
+    assert_eq!(w.install(&all(checks.clone())), Ok(()));
+    // a fifth, anywhere, is refused
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let mut five: StdVec<ScVal> = (0..4).map(|i| listed(&w, &reg, i)).collect();
+    five.push(quant("any", call_path(&[Step::I(0)]), listed(&w, &reg, 4)));
+    assert_eq!(w.install(&all(five)), MALFORMED);
+}
+
+#[test]
+fn a_body_read_cannot_take_the_element_as_an_argument() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let by_elem = read(&w.env, &reg, "contains", alloc::vec![elem(&[])], &[]);
+    let body = cmp("eq", by_elem, lit(ScVal::Bool(true)));
+    assert_eq!(
+        w.install(&quant("any", call_path(&[Step::I(0)]), body)),
+        MALFORMED
+    );
+}
+
+#[test]
+fn any_stops_at_the_first_element_that_holds() {
+    // body: elem == 1 OR registry.echo(true) == true. The read is only reached
+    // by an element that is not 1, so the call counter shows how far `any` went.
+    let body = |w: &World, reg: &Address| {
+        let echo = read(
+            &w.env,
+            reg,
+            "echo",
+            alloc::vec![lit(ScVal::Bool(true))],
+            &[],
+        );
+        tuple(alloc::vec![
+            sym("or"),
+            tuple(alloc::vec![
+                cmp("eq", elem(&[]), num(1)),
+                cmp("eq", echo, lit(ScVal::Bool(true)))
+            ]),
+        ])
+    };
+    let run = |items: &[i128]| {
+        let w = World::new();
+        let reg = w.env.register(Registry, ());
+        let who = Address::generate(&w.env);
+        w.install(&quant("any", call_path(&[Step::I(0)]), body(&w, &reg)))
+            .expect("installs");
+        let verdict = w.enforce_context(&advance_items(&w, items, &who));
+        (verdict, RegistryClient::new(&w.env, &reg).calls())
+    };
+    assert_eq!(
+        run(&[1, 2, 3]),
+        (Ok(()), 0),
+        "stopped at the first element, never read"
+    );
+    assert_eq!(
+        run(&[2, 1]),
+        (Ok(()), 1),
+        "the first element reached the read"
+    );
+}
+
+#[test]
+fn a_quantifier_rule_is_enforced_through_install_and_enforce() {
+    // multi-recipient style: every item is within [0, 100], and one is exactly 50.
+    let w = World::new();
+    let items = call_path(&[Step::I(0)]);
+    let rule = rule_for(all(alloc::vec![
+        quant(
+            "all",
+            items.clone(),
+            all(alloc::vec![
+                cmp("gte", elem(&[]), num(0)),
+                cmp("lte", elem(&[]), num(100)),
+            ])
+        ),
+        quant("any", items, cmp("eq", elem(&[]), num(50))),
+    ]));
+    w.install(&rule).expect("installs");
+    let who = Address::generate(&w.env);
+    assert_eq!(
+        w.enforce_context(&advance_items(&w, &[7, 50, 100], &who)),
+        Ok(())
+    );
+    assert_eq!(
+        w.enforce_context(&advance_items(&w, &[7, 51], &who)),
+        denied()
+    );
+    assert_eq!(
+        w.enforce_context(&advance_items(&w, &[50, 101], &who)),
+        denied()
+    );
+    assert_eq!(
+        w.enforce_context(&advance_items(&w, &[], &who)),
+        denied(),
+        "any of nothing"
+    );
+}
+
+// ---- time windows, from `now` and `scaled` alone ----------------------------
+
+/// Start of the current UTC day: `floor(now / 86400) * 86400`.
+fn day_start() -> ScVal {
+    scaled(
+        scaled(now(), num(1), 86_400, num(0)),
+        num(86_400),
+        1,
+        num(0),
+    )
+}
+
+/// `secs` past the start of the current UTC day.
+fn day_at(secs: i128) -> ScVal {
+    scaled(day_start(), num(1), 1, num(secs))
+}
+
+/// 09:00:00 <= time of day < 17:00:00 UTC.
+fn office_hours() -> ScVal {
+    all(alloc::vec![
+        cmp("gte", now(), day_at(9 * 3_600)),
+        cmp("lt", now(), day_at(17 * 3_600)),
+    ])
+}
+
+/// Monday to Friday. The day number is `floor(now / 86400)`; 1970-01-01 was a
+/// Thursday, so `day + 3` counts from Monday. There is no modulo, so the
+/// remainder mod 7 is `x - 7 * floor(x / 7)` and `remainder <= 4` is moved
+/// across the comparison: `x <= 7 * floor(x / 7) + 4`.
+fn weekdays() -> ScVal {
+    let x = scaled(now(), num(1), 86_400, num(3));
+    let weeks = scaled(x.clone(), num(1), 7, num(0));
+    cmp("lte", x, scaled(weeks, num(7), 1, num(4)))
+}
+
+/// 2024-01-01 00:00:00 UTC, a Monday.
+const MONDAY: u64 = 1_704_067_200;
+const DAY: u64 = 86_400;
+
+fn permitted_at(w: &World, ts: u64) -> bool {
+    w.env.ledger().with_mut(|l| l.timestamp = ts);
+    match w.enforce(&[]) {
+        Ok(()) => true,
+        v => {
+            assert_eq!(v, denied());
+            false
+        }
+    }
+}
+
+#[test]
+fn office_hours_are_a_half_open_window_in_utc() {
+    let w = World::new();
+    w.arm(office_hours());
+    // Monday 2024-01-01, and a day another year: the window repeats daily.
+    for day in [MONDAY, MONDAY + 3 * DAY, MONDAY + 400 * DAY] {
+        assert!(permitted_at(&w, day + 9 * 3_600), "09:00:00");
+        assert!(permitted_at(&w, day + 12 * 3_600), "noon");
+        assert!(permitted_at(&w, day + 17 * 3_600 - 1), "16:59:59");
+        assert!(!permitted_at(&w, day + 9 * 3_600 - 1), "08:59:59");
+        assert!(!permitted_at(&w, day + 17 * 3_600), "17:00:00");
+        assert!(!permitted_at(&w, day), "midnight");
+        assert!(!permitted_at(&w, day + DAY - 1), "23:59:59");
+    }
+}
+
+#[test]
+fn weekdays_exclude_the_weekend() {
+    let w = World::new();
+    w.arm(weekdays());
+    let names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    // Two full weeks, at both ends of each day.
+    for d in 0..14u64 {
+        let open = d % 7 < 5;
+        let day = names[(d % 7) as usize];
+        assert_eq!(permitted_at(&w, MONDAY + d * DAY), open, "{day} 00:00:00");
+        assert_eq!(
+            permitted_at(&w, MONDAY + d * DAY + DAY - 1),
+            open,
+            "{day} 23:59:59"
+        );
+    }
+    // the epoch itself (a Thursday) and a far-off Sunday
+    assert!(permitted_at(&w, 0));
+    assert!(!permitted_at(&w, MONDAY + 6 * DAY + 400 * 7 * DAY));
+}
+
+#[test]
+fn weekday_office_hours_combine_with_and() {
+    let w = World::new();
+    w.arm(all(alloc::vec![weekdays(), office_hours()]));
+    assert!(permitted_at(&w, MONDAY + 9 * 3_600));
+    assert!(
+        permitted_at(&w, MONDAY + 4 * DAY + 17 * 3_600 - 1),
+        "Friday 16:59:59"
+    );
+    assert!(
+        !permitted_at(&w, MONDAY + 4 * DAY + 17 * 3_600),
+        "Friday 17:00:00"
+    );
+    assert!(
+        !permitted_at(&w, MONDAY + 5 * DAY + 10 * 3_600),
+        "Saturday 10:00"
+    );
+    assert!(
+        !permitted_at(&w, MONDAY + 6 * DAY + 10 * 3_600),
+        "Sunday 10:00"
+    );
+    assert!(!permitted_at(&w, MONDAY + 9 * 3_600 - 1), "Monday 08:59:59");
+}
+
+#[test]
+fn an_unresolved_read_argument_makes_no_call_whatever_the_target_takes() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    // `tick()` takes nothing: dropping the unresolved argument would still call it.
+    let tick = read(&w.env, &reg, "tick", alloc::vec![call_arg(7)], &[]);
+    let rule = tuple(alloc::vec![
+        sym("or"),
+        tuple(alloc::vec![
+            cmp("eq", tick, lit(ScVal::Bool(true))),
+            cmp("eq", call_arg(0), num(10)),
+        ]),
+    ]);
+    w.install(&rule).expect("installs");
+    let who = Address::generate(&w.env);
+    assert_eq!(w.enforce_context(&advance_to(&w, &who)), Ok(()));
+    assert_eq!(
+        RegistryClient::new(&w.env, &reg).calls(),
+        0,
+        "no call was made"
+    );
+}
+
+#[test]
+fn an_unresolved_read_argument_makes_no_call() {
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let echo = read(&w.env, &reg, "echo", alloc::vec![call_arg(7)], &[]);
+    // `echo(call_arg(7))` cannot resolve; the `or` then falls to the second branch.
+    let rule = tuple(alloc::vec![
+        sym("or"),
+        tuple(alloc::vec![
+            cmp("eq", echo, lit(ScVal::Bool(true))),
+            cmp("eq", call_arg(0), num(10)),
+        ]),
+    ]);
+    w.install(&rule).expect("installs");
+    let who = Address::generate(&w.env);
+    assert_eq!(w.enforce_context(&advance_to(&w, &who)), Ok(()));
+    assert_eq!(
+        RegistryClient::new(&w.env, &reg).calls(),
+        0,
+        "no call was made"
+    );
+}
+
+#[test]
+fn a_read_argument_that_resolves_to_a_wrong_type_is_a_failed_call_not_void() {
+    // `contains(who: Address)` given a number fails inside the target: the read
+    // denies, and (being a failed call) is remembered like any other.
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    w.install(&listed(&w, &reg, 0)).expect("installs");
+    let who = Address::generate(&w.env);
+    assert_eq!(w.enforce_context(&advance_to(&w, &who)), denied());
+}
+
+#[test]
+fn a_lit_read_argument_reaches_the_target_as_written() {
+    // echo returns its argument: `[1, Stellar(addr)]` must come back as written.
+    let w = World::new();
+    let reg = w.env.register(Registry, ());
+    let who = Address::generate(&w.env);
+    let arg = lit(tuple(alloc::vec![
+        num(1),
+        tuple(alloc::vec![sym("Stellar"), addr(&w.env, &who)])
+    ]));
+    let echoed = read(&w.env, &reg, "echo", alloc::vec![arg], &[]);
+    let want: SorobanVec<Val> = soroban_sdk::vec![
+        &w.env,
+        1i128.into_val(&w.env),
+        SorobanVec::<Val>::from_slice(
+            &w.env,
+            &[
+                Symbol::new(&w.env, "Stellar").into_val(&w.env),
+                who.into_val(&w.env)
+            ]
+        )
+        .into_val(&w.env)
+    ];
+    let want_sc = {
+        let v: Val = want.into_val(&w.env);
+        ScVal::from_xdr(&w.env, &v.to_xdr(&w.env)).unwrap()
+    };
+    w.install(&rule_for(cmp("eq", echoed, lit(want_sc))))
+        .expect("installs");
+    assert_eq!(w.enforce(&[]), Ok(()));
+}
+
+// ---- the install-time leaf budget bounds what `enforce` costs --------------
+
+/// Memory (bytes) one `enforce` of `rule` uses on `args(world)`, with the budget
+/// unlimited so a trap shows as a number rather than a failure; the
+/// per-transaction limit is 40 MiB.
+fn enforce_memory(rule: &ScVal, args: impl Fn(&Env) -> SorobanVec<Val>) -> u64 {
+    let w = World::new();
+    w.env.cost_estimate().budget().reset_unlimited();
+    w.install(rule).expect("the rule installs");
+    let ctx = Context::Contract(ContractContext {
+        contract: w.target.clone(),
+        fn_name: Symbol::new(&w.env, "advance"),
+        args: args(&w.env),
+    });
+    w.env.cost_estimate().budget().reset_unlimited();
+    assert_eq!(w.enforce_context(&ctx), Ok(()));
+    w.env.cost_estimate().budget().memory_bytes_cost()
+}
+
+#[test]
+fn a_big_constant_in_a_quantifier_body_does_not_multiply_its_cost_by_the_element_count() {
+    // 3,900 u32s is a 31 KB rule. Compared as XDR it was serialised once per
+    // element: 73 MB on every `enforce`, over the 40 MiB limit, so the rule
+    // installed and then always trapped.
+    let big = tuple((0..3900).map(ScVal::U32).collect());
+    let rule = rule_for(quant("all", call_arg(0), cmp("ne", elem(&[]), lit(big))));
+    let items = |e: &Env| {
+        let v: StdVec<Val> = (0..32i128).map(|i| i.into_val(e)).collect();
+        soroban_sdk::vec![e, SorobanVec::<Val>::from_slice(e, &v).into_val(e)]
+    };
+    let mem = enforce_memory(&rule, items);
+    assert!(mem < 8 * 1024 * 1024, "{mem} bytes of the 40 MiB limit");
+}
+
+#[test]
+fn a_big_constant_outside_a_body_stays_cheap_too() {
+    let big = tuple((0..3900).map(ScVal::U32).collect());
+    let rule = rule_for(cmp("ne", call_arg(0), lit(big)));
+    let mem = enforce_memory(&rule, |e| soroban_sdk::vec![e, 1i128.into_val(e)]);
+    assert!(mem < 8 * 1024 * 1024, "{mem} bytes");
+}
+
+#[test]
+fn every_big_constant_shape_stays_far_under_the_memory_limit_in_a_body() {
+    use soroban_sdk::xdr::{ContractId, Hash, ScAddress, ScBytes};
+    let address = |i: u32| {
+        let mut h = [0u8; 32];
+        h[..4].copy_from_slice(&i.to_be_bytes());
+        ScVal::Address(ScAddress::Contract(ContractId(Hash(h))))
+    };
+    let shapes = [
+        tuple((0..700).map(address).collect()),
+        ScVal::Bytes(ScBytes(alloc::vec![7u8; 31_000].try_into().unwrap())),
+        // equal-typed elements, so the compare really walks the constant
+        tuple((0..3900).map(ScVal::U32).collect()),
+    ];
+    for big in shapes {
+        let rule = rule_for(quant("all", call_arg(0), cmp("ne", elem(&[]), lit(big))));
+        let items = |e: &Env| {
+            // the same 3,900 numbers but the last: equal until the end
+            let one: StdVec<Val> = (0..3900u32).map(|i| (i % 3899).into_val(e)).collect();
+            let one: Val = SorobanVec::<Val>::from_slice(e, &one).into_val(e);
+            let v: StdVec<Val> = (0..32).map(|_| one).collect();
+            soroban_sdk::vec![e, SorobanVec::<Val>::from_slice(e, &v).into_val(e)]
+        };
+        let mem = enforce_memory(&rule, items);
+        assert!(mem < 8 * 1024 * 1024, "{mem} bytes of the 40 MiB limit");
+    }
+}

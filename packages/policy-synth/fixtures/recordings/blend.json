@@ -1,0 +1,17 @@
+{
+  "network": "mainnet",
+  "source": "GDBBXGF6AEUWUDBFD4LEN4IS5NQCHVPK5GOMVEGO6EZINZ4SG52BDQ5O",
+  "ledger": 63626019,
+  "signers": [],
+  "contexts": [
+    {
+      "contract": "CAJJZSGMMM3PD7N33TAPHGBUGTB43OC73HVIK2L2G6BNGGGYOSSYBXBD",
+      "fn": "claim",
+      "args": [
+        "GDBBXGF6AEUWUDBFD4LEN4IS5NQCHVPK5GOMVEGO6EZINZ4SG52BDQ5O",
+        [1, 2],
+        "GDBBXGF6AEUWUDBFD4LEN4IS5NQCHVPK5GOMVEGO6EZINZ4SG52BDQ5O"
+      ]
+    }
+  ]
+}

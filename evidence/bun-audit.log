@@ -1,7 +1,5 @@
-# bun audit - 2026-10-11T16:42:42Z at c520ac1 with @modelcontextprotocol/sdk 1.32.1 and proxy-addr 2.0.8
+# bun audit at the repository root, 21 October 2026 (exit 0: no advisories)
+# Locked: @modelcontextprotocol/sdk 1.32.1, follow-redirects 1.16.1, hono 4.13.13
 
-$ bun audit
-bun audit v1.4.2 (744846f84)
-
-No vulnerabilities found (checked 146 packages) [225.00ms]
-exit 0
+bun audit v1.3.14 (0d9b296a)
+No vulnerabilities found

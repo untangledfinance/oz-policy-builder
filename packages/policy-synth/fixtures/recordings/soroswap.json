@@ -1,0 +1,39 @@
+{
+  "network": "mainnet",
+  "source": "GCIE3PEIGOGCXO44GLVKPAVXZXELVMWJENZ4NYIHHQYITPAUPXKFRH2Z",
+  "ledger": 63602524,
+  "signers": [],
+  "contexts": [
+    {
+      "contract": "CAG5LRYQ5JVEUI5TEID72EYOVX44TTUJT5BQR2J6J77FH65PCCFAJDDH",
+      "fn": "swap_exact_tokens_for_tokens",
+      "args": [
+        {
+          "i128": "367287890"
+        },
+        {
+          "i128": "2239823559"
+        },
+        [
+          "CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV",
+          "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA"
+        ],
+        "GBFKRGJYZXLTDEI36ZCQEIM225NMOCR2VDBOIHJTXJ54FEFFVL2FKALE",
+        {
+          "u64": "1784764891"
+        }
+      ]
+    },
+    {
+      "contract": "CDTKPWPLOURQA2SGTKTUQOWRCBZEORB4BWBOMJ3D3ZTQQSGE5F6JBQLV",
+      "fn": "transfer",
+      "args": [
+        "GBFKRGJYZXLTDEI36ZCQEIM225NMOCR2VDBOIHJTXJ54FEFFVL2FKALE",
+        "CATUJXDUO7SSSTAKSUV5YU6RSTB4B5AVIHQDV26QTCXOB46T6SLMWNMY",
+        {
+          "i128": "367287890"
+        }
+      ]
+    }
+  ]
+}

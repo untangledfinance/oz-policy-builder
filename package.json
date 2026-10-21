@@ -11,6 +11,7 @@
   ],
   "scripts": {
     "test": "bun test",
+    "test:isolated": "bun run --filter './packages/*' test",
     "check": "biome check .",
     "check:fix": "biome check --write .",
     "format": "biome format --write .",
@@ -33,7 +34,8 @@
   },
   "overrides": {
     "fast-uri": "^3.1.6",
-    "hono": "^4.13.5",
+    "follow-redirects": "^1.16.1",
+    "hono": "^4.13.11",
     "proxy-addr": "^2.0.8",
     "qs": "^6.16.0",
     "toml": "^4.2.0"

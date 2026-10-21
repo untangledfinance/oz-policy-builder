@@ -1,0 +1,34 @@
+{
+  "note": "OpenZeppelin smart-account builds whose rules a review will read. `get_interpreter_info` with `explainAccount`, and the review `revoke_policy` returns for the rule it removes, read an account's rules only when it runs one of these builds: an account that runs other code could answer with any rule. packages/policy-synth/src/config.ts lists the same hashes; config.test.ts holds the two together.",
+  "wasmSha256": {
+    "multisig_account_example": "91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9"
+  },
+  "sources": {
+    "multisig_account_example": "contracts/stellar/policy-interpreter/tests/fixtures/multisig_account_example.wasm (sha256 as listed, committed as a blob so the suite pins the deployed bytes); the live testnet account CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P runs it"
+  },
+  "provenance": {
+    "multisig_account_example": {
+      "upstream": "https://github.com/OpenZeppelin/stellar-contracts, examples/multisig-smart-account/account (package multisig-account-example)",
+      "sourceCommitRecorded": false,
+      "buildCommandRecorded": false,
+      "whatIsKnown": "The bytes are the blob above, and the live testnet account runs the same hash. The upstream commit and the build command that produced the blob are NOT recorded anywhere in this repository. The round-9 design record (contracts/prime/ARCHITECTURE.md, kept at tag archive/spike-final) cites OpenZeppelin stellar-contracts at ce5c568 for how account calls are authorised; that is a documentation reference, not a build record (ce5c568 is v0.8.0-rc.3 plus 76 commits, dated 2026-10-07, after the account code was deployed).",
+      "reproductionAttempts": [
+        {
+          "date": "2026-10-15",
+          "source": "OpenZeppelin/stellar-contracts release-v0.7.2 (a9c4216, the tag the deployed policies were built from, evidence/README.md)",
+          "command": "stellar contract build --package multisig-account-example (stellar-cli 27.1.0)",
+          "wasmSha256": "c73ac917171060937afd24df8e616b673329059e3a045ce01d97268226e5f2e5",
+          "matches": false
+        },
+        {
+          "date": "2026-10-15",
+          "source": "OpenZeppelin/stellar-contracts ce5c568",
+          "command": "stellar contract build --package multisig-account-example (stellar-cli 27.1.0)",
+          "wasmSha256": "2ff3040725eda52cb5bda2d0854ca1b658edf8a4addd6700096d3b028e8a3c37",
+          "matches": false
+        }
+      ],
+      "consequence": "The hash is a pin on the deployed bytes, not a claim that they reproduce from a named source. Treat a review of an account on this build as trusting the OpenZeppelin account's `get_context_rule` answers, as the install path already does."
+    }
+  }
+}

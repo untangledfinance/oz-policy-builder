@@ -1,8 +1,8 @@
 {
   "name": "@crediolabs/policy-synth",
-  "version": "1.3.0",
+  "version": "3.0.0",
   "license": "MIT",
-  "description": "Off-chain TypeScript synthesis core for the OZ Accounts Policy Builder. Records Soroban transactions, synthesises the minimal policy that permits exactly that flow, verifies it, and returns an unsigned install transaction.",
+  "description": "Off-chain TypeScript core for the OZ Accounts Policy Builder: record a Soroban transaction or state a mandate, get the rule that permits exactly that, verify it through the interpreter's own `check`, and return an unsigned install transaction.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -41,18 +41,11 @@
       "default": "./dist/index.js"
     },
     "./run": {
-      "types": "./dist/run/index.d.ts",
-      "bun": "./src/run/index.ts",
-      "import": "./dist/run/index.js",
-      "require": "./dist-cjs/run/index.js",
-      "default": "./dist/run/index.js"
-    },
-    "./install": {
-      "types": "./dist/install/index.d.ts",
-      "bun": "./src/install/index.ts",
-      "import": "./dist/install/index.js",
-      "require": "./dist-cjs/install/index.js",
-      "default": "./dist/install/index.js"
+      "types": "./dist/tools.d.ts",
+      "bun": "./src/tools.ts",
+      "import": "./dist/tools.js",
+      "require": "./dist-cjs/tools.js",
+      "default": "./dist/tools.js"
     },
     "./package.json": "./package.json"
   },
