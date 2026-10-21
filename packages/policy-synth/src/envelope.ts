@@ -16,9 +16,7 @@ export type ErrorCode =
 export interface ToolError {
   code: ErrorCode
   message: string
-  severity: 'info' | 'warning' | 'error' | 'fatal'
   retryable: boolean
-  remediation?: { toolCall?: { name: string; args: Record<string, unknown> } }
   details?: unknown
 }
 

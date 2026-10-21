@@ -52,12 +52,11 @@ describe('the MCP server registers the table as it is', () => {
     expect(JSON.stringify(r.content)).toContain('typoKey')
   })
 
-  it('a refusal is the error envelope: code, message, severity, retryable', async () => {
+  it('a refusal is the error envelope: code, message, retryable', async () => {
     const r = await (await client()).callTool({ name: 'synthesize_policy', arguments: {} })
     expect(r.isError).toBe(true)
     expect(r.structuredContent).toMatchObject({
       code: 'INVALID_INPUT',
-      severity: 'error',
       retryable: false,
     })
     expect((r.structuredContent as { message: string }).message).toContain('exactly one')

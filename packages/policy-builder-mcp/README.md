@@ -8,7 +8,7 @@ exactly as that package defines them (`record_transaction`, `synthesize_policy`,
 `get_interpreter_info`, `review_unsigned`): name, description and input schema come from its table,
 and so does every answer. A result is the tool's data as JSON text and as
 `structuredContent`; a refusal sets `isError` and carries the error envelope
-(`code`, `message`, `severity`, `retryable`).
+(`code`, `message`, `retryable`).
 
 ## Run
 

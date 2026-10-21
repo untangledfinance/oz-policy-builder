@@ -3,9 +3,6 @@
 // records it again), through the real SDK against a local JSON-RPC server.
 
 import { afterAll, describe, expect, it, setDefaultTimeout } from 'bun:test'
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import {
   Account,
   Address,
@@ -18,8 +15,11 @@ import {
 import { z } from 'zod'
 import { account, contract, recording } from '../test/fixtures.ts'
 import { fakeInterpreter, instanceResult, pointAt, recorded } from '../test/rpc.ts'
-import { SAFE_READS, thresholdAddress } from './config.ts'
+import { connect } from './chain.ts'
+import { INTERPRETER, SAFE_READS, thresholdAddress } from './config.ts'
 import { callExpr } from './intent.ts'
+import { reviewUnsigned } from './review.ts'
+import { readRules } from './rules.ts'
 import { describeRules, run, TOOLS } from './tools.ts'
 import { encode, hashOf } from './wire.ts'
 
@@ -29,6 +29,9 @@ const ACCOUNT = 'CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P'
 const SIGNER = 'GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB'
 const INSTALL_TX = '7ee0d68b9b1dd58ad0af7752f2f5e673424c57b03dd1f4f071ee2df28b5e4e0b'
 const TOKEN = contract(7)
+const PIN = INTERPRETER.testnet?.address as string
+/** What the built bytes call, decoded back out of them. */
+const callOf = (b64: string) => reviewUnsigned({ network: 'testnet', xdr: b64 }).call
 setDefaultTimeout(30_000) // a live run makes dozens of calls
 const net = recorded('tools')
 afterAll(() => net.stop())
@@ -40,7 +43,7 @@ const failing = async (name: string, input: object, code: string, text?: RegExp)
   const r = await call(name, input)
   expect(r.ok).toBe(false)
   expect(r.error.code).toBe(code)
-  expect(r.error.severity).toBe('error')
+  expect(r.error).not.toHaveProperty('severity')
   expect(typeof r.error.retryable).toBe('boolean')
   if (text) expect(r.error.message).toMatch(text)
   return r
@@ -104,7 +107,7 @@ describe('the table', () => {
     const unknown = (await run('nope', {})) as Out
     expect(unknown).toMatchObject({
       ok: false,
-      error: { code: 'INVALID_INPUT', retryable: false, severity: 'error' },
+      error: { code: 'INVALID_INPUT', retryable: false },
     })
     await failing(
       'revoke_policy',
@@ -177,29 +180,6 @@ describe('record_transaction', () => {
   })
 })
 
-describe('record_transaction: the other network is asked only when neither endpoint is configured', () => {
-  it('a hash that is not found does not go looking on a network the operator did not name', async () => {
-    const [a, b] = [
-      fakeInterpreter(contract(1), 'ab'.repeat(32)),
-      fakeInterpreter(contract(2), 'ab'.repeat(32)),
-    ]
-    const undo = [
-      pointAt('testnet', `http://127.0.0.1:${a.port}`),
-      pointAt('mainnet', `http://127.0.0.1:${b.port}`),
-    ]
-    try {
-      const r = (await call('record_transaction', { hash: INSTALL_TX })) as Out
-      expect(r.ok).toBe(false)
-      expect(a.asked).toContain('getTransaction')
-      expect(b.asked).toEqual([])
-    } finally {
-      for (const u of undo) u()
-      a.stop()
-      b.stop()
-    }
-  })
-})
-
 /** The recorded network, except that what `answer` says is what the instance read of ACCOUNT gets. */
 function accountBehind(answer: () => Response) {
   const server = Bun.serve({
@@ -233,64 +213,6 @@ function accountBehind(answer: () => Response) {
     },
   }
 }
-
-describe('explainAccount reads only an account that runs a known OpenZeppelin build', () => {
-  it('an account with no code entry at all is refused as not a known build (code none), not retryable', async () => {
-    const through = accountBehind(() =>
-      Response.json({ jsonrpc: '2.0', id: 1, result: { latestLedger: 1, entries: [] } })
-    )
-    try {
-      const r = await failing(
-        'get_interpreter_info',
-        { explainAccount: ACCOUNT },
-        'INVALID_INPUT',
-        /code none/
-      )
-      expect(r.error.retryable).toBe(false)
-    } finally {
-      through.stop()
-    }
-  })
-
-  it('a failure to read the account\'s code is a retryable read error, not "not a known build"', async () => {
-    const through = accountBehind(() => new Response('no available server', { status: 503 }))
-    try {
-      const r = await failing(
-        'get_interpreter_info',
-        { explainAccount: ACCOUNT },
-        'SIMULATION_ERROR',
-        /could not read the account's code/
-      )
-      expect(r.error.retryable).toBe(true)
-      expect(r.error.message).not.toMatch(/does not run/)
-    } finally {
-      through.stop()
-    }
-  })
-
-  it('a contract that is not one answers with whatever rules it likes, so none is read', async () => {
-    // The pinned interpreter standing in for an account: its code is not a smart account's.
-    const pin = 'CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT'
-    const fake = fakeInterpreter(
-      pin,
-      '69cad1d5ce9aeaa0dad6980fd030e528935a0ebdd290111f393e9fd0564a68b0'
-    )
-    const undo = pointAt('testnet', `http://127.0.0.1:${fake.port}`)
-    try {
-      const r = await failing(
-        'get_interpreter_info',
-        { explainAccount: pin },
-        'INVALID_INPUT',
-        /known OpenZeppelin smart account build/
-      )
-      expect(r.error.message).toContain('69cad1d5')
-      expect(fake.asked.filter((m) => m.startsWith('simulate get_context'))).toEqual([])
-    } finally {
-      undo()
-      fake.stop()
-    }
-  })
-})
 
 /** The recorded network behind a spy: every request, in order, as `check`, `spec` (the instance of
  *  TOKEN, which is what the review reads first) or the method name. */
@@ -379,54 +301,21 @@ describe('the review is read for after the checks and after the refusals', () =>
   })
 })
 
-describe('get_interpreter_info explainAccount: only a trusted interpreter is read from', () => {
-  it('an untrusted build named for a network with no pin is refused before any rule is read', async () => {
+describe('get_interpreter_info: only a trusted interpreter is read from', () => {
+  it('an untrusted build named for a network with no pin is refused, its limits never believed', async () => {
     const fake = fakeInterpreter(contract(3), 'cd'.repeat(32))
     const undo = fake.use()
     try {
       await failing(
         'get_interpreter_info',
-        { network: 'mainnet', interpreterAddress: contract(3), explainAccount: ACCOUNT },
+        { network: 'mainnet', interpreterAddress: contract(3) },
         'INTERPRETER_MISMATCH'
       )
-      expect(fake.asked).not.toContain('simulate get_context_rules_count')
+      expect(fake.asked).not.toContain('simulate limits')
     } finally {
       undo()
       fake.stop()
     }
-  })
-})
-
-describe('synthesize_policy: template parameters are typed', () => {
-  const venue = { pool: TOKEN, token: contract(2), account: account(1), max: '100' }
-  const batch = { adapter: TOKEN, targets: [contract(2)] }
-  const bad = (name: string, params: object, text: RegExp) =>
-    failing('synthesize_policy', { template: { name, params } }, 'INVALID_INPUT', text)
-
-  it('refuses what a template cannot mean, naming the parameter', async () => {
-    await bad('blend_venue', {}, /pool/)
-    await bad('blend_venue', { ...venue, maxType: 4 }, /maxType/) // 4 is borrow
-    await bad('blend_venue', { ...venue, maxType: -1 }, /maxType/)
-    await bad('blend_venue', { ...venue, account: 'me' }, /account/)
-    await bad('blend_venue', { ...venue, token: 'usdc' }, /token/)
-    await bad('blend_venue', { ...venue, max: '0' }, /max/)
-    await bad('blend_venue', { ...venue, extra: 1 }, /extra/)
-    await bad('adapter_batch', {}, /adapter/)
-    await bad('adapter_batch', { ...batch, targets: [] }, /targets/)
-    await bad('adapter_batch', { ...batch, targets: [account(1)] }, /targets/)
-    await bad('adapter_batch', { ...batch, functions: ['a b'] }, /functions/)
-    await bad('adapter_batch', { ...batch, maxCalls: 0 }, /maxCalls/)
-    await bad('adapter_batch', { ...batch, maxCalls: 1.5 }, /maxCalls/)
-    await bad('nothing', {}, /name/)
-  })
-
-  it('and builds from what it can mean', async () => {
-    for (const template of [
-      { name: 'blend_venue', params: { ...venue, maxType: 0 } },
-      { name: 'blend_venue', params: venue },
-      { name: 'adapter_batch', params: { ...batch, functions: ['supply'], maxCalls: 4 } },
-    ])
-      expect((await call('synthesize_policy', { template })).ok).toBe(true)
   })
 })
 
@@ -492,19 +381,30 @@ describe('synthesize_policy', () => {
     expect(text).not.toContain('(1)')
   })
 
-  it('an intent, a template and a recording are other ways in', async () => {
+  it('an intent and a recording are other ways in', async () => {
     const intent = {
       calls: [{ contract: TOKEN, fn: 'pay', where: [{ constraint: 'cap', at: [0], max: '5' }] }],
     }
     expect((await call('synthesize_policy', { intent }, false)).data.rules[0].review.at(-1)).toBe(
       '   └─ argument 0:  must be at most  5'
     )
-    const template = {
-      name: 'adapter_batch',
-      params: { adapter: TOKEN, targets: [contract(2)], functions: ['supply'] },
+    const batch = {
+      calls: [
+        {
+          contract: TOKEN,
+          fn: 'execute',
+          where: [
+            {
+              constraint: 'each',
+              at: [0],
+              where: [{ constraint: 'allow', at: ['target'], in: [contract(2)] }],
+            },
+          ],
+        },
+      ],
     }
     expect(
-      (await call('synthesize_policy', { template }, false)).data.rules[0].review.join('\n')
+      (await call('synthesize_policy', { intent: batch }, false)).data.rules[0].review.join('\n')
     ).toContain('every item of argument 0')
     const r = await call('synthesize_policy', { recording: recording('sep41'), limit: '1' }, false)
     expect(r.data.rules).toHaveLength(1)
@@ -536,15 +436,26 @@ describe('synthesize_policy', () => {
       { intent: { calls: [{ contract: TOKEN, fn: 'x', where: [{ rule: 'bogus', at: [0] }] }] } },
       'INVALID_INPUT'
     )
+    const targets = Array.from({ length: 20 }, (_, i) => contract(i + 1))
     const wide = {
-      name: 'adapter_batch',
-      params: {
-        adapter: TOKEN,
-        targets: Array.from({ length: 20 }, (_, i) => contract(i + 1)),
-        functions: ['a'],
-      },
+      calls: [
+        {
+          contract: TOKEN,
+          fn: 'execute',
+          where: [
+            {
+              constraint: 'each',
+              at: [0],
+              where: [
+                { constraint: 'allow', at: ['target'], in: targets },
+                { constraint: 'allow', at: ['function_name'], in: ['a'] },
+              ],
+            },
+          ],
+        },
+      ],
     }
-    await failing('synthesize_policy', { template: wide }, 'MALFORMED_PREDICATE', /leaves/)
+    await failing('synthesize_policy', { intent: wide }, 'MALFORMED_PREDICATE', /leaves/)
   })
 })
 
@@ -741,8 +652,8 @@ describe('install_policy', () => {
   it('allowOverlap installs anyway and still reports the overlap; the bytes say what they call', async () => {
     const r = await call('install_policy', { ...base, allowOverlap: true, name: 'pay-9m' })
     expect(r.ok).toBe(true)
-    expect(r.data.describes).toMatchObject({ contract: ACCOUNT, fn: 'add_context_rule' })
-    expect(r.data.describes.args[1]).toEqual({ string: 'pay-9m' })
+    expect(callOf(r.data.unsignedXdr)).toMatchObject({ contract: ACCOUNT, fn: 'add_context_rule' })
+    expect(callOf(r.data.unsignedXdr).args[1]).toEqual({ string: 'pay-9m' })
     expect(
       r.data.authorityScan.overlaps.map((o: { ruleId: number; why: string }) => [o.ruleId, o.why])
     ).toEqual([
@@ -768,7 +679,6 @@ describe('install_policy', () => {
     })
     expect(r.data.rule.reviewTree[1].label).toBe('Authority')
     expect(r.data.rule.reviewTree[2].raw).toEqual(['eq', ['call_contract'], TOKEN])
-    expect(r.data.unsignedXdrLength).toBe(r.data.unsignedXdr.length)
   })
 
   it('on mainnet an override is refused before the network is asked, install and revoke alike', async () => {
@@ -938,7 +848,7 @@ describe('install_policy', () => {
     expect((await call('install_policy', { ...two, anyOne: true })).ok).toBe(true)
   })
 
-  it('threshold { simple }: the built bytes carry OZ simple_threshold beside the interpreter, and say so in describes', async () => {
+  it('threshold { simple }: the built bytes carry OZ simple_threshold beside the interpreter, and say so in the bytes', async () => {
     const r = await call('install_policy', {
       ...base,
       signers: [SIGNER, account(1)],
@@ -946,7 +856,7 @@ describe('install_policy', () => {
       threshold: { simple: 2 },
     })
     expect(r.ok).toBe(true)
-    const policies = r.data.describes.args[4].map as [string, unknown][]
+    const policies = callOf(r.data.unsignedXdr).args[4].map as [string, unknown][]
     expect(policies.map(([a]) => a)).toContain(thresholdAddress('testnet', false))
     expect(policies.find(([a]) => a === thresholdAddress('testnet', false))?.[1]).toEqual({
       map: [['threshold', 2]],
@@ -1088,7 +998,7 @@ describe('install_policy', () => {
       allowOverlap: true,
     })
     expect(r.ok).toBe(true)
-    expect(r.data.describes.args[4].map).toHaveLength(2)
+    expect(callOf(r.data.unsignedXdr).args[4].map).toHaveLength(2)
   })
 
   it('a rolling total on a contract that is not shown to be a token, or without transfer pinned, is refused with the reason', async () => {
@@ -1098,87 +1008,6 @@ describe('install_policy', () => {
       'INSTALL_BUILD_FAILED',
       /not shown to be a token/
     )
-  })
-
-  describe("outFile: a name inside the operator's directory, never a path", () => {
-    const clean = { ...base, signers: [account(5)] }
-    const withDir = async <T>(f: (dir: string) => Promise<T>) => {
-      const dir = mkdtempSync(join(tmpdir(), 'opb-'))
-      const before = process.env.POLICY_BUILDER_OUT_DIR
-      process.env.POLICY_BUILDER_OUT_DIR = dir
-      try {
-        return await f(dir)
-      } finally {
-        if (before === undefined) delete process.env.POLICY_BUILDER_OUT_DIR
-        else process.env.POLICY_BUILDER_OUT_DIR = before
-        rmSync(dir, { recursive: true, force: true })
-      }
-    }
-
-    it('writes the envelope into the configured directory, reads it back, and says where', async () => {
-      await withDir(async (dir) => {
-        const r = await call('install_policy', { ...clean, outFile: 'install.xdr' })
-        expect(r.ok).toBe(true)
-        expect(r.data.writtenTo).toBe(join(dir, 'install.xdr'))
-        expect(readFileSync(join(dir, 'install.xdr'), 'utf8')).toBe(r.data.unsignedXdr)
-        expect(readdirSync(dir)).toEqual(['install.xdr']) // no staging file left behind
-      })
-    })
-
-    it('never overwrites a file, and writes nothing for an install that is refused', async () => {
-      await withDir(async (dir) => {
-        writeFileSync(join(dir, 'mine.xdr'), 'important')
-        await failing(
-          'install_policy',
-          { ...clean, outFile: 'mine.xdr' },
-          'INSTALL_BUILD_FAILED',
-          /already exists; it is not overwritten/
-        )
-        expect(readFileSync(join(dir, 'mine.xdr'), 'utf8')).toBe('important')
-        await failing(
-          'install_policy',
-          { ...base, outFile: 'refused.xdr' },
-          'INSTALL_BUILD_FAILED',
-          /refused: rule 0/
-        )
-        expect(existsSync(join(dir, 'refused.xdr'))).toBe(false)
-      })
-    })
-
-    it('needs an absolute directory', async () => {
-      const before = process.env.POLICY_BUILDER_OUT_DIR
-      process.env.POLICY_BUILDER_OUT_DIR = 'relative/dir'
-      try {
-        await failing(
-          'install_policy',
-          { ...clean, outFile: 'a.xdr' },
-          'INSTALL_BUILD_FAILED',
-          /absolute directory/
-        )
-      } finally {
-        if (before === undefined) delete process.env.POLICY_BUILDER_OUT_DIR
-      }
-    })
-
-    it('is refused with no directory configured, and for anything but a plain file name', async () => {
-      await failing(
-        'install_policy',
-        { ...clean, outFile: 'a.xdr' },
-        'INSTALL_BUILD_FAILED',
-        /POLICY_BUILDER_OUT_DIR/
-      )
-      for (const outFile of [
-        '../x',
-        '/tmp/x',
-        'a/b',
-        '.hidden',
-        '..',
-        'a\\0b',
-        '',
-        'x'.repeat(101),
-      ])
-        await failing('install_policy', { ...clean, outFile }, 'INVALID_INPUT')
-    })
   })
 
   it("takes no endpoint or path of its own: those are the operator's", async () => {
@@ -1400,8 +1229,7 @@ describe('install_policy: the input boundary, to the unit', () => {
     ['a one-character name', { name: 'x' }, true],
     ['a twenty-character name', { name: 'x'.repeat(20) }, true],
     ['an empty name', { name: '' }, false],
-    ['a plain file name', { outFile: 'install.xdr' }, true],
-    ['a path', { outFile: 'a/b.xdr' }, false],
+    ['an outFile (no longer taken)', { outFile: 'install.xdr' }, false],
     ['a ledger of the maximum', { validUntilLedger: 0xffffffff }, true],
     ['a base fee at the cap', { baseFee: 10_000_000 }, true],
     [
@@ -1421,7 +1249,11 @@ describe('revoke_policy', () => {
       sourceAccount: SIGNER,
       ruleId: 1,
     })
-    expect(r.data.describes).toEqual({ contract: ACCOUNT, fn: 'remove_context_rule', args: [1] })
+    expect(callOf(r.data.unsignedXdr)).toEqual({
+      contract: ACCOUNT,
+      fn: 'remove_context_rule',
+      args: [1],
+    })
     expect(r.data.removes).toMatchObject({
       id: 1,
       scope: { kind: 'call_contract' },
@@ -1456,7 +1288,11 @@ describe('revoke_policy', () => {
         ruleId: 4,
       })
       expect(r.ok).toBe(true)
-      expect(r.data.describes).toEqual({ contract: ACCOUNT, fn: 'remove_context_rule', args: [4] })
+      expect(callOf(r.data.unsignedXdr)).toEqual({
+        contract: ACCOUNT,
+        fn: 'remove_context_rule',
+        args: [4],
+      })
       expect(r.data.removes).toMatchObject({ id: 4, scope: { kind: 'call_contract' } })
       expect(r.data.removes.expr).toBeUndefined()
       expect(r.data.removes.review).toBeUndefined()
@@ -1655,23 +1491,18 @@ describe('get_interpreter_info', () => {
       limits: r.data.limits,
     })
   })
-  it('explainAccount reads the rules and explains the ones this interpreter polices', async () => {
-    // A rule this interpreter does not police has no review, so no authority either.
-
-    const r = await call('get_interpreter_info', { explainAccount: ACCOUNT })
-    const rules = r.data.account.rules
-    expect(rules.map((x: { id: number }) => x.id)).toEqual([0, 1, 2, 3, 4])
-    expect(r.data.account).toMatchObject({ complete: true })
-    expect(rules[0].review).toBeUndefined()
-    expect(rules[3].review).toBeUndefined()
-    expect(rules[4].review.join('\n')).toContain('└─ transfer')
-    const raw = await call('get_interpreter_info', { explainAccount: ACCOUNT, raw: true })
-    expect(raw.data.account.rules[4].review.join('\n')).toContain(TOKEN)
+  it('readRules reads every rule, with the stored predicate of the ones this interpreter polices', async () => {
+    const r = await readRules(connect({ network: 'testnet' }), 'testnet', ACCOUNT, PIN)
+    expect(r.rules.map((x) => x.id)).toEqual([0, 1, 2, 3, 4])
+    expect(r.complete).toBe(true)
+    expect(r.rules[0]?.expr).toBeUndefined()
+    expect(r.rules[3]?.expr).toBeUndefined()
+    expect(JSON.stringify(r.rules[4]?.expr)).toContain('"transfer"')
   })
-  it('explainAccount lists every rule of an account that has removed many (PayFi settlement: 15 or more live, past 21 removed ids)', async () => {
-    const r = await call('get_interpreter_info', { explainAccount: SETTLEMENT })
-    const ids: number[] = r.data.account.rules.map((x: { id: number }) => x.id)
-    expect(r.data.account.complete).toBe(true)
+  it('readRules lists every rule of an account that has removed many (PayFi settlement: 15 or more live, past 21 removed ids)', async () => {
+    const r = await readRules(connect({ network: 'testnet' }), 'testnet', SETTLEMENT, PIN)
+    const ids: number[] = r.rules.map((x) => x.id)
+    expect(r.complete).toBe(true)
     expect(ids.length).toBeGreaterThanOrEqual(15)
     expect(ids).toEqual([...ids].sort((x, y) => x - y))
     // The rules past the removed run (ids 1..21 on the recording) are read, not only rule 0.

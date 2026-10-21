@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
-import { account, contract } from '../test/fixtures.ts'
+import { account, contract, venueIntent } from '../test/fixtures.ts'
 import {
   type Authority,
   authority,
@@ -13,7 +13,6 @@ import {
 } from './card.ts'
 import { INTERPRETER, SAFE_READS, SPENDING_LIMIT } from './config.ts'
 import { decodeEnvelope } from './record.ts'
-import { TEMPLATES } from './registry.ts'
 import { SAC } from './spec.ts'
 import { propose, synthesize } from './synth.ts'
 import { decode, type Expr, validate } from './wire.ts'
@@ -830,9 +829,7 @@ describe('a pin is lifted only with a value of its own kind', () => {
 
 describe('a Blend request', () => {
   const [POOL, TOK] = [contract(5), contract(6)]
-  const r = propose(
-    TEMPLATES.blend_venue({ pool: POOL, token: TOK, account: A, max: '5000000000' })
-  )[0]
+  const r = propose(venueIntent({ pool: POOL, token: TOK, account: A, max: '5000000000' }))[0]
   const info = {
     [POOL]: {
       fns: {

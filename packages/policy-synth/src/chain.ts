@@ -22,7 +22,7 @@ import {
   RPC_URL,
 } from './config.ts'
 import { messageOf, Refusal } from './envelope.ts'
-import { type Caps, CEILINGS, DECODE_LIMITS, FLOORS } from './wire.ts'
+import { type Caps, CEILINGS, FLOORS } from './wire.ts'
 
 export interface Endpoint {
   network: Network
@@ -302,42 +302,4 @@ export async function ensureInterpreter(
     known.add(id)
   }
   return limitsOf(server, network, address)
-}
-
-const ASK_MS = 5_000
-
-/** The limits a rule is judged against when it is only being PROPOSED (synthesis, the info tool):
- *  the pinned instance's `limits()` when the RPC answers (and they must equal the recorded ones:
- *  a pin that disagrees with its own instance is refused, not averaged), else the limits recorded
- *  for the pin, which an instance cannot change. With no pin: the defaults, the stricter choice, with no RPC;
- *  or a named interpreter, verified live. Nothing that installs or checks goes through here. */
-export async function heldLimits(
-  e: Endpoint,
-  named?: string
-): Promise<{ caps: Caps; from: 'live' | 'recorded' | 'default' }> {
-  const pin = INTERPRETER[e.network]
-  if (!pin) {
-    return named
-      ? { caps: await ensureInterpreter(connect(e), e.network, named), from: 'live' }
-      : { caps: DECODE_LIMITS, from: 'default' }
-  }
-  const server = connect(e)
-  let live: Caps
-  try {
-    live = await Promise.race([
-      limitsOf(server, e.network, pin.address),
-      new Promise<never>((_, no) => setTimeout(() => no(new Error('no answer')), ASK_MS).unref()),
-    ])
-  } catch (err) {
-    // An answer this package refuses is a refusal; no answer at all is the recorded limits.
-    if (err instanceof Refusal && err.code === 'INTERPRETER_MISMATCH') throw err
-    return { caps: pin.limits, from: 'recorded' }
-  }
-  const field = (Object.keys(pin.limits) as (keyof Caps)[]).find((k) => live[k] !== pin.limits[k])
-  if (field)
-    throw new Refusal(
-      'INTERPRETER_MISMATCH',
-      `${pin.address} reports ${field} = ${live[field]}, but this package records ${pin.limits[field]} for it`
-    )
-  return { caps: live, from: 'live' }
 }

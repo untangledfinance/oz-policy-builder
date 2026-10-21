@@ -5,8 +5,6 @@
 //
 // Nothing here holds a key. Install and revoke return an unsigned transaction.
 
-import { readFile, rm, writeFile } from 'node:fs/promises'
-import { isAbsolute, join } from 'node:path'
 import { StrKey } from '@stellar/stellar-sdk'
 import { z } from 'zod'
 import { type Authority, authority, contractsOf, lines, overridden, tree } from './card.ts'
@@ -17,19 +15,11 @@ import {
   type Endpoint,
   ensureInterpreter,
   fingerprint,
-  heldLimits,
   interpreterFor,
   pinnedWasm,
-  rpcOverride,
 } from './chain.ts'
 import { MAX_CHECKS, runChecks, verifyRule } from './check.ts'
-import {
-  GRAMMAR_VERSION,
-  INTERPRETER,
-  INTERPRETER_WASM,
-  type Network,
-  OZ_ACCOUNT_WASM,
-} from './config.ts'
+import { GRAMMAR_VERSION, INTERPRETER, INTERPRETER_WASM, OZ_ACCOUNT_WASM } from './config.ts'
 import { type ErrorCode, messageOf, Refusal, type ToolResponse } from './envelope.ts'
 import {
   buildInstall,
@@ -44,7 +34,6 @@ import {
 } from './install.ts'
 import type { Intent } from './intent.ts'
 import { type Call, decodeEnvelope, type Recording, recordHash } from './record.ts'
-import { TEMPLATES, TemplateParams } from './registry.ts'
 import { reviewUnsigned } from './review.ts'
 import { type ObservedRule, readRule, readRules, selectors } from './rules.ts'
 import { infoFor, isToken } from './spec.ts'
@@ -162,8 +151,8 @@ const recording = z
   })
   .strict()
 
-/** What to make a rule of: a transaction (by hash or as XDR), a recording, an intent,
- *  or a template; exactly one. The answers say what a transaction cannot. */
+/** What to make a rule of: a transaction (by hash or as XDR), a recording or an intent; exactly
+ *  one. The answers say what a transaction cannot. */
 const from = {
   hash: z
     .string()
@@ -172,12 +161,6 @@ const from = {
   xdr: z.string().min(1).max(400_000).optional(),
   recording: recording.optional(),
   intent: intent.optional(),
-  template: z
-    .discriminatedUnion('name', [
-      z.object({ name: z.literal('adapter_batch'), params: TemplateParams.adapter_batch }).strict(),
-      z.object({ name: z.literal('blend_venue'), params: TemplateParams.blend_venue }).strict(),
-    ])
-    .optional(),
   limit: amount.optional(),
   limits: z.record(amount).optional(),
   allow: z.record(z.array(anyAddress).min(1)).optional(),
@@ -221,9 +204,7 @@ function tool<S extends z.ZodRawShape>(
     error: {
       code,
       message: `${name}: ${message}`,
-      severity: 'error' as const,
       retryable: extra.retryable ?? false,
-      remediation: { toolCall: { name, args: {} } },
       ...(extra.details === undefined ? {} : { details: extra.details }),
     },
   })
@@ -257,7 +238,7 @@ function tool<S extends z.ZodRawShape>(
   }
 }
 
-const SOURCES = ['hash', 'xdr', 'recording', 'intent', 'template']
+const SOURCES = ['hash', 'xdr', 'recording', 'intent']
 const exactlyOne = (i: object, keys: string[]): string => {
   const given = keys.filter((k) => (i as Record<string, unknown>)[k] !== undefined)
   if (given.length !== 1)
@@ -269,29 +250,15 @@ const exactlyOne = (i: object, keys: string[]): string => {
 
 type Source = Synthesis & { recording?: Recording }
 
-async function recordOf(
-  i: Endpoint & { hash?: string | undefined; xdr?: string | undefined }
-): Promise<Recording> {
-  if (i.xdr !== undefined) return decodeEnvelope(i.xdr, i.network)
-  const other: Network = i.network === 'mainnet' ? 'testnet' : 'mainnet'
-  // The wrong-network hint asks the other network's own endpoint, so only when neither is configured.
-  const probe =
-    rpcOverride(i.network) === undefined && rpcOverride(other) === undefined
-      ? connect({ network: other })
-      : undefined
-  return recordHash(connect(i), i.network, i.hash as string, probe)
-}
+const recordOf = (i: Endpoint & { hash?: string | undefined; xdr?: string | undefined }) =>
+  i.xdr !== undefined
+    ? decodeEnvelope(i.xdr, i.network)
+    : recordHash(connect(i), i.network, i.hash as string)
 
 async function sourceOf(i: z.infer<z.ZodObject<typeof from & typeof net>>): Promise<Source> {
   const kind = exactlyOne(i, SOURCES)
   if (kind === 'intent') {
     const intent = i.intent as Intent
-    return { intent, warnings: [], ambiguities: unbounded(intent) }
-  }
-  if (kind === 'template') {
-    const t = i.template as NonNullable<typeof i.template>
-    const make = TEMPLATES[t.name] as (p: unknown) => Intent
-    const intent = make(t.params)
     return { intent, warnings: [], ambiguities: unbounded(intent) }
   }
   const rec = kind === 'recording' ? (i.recording as Recording) : await recordOf(i)
@@ -408,23 +375,20 @@ const record_transaction = tool(
 
 const synthesize_policy = tool(
   'synthesize_policy',
-  'Turn a transaction, a recording, an intent (the calls to allow, with per-argument constraints (`{constraint: "cap", at, max}`): pin, allow, deny, cap, floor, length, minOut, each, some, total, read, until, from) or a template (adapter_batch, blend_venue) into rules: one per contract, each with its predicate (a wire expression), its encoding and hash, and its review (`review`, a text tree, and `reviewTree`, nodes each carrying the wire `raw` it was read from; names are read best-effort from the contracts and are display only, so this tool is not offline). `ambiguities` are questions whose answers change what is permitted (usually the cap on an amount: answer with `limit`, `limits` or `allow`); `warnings` say what is left open. `heldTo` says which limits the rules were held to: the pinned interpreter\'s, read live or (with no RPC) as recorded for the pin, else the defaults.',
+  'Turn a transaction, a recording, an intent (the calls to allow, with per-argument constraints (`{constraint: "cap", at, max}`): pin, allow, deny, cap, floor, length, minOut, each, some, total, read, until, from) into rules: one per contract, each with its predicate (a wire expression), its encoding and hash, and its review (`review`, a text tree, and `reviewTree`, nodes each carrying the wire `raw` it was read from; names are read best-effort from the contracts and are display only, so this tool is not offline). `ambiguities` are questions whose answers change what is permitted (usually the cap on an amount: answer with `limit`, `limits` or `allow`); `warnings` say what is left open. `heldTo` says which limits the rules were held to: those recorded for the pinned interpreter, else the defaults.',
   { ...net, ...display, ...from },
   async (i, signal) => {
     const s = await sourceOf(i)
-    // Proposing needs no live interpreter: the pin's recorded limits stand in when the RPC is down.
-    const { caps, from } = await heldLimits(i)
-    const at = INTERPRETER[i.network]?.address
-    const rules = propose(s.intent, caps)
+    // Proposing needs no live interpreter: the pin's recorded limits are its limits.
+    const pin = INTERPRETER[i.network]
+    const rules = propose(s.intent, pin?.limits)
     const shown = await explain(i, rules, signal)
     return {
       intent: s.intent,
       rules: rules.map((r, n) => ({ ...present(r), ...shown[n] })),
-      heldTo: {
-        live: `the limits of ${at} (read live)`,
-        recorded: `the limits recorded for ${at} (the RPC did not answer)`,
-        default: `the default limits (no interpreter is pinned for ${i.network})`,
-      }[from],
+      heldTo: pin
+        ? `the limits recorded for ${pin.address}`
+        : `the default limits (no interpreter is pinned for ${i.network})`,
       ambiguities: s.ambiguities,
       warnings: s.warnings,
       ...(s.recording ? { recording: s.recording } : {}),
@@ -528,7 +492,7 @@ const verify_policy = tool(
 
 const install_policy = tool(
   'install_policy',
-  "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`. `sourceAccount` must be a signer of the account's rule 0 (that rule authorises the install); `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The interpreter is checked live before anything is built: it must speak the grammar and run a trusted build (a pinned address, or on a network with none, an `interpreterAddress` whose code hash is one this package trusts). The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind. An unanswered amount cap is refused, and so is a swap's least output that nothing sets. Answer the question a refusal asks; the overrides (`allowOverlap`, `allowUnboundedAmount`, `allowOpenSlippage`, `anyOne`) are the account owners' decision, never a way past a refusal: each one set comes back in `overrides` with the refusal it waived and opens the review, and on mainnet they are refused unless the operator sets POLICY_BUILDER_ALLOW_OVERRIDES=1. `threshold` ({ simple: n }: n of the signers; { weighted: { weights, n } }: signers whose weights total n) attaches OpenZeppelin's threshold policy beside the predicate; with several signers and no threshold (or one a single signer meets) the install is REFUSED, because a rule with a policy is satisfied by any ONE of its signers acting alone; `anyOne` is the owners' override for that, echoed and gated like the others. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR; `outFile` (a bare file name) also writes it into the operator's `POLICY_BUILDER_OUT_DIR`, without replacing a file.",
+  "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`. `sourceAccount` must be a signer of the account's rule 0 (that rule authorises the install); `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The interpreter is checked live before anything is built: it must speak the grammar and run a trusted build (a pinned address, or on a network with none, an `interpreterAddress` whose code hash is one this package trusts). The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind. An unanswered amount cap is refused, and so is a swap's least output that nothing sets. Answer the question a refusal asks; the overrides (`allowOverlap`, `allowUnboundedAmount`, `allowOpenSlippage`, `anyOne`) are the account owners' decision, never a way past a refusal: each one set comes back in `overrides` with the refusal it waived and opens the review, and on mainnet they are refused unless the operator sets POLICY_BUILDER_ALLOW_OVERRIDES=1. `threshold` ({ simple: n }: n of the signers; { weighted: { weights, n } }: signers whose weights total n) attaches OpenZeppelin's threshold policy beside the predicate; with several signers and no threshold (or one a single signer meets) the install is REFUSED, because a rule with a policy is satisfied by any ONE of its signers acting alone; `anyOne` is the owners' override for that, echoed and gated like the others. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR.",
   {
     ...net,
     ...display,
@@ -561,10 +525,6 @@ const install_policy = tool(
     allowOverlap: z.boolean().optional(),
     interpreterAddress: contractId.optional(),
     baseFee,
-    outFile: z
-      .string()
-      .regex(/^[A-Za-z0-9_][A-Za-z0-9._-]{0,99}$/, 'a plain file name')
-      .optional(),
   },
   async (i, signal) => {
     // A mainnet override without the operator's switch is refused before the network is asked.
@@ -605,7 +565,6 @@ const install_policy = tool(
       token: async (c) => isToken((await infoFor(i, [c], signal))[c]),
       contracts: (a) => contractKinds(server, a),
     }
-    const out = i.outFile === undefined ? undefined : outPathFor(i.outFile)
     const plan = await planInstall(i, rule, chain)
     // Only a rule that passed every refusal is described.
     const [shown] = await explain(
@@ -613,38 +572,9 @@ const install_policy = tool(
       [{ ...rule, authority: plan.authority, overrides: plan.overrides }],
       signal
     )
-    const done = { ...plan, rule: { ...plan.rule, ...shown } }
-    return out === undefined ? done : { ...done, writtenTo: await writeNew(out, plan.unsignedXdr) }
+    return { ...plan, rule: { ...plan.rule, ...shown } }
   }
 )
-
-/** Where `name` goes: inside the directory the operator configured, and only there. */
-function outPathFor(name: string): string {
-  const dir = process.env.POLICY_BUILDER_OUT_DIR
-  if (!dir || !isAbsolute(dir))
-    throw new Refusal(
-      'INSTALL_BUILD_FAILED',
-      'outFile needs the operator to set POLICY_BUILDER_OUT_DIR to an absolute directory'
-    )
-  return join(dir, name)
-}
-
-/** Create `path` (never replacing a file) and read it back: a half-written file would
- *  reach a signer as a malformed transaction. */
-async function writeNew(path: string, text: string): Promise<string> {
-  try {
-    await writeFile(path, text, { encoding: 'utf8', flag: 'wx' })
-  } catch (e) {
-    if ((e as { code?: string }).code === 'EEXIST')
-      throw new Refusal('INSTALL_BUILD_FAILED', `${path} already exists; it is not overwritten`)
-    throw e
-  }
-  if ((await readFile(path, 'utf8')) !== text) {
-    await rm(path, { force: true })
-    throw new Error('outFile: the file was not persisted intact')
-  }
-  return path
-}
 
 const revoke_policy = tool(
   'revoke_policy',
@@ -662,8 +592,8 @@ const revoke_policy = tool(
     gate(i.network, i.allowAdminRule === true ? ['allowAdminRule'] : [], 'REVOKE_BUILD_FAILED')
     const server = connect(i)
     const mine = INTERPRETER[i.network]?.address
-    // The account's own rule is described only if the account is a build the package knows,
-    // exactly as `explainAccount` reads only those: any other answers with whatever it likes.
+    // The account's own rule is described only if the account is a build the package knows: any
+    // other answers with whatever it likes.
     const trusted = trustedAccount(server, i.smartAccount)
     const plan = await planRevoke(i, {
       readRule: async (id) =>
@@ -674,7 +604,7 @@ const revoke_policy = tool(
     const [shown] = r.expr ? await describeRules(i, [r], signal) : []
     const skipped = (await trusted).known
       ? {}
-      : { reviewSkipped: notKnown(i.smartAccount, await trusted, UNVERIFIED) }
+      : { reviewSkipped: notKnown(i.smartAccount, await trusted) }
     // An override opens the review of what is removed, described or not.
     const head = plan.overrides.length ? [overridden(plan.overrides)] : []
     const review = head.length
@@ -713,60 +643,32 @@ async function trustedAccount(server: ReturnType<typeof connect>, account: strin
     return { code: undefined, known: false, unread: messageOf(e) }
   }
 }
-const notKnown = (account: string, t: Awaited<ReturnType<typeof trustedAccount>>, tail: string) =>
+/** What `revoke_policy` says of a rule it does not describe: what it still shows is the account's word. */
+const notKnown = (account: string, t: Awaited<ReturnType<typeof trustedAccount>>) =>
   `${
     t.unread === undefined
       ? `${account} does not run a known OpenZeppelin smart account build (code ${t.code ?? 'none'})`
       : `could not read the account's code (${t.unread})`
-  }: ${tail}`
-/** What `revoke_policy` says of a rule it does not describe: what it still shows is the account's word. */
-const UNVERIFIED =
-  'its stored predicate is not described; scope, signers and policies are as the account reports them, unverified'
-
-/** The rules installed on an account, each with its review when this interpreter polices it. */
-async function explainAccount(
-  i: { network: Network; raw?: boolean | undefined },
-  account: string,
-  interpreter: string,
-  signal?: AbortSignal
-) {
-  const server = connect(i)
-  await ensureInterpreter(server, i.network, interpreter)
-  // An account that runs other code can answer with any rule it likes: only a known build is read.
-  const trust = await trustedAccount(server, account)
-  if (!trust.known)
-    throw trust.unread === undefined
-      ? new Refusal('INVALID_INPUT', notKnown(account, trust, 'its rules are not read'))
-      : new Refusal('SIMULATION_ERROR', notKnown(account, trust, 'its rules are not read'), {
-          retryable: true,
-        })
-  const read = await readRules(server, i.network, account, interpreter, signal)
-  const shown = await describeRules(
-    { ...i, smartAccount: account },
-    read.rules.filter((r) => r.expr),
-    signal
-  )
-  let n = 0
-  return { ...read, rules: read.rules.map((r) => ({ ...r, ...(r.expr ? shown[n++] : {}) })) }
-}
+  }: its stored predicate is not described; scope, signers and policies are as the account reports them, unverified`
 
 const get_interpreter_info = tool(
   'get_interpreter_info',
-  "The interpreter a network uses: its pinned address, grammar version and wasm sha256, `limits` (the caps the instance was deployed with, read from it with `limits()`; a contract that does not answer, or answers more than the `ceilings`, is refused) and, with `verifyLive`, what is deployed at that address right now (grammar_version(), the code hash and limits) and whether it matches the pin. With `explainAccount` (a smart account) it also reads the account's rules and explains each one this interpreter polices (`review`, `reviewTree`); only an OpenZeppelin smart account build the package knows is read.",
+  'The interpreter a network uses: its pinned address, grammar version and wasm sha256, `limits` (the caps the instance was deployed with: recorded for the pin, else read from it with `limits()`, and a contract that does not answer, or answers more than the `ceilings`, is refused) and, with `verifyLive`, what is deployed at that address right now (grammar_version(), the code hash and limits) and whether it matches the pin.',
   {
     ...net,
-    ...display,
     verifyLive: z.boolean().optional(),
     interpreterAddress: contractId.optional(),
-    explainAccount: contractId.optional(),
   },
-  async (i, signal) => {
+  async (i) => {
     const address = interpreterFor(i.network, i.interpreterAddress)
     const wasm = pinnedWasm(i.network, address)
     // What a build this package does not trust says of itself is shown by `verifyLive`, never believed.
     const live = i.verifyLive ? await fingerprint(connect(i), i.network, address) : undefined
-    const held = live ? undefined : await heldLimits(i, address)
-    const limits = live ? (live.limits ?? null) : (held?.caps ?? null)
+    const from = live ? undefined : wasm ? 'recorded' : 'live'
+    const limits = live
+      ? (live.limits ?? null)
+      : (INTERPRETER[i.network]?.limits ??
+        (await ensureInterpreter(connect(i), i.network, address)))
     return {
       network: i.network,
       address,
@@ -775,12 +677,9 @@ const get_interpreter_info = tool(
       wasmSha256: wasm ?? null,
       trustedWasmSha256: [...INTERPRETER_WASM],
       limits,
-      ...(held ? { limitsFrom: held.from } : {}),
+      ...(from ? { limitsFrom: from } : {}),
       ceilings: CEILINGS,
       ...(live ? { live } : {}),
-      ...(i.explainAccount
-        ? { account: await explainAccount(i, i.explainAccount, address, signal) }
-        : {}),
     }
   }
 )
@@ -825,11 +724,6 @@ export const run = (
     ? t.run(input, signal)
     : Promise.resolve({
         ok: false,
-        error: {
-          code: 'INVALID_INPUT',
-          message: `unknown tool ${name}`,
-          severity: 'error',
-          retryable: false,
-        },
+        error: { code: 'INVALID_INPUT', message: `unknown tool ${name}`, retryable: false },
       })
 }

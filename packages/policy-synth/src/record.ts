@@ -97,25 +97,17 @@ function walk(inv: xdr.SorobanAuthorizedInvocation, out: Call[], depth: number):
   for (const sub of inv.subInvocations()) walk(sub, out, depth + 1)
 }
 
-/** Fetch a transaction by hash and decode it. A hash that exists only on the
- *  other network is named as such rather than reported missing. */
+/** Fetch a transaction by hash and decode it. */
 export async function recordHash(
   server: rpc.Server,
   network: Network,
-  hash: string,
-  other?: rpc.Server | undefined
+  hash: string
 ): Promise<Recording> {
   const tx = await server.getTransaction(hash)
-  if (tx.status === 'NOT_FOUND') {
-    const there = other && (await other.getTransaction(hash).catch(() => undefined))
-    const hint =
-      there && there.status !== 'NOT_FOUND'
-        ? `; it exists on ${network === 'mainnet' ? 'testnet' : 'mainnet'}`
-        : ''
-    throw new Refusal('RECORDING_FAILED', `transaction ${hash} not found on ${network}${hint}`, {
-      retryable: !hint,
+  if (tx.status === 'NOT_FOUND')
+    throw new Refusal('RECORDING_FAILED', `transaction ${hash} not found on ${network}`, {
+      retryable: true,
     })
-  }
   if (tx.status !== 'SUCCESS') {
     throw new Refusal(
       'RECORDING_FAILED',

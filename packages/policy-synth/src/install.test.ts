@@ -1,5 +1,4 @@
 import { afterAll, describe, expect, it } from 'bun:test'
-import { createHash } from 'node:crypto'
 import {
   Address,
   nativeToScVal,
@@ -13,6 +12,7 @@ import { connect, interpreterFor } from './chain.ts'
 import { PASSPHRASE, SAFE_READS, SPENDING_LIMIT, thresholdAddress } from './config.ts'
 import { buildInstall, buildRevoke, type RuleDraft, ruleArgs } from './install.ts'
 import { callExpr } from './intent.ts'
+import { reviewUnsigned } from './review.ts'
 import { type Expr, encode, hashOf } from './wire.ts'
 
 const ACCOUNT = 'CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P'
@@ -116,6 +116,8 @@ describe('ruleArgs: add_context_rule, as wire values', () => {
 // ---- built against a live testnet account, recorded ----
 
 const net = recorded('install')
+/** What the built bytes call, decoded back out of them. */
+const callOf = (b64: string) => reviewUnsigned({ network: 'testnet', xdr: b64 }).call
 afterAll(() => net.stop())
 const server = connect(net.endpoint)
 const args = { server, network: 'testnet' as const, smartAccount: ACCOUNT, sourceAccount: SIGNER }
@@ -123,15 +125,11 @@ const args = { server, network: 'testnet' as const, smartAccount: ACCOUNT, sourc
 describe('buildInstall and buildRevoke, on a live account', () => {
   it('the interpreter and the account accept the rule; the unsigned bytes say what they call', async () => {
     const built = await buildInstall(args, draft({ name: 'cap-500', nonce: 1 }), INTERP)
-    expect(built.describes).toEqual({
+    expect(callOf(built.unsignedXdr)).toEqual({
       contract: ACCOUNT,
       fn: 'add_context_rule',
       args: ruleArgs(draft(), INTERP),
     })
-    expect(built.unsignedXdrLength).toBe(built.unsignedXdr.length)
-    expect(built.unsignedXdrSha256).toBe(
-      createHash('sha256').update(built.unsignedXdr).digest('hex')
-    )
     const tx = TransactionBuilder.fromXDR(built.unsignedXdr, PASSPHRASE.testnet)
     expect(tx.signatures).toHaveLength(0)
     expect(built.authValidUntilLedger).toBeGreaterThan(0)
@@ -164,7 +162,11 @@ describe('buildInstall and buildRevoke, on a live account', () => {
 
   it('a revoke is the account removing a rule it has; one it does not have is refused', async () => {
     const ok = await buildRevoke(args, 1)
-    expect(ok.describes).toEqual({ contract: ACCOUNT, fn: 'remove_context_rule', args: [1] })
+    expect(callOf(ok.unsignedXdr)).toEqual({
+      contract: ACCOUNT,
+      fn: 'remove_context_rule',
+      args: [1],
+    })
     await expect(buildRevoke(args, 99)).rejects.toThrow(/#3000/)
   })
 

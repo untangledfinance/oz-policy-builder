@@ -8,7 +8,6 @@
 // the account's own auth entries, simulate again for the footprint and fee, and
 // assemble. The arguments are wire values (`toScVal`), the same codec as a predicate.
 
-import { createHash } from 'node:crypto'
 import {
   Account,
   Address,
@@ -49,7 +48,7 @@ import {
   type Scope,
   selectors,
 } from './rules.ts'
-import { type Expr, fromScVal, readsOf, toScVal, type Val } from './wire.ts'
+import { type Expr, readsOf, toScVal, type Val } from './wire.ts'
 
 export interface RuleDraft {
   scope: Scope
@@ -134,13 +133,8 @@ export function ruleArgs(d: RuleDraft, interpreter: string): Val[] {
 
 export interface Built {
   unsignedXdr: string
-  /** Length and sha256 of `unsignedXdr`: a truncated copy fails later as a malformed transaction. */
-  unsignedXdrLength: number
-  unsignedXdrSha256: string
   smartAccount: string
   sourceAccount: string
-  /** What the built bytes call, decoded back out of them. */
-  describes: { contract: string; fn: string; args: Val[] }
   authNonce: string
   authValidUntilLedger: number
   /** The transaction's time bound (unix seconds, the builder's clock): it cannot run after it. */
@@ -312,14 +306,10 @@ export async function buildSelfCall(
     networkPassphrase: PASSPHRASE[network],
     timebounds: { minTime: 0, maxTime: validBefore },
   }).build()
-  const unsignedXdr = final.toEnvelope().toXDR('base64')
   return {
-    unsignedXdr,
-    unsignedXdrLength: unsignedXdr.length,
-    unsignedXdrSha256: createHash('sha256').update(unsignedXdr).digest('hex'),
+    unsignedXdr: final.toEnvelope().toXDR('base64'),
     smartAccount: a.smartAccount,
     sourceAccount: a.sourceAccount,
-    describes: describe(final),
     authNonce: creds.nonce().toString(),
     authValidUntilLedger: until,
     validBefore,
@@ -337,21 +327,6 @@ export const xlm = (stroops: number | bigint): string => {
   const t = String(stroops).padStart(8, '0')
   const frac = t.slice(-7).replace(/0+$/, '')
   return frac ? `${t.slice(0, -7)}.${frac}` : t.slice(0, -7)
-}
-
-/** What the transaction calls, read back out of the bytes the wallet will sign. */
-export function describe(tx: Transaction): Built['describes'] {
-  const ops = tx.toEnvelope().v1().tx().operations()
-  const host = ops.length === 1 ? ops[0]?.body().invokeHostFunctionOp().hostFunction() : undefined
-  if (host?.switch().name !== 'hostFunctionTypeInvokeContract') {
-    throw new Refusal('INSTALL_BUILD_FAILED', 'the built transaction is not a single contract call')
-  }
-  const c = host.invokeContract()
-  return {
-    contract: Address.fromScAddress(c.contractAddress()).toString(),
-    fn: c.functionName().toString(),
-    args: c.args().map((x) => fromScVal(x)),
-  }
 }
 
 export const buildInstall = (a: BuildArgs, d: RuleDraft, interpreter: string) =>

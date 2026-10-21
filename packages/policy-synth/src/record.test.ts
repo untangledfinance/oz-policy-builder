@@ -156,23 +156,8 @@ describe('recordHash', () => {
       expect(rec.contexts[0]?.fn).toBe('swap')
     }
   })
-  it('says when the hash is on the other network', async () => {
-    const err = await recordHash(
-      server('NOT_FOUND'),
-      'mainnet',
-      'ab'.repeat(32),
-      server('SUCCESS', good)
-    ).catch((e) => e)
-    expect(err.message).toContain('exists on testnet')
-    expect(err.extra.retryable).toBe(false)
-  })
-  it('a hash found nowhere may simply be too new: retryable', async () => {
-    const err = await recordHash(
-      server('NOT_FOUND'),
-      'mainnet',
-      'ab'.repeat(32),
-      server('NOT_FOUND')
-    ).catch((e) => e)
+  it('a hash not found may simply be too new: retryable', async () => {
+    const err = await recordHash(server('NOT_FOUND'), 'mainnet', 'ab'.repeat(32)).catch((e) => e)
     expect(err.extra.retryable).toBe(true)
   })
   it('refuses a transaction that failed: it is not a flow that happened', async () => {

@@ -1,111 +1,15 @@
-// Boundaries and exact lowerings the mutation runner found unpinned: the typed template
-// parameters and what each template lowers to, card phrases, synthesis fallbacks and the
+// Boundaries the mutation runner found unpinned: card phrases, synthesis fallbacks and the
 // scan's integer edges.
 
 import { describe, expect, it } from 'bun:test'
 import { account, contract } from '../test/fixtures.ts'
 import type { CallIntent } from './intent.ts'
 import type { Call } from './record.ts'
-import { TEMPLATES, TemplateParams } from './registry.ts'
 import { implies } from './rules.ts'
 import { synthesize } from './synth.ts'
 import { decode, type Expr, encode, type Val, validate, WireError } from './wire.ts'
 
 const [A, C] = [account(1), contract(1)]
-
-describe('template parameters: every bound is a bound', () => {
-  const ok = (name: keyof typeof TemplateParams, p: object) =>
-    TemplateParams[name].safeParse(p).success
-  const batch = (o: object) => ({ adapter: C, targets: [contract(2)], ...o })
-  const venue = (o: object) => ({ pool: C, token: contract(2), account: A, max: '1', ...o })
-  const many = (n: number) => Array.from({ length: n }, (_, i) => contract(i + 1))
-
-  it.each<[string, object, boolean]>([
-    ['one target', batch({}), true],
-    ['32 targets', batch({ targets: many(32) }), true],
-    ['33 targets', batch({ targets: many(33) }), false],
-    ['one function of one character', batch({ functions: ['a'] }), true],
-    ['a function name of 32 characters', batch({ functions: ['a'.repeat(32)] }), true],
-    ['a function name of 33', batch({ functions: ['a'.repeat(33)] }), false],
-    ['32 functions', batch({ functions: Array.from({ length: 32 }, () => 'f') }), true],
-    ['33 functions', batch({ functions: Array.from({ length: 33 }, () => 'f') }), false],
-    ['no functions', batch({ functions: [] }), false],
-    ['one call', batch({ maxCalls: 1 }), true],
-    ['64 calls', batch({ maxCalls: 64 }), true],
-    ['65 calls', batch({ maxCalls: 65 }), false],
-  ])('adapter_batch: %s', (_n, p, want) => expect(ok('adapter_batch', p)).toBe(want))
-
-  it.each<[string, object, boolean]>([
-    ['an amount of 1', venue({ max: '1' }), true],
-    ['an amount of 10', venue({ max: '10' }), true],
-    ['an amount of 29', venue({ max: '29' }), true],
-    ['an amount of 0', venue({ max: '0' }), false],
-    ['an amount of 01', venue({ max: '01' }), false],
-    ['maxType 0', venue({ maxType: 0 }), true],
-    ['maxType 1', venue({ maxType: 1 }), true],
-    ['maxType 2', venue({ maxType: 2 }), false],
-    ['a spender and a receiver', venue({ spender: contract(3), receiver: A }), true],
-  ])('blend_venue: %s', (_n, p, want) => expect(ok('blend_venue', p)).toBe(want))
-})
-
-describe('what each template lowers to', () => {
-  it('adapter_batch: at most maxCalls (8 unless said), each call to a target (and function), no grants, no wait', () => {
-    const intent = TEMPLATES.adapter_batch({
-      adapter: C,
-      targets: [contract(2)],
-      functions: ['supply'],
-    })
-    expect(intent.calls).toEqual([
-      {
-        contract: C,
-        fn: 'execute',
-        where: [
-          { constraint: 'length', at: [0], max: 8 },
-          {
-            constraint: 'each',
-            at: [0],
-            where: [
-              { constraint: 'allow', at: ['target'], in: [contract(2)] },
-              { constraint: 'allow', at: ['function_name'], in: ['supply'] },
-            ],
-          },
-          { constraint: 'length', at: [1], max: 0 },
-          { constraint: 'pin', at: [2], to: 0 },
-        ],
-      },
-    ])
-    const plain = TEMPLATES.adapter_batch({ adapter: C, targets: [contract(2)], maxCalls: 3 })
-    expect(plain.calls[0]?.where?.[0]).toEqual({ constraint: 'length', at: [0], max: 3 })
-    expect(plain.calls[0]?.where?.[1]).toEqual({
-      constraint: 'each',
-      at: [0],
-      where: [{ constraint: 'allow', at: ['target'], in: [contract(2)] }],
-    })
-  })
-
-  it('blend_venue: the account pinned in all three places, one request, one token, a type up to maxType, an amount from 1 to max', () => {
-    const where = (p: object) =>
-      TEMPLATES.blend_venue({ pool: C, token: contract(2), account: A, max: '500', ...p }).calls[0]
-        ?.where
-    expect(where({})).toEqual([
-      { constraint: 'pin', at: [0], to: A },
-      { constraint: 'pin', at: [1], to: A },
-      { constraint: 'pin', at: [2], to: A },
-      { constraint: 'length', at: [3], max: 1 },
-      { constraint: 'pin', at: [3, 0, 'address'], to: contract(2) },
-      { constraint: 'cap', at: [3, 0, 'request_type'], max: '1' },
-      { constraint: 'floor', at: [3, 0, 'amount'], min: '1' },
-      { constraint: 'cap', at: [3, 0, 'amount'], max: '500' },
-    ])
-    const other = where({ spender: contract(3), receiver: contract(4), maxType: 0 })
-    expect(other?.slice(0, 3)).toEqual([
-      { constraint: 'pin', at: [0], to: A },
-      { constraint: 'pin', at: [1], to: contract(3) },
-      { constraint: 'pin', at: [2], to: contract(4) },
-    ])
-    expect(other?.[5]).toEqual({ constraint: 'cap', at: [3, 0, 'request_type'], max: '0' })
-  })
-})
 
 describe('synthesis, the edges', () => {
   const unknown: Call = { contract: C, fn: 'weird', args: [A] }
