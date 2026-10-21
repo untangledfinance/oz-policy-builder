@@ -51,10 +51,15 @@ The interpreter source in this tree builds to `810f53f1…`
 (`contracts/build-hashes.json`): the pinned build plus the keyless executor
 rules. A new testnet instance from it replaces the pin.
 
-The audited code is this repository at the audit commit. The three
-packages carry version 2.0.1 in their manifests, and the builds on npm are older
-than this tree, so take the packages from the repository: run a checkout as
-below, or `npm pack` it.
+The audited code is this repository at tag `v3.0.0`. The same code is published
+to npm at version 3.0.0 as `@crediolabs/policy-synth`,
+`@crediolabs/policy-builder-cli` and `@crediolabs/policy-builder-mcp`:
+
+```sh
+npm install @crediolabs/policy-synth@3.0.0 @stellar/stellar-sdk
+npm install -g @crediolabs/policy-builder-cli@3.0.0     # the policy-builder command
+npx -y @crediolabs/policy-builder-mcp@3.0.0             # the MCP server over stdio
+```
 
 To run a checkout of this repo, build the packages in dependency order. The
 package exports serve `src/` to Bun and `dist/` to Node, and `dist/` is not in
@@ -67,17 +72,6 @@ bun run --cwd packages/policy-builder-cli build
 bun run --cwd packages/policy-builder-mcp build
 node packages/policy-builder-cli/dist/bin/policy-builder.js info
 node packages/policy-builder-mcp/dist/bin/server.js            # stdio
-```
-
-To use the audited packages from another project, pack each one from the
-checkout (`npm pack` builds it first) and install the three tarballs together:
-
-```sh
-mkdir -p /tmp/opb
-for p in policy-synth policy-builder-cli policy-builder-mcp; do
-  (cd packages/$p && npm pack --pack-destination /tmp/opb)
-done
-cd /path/to/project && npm install /tmp/opb/crediolabs-*.tgz
 ```
 
 ## What the tools check

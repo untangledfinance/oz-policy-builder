@@ -17,7 +17,7 @@ There is currently no bug bounty programme.
 | --- | --- |
 | `policy-interpreter`, `custody-gate`, `execution-adapter` (Stellar) | Soroban contracts on Stellar testnet (addresses in `packages/policy-synth/src/config.ts` and `deployments/`) |
 | `prime-seat` (Stellar) | Stellar testnet |
-| `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` | Off-chain packages in `packages/`; the audited code is this repository's tree, packed with `npm pack` |
+| `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` | Off-chain packages in `packages/`, published to npm at version 3.0.0 from this repository at tag `v3.0.0` |
 
 `test-blend-pool` is a testnet-only fixture and is out of scope.
 
@@ -36,8 +36,10 @@ each piece enforces; treat anything they do not claim as unenforced.
 
 ## Supported versions
 
-Only this repository's tree at its latest commit is supported: the three
-packages as built from `packages/` (with `npm pack` for use elsewhere), and the
-contract builds pinned in `packages/policy-synth/src/config.ts`,
-`deployments/` and `contracts/build-hashes.json`. Builds of the packages on npm
-are older than this tree.
+Only the latest release is supported: version 3.0.0 of
+`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and
+`@crediolabs/policy-builder-mcp` on npm, the same code as this repository at tag
+`v3.0.0`, and the contract builds pinned in
+`packages/policy-synth/src/config.ts`, `deployments/` and
+`contracts/build-hashes.json`. Earlier npm versions (1.x, 2.0.0, 2.0.1) are
+unsupported.

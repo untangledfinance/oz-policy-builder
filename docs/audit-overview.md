@@ -43,11 +43,12 @@ declarations left out. To reproduce:
 
 ## In scope and out of scope
 
-**In scope:** this repository at the audit commit: the `src/` of the
+**In scope:** this repository at tag `v3.0.0`: the `src/` of the
 interpreter, the adapter and the gate (test modules excluded), the `src/` of
 `policy-synth`, and the `src/` and `bin/` of the CLI and the MCP server. The
-packages are audited as this tree; their builds on npm are older. `npm pack`
-from the repository gives the audited code as packages.
+same package code is published to npm at version 3.0.0 as
+`@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and
+`@crediolabs/policy-builder-mcp`.
 
 **Out of scope, each with what Prime assumes of it:**
 
