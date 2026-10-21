@@ -1210,21 +1210,31 @@ describe('planInstall: the guards', () => {
     })
   })
 
-  it('a signer listed twice is refused by the build, where OZ rejects it as #3007', async () => {
-    const dup = new Refusal(
+  it('a signer listed twice is refused before the network is asked (OZ rejects it as #3007 too)', async () => {
+    let asked = 0
+    const quiet = chain({ fingerprint: async () => (asked++, ours) })
+    await refused(
+      planInstall({ ...input, signers: [SIGNER, SIGNER], anyOne: true }, rule, quiet),
       'INSTALL_BUILD_FAILED',
-      'add_context_rule: recording simulation refused (Error(Contract, #3007))'
+      /twice|duplicate/
     )
-    const twice = chain({
-      build: async () => {
-        throw dup
+    expect(asked).toBe(0)
+  })
+
+  it('[A, A] with { simple: 2 } is refused here, so A can never meet the threshold alone on any account', async () => {
+    let asked = 0
+    const quiet = chain({
+      fingerprint: async () => {
+        asked++
+        return ours
       },
     })
     await refused(
-      planInstall({ ...input, signers: [SIGNER, SIGNER], anyOne: true }, rule, twice),
+      planInstall({ ...input, signers: [SIGNER, SIGNER], threshold: { n: 2 } }, rule, quiet),
       'INSTALL_BUILD_FAILED',
-      /#3007/
+      /listed twice/
     )
+    expect(asked).toBe(0)
   })
 
   it('the plan carries the authority it grants: signers, rule, admins, expiry, total, interpreter', async () => {
