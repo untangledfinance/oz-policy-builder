@@ -80,51 +80,33 @@ const path = z.array(z.union([z.number().int().nonnegative(), z.string().min(1)]
 const arg = z.object({ arg: path.min(1) }).strict()
 const cmp = z.enum(['eq', 'ne', 'lt', 'lte', 'gt', 'gte'])
 
+/** One constraint of an intent: its name, and the strict shape of the rest. */
+const row = <C extends string, S extends z.ZodRawShape>(constraint: C, shape: S) =>
+  z.object({ constraint: z.literal(constraint), ...shape }).strict()
+const list = z.array(val).min(1).max(CEILINGS.max_in_operands)
 const rule: z.ZodType<unknown> = z.lazy(() =>
   z.discriminatedUnion('constraint', [
-    z.object({ constraint: z.enum(['pin', 'not']), at: path, to: val }).strict(),
-    z
-      .object({
-        constraint: z.literal('allow'),
-        at: path,
-        in: z.array(val).min(1).max(CEILINGS.max_in_operands),
-      })
-      .strict(),
-    z
-      .object({
-        constraint: z.literal('deny'),
-        at: path,
-        nin: z.array(val).min(1).max(CEILINGS.max_in_operands),
-      })
-      .strict(),
-    z.object({ constraint: z.literal('cap'), at: path, max: amount }).strict(),
-    z
-      .object({ constraint: z.literal('floor'), at: path, min: z.string().regex(/^-?\d+$/) })
-      .strict(),
-    z
-      .object({ constraint: z.literal('length'), at: path, max: z.number().int().nonnegative() })
-      .strict(),
-    z
-      .object({ constraint: z.literal('minOut'), at: path, of: path, num: amount, den: amount })
-      .strict(),
-    z
-      .object({ constraint: z.enum(['each', 'some']), at: path, where: z.array(rule).min(1) })
-      .strict(),
-    z
-      .object({ constraint: z.literal('total'), at: path, of: path.optional(), max: amount })
-      .strict(),
-    z
-      .object({
-        constraint: z.literal('read'),
-        contract: contractId,
-        fn: z.string().min(1),
-        args: z.array(z.union([arg, val])).optional(),
-        path: path.optional(),
-        op: cmp,
-        to: val,
-      })
-      .strict(),
-    z.object({ constraint: z.enum(['until', 'from']), ts: z.number().int().positive() }).strict(),
+    row('pin', { at: path, to: val }),
+    row('not', { at: path, to: val }),
+    row('allow', { at: path, in: list }),
+    row('deny', { at: path, nin: list }),
+    row('cap', { at: path, max: amount }),
+    row('floor', { at: path, min: z.string().regex(/^-?\d+$/) }),
+    row('length', { at: path, max: z.number().int().nonnegative() }),
+    row('minOut', { at: path, of: path, num: amount, den: amount }),
+    row('each', { at: path, where: z.array(rule).min(1) }),
+    row('some', { at: path, where: z.array(rule).min(1) }),
+    row('total', { at: path, of: path.optional(), max: amount }),
+    row('read', {
+      contract: contractId,
+      fn: z.string().min(1),
+      args: z.array(z.union([arg, val])).optional(),
+      path: path.optional(),
+      op: cmp,
+      to: val,
+    }),
+    row('until', { ts: z.number().int().positive() }),
+    row('from', { ts: z.number().int().positive() }),
   ])
 )
 const intent = z
@@ -443,13 +425,11 @@ const simulate_policy = tool(
     const s = await subject(i)
     if (s.calls.length === 0 && !s.explainOnly)
       throw new Refusal('INVALID_INPUT', 'no call to check: give `calls` or a recording')
-    let verdicts: Awaited<ReturnType<typeof runChecks>> = []
-    if (s.calls.length > 0) {
-      const [server, interpreter] = [connect(i), interpreterFor(i.network, i.interpreterAddress)]
-      await ensureInterpreter(server, i.network, interpreter)
-      verdicts = await runChecks(server, i.network, interpreter, s.encoded, s.calls, signal)
-    }
-    // The review comes after the verdicts: it never competes with them for the network.
+    // With calls to check, `subject` has checked the interpreter.
+    const at = () => interpreterFor(i.network, i.interpreterAddress)
+    const verdicts = s.calls.length
+      ? await runChecks(connect(i), i.network, at(), s.encoded, s.calls, signal)
+      : []
     return {
       predicateHash: hashOf(s.encoded),
       results: s.calls.map((c, n) => ({ call: c, ...verdicts[n] })),
@@ -471,9 +451,9 @@ const verify_policy = tool(
         'INVALID_INPUT',
         'verify needs a call that must be permitted: give `call` or a recording'
       )
-    const [server, interpreter] = [connect(i), interpreterFor(i.network, i.interpreterAddress)]
-    await ensureInterpreter(server, i.network, interpreter)
-    const verified = await verifyRule(server, i.network, interpreter, s.expr, permits, signal)
+    // `subject` has checked the interpreter, or (with none named or pinned) this refuses.
+    const interpreter = interpreterFor(i.network, i.interpreterAddress)
+    const verified = await verifyRule(connect(i), i.network, interpreter, s.expr, permits, signal)
     return { predicateHash: hashOf(s.encoded), ...verified, ...explain(i, s.item) }
   }
 )

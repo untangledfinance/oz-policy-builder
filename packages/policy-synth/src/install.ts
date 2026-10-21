@@ -72,6 +72,13 @@ export interface RuleDraft {
 const LEDGER_DRIFT = 20
 
 export const delegated = (a: string): Val => ['Delegated', a]
+/** OZ `spending_limit`'s install params: a rolling total over a window of ledgers. */
+export const spendingParams = (t: { amount: string; periodLedgers: number }): Val => ({
+  map: [
+    ['period_ledgers', t.periodLedgers],
+    ['spending_limit', { i128: t.amount }],
+  ],
+})
 
 /** OZ's threshold policy and its install params (`signer_weights`, a signer -> u32 map, if weighted). */
 const thresholdPolicy = (net: Network, { n, weights: w }: NonNullable<InstallInput['threshold']>) =>
@@ -100,6 +107,7 @@ export function ruleArgs(d: RuleDraft, interpreter: string): Val[] {
   // A rule with no signer installs on chain (a keyless rule), so it is refused here.
   if (d.signers.length === 0)
     throw new Refusal('INSTALL_BUILD_FAILED', 'the rule names no signer, so it would govern no key')
+  const predicate = { bytes: Buffer.from(d.predicate.encoded, 'base64').toString('hex') }
   const policies: [Val, Val][] = [
     [
       interpreter,
@@ -108,24 +116,14 @@ export function ruleArgs(d: RuleDraft, interpreter: string): Val[] {
           ['grammar_version', GRAMMAR_VERSION],
           ['install_nonce', d.nonce],
           ['policy_admins', d.admins.map(delegated)],
-          ['predicate', { bytes: Buffer.from(d.predicate.encoded, 'base64').toString('hex') }],
+          ['predicate', predicate],
           ['predicate_hash', { bytes: d.predicate.hash }],
         ],
       },
     ],
+    ...(d.cap ? [[d.cap.address, spendingParams(d.cap)] as [Val, Val]] : []),
+    ...(d.extra ?? []),
   ]
-  if (d.cap) {
-    policies.push([
-      d.cap.address,
-      {
-        map: [
-          ['period_ledgers', d.cap.periodLedgers],
-          ['spending_limit', { i128: d.cap.amount }],
-        ],
-      },
-    ])
-  }
-  policies.push(...(d.extra ?? []))
   return [scope, { string: d.name }, d.validUntil, d.signers.map(delegated), { map: policies }]
 }
 

@@ -213,23 +213,17 @@ export const hashOf = (b64: string): string =>
 
 /** The caps decode enforces: the deployment's `Limits`, under the contract's own field names and
  *  in its order. A quantifier body and a `sum` weigh `max_elems` leaves. */
-const limits = (
-  max_reads: number,
-  max_leaves: number,
-  max_predicate_bytes: number,
-  max_elems: number,
-  max_in_operands: number,
-  max_depth: number
-) =>
-  Object.freeze({
-    max_reads,
-    max_leaves,
-    max_predicate_bytes,
-    max_elems,
-    max_in_operands,
-    max_depth,
-  })
-export type Caps = ReturnType<typeof limits>
+const LIMITS = [
+  'max_reads',
+  'max_leaves',
+  'max_predicate_bytes',
+  'max_elems',
+  'max_in_operands',
+  'max_depth',
+] as const
+export type Caps = Readonly<Record<(typeof LIMITS)[number], number>>
+const limits = (...v: number[]): Caps =>
+  Object.freeze(Object.fromEntries(LIMITS.map((k, i) => [k, v[i]]))) as Caps
 /** The contract's default limits, and so the caps of a rule checked without an interpreter at hand. */
 export const DECODE_LIMITS = limits(4, 200, 32 * 1024, 32, 32, 5)
 /** The most any deployment may choose (`Limits::in_range` in the contract): an instance reporting more is refused. */

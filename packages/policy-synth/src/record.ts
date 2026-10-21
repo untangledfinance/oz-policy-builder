@@ -64,7 +64,7 @@ export function decodeEnvelope(b64: string, network: Network, ledger = 0): Recor
       'the transaction invokes no contract function, so there is no call to scope a policy to'
     )
   }
-  const contexts: Call[] = [call(host.invokeContract())]
+  const contexts: Call[] = [callOf(host.invokeContract())]
   const signers = new Set<string>()
   for (const entry of op.auth()) {
     const creds = entry.credentials()
@@ -84,16 +84,18 @@ export function decodeEnvelope(b64: string, network: Network, ledger = 0): Recor
   }
 }
 
-const call = (a: xdr.InvokeContractArgs): Call => ({
+/** A contract call, its arguments read by `read`. */
+export const callOf = (a: xdr.InvokeContractArgs, read = (x: xdr.ScVal) => fromScVal(x)): Call => ({
   contract: Address.fromScAddress(a.contractAddress()).toString(),
   fn: a.functionName().toString(),
-  args: a.args().map((x) => fromScVal(x)),
+  args: a.args().map(read),
 })
 
 function walk(inv: xdr.SorobanAuthorizedInvocation, out: Call[], depth: number): void {
   if (depth > MAX_TREE_DEPTH) throw new Refusal('RECORDING_FAILED', 'authorisation tree too deep')
   const f = inv.function()
-  if (f.switch().name === 'sorobanAuthorizedFunctionTypeContractFn') out.push(call(f.contractFn()))
+  if (f.switch().name === 'sorobanAuthorizedFunctionTypeContractFn')
+    out.push(callOf(f.contractFn()))
   for (const sub of inv.subInvocations()) walk(sub, out, depth + 1)
 }
 

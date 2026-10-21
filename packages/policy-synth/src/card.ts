@@ -5,7 +5,7 @@
 // (`argument 2 › amount`). Nothing a label says can change what the rule enforces.
 
 import { INTERPRETER, type Network, SPENDING_LIMIT, safeRead } from './config.ts'
-import { delegated, meetsAlone } from './install.ts'
+import { delegated, meetsAlone, spendingParams } from './install.ts'
 import { type Expr, isAddress, isSelector, unlit, type Val } from './wire.ts'
 
 export interface Node {
@@ -20,6 +20,15 @@ export interface Node {
   index?: string
   children?: Node[]
 }
+/** A node that groups others, and a fact (`label:  value`). */
+export const group = (label: string, op: string, children: Node[], raw: Expr | null = null) =>
+  ({ label, op, raw, children }) as Node
+export const fact = (label: string, value: string, raw: Val = null): Node => ({
+  label,
+  op: 'fact',
+  value,
+  raw,
+})
 export interface View {
   /** The contract the rule is scoped to, when its predicate does not say. */
   contract?: string | undefined
@@ -309,16 +318,10 @@ export function authority(a: Authority, c: View): Node {
   if (a.total !== undefined) {
     const { amount: x, periodLedgers: p } = a.total ?? { amount: '', periodLedgers: 0 }
     const per = `at most ${x} in total per ${p} ledgers (rolling, OZ spending_limit)`
-    const spent: Val = {
-      map: [
-        ['period_ledgers', p],
-        ['spending_limit', { i128: x }],
-      ],
-    }
     facts.push([
       'total',
       a.total ? per : 'no total limit: each call may move up to its own cap',
-      a.total && spent,
+      a.total && spendingParams(a.total),
     ])
   }
   const caps = a.limits
@@ -327,29 +330,23 @@ export function authority(a: Authority, c: View): Node {
         .join(', ')})`
     : ''
   if (a.interpreter) facts.push(['interpreter', addr(a.interpreter, c) + caps, a.interpreter])
-  return {
-    label: 'Authority',
-    op: 'authority',
-    raw: null,
-    children: facts.map(([label, value, raw]) => ({ label, op: 'fact', value, raw })),
-  }
+  return group(
+    'Authority',
+    'authority',
+    facts.map(([label, value, raw]) => fact(label, value, raw))
+  )
 }
 
 /** The overrides a request set, each with the refusal it waived: the first node of a review, so the
  *  owner reads what was waived before anything else. */
-export function overridden(o: { flag: string; waived: string | null }[]): Node {
-  return {
-    label: 'Overrides set in the request',
-    op: 'overrides',
-    raw: null,
-    children: o.map((x) => ({
-      label: x.flag,
-      op: 'fact',
-      value: x.waived === null ? 'set, though nothing was refused' : `waived: ${x.waived}`,
-      raw: null,
-    })),
-  }
-}
+export const overridden = (o: { flag: string; waived: string | null }[]): Node =>
+  group(
+    'Overrides set in the request',
+    'overrides',
+    o.map((x) =>
+      fact(x.flag, x.waived === null ? 'set, though nothing was refused' : `waived: ${x.waived}`)
+    )
+  )
 
 /** The tree as text, box-drawn: a condition as `name:  phrase  value`. */
 export function lines(nodes: Node[], prefix = '', child = false): string[] {

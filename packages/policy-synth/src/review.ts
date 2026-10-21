@@ -14,6 +14,8 @@ import {
 import {
   type Authority,
   authority,
+  fact,
+  group,
   lines,
   type Node,
   addr as show,
@@ -37,6 +39,7 @@ import {
 } from './config.ts'
 import { messageOf, Refusal } from './envelope.ts'
 import { digest, isAddressEntry, signerProblem, xlm } from './install.ts'
+import { callOf } from './record.ts'
 import {
   CEILINGS,
   decode,
@@ -80,8 +83,6 @@ export interface UnsignedReview {
 const notOurs = (why: string) =>
   new Refusal('INVALID_INPUT', `not a transaction this package builds: ${why}`)
 
-const fact = (label: string, value: string): Node => ({ label, op: 'fact', value, raw: null })
-
 /** The review of an unsigned transaction from `install_policy` or `revoke_policy`, from its bytes. */
 export function reviewUnsigned(i: {
   network: Network
@@ -122,11 +123,7 @@ export function reviewUnsigned(i: {
       return null
     }
   }
-  const call = {
-    contract: Address.fromScAddress(ic.contractAddress()).toString(),
-    fn: ic.functionName().toString(),
-    args: ic.args().map(read),
-  }
+  const call = callOf(ic, read)
   const account = call.contract
 
   if (call.fn !== 'add_context_rule' && call.fn !== 'remove_context_rule')
@@ -248,34 +245,23 @@ export function reviewUnsigned(i: {
     [tx.source]: 'source account',
   }
   const view: View = { roles, raw: i.raw, network }
-  const head: Node[] = [
-    {
-      label: 'Transaction',
-      op: 'transaction',
-      raw: null,
-      children: [
-        fact('calls', `${show(account, view)}  ${call.fn}`),
-        fact('source', `${show(tx.source, view)}, sequence ${tx.sequence}`),
-        fact('fee', `${xlm(total)} XLM in all, of which ${xlm(resource)} XLM for resources`),
-        fact(
-          'valid before',
-          validBefore === null
-            ? 'no time bound'
-            : validBefore > MAX_DATE
-              ? `${validBefore} (out of range)`
-              : `${new Date(validBefore * 1000).toISOString().slice(0, 19).replace('T', ' ')} UTC`
-        ),
-        ...(auth
-          ? [
-              fact(
-                'authorisation',
-                `by rule ${auth.contextRuleIds.join(', ')}, valid through ledger ${auth.validUntilLedger}`
-              ),
-            ]
-          : []),
-      ],
-    },
-  ]
+  const until =
+    auth &&
+    `by rule ${auth.contextRuleIds.join(', ')}, valid through ledger ${auth.validUntilLedger}`
+  const head = group('Transaction', 'transaction', [
+    fact('calls', `${show(account, view)}  ${call.fn}`),
+    fact('source', `${show(tx.source, view)}, sequence ${tx.sequence}`),
+    fact('fee', `${xlm(total)} XLM in all, of which ${xlm(resource)} XLM for resources`),
+    fact(
+      'valid before',
+      validBefore === null
+        ? 'no time bound'
+        : validBefore > MAX_DATE
+          ? `${validBefore} (out of range)`
+          : `${new Date(validBefore * 1000).toISOString().slice(0, 19).replace('T', ' ')} UTC`
+    ),
+    ...(until ? [fact('authorisation', until)] : []),
+  ])
   const out: Pick<UnsignedReview, 'authority' | 'rule' | 'removes'> = {}
   let body2: Node[] = []
   if (call.fn === 'add_context_rule') {
@@ -302,12 +288,7 @@ export function reviewUnsigned(i: {
         held = authority(r.authority, v)
       } catch (e) {
         // Flagged in `ruleOf` (a threshold with no number): shown as unreadable, never guessed.
-        held = {
-          label: 'Authority',
-          op: 'authority',
-          raw: null,
-          children: [fact('unreadable', messageOf(e))],
-        }
+        held = group('Authority', 'authority', [fact('unreadable', messageOf(e))])
       }
       body2 = [held, ...(r.rule.predicate === null ? [] : tree(r.rule.predicate, v))]
     }
@@ -316,37 +297,18 @@ export function reviewUnsigned(i: {
     if (typeof id !== 'number') flag('remove_context_rule takes one rule id')
     else {
       out.removes = { ruleId: id }
-      body2 = [
-        {
-          label: 'Removes',
-          op: 'removes',
-          raw: id,
-          children: [
-            fact('rule', `${id} of ${show(account, view)}`),
-            ...(id === 0
-              ? [
-                  fact(
-                    'note',
-                    "rule 0 is the account's first rule: removing it can lock the account out of its own administration for good"
-                  ),
-                ]
-              : []),
-          ],
-        },
-      ]
+      const note =
+        "rule 0 is the account's first rule: removing it can lock the account out of its own administration for good"
+      const facts = [fact('rule', `${id} of ${show(account, view)}`)]
+      body2 = [group('Removes', 'removes', id === 0 ? [...facts, fact('note', note)] : facts, id)]
     }
   }
-  const warn: Node[] = problems.length
-    ? [
-        {
-          label: `Do not sign: ${problems.length} problem(s)`,
-          op: 'problems',
-          raw: null,
-          children: problems.map((p) => fact('problem', p)),
-        },
-      ]
-    : []
-  const reviewTree = [...warn, ...head, ...body2]
+  const warn = group(
+    `Do not sign: ${problems.length} problem(s)`,
+    'problems',
+    problems.map((p) => fact('problem', p))
+  )
+  const reviewTree = [...(problems.length ? [warn] : []), head, ...body2]
   return {
     network,
     smartAccount: account,
