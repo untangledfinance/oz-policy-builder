@@ -21,14 +21,14 @@ everything they produce is an unsigned transaction for a wallet to sign.
 
 ## Setup
 
-Register version 4.0.0, the release that matches this repository at tag
-`v4.0.0`. Versions before 3.0.0 target an older interpreter or lack
+Register version 4.0.1, the release that matches this repository at tag
+`v4.0.1`. Versions before 3.0.0 target an older interpreter or lack
 `review_unsigned`; 3.0.0 still takes the inputs 4.0.0 removed (templates,
 `outFile`, `explainAccount`), which this manual no longer describes.
 
 ```json
 { "mcpServers": { "policy-builder": {
-  "command": "npx", "args": ["-y", "@crediolabs/policy-builder-mcp@4.0.0"] } } }
+  "command": "npx", "args": ["-y", "@crediolabs/policy-builder-mcp@4.0.1"] } } }
 ```
 
 From a checkout of this repository, build the packages and run
@@ -102,11 +102,11 @@ contract would do, with its deny code.
 | --- | --- |
 | Cap a key, built from a transaction they point at | `synthesize_policy` with `hash` (or `xdr`). Its `ambiguities` ask for the cap: answer with `limit` (every amount) or `limits` (`{ "amount": "..." }`, by argument name or position), and `allow` (`{ "to": ["G…"] }`) for an allowlist. Then `verify_policy` with the same source, then `install_policy` with that source, `signers` and the same answers |
 | State a constraint outright, with no transaction | `synthesize_policy` with an `intent`: `{ calls: [{ contract, fn, where: [constraints] }] }`. A constraint is `{ "constraint": "cap", "at": [2], "max": "100" }`; the `constraint` key takes one of `pin`, `not`, `allow`, `deny`, `cap`, `floor`, `length`, `minOut`, `each`, `some`, `total`, `read`, `until`, `from`. `at` is a path into the arguments (`[2]` the third argument, `[3, 0, "amount"]` the `amount` of the first element of the fourth) |
-| A mandate with parameters (a batch for an execution adapter, a venue) | `synthesize_policy` with an `intent` that states it: one call per contract and function, each with its constraints. 4.0.0 has no templates |
+| A mandate with parameters (a batch for an execution adapter, a venue) | `synthesize_policy` with an `intent` that states it: one call per contract and function, each with its constraints. 4.0.1 has no templates |
 | Check a policy before installing it | `verify_policy` with `encodedPredicate` (or `expr`) and the call that must be permitted (`call`, or `calls` one per `or` branch, or `hash`/`xdr`) |
 | Ask what one call would do | `simulate_policy`: the predicate and `calls` |
 | Explain a predicate | `simulate_policy` with only `expr` or `encodedPredicate` |
-| Show what an account already allows | No tool lists an account's rules in 4.0.0. `install_policy` reads every live rule when it builds, and lists in `authorityScan.overlaps` each one the new rule's key could pick. `revoke_policy` with a `ruleId` returns that rule as `removes`, with its review when the account runs a known OpenZeppelin build (`91a2cd56…`); its transaction changes nothing until the owner signs it |
+| Show what an account already allows | No tool lists an account's rules in 4.0.1. `install_policy` reads every live rule when it builds, and lists in `authorityScan.overlaps` each one the new rule's key could pick. `revoke_policy` with a `ruleId` returns that rule as `removes`, with its review when the account runs a known OpenZeppelin build (`91a2cd56…`); its transaction changes nothing until the owner signs it |
 | Remove a rule | `revoke_policy` with `ruleId` |
 | Let the owner check an unsigned transaction | Tell the owner to run `review_unsigned` (or `policy-builder review`) on the XDR themselves, before signing. It reads the bytes alone, with `smartAccount` set, and lists the `problems` it finds in them. A rule with a contract signer needs `readContracts: true`, which reads the signer off the ledger. It then flags only an adapter bound to no gate, an adapter signing a rule scoped to itself that does not pin `call_fn = run`, or an undeployed contract; every other contract passes unvetted, so tell the owner to check who controls it. `signable` does not mean safe: tell the owner to read its Authority node (signers, who acts alone, admins, expiry, total) against what they asked for. Running it yourself and relaying the answer adds nothing the owner can check |
 | Check the interpreter | `get_interpreter_info` with `verifyLive: true`: `live.matches` says whether the deployed code is a trusted build. `install_policy` checks it again before building |

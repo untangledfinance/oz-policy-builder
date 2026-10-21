@@ -18,7 +18,7 @@ it. Every size below was measured on this tree.
 | Policy interpreter | `contracts/stellar/policy-interpreter/src` | Rust, soroban-sdk 27.0.2 | 800 | 416 (173 unit, 243 in 13 suites, of which the 18 conformance cases also run in release), 12 against OpenZeppelin's 0.8.0 account | in |
 | Execution adapter | `contracts/stellar/execution-adapter/src` | Rust | 226 | 62 | in |
 | Custody gate | `contracts/stellar/custody-gate/src` | Rust | 53 | 3 | in |
-| `prime-seat` | `contracts/stellar/prime-seat/src` | Rust | 97 | 21 | outside the scope set on 10 October 2026 |
+| Prime seat | `contracts/stellar/prime-seat/src` | Rust | 97 | 21 | in |
 | Policy synthesiser, `@crediolabs/policy-synth` | `packages/policy-synth/src` | TypeScript | 3,876 | 21 test files | in |
 | CLI, `@crediolabs/policy-builder-cli` | `packages/policy-builder-cli/src`, `bin` | TypeScript | 76 | 1 test file | in |
 | MCP server, `@crediolabs/policy-builder-mcp` | `packages/policy-builder-mcp/src`, `bin` | TypeScript | 133 | 3 test files | in |
@@ -43,10 +43,11 @@ declarations left out. To reproduce:
 
 ## In scope and out of scope
 
-**In scope:** this repository at tag `v4.0.0`: the `src/` of the
-interpreter, the adapter and the gate (test modules excluded), the `src/` of
-`policy-synth`, and the `src/` and `bin/` of the CLI and the MCP server. The
-same package code is published to npm at version 4.0.0 as
+**In scope:** this repository at tag `v4.0.1`: the `src/` of the
+interpreter, the adapter, the gate and the Prime seat
+(`contracts/stellar/prime-seat/src`), test modules excluded; the `src/` of
+`policy-synth`; and the `src/` and `bin/` of the CLI and the MCP server. The
+same package code is published to npm at version 4.0.1 as
 `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and
 `@crediolabs/policy-builder-mcp`.
 
@@ -57,7 +58,7 @@ same package code is published to npm at version 4.0.0 as
 | OpenZeppelin smart account and its `simple_threshold`, `weighted_threshold` and `spending_limit` policies | third-party code. It selects the rule a call cites, authenticates the rule's signers, calls each policy's `enforce`, and refuses to leave a rule with no signer and no policy |
 | Soroban host and RPC | the host builds each authorisation context from what was really called, and refuses re-entry into a contract already on the stack |
 | Custody account | a classic Stellar account whose own signers and thresholds decide what it approves |
-| Owners' wallets and the owner key of a seat | sign only what their holder means to sign. A seat's owner key raw-signs the 32-byte grant hash; a NEAR-routed MPC holds it in the reference integration |
+| Owners' wallets and the owner key of a Prime seat | sign only what their holder means to sign. A seat's owner key raw-signs the 32-byte grant hash; a NEAR-routed MPC holds it in the reference integration |
 | The Prime app (separate repository) | builds transactions and refuses dangerous rule shapes before any wallet signs; an extra control, never one the contracts rely on |
 | `scripts/`, `deployments/`, `evidence/`, fixtures | deployment and test tooling |
 
@@ -118,6 +119,16 @@ bundle its own calls atomically. The flow is narrow:
 A custody gate never pays a no-gate adapter: the gate pins its caller's
 address and build, and custody derives that address from the gate itself.
 
+**Prime seat:** one seat serves one account and one owner key, both fixed at
+construction. No admin, no setter, no upgrade. The owner key signs only grants
+and ends. A grant needs `start <= now <= end`, at most 604,800 seconds, and an
+end later than the stored one; an ended key never returns. A live session key
+signs `sha256(seat ‖ digest)`, and each proof carries the digest's preimage,
+from which the seat reads the rule ids. `External(seat, account id)` passes in
+`verify` only when every id is 0. `Delegated(seat)` passes in `__check_auth`
+only when no id is 0 and the first context is the stored account's
+`__check_auth` frame.
+
 ## Known behaviours
 
 - `uninstall` needs only the policy admins and deletes the rule's document
@@ -136,6 +147,13 @@ address and build, and custody derives that address from the gate itself.
   installed through the contract calls directly.
 - A batch that names the Prime as a target is refused in both modes
   (`PrimeTarget`).
+- A seat sees only its account's `__check_auth` frame, so it cannot limit
+  the calls of a rule that lists it as `Delegated` with no policy. Installing
+  such a rule takes a decision that carries a native owner's signature, and
+  the Prime app must refuse to build one (residual R7 in the seat's README).
+- A seat checks the digest form of the account build the Prime app deploys
+  (`91a2cd56…`, `sha256(payload ‖ XDR(rule ids))`). On an account build that
+  hashes differently, every seat signature fails.
 
 ## Builds and testnet
 
@@ -147,7 +165,7 @@ Each crate's `build-wasm.sh` gives the hash CI compares
 | Policy interpreter | `810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c` | instance `CDZV4AG4…` and the policy-synth pin run `69cad1d5…`, this source before the keyless rules; a new instance from `810f53f1…` replaces it |
 | Execution adapter | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b` | code uploaded, tx `9d9753a4…` |
 | Custody gate | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` | code uploaded |
-| `prime-seat` | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | code uploaded |
+| Prime seat | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | code uploaded |
 
 ## Read next
 

@@ -1,6 +1,6 @@
-# prime-seat
+# Prime seat
 
-An owner's seat on one Prime Account on Stellar, and that owner's session keys. The seat owner is an ed25519 key. Its holder must produce a raw ed25519 signature over the 32-byte grant hash. In the reference integration a NEAR-routed MPC holds the key; any signer that can raw-sign that hash, such as a server-held keypair or a custody service configured for raw ed25519 signing, can serve. Interactive wallets that sign only transactions or prefixed messages produce signatures the seat refuses. The seat verifies only ed25519 signatures. The owner key signs only grants and ends, and the seat votes and acts through a session key that the owner granted, for at most 7 days.
+The Prime seat (crate `prime-seat`) is an owner's seat on one Prime Account on Stellar, and that owner's session keys. The seat owner is an ed25519 key. Its holder must produce a raw ed25519 signature over the 32-byte grant hash. In the reference integration a NEAR-routed MPC holds the key; any signer that can raw-sign that hash, such as a server-held keypair or a custody service configured for raw ed25519 signing, can serve. Interactive wallets that sign only transactions or prefixed messages produce signatures the seat refuses. The seat verifies only ed25519 signatures. The owner key signs only grants and ends, and the seat votes and acts through a session key that the owner granted, for at most 7 days.
 
 One seat serves one account. The constructor takes `(account, owner)` and stores the account's 32-byte contract id and the owner key. The app deploys every seat first, reads back the stored account and owner against the key it derived offline, and only then creates the account.
 

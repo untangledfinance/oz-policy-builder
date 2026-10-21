@@ -12,7 +12,7 @@ The on-chain half is the `policy-interpreter` contract in
 ## Install
 
 ```sh
-npm install @crediolabs/policy-synth@4.0.0 @stellar/stellar-sdk
+npm install @crediolabs/policy-synth@4.0.1 @stellar/stellar-sdk
 ```
 
 `@stellar/stellar-sdk` (^14.4.0) is a peer dependency; npm 7 and
@@ -289,7 +289,7 @@ anything but one contract call. Anything else it describes, and lists in
   bound to no gate, an execution adapter signing a rule scoped to itself that
   does not pin `call_fn = run`, or a contract that is not deployed. Offline,
   every contract signer is a problem, these included. Every other contract then
-  reads signable unvetted: a seat, a smart account, an adapter with a gate
+  reads signable unvetted: a Prime seat, a smart account, an adapter with a gate
   signing any other rule, or any contract an agent deployed. The owner checks
   who controls it;
 - for an install: a scope other than one contract, or a policy contract or the

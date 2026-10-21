@@ -4,6 +4,30 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 `@crediolabs/policy-builder-mcp`) share one version number. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.0.1] - 2026-10-21
+
+Documentation only: the Prime seat contract joins the audit scope, and the
+docs call it "Prime seat" in prose. No code or behaviour change. The three
+packages at 4.0.1 are this repository at tag `v4.0.1`, the tree the external
+audit covers; it replaces 4.0.0 as the audit target. The package code is that
+of 4.0.0 with the new version number, which the MCP server reports. The CLI
+and the MCP server pin `@crediolabs/policy-synth` at exactly 4.0.1. The
+contract sources and their five build hashes are those of 4.0.0, apart from
+the first line of the seat's module comment, which now reads "Prime seat"; its
+build hash stays `393f0e5d…`.
+
+### Changed
+
+- The Prime seat (`contracts/stellar/prime-seat/src`, test modules excluded)
+  is in the audit scope. `docs/audit-overview.md`, `SECURITY.md` and
+  `contracts/README.md` list it in scope, and the audit overview states what
+  the seat enforces and two known behaviours. The owner key of a seat stays
+  out of scope as an assumption, and so does `test-blend-pool`.
+- The docs call the seat contract "Prime seat" in prose. Paths, the crate
+  name and the build-hash key stay `prime-seat`.
+- The install lines, the audited tag and the supported version point at
+  4.0.1.
+
 ## [4.0.0] - 2026-10-21
 
 The three packages at 4.0.0 are this repository at tag `v4.0.0`, the tree the

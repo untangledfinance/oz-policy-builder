@@ -8,7 +8,7 @@ institution listed. It runs on Stellar. This page covers the whole system;
 
 | Prime account | Our contracts | Where it runs |
 |---|---|---|
-| OpenZeppelin smart account | policy interpreter, custody gate, execution adapter, `prime-seat` | Stellar testnet |
+| OpenZeppelin smart account | policy interpreter, custody gate, execution adapter, Prime seat | Stellar testnet |
 
 ## The use case
 
@@ -111,11 +111,11 @@ flowchart LR
 flowchart TB
   subgraph W["Owners' keys"]
     FR["Stellar account<br/>a native owner"]
-    OK["ed25519 owner key<br/>of a seat"]
+    OK["ed25519 owner key<br/>of a Prime seat"]
   end
   subgraph XLM["Stellar"]
     OZ["OZ smart account<br/>rule 0 + policed rules"]
-    SS["prime-seat"]
+    SS["Prime seat"]
     INT["policy interpreter"]
     AD["execution adapter"]
     G1["custody gate"]
@@ -134,7 +134,7 @@ flowchart TB
 | Execution adapter | running a batch atomically; bound to a gate, naming only addresses the gate lists; with no gate, refusing a call to the Prime, any grant and any wait | us |
 | Policy interpreter | evaluating a rule's predicate on every call the rule authorises, and holding a rule with no signer to its executor binding | us |
 | Prime account | counting owners' approvals and selecting rules | OpenZeppelin |
-| Seat | letting a session key stand in for one owner on one account | us |
+| Prime seat | letting a session key stand in for one owner on one account | us |
 | A seat's owner key | signing only the grants and ends its holder means | the holder: a NEAR-routed MPC in the reference integration, or any signer that raw-signs the grant hash |
 | Policy builder | writing rules and returning them unsigned for the owners' wallets | us, in this repository |
 | Prime app and relayer | building transactions and paying fees; they hold no authority over funds | us, in a separate repository |
@@ -155,7 +155,7 @@ flowchart TB
 The most money at risk at any moment is the limit custody granted, plus anything
 supplied to a venue.
 
-## Owners, seats and session keys
+## Owners, Prime seats and session keys
 
 Each owner of a Prime account holds one vote, and casts it in one of two ways.
 
@@ -167,8 +167,8 @@ Each owner of a Prime account holds one vote, and casts it in one of two ways.
   as a server-held keypair or a custody service configured for raw ed25519
   signing, can serve. Interactive wallets that sign only transactions or prefixed
   messages produce signatures the seat refuses. On the account the owner has a
-  seat: a `prime-seat` contract that is the signer in its place. The seat checks
-  only ed25519 signatures.
+  Prime seat: a contract (`prime-seat`) that is the signer in its place. The
+  seat checks only ed25519 signatures.
 
 The owner key signs one grant that names the account, the seat, a session key
 and a start and end at most 7 days apart. Until the end, the session key votes
