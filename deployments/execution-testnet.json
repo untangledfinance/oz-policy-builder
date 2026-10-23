@@ -1,18 +1,21 @@
 {
   "network": "testnet",
-  "recorded": "2026-10-11T16:04:33.074Z",
-  "uploader": "GB5GXWIYHTVDUI3USESZIH2GCK63WMUUUW7F7WP2KNXHYROOVF2Z4RPQ",
+  "recorded": "2026-10-23T12:24:54.859Z",
+  "uploader": {
+    "custody-gate": "GB5GXWIYHTVDUI3USESZIH2GCK63WMUUUW7F7WP2KNXHYROOVF2Z4RPQ",
+    "execution-adapter": "GAZE44YHNVVFTCVRJPENSC5JKSQOWQ4QK4HUE57OGBXHIYPC5VAMXOJN"
+  },
   "wasmSha256": {
     "custody-gate": "b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab",
-    "execution-adapter": "3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3"
+    "execution-adapter": "4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b"
   },
   "uploadTx": {
     "custody-gate": "c7c9dedbabdb1a9f2cd64eb587a334a4346c8e97fc7b1f7bcbc811c574f08e2d",
-    "execution-adapter": "f5702f7b493a04121b4df9212d98434f7ead41d397c339a4ae61bf5078ef3729"
+    "execution-adapter": "5b9323ac435f015f441715f9c3ae6c951666ab8e0bbe907d5aa1e2d600f85138"
   },
   "sizes": {
     "custody-gate": 9026,
-    "execution-adapter": 24118
+    "execution-adapter": 24659
   },
   "note": "Linux builds through each crate's build-wasm.sh, so the hashes can be rebuilt from source; CI does. The Prime app pins these: new gates are created from the custody-gate hash and name the execution-adapter hash as their caller's code. A deployed build can lag main: each network's record says which build it runs.",
   "interimBuilds": {
@@ -22,5 +25,16 @@
       "size": 24027,
       "note": "The first muxed-address fix (#4), before #6 added the XDR comparison. It refuses a muxed address and passes the XDR of an address as bytes. No gate uses it and no CI check reads this entry."
     }
+  },
+  "superseded": {
+    "execution-adapter": [
+      {
+        "wasmSha256": "3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3",
+        "uploadTx": "f5702f7b493a04121b4df9212d98434f7ead41d397c339a4ae61bf5078ef3729",
+        "size": 24118,
+        "uploader": "GB5GXWIYHTVDUI3USESZIH2GCK63WMUUUW7F7WP2KNXHYROOVF2Z4RPQ",
+        "why": "the build before the optional gate; this source builds the adapter whose gate is optional (4985cd12...), which replaces it here"
+      }
+    ]
   }
 }

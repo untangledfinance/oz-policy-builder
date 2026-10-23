@@ -16,7 +16,7 @@
 //   - a gated adapter cannot be rebound to "no gate", and custody's gate
 //     refuses a pull from a null adapter;
 //   - the cost of 1, 3 and 10 calls: null and gated on this build, and gated
-//     on the deployed build (deployments/execution-testnet.json).
+//     on the build it superseded (deployments/execution-testnet.json).
 //
 //   contracts/stellar/execution-adapter/build-wasm.sh && contracts/stellar/custody-gate/build-wasm.sh
 //   bun scripts/verify-execution-null-gate-testnet.ts
@@ -59,7 +59,8 @@ import {
   wasmPath,
 } from './lib/chain.ts'
 
-/** The adapter build recorded in deployments/execution-testnet.json, costed beside this one. */
+/** The adapter build deployments/execution-testnet.json recorded before this one (now listed there as
+ *  superseded), costed beside it. */
 const DEPLOYED_ADAPTER = '3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3'
 const WINDOW = 60
 const U = 10_000_000n // one unit of a 7-decimal asset

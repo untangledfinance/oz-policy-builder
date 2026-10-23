@@ -214,11 +214,12 @@ describe('reviewUnsigned: an honest build, read back from its bytes', () => {
   })
 
   it('a removal: the rule it removes; rule 0 carries its warning, still signable', async () => {
-    const b = await buildRevoke(args, 1)
+    // Rule 3: removing rule 1 or 2 restores their archived interpreter, above the fee ceiling.
+    const b = await buildRevoke(args, 3)
     const r = review(b.unsignedXdr)
     expect(r.problems).toEqual([])
-    expect(r.removes).toEqual({ ruleId: 1 })
-    expect(r.review.join('\n')).toContain('rule:  1 of CASJ5G')
+    expect(r.removes).toEqual({ ruleId: 3 })
+    expect(r.review.join('\n')).toContain('rule:  3 of CASJ5G')
     const zero = edit(b.unsignedXdr, (env) => {
       // Rule 0 by hand: the review, not the build, is under test here.
       callArgs(env).args([nativeToScVal(0, { type: 'u32' })])

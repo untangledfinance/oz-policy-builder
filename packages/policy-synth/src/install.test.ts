@@ -160,12 +160,13 @@ describe('buildInstall and buildRevoke, on a live account', () => {
     await expect(dup).rejects.toThrow(/#202/)
   })
 
+  // Rule 3: removing rule 1 or 2 restores their archived interpreter, above the fee ceiling.
   it('a revoke is the account removing a rule it has; one it does not have is refused', async () => {
-    const ok = await buildRevoke(args, 1)
+    const ok = await buildRevoke(args, 3)
     expect(callOf(ok.unsignedXdr)).toEqual({
       contract: ACCOUNT,
       fn: 'remove_context_rule',
-      args: [1],
+      args: [3],
     })
     await expect(buildRevoke(args, 99)).rejects.toThrow(/#3000/)
   })
