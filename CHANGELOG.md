@@ -4,7 +4,7 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 `@crediolabs/policy-builder-mcp`) share one version number. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [4.1.0] - 2026-10-21
+## [4.1.0] - 2026-10-23
 
 The testnet deployments now run this source. The interpreter with the keyless
 executor rules (wasm `810f53f1…`) runs as a new testnet instance,
