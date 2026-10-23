@@ -35,8 +35,9 @@ interpreter instance from `810f53f1…` and an OpenZeppelin 0.8.0 account
 execution scripts deploy fresh gates and adapters from `b01024f3…` and
 `4985cd12…` on OpenZeppelin `91a2cd56…` accounts, and install their rules on
 the testnet interpreter instance recorded in
-`deployments/interpreter-testnet.json` (`CDZV4AG4…`, which runs `69cad1d5…`,
-this source before the keyless rules). Their run rule lists the adapter as its
+`deployments/interpreter-testnet.json`. These logs were recorded on
+`CDZV4AG4…`, which runs `69cad1d5…`, this source before the keyless rules;
+since 4.1.0 that record names `CD46LN75…` on `810f53f1…`. Their run rule lists the adapter as its
 signer, a shape the 0.7.2-line account accepts and the 0.8.0 account refuses
 (3017); they test the gate and the adapter. The off-chain suite's live tests
 run with `OPB_LIVE=1 bun test` against the same instance.

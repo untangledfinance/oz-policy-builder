@@ -2,7 +2,7 @@
 // and record it in deployments/interpreter-testnet.json. TESTNET only: the passphrase and the RPC
 // are fixed here, and nothing else is deployed or touched.
 //
-//   bun scripts/deploy-interpreter-testnet.ts <stellar identity> [--dry]
+//   bun scripts/deploy-interpreter-testnet.ts <stellar identity> --why "<why the recorded instance is replaced>" [--dry]
 //
 // The secret is read from the stellar CLI and never printed. The wasm is the reproducible
 // `build-wasm.sh` output (build it on Linux: CI compares a Linux build). Before the real
@@ -38,8 +38,15 @@ const LIMITS = {
 }
 const RECORD = 'deployments/interpreter-testnet.json'
 const identity = process.argv[2]
-if (!identity) throw new Error('usage: deploy-interpreter-testnet.ts <stellar identity> [--dry]')
+if (!identity)
+  throw new Error('usage: deploy-interpreter-testnet.ts <stellar identity> --why "<text>" [--dry]')
 const dry = process.argv.includes('--dry')
+// The record keeps the instance it replaces, with the reason: one line, given on each run, so a
+// redeploy never repeats the reason an earlier instance was replaced.
+const whyAt = process.argv.indexOf('--why')
+const why = whyAt > 0 ? (process.argv[whyAt + 1] ?? '').trim() : ''
+if (!why || why.startsWith('--'))
+  throw new Error('--why "<text>": say why the recorded instance is replaced (kept in the record)')
 const kp = Keypair.fromSecret(execFileSync('stellar', ['keys', 'show', identity]).toString().trim())
 const server = new rpc.Server(
   process.env.POLICY_BUILDER_RPC_URL_TESTNET ?? 'https://soroban-testnet.stellar.org'
@@ -173,16 +180,22 @@ console.log(
 const rec = JSON.parse(readFileSync(RECORD, 'utf8'))
 const old = {
   interpreter: rec.interpreter,
+  deployer: rec.deployer,
   wasmSha256: rec.wasmHashes.interpreter,
   status: 'superseded',
-  why: 'its wasm (42d53616...) lets max_elems be 1 (placement rules lose their meaning) and a 48 KiB byte ceiling that fails the 20% install-size margin; policy-synth refuses it by hash',
+  why,
+  limits: rec.limits,
   uploadTx: rec.uploadTx.interpreter,
   createTx: rec.createTx,
+  ...(rec.extendTx ? { extendTx: rec.extendTx } : {}),
   commit: rec.interpreterSource.commit,
 }
+// The TTL extensions were of the replaced instance and its code, so they leave with it.
+const { extendTx: _replacedExtensions, ...kept } = rec
 const next = {
-  ...rec,
+  ...kept,
   recorded: new Date().toISOString(),
+  deployer: kp.publicKey(),
   interpreter,
   wasmHashes: { interpreter: wasmSha },
   interpreterSource: {

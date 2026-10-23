@@ -6,6 +6,7 @@ import { contract } from '../test/fixtures.ts'
 import {
   GRAMMAR_VERSION,
   INTERPRETER,
+  INTERPRETER_WASM,
   INTERPRETERS,
   OZ_ACCOUNT_WASM,
   POLICY_CONTRACTS,
@@ -49,17 +50,35 @@ describe('the pins are the contract that was built and deployed', () => {
 })
 
 describe('every interpreter this project deployed is a policy contract no rule may be scoped to', () => {
-  it('the addresses in deployments/*.json (and the one a record replaced) are all known', () => {
+  it('the addresses in deployments/*.json (and the ones a record replaced) are all known', () => {
     const files = readdirSync(new URL('deployments/', root)).filter((f) => f.endsWith('.json'))
     expect(files.length).toBeGreaterThan(3)
+    const replaced: string[] = []
     for (const f of files) {
       const d = JSON.parse(read(`deployments/${f}`))
-      for (const a of [d.interpreter, d.previous?.interpreter].filter(Boolean)) {
+      const gone = Array.isArray(d.superseded)
+        ? d.superseded.map((s: { interpreter?: string }) => s.interpreter)
+        : []
+      replaced.push(...gone.filter(Boolean))
+      for (const a of [d.interpreter, d.previous?.interpreter, ...gone].filter(Boolean)) {
         expect(INTERPRETERS.has(a)).toBe(true)
         expect(POLICY_CONTRACTS.has(a)).toBe(true)
       }
     }
     for (const a of Object.values(SPENDING_LIMIT)) expect(POLICY_CONTRACTS.has(a)).toBe(true)
+    // The instance the testnet record replaced is known, and is not the pin.
+    expect(replaced).toContain('CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT')
+    expect(replaced).not.toContain(INTERPRETER.testnet?.address)
+  })
+
+  it('this build trusts the code of the pinned instance only, not the code of the one it replaced', () => {
+    const record = JSON.parse(read('deployments/interpreter-testnet.json'))
+    expect([...INTERPRETER_WASM]).toEqual([record.wasmHashes.interpreter])
+    for (const s of record.superseded) expect(INTERPRETER_WASM.has(s.wasmSha256)).toBe(false)
+    const built = JSON.parse(read('contracts/build-hashes.json')).sha256[
+      'stellar/policy-interpreter'
+    ]
+    expect(record.wasmHashes.interpreter).toBe(built) // the deployed instance runs this source
   })
 })
 

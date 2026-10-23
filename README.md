@@ -43,22 +43,24 @@ The packages pin one interpreter instance on testnet (`packages/policy-synth/src
 
 | | Address / hash |
 | --- | --- |
-| Interpreter (testnet) | `CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT` |
-| Its wasm sha256 | `69cad1d5ce9aeaa0dad6980fd030e528935a0ebdd290111f393e9fd0564a68b0` |
+| Interpreter (testnet) | `CD46LN75LITN5INQEW3N3BKUK52IFODGCTJS2RWQ44JM74RH6ILIPBJ2` |
+| Its wasm sha256 | `810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c` |
 | Its deploy-time limits | reads 8, leaves 400, bytes 24,576, elems 32, in 32, depth 5 (read from the instance with `limits()`; immutable) |
 
-The interpreter source in this tree builds to `810f53f1…`
-(`contracts/build-hashes.json`): the pinned build plus the keyless executor
-rules. A new testnet instance from it replaces the pin.
+The pinned instance runs the interpreter source in this tree: `810f53f1…` is
+its build in `contracts/build-hashes.json`. It replaced `CDZV4AG4…`, which runs
+`69cad1d5…`, this source before the keyless executor rules; the packages no
+longer trust that build (`deployments/interpreter-testnet.json` lists it as
+superseded).
 
-The audited code is this repository at tag `v4.0.1`. The same code is published
-to npm at version 4.0.1 as `@crediolabs/policy-synth`,
+The audited code is this repository at tag `v4.1.0`. The same code is published
+to npm at version 4.1.0 as `@crediolabs/policy-synth`,
 `@crediolabs/policy-builder-cli` and `@crediolabs/policy-builder-mcp`:
 
 ```sh
-npm install @crediolabs/policy-synth@4.0.1 @stellar/stellar-sdk
-npm install -g @crediolabs/policy-builder-cli@4.0.1     # the policy-builder command
-npx -y @crediolabs/policy-builder-mcp@4.0.1             # the MCP server over stdio
+npm install @crediolabs/policy-synth@4.1.0 @stellar/stellar-sdk
+npm install -g @crediolabs/policy-builder-cli@4.1.0     # the policy-builder command
+npx -y @crediolabs/policy-builder-mcp@4.1.0             # the MCP server over stdio
 ```
 
 To run a checkout of this repo, build the packages in dependency order. The

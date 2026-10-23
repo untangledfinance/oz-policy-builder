@@ -299,7 +299,7 @@ Also in the run: n6, a keyless rule never bound, and n7, a bound rule that lists
 Three more open points concern the account builds and the deployment:
 
 - **The keyless shape on the 0.7.2-line account:** verified on 0.8.0 only. Whether `91a2cd56…` accepts a rule with no signer and one policy still has to be checked before testnet Primes use keyless rules.
-- **The testnet interpreter instance:** `CDZV4AG4…`, which the address-rule, wait and null-gate scripts and the `policy-synth` pin use, runs `69cad1d5…`, a build of this source before the keyless rules. A new instance from `810f53f1…` replaces it; interpreter instances have no upgrade path, so rules are installed again on the new one.
+- **The testnet interpreter instance:** since 4.1.0 the `policy-synth` pin and the address-rule, wait and null-gate scripts use `CD46LN75…`, which runs `810f53f1…`, this source. Their logs here were recorded on `CDZV4AG4…`, which runs `69cad1d5…`, a build of this source before the keyless rules. Interpreter instances have no upgrade path, so rules on `CDZV4AG4…` stay there and are installed again on the new one.
 - **The 0.8.0 account release:** `8286422f…` is built from an untagged upstream commit. Signers, the seat and the tools need the 0.8.0 digest before Prime accounts move to it.
 
 ## 9. Residual and accepted risks

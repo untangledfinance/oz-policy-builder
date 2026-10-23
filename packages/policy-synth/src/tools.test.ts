@@ -27,7 +27,7 @@ import { encode, hashOf } from './wire.ts'
 const SETTLEMENT = 'CAF4HZO4DARULJGBJCNDEXLR5ZXEKLVI4TMX7VDGTESTJ222U4SXVQXS'
 const ACCOUNT = 'CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P'
 const SIGNER = 'GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB'
-const INSTALL_TX = '7ee0d68b9b1dd58ad0af7752f2f5e673424c57b03dd1f4f071ee2df28b5e4e0b'
+const INSTALL_TX = 'b8a3ac5b457d80bf00448a68a2d61928250e3d26922e2022be86dedfb614e705' // rule 5 (deployments/interpreter-testnet.json)
 const TOKEN = contract(7)
 const PIN = INTERPRETER.testnet?.address as string
 /** What the built bytes call, decoded back out of them. */
@@ -661,7 +661,8 @@ describe('install_policy', () => {
       [1, 'unreadable'],
       [2, 'unreadable'],
       [3, 'unreadable'],
-      [4, 'other'],
+      [4, 'unreadable'],
+      [5, 'other'],
     ])
     expect(r.data.interpreter.matches).toBe(true)
     expect(r.data.rule.review.at(-1)).toBe('   └─ argument 2:  must be at most  9000000')
@@ -774,7 +775,7 @@ describe('install_policy', () => {
       'total:  at most 5000000 in total per 17280 ledgers (rolling, OZ spending_limit)'
     )
     expect(text).toMatch(
-      /interpreter: {2}CDZV4A…\w{6} \(\[interpreter\]\) \(reads ≤ 8, leaves ≤ 400, predicate_bytes ≤ 24576, elems ≤ 32, in_operands ≤ 32, depth ≤ 5\)/
+      /interpreter: {2}CD46LN…\w{6} \(\[interpreter\]\) \(reads ≤ 8, leaves ≤ 400, predicate_bytes ≤ 24576, elems ≤ 32, in_operands ≤ 32, depth ≤ 5\)/
     )
     // The predicate's own tree follows the header; the authority comes after the overrides.
     expect(r.data.rule.reviewTree[0]).toMatchObject({ op: 'overrides', raw: null })
@@ -1243,19 +1244,21 @@ describe('install_policy: the input boundary, to the unit', () => {
 })
 
 describe('revoke_policy', () => {
+  // Rule 3, not 1: the instances behind rules 1 and 2 are archived on testnet, so removing either
+  // restores their entries for a resource fee above the builder's ceiling, which it refuses.
   it('builds the removal of a rule the account has', async () => {
     const r = await call('revoke_policy', {
       smartAccount: ACCOUNT,
       sourceAccount: SIGNER,
-      ruleId: 1,
+      ruleId: 3,
     })
     expect(callOf(r.data.unsignedXdr)).toEqual({
       contract: ACCOUNT,
       fn: 'remove_context_rule',
-      args: [1],
+      args: [3],
     })
     expect(r.data.removes).toMatchObject({
-      id: 1,
+      id: 3,
       scope: { kind: 'call_contract' },
       signers: [SIGNER],
     })
@@ -1264,7 +1267,7 @@ describe('revoke_policy', () => {
     const r = await call('revoke_policy', {
       smartAccount: ACCOUNT,
       sourceAccount: SIGNER,
-      ruleId: 4,
+      ruleId: 5,
     })
     expect(r.data.removes.expr).toEqual(['and', expect.any(Array)])
     expect(r.data.removes.review.at(-1)).toBe('   └─ argument 2:  must be at most  500')
@@ -1273,7 +1276,7 @@ describe('revoke_policy', () => {
     const plain = await call('revoke_policy', {
       smartAccount: ACCOUNT,
       sourceAccount: SIGNER,
-      ruleId: 1,
+      ruleId: 3,
     })
     expect(plain.data.removes.review).toBeUndefined()
   })
@@ -1285,15 +1288,15 @@ describe('revoke_policy', () => {
       const r = await call('revoke_policy', {
         smartAccount: ACCOUNT,
         sourceAccount: SIGNER,
-        ruleId: 4,
+        ruleId: 5,
       })
       expect(r.ok).toBe(true)
       expect(callOf(r.data.unsignedXdr)).toEqual({
         contract: ACCOUNT,
         fn: 'remove_context_rule',
-        args: [4],
+        args: [5],
       })
-      expect(r.data.removes).toMatchObject({ id: 4, scope: { kind: 'call_contract' } })
+      expect(r.data.removes).toMatchObject({ id: 5, scope: { kind: 'call_contract' } })
       expect(r.data.removes.expr).toBeUndefined()
       expect(r.data.removes.review).toBeUndefined()
       expect(r.data.removes.reviewSkipped).toMatch(
@@ -1309,7 +1312,7 @@ describe('revoke_policy', () => {
       const r = await call('revoke_policy', {
         smartAccount: ACCOUNT,
         sourceAccount: SIGNER,
-        ruleId: 4,
+        ruleId: 5,
       })
       expect(r.ok).toBe(true)
       expect(r.data.removes.review).toBeUndefined()
@@ -1328,7 +1331,7 @@ describe('revoke_policy', () => {
       const r = await call('revoke_policy', {
         smartAccount: ACCOUNT,
         sourceAccount: SIGNER,
-        ruleId: 4,
+        ruleId: 5,
       })
       expect(r.ok).toBe(true)
       expect(r.data.removes.review).toBeUndefined()
@@ -1343,7 +1346,7 @@ describe('revoke_policy', () => {
     const r = await call('revoke_policy', {
       smartAccount: ACCOUNT,
       sourceAccount: SIGNER,
-      ruleId: 4,
+      ruleId: 5,
     })
     expect(r.data.removes.reviewSkipped).toBeUndefined()
   })
@@ -1353,7 +1356,7 @@ describe('revoke_policy', () => {
     const r = await call('revoke_policy', {
       smartAccount: ACCOUNT,
       sourceAccount: SIGNER,
-      ruleId: 4,
+      ruleId: 5,
     })
     expect(r.data.removes.scope.contract).toBe(r.data.removes.reviewTree[0].value)
   })
@@ -1442,7 +1445,7 @@ describe('the limits of the pinned instance', () => {
     const ok = await call('simulate_policy', { expr: five })
     expect(ok.ok).toBe(true)
     expect(ok.data.heldTo).toBe(
-      'the limits of CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT'
+      'the limits of CD46LN75LITN5INQEW3N3BKUK52IFODGCTJS2RWQ44JM74RH6ILIPBJ2'
     )
     // 30,000 bytes: inside the ceiling (40 KiB), over what the pinned instance was deployed with (24 KiB)
     const blob = ['eq', ['call_arg', 0], { bytes: 'ab'.repeat(30_000) }]
@@ -1457,7 +1460,7 @@ describe('get_interpreter_info', () => {
       network: 'testnet',
       pinned: true,
       grammarVersion: 7,
-      address: 'CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT',
+      address: 'CD46LN75LITN5INQEW3N3BKUK52IFODGCTJS2RWQ44JM74RH6ILIPBJ2',
       // read from limits() on the instance (deployments/interpreter-testnet.json records the same)
       limits: {
         max_reads: 8,
@@ -1477,7 +1480,7 @@ describe('get_interpreter_info', () => {
       },
     })
     expect(r.data.wasmSha256).toBe(
-      '69cad1d5ce9aeaa0dad6980fd030e528935a0ebdd290111f393e9fd0564a68b0'
+      '810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c'
     )
     expect(r.data.live).toBeUndefined()
   })
@@ -1493,11 +1496,11 @@ describe('get_interpreter_info', () => {
   })
   it('readRules reads every rule, with the stored predicate of the ones this interpreter polices', async () => {
     const r = await readRules(connect({ network: 'testnet' }), 'testnet', ACCOUNT, PIN)
-    expect(r.rules.map((x) => x.id)).toEqual([0, 1, 2, 3, 4])
+    expect(r.rules.map((x) => x.id)).toEqual([0, 1, 2, 3, 4, 5])
     expect(r.complete).toBe(true)
     expect(r.rules[0]?.expr).toBeUndefined()
-    expect(r.rules[3]?.expr).toBeUndefined()
-    expect(JSON.stringify(r.rules[4]?.expr)).toContain('"transfer"')
+    expect(r.rules[4]?.expr).toBeUndefined()
+    expect(JSON.stringify(r.rules[5]?.expr)).toContain('"transfer"')
   })
   it('readRules lists every rule of an account that has removed many (PayFi settlement: 15 or more live, past 21 removed ids)', async () => {
     const r = await readRules(connect({ network: 'testnet' }), 'testnet', SETTLEMENT, PIN)

@@ -43,11 +43,11 @@ declarations left out. To reproduce:
 
 ## In scope and out of scope
 
-**In scope:** this repository at tag `v4.0.1`: the `src/` of the
+**In scope:** this repository at tag `v4.1.0`: the `src/` of the
 interpreter, the adapter, the gate and the Prime seat
 (`contracts/stellar/prime-seat/src`), test modules excluded; the `src/` of
 `policy-synth`; and the `src/` and `bin/` of the CLI and the MCP server. The
-same package code is published to npm at version 4.0.1 as
+same package code is published to npm at version 4.1.0 as
 `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and
 `@crediolabs/policy-builder-mcp`.
 
@@ -172,8 +172,8 @@ Each crate's `build-wasm.sh` gives the hash CI compares
 
 | Contract | sha256 of the Linux build | Testnet |
 |---|---|---|
-| Policy interpreter | `810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c` | instance `CDZV4AG4…` and the policy-synth pin run `69cad1d5…`, this source before the keyless rules; a new instance from `810f53f1…` replaces it |
-| Execution adapter | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b` | code uploaded, tx `9d9753a4…` |
+| Policy interpreter | `810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c` | instance `CD46LN75…`, the policy-synth pin; it replaced `CDZV4AG4…` (`69cad1d5…`, this source before the keyless rules), which policy-synth does not trust |
+| Execution adapter | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b` | code uploaded, tx `5b9323ac…` (`deployments/execution-testnet.json`) |
 | Custody gate | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` | code uploaded |
 | Prime seat | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | code uploaded |
 

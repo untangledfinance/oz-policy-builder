@@ -261,13 +261,15 @@ describe('readRules, on a live account', () => {
       [2, 'call_contract', 1],
       [3, 'call_contract', 1],
       [4, 'call_contract', 1],
+      [5, 'call_contract', 1],
     ])
     expect(rules[0]?.signers).toEqual(['GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB'])
-    // Rules 1 to 3 are policed by the first three builds of the interpreter, rule 4 by the current one.
+    // Rules 1 to 4 are policed by earlier instances of the interpreter, rule 5 by the pinned one.
     expect(rules[1]?.expr).toBeUndefined()
     expect(rules[2]?.expr).toBeUndefined()
     expect(rules[3]?.expr).toBeUndefined()
-    expect(rules[4]?.expr).toEqual(
+    expect(rules[4]?.expr).toBeUndefined()
+    expect(rules[5]?.expr).toEqual(
       callExpr({
         contract: TOKEN,
         fn: 'transfer',
@@ -300,7 +302,8 @@ describe('readRules, on a live account', () => {
       [1, 'unreadable'], // policed by an interpreter build this package does not trust
       [2, 'unreadable'], // the same
       [3, 'unreadable'], // the same
-      [4, 'other'],
+      [4, 'unreadable'], // the same
+      [5, 'other'],
     ])
   })
 })

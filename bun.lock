@@ -17,12 +17,12 @@
     },
     "packages/policy-builder-cli": {
       "name": "@crediolabs/policy-builder-cli",
-      "version": "4.0.1",
+      "version": "4.1.0",
       "bin": {
         "policy-builder": "dist/bin/policy-builder.js",
       },
       "dependencies": {
-        "@crediolabs/policy-synth": "4.0.1",
+        "@crediolabs/policy-synth": "4.1.0",
         "@stellar/stellar-sdk": "14.4.0",
         "zod": "3.25.76",
       },
@@ -35,12 +35,12 @@
     },
     "packages/policy-builder-mcp": {
       "name": "@crediolabs/policy-builder-mcp",
-      "version": "4.0.1",
+      "version": "4.1.0",
       "bin": {
         "policy-builder-mcp": "dist/bin/server.js",
       },
       "dependencies": {
-        "@crediolabs/policy-synth": "4.0.1",
+        "@crediolabs/policy-synth": "4.1.0",
         "@modelcontextprotocol/sdk": "1.32.1",
         "@stellar/stellar-sdk": "14.4.0",
         "zod": "3.25.76",
@@ -54,7 +54,7 @@
     },
     "packages/policy-synth": {
       "name": "@crediolabs/policy-synth",
-      "version": "4.0.1",
+      "version": "4.1.0",
       "dependencies": {
         "zod": "3.25.76",
       },
@@ -76,9 +76,10 @@
     "fast-uri": "^3.1.6",
     "follow-redirects": "^1.16.1",
     "hono": "^4.13.11",
+    "ip-address": "^10.7.4",
     "proxy-addr": "^2.0.8",
     "qs": "^6.16.0",
-    "toml": "^4.2.0",
+    "toml": "^5.0.1",
   },
   "packages": {
     "@biomejs/biome": ["@biomejs/biome@2.5.5", "", { "optionalDependencies": { "@biomejs/cli-darwin-arm64": "2.5.5", "@biomejs/cli-darwin-x64": "2.5.5", "@biomejs/cli-linux-arm64": "2.5.5", "@biomejs/cli-linux-arm64-musl": "2.5.5", "@biomejs/cli-linux-x64": "2.5.5", "@biomejs/cli-linux-x64-musl": "2.5.5", "@biomejs/cli-win32-arm64": "2.5.5", "@biomejs/cli-win32-x64": "2.5.5" }, "bin": { "biome": "bin/biome" } }, "sha512-r1S8nFsAG1MY+vJFZALzIvwXAJv6ejDQ0mxP21Tgr9YK3ZFtjrvbBwDdNhx1rUqvccEIeNg20cYCNzl6Cr69pQ=="],
@@ -251,7 +252,7 @@
 
     "inherits": ["inherits@2.0.4", "", {}, "sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ=="],
 
-    "ip-address": ["ip-address@10.7.1", "", {}, "sha512-4OUAqU9Z1i3vCnS05hzGiFnEMDpQ+62pAD/MVQOp83fYyNC8GleCqaS0QikQBmcWCrKFiUs/B8ztRRiYOAXuCA=="],
+    "ip-address": ["ip-address@10.7.4", "", {}, "sha512-DWBMKyeM25D70nrIiTkgQth59/G+naKOTep6huF9j+GmeK3DMD60Zvxg5d5qQnz+38AHgou6ean2LECX+lrKDg=="],
 
     "ipaddr.js": ["ipaddr.js@1.9.1", "", {}, "sha512-0KI/607xoxSToH7GjN1FfSbLoU0+btTicjsQSWQlh/hZykN8KpmMf7uYwPW3R+akZ6R/w18ZlXSHBYXiYUPO3g=="],
 
@@ -353,7 +354,7 @@
 
     "toidentifier": ["toidentifier@1.0.1", "", {}, "sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA=="],
 
-    "toml": ["toml@4.3.0", "", {}, "sha512-lVb8X9BsPVuH0M4BKeS91tXAmJvCjQ5UIyAbQFaxkKGyUFK2RPkhwaFSQH8vbpl1d23eu/IBH+dwVMHWaq9A5A=="],
+    "toml": ["toml@5.0.1", "", {}, "sha512-EqYNA/YvUNndrA2B3O2ojzLQoTQrBxeZ9UIjQwk8t10oe6n7dwclBwd9IdZQTOKwe6vWX+AXtl6IntXRbepdxQ=="],
 
     "type-is": ["type-is@2.1.0", "", { "dependencies": { "content-type": "^2.0.0", "media-typer": "^1.1.0", "mime-types": "^3.0.0" } }, "sha512-faYHw0anBbc/kWF3zFTEnxSFOAGUX9GFbOBthvDdLsIlEoWOFOtS0zgCiQYwIskL9iGXZL3kAXD8OoZ4GmMATA=="],
 

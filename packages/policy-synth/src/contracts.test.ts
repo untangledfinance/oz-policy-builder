@@ -144,7 +144,7 @@ describe('install_policy and review_unsigned with a contract signer', () => {
       nonce: 1,
     })
     const a = { server, network: 'testnet' as const, smartAccount: ACCOUNT, sourceAccount: SIGNER }
-    const interpreter = 'CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT'
+    const interpreter = 'CD46LN75LITN5INQEW3N3BKUK52IFODGCTJS2RWQ44JM74RH6ILIPBJ2'
     for (const [signer, signable] of [
       [NULL_ADAPTER, false],
       [GATED_ADAPTER, true],

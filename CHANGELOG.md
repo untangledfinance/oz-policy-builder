@@ -4,6 +4,61 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 `@crediolabs/policy-builder-mcp`) share one version number. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [4.1.0] - 2026-10-23
+
+The testnet deployments now run this source. The interpreter with the keyless
+executor rules (wasm `810f53f1…`) runs as a new testnet instance,
+`CD46LN75…`, and the execution adapter whose gate is optional (`4985cd12…`)
+is uploaded to testnet. Both are recorded in `deployments/`, and
+`policy-synth` pins and trusts the new interpreter instance. The three
+packages at 4.1.0 are this repository at tag `v4.1.0`, the tree the external
+audit covers; it replaces 4.0.1 as the audit target. The CLI and the MCP
+server pin `@crediolabs/policy-synth` at exactly 4.1.0. No contract source
+changed: the five build hashes are those of 4.0.1.
+
+### Changed
+
+- **The pinned interpreter:** `policy-synth` pins testnet instance
+  `CD46LN75LITN5INQEW3N3BKUK52IFODGCTJS2RWQ44JM74RH6ILIPBJ2`, which runs
+  `810f53f1…` with the same deploy-time limits as the instance before it
+  (reads 8, leaves 400, bytes 24,576, elems 32, `in` entries 32, depth 5).
+  `810f53f1…` is now the only interpreter build the package trusts.
+- **The previous instance is not trusted:** `CDZV4AG4…`, which runs
+  `69cad1d5…`, is listed with the other interpreters this project deployed
+  and this build does not trust. A rule it polices reads as unreadable, and
+  no rule may be scoped to it. Instances have no upgrade path, so a rule on
+  `CDZV4AG4…` stays there; install it again on the new instance.
+- **Still keyed:** the builder installs rules with signers only, as before.
+  Only the interpreter has the keyless executor rule.
+- **The execution adapter on testnet:** `deployments/execution-testnet.json`
+  records `4985cd12…` with its upload, `5b9323ac…`, and lists the earlier
+  build `3dd675c0…` as superseded. The custody gate record (`b01024f3…`) is
+  unchanged. Neither contract has a shared instance: each custody account
+  deploys its own gate and each Prime its own adapter.
+- **The records:** `deployments/interpreter-testnet.json` names the new
+  instance (upload `e6f0d7f6…`, create `f7a0625a…`, and its TTL extensions)
+  and lists `CDZV4AG4…` as superseded, with its transactions and the reason.
+  `config.test.ts` holds the pin, the trusted build and the superseded
+  instance to that record.
+- **Deploy scripts:** `scripts/deploy-interpreter-testnet.ts` takes the
+  reason the recorded instance is replaced (`--why`) and records the
+  deployer. `scripts/upload-execution-testnet.ts` uploads only the builds given
+  on its command line, leaves the other entries as they are, checks the code
+  is on chain, and moves a replaced build to `superseded`.
+- **Live tests:** the recorded RPC fixtures in
+  `packages/policy-synth/fixtures/rpc` replay a run against the new instance.
+  The live-test account (`CASJ5GEC…`, OpenZeppelin `91a2cd56…`) gained rule 5,
+  `cap-500` on the new instance; rules 1 to 4 sit on earlier instances. The
+  removal tests now remove rule 3: the instances behind rules 1 and 2 are
+  archived on testnet, and removing either asks a resource fee of about 50 XLM,
+  which the builder's 10 XLM ceiling refuses.
+- **Dependencies:** the root `overrides` pin `toml` `^5.0.1` (was `^4.2.0`)
+  and `ip-address` `^10.7.4`, for advisories published on 22 October 2026
+  (`toml` up to 5.0.0, `ip-address` up to 10.7.3). `bun audit` reports none.
+  `SECURITY.md` gives consumers the same two pins.
+- The install lines, the audited tag and the supported version point at
+  4.1.0.
+
 ## [4.0.1] - 2026-10-21
 
 Documentation only: the Prime seat contract joins the audit scope, and the
