@@ -66,9 +66,9 @@ Commands run from the contract's own folder.
 | | `cargo test` | builds, no tests |
 
 The interpreter instance on testnet and the policy-synth pin run
-`69cad1d5ce9aeaa0dad6980fd030e528935a0ebdd290111f393e9fd0564a68b0`, built from
-this source before the keyless executor rules. A new instance from
-`810f53f1…` replaces it.
+`810f53f1…`, this source: instance `CD46LN75…`, recorded in
+`deployments/interpreter-testnet.json`. It replaced `CDZV4AG4…`, which runs
+`69cad1d5…`, this source before the keyless executor rules.
 
 ### Reproducible builds
 

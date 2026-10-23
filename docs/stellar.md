@@ -340,7 +340,7 @@ limits and the install checks are documented in
   stores them once and returns them from `limits()`. There is no setter and no
   upgrade path, so a different limit means a new instance at a new address.
 
-  | Field | Floor | Ceiling | Testnet instance `CDZV4AG4…` |
+  | Field | Floor | Ceiling | Testnet instance `CD46LN75…` |
   |---|---|---|---|
   | `max_reads` (distinct reads) | 1 | 8 | 8 |
   | `max_leaves` (weighted leaves) | 4 | 400 | 400 |
@@ -615,14 +615,13 @@ The custody account can also cancel any stored move before it runs, with
 | The adapter with no gate, for a G and an OpenZeppelin Prime | `scripts/verify-execution-null-gate-testnet.ts`, testnet, adapter `4985cd12…` | 69 of 69 on 20 October 2026, log `evidence/execution-null-gate-testnet.log`. Succeeded: `[hello, USDC.transfer, XLM.transfer]` with one authorisation by X (a G account, and an OpenZeppelin account through rule 0); an agent's bundle at its cap, one rule per context. Refused: the bundle once `hello` failed, with no balance moved; its signed entry after its expiry ledger; a call to the Prime; a grant; any wait, and a no-gate adapter with a minimum wait; `rebind`; a stranger's `cancel`; the agent over its cap or citing its adapter rule for a token context; a no-gate adapter's pull through custody's gate |
 | Contract unit tests, this tree | `cargo test` in each crate (see [Build and test](#build-and-test)) | interpreter 416 (its 18 conformance cases also run in release), `oz08/` 12, adapter 62, gate 3, Prime seat 21 |
 
-The address-rule and wait scripts install their band and run rules on an
-interpreter instance deployed earlier from other source, recorded in
-`deployments/`; they test the gate and the adapter. Their run rule lists the
-adapter as its signer, which the 0.7.2-line account accepts; the keyless run
-rule described above is exercised in `tests/keyless.rs` and `oz08/`, both in
-the test host. The no-gate script uses the
-testnet instance `CDZV4AG4…`. Logs are indexed in
-[evidence/README.md](../evidence/README.md).
+The address-rule, wait and no-gate scripts install their rules on the
+interpreter instance recorded in `deployments/interpreter-testnet.json`; they
+test the gate and the adapter. Their run rule lists the adapter as its
+signer, which the 0.7.2-line account accepts; the keyless run rule described
+above is exercised in `tests/keyless.rs` and `oz08/`, both in the test host.
+The logs indexed in [evidence/README.md](../evidence/README.md) were recorded
+on `CDZV4AG4…`, the instance in that record before `CD46LN75…` replaced it.
 
 ## Build and test
 
@@ -655,8 +654,8 @@ All on Stellar testnet.
 
 | | Address or hash |
 |---|---|
-| Policy interpreter instance | `CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT`, wasm `69cad1d5…`, deployed with reads 8, leaves 400, bytes 24,576, elems 32, `in` entries 32, depth 5. Created by `scripts/deploy-interpreter-testnet.ts`, recorded in [`deployments/interpreter-testnet.json`](../deployments/interpreter-testnet.json) and pinned in `packages/policy-synth/src/config.ts`. It runs this source before the keyless executor rules; a new instance from `810f53f1…` replaces it |
-| Execution adapter code | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b`, 24,659 bytes, uploaded in `9d9753a434302e6ba62001a5d8d69963f3a24eae8e60bae0df957ae7e568751f`, pinned in [`contracts/build-hashes.json`](../contracts/build-hashes.json) |
+| Policy interpreter instance | `CD46LN75LITN5INQEW3N3BKUK52IFODGCTJS2RWQ44JM74RH6ILIPBJ2`, wasm `810f53f1…` (this source), deployed with reads 8, leaves 400, bytes 24,576, elems 32, `in` entries 32, depth 5. Created by `scripts/deploy-interpreter-testnet.ts`, recorded in [`deployments/interpreter-testnet.json`](../deployments/interpreter-testnet.json) and pinned in `packages/policy-synth/src/config.ts`. It replaced `CDZV4AG4…` on `69cad1d5…`, this source before the keyless executor rules, which the record lists as superseded and policy-synth does not trust |
+| Execution adapter code | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b`, 24,659 bytes, pinned in [`contracts/build-hashes.json`](../contracts/build-hashes.json) and recorded with upload `5b9323ac435f015f441715f9c3ae6c951666ab8e0bbe907d5aa1e2d600f85138` in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json), which lists the earlier build `3dd675c0…` as superseded |
 | Custody gate code | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json) |
 | Prime seat code | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87`, pinned in [`contracts/build-hashes.json`](../contracts/build-hashes.json); the Prime app deploys one seat per seat owner and account |
 | OpenZeppelin smart account code | `91a2cd56…`, the account code the Prime app deploys and the seat's digest check is tied to ([`deployments/oz-accounts.json`](../deployments/oz-accounts.json)) |

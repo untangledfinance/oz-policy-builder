@@ -119,9 +119,8 @@ jobs:
       # contracts/build-hashes.json, the same way as the adapter's below. The
       # instance that runs on testnet is recorded separately in
       # deployments/interpreter-testnet.json (and pinned by
-      # packages/policy-synth/src/config.ts), and it lags this source until the
-      # next redeploy: the source carries the keyless executor rules for
-      # OpenZeppelin 0.8.0, and the recorded instance predates them.
+      # packages/policy-synth/src/config.ts); it runs this build. A source
+      # change needs a new instance (no upgrade path) and a new pin.
       #
       # It must go through build-wasm.sh. A bare cargo build is NOT reproducible:
       # rustc bakes in the crate root and registry paths, so the hash differs per
@@ -174,9 +173,8 @@ jobs:
       # per owner and account, so there is no deployments/ record. Its
       # reproducible build (build-wasm.sh, which remaps the crate and registry
       # paths) is pinned in contracts/build-hashes.json, and the app pins the
-      # same hash. So is the adapter's: the source here is the build with an
-      # optional gate, while deployments/execution-testnet.json keeps the earlier
-      # build 3dd675c0 that the Prime app pins.
+      # same hash. So is the adapter's, which deployments/execution-testnet.json
+      # also records as uploaded to testnet.
       - name: Wasm build and pin parity
         if: matrix.crate == 'prime-seat' || matrix.crate == 'execution-adapter'
         run: |

@@ -22,10 +22,10 @@ The contracts' own READMEs hold the interfaces and test detail:
 
 ## Packages
 
-The three TypeScript packages are published to npm at version 4.0.1 as
+The three TypeScript packages are published to npm at version 4.1.0 as
 `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and
 `@crediolabs/policy-builder-mcp`, the same code as this repository at tag
-`v4.0.1`. The [repository README](../README.md) has the install lines.
+`v4.1.0`. The [repository README](../README.md) has the install lines.
 
 ## What runs where
 
@@ -33,9 +33,9 @@ Every contract runs on Stellar testnet.
 
 | Contract | Testnet |
 |---|---|
-| Policy interpreter | instance `CDZV4AG4…` (wasm `69cad1d5…`), the pin of the TypeScript packages; this tree builds `810f53f1…`, which a new instance replaces it with |
+| Policy interpreter | instance `CD46LN75…` (wasm `810f53f1…`, this tree's build), the pin of the TypeScript packages; it replaced `CDZV4AG4…` (`69cad1d5…`), which they no longer trust |
 | Custody gate | code `b01024f3…`; each custody account deploys its own gate |
-| Execution adapter | code `4985cd12…`; each Prime deploys its own adapter, bound to a gate or to none |
+| Execution adapter | code `4985cd12…`, recorded in `deployments/execution-testnet.json` in place of `3dd675c0…`; each Prime deploys its own adapter, bound to a gate or to none |
 | Prime seat | code `393f0e5d…`, one instance per seat owner and account |
 | OpenZeppelin smart account | code `91a2cd56…`, the Prime account |
 
