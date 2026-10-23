@@ -46,10 +46,13 @@ Only the latest release is supported: version 4.1.0 of
 2.0.0, 2.0.1, 3.0.0, 4.0.0 and 4.0.1) is unsupported.
 
 **Advisories a consumer may see:** `npm audit` in a project that installs the
-packages reports `toml` up to 4.1.2 (GHSA-82x6-q7mm-w9cf, GHSA-v5mp-jgw5-2x6j),
-which `@stellar/stellar-sdk` 14.x depends on. The packages never parse TOML (they
+packages reports `toml` up to 5.0.0 (GHSA-82x6-q7mm-w9cf, GHSA-v5mp-jgw5-2x6j,
+GHSA-4qx8-w7c3-pj3p, GHSA-9j65-hcg3-gc64, GHSA-9qmh-m7c6-f92p), which
+`@stellar/stellar-sdk` 14.x depends on. The packages never parse TOML (they
 use no `StellarToml` or `Federation` code), so the path is unreachable from
-them. The repository's root `overrides` pin a fixed `toml` for this workspace,
-and npm applies them to this workspace only, so they do not reach a consumer's
-install. 2.0.1 carried the same chain. Pin `toml` `^4.2.0` in your own
-`overrides` to clear the report.
+them. It may also report `ip-address` up to 10.7.3 (GHSA-rxp7-6hxx-x8q5),
+which the MCP server reaches through `@modelcontextprotocol/sdk` and
+`express-rate-limit`. The repository's root `overrides` pin fixed versions of
+both for this workspace, and npm applies them to this workspace only, so they
+do not reach a consumer's install. Pin `toml` `^5.0.1` and `ip-address`
+`^10.7.4` in your own `overrides` to clear the report.

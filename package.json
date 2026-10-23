@@ -36,8 +36,9 @@
     "fast-uri": "^3.1.6",
     "follow-redirects": "^1.16.1",
     "hono": "^4.13.11",
+    "ip-address": "^10.7.4",
     "proxy-addr": "^2.0.8",
     "qs": "^6.16.0",
-    "toml": "^4.2.0"
+    "toml": "^5.0.1"
   }
 }

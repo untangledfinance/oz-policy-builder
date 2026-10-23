@@ -52,6 +52,10 @@ changed: the five build hashes are those of 4.0.1.
   removal tests now remove rule 3: the instances behind rules 1 and 2 are
   archived on testnet, and removing either asks a resource fee of about 50 XLM,
   which the builder's 10 XLM ceiling refuses.
+- **Dependencies:** the root `overrides` pin `toml` `^5.0.1` (was `^4.2.0`)
+  and `ip-address` `^10.7.4`, for advisories published on 22 October 2026
+  (`toml` up to 5.0.0, `ip-address` up to 10.7.3). `bun audit` reports none.
+  `SECURITY.md` gives consumers the same two pins.
 - The install lines, the audited tag and the supported version point at
   4.1.0.
 
