@@ -74,6 +74,31 @@ interpreter's. It loads the wasm `build-wasm.sh` wrote, so build first:
   cargo test --locked )
 ```
 
+The EVM seat and the Solana programs have gates of their own. The tool
+versions and the one-time OpenZeppelin unpack are in
+[contracts/README.md](contracts/README.md#evm):
+
+```sh
+( cd contracts/evm/prime-seat &&
+  forge fmt --check src && forge build && forge test &&
+  ../../check-build-hash.sh evm/prime-seat:runtime out/PrimeSeat.sol/PrimeSeat.json &&
+  ../../check-build-hash.sh evm/prime-seat:creation out/PrimeSeat.sol/PrimeSeat.json )
+
+export RUSTUP_TOOLCHAIN=stable   # cargo-build-sbf brings its own Rust
+( cd contracts/solana/prime-seat &&
+  cargo fmt --check && PRIME_CLUSTER=devnet cargo test --locked &&
+  PRIME_CLUSTER=devnet cargo-build-sbf -- --locked &&
+  ../../check-build-hash.sh solana/prime-seat:devnet target/deploy/prime_seat.so &&
+  PRIME_CLUSTER=localnet cargo-build-sbf -- --locked &&
+  ../../check-build-hash.sh solana/prime-seat target/deploy/prime_seat.so )
+( cd contracts/solana/custody-gate &&
+  cargo fmt --check && cargo test --locked &&
+  PRIME_CLUSTER=localnet cargo-build-sbf -- --locked &&
+  ../../check-build-hash.sh solana/custody-gate target/deploy/gate.so )
+( cd contracts/solana/custody-gate/app-checks &&
+  bun install --frozen-lockfile && bun run typecheck && bun test )
+```
+
 ## Style
 
 - TypeScript is formatted and linted by [Biome](https://biomejs.dev)

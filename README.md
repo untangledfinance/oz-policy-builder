@@ -34,6 +34,12 @@ It is built as two halves:
 | Policy synthesiser | `packages/policy-synth` | 3,876 |
 | CLI | `packages/policy-builder-cli` | 76 |
 | MCP server | `packages/policy-builder-mcp` | 133 |
+| EVM seat, `PrimeSeat` | `contracts/evm/prime-seat` | 72 |
+| Solana custody gate | `contracts/solana/custody-gate` | 126 |
+| Solana seat, `prime-seat` | `contracts/solana/prime-seat` | 75 |
+
+The EVM and Solana contracts run on Base Sepolia and Solana devnet only, and
+are outside the audit scope below.
 
 [docs/audit-overview.md](./docs/audit-overview.md) gives the audit scope, the
 counting method with a command to reproduce it, and the properties each
@@ -156,6 +162,7 @@ measurements behind the limits.
 | See what runs where | [docs/README.md](./docs/README.md) |
 | Understand the custody setup and the Prime seats | [docs/architecture.md](./docs/architecture.md) |
 | Read the Stellar contracts and the policy builder in detail | [docs/stellar.md](./docs/stellar.md) |
+| Read the EVM or Solana design | [docs/evm.md](./docs/evm.md), [docs/solana.md](./docs/solana.md) |
 | Build and install a policy from a shell | `packages/policy-builder-cli` (`policy-builder <tool>`, all eight tools) |
 | Drive it from an agent | `packages/policy-builder-mcp` (MCP over stdio / Streamable HTTP) |
 
@@ -171,6 +178,9 @@ measurements behind the limits.
 | `contracts/stellar/execution-adapter` | The per-Prime batcher, bound to one gate or to none. With a gate, a batch can wait a number of ledgers before it runs. |
 | `contracts/stellar/test-blend-pool` | A Blend-`submit`-shaped stub, for testnet verification only. |
 | `contracts/stellar/prime-seat` | The Prime seat: an owner's seat on a Prime account, held by an ed25519 owner key, and the session keys that owner grants. |
+| `contracts/evm/prime-seat` | `PrimeSeat`, the EVM seat: a Safe owner for one seat owner, held by a secp256k1 owner key (Foundry). |
+| `contracts/solana/custody-gate` | The Solana custody gate: owns custody's dedicated token account and pays only listed destinations or the recovery address. |
+| `contracts/solana/prime-seat` | The Solana seat program: a seat PDA in a Squads Smart Account, held by an ed25519 owner key. |
 | `deployments/` | Deployment records that CI and the scripts read. |
 | `evidence/` | Logs and receipts behind the claims in the docs. |
 
@@ -202,7 +212,20 @@ own directory:
 
 The interpreter's `tests/worst_case.rs` and the `oz08/` suite load the wasm that
 `build-wasm.sh` writes; `oz08/` runs it against OpenZeppelin's 0.8.0 account
-in a soroban-sdk 28 host. [CONTRIBUTING.md](./CONTRIBUTING.md) lists every gate CI runs.
+in a soroban-sdk 28 host.
+
+The EVM seat builds with Foundry 1.8.4 and the Solana programs with the Solana
+CLI 4.3.0 (`cargo-build-sbf`):
+
+```sh
+( cd contracts/evm/prime-seat && forge build && forge test )   # after unpacking OpenZeppelin 5.4.0 into lib/oz
+( cd contracts/solana/prime-seat && PRIME_CLUSTER=devnet cargo test && PRIME_CLUSTER=localnet cargo-build-sbf -- --locked )
+( cd contracts/solana/custody-gate && PRIME_CLUSTER=localnet cargo-build-sbf -- --locked )
+```
+
+[contracts/README.md](./contracts/README.md) has the tool versions and the
+recorded hashes, and [CONTRIBUTING.md](./CONTRIBUTING.md) lists every gate CI
+runs.
 
 ## Contributing and security
 

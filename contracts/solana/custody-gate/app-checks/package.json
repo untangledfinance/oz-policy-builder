@@ -1,0 +1,19 @@
+{
+  "name": "prime-custody-gate-app-checks",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Checks the Prime app runs around a gate-owned token account on Solana. Own dependencies: the repo root bunfig.toml limits bun test to packages/.",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@solana/spl-token": "0.4.15",
+    "@solana/web3.js": "1.99.0"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.14",
+    "typescript": "5.9.3"
+  }
+}
