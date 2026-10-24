@@ -1,9 +1,9 @@
 # Prime docs
 
 Prime keeps an institution's funds in its own custody and lets an agent move
-part of them under rules the institution's owners set, on Stellar. This
-repository holds the contracts behind it and the OZ Policy Builder that writes
-the rules.
+part of them under rules the institution's owners set, on Stellar, EVM and
+Solana. This repository holds the contracts behind it and the OZ Policy Builder
+that writes the Stellar rules.
 
 ## Pages
 
@@ -12,13 +12,20 @@ the rules.
 | [audit-overview.md](audit-overview.md) | the three components with their size, what is in and out of audit scope, and what each contract enforces |
 | [architecture.md](architecture.md) | the use case, the components, trust boundaries, owners and Prime seats, the main flows and why each part is built the way it is |
 | [stellar.md](stellar.md) | the custody gate, execution adapter, policy interpreter and Prime seat on an OpenZeppelin smart account; the policy builder's checks |
+| [evm.md](evm.md) | the custody design on Safe, Zodiac Roles and OpenZeppelin's timelock, and the EVM seat `PrimeSeat` |
+| [solana.md](solana.md) | the custody gate and the seat program beside a Squads Smart Account |
 
 The contracts' own READMEs hold the interfaces and test detail:
 [contracts/README.md](../contracts/README.md) (sizes, hashes, CI),
 [policy-interpreter](../contracts/stellar/policy-interpreter/README.md),
 [custody gate](../contracts/stellar/custody-gate/README.md),
 [execution adapter](../contracts/stellar/execution-adapter/README.md),
-[Prime seat](../contracts/stellar/prime-seat/README.md).
+[Prime seat](../contracts/stellar/prime-seat/README.md),
+[EVM seat](../contracts/evm/prime-seat/README.md),
+[Solana seat](../contracts/solana/prime-seat/README.md). The Solana design
+record and the setup guide are
+[README-architecture.md](../contracts/solana/README-architecture.md) and
+[SETUP-AND-RECOVERY.md](../contracts/solana/SETUP-AND-RECOVERY.md).
 
 ## Packages
 
@@ -29,7 +36,7 @@ The three TypeScript packages are published to npm at version 4.1.0 as
 
 ## What runs where
 
-Every contract runs on Stellar testnet.
+Every Stellar contract runs on Stellar testnet.
 
 | Contract | Testnet |
 |---|---|
@@ -43,3 +50,14 @@ The records are in [`deployments/`](../deployments) and
 [`contracts/build-hashes.json`](../contracts/build-hashes.json).
 [stellar.md](stellar.md#deployments) has the full addresses and how each was
 checked.
+
+The EVM and Solana contracts run on test networks only and are outside the
+audit scope.
+
+| Contract | Network |
+|---|---|
+| EVM seat, `PrimeSeat` | Base Sepolia; the Prime app deploys one per seat owner and Safe from the creation code `4d355864…` |
+| Solana custody gate | Solana devnet, program `6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz` (`a5d19edb…`), final |
+| Solana seat, `prime-seat` | Solana devnet, program `7ygNrKpK3GYoNLMCkAa4e3mznGPF2KVGbKZsJcq8wSCb` (devnet build `a389f4a1…`), final |
+
+[evm.md](evm.md#deployed) and [solana.md](solana.md#deployed) have the detail.
