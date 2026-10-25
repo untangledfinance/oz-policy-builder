@@ -1,0 +1,28 @@
+{
+  "network": "devnet",
+  "recorded": "2026-10-25",
+  "note": "Prime on Solana, devnet only. These programs were deployed with --final (no upgrade authority) by the earlier spike and are ADOPTED here as the current devnet deployment; they were NOT re-deployed for this branch. The source in contracts/solana/ builds reproducibly to the recorded code hashes (see contracts/build-hashes.json), and the on-chain code of each program id below matches that hash (verified by getAccountInfo/dump on devnet). Program ids and the full design are in contracts/solana/README-architecture.md. No mainnet deployment exists.",
+  "programs": {
+    "custody-gate": {
+      "programId": "6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz",
+      "codeSha256": "a5d19edb879e75d054f1025d710753ce5150726130c3dd74887236fbdbdc94e2",
+      "final": true
+    },
+    "prime-seat": {
+      "programId": "7ygNrKpK3GYoNLMCkAa4e3mznGPF2KVGbKZsJcq8wSCb",
+      "codeSha256": "a389f4a1cbf67bee9be5170e2199e3fc4c02e596fe4fbab0406ecdeb8f5e9bb2",
+      "final": true
+    }
+  },
+  "source": {
+    "buildHashes": "contracts/build-hashes.json",
+    "localnetSeatSha256": "4428191fcb70aeb9230ff1706edaa0cdee853c75ee99aae0fa1c347d25177e3e",
+    "note": "custody-gate and prime-seat (devnet build a389f4a1) build via cargo-build-sbf; the localnet seat build is 4428191f."
+  },
+  "superseded": {
+    "prime-session": {
+      "programId": "6JyReewxbo6D6UQNHEWWTXnC1CdBU8CqcQjoQbGNj9Ba",
+      "note": "move-only session program, removed from the repo (seat-only since 18 Oct 2026); its devnet program stays deployed as history."
+    }
+  }
+}
