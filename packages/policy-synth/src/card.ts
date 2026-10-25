@@ -337,6 +337,40 @@ export function authority(a: Authority, c: View): Node {
   )
 }
 
+/** A rule that follows another rule's predicate: which rule, what that means, and what it holds
+ *  now (`nonce` and `predicateHash` absent: not read). The predicate tree that follows it, if any,
+ *  is that rule's as it is now. */
+export function followed(
+  f: { account: string; ruleId: number; nonce?: number; predicateHash?: string },
+  c: View
+): Node {
+  const now =
+    f.nonce === undefined
+      ? 'not read: what this rule permits is not shown'
+      : `install nonce ${f.nonce}, predicate hash ${f.predicateHash ?? 'unknown'} (shown below as it is now)`
+  return group(
+    `Follows rule ${f.ruleId} of ${addr(f.account, c)}`,
+    'follows',
+    [
+      fact(
+        'predicate',
+        "none of its own: at every call the interpreter checks that rule's predicate as it is then",
+        [f.account, f.ruleId]
+      ),
+      fact(
+        'who changes it',
+        "that rule's admins, with its account, can re-install it at any time without this account's signature: what this rule permits changes with it"
+      ),
+      fact('now', now, f.nonce ?? null),
+      fact(
+        'if it is removed',
+        'every call under this rule is refused (206) until this rule is re-installed'
+      ),
+    ],
+    [f.account, f.ruleId]
+  )
+}
+
 /** The overrides a request set, each with the refusal it waived: the first node of a review, so the
  *  owner reads what was waived before anything else. */
 export const overridden = (o: { flag: string; waived: string | null }[]): Node =>

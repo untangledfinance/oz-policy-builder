@@ -743,7 +743,10 @@ full reference.
 
 The builder writes keyed rules. It refuses a rule with no signer and builds no
 `bind_executor` call, so a keyless rule and its binding are installed through
-the contract calls directly.
+the contract calls directly. It can write a rule that follows another rule's
+predicate (`install_policy` with `follow`): the payload is the reference, and
+every check below is judged on the followed predicate as it is at build time,
+which the review shows with its nonce.
 
 Enforcement happens on chain. The builder checks a rule before it is signed:
 
@@ -754,7 +757,8 @@ Enforcement happens on chain. The builder checks a rule before it is signed:
 | Threshold | Several `signers` with no `threshold`, or with a threshold one signer meets alone, are refused, because a rule with any policy attached is satisfied by any one of its signers. `threshold` attaches OpenZeppelin's `simple_threshold` (`{ simple: n }`) or `weighted_threshold` (`{ weighted: { weights, n } }`) beside the interpreter. `anyOne: true` installs a rule any one signer can use alone; it is an override like those below. |
 | Spending limit | `spendingLimit` attaches OpenZeppelin's `spending_limit`. It is refused unless every branch of the predicate pins `call_fn` to `transfer` and the rule's scope is shown to be a token, because that policy fails every other function. |
 | Read safety | A `read` outside the safe list is refused with `READ_UNSAFE`. The list holds the three testnet Reflector oracles (`lastprice`, `price`) and the operator's `POLICY_BUILDER_SAFE_READS_TESTNET`; a listed read needs constant arguments. `POLICY_BUILDER_ALLOW_SPOT_READS=1` lets other reads through. All three switches are operator environment only, and no tool input can set them. |
-| Authority overlap | The builder reads every rule on the account and refuses a rule a shared signer could bypass through a looser or unpoliced neighbour, or an account whose rules it could not all read. |
+| Authority overlap | The builder reads every rule on the account and refuses a rule a shared signer could bypass through a looser or unpoliced neighbour, or an account whose rules it could not all read. A neighbour that follows another rule's predicate is read through that rule (one level, as the interpreter does) and refused as a neighbour, since it can widen without the account; beside a new rule that follows, a tighter neighbour is refused too. |
+| Referenced rules | `follow: { smartAccount, ruleId }` reads that rule off the install's interpreter. A missing rule, a rule that itself follows another, an interpreter build with no references, or an undecodable predicate is refused before anything is built. The install carries the XDR of `(account, rule_id)` and its hash; `rule.follows` and the review's `Follows` node give the followed rule's nonce and predicate hash now, and say that its admins can change it without this account's signature. |
 | Amounts | An amount with no cap, and a swap whose least output has no floor, are refused. |
 | Contract signers | Each contract signer's instance is read off the ledger. An execution adapter bound to no gate (`prime` stored, `gate` void) is refused as a signer, whatever its code hash: an agent allowed to call its `execute` could cite the rule for the adapter's calls and move funds past its own caps. An execution adapter with a gate (`prime` stored, `gate` an address) signing a rule scoped to itself is refused unless every branch of the predicate pins `call_fn = run`. A contract signer that is not deployed is refused too. No override waives any of these. |
 | Signed expiry and fee | The builder sets the authorisation's expiry: the ledger the recording simulation ran at plus `POLICY_BUILDER_AUTH_LEDGERS` (default 300, at most 17,280), and the two simulations must report ledgers within 20 of each other. The transaction carries a time bound from the builder's clock, the window at 6 s a ledger (30 minutes by default). A resource fee above `POLICY_BUILDER_MAX_RESOURCE_FEE` (default 100,000,000 stroops, 10 XLM) is refused. Both are operator environment only. |
@@ -782,7 +786,9 @@ and a contract signer unless `readContracts` reads it through the operator's
 RPC, after which only an adapter bound to no gate, an adapter signing a rule
 scoped to itself that does not pin `call_fn = run`, or an undeployed contract
 is flagged; every other contract then reads signable unvetted, and the owner
-checks who controls it), and renders the transaction, the Authority header and
+checks who controls it; and an install that follows another rule, unless
+`readContracts` also reads that rule's predicate and nonce off the pinned
+interpreter), and renders the transaction, the Authority header and
 the predicate from the bytes. `signable` means no such problem was found.
 Nothing is signed yet, so an agent can rewrite the unsigned bytes
 consistently, recomputing the digest: itself as admin or signer, a threshold

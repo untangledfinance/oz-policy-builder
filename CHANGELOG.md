@@ -21,6 +21,32 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
   instance and the `policy-synth` pin stay on `810f53f1…` until a deploy and
   repin; `config.test.ts` no longer ties the deployed instance's hash to the
   source build hash.
+- **policy-synth writes and reviews rules that follow another rule.**
+  `install_policy` takes `follow: { smartAccount, ruleId }` and emits the
+  reference payload (the XDR of `(account, rule_id)`, with its hash); every
+  guardrail is judged on the followed predicate as it is at build time, read
+  off the interpreter with its nonce. A missing followed rule, one that itself
+  follows another, an interpreter build with no references, or an undecodable
+  predicate is refused before anything is built. `simulate_policy` and
+  `verify_policy` take `follow` too. The review (and `rule.follows`) shows the
+  followed rule, its nonce and predicate hash now, and that its admins can
+  change it without the follower's signature. `readPredicates` (the overlap
+  scan, `revoke_policy`) reads a follower through its source, one level only,
+  instead of reporting it unreadable; a source that is missing, a reference or
+  undecodable still reads as unreadable. A neighbour that follows is refused
+  by the overlap scan, and beside a new rule that follows, so is a tighter
+  neighbour (`allowOverlap` waives both). `review_unsigned` recognises a
+  reference payload as the interpreter does and flags it unless
+  `readContracts: true` reads the followed rule off the pinned interpreter.
+  New exports: `readFollowed`, `referenceOf`, `encodeReference`.
+
+### Security
+
+- **Dependency advisories cleared:** `zod` 3.25.76 -> 4.6.7
+  (GHSA-mrhx-c7xc-m3w5, no 3.x fix; pinned, and overridden so the MCP SDK
+  shares the one copy), `body-parser` `^2.4.0` (GHSA-27r3-jxmh-p828) and
+  `fast-uri` `^3.1.9` as overrides. `bun audit` is clean. The tool input
+  schemas move to zod 4 (`Tool.shape` and `Tool.schema` are zod 4 types).
 
 ## [4.1.0] - 2026-10-23
 

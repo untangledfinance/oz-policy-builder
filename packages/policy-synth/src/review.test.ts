@@ -26,7 +26,7 @@ import {
 import { callExpr } from './intent.ts'
 import { reviewUnsigned } from './review.ts'
 import { run } from './tools.ts'
-import { encode, fromScVal, hashOf, toScVal, type Val } from './wire.ts'
+import { encode, encodeReference, fromScVal, hashOf, toScVal, type Val } from './wire.ts'
 
 const ACCOUNT = 'CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P'
 const SIGNER = 'GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB'
@@ -454,6 +454,111 @@ describe('reviewUnsigned: an honest build, read back from its bytes', () => {
       if (before === undefined) delete process.env.POLICY_BUILDER_RPC_URL_TESTNET
       else process.env.POLICY_BUILDER_RPC_URL_TESTNET = before
     }
+  })
+})
+
+describe('reviewUnsigned: an install that follows another rule', () => {
+  const SOURCE = contract(41)
+  const payload = encodeReference({ account: SOURCE, ruleId: 2 })
+  /** The honest build, made to follow rule 2 of SOURCE (as install_policy with `follow` builds it). */
+  const follower = async () =>
+    edit((await install()).unsignedXdr, (env) => {
+      const args = callArgs(env).args()
+      const policies = fromScVal(args[4]) as { map: [Val, { map: [string, Val][] }][] }
+      for (const [, p] of policies.map)
+        for (const kv of p.map ?? []) {
+          if (kv[0] === 'predicate')
+            kv[1] = { bytes: Buffer.from(payload, 'base64').toString('hex') }
+          if (kv[0] === 'predicate_hash') kv[1] = { bytes: hashOf(payload) }
+        }
+      args[4] = toScVal(policies)
+      resign(env)
+    })
+  const now = { account: SOURCE, ruleId: 2, nonce: 5, predicateHash: hashOf(encoded) }
+
+  it('offline, what it permits is not in the bytes: a problem, and it says which rule it follows', async () => {
+    const r = review(await follower())
+    expect(r.signable).toBe(false)
+    expect(r.problems).toHaveLength(1)
+    expect(r.problems[0]).toMatch(/carries no predicate: it follows rule 2 of C/)
+    expect(r.rule).toMatchObject({
+      predicateHash: hashOf(payload),
+      predicate: null,
+      follows: { account: SOURCE, ruleId: 2 },
+    })
+    const text = r.review.join('\n')
+    expect(text).toMatch(/Follows rule 2 of/)
+    expect(text).toMatch(/not read: what this rule permits is not shown/)
+  })
+
+  it('with the followed rule read: signable, its predicate now and nonce shown, with who can change it', async () => {
+    const r = reviewUnsigned({
+      network: 'testnet',
+      xdr: await follower(),
+      smartAccount: ACCOUNT,
+      followed: { expr, follows: now },
+    })
+    expect(r.problems).toEqual([])
+    expect(r.rule).toMatchObject({ predicateHash: hashOf(payload), predicate: expr, follows: now })
+    const text = r.review.join('\n')
+    expect(text).toMatch(/install nonce 5/)
+    expect(text).toMatch(/without this account's signature/)
+    expect(text).toContain('must be at most  500')
+  })
+
+  it('a followed rule that could not be read, or another rule than the bytes name, is a problem', async () => {
+    const x = await follower()
+    const failed = reviewUnsigned({
+      network: 'testnet',
+      xdr: x,
+      smartAccount: ACCOUNT,
+      followed: { error: 'it is gone' },
+    })
+    expect(failed.problems.join('\n')).toMatch(/could not be read: it is gone/)
+    const other = reviewUnsigned({
+      network: 'testnet',
+      xdr: x,
+      smartAccount: ACCOUNT,
+      followed: { expr, follows: { ...now, ruleId: 3 } },
+    })
+    expect(other.signable).toBe(false)
+    expect(other.rule?.predicate).toBeNull()
+  })
+
+  it('the tool with readContracts reads the followed rule; when that read fails, the review fails closed', async () => {
+    const x = await follower()
+    const before = process.env.POLICY_BUILDER_RPC_URL_TESTNET
+    process.env.POLICY_BUILDER_RPC_URL_TESTNET = 'http://127.0.0.1:9'
+    try {
+      const r = await run('review_unsigned', {
+        network: 'testnet',
+        xdr: x,
+        smartAccount: ACCOUNT,
+        readContracts: true,
+      })
+      expect(r.ok).toBe(true)
+      const data = (r.ok ? r.data : {}) as { signable: boolean; problems: string[] }
+      expect(data.signable).toBe(false)
+      expect(data.problems.join('\n')).toMatch(/follows rule 2 of C\w+, which could not be read/)
+    } finally {
+      if (before === undefined) delete process.env.POLICY_BUILDER_RPC_URL_TESTNET
+      else process.env.POLICY_BUILDER_RPC_URL_TESTNET = before
+    }
+  })
+
+  it('a reference under a hash that does not commit to it is still a hash problem', async () => {
+    const x = edit(await follower(), (env) => {
+      const h = param(env, 'predicate_hash')
+      h?.val(xdr.ScVal.scvBytes(Buffer.from(hashOf(encoded), 'hex')))
+      resign(env)
+    })
+    const r = reviewUnsigned({
+      network: 'testnet',
+      xdr: x,
+      smartAccount: ACCOUNT,
+      followed: { expr, follows: now },
+    })
+    expect(r.problems).toEqual(['the predicate hash does not match the predicate bytes'])
   })
 })
 

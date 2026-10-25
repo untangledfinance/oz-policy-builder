@@ -1,5 +1,6 @@
-// The package's public surface: the tools, the codec (with `readsOf`), the review card, the
-// owner-side review of an unsigned transaction (`reviewUnsigned`), the
+// The package's public surface: the tools, the codec (with `readsOf` and the rule-reference
+// payload), the review card, the owner-side review of an unsigned transaction (`reviewUnsigned`,
+// with `readFollowed` to read the rule a follower names), the
 // pins, the refusal type and `ruleArgs` (the five `add_context_rule` arguments of a rule
 // draft). Everything else (the builders, the scan, the deny-case derivation) is internal, so
 // a refactor of it is not a breaking change.
@@ -20,6 +21,7 @@ export { type ErrorCode, Refusal, type ToolError, type ToolResponse } from './en
 export { type RuleDraft, ruleArgs } from './install.ts'
 export type { CallIntent, Constraint, Intent } from './intent.ts'
 export { reviewUnsigned, type UnsignedReview } from './review.ts'
+export { type Followed, readFollowed } from './rules.ts'
 export { run, TOOLS, type Tool } from './tools.ts'
 export {
   type Caps,
@@ -28,9 +30,12 @@ export {
   decode,
   type Expr,
   encode,
+  encodeReference,
   fromScVal,
   hashOf,
+  type Reference,
   readsOf,
+  referenceOf,
   type Tagged,
   toScVal,
   type Val,

@@ -7,7 +7,7 @@
 
 import { StrKey } from '@stellar/stellar-sdk'
 import { z } from 'zod'
-import { type Authority, authority, lines, overridden, tree } from './card.ts'
+import { type Authority, authority, followed, lines, overridden, tree } from './card.ts'
 import {
   codeHash,
   connect,
@@ -20,7 +20,13 @@ import {
   pinnedWasm,
 } from './chain.ts'
 import { MAX_CHECKS, runChecks, verifyRule } from './check.ts'
-import { GRAMMAR_VERSION, INTERPRETER, INTERPRETER_WASM, OZ_ACCOUNT_WASM } from './config.ts'
+import {
+  GRAMMAR_VERSION,
+  INTERPRETER,
+  INTERPRETER_WASM,
+  type Network,
+  OZ_ACCOUNT_WASM,
+} from './config.ts'
 import { type ErrorCode, messageOf, Refusal, type ToolResponse } from './envelope.ts'
 import {
   buildInstall,
@@ -36,7 +42,7 @@ import {
 import type { Intent } from './intent.ts'
 import { type Call, decodeEnvelope, type Recording, recordHash } from './record.ts'
 import { reviewUnsigned } from './review.ts'
-import { readRule, readRules, selectors } from './rules.ts'
+import { type Followed, readFollowed, readRule, readRules, selectors } from './rules.ts'
 import {
   type Answers,
   type ProposedRule,
@@ -52,7 +58,9 @@ import {
   decode,
   type Expr,
   encode,
+  encodeReference,
   hashOf,
+  type Reference,
   validate,
   WireError,
 } from './wire.ts'
@@ -123,6 +131,10 @@ const intent = z
   .strict()
 
 const call = z.object({ contract: contractId, fn: z.string().min(1), args: z.array(val) }).strict()
+/** A rule to follow instead of a predicate: `ruleId` of `smartAccount`, on the same interpreter. */
+const follow = z
+  .object({ smartAccount: contractId, ruleId: z.number().int().nonnegative().max(0xffffffff) })
+  .strict()
 const recording = z
   .object({
     network: z.enum(['mainnet', 'testnet']),
@@ -273,6 +285,8 @@ export function explain(
     contract?: string | undefined
     authority?: Authority | undefined
     overrides?: Override[] | undefined
+    /** The rule follows this one's predicate: `expr` is that rule's predicate now. */
+    follows?: Followed | undefined
   }
 ) {
   const roles: Record<string, string> = {}
@@ -289,10 +303,15 @@ export function explain(
   try {
     const view = { roles, labels, raw: i.raw, contract: item.contract, network: i.network }
     const held = item.authority ? [authority(item.authority, view)] : []
-    const reviewTree = [...head, ...held, ...(item.expr === undefined ? [] : tree(item.expr, view))]
+    const source = item.follows ? [followed(item.follows, view)] : []
+    const body = item.expr === undefined ? [] : tree(item.expr, view)
+    const reviewTree = [...head, ...held, ...source, ...body]
     return { review: lines(reviewTree), reviewTree }
   } catch {
-    return { review: [...lines(head), '(this predicate could not be described)'], reviewTree: head }
+    // What a rule follows is said even when the predicate cannot be described.
+    const source = item.follows ? [followed(item.follows, { raw: i.raw })] : []
+    const reviewTree = [...head, ...source]
+    return { review: [...lines(reviewTree), '(this predicate could not be described)'], reviewTree }
   }
 }
 
@@ -330,6 +349,31 @@ function given(i: { expr?: unknown; encodedPredicate?: string | undefined }, cap
     )
   }
   return { expr, encoded }
+}
+
+/** The one contract a predicate pins, which scopes its rule: refused when it pins none or several. */
+function onlyContract(e: Expr): string {
+  const sel = [...new Set(selectors(e).map((s) => s.contract))]
+  if (sel.length === 1 && sel[0] !== '*') return sel[0] as string
+  throw new Refusal(
+    'INSTALL_BUILD_FAILED',
+    'the predicate does not pin one contract: name it with `contract`'
+  )
+}
+
+/** The rule `i.follow` names, read off the interpreter the request uses: its predicate now. */
+async function followOf(
+  i: Endpoint & {
+    interpreterAddress?: string | undefined
+    follow?: z.infer<typeof follow> | undefined
+  },
+  caps: Caps,
+  code: ErrorCode
+) {
+  const f = i.follow as z.infer<typeof follow>
+  const interpreter = interpreterFor(i.network, i.interpreterAddress)
+  const ref = { account: f.smartAccount, ruleId: f.ruleId }
+  return readFollowed(connect(i), interpreter, ref, caps, code)
 }
 
 // ---- the tools ----
@@ -377,30 +421,34 @@ const predicateInput = {
   contract: contractId.optional(),
   expr: val.optional(),
   encodedPredicate: z.string().optional(),
+  follow: follow.optional(),
   calls: z.array(call).min(1).max(MAX_CHECKS).optional(),
 }
 
 /** The predicate and the calls a simulate or verify is about. */
 async function subject(i: z.infer<z.ZodObject<typeof predicateInput>>) {
   const hasSource = SOURCES.some((k) => (i as Record<string, unknown>)[k] !== undefined)
-  const hasPred = i.expr !== undefined || i.encodedPredicate !== undefined
+  const hasPred = i.expr !== undefined || i.encodedPredicate !== undefined || i.follow !== undefined
   if (!hasPred && !hasSource)
     throw new Refusal(
       'INVALID_INPUT',
-      'give a predicate (expr or encodedPredicate) or a source to build one from'
+      'give a predicate (expr, encodedPredicate or follow) or a source to build one from'
     )
   // Whatever is checked is held to the limits of the interpreter that checks it: the one named, else
   // the pin. A predicate that is only explained never reaches one, but is held to the same limits when
   // the network names or pins one (so what explains is what installs), and otherwise to the ceilings,
   // the most any instance allows. `heldTo` says which.
+  if (i.follow !== undefined) exactlyOne(i, ['expr', 'encodedPredicate', 'follow'])
   const explainOnly = hasPred && !hasSource && i.calls === undefined
   const named = i.interpreterAddress ?? INTERPRETER[i.network]?.address
+  // A followed rule is read off the interpreter, so it always needs one.
   const caps =
-    explainOnly && !named
+    explainOnly && !named && i.follow === undefined
       ? CEILINGS
       : await ensureInterpreter(connect(i), i.network, i.interpreterAddress)
   const src = hasSource ? await sourceOf(i) : undefined
-  const pred = hasPred ? given(i, caps) : undefined
+  const ref = i.follow && (await followOf(i, caps, 'INVALID_INPUT'))
+  const pred = ref || (hasPred ? given(i, caps) : undefined)
   const rule = pred ? undefined : pick(propose((src as Source).intent, caps), i.contract)
   const contexts = src?.recording?.contexts ?? []
   const calls = i.calls ?? contexts.filter((c) => !rule || c.contract === rule.contract)
@@ -412,14 +460,14 @@ async function subject(i: z.infer<z.ZodObject<typeof predicateInput>>) {
     /** Only a predicate was given, no source and no calls: it is explained, nothing is checked. */
     explainOnly,
     heldTo: named ? `the limits of ${named}` : 'the ceilings (no interpreter given)',
-    /** What names it: its own pins, and the contract of the rule a source made. */
-    item: { expr, contract: rule?.contract },
+    /** What names it: its own pins, the contract of the rule a source made, the rule it follows. */
+    item: { expr, contract: rule?.contract, follows: ref?.follows },
   }
 }
 
 const simulate_policy = tool(
   'simulate_policy',
-  `Say whether a predicate permits each of some calls, and if not with which deny code. Give the predicate (\`expr\` or \`encodedPredicate\`, or a source to build it from) and the calls (\`calls\`, or the recorded ones). With a predicate and no call it only explains the predicate. The answer carries \`review\` (the rule as a text tree) and \`reviewTree\` (the same as nodes, each with the wire \`raw\` it was read from); labels are display only. ${CHECKED}`,
+  `Say whether a predicate permits each of some calls, and if not with which deny code. Give the predicate (\`expr\` or \`encodedPredicate\`, \`follow\` for an existing rule's predicate as it is now, or a source to build it from) and the calls (\`calls\`, or the recorded ones). With a predicate and no call it only explains the predicate. The answer carries \`review\` (the rule as a text tree) and \`reviewTree\` (the same as nodes, each with the wire \`raw\` it was read from); labels are display only. ${CHECKED}`,
   predicateInput,
   async (i, signal) => {
     const s = await subject(i)
@@ -460,13 +508,14 @@ const verify_policy = tool(
 
 const install_policy = tool(
   'install_policy',
-  "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`. `sourceAccount` must be a signer of the account's rule 0 (that rule authorises the install); `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The interpreter is checked live before anything is built: it must speak the grammar and run a trusted build (a pinned address, or on a network with none, an `interpreterAddress` whose code hash is one this package trusts). The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind. An unanswered amount cap is refused, and so is a swap's least output that nothing sets. Answer the question a refusal asks; the overrides (`allowOverlap`, `allowUnboundedAmount`, `allowOpenSlippage`, `anyOne`) are the account owners' decision, never a way past a refusal: each one set comes back in `overrides` with the refusal it waived and opens the review, and on mainnet they are refused unless the operator sets POLICY_BUILDER_ALLOW_OVERRIDES=1. `threshold` ({ simple: n }: n of the signers; { weighted: { weights, n } }: signers whose weights total n) attaches OpenZeppelin's threshold policy beside the predicate; with several signers and no threshold (or one a single signer meets) the install is REFUSED, because a rule with a policy is satisfied by any ONE of its signers acting alone; `anyOne` is the owners' override for that, echoed and gated like the others. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR.",
+  "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`, or make it FOLLOW an existing rule with `follow` ({ smartAccount, ruleId } of a rule on the same interpreter): the rule then carries no predicate of its own, the interpreter checks that rule's predicate as it is at every call, and the hash the account's admins sign commits to that reference, not to the predicate. That rule's admins can change what this rule permits without this account's signature, so every refusal below is judged on its predicate as it is now (read live, with its nonce, and shown in `follows` and the review), and a shared signer with any other rule serving the same calls is refused. A followed rule must carry its own predicate (one level only). `sourceAccount` must be a signer of the account's rule 0 (that rule authorises the install); `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The interpreter is checked live before anything is built: it must speak the grammar and run a trusted build (a pinned address, or on a network with none, an `interpreterAddress` whose code hash is one this package trusts). The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind. An unanswered amount cap is refused, and so is a swap's least output that nothing sets. Answer the question a refusal asks; the overrides (`allowOverlap`, `allowUnboundedAmount`, `allowOpenSlippage`, `anyOne`) are the account owners' decision, never a way past a refusal: each one set comes back in `overrides` with the refusal it waived and opens the review, and on mainnet they are refused unless the operator sets POLICY_BUILDER_ALLOW_OVERRIDES=1. `threshold` ({ simple: n }: n of the signers; { weighted: { weights, n } }: signers whose weights total n) attaches OpenZeppelin's threshold policy beside the predicate; with several signers and no threshold (or one a single signer meets) the install is REFUSED, because a rule with a policy is satisfied by any ONE of its signers acting alone; `anyOne` is the owners' override for that, echoed and gated like the others. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR.",
   {
     ...net,
     ...display,
     ...from,
     contract: contractId.optional(),
     encodedPredicate: z.string().optional(),
+    follow: follow.optional(),
     smartAccount: contractId,
     sourceAccount: account,
     signers: z.array(anyAddress).min(1).max(15),
@@ -503,16 +552,25 @@ const install_policy = tool(
     )
     // The rule: an encoded predicate scoped by `contract`, or one the source yields.
     let rule: Chosen
+    if (i.follow !== undefined) exactlyOne(i, ['follow', 'encodedPredicate', ...SOURCES])
     const caps = await ensureInterpreter(connect(i), i.network, i.interpreterAddress)
-    if (i.encodedPredicate !== undefined) {
+    if (i.follow !== undefined) {
+      // The rule carries the reference; what it permits is the followed rule's predicate now, and
+      // every refusal below is judged on that.
+      const f = await followOf(i, caps, 'INSTALL_BUILD_FAILED')
+      const contract = i.contract ?? onlyContract(f.expr)
+      const encoded = encodeReference(f.follows)
+      rule = {
+        contract,
+        expr: f.expr,
+        encoded,
+        hash: hashOf(encoded),
+        follows: f.follows,
+        ...questions(unboundedExpr(f.expr)),
+      }
+    } else if (i.encodedPredicate !== undefined) {
       const p = given(i, caps)
-      const sel = [...new Set(selectors(p.expr).map((s) => s.contract))]
-      const contract = i.contract ?? (sel.length === 1 && sel[0] !== '*' ? sel[0] : undefined)
-      if (!contract)
-        throw new Refusal(
-          'INSTALL_BUILD_FAILED',
-          'the predicate does not pin one contract: name it with `contract`'
-        )
+      const contract = i.contract ?? onlyContract(p.expr)
       rule = {
         contract,
         expr: p.expr,
@@ -568,8 +626,8 @@ const revoke_policy = tool(
     // An override opens the review of what is removed, described or not.
     const contract = r.scope.kind === 'call_contract' ? r.scope.contract : undefined
     const shown =
-      r.expr || plan.overrides.length
-        ? explain(i, { expr: r.expr, contract, overrides: plan.overrides })
+      r.expr || r.follows || plan.overrides.length
+        ? explain(i, { expr: r.expr, contract, overrides: plan.overrides, follows: r.follows })
         : {}
     const skipped = (await trusted).known
       ? {}
@@ -631,7 +689,7 @@ const get_interpreter_info = tool(
 
 const review_unsigned = tool(
   'review_unsigned',
-  "Review an UNSIGNED transaction from `install_policy` or `revoke_policy` from its bytes alone, with no RPC: for the account owner's side (a wallet or the Prime app) to run on the XDR it is about to sign, with `smartAccount` naming the account the owner means to change. `problems` lists what is wrong in the bytes themselves: a shape the builder never makes (an authorisation for anything but the call, a rule other than 0, a `__check_auth` digest that does not match on this network, a signer other than the source, no time bound or a longer one, a fee above the ceiling, a precondition or memo, an External signer or admin) or a value it can check offline (an interpreter other than the pin, a predicate whose hash does not match its bytes, a policy the package does not know), and an envelope that already carries a signature. A contract signer is a problem unless `readContracts: true` reads it off the ledger through the operator's RPC (the one exception to no RPC): then only an execution adapter bound to no gate, an execution adapter signing a rule scoped to itself that does not pin call_fn = run, or a contract that is not deployed, is a problem. Every other contract (a seat, a smart account, an adapter with a gate signing any other rule, any contract an agent deployed) then reads signable unvetted: the owner checks who controls it. `signable` means no problem was found; it does NOT mean safe to sign. An agent can rewrite the unsigned bytes consistently (itself as admin or signer, a threshold dropped, a cap raised with a matching hash) and they come back signable; so do installs that used an override and rules the builder would refuse for reasons it does not check from the bytes (overlap, read safety, 1-of-n). The owner must read `review`/`reviewTree`: the problems first, then the transaction (call, source, fee, time bound, authorisation expiry), then for an install the Authority node (signers, who can act alone, admins, expiry, total, interpreter) and the predicate, all read from the bytes.",
+  "Review an UNSIGNED transaction from `install_policy` or `revoke_policy` from its bytes alone, with no RPC: for the account owner's side (a wallet or the Prime app) to run on the XDR it is about to sign, with `smartAccount` naming the account the owner means to change. `problems` lists what is wrong in the bytes themselves: a shape the builder never makes (an authorisation for anything but the call, a rule other than 0, a `__check_auth` digest that does not match on this network, a signer other than the source, no time bound or a longer one, a fee above the ceiling, a precondition or memo, an External signer or admin) or a value it can check offline (an interpreter other than the pin, a predicate whose hash does not match its bytes, a policy the package does not know), and an envelope that already carries a signature. A contract signer is a problem unless `readContracts: true` reads it off the ledger through the operator's RPC (the one exception to no RPC): then only an execution adapter bound to no gate, an execution adapter signing a rule scoped to itself that does not pin call_fn = run, or a contract that is not deployed, is a problem. An install that follows another rule (`follow`) carries no predicate: it is a problem unless `readContracts: true` also reads that rule's predicate and nonce now off the pinned interpreter, which the review then shows under Follows, with the warning that its admins can change it without this account. Every other contract (a seat, a smart account, an adapter with a gate signing any other rule, any contract an agent deployed) then reads signable unvetted: the owner checks who controls it. `signable` means no problem was found; it does NOT mean safe to sign. An agent can rewrite the unsigned bytes consistently (itself as admin or signer, a threshold dropped, a cap raised with a matching hash) and they come back signable; so do installs that used an override and rules the builder would refuse for reasons it does not check from the bytes (overlap, read safety, 1-of-n). The owner must read `review`/`reviewTree`: the problems first, then the transaction (call, source, fee, time bound, authorisation expiry), then for an install the Authority node (signers, who can act alone, admins, expiry, total, interpreter) and the predicate, all read from the bytes.",
   {
     ...net,
     ...display,
@@ -643,10 +701,37 @@ const review_unsigned = tool(
     // Bytes the decoder refuses are refused before any read.
     const offline = reviewUnsigned(i)
     const signers = offline.authority?.signers.filter((s) => s.startsWith('C')) ?? []
-    if (i.readContracts !== true || signers.length === 0) return offline
-    return reviewUnsigned({ ...i, contracts: await contractKinds(connect(i), signers) })
+    const ref = offline.rule?.follows
+    if (i.readContracts !== true || (signers.length === 0 && !ref)) return offline
+    const server = connect(i)
+    const [contracts, followed] = await Promise.all([
+      signers.length ? contractKinds(server, signers) : undefined,
+      ref && followedFor(server, i.network, offline.authority?.interpreter, ref),
+    ])
+    return reviewUnsigned({ ...i, contracts, followed })
   }
 )
+
+/** The rule a reviewed install follows, read off the interpreter it names when that is the pin (any
+ *  other interpreter's records are its own word), or why it was not read. */
+async function followedFor(
+  server: ReturnType<typeof connect>,
+  network: Network,
+  interpreter: string | undefined,
+  ref: Reference
+) {
+  const pin = INTERPRETER[network]
+  if (!pin || interpreter !== pin.address)
+    return {
+      error: `the rule is not policed by the pinned ${network} interpreter, so its records are not read`,
+    }
+  try {
+    const f = await readFollowed(server, pin.address, ref, pin.limits, 'INVALID_INPUT')
+    return { expr: f.expr, follows: f.follows }
+  } catch (e) {
+    return { error: messageOf(e) }
+  }
+}
 
 export const TOOLS: Tool[] = [
   record_transaction,

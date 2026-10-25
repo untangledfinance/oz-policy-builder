@@ -41,6 +41,7 @@ import {
 } from './config.ts'
 import { type ErrorCode, Refusal } from './envelope.ts'
 import {
+  type Followed,
   type ObservedRule,
   type Overlap,
   overlaps,
@@ -467,9 +468,13 @@ export interface InstallInput {
 /** The rule to install, and the amount question its source left unanswered. */
 export interface Chosen {
   contract: string
+  /** What the rule permits: its predicate, or (with `follows`) the followed rule's as it is now. */
   expr: Expr
+  /** The install payload (base64) and its sha256: the predicate, or the reference with `follows`. */
   encoded: string
   hash: string
+  /** The rule carries no predicate: it follows this rule's (`expr`), read at every call. */
+  follows?: Followed | undefined
   unanswered?: string | undefined
   /** The least-output question of a swap whose floor nothing set. */
   openSlippage?: string | undefined
@@ -588,7 +593,12 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
     if (problem) throw no(problem)
   }
   const read = got(scan)
-  const found = overlaps({ ...draft, expr: rule.expr }, read.rules, interpreter, i.network)
+  const found = overlaps(
+    { ...draft, expr: rule.expr, ...(rule.follows ? { follows: rule.follows } : {}) },
+    read.rules,
+    interpreter,
+    i.network
+  )
   const refused = found.filter((o: Overlap) => o.severity === 'refuse')
   if (refused.length > 0)
     unless('allowOverlap', `refused: ${refused.map((o) => o.advice).join(' ')}`)
@@ -609,7 +619,11 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
       interpreter,
       limits: fingerprint.limits,
     },
-    rule: { contract: rule.contract, predicateHash: rule.hash },
+    rule: {
+      contract: rule.contract,
+      predicateHash: rule.hash,
+      ...(rule.follows ? { follows: rule.follows } : {}),
+    },
     interpreter: fingerprint,
     authorityScan: { complete: read.complete, overlaps: found },
     overrides,
