@@ -900,3 +900,97 @@ fn x9_a_keyed_rule_stripped_of_its_signer_is_204() {
     );
     assert_eq!(w.verdict(&ctxs, &ids, &[], &[]), Outcome::Unauthorised);
 }
+
+// ---- shared predicates: a rule that follows its owner's predicate ----
+
+impl World {
+    /// `owner` stores `predicate` as its shared predicate `id`.
+    fn share(&self, owner: &Address, id: u32, predicate: &ScVal) {
+        self.env.mock_all_auths();
+        let args: Vec<Val> =
+            (owner.clone(), id, xdr_bytes(&self.env, predicate)).into_val(&self.env);
+        let _: () = self.env.invoke_contract(
+            &self.interpreter,
+            &Symbol::new(&self.env, "set_shared_predicate"),
+            args,
+        );
+    }
+
+    /// The account's stored context rule `id`, as `__check_auth` passes it.
+    fn stored_rule(&self, id: u32) -> ContextRule {
+        self.env.invoke_contract(
+            &self.account,
+            &Symbol::new(&self.env, "get_context_rule"),
+            soroban_sdk::vec![&self.env, id.into_val(&self.env)],
+        )
+    }
+}
+
+/// S1: the keyless venue rule installed through OZ's `add_context_rule` with
+/// the reference `(owner, 7)` as its predicate. The owner's update reaches the
+/// next keyless run with no change to the account: the stored OZ rule is the
+/// same value, and only the owner touched anything.
+#[test]
+fn s1_a_referencing_rule_follows_its_owners_update() {
+    let w = World::new();
+    let owner = Address::generate(&w.env);
+    w.share(&owner, 7, &fn_is("submit"));
+    let reference = scval(&w.env, (owner.clone(), 7u32));
+    let venue = w.add_rule(&w.venue, Vec::new(&w.env), &[(&w.interpreter, &reference)]);
+    assert_eq!(w.bind(&w.interpreter, &venue), None);
+    let run = w.run_rule();
+    let ids = [run.id, venue.id];
+    w.arm(&[w.submit_ctx()]);
+    let before = w.stored_rule(venue.id);
+    assert_eq!(w.run(1, &[], &ids), Flow::Ran);
+    assert_eq!(w.supplied(), MOVE);
+
+    w.share(&owner, 7, &fn_is("withdraw"));
+    assert_eq!(w.run(2, &[], &ids), Flow::Refused);
+    assert_eq!(w.supplied(), MOVE);
+    w.share(&owner, 7, &fn_is("submit"));
+    assert_eq!(w.run(3, &[], &ids), Flow::Ran);
+    assert_eq!(w.supplied(), 2 * MOVE);
+    let after = w.stored_rule(venue.id);
+    assert_eq!(after.clone().to_xdr(&w.env), before.clone().to_xdr(&w.env));
+
+    w.share(&owner, 7, &fn_is("withdraw"));
+    let ctxs = [w.run_ctx(4), w.submit_ctx()];
+    assert_eq!(
+        w.verdict(&ctxs, &ids, &[], &[w.submit_ctx()]),
+        Outcome::Code(100)
+    );
+}
+
+/// S2: the Option A backstop against OZ's real rule holds the fetched
+/// predicate: a keyless run rule following a shared predicate is refused (221)
+/// once its owner stops pinning `run`.
+#[test]
+fn s2_a_run_rule_whose_shared_predicate_unpins_run_is_221() {
+    let w = World::new();
+    let owner = Address::generate(&w.env);
+    w.share(&owner, 1, &fn_is("run"));
+    let venue = w.venue_rule();
+    let run = w.add_rule(
+        &w.executor,
+        Vec::new(&w.env),
+        &[(&w.interpreter, &scval(&w.env, (owner.clone(), 1u32)))],
+    );
+    assert_eq!(w.bind(&w.interpreter, &run), None);
+    let ids = [run.id, venue.id];
+    w.arm(&[w.submit_ctx()]);
+    assert_eq!(w.run(1, &[], &ids), Flow::Ran);
+
+    let either = node(
+        "or",
+        alloc::vec![scvec(alloc::vec![fn_is("run"), fn_is("execute")])],
+    );
+    w.share(&owner, 1, &either);
+    assert_eq!(w.run(2, &[], &ids), Flow::Refused);
+    assert_eq!(w.supplied(), MOVE);
+    let ctxs = [w.run_ctx(2), w.submit_ctx()];
+    assert_eq!(
+        w.verdict(&ctxs, &ids, &[], &[w.submit_ctx()]),
+        Outcome::Code(221)
+    );
+}

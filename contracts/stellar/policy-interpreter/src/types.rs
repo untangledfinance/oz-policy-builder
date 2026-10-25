@@ -52,6 +52,18 @@ pub struct Limits {
 }
 
 impl Limits {
+    /// The hard ceilings. A shared predicate belongs to no instance's limits, so
+    /// `set_shared_predicate` holds it to these; each referencing rule's `enforce`
+    /// then holds it to its own instance's limits.
+    pub const CEILING: Limits = Limits {
+        max_reads: 8,
+        max_leaves: 400,
+        max_predicate_bytes: 40 * 1024,
+        max_elems: 64,
+        max_in_operands: 64,
+        max_depth: 8,
+    };
+
     /// Every field is at least its FLOOR and at most its HARD CEILING. The floors keep an
     /// instance from being deployed that can hold no rule: the smallest rule of any use (a
     /// function pin and one argument constraint under an `and`) is 4 leaves, 2 levels deep and
@@ -61,13 +73,14 @@ impl Limits {
     /// are set by what a transaction can carry: the README's Limits section has the
     /// measurements, and `tests/worst_case.rs` proves them on the real wasm.
     pub fn in_range(&self) -> bool {
+        let c = Self::CEILING;
         let ranges = [
-            (self.max_reads, 1, 8),
-            (self.max_leaves, 4, 400),
-            (self.max_predicate_bytes, 256, 40 * 1024),
-            (self.max_elems, 2, 64),
-            (self.max_in_operands, 1, 64),
-            (self.max_depth, 2, 8),
+            (self.max_reads, 1, c.max_reads),
+            (self.max_leaves, 4, c.max_leaves),
+            (self.max_predicate_bytes, 256, c.max_predicate_bytes),
+            (self.max_elems, 2, c.max_elems),
+            (self.max_in_operands, 1, c.max_in_operands),
+            (self.max_depth, 2, c.max_depth),
         ];
         ranges.iter().all(|&(v, min, max)| (min..=max).contains(&v))
     }

@@ -7,8 +7,15 @@
 //! a lifecycle (written together at install, bumped together when a permit
 //! bumps them), and as separate entries any one archiving would brick the rule,
 //! so they live and expire together.
+//!
+//! Shared predicates are `persistent()` too: `("shared", owner, policy_id) ->
+//! Bytes` (`shared_key`), predicate bytes only, written by their owner. A rule
+//! follows one through its `StoredDoc::source`.
 
-use soroban_sdk::{contracterror, contracttype, panic_with_error, Address, Bytes, BytesN, Env};
+use soroban_sdk::{
+    contracterror, contracttype, panic_with_error, symbol_short, Address, Bytes, BytesN, Env,
+    Symbol,
+};
 
 use crate::types::{Limits, Signer};
 
@@ -180,4 +187,23 @@ pub struct StoredDoc {
     /// direct install can misstate it, so `enforce` checks the scope of the
     /// rule the account passes, not this.
     pub scope: Option<Address>,
+    /// Where the predicate is: `predicate_bytes`, or the shared predicate
+    /// `(owner, policy_id)` (then `predicate_bytes` is empty). Set only by the
+    /// account's own install.
+    pub source: Source,
+}
+
+/// A rule's predicate source. (An `Option<(Address, u32)>` field has no XDR
+/// conversion in the SDK's test build, so the "none" case is a variant.)
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Source {
+    Inline,
+    Shared(Address, u32),
+}
+
+/// The key of `owner`'s shared predicate `policy_id`. A 3-tuple tagged
+/// `shared`, so it never aliases a rule's `(account, rule_id)` 2-tuple.
+pub fn shared_key(owner: &Address, policy_id: u32) -> (Symbol, Address, u32) {
+    (symbol_short!("shared"), owner.clone(), policy_id)
 }

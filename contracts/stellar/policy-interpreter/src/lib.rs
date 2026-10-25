@@ -17,13 +17,14 @@ pub mod types;
 mod version;
 
 pub use dsl::{CompareOp, DenyReason, EvalContext, EvalDecision, Leaf, Node};
-pub use storage::{PolicyError, StoredDoc};
+pub use storage::{PolicyError, Source, StoredDoc};
 pub use types::{ContextRule, ContextRuleType, Limits, PolicyInstallParams, Signer};
 pub use version::SELF_VERSION;
 
-use soroban_sdk::xdr::ToXdr;
+use soroban_sdk::xdr::{FromXdr, ToXdr};
 use soroban_sdk::{
-    auth::Context, contract, contractimpl, symbol_short, Address, BytesN, Env, IntoVal, Symbol, Vec,
+    auth::Context, contract, contractimpl, symbol_short, Address, Bytes, BytesN, Env, IntoVal,
+    Symbol, TryFromVal, Val, Vec,
 };
 
 use crate::storage::{deny, deny_unless, load, PolicyError as E, TTL_BUMP_THRESHOLD, TTL_BUMP_TO};
@@ -74,8 +75,17 @@ impl PolicyInterpreter {
         // (c) Parse + decode - the host does the XDR work; we walk the
         //     resulting native `Vec<Val>`. The AST is rebuilt on enforce from
         //     the stored bytes; here decoding is the validation.
-        let root =
-            dsl::decode(e, &p.predicate, &lim).unwrap_or_else(|_| deny(e, E::MalformedPredicate));
+        //     A predicate that is the XDR of `(owner, policy_id)` (never a
+        //     predicate: a node starts with its name) opts this rule into that
+        //     shared predicate, so the hash in (b) commits to the source, not
+        //     to bytes its owner may change. The current bytes get the same
+        //     checks here, and `enforce` repeats the decode on every call.
+        let source =
+            reference(e, &p.predicate).map_or(Source::Inline, |(o, id)| Source::Shared(o, id));
+        let root = match &source {
+            Source::Shared(o, id) => shared_root(e, o, *id, &lim),
+            Source::Inline => root_within(e, &p.predicate, &lim),
+        };
 
         // (c2) The rule's signers (the operators) stay bounded: `enforce`
         //      re-hashes the set on every permit, so the same size and shape
@@ -144,7 +154,11 @@ impl PolicyInterpreter {
         deny_unless(e, !open, E::RunNotPinned);
 
         let doc = StoredDoc {
-            predicate_bytes: install_params.predicate,
+            predicate_bytes: match source {
+                Source::Shared(..) => Bytes::new(e),
+                Source::Inline => install_params.predicate,
+            },
+            source,
             executor,
             nonce: install_params.install_nonce,
             signers_hash: signers_hash(e, &context_rule.signers),
@@ -164,9 +178,7 @@ impl PolicyInterpreter {
         let mut doc = load(e, &rule);
         require_master(e, &doc.master_set);
         if doc.scope.as_ref() == Some(&executor) {
-            let lim = storage::load_limits(e);
-            let root = dsl::decode_stored(e, &doc.predicate_bytes, &lim)
-                .unwrap_or_else(|_| deny(e, E::MalformedPredicate));
+            let root = rule_root(e, &doc, &storage::load_limits(e));
             deny_unless(e, pins_run(e, &root), E::RunNotPinned);
         }
         doc.executor = Some(executor);
@@ -208,9 +220,11 @@ impl PolicyInterpreter {
             deny_unless(e, keyless, E::NoAuthenticatedSigners);
         }
 
+        // A rule following a shared predicate reads it here (one entry) and
+        // holds it to this instance's limits: an owner update past them, a
+        // removed entry or bytes that do not decode all refuse.
         let lim = storage::load_limits(e);
-        let root = dsl::decode_stored(e, &doc.predicate_bytes, &lim)
-            .unwrap_or_else(|_| deny(e, E::MalformedPredicate));
+        let root = rule_root(e, &doc, &lim);
 
         if let Some(executor) = &doc.executor {
             // The scope here is the account's own record of the rule, which
@@ -250,6 +264,31 @@ impl PolicyInterpreter {
         if let dsl::EvalDecision::Deny(reason) = dsl::evaluate(e, &root, call, &lim) {
             deny(e, deny_code(reason));
         }
+    }
+
+    /// Create or replace `owner`'s shared predicate `policy_id`. A rule that
+    /// installed the reference `(owner, policy_id)` evaluates the new bytes from
+    /// its next `enforce`, under its own signers, executor and limits. Held to
+    /// the hard ceilings (it belongs to no instance) and to install's decode and
+    /// selector-leaf checks. A reference does not decode as a predicate, so a
+    /// shared predicate never points at another one.
+    pub fn set_shared_predicate(e: &Env, owner: Address, policy_id: u32, predicate: Bytes) {
+        owner.require_auth();
+        let root = root_within(e, &predicate, &Limits::CEILING);
+        deny_unless(e, dsl::has_selector_leaf(&root), E::SelectorLeafRequired);
+        let key = storage::shared_key(&owner, policy_id);
+        let store = e.storage().persistent();
+        store.set(&key, &predicate);
+        store.extend_ttl(&key, TTL_BUMP_TO, TTL_BUMP_TO);
+    }
+
+    /// Remove `owner`'s shared predicate `policy_id`; every rule following it
+    /// refuses (`206`) until it is set again or the rule is re-installed.
+    pub fn remove_shared_predicate(e: &Env, owner: Address, policy_id: u32) {
+        owner.require_auth();
+        e.storage()
+            .persistent()
+            .remove(&storage::shared_key(&owner, policy_id));
     }
 
     /// Dry run for the off-chain builder: decode `predicate` with install's
@@ -326,6 +365,48 @@ fn deny_code(reason: DenyReason) -> E {
         DenyReason::ArithmeticOverflow => E::ArithmeticOverflow,
         DenyReason::UnsupportedNode => E::UnsupportedNode,
         DenyReason::NotInAllowlist => E::NotInAllowlist,
+    }
+}
+
+/// The `(owner, policy_id)` an install payload names instead of a predicate.
+/// A predicate never parses as one (a node starts with its name). Only a short
+/// payload is tried, a reference being about 60 bytes, so a large predicate is
+/// not deserialised twice.
+fn reference(e: &Env, bytes: &Bytes) -> Option<(Address, u32)> {
+    if bytes.len() > 128 {
+        return None;
+    }
+    let v: Vec<Val> = Vec::try_from_val(e, &Val::from_xdr(e, bytes).ok()?).ok()?;
+    let pair = (v.len() == 2).then(|| <(Address, u32)>::try_from_val(e, &v.to_val()));
+    pair?.ok()
+}
+
+/// Decode `bytes` with every install check against `lim`: the byte cap, then
+/// the structure and count caps.
+fn root_within(e: &Env, bytes: &Bytes, lim: &Limits) -> dsl::Node {
+    deny_unless(
+        e,
+        bytes.len() <= lim.max_predicate_bytes,
+        E::PredicateTooLarge,
+    );
+    dsl::decode(e, bytes, lim).unwrap_or_else(|_| deny(e, E::MalformedPredicate))
+}
+
+/// `owner`'s shared predicate `policy_id`, held to `lim`; missing is `206`.
+fn shared_root(e: &Env, owner: &Address, policy_id: u32, lim: &Limits) -> dsl::Node {
+    let key = storage::shared_key(owner, policy_id);
+    let bytes: Bytes =
+        (e.storage().persistent().get(&key)).unwrap_or_else(|| deny(e, E::MissingState));
+    root_within(e, &bytes, lim)
+}
+
+/// The predicate a stored rule evaluates: its shared source's current bytes,
+/// or its own (install already held those to `lim`).
+fn rule_root(e: &Env, doc: &StoredDoc, lim: &Limits) -> dsl::Node {
+    match &doc.source {
+        Source::Shared(o, id) => shared_root(e, o, *id, lim),
+        Source::Inline => dsl::decode_stored(e, &doc.predicate_bytes, lim)
+            .unwrap_or_else(|_| deny(e, E::MalformedPredicate)),
     }
 }
 
