@@ -338,7 +338,7 @@ One run on 25 October 2026 against an OpenZeppelin 0.8.0 account (`8286422f…`,
 | S10 | After an install that misstated the scope as the market (accepted, `e2add83c…`), a liquidation under the loose rule | 221: `enforce` checks OpenZeppelin's own rule | `10c2c3046d59065730c73573e5bbef96731f845b871b265f9b71862740bea30c` |
 | G1 | The same keyless liquidation through a gated adapter whose gate lists every address | binding: the interpreter raised "Unauthorized function call" for the gated adapter | `30d56b2e8d121809ae246549b07f3e52c617da2887f57bad7b9dae9551768185` |
 
-All 24 rows matched. The liquidator pays only fees beyond R; the account's XLM, POT and TUSD were unchanged across every refused row.
+All 24 rows matched. The liquidator pays only fees beyond R; the account's XLM, POT and TUSD were unchanged across every refused row. The interpreter instance and its code were extended on 25 October 2026 to ledger 8,387,495 (about 173 days, to mid April 2027): instance `5259ef1d604c67bf3b97a950f525f7c4dea6573b74a5df270a003f573b951a87`, code `276b7c7dbd79d801fd52c655f72f7189766c412e82a34ea39b75d70ff789d627`; the adapter code likewise, `93bdf6513cd55d97f6914def6531f5c60804cb0c5c255c77b2559423ae183120`.
 
 ## 8. Open items
 

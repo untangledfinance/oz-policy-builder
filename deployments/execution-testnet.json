@@ -43,5 +43,9 @@
         "why": "the build before the optional gate; this source builds the adapter whose gate is optional (4985cd12...), which replaces it here"
       }
     ]
-  }
+  },
+  "extendTx": {
+    "execution-adapter": "93bdf6513cd55d97f6914def6531f5c60804cb0c5c255c77b2559423ae183120"
+  },
+  "extendNote": "25 October 2026: the execution-adapter code (bf85432c...) extended to ledger 8,387,499 (about 173 days, mid April 2027) with the uploader's throwaway key."
 }
