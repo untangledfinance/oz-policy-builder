@@ -56,8 +56,8 @@ audit scope.
 
 | Contract | Network |
 |---|---|
-| EVM seat, `PrimeSeat` | Base Sepolia; the Prime app deploys one per seat owner and Safe from the creation code `4d355864…` |
-| Solana custody gate | Solana devnet, program `6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz` (`a5d19edb…`), final |
+| EVM seat, `PrimeSeat` | fork-tested against Base Sepolia, no persistent deployment ([evm-testnet.json](../deployments/evm-testnet.json)); an app deploys one per seat owner and Safe from the creation code `4d355864…` |
+| Solana custody gate | Solana devnet, program `6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz` (`a5d19edb…`), final ([solana-devnet.json](../deployments/solana-devnet.json)) |
 | Solana seat, `prime-seat` | Solana devnet, program `7ygNrKpK3GYoNLMCkAa4e3mznGPF2KVGbKZsJcq8wSCb` (devnet build `a389f4a1…`), final |
 
 [evm.md](evm.md#deployed) and [solana.md](solana.md#deployed) have the detail.

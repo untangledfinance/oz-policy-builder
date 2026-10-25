@@ -10,7 +10,7 @@ the Stellar contracts.
 | Chain | Prime account | Our contracts | Where it runs |
 |---|---|---|---|
 | Stellar | OpenZeppelin smart account | policy interpreter, custody gate, execution adapter, Prime seat | Stellar testnet |
-| EVM | Safe with Zodiac Roles | `PrimeSeat` | Base Sepolia |
+| EVM | Safe with Zodiac Roles | `PrimeSeat` | Base Sepolia fork tests; no persistent deployment |
 | Solana | Squads Smart Account | custody gate, `prime-seat` | Solana devnet |
 
 Detail: [stellar.md](stellar.md), [evm.md](evm.md), [solana.md](solana.md).
@@ -159,7 +159,7 @@ flowchart TB
 | Policy interpreter | Stellar | evaluating a rule's predicate on every call the rule authorises, and holding a rule with no signer to its executor binding | us |
 | Prime account | each | counting owners' approvals and selecting rules | OpenZeppelin, Safe, Squads |
 | Prime seat | each | letting a session key stand in for one owner on one account | us |
-| A seat's owner key | each | signing only the grants and ends its holder means | the holder: an MPC, or any signer that raw-signs the grant hash |
+| A seat's owner key | each | signing only the grants and ends its holder means | the holder: a NEAR-routed MPC in the reference integration, or any signer that raw-signs the grant hash |
 | Policy builder | Stellar | writing rules and returning them unsigned for the owners' wallets | us, in this repository |
 | Prime apps and relayer | off chain | building transactions and paying fees; they hold no authority over funds | us, in a separate repository |
 
@@ -191,13 +191,16 @@ Each owner of a Prime account holds one vote, and casts it in one of two ways.
   settings signer, and it signs every decision itself.
 - **A seat owner** signs with an owner key: an ed25519 key on Stellar and
   Solana, a secp256k1 key on EVM. Its holder must produce a raw signature over
-  the 32-byte grant hash. Any signer that can raw-sign that hash can serve, such
-  as an MPC, a server-held keypair or a custody service configured for raw
-  signing; an owner whose wallet lives on another chain can be a seat owner this
-  way. Interactive wallets that sign only transactions or prefixed messages
-  produce signatures the seat refuses. On the account the owner has a Prime
-  seat: a contract (Stellar, EVM) or a program address (Solana) that is the
-  signer in its place. Each seat checks one signature format.
+  the 32-byte grant hash. In the reference integration a NEAR-routed MPC, an
+  external custodian outside this repository, holds the key; any signer that can
+  raw-sign that hash, such as another MPC, a server-held keypair or a custody
+  service configured for raw signing, can serve. Interactive wallets that sign
+  only transactions or prefixed messages produce signatures the seat refuses, so
+  a browser wallet cannot hold an owner key: an owner whose wallet lives on
+  another chain becomes a seat owner through a custodian that holds the key.
+  On the account the owner has a Prime seat: a contract (Stellar, EVM) or a
+  program address (Solana) that is the signer in its place. Each seat checks
+  one signature format.
 
 The owner key signs one grant that names the account, the seat, a session key
 and a start and end at most 7 days apart. Until the end, the session key votes

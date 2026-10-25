@@ -1,6 +1,6 @@
 # prime-seat
 
-The seat of a seat owner in a Squads Smart Account on Solana. A seat owner signs with an ed25519 owner key, held by an MPC or by any signer that can produce a raw ed25519 signature over the 32-byte grant hash, and that key never signs a Solana transaction. The owner key signs one grant, and a session key then acts as the owner's seat for up to 7 days, with no further prompt to the owner key.
+The seat of a seat owner in a Squads Smart Account on Solana. A seat owner signs with an ed25519 owner key, held by an MPC or by any signer that can produce a raw ed25519 signature over the 32-byte grant hash, and that key never signs a Solana transaction. In the reference integration a NEAR-routed MPC, an external custodian outside this repository, holds the key; a browser wallet cannot hold it. The owner key signs one grant, and a session key then acts as the owner's seat for up to 7 days, with no further prompt to the owner key.
 
 A native owner (Phantom) needs no seat: its own key is a plain Squads signer. From 18 October 2026 sessions are seat-only, so a native owner has no session key.
 
@@ -85,9 +85,9 @@ PRIME_CLUSTER=devnet cargo mutants --in-place         # every viable mutant caug
 PRIME_CLUSTER=devnet cargo-build-sbf -- --locked      # target/deploy/prime_seat.so
 ```
 
-`cargo mutants` offers `Default::default()` for `ProgramResult` and never `Ok(())`, so it skips the three most important mutants. The agents' `manual-mutants.py` adds them with every literal the tool leaves alone.
+`cargo mutants` offers `Default::default()` for `ProgramResult` and never `Ok(())`, so it skips the three most important mutants. A manual pass added them with every literal the tool leaves alone: 65 literal mutants, all killed ([pull request #15](https://github.com/untangledfinance/oz-policy-builder/pull/15)).
 
-`PRIME_CLUSTER` has no default, so a build without it fails. The host tests call `process` with the syscalls stubbed and record every inner call the program makes with the privileges the runtime would give it. A validator matrix against the real Squads program, a grant signed by a real MPC-held key and a venue-depth probe sit outside the repository; their results are in the pull request.
+`PRIME_CLUSTER` has no default, so a build without it fails. The host tests call `process` with the syscalls stubbed and record every inner call the program makes with the privileges the runtime would give it. A validator matrix against the real Squads program, a grant signed by a real MPC-held key and a venue-depth probe ran outside the repository; their results are in [pull request #15](https://github.com/untangledfinance/oz-policy-builder/pull/15).
 
 | Build | sha256 | Bytes |
 |---|---|---|

@@ -18,8 +18,8 @@ There is currently no bug bounty programme.
 | `policy-interpreter`, `custody-gate`, `execution-adapter` (Stellar) | Soroban contracts on Stellar testnet (addresses in `packages/policy-synth/src/config.ts` and `deployments/`) |
 | Prime seat, `prime-seat` (Stellar) | Soroban contract on Stellar testnet, one instance per seat owner and account (code hash in `contracts/build-hashes.json`) |
 | `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` | Off-chain packages in `packages/`, published to npm at version 4.1.0 from this repository at tag `v4.1.0` |
-| `PrimeSeat` (EVM) | Solidity contract on Base Sepolia, one instance per seat owner and Safe (code hashes in `contracts/build-hashes.json`) |
-| `custody-gate`, `prime-seat` (Solana) | Solana programs on devnet, deployed final (program ids in [docs/solana.md](./docs/solana.md#deployed)) |
+| `PrimeSeat` (EVM) | Solidity contract, fork-tested against Base Sepolia with real Safe 1.4.1 and 1.5.0 and not deployed from this repository; an integrating app deploys one instance per seat owner and Safe (code hashes in `contracts/build-hashes.json`, status in `deployments/evm-testnet.json`) |
+| `custody-gate`, `prime-seat` (Solana) | Solana programs on devnet, deployed final (program ids in `deployments/solana-devnet.json` and [docs/solana.md](./docs/solana.md#deployed)) |
 
 `test-blend-pool` is a testnet-only fixture and is out of scope. The EVM and
 Solana contracts are in scope for reports and outside the external audit
