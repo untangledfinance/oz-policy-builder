@@ -282,7 +282,7 @@ export interface Authority {
 function executorText(ex: { address: string; kind?: string | undefined }, c: View): string {
   const who = `contract ${addr(ex.address, c)}`
   if (ex.kind === 'null-gate adapter')
-    return `${who}, an execution adapter with no gate: anyone may call its execute with an immediate batch, and it vouches for every call of that batch to this account's policy, so this rule's predicate is the only fence on what such a batch does (bound with bind_executor, a second transaction)`
+    return `${who}, an execution adapter with no gate: anyone may call its execute with an immediate batch, and it vouches for every call of that batch to this account's policy, so this rule's predicate is the only fence on what such a batch does; no other rule on the account may approve its execute, a Default-scoped rule included (bound with bind_executor, a second transaction)`
   if (ex.kind === 'gated adapter')
     return `${who}, an execution adapter with a gate: it vouches only for calls its gate allows (bound with bind_executor, a second transaction)`
   return `${who} (bound with bind_executor, a second transaction)`

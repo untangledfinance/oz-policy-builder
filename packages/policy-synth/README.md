@@ -260,6 +260,22 @@ batch.
   hand out its word, or while the account's rules are not all read.
   `review_unsigned` flags it (with `readContracts`, which reads the scope; offline
   it asks for that read). No override waives it.
+- **A dedicated no-gate adapter:** keep keyless rules on a no-gate adapter
+  that NO other rule can make execute: no rule of any kind may approve its
+  `execute` except the keyless rules that pin the whole batch. That includes
+  keyed rules scoped to it (refused above unless they hold the grants to
+  none), Default-scoped keyed rules (they approve every call, the adapter's
+  `execute` included) and plain OpenZeppelin rules with no interpreter (no
+  predicate holds their grants). The checks above see a rule scoped to the
+  adapter, with or without the interpreter (one whose predicate is not read
+  counts), but they do not refuse a Default-scoped rule: the account's admin
+  rule 0 is one, and its signers can already change every rule. Give a
+  Default-scoped rule only to the account's owners, never to an agent, on an
+  account that binds keyless rules to a no-gate adapter.
+  A keyed rule scoped to an address where no adapter is deployed yet is judged
+  by what is there now, so it installs; once a no-gate adapter is created at that
+  address, a keyless install for it and a binding to it are refused while that
+  rule can hand out its word.
 
 ## Rules that follow another rule
 

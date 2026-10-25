@@ -182,13 +182,16 @@ describe('buildSelfCall to another contract trusts only the source as admin, for
   const server = connect(net.endpoint)
   const args = { server, network: 'testnet' as const, smartAccount: ACCOUNT, sourceAccount: SIGNER }
   /** The RPC's recording pass answers with one more authorisation entry. */
-  const adding = (extra: () => xdr.SorobanAuthorizationEntry) =>
+  const adding = (
+    extra: (auth: xdr.SorobanAuthorizationEntry[]) => xdr.SorobanAuthorizationEntry
+  ) =>
     new Proxy(server, {
       get(target, prop, receiver) {
         if (prop !== 'simulateTransaction') return Reflect.get(target, prop, receiver)
         return async (t: Parameters<typeof server.simulateTransaction>[0]) => {
           const sim = await target.simulateTransaction(t)
-          if ('result' in sim && sim.result) sim.result.auth = [...sim.result.auth, extra()]
+          if ('result' in sim && sim.result)
+            sim.result.auth = [...sim.result.auth, extra(sim.result.auth)]
           return sim
         }
       },
@@ -236,5 +239,21 @@ describe('buildSelfCall to another contract trusts only the source as admin, for
     await expect(
       buildBind({ ...args, server: other }, interpreterFor('testnet'), 6, GATED_ADAPTER)
     ).rejects.toThrow(/the RPC answer is not trusted/)
+  })
+
+  it('a source-account entry for exactly the call, but with a call nested under it, is refused (L-8)', async () => {
+    const nested = adding((auth) => {
+      const own = auth[0] as xdr.SorobanAuthorizationEntry
+      return new xdr.SorobanAuthorizationEntry({
+        credentials: xdr.SorobanCredentials.sorobanCredentialsSourceAccount(),
+        rootInvocation: new xdr.SorobanAuthorizedInvocation({
+          function: own.rootInvocation().function(),
+          subInvocations: [transfer],
+        }),
+      })
+    })
+    await expect(
+      buildBind({ ...args, server: nested }, interpreterFor('testnet'), 6, GATED_ADAPTER)
+    ).rejects.toThrow(/an authorisation other than the account's and the source account's/)
   })
 })

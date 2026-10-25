@@ -478,6 +478,43 @@ describe('STRIDE E-36: a keyed rule scoped to a no-gate adapter must hold its gr
     expect(k.authority.signers).toEqual([])
   })
 
+  it('a keyless root rule with its grants left open still installs and binds on a dedicated adapter (L-7)', async () => {
+    // The keyless rule hands out words itself (the liquidation's own), so its grants are open.
+    const where = (liquidation.calls[0]?.where ?? []).filter(
+      (w) => !(w.constraint === 'count' && w.at[0] === 1)
+    )
+    const root = intentExprs({ calls: [{ contract: ADAPTER, fn: 'execute', where }] }).get(
+      ADAPTER
+    ) as Expr
+    expect(pinsOwn(root)).toBe(true)
+    expect(pinsNoGrants(root)).toBe(false)
+    const keyless: ObservedRule = {
+      id: 4,
+      scope: { kind: 'call_contract', contract: ADAPTER },
+      signers: [],
+      policies: [INTERP],
+      expr: root,
+      admins: [SOURCE],
+    }
+    const c = { contract: ADAPTER, expr: root, encoded: encode(root), hash: hashOf(encode(root)) }
+    expect(
+      (await planInstall({ ...input, executor: ADAPTER }, c, chain())).authority.signers
+    ).toEqual([])
+    // Bound, the rule itself is on the account and scoped to the adapter: keyless, it is no leak.
+    const bound = await planBind(
+      { smartAccount: ACCOUNT, sourceAccount: SOURCE, ruleId: 4, executor: ADAPTER },
+      INTERP,
+      {
+        readRule: async () => keyless,
+        readRules: async () => ({ rules: [keyless], complete: true, unreadable: [] }),
+        kind: async () => 'null-gate adapter',
+        fingerprint: async () => ours,
+        build: async () => ({ unsignedXdr: 'BBBB' }) as never,
+      }
+    )
+    expect(bound.unsignedXdr).toBe('BBBB')
+  })
+
   it('a keyless rule for a no-gate adapter is refused while a keyed rule on it could vouch, or the rules are not all read', async () => {
     const leaky: ObservedRule = {
       id: 9,
