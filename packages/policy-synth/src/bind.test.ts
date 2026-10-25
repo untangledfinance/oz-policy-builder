@@ -2,6 +2,7 @@
 // builder refuses it, and read back by the owner's review.
 
 import { afterAll, describe, expect, it } from 'bun:test'
+import { account, contract } from '../test/fixtures.ts'
 import { recorded } from '../test/rpc.ts'
 import { run } from './tools.ts'
 
@@ -9,6 +10,7 @@ const ACCOUNT = 'CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P'
 const SIGNER = 'GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB'
 const GATED_ADAPTER = 'CCXFDHD7I7NWV37GQ6JTNSGP67EXYLG3QV4GJWUQUBEUEH3IANEI2QTG'
 const XLM = 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC'
+const TOKEN = contract(7)
 const NULL_ADAPTER = 'CD5Y3SNPN3HX5S6XXYCZRQIP7U6FCQIMJJDZ7QKKSYYJG4343SYJ5SA2'
 const VENUE = 'CCLBPEYS3XFK65MYYXSBMOGKUI4ODN5S7SUZBGD7NALUQF64QILLX5B5'
 
@@ -22,8 +24,8 @@ type Out = {
 }
 
 describe('bind_policy, on a live account', () => {
-  it('builds bind_executor for rule 5 (the pinned interpreter, its admin the source), and the review reads it back', async () => {
-    const r = (await run('bind_policy', { ...base, ruleId: 5, executor: GATED_ADAPTER })) as Out
+  it('builds bind_executor for rule 6 (the pinned interpreter, its admin the source), and the review reads it back', async () => {
+    const r = (await run('bind_policy', { ...base, ruleId: 6, executor: GATED_ADAPTER })) as Out
     expect(r.error).toBeUndefined()
     const d = r.data as {
       unsignedXdr: string
@@ -31,7 +33,7 @@ describe('bind_policy, on a live account', () => {
       executorKind: string
     }
     expect(d.executorKind).toBe('gated adapter')
-    expect(d.binds.id).toBe(5)
+    expect(d.binds.id).toBe(6)
     expect(d.binds.review.join('\n')).toMatch(/executor/)
     const v = (await run('review_unsigned', {
       network: 'testnet',
@@ -42,7 +44,7 @@ describe('bind_policy, on a live account', () => {
     expect(v.data).toMatchObject({
       problems: [],
       signable: true,
-      binds: { ruleId: 5, executor: GATED_ADAPTER },
+      binds: { ruleId: 6, executor: GATED_ADAPTER },
     })
   })
 
@@ -54,7 +56,7 @@ describe('bind_policy, on a live account', () => {
     }
     await no({ ruleId: 3 }, /not policed/)
     await no({ ruleId: 400 }, /has no rule 400/)
-    await no({ ruleId: 5, executor: XLM }, /not an execution adapter/)
+    await no({ ruleId: 6, executor: XLM }, /not an execution adapter/)
   })
 })
 
@@ -113,5 +115,62 @@ describe('install_policy of a keyless rule for the no-gate adapter, on a live ac
     })) as Out
     expect(r.error?.code).toBe('INSTALL_BUILD_FAILED')
     expect(r.error?.message).toMatch(/221/)
+  })
+})
+
+describe('a rule that follows another, on the pinned interpreter (it supports references)', () => {
+  // Not rule 7's signer: a second follower of rule 6 beside it would share that signer, refused.
+  const OTHER_SIGNER = account(5)
+
+  it('install_policy with follow builds the reference, and the owner review resolves it signable', async () => {
+    const r = (await run('install_policy', {
+      ...base,
+      signers: [OTHER_SIGNER],
+      follow: { smartAccount: ACCOUNT, ruleId: 6 },
+    })) as Out
+    expect(r.error).toBeUndefined()
+    const d = r.data as {
+      unsignedXdr: string
+      rule: { follows: { ruleId: number; nonce: number }; review: string[] }
+    }
+    expect(d.rule.follows).toMatchObject({ account: ACCOUNT, ruleId: 6, nonce: 1 })
+    expect(d.rule.review.join('\n')).toMatch(/Follows rule 6 of/)
+    const offline = (await run('review_unsigned', {
+      network: 'testnet',
+      xdr: d.unsignedXdr,
+      smartAccount: ACCOUNT,
+    })) as Out
+    expect(offline.data).toMatchObject({ signable: false })
+    const read = (await run('review_unsigned', {
+      network: 'testnet',
+      xdr: d.unsignedXdr,
+      smartAccount: ACCOUNT,
+      readContracts: true,
+    })) as Out
+    expect(read.data).toMatchObject({ problems: [], signable: true })
+  })
+
+  it('simulate_policy with follow checks the followed predicate now, on the interpreter itself', async () => {
+    const r = (await run('simulate_policy', {
+      network: 'testnet',
+      follow: { smartAccount: ACCOUNT, ruleId: 6 },
+      calls: [
+        { contract: TOKEN, fn: 'transfer', args: [ACCOUNT, SIGNER, { i128: '400' }] },
+        { contract: TOKEN, fn: 'transfer', args: [ACCOUNT, SIGNER, { i128: '600' }] },
+      ],
+    })) as Out
+    expect(r.error).toBeUndefined()
+    const res = (r.data as { results: { permitted: boolean }[] }).results
+    expect(res.map((x) => x.permitted)).toEqual([true, false])
+  })
+
+  it('following a rule that itself follows another is refused before anything is built', async () => {
+    const r = (await run('install_policy', {
+      ...base,
+      signers: [OTHER_SIGNER],
+      follow: { smartAccount: ACCOUNT, ruleId: 7 },
+    })) as Out
+    expect(r.error?.code).toBe('INSTALL_BUILD_FAILED')
+    expect(r.error?.message).toMatch(/one level only/)
   })
 })
