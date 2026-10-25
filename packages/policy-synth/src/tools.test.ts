@@ -2,7 +2,7 @@
 // Network answers replay a live testnet run (OPB_LIVE=1 bun test src/tools.test.ts
 // records it again), through the real SDK against a local JSON-RPC server.
 
-import { afterAll, describe, expect, it, setDefaultTimeout } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, it, setDefaultTimeout } from 'bun:test'
 import {
   Account,
   Address,
@@ -15,7 +15,7 @@ import {
 import { z } from 'zod'
 import { account, contract, recording } from '../test/fixtures.ts'
 import { fakeInterpreter, instanceResult, pointAt, recorded } from '../test/rpc.ts'
-import { connect } from './chain.ts'
+import { connect, forgetLimits } from './chain.ts'
 import { INTERPRETER, SAFE_READS, thresholdAddress } from './config.ts'
 import { callExpr } from './intent.ts'
 import { reviewUnsigned } from './review.ts'
@@ -34,6 +34,8 @@ const PIN = INTERPRETER.testnet?.address as string
 const callOf = (b64: string) => reviewUnsigned({ network: 'testnet', xdr: b64 }).call
 setDefaultTimeout(30_000) // a live run makes dozens of calls
 const net = recorded('tools')
+// The limits cache is process-wide: read them through this file's own recording, whatever ran first.
+beforeAll(forgetLimits)
 afterAll(() => net.stop())
 
 type Out = { ok: boolean; data?: any; error?: any }
