@@ -741,9 +741,11 @@ the user's wallet. The CLI (`packages/policy-builder-cli`) and the MCP server
 [`packages/policy-synth/README.md`](../packages/policy-synth/README.md) is the
 full reference.
 
-The builder writes keyed rules. It refuses a rule with no signer and builds no
-`bind_executor` call, so a keyless rule and its binding are installed through
-the contract calls directly. It can write a rule that follows another rule's
+The builder writes keyed rules, and keyless rules for an execution adapter: a
+rule with no signer needs `executor`, and `bind_policy` builds the
+`bind_executor` that binds it once installed. A rule scoped to its executor must
+pin `run` or a whole immediate batch (the interpreter's `pins_own`, 221), which
+the builder checks first. It can write a rule that follows another rule's
 predicate (`install_policy` with `follow`): the payload is the reference, and
 every check below is judged on the followed predicate as it is at build time,
 which the review shows with its nonce.
@@ -758,6 +760,7 @@ Enforcement happens on chain. The builder checks a rule before it is signed:
 | Spending limit | `spendingLimit` attaches OpenZeppelin's `spending_limit`. It is refused unless every branch of the predicate pins `call_fn` to `transfer` and the rule's scope is shown to be a token, because that policy fails every other function. |
 | Read safety | A `read` outside the safe list is refused with `READ_UNSAFE`. The list holds the three testnet Reflector oracles (`lastprice`, `price`) and the operator's `POLICY_BUILDER_SAFE_READS_TESTNET`; a listed read needs constant arguments. `POLICY_BUILDER_ALLOW_SPOT_READS=1` lets other reads through. All three switches are operator environment only, and no tool input can set them. |
 | Authority overlap | The builder reads every rule on the account and refuses a rule a shared signer could bypass through a looser or unpoliced neighbour, or an account whose rules it could not all read. A neighbour that follows another rule's predicate is read through that rule (one level, as the interpreter does) and refused as a neighbour, since it can widen without the account; beside a new rule that follows, a tighter neighbour is refused too. |
+| Keyless rules and binding | `signers: []` needs `executor`, read off the ledger: it must be an execution adapter, and a rule scoped to it must pin `run` or a whole immediate batch (`call_fn = execute`, wait 0, the number of calls, each call's target and function name), as the interpreter's `pins_own` does (221). `bind_policy` builds `bind_executor` after re-reading the rule, its predicate and admins (the source account alone); `BIND_BUILD_FAILED` otherwise. The review says that with no gate anyone may run an immediate batch through the adapter, so the predicate is the only fence. |
 | Referenced rules | `follow: { smartAccount, ruleId }` reads that rule off the install's interpreter. A missing rule, a rule that itself follows another, an interpreter build with no references, or an undecodable predicate is refused before anything is built. The install carries the XDR of `(account, rule_id)` and its hash; `rule.follows` and the review's `Follows` node give the followed rule's nonce and predicate hash now, and say that its admins can change it without this account's signature. |
 | Amounts | An amount with no cap, and a swap whose least output has no floor, are refused. |
 | Contract signers | Each contract signer's instance is read off the ledger. An execution adapter bound to no gate (`prime` stored, `gate` void) is refused as a signer, whatever its code hash: an agent allowed to call its `execute` could cite the rule for the adapter's calls and move funds past its own caps. An execution adapter with a gate (`prime` stored, `gate` an address) signing a rule scoped to itself is refused unless every branch of the predicate pins `call_fn = run`. A contract signer that is not deployed is refused too. No override waives any of these. |
@@ -774,7 +777,7 @@ all the same; on any other network a flag set to `true` is refused before the
 network is asked unless the operator sets `POLICY_BUILDER_ALLOW_OVERRIDES=1`.
 
 `review_unsigned` is the owner's side of the review. A wallet or the Prime app
-runs it on the unsigned XDR it is about to sign (also `reviewUnsigned` from
+runs it on the unsigned XDR (an install, a removal or a `bind_executor`) it is about to sign (also `reviewUnsigned` from
 `@crediolabs/policy-synth`, with `smartAccount` set): it reads the bytes alone,
 with no RPC, lists in `problems` what it finds wrong in them (an authorisation
 for anything but the call or by a rule other than 0, a `__check_auth` digest

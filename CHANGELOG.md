@@ -39,6 +39,21 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
   reference payload as the interpreter does and flags it unless
   `readContracts: true` reads the followed rule off the pinned interpreter.
   New exports: `readFollowed`, `referenceOf`, `encodeReference`.
+- **policy-synth writes keyless rules for an execution adapter, and binds them.**
+  `install_policy` takes `signers: []` with `executor` (an execution adapter,
+  read off the ledger) and builds `add_context_rule` with no signer; a rule
+  scoped to its executor must pin `run` or a whole immediate batch
+  (`pinsOwn`, mirroring the interpreter's `pins_own`, 221), and an adapter
+  with a gate must be pinned to `run`. A new tool, `bind_policy`, builds the
+  interpreter's `bind_executor((account, rule), executor)` after re-reading
+  the rule, its predicate and admins (refusals: `BIND_BUILD_FAILED`, a new
+  error code). Two intent rows write a whole batch: `count` (exactly n
+  elements) and `same` (an argument equal to another, such as a liquidator
+  tied to the recipient). The review says what a keyless rule and its
+  executor mean (with no gate, anyone may run an immediate batch, so the
+  predicate is the only fence), and `review_unsigned` reads a
+  `bind_executor` from its bytes. The rule reader returns each rule's bound
+  `executor` and `admins`. The CLI and the MCP server serve nine tools.
 
 ### Security
 

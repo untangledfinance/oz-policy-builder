@@ -24,6 +24,10 @@ export type Constraint =
   | { constraint: 'floor'; at: Path; min: string }
   /** The vec at `at` has at most `max` elements. */
   | { constraint: 'length'; at: Path; max: number }
+  /** The vec at `at` has exactly `is` elements. */
+  | { constraint: 'count'; at: Path; is: number }
+  /** The value at `at` equals the value at `as` (another place in the same call, or element). */
+  | { constraint: 'same'; at: Path; as: Path }
   /** The value at `at` is at least `of` * num / den, `of` being another argument. */
   | { constraint: 'minOut'; at: Path; of: Path; num: string; den: string }
   /** Every (`each`) or some (`some`) element of the vec at `at` satisfies `where`. */
@@ -88,6 +92,8 @@ const LOWER: {
   cap: (r, b) => ['lte', ref(r.at, b), num(r.max)],
   floor: (r, b) => ['gte', ref(r.at, b), num(r.min)],
   length: (r, b) => ['lte', ref(r.at, b, true), r.max],
+  count: (r, b) => ['eq', ref(r.at, b, true), r.is],
+  same: (r, b) => ['eq', ref(r.at, b), ref(r.as, b)],
   minOut: (r, b) => [
     'gte',
     ref(r.at, b),

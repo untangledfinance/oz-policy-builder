@@ -590,6 +590,82 @@ describe('reviewUnsigned: an install that follows another rule', () => {
   })
 })
 
+describe('reviewUnsigned: a binding of a rule to an executor', () => {
+  const ADAPTER = contract(51)
+  /** The honest install made into what bind_policy builds: the interpreter's bind_executor of rule 4,
+   *  the account's entry for it, the source's check of that entry, and the source as the admin. */
+  const binding = async (o: { admin?: boolean; to?: string } = {}) =>
+    edit((await install()).unsignedXdr, (env) => {
+      const ic = callArgs(env)
+      ic.contractAddress(new Address(o.to ?? INTERP).toScAddress())
+      ic.functionName('bind_executor')
+      ic.args([toScVal([ACCOUNT, 4]), toScVal(ADAPTER)])
+      const host = opOf(env)
+      const [acct, check] = host.auth()
+      if (!acct || !check) throw new Error('no entries')
+      acct
+        .rootInvocation()
+        .function(xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(ic))
+      const admin = new xdr.SorobanAuthorizationEntry({
+        credentials: xdr.SorobanCredentials.sorobanCredentialsSourceAccount(),
+        rootInvocation: new xdr.SorobanAuthorizedInvocation({
+          function: xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(ic),
+          subInvocations: [],
+        }),
+      })
+      host.auth(o.admin === false ? [acct, check] : [acct, check, admin])
+      resign(env)
+    })
+
+  it('offline: the rule and the executor, and the executor is a problem until it is read', async () => {
+    const r = review(await binding())
+    expect(r.binds).toEqual({ ruleId: 4, executor: ADAPTER })
+    expect(r.smartAccount).toBe(ACCOUNT)
+    expect(r.problems).toEqual([
+      `executor ${ADAPTER}: what it is, and so what it will vouch for, is not in the bytes; review with readContracts`,
+    ])
+    const text = r.review.join('\n')
+    expect(text).toMatch(/bind_executor/)
+    expect(text).toMatch(/Binds/)
+  })
+
+  it('read as a no-gate adapter: signable, and the review says the predicate is the only fence', async () => {
+    const r = reviewUnsigned({
+      network: 'testnet',
+      xdr: await binding(),
+      smartAccount: ACCOUNT,
+      contracts: { [ADAPTER]: 'null-gate adapter' },
+    })
+    expect(r.problems).toEqual([])
+    expect(r.review.join('\n')).toMatch(/anyone may call its execute with an immediate batch/)
+    const plain = reviewUnsigned({
+      network: 'testnet',
+      xdr: await binding(),
+      smartAccount: ACCOUNT,
+      contracts: { [ADAPTER]: 'contract' },
+    })
+    expect(plain.problems.join('\n')).toMatch(/not an execution adapter/)
+  })
+
+  it('another interpreter, or the admin entry missing, is a problem', async () => {
+    const facts = { [ADAPTER]: 'gated adapter' as const }
+    const other = reviewUnsigned({
+      network: 'testnet',
+      xdr: await binding({ to: contract(52) }),
+      smartAccount: ACCOUNT,
+      contracts: facts,
+    })
+    expect(other.problems.join('\n')).toMatch(/not the pinned testnet interpreter/)
+    const lone = reviewUnsigned({
+      network: 'testnet',
+      xdr: await binding({ admin: false }),
+      smartAccount: ACCOUNT,
+      contracts: facts,
+    })
+    expect(lone.problems.join('\n')).toMatch(/2 authorisation entries/)
+  })
+})
+
 describe('reviewUnsigned: the same bytes, changed', () => {
   const problemsOf = async (f: (env: xdr.TransactionEnvelope) => void, o = {}) =>
     review(edit((await install()).unsignedXdr, f), o).problems.join('\n')

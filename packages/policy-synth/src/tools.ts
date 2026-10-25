@@ -1,4 +1,4 @@
-// The eight tools, one definition each: a name, a description, an input shape and
+// The nine tools, one definition each: a name, a description, an input shape and
 // a body. `tool()` is the only place input is validated, errors become the
 // response envelope, and a thrown refusal gets its code; the MCP server and the
 // CLI both register straight from `TOOLS`, so neither holds any logic.
@@ -29,6 +29,7 @@ import {
 } from './config.ts'
 import { type ErrorCode, messageOf, Refusal, type ToolResponse } from './envelope.ts'
 import {
+  buildBind,
   buildInstall,
   buildRevoke,
   type Chain,
@@ -36,6 +37,7 @@ import {
   gate,
   INSTALL_OVERRIDES,
   type Override,
+  planBind,
   planInstall,
   planRevoke,
 } from './install.ts'
@@ -101,6 +103,8 @@ const rule: z.ZodType<unknown> = z.lazy(() =>
     row('cap', { at: path, max: amount }),
     row('floor', { at: path, min: z.string().regex(/^-?\d+$/) }),
     row('length', { at: path, max: z.number().int().nonnegative() }),
+    row('count', { at: path, is: z.number().int().nonnegative().max(0xffffffff) }),
+    row('same', { at: path, as: path }),
     row('minOut', { at: path, of: path, num: amount, den: amount }),
     row('each', { at: path, where: z.array(rule).min(1) }),
     row('some', { at: path, where: z.array(rule).min(1) }),
@@ -178,6 +182,7 @@ const CODE: Record<string, ErrorCode> = {
   verify_policy: 'VERIFICATION_FAILED',
   install_policy: 'INSTALL_BUILD_FAILED',
   revoke_policy: 'REVOKE_BUILD_FAILED',
+  bind_policy: 'BIND_BUILD_FAILED',
   get_interpreter_info: 'INTERPRETER_MISMATCH',
   review_unsigned: 'INVALID_INPUT',
 }
@@ -392,7 +397,7 @@ const record_transaction = tool(
 
 const synthesize_policy = tool(
   'synthesize_policy',
-  'Turn a transaction, a recording, an intent (the calls to allow, with per-argument constraints (`{constraint: "cap", at, max}`): pin, allow, deny, cap, floor, length, minOut, each, some, total, read, until, from) into rules: one per contract, each with its predicate (a wire expression), its encoding and hash, and its review (`review`, a text tree, and `reviewTree`, nodes each carrying the wire `raw` it was read from; labels are display only; with no hash to fetch, this tool asks no RPC). `ambiguities` are questions whose answers change what is permitted (usually the cap on an amount: answer with `limit`, `limits` or `allow`); `warnings` say what is left open. `heldTo` says which limits the rules were held to: those recorded for the pinned interpreter, else the defaults.',
+  'Turn a transaction, a recording, an intent (the calls to allow, with per-argument constraints (`{constraint: "cap", at, max}`): pin, allow, deny, cap, floor, length, count, same, minOut, each, some, total, read, until, from) into rules: one per contract, each with its predicate (a wire expression), its encoding and hash, and its review (`review`, a text tree, and `reviewTree`, nodes each carrying the wire `raw` it was read from; labels are display only; with no hash to fetch, this tool asks no RPC). `ambiguities` are questions whose answers change what is permitted (usually the cap on an amount: answer with `limit`, `limits` or `allow`); `warnings` say what is left open. `heldTo` says which limits the rules were held to: those recorded for the pinned interpreter, else the defaults.',
   { ...net, ...display, ...from },
   async (i) => {
     const s = await sourceOf(i)
@@ -508,7 +513,7 @@ const verify_policy = tool(
 
 const install_policy = tool(
   'install_policy',
-  "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`, or make it FOLLOW an existing rule with `follow` ({ smartAccount, ruleId } of a rule on the same interpreter): the rule then carries no predicate of its own, the interpreter checks that rule's predicate as it is at every call, and the hash the account's admins sign commits to that reference, not to the predicate. That rule's admins can change what this rule permits without this account's signature, so every refusal below is judged on its predicate as it is now (read live, with its nonce, and shown in `follows` and the review), and a shared signer with any other rule serving the same calls is refused. A followed rule must carry its own predicate (one level only). `sourceAccount` must be a signer of the account's rule 0 (that rule authorises the install); `signers` are the keys the rule governs; `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The interpreter is checked live before anything is built: it must speak the grammar and run a trusted build (a pinned address, or on a network with none, an `interpreterAddress` whose code hash is one this package trusts). The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind. An unanswered amount cap is refused, and so is a swap's least output that nothing sets. Answer the question a refusal asks; the overrides (`allowOverlap`, `allowUnboundedAmount`, `allowOpenSlippage`, `anyOne`) are the account owners' decision, never a way past a refusal: each one set comes back in `overrides` with the refusal it waived and opens the review, and on mainnet they are refused unless the operator sets POLICY_BUILDER_ALLOW_OVERRIDES=1. `threshold` ({ simple: n }: n of the signers; { weighted: { weights, n } }: signers whose weights total n) attaches OpenZeppelin's threshold policy beside the predicate; with several signers and no threshold (or one a single signer meets) the install is REFUSED, because a rule with a policy is satisfied by any ONE of its signers acting alone; `anyOne` is the owners' override for that, echoed and gated like the others. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR.",
+  "Build the UNSIGNED transaction that installs a rule on a smart account: `add_context_rule` carrying the interpreter's install parameters, so one signature installs the predicate. Name the rule with a source (as `synthesize_policy`, `contract` choosing among several) or `encodedPredicate` with `contract`, or make it FOLLOW an existing rule with `follow` ({ smartAccount, ruleId } of a rule on the same interpreter): the rule then carries no predicate of its own, the interpreter checks that rule's predicate as it is at every call, and the hash the account's admins sign commits to that reference, not to the predicate. That rule's admins can change what this rule permits without this account's signature, so every refusal below is judged on its predicate as it is now (read live, with its nonce, and shown in `follows` and the review), and a shared signer with any other rule serving the same calls is refused. A followed rule must carry its own predicate (one level only). `sourceAccount` must be a signer of the account's rule 0 (that rule authorises the install); `signers` are the keys the rule governs (none, with `executor`, for a keyless rule: it permits only calls that execution adapter vouches for, and nothing until `bind_policy` binds it; a rule scoped to its executor must pin `call_fn = run` or a whole immediate batch: `execute`, wait 0, the number of calls, and each call's target and function_name, else it is REFUSED); `admins` (default: `sourceAccount`) are the Policy Signer role that may later re-install or remove it. The interpreter is checked live before anything is built: it must speak the grammar and run a trusted build (a pinned address, or on a network with none, an `interpreterAddress` whose code hash is one this package trusts). The account's other rules are read: the install is REFUSED when a shared signer could name a looser or unpoliced rule instead (the new rule would never run), or a rolling total would not bind. An unanswered amount cap is refused, and so is a swap's least output that nothing sets. Answer the question a refusal asks; the overrides (`allowOverlap`, `allowUnboundedAmount`, `allowOpenSlippage`, `anyOne`) are the account owners' decision, never a way past a refusal: each one set comes back in `overrides` with the refusal it waived and opens the review, and on mainnet they are refused unless the operator sets POLICY_BUILDER_ALLOW_OVERRIDES=1. `threshold` ({ simple: n }: n of the signers; { weighted: { weights, n } }: signers whose weights total n) attaches OpenZeppelin's threshold policy beside the predicate; with several signers and no threshold (or one a single signer meets) the install is REFUSED, because a rule with a policy is satisfied by any ONE of its signers acting alone; `anyOne` is the owners' override for that, echoed and gated like the others. `spendingLimit` attaches OpenZeppelin's rolling total beside the predicate (ledgers, about five seconds each). The wallet signs the returned XDR.",
   {
     ...net,
     ...display,
@@ -518,7 +523,8 @@ const install_policy = tool(
     follow: follow.optional(),
     smartAccount: contractId,
     sourceAccount: account,
-    signers: z.array(anyAddress).min(1).max(15),
+    signers: z.array(anyAddress).max(15),
+    executor: contractId.optional(),
     admins: z.array(anyAddress).min(1).max(15).optional(),
     name: z.string().min(1).max(20).optional(),
     validUntilLedger: z.number().int().positive().max(0xffffffff).optional(),
@@ -552,6 +558,11 @@ const install_policy = tool(
     )
     // The rule: an encoded predicate scoped by `contract`, or one the source yields.
     let rule: Chosen
+    if (i.signers.length === 0 && i.executor === undefined)
+      throw new Refusal(
+        'INVALID_INPUT',
+        'signers: none given; a rule with no signer is keyless and names the `executor` it will be bound to'
+      )
     if (i.follow !== undefined) exactlyOne(i, ['follow', 'encodedPredicate', ...SOURCES])
     const caps = await ensureInterpreter(connect(i), i.network, i.interpreterAddress)
     if (i.follow !== undefined) {
@@ -636,6 +647,41 @@ const revoke_policy = tool(
   }
 )
 
+const bind_policy = tool(
+  'bind_policy',
+  "Build the UNSIGNED transaction that binds a rule to an executor: the interpreter's `bind_executor((smartAccount, ruleId), executor)`. A bound rule permits a call only with that executor's grant for it (the executor's own `run` excepted), and a keyless rule (installed with no signers and `executor`) permits nothing until it is bound. The rule is read first, with its stored predicate, executor and admins; the build is REFUSED unless the rule is policed by the pinned interpreter with a predicate the package can read, the executor is an execution adapter (read off the ledger), a rule scoped to the executor pins `call_fn = run` or a whole immediate batch (`execute`, wait 0, the number of calls, each call's target and function_name; the interpreter refuses anything else with 221), and the rule's admins are the source account alone (each admin signs `bind_executor`). With no gate, the adapter vouches for every call of an immediate batch anyone runs through it, so the rule's predicate is the only fence: the review says so. The rule comes back as `binds` with its review; `rebinds` names an executor it replaces. The wallet signs the returned XDR.",
+  {
+    ...net,
+    ...display,
+    smartAccount: contractId,
+    sourceAccount: account,
+    ruleId: z.number().int().nonnegative().max(0xffffffff),
+    executor: contractId,
+    interpreterAddress: contractId.optional(),
+    baseFee,
+  },
+  async (i) => {
+    const server = connect(i)
+    const interpreter = interpreterFor(i.network, i.interpreterAddress)
+    const plan = await planBind(i, interpreter, {
+      readRule: (id) => readRule(server, i.network, i.smartAccount, id, interpreter),
+      kind: async (a) => (await contractKinds(server, [a]))[a] ?? 'absent',
+      fingerprint: (a) => fingerprint(server, i.network, a),
+      build: () => buildBind({ ...i, server }, interpreter, i.ruleId, i.executor),
+    })
+    const r = plan.binds
+    const contract = r.scope.kind === 'call_contract' ? r.scope.contract : undefined
+    const authority: Authority = {
+      signers: r.signers,
+      executor: { address: i.executor, kind: plan.executorKind },
+      ...(r.admins ? { admins: r.admins } : {}),
+      interpreter,
+    }
+    const shown = explain(i, { expr: r.expr, contract, authority, follows: r.follows })
+    return { ...plan, binds: { ...r, ...shown } }
+  }
+)
+
 /** The code an account runs, and whether it is an OpenZeppelin smart account build the package
  *  knows. A failure to read the code is `unread`, never "not a known build": it says nothing of the account. */
 async function trustedAccount(server: ReturnType<typeof connect>, account: string) {
@@ -689,7 +735,7 @@ const get_interpreter_info = tool(
 
 const review_unsigned = tool(
   'review_unsigned',
-  "Review an UNSIGNED transaction from `install_policy` or `revoke_policy` from its bytes alone, with no RPC: for the account owner's side (a wallet or the Prime app) to run on the XDR it is about to sign, with `smartAccount` naming the account the owner means to change. `problems` lists what is wrong in the bytes themselves: a shape the builder never makes (an authorisation for anything but the call, a rule other than 0, a `__check_auth` digest that does not match on this network, a signer other than the source, no time bound or a longer one, a fee above the ceiling, a precondition or memo, an External signer or admin) or a value it can check offline (an interpreter other than the pin, a predicate whose hash does not match its bytes, a policy the package does not know), and an envelope that already carries a signature. A contract signer is a problem unless `readContracts: true` reads it off the ledger through the operator's RPC (the one exception to no RPC): then only an execution adapter bound to no gate, an execution adapter signing a rule scoped to itself that does not pin call_fn = run, or a contract that is not deployed, is a problem. An install that follows another rule (`follow`) carries no predicate: it is a problem unless `readContracts: true` also reads that rule's predicate and nonce now off the pinned interpreter, which the review then shows under Follows, with the warning that its admins can change it without this account. Every other contract (a seat, a smart account, an adapter with a gate signing any other rule, any contract an agent deployed) then reads signable unvetted: the owner checks who controls it. `signable` means no problem was found; it does NOT mean safe to sign. An agent can rewrite the unsigned bytes consistently (itself as admin or signer, a threshold dropped, a cap raised with a matching hash) and they come back signable; so do installs that used an override and rules the builder would refuse for reasons it does not check from the bytes (overlap, read safety, 1-of-n). The owner must read `review`/`reviewTree`: the problems first, then the transaction (call, source, fee, time bound, authorisation expiry), then for an install the Authority node (signers, who can act alone, admins, expiry, total, interpreter) and the predicate, all read from the bytes.",
+  "Review an UNSIGNED transaction from `install_policy`, `revoke_policy` or `bind_policy` from its bytes alone, with no RPC: for the account owner's side (a wallet or the Prime app) to run on the XDR it is about to sign, with `smartAccount` naming the account the owner means to change. `problems` lists what is wrong in the bytes themselves: a shape the builder never makes (an authorisation for anything but the call, a rule other than 0, a `__check_auth` digest that does not match on this network, a signer other than the source, no time bound or a longer one, a fee above the ceiling, a precondition or memo, an External signer or admin) or a value it can check offline (an interpreter other than the pin, a predicate whose hash does not match its bytes, a policy the package does not know), and an envelope that already carries a signature. A contract signer is a problem unless `readContracts: true` reads it off the ledger through the operator's RPC (the one exception to no RPC): then only an execution adapter bound to no gate, an execution adapter signing a rule scoped to itself that does not pin call_fn = run, or a contract that is not deployed, is a problem. A binding (`bind_executor` on the interpreter) names an executor: it is a problem unless `readContracts: true` shows it to be an execution adapter, and one with no gate is described as what it is (anyone may run an immediate batch through it, so the bound rule's predicate is the only fence). An install that follows another rule (`follow`) carries no predicate: it is a problem unless `readContracts: true` also reads that rule's predicate and nonce now off the pinned interpreter, which the review then shows under Follows, with the warning that its admins can change it without this account. Every other contract (a seat, a smart account, an adapter with a gate signing any other rule, any contract an agent deployed) then reads signable unvetted: the owner checks who controls it. `signable` means no problem was found; it does NOT mean safe to sign. An agent can rewrite the unsigned bytes consistently (itself as admin or signer, a threshold dropped, a cap raised with a matching hash) and they come back signable; so do installs that used an override and rules the builder would refuse for reasons it does not check from the bytes (overlap, read safety, 1-of-n). The owner must read `review`/`reviewTree`: the problems first, then the transaction (call, source, fee, time bound, authorisation expiry), then for an install the Authority node (signers, who can act alone, admins, expiry, total, interpreter) and the predicate, all read from the bytes.",
   {
     ...net,
     ...display,
@@ -700,7 +746,10 @@ const review_unsigned = tool(
   async (i) => {
     // Bytes the decoder refuses are refused before any read.
     const offline = reviewUnsigned(i)
-    const signers = offline.authority?.signers.filter((s) => s.startsWith('C')) ?? []
+    const signers = [
+      ...(offline.authority?.signers.filter((s) => s.startsWith('C')) ?? []),
+      ...(offline.binds ? [offline.binds.executor] : []),
+    ]
     const ref = offline.rule?.follows
     if (i.readContracts !== true || (signers.length === 0 && !ref)) return offline
     const server = connect(i)
@@ -740,6 +789,7 @@ export const TOOLS: Tool[] = [
   verify_policy,
   install_policy,
   revoke_policy,
+  bind_policy,
   get_interpreter_info,
   review_unsigned,
 ]

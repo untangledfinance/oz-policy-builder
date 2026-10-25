@@ -77,7 +77,7 @@ const transferXdr = (amount = 5_000_000n) =>
     .toXDR('base64')
 
 describe('the table', () => {
-  it('has the eight tools, each with a name, a description and a shape', () => {
+  it('has the nine tools, each with a name, a description and a shape', () => {
     expect(TOOLS.map((t) => t.name)).toEqual([
       'record_transaction',
       'synthesize_policy',
@@ -85,6 +85,7 @@ describe('the table', () => {
       'verify_policy',
       'install_policy',
       'revoke_policy',
+      'bind_policy',
       'get_interpreter_info',
       'review_unsigned',
     ])
