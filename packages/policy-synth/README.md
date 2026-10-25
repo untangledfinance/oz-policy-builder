@@ -246,14 +246,20 @@ batch.
   admin's authorisation entries. The executor is a problem unless
   `readContracts: true` shows it to be an execution adapter. The rule's predicate
   is not in those bytes: `bind_policy`'s review shows it.
-- **A keyed rule that lets an execute carry the adapter's word:** a rule with
-  signers that permits an `execute` without holding its grants (argument 1) to
-  none lets a signer, on an adapter with no gate, hand out the adapter's word to
-  the account's policy, which every rule bound to that adapter accepts in place
-  of a key. That can be meant (an agent running batches that bound rules
-  check), so it is not refused: the Authority node of the install's review, and
-  of `review_unsigned`, carries a `note` saying so. Pin the grants with
-  `count` (`at: [1], is: 0`) unless it is meant.
+- **A keyed rule scoped to a no-gate adapter holds its grants to none:** a
+  rule with signers scoped to an execution adapter with no gate lets its signer
+  call `execute`, and in an immediate `execute` the adapter hands out its word
+  for whatever the batch's grants name, which a keyless rule bound to the
+  adapter accepts in place of a key. So `install_policy` REFUSES such a rule
+  unless every branch either permits no `execute` or pins the grants
+  (argument 1) to none (`count` at `[1]` is 0, or a length of at most 0). A rule
+  with no `call_fn` pin, or only `ne(call_fn, run)`, permits `execute` too. A
+  keyed rule that follows another rule's predicate cannot be held, so it is
+  refused there. A keyless rule for a no-gate adapter, and `bind_policy` to one,
+  are refused while any keyed rule on the account scoped to that adapter could
+  hand out its word, or while the account's rules are not all read.
+  `review_unsigned` flags it (with `readContracts`, which reads the scope; offline
+  it asks for that read). No override waives it.
 
 ## Rules that follow another rule
 

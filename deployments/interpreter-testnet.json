@@ -8,7 +8,7 @@
     "interpreter": "6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4"
   },
   "interpreterSource": {
-    "commit": "PR-1 head (feat/nogate-liq)",
+    "commit": "f8a6f8ceea87a678af4fc76516886410553f54a4",
     "reproducibleWasmSha256": "6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4",
     "note": "Built with ./build-wasm.sh on Linux x86_64 (the same bytes from a second path; pinned in contracts/build-hashes.json). Testnet only. The interpreter with referenced rules (a rule follows another rule's predicate) and the immediate-batch pin for a rule scoped to its executor (221), and DEPLOY-TIME LIMITS: __constructor(Limits) stores reads / leaves / bytes / elems / in entries / depth once in instance storage (each between a floor and a hard ceiling: reads 1..8, leaves 4..400, bytes 256..40,960, elems 2..64, in 1..64, depth 2..8, else error 220) and limits() returns them; install, check and enforce hold a predicate to them. This instance was deployed with reads 8, leaves 400, bytes 24,576 (PayFi's largest rule is 8.8 KB), elems 32, in 32, depth 5 (see `limits`). Nothing else deployed was touched."
   },
@@ -41,6 +41,12 @@
     "max_leaves": 400,
     "max_predicate_bytes": 24576,
     "max_reads": 8
+  },
+  "extendTx": {
+    "instance": "5259ef1d604c67bf3b97a950f525f7c4dea6573b74a5df270a003f573b951a87",
+    "code": "276b7c7dbd79d801fd52c655f72f7189766c412e82a34ea39b75d70ff789d627",
+    "liveUntilLedger": 8387495,
+    "note": "instance and code TTL extended to about mid-April 2027"
   },
   "superseded": [
     {

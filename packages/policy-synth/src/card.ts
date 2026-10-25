@@ -276,8 +276,6 @@ export interface Authority {
   interpreter?: string | undefined
   /** What that interpreter was deployed with: the caps every predicate under it is held to. */
   limits?: Readonly<Record<string, number>> | undefined
-  /** What the owner should know of the rule that is not a refusal. */
-  notes?: string[] | undefined
 }
 
 /** What binding a rule to an executor means, by what the executor is. */
@@ -348,7 +346,6 @@ export function authority(a: Authority, c: View): Node {
         .join(', ')})`
     : ''
   if (a.interpreter) facts.push(['interpreter', addr(a.interpreter, c) + caps, a.interpreter])
-  for (const n of a.notes ?? []) facts.push(['note', n, null])
   return group(
     'Authority',
     'authority',

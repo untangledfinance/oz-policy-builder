@@ -479,8 +479,10 @@ describe('reviewUnsigned: an install that follows another rule', () => {
   it('offline, what it permits is not in the bytes: a problem, and it says which rule it follows', async () => {
     const r = review(await follower())
     expect(r.signable).toBe(false)
-    expect(r.problems).toHaveLength(1)
+    expect(r.problems).toHaveLength(2)
     expect(r.problems[0]).toMatch(/carries no predicate: it follows rule 2 of C/)
+    // Keyed, and its predicate can change: what its scope is must be read (E-36).
+    expect(r.problems[1]).toMatch(/follows another rule's predicate, which can come to permit/)
     expect(r.rule).toMatchObject({
       predicateHash: hashOf(payload),
       predicate: null,
@@ -497,6 +499,7 @@ describe('reviewUnsigned: an install that follows another rule', () => {
       xdr: await follower(),
       smartAccount: ACCOUNT,
       followed: { expr, follows: now },
+      contracts: { [XLM]: 'contract' },
     })
     expect(r.problems).toEqual([])
     expect(r.rule).toMatchObject({ predicateHash: hashOf(payload), predicate: expr, follows: now })
@@ -585,6 +588,7 @@ describe('reviewUnsigned: an install that follows another rule', () => {
       xdr: x,
       smartAccount: ACCOUNT,
       followed: { expr, follows: now },
+      contracts: { [XLM]: 'contract' },
     })
     expect(r.problems).toEqual(['the predicate hash does not match the predicate bytes'])
   })
@@ -594,7 +598,13 @@ describe('reviewUnsigned: a binding of a rule to an executor', () => {
   const ADAPTER = contract(51)
   /** The honest install made into what bind_policy builds: the interpreter's bind_executor of rule 4,
    *  the account's entry for it, the source's check of that entry, and the source as the admin. */
-  const binding = async (o: { admin?: boolean; to?: string } = {}) =>
+  const binding = async (
+    o: {
+      admin?: boolean
+      to?: string
+      extra?: (a: xdr.SorobanAuthorizationEntry) => xdr.SorobanAuthorizationEntry[]
+    } = {}
+  ) =>
     edit((await install()).unsignedXdr, (env) => {
       const ic = callArgs(env)
       ic.contractAddress(new Address(o.to ?? INTERP).toScAddress())
@@ -613,7 +623,9 @@ describe('reviewUnsigned: a binding of a rule to an executor', () => {
           subInvocations: [],
         }),
       })
-      host.auth(o.admin === false ? [acct, check] : [acct, check, admin])
+      host.auth(
+        o.admin === false ? [acct, check] : [acct, check, admin, ...(o.extra?.(admin) ?? [])]
+      )
       resign(env)
     })
 
@@ -647,6 +659,66 @@ describe('reviewUnsigned: a binding of a rule to an executor', () => {
     expect(plain.problems.join('\n')).toMatch(/not an execution adapter/)
   })
 
+  it('a binding carries exactly one source-as-admin entry: a second, or one for another call, is a problem (M-2)', async () => {
+    const facts = { [ADAPTER]: 'gated adapter' as const }
+    const twice = reviewUnsigned({
+      network: 'testnet',
+      xdr: await binding({ extra: (a) => [a] }),
+      smartAccount: ACCOUNT,
+      contracts: facts,
+    })
+    expect(twice.signable).toBe(false)
+    expect(twice.problems.join('\n')).toMatch(
+      /4 authorisation entries .*2 for the source account as the rule's admin/
+    )
+    const other = reviewUnsigned({
+      network: 'testnet',
+      xdr: await binding({
+        extra: () => [
+          new xdr.SorobanAuthorizationEntry({
+            credentials: xdr.SorobanCredentials.sorobanCredentialsSourceAccount(),
+            rootInvocation: transfer,
+          }),
+        ],
+      }),
+      smartAccount: ACCOUNT,
+      contracts: facts,
+    })
+    expect(other.signable).toBe(false)
+    expect(other.problems.join('\n')).toMatch(/4 authorisation entries/)
+    // Three entries, but the third is the source authorising another call, not the binding.
+    const swapped = reviewUnsigned({
+      network: 'testnet',
+      xdr: await binding({ admin: false, extra: () => [] }).then((x) =>
+        edit(x, (env) => {
+          const host = opOf(env)
+          host.auth([
+            ...host.auth(),
+            new xdr.SorobanAuthorizationEntry({
+              credentials: xdr.SorobanCredentials.sorobanCredentialsSourceAccount(),
+              rootInvocation: transfer,
+            }),
+          ])
+        })
+      ),
+      smartAccount: ACCOUNT,
+      contracts: facts,
+    })
+    expect(swapped.signable).toBe(false)
+    expect(swapped.problems.join('\n')).toMatch(
+      /3 authorisation entries .*0 for the source account as the rule's admin/
+    )
+    // The honest one, read, is signable.
+    expect(
+      reviewUnsigned({
+        network: 'testnet',
+        xdr: await binding(),
+        smartAccount: ACCOUNT,
+        contracts: facts,
+      }).problems
+    ).toEqual([])
+  })
+
   it('another interpreter, or the admin entry missing, is a problem', async () => {
     const facts = { [ADAPTER]: 'gated adapter' as const }
     const other = reviewUnsigned({
@@ -666,7 +738,7 @@ describe('reviewUnsigned: a binding of a rule to an executor', () => {
   })
 })
 
-describe('reviewUnsigned: a keyed rule that lets an execute carry the adapter word (E-36)', () => {
+describe('reviewUnsigned: a keyed rule that could hand out a no-gate adapter word (E-36)', () => {
   const withPredicate = async (e: Expr) =>
     edit((await install()).unsignedXdr, (env) => {
       const args = callArgs(env).args()
@@ -680,17 +752,47 @@ describe('reviewUnsigned: a keyed rule that lets an execute carry the adapter wo
       args[4] = toScVal(policies)
       resign(env)
     })
-  it('is signable, with a note on the Authority node; holding the grants to 0 clears it', async () => {
-    const open = review(await withPredicate(callExpr({ contract: XLM, fn: 'execute' })))
-    expect(open.problems).toEqual([])
-    expect(open.authority?.notes?.[0]).toMatch(/hand out its word/)
-    expect(open.review.join('\n')).toMatch(/note: {2}the rule permits an execute/)
-    const shut = callExpr({
-      contract: XLM,
-      fn: 'execute',
-      where: [{ constraint: 'count', at: [1], is: 0 }],
+  const at = (x: string, kind?: 'null-gate adapter' | 'gated adapter' | 'contract') =>
+    reviewUnsigned({
+      network: 'testnet',
+      xdr: x,
+      smartAccount: ACCOUNT,
+      ...(kind ? { contracts: { [XLM]: kind } } : {}),
     })
-    expect(review(await withPredicate(shut)).authority).not.toHaveProperty('notes')
+  const execute = callExpr({ contract: XLM, fn: 'execute' })
+  const shut = callExpr({
+    contract: XLM,
+    fn: 'execute',
+    where: [{ constraint: 'count', at: [1], is: 0 }],
+  })
+  // No call_fn pin at all, or only ne(call_fn, run): the widest rules (M-1).
+  const open = ['eq', ['call_contract'], XLM] as Expr
+  const notRun = [
+    'and',
+    [
+      ['eq', ['call_contract'], XLM],
+      ['ne', ['call_fn'], 'run'],
+    ],
+  ] as Expr
+
+  it('on a no-gate adapter it is a problem, for execute, no function pin, or only ne(run)', async () => {
+    for (const e of [execute, open, notRun]) {
+      const r = at(await withPredicate(e), 'null-gate adapter')
+      expect(r.signable).toBe(false)
+      expect(r.problems.join('\n')).toMatch(
+        /an execution adapter with no gate, without holding the grants/
+      )
+    }
+  })
+
+  it('offline it is a problem until the scope is read; anything but a no-gate adapter, or grants held to 0, is not', async () => {
+    expect(at(await withPredicate(execute)).problems.join('\n')).toMatch(
+      /review with readContracts/
+    )
+    expect(at(await withPredicate(execute), 'gated adapter').problems).toEqual([])
+    expect(at(await withPredicate(execute), 'contract').problems).toEqual([])
+    expect(at(await withPredicate(shut), 'null-gate adapter').problems).toEqual([])
+    expect(at(await withPredicate(shut)).problems).toEqual([])
   })
 })
 

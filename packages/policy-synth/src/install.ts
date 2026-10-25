@@ -485,15 +485,33 @@ export function pinsNoGrants(e: Expr | null | undefined): boolean {
   )
 }
 
-/** A note (not a refusal) for a keyed rule that permits an `execute` without holding its grants to
- *  none: on an execution adapter with no gate, an immediate `execute` may hand out the adapter's word
- *  (`enforce(prime, context)`) to the Prime's policy, which a rule bound to that adapter takes in
- *  place of a key. The signer chooses to, so it is said, not refused. */
-export function grantsNote(signers: string[], expr: Expr | null | undefined): string | undefined {
-  if (signers.length === 0 || expr === null || expr === undefined) return undefined
-  if (!selectors(expr).some((s) => s.fn === 'execute') || pinsNoGrants(expr)) return undefined
-  return "the rule permits an execute without holding its grants (argument 1) to none: if the contract is an execution adapter with no gate, a signer can have it hand out its word to this account's policy, which every rule bound to that adapter accepts in place of a key; pin the grants to 0 unless that is meant"
-}
+/** Whether a predicate can permit a call to `execute` at all: some branch leaves the function open
+ *  or names `execute`. */
+export const permitsExecute = (e: Expr | null | undefined): boolean =>
+  e === null || e === undefined || selectors(e).some((s) => s.fn === 'execute' || s.fn === '*')
+
+/** Whether a KEYED rule scoped to an execution adapter with no gate is safe there: its signer calls
+ *  that adapter's `execute`, and in an immediate one the adapter hands out its word
+ *  (`enforce(prime, context)`) for whatever the batch's grants name, which a keyless rule bound to the
+ *  adapter takes in place of a key. So the rule must hold the grants (argument 1) to none on every
+ *  path, or permit no `execute`. A predicate that follows another rule's can change: never safe. */
+export const keyedSafeOnNoGate = (expr: Expr | null | undefined, follows: boolean): boolean =>
+  !follows && expr !== null && expr !== undefined && (!permitsExecute(expr) || pinsNoGrants(expr))
+
+/** Why a keyed rule scoped to an execution adapter with no gate is refused (STRIDE E-36). */
+export const WORD_LEAK = (adapter: string, rule?: number) =>
+  `${rule === undefined ? 'the rule' : `rule ${rule}`} has signers and is scoped to ${adapter}, an execution adapter with no gate, without holding the grants of execute (argument 1) to none on every branch: its signer could have the adapter hand out its word to this account's policy, which a keyless rule bound to that adapter accepts in place of a key, and move the account's funds. Pin the grants to 0 (\`count\` at [1] is 0), or keep keyless rules on a no-gate adapter that no keyed rule is scoped to`
+
+/** The keyed rules scoped to no-gate adapter `adapter` that could hand out its word: refused while any
+ *  rule is (or is to be) bound to it. A rule whose predicate was not read counts. */
+export const wordLeaks = (rules: ObservedRule[], adapter: string): ObservedRule[] =>
+  rules.filter(
+    (r) =>
+      r.signers.length > 0 &&
+      r.scope.kind === 'call_contract' &&
+      r.scope.contract === adapter &&
+      !keyedSafeOnNoGate(r.expr, r.follows !== undefined)
+  )
 
 /** Why a rule scoped to its own executor is refused: it pins neither `run` nor a whole immediate batch. */
 export const EXECUTOR_SELF_RULE = (executor: string) =>
@@ -605,6 +623,8 @@ export async function planRevoke(
  *  is, the interpreter's fingerprint, and the build. */
 export interface BindChain {
   readRule: (id: number) => Promise<ObservedRule | undefined>
+  /** Every rule on the account, read as the overlap scan reads them. */
+  readRules: () => Promise<RulesRead>
   kind: (executor: string) => Promise<ContractKind>
   fingerprint: (interpreter: string) => Promise<Fingerprint>
   build: () => Promise<Built>
@@ -621,11 +641,12 @@ export async function planBind(
   chain: BindChain
 ) {
   const no = (m: string) => new Refusal('BIND_BUILD_FAILED', m)
-  const [rule, kind, live, built] = await Promise.allSettled([
+  const [rule, kind, live, built, all] = await Promise.allSettled([
     chain.readRule(i.ruleId),
     chain.kind(i.executor),
     chain.fingerprint(interpreter),
     chain.build(),
+    chain.readRules(),
   ])
   const got = <T>(r: PromiseSettledResult<T>): T => {
     if (r.status === 'rejected') throw r.reason
@@ -646,6 +667,17 @@ export async function planBind(
   const scopedTo = r.scope.kind === 'call_contract' ? r.scope.contract : undefined
   const problem = executorProblem(i.executor, got(kind), scopedTo, r.expr)
   if (problem) throw no(problem)
+  // E-36: bound to a no-gate adapter, a rule takes the word any keyed rule scoped to that adapter can
+  // have it hand out; refused while one could, or while the account's rules are not all read.
+  if (got(kind) === 'null-gate adapter') {
+    const read = got(all)
+    const leaks = wordLeaks([...read.rules.filter((x) => x.id !== r.id), r], i.executor)
+    if (leaks.length > 0) throw no(leaks.map((x) => WORD_LEAK(i.executor, x.id)).join(' '))
+    if (!read.complete)
+      throw no(
+        `the account's rules could not all be read, so whether a keyed rule scoped to ${i.executor} could hand out its word is not known`
+      )
+  }
   if (r.admins?.length !== 1 || r.admins[0] !== i.sourceAccount)
     throw no(
       `rule ${i.ruleId}'s admins are ${(r.admins ?? []).join(', ') || 'unknown'}: bind_executor needs each of them to sign, and this builder signs as the source account ${i.sourceAccount} alone`
@@ -804,11 +836,16 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   }
   // The four do not depend on each other, so they run together; what each found is
   // judged in a fixed order, so the same input is refused for the same reason.
+  // A keyed rule that could hand out an adapter's word needs to know what its scope is (E-36).
+  const askScope = k > 0 && !keyedSafeOnNoGate(rule.expr, rule.follows !== undefined)
   const [live, kinds, scan, built] = await Promise.allSettled([
     chain.fingerprint(interpreter),
     chain.contracts([
       ...i.signers.filter((s) => s.startsWith('C')),
       ...(i.executor ? [i.executor] : []),
+      ...(askScope && !i.signers.includes(rule.contract) && rule.contract !== i.executor
+        ? [rule.contract]
+        : []),
     ]),
     chain.readRules(i.smartAccount, interpreter),
     chain.build(draft, interpreter),
@@ -834,6 +871,18 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
     if (problem) throw no(problem)
   }
   const read = got(scan)
+  // E-36: a keyed rule scoped to a no-gate adapter must hold its grants to none; no override.
+  if (askScope && known[rule.contract] === 'null-gate adapter') throw no(WORD_LEAK(rule.contract))
+  // Nor may a keyless rule be meant for a no-gate adapter beside a keyed rule on it that could vouch.
+  if (i.executor && known[i.executor] === 'null-gate adapter') {
+    const leaks = wordLeaks(read.rules, i.executor)
+    if (leaks.length > 0)
+      throw no(leaks.map((r) => WORD_LEAK(i.executor as string, r.id)).join(' '))
+    if (!read.complete)
+      throw no(
+        `the account's rules could not all be read, so whether a keyed rule scoped to ${i.executor} could hand out its word is not known`
+      )
+  }
   const found = overlaps(
     { ...draft, expr: rule.expr, ...(rule.follows ? { follows: rule.follows } : {}) },
     read.rules,
@@ -854,9 +903,6 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
     authority: {
       signers: i.signers,
       ...(i.executor ? { executor: { address: i.executor, kind: known[i.executor] } } : {}),
-      ...(grantsNote(i.signers, rule.expr)
-        ? { notes: [grantsNote(i.signers, rule.expr) as string] }
-        : {}),
       threshold: t && { ...t, raw: draft.extra?.[0] as Val },
       admins: draft.admins,
       validUntil: draft.validUntil,

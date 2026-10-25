@@ -43,9 +43,10 @@ import { messageOf, Refusal } from './envelope.ts'
 import {
   digest,
   executorProblem,
-  grantsNote,
   isAddressEntry,
+  keyedSafeOnNoGate,
   signerProblem,
+  WORD_LEAK,
   xlm,
 } from './install.ts'
 import { callOf } from './record.ts'
@@ -345,8 +346,16 @@ export function reviewUnsigned(i: {
       }
       for (const a of r.authority.admins ?? []) roles[a] ??= 'admin'
       for (const s of r.authority.signers) roles[s] ??= 'signer'
-      const note = grantsNote(r.authority.signers, r.rule.predicate)
-      if (note) r.authority.notes = [note]
+      // E-36: a keyed rule scoped to a no-gate adapter must hold its grants to none.
+      const safe = keyedSafeOnNoGate(r.rule.predicate, r.rule.follows !== undefined)
+      if (scopedTo && r.authority.signers.length > 0 && !safe) {
+        const kind = i.contracts?.[scopedTo]
+        if (kind === 'null-gate adapter') flag(WORD_LEAK(scopedTo))
+        else if (kind === undefined)
+          flag(
+            `the rule has signers and ${r.rule.follows ? "follows another rule's predicate, which can come to permit" : 'permits'} a call to execute on ${scopedTo} without holding its grants (argument 1) to none: if that contract is an execution adapter with no gate, a signer could have it hand out its word to this account's policy; review with readContracts`
+          )
+      }
       out.authority = r.authority
       out.rule = r.rule
       const v = { ...view, contract: scopedTo }

@@ -8,8 +8,7 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 
 ### Added
 
-- **Referenced rules in the policy interpreter** (wasm `77db6ab0…`, not
-  deployed): a rule follows the predicate of an existing rule
+- **Referenced rules in the policy interpreter**: a rule follows the predicate of an existing rule
   `(account, rule_id)` on the same interpreter when its install payload's
   predicate is the XDR of that pair; the payload hash then commits to the
   reference. The referenced account changes the predicate by its own
@@ -17,10 +16,7 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
   the predicate is shared: signers, binding, executor grant, nonce and
   master set stay each follower's. A missing source refuses (`206`), a
   source that is itself a reference refuses (`201`), and a follower's
-  permit extends the referenced entry's TTL. No new entry point. The testnet
-  instance and the `policy-synth` pin stay on `810f53f1…` until a deploy and
-  repin; `config.test.ts` no longer ties the deployed instance's hash to the
-  source build hash.
+  permit extends the referenced entry's TTL. No new entry point.
 - **policy-synth writes and reviews rules that follow another rule.**
   `install_policy` takes `follow: { smartAccount, ruleId }` and emits the
   reference payload (the XDR of `(account, rule_id)`, with its hash); every
@@ -53,11 +49,18 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
   executor mean (with no gate, anyone may run an immediate batch, so the
   predicate is the only fence), and `review_unsigned` reads a
   `bind_executor` from its bytes. The rule reader returns each rule's bound
-  `executor` and `admins`. The CLI and the MCP server serve nine tools. A keyed
-  rule that permits an `execute` without holding its grants to none carries a
-  `note` on its Authority node (install and `review_unsigned`): on an adapter
-  with no gate, its signer could hand out the adapter's word to the account's
-  policy.
+  `executor` and `admins`. The CLI and the MCP server serve nine tools.
+- **A keyed rule scoped to an execution adapter with no gate must hold its
+  grants to none.** Such a rule's signer could otherwise have the adapter
+  hand out its word to the account's policy in an immediate `execute`, which
+  a keyless rule bound to the adapter accepts in place of a key, and move the
+  account's funds. `install_policy` refuses a keyed rule scoped to a no-gate
+  adapter whose predicate permits `execute` (or leaves the function open)
+  without `call_arg_len(1) == 0` on every branch, or that follows another
+  rule's predicate; `install_policy` and `bind_policy` refuse a keyless rule
+  or a binding for a no-gate adapter while such a keyed rule is on the
+  account (or the account's rules are not all read); `review_unsigned` flags
+  it, and asks for `readContracts` when the scope is not read. No override.
 
 ### Changed
 

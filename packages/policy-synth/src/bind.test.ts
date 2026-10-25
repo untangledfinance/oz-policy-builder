@@ -2,8 +2,11 @@
 // builder refuses it, and read back by the owner's review.
 
 import { afterAll, describe, expect, it } from 'bun:test'
+import { Address, nativeToScVal, xdr } from '@stellar/stellar-sdk'
 import { account, contract } from '../test/fixtures.ts'
 import { recorded } from '../test/rpc.ts'
+import { connect, interpreterFor } from './chain.ts'
+import { buildBind } from './install.ts'
 import { run } from './tools.ts'
 
 const ACCOUNT = 'CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P'
@@ -172,5 +175,66 @@ describe('a rule that follows another, on the pinned interpreter (it supports re
     })) as Out
     expect(r.error?.code).toBe('INSTALL_BUILD_FAILED')
     expect(r.error?.message).toMatch(/one level only/)
+  })
+})
+
+describe('buildSelfCall to another contract trusts only the source as admin, for exactly the call (M-2)', () => {
+  const server = connect(net.endpoint)
+  const args = { server, network: 'testnet' as const, smartAccount: ACCOUNT, sourceAccount: SIGNER }
+  /** The RPC's recording pass answers with one more authorisation entry. */
+  const adding = (extra: () => xdr.SorobanAuthorizationEntry) =>
+    new Proxy(server, {
+      get(target, prop, receiver) {
+        if (prop !== 'simulateTransaction') return Reflect.get(target, prop, receiver)
+        return async (t: Parameters<typeof server.simulateTransaction>[0]) => {
+          const sim = await target.simulateTransaction(t)
+          if ('result' in sim && sim.result) sim.result.auth = [...sim.result.auth, extra()]
+          return sim
+        }
+      },
+    })
+  const transfer = new xdr.SorobanAuthorizedInvocation({
+    function: xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
+      new xdr.InvokeContractArgs({
+        contractAddress: new Address(TOKEN).toScAddress(),
+        functionName: 'transfer',
+        args: [
+          new Address(ACCOUNT).toScVal(),
+          new Address(SIGNER).toScVal(),
+          nativeToScVal(1n, { type: 'i128' }),
+        ],
+      })
+    ),
+    subInvocations: [],
+  })
+
+  it('an extra source-account entry for another call, or an entry for another address, is refused', async () => {
+    const asSource = adding(
+      () =>
+        new xdr.SorobanAuthorizationEntry({
+          credentials: xdr.SorobanCredentials.sorobanCredentialsSourceAccount(),
+          rootInvocation: transfer,
+        })
+    )
+    await expect(
+      buildBind({ ...args, server: asSource }, interpreterFor('testnet'), 6, GATED_ADAPTER)
+    ).rejects.toThrow(/an authorisation other than the account's and the source account's/)
+    const other = adding(
+      () =>
+        new xdr.SorobanAuthorizationEntry({
+          credentials: xdr.SorobanCredentials.sorobanCredentialsAddress(
+            new xdr.SorobanAddressCredentials({
+              address: new Address(NULL_ADAPTER).toScAddress(),
+              nonce: xdr.Int64.fromString('1'),
+              signatureExpirationLedger: 1,
+              signature: xdr.ScVal.scvVoid(),
+            })
+          ),
+          rootInvocation: transfer,
+        })
+    )
+    await expect(
+      buildBind({ ...args, server: other }, interpreterFor('testnet'), 6, GATED_ADAPTER)
+    ).rejects.toThrow(/the RPC answer is not trusted/)
   })
 })

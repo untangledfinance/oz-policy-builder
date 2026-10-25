@@ -36,6 +36,7 @@ import {
   type Chosen,
   gate,
   INSTALL_OVERRIDES,
+  keyedSafeOnNoGate,
   type Override,
   planBind,
   planInstall,
@@ -665,6 +666,7 @@ const bind_policy = tool(
     const interpreter = interpreterFor(i.network, i.interpreterAddress)
     const plan = await planBind(i, interpreter, {
       readRule: (id) => readRule(server, i.network, i.smartAccount, id, interpreter),
+      readRules: () => readRules(server, i.network, i.smartAccount, interpreter),
       kind: async (a) => (await contractKinds(server, [a]))[a] ?? 'absent',
       fingerprint: (a) => fingerprint(server, i.network, a),
       build: () => buildBind({ ...i, server }, interpreter, i.ruleId, i.executor),
@@ -746,18 +748,31 @@ const review_unsigned = tool(
   async (i) => {
     // Bytes the decoder refuses are refused before any read.
     const offline = reviewUnsigned(i)
+    // The rule's scope too, when a keyed rule there could hand out an adapter's word (E-36).
+    const scope = offline.rule?.scope
+    const scopedTo =
+      Array.isArray(scope) && scope[0] === 'CallContract' ? String(scope[1]) : undefined
+    const keyed = (offline.authority?.signers.length ?? 0) > 0
+    const leak =
+      keyed && scopedTo && !keyedSafeOnNoGate(offline.rule?.predicate, !!offline.rule?.follows)
     const signers = [
-      ...(offline.authority?.signers.filter((s) => s.startsWith('C')) ?? []),
-      ...(offline.binds ? [offline.binds.executor] : []),
+      ...new Set([
+        ...(offline.authority?.signers.filter((s) => s.startsWith('C')) ?? []),
+        ...(offline.binds ? [offline.binds.executor] : []),
+      ]),
     ]
     const ref = offline.rule?.follows
-    if (i.readContracts !== true || (signers.length === 0 && !ref)) return offline
+    const asked = leak && !signers.includes(scopedTo) ? scopedTo : undefined
+    if (i.readContracts !== true || (signers.length === 0 && !ref && !asked)) return offline
     const server = connect(i)
-    const [contracts, followed] = await Promise.all([
+    // A signer that cannot be read refuses the review; a scope that cannot be read stays a problem.
+    const [contracts, scopeKind, followed] = await Promise.all([
       signers.length ? contractKinds(server, signers) : undefined,
+      asked ? contractKinds(server, [asked]).catch(() => undefined) : undefined,
       ref && followedFor(server, i.network, offline.authority?.interpreter, ref),
     ])
-    return reviewUnsigned({ ...i, contracts, followed })
+    const all = contracts || scopeKind ? { ...scopeKind, ...contracts } : undefined
+    return reviewUnsigned({ ...i, contracts: all, followed })
   }
 )
 

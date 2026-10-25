@@ -312,9 +312,12 @@ describe('planBind: the binding of a rule to an executor', () => {
   })
   const bindChain = (
     r: ObservedRule | undefined,
-    kind: ContractKind = 'null-gate adapter'
+    kind: ContractKind = 'null-gate adapter',
+    others: ObservedRule[] = [],
+    complete = true
   ): BindChain => ({
     readRule: async () => r,
+    readRules: async () => ({ rules: others, complete, unreadable: [] }),
     kind: async () => kind,
     fingerprint: async () => ours,
     build: async () => ({ unsignedXdr: 'BBBB' }) as never,
@@ -364,15 +367,59 @@ describe('planBind: the binding of a rule to an executor', () => {
     )
   })
 
+  it('E-36: bound to a no-gate adapter, refused while a keyed rule scoped to it could vouch', async () => {
+    const code = 'BIND_BUILD_FAILED'
+    const leaky = observed({
+      id: 9,
+      signers: [SOURCE],
+      expr: callExpr({ contract: ADAPTER, fn: 'execute' }),
+    })
+    await refused(
+      planBind(i, INTERP, bindChain(observed(), 'null-gate adapter', [leaky])),
+      code,
+      /rule 9 has signers/
+    )
+    await refused(
+      planBind(i, INTERP, bindChain(observed(), 'null-gate adapter', [], false)),
+      code,
+      /could not all be read/
+    )
+    // The rule bound is itself keyed and open: refused.
+    const keyedOpen = observed({
+      scope: { kind: 'call_contract', contract: ADAPTER },
+      signers: [SOURCE],
+      expr: callExpr({ contract: ADAPTER, fn: 'execute' }),
+    })
+    await refused(planBind(i, INTERP, bindChain(keyedOpen)), code, /rule 4 has signers|221/)
+    // Held to no grants, or on a gated adapter, the neighbour does not block.
+    const held = {
+      ...leaky,
+      expr: callExpr({
+        contract: ADAPTER,
+        fn: 'execute',
+        where: [{ constraint: 'count', at: [1], is: 0 }],
+      }),
+    }
+    expect(
+      (await planBind(i, INTERP, bindChain(observed(), 'null-gate adapter', [held]))).unsignedXdr
+    ).toBe('BBBB')
+  })
+
   it('executorProblem: a rule scoped elsewhere needs only an adapter', () => {
     expect(executorProblem(ADAPTER, 'null-gate adapter', VENUE, null)).toBeUndefined()
     expect(executorProblem(ADAPTER, 'gated adapter', VENUE, null)).toBeUndefined()
   })
 })
 
-describe('STRIDE E-36: a keyed rule that lets an execute carry the adapter word is noted, not refused', () => {
+describe('STRIDE E-36: a keyed rule scoped to a no-gate adapter must hold its grants to none (refused)', () => {
   const keyed = (where: Intent['calls'][number]['where']) =>
     intentExprs({ calls: [{ contract: ADAPTER, fn: 'execute', where }] }).get(ADAPTER) as Expr
+  const chosen = (e: Expr): Chosen => ({
+    contract: ADAPTER,
+    expr: e,
+    encoded: encode(e),
+    hash: hashOf(encode(e)),
+  })
 
   it('pinsNoGrants: eq 0, lte 0 or lt 1 on the grants, on every path; anything else pins nothing', () => {
     expect(pinsNoGrants(keyed([{ constraint: 'count', at: [1], is: 0 }]))).toBe(true)
@@ -385,25 +432,87 @@ describe('STRIDE E-36: a keyed rule that lets an execute carry the adapter word 
     expect(pinsNoGrants(null)).toBe(false)
   })
 
-  it('install_policy builds it, and the Authority node carries the note', async () => {
-    const open = keyed([{ constraint: 'length', at: [0], max: 2 }])
-    const c = { contract: ADAPTER, expr: open, encoded: encode(open), hash: hashOf(encode(open)) }
-    const r = await planInstall({ ...input, signers: [SOURCE] }, c, chain())
-    expect(r.authority.notes?.[0]).toMatch(/hand out its word to this account's policy/)
-    expect(lines([authority(r.authority, {})]).join('\n')).toMatch(
-      /note: {2}the rule permits an execute/
+  it('install_policy refuses it for execute, for no call_fn pin, and for only ne(call_fn, run), with no override', async () => {
+    const wide: Expr[] = [
+      keyed([{ constraint: 'length', at: [0], max: 2 }]),
+      ['eq', ['call_contract'], ADAPTER],
+      and([
+        ['eq', ['call_contract'], ADAPTER],
+        ['ne', ['call_fn'], 'run'],
+      ]),
+    ]
+    for (const e of wide)
+      await refused(
+        planInstall({ ...input, signers: [SOURCE], allowOverlap: true }, chosen(e), chain()),
+        'INSTALL_BUILD_FAILED',
+        /no gate, without holding the grants of execute/
+      )
+    // A keyed rule following another rule's predicate cannot be held: refused there too.
+    await refused(
+      planInstall(
+        { ...input, signers: [SOURCE] },
+        {
+          ...chosen(keyed([{ constraint: 'count', at: [1], is: 0 }])),
+          follows: { account: OTHER, ruleId: 1 },
+        },
+        chain()
+      ),
+      'INSTALL_BUILD_FAILED',
+      /no gate/
     )
-    const shut = keyed([{ constraint: 'count', at: [1], is: 0 }])
-    const tight = {
-      contract: ADAPTER,
-      expr: shut,
-      encoded: encode(shut),
-      hash: hashOf(encode(shut)),
-    }
-    const t = await planInstall({ ...input, signers: [SOURCE] }, tight, chain())
-    expect(t.authority).not.toHaveProperty('notes')
-    // A keyless rule has no signer to choose it: no note.
+  })
+
+  it('a keyed rule holding the grants to 0, one on a gated adapter, and a keyless rule still build', async () => {
+    const shut = chosen(keyed([{ constraint: 'count', at: [1], is: 0 }]))
+    expect(
+      (await planInstall({ ...input, signers: [SOURCE] }, shut, chain())).authority.signers
+    ).toEqual([SOURCE])
+    const open = chosen(keyed([]))
+    const gated = await planInstall(
+      { ...input, signers: [SOURCE] },
+      open,
+      chain({ [ADAPTER]: 'gated adapter' })
+    )
+    expect(gated.authority.signers).toEqual([SOURCE])
     const k = await planInstall({ ...input, executor: ADAPTER }, rule, chain())
-    expect(k.authority).not.toHaveProperty('notes')
+    expect(k.authority.signers).toEqual([])
+  })
+
+  it('a keyless rule for a no-gate adapter is refused while a keyed rule on it could vouch, or the rules are not all read', async () => {
+    const leaky: ObservedRule = {
+      id: 9,
+      scope: { kind: 'call_contract', contract: ADAPTER },
+      signers: [SOURCE],
+      policies: [INTERP],
+      expr: keyed([]),
+    }
+    const withRules = (rules: ObservedRule[], complete = true): Chain => ({
+      ...chain(),
+      readRules: async () => ({ rules, complete, unreadable: [] }),
+    })
+    await refused(
+      planInstall({ ...input, executor: ADAPTER }, rule, withRules([leaky])),
+      'INSTALL_BUILD_FAILED',
+      /rule 9 has signers/
+    )
+    await refused(
+      planInstall(
+        { ...input, executor: ADAPTER },
+        rule,
+        withRules([{ ...leaky, expr: undefined }])
+      ),
+      'INSTALL_BUILD_FAILED',
+      /rule 9 has signers/
+    )
+    await refused(
+      planInstall({ ...input, executor: ADAPTER }, rule, withRules([], false)),
+      'INSTALL_BUILD_FAILED',
+      /could not all be read/
+    )
+    const held = { ...leaky, expr: keyed([{ constraint: 'count', at: [1], is: 0 }]) }
+    expect(
+      (await planInstall({ ...input, executor: ADAPTER }, rule, withRules([held]))).authority
+        .signers
+    ).toEqual([])
   })
 })
