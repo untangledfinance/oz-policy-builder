@@ -123,8 +123,17 @@ bundle its own calls atomically. The flow is narrow:
 - a batch with no grants hands out nothing, so keyed rules (the agent's, or the
   owners' rule 0) work as before: the agent needs one rule for `execute` and
   one for each token it moves, each with its own cap. A keyed batch that
-  carries words now passes the adapter, and the Prime's rules decide; it only
-  matters on an account whose admins bound rules to this adapter;
+  carries words now passes the adapter, and the Prime's rules decide;
+- **invariant (STRIDE E-36, High; residual Medium with the mitigations):** no
+  keyed rule scoped to a no-gate adapter may omit `call_arg_len(1) == 0` (no
+  words). Without that pin, an agent's door rule plus one word lets the agent
+  cite the account's keyless inner rules (each bounds one call; the
+  liquidation's cross-call guards are in the root rule, which the agent never
+  cites) and move every balance they cover. Preferred: a dedicated no-gate
+  adapter for keyless rules, its own `run_window` and so its own address, with
+  no keyed rule scoped to it. `policy-synth` refuses the dangerous
+  configuration; nothing on chain does, because the interpreter sees one rule
+  at a time;
 - with no address list, those predicates are the whole constraint. Pin each
   recipient (`eq` or `in` on the destination argument), bind a payer to the
   receiver across calls, and bound each amount from both sides. Send the

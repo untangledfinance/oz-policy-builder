@@ -1443,3 +1443,144 @@ fn l10_a_strangers_rule_bound_to_our_adapter_gets_nothing() {
     assert_eq!(w.balance(&w.xlm, &to), 0);
     assert_eq!(w.balance(&w.xlm, &stranger), Y);
 }
+
+// ---- E-36: a keyed door rule on the adapter and the keyless inner rules ----
+
+impl World {
+    /// An agent's batch through `adapter`: `calls` with `words`, the account's
+    /// entry citing `ids` with the agent's key, and the agent's own entry
+    /// authorising the 0.8.0 preimage of exactly those ids.
+    fn agent_run(
+        &self,
+        adapter: &Address,
+        agent: &Address,
+        calls: &Vec<Call>,
+        words: &Vec<InvokerContractAuthEntry>,
+        inner: &[Context],
+        ids: &[u32],
+    ) -> Flow {
+        let key = Signer::Delegated(agent.clone());
+        let args: Vec<Val> = (calls.clone(), words.clone(), 0u32).into_val(&self.env);
+        let mut root = self.node(adapter, "execute", args);
+        root.sub_invocations = self.tree(calls, words, 0, inner).sub_invocations;
+        let (entry, digest) = self.account_entry(root, ids, core::slice::from_ref(&key));
+        let mut rule_ids = Vec::new(&self.env);
+        for id in ids {
+            rule_ids.push_back(*id);
+        }
+        let preimage = policy_interpreter_oz08::AuthDigestPreimage {
+            account: self.account.clone(),
+            signature_payload: digest,
+            context_rule_ids: rule_ids,
+        };
+        let signed = self.approving_entry(
+            agent,
+            invocation(
+                &self.account,
+                "__check_auth",
+                alloc::vec![scval(&self.env, preimage)],
+                alloc::vec![],
+            ),
+        );
+        self.run(adapter, calls, words, 0, &[entry, signed])
+    }
+}
+
+/// E-36, the hazard and both mitigations. The account runs the liquidation's
+/// keyless inner rules bound to the no-gate adapter `N`, and gives an agent a
+/// keyed "door" rule on `N.execute`. The inner XLM rule bounds only the
+/// account as sender and a positive amount: the liquidation's cross-call
+/// guards live in the pinned ROOT rule, which an agent's batch never cites.
+///
+/// (a) THE HAZARD: a door that does not pin the number of grants lets the
+///     agent hand `N` one word for a transfer of the whole XLM balance to
+///     itself, cite the keyless inner rule for it, and drain the account.
+///     Without the word the same batch is refused at the binding.
+/// (b) MITIGATION 1: the door pins `call_arg_len(1) == 0` (no words): the
+///     same batch is refused by the door's own predicate.
+/// (c) MITIGATION 2 (preferred): a DEDICATED no-gate adapter for the keyless
+///     rules, with no keyed rule scoped to it. The agent's door is on its own
+///     no-gate adapter; the keyless rules are bound to the dedicated one, so
+///     the agent's adapter's word does not satisfy their binding, and through
+///     the dedicated adapter the agent has no door at all.
+#[test]
+fn e36_a_keyed_door_without_a_grants_pin_drains_through_keyless_inner_rules() {
+    let w = World::new();
+    let rules = w.rules();
+    let agent = w.env.register(Approving, ());
+    let key = Signer::Delegated(agent.clone());
+    let keys = soroban_sdk::vec![&w.env, key.clone()];
+    let all = w.balance(&w.xlm, &w.account);
+    let to_agent: Vec<Val> = (w.account.clone(), agent.clone(), all).into_val(&w.env);
+    let calls = soroban_sdk::vec![&w.env, w.call(&w.xlm, "transfer", to_agent.clone())];
+    let inner = [w.ctx(&w.xlm, "transfer", to_agent)];
+    let words = w.words(&inner);
+    let none: Vec<InvokerContractAuthEntry> = Vec::new(&w.env);
+
+    // (a) The hazard.
+    let door = w.add_rule(&w.adapter, keys.clone(), &fn_is("execute"));
+    let ids = [door.id, rules.xlm];
+    assert_eq!(
+        w.agent_run(&w.adapter, &agent, &calls, &none, &inner, &ids),
+        Flow::Refused,
+        "without a word the keyless inner rule fails its binding"
+    );
+    assert_eq!(w.balance(&w.xlm, &agent), 0);
+    assert_eq!(
+        w.agent_run(&w.adapter, &agent, &calls, &words, &inner, &ids),
+        Flow::Ran,
+        "with one word the unpinned door drains the account"
+    );
+    assert_eq!(w.balance(&w.xlm, &agent), all);
+    assert_eq!(w.balance(&w.xlm, &w.account), 0);
+
+    // (b) Mitigation 1: the door pins "no words".
+    let w = World::new();
+    let rules = w.rules();
+    let agent = w.env.register(Approving, ());
+    let keys = soroban_sdk::vec![&w.env, Signer::Delegated(agent.clone())];
+    let all = w.balance(&w.xlm, &w.account);
+    let to_agent: Vec<Val> = (w.account.clone(), agent.clone(), all).into_val(&w.env);
+    let calls = soroban_sdk::vec![&w.env, w.call(&w.xlm, "transfer", to_agent.clone())];
+    let inner = [w.ctx(&w.xlm, "transfer", to_agent)];
+    let words = w.words(&inner);
+    let no_words = eq(scvec(alloc::vec![sym("call_arg_len"), u(1)]), u(0));
+    let pinned = and(alloc::vec![fn_is("execute"), no_words]);
+    let door = w.add_rule(&w.adapter, keys.clone(), &pinned);
+    let ids = [door.id, rules.xlm];
+    assert_eq!(
+        w.agent_run(&w.adapter, &agent, &calls, &words, &inner, &ids),
+        Flow::Refused
+    );
+    assert_eq!(w.balance(&w.xlm, &agent), 0);
+    assert_eq!(w.balance(&w.xlm, &w.account), all);
+
+    // (c) Mitigation 2: a dedicated no-gate adapter for the keyless rules
+    //     (`w.adapter`, window 0), and the agent's door on its own no-gate
+    //     adapter (window 1, another address).
+    let at = derived(&w.env, &w.account, None, 1);
+    w.env.mock_all_auths();
+    let mine = w.env.register_at(
+        &at,
+        adapter_wasm().as_slice(),
+        (w.account.clone(), None::<Address>, 0u32, 1u32),
+    );
+    assert!(mine != w.adapter);
+    let door = w.add_rule(&mine, keys, &fn_is("execute"));
+    // Through its own adapter, with that adapter's word: the keyless rule is
+    // bound to the dedicated adapter, whose word it never gets.
+    let ids = [door.id, rules.xlm];
+    assert_eq!(
+        w.agent_run(&mine, &agent, &calls, &words, &inner, &ids),
+        Flow::Refused
+    );
+    // Through the dedicated adapter: no keyed rule is scoped to it, so the
+    // agent can only cite the liquidate rule, whose shape the batch is not.
+    let ids = [rules.liquidate, rules.xlm];
+    assert_eq!(
+        w.agent_run(&w.adapter, &agent, &calls, &words, &inner, &ids),
+        Flow::Refused
+    );
+    assert_eq!(w.balance(&w.xlm, &agent), 0);
+    assert_eq!(w.balance(&w.xlm, &w.account), all);
+}

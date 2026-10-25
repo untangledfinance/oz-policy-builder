@@ -55,7 +55,7 @@ Commands run from the contract's own folder.
 | `stellar/policy-interpreter` | `./build-wasm.sh` | `6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4`, pinned in `build-hashes.json` |
 | | `cargo test` (after `./build-wasm.sh`, which `tests/worst_case.rs` loads) | 440: 173 unit and 267 in 15 integration suites |
 | | `cargo test --release --test conformance` | 18 |
-| `stellar/policy-interpreter/oz08` | `cargo test --locked` (after the interpreter's and the adapter's `./build-wasm.sh`) | 25: 14 in `oz08.rs`, 11 in `nogate.rs` (a liquidation by anyone through an adapter with no gate) |
+| `stellar/policy-interpreter/oz08` | `cargo test --locked` (after the interpreter's and the adapter's `./build-wasm.sh`) | 26: 14 in `oz08.rs`, 12 in `nogate.rs` (a liquidation by anyone through an adapter with no gate, and the E-36 hazard with both mitigations) |
 | `stellar/execution-adapter` | `./build-wasm.sh` | `bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0`, pinned in `build-hashes.json` |
 | | `cargo test` | 67 |
 | `stellar/custody-gate` | `./build-wasm.sh` | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab`, recorded in `deployments/` |

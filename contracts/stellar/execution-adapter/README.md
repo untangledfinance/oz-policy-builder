@@ -37,6 +37,15 @@ the number of calls and every call's target and function (221 otherwise). The
 entry authorises no move: a token, a venue or the Prime asks this adapter for
 nothing named `enforce`. A batch with no grants hands out nothing, as before.
 
+**Do not share it between keys and keyless rules.** A keyed rule an agent
+holds on this adapter's `execute` lets the agent pass words too, and the
+account's keyless inner rules bound to this adapter then answer the agent's
+batch, outside the liquidation whose root rule held their cross-call guards.
+Every keyed rule scoped to an adapter with no gate must pin
+`call_arg_len(1) == 0`; better, keep one no-gate adapter (its own
+`run_window`, so its own address) for keyless rules only, with no keyed rule
+scoped to it (STRIDE E-36).
+
 The design is in [docs/stellar.md](../../../docs/stellar.md#execution-adapter),
 with the wait under [The wait](../../../docs/stellar.md#the-wait) and the null
 mode under [No gate](../../../docs/stellar.md#no-gate).
