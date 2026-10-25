@@ -74,7 +74,7 @@ const amount = z
   .string()
   .regex(/^[1-9]\d*$/, 'a positive integer in the smallest unit, as a string')
 const val: z.ZodType<unknown> = z.lazy(() =>
-  z.union([z.null(), z.boolean(), z.number(), z.string(), z.array(val), z.record(val)])
+  z.union([z.null(), z.boolean(), z.number(), z.string(), z.array(val), z.record(z.string(), val)])
 )
 const path = z.array(z.union([z.number().int().nonnegative(), z.string().min(1)]))
 const arg = z.object({ arg: path.min(1) }).strict()
@@ -144,8 +144,8 @@ const from = {
   recording: recording.optional(),
   intent: intent.optional(),
   limit: amount.optional(),
-  limits: z.record(amount).optional(),
-  allow: z.record(z.array(anyAddress).min(1)).optional(),
+  limits: z.record(z.string(), amount).optional(),
+  allow: z.record(z.string(), z.array(anyAddress).min(1)).optional(),
 }
 
 // ---- the wrapper ----
@@ -153,9 +153,9 @@ const from = {
 export interface Tool {
   name: string
   description: string
-  shape: z.ZodRawShape
+  shape: Record<string, z.ZodType>
   /** The input as a strict object: an unknown key is refused, wherever the tool is served from. */
-  schema: z.ZodObject<z.ZodRawShape, 'strict'>
+  schema: z.ZodObject<Record<string, z.ZodType>, z.core.$strict>
   run: (raw: unknown, signal?: AbortSignal) => Promise<ToolResponse<unknown>>
 }
 
@@ -170,7 +170,7 @@ const CODE: Record<string, ErrorCode> = {
   review_unsigned: 'INVALID_INPUT',
 }
 
-function tool<S extends z.ZodRawShape>(
+function tool<S extends Record<string, z.ZodType>>(
   name: string,
   description: string,
   shape: S,
