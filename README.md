@@ -38,11 +38,16 @@ It is built as two halves:
 | Solana custody gate | `contracts/solana/custody-gate` | 126 |
 | Solana seat, `prime-seat` | `contracts/solana/prime-seat` | 75 |
 
-The EVM and Solana contracts run on Base Sepolia and Solana devnet only, and
-are outside the audit scope below.
+The EVM and Solana contracts are on test networks only and outside the
+external audit. The EVM seat is fork-tested against Base Sepolia and has no
+persistent deployment ([deployments/evm-testnet.json](./deployments/evm-testnet.json));
+the Solana programs are deployed on devnet
+([deployments/solana-devnet.json](./deployments/solana-devnet.json)).
+[SECURITY.md](./SECURITY.md#scope) lists the scope for reports, all three
+chains included.
 
-[docs/audit-overview.md](./docs/audit-overview.md) gives the audit scope, the
-counting method with a command to reproduce it, and the properties each
+[docs/audit-overview.md](./docs/audit-overview.md) gives the external audit's
+scope (the Stellar contracts and the packages), the counting method with a command to reproduce it, and the properties each
 contract enforces.
 
 The packages pin one interpreter instance on testnet (`packages/policy-synth/src/config.ts`):
@@ -244,9 +249,9 @@ The EVM seat builds with Foundry 1.8.4 and the Solana programs with the Solana
 CLI 4.3.0 (`cargo-build-sbf`):
 
 ```sh
-( cd contracts/evm/prime-seat && forge build && forge test )   # after unpacking OpenZeppelin 5.4.0 into lib/oz
+( cd contracts/evm/prime-seat && forge build && FORK_URL=https://sepolia.base.org forge test )   # after unpacking OpenZeppelin 5.4.0 into lib/oz
 ( cd contracts/solana/prime-seat && PRIME_CLUSTER=devnet cargo test && PRIME_CLUSTER=localnet cargo-build-sbf -- --locked )
-( cd contracts/solana/custody-gate && PRIME_CLUSTER=localnet cargo-build-sbf -- --locked )
+( cd contracts/solana/custody-gate && cargo test --locked && PRIME_CLUSTER=localnet cargo-build-sbf -- --locked )
 ```
 
 [contracts/README.md](./contracts/README.md) has the tool versions and the

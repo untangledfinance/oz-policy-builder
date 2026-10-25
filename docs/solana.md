@@ -46,7 +46,13 @@ vote changes it.
 | Owner's wallet | On the account | Signs |
 |---|---|---|
 | A Solana wallet (Phantom and other Wallet Standard wallets) | its own key, a settings signer with Initiate, Vote and Execute | every transaction itself, in its wallet |
-| A seat owner: an ed25519 owner key held by an MPC or another raw signer, for example for an owner whose wallet lives on another chain (MetaMask, Freighter) | a seat PDA, a settings signer with Vote and Execute (mask 6) | one grant by the owner key; the session key does the rest |
+| A seat owner: an ed25519 owner key held by an MPC or another raw signer | a seat PDA, a settings signer with Vote and Execute (mask 6) | one grant by the owner key; the session key does the rest |
+
+In the reference integration a NEAR-routed MPC, an external custodian outside
+this repository, holds seat owner keys; the seat accepts any raw ed25519
+signer of the grant hash. A browser wallet cannot hold an owner key: an owner
+whose wallet lives on another chain becomes a seat owner through a custodian
+that holds the key.
 
 From 18 October 2026 a session key exists only for a seat. An owner whose wallet
 is a Solana wallet has no session key and signs each action in its wallet.
@@ -133,7 +139,9 @@ each cluster gets its own `prime_seat.so`, and a build without it fails.
 ( cd contracts/solana/prime-seat &&
   PRIME_CLUSTER=devnet cargo test &&                       # 36 host tests, syscalls stubbed
   PRIME_CLUSTER=localnet cargo-build-sbf -- --locked )     # the build CI compares
-( cd contracts/solana/custody-gate && cargo-build-sbf )
+( cd contracts/solana/custody-gate &&
+  cargo test --locked &&                                   # 46 host tests, syscalls stubbed
+  PRIME_CLUSTER=localnet cargo-build-sbf -- --locked )     # the build CI compares
 ( cd contracts/solana/custody-gate/app-checks &&
   bun install --frozen-lockfile && bun run typecheck && bun test )   # 43 tests
 ```
@@ -144,16 +152,28 @@ each cluster gets its own `prime_seat.so`, and a build without it fails.
 | `prime-seat`, `PRIME_CLUSTER=localnet` (CI) | `4428191fcb70aeb9230ff1706edaa0cdee853c75ee99aae0fa1c347d25177e3e` | 35,248 |
 | `prime-seat`, `PRIME_CLUSTER=devnet` (deployed) | `a389f4a1cbf67bee9be5170e2199e3fc4c02e596fe4fbab0406ecdeb8f5e9bb2` | 35,248 |
 
-The gate's validator harnesses (345 of 345 against a mock venue, 53 of 53 against
-real Orca and Kamino state, 9 of 9 trustee checks) and its mutation pass are in
-the spike bundle at tag `archive/spike-final`;
+Run the host tools with `RUSTUP_TOOLCHAIN=1.97.1`, as CI does for `cargo fmt`,
+`cargo clippy` and `cargo test`; the `.so` comes from the platform tools' own
+rustc and does not depend on it.
+
+The gate's host tests (`custody-gate/tests/gate.rs`) call the program's
+entrypoint on a runtime-shaped input with stubbed syscalls: gate creation and
+its read-back, a forged or foreign multisig, each lane and each party alone,
+the destination list, the end time, the run window, the cap PDA, the
+one-signer lower and threshold raise, the close authority and the release.
+The validator harnesses (84 of 84 on devnet, 345 of 345 against a mock venue,
+53 of 53 against real Orca and Kamino state, 9 of 9 trustee checks), which
+also cover what the token program and Squads enforce, and the gate's mutation
+pass are in the spike bundle at tag `archive/spike-final`;
 [contracts/README.md](../contracts/README.md#solana) links them.
 
 ## Deployed
 
-Everything below is on Solana devnet. Each program was deployed with `--final`
-and `--max-len` equal to its size, so it has no upgrade authority; that was read
-again for the gate and the seat on 18 October 2026.
+Everything below is on Solana devnet, and
+[deployments/solana-devnet.json](../deployments/solana-devnet.json) records the
+current two. Each program was deployed with `--final` and `--max-len` equal to
+its size, so it has no upgrade authority; that was read again for the gate and
+the seat on 25 October 2026.
 
 | Program | Devnet id | Build | State |
 |---|---|---|---|
@@ -164,7 +184,7 @@ again for the gate and the seat on 18 October 2026.
 | `prime-session` | `6JyReewxbo6D6UQNHEWWTXnC1CdBU8CqcQjoQbGNj9Ba` | `c8836361…` | removed from this repository on 18 October 2026; source at tag `archive/spike-final` |
 
 None of these programs exists on Solana mainnet: a read of the seat and the gate
-ids on mainnet-beta on 18 October 2026 returned no account.
+ids on mainnet-beta on 25 October 2026 returned no account.
 
 ## Limits
 

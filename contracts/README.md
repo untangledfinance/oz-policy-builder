@@ -9,17 +9,19 @@ contracts. The Solana folder has the custody gate and the seat program.
 A Prime seat is an owner's entry on a Prime account for an owner who signs with
 an owner key in place of an account of its own on that chain: an ed25519 key on
 Stellar and Solana, a secp256k1 key on EVM. Its holder must produce a raw
-signature over the 32-byte grant hash. Any signer that can raw-sign that hash
-can serve, such as an MPC, a server-held keypair or a custody service
-configured for raw signing. Interactive wallets that sign only transactions or
+signature over the 32-byte grant hash. In the reference integration a
+NEAR-routed MPC holds the key; any signer that can raw-sign that hash, such as
+a server-held keypair or a custody service configured for raw signing, can
+serve. Interactive wallets that sign only transactions or
 prefixed messages produce signatures the seat refuses. The owner grants a
 session key for at most 7 days, and the seat lets that key vote for the owner
 and act inside the rules that list the seat.
 
 The Stellar contracts are the ones in the external audit's scope
 ([docs/audit-overview.md](../docs/audit-overview.md)). The EVM and Solana
-contracts are outside that scope and run on test networks only: Base Sepolia
-and Solana devnet.
+contracts are outside that scope and on test networks only: the EVM seat is
+fork-tested against Base Sepolia with no persistent deployment, and the Solana
+programs run on devnet.
 
 ## Layout
 
@@ -60,7 +62,7 @@ command.
 | `stellar/custody-gate` | 53 | in |
 | `stellar/prime-seat` | 97 | in |
 | `stellar/test-blend-pool` | 22 | test double, testnet only |
-| `evm/prime-seat` | 72 | out, Base Sepolia only |
+| `evm/prime-seat` | 72 | out, fork-tested only (Base Sepolia fork) |
 | `solana/custody-gate` | 126 | out, Solana devnet only |
 | `solana/prime-seat` | 75 | out, Solana devnet only |
 
@@ -83,8 +85,10 @@ Commands run from the contract's own folder.
 | `stellar/test-blend-pool` | `cargo build --release --target wasm32v1-none` with the remaps of `build-wasm.sh` | `7ba261ed4d1320ceabc47abcbe6819824c27529d0ae7e55ce2fc363555418e76` |
 | | `cargo test` | builds, no tests |
 | `evm/prime-seat` | `forge build` | runtime `3b4402d54f28ef3eb23bc14e9ac1e44c4aa946da42c4c3cea46cd76970c438d6` (4,434 bytes), creation `4d3558643131eebbbb8087fc65ed8c52581e0c48619adcf60cdc756cb83a0de7` (4,703 bytes), pinned in `build-hashes.json` |
-| | `forge test` | 51, and 7 more with `FORK_URL` set to a Base Sepolia fork |
+| | `forge test` | 51, and 7 more with `FORK_URL` set to a Base Sepolia fork (CI uses `https://sepolia.base.org`) |
+| | `FORK_URL=… ./mutate.py mutants.json` | 128 mutants, 125 killed; the 3 survivors are listed in the contract's README |
 | `solana/custody-gate` | `PRIME_CLUSTER=localnet cargo-build-sbf -- --locked` | `a5d19edb879e75d054f1025d710753ce5150726130c3dd74887236fbdbdc94e2` (47,472 bytes), pinned in `build-hashes.json`; the gate does not read `PRIME_CLUSTER` |
+| | `cargo test --locked` | 46 |
 | `solana/prime-seat` | `PRIME_CLUSTER=localnet cargo-build-sbf -- --locked` | `4428191fcb70aeb9230ff1706edaa0cdee853c75ee99aae0fa1c347d25177e3e` (35,248 bytes), pinned in `build-hashes.json` |
 | | `PRIME_CLUSTER=devnet cargo-build-sbf -- --locked` | `a389f4a1cbf67bee9be5170e2199e3fc4c02e596fe4fbab0406ecdeb8f5e9bb2` (35,248 bytes), the deployed build, pinned in `build-hashes.json` |
 | | `PRIME_CLUSTER=devnet cargo test` | 36 |
@@ -132,9 +136,11 @@ with platform tools v1.57 and rustc 1.95.0). The `.so` files carry only relative
 source paths (`src/lib.rs` and the standard library's), so the hashes hold
 across checkouts and machines with the same toolchain. `PRIME_CLUSTER` is a compile-time string that goes into the seat's
 grant hash, so each cluster gets its own `prime_seat.so`, and a build without
-it fails. Run the build with `RUSTUP_TOOLCHAIN=stable`: `cargo-build-sbf` asks
-cargo for package metadata first, and the repository's `rust-toolchain.toml`
-would otherwise pull in Rust 1.97.1 for that call. The design and the setup
+it fails. Run the build and the host tools with `RUSTUP_TOOLCHAIN=1.97.1`, the
+repository's Rust: `cargo-build-sbf` asks cargo for package metadata first,
+and the variable keeps that call off the `rust-toolchain.toml` targets. CI pins
+the same version for `cargo fmt`, `cargo clippy` and `cargo test`; the `.so`
+comes from the platform tools' rustc 1.95.0 and does not depend on it. The design and the setup
 guide are in [README-architecture.md](solana/README-architecture.md) and
 [SETUP-AND-RECOVERY.md](solana/SETUP-AND-RECOVERY.md).
 
@@ -148,8 +154,8 @@ and lockfile (`@solana/web3.js` 1.99.0, `@solana/spl-token` 0.4.15). The root
 
 | Chain | Deployed build | State |
 |---|---|---|
-| Base Sepolia | none shared | the Prime app deploys one `PrimeSeat` per seat owner and Safe, and pins its runtime code with the 11 immutable slots zeroed (keccak-256 `bf34aaa2…`) |
-| Solana devnet | `prime-seat` at `7ygNrKpK3GYoNLMCkAa4e3mznGPF2KVGbKZsJcq8wSCb`, custody gate at `6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz` | the devnet seat build `a389f4a1…` and the gate build `a5d19edb…`, each deployed with `--final` and `--max-len` equal to its size; the on-chain code equals the `.so`. The gate passed 84 of 84 gate-flow checks on devnet |
+| Base Sepolia | none: fork-tested only ([evm-testnet.json](../deployments/evm-testnet.json)) | an integrating app deploys one `PrimeSeat` per seat owner and Safe, and pins its runtime code with the 11 immutable slots zeroed (keccak-256 `bf34aaa2…`) |
+| Solana devnet ([solana-devnet.json](../deployments/solana-devnet.json)) | `prime-seat` at `7ygNrKpK3GYoNLMCkAa4e3mznGPF2KVGbKZsJcq8wSCb`, custody gate at `6ieR7WUs2M2VxEFYosRLuMtCdrWs7sqUeM1P4d5jiUnz` | the devnet seat build `a389f4a1…` and the gate build `a5d19edb…`, each deployed with `--final` and `--max-len` equal to its size; the on-chain code equals the `.so`. The gate passed 84 of 84 gate-flow checks on devnet |
 
 [docs/evm.md](../docs/evm.md#deployed) and
 [docs/solana.md](../docs/solana.md#deployed) have the detail.

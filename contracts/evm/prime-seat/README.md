@@ -1,6 +1,6 @@
 # PrimeSeat
 
-`PrimeSeat` is the Safe owner for one seat owner on one Prime Account on EVM. The seat owner is a secp256k1 owner key, held by an MPC or by any signer that can produce a raw ECDSA signature over the 32-byte grant hash; a wallet that signs only prefixed messages (`personal_sign`) produces signatures the seat refuses. The owner key signs only to start or end a session. While the session is live, a session key stands in for that owner on the Safe, beside a signature from a native owner (a Safe owner EOA such as MetaMask). Every Safe decision carries one native signature.
+`PrimeSeat` is the Safe owner for one seat owner on one Prime Account on EVM. The seat owner is a secp256k1 owner key, held by an MPC or by any signer that can produce a raw ECDSA signature over the 32-byte grant hash. In the reference integration a NEAR-routed MPC, an external custodian outside this repository, holds the key. A wallet that signs only prefixed messages (`personal_sign`) produces signatures the seat refuses, so a browser wallet cannot hold an owner key. The owner key signs only to start or end a session. While the session is live, a session key stands in for that owner on the Safe, beside a signature from a native owner (a Safe owner EOA such as MetaMask). Every Safe decision carries one native signature.
 
 The contract is 72 formatted sLOC. Runtime code is 4,434 bytes and creation code 4,703 bytes (sha256 in [Build](#build)).
 
@@ -72,12 +72,14 @@ rm -r package openzeppelin-contracts-5.4.0.tgz
 
 forge fmt --check src
 forge test                                  # unit suite, no network
-FORK_URL=<Base Sepolia RPC> forge test      # adds the real Safe 1.4.1 and 1.5.0 tests
+FORK_URL=https://sepolia.base.org forge test   # adds the real Safe 1.4.1 and 1.5.0 tests (CI runs this)
 ```
+
+`foundry.toml` turns off three forge lints that flag intended code (`block-timestamp`, `unsafe-typecast`, `unused-return`), with the reason for each; lint settings do not reach solc, so the build hashes stay the same.
 
 - `test/PrimeSeat.t.sol`: 51 unit tests against stub Safe and Roles contracts. Each rule in this file has a test, including enabled modules and MultiSend as `exec` targets, a seat that is no longer an owner, held-back `exec` signatures after a re-grant and after an extension, address 0 as a read-only caller, a grant preimage passed as `data`, an end that arrives after a held-back grant, and window and start checks on stored states a grant cannot create.
 - `test/PrimeSeatSafe.t.sol`: seven tests with the seat as a contract owner of a real Safe 1.4.1 L2 and a real Safe 1.5.0 L2 (a fork of Base Sepolia), with nonce 0 through MultiSend. It covers the accepted and refused vote shapes on both versions, a module the Safe enables (the same `exec` goes through before and is refused after, with Roles as the second case), and a migration of a Safe 1.4.1 to 1.5.0 by an M-of-N vote through the official `SafeMigration`, followed by votes in the 1.5.0 form. Two more tests remove a seat as an owner on each Safe version, with a Roles stub that only lets members call: the same `exec` goes through before the removal and is refused after it, both while the seat is still a Roles member and after the app takes it out.
-- `mutate.py`: the mutation pass (128 mutants). `FORK_URL=<rpc> ./mutate.py out.json` copies the project to a scratch folder, edits one spot at a time there and runs the whole suite. 125 mutants die. The three that survive have no effect on behaviour: two change the `op` argument that `exec` already requires to be 0, and one changes the text of a revert reason.
+- `mutate.py`: the mutation pass (128 mutants). `FORK_URL=<rpc> ./mutate.py out.json` copies the project to a scratch folder, edits one spot at a time there and runs the whole suite. 125 mutants die. The three that survive have no effect on behaviour: two change the `op` argument that `exec` already requires to be 0, and one changes the text of a revert reason. CI runs the pass in a job of its own and fails on any other survivor.
 
 ## Build
 

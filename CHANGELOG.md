@@ -6,6 +6,29 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 
 ## [Unreleased]
 
+On the `feat/primex` branch only. The npm packages stay at 5.2.0, and no
+Stellar contract, record or build hash changed.
+
+### Added
+
+- **EVM and Solana contracts:** `contracts/evm/prime-seat` (`PrimeSeat`) and
+  `contracts/solana` (the custody gate and `prime-seat`) were brought into
+  `feat/primex`, with `docs/evm.md`, `docs/solana.md`, the three-chain
+  `docs/architecture.md` and their five entries in
+  `contracts/build-hashes.json`. They run on test networks only and are outside
+  the external audit. `PrimeSeat` is fork-tested against Base Sepolia and has no
+  persistent deployment (`deployments/evm-testnet.json`); the two Solana
+  programs are deployed final on devnet (`deployments/solana-devnet.json`).
+- **Host tests for the Solana custody gate:** `tests/gate.rs`, 46 tests that run
+  the program's entrypoint with stubbed syscalls. The gate's build is
+  unchanged (`a5d19edb…`).
+- **CI:** runs on pushes to `feat/primex`; a contract test step fails when it
+  runs no test or skips one; the EVM job runs the real-Safe tests on a Base
+  Sepolia fork, and a second job runs the mutation pass; the Solana jobs add
+  clippy on Rust 1.97.1, `cargo audit` and a check of the devnet record; the
+  `app-checks` job adds `bun audit`. `SECURITY.md` records the advisories it
+  accepts.
+
 ## [5.2.0] - 2026-10-26
 
 A minor release: OpenZeppelin `stellar-contracts` v0.8.0 on testnet. The

@@ -1,5 +1,5 @@
 {
-  "note": "Reproducible build hashes that CI compares against: Stellar from each crate's build-wasm.sh with its path remaps, EVM from forge build (runtime and creation code), Solana from cargo-build-sbf with PRIME_CLUSTER=localnet. Update an entry together with the source it covers.",
+  "note": "Reproducible build hashes that CI compares against: Stellar from each crate's build-wasm.sh with its path remaps, EVM from forge build (runtime and creation code), Solana from cargo-build-sbf with PRIME_CLUSTER=localnet. Update an entry together with the source it covers. The recorded date is the latest entry's: the Stellar entries were recorded on 25 October 2026; the EVM and Solana entries were recorded from these sources on 20 October 2026, added to this file on 24 October 2026, and rebuilt to the same values on 24 and 25 October 2026.",
   "recorded": "2026-10-25",
   "sha256": {
     "stellar/policy-interpreter": "6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4",

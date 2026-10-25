@@ -129,10 +129,12 @@ The Prime account is a Safe, so its owners are Safe owners and every decision
 is a Safe transaction signed by M of them. An owner whose wallet is an EVM
 wallet (MetaMask and other EOAs) is a plain Safe owner and signs each decision
 in its wallet. A seat owner signs with a secp256k1 owner key held by an MPC or
-by any signer that produces a raw ECDSA signature over the 32-byte grant hash,
-for example for an owner whose wallet lives on another chain (Freighter,
-Phantom). A wallet that signs only prefixed messages (`personal_sign`) produces
-signatures the seat refuses. The seat owner gets a `PrimeSeat`, deployed for
+by any signer that produces a raw ECDSA signature over the 32-byte grant hash.
+In the reference integration a NEAR-routed MPC, an external custodian outside
+this repository, holds the key. A wallet that signs only prefixed messages
+(`personal_sign`) produces signatures the seat refuses, so a browser wallet
+cannot hold an owner key: an owner whose wallet lives on another chain becomes
+a seat owner through a custodian that holds the key. The seat owner gets a `PrimeSeat`, deployed for
 that owner and that Safe, and the seat is the Safe owner. Since the move-only session was withdrawn on 12 October 2026, a
 seat is the only place a session key exists on EVM.
 
@@ -291,7 +293,8 @@ mkdir -p lib/oz && cp -r package/utils package/interfaces lib/oz/
 rm -r package openzeppelin-contracts-5.4.0.tgz
 forge fmt --check src && forge build
 forge test                                  # 51 unit tests; the fork suite skips without FORK_URL
-FORK_URL=<Base Sepolia RPC> forge test      # adds 7 tests on real Safe 1.4.1 and 1.5.0
+FORK_URL=https://sepolia.base.org forge test   # adds 7 tests on real Safe 1.4.1 and 1.5.0 (as CI runs it)
+FORK_URL=https://sepolia.base.org ./mutate.py mutants.json   # 128 mutants, 125 killed (as CI runs it)
 ```
 
 | Artifact | Bytes | sha256 |
@@ -305,9 +308,16 @@ relayer compare a deployed seat against.
 
 ## Deployed
 
-There is no shared seat contract: the Prime app deploys one `PrimeSeat` per
-seat owner and Safe, on Base Sepolia only. The grant hash carries the chain id,
-so a grant signed for Base Sepolia (84532) is refused on any other chain. The addresses of the custody run of 29 September 2026 are under
+`PrimeSeat` has no persistent deployment from this repository. It is
+fork-tested: the suite runs the seat against the real Safe 1.4.1 and 1.5.0 L2
+contracts on a fork of Base Sepolia, and CI runs it against the public RPC.
+There is no shared seat contract either: an integrating app deploys one
+`PrimeSeat` per seat owner and Safe from the creation code, and compares a
+deployed seat with the template hash above. The grant hash carries the chain
+id, so a grant signed for Base Sepolia (84532) is refused on any other chain.
+[deployments/evm-testnet.json](../deployments/evm-testnet.json) records this
+status, the build hashes and the template hash. The addresses of the custody
+run of 29 September 2026, which had no seat, are under
 [What was tested](#what-was-tested).
 
 ## Limits

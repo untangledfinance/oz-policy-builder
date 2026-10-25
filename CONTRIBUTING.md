@@ -82,23 +82,29 @@ versions and the one-time OpenZeppelin unpack are in
 
 ```sh
 ( cd contracts/evm/prime-seat &&
-  forge fmt --check src && forge build && forge test &&
+  forge fmt --check src && forge build &&
+  FORK_URL=https://sepolia.base.org ../../assert-tests.sh 1 forge test &&
   ../../check-build-hash.sh evm/prime-seat:runtime out/PrimeSeat.sol/PrimeSeat.json &&
-  ../../check-build-hash.sh evm/prime-seat:creation out/PrimeSeat.sol/PrimeSeat.json )
+  ../../check-build-hash.sh evm/prime-seat:creation out/PrimeSeat.sol/PrimeSeat.json &&
+  FORK_URL=https://sepolia.base.org ./mutate.py mutants.json )   # 3 known survivors, so it exits 1
 
-export RUSTUP_TOOLCHAIN=stable   # cargo-build-sbf brings its own Rust
+export RUSTUP_TOOLCHAIN=1.97.1   # host tools; cargo-build-sbf brings its own Rust
 ( cd contracts/solana/prime-seat &&
-  cargo fmt --check && PRIME_CLUSTER=devnet cargo test --locked &&
+  cargo fmt --check &&
+  PRIME_CLUSTER=devnet cargo clippy --all-targets --locked -- -D warnings -A unexpected_cfgs -A clippy::unit_arg &&
+  PRIME_CLUSTER=devnet ../../assert-tests.sh 1 cargo test --locked && cargo audit &&
   PRIME_CLUSTER=devnet cargo-build-sbf -- --locked &&
   ../../check-build-hash.sh solana/prime-seat:devnet target/deploy/prime_seat.so &&
   PRIME_CLUSTER=localnet cargo-build-sbf -- --locked &&
   ../../check-build-hash.sh solana/prime-seat target/deploy/prime_seat.so )
 ( cd contracts/solana/custody-gate &&
-  cargo fmt --check && cargo test --locked &&
+  cargo fmt --check &&
+  cargo clippy --all-targets --locked -- -D warnings -A unexpected_cfgs -A clippy::unit_arg &&
+  ../../assert-tests.sh 1 cargo test --locked && cargo audit &&
   PRIME_CLUSTER=localnet cargo-build-sbf -- --locked &&
   ../../check-build-hash.sh solana/custody-gate target/deploy/gate.so )
 ( cd contracts/solana/custody-gate/app-checks &&
-  bun install --frozen-lockfile && bun run typecheck && bun test )
+  bun install --frozen-lockfile && bun run typecheck && bun test )   # CI also runs bun audit, ignoring the ids SECURITY.md accepts
 ```
 
 ## Style
