@@ -6,6 +6,39 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-10-25
+
+The testnet interpreter is now the build with referenced rules and the
+immediate-batch pin (`6704996f…`, instance `CDER6P73…`), with the execution
+adapter that hands out its word with no gate (`bf85432c…`). `policy-synth`
+writes rules that follow another rule, keyless rules for an execution adapter
+and their binding (`bind_policy`), and refuses a keyed rule that could hand out
+a no-gate adapter's word. The CLI and the MCP server pin
+`@crediolabs/policy-synth` at exactly 5.0.0.
+
+### Breaking
+
+A major version, for two reasons, in this order:
+
+- **1. The public types move to zod 4, and the error codes grow.** The
+  exported `Tool.shape` and `Tool.schema` are zod 4 types (`Tool.schema` is a
+  `z.ZodObject<…, z.core.$strict>`), so code typed against them with zod 3
+  no longer compiles. The exported `ErrorCode` gains `BIND_BUILD_FAILED`, so
+  an exhaustive switch over it no longer covers every code. The wording of an
+  `INVALID_INPUT` message for a malformed input follows zod 4; what is
+  accepted and refused is unchanged.
+- **2. The trusted interpreter changes:** `policy-synth` pins testnet instance
+  `CDER6P73JWMIVD3X6TGGOQIDAH3DLU7OKRTLT4ULPTZ3QJJ3QUGTK7CM` (wasm
+  `6704996f…`, referenced rules and the immediate-batch pin; the same
+  limits) and trusts only that build. `CD46LN75…` (`810f53f1…`) is recorded
+  as superseded in `deployments/interpreter-testnet.json` and is no longer
+  trusted: a rule it polices reads as unreadable, and an install naming it is
+  refused (`INTERPRETER_MISMATCH`). Following a rule needs a build with
+  references, so it works on the pin and is refused on `810f53f1…`. The
+  live-test account's rules 6 (`cap-500`) and 7 (following rule 6) are on the
+  new instance, and every recorded RPC fixture is re-recorded against it.
+  On its own this would be a minor change, as in 4.1.0.
+
 ### Added
 
 - **Referenced rules in the policy interpreter**: a rule follows the predicate
@@ -80,19 +113,6 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
   or a binding for a no-gate adapter while such a keyed rule is on the
   account (or the account's rules are not all read); `review_unsigned` flags
   it, and asks for `readContracts` when the scope is not read. No override.
-
-### Changed
-
-- **The pinned interpreter:** `policy-synth` pins testnet instance
-  `CDER6P73JWMIVD3X6TGGOQIDAH3DLU7OKRTLT4ULPTZ3QJJ3QUGTK7CM` (wasm
-  `6704996f…`, referenced rules and the immediate-batch pin; the same
-  limits) and trusts only that build. `CD46LN75…` (`810f53f1…`) is recorded
-  as superseded in `deployments/interpreter-testnet.json` and is no longer
-  trusted: a rule it polices reads as unreadable, and an install naming it is
-  refused (`INTERPRETER_MISMATCH`). Following a rule needs a build with
-  references, so it works on the pin and is refused on `810f53f1…`. The
-  live-test account's rules 6 (`cap-500`) and 7 (following rule 6) are on the
-  new instance, and every recorded RPC fixture is re-recorded against it.
 
 ### Security
 
