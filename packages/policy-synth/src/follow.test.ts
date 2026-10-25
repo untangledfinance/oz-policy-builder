@@ -66,6 +66,11 @@ describe('a reference payload, read as the interpreter reads it', () => {
     expect(referenceOf('not base64 xdr')).toBeUndefined()
   })
 
+  it('encodeReference takes only a G or C account and a whole rule id', () => {
+    expect(() => encodeReference({ account: 'abc', ruleId: 1 })).toThrow(/not a rule to follow/)
+    expect(() => encodeReference({ account: A, ruleId: 1.5 })).toThrow(/not a rule to follow/)
+  })
+
   it('a payload past 128 bytes is not tried, as the interpreter does not', () => {
     // Pad a valid pair past the window with trailing bytes: refused by size before any decode.
     const big = Buffer.concat([
@@ -78,11 +83,11 @@ describe('a reference payload, read as the interpreter reads it', () => {
 
 // ---- the stored records ----
 
-const docVal = (o: { bytes?: string; nonce?: number; source?: Val | undefined }): Val => ({
+const docVal = (o: { bytes?: string; nonce?: number | null; source?: Val | undefined }): Val => ({
   map: [
     ['executor', null],
     ['master_set', []],
-    ['nonce', o.nonce ?? 1],
+    ...(o.nonce === null ? [] : [['nonce', o.nonce ?? 1] as [Val, Val]]),
     ['predicate_bytes', { bytes: o.bytes ?? '' }],
     ['scope', null],
     ['signers_hash', { bytes: '00'.repeat(32) }],
@@ -98,6 +103,9 @@ const store = (docs: Record<string, Val>) => {
   const server = {
     async getLedgerEntries(...keys: xdr.LedgerKey[]) {
       batches.push(keys.length)
+      // As Stellar RPC does: a key asked twice in one call is an error (-32603).
+      const asked = keys.map((k) => k.toXDR('base64'))
+      if (new Set(asked).size !== asked.length) throw new Error('duplicate ledger key')
       return {
         entries: keys.flatMap((k) => {
           const d = k.contractData()
@@ -147,6 +155,18 @@ describe('readPredicates: a rule that follows another reads that rule now, one l
       follows: { account: A, ruleId: 2, nonce: 4, predicateHash: hashOf(encode(theirs)) },
     })
     expect(rules[3]?.expr).toBeUndefined()
+  })
+
+  it('two followers of one rule ask for it once (the RPC refuses a key asked twice)', async () => {
+    const { server, batches } = store({
+      [`${A}:2`]: inline(capped('500'), 4),
+      [`${B}:1`]: follows(A, 2),
+      [`${B}:2`]: follows(A, 2),
+    })
+    const rules = [ruleOn(1), ruleOn(2)]
+    expect(await readPredicates(server, INTERP, B, rules)).toEqual([])
+    expect(batches).toEqual([2, 1])
+    for (const r of rules) expect(r).toMatchObject({ expr: capped('500'), follows: { nonce: 4 } })
   })
 
   it('a followed rule missing, itself following, a self-loop or undecodable: unread, never its own empty bytes', async () => {
@@ -205,6 +225,11 @@ describe('readFollowed: the rule an install follows, refused the ways the interp
     const both = docVal({ bytes: hex(capped('5')), source: ['Rule', B, 1] })
     await refused(run({ [`${A}:2`]: both }), 'INSTALL_BUILD_FAILED', /one level only/)
     await refused(
+      run({ [`${A}:2`]: docVal({ bytes: hex(capped('5')), nonce: null, source: ['Inline'] }) }),
+      'INSTALL_BUILD_FAILED',
+      /no install nonce/
+    )
+    await refused(
       run({ [`${A}:2`]: docVal({ bytes: 'deadbeef', source: ['Inline'] }) }),
       'MALFORMED_PREDICATE',
       /cannot read/
@@ -238,6 +263,24 @@ describe('overlaps: a rule whose predicate another account can change is judged 
     // Its scope alone decides whether it serves the same calls: another contract does not.
     const away: ObservedRule = { ...old, scope: { kind: 'call_contract', contract: contract(8) } }
     expect(overlaps({ ...mine, expr: loose }, [away], INTERP, 'testnet')).toEqual([])
+  })
+
+  it('a new rule that follows is judged on its scope: its source can widen to calls it does not serve now', () => {
+    const approve = callExpr({
+      contract: TOKEN,
+      fn: 'approve',
+      where: [{ constraint: 'cap', at: [2], max: '10' }],
+    })
+    const old: ObservedRule = { ...ruleOn(4), expr: approve }
+    // Read on its predicate now (transfer only), it shares no call with the approve rule.
+    expect(overlaps({ ...mine, expr: loose }, [old], INTERP, 'testnet')).toEqual([])
+    const [o] = overlaps(
+      { ...mine, expr: loose, follows: { account: A, ruleId: 2 } },
+      [old],
+      INTERP,
+      'testnet'
+    )
+    expect(o).toMatchObject({ ruleId: 4, severity: 'refuse' })
   })
 
   it('a new rule that follows: a tighter neighbour is refused (it could become the looser one)', () => {

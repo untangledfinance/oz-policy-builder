@@ -241,7 +241,11 @@ export function referenceOf(b64: string): Reference | undefined {
 }
 
 /** The install payload that follows `r`, base64: the XDR of `(account, rule_id)`. */
-export const encodeReference = (r: Reference): string => encode([r.account, r.ruleId])
+export function encodeReference(r: Reference): string {
+  if (!/^[GC][A-Z2-7]{55}$/.test(r.account) || !Number.isInteger(r.ruleId))
+    throw new WireError(`not a rule to follow: ${JSON.stringify(r)}`)
+  return encode([r.account, r.ruleId])
+}
 
 // ---- the contract's decode refusals, mirrored ----
 //

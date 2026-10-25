@@ -46,7 +46,10 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
   (GHSA-mrhx-c7xc-m3w5, no 3.x fix; pinned, and overridden so the MCP SDK
   shares the one copy), `body-parser` `^2.4.0` (GHSA-27r3-jxmh-p828) and
   `fast-uri` `^3.1.9` as overrides. `bun audit` is clean. The tool input
-  schemas move to zod 4 (`Tool.shape` and `Tool.schema` are zod 4 types).
+  schemas move to zod 4 (`Tool.shape` and `Tool.schema` are zod 4 types), and
+  the text of an `INVALID_INPUT` message for a malformed input changes with it
+  (zod 4's wording, for example `Unrecognized key: "x"`); what is accepted and
+  refused is the same.
 
 ## [4.1.0] - 2026-10-23
 

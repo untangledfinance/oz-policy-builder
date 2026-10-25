@@ -189,8 +189,14 @@ export async function readPredicates(
     )
   ).map(docOf)
   const sources = docs.map((d) => (d ? sourceOf(d) : 'bad'))
-  const refs = sources.filter((x): x is Reference => typeof x === 'object')
-  // Every followed rule in one more batch: one level only, so nothing further is read.
+  // Every followed rule in one more batch, each once (the RPC refuses a key asked twice): one level
+  // only, so nothing further is read.
+  const name = (r: Reference) => `${r.account}:${r.ruleId}`
+  const refs = [
+    ...new Map(
+      sources.filter((x): x is Reference => typeof x === 'object').map((r) => [name(r), r])
+    ).values(),
+  ]
   const followed = (
     await entries(
       server,
@@ -209,7 +215,7 @@ export async function readPredicates(
       }
       const f: Followed = { ...source }
       r.follows = f
-      const theirs = followed[refs.indexOf(source)]
+      const theirs = followed[refs.findIndex((x) => name(x) === name(source))]
       if (!theirs || sourceOf(theirs) !== 'inline') throw new Error('the followed rule is not read')
       const { expr, b64 } = ownPredicate(theirs)
       r.expr = expr
@@ -489,7 +495,11 @@ export function overlaps(
   interpreter: string,
   network: Network
 ): Overlap[] {
-  const calls = meet(scopeSel(mine.scope), selectors(mine.expr))
+  // A new rule that follows another may permit anything its scope allows tomorrow, as a neighbour that
+  // follows does.
+  const calls = mine.follows
+    ? scopeSel(mine.scope)
+    : meet(scopeSel(mine.scope), selectors(mine.expr))
   return existing.flatMap((old): Overlap[] => {
     // A rule with no signer at all may be open to any key (OZ lets a policy stand alone): shared.
     if (old.signers.length > 0 && !old.signers.some((s) => mine.signers.includes(s))) return []

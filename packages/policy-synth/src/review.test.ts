@@ -546,6 +546,34 @@ describe('reviewUnsigned: an install that follows another rule', () => {
     }
   })
 
+  it('the followed rule is read only off the pinned interpreter: any other names its own records', async () => {
+    const other = contract(42)
+    const x = edit(await follower(), (env) => {
+      const args = callArgs(env).args()
+      const policies = fromScVal(args[4]) as { map: [Val, Val][] }
+      for (const kv of policies.map) if (kv[0] === INTERP) kv[0] = other
+      args[4] = toScVal(policies)
+      resign(env)
+    })
+    const before = process.env.POLICY_BUILDER_RPC_URL_TESTNET
+    process.env.POLICY_BUILDER_RPC_URL_TESTNET = 'http://127.0.0.1:9'
+    try {
+      const r = await run('review_unsigned', {
+        network: 'testnet',
+        xdr: x,
+        smartAccount: ACCOUNT,
+        readContracts: true,
+      })
+      const data = (r.ok ? r.data : {}) as { problems: string[] }
+      expect(data.problems.join('\n')).toMatch(
+        /could not be read: the rule is not policed by the pinned testnet interpreter/
+      )
+    } finally {
+      if (before === undefined) delete process.env.POLICY_BUILDER_RPC_URL_TESTNET
+      else process.env.POLICY_BUILDER_RPC_URL_TESTNET = before
+    }
+  })
+
   it('a reference under a hash that does not commit to it is still a hash problem', async () => {
     const x = edit(await follower(), (env) => {
       const h = param(env, 'predicate_hash')
