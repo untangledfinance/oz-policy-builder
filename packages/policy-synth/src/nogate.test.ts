@@ -13,6 +13,7 @@ import {
   type Chain,
   type Chosen,
   executorProblem,
+  pinsNoGrants,
   pinsOwn,
   planBind,
   planInstall,
@@ -366,5 +367,43 @@ describe('planBind: the binding of a rule to an executor', () => {
   it('executorProblem: a rule scoped elsewhere needs only an adapter', () => {
     expect(executorProblem(ADAPTER, 'null-gate adapter', VENUE, null)).toBeUndefined()
     expect(executorProblem(ADAPTER, 'gated adapter', VENUE, null)).toBeUndefined()
+  })
+})
+
+describe('STRIDE E-36: a keyed rule that lets an execute carry the adapter word is noted, not refused', () => {
+  const keyed = (where: Intent['calls'][number]['where']) =>
+    intentExprs({ calls: [{ contract: ADAPTER, fn: 'execute', where }] }).get(ADAPTER) as Expr
+
+  it('pinsNoGrants: eq 0, lte 0 or lt 1 on the grants, on every path; anything else pins nothing', () => {
+    expect(pinsNoGrants(keyed([{ constraint: 'count', at: [1], is: 0 }]))).toBe(true)
+    expect(pinsNoGrants(keyed([{ constraint: 'length', at: [1], max: 0 }]))).toBe(true)
+    expect(pinsNoGrants(['lt', path(1, true), 1])).toBe(true)
+    expect(pinsNoGrants(['gte', 0, path(1, true)])).toBe(true)
+    expect(pinsNoGrants(keyed([{ constraint: 'length', at: [1], max: 1 }]))).toBe(false)
+    expect(pinsNoGrants(keyed([]))).toBe(false)
+    expect(pinsNoGrants(or([lenIs(0), eq(path(1, true), 0)]))).toBe(false)
+    expect(pinsNoGrants(null)).toBe(false)
+  })
+
+  it('install_policy builds it, and the Authority node carries the note', async () => {
+    const open = keyed([{ constraint: 'length', at: [0], max: 2 }])
+    const c = { contract: ADAPTER, expr: open, encoded: encode(open), hash: hashOf(encode(open)) }
+    const r = await planInstall({ ...input, signers: [SOURCE] }, c, chain())
+    expect(r.authority.notes?.[0]).toMatch(/hand out its word to this account's policy/)
+    expect(lines([authority(r.authority, {})]).join('\n')).toMatch(
+      /note: {2}the rule permits an execute/
+    )
+    const shut = keyed([{ constraint: 'count', at: [1], is: 0 }])
+    const tight = {
+      contract: ADAPTER,
+      expr: shut,
+      encoded: encode(shut),
+      hash: hashOf(encode(shut)),
+    }
+    const t = await planInstall({ ...input, signers: [SOURCE] }, tight, chain())
+    expect(t.authority).not.toHaveProperty('notes')
+    // A keyless rule has no signer to choose it: no note.
+    const k = await planInstall({ ...input, executor: ADAPTER }, rule, chain())
+    expect(k.authority).not.toHaveProperty('notes')
   })
 })

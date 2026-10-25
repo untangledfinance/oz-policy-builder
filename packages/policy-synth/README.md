@@ -246,6 +246,14 @@ batch.
   admin's authorisation entries. The executor is a problem unless
   `readContracts: true` shows it to be an execution adapter. The rule's predicate
   is not in those bytes: `bind_policy`'s review shows it.
+- **A keyed rule that lets an execute carry the adapter's word:** a rule with
+  signers that permits an `execute` without holding its grants (argument 1) to
+  none lets a signer, on an adapter with no gate, hand out the adapter's word to
+  the account's policy, which every rule bound to that adapter accepts in place
+  of a key. That can be meant (an agent running batches that bound rules
+  check), so it is not refused: the Authority node of the install's review, and
+  of `review_unsigned`, carries a `note` saying so. Pin the grants with
+  `count` (`at: [1], is: 0`) unless it is meant.
 
 ## Rules that follow another rule
 

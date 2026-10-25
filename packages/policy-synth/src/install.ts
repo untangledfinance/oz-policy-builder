@@ -41,6 +41,7 @@ import {
 } from './config.ts'
 import { type ErrorCode, Refusal } from './envelope.ts'
 import {
+  FLIP,
   type Followed,
   type ObservedRule,
   type Overlap,
@@ -466,6 +467,34 @@ export function signerProblem(
     return `signer ${signer} is not deployed, so what it will run cannot be checked; deploy it before a rule names it`
 }
 
+/** Whether every path to a permit holds the number of grants (argument 1 of an adapter's `execute`)
+ *  to 0: `eq` 0, `lte` 0 or `lt` 1, either side written. */
+export function pinsNoGrants(e: Expr | null | undefined): boolean {
+  if (e === null || e === undefined || !isSelector(e)) return false
+  const [op, a, b] = e as [string, Val, Val]
+  if (op === 'and') return Array.isArray(a) && a.some(pinsNoGrants)
+  if (op === 'or') return Array.isArray(a) && a.length > 0 && a.every(pinsNoGrants)
+  const len = (l: Val) => pathOf(l) === JSON.stringify([1, true])
+  const n = (v: Val) => (isConstant(v) ? smallInt(unlit(v)) : undefined)
+  const [sel, k, o] = len(a) ? [a, b, op] : len(b) ? [b, a, FLIP[op] ?? op] : [undefined, a, op]
+  if (sel === undefined) return false
+  const x = n(k)
+  return (
+    x !== undefined &&
+    ((o === 'eq' && x === 0n) || (o === 'lte' && x <= 0n) || (o === 'lt' && x <= 1n))
+  )
+}
+
+/** A note (not a refusal) for a keyed rule that permits an `execute` without holding its grants to
+ *  none: on an execution adapter with no gate, an immediate `execute` may hand out the adapter's word
+ *  (`enforce(prime, context)`) to the Prime's policy, which a rule bound to that adapter takes in
+ *  place of a key. The signer chooses to, so it is said, not refused. */
+export function grantsNote(signers: string[], expr: Expr | null | undefined): string | undefined {
+  if (signers.length === 0 || expr === null || expr === undefined) return undefined
+  if (!selectors(expr).some((s) => s.fn === 'execute') || pinsNoGrants(expr)) return undefined
+  return "the rule permits an execute without holding its grants (argument 1) to none: if the contract is an execution adapter with no gate, a signer can have it hand out its word to this account's policy, which every rule bound to that adapter accepts in place of a key; pin the grants to 0 unless that is meant"
+}
+
 /** Why a rule scoped to its own executor is refused: it pins neither `run` nor a whole immediate batch. */
 export const EXECUTOR_SELF_RULE = (executor: string) =>
   `the rule is scoped to its executor ${executor} without pinning, on every branch, call_fn = run or an immediate execute of a fixed batch (call_fn = execute, the wait = 0, the number of calls = n, and the target and function_name of each of those calls): it answers that executor's own requests, so anything wider would approve a batch nobody shaped (the interpreter refuses it, 221)`
@@ -825,6 +854,9 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
     authority: {
       signers: i.signers,
       ...(i.executor ? { executor: { address: i.executor, kind: known[i.executor] } } : {}),
+      ...(grantsNote(i.signers, rule.expr)
+        ? { notes: [grantsNote(i.signers, rule.expr) as string] }
+        : {}),
       threshold: t && { ...t, raw: draft.extra?.[0] as Val },
       admins: draft.admins,
       validUntil: draft.validUntil,

@@ -26,7 +26,7 @@ import {
 import { callExpr } from './intent.ts'
 import { reviewUnsigned } from './review.ts'
 import { run } from './tools.ts'
-import { encode, encodeReference, fromScVal, hashOf, toScVal, type Val } from './wire.ts'
+import { type Expr, encode, encodeReference, fromScVal, hashOf, toScVal, type Val } from './wire.ts'
 
 const ACCOUNT = 'CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P'
 const SIGNER = 'GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB'
@@ -663,6 +663,34 @@ describe('reviewUnsigned: a binding of a rule to an executor', () => {
       contracts: facts,
     })
     expect(lone.problems.join('\n')).toMatch(/2 authorisation entries/)
+  })
+})
+
+describe('reviewUnsigned: a keyed rule that lets an execute carry the adapter word (E-36)', () => {
+  const withPredicate = async (e: Expr) =>
+    edit((await install()).unsignedXdr, (env) => {
+      const args = callArgs(env).args()
+      const enc = encode(e)
+      const policies = fromScVal(args[4]) as { map: [Val, { map: [string, Val][] }][] }
+      for (const [, p] of policies.map)
+        for (const kv of p.map ?? []) {
+          if (kv[0] === 'predicate') kv[1] = { bytes: Buffer.from(enc, 'base64').toString('hex') }
+          if (kv[0] === 'predicate_hash') kv[1] = { bytes: hashOf(enc) }
+        }
+      args[4] = toScVal(policies)
+      resign(env)
+    })
+  it('is signable, with a note on the Authority node; holding the grants to 0 clears it', async () => {
+    const open = review(await withPredicate(callExpr({ contract: XLM, fn: 'execute' })))
+    expect(open.problems).toEqual([])
+    expect(open.authority?.notes?.[0]).toMatch(/hand out its word/)
+    expect(open.review.join('\n')).toMatch(/note: {2}the rule permits an execute/)
+    const shut = callExpr({
+      contract: XLM,
+      fn: 'execute',
+      where: [{ constraint: 'count', at: [1], is: 0 }],
+    })
+    expect(review(await withPredicate(shut)).authority).not.toHaveProperty('notes')
   })
 })
 

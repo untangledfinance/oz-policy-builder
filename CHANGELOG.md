@@ -53,7 +53,11 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
   executor mean (with no gate, anyone may run an immediate batch, so the
   predicate is the only fence), and `review_unsigned` reads a
   `bind_executor` from its bytes. The rule reader returns each rule's bound
-  `executor` and `admins`. The CLI and the MCP server serve nine tools.
+  `executor` and `admins`. The CLI and the MCP server serve nine tools. A keyed
+  rule that permits an `execute` without holding its grants to none carries a
+  `note` on its Authority node (install and `review_unsigned`): on an adapter
+  with no gate, its signer could hand out the adapter's word to the account's
+  policy.
 
 ### Changed
 

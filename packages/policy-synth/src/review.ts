@@ -40,7 +40,14 @@ import {
   thresholdAddress,
 } from './config.ts'
 import { messageOf, Refusal } from './envelope.ts'
-import { digest, executorProblem, isAddressEntry, signerProblem, xlm } from './install.ts'
+import {
+  digest,
+  executorProblem,
+  grantsNote,
+  isAddressEntry,
+  signerProblem,
+  xlm,
+} from './install.ts'
 import { callOf } from './record.ts'
 import type { Followed } from './rules.ts'
 import {
@@ -338,6 +345,8 @@ export function reviewUnsigned(i: {
       }
       for (const a of r.authority.admins ?? []) roles[a] ??= 'admin'
       for (const s of r.authority.signers) roles[s] ??= 'signer'
+      const note = grantsNote(r.authority.signers, r.rule.predicate)
+      if (note) r.authority.notes = [note]
       out.authority = r.authority
       out.rule = r.rule
       const v = { ...view, contract: scopedTo }
