@@ -180,4 +180,17 @@ pub struct StoredDoc {
     /// direct install can misstate it, so `enforce` checks the scope of the
     /// rule the account passes, not this.
     pub scope: Option<Address>,
+    /// Where the predicate is: `predicate_bytes`, or the rule `(account,
+    /// rule_id)` on this interpreter whose predicate this rule follows (then
+    /// `predicate_bytes` is empty). Set only by this rule's own install.
+    pub source: Source,
+}
+
+/// A rule's predicate source. (An `Option` of a tuple has no XDR conversion
+/// in a `#[contracttype]` struct under the SDK's test build.)
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Source {
+    Inline,
+    Rule(Address, u32),
 }
