@@ -1,8 +1,11 @@
 name: CI
 
+# Pushes to main and to feat/primex (the integration branch for the EVM and
+# Solana contracts) run CI on the merged commit; every pull request runs it
+# whatever its base.
 on:
   push:
-    branches: [main]
+    branches: [main, feat/primex]
   pull_request:
 
 permissions:
@@ -103,8 +106,15 @@ jobs:
           rustup target add wasm32v1-none
           ./build-wasm.sh
 
+      # contracts/assert-tests.sh fails the step when it ran fewer tests than
+      # the minimum or skipped any, so a crate cannot pass with zero tests.
+      # test-blend-pool is the one exception: a testnet stand-in for a Blend
+      # pool that holds nothing and has no tests of its own.
       - name: Test
-        run: cargo test
+        run: |
+          min=1
+          if [ "${{ matrix.crate }}" = test-blend-pool ]; then min=0; fi
+          ../../assert-tests.sh "$min" cargo test
 
       # The conformance suite: fixed predicate and context cases the interpreter
       # must keep deciding the same way. (The cross-layer gate for the TypeScript
@@ -113,7 +123,7 @@ jobs:
       # release, matching how it is verified locally.
       - name: Conformance (release)
         if: matrix.crate == 'policy-interpreter'
-        run: cargo test --release --test conformance
+        run: ../../assert-tests.sh 1 cargo test --release --test conformance
 
       # The interpreter's reproducible build is pinned in
       # contracts/build-hashes.json, the same way as the adapter's below. The
@@ -145,7 +155,7 @@ jobs:
         run: |
           cargo fmt --check
           cargo clippy --all-targets --locked -- -D warnings
-          cargo test --locked
+          ../../../assert-tests.sh 1 cargo test --locked
 
       # The gate is not a shared instance - each custody account deploys its
       # own - so what is recorded is the uploaded code, in
@@ -198,12 +208,14 @@ jobs:
   # creation code are pinned in contracts/build-hashes.json, so a source change
   # that is not re-recorded turns this red. The contract's metadata hash covers
   # its source, comments included. The real-Safe tests run only with FORK_URL
-  # set (a Base Sepolia fork, see the contract's README), which this job does
-  # not set.
+  # set: this job forks Base Sepolia through the public RPC (read-only, no
+  # secret), and the test step fails if any test skips, so the 7 tests on real
+  # Safe 1.4.1 and 1.5.0 always run. There is no persistent deployment;
+  # deployments/evm-testnet.json records that and the hashes below.
   evm-prime-seat:
     name: Contracts (evm/prime-seat)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: contracts/evm/prime-seat
@@ -227,13 +239,85 @@ jobs:
       - name: Build
         run: forge build
 
-      - name: Test
-        run: forge test
+      - name: Test (unit, and the real-Safe suite on a Base Sepolia fork)
+        env:
+          FORK_URL: https://sepolia.base.org
+        run: ../../assert-tests.sh 1 forge test
 
       - name: Build hash parity
         run: |
           ../../check-build-hash.sh evm/prime-seat:runtime out/PrimeSeat.sol/PrimeSeat.json
           ../../check-build-hash.sh evm/prime-seat:creation out/PrimeSeat.sol/PrimeSeat.json
+
+      # The record must state the pinned hashes, and its template hash must be
+      # the keccak-256 of this build's runtime with every immutable zeroed: the
+      # value an app compares a deployed seat against.
+      - name: Deployment record parity (deployments/evm-testnet.json)
+        run: |
+          record=../../../deployments/evm-testnet.json
+          hashes=../../build-hashes.json
+          out=out/PrimeSeat.sol/PrimeSeat.json
+          fail=0
+          for kind in runtime creation; do
+            want=$(jq -r --arg k "evm/prime-seat:$kind" '.sha256[$k]' "$hashes")
+            got=$(jq -r --arg k "${kind}Sha256" '.contracts["prime-seat"][$k]' "$record")
+            echo "$kind: record $got, build-hashes $want"
+            [ "$got" = "$want" ] || fail=1
+          done
+          zeroed=$(jq -r '.deployedBytecode as $d
+            | reduce ($d.immutableReferences | [.[][]] | .[]) as $r ($d.object;
+                .[0:(2 + 2 * $r.start)] + ("0" * (2 * $r.length)) + .[(2 + 2 * ($r.start + $r.length)):])' "$out")
+          template=$(cast keccak "$zeroed")
+          slots=$(jq '.deployedBytecode.immutableReferences | [.[][]] | length' "$out")
+          recorded=$(jq -r '.contracts["prime-seat"].template.zeroedRuntimeKeccak256' "$record")
+          rslots=$(jq -r '.contracts["prime-seat"].template.immutableSlots' "$record")
+          echo "template: built $template ($slots slots), record $recorded ($rslots slots)"
+          [ "$template" = "$recorded" ] && [ "$slots" = "$rslots" ] || fail=1
+          if [ "$fail" != 0 ]; then
+            echo "deployments/evm-testnet.json does not match this build."
+            exit 1
+          fi
+
+  # The mutation pass of contracts/evm/prime-seat/mutate.py: 128 mutants of
+  # PrimeSeat.sol, each run against the whole suite on the Base Sepolia fork
+  # (about ten minutes). A mutant counts as killed when the suite fails or the
+  # build breaks. Exactly three survive, each with no effect on behaviour (the
+  # contract's README says why); any other survivor, or a missing survivor
+  # (the suite changed), fails the job.
+  evm-prime-seat-mutants:
+    name: Contracts (evm/prime-seat mutation pass)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: contracts/evm/prime-seat
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.8.4
+
+      - name: Fetch OpenZeppelin Contracts 5.4.0
+        run: |
+          npm pack @openzeppelin/contracts@5.4.0
+          tar xzf openzeppelin-contracts-5.4.0.tgz
+          mkdir -p lib/oz && cp -r package/utils package/interfaces lib/oz/
+
+      - name: Mutation pass
+        env:
+          FORK_URL: https://sepolia.base.org
+        run: |
+          # mutate.py exits 1 while any mutant survives; the survivors are checked below.
+          python3 mutate.py mutants.json || true
+          jq -r '.[] | .[1]' mutants.json | sort | uniq -c
+          survivors=$(jq -c '[.[] | select(.[1] | startswith("KILLED") | not) | .[0]] | sort' mutants.json)
+          expected='["exec digest drops op","exec: op dropped","grant: revert text"]'
+          echo "mutants: $(jq length mutants.json), not killed: $survivors"
+          if [ "$(jq length mutants.json)" -lt 128 ] || [ "$survivors" != "$expected" ]; then
+            echo "Expected 128 or more mutants and exactly these survivors: $expected"
+            exit 1
+          fi
 
   # The two Solana programs build with the Solana CLI's cargo-build-sbf, pinned
   # to the release the hashes were recorded with. PRIME_CLUSTER is a compile-time
@@ -242,7 +326,10 @@ jobs:
   # one. The host tests run with cargo test.
   #
   # The sources are rustfmt output, and the docs state their formatted size
-  # (126 and 75 lines).
+  # (126 and 75 lines). The host tools (rustfmt, clippy, cargo test) run on
+  # Rust 1.97.1, the repository's version, pinned here so a new stable release
+  # cannot change their verdicts; the .so files come from the platform tools'
+  # own rustc and do not depend on it.
   solana:
     name: Contracts (solana/${{ matrix.crate }})
     runs-on: ubuntu-latest
@@ -258,9 +345,9 @@ jobs:
     env:
       SOLANA_VERSION: v4.3.0
       # cargo-build-sbf builds with its own platform tools but asks cargo for
-      # package metadata first. Without this the repo's rust-toolchain.toml
-      # makes that call download Rust 1.97.1 and the wasm target for nothing.
-      RUSTUP_TOOLCHAIN: stable
+      # package metadata first. Naming the toolchain keeps that call, and the
+      # host tools, off the rust-toolchain.toml targets (the wasm target).
+      RUSTUP_TOOLCHAIN: "1.97.1"
     defaults:
       run:
         working-directory: contracts/solana/${{ matrix.crate }}
@@ -284,6 +371,9 @@ jobs:
       - name: Put the Solana CLI on PATH
         run: echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
 
+      - name: Install the host Rust toolchain
+        run: rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --component rustfmt,clippy
+
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: contracts/solana/${{ matrix.crate }}
@@ -292,8 +382,17 @@ jobs:
         run: cargo fmt --check
 
       # The seat refuses to build without PRIME_CLUSTER; its tests use devnet.
+      # Two lints are allowed by flag, not in the source, because the source is
+      # hash-pinned: unexpected_cfgs comes from solana-program's entrypoint!
+      # macro (target_os = "solana" and its heap and panic features are unknown
+      # to the host compiler), and clippy::unit_arg from the gate's create,
+      # which returns the unit of its final copy into the gate account.
+      - name: Lint (clippy)
+        run: PRIME_CLUSTER=devnet cargo clippy --all-targets --locked -- -D warnings -A unexpected_cfgs -A clippy::unit_arg
+
+      # assert-tests.sh fails the step when no test runs or any is skipped.
       - name: Test
-        run: PRIME_CLUSTER=devnet cargo test --locked
+        run: PRIME_CLUSTER=devnet ../../assert-tests.sh 1 cargo test --locked
 
       - name: Build (cargo-build-sbf, devnet) and parity
         if: matrix.crate == 'prime-seat'
@@ -306,6 +405,30 @@ jobs:
 
       - name: Build parity
         run: ../../check-build-hash.sh solana/${{ matrix.crate }} target/deploy/${{ matrix.artifact }}
+
+      # deployments/solana-devnet.json records the code of each devnet program;
+      # it must be the pinned build (the gate's one build, the seat's devnet one).
+      - name: Devnet record parity (deployments/solana-devnet.json)
+        run: |
+          entry="solana/${{ matrix.crate }}"
+          if [ "${{ matrix.crate }}" = prime-seat ]; then entry="solana/prime-seat:devnet"; fi
+          pinned=$(jq -r --arg e "$entry" '.sha256[$e] // empty' ../../build-hashes.json)
+          recorded=$(jq -r --arg c "${{ matrix.crate }}" '.programs[$c].codeSha256 // empty' ../../../deployments/solana-devnet.json)
+          echo "pinned:   $pinned"
+          echo "recorded: $recorded"
+          if [ -z "$pinned" ] || [ "$pinned" != "$recorded" ]; then
+            echo "deployments/solana-devnet.json does not record the pinned $entry build."
+            exit 1
+          fi
+
+      # RustSec advisories against the locked dependency set. The host-only
+      # warnings (bincode and libsecp256k1 unmaintained, rand 0.7 unsound) come
+      # from solana-program's host build, warn without failing, and are recorded
+      # in SECURITY.md; none of that code is in the .so.
+      - name: Audit dependencies
+        run: |
+          cargo install cargo-audit --locked --version ^0.22
+          cargo audit
 
   # The Prime app's checks around a gate-owned token account. They carry their own
   # dependencies and lockfile: the root bunfig.toml limits bun test to packages/.
@@ -331,3 +454,25 @@ jobs:
 
       - name: Test
         run: bun test
+
+      # Dependency advisories for this package's own lockfile. Five have no
+      # patched release inside the ranges @solana/web3.js 1.99 and
+      # @solana/spl-token 0.4 accept, and none is reachable from these checks;
+      # each is ignored by id, with its reason in SECURITY.md (accepted
+      # advisories). Any other advisory fails here.
+      #   GHSA-3gc7-fjrx-p6mg  bigint-buffer <=1.1.5 (high, no patched release):
+      #     an overflow in toBigIntLE; the checks decode account bytes
+      #     themselves and use spl-token only to build instructions
+      #   GHSA-hqr4-qq8f-hg3x, GHSA-mjw6-4jj6-33hc, GHSA-528h-pc64-c93x
+      #     stream-json (moderate): loaded only by jayson's server-side stream
+      #     parser; web3.js uses jayson's browser client, which does not load it
+      #   GHSA-w5hq-g745-h8pq  uuid <11.1.1 (moderate): v3, v5 and v6 with a
+      #     caller's buffer; jayson calls only v4, for request ids
+      - name: Audit dependencies
+        run: >-
+          bun audit
+          --ignore=GHSA-3gc7-fjrx-p6mg
+          --ignore=GHSA-hqr4-qq8f-hg3x
+          --ignore=GHSA-mjw6-4jj6-33hc
+          --ignore=GHSA-528h-pc64-c93x
+          --ignore=GHSA-w5hq-g745-h8pq
