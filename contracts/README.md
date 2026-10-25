@@ -52,10 +52,10 @@ Commands run from the contract's own folder.
 
 | Contract | Command | Result |
 |---|---|---|
-| `stellar/policy-interpreter` | `./build-wasm.sh` | `810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c`, pinned in `build-hashes.json` |
-| | `cargo test` (after `./build-wasm.sh`, which `tests/worst_case.rs` loads) | 416: 173 unit and 243 in 13 integration suites |
+| `stellar/policy-interpreter` | `./build-wasm.sh` | `fe749ae94bd149ee96bbd3093e2fa177480c24371b910648cdfe27c4713ca5dd`, pinned in `build-hashes.json` |
+| | `cargo test` (after `./build-wasm.sh`, which `tests/worst_case.rs` loads) | 435: 173 unit and 262 in 14 integration suites |
 | | `cargo test --release --test conformance` | 18 |
-| `stellar/policy-interpreter/oz08` | `cargo test --locked` (after the interpreter's `./build-wasm.sh`) | 12 |
+| `stellar/policy-interpreter/oz08` | `cargo test --locked` (after the interpreter's `./build-wasm.sh`) | 14 |
 | `stellar/execution-adapter` | `./build-wasm.sh` | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b`, pinned in `build-hashes.json` |
 | | `cargo test` | 62 |
 | `stellar/custody-gate` | `./build-wasm.sh` | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab`, recorded in `deployments/` |
@@ -66,9 +66,10 @@ Commands run from the contract's own folder.
 | | `cargo test` | builds, no tests |
 
 The interpreter instance on testnet and the policy-synth pin run
-`810f53f1…`, this source: instance `CD46LN75…`, recorded in
-`deployments/interpreter-testnet.json`. It replaced `CDZV4AG4…`, which runs
-`69cad1d5…`, this source before the keyless executor rules.
+`810f53f1…`, this source before shared predicates: instance `CD46LN75…`,
+recorded in `deployments/interpreter-testnet.json`. This source (`fe749ae9…`) is
+not deployed yet. `CD46LN75…` replaced `CDZV4AG4…`, which runs `69cad1d5…`, the
+source before the keyless executor rules.
 
 ### Reproducible builds
 

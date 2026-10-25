@@ -4,6 +4,23 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 `@crediolabs/policy-builder-mcp`) share one version number. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- **Shared predicates in the policy interpreter** (wasm `fe749ae9…`, not
+  deployed): `set_shared_predicate(owner, policy_id, predicate)` and
+  `remove_shared_predicate(owner, policy_id)`, each needing the owner's
+  authorisation. A rule follows one when its install payload's predicate is
+  the XDR of `(owner, policy_id)`; the payload hash then commits to that
+  source. `enforce` reads the current shared bytes and holds them to the
+  instance's limits, so an owner update reaches every following rule at its
+  next call, and a missing, removed or over-limit entry refuses. Signers,
+  binding, executor grant, nonce and master set stay each account's. The
+  testnet instance and the `policy-synth` pin stay on `810f53f1…` until a
+  deploy and repin. No package code changed; `config.test.ts` no longer ties
+  the deployed instance's hash to the source build hash.
+
 ## [4.1.0] - 2026-10-23
 
 The testnet deployments now run this source. The interpreter with the keyless
