@@ -1,0 +1,38 @@
+{
+  "network": "base-sepolia",
+  "chainId": 84532,
+  "recorded": "2026-10-25",
+  "status": "fork-tested only; no persistent deployment",
+  "note": "Prime on EVM, test network only. PrimeSeat (contracts/evm/prime-seat) has NO persistent deployment from this repository, on Base Sepolia or anywhere else, and no shared instance: an integrating app deploys one PrimeSeat per seat owner and Safe from the creation code below, and checks a deployed seat's runtime against the template hash (runtime with its immutable slots zeroed). The seat is tested on a fork of Base Sepolia against the real Safe 1.4.1 and 1.5.0 L2 contracts (test/PrimeSeatSafe.t.sol, 7 tests), which CI runs against the public RPC. The custody design (Safe, Zodiac Roles, OpenZeppelin TimelockController) ran on Base Sepolia on 29 September 2026 without a seat; its addresses are below as a record of that run, not as Prime deployments. No mainnet deployment exists.",
+  "contracts": {
+    "prime-seat": {
+      "deployed": false,
+      "runtimeSha256": "3b4402d54f28ef3eb23bc14e9ac1e44c4aa946da42c4c3cea46cd76970c438d6",
+      "creationSha256": "4d3558643131eebbbb8087fc65ed8c52581e0c48619adcf60cdc756cb83a0de7",
+      "template": {
+        "immutableSlots": 11,
+        "zeroedRuntimeKeccak256": "0xbf34aaa214ae621319dc882cca9151f9a45ef40560ba2dd64d788a31b4cb22ff",
+        "note": "keccak-256 of the runtime code with the 11 places that hold the three immutables (owner, safe, roles) set to zero; the same for every seat built from this source"
+      }
+    }
+  },
+  "forkTests": {
+    "suite": "contracts/evm/prime-seat/test/PrimeSeatSafe.t.sol",
+    "tests": 7,
+    "safeVersions": ["1.4.1 L2", "1.5.0 L2"],
+    "forkUrl": "https://sepolia.base.org",
+    "block": "latest at run time"
+  },
+  "custodyRun": {
+    "date": "2026-09-29",
+    "note": "the custody design test of docs/evm.md (What was tested); no PrimeSeat in it",
+    "custody": "0xD2b7126a24C1271c5714194C71AC1A8CDc6c7DE5",
+    "gate": "0xAC00d5cAE9206367C4500a70d48BD0090876e4DB",
+    "timelock": "0xf6A426D1529fd6305f643057B739d40bC1E73904",
+    "primeAccount": "0x5F2E70c757900e967D8a84C9605539ba82802ab2"
+  },
+  "source": {
+    "buildHashes": "contracts/build-hashes.json",
+    "toolchain": "Foundry 1.8.4, solc 0.8.28, optimizer 200 runs, via_ir off, OpenZeppelin Contracts 5.4.0"
+  }
+}
