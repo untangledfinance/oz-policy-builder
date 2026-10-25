@@ -22,6 +22,26 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
   repin; `config.test.ts` no longer ties the deployed instance's hash to the
   source build hash.
 
+- **Liquidation by anyone through an execution adapter with no gate**
+  (adapter wasm `bf85432c…`, interpreter wasm `6704996f…`). In an immediate
+  `execute`, an adapter with no gate now accepts one kind of grant, its word
+  to the Prime's policy, `enforce(prime, context)` with nothing nested, and
+  adds the same word for the `execute` it runs; it hands them out just before
+  the Prime is asked, for that one approval. Every other grant, any
+  authorisation for a callee and any wait stay refused, and nothing is
+  stored. The interpreter's `221` now also accepts, for a rule scoped to its
+  own executor, a predicate that pins an immediate batch on every path:
+  `call_fn == execute`, a wait of 0, the number of calls, and each call's
+  target and function. A keyless rule bound to such an adapter can then
+  authorise a liquidation by any address on an OpenZeppelin 0.8.0 account,
+  where a rule signed by the adapter is refused (3017). No new error code,
+  entry point or storage; grammar 7. Configuration invariant (STRIDE E-36,
+  High): a keyed rule scoped to a no-gate adapter must pin
+  `call_arg_len(1) == 0`, and keyless rules belong on a no-gate adapter of
+  their own with no keyed rule scoped to it. `cargo audit` ignores RUSTSEC-2026-0387
+  (crypto-bigint, host-side only, not in either wasm) with the reason in
+  `contracts/stellar/policy-interpreter/.cargo/audit.toml`.
+
 ## [4.1.0] - 2026-10-23
 
 The testnet deployments now run this source. The interpreter with the keyless

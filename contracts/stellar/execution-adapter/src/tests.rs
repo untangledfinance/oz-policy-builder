@@ -248,6 +248,33 @@ fn refuses_an_authorization_it_cannot_check() {
     refused(&w, Vec::from_array(&w.e, [c]), E::Uncheckable);
 }
 
+/// With a gate, a grant shaped like a null adapter's word is scanned like any
+/// other: a policy the gate does not list is refused.
+#[test]
+fn a_gated_adapter_scans_a_word_against_its_list() {
+    let w = world();
+    let policy = Address::generate(&w.e);
+    let ctx = soroban_sdk::auth::Context::Contract(soroban_sdk::auth::ContractContext {
+        contract: w.gate.clone(),
+        fn_name: Symbol::new(&w.e, "ping"),
+        args: Vec::new(&w.e),
+    });
+    let word = InvokerContractAuthEntry::Contract(soroban_sdk::auth::SubContractInvocation {
+        context: soroban_sdk::auth::ContractContext {
+            contract: policy,
+            fn_name: symbol_short!("enforce"),
+            args: (w.prime.clone(), ctx).into_val(&w.e),
+        },
+        sub_invocations: Vec::new(&w.e),
+    });
+    let batch = Vec::from_array(&w.e, [call_to(&w.e, &w.gate, "ping", Vec::new(&w.e))]);
+    let words = Vec::from_array(&w.e, [word]);
+    contract_error(
+        ExecutionAdapterClient::new(&w.e, &w.adapter).try_execute(&batch, &words, &0),
+        E::AddressNotAllowed,
+    );
+}
+
 #[test]
 fn the_binding_moves_only_with_the_gate_custody() {
     let w = world();
@@ -1134,8 +1161,9 @@ mod null_gate {
     }
 
     /// A null adapter holds nothing and acts as itself only towards the
-    /// contracts it calls directly: with no list there is nothing to check an
-    /// authorization against, so it hands none out.
+    /// contracts it calls directly: with no list there is nothing to check a
+    /// callee's authorization against, so it hands none out. (Its one grant,
+    /// its word to the Prime's policy, is tested below.)
     #[test]
     fn it_hands_out_no_authorization_as_itself() {
         let n = null_world();
@@ -1154,6 +1182,165 @@ mod null_gate {
         call.executor_authorizations = entries;
         let batch = Vec::from_array(&n.e, [call]);
         contract_error(c(&n).try_execute(&batch, &none(&n), &0), E::Uncheckable);
+    }
+
+    // ---- the word a null adapter gives the Prime's policy ----
+
+    /// `enforce(account, context)` on `policy`, as the interpreter asks a
+    /// bound executor for it, with `subs` nested under it.
+    fn word(
+        n: &Null,
+        policy: &Address,
+        f: &str,
+        args: Vec<Val>,
+        subs: Vec<InvokerContractAuthEntry>,
+    ) -> InvokerContractAuthEntry {
+        InvokerContractAuthEntry::Contract(soroban_sdk::auth::SubContractInvocation {
+            context: soroban_sdk::auth::ContractContext {
+                contract: policy.clone(),
+                fn_name: Symbol::new(&n.e, f),
+                args,
+            },
+            sub_invocations: subs,
+        })
+    }
+
+    /// The Prime's `token.transfer(prime, stranger, 100)` context.
+    fn pay_ctx(n: &Null) -> soroban_sdk::auth::Context {
+        let call = pay(n, n.stranger.to_val());
+        soroban_sdk::auth::Context::Contract(soroban_sdk::auth::ContractContext {
+            contract: call.target,
+            fn_name: call.function_name,
+            args: call.args,
+        })
+    }
+
+    fn enforce_word(n: &Null, account: &Address) -> InvokerContractAuthEntry {
+        let args = (account.clone(), pay_ctx(n)).into_val(&n.e);
+        word(n, &n.hello, "enforce", args, Vec::new(&n.e))
+    }
+
+    /// The one grant a null adapter hands out: `enforce(prime, context)`, for
+    /// its own Prime, with nothing under it. The batch runs as before.
+    #[test]
+    fn it_accepts_a_word_for_its_own_prime() {
+        let n = null_world();
+        let batch = Vec::from_array(&n.e, [pay(&n, n.stranger.to_val())]);
+        let words = Vec::from_array(&n.e, [enforce_word(&n, &n.prime)]);
+        assert_eq!(c(&n).execute(&batch, &words, &0), None);
+        assert_eq!(paid(&n, &n.stranger), 100);
+    }
+
+    /// Anything that is not exactly that word is refused, before the Prime is
+    /// asked: another account, another function, a nested invocation, another
+    /// number of arguments, a first argument that is no address, a deploy.
+    #[test]
+    fn it_refuses_every_other_grant() {
+        let n = null_world();
+        let other = Address::generate(&n.e);
+        let ctx = pay_ctx(&n);
+        let nested = Vec::from_array(&n.e, [enforce_word(&n, &n.prime)]);
+        let none = Vec::new(&n.e);
+        let two = |a: Val| -> Vec<Val> { Vec::from_array(&n.e, [a, ctx.clone().into_val(&n.e)]) };
+        let deploy = InvokerContractAuthEntry::CreateContractHostFn(
+            soroban_sdk::auth::CreateContractHostFnContext {
+                executable: soroban_sdk::auth::ContractExecutable::Wasm(
+                    soroban_sdk::BytesN::from_array(&n.e, &[0u8; 32]),
+                ),
+                salt: soroban_sdk::BytesN::from_array(&n.e, &[1u8; 32]),
+            },
+        );
+        let refused = [
+            enforce_word(&n, &other),
+            word(
+                &n,
+                &n.hello,
+                "transfer",
+                two(n.prime.to_val()),
+                none.clone(),
+            ),
+            word(
+                &n,
+                &n.token,
+                "enforcer",
+                two(n.prime.to_val()),
+                none.clone(),
+            ),
+            word(&n, &n.hello, "enforce", two(n.prime.to_val()), nested),
+            word(
+                &n,
+                &n.hello,
+                "enforce",
+                Vec::from_array(&n.e, [n.prime.to_val()]),
+                none.clone(),
+            ),
+            word(&n, &n.hello, "enforce", Vec::new(&n.e), none.clone()),
+            word(
+                &n,
+                &n.hello,
+                "enforce",
+                {
+                    let mut a = two(n.prime.to_val());
+                    a.push_back(1u32.into_val(&n.e));
+                    a
+                },
+                none.clone(),
+            ),
+            word(
+                &n,
+                &n.hello,
+                "enforce",
+                two(7u32.into_val(&n.e)),
+                none.clone(),
+            ),
+            deploy,
+        ];
+        let batch = Vec::from_array(&n.e, [pay(&n, n.stranger.to_val())]);
+        for (i, g) in refused.into_iter().enumerate() {
+            // Alone, and behind a word that would pass.
+            for words in [
+                Vec::from_array(&n.e, [g.clone()]),
+                Vec::from_array(&n.e, [enforce_word(&n, &n.prime), g]),
+            ] {
+                let got = c(&n).try_execute(&batch, &words, &0);
+                assert!(
+                    matches!(&got, Err(Ok(e)) if *e == soroban_sdk::Error::from_contract_error(E::Uncheckable as u32)),
+                    "case {i}: {got:?}"
+                );
+            }
+        }
+        assert_eq!(paid(&n, &n.stranger), 0);
+    }
+
+    /// A callee is still handed nothing, the word included.
+    #[test]
+    fn a_callee_is_still_handed_nothing() {
+        let n = null_world();
+        let mut call = pay(&n, n.stranger.to_val());
+        call.executor_authorizations = Vec::from_array(&n.e, [enforce_word(&n, &n.prime)]);
+        let batch = Vec::from_array(&n.e, [call]);
+        contract_error(c(&n).try_execute(&batch, &none(&n), &0), E::Uncheckable);
+    }
+
+    /// A word does not make a batch wait: nothing is stored and `run` finds
+    /// nothing.
+    #[test]
+    fn a_word_does_not_make_a_batch_wait() {
+        let n = null_world();
+        let batch = Vec::from_array(&n.e, [pay(&n, n.stranger.to_val())]);
+        let words = Vec::from_array(&n.e, [enforce_word(&n, &n.prime)]);
+        for wait in [1u32, 100] {
+            contract_error(c(&n).try_execute(&batch, &words, &wait), E::NoWait);
+        }
+        let stored = n.e.as_contract(&n.adapter, || {
+            n.e.storage().persistent().has(&1u32)
+                || n.e.storage().instance().has(&symbol_short!("next"))
+        });
+        assert!(!stored);
+        n.e.ledger()
+            .set_sequence_number(n.e.ledger().sequence() + 100);
+        contract_error(c(&n).try_run(&1), E::NotScheduled);
+        assert_eq!(paid(&n, &n.stranger), 0);
     }
 
     /// A stored batch of the Prime's own funds would run under rules this
