@@ -139,10 +139,13 @@ jobs:
       # is built against soroban-sdk 28, whose wasm the soroban-sdk 27 test host
       # above refuses, so oz08/ is a crate of its own with a protocol-28 host
       # that loads the build the step above checked.
+      # tests/nogate.rs also loads the execution adapter's wasm, built here
+      # the same reproducible way and checked against its pin.
       - name: OpenZeppelin 0.8.0 suite (oz08)
         if: matrix.crate == 'policy-interpreter'
         working-directory: contracts/stellar/policy-interpreter/oz08
         run: |
+          (cd ../../execution-adapter && ./build-wasm.sh && ../../check-build-hash.sh stellar/execution-adapter target/wasm32v1-none/release/execution_adapter.wasm)
           cargo fmt --check
           cargo clippy --all-targets --locked -- -D warnings
           cargo test --locked

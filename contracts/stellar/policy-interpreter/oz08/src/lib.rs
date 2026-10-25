@@ -192,3 +192,164 @@ impl CustomAccountInterface for Approving {
         Ok(())
     }
 }
+
+// ---- the no-gate liquidation world (`tests/nogate.rs`) ----
+
+/// The execution adapter's `Call` (`execution-adapter/src/lib.rs`).
+#[contracttype]
+#[derive(Clone)]
+pub struct Call {
+    pub target: Address,
+    pub function_name: soroban_sdk::Symbol,
+    pub args: Vec<Val>,
+    pub executor_authorizations: Vec<InvokerContractAuthEntry>,
+}
+
+#[contracttype]
+enum MarketSlot {
+    Asset,
+    Debt(Address),
+    Cover(Address),
+    Collateral(Address),
+    Price,
+    Updated,
+}
+
+/// A lending market as the liquidation meets it: `repay` pulls the borrowed
+/// asset from the borrower (a nested request of the borrower, as OctoLend's
+/// does), `withdraw_collateral` asks the borrower, and the rule reads the
+/// debt, the cover, a price and when it was set.
+#[contract]
+pub struct Market;
+
+#[contractimpl]
+impl Market {
+    pub fn __constructor(e: Env, asset: Address) {
+        e.storage().instance().set(&MarketSlot::Asset, &asset);
+    }
+
+    /// Test plumbing: a position and a price.
+    pub fn set(e: Env, who: Address, debt: i128, cover: i128, price: i128) {
+        let s = e.storage().instance();
+        s.set(&MarketSlot::Debt(who.clone()), &debt);
+        s.set(&MarketSlot::Cover(who.clone()), &cover);
+        s.set(&MarketSlot::Collateral(who), &debt);
+        s.set(&MarketSlot::Price, &price);
+        s.set(&MarketSlot::Updated, &e.ledger().timestamp());
+    }
+
+    pub fn repay(e: Env, borrower: Address, amount: i128) {
+        borrower.require_auth();
+        let asset: Address = e.storage().instance().get(&MarketSlot::Asset).unwrap();
+        soroban_sdk::token::TokenClient::new(&e, &asset).transfer(
+            &borrower,
+            e.current_contract_address(),
+            &amount,
+        );
+        let key = MarketSlot::Debt(borrower);
+        let debt: i128 = e.storage().instance().get(&key).unwrap_or(0);
+        e.storage().instance().set(&key, &(debt - amount));
+    }
+
+    pub fn withdraw_collateral(e: Env, borrower: Address, amount: i128) {
+        borrower.require_auth();
+        let key = MarketSlot::Collateral(borrower);
+        let held: i128 = e.storage().instance().get(&key).unwrap_or(0);
+        e.storage().instance().set(&key, &(held - amount));
+    }
+
+    pub fn debt(e: Env, who: Address) -> i128 {
+        e.storage()
+            .instance()
+            .get(&MarketSlot::Debt(who))
+            .unwrap_or(0)
+    }
+
+    pub fn cover(e: Env, who: Address) -> i128 {
+        e.storage()
+            .instance()
+            .get(&MarketSlot::Cover(who))
+            .unwrap_or(0)
+    }
+
+    pub fn collateral(e: Env, who: Address) -> i128 {
+        e.storage()
+            .instance()
+            .get(&MarketSlot::Collateral(who))
+            .unwrap_or(0)
+    }
+
+    pub fn price(e: Env) -> i128 {
+        e.storage().instance().get(&MarketSlot::Price).unwrap_or(0)
+    }
+
+    pub fn updated(e: Env) -> u64 {
+        e.storage()
+            .instance()
+            .get(&MarketSlot::Updated)
+            .unwrap_or(0)
+    }
+}
+
+/// A custody gate as the adapter asks it: the list it pays and its custody.
+#[contract]
+pub struct Gate;
+
+#[contractimpl]
+impl Gate {
+    pub fn __constructor(e: Env, allowed: Vec<Address>, custody: Address) {
+        e.storage().instance().set(&0u32, &allowed);
+        e.storage().instance().set(&1u32, &custody);
+    }
+
+    pub fn allowed(e: Env) -> Vec<Address> {
+        e.storage().instance().get(&0u32).unwrap()
+    }
+
+    pub fn custody(e: Env) -> Address {
+        e.storage().instance().get(&1u32).unwrap()
+    }
+}
+
+/// Asks `executor` for its word on `(account, context)`, as the interpreter's
+/// `enforce` does, from a call the executor did not make directly: `Relay`
+/// calls it. A probe of how long an executor's words live.
+#[contract]
+pub struct Asker;
+
+#[contractimpl]
+impl Asker {
+    pub fn enforce(e: Env, executor: Address, account: Address, context: Context) {
+        executor.require_auth_for_args((account, context).into_val(&e));
+    }
+}
+
+#[contract]
+pub struct Relay;
+
+#[contractimpl]
+impl Relay {
+    pub fn go(e: Env, asker: Address, executor: Address, account: Address, context: Context) {
+        AskerClient::new(&e, &asker).enforce(&executor, &account, &context);
+    }
+}
+
+/// The probe's control: hands out `words` as itself, as an adapter does, then
+/// has `Relay` ask it - so a live word is seen to pass the probe.
+#[contract]
+pub struct Granter;
+
+#[contractimpl]
+impl Granter {
+    pub fn go(
+        e: Env,
+        words: Vec<InvokerContractAuthEntry>,
+        relay: Address,
+        asker: Address,
+        account: Address,
+        context: Context,
+    ) {
+        e.authorize_as_current_contract(words);
+        RelayClient::new(&e, &relay).go(&asker, &e.current_contract_address(), &account, &context);
+    }
+}
