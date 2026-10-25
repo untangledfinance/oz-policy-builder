@@ -41,6 +41,7 @@ import {
 } from './config.ts'
 import { type ErrorCode, Refusal } from './envelope.ts'
 import {
+  FLIP,
   type Followed,
   type ObservedRule,
   type Overlap,
@@ -49,15 +50,27 @@ import {
   type Scope,
   selectors,
 } from './rules.ts'
-import { type Expr, readsOf, toScVal, type Val } from './wire.ts'
+import {
+  type Expr,
+  intOf,
+  isConstant,
+  isSelector,
+  readsOf,
+  toScVal,
+  unlit,
+  type Val,
+} from './wire.ts'
 
 export interface RuleDraft {
   scope: Scope
   name: string
   /** Ledger sequence after which the rule lapses (OZ `valid_until`). */
   validUntil: number | null
-  /** Delegated signers (G... or C... accounts): the keys the rule governs. */
+  /** Delegated signers (G... or C... accounts): the keys the rule governs. None: a keyless rule. */
   signers: string[]
+  /** The executor a keyless rule will be bound to (`bind_executor`, a second transaction): it
+   *  permits nothing until then. Not an argument of `add_context_rule`. */
+  executor?: string | undefined
   /** The Policy Signer role: who may re-install, uninstall and rotate. */
   admins: string[]
   predicate: { encoded: string; hash: string }
@@ -105,9 +118,12 @@ export function ruleArgs(d: RuleDraft, interpreter: string): Val[] {
         : ['Default']
   // Over 15 signers and an empty admin set are left to the chain: OZ's add_context_rule (#3010) and
   // the interpreter's install (#209). planInstall refuses a signer twice (OZ would too, #3007).
-  // A rule with no signer installs on chain (a keyless rule), so it is refused here.
-  if (d.signers.length === 0)
-    throw new Refusal('INSTALL_BUILD_FAILED', 'the rule names no signer, so it would govern no key')
+  // A rule with no signer installs on chain (a keyless rule): written only for an executor to bind.
+  if (d.signers.length === 0 && !d.executor)
+    throw new Refusal(
+      'INSTALL_BUILD_FAILED',
+      'the rule names no signer, so it would govern no key; a keyless rule names the `executor` it will be bound to'
+    )
   const predicate = { bytes: Buffer.from(d.predicate.encoded, 'base64').toString('hex') }
   const policies: [Val, Val][] = [
     [
@@ -173,13 +189,16 @@ export const digest = (
     ])
   )
 
-/** Build `smartAccount.<fn>(args)` as an unsigned transaction with the account's
- *  own auth entries attached, authorised by rule 0 (the deploy-time admin rule). */
+/** Build `smartAccount.<fn>(args)` (or, with `to`, `to.<fn>(args)`, a call that asks the account's
+ *  authorisation) as an unsigned transaction with the account's own auth entries attached,
+ *  authorised by rule 0 (the deploy-time admin rule). A call to another contract may also ask the
+ *  source account's own authorisation for exactly that call (an admin of the rule); nothing else. */
 export async function buildSelfCall(
   a: BuildArgs,
   fn: string,
   args: Val[],
-  code: ErrorCode = 'INSTALL_BUILD_FAILED'
+  code: ErrorCode = 'INSTALL_BUILD_FAILED',
+  to: string = a.smartAccount
 ): Promise<Built> {
   const { server, network } = a
   // The operator's bounds, read before the network is asked: a bad value refuses every build.
@@ -188,7 +207,7 @@ export async function buildSelfCall(
     Operation.invokeHostFunction({
       func: xdr.HostFunction.hostFunctionTypeInvokeContract(
         new xdr.InvokeContractArgs({
-          contractAddress: new Address(a.smartAccount).toScAddress(),
+          contractAddress: new Address(to).toScAddress(),
           functionName: fn,
           args: args.map(toScVal),
         })
@@ -252,6 +271,20 @@ export async function buildSelfCall(
     ),
     rootInvocation: original.rootInvocation(),
   })
+  // The source account's own authorisation of the call, when it is one of the rule's admins: exactly
+  // the built call, nothing under it. A self call takes none; anything else the RPC asks is refused.
+  const own = (recorded.result?.auth ?? []).filter((e) => !isAddressEntry(e, a.smartAccount))
+  const sourceEntry = (e: xdr.SorobanAuthorizationEntry) =>
+    e.credentials().switch().name === 'sorobanCredentialsSourceAccount' &&
+    e.rootInvocation().function().switch().name === 'sorobanAuthorizedFunctionTypeContractFn' &&
+    e.rootInvocation().function().contractFn().toXDR('base64') === built.toXDR('base64') &&
+    e.rootInvocation().subInvocations().length === 0
+  if (to !== a.smartAccount && !own.every(sourceEntry))
+    throw new Refusal(
+      code,
+      `${fn}: the simulation asked for an authorisation other than the account's and the source account's for this call; the RPC answer is not trusted`
+    )
+  const extra = to === a.smartAccount ? [] : own
   // The smart account's `__check_auth` is itself authorised for the delegated signer.
   const checkAuth = new xdr.SorobanAuthorizationEntry({
     credentials: xdr.SorobanCredentials.sorobanCredentialsSourceAccount(),
@@ -270,7 +303,7 @@ export async function buildSelfCall(
       subInvocations: [],
     }),
   })
-  const withAuth = tx(op([account, checkAuth]), source.sequenceNumber())
+  const withAuth = tx(op([account, checkAuth, ...extra]), source.sequenceNumber())
   const enforced = await simulate(withAuth, 'enforcing')
   const drift = Math.abs(enforced.latestLedger - recorded.latestLedger)
   if (drift > LEDGER_DRIFT)
@@ -328,6 +361,16 @@ export const buildInstall = (a: BuildArgs, d: RuleDraft, interpreter: string) =>
 export const buildRevoke = (a: BuildArgs, ruleId: number) =>
   buildSelfCall(a, 'remove_context_rule', [ruleId], 'REVOKE_BUILD_FAILED')
 
+/** `interpreter.bind_executor((smartAccount, ruleId), executor)`, unsigned. */
+export const buildBind = (a: BuildArgs, interpreter: string, ruleId: number, executor: string) =>
+  buildSelfCall(
+    a,
+    'bind_executor',
+    [[a.smartAccount, ruleId], executor],
+    'BIND_BUILD_FAILED',
+    interpreter
+  )
+
 /** Why a rule an execution adapter with no gate signs is refused (the review of #26, P4). */
 export const NULL_ADAPTER_SIGNER = (signer: string) =>
   `signer ${signer} is an execution adapter bound to no gate: whoever the account lets call its execute (an agent) could cite this rule for a call the adapter makes, and move the account's funds past that agent's own capped rules`
@@ -344,6 +387,69 @@ export const ADAPTER_SELF_RULE = (signer: string) =>
 export const pinsRun = (e: Expr | null | undefined): boolean =>
   e !== null && e !== undefined && selectors(e).every((s) => s.fn === 'run')
 
+// ---- what a rule scoped to its own executor may approve (the interpreter's `pins_own`) ----
+
+/** A leaf as a path into the call: `call_arg(i)`, `call_arg_field(i, ...)` and `call_path(...)` are
+ *  the same steps, and a length (`call_arg_len`, `call_path(..., true)`) ends in `true`. */
+const pathOf = (v: Val): string | undefined => {
+  if (!isSelector(v)) return undefined
+  // A step written as `lit(symbol)` is that symbol.
+  const [head, ...r] = v.map(unlit)
+  if (head === 'call_arg' || head === 'call_arg_field' || head === 'call_path')
+    return JSON.stringify(r)
+  return head === 'call_arg_len' ? JSON.stringify([...r, true]) : undefined
+}
+
+/** Whether every path to a permit fixes the leaf `sel` accepts to a constant `ok` accepts: an `eq`
+ *  between them (either side), or with `set` an `in` whose every entry `ok` accepts. An `and` pins
+ *  when any child does, an `or` only when every child does; nothing else pins (`dsl::pins`). */
+function pins(e: Val, sel: (l: Val) => boolean, ok: (v: Val) => boolean, set: boolean): boolean {
+  if (!isSelector(e)) return false
+  const [op, a, b] = e as [string, Val, Val]
+  const fixed = (l: Val) => isConstant(l) && ok(unlit(l))
+  if (op === 'and') return Array.isArray(a) && a.some((k) => pins(k, sel, ok, set))
+  if (op === 'or') return Array.isArray(a) && a.length > 0 && a.every((k) => pins(k, sel, ok, set))
+  if (op === 'eq') return (sel(a) && fixed(b)) || (sel(b) && fixed(a))
+  if (op === 'in') return set && sel(a) && Array.isArray(b) && b.every(fixed)
+  return false
+}
+
+/** An integer of a type the interpreter reads as a number (not the 256-bit ones). */
+const smallInt = (v: Val): bigint | undefined =>
+  typeof v === 'object' && v !== null && ('i256' in v || 'u256' in v) ? undefined : intOf(v)
+
+/** Whether a predicate permits only what a rule scoped to its own executor may approve, as the
+ *  interpreter's `pins_own` decides it (221 otherwise, at `bind_executor`, at a re-install under the
+ *  binding and at `enforce`): the executor's `run` (`eq(call_fn, run)` on every path), or an
+ *  IMMEDIATE `execute` of a fixed batch shape: on every path `eq(call_fn, execute)`, the wait
+ *  (argument 2) `eq` 0, the number of calls `eq` a constant n <= m, where m counts the leading
+ *  calls whose `target` and `function_name` are both an `eq` or an all-constant `in`. A quantifier
+ *  pins nothing. A predicate the package cannot read pins nothing. */
+export function pinsOwn(e: Expr | null | undefined): boolean {
+  if (e === null || e === undefined) return false
+  const fn = (name: string) =>
+    pins(
+      e,
+      (l) => isSelector(l) && l[0] === 'call_fn' && l.length === 1,
+      (v) => v === name,
+      false
+    )
+  if (fn('run')) return true
+  const at = (steps: Val[]) => {
+    const want = JSON.stringify(steps)
+    return (l: Val) => pathOf(l) === want
+  }
+  if (!fn('execute') || !pins(e, at([2]), (v) => smallInt(v) === 0n, false)) return false
+  let m = 0
+  const field = (i: number, key: string) => pins(e, at([0, i, key]), () => true, true)
+  while (field(m, 'target') && field(m, 'function_name')) m++
+  const short = (v: Val) => {
+    const n = smallInt(v)
+    return n !== undefined && n <= BigInt(m)
+  }
+  return pins(e, at([0, true]), short, false)
+}
+
 /** Why a contract signer may not sign a rule scoped to `scopedTo` with predicate `expr`, from what
  *  it is on the ledger: an adapter bound to no gate, an adapter signing a rule scoped to itself that
  *  does not pin `run`, or nothing deployed. No override waives these: the owners cannot see from the
@@ -359,6 +465,75 @@ export function signerProblem(
     return ADAPTER_SELF_RULE(signer)
   if (kind === 'absent')
     return `signer ${signer} is not deployed, so what it will run cannot be checked; deploy it before a rule names it`
+}
+
+/** Whether every path to a permit holds the number of grants (argument 1 of an adapter's `execute`)
+ *  to 0: `eq` 0, `lte` 0 or `lt` 1, either side written. */
+export function pinsNoGrants(e: Expr | null | undefined): boolean {
+  if (e === null || e === undefined || !isSelector(e)) return false
+  const [op, a, b] = e as [string, Val, Val]
+  if (op === 'and') return Array.isArray(a) && a.some(pinsNoGrants)
+  if (op === 'or') return Array.isArray(a) && a.length > 0 && a.every(pinsNoGrants)
+  const len = (l: Val) => pathOf(l) === JSON.stringify([1, true])
+  const n = (v: Val) => (isConstant(v) ? smallInt(unlit(v)) : undefined)
+  const [sel, k, o] = len(a) ? [a, b, op] : len(b) ? [b, a, FLIP[op] ?? op] : [undefined, a, op]
+  if (sel === undefined) return false
+  const x = n(k)
+  return (
+    x !== undefined &&
+    ((o === 'eq' && x === 0n) || (o === 'lte' && x <= 0n) || (o === 'lt' && x <= 1n))
+  )
+}
+
+/** Whether a predicate can permit a call to `execute` at all: some branch leaves the function open
+ *  or names `execute`. */
+export const permitsExecute = (e: Expr | null | undefined): boolean =>
+  e === null || e === undefined || selectors(e).some((s) => s.fn === 'execute' || s.fn === '*')
+
+/** Whether a KEYED rule scoped to an execution adapter with no gate is safe there: its signer calls
+ *  that adapter's `execute`, and in an immediate one the adapter hands out its word
+ *  (`enforce(prime, context)`) for whatever the batch's grants name, which a keyless rule bound to the
+ *  adapter takes in place of a key. So the rule must hold the grants (argument 1) to none on every
+ *  path, or permit no `execute`. A predicate that follows another rule's can change: never safe. */
+export const keyedSafeOnNoGate = (expr: Expr | null | undefined, follows: boolean): boolean =>
+  !follows && expr !== null && expr !== undefined && (!permitsExecute(expr) || pinsNoGrants(expr))
+
+/** Why a keyed rule scoped to an execution adapter with no gate is refused (STRIDE E-36). */
+export const WORD_LEAK = (adapter: string, rule?: number) =>
+  `${rule === undefined ? 'the rule' : `rule ${rule}`} has signers and is scoped to ${adapter}, an execution adapter with no gate, without holding the grants of execute (argument 1) to none on every branch: its signer could have the adapter hand out its word to this account's policy, which a keyless rule bound to that adapter accepts in place of a key, and move the account's funds. Pin the grants to 0 (\`count\` at [1] is 0), or keep keyless rules on a no-gate adapter that no keyed rule is scoped to`
+
+/** The keyed rules scoped to no-gate adapter `adapter` that could hand out its word: refused while any
+ *  rule is (or is to be) bound to it. A rule whose predicate was not read counts. */
+export const wordLeaks = (rules: ObservedRule[], adapter: string): ObservedRule[] =>
+  rules.filter(
+    (r) =>
+      r.signers.length > 0 &&
+      r.scope.kind === 'call_contract' &&
+      r.scope.contract === adapter &&
+      !keyedSafeOnNoGate(r.expr, r.follows !== undefined)
+  )
+
+/** Why a rule scoped to its own executor is refused: it pins neither `run` nor a whole immediate batch. */
+export const EXECUTOR_SELF_RULE = (executor: string) =>
+  `the rule is scoped to its executor ${executor} without pinning, on every branch, call_fn = run or an immediate execute of a fixed batch (call_fn = execute, the wait = 0, the number of calls = n, and the target and function_name of each of those calls): it answers that executor's own requests, so anything wider would approve a batch nobody shaped (the interpreter refuses it, 221)`
+
+/** Why a rule may not be bound to `executor`, from what it is on the ledger: only an execution
+ *  adapter hands out the grant a bound rule needs, and a gated adapter never vouches for its own
+ *  `execute`, so a rule scoped to it that pins an immediate batch (and not `run`) would never permit.
+ *  `scopedTo` and `expr` are the rule's scope and predicate. */
+export function executorProblem(
+  executor: string,
+  kind: ContractKind,
+  scopedTo: string | undefined,
+  expr: Expr | null
+): string | undefined {
+  if (kind === 'absent')
+    return `executor ${executor} is not deployed, so what it will vouch for cannot be checked`
+  if (kind === 'contract')
+    return `executor ${executor} is not an execution adapter (its instance holds no prime and gate), so what it will vouch for is not known`
+  if (scopedTo === executor && !pinsOwn(expr)) return EXECUTOR_SELF_RULE(executor)
+  if (kind === 'gated adapter' && scopedTo === executor && !pinsRun(expr))
+    return `executor ${executor} is an adapter with a gate, which never vouches for its own execute: a rule scoped to it that does not pin call_fn = run would never permit`
 }
 
 /** The signers that meet threshold `n` alone, by their weights. */
@@ -442,6 +617,80 @@ export async function planRevoke(
   return { ...built.value, removes, overrides }
 }
 
+// ---- the binding ----
+
+/** What a binding asks of the network: the rule (with its interpreter record), what the executor
+ *  is, the interpreter's fingerprint, and the build. */
+export interface BindChain {
+  readRule: (id: number) => Promise<ObservedRule | undefined>
+  /** Every rule on the account, read as the overlap scan reads them. */
+  readRules: () => Promise<RulesRead>
+  kind: (executor: string) => Promise<ContractKind>
+  fingerprint: (interpreter: string) => Promise<Fingerprint>
+  build: () => Promise<Built>
+}
+
+/** The unsigned `bind_executor` of rule `ruleId` to `executor`, with the rule it binds. Refused when
+ *  the rule is not there or not policed by the interpreter, when its record or predicate cannot be
+ *  read, when the executor is not an execution adapter or the rule scoped to it pins neither `run`
+ *  nor a whole immediate batch (221), and when its admins are not the source account alone (each
+ *  admin signs `bind_executor`, and this builder signs as the source). */
+export async function planBind(
+  i: { smartAccount: string; sourceAccount: string; ruleId: number; executor: string },
+  interpreter: string,
+  chain: BindChain
+) {
+  const no = (m: string) => new Refusal('BIND_BUILD_FAILED', m)
+  const [rule, kind, live, built, all] = await Promise.allSettled([
+    chain.readRule(i.ruleId),
+    chain.kind(i.executor),
+    chain.fingerprint(interpreter),
+    chain.build(),
+    chain.readRules(),
+  ])
+  const got = <T>(r: PromiseSettledResult<T>): T => {
+    if (r.status === 'rejected') throw r.reason
+    return r.value
+  }
+  const fingerprint = got(live)
+  if (!fingerprint.matches) throw mismatch(fingerprint)
+  const r = got(rule)
+  if (!r) throw no(`the account has no rule ${i.ruleId}`)
+  if (!r.policies.includes(interpreter))
+    throw no(
+      `rule ${i.ruleId} is not policed by the interpreter ${interpreter}: there is nothing to bind`
+    )
+  if (r.expr === undefined)
+    throw no(
+      `rule ${i.ruleId}: its stored predicate cannot be read, so what the binding would let through is unknown`
+    )
+  const scopedTo = r.scope.kind === 'call_contract' ? r.scope.contract : undefined
+  const problem = executorProblem(i.executor, got(kind), scopedTo, r.expr)
+  if (problem) throw no(problem)
+  // E-36: bound to a no-gate adapter, a rule takes the word any keyed rule scoped to that adapter can
+  // have it hand out; refused while one could, or while the account's rules are not all read.
+  if (got(kind) === 'null-gate adapter') {
+    const read = got(all)
+    const leaks = wordLeaks([...read.rules.filter((x) => x.id !== r.id), r], i.executor)
+    if (leaks.length > 0) throw no(leaks.map((x) => WORD_LEAK(i.executor, x.id)).join(' '))
+    if (!read.complete)
+      throw no(
+        `the account's rules could not all be read, so whether a keyed rule scoped to ${i.executor} could hand out its word is not known`
+      )
+  }
+  if (r.admins?.length !== 1 || r.admins[0] !== i.sourceAccount)
+    throw no(
+      `rule ${i.ruleId}'s admins are ${(r.admins ?? []).join(', ') || 'unknown'}: bind_executor needs each of them to sign, and this builder signs as the source account ${i.sourceAccount} alone`
+    )
+  return {
+    ...got(built),
+    binds: { ...r, executor: i.executor },
+    ...(r.executor && r.executor !== i.executor ? { rebinds: r.executor } : {}),
+    executorKind: got(kind),
+    interpreter: fingerprint,
+  }
+}
+
 // ---- the install, with every refusal in one place ----
 
 /** What an install is asked for, past the choice of the rule. */
@@ -450,6 +699,9 @@ export interface InstallInput {
   smartAccount: string
   sourceAccount: string
   signers: string[]
+  /** An execution adapter the rule will be bound to (`bind_policy`): with no signers, a keyless rule
+   *  it alone can make permit; with signers, a rule that also needs its grant. */
+  executor?: string | undefined
   admins?: string[] | undefined
   name?: string | undefined
   validUntilLedger?: number | undefined
@@ -545,6 +797,13 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
       : `${t ? `a threshold of ${t.n}` : `${k} signers and no threshold`}: any ONE of the ${k} signers acts alone (1-of-${k})`
     unless('anyOne', alone, `${alone}. Give a threshold that needs more.`)
   }
+  if (k === 0 && !i.executor)
+    throw no(
+      'the rule names no signer, so it would govern no key; a keyless rule names the `executor` it will be bound to'
+    )
+  // Scoped to its own executor, a rule answers the executor's own requests: the interpreter binds
+  // it only if it pins `run` or a whole immediate batch (221), and it is refused here first.
+  if (i.executor === rule.contract && !pinsOwn(rule.expr)) throw no(EXECUTOR_SELF_RULE(i.executor))
   const draft: RuleDraft = {
     scope: { kind: 'call_contract', contract: rule.contract },
     name: i.name ?? `policy-${rule.hash.slice(0, 8)}`,
@@ -553,6 +812,7 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
     admins: i.admins ?? [i.sourceAccount],
     predicate: { encoded: rule.encoded, hash: rule.hash },
     nonce: i.installNonce ?? 1,
+    ...(i.executor ? { executor: i.executor } : {}),
     ...(i.spendingLimit ? { cap: { address: SPENDING_LIMIT[i.network], ...i.spendingLimit } } : {}),
     ...(t ? { extra: [thresholdPolicy(i.network, t)] } : {}),
   }
@@ -576,9 +836,17 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   }
   // The four do not depend on each other, so they run together; what each found is
   // judged in a fixed order, so the same input is refused for the same reason.
+  // A keyed rule that could hand out an adapter's word needs to know what its scope is (E-36).
+  const askScope = k > 0 && !keyedSafeOnNoGate(rule.expr, rule.follows !== undefined)
   const [live, kinds, scan, built] = await Promise.allSettled([
     chain.fingerprint(interpreter),
-    chain.contracts(i.signers.filter((s) => s.startsWith('C'))),
+    chain.contracts([
+      ...i.signers.filter((s) => s.startsWith('C')),
+      ...(i.executor ? [i.executor] : []),
+      ...(askScope && !i.signers.includes(rule.contract) && rule.contract !== i.executor
+        ? [rule.contract]
+        : []),
+    ]),
     chain.readRules(i.smartAccount, interpreter),
     chain.build(draft, interpreter),
   ])
@@ -588,11 +856,33 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
   }
   const fingerprint = got(live)
   if (!fingerprint.matches) throw mismatch(fingerprint)
-  for (const [signer, kind] of Object.entries(got(kinds))) {
-    const problem = signerProblem(signer, kind, rule.contract, rule.expr)
+  const known = got(kinds)
+  for (const signer of i.signers.filter((s) => s.startsWith('C'))) {
+    const problem = signerProblem(signer, known[signer] ?? 'absent', rule.contract, rule.expr)
+    if (problem) throw no(problem)
+  }
+  if (i.executor) {
+    const problem = executorProblem(
+      i.executor,
+      known[i.executor] ?? 'absent',
+      rule.contract,
+      rule.expr
+    )
     if (problem) throw no(problem)
   }
   const read = got(scan)
+  // E-36: a keyed rule scoped to a no-gate adapter must hold its grants to none; no override.
+  if (askScope && known[rule.contract] === 'null-gate adapter') throw no(WORD_LEAK(rule.contract))
+  // Nor may a keyless rule be meant for a no-gate adapter beside a keyed rule on it that could vouch.
+  if (i.executor && known[i.executor] === 'null-gate adapter') {
+    const leaks = wordLeaks(read.rules, i.executor)
+    if (leaks.length > 0)
+      throw no(leaks.map((r) => WORD_LEAK(i.executor as string, r.id)).join(' '))
+    if (!read.complete)
+      throw no(
+        `the account's rules could not all be read, so whether a keyed rule scoped to ${i.executor} could hand out its word is not known`
+      )
+  }
   const found = overlaps(
     { ...draft, expr: rule.expr, ...(rule.follows ? { follows: rule.follows } : {}) },
     read.rules,
@@ -612,6 +902,7 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
     ...got(built),
     authority: {
       signers: i.signers,
+      ...(i.executor ? { executor: { address: i.executor, kind: known[i.executor] } } : {}),
       threshold: t && { ...t, raw: draft.extra?.[0] as Val },
       admins: draft.admins,
       validUntil: draft.validUntil,

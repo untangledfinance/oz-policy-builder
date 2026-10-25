@@ -206,7 +206,7 @@ it is created.
 |---|---|---|
 | Addresses checked | every target, argument, nested value and grant against the gate's list | none |
 | A call to the Prime itself | refused (`PrimeTarget`, 1) | refused (`PrimeTarget`, 1) |
-| Grants and `executor_authorizations` | checked against the list | refused (`Uncheckable`, 3): the adapter acts as itself only towards the contracts it calls directly |
+| Grants and `executor_authorizations` | checked against the list | `executor_authorizations` refused (`Uncheckable`, 3): the adapter acts as itself only towards the contracts it calls directly. In an immediate `execute`, `grants` may hold only its word to the Prime's policy, `enforce(prime, context)` with nothing nested; any other grant is refused (3) |
 | `wait` above 0, `min_wait` above 0 | allowed | refused (`NoWait`, 10), at `execute` and at creation |
 | `run` | runs a stored batch | finds nothing (`NotScheduled`, 5) |
 | `cancel` | the Prime or the gate's custody | the Prime (nothing is ever stored) |
@@ -224,9 +224,22 @@ it is created.
 3. Each nested `X.require_auth`, such as the token's `transfer(X, …)`, is filed
    under that approval and checked against its own rule.
 
-No keyless rule works through a no-gate adapter. It hands out no grant, so a
-rule bound to it never passes the binding, and it stores no batch, so its `run`
-stops before it asks the Prime.
+**The word of an adapter with no gate:** in an immediate `execute`, and only
+there, the adapter hands out its word to the Prime's policy that a context came
+through this call: the `enforce(prime, context)` entries the batch lists in
+`grants`, for its own Prime with nothing nested, plus the same entry for the
+`execute` it is running, which no batch can spell. The interpreter's `enforce`
+asks a bound executor for exactly that, so a rule the Prime's admins bound to
+this adapter (`bind_executor`) passes for the contexts the batch names. A
+keyless rule scoped to the adapter passes for its `execute` only if its
+predicate pins the whole batch: `call_fn == execute`, a wait of 0, the number
+of calls, and each call's target and function (the interpreter refuses anything
+less with 221). The word authorises no move, and nothing is stored, so none
+outlives the call. This is how a keyless liquidation runs: anyone may call
+`execute`, and the Prime's rules, bound to the adapter, decide. With no gate,
+those predicates are the only fence. It stores no batch, so its `run` still
+stops before it asks the Prime. A keyed rule scoped to the adapter that does
+not pin the number of grants to 0 lets its signer hand out such words.
 
 **What bounds a no-gate batch:** with no address list, the agent's token rules
 are the whole constraint. Pin every recipient (`eq` or `in` on the destination
@@ -340,7 +353,7 @@ limits and the install checks are documented in
   stores them once and returns them from `limits()`. There is no setter and no
   upgrade path, so a different limit means a new instance at a new address.
 
-  | Field | Floor | Ceiling | Testnet instance `CD46LN75…` |
+  | Field | Floor | Ceiling | Testnet instance `CDER6P73…` |
   |---|---|---|---|
   | `max_reads` (distinct reads) | 1 | 8 | 8 |
   | `max_leaves` (weighted leaves) | 4 | 400 | 400 |
@@ -613,6 +626,7 @@ The custody account can also cancel any stored move before it runs, with
 | The address rule against a real Prime and live Blend and Aquarius | `scripts/verify-execution-address-rule-testnet.ts`, testnet, adapter `4985cd12…` with a gate | 35 of 35 on 20 October 2026. A Blend supply, a withdrawal to custody and an Aquarius swap succeed. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put |
 | The adapter's wait against a real Prime, the gate and live Blend | `scripts/verify-execution-wait-testnet.ts`, testnet, adapter `4985cd12…` with a gate | 45 of 45 on 20 October 2026. Succeeded: a Blend supply at once; a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role; an agent's batch after the minimum wait its own rule demands. Refused: the agent below that minimum, and the agent cancelling; a stranger cancelling; running early, twice, after a cancel, or after the run window; a wait below the adapter's floor; the Prime creating the adapter at custody's address with a lower floor or a longer window |
 | The adapter with no gate, for a G and an OpenZeppelin Prime | `scripts/verify-execution-null-gate-testnet.ts`, testnet, adapter `4985cd12…` | 69 of 69 on 20 October 2026, log `evidence/execution-null-gate-testnet.log`. Succeeded: `[hello, USDC.transfer, XLM.transfer]` with one authorisation by X (a G account, and an OpenZeppelin account through rule 0); an agent's bundle at its cap, one rule per context. Refused: the bundle once `hello` failed, with no balance moved; its signed entry after its expiry ledger; a call to the Prime; a grant; any wait, and a no-gate adapter with a minimum wait; `rebind`; a stranger's `cancel`; the agent over its cap or citing its adapter rule for a token context; a no-gate adapter's pull through custody's gate |
+| A rule that follows another, built and reviewed by policy-synth | `install_policy` with `follow`, testnet instance `CDER6P73…`, live-test account `CASJ5GEC…` | 25 October 2026: rule 7 follows rule 6 (`cap-500`), install `c284ff4f…`. policy-synth reads rule 7 through rule 6 (its predicate and install nonce 1), its `check` permits a transfer of 400 and refuses 600 under the followed predicate, and following rule 7 (itself a reference) is refused before anything is built. Recorded in `packages/policy-synth/fixtures/rpc/bind.json` |
 | Referenced rules | `tests/ref_rule.rs` (18 tests) and `oz08/` `r1`, `r2` | a rule following `(A, rule_id)` evaluates A's re-installed predicate at its next `enforce`, with no change to its OZ rule; only the follower's own install sets or clears the reference, and the payload hash commits to it (`208`); a missing source is `206`, a chained or self-referencing one `201`; A cannot install, bind or enforce for the follower, whose signers (`210`, `204`), binding and grant are its own; the run pin (`221`) holds the fetched predicate; a permit extends the referenced entry's TTL |
 | Contract unit tests, this tree | `cargo test` in each crate (see [Build and test](#build-and-test)) | interpreter 434 (its 18 conformance cases also run in release), `oz08/` 14, adapter 62, gate 3, Prime seat 21 |
 
@@ -622,7 +636,7 @@ test the gate and the adapter. Their run rule lists the adapter as its
 signer, which the 0.7.2-line account accepts; the keyless run rule described
 above is exercised in `tests/keyless.rs` and `oz08/`, both in the test host.
 The logs indexed in [evidence/README.md](../evidence/README.md) were recorded
-on `CDZV4AG4…`, the instance in that record before `CD46LN75…` replaced it.
+on `CDZV4AG4…`, two instances before `CDER6P73…`; `CD46LN75…` came between them.
 
 ## Build and test
 
@@ -642,8 +656,8 @@ hash; `stellar contract build` and macOS give other bytes.
 
 | Crate | `build-wasm.sh` sha256 | Recorded in | Tests |
 |---|---|---|---|
-| `policy-interpreter` | `77db6ab0dff1ee550bb8b27474219d2e76f0ee1093f2399d95b36c94c81c5f78` | `contracts/build-hashes.json` | 434 (the 18 conformance cases among them also run in release), 14 in `oz08/` |
-| `execution-adapter` | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b` | `contracts/build-hashes.json` | 62 |
+| `policy-interpreter` | `6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4` | `contracts/build-hashes.json` | 440 (the 18 conformance cases among them also run in release), 25 in `oz08/` |
+| `execution-adapter` | `bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0` | `contracts/build-hashes.json` | 67 |
 | `custody-gate` | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` | `deployments/` | 3 |
 | Prime seat | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | `contracts/build-hashes.json` | 21 |
 
@@ -655,8 +669,8 @@ All on Stellar testnet.
 
 | | Address or hash |
 |---|---|
-| Policy interpreter instance | `CD46LN75LITN5INQEW3N3BKUK52IFODGCTJS2RWQ44JM74RH6ILIPBJ2`, wasm `810f53f1…` (this source before referenced rules; this source builds `77db6ab0…`, not deployed), deployed with reads 8, leaves 400, bytes 24,576, elems 32, `in` entries 32, depth 5. Created by `scripts/deploy-interpreter-testnet.ts`, recorded in [`deployments/interpreter-testnet.json`](../deployments/interpreter-testnet.json) and pinned in `packages/policy-synth/src/config.ts`. It replaced `CDZV4AG4…` on `69cad1d5…`, this source before the keyless executor rules, which the record lists as superseded and policy-synth does not trust |
-| Execution adapter code | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b`, 24,659 bytes, pinned in [`contracts/build-hashes.json`](../contracts/build-hashes.json) and recorded with upload `5b9323ac435f015f441715f9c3ae6c951666ab8e0bbe907d5aa1e2d600f85138` in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json), which lists the earlier build `3dd675c0…` as superseded |
+| Policy interpreter instance | `CDER6P73JWMIVD3X6TGGOQIDAH3DLU7OKRTLT4ULPTZ3QJJ3QUGTK7CM`, wasm `6704996f…` (this source), deployed with reads 8, leaves 400, bytes 24,576, elems 32, `in` entries 32, depth 5. Created by `scripts/deploy-interpreter-testnet.ts`, recorded in [`deployments/interpreter-testnet.json`](../deployments/interpreter-testnet.json) and pinned in `packages/policy-synth/src/config.ts`. It replaced `CD46LN75…` on `810f53f1…` (this source before referenced rules and the immediate-batch pin), which replaced `CDZV4AG4…` on `69cad1d5…` (before the keyless executor rules); the record lists both as superseded and policy-synth trusts neither |
+| Execution adapter code | `bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0`, 28,003 bytes, pinned in [`contracts/build-hashes.json`](../contracts/build-hashes.json) and recorded with upload `be2f7813a0081fe3c1a5d41be4bba1d12db73e52ca9bb415c478ec91ad6e3e5e` in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json), which lists the earlier builds `4985cd12…` and `3dd675c0…` as superseded |
 | Custody gate code | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab`, recorded in [`deployments/execution-testnet.json`](../deployments/execution-testnet.json) |
 | Prime seat code | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87`, pinned in [`contracts/build-hashes.json`](../contracts/build-hashes.json); the Prime app deploys one seat per seat owner and account |
 | OpenZeppelin smart account code | `91a2cd56…`, the account code the Prime app deploys and the seat's digest check is tied to ([`deployments/oz-accounts.json`](../deployments/oz-accounts.json)) |
@@ -741,9 +755,11 @@ the user's wallet. The CLI (`packages/policy-builder-cli`) and the MCP server
 [`packages/policy-synth/README.md`](../packages/policy-synth/README.md) is the
 full reference.
 
-The builder writes keyed rules. It refuses a rule with no signer and builds no
-`bind_executor` call, so a keyless rule and its binding are installed through
-the contract calls directly. It can write a rule that follows another rule's
+The builder writes keyed rules, and keyless rules for an execution adapter: a
+rule with no signer needs `executor`, and `bind_policy` builds the
+`bind_executor` that binds it once installed. A rule scoped to its executor must
+pin `run` or a whole immediate batch (the interpreter's `pins_own`, 221), which
+the builder checks first. It can write a rule that follows another rule's
 predicate (`install_policy` with `follow`): the payload is the reference, and
 every check below is judged on the followed predicate as it is at build time,
 which the review shows with its nonce.
@@ -758,6 +774,7 @@ Enforcement happens on chain. The builder checks a rule before it is signed:
 | Spending limit | `spendingLimit` attaches OpenZeppelin's `spending_limit`. It is refused unless every branch of the predicate pins `call_fn` to `transfer` and the rule's scope is shown to be a token, because that policy fails every other function. |
 | Read safety | A `read` outside the safe list is refused with `READ_UNSAFE`. The list holds the three testnet Reflector oracles (`lastprice`, `price`) and the operator's `POLICY_BUILDER_SAFE_READS_TESTNET`; a listed read needs constant arguments. `POLICY_BUILDER_ALLOW_SPOT_READS=1` lets other reads through. All three switches are operator environment only, and no tool input can set them. |
 | Authority overlap | The builder reads every rule on the account and refuses a rule a shared signer could bypass through a looser or unpoliced neighbour, or an account whose rules it could not all read. A neighbour that follows another rule's predicate is read through that rule (one level, as the interpreter does) and refused as a neighbour, since it can widen without the account; beside a new rule that follows, a tighter neighbour is refused too. |
+| Keyless rules and binding | `signers: []` needs `executor`, read off the ledger: it must be an execution adapter, and a rule scoped to it must pin `run` or a whole immediate batch (`call_fn = execute`, wait 0, the number of calls, each call's target and function name), as the interpreter's `pins_own` does (221). `bind_policy` builds `bind_executor` after re-reading the rule, its predicate and admins (the source account alone); `BIND_BUILD_FAILED` otherwise. A keyed rule scoped to a no-gate adapter must hold the grants of `execute` (argument 1) to none on every branch, or permit no `execute`; while one on the account does not (or the rules are not all read), a keyless rule for that adapter and a binding to it are refused too, with no override, since its signer could have the adapter hand out its word to a keyless rule. A no-gate adapter that carries keyless rules must be dedicated: no rule of any kind may approve its `execute` except those keyless rules, a Default-scoped keyed rule or a plain OpenZeppelin rule included; the builder refuses the ones scoped to the adapter, and a Default-scoped rule is the owners' alone (rule 0's signers can already change every rule). The review says that with no gate anyone may run an immediate batch through the adapter, so the predicate is the only fence. |
 | Referenced rules | `follow: { smartAccount, ruleId }` reads that rule off the install's interpreter. A missing rule, a rule that itself follows another, an interpreter build with no references, or an undecodable predicate is refused before anything is built. The install carries the XDR of `(account, rule_id)` and its hash; `rule.follows` and the review's `Follows` node give the followed rule's nonce and predicate hash now, and say that its admins can change it without this account's signature. |
 | Amounts | An amount with no cap, and a swap whose least output has no floor, are refused. |
 | Contract signers | Each contract signer's instance is read off the ledger. An execution adapter bound to no gate (`prime` stored, `gate` void) is refused as a signer, whatever its code hash: an agent allowed to call its `execute` could cite the rule for the adapter's calls and move funds past its own caps. An execution adapter with a gate (`prime` stored, `gate` an address) signing a rule scoped to itself is refused unless every branch of the predicate pins `call_fn = run`. A contract signer that is not deployed is refused too. No override waives any of these. |
@@ -774,7 +791,7 @@ all the same; on any other network a flag set to `true` is refused before the
 network is asked unless the operator sets `POLICY_BUILDER_ALLOW_OVERRIDES=1`.
 
 `review_unsigned` is the owner's side of the review. A wallet or the Prime app
-runs it on the unsigned XDR it is about to sign (also `reviewUnsigned` from
+runs it on the unsigned XDR (an install, a removal or a `bind_executor`) it is about to sign (also `reviewUnsigned` from
 `@crediolabs/policy-synth`, with `smartAccount` set): it reads the bytes alone,
 with no RPC, lists in `problems` what it finds wrong in them (an authorisation
 for anything but the call or by a rule other than 0, a `__check_auth` digest

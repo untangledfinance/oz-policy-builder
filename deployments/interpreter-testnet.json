@@ -1,35 +1,37 @@
 {
   "network": "testnet",
-  "recorded": "2026-10-23T12:21:34.587Z",
-  "deployer": "GBNRXNKLPWUMDNFSONXRGF7OX75CPBZJJWEF7RWFUZIDJGOBNCRBLGXF",
+  "recorded": "2026-10-25T20:10:00.000Z",
+  "deployer": "GDJVFOIKPX7CSTVPXSYF6CVNSRN6GNH4SB45MRQTK73AYPBU74VGNAYD",
   "grammar": 7,
-  "interpreter": "CD46LN75LITN5INQEW3N3BKUK52IFODGCTJS2RWQ44JM74RH6ILIPBJ2",
+  "interpreter": "CDER6P73JWMIVD3X6TGGOQIDAH3DLU7OKRTLT4ULPTZ3QJJ3QUGTK7CM",
   "wasmHashes": {
-    "interpreter": "810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c"
+    "interpreter": "6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4"
   },
   "interpreterSource": {
-    "commit": "920a18f",
-    "reproducibleWasmSha256": "810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c",
-    "note": "Built with ./build-wasm.sh on Linux x86_64 (rust 1.97.1; the same bytes from a second path and target dir). Testnet only. The interpreter with DEPLOY-TIME LIMITS: __constructor(Limits) stores reads / leaves / bytes / elems / in entries / depth once in instance storage (each between a floor and a hard ceiling: reads 1..8, leaves 4..400, bytes 256..40,960, elems 2..64, in 1..64, depth 2..8, else error 220) and limits() returns them; install, check and enforce hold a predicate to them. This instance was deployed with reads 8, leaves 400, bytes 24,576 (PayFi's largest rule is 8.8 KB), elems 32, in 32, depth 5 (see `limits`). Nothing else deployed was touched."
+    "commit": "f8a6f8ceea87a678af4fc76516886410553f54a4",
+    "reproducibleWasmSha256": "6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4",
+    "note": "Built with ./build-wasm.sh on Linux x86_64 (the same bytes from a second path; pinned in contracts/build-hashes.json). Testnet only. The interpreter with referenced rules (a rule follows another rule's predicate) and the immediate-batch pin for a rule scoped to its executor (221), and DEPLOY-TIME LIMITS: __constructor(Limits) stores reads / leaves / bytes / elems / in entries / depth once in instance storage (each between a floor and a hard ceiling: reads 1..8, leaves 4..400, bytes 256..40,960, elems 2..64, in 1..64, depth 2..8, else error 220) and limits() returns them; install, check and enforce hold a predicate to them. This instance was deployed with reads 8, leaves 400, bytes 24,576 (PayFi's largest rule is 8.8 KB), elems 32, in 32, depth 5 (see `limits`). Nothing else deployed was touched."
   },
   "uploadTx": {
-    "interpreter": "e6f0d7f6cd1286ee9439382c8ce4d7a5e29759eec2110dcea60ea6c88c2bf3a6"
+    "interpreter": "5c5028f24b6272ef5b7e7afd492cdaf6910d836a7ad3582f175de8a64d980134"
   },
-  "createTx": "f7a0625aab03b4659ffefe580eb4aba936415c7c1c68df9a27ced77f21268359",
+  "createTx": "7b333317bf4c66fda09b042c21d99d8aa9fa7b039e52793e7a20b29be1248544",
   "sizes": {
-    "interpreter": 64679
+    "interpreter": 68454
   },
   "note": "Interpreter with deploy-time limits, testnet only. The deployer is a throwaway identity funded by friendbot. The pin in packages/policy-synth/src/config.ts names this address. The instance's limits are immutable: no setter, no upgrade path.",
   "liveTests": {
     "smartAccount": "CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P",
     "smartAccountDeployTx": "be49607fe418df6b80a88b3b98ebe6e7f126e72c79c0ae45ab64a5d151a8c7b6",
-    "note": "An OZ smart account (rule 0: Default, no policy, one delegated signer: GAT7JHM4..., the deployer of the instances before this one) used by packages/policy-synth's live tests; the recorded RPC fixtures (packages/policy-synth/fixtures/rpc) replay against it. Rules 1 to 4 were installed on earlier interpreter instances (CDL7KHDK..., CA5ICI2O..., CAECFZWH..., CDZV4AG4...; installTx lists them by rule), so each reads as a rule policed by a known interpreter this build refuses to trust. Rule 5 was installed through the builder on this instance: `cap-500` on a made-up token, a cap of 500 on argument 2 of `transfer`, no pin, the same predicate as rules 2 and 4.",
+    "note": "An OZ smart account (rule 0: Default, no policy, one delegated signer: GAT7JHM4..., the deployer of earlier instances) used by packages/policy-synth's live tests; the recorded RPC fixtures (packages/policy-synth/fixtures/rpc) replay against it. Rules 1 to 5 were installed on earlier interpreter instances (CDL7KHDK..., CA5ICI2O..., CAECFZWH..., CDZV4AG4..., CD46LN75...; installTx lists them by rule), so each reads as a rule policed by a known interpreter this build refuses to trust. Rules 6 and 7 were installed through the builder on this instance: rule 6 is `cap-500` on a made-up token (a cap of 500 on argument 2 of `transfer`, the same predicate as rules 2, 4 and 5), signer GAT7JHM4...; rule 7 follows rule 6's predicate (install_policy with follow), signer GC4NBOYS... (a throwaway key with no account), admin GAT7JHM4....",
     "installTx": {
       "1": "7ee0d68b9b1dd58ad0af7752f2f5e673424c57b03dd1f4f071ee2df28b5e4e0b",
       "2": "f5048377761ec99fec9d423a63167feedd1d148f78aca055a28bf0d200e90d8b",
       "3": "1abeb0bc73203679c4a47ace012e9394711e28e24b7036e90d4a9f99cff7d892",
       "4": "eb0d2e0936efc9be169ca140029024fd3f7e10cec4513d86f5b7f81a0a193268",
-      "5": "b8a3ac5b457d80bf00448a68a2d61928250e3d26922e2022be86dedfb614e705"
+      "5": "b8a3ac5b457d80bf00448a68a2d61928250e3d26922e2022be86dedfb614e705",
+      "6": "02b97de9c49e27d40f6a97de8d18fc906835f3050fe7f618bf89985db4ca3bdd",
+      "7": "c284ff4ffd17dc772ded2e6af47762547f05438dca0576c99483daf99dd24b2b"
     }
   },
   "limits": {
@@ -41,10 +43,40 @@
     "max_reads": 8
   },
   "extendTx": {
-    "instance": "66a64c138affa6190d97543bde0a5aaebb61f24161e8559de860e6e617de270f",
-    "code": "7d7492bebcf95dded92ced9b04674c51a08ae87d6c73f53fd197d5ddae2db905"
+    "instance": "5259ef1d604c67bf3b97a950f525f7c4dea6573b74a5df270a003f573b951a87",
+    "code": "276b7c7dbd79d801fd52c655f72f7189766c412e82a34ea39b75d70ff789d627",
+    "liveUntilLedger": 8387495,
+    "note": "instance and code TTL extended to about mid-April 2027"
   },
   "superseded": [
+    {
+      "interpreter": "CD46LN75LITN5INQEW3N3BKUK52IFODGCTJS2RWQ44JM74RH6ILIPBJ2",
+      "deployer": "GBNRXNKLPWUMDNFSONXRGF7OX75CPBZJJWEF7RWFUZIDJGOBNCRBLGXF",
+      "wasmSha256": "810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c",
+      "status": "superseded",
+      "why": "its wasm (810f53f1...) is this source before referenced rules and the immediate-batch pin (6704996f...); policy-synth no longer trusts it",
+      "limits": {
+        "max_depth": 5,
+        "max_elems": 32,
+        "max_in_operands": 32,
+        "max_leaves": 400,
+        "max_predicate_bytes": 24576,
+        "max_reads": 8
+      },
+      "uploadTx": "e6f0d7f6cd1286ee9439382c8ce4d7a5e29759eec2110dcea60ea6c88c2bf3a6",
+      "createTx": "f7a0625aab03b4659ffefe580eb4aba936415c7c1c68df9a27ced77f21268359",
+      "extendTx": {
+        "instance": "66a64c138affa6190d97543bde0a5aaebb61f24161e8559de860e6e617de270f",
+        "code": "7d7492bebcf95dded92ced9b04674c51a08ae87d6c73f53fd197d5ddae2db905"
+      },
+      "commit": "920a18f",
+      "liveTests": {
+        "note": "Rule 5 of the live-test account was installed on this instance.",
+        "installTx": {
+          "5": "b8a3ac5b457d80bf00448a68a2d61928250e3d26922e2022be86dedfb614e705"
+        }
+      }
+    },
     {
       "interpreter": "CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT",
       "deployer": "GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB",

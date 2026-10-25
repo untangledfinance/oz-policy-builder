@@ -50,6 +50,11 @@ export interface ObservedRule {
   /** It carries no predicate of its own: it follows this rule's, read at every call. `expr` is
    *  then that rule's predicate as it is now, which that rule's admins can change. */
   follows?: Followed
+  /** The executor the interpreter's record binds the rule to (`bind_executor`). */
+  executor?: string
+  /** The rule's Policy Signer role as the interpreter keeps it (`master_set`): Delegated addresses,
+   *  any other signer kind as its wire JSON. */
+  admins?: string[]
   cap?: RollingTotal
 }
 /** The rule another follows, with what it holds now (absent when it could not be read). */
@@ -207,6 +212,13 @@ export async function readPredicates(
   mine.forEach((r, i) => {
     const doc = docs[i]
     const source = sources[i] ?? 'bad'
+    if (doc && typeof doc.executor === 'string') r.executor = doc.executor
+    if (doc && Array.isArray(doc.master_set))
+      r.admins = doc.master_set.map((s) =>
+        Array.isArray(s) && s[0] === 'Delegated' && typeof s[1] === 'string'
+          ? s[1]
+          : JSON.stringify(s)
+      )
     try {
       if (!doc || source === 'bad') throw new Error('no stored record')
       if (source === 'inline') {
