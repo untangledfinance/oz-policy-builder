@@ -19,6 +19,7 @@ policy-builder synthesize '{"intent": {"calls": [{"contract": "C...", "fn": "pay
 policy-builder verify --file verify.json
 policy-builder info --verifyLive true
 policy-builder review --network testnet --xdr <unsigned XDR>
+policy-builder install --network testnet --smartAccount C... --sourceAccount G... --signers '["G..."]' --follow '{"smartAccount": "C...", "ruleId": 2}'
 ```
 
 Call a tool by its full name or by a unique start or end of it (`record`,
@@ -51,6 +52,10 @@ true` reads each one off the ledger through the operator's RPC. Then only an
 adapter bound to no gate, an adapter signing a rule scoped to itself that does
 not pin `call_fn = run`, or an undeployed contract is flagged, and every other
 contract reads signable unvetted: the owner checks who controls it.
+An install that follows another rule (`install --follow`) carries no predicate,
+so it reads as a problem offline too; `--readContracts true` also reads the
+followed rule's predicate and nonce now off the pinned interpreter and shows
+them under `Follows`.
 
 ## License
 

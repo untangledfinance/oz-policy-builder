@@ -11,18 +11,22 @@
 import { Address, type rpc, StrKey, xdr } from '@stellar/stellar-sdk'
 import { dataKey, entries, pool, read } from './chain.ts'
 import { INTERPRETERS, type Network, SPENDING_LIMIT } from './config.ts'
-import { Refusal } from './envelope.ts'
+import { type ErrorCode, Refusal } from './envelope.ts'
 import {
   branches,
+  type Caps,
   decode,
   type Expr,
   fields,
   fromScVal,
+  hashOf,
   intOf,
   isConstant,
   isSelector,
+  type Reference,
   unlit,
   type Val,
+  validate,
 } from './wire.ts'
 
 export type Scope =
@@ -43,10 +47,20 @@ export interface ObservedRule {
   expr?: Expr
   /** Our interpreter polices it, but its stored predicate could not be read (or decoded). */
   unreadable?: boolean
+  /** It carries no predicate of its own: it follows this rule's, read at every call. `expr` is
+   *  then that rule's predicate as it is now, which that rule's admins can change. */
+  follows?: Followed
   cap?: RollingTotal
 }
+/** The rule another follows, with what it holds now (absent when it could not be read). */
+export interface Followed extends Reference {
+  /** The followed rule's install nonce: it grows with every re-install of it. */
+  nonce?: number
+  /** sha256 of the followed rule's predicate bytes, hex. */
+  predicateHash?: string
+}
 /** The rule about to be installed. */
-export type Intended = Pick<ObservedRule, 'scope' | 'signers' | 'cap'> & { expr: Expr }
+export type Intended = Pick<ObservedRule, 'scope' | 'signers' | 'cap' | 'follows'> & { expr: Expr }
 export interface RulesRead {
   rules: ObservedRule[]
   /** False when ids ran out before every live rule was found: the list is a subset. */
@@ -58,7 +72,7 @@ export interface Overlap {
   ruleId: number
   /** `refuse`: the new rule cannot bind a shared signer. `review`: it may, read the advice. */
   severity: 'refuse' | 'review'
-  why: 'unpoliced' | 'looser' | 'uncapped' | 'rolling' | 'unreadable' | 'other'
+  why: 'unpoliced' | 'looser' | 'uncapped' | 'rolling' | 'unreadable' | 'follows' | 'other'
   advice: string
 }
 
@@ -124,8 +138,43 @@ export async function readRule(
   return rule
 }
 
+/** The interpreter's record of rule `id` on `account` (its `StoredDoc`), as a field record. */
+const docKey = (interpreter: string, r: Reference) =>
+  dataKey(
+    interpreter,
+    xdr.ScVal.scvVec([new Address(r.account).toScVal(), xdr.ScVal.scvU32(r.ruleId)])
+  )
+const docOf = (v: xdr.ScVal | undefined) => (v ? fields(fromScVal(v)) : undefined)
+
+/** Where a stored record's predicate is: its own bytes (`inline`), another rule's, or neither
+ *  (`bad`). A record with no `source` field is from a build that has no references: inline. */
+function sourceOf(doc: Record<string, Val>): 'inline' | 'bad' | Reference {
+  const s = doc.source
+  if (s === undefined) return 'inline'
+  if (!Array.isArray(s)) return 'bad'
+  if (s.length === 1 && s[0] === 'Inline') return 'inline'
+  const [tag, account, ruleId] = s
+  return s.length === 3 &&
+    tag === 'Rule' &&
+    typeof account === 'string' &&
+    typeof ruleId === 'number'
+    ? { account, ruleId }
+    : 'bad'
+}
+
+/** A record's own predicate, decoded: throws when it carries none the package can read. */
+function ownPredicate(doc: Record<string, Val>): { expr: Expr; b64: string } {
+  const bytes = (doc.predicate_bytes as { bytes?: string } | undefined)?.bytes
+  if (!bytes) throw new Error('no stored predicate')
+  const b64 = Buffer.from(bytes, 'hex').toString('base64')
+  return { expr: decode(b64), b64 }
+}
+
 /** Fill in the stored predicate of each of `rules` that `interpreter` polices (the interpreter
- *  keeps one record per account and rule id). The ids whose record could not be read. */
+ *  keeps one record per account and rule id). A rule that follows another rule's predicate gets
+ *  that rule's predicate as it is now, and `follows`; a followed rule that is missing, itself a
+ *  reference or undecodable leaves it unread, as the interpreter would refuse it (206, 201). The
+ *  ids whose predicate could not be read. */
 export async function readPredicates(
   server: rpc.Server,
   interpreter: string,
@@ -133,23 +182,99 @@ export async function readPredicates(
   rules: ObservedRule[]
 ): Promise<number[]> {
   const mine = rules.filter((r) => r.policies.includes(interpreter))
-  const acct = new Address(account).toScVal()
-  const docs = await entries(
-    server,
-    mine.map((r) => dataKey(interpreter, xdr.ScVal.scvVec([acct, xdr.ScVal.scvU32(r.id)])))
-  )
+  const docs = (
+    await entries(
+      server,
+      mine.map((r) => docKey(interpreter, { account, ruleId: r.id }))
+    )
+  ).map(docOf)
+  const sources = docs.map((d) => (d ? sourceOf(d) : 'bad'))
+  // Every followed rule in one more batch, each once (the RPC refuses a key asked twice): one level
+  // only, so nothing further is read.
+  const name = (r: Reference) => `${r.account}:${r.ruleId}`
+  const refs = [
+    ...new Map(
+      sources.filter((x): x is Reference => typeof x === 'object').map((r) => [name(r), r])
+    ).values(),
+  ]
+  const followed = (
+    await entries(
+      server,
+      refs.map((r) => docKey(interpreter, r))
+    )
+  ).map(docOf)
   const unreadable: number[] = []
   mine.forEach((r, i) => {
-    const doc = fields(docs[i] && fromScVal(docs[i] as xdr.ScVal))
-    const bytes = (doc.predicate_bytes as { bytes?: string } | undefined)?.bytes
+    const doc = docs[i]
+    const source = sources[i] ?? 'bad'
     try {
-      if (!bytes) throw new Error('no stored predicate')
-      r.expr = decode(Buffer.from(bytes, 'hex').toString('base64'))
+      if (!doc || source === 'bad') throw new Error('no stored record')
+      if (source === 'inline') {
+        r.expr = ownPredicate(doc).expr
+        return
+      }
+      const f: Followed = { ...source }
+      r.follows = f
+      const theirs = followed[refs.findIndex((x) => name(x) === name(source))]
+      if (!theirs || sourceOf(theirs) !== 'inline') throw new Error('the followed rule is not read')
+      const { expr, b64 } = ownPredicate(theirs)
+      r.expr = expr
+      f.predicateHash = hashOf(b64)
+      if (typeof theirs.nonce === 'number') f.nonce = theirs.nonce
     } catch {
       unreadable.push(r.id)
     }
   })
   return unreadable
+}
+
+/** The rule `r` on `interpreter`, read to be followed: its predicate now (validated against `caps`),
+ *  its encoding and hash, and its nonce. Refused (with `code`) when the interpreter has no such
+ *  record (it would refuse with 206), when its records carry no source (a build with no references),
+ *  when that rule itself follows another (one level only: 201), or when its predicate does not decode. */
+export async function readFollowed(
+  server: rpc.Server,
+  interpreter: string,
+  r: Reference,
+  caps: Caps,
+  code: ErrorCode
+): Promise<{ expr: Expr; encoded: string; follows: Required<Followed> }> {
+  const [raw] = await entries(server, [docKey(interpreter, r)])
+  const doc = docOf(raw)
+  const which = `rule ${r.ruleId} of ${r.account}`
+  if (!doc)
+    throw new Refusal(
+      code,
+      `${interpreter} holds no ${which}: there is nothing to follow (the interpreter refuses it, 206)`
+    )
+  if (doc.source === undefined)
+    throw new Refusal(
+      code,
+      `${interpreter} keeps no predicate source in its records: it is a build with no rule references, so no rule on it can follow another`
+    )
+  const source = sourceOf(doc)
+  if (source !== 'inline')
+    throw new Refusal(
+      code,
+      `${which} itself follows another rule's predicate: a rule follows one that carries its own (one level only; the interpreter refuses a chain, 201)`
+    )
+  let got: { expr: Expr; b64: string }
+  try {
+    got = ownPredicate(doc)
+    validate(got.expr, caps)
+  } catch (e) {
+    throw new Refusal(
+      'MALFORMED_PREDICATE',
+      `${which} holds a predicate this package cannot read: ${e instanceof Error ? e.message : String(e)}`
+    )
+  }
+  if (typeof doc.nonce !== 'number')
+    throw new Refusal(code, `${which}: its record carries no install nonce`)
+  return {
+    expr: got.expr,
+    encoded: got.b64,
+    follows: { ...r, nonce: doc.nonce, predicateHash: hashOf(got.b64) },
+  }
 }
 
 const NEXT_ID = xdr.ScVal.scvVec([xdr.ScVal.scvSymbol('NextId')]).toXDR('base64')
@@ -370,13 +495,20 @@ export function overlaps(
   interpreter: string,
   network: Network
 ): Overlap[] {
-  const calls = meet(scopeSel(mine.scope), selectors(mine.expr))
+  // A new rule that follows another may permit anything its scope allows tomorrow, as a neighbour that
+  // follows does.
+  const calls = mine.follows
+    ? scopeSel(mine.scope)
+    : meet(scopeSel(mine.scope), selectors(mine.expr))
   return existing.flatMap((old): Overlap[] => {
     // A rule with no signer at all may be open to any key (OZ lets a policy stand alone): shared.
     if (old.signers.length > 0 && !old.signers.some((s) => mine.signers.includes(s))) return []
+    // A neighbour that follows another rule may permit anything its scope allows tomorrow.
     const shared = meet(
       calls,
-      old.expr ? meet(scopeSel(old.scope), selectors(old.expr)) : scopeSel(old.scope)
+      old.expr && !old.follows
+        ? meet(scopeSel(old.scope), selectors(old.expr))
+        : scopeSel(old.scope)
     )
     if (shared.length === 0) return []
     const out = (severity: Overlap['severity'], why: Overlap['why'], advice: string): Overlap[] => [
@@ -395,6 +527,15 @@ export function overlaps(
         'refuse',
         'uncapped',
         "serves some of the same calls with no spend cap, so the new rolling total does not bind a shared signer; each rule keeps its own total, and a key's spend under one rule does not count against another"
+      )
+    }
+    // A neighbour that follows another rule's predicate permits whatever that rule's admins
+    // install next, without this account: judged on what it permits now, it could widen later.
+    if (old.follows) {
+      return out(
+        'refuse',
+        'follows',
+        `follows rule ${old.follows.ruleId} of ${old.follows.account}, whose admins can change what it permits without this account, so a shared signer may name it and escape the new rule's limits; take the shared signer off one of the two rules`
       )
     }
     // What the scan cannot read it cannot judge, and a rule it cannot judge may be the one a
@@ -434,6 +575,15 @@ export function overlaps(
         'refuse',
         'other',
         'permits some calls the new rule forbids (or cannot be shown not to), so a shared signer names it and escapes the new limits; tighten or remove it, or install the new rule on other signers'
+      )
+    }
+    // The new rule's predicate is another rule's, which its admins can tighten below this
+    // neighbour without the account: a shared signer would then name the neighbour instead.
+    if (mine.follows) {
+      return out(
+        'refuse',
+        'follows',
+        `is tighter than the new rule now, but the new rule follows rule ${mine.follows.ruleId} of ${mine.follows.account}, whose admins can tighten it below this one without the account, and a shared signer would then name this rule instead; take the shared signer off one of the two rules`
       )
     }
     return out(

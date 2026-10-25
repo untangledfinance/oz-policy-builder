@@ -15,6 +15,7 @@ import {
   type Authority,
   authority,
   fact,
+  followed,
   group,
   lines,
   type Node,
@@ -40,6 +41,7 @@ import {
 import { messageOf, Refusal } from './envelope.ts'
 import { digest, isAddressEntry, signerProblem, xlm } from './install.ts'
 import { callOf } from './record.ts'
+import type { Followed } from './rules.ts'
 import {
   CEILINGS,
   decode,
@@ -48,6 +50,7 @@ import {
   fromScVal,
   hashOf,
   isMap,
+  referenceOf,
   type Val,
   validate,
 } from './wire.ts'
@@ -70,7 +73,15 @@ export interface UnsignedReview {
   auth: { nonce: string; validUntilLedger: number; contextRuleIds: number[] } | null
   /** For `add_context_rule`: what the rule lets its signers do, and its predicate. */
   authority?: Authority
-  rule?: { scope: Val; name: string; predicateHash: string | null; predicate: Expr | null }
+  /** `predicate`: the one in the bytes; for a rule that `follows` another, that rule's predicate as
+   *  it was read (`null` when it was not read). */
+  rule?: {
+    scope: Val
+    name: string
+    predicateHash: string | null
+    predicate: Expr | null
+    follows?: Followed
+  }
   /** For `remove_context_rule`: the rule it removes. */
   removes?: { ruleId: number }
   /** Each one is a reason not to sign. */
@@ -93,6 +104,9 @@ export function reviewUnsigned(i: {
   /** What each contract signer is, as the caller read it off the ledger (`contractKinds`). Without
    *  it, what a contract signer runs is not in the bytes, so each one is a problem. */
   contracts?: Record<string, ContractKind> | undefined
+  /** The rule an install follows, as the caller read it off the pinned interpreter (`readFollowed`),
+   *  or why it could not. Without it, what such a rule permits is not in the bytes: a problem. */
+  followed?: { expr: Expr; follows: Followed } | { error: string } | undefined
 }): UnsignedReview {
   const { network } = i
   let env: Transaction | FeeBumpTransaction
@@ -266,6 +280,25 @@ export function reviewUnsigned(i: {
   let body2: Node[] = []
   if (call.fn === 'add_context_rule') {
     const r = ruleOf(call.args, network, account, flag)
+    const ref = r?.rule.follows
+    if (r && ref) {
+      const got = i.followed
+      const which = `rule ${ref.ruleId} of ${ref.account}`
+      if (
+        got &&
+        'expr' in got &&
+        got.follows.account === ref.account &&
+        got.follows.ruleId === ref.ruleId
+      ) {
+        r.rule.follows = got.follows
+        r.rule.predicate = got.expr
+      } else
+        flag(
+          got && 'error' in got
+            ? `the rule follows ${which}, which could not be read: ${got.error}`
+            : `the rule carries no predicate: it follows ${which}, whose predicate is not in these bytes (and which that rule's admins can change without this account's signature); review with readContracts to read it`
+        )
+    }
     if (r) {
       const scope = r.rule.scope
       const scopedTo =
@@ -290,7 +323,8 @@ export function reviewUnsigned(i: {
         // Flagged in `ruleOf` (a threshold with no number): shown as unreadable, never guessed.
         held = group('Authority', 'authority', [fact('unreadable', messageOf(e))])
       }
-      body2 = [held, ...(r.rule.predicate === null ? [] : tree(r.rule.predicate, v))]
+      const source = r.rule.follows ? [followed(r.rule.follows, v)] : []
+      body2 = [held, ...source, ...(r.rule.predicate === null ? [] : tree(r.rule.predicate, v))]
     }
   } else if (call.fn === 'remove_context_rule') {
     const id = call.args.length === 1 ? call.args[0] : undefined
@@ -408,13 +442,17 @@ function ruleOf(args: Val[], network: Network, account: string, flag: (p: string
       else {
         const b64 = Buffer.from(bytes, 'hex').toString('base64')
         if (said !== hashOf(b64)) flag('the predicate hash does not match the predicate bytes')
-        try {
-          const e = decode(b64)
-          validate(e, pin?.address === at ? pin.limits : CEILINGS)
-          rule.predicate = e
-        } catch (x) {
-          flag(`the predicate is not one the interpreter reads: ${messageOf(x)}`)
-        }
+        // A reference to another rule, as the interpreter reads one: the hash commits to it.
+        const ref = referenceOf(b64)
+        if (ref) rule.follows = ref
+        else
+          try {
+            const e = decode(b64)
+            validate(e, pin?.address === at ? pin.limits : CEILINGS)
+            rule.predicate = e
+          } catch (x) {
+            flag(`the predicate is not one the interpreter reads: ${messageOf(x)}`)
+          }
       }
     } else {
       flag(`a policy this package does not know is attached: ${at}`)
