@@ -1,21 +1,21 @@
 {
   "network": "testnet",
-  "recorded": "2026-10-23T12:24:54.859Z",
+  "recorded": "2026-10-25T20:20:00.000Z",
   "uploader": {
     "custody-gate": "GB5GXWIYHTVDUI3USESZIH2GCK63WMUUUW7F7WP2KNXHYROOVF2Z4RPQ",
-    "execution-adapter": "GAZE44YHNVVFTCVRJPENSC5JKSQOWQ4QK4HUE57OGBXHIYPC5VAMXOJN"
+    "execution-adapter": "GDJVFOIKPX7CSTVPXSYF6CVNSRN6GNH4SB45MRQTK73AYPBU74VGNAYD"
   },
   "wasmSha256": {
     "custody-gate": "b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab",
-    "execution-adapter": "4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b"
+    "execution-adapter": "bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0"
   },
   "uploadTx": {
     "custody-gate": "c7c9dedbabdb1a9f2cd64eb587a334a4346c8e97fc7b1f7bcbc811c574f08e2d",
-    "execution-adapter": "5b9323ac435f015f441715f9c3ae6c951666ab8e0bbe907d5aa1e2d600f85138"
+    "execution-adapter": "be2f7813a0081fe3c1a5d41be4bba1d12db73e52ca9bb415c478ec91ad6e3e5e"
   },
   "sizes": {
     "custody-gate": 9026,
-    "execution-adapter": 24659
+    "execution-adapter": 28003
   },
   "note": "Linux builds through each crate's build-wasm.sh, so the hashes can be rebuilt from source; CI does. The Prime app pins these: new gates are created from the custody-gate hash and name the execution-adapter hash as their caller's code. A deployed build can lag main: each network's record says which build it runs.",
   "interimBuilds": {
@@ -28,6 +28,13 @@
   },
   "superseded": {
     "execution-adapter": [
+      {
+        "wasmSha256": "4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b",
+        "uploadTx": "5b9323ac435f015f441715f9c3ae6c951666ab8e0bbe907d5aa1e2d600f85138",
+        "size": 24659,
+        "uploader": "GAZE44YHNVVFTCVRJPENSC5JKSQOWQ4QK4HUE57OGBXHIYPC5VAMXOJN",
+        "why": "the build before the no-gate word; this source builds the adapter that, with no gate, vouches for an immediate batch (bf85432c...), which replaces it here"
+      },
       {
         "wasmSha256": "3dd675c06a1f9b27b336347d7c7745d20845b6c1f35acfe4cd2ca93ab1db49c3",
         "uploadTx": "f5702f7b493a04121b4df9212d98434f7ead41d397c339a4ae61bf5078ef3729",

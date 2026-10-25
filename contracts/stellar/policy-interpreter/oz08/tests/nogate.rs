@@ -2,7 +2,7 @@
 //! OpenZeppelin's smart account 0.8.0.
 //!
 //! Everything here is the real code: OZ's account (`multisig-account-example`
-//! at `8e25220`, the fixture `oz08.rs` pins), the interpreter wasm
+//! at the `v0.8.0` tag `ddc327e`, the fixture `oz08.rs` pins), the interpreter wasm
 //! (`build-wasm.sh`, or `INTERPRETER_WASM`) and the execution adapter wasm
 //! (`../../execution-adapter/build-wasm.sh`, or `ADAPTER_WASM`). The tokens are
 //! Stellar asset contracts; the market and the gate are the models in

@@ -14,7 +14,7 @@ use soroban_sdk::{
 /// What one supply moves.
 pub const MOVE: i128 = 2_000_000;
 
-// ---- the account's types (OZ `smart_account::storage` at `8e25220`) ----
+// ---- the account's types (OZ `smart_account::storage` at `v0.8.0`, `ddc327e`) ----
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]

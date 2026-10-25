@@ -82,7 +82,9 @@ binding and the predicate carry its authority.
   context. The one exception is the adapter's `run` under a rule scoped to
   that adapter: only the adapter's code can ask the account for that context.
   An `execute` or a `cancel` still needs a grant from the adapter.
-- A rule scoped to its bound adapter must pin `call_fn == run` on every path.
+- A rule scoped to its bound adapter must pin, on every path, `call_fn == run`
+  or an immediate `execute` of a fixed batch: `call_fn == execute`, a wait of
+  0, the number of calls, and each call's target and function name.
   `bind_executor` checks it against the scope `install` recorded, a re-install
   checks it under a kept binding, and `enforce` checks it again against the
   rule OpenZeppelin passes, which no install argument can misstate (221).
@@ -107,14 +109,26 @@ bundle its own calls atomically. The flow is narrow:
 
 - every batch runs at once: a wait or a `min_wait` above 0 is refused
   (`NoWait`), nothing is stored, and `run` finds nothing (`NotScheduled`);
-- the adapter hands out no grant (`Uncheckable`), so no rule bound to it can
-  pass the binding, and no keyless rule works through it;
-- every call is therefore approved by a keyed rule (the agent's, or the
-  owners' rule 0): the agent needs one rule for `execute` and one for each
-  token it moves, each with its own cap;
+- the adapter hands a callee no authorisation (`Uncheckable`). In an immediate
+  `execute` it accepts one kind of grant, its word to the Prime's policy:
+  `enforce(prime, context)` on a contract the batch names, for its own Prime,
+  with nothing nested; anything else is refused (`Uncheckable`). To each
+  contract named it adds the same word for the `execute` it is running. It
+  hands them out just before it asks the Prime, and the host keeps them for
+  that one approval, each matched once;
+- so a rule bound to the adapter passes for a context the batch names, and a
+  keyless rule scoped to the adapter passes for its `execute` only if its
+  predicate pins the whole batch shape (221): this is how anyone can run a
+  liquidation the Prime's keyless rules permit;
+- a batch with no grants hands out nothing, so keyed rules (the agent's, or the
+  owners' rule 0) work as before: the agent needs one rule for `execute` and
+  one for each token it moves, each with its own cap. A keyed batch that
+  carries words now passes the adapter, and the Prime's rules decide; it only
+  matters on an account whose admins bound rules to this adapter;
 - with no address list, those predicates are the whole constraint. Pin each
-  recipient (`eq` or `in` on the destination argument) and bound each amount
-  from both sides. Send the adapter no funds and no allowance.
+  recipient (`eq` or `in` on the destination argument), bind a payer to the
+  receiver across calls, and bound each amount from both sides. Send the
+  adapter no funds and no allowance.
 
 A custody gate never pays a no-gate adapter: the gate pins its caller's
 address and build, and custody derives that address from the gate itself.
@@ -145,7 +159,9 @@ preimage of the account's digest, from which the seat reads the rule ids:
   bound rule runs without the adapter's check once a document is installed
   again.
 - The keyless shape is verified against an OpenZeppelin 0.8.0 account (built
-  from upstream commit `8e25220`; the release is not tagged yet) in the
+  from the `v0.8.0` tag `ddc327e`; it builds the same wasm, `8286422f…`, as
+  the earlier commit `8e25220`, which differs only in release notes and
+  version strings) in the
   interpreter's `oz08/` test crate. The Prime accounts on testnet run
   `91a2cd56…`, the older 0.7.2-line account; re-checking the keyless shape on
   that build is open.
@@ -173,7 +189,7 @@ Each crate's `build-wasm.sh` gives the hash CI compares
 | Contract | sha256 of the Linux build | Testnet |
 |---|---|---|
 | Policy interpreter | `810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c` | instance `CD46LN75…`, the policy-synth pin; it replaced `CDZV4AG4…` (`69cad1d5…`, this source before the keyless rules), which policy-synth does not trust |
-| Execution adapter | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b` | code uploaded, tx `5b9323ac…` (`deployments/execution-testnet.json`) |
+| Execution adapter | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b` at `v4.1.0`; this branch builds `bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0` (the no-gate word) | code uploaded (`deployments/execution-testnet.json`) |
 | Custody gate | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` | code uploaded |
 | Prime seat | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | code uploaded |
 
