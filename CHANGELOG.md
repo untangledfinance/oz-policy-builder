@@ -55,6 +55,19 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
   `bind_executor` from its bytes. The rule reader returns each rule's bound
   `executor` and `admins`. The CLI and the MCP server serve nine tools.
 
+### Changed
+
+- **The pinned interpreter:** `policy-synth` pins testnet instance
+  `CDER6P73JWMIVD3X6TGGOQIDAH3DLU7OKRTLT4ULPTZ3QJJ3QUGTK7CM` (wasm
+  `6704996f…`, referenced rules and the immediate-batch pin; the same
+  limits) and trusts only that build. `CD46LN75…` (`810f53f1…`) is recorded
+  as superseded in `deployments/interpreter-testnet.json` and is no longer
+  trusted: a rule it polices reads as unreadable, and an install naming it is
+  refused (`INTERPRETER_MISMATCH`). Following a rule needs a build with
+  references, so it works on the pin and is refused on `810f53f1…`. The
+  live-test account's rules 6 (`cap-500`) and 7 (following rule 6) are on the
+  new instance, and every recorded RPC fixture is re-recorded against it.
+
 ### Security
 
 - **Dependency advisories cleared:** `zod` 3.25.76 -> 4.6.7
