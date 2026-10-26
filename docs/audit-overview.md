@@ -142,6 +142,65 @@ bundle its own calls atomically. The flow is narrow:
 A custody gate never pays a no-gate adapter: the gate pins its caller's
 address and build, and custody derives that address from the gate itself.
 
+> **Known finding H-1 (reviewer, accepted).** STRIDE E-36, High; residual
+> Medium with the containment below. See
+> [stride-threat-model.md](../evidence/stride-threat-model.md), section 6.7
+> and the E-36 row in section 8.
+>
+> - **The scenario.** An account runs keyless liquidation rules bound to a
+>   no-gate adapter N. It also gives an agent a keyed rule that permits
+>   `N.execute` without pinning the number of grants to 0
+>   (`call_arg_len(1) == 0`). The agent can then put one word,
+>   `enforce(prime, context)`, in its batch. That word vouches for a keyless
+>   INNER rule (an asset transfer out of the account, say) outside any
+>   liquidation, and the agent moves the whole balance that rule covers. The
+>   inner rules each bound one call only. The liquidation's cross-call guards
+>   (payer equal to receiver, amounts tied to the debt, fresh prices) live in
+>   the pinned ROOT rule, and the agent's batch never cites it. The reviewer
+>   confirmed this on the real wasms against OpenZeppelin's 0.8.0 account, and
+>   `oz08/tests/nogate.rs` (`e36_…`) keeps it as a regression test with both
+>   mitigations. This is the class of hole OpenZeppelin 0.8's 3017 closed for
+>   rules signed by the adapter. The no-gate word reopens it for an account
+>   that lets a keyed rule approve the same adapter its keyless rules are
+>   bound to.
+> - **Why it is not a contract guard.** The interpreter evaluates one rule at
+>   a time. It never sees the account's other rules. At install it also cannot
+>   tell whether the executor a rule is bound to is a gated or a no-gate
+>   adapter. A contract-level refusal would therefore have to refuse keyed or
+>   keyless rules on every executor, which breaks legitimate gated designs.
+>   The adapter cannot tell a keyed caller from a keyless one either: it only
+>   sees the account's approval.
+> - **Containment, accepted by the team:**
+>   1. *Operational.* Use a DEDICATED no-gate adapter for the keyless rules.
+>      It gets its own `run_window`, so its own address. No rule of any kind
+>      approves its `execute` except the keyless liquidation rules: no keyed
+>      rule scoped to it, no Default-scoped keyed rule, no plain OpenZeppelin
+>      rule. The owners' rule 0 is the one Default rule an account has, and
+>      its quorum already holds full authority over the account. The
+>      interpreter refuses to install on a Default-scoped rule (218), so no
+>      Default rule carries a predicate. Agents' keyed rules go on another
+>      adapter. The keyless rules' binding never accepts that adapter's word,
+>      and the regression test shows the refusal.
+>   2. *Tooling.* `policy-synth` hard-refuses the dangerous configuration,
+>      with no override: a keyed rule scoped to a no-gate adapter that does
+>      not hold the grants to none on every branch, and a keyless rule bound
+>      to a no-gate adapter while such a keyed rule is scoped to it. It also
+>      refuses when the account's rules cannot all be read. Default-scoped
+>      and plain OpenZeppelin rules are not inspected there; they are part of
+>      the operational invariant.
+>   3. *Documentation.* This note and the STRIDE entry.
+> - **Ask to the auditor.** Please confirm:
+>   - (a) The Soroban host keeps an invoker contract grant
+>     (`authorize_as_current_contract`) only for the invoker's next sub-call,
+>     here the account's single `__check_auth` for this `execute`. Each entry
+>     matches once. While that authorisation tree is active, the host refuses
+>     a second, disjoint entry for the same account. Together these make the
+>     words ephemeral and confine every request of the account in the batch to
+>     that one approval.
+>   - (b) The dedicated-adapter invariant above, with `policy-synth`'s
+>     refusal, is sufficient containment for H-1.
+
+
 **Prime seat:** one seat serves one account and one owner key, both fixed at
 construction. No admin, no setter, no upgrade. The owner key signs only grants
 and ends. A grant needs `start <= now <= end`, at most 604,800 seconds, and an
