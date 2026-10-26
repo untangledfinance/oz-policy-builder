@@ -341,7 +341,7 @@ Each crate's `build-wasm.sh` gives the hash CI compares
 | Contract | sha256 of the Linux build | Testnet |
 |---|---|---|
 | Policy interpreter | `6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4` (referenced rules and the batch pin; `v4.1.0` built `810f53f1…`) | instance `CDER6P73…`, the policy-synth pin; it replaced `CD46LN75…` (`810f53f1…`) and `CDZV4AG4…` (`69cad1d5…`), which policy-synth does not trust |
-| Execution adapter | `bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0` (the no-gate word; `v4.1.0` built `4985cd12…`) | code uploaded (`deployments/execution-testnet.json`, which lists `4985cd12…` as superseded) |
+| Execution adapter | `bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0` (the no-gate word; `v4.1.0` built `4985cd12…`) | code uploaded (`deployments/execution-testnet.json`, which lists `4985cd12…` and `3dd675c0…` as superseded) |
 | Custody gate | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` | code uploaded |
 | Prime seat | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | code uploaded |
 

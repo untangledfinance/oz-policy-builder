@@ -131,7 +131,7 @@ flowchart TB
 |---|---|---|
 | Custody wallet and its signers | holding the funds and approving the limit | the institution (Fordefi or another MPC) |
 | Custody gate | paying only listed destinations within the limit | us |
-| Execution adapter | running a batch atomically; bound to a gate, naming only addresses the gate lists; with no gate, refusing a call to the Prime, any grant and any wait | us |
+| Execution adapter | running a batch atomically; bound to a gate, naming only addresses the gate lists; with no gate, refusing a call to the Prime, any wait and any grant other than its word to the Prime's policy | us |
 | Policy interpreter | evaluating a rule's predicate on every call the rule authorises, and holding a rule with no signer to its executor binding | us |
 | Prime account | counting owners' approvals and selecting rules | OpenZeppelin |
 | Prime seat | letting a session key stand in for one owner on one account | us |
@@ -146,7 +146,7 @@ flowchart TB
 | Custody's signers at their threshold | grant, lower and revoke the limit; cancel stored moves and recoveries | move funds past the gate without the Prime account; change a gate's list (a new gate is needed) |
 | The Prime owners at their threshold | install and remove rules, add and remove owners, recover to the recovery address, draw within the limit to any address on the gate's list | pay an address the gate does not list; exceed custody's limit |
 | The agent | move funds inside the rules that list it | act outside a rule, recover, cancel, change a rule |
-| Anyone | run a stored batch once its wait is over and before its window closes | change what the batch does, or run it twice |
+| Anyone | run a stored batch once its wait is over and before its window closes; run an immediate batch through a no-gate adapter when the Prime's keyless rules bound to that adapter permit it (a liquidation) | change what the batch does, or run it twice; pass a keyless rule with a batch its predicate does not permit |
 | A session key | vote for its seat's owner in rule 0, and act alone inside rules that list its seat, until its end or the owner's end | act on an account other than the one its seat is bound to on chain |
 | The holder of a seat's owner key | grant and end sessions for that seat | act for any other owner or seat |
 | The Prime app and the relayer | submit and pay for transactions, hold session keys in the browser | forge an owner's grant, a native signature or a custody signature |
@@ -285,11 +285,14 @@ so replacing a rule is the safe way to change who signs it.
   account or to the interpreter (error 218).
 - **An adapter with no gate checks no address:** a batch through it can do what
   the Prime's rules allow for each call that asks the Prime, and move anything
-  the adapter holds. It must never hold funds or an allowance. It grants
-  nothing, so no rule bound to it can pass, and every call through it needs the
-  agent's own keyed rule. A bundle that failed can be submitted again by
-  whoever holds its signed address-credential entry, until that entry's expiry
-  ledger.
+  the adapter holds. It must never hold funds or an allowance. In an immediate
+  `execute` it hands out one grant, its word to the Prime's policy, so a rule
+  bound to it passes for the calls the batch names. A keyless rule scoped to it
+  must pin the whole batch shape (221), and the predicates of the rules bound
+  to it are the only fence ([stellar.md](stellar.md#no-gate)). A keyed rule scoped to it must hold the
+  grants to none (STRIDE E-36); a dedicated no-gate adapter for keyless rules
+  avoids the hazard. A bundle that failed can be submitted again by whoever
+  holds its signed address-credential entry, until that entry's expiry ledger.
 - **A seat cannot be a policy admin:** admins authorise by `require_auth`,
   which a seat satisfies only inside its own account's check.
 - **Owner count:** an OpenZeppelin account takes 15 signers in rule 0 and

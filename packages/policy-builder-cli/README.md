@@ -30,8 +30,8 @@ read as JSON). One JSON envelope goes to stdout, the same one the MCP server
 returns: `{ ok: true, data }` or `{ ok: false, error: { code, message, retryable } }`. The exit code is 0, 1 for a refusal and 2 for bad usage; `--out`
 also writes the envelope to a file.
 
-The CLI holds no key material and signs nothing: `install` and `revoke` return
-unsigned XDR. The operator's settings are environment variables:
+The CLI holds no key material and signs nothing: `install`, `revoke` and
+`bind` return unsigned XDR. The operator's settings are environment variables:
 `POLICY_BUILDER_RPC_URL_<NETWORK>`,
 `POLICY_BUILDER_SAFE_READS_<NETWORK>`,
 `POLICY_BUILDER_ALLOW_SPOT_READS`, `POLICY_BUILDER_ALLOW_OVERRIDES` (outside
@@ -41,8 +41,8 @@ testnet an `allow*` override is honoured only with it set to 1), and the bounds 
 guardrails (threshold or `anyOne`, the spending-limit guard, the read-safety lint,
 the overlap scan) are described in the policy-synth README.
 
-`policy-builder review` is for the account owner: it reads an unsigned install or
-removal from its bytes alone, with no RPC. It lists the problems it finds in the
+`policy-builder review` is for the account owner: it reads an unsigned install,
+removal or binding from its bytes alone, with no RPC. It lists the problems it finds in the
 bytes (`problems`, `signable`), then a review rebuilt from those bytes: the
 transaction, the Authority node and the predicate. `signable` does not mean safe:
 an agent can rewrite the bytes consistently, so the owner reads the Authority

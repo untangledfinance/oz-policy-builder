@@ -180,11 +180,12 @@ only the batch the Prime approved runs.
 
 **The run rule needs its predicate:** without it, the rule would approve an
 immediate `execute` or a `cancel` for the Prime with no key. The interpreter
-refuses a rule scoped to its bound adapter unless the predicate pins
-`call_fn == run` on every path (221), at `bind_executor`, at a re-install and at
-`enforce`. Under a rule bound to the adapter, any context other than the
-adapter's own `run` still needs a grant from the adapter, and a batch cannot
-carry a grant for its own `execute`. Agent rules permit `execute` only, so an
+refuses a rule scoped to its bound adapter unless the predicate pins, on every
+path, `call_fn == run` or an immediate `execute` of a fixed batch (221; see
+[No gate](#no-gate)), at `bind_executor`, at a re-install and at `enforce`.
+Under a rule bound to the adapter, any context other than the adapter's own
+`run` still needs a grant from the adapter, and a batch cannot carry a grant
+for its own `execute`. Agent rules permit `execute` only, so an
 agent cannot cancel.
 
 **A venue rule:** a rule scoped to the venue (a Blend pool's `submit`) and bound
@@ -422,7 +423,8 @@ whole call:
 1. the empty-signer gate above (210);
 2. the stored predicate is decoded;
 3. a bound rule whose scope, as OpenZeppelin passes it, is the bound executor
-   must pin `call_fn == run` on every path (221);
+   must pin, on every path, `call_fn == run` or an immediate `execute` of a
+   fixed batch (221);
 4. a bound rule needs the executor's authorisation of the exact account and
    context, except the executor's own `run` context under a rule scoped to it;
 5. the rule's signer set must match the hash `install` stored (204);
@@ -436,10 +438,14 @@ only when that contract is an execution adapter:** under the exception, the
 binding stands in for that contract's consent to its own `run`, so the rule
 approves whatever that `run` does.
 
-`pins_call_fn` decides step 3: an `and` pins when any child does, an `or` only
-when every child does, and a compare pins only as `eq` between `call_fn` and
-the symbol `run`, either side. `in`, `ne`, quantifiers and every other shape
-pin nothing. The same check runs at `bind_executor`, against the scope `install`
+`pins_own` decides step 3. It accepts a predicate that pins `call_fn == run`
+(`pins_call_fn`), or one that pins `call_fn == execute`, the wait (argument 2)
+to 0, the number of calls to a constant, and each of those calls' target and
+function name. An `and` pins when any child does, an `or` only when every child
+does. `call_fn`, the wait and the number of calls pin only as `eq` against a
+constant, either side; a target or a function name pins as such an `eq` or as
+an `in` of constants. `ne`, `nin`, quantifiers and every other shape pin
+nothing. The same check runs at `bind_executor`, against the scope `install`
 recorded, and at a re-install under a kept binding. The `enforce` check reads
 OpenZeppelin's own record of the rule, so an install that misstated the scope
 cannot get round it.
@@ -660,8 +666,8 @@ hash; `stellar contract build` and macOS give other bytes.
 ```sh
 ( cd contracts/stellar/policy-interpreter && ./build-wasm.sh && cargo test )   # tests/worst_case.rs loads the wasm
 ( cd contracts/stellar/policy-interpreter && cargo test --release --test conformance )
-( cd contracts/stellar/policy-interpreter/oz08 && cargo test --locked )          # loads the same wasm
 ( cd contracts/stellar/execution-adapter && ./build-wasm.sh && cargo test )
+( cd contracts/stellar/policy-interpreter/oz08 && cargo test --locked )          # loads both wasms above
 ( cd contracts/stellar/custody-gate && ./build-wasm.sh && cargo test )
 ( cd contracts/stellar/prime-seat && ./build-wasm.sh && cargo test )
 ```
@@ -823,8 +829,9 @@ network is asked unless the operator sets `POLICY_BUILDER_ALLOW_OVERRIDES=1`.
 runs it on the unsigned XDR (an install, a removal or a `bind_executor`) it is about to sign (also `reviewUnsigned` from
 `@crediolabs/policy-synth`, with `smartAccount` set): it reads the bytes alone,
 with no RPC, lists in `problems` what it finds wrong in them (an authorisation
-for anything but the call or by a rule other than 0, a `__check_auth` digest
-that does not match on the network, an interpreter other than the pin, a
+for anything but the call or by a rule other than 0, a `__check_auth`
+argument that does not match on the network (the 0.7.2-line digest or the
+0.8.0 preimage, whichever the bytes carry), an interpreter other than the pin, a
 predicate whose hash does not match its bytes, an unknown policy, an External
 signer or admin, a fee above the ceiling, no time bound or one longer than the
 window plus 120 s for the owner's clock, a signature already on the envelope,

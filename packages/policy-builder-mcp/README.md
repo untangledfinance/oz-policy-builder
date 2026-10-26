@@ -28,8 +28,8 @@ serves stateless Streamable HTTP at `POST /mcp` on loopback; the surface has no
 authentication, so a non-loopback host is refused unless the embedding code passes
 `allowExternalHost` (`startHttpServer`).
 
-The server holds no key material: install and revoke return unsigned XDR for a
-wallet to sign. See the [agent manual](../../.claude/skills/oz-policy-builder/SKILL.md)
+The server holds no key material: install, revoke and bind return unsigned XDR
+for a wallet to sign. See the [agent manual](../../.claude/skills/oz-policy-builder/SKILL.md)
 for which tool to call for which intent, and the policy-synth README for the
 limits, the install guardrails and the operator's environment variables.
 

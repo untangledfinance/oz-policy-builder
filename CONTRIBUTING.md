@@ -65,9 +65,11 @@ hashes from a Linux build.
 
 The interpreter's suite against OpenZeppelin's smart account 0.8.0 is a crate
 of its own, because that account needs a newer test host than the
-interpreter's. It loads the wasm `build-wasm.sh` wrote, so build first:
+interpreter's. It loads the wasm the interpreter's `build-wasm.sh` wrote, and
+its `tests/nogate.rs` also loads the execution adapter's, so build both first:
 
 ```sh
+( cd contracts/stellar/execution-adapter && ./build-wasm.sh )
 ( cd contracts/stellar/policy-interpreter/oz08 &&
   cargo fmt --check &&
   cargo clippy --all-targets --locked -- -D warnings &&

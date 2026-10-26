@@ -134,8 +134,8 @@ Every tool that returns a rule includes `review` (box-drawn text) and
 wire value each came from). It sits in `rules[n]` for `synthesize_policy`, at the
 top level for `simulate_policy` and `verify_policy`, in `rule` for
 `install_policy`, in `binds` for `bind_policy`, and in `removes` for
-`revoke_policy` (on an account build the package does not know,
-`reviewSkipped` says why there is none).
+`revoke_policy` (which refuses an account whose build the package does not
+know).
 
 - **The text is injective:** two rules that differ never read alike. Constants
   carry their type where needed (symbols `'quoted'`, strings `"quoted"`,
@@ -574,7 +574,7 @@ From the interpreter (`contracts/stellar/policy-interpreter/src/storage.rs`):
 | `#217` | `TooManySigners` | A signer set has more than 16 signers (`MAX_SIGNERS`) |
 | `#218` | `DefaultContextNotSupported` | A Default-scoped rule, or one scoped to the account or the interpreter |
 | `#219` | `SignerIsInterpreter` | A signer set holds the interpreter's own address |
-| `#220` | `LimitsOutOfRange` | A deploy-time limit was 0 or above its ceiling. The constructor refuses, so no live instance carries it |
+| `#220` | `LimitsOutOfRange` | A deploy-time limit was below its floor or above its ceiling. The constructor refuses, so no live instance carries it |
 | `#221` | `RunNotPinned` | A rule bound to an executor and scoped to it pins, on some branch, neither `call_fn = run` nor a whole immediate batch. Refused by `bind_executor`, by a re-install under a binding, and by `enforce` |
 
 From the OpenZeppelin account layer (outside this interpreter):
