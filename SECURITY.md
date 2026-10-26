@@ -27,10 +27,10 @@ There is currently no bug bounty programme.
 custody gate, the execution adapter, the Prime seat and the three TypeScript
 packages. Untangled set the scope on 10 October 2026 and added the Prime seat
 on 21 October 2026. The code submitted for it is this repository at tag
-`v5.1.0`; the audit started on 26 October 2026. The current release, `v5.2.0`,
-leaves the contracts unchanged and adds OpenZeppelin 0.8.0 account support to
-`policy-synth` ([docs/audit-overview.md](./docs/audit-overview.md) lists the
-changes).
+`v5.2.0`, the current release; the audit started on 26 October 2026. Its
+contracts are unchanged from `v5.1.0` (interpreter `6704996f…`, adapter
+`bf85432c…`); `v5.2.0` adds OpenZeppelin 0.8.0 account signing to
+`policy-synth`.
 [docs/audit-overview.md](./docs/audit-overview.md) lists the code in scope, its
 size and the assumptions about everything outside it. The Prime seat has had
 internal reviews and mutation testing; its README has the mutation run. The

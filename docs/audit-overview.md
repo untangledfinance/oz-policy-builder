@@ -19,7 +19,7 @@ it. Every size below was measured on this tree.
 | Execution adapter | `contracts/stellar/execution-adapter/src` | Rust | 277 | 67 | in |
 | Custody gate | `contracts/stellar/custody-gate/src` | Rust | 53 | 3 | in |
 | Prime seat | `contracts/stellar/prime-seat/src` | Rust | 97 | 21 | in |
-| Policy synthesiser, `@crediolabs/policy-synth` | `packages/policy-synth/src` | TypeScript | 4,818 (4,646 at the audited tag `v5.1.0`) | 26 test files | in |
+| Policy synthesiser, `@crediolabs/policy-synth` | `packages/policy-synth/src` | TypeScript | 4,818 | 26 test files | in |
 | CLI, `@crediolabs/policy-builder-cli` | `packages/policy-builder-cli/src`, `bin` | TypeScript | 76 | 1 test file | in |
 | MCP server, `@crediolabs/policy-builder-mcp` | `packages/policy-builder-mcp/src`, `bin` | TypeScript | 133 | 3 test files | in |
 | `test-blend-pool` | `contracts/stellar/test-blend-pool/src` | Rust | 22 | none | out: a Blend-shaped stub for tests |
@@ -43,26 +43,35 @@ declarations left out. To reproduce:
 
 ## In scope and out of scope
 
-**In scope (the code submitted for audit):** this repository at tag `v5.1.0`, the
+**In scope (the code submitted for audit):** this repository at tag `v5.2.0`, the
 current release: the `src/` of the
 interpreter, the adapter, the gate and the Prime seat
 (`contracts/stellar/prime-seat/src`), test modules excluded; the `src/` of
 `policy-synth`; and the `src/` and `bin/` of the CLI and the MCP server. The
-same package code is published to npm at version 5.1.0 as
+same package code is published to npm at version 5.2.0 as
 `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and
 `@crediolabs/policy-builder-mcp`.
 
-**After the audited tag:** release `v5.2.0` changes only `policy-synth`, with
-the contracts unchanged (interpreter `6704996f…`, adapter `bf85432c…`). The
-builder now signs for OpenZeppelin's 0.8.0 account too: `buildSelfCall` reads
-the account's code and authorises `__check_auth` with the 0.7.2-line digest for
-`91a2cd56…` or the 0.8.0 `AuthDigestPreimage` struct for `8286422f…`, and
-refuses any other build, where 5.1.0 signed the 0.7.2-line digest for every
-account. `review_unsigned` checks either form byte for byte and, with
-`readContracts`, that the form is the one the account's build asks for. The
-testnet policy pins move to the `v0.8.0` builds (the earlier ones stay
-refused as scopes and readable as policies). The CHANGELOG entry lists the
-rest.
+The contracts in scope are byte-identical to those at `v5.1.0` (interpreter
+`6704996f…`, adapter `bf85432c…`, gate `b01024f3…`, seat `393f0e5d…`), so a
+contract review done against `v5.1.0` carries over. `v5.2.0` changes only
+`policy-synth`, and those changes are in scope:
+
+- **Signing for OpenZeppelin's 0.8.0 account.** `buildSelfCall` (behind
+  `install_policy`, `revoke_policy` and `bind_policy`) reads the account's
+  code and authorises `__check_auth` with the 0.7.2-line digest for
+  `91a2cd56…` or the 0.8.0 `AuthDigestPreimage` struct for `8286422f…`, and
+  refuses any other build or unreadable code (`OZ_ACCOUNT_AUTH`,
+  `checkAuthArg`, `accountAuthOf` in `install.ts`); 5.1.0 signed the
+  0.7.2-line digest for every account.
+- **The owner-side review.** `review_unsigned` checks either form byte for
+  byte and, with `readContracts`, that the form is the one the account's
+  build asks for (`review.ts`).
+- **The testnet policy pins.** The testnet OpenZeppelin policies move to
+  `v0.8.0` builds; the earlier `v0.7.2` instances stay refused as scopes and
+  readable as policies (`SUPERSEDED_OZ_POLICIES` in `config.ts`).
+
+The CHANGELOG entry for 5.2.0 lists the rest.
 
 **Out of scope, each with what Prime assumes of it:**
 
