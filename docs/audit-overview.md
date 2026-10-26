@@ -133,7 +133,7 @@ bundle its own calls atomically. The flow is narrow:
   adapter for keyless rules, its own `run_window` and so its own address, with
   no keyed rule scoped to it. `policy-synth` refuses the dangerous
   configuration; nothing on chain does, because the interpreter sees one rule
-  at a time;
+  at a time. See [Known finding H-1](#known-finding-h-1-reviewer-accepted-by-the-team);
 - with no address list, those predicates are the whole constraint. Pin each
   recipient (`eq` or `in` on the destination argument), bind a payer to the
   receiver across calls, and bound each amount from both sides. Send the
@@ -141,6 +141,70 @@ bundle its own calls atomically. The flow is narrow:
 
 A custody gate never pays a no-gate adapter: the gate pins its caller's
 address and build, and custody derives that address from the gate itself.
+
+### Known finding H-1 (reviewer; accepted by the team)
+
+The independent review of the no-gate word reported this as High, and the team
+accepted it with the containment below. It is E-36 in the threat model
+([section 6.7](../evidence/stride-threat-model.md#67-the-no-gate-word-an-adapter-with-no-gate-vouches-for-an-immediate-batch-this-branch)
+and [section 8](../evidence/stride-threat-model.md#8-open-items)), open, High, with a residual of Medium once
+the containment is in place. We ask the auditor to check two points, listed at
+the end.
+
+**Scenario:** an account uses one no-gate adapter for both a keyed agent rule
+and its keyless liquidation rules. The agent's rule permits the adapter's
+`execute` and leaves the number of grants (`call_arg_len(1)`) open. The agent
+runs an immediate `execute` whose grants carry the adapter's word,
+`enforce(prime, context)`, for a transfer out of the account, and that transfer
+is checked against a keyless inner rule bound to the adapter. The inner rule
+bounds its one call (the account as sender, an amount above 0). The
+liquidation's cross-call guards (the payer equal to the receiver, amounts tied
+to the debt) sit in the pinned root rule, and the agent's batch never passes
+through it. The agent moves the whole balance of any asset an inner rule
+covers. The review proved this on the real wasms (`oz08` test
+`e36_a_keyed_door_without_a_grants_pin_drains_through_keyless_inner_rules`).
+It is the class of attack OpenZeppelin 0.8.0 closed with error 3017 for rules
+an adapter signs, opened again through the no-gate word.
+
+**Why there is no contract guard:** the interpreter sees one rule at a time.
+At `install` and at `bind_executor` it reads neither the account's other rules
+nor whether the executor it binds has a gate. A refusal on chain would have to
+guess, and would refuse legitimate gated designs, where a keyed rule leaves the
+grants open and the gate checks every grant against its list.
+
+**Containment, accepted by the team:**
+
+1. Operational: keyless rules get a dedicated no-gate adapter, with its own
+   `run_window` and so its own address. No rule of any kind approves that
+   adapter's `execute` except the keyless liquidation rules: no keyed rule
+   scoped to it, no Default-scoped keyed rule and no plain OpenZeppelin rule
+   without the interpreter. Agents' keyed rules use another adapter, and the
+   keyless rules' binding refuses that adapter's word.
+2. Tooling: `policy-synth` refuses the dangerous configuration, with no
+   override. It refuses a keyed rule scoped to a no-gate adapter unless every
+   branch holds the grants to 0 or permits no `execute` (a rule with no
+   `call_fn` pin counts as permitting it). It refuses a keyless install for a
+   no-gate adapter, and a `bind_policy` to one, while the account has a keyed
+   rule scoped to that adapter that could hand out its word, or while it cannot
+   read all of the account's rules. `review_unsigned` flags the same rule.
+3. Disclosure: this note and E-36 in the threat model.
+
+The containment rests on the configuration. An account set up outside the
+tools, for example with a Default-scoped keyed rule that an agent holds, stays
+exposed.
+
+**What we ask the auditor to confirm:**
+
+- (a) The words are ephemeral. The Soroban host keeps an invoker grant for the
+  next sub-contract call only (`soroban-env-host` `auth.rs`, `pop_frame`),
+  which here is the Prime's `__check_auth` for this `execute`, and each entry
+  matches once. While that approval's tree is active, the host refuses a second,
+  disjoint entry of the Prime, so every request of the Prime inside the batch
+  is matched within that one tree and evaluated in that one `__check_auth`.
+- (b) The dedicated-adapter invariant is enough containment: when only the
+  keyless liquidation rules approve the dedicated adapter's `execute`, no batch
+  can reach a keyless inner rule outside a liquidation the pinned root rule
+  permits.
 
 **Prime seat:** one seat serves one account and one owner key, both fixed at
 construction. No admin, no setter, no upgrade. The owner key signs only grants
@@ -174,9 +238,10 @@ preimage of the account's digest, from which the seat reads the rule ids:
   interpreter's `oz08/` test crate. The Prime accounts on testnet run
   `91a2cd56…`, the older 0.7.2-line account; re-checking the keyless shape on
   that build is open.
-- The synthesiser builds keyed rules only. It refuses a rule with no signer
-  and builds no `bind_executor` call, so a keyless rule and its binding are
-  installed through the contract calls directly.
+- The synthesiser builds keyed rules, keyless rules for an execution adapter
+  (`install_policy` with `executor`) and their binding (`bind_policy`, the
+  interpreter's `bind_executor`). It refuses the configuration of Known finding
+  H-1.
 - A batch that names the Prime as a target is refused in both modes
   (`PrimeTarget`).
 - A seat sees only its account's frame, so it cannot limit the calls of a
@@ -197,7 +262,7 @@ Each crate's `build-wasm.sh` gives the hash CI compares
 
 | Contract | sha256 of the Linux build | Testnet |
 |---|---|---|
-| Policy interpreter | `810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c` | instance `CD46LN75…`, the policy-synth pin; it replaced `CDZV4AG4…` (`69cad1d5…`, this source before the keyless rules), which policy-synth does not trust |
+| Policy interpreter | `810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c` at `v4.1.0`; this branch builds `6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4` (referenced rules and the batch pin) | instance `CDER6P73…` on `6704996f…`, the policy-synth pin; it replaced `CD46LN75…` (`810f53f1…`) and `CDZV4AG4…` (`69cad1d5…`), which policy-synth does not trust |
 | Execution adapter | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b` at `v4.1.0`; this branch builds `bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0` (the no-gate word) | code uploaded (`deployments/execution-testnet.json`) |
 | Custody gate | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` | code uploaded |
 | Prime seat | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | code uploaded |
