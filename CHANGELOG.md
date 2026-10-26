@@ -6,6 +6,77 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 
 ## [Unreleased]
 
+## [5.2.0] - 2026-10-26
+
+A minor release: OpenZeppelin `stellar-contracts` v0.8.0 on testnet. The
+builder now signs for OpenZeppelin's 0.8.0 smart account beside the 0.7.2-line
+one, and the testnet OpenZeppelin policies it attaches are `v0.8.0` builds.
+The contracts are unchanged (interpreter `6704996f…`, adapter `bf85432c…`,
+seat `393f0e5d…`, gate `b01024f3…`), and so is everything on mainnet. The CLI
+and the MCP server pin `@crediolabs/policy-synth` at exactly 5.2.0.
+
+Why minor: the new account build and its signing form are additive, and
+`91a2cd56…` stays trusted and signed for exactly as before. Two refusals are
+stricter (below, under Changed); 4.1.0 set the precedent that dropping trust
+in a build is a minor change.
+
+### Added
+
+- **Signing for OpenZeppelin's 0.8.0 account (`8286422f…`)**: every build that
+  goes through the account's own authorisation (`install_policy`, with or
+  without `follow`, `revoke_policy` and `bind_policy`) reads the account's
+  code first. For the 0.7.2-line `91a2cd56…` the
+  source account authorises `__check_auth` with the digest
+  `sha256(sha256(signature payload) ‖ XDR(rule ids))`, as before. For
+  `8286422f…` it authorises the struct the 0.8.0 account passes to
+  `require_auth_for_args`: `AuthDigestPreimage { account, context_rule_ids,
+  signature_payload }`. 5.1.0 signed the 0.7.2-line digest for every account,
+  so each of these builds failed on a 0.8.0 account (`Error(Auth,
+  InvalidAction)` in the enforcing simulation).
+- **`8286422f…` in the trusted account builds**: `revoke_policy` describes the
+  rule it removes on a 0.8.0 account (`deployments/oz-accounts.json`, which
+  records the build's source tag `v0.8.0`, `ddc327e`, and its reproduction).
+- **`review_unsigned` reads either form**: the source's `__check_auth`
+  argument must be the digest bytes or the preimage struct, equal byte for
+  byte to what the account's entry yields (the struct also names the
+  account), and `auth.form` (`'digest'` or `'preimage'`) says which; the
+  review's authorisation line names it. With `readContracts: true` the
+  account's code is read too, and a form other than its build asks for, a
+  build the package does not sign for, or code that cannot be read is a
+  problem. `reviewUnsigned` takes the code as `accountCode`.
+- **`SUPERSEDED_OZ_POLICIES`, `spendingLimits(network)` and
+  `isThreshold(network, address, weighted)`** in `config.ts` (not exported
+  from the package root).
+
+### Changed
+
+- **Testnet OpenZeppelin policies**: `SPENDING_LIMIT.testnet` is
+  `CCPZW4322JUETOYDKYUFB2AZ2SZVWFV3IATZ3TG4QXZKQXBEOIQM2JQ4` and the testnet
+  threshold policies are `CCRCBH3M…` (simple) and `CCJXAUHA…` (weighted),
+  built from `v0.8.0` and deployed on 26 October 2026. The `v0.7.2` testnet
+  instances (`CDH4KOBR…`, `CAYTIVQO…`, `CCTNRFZC…`) are superseded: no new rule
+  attaches them, rules already carrying them are still read (their cap and
+  threshold are described), `review_unsigned` flags one in an install as a
+  problem, and no rule may be scoped to them. Mainnet keeps its `v0.7.2`
+  instances. From `v0.7.2` to `v0.8.0` OpenZeppelin changed the code of
+  `spending_limit` only: a transfer of 0 is always permitted, and its history
+  holds at most 815 entries (was 1,000). `simple_threshold` and
+  `weighted_threshold` change in comments only, and the `Policy` trait is the
+  same, so the `v0.8.0` policies serve 0.7.2-line accounts too.
+- **`OZ_STELLAR_CONTRACTS_TAG`** is per network: `v0.8.0` on testnet, `v0.7.2`
+  on mainnet (not exported from the package root; read by
+  `scripts/upstream-drift-check.ts`). `deployments/oz-policies.json` records
+  the wasm hashes per network.
+- **Stricter: an account that runs no known build is refused.** 5.1.0 built an
+  install, a removal or a binding for any account, signed as the 0.7.2-line
+  digest; 5.2.0 refuses (`INSTALL_BUILD_FAILED`, `REVOKE_BUILD_FAILED`,
+  `BIND_BUILD_FAILED`) when the account's code is not `91a2cd56…` or
+  `8286422f…`, since it cannot know how that build's signer authorises.
+- **Stricter: unreadable account code refuses the build**, as retryable. In
+  5.1.0 `revoke_policy` built the removal and skipped its review.
+- Each build makes one more RPC read (the account's code, alongside the
+  recording simulation).
+
 ## [5.1.0] - 2026-10-26
 
 A minor release: new output fields (`warnings`) carry one new warning. What is
