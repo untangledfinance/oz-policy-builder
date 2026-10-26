@@ -398,6 +398,15 @@ export const overridden = (o: { flag: string; waived: string | null }[]): Node =
     )
   )
 
+/** What the rule is allowed to do but its owners must know before signing (E-38): a node near the
+ *  top of a review, read before the authority. */
+export const warned = (w: string[]): Node =>
+  group(
+    `Warning: ${w.length} thing(s) to know before signing`,
+    'warnings',
+    w.map((x) => fact('warning', x))
+  )
+
 /** The tree as text, box-drawn: a condition as `name:  phrase  value`. */
 export function lines(nodes: Node[], prefix = '', child = false): string[] {
   return nodes.flatMap((n, i) => {
