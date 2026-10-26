@@ -22,10 +22,10 @@ The contracts' own READMEs hold the interfaces and test detail:
 
 ## Packages
 
-The three TypeScript packages are published to npm at version 4.1.0 as
+The three TypeScript packages are published to npm at version 5.0.0 as
 `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and
 `@crediolabs/policy-builder-mcp`, the same code as this repository at tag
-`v4.1.0`. The [repository README](../README.md) has the install lines.
+`v5.0.0`. The [repository README](../README.md) has the install lines.
 
 ## What runs where
 
