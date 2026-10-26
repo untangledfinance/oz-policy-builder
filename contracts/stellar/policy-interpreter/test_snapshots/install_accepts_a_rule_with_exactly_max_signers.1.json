@@ -701,6 +701,18 @@
                     "val": {
                       "bytes": "94b590fbec2de13ac54e720896fdfb782c91bdf10005f2ffd365d211bc0d15d2"
                     }
+                  },
+                  {
+                    "key": {
+                      "symbol": "source"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Inline"
+                        }
+                      ]
+                    }
                   }
                 ]
               }

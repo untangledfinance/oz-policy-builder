@@ -4,6 +4,24 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 `@crediolabs/policy-builder-mcp`) share one version number. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- **Referenced rules in the policy interpreter** (wasm `77db6ab0…`, not
+  deployed): a rule follows the predicate of an existing rule
+  `(account, rule_id)` on the same interpreter when its install payload's
+  predicate is the XDR of that pair; the payload hash then commits to the
+  reference. The referenced account changes the predicate by its own
+  re-install, and every follower evaluates it at its next `enforce`. Only
+  the predicate is shared: signers, binding, executor grant, nonce and
+  master set stay each follower's. A missing source refuses (`206`), a
+  source that is itself a reference refuses (`201`), and a follower's
+  permit extends the referenced entry's TTL. No new entry point. The testnet
+  instance and the `policy-synth` pin stay on `810f53f1…` until a deploy and
+  repin; `config.test.ts` no longer ties the deployed instance's hash to the
+  source build hash.
+
 ## [4.1.0] - 2026-10-23
 
 The testnet deployments now run this source. The interpreter with the keyless

@@ -1194,6 +1194,18 @@
                     "val": {
                       "bytes": "eace280a4f3f1632588cbc4ae1535972fa47b4c4be4818fbf2f3be6fe94f1d4a"
                     }
+                  },
+                  {
+                    "key": {
+                      "symbol": "source"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Inline"
+                        }
+                      ]
+                    }
                   }
                 ]
               }
@@ -1279,6 +1291,18 @@
                     "val": {
                       "bytes": "eace280a4f3f1632588cbc4ae1535972fa47b4c4be4818fbf2f3be6fe94f1d4a"
                     }
+                  },
+                  {
+                    "key": {
+                      "symbol": "source"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Inline"
+                        }
+                      ]
+                    }
                   }
                 ]
               }
@@ -1363,6 +1387,18 @@
                     },
                     "val": {
                       "bytes": "eace280a4f3f1632588cbc4ae1535972fa47b4c4be4818fbf2f3be6fe94f1d4a"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "source"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Inline"
+                        }
+                      ]
                     }
                   }
                 ]
@@ -1451,6 +1487,18 @@
                     "val": {
                       "bytes": "eace280a4f3f1632588cbc4ae1535972fa47b4c4be4818fbf2f3be6fe94f1d4a"
                     }
+                  },
+                  {
+                    "key": {
+                      "symbol": "source"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Inline"
+                        }
+                      ]
+                    }
                   }
                 ]
               }
@@ -1538,6 +1586,18 @@
                     "val": {
                       "bytes": "eace280a4f3f1632588cbc4ae1535972fa47b4c4be4818fbf2f3be6fe94f1d4a"
                     }
+                  },
+                  {
+                    "key": {
+                      "symbol": "source"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Inline"
+                        }
+                      ]
+                    }
                   }
                 ]
               }
@@ -1624,6 +1684,18 @@
                     },
                     "val": {
                       "bytes": "eace280a4f3f1632588cbc4ae1535972fa47b4c4be4818fbf2f3be6fe94f1d4a"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "source"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Inline"
+                        }
+                      ]
                     }
                   }
                 ]

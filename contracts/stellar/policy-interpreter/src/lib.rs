@@ -17,13 +17,14 @@ pub mod types;
 mod version;
 
 pub use dsl::{CompareOp, DenyReason, EvalContext, EvalDecision, Leaf, Node};
-pub use storage::{PolicyError, StoredDoc};
+pub use storage::{PolicyError, Source, StoredDoc};
 pub use types::{ContextRule, ContextRuleType, Limits, PolicyInstallParams, Signer};
 pub use version::SELF_VERSION;
 
-use soroban_sdk::xdr::ToXdr;
+use soroban_sdk::xdr::{FromXdr, ToXdr};
 use soroban_sdk::{
-    auth::Context, contract, contractimpl, symbol_short, Address, BytesN, Env, IntoVal, Symbol, Vec,
+    auth::Context, contract, contractimpl, symbol_short, Address, Bytes, BytesN, Env, IntoVal,
+    Symbol, TryFromVal, Val, Vec,
 };
 
 use crate::storage::{deny, deny_unless, load, PolicyError as E, TTL_BUMP_THRESHOLD, TTL_BUMP_TO};
@@ -74,8 +75,15 @@ impl PolicyInterpreter {
         // (c) Parse + decode - the host does the XDR work; we walk the
         //     resulting native `Vec<Val>`. The AST is rebuilt on enforce from
         //     the stored bytes; here decoding is the validation.
-        let root =
-            dsl::decode(e, &p.predicate, &lim).unwrap_or_else(|_| deny(e, E::MalformedPredicate));
+        //     A payload that is the XDR of `(account, rule_id)` (never a
+        //     predicate: a node starts with its name) makes this rule follow
+        //     that rule's predicate, so the hash in (b) commits to the source,
+        //     not to bytes its own admins may re-install. The predicate it
+        //     names now gets every check below.
+        let source =
+            reference(e, &p.predicate).map_or(Source::Inline, |(a, id)| Source::Rule(a, id));
+        let bytes = predicate(e, &source, &p.predicate);
+        let root = dsl::decode(e, &bytes, &lim).unwrap_or_else(|_| deny(e, E::MalformedPredicate));
 
         // (c2) The rule's signers (the operators) stay bounded: `enforce`
         //      re-hashes the set on every permit, so the same size and shape
@@ -144,7 +152,11 @@ impl PolicyInterpreter {
         deny_unless(e, !open, E::RunNotPinned);
 
         let doc = StoredDoc {
-            predicate_bytes: install_params.predicate,
+            predicate_bytes: match source {
+                Source::Rule(..) => Bytes::new(e),
+                Source::Inline => install_params.predicate,
+            },
+            source,
             executor,
             nonce: install_params.install_nonce,
             signers_hash: signers_hash(e, &context_rule.signers),
@@ -165,7 +177,8 @@ impl PolicyInterpreter {
         require_master(e, &doc.master_set);
         if doc.scope.as_ref() == Some(&executor) {
             let lim = storage::load_limits(e);
-            let root = dsl::decode_stored(e, &doc.predicate_bytes, &lim)
+            let bytes = predicate(e, &doc.source, &doc.predicate_bytes);
+            let root = dsl::decode_stored(e, &bytes, &lim)
                 .unwrap_or_else(|_| deny(e, E::MalformedPredicate));
             deny_unless(e, pins_run(e, &root), E::RunNotPinned);
         }
@@ -208,9 +221,12 @@ impl PolicyInterpreter {
             deny_unless(e, keyless, E::NoAuthenticatedSigners);
         }
 
+        // A rule following another reads that rule's predicate here (one
+        // entry), and only its predicate: every check below is this rule's.
         let lim = storage::load_limits(e);
-        let root = dsl::decode_stored(e, &doc.predicate_bytes, &lim)
-            .unwrap_or_else(|_| deny(e, E::MalformedPredicate));
+        let bytes = predicate(e, &doc.source, &doc.predicate_bytes);
+        let root =
+            dsl::decode_stored(e, &bytes, &lim).unwrap_or_else(|_| deny(e, E::MalformedPredicate));
 
         if let Some(executor) = &doc.executor {
             // The scope here is the account's own record of the rule, which
@@ -237,8 +253,12 @@ impl PolicyInterpreter {
         // back with the rest of the frame, so only a permit keeps the bump.
         // The rule is ONE entry, so its doc, nonce, signers hash and master
         // set share a lifecycle and cannot archive apart.
+        // A referenced rule must not archive under the rules that follow it.
         let store = e.storage().persistent();
         store.extend_ttl(&key, TTL_BUMP_THRESHOLD, TTL_BUMP_TO);
+        if let Source::Rule(a, id) = doc.source {
+            store.extend_ttl(&(a, id), TTL_BUMP_THRESHOLD, TTL_BUMP_TO);
+        }
 
         // The interpreter is only invoked from a Contract auth context; any
         // other shape denies MISSING_STATE so the tx reverts cleanly.
@@ -327,6 +347,31 @@ fn deny_code(reason: DenyReason) -> E {
         DenyReason::UnsupportedNode => E::UnsupportedNode,
         DenyReason::NotInAllowlist => E::NotInAllowlist,
     }
+}
+
+/// The `(account, rule_id)` an install payload names instead of a predicate.
+/// Only a short payload is tried (a reference is about 60 bytes), so a large
+/// predicate is not parsed twice. The length is checked first: the SDK's tuple
+/// conversion traps rather than failing on a vector of another length.
+fn reference(e: &Env, bytes: &Bytes) -> Option<(Address, u32)> {
+    if bytes.len() > 128 {
+        return None;
+    }
+    let v: Vec<Val> = Vec::try_from_val(e, &Val::from_xdr(e, bytes).ok()?).ok()?;
+    let pair = (v.len() == 2).then(|| <(Address, u32)>::try_from_val(e, &v.to_val()));
+    pair?.ok()
+}
+
+/// The predicate bytes a rule evaluates: its own, or the referenced rule's
+/// (missing is `206`). One level only: a referenced rule that is itself a
+/// reference is `201`, so nothing chains or loops.
+fn predicate(e: &Env, source: &Source, own: &Bytes) -> Bytes {
+    let Source::Rule(a, id) = source else {
+        return own.clone();
+    };
+    let doc = load(e, &(a.clone(), *id));
+    deny_unless(e, doc.source == Source::Inline, E::MalformedPredicate);
+    doc.predicate_bytes
 }
 
 /// The function a self-scoped executor rule may approve: the executor's `run`.

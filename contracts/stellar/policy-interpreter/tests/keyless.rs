@@ -502,6 +502,7 @@ fn enforce_backstop_holds_for_a_stored_unpinned_document() {
             .into(),
         master_set: soroban_sdk::vec![&w.env, w.admin.clone()],
         scope: None,
+        source: policy_interpreter::Source::Inline,
     };
     w.env.as_contract(&w.interpreter, || {
         w.env

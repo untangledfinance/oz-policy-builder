@@ -534,6 +534,18 @@
                     "val": {
                       "bytes": "90f13b61d780e12ad73407dcc12eb6e018ddb16c5c78268c3ffe44dacfd0cde4"
                     }
+                  },
+                  {
+                    "key": {
+                      "symbol": "source"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Inline"
+                        }
+                      ]
+                    }
                   }
                 ]
               }
