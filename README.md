@@ -54,13 +54,14 @@ The pinned instance runs this tree's interpreter source (`6704996f…`,
 packages trust neither earlier build (`deployments/interpreter-testnet.json`
 lists both as superseded).
 
-The code submitted for the external audit is this repository at tag `v5.1.0`;
-the audit started on 26 October 2026 and is in progress. The current release is
-tag `v5.2.0`: the contracts are unchanged, and `policy-synth` signs for
-OpenZeppelin's 0.8.0 account (`8286422f…`) beside the 0.7.2-line one, with the
-testnet OpenZeppelin policies moved to `v0.8.0` builds
-([audit-overview](./docs/audit-overview.md#in-scope-and-out-of-scope) lists the
-changes after `v5.1.0`). It is published to npm at version 5.2.0 as `@crediolabs/policy-synth`,
+The current release, and the code submitted for the external audit, is this
+repository at tag `v5.2.0`; the audit started on 26 October 2026 and is in
+progress. The contracts are unchanged from `v5.1.0` (interpreter `6704996f…`,
+adapter `bf85432c…`); `v5.2.0` adds to `policy-synth` the signing for
+OpenZeppelin's 0.8.0 account (`8286422f…`) beside the 0.7.2-line one, and moves
+the testnet OpenZeppelin policies to `v0.8.0` builds
+([audit-overview](./docs/audit-overview.md#in-scope-and-out-of-scope) has the
+scope). It is published to npm at version 5.2.0 as `@crediolabs/policy-synth`,
 `@crediolabs/policy-builder-cli` and `@crediolabs/policy-builder-mcp`:
 
 ```sh
@@ -163,7 +164,7 @@ measurements behind the limits.
 > [!IMPORTANT]
 > **Audit status:** an external audit of the interpreter, the custody gate, the
 > execution adapter and the three TypeScript packages in this repository, at
-> tag `v5.1.0`, is in progress; its scope is in
+> tag `v5.2.0`, is in progress; its scope is in
 > [docs/audit-overview.md](./docs/audit-overview.md). The contracts have also
 > been through internal adversarial review and STRIDE threat models, indexed in
 > [evidence/README.md](./evidence/README.md).

@@ -25,8 +25,8 @@ The contracts' own READMEs hold the interfaces and test detail:
 The three TypeScript packages are published to npm at version 5.2.0 as
 `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and
 `@crediolabs/policy-builder-mcp`, the same code as this repository at tag
-`v5.2.0`. The code submitted for the external audit is tag `v5.1.0`;
-[audit-overview.md](audit-overview.md) lists what 5.2.0 changes after it. The [repository README](../README.md) has the install lines.
+`v5.2.0`. The code submitted for the external audit is tag `v5.2.0`
+([audit-overview.md](audit-overview.md) has the scope). The [repository README](../README.md) has the install lines.
 
 ## What runs where
 
