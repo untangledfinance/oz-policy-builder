@@ -5,7 +5,7 @@ Command line for the OZ Policy Builder. Every tool of
 is a command, registered from its table.
 
 ```sh
-npm install -g @crediolabs/policy-builder-cli@5.0.1
+npm install -g @crediolabs/policy-builder-cli@5.1.0
 ```
 
 ```sh

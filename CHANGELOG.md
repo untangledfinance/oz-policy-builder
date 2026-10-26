@@ -6,27 +6,33 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 
 ## [Unreleased]
 
-## [5.0.1] - 2026-10-26
+## [5.1.0] - 2026-10-26
 
-A patch release: one added warning, and no change to what is built, refused or
-accepted. The CLI and the MCP server pin `@crediolabs/policy-synth` at exactly
-5.0.1.
+A minor release: new output fields (`warnings`) carry one new warning. What is
+built, refused and accepted is unchanged, and so is `signable`. The CLI and
+the MCP server pin `@crediolabs/policy-synth` at exactly 5.1.0.
 
 ### Added
 
 - **The E-38 warning for a keyless rule that follows another rule**: with no
   signer, such a rule's predicate is its only fence, and that predicate is
-  the followed rule's, which that rule's owner can loosen by a normal
-  re-install, without this account. The shape pin (`221`) holds only target
-  and function, so anyone could then move funds through the rule's no-gate
-  adapter. Issuers use this pattern on purpose to govern a borrower's keyless
-  rule, so it still builds. `install_policy` and `bind_policy` return the
-  warning in a new `warnings` list and at the top of the review, naming the
-  followed rule's owner and id. `review_unsigned` (and `reviewUnsigned`)
-  lists it in `warnings` and in its review, and `signable` ignores it. A
-  keyed follower, a keyless rule with its own predicate and an inline rule
-  get no warning. The text starts with `E-38` so it ties to the threat
-  model's finding.
+  the followed rule's. The followed rule's admins (its master set) can
+  re-install it with that rule's account at will, without this account.
+  Through an adapter with no gate the shape pin (`221`) holds only target
+  and function, so anyone could then move funds; through a gated adapter the
+  gate still limits destinations. Issuers use this pattern on purpose to
+  govern a borrower's keyless rule, so it still builds. The text starts with
+  `E-38` so it ties to the threat model's finding, names the followed rule
+  and its admins (when read), and is worded for the executor's kind. A keyed
+  follower, a keyless rule with its own predicate and an inline rule get no
+  warning.
+- **`warnings` in three results**: `install_policy` and `bind_policy` return
+  `warnings: string[]`, and the review opens with a `Warning` node after any
+  overrides. `review_unsigned` (and `reviewUnsigned`) adds
+  `UnsignedReview.warnings`, with the node after any problems; offline it
+  names the followed rule, and with `readContracts` its admins too.
+- **`Followed.admins`**: `rule.follows` (and `readFollowed`'s `follows`)
+  carries the followed rule's admins, read from the same record as its nonce.
 
 ## [5.0.0] - 2026-10-25
 
