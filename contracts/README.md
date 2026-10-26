@@ -181,9 +181,12 @@ Prime seat's interface.
 | Job | What it runs |
 |---|---|
 | `Contracts (<stellar crate>)` | `cargo fmt --check` (every crate), `cargo clippy -D warnings`, `cargo test`; for `policy-interpreter` also the release conformance run, `cargo audit`, the `build-wasm.sh` hash against `build-hashes.json` and the `oz08/` suite of that wasm against OpenZeppelin's 0.8.0 account; for `custody-gate` the hash against its record in `deployments/`; for `execution-adapter` and `prime-seat` the hash against `build-hashes.json` |
-| `Contracts (evm/prime-seat)` | `forge fmt --check src`, `forge build`, `forge test`, and the runtime and creation hashes against `build-hashes.json` |
-| `Contracts (solana/<crate>)` | `cargo fmt --check`, `PRIME_CLUSTER=devnet cargo test`, the `cargo-build-sbf` localnet build against `build-hashes.json`, and for `prime-seat` also the devnet build |
-| `TypeScript (solana/custody-gate/app-checks)` | `bun install --frozen-lockfile`, the strict typecheck and `bun test` |
+| `Contracts (evm/prime-seat)` | `forge fmt --check src`, `forge build`, `forge test` with `FORK_URL` set to Base Sepolia (the real-Safe suite included), the runtime and creation hashes against `build-hashes.json`, and `deployments/evm-testnet.json` against those hashes and the zeroed-immutables template |
+| `Contracts (evm/prime-seat mutation pass)` | `mutate.py` on the Base Sepolia fork: at least 128 mutants, exactly the 3 known survivors |
+| `Contracts (solana/<crate>)` | `cargo fmt --check`, `cargo clippy` and `PRIME_CLUSTER=devnet cargo test` on Rust 1.97.1, the `cargo-build-sbf` localnet build against `build-hashes.json` (for `prime-seat` also the devnet build), the devnet build against `deployments/solana-devnet.json`, and `cargo audit` |
+| `TypeScript (solana/custody-gate/app-checks)` | `bun install --frozen-lockfile`, the strict typecheck, `bun test` and `bun audit`, ignoring the advisories `SECURITY.md` accepts |
 
-`build-hashes.json` holds the hashes CI compares. Change an entry in the same
-commit as the source it covers.
+Every contract test step runs through `assert-tests.sh`, which fails when it
+ran fewer tests than its minimum (1; 0 for `test-blend-pool`, which has none)
+or skipped one. `build-hashes.json` holds the hashes CI compares.
+Change an entry in the same commit as the source it covers.
