@@ -15,11 +15,11 @@ it. Every size below was measured on this tree.
 
 | Component | Path | Language | sLOC | Tests | Audit scope |
 |---|---|---|---|---|---|
-| Policy interpreter | `contracts/stellar/policy-interpreter/src` | Rust, soroban-sdk 27.0.2 | 800 | 416 (173 unit, 243 in 13 suites, of which the 18 conformance cases also run in release), 12 against OpenZeppelin's 0.8.0 account | in |
-| Execution adapter | `contracts/stellar/execution-adapter/src` | Rust | 226 | 62 | in |
+| Policy interpreter | `contracts/stellar/policy-interpreter/src` | Rust, soroban-sdk 27.0.2 | 881 | 440 (173 unit, 267 in 15 suites, of which the 18 conformance cases also run in release), 26 against OpenZeppelin's 0.8.0 account | in |
+| Execution adapter | `contracts/stellar/execution-adapter/src` | Rust | 277 | 67 | in |
 | Custody gate | `contracts/stellar/custody-gate/src` | Rust | 53 | 3 | in |
 | Prime seat | `contracts/stellar/prime-seat/src` | Rust | 97 | 21 | in |
-| Policy synthesiser, `@crediolabs/policy-synth` | `packages/policy-synth/src` | TypeScript | 3,876 | 21 test files | in |
+| Policy synthesiser, `@crediolabs/policy-synth` | `packages/policy-synth/src` | TypeScript | 4,563 | 24 test files | in |
 | CLI, `@crediolabs/policy-builder-cli` | `packages/policy-builder-cli/src`, `bin` | TypeScript | 76 | 1 test file | in |
 | MCP server, `@crediolabs/policy-builder-mcp` | `packages/policy-builder-mcp/src`, `bin` | TypeScript | 133 | 3 test files | in |
 | `test-blend-pool` | `contracts/stellar/test-blend-pool/src` | Rust | 22 | none | out: a Blend-shaped stub for tests |
@@ -43,11 +43,12 @@ declarations left out. To reproduce:
 
 ## In scope and out of scope
 
-**In scope:** this repository at tag `v4.1.0`: the `src/` of the
+**In scope (the code submitted for audit):** this repository at tag `v5.0.0`, the
+current release: the `src/` of the
 interpreter, the adapter, the gate and the Prime seat
 (`contracts/stellar/prime-seat/src`), test modules excluded; the `src/` of
 `policy-synth`; and the `src/` and `bin/` of the CLI and the MCP server. The
-same package code is published to npm at version 4.1.0 as
+same package code is published to npm at version 5.0.0 as
 `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and
 `@crediolabs/policy-builder-mcp`.
 
@@ -142,6 +143,65 @@ bundle its own calls atomically. The flow is narrow:
 A custody gate never pays a no-gate adapter: the gate pins its caller's
 address and build, and custody derives that address from the gate itself.
 
+> **Known finding H-1 (reviewer, accepted).** STRIDE E-36, High; residual
+> Medium with the containment below. See
+> [stride-threat-model.md](../evidence/stride-threat-model.md), section 6.7
+> and the E-36 row in section 8.
+>
+> - **The scenario.** An account runs keyless liquidation rules bound to a
+>   no-gate adapter N. It also gives an agent a keyed rule that permits
+>   `N.execute` without pinning the number of grants to 0
+>   (`call_arg_len(1) == 0`). The agent can then put one word,
+>   `enforce(prime, context)`, in its batch. That word vouches for a keyless
+>   INNER rule (an asset transfer out of the account, say) outside any
+>   liquidation, and the agent moves the whole balance that rule covers. The
+>   inner rules each bound one call only. The liquidation's cross-call guards
+>   (payer equal to receiver, amounts tied to the debt, fresh prices) live in
+>   the pinned ROOT rule, and the agent's batch never cites it. The reviewer
+>   confirmed this on the real wasms against OpenZeppelin's 0.8.0 account, and
+>   `oz08/tests/nogate.rs` (`e36_…`) keeps it as a regression test with both
+>   mitigations. This is the class of hole OpenZeppelin 0.8's 3017 closed for
+>   rules signed by the adapter. The no-gate word reopens it for an account
+>   that lets a keyed rule approve the same adapter its keyless rules are
+>   bound to.
+> - **Why it is not a contract guard.** The interpreter evaluates one rule at
+>   a time. It never sees the account's other rules. At install it also cannot
+>   tell whether the executor a rule is bound to is a gated or a no-gate
+>   adapter. A contract-level refusal would therefore have to refuse keyed or
+>   keyless rules on every executor, which breaks legitimate gated designs.
+>   The adapter cannot tell a keyed caller from a keyless one either: it only
+>   sees the account's approval.
+> - **Containment, accepted by the team:**
+>   1. *Operational.* Use a DEDICATED no-gate adapter for the keyless rules.
+>      It gets its own `run_window`, so its own address. No rule of any kind
+>      approves its `execute` except the keyless liquidation rules: no keyed
+>      rule scoped to it, no Default-scoped keyed rule, no plain OpenZeppelin
+>      rule. The owners' rule 0 is the one Default rule an account has, and
+>      its quorum already holds full authority over the account. The
+>      interpreter refuses to install on a Default-scoped rule (218), so no
+>      Default rule carries a predicate. Agents' keyed rules go on another
+>      adapter. The keyless rules' binding never accepts that adapter's word,
+>      and the regression test shows the refusal.
+>   2. *Tooling.* `policy-synth` hard-refuses the dangerous configuration,
+>      with no override: a keyed rule scoped to a no-gate adapter that does
+>      not hold the grants to none on every branch, and a keyless rule bound
+>      to a no-gate adapter while such a keyed rule is scoped to it. It also
+>      refuses when the account's rules cannot all be read. Default-scoped
+>      and plain OpenZeppelin rules are not inspected there; they are part of
+>      the operational invariant.
+>   3. *Documentation.* This note and the STRIDE entry.
+> - **Ask to the auditor.** Please confirm:
+>   - (a) The Soroban host keeps an invoker contract grant
+>     (`authorize_as_current_contract`) only for the invoker's next sub-call,
+>     here the account's single `__check_auth` for this `execute`. Each entry
+>     matches once. While that authorisation tree is active, the host refuses
+>     a second, disjoint entry for the same account. Together these make the
+>     words ephemeral and confine every request of the account in the batch to
+>     that one approval.
+>   - (b) The dedicated-adapter invariant above, with `policy-synth`'s
+>     refusal, is sufficient containment for H-1.
+
+
 **Prime seat:** one seat serves one account and one owner key, both fixed at
 construction. No admin, no setter, no upgrade. The owner key signs only grants
 and ends. A grant needs `start <= now <= end`, at most 604,800 seconds, and an
@@ -174,9 +234,10 @@ preimage of the account's digest, from which the seat reads the rule ids:
   interpreter's `oz08/` test crate. The Prime accounts on testnet run
   `91a2cd56…`, the older 0.7.2-line account; re-checking the keyless shape on
   that build is open.
-- The synthesiser builds keyed rules only. It refuses a rule with no signer
-  and builds no `bind_executor` call, so a keyless rule and its binding are
-  installed through the contract calls directly.
+- The synthesiser builds keyed rules, keyless rules for an execution adapter
+  (`install_policy` with `executor`) and their binding (`bind_policy`, the
+  interpreter's `bind_executor`). It refuses the configuration of Known
+  finding H-1, with no override.
 - A batch that names the Prime as a target is refused in both modes
   (`PrimeTarget`).
 - A seat sees only its account's frame, so it cannot limit the calls of a
@@ -197,8 +258,8 @@ Each crate's `build-wasm.sh` gives the hash CI compares
 
 | Contract | sha256 of the Linux build | Testnet |
 |---|---|---|
-| Policy interpreter | `810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c` | instance `CD46LN75…`, the policy-synth pin; it replaced `CDZV4AG4…` (`69cad1d5…`, this source before the keyless rules), which policy-synth does not trust |
-| Execution adapter | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b` at `v4.1.0`; this branch builds `bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0` (the no-gate word) | code uploaded (`deployments/execution-testnet.json`) |
+| Policy interpreter | `6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4` (referenced rules and the batch pin; `v4.1.0` built `810f53f1…`) | instance `CDER6P73…`, the policy-synth pin; it replaced `CD46LN75…` (`810f53f1…`) and `CDZV4AG4…` (`69cad1d5…`), which policy-synth does not trust |
+| Execution adapter | `bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0` (the no-gate word; `v4.1.0` built `4985cd12…`) | code uploaded (`deployments/execution-testnet.json`, which lists `4985cd12…` as superseded) |
 | Custody gate | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` | code uploaded |
 | Prime seat | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | code uploaded |
 

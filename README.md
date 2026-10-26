@@ -43,25 +43,26 @@ The packages pin one interpreter instance on testnet (`packages/policy-synth/src
 
 | | Address / hash |
 | --- | --- |
-| Interpreter (testnet) | `CD46LN75LITN5INQEW3N3BKUK52IFODGCTJS2RWQ44JM74RH6ILIPBJ2` |
-| Its wasm sha256 | `810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c` |
+| Interpreter (testnet) | `CDER6P73JWMIVD3X6TGGOQIDAH3DLU7OKRTLT4ULPTZ3QJJ3QUGTK7CM` |
+| Its wasm sha256 | `6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4` |
 | Its deploy-time limits | reads 8, leaves 400, bytes 24,576, elems 32, in 32, depth 5 (read from the instance with `limits()`; immutable) |
 
-The pinned instance runs the interpreter source before referenced rules
-(`810f53f1…`); this tree's source builds `6704996f…` (`contracts/build-hashes.json`),
-which is not the pin yet. It replaced `CDZV4AG4…`, which runs
-`69cad1d5…`, this source before the keyless executor rules; the packages no
-longer trust that build (`deployments/interpreter-testnet.json` lists it as
-superseded).
+The pinned instance runs this tree's interpreter source (`6704996f…`,
+`contracts/build-hashes.json`). It replaced `CD46LN75…`, which runs `810f53f1…`
+(this source before referenced rules and the batch pin), and that one replaced
+`CDZV4AG4…`, which runs `69cad1d5…` (before the keyless executor rules). The
+packages trust neither earlier build (`deployments/interpreter-testnet.json`
+lists both as superseded).
 
-The audited code is this repository at tag `v4.1.0`. The same code is published
-to npm at version 4.1.0 as `@crediolabs/policy-synth`,
+The current release, and the code submitted for the external audit, is this
+repository at tag `v5.0.0`; the audit started on 26 October 2026 and is in
+progress. The same code is published to npm at version 5.0.0 as `@crediolabs/policy-synth`,
 `@crediolabs/policy-builder-cli` and `@crediolabs/policy-builder-mcp`:
 
 ```sh
-npm install @crediolabs/policy-synth@4.1.0 @stellar/stellar-sdk
-npm install -g @crediolabs/policy-builder-cli@4.1.0     # the policy-builder command
-npx -y @crediolabs/policy-builder-mcp@4.1.0             # the MCP server over stdio
+npm install @crediolabs/policy-synth@5.0.0 @stellar/stellar-sdk
+npm install -g @crediolabs/policy-builder-cli@5.0.0     # the policy-builder command
+npx -y @crediolabs/policy-builder-mcp@5.0.0             # the MCP server over stdio
 ```
 
 To run a checkout of this repo, build the packages in dependency order. The
@@ -140,8 +141,8 @@ measurements behind the limits.
 
 > [!IMPORTANT]
 > **Audit status:** an external audit of the interpreter, the custody gate, the
-> execution adapter and the three TypeScript packages in this repository is in
-> progress; its scope is in
+> execution adapter and the three TypeScript packages in this repository, at
+> tag `v5.0.0`, is in progress; its scope is in
 > [docs/audit-overview.md](./docs/audit-overview.md). The contracts have also
 > been through internal adversarial review and STRIDE threat models, indexed in
 > [evidence/README.md](./evidence/README.md).
