@@ -43,7 +43,8 @@ declarations left out. To reproduce:
 
 ## In scope and out of scope
 
-**In scope:** this repository at tag `v5.0.0`: the `src/` of the
+**In scope (the code submitted for audit):** this repository at tag `v5.0.0`, the
+current release: the `src/` of the
 interpreter, the adapter, the gate and the Prime seat
 (`contracts/stellar/prime-seat/src`), test modules excluded; the `src/` of
 `policy-synth`; and the `src/` and `bin/` of the CLI and the MCP server. The

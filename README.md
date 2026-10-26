@@ -54,8 +54,9 @@ The pinned instance runs this tree's interpreter source (`6704996f…`,
 packages trust neither earlier build (`deployments/interpreter-testnet.json`
 lists both as superseded).
 
-The audited code is this repository at tag `v5.0.0`. The same code is published
-to npm at version 5.0.0 as `@crediolabs/policy-synth`,
+The current release, and the code submitted for the external audit, is this
+repository at tag `v5.0.0`; the audit started on 26 October 2026 and is in
+progress. The same code is published to npm at version 5.0.0 as `@crediolabs/policy-synth`,
 `@crediolabs/policy-builder-cli` and `@crediolabs/policy-builder-mcp`:
 
 ```sh
@@ -140,8 +141,8 @@ measurements behind the limits.
 
 > [!IMPORTANT]
 > **Audit status:** an external audit of the interpreter, the custody gate, the
-> execution adapter and the three TypeScript packages in this repository is in
-> progress; its scope is in
+> execution adapter and the three TypeScript packages in this repository, at
+> tag `v5.0.0`, is in progress; its scope is in
 > [docs/audit-overview.md](./docs/audit-overview.md). The contracts have also
 > been through internal adversarial review and STRIDE threat models, indexed in
 > [evidence/README.md](./evidence/README.md).
