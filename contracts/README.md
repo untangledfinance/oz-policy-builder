@@ -40,8 +40,8 @@ command.
 
 | Contract | sLOC | Audit scope |
 |---|---|---|
-| `stellar/policy-interpreter` | 800 | in |
-| `stellar/execution-adapter` | 226 | in |
+| `stellar/policy-interpreter` | 881 | in |
+| `stellar/execution-adapter` | 277 | in |
 | `stellar/custody-gate` | 53 | in |
 | `stellar/prime-seat` | 97 | in |
 | `stellar/test-blend-pool` | 22 | test double, testnet only |

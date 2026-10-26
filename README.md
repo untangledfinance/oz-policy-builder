@@ -27,11 +27,11 @@ It is built as two halves:
 
 | Component | Path | Size (sLOC) |
 | --- | --- | --- |
-| Policy interpreter | `contracts/stellar/policy-interpreter` | 800 |
-| Execution adapter | `contracts/stellar/execution-adapter` | 226 |
+| Policy interpreter | `contracts/stellar/policy-interpreter` | 881 |
+| Execution adapter | `contracts/stellar/execution-adapter` | 277 |
 | Custody gate | `contracts/stellar/custody-gate` | 53 |
 | Prime seat | `contracts/stellar/prime-seat` | 97 |
-| Policy synthesiser | `packages/policy-synth` | 3,876 |
+| Policy synthesiser | `packages/policy-synth` | 4,818 |
 | CLI | `packages/policy-builder-cli` | 76 |
 | MCP server | `packages/policy-builder-mcp` | 133 |
 
