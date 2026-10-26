@@ -19,7 +19,7 @@ it. Every size below was measured on this tree.
 | Execution adapter | `contracts/stellar/execution-adapter/src` | Rust | 277 | 67 | in |
 | Custody gate | `contracts/stellar/custody-gate/src` | Rust | 53 | 3 | in |
 | Prime seat | `contracts/stellar/prime-seat/src` | Rust | 97 | 21 | in |
-| Policy synthesiser, `@crediolabs/policy-synth` | `packages/policy-synth/src` | TypeScript | 4,646 | 25 test files | in |
+| Policy synthesiser, `@crediolabs/policy-synth` | `packages/policy-synth/src` | TypeScript | 4,818 (4,646 at the audited tag `v5.1.0`) | 26 test files | in |
 | CLI, `@crediolabs/policy-builder-cli` | `packages/policy-builder-cli/src`, `bin` | TypeScript | 76 | 1 test file | in |
 | MCP server, `@crediolabs/policy-builder-mcp` | `packages/policy-builder-mcp/src`, `bin` | TypeScript | 133 | 3 test files | in |
 | `test-blend-pool` | `contracts/stellar/test-blend-pool/src` | Rust | 22 | none | out: a Blend-shaped stub for tests |
@@ -52,11 +52,23 @@ same package code is published to npm at version 5.1.0 as
 `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and
 `@crediolabs/policy-builder-mcp`.
 
+**After the audited tag:** release `v5.2.0` changes only `policy-synth`, with
+the contracts unchanged (interpreter `6704996f…`, adapter `bf85432c…`). The
+builder now signs for OpenZeppelin's 0.8.0 account too: `buildSelfCall` reads
+the account's code and authorises `__check_auth` with the 0.7.2-line digest for
+`91a2cd56…` or the 0.8.0 `AuthDigestPreimage` struct for `8286422f…`, and
+refuses any other build, where 5.1.0 signed the 0.7.2-line digest for every
+account. `review_unsigned` checks either form byte for byte and, with
+`readContracts`, that the form is the one the account's build asks for. The
+testnet policy pins move to the `v0.8.0` builds (the earlier ones stay
+refused as scopes and readable as policies). The CHANGELOG entry lists the
+rest.
+
 **Out of scope, each with what Prime assumes of it:**
 
 | Part | Assumption |
 |---|---|
-| OpenZeppelin smart account and its `simple_threshold`, `weighted_threshold` and `spending_limit` policies | third-party code. It selects the rule a call cites, authenticates the rule's signers, calls each policy's `enforce`, and refuses to leave a rule with no signer and no policy |
+| OpenZeppelin smart account and its `simple_threshold`, `weighted_threshold` and `spending_limit` policies | third-party code. It selects the rule a call cites, authenticates the rule's signers, calls each policy's `enforce`, and refuses to leave a rule with no signer and no policy. Two account builds: the 0.7.2-line `91a2cd56…` (the Prime accounts) and `v0.8.0` `8286422f…` (the testnet reference account); the policies are built from `v0.8.0` on testnet and `v0.7.2` on mainnet (`deployments/`) |
 | Soroban host and RPC | the host builds each authorisation context from what was really called, and refuses re-entry into a contract already on the stack |
 | Custody account | a classic Stellar account whose own signers and thresholds decide what it approves |
 | Owners' wallets and the owner key of a Prime seat | sign only what their holder means to sign. A seat's owner key raw-signs the 32-byte grant hash; a NEAR-routed MPC holds it in the reference integration |
@@ -286,9 +298,11 @@ preimage of the account's digest, from which the seat reads the rule ids:
   from the `v0.8.0` tag `ddc327e`; it builds the same wasm, `8286422f…`, as
   the earlier commit `8e25220`, which differs only in release notes and
   version strings) in the
-  interpreter's `oz08/` test crate. The Prime accounts on testnet run
-  `91a2cd56…`, the older 0.7.2-line account; re-checking the keyless shape on
-  that build is open.
+  interpreter's `oz08/` test crate. Resolved: the deployed testnet reference
+  account now runs 0.8.0 (`8286422f…`), where the keyless shape also ran live
+  on 26 October 2026; the same rows passed on a 0.7.2-line account
+  (`91a2cd56…`), the build the Prime accounts on testnet run
+  (`evidence/oz-0.8.0-migration-testnet.log`).
 - The synthesiser builds keyed rules, keyless rules for an execution adapter
   (`install_policy` with `executor`) and their binding (`bind_policy`, the
   interpreter's `bind_executor`). It refuses the configuration of Known
@@ -301,7 +315,11 @@ preimage of the account's digest, from which the seat reads the rule ids:
   app must refuse to build one (residual R7 in the seat's README).
 - A seat checks the digest form of the account build the Prime app deploys
   (`91a2cd56…`, `sha256(payload ‖ XDR(rule ids))`). On an account build that
-  hashes differently, every seat signature fails.
+  hashes differently, every seat signature fails, so a Prime with seats stays
+  on `91a2cd56…`. OpenZeppelin's 0.8.0 account (`8286422f…`) has its signers
+  commit to `AuthDigestPreimage { account, context_rule_ids,
+  signature_payload }`; the synthesiser signs either form, chosen from the
+  account's live code (release 5.2.0), and refuses any other build.
 - A Prime seat removed from rule 0 keeps acting in the `Delegated` rules that
   still list it: the seat reads nothing about the owner list, and the Prime
   app rewrites the rules that list a removed seat (STRIDE E-23, open, Low).

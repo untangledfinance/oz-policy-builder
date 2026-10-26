@@ -54,15 +54,19 @@ The pinned instance runs this tree's interpreter source (`6704996f…`,
 packages trust neither earlier build (`deployments/interpreter-testnet.json`
 lists both as superseded).
 
-The current release, and the code submitted for the external audit, is this
-repository at tag `v5.1.0`; the audit started on 26 October 2026 and is in
-progress. The same code is published to npm at version 5.1.0 as `@crediolabs/policy-synth`,
+The code submitted for the external audit is this repository at tag `v5.1.0`;
+the audit started on 26 October 2026 and is in progress. The current release is
+tag `v5.2.0`: the contracts are unchanged, and `policy-synth` signs for
+OpenZeppelin's 0.8.0 account (`8286422f…`) beside the 0.7.2-line one, with the
+testnet OpenZeppelin policies moved to `v0.8.0` builds
+([audit-overview](./docs/audit-overview.md#in-scope-and-out-of-scope) lists the
+changes after `v5.1.0`). It is published to npm at version 5.2.0 as `@crediolabs/policy-synth`,
 `@crediolabs/policy-builder-cli` and `@crediolabs/policy-builder-mcp`:
 
 ```sh
-npm install @crediolabs/policy-synth@5.1.0 @stellar/stellar-sdk
-npm install -g @crediolabs/policy-builder-cli@5.1.0     # the policy-builder command
-npx -y @crediolabs/policy-builder-mcp@5.1.0             # the MCP server over stdio
+npm install @crediolabs/policy-synth@5.2.0 @stellar/stellar-sdk
+npm install -g @crediolabs/policy-builder-cli@5.2.0     # the policy-builder command
+npx -y @crediolabs/policy-builder-mcp@5.2.0             # the MCP server over stdio
 ```
 
 To run a checkout of this repo, build the packages in dependency order. The
