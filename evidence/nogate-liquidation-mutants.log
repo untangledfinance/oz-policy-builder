@@ -1,0 +1,38 @@
+# Mutants of the no-gate word (adapter) and the batch pin (interpreter), 25 October 2026.
+# Each mutant is applied alone to a worktree at a527e28 and the tests named run; KILLED = a test failed.
+# Adapter mutants marked with oz08 rebuild the adapter wasm and run oz08/tests/nogate.rs against it.
+A1 vouched: no fn_name check: KILLED (113s) ['test tests::null_gate::it_refuses_every_other_grant ... FAILED']
+A2 vouched: nested invocations allowed: KILLED (3s) ['test tests::null_gate::it_refuses_every_other_grant ... FAILED']
+A3 vouched: any arity: KILLED (3s) ['test tests::null_gate::it_refuses_every_other_grant ... FAILED']
+A4 vouched: any account: KILLED (3s) ['test tests::null_gate::it_refuses_every_other_grant ... FAILED']
+A5 vouched: deploy variants pass: SURVIVED (3s) []
+A6 no-gate grants scanned as before (no word accepted): KILLED (140s) ['test l1b_the_predicate_still_decides ... FAILED', 'test l1_anyone_liquidates_through_the_no_gate_adapter ... FAILED', 'test l2_an_adapter_signed_liquidate_rule_is_still_3017 ... FAILED']
+A7 no own word for execute: KILLED (2s) ['test l1_anyone_liquidates_through_the_no_gate_adapter ... FAILED', 'test l1b_the_predicate_still_decides ... FAILED', 'test l6_a_word_does_not_outlive_its_call ... FAILED']
+A8 own word also from a gated adapter: KILLED (3s) ['test l8_a_gated_adapter_never_vouches_for_its_own_execute ... FAILED']
+A9 words handed out after the account is asked: KILLED (4s) ['test l1_anyone_liquidates_through_the_no_gate_adapter ... FAILED', 'test l1b_the_predicate_still_decides ... FAILED', 'test l6_a_word_does_not_outlive_its_call ... FAILED']
+A10 words handed out again for the batch (outlive the approval): KILLED (4s) ['test l6_a_word_does_not_outlive_its_call ... FAILED']
+A11 a no-gate adapter stores a waiting batch: KILLED (3s) ['test tests::null_gate::a_word_does_not_make_a_batch_wait ... FAILED', 'test tests::null_gate::nothing_waits ... FAILED']
+A12 a callee may be handed a word: KILLED (3s) ['test tests::null_gate::a_callee_is_still_handed_nothing ... FAILED']
+I1 pins_own is the run pin only: KILLED (115s) ['test a_reinstall_under_the_binding_cannot_open_the_batch ... FAILED', 'test a_fully_pinned_immediate_batch_binds ... FAILED', 'test enforce_permits_the_pinned_batch_with_the_word ... FAILED']
+I2 no wait pin: KILLED (5s) ['test a_reinstall_under_the_binding_cannot_open_the_batch ... FAILED', 'test anything_less_than_the_full_shape_is_refused_221 ... FAILED']
+I3 any wait constant: KILLED (5s) ['test anything_less_than_the_full_shape_is_refused_221 ... FAILED']
+I4 no execute pin: KILLED (5s) ['test anything_less_than_the_full_shape_is_refused_221 ... FAILED']
+I5 length not bounded by pinned calls: KILLED (5s) ['test a_reinstall_under_the_binding_cannot_open_the_batch ... FAILED', 'test anything_less_than_the_full_shape_is_refused_221 ... FAILED', 'test enforce_refuses_an_open_batch_whatever_install_was_told ... FAILED']
+I6 no length pin: KILLED (4s) ['test a_reinstall_under_the_binding_cannot_open_the_batch ... FAILED', 'test enforce_refuses_an_open_batch_whatever_install_was_told ... FAILED', 'test anything_less_than_the_full_shape_is_refused_221 ... FAILED']
+I7 target not required: KILLED (3s) ['test a_reinstall_under_the_binding_cannot_open_the_batch ... FAILED', 'test anything_less_than_the_full_shape_is_refused_221 ... FAILED', 'test enforce_refuses_an_open_batch_whatever_install_was_told ... FAILED']
+I8 function not required: KILLED (2s) ['test anything_less_than_the_full_shape_is_refused_221 ... FAILED']
+I9 nin pins: KILLED (2s) ['test anything_less_than_the_full_shape_is_refused_221 ... FAILED']
+I10 one or-branch is enough: KILLED (2s) ['test anything_less_than_the_full_shape_is_refused_221 ... FAILED']
+I11 in pins call_fn too: KILLED (2s) ['test anything_less_than_the_full_shape_is_refused_221 ... FAILED']
+I12 a path prefix matches: KILLED (2s) ['test anything_less_than_the_full_shape_is_refused_221 ... FAILED']
+I13 any key matches: KILLED (2s) ['test a_reinstall_under_the_binding_cannot_open_the_batch ... FAILED', 'test anything_less_than_the_full_shape_is_refused_221 ... FAILED', 'test enforce_refuses_an_open_batch_whatever_install_was_told ... FAILED']
+I14 ne pins: KILLED (3s) ['test anything_less_than_the_full_shape_is_refused_221 ... FAILED']
+I15 a selector on the other side pins: KILLED (2s) ['test anything_less_than_the_full_shape_is_refused_221 ... FAILED']
+I16 re-install under the binding unchecked: KILLED (3s) ['test a_reinstall_under_the_binding_cannot_open_the_batch ... FAILED']
+I17 bind unchecked: KILLED (2s) ['test anything_less_than_the_full_shape_is_refused_221 ... FAILED', 'test the_run_pin_and_other_scopes_are_unchanged ... FAILED']
+I18 enforce backstop gone: KILLED (2s) ['test enforce_refuses_an_open_batch_whatever_install_was_told ... FAILED']
+I19 enforce: execute exempt from the grant like run: KILLED (2s) ['test enforce_permits_the_pinned_batch_with_the_word ... FAILED']
+KILLED 30 of 31
+A5b deploy variants pass vouched and the execute loop: KILLED (1s) ['test tests::null_gate::it_refuses_every_other_grant ... FAILED']
+# A5 survives because the execute loop refuses the same deploy variant again (defence in depth): an equivalent mutant.
+# A5b removes both checks and is killed. Result: 31 of 32 killed, the survivor equivalent.

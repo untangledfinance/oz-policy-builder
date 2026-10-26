@@ -43,7 +43,8 @@ declaration (intent)  ---/   (calls + per-argument constraints)   (unsigned XDR)
   the distinct reads, `in` entries, path steps, the byte size), so a rule that
   passes here installs.
 - **An Intent** is `{ calls: [{ contract, fn, where: [constraints] }] }`. A constraint is one
-  of `pin`, `not`, `allow`, `deny`, `cap`, `floor`, `length`, `minOut`, `each`,
+  of `pin`, `not`, `allow`, `deny`, `cap`, `floor`, `length`, `count` (exactly
+  `is` elements), `same` (the value at `at` equals the one at `as`), `minOut`, `each`,
   `some`, `total`, `read`, `until`, `from`, lowered by a table (`src/intent.ts`),
   so batches and vector arguments use `all`/`any`/`sum` in place of a pin per
   element. A recording becomes an Intent through the registry (protocols as data,
@@ -131,18 +132,19 @@ The RPC endpoint is the operator's: `POLICY_BUILDER_RPC_URL_<NETWORK>` (for
 example `POLICY_BUILDER_RPC_URL_TESTNET`), else the network default. It must be https, or
 http on loopback. No tool input takes an endpoint.
 
-## The eight tools
+## The nine tools
 
 | Tool | What it does |
 | --- | --- |
 | `record_transaction` | Decode a transaction (hash over RPC, or base64 XDR) into the calls it authorises, nested ones included. |
 | `synthesize_policy` | Source (hash, xdr, recording, intent) -> rules, one per contract: predicate, encoding, hash and review. `ambiguities` are questions to answer with `limit`/`limits`/`allow`. |
-| `simulate_policy` | A predicate against calls: permit, or the deny code. With a predicate and no calls it only explains it. |
+| `simulate_policy` | A predicate (or, with `follow`, an existing rule's predicate now) against calls: permit, or the deny code. With a predicate and no calls it only explains it. |
 | `verify_policy` | Permitted call(s), derived deny cases, minimality; `ok`, `complete`, `unexamined`, `untested`. **`ok` without `complete: true` does not prove every limit** (`untested` conjuncts were not tried): read `complete`. |
-| `install_policy` | Unsigned `add_context_rule`: the account authorises it, and the interpreter installs the predicate in the same transaction. Verifies the interpreter live, reads every rule on the account, and applies the guardrails below. |
-| `revoke_policy` | Unsigned `remove_context_rule`. The rule is read and returned as `removes`, with its review when the account runs a known OpenZeppelin build. The account asks each attached policy to uninstall; the interpreter's `uninstall` needs the policy admins' own authorisation, so unless they sign too, the interpreter keeps its entry for the removed rule until it archives. Nothing reads that entry again. |
+| `install_policy` | Unsigned `add_context_rule`: the account authorises it, and the interpreter installs the predicate in the same transaction. Verifies the interpreter live, reads every rule on the account, and applies the guardrails below. With `follow` the rule follows an existing rule's predicate instead of carrying one (see "Rules that follow another rule"). |
+| `revoke_policy` | Unsigned `remove_context_rule`. The rule is read and returned as `removes`, with its review when the account runs a known OpenZeppelin build. The account asks each attached policy to uninstall; the interpreter's `uninstall` needs the policy admins' own authorisation, so unless they sign too, the interpreter keeps its entry for the removed rule until it archives. Nothing reads that entry again, except a rule (on any account) that follows it: that rule keeps enforcing the stored predicate, and its permits keep the entry alive, until the policy admins uninstall it. |
+| `bind_policy` | Unsigned `bind_executor((smartAccount, ruleId), executor)` on the interpreter: the rule then needs that executor's grant for every call (its own `run` excepted), and a keyless rule permits only what the executor vouches for. The rule is read first; see "Keyless rules and the executor binding". |
 | `get_interpreter_info` | The pin, its `limits` and the `ceilings`. `verifyLive` adds what is deployed now. |
-| `review_unsigned` | The owner's side: an unsigned install or removal read from its bytes alone, with no RPC. `problems` lists what is wrong in the bytes; the review follows, and the owner must read it (see "The owner's review"). Also `reviewUnsigned` from the package root. |
+| `review_unsigned` | The owner's side: an unsigned install, removal or binding read from its bytes alone, with no RPC. `problems` lists what is wrong in the bytes; the review follows, and the owner must read it (see "The owner's review"). Also `reviewUnsigned` from the package root. |
 
 `TOOLS` (also `@crediolabs/policy-synth/run`) is the table the MCP server and the
 CLI register from. Each tool validates its input strictly, never throws, and
@@ -166,7 +168,7 @@ await run('verify_policy', { network: 'testnet', encodedPredicate: rule.encodedP
 | Threshold | Several `signers` with no `threshold`, or a threshold one signer meets alone (n of 1, or a weight of at least n): that rule is satisfied by any ONE signer. `anyOne` beside a threshold that needs more is a contradiction. A threshold that can never be met (n above the signers, or weights that do not cover exactly the signers or total less than n) is refused too. | `anyOne: true` (see "Overrides") |
 | Spending-limit guard | A `spendingLimit` unless every branch of the predicate pins `call_fn` to `transfer` (OpenZeppelin's `spending_limit` refuses every other function, so those calls would always fail). It is also refused on a scope that is not shown to be a token (a Stellar Asset Contract, or `transfer(from, to, amount: i128)` in its spec) | none |
 | Read safety (`READ_UNSAFE`) | A `read` of a target and function outside the safe list. The list holds the three testnet Reflector oracles (`lastprice`, `price`) and the operator's `POLICY_BUILDER_SAFE_READS_<NETWORK>` (`C…:function,C…:function`; one malformed entry refuses the whole value). A listed read needs constant arguments. The review marks any other read "(live value, movable within one transaction)". | `POLICY_BUILDER_ALLOW_SPOT_READS=1`, environment only |
-| Authority overlap | A rule a shared signer could bypass through a looser or unpoliced neighbour, a rolling total that would not bind, a neighbour it cannot read or judge, or an account whose rules could not all be read | `allowOverlap: true` (see "Overrides") |
+| Authority overlap | A rule a shared signer could bypass through a looser or unpoliced neighbour, a rolling total that would not bind, a neighbour it cannot read or judge, a neighbour that follows another rule's predicate (it can widen without the account), a tighter neighbour beside a rule that follows (that rule can be tightened below it), or an account whose rules could not all be read | `allowOverlap: true` (see "Overrides") |
 | Amounts | An amount with no cap; a swap's least output with no floor | `allowUnboundedAmount`, `allowOpenSlippage` (see "Overrides") |
 | Scope | A rule scoped to a policy contract (`POLICY_CONTRACTS`) or to the account itself | none |
 | Contract signers | A signer that is an execution adapter bound to no gate (its instance holds `prime` and a void `gate`, read off the ledger whatever its code hash): an agent allowed to call its `execute` could cite the rule and move funds past its own caps. An execution adapter with a gate (`prime` and an address `gate`) signing a rule scoped to itself is refused unless every branch of the predicate pins `call_fn = run`: it signs whenever it asks the account, so anyone could have it approve an immediate `execute` or a `cancel`. A contract signer that is not deployed is refused too, since what it will run cannot be checked | none |
@@ -197,6 +199,129 @@ and the agent that calls the tool should not take them on its own, so:
   before the network is asked unless the operator sets
   `POLICY_BUILDER_ALLOW_OVERRIDES=1` in the server's environment. Testnet
   honours them without it, echoed all the same.
+
+## Keyless rules and the executor binding
+
+A rule with no signer (a keyless rule) is satisfied by no key. The interpreter
+permits it only while it is bound to an executor (`bind_executor`), and then only
+for a call that executor vouches for. An execution adapter with no gate vouches,
+inside an immediate `execute` anyone may call, for every call of that batch to
+the account's policy, so for a rule bound to it the predicate is the only fence.
+This is how a keyless liquidation runs: a rule scoped to the adapter permits the
+`execute` itself, and rules bound to the same adapter permit each call of the
+batch.
+
+- **Install:** `install_policy` with `signers: []` and `executor` (the adapter)
+  builds `add_context_rule` with no signer. The rule permits nothing until it is
+  bound. `executor` is read off the ledger. It is refused unless it is an
+  execution adapter, and a rule scoped to the executor is refused unless its
+  predicate pins, on every branch, `call_fn = run` or a whole immediate batch
+  (`pinsOwn`, the interpreter's `pins_own`, which refuses anything else with
+  221): `call_fn = execute`, the wait (argument 2) `= 0`, the number of calls
+  `= n`, and the `target` and `function_name` of each of those n calls, each an
+  `eq` or an all-constant `in`. A quantifier pins nothing. An adapter with a gate
+  never vouches for its own `execute`, so a rule scoped to it must pin `run`.
+  With `signers` and `executor`, the rule is keyed and will also need the
+  executor's grant.
+- **Writing the batch:** the intent rows `pin` (the wait, each target and
+  function), `count` (the number of calls, and of grants) and `same` (an argument
+  of one call equal to an argument of another, such as the liquidator tied to
+  the recipient) write it; `deny` keeps an address off the line's own. The
+  binding of the liquidator is a predicate convention the rule's author writes.
+  The interpreter guards only the shape.
+- **Bind:** `bind_policy` builds `bind_executor` once the rule is on the account
+  (the install transaction returns its id). It reads the rule with its stored
+  predicate, executor and admins, and refuses when the rule is not policed by
+  the interpreter, when its predicate cannot be read, when the executor is not
+  an execution adapter or the scope-to-executor shape above does not hold, or
+  when the rule's admins are not the source account alone. Each admin signs
+  `bind_executor`, and the builder signs as the source. It returns the rule as
+  `binds`, with its review, and `rebinds` when the rule was bound to another
+  executor. Refusals use `BIND_BUILD_FAILED`.
+- **Review:** the Authority node of a keyless rule says "no key", names the
+  executor and, for an adapter with no gate, that anyone may run an immediate
+  batch through it, so the predicate is the only fence. `review_unsigned` reads a
+  `bind_executor` from its bytes: the rule `(account, id)`, the executor, the
+  interpreter, which must be the pin, and the account's, the source's and the
+  admin's authorisation entries. The executor is a problem unless
+  `readContracts: true` shows it to be an execution adapter. The rule's predicate
+  is not in those bytes: `bind_policy`'s review shows it.
+- **A keyed rule scoped to a no-gate adapter holds its grants to none:** a
+  rule with signers scoped to an execution adapter with no gate lets its signer
+  call `execute`, and in an immediate `execute` the adapter hands out its word
+  for whatever the batch's grants name, which a keyless rule bound to the
+  adapter accepts in place of a key. So `install_policy` REFUSES such a rule
+  unless every branch either permits no `execute` or pins the grants
+  (argument 1) to none (`count` at `[1]` is 0, or a length of at most 0). A rule
+  with no `call_fn` pin, or only `ne(call_fn, run)`, permits `execute` too. A
+  keyed rule that follows another rule's predicate cannot be held, so it is
+  refused there. A keyless rule for a no-gate adapter, and `bind_policy` to one,
+  are refused while any keyed rule on the account scoped to that adapter could
+  hand out its word, or while the account's rules are not all read.
+  `review_unsigned` flags it (with `readContracts`, which reads the scope; offline
+  it asks for that read). No override waives it.
+- **A dedicated no-gate adapter:** keep keyless rules on a no-gate adapter
+  that NO other rule can make execute: no rule of any kind may approve its
+  `execute` except the keyless rules that pin the whole batch. That includes
+  keyed rules scoped to it (refused above unless they hold the grants to
+  none), Default-scoped keyed rules (they approve every call, the adapter's
+  `execute` included) and plain OpenZeppelin rules with no interpreter (no
+  predicate holds their grants). The checks above see a rule scoped to the
+  adapter, with or without the interpreter (one whose predicate is not read
+  counts), but they do not refuse a Default-scoped rule: the account's admin
+  rule 0 is one, and its signers can already change every rule. Give a
+  Default-scoped rule only to the account's owners, never to an agent, on an
+  account that binds keyless rules to a no-gate adapter.
+  A keyed rule scoped to an address where no adapter is deployed yet is judged
+  by what is there now, so it installs; once a no-gate adapter is created at that
+  address, a keyless install for it and a binding to it are refused while that
+  rule can hand out its word.
+
+## Rules that follow another rule
+
+The interpreter lets a rule carry no predicate of its own and follow an
+existing rule `(account, rule_id)` on the same interpreter instead: at every
+call it evaluates that rule's predicate as it is then. The install payload is
+the XDR of the 2-vector `[Address, u32]` (no predicate node has that shape),
+so `predicate_hash`, which the account's admins sign inside `add_context_rule`,
+commits to the reference and not to the followed predicate. The followed
+rule's admins, with its account, can re-install it at any time without the
+follower's signature, and the follower then enforces the new predicate.
+Everything else (signers, threshold, binding, executor grant, scope, admins)
+stays the follower's own. A missing followed rule refuses every call (206); a
+followed rule that itself follows another is refused (201, one level only).
+
+- **Emit:** `install_policy` with `follow: { smartAccount, ruleId }` (instead of
+  a source or `encodedPredicate`) reads that rule off the interpreter the
+  install uses and builds the reference payload. The followed rule must exist
+  and carry its own predicate, and the interpreter must be a build with
+  references (its records carry a `source`); otherwise the install is refused.
+  The rule is scoped to the one contract the followed predicate pins, or to
+  `contract`.
+- **Refusals:** every guardrail above is judged on the followed predicate as it
+  is now (amounts, slippage, read safety, the spending-limit pin, contract
+  signers, the overlap scan). Since it can change later, any other rule that
+  shares a signer and serves the same calls is refused, even one that is
+  tighter today (`allowOverlap` waives it).
+- **What comes back:** `rule.predicateHash` is the hash of the reference;
+  `rule.follows` is `{ account, ruleId, nonce, predicateHash }`, the followed
+  rule's install nonce and predicate hash when it was read. The review shows a
+  `Follows rule N of …` node before the predicate tree: what the rule follows,
+  that its admins can change it without this account's signature, the nonce
+  and hash now, and that a removed source refuses every call. The tree below it
+  is the followed predicate now.
+- **Simulate and verify:** `simulate_policy` and `verify_policy` take `follow`
+  as one more way to name a predicate, and check the followed rule's predicate
+  as it is now: what a follower's `enforce` evaluates.
+- **Reading the account:** the overlap scan and `revoke_policy` read a
+  follower's source in one more ledger-entry batch, one level only. A follower
+  whose source is missing, itself a reference or undecodable reads as
+  `unreadable` (and is refused as a neighbour), never as its own empty bytes.
+- **The owner's review:** `review_unsigned` recognises a reference payload as
+  the interpreter does (at most 128 bytes, exactly an address and a u32). It
+  is a problem offline, because what the rule permits is not in the bytes.
+  With `readContracts: true` the followed rule is read off the pinned
+  interpreter and shown with its nonce; a rule it cannot read stays a problem.
 
 ## What the tools return
 
@@ -265,7 +390,9 @@ the bytes it is about to sign without the agent. It asks no RPC and reads
 nothing but the XDR, the network, the package's own pins, the two bounds from
 the environment and the clock. The one exception is `readContracts: true` (or
 `contracts` for `reviewUnsigned`, filled with `contractKinds`): what each
-contract signer runs, read off the ledger through the operator's RPC.
+contract signer runs, read off the ledger through the operator's RPC, and, for
+a rule that follows another, that rule's predicate and nonce now (`followed`
+for `reviewUnsigned`, filled with `readFollowed`).
 
 It refuses (`INVALID_INPUT`) bytes that are not a transaction, a fee bump, or
 anything but one contract call. Anything else it describes, and lists in
@@ -297,7 +424,10 @@ anything but one contract call. Anything else it describes, and lists in
   threshold policy with no threshold; no interpreter, two, or one other than
   the pin (on a network with no pin, every install is flagged); a
   `grammar_version` other than the one this builder writes; a predicate whose hash does not match its bytes, or that
-  the interpreter would not read; a policy the package does not know.
+  the interpreter would not read; a policy the package does not know;
+- for an install that follows another rule: the followed rule, unless it was
+  read (`readContracts`), or when it could not be read, or another rule was
+  read than the bytes name.
 
 `signable` is true when `problems` is empty. The review opens with
 `Do not sign: n problem(s)` when there are any, then a `Transaction` node

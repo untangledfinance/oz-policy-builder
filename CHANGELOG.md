@@ -8,19 +8,102 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 
 ### Added
 
-- **Referenced rules in the policy interpreter** (wasm `77db6ab0…`, not
-  deployed): a rule follows the predicate of an existing rule
-  `(account, rule_id)` on the same interpreter when its install payload's
+- **Referenced rules in the policy interpreter**: a rule follows the predicate
+  of an existing rule `(account, rule_id)` on the same interpreter when its install payload's
   predicate is the XDR of that pair; the payload hash then commits to the
   reference. The referenced account changes the predicate by its own
   re-install, and every follower evaluates it at its next `enforce`. Only
   the predicate is shared: signers, binding, executor grant, nonce and
   master set stay each follower's. A missing source refuses (`206`), a
   source that is itself a reference refuses (`201`), and a follower's
-  permit extends the referenced entry's TTL. No new entry point. The testnet
-  instance and the `policy-synth` pin stay on `810f53f1…` until a deploy and
-  repin; `config.test.ts` no longer ties the deployed instance's hash to the
-  source build hash.
+  permit extends the referenced entry's TTL. No new entry point.
+- **Liquidation by anyone through an execution adapter with no gate**
+  (adapter wasm `bf85432c…`, interpreter wasm `6704996f…`). In an immediate
+  `execute`, an adapter with no gate now accepts one kind of grant, its word
+  to the Prime's policy, `enforce(prime, context)` with nothing nested, and
+  adds the same word for the `execute` it runs; it hands them out just before
+  the Prime is asked, for that one approval. Every other grant, any
+  authorisation for a callee and any wait stay refused, and nothing is
+  stored. The interpreter's `221` now also accepts, for a rule scoped to its
+  own executor, a predicate that pins an immediate batch on every path:
+  `call_fn == execute`, a wait of 0, the number of calls, and each call's
+  target and function. A keyless rule bound to such an adapter can then
+  authorise a liquidation by any address on an OpenZeppelin 0.8.0 account,
+  where a rule signed by the adapter is refused (3017). No new error code,
+  entry point or storage; grammar 7. Configuration invariant (STRIDE E-36,
+  High): a keyed rule scoped to a no-gate adapter must pin
+  `call_arg_len(1) == 0`, and keyless rules belong on a no-gate adapter of
+  their own with no keyed rule scoped to it. `cargo audit` ignores RUSTSEC-2026-0387
+  (crypto-bigint, host-side only, not in either wasm) with the reason in
+  `contracts/stellar/policy-interpreter/.cargo/audit.toml`.
+- **policy-synth writes and reviews rules that follow another rule.**
+  `install_policy` takes `follow: { smartAccount, ruleId }` and emits the
+  reference payload (the XDR of `(account, rule_id)`, with its hash); every
+  guardrail is judged on the followed predicate as it is at build time, read
+  off the interpreter with its nonce. A missing followed rule, one that itself
+  follows another, an interpreter build with no references, or an undecodable
+  predicate is refused before anything is built. `simulate_policy` and
+  `verify_policy` take `follow` too. The review (and `rule.follows`) shows the
+  followed rule, its nonce and predicate hash now, and that its admins can
+  change it without the follower's signature. `readPredicates` (the overlap
+  scan, `revoke_policy`) reads a follower through its source, one level only,
+  instead of reporting it unreadable; a source that is missing, a reference or
+  undecodable still reads as unreadable. A neighbour that follows is refused
+  by the overlap scan, and beside a new rule that follows, so is a tighter
+  neighbour (`allowOverlap` waives both). `review_unsigned` recognises a
+  reference payload as the interpreter does and flags it unless
+  `readContracts: true` reads the followed rule off the pinned interpreter.
+  New exports: `readFollowed`, `referenceOf`, `encodeReference`.
+- **policy-synth writes keyless rules for an execution adapter, and binds them.**
+  `install_policy` takes `signers: []` with `executor` (an execution adapter,
+  read off the ledger) and builds `add_context_rule` with no signer; a rule
+  scoped to its executor must pin `run` or a whole immediate batch
+  (`pinsOwn`, mirroring the interpreter's `pins_own`, 221), and an adapter
+  with a gate must be pinned to `run`. A new tool, `bind_policy`, builds the
+  interpreter's `bind_executor((account, rule), executor)` after re-reading
+  the rule, its predicate and admins (refusals: `BIND_BUILD_FAILED`, a new
+  error code). Two intent rows write a whole batch: `count` (exactly n
+  elements) and `same` (an argument equal to another, such as a liquidator
+  tied to the recipient). The review says what a keyless rule and its
+  executor mean (with no gate, anyone may run an immediate batch, so the
+  predicate is the only fence), and `review_unsigned` reads a
+  `bind_executor` from its bytes. The rule reader returns each rule's bound
+  `executor` and `admins`. The CLI and the MCP server serve nine tools.
+- **A keyed rule scoped to an execution adapter with no gate must hold its
+  grants to none.** Such a rule's signer could otherwise have the adapter
+  hand out its word to the account's policy in an immediate `execute`, which
+  a keyless rule bound to the adapter accepts in place of a key, and move the
+  account's funds. `install_policy` refuses a keyed rule scoped to a no-gate
+  adapter whose predicate permits `execute` (or leaves the function open)
+  without `call_arg_len(1) == 0` on every branch, or that follows another
+  rule's predicate; `install_policy` and `bind_policy` refuse a keyless rule
+  or a binding for a no-gate adapter while such a keyed rule is on the
+  account (or the account's rules are not all read); `review_unsigned` flags
+  it, and asks for `readContracts` when the scope is not read. No override.
+
+### Changed
+
+- **The pinned interpreter:** `policy-synth` pins testnet instance
+  `CDER6P73JWMIVD3X6TGGOQIDAH3DLU7OKRTLT4ULPTZ3QJJ3QUGTK7CM` (wasm
+  `6704996f…`, referenced rules and the immediate-batch pin; the same
+  limits) and trusts only that build. `CD46LN75…` (`810f53f1…`) is recorded
+  as superseded in `deployments/interpreter-testnet.json` and is no longer
+  trusted: a rule it polices reads as unreadable, and an install naming it is
+  refused (`INTERPRETER_MISMATCH`). Following a rule needs a build with
+  references, so it works on the pin and is refused on `810f53f1…`. The
+  live-test account's rules 6 (`cap-500`) and 7 (following rule 6) are on the
+  new instance, and every recorded RPC fixture is re-recorded against it.
+
+### Security
+
+- **Dependency advisories cleared:** `zod` 3.25.76 -> 4.6.7
+  (GHSA-mrhx-c7xc-m3w5, no 3.x fix; pinned, and overridden so the MCP SDK
+  shares the one copy), `body-parser` `^2.4.0` (GHSA-27r3-jxmh-p828) and
+  `fast-uri` `^3.1.9` as overrides. `bun audit` is clean. The tool input
+  schemas move to zod 4 (`Tool.shape` and `Tool.schema` are zod 4 types), and
+  the text of an `INVALID_INPUT` message for a malformed input changes with it
+  (zod 4's wording, for example `Unrecognized key: "x"`); what is accepted and
+  refused is the same.
 
 ## [4.1.0] - 2026-10-23
 

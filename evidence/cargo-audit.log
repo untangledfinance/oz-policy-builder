@@ -1,7 +1,6 @@
-# cargo audit in contracts/stellar/policy-interpreter, 20 October 2026
+# cargo audit in contracts/stellar/policy-interpreter, 25 October 2026 (.cargo/audit.toml ignores RUSTSEC-2026-0387: host-side only, see evidence/README.md finding 1b)
 
-      Loaded 1348 security advisories (from /home/ubuntu/.cargo/advisory-db)
-    Updating crates.io index
+      Loaded 1352 security advisories (from /home/ubuntu/.cargo/advisory-db)
     Scanning Cargo.lock for vulnerabilities (202 crate dependencies)
 Crate:     paste
 Version:   1.0.15
@@ -12,3 +11,8 @@ ID:        RUSTSEC-2024-0436
 URL:       https://rustsec.org/advisories/RUSTSEC-2024-0436
 
 warning: 1 allowed warning found
+exit: 0
+
+# cargo tree --target wasm32v1-none -e normal, interpreter and adapter: lines naming crypto-bigint, paste, soroban-env-host, k256, p256, elliptic-curve
+0
+0

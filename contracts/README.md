@@ -52,12 +52,12 @@ Commands run from the contract's own folder.
 
 | Contract | Command | Result |
 |---|---|---|
-| `stellar/policy-interpreter` | `./build-wasm.sh` | `77db6ab0dff1ee550bb8b27474219d2e76f0ee1093f2399d95b36c94c81c5f78`, pinned in `build-hashes.json` |
-| | `cargo test` (after `./build-wasm.sh`, which `tests/worst_case.rs` loads) | 434: 173 unit and 261 in 14 integration suites |
+| `stellar/policy-interpreter` | `./build-wasm.sh` | `6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4`, pinned in `build-hashes.json` |
+| | `cargo test` (after `./build-wasm.sh`, which `tests/worst_case.rs` loads) | 440: 173 unit and 267 in 15 integration suites |
 | | `cargo test --release --test conformance` | 18 |
-| `stellar/policy-interpreter/oz08` | `cargo test --locked` (after the interpreter's `./build-wasm.sh`) | 14 |
-| `stellar/execution-adapter` | `./build-wasm.sh` | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b`, pinned in `build-hashes.json` |
-| | `cargo test` | 62 |
+| `stellar/policy-interpreter/oz08` | `cargo test --locked` (after the interpreter's and the adapter's `./build-wasm.sh`) | 26: 14 in `oz08.rs`, 12 in `nogate.rs` (a liquidation by anyone through an adapter with no gate, and the E-36 hazard with both mitigations) |
+| `stellar/execution-adapter` | `./build-wasm.sh` | `bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0`, pinned in `build-hashes.json` |
+| | `cargo test` | 67 |
 | `stellar/custody-gate` | `./build-wasm.sh` | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab`, recorded in `deployments/` |
 | | `cargo test` | 3 |
 | `stellar/prime-seat` | `./build-wasm.sh` | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` (17,599 bytes), pinned in `build-hashes.json` |
@@ -67,8 +67,10 @@ Commands run from the contract's own folder.
 
 The interpreter instance on testnet and the policy-synth pin run
 `810f53f1…`, this source before referenced rules: instance `CD46LN75…`,
-recorded in `deployments/interpreter-testnet.json`. This source (`77db6ab0…`) is
-not deployed yet. `CD46LN75…` replaced `CDZV4AG4…`, which runs `69cad1d5…`, the
+recorded in `deployments/interpreter-testnet.json`. This source (`6704996f…`,
+with referenced rules and the batch pin) runs on a separate testnet instance
+for the no-gate liquidation run (`evidence/nogate-liquidation-testnet.log`);
+the pin moves with `policy-synth`. `CD46LN75…` replaced `CDZV4AG4…`, which runs `69cad1d5…`, the
 source before the keyless executor rules.
 
 ### Reproducible builds

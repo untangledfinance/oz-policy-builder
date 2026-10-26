@@ -1,10 +1,11 @@
 //! Keyless executor rules on OpenZeppelin's smart account 0.8.0.
 //!
 //! `keyless.rs` drives the interpreter directly. Here the account is OZ's own
-//! code, the `multisig-account-example` built from OZ `main` at `8e25220` with
-//! `stellar contract build` (sha256 `8286422f…`, pinned below), committed as a
-//! blob like the 0.7 fixture. OZ has not tagged 0.8.0, so this is a prototype
-//! pin for testing.
+//! code, the `multisig-account-example` built from OZ's `v0.8.0` tag
+//! (`ddc327e`) with `stellar contract build` (sha256 `8286422f…`, pinned
+//! below), committed as a blob like the 0.7 fixture. The tag builds the same
+//! bytes as `8e25220`, the commit before it, which the fixture was first built
+//! from: the release commit changes notes and version strings only.
 //!
 //! The account is built against soroban-sdk 28, which the interpreter crate's
 //! soroban-sdk 27 test host cannot load, so this suite is a crate of its own
@@ -58,7 +59,7 @@ use soroban_sdk::{
     Vec,
 };
 
-/// OZ `multisig-account-example` at `8e25220` (0.8.0, unreleased), committed
+/// OZ `multisig-account-example` at the `v0.8.0` tag `ddc327e`, committed
 /// beside the 0.7 fixture.
 const OZ08_WASM: &[u8] =
     include_bytes!("../../tests/fixtures/oz_0_8_0_multisig_account_example.wasm");

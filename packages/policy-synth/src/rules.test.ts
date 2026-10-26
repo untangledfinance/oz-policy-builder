@@ -262,20 +262,27 @@ describe('readRules, on a live account', () => {
       [3, 'call_contract', 1],
       [4, 'call_contract', 1],
       [5, 'call_contract', 1],
+      [6, 'call_contract', 1],
+      [7, 'call_contract', 1],
     ])
     expect(rules[0]?.signers).toEqual(['GAT7JHM4ZCIRIRUEUGPLHARCKDYDC73KN27VABHW5HGAJGZ37ZCWBCSB'])
-    // Rules 1 to 4 are policed by earlier instances of the interpreter, rule 5 by the pinned one.
-    expect(rules[1]?.expr).toBeUndefined()
-    expect(rules[2]?.expr).toBeUndefined()
-    expect(rules[3]?.expr).toBeUndefined()
-    expect(rules[4]?.expr).toBeUndefined()
-    expect(rules[5]?.expr).toEqual(
-      callExpr({
-        contract: TOKEN,
-        fn: 'transfer',
-        where: [{ constraint: 'cap', at: [2], max: '500' }],
-      })
-    )
+    // Rules 1 to 5 are policed by earlier instances of the interpreter, rules 6 and 7 by the pinned
+    // one; rule 7 follows rule 6's predicate.
+    for (const id of [1, 2, 3, 4, 5]) expect(rules[id]?.expr).toBeUndefined()
+    const cap500 = callExpr({
+      contract: TOKEN,
+      fn: 'transfer',
+      where: [{ constraint: 'cap', at: [2], max: '500' }],
+    })
+    expect(rules[6]?.expr).toEqual(cap500)
+    expect(rules[6]?.follows).toBeUndefined()
+    expect(rules[7]?.expr).toEqual(cap500)
+    expect(rules[7]?.follows).toMatchObject({
+      account: 'CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P',
+      ruleId: 6,
+      nonce: 1,
+    })
+    expect(rules[7]?.signers).not.toContain(rules[0]?.signers[0])
   })
 
   it('and the scan, over what it read: the Default rule with no policy shadows any rule for its signer', async () => {
@@ -303,7 +310,8 @@ describe('readRules, on a live account', () => {
       [2, 'unreadable'], // the same
       [3, 'unreadable'], // the same
       [4, 'unreadable'], // the same
-      [5, 'other'],
+      [5, 'unreadable'], // the same
+      [6, 'other'],
     ])
   })
 })

@@ -264,6 +264,8 @@ export function tree(expr: Expr, view: View = {}): Node[] {
 /** What a rule lets its signers do, as the install builds it (or as an account reports it). */
 export interface Authority {
   signers: string[]
+  /** The execution adapter the rule is (or is to be) bound to, and what it is on the ledger. */
+  executor?: { address: string; kind?: string | undefined } | undefined
   /** A threshold policy beside the interpreter: `n` signers, or (with `weights`) weights totalling `n`. */
   threshold?: { n: number; weights?: Record<string, number>; raw?: Val } | undefined
   admins?: string[] | undefined
@@ -276,6 +278,16 @@ export interface Authority {
   limits?: Readonly<Record<string, number>> | undefined
 }
 
+/** What binding a rule to an executor means, by what the executor is. */
+function executorText(ex: { address: string; kind?: string | undefined }, c: View): string {
+  const who = `contract ${addr(ex.address, c)}`
+  if (ex.kind === 'null-gate adapter')
+    return `${who}, an execution adapter with no gate: anyone may call its execute with an immediate batch, and it vouches for every call of that batch to this account's policy, so this rule's predicate is the only fence on what such a batch does; no other rule on the account may approve its execute, a Default-scoped rule included (bound with bind_executor, a second transaction)`
+  if (ex.kind === 'gated adapter')
+    return `${who}, an execution adapter with a gate: it vouches only for calls its gate allows (bound with bind_executor, a second transaction)`
+  return `${who} (bound with bind_executor, a second transaction)`
+}
+
 /** Who can act under a rule, by what rule, until when, up to how much in total: the head of an
  *  install's review. Names and labels are display; `raw` is the wire value each line came from. */
 export function authority(a: Authority, c: View): Node {
@@ -284,14 +296,17 @@ export function authority(a: Authority, c: View): Node {
   const who = (x: string) => `${x.startsWith('C') ? 'contract ' : ''}${addr(x, c)}`
   // A threshold one signer meets alone is 1-of-n: the weight of each signer is what says who.
   const alone = t && w && k > 1 ? meetsAlone(a.signers, w, t.n) : []
+  const ex = a.executor
   const act =
-    !t || (!w && t.n <= 1)
-      ? `${k === 1 ? 'the signer' : `any ONE of these ${k} signers`} acts alone`
-      : `${w ? `signers whose weights total at least ${t.n}` : `any ${t.n} of these ${k} signers`} must approve${
-          alone.length
-            ? ` (${alone.length > 1 ? 'each of ' : ''}${alone.map(who).join(', ')} can act alone)`
-            : ''
-        }`
+    k === 0
+      ? `no key: the rule permits only a call its executor vouches for${ex ? '' : ', and with no executor bound, none'}`
+      : !t || (!w && t.n <= 1)
+        ? `${k === 1 ? 'the signer' : `any ONE of these ${k} signers`} acts alone`
+        : `${w ? `signers whose weights total at least ${t.n}` : `any ${t.n} of these ${k} signers`} must approve${
+            alone.length
+              ? ` (${alone.length > 1 ? 'each of ' : ''}${alone.map(who).join(', ')} can act alone)`
+              : ''
+          }`
   const legend: [string, string, Val] = [
     'legend',
     "[…] the package's roles; «…» labels given in the request",
@@ -306,6 +321,7 @@ export function authority(a: Authority, c: View): Node {
     ]),
   ]
   facts.push(['to act', act, t?.raw ?? t?.n ?? null])
+  if (ex) facts.push(['executor', executorText(ex, c), ex.address])
   if (a.admins)
     facts.push([
       'admins',
@@ -334,6 +350,40 @@ export function authority(a: Authority, c: View): Node {
     'Authority',
     'authority',
     facts.map(([label, value, raw]) => fact(label, value, raw))
+  )
+}
+
+/** A rule that follows another rule's predicate: which rule, what that means, and what it holds
+ *  now (`nonce` and `predicateHash` absent: not read). The predicate tree that follows it, if any,
+ *  is that rule's as it is now. */
+export function followed(
+  f: { account: string; ruleId: number; nonce?: number; predicateHash?: string },
+  c: View
+): Node {
+  const now =
+    f.nonce === undefined
+      ? 'not read: what this rule permits is not shown'
+      : `install nonce ${f.nonce}, predicate hash ${f.predicateHash ?? 'unknown'} (shown below as it is now)`
+  return group(
+    `Follows rule ${f.ruleId} of ${addr(f.account, c)}`,
+    'follows',
+    [
+      fact(
+        'predicate',
+        "none of its own: at every call the interpreter checks that rule's predicate as it is then",
+        [f.account, f.ruleId]
+      ),
+      fact(
+        'who changes it',
+        "that rule's admins, with its account, can re-install it at any time without this account's signature: what this rule permits changes with it"
+      ),
+      fact('now', now, f.nonce ?? null),
+      fact(
+        'if it is removed',
+        'every call under this rule is refused (206) until this rule is re-installed'
+      ),
+    ],
+    [f.account, f.ruleId]
   )
 }
 

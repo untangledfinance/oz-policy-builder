@@ -48,13 +48,25 @@
 //! for its authorization, each against a rule of its own. A batch may not call
 //! the Prime itself, which is a check on the target and not on a list.
 //!
-//! NOTHING HANDS THE ADAPTER'S OWN AUTHORITY FURTHER. With no list there is
-//! nothing to check a grant against, so a null adapter hands out no
-//! authorization as itself and acts as itself only towards the contracts it
-//! calls directly. It holds nothing, and anyone the Prime's rules let call
-//! `execute` can run any batch through it: it must never be sent funds or
-//! given an allowance, and a rule on the Prime that this adapter signs is
-//! bounded by its predicate alone.
+//! WITHOUT A GATE A GRANT ONLY VOUCHES, AND ONLY INSIDE THE CALL. With no
+//! list there is nothing to check a callee's authorization against, so a null
+//! adapter hands none to the contracts it calls and acts as itself only
+//! towards them directly. The one grant it hands out is its word, to the
+//! Prime's policy, that a context came through this call: an entry for
+//! `enforce(prime, context)` on whichever contract the batch names, for its
+//! own Prime only and with nothing nested under it - see `vouched`. To each
+//! contract named that way it adds the same word for the `execute` it is
+//! running, which no batch can spell because the batch is inside it. A rule
+//! bound to this adapter with `bind_executor` takes that word instead of a
+//! key, so a keyless rule on the Prime can answer an immediate batch: anyone
+//! may call `execute`, and the Prime's rules - for a keyless rule, a predicate
+//! the interpreter refuses unless it pins the whole batch - decide. The words
+//! are handed out just before the Prime is asked and the host keeps them for
+//! that one approval, each matched once; nothing is stored, so none outlives
+//! the call. The adapter holds nothing, and anyone the Prime's rules let call
+//! `execute` can run any batch they permit through it: it must never be sent
+//! funds or given an allowance, and a rule on the Prime that this adapter
+//! signs is bounded by its predicate alone.
 //!
 //! NOTHING WAITS. A stored batch runs under `run`, where the adapter is the
 //! one asking the Prime, so the Prime's token rules would have to be signed by
@@ -106,9 +118,11 @@
 //! Prime and which gate this contract is bound to straight off the ledger, so
 //! an accessor would only be a second way to say the same thing.
 use soroban_sdk::{
-    auth::InvokerContractAuthEntry, contract, contracterror, contractimpl, contracttype,
-    panic_with_error, symbol_short, vec, xdr::ToXdr, Address, Bytes, Duration, Env, IntoVal, Map,
-    String, Symbol, Timepoint, TryFromVal, Val, Vec, I256, U256,
+    auth::{Context, ContractContext, InvokerContractAuthEntry, SubContractInvocation},
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, vec,
+    xdr::ToXdr,
+    Address, Bytes, Duration, Env, IntoVal, Map, String, Symbol, Timepoint, TryFromVal, Val, Vec,
+    I256, U256,
 };
 
 #[contracttype]
@@ -237,7 +251,25 @@ impl ExecutionAdapter {
         }
         let args: Vec<Val> = (calls.clone(), grants.clone(), wait).into_val(&e);
         if wait == 0 {
-            e.authorize_as_current_contract(grants.clone());
+            let mut handed = grants.clone();
+            if bound(&e).is_none() {
+                // Its word for this very call, to each policy the batch names.
+                let this = Context::Contract(ContractContext {
+                    contract: e.current_contract_address(),
+                    fn_name: symbol_short!("execute"),
+                    args: args.clone(),
+                });
+                for g in grants.iter() {
+                    let InvokerContractAuthEntry::Contract(c) = g else {
+                        panic_with_error!(&e, E::Uncheckable)
+                    };
+                    let own = vouch(&e, &c.context.contract, &prime, &this);
+                    if !handed.contains(&own) {
+                        handed.push_back(own);
+                    }
+                }
+            }
+            e.authorize_as_current_contract(handed);
             prime.require_auth_for_args(args);
             invoke(&e, calls);
             return None;
@@ -318,7 +350,8 @@ impl ExecutionAdapter {
 /// The one rule, applied to a whole batch before any of it runs. Validating
 /// and invoking in one pass would let an early call move value while a later
 /// one in the same batch was still unexamined. With no gate, only the Prime
-/// as a target and any authorization handed out are refused.
+/// as a target, any authorization handed to a callee and any grant that is
+/// not a word to the Prime's policy (`vouched`) are refused.
 fn check(e: &Env, prime: &Address, calls: &Vec<Call>, grants: &Vec<InvokerContractAuthEntry>) {
     let list = bound(e).map(|gate| {
         let mut ok: Vec<Address> = e.invoke_contract(&gate, &Symbol::new(e, "allowed"), vec![e]);
@@ -342,7 +375,56 @@ fn check(e: &Env, prime: &Address, calls: &Vec<Call>, grants: &Vec<InvokerContra
             .iter()
             .for_each(|a| scan_entry(e, list.as_ref(), &a));
     }
-    grants.iter().for_each(|a| scan_entry(e, list.as_ref(), &a));
+    grants.iter().for_each(|a| match &list {
+        Some(_) => scan_entry(e, list.as_ref(), &a),
+        None => vouched(e, prime, &a),
+    });
+}
+
+/// A grant a null adapter hands out: `enforce(prime, context)` on some
+/// contract, for its own Prime, with nothing nested under it - exactly what
+/// the interpreter asks of a bound executor (`require_auth_for_args((account,
+/// context))` from `enforce`). Anything else is refused.
+///
+/// IT AUTHORISES NO MOVE. The entry lets one call of one function named
+/// `enforce` count this adapter as approving that pair, once, inside the
+/// Prime's approval of this batch. A token, a venue or the Prime itself asks
+/// this adapter for nothing named `enforce`, and a grant naming another
+/// account would only vouch for a rule of an account that is not asked here,
+/// so both are refused rather than reasoned about. Which contract the entry
+/// names is the caller's choice and costs nothing: only a contract whose
+/// `enforce` asks for this adapter's approval of this Prime can use it, which
+/// is the Prime's policy, with a rule its admins bound to this adapter.
+fn vouched(e: &Env, prime: &Address, entry: &InvokerContractAuthEntry) {
+    let InvokerContractAuthEntry::Contract(c) = entry else {
+        panic_with_error!(e, E::Uncheckable)
+    };
+    let args = &c.context.args;
+    let account = args.get(0).map(|a| Address::try_from_val(e, &a));
+    let ok = c.context.fn_name == symbol_short!("enforce")
+        && c.sub_invocations.is_empty()
+        && args.len() == 2
+        && account == Some(Ok(prime.clone()));
+    if !ok {
+        panic_with_error!(e, E::Uncheckable);
+    }
+}
+
+/// The grant `vouched` accepts, for `context` on `policy`.
+fn vouch(
+    e: &Env,
+    policy: &Address,
+    prime: &Address,
+    context: &Context,
+) -> InvokerContractAuthEntry {
+    InvokerContractAuthEntry::Contract(SubContractInvocation {
+        context: ContractContext {
+            contract: policy.clone(),
+            fn_name: symbol_short!("enforce"),
+            args: (prime.clone(), context.clone()).into_val(e),
+        },
+        sub_invocations: Vec::new(e),
+    })
 }
 
 /// The gate this adapter is bound to, if it was created with one.
@@ -475,7 +557,8 @@ fn scan_data(e: &Env, ok: &Vec<Address>, b: &Bytes) {
 /// would never look at - which is exactly the hole the address rule exists to
 /// close. This contract has no reason to deploy anything, so they are refused
 /// outright rather than waved through unscanned. With no gate there is no list
-/// to check any of them against, so every one is refused.
+/// to check any of them against, so every one handed to a callee is refused;
+/// the batch's own grants are `vouched` instead.
 fn scan_entry(e: &Env, list: Option<&Vec<Address>>, entry: &InvokerContractAuthEntry) {
     let (Some(ok), InvokerContractAuthEntry::Contract(c)) = (list, entry) else {
         panic_with_error!(e, E::Uncheckable);

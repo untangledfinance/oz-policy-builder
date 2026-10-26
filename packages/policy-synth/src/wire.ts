@@ -203,6 +203,50 @@ export const decode = (b64: string): Expr => fromScVal(xdr.ScVal.fromXDR(b64, 'b
 export const hashOf = (b64: string): string =>
   createHash('sha256').update(Buffer.from(b64, 'base64')).digest('hex')
 
+// ---- a rule that follows another rule's predicate ----
+//
+// An install payload may name a rule `(account, rule_id)` on the same interpreter instead of
+// carrying a predicate: the XDR of that 2-vector. The rule then evaluates that rule's predicate,
+// read at every call, and `predicate_hash` commits to the reference. No node can have that shape
+// (a node starts with its name, a symbol). `referenceOf` reads a payload as the interpreter's
+// `reference()` does: at most 128 bytes, a vector of exactly an address and a u32.
+
+/** The rule a payload follows: the account (strkey) and its rule id. */
+export interface Reference {
+  account: string
+  ruleId: number
+}
+
+/** The longest payload the interpreter tries to read as a reference. */
+export const MAX_REFERENCE_BYTES = 128
+
+/** The rule an encoded payload (base64) follows, or undefined when it is not a reference. */
+export function referenceOf(b64: string): Reference | undefined {
+  if (Buffer.from(b64, 'base64').length > MAX_REFERENCE_BYTES) return undefined
+  let v: Val
+  try {
+    v = decode(b64)
+  } catch {
+    return undefined
+  }
+  if (!Array.isArray(v) || v.length !== 2) return undefined
+  const [account, ruleId] = v
+  // A symbol is at most 32 characters, so a 56-character strkey is an address; a muxed one is not
+  // an `Address` to the contract. A plain number on the wire is a u32 (`i32` is tagged).
+  return typeof account === 'string' &&
+    /^[GC][A-Z2-7]{55}$/.test(account) &&
+    typeof ruleId === 'number'
+    ? { account, ruleId }
+    : undefined
+}
+
+/** The install payload that follows `r`, base64: the XDR of `(account, rule_id)`. */
+export function encodeReference(r: Reference): string {
+  if (!/^[GC][A-Z2-7]{55}$/.test(r.account) || !Number.isInteger(r.ruleId))
+    throw new WireError(`not a rule to follow: ${JSON.stringify(r)}`)
+  return encode([r.account, r.ruleId])
+}
+
 // ---- the contract's decode refusals, mirrored ----
 //
 // `validate` accepts and refuses exactly what `install`'s decoder does (`dsl.rs`:
