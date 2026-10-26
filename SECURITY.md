@@ -17,7 +17,7 @@ There is currently no bug bounty programme.
 | --- | --- |
 | `policy-interpreter`, `custody-gate`, `execution-adapter` (Stellar) | Soroban contracts on Stellar testnet (addresses in `packages/policy-synth/src/config.ts` and `deployments/`) |
 | Prime seat, `prime-seat` (Stellar) | Soroban contract on Stellar testnet, one instance per seat owner and account (code hash in `contracts/build-hashes.json`) |
-| `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` | Off-chain packages in `packages/`, published to npm at version 4.1.0 from this repository at tag `v4.1.0` |
+| `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli`, `@crediolabs/policy-builder-mcp` | Off-chain packages in `packages/`, published to npm at version 5.0.0 from this repository at tag `v5.0.0` |
 
 `test-blend-pool` is a testnet-only fixture and is out of scope.
 
@@ -26,7 +26,8 @@ There is currently no bug bounty programme.
 **An external audit is in progress:** it covers the policy interpreter, the
 custody gate, the execution adapter, the Prime seat and the three TypeScript
 packages. Untangled set the scope on 10 October 2026 and added the Prime seat
-on 21 October 2026.
+on 21 October 2026. The code submitted for it is this repository at tag
+`v5.0.0`, the current release; the audit started on 26 October 2026.
 [docs/audit-overview.md](./docs/audit-overview.md) lists the code in scope, its
 size and the assumptions about everything outside it. The Prime seat has had
 internal reviews and mutation testing; its README has the mutation run. The
@@ -37,13 +38,13 @@ each piece enforces; treat anything they do not claim as unenforced.
 
 ## Supported versions
 
-Only the latest release is supported: version 4.1.0 of
+Only the latest release is supported: version 5.0.0 of
 `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and
 `@crediolabs/policy-builder-mcp` on npm, the same code as this repository at tag
-`v4.1.0`, and the contract builds pinned in
+`v5.0.0`, and the contract builds pinned in
 `packages/policy-synth/src/config.ts`, `deployments/` and
-`contracts/build-hashes.json`. Every npm version before 4.1.0 (0.x, 1.x,
-2.0.0, 2.0.1, 3.0.0, 4.0.0 and 4.0.1) is unsupported.
+`contracts/build-hashes.json`. Every npm version before 5.0.0 (0.x, 1.x,
+2.0.0, 2.0.1, 3.0.0, 4.0.0, 4.0.1 and 4.1.0) is unsupported.
 
 **Advisories a consumer may see:** `npm audit` in a project that installs the
 packages reports `toml` up to 5.0.0 (GHSA-82x6-q7mm-w9cf, GHSA-v5mp-jgw5-2x6j,
