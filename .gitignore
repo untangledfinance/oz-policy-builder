@@ -27,3 +27,6 @@ specs/
 
 # Disposable testnet keys for the scenario fixtures. Secrets: never commit.
 scripts/.scenario-state.json
+
+# Throwaway testnet keys (STRIDE shared-rule pass): never commit.
+secrets-throwaway/

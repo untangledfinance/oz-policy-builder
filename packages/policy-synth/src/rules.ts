@@ -63,6 +63,8 @@ export interface Followed extends Reference {
   nonce?: number
   /** sha256 of the followed rule's predicate bytes, hex. */
   predicateHash?: string
+  /** The followed rule's admins (its `master_set`), who with its account can re-install it. */
+  admins?: string[]
 }
 /** The rule about to be installed. */
 export type Intended = Pick<ObservedRule, 'scope' | 'signers' | 'cap' | 'follows'> & { expr: Expr }
@@ -150,6 +152,16 @@ const docKey = (interpreter: string, r: Reference) =>
     xdr.ScVal.scvVec([new Address(r.account).toScVal(), xdr.ScVal.scvU32(r.ruleId)])
   )
 const docOf = (v: xdr.ScVal | undefined) => (v ? fields(fromScVal(v)) : undefined)
+/** A record's `master_set` as admins: Delegated addresses, any other signer kind as its wire JSON;
+ *  absent when the record carries none. */
+const adminsOf = (doc: Record<string, Val>): string[] | undefined =>
+  Array.isArray(doc.master_set)
+    ? doc.master_set.map((s) =>
+        Array.isArray(s) && s[0] === 'Delegated' && typeof s[1] === 'string'
+          ? s[1]
+          : JSON.stringify(s)
+      )
+    : undefined
 
 /** Where a stored record's predicate is: its own bytes (`inline`), another rule's, or neither
  *  (`bad`). A record with no `source` field is from a build that has no references: inline. */
@@ -213,12 +225,8 @@ export async function readPredicates(
     const doc = docs[i]
     const source = sources[i] ?? 'bad'
     if (doc && typeof doc.executor === 'string') r.executor = doc.executor
-    if (doc && Array.isArray(doc.master_set))
-      r.admins = doc.master_set.map((s) =>
-        Array.isArray(s) && s[0] === 'Delegated' && typeof s[1] === 'string'
-          ? s[1]
-          : JSON.stringify(s)
-      )
+    const admins = doc && adminsOf(doc)
+    if (admins) r.admins = admins
     try {
       if (!doc || source === 'bad') throw new Error('no stored record')
       if (source === 'inline') {
@@ -233,6 +241,8 @@ export async function readPredicates(
       r.expr = expr
       f.predicateHash = hashOf(b64)
       if (typeof theirs.nonce === 'number') f.nonce = theirs.nonce
+      const owners = adminsOf(theirs)
+      if (owners) f.admins = owners
     } catch {
       unreadable.push(r.id)
     }
@@ -250,7 +260,11 @@ export async function readFollowed(
   r: Reference,
   caps: Caps,
   code: ErrorCode
-): Promise<{ expr: Expr; encoded: string; follows: Required<Followed> }> {
+): Promise<{
+  expr: Expr
+  encoded: string
+  follows: Required<Omit<Followed, 'admins'>> & Pick<Followed, 'admins'>
+}> {
   const [raw] = await entries(server, [docKey(interpreter, r)])
   const doc = docOf(raw)
   const which = `rule ${r.ruleId} of ${r.account}`
@@ -282,10 +296,16 @@ export async function readFollowed(
   }
   if (typeof doc.nonce !== 'number')
     throw new Refusal(code, `${which}: its record carries no install nonce`)
+  const admins = adminsOf(doc)
   return {
     expr: got.expr,
     encoded: got.b64,
-    follows: { ...r, nonce: doc.nonce, predicateHash: hashOf(got.b64) },
+    follows: {
+      ...r,
+      nonce: doc.nonce,
+      predicateHash: hashOf(got.b64),
+      ...(admins ? { admins } : {}),
+    },
   }
 }
 

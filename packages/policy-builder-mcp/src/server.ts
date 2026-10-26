@@ -5,7 +5,7 @@ import { TOOLS } from '@crediolabs/policy-synth/run'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 /** Kept in step with package.json by server.test.ts (a literal, because the CJS build cannot import JSON). */
-export const VERSION = '5.0.0'
+export const VERSION = '5.1.0'
 
 /** The most array elements and object members one `tools/call` may carry. The SDK counts them
  *  before schema validation, so an oversized input is refused at once instead of being validated
