@@ -55,7 +55,6 @@ import {
   intOf,
   isConstant,
   isSelector,
-  type Reference,
   readsOf,
   toScVal,
   unlit,
@@ -517,19 +516,35 @@ export const wordLeaks = (rules: ObservedRule[], adapter: string): ObservedRule[
 // ---- the warnings: allowed, and said before anyone signs ----
 
 /** What a KEYLESS rule that FOLLOWS another rule hands over (STRIDE E-38). With no signer its
- *  predicate is its only fence, and that predicate is the followed rule's, which that rule's owner
- *  can re-install at will, wider, without this account; the shape pin (221) holds only target and
- *  function, so anyone could then move funds through the adapter. A keyed follower keeps its own
- *  signers as a fence. Never refused: an issuer governing a borrower's keyless rule this way is the
- *  intended pattern. The finding id stays in the text, so it ties to the threat model. */
-export const KEYLESS_FOLLOWER = (f: Reference, executor?: string) =>
-  `E-38: this keyless rule's entire fence is the followed rule (owner ${f.account}, rule ${f.ruleId}); that owner can loosen it at will and allow anyone to move funds through ${executor ? `this rule's executor ${executor}` : 'the adapter this rule is bound to'}. Only follow a rule whose owner you trust with these funds.`
+ *  predicate is its only fence, and that predicate is the followed rule's, which that rule's admins
+ *  (its master set) can re-install with its account at will, without this account. Through an
+ *  adapter with no gate the shape pin (221) holds only target and function, so anyone could then
+ *  move funds; through a gated adapter the gate still limits destinations. A keyed follower keeps
+ *  its own signers as a fence. Never refused: an issuer governing a borrower's keyless rule this way
+ *  is the intended pattern. The finding id stays in the text, so it ties to the threat model.
+ *  Without `executor` (the install bytes do not carry it) the adapter is named as the bound one. */
+export function KEYLESS_FOLLOWER(
+  f: Followed,
+  executor?: { address: string; kind?: ContractKind | undefined }
+): string {
+  const who = `the followed rule's admins (its master set${f.admins?.length ? `: ${f.admins.join(', ')}` : ''})`
+  const head = `E-38: this keyless rule's entire fence is the followed rule (rule ${f.ruleId} of ${f.account}); ${who} can re-install it with that account at will, without this account's signature`
+  const tail =
+    executor?.kind === 'gated adapter'
+      ? `: they control the predicate, and the gate of this rule's executor ${executor.address} still limits destinations`
+      : `, and loosen it to allow anyone to move funds through ${
+          executor === undefined
+            ? 'the adapter this rule is bound to'
+            : `this rule's executor ${executor.address}${executor.kind === 'null-gate adapter' ? ', an execution adapter with no gate' : ''}`
+        }`
+  return `${head}${tail}. Only follow a rule whose admins you trust with these funds.`
+}
 
 /** The warnings a rule's authority earns: E-38 when it has no signer and follows another rule. */
 export const ruleWarnings = (
   signers: readonly unknown[],
-  follows: Reference | undefined,
-  executor?: string
+  follows: Followed | undefined,
+  executor?: { address: string; kind?: ContractKind | undefined }
 ): string[] => (signers.length === 0 && follows ? [KEYLESS_FOLLOWER(follows, executor)] : [])
 
 /** Why a rule scoped to its own executor is refused: it pins neither `run` nor a whole immediate batch. */
@@ -707,7 +722,7 @@ export async function planBind(
     ...(r.executor && r.executor !== i.executor ? { rebinds: r.executor } : {}),
     executorKind: got(kind),
     interpreter: fingerprint,
-    warnings: ruleWarnings(r.signers, r.follows, i.executor),
+    warnings: ruleWarnings(r.signers, r.follows, { address: i.executor, kind: got(kind) }),
   }
 }
 
@@ -939,6 +954,10 @@ export async function planInstall(i: InstallInput, rule: Chosen, chain: Chain) {
     authorityScan: { complete: read.complete, overlaps: found },
     overrides,
     /** Allowed, and said before anyone signs (E-38): never a refusal, never waived. */
-    warnings: ruleWarnings(i.signers, rule.follows, i.executor),
+    warnings: ruleWarnings(
+      i.signers,
+      rule.follows,
+      i.executor ? { address: i.executor, kind: known[i.executor] } : undefined
+    ),
   }
 }

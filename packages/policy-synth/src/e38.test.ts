@@ -1,8 +1,9 @@
-// STRIDE E-38: a KEYLESS rule that FOLLOWS another rule hands its whole fence to that rule's owner,
+// STRIDE E-38: a KEYLESS rule that FOLLOWS another rule hands its whole fence to that rule's admins,
 // who can loosen it at will. The pattern is allowed (an issuer governing a borrower's keyless rule),
 // so it is never refused: the install, the binding and the owner's review each carry a warning
-// naming the followed rule, and a keyed follower, a keyless rule of its own and an inline rule carry
-// none. The tool cases run on testnet (recorded in fixtures/rpc/e38.json).
+// naming the followed rule and its admins, worded for the executor's kind (no gate: anyone could
+// move funds; a gate: it still limits destinations), and a keyed follower, a keyless rule of its own
+// and an inline rule carry none. The tool cases run on testnet (recorded in fixtures/rpc/e38.json).
 
 import { afterAll, describe, expect, it } from 'bun:test'
 import { account, contract } from '../test/fixtures.ts'
@@ -21,7 +22,7 @@ import {
 } from './install.ts'
 import { callExpr } from './intent.ts'
 import type { ObservedRule } from './rules.ts'
-import { explain, run } from './tools.ts'
+import { bound, explain, run } from './tools.ts'
 import { encode, encodeReference, hashOf } from './wire.ts'
 
 const INTERP = (INTERPRETER.testnet as { address: string }).address
@@ -31,6 +32,7 @@ const ADAPTER = contract(63)
 const VENUE = contract(64)
 const SOURCE = account(6)
 const KEY = account(7)
+const ISSUER = account(9)
 
 const ours: Fingerprint = {
   address: INTERP,
@@ -45,7 +47,13 @@ const follower: Chosen = {
   expr: theirs,
   encoded: payload,
   hash: hashOf(payload),
-  follows: { account: OWNER, ruleId: 3, nonce: 2, predicateHash: hashOf(encode(theirs)) },
+  follows: {
+    account: OWNER,
+    ruleId: 3,
+    nonce: 2,
+    predicateHash: hashOf(encode(theirs)),
+    admins: [ISSUER],
+  },
 }
 const inline: Chosen = {
   contract: VENUE,
@@ -64,21 +72,45 @@ const chain = (
   contracts: async (a) => Object.fromEntries(a.map((x) => [x, kinds[x] ?? 'contract'])),
 })
 /** The one E-38 warning, as each surface must carry it. */
-const e38 = (executor?: string) => KEYLESS_FOLLOWER({ account: OWNER, ruleId: 3 }, executor)
+const e38 = (kind?: ContractKind, admins: string[] = [ISSUER]) =>
+  KEYLESS_FOLLOWER(
+    { account: OWNER, ruleId: 3, admins },
+    kind === undefined ? undefined : { address: ADAPTER, kind }
+  )
+const NOGATE = 'null-gate adapter' as const
+const GATED = 'gated adapter' as const
 
 describe('E-38: the warning text', () => {
-  it('names the finding, the followed owner and rule, the executor, and what to do', () => {
-    const w = e38(ADAPTER)
+  it('names the finding, the followed rule, its admins, the executor, and what to do', () => {
+    const w = e38(NOGATE)
     expect(w.startsWith('E-38: ')).toBe(true)
-    expect(w).toContain(`owner ${OWNER}, rule 3`)
-    expect(w).toContain(`this rule's executor ${ADAPTER}`)
-    expect(w).toMatch(/loosen it at will and allow anyone to move funds/)
-    expect(w).toMatch(/Only follow a rule whose owner you trust with these funds\.$/)
-    expect(e38()).toContain('the adapter this rule is bound to')
+    expect(w).toContain(`the followed rule (rule 3 of ${OWNER})`)
+    expect(w).toContain(`the followed rule's admins (its master set: ${ISSUER}) can re-install it`)
+    expect(w).toContain(
+      `loosen it to allow anyone to move funds through this rule's executor ${ADAPTER}, an execution adapter with no gate`
+    )
+    expect(w).toMatch(/Only follow a rule whose admins you trust with these funds\.$/)
+    // Admins not read (the install bytes alone): the role is named, no address guessed.
+    expect(e38(NOGATE, [])).toContain("the followed rule's admins (its master set) can")
+  })
+
+  it('a gated executor: the admins control the predicate, and the gate still limits destinations', () => {
+    const w = e38(GATED)
+    expect(w.startsWith('E-38: ')).toBe(true)
+    expect(w).toContain(
+      `they control the predicate, and the gate of this rule's executor ${ADAPTER} still limits destinations`
+    )
+    expect(w).not.toMatch(/anyone/)
+  })
+
+  it('no executor in hand (the owner review of the bytes): the adapter it is bound to', () => {
+    const w = e38()
+    expect(w).toContain('allow anyone to move funds through the adapter this rule is bound to.')
+    expect(w).not.toContain(ADAPTER)
   })
 
   it('fires only for no signer AND a followed rule', () => {
-    const ref = { account: OWNER, ruleId: 3 }
+    const ref = { account: OWNER, ruleId: 3, admins: [ISSUER] }
     expect(ruleWarnings([], ref)).toEqual([e38()])
     expect(ruleWarnings([KEY], ref)).toEqual([])
     expect(ruleWarnings([], undefined)).toEqual([])
@@ -87,12 +119,21 @@ describe('E-38: the warning text', () => {
 })
 
 describe('E-38: planInstall warns, and builds', () => {
-  it('a keyless follower: built, with the warning naming the followed owner and the executor', async () => {
+  it('a keyless follower: built, with the warning naming the followed admins and the executor', async () => {
     const r = await planInstall({ ...input, signers: [], executor: ADAPTER }, follower, chain())
     expect(r.unsignedXdr).toBe('AAAA')
-    expect(r.warnings).toEqual([e38(ADAPTER)])
+    expect(r.warnings).toEqual([e38(NOGATE)])
     // Never a refusal and never an override: nothing was waived to build it.
     expect(r.overrides).toEqual([])
+  })
+
+  it('a keyless follower for a gated adapter: still warned, worded for the gate', async () => {
+    const r = await planInstall(
+      { ...input, signers: [], executor: ADAPTER },
+      follower,
+      chain({ [ADAPTER]: GATED })
+    )
+    expect(r.warnings).toEqual([e38(GATED)])
   })
 
   it('a keyed follower, a keyless rule of its own and an inline keyed rule: no warning', async () => {
@@ -113,13 +154,13 @@ describe('E-38: planBind warns when it binds a keyless follower', () => {
     policies: [INTERP],
     expr: theirs,
     admins: [SOURCE],
-    follows: { account: OWNER, ruleId: 3, nonce: 2 },
+    follows: { account: OWNER, ruleId: 3, nonce: 2, admins: [ISSUER] },
     ...o,
   })
-  const bindChain = (r: ObservedRule): BindChain => ({
+  const bindChain = (r: ObservedRule, kind: ContractKind = NOGATE): BindChain => ({
     readRule: async () => r,
     readRules: async () => ({ rules: [r], complete: true, unreadable: [] }),
-    kind: async () => 'null-gate adapter',
+    kind: async () => kind,
     fingerprint: async () => ours,
     build: async () => ({ unsignedXdr: 'BBBB' }) as never,
   })
@@ -128,12 +169,34 @@ describe('E-38: planBind warns when it binds a keyless follower', () => {
   it('fires for a keyless follower, and the binding is still built', async () => {
     const r = await planBind(i, INTERP, bindChain(observed()))
     expect(r.unsignedXdr).toBe('BBBB')
-    expect(r.warnings).toEqual([e38(ADAPTER)])
+    expect(r.warnings).toEqual([e38(NOGATE)])
+    const gated = await planBind(i, INTERP, bindChain(observed(), GATED))
+    expect(gated.warnings).toEqual([e38(GATED)])
   })
 
-  it('a keyless rule with its own predicate: no warning', async () => {
-    const r = await planBind(i, INTERP, bindChain(observed({ follows: undefined })))
-    expect(r.warnings).toEqual([])
+  it('a keyed follower, and a keyless rule with its own predicate: no warning', async () => {
+    const keyed = await planBind(i, INTERP, bindChain(observed({ signers: [KEY] }), GATED))
+    expect(keyed.unsignedXdr).toBe('BBBB')
+    expect(keyed.warnings).toEqual([])
+    const own = await planBind(i, INTERP, bindChain(observed({ follows: undefined })))
+    expect(own.warnings).toEqual([])
+  })
+
+  it("bind_policy's result: the warning in `warnings` and at the top of the bound rule's review", async () => {
+    const plan = await planBind(i, INTERP, bindChain(observed()))
+    const out = bound({ network: 'testnet' }, INTERP, plan)
+    expect(out.warnings).toEqual([e38(NOGATE)])
+    expect(out.binds.review[0]).toBe('Warning: 1 thing(s) to know before signing')
+    expect(out.binds.review.join('\n')).toContain(`warning:  ${e38(NOGATE)}`)
+    expect(out.binds.reviewTree.map((n) => n.op).slice(0, 2)).toEqual(['warnings', 'authority'])
+    // A keyed follower's binding: no warning in the result or the review.
+    const keyed = bound(
+      { network: 'testnet' },
+      INTERP,
+      await planBind(i, INTERP, bindChain(observed({ signers: [KEY] }), GATED))
+    )
+    expect(keyed.warnings).toEqual([])
+    expect(keyed.binds.review.join('\n')).not.toMatch(/E-38|Warning:/)
   })
 })
 
@@ -145,7 +208,7 @@ describe('E-38: the review shows the warning right after any override, before th
         expr: theirs,
         follows: follower.follows,
         overrides: [{ flag: 'allowOverlap', waived: null }],
-        warnings: [e38(ADAPTER)],
+        warnings: [e38(NOGATE)],
       }
     )
     expect(shown.reviewTree.map((n) => n.op).slice(0, 3)).toEqual([
@@ -155,7 +218,7 @@ describe('E-38: the review shows the warning right after any override, before th
     ])
     const text = shown.review.join('\n')
     expect(text).toContain('Warning: 1 thing(s) to know before signing')
-    expect(text).toContain(`warning:  ${e38(ADAPTER)}`)
+    expect(text).toContain(`warning:  ${e38(NOGATE)}`)
     expect(explain({ network: 'testnet' }, { expr: theirs }).review.join('\n')).not.toMatch(
       /E-38|Warning:/
     )
@@ -188,9 +251,14 @@ type Out = {
 }
 type Install = { unsignedXdr: string; warnings: string[]; rule: { review: string[] } }
 type Review = { problems: string[]; warnings: string[]; signable: boolean; review: string[] }
-/** Rule 6 of the live-test account (a cap of 500 on a transfer): the rule the followers follow. */
-const RULE6 = KEYLESS_FOLLOWER({ account: ACCOUNT, ruleId: 6 }, NULL_ADAPTER)
-const RULE6_BYTES = KEYLESS_FOLLOWER({ account: ACCOUNT, ruleId: 6 })
+/** Rule 6 of the live-test account (a cap of 500 on a transfer, its admin the signer): the rule the
+ *  followers follow. Offline the review has only the bytes: no admins, no executor. */
+const RULE6 = KEYLESS_FOLLOWER(
+  { account: ACCOUNT, ruleId: 6, admins: [SIGNER] },
+  { address: NULL_ADAPTER, kind: 'null-gate adapter' }
+)
+const RULE6_OFFLINE = KEYLESS_FOLLOWER({ account: ACCOUNT, ruleId: 6 })
+const RULE6_READ = KEYLESS_FOLLOWER({ account: ACCOUNT, ruleId: 6, admins: [SIGNER] })
 
 const install = async (i: object) => {
   const r = (await run('install_policy', { ...base, ...i })) as Out
@@ -219,12 +287,12 @@ describe('E-38: install_policy and review_unsigned, on a live account', () => {
     expect(d.rule.review[0]).toBe('Warning: 1 thing(s) to know before signing')
     // Offline the followed predicate is not in the bytes (a problem), and the warning is there anyway.
     const offline = await review(d.unsignedXdr)
-    expect(offline.warnings).toEqual([RULE6_BYTES])
+    expect(offline.warnings).toEqual([RULE6_OFFLINE])
     expect(offline.problems.join('\n')).not.toMatch(/E-38/)
     // Read through the RPC, nothing is wrong: signable, and warned all the same.
     const read = await review(d.unsignedXdr, true)
-    expect(read).toMatchObject({ problems: [], signable: true, warnings: [RULE6_BYTES] })
-    expect(read.review.join('\n')).toContain(`warning:  ${RULE6_BYTES}`)
+    expect(read).toMatchObject({ problems: [], signable: true, warnings: [RULE6_READ] })
+    expect(read.review.join('\n')).toContain(`warning:  ${RULE6_READ}`)
   })
 
   it('a keyed follower, a keyless rule of its own and an inline keyed rule: no warning anywhere', async () => {

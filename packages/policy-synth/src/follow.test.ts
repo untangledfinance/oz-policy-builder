@@ -83,10 +83,15 @@ describe('a reference payload, read as the interpreter reads it', () => {
 
 // ---- the stored records ----
 
-const docVal = (o: { bytes?: string; nonce?: number | null; source?: Val | undefined }): Val => ({
+const docVal = (o: {
+  bytes?: string
+  nonce?: number | null
+  source?: Val | undefined
+  admins?: string[]
+}): Val => ({
   map: [
     ['executor', null],
-    ['master_set', []],
+    ['master_set', (o.admins ?? []).map((a) => ['Delegated', a])],
     ...(o.nonce === null ? [] : [['nonce', o.nonce ?? 1] as [Val, Val]]),
     ['predicate_bytes', { bytes: o.bytes ?? '' }],
     ['scope', null],
@@ -94,7 +99,8 @@ const docVal = (o: { bytes?: string; nonce?: number | null; source?: Val | undef
     ...(o.source === undefined ? [] : [['source', o.source] as [Val, Val]]),
   ],
 })
-const inline = (e: Expr, nonce = 1) => docVal({ bytes: hex(e), nonce, source: ['Inline'] })
+const inline = (e: Expr, nonce = 1, admins?: string[]) =>
+  docVal({ bytes: hex(e), nonce, source: ['Inline'], ...(admins ? { admins } : {}) })
 const follows = (account: string, id: number) => docVal({ source: ['Rule', account, id] })
 
 /** The interpreter's storage: (account, rule id) -> stored record. Counts the ledger reads. */
@@ -140,7 +146,7 @@ describe('readPredicates: a rule that follows another reads that rule now, one l
   it('in two batches: own records, then every followed record; inline, legacy and followed rules', async () => {
     const theirs = capped('500')
     const { server, batches } = store({
-      [`${A}:2`]: inline(theirs, 4),
+      [`${A}:2`]: inline(theirs, 4, [SIGNER]),
       [`${B}:1`]: inline(capped('7')),
       [`${B}:3`]: docVal({ bytes: hex(capped('9')) }), // a build with no source field: inline
       [`${B}:5`]: follows(A, 2),
@@ -152,7 +158,14 @@ describe('readPredicates: a rule that follows another reads that rule now, one l
     expect(rules[1]?.expr).toEqual(capped('9'))
     expect(rules[2]).toMatchObject({
       expr: theirs,
-      follows: { account: A, ruleId: 2, nonce: 4, predicateHash: hashOf(encode(theirs)) },
+      // The followed rule's admins (its master set): who, with its account, can change it (E-38).
+      follows: {
+        account: A,
+        ruleId: 2,
+        nonce: 4,
+        predicateHash: hashOf(encode(theirs)),
+        admins: [SIGNER],
+      },
     })
     expect(rules[3]?.expr).toBeUndefined()
   })
@@ -205,11 +218,16 @@ describe('readFollowed: the rule an install follows, refused the ways the interp
   }
 
   it('its predicate now, its encoding, hash and nonce', async () => {
-    const { server } = store({ [`${A}:2`]: inline(capped('500'), 3) })
+    const { server } = store({ [`${A}:2`]: inline(capped('500'), 3, [SIGNER]) })
     const f = await readFollowed(server, INTERP, at, CEILINGS, 'INSTALL_BUILD_FAILED')
     expect(f.expr).toEqual(capped('500'))
     expect(f.encoded).toBe(encode(capped('500')))
-    expect(f.follows).toEqual({ ...at, nonce: 3, predicateHash: hashOf(encode(capped('500'))) })
+    expect(f.follows).toEqual({
+      ...at,
+      nonce: 3,
+      predicateHash: hashOf(encode(capped('500'))),
+      admins: [SIGNER],
+    })
   })
 
   it('missing (206), a build with no references, a chain (201), undecodable or over the limits', async () => {

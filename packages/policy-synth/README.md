@@ -12,7 +12,7 @@ The on-chain half is the `policy-interpreter` contract in
 ## Install
 
 ```sh
-npm install @crediolabs/policy-synth@5.0.1 @stellar/stellar-sdk
+npm install @crediolabs/policy-synth@5.1.0 @stellar/stellar-sdk
 ```
 
 `@stellar/stellar-sdk` (^14.4.0) is a peer dependency; npm 7 and
@@ -260,6 +260,18 @@ batch.
   hand out its word, or while the account's rules are not all read.
   `review_unsigned` flags it (with `readContracts`, which reads the scope; offline
   it asks for that read). No override waives it.
+- **A keyless rule that follows another rule is warned of (E-38):** with no
+  signer, its predicate is its only fence, and that predicate is the followed
+  rule's. The followed rule's admins (its master set) can re-install it with
+  that rule's account at will, without this account's signature. Through an
+  adapter with no gate the shape pin (`221`) holds only target and function, so
+  anyone could then move this account's funds; through a gated adapter the gate
+  still limits destinations. Issuers use this on purpose to govern a borrower's
+  keyless rule, so it is built. `install_policy`, `bind_policy` and
+  `review_unsigned` return a warning in `warnings` that starts with `E-38`,
+  names the followed rule and its admins (when read), and is worded for the
+  executor's kind. A keyed follower, a keyless rule with its own predicate and
+  an inline rule get none.
 - **A dedicated no-gate adapter:** keep keyless rules on a no-gate adapter
   that NO other rule can make execute: no rule of any kind may approve its
   `execute` except the keyless rules that pin the whole batch. That includes
@@ -304,8 +316,9 @@ followed rule that itself follows another is refused (201, one level only).
   shares a signer and serves the same calls is refused, even one that is
   tighter today (`allowOverlap` waives it).
 - **What comes back:** `rule.predicateHash` is the hash of the reference;
-  `rule.follows` is `{ account, ruleId, nonce, predicateHash }`, the followed
-  rule's install nonce and predicate hash when it was read. The review shows a
+  `rule.follows` is `{ account, ruleId, nonce, predicateHash, admins }`, the
+  followed rule's install nonce, predicate hash and admins (its master set)
+  when it was read. The review shows a
   `Follows rule N of …` node before the predicate tree: what the rule follows,
   that its admins can change it without this account's signature, the nonce
   and hash now, and that a removed source refuses every call. The tree below it
@@ -363,6 +376,13 @@ the total from the account.
 - `authorityScan`: `{ complete, overlaps[] }`.
 - `overrides`: `[{ flag, waived }]`, empty when no override is set (see
   "Overrides").
+- `warnings`: what the build allows but the owners must know before signing,
+  empty when there is nothing to say. Today it carries one kind: the E-38
+  warning for a keyless rule that follows another rule (see "Keyless rules and
+  the executor binding"). A warning never refuses and needs no override. When
+  there is one, the review opens with a `Warning: n thing(s) to know before
+  signing` node, after any overrides and before the Authority node.
+  `bind_policy` returns the same `warnings` for the rule it binds.
 - `interpreter`: the live fingerprint (grammar, code hash, limits).
 - `unsignedXdr`.
 - `authValidUntilLedger`, `validBefore` (unix seconds) and `fee`
@@ -429,11 +449,19 @@ anything but one contract call. Anything else it describes, and lists in
   read (`readContracts`), or when it could not be read, or another rule was
   read than the bytes name.
 
-`signable` is true when `problems` is empty. The review opens with
-`Do not sign: n problem(s)` when there are any, then a `Transaction` node
-(call, source and sequence, fee, time bound, authorisation expiry), then for an
-install the Authority node and the predicate, and for a removal the rule it
-removes (rule 0 with its warning). Roles come from the bytes: the account
+`warnings` lists what the bytes allow but the owner must know before signing.
+It carries the E-38 warning for an install with no signer whose payload is a
+reference to another rule: offline it names the followed rule; with
+`readContracts` it also names that rule's admins. The executor is not in the
+install bytes, so the warning names "the adapter this rule is bound to".
+A warning is never a problem.
+
+`signable` is true when `problems` is empty, whatever `warnings` holds. The
+review opens with `Do not sign: n problem(s)` when there are any, then
+`Warning: n thing(s) to know before signing` when there are warnings, then a
+`Transaction` node (call, source and sequence, fee, time bound, authorisation
+expiry), then for an install the Authority node and the predicate, and for a
+removal the rule it removes (rule 0 with its warning). Roles come from the bytes: the account
 called (`[smart account]` only when it is the `smartAccount` given), the
 source, the admins and signers the rule names.
 
