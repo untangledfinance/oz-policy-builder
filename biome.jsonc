@@ -16,6 +16,7 @@
       "!**/*.tsbuildinfo",
       "!**/worker-configuration.d.ts",
       "!**/test_snapshots",
+      "!**/evidence",
       // Written by the interpreter's tests/parity.rs: compact on purpose, one case a line.
       "!packages/policy-synth/fixtures/parity",
       // Recorded JSON-RPC responses (OPB_LIVE=1 rewrites them).

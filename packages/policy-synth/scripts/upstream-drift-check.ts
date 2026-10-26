@@ -39,7 +39,7 @@ const BASELINE = {
   protocolVersion: { testnet: 29, mainnet: 29 },
   /** Latest STABLE upstream release. Release candidates are ignored: we do not
    *  deploy from an rc, so an rc appearing is not something to act on. */
-  ozLatestStable: 'v0.7.2',
+  ozLatestStable: 'v0.8.0',
 } as const
 
 type Network = keyof typeof BASELINE.protocolVersion

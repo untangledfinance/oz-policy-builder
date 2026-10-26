@@ -100,10 +100,28 @@ binding and the predicate carry its authority.
 when its one caller asks, and only while that caller runs the approved build.
 No admin, no setter, no upgrade.
 
-**Execution adapter, with a gate:** refuses any batch that names an address
-the gate does not list, in a call target, an argument at any depth, raw bytes
-or strkey data, or a grant. A batch can wait; the adapter's address commits to
-the gate and both wait numbers, and only the gate's custody can `rebind` it.
+**Execution adapter, with a gate:** checks every call target, every call
+argument at any depth (strkey, raw-key and address-XDR spellings compared;
+muxed M-strkeys refused), every executor authorization and every batch grant --
+including nested sub-invocations -- against one list: the gate's allowed
+addresses plus the gate. A batch naming an address the gate does not list is
+refused; grants are NOT refused wholesale -- a grant whose addresses are all
+listed is accepted (the Prime's own payout legitimately carries grants), and
+deploy-type entries are refused (`Uncheckable`). The walk is ABI-blind, so a
+256-bit value could carry 32 key bytes and pass (a limit noted in the source).
+A batch can wait; the adapter's address commits to the gate and both wait
+numbers, and only the gate's custody can `rebind` it.
+
+> **Gated-adapter residual (E-36 analogue; auditor, please confirm).** A keyed
+> rule on a gated adapter whose predicate leaves its call list open could, like
+> finding H-1 on a no-gate adapter, let a keyed holder vouch a keyless inner
+> rule beyond its root pin. The containment here is NOT grant refusal: it is the
+> root pins on the full call list and the grants count, exact-context grants (a
+> smuggled grant is inert when no pinned call asks for that context), and the
+> gate's address list. An independent 27/27 on-chain PoC found no such path in
+> the Prime rule set. A `policy-synth` check that warns on a keyed execute rule
+> bound to a gated adapter without a pinned call count, targets and functions is
+> a planned follow-up.
 
 **Execution adapter, with no gate:** checks no address, so the Prime can
 bundle its own calls atomically. The flow is narrow:
@@ -200,6 +218,43 @@ address and build, and custody derives that address from the gate itself.
 >     that one approval.
 >   - (b) The dedicated-adapter invariant above, with `policy-synth`'s
 >     refusal, is sufficient containment for H-1.
+
+> **Known finding E-38 (trust assumption, accepted).** STRIDE E-38, Medium.
+> See [stride-threat-model.md](../evidence/stride-threat-model.md), section 6.8,
+> the testnet proof in section 7.2, and the E-38 row in section 8. The contracts
+> are unchanged between `v5.0.0` and `v5.1.0`; `v5.1.0` adds only the
+> `policy-synth` warning and this note.
+>
+> - **The pattern.** A rule of account B may follow another rule `(A, id)`
+>   instead of carrying a predicate of its own (a referenced, or "shared",
+>   rule). B reads A's predicate live at `enforce`; only the predicate is
+>   shared, and A changes it by A's own normal two-party re-install, with no
+>   action by B. This is deliberate: an issuer A governs a borrower B's fence
+>   and can tighten or loosen it without B re-signing.
+> - **The assumption.** When B's following rule is **keyless** and bound to an
+>   adapter with no gate, that predicate is B's *entire* fence. A alone can
+>   widen it (A's master set, A's account, no re-consent from B), and anyone who
+>   then satisfies it moves B's funds through B's no-gate adapter. The shape pin
+>   (`221`) holds only the call targets and functions, not the amounts, so a
+>   loosened value bound takes effect for a stranger at once. Demonstrated on
+>   testnet (section 7.2, E38-1 to E38-4): a stranger with no key of B's moves
+>   5 XLM under A's cap, is refused 20 XLM over it, and moves 20 XLM once A
+>   widens the cap, with B idle throughout.
+> - **Why it is not a bug, and not a contract guard.** This is the intended
+>   issuer-governed-keyless design. The interpreter evaluates one rule at a time
+>   and cannot tell a keyless follower from a keyed one at A's legitimate
+>   re-install; refusing it would break the pattern. A **keyed** follower is
+>   unaffected: its own signer still authorises every `enforce`.
+> - **Containment, accepted by the team:** (1) `policy-synth` raises an E-38
+>   warning (not a refusal) whenever a keyless rule follows another rule, at
+>   `install_policy`, `bind_policy` and in the review, naming the followed rule
+>   and its admins (PR #60, release `v5.1.0`); (2) this note and the STRIDE
+>   entry. A borrower who wants A to only *tighten* the fence keeps the rule
+>   **keyed**.
+> - **Ask to the auditor.** Please confirm that live predicate propagation to a
+>   keyless follower, with the followed owner able to loosen the fence, is an
+>   acceptable trust assumption for the issuer-governed-keyless use, given the
+>   warning and that a keyed follower is safe.
 
 
 **Prime seat:** one seat serves one account and one owner key, both fixed at

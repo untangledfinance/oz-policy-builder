@@ -78,6 +78,23 @@ node packages/policy-builder-cli/dist/bin/policy-builder.js info
 node packages/policy-builder-mcp/dist/bin/server.js            # stdio
 ```
 
+**Shared rules, and a trust note (E-38).** A rule of one account may *follow*
+another account's rule instead of carrying its own predicate: it reads the
+followed rule's predicate live at `enforce`, and the owner of the followed rule
+changes it by their own normal two-party re-install, with no action by the
+follower. Only the predicate is shared; the follower's signers, binding, nonce
+and authorisation stay its own. This is deliberate, so an issuer can govern a
+borrower's fence. The trust assumption to know: if the following rule is
+**keyless** and bound to an adapter with no gate, that predicate is its *entire*
+fence, and the followed owner can loosen it alone, after which anyone who
+satisfies it moves the follower's funds. This is the intended
+issuer-governed-keyless pattern, not a bug and not refused on chain; it is
+flagged by a `policy-synth` warning (release `v5.1.0`, which adds only that
+warning — the contracts are unchanged from `v5.0.0`) and documented as finding
+E-38 in [docs/audit-overview.md](./docs/audit-overview.md) and the
+[threat model](./evidence/stride-threat-model.md) (section 6.8, with the
+testnet proof in 7.2). A **keyed** follower is unaffected.
+
 ## What the tools check
 
 The policy-synth README has the detail; the interpreter README has the

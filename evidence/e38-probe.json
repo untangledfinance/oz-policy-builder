@@ -1,0 +1,164 @@
+[
+ {
+  "step": "keys",
+  "pub": {
+   "adminA": "GDYGWMSRLLBK4PUMF3A6WJ5MYVFQXYFHAMLXJYL7N5XMBAX5LGTM3LMN",
+   "agentA": "GCKHNIGPLB4VTICW3MWYDDLYNWUIYNERYQU36NT4RQ5UPH5KZ4XM4XZV",
+   "adminB": "GC3GR5E6NMJHRQ6W3ARNBCNBW5RAKMX6J4TH5XDOUIFLUEKSSV2QSO45",
+   "stranger": "GD2E56CRMM3EJEPYJ6K46SQ3QGICL4Y22UZ4TMLIC5JPYOUCTX6LP2AI"
+  }
+ },
+ {
+  "step": "deploy",
+  "interpreter": "CDER6P73JWMIVD3X6TGGOQIDAH3DLU7OKRTLT4ULPTZ3QJJ3QUGTK7CM",
+  "A": "CAVG5SVS7WD572AMLNRR7PNCKTDKMB3JANTYBAE4RHIDGNJHEOFXV6LT",
+  "B": "CA5MWCXW6OGLT2XDA3KQQXGNK2SF6Y3OXEVWP4YS5SIE2N5B6E5QA7Y2"
+ },
+ {
+  "step": "no-gate adapter",
+  "nogate": "CDJGXDL7I2E7FYTFOT6KFSWVXGSNFWM3SGYEYVOPMYPJ73IL3444POCH",
+  "tx": "50943e003efee0386a49ca27268e5077be58dab4dd74c92cf0dec8e439d5e613"
+ },
+ {
+  "step": "rule",
+  "account": "A",
+  "name": "A:execute-shape",
+  "id": 1,
+  "tx": "f9888fc859c24b23107a269a908ed14a800477acbfd07106995ed3c9ccd5044a",
+  "predicateSha256": "797de9bd00a4078d0177509410cbaa9ef215df40157356e5f96101709d3a1d80"
+ },
+ {
+  "step": "rule",
+  "account": "A",
+  "name": "A:xlm-cap",
+  "id": 2,
+  "tx": "5006ae78a2abd3ecb1ed31b9d6227c438353d6183e0341241867bf63d7bbc548",
+  "predicateSha256": "0b7acac53ad455d1bc392ff1adbf69987d31f0c67eafd4aa626ef04ae6d813fe"
+ },
+ {
+  "step": "rule",
+  "account": "B",
+  "name": "B:root->(A,R1)",
+  "id": 1,
+  "tx": "ed127718eb316cb159abda9c8697c09afb7ac7ec6420f082b80dff9fb2db5ca7",
+  "predicateSha256": "b3b115f3223fb61c31bcd206779a40993cedd7487f61de03cc141fe2d8b03c39"
+ },
+ {
+  "step": "bind",
+  "name": "B:root",
+  "rule": 1,
+  "executor": "CDJGXDL7I2E7FYTFOT6KFSWVXGSNFWM3SGYEYVOPMYPJ73IL3444POCH",
+  "tx": "fba8b17aa574ed3189afae463077811b650f55a7b9f50b32b9d2105ba43e58d1"
+ },
+ {
+  "step": "rule",
+  "account": "B",
+  "name": "B:inner->(A,R2)",
+  "id": 2,
+  "tx": "f4ddbdbe125733fbfd3e60a3cd60eb8ffe2f6df76c47439341eb5af5b878eab1",
+  "predicateSha256": "cb1dc3c33c8071b369eb36566a068a5e4bdcf85d2885802063654197fd1cf317"
+ },
+ {
+  "step": "bind",
+  "name": "B:inner",
+  "rule": 2,
+  "executor": "CDJGXDL7I2E7FYTFOT6KFSWVXGSNFWM3SGYEYVOPMYPJ73IL3444POCH",
+  "tx": "b03e0ba65d533181de0127d513be9434587ecbd2e717cfbdcf087fedb96583a7"
+ },
+ {
+  "step": "setup",
+  "A": "CAVG5SVS7WD572AMLNRR7PNCKTDKMB3JANTYBAE4RHIDGNJHEOFXV6LT",
+  "R1": 1,
+  "R2": 2,
+  "B": "CA5MWCXW6OGLT2XDA3KQQXGNK2SF6Y3OXEVWP4YS5SIE2N5B6E5QA7Y2",
+  "nogate": "CDJGXDL7I2E7FYTFOT6KFSWVXGSNFWM3SGYEYVOPMYPJ73IL3444POCH",
+  "RBroot": 1,
+  "RBin": 2,
+  "cap": "5"
+ },
+ {
+  "label": "E38-1 stranger (no key of B) moves 5 XLM through B's no-gate adapter under A's cap: PERMIT",
+  "amtXlm": "5",
+  "ids": [
+   1,
+   2
+  ],
+  "expect": "PERMIT",
+  "got": "PERMIT",
+  "tx": "0031e784e7815cca8e43c2025d5f8d238b54fbb12cd84c07f84a0fa6b8657e97",
+  "ok": true
+ },
+ {
+  "step": "E38-1 delta",
+  "strangerGained": "49630796"
+ },
+ {
+  "label": "E38-2 same stranger tries 20 XLM (over A's 5 cap): REFUSE 100",
+  "amtXlm": "20",
+  "ids": [
+   1,
+   2
+  ],
+  "expect": "REFUSE",
+  "want": "#100",
+  "got": "REFUSE",
+  "stage": "policy",
+  "code": "100",
+  "simErrors": [
+   "Error(Auth, InvalidAction)",
+   "Error(Contract, #100)"
+  ],
+  "onchain": {
+   "status": "FAILED",
+   "hash": "e6f770119210c266aa88df628801ec609a0b74b9b01bc75e09598414579ea4c7",
+   "errors": [
+    "Error(Contract, #100)",
+    "Error(Auth, InvalidAction)"
+   ]
+  },
+  "ok": true
+ },
+ {
+  "step": "reinstall",
+  "label": "E38-3 A widens its fence R2: 5 -> 50 XLM (two-party, B idle)",
+  "id": 2,
+  "nonce": 2,
+  "tx": "45dfc653880d6b5f65caf709c3ffeff87c8fb21e368d37a8a0d36fbd29d78148",
+  "predicateSha256": "3bc17fa5ffcbc30da91981de652cf01979c09ba96d790972db9ce10dae38234a"
+ },
+ {
+  "label": "E38-4 same stranger now moves 20 XLM after A widened the fence: PERMIT (B took no action)",
+  "amtXlm": "20",
+  "ids": [
+   1,
+   2
+  ],
+  "expect": "PERMIT",
+  "got": "PERMIT",
+  "tx": "a6da14e1ca5d541200b4704de2e93c297030e9da7c313f018f4e25465c249ff6",
+  "ok": true
+ },
+ {
+  "step": "E38-4 delta",
+  "strangerGained": "199983442"
+ },
+ {
+  "step": "done",
+  "allOk": true,
+  "rows": [
+   "E38-1:ok",
+   "E38-2:ok",
+   "E38-4:ok"
+  ],
+  "ids": {
+   "interpreter": "CDER6P73JWMIVD3X6TGGOQIDAH3DLU7OKRTLT4ULPTZ3QJJ3QUGTK7CM",
+   "A": "CAVG5SVS7WD572AMLNRR7PNCKTDKMB3JANTYBAE4RHIDGNJHEOFXV6LT",
+   "R1": 1,
+   "R2": 2,
+   "B": "CA5MWCXW6OGLT2XDA3KQQXGNK2SF6Y3OXEVWP4YS5SIE2N5B6E5QA7Y2",
+   "nogate": "CDJGXDL7I2E7FYTFOT6KFSWVXGSNFWM3SGYEYVOPMYPJ73IL3444POCH",
+   "RBroot": 1,
+   "RBin": 2
+  }
+ }
+]

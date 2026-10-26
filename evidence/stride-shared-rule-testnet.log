@@ -1,0 +1,98 @@
+Shared rule (referenced rule) — on-chain STRIDE pass, Stellar testnet
+=====================================================================
+Date:        2026-10-26
+Network:     Test SDF Network ; September 2015  (soroban-testnet.stellar.org)
+Interpreter: CDER6P73JWMIVD3X6TGGOQIDAH3DLU7OKRTLT4ULPTZ3QJJ3QUGTK7CM  (wasm 6704996f, references supported, instance TTL ~Apr 2027)
+Accounts:    OpenZeppelin smart account 0.8.0 (fixture 8286422f), two fresh deploys per scenario group.
+Keys:        throwaway friendbot keys in secrets-throwaway/sharedrule-stride/ (git-ignored, never committed).
+
+Each refusal row below was SUBMITTED and FAILED on chain (status FAILED), not only simulated;
+each permit row is a SUCCESS transaction. Codes are the interpreter PolicyError or the
+OpenZeppelin SmartAccountError raised on chain.
+
+Error codes seen:
+  100  predicate refused (value outside the followed rule's bound)
+  201  reference-to-reference, self-loop, or undecodable source (one level only)
+  206  the followed rule is missing / was removed (fail-closed)
+  3016 UnauthorizedSigner — the presented signer is not one of the follower's own signers (OZ account)
+  Auth InvalidAction / ExistingValue — host refused the authorisation / nonce already consumed
+
+Group 1 — cases 1,2,4,5,6  (keyed follower; A holds inline rule RA, B's rule RB follows (A,RA))
+---------------------------------------------------------------------------------------------------
+  A = CBUPVBXZMYAUH6VJ5Z7N7GSVA5ECQ4EGM5RE4VVS3IDNL356YWKAANPS   deploy 9252358acf4b398a471e98fe1c4c6403ef1449f34a6a7057754e095701e1f90b
+  B = CAOYMIDLDE7S24V5YJEZ674AKMTOKUQZD5CI6SI7YUEKNLLCSKJTRVSK   deploy 49b6dd3a3d5de43b5e2c1eccbc3c6321d853584067d7ecec469b396e8c5dc78f
+  A rule RA=1 (XLM transfer, amount <= 10 XLM)  install c43be2a221d2500b5c9a913c56e3333f3f0df9b17e301c0892bb245e7fcafbd0
+  B rule RB=1 follows (A,1)                      install a8e01090b1107c18687692429d49e8f9d25ec84091d526fc9a9d3b21a2c9a66a
+
+CASE   EXPECT  GOT     CODE   ON-CHAIN  TX HASH                                                           RESULT
+-----------------------------------------------------------------------------------------------------------------
+C1a    PERMIT  PERMIT  -      SUCCESS   263421af29e720c08fdeec95c2a95db61356ab9b34301814f2e778fbb20073a7  PASS
+C1c    REFUSE  REFUSE  100    FAILED    335410864e88df6d1c8e972220c2c83de6ec172461a3a2b0179007aedacd92c9  PASS
+C1e    PERMIT  PERMIT  -      SUCCESS   147c3aee1edbe7c8b5bf1d0b3a49a9a5ffde6279bb0e6f7e71911d7666970f91  PASS
+C4a    REFUSE  REFUSE  3016   FAILED    fc5ec83e03f696dc00c56bc47858b8b27bb872f439fd0fa4f51839a6d4c98823  PASS
+C4b    REFUSE  REFUSE  3016   FAILED    bdeaec89c3a14d52276235ba104293ca8ab1dcede5c13d82c226e1508969ec55  PASS
+C5a    REFUSE  REFUSE  Auth   FAILED    d0dc6278433c4f06f8af09a59ddf809304717657c3668fcdb21232605a7b8788  PASS
+C5b    REFUSE  REFUSE  Auth   FAILED    5f71f99c16f3018288b1388af31f68a27d9ba3b8333f1e8561e388aea6b5de1c  PASS
+C5c    REFUSE  REFUSE  Auth   FAILED    7d5032ab7c4282e676b059ef9e9a72b4cebbe8dd77690f06c89573509bf3d097  PASS
+C2b    REFUSE  REFUSE  201    FAILED    b50666d77aaed22beb2ece27ff8173218aca4e57a09800fd772c284ffbc5b4bd  PASS
+C2c    REFUSE  REFUSE  201    FAILED    50480008b75863ad2861c079247f06ef641a14f55ece819493cf25667e995250  PASS
+C2e    REFUSE  REFUSE  201    FAILED    9d11d349a428ee5f4b6279e51c9771435a5b020faf0b65cff0ec72b6587b0887  PASS
+C2g    REFUSE  REFUSE  201    FAILED    163913f52e7ab9b2217b18be5cbb1945fd32431599f4012707d9188bfcca1593  PASS
+C2i    REFUSE  REFUSE  206    FAILED    7e881aa9458b9a1a24db19a5d767c8c724aa429e39edca2685adc5a42125ea61  PASS
+
+  C1a  CASE 1 LIVE PROPAGATION: B transfers 5 XLM, within A's 10 XLM bound -> PERMIT (B moved 5 XLM)
+  C1b  A re-installs RA (two-party, nonce 2): bound 10 -> 1 XLM. B takes NO action.
+       tx efde625767245ae80a35e91eb3932c02cc4a7596db1309bf1bd7ce2541ce2837
+  C1c  CASE 1 (flip): B transfers 5 XLM AGAIN -> now REFUSE 100. B's enforce reflects A's new bound live.
+  C1d  A re-installs RA (nonce 3): bound 1 -> 10 XLM.
+       tx 6e684e217160043a0f6a2dd8bb0ea13e71492f718eaeb6758ce85a5b4db378f2
+  C1e  CASE 1 (flip back): B transfers 5 XLM -> PERMIT again, reflecting A's widened bound live.
+  C6   CASE 6 HASH-BINDING: B's get_context_rule(RB) XDR sha256 across A's two re-installs:
+       before 9fd879cb3d851c6b3c561380552bc5541ad4a0dcb5b6c77121f7fc34539c26d1
+       after  9fd879cb3d851c6b3c561380552bc5541ad4a0dcb5b6c77121f7fc34539c26d1   IDENTICAL (B's record unchanged)
+  C4a  CASE 4 ISOLATION: A's agent presented as a signer at B's enforce -> REFUSE 3016 (not one of B's signers)
+  C4b  CASE 4 ISOLATION: A's master presented as a signer at B's enforce -> REFUSE 3016
+  C5a  CASE 5 WRITE-ISOLATION: A tries to install on B's rule (A-authorised) -> REFUSE (require_auth B)
+  C5b  CASE 5 WRITE-ISOLATION: A tries bind_executor on B's rule -> REFUSE (require_auth B)
+  C5c  CASE 5 WRITE-ISOLATION: B's own enforce auth entries replayed in a new tx -> REFUSE (nonce consumed, Auth ExistingValue)
+  C2b  CASE 2 NO CHAINS: B enforces a rule that references itself -> REFUSE 201 (self-loop)
+       seed RB2=2 install eb88d90e65cf9b4c9246fa7d805075bc625de8009db6a76c3f9a451ada55066c; re-point to self a5438f5b133ebb7cf3339ee00cfeeaf791050e335afaa862efdb8c5f684d948f
+  C2c  CASE 2 NO CHAINS: re-installing the self-reference -> REFUSE 201 at install
+  C2e  CASE 2 NO CHAINS: A re-points RA at (A,RA3) so RA is itself a reference; B enforce -> REFUSE 201
+       RA3=2 install 668c25fea7d099cc1aefc29bb1ed99414f5de2935ffe0fc8caf973c5afe14ab7; RA->(A,RA3) ab532adec8664b519a5d46d1f42b6f05648f3a5463c4a7165587878d52a86912; restore f3af7c58a7425d801eb13297a205c1b18e6588e819fc9e9cfabe6a893085129f
+  C2g  CASE 2 NO CHAINS: A re-points RA3 at B's follower (B,RB) (reference-to-reference) -> REFUSE 201 at install
+  C2h  CASE 2 FAIL-CLOSED: A uninstalls RA (require_master, A's master signs).
+       tx 14e92357c1feea091e358522b385ffede6da2232e5cbddf92fe3dffaf4cf6a5e
+  C2i  CASE 2 FAIL-CLOSED: B enforces after its source RA was removed -> REFUSE 206
+
+Group 2 — case 3  E-38 demo  (keyless follower + no-gate adapter)
+-----------------------------------------------------------------
+  A = CAVG5SVS7WD572AMLNRR7PNCKTDKMB3JANTYBAE4RHIDGNJHEOFXV6LT
+      R1=1 execute-shape (pins the single-call no-gate execute)   install f9888fc859c24b23107a269a908ed14a800477acbfd07106995ed3c9ccd5044a
+      R2=2 xlm-cap = THE FENCE (XLM transfer amount <= cap)        install 5006ae78a2abd3ecb1ed31b9d6227c438353d6183e0341241867bf63d7bbc548
+  B = CA5MWCXW6OGLT2XDA3KQQXGNK2SF6Y3OXEVWP4YS5SIE2N5B6E5QA7Y2
+      no-gate adapter CDJGXDL7I2E7FYTFOT6KFSWVXGSNFWM3SGYEYVOPMYPJ73IL3444POCH  deploy 50943e003efee0386a49ca27268e5077be58dab4dd74c92cf0dec8e439d5e613
+      RBroot=1 (keyless, scope adapter) follows (A,R1)  install ed127718eb316cb159abda9c8697c09afb7ac7ec6420f082b80dff9fb2db5ca7  bind fba8b17aa574ed3189afae463077811b650f55a7b9f50b32b9d2105ba43e58d1
+      RBin=2  (keyless, scope XLM)     follows (A,R2)  install f4ddbdbe125733fbfd3e60a3cd60eb8ffe2f6df76c47439341eb5af5b878eab1  bind b03e0ba65d533181de0127d513be9434587ecbd2e717cfbdcf087fedb96583a7
+  Stranger GD2E56... holds NO key of B.
+
+CASE   EXPECT  GOT     CODE   ON-CHAIN  TX HASH                                                           RESULT
+-----------------------------------------------------------------------------------------------------------------
+E38-1  PERMIT  PERMIT  -      SUCCESS   0031e784e7815cca8e43c2025d5f8d238b54fbb12cd84c07f84a0fa6b8657e97  PASS
+E38-2  REFUSE  REFUSE  100    FAILED    e6f770119210c266aa88df628801ec609a0b74b9b01bc75e09598414579ea4c7  PASS
+E38-4  PERMIT  PERMIT  -      SUCCESS   a6da14e1ca5d541200b4704de2e93c297030e9da7c313f018f4e25465c249ff6  PASS
+
+  E38-1  Stranger (no key of B) moves 5 XLM (= A's cap) through B's no-gate adapter -> PERMIT. Stranger gained ~4.96 XLM.
+  E38-2  Same stranger tries 20 XLM, over A's 5 XLM cap -> REFUSE 100 (the fence holds).
+  E38-3  A WIDENS its fence R2: 5 -> 50 XLM, by its own two-party re-install. B takes NO action, gives NO new consent.
+         tx 45dfc653880d6b5f65caf709c3ffeff87c8fb21e368d37a8a0d36fbd29d78148
+  E38-4  Same stranger NOW moves 20 XLM -> PERMIT. Stranger gained ~20 XLM. B never acted.
+         => A keyless follower delegates its WHOLE fence to the followed owner (E-38, Open/Medium; see stride-threat-model.md 6.8).
+
+Summary
+-------
+16 / 16 on-chain rows PASS (every refusal FAILED on chain, every permit a SUCCESS).
+Cases: 1 live propagation (flip permit->refuse->permit), 2 fail-closed (201/206), 3 E-38 keyless+no-gate,
+4 authority isolation, 5 write isolation + nonce replay, 6 hash binding.
+Probe sources: /tmp/sr-probe/probe-shared.ts and probe-e38.ts (reuse chain08.ts helpers; not committed).
+Raw JSON: evidence/shared-rule-probe.json, evidence/e38-probe.json.
