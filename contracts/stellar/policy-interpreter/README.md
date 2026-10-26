@@ -21,7 +21,7 @@ must lie between its floor and its ceiling, or the constructor fails with
 names the fields (`max_reads`, `max_elems`, ...), never a number: `install`,
 `check` and `enforce` use the instance's own.
 
-| Field | Floor | Ceiling | Testnet pin `CD46LN75…` | policy-synth `DECODE_LIMITS` (the caps the builder checks a rule against with no interpreter at hand) | What it bounds |
+| Field | Floor | Ceiling | Testnet pin `CDER6P73…` | policy-synth `DECODE_LIMITS` (the caps the builder checks a rule against with no interpreter at hand) | What it bounds |
 | --- | --- | --- | --- | --- | --- |
 | `max_reads` | 1 | 8 | 8 | 4 | distinct `read` calls per predicate, and so external calls per `enforce` |
 | `max_leaves` | 4 | 400 | 400 | 200 | weighted leaves (a quantifier body leaf and a `sum` weigh `max_elems`) |

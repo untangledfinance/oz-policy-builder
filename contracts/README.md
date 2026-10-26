@@ -66,12 +66,13 @@ Commands run from the contract's own folder.
 | | `cargo test` | builds, no tests |
 
 The interpreter instance on testnet and the policy-synth pin run
-`810f53f1…`, this source before referenced rules: instance `CD46LN75…`,
-recorded in `deployments/interpreter-testnet.json`. This source (`6704996f…`,
-with referenced rules and the batch pin) runs on a separate testnet instance
-for the no-gate liquidation run (`evidence/nogate-liquidation-testnet.log`);
-the pin moves with `policy-synth`. `CD46LN75…` replaced `CDZV4AG4…`, which runs `69cad1d5…`, the
-source before the keyless executor rules.
+`6704996f…`, this source (with referenced rules and the batch pin): instance
+`CDER6P73…`, recorded in `deployments/interpreter-testnet.json`. The no-gate
+liquidation run (`evidence/nogate-liquidation-testnet.log`) deployed that
+instance and ran on it; the pin moves with `policy-synth`. `CDER6P73…` replaced
+`CD46LN75…`, which runs `810f53f1…` (this source before referenced rules), and
+that one replaced `CDZV4AG4…`, which runs `69cad1d5…`, the source before the
+keyless executor rules.
 
 ### Reproducible builds
 
