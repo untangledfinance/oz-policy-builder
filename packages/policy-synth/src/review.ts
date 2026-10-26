@@ -23,6 +23,7 @@ import {
   addr as show,
   tree,
   type View,
+  warned,
 } from './card.ts'
 import type { ContractKind } from './chain.ts'
 import {
@@ -45,6 +46,7 @@ import {
   executorProblem,
   isAddressEntry,
   keyedSafeOnNoGate,
+  ruleWarnings,
   signerProblem,
   WORD_LEAK,
   xlm,
@@ -97,6 +99,9 @@ export interface UnsignedReview {
   binds?: { ruleId: number; executor: string }
   /** Each one is a reason not to sign. */
   problems: string[]
+  /** What the owner must know before signing, none of it a problem: a keyless rule that follows
+   *  another (E-38). `signable` does not look at them. */
+  warnings: string[]
   signable: boolean
   review: string[]
   reviewTree: Node[]
@@ -139,6 +144,7 @@ export function reviewUnsigned(i: {
   const ic = host.hostFunction().invokeContract()
   const problems: string[] = []
   const flag = (p: string) => problems.push(p)
+  const warnings: string[] = []
   /** A value the builder never writes (an error, a contract instance) has no wire form: a problem. */
   const read = (x: xdr.ScVal): Val => {
     try {
@@ -356,6 +362,9 @@ export function reviewUnsigned(i: {
             `the rule has signers and ${r.rule.follows ? "follows another rule's predicate, which can come to permit" : 'permits'} a call to execute on ${scopedTo} without holding its grants (argument 1) to none: if that contract is an execution adapter with no gate, a signer could have it hand out its word to this account's policy; review with readContracts`
           )
       }
+      // E-38: no signer (of any kind: an External one is a problem of its own), and a predicate
+      // another account re-installs at will. Allowed, and said.
+      warnings.push(...ruleWarnings(call.args[3] as Val[], r.rule.follows))
       out.authority = r.authority
       out.rule = r.rule
       const v = { ...view, contract: scopedTo }
@@ -416,7 +425,12 @@ export function reviewUnsigned(i: {
     'problems',
     problems.map((p) => fact('problem', p))
   )
-  const reviewTree = [...(problems.length ? [warn] : []), head, ...body2]
+  const reviewTree = [
+    ...(problems.length ? [warn] : []),
+    ...(warnings.length ? [warned(warnings)] : []),
+    head,
+    ...body2,
+  ]
   return {
     network,
     smartAccount: account,
@@ -428,6 +442,7 @@ export function reviewUnsigned(i: {
     auth,
     ...out,
     problems,
+    warnings,
     signable: problems.length === 0,
     review: lines(reviewTree),
     reviewTree,
