@@ -107,14 +107,50 @@ deployed with.
 
 | Function | Purpose |
 | --- | --- |
-| `install` | Store a predicate for a `(smart account, context rule)` pair. Refuses a grammar version it does not speak, an oversized predicate (byte cap, `207`, before any parse work), any payload whose sha256 does not match the supplied hash, a rule that reaches the admin surface (`Default`-scoped, or scoped to the smart account or to this interpreter: `218`; **only those two addresses** - a rule scoped to another policy contract, such as a second interpreter instance or OZ's `spending_limit`, still installs and exposes that contract's own admin calls, so never scope a rule to a policy contract), a master set that is empty, and a signer set (the rule's operators or the master set) that is over 16, holds an `External` signer, or holds this interpreter's own address (`219`: no signature can authorise as it, so an operator set holding it could never authorise a call and a master set holding it could never uninstall or rotate). A contract address in a master set bricks the rule just the same unless that contract itself calls `uninstall`/`rotate_master_signer_set`; only the interpreter's own address is checked, because the others cannot be enumerated. An empty operator set installs: it is a keyless rule, which `enforce` permits only while it is bound (below). A re-install under a binding refuses a predicate that leaves `run` open on a rule scoped to its executor (`221`). |
-| `enforce` | The policy hook the smart account calls on every guarded operation: decode, evaluate, permit or deny. Its checks run in this order, and each refusal rolls back the whole call. (1) An empty authenticated signer set is refused (`210`) unless the rule is keyless: it lists no signer, has this interpreter as its only policy, and is bound to an executor. (2) The stored predicate is decoded. (3) A bound rule scoped to its executor must pin `call_fn == run` on every path (`221`), checked against the rule the account passes. (4) A bound rule needs the executor's authorisation of the exact account and context, except for the executor's own `run` under a rule scoped to it (see `bind_executor`). (5) The rule's signer set is compared with the hash `install` stored, and `204` refuses once they differ, so `add_signer` or `remove_signer` on a policed rule stops it for every signer until the policy is installed again. A keyed rule stripped of its last signer passes (1) and is refused here, or at (4) when the executor does not grant its context. (6) The TTL is extended and the predicate decides. |
+| `install` | Store a predicate for a `(smart account, context rule)` pair. Refuses a grammar version it does not speak, an oversized predicate (byte cap, `207`, before any parse work), any payload whose sha256 does not match the supplied hash, a rule that reaches the admin surface (`Default`-scoped, or scoped to the smart account or to this interpreter: `218`; **only those two addresses** - a rule scoped to another policy contract, such as a second interpreter instance or OZ's `spending_limit`, still installs and exposes that contract's own admin calls, so never scope a rule to a policy contract), a master set that is empty, and a signer set (the rule's operators or the master set) that is over 16, holds an `External` signer, or holds this interpreter's own address (`219`: no signature can authorise as it, so an operator set holding it could never authorise a call and a master set holding it could never uninstall or rotate). A contract address in a master set bricks the rule just the same unless that contract itself calls `uninstall`/`rotate_master_signer_set`; only the interpreter's own address is checked, because the others cannot be enumerated. An empty operator set installs: it is a keyless rule, which `enforce` permits only while it is bound (below). A re-install under a binding refuses a predicate that leaves `run` open on a rule scoped to its executor (`221`). The payload may name another rule instead of carrying a predicate (see Referenced rules). |
+| `enforce` | The policy hook the smart account calls on every guarded operation: decode, evaluate, permit or deny. Its checks run in this order, and each refusal rolls back the whole call. (1) An empty authenticated signer set is refused (`210`) unless the rule is keyless: it lists no signer, has this interpreter as its only policy, and is bound to an executor. (2) The stored predicate is decoded; for a rule that references another, that rule's current predicate is read (`206` when it is gone, `201` when it is itself a reference). (3) A bound rule scoped to its executor must pin `call_fn == run` on every path (`221`), checked against the rule the account passes. (4) A bound rule needs the executor's authorisation of the exact account and context, except for the executor's own `run` under a rule scoped to it (see `bind_executor`). (5) The rule's signer set is compared with the hash `install` stored, and `204` refuses once they differ, so `add_signer` or `remove_signer` on a policed rule stops it for every signer until the policy is installed again. A keyed rule stripped of its last signer passes (1) and is refused here, or at (4) when the executor does not grant its context. (6) The TTL is extended (a referenced rule's entry too) and the predicate decides. |
 | `check` | A dry run for the off-chain builder: `check(predicate, context)` decodes `predicate` with install's checks (byte cap `207`, decode `201`, selector leaf `216`) and evaluates it against `context`, a contract call. **It always fails, and the contract error is the verdict**: `Error(Contract, #0)` permits, and any other number is the code `install` or `enforce` would have raised (`100`-`105`, or `206` for a context that is not a contract call). The builder reads it from the simulation's error. Failing is deliberate: a transaction that submits `check` rolls back everything a `read` did, so the interpreter is never a free, unauthenticated caller of other contracts (a `read` of `token.transfer(interpreter, ...)` is authorised by the interpreter being the direct invoker, and would otherwise commit). It touches no storage and asks for no authorisation. A `read` in the predicate still calls its target as the interpreter does (which must hold nothing, below). A predicate that is not XDR at all traps in the host before the contract runs. |
 | `bind_executor` | Bind a rule to an execution adapter, whose own authorisation of the exact account and context `enforce` then also requires, with one exception: under a rule scoped to the adapter, the adapter's own `run` context needs none, because only the adapter's code can ask the account for it. Needs the smart account's authorisation and the master set's; kept across a re-install. Refuses (`221`) a rule scoped to the adapter it binds, as the last install recorded it, unless the predicate pins `call_fn == run` on every path: an `and` with such a conjunct, an `or` whose every branch has one. **Bind a rule to the contract it is scoped to only when that contract is an execution adapter**: under the exception above, the binding stands in for that contract's consent to its own `run`, so the rule approves whatever that `run` does. That is safe for the execution adapter in this repository, whose `run` asks the account only for a batch an agent stored and the gate scanned; for any other contract with a `run`, it is not. |
 | `uninstall` | Remove the stored predicate for a rule. Needs the master set's own authorisation, so when the smart account's `remove_context_rule` calls it without that, `uninstall` fails, the account removes the rule anyway, and the entry stays until it archives. |
 | `rotate_master_signer_set` | Update the master signer set an installation is bound to. |
 | `grammar_version` | The predicate grammar version this build speaks (`SELF_VERSION`). |
 | `limits` | The `Limits` this instance was deployed with (see above). |
+
+### Referenced rules
+
+A rule can follow the predicate of an existing rule `(account, rule_id)` on the
+same interpreter instead of carrying its own. Its install payload's `predicate`
+is then the XDR of the tuple `(account, rule_id)`, a 2-vector of an address and a
+`u32` that no predicate can be (a node starts with its name), and
+`predicate_hash` is `sha256` of that reference: the follower's admins commit to
+the source, not to bytes the referenced account may re-install. Install checks the
+referenced rule's current predicate as it checks an inline one and stores the
+reference with no predicate of its own. The wire ABI is unchanged.
+
+- **Propagation.** The referenced account changes its predicate by its own
+  re-install, with its own authorisation and master set. `enforce` reads the
+  referenced rule's predicate on every call (one storage read), so every follower
+  evaluates the new one at its next call. The follower's OZ rule and the
+  interpreter's record of it do not change.
+- **Only the predicate is shared.** The follower's signers (`210`, `204`), its
+  binding and the executor's grant, its nonce, its master set and its own
+  authorisation of `enforce` are the ones checked; the referenced rule's executor,
+  signers and master set are never used. A bound rule scoped to its executor still
+  needs `call_fn == run` (`221`), checked against the referenced predicate at
+  `bind_executor`, at a re-install and at `enforce`. Following a rule is trusting
+  its account with the constraint, which it may loosen or tighten.
+- **No consent is needed from the referenced account,** which is not affected:
+  none of its authority is used, and it can re-install or `uninstall` at any time.
+  The follower carries the risk and fails closed.
+- **Fail-closed.** A referenced rule that was uninstalled (or never installed) is
+  `206`. One level only: a referenced rule that is itself a reference is `201`
+  (a rule pointed at itself is caught the same way), so `enforce` never follows
+  more than one reference.
+- **Opt-in and revoke.** Only the follower's install (its authorisation, and its
+  master set's on a re-install) sets or clears the reference; a re-install moves it
+  to another rule or back to an inline predicate.
+- **Liveness.** A follower's permit extends the referenced entry's TTL as well as
+  its own, and a denied `enforce` extends neither.
 
 Evaluation fails closed: an undecodable predicate, an unsupported node, or a
 selector the call cannot answer all deny. Which reason is reported does not

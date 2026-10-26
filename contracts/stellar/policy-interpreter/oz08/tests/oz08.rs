@@ -900,3 +900,106 @@ fn x9_a_keyed_rule_stripped_of_its_signer_is_204() {
     );
     assert_eq!(w.verdict(&ctxs, &ids, &[], &[]), Outcome::Unauthorised);
 }
+
+// ---- referenced rules: the account follows another account's rule ----
+
+impl World {
+    /// Account `a` (a plain address) installs or re-installs its rule `id`
+    /// on the interpreter directly with `predicate`, scoped to the venue.
+    fn install_for(&self, a: &Address, id: u32, nonce: u32, predicate: &ScVal) {
+        self.env.mock_all_auths();
+        let rule = ContextRule {
+            id,
+            context_type: ContextRuleType::CallContract(self.venue.clone()),
+            name: soroban_sdk::String::from_str(&self.env, "a"),
+            signers: Vec::new(&self.env),
+            signer_ids: Vec::new(&self.env),
+            policies: soroban_sdk::vec![&self.env, self.interpreter.clone()],
+            policy_ids: soroban_sdk::vec![&self.env, 0u32],
+            valid_until: None,
+        };
+        let mut p = self.params(predicate);
+        p.install_nonce = nonce;
+        let args: Vec<Val> = (p, rule, a.clone()).into_val(&self.env);
+        let _: () =
+            self.env
+                .invoke_contract(&self.interpreter, &Symbol::new(&self.env, "install"), args);
+    }
+
+    /// The account's stored context rule `id`, as `__check_auth` passes it.
+    fn stored_rule(&self, id: u32) -> ContextRule {
+        self.env.invoke_contract(
+            &self.account,
+            &Symbol::new(&self.env, "get_context_rule"),
+            soroban_sdk::vec![&self.env, id.into_val(&self.env)],
+        )
+    }
+}
+
+/// R1: the account's keyless venue rule, added through OZ's
+/// `add_context_rule` with the reference `(a, 7)` as its predicate, follows
+/// `a`'s re-installs on the next run. The account does nothing, and its
+/// stored OZ rule is byte-identical throughout.
+#[test]
+fn r1_a_referencing_rule_follows_the_referenced_reinstall() {
+    let w = World::new();
+    let a = Address::generate(&w.env);
+    w.install_for(&a, 7, 1, &fn_is("submit"));
+    let reference = scval(&w.env, (a.clone(), 7u32));
+    let venue = w.add_rule(&w.venue, Vec::new(&w.env), &[(&w.interpreter, &reference)]);
+    assert_eq!(w.bind(&w.interpreter, &venue), None);
+    let run = w.run_rule();
+    let ids = [run.id, venue.id];
+    w.arm(&[w.submit_ctx()]);
+    let before = w.stored_rule(venue.id).to_xdr(&w.env);
+    assert_eq!(w.run(1, &[], &ids), Flow::Ran);
+    assert_eq!(w.supplied(), MOVE);
+
+    w.install_for(&a, 7, 2, &fn_is("withdraw"));
+    assert_eq!(w.run(2, &[], &ids), Flow::Refused);
+    assert_eq!(w.supplied(), MOVE);
+    w.install_for(&a, 7, 3, &fn_is("submit"));
+    assert_eq!(w.run(3, &[], &ids), Flow::Ran);
+    assert_eq!(w.supplied(), 2 * MOVE);
+    assert_eq!(w.stored_rule(venue.id).to_xdr(&w.env), before);
+
+    w.install_for(&a, 7, 4, &fn_is("withdraw"));
+    let ctxs = [w.run_ctx(4), w.submit_ctx()];
+    assert_eq!(
+        w.verdict(&ctxs, &ids, &[], &[w.submit_ctx()]),
+        Outcome::Code(100)
+    );
+}
+
+/// R2: the Option A backstop against OZ's real rule holds the fetched
+/// predicate: the account's keyless run rule following `a`'s rule is refused
+/// (221) once `a` re-installs a predicate that leaves `run` open.
+#[test]
+fn r2_a_run_rule_whose_referenced_predicate_unpins_run_is_221() {
+    let w = World::new();
+    let a = Address::generate(&w.env);
+    w.install_for(&a, 1, 1, &fn_is("run"));
+    let venue = w.venue_rule();
+    let run = w.add_rule(
+        &w.executor,
+        Vec::new(&w.env),
+        &[(&w.interpreter, &scval(&w.env, (a.clone(), 1u32)))],
+    );
+    assert_eq!(w.bind(&w.interpreter, &run), None);
+    let ids = [run.id, venue.id];
+    w.arm(&[w.submit_ctx()]);
+    assert_eq!(w.run(1, &[], &ids), Flow::Ran);
+
+    let either = node(
+        "or",
+        alloc::vec![scvec(alloc::vec![fn_is("run"), fn_is("execute")])],
+    );
+    w.install_for(&a, 1, 2, &either);
+    assert_eq!(w.run(2, &[], &ids), Flow::Refused);
+    assert_eq!(w.supplied(), MOVE);
+    let ctxs = [w.run_ctx(2), w.submit_ctx()];
+    assert_eq!(
+        w.verdict(&ctxs, &ids, &[], &[w.submit_ctx()]),
+        Outcome::Code(221)
+    );
+}
