@@ -1,0 +1,438 @@
+[
+ {
+  "step": "keys",
+  "pub": {
+   "adminA": "GBB4254IPISHQCABNEJJWIZYKFNXU3IHR4TS3PV3L62XS42VJBIXYQVE",
+   "agentA": "GBBX2RRWZAJBRINWXTJAR6V2CN2RUQECDAAI364OIJNPB2C5OALOVBIM",
+   "adminB": "GDIKIQX6ZROMGWQIVTTMBAKEC6V7BPQRYR5TAQ7HTC42AA5KKDSBE35Y",
+   "agentB": "GBOGHAQV7B54TFQFL7SAGHRQWJDDDMXABTNPVPVK3ZO2OLMBNNB5AHQO",
+   "stranger": "GDUG3YGASOJQMLXSL4MW3NK4DUMBDRIKYPXMLF7AGHKDRM2E6QLILX43",
+   "dest": "GBZWFB2H56WEQKEAQIEGMQGYWR7OW3KRO7X5TKZOEA2IQ5IZ4FVOBNQN"
+  }
+ },
+ {
+  "step": "deploy",
+  "interpreter": "CDER6P73JWMIVD3X6TGGOQIDAH3DLU7OKRTLT4ULPTZ3QJJ3QUGTK7CM",
+  "A": "CBUPVBXZMYAUH6VJ5Z7N7GSVA5ECQ4EGM5RE4VVS3IDNL356YWKAANPS",
+  "Atx": "9252358acf4b398a471e98fe1c4c6403ef1449f34a6a7057754e095701e1f90b",
+  "B": "CAOYMIDLDE7S24V5YJEZ674AKMTOKUQZD5CI6SI7YUEKNLLCSKJTRVSK",
+  "Btx": "49b6dd3a3d5de43b5e2c1eccbc3c6321d853584067d7ecec469b396e8c5dc78f"
+ },
+ {
+  "step": "rule",
+  "account": "A",
+  "name": "A:bounded-xfer",
+  "id": 1,
+  "signers": 1,
+  "tx": "c43be2a221d2500b5c9a913c56e3333f3f0df9b17e301c0892bb245e7fcafbd0",
+  "predicateBytes": 184,
+  "predicateSha256": "6ac8863485f928a61f130def5cc1bceb7736da250edaaf24ee9716c53dcea418"
+ },
+ {
+  "step": "rule",
+  "account": "B",
+  "name": "B:follows(A,RA)",
+  "id": 1,
+  "signers": 1,
+  "tx": "a8e01090b1107c18687692429d49e8f9d25ec84091d526fc9a9d3b21a2c9a66a",
+  "predicateBytes": 60,
+  "predicateSha256": "7f13b2f9ed9fc6d05ecc6dd63a5394aec6fede89f102a847ebf649c477b84d97"
+ },
+ {
+  "step": "setup",
+  "A": "CBUPVBXZMYAUH6VJ5Z7N7GSVA5ECQ4EGM5RE4VVS3IDNL356YWKAANPS",
+  "RA": 1,
+  "B": "CAOYMIDLDE7S24V5YJEZ674AKMTOKUQZD5CI6SI7YUEKNLLCSKJTRVSK",
+  "RB": 1,
+  "note": "B RB follows (A,RA); only A's predicate is shared"
+ },
+ {
+  "label": "C1a B transfers 5 XLM (<= A's 10 XLM bound): PERMIT",
+  "ruleIds": [
+   1
+  ],
+  "payloadSigners": 1,
+  "expect": "PERMIT",
+  "got": "PERMIT",
+  "tx": "263421af29e720c08fdeec95c2a95db61356ab9b34301814f2e778fbb20073a7",
+  "ok": true
+ },
+ {
+  "step": "C1a delta",
+  "bMoved": "50000000"
+ },
+ {
+  "step": "reinstall",
+  "label": "C1b A re-installs R: bound 10 -> 1 XLM (two-party, no action by B)",
+  "id": 1,
+  "nonce": 2,
+  "tx": "efde625767245ae80a35e91eb3932c02cc4a7596db1309bf1bd7ce2541ce2837",
+  "predicateSha256": "c9ebfc171de28997df5a94d2d723b4c8e0c8f12ef9e55fbe41266da48f400c9a"
+ },
+ {
+  "label": "C1c B transfers 5 XLM again: now REFUSE 100 (follows A's new bound live)",
+  "ruleIds": [
+   1
+  ],
+  "payloadSigners": 1,
+  "expect": "REFUSE",
+  "want": "#100",
+  "got": "REFUSE",
+  "stage": "policy",
+  "code": "100",
+  "simErrors": [
+   "Error(Auth, InvalidAction)",
+   "Error(Contract, #100)"
+  ],
+  "onchain": {
+   "status": "FAILED",
+   "hash": "335410864e88df6d1c8e972220c2c83de6ec172461a3a2b0179007aedacd92c9",
+   "errors": [
+    "Error(Contract, #100)",
+    "Error(Auth, InvalidAction)"
+   ],
+   "footprintEntries": 33
+  },
+  "ok": true
+ },
+ {
+  "step": "reinstall",
+  "label": "C1d A re-installs R: bound 1 -> 10 XLM",
+  "id": 1,
+  "nonce": 3,
+  "tx": "6e684e217160043a0f6a2dd8bb0ea13e71492f718eaeb6758ce85a5b4db378f2",
+  "predicateSha256": "6ac8863485f928a61f130def5cc1bceb7736da250edaaf24ee9716c53dcea418"
+ },
+ {
+  "label": "C1e B transfers 5 XLM: PERMIT again (reflects A's widened bound live)",
+  "ruleIds": [
+   1
+  ],
+  "payloadSigners": 1,
+  "expect": "PERMIT",
+  "got": "PERMIT",
+  "tx": "147c3aee1edbe7c8b5bf1d0b3a49a9a5ffde6279bb0e6f7e71911d7666970f91",
+  "ok": true
+ },
+ {
+  "step": "C6 hash-binding",
+  "rbStructBefore_sha": "9fd879cb3d851c6b3c561380552bc5541ad4a0dcb5b6c77121f7fc34539c26d1",
+  "rbStructAfter_sha": "9fd879cb3d851c6b3c561380552bc5541ad4a0dcb5b6c77121f7fc34539c26d1",
+  "identical": true,
+  "note": "A re-installed R twice between these two reads; B's OZ get_context_rule XDR is byte-identical"
+ },
+ {
+  "label": "C4a A's agent presented as a signer on B's enforce: REFUSE 3016 (not one of B's signers)",
+  "ruleIds": [
+   1
+  ],
+  "payloadSigners": 1,
+  "expect": "REFUSE",
+  "want": "#3016",
+  "got": "REFUSE",
+  "stage": "policy",
+  "code": "3016",
+  "simErrors": [
+   "Error(Auth, InvalidAction)",
+   "Error(Contract, #3016)"
+  ],
+  "onchain": {
+   "status": "FAILED",
+   "hash": "fc5ec83e03f696dc00c56bc47858b8b27bb872f439fd0fa4f51839a6d4c98823",
+   "errors": [
+    "Error(Contract, #3016)",
+    "Error(Auth, InvalidAction)"
+   ],
+   "footprintEntries": 36
+  },
+  "ok": true
+ },
+ {
+  "label": "C4b A's master presented as a signer on B's enforce: REFUSE 3016 (not one of B's signers)",
+  "ruleIds": [
+   1
+  ],
+  "payloadSigners": 1,
+  "expect": "REFUSE",
+  "want": "#3016",
+  "got": "REFUSE",
+  "stage": "policy",
+  "code": "3016",
+  "simErrors": [
+   "Error(Auth, InvalidAction)",
+   "Error(Contract, #3016)"
+  ],
+  "onchain": {
+   "status": "FAILED",
+   "hash": "bdeaec89c3a14d52276235ba104293ca8ab1dcede5c13d82c226e1508969ec55",
+   "errors": [
+    "Error(Contract, #3016)",
+    "Error(Auth, InvalidAction)"
+   ],
+   "footprintEntries": 37
+  },
+  "ok": true
+ },
+ {
+  "label": "C5a A tries to set B's source (install on B, A-authorised): REFUSE (require_auth B)",
+  "ruleIds": [
+   0
+  ],
+  "payloadSigners": 1,
+  "expect": "REFUSE",
+  "want": "Auth",
+  "got": "REFUSE",
+  "stage": "policy",
+  "simErrors": [
+   "Error(Auth, InvalidAction)"
+  ],
+  "onchain": {
+   "status": "FAILED",
+   "hash": "d0dc6278433c4f06f8af09a59ddf809304717657c3668fcdb21232605a7b8788",
+   "errors": [
+    "Error(Auth, InvalidAction)"
+   ],
+   "footprintEntries": 38
+  },
+  "ok": true
+ },
+ {
+  "label": "C5b A tries bind_executor on B's rule: REFUSE (require_auth B)",
+  "ruleIds": [
+   0
+  ],
+  "payloadSigners": 1,
+  "expect": "REFUSE",
+  "want": "Auth",
+  "got": "REFUSE",
+  "stage": "policy",
+  "simErrors": [
+   "Error(Auth, InvalidAction)"
+  ],
+  "onchain": {
+   "status": "FAILED",
+   "hash": "5f71f99c16f3018288b1388af31f68a27d9ba3b8333f1e8561e388aea6b5de1c",
+   "errors": [
+    "Error(Auth, InvalidAction)"
+   ],
+   "footprintEntries": 38
+  },
+  "ok": true
+ },
+ {
+  "label": "C5c B's own auth entries replayed in a new tx: REFUSE (nonce consumed)",
+  "expect": "REFUSE",
+  "onchain": {
+   "status": "FAILED",
+   "hash": "7d5032ab7c4282e676b059ef9e9a72b4cebbe8dd77690f06c89573509bf3d097",
+   "errors": [
+    "Error(Auth, ExistingValue)"
+   ],
+   "footprintEntries": 38
+  },
+  "ok": true
+ },
+ {
+  "step": "rule",
+  "account": "B",
+  "name": "B:self-loop-seed",
+  "id": 2,
+  "signers": 1,
+  "tx": "eb88d90e65cf9b4c9246fa7d805075bc625de8009db6a76c3f9a451ada55066c",
+  "predicateBytes": 184,
+  "predicateSha256": "6ac8863485f928a61f130def5cc1bceb7736da250edaaf24ee9716c53dcea418"
+ },
+ {
+  "step": "reinstall",
+  "label": "C2a B re-points RB2 at itself (install succeeds on prior inline)",
+  "id": 2,
+  "nonce": 2,
+  "tx": "a5438f5b133ebb7cf3339ee00cfeeaf791050e335afaa862efdb8c5f684d948f",
+  "predicateSha256": "69edee0ade650762c59afbb96a395e28bcd372d7a31055994bda4c28ee4cf037"
+ },
+ {
+  "label": "C2b B enforces a self-referencing rule: REFUSE 201 (self-loop)",
+  "ruleIds": [
+   2
+  ],
+  "payloadSigners": 1,
+  "expect": "REFUSE",
+  "want": "#201",
+  "got": "REFUSE",
+  "stage": "policy",
+  "code": "201",
+  "simErrors": [
+   "Error(Auth, InvalidAction)",
+   "Error(Contract, #201)"
+  ],
+  "onchain": {
+   "status": "FAILED",
+   "hash": "b50666d77aaed22beb2ece27ff8173218aca4e57a09800fd772c284ffbc5b4bd",
+   "errors": [
+    "Error(Contract, #201)",
+    "Error(Auth, InvalidAction)"
+   ],
+   "footprintEntries": 43
+  },
+  "ok": true
+ },
+ {
+  "label": "C2c B re-installs the self-reference: REFUSE 201 at install",
+  "ruleIds": [
+   0
+  ],
+  "payloadSigners": 1,
+  "expect": "REFUSE",
+  "want": "#201",
+  "got": "REFUSE",
+  "stage": "policy",
+  "code": "201",
+  "simErrors": [
+   "Error(Contract, #201)"
+  ],
+  "onchain": {
+   "status": "FAILED",
+   "hash": "50480008b75863ad2861c079247f06ef641a14f55ece819493cf25667e995250",
+   "errors": [
+    "Error(Contract, #201)"
+   ],
+   "footprintEntries": 44
+  },
+  "ok": true
+ },
+ {
+  "step": "rule",
+  "account": "A",
+  "name": "A:inline-target",
+  "id": 2,
+  "signers": 1,
+  "tx": "668c25fea7d099cc1aefc29bb1ed99414f5de2935ffe0fc8caf973c5afe14ab7",
+  "predicateBytes": 184,
+  "predicateSha256": "6ac8863485f928a61f130def5cc1bceb7736da250edaaf24ee9716c53dcea418"
+ },
+ {
+  "step": "reinstall",
+  "label": "C2d A re-points RA at (A,RA3): RA is now a reference",
+  "id": 1,
+  "nonce": 4,
+  "tx": "ab532adec8664b519a5d46d1f42b6f05648f3a5463c4a7165587878d52a86912",
+  "predicateSha256": "30186dce9d04bd00b2930cc60bcf72ea8c92a0ed258b210ffd8706cf40f139b5"
+ },
+ {
+  "label": "C2e B enforces while its source RA is itself a reference: REFUSE 201 (no chains)",
+  "ruleIds": [
+   1
+  ],
+  "payloadSigners": 1,
+  "expect": "REFUSE",
+  "want": "#201",
+  "got": "REFUSE",
+  "stage": "policy",
+  "code": "201",
+  "simErrors": [
+   "Error(Auth, InvalidAction)",
+   "Error(Contract, #201)"
+  ],
+  "onchain": {
+   "status": "FAILED",
+   "hash": "9d11d349a428ee5f4b6279e51c9771435a5b020faf0b65cff0ec72b6587b0887",
+   "errors": [
+    "Error(Contract, #201)",
+    "Error(Auth, InvalidAction)"
+   ],
+   "footprintEntries": 47
+  },
+  "ok": true
+ },
+ {
+  "step": "reinstall",
+  "label": "C2f A restores RA to inline bounded-xfer",
+  "id": 1,
+  "nonce": 5,
+  "tx": "f3af7c58a7425d801eb13297a205c1b18e6588e819fc9e9cfabe6a893085129f",
+  "predicateSha256": "6ac8863485f928a61f130def5cc1bceb7736da250edaaf24ee9716c53dcea418"
+ },
+ {
+  "label": "C2g A re-points RA3 at B's follower (ref-to-ref): REFUSE 201 at install",
+  "ruleIds": [
+   0
+  ],
+  "payloadSigners": 1,
+  "expect": "REFUSE",
+  "want": "#201",
+  "got": "REFUSE",
+  "stage": "policy",
+  "code": "201",
+  "simErrors": [
+   "Error(Contract, #201)"
+  ],
+  "onchain": {
+   "status": "FAILED",
+   "hash": "163913f52e7ab9b2217b18be5cbb1945fd32431599f4012707d9188bfcca1593",
+   "errors": [
+    "Error(Contract, #201)"
+   ],
+   "footprintEntries": 46
+  },
+  "ok": true
+ },
+ {
+  "step": "uninstall",
+  "label": "C2h A uninstalls its rule RA",
+  "tx": "14e92357c1feea091e358522b385ffede6da2232e5cbddf92fe3dffaf4cf6a5e"
+ },
+ {
+  "label": "C2i B enforces after its source RA is removed: REFUSE 206 (fail-closed)",
+  "ruleIds": [
+   1
+  ],
+  "payloadSigners": 1,
+  "expect": "REFUSE",
+  "want": "#206",
+  "got": "REFUSE",
+  "stage": "policy",
+  "code": "206",
+  "simErrors": [
+   "Error(Auth, InvalidAction)",
+   "Error(Contract, #206)"
+  ],
+  "onchain": {
+   "status": "FAILED",
+   "hash": "7e881aa9458b9a1a24db19a5d767c8c724aa429e39edca2685adc5a42125ea61",
+   "errors": [
+    "Error(Contract, #206)",
+    "Error(Auth, InvalidAction)"
+   ],
+   "footprintEntries": 44
+  },
+  "ok": true
+ },
+ {
+  "step": "done",
+  "allOk": true,
+  "rows": [
+   "C1a:ok",
+   "C1c:ok",
+   "C1e:ok",
+   "C4a:ok",
+   "C4b:ok",
+   "C5a:ok",
+   "C5b:ok",
+   "C5c:ok",
+   "C2b:ok",
+   "C2c:ok",
+   "C2e:ok",
+   "C2g:ok",
+   "C2i:ok"
+  ],
+  "ids": {
+   "interpreter": "CDER6P73JWMIVD3X6TGGOQIDAH3DLU7OKRTLT4ULPTZ3QJJ3QUGTK7CM",
+   "A": "CBUPVBXZMYAUH6VJ5Z7N7GSVA5ECQ4EGM5RE4VVS3IDNL356YWKAANPS",
+   "RA": 1,
+   "B": "CAOYMIDLDE7S24V5YJEZ674AKMTOKUQZD5CI6SI7YUEKNLLCSKJTRVSK",
+   "RB": 1,
+   "RB2": 2,
+   "RA3": 2
+  }
+ }
+]

@@ -764,6 +764,21 @@ predicate (`install_policy` with `follow`): the payload is the reference, and
 every check below is judged on the followed predicate as it is at build time,
 which the review shows with its nonce.
 
+A trust note for a following rule (STRIDE **E-38**, Medium). The followed rule's
+owner changes its predicate by their own two-party re-install, with no action by
+the follower, and the follower reads it live at the next `enforce`. Only the
+predicate is shared; the follower's signers, binding and authorisation stay its
+own. When the following rule is **keyless** and bound to a no-gate adapter, that
+predicate is its *entire* fence, so the followed owner can loosen it alone and
+anyone who satisfies it moves the follower's funds. This is the intended
+issuer-governed-keyless pattern, not a bug and not refused on chain; it is tied
+to a `policy-synth` warning that names the followed rule and its admins (release
+`v5.1.0`, which adds only that warning — the contracts are unchanged from
+`v5.0.0`), and is documented as finding E-38 in
+[the audit overview](./audit-overview.md) and
+[the threat model](../evidence/stride-threat-model.md) (section 6.8, with the
+on-chain proof in 7.2). A **keyed** follower is unaffected.
+
 Enforcement happens on chain. The builder checks a rule before it is signed:
 
 | Check | What it does |
