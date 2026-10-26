@@ -15,11 +15,11 @@ it. Every size below was measured on this tree.
 
 | Component | Path | Language | sLOC | Tests | Audit scope |
 |---|---|---|---|---|---|
-| Policy interpreter | `contracts/stellar/policy-interpreter/src` | Rust, soroban-sdk 27.0.2 | 800 | 416 (173 unit, 243 in 13 suites, of which the 18 conformance cases also run in release), 12 against OpenZeppelin's 0.8.0 account | in |
-| Execution adapter | `contracts/stellar/execution-adapter/src` | Rust | 226 | 62 | in |
+| Policy interpreter | `contracts/stellar/policy-interpreter/src` | Rust, soroban-sdk 27.0.2 | 881 | 440 (173 unit, 267 in 15 suites, of which the 18 conformance cases also run in release), 26 against OpenZeppelin's 0.8.0 account | in |
+| Execution adapter | `contracts/stellar/execution-adapter/src` | Rust | 277 | 67 | in |
 | Custody gate | `contracts/stellar/custody-gate/src` | Rust | 53 | 3 | in |
 | Prime seat | `contracts/stellar/prime-seat/src` | Rust | 97 | 21 | in |
-| Policy synthesiser, `@crediolabs/policy-synth` | `packages/policy-synth/src` | TypeScript | 3,876 | 21 test files | in |
+| Policy synthesiser, `@crediolabs/policy-synth` | `packages/policy-synth/src` | TypeScript | 4,563 | 24 test files | in |
 | CLI, `@crediolabs/policy-builder-cli` | `packages/policy-builder-cli/src`, `bin` | TypeScript | 76 | 1 test file | in |
 | MCP server, `@crediolabs/policy-builder-mcp` | `packages/policy-builder-mcp/src`, `bin` | TypeScript | 133 | 3 test files | in |
 | `test-blend-pool` | `contracts/stellar/test-blend-pool/src` | Rust | 22 | none | out: a Blend-shaped stub for tests |
@@ -43,11 +43,11 @@ declarations left out. To reproduce:
 
 ## In scope and out of scope
 
-**In scope:** this repository at tag `v4.1.0`: the `src/` of the
+**In scope:** this repository at tag `v5.0.0`: the `src/` of the
 interpreter, the adapter, the gate and the Prime seat
 (`contracts/stellar/prime-seat/src`), test modules excluded; the `src/` of
 `policy-synth`; and the `src/` and `bin/` of the CLI and the MCP server. The
-same package code is published to npm at version 4.1.0 as
+same package code is published to npm at version 5.0.0 as
 `@crediolabs/policy-synth`, `@crediolabs/policy-builder-cli` and
 `@crediolabs/policy-builder-mcp`.
 
@@ -257,8 +257,8 @@ Each crate's `build-wasm.sh` gives the hash CI compares
 
 | Contract | sha256 of the Linux build | Testnet |
 |---|---|---|
-| Policy interpreter | `810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c` at `v4.1.0`; this branch builds `6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4` (referenced rules and the batch pin) | instance `CDER6P73…` on `6704996f…`, the policy-synth pin; it replaced `CD46LN75…` (`810f53f1…`) and `CDZV4AG4…` (`69cad1d5…`), which policy-synth does not trust |
-| Execution adapter | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b` at `v4.1.0`; this branch builds `bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0` (the no-gate word) | code uploaded (`deployments/execution-testnet.json`) |
+| Policy interpreter | `6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4` (referenced rules and the batch pin; `v4.1.0` built `810f53f1…`) | instance `CDER6P73…`, the policy-synth pin; it replaced `CD46LN75…` (`810f53f1…`) and `CDZV4AG4…` (`69cad1d5…`), which policy-synth does not trust |
+| Execution adapter | `bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0` (the no-gate word; `v4.1.0` built `4985cd12…`) | code uploaded (`deployments/execution-testnet.json`, which lists `4985cd12…` as superseded) |
 | Custody gate | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` | code uploaded |
 | Prime seat | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | code uploaded |
 
