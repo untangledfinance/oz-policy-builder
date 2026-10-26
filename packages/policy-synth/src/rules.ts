@@ -10,7 +10,7 @@
 
 import { Address, type rpc, StrKey, xdr } from '@stellar/stellar-sdk'
 import { dataKey, entries, pool, read } from './chain.ts'
-import { INTERPRETERS, type Network, SPENDING_LIMIT } from './config.ts'
+import { INTERPRETERS, type Network, spendingLimits } from './config.ts'
 import { type ErrorCode, Refusal } from './envelope.ts'
 import {
   branches,
@@ -369,21 +369,26 @@ export async function readRules(
   // Complete only when what was found is exactly what the account counts: a rule whose entry
   // is archived or unreadable would otherwise vanish from the list unreported.
   const complete = next <= MAX_RULE_ID && rules.length === count && ids.length === count
-  const capped = rules.filter((r) => r.policies.includes(SPENDING_LIMIT[network]))
+  // Capped by the current spending_limit instance or a superseded one: each read at its own.
+  const limits = spendingLimits(network)
+  const capped = rules.flatMap((r) => {
+    const at = r.policies.find((p) => limits.includes(p))
+    return at ? [{ r, at }] : []
+  })
   const acct = new Address(account).toScVal()
   const [unreadable, caps] = await Promise.all([
     readPredicates(server, interpreter, account, rules),
     entries(
       server,
-      capped.map((r) =>
+      capped.map(({ r, at }) =>
         dataKey(
-          SPENDING_LIMIT[network],
+          at,
           xdr.ScVal.scvVec([xdr.ScVal.scvSymbol('AccountContext'), acct, xdr.ScVal.scvU32(r.id)])
         )
       )
     ),
   ])
-  capped.forEach((r, i) => {
+  capped.forEach(({ r }, i) => {
     const f = fields(caps[i] && fromScVal(caps[i] as xdr.ScVal))
     const limit = f.spending_limit as { i128: string } | undefined
     if (limit && typeof f.period_ledgers === 'number')
@@ -546,7 +551,9 @@ export function overlaps(
     const out = (severity: Overlap['severity'], why: Overlap['why'], advice: string): Overlap[] => [
       { ruleId: old.id, severity, why, advice: `rule ${old.id}: ${advice}` },
     ]
-    const recognised = old.policies.every((p) => p === interpreter || p === SPENDING_LIMIT[network])
+    const recognised = old.policies.every(
+      (p) => p === interpreter || spendingLimits(network).includes(p)
+    )
     if (old.policies.length === 0) {
       return out(
         'refuse',

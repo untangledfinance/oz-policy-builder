@@ -1,10 +1,12 @@
 {
-  "note": "OpenZeppelin smart-account builds whose rules a review will read. The review `revoke_policy` returns for the rule it removes reads an account's rules only when it runs one of these builds: an account that runs other code could answer with any rule. packages/policy-synth/src/config.ts lists the same hashes; config.test.ts holds the two together.",
+  "note": "OpenZeppelin smart-account builds whose rules a review will read. The review `revoke_policy` returns for the rule it removes reads an account's rules only when it runs one of these builds: an account that runs other code could answer with any rule. packages/policy-synth/src/config.ts lists the same hashes (OZ_ACCOUNT_WASM); config.test.ts holds the two together. Two builds are trusted side by side: the 0.7.2-line account every existing Prime and mainnet account runs (the seat 393f0e5d is tied to its digest), and OpenZeppelin's v0.8.0 account, which the testnet reference account runs.",
   "wasmSha256": {
-    "multisig_account_example": "91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9"
+    "multisig_account_example": "91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9",
+    "multisig_account_example_v0_8_0": "8286422f205951f37f4249401b403471fc432340dde6925432d31bb8a90cce27"
   },
   "sources": {
-    "multisig_account_example": "contracts/stellar/policy-interpreter/tests/fixtures/multisig_account_example.wasm (sha256 as listed, committed as a blob so the suite pins the deployed bytes); the live testnet account CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P runs it"
+    "multisig_account_example": "contracts/stellar/policy-interpreter/tests/fixtures/multisig_account_example.wasm (sha256 as listed, committed as a blob so the suite pins the deployed bytes); the live-test account CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P runs it, and so does every Prime the app deploys",
+    "multisig_account_example_v0_8_0": "contracts/stellar/policy-interpreter/tests/fixtures/oz_0_8_0_multisig_account_example.wasm (sha256 as listed); the testnet reference account CDS2W673EV22FDZX7FB6PDSTPJ7MMPONVXAGITNC2ABBVJ65TGA2ACUL runs it"
   },
   "provenance": {
     "multisig_account_example": {
@@ -29,6 +31,40 @@
         }
       ],
       "consequence": "The hash is a pin on the deployed bytes, not a claim that they reproduce from a named source. Treat a review of an account on this build as trusting the OpenZeppelin account's `get_context_rule` answers, as the install path already does."
+    },
+    "multisig_account_example_v0_8_0": {
+      "upstream": "https://github.com/OpenZeppelin/stellar-contracts, examples/multisig-smart-account/account (package multisig-account-example)",
+      "sourceCommitRecorded": true,
+      "buildCommandRecorded": true,
+      "sourceCommit": "ddc327eb92d63709436da3a8455f641c2d5476c5 (tag v0.8.0; its parent 8e25220 builds the same bytes, the diff between them is release notes and version strings)",
+      "command": "stellar contract build --package multisig-account-example (stellar-cli 27.1.0, rustc 1.98.1 stable, the tag's rust-toolchain.toml)",
+      "reproductionAttempts": [
+        {
+          "date": "2026-10-26",
+          "source": "OpenZeppelin/stellar-contracts v0.8.0 (ddc327e)",
+          "command": "stellar contract build --package multisig-account-example (stellar-cli 27.1.0)",
+          "wasmSha256": "8286422f205951f37f4249401b403471fc432340dde6925432d31bb8a90cce27",
+          "matches": true
+        }
+      ]
+    }
+  },
+  "testnet": {
+    "referenceAccount": {
+      "address": "CDS2W673EV22FDZX7FB6PDSTPJ7MMPONVXAGITNC2ABBVJ65TGA2ACUL",
+      "wasmSha256": "8286422f205951f37f4249401b403471fc432340dde6925432d31bb8a90cce27",
+      "createTx": "f66f9ee725681d7e9201a36091d228af5ecb0f52ce1ab61d79f481c70bf619c3",
+      "extendTx": "5913f1a18402ce8fd77fbaad209d3ca2fa950eb07c29cc489776fa85c7add67b",
+      "codeExtendTx": "b30bb93ee4c1c8e9ae6e1315e141defe25ef582aada862ab78825cda55b1cafe",
+      "date": "2026-10-26",
+      "signer": "one Delegated signer, a throwaway key funded by friendbot",
+      "noGateAdapter": "CCPD7TFSYGMTJFCGDBVHKFZJKHF2CHB3J5W3IBQ2CAUEQQZ5SUKFTNI3 (execution-adapter bf85432c, no gate, dedicated to the account's keyless rules)",
+      "verification": "evidence/oz-0.8.0-migration-testnet.log"
+    },
+    "supersededReferenceAccount": {
+      "address": "CASJ5GECFWVHCOJHFPE3TJKHLZNBUYNBJ4UAK6JRWHU2HEL3WFGMGM5P",
+      "wasmSha256": "91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9",
+      "why": "the 0.7.2-line live-test account. It stays live and stays the account the policy-synth recorded tests replay against; the reference account role moved to the v0.8.0 account on 2026-10-26."
     }
   }
 }

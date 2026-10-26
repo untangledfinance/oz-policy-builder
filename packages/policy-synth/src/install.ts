@@ -21,6 +21,7 @@ import {
 } from '@stellar/stellar-sdk'
 import {
   type ContractKind,
+  codeHash,
   type Fingerprint,
   interpreterFor,
   mismatch,
@@ -28,18 +29,21 @@ import {
   txOf,
 } from './chain.ts'
 import {
+  type AccountAuth,
+  accountAuth,
   authLedgers,
   GRAMMAR_VERSION,
   LEDGER_SECONDS,
   maxResourceFee,
   type Network,
+  OZ_ACCOUNT_AUTH,
   PASSPHRASE,
   POLICY_CONTRACTS,
   SPENDING_LIMIT,
   safeRead,
   thresholdAddress,
 } from './config.ts'
-import { type ErrorCode, Refusal } from './envelope.ts'
+import { type ErrorCode, messageOf, Refusal } from './envelope.ts'
 import {
   FLIP,
   type Followed,
@@ -189,6 +193,80 @@ export const digest = (
     ])
   )
 
+/** OZ 0.8.0's `AuthDigestPreimage { account, context_rule_ids, signature_payload }`, the struct a
+ *  Delegated signer of an 0.8.0 account authorises through `require_auth_for_args` (fields in
+ *  name order, as a contract type is encoded). It binds the account's address too. */
+export const authPreimage = (
+  network: Network,
+  account: string,
+  nonce: xdr.Int64,
+  until: number,
+  inv: xdr.SorobanAuthorizedInvocation,
+  ids: number[]
+): xdr.ScVal =>
+  xdr.ScVal.scvMap([
+    new xdr.ScMapEntry({
+      key: xdr.ScVal.scvSymbol('account'),
+      val: new Address(account).toScVal(),
+    }),
+    new xdr.ScMapEntry({ key: xdr.ScVal.scvSymbol('context_rule_ids'), val: toScVal(ids) }),
+    new xdr.ScMapEntry({
+      key: xdr.ScVal.scvSymbol('signature_payload'),
+      val: xdr.ScVal.scvBytes(
+        hash(
+          xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
+            new xdr.HashIdPreimageSorobanAuthorization({
+              networkId: hash(Buffer.from(PASSPHRASE[network])),
+              nonce,
+              signatureExpirationLedger: until,
+              invocation: inv,
+            })
+          ).toXDR()
+        )
+      ),
+    }),
+  ])
+
+/** The one argument of the account's `__check_auth` that a Delegated signer authorises, in the form
+ *  the account's build asks for (`OZ_ACCOUNT_AUTH`). */
+export const checkAuthArg = (
+  form: AccountAuth,
+  network: Network,
+  account: string,
+  nonce: xdr.Int64,
+  until: number,
+  inv: xdr.SorobanAuthorizedInvocation,
+  ids: number[]
+): xdr.ScVal =>
+  form === 'preimage'
+    ? authPreimage(network, account, nonce, until, inv, ids)
+    : xdr.ScVal.scvBytes(digest(network, nonce, until, inv, ids))
+
+/** The authorisation form of the account's live code, read off the ledger. Anything but a known
+ *  OpenZeppelin build is refused, and so is a failed read: the form is never guessed. */
+export async function accountAuthOf(
+  server: rpc.Server,
+  account: string,
+  fn: string,
+  code: ErrorCode
+): Promise<AccountAuth> {
+  let wasm: string | undefined
+  try {
+    wasm = await codeHash(server, account)
+  } catch (e) {
+    throw new Refusal(code, `${fn}: could not read the code of ${account} (${messageOf(e)})`, {
+      retryable: true,
+    })
+  }
+  const form = accountAuth(wasm)
+  if (!form)
+    throw new Refusal(
+      code,
+      `${fn}: ${account} runs ${wasm ? `code ${wasm}` : 'no contract code'}, not an OpenZeppelin smart account build this package signs for (${Object.keys(OZ_ACCOUNT_AUTH).join(', ')}); not built`
+    )
+  return form
+}
+
 /** Build `smartAccount.<fn>(args)` (or, with `to`, `to.<fn>(args)`, a call that asks the account's
  *  authorisation) as an unsigned transaction with the account's own auth entries attached,
  *  authorised by rule 0 (the deploy-time admin rule). A call to another contract may also ask the
@@ -222,10 +300,12 @@ export async function buildSelfCall(
       throw new Refusal(code, `${fn}: ${what} simulation refused (${reasonOf(sim.error)})`)
     return sim
   }
-  // The recording pass does not look at the sequence number, so it runs while the real one is fetched.
-  const [source, recorded] = await Promise.all([
+  // The recording pass does not look at the sequence number, so it runs while the real one is
+  // fetched, and while the account's code is read for the form its signer authorises.
+  const [source, recorded, form] = await Promise.all([
     server.getAccount(a.sourceAccount),
     simulate(tx(op(), '0'), 'recording'),
+    accountAuthOf(server, a.smartAccount, fn, code),
   ])
   const original = (recorded.result?.auth ?? []).find((e) => isAddressEntry(e, a.smartAccount))
   if (!original)
@@ -285,7 +365,8 @@ export async function buildSelfCall(
       `${fn}: the simulation asked for an authorisation other than the account's and the source account's for this call; the RPC answer is not trusted`
     )
   const extra = to === a.smartAccount ? [] : own
-  // The smart account's `__check_auth` is itself authorised for the delegated signer.
+  // The smart account's `__check_auth` is itself authorised for the delegated signer, in the form
+  // the account's build asks for.
   const checkAuth = new xdr.SorobanAuthorizationEntry({
     credentials: xdr.SorobanCredentials.sorobanCredentialsSourceAccount(),
     rootInvocation: new xdr.SorobanAuthorizedInvocation({
@@ -294,8 +375,14 @@ export async function buildSelfCall(
           contractAddress: new Address(a.smartAccount).toScAddress(),
           functionName: '__check_auth',
           args: [
-            xdr.ScVal.scvBytes(
-              digest(network, creds.nonce(), until, original.rootInvocation(), ids)
+            checkAuthArg(
+              form,
+              network,
+              a.smartAccount,
+              creds.nonce(),
+              until,
+              original.rootInvocation(),
+              ids
             ),
           ],
         })

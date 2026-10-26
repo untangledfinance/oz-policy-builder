@@ -1,23 +1,89 @@
 {
-  "note": "OpenZeppelin stellar-contracts v0.7.2 policies deployed by us (OZ example code, third-party, not audited by us). A rule scoped to one of these would hand its signers the account-auth half of that contract's admin calls (set_threshold, install, uninstall), so the builder refuses it. packages/policy-synth/src/config.ts lists the same addresses; config.test.ts holds the two together.",
+  "note": "OpenZeppelin stellar-contracts policies deployed by us (OZ example code, third-party, not audited by us): testnet runs builds of tag v0.8.0, mainnet runs builds of tag v0.7.2. A rule scoped to one of these would hand its signers the account-auth half of that contract's admin calls (set_threshold, install, uninstall), so the builder refuses it. packages/policy-synth/src/config.ts lists the same addresses (SPENDING_LIMIT, OZ_THRESHOLD, SUPERSEDED_OZ_POLICIES); config.test.ts holds the two together.",
+  "upstreamTag": {
+    "testnet": "v0.8.0",
+    "mainnet": "v0.7.2"
+  },
   "wasmSha256": {
-    "spending_limit": "9ce30ea1fe5c2dc5c9c49cf3462adb32e2c11d7dfadb15ef43a51ba56568de2b",
-    "simple_threshold": "01c0be09eb6fb288cab2e878b4e890f7a38f75afab99aeb197861f44e2e2dfe6",
-    "weighted_threshold": "78030272b06afb09d2949ab8877c9a8ae1ab9025b48f4edafd5816cc44f76eaa"
+    "testnet": {
+      "spending_limit": "65e70aad310bcaf7025aedc97e70cde098e1dd6c22d5153879c9cc64ea7da8e2",
+      "simple_threshold": "bbcc5b7d256c947c79d3fe6272d61fe5409751a1779d0346676a3f7a11729b45",
+      "weighted_threshold": "dcd8c710f2a4861aba25086962f9be2757ae0daeb7ec6bded7a3d57dda9730bd"
+    },
+    "mainnet": {
+      "spending_limit": "9ce30ea1fe5c2dc5c9c49cf3462adb32e2c11d7dfadb15ef43a51ba56568de2b",
+      "simple_threshold": "01c0be09eb6fb288cab2e878b4e890f7a38f75afab99aeb197861f44e2e2dfe6",
+      "weighted_threshold": "78030272b06afb09d2949ab8877c9a8ae1ab9025b48f4edafd5816cc44f76eaa"
+    }
   },
   "testnet": {
-    "spending_limit": "CDH4KOBRUEZI6TTZ72YXR5YUIODB6RH3AF75KX56Z73DELRCA5TWFISP",
-    "simple_threshold": "CAYTIVQOEZDOQI4GC3XBXEEYHQUANQQJHPJVMXVRBREGSAP6TCN3DID6",
-    "weighted_threshold": "CCTNRFZCL45GTJICA3Z2KFQO3VEGBHGCVBLHQ3GLJKAGACQIJMYJS7T2"
+    "spending_limit": "CCPZW4322JUETOYDKYUFB2AZ2SZVWFV3IATZ3TG4QXZKQXBEOIQM2JQ4",
+    "simple_threshold": "CCRCBH3MX43U6WNUL4NSLIAVNISNHSZTZZ7VCQYSGRELZJB67G6JHSWW",
+    "weighted_threshold": "CCJXAUHAQ3H7Y7P2OE5J5ODY6HAI4UA6TNV3WOFGFLIJYXIXZOAJ65TL"
   },
   "mainnet": {
     "spending_limit": "CA7IBD266HIHFDUIBZLPIAITJUA3DVY4JAG6K3QMGBKLZCXXLP5E2F7A",
     "simple_threshold": "CDOGPGUFGGUDG25P3TG6XIXJKRRYOZ3PXUZIEPVH74KXRZIDKZ5HYEOS",
     "weighted_threshold": "CDWPZ4YZ3YIJ64XSHRMERRF2L2H7XD6SPUZDP3KI56T7QXQCICC25V3J"
   },
+  "build": {
+    "testnet": {
+      "source": "https://github.com/OpenZeppelin/stellar-contracts tag v0.8.0 (ddc327eb92d63709436da3a8455f641c2d5476c5), examples/multisig-smart-account",
+      "packages": {
+        "spending_limit": "multisig-spending-limit-policy-example",
+        "simple_threshold": "multisig-threshold-policy-example",
+        "weighted_threshold": "multisig-weighted-threshold-policy-example"
+      },
+      "command": "stellar contract build --package <package> (stellar-cli 27.1.0, rustc 1.98.1 stable, the tag's rust-toolchain.toml; soroban-sdk 28.0.0)",
+      "date": "2026-10-26"
+    }
+  },
+  "deploy": {
+    "testnet": {
+      "date": "2026-10-26",
+      "deployer": "a throwaway key funded by friendbot",
+      "uploadTx": {
+        "spending_limit": "16f523ae3eb6f70852c03879871b9089bc57b8c1cf57935b6266029a09e1340f",
+        "simple_threshold": "99d72aa4ca72b6c01bacf652d6b9ecdbd1d119bcf72a12652197c94efafe7ea8",
+        "weighted_threshold": "52e7c442f0f879614d4b18c62a7d815b192387cef6c1384537466c253008dcdd"
+      },
+      "createTx": {
+        "spending_limit": "b1f9277025407b508f6422a8ce5495e7e8dda6bffba707c75337319939f58487",
+        "simple_threshold": "8bcfc340d06f0a77c2dc1ff1c9c6de278a376713c4cb2bdb20afb42f39e3be59",
+        "weighted_threshold": "13de008fa0e8743c2302dee60c4dbb5e9d825d215cc18b8a75ca20cd505e8e2c"
+      },
+      "extendTx": {
+        "spending_limit": "ce70b49c45e337af8bcf51106deb4d495304a8bbe12c34db311eff3595b81608",
+        "simple_threshold": "add0ef2f12b186949a5cbd8e8c8d53d4e262c74834dc650a981a5821daf6ea1e",
+        "weighted_threshold": "0eeb96ecf0a046206e4f970466e4fa6e5648978d7ddf15473771ca09060f1af3",
+        "spending_limit code": "63ffe5712096831dd4aa598d6c530930b0fa37bf977594498308300ad630a5ba",
+        "simple_threshold code": "1f06bb41c4776837881f2b4f8853b27626b27bca3ddc1e4ca080c47a54cc5575",
+        "weighted_threshold code": "419366430c2bf8af348835c0054e738724aca21881c3d0e9bbdbbed21226e84a"
+      },
+      "extendNote": "26 October 2026: each instance and its code extended to ledger 8,386,5xx (about mid April 2027).",
+      "verification": "evidence/oz-0.8.0-migration-testnet.log"
+    }
+  },
+  "changesFromV072": "In packages/accounts/src/policies, v0.7.2..v0.8.0 changes code in spending_limit only: a transfer of amount 0 is always permitted (before, it was refused once the cached total exceeded a lowered limit), and MAX_HISTORY_ENTRIES drops from 1000 to 815 (the most a single ledger entry holds). simple_threshold and weighted_threshold change in comments only. The Policy trait (policies/mod.rs) is identical; smart_account adds the ContextRuleType variant CreateContractExternalRef, so a v0.8.0 policy also reads the rules of a v0.7.2-line account. Every wasm hash differs because the workspace moved from soroban-sdk 26.1.0 to 28.0.0.",
+  "superseded": [
+    {
+      "network": "testnet",
+      "upstreamTag": "v0.7.2",
+      "supersededOn": "2026-10-26",
+      "why": "testnet moved to the v0.8.0 builds above. Kept recognised on read (a rule already capped or thresholded by them is still reviewed) and in POLICY_CONTRACTS (no rule may be scoped to them); no new rule attaches them.",
+      "wasmSha256": {
+        "spending_limit": "9ce30ea1fe5c2dc5c9c49cf3462adb32e2c11d7dfadb15ef43a51ba56568de2b",
+        "simple_threshold": "01c0be09eb6fb288cab2e878b4e890f7a38f75afab99aeb197861f44e2e2dfe6",
+        "weighted_threshold": "78030272b06afb09d2949ab8877c9a8ae1ab9025b48f4edafd5816cc44f76eaa"
+      },
+      "spending_limit": "CDH4KOBRUEZI6TTZ72YXR5YUIODB6RH3AF75KX56Z73DELRCA5TWFISP",
+      "simple_threshold": "CAYTIVQOEZDOQI4GC3XBXEEYHQUANQQJHPJVMXVRBREGSAP6TCN3DID6",
+      "weighted_threshold": "CCTNRFZCL45GTJICA3Z2KFQO3VEGBHGCVBLHQ3GLJKAGACQIJMYJS7T2"
+    }
+  ],
   "sources": {
-    "simple_threshold": "packages/policy-synth/src/config.ts; testnet: evidence/oz-threshold-live.log, git show archive/spike-final:contracts/prime/spike/setup1.ts, line 12",
-    "weighted_threshold": "git show 9c93592:packages/policy-synth/src/run/schemas.ts (PINNED_OZ_POLICY_ADDRESS_BY_NETWORK)",
+    "simple_threshold": "packages/policy-synth/src/config.ts; testnet v0.8.0: deploy above; superseded testnet v0.7.2: evidence/oz-threshold-live.log, git show archive/spike-final:contracts/prime/spike/setup1.ts, line 12",
+    "weighted_threshold": "testnet v0.8.0: deploy above; mainnet and superseded testnet: git show 9c93592:packages/policy-synth/src/run/schemas.ts (PINNED_OZ_POLICY_ADDRESS_BY_NETWORK)",
     "spending_limit": "packages/policy-synth/src/config.ts"
   }
 }

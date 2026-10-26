@@ -4,7 +4,7 @@
 // wire leaf or subtree it was read from, and an operand reads as where it is on the wire
 // (`argument 2 › amount`). Nothing a label says can change what the rule enforces.
 
-import { INTERPRETER, type Network, SPENDING_LIMIT, safeRead } from './config.ts'
+import { INTERPRETER, type Network, safeRead, spendingLimits } from './config.ts'
 import { delegated, meetsAlone, spendingParams } from './install.ts'
 import { type Expr, isAddress, isSelector, unlit, type Val } from './wire.ts'
 
@@ -60,7 +60,9 @@ const COMPARE: Record<string, string> = {
 /** The package's own names are [bracketed]; a caller's are «marked» and, being plain words, can
  *  never hold a bracket: no caller text can read as a role. */
 const KNOWN: Record<string, string> = Object.fromEntries([
-  ...Object.values(SPENDING_LIMIT).map((a) => [a, 'spending limit']),
+  ...(['testnet', 'mainnet'] as const).flatMap((n) =>
+    spendingLimits(n).map((a) => [a, 'spending limit'])
+  ),
   ...Object.values(INTERPRETER).flatMap((p) => (p ? [[p.address, 'interpreter']] : [])),
 ])
 /** What a request may call an address: plain words, so a label cannot carry a line of its own. */

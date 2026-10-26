@@ -1284,7 +1284,9 @@ describe('revoke_policy', () => {
     })
     expect(plain.data.removes.review).toBeUndefined()
   })
-  it('an account that does not run a known OpenZeppelin build is removed from, but its stored rule is not read or described', async () => {
+  // The removal is signed in the form the account's build asks for (OZ_ACCOUNT_AUTH), so an account
+  // that runs no build the package knows is refused outright: the form is never guessed.
+  it('an account that does not run a known OpenZeppelin build is refused: the builder cannot know how its signer authorises', async () => {
     const through = accountBehind(() =>
       Response.json({ jsonrpc: '2.0', id: 1, result: instanceResult(ACCOUNT, 'ab'.repeat(32)) })
     )
@@ -1294,23 +1296,18 @@ describe('revoke_policy', () => {
         sourceAccount: SIGNER,
         ruleId: 6,
       })
-      expect(r.ok).toBe(true)
-      expect(callOf(r.data.unsignedXdr)).toEqual({
-        contract: ACCOUNT,
-        fn: 'remove_context_rule',
-        args: [6],
-      })
-      expect(r.data.removes).toMatchObject({ id: 6, scope: { kind: 'call_contract' } })
-      expect(r.data.removes.expr).toBeUndefined()
-      expect(r.data.removes.review).toBeUndefined()
-      expect(r.data.removes.reviewSkipped).toMatch(
-        /does not run a known OpenZeppelin smart account build/
+      expect(r.ok).toBe(false)
+      expect(r.error.code).toBe('REVOKE_BUILD_FAILED')
+      expect(r.error.message).toMatch(
+        new RegExp(
+          `runs code ${'ab'.repeat(32)}, not an OpenZeppelin smart account build this package signs for`
+        )
       )
     } finally {
       through.stop()
     }
   })
-  it('an account whose code could not be read is not called unknown: the removal is built, the review says it could not look', async () => {
+  it('an account whose code could not be read is refused as retryable, never called unknown', async () => {
     const through = accountBehind(() => new Response('no available server', { status: 503 }))
     try {
       const r = await call('revoke_policy', {
@@ -1318,16 +1315,16 @@ describe('revoke_policy', () => {
         sourceAccount: SIGNER,
         ruleId: 6,
       })
-      expect(r.ok).toBe(true)
-      expect(r.data.removes.review).toBeUndefined()
-      expect(r.data.removes.reviewSkipped).toMatch(/could not read the account's code/)
-      expect(r.data.removes.reviewSkipped).not.toMatch(/does not run/)
-      expect(r.data.removes.reviewSkipped).toMatch(/unverified/)
+      expect(r.ok).toBe(false)
+      expect(r.error.code).toBe('REVOKE_BUILD_FAILED')
+      expect(r.error.retryable).toBe(true)
+      expect(r.error.message).toMatch(/could not read the code of/)
+      expect(r.error.message).not.toMatch(/not an OpenZeppelin/)
     } finally {
       through.stop()
     }
   })
-  it('an account with no code entry at all (nothing to read the hash of) is not a known build: the review is skipped, saying so', async () => {
+  it('an account with no code entry at all (nothing to read the hash of) is refused', async () => {
     const through = accountBehind(() =>
       Response.json({ jsonrpc: '2.0', id: 1, result: { latestLedger: 1, entries: [] } })
     )
@@ -1337,10 +1334,9 @@ describe('revoke_policy', () => {
         sourceAccount: SIGNER,
         ruleId: 6,
       })
-      expect(r.ok).toBe(true)
-      expect(r.data.removes.review).toBeUndefined()
-      expect(r.data.removes.reviewSkipped).toMatch(
-        /does not run a known OpenZeppelin smart account build \(code none\)/
+      expect(r.ok).toBe(false)
+      expect(r.error.message).toMatch(
+        /runs no contract code, not an OpenZeppelin smart account build this package signs for/
       )
     } finally {
       through.stop()
