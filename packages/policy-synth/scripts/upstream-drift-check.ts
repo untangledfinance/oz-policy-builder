@@ -94,7 +94,8 @@ if (ozLive === BASELINE.ozLatestStable) {
   console.log(`DRIFT OpenZeppelin ${BASELINE.ozLatestStable} -> ${ozLive}`)
   drift.push(
     `OpenZeppelin published ${ozLive}. Our deployed policy instances are built ` +
-      `from ${OZ_STELLAR_CONTRACTS_TAG}. Decide whether to rebuild and redeploy, ` +
+      `from ${OZ_STELLAR_CONTRACTS_TAG.testnet} on testnet and ${OZ_STELLAR_CONTRACTS_TAG.mainnet} ` +
+      'on mainnet. Decide whether to rebuild and redeploy, ' +
       `then update BASELINE.ozLatestStable.`
   )
 }

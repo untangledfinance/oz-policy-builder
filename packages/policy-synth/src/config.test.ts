@@ -8,11 +8,15 @@ import {
   INTERPRETER,
   INTERPRETER_WASM,
   INTERPRETERS,
+  isThreshold,
   OZ_ACCOUNT_WASM,
+  OZ_STELLAR_CONTRACTS_TAG,
   POLICY_CONTRACTS,
   SAFE_READS,
   SPENDING_LIMIT,
+  SUPERSEDED_OZ_POLICIES,
   safeRead,
+  spendingLimits,
   thresholdAddress,
 } from './config.ts'
 
@@ -102,6 +106,49 @@ describe('the OZ policies we deployed are policy contracts no rule may be scoped
     }
   })
 
+  it('the upstream tag each network was built from is the record: v0.8.0 on testnet, v0.7.2 on mainnet', () => {
+    expect(OZ_STELLAR_CONTRACTS_TAG).toEqual(oz.upstreamTag)
+    expect(OZ_STELLAR_CONTRACTS_TAG).toEqual({ testnet: 'v0.8.0', mainnet: 'v0.7.2' })
+    for (const network of ['mainnet', 'testnet'] as const)
+      for (const name of ['spending_limit', 'simple_threshold', 'weighted_threshold'])
+        expect(oz.wasmSha256[network][name]).toMatch(/^[0-9a-f]{64}$/)
+  })
+
+  it('the superseded instances are the record: still no rule may be scoped to them, and they are read, never attached', () => {
+    for (const network of ['mainnet', 'testnet'] as const) {
+      const recorded = oz.superseded
+        .filter((s: { network: string }) => s.network === network)
+        .map((s: Record<string, string>) => ({
+          spending_limit: s.spending_limit,
+          simple_threshold: s.simple_threshold,
+          weighted_threshold: s.weighted_threshold,
+        }))
+      expect(SUPERSEDED_OZ_POLICIES[network]).toEqual(recorded)
+      for (const p of SUPERSEDED_OZ_POLICIES[network]) {
+        for (const a of Object.values(p)) {
+          expect(StrKey.isValidContract(a)).toBe(true)
+          expect(POLICY_CONTRACTS.has(a)).toBe(true)
+          // never the instance a new rule attaches
+          expect(a).not.toBe(SPENDING_LIMIT[network])
+          expect([thresholdAddress(network, false), thresholdAddress(network, true)]).not.toContain(
+            a
+          )
+        }
+        expect(spendingLimits(network)).toContain(p.spending_limit)
+        expect(isThreshold(network, p.simple_threshold, false)).toBe(true)
+        expect(isThreshold(network, p.weighted_threshold, true)).toBe(true)
+        expect(isThreshold(network, p.simple_threshold, true)).toBe(false)
+      }
+      expect(spendingLimits(network)[0]).toBe(SPENDING_LIMIT[network])
+    }
+    // the v0.7.2 testnet instances, replaced on 26 October 2026
+    expect(spendingLimits('testnet')).toEqual([
+      'CCPZW4322JUETOYDKYUFB2AZ2SZVWFV3IATZ3TG4QXZKQXBEOIQM2JQ4',
+      'CDH4KOBRUEZI6TTZ72YXR5YUIODB6RH3AF75KX56Z73DELRCA5TWFISP',
+    ])
+    expect(spendingLimits('mainnet')).toEqual([SPENDING_LIMIT.mainnet])
+  })
+
   it('and a deployed interpreter this build does not trust is still recognised', () => {
     expect(INTERPRETERS.has('CCBHVZ6HGGV7C4SNHCZ3S5665Z2WEMHTMBAEPO4XW6PKON464BEBANU5')).toBe(true)
   })
@@ -118,6 +165,28 @@ describe('the smart-account builds a review will read', () => {
       expect(a.wasmSha256).toMatch(/^[0-9a-f]{64}$/)
       expect(a.matches).toBe(a.wasmSha256 === record.wasmSha256.multisig_account_example)
     }
+  })
+
+  it('trust the v0.8.0 account beside the 0.7.2-line one, which reproduces from its recorded tag', () => {
+    expect(OZ_ACCOUNT_WASM.has(record.wasmSha256.multisig_account_example)).toBe(true)
+    expect(OZ_ACCOUNT_WASM.has(record.wasmSha256.multisig_account_example_v0_8_0)).toBe(true)
+    const p = record.provenance.multisig_account_example_v0_8_0
+    expect(p.sourceCommitRecorded).toBe(true)
+    expect(p.sourceCommit).toMatch(/^ddc327eb92d63709436da3a8455f641c2d5476c5 /)
+    for (const a of p.reproductionAttempts)
+      expect(a.matches).toBe(a.wasmSha256 === record.wasmSha256.multisig_account_example_v0_8_0)
+    const wasm = readFileSync(
+      new URL(
+        'contracts/stellar/policy-interpreter/tests/fixtures/oz_0_8_0_multisig_account_example.wasm',
+        root
+      )
+    )
+    expect(createHash('sha256').update(wasm).digest('hex')).toBe(
+      record.wasmSha256.multisig_account_example_v0_8_0
+    )
+    expect(record.testnet.referenceAccount.wasmSha256).toBe(
+      record.wasmSha256.multisig_account_example_v0_8_0
+    )
   })
 
   it('are the deployment record, and the example account this repo ships', () => {

@@ -88,21 +88,73 @@ export const INTERPRETER_WASM: ReadonlySet<string> = new Set(
 )
 
 /** The smart-account builds (OpenZeppelin) whose rules `revoke_policy` will describe, by wasm sha256
- *  (`deployments/oz-accounts.json`): any other contract could answer with whatever rules it likes. */
+ *  (`deployments/oz-accounts.json`): any other contract could answer with whatever rules it likes.
+ *  Both builds are trusted: `91a2cd56…`, the 0.7.2-line account every existing Prime runs (the seat
+ *  is tied to its digest), and `8286422f…`, OpenZeppelin's 0.8.0 `multisig-account-example`, which
+ *  the testnet reference account runs. */
 export const OZ_ACCOUNT_WASM: ReadonlySet<string> = new Set([
   '91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9',
+  '8286422f205951f37f4249401b403471fc432340dde6925432d31bb8a90cce27',
 ])
 
-/** The upstream tag the deployed OpenZeppelin policies were built from, so that
- *  `scripts/upstream-drift-check.ts` can compare it with the latest release. */
-export const OZ_STELLAR_CONTRACTS_TAG = 'v0.7.2'
+/** How a Delegated signer authorises the account's `__check_auth`, per account build:
+ *  - `digest` (the 0.7.2-line `91a2cd56…`): `__check_auth(sha256(sha256(signature payload) ‖
+ *    XDR(context rule ids)))`, the bytes;
+ *  - `preimage` (OpenZeppelin 0.8.0, `8286422f…`): `__check_auth(AuthDigestPreimage { account,
+ *    context_rule_ids, signature_payload })`, the struct the account passes to
+ *    `require_auth_for_args` (`smart_account/storage.rs`, `authenticate`).
+ *  The builder signs only for these builds: for any other code it cannot know the form, and refuses. */
+export type AccountAuth = 'digest' | 'preimage'
+export const OZ_ACCOUNT_AUTH: Readonly<Record<string, AccountAuth>> = Object.freeze({
+  '91a2cd56ba1a75d78eeb8ddc5d1841c5d439b7726a140bc84c850f73396298a9': 'digest',
+  '8286422f205951f37f4249401b403471fc432340dde6925432d31bb8a90cce27': 'preimage',
+})
+/** The authorisation form of an account build, or undefined for a build the package does not know. */
+export const accountAuth = (wasmSha256: string | undefined): AccountAuth | undefined =>
+  wasmSha256 !== undefined && Object.hasOwn(OZ_ACCOUNT_AUTH, wasmSha256)
+    ? OZ_ACCOUNT_AUTH[wasmSha256]
+    : undefined
 
-/** OpenZeppelin's `spending_limit`, built from stellar-contracts v0.7.2 and
- *  deployed by us. An example contract, not audited by us. */
+/** The upstream tag the deployed OpenZeppelin policies were built from, per network, so that
+ *  `scripts/upstream-drift-check.ts` can compare it with the latest release. Testnet runs the
+ *  v0.8.0 builds (`deployments/oz-policies.json`); mainnet still runs the v0.7.2 builds. */
+export const OZ_STELLAR_CONTRACTS_TAG: Record<Network, string> = {
+  testnet: 'v0.8.0',
+  mainnet: 'v0.7.2',
+}
+
+/** OpenZeppelin's `spending_limit`, deployed by us: built from stellar-contracts v0.8.0 on
+ *  testnet, v0.7.2 on mainnet. An example contract, not audited by us. New rules are capped by
+ *  this address; a rule capped by a superseded instance is still read (`SUPERSEDED_OZ_POLICIES`). */
 export const SPENDING_LIMIT: Record<Network, string> = {
-  testnet: 'CDH4KOBRUEZI6TTZ72YXR5YUIODB6RH3AF75KX56Z73DELRCA5TWFISP',
+  testnet: 'CCPZW4322JUETOYDKYUFB2AZ2SZVWFV3IATZ3TG4QXZKQXBEOIQM2JQ4',
   mainnet: 'CA7IBD266HIHFDUIBZLPIAITJUA3DVY4JAG6K3QMGBKLZCXXLP5E2F7A',
 }
+
+/** OpenZeppelin policy instances we deployed and have since replaced (`superseded` in
+ *  `deployments/oz-policies.json`): the testnet v0.7.2 builds. No new rule attaches them, but the
+ *  rules already installed with them stay readable (a review names their cap and threshold), and
+ *  no rule may be scoped to them (`POLICY_CONTRACTS`). Their storage is the same as the
+ *  current build's: v0.8.0 changed none of the three policies' types. */
+export const SUPERSEDED_OZ_POLICIES: Record<
+  Network,
+  readonly { spending_limit: string; simple_threshold: string; weighted_threshold: string }[]
+> = {
+  testnet: [
+    {
+      spending_limit: 'CDH4KOBRUEZI6TTZ72YXR5YUIODB6RH3AF75KX56Z73DELRCA5TWFISP',
+      simple_threshold: 'CAYTIVQOEZDOQI4GC3XBXEEYHQUANQQJHPJVMXVRBREGSAP6TCN3DID6',
+      weighted_threshold: 'CCTNRFZCL45GTJICA3Z2KFQO3VEGBHGCVBLHQ3GLJKAGACQIJMYJS7T2',
+    },
+  ],
+  mainnet: [],
+}
+
+/** Every `spending_limit` instance a rule on this network may be capped by, the current first. */
+export const spendingLimits = (net: Network): readonly string[] => [
+  SPENDING_LIMIT[net],
+  ...SUPERSEDED_OZ_POLICIES[net].map((p) => p.spending_limit),
+]
 
 /** Every interpreter this project deployed, whatever its grammar. A rule policed by
  *  one of these can only be judged if it is the pinned build this package reads; the
@@ -121,19 +173,27 @@ export const INTERPRETERS: ReadonlySet<string> = new Set([
   'CDER6P73JWMIVD3X6TGGOQIDAH3DLU7OKRTLT4ULPTZ3QJJ3QUGTK7CM', // testnet, the pinned instance (INTERPRETER.testnet)
 ])
 
-/** OpenZeppelin's `simple_threshold` and `weighted_threshold`, built from v0.7.2 and deployed by us
- *  (`deployments/oz-policies.json`): testnet simple, testnet weighted, mainnet simple, mainnet
- *  weighted. Their admin calls (`set_threshold`, `install`...) need only the account's own
- *  authorisation, so no rule may be scoped to them; a rule that asks for a threshold gets one. */
+/** OpenZeppelin's `simple_threshold` and `weighted_threshold`, deployed by us
+ *  (`deployments/oz-policies.json`): testnet simple, testnet weighted (built from v0.8.0), mainnet
+ *  simple, mainnet weighted (built from v0.7.2). Their admin calls (`set_threshold`, `install`...)
+ *  need only the account's own authorisation, so no rule may be scoped to them; a rule that asks
+ *  for a threshold gets one. */
 export const OZ_THRESHOLD = [
-  'CAYTIVQOEZDOQI4GC3XBXEEYHQUANQQJHPJVMXVRBREGSAP6TCN3DID6',
-  'CCTNRFZCL45GTJICA3Z2KFQO3VEGBHGCVBLHQ3GLJKAGACQIJMYJS7T2',
+  'CCRCBH3MX43U6WNUL4NSLIAVNISNHSZTZZ7VCQYSGRELZJB67G6JHSWW',
+  'CCJXAUHAQ3H7Y7P2OE5J5ODY6HAI4UA6TNV3WOFGFLIJYXIXZOAJ65TL',
   'CDOGPGUFGGUDG25P3TG6XIXJKRRYOZ3PXUZIEPVH74KXRZIDKZ5HYEOS',
   'CDWPZ4YZ3YIJ64XSHRMERRF2L2H7XD6SPUZDP3KI56T7QXQCICC25V3J',
 ]
-/** The threshold policy of a network: simple, or weighted. */
+/** The threshold policy of a network that new rules attach: simple, or weighted. */
 export const thresholdAddress = (net: Network, weighted: boolean): string =>
   OZ_THRESHOLD[(net === 'mainnet' ? 2 : 0) + (weighted ? 1 : 0)] as string
+/** Whether `at` is a threshold policy a rule on this network may carry, the current instance or
+ *  a superseded one: `weighted` says which kind. */
+export const isThreshold = (net: Network, at: string, weighted: boolean): boolean =>
+  at === thresholdAddress(net, weighted) ||
+  SUPERSEDED_OZ_POLICIES[net].some(
+    (p) => at === (weighted ? p.weighted_threshold : p.simple_threshold)
+  )
 
 /** `read` targets whose answer cannot be moved within one transaction (an oracle's own price feed),
  *  by network: contract -> functions. Any other read is a live value an agent can move with a
@@ -176,5 +236,6 @@ export const safeRead = (net: Network, contract: string, fn: string, args: Val[]
 export const POLICY_CONTRACTS: ReadonlySet<string> = new Set([
   ...Object.values(SPENDING_LIMIT),
   ...OZ_THRESHOLD,
+  ...Object.values(SUPERSEDED_OZ_POLICIES).flatMap((ps) => ps.flatMap((p) => Object.values(p))),
   ...INTERPRETERS,
 ])

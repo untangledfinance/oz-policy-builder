@@ -27,22 +27,26 @@ import {
 } from './card.ts'
 import type { ContractKind } from './chain.ts'
 import {
+  type AccountAuth,
+  accountAuth,
   authLedgers,
   CLOCK_SKEW,
   GRAMMAR_VERSION,
   INTERPRETER,
   INTERPRETERS,
+  isThreshold,
   LEDGER_SECONDS,
   maxResourceFee,
   type Network,
   PASSPHRASE,
   POLICY_CONTRACTS,
   SPENDING_LIMIT,
+  spendingLimits,
   thresholdAddress,
 } from './config.ts'
 import { messageOf, Refusal } from './envelope.ts'
 import {
-  digest,
+  checkAuthArg,
   executorProblem,
   isAddressEntry,
   keyedSafeOnNoGate,
@@ -66,6 +70,12 @@ import {
   validate,
 } from './wire.ts'
 
+/** How a review names each authorisation form. */
+const FORM_NAME: Record<AccountAuth, string> = {
+  digest: 'OpenZeppelin 0.7.2-line digest',
+  preimage: 'OpenZeppelin 0.8.0 preimage',
+}
+
 /** The most a base fee may bid, as `install_policy` caps it: 1 XLM. */
 const MAX_BASE_FEE = 10_000_000
 
@@ -81,7 +91,14 @@ export interface UnsignedReview {
   /** The time bound (unix seconds), `null` when it has none. */
   validBefore: number | null
   /** The smart account's authorisation, as signed: nonce, expiry ledger, the rules it names. */
-  auth: { nonce: string; validUntilLedger: number; contextRuleIds: number[] } | null
+  auth: {
+    nonce: string
+    validUntilLedger: number
+    contextRuleIds: number[]
+    /** The form the source account's `__check_auth` entry is in (`OZ_ACCOUNT_AUTH`): the 0.7.2-line
+     *  digest bytes or the OpenZeppelin 0.8.0 preimage struct; absent when it is neither. */
+    form?: AccountAuth
+  } | null
   /** For `add_context_rule`: what the rule lets its signers do, and its predicate. */
   authority?: Authority
   /** `predicate`: the one in the bytes; for a rule that `follows` another, that rule's predicate as
@@ -123,6 +140,10 @@ export function reviewUnsigned(i: {
   /** The rule an install follows, as the caller read it off the pinned interpreter (`readFollowed`),
    *  or why it could not. Without it, what such a rule permits is not in the bytes: a problem. */
   followed?: { expr: Expr; follows: Followed } | { error: string } | undefined
+  /** The account's code as the caller read it off the ledger (`codeHash`), or why it could not.
+   *  With it, an authorisation in another form than the account's build asks for, or an account
+   *  that runs no build the package knows, is a problem. Without it, the form is the bytes' own. */
+  accountCode?: { wasmSha256: string | undefined } | { error: string } | undefined
 }): UnsignedReview {
   const { network } = i
   let env: Transaction | FeeBumpTransaction
@@ -250,19 +271,54 @@ export function reviewUnsigned(i: {
     const check = source[0]
     const fn = check && fnOf(check.rootInvocation())
     const sent = fn?.args()[0]
-    const expected = digest(network, c.nonce(), c.signatureExpirationLedger(), root, contextRuleIds)
+    // Either form commits to the same account entry (nonce, expiry, the call tree, the rule ids):
+    // the 0.7.2-line digest bytes, or the 0.8.0 preimage struct, which also names the account.
+    // Each is checked against what it must be, byte for byte.
+    const form: AccountAuth | undefined =
+      sent?.switch().name === 'scvBytes'
+        ? 'digest'
+        : sent?.switch().name === 'scvMap'
+          ? 'preimage'
+          : undefined
+    const expected =
+      form &&
+      checkAuthArg(
+        form,
+        network,
+        account,
+        c.nonce(),
+        c.signatureExpirationLedger(),
+        root,
+        contextRuleIds
+      )
     if (
       !fn ||
       Address.fromScAddress(fn.contractAddress()).toString() !== account ||
       fn.functionName().toString() !== '__check_auth' ||
       fn.args().length !== 1 ||
-      sent?.switch().name !== 'scvBytes' ||
-      !Buffer.from(sent.bytes()).equals(expected) ||
+      !expected ||
+      sent?.toXDR('base64') !== expected.toXDR('base64') ||
       (check?.rootInvocation().subInvocations().length ?? 0) > 0
     )
       flag(
         `the source account's __check_auth does not match the account's authorisation on ${network}: another network, or an entry changed after the build`
       )
+    else auth.form = form
+    // The form the account's own code asks for, when it was read: any other is refused by the
+    // account, and an account that runs no known build is not one the builder signs for.
+    const code = i.accountCode
+    if (code && 'error' in code) flag(`the account's code could not be read (${code.error})`)
+    else if (code) {
+      const wants = accountAuth(code.wasmSha256)
+      if (!wants)
+        flag(
+          `${account} runs ${code.wasmSha256 ? `code ${code.wasmSha256}` : 'no contract code'}, not an OpenZeppelin smart account build this package signs for`
+        )
+      else if (form && wants !== form)
+        flag(
+          `the authorisation is in the ${FORM_NAME[form]} form, but ${account} runs a build that asks for the ${FORM_NAME[wants]}: the account would refuse it`
+        )
+    }
   }
 
   // The fee and how long the signed transaction stays valid.
@@ -300,7 +356,7 @@ export function reviewUnsigned(i: {
   const view: View = { roles, raw: i.raw, network }
   const until =
     auth &&
-    `by rule ${auth.contextRuleIds.join(', ')}, valid through ledger ${auth.validUntilLedger}`
+    `by rule ${auth.contextRuleIds.join(', ')}, valid through ledger ${auth.validUntilLedger}${auth.form ? `, signed as the ${FORM_NAME[auth.form]}` : ''}`
   const head = group('Transaction', 'transaction', [
     fact('calls', `${show(call.contract, view)}  ${call.fn}`),
     fact('source', `${show(tx.source, view)}, sequence ${tx.sequence}`),
@@ -501,12 +557,19 @@ function ruleOf(args: Val[], network: Network, account: string, flag: (p: string
   for (const [address, params] of (policies as { map: [Val, Val][] }).map) {
     const at = String(address)
     const p = fields(params)
-    if (at === SPENDING_LIMIT[network]) {
+    // A superseded instance (an older build of the same OpenZeppelin policy) is read like the
+    // current one, and flagged: this builder attaches only the current one.
+    const superseded = (current: string) =>
+      at !== current &&
+      flag(`${at} is a superseded ${network} policy instance; this builder attaches ${current}`)
+    if (spendingLimits(network).includes(at)) {
+      superseded(SPENDING_LIMIT[network])
       a.total = {
         amount: (p.spending_limit as { i128?: string })?.i128 ?? '',
         periodLedgers: Number(p.period_ledgers),
       }
-    } else if (at === thresholdAddress(network, false) || at === thresholdAddress(network, true)) {
+    } else if (isThreshold(network, at, false) || isThreshold(network, at, true)) {
+      superseded(thresholdAddress(network, isThreshold(network, at, true)))
       const weights = isMap(p.signer_weights)
         ? Object.fromEntries(
             p.signer_weights.map.map(([k, w]) => [delegatedOf(k) ?? JSON.stringify(k), Number(w)])

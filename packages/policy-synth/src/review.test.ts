@@ -14,7 +14,7 @@ import {
 import { account, contract } from '../test/fixtures.ts'
 import { recorded } from '../test/rpc.ts'
 import { connect, interpreterFor } from './chain.ts'
-import { PASSPHRASE, SPENDING_LIMIT, thresholdAddress } from './config.ts'
+import { PASSPHRASE, SPENDING_LIMIT, SUPERSEDED_OZ_POLICIES, thresholdAddress } from './config.ts'
 import {
   type Built,
   buildInstall,
@@ -150,6 +150,7 @@ describe('reviewUnsigned: an honest build, read back from its bytes', () => {
       nonce: b.authNonce,
       validUntilLedger: b.authValidUntilLedger,
       contextRuleIds: [0],
+      form: 'digest', // the live-test account runs the 0.7.2-line build
     })
     expect(r.authority).toMatchObject({
       signers: [SIGNER],
@@ -1213,6 +1214,47 @@ describe('reviewUnsigned: the same bytes, changed', () => {
         resign(env)
       },
       /threshold weight is given to a key that is not a Delegated address/,
+    ],
+    [
+      'a superseded spending_limit instance (the testnet v0.7.2 build)',
+      (env: xdr.TransactionEnvelope) => {
+        callArgs(env)
+          .args()[4]
+          ?.map()
+          ?.push(
+            new xdr.ScMapEntry({
+              key: new Address(
+                SUPERSEDED_OZ_POLICIES.testnet[0]?.spending_limit as string
+              ).toScVal(),
+              val: toScVal({
+                map: [
+                  ['period_ledgers', 17280],
+                  ['spending_limit', { i128: '5000' }],
+                ],
+              }),
+            })
+          )
+        resign(env)
+      },
+      /CDH4KOBR\w+ is a superseded testnet policy instance; this builder attaches CCPZW432/,
+    ],
+    [
+      'a superseded weighted_threshold instance (the testnet v0.7.2 build)',
+      (env: xdr.TransactionEnvelope) => {
+        callArgs(env)
+          .args()[4]
+          ?.map()
+          ?.push(
+            new xdr.ScMapEntry({
+              key: new Address(
+                SUPERSEDED_OZ_POLICIES.testnet[0]?.weighted_threshold as string
+              ).toScVal(),
+              val: toScVal({ map: [['threshold', 1]] }),
+            })
+          )
+        resign(env)
+      },
+      /CCTNRFZC\w+ is a superseded testnet policy instance; this builder attaches CCJXAUHA/,
     ],
     [
       'a time bound past the year 275,760',
