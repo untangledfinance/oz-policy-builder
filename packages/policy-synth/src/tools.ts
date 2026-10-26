@@ -403,7 +403,7 @@ const record_transaction = tool(
 
 const synthesize_policy = tool(
   'synthesize_policy',
-  'Turn a transaction, a recording, an intent (the calls to allow, with per-argument constraints (`{constraint: "cap", at, max}`): pin, allow, deny, cap, floor, length, count, same, minOut, each, some, total, read, until, from) into rules: one per contract, each with its predicate (a wire expression), its encoding and hash, and its review (`review`, a text tree, and `reviewTree`, nodes each carrying the wire `raw` it was read from; labels are display only; with no hash to fetch, this tool asks no RPC). `ambiguities` are questions whose answers change what is permitted (usually the cap on an amount: answer with `limit`, `limits` or `allow`); `warnings` say what is left open. `heldTo` says which limits the rules were held to: those recorded for the pinned interpreter, else the defaults.',
+  'Turn a transaction, a recording, an intent (the calls to allow, with per-argument constraints (`{constraint: "cap", at, max}`): pin, allow, deny, not, cap, floor, length, count, same, minOut, each, some, total, read, until, from) into rules: one per contract, each with its predicate (a wire expression), its encoding and hash, and its review (`review`, a text tree, and `reviewTree`, nodes each carrying the wire `raw` it was read from; labels are display only; with no hash to fetch, this tool asks no RPC). `ambiguities` are questions whose answers change what is permitted (usually the cap on an amount: answer with `limit`, `limits` or `allow`); `warnings` say what is left open. `heldTo` says which limits the rules were held to: those recorded for the pinned interpreter, else the defaults.',
   { ...net, ...display, ...from },
   async (i) => {
     const s = await sourceOf(i)
@@ -651,6 +651,12 @@ const revoke_policy = tool(
       r.expr || r.follows || plan.overrides.length
         ? explain(i, { expr: r.expr, contract, overrides: plan.overrides, follows: r.follows })
         : {}
+    // `reviewSkipped` covers a build the package signs for but does not describe: it is reached
+    // only when `trusted.known` is false yet `buildRevoke` succeeded. `buildRevoke` goes through
+    // `buildSelfCall`/`accountAuthOf`, which refuses any build outside `OZ_ACCOUNT_AUTH`, and
+    // `trusted.known` is `OZ_ACCOUNT_WASM.has(code)`; with those two sets equal today the branch
+    // is unreachable. It is kept for an account build added to `OZ_ACCOUNT_AUTH` (signable) but not
+    // to `OZ_ACCOUNT_WASM` (whose rules the package would then not describe).
     const skipped = (await trusted).known
       ? {}
       : { reviewSkipped: notKnown(i.smartAccount, await trusted) }
