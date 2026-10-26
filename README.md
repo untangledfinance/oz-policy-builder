@@ -16,7 +16,7 @@ It is built as two halves:
   declared mandate, turns it into a rule written in the predicate's own wire
   shape, verifies that rule through the interpreter's `check` (a dry run that always fails with its verdict), renders
   a review tree, and returns an unsigned install transaction for the user's
-  wallet to sign. A CLI and an MCP server register the same eight tools from one
+  wallet to sign. A CLI and an MCP server register the same nine tools from one
   table, for shells and agents.
 - **On chain**, the `policy-interpreter` Soroban contract evaluates the
   predicate on every guarded call, fail-closed: one audit-once engine, and
@@ -55,14 +55,14 @@ packages trust neither earlier build (`deployments/interpreter-testnet.json`
 lists both as superseded).
 
 The current release, and the code submitted for the external audit, is this
-repository at tag `v5.0.0`; the audit started on 26 October 2026 and is in
-progress. The same code is published to npm at version 5.0.0 as `@crediolabs/policy-synth`,
+repository at tag `v5.1.0`; the audit started on 26 October 2026 and is in
+progress. The same code is published to npm at version 5.1.0 as `@crediolabs/policy-synth`,
 `@crediolabs/policy-builder-cli` and `@crediolabs/policy-builder-mcp`:
 
 ```sh
-npm install @crediolabs/policy-synth@5.0.0 @stellar/stellar-sdk
-npm install -g @crediolabs/policy-builder-cli@5.0.0     # the policy-builder command
-npx -y @crediolabs/policy-builder-mcp@5.0.0             # the MCP server over stdio
+npm install @crediolabs/policy-synth@5.1.0 @stellar/stellar-sdk
+npm install -g @crediolabs/policy-builder-cli@5.1.0     # the policy-builder command
+npx -y @crediolabs/policy-builder-mcp@5.1.0             # the MCP server over stdio
 ```
 
 To run a checkout of this repo, build the packages in dependency order. The
@@ -159,7 +159,7 @@ measurements behind the limits.
 > [!IMPORTANT]
 > **Audit status:** an external audit of the interpreter, the custody gate, the
 > execution adapter and the three TypeScript packages in this repository, at
-> tag `v5.0.0`, is in progress; its scope is in
+> tag `v5.1.0`, is in progress; its scope is in
 > [docs/audit-overview.md](./docs/audit-overview.md). The contracts have also
 > been through internal adversarial review and STRIDE threat models, indexed in
 > [evidence/README.md](./evidence/README.md).
@@ -175,7 +175,7 @@ measurements behind the limits.
 | See what runs where | [docs/README.md](./docs/README.md) |
 | Understand the custody setup and the Prime seats | [docs/architecture.md](./docs/architecture.md) |
 | Read the Stellar contracts and the policy builder in detail | [docs/stellar.md](./docs/stellar.md) |
-| Build and install a policy from a shell | `packages/policy-builder-cli` (`policy-builder <tool>`, all eight tools) |
+| Build and install a policy from a shell | `packages/policy-builder-cli` (`policy-builder <tool>`, all nine tools) |
 | Drive it from an agent | `packages/policy-builder-mcp` (MCP over stdio / Streamable HTTP) |
 
 ## Layout

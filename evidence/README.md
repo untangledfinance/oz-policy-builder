@@ -2,9 +2,11 @@
 
 The logs and records behind the claims in the docs and in
 [stride-threat-model.md](stride-threat-model.md). Unless a row says otherwise,
-each was produced on 20 October 2026 from this tree, with the contract builds in
-`contracts/build-hashes.json`: policy interpreter `810f53f1…`, custody gate
-`b01024f3…`, execution adapter `4985cd12…`, `prime-seat` `393f0e5d…`.
+each was produced on 20 October 2026 from the tree of that date, with the
+contract builds then pinned: policy interpreter `810f53f1…`, custody gate
+`b01024f3…`, execution adapter `4985cd12…`, `prime-seat` `393f0e5d…`. This tree
+pins interpreter `6704996f…` and adapter `bf85432c…` in
+`contracts/build-hashes.json`; the gate and the seat are unchanged.
 Every network run is on Stellar testnet with throwaway keys made for that run
 and funded by friendbot; the keys never leave the run.
 
@@ -39,7 +41,8 @@ execution scripts deploy fresh gates and adapters from `b01024f3…` and
 the testnet interpreter instance recorded in
 `deployments/interpreter-testnet.json`. These logs were recorded on
 `CDZV4AG4…`, which runs `69cad1d5…`, this source before the keyless rules;
-since 4.1.0 that record names `CD46LN75…` on `810f53f1…`. Their run rule lists the adapter as its
+4.1.0 moved that record to `CD46LN75…` on `810f53f1…`, and since 5.0.0 it names
+`CDER6P73…` on `6704996f…`. Their run rule lists the adapter as its
 signer, a shape the 0.7.2-line account accepts and the 0.8.0 account refuses
 (3017); they test the gate and the adapter. The off-chain suite's live tests
 run with `OPB_LIVE=1 bun test` against the same instance.

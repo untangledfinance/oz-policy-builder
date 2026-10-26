@@ -472,8 +472,8 @@ keyless rule with one policy, 3004 refuses the removal.
 
 Tests: `tests/keyless.rs` drives these checks in the interpreter's test host,
 and the `oz08/` crate runs the interpreter wasm against OpenZeppelin's 0.8.0
-account (built from upstream commit `8e25220`; the release is not tagged yet)
-with real authorisation entries.
+account (built from the upstream `v0.8.0` tag `ddc327e`, wasm `8286422f…`; its
+parent commit `8e25220` builds the same bytes) with real authorisation entries.
 
 ## Owners and Prime seats
 
@@ -622,20 +622,22 @@ The custody account can also cancel any stored move before it runs, with
 
 | Check | Where | Result |
 |---|---|---|
-| Keyless rules and the executor binding | `tests/keyless.rs` (19 tests) and the `oz08/` suite (14 tests, OpenZeppelin's 0.8.0 account) | keyless `run` with the run and venue rules permits; an unbound keyless rule, a second policy, a stripped keyed rule, an unpinned self-scoped rule and an `execute` or `cancel` without the adapter's grant are refused; `remove_policy` on a keyless rule fails with 3004 |
+| Keyless rules and the executor binding | `tests/keyless.rs` (19 tests) and `oz08/tests/oz08.rs` (14 tests, OpenZeppelin's 0.8.0 account) | keyless `run` with the run and venue rules permits; an unbound keyless rule, a second policy, a stripped keyed rule, an unpinned self-scoped rule and an `execute` or `cancel` without the adapter's grant are refused; `remove_policy` on a keyless rule fails with 3004 |
 | The address rule against a real Prime and live Blend and Aquarius | `scripts/verify-execution-address-rule-testnet.ts`, testnet, adapter `4985cd12…` with a gate | 35 of 35 on 20 October 2026. A Blend supply, a withdrawal to custody and an Aquarius swap succeed. Refused: a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation; a pull to the gate itself; a token custody never approved; a batch calling the Prime; a deploy authorisation; a Prime-signed rebind. Custody rebinding to a non-gate is refused and the binding stays put |
 | The adapter's wait against a real Prime, the gate and live Blend | `scripts/verify-execution-wait-testnet.ts`, testnet, adapter `4985cd12…` with a gate | 45 of 45 on 20 October 2026. Succeeded: a Blend supply at once; a stored Blend supply and a stored recovery pull to the trustee, each run later by an account with no role; an agent's batch after the minimum wait its own rule demands. Refused: the agent below that minimum, and the agent cancelling; a stranger cancelling; running early, twice, after a cancel, or after the run window; a wait below the adapter's floor; the Prime creating the adapter at custody's address with a lower floor or a longer window |
 | The adapter with no gate, for a G and an OpenZeppelin Prime | `scripts/verify-execution-null-gate-testnet.ts`, testnet, adapter `4985cd12…` | 69 of 69 on 20 October 2026, log `evidence/execution-null-gate-testnet.log`. Succeeded: `[hello, USDC.transfer, XLM.transfer]` with one authorisation by X (a G account, and an OpenZeppelin account through rule 0); an agent's bundle at its cap, one rule per context. Refused: the bundle once `hello` failed, with no balance moved; its signed entry after its expiry ledger; a call to the Prime; a grant; any wait, and a no-gate adapter with a minimum wait; `rebind`; a stranger's `cancel`; the agent over its cap or citing its adapter rule for a token context; a no-gate adapter's pull through custody's gate |
 | A rule that follows another, built and reviewed by policy-synth | `install_policy` with `follow`, testnet instance `CDER6P73…`, live-test account `CASJ5GEC…` | 25 October 2026: rule 7 follows rule 6 (`cap-500`), install `c284ff4f…`. policy-synth reads rule 7 through rule 6 (its predicate and install nonce 1), its `check` permits a transfer of 400 and refuses 600 under the followed predicate, and following rule 7 (itself a reference) is refused before anything is built. Recorded in `packages/policy-synth/fixtures/rpc/bind.json` |
 | Referenced rules | `tests/ref_rule.rs` (18 tests) and `oz08/` `r1`, `r2` | a rule following `(A, rule_id)` evaluates A's re-installed predicate at its next `enforce`, with no change to its OZ rule; only the follower's own install sets or clears the reference, and the payload hash commits to it (`208`); a missing source is `206`, a chained or self-referencing one `201`; A cannot install, bind or enforce for the follower, whose signers (`210`, `204`), binding and grant are its own; the run pin (`221`) holds the fetched predicate; a permit extends the referenced entry's TTL |
-| Contract unit tests, this tree | `cargo test` in each crate (see [Build and test](#build-and-test)) | interpreter 434 (its 18 conformance cases also run in release), `oz08/` 14, adapter 62, gate 3, Prime seat 21 |
+| Contract unit tests, this tree | `cargo test` in each crate (see [Build and test](#build-and-test)) | interpreter 440 (its 18 conformance cases also run in release), `oz08/` 26, adapter 67, gate 3, Prime seat 21 |
 
 The address-rule, wait and no-gate scripts install their rules on the
 interpreter instance recorded in `deployments/interpreter-testnet.json`; they
 test the gate and the adapter. Their run rule lists the adapter as its
 signer, which the 0.7.2-line account accepts; the keyless run rule described
 above is exercised in `tests/keyless.rs` and `oz08/`, both in the test host.
-The logs indexed in [evidence/README.md](../evidence/README.md) were recorded
+Those three scripts ran on adapter `4985cd12…`, superseded by the current
+`bf85432c…` (the no-gate word) and not re-run on it.
+Their logs, indexed in [evidence/README.md](../evidence/README.md), were recorded
 on `CDZV4AG4…`, two instances before `CDER6P73…`; `CD46LN75…` came between them.
 
 ## Build and test
@@ -656,7 +658,7 @@ hash; `stellar contract build` and macOS give other bytes.
 
 | Crate | `build-wasm.sh` sha256 | Recorded in | Tests |
 |---|---|---|---|
-| `policy-interpreter` | `6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4` | `contracts/build-hashes.json` | 440 (the 18 conformance cases among them also run in release), 25 in `oz08/` |
+| `policy-interpreter` | `6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4` | `contracts/build-hashes.json` | 440 (the 18 conformance cases among them also run in release), 26 in `oz08/` |
 | `execution-adapter` | `bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0` | `contracts/build-hashes.json` | 67 |
 | `custody-gate` | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` | `deployments/` | 3 |
 | Prime seat | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | `contracts/build-hashes.json` | 21 |
@@ -683,8 +685,8 @@ All on Stellar testnet.
   for each call that asks the Prime, and anything the adapter itself holds or
   is allowed to spend. Send it nothing and give it no allowance.
 - **The keyless shape on the older account build:** the keyless rules are
-  verified against an OpenZeppelin 0.8.0 account (built from upstream commit
-  `8e25220`) in the interpreter's `oz08/` test crate. `91a2cd56…` is the older
+  verified against an OpenZeppelin 0.8.0 account (built from the upstream
+  `v0.8.0` tag `ddc327e`) in the interpreter's `oz08/` test crate. `91a2cd56…` is the older
   0.7.2-line account; we still need to re-check that it accepts a rule with no
   signer and one policy.
 - **The seat is tied to the account's digest format:** it reads the rule ids
