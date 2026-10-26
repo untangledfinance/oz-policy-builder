@@ -6,6 +6,28 @@ The three npm packages (`@crediolabs/policy-synth`, `@crediolabs/policy-builder-
 
 ## [Unreleased]
 
+## [5.0.1] - 2026-10-26
+
+A patch release: one added warning, and no change to what is built, refused or
+accepted. The CLI and the MCP server pin `@crediolabs/policy-synth` at exactly
+5.0.1.
+
+### Added
+
+- **The E-38 warning for a keyless rule that follows another rule**: with no
+  signer, such a rule's predicate is its only fence, and that predicate is
+  the followed rule's, which that rule's owner can loosen by a normal
+  re-install, without this account. The shape pin (`221`) holds only target
+  and function, so anyone could then move funds through the rule's no-gate
+  adapter. Issuers use this pattern on purpose to govern a borrower's keyless
+  rule, so it still builds. `install_policy` and `bind_policy` return the
+  warning in a new `warnings` list and at the top of the review, naming the
+  followed rule's owner and id. `review_unsigned` (and `reviewUnsigned`)
+  lists it in `warnings` and in its review, and `signable` ignores it. A
+  keyed follower, a keyless rule with its own predicate and an inline rule
+  get no warning. The text starts with `E-38` so it ties to the threat
+  model's finding.
+
 ## [5.0.0] - 2026-10-25
 
 The testnet interpreter is now the build with referenced rules and the

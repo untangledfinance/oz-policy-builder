@@ -12,7 +12,7 @@ The on-chain half is the `policy-interpreter` contract in
 ## Install
 
 ```sh
-npm install @crediolabs/policy-synth@5.0.0 @stellar/stellar-sdk
+npm install @crediolabs/policy-synth@5.0.1 @stellar/stellar-sdk
 ```
 
 `@stellar/stellar-sdk` (^14.4.0) is a peer dependency; npm 7 and
