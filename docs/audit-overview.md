@@ -233,9 +233,10 @@ preimage of the account's digest, from which the seat reads the rule ids:
   interpreter's `oz08/` test crate. The Prime accounts on testnet run
   `91a2cd56…`, the older 0.7.2-line account; re-checking the keyless shape on
   that build is open.
-- The synthesiser builds keyed rules only. It refuses a rule with no signer
-  and builds no `bind_executor` call, so a keyless rule and its binding are
-  installed through the contract calls directly.
+- The synthesiser builds keyed rules, keyless rules for an execution adapter
+  (`install_policy` with `executor`) and their binding (`bind_policy`, the
+  interpreter's `bind_executor`). It refuses the configuration of Known
+  finding H-1, with no override.
 - A batch that names the Prime as a target is refused in both modes
   (`PrimeTarget`).
 - A seat sees only its account's frame, so it cannot limit the calls of a
@@ -256,7 +257,7 @@ Each crate's `build-wasm.sh` gives the hash CI compares
 
 | Contract | sha256 of the Linux build | Testnet |
 |---|---|---|
-| Policy interpreter | `810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c` | instance `CD46LN75…`, the policy-synth pin; it replaced `CDZV4AG4…` (`69cad1d5…`, this source before the keyless rules), which policy-synth does not trust |
+| Policy interpreter | `810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c` at `v4.1.0`; this branch builds `6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4` (referenced rules and the batch pin) | instance `CDER6P73…` on `6704996f…`, the policy-synth pin; it replaced `CD46LN75…` (`810f53f1…`) and `CDZV4AG4…` (`69cad1d5…`), which policy-synth does not trust |
 | Execution adapter | `4985cd123baddd9f21c4c7eab63e79121d499029b0a514a0258b4846eb28313b` at `v4.1.0`; this branch builds `bf85432c859f1ee543c14e9cc9b2c150c12753cc9580053b8d27a41eee85b4a0` (the no-gate word) | code uploaded (`deployments/execution-testnet.json`) |
 | Custody gate | `b01024f31a24108f47b57fec3bfe40efa86ec002ddbe2d8445adbacb7f09fbab` | code uploaded |
 | Prime seat | `393f0e5d340ed25ef1aa9beb2a5b6446b84247f75c5d858113779c9fa11baa87` | code uploaded |
