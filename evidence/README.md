@@ -137,7 +137,7 @@ points against that class:
 | Entry point | Control |
 | --- | --- |
 | `install` | `smart_account.require_auth()` on every install, the first included, so a rule id cannot be pre-seeded; on a re-install also `require_master`, the same admin set and the next `install_nonce` |
-| `bind_executor` | the account's authorisation and `require_master`; a rule scoped to the executor must pin `call_fn == run` (221) |
+| `bind_executor` | the account's authorisation and `require_master`; a rule scoped to the executor must pin `call_fn == run` or an immediate batch (221) |
 | `enforce` | `smart_account.require_auth()`; an empty authenticated set only for a keyless bound rule with one policy (210); the bound executor's authorisation of the exact context; the stored signer hash must equal the live one (204) |
 | `uninstall` | `require_master` |
 | `rotate_master_signer_set` | the account's authorisation and `require_master` on the current set |

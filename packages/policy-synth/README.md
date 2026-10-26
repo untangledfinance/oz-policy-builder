@@ -148,7 +148,7 @@ http on loopback. No tool input takes an endpoint.
 
 `TOOLS` (also `@crediolabs/policy-synth/run`) is the table the MCP server and the
 CLI register from. Each tool validates its input strictly, never throws, and
-returns `{ ok: true, data }` or `{ ok: false, error: { code, message, retryable } }`. Nothing here holds key material: install and revoke return
+returns `{ ok: true, data }` or `{ ok: false, error: { code, message, retryable } }`. Nothing here holds key material: install, revoke and bind return
 *unsigned* XDR and the wallet's signature is the confirmation.
 
 ```ts
@@ -428,7 +428,8 @@ anything but one contract call. Anything else it describes, and lists in
   for, or a build the package does not sign for, is a problem;
 - a signer in the authorisation other than the transaction's source, or a
   rule other than rule 0;
-- a call other than `add_context_rule` or `remove_context_rule`, another
+- a call other than `add_context_rule`, `remove_context_rule` or
+  `bind_executor`, another
   account than `smartAccount` (or no `smartAccount` at all), a memo, or
   preconditions beside the time bound;
 - no time bound, one already passed, one out of range, or one longer than the
@@ -506,7 +507,7 @@ then.
   if it runs a trusted build. Any in-range limits are then accepted, so the
   instance passed sets its own limits.
 - The RPC endpoint is the operator's.
-- **Expiry and fee bounds:** install and revoke set the authorisation's expiry
+- **Expiry and fee bounds:** install, revoke and bind set the authorisation's expiry
   ledger to the ledger the recording simulation ran at plus a window, and refuse
   the build when the two simulations report
   ledgers more than 20 apart. The transaction also gets a time bound from the

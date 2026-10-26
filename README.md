@@ -139,10 +139,11 @@ measurements behind the limits.
   transaction stays valid (`POLICY_BUILDER_AUTH_LEDGERS`, default 300 ledgers,
   with a time bound from the builder's clock) and refuses a resource fee above
   `POLICY_BUILDER_MAX_RESOURCE_FEE` (default 10 XLM).
-- **The owner's review:** `review_unsigned` reads an unsigned install or
-  removal from its bytes alone, with no RPC. It lists the problems it finds in
-  the bytes (a shape the builder never makes, a digest that does not match, an
-  interpreter other than the pin, a predicate whose hash does not match) and
+- **The owner's review:** `review_unsigned` reads an unsigned install,
+  removal or binding from its bytes alone, with no RPC. It lists the problems it
+  finds in the bytes (a shape the builder never makes, a `__check_auth`
+  digest or 0.8.0 preimage that does not match, an interpreter other than the
+  pin, a predicate whose hash does not match) and
   shows the authority the bytes grant. `signable` means no such problem; it does
   not mean safe. An agent can rewrite the bytes consistently, for example to
   make itself an admin, and they read signable, so the owner reads the Authority
@@ -163,7 +164,7 @@ measurements behind the limits.
 
 > [!IMPORTANT]
 > **Audit status:** an external audit of the interpreter, the custody gate, the
-> execution adapter and the three TypeScript packages in this repository, at
+> execution adapter, the Prime seat and the three TypeScript packages in this repository, at
 > tag `v5.2.0`, is in progress; its scope is in
 > [docs/audit-overview.md](./docs/audit-overview.md). The contracts have also
 > been through internal adversarial review and STRIDE threat models, indexed in
@@ -187,9 +188,9 @@ measurements behind the limits.
 
 | Path | What it is |
 | --- | --- |
-| `packages/policy-synth` | The wire codec, the synthesiser and the record, simulate, verify, install and revoke tools. Packaged as `@crediolabs/policy-synth`. |
+| `packages/policy-synth` | The wire codec, the synthesiser and the nine tools (record, synthesize, simulate, verify, install, revoke, bind, info, review). Packaged as `@crediolabs/policy-synth`. |
 | `packages/policy-builder-cli` | One command per tool, registered from the synth core's table (`@crediolabs/policy-builder-cli`). |
-| `packages/policy-builder-mcp` | MCP server exposing the eight policy tools (`@crediolabs/policy-builder-mcp`). |
+| `packages/policy-builder-mcp` | MCP server exposing the nine policy tools (`@crediolabs/policy-builder-mcp`). |
 | `contracts/stellar/policy-interpreter` | The Soroban contract that enforces a predicate on chain. |
 | `contracts/stellar/custody-gate` | The custody account's gate: holds its allowance and releases only to listed addresses. |
 | `contracts/stellar/execution-adapter` | The per-Prime batcher, bound to one gate or to none. With a gate, a batch can wait a number of ledgers before it runs. |
@@ -217,16 +218,17 @@ own directory:
 
 ```sh
 ( cd contracts/stellar/policy-interpreter && ./build-wasm.sh && cargo test )
-( cd contracts/stellar/policy-interpreter/oz08 && cargo test --locked )   # needs the build above
+( cd contracts/stellar/execution-adapter  && ./build-wasm.sh && cargo test )
+( cd contracts/stellar/policy-interpreter/oz08 && cargo test --locked )   # needs both builds above
 ( cd contracts/stellar/custody-gate       && cargo test )
-( cd contracts/stellar/execution-adapter  && cargo test )
 ( cd contracts/stellar/prime-seat         && cargo test )
 ( cd contracts/stellar/test-blend-pool    && cargo test )
 ```
 
 The interpreter's `tests/worst_case.rs` and the `oz08/` suite load the wasm that
 `build-wasm.sh` writes; `oz08/` runs it against OpenZeppelin's 0.8.0 account
-in a soroban-sdk 28 host. [CONTRIBUTING.md](./CONTRIBUTING.md) lists every gate CI runs.
+in a soroban-sdk 28 host, and its `tests/nogate.rs` also loads the wasm the
+execution adapter's `build-wasm.sh` writes. [CONTRIBUTING.md](./CONTRIBUTING.md) lists every gate CI runs.
 
 ## Contributing and security
 
