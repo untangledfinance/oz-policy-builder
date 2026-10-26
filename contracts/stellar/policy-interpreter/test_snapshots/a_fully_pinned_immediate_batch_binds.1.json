@@ -1,0 +1,3448 @@
+{
+  "generators": {
+    "address": 7,
+    "nonce": 0,
+    "mux_id": 0
+  },
+  "auth": [
+    [],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "install",
+              "args": [
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "grammar_version"
+                      },
+                      "val": {
+                        "u32": 7
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "install_nonce"
+                      },
+                      "val": {
+                        "u32": 1
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policy_admins"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "vec": [
+                              {
+                                "symbol": "Delegated"
+                              },
+                              {
+                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "predicate"
+                      },
+                      "val": {
+                        "bytes": "0000001000000001000000020000000f00000003616e64000000001000000001000000070000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f0000000765786563757465000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f70617468000000000000030000000200000003000000000000001000000001000000030000000f00000002657100000000001000000001000000030000000f0000000963616c6c5f706174680000000000000300000000000000000000000100000003000000020000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e73666572"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "predicate_hash"
+                      },
+                      "val": {
+                        "bytes": "45d2af3e030934fbde2edf195afee8583576eb0d4037ac1cf6f218cc1ba6a06d"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "context_type"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "symbol": "CallContract"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "id"
+                      },
+                      "val": {
+                        "u32": 100
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "name"
+                      },
+                      "val": {
+                        "string": "rule"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policies"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policy_ids"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "u32": 0
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "signer_ids"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "signers"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "valid_until"
+                      },
+                      "val": "void"
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "bind_executor",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 100
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ],
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "bind_executor",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 100
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "install",
+              "args": [
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "grammar_version"
+                      },
+                      "val": {
+                        "u32": 7
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "install_nonce"
+                      },
+                      "val": {
+                        "u32": 1
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policy_admins"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "vec": [
+                              {
+                                "symbol": "Delegated"
+                              },
+                              {
+                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "predicate"
+                      },
+                      "val": {
+                        "bytes": "0000001000000001000000020000000f00000003616e64000000001000000001000000070000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f0000000765786563757465000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f70617468000000000000030000000200000003000000000000001000000001000000030000000f00000002657100000000001000000001000000030000000f0000000963616c6c5f706174680000000000000300000000000000000000000100000003000000010000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e73666572"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "predicate_hash"
+                      },
+                      "val": {
+                        "bytes": "55d24fd096422703231fc48733eed4ef05be01ede613fac77588fa9e95229cfc"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "context_type"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "symbol": "CallContract"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "id"
+                      },
+                      "val": {
+                        "u32": 101
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "name"
+                      },
+                      "val": {
+                        "string": "rule"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policies"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policy_ids"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "u32": 0
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "signer_ids"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "signers"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "valid_until"
+                      },
+                      "val": "void"
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "bind_executor",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 101
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ],
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "bind_executor",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 101
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "install",
+              "args": [
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "grammar_version"
+                      },
+                      "val": {
+                        "u32": 7
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "install_nonce"
+                      },
+                      "val": {
+                        "u32": 1
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policy_admins"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "vec": [
+                              {
+                                "symbol": "Delegated"
+                              },
+                              {
+                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "predicate"
+                      },
+                      "val": {
+                        "bytes": "0000001000000001000000020000000f00000003616e64000000001000000001000000070000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f0000000765786563757465000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f70617468000000000000030000000200000003000000000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000c63616c6c5f6172675f6c656e000000030000000000000003000000020000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e73666572"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "predicate_hash"
+                      },
+                      "val": {
+                        "bytes": "9859f28c7401170a0494d8c36783d7d656fe68a1fd48b98797830667b1999e21"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "context_type"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "symbol": "CallContract"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "id"
+                      },
+                      "val": {
+                        "u32": 102
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "name"
+                      },
+                      "val": {
+                        "string": "rule"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policies"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policy_ids"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "u32": 0
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "signer_ids"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "signers"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "valid_until"
+                      },
+                      "val": "void"
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "bind_executor",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 102
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ],
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "bind_executor",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 102
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "install",
+              "args": [
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "grammar_version"
+                      },
+                      "val": {
+                        "u32": 7
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "install_nonce"
+                      },
+                      "val": {
+                        "u32": 1
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policy_admins"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "vec": [
+                              {
+                                "symbol": "Delegated"
+                              },
+                              {
+                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "predicate"
+                      },
+                      "val": {
+                        "bytes": "0000001000000001000000020000000f00000003616e64000000001000000001000000070000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f0000000765786563757465000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f70617468000000000000030000000200000003000000000000001000000001000000030000000f00000002657100000000001000000001000000030000000f0000000963616c6c5f706174680000000000000300000000000000000000000100000003000000020000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000e63616c6c5f6172675f6669656c640000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e73666572"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "predicate_hash"
+                      },
+                      "val": {
+                        "bytes": "cad938f83b270e132e1dcac5f4f6357be09d8ed15e44ea51916006c1070f0596"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "context_type"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "symbol": "CallContract"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "id"
+                      },
+                      "val": {
+                        "u32": 103
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "name"
+                      },
+                      "val": {
+                        "string": "rule"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policies"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policy_ids"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "u32": 0
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "signer_ids"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "signers"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "valid_until"
+                      },
+                      "val": "void"
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "bind_executor",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 103
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ],
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "bind_executor",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 103
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "install",
+              "args": [
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "grammar_version"
+                      },
+                      "val": {
+                        "u32": 7
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "install_nonce"
+                      },
+                      "val": {
+                        "u32": 1
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policy_admins"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "vec": [
+                              {
+                                "symbol": "Delegated"
+                              },
+                              {
+                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "predicate"
+                      },
+                      "val": {
+                        "bytes": "0000001000000001000000020000000f00000003616e64000000001000000001000000070000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f0000000765786563757465000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f7061746800000000000003000000020000000a000000000000000000000000000000000000001000000001000000030000000f00000002657100000000001000000001000000030000000f0000000963616c6c5f706174680000000000000300000000000000000000000100000003000000020000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e73666572"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "predicate_hash"
+                      },
+                      "val": {
+                        "bytes": "ac534ff26514cb86fdf24b6f9586e257b0912fa228237fb9379c5eaab060ce27"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "context_type"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "symbol": "CallContract"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "id"
+                      },
+                      "val": {
+                        "u32": 104
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "name"
+                      },
+                      "val": {
+                        "string": "rule"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policies"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policy_ids"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "u32": 0
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "signer_ids"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "signers"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "valid_until"
+                      },
+                      "val": "void"
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "bind_executor",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 104
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ],
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "bind_executor",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 104
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "install",
+              "args": [
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "grammar_version"
+                      },
+                      "val": {
+                        "u32": 7
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "install_nonce"
+                      },
+                      "val": {
+                        "u32": 1
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policy_admins"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "vec": [
+                              {
+                                "symbol": "Delegated"
+                              },
+                              {
+                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "predicate"
+                      },
+                      "val": {
+                        "bytes": "0000001000000001000000020000000f00000003616e64000000001000000001000000070000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f0000000765786563757465000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f70617468000000000000030000000200000003000000000000001000000001000000030000000f00000002657100000000001000000001000000030000000f0000000963616c6c5f706174680000000000000300000000000000000000000100000003000000020000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000001000000001000000020000000f000000036c6974000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e73666572"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "predicate_hash"
+                      },
+                      "val": {
+                        "bytes": "844f9a9cd247093f2e415da9bfa4618cc0850064fa90e46e578aae073ab20434"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "context_type"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "symbol": "CallContract"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "id"
+                      },
+                      "val": {
+                        "u32": 105
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "name"
+                      },
+                      "val": {
+                        "string": "rule"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policies"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policy_ids"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "u32": 0
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "signer_ids"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "signers"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "valid_until"
+                      },
+                      "val": "void"
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "bind_executor",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 105
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ],
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "bind_executor",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 105
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "install",
+              "args": [
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "grammar_version"
+                      },
+                      "val": {
+                        "u32": 7
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "install_nonce"
+                      },
+                      "val": {
+                        "u32": 1
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policy_admins"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "vec": [
+                              {
+                                "symbol": "Delegated"
+                              },
+                              {
+                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "predicate"
+                      },
+                      "val": {
+                        "bytes": "0000001000000001000000020000000f00000003616e64000000001000000001000000070000001000000001000000030000000f00000002657100000000000f0000000765786563757465000000001000000001000000010000000f0000000763616c6c5f666e000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f70617468000000000000030000000200000003000000000000001000000001000000030000000f00000002657100000000001000000001000000030000000f0000000963616c6c5f706174680000000000000300000000000000000000000100000003000000020000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e73666572"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "predicate_hash"
+                      },
+                      "val": {
+                        "bytes": "6f67e7e4e3e4b7b6d6e43226960763abf226ece33c51b19d090af180e4d2d956"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "context_type"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "symbol": "CallContract"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "id"
+                      },
+                      "val": {
+                        "u32": 106
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "name"
+                      },
+                      "val": {
+                        "string": "rule"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policies"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policy_ids"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "u32": 0
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "signer_ids"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "signers"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "valid_until"
+                      },
+                      "val": "void"
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "bind_executor",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 106
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ],
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "bind_executor",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 106
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "install",
+              "args": [
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "grammar_version"
+                      },
+                      "val": {
+                        "u32": 7
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "install_nonce"
+                      },
+                      "val": {
+                        "u32": 1
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policy_admins"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "vec": [
+                              {
+                                "symbol": "Delegated"
+                              },
+                              {
+                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "predicate"
+                      },
+                      "val": {
+                        "bytes": "0000001000000001000000020000000f000000026f7200000000001000000001000000020000001000000001000000020000000f00000003616e64000000001000000001000000070000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f0000000765786563757465000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f70617468000000000000030000000200000003000000000000001000000001000000030000000f00000002657100000000001000000001000000030000000f0000000963616c6c5f706174680000000000000300000000000000000000000100000003000000020000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e736665720000001000000001000000020000000f00000003616e64000000001000000001000000070000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f0000000765786563757465000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f70617468000000000000030000000200000003000000000000001000000001000000030000000f00000002657100000000001000000001000000030000000f0000000963616c6c5f706174680000000000000300000000000000000000000100000003000000010000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e73666572"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "predicate_hash"
+                      },
+                      "val": {
+                        "bytes": "b2b496c34240fa006c53f6a9d0074ab8bf769d4df385bd5acd6b2f5c0ec6ea7b"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "context_type"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "symbol": "CallContract"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "id"
+                      },
+                      "val": {
+                        "u32": 107
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "name"
+                      },
+                      "val": {
+                        "string": "rule"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policies"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policy_ids"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "u32": 0
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "signer_ids"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "signers"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "valid_until"
+                      },
+                      "val": "void"
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "bind_executor",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 107
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ],
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "bind_executor",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 107
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "install",
+              "args": [
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "grammar_version"
+                      },
+                      "val": {
+                        "u32": 7
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "install_nonce"
+                      },
+                      "val": {
+                        "u32": 1
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policy_admins"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "vec": [
+                              {
+                                "symbol": "Delegated"
+                              },
+                              {
+                                "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "predicate"
+                      },
+                      "val": {
+                        "bytes": "0000001000000001000000020000000f00000003616e64000000001000000001000000030000001000000001000000020000000f00000003616e64000000001000000001000000030000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f0000000765786563757465000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f70617468000000000000030000000200000003000000000000001000000001000000030000000f00000002657100000000001000000001000000030000000f0000000963616c6c5f706174680000000000000300000000000000000000000100000003000000020000001000000001000000020000000f00000003616e64000000001000000001000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e736665720000001000000001000000030000000f00000002677400000000001000000001000000050000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f000000046172677300000003000000020000000300000000"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "predicate_hash"
+                      },
+                      "val": {
+                        "bytes": "08dfd8511ee05328991f37296c4e03a41723eb10476fdb36d562c512f6446859"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "context_type"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "symbol": "CallContract"
+                          },
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "id"
+                      },
+                      "val": {
+                        "u32": 108
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "name"
+                      },
+                      "val": {
+                        "string": "rule"
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policies"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "policy_ids"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "u32": 0
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "signer_ids"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "signers"
+                      },
+                      "val": {
+                        "vec": []
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "valid_until"
+                      },
+                      "val": "void"
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "bind_executor",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 108
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ],
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "function_name": "bind_executor",
+              "args": [
+                {
+                  "vec": [
+                    {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                    },
+                    {
+                      "u32": 108
+                    }
+                  ]
+                },
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ]
+  ],
+  "ledger": {
+    "protocol_version": 27,
+    "sequence_number": 0,
+    "timestamp": 0,
+    "network_id": "0000000000000000000000000000000000000000000000000000000000000000",
+    "base_reserve": 0,
+    "min_persistent_entry_ttl": 4096,
+    "min_temp_entry_ttl": 16,
+    "max_entry_ttl": 6312000,
+    "ledger_entries": [
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                  },
+                  {
+                    "u32": 100
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "map": [
+                  {
+                    "key": {
+                      "symbol": "executor"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "master_set"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "vec": [
+                            {
+                              "symbol": "Delegated"
+                            },
+                            {
+                              "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "nonce"
+                    },
+                    "val": {
+                      "u32": 1
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "predicate_bytes"
+                    },
+                    "val": {
+                      "bytes": "0000001000000001000000020000000f00000003616e64000000001000000001000000070000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f0000000765786563757465000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f70617468000000000000030000000200000003000000000000001000000001000000030000000f00000002657100000000001000000001000000030000000f0000000963616c6c5f706174680000000000000300000000000000000000000100000003000000020000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e73666572"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "scope"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "signers_hash"
+                    },
+                    "val": {
+                      "bytes": "eace280a4f3f1632588cbc4ae1535972fa47b4c4be4818fbf2f3be6fe94f1d4a"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "source"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Inline"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 4095
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                  },
+                  {
+                    "u32": 101
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "map": [
+                  {
+                    "key": {
+                      "symbol": "executor"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "master_set"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "vec": [
+                            {
+                              "symbol": "Delegated"
+                            },
+                            {
+                              "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "nonce"
+                    },
+                    "val": {
+                      "u32": 1
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "predicate_bytes"
+                    },
+                    "val": {
+                      "bytes": "0000001000000001000000020000000f00000003616e64000000001000000001000000070000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f0000000765786563757465000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f70617468000000000000030000000200000003000000000000001000000001000000030000000f00000002657100000000001000000001000000030000000f0000000963616c6c5f706174680000000000000300000000000000000000000100000003000000010000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e73666572"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "scope"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "signers_hash"
+                    },
+                    "val": {
+                      "bytes": "eace280a4f3f1632588cbc4ae1535972fa47b4c4be4818fbf2f3be6fe94f1d4a"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "source"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Inline"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 4095
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                  },
+                  {
+                    "u32": 102
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "map": [
+                  {
+                    "key": {
+                      "symbol": "executor"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "master_set"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "vec": [
+                            {
+                              "symbol": "Delegated"
+                            },
+                            {
+                              "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "nonce"
+                    },
+                    "val": {
+                      "u32": 1
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "predicate_bytes"
+                    },
+                    "val": {
+                      "bytes": "0000001000000001000000020000000f00000003616e64000000001000000001000000070000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f0000000765786563757465000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f70617468000000000000030000000200000003000000000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000c63616c6c5f6172675f6c656e000000030000000000000003000000020000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e73666572"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "scope"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "signers_hash"
+                    },
+                    "val": {
+                      "bytes": "eace280a4f3f1632588cbc4ae1535972fa47b4c4be4818fbf2f3be6fe94f1d4a"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "source"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Inline"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 4095
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                  },
+                  {
+                    "u32": 103
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "map": [
+                  {
+                    "key": {
+                      "symbol": "executor"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "master_set"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "vec": [
+                            {
+                              "symbol": "Delegated"
+                            },
+                            {
+                              "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "nonce"
+                    },
+                    "val": {
+                      "u32": 1
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "predicate_bytes"
+                    },
+                    "val": {
+                      "bytes": "0000001000000001000000020000000f00000003616e64000000001000000001000000070000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f0000000765786563757465000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f70617468000000000000030000000200000003000000000000001000000001000000030000000f00000002657100000000001000000001000000030000000f0000000963616c6c5f706174680000000000000300000000000000000000000100000003000000020000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000e63616c6c5f6172675f6669656c640000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e73666572"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "scope"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "signers_hash"
+                    },
+                    "val": {
+                      "bytes": "eace280a4f3f1632588cbc4ae1535972fa47b4c4be4818fbf2f3be6fe94f1d4a"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "source"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Inline"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 4095
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                  },
+                  {
+                    "u32": 104
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "map": [
+                  {
+                    "key": {
+                      "symbol": "executor"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "master_set"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "vec": [
+                            {
+                              "symbol": "Delegated"
+                            },
+                            {
+                              "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "nonce"
+                    },
+                    "val": {
+                      "u32": 1
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "predicate_bytes"
+                    },
+                    "val": {
+                      "bytes": "0000001000000001000000020000000f00000003616e64000000001000000001000000070000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f0000000765786563757465000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f7061746800000000000003000000020000000a000000000000000000000000000000000000001000000001000000030000000f00000002657100000000001000000001000000030000000f0000000963616c6c5f706174680000000000000300000000000000000000000100000003000000020000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e73666572"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "scope"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "signers_hash"
+                    },
+                    "val": {
+                      "bytes": "eace280a4f3f1632588cbc4ae1535972fa47b4c4be4818fbf2f3be6fe94f1d4a"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "source"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Inline"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 4095
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                  },
+                  {
+                    "u32": 105
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "map": [
+                  {
+                    "key": {
+                      "symbol": "executor"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "master_set"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "vec": [
+                            {
+                              "symbol": "Delegated"
+                            },
+                            {
+                              "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "nonce"
+                    },
+                    "val": {
+                      "u32": 1
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "predicate_bytes"
+                    },
+                    "val": {
+                      "bytes": "0000001000000001000000020000000f00000003616e64000000001000000001000000070000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f0000000765786563757465000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f70617468000000000000030000000200000003000000000000001000000001000000030000000f00000002657100000000001000000001000000030000000f0000000963616c6c5f706174680000000000000300000000000000000000000100000003000000020000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000001000000001000000020000000f000000036c6974000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e73666572"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "scope"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "signers_hash"
+                    },
+                    "val": {
+                      "bytes": "eace280a4f3f1632588cbc4ae1535972fa47b4c4be4818fbf2f3be6fe94f1d4a"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "source"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Inline"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 4095
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                  },
+                  {
+                    "u32": 106
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "map": [
+                  {
+                    "key": {
+                      "symbol": "executor"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "master_set"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "vec": [
+                            {
+                              "symbol": "Delegated"
+                            },
+                            {
+                              "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "nonce"
+                    },
+                    "val": {
+                      "u32": 1
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "predicate_bytes"
+                    },
+                    "val": {
+                      "bytes": "0000001000000001000000020000000f00000003616e64000000001000000001000000070000001000000001000000030000000f00000002657100000000000f0000000765786563757465000000001000000001000000010000000f0000000763616c6c5f666e000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f70617468000000000000030000000200000003000000000000001000000001000000030000000f00000002657100000000001000000001000000030000000f0000000963616c6c5f706174680000000000000300000000000000000000000100000003000000020000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e73666572"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "scope"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "signers_hash"
+                    },
+                    "val": {
+                      "bytes": "eace280a4f3f1632588cbc4ae1535972fa47b4c4be4818fbf2f3be6fe94f1d4a"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "source"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Inline"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 4095
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                  },
+                  {
+                    "u32": 107
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "map": [
+                  {
+                    "key": {
+                      "symbol": "executor"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "master_set"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "vec": [
+                            {
+                              "symbol": "Delegated"
+                            },
+                            {
+                              "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "nonce"
+                    },
+                    "val": {
+                      "u32": 1
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "predicate_bytes"
+                    },
+                    "val": {
+                      "bytes": "0000001000000001000000020000000f000000026f7200000000001000000001000000020000001000000001000000020000000f00000003616e64000000001000000001000000070000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f0000000765786563757465000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f70617468000000000000030000000200000003000000000000001000000001000000030000000f00000002657100000000001000000001000000030000000f0000000963616c6c5f706174680000000000000300000000000000000000000100000003000000020000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e736665720000001000000001000000020000000f00000003616e64000000001000000001000000070000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f0000000765786563757465000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f70617468000000000000030000000200000003000000000000001000000001000000030000000f00000002657100000000001000000001000000030000000f0000000963616c6c5f706174680000000000000300000000000000000000000100000003000000010000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e73666572"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "scope"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "signers_hash"
+                    },
+                    "val": {
+                      "bytes": "eace280a4f3f1632588cbc4ae1535972fa47b4c4be4818fbf2f3be6fe94f1d4a"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "source"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Inline"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 4095
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": {
+                "vec": [
+                  {
+                    "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4"
+                  },
+                  {
+                    "u32": 108
+                  }
+                ]
+              },
+              "durability": "persistent",
+              "val": {
+                "map": [
+                  {
+                    "key": {
+                      "symbol": "executor"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "master_set"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "vec": [
+                            {
+                              "symbol": "Delegated"
+                            },
+                            {
+                              "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "nonce"
+                    },
+                    "val": {
+                      "u32": 1
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "predicate_bytes"
+                    },
+                    "val": {
+                      "bytes": "0000001000000001000000020000000f00000003616e64000000001000000001000000030000001000000001000000020000000f00000003616e64000000001000000001000000030000001000000001000000030000000f00000002657100000000001000000001000000010000000f0000000763616c6c5f666e000000000f0000000765786563757465000000001000000001000000030000000f00000002657100000000001000000001000000020000000f0000000963616c6c5f70617468000000000000030000000200000003000000000000001000000001000000030000000f00000002657100000000001000000001000000030000000f0000000963616c6c5f706174680000000000000300000000000000000000000100000003000000020000001000000001000000020000000f00000003616e64000000001000000001000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f000000067461726765740000000000120000000100000000000000000000000000000000000000000000000000000000000000040000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000000000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000067375626d697400000000001000000001000000030000000f00000002696e00000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f00000006746172676574000000000010000000010000000200000012000000010000000000000000000000000000000000000000000000000000000000000005000000120000000100000000000000000000000000000000000000000000000000000000000000060000001000000001000000030000000f00000002657100000000001000000001000000040000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f0000000d66756e6374696f6e5f6e616d650000000000000f000000087472616e736665720000001000000001000000030000000f00000002677400000000001000000001000000050000000f0000000963616c6c5f70617468000000000000030000000000000003000000010000000f000000046172677300000003000000020000000300000000"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "scope"
+                    },
+                    "val": {
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHK3M"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "signers_hash"
+                    },
+                    "val": {
+                      "bytes": "eace280a4f3f1632588cbc4ae1535972fa47b4c4be4818fbf2f3be6fe94f1d4a"
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "source"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Inline"
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 4095
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+              "key": "ledger_key_contract_instance",
+              "durability": "persistent",
+              "val": {
+                "contract_instance": {
+                  "executable": {
+                    "wasm": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  "storage": [
+                    {
+                      "key": {
+                        "symbol": "limits"
+                      },
+                      "val": {
+                        "map": [
+                          {
+                            "key": {
+                              "symbol": "max_depth"
+                            },
+                            "val": {
+                              "u32": 5
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_elems"
+                            },
+                            "val": {
+                              "u32": 32
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_in_operands"
+                            },
+                            "val": {
+                              "u32": 32
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_leaves"
+                            },
+                            "val": {
+                              "u32": 200
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_predicate_bytes"
+                            },
+                            "val": {
+                              "u32": 32768
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "max_reads"
+                            },
+                            "val": {
+                              "u32": 4
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 4095
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "115220454072064130"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "801925984706572462"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "1194852393571756375"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "1301173170172112462"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "1345255804540566779"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "2032731177588607455"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "2307661404550649928"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "2578412842719982537"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "2781962168096793370"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "3736142932239307322"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "4571470874178140630"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "4837995959683129791"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "5012940724606903311"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "5541220902715666415"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "6277191135259896685"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "6517132746326325848"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "8370022561469687789"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "8375915698557174338"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "1033654523790656264"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "2140788761963629343"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "2891388370666955040"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "3126073502131104533"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "4270020994084947596"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "5806905060045992000"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "6391496069076573377"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "7270604957039011794"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "8077058277077262192"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_code": {
+              "ext": "v0",
+              "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "code": ""
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 4095
+      }
+    ]
+  },
+  "events": []
+}

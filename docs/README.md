@@ -33,9 +33,9 @@ Every contract runs on Stellar testnet.
 
 | Contract | Testnet |
 |---|---|
-| Policy interpreter | instance `CD46LN75…` (wasm `810f53f1…`, this tree's build before referenced rules), the pin of the TypeScript packages; it replaced `CDZV4AG4…` (`69cad1d5…`), which they no longer trust |
+| Policy interpreter | instance `CDER6P73…` (wasm `6704996f…`, this tree's build), the pin of the TypeScript packages; it replaced `CD46LN75…` (`810f53f1…`) and `CDZV4AG4…` (`69cad1d5…`), which they no longer trust |
 | Custody gate | code `b01024f3…`; each custody account deploys its own gate |
-| Execution adapter | code `4985cd12…`, recorded in `deployments/execution-testnet.json` in place of `3dd675c0…`; each Prime deploys its own adapter, bound to a gate or to none |
+| Execution adapter | code `bf85432c…`, recorded in `deployments/execution-testnet.json` in place of `4985cd12…` and `3dd675c0…`; each Prime deploys its own adapter, bound to a gate or to none |
 | Prime seat | code `393f0e5d…`, one instance per seat owner and account |
 | OpenZeppelin smart account | code `91a2cd56…`, the Prime account |
 

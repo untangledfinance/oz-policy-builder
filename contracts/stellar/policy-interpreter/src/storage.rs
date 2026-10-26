@@ -100,12 +100,13 @@ pub enum PolicyError {
     /// constructor refuses, so no such instance exists.
     LimitsOutOfRange = 220,
     /// A rule bound to an executor and scoped to that executor whose predicate
-    /// does not pin `call_fn == run` on every path (`dsl::pins_call_fn`). Such
-    /// a rule answers the executor's own requests, and `run` is the only one
-    /// that needs no grant from it, so anything wider would approve an
-    /// `execute` or `cancel` nobody signed. Refused by `bind_executor`, by a
-    /// re-install under a binding, and by `enforce` against the rule the
-    /// account itself passes.
+    /// pins, on every path, neither `call_fn == run` nor an immediate
+    /// `execute` of a fixed batch shape (`pins_own` in lib.rs). Such a rule
+    /// answers the executor's own requests: `run` needs no grant from it, and
+    /// an executor with no gate vouches for any immediate `execute`, so
+    /// anything wider would approve a batch nobody signed or shaped. Refused by
+    /// `bind_executor`, by a re-install under a binding, and by `enforce`
+    /// against the rule the account itself passes.
     RunNotPinned = 221,
 }
 

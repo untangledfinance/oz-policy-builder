@@ -65,8 +65,8 @@ export const INTERPRETER: Record<
   { address: string; wasmSha256: string; limits: Caps } | null
 > = {
   testnet: {
-    address: 'CD46LN75LITN5INQEW3N3BKUK52IFODGCTJS2RWQ44JM74RH6ILIPBJ2',
-    wasmSha256: '810f53f129514c5cd15f90c9a8fcb2267169c9457cd950644b1d69f2bfbf127c',
+    address: 'CDER6P73JWMIVD3X6TGGOQIDAH3DLU7OKRTLT4ULPTZ3QJJ3QUGTK7CM',
+    wasmSha256: '6704996f626904a4e33b95bda17b73963fc9cf502ffdfdbe9d85b4b10288e0d4',
     limits: Object.freeze({
       max_reads: 8,
       max_leaves: 400,
@@ -117,7 +117,8 @@ export const INTERPRETERS: ReadonlySet<string> = new Set([
   'CA5ICI2OJAPYJKKOSFVPVKDR3YIJWDEZ6GPXYH2RPZ3BLWABPMYJAQAV', // deployed by this project; this build does not trust it
   'CAECFZWHHHKJRJHYR3EQHAMYHBQPW7G6BGKYSNJS4KLZAUNLQP7H5L2H', // deployed by this project; this build does not trust it
   'CDZV4AG46EDDLK5DZL2WY4C4XXNSRQWLAYIUI3ELS3XGPLUCECB3MPRT', // deployed by this project; this build does not trust it
-  'CD46LN75LITN5INQEW3N3BKUK52IFODGCTJS2RWQ44JM74RH6ILIPBJ2', // testnet, the pinned instance (INTERPRETER.testnet)
+  'CD46LN75LITN5INQEW3N3BKUK52IFODGCTJS2RWQ44JM74RH6ILIPBJ2', // deployed by this project; this build does not trust it
+  'CDER6P73JWMIVD3X6TGGOQIDAH3DLU7OKRTLT4ULPTZ3QJJ3QUGTK7CM', // testnet, the pinned instance (INTERPRETER.testnet)
 ])
 
 /** OpenZeppelin's `simple_threshold` and `weighted_threshold`, built from v0.7.2 and deployed by us

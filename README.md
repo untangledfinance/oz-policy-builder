@@ -48,8 +48,8 @@ The packages pin one interpreter instance on testnet (`packages/policy-synth/src
 | Its deploy-time limits | reads 8, leaves 400, bytes 24,576, elems 32, in 32, depth 5 (read from the instance with `limits()`; immutable) |
 
 The pinned instance runs the interpreter source before referenced rules
-(`810f53f1…`); this tree's source builds `77db6ab0…` (`contracts/build-hashes.json`),
-which is not deployed yet. It replaced `CDZV4AG4…`, which runs
+(`810f53f1…`); this tree's source builds `6704996f…` (`contracts/build-hashes.json`),
+which is not the pin yet. It replaced `CDZV4AG4…`, which runs
 `69cad1d5…`, this source before the keyless executor rules; the packages no
 longer trust that build (`deployments/interpreter-testnet.json` lists it as
 superseded).

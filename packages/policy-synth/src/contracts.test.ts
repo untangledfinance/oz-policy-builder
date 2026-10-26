@@ -6,7 +6,7 @@ import { afterAll, describe, expect, it } from 'bun:test'
 import { Address, type rpc, xdr } from '@stellar/stellar-sdk'
 import { contract } from '../test/fixtures.ts'
 import { recorded } from '../test/rpc.ts'
-import { connect, contractKinds, kindOf } from './chain.ts'
+import { connect, contractKinds, interpreterFor, kindOf } from './chain.ts'
 import { buildInstall, type RuleDraft } from './install.ts'
 import { callExpr } from './intent.ts'
 import { reviewUnsigned } from './review.ts'
@@ -144,7 +144,7 @@ describe('install_policy and review_unsigned with a contract signer', () => {
       nonce: 1,
     })
     const a = { server, network: 'testnet' as const, smartAccount: ACCOUNT, sourceAccount: SIGNER }
-    const interpreter = 'CD46LN75LITN5INQEW3N3BKUK52IFODGCTJS2RWQ44JM74RH6ILIPBJ2'
+    const interpreter = interpreterFor('testnet')
     for (const [signer, signable] of [
       [NULL_ADAPTER, false],
       [GATED_ADAPTER, true],
