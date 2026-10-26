@@ -7,6 +7,7 @@
 import {
   Address,
   FeeBumpTransaction,
+  StrKey,
   type Transaction,
   TransactionBuilder,
   type xdr,
@@ -15,6 +16,7 @@ import {
   type Authority,
   authority,
   fact,
+  followed,
   group,
   lines,
   type Node,
@@ -38,8 +40,17 @@ import {
   thresholdAddress,
 } from './config.ts'
 import { messageOf, Refusal } from './envelope.ts'
-import { digest, isAddressEntry, signerProblem, xlm } from './install.ts'
+import {
+  digest,
+  executorProblem,
+  isAddressEntry,
+  keyedSafeOnNoGate,
+  signerProblem,
+  WORD_LEAK,
+  xlm,
+} from './install.ts'
 import { callOf } from './record.ts'
+import type { Followed } from './rules.ts'
 import {
   CEILINGS,
   decode,
@@ -48,6 +59,7 @@ import {
   fromScVal,
   hashOf,
   isMap,
+  referenceOf,
   type Val,
   validate,
 } from './wire.ts'
@@ -70,9 +82,19 @@ export interface UnsignedReview {
   auth: { nonce: string; validUntilLedger: number; contextRuleIds: number[] } | null
   /** For `add_context_rule`: what the rule lets its signers do, and its predicate. */
   authority?: Authority
-  rule?: { scope: Val; name: string; predicateHash: string | null; predicate: Expr | null }
+  /** `predicate`: the one in the bytes; for a rule that `follows` another, that rule's predicate as
+   *  it was read (`null` when it was not read). */
+  rule?: {
+    scope: Val
+    name: string
+    predicateHash: string | null
+    predicate: Expr | null
+    follows?: Followed
+  }
   /** For `remove_context_rule`: the rule it removes. */
   removes?: { ruleId: number }
+  /** For `bind_executor`: the rule it binds and the executor. */
+  binds?: { ruleId: number; executor: string }
   /** Each one is a reason not to sign. */
   problems: string[]
   signable: boolean
@@ -93,6 +115,9 @@ export function reviewUnsigned(i: {
   /** What each contract signer is, as the caller read it off the ledger (`contractKinds`). Without
    *  it, what a contract signer runs is not in the bytes, so each one is a problem. */
   contracts?: Record<string, ContractKind> | undefined
+  /** The rule an install follows, as the caller read it off the pinned interpreter (`readFollowed`),
+   *  or why it could not. Without it, what such a rule permits is not in the bytes: a problem. */
+  followed?: { expr: Expr; follows: Followed } | { error: string } | undefined
 }): UnsignedReview {
   const { network } = i
   let env: Transaction | FeeBumpTransaction
@@ -124,10 +149,16 @@ export function reviewUnsigned(i: {
     }
   }
   const call = callOf(ic, read)
-  const account = call.contract
+  // A binding is a call to the interpreter naming the account's rule; the rest call the account.
+  const bind = call.fn === 'bind_executor' ? bindOf(call.args) : undefined
+  const account = bind?.account ?? call.contract
 
-  if (call.fn !== 'add_context_rule' && call.fn !== 'remove_context_rule')
-    flag(`it calls ${call.fn}; the builder makes only add_context_rule and remove_context_rule`)
+  if (!['add_context_rule', 'remove_context_rule', 'bind_executor'].includes(call.fn))
+    flag(
+      `it calls ${call.fn}; the builder makes only add_context_rule, remove_context_rule and bind_executor`
+    )
+  if (call.fn === 'bind_executor' && !bind)
+    flag('bind_executor does not carry a rule (account, id) and an executor')
   if (i.smartAccount === undefined)
     flag(
       `no smartAccount was given, so whether ${account} is the account the owner means cannot be checked`
@@ -150,17 +181,33 @@ export function reviewUnsigned(i: {
   // `__check_auth` over that entry's digest. Anything else would be signed too.
   const entries = host.auth()
   const own = entries.filter((e) => isAddressEntry(e, account))
-  const source = entries.filter(
-    (e) => e.credentials().switch().name === 'sorobanCredentialsSourceAccount'
-  )
   const fnOf = (inv: xdr.SorobanAuthorizedInvocation) =>
     inv.function().switch().name === 'sorobanAuthorizedFunctionTypeContractFn'
       ? inv.function().contractFn()
       : undefined
+  const bySource = entries.filter(
+    (e) => e.credentials().switch().name === 'sorobanCredentialsSourceAccount'
+  )
+  // The source's `__check_auth` entry, and (for a binding) its own authorisation of the call as the
+  // rule's admin: exactly the call, nothing under it.
+  const source = bySource.filter(
+    (e) => fnOf(e.rootInvocation())?.functionName().toString() === '__check_auth'
+  )
+  const asAdmin = bySource.filter(
+    (e) =>
+      fnOf(e.rootInvocation())?.toXDR('base64') === ic.toXDR('base64') &&
+      e.rootInvocation().subInvocations().length === 0
+  )
+  const admin = bind ? 1 : 0
   let auth: UnsignedReview['auth'] = null
-  if (entries.length !== 2 || own.length !== 1 || source.length !== 1)
+  if (
+    entries.length !== 2 + admin ||
+    own.length !== 1 ||
+    source.length !== 1 ||
+    asAdmin.length !== admin
+  )
     flag(
-      `it carries ${entries.length} authorisation entries (${own.length} for the account, ${source.length} for the source account); the builder makes exactly one of each`
+      `it carries ${entries.length} authorisation entries (${own.length} for the account, ${source.length} for the source account${bind ? `, ${asAdmin.length} for the source account as the rule's admin` : ''}); the builder makes exactly one of each`
     )
   const mine = own[0]
   if (mine) {
@@ -249,7 +296,7 @@ export function reviewUnsigned(i: {
     auth &&
     `by rule ${auth.contextRuleIds.join(', ')}, valid through ledger ${auth.validUntilLedger}`
   const head = group('Transaction', 'transaction', [
-    fact('calls', `${show(account, view)}  ${call.fn}`),
+    fact('calls', `${show(call.contract, view)}  ${call.fn}`),
     fact('source', `${show(tx.source, view)}, sequence ${tx.sequence}`),
     fact('fee', `${xlm(total)} XLM in all, of which ${xlm(resource)} XLM for resources`),
     fact(
@@ -262,10 +309,29 @@ export function reviewUnsigned(i: {
     ),
     ...(until ? [fact('authorisation', until)] : []),
   ])
-  const out: Pick<UnsignedReview, 'authority' | 'rule' | 'removes'> = {}
+  const out: Pick<UnsignedReview, 'authority' | 'rule' | 'removes' | 'binds'> = {}
   let body2: Node[] = []
   if (call.fn === 'add_context_rule') {
     const r = ruleOf(call.args, network, account, flag)
+    const ref = r?.rule.follows
+    if (r && ref) {
+      const got = i.followed
+      const which = `rule ${ref.ruleId} of ${ref.account}`
+      if (
+        got &&
+        'expr' in got &&
+        got.follows.account === ref.account &&
+        got.follows.ruleId === ref.ruleId
+      ) {
+        r.rule.follows = got.follows
+        r.rule.predicate = got.expr
+      } else
+        flag(
+          got && 'error' in got
+            ? `the rule follows ${which}, which could not be read: ${got.error}`
+            : `the rule carries no predicate: it follows ${which}, whose predicate is not in these bytes (and which that rule's admins can change without this account's signature); review with readContracts to read it`
+        )
+    }
     if (r) {
       const scope = r.rule.scope
       const scopedTo =
@@ -280,6 +346,16 @@ export function reviewUnsigned(i: {
       }
       for (const a of r.authority.admins ?? []) roles[a] ??= 'admin'
       for (const s of r.authority.signers) roles[s] ??= 'signer'
+      // E-36: a keyed rule scoped to a no-gate adapter must hold its grants to none.
+      const safe = keyedSafeOnNoGate(r.rule.predicate, r.rule.follows !== undefined)
+      if (scopedTo && r.authority.signers.length > 0 && !safe) {
+        const kind = i.contracts?.[scopedTo]
+        if (kind === 'null-gate adapter') flag(WORD_LEAK(scopedTo))
+        else if (kind === undefined)
+          flag(
+            `the rule has signers and ${r.rule.follows ? "follows another rule's predicate, which can come to permit" : 'permits'} a call to execute on ${scopedTo} without holding its grants (argument 1) to none: if that contract is an execution adapter with no gate, a signer could have it hand out its word to this account's policy; review with readContracts`
+          )
+      }
       out.authority = r.authority
       out.rule = r.rule
       const v = { ...view, contract: scopedTo }
@@ -290,7 +366,8 @@ export function reviewUnsigned(i: {
         // Flagged in `ruleOf` (a threshold with no number): shown as unreadable, never guessed.
         held = group('Authority', 'authority', [fact('unreadable', messageOf(e))])
       }
-      body2 = [held, ...(r.rule.predicate === null ? [] : tree(r.rule.predicate, v))]
+      const source = r.rule.follows ? [followed(r.rule.follows, v)] : []
+      body2 = [held, ...source, ...(r.rule.predicate === null ? [] : tree(r.rule.predicate, v))]
     }
   } else if (call.fn === 'remove_context_rule') {
     const id = call.args.length === 1 ? call.args[0] : undefined
@@ -302,6 +379,37 @@ export function reviewUnsigned(i: {
       const facts = [fact('rule', `${id} of ${show(account, view)}`)]
       body2 = [group('Removes', 'removes', id === 0 ? [...facts, fact('note', note)] : facts, id)]
     }
+  } else if (bind) {
+    const pin = INTERPRETER[network]
+    if (pin?.address !== call.contract)
+      flag(
+        pin
+          ? `it binds a rule on ${call.contract}, not the pinned ${network} interpreter ${pin.address}`
+          : `no interpreter is pinned for ${network}, so ${call.contract} cannot be checked from the bytes`
+      )
+    const kind = i.contracts?.[bind.executor]
+    const problem =
+      kind === undefined
+        ? `executor ${bind.executor}: what it is, and so what it will vouch for, is not in the bytes; review with readContracts`
+        : executorProblem(bind.executor, kind, undefined, null)
+    if (problem) flag(problem)
+    out.binds = { ruleId: bind.ruleId, executor: bind.executor }
+    roles[bind.executor] ??= 'executor'
+    const facts = [
+      fact('rule', `${bind.ruleId} of ${show(account, view)}`, bind.ruleId),
+      fact(
+        'executor',
+        kind === 'null-gate adapter'
+          ? `${show(bind.executor, view)}, an execution adapter with no gate: anyone may call its execute with an immediate batch, and it vouches for every call of that batch, so the rule's predicate becomes the only fence on such a batch`
+          : `${show(bind.executor, view)}${kind ? ` (${kind})` : ''}`,
+        bind.executor
+      ),
+      fact(
+        'effect',
+        "from now on the rule permits a call only with this executor's grant for it (its own run excepted), and a rule with no signer permits exactly what the executor vouches for; the rule's predicate is not in these bytes: bind_policy's review shows it"
+      ),
+    ]
+    body2 = [group('Binds', 'binds', facts, [account, bind.ruleId])]
   }
   const warn = group(
     `Do not sign: ${problems.length} problem(s)`,
@@ -324,6 +432,20 @@ export function reviewUnsigned(i: {
     review: lines(reviewTree),
     reviewTree,
   }
+}
+
+/** `bind_executor`'s arguments: the rule `(account, id)` and the executor, or undefined. */
+function bindOf(args: Val[]) {
+  const [rule, executor] = args
+  if (args.length !== 2 || !Array.isArray(rule) || rule.length !== 2) return undefined
+  const [account, ruleId] = rule
+  return typeof account === 'string' &&
+    StrKey.isValidContract(account) &&
+    typeof ruleId === 'number' &&
+    typeof executor === 'string' &&
+    StrKey.isValidContract(executor)
+    ? { account, ruleId, executor }
+    : undefined
 }
 
 /** The last second a JavaScript date can show: 8.64e15 ms, in the year 275,760. */
@@ -408,13 +530,17 @@ function ruleOf(args: Val[], network: Network, account: string, flag: (p: string
       else {
         const b64 = Buffer.from(bytes, 'hex').toString('base64')
         if (said !== hashOf(b64)) flag('the predicate hash does not match the predicate bytes')
-        try {
-          const e = decode(b64)
-          validate(e, pin?.address === at ? pin.limits : CEILINGS)
-          rule.predicate = e
-        } catch (x) {
-          flag(`the predicate is not one the interpreter reads: ${messageOf(x)}`)
-        }
+        // A reference to another rule, as the interpreter reads one: the hash commits to it.
+        const ref = referenceOf(b64)
+        if (ref) rule.follows = ref
+        else
+          try {
+            const e = decode(b64)
+            validate(e, pin?.address === at ? pin.limits : CEILINGS)
+            rule.predicate = e
+          } catch (x) {
+            flag(`the predicate is not one the interpreter reads: ${messageOf(x)}`)
+          }
       }
     } else {
       flag(`a policy this package does not know is attached: ${at}`)

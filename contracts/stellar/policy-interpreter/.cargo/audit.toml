@@ -1,0 +1,16 @@
+# cargo audit configuration for this crate (CI runs `cargo audit` here).
+#
+# RUSTSEC-2026-0387 (crypto-bigint 0.5.5, timing variability): reached only
+# through soroban-env-host -> k256/p256 -> elliptic-curve, which soroban-sdk
+# pulls in for the native test host. It is not in the contract's wasm
+# dependency tree (`cargo tree --target wasm32v1-none -e normal` lists no
+# soroban-env-host, k256, p256, elliptic-curve or crypto-bigint), so the
+# deployed bytes never contain it, and the tests run no secret-dependent
+# arithmetic. No fixed 0.5.x exists: the fix is crypto-bigint 0.7.6, which
+# elliptic-curve 0.13 cannot take, and soroban-sdk 27 and 28 both lock 0.5.5.
+# Lift this once soroban-sdk moves to a fixed release.
+#
+# RUSTSEC-2024-0436 (paste, unmaintained) is an informational warning only,
+# also host-side; it does not fail the audit and is not ignored here.
+[advisories]
+ignore = ["RUSTSEC-2026-0387"]

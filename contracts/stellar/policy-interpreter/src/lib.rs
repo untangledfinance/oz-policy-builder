@@ -148,7 +148,7 @@ impl PolicyInterpreter {
         // rule's predicate under it (see `bind_executor`).
         let executor = prior.and_then(|p| p.executor);
         let called = called_contract(scope);
-        let open = executor.is_some() && executor == called && !pins_run(e, &root);
+        let open = executor.is_some() && executor == called && !pins_own(e, &root);
         deny_unless(e, !open, E::RunNotPinned);
 
         let doc = StoredDoc {
@@ -169,8 +169,9 @@ impl PolicyInterpreter {
     /// Bind every execution child rule before enabling its agent; preserve on reinstall.
     ///
     /// A rule scoped to the executor it is bound to answers that executor's own
-    /// requests, so its predicate must pin `call_fn == run` (221). The scope is
-    /// the one install recorded; `enforce` checks the account's own rule again.
+    /// requests, so its predicate must pin `call_fn == run`, or an immediate
+    /// `execute` of a fixed batch (221, `pins_own`). The scope is the one
+    /// install recorded; `enforce` checks the account's own rule again.
     pub fn bind_executor(e: &Env, rule: (Address, u32), executor: Address) {
         rule.0.require_auth();
         let mut doc = load(e, &rule);
@@ -180,7 +181,7 @@ impl PolicyInterpreter {
             let bytes = predicate(e, &doc.source, &doc.predicate_bytes);
             let root = dsl::decode_stored(e, &bytes, &lim)
                 .unwrap_or_else(|_| deny(e, E::MalformedPredicate));
-            deny_unless(e, pins_run(e, &root), E::RunNotPinned);
+            deny_unless(e, pins_own(e, &root), E::RunNotPinned);
         }
         doc.executor = Some(executor);
         let store = e.storage().persistent();
@@ -231,15 +232,18 @@ impl PolicyInterpreter {
         if let Some(executor) = &doc.executor {
             // The scope here is the account's own record of the rule, which
             // no install argument can misstate: a rule scoped to its executor
-            // must pin `run`, whatever `bind_executor` and `install` were told.
+            // must pin `run` or a whole immediate batch, whatever
+            // `bind_executor` and `install` were told.
             let own = called_contract(&context_rule.context_type).as_ref() == Some(executor);
-            deny_unless(e, !own || pins_run(e, &root), E::RunNotPinned);
+            deny_unless(e, !own || pins_own(e, &root), E::RunNotPinned);
             // Require bound-adapter approval of this exact account/context,
             // except for the executor's own `run`: a context naming the
             // executor exists only because its code asked the account, so that
             // request is its approval. Only `run` is taken that way; an
             // `execute` or a `cancel` still needs a grant the executor hands
-            // out, and a no-gate adapter hands out none and stores no batch.
+            // out: a gated adapter cannot spell one for its own `execute` (the
+            // grant would contain itself), and a no-gate adapter hands one out
+            // only inside an immediate `execute`, storing nothing.
             let run = matches!(&context, Context::Contract(c)
                 if own && c.contract == *executor && c.fn_name == run_fn());
             if !run {
@@ -379,9 +383,44 @@ fn run_fn() -> Symbol {
     symbol_short!("run")
 }
 
-/// Whether `root` permits only calls to `run` (see `dsl::pins_call_fn`).
-fn pins_run(e: &Env, root: &dsl::Node) -> bool {
-    dsl::pins_call_fn(e, root, &run_fn())
+/// Whether `root` permits only what a rule scoped to its own executor may
+/// approve. The executor's `run` (see `dsl::pins_call_fn`), or an IMMEDIATE
+/// `execute` whose whole batch shape is fixed: on every path to a permit
+/// `call_fn == execute`, the wait (argument 2) `== 0`, the number of calls
+/// `== m` for a constant `m`, and the target and function name of each of
+/// calls `0..m` an `eq` or `in` of constants (see `dsl::pins`). An executor
+/// with no gate vouches for its own immediate `execute` to anyone, so such a
+/// rule is the only fence around which contracts and functions a batch it
+/// approves may call; arguments, grants and reads stay the predicate's to
+/// bound. A gated executor never vouches for its own `execute`, so there a
+/// rule of this shape binds but never passes.
+fn pins_own(e: &Env, root: &dsl::Node) -> bool {
+    use dsl::PathStep::{Index, Key, Len};
+    if dsl::pins_call_fn(e, root, &run_fn()) {
+        return true;
+    }
+    let pinned = |steps: &[dsl::PathStep], ok: &dyn Fn(&Val) -> bool, set: bool| {
+        dsl::pins(root, &|l| dsl::is_call_path(e, l, steps), ok, set)
+    };
+    let any = |_: &Val| true;
+    let zero = |v: &Val| dsl::number(e, v) == Some(0);
+    let execute = dsl::pins_call_fn(e, root, &symbol_short!("execute"));
+    if !(execute && pinned(&[Index(2)], &zero, false)) {
+        return false;
+    }
+    // Count the leading calls whose target and function are both pinned; the
+    // length must be pinned to no more than that. Each one pinned takes a leaf
+    // of its own, so the count stops within `max_leaves`.
+    let (target, function) = (symbol_short!("target"), Symbol::new(e, "function_name"));
+    let mut m: u32 = 0;
+    while [&target, &function].iter().all(|field| {
+        let at = [Index(0), Index(m), Key(field.to_val())];
+        pinned(&at, &any, true)
+    }) {
+        m += 1;
+    }
+    let short = |v: &Val| dsl::number(e, v).is_some_and(|n| n <= i128::from(m));
+    pinned(&[Index(0), Len], &short, false)
 }
 
 /// The contract a `CallContract` scope names; none for any other scope.

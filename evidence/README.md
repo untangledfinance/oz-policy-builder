@@ -17,12 +17,14 @@ and funded by friendbot; the keys never leave the run.
 | `execution-wait-testnet.log` | `bun scripts/verify-execution-wait-testnet.ts` | 45 of 45: a Blend supply at once and stored; stored batches run later by an account with no role; the run rule's refusals; an agent's rule demanding its own minimum wait; cancels by the Prime and custody and refusals for anyone else; runs early, twice, after a cancel or after the window refused; the adapter's floor; the Prime creating the adapter at custody's address with other numbers refused |
 | `execution-address-rule-testnet.log` | `bun scripts/verify-execution-address-rule-testnet.ts` | 35 of 35: a Blend supply, a withdrawal to custody and an Aquarius swap succeed; a stranger in any argument, nested value, strkey, raw 32 bytes or authorisation, a pull to the gate itself, a token custody never approved, a batch calling the Prime, a deploy authorisation and a Prime-signed rebind are refused; custody rebinding to a non-gate is refused |
 | `execution-null-gate-testnet.log` | `bun scripts/verify-execution-null-gate-testnet.ts` | 69 of 69, for a G account and an OpenZeppelin Prime: a bundle of three calls with one authorisation; an agent's bundle at its cap; refusals for a failed call (nothing moves), an expired entry, a call to the Prime, a grant, any wait, `rebind`, a stranger's `cancel`, an agent over its cap or citing its adapter rule for a token, and a pull through custody's gate; then the cost of 1, 3 and 10 calls with and without a gate |
+| `nogate-liquidation-testnet.log` | the no-gate liquidation probe, 25 October 2026, run from our build host (probe kept off the repository like the executor-binding probe; `contracts/stellar/policy-interpreter/oz08/tests/nogate.rs` runs the same cases in the test host on the real wasm and account) | 24 of 24 rows as expected on an OpenZeppelin 0.8.0 account (`8286422f…`, OZ `v0.8.0` tag `ddc327e`), a fresh interpreter instance from `6704996f…` and adapters from `bf85432c…`: a stranger liquidates alone through the no-gate adapter under keyless bound rules; every grant that is not the adapter's exact word is refused 3; a missing word, a direct ask after the run and a gated adapter fail at the binding; a replayed entry fails on its nonce; a root rule without the batch shape fails 221 at bind, at an install under the binding and in `enforce`; off-shape batches, an insider, a high y, a large R and a healthy position fail 100; a wait fails 10 and `run` 5; the adapter-signed liquidate rule fails 3017; an agent's keyed batch with no words runs. The E-36 hazard (a keyed door without the grants pin) is shown in `oz08/tests/nogate.rs`, not on testnet. Every refusal also failed on chain, with its transaction id. Section 6.7 of the threat model |
+| `nogate-liquidation-mutants.log` | 32 mutants of the no-gate word (adapter) and the batch pin (interpreter), each applied alone and the relevant suites run | 31 killed; the survivor (A5) is equivalent, since the deploy variant is refused twice, and the mutant that removes both (A5b) is killed |
 | `oz-threshold-live.log` | `bun packages/policy-synth/scripts/live-threshold.ts`, then with `WEIGHTED=1` | `simple_threshold(2)` beside the interpreter: signer A alone refused 3202, A and B together permitted (transfer sent). With `WEIGHTED=1` (A:2, B:1, threshold 2) `install_policy` refuses the rule before any transaction, because A alone meets the threshold |
 | `contract-gate.log` | `cargo fmt --check`, `clippy -D warnings`, `cargo test` per crate and in `oz08/`, conformance in release, each `build-wasm.sh` and its hash check | every step passed: interpreter 416 tests (its 18 conformance cases again in release), `oz08/` 12, adapter 62, gate 3, `prime-seat` 21; each rebuilt wasm equals its pin, and `test-blend-pool` built with the same path remaps gives `7ba261ed…` |
 | `offchain-gate.log` | `bun run check`, the three package builds, `bun run typecheck`, `bun test`, `bun run test:isolated`, 21 October 2026, after the lockfile update and the MCP input cap | every step passed: biome 0 errors (36 warnings), typecheck clean, `bun test` 1,782 pass and 0 fail, isolated 1,758 + 6 + 18 |
 | `worst-case-ceilings.txt` | `cargo test --release --test worst_case -- --nocapture` on the interpreter wasm | every rule shape at each limit set stays at or under 80% of the testnet limits; worst case at the ceilings: `install` 64.7M CPU, `enforce` 62.3M CPU and 1.58 MB; 8 wasm reads cost 12.7 MB of memory for one context and about 11.4 MB for each further one |
 | `soroban-network-limits-2026-10-16.txt` | `getLedgerEntries` on every `CONFIG_SETTING` key, testnet, 16 October 2026 | the per-transaction limits `tests/worst_case.rs` holds every rule shape to, at 80% |
-| `cargo-audit.log` | `cargo audit` in the interpreter crate | no vulnerability across 202 crates; one unmaintained-crate warning (finding 1) |
+| `cargo-audit.log` | `cargo audit` in the interpreter crate | no vulnerability across 202 crates on 20 October; since 23 October RUSTSEC-2026-0387 (`crypto-bigint` 0.5.5) is ignored with its reason in `contracts/stellar/policy-interpreter/.cargo/audit.toml`: host-side only, not in the wasm (finding 1); one unmaintained-crate warning |
 | `bun-audit.log` | `bun audit`, 21 October 2026, after the lockfile update | no vulnerability (finding 2) |
 | `clippy-pedantic.log` | `cargo clippy --all-targets -- -W clippy::pedantic -W clippy::nursery` in the interpreter crate | 352 distinct style warnings, 68 in contract source and 284 in tests; every cast, panic, unwrap, indexing or overflow lint is in test code |
 | `scout-audit.log` | `cargo scout-audit` in the interpreter crate (see below) | run on 27 August 2026 at commit `5bae0a8`: 0 critical, 9 medium, 0 minor, 1 enhancement; triage in finding 3. On this tree Scout 0.3.16 stopped while building its own detector helper on our build host, so the August log stays |
@@ -49,6 +51,20 @@ run with `OPB_LIVE=1 bun test` against the same instance.
 Transitive through `soroban-sdk`. The advisory is in the "no longer
 maintained" class and carries no vulnerability rating. It needs an SDK change
 to go away; `cargo audit` reports no vulnerability.
+
+### 1b. `crypto-bigint` 0.5.5, RUSTSEC-2026-0387 (accepted, not in the wasm)
+
+Published 23 October 2026: timing variability in operations meant to be
+constant-time. The crate reaches this repository only through
+`soroban-env-host` (`k256`, `p256`, `elliptic-curve`), which `soroban-sdk`
+pulls in for the native test host. `cargo tree --target wasm32v1-none -e
+normal` lists no `soroban-env-host`, `k256`, `p256`, `elliptic-curve`,
+`crypto-bigint` or `paste` for the interpreter or the adapter, so the deployed
+bytes never contain it, and the tests run no secret-dependent arithmetic. The
+fix is `crypto-bigint` 0.7.6, which `elliptic-curve` 0.13 cannot take; there is
+no fixed 0.5.x, and `soroban-sdk` 27 and 28 both lock 0.5.5. The ignore, with
+this reason, is in `contracts/stellar/policy-interpreter/.cargo/audit.toml`,
+where CI's `cargo audit` runs; lift it once `soroban-sdk` moves.
 
 ### 2. `bun audit`: no vulnerability (resolved)
 

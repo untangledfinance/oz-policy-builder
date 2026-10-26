@@ -505,22 +505,54 @@ pub fn has_selector_leaf(root: &Node) -> bool {
 }
 
 /// Whether the predicate permits only calls to the function `name`: every path
-/// to a permit passes an `eq(call_fn, name)`. An `and` pins when any child
-/// does, an `or` only when every child does, and a compare only as `eq` between
-/// `call_fn` and the symbol `name`, either side. Everything else pins nothing,
-/// `in`, `ne` and a quantifier included: a quantifier over an empty vector
-/// permits whatever its body says, and reading meaning into the rest would
-/// widen what this function vouches for.
+/// to a permit passes an `eq(call_fn, name)` (see `pins`, with no `in`).
 pub fn pins_call_fn(env: &Env, node: &Node, name: &Symbol) -> bool {
-    let named = |l: &Leaf| matches!(l, Leaf::Lit(v) if val_eq(env, v, &name.to_val()));
+    let named = |v: &Val| val_eq(env, v, &name.to_val());
+    pins(node, &|l| matches!(l, Leaf::CallFn), &named, false)
+}
+
+/// Whether every path to a permit fixes the leaf `sel` accepts to a constant
+/// `ok` accepts: an `eq` between them, either side, or with `set` an `in` whose
+/// every entry `ok` accepts. An `and` pins when any child does, an `or` only
+/// when every child does. Everything else pins nothing, `nin`, `ne` and a
+/// quantifier included: a quantifier over an empty vector permits whatever its
+/// body says, and reading meaning into the rest would widen what this function
+/// vouches for.
+pub fn pins(
+    node: &Node,
+    sel: &dyn Fn(&Leaf) -> bool,
+    ok: &dyn Fn(&Val) -> bool,
+    set: bool,
+) -> bool {
+    let fixed = |l: &Leaf| matches!(l, Leaf::Lit(v) if ok(v));
     match node {
-        Node::And(kids) => kids.iter().any(|k| pins_call_fn(env, k, name)),
+        Node::And(kids) => kids.iter().any(|k| pins(k, sel, ok, set)),
         // The decoder refuses an empty `or`; one would pin nothing.
-        Node::Or(kids) => !kids.is_empty() && kids.iter().all(|k| pins_call_fn(env, k, name)),
-        Node::Compare(CompareOp::Eq, Leaf::CallFn, other)
-        | Node::Compare(CompareOp::Eq, other, Leaf::CallFn) => named(other),
+        Node::Or(kids) => !kids.is_empty() && kids.iter().all(|k| pins(k, sel, ok, set)),
+        Node::Compare(CompareOp::Eq, a, b) => (sel(a) && fixed(b)) || (sel(b) && fixed(a)),
+        Node::In(needle, entries, false) => set && sel(needle) && entries.iter().all(fixed),
         _ => false,
     }
+}
+
+/// Whether `leaf` is a `call_path` of exactly the steps `want` (a key compared
+/// by value).
+pub fn is_call_path(env: &Env, leaf: &Leaf, want: &[PathStep]) -> bool {
+    let same = |a: &PathStep, b: &PathStep| match (a, b) {
+        (PathStep::Index(x), PathStep::Index(y)) => x == y,
+        (PathStep::Key(x), PathStep::Key(y)) => val_eq(env, x, y),
+        (PathStep::Len, PathStep::Len) => true,
+        _ => false,
+    };
+    let Leaf::CallPath(steps) = leaf else {
+        return false;
+    };
+    steps.len() == want.len() && steps.iter().zip(want).all(|(a, b)| same(a, b))
+}
+
+/// A constant as a number, if it is one (see `val_to_i128`).
+pub fn number(env: &Env, v: &Val) -> Option<i128> {
+    val_to_i128(env, v)
 }
 
 /// Every leaf of the tree, nested `scaled` operands and `read` arguments
